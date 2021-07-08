@@ -87,6 +87,8 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 
 	frr_early_fini();
 
+	bfd_protocol_integration_set_shutdown(true);
+
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
 		ospf6_delete(ospf6);
@@ -95,9 +97,6 @@ static void __attribute__((noreturn)) ospf6_exit(int status)
 			if (ifp->info != NULL)
 				ospf6_interface_delete(ifp->info);
 	}
-
-	bfd_gbl_exit();
-
 
 	ospf6_message_terminate();
 	ospf6_asbr_terminate();
@@ -225,7 +224,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	ospf6_vrf_init();
 	access_list_init();
 	prefix_list_init();
 

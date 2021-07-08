@@ -862,6 +862,7 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p,
 						label_pnt, num_labels,
 						addpath_encode, addpath_tx_id,
+						&adv->baa->attr->evpn_overlay,
 						pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64 " send UPDATE %s",
 				   subgrp->update_group->id, subgrp->id,
@@ -1031,7 +1032,7 @@ struct bpacket *subgroup_withdraw_packet(struct update_subgroup *subgrp)
 
 			bgp_debug_rdpfxpath2str(afi, safi, prd, dest_p, NULL, 0,
 						addpath_encode, addpath_tx_id,
-						pfx_buf, sizeof(pfx_buf));
+						NULL, pfx_buf, sizeof(pfx_buf));
 			zlog_debug("u%" PRIu64 ":s%" PRIu64" send UPDATE %s -- unreachable",
 				   subgrp->update_group->id, subgrp->id,
 				   pfx_buf);

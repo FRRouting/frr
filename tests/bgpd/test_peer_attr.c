@@ -31,6 +31,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
 #include "lib/routing_nb.h"
+#include "lib/northbound_cli.h"
 #include "bgpd/bgp_nb.h"
 
 #ifdef ENABLE_BGP_VNC
@@ -776,6 +777,10 @@ static void test_execute(struct test *test, const char *fmt, ...)
 
 	/* Execute command (non-strict). */
 	ret = cmd_execute_command(vline, test->vty, NULL, 0);
+	if (ret == CMD_SUCCESS) {
+		/* Commit any pending changes, irnore error */
+		ret = nb_cli_pending_commit_check(test->vty);
+	}
 	if (ret != CMD_SUCCESS) {
 		test->state = TEST_COMMAND_ERROR;
 		test->error = str_printf(
@@ -1397,7 +1402,6 @@ static void bgp_startup(void)
 	zprivs_init(&bgpd_privs);
 
 	master = thread_master_create(NULL);
-	yang_init(true);
 	nb_init(master, bgpd_yang_modules, array_size(bgpd_yang_modules), false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);

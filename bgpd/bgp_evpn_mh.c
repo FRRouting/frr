@@ -269,8 +269,10 @@ static int bgp_evpn_es_route_uninstall(struct bgp *bgp, struct bgp_evpn_es *es,
 				parent_pi)
 			break;
 
-	if (!pi)
+	if (!pi) {
+		bgp_dest_unlock_node(dest);
 		return 0;
+	}
 
 	/* Mark entry for deletion */
 	bgp_path_info_delete(dest, pi);
@@ -347,11 +349,10 @@ static void bgp_evpn_es_route_del_all(struct bgp *bgp, struct bgp_evpn_es *es)
  * Note: vpn is applicable only to EAD-EVI routes (NULL for EAD-ES and
  * ESR).
  */
-static int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
-				    struct bgpevpn *vpn, afi_t afi, safi_t safi,
-				    struct bgp_dest *dest, struct attr *attr,
-				    int add, struct bgp_path_info **ri,
-				    int *route_changed)
+int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
+			     struct bgpevpn *vpn, afi_t afi, safi_t safi,
+			     struct bgp_dest *dest, struct attr *attr, int add,
+			     struct bgp_path_info **ri, int *route_changed)
 {
 	struct bgp_path_info *tmp_pi = NULL;
 	struct bgp_path_info *local_pi = NULL;  /* local route entry if any */
@@ -384,7 +385,8 @@ static int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		flog_err(
 			EC_BGP_ES_INVALID,
 			"%u ERROR: local es route for ESI: %s Vtep %pI4 also learnt from remote",
-			bgp->vrf_id, es->esi_str, &es->originator_ip);
+			bgp->vrf_id, es ? es->esi_str : "Null",
+			&es->originator_ip);
 		return -1;
 	}
 
@@ -441,7 +443,7 @@ static int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		if (BGP_DEBUG(evpn_mh, EVPN_MH_RT))
 			zlog_debug(
 				"local ES %s vni %u route-type %s nexthop %pI4 updated",
-				es->esi_str, vpn ? vpn->vni : 0,
+				es ? es->esi_str : "Null", vpn ? vpn->vni : 0,
 				evp->prefix.route_type == BGP_EVPN_ES_ROUTE
 					? "esr"
 					: (vpn ? "ead-evi" : "ead-es"),
@@ -521,6 +523,50 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	if (pi)
 		bgp_path_info_reap(dest, pi);
 	bgp_dest_unlock_node(dest);
+	return 0;
+}
+
+/*
+ * This function is called when the VNI RD changes.
+ * Delete all EAD/EVI local routes for this VNI from the global routing table.
+ * These routes are scheduled for withdraw from peers.
+ */
+int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn)
+{
+	afi_t afi;
+	safi_t safi;
+	struct bgp_dest *rdrn, *rn;
+	struct bgp_table *table;
+	struct bgp_path_info *pi;
+
+	afi = AFI_L2VPN;
+	safi = SAFI_EVPN;
+
+	/* Find the RD node for the VNI in the global table */
+	rdrn = bgp_node_lookup(bgp->rib[afi][safi], (struct prefix *)&vpn->prd);
+	if (rdrn && bgp_dest_has_bgp_path_info_data(rdrn)) {
+		table = bgp_dest_get_bgp_table_info(rdrn);
+
+		/*
+		 * Iterate over all the routes in this table and delete EAD/EVI
+		 * routes
+		 */
+		for (rn = bgp_table_top(table); rn; rn = bgp_route_next(rn)) {
+			struct prefix_evpn *evp = (struct prefix_evpn *)&rn->p;
+
+			if (evp->prefix.route_type != BGP_EVPN_AD_ROUTE)
+				continue;
+
+			delete_evpn_route_entry(bgp, afi, safi, rn, &pi);
+			if (pi)
+				bgp_process(bgp, rn, afi, safi);
+		}
+	}
+
+	/* Unlock RD node. */
+	if (rdrn)
+		bgp_dest_unlock_node(rdrn);
+
 	return 0;
 }
 
@@ -1265,7 +1311,7 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 	bool old_active;
 	bool new_active;
 
-	old_active = !!CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
+	old_active = CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 	/* currently we need an active EVI reference to use the VTEP as
 	 * a nexthop. this may change...
 	 */
@@ -1274,7 +1320,7 @@ static void bgp_evpn_es_vtep_re_eval_active(struct bgp *bgp,
 	else
 		UNSET_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 
-	new_active = !!CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
+	new_active = CHECK_FLAG(es_vtep->flags, BGP_EVPNES_VTEP_ACTIVE);
 
 	if ((old_active != new_active) || (new_active && param_change)) {
 
@@ -2026,9 +2072,8 @@ int bgp_evpn_local_es_del(struct bgp *bgp, esi_t *esi)
 	/* Lookup ESI hash - should exist. */
 	es = bgp_evpn_es_find(esi);
 	if (!es) {
-		flog_warn(EC_BGP_EVPN_ESI,
-			  "%u: ES %s missing at local ES DEL",
-			  bgp->vrf_id, es->esi_str);
+		flog_warn(EC_BGP_EVPN_ESI, "%u: ES missing at local ES DEL",
+			  bgp->vrf_id);
 		return -1;
 	}
 
@@ -3074,7 +3119,7 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 	bool new_active;
 	uint32_t ead_activity_flags;
 
-	old_active = !!CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
+	old_active = CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
 	if (bgp_mh_info->ead_evi_rx)
 		/* Both EAD-per-ES and EAD-per-EVI routes must be rxed from a PE
@@ -3090,7 +3135,7 @@ static void bgp_evpn_es_evi_vtep_re_eval_active(struct bgp *bgp,
 	else
 		UNSET_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
-	new_active = !!CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
+	new_active = CHECK_FLAG(evi_vtep->flags, BGP_EVPN_EVI_VTEP_ACTIVE);
 
 	if (old_active == new_active)
 		return;
@@ -3272,9 +3317,6 @@ static struct bgp_evpn_es_evi *
 bgp_evpn_es_evi_local_info_clear(struct bgp_evpn_es_evi *es_evi)
 {
 	struct bgpevpn *vpn = es_evi->vpn;
-
-	if (!CHECK_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL))
-		return es_evi;
 
 	UNSET_FLAG(es_evi->flags, BGP_EVPNES_EVI_LOCAL);
 	list_delete_node(vpn->local_es_evi_list, &es_evi->l2vni_listnode);

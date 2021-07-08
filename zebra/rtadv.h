@@ -152,9 +152,8 @@ enum ipv6_nd_suppress_ra_status {
 	RA_SUPPRESS,
 };
 
-extern void rtadv_init(struct zebra_vrf *zvrf);
+extern void rtadv_vrf_init(struct zebra_vrf *zvrf);
 extern void rtadv_vrf_terminate(struct zebra_vrf *zvrf);
-extern void rtadv_terminate(void);
 extern void rtadv_stop_ra(struct interface *ifp);
 extern void rtadv_stop_ra_all(void);
 extern void rtadv_cmd_init(void);

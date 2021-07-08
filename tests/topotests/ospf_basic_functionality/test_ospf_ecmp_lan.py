@@ -305,7 +305,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
     step("Verify that all the routes are withdrawn from R0")
     dut = "r1"
     result = verify_ospf_rib(
-        tgen, dut, input_dict, next_hop=nh, attempts=5, expected=False
+        tgen, dut, input_dict, next_hop=nh, retry_timeout=10, expected=False
     )
     assert (
         result is not True
@@ -321,7 +321,7 @@ def test_ospf_lan_ecmp_tc18_p0(request):
         input_dict,
         protocol=protocol,
         next_hop=nh,
-        attempts=5,
+        retry_timeout=10,
         expected=False,
     )
     assert (

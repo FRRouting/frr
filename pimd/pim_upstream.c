@@ -407,6 +407,28 @@ static void pim_upstream_join_timer_restart_msec(struct pim_upstream *up,
 			      &up->t_join_timer);
 }
 
+void pim_update_suppress_timers(uint32_t suppress_time)
+{
+	struct pim_instance *pim;
+	struct vrf *vrf;
+	unsigned int old_rp_ka_time;
+
+	/* stash the old one so we know which values were manually configured */
+	old_rp_ka_time =  (3 * router->register_suppress_time
+			   + router->register_probe_time);
+	router->register_suppress_time = suppress_time;
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		pim = vrf->info;
+		if (!pim)
+			continue;
+
+		/* Only adjust if not manually configured */
+		if (pim->rp_keep_alive_time == old_rp_ka_time)
+			pim->rp_keep_alive_time = PIM_RP_KEEPALIVE_PERIOD;
+	}
+}
+
 void pim_upstream_join_suppress(struct pim_upstream *up,
 				struct in_addr rpf_addr, int holdtime)
 {
@@ -2152,7 +2174,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	np = prefix_list_lookup(AFI_IP, nlist);
 
 	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_PREFIXLEN;
+	g.prefixlen = IPV4_MAX_BITLEN;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (up->sg.src.s_addr != INADDR_ANY)

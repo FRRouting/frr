@@ -256,6 +256,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	from_peer->last_major_event = last_maj_evt;
 	peer->remote_id = from_peer->remote_id;
 	peer->last_reset = from_peer->last_reset;
+	peer->max_packet_size = from_peer->max_packet_size;
 
 	peer->peer_gr_present_state = from_peer->peer_gr_present_state;
 	peer->peer_gr_new_status_flag = from_peer->peer_gr_new_status_flag;
@@ -811,7 +812,7 @@ void bgp_start_routeadv(struct bgp *bgp)
 			 sizeof(bgp->update_delay_peers_resume_time));
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
-		if (peer->status != Established)
+		if (!peer_established(peer))
 			continue;
 		BGP_TIMER_OFF(peer->t_routeadv);
 		BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
@@ -1004,7 +1005,7 @@ static void bgp_maxmed_onstartup_begin(struct bgp *bgp)
 
 static void bgp_maxmed_onstartup_process_status_change(struct peer *peer)
 {
-	if (peer->status == Established && !peer->bgp->established) {
+	if (peer_established(peer) && !peer->bgp->established) {
 		bgp_maxmed_onstartup_begin(peer->bgp);
 	}
 }
@@ -1066,7 +1067,7 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 
 static void bgp_update_delay_process_status_change(struct peer *peer)
 {
-	if (peer->status == Established) {
+	if (peer_established(peer)) {
 		if (!peer->bgp->established++) {
 			bgp_update_delay_begin(peer->bgp);
 			zlog_info(
@@ -1102,7 +1103,7 @@ void bgp_fsm_change_status(struct peer *peer, int status)
 
 	if (status == Established)
 		bgp->established_peers++;
-	else if ((peer->status == Established) && (status != Established))
+	else if ((peer_established(peer)) && (status != Established))
 		bgp->established_peers--;
 
 	if (bgp_debug_neighbor_events(peer)) {
@@ -1235,7 +1236,7 @@ int bgp_stop(struct peer *peer)
 	}
 
 	/* Increment Dropped count. */
-	if (peer->status == Established) {
+	if (peer_established(peer)) {
 		peer->dropped++;
 
 		/* bgp log-neighbor-changes of neighbor Down */
@@ -1396,8 +1397,7 @@ int bgp_stop(struct peer *peer)
 		/* Received ORF prefix-filter */
 		peer->orf_plist[afi][safi] = NULL;
 
-		if ((peer->status == OpenConfirm)
-		    || (peer->status == Established)) {
+		if ((peer->status == OpenConfirm) || (peer_established(peer))) {
 			/* ORF received prefix-filter pnt */
 			snprintf(orf_name, sizeof(orf_name), "%s.%d.%d",
 				 peer->host, afi, safi);
@@ -2196,8 +2196,7 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 	case OpenSent:
 	case OpenConfirm:
 	case Established:
-		if (!has_valid_nexthops
-		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED))
+		if (!has_valid_nexthops)
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 	case Clearing:
 	case Deleted:

@@ -266,20 +266,23 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 		char oldpath[XPATH_MAXLEN];
 		char newpath[XPATH_MAXLEN];
 
-		if_dnode = yang_dnode_get(
-			running_config->dnode,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/vrf",
-			ifp->name, old_vrf->name);
+		snprintf(oldpath, sizeof(oldpath),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 ifp->name, old_vrf->name);
+		snprintf(newpath, sizeof(newpath),
+			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
+			 ifp->name, vrf->name);
+
+		if_dnode = yang_dnode_getf(running_config->dnode, "%s/vrf",
+					   oldpath);
 
 		if (if_dnode) {
-			yang_dnode_get_path(if_dnode->parent, oldpath,
-					    sizeof(oldpath));
 			yang_dnode_change_leaf(if_dnode, vrf->name);
-			yang_dnode_get_path(if_dnode->parent, newpath,
-					    sizeof(newpath));
 			nb_running_move_tree(oldpath, newpath);
 			running_config->version++;
 		}
+
+		vty_update_xpath(oldpath, newpath);
 	}
 }
 
@@ -905,8 +908,8 @@ connected_log(struct connected *connected, char *str)
 
 	p = connected->destination;
 	if (p) {
-		strncat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-			BUFSIZ - strlen(logbuf));
+		strlcat(logbuf, inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
+			BUFSIZ);
 	}
 	zlog_info("%s", logbuf);
 }
@@ -1238,7 +1241,7 @@ DEFPY_YANG_NOSH (interface,
 		 vrf_name);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
-	ret = nb_cli_apply_changes(vty, xpath_list);
+	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
 	if (ret == CMD_SUCCESS) {
 		VTY_PUSH_XPATH(INTERFACE_NODE, xpath_list);
 
@@ -1248,7 +1251,6 @@ DEFPY_YANG_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		nb_cli_pending_commit_check(vty);
 		ifp = if_lookup_by_name(ifname, vrf_id);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);

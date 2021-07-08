@@ -743,7 +743,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 				if (!ch->upstream->channel_oil->installed)
 					pim_upstream_mroute_add(
 						ch->upstream->channel_oil,
-						__PRETTY_FUNCTION__);
+						__func__);
 			}
 		}
 		/* from here ch may have been deleted */
@@ -1248,7 +1248,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 					AFI_IP, pim->spt.plist);
 				struct prefix g;
 				g.family = AF_INET;
-				g.prefixlen = IPV4_MAX_PREFIXLEN;
+				g.prefixlen = IPV4_MAX_BITLEN;
 				g.u.prefix4 = up->sg.grp;
 
 				if (prefix_list_apply(plist, &g)

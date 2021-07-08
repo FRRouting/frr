@@ -123,15 +123,6 @@ extern "C" {
 #define assume(x)
 #endif
 
-/* pure = function does not modify memory & return value is the same if
- * memory hasn't changed (=> allows compiler to optimize)
- *
- * Mostly autodetected by the compiler if function body is available (i.e.
- * static inline functions in headers).  Since that implies it should only be
- * used in headers for non-inline functions, the "extern" is included here.
- */
-#define ext_pure	extern __attribute__((pure))
-
 /* for helper functions defined inside macros */
 #define macro_inline	static inline __attribute__((unused))
 #define macro_pure	static inline __attribute__((unused, pure))
@@ -139,21 +130,6 @@ extern "C" {
 /* if the macro ends with a function definition */
 #define MACRO_REQUIRE_SEMICOLON() \
 	_Static_assert(1, "please add a semicolon after this macro")
-
-#if CONFDATE < 20210601
-#ifdef ENABLE_BGP_VNC
-/* temporarily disabled for transition for LabN CI
- * NB: it's not possible to generate a deprecation warning for this, hence
- * the shortened transition period (since otherwise new uses of the old syntax
- * may creep in without errors)
- */
-#undef MACRO_REQUIRE_SEMICOLON
-#define MACRO_REQUIRE_SEMICOLON() \
-	/* nothing */
-#endif /* ENABLE_BGP_VNC */
-#else /* CONFDATE >= 20210601 */
-CPP_NOTICE("time to remove this CONFDATE block")
-#endif
 
 /* variadic macros, use like:
  * #define V_0()  ...
@@ -196,6 +172,29 @@ CPP_NOTICE("time to remove this CONFDATE block")
 
 #define MACRO_REPEAT(NAME, ...) \
 	MACRO_VARIANT(_MACRO_REPEAT, ##__VA_ARGS__)(NAME, ##__VA_ARGS__)
+
+/* per-arglist repeat macro, use like this:
+ * #define foo(...) MAP_LISTS(F, ##__VA_ARGS__)
+ * where F is a n-ary function where n is the number of args in each arglist.
+ * e.g.: MAP_LISTS(f, (a, b), (c, d))
+ * expands to: f(a, b); f(c, d)
+ */
+
+#define ESC(...) __VA_ARGS__
+#define MAP_LISTS(M, ...)                                                      \
+	_CONCAT(_MAP_LISTS_, PP_NARG(__VA_ARGS__))(M, ##__VA_ARGS__)
+#define _MAP_LISTS_0(M)
+#define _MAP_LISTS_1(M, _1) ESC(M _1)
+#define _MAP_LISTS_2(M, _1, _2) ESC(M _1; M _2)
+#define _MAP_LISTS_3(M, _1, _2, _3) ESC(M _1; M _2; M _3)
+#define _MAP_LISTS_4(M, _1, _2, _3, _4) ESC(M _1; M _2; M _3; M _4)
+#define _MAP_LISTS_5(M, _1, _2, _3, _4, _5) ESC(M _1; M _2; M _3; M _4; M _5)
+#define _MAP_LISTS_6(M, _1, _2, _3, _4, _5, _6)                                \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6)
+#define _MAP_LISTS_7(M, _1, _2, _3, _4, _5, _6, _7)                            \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7)
+#define _MAP_LISTS_8(M, _1, _2, _3, _4, _5, _6, _7, _8)                        \
+	ESC(M _1; M _2; M _3; M _4; M _5; M _6; M _7; M _8)
 
 /*
  * for warnings on macros, put in the macro content like this:
@@ -331,7 +330,7 @@ CPP_NOTICE("time to remove this CONFDATE block")
          19, 18, 17, 16, 15, 14, 13, 12, 11, 10,           \
           9,  8,  7,  6,  5,  4,  3,  2,  1,  0
 
-#define PP_NARG_(...)    PP_ARG_N(__VA_ARGS__)    
+#define PP_NARG_(...) PP_ARG_N(__VA_ARGS__)
 #define PP_NARG(...)     PP_NARG_(_, ##__VA_ARGS__, PP_RSEQ_N())
 
 
@@ -371,7 +370,11 @@ CPP_NOTICE("time to remove this CONFDATE block")
 #define PRIx64 "Lx"
 
 #else /* !_FRR_ATTRIBUTE_PRINTFRR */
+#ifdef __NetBSD__
+#define PRINTFRR(a, b) __attribute__((format(gnu_syslog, a, b)))
+#else
 #define PRINTFRR(a, b) __attribute__((format(printf, a, b)))
+#endif
 
 /* frr-format plugin is C-only for now, so no point in doing these shenanigans
  * for C++...  (also they can break some C++ stuff...)

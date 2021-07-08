@@ -89,7 +89,7 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 
 	p.family = AF_INET;
 	p.u.prefix4 = sg->src;
-	p.prefixlen = 32;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	length = pim_encode_addr_ucast(b1, &p);
 	b1length += length;
 
@@ -393,7 +393,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			plist = prefix_list_lookup(AFI_IP, pim->register_plist);
 
 			src.family = AF_INET;
-			src.prefixlen = IPV4_MAX_PREFIXLEN;
+			src.prefixlen = IPV4_MAX_BITLEN;
 			src.u.prefix4 = sg.src;
 
 			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {

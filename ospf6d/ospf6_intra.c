@@ -182,7 +182,7 @@ static void ospf6_router_lsa_options_set(struct ospf6_area *oa,
 	OSPF6_OPT_CLEAR_ALL(router_lsa->options);
 	memcpy(router_lsa->options, oa->options, 3);
 
-	if (ospf6_is_router_abr(oa->ospf6))
+	if (ospf6_check_and_set_router_abr(oa->ospf6))
 		SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B);
 	else
 		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_B);
@@ -191,6 +191,17 @@ static void ospf6_router_lsa_options_set(struct ospf6_area *oa,
 		SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_E);
 	} else {
 		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_E);
+	}
+
+	/* If the router is ASBR and the area-type is NSSA set the
+	 * translate bit in router LSA.
+	 */
+	if (IS_AREA_NSSA(oa)
+	    && (ospf6_asbr_is_asbr(oa->ospf6) || IS_OSPF6_ABR(oa->ospf6))) {
+		if (oa->NSSATranslatorRole == OSPF6_NSSA_ROLE_ALWAYS)
+			SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_NT);
+	} else {
+		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_NT);
 	}
 
 	UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_V);
@@ -278,9 +289,8 @@ int ospf6_router_lsa_originate(struct thread *thread)
 			if ((caddr_t)lsdesc
 			    == (caddr_t)router_lsa
 				       + sizeof(struct ospf6_router_lsa)) {
-				if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
-					zlog_debug(
-						"Size limit setting for Router-LSA too short");
+				zlog_warn(
+					"Size limit setting for Router-LSA too short");
 				return 0;
 			}
 
@@ -757,6 +767,7 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	struct ospf6_link_lsa *link_lsa;
 	struct ospf6_route *route;
 	struct ospf6_prefix *op;
+	int count, max_addr_count;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 	oi->thread_link_lsa = NULL;
@@ -800,14 +811,20 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	memcpy(link_lsa->options, oi->area->options, 3);
 	memcpy(&link_lsa->linklocal_addr, oi->linklocal_addr,
 	       sizeof(struct in6_addr));
-	link_lsa->prefix_num = htonl(oi->route_connected->count);
 
 	op = (struct ospf6_prefix *)((caddr_t)link_lsa
 				     + sizeof(struct ospf6_link_lsa));
 
-	/* connected prefix to advertise */
-	for (route = ospf6_route_head(oi->route_connected); route;
-	     route = ospf6_route_next(route)) {
+	/* connected prefix to advertise, number of interface addresses
+	 * supported is based on MTU size of OSPFv3 packets
+	 */
+	if (oi->ifmtu >= OSPF6_JUMBO_MTU)
+		max_addr_count = OSPF6_MAX_IF_ADDRS_JUMBO;
+	else
+		max_addr_count = OSPF6_MAX_IF_ADDRS;
+	for (route = ospf6_route_head(oi->route_connected), count = 0;
+	     route && count < max_addr_count;
+	     route = ospf6_route_next(route), count++) {
 		op->prefix_length = route->prefix.prefixlen;
 		op->prefix_options = route->path.prefix_options;
 		op->prefix_metric = htons(0);
@@ -815,6 +832,8 @@ int ospf6_link_lsa_originate(struct thread *thread)
 		       OSPF6_PREFIX_SPACE(op->prefix_length));
 		op = OSPF6_PREFIX_NEXT(op);
 	}
+
+	link_lsa->prefix_num = htonl(count);
 
 	/* Fill LSA Header */
 	lsa_header->age = 0;
@@ -995,6 +1014,7 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	unsigned short prefix_num = 0;
 	struct ospf6_route_table *route_advertise;
 	int ls_id = 0;
+	int count, max_addr_count;
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
 	oa->thread_intra_prefix_lsa = NULL;
@@ -1040,6 +1060,8 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	intra_prefix_lsa->ref_adv_router = oa->ospf6->router_id;
 
 	route_advertise = ospf6_route_table_create(0, 0);
+	route_advertise->hook_add = NULL;
+	route_advertise->hook_remove = NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi)) {
 		if (oi->state == OSPF6_INTERFACE_DOWN) {
@@ -1068,8 +1090,14 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 			zlog_debug("  Interface %s:", oi->interface->name);
 
 		/* connected prefix to advertise */
-		for (route = ospf6_route_head(oi->route_connected); route;
-		     route = ospf6_route_best_next(route)) {
+		if (oi->ifmtu >= OSPF6_JUMBO_MTU)
+			max_addr_count = OSPF6_MAX_IF_ADDRS_JUMBO;
+		else
+			max_addr_count = OSPF6_MAX_IF_ADDRS;
+
+		for (route = ospf6_route_head(oi->route_connected), count = 0;
+		     route && count < max_addr_count;
+		     route = ospf6_route_best_next(route), count++) {
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
 				zlog_debug("    include %pFX", &route->prefix);
 			ospf6_route_add(ospf6_route_copy(route),
@@ -1284,6 +1312,8 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 
 	/* connected prefix to advertise */
 	route_advertise = ospf6_route_table_create(0, 0);
+	route_advertise->hook_add = NULL;
+	route_advertise->hook_remove = NULL;
 
 	type = ntohs(OSPF6_LSTYPE_LINK);
 	for (ALL_LSDB_TYPED(oi->lsdb, type, lsa)) {
@@ -1672,7 +1702,7 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 				zlog_debug(
-					"%s: route %pFX %p with final effective paths %u nh%u",
+					"%s: route %pFX %p with final effective paths %u nh %u",
 					__func__, &route->prefix,
 					(void *)old_route,
 					old_route->paths
@@ -2035,6 +2065,7 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 	struct ospf6_lsa *lsa;
 	void (*hook_add)(struct ospf6_route *) = NULL;
 	void (*hook_remove)(struct ospf6_route *) = NULL;
+	char buf[PREFIX2STR_BUFFER];
 
 	if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 		zlog_debug("Re-examin intra-routes for area %s", oa->name);
@@ -2056,6 +2087,12 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 	oa->route_table->hook_remove = hook_remove;
 
 	for (route = ospf6_route_head(oa->route_table); route; route = nroute) {
+		if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX)) {
+			prefix2str(&route->prefix, buf, sizeof(buf));
+			zlog_debug("%s: route %s, flag 0x%x", __func__, buf,
+				   route->flag);
+		}
+
 		nroute = ospf6_route_next(route);
 		if (CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE)
 		    && CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD)) {
@@ -2072,6 +2109,9 @@ void ospf6_intra_route_calculation(struct ospf6_area *oa)
 			route->flag = 0;
 		} else {
 			/* Redo the summaries as things might have changed */
+			if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
+				zlog_debug("%s: Originate summary for route %s",
+					   __func__, buf);
 			ospf6_abr_originate_summary(route, oa->ospf6);
 			route->flag = 0;
 		}
@@ -2147,8 +2187,8 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(oa->area_id) ||
 	    IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_info("%s: border-router calculation for area %s", __func__,
-			  oa->name);
+		zlog_debug("%s: border-router calculation for area %s",
+			   __func__, oa->name);
 
 	hook_add = oa->ospf6->brouter_table->hook_add;
 	hook_remove = oa->ospf6->brouter_table->hook_remove;
@@ -2169,8 +2209,8 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 		if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(brouter_id)
 		    || IS_OSPF6_DEBUG_ROUTE(MEMORY)) {
-			zlog_info("%p: mark as removing: area %s brouter %s",
-				  (void *)brouter, oa->name, brouter_name);
+			zlog_debug("%p: mark as removing: area %s brouter %s",
+				   (void *)brouter, oa->name, brouter_name);
 			ospf6_brouter_debug_print(brouter);
 		}
 	}
@@ -2203,8 +2243,8 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 		if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_ID(brouter_id)
 		    || IS_OSPF6_DEBUG_ROUTE(MEMORY)) {
-			zlog_info("%p: transfer: area %s brouter %s",
-				  (void *)brouter, oa->name, brouter_name);
+			zlog_debug("%p: transfer: area %s brouter %s",
+				   (void *)brouter, oa->name, brouter_name);
 			ospf6_brouter_debug_print(brouter);
 		}
 	}
@@ -2277,7 +2317,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				       brouter_id)
 			    || IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(
 				       oa->area_id))
-				zlog_info(
+				zlog_debug(
 					"%s: brouter %s disappears via area %s",
 					__func__, brouter_name, oa->name);
 			/* This is used to protect nbrouter from removed from
@@ -2305,8 +2345,9 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 				    brouter_id)
 			    || IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(
 				       oa->area_id))
-				zlog_info("brouter %s still exists via area %s",
-					  brouter_name, oa->name);
+				zlog_debug(
+					"brouter %s still exists via area %s",
+					brouter_name, oa->name);
 			/* But re-originate summaries */
 			ospf6_abr_originate_summary(brouter, oa->ospf6);
 		}
@@ -2321,8 +2362,8 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(oa->area_id) ||
 	    IS_OSPF6_DEBUG_ROUTE(MEMORY))
-		zlog_info("%s: border-router calculation for area %s: done",
-			  __func__, oa->name);
+		zlog_debug("%s: border-router calculation for area %s: done",
+			   __func__, oa->name);
 }
 
 static struct ospf6_lsa_handler router_handler = {

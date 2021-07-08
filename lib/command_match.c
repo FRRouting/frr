@@ -813,7 +813,7 @@ static enum match_type match_ipv4_prefix(const char *str)
 		str++;
 	}
 
-	if (atoi(sp) > 32)
+	if (atoi(sp) > IPV4_MAX_BITLEN)
 		return no_match;
 
 	return exact_match;
@@ -948,7 +948,7 @@ static enum match_type match_ipv6_prefix(const char *str, bool prefix)
 	if (*endptr != '\0')
 		return no_match;
 
-	if (mask < 0 || mask > 128)
+	if (mask < 0 || mask > IPV6_MAX_BITLEN)
 		return no_match;
 
 	return exact_match;

@@ -55,5 +55,14 @@ RUN apk add \
 		--no-cache \
 		--allow-untrusted /pkgs/apk/*/*.apk \
 	&& rm -rf /pkgs
+
+# Own the config / PID files
+RUN mkdir -p /var/run/frr
+RUN chown -R frr:frr /etc/frr /var/run/frr
+
+# Simple init manager for reaping processes and forwarding signals
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Default CMD starts watchfrr
 COPY docker/alpine/docker-start /usr/lib/frr/docker-start
-CMD [ "/sbin/tini", "--", "/usr/lib/frr/docker-start" ]
+CMD ["/usr/lib/frr/docker-start"]

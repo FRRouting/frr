@@ -78,12 +78,14 @@ DEFINE_HOOK(isis_circuit_del_hook, (struct isis_circuit *circuit), (circuit));
 
 static void isis_circuit_enable(struct isis_circuit *circuit)
 {
-	struct isis_area *area;
+	struct isis_area *area = circuit->area;
 	struct interface *ifp = circuit->interface;
 
-	area = isis_area_lookup(circuit->tag, ifp->vrf_id);
-	if (area)
-		isis_area_add_circuit(area, circuit);
+	if (!area) {
+		area = isis_area_lookup(circuit->tag, ifp->vrf_id);
+		if (area)
+			isis_area_add_circuit(area, circuit);
+	}
 
 	if (if_is_operative(ifp))
 		isis_csm_state_change(IF_UP_FROM_Z, circuit, ifp);
@@ -205,6 +207,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
 
+	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
 
 	/* and lastly the circuit itself */
@@ -496,7 +499,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback(ifp)) {
+	} else if (if_is_loopback_or_vrf(ifp)) {
 		circuit->circ_type = CIRCUIT_T_LOOPBACK;
 		circuit->is_passive = 1;
 	} else {
@@ -1073,10 +1076,8 @@ static int isis_interface_config_write(struct vty *vty)
 
 	isis = isis_lookup_by_vrfid(vrf->vrf_id);
 
-	if (isis == NULL) {
-		vty_out(vty, "ISIS routing instance not found");
+	if (isis == NULL)
 		return 0;
-	}
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
@@ -1282,6 +1283,10 @@ static int isis_interface_config_write(struct vty *vty)
 					circuit->passwd.passwd);
 				write++;
 			}
+			if (circuit->bfd_config.enabled) {
+				vty_out(vty, " " PROTO_NAME " bfd\n");
+				write++;
+			}
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
 		}
@@ -1301,7 +1306,7 @@ static int isis_interface_config_write(struct vty *vty)
 
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);
@@ -1345,7 +1350,7 @@ ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 	if (circuit->is_passive == passive)
 		return ferr_ok();
 
-	if (if_is_loopback(circuit->interface) && !passive)
+	if (if_is_loopback_or_vrf(circuit->interface) && !passive)
 		return ferr_cfg_invalid("loopback is always passive");
 
 	if (circuit->state != C_STATE_UP) {

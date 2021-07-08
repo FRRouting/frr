@@ -132,40 +132,60 @@ struct wq_nhg_wrapper {
 #define WQ_NHG_WRAPPER_TYPE_CTX  0x01
 #define WQ_NHG_WRAPPER_TYPE_NHG  0x02
 
-static void PRINTFRR(5, 6)
-_rnode_zlog(const char *_func, vrf_id_t vrf_id, struct route_node *rn,
-	    int priority, const char *msgfmt, ...)
+/* %pRN is already a printer for route_nodes that just prints the prefix */
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pZN" (struct route_node *)
+#endif
+
+printfrr_ext_autoreg_p("ZN", printfrr_zebra_node);
+static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
+				   const void *ptr)
 {
-	char buf[SRCDEST2STR_BUFFER + sizeof(" (MRIB)")];
-	char msgbuf[512];
-	va_list ap;
-	uint32_t table = 0;
+	struct route_node *rn = (struct route_node *)ptr;
+	ssize_t rv = 0;
 
-	va_start(ap, msgfmt);
-	vsnprintf(msgbuf, sizeof(msgbuf), msgfmt, ap);
-	va_end(ap);
-
-	if (rn) {
-		struct rib_table_info *info = srcdest_rnode_table_info(rn);
-		rib_dest_t *dest = NULL;
+	/* just the table number? */
+	if (ea->fmt[0] == 't') {
+		rib_dest_t *dest;
 		struct route_entry *re = NULL;
 
-		srcdest_rnode2str(rn, buf, sizeof(buf));
+		ea->fmt++;
 
-		if (info->safi == SAFI_MULTICAST)
-			strlcat(buf, " (MRIB)", sizeof(buf));
+		if (!rn)
+			return bputch(buf, '!');
 
 		dest = rib_dest_from_rnode(rn);
 		if (dest)
 			re = re_list_first(&dest->routes);
 		if (re)
-			table = re->table;
-	} else {
-		snprintf(buf, sizeof(buf), "{(route_node *) NULL}");
-	}
+			rv += bprintfrr(buf, "%u", re->table);
+		else
+			rv += bputch(buf, '?');
 
-	zlog(priority, "%s: (%u:%u):%s: %s", _func, vrf_id, table, buf, msgbuf);
+	} else {
+		char cbuf[PREFIX_STRLEN * 2 + 6];
+		struct rib_table_info *info;
+
+		if (!rn)
+			return bputs(buf, "{(route_node *) NULL}");
+
+		srcdest_rnode2str(rn, cbuf, sizeof(cbuf));
+		rv += bputs(buf, cbuf);
+
+		info = srcdest_rnode_table_info(rn);
+		if (info->safi == SAFI_MULTICAST)
+			rv += bputs(buf, " (MRIB)");
+	}
+	return rv;
 }
+
+#define rnode_debug(node, vrf_id, msg, ...)                                    \
+	zlog_debug("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,  \
+		   ##__VA_ARGS__)
+
+#define rnode_info(node, vrf_id, msg, ...)                                     \
+	zlog_info("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,   \
+		  ##__VA_ARGS__)
 
 static char *_dump_re_status(const struct route_entry *re, char *buf,
 			     size_t len)
@@ -190,11 +210,6 @@ static char *_dump_re_status(const struct route_entry *re, char *buf,
 								: "");
 	return buf;
 }
-
-#define rnode_debug(node, vrf_id, ...)                                         \
-	_rnode_zlog(__func__, vrf_id, node, LOG_DEBUG, __VA_ARGS__)
-#define rnode_info(node, ...)                                                  \
-	_rnode_zlog(__func__, vrf_id, node, LOG_INFO, __VA_ARGS__)
 
 uint8_t route_distance(int type)
 {
@@ -317,7 +332,8 @@ void rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 }
 
 struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
-			      union g_addr *addr, struct route_node **rn_out)
+			      const union g_addr *addr,
+			      struct route_node **rn_out)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -333,10 +349,10 @@ struct route_entry *rib_match(afi_t afi, safi_t safi, vrf_id_t vrf_id,
 	p.family = afi;
 	if (afi == AFI_IP) {
 		p.u.prefix4 = addr->ipv4;
-		p.prefixlen = IPV4_MAX_PREFIXLEN;
+		p.prefixlen = IPV4_MAX_BITLEN;
 	} else {
 		p.u.prefix6 = addr->ipv6;
-		p.prefixlen = IPV6_MAX_PREFIXLEN;
+		p.prefixlen = IPV6_MAX_BITLEN;
 	}
 
 	rn = route_node_match(table, &p);
@@ -4062,6 +4078,7 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_NEIGH_DISCOVER:
 			case DPLANE_OP_BR_PORT_UPDATE:
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
+			case DPLANE_OP_GRE_SET:
 			case DPLANE_OP_NONE:
 				/* Don't expect this: just return the struct? */
 				dplane_ctx_fini(&ctx);

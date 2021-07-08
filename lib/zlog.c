@@ -67,6 +67,7 @@ DEFINE_HOOK(zlog_aux_init, (const char *prefix, int prio_min),
 char zlog_prefix[128];
 size_t zlog_prefixsz;
 int zlog_tmpdirfd = -1;
+int zlog_instance = -1;
 
 static atomic_bool zlog_ec = true, zlog_xid = true;
 
@@ -107,6 +108,7 @@ struct zlog_msg {
 	size_t stackbufsz;
 	char *text;
 	size_t textlen;
+	size_t hdrlen;
 
 	/* This is always ISO8601 with sub-second precision 9 here, it's
 	 * converted for callers as needed.  ts_dot points to the "."
@@ -116,8 +118,23 @@ struct zlog_msg {
 	 * Valid if ZLOG_TS_ISO8601 is set.
 	 * (0 if timestamp has not been formatted yet)
 	 */
-	uint32_t ts_flags;
 	char ts_str[32], *ts_dot, ts_zonetail[8];
+	uint32_t ts_flags;
+
+	/* "mmm dd hh:mm:ss" for 3164 legacy syslog - too dissimilar from
+	 * the above, so just kept separately here.
+	 */
+	uint32_t ts_3164_flags;
+	char ts_3164_str[16];
+
+	/* at the time of writing, 16 args was the actual maximum of arguments
+	 * to a single zlog call.  Particularly printing flag bitmasks seems
+	 * to drive this.  That said, the overhead of dynamically sizing this
+	 * probably outweighs the value.  If anything, a printfrr extension
+	 * for printing flag bitmasks might be a good idea.
+	 */
+	struct fmt_outpos argpos[24];
+	size_t n_argpos;
 };
 
 /* thread-local log message buffering
@@ -204,8 +221,15 @@ static inline void zlog_tls_set(struct zlog_tls *val)
 #endif
 
 #ifdef CAN_DO_TLS
-static long zlog_gettid(void)
+static intmax_t zlog_gettid(void)
 {
+#ifndef __OpenBSD__
+	/* accessing a TLS variable is much faster than a syscall */
+	static thread_local intmax_t cached_tid = -1;
+	if (cached_tid != -1)
+		return cached_tid;
+#endif
+
 	long rv = -1;
 #ifdef HAVE_PTHREAD_GETTHREADID_NP
 	rv = pthread_getthreadid_np();
@@ -224,6 +248,10 @@ static long zlog_gettid(void)
 #elif defined(__APPLE__)
 	rv = mach_thread_self();
 	mach_port_deallocate(mach_task_self(), rv);
+#endif
+
+#ifndef __OpenBSD__
+	cached_tid = rv;
 #endif
 	return rv;
 }
@@ -244,7 +272,7 @@ void zlog_tls_buffer_init(void)
 	for (i = 0; i < array_size(zlog_tls->msgp); i++)
 		zlog_tls->msgp[i] = &zlog_tls->msgs[i];
 
-	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%ld", zlog_gettid());
+	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%jd", zlog_gettid());
 
 	mmfd = openat(zlog_tmpdirfd, mmpath,
 		      O_RDWR | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
@@ -311,7 +339,7 @@ void zlog_tls_buffer_fini(void)
 	zlog_tls_free(zlog_tls);
 	zlog_tls_set(NULL);
 
-	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%ld", zlog_gettid());
+	snprintfrr(mmpath, sizeof(mmpath), "logbuf.%jd", zlog_gettid());
 	if (do_unlink && unlinkat(zlog_tmpdirfd, mmpath, 0))
 		zlog_err("unlink logbuf: %s (%d)", strerror(errno), errno);
 }
@@ -325,6 +353,24 @@ void zlog_tls_buffer_fini(void)
 {
 }
 #endif
+
+void zlog_msg_pid(struct zlog_msg *msg, intmax_t *pid, intmax_t *tid)
+{
+#ifndef __OpenBSD__
+	static thread_local intmax_t cached_pid = -1;
+	if (cached_pid != -1)
+		*pid = cached_pid;
+	else
+		cached_pid = *pid = (intmax_t)getpid();
+#else
+	*pid = (intmax_t)getpid();
+#endif
+#ifdef CAN_DO_TLS
+	*tid = zlog_gettid();
+#else
+	*tid = *pid;
+#endif
+}
 
 static inline void zlog_tls_free(void *arg)
 {
@@ -592,15 +638,19 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		if (need)
 			need += bputch(&fb, ' ');
 
-		hdrlen = need;
+		msg->hdrlen = hdrlen = need;
 		assert(hdrlen < msg->stackbufsz);
+
+		fb.outpos = msg->argpos;
+		fb.outpos_n = array_size(msg->argpos);
+		fb.outpos_i = 0;
 
 		va_copy(args, msg->args);
 		need += vbprintfrr(&fb, msg->fmt, args);
 		va_end(args);
 
 		msg->textlen = need;
-		need += bputch(&fb, '\0');
+		need += bputch(&fb, '\n');
 
 		if (need <= msg->stackbufsz)
 			msg->text = msg->stackbuf;
@@ -612,25 +662,42 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 			fb.buf = msg->text;
 			fb.len = need;
 			fb.pos = msg->text + hdrlen;
+			fb.outpos_i = 0;
 
 			va_copy(args, msg->args);
 			vbprintfrr(&fb, msg->fmt, args);
 			va_end(args);
 
-			bputch(&fb, '\0');
+			bputch(&fb, '\n');
 		}
+
+		msg->n_argpos = fb.outpos_i;
 	}
 	if (textlen)
 		*textlen = msg->textlen;
 	return msg->text;
 }
 
+void zlog_msg_args(struct zlog_msg *msg, size_t *hdrlen, size_t *n_argpos,
+		   const struct fmt_outpos **argpos)
+{
+	if (!msg->text)
+		zlog_msg_text(msg, NULL);
+
+	if (hdrlen)
+		*hdrlen = msg->hdrlen;
+	if (n_argpos)
+		*n_argpos = msg->n_argpos;
+	if (argpos)
+		*argpos = msg->argpos;
+}
+
 #define ZLOG_TS_FORMAT		(ZLOG_TS_ISO8601 | ZLOG_TS_LEGACY)
 #define ZLOG_TS_FLAGS		~ZLOG_TS_PREC
 
-size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
-		   uint32_t flags)
+size_t zlog_msg_ts(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
 {
+	size_t outsz = out ? (out->buf + out->len - out->pos) : 0;
 	size_t len1;
 
 	if (!(flags & ZLOG_TS_FORMAT))
@@ -672,34 +739,76 @@ size_t zlog_msg_ts(struct zlog_msg *msg, char *out, size_t outsz,
 		len1 = strlen(msg->ts_str);
 
 	if (flags & ZLOG_TS_LEGACY) {
-		if (len1 + 1 > outsz)
-			return 0;
+		if (!out)
+			return len1;
+
+		if (len1 > outsz) {
+			memset(out->pos, 0, outsz);
+			out->pos += outsz;
+			return len1;
+		}
 
 		/* just swap out the formatting, faster than redoing it */
 		for (char *p = msg->ts_str; p < msg->ts_str + len1; p++) {
 			switch (*p) {
 			case '-':
-				*out++ = '/';
+				*out->pos++ = '/';
 				break;
 			case 'T':
-				*out++ = ' ';
+				*out->pos++ = ' ';
 				break;
 			default:
-				*out++ = *p;
+				*out->pos++ = *p;
 			}
 		}
-		*out = '\0';
 		return len1;
 	} else {
 		size_t len2 = strlen(msg->ts_zonetail);
 
-		if (len1 + len2 + 1 > outsz)
-			return 0;
-		memcpy(out, msg->ts_str, len1);
-		memcpy(out + len1, msg->ts_zonetail, len2);
-		out[len1 + len2] = '\0';
+		if (!out)
+			return len1 + len2;
+
+		if (len1 + len2 > outsz) {
+			memset(out->pos, 0, outsz);
+			out->pos += outsz;
+			return len1 + len2;
+		}
+
+		memcpy(out->pos, msg->ts_str, len1);
+		out->pos += len1;
+		memcpy(out->pos, msg->ts_zonetail, len2);
+		out->pos += len2;
 		return len1 + len2;
 	}
+}
+
+size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
+{
+	flags &= ZLOG_TS_UTC;
+
+	if (!msg->ts_3164_str[0] || flags != msg->ts_3164_flags) {
+		/* these are "hardcoded" in RFC3164, so they're here too... */
+		static const char *const months[12] = {
+			"Jan", "Feb", "Mar", "Apr", "May", "Jun",
+			"Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+		};
+		struct tm tm;
+
+		/* RFC3164 explicitly asks for local time, but common usage
+		 * also includes UTC.
+		 */
+		if (flags & ZLOG_TS_UTC)
+			gmtime_r(&msg->ts.tv_sec, &tm);
+		else
+			localtime_r(&msg->ts.tv_sec, &tm);
+
+		snprintfrr(msg->ts_3164_str, sizeof(msg->ts_3164_str),
+			   "%3s %2d %02d:%02d:%02d", months[tm.tm_mon],
+			   tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec);
+
+		msg->ts_3164_flags = flags;
+	}
+	return bputs(out, msg->ts_3164_str);
 }
 
 void zlog_set_prefix_ec(bool enable)
@@ -777,6 +886,7 @@ void zlog_init(const char *progname, const char *protoname,
 {
 	zlog_uid = uid;
 	zlog_gid = gid;
+	zlog_instance = instance;
 
 	if (instance) {
 		snprintfrr(zlog_tmpdir, sizeof(zlog_tmpdir),

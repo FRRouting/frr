@@ -1889,19 +1889,19 @@ static int ospf_spf_calculate_schedule_worker(struct thread *thread)
 
 	rbuf[0] = '\0';
 	if (spf_reason_flags) {
-		if (spf_reason_flags & SPF_FLAG_ROUTER_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_ROUTER_LSA_INSTALL))
 			strlcat(rbuf, "R, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_NETWORK_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_NETWORK_LSA_INSTALL))
 			strlcat(rbuf, "N, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_SUMMARY_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_SUMMARY_LSA_INSTALL))
 			strlcat(rbuf, "S, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL)
+		if (spf_reason_flags & (1 << SPF_FLAG_ASBR_SUMMARY_LSA_INSTALL))
 			strlcat(rbuf, "AS, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_ABR_STATUS_CHANGE)
+		if (spf_reason_flags & (1 << SPF_FLAG_ABR_STATUS_CHANGE))
 			strlcat(rbuf, "ABR, ", sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_ASBR_STATUS_CHANGE)
+		if (spf_reason_flags & (1 << SPF_FLAG_ASBR_STATUS_CHANGE))
 			strlcat(rbuf, "ASBR, ",	sizeof(rbuf));
-		if (spf_reason_flags & SPF_FLAG_MAXAGE)
+		if (spf_reason_flags & (1 << SPF_FLAG_MAXAGE))
 			strlcat(rbuf, "M, ", sizeof(rbuf));
 
 		size_t rbuflen = strlen(rbuf);
@@ -1994,7 +1994,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 void ospf_restart_spf(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Restart SPF.", __PRETTY_FUNCTION__);
+		zlog_debug("%s: Restart SPF.", __func__);
 
 	/* Handling inter area and intra area routes*/
 	if (ospf->new_table) {

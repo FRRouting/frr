@@ -44,6 +44,7 @@ am__v_PROTOC_C_1 =
 
 .proto.pb-c.c:
 	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
+	$(AM_V_GEN)$(SED) -e '1i#include "config.h"' -i $@
 .pb-c.c.pb-c.h:
 	@/bin/true
 

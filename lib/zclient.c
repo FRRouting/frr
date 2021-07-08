@@ -41,6 +41,7 @@
 #include "lib_errors.h"
 #include "srte.h"
 #include "printfrr.h"
+#include "srv6.h"
 
 DEFINE_MTYPE_STATIC(LIB, ZCLIENT, "Zclient");
 DEFINE_MTYPE_STATIC(LIB, REDIST_INST, "Redistribution instance IDs");
@@ -435,6 +436,42 @@ enum zclient_send_status zclient_send_vrf_label(struct zclient *zclient,
 	return zclient_send_message(zclient);
 }
 
+enum zclient_send_status zclient_send_localsid(struct zclient *zclient,
+		const struct in6_addr *sid, ifindex_t oif,
+		enum seg6local_action_t action,
+		const struct seg6local_context *context)
+{
+	struct prefix_ipv6 p = {};
+	struct zapi_route api = {};
+	struct nexthop nh = {};
+
+	p.family = AF_INET6;
+	p.prefixlen = IPV6_MAX_BITLEN;
+	p.prefix = *sid;
+
+	api.vrf_id = VRF_DEFAULT;
+	api.type = ZEBRA_ROUTE_BGP;
+	api.instance = 0;
+	api.safi = SAFI_UNICAST;
+	memcpy(&api.prefix, &p, sizeof(p));
+
+	if (action == ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+		return zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);
+
+	SET_FLAG(api.flags, ZEBRA_FLAG_ALLOW_RECURSION);
+	SET_FLAG(api.message, ZAPI_MESSAGE_NEXTHOP);
+
+	nh.type = NEXTHOP_TYPE_IFINDEX;
+	nh.ifindex = oif;
+	SET_FLAG(nh.flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+	nexthop_add_srv6_seg6local(&nh, action, context);
+
+	zapi_nexthop_from_nexthop(&api.nexthops[0], &nh);
+	api.nexthop_num = 1;
+
+	return zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
+}
+
 /* Send register requests to zebra daemon for the information in a VRF. */
 void zclient_send_reg_requests(struct zclient *zclient, vrf_id_t vrf_id)
 {
@@ -796,6 +833,26 @@ static int zapi_nexthop_labels_cmp(const struct zapi_nexthop *next1,
 	return memcmp(next1->labels, next2->labels, next1->label_num);
 }
 
+static int zapi_nexthop_srv6_cmp(const struct zapi_nexthop *next1,
+				 const struct zapi_nexthop *next2)
+{
+	int ret = 0;
+
+	ret = memcmp(&next1->seg6_segs, &next2->seg6_segs,
+		     sizeof(struct in6_addr));
+	if (ret != 0)
+		return ret;
+
+	if (next1->seg6local_action > next2->seg6local_action)
+		return 1;
+
+	if (next1->seg6local_action < next2->seg6local_action)
+		return -1;
+
+	return memcmp(&next1->seg6local_ctx, &next2->seg6local_ctx,
+		      sizeof(struct seg6local_context));
+}
+
 static int zapi_nexthop_cmp_no_labels(const struct zapi_nexthop *next1,
 				      const struct zapi_nexthop *next2)
 {
@@ -896,6 +953,10 @@ static int zapi_nexthop_cmp(const void *item1, const void *item2)
 		return ret;
 
 	ret = zapi_nexthop_labels_cmp(next1, next2);
+	if (ret != 0)
+		return ret;
+
+	ret = zapi_nexthop_srv6_cmp(next1, next2);
 
 	return ret;
 }
@@ -992,8 +1053,56 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			stream_putc(s, api_nh->backup_idx[i]);
 	}
 
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)) {
+		stream_putl(s, api_nh->seg6local_action);
+		stream_write(s, &api_nh->seg6local_ctx,
+			     sizeof(struct seg6local_context));
+	}
+
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_SEG6))
+		stream_write(s, &api_nh->seg6_segs,
+			     sizeof(struct in6_addr));
+
 done:
 	return ret;
+}
+
+int zapi_srv6_locator_chunk_encode(struct stream *s,
+				   const struct srv6_locator_chunk *c)
+{
+	stream_putw(s, strlen(c->locator_name));
+	stream_put(s, c->locator_name, strlen(c->locator_name));
+	stream_putw(s, c->prefix.prefixlen);
+	stream_put(s, &c->prefix.prefix, sizeof(c->prefix.prefix));
+	stream_putc(s, c->block_bits_length);
+	stream_putc(s, c->node_bits_length);
+	stream_putc(s, c->function_bits_length);
+	stream_putc(s, c->argument_bits_length);
+	return 0;
+}
+
+int zapi_srv6_locator_chunk_decode(struct stream *s,
+				   struct srv6_locator_chunk *c)
+{
+	uint16_t len = 0;
+
+	c->prefix.family = AF_INET6;
+
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE)
+		goto stream_failure;
+
+	STREAM_GET(c->locator_name, s, len);
+	STREAM_GETW(s, c->prefix.prefixlen);
+	STREAM_GET(&c->prefix.prefix, s, sizeof(c->prefix.prefix));
+	STREAM_GETC(s, c->block_bits_length);
+	STREAM_GETC(s, c->node_bits_length);
+	STREAM_GETC(s, c->function_bits_length);
+	STREAM_GETC(s, c->argument_bits_length);
+	return 0;
+
+stream_failure:
+	return -1;
 }
 
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
@@ -1273,6 +1382,16 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 			STREAM_GETC(s, api_nh->backup_idx[i]);
 	}
 
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)) {
+		STREAM_GETL(s, api_nh->seg6local_action);
+		STREAM_GET(&api_nh->seg6local_ctx, s,
+			   sizeof(struct seg6local_context));
+	}
+
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6))
+		STREAM_GET(&api_nh->seg6_segs, s,
+			   sizeof(struct in6_addr));
+
 	/* Success */
 	ret = 0;
 
@@ -1313,7 +1432,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	STREAM_GETC(s, api->prefix.prefixlen);
 	switch (api->prefix.family) {
 	case AF_INET:
-		if (api->prefix.prefixlen > IPV4_MAX_PREFIXLEN) {
+		if (api->prefix.prefixlen > IPV4_MAX_BITLEN) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: V4 prefixlen is %d which should not be more than 32",
@@ -1322,7 +1441,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 		}
 		break;
 	case AF_INET6:
-		if (api->prefix.prefixlen > IPV6_MAX_PREFIXLEN) {
+		if (api->prefix.prefixlen > IPV6_MAX_BITLEN) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: v6 prefixlen is %d which should not be more than 128",
@@ -1341,7 +1460,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_SRCPFX)) {
 		api->src_prefix.family = AF_INET6;
 		STREAM_GETC(s, api->src_prefix.prefixlen);
-		if (api->src_prefix.prefixlen > IPV6_MAX_PREFIXLEN) {
+		if (api->src_prefix.prefixlen > IPV6_MAX_BITLEN) {
 			flog_err(
 				EC_LIB_ZAPI_ENCODE,
 				"%s: SRC Prefix prefixlen received: %d is too large",
@@ -1418,7 +1537,7 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
 		STREAM_GETW(s, api->opaque.length);
-		assert(api->opaque.length < ZAPI_MESSAGE_OPAQUE_LENGTH);
+		assert(api->opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
 
 		STREAM_GET(api->opaque.data, s, api->opaque.length);
 	}
@@ -1637,6 +1756,13 @@ struct nexthop *nexthop_from_zapi_nexthop(const struct zapi_nexthop *znh)
 		memcpy(n->backup_idx, znh->backup_idx, n->backup_num);
 	}
 
+	if (znh->seg6local_action != ZEBRA_SEG6_LOCAL_ACTION_UNSPEC)
+		nexthop_add_srv6_seg6local(n, znh->seg6local_action,
+					   &znh->seg6local_ctx);
+
+	if (!sid_zero(&znh->seg6_segs))
+		nexthop_add_srv6_seg6(n, &znh->seg6_segs);
+
 	return n;
 }
 
@@ -1679,6 +1805,23 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_HAS_BACKUP);
 		znh->backup_num = nh->backup_num;
 		memcpy(znh->backup_idx, nh->backup_idx, znh->backup_num);
+	}
+
+	if (nh->nh_srv6) {
+		if (nh->nh_srv6->seg6local_action !=
+		    ZEBRA_SEG6_LOCAL_ACTION_UNSPEC) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL);
+			znh->seg6local_action = nh->nh_srv6->seg6local_action;
+			memcpy(&znh->seg6local_ctx,
+			       &nh->nh_srv6->seg6local_ctx,
+			       sizeof(struct seg6local_context));
+		}
+
+		if (!sid_zero(&nh->nh_srv6->seg6_segs)) {
+			SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
+			memcpy(&znh->seg6_segs, &nh->nh_srv6->seg6_segs,
+			       sizeof(struct in6_addr));
+		}
 	}
 
 	return 0;
@@ -2126,10 +2269,13 @@ stream_failure:
 }
 
 struct interface *zebra_interface_link_params_read(struct stream *s,
-						   vrf_id_t vrf_id)
+						   vrf_id_t vrf_id,
+						   bool *changed)
 {
 	struct if_link_params *iflp;
+	struct if_link_params iflp_copy;
 	ifindex_t ifindex;
+	bool params_changed = false;
 
 	STREAM_GETL(s, ifindex);
 
@@ -2142,11 +2288,22 @@ struct interface *zebra_interface_link_params_read(struct stream *s,
 		return NULL;
 	}
 
+	if (ifp->link_params == NULL)
+		params_changed = true;
+
 	if ((iflp = if_link_params_get(ifp)) == NULL)
 		return NULL;
 
+	memcpy(&iflp_copy, iflp, sizeof(iflp_copy));
+
 	if (link_params_set_value(s, iflp) != 0)
 		goto stream_failure;
+
+	if (memcmp(&iflp_copy, iflp, sizeof(iflp_copy)))
+		params_changed = true;
+
+	if (changed)
+		*changed = params_changed;
 
 	return ifp;
 
@@ -2596,6 +2753,76 @@ int lm_label_manager_connect(struct zclient *zclient, int async)
 
 stream_failure:
 	return -1;
+}
+
+/**
+ * Function to request a srv6-locator chunk in an Asyncronous way
+ *
+ * @param zclient Zclient used to connect to table manager (zebra)
+ * @param locator_name Name of SRv6-locator
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_get_locator_chunk(struct zclient *zclient,
+				   const char *locator_name)
+{
+	struct stream *s;
+	const size_t len = strlen(locator_name);
+
+	if (zclient_debug)
+		zlog_debug("Getting SRv6-Locator Chunk %s", locator_name);
+
+	if (zclient->sock < 0)
+		return -1;
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK,
+			      VRF_DEFAULT);
+
+	/* locator_name */
+	stream_putw(s, len);
+	stream_put(s, locator_name, len);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
+}
+
+/**
+ * Function to release a srv6-locator chunk
+ *
+ * @param zclient Zclient used to connect to table manager (zebra)
+ * @param locator_name Name of SRv6-locator
+ * @result 0 on success, -1 otherwise
+ */
+int srv6_manager_release_locator_chunk(struct zclient *zclient,
+				       const char *locator_name)
+{
+	struct stream *s;
+	const size_t len = strlen(locator_name);
+
+	if (zclient_debug)
+		zlog_debug("Releasing SRv6-Locator Chunk %s", locator_name);
+
+	if (zclient->sock < 0)
+		return -1;
+
+	/* send request */
+	s = zclient->obuf;
+	stream_reset(s);
+	zclient_create_header(s, ZEBRA_SRV6_MANAGER_RELEASE_LOCATOR_CHUNK,
+			      VRF_DEFAULT);
+
+	/* locator_name */
+	stream_putw(s, len);
+	stream_put(s, locator_name, len);
+
+	/* Put length at the first point of the stream. */
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zclient_send_message(zclient);
 }
 
 /*
@@ -3345,7 +3572,8 @@ enum zclient_send_status zclient_send_mlag_register(struct zclient *client,
 
 enum zclient_send_status zclient_send_mlag_deregister(struct zclient *client)
 {
-	return zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER, VRF_DEFAULT);
+	return zebra_message_send(client, ZEBRA_MLAG_CLIENT_UNREGISTER,
+				  VRF_DEFAULT);
 }
 
 enum zclient_send_status zclient_send_mlag_data(struct zclient *client,
@@ -3584,7 +3812,8 @@ static int zclient_read(struct thread *thread)
 	zclient->t_read = NULL;
 
 	/* Read zebra header (if we don't have it already). */
-	if ((already = stream_get_endp(zclient->ibuf)) < ZEBRA_HEADER_SIZE) {
+	already = stream_get_endp(zclient->ibuf);
+	if (already < ZEBRA_HEADER_SIZE) {
 		ssize_t nbyte;
 		if (((nbyte = stream_read_try(zclient->ibuf, zclient->sock,
 					      ZEBRA_HEADER_SIZE - already))
@@ -3597,7 +3826,6 @@ static int zclient_read(struct thread *thread)
 			return zclient_failed(zclient);
 		}
 		if (nbyte != (ssize_t)(ZEBRA_HEADER_SIZE - already)) {
-			/* Try again later. */
 			zclient_event(ZCLIENT_READ, zclient);
 			return 0;
 		}
@@ -3666,9 +3894,8 @@ static int zclient_read(struct thread *thread)
 	length -= ZEBRA_HEADER_SIZE;
 
 	if (zclient_debug)
-		zlog_debug("zclient 0x%p command %s VRF %u",
-			   (void *)zclient, zserv_command_string(command),
-			   vrf_id);
+		zlog_debug("zclient %p command %s VRF %u", zclient,
+			   zserv_command_string(command), vrf_id);
 
 	switch (command) {
 	case ZEBRA_CAPABILITIES:
@@ -3888,6 +4115,21 @@ static int zclient_read(struct thread *thread)
 	case ZEBRA_MLAG_FORWARD_MSG:
 		zclient_mlag_handle_msg(command, zclient, length, vrf_id);
 		break;
+	case ZEBRA_SRV6_LOCATOR_ADD:
+		if (zclient->srv6_locator_add)
+			(*zclient->srv6_locator_add)(command, zclient, length,
+						     vrf_id);
+		break;
+	case ZEBRA_SRV6_LOCATOR_DELETE:
+		if (zclient->srv6_locator_delete)
+			(*zclient->srv6_locator_delete)(command, zclient,
+							length, vrf_id);
+		break;
+	case ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK:
+		if (zclient->process_srv6_locator_chunk)
+			(*zclient->process_srv6_locator_chunk)(command, zclient,
+							       length, vrf_id);
+		break;
 	case ZEBRA_ERROR:
 		zclient_handle_error(command, zclient, length, vrf_id);
 		break;
@@ -3930,6 +4172,11 @@ static int zclient_read(struct thread *thread)
 		if (zclient->neighbor_get)
 			(*zclient->neighbor_get)(command, zclient, length,
 						 vrf_id);
+		break;
+	case ZEBRA_GRE_UPDATE:
+		if (zclient->gre_update)
+			(*zclient->gre_update)(command, zclient,
+					       length, vrf_id);
 		break;
 	default:
 		break;
@@ -4251,4 +4498,24 @@ int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api)
 	return 0;
  stream_failure:
 	return -1;
+}
+
+int zclient_send_zebra_gre_request(struct zclient *client,
+				   struct interface *ifp)
+{
+	struct stream *s;
+
+	if (!client || client->sock < 0) {
+		zlog_err("%s : zclient not ready", __func__);
+		return -1;
+	}
+	s = client->obuf;
+	stream_reset(s);
+	zclient_create_header(s,
+			      ZEBRA_GRE_GET,
+			      ifp->vrf_id);
+	stream_putl(s, ifp->ifindex);
+	stream_putw_at(s, 0, stream_get_endp(s));
+	zclient_send_message(client);
+	return 0;
 }

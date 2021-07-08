@@ -79,7 +79,6 @@ void ls_node_del(struct ls_node *node)
 		return;
 
 	XFREE(MTYPE_LS_DB, node);
-	node = NULL;
 }
 
 int ls_node_same(struct ls_node *n1, struct ls_node *n2)
@@ -168,7 +167,6 @@ void ls_attributes_del(struct ls_attributes *attr)
 	ls_attributes_srlg_del(attr);
 
 	XFREE(MTYPE_LS_DB, attr);
-	attr = NULL;
 }
 
 int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
@@ -221,7 +219,6 @@ void ls_prefix_del(struct ls_prefix *pref)
 		return;
 
 	XFREE(MTYPE_LS_DB, pref);
-	pref = NULL;
 }
 
 int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
@@ -541,8 +538,6 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 
 	/* Create Edge and add it to the TED */
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_edge));
-	if (!new)
-		return NULL;
 
 	new->attributes = attributes;
 	new->key = key;
@@ -807,8 +802,6 @@ struct ls_ted *ls_ted_new(const uint32_t key, const char *name,
 	struct ls_ted *new;
 
 	new = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_ted));
-	if (new == NULL)
-		return new;
 
 	/* Set basic information for this ted */
 	new->key = key;
@@ -839,7 +832,6 @@ void ls_ted_del(struct ls_ted *ted)
 	subnets_fini(&ted->subnets);
 
 	XFREE(MTYPE_LS_DB, ted);
-	ted = NULL;
 }
 
 void ls_ted_del_all(struct ls_ted *ted)
@@ -1009,8 +1001,6 @@ static struct ls_node *ls_parse_node(struct stream *s)
 	size_t len;
 
 	node = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_node));
-	if (node == NULL)
-		return NULL;
 
 	STREAM_GET(&node->adv, s, sizeof(struct ls_node_id));
 	STREAM_GETW(s, node->flags);
@@ -1055,8 +1045,6 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 	size_t len;
 
 	attr = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_attributes));
-	if (attr == NULL)
-		return NULL;
 	attr->srlgs = NULL;
 
 	STREAM_GET(&attr->adv, s, sizeof(struct ls_node_id));
@@ -1161,8 +1149,6 @@ static struct ls_prefix *ls_parse_prefix(struct stream *s)
 	size_t len;
 
 	ls_pref = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_prefix));
-	if (ls_pref == NULL)
-		return NULL;
 
 	STREAM_GET(&ls_pref->adv, s, sizeof(struct ls_node_id));
 	STREAM_GETW(s, ls_pref->flags);
@@ -1197,8 +1183,6 @@ struct ls_message *ls_parse_msg(struct stream *s)
 	struct ls_message *msg;
 
 	msg = XCALLOC(MTYPE_LS_DB, sizeof(struct ls_message));
-	if (msg == NULL)
-		return NULL;
 
 	/* Read LS Message header */
 	STREAM_GETC(s, msg->event);

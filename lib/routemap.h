@@ -194,6 +194,11 @@ struct route_map_index {
 };
 DECLARE_QOBJ_TYPE(route_map_index);
 
+/* route map maximum length. Not strictly the maximum xpath length but cannot be
+ * greater
+ */
+#define RMAP_NAME_MAXLEN XPATH_MAXLEN
+
 /* Route map list structure. */
 struct route_map {
 	/* Name of route map. */
@@ -366,6 +371,10 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:ipv4-vpn-address"))
 #define IS_SET_BGP_IPV4_NH(A)                                                  \
 	(strmatch(A, "frr-bgp-route-map:set-ipv4-nexthop"))
+#define IS_SET_BGP_EVPN_GATEWAY_IP_IPV4(A)                                     \
+	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv4"))
+#define IS_SET_BGP_EVPN_GATEWAY_IP_IPV6(A)                                     \
+	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv6"))
 
 /* Prototypes. */
 extern void route_map_init(void);

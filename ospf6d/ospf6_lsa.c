@@ -458,6 +458,7 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_INTER_PREFIX:
 	case OSPF6_LSTYPE_INTER_ROUTER:
 	case OSPF6_LSTYPE_AS_EXTERNAL:
+	case OSPF6_LSTYPE_TYPE_7:
 		if (use_json) {
 			json_object_string_add(
 				json_obj, "type",
@@ -486,7 +487,6 @@ void ospf6_lsa_show_summary(struct vty *vty, struct ospf6_lsa *lsa,
 	case OSPF6_LSTYPE_ROUTER:
 	case OSPF6_LSTYPE_NETWORK:
 	case OSPF6_LSTYPE_GROUP_MEMBERSHIP:
-	case OSPF6_LSTYPE_TYPE_7:
 	case OSPF6_LSTYPE_LINK:
 	case OSPF6_LSTYPE_INTRA_PREFIX:
 		while (handler->lh_get_prefix_str(lsa, buf, sizeof(buf), cnt)
@@ -623,8 +623,8 @@ void ospf6_lsa_show_internal(struct vty *vty, struct ospf6_lsa *lsa,
 		vty_out(vty, "Flag: %x \n", lsa->flag);
 		vty_out(vty, "Lock: %d \n", lsa->lock);
 		vty_out(vty, "ReTx Count: %d\n", lsa->retrans_count);
-		vty_out(vty, "Threads: Expire: 0x%p, Refresh: 0x%p \n",
-			(void *)lsa->expire, (void *)lsa->refresh);
+		vty_out(vty, "Threads: Expire: %p, Refresh: %p\n", lsa->expire,
+			lsa->refresh);
 		vty_out(vty, "\n");
 	}
 	return;
@@ -654,11 +654,12 @@ void ospf6_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 				    ospf6_lsa_age_current(lsa));
 		json_object_string_add(json_obj, "type",
 				       ospf6_lstype_name(lsa->header->type));
+		json_object_string_add(json_obj, "linkStateId", id);
 		json_object_string_add(json_obj, "advertisingRouter",
 				       adv_router);
 		json_object_int_add(json_obj, "lsSequenceNumber",
 				    (unsigned long)ntohl(lsa->header->seqnum));
-		json_object_int_add(json_obj, "checkSum",
+		json_object_int_add(json_obj, "checksum",
 				    ntohs(lsa->header->checksum));
 		json_object_int_add(json_obj, "length",
 				    ntohs(lsa->header->length));

@@ -80,10 +80,12 @@ Routers
 
 To start OSPF process you have to specify the OSPF router.
 
-.. clicmd:: router ospf [(1-65535)] vrf NAME
+.. clicmd:: router ospf [{(1-65535)|vrf NAME}]
 
 
    Enable or disable the OSPF process.
+
+   Multiple instances don't support `vrf NAME`.
 
 .. clicmd:: ospf router-id A.B.C.D
 
@@ -147,17 +149,11 @@ To start OSPF process you have to specify the OSPF router.
    detail argument, all changes in adjacency status are shown. Without detail,
    only changes to full or regressions are shown.
 
-.. clicmd:: passive-interface INTERFACE
+.. clicmd:: passive-interface default
 
-
-   Do not speak OSPF interface on the
-   given interface, but do advertise the interface as a stub link in the
-   router-:abbr:`LSA (Link State Advertisement)` for this router. This
-   allows one to advertise addresses on such connected interfaces without
-   having to originate AS-External/Type-5 LSAs (which have global flooding
-   scope) - as would occur if connected addresses were redistributed into
-   OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
-   advertise non-OSPF links into stub areas.
+   Make all interfaces that belong to this router passive by default. For the
+   description of passive interface look at :clicmd:`ip ospf passive [A.B.C.D]`.
+   Per-interface configuration takes precedence over the default value.
 
 .. clicmd:: timers throttle spf (0-600000) (0-600000) (0-600000)
 
@@ -304,6 +300,13 @@ To start OSPF process you have to specify the OSPF router.
    Use this command to control the maximum number of equal cost paths to reach
    a specific destination. The upper limit may differ if you change the value
    of MULTIPATH_NUM during compilation. The default is MULTIPATH_NUM (64).
+
+.. clicmd:: write-multiplier (1-100)
+
+   Use this command to tune the amount of work done in the packet read and
+   write threads before relinquishing control. The parameter is the number
+   of packets to process before returning. The defult value of this parameter
+   is 20.
 
 .. _ospf-area:
 
@@ -617,6 +620,16 @@ Interfaces
    Set number of seconds for InfTransDelay value. LSAs' age should be
    incremented by this value when transmitting. The default value is 1 second.
 
+.. clicmd:: ip ospf passive [A.B.C.D]
+
+   Do not speak OSPF on the interface, but do advertise the interface as a stub
+   link in the router-:abbr:`LSA (Link State Advertisement)` for this router.
+   This allows one to advertise addresses on such connected interfaces without
+   having to originate AS-External/Type-5 LSAs (which have global flooding
+   scope) - as would occur if connected addresses were redistributed into
+   OSPF (:ref:`redistribute-routes-to-ospf`). This is the only way to
+   advertise non-OSPF links into stub areas.
+
 .. clicmd:: ip ospf area (A.B.C.D|(0-4294967295))
 
 
@@ -653,12 +666,8 @@ Redistribution
    NSSA areas and are not redistributed at all into Stub areas, where external
    routes are not permitted.
 
-   Note that for connected routes, one may instead use the `passive-interface`
-   configuration.
-
-.. seealso::
-
-   clicmd:`passive-interface INTERFACE`.
+   Note that for connected routes, one may instead use the
+   :clicmd:`ip ospf passive [A.B.C.D]` configuration.
 
 .. clicmd:: default-information originate
 
@@ -855,13 +864,11 @@ Traffic Engineering
    flood in AREA <area-id> with Opaque Type-10, respectively in AS with Opaque
    Type-11. In all case, Opaque-LSA TLV=6.
 
-.. index:: mpls-te export
-.. clicmd:: no mpls-te export
+.. clicmd:: mpls-te export
 
    Export Traffic Engineering Data Base to other daemons through the ZAPI
    Opaque Link State messages.
 
-.. index:: show ip ospf mpls-te interface
 .. clicmd:: show ip ospf mpls-te interface
 
 .. clicmd:: show ip ospf mpls-te interface INTERFACE
@@ -872,16 +879,12 @@ Traffic Engineering
 
    Show Traffic Engineering router parameters.
 
-.. index:: show ip ospf mpls-te database [verbose|json]
 .. clicmd:: show ip ospf mpls-te database [verbose|json]
 
-.. index:: show ip ospf mpls-te database vertex [self-originate|adv-router ADV-ROUTER] [verbose|json]
 .. clicmd:: show ip ospf mpls-te database vertex [self-originate|adv-router ADV-ROUTER] [verbose|json]
 
-.. index:: show ip ospf mpls-te database edge [A.B.C.D] [verbose|json]
 .. clicmd:: show ip ospf mpls-te database edge [A.B.C.D] [verbose|json]
 
-.. index:: show ip ospf mpls-te database subnet [A.B.C.D/M] [verbose|json]
 .. clicmd:: show ip ospf mpls-te database subnet [A.B.C.D/M] [verbose|json]
 
    Show Traffic Engineering Database
@@ -945,15 +948,18 @@ dataplane.
    support, it is preferable to also activate routing information, and set
    accordingly the Area or AS flooding.
 
-.. clicmd:: segment-routing global-block (0-1048575) (0-1048575)
+.. clicmd:: segment-routing global-block (16-1048575) (16-1048575) [local-block (16-1048575) (16-1048575)]
 
-   Fix the Segment Routing Global Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB for Prefix SID.
+   Set the Segment Routing Global Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Prefix SID. Optionally also set the Local
+   Block, i.e. the label range used for Adjacency SID. The negative version
+   of the command always unsets both ranges.
 
-.. clicmd:: segment-routing local-block (0-1048575) (0-1048575)
+.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
 
-   Fix the Segment Routing Local Block i.e. the label range used by MPLS to
-   store label in the MPLS FIB for Adjacency SID.
+   Set the Segment Routing Local Block i.e. the label range used by MPLS to
+   store label in the MPLS FIB for Adjacency SID. This command is deprecated
+   in favor of the combined command above.
 
 .. clicmd:: segment-routing node-msd (1-16)
 
@@ -1121,6 +1127,7 @@ of networks between the areas:
     ip ospf message-digest-key 1 md5 ABCDEFGHIJK
    !
    interface ppp0
+    ip ospf passive
    !
    interface br0
     ip ospf authentication message-digest
@@ -1129,7 +1136,6 @@ of networks between the areas:
    router ospf
     ospf router-id 192.168.0.1
     redistribute connected
-    passive interface ppp0
     network 192.168.0.0/24 area 0.0.0.0
     network 10.0.0.0/16 area 0.0.0.0
     network 192.168.1.0/24 area 0.0.0.1

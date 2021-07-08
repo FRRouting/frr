@@ -29,6 +29,7 @@
 #include "memory.h"
 #include "log.h"
 #include "frrlua.h"
+#include "frrscript.h"
 #ifdef HAVE_LIBPCREPOSIX
 #include <pcreposix.h>
 #else
@@ -373,42 +374,29 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	enum frrlua_rm_status status_failure = LUA_RM_FAILURE,
+	enum frrlua_rm_status lrm_status = LUA_RM_FAILURE,
 			      status_nomatch = LUA_RM_NOMATCH,
 			      status_match = LUA_RM_MATCH,
 			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
 
-	/* Make result values available */
-	struct frrscript_env env[] = {
-		{"integer", "RM_FAILURE", &status_failure},
-		{"integer", "RM_NOMATCH", &status_nomatch},
-		{"integer", "RM_MATCH", &status_match},
-		{"integer", "RM_MATCH_AND_CHANGE", &status_match_and_change},
-		{"integer", "action", &status_failure},
-		{"prefix", "prefix", prefix},
-		{"attr", "attributes", path->attr},
-		{"peer", "peer", path->peer},
-		{}};
+	struct attr newattr = *path->attr;
 
-	struct frrscript_env results[] = {
-		{"integer", "action"},
-		{"attr", "attributes"},
-		{},
-	};
-
-	int result = frrscript_call(fs, env);
+	int result = frrscript_call(
+		fs, ("RM_FAILURE", (long long *)&lrm_status),
+		("RM_NOMATCH", (long long *)&status_nomatch),
+		("RM_MATCH", (long long *)&status_match),
+		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
+		("action", (long long *)&lrm_status), ("prefix", prefix),
+		("attributes", &newattr), ("peer", path->peer));
 
 	if (result) {
 		zlog_err("Issue running script rule; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
-	enum frrlua_rm_status *lrm_status =
-		frrscript_get_result(fs, &results[0]);
-
 	int status = RMAP_NOMATCH;
 
-	switch (*lrm_status) {
+	switch (lrm_status) {
 	case LUA_RM_FAILURE:
 		zlog_err(
 			"Executing route-map match script '%s' failed; defaulting to no match",
@@ -423,27 +411,22 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		zlog_debug("Updating attribute based on script's values");
 
 		uint32_t locpref = 0;
-		struct attr *newattr = frrscript_get_result(fs, &results[1]);
 
-		path->attr->med = newattr->med;
+		path->attr->med = newattr.med;
 
 		if (path->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF))
 			locpref = path->attr->local_pref;
-		if (locpref != newattr->local_pref) {
+		if (locpref != newattr.local_pref) {
 			SET_FLAG(path->attr->flag,
 				 ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF));
-			path->attr->local_pref = newattr->local_pref;
+			path->attr->local_pref = newattr.local_pref;
 		}
-
-		aspath_free(newattr->aspath);
-		XFREE(MTYPE_TMP, newattr);
 		break;
 	case LUA_RM_MATCH:
 		status = RMAP_MATCH;
 		break;
 	}
 
-	XFREE(MTYPE_TMP, lrm_status);
 	frrscript_unload(fs);
 
 	return status;
@@ -1083,6 +1066,71 @@ static const struct route_map_rule_cmd route_match_evpn_rd_cmd = {
 	route_match_rd_compile,
 	route_match_rd_free
 };
+
+static enum route_map_cmd_result_t
+route_set_evpn_gateway_ip(void *rule, const struct prefix *prefix, void *object)
+{
+	struct ipaddr *gw_ip = rule;
+	struct bgp_path_info *path;
+	struct prefix_evpn *evp;
+
+	if (prefix->family != AF_EVPN)
+		return RMAP_OKAY;
+
+	evp = (struct prefix_evpn *)prefix;
+	if (evp->prefix.route_type != BGP_EVPN_IP_PREFIX_ROUTE)
+		return RMAP_OKAY;
+
+	if ((is_evpn_prefix_ipaddr_v4(evp) && IPADDRSZ(gw_ip) != 4)
+	    || (is_evpn_prefix_ipaddr_v6(evp) && IPADDRSZ(gw_ip) != 16))
+		return RMAP_OKAY;
+
+	path = object;
+
+	/* Set gateway-ip value. */
+	path->attr->evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
+	memcpy(&path->attr->evpn_overlay.gw_ip, &gw_ip->ip.addr,
+	       IPADDRSZ(gw_ip));
+
+	return RMAP_OKAY;
+}
+
+/*
+ * Route map `evpn gateway-ip' compile function.
+ * Given string is converted to struct ipaddr structure
+ */
+static void *route_set_evpn_gateway_ip_compile(const char *arg)
+{
+	struct ipaddr *gw_ip = NULL;
+	int ret;
+
+	gw_ip = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct ipaddr));
+
+	ret = str2ipaddr(arg, gw_ip);
+	if (ret < 0) {
+		XFREE(MTYPE_ROUTE_MAP_COMPILED, gw_ip);
+		return NULL;
+	}
+	return gw_ip;
+}
+
+/* Free route map's compiled `evpn gateway_ip' value. */
+static void route_set_evpn_gateway_ip_free(void *rule)
+{
+	struct ipaddr *gw_ip = rule;
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, gw_ip);
+}
+
+/* Route map commands for set evpn gateway-ip ipv4. */
+struct route_map_rule_cmd route_set_evpn_gateway_ip_ipv4_cmd = {
+	"evpn gateway-ip ipv4", route_set_evpn_gateway_ip,
+	route_set_evpn_gateway_ip_compile, route_set_evpn_gateway_ip_free};
+
+/* Route map commands for set evpn gateway-ip ipv6. */
+struct route_map_rule_cmd route_set_evpn_gateway_ip_ipv6_cmd = {
+	"evpn gateway-ip ipv6", route_set_evpn_gateway_ip,
+	route_set_evpn_gateway_ip_compile, route_set_evpn_gateway_ip_free};
 
 /* Route map commands for VRF route leak with source vrf matching */
 static enum route_map_cmd_result_t
@@ -3452,7 +3500,7 @@ static void bgp_route_map_process_peer(const char *rmap_name,
 	    && (strcmp(rmap_name, filter->map[RMAP_IN].name) == 0)) {
 		filter->map[RMAP_IN].map = map;
 
-		if (route_update && peer->status == Established) {
+		if (route_update && peer_established(peer)) {
 			if (CHECK_FLAG(peer->af_flags[afi][safi],
 				       PEER_FLAG_SOFT_RECONFIG)) {
 				if (bgp_debug_update(peer, NULL, NULL, 1))
@@ -3767,7 +3815,6 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 		bgp_route_map_process_update(bgp, rmap_name, 1);
 
 #ifdef ENABLE_BGP_VNC
-		/* zlog_debug("%s: calling vnc_routemap_update", __func__); */
 		vnc_routemap_update(bgp, __func__);
 #endif
 	}
@@ -3807,12 +3854,14 @@ static void bgp_route_map_mark_update(const char *rmap_name)
 						   BGP_POLICY_ROUTE_MAP,
 						   rmap_name, 1, 1);
 	} else {
-		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp))
+		for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
 			bgp_route_map_process_update(bgp, rmap_name, 0);
 #ifdef ENABLE_BGP_VNC
-		zlog_debug("%s: calling vnc_routemap_update", __func__);
-		vnc_routemap_update(bgp, __func__);
+			vnc_routemap_update(bgp, __func__);
 #endif
+		}
+
+		vpn_policy_routemap_event(rmap_name);
 	}
 }
 
@@ -4063,6 +4112,148 @@ DEFUN_YANG (no_match_evpn_rd,
 		"./match-condition[condition='frr-bgp-route-map:evpn-rd']";
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (set_evpn_gw_ip_ipv4,
+	    set_evpn_gw_ip_ipv4_cmd,
+	    "set evpn gateway-ip ipv4 A.B.C.D",
+	    SET_STR
+	    EVPN_HELP_STR
+	    "Set gateway IP for prefix advertisement route\n"
+	    "IPv4 address\n"
+	    "Gateway IP address in IPv4 format\n")
+{
+	int ret;
+	union sockunion su;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-evpn-gateway-ip-ipv4']";
+	char xpath_value[XPATH_MAXLEN];
+
+	ret = str2sockunion(argv[4]->arg, &su);
+	if (ret < 0) {
+		vty_out(vty, "%% Malformed gateway IP\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (su.sin.sin_addr.s_addr == 0
+	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+		vty_out(vty,
+			"%% Gateway IP cannot be 0.0.0.0, multicast or reserved\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv4",
+		 xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_set_evpn_gw_ip_ipv4,
+	    no_set_evpn_gw_ip_ipv4_cmd,
+	    "no set evpn gateway-ip ipv4 A.B.C.D",
+	    NO_STR
+	    SET_STR
+	    EVPN_HELP_STR
+	    "Set gateway IP for prefix advertisement route\n"
+	    "IPv4 address\n"
+	    "Gateway IP address in IPv4 format\n")
+{
+	int ret;
+	union sockunion su;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-evpn-gateway-ip-ipv4']";
+
+	ret = str2sockunion(argv[5]->arg, &su);
+	if (ret < 0) {
+		vty_out(vty, "%% Malformed gateway IP\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (su.sin.sin_addr.s_addr == 0
+	    || IPV4_CLASS_DE(ntohl(su.sin.sin_addr.s_addr))) {
+		vty_out(vty,
+			"%% Gateway IP cannot be 0.0.0.0, multicast or reserved\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (set_evpn_gw_ip_ipv6,
+	    set_evpn_gw_ip_ipv6_cmd,
+	    "set evpn gateway-ip ipv6 X:X::X:X",
+	    SET_STR
+	    EVPN_HELP_STR
+	    "Set gateway IP for prefix advertisement route\n"
+	    "IPv6 address\n"
+	    "Gateway IP address in IPv6 format\n")
+{
+	int ret;
+	union sockunion su;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-evpn-gateway-ip-ipv6']";
+	char xpath_value[XPATH_MAXLEN];
+
+	ret = str2sockunion(argv[4]->arg, &su);
+	if (ret < 0) {
+		vty_out(vty, "%% Malformed gateway IP\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr)
+	    || IN6_IS_ADDR_MULTICAST(&su.sin6.sin6_addr)) {
+		vty_out(vty,
+			"%% Gateway IP cannot be a linklocal or multicast address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv6",
+		 xpath);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[4]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_set_evpn_gw_ip_ipv6,
+	    no_set_evpn_gw_ip_ipv6_cmd,
+	    "no set evpn gateway-ip ipv6 X:X::X:X",
+	    NO_STR
+	    SET_STR
+	    EVPN_HELP_STR
+	    "Set gateway IP for prefix advertisement route\n"
+	    "IPv4 address\n"
+	    "Gateway IP address in IPv4 format\n")
+{
+	int ret;
+	union sockunion su;
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-evpn-gateway-ip-ipv6']";
+
+	ret = str2sockunion(argv[5]->arg, &su);
+	if (ret < 0) {
+		vty_out(vty, "%% Malformed gateway IP\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (IN6_IS_ADDR_LINKLOCAL(&su.sin6.sin6_addr)
+	    || IN6_IS_ADDR_MULTICAST(&su.sin6.sin6_addr)) {
+		vty_out(vty,
+			"%% Gateway IP cannot be a linklocal or multicast address\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -6123,6 +6314,8 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_evpn_default_route_cmd);
 	route_map_install_match(&route_match_vrl_source_vrf_cmd);
 
+	route_map_install_set(&route_set_evpn_gateway_ip_ipv4_cmd);
+	route_map_install_set(&route_set_evpn_gateway_ip_ipv6_cmd);
 	route_map_install_set(&route_set_table_id_cmd);
 	route_map_install_set(&route_set_srte_color_cmd);
 	route_map_install_set(&route_set_ip_nexthop_cmd);
@@ -6166,6 +6359,10 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_evpn_rd_cmd);
 	install_element(RMAP_NODE, &match_evpn_default_route_cmd);
 	install_element(RMAP_NODE, &no_match_evpn_default_route_cmd);
+	install_element(RMAP_NODE, &set_evpn_gw_ip_ipv4_cmd);
+	install_element(RMAP_NODE, &no_set_evpn_gw_ip_ipv4_cmd);
+	install_element(RMAP_NODE, &set_evpn_gw_ip_ipv6_cmd);
+	install_element(RMAP_NODE, &no_set_evpn_gw_ip_ipv6_cmd);
 	install_element(RMAP_NODE, &match_vrl_source_vrf_cmd);
 	install_element(RMAP_NODE, &no_match_vrl_source_vrf_cmd);
 

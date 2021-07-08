@@ -64,10 +64,15 @@ module frr-zebra-route-map {
       "Set IPv4/IPv6 source address for route";
   }
 
-  augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:rmap-match-condition/frr-route-map:match-condition" {
+  augment "/frr-route-map:lib"
+    + "/frr-route-map:route-map"
+    + "/frr-route-map:entry"
+    + "/frr-route-map:match-condition"
+    + "/frr-route-map:rmap-match-condition"
+    + "/frr-route-map:match-condition" {
     case ipv4-prefix-length {
-      when "derived-from-or-self(../condition, 'ipv4-prefix-length') or "
-         + "derived-from-or-self(../condition, 'ipv4-next-hop-prefix-length')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv4-prefix-length') or "
+         + "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv4-next-hop-prefix-length')";
       leaf ipv4-prefix-length {
         type uint8 {
           range "0..32";
@@ -76,7 +81,7 @@ module frr-zebra-route-map {
     }
 
     case ipv6-prefix-length {
-      when "derived-from-or-self(../condition, 'ipv6-prefix-length')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:ipv6-prefix-length')";
       leaf ipv6-prefix-length {
         type uint8 {
           range "0..128";
@@ -85,7 +90,7 @@ module frr-zebra-route-map {
     }
 
     case source-instance {
-      when "derived-from-or-self(../condition, 'source-instance')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:source-instance')";
       leaf source-instance {
         type uint8 {
           range "0..255";
@@ -94,16 +99,21 @@ module frr-zebra-route-map {
     }
 
     case source-protocol {
-      when "derived-from-or-self(../condition, 'source-protocol')";
+      when "derived-from-or-self(../frr-route-map:condition, 'frr-zebra-route-map:source-protocol')";
       leaf source-protocol {
         type frr-route-types:frr-route-types;
       }
     }
   }
 
-  augment "/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:rmap-set-action/frr-route-map:set-action" {
+  augment "/frr-route-map:lib"
+    + "/frr-route-map:route-map"
+    + "/frr-route-map:entry"
+    + "/frr-route-map:set-action"
+    + "/frr-route-map:rmap-set-action"
+    + "/frr-route-map:set-action" {
     case src-address {
-      when "derived-from-or-self(../action, 'src-address')";
+      when "derived-from-or-self(../frr-route-map:action, 'frr-zebra-route-map:src-address')";
       choice src-address {
         description
           "Value of the source address";

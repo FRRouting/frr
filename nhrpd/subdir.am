@@ -13,7 +13,6 @@ nhrpd_nhrpd_LDADD = lib/libfrr.la lib/libfrrcares.la $(LIBCAP)
 nhrpd_nhrpd_SOURCES = \
 	nhrpd/linux.c \
 	nhrpd/netlink_arp.c \
-	nhrpd/netlink_gre.c \
 	nhrpd/nhrp_cache.c \
 	nhrpd/nhrp_errors.c \
 	nhrpd/nhrp_event.c \

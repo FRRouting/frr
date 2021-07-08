@@ -58,7 +58,13 @@ Basic Config Commands
 
 .. clicmd:: hostname HOSTNAME
 
-   Set hostname of the router.
+   Set hostname of the router. It is only for current ``vtysh``, it will not be
+   saved to any configuration file even with ``write file``.
+
+.. clicmd:: domainname DOMAINNAME
+
+   Set domainname of the router. It is only for current ``vtysh``, it will not
+   be saved to any configuration file even with ``write file``.
 
 .. clicmd:: password PASSWORD
 
@@ -69,6 +75,39 @@ Basic Config Commands
 
    Set enable password. The ``no`` form of the command deletes the enable
    password.
+
+.. clicmd:: service cputime-stats
+
+   Collect CPU usage statistics for individual FRR event handlers and CLI
+   commands.  This is enabled by default and can be disabled if the extra
+   overhead causes a noticeable slowdown on your system.
+
+   Disabling these statistics will also make the
+   :clicmd:`service cputime-warning (1-4294967295)` limit non-functional.
+
+.. clicmd:: service cputime-warning (1-4294967295)
+
+   Warn if the CPU usage of an event handler or CLI command exceeds the
+   specified limit (in milliseconds.)  Such warnings are generally indicative
+   of some routine in FRR mistakenly blocking/hogging the processing loop and
+   should be reported as a FRR bug.
+
+   The default limit is 5 seconds (i.e. 5000), but this can be changed by the
+   deprecated ``--enable-time-check=...`` compile-time option.
+
+   This command has no effect if :clicmd:`service cputime-stats` is disabled.
+
+.. clicmd:: service walltime-warning (1-4294967295)
+
+   Warn if the total wallclock time spent handling an event or executing a CLI
+   command exceeds the specified limit (in milliseconds.)  This includes time
+   spent waiting for I/O or other tasks executing and may produce excessive
+   warnings if the system is overloaded.  (This may still be useful to
+   provide an immediate sign that FRR is not operating correctly due to
+   externally caused starvation.)
+
+   The default limit is 5 seconds as above, including the same deprecated
+   ``--enable-time-check=...`` compile-time option.
 
 .. clicmd:: log trap LEVEL
 
@@ -170,11 +209,17 @@ Basic Config Commands
    is used to start the daemon then this command is turned on by default
    and cannot be turned off and the [no] form of the command is dissallowed.
 
-.. clicmd:: log-filter WORD [DAEMON]
+.. clicmd:: log filtered-file [FILENAME [LEVEL]]
+
+   Configure a destination file for filtered logs with the
+   :clicmd:`log filter-text WORD` command.
+
+.. clicmd:: log filter-text WORD
 
    This command forces logs to be filtered on a specific string. A log message
    will only be printed if it matches on one of the filters in the log-filter
-   table. Can be daemon independent.
+   table.  The filter only applies to file logging targets configured with
+   :clicmd:`log filtered-file [FILENAME [LEVEL]]`.
 
    .. note::
 
@@ -183,10 +228,15 @@ Basic Config Commands
       Log filters prevent this but you should still expect a small performance
       hit due to filtering each of all those logs.
 
-.. clicmd:: log-filter clear [DAEMON]
+   .. note::
 
-   This command clears all current filters in the log-filter table. Can be
-   daemon independent.
+      This setting is not saved to ``frr.conf`` and not shown in
+      :clicmd:`show running-config`.  It is intended for ephemeral debugging
+      purposes only.
+
+.. clicmd:: clear log filter-text
+
+   This command clears all current filters in the log-filter table.
 
 
 .. clicmd:: log immediate-mode

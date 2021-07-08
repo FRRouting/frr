@@ -729,7 +729,7 @@ static int vrrp_config_write_interface(struct vty *vty)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct lyd_node *dnode;
 
-			dnode = yang_dnode_get(
+			dnode = yang_dnode_getf(
 				running_config->dnode,
 				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
 				ifp->name, vrf->name);
@@ -771,6 +771,7 @@ void vrrp_vty_init(void)
 	install_node(&debug_node);
 	install_node(&interface_node);
 	install_node(&vrrp_node);
+	vrf_cmd_init(NULL, &vrrp_privs);
 	if_cmd_init();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);

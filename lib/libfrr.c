@@ -44,6 +44,7 @@
 #include "frr_pthread.h"
 #include "defaults.h"
 #include "frrscript.h"
+#include "systemd.h"
 
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
@@ -363,6 +364,11 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 
 		startup_fds |= UINT64_C(0x1) << (uint64_t)i;
 	}
+
+	/* note this doesn't do anything, it just grabs state, so doing it
+	 * early in _preinit is perfect.
+	 */
+	systemd_init_env();
 }
 
 bool frr_is_startup_fd(int fd)
@@ -765,15 +771,13 @@ struct thread_master *frr_init(void)
 	log_ref_vty_init();
 	lib_error_init();
 
-	yang_init(true);
-
-	debug_init_cli();
-
 	nb_init(master, di->yang_modules, di->n_yang_modules, true);
 	if (nb_db_init() != NB_OK)
 		flog_warn(EC_LIB_NB_DATABASE,
 			  "%s: failed to initialize northbound database",
 			  __func__);
+
+	debug_init_cli();
 
 	return master;
 }

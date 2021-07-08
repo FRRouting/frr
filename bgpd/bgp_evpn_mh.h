@@ -377,6 +377,12 @@ extern int bgp_evpn_es_route_install_uninstall(struct bgp *bgp,
 		struct prefix_evpn *evp, struct bgp_path_info *pi,
 		int install);
 extern void update_type1_routes_for_evi(struct bgp *bgp, struct bgpevpn *vpn);
+extern int delete_global_ead_evi_routes(struct bgp *bgp, struct bgpevpn *vpn);
+extern int bgp_evpn_mh_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
+				    struct bgpevpn *vpn, afi_t afi, safi_t safi,
+				    struct bgp_dest *dest, struct attr *attr,
+				    int add, struct bgp_path_info **ri,
+				    int *route_changed);
 int bgp_evpn_type1_route_process(struct peer *peer, afi_t afi, safi_t safi,
 		struct attr *attr, uint8_t *pfx, int psize,
 		uint32_t addpath_id);

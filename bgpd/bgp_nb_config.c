@@ -111,15 +111,24 @@ int bgp_router_create(struct nb_cb_create_args *args)
 			is_new_bgp = (bgp_lookup_by_name(name) == NULL);
 
 		ret = bgp_get_vty(&bgp, &as, name, inst_type);
-		switch (ret) {
-		case BGP_ERR_AS_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance is already running; AS is %u",
-				 as);
-			return NB_ERR_INCONSISTENCY;
-		case BGP_ERR_INSTANCE_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance type mismatch");
+		if (ret) {
+			switch (ret) {
+			case BGP_ERR_AS_MISMATCH:
+				snprintf(
+					args->errmsg, args->errmsg_len,
+					"BGP instance is already running; AS is %u",
+					as);
+				break;
+			case BGP_ERR_INSTANCE_MISMATCH:
+				snprintf(args->errmsg, args->errmsg_len,
+					 "BGP instance type mismatch");
+				break;
+			}
+
+			UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
+
+			nb_running_set_entry(args->dnode, bgp);
+
 			return NB_ERR_INCONSISTENCY;
 		}
 
@@ -173,24 +182,52 @@ int bgp_router_destroy(struct nb_cb_destroy_args *args)
 			for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, tmp_bgp)) {
 				if (tmp_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
 					continue;
-				if (CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
-					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
-				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
-					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT) ||
-				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
-					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
-				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
-					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT) ||
-				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP][SAFI_UNICAST],
-					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
-				    CHECK_FLAG(tmp_bgp->af_flags[AFI_IP6][SAFI_UNICAST],
-					       BGP_CONFIG_VRF_TO_VRF_EXPORT) ||
-				    (bgp == bgp_get_evpn() &&
-				    (CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-						BGP_L2VPN_EVPN_ADVERTISE_IPV4_UNICAST) ||
-				     CHECK_FLAG(tmp_bgp->af_flags[AFI_L2VPN][SAFI_EVPN],
-						BGP_L2VPN_EVPN_ADVERTISE_IPV6_UNICAST))) ||
-				    (tmp_bgp->vnihash && hashcount(tmp_bgp->vnihash))) {
+				if (CHECK_FLAG(tmp_bgp->af_flags[AFI_IP]
+								[SAFI_UNICAST],
+					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)
+				    || CHECK_FLAG(
+					       tmp_bgp->af_flags[AFI_IP6]
+								[SAFI_UNICAST],
+					       BGP_CONFIG_MPLSVPN_TO_VRF_IMPORT)
+				    || CHECK_FLAG(
+					       tmp_bgp->af_flags[AFI_IP]
+								[SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+				    || CHECK_FLAG(
+					       tmp_bgp->af_flags[AFI_IP6]
+								[SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_MPLSVPN_EXPORT)
+				    || CHECK_FLAG(
+					       tmp_bgp->af_flags[AFI_IP]
+								[SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_EXPORT)
+				    || CHECK_FLAG(
+					       tmp_bgp->af_flags[AFI_IP6]
+								[SAFI_UNICAST],
+					       BGP_CONFIG_VRF_TO_VRF_EXPORT)
+				    || (bgp == bgp_get_evpn()
+					&& (CHECK_FLAG(
+						    tmp_bgp->af_flags
+							    [AFI_L2VPN]
+							    [SAFI_EVPN],
+						    BGP_L2VPN_EVPN_ADV_IPV4_UNICAST)
+					    || CHECK_FLAG(
+						       tmp_bgp->af_flags
+							       [AFI_L2VPN]
+							       [SAFI_EVPN],
+						       BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)
+					    || CHECK_FLAG(
+						       tmp_bgp->af_flags
+							       [AFI_L2VPN]
+							       [SAFI_EVPN],
+						       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST)
+					    || CHECK_FLAG(
+						       tmp_bgp->af_flags
+							       [AFI_L2VPN]
+							       [SAFI_EVPN],
+						       BGP_L2VPN_EVPN_ADV_IPV6_UNICAST_GW_IP)))
+				    || (tmp_bgp->vnihash
+					&& hashcount(tmp_bgp->vnihash))) {
 					snprintf(
 						args->errmsg, args->errmsg_len,
 						"Cannot delete default BGP instance. Dependent VRF instances exist\n");
@@ -221,64 +258,26 @@ int bgp_router_destroy(struct nb_cb_destroy_args *args)
 int bgp_global_local_as_modify(struct nb_cb_modify_args *args)
 {
 	struct bgp *bgp;
-	as_t as;
-	const struct lyd_node *vrf_dnode;
-	const char *vrf_name;
-	const char *name = NULL;
-	enum bgp_instance_type inst_type;
-	int ret;
-	bool is_view_inst = false;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		as = yang_dnode_get_uint32(args->dnode, NULL);
-
-		inst_type = BGP_INSTANCE_TYPE_DEFAULT;
-
-		vrf_dnode = yang_dnode_get_parent(args->dnode,
-						  "control-plane-protocol");
-		vrf_name = yang_dnode_get_string(vrf_dnode, "./vrf");
-
-		if (strmatch(vrf_name, VRF_DEFAULT_NAME)) {
-			name = NULL;
-		} else {
-			name = vrf_name;
-			inst_type = BGP_INSTANCE_TYPE_VRF;
-		}
-
-		is_view_inst = yang_dnode_get_bool(args->dnode,
-						   "../instance-type-view");
-		if (is_view_inst)
-			inst_type = BGP_INSTANCE_TYPE_VIEW;
-
-		ret = bgp_lookup_by_as_name_type(&bgp, &as, name, inst_type);
-		switch (ret) {
-		case BGP_ERR_AS_MISMATCH:
+		/*
+		 * Changing AS number is not allowed, but we must allow it
+		 * once, when the BGP instance is created the first time.
+		 * If the instance already exists - return the validation
+		 * error.
+		 */
+		bgp = nb_running_get_entry_non_rec(
+			lyd_parent(lyd_parent(args->dnode)), NULL, false);
+		if (bgp) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance is already running; AS is %u",
-				 as);
-			return NB_ERR_VALIDATION;
-		case BGP_ERR_INSTANCE_MISMATCH:
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance type mismatch");
+				 "Changing AS number is not allowed");
 			return NB_ERR_VALIDATION;
 		}
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
-		return NB_OK;
 	case NB_EV_APPLY:
-		/* NOTE: handled in bgp_global_create callback, the as change
-		 * will be rejected in validate phase.
-		 */
-		as = yang_dnode_get_uint32(args->dnode, NULL);
-		bgp = nb_running_get_entry(args->dnode, NULL, true);
-		if (bgp->as != as) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "BGP instance is already running; AS is %u",
-				 bgp->as);
-			return NB_ERR_INCONSISTENCY;
-		}
 		break;
 	}
 
@@ -609,16 +608,11 @@ int bgp_global_route_reflector_route_reflector_cluster_id_modify(
 
 	struct bgp *bgp;
 	struct in_addr cluster_id;
-	const struct lyd_node_leaf_list *dleaf;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 
-	dleaf = (const struct lyd_node_leaf_list *)args->dnode;
-	if (dleaf->value_type == LY_TYPE_STRING)
-		yang_dnode_get_ipv4(&cluster_id, args->dnode, NULL);
-	else
-		(void)inet_aton(dleaf->value_str, &cluster_id);
-
+	/* cluster-id is either dotted-quad or a uint32 */
+	(void)inet_aton(lyd_get_value(args->dnode), &cluster_id);
 	bgp_cluster_id_set(bgp, &cluster_id);
 
 	if (bgp_clear_star_soft_out(bgp->name, args->errmsg, args->errmsg_len))
@@ -1514,12 +1508,27 @@ int bgp_global_global_config_timers_keepalive_modify(
  */
 int bgp_global_instance_type_view_modify(struct nb_cb_modify_args *args)
 {
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		/*
+		 * Changing instance type is not allowed, but we must allow it
+		 * once, when the BGP instance is created the first time.
+		 * If the instance already exists - return the validation
+		 * error.
+		 */
+		bgp = nb_running_get_entry_non_rec(
+			lyd_parent(lyd_parent(args->dnode)), NULL, false);
+		if (bgp) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Changing instance type is not allowed");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
 		break;
 	}
 
@@ -3491,9 +3500,8 @@ void bgp_neighbors_neighbor_local_as_apply_finish(
 		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 	if (yang_dnode_exists(args->dnode, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+	if (yang_dnode_exists(args->dnode, "./replace-as"))
+		replace_as = yang_dnode_get_bool(args->dnode, "./replace-as");
 
 	if (!as && !no_prepend && !replace_as)
 		ret = peer_local_as_unset(peer);
@@ -3574,26 +3582,11 @@ int bgp_neighbors_neighbor_local_as_no_prepend_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_neighbor_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/no-replace-as
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/neighbor/local-as/replace-as
  */
-int bgp_neighbors_neighbor_local_as_no_replace_as_modify(
+int bgp_neighbors_neighbor_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -5525,9 +5518,8 @@ void bgp_neighbors_unnumbered_neighbor_local_as_apply_finish(
 		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 	if (yang_dnode_exists(args->dnode, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+	if (yang_dnode_exists(args->dnode, "./replace-as"))
+		replace_as = yang_dnode_get_bool(args->dnode, "./replace-as");
 
 	if (!as && !no_prepend && !replace_as)
 		ret = peer_local_as_unset(peer);
@@ -5590,26 +5582,11 @@ int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_modify(
 	return NB_OK;
 }
 
-int bgp_neighbors_unnumbered_neighbor_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/no-replace-as
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/neighbors/unnumbered-neighbor/local-as/replace-as
  */
-int bgp_neighbors_unnumbered_neighbor_local_as_no_replace_as_modify(
+int bgp_neighbors_unnumbered_neighbor_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -7427,9 +7404,8 @@ void bgp_peer_groups_peer_group_local_as_apply_finish(
 		as = yang_dnode_get_uint32(args->dnode, "./local-as");
 	if (yang_dnode_exists(args->dnode, "./no-prepend"))
 		no_prepend = yang_dnode_get_bool(args->dnode, "./no-prepend");
-	if (yang_dnode_exists(args->dnode, "./no-replace-as"))
-		replace_as =
-			yang_dnode_get_bool(args->dnode, "./no-replace-as");
+	if (yang_dnode_exists(args->dnode, "./replace-as"))
+		replace_as = yang_dnode_get_bool(args->dnode, "./replace-as");
 
 	if (!as && !no_prepend && !replace_as)
 		ret = peer_local_as_unset(peer);
@@ -7507,26 +7483,11 @@ int bgp_peer_groups_peer_group_local_as_no_prepend_modify(
 	return NB_OK;
 }
 
-int bgp_peer_groups_peer_group_local_as_no_prepend_destroy(
-	struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		/* TODO: implement me. */
-		break;
-	}
-
-	return NB_OK;
-}
-
 /*
  * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/no-replace-as
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-bgp:bgp/peer-groups/peer-group/local-as/replace-as
  */
-int bgp_peer_groups_peer_group_local_as_no_replace_as_modify(
+int bgp_peer_groups_peer_group_local_as_replace_as_modify(
 	struct nb_cb_modify_args *args)
 {
 	switch (args->event) {
@@ -11509,12 +11470,33 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_nexthop_destroy(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
+	bool is_enable = false;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF
+		    && bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"import|export vpn valid only for bgp vrf or default instance");
+			return NB_ERR_VALIDATION;
+		}
+
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			is_enable = true;
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+			args, "import", is_enable);
 		break;
 	}
 
@@ -11528,12 +11510,32 @@ int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_import_vpn_modify(
 int bgp_global_afi_safis_afi_safi_ipv6_unicast_vpn_config_export_vpn_modify(
 	struct nb_cb_modify_args *args)
 {
+	bool is_enable = false;
+	struct bgp *bgp;
+
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		bgp = nb_running_get_entry(args->dnode, NULL, false);
+		if (!bgp)
+			return NB_OK;
+
+		if (bgp->inst_type != BGP_INSTANCE_TYPE_VRF
+		    && bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"import|export vpn valid only for bgp vrf or default instance");
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		return NB_OK;
 	case NB_EV_APPLY:
-		/* TODO: implement me. */
+		if (yang_dnode_get_bool(args->dnode, NULL))
+			is_enable = true;
+
+		return bgp_global_afi_safi_ip_unicast_vpn_config_import_export_vpn_modify(
+			args, "export", is_enable);
 		break;
 	}
 

@@ -287,7 +287,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             input_dict_4,
             next_hop=topo["routers"]["r3"]["links"]["r1"][addr_type].split("/")[0],
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -322,7 +322,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             }
         }
         result = create_static_routes(tgen, input_dict_3)
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -335,7 +335,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             next_hop=topo["routers"]["r3"]["links"]["r1"][addr_type].split("/")[0],
             protocol="bgp",
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -354,7 +354,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             }
         }
         result = create_static_routes(tgen, input_dict_3)
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -388,7 +388,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             }
         }
         result = create_static_routes(tgen, input_dict_3)
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -401,7 +401,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             next_hop=topo["routers"]["r3"]["links"]["r1"][addr_type].split("/")[0],
             protocol="bgp",
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -427,7 +427,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             }
         }
         result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -474,7 +474,7 @@ def test_recursive_routes_iBGP_peer_p1(request):
             }
         }
         result = create_static_routes(tgen, input_dict_4)
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -639,7 +639,7 @@ def test_next_hop_as_self_ip_p1(request):
             input_dict_4,
             next_hop=topo["routers"]["r2"]["links"]["r4"][addr_type].split("/")[0],
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -671,7 +671,7 @@ def test_next_hop_as_self_ip_p1(request):
             input_dict_4,
             next_hop=topo["routers"]["r2"]["links"]["r4"][addr_type].split("/")[0],
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
         result = verify_rib(
@@ -1277,7 +1277,7 @@ def test_BGP_path_attributes_default_values_p1(request):
                 topo["routers"]["r3"]["links"]["r4"][addr_type].split("/")[0],
             ],
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -1298,7 +1298,7 @@ def test_BGP_path_attributes_default_values_p1(request):
             rmap_name="rmap_pf",
             input_dict=input_dict_4,
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -1402,7 +1402,7 @@ def test_BGP_path_attributes_default_values_p1(request):
             rmap_name="rmap_pf",
             input_dict=input_dict_4,
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -1478,7 +1478,7 @@ def test_BGP_path_attributes_default_values_p1(request):
             input_dict=input_dict_4,
             nexthop=None,
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 
@@ -1859,7 +1859,7 @@ def test_BGP_active_standby_preemption_and_ecmp_p1(request):
                 topo["routers"]["r3"]["links"]["r4"][addr_type].split("/")[0],
             ],
         )
-        assert result is True, "Testcase  : Failed \n Error : {}".format(
+        assert result is True, "Testcase {}: Failed \n Error : {}".format(
             tc_name, result
         )
 

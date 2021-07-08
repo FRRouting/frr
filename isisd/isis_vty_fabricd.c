@@ -187,7 +187,7 @@ DEFUN (show_lsp_flooding,
 		vty_out(vty, "Area %s:\n",
 			area->area_tag ? area->area_tag : "null");
 		if (lspid) {
-			lsp = lsp_for_arg(head, lspid, isis);
+			lsp = lsp_for_sysid(head, lspid, isis);
 			if (lsp)
 				lsp_print_flooding(vty, lsp, isis);
 			continue;
@@ -319,13 +319,11 @@ DEFUN (isis_bfd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (circuit->bfd_info
-	    && CHECK_FLAG(circuit->bfd_info->flags, BFD_FLAG_PARAM_CFG)) {
+	if (circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
-	}
 
-	isis_bfd_circuit_param_set(circuit, BFD_DEF_MIN_RX, BFD_DEF_MIN_TX,
-				   BFD_DEF_DETECT_MULT, NULL, true);
+	circuit->bfd_config.enabled = true;
+	isis_bfd_circuit_cmd(circuit);
 
 	return CMD_SUCCESS;
 }
@@ -343,11 +341,12 @@ DEFUN (no_isis_bfd,
 	if (!circuit)
 		return CMD_ERR_NO_MATCH;
 
-	if (!circuit->bfd_info)
+	if (!circuit->bfd_config.enabled)
 		return CMD_SUCCESS;
 
-	isis_bfd_circuit_cmd(circuit, ZEBRA_BFD_DEST_DEREGISTER);
-	bfd_info_free(&circuit->bfd_info);
+	circuit->bfd_config.enabled = false;
+	isis_bfd_circuit_cmd(circuit);
+
 	return CMD_SUCCESS;
 }
 

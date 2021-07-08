@@ -291,6 +291,10 @@ module frr-ripd {
       }
       container version {
         leaf receive {
+          must
+            '(. = "1" and ../send = "1") or ' +
+            '(. = "2" and ../send = "2") or ' +
+            '(. = "1-2" and ../send = "2")';
           type enumeration {
             enum "1" {
               value 1;
@@ -313,6 +317,10 @@ module frr-ripd {
             "Advertisement reception - Version control.";
         }
         leaf send {
+          must
+            '(../receive = "1" and . = "1") or ' +
+            '(../receive = "2" and . = "2") or ' +
+            '(../receive = "1-2" and . = "2")';
           type enumeration {
             enum "1" {
               value 1;
@@ -329,10 +337,6 @@ module frr-ripd {
           description
             "Advertisement transmission - Version control.";
         }
-        must
-          '(./receive = "1" and ./send = "1") or ' +
-          '(./receive = "2" and ./send = "2") or ' +
-          '(./receive = "1-2" and ./send = "2")';
       }
 
       /*

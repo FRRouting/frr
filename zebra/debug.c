@@ -178,7 +178,7 @@ DEFPY (debug_zebra_mpls,
 	return CMD_SUCCESS;
 }
 
-DEFUN (debug_zebra_vxlan,
+DEFPY (debug_zebra_vxlan,
        debug_zebra_vxlan_cmd,
        "debug zebra vxlan",
        DEBUG_STR

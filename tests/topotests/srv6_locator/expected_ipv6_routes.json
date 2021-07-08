@@ -1,0 +1,29 @@
+{
+  "2001:db8:1:1:1::/80":[
+    {
+      "prefix":"2001:db8:1:1:1::/80",
+      "protocol":"static",
+      "selected":true,
+      "installed":true,
+      "nexthops":[{
+        "fib":true,
+        "active":true,
+        "seg6local":{ "action":"End" }
+      }]
+    }
+  ],
+  "2001:db8:2:2:1::/80":[
+    {
+      "prefix":"2001:db8:2:2:1::/80",
+      "protocol":"static",
+      "selected":true,
+      "installed":true,
+      "nexthops":[{
+        "fib":true,
+        "active":true,
+        "seg6local":{ "action":"End" }
+
+      }]
+    }
+  ]
+}

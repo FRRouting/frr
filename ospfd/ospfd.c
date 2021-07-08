@@ -386,7 +386,7 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	new->proactive_arp = OSPF_PROACTIVE_ARP_DEFAULT;
 
-	ospf_gr_helper_init(new);
+	ospf_gr_helper_instance_init(new);
 
 	ospf_asbr_external_aggregator_init(new);
 
@@ -648,9 +648,11 @@ void ospf_terminate(void)
 	if (listcount(om->ospf) == 0)
 		goto done;
 
-	bfd_gbl_exit();
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf))
 		ospf_finish(ospf);
+
+	/* Cleanup GR */
+	ospf_gr_helper_stop();
 
 	/* Cleanup route maps */
 	route_map_finish();
@@ -689,7 +691,7 @@ void ospf_finish(struct ospf *ospf)
 /* Final cleanup of ospf instance */
 static void ospf_finish_final(struct ospf *ospf)
 {
-	struct vrf *vrf;
+	struct vrf *vrf = vrf_lookup_by_id(ospf->vrf_id);
 	struct route_node *rn;
 	struct ospf_nbr_nbma *nbr_nbma;
 	struct ospf_lsa *lsa;
@@ -697,6 +699,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	struct ospf_area *area;
 	struct ospf_vl_data *vl_data;
 	struct listnode *node, *nnode;
+	struct ospf_redist *red;
 	int i;
 
 	QOBJ_UNREG(ospf);
@@ -710,7 +713,6 @@ static void ospf_finish_final(struct ospf *ospf)
 	/* Unregister redistribution */
 	for (i = 0; i < ZEBRA_ROUTE_MAX; i++) {
 		struct list *red_list;
-		struct ospf_redist *red;
 
 		red_list = ospf->redist[i];
 		if (!red_list)
@@ -721,7 +723,12 @@ static void ospf_finish_final(struct ospf *ospf)
 			ospf_redist_del(ospf, i, red->instance);
 		}
 	}
-	ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE, 0, 0);
+	red = ospf_redist_lookup(ospf, DEFAULT_ROUTE, 0);
+	if (red) {
+		ospf_routemap_unset(red);
+		ospf_redist_del(ospf, DEFAULT_ROUTE, 0);
+		ospf_redistribute_default_set(ospf, DEFAULT_ORIGINATE_NONE, 0, 0);
+	}
 
 	for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 		ospf_remove_vls_through_area(ospf, area);
@@ -811,8 +818,8 @@ static void ospf_finish_final(struct ospf *ospf)
 		if ((lsa = rn->info) != NULL) {
 			ospf_lsa_unlock(&lsa);
 			rn->info = NULL;
+			route_unlock_node(rn);
 		}
-		route_unlock_node(rn);
 	}
 	route_table_finish(ospf->maxage_lsa);
 
@@ -886,7 +893,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	list_delete(&ospf->oi_write_q);
 
 	/* Reset GR helper data structers */
-	ospf_gr_helper_stop(ospf);
+	ospf_gr_helper_instance_stop(ospf);
 
 	close(ospf->fd);
 	stream_free(ospf->ibuf);
@@ -894,17 +901,11 @@ static void ospf_finish_final(struct ospf *ospf)
 	ospf->max_multipath = MULTIPATH_NUM;
 	ospf_delete(ospf);
 
-	if (ospf->name) {
-		vrf = vrf_lookup_by_name(ospf->name);
-		if (vrf)
-			ospf_vrf_unlink(ospf, vrf);
-		XFREE(MTYPE_OSPF_TOP, ospf->name);
-	} else {
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-		if (vrf)
-			ospf_vrf_unlink(ospf, vrf);
-	}
+	if (vrf)
+		ospf_vrf_unlink(ospf, vrf);
 
+	if (ospf->name)
+		XFREE(MTYPE_OSPF_TOP, ospf->name);
 	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
@@ -2158,7 +2159,7 @@ static int ospf_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf)
+static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf, bool set)
 {
 	int type;
 	struct list *red_list;
@@ -2171,7 +2172,22 @@ static void ospf_set_redist_vrf_bitmaps(struct ospf *ospf)
 			zlog_debug(
 				"%s: setting redist vrf %d bitmap for type %d",
 				__func__, ospf->vrf_id, type);
-		vrf_bitmap_set(zclient->redist[AFI_IP][type], ospf->vrf_id);
+		if (set)
+			vrf_bitmap_set(zclient->redist[AFI_IP][type],
+				       ospf->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->redist[AFI_IP][type],
+					 ospf->vrf_id);
+	}
+
+	red_list = ospf->redist[DEFAULT_ROUTE];
+	if (red_list) {
+		if (set)
+			vrf_bitmap_set(zclient->default_information[AFI_IP],
+				       ospf->vrf_id);
+		else
+			vrf_bitmap_unset(zclient->default_information[AFI_IP],
+					 ospf->vrf_id);
 	}
 }
 
@@ -2201,18 +2217,12 @@ static int ospf_vrf_enable(struct vrf *vrf)
 				__func__, vrf->name, ospf->vrf_id, old_vrf_id);
 
 		if (old_vrf_id != ospf->vrf_id) {
-			frr_with_privs(&ospfd_privs) {
-				/* stop zebra redist to us for old vrf */
-				zclient_send_dereg_requests(zclient,
-							    old_vrf_id);
+			ospf_set_redist_vrf_bitmaps(ospf, true);
 
-				ospf_set_redist_vrf_bitmaps(ospf);
+			/* start zebra redist to us for new vrf */
+			ospf_zebra_vrf_register(ospf);
 
-				/* start zebra redist to us for new vrf */
-				ospf_zebra_vrf_register(ospf);
-
-				ret = ospf_sock_init(ospf);
-			}
+			ret = ospf_sock_init(ospf);
 			if (ret < 0 || ospf->fd <= 0)
 				return 0;
 			thread_add_read(master, ospf_read, ospf, ospf->fd,
@@ -2241,6 +2251,10 @@ static int ospf_vrf_disable(struct vrf *vrf)
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
 		old_vrf_id = ospf->vrf_id;
+
+		ospf_zebra_vrf_deregister(ospf);
+
+		ospf_set_redist_vrf_bitmaps(ospf, false);
 
 		/* We have instance configured, unlink
 		 * from VRF and make it "down".

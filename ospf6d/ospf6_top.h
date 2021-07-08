@@ -29,7 +29,6 @@ struct ospf6_master {
 	struct list *ospf6;
 	/* OSPFv3 thread master. */
 	struct thread_master *master;
-	in_addr_t zebra_router_id;
 };
 
 /* ospf6->config_flags */
@@ -38,9 +37,12 @@ enum {
 	OSPF6_LOG_ADJACENCY_DETAIL =	(1 << 1),
 };
 
+/* For processing route-map change update in the callback */
+#define OSPF6_IS_RMAP_CHANGED 0x01
 struct ospf6_redist {
 	uint8_t instance;
 
+	uint8_t flag;
 	/* Redistribute metric info. */
 	struct {
 		int type;  /* External metric type (E1 or E2).  */
@@ -71,7 +73,7 @@ struct ospf6 {
 	/* static router id */
 	in_addr_t router_id_static;
 
-	struct in_addr router_id_zebra;
+	in_addr_t router_id_zebra;
 
 	/* start time */
 	struct timeval starttime;
@@ -95,6 +97,8 @@ struct ospf6 {
 	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
 	uint8_t flag;
+#define OSPF6_FLAG_ABR          0x04
+#define OSPF6_FLAG_ASBR         0x08
 
 	int redistribute; /* Num of redistributed protocols. */
 
@@ -126,7 +130,10 @@ struct ospf6 {
 	struct thread *maxage_remover;
 	struct thread *t_distribute_update; /* Distirbute update timer. */
 	struct thread *t_ospf6_receive; /* OSPF6 receive timer */
+#define OSPF6_WRITE_INTERFACE_COUNT_DEFAULT 20
+	struct thread *t_write;
 
+	int write_oi_count; /* Num of packets sent per thread invocation */
 	uint32_t ref_bandwidth;
 
 	/* Distance parameters */
@@ -145,14 +152,22 @@ struct ospf6 {
 	 * to support ECMP.
 	 */
 	uint16_t max_multipath;
+	/* Count of NSSA areas */
+	uint8_t anyNSSA;
+	struct thread *t_abr_task; /* ABR task timer. */
+	struct list *oi_write_q;
 
+	uint32_t redist_count;
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(ospf6);
 
 #define OSPF6_DISABLED    0x01
 #define OSPF6_STUB_ROUTER 0x02
-#define OSPF6_FLAG_ASBR   0x04
+#define OSPF6_MAX_IF_ADDRS 100
+#define OSPF6_MAX_IF_ADDRS_JUMBO 200
+#define OSPF6_DEFAULT_MTU 1500
+#define OSPF6_JUMBO_MTU 9000
 
 /* global pointer for OSPF top data structure */
 extern struct ospf6 *ospf6;
@@ -160,6 +175,7 @@ extern struct ospf6_master *om6;
 
 /* prototypes */
 extern void ospf6_master_init(struct thread_master *master);
+extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
 extern void ospf6_router_id_update(struct ospf6 *ospf6);
@@ -171,5 +187,5 @@ void ospf6_vrf_unlink(struct ospf6 *ospf6, struct vrf *vrf);
 struct ospf6 *ospf6_lookup_by_vrf_id(vrf_id_t vrf_id);
 struct ospf6 *ospf6_lookup_by_vrf_name(const char *name);
 const char *ospf6_vrf_id_to_name(vrf_id_t vrf_id);
-
+void ospf6_vrf_init(void);
 #endif /* OSPF6_TOP_H */

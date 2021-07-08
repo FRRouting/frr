@@ -54,6 +54,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, FEC, "MPLS FEC object");
 DEFINE_MTYPE_STATIC(ZEBRA, NHLFE, "MPLS nexthop object");
 
 int mpls_enabled;
+bool mpls_pw_reach_strict; /* Strict reachability checking */
 
 /* static function declarations */
 
@@ -612,7 +613,7 @@ static int nhlfe_nexthop_active_ipv4(zebra_nhlfe_t *nhlfe,
 	/* Lookup nexthop in IPv4 routing table. */
 	memset(&p, 0, sizeof(struct prefix_ipv4));
 	p.family = AF_INET;
-	p.prefixlen = IPV4_MAX_PREFIXLEN;
+	p.prefixlen = IPV4_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv4;
 
 	rn = route_node_match(table, (struct prefix *)&p);
@@ -661,7 +662,7 @@ static int nhlfe_nexthop_active_ipv6(zebra_nhlfe_t *nhlfe,
 	/* Lookup nexthop in IPv6 routing table. */
 	memset(&p, 0, sizeof(struct prefix_ipv6));
 	p.family = AF_INET6;
-	p.prefixlen = IPV6_MAX_PREFIXLEN;
+	p.prefixlen = IPV6_MAX_BITLEN;
 	p.prefix = nexthop->gate.ipv6;
 
 	rn = route_node_match(table, (struct prefix *)&p);
@@ -3952,11 +3953,18 @@ void zebra_mpls_close_tables(struct zebra_vrf *zvrf)
  */
 void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 {
+	char buffer[80];
+
 	if (!zvrf)
 		return;
-	zvrf->slsp_table =
-		hash_create(label_hash, label_cmp, "ZEBRA SLSP table");
-	zvrf->lsp_table = hash_create(label_hash, label_cmp, "ZEBRA LSP table");
+
+	snprintf(buffer, sizeof(buffer), "ZEBRA SLSP table: %s",
+		 zvrf->vrf->name);
+	zvrf->slsp_table = hash_create_size(8, label_hash, label_cmp, buffer);
+
+	snprintf(buffer, sizeof(buffer), "ZEBRA LSP table: %s",
+		 zvrf->vrf->name);
+	zvrf->lsp_table = hash_create_size(8, label_hash, label_cmp, buffer);
 	zvrf->fec_table[AFI_IP] = route_table_init();
 	zvrf->fec_table[AFI_IP6] = route_table_init();
 	zvrf->mpls_flags = 0;
@@ -3970,6 +3978,7 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
 void zebra_mpls_init(void)
 {
 	mpls_enabled = 0;
+	mpls_pw_reach_strict = false;
 
 	if (mpls_kernel_init() < 0) {
 		flog_warn(EC_ZEBRA_MPLS_SUPPORT_DISABLED,

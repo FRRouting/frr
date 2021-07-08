@@ -156,8 +156,10 @@ const char *ospf_exit_reason2str(unsigned int reason);
 const char *ospf_restart_reason2str(unsigned int reason);
 const char *ospf_rejected_reason2str(unsigned int reason);
 
-extern void ospf_gr_helper_init(struct ospf *ospf);
-extern void ospf_gr_helper_stop(struct ospf *ospf);
+extern void ospf_gr_helper_instance_init(struct ospf *ospf);
+extern void ospf_gr_helper_instance_stop(struct ospf *ospf);
+extern void ospf_gr_helper_init(void);
+extern void ospf_gr_helper_stop(void);
 extern int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 				  struct ospf_neighbor *nbr);
 extern void ospf_gr_helper_exit(struct ospf_neighbor *nbr,

@@ -1862,9 +1862,9 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		return;
 	}
 
-	/* Get list of LSAs from Link State Update packet. - Also perorms Stages
-	 * 1 (validate LSA checksum) and 2 (check for LSA consistent type)
-	 * of section 13.
+	/* Get list of LSAs from Link State Update packet. - Also performs
+	 * Stages 1 (validate LSA checksum) and 2 (check for LSA consistent
+	 * type) of section 13.
 	 */
 	lsas = ospf_ls_upd_list_lsa(nbr, s, oi, size);
 
@@ -1890,7 +1890,7 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		struct ospf_lsa *ls_ret, *current;
 		int ret = 1;
 
-		if (IS_DEBUG_OSPF_NSSA)
+		if (IS_DEBUG_OSPF(lsa, LSA))
 			zlog_debug("LSA Type-%d from %pI4, ID: %pI4, ADV: %pI4",
 				   lsa->data->type, &ospfh->router_id,
 				   &lsa->data->id, &lsa->data->adv_router);
@@ -4266,7 +4266,7 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	if (IS_GRACE_LSA(lsa)) {
 		if (IS_DEBUG_OSPF_GR_HELPER)
 			zlog_debug("%s, Sending GRACE ACK to Restarter.",
-				   __PRETTY_FUNCTION__);
+				   __func__);
 	}
 
 	if (listcount(oi->ls_ack_direct.ls_ack) == 0)

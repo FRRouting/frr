@@ -257,7 +257,7 @@ def test_ospf_authentication_simple_pass_tc28_p1(request):
     sleep(6)
     dut = "r2"
     ospf_covergence = verify_ospf_neighbor(
-        tgen, topo, dut=dut, expected=False, attempts=5
+        tgen, topo, dut=dut, expected=False, retry_timeout=10
     )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
@@ -395,7 +395,7 @@ def test_ospf_authentication_md5_tc29_p1(request):
     sleep(6)
     dut = "r1"
     ospf_covergence = verify_ospf_neighbor(
-        tgen, topo, dut=dut, expected=False, attempts=3
+        tgen, topo, dut=dut, expected=False, retry_timeout=6
     )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
@@ -460,7 +460,7 @@ def test_ospf_authentication_md5_tc29_p1(request):
     sleep(6)
     dut = "r2"
     ospf_covergence = verify_ospf_neighbor(
-        tgen, topo, dut=dut, expected=False, attempts=5
+        tgen, topo, dut=dut, expected=False, retry_timeout=10
     )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence
@@ -610,7 +610,7 @@ def test_ospf_authentication_different_auths_tc30_p1(request):
     step("Verify that the neighbour is not FULL between R1 and R2.")
     dut = "r1"
     ospf_covergence = verify_ospf_neighbor(
-        tgen, topo, dut=dut, expected=False, attempts=5
+        tgen, topo, dut=dut, expected=False, retry_timeout=10
     )
     assert ospf_covergence is not True, "setup_module :Failed \n Error:" " {}".format(
         ospf_covergence

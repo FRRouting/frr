@@ -26,7 +26,6 @@
 #include "filter.h"
 
 #include "nhrpd.h"
-#include "netlink.h"
 #include "nhrp_errors.h"
 
 DEFINE_MGROUP(NHRPD, "NHRP");
@@ -119,6 +118,7 @@ static struct quagga_signal_t sighandlers[] = {
 static const struct frr_yang_module_info *const nhrpd_yang_modules[] = {
 	&frr_filter_info,
 	&frr_interface_info,
+	&frr_vrf_info,
 };
 
 FRR_DAEMON_INFO(nhrpd, NHRP, .vty_port = NHRP_VTY_PORT,
@@ -154,7 +154,6 @@ int main(int argc, char **argv)
 	assert(nhrpd_privs.change);
 	nhrpd_privs.change(ZPRIVS_RAISE);
 
-	netlink_init();
 	evmgr_init();
 	nhrp_vc_init();
 	nhrp_packet_init();

@@ -2476,8 +2476,8 @@ void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS)
 
 	if (!is_evpn_enabled()) {
 		zlog_debug(
-				"%s: EVPN not enabled yet we received a es_add zapi call",
-				__PRETTY_FUNCTION__);
+			"%s: EVPN not enabled yet we received a es_add zapi call",
+			__func__);
 		return;
 	}
 

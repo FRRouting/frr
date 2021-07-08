@@ -11,6 +11,11 @@ AM_CFLAGS = \
 	$(SAN_FLAGS) \
 	$(WERROR) \
 	# end
+AM_CXXFLAGS = \
+	$(AC_CXXFLAGS) \
+	$(LIBYANG_CFLAGS) \
+	$(WERROR) \
+	# end
 
 # CPPFLAGS_BASE does not contain the include path for overriding assert.h,
 # therefore should be used in tools that do *not* link libfrr or do not want
@@ -104,8 +109,6 @@ CLEANFILES =
 DISTCLEANFILES =
 SUFFIXES =
 
-examplesdir = $(exampledir)
-
 bin_PROGRAMS =
 sbin_PROGRAMS =
 sbin_SCRIPTS =
@@ -117,7 +120,6 @@ lib_LTLIBRARIES =
 module_LTLIBRARIES =
 pkginclude_HEADERS =
 nodist_pkginclude_HEADERS =
-dist_examples_DATA =
 dist_yangmodels_DATA =
 man_MANS =
 vtysh_scan =
@@ -193,8 +195,6 @@ EXTRA_DIST += \
 	m4/README.txt \
 	m4/libtool-whole-archive.patch \
 	config.version \
-	changelog-auto \
-	changelog-auto.in \
 	\
 	python/clidef.py \
 	python/clippy/__init__.py \

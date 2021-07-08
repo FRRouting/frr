@@ -71,6 +71,10 @@ from lib.lutil import luCommand
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+
+pytestmark = [pytest.mark.bgpd]
+
+
 #####################################################
 ##
 ##   Network Topology Definition

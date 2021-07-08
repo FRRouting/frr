@@ -317,6 +317,7 @@ int pim_upstream_eval_inherit_if(struct pim_upstream *up,
 void pim_upstream_update_join_desired(struct pim_instance *pim,
 				      struct pim_upstream *up);
 
+void pim_update_suppress_timers(uint32_t suppress_time);
 void pim_upstream_join_suppress(struct pim_upstream *up,
 				struct in_addr rpf_addr, int holdtime);
 

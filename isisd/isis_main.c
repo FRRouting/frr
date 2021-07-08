@@ -265,11 +265,8 @@ int main(int argc, char **argv, char **envp)
 	lsp_init();
 	mt_init();
 
-	/* create the global 'isis' instance */
-	isis_global_instance_create(VRF_DEFAULT_NAME);
-
 	isis_zebra_init(master, instance);
-	isis_bfd_init();
+	isis_bfd_init(master);
 	isis_ldp_sync_init();
 	fabricd_init();
 

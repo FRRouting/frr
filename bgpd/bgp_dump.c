@@ -389,7 +389,8 @@ bgp_dump_route_node_record(int afi, struct bgp_dest *dest,
 		bgp_dump_routes_attr(obuf, path->attr, p);
 
 		cur_endp = stream_get_endp(obuf);
-		if (cur_endp > BGP_MAX_PACKET_SIZE + BGP_DUMP_MSG_HEADER
+		if (cur_endp > BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE
+				       + BGP_DUMP_MSG_HEADER
 				       + BGP_DUMP_HEADER_SIZE) {
 			stream_set_endp(obuf, endp);
 			break;
@@ -868,8 +869,8 @@ void bgp_dump_init(void)
 	memset(&bgp_dump_routes, 0, sizeof(struct bgp_dump));
 
 	bgp_dump_obuf =
-		stream_new((BGP_MAX_PACKET_SIZE << 1) + BGP_DUMP_MSG_HEADER
-			   + BGP_DUMP_HEADER_SIZE);
+		stream_new((BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE * 2)
+			   + BGP_DUMP_MSG_HEADER + BGP_DUMP_HEADER_SIZE);
 
 	install_node(&bgp_dump_node);
 

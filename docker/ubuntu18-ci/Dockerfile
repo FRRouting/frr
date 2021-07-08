@@ -7,8 +7,8 @@ RUN apt update && \
     apt-get install -y \
       git autoconf automake libtool make libreadline-dev texinfo \
       pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
-      libc-ares-dev python3-dev libsystemd-dev python-ipaddress python3-sphinx \
-      install-info build-essential libsystemd-dev libsnmp-dev perl libcap-dev \
+      libc-ares-dev python3-dev python-ipaddress python3-sphinx \
+      install-info build-essential libsnmp-dev perl libcap-dev \
       libelf-dev \
       sudo gdb iputils-ping time \
       mininet python-pip iproute2 iperf && \
@@ -26,19 +26,19 @@ RUN groupadd -r -g 92 frr && \
       echo 'frr ALL = NOPASSWD: ALL' | tee /etc/sudoers.d/frr && \
       mkdir -p /home/frr && chown frr.frr /home/frr
 
-#for libyang 1
-RUN apt-get install -y cmake libpcre3-dev
+#for libyang 2
+RUN apt-get install -y cmake libpcre2-dev
 
 USER frr:frr
 
-# build and install libyang1
+# build and install libyang2
 RUN cd && pwd && ls -al && \
     git clone https://github.com/CESNET/libyang.git && \
     cd libyang && \
-    git checkout v1.0.225 && \
+    git checkout v2.0.0 && \
     mkdir build; cd build && \
-    cmake -DENABLE_LYD_PRIV=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr \
-          -D CMAKE_BUILD_TYPE:String="Release" .. && \
+    cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr \
+          -DCMAKE_BUILD_TYPE:String="Release" .. && \
     make -j $(nproc) && \
     sudo make install
 
@@ -47,7 +47,7 @@ COPY --chown=frr:frr . /home/frr/frr/
 RUN cd && ls -al && ls -al frr
 
 RUN cd ~/frr && \
-    ./bootstrap.sh  && \
+    ./bootstrap.sh && \
     ./configure \
        --prefix=/usr \
        --localstatedir=/var/run/frr \

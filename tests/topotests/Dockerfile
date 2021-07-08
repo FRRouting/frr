@@ -44,6 +44,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
         xterm \
     && pip install \
         exabgp==3.4.17 \
+        "scapy>=2.4.2" \
         ipaddr \
         pytest \
     && rm -rf /var/lib/apt/lists/*

@@ -175,6 +175,7 @@ struct ospf_lsa *ospf_lsa_new_and_data(size_t size)
 
 	new = ospf_lsa_new();
 	new->data = ospf_lsa_data_new(size);
+	new->size = size;
 
 	return new;
 }
@@ -2083,6 +2084,8 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 {
 	struct external_info *ei;
 	struct ospf_external_aggr_rt *aggr;
+	struct ospf_lsa *lsa = NULL;
+	int force;
 	int type;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
@@ -2111,24 +2114,48 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 					continue;
 
 				if (is_prefix_default(
-						(struct prefix_ipv4 *)&ei->p))
+					    (struct prefix_ipv4 *)&ei->p))
 					continue;
 
-				if (!ospf_redistribute_check(ospf, ei, NULL))
-					continue;
+				lsa = ospf_external_info_find_lsa(ospf, &ei->p);
 
 				aggr = ospf_external_aggr_match(ospf, &ei->p);
 				if (aggr) {
+
+					if (!ospf_redistribute_check(ospf, ei,
+								     NULL))
+						continue;
+
 					if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 						zlog_debug(
 							"Originate Summary LSA after reset/router-ID change");
+
 					/* Here the LSA is originated as new */
 					ospf_originate_summary_lsa(ospf, aggr,
 								   ei);
-				} else if (!ospf_external_lsa_originate(ospf,
-									ei))
-					flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
-						  "LSA: AS-external-LSA was not originated.");
+				} else if (lsa) {
+					/* LSA needs to be refreshed even if
+					 * there is no change in the route
+					 * params if the LSA is in maxage.
+					 */
+					if (IS_LSA_MAXAGE(lsa))
+						force = LSA_REFRESH_FORCE;
+					else
+						force = LSA_REFRESH_IF_CHANGED;
+
+					ospf_external_lsa_refresh(ospf, lsa,
+								ei, force, 0);
+				} else {
+					if (!ospf_redistribute_check(ospf, ei,
+								     NULL))
+						continue;
+
+					if (!ospf_external_lsa_originate(ospf,
+									 NULL))
+						flog_warn(
+							EC_OSPF_LSA_INSTALL_FAILURE,
+							"LSA: AS-external-LSA was not originated.");
+				}
 			}
 		}
 	}
@@ -2669,15 +2696,16 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 			if (IS_DEBUG_OSPF(lsa, LSA_REFRESH)) {
 				zlog_debug(
-					"ospf_lsa_install() Premature Aging lsa 0x%p, seqnum 0x%x",
-					(void *)lsa,
+					"%s() Premature Aging lsa %p, seqnum 0x%x",
+					__func__, lsa,
 					ntohl(lsa->data->ls_seqnum));
 				ospf_lsa_header_dump(lsa->data);
 			}
 		} else {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE)) {
 				zlog_debug(
-					"ospf_lsa_install() got an lsa with seq 0x80000000 that was not self originated. Ignoring");
+					"%s() got an lsa with seq 0x80000000 that was not self originated. Ignoring",
+					__func__);
 				ospf_lsa_header_dump(lsa->data);
 			}
 			return old;
@@ -2763,9 +2791,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	 */
 	if (IS_LSA_MAXAGE(new)) {
 		if (IS_DEBUG_OSPF(lsa, LSA_INSTALL))
-			zlog_debug("LSA[Type%d:%pI4]: Install LSA 0x%p, MaxAge",
-				   new->data->type, &new->data->id,
-				   (void *)lsa);
+			zlog_debug("LSA[Type%d:%pI4]: Install LSA %p, MaxAge",
+				   new->data->type, &new->data->id, lsa);
 		ospf_lsa_maxage(ospf, lsa);
 	}
 
@@ -2854,8 +2881,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"originating new lsa for lsa 0x%p",
-						(void *)lsa);
+						"originating new lsa for lsa %p",
+						lsa);
 				ospf_lsa_refresh(ospf, lsa);
 			}
 
@@ -3241,22 +3268,22 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	if (IS_LSA_MAXAGE(l2) && !IS_LSA_MAXAGE(l1))
 		return 1;
 
-	if (l1->data->length != l2->data->length)
+	if (l1->size != l2->size)
 		return 1;
 
-	if (l1->data->length == 0)
+	if (l1->size == 0)
 		return 1;
 
 	if (CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
-	assert(ntohs(l1->data->length) > OSPF_LSA_HEADER_SIZE);
+	assert(l1->size > OSPF_LSA_HEADER_SIZE);
 
 	p1 = (char *)l1->data;
 	p2 = (char *)l2->data;
 
 	if (memcmp(p1 + OSPF_LSA_HEADER_SIZE, p2 + OSPF_LSA_HEADER_SIZE,
-		   ntohs(l1->data->length) - OSPF_LSA_HEADER_SIZE)
+		   l1->size - OSPF_LSA_HEADER_SIZE)
 	    != 0)
 		return 1;
 

@@ -724,9 +724,9 @@ tlv_decode_fec_elm(struct nbr *nbr, struct ldp_msg *msg, char *buf,
 		map->fec.prefix.prefixlen = buf[off];
 		off += sizeof(uint8_t);
 		if ((map->fec.prefix.af == AF_IPV4
-		     && map->fec.prefix.prefixlen > IPV4_MAX_PREFIXLEN)
+		     && map->fec.prefix.prefixlen > IPV4_MAX_BITLEN)
 		    || (map->fec.prefix.af == AF_IPV6
-			&& map->fec.prefix.prefixlen > IPV6_MAX_PREFIXLEN)) {
+			&& map->fec.prefix.prefixlen > IPV6_MAX_BITLEN)) {
 			session_shutdown(nbr, S_BAD_TLV_VAL, msg->id,
 			    msg->type);
 			return (-1);

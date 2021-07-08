@@ -379,14 +379,14 @@ static int setsockopt_ipv4_ifindex(int sock, ifindex_t val)
 	int ret;
 
 #if defined(IP_PKTINFO)
-	if ((ret = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val)))
-	    < 0)
+	ret = setsockopt(sock, IPPROTO_IP, IP_PKTINFO, &val, sizeof(val));
+	if (ret < 0)
 		flog_err(EC_LIB_SOCKET,
 			 "Can't set IP_PKTINFO option for fd %d to %d: %s",
 			 sock, val, safe_strerror(errno));
 #elif defined(IP_RECVIF)
-	if ((ret = setsockopt(sock, IPPROTO_IP, IP_RECVIF, &val, sizeof(val)))
-	    < 0)
+	ret = setsockopt(sock, IPPROTO_IP, IP_RECVIF, &val, sizeof(val));
+	if (ret < 0)
 		flog_err(EC_LIB_SOCKET,
 			 "Can't set IP_RECVIF option for fd %d to %d: %s", sock,
 			 val, safe_strerror(errno));
@@ -639,12 +639,8 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 
 #endif /* GNU_LINUX */
 
-	if ((ret = setsockopt(sock, IPPROTO_TCP, optname, &md5sig,
-			      sizeof(md5sig)))
-	    < 0) {
-		/* ENOENT is harmless.  It is returned when we clear a password
-		   for which
-		   one was not previously set. */
+	ret = setsockopt(sock, IPPROTO_TCP, optname, &md5sig, sizeof(md5sig));
+	if (ret < 0) {
 		if (ENOENT == errno)
 			ret = 0;
 		else
@@ -666,4 +662,40 @@ int sockopt_tcp_signature_ext(int sock, union sockunion *su, uint16_t prefixlen,
 int sockopt_tcp_signature(int sock, union sockunion *su, const char *password)
 {
 	return sockopt_tcp_signature_ext(sock, su, 0, password);
+}
+
+/* set TCP mss value to socket */
+int sockopt_tcp_mss_set(int sock, int tcp_maxseg)
+{
+	int ret = 0;
+	socklen_t tcp_maxseg_len = sizeof(tcp_maxseg);
+
+	ret = setsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg,
+			 tcp_maxseg_len);
+	if (ret != 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: setsockopt(%d): %s", __func__, sock,
+			     safe_strerror(errno));
+	}
+
+	return ret;
+}
+
+/* get TCP mss value synced by socket */
+int sockopt_tcp_mss_get(int sock)
+{
+	int ret = 0;
+	int tcp_maxseg = 0;
+	socklen_t tcp_maxseg_len = sizeof(tcp_maxseg);
+
+	ret = getsockopt(sock, IPPROTO_TCP, TCP_MAXSEG, &tcp_maxseg,
+			 &tcp_maxseg_len);
+	if (ret != 0) {
+		flog_err_sys(EC_LIB_SYSTEM_CALL,
+			     "%s failed: getsockopt(%d): %s", __func__, sock,
+			     safe_strerror(errno));
+		return 0;
+	}
+
+	return tcp_maxseg;
 }

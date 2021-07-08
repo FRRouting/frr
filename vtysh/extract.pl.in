@@ -42,7 +42,7 @@ sub scan_file {
 
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
-    open (FH, "@CPP@ -P -std=gnu11 -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
+    open (FH, "@CPP@ -P -std=gnu11 -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ @LIBYANG_CFLAGS@ $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
     if (!close (FH)) {
@@ -117,13 +117,6 @@ sub scan_file {
                 $protocol = "VTYSH_RIPNGD|VTYSH_OSPF6D|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
             } else {
                 $protocol = "VTYSH_RIPD|VTYSH_OSPFD|VTYSH_BGPD|VTYSH_ZEBRA|VTYSH_PIMD|VTYSH_EIGRPD|VTYSH_BABELD|VTYSH_ISISD|VTYSH_FABRICD";
-            }
-        }
-        elsif ($file =~ /lib\/distribute\.c$/) {
-            if ($defun_array[1] =~ m/ipv6/) {
-                $protocol = "VTYSH_RIPNGD";
-            } else {
-                $protocol = "VTYSH_RIPD";
             }
         }
         elsif ($file =~ /lib\/if_rmap\.c$/) {

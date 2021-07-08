@@ -90,7 +90,22 @@ static struct list *masters;
 
 static void thread_free(struct thread_master *master, struct thread *thread);
 
+#ifndef EXCLUDE_CPU_TIME
+#define EXCLUDE_CPU_TIME 0
+#endif
+#ifndef CONSUMED_TIME_CHECK
+#define CONSUMED_TIME_CHECK 0
+#endif
+
+bool cputime_enabled = !EXCLUDE_CPU_TIME;
+unsigned long cputime_threshold = CONSUMED_TIME_CHECK;
+unsigned long walltime_threshold = CONSUMED_TIME_CHECK;
+
 /* CLI start ---------------------------------------------------------------- */
+#ifndef VTYSH_EXTRACT_PL
+#include "lib/thread_clippy.c"
+#endif
+
 static unsigned int cpu_record_hash_key(const struct cpu_thread_history *a)
 {
 	int size = sizeof(a->func);
@@ -120,7 +135,6 @@ static void cpu_record_hash_free(void *a)
 	XFREE(MTYPE_THREAD_STATS, hist);
 }
 
-#ifndef EXCLUDE_CPU_TIME
 static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
@@ -187,6 +201,14 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	struct thread_master *m;
 	struct listnode *ln;
 
+	if (!cputime_enabled)
+		vty_out(vty,
+			"\n"
+			"Collecting CPU time statistics is currently disabled.  Following statistics\n"
+			"will be zero or may display data from when collection was enabled.  Use the\n"
+			"  \"service cputime-stats\"  command to start collecting data.\n"
+			"\nCounters and wallclock times are always maintained and should be accurate.\n");
+
 	memset(&tmp, 0, sizeof(tmp));
 	tmp.funcname = "TOTAL";
 	tmp.types = filter;
@@ -236,7 +258,6 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 	if (tmp.total_calls > 0)
 		vty_out_cpu_thread_history(vty, &tmp);
 }
-#endif
 
 static void cpu_record_hash_clear(struct hash_bucket *bucket, void *args[])
 {
@@ -306,7 +327,6 @@ static uint8_t parse_filter(const char *filterstr)
 	return filter;
 }
 
-#ifndef EXCLUDE_CPU_TIME
 DEFUN_NOSH (show_thread_cpu,
 	    show_thread_cpu_cmd,
 	    "show thread cpu [FILTER]",
@@ -331,7 +351,61 @@ DEFUN_NOSH (show_thread_cpu,
 	cpu_record_print(vty, filter);
 	return CMD_SUCCESS;
 }
-#endif
+
+DEFPY (service_cputime_stats,
+       service_cputime_stats_cmd,
+       "[no] service cputime-stats",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Collect CPU usage statistics\n")
+{
+	cputime_enabled = !no;
+	return CMD_SUCCESS;
+}
+
+DEFPY (service_cputime_warning,
+       service_cputime_warning_cmd,
+       "[no] service cputime-warning (1-4294967295)",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Warn for tasks exceeding CPU usage threshold\n"
+       "Warning threshold in milliseconds\n")
+{
+	if (no)
+		cputime_threshold = 0;
+	else
+		cputime_threshold = cputime_warning * 1000;
+	return CMD_SUCCESS;
+}
+
+ALIAS (service_cputime_warning,
+       no_service_cputime_warning_cmd,
+       "no service cputime-warning",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Warn for tasks exceeding CPU usage threshold\n")
+
+DEFPY (service_walltime_warning,
+       service_walltime_warning_cmd,
+       "[no] service walltime-warning (1-4294967295)",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Warn for tasks exceeding total wallclock threshold\n"
+       "Warning threshold in milliseconds\n")
+{
+	if (no)
+		walltime_threshold = 0;
+	else
+		walltime_threshold = walltime_warning * 1000;
+	return CMD_SUCCESS;
+}
+
+ALIAS (service_walltime_warning,
+       no_service_walltime_warning_cmd,
+       "no service walltime-warning",
+       NO_STR
+       "Set up miscellaneous service\n"
+       "Warn for tasks exceeding total wallclock threshold\n")
 
 static void show_thread_poll_helper(struct vty *vty, struct thread_master *m)
 {
@@ -421,11 +495,15 @@ DEFUN (clear_thread_cpu,
 
 void thread_cmd_init(void)
 {
-#ifndef EXCLUDE_CPU_TIME
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
-#endif
 	install_element(VIEW_NODE, &show_thread_poll_cmd);
 	install_element(ENABLE_NODE, &clear_thread_cpu_cmd);
+
+	install_element(CONFIG_NODE, &service_cputime_stats_cmd);
+	install_element(CONFIG_NODE, &service_cputime_warning_cmd);
+	install_element(CONFIG_NODE, &no_service_cputime_warning_cmd);
+	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
+	install_element(CONFIG_NODE, &no_service_walltime_warning_cmd);
 }
 /* CLI end ------------------------------------------------------------------ */
 
@@ -1743,9 +1821,14 @@ static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 unsigned long thread_consumed_time(RUSAGE_T *now, RUSAGE_T *start,
 				   unsigned long *cputime)
 {
+#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
+	*cputime = (now->cpu.tv_sec - start->cpu.tv_sec) * TIMER_SECOND_MICRO
+		   + (now->cpu.tv_nsec - start->cpu.tv_nsec) / 1000;
+#else
 	/* This is 'user + sys' time.  */
 	*cputime = timeval_elapsed(now->cpu.ru_utime, start->cpu.ru_utime)
 		   + timeval_elapsed(now->cpu.ru_stime, start->cpu.ru_stime);
+#endif
 	return timeval_elapsed(now->real, start->real);
 }
 
@@ -1778,13 +1861,23 @@ void thread_set_yield_time(struct thread *thread, unsigned long yield_time)
 
 void thread_getrusage(RUSAGE_T *r)
 {
+	monotime(&r->real);
+	if (!cputime_enabled) {
+		memset(&r->cpu, 0, sizeof(r->cpu));
+		return;
+	}
+
+#ifdef HAVE_CLOCK_THREAD_CPUTIME_ID
+	/* not currently implemented in Linux's vDSO, but maybe at some point
+	 * in the future?
+	 */
+	clock_gettime(CLOCK_THREAD_CPUTIME_ID, &r->cpu);
+#else /* !HAVE_CLOCK_THREAD_CPUTIME_ID */
 #if defined RUSAGE_THREAD
 #define FRR_RUSAGE RUSAGE_THREAD
 #else
 #define FRR_RUSAGE RUSAGE_SELF
 #endif
-	monotime(&r->real);
-#ifndef EXCLUDE_CPU_TIME
 	getrusage(FRR_RUSAGE, &(r->cpu));
 #endif
 }
@@ -1802,12 +1895,13 @@ void thread_getrusage(RUSAGE_T *r)
  */
 void thread_call(struct thread *thread)
 {
-#ifndef EXCLUDE_CPU_TIME
-	_Atomic unsigned long realtime, cputime;
-	unsigned long exp;
-	unsigned long helper;
-#endif
 	RUSAGE_T before, after;
+
+	/* if the thread being called is the CLI, it may change cputime_enabled
+	 * ("service cputime-stats" command), which can result in nonsensical
+	 * and very confusing warnings
+	 */
+	bool cputime_enabled_here = cputime_enabled;
 
 	if (thread->master->ready_run_loop)
 		before = thread->master->last_getrusage;
@@ -1828,43 +1922,45 @@ void thread_call(struct thread *thread)
 	GETRUSAGE(&after);
 	thread->master->last_getrusage = after;
 
-#ifndef EXCLUDE_CPU_TIME
-	realtime = thread_consumed_time(&after, &before, &helper);
-	cputime = helper;
+	unsigned long walltime, cputime;
+	unsigned long exp;
 
-	/* update realtime */
-	atomic_fetch_add_explicit(&thread->hist->real.total, realtime,
+	walltime = thread_consumed_time(&after, &before, &cputime);
+
+	/* update walltime */
+	atomic_fetch_add_explicit(&thread->hist->real.total, walltime,
 				  memory_order_seq_cst);
 	exp = atomic_load_explicit(&thread->hist->real.max,
 				   memory_order_seq_cst);
-	while (exp < realtime
+	while (exp < walltime
 	       && !atomic_compare_exchange_weak_explicit(
-			  &thread->hist->real.max, &exp, realtime,
-			  memory_order_seq_cst, memory_order_seq_cst))
+		       &thread->hist->real.max, &exp, walltime,
+		       memory_order_seq_cst, memory_order_seq_cst))
 		;
 
-	/* update cputime */
-	atomic_fetch_add_explicit(&thread->hist->cpu.total, cputime,
-				  memory_order_seq_cst);
-	exp = atomic_load_explicit(&thread->hist->cpu.max,
-				   memory_order_seq_cst);
-	while (exp < cputime
-	       && !atomic_compare_exchange_weak_explicit(
-			  &thread->hist->cpu.max, &exp, cputime,
-			  memory_order_seq_cst, memory_order_seq_cst))
-		;
+	if (cputime_enabled_here && cputime_enabled) {
+		/* update cputime */
+		atomic_fetch_add_explicit(&thread->hist->cpu.total, cputime,
+					  memory_order_seq_cst);
+		exp = atomic_load_explicit(&thread->hist->cpu.max,
+					   memory_order_seq_cst);
+		while (exp < cputime
+		       && !atomic_compare_exchange_weak_explicit(
+			       &thread->hist->cpu.max, &exp, cputime,
+			       memory_order_seq_cst, memory_order_seq_cst))
+			;
+	}
 
 	atomic_fetch_add_explicit(&thread->hist->total_calls, 1,
 				  memory_order_seq_cst);
 	atomic_fetch_or_explicit(&thread->hist->types, 1 << thread->add_type,
 				 memory_order_seq_cst);
 
-#ifdef CONSUMED_TIME_CHECK
-	if (cputime > CONSUMED_TIME_CHECK) {
+	if (cputime_enabled_here && cputime_enabled && cputime_threshold
+	    && cputime > cputime_threshold) {
 		/*
-		 * We have a CPU Hog on our hands.  The time FRR
-		 * has spent doing actual work ( not sleeping )
-		 * is greater than 5 seconds.
+		 * We have a CPU Hog on our hands.  The time FRR has spent
+		 * doing actual work (not sleeping) is greater than 5 seconds.
 		 * Whinge about it now, so we're aware this is yet another task
 		 * to fix.
 		 */
@@ -1874,13 +1970,13 @@ void thread_call(struct thread *thread)
 			EC_LIB_SLOW_THREAD_CPU,
 			"CPU HOG: task %s (%lx) ran for %lums (cpu time %lums)",
 			thread->xref->funcname, (unsigned long)thread->func,
-			realtime / 1000, cputime / 1000);
-	} else if (realtime > CONSUMED_TIME_CHECK) {
+			walltime / 1000, cputime / 1000);
+
+	} else if (walltime_threshold && walltime > walltime_threshold) {
 		/*
-		 * The runtime for a task is greater than 5 seconds, but
-		 * the cpu time is under 5 seconds.  Let's whine
-		 * about this because this could imply some sort of
-		 * scheduling issue.
+		 * The runtime for a task is greater than 5 seconds, but the
+		 * cpu time is under 5 seconds.  Let's whine about this because
+		 * this could imply some sort of scheduling issue.
 		 */
 		atomic_fetch_add_explicit(&thread->hist->total_wall_warn,
 					  1, memory_order_seq_cst);
@@ -1888,10 +1984,8 @@ void thread_call(struct thread *thread)
 			EC_LIB_SLOW_THREAD_WALL,
 			"STARVATION: task %s (%lx) ran for %lums (cpu time %lums)",
 			thread->xref->funcname, (unsigned long)thread->func,
-			realtime / 1000, cputime / 1000);
+			walltime / 1000, cputime / 1000);
 	}
-#endif /* CONSUMED_TIME_CHECK */
-#endif /* Exclude CPU Time */
 }
 
 /* Execute thread */

@@ -315,10 +315,12 @@ struct prefix_sg {
 #ifndef __cplusplus
 #define prefixtype(uname, typename, fieldname) \
 	typename *fieldname;
+#define TRANSPARENT_UNION __attribute__((transparent_union))
 #else
 #define prefixtype(uname, typename, fieldname) \
 	typename *fieldname; \
 	uname(typename *x) { this->fieldname = x; }
+#define TRANSPARENT_UNION
 #endif
 
 union prefixptr {
@@ -328,7 +330,7 @@ union prefixptr {
 	prefixtype(prefixptr, struct prefix_evpn, evp)
 	prefixtype(prefixptr, struct prefix_fs,   fs)
 	prefixtype(prefixptr, struct prefix_rd,   rd)
-} __attribute__((transparent_union));
+} TRANSPARENT_UNION;
 
 union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix,      p)
@@ -337,7 +339,10 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_evpn, evp)
 	prefixtype(prefixconstptr, const struct prefix_fs,   fs)
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
-} __attribute__((transparent_union));
+} TRANSPARENT_UNION;
+
+#undef prefixtype
+#undef TRANSPARENT_UNION
 
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
@@ -367,7 +372,6 @@ union prefixconstptr {
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
 #define IPV4_MAX_BITLEN    32
-#define IPV4_MAX_PREFIXLEN 32
 #define IPV4_ADDR_CMP(D,S)   memcmp ((D), (S), IPV4_MAX_BYTELEN)
 
 static inline bool ipv4_addr_same(const struct in_addr *a,
@@ -393,7 +397,6 @@ static inline void ipv4_addr_copy(struct in_addr *dst,
 /* Max bit/byte length of IPv6 address. */
 #define IPV6_MAX_BYTELEN    16
 #define IPV6_MAX_BITLEN    128
-#define IPV6_MAX_PREFIXLEN 128
 #define IPV6_ADDR_CMP(D,S)   memcmp ((D), (S), IPV6_MAX_BYTELEN)
 #define IPV6_ADDR_SAME(D,S)  (memcmp ((D), (S), IPV6_MAX_BYTELEN) == 0)
 #define IPV6_ADDR_COPY(D,S)  memcpy ((D), (S), IPV6_MAX_BYTELEN)
@@ -476,11 +479,6 @@ extern void prefix_ipv4_free(struct prefix_ipv4 **p);
 extern int str2prefix_ipv4(const char *, struct prefix_ipv4 *);
 extern void apply_mask_ipv4(struct prefix_ipv4 *);
 
-#define PREFIX_COPY(DST, SRC)                                                  \
-	*((struct prefix *)(DST)) = *((const struct prefix *)(SRC))
-#define PREFIX_COPY_IPV4(DST, SRC)                                             \
-	*((struct prefix_ipv4 *)(DST)) = *((const struct prefix_ipv4 *)(SRC))
-
 extern int prefix_ipv4_any(const struct prefix_ipv4 *);
 extern void apply_classful_mask_ipv4(struct prefix_ipv4 *);
 
@@ -497,9 +495,6 @@ extern struct prefix_ipv6 *prefix_ipv6_new(void);
 extern void prefix_ipv6_free(struct prefix_ipv6 **p);
 extern int str2prefix_ipv6(const char *, struct prefix_ipv6 *);
 extern void apply_mask_ipv6(struct prefix_ipv6 *);
-
-#define PREFIX_COPY_IPV6(DST, SRC)                                             \
-	*((struct prefix_ipv6 *)(DST)) = *((const struct prefix_ipv6 *)(SRC))
 
 extern int ip6_masklen(struct in6_addr);
 extern void masklen2ip6(const int, struct in6_addr *);

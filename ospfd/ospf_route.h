@@ -124,6 +124,8 @@ struct ospf_route {
 		struct route_standard std;
 		struct route_external ext;
 	} u;
+
+	bool changed;
 };
 
 extern struct ospf_path *ospf_path_new(void);

@@ -572,7 +572,8 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 		return;
 
 	/* Lookup existing adjacency */
-	if ((adj = adj_lookup(dest, subgrp, addpath_tx_id)) != NULL) {
+	adj = adj_lookup(dest, subgrp, addpath_tx_id);
+	if (adj != NULL) {
 		/* Clean up previous advertisement.  */
 		if (adj->adv)
 			bgp_advertise_clean_subgroup(subgrp, adj);
@@ -829,6 +830,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				struct bgp_path_info_extra tmp_pie;
 
 				tmp_attr = *pi->attr;
+				tmp_attr.aspath = attr.aspath;
 
 				prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi,
 						    pi->peer, &tmp_attr);
@@ -838,11 +840,12 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					bgp_dest_get_prefix(dest), &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
+					/* The aspath belongs to 'attr' */
+					tmp_attr.aspath = NULL;
 					bgp_attr_flush(&tmp_attr);
 					continue;
 				} else {
 					new_attr = bgp_attr_intern(&tmp_attr);
-					new_attr->aspath = attr.aspath;
 
 					subgroup_announce_reset_nhop(
 						(peer_cap_enhe(peer, afi, safi)
@@ -883,7 +886,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 		/* If default route is present in the local RIB, advertise the
 		 * route
 		 */
-		if (dest != NULL) {
+		if (dest) {
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
 				if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
@@ -895,6 +898,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 							dest, subgrp, &attr,
 							pi);
 			}
+			bgp_dest_unlock_node(dest);
 		}
 	} else {
 		if (!CHECK_FLAG(subgrp->sflags,
@@ -907,7 +911,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			 * clear adj_out for the 0.0.0.0/0 prefix in the BGP
 			 * table.
 			 */
-			if (dest != NULL) {
+			if (dest) {
 				/* Remove the adjacency for the previously
 				 * advertised default route
 				 */
@@ -923,6 +927,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					/* Free allocated information.  */
 					adj_free(adj);
 				}
+				bgp_dest_unlock_node(dest);
 			}
 
 			/* Advertise the default route */

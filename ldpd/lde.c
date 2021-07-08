@@ -751,8 +751,8 @@ lde_update_label(struct fec_node *fn)
 	/* should we allocate a label for this fec? */
 	switch (fn->fec.type) {
 	case FEC_TYPE_IPV4:
-		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
-		    fn->fec.u.ipv4.prefixlen != 32)
+		if ((ldeconf->ipv4.flags & F_LDPD_AF_ALLOCHOSTONLY)
+		    && fn->fec.u.ipv4.prefixlen != IPV4_MAX_BITLEN)
 			return (NO_LABEL);
 		if (lde_acl_check(ldeconf->ipv4.acl_label_allocate_for,
 		    AF_INET, (union ldpd_addr *)&fn->fec.u.ipv4.prefix,
@@ -760,8 +760,8 @@ lde_update_label(struct fec_node *fn)
 			return (NO_LABEL);
 		break;
 	case FEC_TYPE_IPV6:
-		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY) &&
-		    fn->fec.u.ipv6.prefixlen != 128)
+		if ((ldeconf->ipv6.flags & F_LDPD_AF_ALLOCHOSTONLY)
+		    && fn->fec.u.ipv6.prefixlen != IPV6_MAX_BITLEN)
 			return (NO_LABEL);
 		if (lde_acl_check(ldeconf->ipv6.acl_label_allocate_for,
 		    AF_INET6, (union ldpd_addr *)&fn->fec.u.ipv6.prefix,
@@ -1626,6 +1626,30 @@ lde_nbr_addr_update(struct lde_nbr *ln, struct lde_addr *lde_addr, int removed)
 				lde_send_change_klabel(fn, fnh);
 			}
 			break;
+		}
+	}
+}
+
+void
+lde_allow_broken_lsp_update(int new_config)
+{
+	struct fec_node		*fn;
+	struct fec_nh		*fnh;
+	struct fec		*f;
+
+	RB_FOREACH(f, fec_tree, &ft) {
+		fn = (struct fec_node *)f;
+
+		LIST_FOREACH(fnh, &fn->nexthops, entry) {
+			/* allow-broken-lsp config is changing so
+			 * we need to reprogram labeled routes to
+			 * have proper top-level label
+			 */
+			if (!(new_config & F_LDPD_ALLOW_BROKEN_LSP))
+				lde_send_delete_klabel(fn, fnh);
+
+			if (fn->local_label != NO_LABEL)
+				lde_send_change_klabel(fn, fnh);
 		}
 	}
 }

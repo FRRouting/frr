@@ -1,0 +1,37 @@
+{
+  "10.0.11.0/24": [
+    {
+      "distance": 115, 
+      "metric": 10, 
+      "nexthops": [
+        {
+          "active": true, 
+          "afi": "ipv4", 
+          "fib": true, 
+          "interfaceName": "r2-eth0", 
+          "ip": "10.0.21.1" 
+        }
+      ], 
+      "prefix": "10.0.11.0/24", 
+      "protocol": "isis", 
+      "selected": true, 
+      "vrfName": "r2-cust1"
+    }
+  ], 
+  "10.0.21.0/24": [
+    {
+      "nexthops": [
+        {
+          "active": true, 
+          "directlyConnected": true, 
+          "fib": true, 
+          "interfaceName": "r2-eth0"
+        }
+      ], 
+      "prefix": "10.0.21.0/24", 
+      "protocol": "connected", 
+      "selected": true, 
+      "vrfName": "r2-cust1"
+    }
+  ]
+}

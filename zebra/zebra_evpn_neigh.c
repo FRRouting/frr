@@ -85,7 +85,7 @@ int neigh_list_cmp(void *p1, void *p2)
 
 struct hash *zebra_neigh_db_create(const char *desc)
 {
-	return hash_create(neigh_hash_keymake, neigh_cmp, desc);
+	return hash_create_size(8, neigh_hash_keymake, neigh_cmp, desc);
 }
 
 uint32_t num_dup_detected_neighs(zebra_evpn_t *zevpn)
