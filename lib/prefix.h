@@ -512,7 +512,7 @@ extern char *esi_to_str(const esi_t *esi, char *buf, int size);
 extern char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len);
 extern void prefix_evpn_hexdump(const struct prefix_evpn *p);
 
-static inline int ipv6_martian(struct in6_addr *addr)
+static inline int ipv6_martian(const struct in6_addr *addr)
 {
 	struct in6_addr localhost_addr;
 
@@ -527,7 +527,7 @@ static inline int ipv6_martian(struct in6_addr *addr)
 extern int macstr2prefix_evpn(const char *str, struct prefix_evpn *p);
 
 /* NOTE: This routine expects the address argument in network byte order. */
-static inline int ipv4_martian(struct in_addr *addr)
+static inline int ipv4_martian(const struct in_addr *addr)
 {
 	in_addr_t ip = ntohl(addr->s_addr);
 
