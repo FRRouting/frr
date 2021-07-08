@@ -89,7 +89,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 /*
  * Destroy FRR script.
  */
-void frrscript_unload(struct frrscript *fs);
+void frrscript_delete(struct frrscript *fs);
 
 /*
  * Register a Lua codec for a type.

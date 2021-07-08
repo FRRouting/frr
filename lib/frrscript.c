@@ -319,7 +319,7 @@ fail:
 	return 1;
 }
 
-void frrscript_unload(struct frrscript *fs)
+void frrscript_delete(struct frrscript *fs)
 {
 	hash_iterate(fs->lua_function_hash, lua_function_free, NULL);
 	XFREE(MTYPE_SCRIPT, fs->name);
