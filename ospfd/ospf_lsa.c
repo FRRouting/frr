@@ -1551,8 +1551,8 @@ static void ospf_external_lsa_body_set(struct stream *s,
 	stream_put_ipv4(s, mask.s_addr);
 
 	/* If prefix is default, specify DEFAULT_ROUTE. */
-	type = is_prefix_default(&ei->p) ? DEFAULT_ROUTE : ei->type;
-	instance = is_prefix_default(&ei->p) ? 0 : ei->instance;
+	type = is_default_prefix4(&ei->p) ? DEFAULT_ROUTE : ei->type;
+	instance = is_default_prefix4(&ei->p) ? 0 : ei->instance;
 
 	mtype = (ROUTEMAP_METRIC_TYPE(ei) != -1)
 			? ROUTEMAP_METRIC_TYPE(ei)
@@ -1947,17 +1947,6 @@ struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 	return new;
 }
 
-int is_prefix_default(struct prefix_ipv4 *p)
-{
-	struct prefix_ipv4 q;
-
-	q.family = AF_INET;
-	q.prefix.s_addr = INADDR_ANY;
-	q.prefixlen = 0;
-
-	return prefix_same((struct prefix *)p, (struct prefix *)&q);
-}
-
 /* Originate an AS-external-LSA, install and flood. */
 struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 					     struct external_info *ei)
@@ -2113,8 +2102,7 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 				if (!ei)
 					continue;
 
-				if (is_prefix_default(
-					    (struct prefix_ipv4 *)&ei->p))
+				if (is_default_prefix4(&ei->p))
 					continue;
 
 				lsa = ospf_external_info_find_lsa(ospf, &ei->p);
@@ -2284,7 +2272,7 @@ void ospf_external_lsa_refresh_type(struct ospf *ospf, uint8_t type,
 		     rn = route_next(rn)) {
 			ei = rn->info;
 			if (ei) {
-				if (!is_prefix_default(&ei->p)) {
+				if (!is_default_prefix4(&ei->p)) {
 					struct ospf_lsa *lsa;
 					struct ospf_external_aggr_rt *aggr;
 

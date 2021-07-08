@@ -537,20 +537,32 @@ static inline int ipv4_martian(struct in_addr *addr)
 	return 0;
 }
 
-static inline int is_default_prefix(const struct prefix *p)
+static inline bool is_default_prefix4(const struct prefix_ipv4 *p)
 {
-	if (!p)
-		return 0;
+	return p && p->family == AF_INET && p->prefixlen == 0
+	       && p->prefix.s_addr == INADDR_ANY;
+}
 
-	if ((p->family == AF_INET) && (p->u.prefix4.s_addr == INADDR_ANY)
-	    && (p->prefixlen == 0))
-		return 1;
+static inline bool is_default_prefix6(const struct prefix_ipv6 *p)
+{
+	return p && p->family == AF_INET6 && p->prefixlen == 0
+	       && memcmp(&p->prefix, &in6addr_any, sizeof(struct in6_addr))
+			  == 0;
+}
 
-	if ((p->family == AF_INET6) && (p->prefixlen == 0)
-	    && (!memcmp(&p->u.prefix6, &in6addr_any, sizeof(struct in6_addr))))
-		return 1;
+static inline bool is_default_prefix(const struct prefix *p)
+{
+	if (p == NULL)
+		return false;
 
-	return 0;
+	switch (p->family) {
+	case AF_INET:
+		return is_default_prefix4((const struct prefix_ipv4 *)p);
+	case AF_INET6:
+		return is_default_prefix6((const struct prefix_ipv6 *)p);
+	}
+
+	return false;
 }
 
 static inline int is_host_route(const struct prefix *p)

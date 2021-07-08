@@ -10027,7 +10027,7 @@ DEFUN (ospf_external_route_aggregation,
 
 	str2prefix_ipv4(argv[idx]->arg, &p);
 
-	if (is_prefix_default(&p)) {
+	if (is_default_prefix4(&p)) {
 		vty_out(vty,
 			"Default address shouldn't be configured as summary address.\n");
 		return CMD_SUCCESS;
@@ -10068,7 +10068,7 @@ DEFUN (no_ospf_external_route_aggregation,
 
 	str2prefix_ipv4(argv[idx]->arg, &p);
 
-	if (is_prefix_default(&p)) {
+	if (is_default_prefix4(&p)) {
 		vty_out(vty,
 			"Default address shouldn't be configured as summary address.\n");
 		return CMD_SUCCESS;
@@ -10361,7 +10361,7 @@ DEFUN (ospf_external_route_aggregation_no_adrvertise,
 
 	str2prefix_ipv4(argv[idx]->arg, &p);
 
-	if (is_prefix_default(&p)) {
+	if (is_default_prefix4(&p)) {
 		vty_out(vty,
 			"Default address shouldn't be configured as summary address.\n");
 		return CMD_SUCCESS;
@@ -10397,7 +10397,7 @@ DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
 
 	str2prefix_ipv4(argv[idx]->arg, &p);
 
-	if (is_prefix_default(&p)) {
+	if (is_default_prefix4(&p)) {
 		vty_out(vty,
 			"Default address shouldn't be configured as summary address.\n");
 		return CMD_SUCCESS;
