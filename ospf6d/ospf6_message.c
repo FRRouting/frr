@@ -2370,7 +2370,19 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 	}
 	if (oi) {
 		ospf6_packet_add(oi, op);
-		OSPF6_MESSAGE_WRITE_ON(oi);
+		/* If ospf instance is being deleted, send the packet
+		 * immediately
+		 */
+		if ((oi->area == NULL) || (oi->area->ospf6 == NULL))
+			return;
+		if (oi->area->ospf6->inst_shutdown) {
+			if (oi->on_write_q == 0) {
+				listnode_add(oi->area->ospf6->oi_write_q, oi);
+				oi->on_write_q = 1;
+			}
+			thread_execute(master, ospf6_write, oi->area->ospf6, 0);
+		} else
+			OSPF6_MESSAGE_WRITE_ON(oi);
 	}
 }
 
