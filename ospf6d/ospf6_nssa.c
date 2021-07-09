@@ -1159,10 +1159,48 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 	}
 }
 
+static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
+{
+	struct ospf6_route rt_aggr, *route;
+	struct route_node *rn = NULL;
+	struct ospf6_external_info ei_aggr;
+	struct ospf6_external_aggr_rt *aggr;
+
+	/* Loop through the external_table to find the LSAs originated
+	 * without aggregation and originate type-7 LSAs for them.
+	 */
+	for (route = ospf6_route_head(
+		     area->ospf6->external_table);
+	     route; route = ospf6_route_next(route)) {
+		/* This means the Type-5 LSA was originated for this route */
+		if (route->path.origin.id != 0)
+			ospf6_nssa_lsa_originate(route, area);
+
+	}
+
+	/* Loop through the aggregation table to originate type-7 LSAs
+	 * for the aggregated type-5 LSAs
+	 */
+	for (rn = route_top(area->ospf6->rt_aggr_tbl); rn;
+	     rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		aggr = rn->info;
+
+		if (CHECK_FLAG(aggr->aggrflags,
+		    OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
+			/* Prepare the external_info for aggregator */
+			ospf6_fill_aggr_route_details(area->ospf6, &ei_aggr,
+						      &rt_aggr, aggr);
+			ospf6_nssa_lsa_originate(&rt_aggr, area);
+		}
+	}
+
+}
+
 static void ospf6_area_nssa_update(struct ospf6_area *area)
 {
-	struct ospf6_route *route;
-
 	if (IS_AREA_NSSA(area)) {
 		if (!ospf6_check_and_set_router_abr(area->ospf6))
 			OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
@@ -1194,10 +1232,7 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 				zlog_debug("NSSA area %s", area->name);
 
 			/* Originate NSSA LSA */
-			for (route = ospf6_route_head(
-				     area->ospf6->external_table);
-			     route; route = ospf6_route_next(route))
-				ospf6_nssa_lsa_originate(route, area);
+			ospf6_check_and_originate_type7_lsa(area);
 		}
 	} else {
 		/* Disable NSSA */
