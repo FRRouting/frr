@@ -77,32 +77,41 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-static void static_path_list_destroy(struct nb_cb_destroy_args *args,
-				     const struct lyd_node *rn_dnode,
-				     struct stable_info *info)
+static int static_path_list_destroy(struct nb_cb_destroy_args *args)
 {
-	struct route_node *rn;
 	struct static_path *pn;
 
-	pn = nb_running_unset_entry(args->dnode);
-	rn = nb_running_get_entry(rn_dnode, NULL, true);
-	static_del_path(rn, pn, info->safi, info->svrf);
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		pn = nb_running_unset_entry(args->dnode);
+		static_del_path(pn);
+		break;
+	}
+
+	return NB_OK;
 }
 
-static void static_path_list_tag_modify(struct nb_cb_modify_args *args,
-					const struct lyd_node *rn_dnode,
-					struct stable_info *info)
+static int static_path_list_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct static_path *pn;
-	struct route_node *rn;
-	route_tag_t tag;
 
-	tag = yang_dnode_get_uint32(args->dnode, NULL);
-	pn = nb_running_get_entry(args->dnode, NULL, true);
-	pn->tag = tag;
-	rn = nb_running_get_entry(rn_dnode, NULL, true);
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		pn = nb_running_get_entry(args->dnode, NULL, true);
+		pn->tag = yang_dnode_get_uint32(args->dnode, NULL);
+		static_install_path(pn);
+		break;
+	}
 
-	static_install_path(rn, pn, info->safi, info->svrf);
+	return NB_OK;
 }
 
 struct nexthop_iter {
@@ -125,13 +134,10 @@ static int nexthop_iter_cb(const struct lyd_node *dnode, void *arg)
 	return YANG_ITER_CONTINUE;
 }
 
-static bool static_nexthop_create(struct nb_cb_create_args *args,
-				  const struct lyd_node *rn_dnode,
-				  struct stable_info *info)
+static bool static_nexthop_create(struct nb_cb_create_args *args)
 {
 	const struct lyd_node *pn_dnode;
 	struct nexthop_iter iter;
-	struct route_node *rn;
 	struct static_path *pn;
 	struct ipaddr ipaddr;
 	struct static_nexthop *nh;
@@ -176,7 +182,6 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
 		nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
 		pn = nb_running_get_entry(args->dnode, NULL, true);
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
 
 		if (!static_add_nexthop_validate(nh_vrf, nh_type, &ipaddr))
 			flog_warn(
@@ -184,8 +189,8 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 				"Warning!! Local connected address is configured as Gateway IP((%s))",
 				yang_dnode_get_string(args->dnode,
 						      "./gateway"));
-		nh = static_add_nexthop(rn, pn, info->safi, info->svrf, nh_type,
-					&ipaddr, ifname, nh_vrf, 0);
+		nh = static_add_nexthop(pn, nh_type, &ipaddr, ifname, nh_vrf,
+					0);
 		nb_running_set_entry(args->dnode, nh);
 		break;
 	}
@@ -193,33 +198,19 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 	return NB_OK;
 }
 
-static bool static_nexthop_destroy(struct nb_cb_destroy_args *args,
-				   const struct lyd_node *rn_dnode,
-				   struct stable_info *info)
+static bool static_nexthop_destroy(struct nb_cb_destroy_args *args)
 {
-	struct route_node *rn;
-	struct static_path *pn;
-	const struct lyd_node *pn_dnode;
 	struct static_nexthop *nh;
-	int ret;
 
-	nh = nb_running_unset_entry(args->dnode);
-	pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
-	pn = nb_running_get_entry(pn_dnode, NULL, true);
-	rn = nb_running_get_entry(rn_dnode, NULL, true);
-
-	ret = static_delete_nexthop(rn, pn, info->safi, info->svrf, nh);
-	if (!ret) {
-		char buf[SRCDEST2STR_BUFFER];
-
-		flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
-			  "%s : nh [%d:%s:%s:%s] nexthop destroy failed",
-			  srcdest_rnode2str(rn, buf, sizeof(buf)),
-			  yang_dnode_get_enum(args->dnode, "./nh-type"),
-			  yang_dnode_get_string(args->dnode, "./interface"),
-			  yang_dnode_get_string(args->dnode, "./gateway"),
-			  yang_dnode_get_string(args->dnode, "./vrf"));
-		return NB_ERR;
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		nh = nb_running_unset_entry(args->dnode);
+		static_delete_nexthop(nh);
+		break;
 	}
 
 	return NB_OK;
@@ -384,72 +375,26 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-
 void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
 	struct static_nexthop *nh;
-	struct static_path *pn;
-	struct route_node *rn;
-	const struct lyd_node *pn_dnode;
-	const struct lyd_node *rn_dnode;
-	const char *ifname;
-	const char *nh_vrf;
-	struct stable_info *info;
-	int nh_type;
-
-	nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
-	ifname = yang_dnode_get_string(args->dnode, "./interface");
-	nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
 
-	pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
-	pn = nb_running_get_entry(pn_dnode, NULL, true);
-
-	rn_dnode = yang_dnode_get_parent(pn_dnode, "route-list");
-	rn = nb_running_get_entry(rn_dnode, NULL, true);
-	info = route_table_get_info(rn->table);
-
-	static_install_nexthop(rn, pn, nh, info->safi, info->svrf, ifname,
-			       nh_type, nh_vrf);
+	static_install_nexthop(nh);
 }
-
 
 void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
 	struct static_nexthop *nh;
-	struct static_path *pn;
-	struct route_node *rn;
-	struct route_node *src_rn;
-	const struct lyd_node *pn_dnode;
-	const struct lyd_node *rn_dnode;
-	const struct lyd_node *src_dnode;
-	const char *ifname;
-	const char *nh_vrf;
-	struct stable_info *info;
-	int nh_type;
-
-	nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
-	ifname = yang_dnode_get_string(args->dnode, "./interface");
-	nh_vrf = yang_dnode_get_string(args->dnode, "./vrf");
 
 	nh = nb_running_get_entry(args->dnode, NULL, true);
 
-	pn_dnode = yang_dnode_get_parent(args->dnode, "path-list");
-	pn = nb_running_get_entry(pn_dnode, NULL, true);
-
-	src_dnode = yang_dnode_get_parent(pn_dnode, "src-list");
-	src_rn = nb_running_get_entry(src_dnode, NULL, true);
-
-	rn_dnode = yang_dnode_get_parent(src_dnode, "route-list");
-	rn = nb_running_get_entry(rn_dnode, NULL, true);
-	info = route_table_get_info(rn->table);
-
-	static_install_nexthop(src_rn, pn, nh, info->safi, info->svrf, ifname,
-			       nh_type, nh_vrf);
+	static_install_nexthop(nh);
 }
+
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate(
 	struct nb_cb_pre_validate_args *args)
 {
@@ -548,7 +493,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_de
 	struct nb_cb_destroy_args *args)
 {
 	struct route_node *rn;
-	struct stable_info *info;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -557,8 +501,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_de
 		break;
 	case NB_EV_APPLY:
 		rn = nb_running_unset_entry(args->dnode);
-		info = route_table_get_info(rn->table);
-		static_del_route(rn, info->safi, info->svrf);
+		static_del_route(rn);
 		break;
 	}
 	return NB_OK;
@@ -577,23 +520,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	const struct lyd_node *rn_dnode;
-	struct route_node *rn;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-		static_path_list_destroy(args, rn_dnode, info);
-		break;
-	}
-	return NB_OK;
+	return static_path_list_destroy(args);
 }
 
 /*
@@ -603,24 +530,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct stable_info *info;
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_ABORT:
-	case NB_EV_PREPARE:
-		break;
-	case NB_EV_APPLY:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-		static_path_list_tag_modify(args, rn_dnode, info);
-		break;
-	}
-
-	return NB_OK;
+	return static_path_list_tag_modify(args);
 }
 
 /*
@@ -630,53 +540,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create(
 	struct nb_cb_create_args *args)
 {
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		if (static_nexthop_create(args, rn_dnode, NULL) != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_nexthop_create(args, rn_dnode, info) != NB_OK)
-			return NB_ERR_INCONSISTENCY;
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_create(args);
 }
 
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_nexthop_destroy(args, rn_dnode, info) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_destroy(args);
 }
 
 /*
@@ -899,9 +769,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	struct nb_cb_destroy_args *args)
 {
 	struct route_node *src_rn;
-	struct route_node *rn;
-	struct stable_info *info;
-	const struct lyd_node *rn_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -910,10 +777,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		break;
 	case NB_EV_APPLY:
 		src_rn = nb_running_unset_entry(args->dnode);
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-		static_del_route(src_rn, info->safi, info->svrf);
+		static_del_route(src_rn);
 		break;
 	}
 
@@ -933,25 +797,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	const struct lyd_node *srn_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		srn_dnode = yang_dnode_get_parent(args->dnode, "src-list");
-		rn_dnode = yang_dnode_get_parent(srn_dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-		static_path_list_destroy(args, srn_dnode, info);
-		break;
-	}
-	return NB_OK;
+	return static_path_list_destroy(args);
 }
 
 /*
@@ -961,25 +807,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_tag_modify(
 	struct nb_cb_modify_args *args)
 {
-	struct stable_info *info;
-	struct route_node *rn;
-	const struct lyd_node *srn_dnode;
-	const struct lyd_node *rn_dnode;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_ABORT:
-	case NB_EV_PREPARE:
-		break;
-	case NB_EV_APPLY:
-		srn_dnode = yang_dnode_get_parent(args->dnode, "src-list");
-		rn_dnode = yang_dnode_get_parent(srn_dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-		static_path_list_tag_modify(args, srn_dnode, info);
-		break;
-	}
-	return NB_OK;
+	return static_path_list_tag_modify(args);
 }
 
 /*
@@ -989,58 +817,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_create(
 	struct nb_cb_create_args *args)
 {
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	const struct lyd_node *src_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-		rn_dnode = yang_dnode_get_parent(args->dnode, "route-list");
-		if (static_nexthop_create(args, rn_dnode, NULL) != NB_OK)
-			return NB_ERR_VALIDATION;
-		break;
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		src_dnode = yang_dnode_get_parent(args->dnode, "src-list");
-		rn_dnode = yang_dnode_get_parent(src_dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_nexthop_create(args, src_dnode, info) != NB_OK)
-			return NB_ERR_VALIDATION;
-
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_create(args);
 }
 
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	struct route_node *rn;
-	const struct lyd_node *rn_dnode;
-	const struct lyd_node *src_dnode;
-	struct stable_info *info;
-
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-		break;
-	case NB_EV_APPLY:
-		src_dnode = yang_dnode_get_parent(args->dnode, "src-list");
-		rn_dnode = yang_dnode_get_parent(src_dnode, "route-list");
-		rn = nb_running_get_entry(rn_dnode, NULL, true);
-		info = route_table_get_info(rn->table);
-
-		if (static_nexthop_destroy(args, rn_dnode, info) != NB_OK)
-			return NB_ERR;
-		break;
-	}
-	return NB_OK;
+	return static_nexthop_destroy(args);
 }
 
 /*
