@@ -26,6 +26,12 @@ def pytest_addoption(parser):
     only run the setup_module() to setup the topology without running any tests.
     """
     parser.addoption(
+        "--asan-abort",
+        action="store_true",
+        help="Configure address sanitizer to abort process on error",
+    )
+
+    parser.addoption(
         "--gdb-breakpoints",
         metavar="SYMBOL[,SYMBOL...]",
         help="Comma-separated list of functions to set gdb breakpoints on",
@@ -65,6 +71,12 @@ def pytest_addoption(parser):
         "--shell-on-error",
         action="store_true",
         help="Spawn shell on all routers on test failure",
+    )
+
+    parser.addoption(
+        "--strace-daemons",
+        metavar="DAEMON[,DAEMON...]",
+        help="Comma-separated list of daemons to strace, or 'all'",
     )
 
     parser.addoption(
@@ -167,6 +179,9 @@ def pytest_configure(config):
     if not diagnose_env():
         pytest.exit("environment has errors, please read the logs")
 
+    asan_abort = config.getoption("--asan-abort")
+    topotest_extra_config["asan_abort"] = asan_abort
+
     gdb_routers = config.getoption("--gdb-routers")
     gdb_routers = gdb_routers.split(",") if gdb_routers else []
     topotest_extra_config["gdb_routers"] = gdb_routers
@@ -184,6 +199,9 @@ def pytest_configure(config):
 
     shell = config.getoption("--shell")
     topotest_extra_config["shell"] = shell.split(",") if shell else []
+
+    strace = config.getoption("--strace-daemons")
+    topotest_extra_config["strace_daemons"] = strace.split(",") if strace else []
 
     pause_after = config.getoption("--pause-after")
 
@@ -243,6 +261,11 @@ def pytest_runtest_makereport(item, call):
                     modname, item.name, call.excinfo.value
                 )
             )
+
+            # We want to pause, if requested, on any error not just test cases
+            # (e.g., call.when == "setup")
+            if not pause:
+                pause = topotest_extra_config["pause_after"]
 
             # (topogen) Set topology error to avoid advancing in the test.
             tgen = get_topogen()

@@ -1152,6 +1152,18 @@ class Router(Node):
         self.reportCores = True
         self.version = None
 
+        self.ns_cmd = "sudo nsenter -m -n -t {} ".format(self.pid)
+        try:
+            # Allow escaping from running inside docker
+            cgroup = open("/proc/1/cgroup").read()
+            m = re.search("[0-9]+:cpuset:/docker/([a-f0-9]+)", cgroup)
+            if m:
+                self.ns_cmd = "docker exec -it {} ".format(m.group(1)) + self.ns_cmd
+        except IOError:
+            pass
+        else:
+            logger.debug("CMD to enter {}: {}".format(self.name, self.ns_cmd))
+
     def _config_frr(self, **params):
         "Configure FRR binaries"
         self.daemondir = params.get("frrdir")
@@ -1350,7 +1362,7 @@ class Router(Node):
             term = topo_terminal if topo_terminal else "xterm"
             makeTerm(self, title=title if title else cmd, term=term, cmd=cmd)
         else:
-            nscmd = "sudo nsenter -m -n -t {} {}".format(self.pid, cmd)
+            nscmd = self.ns_cmd + cmd
             if "TMUX" in os.environ:
                 self.cmd("tmux select-layout main-horizontal")
                 wcmd = "tmux split-window -h"
@@ -1451,11 +1463,13 @@ class Router(Node):
     def startRouterDaemons(self, daemons=None):
         "Starts all FRR daemons for this router."
 
+        asan_abort = g_extra_config["asan_abort"]
         gdb_breakpoints = g_extra_config["gdb_breakpoints"]
         gdb_daemons = g_extra_config["gdb_daemons"]
         gdb_routers = g_extra_config["gdb_routers"]
         valgrind_extra = g_extra_config["valgrind_extra"]
         valgrind_memleaks = g_extra_config["valgrind_memleaks"]
+        strace_daemons = g_extra_config["strace_daemons"]
 
         bundle_data = ""
 
@@ -1482,7 +1496,6 @@ class Router(Node):
                 os.path.join(self.daemondir, "bgpd") + " -v"
             ).split()[2]
             logger.info("{}: running version: {}".format(self.name, self.version))
-
         # If `daemons` was specified then some upper API called us with
         # specific daemons, otherwise just use our own configuration.
         daemons_list = []
@@ -1506,13 +1519,20 @@ class Router(Node):
             else:
                 binary = os.path.join(self.daemondir, daemon)
 
-                cmdenv = "ASAN_OPTIONS=log_path={0}.asan".format(daemon)
+                cmdenv = "ASAN_OPTIONS="
+                if asan_abort:
+                    cmdenv = "abort_on_error=1:"
+                cmdenv += "log_path={0}/{1}.{2}.asan ".format(self.logdir, self.name, daemon)
+
                 if valgrind_memleaks:
                     this_dir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
                     supp_file = os.path.abspath(os.path.join(this_dir, "../../../tools/valgrind.supp"))
                     cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(daemon, self.logdir, self.name, supp_file)
                     if valgrind_extra:
                         cmdenv += "--gen-suppressions=all --expensive-definedness-checks=yes"
+                elif daemon in strace_daemons or "all" in strace_daemons:
+                    cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(daemon, self.logdir, self.name)
+
                 cmdopt = "{} --log file:{}.log --log-level debug".format(
                     daemon_opts, daemon
                 )
