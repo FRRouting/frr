@@ -801,8 +801,8 @@ class TopoRouter(TopoGear):
 
         try:
             return json.loads(output)
-        except ValueError:
-            logger.warning("vtysh_cmd: failed to convert json output")
+        except ValueError as error:
+            logger.warning("vtysh_cmd: %s: failed to convert json output: %s: %s", self.name, str(output), str(error))
             return {}
 
     def vtysh_multicmd(self, commands, pretty_output=True, daemon=None):
