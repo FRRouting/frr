@@ -715,6 +715,7 @@ static void ospf6_process_reset(struct ospf6 *ospf6)
 	struct interface *ifp;
 	struct vrf *vrf = vrf_lookup_by_id(ospf6->vrf_id);
 
+	ospf6_unset_all_aggr_flag(ospf6);
 	ospf6_flush_self_originated_lsas_now(ospf6);
 	ospf6->inst_shutdown = 0;
 	ospf6_db_clear(ospf6);
@@ -1710,13 +1711,13 @@ bool ospf6_is_valid_summary_addr(struct vty *vty, struct prefix *p)
 		return false;
 	}
 
-        /* Host route should not be configured as summary address */
-        if (p->prefixlen == IPV6_MAX_PREFIXLEN) {
+	/* Host route should not be configured as summary address */
+	if (p->prefixlen == IPV6_MAX_BITLEN) {
 		vty_out(vty, "Host route should not be configured as summary address.\n");
-                return false;
+		return false;
 	}
 
-        return true;
+	return true;
 }
 
 /* External Route Aggregation */
@@ -1736,6 +1737,7 @@ DEFPY (ospf6_external_route_aggregation,
 
 	struct prefix p;
 	int ret = CMD_SUCCESS;
+
 	p.family = AF_INET6;
 	ret = str2prefix(prefix_str, &p);
 	if (ret == 0) {
@@ -1832,7 +1834,7 @@ DEFPY (ospf6_external_route_aggregation_no_advertise,
 	if (ret == OSPF6_INVALID)
 		vty_out(vty, "!!Invalid configuration\n");
 
-        return CMD_SUCCESS;
+	return CMD_SUCCESS;
 }
 
 DEFPY (no_ospf6_external_route_aggregation_no_advertise,
@@ -1945,16 +1947,16 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			bool uj, const char *detail)
 {
 	struct route_node *rn;
-	static char header[] = "Summary-address       Metric-type     Metric     Tag         External_Rt_count\n";
+	static const char header[] = "Summary-address       Metric-type     Metric     Tag         External_Rt_count\n";
 
 	if (!uj) {
 		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
 				ospf6->aggr_delay_interval);
 		vty_out(vty, "%s\n", header);
-	}
-	else
+	} else {
 		json_object_int_add(json, "aggregation delay interval",
 				ospf6->aggr_delay_interval);
+	}
 
 	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn))
 		if (rn->info) {
@@ -2011,8 +2013,8 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 					? vty_out(vty, "%-16s", "E2")
 					: vty_out(vty, "%-16s", "E1");
 				vty_out(vty, "%-11d", (aggr->metric != -1)
-							      ? aggr->metric
-							      : DEFAULT_DEFAULT_METRIC);
+						? aggr->metric
+						: DEFAULT_DEFAULT_METRIC);
 
 				vty_out(vty, "%-12u", aggr->tag);
 
@@ -2047,7 +2049,7 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 {
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6 = NULL;
-        json_object *json = NULL;
+	json_object *json = NULL;
 
 	if (uj)
 		json = json_object_new_object();
@@ -2069,7 +2071,7 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 	ospf6_show_summary_address(vty, ospf6, json, uj, detail);
 
 	if (uj) {
-		vty_out(vty, "%s\n",json_object_to_json_string_ext(
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
 					json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
