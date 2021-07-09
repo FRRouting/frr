@@ -110,6 +110,12 @@ static void summary_address_originate(struct summary_address *sum)
 	route->path.origin.id = htonl(info->id);
 
 	sum->route = route;
+	/* Needed to install route. */
+	SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
+	/* Add next-hop to Null interface. */
+	ospf6_add_route_nexthop_blackhole(route);
+
+	ospf6_zebra_route_update_add(route, o);
 
 	/* Originate LSA using the summary route. */
 	ospf6_as_external_lsa_originate(route, o);
@@ -164,6 +170,7 @@ static void summary_address_originate_del(struct summary_address *sum)
 		ospf6_lsa_purge(lsa);
 	}
 
+	ospf6_zebra_route_update_remove(route, o);
 	ospf6_route_delete(route);
 	sum->route = NULL;
 
