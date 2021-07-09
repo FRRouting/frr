@@ -98,14 +98,14 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		int redist_on = 0;
 
 		redist_on =
-			is_prefix_default(&p)
+			is_default_prefix4(&p)
 				? vrf_bitmap_check(
-					  zclient->default_information[AFI_IP],
-					  ospf->vrf_id)
+					zclient->default_information[AFI_IP],
+					ospf->vrf_id)
 				: (zclient->mi_redist[AFI_IP][type].enabled
 				   || vrf_bitmap_check(
-					      zclient->redist[AFI_IP][type],
-					      ospf->vrf_id));
+					   zclient->redist[AFI_IP][type],
+					   ospf->vrf_id));
 		// Pending: check for MI above.
 		if (redist_on) {
 			ext_list = ospf->external[type];
@@ -128,7 +128,7 @@ struct external_info *ospf_external_info_check(struct ospf *ospf,
 		}
 	}
 
-	if (is_prefix_default(&p) && ospf->external[DEFAULT_ROUTE]) {
+	if (is_default_prefix4(&p) && ospf->external[DEFAULT_ROUTE]) {
 		ext_list = ospf->external[DEFAULT_ROUTE];
 
 		for (ALL_LIST_ELEMENTS_RO(ext_list, node, ext)) {

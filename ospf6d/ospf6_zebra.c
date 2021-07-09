@@ -194,16 +194,6 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int is_prefix_default(struct prefix_ipv6 *p)
-{
-	struct prefix_ipv6 q = {};
-
-	q.family = AF_INET6;
-	q.prefixlen = 0;
-
-	return prefix_same((struct prefix *)p, (struct prefix *)&q);
-}
-
 static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	struct zapi_route api;
@@ -239,7 +229,7 @@ static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
 			ifindex, api.tag);
 
 	memcpy(&p, &api.prefix, sizeof(p));
-	if (is_prefix_default(&p))
+	if (is_default_prefix6(&p))
 		api.type = DEFAULT_ROUTE;
 
 	if (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD)

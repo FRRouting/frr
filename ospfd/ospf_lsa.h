@@ -331,7 +331,6 @@ extern void ospf_lsa_maxage_delete(struct ospf *, struct ospf_lsa *);
 
 extern void ospf_discard_from_db(struct ospf *, struct ospf_lsdb *,
 				 struct ospf_lsa *);
-extern int is_prefix_default(struct prefix_ipv4 *);
 
 extern int metric_type(struct ospf *, uint8_t, unsigned short);
 extern int metric_value(struct ospf *, uint8_t, unsigned short);
