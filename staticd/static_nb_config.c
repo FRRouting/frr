@@ -146,7 +146,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args,
 			if (strcmp(ifname, "reject") == 0
 			    || strcmp(ifname, "blackhole") == 0) {
 				snprintf(args->errmsg, args->errmsg_len,
-					"%s: Nexthop interface name can not be from reserved keywords(Null0, reject, blackhole)",
+					"%s: Nexthop interface name can not be from reserved keywords(reject, blackhole)",
 					ifname);
 				return NB_ERR_VALIDATION;
 			}
