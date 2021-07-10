@@ -278,6 +278,9 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	nh->type = type;
 	nh->color = color;
 
+	if (nh->type == STATIC_BLACKHOLE)
+		nh->bh_type = STATIC_BLACKHOLE_NULL;
+
 	nh->nh_vrf_id = nh_svrf ? nh_svrf->vrf->vrf_id : VRF_UNKNOWN;
 	strlcpy(nh->nh_vrfname, nh_vrf, sizeof(nh->nh_vrfname));
 
@@ -325,6 +328,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 	switch (nh->type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV6_GATEWAY:
+	case STATIC_BLACKHOLE:
 		break;
 	case STATIC_IPV4_GATEWAY_IFNAME:
 	case STATIC_IPV6_GATEWAY_IFNAME:
@@ -336,9 +340,6 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 				"Static Route using %s interface not installed because the interface does not exist in specified vrf",
 				ifname);
 
-		break;
-	case STATIC_BLACKHOLE:
-		nh->bh_type = STATIC_BLACKHOLE_NULL;
 		break;
 	case STATIC_IFNAME:
 		ifp = if_lookup_by_name(ifname, nh->nh_vrf_id);
