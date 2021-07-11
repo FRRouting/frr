@@ -453,12 +453,12 @@ def int2dpid(dpid):
         )
 
 
-def remote_pid_exists(pid, node):
+def remote_kill(pid, node, signum=signal.SIG_DFL):
     "Stub for a check whether remote pid exists."
 
     if pid <= 0:
         return False
-    if node.cmd('kill -0 %s' % pid):
+    if node.cmd('kill -%s %s' % (signum.value, pid)):
         return False
     else:
         return True
@@ -1237,9 +1237,11 @@ class Router(Node):
         if re.search(r"No such file or directory", rundaemons):
             return errors
         if isinstance(self, RemoteMixin):
-            pidExists = lambda p: remote_pid_exists(p, self)
+            pidExists = lambda p: remote_kill(p, self, signal.SIG_DFL)
+            kill = lambda p, s: remote_kill(p, self, s)
         else:
             pidExists = pid_exists
+            kill = os.kill
         if rundaemons is not None:
             dmns = rundaemons.split("\n")
             # Exclude empty string at end of list
@@ -1249,7 +1251,7 @@ class Router(Node):
                     daemonname = os.path.basename(d.rstrip().rsplit(".", 1)[0])
                     logger.info("{}: stopping {}".format(self.name, daemonname))
                     try:
-                        os.kill(int(daemonpid), signal.SIGTERM)
+                        kill(int(daemonpid), signal.SIGTERM)
                     except OSError as err:
                         if err.errno == errno.ESRCH:
                             logger.error(
@@ -2311,7 +2313,7 @@ class RemoteLinuxRouter(RemoteMixin, Router):
         Router.terminate(self)
 
     def cmd(self, *args, **kwargs):
-        kwargs['verbose'] = kwargs.get('verbose', True)
+        # kwargs['verbose'] = kwargs.get('verbose', True)
         return super(RemoteLinuxRouter, self).cmd(*args, **kwargs)
 
 

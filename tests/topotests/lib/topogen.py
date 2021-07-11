@@ -70,6 +70,8 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 # Global Topogen variable. This is being used to keep the Topogen available on
 # all test functions without declaring a test local variable.
 global_tgen = None
+# Global remote router name if any
+global_remote_router = None
 
 
 def get_topogen(topo=None):
@@ -87,6 +89,13 @@ def set_topogen(tgen):
     # pylint: disable=W0603
     global global_tgen
     global_tgen = tgen
+
+
+def set_remote_router(r_router):
+    "Helper function to set remote_router"
+    # pylint: disable=W0603
+    global global_remote_router
+    global_remote_router = r_router
 
 
 #
@@ -128,10 +137,17 @@ class Topogen(object):
 
     @property
     def r_router(self):
-        r_router = None
-        if self.config.has_option(self.CONFIG_SECTION, 'r_router'):
-            r_router = self.config.get(self.CONFIG_SECTION, 'r_router')
-        return pytest.config.getoption('r_router') or r_router
+        global global_remote_router
+        if global_remote_router is not None:
+            # Global remote_router is set by CLI option and has a precedence.
+            return global_remote_router
+        else:
+            # Otherwise check pytest.ini
+            r_router = None
+            if self.config.has_option(self.CONFIG_SECTION, 'r_router'):
+                r_router = self.config.get(self.CONFIG_SECTION, 'r_router')
+                global_remote_router = r_router
+            return r_router
 
     @staticmethod
     def _mininet_reset():

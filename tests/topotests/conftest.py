@@ -8,7 +8,7 @@ import pdb
 import re
 import pytest
 
-from lib.topogen import get_topogen, diagnose_env
+from lib.topogen import get_topogen, diagnose_env, set_remote_router
 from lib.topotest import json_cmp_result
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topolog import logger
@@ -209,6 +209,9 @@ def pytest_configure(config):
     topotest_extra_config["pause_after"] = pause_after or shell or vtysh
 
     topotest_extra_config["topology_only"] = config.getoption("--topology-only")
+
+    if config.getoption("r_router"):
+        set_remote_router(config.getoption("r_router"))
 
 
 def pytest_runtest_makereport(item, call):
