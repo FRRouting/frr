@@ -5867,6 +5867,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 		    && (label_index != bgp_static->label_index)) {
 			vty_out(vty,
 				"%% label-index doesn't match static route\n");
+			bgp_dest_unlock_node(dest);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
@@ -5874,6 +5875,7 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 		    && strcmp(rmap, bgp_static->rmap.name)) {
 			vty_out(vty,
 				"%% route-map name doesn't match static route\n");
+			bgp_dest_unlock_node(dest);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 
