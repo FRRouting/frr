@@ -5865,16 +5865,30 @@ static int bgp_static_set(struct vty *vty, const char *negate,
 
 		if ((label_index != BGP_INVALID_LABEL_INDEX)
 		    && (label_index != bgp_static->label_index)) {
+<<<<<<< HEAD
 			vty_out(vty,
 				"%% label-index doesn't match static route\n");
 			return CMD_WARNING_CONFIG_FAILED;
+=======
+			snprintf(errmsg, errmsg_len,
+				 "label-index doesn't match static route\n");
+			bgp_dest_unlock_node(dest);
+			return -1;
+>>>>>>> 70d9b134f (bgpd: Don't forget bgp_dest_unlock_node for bgp_static_set())
 		}
 
 		if ((rmap && bgp_static->rmap.name)
 		    && strcmp(rmap, bgp_static->rmap.name)) {
+<<<<<<< HEAD
 			vty_out(vty,
 				"%% route-map name doesn't match static route\n");
 			return CMD_WARNING_CONFIG_FAILED;
+=======
+			snprintf(errmsg, errmsg_len,
+				 "route-map name doesn't match static route\n");
+			bgp_dest_unlock_node(dest);
+			return -1;
+>>>>>>> 70d9b134f (bgpd: Don't forget bgp_dest_unlock_node for bgp_static_set())
 		}
 
 		/* Update BGP RIB. */
