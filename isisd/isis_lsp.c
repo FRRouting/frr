@@ -479,7 +479,7 @@ static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit,
 				 struct isis_area *area)
 {
 	uint8_t lsp_bits = 0;
-	if (level == IS_LEVEL_1)
+	if (area->is_type == IS_LEVEL_1)
 		lsp_bits = IS_LEVEL_1;
 	else
 		lsp_bits = IS_LEVEL_1_AND_2;
