@@ -774,9 +774,9 @@ def test_BGP_attributes_with_vrf_default_keyword_p0(request):
         }
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
         result = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     for addr_type in ADDR_TYPES:
         dut = "r4"
@@ -793,9 +793,9 @@ def test_BGP_attributes_with_vrf_default_keyword_p0(request):
         }
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
         result = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
         input_dict_4 = {"largeCommunity": "500:500:500", "community": "500:500"}
 
@@ -1134,10 +1134,10 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r1"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)
-        assert result is not True, "Testcase {} : Failed \n"
+        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1)
+        assert result is not True, "Testcase {} : Failed \n".format(tc_name)
         "Expected behavior: routes should not present in fib \n"
-        "Error: {}".format(tc_name, result)
+        "Error: {}".format(result)
 
     step("Verify Ipv4 and Ipv6 network installed in r3 RIB but not in FIB")
     input_dict_r3 = {
@@ -1151,10 +1151,10 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r3"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)
-        assert result is not True, "Testcase {} : Failed \n"
+        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1)
+        assert result is not True, "Testcase {} : Failed \n".format(tc_name)
         "Expected behavior: routes should not present in fib \n"
-        "Error: {}".format(tc_name, result)
+        "Error: {}".format(result)
 
     write_test_footer(tc_name)
 
