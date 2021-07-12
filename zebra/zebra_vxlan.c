@@ -5788,7 +5788,7 @@ stream_failure:
  */
 void zebra_vxlan_init_tables(struct zebra_vrf *zvrf)
 {
-	char buffer[80];
+	char buffer[VRF_NAMSIZ + 80];
 
 	if (!zvrf)
 		return;

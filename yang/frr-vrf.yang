@@ -57,7 +57,7 @@ module frr-vrf {
         "VRF.";
       leaf name {
         type string {
-          length "1..36";
+          length "1..255";
         }
         description
           "VRF name.";

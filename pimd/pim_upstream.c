@@ -2202,7 +2202,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 
 void pim_upstream_init(struct pim_instance *pim)
 {
-	char name[64];
+	char name[VRF_NAMSIZ + 64];
 
 	snprintf(name, sizeof(name), "PIM %s Timer Wheel", pim->vrf->name);
 	pim->upstream_sg_wheel =

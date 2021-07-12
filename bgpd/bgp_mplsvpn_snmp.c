@@ -1395,8 +1395,6 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 				break;
 			vrf_name_len++;
 		}
-		if (vrf_name_len > VRF_NAMSIZ)
-			return NULL;
 
 		oid2string(name + namelen, vrf_name_len, vrf_name);
 		prefix_type = name[i++];
