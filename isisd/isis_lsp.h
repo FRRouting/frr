@@ -77,6 +77,8 @@ int _lsp_regenerate_schedule(struct isis_area *area, int level,
 int lsp_generate_pseudo(struct isis_circuit *circuit, int level);
 int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level);
 
+bool isis_level2_adj_up(struct isis_area *area);
+
 struct isis_lsp *lsp_new(struct isis_area *area, uint8_t *lsp_id,
 			 uint16_t rem_lifetime, uint32_t seq_num,
 			 uint8_t lsp_bits, uint16_t checksum,

@@ -401,12 +401,15 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 	return;
 }
 
-static bool isis_level2_adj_up(struct isis_area *area)
+bool isis_level2_adj_up(struct isis_area *area)
 {
 	struct listnode *node, *cnode;
 	struct isis_circuit *circuit;
 	struct list *adjdb;
 	struct isis_adjacency *adj;
+
+	if (area->is_type == IS_LEVEL_1)
+		return false;
 
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
 		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
