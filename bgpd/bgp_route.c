@@ -6062,6 +6062,8 @@ int bgp_static_set(struct bgp *bgp, const char *negate, struct prefix *pfx,
 			return -1;
 		}
 
+		build-error;
+
 		/* Update BGP RIB. */
 		if (!bgp_static->backdoor)
 			bgp_static_withdraw(bgp, &p, afi, safi);
