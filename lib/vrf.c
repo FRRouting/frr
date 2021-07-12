@@ -59,7 +59,7 @@ struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 static int vrf_backend;
 static int vrf_backend_configured;
 static struct zebra_privs_t *vrf_daemon_privs;
-static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
+static char vrf_default_name[VRF_NAMSIZ + 1] = VRF_DEFAULT_NAME_INTERNAL;
 
 /*
  * Turn on/off debug code
@@ -995,7 +995,7 @@ void vrf_set_default_name(const char *default_name, bool force)
 	}
 	if (strmatch(vrf_default_name, default_name))
 		return;
-	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
+	snprintf(vrf_default_name, sizeof(vrf_default_name), "%s", default_name);
 	if (def_vrf) {
 		if (force)
 			def_vrf_forced = true;

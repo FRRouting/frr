@@ -167,7 +167,7 @@ static inline uint32_t vrf_interface_count(struct vrf *vrf)
 
 	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		/* skip the l3mdev */
-		if (strncmp(ifp->name, vrf->name, VRF_NAMSIZ) == 0)
+		if (strncmp(ifp->name, vrf->name, sizeof(ifp->name)) == 0)
 			continue;
 		count++;
 	}

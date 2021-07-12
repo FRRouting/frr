@@ -293,7 +293,7 @@ static int bgp_get_instance_for_inc_conn(int sock, struct bgp **bgp_inst)
 
 #else
 	char name[VRF_NAMSIZ + 1];
-	socklen_t name_len = VRF_NAMSIZ;
+	socklen_t name_len = sizeof(name);
 	struct bgp *bgp;
 	int rc;
 	struct listnode *node, *nnode;
