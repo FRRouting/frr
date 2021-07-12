@@ -6052,6 +6052,7 @@ int bgp_static_set(struct bgp *bgp, const char *negate, struct prefix *pfx,
 		    && (label_index != bgp_static->label_index)) {
 			snprintf(errmsg, errmsg_len,
 				 "label-index doesn't match static route\n");
+			bgp_dest_unlock_node(dest);
 			return -1;
 		}
 
@@ -6059,6 +6060,7 @@ int bgp_static_set(struct bgp *bgp, const char *negate, struct prefix *pfx,
 		    && strcmp(rmap, bgp_static->rmap.name)) {
 			snprintf(errmsg, errmsg_len,
 				 "route-map name doesn't match static route\n");
+			bgp_dest_unlock_node(dest);
 			return -1;
 		}
 
