@@ -676,6 +676,43 @@ static uint8_t dr_election(struct ospf6_interface *oi)
 	return next_state;
 }
 
+#ifdef __FreeBSD__
+
+#include <ifaddrs.h>
+
+static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
+{
+	struct ifmaddrs *ifmap, *ifma;
+	struct sockaddr_dl *sdl;
+	struct sockaddr_in6 *sin6;
+	bool found = false;
+
+	if (getifmaddrs(&ifmap) != 0)
+		return false;
+
+	for (ifma = ifmap; ifma; ifma = ifma->ifma_next) {
+		if (ifma->ifma_name == NULL || ifma->ifma_addr == NULL)
+			continue;
+		if (ifma->ifma_name->sa_family != AF_LINK)
+			continue;
+		if (ifma->ifma_addr->sa_family != AF_INET6)
+			continue;
+		sdl = (struct sockaddr_dl *)ifma->ifma_name;
+		sin6 = (struct sockaddr_in6 *)ifma->ifma_addr;
+		if (sdl->sdl_index == ifindex
+		    && memcmp(&sin6->sin6_addr, addr, IPV6_MAX_BYTELEN) == 0) {
+			found = true;
+			break;
+		}
+	}
+
+	if (ifmap)
+		freeifmaddrs(ifmap);
+
+	return found;
+}
+
+#endif /* __FreeBSD__ */
 
 /* Interface State Machine */
 int interface_up(struct thread *thread)
@@ -689,11 +726,7 @@ int interface_up(struct thread *thread)
 	if (!oi->type_cfg)
 		oi->type = ospf6_default_iftype(oi->interface);
 
-	/*
-	 * Remove old pointer. If this thread wasn't a timer this
-	 * operation won't make a difference, because it is already NULL.
-	 */
-	oi->thread_sso = NULL;
+	thread_cancel(&oi->thread_sso);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
 		zlog_debug("Interface Event %s: [InterfaceUp]",
@@ -739,13 +772,17 @@ int interface_up(struct thread *thread)
 
 #ifdef __FreeBSD__
 	/*
-	 * XXX: Schedule IPv6 group join for later, otherwise we might
-	 * lose the multicast group registration caused by IPv6 group
-	 * leave race.
+	 * There's a delay in FreeBSD between issuing a command to leave a
+	 * multicast group and an actual leave. If we execute "no router ospf6"
+	 * and "router ospf6" fast enough, we can end up in a situation when OS
+	 * performs the leave later than it performs the join and the interface
+	 * remains without a multicast group. We have to do the join only after
+	 * the interface actually left the group.
 	 */
-	if (oi->sso_try_cnt == 0) {
-		oi->sso_try_cnt++;
-		zlog_info("Scheduling %s for sso", oi->interface->name);
+	if (ifmaddr_check(oi->interface->ifindex, &allspfrouters6)) {
+		zlog_info(
+			"Interface %s is still in all routers group, rescheduling for SSO",
+			oi->interface->name);
 		thread_add_timer(master, interface_up, oi,
 				 OSPF6_INTERFACE_SSO_RETRY_INT,
 				 &oi->thread_sso);
