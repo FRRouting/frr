@@ -656,14 +656,9 @@ int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	if (bgp_confederation_peers_check(bgp, as))
 		return -1;
 
-	if (bgp->confed_peers)
-		bgp->confed_peers =
-			XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
-				 (bgp->confed_peers_cnt + 1) * sizeof(as_t));
-	else
-		bgp->confed_peers =
-			XMALLOC(MTYPE_BGP_CONFED_LIST,
-				(bgp->confed_peers_cnt + 1) * sizeof(as_t));
+	bgp->confed_peers =
+		XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
+			 (bgp->confed_peers_cnt + 1) * sizeof(as_t));
 
 	bgp->confed_peers[bgp->confed_peers_cnt] = as;
 	bgp->confed_peers_cnt++;

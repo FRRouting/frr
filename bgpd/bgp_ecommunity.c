@@ -158,7 +158,6 @@ static bool ecommunity_add_val_internal(struct ecommunity *ecom,
 	ecom->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom->val,
 			 ecom_length_size(ecom, ecom_size));
 
-
 	memmove(ecom->val + ((ins_idx + 1) * ecom_size),
 		ecom->val + (ins_idx * ecom_size),
 		(ecom->size - 1 - ins_idx) * ecom_size);
@@ -287,14 +286,9 @@ char *ecommunity_str(struct ecommunity *ecom)
 struct ecommunity *ecommunity_merge(struct ecommunity *ecom1,
 				    struct ecommunity *ecom2)
 {
-	if (ecom1->val)
-		ecom1->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom1->val,
-				      (size_t)(ecom1->size + ecom2->size)
-					      * (size_t)ecom1->unit_size);
-	else
-		ecom1->val = XMALLOC(MTYPE_ECOMMUNITY_VAL,
-				     (size_t)(ecom1->size + ecom2->size)
-					     * (size_t)ecom1->unit_size);
+	ecom1->val = XREALLOC(MTYPE_ECOMMUNITY_VAL, ecom1->val,
+			      (size_t)(ecom1->size + ecom2->size)
+				      * (size_t)ecom1->unit_size);
 
 	memcpy(ecom1->val + (ecom1->size * ecom1->unit_size), ecom2->val,
 	       (size_t)ecom2->size * (size_t)ecom1->unit_size);

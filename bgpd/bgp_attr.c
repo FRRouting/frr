@@ -2915,11 +2915,8 @@ static bgp_attr_parse_ret_t bgp_attr_unknown(struct bgp_attr_parser_args *args)
 	if (!transit)
 		transit = XCALLOC(MTYPE_TRANSIT, sizeof(struct transit));
 
-	if (transit->val)
-		transit->val = XREALLOC(MTYPE_TRANSIT_VAL, transit->val,
-					transit->length + total);
-	else
-		transit->val = XMALLOC(MTYPE_TRANSIT_VAL, total);
+	transit->val = XREALLOC(MTYPE_TRANSIT_VAL, transit->val,
+				transit->length + total);
 
 	memcpy(transit->val + transit->length, startp, total);
 	transit->length += total;
