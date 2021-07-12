@@ -64,7 +64,7 @@ struct vrf_data {
 	union {
 		struct {
 			uint32_t table_id;
-			char netns_name[NS_NAMSIZ];
+			char netns_name[NS_NAMSIZ + 1];
 		} l;
 	};
 };

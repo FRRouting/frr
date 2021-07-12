@@ -449,14 +449,14 @@ char *ns_netns_pathname(struct vty *vty, const char *name)
 		return NULL;
 	}
 	check_base = basename(pathname);
-	if (check_base != NULL && strlen(check_base) + 1 > NS_NAMSIZ) {
+	if (check_base != NULL && strlen(check_base) > NS_NAMSIZ) {
 		if (vty)
 			vty_out(vty, "NS name (%s) invalid: too long (>%d)\n",
-				check_base, NS_NAMSIZ - 1);
+				check_base, NS_NAMSIZ);
 		else
 			flog_warn(EC_LIB_LINUX_NS,
 				  "NS name (%s) invalid: too long (>%d)",
-				  check_base, NS_NAMSIZ - 1);
+				  check_base, NS_NAMSIZ);
 		return NULL;
 	}
 	return pathname;
