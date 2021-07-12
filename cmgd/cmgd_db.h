@@ -32,20 +32,19 @@
 typedef uintptr_t cmgd_db_hndl_t;
 
 typedef void (*cmgd_db_node_iter_fn)(cmgd_db_hndl_t db_hndl, 
-        struct lyd_node *node, struct nb_node *nb_node);
+        struct lyd_node *node);
 
 extern int cmgd_db_init(struct cmgd_master *cm);
 
-extern void cmgd_db_read_lock(cmgd_db_hndl_t db_hndl);
+extern int cmgd_db_read_lock(cmgd_db_hndl_t db_hndl);
 
-extern void cmgd_db_write_lock(cmgd_db_hndl_t db_hndl);
+extern int cmgd_db_write_lock(cmgd_db_hndl_t db_hndl);
 
-extern void cmgd_db_unlock(cmgd_db_hndl_t db_hndl);
+extern int cmgd_db_unlock(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_lookup_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath,
-        struct lyd_node *dnode[], struct nb_node *nb_node[], 
-        int *num_nodes);
+        struct lyd_node *dnodes[], int *num_nodes);
 
 extern int cmgd_db_delete_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath);

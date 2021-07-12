@@ -18,6 +18,8 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+#include <pthread.h>
+
 #include "thread.h"
 #include "sockunion.h"
 #include "prefix.h"
@@ -44,62 +46,89 @@
 
 typedef struct cmgd_db_ctxt_ {
         cmgd_database_id_t db_id;
+		pthread_rwlock_t rw_lock;
 
-        struct nb_node *root;
+        struct nb_config *root;
 } cmgd_db_ctxt_t;
 
 int cmgd_db_init(struct cmgd_master *cm)
 {
-	// TODO: Initialize cm->running_db, cm->candidate_db, cm->oper_db.
+	cmgd_db_ctxt_t running, candidate, oper;
+
+	// db_id to be added
+	running.root = nb_config_new(NULL);
+	candidate.root = nb_config_new(NULL);
+	oper.root = nb_config_new(NULL);
+
+	cm->running_db = (cmgd_db_hndl_t)&running;
+	cm->cnadidate_db = (cmgd_db_hndl_t)&candidate;
+	cm->oper_db = (cmgd_db_hndl_t)&oper;
+
 	return 0;
 }
 
-void cmgd_db_read_lock(cmgd_db_hndl_t db_hndl)
+int cmgd_db_read_lock(cmgd_db_hndl_t db_hndl)
 {
 	cmgd_db_ctxt_t *db_ctxt;
-
-	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
-		return;
-
-	/* pthread_rw_rdlock(db_ctxt->rw_lock) */
-}
-
-void cmgd_db_write_lock(cmgd_db_hndl_t db_hndl)
-{
-	cmgd_db_ctxt_t *db_ctxt;
-
-	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
-		return;
-
-	/* pthread_rw_wrlock(db_ctxt->rw_lock) */
-}
-
-void cmgd_db_unlock(cmgd_db_hndl_t db_hndl)
-{
-	cmgd_db_ctxt_t *db_ctxt;
-
-	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
-		return;
-
-	/* pthread_rw_unlock(db_ctxt->rw_lock) */
-}
-
-int cmgd_db_lookup_data_nodes(
-        cmgd_db_hndl_t db_hndl, const char *xpath,
-        struct lyd_node *dnode[], struct nb_node *nb_node[], 
-        int *num_nodes)
-{
-	cmgd_db_ctxt_t *db_ctxt;
+	int lock_status;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
 
-	dnode[0] = db_ctxt->root;
-	*num_nodes = 1;
+	lock_status = pthread_rwlock_tryrdlock(&db_ctxt->rw_lock);
+	return lock_status;
+
+}
+
+int cmgd_db_write_lock(cmgd_db_hndl_t db_hndl)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+	int lock_status;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return -1;
+
+	lock_status = pthread_rwlock_trywrlock(&db_ctxt->rw_lock);
+	return lock_status;
+}
+
+int cmgd_db_unlock(cmgd_db_hndl_t db_hndl)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+	int lock_status;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return -1;
+
+	lock_status =  pthread_rwlock_unlock(&db_ctxt->rw_lock);
+	return lock_status;
+}
+
+int cmgd_db_lookup_data_nodes(
+        cmgd_db_hndl_t db_hndl, const char *xpath,
+        struct lyd_node *dnodes[], int *num_nodes)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+	struct ly_set *set = NULL;
+	uint32_t i;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return -1;
+
+	if (xpath[0] == '.' && xpath[1] == '/')
+		xpath += 2;
+
+	lyd_find_xpath(db_ctxt->root->dnode, xpath, &set);
+	for(i = 0; i < set->count; i++)
+		dnodes[i] = set->dnodes[i];
+
+	*num_nodes = set->count;
+
+	ly_set_free(set, NULL);
 
 	return 0;
 }
@@ -108,10 +137,32 @@ int cmgd_db_delete_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath)
 {
 	cmgd_db_ctxt_t *db_ctxt;
+	struct nb_node *nb_node;
+	struct lyd_node *dnode, *dep_dnode;
+	char dep_xpath[XPATH_MAXLEN];
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
+
+	nb_node = nb_node_find(xpath);
+
+	dnode = yang_dnode_get(db_ctxt->root->dnode, xpath);
+	if (!dnode)
+		/*
+			* Return a special error code so the caller can choose
+			* whether to ignore it or not.
+			*/
+		return NB_ERR_NOT_FOUND;
+	/* destroy dependant */
+	if (nb_node->dep_cbs.get_dependant_xpath) {
+		nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
+
+		dep_dnode = yang_dnode_get(db_ctxt->root->dnode, dep_xpath);
+		if (dep_dnode)
+			lyd_free_tree(dep_dnode);
+	}
+	lyd_free_tree(dnode);
 
 	return 0;
 }
@@ -121,10 +172,23 @@ int cmgd_db_iter_data(
         cmgd_db_node_iter_fn iter_fn)
 {
 	cmgd_db_ctxt_t *db_ctxt;
+	int i, count;
+	struct lyd_node **dnodes = NULL;
+	struct lyd_node *dnode_iter;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
+
+	cmgd_db_lookup_data_nodes(db_hndl, base_xpath, dnodes, &count);
+
+	for(i = 0; i < count; i++) {
+		LYD_TREE_DFS_BEGIN (dnodes[i], dnode_iter) {
+			iter_fn(db_hndl, dnode_iter);
+
+			LYD_TREE_DFS_END (dnodes[i], dnode_iter);
+		}
+	}
 
 	return 0;
 }
