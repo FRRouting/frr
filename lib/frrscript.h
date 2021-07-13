@@ -25,7 +25,7 @@
 
 #include <lua.h>
 #include "frrlua.h"
-#include "../bgpd/bgp_script.h"
+#include "bgpd/bgp_script.h"
 
 #ifdef __cplusplus
 extern "C" {
