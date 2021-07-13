@@ -111,11 +111,7 @@ static bool vni_hash_cmp(const void *p1, const void *p2)
 	const struct bgpevpn *vpn1 = p1;
 	const struct bgpevpn *vpn2 = p2;
 
-	if (!vpn1 && !vpn2)
-		return true;
-	if (!vpn1 || !vpn2)
-		return false;
-	return (vpn1->vni == vpn2->vni);
+	return vpn1->vni == vpn2->vni;
 }
 
 int vni_list_cmp(void *p1, void *p2)
