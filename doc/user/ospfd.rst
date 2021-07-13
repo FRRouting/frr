@@ -710,8 +710,17 @@ Redistribution
 
 
 
-Graceful Restart Helper
-=======================
+Graceful Restart
+================
+
+.. clicmd:: graceful-restart [grace-period (1-1800)]
+
+
+   Configure Graceful Restart (RFC 3623) restarting support.
+   When enabled, the default grace period is 120 seconds.
+
+   To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
+   EXEC-level command needs to be issued before restarting the ospfd daemon.
 
 .. clicmd:: graceful-restart helper-only [A.B.C.D]
 
@@ -742,6 +751,17 @@ Graceful Restart Helper
    It helps to support as HELPER only for planned
    restarts. By default, it supports both planned and
    unplanned outages.
+
+
+.. clicmd:: graceful-restart prepare ip ospf
+
+
+   Initiate a graceful restart for all OSPF instances configured with the
+   "graceful-restart" command. The ospfd daemon should be restarted during
+   the instance-specific grace period, otherwise the graceful restart will fail.
+
+   This is an EXEC-level command.
+
 
 .. _showing-ospf-information:
 

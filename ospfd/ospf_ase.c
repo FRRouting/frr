@@ -609,6 +609,16 @@ static int ospf_ase_calculate_timer(struct thread *t)
 					+ (stop_time.tv_usec
 					   - start_time.tv_usec));
 	}
+
+	/*
+	 * Uninstall remnant routes that were installed before the restart, but
+	 * that are no longer valid.
+	 */
+	if (ospf->gr_info.finishing_restart) {
+		ospf_zebra_gr_disable(ospf);
+		ospf->gr_info.finishing_restart = false;
+	}
+
 	return 0;
 }
 

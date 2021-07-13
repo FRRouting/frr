@@ -12250,6 +12250,18 @@ static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 	return HASHWALK_CONTINUE;
 }
 
+static void config_write_ospf_gr(struct vty *vty, struct ospf *ospf)
+{
+	if (!ospf->gr_info.restart_support)
+		return;
+
+	if (ospf->gr_info.grace_period == OSPF_DFLT_GRACE_INTERVAL)
+		vty_out(vty, " graceful-restart\n");
+	else
+		vty_out(vty, " graceful-restart grace-period %u\n",
+			ospf->gr_info.grace_period);
+}
+
 static int config_write_ospf_gr_helper(struct vty *vty, struct ospf *ospf)
 {
 	if (ospf->is_helper_supported)
@@ -12464,7 +12476,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* Redistribute information print. */
 	config_write_ospf_redistribute(vty, ospf);
 
-	/* Print gr helper configs */
+	/* Graceful Restart print */
+	config_write_ospf_gr(vty, ospf);
 	config_write_ospf_gr_helper(vty, ospf);
 
 	/* Print external route aggregation. */

@@ -264,6 +264,14 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 	struct ospf_path *path;
 	struct listnode *node;
 
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not installing %pFX",
+				p);
+		return;
+	}
+
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
@@ -323,6 +331,14 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 {
 	struct zapi_route api;
 
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not uninstalling %pFX",
+				p);
+		return;
+	}
+
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
 	api.type = ZEBRA_ROUTE_OSPF;
@@ -339,6 +355,14 @@ void ospf_zebra_delete(struct ospf *ospf, struct prefix_ipv4 *p,
 void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 {
 	struct zapi_route api;
+
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not installing %pFX",
+				p);
+		return;
+	}
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
@@ -357,6 +381,14 @@ void ospf_zebra_add_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 void ospf_zebra_delete_discard(struct ospf *ospf, struct prefix_ipv4 *p)
 {
 	struct zapi_route api;
+
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not uninstalling %pFX",
+				p);
+		return;
+	}
 
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = ospf->vrf_id;
@@ -1178,6 +1210,36 @@ void ospf_routemap_unset(struct ospf_redist *red)
 
 	ROUTEMAP_NAME(red) = NULL;
 	ROUTEMAP(red) = NULL;
+}
+
+static int ospf_zebra_gr_update(struct ospf *ospf, int command,
+				uint32_t stale_time)
+{
+	struct zapi_cap api;
+
+	if (!zclient || zclient->sock < 0 || !ospf)
+		return 1;
+
+	memset(&api, 0, sizeof(struct zapi_cap));
+	api.cap = command;
+	api.stale_removal_time = stale_time;
+	api.vrf_id = ospf->vrf_id;
+
+	(void)zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient,
+					&api);
+
+	return 0;
+}
+
+int ospf_zebra_gr_enable(struct ospf *ospf, uint32_t stale_time)
+{
+	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_CAPABILITIES,
+				    stale_time);
+}
+
+int ospf_zebra_gr_disable(struct ospf *ospf)
+{
+	return ospf_zebra_gr_update(ospf, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
 /* Zebra route add and delete treatment. */

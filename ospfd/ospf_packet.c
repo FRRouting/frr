@@ -54,7 +54,7 @@
 #include "ospfd/ospf_dump.h"
 #include "ospfd/ospf_errors.h"
 #include "ospfd/ospf_zebra.h"
-#include "ospfd/ospf_gr_helper.h"
+#include "ospfd/ospf_gr.h"
 
 /*
  * OSPF Fragmentation / fragmented writes
@@ -2025,9 +2025,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 				ospf_ls_ack_send(nbr, lsa);
 
-				ospf_opaque_self_originated_lsa_received(nbr,
-									 lsa);
-				continue;
+				if (!ospf->gr_info.restart_in_progress) {
+					ospf_opaque_self_originated_lsa_received(
+						nbr, lsa);
+					continue;
+				}
 			}
 		}
 
@@ -2213,6 +2215,9 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 
 	assert(listcount(lsas) == 0);
 	list_delete(&lsas);
+
+	if (ospf->gr_info.restart_in_progress)
+		ospf_gr_check_lsdb_consistency(oi->ospf, oi->area);
 }
 
 /* OSPF Link State Acknowledgment message read -- RFC2328 Section 13.7. */
@@ -3575,13 +3580,12 @@ static int ospf_make_ls_upd(struct ospf_interface *oi, struct list *update,
 		struct lsa_header *lsah;
 		uint16_t ls_age;
 
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("ospf_make_ls_upd: List Iteration %d",
-				   count);
-
 		lsa = listgetdata(node);
-
 		assert(lsa->data);
+
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug("%s: List Iteration %d LSA[%s]", __func__,
+				   count, dump_lsa_key(lsa));
 
 		/* Will it fit? Minimum it has to fit atleast one */
 		if ((length + delta + ntohs(lsa->data->length) > size_noauth) &&
@@ -4264,7 +4268,7 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 	struct ospf_interface *oi = nbr->oi;
 
 	if (IS_GRACE_LSA(lsa)) {
-		if (IS_DEBUG_OSPF_GR_HELPER)
+		if (IS_DEBUG_OSPF_GR)
 			zlog_debug("%s, Sending GRACE ACK to Restarter.",
 				   __func__);
 	}

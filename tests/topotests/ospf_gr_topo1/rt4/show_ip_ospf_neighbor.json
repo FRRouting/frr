@@ -1,0 +1,18 @@
+{
+  "neighbors":{
+    "3.3.3.3":[
+      {
+        "state":"Full\/DROther",
+        "address":"10.0.3.3",
+        "ifaceName":"eth-rt3:10.0.3.4"
+      }
+    ],
+    "5.5.5.5":[
+      {
+        "state":"Full\/DROther",
+        "address":"10.0.5.5",
+        "ifaceName":"eth-rt5:10.0.5.4"
+      }
+    ]
+  }
+}

@@ -819,6 +819,14 @@ static struct ospf_lsa *ospf_router_lsa_originate(struct ospf_area *area)
 {
 	struct ospf_lsa *new;
 
+	if (area->ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type%d]: Graceful Restart in progress, don't originate",
+				OSPF_ROUTER_LSA);
+		return NULL;
+	}
+
 	/* Create new router-LSA instance. */
 	if ((new = ospf_router_lsa_new(area)) == NULL) {
 		zlog_err("%s: ospf_router_lsa_new returned NULL", __func__);
@@ -1045,6 +1053,14 @@ void ospf_network_lsa_update(struct ospf_interface *oi)
 {
 	struct ospf_lsa *new;
 
+	if (oi->area->ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type%d]: Graceful Restart in progress, don't originate",
+				OSPF_NETWORK_LSA);
+		return;
+	}
+
 	if (oi->network_lsa_self != NULL) {
 		ospf_lsa_refresh(oi->ospf, oi->network_lsa_self);
 		return;
@@ -1212,6 +1228,14 @@ struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p,
 	struct ospf_lsa *new;
 	struct in_addr id;
 
+	if (area->ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type%d]: Graceful Restart in progress, don't originate",
+				OSPF_SUMMARY_LSA);
+		return NULL;
+	}
+
 	id = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_SUMMARY_LSA, p);
 
 	if (id.s_addr == 0xffffffff) {
@@ -1352,6 +1376,14 @@ struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p,
 {
 	struct ospf_lsa *new;
 	struct in_addr id;
+
+	if (area->ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type%d]: Graceful Restart in progress, don't originate",
+				OSPF_ASBR_SUMMARY_LSA);
+		return NULL;
+	}
 
 	id = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_ASBR_SUMMARY_LSA,
 				p);
@@ -1799,6 +1831,13 @@ struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 	struct ospf_lsa *new;
 	struct as_external_lsa *extnew;
 
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Translated Type5]: Graceful Restart in progress, don't originate");
+		return NULL;
+	}
+
 	/* we cant use ospf_external_lsa_originate() as we need to set
 	 * the OSPF_LSA_LOCAL_XLT flag, must originate by hand
 	 */
@@ -1952,6 +1991,13 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 					     struct external_info *ei)
 {
 	struct ospf_lsa *new;
+
+	if (ospf->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type5]: Graceful Restart in progress, don't originate");
+		return NULL;
+	}
 
 	/* Added for NSSA project....
 
@@ -2779,8 +2825,8 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 	 */
 	if (IS_LSA_MAXAGE(new)) {
 		if (IS_DEBUG_OSPF(lsa, LSA_INSTALL))
-			zlog_debug("LSA[Type%d:%pI4]: Install LSA %p, MaxAge",
-				   new->data->type, &new->data->id, lsa);
+			zlog_debug("LSA[%s]: Install LSA %p, MaxAge",
+				   dump_lsa_key(new), lsa);
 		ospf_lsa_maxage(ospf, lsa);
 	}
 
@@ -2862,9 +2908,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 
 			if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 				zlog_debug(
-					"LSA[Type%d:%pI4]: MaxAge LSA removed from list",
-					lsa->data->type,
-					&lsa->data->id);
+					"LSA[%s]: MaxAge LSA removed from list",
+					dump_lsa_key(lsa));
 
 			if (CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE)) {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
@@ -2882,9 +2927,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 				 */
 				if (old != lsa) {
 					flog_err(EC_OSPF_LSA_MISSING,
-						 "%s: LSA[Type%d:%pI4]: LSA not in LSDB",
-						 __func__, lsa->data->type,
-						 &lsa->data->id);
+						 "%s: LSA[%s]: LSA not in LSDB",
+						 __func__, dump_lsa_key(lsa));
 
 					continue;
 				}
@@ -2893,9 +2937,8 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			} else {
 				if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 					zlog_debug(
-						"%s: LSA[Type%d:%pI4]: No associated LSDB!",
-						__func__, lsa->data->type,
-						&lsa->data->id);
+						"%s: LSA[%s]: No associated LSDB!",
+						__func__, dump_lsa_key(lsa));
 			}
 		}
 
@@ -2952,9 +2995,8 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	if (CHECK_FLAG(lsa->flags, OSPF_LSA_IN_MAXAGE)) {
 		if (IS_DEBUG_OSPF(lsa, LSA_FLOODING))
 			zlog_debug(
-				"LSA[Type%d:%pI4]: %p already exists on MaxAge LSA list",
-				lsa->data->type, &lsa->data->id,
-				(void *)lsa);
+				"LSA[%s]: %p already exists on MaxAge LSA list",
+				dump_lsa_key(lsa), lsa);
 		return;
 	}
 
