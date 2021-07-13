@@ -145,12 +145,6 @@ static bool vrf_import_rt_hash_cmp(const void *p1, const void *p2)
 	const struct vrf_irt_node *irt1 = p1;
 	const struct vrf_irt_node *irt2 = p2;
 
-	if (irt1 == NULL && irt2 == NULL)
-		return true;
-
-	if (irt1 == NULL || irt2 == NULL)
-		return false;
-
 	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
 }
 
@@ -260,12 +254,6 @@ static bool import_rt_hash_cmp(const void *p1, const void *p2)
 {
 	const struct irt_node *irt1 = p1;
 	const struct irt_node *irt2 = p2;
-
-	if (irt1 == NULL && irt2 == NULL)
-		return true;
-
-	if (irt1 == NULL || irt2 == NULL)
-		return false;
 
 	return (memcmp(irt1->rt.val, irt2->rt.val, ECOMMUNITY_SIZE) == 0);
 }
