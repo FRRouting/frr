@@ -733,7 +733,7 @@ int interface_up(struct thread *thread)
 	/* If no area assigned, return */
 	if (oi->area == NULL) {
 		zlog_warn(
-			"%s: Not scheduleing Hello for %s as there is no area assigned yet",
+			"%s: Not scheduling Hello for %s as there is no area assigned yet",
 			__func__, oi->interface->name);
 		return 0;
 	}
