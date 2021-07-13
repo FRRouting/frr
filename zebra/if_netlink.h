@@ -29,6 +29,17 @@ extern "C" {
 
 extern int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id,
 				  int startup);
+
+/*
+ * Parse an incoming interface address change message, generate a dplane
+ * context object for processing.
+ */
+int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
+				  int startup);
+
+/* Handle an interface addr change event. */
+int netlink_interface_addr_ctx(struct zebra_dplane_ctx *ctx);
+
 extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int interface_lookup_netlink(struct zebra_ns *zns);
 
