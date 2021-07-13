@@ -1070,8 +1070,8 @@ end:
 	 */
 	if ((lsp->hdr.lsp_bits & LSPBIT_ATT) == LSPBIT_ATT
 	    && !spftree->area->attached_bit_rcv_ignore
-	    && spftree->area->is_type == IS_LEVEL_1
-	    && !isis_area_count(spftree->area->isis, IS_LEVEL_2)) {
+	    && (spftree->area->is_type & IS_LEVEL_1)
+	    && !isis_level2_adj_up(spftree->area)) {
 		struct prefix_pair ip_info = { {0} };
 		if (IS_DEBUG_RTE_EVENTS)
 			zlog_debug("ISIS-Spf (%s): add default %s route",

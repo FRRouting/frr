@@ -401,93 +401,77 @@ static void lsp_seqno_update(struct isis_lsp *lsp0)
 	return;
 }
 
-static bool isis_level2_adj_up(struct isis_area *curr_area)
+bool isis_level2_adj_up(struct isis_area *area)
 {
 	struct listnode *node, *cnode;
 	struct isis_circuit *circuit;
 	struct list *adjdb;
 	struct isis_adjacency *adj;
-	struct isis *isis = curr_area->isis;
-	struct isis_area *area;
 
-	/* lookup for a Level2 adjacency up in another area */
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		if (area->area_tag
-		    && strcmp(area->area_tag, curr_area->area_tag) == 0)
-			continue;
+	if (area->is_type == IS_LEVEL_1)
+		return false;
 
-		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
-			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
-				adjdb = circuit->u.bc.adjdb[1];
-				if (!adjdb || !adjdb->count)
-					continue;
+	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+		if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+			adjdb = circuit->u.bc.adjdb[1];
+			if (!adjdb || !adjdb->count)
+				continue;
 
-				for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
-					if (adj->level != ISIS_ADJ_LEVEL1
-					    && adj->adj_state == ISIS_ADJ_UP)
-						return true;
-				}
-			} else if (circuit->circ_type == CIRCUIT_T_P2P
-				   && circuit->u.p2p.neighbor) {
-				adj = circuit->u.p2p.neighbor;
+			for (ALL_LIST_ELEMENTS_RO(adjdb, node, adj)) {
 				if (adj->level != ISIS_ADJ_LEVEL1
 				    && adj->adj_state == ISIS_ADJ_UP)
 					return true;
 			}
+		} else if (circuit->circ_type == CIRCUIT_T_P2P
+			   && circuit->u.p2p.neighbor) {
+			adj = circuit->u.p2p.neighbor;
+			if (adj->level != ISIS_ADJ_LEVEL1
+			    && adj->adj_state == ISIS_ADJ_UP)
+				return true;
 		}
 	}
+
 	return false;
 }
 
-static void isis_reset_attach_bit(struct isis_adjacency *curr_adj)
+static void isis_reset_attach_bit(struct isis_adjacency *adj)
 {
-	struct listnode *node;
-	struct isis_area *curr_area = curr_adj->circuit->area;
-	struct isis *isis = curr_area->isis;
-	struct isis_area *area;
+	struct isis_area *area = adj->circuit->area;
 	struct lspdb_head *head;
 	struct isis_lsp *lsp;
 	uint8_t lspid[ISIS_SYS_ID_LEN + 2];
 
-	/* If new adjaceny is up and area is level2 or level1and2 verify if
-	 * we have LSPs in other areas that should now set the attach bit.
-	 *
-	 * If adjacenty is down, verify if we no longer have another level2
-	 * or level1and2 areas so that we should now remove the attach bit.
+	/*
+	 * If an L2 adjacency changed its state in L-1-2 area, we have to:
+	 * - set the attached bit in L1 LSPs if it's the first L2 adjacency
+	 * - remove the attached bit in L1 LSPs if it's the last L2 adjacency
 	 */
-	if (curr_area->is_type == IS_LEVEL_1)
+
+	if (area->is_type != IS_LEVEL_1_AND_2 || adj->level == ISIS_ADJ_LEVEL1)
 		return;
 
-	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-		if (area->area_tag
-		    && strcmp(area->area_tag, curr_area->area_tag) == 0)
-			continue;
+	if (!area->attached_bit_send)
+		return;
 
-		if (!area->attached_bit_send)
-			continue;
+	head = &area->lspdb[IS_LEVEL_1 - 1];
+	memset(lspid, 0, ISIS_SYS_ID_LEN + 2);
+	memcpy(lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
 
-		head = &area->lspdb[IS_LEVEL_1 - 1];
-		memset(lspid, 0, ISIS_SYS_ID_LEN + 2);
-		memcpy(lspid, area->isis->sysid, ISIS_SYS_ID_LEN);
+	lsp = lsp_search(head, lspid);
+	if (!lsp)
+		return;
 
-		lsp = lsp_search(head, lspid);
-		if (!lsp)
-			continue;
-
-		if (curr_adj->adj_state == ISIS_ADJ_UP
-		    && !(lsp->hdr.lsp_bits & LSPBIT_ATT)) {
-			sched_debug(
-				"ISIS (%s): adj going up regenerate lsp-bits",
-				area->area_tag);
-			lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
-		} else if (curr_adj->adj_state == ISIS_ADJ_DOWN
-			   && lsp->hdr.lsp_bits & LSPBIT_ATT
-			   && !isis_level2_adj_up(area)) {
-			sched_debug(
-				"ISIS (%s): adj going down regenerate lsp-bits",
-				area->area_tag);
-			lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
-		}
+	if (adj->adj_state == ISIS_ADJ_UP
+	    && !(lsp->hdr.lsp_bits & LSPBIT_ATT)) {
+		sched_debug("ISIS (%s): adj going up regenerate lsp-bits",
+			    area->area_tag);
+		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
+	} else if (adj->adj_state == ISIS_ADJ_DOWN
+		   && (lsp->hdr.lsp_bits & LSPBIT_ATT)
+		   && !isis_level2_adj_up(area)) {
+		sched_debug("ISIS (%s): adj going down regenerate lsp-bits",
+			    area->area_tag);
+		lsp_regenerate_schedule(area, IS_LEVEL_1, 0);
 	}
 }
 
@@ -495,7 +479,7 @@ static uint8_t lsp_bits_generate(int level, int overload_bit, int attached_bit,
 				 struct isis_area *area)
 {
 	uint8_t lsp_bits = 0;
-	if (level == IS_LEVEL_1)
+	if (area->is_type == IS_LEVEL_1)
 		lsp_bits = IS_LEVEL_1;
 	else
 		lsp_bits = IS_LEVEL_1_AND_2;
