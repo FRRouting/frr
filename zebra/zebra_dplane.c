@@ -1108,6 +1108,21 @@ vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx)
 	return ctx->zd_vrf_id;
 }
 
+/* In some paths we have only a namespace id */
+void dplane_ctx_set_ns_id(struct zebra_dplane_ctx *ctx, ns_id_t nsid)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_ns_info.ns_id = nsid;
+}
+
+ns_id_t dplane_ctx_get_ns_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_ns_info.ns_id;
+}
+
 bool dplane_ctx_is_from_notif(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1152,6 +1167,13 @@ ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->zd_ifindex;
+}
+
+void dplane_ctx_set_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_ifindex = ifindex;
 }
 
 void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type)
@@ -1669,6 +1691,13 @@ uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.intf.metric;
 }
 
+void dplane_ctx_set_intf_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.metric = metric;
+}
+
 /* Is interface addr p2p? */
 bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx)
 {
@@ -1691,12 +1720,41 @@ bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx)
 	return (ctx->u.intf.flags & DPLANE_INTF_BROADCAST);
 }
 
+void dplane_ctx_intf_set_connected(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_CONNECTED;
+}
+
+void dplane_ctx_intf_set_secondary(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_SECONDARY;
+}
+
+void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_BROADCAST;
+}
+
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.intf.prefix);
+}
+
+void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
+			      const struct prefix *p)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	prefix_copy(&(ctx->u.intf.prefix), p);
 }
 
 bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx)
@@ -1711,10 +1769,15 @@ const struct prefix *dplane_ctx_get_intf_dest(
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (ctx->u.intf.flags & DPLANE_INTF_HAS_DEST)
-		return &(ctx->u.intf.dest_prefix);
-	else
-		return NULL;
+	return &(ctx->u.intf.dest_prefix);
+}
+
+void dplane_ctx_set_intf_dest(struct zebra_dplane_ctx *ctx,
+			      const struct prefix *p)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	prefix_copy(&(ctx->u.intf.dest_prefix), p);
 }
 
 bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx)
@@ -1729,6 +1792,35 @@ const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.label;
+}
+
+void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label)
+{
+	size_t len;
+
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.intf.label && ctx->u.intf.label != ctx->u.intf.label_buf)
+		free(ctx->u.intf.label);
+
+	ctx->u.intf.label = NULL;
+
+	if (label) {
+		ctx->u.intf.flags |= DPLANE_INTF_HAS_LABEL;
+
+		/* Use embedded buffer if it's adequate; else allocate. */
+		len = strlen(label);
+
+		if (len < sizeof(ctx->u.intf.label_buf)) {
+			strlcpy(ctx->u.intf.label_buf, label,
+				sizeof(ctx->u.intf.label_buf));
+			ctx->u.intf.label = ctx->u.intf.label_buf;
+		} else {
+			ctx->u.intf.label = strdup(label);
+		}
+	} else {
+		ctx->u.intf.flags &= ~DPLANE_INTF_HAS_LABEL;
+	}
 }
 
 /* Accessors for MAC information */
