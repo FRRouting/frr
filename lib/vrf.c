@@ -626,6 +626,9 @@ int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
 		flog_err_sys(EC_LIB_SOCKET, "%s: Can't switch to VRF %u (%s)",
 			     __func__, vrf_id, safe_strerror(errno));
 
+	zlog_debug(
+		"Creating VRF Socket for domain: %d type: %d protocol: %d, VRF_ID: %u and interface name: %s",
+		domain, type, protocol, vrf_id, interfacename);
 	ret = socket(domain, type, protocol);
 	save_errno = errno;
 	ret2 = vrf_switchback_to_initial();
@@ -1028,8 +1031,11 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 
 	/* can't bind to a VRF that doesn't exist */
 	vrf = vrf_lookup_by_id(vrf_id);
-	if (!vrf_is_enabled(vrf))
+	if (!vrf_is_enabled(vrf)) {
+		zlog_debug("ifname: %s(%u) for vrf: %s is not enabled", ifname,
+			   vrf_id, vrf ? vrf->name : "NO VRF NAME");
 		return -1;
+	}
 
 	if (ifname && strcmp(ifname, vrf->name)) {
 		/* binding to a regular interface */
@@ -1052,6 +1058,7 @@ int vrf_bind(vrf_id_t vrf_id, int fd, const char *ifname)
 		ifname = vrf->name;
 	}
 
+	zlog_debug("Bind to device for fd: %d %s", fd, ifname);
 #ifdef SO_BINDTODEVICE
 	ret = setsockopt(fd, SOL_SOCKET, SO_BINDTODEVICE, ifname,
 			 strlen(ifname) + 1);
