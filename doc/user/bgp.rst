@@ -1442,12 +1442,13 @@ Configuring Peers
    session will be established via IPv6 link locals. Use ``internal`` for iBGP
    and ``external`` for eBGP sessions, or specify an ASN if you wish.
 
-.. clicmd:: neighbor PEER next-hop-self [all]
+.. clicmd:: neighbor PEER next-hop-self [force]
 
    This command specifies an announced route's nexthop as being equivalent to
-   the address of the bgp router if it is learned via eBGP.  If the optional
-   keyword `all` is specified the modification is done also for routes learned
-   via iBGP.
+   the address of the bgp router if it is learned via eBGP. This will also
+   bypass third-party next-hops in favor of the local bgp address. If the
+   optional keyword ``force`` is specified the modification is done also for
+   routes learned via iBGP.
 
 .. clicmd:: neighbor PEER attribute-unchanged [{as-path|next-hop|med}]
 
