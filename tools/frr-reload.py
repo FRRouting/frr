@@ -2012,6 +2012,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "--daemon", help="daemon for which want to replace the config", default=""
     )
+    parser.add_argument(
+        "--test-reset",
+        action="store_true",
+        help="Used by topotest to not delete debug or log file commands",
+    )
 
     args = parser.parse_args()
 
@@ -2125,7 +2130,7 @@ if __name__ == "__main__":
                     service_integrated_vtysh_config = False
                     break
 
-    if not service_integrated_vtysh_config and not args.daemon:
+    if not args.test and not service_integrated_vtysh_config and not args.daemon:
         log.error(
             "'service integrated-vtysh-config' is not configured, this is required for 'service frr reload'"
         )
@@ -2153,35 +2158,56 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
 
         (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
-        lines_to_configure = []
 
         if lines_to_del:
-            print("\nLines To Delete")
-            print("===============")
+            if not args.test_reset:
+                print("\nLines To Delete")
+                print("===============")
 
             for (ctx_keys, line) in lines_to_del:
 
                 if line == "!":
                     continue
 
-                cmd = "\n".join(lines_to_config(ctx_keys, line, True))
-                lines_to_configure.append(cmd)
+                nolines = lines_to_config(ctx_keys, line, True)
+
+                if args.test_reset:
+                    # For topotests the original code stripped the lines, and ommitted blank lines
+                    # after, do that here
+                    nolines = [x.strip() for x in nolines]
+                    # For topotests leave these lines in (don't delete them)
+                    # [chopps: why is "log file" more special than other "log" commands?]
+                    nolines = [x for x in nolines if "debug" not in x and "log file" not in x]
+                    if not nolines:
+                        continue
+
+                cmd = "\n".join(nolines)
                 print(cmd)
 
         if lines_to_add:
-            print("\nLines To Add")
-            print("============")
+            if not args.test_reset:
+                print("\nLines To Add")
+                print("============")
 
             for (ctx_keys, line) in lines_to_add:
 
                 if line == "!":
                     continue
 
-                cmd = "\n".join(lines_to_config(ctx_keys, line, False))
-                lines_to_configure.append(cmd)
+                lines = lines_to_config(ctx_keys, line, False)
+
+                if args.test_reset:
+                    # For topotests the original code stripped the lines, and ommitted blank lines
+                    # after, do that here
+                    lines = [x.strip() for x in lines if x.strip()]
+                    if not lines:
+                        continue
+
+                cmd = "\n".join(lines)
                 print(cmd)
 
     elif args.reload:
+        lines_to_configure = []
 
         # We will not be able to do anything, go ahead and exit(1)
         if not vtysh.is_config_available():
