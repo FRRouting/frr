@@ -110,6 +110,11 @@ extern int kernel_del_mac_nhg(uint32_t nhg_id);
  */
 extern void kernel_update_multi(struct dplane_ctx_q *ctx_list);
 
+/*
+ * Called by the dplane pthread to read incoming OS messages and dispatch them.
+ */
+int kernel_dplane_read(struct zebra_dplane_info *info);
+
 #ifdef __cplusplus
 }
 #endif

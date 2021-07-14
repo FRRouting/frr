@@ -37,11 +37,12 @@
 #include "zebra/zebra_pbr.h"
 #include "printfrr.h"
 
-/* Memory type for context blocks */
+/* Memory types */
 DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
 
 #ifndef AOK
 #  define AOK 0
@@ -402,6 +403,19 @@ struct zebra_dplane_provider {
 	TAILQ_ENTRY(zebra_dplane_provider) dp_prov_link;
 };
 
+/* Declare types for list of zns info objects */
+PREDECL_DLIST(zns_info_list);
+
+struct dplane_zns_info {
+	struct zebra_dplane_info info;
+
+	/* Read event */
+	struct thread *t_read;
+
+	/* List linkage */
+	struct zns_info_list_item link;
+};
+
 /*
  * Globals
  */
@@ -423,6 +437,9 @@ static struct zebra_dplane_globals {
 
 	/* Ordered list of providers */
 	TAILQ_HEAD(zdg_prov_q, zebra_dplane_provider) dg_providers_q;
+
+	/* List of info about each zns */
+	struct zns_info_list_head dg_zns_list;
 
 	/* Counter used to assign internal ids to providers */
 	uint32_t dg_provider_id;
@@ -497,6 +514,9 @@ static struct zebra_dplane_globals {
 	struct thread *dg_t_shutdown_check;
 
 } zdplane_info;
+
+/* Instantiate zns list type */
+DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
 
 /*
  * Lock and unlock for interactions with the zebra 'core' pthread
@@ -4813,6 +4833,88 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 #endif /* NETLINK */
 }
 
+#ifdef HAVE_NETLINK
+/*
+ * Callback when an OS (netlink) incoming event read is ready. This runs
+ * in the dplane pthread.
+ */
+static int dplane_incoming_read(struct thread *event)
+{
+	struct dplane_zns_info *zi = THREAD_ARG(event);
+
+	kernel_dplane_read(&zi->info);
+
+	/* Re-start read task */
+	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
+			zi->info.nls.sock, &zi->t_read);
+
+	return 0;
+}
+#endif /* HAVE_NETLINK */
+
+/*
+ * Notify dplane when namespaces are enabled and disabled. The dplane
+ * needs to start and stop reading incoming events from the zns. In the
+ * common case where vrfs are _not_ namespaces, there will only be one
+ * of these.
+ *
+ * This is called in the main pthread.
+ */
+void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
+{
+	struct dplane_zns_info *zi;
+
+	if (IS_ZEBRA_DEBUG_DPLANE)
+		zlog_debug("%s: %s for nsid %u", __func__,
+			   (enabled ? "ENABLED" : "DISABLED"), zns->ns_id);
+
+	/* Search for an existing zns info entry */
+	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+		if (zi->info.ns_id == zns->ns_id)
+			break;
+	}
+
+	if (enabled) {
+		/* Create a new entry if necessary; start reading. */
+		if (zi == NULL) {
+			zi = XCALLOC(MTYPE_DP_NS, sizeof(*zi));
+
+			zi->info.ns_id = zns->ns_id;
+
+			zns_info_list_add_tail(&zdplane_info.dg_zns_list, zi);
+
+			if (IS_ZEBRA_DEBUG_DPLANE)
+				zlog_debug("%s: nsid %u, new zi %p", __func__,
+					   zns->ns_id, zi);
+		}
+
+		/* Make sure we're up-to-date with the zns object */
+#if defined(HAVE_NETLINK)
+		zi->info.is_cmd = false;
+		zi->info.nls = zns->netlink_dplane_in;
+
+		/* Start read task for the dplane pthread. */
+		if (zdplane_info.dg_master)
+			thread_add_read(zdplane_info.dg_master,
+					dplane_incoming_read, zi,
+					zi->info.nls.sock, &zi->t_read);
+#endif
+	} else if (zi) {
+		if (IS_ZEBRA_DEBUG_DPLANE)
+			zlog_debug("%s: nsid %u, deleting zi %p", __func__,
+				   zns->ns_id, zi);
+
+		/* Stop reading, free memory */
+		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+
+		if (zdplane_info.dg_master)
+			thread_cancel_async(zdplane_info.dg_master, &zi->t_read,
+					    NULL);
+
+		XFREE(MTYPE_DP_NS, zi);
+	}
+}
+
 /*
  * Provider api to signal that work/events are available
  * for the dataplane pthread.
@@ -5468,8 +5570,20 @@ done:
  */
 static int dplane_check_shutdown_status(struct thread *event)
 {
+	struct dplane_zns_info *zi;
+
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown status check called");
+
+	/* Remove any zns info entries as we stop the dplane pthread. */
+	frr_each_safe (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+
+		if (zdplane_info.dg_master)
+			thread_cancel(&zi->t_read);
+
+		XFREE(MTYPE_DP_NS, zi);
+	}
 
 	if (dplane_work_pending()) {
 		/* Reschedule dplane check on a short timer */
@@ -5765,6 +5879,7 @@ static void zebra_dplane_init_internal(void)
 
 	TAILQ_INIT(&zdplane_info.dg_update_ctx_q);
 	TAILQ_INIT(&zdplane_info.dg_providers_q);
+	zns_info_list_init(&zdplane_info.dg_zns_list);
 
 	zdplane_info.dg_updates_per_cycle = DPLANE_DEFAULT_NEW_WORK;
 
@@ -5780,6 +5895,7 @@ static void zebra_dplane_init_internal(void)
  */
 void zebra_dplane_start(void)
 {
+	struct dplane_zns_info *zi;
 	struct zebra_dplane_provider *prov;
 	struct frr_pthread_attr pattr = {
 		.start = frr_pthread_attr_default.start,
@@ -5798,6 +5914,14 @@ void zebra_dplane_start(void)
 	/* Enqueue an initial event for the dataplane pthread */
 	thread_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,
 			 &zdplane_info.dg_t_update);
+
+	/* Enqueue reads if necessary */
+	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+#if defined(HAVE_NETLINK)
+		thread_add_read(zdplane_info.dg_master, dplane_incoming_read,
+				zi, zi->info.nls.sock, &zi->t_read);
+#endif
+	}
 
 	/* Call start callbacks for registered providers */
 

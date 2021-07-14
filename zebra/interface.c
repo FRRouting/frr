@@ -1205,6 +1205,16 @@ void zebra_if_set_protodown(struct interface *ifp, bool down)
 #endif
 }
 
+/* Handler for incoming intf address change events */
+void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx)
+{
+#ifdef HAVE_NETLINK
+	netlink_interface_addr_ctx(ctx);
+#else
+	dplane_ctx_fini(&ctx);
+#endif /* HAVE_NETLINK */
+}
+
 /* Dump if address information to vty. */
 static void connected_dump_vty(struct vty *vty, json_object *json,
 			       struct connected *connected)

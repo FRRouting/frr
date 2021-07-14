@@ -513,6 +513,7 @@ extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);
 extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
 extern const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
 					  char *pd_buf, uint32_t pd_buf_len);
+void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc(void);

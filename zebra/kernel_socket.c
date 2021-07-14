@@ -1457,6 +1457,14 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 	return;
 }
 
+/*
+ * Called by the dplane pthread to read incoming OS messages and dispatch them.
+ */
+int kernel_dplane_read(struct zebra_dplane_info *info)
+{
+	return 0;
+}
+
 void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 {
 	struct zebra_dplane_ctx *ctx;
