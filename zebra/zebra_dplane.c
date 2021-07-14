@@ -690,6 +690,8 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		/* Maybe free label string, if allocated */
 		if (ctx->u.intf.label != NULL &&
 		    ctx->u.intf.label != ctx->u.intf.label_buf) {
@@ -1011,6 +1013,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 	case DPLANE_OP_GRE_SET:
 		ret = "GRE_SET";
 		break;
+
+	case DPLANE_OP_INTF_ADDR_ADD:
+		return "INTF_ADDR_ADD";
+
+	case DPLANE_OP_INTF_ADDR_DEL:
+		return "INTF_ADDR_DEL";
 	}
 
 	return ret;
@@ -4970,6 +4978,14 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_ifname(ctx),
 			   ctx->u.gre.link_ifindex);
 		break;
+
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+		zlog_debug("Dplane incoming op %s, intf %s, addr %pFX",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifname(ctx),
+			   dplane_ctx_get_intf_addr(ctx));
+		break;
 	}
 }
 
@@ -5110,6 +5126,11 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
 	case DPLANE_OP_BR_PORT_UPDATE:
+		break;
+
+	/* TODO -- error counters for incoming events? */
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		break;
 
 	case DPLANE_OP_NONE:
