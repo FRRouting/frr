@@ -24,6 +24,7 @@
 #include "command.h"
 #include "zclient.h"
 #include "lib/json.h"
+#include "lib/nexthop.h"
 
 #define OSPF6_MULTI_PATH_LIMIT    4
 
@@ -44,23 +45,60 @@ struct ospf6_nexthop {
 
 	/* IP address, if any */
 	struct in6_addr address;
+
+	/** Next-hop type information. */
+	enum nexthop_types_t type;
 };
 
-#define ospf6_nexthop_is_set(x)                                                \
-	((x)->ifindex || !IN6_IS_ADDR_UNSPECIFIED(&(x)->address))
-#define ospf6_nexthop_is_same(a, b)                                            \
-	((a)->ifindex == (b)->ifindex                                          \
-	 && IN6_ARE_ADDR_EQUAL(&(a)->address, &(b)->address))
-#define ospf6_nexthop_clear(x)                                                 \
-	do {                                                                   \
-		(x)->ifindex = 0;                                              \
-		memset(&(x)->address, 0, sizeof(struct in6_addr));             \
-	} while (0)
-#define ospf6_nexthop_copy(a, b)                                               \
-	do {                                                                   \
-		(a)->ifindex = (b)->ifindex;                                   \
-		memcpy(&(a)->address, &(b)->address, sizeof(struct in6_addr)); \
-	} while (0)
+static inline bool ospf6_nexthop_is_set(const struct ospf6_nexthop *nh)
+{
+	return nh->type != 0;
+}
+
+static inline bool ospf6_nexthop_is_same(const struct ospf6_nexthop *nha,
+					 const struct ospf6_nexthop *nhb)
+{
+	if (nha->type != nhb->type)
+		return false;
+
+	switch (nha->type) {
+	case NEXTHOP_TYPE_BLACKHOLE:
+		/* NOTHING */
+		break;
+
+	case NEXTHOP_TYPE_IFINDEX:
+		if (nha->ifindex != nhb->ifindex)
+			return false;
+		break;
+
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+	case NEXTHOP_TYPE_IPV4:
+		/* OSPFv3 does not support IPv4 next hops. */
+		return false;
+
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		if (nha->ifindex != nhb->ifindex)
+			return false;
+		/* FALLTHROUGH */
+	case NEXTHOP_TYPE_IPV6:
+		if (!IN6_ARE_ADDR_EQUAL(&nha->address, &nhb->address))
+			return false;
+		break;
+	}
+
+	return true;
+}
+
+static inline void ospf6_nexthop_clear(struct ospf6_nexthop *nh)
+{
+	memset(nh, 0, sizeof(*nh));
+}
+
+static inline void ospf6_nexthop_copy(struct ospf6_nexthop *nha,
+				      const struct ospf6_nexthop *nhb)
+{
+	memcpy(nha, nhb, sizeof(*nha));
+}
 
 /* Path */
 struct ospf6_ls_origin {
@@ -285,6 +323,7 @@ extern void ospf6_copy_nexthops(struct list *dst, struct list *src);
 extern void ospf6_merge_nexthops(struct list *dst, struct list *src);
 extern void ospf6_add_nexthop(struct list *nh_list, int ifindex,
 			      struct in6_addr *addr);
+extern void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route);
 extern int ospf6_num_nexthops(struct list *nh_list);
 extern int ospf6_route_cmp_nexthops(struct ospf6_route *a,
 				    struct ospf6_route *b);

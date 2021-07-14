@@ -284,12 +284,21 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 	struct ospf6_nexthop nh_match;
 
 	if (nh_list) {
-		nh_match.ifindex = ifindex;
-		if (addr != NULL)
+		if (addr) {
+			if (ifindex)
+				nh_match.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			else
+				nh_match.type = NEXTHOP_TYPE_IPV6;
+
 			memcpy(&nh_match.address, addr,
 			       sizeof(struct in6_addr));
-		else
+		} else {
+			nh_match.type = NEXTHOP_TYPE_IFINDEX;
+
 			memset(&nh_match.address, 0, sizeof(struct in6_addr));
+		}
+
+		nh_match.ifindex = ifindex;
 
 		if (!ospf6_route_find_nexthop(nh_list, &nh_match)) {
 			nh = ospf6_nexthop_create();
@@ -299,36 +308,76 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 	}
 }
 
+void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route)
+{
+	struct ospf6_nexthop *nh;
+	struct ospf6_nexthop nh_match = {};
+
+	/* List not allocated. */
+	if (route->nh_list == NULL)
+		return;
+
+	/* Entry already exists. */
+	nh_match.type = NEXTHOP_TYPE_BLACKHOLE;
+	if (ospf6_route_find_nexthop(route->nh_list, &nh_match))
+		return;
+
+	nh = ospf6_nexthop_create();
+	ospf6_nexthop_copy(nh, &nh_match);
+	listnode_add(route->nh_list, nh);
+}
+
 void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				     struct zapi_nexthop nexthops[],
 				     int entries, vrf_id_t vrf_id)
 {
 	struct ospf6_nexthop *nh;
 	struct listnode *node;
-	char buf[64];
 	int i;
 
 	if (route) {
 		i = 0;
 		for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 			if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-				const char *ifname;
-				inet_ntop(AF_INET6, &nh->address, buf,
-					  sizeof(buf));
-				ifname = ifindex2ifname(nh->ifindex, vrf_id);
-				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
-					   IFNAMSIZ, ifname, nh->ifindex);
+				zlog_debug("  nexthop: %s %pI6%%%.*s(%d)",
+					   nexthop_type_to_str(nh->type),
+					   &nh->address, IFNAMSIZ,
+					   ifindex2ifname(nh->ifindex, vrf_id),
+					   nh->ifindex);
 			}
+
 			if (i >= entries)
 				return;
 
 			nexthops[i].vrf_id = vrf_id;
-			nexthops[i].ifindex = nh->ifindex;
-			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
+			nexthops[i].type = nh->type;
+
+			switch (nh->type) {
+			case NEXTHOP_TYPE_BLACKHOLE:
+				/* NOTHING */
+				break;
+
+			case NEXTHOP_TYPE_IFINDEX:
+				nexthops[i].ifindex = nh->ifindex;
+				break;
+
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_IPV4:
+				/*
+				 * OSPFv3 with IPv4 routes is not supported
+				 * yet. Skip this next hop.
+				 */
+				if (IS_OSPF6_DEBUG_ZEBRA(SEND))
+					zlog_debug("  Skipping IPv4 next hop");
+				continue;
+
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				nexthops[i].ifindex = nh->ifindex;
+				/* FALLTHROUGH */
+			case NEXTHOP_TYPE_IPV6:
 				nexthops[i].gate.ipv6 = nh->address;
-				nexthops[i].type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			} else
-				nexthops[i].type = NEXTHOP_TYPE_IFINDEX;
+				break;
+			}
 			i++;
 		}
 	}
