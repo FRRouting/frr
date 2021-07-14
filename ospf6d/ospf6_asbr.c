@@ -1328,22 +1328,21 @@ ospf6_external_aggr_match(struct ospf6 *ospf6, struct prefix *p)
 {
 	struct route_node *node;
 
-	node = route_node_match(ospf6->rt_aggr_tbl, (struct prefix *)p);
-	if (node) {
+	node = route_node_match(ospf6->rt_aggr_tbl, p);
+	if (node == NULL)
+		return NULL;
 
-		if (IS_OSPF6_DEBUG_AGGR) {
-			if (node->info) {
-				struct ospf6_external_aggr_rt *ag = node->info;
-				zlog_debug("%s: Matching aggregator found.prefix: %pFX Aggregator %pFX",
-						__func__,
-						p,
-						&ag->p);
-			}
-		}
-		route_unlock_node(node);
-		return node->info;
+	if (IS_OSPF6_DEBUG_AGGR) {
+		struct ospf6_external_aggr_rt *ag = node->info;
+		zlog_debug("%s: Matching aggregator found.prefix: %pFX Aggregator %pFX",
+			__func__,
+			p,
+			&ag->p);
 	}
-	return NULL;
+
+	route_unlock_node(node);
+
+	return node->info;
 }
 
 void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
@@ -2809,8 +2808,8 @@ ospf6_aggr_handle_advertise_change(struct ospf6 *ospf6,
 
 static void
 ospf6_originate_summary_lsa(struct ospf6 *ospf6,
-				struct ospf6_external_aggr_rt *aggr,
-				struct ospf6_route *rt)
+			    struct ospf6_external_aggr_rt *aggr,
+			    struct ospf6_route *rt)
 {
 	struct ospf6_lsa *lsa = NULL, *aggr_lsa = NULL;
 	struct ospf6_external_info *info = NULL;
@@ -2942,8 +2941,7 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	 * then it need to be refreshed and originate bit should
 	 * be set.
 	 */
-	if (lsa && prefix_same((struct prefix *)&aggr->p,
-				(struct prefix *)&rt->prefix)) {
+	if (lsa && prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug("%s: External route prefix is same as aggr so refreshing LSA(%pFX)",
 				__PRETTY_FUNCTION__,
@@ -3034,21 +3032,77 @@ ospf6_asbr_summary_config_delete(struct ospf6 *ospf6, struct route_node *rn)
 	route_unlock_node(rn);
 }
 
+static int
+ospf6_handle_external_aggr_modify(struct ospf6 *ospf6,
+				  struct ospf6_external_aggr_rt *aggr)
+{
+	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_as_external_lsa *asel = NULL;
+	struct ospf6_route *rt_aggr;
+	unsigned int metric = 0;
+	route_tag_t tag = 0;
+	int mtype;
+
+	lsa = ospf6_lsdb_lookup(
+		htons(OSPF6_LSTYPE_AS_EXTERNAL),
+		htonl(aggr->id), ospf6->router_id,
+		ospf6->lsdb);
+	if (!lsa) {
+		zlog_warn(
+			"%s: Could not refresh/originate %pFX",
+			__func__,
+			&aggr->p);
+
+		return OSPF6_FAILURE;
+	}
+
+	asel = (struct ospf6_as_external_lsa *)
+		OSPF6_LSA_HEADER_END(lsa->header);
+	metric = (unsigned long)OSPF6_ASBR_METRIC(asel);
+	tag = ospf6_as_external_lsa_get_tag(lsa);
+	mtype = CHECK_FLAG(asel->bits_metric,
+			   OSPF6_ASBR_BIT_E) ? 2 : 1;
+
+	/* Fill all the details for advertisement */
+	ospf6_fill_aggr_route_details(ospf6, aggr);
+	rt_aggr = aggr->route;
+	/* If tag/metric/metric-type modified , then
+	 * re-originate the route with modified
+	 * tag/metric/metric-type details.
+	 */
+	if ((tag != aggr->tag)
+	    || (metric
+		!= (unsigned int)rt_aggr->path.cost)
+	    || (mtype
+		!= aggr->mtype)) {
+		if (IS_OSPF6_DEBUG_AGGR)
+			zlog_debug(
+			"%s: Changed tag(old:%d new:%d)/metric(o:%u n:%d)/mtype(o:%d n:%d),So refresh the summary route.(%pFX)",
+			__func__, tag,
+			aggr->tag,
+			metric,
+			(unsigned int)rt_aggr->path.cost,
+			mtype, aggr->mtype,
+			&aggr->p);
+
+		(void)ospf6_originate_type5_type7_lsas(
+					aggr->route,
+					ospf6);
+	}
+
+	return OSPF6_SUCCESS;
+}
+
 static void ospf6_handle_external_aggr_update(struct ospf6 *ospf6)
 {
 	struct route_node *rn = NULL;
-	unsigned int metric = 0;
-	int mtype;
+	int ret;
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Process modified aggregators.", __func__);
 
 	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		struct ospf6_external_aggr_rt *aggr;
-		struct ospf6_lsa *lsa = NULL;
-		struct ospf6_as_external_lsa *asel = NULL;
-		struct ospf6_route *rt_aggr;
-		route_tag_t tag = 0;
 
 		if (!rn->info)
 			continue;
@@ -3061,7 +3115,7 @@ static void ospf6_handle_external_aggr_update(struct ospf6 *ospf6)
 
 			if (OSPF6_EXTERNAL_RT_COUNT(aggr))
 				hash_clean(aggr->match_extnl_hash,
-				(void *)ospf6_aggr_handle_external_info);
+				ospf6_aggr_handle_external_info);
 
 			hash_free(aggr->match_extnl_hash);
 			XFREE(MTYPE_OSPF6_EXTERNAL_RT_AGGR, aggr);
@@ -3076,52 +3130,10 @@ static void ospf6_handle_external_aggr_update(struct ospf6 *ospf6)
 			    && !CHECK_FLAG(aggr->aggrflags,
 				OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE)) {
 
-				lsa = ospf6_lsdb_lookup(
-					htons(OSPF6_LSTYPE_AS_EXTERNAL),
-					htonl(aggr->id), ospf6->router_id,
-					ospf6->lsdb);
-				if (!lsa) {
-					zlog_warn(
-						"%s: Could not refresh/originate %pFX",
-						__func__,
-						&aggr->p);
-
+				ret = ospf6_handle_external_aggr_modify(ospf6,
+									aggr);
+				if (ret == OSPF6_FAILURE)
 					continue;
-				}
-
-				asel = (struct ospf6_as_external_lsa *)
-					OSPF6_LSA_HEADER_END(lsa->header);
-				metric = (unsigned long)OSPF6_ASBR_METRIC(asel);
-				tag = ospf6_as_external_lsa_get_tag(lsa);
-				mtype = CHECK_FLAG(asel->bits_metric,
-						   OSPF6_ASBR_BIT_E) ? 2 : 1;
-
-				/* Fill all the details for advertisement */
-				ospf6_fill_aggr_route_details(ospf6, aggr);
-				rt_aggr = aggr->route;
-				/* If tag/metric/metric-type modified , then
-				 * re-originate the route with modified
-				 * tag/metric/metric-type details.
-				 */
-				if ((tag != aggr->tag)
-				    || (metric
-					!= (unsigned int)rt_aggr->path.cost)
-				    || (mtype
-					!= aggr->mtype)) {
-					if (IS_OSPF6_DEBUG_AGGR)
-						zlog_debug(
-						"%s: Changed tag(old:%d new:%d)/metric(o:%u n:%d)/mtype(o:%d n:%d),So refresh the summary route.(%pFX)",
-						__func__, tag,
-						aggr->tag,
-						metric,
-						(unsigned int)rt_aggr->path.cost,
-						mtype, aggr->mtype,
-						&aggr->p);
-
-					(void)ospf6_originate_type5_type7_lsas(
-								aggr->route,
-								ospf6);
-				}
 			}
 
 			/* Advertise option modified ?
@@ -3145,7 +3157,7 @@ void ospf6_external_aggregator_free(struct ospf6_external_aggr_rt *aggr)
 {
 	if (OSPF6_EXTERNAL_RT_COUNT(aggr))
 		hash_clean(aggr->match_extnl_hash,
-			(void *)ospf6_aggr_unlink_external_info);
+			ospf6_aggr_unlink_external_info);
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Release the aggregator Address(%pFX)",
@@ -3168,17 +3180,19 @@ ospf6_delete_all_marked_aggregators(struct ospf6 *ospf6)
 	 * which are marked as DELETE. Set action to NONE for remaining
 	 * aggregators
 	 */
-	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn))
-		if (rn->info) {
-			aggr = rn->info;
+	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
 
-			if (aggr->action != OSPF6_ROUTE_AGGR_DEL) {
-				aggr->action = OSPF6_ROUTE_AGGR_NONE;
-				continue;
-			}
-			ospf6_asbr_summary_config_delete(ospf6, rn);
-			ospf6_external_aggregator_free(aggr);
+		aggr = rn->info;
+
+		if (aggr->action != OSPF6_ROUTE_AGGR_DEL) {
+			aggr->action = OSPF6_ROUTE_AGGR_NONE;
+			continue;
 		}
+		ospf6_asbr_summary_config_delete(ospf6, rn);
+		ospf6_external_aggregator_free(aggr);
+	}
 }
 
 static void ospf6_handle_exnl_rt_after_aggr_del(struct ospf6 *ospf6,
@@ -3223,8 +3237,7 @@ static void ospf6_handle_aggregated_exnl_rt(struct ospf6 *ospf6,
 	 * and aggegate prefix is same
 	 * If same dont flush the originated external LSA.
 	 */
-	if (prefix_same((struct prefix *)&aggr->p,
-			(struct prefix *)&rt->prefix)) {
+	if (prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug("%s: External Route prefix same as Aggregator(%pFX), so dont flush.",
 				__func__,
@@ -3269,38 +3282,39 @@ ospf6_handle_external_aggr_add(struct ospf6 *ospf6)
 	for (rt = ospf6_route_head(ospf6->external_table); rt;
 		rt = ospf6_route_next(rt)) {
 		ei = rt->route_option;
-		if (ei != NULL) {
-			if (is_default_prefix(&rt->prefix))
-				continue;
+		if (ei == NULL)
+			continue;
 
-			aggr = ospf6_external_aggr_match(ospf6,
-						&rt->prefix);
+		if (is_default_prefix(&rt->prefix))
+			continue;
 
-			/* If matching aggregator found, Add
-			 * the external route refrenace to the
-			 * aggregator and originate the aggr
-			 * route if it is advertisable.
-			 * flush the external LSA if it is
-			 * already originated for this external
-			 * prefix.
+		aggr = ospf6_external_aggr_match(ospf6,
+					&rt->prefix);
+
+		/* If matching aggregator found, Add
+		 * the external route refrenace to the
+		 * aggregator and originate the aggr
+		 * route if it is advertisable.
+		 * flush the external LSA if it is
+		 * already originated for this external
+		 * prefix.
+		 */
+		if (aggr) {
+			ospf6_originate_summary_lsa(ospf6, aggr, rt);
+
+			/* All aggregated external rts
+			 * are handled here.
 			 */
-			if (aggr) {
-				ospf6_originate_summary_lsa(ospf6, aggr, rt);
-
-				/* All aggregated external rts
-				 * are handled here.
-				 */
-				ospf6_handle_aggregated_exnl_rt(
-					ospf6, aggr, rt);
-				continue;
-			}
-
-			/* External routes which are only out
-			 * of aggregation will be handled here.
-			 */
-			ospf6_handle_exnl_rt_after_aggr_del(
-						ospf6, rt);
+			ospf6_handle_aggregated_exnl_rt(
+				ospf6, aggr, rt);
+			continue;
 		}
+
+		/* External routes which are only out
+		 * of aggregation will be handled here.
+		 */
+		ospf6_handle_exnl_rt_after_aggr_del(
+					ospf6, rt);
 	}
 }
 
@@ -3373,7 +3387,7 @@ int ospf6_asbr_external_rt_advertise(struct ospf6 *ospf6,
 	struct route_node *rn;
 	struct ospf6_external_aggr_rt *aggr;
 
-	rn = route_node_lookup(ospf6->rt_aggr_tbl, (struct prefix *)p);
+	rn = route_node_lookup(ospf6->rt_aggr_tbl, p);
 	if (!rn)
 		return OSPF6_INVALID;
 
@@ -3417,8 +3431,7 @@ static bool ospf6_external_rt_hash_cmp(const void *d1, const void *d2)
 	const struct ospf6_route *rt1 = d1;
 	const struct ospf6_route *rt2 = d2;
 
-	return prefix_same((struct prefix *)&rt1->prefix,
-			(struct prefix *)&rt2->prefix);
+	return prefix_same(&rt1->prefix, &rt2->prefix);
 }
 
 static struct ospf6_external_aggr_rt *
@@ -3426,16 +3439,10 @@ ospf6_external_aggr_new(struct prefix *p)
 {
 	struct ospf6_external_aggr_rt *aggr;
 
-	aggr = (struct ospf6_external_aggr_rt *)XCALLOC(
-			MTYPE_OSPF6_EXTERNAL_RT_AGGR,
-			sizeof(struct ospf6_external_aggr_rt));
+	aggr = XCALLOC(MTYPE_OSPF6_EXTERNAL_RT_AGGR,
+		       sizeof(struct ospf6_external_aggr_rt));
 
-	if (!aggr)
-		return NULL;
-
-	aggr->p.family = p->family;
 	prefix_copy(&aggr->p, p);
-	aggr->p.prefixlen = p->prefixlen;
 	aggr->metric = -1;
 	aggr->mtype = DEFAULT_METRIC_TYPE;
 	aggr->match_extnl_hash = hash_create(ospf6_external_rt_hash_key,
@@ -3454,7 +3461,7 @@ static void ospf6_external_aggr_add(struct ospf6 *ospf6,
 					__func__,
 					&aggr->p);
 
-	rn = route_node_get(ospf6->rt_aggr_tbl, (struct prefix *)&aggr->p);
+	rn = route_node_get(ospf6->rt_aggr_tbl, &aggr->p);
 	if (rn->info)
 		route_unlock_node(rn);
 	else
@@ -3503,7 +3510,7 @@ ospf6_external_aggr_config_lookup(struct ospf6 *ospf6, struct prefix *p)
 {
 	struct route_node *rn;
 
-	rn = route_node_lookup(ospf6->rt_aggr_tbl, (struct prefix *)p);
+	rn = route_node_lookup(ospf6->rt_aggr_tbl, p);
 	if (rn) {
 		route_unlock_node(rn);
 		return rn->info;
@@ -3559,7 +3566,7 @@ int ospf6_external_aggr_config_unset(struct ospf6 *ospf6,
 	struct route_node *rn;
 	struct ospf6_external_aggr_rt *aggr;
 
-	rn = route_node_lookup(ospf6->rt_aggr_tbl, (struct prefix *)p);
+	rn = route_node_lookup(ospf6->rt_aggr_tbl, p);
 	if (!rn)
 		return OSPF6_INVALID;
 

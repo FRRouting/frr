@@ -1929,7 +1929,7 @@ ospf6_print_json_external_routes_walkcb(struct hash_bucket *bucket, void *arg)
 
 	prefix2str(&rt->prefix, buf, sizeof(buf));
 
-	snprintf(exnalbuf, 20, "Exnl Addr-%d", count);
+	snprintf(exnalbuf, sizeof(exnalbuf), "Exnl Addr-%d", count);
 
 	json_object_string_add(json, exnalbuf, buf);
 
@@ -1958,81 +1958,83 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 				ospf6->aggr_delay_interval);
 	}
 
-	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn))
-		if (rn->info) {
-			struct ospf6_external_aggr_rt *aggr = rn->info;
-			json_object *json_aggr = NULL;
-			char buf[PREFIX2STR_BUFFER];
+	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
 
-			prefix2str(&aggr->p, buf, sizeof(buf));
+		struct ospf6_external_aggr_rt *aggr = rn->info;
+		json_object *json_aggr = NULL;
+		char buf[PREFIX2STR_BUFFER];
 
-			if (uj) {
+		prefix2str(&aggr->p, buf, sizeof(buf));
 
-				json_aggr = json_object_new_object();
+		if (uj) {
 
-				json_object_object_add(json,
-							buf,
-							json_aggr);
+			json_aggr = json_object_new_object();
 
-				json_object_string_add(json_aggr,
-						"Summary address",
-						buf);
+			json_object_object_add(json,
+						buf,
+						json_aggr);
 
-				json_object_string_add(
-					json_aggr, "Metric-type",
-					(aggr->mtype == DEFAULT_METRIC_TYPE)
-						? "E2"
-						: "E1");
+			json_object_string_add(json_aggr,
+					"Summary address",
+					buf);
 
-				json_object_int_add(json_aggr, "Metric",
-						   (aggr->metric != -1)
-						    ? aggr->metric
-						    : DEFAULT_DEFAULT_METRIC);
-
-				json_object_int_add(json_aggr, "Tag",
-						    aggr->tag);
-
-				json_object_int_add(json_aggr,
-						"External route count",
-						OSPF6_EXTERNAL_RT_COUNT(aggr));
-
-				if (OSPF6_EXTERNAL_RT_COUNT(aggr) && detail) {
-					json_object_int_add(json_aggr, "ID",
-							    aggr->id);
-					json_object_int_add(json_aggr, "Flags",
-							    aggr->aggrflags);
-					hash_walk(aggr->match_extnl_hash,
-					ospf6_print_json_external_routes_walkcb,
-							json_aggr);
-				}
-
-			} else {
-				vty_out(vty, "%-22s", buf);
-
+			json_object_string_add(
+				json_aggr, "Metric-type",
 				(aggr->mtype == DEFAULT_METRIC_TYPE)
-					? vty_out(vty, "%-16s", "E2")
-					: vty_out(vty, "%-16s", "E1");
-				vty_out(vty, "%-11d", (aggr->metric != -1)
-						? aggr->metric
-						: DEFAULT_DEFAULT_METRIC);
+					? "E2"
+					: "E1");
 
-				vty_out(vty, "%-12u", aggr->tag);
+			json_object_int_add(json_aggr, "Metric",
+					   (aggr->metric != -1)
+					    ? aggr->metric
+					    : DEFAULT_DEFAULT_METRIC);
 
-				vty_out(vty, "%-5ld\n",
+			json_object_int_add(json_aggr, "Tag",
+					    aggr->tag);
+
+			json_object_int_add(json_aggr,
+					"External route count",
 					OSPF6_EXTERNAL_RT_COUNT(aggr));
 
-				if (OSPF6_EXTERNAL_RT_COUNT(aggr) && detail) {
-					vty_out(vty,
-						"Matched External routes:\n");
-					hash_walk(aggr->match_extnl_hash,
-					ospf6_print_vty_external_routes_walkcb,
-								vty);
-					vty_out(vty, "\n");
-				}
+			if (OSPF6_EXTERNAL_RT_COUNT(aggr) && detail) {
+				json_object_int_add(json_aggr, "ID",
+						    aggr->id);
+				json_object_int_add(json_aggr, "Flags",
+						    aggr->aggrflags);
+				hash_walk(aggr->match_extnl_hash,
+					ospf6_print_json_external_routes_walkcb,
+							json_aggr);
+			}
 
+		} else {
+			vty_out(vty, "%-22s", buf);
+
+			(aggr->mtype == DEFAULT_METRIC_TYPE)
+				? vty_out(vty, "%-16s", "E2")
+				: vty_out(vty, "%-16s", "E1");
+			vty_out(vty, "%-11d", (aggr->metric != -1)
+					? aggr->metric
+					: DEFAULT_DEFAULT_METRIC);
+
+			vty_out(vty, "%-12u", aggr->tag);
+
+			vty_out(vty, "%-5ld\n",
+				OSPF6_EXTERNAL_RT_COUNT(aggr));
+
+			if (OSPF6_EXTERNAL_RT_COUNT(aggr) && detail) {
+				vty_out(vty,
+					"Matched External routes:\n");
+				hash_walk(aggr->match_extnl_hash,
+				ospf6_print_vty_external_routes_walkcb,
+							vty);
 				vty_out(vty, "\n");
 			}
+
+			vty_out(vty, "\n");
 		}
+	}
 
 	return CMD_SUCCESS;
 }
@@ -2129,26 +2131,29 @@ static int ospf6_asbr_summary_config_write(struct vty *vty, struct ospf6 *ospf6)
 				ospf6->aggr_delay_interval);
 
 	/* print 'summary-address A:B::C:D/M' */
-	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn))
-		if (rn->info) {
-			aggr = rn->info;
-			prefix2str(&aggr->p, buf, sizeof(buf));
-			vty_out(vty, " summary-address %s ", buf);
-			if (aggr->tag)
-				vty_out(vty, " tag %u ", aggr->tag);
+	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
 
-			if (aggr->metric != -1)
-				vty_out(vty, " metric %d ", aggr->metric);
+		aggr = rn->info;
 
-			if (aggr->mtype != DEFAULT_METRIC_TYPE)
-				vty_out(vty, " metric-type %d ", aggr->mtype);
+		prefix2str(&aggr->p, buf, sizeof(buf));
+		vty_out(vty, " summary-address %s", buf);
+		if (aggr->tag)
+			vty_out(vty, " tag %u", aggr->tag);
 
-			if (CHECK_FLAG(aggr->aggrflags,
-				       OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE))
-				vty_out(vty, " no-advertise");
+		if (aggr->metric != -1)
+			vty_out(vty, " metric %d", aggr->metric);
 
-			vty_out(vty, "\n");
-		}
+		if (aggr->mtype != DEFAULT_METRIC_TYPE)
+			vty_out(vty, " metric-type %d", aggr->mtype);
+
+		if (CHECK_FLAG(aggr->aggrflags,
+			       OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE))
+			vty_out(vty, " no-advertise");
+
+		vty_out(vty, "\n");
+	}
 
 	return 0;
 }

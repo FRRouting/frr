@@ -209,7 +209,7 @@ struct ospf6_lsa *ospf6_find_external_lsa(struct ospf6 *ospf6, struct prefix *p)
 		return NULL;
 	}
 
-	info = (struct ospf6_external_info *)(match->route_option);
+	info = match->route_option;
 	assert(info);
 
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
