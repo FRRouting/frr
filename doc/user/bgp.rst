@@ -3016,16 +3016,24 @@ The conditional BGP announcements are sent in addition to the normal
 announcements that a BGP router sends to its peer.
 
 The conditional advertisement process is triggered by the BGP scanner process,
-which runs every 60 seconds. This means that the maximum time for the conditional
-advertisement to take effect is 60 seconds. The conditional advertisement can take
-effect depending on when the tracked route is removed from the BGP table and
-when the next instance of the BGP scanner occurs.
+which runs every 60 by default. This means that the maximum time for the
+conditional advertisement to take effect is the value of the process timer.
+
+As an optimization, while the process always runs on each timer expiry, it
+determines whether or not the conditional advertisement policy or the routing
+table has changed; if neither have changed, no processing is necessary and the
+scanner exits early.
 
 .. clicmd:: neighbor A.B.C.D advertise-map NAME [exist-map|non-exist-map] NAME
 
    This command enables BGP scanner process to monitor routes specified by
    exist-map or non-exist-map command in BGP table and conditionally advertises
    the routes specified by advertise-map command.
+
+.. clicmd:: bgp conditional-advertisement timer (5-240)
+
+   Set the period to rerun the conditional advertisement scanner process. The
+   default is 60 seconds.
 
 Sample Configuration
 ^^^^^^^^^^^^^^^^^^^^^

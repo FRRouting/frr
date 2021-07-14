@@ -184,7 +184,7 @@ static int bgp_conditional_adv_timer(struct thread *t)
 	assert(bgp);
 
 	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
-			 CONDITIONAL_ROUTES_POLL_TIME, &bgp->t_condition_check);
+			 bgp->condition_check_period, &bgp->t_condition_check);
 
 	/* loop through each peer and advertise or withdraw routes if
 	 * advertise-map is configured and prefix(es) in condition-map
@@ -315,7 +315,7 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 
 	/* Register for conditional routes polling timer */
 	thread_add_timer(bm->master, bgp_conditional_adv_timer, bgp,
-			 CONDITIONAL_ROUTES_POLL_TIME, &bgp->t_condition_check);
+			 bgp->condition_check_period, &bgp->t_condition_check);
 }
 
 void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
