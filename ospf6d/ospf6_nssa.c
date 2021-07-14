@@ -1161,9 +1161,8 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 
 static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 {
-	struct ospf6_route rt_aggr, *route;
+	struct ospf6_route *route;
 	struct route_node *rn = NULL;
-	struct ospf6_external_info ei_aggr;
 	struct ospf6_external_aggr_rt *aggr;
 
 	/* Loop through the external_table to find the LSAs originated
@@ -1190,10 +1189,12 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 
 		if (CHECK_FLAG(aggr->aggrflags,
 		    OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
-			/* Prepare the external_info for aggregator */
-			ospf6_fill_aggr_route_details(area->ospf6, &ei_aggr,
-						      &rt_aggr, aggr);
-			ospf6_nssa_lsa_originate(&rt_aggr, area);
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug(
+					"Originating Type-7 LSAs for area %s",
+					area->name);
+
+			ospf6_nssa_lsa_originate(aggr->route, area);
 		}
 	}
 
