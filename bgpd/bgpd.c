@@ -1449,7 +1449,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	/* peer flags apply */
 	peer_dst->flags = peer_src->flags;
-	peer_dst->cap = peer_src->cap;
 
 	peer_dst->peer_gr_present_state = peer_src->peer_gr_present_state;
 	peer_dst->peer_gr_new_status_flag = peer_src->peer_gr_new_status_flag;
