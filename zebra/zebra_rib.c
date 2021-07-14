@@ -4209,6 +4209,11 @@ static int rib_process_dplane_results(struct thread *thread)
 				zebra_pbr_dplane_result(ctx);
 				break;
 
+			case DPLANE_OP_INTF_ADDR_ADD:
+			case DPLANE_OP_INTF_ADDR_DEL:
+				zebra_if_addr_update_ctx(ctx);
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:
@@ -4223,8 +4228,6 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_BR_PORT_UPDATE:
 			case DPLANE_OP_NEIGH_TABLE_UPDATE:
 			case DPLANE_OP_GRE_SET:
-			case DPLANE_OP_INTF_ADDR_ADD:
-			case DPLANE_OP_INTF_ADDR_DEL:
 			case DPLANE_OP_NONE:
 				/* Don't expect this: just return the struct? */
 				dplane_ctx_fini(&ctx);
