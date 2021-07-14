@@ -104,7 +104,7 @@ enum zebra_dplane_result {
  */
 
 /*
- * Enqueue a route install or update for the dataplane.
+ * Operations that the dataplane can process.
  */
 enum dplane_op_e {
 	DPLANE_OP_NONE = 0,
@@ -178,6 +178,10 @@ enum dplane_op_e {
 
 	DPLANE_OP_NEIGH_TABLE_UPDATE,
 	DPLANE_OP_GRE_SET,
+
+	/* Incoming interface address events */
+	DPLANE_OP_INTF_ADDR_ADD,
+	DPLANE_OP_INTF_ADDR_DEL,
 };
 
 /*
