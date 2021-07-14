@@ -458,7 +458,7 @@ def remote_kill(pid, node, signum=signal.SIG_DFL):
 
     if pid <= 0:
         return False
-    if node.cmd('kill -%s %s' % (signum.value, pid)):
+    if node.cmd("kill -%s %s" % (signum.value, pid)):
         return False
     else:
         return True
@@ -1067,7 +1067,7 @@ def checkAddressSanitizerError(output, router, component, logdir=""):
     return False
 
 
-def addRouter(topo, name):
+def addRouter(topo, name, **opts):
     "Adding a FRRouter to Topology"
 
     MyPrivateDirs = [
@@ -1390,7 +1390,7 @@ class Router(Node):
 
     def startRouter(self, tgen=None):
         # Disable integrated-vtysh-config
-        logger.info("# startRouter: %s" % str(self.cmd('hostname')))
+        logger.info("# startRouter: %s" % str(self.cmd("hostname")))
         logger.info(self.daemons)
         self.cmd(
             'echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
@@ -1923,41 +1923,66 @@ class RemoteMixin(object):
     # -q: don't print stupid diagnostic messages
     # BatchMode yes: don't ask for password
     # ForwardAgent yes: forward authentication credentials
-    sshbase = ['ssh', '-q', '-o', 'StrictHostKeyChecking=no',
-               '-o', 'BatchMode=yes',
-               '-o', 'ForwardAgent=yes', '-tt']
+    sshbase = [
+        "ssh",
+        "-q",
+        "-o",
+        "StrictHostKeyChecking=no",
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ForwardAgent=yes",
+        "-tt",
+    ]
 
-    def __init__(self, name, server='localhost', user=None, serverIP=None,
-                 controlPath=False, splitInit=False, keyFile=None, sshPort=22, **kwargs):
+    def __init__(
+        self,
+        name,
+        server="localhost",
+        user=None,
+        serverIP=None,
+        controlPath=False,
+        splitInit=False,
+        keyFile=None,
+        sshPort=22,
+        **kwargs
+    ):
         """Instantiate a remote node
-           name: name of remote node
-           server: remote server (optional)
-           user: user on remote server (optional)
-           controlPath: specify shared ssh control path (optional)
-           splitInit: split initialization?
-           **kwargs: see Node()"""
+        name: name of remote node
+        server: remote server (optional)
+        user: user on remote server (optional)
+        controlPath: specify shared ssh control path (optional)
+        splitInit: split initialization?
+        **kwargs: see Node()"""
         # We connect to servers by IP address
-        self.server = server if server else 'localhost'
-        self.serverIP = (serverIP if serverIP
-                         else self.findServerIP(self.server))
+        self.server = server if server else "localhost"
+        self.serverIP = serverIP if serverIP else self.findServerIP(self.server)
         self.user = user
         # ClusterCleanup.add(server=server, user=user)
         if controlPath is True:
             # Set a default control path for shared SSH connections
-            controlPath = '/tmp/mn-%r@%h:%p'
+            controlPath = "/tmp/mn-%r@%h:%p"
         self.controlPath = controlPath
         self.keyFile = keyFile
         self.sshPort = str(sshPort)
         self.splitInit = splitInit
-        if self.user and self.server != 'localhost':
-            self.dest = '%s@%s' % (self.user, self.serverIP)
-            self.sshcmd = [] + self.sshbase + ['-p', self.sshPort]
+        if self.user and self.server != "localhost":
+            self.dest = "%s@%s" % (self.user, self.serverIP)
+            self.sshcmd = [] + self.sshbase + ["-p", self.sshPort]
             if self.controlPath:
-                self.sshcmd += ['-o', 'ControlPath=' + self.controlPath,
-                                '-o', 'ControlMaster=auto',
-                                '-o', 'ControlPersist=' + '1']
+                self.sshcmd += [
+                    "-o",
+                    "ControlPath=" + self.controlPath,
+                    "-o",
+                    "ControlMaster=auto",
+                    "-o",
+                    "ControlPersist=" + "1",
+                ]
             if self.keyFile:
-                self.sshcmd += ['-i', self.keyFile, ]
+                self.sshcmd += [
+                    "-i",
+                    self.keyFile,
+                ]
             self.sshcmd += [self.dest]
             self.isRemote = True
         else:
@@ -1970,17 +1995,17 @@ class RemoteMixin(object):
         super(RemoteMixin, self).__init__(name, **kwargs)
 
     # Determine IP address of local host
-    _ipMatchRegex = re.compile(r'\d+\.\d+\.\d+\.\d+')
+    _ipMatchRegex = re.compile(r"\d+\.\d+\.\d+\.\d+")
 
     @classmethod
     def findServerIP(cls, server):
         """Return our server's IP address"""
         # First, check for an IP address
-        ipmatch = cls._ipMatchRegex.findall( server )
+        ipmatch = cls._ipMatchRegex.findall(server)
         if ipmatch:
             return ipmatch[0]
         # Otherwise, look up remote server
-        output = quietRun('getent ahostsv4 %s' % server)
+        output = quietRun("getent ahostsv4 %s" % server)
         ips = cls._ipMatchRegex.findall(output)
         ip = ips[0] if ips else None
         return ip
@@ -1994,18 +2019,19 @@ class RemoteMixin(object):
         # bash -i: force interactive
         # -s: pass $* to shell, and make process easy to find in ps
         # prompt is set to sentinel chr( 127 )
-        cmd = ['env', 'PS1=' + chr(127), 'bash', '--norc', '--noediting', '-is']
+        cmd = ["env", "PS1=" + chr(127), "bash", "--norc", "--noediting", "-is"]
 
         # Spawn a shell subprocess in a pseudo-tty, to disable buffering
         # in the subprocess and insulate it from signals (e.g. SIGINT)
         # received by the parent
         logger.debug(cmd)
         self.master, self.slave = pty.openpty()
-        self.shell = self._popen(cmd, stdin=self.slave, stdout=self.slave,
-                                 stderr=self.slave, close_fds=False)
+        self.shell = self._popen(
+            cmd, stdin=self.slave, stdout=self.slave, stderr=self.slave, close_fds=False
+        )
         # XXX BL: This doesn't seem right, and we should also probably
         # close our files when we exit...
-        self.stdin = os.fdopen(self.master, 'r')
+        self.stdin = os.fdopen(self.master, "r")
         self.stdout = self.stdin
         self.pid = self.shell.pid
         self.pollOut = select.poll()
@@ -2018,7 +2044,7 @@ class RemoteMixin(object):
         self.execed = False
         self.lastCmd = None
         self.lastPid = None
-        self.readbuf = ''
+        self.readbuf = ""
         # Wait for prompt
         while True:
             data = self.read(1024)
@@ -2027,17 +2053,17 @@ class RemoteMixin(object):
             self.pollOut.poll()
         self.waiting = False
         # +m: disable job control notification
-        self.cmd('unset HISTFILE; stty -echo; set +m')
+        self.cmd("unset HISTFILE; stty -echo; set +m")
 
     # Command support via shell process in namespace
     def startShell(self, *args, **kwargs):
         """Start a shell process for running commands"""
         info("RemoteMixin startShell\n")
         if self.isRemote:
-            kwargs.update(mnopts='-c')
+            kwargs.update(mnopts="-c")
         self._startShell(*args, **kwargs)
         # Optional split initialization
-        self.sendCmd('echo $$')
+        self.sendCmd("echo $$")
         if not self.splitInit:
             self.finishInit()
 
@@ -2047,25 +2073,22 @@ class RemoteMixin(object):
 
     def rpopen(self, *cmd, **opts):
         """Return a Popen object on underlying server in root namespace"""
-        params = {'stdin': PIPE,
-                  'stdout': PIPE,
-                  'stderr': STDOUT,
-                  'sudo': True}
+        params = {"stdin": PIPE, "stdout": PIPE, "stderr": STDOUT, "sudo": True}
         params.update(opts)
         return self._popen(*cmd, **params)
 
     def rcmd(self, *cmd, **opts):
         """rcmd: run a command on underlying server
-           in root namespace
-           args: string or list of strings
-           returns: stdout and stderr"""
+        in root namespace
+        args: string or list of strings
+        returns: stdout and stderr"""
         info("& " + self.name + ": " + " ".join(cmd))
         popen = self.rpopen(*cmd, **opts)
         # info( 'RCMD: POPEN:', popen, '\n' )
         # These loops are tricky to get right.
         # Once the process exits, we can read
         # EOF twice if necessary.
-        result = b''
+        result = b""
         while True:
             poll = popen.poll()
             result += popen.stdout.read()
@@ -2078,29 +2101,29 @@ class RemoteMixin(object):
         """Detach from process group to ignore all signals"""
         os.setpgrp()
 
-    def _popen( self, cmd, sudo=False, tt=True, local=False, **params):
+    def _popen(self, cmd, sudo=False, tt=True, local=False, **params):
         """Spawn a process on a remote node
-            cmd: remote command to run (list)
-            **params: parameters to Popen()
-            returns: Popen() object"""
+        cmd: remote command to run (list)
+        **params: parameters to Popen()
+        returns: Popen() object"""
         if type(cmd) is str:
             cmd = cmd.split()
         if self.isRemote and not local:
             if sudo:
-                cmd = ['sudo', '-E'] + cmd
+                cmd = ["sudo", "-E"] + cmd
             if tt:
                 cmd = self.sshcmd + cmd
             else:
                 # Hack: remove -tt
                 sshcmd = list(self.sshcmd)
-                sshcmd.remove('-tt')
+                sshcmd.remove("-tt")
                 cmd = sshcmd + cmd
         else:
             if self.user and not sudo:
                 # Drop privileges
-                cmd = ['sudo', '-E', '-u', self.user] + cmd
+                cmd = ["sudo", "-E", "-u", self.user] + cmd
         params.update(preexec_fn=self._ignoreSignal)
-        logger.debug('_popen', cmd, '\n')
+        logger.debug("_popen{}\n".format(cmd))
         popen = super(RemoteMixin, self)._popen(cmd, **params)
         return popen
 
@@ -2115,8 +2138,14 @@ class RemoteMixin(object):
 
     def scp(self, src, dest):
         """Copy file to the remote router"""
-        scpcmd = 'scp -P {port} -o StrictHostKeyChecking=no -i {keyFile} {source} {user}@{host}:{dest}'.format(
-            port=self.sshPort, keyFile=self.keyFile, source=src, dest=dest, user=self.user, host=self.server)
+        scpcmd = "scp -P {port} -o StrictHostKeyChecking=no -i {keyFile} {source} {user}@{host}:{dest}".format(
+            port=self.sshPort,
+            keyFile=self.keyFile,
+            source=src,
+            dest=dest,
+            user=self.user,
+            host=self.server,
+        )
         logger.debug("scp[%s:%s]: %s" % (self.name, self.serverIP, scpcmd))
         self.rcmd(scpcmd, local=True)
 
@@ -2127,23 +2156,31 @@ class RemoteMixin(object):
             if param is not None:
                 self.daemons_options[daemon] = param
             if source is None:
-                self.cmd('touch /etc/%s/%s.conf' % (self.routertype, daemon))
+                self.cmd("touch /etc/%s/%s.conf" % (self.routertype, daemon))
             else:
-                self.scp(src=source, dest='/etc/{rtype}/{daemon}.conf'.format(rtype=self.routertype, daemon=daemon))
+                self.scp(
+                    src=source,
+                    dest="/etc/{rtype}/{daemon}.conf".format(
+                        rtype=self.routertype, daemon=daemon
+                    ),
+                )
             self.waitOutput()
-            self.cmd('chmod 640 /etc/%s/%s.conf' % (self.routertype, daemon))
+            self.cmd("chmod 640 /etc/%s/%s.conf" % (self.routertype, daemon))
             self.waitOutput()
-            self.cmd('chown %s:%s /etc/%s/%s.conf' % (self.routertype, self.routertype, self.routertype, daemon))
+            self.cmd(
+                "chown %s:%s /etc/%s/%s.conf"
+                % (self.routertype, self.routertype, self.routertype, daemon)
+            )
             self.waitOutput()
-            if (daemon == 'zebra') and (self.daemons['staticd'] == 0):
+            if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
-                staticd_path = os.path.join(self.daemondir, 'staticd')
+                staticd_path = os.path.join(self.daemondir, "staticd")
                 if os.path.isfile(staticd_path):
-                    self.daemons['staticd'] = 1
-                    self.daemons_options['staticd'] = ''
+                    self.daemons["staticd"] = 1
+                    self.daemons_options["staticd"] = ""
                     # Auto-Started staticd has no config, so it will read from zebra config
         else:
-            logger.info('No daemon {} known'.format(daemon))
+            logger.info("No daemon {} known".format(daemon))
 
 
 class HWIntf(Intf):
@@ -2151,7 +2188,7 @@ class HWIntf(Intf):
 
     def delete(self):
         """Delete interface"""
-        self.cmd('ip link set dev %s down' % self.name)
+        self.cmd("ip link set dev %s down" % self.name)
         self.link = None
 
 
@@ -2160,20 +2197,20 @@ class RemoteLink(Link):
 
     def __init__(self, node1, node2, **kwargs):
         """Initialize a RemoteLink
-           see Link() for parameters"""
+        see Link() for parameters"""
         # Create links on remote node
         self.node1 = node1
         self.node2 = node2
         self.hwintf = None
-        kwargs.setdefault( 'params1', {} )
-        kwargs.setdefault( 'params2', {} )
+        kwargs.setdefault("params1", {})
+        kwargs.setdefault("params2", {})
         self.cmd = None  # satisfy pylint
         self.extraopts = kwargs
-        if kwargs.get('hwport1'):
-             kwargs['intfName1'] = kwargs.pop('hwport1')
-        if kwargs.get('hwport2'):
-            kwargs['intfName2'] = kwargs.pop('hwport2')
-        Link.__init__( self, node1, node2, **kwargs )
+        if kwargs.get("hwport1"):
+            kwargs["intfName1"] = kwargs.pop("hwport1")
+        if kwargs.get("hwport2"):
+            kwargs["intfName2"] = kwargs.pop("hwport2")
+        Link.__init__(self, node1, node2, **kwargs)
 
     def stop(self):
         """Stop this link"""
@@ -2183,56 +2220,61 @@ class RemoteLink(Link):
             Link.stop(self)
         self.hwintf = None
 
-    def makeIntfPair(self, intfname1, intfname2, addr1=None, addr2=None,
-                     node1=None, node2=None, deleteIntfs=True):
+    def makeIntfPair(
+        self,
+        intfname1,
+        intfname2,
+        addr1=None,
+        addr2=None,
+        node1=None,
+        node2=None,
+        deleteIntfs=True,
+    ):
         """Create pair of interfaces
-            intfname1: name of interface 1
-            intfname2: name of interface 2
-            (override this method [and possibly delete()]
-            to change link type)"""
+        intfname1: name of interface 1
+        intfname2: name of interface 2
+        (override this method [and possibly delete()]
+        to change link type)"""
         node1 = self.node1 if node1 is None else node1
         node2 = self.node2 if node2 is None else node2
-        server1 = getattr(node1, 'server', 'localhost')
-        server2 = getattr(node2, 'server', 'localhost')
+        server1 = getattr(node1, "server", "localhost")
+        server2 = getattr(node2, "server", "localhost")
         if server1 == server2:
             # Link within same server
-            return Link.makeIntfPair(intfname1, intfname2, addr1, addr2,
-                                     node1, node2, deleteIntfs=deleteIntfs)
+            return Link.makeIntfPair(
+                intfname1,
+                intfname2,
+                addr1,
+                addr2,
+                node1,
+                node2,
+                deleteIntfs=deleteIntfs,
+            )
         # Otherwise, use HW interface
-        self.hwintf = self.useHardLink(node1, node2, intfname1, intfname2,
-                                       addr1, addr2)
+        self.hwintf = self.useHardLink(node1, node2, intfname1, intfname2, addr1, addr2)
         return self.hwintf
 
     @staticmethod
     def moveIntf(intf, node):
         """Move remote interface from root ns to node
-            intf: string, interface
-            dstNode: destination Node
-            srcNode: source Node or None (default) for root ns"""
+        intf: string, interface
+        dstNode: destination Node
+        srcNode: source Node or None (default) for root ns"""
         intf = str(intf)
-        cmd = 'ip link set %s netns %s' % (intf, node.pid)
+        cmd = "ip link set %s netns %s" % (intf, node.pid)
         result = node.rcmd(cmd)
         if result:
-            raise Exception('error executing command %s' % cmd)
+            raise Exception("error executing command %s" % cmd)
         return True
 
     def useHardLink(self, node1, node2, intf1, intf2, addr1=None, addr2=None):
-        """Make a veth pair connnecting new interfaces intf1 and intf2
-           intf1: name for interface 1
-           intf2: name for interface 2
-           addr1: MAC address for interface 1 (optional)
-           addr2: MAC address for interface 2 (optional)
-           node1: home node for interface 1 (optional)
-           node2: home node for interface 2 (optional)
-           deleteIntfs: delete intfs before creating them
-           runCmd: function to run shell commands (quietRun)
-           raises Exception on failure"""
+        """Do nothing since HW links should already exist in the system"""
         # Create new pair
-        info("Make links: %s:%s - %s:%s (%s, %s)" % (node1, intf1, node2, intf2, addr1, addr2))
-        cmdOutput = ""
-        if cmdOutput:
-            raise Exception("Error creating interface pair (%s,%s): %s " %
-                            (intf1, intf2, cmdOutput))
+        info(
+            "Make links: %s:%s - %s:%s (%s, %s)"
+            % (node1, intf1, node2, intf2, addr1, addr2)
+        )
+        return "{}-{}".format(intf1, intf2)
 
     def status(self):
         """Detailed representation of link"""
@@ -2246,6 +2288,7 @@ class RemoteLink(Link):
 
 class RemoteRouter(RemoteMixin, Node):
     """A node on a remote server"""
+
     pass
 
 
@@ -2289,27 +2332,27 @@ class RemoteLinuxRouter(RemoteMixin, Router):
 
         info("#" * 79 + "\n")
         info("# HOSTNAME = ")
-        self.cmd('hostname')
+        self.cmd("hostname")
         info("#" * 79 + "\n")
 
         # Enable forwarding on the router
-        assert_sysctl(self, 'net.ipv4.ip_forward', 1)
-        assert_sysctl(self, 'net.ipv6.conf.all.forwarding', 1)
+        assert_sysctl(self, "net.ipv4.ip_forward", 1)
+        assert_sysctl(self, "net.ipv6.conf.all.forwarding", 1)
         # Enable coredumps
-        assert_sysctl(self, 'kernel.core_uses_pid', 1)
-        assert_sysctl(self, 'fs.suid_dumpable', 1)
-        #this applies to the kernel not the namespace...
-        #original on ubuntu 17.x, but apport won't save as in namespace
+        assert_sysctl(self, "kernel.core_uses_pid", 1)
+        assert_sysctl(self, "fs.suid_dumpable", 1)
+        # this applies to the kernel not the namespace...
+        # original on ubuntu 17.x, but apport won't save as in namespace
         # |/usr/share/apport/apport %p %s %c %d %P
-        corefile = '%e_core-sig_%s-pid_%p.dmp'
-        assert_sysctl(self, 'kernel.core_pattern', corefile)
+        corefile = "%e_core-sig_%s-pid_%p.dmp"
+        assert_sysctl(self, "kernel.core_pattern", corefile)
 
     def terminate(self):
         """
         Terminate generic LinuxRouter Mininet instance
         """
-        set_sysctl(self, 'net.ipv4.ip_forward', 0)
-        set_sysctl(self, 'net.ipv6.conf.all.forwarding', 0)
+        set_sysctl(self, "net.ipv4.ip_forward", 0)
+        set_sysctl(self, "net.ipv6.conf.all.forwarding", 0)
         Router.terminate(self)
 
     def cmd(self, *args, **kwargs):

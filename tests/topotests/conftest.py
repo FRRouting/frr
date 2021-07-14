@@ -15,6 +15,7 @@ from lib.topolog import logger
 
 try:
     from _pytest._code.code import ExceptionInfo
+
     leak_check_ok = True
 except ImportError:
     leak_check_ok = False
@@ -74,11 +75,11 @@ def pytest_addoption(parser):
         help="Only set up this topology, don't run tests",
     )
     parser.addoption(
-        '--hw-router',
-        action='store',
-        dest='r_router',
+        "--hw-router",
+        action="store",
+        dest="r_router",
         default=None,
-        help='Topology router name to replace with HW router.'
+        help="Topology router name to replace with HW router.",
     )
 
     parser.addoption(
@@ -127,7 +128,7 @@ def check_for_memleaks():
             vfcontent = vf.read()
             match = re.search(r"ERROR SUMMARY: (\d+) errors", vfcontent)
             if match and match.group(1) != "0":
-                emsg = '{} in {}'.format(match.group(1), vfile)
+                emsg = "{} in {}".format(match.group(1), vfile)
                 leaks.append(emsg)
 
     if leaks:

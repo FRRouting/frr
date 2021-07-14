@@ -144,8 +144,8 @@ class Topogen(object):
         else:
             # Otherwise check pytest.ini
             r_router = None
-            if self.config.has_option(self.CONFIG_SECTION, 'r_router'):
-                r_router = self.config.get(self.CONFIG_SECTION, 'r_router')
+            if self.config.has_option(self.CONFIG_SECTION, "r_router"):
+                r_router = self.config.get(self.CONFIG_SECTION, "r_router")
                 global_remote_router = r_router
             return r_router
 
@@ -205,10 +205,10 @@ class Topogen(object):
             raise KeyError("router already exists")
         if self.r_router and name == self.r_router:
             cls = topotest.RemoteLinuxRouter
-            params['server'] = self.config.get(self.CONFIG_SECTION, 'r_server')
-            params['user'] = self.config.get(self.CONFIG_SECTION, 'r_user')
-            params['keyFile'] = self.config.get(self.CONFIG_SECTION, 'r_keyFile')
-            params['sshPort'] = self.config.get(self.CONFIG_SECTION, 'r_sshPort')
+            params["server"] = self.config.get(self.CONFIG_SECTION, "r_server")
+            params["user"] = self.config.get(self.CONFIG_SECTION, "r_user")
+            params["keyFile"] = self.config.get(self.CONFIG_SECTION, "r_keyFile")
+            params["sshPort"] = self.config.get(self.CONFIG_SECTION, "r_sshPort")
         params["frrdir"] = self.config.get(self.CONFIG_SECTION, "frrdir")
         params["memleak_path"] = self.config.get(self.CONFIG_SECTION, "memleak_path")
         if "routertype" not in params:
@@ -291,17 +291,27 @@ class Topogen(object):
             else:
                 r_router = node2
                 neigh = node1
-            lport, rport = self.config.get(self.CONFIG_SECTION, 'r_link_{}'.format(r_router.linkn-1)).split(',')
+            lport, rport = self.config.get(
+                self.CONFIG_SECTION, "r_link_{}".format(r_router.linkn - 1)
+            ).split(",")
             r_router.register_link(rport, neigh, lport)
             neigh.register_link(lport, r_router, rport)
-            self.topo.addLink(neigh.name, r_router.name, cls=topotest.RemoteLink,
-                              cls1=topotest.HWIntf, cls2=topotest.HWIntf, intfName2=lport,
-                              hwport1=lport, hwport2=rport)
+            self.topo.addLink(
+                neigh.name,
+                r_router.name,
+                cls=topotest.RemoteLink,
+                cls1=topotest.HWIntf,
+                cls2=topotest.HWIntf,
+                intfName2=lport,
+                hwport1=lport,
+                hwport2=rport,
+            )
         else:
             node1.register_link(ifname1, node2, ifname2)
             node2.register_link(ifname2, node1, ifname1)
-            self.topo.addLink(node1.name, node2.name,
-                              intfName1=ifname1, intfName2=ifname2)
+            self.topo.addLink(
+                node1.name, node2.name, intfName1=ifname1, intfName2=ifname2
+            )
 
     def get_gears(self, geartype):
         """
@@ -733,17 +743,24 @@ class TopoRouter(TopoGear):
         self.logger.info("checking if daemons are running")
         return self.tgen.net[self.name].checkRouterRunning()
 
-    def link_name_update(self, daemon='zebra', file_name=None):
+    def link_name_update(self, daemon="zebra", file_name=None):
         """
         Update link names in config files if HW router is used
         """
         if not file_name:
-            file_name = '/etc/{rtype}/{daemon}.conf'.format(rtype=self.routertype, daemon=daemon)
+            file_name = "/etc/{rtype}/{daemon}.conf".format(
+                rtype=self.routertype, daemon=daemon
+            )
         for linkn in range(self.linkn):
-            default_ifname = '{}-eth{}'.format(self.name, linkn)  # See new_link()
-            hw_iface = self.tgen.config.get(Topogen.CONFIG_SECTION, 'r_link_{}'.format(linkn)).split(',')[-1]
-            self.run('sed -i "s/{iface}/{hwiface}/g" {file_name}'.format(
-                iface=default_ifname, hwiface=hw_iface, file_name=file_name))
+            default_ifname = "{}-eth{}".format(self.name, linkn)  # See new_link()
+            hw_iface = self.tgen.config.get(
+                Topogen.CONFIG_SECTION, "r_link_{}".format(linkn)
+            ).split(",")[-1]
+            self.run(
+                'sed -i "s/{iface}/{hwiface}/g" {file_name}'.format(
+                    iface=default_ifname, hwiface=hw_iface, file_name=file_name
+                )
+            )
 
     def start(self):
         """
