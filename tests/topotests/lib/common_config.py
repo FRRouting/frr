@@ -22,10 +22,6 @@ from collections import OrderedDict
 from datetime import datetime, timedelta
 from time import sleep
 from copy import deepcopy
-from subprocess import call
-from subprocess import STDOUT as SUB_STDOUT
-from subprocess import PIPE as SUB_PIPE
-from subprocess import Popen
 from functools import wraps
 from re import search as re_search
 from tempfile import mkdtemp
@@ -35,6 +31,7 @@ import os
 import sys
 import traceback
 import socket
+import subprocess
 import ipaddress
 import platform
 
@@ -469,83 +466,114 @@ def reset_config_on_routers(tgen, routerName=None):
 
     logger.debug("Entering API: reset_config_on_routers")
 
+    # Trim the router list if needed
     router_list = tgen.routers()
-    for rname in ROUTER_LIST:
-        if routerName and routerName != rname:
-            continue
+    if routerName:
+        if ((routerName not in ROUTER_LIST) or (routerName not in router_list)):
+            logger.debug("Exiting API: reset_config_on_routers: no routers")
+            return True
+        router_list = { routerName: router_list[routerName] }
 
-        router = router_list[rname]
-        logger.info("Configuring router %s to initial test configuration", rname)
+    delta_fmt = TMPDIR + "/{}/delta.conf"
+    init_cfg_fmt = TMPDIR + "/{}/frr_json_initial.conf"
+    run_cfg_fmt = TMPDIR + "/{}/frr.sav"
 
-        cfg = router.run("vtysh -c 'show running'")
-        fname = "{}/{}/frr.sav".format(TMPDIR, rname)
-        dname = "{}/{}/delta.conf".format(TMPDIR, rname)
-        f = open(fname, "w")
-        for line in cfg.split("\n"):
-            line = line.strip()
-
-            if (
-                line == "Building configuration..."
-                or line == "Current configuration:"
-                or not line
-            ):
-                continue
-            f.write(line)
-            f.write("\n")
-
-        f.close()
-        run_cfg_file = "{}/{}/frr.sav".format(TMPDIR, rname)
-        init_cfg_file = "{}/{}/frr_json_initial.conf".format(TMPDIR, rname)
-        command = "/usr/lib/frr/frr-reload.py --test --test-reset --input {} {} > {}".format(
-            run_cfg_file, init_cfg_file, dname
+    #
+    # Get all running configs in parallel
+    #
+    procs = {}
+    for rname in router_list:
+        logger.info("Fetching running config for router %s", rname)
+        procs[rname] = router_list[rname].popen(
+            ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+            stdin=None,
+            stdout=open(run_cfg_fmt.format(rname), "w"),
+            stderr=subprocess.PIPE,
         )
-        result = call(command, shell=True, stderr=SUB_STDOUT, stdout=SUB_PIPE)
+    for rname, p in procs.items():
+        _, error = p.communicate()
+        if p.returncode:
+            logger.error("Get running config for %s failed %d: %s", rname, p.returncode, error)
+            raise InvalidCLIError("vtysh show running error on {}: {}".format(rname, error))
 
-        # Assert if command fail
-        if result > 0:
-            logger.error("Delta file creation failed. Command executed %s", command)
-            with open(run_cfg_file, "r") as fd:
-                logger.info(
-                    "Running configuration saved in %s is:\n%s", run_cfg_file, fd.read()
+    #
+    # Get all delta's in parallel
+    #
+    procs = {}
+    for rname in router_list:
+        logger.info("Generating delta for router %s to new configuration", rname)
+        procs[rname] = subprocess.Popen(
+            [ "/usr/lib/frr/frr-reload.py",
+              "--test-reset",
+              "--input",
+              run_cfg_fmt.format(rname),
+              "--test",
+              init_cfg_fmt.format(rname) ],
+            stdin=None,
+            stdout=open(delta_fmt.format(rname), "w"),
+            stderr=subprocess.PIPE,
+        )
+    for rname, p in procs.items():
+        _, error = p.communicate()
+        if p.returncode:
+            logger.error("Delta file creation for %s failed %d: %s", rname, p.returncode, error)
+            raise InvalidCLIError("frr-reload error for {}: {}".format(rname, error))
+
+    #
+    # Apply all the deltas in parallel
+    #
+    procs = {}
+    for rname in router_list:
+        logger.info("Applying delta config on router %s", rname)
+
+        procs[rname] = router_list[rname].popen(
+            ["/usr/bin/env", "vtysh", "-f", delta_fmt.format(rname)],
+            stdin=None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    for rname, p in procs.items():
+        output, _ = p.communicate()
+        vtysh_command = "vtysh -f {}".format(delta_fmt.format(rname))
+        if not p.returncode:
+            router_list[rname].logger.info(
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+            )
+        else:
+            router_list[rname].logger.error(
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+            )
+            logger.error("Delta file apply for %s failed %d: %s", rname, p.returncode, output)
+
+            # We really need to enable this failure; however, currently frr-reload.py
+            # producing invalid "no" commands as it just preprends "no", but some of the
+            # command forms lack matching values (e.g., final values). Until frr-reload
+            # is fixed to handle this (or all the CLI no forms are adjusted) we can't
+            # fail tests.
+            # raise InvalidCLIError("frr-reload error for {}: {}".format(rname, output))
+
+    #
+    # Optionally log all new running config if "show_router_config" is defined in
+    # "pytest.ini"
+    #
+    if show_router_config:
+        procs = {}
+        for rname in router_list:
+            logger.info("Fetching running config for router %s", rname)
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        for rname, p in procs.items():
+            output, _ = p.communicate()
+            if p.returncode:
+                logger.warning(
+                    "Get running config for %s failed %d: %s", rname, p.returncode, output
                 )
-            with open(init_cfg_file, "r") as fd:
-                logger.info(
-                    "Test configuration saved in %s is:\n%s", init_cfg_file, fd.read()
-                )
-
-            err_cmd = ["/usr/bin/vtysh", "-m", "-f", run_cfg_file]
-            result = Popen(err_cmd, stdout=SUB_PIPE, stderr=SUB_PIPE)
-            output = result.communicate()
-            for out_data in output:
-                temp_data = out_data.decode("utf-8").lower()
-                for out_err in ERROR_LIST:
-                    if out_err.lower() in temp_data:
-                        logger.error(
-                            "Found errors while validating data in" " %s", run_cfg_file
-                        )
-                        raise InvalidCLIError(out_data)
-            raise InvalidCLIError("Unknown error in %s", output)
-
-        delta = StringIO()
-        with open(dname, "r") as f:
-            delta.write(f.read())
-
-        output = router.vtysh_multicmd(delta.getvalue(), pretty_output=False)
-
-        delta.close()
-        delta = StringIO()
-        cfg = router.run("vtysh -c 'show running'")
-        for line in cfg.split("\n"):
-            line = line.strip()
-            delta.write(line)
-            delta.write("\n")
-
-        # Router current configuration to log file or console if
-        # "show_router_config" is defined in "pytest.ini"
-        if show_router_config:
-            logger.info("Configuration on router {} after reset:".format(rname))
-            logger.info(delta.getvalue())
-        delta.close()
+            else:
+                logger.info("Configuration on router {} after reset:\n{}".format(rname, output))
 
     logger.debug("Exiting API: reset_config_on_routers")
     return True
@@ -706,8 +734,8 @@ def generate_support_bundle():
         bundle_procs[rname] = tgen.net[rname].popen(
             "/usr/lib/frr/generate_support_bundle.py",
             stdin=None,
-            stdout=SUB_PIPE,
-            stderr=SUB_PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
 
     for rname, rnode in router_list.items():
