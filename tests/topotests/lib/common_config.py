@@ -497,7 +497,7 @@ def reset_config_on_routers(tgen, routerName=None):
         f.close()
         run_cfg_file = "{}/{}/frr.sav".format(TMPDIR, rname)
         init_cfg_file = "{}/{}/frr_json_initial.conf".format(TMPDIR, rname)
-        command = "/usr/lib/frr/frr-reload.py  --input {} --test {} > {}".format(
+        command = "/usr/lib/frr/frr-reload.py --test --test-reset --input {} {} > {}".format(
             run_cfg_file, init_cfg_file, dname
         )
         result = call(command, shell=True, stderr=SUB_STDOUT, stdout=SUB_PIPE)
@@ -527,37 +527,9 @@ def reset_config_on_routers(tgen, routerName=None):
                         raise InvalidCLIError(out_data)
             raise InvalidCLIError("Unknown error in %s", output)
 
-        f = open(dname, "r")
         delta = StringIO()
-        delta.write("configure terminal\n")
-        t_delta = f.read()
-
-        # Don't disable debugs
-        check_debug = True
-
-        for line in t_delta.split("\n"):
-            line = line.strip()
-            if line == "Lines To Delete" or line == "===============" or not line:
-                continue
-
-            if line == "Lines To Add":
-                check_debug = False
-                continue
-
-            if line == "============" or not line:
-                continue
-
-            # Leave debugs and log output alone
-            if check_debug:
-                if "debug" in line or "log file" in line:
-                    continue
-
-            delta.write(line)
-            delta.write("\n")
-
-        f.close()
-
-        delta.write("end\n")
+        with open(dname, "r") as f:
+            delta.write(f.read())
 
         output = router.vtysh_multicmd(delta.getvalue(), pretty_output=False)
 
