@@ -1549,6 +1549,37 @@ ospf6_link_route_to_aggr(struct ospf6_external_aggr_rt *aggr,
 }
 
 static void
+ospf6_asbr_summary_remove_lsa_and_route(struct ospf6 *ospf6,
+					struct ospf6_external_aggr_rt *aggr)
+{
+
+	/* Send a Max age LSA if it is already originated.*/
+	if (!CHECK_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED))
+		return;
+
+	if (IS_OSPF6_DEBUG_AGGR)
+		zlog_debug("%s: Flushing Aggregate route (%pFX)",
+				__func__,
+				&aggr->p);
+
+	ospf6_asbr_external_lsa_remove_by_id(ospf6, aggr->id);
+
+	if (aggr->route) {
+		if (IS_OSPF6_DEBUG_AGGR)
+			zlog_debug(
+				"%s: Remove the blackhole route",
+				__func__);
+		ospf6_zebra_route_update_remove(aggr->route, ospf6);
+		ospf6_route_delete(aggr->route);
+		aggr->route = NULL;
+	}
+
+	aggr->id = 0;
+	/* Unset the Origination flag */
+	UNSET_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED);
+}
+
+static void
 ospf6_unlink_route_from_aggr(struct ospf6 *ospf6,
 			     struct ospf6_external_aggr_rt *aggr,
 			     struct ospf6_route *rt)
@@ -1566,18 +1597,8 @@ ospf6_unlink_route_from_aggr(struct ospf6 *ospf6,
 	/* Flush the aggregate route if matching
 	 * external route count becomes zero.
 	 */
-	if (!OSPF6_EXTERNAL_RT_COUNT(aggr) && CHECK_FLAG(aggr->aggrflags,
-				OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
-		/* Flush the aggregate LSA */
-		ospf6_asbr_external_lsa_remove_by_id(ospf6, aggr->id);
-
-		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: Flushing the aggregate route)",
-					__func__);
-		aggr->id = 0;
-		/* Unset the Origination flag */
-		UNSET_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED);
-	}
+	if (!OSPF6_EXTERNAL_RT_COUNT(aggr))
+		ospf6_asbr_summary_remove_lsa_and_route(ospf6, aggr);
 }
 
 void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
@@ -2674,14 +2695,35 @@ void install_element_ospf6_debug_asbr(void)
 }
 
 /* ASBR Summarisation */
+void ospf6_fill_aggr_route_details(struct ospf6 *ospf6,
+				   struct ospf6_external_aggr_rt *aggr)
+{
+	struct ospf6_route *rt_aggr = aggr->route;
+	struct ospf6_external_info *ei_aggr = rt_aggr->route_option;
+
+	rt_aggr->prefix = aggr->p;
+	ei_aggr->tag = aggr->tag;
+	ei_aggr->type = 0;
+	ei_aggr->id = aggr->id;
+
+	/* When metric is not configured, apply the default metric */
+	rt_aggr->path.cost = ((aggr->metric == -1) ?
+				DEFAULT_DEFAULT_METRIC
+				: (unsigned int)(aggr->metric));
+	rt_aggr->path.metric_type = aggr->mtype;
+
+	rt_aggr->path.origin.id = htonl(aggr->id);
+}
+
 static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
-					 struct ospf6_external_aggr_rt *aggr,
-					 struct ospf6_route *rt_aggr)
+					 struct ospf6_external_aggr_rt *aggr)
 {
 
 	struct prefix prefix_id;
 	struct route_node *node;
 	struct ospf6_lsa *lsa = NULL;
+	struct ospf6_route *rt_aggr;
+	struct ospf6_external_info *info;
 
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Originate new aggregate route(%pFX)", __func__,
@@ -2698,9 +2740,27 @@ static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug(
 			"Advertise AS-External Id:%pI4 prefix %pFX metric %u",
-			&prefix_id.u.prefix4, &aggr->p, rt_aggr->path.cost);
+			&prefix_id.u.prefix4, &aggr->p, aggr->metric);
 
-	rt_aggr->path.origin.id = htonl(aggr->id);
+	/* Create summary route and save it. */
+	rt_aggr = ospf6_route_create();
+	rt_aggr->type = OSPF6_DEST_TYPE_NETWORK;
+	/* Needed to install route while calling zebra api */
+	SET_FLAG(rt_aggr->flag, OSPF6_ROUTE_BEST);
+
+	info = XCALLOC(MTYPE_OSPF6_EXTERNAL_INFO, sizeof(*info));
+	rt_aggr->route_option = info;
+	aggr->route = rt_aggr;
+
+	/* Prepare the external_info for aggregator
+	 * Fill all the details which will get advertised
+	 */
+	ospf6_fill_aggr_route_details(ospf6, aggr);
+
+	/* Add next-hop to Null interface. */
+	ospf6_add_route_nexthop_blackhole(rt_aggr);
+
+	ospf6_zebra_route_update_add(rt_aggr, ospf6);
 
 	/* Originate summary LSA */
 	lsa = ospf6_originate_type5_type7_lsas(rt_aggr, ospf6);
@@ -2712,58 +2772,17 @@ static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
 	}
 }
 
-void ospf6_fill_aggr_route_details(struct ospf6 *ospf6,
-					  struct ospf6_external_info *ei_aggr,
-					  struct ospf6_route *rt_aggr,
-					  struct ospf6_external_aggr_rt *aggr)
-{
-	/* Prepare the external_info for aggregator */
-	memset(ei_aggr, 0, sizeof(struct ospf6_external_info));
-	memset(rt_aggr, 0,
-		sizeof(struct ospf6_route));
-
-	rt_aggr->prefix = aggr->p;
-	rt_aggr->route_option = ei_aggr;
-	ei_aggr->tag = aggr->tag;
-	ei_aggr->type = 0;
-
-	/* When metric is not configured, apply the default metric */
-	rt_aggr->path.cost = ((aggr->metric == -1) ?
-				DEFAULT_DEFAULT_METRIC
-				: (unsigned int)(aggr->metric));
-	rt_aggr->path.metric_type = aggr->mtype;
-
-	rt_aggr->path.origin.id = htonl(aggr->id);
-}
-
 static void
 ospf6_aggr_handle_advertise_change(struct ospf6 *ospf6,
 		struct ospf6_external_aggr_rt *aggr)
 {
-	struct ospf6_external_info ei_aggr;
-	struct ospf6_route rt_aggr;
-
 	/* Check if advertise option modified. */
 	if (CHECK_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE)) {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug("%s: Don't originate the summary address,It is configured to not-advertise.",
 					__func__);
+		ospf6_asbr_summary_remove_lsa_and_route(ospf6, aggr);
 
-		if (CHECK_FLAG(aggr->aggrflags,
-			OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
-			if (IS_OSPF6_DEBUG_AGGR)
-				zlog_debug("%s: No-advertise,So Flush the Aggregate route(%pFX)",
-						__func__,
-						&aggr->p);
-
-			ospf6_asbr_external_lsa_remove_by_id(ospf6, aggr->id);
-			/* Setting it here as 0, so that it is considered as
-			 * invalid
-			 */
-			aggr->id = 0;
-			UNSET_FLAG(aggr->aggrflags,
-				OSPF6_EXTERNAL_AGGRT_ORIGINATED);
-		}
 		return;
 	}
 
@@ -2782,12 +2801,7 @@ ospf6_aggr_handle_advertise_change(struct ospf6 *ospf6,
 			zlog_debug("%s: Now it is advertisable",
 					__func__);
 
-		/* Prepare the external_info for aggregator
-		 * Fill all the details which will get advertised
-		 */
-		ospf6_fill_aggr_route_details(ospf6, &ei_aggr, &rt_aggr, aggr);
-
-		ospf6_originate_new_aggr_lsa(ospf6, aggr, &rt_aggr);
+		ospf6_originate_new_aggr_lsa(ospf6, aggr);
 
 		return;
 	}
@@ -2799,10 +2813,10 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 				struct ospf6_route *rt)
 {
 	struct ospf6_lsa *lsa = NULL, *aggr_lsa = NULL;
-	struct ospf6_route rt_aggr;
-	struct ospf6_external_info ei_aggr, *info = NULL;
+	struct ospf6_external_info *info = NULL;
 	struct ospf6_external_aggr_rt *old_aggr;
 	struct ospf6_as_external_lsa *external;
+	struct ospf6_route *rt_aggr = NULL;
 	route_tag_t tag = 0;
 	unsigned int metric = 0;
 	int mtype;
@@ -2862,8 +2876,7 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 			if (IS_OSPF6_DEBUG_AGGR)
 				zlog_debug("%s: Purge the aggr external LSA %s.",
 					   __func__, lsa->name);
-			ospf6_external_lsa_purge(ospf6, aggr_lsa);
-			aggr->id = 0;
+			ospf6_asbr_summary_remove_lsa_and_route(ospf6, aggr);
 		}
 
 		UNSET_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED);
@@ -2873,9 +2886,6 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 				__func__);
 		return;
 	}
-
-	/* Prepare the external_info for aggregator */
-	ospf6_fill_aggr_route_details(ospf6, &ei_aggr, &rt_aggr, aggr);
 
 	/* Summary route already originated,
 	 * So, Do nothing.
@@ -2898,23 +2908,26 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 		mtype = CHECK_FLAG(external->bits_metric,
 				   OSPF6_ASBR_BIT_E) ? 2 : 1;
 
+		/* Prepare the external_info for aggregator */
+		ospf6_fill_aggr_route_details(ospf6, aggr);
+		rt_aggr = aggr->route;
 		/* If tag/metric/metric-type modified , then re-originate the
 		 * route with modified tag/metric/metric-type details.
 		 */
-		if ((tag != ei_aggr.tag)
-		    || (metric != (unsigned int)rt_aggr.path.cost)
+		if ((tag != aggr->tag)
+		    || (metric != (unsigned int)rt_aggr->path.cost)
 		    || (mtype != aggr->mtype)) {
 
 			if (IS_OSPF6_DEBUG_AGGR)
 				zlog_debug(
 					"%s: Routetag(old:%d new:%d)/Metric(o:%u,n:%u)/mtype(o:%d n:%d) modified,So refresh the summary route.(%pFX)",
-					__func__, tag, ei_aggr.tag,
+					__func__, tag, aggr->tag,
 					metric,
 					aggr->metric,
 					mtype, aggr->mtype,
 					&aggr->p);
 
-			aggr_lsa = ospf6_originate_type5_type7_lsas(&rt_aggr,
+			aggr_lsa = ospf6_originate_type5_type7_lsas(aggr->route,
 								    ospf6);
 			if (aggr_lsa)
 				SET_FLAG(aggr->aggrflags,
@@ -2929,7 +2942,7 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	 * then it need to be refreshed and originate bit should
 	 * be set.
 	 */
-	if (lsa && prefix_same((struct prefix *)&rt_aggr.prefix,
+	if (lsa && prefix_same((struct prefix *)&aggr->p,
 				(struct prefix *)&rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug("%s: External route prefix is same as aggr so refreshing LSA(%pFX)",
@@ -2944,7 +2957,7 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 		return;
 	}
 
-	ospf6_originate_new_aggr_lsa(ospf6, aggr, &rt_aggr);
+	ospf6_originate_new_aggr_lsa(ospf6, aggr);
 }
 
 static void ospf6_aggr_handle_external_info(void *data)
@@ -3015,15 +3028,7 @@ ospf6_asbr_summary_config_delete(struct ospf6 *ospf6, struct route_node *rn)
 						__func__,
 						&aggr->p);
 
-	/*Sent a Max age LSA if it is already originated.*/
-	if (CHECK_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
-		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: Flushing Aggregate route (%pFX)",
-					__func__,
-					&aggr->p);
-
-		ospf6_asbr_external_lsa_remove_by_id(ospf6, aggr->id);
-	}
+	ospf6_asbr_summary_remove_lsa_and_route(ospf6, aggr);
 
 	rn->info = NULL;
 	route_unlock_node(rn);
@@ -3042,8 +3047,7 @@ static void ospf6_handle_external_aggr_update(struct ospf6 *ospf6)
 		struct ospf6_external_aggr_rt *aggr;
 		struct ospf6_lsa *lsa = NULL;
 		struct ospf6_as_external_lsa *asel = NULL;
-		struct ospf6_route rt_aggr;
-		struct ospf6_external_info ei_aggr;
+		struct ospf6_route *rt_aggr;
 		route_tag_t tag = 0;
 
 		if (!rn->info)
@@ -3093,30 +3097,29 @@ static void ospf6_handle_external_aggr_update(struct ospf6 *ospf6)
 						   OSPF6_ASBR_BIT_E) ? 2 : 1;
 
 				/* Fill all the details for advertisement */
-				ospf6_fill_aggr_route_details(ospf6, &ei_aggr,
-							      &rt_aggr, aggr);
-
+				ospf6_fill_aggr_route_details(ospf6, aggr);
+				rt_aggr = aggr->route;
 				/* If tag/metric/metric-type modified , then
 				 * re-originate the route with modified
 				 * tag/metric/metric-type details.
 				 */
-				if ((tag != ei_aggr.tag)
+				if ((tag != aggr->tag)
 				    || (metric
-					!= (unsigned int)rt_aggr.path.cost)
+					!= (unsigned int)rt_aggr->path.cost)
 				    || (mtype
 					!= aggr->mtype)) {
 					if (IS_OSPF6_DEBUG_AGGR)
 						zlog_debug(
 						"%s: Changed tag(old:%d new:%d)/metric(o:%u n:%d)/mtype(o:%d n:%d),So refresh the summary route.(%pFX)",
 						__func__, tag,
-						ei_aggr.tag,
+						aggr->tag,
 						metric,
-						(unsigned int)rt_aggr.path.cost,
+						(unsigned int)rt_aggr->path.cost,
 						mtype, aggr->mtype,
 						&aggr->p);
 
 					(void)ospf6_originate_type5_type7_lsas(
-								&rt_aggr,
+								aggr->route,
 								ospf6);
 				}
 			}
