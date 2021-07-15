@@ -9578,97 +9578,85 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 			       struct bgp_path_info *path, int display,
 			       afi_t afi, safi_t safi, bool use_json,
-			       json_object *json)
+			       json_object *json_paths)
 {
-	struct attr *attr;
+	struct attr *attr = path->attr;
 	struct bgp_damp_info *bdi;
 	char timebuf[BGP_UPTIME_LEN];
 	int len;
+	json_object *json_path = NULL;
 
 	if (!path->extra)
 		return;
 
+	if (use_json)
+		json_path = json_object_new_object();
+
 	bdi = path->extra->damp_info;
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, p, json);
+	route_vty_short_status_out(vty, path, p, json_path);
 
-	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
 			route_vty_out_route(path->net, p, vty, NULL, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
-	}
 
-	len = vty_out(vty, "%s", path->peer->host);
-	len = 16 - len;
-	if (len < 1) {
-		if (!use_json)
+		len = vty_out(vty, "%s", path->peer->host);
+		len = 16 - len;
+		if (len < 1)
 			vty_out(vty, "\n%*s", 33, " ");
-	} else {
-		if (use_json)
-			json_object_int_add(json, "peerHost", len);
 		else
 			vty_out(vty, "%*s", len, " ");
-	}
 
-	len = vty_out(vty, "%d", bdi->flap);
-	len = 5 - len;
-	if (len < 1) {
-		if (!use_json)
+		len = vty_out(vty, "%d", bdi->flap);
+		len = 5 - len;
+		if (len < 1)
 			vty_out(vty, " ");
-	} else {
-		if (use_json)
-			json_object_int_add(json, "bdiFlap", len);
 		else
 			vty_out(vty, "%*s", len, " ");
-	}
 
-	if (use_json)
-		peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, use_json,
-			    json);
-	else
 		vty_out(vty, "%s ", peer_uptime(bdi->start_time, timebuf,
 						BGP_UPTIME_LEN, 0, NULL));
 
-	if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)
-	    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY)) {
-		if (use_json)
-			bgp_damp_reuse_time_vty(vty, path, timebuf,
-						BGP_UPTIME_LEN, afi, safi,
-						use_json, json);
-		else
+		if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)
+		    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
 			vty_out(vty, "%s ",
 				bgp_damp_reuse_time_vty(vty, path, timebuf,
 							BGP_UPTIME_LEN, afi,
-							safi, use_json, json));
-	} else {
-		if (!use_json)
-			vty_out(vty, "%*s ", 8, " ");
-	}
-
-	/* Print attribute */
-	attr = path->attr;
-
-	/* Print aspath */
-	if (attr->aspath) {
-		if (use_json)
-			json_object_string_add(json, "asPath",
-					       attr->aspath->str);
+							safi, use_json, NULL));
 		else
-			aspath_print_vty(vty, "%s", attr->aspath, " ");
-	}
+			vty_out(vty, "%*s ", 8, " ");
 
-	/* Print origin */
-	if (use_json)
-		json_object_string_add(json, "origin",
-				       bgp_origin_str[attr->origin]);
-	else
+		if (attr->aspath)
+			aspath_print_vty(vty, "%s", attr->aspath, " ");
+
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
-	if (!use_json)
 		vty_out(vty, "\n");
+	} else {
+		json_object_string_add(json_path, "peerHost", path->peer->host);
+		json_object_int_add(json_path, "bdiFlap", bdi->flap);
+
+		peer_uptime(bdi->start_time, timebuf, BGP_UPTIME_LEN, use_json,
+			    json_path);
+
+		if (CHECK_FLAG(path->flags, BGP_PATH_DAMPED)
+		    && !CHECK_FLAG(path->flags, BGP_PATH_HISTORY))
+			bgp_damp_reuse_time_vty(vty, path, timebuf,
+						BGP_UPTIME_LEN, afi, safi,
+						use_json, json_path);
+
+		if (attr->aspath)
+			json_object_string_add(json_path, "asPath",
+					       attr->aspath->str);
+
+		json_object_string_add(json_path, "origin",
+				       bgp_origin_str[attr->origin]);
+
+		json_object_array_add(json_paths, json_path);
+	}
 }
 
 static void route_vty_out_advertised_to(struct vty *vty, struct peer *peer,
