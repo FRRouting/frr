@@ -9519,14 +9519,18 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 			       struct bgp_path_info *path, int display,
 			       afi_t afi, safi_t safi, bool use_json,
-			       json_object *json)
+			       json_object *json_paths)
 {
-	struct attr *attr;
+	struct attr *attr = path->attr;
 	int len;
 	char timebuf[BGP_UPTIME_LEN];
+	json_object *json_path = NULL;
+
+	if (use_json)
+		json_path = json_object_new_object();
 
 	/* short status lead text */
-	route_vty_short_status_out(vty, path, p, json);
+	route_vty_short_status_out(vty, path, p, json_path);
 
 	/* print prefix and mask */
 	if (!use_json) {
@@ -9534,50 +9538,40 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 			route_vty_out_route(path->net, p, vty, NULL, false);
 		else
 			vty_out(vty, "%*s", 17, " ");
-	}
 
-	len = vty_out(vty, "%s", path->peer->host);
-	len = 17 - len;
-	if (len < 1) {
-		if (!use_json)
+		len = vty_out(vty, "%s", path->peer->host);
+		len = 17 - len;
+
+		if (len < 1)
 			vty_out(vty, "\n%*s", 34, " ");
-	} else {
-		if (use_json)
-			json_object_int_add(json, "peerHost", len);
 		else
 			vty_out(vty, "%*s", len, " ");
-	}
 
-	if (use_json)
-		bgp_damp_reuse_time_vty(vty, path, timebuf, BGP_UPTIME_LEN, afi,
-					safi, use_json, json);
-	else
 		vty_out(vty, "%s ",
 			bgp_damp_reuse_time_vty(vty, path, timebuf,
 						BGP_UPTIME_LEN, afi, safi,
-						use_json, json));
+						use_json, NULL));
 
-	/* Print attribute */
-	attr = path->attr;
-
-	/* Print aspath */
-	if (attr->aspath) {
-		if (use_json)
-			json_object_string_add(json, "asPath",
-					       attr->aspath->str);
-		else
+		if (attr->aspath)
 			aspath_print_vty(vty, "%s", attr->aspath, " ");
-	}
 
-	/* Print origin */
-	if (use_json)
-		json_object_string_add(json, "origin",
-				       bgp_origin_str[attr->origin]);
-	else
 		vty_out(vty, "%s", bgp_origin_str[attr->origin]);
 
-	if (!use_json)
 		vty_out(vty, "\n");
+	} else {
+		bgp_damp_reuse_time_vty(vty, path, timebuf, BGP_UPTIME_LEN, afi,
+					safi, use_json, json_path);
+
+		if (attr->aspath)
+			json_object_string_add(json_path, "asPath",
+					       attr->aspath->str);
+
+		json_object_string_add(json_path, "origin",
+				       bgp_origin_str[attr->origin]);
+		json_object_string_add(json_path, "peerHost", path->peer->host);
+
+		json_object_array_add(json_paths, json_path);
+	}
 }
 
 /* flap route */
