@@ -360,10 +360,9 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 	*/
 
 	if (!ifp) {
-		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s could not find input interface for input_vif_index=%d",
-				__func__, pim_str_sg_dump(&sg), msg->im_vif);
+		zlog_warn(
+			"%s: WRONGVIF (S,G)=%s could not find input interface for input_vif_index=%d",
+			__func__, pim_str_sg_dump(&sg), msg->im_vif);
 		return -1;
 	}
 

@@ -148,7 +148,7 @@ static int pim_vrf_new(struct vrf *vrf)
 {
 	struct pim_instance *pim = pim_instance_init(vrf);
 
-	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	zlog_info("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	vrf->info = (void *)pim;
 
@@ -163,7 +163,7 @@ static int pim_vrf_delete(struct vrf *vrf)
 	if (!pim)
 		return 0;
 
-	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	zlog_info("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	pim_ssmpingd_destroy(pim);
 	pim_instance_terminate(pim);
@@ -182,7 +182,7 @@ static int pim_vrf_enable(struct vrf *vrf)
 	struct pim_instance *pim = (struct pim_instance *)vrf->info;
 	struct interface *ifp;
 
-	zlog_debug("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
+	zlog_info("%s: for %s %u", __func__, vrf->name, vrf->vrf_id);
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (!ifp->info)
