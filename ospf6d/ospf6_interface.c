@@ -448,7 +448,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			}
 		}
 
-		route = ospf6_route_create();
+		route = ospf6_route_create(oi->area->ospf6);
 		memcpy(&route->prefix, c->address, sizeof(struct prefix));
 		apply_mask(&route->prefix);
 		route->type = OSPF6_DEST_TYPE_NETWORK;

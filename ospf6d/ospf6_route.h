@@ -165,6 +165,9 @@ struct ospf6_route {
 	struct ospf6_route *prev;
 	struct ospf6_route *next;
 
+	/* Back pointer to ospf6 */
+	struct ospf6 *ospf6;
+
 	unsigned int lock;
 
 	/* Destination Type */
@@ -339,7 +342,7 @@ extern int ospf6_route_get_first_nh_index(struct ospf6_route *route);
 #define ospf6_route_add_nexthop(route, ifindex, addr)                          \
 	ospf6_add_nexthop(route->nh_list, ifindex, addr)
 
-extern struct ospf6_route *ospf6_route_create(void);
+extern struct ospf6_route *ospf6_route_create(struct ospf6 *ospf6);
 extern void ospf6_route_delete(struct ospf6_route *);
 extern struct ospf6_route *ospf6_route_copy(struct ospf6_route *route);
 extern int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb);

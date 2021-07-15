@@ -453,7 +453,7 @@ void ospf6_copy_paths(struct list *dst, struct list *src)
 	}
 }
 
-struct ospf6_route *ospf6_route_create(void)
+struct ospf6_route *ospf6_route_create(struct ospf6 *ospf6)
 {
 	struct ospf6_route *route;
 
@@ -464,6 +464,8 @@ struct ospf6_route *ospf6_route_create(void)
 	route->paths = list_new();
 	route->paths->cmp = (int (*)(void *, void *))ospf6_path_cmp;
 	route->paths->del = (void (*)(void *))ospf6_path_free;
+	route->ospf6 = ospf6;
+
 	return route;
 }
 
@@ -482,7 +484,7 @@ struct ospf6_route *ospf6_route_copy(struct ospf6_route *route)
 {
 	struct ospf6_route *new;
 
-	new = ospf6_route_create();
+	new = ospf6_route_create(route->ospf6);
 	new->type = route->type;
 	memcpy(&new->prefix, &route->prefix, sizeof(struct prefix));
 	new->installed = route->installed;
