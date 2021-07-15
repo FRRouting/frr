@@ -519,7 +519,7 @@ DEFUN (area_range,
 
 	range = ospf6_route_lookup(&prefix, oa->range_table);
 	if (range == NULL) {
-		range = ospf6_route_create();
+		range = ospf6_route_create(ospf6);
 		range->type = OSPF6_DEST_TYPE_RANGE;
 		range->prefix = prefix;
 		range->path.area_id = oa->area_id;

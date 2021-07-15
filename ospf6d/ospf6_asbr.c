@@ -605,7 +605,7 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 		}
 	}
 
-	route = ospf6_route_create();
+	route = ospf6_route_create(ospf6);
 	route->type = OSPF6_DEST_TYPE_NETWORK;
 	route->prefix.family = AF_INET6;
 	route->prefix.prefixlen = external->prefix.prefix_length;
@@ -727,7 +727,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 		return;
 	}
 
-	route_to_del = ospf6_route_create();
+	route_to_del = ospf6_route_create(ospf6);
 	route_to_del->type = OSPF6_DEST_TYPE_NETWORK;
 	route_to_del->prefix.family = AF_INET6;
 	route_to_del->prefix.prefixlen = external->prefix.prefix_length;
@@ -1465,9 +1465,10 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	}
 
 	/* create new entry */
-	route = ospf6_route_create();
+	route = ospf6_route_create(ospf6);
 	route->type = OSPF6_DEST_TYPE_NETWORK;
 	prefix_copy(&route->prefix, prefix);
+	route->ospf6 = ospf6;
 
 	info = (struct ospf6_external_info *)XCALLOC(
 		MTYPE_OSPF6_EXTERNAL_INFO, sizeof(struct ospf6_external_info));
@@ -2742,7 +2743,7 @@ static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
 			&prefix_id.u.prefix4, &aggr->p, aggr->metric);
 
 	/* Create summary route and save it. */
-	rt_aggr = ospf6_route_create();
+	rt_aggr = ospf6_route_create(ospf6);
 	rt_aggr->type = OSPF6_DEST_TYPE_NETWORK;
 	/* Needed to install route while calling zebra api */
 	SET_FLAG(rt_aggr->flag, OSPF6_ROUTE_BEST);
