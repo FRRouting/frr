@@ -145,7 +145,15 @@ if [ "${TOPOTEST_PULL:-1}" = "1" ]; then
 	docker pull frrouting/topotests:latest
 fi
 
+if [[ -n "$TMUX" ]]; then
+    TMUX_OPTIONS="-v $(dirname $TMUX):$(dirname $TMUX) -e TMUX=$TMUX -e TMUX_PANE=$TMUX_PANE"
+fi
+
+if [[ -n "$STY" ]]; then
+    SCREEN_OPTIONS="-v /run/screen:/run/screen -e STY=$STY"
+fi
 set -- --rm -i \
+        -v "$HOME:$HOME:ro" \
 	-v "$TOPOTEST_LOGS:/tmp" \
 	-v "$TOPOTEST_FRR:/root/host-frr:ro" \
 	-v "$TOPOTEST_BUILDCACHE:/root/persist" \
@@ -154,6 +162,8 @@ set -- --rm -i \
 	-e "TOPOTEST_DOC=$TOPOTEST_DOC" \
 	-e "TOPOTEST_SANITIZER=$TOPOTEST_SANITIZER" \
 	--privileged \
+        $SCREEN_OPTINS \
+        $TMUX_OPTIONS \
 	$TOPOTEST_OPTIONS \
 	frrouting/topotests:latest "$@"
 
