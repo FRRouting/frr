@@ -973,12 +973,25 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	}
 
 	/* Add interface.
-	 * We add by index first because in some cases such as the master
+	 * We first look to already user configured interfaces, indexed
+	 * by interface name, in case there are pre-configured interfaces.
+	 * This function can be called after config loaded, when vrf backend
+	 * is namespace based. Because zebra permits pre-configuring interfaces
+	 * from other namespaces, a check must be done here.
+	 * Then if interface with name is not found, we add by index; this
+	 * search must be done just after, because in some cases such as the master
 	 * interface, we have the index before we have the name. Fixing
 	 * back references on the slave interfaces is painful if not done
-	 * this way, i.e. by creating by ifindex.
+	 * this way, i.e. by creating by ifindex. Do not forget to set the
+	 * interface name.
 	 */
-	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
+	ifp = if_lookup_by_name(name, vrf_id);
+	if (ifp)
+		if_set_index(ifp, ifi->ifi_index);
+	else {
+		ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
+		if_set_name(ifp, name, NULL);
+	}
 	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
 
 	if_set_name(ifp, name, NULL);
