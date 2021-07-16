@@ -624,12 +624,17 @@ struct interface *if_get_by_ifindex(ifindex_t ifindex, vrf_id_t vrf_id)
 	case VRF_BACKEND_VRF_LITE:
 		ifp = if_lookup_by_index_all_vrf(ifindex);
 		if (ifp) {
-			if (ifp->vrf_id == vrf_id)
+			if (ifp->vrf_id == vrf_id) {
+				if (name)
+					if_set_name(ifp, name, NULL);
 				return ifp;
+			}
 			/* If it came from the kernel or by way of zclient,
 			 * believe it and update the ifp accordingly.
 			 */
 			if_update_to_new_vrf(ifp, vrf_id);
+			if (name)
+				if_set_name(ifp, name, NULL);
 			return ifp;
 		}
 		return if_create_ifindex(ifindex, vrf_id);
