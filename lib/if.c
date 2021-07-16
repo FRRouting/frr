@@ -716,6 +716,7 @@ void if_set_name(struct interface *ifp, const char *name, struct vrf *vrf_param)
 
 	if (ifp->name[0] != '\0')
 		IFNAME_RB_INSERT(vrf, ifp);
+	hook_call(if_add, ifp);
 }
 
 /* Does interface up ? */
