@@ -166,12 +166,8 @@ struct lcommunity *lcommunity_dup(struct lcommunity *lcom)
 struct lcommunity *lcommunity_merge(struct lcommunity *lcom1,
 				    struct lcommunity *lcom2)
 {
-	if (lcom1->val)
-		lcom1->val = XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom1->val,
-				      lcom_length(lcom1) + lcom_length(lcom2));
-	else
-		lcom1->val = XMALLOC(MTYPE_LCOMMUNITY_VAL,
-				     lcom_length(lcom1) + lcom_length(lcom2));
+	lcom1->val = XREALLOC(MTYPE_LCOMMUNITY_VAL, lcom1->val,
+			      lcom_length(lcom1) + lcom_length(lcom2));
 
 	memcpy(lcom1->val + lcom_length(lcom1), lcom2->val, lcom_length(lcom2));
 	lcom1->size += lcom2->size;
