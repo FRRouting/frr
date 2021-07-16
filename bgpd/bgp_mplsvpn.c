@@ -3866,7 +3866,8 @@ void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 	bool is_vrf_leak_bind;
 	int debug;
 
-	if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+	if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+	    from_bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
 
 	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |
