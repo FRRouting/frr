@@ -469,6 +469,24 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	return 0;
 }
 
+bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, int igmp_msg_len,
+			    int msg_type)
+{
+	if (len < sizeof(*ip_hdr)) {
+		zlog_warn("IGMP packet size=%zu shorter than minimum=%zu", len,
+			  sizeof(*ip_hdr));
+		return false;
+	}
+
+	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
+		zlog_warn("IGMP message size=%d shorter than minimum=%d",
+			  igmp_msg_len, PIM_IGMP_MIN_LEN);
+		return false;
+	}
+
+	return true;
+}
+
 int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 {
 	struct ip *ip_hdr;
@@ -479,16 +497,7 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 	char from_str[INET_ADDRSTRLEN];
 	char to_str[INET_ADDRSTRLEN];
 
-	if (len < sizeof(*ip_hdr)) {
-		zlog_warn("IGMP packet size=%zu shorter than minimum=%zu", len,
-			  sizeof(*ip_hdr));
-		return -1;
-	}
-
 	ip_hdr = (struct ip *)buf;
-
-	pim_inet4_dump("<src?>", ip_hdr->ip_src, from_str, sizeof(from_str));
-	pim_inet4_dump("<dst?>", ip_hdr->ip_dst, to_str, sizeof(to_str));
 
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
 
@@ -501,20 +510,24 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 
 	igmp_msg = buf + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
-
-	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
-		zlog_warn("IGMP message size=%d shorter than minimum=%d",
-			  igmp_msg_len, PIM_IGMP_MIN_LEN);
-		return -1;
-	}
-
 	msg_type = *igmp_msg;
+
+	pim_inet4_dump("<src?>", ip_hdr->ip_src, from_str, sizeof(from_str));
+	pim_inet4_dump("<dst?>", ip_hdr->ip_dst, to_str, sizeof(to_str));
 
 	if (PIM_DEBUG_IGMP_PACKETS) {
 		zlog_debug(
 			"Recv IGMP packet from %s to %s on %s: size=%zu ttl=%d msg_type=%d msg_size=%d",
 			from_str, to_str, igmp->interface->name, len, ip_hdr->ip_ttl,
 			msg_type, igmp_msg_len);
+	}
+
+	if (!pim_igmp_verify_header(ip_hdr, len, igmp_msg_len, msg_type)) {
+		zlog_warn(
+			"Recv IGMP packet from %s to %s on %s: size=%zu ttl=%u msg_type=%d msg_size=%d",
+			from_str, to_str, igmp->interface->name, len,
+			ip_hdr->ip_ttl, msg_type, igmp_msg_len);
+		return -1;
 	}
 
 	switch (msg_type) {
