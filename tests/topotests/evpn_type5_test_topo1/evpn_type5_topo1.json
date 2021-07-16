@@ -41,7 +41,10 @@
                                 "neighbor": {
                                     "e1": {
                                         "dest_link": {
-                                            "r1": {}
+                                            "r1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -55,7 +58,10 @@
                                 "neighbor": {
                                     "e1": {
                                         "dest_link": {
-                                            "r1": {}
+                                            "r1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -106,7 +112,10 @@
                                 "neighbor": {
                                     "e1": {
                                         "dest_link": {
-                                            "r2-link1": {}
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -120,7 +129,10 @@
                                 "neighbor": {
                                     "e1": {
                                         "dest_link": {
-                                            "r2-link1": {}
+                                            "r2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -140,7 +152,10 @@
                                 "neighbor": {
                                     "e1": {
                                         "dest_link": {
-                                            "r2-link2": {}
+                                            "r2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -154,7 +169,10 @@
                                 "neighbor": {
                                     "e1": {
                                         "dest_link": {
-                                            "r2-link2": {}
+                                            "r2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -222,7 +240,10 @@
                                 "neighbor": {
                                     "r1": {
                                         "dest_link": {
-                                            "e1": {}
+                                            "e1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -233,7 +254,10 @@
                                 "neighbor": {
                                     "r1": {
                                         "dest_link": {
-                                            "e1": {}
+                                            "e1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -262,7 +286,10 @@
                                 "neighbor": {
                                     "r2": {
                                         "dest_link": {
-                                            "e1-link1": {}
+                                            "e1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -273,7 +300,10 @@
                                 "neighbor": {
                                     "r2": {
                                         "dest_link": {
-                                            "e1-link1": {}
+                                            "e1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -302,7 +332,10 @@
                                 "neighbor": {
                                     "r2": {
                                         "dest_link": {
-                                            "e1-link2": {}
+                                            "e1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -313,7 +346,10 @@
                                 "neighbor": {
                                     "r2": {
                                         "dest_link": {
-                                            "e1-link2": {}
+                                            "e1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -342,6 +378,8 @@
                                     "d1": {
                                         "dest_link": {
                                             "e1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
                                                 "deactivate": "ipv4"
                                             }
                                         }
@@ -349,6 +387,8 @@
                                     "d2": {
                                         "dest_link": {
                                             "e1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
                                                 "deactivate": "ipv4"
                                             }
                                         }
@@ -412,6 +452,8 @@
                                     "e1": {
                                         "dest_link": {
                                             "d1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3,
                                                 "deactivate": "ipv4"
                                             }
                                         }
@@ -442,7 +484,10 @@
                                 "neighbor": {
                                     "r3": {
                                         "dest_link": {
-                                            "d1": {}
+                                            "d1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -453,7 +498,10 @@
                                 "neighbor": {
                                     "r3": {
                                         "dest_link": {
-                                            "d1": {}
+                                            "d1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -482,7 +530,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d1-link1": {}
+                                            "d1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -493,7 +544,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d1-link1": {}
+                                            "d1-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -522,7 +576,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d1-link2": {}
+                                            "d1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -533,7 +590,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d1-link2": {}
+                                            "d1-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -590,7 +650,9 @@
                                     "e1": {
                                         "dest_link": {
                                             "d2-link1": {
-                                                "deactivate": "ipv4"
+                                                "deactivate": "ipv4",
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
                                             }
                                         }
                                     }
@@ -620,7 +682,10 @@
                                 "neighbor": {
                                     "r3": {
                                         "dest_link": {
-                                            "d2": {}
+                                            "d2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -631,7 +696,10 @@
                                 "neighbor": {
                                     "r3": {
                                         "dest_link": {
-                                            "d2": {}
+                                            "d2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -660,7 +728,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d2-link1": {}
+                                            "d2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -671,7 +742,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d2-link1": {}
+                                            "d2-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -700,7 +774,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d2-link2": {}
+                                            "d2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -711,7 +788,10 @@
                                 "neighbor": {
                                     "r4": {
                                         "dest_link": {
-                                            "d2-link2": {}
+                                            "d2-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -755,12 +835,18 @@
                                 "neighbor": {
                                     "d1": {
                                         "dest_link": {
-                                            "r3": {}
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     },
                                     "d2": {
                                         "dest_link": {
-                                            "r3": {}
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -771,12 +857,18 @@
                                 "neighbor": {
                                     "d1": {
                                         "dest_link": {
-                                            "r3": {}
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     },
                                     "d2": {
                                         "dest_link": {
-                                            "r3": {}
+                                            "r3": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -814,12 +906,18 @@
                                 "neighbor": {
                                     "d1": {
                                         "dest_link": {
-                                            "r4-link1": {}
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     },
                                     "d2": {
                                         "dest_link": {
-                                            "r4-link1": {}
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -830,12 +928,18 @@
                                 "neighbor": {
                                     "d1": {
                                         "dest_link": {
-                                            "r4-link1": {}
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     },
                                     "d2": {
                                         "dest_link": {
-                                            "r4-link1": {}
+                                            "r4-link1": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -852,12 +956,18 @@
                                 "neighbor": {
                                     "d1": {
                                         "dest_link": {
-                                            "r4-link2": {}
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     },
                                     "d2": {
                                         "dest_link": {
-                                            "r4-link2": {}
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -868,12 +978,18 @@
                                 "neighbor": {
                                     "d1": {
                                         "dest_link": {
-                                            "r4-link2": {}
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     },
                                     "d2": {
                                         "dest_link": {
-                                            "r4-link2": {}
+                                            "r4-link2": {
+                                                "keepalivetimer": 1,
+                                                "holddowntimer": 3
+                                            }
                                         }
                                     }
                                 }
@@ -885,3 +1001,4 @@
         }
     }
 }
+
