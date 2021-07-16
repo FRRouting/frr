@@ -1977,7 +1977,6 @@ static int ospf6_write(struct thread *thread)
 					  __func__, latency);
 			oi->last_hello = timestamp;
 			oi->hello_out++;
-			ospf6_hello_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_DBDESC:
 			oi->db_desc_out++;
