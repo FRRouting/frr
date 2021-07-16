@@ -12178,7 +12178,7 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
                      |route-filter-translated-v4] [exact-match]\
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
-          |alias WORD\
+          |alias ALIAS_NAME\
           ] [json$uj [detail$detail] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR

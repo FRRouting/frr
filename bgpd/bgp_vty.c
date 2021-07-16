@@ -1565,7 +1565,7 @@ void cli_show_router_bgp_router_id(struct vty *vty, struct lyd_node *dnode,
 }
 
 DEFPY(bgp_community_alias, bgp_community_alias_cmd,
-      "[no$no] bgp community alias WORD$community WORD$alias",
+      "[no$no] bgp community alias WORD$community ALIAS_NAME$alias_name",
       NO_STR BGP_STR
       "Add community specific parameters\n"
       "Create an alias for a community\n"
@@ -1585,7 +1585,7 @@ DEFPY(bgp_community_alias, bgp_community_alias_cmd,
 	memset(&ca1, 0, sizeof(ca1));
 	memset(&ca2, 0, sizeof(ca2));
 	strlcpy(ca1.community, community, sizeof(ca1.community));
-	strlcpy(ca1.alias, alias, sizeof(ca1.alias));
+	strlcpy(ca1.alias, alias_name, sizeof(ca1.alias));
 
 	lookup_community = bgp_ca_community_lookup(&ca1);
 	lookup_alias = bgp_ca_alias_lookup(&ca1);
@@ -20970,4 +20970,6 @@ void community_alias_vty(void)
 
 	/* Community-list.  */
 	install_element(CONFIG_NODE, &bgp_community_alias_cmd);
+
+	bgp_community_alias_command_completion_setup();
 }
