@@ -162,9 +162,11 @@ void lua_decode_stringp(lua_State *L, int idx, char *str);
 void *lua_tostringp(lua_State *L, int idx);
 
 /*
- * No-op decocder
+ * No-op decocders
  */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr);
+
+void lua_decode_int_noop(lua_State *L, int idx, int i);
 
 /*
  * Retrieve an integer from table on the top of the stack.
