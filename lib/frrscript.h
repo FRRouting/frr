@@ -76,9 +76,13 @@ struct frrscript_env {
 };
 
 /*
- * Create new FRR script.
+ * Create new struct frrscript for a Lua script.
+ * This will hold the states for the Lua functions in this script.
+ *
+ * scriptname
+ *     Name of the Lua script file, without the .lua
  */
-struct frrscript *frrscript_new(const char *name);
+struct frrscript *frrscript_new(const char *scriptname);
 
 /*
  * Load a function into frrscript, run callback if any
@@ -87,7 +91,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 		   int (*load_cb)(struct frrscript *));
 
 /*
- * Destroy FRR script.
+ * Delete Lua function states and frrscript
  */
 void frrscript_delete(struct frrscript *fs);
 
@@ -173,10 +177,12 @@ const struct prefix * : lua_decode_noop                         \
 )(L, -1, value)
 
 /*
- * Call script.
+ * Call Lua function state (abstraction for a single Lua function)
  *
- * fs
- *    The script to call; this is obtained from frrscript_load().
+ * lfs
+ *    The Lua function to call; this should have been loaded in by frrscript_load().
+ * nargs
+ *    Number of arguments the function accepts
  *
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
@@ -184,16 +190,17 @@ const struct prefix * : lua_decode_noop                         \
 int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 
 /*
- * Wrapper for call script. Maps values passed in to their encoder
- * and decoder types.
+ * Wrapper for calling Lua function state. Maps values passed in to their
+ * encoder and decoder types.
  *
  * fs
- *    The script to call; this is obtained from frrscript_load().
+ *    The struct frrscript in which the Lua fuction was loaded into
+ * f
+ *    Name of the Lua function.
  *
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
  */
-
 #define frrscript_call(fs, f, ...)                                                                                                                   \
 	({                                                                                                                                           \
 		struct lua_function_state lookup = {.name = f};                                                                                      \
@@ -222,18 +229,24 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 	})
 
 /*
- * Get result from finished script.
+ * Get result from finished function
  *
  * fs
  *    The script. This script must have been run already.
- *
- * result
- *    The result to extract from the script.
- *    This reuses the frrscript_env type, but only the typename and name fields
- *    need to be set. The value is returned directly.
+ * function_name
+ *    Name of the Lua function.
+ * name
+ *    Name of the result.
+ *    This will be used as a string key to retrieve from the table that the
+ *    Lua function returns.
+ *    The name here should *not* appear in frrscript_call.
+ * lua_to
+ *    Function pointer to a lua_to decoder function.
+ *    This function should allocate and decode a value from the Lua state.
  *
  * Returns:
- *    The script result of the specified name and type, or NULL.
+ *    A pointer to the decoded value from the Lua state, or NULL if no such
+ *    value.
  */
 void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 			   const char *name,
