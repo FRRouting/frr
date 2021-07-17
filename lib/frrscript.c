@@ -205,12 +205,12 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 
 	lfs = hash_lookup(fs->lua_function_hash, &lookup);
 
-	if (lfs == NULL) {
+	if (lfs == NULL)
 		return NULL;
-	}
 
 	/* results table is idx 1 on the stack, getfield pushes our item to idx
-	 * 2*/
+	 * 2
+	 */
 	lua_getfield(lfs->L, 1, name);
 	if (lua_isnil(lfs->L, -1)) {
 		lua_pop(lfs->L, 1);
@@ -259,6 +259,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	/* Set up the Lua script */
 	lua_State *L = luaL_newstate();
+
 	frrlua_export_logging(L);
 
 	char script_name[MAXPATHLEN * 2];
