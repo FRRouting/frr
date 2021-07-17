@@ -2433,12 +2433,11 @@ DEFUN(script,
 	(void)str2prefix("1.2.3.4/24", &p);
 	struct frrscript *fs = frrscript_new(argv[1]->arg);
 
-	if (fs == NULL) {
-		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
-			argv[1]->arg);
+	if (frrscript_load(fs, argv[2]->arg, NULL)) {
+		vty_out(vty,
+			"/etc/frr/scripts%s.lua or function '/%s' not found\n",
+			argv[1]->arg, argv[2]->arg);
 	}
-	if (frrscript_load(fs, argv[2]->arg, NULL))
-		vty_out(vty, "Script function '/%s' not found\n", argv[2]->arg);
 
 	int ret = frrscript_call(fs, argv[2]->arg, ("p", &p));
 	char buf[40];
