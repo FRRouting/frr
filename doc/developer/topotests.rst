@@ -8,7 +8,7 @@ Topotests is a suite of topology tests for FRR built on top of Mininet.
 Installation and Setup
 ----------------------
 
-Only tested with Ubuntu 16.04 and Ubuntu 18.04 (which uses Mininet 2.2.x).
+Only tested with Ubuntu 20.04 and Ubuntu 18.04.
 
 Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
 tests).
@@ -18,15 +18,34 @@ Installing Mininet Infrastructure
 
 .. code:: shell
 
-   apt-get install mininet
+   apt-get install arping
    apt-get install python-pip
    apt-get install iproute
    apt-get install iperf
    pip install ipaddr
-   pip install "pytest<5"
-   pip install "scapy>=2.4.2"
+   pip install 'pytest<5'
+   pip install pytest-xdist
+   pip install 'scapy>=2.4.2'
    pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
    supported)
+   useradd -d /var/run/exabgp/ -s /bin/false exabgp
+
+For python3 (not supported yet)
+
+.. code:: shell
+
+   apt-get install arping
+   apt-get install python3-pip
+   apt-get install iproute
+   apt-get install iperf
+   python3 -m venv tests/venv
+   source tests/venv/bin/activate
+   pip install wheel
+   pip install ipaddr
+   pip install pytest
+   pip install pytest-xdist
+   pip install 'scapy>=2.4.2'
+   pip install exabgp
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
 Enable Coredumps
@@ -281,11 +300,11 @@ Here's an example of having ``vtysh`` launched on test failure.
 
 
 Additionally, one can have the mininet CLI invoked on test failures by
-specifying the ``--mininet-on-error`` CLI option as shown in the example below.
+specifying the ``--cli-on-error`` CLI option as shown in the example below.
 
 .. code:: shell
 
-   pytest --mininet-on-error all-protocol-startup
+   pytest --cli-on-error all-protocol-startup
 
 Debugging with GDB
 """"""""""""""""""
