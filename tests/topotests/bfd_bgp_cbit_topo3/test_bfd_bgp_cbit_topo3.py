@@ -28,6 +28,7 @@ unnumbered.
 import os
 import sys
 import json
+import logging
 from functools import partial
 import pytest
 
@@ -41,8 +42,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.bfdd]
 
@@ -69,7 +69,9 @@ class BFDTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
+    logging.debug("XXX TEST: creating topogen")
     tgen = Topogen(BFDTopo, mod.__name__)
+    logging.debug("XXX TEST: starting topology")
     tgen.start_topology()
 
     router_list = tgen.routers()

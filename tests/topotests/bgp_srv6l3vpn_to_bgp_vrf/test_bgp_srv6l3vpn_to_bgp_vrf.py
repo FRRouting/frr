@@ -37,7 +37,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 class Topology(Topo):

@@ -44,7 +44,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 """
 This topology is for validating one of the primary use cases for

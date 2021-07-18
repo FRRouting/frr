@@ -114,7 +114,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     step,

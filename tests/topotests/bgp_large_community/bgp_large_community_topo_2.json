@@ -12,7 +12,7 @@
     "lo_prefix": {
         "ipv4": "1.0.",
         "v4mask": 32,
-        "ipv6": "2001:DB8:F::",
+        "ipv6": "2001:db8:f::",
         "v6mask": 128
     },
     "routers": {

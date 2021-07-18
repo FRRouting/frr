@@ -41,7 +41,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import shutdown_bringup_interface
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 def open_json_file(filename):

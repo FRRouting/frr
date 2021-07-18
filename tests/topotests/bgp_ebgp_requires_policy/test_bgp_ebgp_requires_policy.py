@@ -55,7 +55,7 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 class TemplateTopo(Topo):

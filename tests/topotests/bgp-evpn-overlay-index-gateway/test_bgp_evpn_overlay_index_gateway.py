@@ -75,7 +75,7 @@ from lib.common_config import (
 )
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 #Global variables
 PES = ['PE1', 'PE2']

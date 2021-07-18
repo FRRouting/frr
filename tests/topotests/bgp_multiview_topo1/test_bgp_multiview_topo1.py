@@ -69,17 +69,12 @@ import pytest
 import glob
 from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
-
 from functools import partial
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
+from lib.micronet_compat import Mininet
+from lib.micronet_compat import Topo
 
 fatal_error = ""
 
@@ -116,10 +111,10 @@ class NetworkTopo(Topo):
         # Setup Switches
         switch = {}
         # First switch is for a dummy interface (for local network)
-        switch[0] = self.addSwitch("sw0", cls=topotest.LegacySwitch)
+        switch[0] = self.addSwitch("sw0")
         self.addLink(switch[0], router[1], intfName2="r1-stub")
         # Second switch is for connection to all peering routers
-        switch[1] = self.addSwitch("sw1", cls=topotest.LegacySwitch)
+        switch[1] = self.addSwitch("sw1")
         self.addLink(switch[1], router[1], intfName2="r1-eth0")
         for j in range(1, 9):
             self.addLink(switch[1], peer[j], intfName2="peer%s-eth0" % j)
@@ -403,8 +398,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
-    setLogLevel("info")
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

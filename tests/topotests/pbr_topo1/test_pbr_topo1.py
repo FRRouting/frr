@@ -47,7 +47,7 @@ from lib.topolog import logger
 from lib.common_config import shutdown_bringup_interface
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.pbrd]
 
