@@ -634,6 +634,11 @@ void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:local-preference"));
+	} else if (IS_MATCH_ALIAS(condition)) {
+		vty_out(vty, " match alias %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-match-condition/frr-bgp-route-map:alias"));
 	} else if (IS_MATCH_ORIGIN(condition)) {
 		vty_out(vty, " match origin %s\n",
 			yang_dnode_get_string(
