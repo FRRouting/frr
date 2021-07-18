@@ -8,13 +8,31 @@ Topotests is a suite of topology tests for FRR built on top of Mininet.
 Installation and Setup
 ----------------------
 
-Only tested with Ubuntu 16.04 and Ubuntu 18.04 (which uses Mininet 2.2.x).
+Only tested with Ubuntu 20.04 and Ubuntu 18.04 (which uses Mininet 2.2.x).
 
 Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
 tests).
 
 Installing Mininet Infrastructure
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For python3
+
+.. code:: shell
+
+   apt-get install mininet
+   apt-get install python3-pip
+   apt-get install iproute
+   apt-get install iperf
+   python3 -m venv tests/venv
+   source tests/venv/bin/activate
+   pip install wheel
+   pip install mininet
+   pip install ipaddr
+   pip install pytest
+   pip install "scapy>=2.4.2"
+   pip install exabgp
+   useradd -d /var/run/exabgp/ -s /bin/false exabgp
 
 .. code:: shell
 
