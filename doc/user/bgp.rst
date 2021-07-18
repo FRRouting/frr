@@ -2194,6 +2194,12 @@ communities attribute.
 
 The following commands can be used in route maps:
 
+.. clicmd:: match alias WORD
+
+   This command performs match to BGP updates using community alias WORD. When
+   the one of BGP communities value match to the one of community alias value in
+   community alias, it is match.
+
 .. clicmd:: match community WORD exact-match [exact-match]
 
    This command perform match to BGP updates using community list WORD. When
