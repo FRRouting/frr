@@ -3,31 +3,36 @@
 Topotests
 =========
 
-Topotests is a suite of topology tests for FRR built on top of Mininet.
+Topotests is a suite of topology tests for FRR built on top of micronet.
 
 Installation and Setup
 ----------------------
 
-Only tested with Ubuntu 16.04 and Ubuntu 18.04 (which uses Mininet 2.2.x).
+Topotests run under python3. Additionally, for ExaBGP (which is used in some of
+the BGP tests) an older python2 version must be installed.
+
+Tested with Ubuntu 20.04 and Ubuntu 18.04 and Debian 11.
 
 Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
 tests).
 
-Installing Mininet Infrastructure
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Installing Topotest Requirements
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
-   apt-get install mininet
-   apt-get install python-pip
-   apt-get install iproute
-   apt-get install iperf
-   pip install ipaddr
-   pip install "pytest<5"
-   pip install "scapy>=2.4.2"
-   pip install exabgp==3.4.17 (Newer 4.0 version of exabgp is not yet
-   supported)
+   apt-get install iproute2
+   apt-get install net-tools
+   apt-get install python3-pip
+   python3 -m pip install wheel
+   python3 -m pip install 'pytest>=6.2.4'
+   python3 -m pip install 'pytest-xdist>=2.3.0'
+   python3 -m pip install 'scapy>=2.4.5'
+   python3 -m pip install xmltodict
+   # Use python2 pip to install older ExaBGP
+   python2 -m pip install 'exabgp<4.0.0'
    useradd -d /var/run/exabgp/ -s /bin/false exabgp
+
 
 Enable Coredumps
 """"""""""""""""
@@ -125,20 +130,125 @@ And create ``frr`` user and ``frrvty`` group as follows:
 Executing Tests
 ---------------
 
-Execute all tests with output to console
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Execute all tests in distributed test mode
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
-   py.test -s -v --tb=no
+   py.test -s -v -nauto --dist=loadfile
 
 The above command must be executed from inside the topotests directory.
 
 All test\_\* scripts in subdirectories are detected and executed (unless
-disabled in ``pytest.ini`` file).
+disabled in ``pytest.ini`` file). Pytest will execute up to N tests in parallel
+where N is based on the number of cores on the host.
 
-``--tb=no`` disables the python traceback which might be irrelevant unless the
-test script itself is debugged.
+Analyze Test Results (``analyze.py``)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+By default router and execution logs are saved in ``/tmp/topotests`` and an XML
+results file is saved in ``/tmp/topotests.xml``. An analysis tool ``analyze.py``
+is provided to archive and analyze these results after the run completes.
+
+After the test run completes one should pick an archive directory to store the
+results in and pass this value to ``analyze.py``. On first execution the results
+are copied to that directory from ``/tmp``, and subsequent runs use that
+directory for analyzing the results. Below is an example of this which also
+shows the default behavior which is to display all failed and errored tests in
+the run.
+
+.. code:: shell
+
+   ~/frr/tests/topotests# ./analyze.py -Ar run-save
+   bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge
+   ospf_basic_functionality/test_ospf_lan.py::test_ospf_lan_tc1_p0
+   bgp_gr_functionality_topo2/test_bgp_gr_functionality_topo2.py::test_BGP_GR_10_p2
+   bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_routingTable
+
+Here we see that 4 tests have failed. We an dig deeper by displaying the
+captured logs and errors. First let's redisplay the results enumerated by adding
+the ``-E`` flag
+
+.. code:: shell
+
+   ~/frr/tests/topotests# ./analyze.py -Ar run-save -E
+   0 bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge
+   1 ospf_basic_functionality/test_ospf_lan.py::test_ospf_lan_tc1_p0
+   2 bgp_gr_functionality_topo2/test_bgp_gr_functionality_topo2.py::test_BGP_GR_10_p2
+   3 bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_routingTable
+
+Now to look at the error message for a failed test we use ``-T N`` where N is
+the number of the test we are interested in along with ``--errmsg`` option.
+
+.. code:: shell
+
+    ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errmsg
+    bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: AssertionError: BGP did not converge:
+
+      IPv4 Unicast Summary (VIEW 1):
+      BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+      BGP table version 1
+      RIB entries 1, using 184 bytes of memory
+      Peers 3, using 2169 KiB of memory
+
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+      172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
+      172.16.1.2      4      65002         0         0        0    0    0    never      Connect        0 N/A
+      172.16.1.5      4      65005         0         0        0    0    0    never      Connect        0 N/A
+
+      Total number of neighbors 3
+
+     assert False
+
+Now to look at the full text of the error for a failed test we use ``-T N``
+where N is the number of the test we are interested in along with ``--errtext``
+option.
+
+.. code:: shell
+
+    ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0 --errtext
+    bgp_multiview_topo1/test_bgp_multiview_topo1.py::test_bgp_converge: def test_bgp_converge():
+            "Check for BGP converged on all peers and BGP views"
+
+            global fatal_error
+            global net
+            [...]
+            else:
+                # Bail out with error if a router fails to converge
+                bgpStatus = net["r%s" % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
+    >           assert False, "BGP did not converge:\n%s" % bgpStatus
+    E           AssertionError: BGP did not converge:
+    E
+    E             IPv4 Unicast Summary (VIEW 1):
+    E             BGP router identifier 172.30.1.1, local AS number 100 vrf-id -1
+                  [...]
+    E             Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+    E             172.16.1.1      4      65001         0         0        0    0    0    never      Connect        0 N/A
+    E             172.16.1.2      4      65002         0         0        0    0    0    never      Connect        0 N/A
+                  [...]
+
+To look at the full capture for a test including the stdout and stderr which
+includes full debug logs, just use the ``-T N`` option without the ``--errmsg``
+or ``--errtext`` options.
+
+.. code:: shell
+
+    ~/frr/tests/topotests# ./analyze.py -Ar run-save -T0
+    @classname: bgp_multiview_topo1.test_bgp_multiview_topo1
+    @name: test_bgp_converge
+    @time: 141.401
+    @message: AssertionError: BGP did not converge:
+    [...]
+    system-out: --------------------------------- Captured Log ---------------------------------
+    2021-08-09 02:55:06,581 DEBUG: lib.micronet_compat.topo: Topo(unnamed): Creating
+    2021-08-09 02:55:06,581 DEBUG: lib.micronet_compat.topo: Topo(unnamed): addHost r1
+    [...]
+    2021-08-09 02:57:16,932 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\\s+(\\d+)"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
+    2021-08-09 02:57:22,290 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary" 2> /dev/null | grep ^[0-9] | grep -vP " 11\\s+(\\d+)"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
+    2021-08-09 02:57:27,636 DEBUG: topolog.r1: LinuxNamespace(r1): cmd_status("['/bin/bash', '-c', 'vtysh -c "show ip bgp view 1 summary"']", kwargs: {'encoding': 'utf-8', 'stdout': -1, 'stderr': -2, 'shell': False})
+    --------------------------------- Captured Out ---------------------------------
+    system-err: --------------------------------- Captured Err ---------------------------------
+
 
 Execute single test
 ^^^^^^^^^^^^^^^^^^^
@@ -160,9 +270,6 @@ For further options, refer to pytest documentation.
 Test will set exit code which can be used with ``git bisect``.
 
 For the simulated topology, see the description in the python file.
-
-If you need to clear the mininet setup between tests (if it isn't cleanly
-shutdown), then use the ``mn -c`` command to clean up the environment.
 
 StdErr log from daemos after exit
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -235,17 +342,63 @@ and create ``frr`` user and ``frrvty`` group as shown above.
 Debugging Topotest Failures
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-For the below debugging options which launch programs, if the topotest is run
-within screen_ or tmux_, ``gdb``, the shell or ``vtysh`` will be launched using
-that windowing program, otherwise mininet's ``xterm`` functionality will be used
-to launch the given program.
+Install and run tests inside ``tmux`` or ``byobu`` for best results.
 
-If you wish to force the use of ``xterm`` rather than ``tmux`` or ``screen``, or
-wish to use ``gnome-terminal`` instead of ``xterm``, set the environment
-variable ``FRR_TOPO_TERMINAL`` to either ``xterm`` or ``gnome-terminal``.
+``XTerm`` is also fully supported. GNU ``screen`` can be used in most
+situations; however, it does not work as well with launching ``vtysh`` or shell
+on error.
+
+For the below debugging options which launch programs or CLIs, topotest should
+be run within ``tmux`` (or ``screen``)_, as ``gdb``, the shell or ``vtysh`` will
+be launched using that windowing program, otherwise ``xterm`` will be attempted
+to launch the given programs.
 
 .. _screen: https://www.gnu.org/software/screen/
 .. _tmux: https://github.com/tmux/tmux/wiki
+
+Spawning Debugging CLI, ``vtysh`` or Shells on Routers on Test Failure
+""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
+
+One can have a debugging CLI invoked on test failures by specifying the
+``--cli-on-error`` CLI option as shown in the example below.
+
+.. code:: shell
+
+   pytest --cli-on-error all-protocol-startup
+
+The debugging CLI can run shell or vtysh commands on any combination of routers
+It can also open shells or vtysh in their own windows for any combination of
+routers. This is usually the most useful option when debugging failures. Here is
+the help command from within a CLI launched on error:
+
+.. code:: shell
+
+    test_bgp_multiview_topo1/test_bgp_routingTable> help
+
+    Commands:
+    help                       :: this help
+    sh [hosts] <shell-command> :: execute <shell-command> on <host>
+    term [hosts]               :: open shell terminals for hosts
+    vtysh [hosts]              :: open vtysh terminals for hosts
+    [hosts] <vtysh-command>    :: execute vtysh-command on hosts
+
+    test_bgp_multiview_topo1/test_bgp_routingTable> r1 show int br
+    ------ Host: r1 ------
+    Interface       Status  VRF             Addresses
+    ---------       ------  ---             ---------
+    erspan0         down    default
+    gre0            down    default
+    gretap0         down    default
+    lo              up      default
+    r1-eth0         up      default         172.16.1.254/24
+    r1-stub         up      default         172.20.0.1/28
+
+    ----------------------
+    test_bgp_multiview_topo1/test_bgp_routingTable>
+
+Additionally, one can have ``vtysh`` or a shell launched on all routers when a
+test fails. To launch the given process on each router after a test failure
+specify one of ``--shell-on-error`` or ``--vtysh-on-error``.
 
 Spawning ``vtysh`` or Shells on Routers
 """""""""""""""""""""""""""""""""""""""
@@ -255,37 +408,14 @@ a test. This is enabled by specifying 1 of 2 CLI arguments ``--shell`` or
 ``--vtysh``. Both of these options can be set to a single router value, multiple
 comma-seperated values, or ``all``.
 
-When either of these options are specified topotest will pause after each test
-to allow for inspection of the router state.
+When either of these options are specified topotest will pause after setup and
+each test to allow for inspection of the router state.
 
 Here's an example of launching ``vtysh`` on routers ``rt1`` and ``rt2``.
 
 .. code:: shell
 
    pytest --vtysh=rt1,rt2 all-protocol-startup
-
-Spawning Mininet CLI, ``vtysh`` or Shells on Routers on Test Failure
-""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""""
-
-Similar to the previous section one can have ``vtysh`` or a shell launched on
-routers, but in this case only when a test fails. To launch the given process on
-each router after a test failure specify one of ``--shell-on-error`` or
-``--vtysh-on-error``.
-
-
-Here's an example of having ``vtysh`` launched on test failure.
-
-.. code:: shell
-
-   pytest --vtysh-on-error all-protocol-startup
-
-
-Additionally, one can have the mininet CLI invoked on test failures by
-specifying the ``--mininet-on-error`` CLI option as shown in the example below.
-
-.. code:: shell
-
-   pytest --mininet-on-error all-protocol-startup
 
 Debugging with GDB
 """"""""""""""""""
@@ -424,7 +554,7 @@ top level directory of topotest:
 
    $ # Change to the top level directory of topotests.
    $ cd path/to/topotests
-   $ # Tests must be run as root, since Mininet requires it.
+   $ # Tests must be run as root, since micronet requires it.
    $ sudo pytest
 
 In order to run a specific test, you can use the following command:
@@ -493,15 +623,16 @@ Some things to keep in mind:
 - Avoid including unstable data in your test: don't rely on link-local
   addresses or ifindex values, for example, because these can change
   from run to run.
-- Using sleep is almost never appropriate to wait for some convergence
-  event as the sole item done.  As an example: if the test resets the peers
-  in BGP, the test should look for the peers reconverging instead of just
-  sleeping an arbitrary amount of time and continuing on.  It is ok to
-  use sleep in a tight loop with appropriate show commands to ensure that
-  the protocol reaches the desired state.  This should be bounded by
-  appropriate timeouts for the protocol in question though.  See
-  verify_bgp_convergence as a good example of this.  If you are having
-  troubles figuring out what to look for, please do not be afraid to ask.
+- Using sleep is almost never appropriate. As an example: if the test resets the
+  peers in BGP, the test should look for the peers re-converging instead of just
+  sleeping an arbitrary amount of time and continuing on. See
+  `verify_bgp_convergence` as a good example of this. In particular look at it's
+  use of the `@retry` decorator. If you are having troubles figuring out what to
+  look for, please do not be afraid to ask.
+- Don't duplicate effort. There exists many protocol utility functions that can
+  be found in their eponymous module under `tests/topotests/lib/` (e.g.,
+  `ospf.py`)
+
 
 
 Topotest File Hierarchy
@@ -661,25 +792,32 @@ Here is the template topology described in the previous section in python code:
 
 .. code:: py
 
-   class TemplateTopo(Topo):
-       "Test topology builder"
-       def build(self, *_args, **_opts):
-           "Build function"
-           tgen = get_topogen(self)
+    topodef = {
+        "s1": "r1"
+        "s2": ("r1", "r2")
+    }
 
-           # Create 2 routers
-           for routern in range(1, 3):
-               tgen.add_router('r{}'.format(routern))
+If more specialized topology definitions, or router initialization arguments are
+required a build function can be used instead of a dictionary:
 
-           # Create a switch with just one router connected to it to simulate a
-           # empty network.
-           switch = tgen.add_switch('s1')
-           switch.add_link(tgen.gears['r1'])
+.. code:: py
 
-           # Create a connection between r1 and r2
-           switch = tgen.add_switch('s2')
-           switch.add_link(tgen.gears['r1'])
-           switch.add_link(tgen.gears['r2'])
+    def build_topo(tgen):
+        "Build function"
+
+        # Create 2 routers
+        for routern in range(1, 3):
+            tgen.add_router("r{}".format(routern))
+
+        # Create a switch with just one router connected to it to simulate a
+        # empty network.
+        switch = tgen.add_switch("s1")
+        switch.add_link(tgen.gears["r1"])
+
+        # Create a connection between r1 and r2
+        switch = tgen.add_switch("s2")
+        switch.add_link(tgen.gears["r1"])
+        switch.add_link(tgen.gears["r2"])
 
 - Run the topology
 
@@ -701,8 +839,8 @@ Parameters explanation:
 
 .. option:: -s
 
-   Actives input/output capture. This is required by mininet in order to show
-   the interactive shell.
+   Actives input/output capture. If this is not specified a new window will be
+   opened for the interactive CLI, otherwise it will be activated inline.
 
 .. option:: --topology-only
 
@@ -713,110 +851,84 @@ output:
 
 .. code:: shell
 
-   === test session starts ===
-   platform linux2 -- Python 2.7.12, pytest-3.1.2, py-1.4.34, pluggy-0.4.0
-   rootdir: /media/sf_src/topotests, inifile: pytest.ini
-   collected 3 items
+    frr/tests/topotests# sudo pytest -s --topology-only ospf_topo1/test_ospf_topo1.py
+    ============================= test session starts ==============================
+    platform linux -- Python 3.9.2, pytest-6.2.4, py-1.10.0, pluggy-0.13.1
+    rootdir: /home/chopps/w/frr/tests/topotests, configfile: pytest.ini
+    plugins: forked-1.3.0, xdist-2.3.0
+    collected 11 items
 
-   ospf-topo1/test_ospf_topo1.py *** Starting controller
+    [...]
+    unet>
 
-   *** Starting 6 switches
-   switch1 switch2 switch3 switch4 switch5 switch6 ...
-   r2: frr zebra started
-   r2: frr ospfd started
-   r3: frr zebra started
-   r3: frr ospfd started
-   r1: frr zebra started
-   r1: frr ospfd started
-   r4: frr zebra started
-   r4: frr ospfd started
-   *** Starting CLI:
-   mininet>
-
-The last line shows us that we are now using the Mininet CLI (Command Line
+The last line shows us that we are now using the CLI (Command Line
 Interface), from here you can call your router ``vtysh`` or even bash.
+
+Here's the help text:
+
+.. code:: shell
+    unet> help
+
+    Commands:
+      help                       :: this help
+      sh [hosts] <shell-command> :: execute <shell-command> on <host>
+      term [hosts]               :: open shell terminals for hosts
+      vtysh [hosts]              :: open vtysh terminals for hosts
+      [hosts] <vtysh-command>    :: execute vtysh-command on hosts
+
+.. code:: shell
 
 Here are some commands example:
 
 .. code:: shell
 
-   mininet> r1 ping 10.0.3.1
-   PING 10.0.3.1 (10.0.3.1) 56(84) bytes of data.
-   64 bytes from 10.0.3.1: icmp_seq=1 ttl=64 time=0.576 ms
-   64 bytes from 10.0.3.1: icmp_seq=2 ttl=64 time=0.083 ms
-   64 bytes from 10.0.3.1: icmp_seq=3 ttl=64 time=0.088 ms
-   ^C
-   --- 10.0.3.1 ping statistics ---
-   3 packets transmitted, 3 received, 0% packet loss, time 1998ms
-   rtt min/avg/max/mdev = 0.083/0.249/0.576/0.231 ms
+    unet> sh r1 ping 10.0.3.1
+    PING 10.0.3.1 (10.0.3.1) 56(84) bytes of data.
+    64 bytes from 10.0.3.1: icmp_seq=1 ttl=64 time=0.576 ms
+    64 bytes from 10.0.3.1: icmp_seq=2 ttl=64 time=0.083 ms
+    64 bytes from 10.0.3.1: icmp_seq=3 ttl=64 time=0.088 ms
+    ^C
+    --- 10.0.3.1 ping statistics ---
+    3 packets transmitted, 3 received, 0% packet loss, time 1998ms
+    rtt min/avg/max/mdev = 0.083/0.249/0.576/0.231 ms
 
+    unet> r1 show run
+    Building configuration...
 
+    Current configuration:
+    !
+    frr version 8.1-dev-my-manual-build
+    frr defaults traditional
+    hostname r1
+    log file /tmp/topotests/ospf_topo1.test_ospf_topo1/r1/zebra.log
+    [...]
+    end
 
-   mininet> r1 ping 10.0.3.3
-   PING 10.0.3.3 (10.0.3.3) 56(84) bytes of data.
-   64 bytes from 10.0.3.3: icmp_seq=1 ttl=64 time=2.87 ms
-   64 bytes from 10.0.3.3: icmp_seq=2 ttl=64 time=0.080 ms
-   64 bytes from 10.0.3.3: icmp_seq=3 ttl=64 time=0.091 ms
-   ^C
-   --- 10.0.3.3 ping statistics ---
-   3 packets transmitted, 3 received, 0% packet loss, time 2003ms
-   rtt min/avg/max/mdev = 0.080/1.014/2.872/1.313 ms
-
-
-
-   mininet> r3 vtysh
-
-   Hello, this is FRRouting (version 3.1-devrzalamena-build).
-   Copyright 1996-2005 Kunihiro Ishiguro, et al.
-
-   frr-1# show running-config
-   Building configuration...
-
-   Current configuration:
-   !
-   frr version 3.1-devrzalamena-build
-   frr defaults traditional
-   hostname r3
-   no service integrated-vtysh-config
-   !
-   log file zebra.log
-   !
-   log file ospfd.log
-   !
-   interface r3-eth0
-    ip address 10.0.3.1/24
-   !
-   interface r3-eth1
-    ip address 10.0.10.1/24
-   !
-   interface r3-eth2
-    ip address 172.16.0.2/24
-   !
-   router ospf
-    ospf router-id 10.0.255.3
-    redistribute kernel
-    redistribute connected
-    redistribute static
-    network 10.0.3.0/24 area 0
-    network 10.0.10.0/24 area 0
-    network 172.16.0.0/24 area 1
-   !
-   line vty
-   !
-   end
-   frr-1#
+    unet> show daemons
+    ------ Host: r1 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r1 ------
+    ------ Host: r2 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r2 ------
+    ------ Host: r3 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r3 ------
+    ------ Host: r4 ------
+     zebra ospfd ospf6d staticd
+    ------- End: r4 ------
 
 After you successfully configured your topology, you can obtain the
 configuration files (per-daemon) using the following commands:
 
 .. code:: shell
 
-   mininet> r3 vtysh -d ospfd
+   unet> sh r3 vtysh -d ospfd
 
    Hello, this is FRRouting (version 3.1-devrzalamena-build).
    Copyright 1996-2005 Kunihiro Ishiguro, et al.
 
-   frr-1# show running-config
+   r1# show running-config
    Building configuration...
 
    Current configuration:
@@ -839,7 +951,7 @@ configuration files (per-daemon) using the following commands:
    line vty
    !
    end
-   frr-1#
+   r1#
 
 Writing Tests
 """""""""""""
@@ -848,15 +960,12 @@ Test topologies should always be bootstrapped from
 :file:`tests/topotests/example-test/test_template.py` because it contains
 important boilerplate code that can't be avoided, like:
 
-- imports: os, sys, pytest, topotest/topogen and mininet topology class
-- The global variable CWD (Current Working directory): which is most likely
-  going to be used to reference the routers configuration file location
-
 Example:
 
 .. code:: py
 
    # For all registered routers, load the zebra configuration file
+   CWD = os.path.dirname(os.path.realpath(__file__))
    for rname, router in router_list.items():
        router.load_config(
            TopoRouter.RD_ZEBRA,
@@ -865,21 +974,28 @@ Example:
        # os.path.join() joins the CWD string with arguments adding the necessary
        # slashes ('/'). Arguments must not begin with '/'.
 
-- The topology class that inherits from Mininet Topo class:
+- The topology definition or build function
 
 .. code:: py
 
-   class TemplateTopo(Topo):
-     def build(self, *_args, **_opts):
-       tgen = get_topogen(self)
+   topodef = {
+       "s1": ("r1", "r2"),
+       "s2": ("r2", "r3")
+   }
+
+   def build_topo(tgen):
        # topology build code
+       ...
 
 - pytest ``setup_module()`` and ``teardown_module()`` to start the topology
 
 .. code:: py
 
-   def setup_module(_m):
-       tgen = Topogen(TemplateTopo)
+   def setup_module(module):
+       tgen = Topogen(topodef, module.__name__)
+       # or
+       tgen = Topogen(build_topo, module.__name__)
+
        tgen.start_topology('debug')
 
    def teardown_module(_m):
@@ -1042,11 +1158,10 @@ Example of pdb usage:
    (Pdb) router1 = tgen.gears[router]
    (Pdb) router1.vtysh_cmd('show ip ospf route')
    '============ OSPF network routing table ============\r\nN    10.0.1.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth0\r\nN    10.0.2.0/24           [20] area: 0.0.0.0\r\n                           via 10.0.3.3, r1-eth1\r\nN    10.0.3.0/24           [10] area: 0.0.0.0\r\n                           directly attached to r1-eth1\r\nN    10.0.10.0/24          [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.0.0/24         [20] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\nN IA 172.16.1.0/24         [30] area: 0.0.0.0\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF router routing table =============\r\nR    10.0.255.2            [10] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.3, r1-eth1\r\nR    10.0.255.3            [10] area: 0.0.0.0, ABR, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\nR    10.0.255.4         IA [20] area: 0.0.0.0, ASBR\r\n                           via 10.0.3.1, r1-eth1\r\n\r\n============ OSPF external routing table ===========\r\n\r\n\r\n'
-    (Pdb) tgen.mininet_cli()
-    *** Starting CLI:
-    mininet>
+    (Pdb) tgen.cli()
+    unet>
 
-To enable more debug messages in other Topogen subsystems (like Mininet), more
+To enable more debug messages in other Topogen subsystems, more
 logging messages can be displayed by modifying the test configuration file
 ``pytest.ini``:
 

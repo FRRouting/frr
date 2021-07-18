@@ -373,23 +373,18 @@ Building topology and configurations
 Topology and initial configuration will be created in setup_module(). Following
 is the sample code::
 
-   class TemplateTopo(Topo):
-       def build(self, *_args, **_opts):
-       "Build function"
-       tgen = get_topogen(self)
-
-       # Building topology from json file
-       build_topo_from_json(tgen, topo)
-
    def setup_module(mod):
-       tgen = Topogen(TemplateTopo, mod.__name__)
+       json_file = "{}/my_test_name.json".format(CWD)
+       tgen = Topogen(json_file, mod.__name__)
+
+       # json topo object is now available in tgen.json_topo
 
        # Starting topology, create tmp files which are loaded to routers
        #  to start deamons and then start routers
        start_topology(tgen)
 
        # Creating configuration from JSON
-       build_config_from_json(tgen, topo)
+       build_config_from_json(tgen)
 
    def teardown_module(mod):
        tgen = get_topogen()
@@ -412,10 +407,12 @@ configurations are like, static routes, prefixlists and route maps etc configs,
 these configs can be used by any other protocols as it is.
 BGP config will be specific to BGP protocol testing.
 
-* JSON file is passed to API build_config_from_json(), which looks for
-  configuration tags in JSON file.
-* If tag is found in JSON, configuration is created as per input and written
-  to file frr_json.conf
+* json file is passed to API Topogen() which saves the JSON object in
+  `self.json_topo`
+* The Topogen object is then passed to API build_config_from_json(), which looks
+  for configuration tags in new JSON object.
+* If tag is found in the JSON object, configuration is created as per input and
+  written to file frr_json.conf
 * Once JSON parsing is over, frr_json.conf is loaded onto respective router.
   Config loading is done using 'vtysh -f <file>'. Initial config at this point
   is also saved frr_json_initial.conf. This file can be used to reset
@@ -428,10 +425,10 @@ Writing Tests
 """""""""""""
 
 Test topologies should always be bootstrapped from the
-example-test/test_example.py, because it contains important boilerplate code
-that can't be avoided, like:
+example_test/test_template_json.py, because it contains important boilerplate
+code that can't be avoided, like:
 
-imports: os, sys, pytest, topotest/topogen and mininet topology class
+imports: os, sys, pytest, and topotest/topogen.
 
 The global variable CWD (Current Working directory): which is most likely going
 to be used to reference the routers configuration file location
