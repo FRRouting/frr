@@ -946,7 +946,8 @@ def add_interfaces_to_vlan(tgen, input_dict):
                         # Adding interface to VLAN
                         cmd = "vconfig add {} {}".format(interface, vlan)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         vlan_intf = "{}.{}".format(interface, vlan)
 
@@ -956,12 +957,14 @@ def add_interfaces_to_vlan(tgen, input_dict):
                         # Bringing interface up
                         cmd = "ip link set up {}".format(vlan_intf)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
                         # Assigning IP address
                         cmd = "ifconfig {} {} netmask {}".format(vlan_intf, ip, subnet)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
-                        rnode.run(cmd)
+                        result = rnode.run(cmd)
+                        logger.info("result %s", result)
 
 
 def tcpdump_capture_start(

@@ -1,0 +1,85 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {"ipv4": "10.0.0.0", "v4mask": 24, "link_local": "disable"},
+    "lo_prefix": {"ipv4": "1.0.", "v4mask": 32},
+    "switches": {
+        "s1": {
+            "links": {
+                "i1": {"ipv4": "auto"},
+                "r1": {"ipv4": "auto", "pim": "enable"},
+                "r2": {"ipv4": "auto", "pim": "enable"},
+                "r3": {"ipv4": "auto", "pim": "enable"}
+            }
+        }
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r4": {"ipv4": "auto", "pim": "enable"}
+            },
+            "static_routes": [{
+                "network": ["10.0.0.1/24", "1.0.5.17/32"],
+                "next_hop": "10.0.1.2"
+            }]
+        },
+        "r2": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r4": {"ipv4": "auto", "pim": "enable"}
+            },
+            "static_routes": [{
+                "network": ["10.0.0.1/24", "1.0.5.17/32"],
+                "next_hop": "10.0.2.2"
+            }]
+        },
+        "r3": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"}
+            },
+            "static_routes": [{
+                "network": ["10.0.0.1/24", "1.0.5.17/32"],
+                "next_hop": "10.1.1.1"
+            }]
+        },
+        "r4": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r1": {"ipv4": "auto", "pim": "enable"},
+                "r2": {"ipv4": "auto", "pim": "enable"},
+                "r5": {"ipv4": "auto", "pim": "enable"}
+            },
+            "static_routes": [
+            {
+                "network": ["10.1.1.4/24"],
+                "next_hop": "10.0.2.1"
+            },
+            {
+                "network": ["10.0.0.1/24"],
+                "next_hop": "10.0.3.2"
+            }]
+        },
+        "r5": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback", "pim": "enable"},
+                "r4": {"ipv4": "auto", "pim": "enable"},
+                "i2": {"ipv4": "auto", "pim": "enable"}
+            },
+            "static_routes": [{
+                "network": ["10.1.1.4/24", "1.0.5.17/32"],
+                "next_hop": "10.0.3.1"
+            }]
+        },
+        "i1": {
+            "links": {
+                "lo": {"ipv4": "auto", "type": "loopback"}
+            }
+        },
+        "i2": {
+            "links": {
+                "r5": {"ipv4": "auto"}
+            }
+        }
+    }
+}
