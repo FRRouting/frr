@@ -152,3 +152,32 @@ const char *bgp_community2alias(char *community)
 
 	return community;
 }
+
+static int bgp_community_alias_vector_walker(struct hash_bucket *bucket,
+					     void *data)
+{
+	vector *comps = data;
+	struct community_alias *alias = bucket->data;
+
+	vector_set(*comps, XSTRDUP(MTYPE_COMPLETION, alias->alias));
+
+	return 1;
+}
+
+static void bgp_community_alias_cmd_completion(vector comps,
+					       struct cmd_token *token)
+{
+	hash_walk(bgp_ca_alias_hash, bgp_community_alias_vector_walker, &comps);
+}
+
+static const struct cmd_variable_handler community_alias_handlers[] = {
+	{.varname = "alias_name",
+	 .completions = bgp_community_alias_cmd_completion},
+	{.tokenname = "ALIAS_NAME",
+	 .completions = bgp_community_alias_cmd_completion},
+	{.completions = NULL}};
+
+void bgp_community_alias_command_completion_setup(void)
+{
+	cmd_variable_handler_register(community_alias_handlers);
+}
