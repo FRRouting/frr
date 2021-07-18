@@ -29,6 +29,10 @@ extern const struct frr_yang_module_info frr_bgp_route_map_info;
 /* prototypes */
 int lib_route_map_entry_match_condition_rmap_match_condition_local_preference_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_local_preference_destroy(struct nb_cb_destroy_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_alias_modify(
+	struct nb_cb_modify_args *args);
+int lib_route_map_entry_match_condition_rmap_match_condition_alias_destroy(
+	struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_script_modify(struct nb_cb_modify_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_script_destroy(struct nb_cb_destroy_args *args);
 int lib_route_map_entry_match_condition_rmap_match_condition_origin_modify(struct nb_cb_modify_args *args);
