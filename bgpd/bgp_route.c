@@ -3663,7 +3663,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (aspath_loop_check(attr->aspath, peer->change_local_as)
 		    > aspath_loop_count) {
 			peer->stat_pfx_aspath_loop++;
-			reason = "as-path contains our own AS A;";
+			reason = "as-path contains our own AS;";
 			goto filtered;
 		}
 	}
