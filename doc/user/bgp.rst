@@ -401,6 +401,22 @@ Route Selection
    paths learned from any of eBGP, iBGP, or confederation neighbors will
    be multipath if they are otherwise considered equal cost.
 
+.. clicmd:: maximum-paths (1-128)
+
+   Sets the maximum-paths value used for ecmp calculations for this
+   bgp instance in EBGP.  The maximum value listed, 128, can be limited by
+   the ecmp cli for bgp or if the daemon was compiled with a lower
+   ecmp value.  This value can also be set in ipv4/ipv6 unicast/labeled
+   unicast to only affect those particular afi/safi's.
+
+.. clicmd:: maximum-paths ibgp (1-128) [equal-cluster-length]
+
+   Sets the maximum-paths value used for ecmp calculations for this
+   bgp instance in IBGP.  The maximum value listed, 128, can be limited by
+   the ecmp cli for bgp or if the daemon was compiled with a lower
+   ecmp value.  This value can also be set in ipv4/ipv6 unicast/labeled
+   unicast to only affect those particular afi/safi's.
+
 .. _bgp-distance:
 
 Administrative Distance Metrics
