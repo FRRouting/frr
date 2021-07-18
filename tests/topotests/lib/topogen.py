@@ -56,13 +56,15 @@ import pwd
 import subprocess
 import pytest
 
-from mininet.net import Mininet
-from mininet.log import setLogLevel
-from mininet.cli import CLI
+from lib.micronet_compat import Mininet
+from lib.micronet import Bridge
+from lib.micronet_compat import setLogLevel
 
 from lib import topotest
 from lib.topolog import logger, logger_config
 from lib.topotest import set_sysctl
+
+setLogLevel(logging.DEBUG)
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
@@ -126,11 +128,11 @@ class Topogen(object):
         self._init_topo(cls)
         logger.info("loading topology: {}".format(self.modname))
 
-    @staticmethod
-    def _mininet_reset():
-        "Reset the mininet environment"
-        # Clean up the mininet environment
-        os.system("mn -c > /dev/null 2>&1")
+    # @staticmethod
+    # def _mininet_reset():
+    #     "Reset the mininet environment"
+    #     # Clean up the mininet environment
+    #     os.system("mn -c > /dev/null 2>&1")
 
     def _init_topo(self, cls):
         """
@@ -152,8 +154,10 @@ class Topogen(object):
         self._load_config()
 
         # Initialize the API
-        self._mininet_reset()
-        cls()
+        # self._mininet_reset()
+        self.topo = cls(tgen=self)
+        # Should really be done here instead of in the cls().init()->build()
+        # self.topo.build(tgen=self)
         self.net = Mininet(controller=None, topo=self.topo)
         for gear in self.gears.values():
             gear.net = self.net
@@ -167,7 +171,7 @@ class Topogen(object):
         pytestini_path = os.path.join(CWD, "../pytest.ini")
         self.config.read(pytestini_path)
 
-    def add_router(self, name=None, cls=topotest.Router, **params):
+    def add_router(self, name=None, cls=None, **params):
         """
         Adds a new router to the topology. This function has the following
         options:
@@ -176,6 +180,16 @@ class Topogen(object):
         * `routertype`: (optional) `frr`
         Returns a TopoRouter.
         """
+
+        # We need to default to LinuxRouter so that ipv6 forwarding sysctl is set early.
+        # This is important b/c it disables autoconf of interface addresses which for
+        # routers we do not want.
+        if cls is None:
+            if sys.platform.startswith("linux"):
+                cls = topotest.LinuxRouter
+            else:
+                cls = topotest.FreeBSDRouter
+
         if name is None:
             name = "r{}".format(self.routern)
         if name in self.gears:
@@ -190,7 +204,7 @@ class Topogen(object):
         self.routern += 1
         return self.gears[name]
 
-    def add_switch(self, name=None, cls=topotest.LegacySwitch):
+    def add_switch(self, name=None, cls=Bridge):
         """
         Adds a new switch to the topology. This function has the following
         options:
@@ -368,7 +382,8 @@ class Topogen(object):
                 "you must run pytest with '-s' in order to use mininet CLI"
             )
 
-        CLI(self.net)
+        #uCLI(self.net)
+        raise Exception("CLI unimplemented")
 
     def is_memleak_enabled(self):
         "Returns `True` if memory leak report is enable, otherwise `False`."
@@ -464,12 +479,14 @@ class TopoGear(object):
         logger.info('stopping "{}"'.format(self.name))
         return ""
 
-    def run(self, command):
+    def cmd(self, command, **kwargs):
         """
         Runs the provided command string in the router and returns a string
         with the response.
         """
-        return self.tgen.net[self.name].cmd(command)
+        return self.tgen.net[self.name].cmd(command, **kwargs)
+
+    run = cmd
 
     def add_link(self, node, myif=None, nodeif=None):
         """
@@ -502,7 +519,9 @@ class TopoGear(object):
         extract = ""
         if netns is not None:
             extract = "ip netns exec {} ".format(netns)
-        return self.run("{}ip link set dev {} {}".format(extract, myif, operation))
+
+        uname = self.tgen.net[self.name].get_uniq_name(myif)
+        return self.run("{}ip link set dev {} {}".format(extract, uname, operation))
 
     def peer_link_enable(self, myif, enabled=True, netns=None):
         """
@@ -549,6 +568,7 @@ class TopoRouter(TopoGear):
     # The default required directories by FRR
     PRIVATE_DIRS = [
         "/etc/frr",
+        "/etc/snmp",
         "/var/run/frr",
         "/var/log",
     ]
@@ -706,6 +726,8 @@ class TopoRouter(TopoGear):
         # Enable all daemon command logging, logging files
         # and set them to the start dir.
         for daemon, enabled in nrouter.daemons.items():
+            if daemon == "snmpd":
+                continue
             if enabled == 0:
                 continue
             self.vtysh_cmd(
@@ -988,7 +1010,7 @@ class TopoExaBGP(TopoHost):
         * Make all python files runnable
         * Run ExaBGP with env file `env_file` and configuration peer*/exabgp.cfg
         """
-        self.run("mkdir /etc/exabgp")
+        self.run("mkdir -p /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
         self.run("cp {}/* /etc/exabgp/".format(peer_dir))
         if env_file is not None:
