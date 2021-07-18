@@ -25,51 +25,29 @@ test_bfd_bgp_cbit_topo3.py: Test the FRR BFD daemon with multihop and BGP
 unnumbered.
 """
 
+import json
+import logging
 import os
 import sys
-import json
 from functools import partial
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
 pytestmark = [pytest.mark.bgpd, pytest.mark.bfdd]
-
-
-class BFDTopo(Topo):
-    "Test topology builder"
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # Create 4 routers.
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BFDTopo, mod.__name__)
+    from collections import OrderedDict
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r2", "r3"),
+    }
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

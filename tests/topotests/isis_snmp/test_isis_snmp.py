@@ -80,7 +80,7 @@ from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 class TemplateTopo(Topo):
@@ -217,7 +217,7 @@ def test_r1_scalar_snmp():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid("isisSysVersion", "one(1)")
@@ -229,7 +229,7 @@ def test_r1_scalar_snmp():
     assert r1_snmp.test_oid("isisSysMaxAge", "1200 seconds")
     assert r1_snmp.test_oid("isisSysProtSupported", "07 5 6 7")
 
-    r2 = tgen.net.get("r2")
+    r2 = tgen.gears["r2"]
     r2_snmp = SnmpTester(r2, "2.2.2.2", "public", "2c")
 
     assert r2_snmp.test_oid("isisSysVersion", "one(1)")
@@ -258,9 +258,7 @@ circtable_test = {
 def test_r1_isisCircTable():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
-
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     oids = []
@@ -294,9 +292,7 @@ circleveltable_test = {
 def test_r1_isislevelCircTable():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
-
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     oids = []
@@ -333,8 +329,7 @@ adjtable_down_test = {
 def test_r1_isisAdjTable():
     "check ISIS Adjacency Table"
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
-    r1_cmd = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     oids = []
@@ -353,7 +348,7 @@ def test_r1_isisAdjTable():
 
     # shutdown interface and one adjacency should be removed
     "check ISIS adjacency is removed when interface is shutdown"
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth1\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth1\nshutdown")
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     for item in adjtable_down_test.keys():
@@ -365,7 +360,7 @@ def test_r1_isisAdjTable():
         ), assertmsg
 
     # no shutdown interface and adjacency should be restored
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth1\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth1\nno shutdown")
 
 
 # Memory leak test template

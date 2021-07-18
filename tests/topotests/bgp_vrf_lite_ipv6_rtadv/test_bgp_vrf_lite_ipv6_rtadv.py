@@ -45,7 +45,7 @@ from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 class BGPIPV6RTADVVRFTopo(Topo):

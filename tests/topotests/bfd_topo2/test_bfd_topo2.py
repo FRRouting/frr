@@ -27,55 +27,51 @@ test_bfd_topo2.py: Test the FRR BFD daemon with multihop and BGP
 unnumbered.
 """
 
+import json
 import os
 import sys
-import json
 from functools import partial
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd, pytest.mark.ospfd]
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 
-class BFDTopo(Topo):
-    "Test topology builder"
+def build(self, *_args, **_opts):
+    "Build function"
+    tgen = get_topogen(self)
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 4 routers.
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 4 routers.
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BFDTopo, mod.__name__)
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r2", "r3"),
+        "s3": ("r2", "r4"),
+    }
+    tgen = Topogen(topodef, mod.__name__)
+    # tgen = Topogen(build, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

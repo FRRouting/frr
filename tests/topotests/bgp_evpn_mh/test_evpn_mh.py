@@ -27,13 +27,14 @@ test_evpn_mh.py: Testing EVPN multihoming
 
 """
 
+import json
 import os
+import platform
 import re
 import sys
-import pytest
-import json
-import platform
 from functools import partial
+
+import pytest
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 
@@ -44,11 +45,10 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+# Required to instantiate the topology builder class.
+from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 #####################################################
 ##
@@ -369,6 +369,11 @@ def setup_module(module):
     "Setup topology"
     tgen = Topogen(NetworkTopo, module.__name__)
     tgen.start_topology()
+
+    # This is causing the CI to fail!?
+    #
+    # # This test requires arping
+    # tgen.net.cmd_raises("which arping")
 
     krel = platform.release()
     if topotest.version_cmp(krel, "4.19") < 0:

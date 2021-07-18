@@ -27,21 +27,15 @@ test_srv6_manager.py:
 Test for SRv6 manager on zebra
 """
 
+import functools
+import json
 import os
 import sys
-import json
-import time
+
 import pytest
-import functools
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
-
-# pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
 
 
 def open_json_file(filename):
@@ -52,16 +46,12 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router('r1')
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()
-    router_list = tgen.routers()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
         router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, '{}/zebra.conf'.format(rname)))

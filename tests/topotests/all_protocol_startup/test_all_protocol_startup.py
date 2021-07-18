@@ -27,21 +27,16 @@ test_all_protocol_startup.py: Test of all protocols at same time
 
 """
 
+import glob
 import os
 import re
 import sys
-import pytest
-import glob
 from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
+import pytest
+from lib.micronet_compat import Mininet, Topo
 
-from functools import partial
+from lib import topotest
 
 pytestmark = [
     pytest.mark.babeld,
@@ -53,9 +48,7 @@ pytestmark = [
     pytest.mark.ripd,
 ]
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from lib import topotest
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 fatal_error = ""
 
 
@@ -82,7 +75,7 @@ class NetworkTopo(Topo):
         switch = {}
         #
         for i in range(0, 10):
-            switch[i] = self.addSwitch("sw%s" % i, cls=topotest.LegacySwitch)
+            switch[i] = self.addSwitch("sw%s" % i)
             self.addLink(switch[i], router[1], intfName2="r1-eth%s" % i)
 
 
@@ -765,7 +758,7 @@ def test_ospfv2_interfaces():
             )
             # Mask out Bandwidth portion. They may change..
             actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
-            actual = re.sub(r"ifindex [0-9]", "ifindex X", actual)
+            actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
 
             # Drop time in next due
             actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)
@@ -1155,7 +1148,7 @@ def test_nht():
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = net["r%s" % i].cmd('vtysh -c "show ip nht" 2> /dev/null').rstrip()
-        actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
+        actual = re.sub(r"fd [0-9]+", "fd XX", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
         diff = topotest.get_textdiff(
@@ -1175,7 +1168,7 @@ def test_nht():
         expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
 
         actual = net["r%s" % i].cmd('vtysh -c "show ipv6 nht" 2> /dev/null').rstrip()
-        actual = re.sub(r"fd [0-9][0-9]", "fd XX", actual)
+        actual = re.sub(r"fd [0-9]+", "fd XX", actual)
         actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
 
         diff = topotest.get_textdiff(
@@ -1659,8 +1652,6 @@ def test_shutdown_check_memleak():
 
 
 if __name__ == "__main__":
-
-    setLogLevel("info")
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

@@ -50,32 +50,34 @@ Shut down VxLAN interface at PE1. This should withdraw type-2 routes. Check stat
 Enable VxLAN interface again. Check states.
 """
 
-import os
-import sys
 import json
-from functools import partial
-import pytest
-import time
+import os
 import platform
+import sys
+import time
+from functools import partial
+
+import pytest
 
 #Current Working Directory
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib.common_config import (
-    step,
-    write_test_header,
-    write_test_footer,
     generate_support_bundle,
+    step,
+    write_test_footer,
+    write_test_header,
 )
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
+from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topolog import logger
+
+# pylint: disable=C0413
+# Import topogen and topotest helpers
+from lib import topotest
 
 #Global variables
 PES = ['PE1', 'PE2']
@@ -139,47 +141,58 @@ def setup_module(mod):
     tgen.start_topology()
 
     # Configure MAC address for hosts as these MACs are advertised with EVPN type-2 routes
-    for (name, host) in tgen.gears.items():
+    for name in tgen.gears:
         if name not in HOSTS:
             continue
+        host = tgen.net[name]
 
         host_mac = "1a:2b:3c:4d:5e:6{}".format(HOST_SUFFIX[name])
-        host.run("ip link set dev {}-eth0 down").format(name)
-        host.run("ip link set dev {0}-eth0 address {1}".format(name, host_mac))
-        host.run("ip link set dev {}-eth0 up").format(name)
+        host.cmd_raises("ip link set dev {}-eth0 down".format(name))
+        host.cmd_raises("ip link set dev {0}-eth0 address {1}".format(name, host_mac))
+        host.cmd_raises("ip link set dev {}-eth0 up".format(name))
 
     # Configure PE VxLAN and Bridge interfaces
-    for (name, pe) in tgen.gears.items():
+    for name in tgen.gears:
         if name not in PES:
             continue
+        pe = tgen.net[name]
+
         vtep_ip = "10.100.0.{}".format(PE_SUFFIX[name])
         bridge_ip = "50.0.1.{}/24".format(PE_SUFFIX[name])
         bridge_ipv6 = "50:0:1::{}/48".format(PE_SUFFIX[name])
 
-        pe.run("ip link add vrf-blue type vrf table 10")
-        pe.run("ip link set dev vrf-blue up")
-        pe.run("ip link add vxlan100 type vxlan id 100 dstport 4789 local {}".format(vtep_ip))
-        pe.run("ip link add name br100 type bridge stp_state 0")
-        pe.run("ip link set dev vxlan100 master br100")
-        pe.run("ip link set dev {}-eth1 master br100".format(name))
-        pe.run("ip addr add {} dev br100".format(bridge_ip))
-        pe.run("ip link set up dev br100")
-        pe.run("ip link set up dev vxlan100")
-        pe.run("ip link set up dev {}-eth1".format(name))
-        pe.run("ip link set dev br100 master vrf-blue")
-        pe.run("ip -6 addr add {} dev br100".format(bridge_ipv6))
+        pe.cmd_raises("ip link add vrf-blue type vrf table 10")
+        pe.cmd_raises("ip link set dev vrf-blue up")
+        pe.cmd_raises(
+            "ip link add vxlan100 type vxlan id 100 dstport 4789 local {}".format(
+                vtep_ip
+            )
+        )
+        pe.cmd_raises("ip link add name br100 type bridge stp_state 0")
+        pe.cmd_raises("ip link set dev vxlan100 master br100")
+        pe.cmd_raises("ip link set dev {}-eth1 master br100".format(name))
+        pe.cmd_raises("ip addr add {} dev br100".format(bridge_ip))
+        pe.cmd_raises("ip link set up dev br100")
+        pe.cmd_raises("ip link set up dev vxlan100")
+        pe.cmd_raises("ip link set up dev {}-eth1".format(name))
+        pe.cmd_raises("ip link set dev br100 master vrf-blue")
+        pe.cmd_raises("ip -6 addr add {} dev br100".format(bridge_ipv6))
 
-        pe.run("ip link add vxlan1000 type vxlan id 1000 dstport 4789 local {}".format(vtep_ip))
-        pe.run("ip link add name br1000 type bridge stp_state 0")
-        pe.run("ip link set dev vxlan1000 master br100")
-        pe.run("ip link set up dev br1000")
-        pe.run("ip link set up dev vxlan1000")
-        pe.run("ip link set dev br1000 master vrf-blue")
+        pe.cmd_raises(
+            "ip link add vxlan1000 type vxlan id 1000 dstport 4789 local {}".format(
+                vtep_ip
+            )
+        )
+        pe.cmd_raises("ip link add name br1000 type bridge stp_state 0")
+        pe.cmd_raises("ip link set dev vxlan1000 master br100")
+        pe.cmd_raises("ip link set up dev br1000")
+        pe.cmd_raises("ip link set up dev vxlan1000")
+        pe.cmd_raises("ip link set dev br1000 master vrf-blue")
 
-        pe.run("sysctl -w net.ipv4.ip_forward=1")
-        pe.run("sysctl -w net.ipv6.conf.all.forwarding=1")
-        pe.run("sysctl -w net.ipv4.udp_l3mdev_accept={}".format(l3mdev_accept))
-        pe.run("sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
+        pe.cmd_raises("sysctl -w net.ipv4.ip_forward=1")
+        pe.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
+        pe.cmd_raises("sysctl -w net.ipv4.udp_l3mdev_accept={}".format(l3mdev_accept))
+        pe.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
 
     # For all registred routers, load the zebra configuration file
     for (name, router) in tgen.routers().items():
@@ -194,7 +207,7 @@ def setup_module(mod):
     tgen.start_router()
 
     logger.info("Running setup_module() done")
-    topotest.sleep(200)
+    topotest.sleep(10)
 
 
 def teardown_module(mod):
@@ -351,9 +364,9 @@ def test_evpn_gateway_ip_flap_rt2(request):
 
     step("Shut down VxLAN interface at PE1 which results in withdraw of type-2 routes")
 
-    pe1 = tgen.gears['PE1']
+    pe1 = tgen.net["PE1"]
 
-    pe1.run('ip link set dev vxlan100 down')
+    pe1.cmd_raises("ip link set dev vxlan100 down")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt2")
     if result is not None:
@@ -362,7 +375,7 @@ def test_evpn_gateway_ip_flap_rt2(request):
 
     step("Bring up VxLAN interface at PE1 and advertise type-2 routes again")
 
-    pe1.run('ip link set dev vxlan100 up')
+    pe1.cmd_raises("ip link set dev vxlan100 up")
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
     if result is not None:

@@ -48,12 +48,13 @@ Following tests are covered:
 17. Verify multicast traffic is flowing fine when FHR is connected to RP
 """
 
+import datetime
+import json
 import os
 import re
 import sys
-import json
 import time
-import datetime
+
 import pytest
 
 pytestmark = pytest.mark.pimd
@@ -65,55 +66,51 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # Required to instantiate the topology builder class.
 
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
-
 from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
-    iperfSendIGMPJoin,
+    LOGDIR,
+    add_interfaces_to_vlan,
     addKernelRoute,
-    reset_config_on_routers,
+    apply_raw_config,
+    check_router_status,
+    iperfSendIGMPJoin,
     iperfSendTraffic,
     kill_iperf,
-    shutdown_bringup_interface,
     kill_router_daemons,
+    required_linux_kernel_version,
+    reset_config_on_routers,
+    shutdown_bringup_interface,
     start_router,
     start_router_daemons,
     stop_router,
-    apply_raw_config,
-    add_interfaces_to_vlan,
     tcpdump_capture_start,
     tcpdump_capture_stop,
-    LOGDIR,
-    check_router_status,
-    required_linux_kernel_version,
     topo_daemons,
 )
+from lib.micronet_compat import Topo
 from lib.pim import (
-    create_pim_config,
+    clear_ip_mroute,
+    clear_ip_mroute_verify,
+    clear_ip_pim_interface_traffic,
     create_igmp_config,
+    create_pim_config,
+    get_refCount_for_mroute,
+    verify_igmp_config,
     verify_igmp_groups,
     verify_ip_mroutes,
-    clear_ip_mroute_verify,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
-    verify_igmp_config,
-    verify_pim_neighbors,
+    verify_multicast_flag_state,
+    verify_multicast_traffic,
     verify_pim_config,
     verify_pim_interface,
-    verify_upstream_iif,
-    verify_multicast_traffic,
+    verify_pim_neighbors,
     verify_pim_rp_info,
-    get_refCount_for_mroute,
-    verify_multicast_flag_state,
+    verify_upstream_iif,
 )
+
+# pylint: disable=C0413
+# Import topogen and topotest helpers
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/multicast_pim_sm_topo3.json".format(CWD)
@@ -178,7 +175,6 @@ SAME_VLAN_IP_1 = {"ip": "10.1.1.1", "subnet": "255.255.255.0", "cidr": "24"}
 SAME_VLAN_IP_2 = {"ip": "10.1.1.2", "subnet": "255.255.255.0", "cidr": "24"}
 SAME_VLAN_IP_3 = {"ip": "10.1.1.3", "subnet": "255.255.255.0", "cidr": "24"}
 SAME_VLAN_IP_4 = {"ip": "10.1.1.4", "subnet": "255.255.255.0", "cidr": "24"}
-TCPDUMP_FILE = "{}/{}".format(LOGDIR, "v2query.txt")
 
 
 class CreateTopo(Topo):
@@ -241,6 +237,9 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    # Kill any iperfs we left running.
+    kill_iperf(tgen)
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -392,7 +391,7 @@ def find_v2_query_msg_in_tcpdump(tgen, router, message, count, cap_file):
 
     """
 
-    filepath = os.path.join(LOGDIR, tgen.modname, router, cap_file)
+    filepath = os.path.join(tgen.logdir, router, cap_file)
     with open(filepath) as f:
         if len(re.findall("{}".format(message), f.read())) < count:
             errormsg = "[DUT: %s]: Verify Message: %s in tcpdump" " [FAILED!!]" % (
@@ -422,7 +421,7 @@ def find_tos_in_tcpdump(tgen, router, message, cap_file):
 
     """
 
-    filepath = os.path.join(LOGDIR, tgen.modname, router, cap_file)
+    filepath = os.path.join(tgen.logdir, router, cap_file)
     with open(filepath) as f:
 
         if len(re.findall(message, f.read())) < 1:
@@ -449,16 +448,16 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable the PIM on all the interfaces of FRR1, FRR2, FRR3")
     step(
@@ -824,16 +823,16 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Removing FRR3 to simulate topo " "FHR(FRR1)---LHR(FRR2)")
 
@@ -1066,16 +1065,16 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable the PIM on all the interfaces of FRR1, R2 and FRR3" " routers")
     step("Enable IGMP on FRR1 interface and send IGMP join " "(225.1.1.1-225.1.1.10)")
@@ -1294,16 +1293,16 @@ def test_shut_noshut_receiver_interface_when_upstream_cleared_from_LHR_p1(reques
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable the PIM on all the interfaces of FRR1, R2 and FRR3" " routers")
     step("Enable IGMP on FRR1 interface and send IGMP join " "(225.1.1.1-225.1.1.10)")
@@ -1507,16 +1506,16 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable PIM on all routers")
     step("Enable IGMP on FRR1 interface and send IGMP join " "(225.1.1.1-225.1.1.10)")
@@ -1883,16 +1882,16 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable PIM on all routers")
     step("Enable IGMP on FRR1 interface and send IGMP join " "(225.1.1.1-225.1.1.10)")
@@ -2182,16 +2181,16 @@ def test_verify_remove_add_pim_commands_when_igmp_configured_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure 'ip pim' on receiver interface on FRR1")
     step("Enable PIM on all routers")
@@ -2375,16 +2374,16 @@ def test_pim_dr_priority_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure 'ip pim' on receiver interface on FRR1")
     step("Enable PIM on all routers")
@@ -2658,16 +2657,16 @@ def test_pim_hello_timer_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure 'ip pim' on receiver interface on FRR1")
     step("Enable PIM on all routers")
@@ -2778,6 +2777,10 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
@@ -2785,9 +2788,6 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove cisco connected link to simulate topo "
         "LHR(FRR1(f1))----RP(cisco(f1)---FHR(FRR3(l1))"
@@ -3095,6 +3095,10 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
@@ -3102,9 +3106,6 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove cisco connected link to simulate topo "
         "LHR(FRR1(f1))----RP(cisco(f1)---FHR(FRR3(l1))"
@@ -3736,6 +3737,10 @@ def test_mroute_flags_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
@@ -3743,9 +3748,6 @@ def test_mroute_flags_p1(request):
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove cisco connected link to simulate topo "
         "LHR(FRR1(f1))----RP(cisco(f1)---FHR(FRR3(l1))"
@@ -3898,16 +3900,16 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step(
         "Remove FRR3 to cisco connected link to simulate topo "
@@ -4360,16 +4362,16 @@ def test_verify_multicast_traffic_when_FHR_connected_to_RP_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
     check_router_status(tgen)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step(
         "Remove FRR3 to FRR2 connected link to simulate topo "

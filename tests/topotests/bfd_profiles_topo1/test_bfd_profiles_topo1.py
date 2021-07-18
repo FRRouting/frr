@@ -26,63 +26,30 @@
 test_bfd_profiles_topo1.py: Test the FRR BFD profile protocol integration.
 """
 
+import json
 import os
 import sys
-import json
 from functools import partial
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.ospfd]
-
-
-class BFDProfTopo(Topo):
-    "Test topology builder"
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # Create 6 routers
-        for routern in range(1, 7):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
-
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["r5"])
-
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r6"])
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BFDProfTopo, mod.__name__)
+
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r2", "r3"),
+        "s3": ("r3", "r4"),
+        "s4": ("r4", "r5"),
+        "s5": ("r1", "r6"),
+    }
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

@@ -27,26 +27,18 @@ test_route_scale.py: Testing route scale
 
 """
 
+import json
 import os
 import re
 import sys
-import pytest
-import json
 from functools import partial
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 #####################################################
 ##
@@ -55,22 +47,17 @@ from mininet.topo import Topo
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "Route Scale Topology"
+def build(tgen):
+    "Build function"
 
-    def build(self, **_opts):
-        "Build function"
+    # Populate routers
+    for routern in range(1, 2):
+        tgen.add_router("r{}".format(routern))
 
-        tgen = get_topogen(self)
-
-        # Populate routers
-        for routern in range(1, 2):
-            tgen.add_router("r{}".format(routern))
-
-        # Populate switches
-        for switchn in range(1, 33):
-            switch = tgen.add_switch("sw{}".format(switchn))
-            switch.add_link(tgen.gears["r1"])
+    # Populate switches
+    for switchn in range(1, 33):
+        switch = tgen.add_switch("sw{}".format(switchn))
+        switch.add_link(tgen.gears["r1"])
 
 
 #####################################################
@@ -82,7 +69,7 @@ class NetworkTopo(Topo):
 
 def setup_module(module):
     "Setup topology"
-    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen = Topogen(build, module.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -210,11 +197,11 @@ def test_route_install():
         scale_setups.append(d)
 
     # Avoid top ecmp case for runs with < 4G memory
-    p = os.popen("free")
-    l = p.readlines()[1].split()
-    mem = int(l[1])
-    if mem < 4000000:
-        logger.info("Limited memory available: {}, skipping x32 testcase".format(mem))
+    output = tgen.net.cmd_raises("free")
+    m = re.search("Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
+    total_mem = int(m.group(2))
+    if total_mem < 4000000:
+        logger.info("Limited memory available: {}, skipping x32 testcase".format(total_mem))
         scale_setups = scale_setups[0:-1]
 
     # Run each step using the dicts we've built

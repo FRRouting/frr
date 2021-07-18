@@ -69,7 +69,7 @@ from lib.lutil import lUtil
 from lib.lutil import luCommand
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 pytestmark = [pytest.mark.bgpd]

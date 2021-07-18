@@ -68,77 +68,39 @@ test_bfd_ospf_topo1.py:
 
 """
 
-import os
-import sys
-import pytest
 import json
+import os
 import re
-from time import sleep
-from time import time
+import sys
 from functools import partial
+from time import sleep, time
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
+from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
 pytestmark = [pytest.mark.bfdd, pytest.mark.ospfd]
-
-
-class TemplateTopo(Topo):
-    "Test topology builder"
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        #
-        # Define FRR Routers
-        #
-        for router in ["rt1", "rt2", "rt3", "rt4", "rt5"]:
-            tgen.add_router(router)
-
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["rt1"], nodeif="eth-rt2")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt1")
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["rt1"], nodeif="eth-rt3")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt1")
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt5")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt2")
-
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt4")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt3")
-
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    topodef = {
+        "s1": ("rt1:eth-rt2", "rt2:eth-rt1"),
+        "s2": ("rt1:eth-rt3", "rt3:eth-rt1"),
+        "s3": ("rt2:eth-rt5", "rt5:eth-rt2"),
+        "s4": ("rt3:eth-rt4", "rt4:eth-rt3"),
+        "s5": ("rt4:eth-rt5", "rt5:eth-rt4"),
+    }
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
 
     # For all registered routers, load the zebra configuration file
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )

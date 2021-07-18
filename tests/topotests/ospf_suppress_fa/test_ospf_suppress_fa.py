@@ -48,7 +48,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 class NetworkTopo(Topo):
