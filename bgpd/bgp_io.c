@@ -466,7 +466,8 @@ static uint16_t bgp_read(struct peer *peer, int *code_p)
 	uint16_t status = 0;
 
 	readsize =
-		MIN(ringbuf_space(peer->ibuf_work), sizeof(peer->ibuf_scratch));
+		MIN(ringbuf_space(peer->ibuf_work),
+		    (BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * peer->rpkt_quanta));
 	nbytes = read(peer->fd, peer->ibuf_scratch, readsize);
 
 	/* EAGAIN or EWOULDBLOCK; come back later */

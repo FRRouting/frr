@@ -95,6 +95,7 @@
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
+DEFINE_MTYPE_STATIC(BGPD, BGP_IBUF_SCRATCH, "BGP EVPN instance information");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -1173,6 +1174,8 @@ static void peer_free(struct peer *peer)
 
 	memset(peer, 0, sizeof(struct peer));
 
+	if (peer->ibuf_scratch)
+		XFREE(MTYPE_BGP_IBUF_SCRATCH, peer->ibuf_scratch);
 	XFREE(MTYPE_BGP_PEER, peer);
 }
 
@@ -1411,11 +1414,18 @@ struct peer *peer_new(struct bgp *bgp)
 	 */
 	peer->obuf_work =
 		stream_new(BGP_MAX_PACKET_SIZE + BGP_MAX_PACKET_SIZE_OVERFLOW);
-	peer->ibuf_work =
-		ringbuf_new(BGP_MAX_PACKET_SIZE * BGP_READ_PACKET_MAX);
+	peer->rpkt_quanta =
+		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
 
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
+	if (peer->rpkt_quanta) {
+		peer->ibuf_work = ringbuf_new(BGP_MAX_PACKET_SIZE * peer->rpkt_quanta);
 
+		peer->ibuf_scratch =
+			XCALLOC(MTYPE_BGP_IBUF_SCRATCH,
+				BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
+				* peer->rpkt_quanta);
+	}
 	bgp_sync_init(peer);
 
 	/* Get service port number.  */
@@ -3113,6 +3123,12 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->inst_type = inst_type;
 	bgp->vrf_id = (inst_type == BGP_INSTANCE_TYPE_DEFAULT) ? VRF_DEFAULT
 							       : VRF_UNKNOWN;
+
+	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
+			      memory_order_relaxed);
+	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
+			      memory_order_relaxed);
+
 	bgp->peer_self = peer_new(bgp);
 	XFREE(MTYPE_BGP_PEER_HOST, bgp->peer_self->host);
 	bgp->peer_self->host =
@@ -3223,10 +3239,6 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 			n);
 	}
 
-	atomic_store_explicit(&bgp->wpkt_quanta, BGP_WRITE_PACKET_MAX,
-			      memory_order_relaxed);
-	atomic_store_explicit(&bgp->rpkt_quanta, BGP_READ_PACKET_MAX,
-			      memory_order_relaxed);
 	bgp->coalesce_time = BGP_DEFAULT_SUBGROUP_COALESCE_TIME;
 	bgp->default_af[AFI_IP][SAFI_UNICAST] = true;
 

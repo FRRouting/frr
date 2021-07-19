@@ -1088,17 +1088,14 @@ int bgp_global_global_neighbor_config_packet_quanta_config_rpkt_quanta_modify(
 		return NB_OK;
 
 	struct bgp *bgp;
-	uint32_t quanta;
 
 	bgp = nb_running_get_entry(args->dnode, NULL, true);
 
-	quanta = yang_dnode_get_uint32(args->dnode, NULL);
-
 	if (atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed)
 	    == BGP_READ_PACKET_MAX)
-		bgp_rpkt_quanta_config_vty(bgp, quanta, true);
+		bgp_rpkt_quanta_config_vty(args, true);
 	else
-		bgp_rpkt_quanta_config_vty(bgp, quanta, false);
+		bgp_rpkt_quanta_config_vty(args, false);
 
 	return NB_OK;
 }

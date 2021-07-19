@@ -192,7 +192,7 @@ extern int bgp_clear_star_soft_in(const char *name, char *errmsg,
 extern int bgp_clear_star_soft_out(const char *name, char *errmsg,
 				   size_t errmsg_len);
 int bgp_wpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set);
-int bgp_rpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set);
+int bgp_rpkt_quanta_config_vty(struct nb_cb_modify_args *args, bool set);
 extern int bgp_maxpaths_config_vty(struct bgp *bgp, afi_t afi, safi_t safi,
 				   int peer_type, uint16_t maxpaths,
 				   uint16_t options, int set, char *errmsg,

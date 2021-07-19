@@ -2165,11 +2165,33 @@ int bgp_wpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set)
 	return CMD_SUCCESS;
 }
 
-int bgp_rpkt_quanta_config_vty(struct bgp *bgp, uint32_t quanta, bool set)
+int bgp_rpkt_quanta_config_vty(struct nb_cb_modify_args *args, bool set)
 {
-	quanta = set ? quanta : BGP_READ_PACKET_MAX;
-	atomic_store_explicit(&bgp->rpkt_quanta, quanta, memory_order_relaxed);
+	uint32_t quanta_current;
+	uint32_t count;
+	struct peer_group *group;
+	struct listnode *node;
+	struct bgp *bgp;
+	uint32_t quanta;
 
+	bgp = nb_running_get_entry(args->dnode, NULL, true);
+
+	quanta = yang_dnode_get_uint32(args->dnode, NULL);
+	quanta = set ? quanta : BGP_READ_PACKET_MAX;
+	quanta_current =
+		atomic_load_explicit(&bgp->rpkt_quanta, memory_order_relaxed);
+	if (quanta == quanta_current)
+		return CMD_SUCCESS;
+	atomic_store_explicit(&bgp->rpkt_quanta, quanta, memory_order_relaxed);
+	count = listcount(bgp->peer);
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->group, node, group))
+		count += listcount(group->peer);
+	if (count)
+		snprintf(
+			args->errmsg, args->errmsg_len,
+			"%% BGP %s, updated read-quanta value will be applied to newly created peers %%\n",
+			bgp->name_pretty);
 	return CMD_SUCCESS;
 }
 

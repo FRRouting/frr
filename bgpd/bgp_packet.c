@@ -2523,13 +2523,10 @@ int bgp_process_packet(struct thread *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
-	uint32_t rpkt_quanta_old; // how many packets to read
 	int fsm_update_result;    // return code of bgp_event_update()
 	int mprc;		  // message processing return code
 
 	peer = THREAD_ARG(thread);
-	rpkt_quanta_old = atomic_load_explicit(&peer->bgp->rpkt_quanta,
-					       memory_order_relaxed);
 	fsm_update_result = 0;
 
 	/* Guard against scheduled events that occur after peer deletion. */
@@ -2538,7 +2535,7 @@ int bgp_process_packet(struct thread *thread)
 
 	unsigned int processed = 0;
 
-	while (processed < rpkt_quanta_old) {
+	while (processed < peer->rpkt_quanta) {
 		uint8_t type = 0;
 		bgp_size_t size;
 		char notify_data_length[2];

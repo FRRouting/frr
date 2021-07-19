@@ -1093,8 +1093,8 @@ struct peer {
 	struct stream_fifo *obuf; // packets waiting to be written
 
 	/* used as a block to deposit raw wire data to */
-	uint8_t ibuf_scratch[BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE
-			     * BGP_READ_PACKET_MAX];
+	uint8_t *ibuf_scratch;
+	uint32_t rpkt_quanta;      // max # packets to read per i/o cycle
 	struct ringbuf *ibuf_work; // WiP buffer used by bgp_read() only
 	struct stream *obuf_work;  // WiP buffer used to construct packets
 
