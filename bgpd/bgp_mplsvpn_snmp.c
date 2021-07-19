@@ -578,7 +578,8 @@ static bool is_bgp_vrf_active(struct bgp *bgp)
 		return false;
 	RB_FOREACH (ifp, if_name_head, &vrf->ifaces_by_name) {
 		/* if we are in a vrf skip the l3mdev */
-		if (bgp->name && strncmp(ifp->name, bgp->name, VRF_NAMSIZ) == 0)
+		if (bgp->name &&
+		    strncmp(ifp->name, bgp->name,sizeof(ifp->name)) == 0)
 			continue;
 
 		if (if_is_up(ifp))
@@ -866,7 +867,7 @@ static uint8_t *mplsL3vpnIfConfTable(struct variable *v, oid name[],
 				     size_t *length, int exact, size_t *var_len,
 				     WriteMethod **write_method)
 {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	ifindex_t ifindex = 0;
 	struct bgp *l3vpn_bgp;
 
@@ -874,7 +875,7 @@ static uint8_t *mplsL3vpnIfConfTable(struct variable *v, oid name[],
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(vrf_name, 0, VRF_NAMSIZ);
+	memset(vrf_name, 0, sizeof(vrf_name));
 	l3vpn_bgp = bgpL3vpnIfConf_lookup(v, name, length, vrf_name, &ifindex,
 					  exact);
 	if (!l3vpn_bgp)
@@ -926,14 +927,14 @@ static uint8_t *mplsL3vpnVrfTable(struct variable *v, oid name[],
 				  size_t *length, int exact, size_t *var_len,
 				  WriteMethod **write_method)
 {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	struct bgp *l3vpn_bgp;
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(vrf_name, 0, VRF_NAMSIZ);
+	memset(vrf_name, 0, sizeof(vrf_name));
 	l3vpn_bgp = bgpL3vpnVrf_lookup(v, name, length, vrf_name, exact);
 
 	if (!l3vpn_bgp)
@@ -1133,7 +1134,7 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 				    size_t *length, int exact, size_t *var_len,
 				    WriteMethod **write_method)
 {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	struct bgp *l3vpn_bgp;
 	uint32_t rt_index = 0;
 	uint8_t rt_type = 0;
@@ -1143,7 +1144,7 @@ static uint8_t *mplsL3vpnVrfRtTable(struct variable *v, oid name[],
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(vrf_name, 0, VRF_NAMSIZ);
+	memset(vrf_name, 0, sizeof(vrf_name));
 	l3vpn_bgp = bgpL3vpnVrfRt_lookup(v, name, length, vrf_name, &rt_index,
 					 &rt_type, exact);
 
@@ -1201,14 +1202,14 @@ static uint8_t *mplsL3vpnPerfTable(struct variable *v, oid name[],
 				   size_t *length, int exact, size_t *var_len,
 				   WriteMethod **write_method)
 {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	struct bgp *l3vpn_bgp;
 
 	if (smux_header_table(v, name, length, exact, var_len, write_method)
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(vrf_name, 0, VRF_NAMSIZ);
+	memset(vrf_name, 0, sizeof(vrf_name));
 	l3vpn_bgp = bgpL3vpnVrf_lookup(v, name, length, vrf_name, exact);
 
 	if (!l3vpn_bgp)
@@ -1394,8 +1395,6 @@ static struct bgp_path_info *bgpL3vpnRte_lookup(struct variable *v, oid name[],
 				break;
 			vrf_name_len++;
 		}
-		if (vrf_name_len > VRF_NAMSIZ)
-			return NULL;
 
 		oid2string(name + namelen, vrf_name_len, vrf_name);
 		prefix_type = name[i++];
@@ -1526,7 +1525,7 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 				  size_t *length, int exact, size_t *var_len,
 				  WriteMethod **write_method)
 {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	struct bgp *l3vpn_bgp;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
@@ -1537,7 +1536,7 @@ static uint8_t *mplsL3vpnRteTable(struct variable *v, oid name[],
 	    == MATCH_FAILED)
 		return NULL;
 
-	memset(vrf_name, 0, VRF_NAMSIZ);
+	memset(vrf_name, 0, sizeof(vrf_name));
 	pi = bgpL3vpnRte_lookup(v, name, length, vrf_name, &l3vpn_bgp, &dest,
 				&policy, exact);
 

@@ -44,7 +44,7 @@ struct nlsock {
 
 struct zebra_ns {
 	/* net-ns name.  */
-	char name[VRF_NAMSIZ];
+	char name[NS_NAMSIZ + 1];
 
 	/* Identifier. */
 	ns_id_t ns_id;

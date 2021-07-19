@@ -94,7 +94,7 @@ struct mlag_vxlan {
 };
 
 struct mlag_mroute_add {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	uint32_t source_ip;
 	uint32_t group_ip;
 	uint32_t cost_to_rp;
@@ -106,7 +106,7 @@ struct mlag_mroute_add {
 };
 
 struct mlag_mroute_del {
-	char vrf_name[VRF_NAMSIZ];
+	char vrf_name[VRF_NAMSIZ + 1];
 	uint32_t source_ip;
 	uint32_t group_ip;
 	enum mlag_owner owner_id;

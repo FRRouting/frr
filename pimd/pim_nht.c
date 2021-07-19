@@ -87,7 +87,7 @@ static struct pim_nexthop_cache *pim_nexthop_cache_add(struct pim_instance *pim,
 						       struct pim_rpf *rpf_addr)
 {
 	struct pim_nexthop_cache *pnc;
-	char hash_name[64];
+	char hash_name[VRF_NAMSIZ + 64];
 
 	pnc = XCALLOC(MTYPE_PIM_NEXTHOP_CACHE,
 		      sizeof(struct pim_nexthop_cache));

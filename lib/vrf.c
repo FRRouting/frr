@@ -59,7 +59,7 @@ struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 static int vrf_backend;
 static int vrf_backend_configured;
 static struct zebra_privs_t *vrf_daemon_privs;
-static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
+static char vrf_default_name[VRF_NAMSIZ + 1] = VRF_DEFAULT_NAME_INTERNAL;
 
 /*
  * Turn on/off debug code
@@ -199,7 +199,7 @@ struct vrf *vrf_get(vrf_id_t vrf_id, const char *name)
 		/* update the vrf name */
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
 		strlcpy(vrf->data.l.netns_name,
-			name, NS_NAMSIZ);
+			name, sizeof(vrf->data.l.netns_name));
 		strlcpy(vrf->name, name, sizeof(vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, vrf);
 		if (vrf->vrf_id == VRF_DEFAULT)
@@ -566,7 +566,8 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 		struct ns *ns;
 
 		strlcpy(default_vrf->data.l.netns_name,
-			VRF_DEFAULT_NAME, NS_NAMSIZ);
+			VRF_DEFAULT_NAME,
+			sizeof(default_vrf->data.l.netns_name));
 		ns = ns_lookup(NS_DEFAULT);
 		ns->vrf_ctxt = default_vrf;
 		default_vrf->ns_ctxt = ns;
@@ -768,7 +769,9 @@ int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
 	ns->vrf_ctxt = (void *)vrf;
 	vrf->ns_ctxt = (void *)ns;
 	/* update VRF netns NAME */
-	strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
+	strlcpy(vrf->data.l.netns_name,
+		basename(pathname),
+		sizeof(vrf->data.l.netns_name));
 
 	if (!ns_enable(ns, vrf_update_vrf_id)) {
 		if (vty)
@@ -995,13 +998,14 @@ void vrf_set_default_name(const char *default_name, bool force)
 	}
 	if (strmatch(vrf_default_name, default_name))
 		return;
-	snprintf(vrf_default_name, VRF_NAMSIZ, "%s", default_name);
+	snprintf(vrf_default_name, sizeof(vrf_default_name), "%s", default_name);
 	if (def_vrf) {
 		if (force)
 			def_vrf_forced = true;
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, def_vrf);
 		strlcpy(def_vrf->data.l.netns_name,
-			vrf_default_name, NS_NAMSIZ);
+			vrf_default_name,
+			sizeof(def_vrf->data.l.netns_name));
 		strlcpy(def_vrf->name, vrf_default_name, sizeof(def_vrf->name));
 		RB_INSERT(vrf_name_head, &vrfs_by_name, def_vrf);
 		if (vrf_master.vrf_update_name_hook)

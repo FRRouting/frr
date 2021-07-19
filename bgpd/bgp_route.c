@@ -8659,7 +8659,7 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	json_object *json_nexthop_global = NULL;
 	json_object *json_nexthop_ll = NULL;
 	json_object *json_ext_community = NULL;
-	char vrf_id_str[VRF_NAMSIZ] = {0};
+	char vrf_id_str[VRF_NAMSIZ + 1] = {0};
 	bool nexthop_self =
 		CHECK_FLAG(path->flags, BGP_PATH_ANNC_NH_SELF) ? true : false;
 	bool nexthop_othervrf = false;
