@@ -3466,10 +3466,9 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 /* Request for MAC FDB for a specific MAC address in VLAN from the kernel */
 static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
-						  int family,
-						  int type,
+						  int family, int type,
 						  struct interface *br_if,
-						  struct ethaddr *mac,
+						  const struct ethaddr *mac,
 						  vlanid_t vid)
 {
 	struct {
@@ -3506,7 +3505,7 @@ static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
 
 int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 				     struct interface *br_if,
-				     struct ethaddr *mac, vlanid_t vid)
+				     const struct ethaddr *mac, vlanid_t vid)
 {
 	int ret = 0;
 	struct zebra_dplane_info dp_info;
@@ -3946,7 +3945,8 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
  * read using netlink interface.
  */
 static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
-						  int type, struct ipaddr *ip,
+						  int type,
+						  const struct ipaddr *ip,
 						  ifindex_t ifindex)
 {
 	struct {
@@ -3983,8 +3983,8 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 	return netlink_request(&zns->netlink_cmd, &req);
 }
 
-int netlink_neigh_read_specific_ip(struct ipaddr *ip,
-				  struct interface *vlan_if)
+int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
+				   struct interface *vlan_if)
 {
 	int ret = 0;
 	struct zebra_ns *zns;
