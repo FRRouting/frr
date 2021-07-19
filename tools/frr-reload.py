@@ -1747,6 +1747,11 @@ def compare_context_objects(newconf, running):
                 0
             ].startswith("vrf"):
                 for line in running_ctx.lines:
+                    # we are removing the entire interface block. ISIS config is removed
+                    # when we disable both ipv4 and ipv6 on it, so the other commands
+                    # should not be sent (else they will fail)
+                    if line.startswith("isis") or line.startswith("no isis"):
+                        continue
                     lines_to_del.append((running_ctx_keys, line))
 
             # If this is an address-family under 'router bgp' and we are already deleting the
