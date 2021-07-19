@@ -382,11 +382,11 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	struct attr newattr = *path->attr;
 
 	int result = frrscript_call(
-		fs, ("RM_FAILURE", (long long *)&lrm_status),
-		("RM_NOMATCH", (long long *)&status_nomatch),
-		("RM_MATCH", (long long *)&status_match),
-		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
-		("action", (long long *)&lrm_status), ("prefix", prefix),
+		fs, ("RM_FAILURE", (int)lrm_status),
+		("RM_NOMATCH", (int)status_nomatch),
+		("RM_MATCH", (int)status_match),
+		("RM_MATCH_AND_CHANGE", (int)status_match_and_change),
+		("action", (int *)&lrm_status), ("prefix", prefix),
 		("attributes", &newattr), ("peer", path->peer));
 
 	if (result) {

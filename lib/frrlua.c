@@ -268,12 +268,12 @@ void *lua_totimet(lua_State *L, int idx)
 	return t;
 }
 
-void lua_pushintegerp(lua_State *L, const long long *num)
+void lua_pushintegerp(lua_State *L, const int *num)
 {
 	lua_pushinteger(L, *num);
 }
 
-void lua_decode_integerp(lua_State *L, int idx, long long *num)
+void lua_decode_integerp(lua_State *L, int idx, int *num)
 {
 	int isnum;
 	*num = lua_tonumberx(L, idx, &isnum);
@@ -283,9 +283,31 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num)
 
 void *lua_tointegerp(lua_State *L, int idx)
 {
-	long long *num = XCALLOC(MTYPE_TMP, sizeof(long long));
+	int *num = XCALLOC(MTYPE_TMP, sizeof(int));
 
 	lua_decode_integerp(L, idx, num);
+	return num;
+}
+
+void lua_pushlonglongp(lua_State *L, const long long *num)
+{
+	/* lua library function; this can take a long long */
+	lua_pushinteger(L, *num);
+}
+
+void lua_decode_longlongp(lua_State *L, int idx, long long *num)
+{
+	int isnum;
+	*num = lua_tonumberx(L, idx, &isnum);
+	lua_pop(L, 1);
+	assert(isnum);
+}
+
+void *lua_tolonglongp(lua_State *L, int idx)
+{
+	long long *num = XCALLOC(MTYPE_TMP, sizeof(long long));
+
+	lua_decode_longlongp(L, idx, num);
 	return num;
 }
 
@@ -300,13 +322,6 @@ void *lua_tostringp(lua_State *L, int idx)
 	char *string = XSTRDUP(MTYPE_TMP, lua_tostring(L, idx));
 
 	return string;
-}
-
-/*
- * Decoder for const values, since we cannot modify them.
- */
-void lua_decode_noop(lua_State *L, int idx, const void *ptr)
-{
 }
 
 /*

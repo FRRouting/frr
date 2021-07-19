@@ -25,7 +25,7 @@
 
 #include <lua.h>
 #include "frrlua.h"
-#include "../bgpd/bgp_script.h"
+#include "bgpd/bgp_script.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -110,6 +110,18 @@ void frrscript_init(const char *scriptdir);
 	} while (0)
 
 /*
+ * Fully polymorphic noop function. Used below where we need a noop decoder
+ * for any type.
+ */
+#define _lua_noop(v)                                                           \
+	({                                                                     \
+		void _(lua_State *L, int idx, typeof(v) _v)                    \
+		{                                                              \
+		}                                                              \
+		_;                                                             \
+	})
+
+/*
  * Maps the type of value to its encoder/decoder.
  * Add new mappings here.
  *
@@ -120,7 +132,10 @@ void frrscript_init(const char *scriptdir);
  */
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
-long long * : lua_pushintegerp,                                 \
+int : lua_pushinteger,                                          \
+int * : lua_pushintegerp,                                        \
+long long : lua_pushinteger,                                    \
+long long * : lua_pushlonglongp,                                \
 struct prefix * : lua_pushprefix,                               \
 struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
@@ -135,7 +150,8 @@ const struct prefix * : lua_pushprefix                          \
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
-long long * : lua_decode_integerp,                              \
+int * : lua_decode_integerp,                                    \
+long long * : lua_decode_longlongp,                             \
 struct prefix * : lua_decode_prefix,                            \
 struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \
@@ -144,8 +160,7 @@ union sockunion * : lua_decode_sockunion,                       \
 time_t * : lua_decode_timet,                                    \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
-struct peer * : lua_decode_noop,                                \
-const struct prefix * : lua_decode_noop                         \
+default : _lua_noop(value)                                      \
 )(L, -1, value)
 
 /*
