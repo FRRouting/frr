@@ -4194,7 +4194,6 @@ DEFUN (bgp_listen_range,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	struct prefix range;
 	struct peer_group *group, *existing_group;
-	afi_t afi;
 	int ret;
 	int idx = 0;
 
@@ -4208,14 +4207,6 @@ DEFUN (bgp_listen_range,
 	ret = str2prefix(prefix, &range);
 	if (!ret) {
 		vty_out(vty, "%% Malformed listen range\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	afi = family2afi(range.family);
-
-	if (afi == AFI_IP6 && IN6_IS_ADDR_LINKLOCAL(&range.u.prefix6)) {
-		vty_out(vty,
-			"%% Malformed listen range (link-local address)\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
