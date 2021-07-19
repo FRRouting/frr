@@ -25,10 +25,44 @@
 #include "table.h"
 #include "ospf6_route.h"
 
+/* LSA Statistics */
+struct ospf6_lsdb_stats {
+	/* Router-LSA Count */
+	uint32_t num_type1;
+
+	/* Network-LSA Count */
+	uint32_t num_type2;
+
+	/* Inter-Area-Prefix-LSA Count */
+	uint32_t num_type3;
+
+	/* Inter-Area-Router-LSA Count */
+	uint32_t num_type4;
+
+	/* AS-External-LSA Count */
+	uint32_t num_type5;
+
+	/* NSSA-LSA Count */
+	uint32_t num_type7;
+
+	/* Link-LSA Count */
+	uint32_t num_type8;
+
+	/* Intra-Area-Prefix-LSA Count */
+	uint32_t num_type9;
+
+	/* Unknown LSA Count */
+	uint32_t num_unknown;
+};
+
 struct ospf6_lsdb {
 	void *data; /* data structure that holds this lsdb */
 	struct route_table *table;
 	uint32_t count;
+
+	/* LSA statistics */
+	struct ospf6_lsdb_stats stats;
+
 	void (*hook_add)(struct ospf6_lsa *);
 	void (*hook_remove)(struct ospf6_lsa *);
 };

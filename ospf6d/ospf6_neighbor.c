@@ -677,6 +677,10 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 		json_object_string_add(json_route, "duration", duration);
 		json_object_string_add(json_route, "interfaceName",
 				       on->ospf6_if->interface->name);
+		json_object_int_add(json_route, "interfaceIndex",
+				    on->ospf6_if->interface->ifindex);
+		json_object_int_add(json_route, "neighborInterfaceIndex",
+				    on->ifindex);
 		json_object_string_add(
 			json_route, "interfaceState",
 			ospf6_interface_state_str[on->ospf6_if->state]);
@@ -700,12 +704,6 @@ static void ospf6_neighbor_show_drchoice(struct vty *vty,
 	struct timeval now, res;
 	json_object *json_route;
 
-	/*
-	    vty_out (vty, "%-15s %6s/%-11s %-15s %-15s %s[%s]\n",
-		     "RouterID", "State", "Duration", "DR", "BDR", "I/F",
-		     "State");
-	*/
-
 	inet_ntop(AF_INET, &on->router_id, router_id, sizeof(router_id));
 	inet_ntop(AF_INET, &on->drouter, drouter, sizeof(drouter));
 	inet_ntop(AF_INET, &on->bdrouter, bdrouter, sizeof(bdrouter));
@@ -724,6 +722,10 @@ static void ospf6_neighbor_show_drchoice(struct vty *vty,
 		json_object_string_add(json_route, "bdRouter", bdrouter);
 		json_object_string_add(json_route, "interfaceName",
 				       on->ospf6_if->interface->name);
+		json_object_int_add(json_route, "interfaceIndex",
+				    on->ospf6_if->interface->ifindex);
+		json_object_int_add(json_route, "neighborInterfaceIndex",
+				    on->ifindex);
 		json_object_string_add(
 			json_route, "interfaceState",
 			ospf6_interface_state_str[on->ospf6_if->state]);
@@ -747,6 +749,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 	json_object *json_neighbor;
 	json_object *json_array;
 	char db_desc_str[20];
+	char options[16];
 
 	inet_ntop(AF_INET6, &on->linklocal_addr, linklocal_addr,
 		  sizeof(linklocal_addr));
@@ -756,6 +759,9 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 	monotime(&now);
 	timersub(&now, &on->last_changed, &res);
 	timerstring(&res, duration, sizeof(duration));
+
+	ospf6_options_printbuf((uint8_t *)(on->options), options,
+			       sizeof(options));
 
 	if (use_json) {
 		json_neighbor = json_object_new_object();
@@ -777,6 +783,11 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 				       drouter);
 		json_object_string_add(json_neighbor, "neighborBdRouter",
 				       bdrouter);
+
+		/* Option Bits (Capabilities) */
+		json_object_string_add(json_neighbor, "optionBits", options);
+		ospf6_options_json((uint8_t *)(on->options), json_neighbor);
+
 		snprintf(db_desc_str, sizeof(db_desc_str), "%s%s%s",
 			 (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
 				  ? "Initial "
@@ -906,6 +917,10 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			on->ifindex, linklocal_addr);
 		vty_out(vty, "    State %s for a duration of %s\n",
 			ospf6_neighbor_state_str[on->state], duration);
+
+		/* Option Bits (Capabilities) */
+		vty_out(vty, "    Options: %s\n", options);
+
 		vty_out(vty, "    His choice of DR/BDR %s/%s, Priority %d\n",
 			drouter, bdrouter, on->priority);
 		vty_out(vty, "    DbDesc status: %s%s%s SeqNum: %#lx\n",

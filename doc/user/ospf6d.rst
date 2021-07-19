@@ -269,10 +269,15 @@ Showing OSPF6 information
    To see OSPF interface configuration like costs. JSON output can be
    obtained by appending "json" in the end.
 
-.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] neighbor [json]
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] neighbor [<detail|drchoice>] [json]
 
-   Shows state and chosen (Backup) DR of neighbor. JSON output can be
-   obtained by appending 'json' at the end.
+   Shows detailed state and/or chosen (Backup) DR of all neighbors. JSON output
+   can be obtained by appending 'json' at the end.
+
+.. clicmd:: show ipv6 ospf6 neighbor A.B.C.D [json]
+
+   Shows detailed information on a specific neighbor. JSON output can be
+   obtained by appending 'json' at the end of the command.
 
 .. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] interface traffic [json]
 
@@ -320,6 +325,14 @@ Showing OSPF6 information
    tree in JSON format. Each area that the router belongs to has it's own
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
+
+.. clicmd:: show ipv6 ospf6 [vrf <NAME|all>] border-routers [A.B.C.D] [detail] [json]
+
+   This command displays information on ABRs and ASBRs found in the routing
+   table. Selective display of information on a particular router is possible by
+   specifying its identification. With a supplied 'detail' keyword in the
+   command, a more detailed output gets displayed. JSON output can be obtained
+   by appending 'json' to the end of the command.
 
 
 Sample configuration

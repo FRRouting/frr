@@ -1251,17 +1251,21 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 
 	/* Options */
 	ospf6_options_printbuf(route->path.options, options, sizeof(options));
-	if (use_json)
+	if (use_json) {
 		json_object_string_add(json_route, "options", options);
-	else
+		ospf6_options_json(route->path.options, json_route);
+	} else {
 		vty_out(vty, "Options: %s\n", options);
+	}
 
 	/* Router Bits */
 	ospf6_capability_printbuf(route->path.router_bits, capa, sizeof(capa));
-	if (use_json)
+	if (use_json) {
 		json_object_string_add(json_route, "routerBits", capa);
-	else
+		ospf6_capability_json(route->path.router_bits, json_route);
+	} else {
 		vty_out(vty, "Router Bits: %s\n", capa);
+	}
 
 	/* Prefix Options */
 	if (use_json)
@@ -1757,10 +1761,12 @@ void ospf6_brouter_show_header(struct vty *vty)
 		"Options", "Path-Type", "Area");
 }
 
-void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
+void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route,
+			json_object *json_array_brouters, bool use_json)
 {
 	uint32_t adv_router;
 	char adv[16], rbits[16], options[16], area[16];
+	json_object *json_brouter = NULL;
 
 	adv_router = ospf6_linkstate_prefix_adv_router(&route->prefix);
 	inet_ntop(AF_INET, &adv_router, adv, sizeof(adv));
@@ -1769,10 +1775,21 @@ void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 	ospf6_options_printbuf(route->path.options, options, sizeof(options));
 	inet_ntop(AF_INET, &route->path.area_id, area, sizeof(area));
 
-	/* vty_out (vty, "%-15s %-8s %-14s %-10s %-15s\n",
-		 "Router-ID", "Rtr-Bits", "Options", "Path-Type", "Area"); */
-	vty_out(vty, "%-15s %-8s %-14s %-10s %-15s\n", adv, rbits, options,
-		OSPF6_PATH_TYPE_NAME(route->path.type), area);
+	if (use_json) {
+		json_brouter = json_object_new_object();
+		json_object_string_add(json_brouter, "advertisingRouter", adv);
+		json_object_string_add(json_brouter, "routerBits", rbits);
+		ospf6_capability_json(route->path.router_bits, json_brouter);
+		json_object_string_add(json_brouter, "options", options);
+		ospf6_options_json(route->path.options, json_brouter);
+		json_object_string_add(json_brouter, "pathType",
+				       OSPF6_PATH_TYPE_NAME(route->path.type));
+		json_object_string_add(json_brouter, "areaId", area);
+		json_object_array_add(json_array_brouters, json_brouter);
+	} else {
+		vty_out(vty, "%-15s %-8s %-14s %-10s %-15s\n", adv, rbits,
+			options, OSPF6_PATH_TYPE_NAME(route->path.type), area);
+	}
 }
 
 DEFUN (debug_ospf6_route,

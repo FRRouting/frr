@@ -1097,6 +1097,9 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	if (use_json) {
 		json_object_string_add(json_obj, "ospf6InterfaceState",
 				       ospf6_interface_state_str[oi->state]);
+		json_object_boolean_add(
+			json_obj, "ospf6InterfacePassive",
+			CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE));
 		json_object_int_add(json_obj, "transmitDelaySec",
 				    oi->transdelay);
 		json_object_int_add(json_obj, "priority", oi->priority);
@@ -1110,6 +1113,10 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		vty_out(vty, "  State %s, Transmit Delay %d sec, Priority %d\n",
 			ospf6_interface_state_str[oi->state], oi->transdelay,
 			oi->priority);
+		vty_out(vty, "  Passive Mode: %s\n",
+			CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
+				? "enabled"
+				: "disabled");
 		vty_out(vty, "  Timer intervals configured:\n");
 		vty_out(vty, "   Hello %d, Dead %d, Retransmit %d\n",
 			oi->hello_interval, oi->dead_interval,

@@ -48,6 +48,10 @@
 #include "lib/json.h"
 #include "ospf6_nssa.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6d_clippy.c"
+#endif /* VTYSH_EXTRACT_PL */
+
 DEFINE_MGROUP(OSPF6D, "ospf6d");
 
 struct route_node *route_prev(struct route_node *node)
@@ -1211,76 +1215,89 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 	return CMD_SUCCESS;
 }
 
-static int show_ospf6_border_routers_common(struct vty *vty, int argc,
-					    struct cmd_token **argv,
-					    struct ospf6 *ospf6, int idx_ipv4,
-					    int idx_argc)
+static void show_ospf6_border_routers_common(struct vty *vty,
+					    struct ospf6 *ospf6,
+					    struct in_addr *brouter,
+					    const char* brouter_str,
+					    bool detail,
+					    bool uj)
 {
-	uint32_t adv_router;
 	struct ospf6_route *ro;
 	struct prefix prefix;
+	json_object *json_vty = NULL;
+	json_object *json_array_brouters = NULL;
 
+	if (uj)
+		json_array_brouters = json_object_new_array();
 
-	if (argc == idx_argc) {
-		if (strmatch(argv[idx_ipv4]->text, "detail")) {
-			for (ro = ospf6_route_head(ospf6->brouter_table); ro;
-			     ro = ospf6_route_next(ro))
-				ospf6_route_show_detail(vty, ro, NULL, false);
-		} else {
-			inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
-
-			ospf6_linkstate_prefix(adv_router, 0, &prefix);
+	if (brouter || detail) {
+		if (brouter) {
+			ospf6_linkstate_prefix(brouter->s_addr, 0, &prefix);
 			ro = ospf6_route_lookup(&prefix, ospf6->brouter_table);
 			if (!ro) {
-				vty_out(vty,
-					"No Route found for Router ID: %s\n",
-					argv[idx_ipv4]->arg);
-				return CMD_SUCCESS;
+				if (!uj)
+					vty_out(vty,
+						"No Route found for Router ID: %s\n",
+						brouter_str);
+				return;
+			} else {
+				ospf6_route_show_detail(
+					vty, ro, json_array_brouters, uj);
 			}
-
-			ospf6_route_show_detail(vty, ro, NULL, false);
-			return CMD_SUCCESS;
+		} else {
+			for (ro = ospf6_route_head(ospf6->brouter_table); ro;
+			     ro = ospf6_route_next(ro)) {
+				ospf6_route_show_detail(
+					vty, ro, json_array_brouters, uj);
+			}
 		}
 	} else {
-		ospf6_brouter_show_header(vty);
+		if (!uj)
+			ospf6_brouter_show_header(vty);
 
 		for (ro = ospf6_route_head(ospf6->brouter_table); ro;
-		     ro = ospf6_route_next(ro))
-			ospf6_brouter_show(vty, ro);
+		     ro = ospf6_route_next(ro)) {
+			ospf6_brouter_show(vty, ro, json_array_brouters, uj);
+		}
 	}
 
-	return CMD_SUCCESS;
+	if (uj) {
+		json_vty = json_object_new_object();
+		json_object_object_add(json_vty, "borderRouters",
+				       json_array_brouters);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json_vty, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_vty);
+	}
 }
 
-DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
-      "show ipv6 ospf6 [vrf <NAME|all>] border-routers [<A.B.C.D|detail>]",
-      SHOW_STR IP6_STR OSPF6_STR VRF_CMD_HELP_STR
-      "All VRFs\n"
-      "Display routing table for ABR and ASBR\n"
-      "Router ID\n"
-      "Show detailed output\n")
+DEFPY (show_ipv6_ospf6_border_routers,
+       show_ipv6_ospf6_border_routers_cmd,
+       "show ipv6 ospf6 [vrf <NAME$vrf_name|all$vrf_all>] border-routers {<A.B.C.D>$brouter|detail$detail|json$json}",
+       SHOW_STR
+       IP6_STR
+       OSPF6_STR
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
+       "Display routing table for ABR and ASBR\n"
+       "Router ID\n"
+       "Show detailed output\n"
+       JSON_STR)
 {
-	int idx_ipv4 = 4;
 	struct ospf6 *ospf6 = NULL;
 	struct listnode *node;
-	const char *vrf_name = NULL;
-	bool all_vrf = false;
-	int idx_vrf = 0;
-	int idx_argc = 5;
 
 	OSPF6_CMD_CHECK_RUNNING();
-	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	if (idx_vrf > 0) {
-		idx_argc += 2;
-		idx_ipv4 += 2;
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
-			show_ospf6_border_routers_common(vty, argc, argv, ospf6,
-							 idx_ipv4, idx_argc);
+		if (vrf_all || strcmp(ospf6->name, vrf_name) == 0) {
+			show_ospf6_border_routers_common(vty, ospf6, &brouter,
+							 brouter_str,
+							 detail ? true : false,
+							 json ? true : false);
 
-			if (!all_vrf)
+			if (!vrf_all)
 				break;
 		}
 	}

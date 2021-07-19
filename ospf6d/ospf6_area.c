@@ -401,6 +401,7 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 	struct ospf6_interface *oi;
 	unsigned long result;
 	json_object *json_area;
+	json_object *json_lsa_stats;
 	json_object *array_interfaces;
 
 	if (use_json) {
@@ -415,6 +416,32 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		json_object_int_add(json_area, "numberOfAreaScopedLsa",
 				    oa->lsdb->count);
 
+		/* LSA Statistics */
+		json_lsa_stats = json_object_new_object();
+		json_object_int_add(json_lsa_stats, "numberOfRouterLsa",
+				    oa->lsdb->stats.num_type1);
+		json_object_int_add(json_lsa_stats, "numberOfNetworkLsa",
+				    oa->lsdb->stats.num_type2);
+		json_object_int_add(json_lsa_stats,
+				    "numberOfInterAreaPrefixLsa",
+				    oa->lsdb->stats.num_type3);
+		json_object_int_add(json_lsa_stats,
+				    "numberOfInterAreaRouterLsa",
+				    oa->lsdb->stats.num_type4);
+		json_object_int_add(json_lsa_stats, "numberOfAsExternalLsa",
+				    oa->lsdb->stats.num_type5);
+		json_object_int_add(json_lsa_stats, "numberOfNssaLsa",
+				    oa->lsdb->stats.num_type7);
+		json_object_int_add(json_lsa_stats, "numberOfLinkLsa",
+				    oa->lsdb->stats.num_type8);
+		json_object_int_add(json_lsa_stats,
+				    "numberOfIntraAreaPrefixLsa",
+				    oa->lsdb->stats.num_type9);
+		json_object_int_add(json_lsa_stats, "numberOfUnknownLsa",
+				    oa->lsdb->stats.num_unknown);
+		json_object_object_add(json_area, "lsaStatistics",
+				       json_lsa_stats);
+
 		/* Interfaces Attached */
 		array_interfaces = json_object_new_array();
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
@@ -425,6 +452,9 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		json_object_object_add(json_area, "interfacesAttachedToArea",
 				       array_interfaces);
 
+		/* SPF Calculations */
+		json_object_int_add(json_area, "spfExecutedCounter",
+				    oa->spf_calculation);
 		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
 			json_object_boolean_true_add(json_area, "spfHasRun");
 			result = monotime_since(&oa->ts_spf, NULL);
@@ -469,6 +499,9 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 			vty_out(vty, " %s", oi->interface->name);
 		vty_out(vty, "\n");
 
+		/* SPF Calculations */
+		vty_out(vty, "SPF algorithm executed %d times\n",
+			oa->spf_calculation);
 		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
 			result = monotime_since(&oa->ts_spf, NULL);
 			if (result / TIMER_SECOND_MICRO > 0) {

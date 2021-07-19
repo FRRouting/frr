@@ -22,6 +22,10 @@
 #ifndef OSPF6_PROTO_H
 #define OSPF6_PROTO_H
 
+
+#include "lib/json.h"
+
+
 /* OSPF protocol version */
 #define OSPFV3_VERSION           3
 
@@ -94,6 +98,8 @@ extern void ospf6_prefix_apply_mask(struct ospf6_prefix *op);
 extern void ospf6_prefix_options_printbuf(uint8_t prefix_options, char *buf,
 					  int size);
 extern void ospf6_capability_printbuf(char capability, char *buf, int size);
+extern void ospf6_capability_json(char capability, json_object *json);
 extern void ospf6_options_printbuf(uint8_t *options, char *buf, int size);
+extern void ospf6_options_json(uint8_t *options, json_object *json);
 
 #endif /* OSPF6_PROTO_H */
