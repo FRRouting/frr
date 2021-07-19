@@ -1490,8 +1490,9 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 	for (old_route = old; old_route; old_route = old_route->next) {
 		bool route_updated = false;
 
-		if (!ospf6_route_is_same(old_route, route) ||
-			(old_route->path.type != route->path.type))
+		if (!ospf6_route_is_same(old_route, route))
+			break;
+		if (old_route->path.type != route->path.type)
 			continue;
 
 		/* Current and New route has same origin,
@@ -1589,8 +1590,9 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 
 	for (old_route = old; old_route; old_route = old_route->next) {
 
-		if (!ospf6_route_is_same(old_route, route) ||
-			(old_route->path.type != route->path.type))
+		if (!ospf6_route_is_same(old_route, route))
+			break;
+		if (old_route->path.type != route->path.type)
 			continue;
 
 		/* Old Route and New Route have Equal Cost, Merge NHs */

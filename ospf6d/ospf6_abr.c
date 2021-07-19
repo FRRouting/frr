@@ -1194,9 +1194,10 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 				   __func__, &prefix, listcount(old->paths));
 	}
 	for (old_route = old; old_route; old_route = old_route->next) {
-		if (!ospf6_route_is_same(old_route, route) ||
-			(old_route->type != route->type) ||
-			(old_route->path.type != route->path.type))
+		if (!ospf6_route_is_same(old_route, route))
+			break;
+		if ((old_route->type != route->type)
+		    || (old_route->path.type != route->path.type))
 			continue;
 
 		if ((ospf6_route_cmp(route, old_route) != 0)) {
