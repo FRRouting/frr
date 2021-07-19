@@ -114,15 +114,12 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
-			if (PIM_DEBUG_ZEBRA) {
-				char addr_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", addr, addr_str,
-					       sizeof(addr_str));
-				zlog_debug(
-					"%s %s: could not find interface for ifindex %d (address %s)",
-					__FILE__, __func__, first_ifindex,
-					addr_str);
-			}
+			char addr_str[INET_ADDRSTRLEN];
+			pim_inet4_dump("<addr?>", addr, addr_str,
+				       sizeof(addr_str));
+			zlog_warn(
+				"%s %s: could not find interface for ifindex %d (address %s)",
+				__FILE__, __func__, first_ifindex, addr_str);
 			i++;
 			continue;
 		}
@@ -234,8 +231,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		return PIM_RPF_OK;
 
 	if (up->upstream_addr.s_addr == INADDR_ANY) {
-		zlog_debug("%s(%s): RP is not configured yet for %s",
-			__func__, caller, up->sg_str);
+		if (PIM_DEBUG_TRACE)
+			zlog_debug("%s(%s): RP is not configured yet for %s",
+				   __func__, caller, up->sg_str);
 		return PIM_RPF_OK;
 	}
 

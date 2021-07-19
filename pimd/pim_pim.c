@@ -213,11 +213,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		if (checksum != pim_checksum) {
 			checksum = in_cksum(pim_msg, pim_msg_len);
 			if (checksum != pim_checksum) {
-				if (PIM_DEBUG_PIM_PACKETS)
-					zlog_debug(
-						"Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
-						ifp->name, pim_checksum,
-						checksum);
+				zlog_warn(
+					"Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
+					ifp->name, pim_checksum, checksum);
 
 				return -1;
 			}
@@ -225,10 +223,9 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	} else {
 		checksum = in_cksum(pim_msg, pim_msg_len);
 		if (checksum != pim_checksum) {
-			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug(
-					"Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
-					ifp->name, pim_checksum, checksum);
+			zlog_warn(
+				"Ignoring PIM pkt from %s with invalid checksum: received=%x calculated=%x",
+				ifp->name, pim_checksum, checksum);
 
 			return -1;
 		}
@@ -358,8 +355,8 @@ static int pim_sock_read(struct thread *t)
 				break;
 
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("Received errno: %d %s", errno,
-					   safe_strerror(errno));
+				zlog_warn("Received errno: %d %s", errno,
+					  safe_strerror(errno));
 			goto done;
 		}
 
@@ -858,9 +855,8 @@ int pim_sock_add(struct interface *ifp)
 
 	pim_ifp->pim_sock_fd = pim_sock_open(ifp);
 	if (pim_ifp->pim_sock_fd < 0) {
-		if (PIM_DEBUG_PIM_PACKETS)
-			zlog_debug("Could not open PIM socket on interface %s",
-				   ifp->name);
+		zlog_warn("Could not open PIM socket on interface %s",
+			  ifp->name);
 		return -2;
 	}
 

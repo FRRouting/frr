@@ -254,12 +254,15 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
 					     addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
-		char addr_str[INET_ADDRSTRLEN];
+		if (PIM_DEBUG_PIM_NHT) {
+			char addr_str[INET_ADDRSTRLEN];
 
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
-		zlog_warn(
-			"%s %s: could not find nexthop ifindex for address %s",
-			__FILE__, __func__, addr_str);
+			pim_inet4_dump("<addr?>", addr, addr_str,
+				       sizeof(addr_str));
+			zlog_debug(
+				"%s %s: could not find nexthop ifindex for address %s",
+				__FILE__, __func__, addr_str);
+		}
 		return false;
 	}
 
@@ -268,16 +271,13 @@ bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
 
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
-			if (PIM_DEBUG_ZEBRA) {
-				char addr_str[INET_ADDRSTRLEN];
+			char addr_str[INET_ADDRSTRLEN];
 
-				pim_inet4_dump("<addr?>", addr, addr_str,
-					       sizeof(addr_str));
-				zlog_debug(
-					"%s %s: could not find interface for ifindex %d (address %s)",
-					__FILE__, __func__, first_ifindex,
-					addr_str);
-			}
+			pim_inet4_dump("<addr?>", addr, addr_str,
+				       sizeof(addr_str));
+			zlog_warn(
+				"%s %s: could not find interface for ifindex %d (address %s)",
+				__FILE__, __func__, first_ifindex, addr_str);
 			i++;
 			continue;
 		}
@@ -728,8 +728,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 	pim = vrf->info;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
-		zlog_err("%s: Decode of nexthop update from zebra failed",
-			 __func__);
+		zlog_warn("%s: Decode of nexthop update from zebra failed",
+			  __func__);
 		return 0;
 	}
 
@@ -797,15 +797,12 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 			ifp = if_lookup_by_index(nexthop->ifindex,
 						 pim->vrf->vrf_id);
 			if (!ifp) {
-				if (PIM_DEBUG_PIM_NHT) {
-					char buf[NEXTHOP_STRLEN];
-					zlog_debug(
-						"%s: could not find interface for ifindex %d(%s) (addr %s)",
-						__func__, nexthop->ifindex,
-						pim->vrf->name,
-						nexthop2str(nexthop, buf,
-							    sizeof(buf)));
-				}
+				char buf[NEXTHOP_STRLEN];
+				zlog_warn(
+					"%s: could not find interface for ifindex %d(%s) (addr %s)",
+					__func__, nexthop->ifindex,
+					pim->vrf->name,
+					nexthop2str(nexthop, buf, sizeof(buf)));
 				nexthop_free(nexthop);
 				continue;
 			}
@@ -814,8 +811,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				zlog_debug(
 					"%s: NHT addr %pFX(%s) %d-nhop via %pI4(%s) type %d distance:%u metric:%u ",
 					__func__, &nhr.prefix, pim->vrf->name,
-					i + 1, &nexthop->gate.ipv4,
-					ifp->name, nexthop->type, nhr.distance,
+					i + 1, &nexthop->gate.ipv4, ifp->name,
+					nexthop->type, nhr.distance,
 					nhr.metric);
 
 			if (!ifp->info) {
@@ -927,7 +924,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				       src->u.prefix4, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
 		if (PIM_DEBUG_PIM_NHT)
-			zlog_warn(
+			zlog_debug(
 				"%s: could not find nexthop ifindex for address %s(%s)",
 				__func__, addr_str, pim->vrf->name);
 		return 0;
@@ -976,11 +973,10 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 
 		ifp = ifps[i];
 		if (!ifp) {
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s %s: could not find interface for ifindex %d (address %s(%s))",
-					__FILE__, __func__, first_ifindex,
-					addr_str, pim->vrf->name);
+			zlog_warn(
+				"%s %s: could not find interface for ifindex %d (address %s(%s))",
+				__FILE__, __func__, first_ifindex, addr_str,
+				pim->vrf->name);
 			if (i == mod_val)
 				mod_val++;
 			i++;
@@ -1085,11 +1081,10 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 	vif_index = pim_if_find_vifindex_by_ifindex(pim, ifindex);
 
 	if (vif_index < 0) {
-		if (PIM_DEBUG_PIM_NHT) {
+		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
 				"%s: low vif_index=%d(%s) < 1 nexthop for address %s",
 				__func__, vif_index, pim->vrf->name, addr_str);
-		}
 		return -2;
 	}
 

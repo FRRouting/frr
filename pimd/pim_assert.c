@@ -425,17 +425,14 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 
 	ifp = ch->interface;
 	if (!ifp) {
-		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: channel%s has no associated interface!",
-				   __func__, ch->sg_str);
+		zlog_warn("%s: channel%s has no associated interface!",
+			  __func__, ch->sg_str);
 		return -1;
 	}
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: channel %s pim not enabled on interface: %s",
-				__func__, ch->sg_str, ifp->name);
+		zlog_warn("%s: channel %s pim not enabled on interface: %s",
+			  __func__, ch->sg_str, ifp->name);
 		return -1;
 	}
 

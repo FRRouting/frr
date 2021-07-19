@@ -148,7 +148,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 		if (p->family != AF_INET
 		    || primary_addr.s_addr != p->u.prefix4.s_addr) {
 			if (PIM_DEBUG_ZEBRA)
-				zlog_warn(
+				zlog_debug(
 					"%s: %s : forcing secondary flag on %pFX",
 					__func__, c->ifp->name, p);
 			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
@@ -723,8 +723,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					     PIM_OIF_FLAG_PROTO_IGMP, __func__);
 		if (result) {
 			if (PIM_DEBUG_MROUTE) {
-				zlog_warn("%s: add_oif() failed with return=%d",
-					  __func__, result);
+				zlog_debug(
+					"%s: add_oif() failed with return=%d",
+					__func__, result);
 			}
 			return;
 		}
@@ -742,11 +743,11 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	  per-interface (S,G) state.
 	 */
 	if (!pim_ifchannel_local_membership_add(
-						group->group_igmp_sock->interface, &sg,
-						false /*is_vxlan*/)) {
+		    group->group_igmp_sock->interface, &sg,
+		    false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_warn("%s: Failure to add local membership for %s",
-				  __func__, pim_str_sg_dump(&sg));
+			zlog_debug("%s: Failure to add local membership for %s",
+				   __func__, pim_str_sg_dump(&sg));
 
 		pim_channel_del_oif(source->source_channel_oil,
 				    group->group_igmp_sock->interface,

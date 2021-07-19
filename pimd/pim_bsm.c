@@ -636,16 +636,14 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Pim interface not available for %s",
-				   __func__, ifp->name);
+		zlog_warn("%s: Pim interface not available for %s", __func__,
+			  ifp->name);
 		return false;
 	}
 
 	if (pim_ifp->pim_sock_fd == -1) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: Pim sock not available for %s",
-				   __func__, ifp->name);
+		zlog_warn("%s: Pim sock not available for %s", __func__,
+			  ifp->name);
 		return false;
 	}
 
@@ -684,10 +682,6 @@ static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
 		zlog_warn(
 			"%s: mtu(pim mtu: %d) size less than minimum bootstrap len",
 			__func__, pim_mtu);
-		if (PIM_DEBUG_BSM)
-			zlog_debug(
-				"%s: mtu (pim mtu:%d) less than minimum bootstrap len",
-				__func__, pim_mtu);
 		return false;
 	}
 
@@ -1147,9 +1141,11 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 						       &group);
 
 			if (!bsgrp) {
-				zlog_debug(
-					"%s, Failed to get the BSM group node.",
-					__func__);
+				if (PIM_DEBUG_BSM) {
+					zlog_debug(
+						"%s, Failed to get the BSM group node.",
+						__func__);
+				}
 				continue;
 			}
 
@@ -1223,9 +1219,8 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	/* BSM Packet acceptance validation */
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
-		if (PIM_DEBUG_BSM)
-			zlog_debug("%s: multicast not enabled on interface %s",
-				   __func__, ifp->name);
+		zlog_warn("%s: multicast not enabled on interface %s", __func__,
+			  ifp->name);
 		return -1;
 	}
 
@@ -1235,8 +1230,8 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 
 	/* Drop if bsm processing is disabled on interface */
 	if (!pim_ifp->bsm_enable) {
-		zlog_warn("%s: BSM not enabled on interface %s", __func__,
-			  ifp->name);
+		zlog_debug("%s: BSM not enabled on interface %s", __func__,
+			   ifp->name);
 		pim_ifp->pim_ifstat_bsm_cfg_miss++;
 		pim->bsm_dropped++;
 		return -1;

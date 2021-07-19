@@ -634,16 +634,11 @@ static int pim_msdp_read_packet(struct pim_msdp_peer *mp)
 	nbytes = stream_read_try(mp->ibuf, mp->fd, readsize);
 	new_endp = stream_get_endp(mp->ibuf);
 	if (nbytes < 0) {
-		if (PIM_DEBUG_MSDP_INTERNAL) {
-			zlog_debug("MSDP peer %s read failed %d", mp->key_str,
-				   nbytes);
-		}
+		zlog_warn("MSDP peer %s read failed %d", mp->key_str, nbytes);
 		if (nbytes == -2) {
-			if (PIM_DEBUG_MSDP_INTERNAL) {
-				zlog_debug(
-					"MSDP peer %s pim_msdp_read io retry old_end: %d new_end: %d",
-					mp->key_str, old_endp, new_endp);
-			}
+			zlog_warn(
+				"MSDP peer %s pim_msdp_read io retry old_end: %d new_end: %d",
+				mp->key_str, old_endp, new_endp);
 			/* transient error retry */
 			return -1;
 		}
