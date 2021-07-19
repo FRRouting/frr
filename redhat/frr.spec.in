@@ -44,6 +44,9 @@
 # defines for configure
 %define     rundir  %{_localstatedir}/run/%{name}
 
+# ignore libfrrzm.so's q when zeromq isn't installed
+%define     _unpackaged_files_terminate_build 0
+
 ############################################################################
 
 #### Version String tweak
