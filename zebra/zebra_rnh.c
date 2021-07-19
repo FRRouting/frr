@@ -745,15 +745,10 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 			*prn = rn;
 			return re;
 		}
-
-		if (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
-			rn = rn->parent;
-		else {
-			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
-				zlog_debug(
-					"        Nexthop must be connected, cannot recurse up");
-			return NULL;
-		}
+		/* Resolve the nexthop recursively by finding matching
+		 * route with lower prefix length
+		 */
+		rn = rn->parent;
 	}
 
 	return NULL;
