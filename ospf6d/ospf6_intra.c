@@ -2131,7 +2131,7 @@ static void ospf6_brouter_debug_print(struct ospf6_route *brouter)
 	char installed[64], changed[64];
 	struct timeval now, res;
 	char id[16], adv_router[16];
-	char capa[16], options[16];
+	char capa[16], options[32];
 
 	brouter_id = ADV_ROUTER_IN_PREFIX(&brouter->prefix);
 	inet_ntop(AF_INET, &brouter_id, brouter_name, sizeof(brouter_name));

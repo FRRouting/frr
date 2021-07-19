@@ -20,6 +20,7 @@
 
 #include <zebra.h>
 #include <lib/version.h>
+#include <lib/keychain.h>
 #include <stdlib.h>
 
 #include "getopt.h"
@@ -224,6 +225,7 @@ int main(int argc, char *argv[], char *envp[])
 	/* thread master */
 	master = om6->master;
 
+	keychain_init();
 	ospf6_vrf_init();
 	access_list_init();
 	prefix_list_init();

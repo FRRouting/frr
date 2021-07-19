@@ -1,0 +1,870 @@
+#!/usr/bin/python
+
+#
+# Copyright (c) 2021 by VMware, Inc. ("VMware")
+# Used Copyright (c) 2018 by Network Device Education Foundation, Inc.
+# ("NetDEF") in this file.
+#
+# Permission to use, copy, modify, and/or distribute this software
+# for any purpose with or without fee is hereby granted, provided
+# that the above copyright notice and this permission notice appear
+# in all copies.
+#
+# THE SOFTWARE IS PROVIDED "AS IS" AND VMWARE DISCLAIMS ALL WARRANTIES
+# WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+# MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL VMWARE BE LIABLE FOR
+# ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY
+# DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+# WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS
+# ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
+# OF THIS SOFTWARE.
+#
+
+
+"""OSPF Basic Functionality Automation."""
+import os
+import sys
+import time
+import pytest
+from time import sleep
+from copy import deepcopy
+import json
+from lib.topotest import frr_unicode
+
+pytestmark = pytest.mark.ospf6d
+
+# Save the Current Working Directory to find configuration files.
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
+sys.path.append(os.path.join(CWD, "../lib/"))
+
+# pylint: disable=C0413
+# Import topogen and topotest helpers
+from mininet.topo import Topo
+from lib.topogen import Topogen, get_topogen
+
+# Import topoJson from lib, to create topology and initial configuration
+from lib.common_config import (
+    start_topology,
+    write_test_header,
+    write_test_footer,
+    reset_config_on_routers,
+    step,
+    shutdown_bringup_interface,
+    topo_daemons,
+)
+from lib.topolog import logger
+from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.ospf import verify_ospf6_neighbor, config_ospf6_interface, clear_ospf
+from ipaddress import IPv4Address
+
+# Global variables
+topo = None
+# Reading the data from JSON File for topology creation
+jsonFile = "{}/ospfv3_authentication.json".format(CWD)
+try:
+    with open(jsonFile, "r") as topoJson:
+        topo = json.load(topoJson)
+except IOError:
+    assert False, "Could not read file {}".format(jsonFile)
+"""
+TOPOOLOGY =
+      Please view in a fixed-width font such as Courier.
+      +---+  A1       +---+
+      +R1 +------------+R2 |
+      +-+-+-           +--++
+        |  --        --  |
+        |    -- A0 --    |
+      A0|      ----      |
+        |      ----      | A2
+        |    --    --    |
+        |  --        --  |
+      +-+-+-            +-+-+
+      +R0 +-------------+R3 |
+      +---+     A3     +---+
+
+TESTCASES =
+1.  OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using MD5 manual key configuration.
+2.  OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using HMAC-SHA-256 manual key configuration.
+3.  OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using MD5 keychain configuration.
+4.  OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using HMAC-SHA-256 keychain configuration.
+
+ """
+
+
+class CreateTopo(Topo):
+    """
+    Test topology builder.
+
+    * `Topo`: Topology object
+    """
+
+    def build(self, *_args, **_opts):
+        """Build function."""
+        tgen = get_topogen(self)
+
+        # Building topology from json file
+        build_topo_from_json(tgen, topo)
+
+
+def setup_module(mod):
+    """
+    Sets up the pytest environment
+
+    * `mod`: module name
+    """
+    global topo
+    testsuite_run_time = time.asctime(time.localtime(time.time()))
+    logger.info("Testsuite start time: {}".format(testsuite_run_time))
+    logger.info("=" * 40)
+
+    logger.info("Running setup_module to create topology")
+
+    # This function initiates the topology build with Topogen...
+    tgen = Topogen(CreateTopo, mod.__name__)
+    # ... and here it calls Mininet initialization functions.
+
+    # get list of daemons needs to be started for this suite.
+    daemons = topo_daemons(tgen, topo)
+
+    # Starting topology, create tmp files which are loaded to routers
+    #  to start deamons and then start routers
+    start_topology(tgen, daemons)
+
+    # Creating configuration from JSON
+    build_config_from_json(tgen, topo)
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    logger.info("Running setup_module() done")
+
+
+def teardown_module(mod):
+    """
+    Teardown the pytest environment.
+
+    * `mod`: module name
+    """
+
+    logger.info("Running teardown_module to delete topology")
+
+    tgen = get_topogen()
+
+    # Stop toplogy and Remove tmp files
+    tgen.stop_topology()
+
+    logger.info(
+        "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
+    )
+    logger.info("=" * 40)
+
+
+# ##################################
+# Test cases start here.
+# ##################################
+
+def test_ospf6_auth_trailer_tc1_md5(request):
+    """
+    OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using MD5 manual key configuration.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 auth on R1 interface "
+        "connected to R2 with auth trailer"
+    )
+
+    r1_ospf6_auth = {
+        "r1": {
+            "links": {
+                "r2": {
+                    "ospf6": {
+                        "hash-algo": "md5",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that the neighbour is not FULL between R1 and R2.")
+    # wait for dead time expiry.
+    sleep(6)
+    dut = "r1"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=3
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 on R2 interface "
+        "connected to R1 with auth trailer"
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "md5",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2  "
+        "using show ipv6 ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Disable authentication on R2 "
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "md5",
+                        "key": "ospf6",
+                        "key-id": "10",
+                        "del_action": True
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify on R1 ,nbr is deleted for R2 after dead interval expiry")
+    #  wait till the dead timer expiry
+    sleep(6)
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=5
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Again On R2 enable ospf6 on interface with  message-digest auth")
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "md5",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using"
+        " show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Shut no shut interface on R1")
+    dut = "r1"
+    intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    dut = "r2"
+    step(
+        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    dut = "r1"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    write_test_footer(tc_name)
+
+
+def test_ospf6_auth_trailer_tc1_sha256(request):
+    """
+    OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using HMAC-SHA-256 manual key configuration.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 auth on R1 interface "
+        "connected to R2 with auth trailer"
+    )
+
+    r1_ospf6_auth = {
+        "r1": {
+            "links": {
+                "r2": {
+                    "ospf6": {
+                        "hash-algo": "hmac-sha-256",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that the neighbour is not FULL between R1 and R2.")
+    # wait for dead time expiry.
+    sleep(6)
+    dut = "r1"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=3
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 on R2 interface "
+        "connected to R1 with auth trailer"
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "hmac-sha-256",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2  "
+        "using show ipv6 ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Disable authentication on R2 "
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "hmac-sha-256",
+                        "key": "ospf6",
+                        "key-id": "10",
+                        "del_action": True
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify on R1 ,nbr is deleted for R2 after dead interval expiry")
+    #  wait till the dead timer expiry
+    sleep(6)
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=5
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Again On R2 enable ospf6 on interface with  message-digest auth")
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "hash-algo": "hmac-sha-256",
+                        "key": "ospf6",
+                        "key-id": "10",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using"
+        " show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Shut no shut interface on R1")
+    dut = "r1"
+    intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    dut = "r2"
+    step(
+        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    dut = "r1"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    write_test_footer(tc_name)
+
+def test_ospf6_auth_trailer_tc1_keychain_md5(request):
+    """
+    OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using MD5 keychain configuration.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 auth on R1 interface "
+        "connected to R2 with auth trailer"
+    )
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+
+    router1.vtysh_cmd(
+        """configure terminal
+           key chain auth
+             key 10
+               key-string ospf6
+               cryptographic-algorithm md5"""
+    )
+
+    router2.vtysh_cmd(
+        """configure terminal
+           key chain auth
+             key 10
+               key-string ospf6
+               cryptographic-algorithm md5"""
+    )
+
+    r1_ospf6_auth = {
+        "r1": {
+            "links": {
+                "r2": {
+                    "ospf6": {
+                        "keychain": "auth",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that the neighbour is not FULL between R1 and R2.")
+    # wait for dead time expiry.
+    sleep(6)
+    dut = "r1"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=3
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 on R2 interface "
+        "connected to R1 with auth trailer"
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "keychain": "auth",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2  "
+        "using show ipv6 ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Disable authentication on R2 "
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "keychain": "auth",
+                        "del_action": True
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify on R1 ,nbr is deleted for R2 after dead interval expiry")
+    #  wait till the dead timer expiry
+    sleep(6)
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=5
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Again On R2 enable ospf6 on interface with  message-digest auth")
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "keychain": "auth",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using"
+        " show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Shut no shut interface on R1")
+    dut = "r1"
+    intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    dut = "r2"
+    step(
+        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    dut = "r1"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    write_test_footer(tc_name)
+
+def test_ospf6_auth_trailer_tc1_keychain_sha256(request):
+    """
+    OSPFv3 Authentication Trailer - Verify ospfv3 authentication trailer
+    using HMAC-SHA-256 keychain configuration.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 auth on R1 interface "
+        "connected to R2 with auth trailer"
+    )
+
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
+
+    router1.vtysh_cmd(
+        """configure terminal
+           key chain auth
+             key 10
+               key-string ospf6
+               cryptographic-algorithm hmac-sha-256"""
+    )
+
+    router2.vtysh_cmd(
+        """configure terminal
+           key chain auth
+             key 10
+               key-string ospf6
+               cryptographic-algorithm hmac-sha-256"""
+    )
+
+    r1_ospf6_auth = {
+        "r1": {
+            "links": {
+                "r2": {
+                    "ospf6": {
+                        "keychain": "auth",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r1_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that the neighbour is not FULL between R1 and R2.")
+    # wait for dead time expiry.
+    sleep(6)
+    dut = "r1"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=3
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Configure ospf6 with on R1 and R2, enable ospf6 on R2 interface "
+        "connected to R1 with auth trailer"
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "keychain": "auth",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2  "
+        "using show ipv6 ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step(
+        "Disable authentication on R2 "
+    )
+
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "keychain": "auth",
+                        "del_action": True
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify on R1 ,nbr is deleted for R2 after dead interval expiry")
+    #  wait till the dead timer expiry
+    sleep(6)
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(
+        tgen, topo, dut=dut, expected=False, retry_timeout=5
+    )
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Again On R2 enable ospf6 on interface with  message-digest auth")
+    r2_ospf6_auth = {
+        "r2": {
+            "links": {
+                "r1": {
+                    "ospf6": {
+                        "keychain": "auth",
+                    }
+                }
+            }
+        }
+    }
+    result = config_ospf6_interface(tgen, topo, r2_ospf6_auth)
+    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using"
+        " show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    step("Shut no shut interface on R1")
+    dut = "r1"
+    intf = topo["routers"]["r1"]["links"]["r2"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    dut = "r2"
+    step(
+        "Verify that the neighbour is not FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut, expected=False)
+    assert ospf6_covergence is not True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    dut = "r1"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    step(
+        "Verify that the neighbour is FULL between R1 and R2 using "
+        "show ip ospf6 neighbor cmd."
+    )
+
+    dut = "r2"
+    ospf6_covergence = verify_ospf6_neighbor(tgen, topo, dut=dut)
+    assert ospf6_covergence is True, "Testcase {} :Failed \n Error:" " {}".format(
+        tc_name, ospf6_covergence
+    )
+
+    write_test_footer(tc_name)
+
+if __name__ == "__main__":
+    args = ["-s"] + sys.argv[1:]
+    sys.exit(pytest.main(args))

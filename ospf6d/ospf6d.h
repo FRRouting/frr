@@ -21,6 +21,7 @@
 #ifndef OSPF6D_H
 #define OSPF6D_H
 
+#include "config.h"
 #include "libospf.h"
 #include "thread.h"
 #include "memory.h"

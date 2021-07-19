@@ -22,6 +22,8 @@
 #define OSPF6_MESSAGE_H
 
 #define OSPF6_MESSAGE_BUFSIZ  4096
+#define IPPROTO_OSPF 89
+extern const struct message ospf6_message_type_str[];
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_message[];

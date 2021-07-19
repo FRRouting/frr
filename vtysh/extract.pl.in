@@ -89,7 +89,7 @@ sub scan_file {
 
         # $protocol is VTYSH_PROTO format for redirection of user input
         if ($file =~ /lib\/keychain\.c$/) {
-            $protocol = "VTYSH_RIPD|VTYSH_EIGRPD";
+            $protocol = "VTYSH_RIPD|VTYSH_EIGRPD|VTYSH_OSPF6D";
         }
         elsif ($file =~ /lib\/routemap\.c$/ || $file =~ /lib\/routemap_cli\.c$/) {
             $protocol = "VTYSH_RMAP";

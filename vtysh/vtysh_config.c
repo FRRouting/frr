@@ -155,6 +155,47 @@ static void config_add_line_uniq(struct list *config, const char *line)
 	listnode_add_sort(config, XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line));
 }
 
+/* Global variable to keep track of the KEYCHAIN_KEY_NODE for comparing */
+static char *key_ptr;
+
+/* Function to aggregate the key chain configuration from different modules */
+static void config_add_line_uniq_keychain(struct list *config, const char *line)
+{
+	struct listnode *node = NULL, *nnode = NULL;
+	char *pnt;
+	int found = 0;
+
+	for (ALL_LIST_ELEMENTS(config, node, nnode, pnt)) {
+		if ((strncmp(line, " key ", strlen(" key ")) == 0)
+		    && (strcmp(line, pnt) == 0)) {
+			if (key_ptr)
+				free(key_ptr);
+
+			key_ptr = XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line);
+		}
+	}
+
+	node = NULL;
+	nnode = NULL;
+	for (ALL_LIST_ELEMENTS(config, node, nnode, pnt)) {
+		if (key_ptr && strcmp(pnt, key_ptr) == 0)
+			found = 1;
+
+		if (!found)
+			continue;
+
+		if (strcmp(pnt, line) == 0)
+			return;
+	}
+
+	listnode_add(config, XSTRDUP(MTYPE_VTYSH_CONFIG_LINE, line));
+	if (strncmp(line, "exit", strlen("exit")) == 0) {
+		if (key_ptr)
+			free(key_ptr);
+		key_ptr = NULL;
+	}
+}
+
 /*
  * Add a line that should only be shown once, and always show at the end of the
  * config block.
@@ -254,6 +295,9 @@ void vtysh_config_parse_line(void *arg, const char *line)
 	 * generated
 	 * dynamically in vtysh_config_dump() */
 	case '!':
+		if (key_ptr)
+			free(key_ptr);
+		key_ptr = NULL;
 	case '#':
 		break;
 	case ' ':
@@ -292,8 +336,11 @@ void vtysh_config_parse_line(void *arg, const char *line)
 				   || config->index == INTERFACE_NODE
 				   || config->index == VTY_NODE
 				   || config->index == VRF_NODE
-				   || config->index == NH_GROUP_NODE)
+				   || config->index == NH_GROUP_NODE) {
 				config_add_line_uniq(config->line, line);
+			} else if (config->index == KEYCHAIN_NODE)
+				config_add_line_uniq_keychain(config->line,
+							      line);
 			else
 				config_add_line(config->line, line);
 		} else

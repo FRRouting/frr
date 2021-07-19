@@ -104,6 +104,10 @@ struct ospf6_neighbor {
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
+
+	uint32_t seqnum_h;
+	uint32_t seqnum_l;
+	bool auth_present;
 };
 
 /* Neighbor state */

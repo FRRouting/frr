@@ -114,6 +114,10 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 	on->lsupdate_list = ospf6_lsdb_create(on);
 	on->lsack_list = ospf6_lsdb_create(on);
 
+	on->seqnum_l = 0;
+	on->seqnum_h = 0;
+	on->auth_present = false;
+
 	listnode_add_sort(oi->neighbor_list, on);
 
 	ospf6_bfd_info_nbr_create(oi, on);
@@ -894,8 +898,18 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 		bfd_sess_show(vty, json_neighbor, on->bfd_session);
 
-		json_object_object_add(json, on->name, json_neighbor);
+		if (on->auth_present == true) {
+			json_object_string_add(json_neighbor, "authStatus",
+					       "enabled");
+			json_object_int_add(json_neighbor, "recvdHigherSeqNo",
+					    on->seqnum_h);
+			json_object_int_add(json_neighbor, "recvdLowerSeqNo",
+					    on->seqnum_l);
+		} else
+			json_object_string_add(json_neighbor, "authStatus",
+					       "disabled");
 
+		json_object_object_add(json, on->name, json_neighbor);
 
 	} else {
 		vty_out(vty, " Neighbor %s\n", on->name);
@@ -981,6 +995,14 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			vty_out(vty, "      %s\n", lsa->name);
 
 		bfd_sess_show(vty, NULL, on->bfd_session);
+
+		if (on->auth_present == true) {
+			vty_out(vty, "    Authentication is enabled\n");
+			vty_out(vty, "      Higher sequence no %d, ",
+				on->seqnum_h);
+			vty_out(vty, "Lower sequence no %d\n", on->seqnum_l);
+		} else
+			vty_out(vty, "    Authentication is disabled\n");
 	}
 }
 

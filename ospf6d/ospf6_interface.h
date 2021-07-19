@@ -24,12 +24,42 @@
 #include "qobj.h"
 #include "hook.h"
 #include "if.h"
+#include "ospf6d.h"
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
 #define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
 #define OSPF6_DEBUG_INTERFACE_OFF() (conf_debug_ospf6_interface = 0)
 #define IS_OSPF6_DEBUG_INTERFACE (conf_debug_ospf6_interface)
+
+struct ospf6_auth_cfg {
+	/* higher order Sequence Number */
+	uint32_t seqnum_h;
+
+	/* lower order Sequence Number */
+	uint32_t seqnum_l;
+
+	/* Packet drop due to auth failure while sending */
+	uint32_t tx_drop;
+
+	/* Packet drop due to auth failure while reading */
+	uint32_t rx_drop;
+
+	/* hash algorithm type */
+	uint8_t hash_algo;
+
+	/* Flags related to auth config */
+	uint8_t flags;
+
+	/* key-id used as security association in auth packet */
+	uint16_t key_id;
+
+	/* Auth key */
+	char *auth_key;
+
+	/* keychain name */
+	char *keychain;
+};
 
 /* Interface structure */
 struct ospf6_interface {
@@ -94,6 +124,9 @@ struct ospf6_interface {
 
 	/* MTU mismatch check */
 	uint8_t mtu_ignore;
+
+	/* Authentication trailer related config */
+	struct ospf6_auth_cfg at_cfg;
 
 	/* Decision of DR Election */
 	in_addr_t drouter;
@@ -220,6 +253,9 @@ extern void install_element_ospf6_clear_interface(void);
 extern int config_write_ospf6_debug_interface(struct vty *vty);
 extern void install_element_ospf6_debug_interface(void);
 
+extern void ospf6_interface_auth_trailer_cmd_init(void);
+extern void ospf6_auth_write_config(struct vty *vty,
+				    struct ospf6_auth_cfg *at_cfg);
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));

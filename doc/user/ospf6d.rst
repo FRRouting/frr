@@ -388,6 +388,244 @@ Larger example with policy and various options set:
     exec-timeout 0 0
    !
 
+.. _Authentication-trailer:
+
+Authentication trailer support:
+===============================
+IPv4 version of OSPF supports authentication as part of the base RFC.
+When IPv6 version of OSPF was developed there was IPSec support for IPv6,
+Hence OSPFv3(IPv6 version of OSPF) suggest to use IPSec as authentication
+and encryption mechanism. IPSec supports authentication using AH header and
+Encryption using ESP.
+
+There are few disadvantages of using IPSec with OSPFv3.
+        1. If encryption is enabled for OSPFv3 packets, then its not
+           possible to give priority to control packets.
+        2. IPSec has platform dependency and may not be supported
+           in all platforms.
+        3. It is performance intensive.
+        4. Its difficult to configure.
+
+
+Some advantages of OSPFv3 authentication trailer feature.
+        1. It provides replay protection via sequence number.
+        2. It provides IPv6 source address protection.
+        3. No platform dependency.
+        4. Easy to implement and maintain.
+
+
+This feature is support for ``RFC7166``.
+
+FRR supports MD5 and SHA256 internally and relays on openssl for other hash
+algorithms. If user wants to use only MD5 and SHA256, no special action is
+required. If user wants complete support of authentication trailer with all
+hash algorithms follow below steps.
+
+
+Installing Dependencies:
+------------------------
+
+.. code-block:: console
+
+   sudo apt update
+   sudo apt-get install openssl
+
+
+Compile:
+^^^^^^^^
+Follow normal compilation as mentioned in the build page. If you want to
+use all the hash algorithms then follow the steps mentioned in note before
+compiling.
+
+
+.. note::
+
+   If your platform supports ``openssl``, please make sure to add
+   ``--with-crypto=openssl`` to your configure options.
+   Default value is ``--with-crypto=internal``
+
+
+CLI Configuration:
+==================
+There are two ways in which authentication trailer can be configured for
+OSPFv3. These commands are mutually exclusive, only one can be configured
+at any time.
+
+        1. Using manual key configuration.
+        2. Using keychain.
+
+
+List of hash algorithms supported:
+----------------------------------
+
+Without openssl:
+^^^^^^^^^^^^^^^^
+        ``MD5``
+        ``HMAC-SHA-256``
+
+
+With openssl:
+^^^^^^^^^^^^^
+        ``MD5``
+        ``HMAC-SHA-1``
+        ``HMAC-SHA-256``
+        ``HMAC-SHA-384``
+        ``HMAC-SHA-512``
+
+
+Example configuration of manual key:
+------------------------------------
+
+Without openssl:
+^^^^^^^^^^^^^^^^
+
+.. clicmd:: ipv6 ospf6 authentication key-id (1-65535) hash-algo <md5|hmac-sha-256> key WORD
+
+With openssl:
+^^^^^^^^^^^^^
+
+.. clicmd:: ipv6 ospf6 authentication key-id (1-65535) hash-algo <md5|hmac-sha-256|hmac-sha-1|hmac-sha-384|hmac-sha-512> key WORD
+
+
+Example configuration of keychain:
+----------------------------------
+
+.. clicmd:: ipv6 ospf6 authentication keychain KEYCHAIN_NAME
+
+
+Running configuration:
+======================
+
+Manual key:
+-----------
+
+.. code-block:: frr
+
+   frr# show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+   interface ens192
+    ipv6 address 2001:DB8::2/64
+    ipv6 ospf6 authentication key-id 10 hash-algo hmac-sha-256 key abhinay
+
+Keychain:
+---------
+
+.. code-block:: frr
+
+   frr# show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+   interface ens192
+    ipv6 address 2001:DB8::2/64
+    ipv6 ospf6 authentication keychain abhinay
+
+
+Example keychain config:
+------------------------
+
+.. code-block:: frr
+
+   frr#show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+    key chain abcd
+     key 100
+      key-string password
+      cryptographic-algorithm sha1
+     exit
+     key 200
+      key-string password
+      cryptographic-algorithm sha256
+     exit
+    !
+    key chain pqr
+     key 300
+      key-string password
+      cryptographic-algorithm sha384
+     exit
+     key 400
+      key-string password
+      cryptographic-algorithm sha384
+     exit
+    !
+
+Show commands:
+==============
+There is an interface show command that displays if authentication trailer
+is enabled or not. it also displays the sequence number used in authentication
+header. json output is also supported.
+
+There is support for drop counters, which will help in debugging the feature.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6 interface ens192
+    ens192 is up, type BROADCAST
+      Interface ID: 5
+      Number of I/F scoped LSAs is 2
+        0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+        0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+      Authentication trailer is enabled with manual key         ==> new info added
+        Higher sequence no 0, Lower sequence no 130081
+        Packet drop Tx 0, Packet drop Rx 0
+
+
+OSPFv3 supports options in hello and database description packets hence
+the presence of authentication trailer needs to be stored in OSPFv3
+neighbor info. The sequence number sent in authentication header from
+the neighbor is stored in neighbor to validate the packet.
+json output is also supported.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6 neighbor 2.2.2.2
+     Neighbor 2.2.2.2%ens192
+        Area 1 via interface ens192 (ifindex 3)
+        0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+        0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+        Authentication is enabled                               ==> new info added
+          Higher sequence no 0, Lower sequence no 130114
+
+
+Debug command:
+==============
+Below command can be used to enable ospfv3 authentication trailer
+specific logs if you have to debug the feature.
+
+.. clicmd:: debug ospf6 authentication [<tx|rx>]
+
+Feature supports authentication trailer tx/rx drop counters for debugging,
+which can be used to see if packets are getting dropped due to error in
+processing authentication trailer information in OSPFv3 packet.
+json output is also supported.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6 interface ens192
+    ens192 is up, type BROADCAST
+      Interface ID: 5
+      Number of I/F scoped LSAs is 2
+        0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+        0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+      Authentication trailer is enabled with manual key
+        Higher sequence no 0, Lower sequence no 130081
+        Packet drop Tx 0, Packet drop Rx 0                      ==> new counters
+
+Clear command:
+==============
+Below command can be used to clear the tx/rx drop counters in interface.
+Below command can be used to clear all ospfv3 interface or specific
+interface by specifying the interface name.
+
+.. clicmd:: clear ipv6 ospf6 auth-counters interface [IFNAME]
+
 
 Configuration Limits
 ====================

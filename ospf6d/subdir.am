@@ -22,6 +22,7 @@ vtysh_scan += \
 	ospf6d/ospf6_top.c \
 	ospf6d/ospf6_zebra.c \
 	ospf6d/ospf6d.c \
+	ospf6d/ospf6_auth_trailer.c \
 	# end
 vtysh_daemons += ospf6d
 if SNMP
@@ -52,6 +53,7 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_top.c \
 	ospf6d/ospf6_zebra.c \
 	ospf6d/ospf6d.c \
+	ospf6d/ospf6_auth_trailer.c \
 	# end
 
 noinst_HEADERS += \
@@ -75,6 +77,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_top.h \
 	ospf6d/ospf6_zebra.h \
 	ospf6d/ospf6d.h \
+	ospf6d/ospf6_auth_trailer.h \
 	# end
 
 ospf6d_ospf6d_LDADD = ospf6d/libospf6.a lib/libfrr.la $(LIBCAP)

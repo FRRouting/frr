@@ -1136,7 +1136,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 			     json_object *json_routes, bool use_json)
 {
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
-	char area_id[16], id[16], adv_router[16], capa[16], options[16];
+	char area_id[16], id[16], adv_router[16], capa[16], options[32];
 	struct timeval now, res;
 	char duration[64];
 	struct listnode *node;
@@ -1634,7 +1634,7 @@ static void ospf6_linkstate_show_header(struct vty *vty)
 static void ospf6_linkstate_show(struct vty *vty, struct ospf6_route *route)
 {
 	uint32_t router, id;
-	char routername[16], idname[16], rbits[16], options[16];
+	char routername[16], idname[16], rbits[16], options[32];
 
 	router = ospf6_linkstate_prefix_adv_router(&route->prefix);
 	inet_ntop(AF_INET, &router, routername, sizeof(routername));
@@ -1760,7 +1760,7 @@ void ospf6_brouter_show_header(struct vty *vty)
 void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 {
 	uint32_t adv_router;
-	char adv[16], rbits[16], options[16], area[16];
+	char adv[16], rbits[16], options[32], area[16];
 
 	adv_router = ospf6_linkstate_prefix_adv_router(&route->prefix);
 	inet_ntop(AF_INET, &adv_router, adv, sizeof(adv));
