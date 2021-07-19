@@ -176,6 +176,9 @@ static void connected_update(struct interface *ifp, struct connected *ifc)
 		 */
 		if (connected_same(current, ifc)) {
 			/* nothing to do */
+			zlog_warn("%s: ignoring %pFX b/c of current %pFX",
+				  __func__, ifc->destination,
+				  current->destination);
 			connected_free(&ifc);
 			return;
 		}
