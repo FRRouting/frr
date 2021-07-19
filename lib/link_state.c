@@ -67,7 +67,7 @@ struct ls_node *ls_node_new(struct ls_node_id adv, struct in_addr rid,
 		}
 	}
 	if (!IN6_IS_ADDR_UNSPECIFIED(&rid6)) {
-		new->router6_id = rid6;
+		new->router_id6 = rid6;
 		SET_FLAG(new->flags, LS_NODE_ROUTER_ID6);
 	}
 	return new;
@@ -251,6 +251,25 @@ int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
 /**
  *  Link State Vertices management functions
  */
+uint64_t sysid_to_key(const uint8_t sysid[ISO_SYS_ID_LEN])
+{
+	uint64_t key = 0;
+
+#if BYTE_ORDER == LITTLE_ENDIAN
+	uint8_t *byte = (uint8_t *)&key;
+
+	for (int i = 0; i < ISO_SYS_ID_LEN; i++)
+		byte[i] = sysid[ISO_SYS_ID_LEN - i - 1];
+
+	byte[6] = 0;
+	byte[7] = 0;
+#else
+	memcpy(&key, sysid, ISO_SYS_ID_LEN);
+#endif
+
+	return key;
+}
+
 struct ls_vertex *ls_vertex_add(struct ls_ted *ted, struct ls_node *node)
 {
 	struct ls_vertex *new;
@@ -269,7 +288,7 @@ struct ls_vertex *ls_vertex_add(struct ls_ted *ted, struct ls_node *node)
 		break;
 	case ISIS_L1:
 	case ISIS_L2:
-		memcpy(&key, &node->adv.id.iso.sys_id, ISO_SYS_ID_LEN);
+		key = sysid_to_key(node->adv.id.iso.sys_id);
 		break;
 	default:
 		key = 0;
@@ -391,7 +410,7 @@ struct ls_vertex *ls_find_vertex_by_id(struct ls_ted *ted,
 		break;
 	case ISIS_L1:
 	case ISIS_L2:
-		memcpy(&vertex.key, &nid.id.iso.sys_id, ISO_SYS_ID_LEN);
+		vertex.key = sysid_to_key(nid.id.iso.sys_id);
 		break;
 	default:
 		return NULL;
@@ -507,6 +526,46 @@ static void ls_edge_connect_to(struct ls_ted *ted, struct ls_edge *edge)
 	}
 }
 
+static uint64_t get_edge_key(struct ls_attributes *attr, bool dst)
+{
+	uint64_t key = 0;
+	struct ls_standard *std;
+
+	if (!attr)
+		return key;
+
+	std = &attr->standard;
+
+	if (dst) {
+		/* Key is the IPv4 remote address */
+		if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR))
+			key = ((uint64_t)ntohl(std->remote.s_addr))
+			      & 0xffffffff;
+		/* or the 64 bits LSB of IPv6 remote address */
+		else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ADDR6))
+			key = ((uint64_t)ntohl(std->remote6.s6_addr32[2]) << 32
+			       | (uint64_t)ntohl(std->remote6.s6_addr32[3]));
+		/* of remote identifier if no IP addresses are defined */
+		else if (CHECK_FLAG(attr->flags, LS_ATTR_NEIGH_ID))
+			key = (((uint64_t)std->remote_id) & 0xffffffff)
+			      | ((uint64_t)std->local_id << 32);
+	} else {
+		/* Key is the IPv4 local address */
+		if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR))
+			key = ((uint64_t)ntohl(std->local.s_addr)) & 0xffffffff;
+		/* or the 64 bits LSB of IPv6 local address */
+		else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6))
+			key = ((uint64_t)ntohl(std->local6.s6_addr32[2]) << 32
+			       | (uint64_t)ntohl(std->local6.s6_addr32[3]));
+		/* of local identifier if no IP addresses are defined */
+		else if (CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ID))
+			key = (((uint64_t)std->local_id) & 0xffffffff)
+			      | ((uint64_t)std->remote_id << 32);
+	}
+
+	return key;
+}
+
 struct ls_edge *ls_edge_add(struct ls_ted *ted,
 			    struct ls_attributes *attributes)
 {
@@ -516,23 +575,7 @@ struct ls_edge *ls_edge_add(struct ls_ted *ted,
 	if (attributes == NULL)
 		return NULL;
 
-	/* Key is the IPv4 local address */
-	if (!IPV4_NET0(attributes->standard.local.s_addr))
-		key = ((uint64_t)ntohl(attributes->standard.local.s_addr))
-		      & 0xffffffff;
-	/* or the IPv6 local address if IPv4 is not defined */
-	else if (!IN6_IS_ADDR_UNSPECIFIED(&attributes->standard.local6))
-		key = (uint64_t)(attributes->standard.local6.s6_addr32[0]
-				 & 0xffffffff)
-		      | ((uint64_t)attributes->standard.local6.s6_addr32[1]
-			 << 32);
-	/* of local identifier if no IP addresses are defined */
-	else if (attributes->standard.local_id != 0)
-		key = (uint64_t)(
-			(attributes->standard.local_id & 0xffffffff)
-			| ((uint64_t)attributes->standard.remote_id << 32));
-
-	/* Check that key is valid */
+	key = get_edge_key(attributes, false);
 	if (key == 0)
 		return NULL;
 
@@ -570,23 +613,7 @@ struct ls_edge *ls_find_edge_by_source(struct ls_ted *ted,
 	if (attributes == NULL)
 		return NULL;
 
-	edge.key = 0;
-	/* Key is the IPv4 local address */
-	if (!IPV4_NET0(attributes->standard.local.s_addr))
-		edge.key = ((uint64_t)ntohl(attributes->standard.local.s_addr))
-			   & 0xffffffff;
-	/* or the IPv6 local address if IPv4 is not defined */
-	else if (!IN6_IS_ADDR_UNSPECIFIED(&attributes->standard.local6))
-		edge.key = (uint64_t)(attributes->standard.local6.s6_addr32[0]
-				      & 0xffffffff)
-			   | ((uint64_t)attributes->standard.local6.s6_addr32[1]
-			      << 32);
-	/* of local identifier if no IP addresses are defined */
-	else if (attributes->standard.local_id != 0)
-		edge.key = (uint64_t)(
-			(attributes->standard.local_id & 0xffffffff)
-			| ((uint64_t)attributes->standard.remote_id << 32));
-
+	edge.key = get_edge_key(attributes, false);
 	if (edge.key == 0)
 		return NULL;
 
@@ -601,24 +628,7 @@ struct ls_edge *ls_find_edge_by_destination(struct ls_ted *ted,
 	if (attributes == NULL)
 		return NULL;
 
-	edge.key = 0;
-	/* Key is the IPv4 remote address */
-	if (!IPV4_NET0(attributes->standard.remote.s_addr))
-		edge.key = ((uint64_t)ntohl(attributes->standard.remote.s_addr))
-			   & 0xffffffff;
-	/* or the IPv6 remote address if IPv4 is not defined */
-	else if (!IN6_IS_ADDR_UNSPECIFIED(&attributes->standard.remote6))
-		edge.key =
-			(uint64_t)(attributes->standard.remote6.s6_addr32[0]
-				   & 0xffffffff)
-			| ((uint64_t)attributes->standard.remote6.s6_addr32[1]
-			   << 32);
-	/* of remote identifier if no IP addresses are defined */
-	else if (attributes->standard.remote_id != 0)
-		edge.key = (uint64_t)(
-			(attributes->standard.remote_id & 0xffffffff)
-			| ((uint64_t)attributes->standard.local_id << 32));
-
+	edge.key = get_edge_key(attributes, true);
 	if (edge.key == 0)
 		return NULL;
 
@@ -1011,7 +1021,7 @@ static struct ls_node *ls_parse_node(struct stream *s)
 	if (CHECK_FLAG(node->flags, LS_NODE_ROUTER_ID))
 		node->router_id.s_addr = stream_get_ipv4(s);
 	if (CHECK_FLAG(node->flags, LS_NODE_ROUTER_ID6))
-		STREAM_GET(&node->router6_id, s, IPV6_MAX_BYTELEN);
+		STREAM_GET(&node->router_id6, s, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(node->flags, LS_NODE_FLAG))
 		STREAM_GETC(s, node->node_flag);
 	if (CHECK_FLAG(node->flags, LS_NODE_TYPE))
@@ -1101,26 +1111,32 @@ static struct ls_attributes *ls_parse_attributes(struct stream *s)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_USE_BW))
 		STREAM_GETF(s, attr->extended.used_bw);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID)) {
-		STREAM_GETL(s, attr->adj_sid[0].sid);
-		STREAM_GETC(s, attr->adj_sid[0].flags);
-		STREAM_GETC(s, attr->adj_sid[0].weight);
-		if (attr->adv.origin == ISIS_L1 || attr->adv.origin == ISIS_L2)
-			STREAM_GET(attr->adj_sid[0].neighbor.sysid, s,
-				   ISO_SYS_ID_LEN);
-		else if (attr->adv.origin == OSPFv2)
-			attr->adj_sid[0].neighbor.addr.s_addr =
-				stream_get_ipv4(s);
+		STREAM_GETL(s, attr->adj_sid[ADJ_PRI_IPV4].sid);
+		STREAM_GETC(s, attr->adj_sid[ADJ_PRI_IPV4].flags);
+		STREAM_GETC(s, attr->adj_sid[ADJ_PRI_IPV4].weight);
+		attr->adj_sid[ADJ_PRI_IPV4].neighbor.addr.s_addr =
+			stream_get_ipv4(s);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID)) {
-		STREAM_GETL(s, attr->adj_sid[1].sid);
-		STREAM_GETC(s, attr->adj_sid[1].flags);
-		STREAM_GETC(s, attr->adj_sid[1].weight);
-		if (attr->adv.origin == ISIS_L1 || attr->adv.origin == ISIS_L2)
-			STREAM_GET(attr->adj_sid[1].neighbor.sysid, s,
-				   ISO_SYS_ID_LEN);
-		else if (attr->adv.origin == OSPFv2)
-			attr->adj_sid[1].neighbor.addr.s_addr =
-				stream_get_ipv4(s);
+		STREAM_GETL(s, attr->adj_sid[ADJ_BCK_IPV4].sid);
+		STREAM_GETC(s, attr->adj_sid[ADJ_BCK_IPV4].flags);
+		STREAM_GETC(s, attr->adj_sid[ADJ_BCK_IPV4].weight);
+		attr->adj_sid[ADJ_BCK_IPV4].neighbor.addr.s_addr =
+			stream_get_ipv4(s);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID6)) {
+		STREAM_GETL(s, attr->adj_sid[ADJ_PRI_IPV6].sid);
+		STREAM_GETC(s, attr->adj_sid[ADJ_PRI_IPV6].flags);
+		STREAM_GETC(s, attr->adj_sid[ADJ_PRI_IPV6].weight);
+		STREAM_GET(attr->adj_sid[ADJ_PRI_IPV6].neighbor.sysid, s,
+			   ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID6)) {
+		STREAM_GETL(s, attr->adj_sid[ADJ_BCK_IPV6].sid);
+		STREAM_GETC(s, attr->adj_sid[ADJ_BCK_IPV6].flags);
+		STREAM_GETC(s, attr->adj_sid[ADJ_BCK_IPV6].weight);
+		STREAM_GET(attr->adj_sid[ADJ_BCK_IPV6].neighbor.sysid, s,
+			   ISO_SYS_ID_LEN);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		STREAM_GETC(s, len);
@@ -1235,7 +1251,7 @@ static int ls_format_node(struct stream *s, struct ls_node *node)
 	if (CHECK_FLAG(node->flags, LS_NODE_ROUTER_ID))
 		stream_put_ipv4(s, node->router_id.s_addr);
 	if (CHECK_FLAG(node->flags, LS_NODE_ROUTER_ID6))
-		stream_put(s, &node->router6_id, IPV6_MAX_BYTELEN);
+		stream_put(s, &node->router_id6, IPV6_MAX_BYTELEN);
 	if (CHECK_FLAG(node->flags, LS_NODE_FLAG))
 		stream_putc(s, node->node_flag);
 	if (CHECK_FLAG(node->flags, LS_NODE_TYPE))
@@ -1321,26 +1337,32 @@ static int ls_format_attributes(struct stream *s, struct ls_attributes *attr)
 	if (CHECK_FLAG(attr->flags, LS_ATTR_USE_BW))
 		stream_putf(s, attr->extended.used_bw);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID)) {
-		stream_putl(s, attr->adj_sid[0].sid);
-		stream_putc(s, attr->adj_sid[0].flags);
-		stream_putc(s, attr->adj_sid[0].weight);
-		if (attr->adv.origin == ISIS_L1 || attr->adv.origin == ISIS_L2)
-			stream_put(s, attr->adj_sid[0].neighbor.sysid,
-				   ISO_SYS_ID_LEN);
-		else if (attr->adv.origin == OSPFv2)
-			stream_put_ipv4(s,
-					attr->adj_sid[0].neighbor.addr.s_addr);
+		stream_putl(s, attr->adj_sid[ADJ_PRI_IPV4].sid);
+		stream_putc(s, attr->adj_sid[ADJ_PRI_IPV4].flags);
+		stream_putc(s, attr->adj_sid[ADJ_PRI_IPV4].weight);
+		stream_put_ipv4(
+			s, attr->adj_sid[ADJ_PRI_IPV4].neighbor.addr.s_addr);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID)) {
-		stream_putl(s, attr->adj_sid[1].sid);
-		stream_putc(s, attr->adj_sid[1].flags);
-		stream_putc(s, attr->adj_sid[1].weight);
-		if (attr->adv.origin == ISIS_L1 || attr->adv.origin == ISIS_L2)
-			stream_put(s, attr->adj_sid[1].neighbor.sysid,
-				   ISO_SYS_ID_LEN);
-		else if (attr->adv.origin == OSPFv2)
-			stream_put_ipv4(s,
-					attr->adj_sid[1].neighbor.addr.s_addr);
+		stream_putl(s, attr->adj_sid[ADJ_BCK_IPV4].sid);
+		stream_putc(s, attr->adj_sid[ADJ_BCK_IPV4].flags);
+		stream_putc(s, attr->adj_sid[ADJ_BCK_IPV4].weight);
+		stream_put_ipv4(
+			s, attr->adj_sid[ADJ_BCK_IPV4].neighbor.addr.s_addr);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID6)) {
+		stream_putl(s, attr->adj_sid[ADJ_PRI_IPV6].sid);
+		stream_putc(s, attr->adj_sid[ADJ_PRI_IPV6].flags);
+		stream_putc(s, attr->adj_sid[ADJ_PRI_IPV6].weight);
+		stream_put(s, attr->adj_sid[ADJ_PRI_IPV6].neighbor.sysid,
+			   ISO_SYS_ID_LEN);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID6)) {
+		stream_putl(s, attr->adj_sid[ADJ_BCK_IPV6].sid);
+		stream_putc(s, attr->adj_sid[ADJ_BCK_IPV6].flags);
+		stream_putc(s, attr->adj_sid[ADJ_BCK_IPV6].weight);
+		stream_put(s, attr->adj_sid[ADJ_BCK_IPV6].neighbor.sysid,
+			   ISO_SYS_ID_LEN);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		stream_putc(s, attr->srlg_len);
@@ -1789,6 +1811,7 @@ static void ls_show_vertex_vty(struct ls_vertex *vertex, struct vty *vty,
 	struct listnode *node;
 	struct ls_node *lsn;
 	struct ls_edge *edge;
+	struct ls_attributes *attr;
 	struct ls_subnet *subnet;
 	struct sbuf sbuf;
 	uint32_t upper;
@@ -1853,9 +1876,15 @@ static void ls_show_vertex_vty(struct ls_vertex *vertex, struct vty *vty,
 		} else {
 			sbuf_push(&sbuf, 6, "To:\t- (0.0.0.0)");
 		}
-		sbuf_push(&sbuf, 0, "\tLocal:  %pI4\tRemote: %pI4\n",
-			  &edge->attributes->standard.local,
-			  &edge->attributes->standard.remote);
+		attr = edge->attributes;
+		if ((CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)))
+			sbuf_push(&sbuf, 0, "\tLocal:  %pI4\tRemote: %pI4\n",
+				  &attr->standard.local,
+				  &attr->standard.remote);
+		else if ((CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)))
+			sbuf_push(&sbuf, 0, "\tLocal:  %pI6\tRemote: %pI6\n",
+				  &attr->standard.local6,
+				  &attr->standard.remote6);
 	}
 
 	sbuf_push(&sbuf, 4, "Incoming Edges: %d\n",
@@ -1868,9 +1897,15 @@ static void ls_show_vertex_vty(struct ls_vertex *vertex, struct vty *vty,
 		} else {
 			sbuf_push(&sbuf, 6, "From:\t- (0.0.0.0)");
 		}
-		sbuf_push(&sbuf, 0, "\tRemote: %pI4\tLocal: %pI4\n",
-			  &edge->attributes->standard.local,
-			  &edge->attributes->standard.remote);
+		attr = edge->attributes;
+		if ((CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR)))
+			sbuf_push(&sbuf, 0, "\tLocal:  %pI4\tRemote: %pI4\n",
+				  &attr->standard.local,
+				  &attr->standard.remote);
+		else if ((CHECK_FLAG(attr->flags, LS_ATTR_LOCAL_ADDR6)))
+			sbuf_push(&sbuf, 0, "\tLocal:  %pI6\tRemote: %pI6\n",
+				  &attr->standard.local6,
+				  &attr->standard.remote6);
 	}
 
 	sbuf_push(&sbuf, 4, "Subnets: %d\n", listcount(vertex->prefixes));
@@ -1905,7 +1940,7 @@ static void ls_show_vertex_json(struct ls_vertex *vertex,
 		json_object_string_add(json, "router-id", buf);
 	}
 	if (CHECK_FLAG(lsn->flags, LS_NODE_ROUTER_ID6)) {
-		snprintfrr(buf, INET6_BUFSIZ, "%pI6", &lsn->router6_id);
+		snprintfrr(buf, INET6_BUFSIZ, "%pI6", &lsn->router_id6);
 		json_object_string_add(json, "router-id-v6", buf);
 	}
 	if (CHECK_FLAG(lsn->flags, LS_NODE_TYPE))
@@ -2069,15 +2104,32 @@ static void ls_show_edge_vty(struct ls_edge *edge, struct vty *vty,
 		sbuf_push(&sbuf, 4, "Utilized Bandwidth: %g (Bytes/s)\n",
 			  attr->extended.used_bw);
 	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID)) {
-		sbuf_push(&sbuf, 4, "Adjacency-SID: %u", attr->adj_sid[0].sid);
+		sbuf_push(&sbuf, 4, "IPv4 Adjacency-SID: %u",
+			  attr->adj_sid[ADJ_PRI_IPV4].sid);
 		sbuf_push(&sbuf, 0, "\tFlags: 0x%x\tWeight: 0x%x\n",
-			  attr->adj_sid[0].flags, attr->adj_sid[0].weight);
+			  attr->adj_sid[ADJ_PRI_IPV4].flags,
+			  attr->adj_sid[ADJ_PRI_IPV4].weight);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID)) {
-		sbuf_push(&sbuf, 4, "Bck. Adjacency-SID: %u",
-			  attr->adj_sid[1].sid);
+		sbuf_push(&sbuf, 4, "IPv4 Bck. Adjacency-SID: %u",
+			  attr->adj_sid[ADJ_BCK_IPV4].sid);
 		sbuf_push(&sbuf, 0, "\tFlags: 0x%x\tWeight: 0x%x\n",
-			  attr->adj_sid[1].flags, attr->adj_sid[1].weight);
+			  attr->adj_sid[ADJ_BCK_IPV4].flags,
+			  attr->adj_sid[ADJ_BCK_IPV4].weight);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID6)) {
+		sbuf_push(&sbuf, 4, "IPv6 Adjacency-SID: %u",
+			  attr->adj_sid[ADJ_PRI_IPV6].sid);
+		sbuf_push(&sbuf, 0, "\tFlags: 0x%x\tWeight: 0x%x\n",
+			  attr->adj_sid[ADJ_PRI_IPV6].flags,
+			  attr->adj_sid[ADJ_PRI_IPV6].weight);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID6)) {
+		sbuf_push(&sbuf, 4, "IPv6 Bck. Adjacency-SID: %u",
+			  attr->adj_sid[ADJ_BCK_IPV6].sid);
+		sbuf_push(&sbuf, 0, "\tFlags: 0x%x\tWeight: 0x%x\n",
+			  attr->adj_sid[ADJ_BCK_IPV6].flags,
+			  attr->adj_sid[ADJ_BCK_IPV6].weight);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_SRLG)) {
 		sbuf_push(&sbuf, 4, "SRLGs: %d", attr->srlg_len);
@@ -2208,10 +2260,12 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 		jsr = json_object_new_array();
 		json_object_object_add(json, "segment-routing", jsr);
 		jobj = json_object_new_object();
-		json_object_int_add(jobj, "adj-sid", attr->adj_sid[0].sid);
-		snprintfrr(buf, 6, "0x%x", attr->adj_sid[0].flags);
+		json_object_int_add(jobj, "adj-sid",
+				    attr->adj_sid[ADJ_PRI_IPV4].sid);
+		snprintfrr(buf, 6, "0x%x", attr->adj_sid[ADJ_PRI_IPV4].flags);
 		json_object_string_add(jobj, "flags", buf);
-		json_object_int_add(jobj, "weight", attr->adj_sid[0].weight);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_sid[ADJ_PRI_IPV4].weight);
 		json_object_array_add(jsr, jobj);
 	}
 	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID)) {
@@ -2220,10 +2274,38 @@ static void ls_show_edge_json(struct ls_edge *edge, struct json_object *json)
 			json_object_object_add(json, "segment-routing", jsr);
 		}
 		jobj = json_object_new_object();
-		json_object_int_add(jobj, "adj-sid", attr->adj_sid[1].sid);
-		snprintfrr(buf, 6, "0x%x", attr->adj_sid[1].flags);
+		json_object_int_add(jobj, "adj-sid",
+				    attr->adj_sid[ADJ_BCK_IPV4].sid);
+		snprintfrr(buf, 6, "0x%x", attr->adj_sid[ADJ_BCK_IPV4].flags);
 		json_object_string_add(jobj, "flags", buf);
-		json_object_int_add(jobj, "weight", attr->adj_sid[1].weight);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_sid[ADJ_BCK_IPV4].weight);
+		json_object_array_add(jsr, jobj);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_ADJ_SID6)) {
+		jsr = json_object_new_array();
+		json_object_object_add(json, "segment-routing", jsr);
+		jobj = json_object_new_object();
+		json_object_int_add(jobj, "adj-sid",
+				    attr->adj_sid[ADJ_PRI_IPV6].sid);
+		snprintfrr(buf, 6, "0x%x", attr->adj_sid[ADJ_PRI_IPV6].flags);
+		json_object_string_add(jobj, "flags", buf);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_sid[ADJ_PRI_IPV6].weight);
+		json_object_array_add(jsr, jobj);
+	}
+	if (CHECK_FLAG(attr->flags, LS_ATTR_BCK_ADJ_SID6)) {
+		if (!jsr) {
+			jsr = json_object_new_array();
+			json_object_object_add(json, "segment-routing", jsr);
+		}
+		jobj = json_object_new_object();
+		json_object_int_add(jobj, "adj-sid",
+				    attr->adj_sid[ADJ_BCK_IPV6].sid);
+		snprintfrr(buf, 6, "0x%x", attr->adj_sid[ADJ_BCK_IPV6].flags);
+		json_object_string_add(jobj, "flags", buf);
+		json_object_int_add(jobj, "weight",
+				    attr->adj_sid[ADJ_BCK_IPV6].weight);
 		json_object_array_add(jsr, jobj);
 	}
 }

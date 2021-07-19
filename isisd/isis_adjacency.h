@@ -88,8 +88,10 @@ struct isis_adjacency {
 	struct in_addr *ipv4_addresses;
 	unsigned int ipv4_address_count;
 	struct in_addr router_address;
-	struct in6_addr *ipv6_addresses;
+	struct in6_addr *ipv6_addresses; /* Link local IPv6 neighbor address */
 	unsigned int ipv6_address_count;
+	struct in6_addr *global_ipv6;    /* Global IPv6 neighbor address */
+	unsigned int global_ipv6_count;
 	struct in6_addr router_address6;
 	uint8_t prio[ISIS_LEVELS];      /* priorityOfNeighbour for DIS */
 	int circuit_t;			/* from hello PDU hdr */
@@ -127,9 +129,11 @@ void isis_adj_process_threeway(struct isis_adjacency *adj,
 			       enum isis_adj_usage adj_usage);
 DECLARE_HOOK(isis_adj_state_change_hook, (struct isis_adjacency *adj), (adj));
 DECLARE_HOOK(isis_adj_ip_enabled_hook,
-	     (struct isis_adjacency *adj, int family), (adj, family));
+	     (struct isis_adjacency * adj, int family, bool global),
+	     (adj, family, global));
 DECLARE_HOOK(isis_adj_ip_disabled_hook,
-	     (struct isis_adjacency *adj, int family), (adj, family));
+	     (struct isis_adjacency * adj, int family, bool global),
+	     (adj, family, global));
 void isis_log_adj_change(struct isis_adjacency *adj,
 			 enum isis_adj_state old_state,
 			 enum isis_adj_state new_state, const char *reason);

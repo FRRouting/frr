@@ -876,12 +876,14 @@ static int sr_adj_state_change(struct isis_adjacency *adj)
  *
  * @param adj	  IS-IS Adjacency
  * @param family  Inet Family (IPv4 or IPv6)
+ * @param global  Indicate if it concerns the Local or Global IPv6 addresses
  *
  * @return	  0
  */
-static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family,
+			     bool global)
 {
-	if (!adj->circuit->area->srdb.enabled)
+	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
 
 	sr_adj_sid_add(adj, family);
@@ -895,15 +897,17 @@ static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
  *
  * @param adj	  IS-IS Adjacency
  * @param family  Inet Family (IPv4 or IPv6)
+ * @param global  Indicate if it concerns the Local or Global IPv6 addresses
  *
  * @return	  0
  */
-static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
+			      bool global)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
 
-	if (!adj->circuit->area->srdb.enabled)
+	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(adj->adj_sids, node, nnode, sra))

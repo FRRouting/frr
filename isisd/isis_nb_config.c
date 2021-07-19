@@ -33,6 +33,7 @@
 #include "lib_errors.h"
 #include "vrf.h"
 #include "ldp_sync.h"
+#include "link_state.h"
 
 #include "isisd/isisd.h"
 #include "isisd/isis_nb.h"
@@ -51,6 +52,7 @@
 #include "isisd/isis_redist.h"
 #include "isisd/isis_ldp_sync.h"
 #include "isisd/isis_dr.h"
+#include "isisd/isis_zebra.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MPLS_TE,    "ISIS MPLS_TE parameters");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
@@ -1827,11 +1829,18 @@ int isis_instance_mpls_te_create(struct nb_cb_create_args *args)
 		new->inter_as = off;
 		new->interas_areaid.s_addr = 0;
 		new->router_id.s_addr = 0;
+		new->ted = ls_ted_new(1, "ISIS", 0);
+		if (!new->ted)
+			zlog_warn("Unable to create Link State Data Base");
 
 		area->mta = new;
 	} else {
 		area->mta->status = enable;
 	}
+
+	/* Initialize Link State Database */
+	if (area->mta->ted)
+		isis_te_init_ted(area);
 
 	/* Update Extended TLVs according to Interface link parameters */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
@@ -1857,6 +1866,9 @@ int isis_instance_mpls_te_destroy(struct nb_cb_destroy_args *args)
 		area->mta->status = disable;
 	else
 		return NB_OK;
+
+	/* Remove Link State Database */
+	ls_ted_del_all(area->mta->ted);
 
 	/* Flush LSP if circuit engage */
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
@@ -1925,6 +1937,86 @@ int isis_instance_mpls_te_router_address_destroy(
 
 	/* And re-schedule LSP update */
 	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/router-address-v6
+ */
+int isis_instance_mpls_te_router_address_ipv6_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct in6_addr value;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	/* Update Area IPv6 Router ID */
+	yang_dnode_get_ipv6(&value, args->dnode, NULL);
+	IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &value);
+
+	/* And re-schedule LSP update */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_mpls_te_router_address_ipv6_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	/* Reset Area Router ID */
+	IPV6_ADDR_COPY(&area->mta->router_id_ipv6, &in6addr_any);
+
+	/* And re-schedule LSP update */
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/export
+ */
+int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
+{
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	/* only proceed if MPLS-TE is enabled */
+	if (!IS_MPLS_TE(area->mta))
+		return NB_OK;
+
+	area->mta->export = yang_dnode_get_bool(args->dnode, NULL);
+	if (area->mta->export) {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Enabled Link State export");
+		if (isis_zebra_ls_register(true) != 0)
+			zlog_warn("Unable to register Link State\n");
+	} else {
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("MPLS-TE: Disable Link State export");
+		if (isis_zebra_ls_register(false) != 0)
+			zlog_warn("Unable to register Link State\n");
+	}
 
 	return NB_OK;
 }

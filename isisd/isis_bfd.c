@@ -180,10 +180,11 @@ void isis_bfd_circuit_cmd(struct isis_circuit *circuit)
 	}
 }
 
-static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int bfd_handle_adj_ip_enabled(struct isis_adjacency *adj, int family,
+				     bool global)
 {
 
-	if (family != AF_INET6)
+	if (family != AF_INET6 || global)
 		return 0;
 
 	if (adj->bfd_session)

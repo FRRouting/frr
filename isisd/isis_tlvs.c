@@ -99,6 +99,7 @@ static const struct pack_order_entry pack_order[] = {
 	PACK_ENTRY(OLDSTYLE_IP_REACH_EXT, ISIS_ITEMS, oldstyle_ip_reach_ext),
 	PACK_ENTRY(IPV4_ADDRESS, ISIS_ITEMS, ipv4_address),
 	PACK_ENTRY(IPV6_ADDRESS, ISIS_ITEMS, ipv6_address),
+	PACK_ENTRY(GLOBAL_IPV6_ADDRESS, ISIS_ITEMS, global_ipv6_address),
 	PACK_ENTRY(EXTENDED_IP_REACH, ISIS_ITEMS, extended_ip_reach),
 	PACK_ENTRY(MT_IP_REACH, ISIS_MT_ITEMS, mt_ip_reach),
 	PACK_ENTRY(IPV6_REACH, ISIS_ITEMS, ipv6_reach),
@@ -128,27 +129,41 @@ struct isis_ext_subtlvs *isis_alloc_ext_subtlvs(void)
 }
 
 /*
- * mtid parameter is used to determine if Adjacency is related to IPv4 or IPv6.
- * A negative value could be used to skip copy of Adjacency SID.
+ * mtid parameter is used to determine if Adjacency is related to IPv4 or IPv6
+ * Multi-Topology. Special 4096 value i.e. first R flag set is used to indicate
+ * that MT is disabled i.e. IS-IS is working with a Single Topology.
  */
 static struct isis_ext_subtlvs *
-copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, int16_t mtid)
+copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, uint16_t mtid)
 {
 	struct isis_ext_subtlvs *rv = XCALLOC(MTYPE_ISIS_SUBTLV, sizeof(*rv));
 	struct isis_adj_sid *adj;
 	struct isis_lan_adj_sid *lan;
 
+	/* Copy the Extended IS main part */
 	memcpy(rv, exts, sizeof(struct isis_ext_subtlvs));
+
+	/* Disable IPv4 / IPv6 advertisement in function of MTID */
+	if (mtid == ISIS_MT_IPV4_UNICAST) {
+		UNSET_SUBTLV(rv, EXT_LOCAL_ADDR6);
+		UNSET_SUBTLV(rv, EXT_NEIGH_ADDR6);
+	}
+	if (mtid == ISIS_MT_IPV6_UNICAST) {
+		UNSET_SUBTLV(rv, EXT_LOCAL_ADDR);
+		UNSET_SUBTLV(rv, EXT_NEIGH_ADDR);
+	}
+
+	/* Prepare (LAN)-Adjacency Segment Routing ID*/
 	init_item_list(&rv->adj_sid);
 	init_item_list(&rv->lan_sid);
 
 	UNSET_SUBTLV(rv, EXT_ADJ_SID);
 	UNSET_SUBTLV(rv, EXT_LAN_ADJ_SID);
 
-	/* Copy Adj SID and LAN Adj SID list for IPv4 if needed */
+	/* Copy Adj SID list for IPv4 & IPv6 in function of MT ID */
 	for (adj = (struct isis_adj_sid *)exts->adj_sid.head; adj != NULL;
 	     adj = adj->next) {
-		if ((mtid != -1)
+		if ((mtid != ISIS_MT_DISABLE)
 		    && (((mtid == ISIS_MT_IPV4_UNICAST)
 			 && (adj->family != AF_INET))
 			|| ((mtid == ISIS_MT_IPV6_UNICAST)
@@ -166,9 +181,10 @@ copy_item_ext_subtlvs(struct isis_ext_subtlvs *exts, int16_t mtid)
 		SET_SUBTLV(rv, EXT_ADJ_SID);
 	}
 
+	/* Same for LAN Adj SID */
 	for (lan = (struct isis_lan_adj_sid *)exts->lan_sid.head; lan != NULL;
 	     lan = lan->next) {
-		if ((mtid != -1)
+		if ((mtid != ISIS_MT_DISABLE)
 		    && (((mtid == ISIS_MT_IPV4_UNICAST)
 			 && (lan->family != AF_INET))
 			|| ((mtid == ISIS_MT_IPV6_UNICAST)
@@ -196,8 +212,6 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				    uint16_t mtid)
 {
 
-	char ibuf[PREFIX2STR_BUFFER];
-
 	/* Standard metrics */
 	if (IS_SUBTLV(exts, EXT_ADM_GRP))
 		sbuf_push(buf, indent, "Administrative Group: 0x%x\n",
@@ -212,16 +226,17 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 		sbuf_push(buf, indent, "Local Interface IP Address(es): %pI4\n",
 			  &exts->local_addr);
 	if (IS_SUBTLV(exts, EXT_NEIGH_ADDR))
-		sbuf_push(buf, indent, "Remote Interface IP Address(es): %pI4\n",
+		sbuf_push(buf, indent,
+			  "Remote Interface IP Address(es): %pI4\n",
 			  &exts->neigh_addr);
 	if (IS_SUBTLV(exts, EXT_LOCAL_ADDR6))
-		sbuf_push(buf, indent, "Local Interface IPv6 Address(es): %s\n",
-			inet_ntop(AF_INET6, &exts->local_addr6, ibuf,
-				  PREFIX2STR_BUFFER));
+		sbuf_push(buf, indent,
+			  "Local Interface IPv6 Address(es): %pI6\n",
+			  &exts->local_addr6);
 	if (IS_SUBTLV(exts, EXT_NEIGH_ADDR6))
-		sbuf_push(buf, indent, "Remote Interface IPv6 Address(es): %s\n",
-			inet_ntop(AF_INET6, &exts->local_addr6, ibuf,
-				  PREFIX2STR_BUFFER));
+		sbuf_push(buf, indent,
+			  "Remote Interface IPv6 Address(es): %pI6\n",
+			  &exts->neigh_addr6);
 	if (IS_SUBTLV(exts, EXT_MAX_BW))
 		sbuf_push(buf, indent, "Maximum Bandwidth: %g (Bytes/sec)\n",
 			  exts->max_bw);
@@ -289,11 +304,6 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 
 		for (adj = (struct isis_adj_sid *)exts->adj_sid.head; adj;
 		     adj = adj->next) {
-			if (((mtid == ISIS_MT_IPV4_UNICAST)
-			     && (adj->family != AF_INET))
-			    || ((mtid == ISIS_MT_IPV6_UNICAST)
-				&& (adj->family != AF_INET6)))
-				continue;
 			sbuf_push(
 				buf, indent,
 				"Adjacency-SID: %u, Weight: %hhu, Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n",
@@ -319,10 +329,6 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 
 		for (lan = (struct isis_lan_adj_sid *)exts->lan_sid.head;
 		     lan; lan = lan->next) {
-			if (((mtid == ISIS_MT_IPV4_UNICAST)
-			     && (lan->family != AF_INET))
-			    || ((mtid == ISIS_MT_IPV6_UNICAST)
-				&& (lan->family != AF_INET6)))
 				continue;
 			sbuf_push(buf, indent,
 				  "Lan-Adjacency-SID: %u, Weight: %hhu, Flags: F:%c B:%c, V:%c, L:%c, S:%c, P:%c\n"
@@ -668,7 +674,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			}
 			break;
 		case ISIS_SUBTLV_MM_DELAY:
-			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
+			if (subtlv_len != ISIS_SUBTLV_MM_DELAY_SIZE) {
 				sbuf_push(log, indent,
 					  "TLV size does not match expected size for Min/Max Link Delay!\n");
 			} else {
@@ -1803,6 +1809,70 @@ static int unpack_item_ipv6_address(uint16_t mtid, uint8_t len,
 }
 
 
+/* Functions related to TLV 233 Global IPv6 Interface addresses */
+static struct isis_item *copy_item_global_ipv6_address(struct isis_item *i)
+{
+	struct isis_ipv6_address *a = (struct isis_ipv6_address *)i;
+	struct isis_ipv6_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+
+	rv->addr = a->addr;
+	return (struct isis_item *)rv;
+}
+
+static void format_item_global_ipv6_address(uint16_t mtid, struct isis_item *i,
+					    struct sbuf *buf, int indent)
+{
+	struct isis_ipv6_address *a = (struct isis_ipv6_address *)i;
+	char addrbuf[INET6_ADDRSTRLEN];
+
+	inet_ntop(AF_INET6, &a->addr, addrbuf, sizeof(addrbuf));
+	sbuf_push(buf, indent, "Global IPv6 Interface Address: %s\n", addrbuf);
+}
+
+static void free_item_global_ipv6_address(struct isis_item *i)
+{
+	XFREE(MTYPE_ISIS_TLV, i);
+}
+
+static int pack_item_global_ipv6_address(struct isis_item *i, struct stream *s,
+					 size_t *min_len)
+{
+	struct isis_ipv6_address *a = (struct isis_ipv6_address *)i;
+
+	if (STREAM_WRITEABLE(s) < 16) {
+		*min_len = 16;
+		return 1;
+	}
+
+	stream_put(s, &a->addr, 16);
+
+	return 0;
+}
+
+static int unpack_item_global_ipv6_address(uint16_t mtid, uint8_t len,
+					   struct stream *s, struct sbuf *log,
+					   void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpack Global IPv6 Interface address...\n");
+	if (len < 16) {
+		sbuf_push(
+			log, indent,
+			"Not enough data left.(Expected 16 bytes of IPv6 address, got %hhu)\n",
+			len);
+		return 1;
+	}
+
+	struct isis_ipv6_address *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	stream_get(&rv->addr, s, 16);
+
+	format_item_global_ipv6_address(mtid, (struct isis_item *)rv, log,
+					indent + 2);
+	append_item(&tlvs->global_ipv6_address, (struct isis_item *)rv);
+	return 0;
+}
+
 /* Functions related to TLV 229 MT Router information */
 static struct isis_item *copy_item_mt_router_info(struct isis_item *i)
 {
@@ -2202,6 +2272,77 @@ static int unpack_tlv_dynamic_hostname(enum isis_tlv_context context,
 
 	return 0;
 }
+
+/* Functions related to TLV 140 IPv6 TE Router ID */
+
+static struct in6_addr *copy_tlv_te_router_id_ipv6(const struct in6_addr *id)
+{
+	if (!id)
+		return NULL;
+
+	struct in6_addr *rv = XCALLOC(MTYPE_ISIS_TLV, sizeof(*rv));
+	memcpy(rv, id, sizeof(*rv));
+	return rv;
+}
+
+static void format_tlv_te_router_id_ipv6(const struct in6_addr *id,
+					 struct sbuf *buf, int indent)
+{
+	if (!id)
+		return;
+
+	char addrbuf[INET6_ADDRSTRLEN];
+	inet_ntop(AF_INET6, id, addrbuf, sizeof(addrbuf));
+	sbuf_push(buf, indent, "IPv6 TE Router ID: %s\n", addrbuf);
+}
+
+static void free_tlv_te_router_id_ipv6(struct in6_addr *id)
+{
+	XFREE(MTYPE_ISIS_TLV, id);
+}
+
+static int pack_tlv_te_router_id_ipv6(const struct in6_addr *id,
+				      struct stream *s)
+{
+	if (!id)
+		return 0;
+
+	if (STREAM_WRITEABLE(s) < (unsigned)(2 + sizeof(*id)))
+		return 1;
+
+	stream_putc(s, ISIS_TLV_TE_ROUTER_ID_IPV6);
+	stream_putc(s, 16);
+	stream_put(s, id, 16);
+	return 0;
+}
+
+static int unpack_tlv_te_router_id_ipv6(enum isis_tlv_context context,
+					uint8_t tlv_type, uint8_t tlv_len,
+					struct stream *s, struct sbuf *log,
+					void *dest, int indent)
+{
+	struct isis_tlvs *tlvs = dest;
+
+	sbuf_push(log, indent, "Unpacking IPv6 TE Router ID TLV...\n");
+	if (tlv_len != 16) {
+		sbuf_push(log, indent, "WARNING: Length invalid\n");
+		return 1;
+	}
+
+	if (tlvs->te_router_id_ipv6) {
+		sbuf_push(
+			log, indent,
+			"WARNING: IPv6 TE Router ID present multiple times.\n");
+		stream_forward_getp(s, tlv_len);
+		return 0;
+	}
+
+	tlvs->te_router_id_ipv6 = XCALLOC(MTYPE_ISIS_TLV, 16);
+	stream_get(tlvs->te_router_id_ipv6, s, 16);
+	format_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6, log, indent + 2);
+	return 0;
+}
+
 
 /* Functions related to TLV 150 Spine-Leaf-Extension */
 
@@ -3570,6 +3711,7 @@ struct isis_tlvs *isis_alloc_tlvs(void)
 	init_item_list(&result->oldstyle_ip_reach_ext);
 	init_item_list(&result->ipv4_address);
 	init_item_list(&result->ipv6_address);
+	init_item_list(&result->global_ipv6_address);
 	init_item_list(&result->extended_ip_reach);
 	RB_INIT(isis_mt_item_list, &result->mt_ip_reach);
 	init_item_list(&result->ipv6_reach);
@@ -3626,7 +3768,13 @@ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs)
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_ADDRESS, &tlvs->ipv6_address,
 		   &rv->ipv6_address);
 
+	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_GLOBAL_IPV6_ADDRESS,
+		   &tlvs->global_ipv6_address, &rv->global_ipv6_address);
+
 	rv->te_router_id = copy_tlv_te_router_id(tlvs->te_router_id);
+
+	rv->te_router_id_ipv6 =
+		copy_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6);
 
 	copy_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_IP_REACH,
 		   &tlvs->extended_ip_reach, &rv->extended_ip_reach);
@@ -3681,6 +3829,7 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, int indent)
 
 	format_tlv_dynamic_hostname(tlvs->hostname, buf, indent);
 	format_tlv_te_router_id(tlvs->te_router_id, buf, indent);
+	format_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6, buf, indent);
 	format_tlv_router_cap(tlvs->router_cap, buf, indent);
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_REACH,
@@ -3700,6 +3849,9 @@ static void format_tlvs(struct isis_tlvs *tlvs, struct sbuf *buf, int indent)
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_ADDRESS,
 		     &tlvs->ipv6_address, buf, indent);
+
+	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_GLOBAL_IPV6_ADDRESS,
+		     &tlvs->global_ipv6_address, buf, indent);
 
 	format_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_IP_REACH,
 		     &tlvs->extended_ip_reach, buf, indent);
@@ -3758,7 +3910,10 @@ void isis_free_tlvs(struct isis_tlvs *tlvs)
 		   &tlvs->ipv4_address);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_IPV6_ADDRESS,
 		   &tlvs->ipv6_address);
+	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_GLOBAL_IPV6_ADDRESS,
+		   &tlvs->global_ipv6_address);
 	free_tlv_te_router_id(tlvs->te_router_id);
+	free_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6);
 	free_items(ISIS_CONTEXT_LSP, ISIS_TLV_EXTENDED_IP_REACH,
 		   &tlvs->extended_ip_reach);
 	free_mt_items(ISIS_CONTEXT_LSP, ISIS_TLV_MT_IP_REACH,
@@ -3963,6 +4118,14 @@ static int pack_tlvs(struct isis_tlvs *tlvs, struct stream *stream,
 	if (fragment_tlvs) {
 		fragment_tlvs->te_router_id =
 			copy_tlv_te_router_id(tlvs->te_router_id);
+	}
+
+	rv = pack_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6, stream);
+	if (rv)
+		return rv;
+	if (fragment_tlvs) {
+		fragment_tlvs->te_router_id_ipv6 =
+			copy_tlv_te_router_id_ipv6(tlvs->te_router_id_ipv6);
 	}
 
 	rv = pack_tlv_threeway_adj(tlvs->threeway_adj, stream);
@@ -4185,10 +4348,12 @@ ITEM_TLV_OPS(ipv4_address, "TLV 132 IPv4 Interface Address");
 TLV_OPS(te_router_id, "TLV 134 TE Router ID");
 ITEM_TLV_OPS(extended_ip_reach, "TLV 135 Extended IP Reachability");
 TLV_OPS(dynamic_hostname, "TLV 137 Dynamic Hostname");
+TLV_OPS(te_router_id_ipv6, "TLV 140 IPv6 TE Router ID");
 TLV_OPS(spine_leaf, "TLV 150 Spine Leaf Extensions");
 ITEM_TLV_OPS(mt_router_info, "TLV 229 MT Router Information");
 TLV_OPS(threeway_adj, "TLV 240 P2P Three-Way Adjacency");
 ITEM_TLV_OPS(ipv6_address, "TLV 232 IPv6 Interface Address");
+ITEM_TLV_OPS(global_ipv6_address, "TLV 233 Global IPv6 Interface Address");
 ITEM_TLV_OPS(ipv6_reach, "TLV 236 IPv6 Reachability");
 TLV_OPS(router_cap, "TLV 242 Router Capability");
 
@@ -4209,12 +4374,14 @@ static const struct tlv_ops *const tlv_table[ISIS_CONTEXT_MAX][ISIS_TLV_MAX] = {
 		[ISIS_TLV_OLDSTYLE_IP_REACH_EXT] = &tlv_oldstyle_ip_reach_ops,
 		[ISIS_TLV_IPV4_ADDRESS] = &tlv_ipv4_address_ops,
 		[ISIS_TLV_TE_ROUTER_ID] = &tlv_te_router_id_ops,
+		[ISIS_TLV_TE_ROUTER_ID_IPV6] = &tlv_te_router_id_ipv6_ops,
 		[ISIS_TLV_EXTENDED_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_DYNAMIC_HOSTNAME] = &tlv_dynamic_hostname_ops,
 		[ISIS_TLV_SPINE_LEAF_EXT] = &tlv_spine_leaf_ops,
 		[ISIS_TLV_MT_REACH] = &tlv_extended_reach_ops,
 		[ISIS_TLV_MT_ROUTER_INFO] = &tlv_mt_router_info_ops,
 		[ISIS_TLV_IPV6_ADDRESS] = &tlv_ipv6_address_ops,
+		[ISIS_TLV_GLOBAL_IPV6_ADDRESS] = &tlv_global_ipv6_address_ops,
 		[ISIS_TLV_MT_IP_REACH] = &tlv_extended_ip_reach_ops,
 		[ISIS_TLV_IPV6_REACH] = &tlv_ipv6_reach_ops,
 		[ISIS_TLV_MT_IPV6_REACH] = &tlv_ipv6_reach_ops,
@@ -4353,6 +4520,26 @@ void isis_tlvs_add_ipv6_addresses(struct isis_tlvs *tlvs,
 
 		a->addr = ip_addr->prefix;
 		append_item(&tlvs->ipv6_address, (struct isis_item *)a);
+		addr_count++;
+	}
+}
+
+void isis_tlvs_add_global_ipv6_addresses(struct isis_tlvs *tlvs,
+					 struct list *addresses)
+{
+	struct listnode *node;
+	struct prefix_ipv6 *ip_addr;
+	unsigned int addr_count = 0;
+
+	for (ALL_LIST_ELEMENTS_RO(addresses, node, ip_addr)) {
+		if (addr_count >= 15)
+			break;
+
+		struct isis_ipv6_address *a =
+			XCALLOC(MTYPE_ISIS_TLV, sizeof(*a));
+
+		a->addr = ip_addr->prefix;
+		append_item(&tlvs->global_ipv6_address, (struct isis_item *)a);
 		addr_count++;
 	}
 }
@@ -4536,10 +4723,12 @@ static void tlvs_protocols_supported_to_adj(struct isis_tlvs *tlvs,
 	memcpy(adj->nlpids.nlpids, reduced.nlpids, reduced.count);
 }
 
-DEFINE_HOOK(isis_adj_ip_enabled_hook, (struct isis_adjacency *adj, int family),
-	    (adj, family));
+DEFINE_HOOK(isis_adj_ip_enabled_hook,
+	    (struct isis_adjacency * adj, int family, bool global),
+	    (adj, family, global));
 DEFINE_HOOK(isis_adj_ip_disabled_hook,
-	    (struct isis_adjacency *adj, int family), (adj, family));
+	    (struct isis_adjacency * adj, int family, bool global),
+	    (adj, family, global));
 
 static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 				       struct isis_adjacency *adj,
@@ -4550,7 +4739,7 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 	if (adj->ipv4_address_count == 0 && tlvs->ipv4_address.count > 0)
 		ipv4_enabled = true;
 	else if (adj->ipv4_address_count > 0 && tlvs->ipv4_address.count == 0)
-		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET);
+		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET, false);
 
 	if (adj->ipv4_address_count != tlvs->ipv4_address.count) {
 		uint32_t oc = adj->ipv4_address_count;
@@ -4584,7 +4773,7 @@ static void tlvs_ipv4_addresses_to_adj(struct isis_tlvs *tlvs,
 	}
 
 	if (ipv4_enabled)
-		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET);
+		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET, false);
 }
 
 static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
@@ -4596,7 +4785,7 @@ static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
 	if (adj->ipv6_address_count == 0 && tlvs->ipv6_address.count > 0)
 		ipv6_enabled = true;
 	else if (adj->ipv6_address_count > 0 && tlvs->ipv6_address.count == 0)
-		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET6);
+		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET6, false);
 
 	if (adj->ipv6_address_count != tlvs->ipv6_address.count) {
 		uint32_t oc = adj->ipv6_address_count;
@@ -4630,7 +4819,54 @@ static void tlvs_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
 	}
 
 	if (ipv6_enabled)
-		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET6);
+		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET6, false);
+}
+
+
+static void tlvs_global_ipv6_addresses_to_adj(struct isis_tlvs *tlvs,
+					      struct isis_adjacency *adj,
+					      bool *changed)
+{
+	bool global_ipv6_enabled = false;
+
+	if (adj->global_ipv6_count == 0 && tlvs->global_ipv6_address.count > 0)
+		global_ipv6_enabled = true;
+	else if (adj->global_ipv6_count > 0 && tlvs->global_ipv6_address.count == 0)
+		hook_call(isis_adj_ip_disabled_hook, adj, AF_INET6, true);
+
+	if (adj->global_ipv6_count != tlvs->global_ipv6_address.count) {
+		uint32_t oc = adj->global_ipv6_count;
+
+		*changed = true;
+		adj->global_ipv6_count = tlvs->global_ipv6_address.count;
+		adj->global_ipv6 = XREALLOC(
+			MTYPE_ISIS_ADJACENCY_INFO, adj->global_ipv6,
+			adj->global_ipv6_count * sizeof(*adj->global_ipv6));
+
+		for (; oc < adj->global_ipv6_count; oc++) {
+			memset(&adj->global_ipv6[oc], 0,
+			       sizeof(adj->global_ipv6[oc]));
+		}
+	}
+
+	struct isis_ipv6_address *addr = NULL;
+	for (unsigned int i = 0; i < tlvs->global_ipv6_address.count; i++) {
+		if (!addr)
+			addr = (struct isis_ipv6_address *)
+				       tlvs->global_ipv6_address.head;
+		else
+			addr = addr->next;
+
+		if (!memcmp(&adj->global_ipv6[i], &addr->addr,
+			    sizeof(addr->addr)))
+			continue;
+
+		*changed = true;
+		adj->global_ipv6[i] = addr->addr;
+	}
+
+	if (global_ipv6_enabled)
+		hook_call(isis_adj_ip_enabled_hook, adj, AF_INET6, true);
 }
 
 void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
@@ -4642,6 +4878,7 @@ void isis_tlvs_to_adj(struct isis_tlvs *tlvs, struct isis_adjacency *adj,
 	tlvs_protocols_supported_to_adj(tlvs, adj, changed);
 	tlvs_ipv4_addresses_to_adj(tlvs, adj, changed);
 	tlvs_ipv6_addresses_to_adj(tlvs, adj, changed);
+	tlvs_global_ipv6_addresses_to_adj(tlvs, adj, changed);
 }
 
 bool isis_tlvs_own_snpa_found(struct isis_tlvs *tlvs, uint8_t *snpa)
@@ -4721,6 +4958,16 @@ void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 		return;
 	tlvs->te_router_id = XCALLOC(MTYPE_ISIS_TLV, sizeof(*id));
 	memcpy(tlvs->te_router_id, id, sizeof(*id));
+}
+
+void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs,
+				     const struct in6_addr *id)
+{
+	XFREE(MTYPE_ISIS_TLV, tlvs->te_router_id_ipv6);
+	if (!id)
+		return;
+	tlvs->te_router_id_ipv6 = XCALLOC(MTYPE_ISIS_TLV, sizeof(*id));
+	memcpy(tlvs->te_router_id_ipv6, id, sizeof(*id));
 }
 
 void isis_tlvs_add_oldstyle_ip_reach(struct isis_tlvs *tlvs,
@@ -4852,7 +5099,7 @@ void isis_tlvs_add_extended_reach(struct isis_tlvs *tlvs, uint16_t mtid,
 		r->subtlvs = copy_item_ext_subtlvs(exts, mtid);
 
 	struct isis_item_list *l;
-	if (mtid == ISIS_MT_IPV4_UNICAST)
+	if ((mtid == ISIS_MT_IPV4_UNICAST) || (mtid == ISIS_MT_DISABLE))
 		l = &tlvs->extended_reach;
 	else
 		l = isis_get_mt_items(&tlvs->mt_reach, mtid);

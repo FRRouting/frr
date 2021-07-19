@@ -589,6 +589,16 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 				vty_out(vty, "      %s\n", buf);
 			}
 		}
+		if (adj->global_ipv6_count) {
+			vty_out(vty, "    Global IPv6 Address(es):\n");
+			for (unsigned int i = 0; i < adj->global_ipv6_count;
+			     i++) {
+				char buf[INET6_ADDRSTRLEN];
+				inet_ntop(AF_INET6, &adj->global_ipv6[i], buf,
+					  sizeof(buf));
+				vty_out(vty, "      %s\n", buf);
+			}
+		}
 		for (ALL_LIST_ELEMENTS_RO(adj->adj_sids, anode, sra)) {
 			const char *adj_type;
 			const char *backup;

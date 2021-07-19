@@ -112,7 +112,7 @@ struct ls_node {
 	struct ls_node_id adv;		/* Adv. Router of this Link State */
 	char name[MAX_NAME_LENGTH];	/* Name of the Node (IS-IS only) */
 	struct in_addr router_id;	/* IPv4 Router ID */
-	struct in6_addr router6_id;	/* IPv6 Router ID */
+	struct in6_addr router_id6;	/* IPv6 Router ID */
 	uint8_t node_flag;		/* IS-IS or OSPF Node flag */
 	enum ls_node_type type;		/* Type of Node */
 	uint32_t as_number;		/* Local or neighbor AS number */
@@ -156,6 +156,8 @@ struct ls_node {
 #define LS_ATTR_USE_BW		0x00400000
 #define LS_ATTR_ADJ_SID		0x01000000
 #define LS_ATTR_BCK_ADJ_SID	0x02000000
+#define LS_ATTR_ADJ_SID6	0x04000000
+#define LS_ATTR_BCK_ADJ_SID6	0x08000000
 #define LS_ATTR_SRLG		0x10000000
 
 /* Link State Attributes */
@@ -190,6 +192,10 @@ struct ls_attributes {
 		float rsv_bw;		/* Reserved Bandwidth */
 		float used_bw;		/* Utilized Bandwidth */
 	} extended;
+#define ADJ_PRI_IPV4	0
+#define ADJ_BCK_IPV4	1
+#define ADJ_PRI_IPV6	2
+#define ADJ_BCK_IPV6	3
 	struct ls_adjacency {		/* (LAN)-Adjacency SID for OSPF */
 		uint32_t sid;		/* SID as MPLS label or index */
 		uint8_t flags;		/* Flags */
@@ -198,7 +204,7 @@ struct ls_attributes {
 			struct in_addr addr;	/* Neighbor @IP for OSPF */
 			uint8_t sysid[ISO_SYS_ID_LEN]; /* or Sys-ID for ISIS */
 		} neighbor;
-	} adj_sid[2];		/* Primary & Backup (LAN)-Adj. SID */
+	} adj_sid[4];		/* IPv4/IPv6 & Primary/Backup (LAN)-Adj. SID */
 	uint32_t *srlgs;	/* List of Shared Risk Link Group */
 	uint8_t srlg_len;	/* number of SRLG in the list */
 };
@@ -402,21 +408,34 @@ struct ls_subnet {
 macro_inline int vertex_cmp(const struct ls_vertex *node1,
 			    const struct ls_vertex *node2)
 {
-	return (node1->key - node2->key);
+	return numcmp(node1->key, node2->key);
 }
 DECLARE_RBTREE_UNIQ(vertices, struct ls_vertex, entry, vertex_cmp);
 
 macro_inline int edge_cmp(const struct ls_edge *edge1,
 			  const struct ls_edge *edge2)
 {
-	return (edge1->key - edge2->key);
+	return numcmp(edge1->key, edge2->key);
 }
 DECLARE_RBTREE_UNIQ(edges, struct ls_edge, entry, edge_cmp);
 
+/*
+ * Prefix comparison are done to the host part so, 10.0.0.1/24
+ * and 10.0.0.2/24 are considered come different
+ */
 macro_inline int subnet_cmp(const struct ls_subnet *a,
-			     const struct ls_subnet *b)
+			    const struct ls_subnet *b)
 {
-	return prefix_cmp(&a->key, &b->key);
+	if (a->key.family != b->key.family)
+		return numcmp(a->key.family, b->key.family);
+
+	if (a->key.prefixlen != b->key.prefixlen)
+		return numcmp(a->key.prefixlen, b->key.prefixlen);
+
+	if (a->key.family == AF_INET)
+		return memcmp(&a->key.u.val, &b->key.u.val,4);
+
+	return memcmp(&a->key.u.val, &b->key.u.val, 16);
 }
 DECLARE_RBTREE_UNIQ(subnets, struct ls_subnet, entry, subnet_cmp);
 
@@ -493,6 +512,16 @@ extern struct ls_vertex *ls_vertex_update(struct ls_ted *ted,
  */
 extern void ls_vertex_clean(struct ls_ted *ted, struct ls_vertex *vertex,
 			    struct zclient *zclient);
+
+/**
+ * This function convert the ISIS ISO system ID into a 64 bits unsigned integer
+ * following the architecture dependent byte order.
+ *
+ * @param sysid The ISO system ID
+ * @return	Key as 64 bits unsigned integer
+ */
+extern uint64_t sysid_to_key(const uint8_t sysid[ISO_SYS_ID_LEN]);
+
 /**
  * Find Vertex in the Link State DB by its unique key.
  *

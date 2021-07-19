@@ -1481,6 +1481,17 @@ module frr-isisd {
           description
             "Stable IP address of the advertising router.";
         }
+        leaf router-address-v6 {
+          type inet:ipv6-address;
+          description
+            "Stable IPv6 address of the advertising router.";
+        }
+        leaf export {
+          type boolean;
+          default "false";
+          description
+            "Export Link State informatin.";
+        }
       }
 
       container segment-routing {

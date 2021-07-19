@@ -566,6 +566,21 @@ const struct frr_yang_module_info frr_isisd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/mpls-te/router-address-v6",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_te_router_addr_ipv6,
+				.destroy = isis_instance_mpls_te_router_address_ipv6_destroy,
+				.modify = isis_instance_mpls_te_router_address_ipv6_modify,
+			}
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/mpls-te/export",
+			.cbs = {
+				.cli_show = cli_show_isis_mpls_te_export,
+				.modify = isis_instance_mpls_te_export_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/segment-routing/enabled",
 			.cbs = {
 				.modify = isis_instance_segment_routing_enabled_modify,

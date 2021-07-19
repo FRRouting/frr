@@ -226,17 +226,18 @@ def test_bfd_isis_interface_failure_rt2_step3():
     tgen.gears["rt2"].link_enable("eth-rt1", enabled=False)
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
-    # initial 2 seconds to let the CI not suffer.
+    # initial 2 seconds to let the CI not suffer and an additional preriod for
+    # slower VMs.
     # TODO: add check for array size
     sleep(2)
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 1, 0
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 10, 0.5
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 1, 0
+        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 10, 0.5
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt2_down.ref", 10, 0.5
     )
 
     # Check recovery, this can take some time
@@ -265,17 +266,18 @@ def test_bfd_isis_interface_failure_rt3_step3():
     tgen.gears["rt3"].link_enable("eth-rt1", enabled=False)
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
-    # initial 2 seconds to let the CI not suffer.
+    # initial 2 seconds to let the CI not suffer and an additional periods for
+    # slower VMs.
     # TODO: add check for array size
     sleep(2)
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt3_down.ref", 1, 0
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt3_down.ref", 10, 0.5
     )
     router_compare_json_output(
-        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt3_down.ref", 1, 0
+        "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt3_down.ref", 10, 0.5
     )
     router_compare_json_output(
-        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 1, 0
+        "rt1", "show bfd peers json", "step3/show_bfd_peers_rt3_down.ref", 10, 0.5
     )
 
     # Check recovery, this can take some time
