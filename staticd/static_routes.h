@@ -45,16 +45,16 @@ enum static_blackhole_type {
 
 /*
  * The order for below macros should be in sync with
- * yang model typedef nexthop-type
+ * yang model enum nexthop-type
  */
-typedef enum {
+enum static_types {
 	STATIC_IFNAME = 1,
 	STATIC_IPV4_GATEWAY,
 	STATIC_IPV4_GATEWAY_IFNAME,
 	STATIC_IPV6_GATEWAY,
 	STATIC_IPV6_GATEWAY_IFNAME,
 	STATIC_BLACKHOLE,
-} static_types;
+};
 
 /*
  * Route Creation gives us:
@@ -117,7 +117,7 @@ struct static_nexthop {
 	enum static_install_states state;
 
 	/* Flag for this static route's type. */
-	static_types type;
+	enum static_types type;
 
 	/*
 	 * Nexthop value.
@@ -164,14 +164,14 @@ void static_fixup_vrf_ids(struct static_vrf *svrf);
 
 extern struct static_nexthop *
 static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
-		   struct static_vrf *svrf, static_types type,
+		   struct static_vrf *svrf, enum static_types type,
 		   struct ipaddr *ipaddr, const char *ifname,
 		   const char *nh_vrf, uint32_t color);
 extern void static_install_nexthop(struct route_node *rn,
 				   struct static_path *pn,
 				   struct static_nexthop *nh, safi_t safi,
 				   struct static_vrf *svrf, const char *ifname,
-				   static_types type, const char *nh_vrf);
+				   enum static_types type, const char *nh_vrf);
 
 extern int static_delete_nexthop(struct route_node *rn, struct static_path *pn,
 				 safi_t safi, struct static_vrf *svrf,
@@ -198,9 +198,10 @@ extern struct static_path *static_add_path(struct route_node *rn,
 extern void static_del_path(struct route_node *rn, struct static_path *pn,
 			    safi_t safi, struct static_vrf *svrf);
 
-extern void static_get_nh_type(static_types stype, char *type, size_t size);
+extern void static_get_nh_type(enum static_types stype, char *type,
+			       size_t size);
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,
-					static_types type,
+					enum static_types type,
 					struct ipaddr *ipaddr);
 extern struct stable_info *static_get_stable_info(struct route_node *rn);
 extern void static_route_info_init(struct static_route_info *si);
