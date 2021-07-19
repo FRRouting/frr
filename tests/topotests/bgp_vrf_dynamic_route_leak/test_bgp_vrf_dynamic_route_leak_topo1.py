@@ -25,10 +25,12 @@ Following tests are covered to test BGP Multi-VRF Dynamic Route Leaking:
 
 1. Verify that dynamically imported routes are further advertised
     to iBGP peers(peer in cluster).
-2. Verify matching a prefix based on community attribute and
+2. Verify that dynamically imported routes are further advertised "
+    to eBGP peers(ToRs).
+3. Verify matching a prefix based on community attribute and
     importing it by stripping off this value
-3. Verify the route-map operation along with dynamic import command.
-4. Verifying the JSON outputs for all supported commands
+4. Verify the route-map operation along with dynamic import command.
+5. Verifying the JSON outputs for all supported commands
 """
 
 import os
@@ -200,297 +202,6 @@ def teardown_module():
         "Testsuite end time: {}".format(time.asctime(time.localtime(time.time())))
     )
     logger.info("=" * 40)
-
-
-#####################################################
-#
-#   Local APIs
-#
-#####################################################
-
-
-def disable_route_map_to_prefer_global_next_hop(tgen, topo):
-    """
-    This API is to remove prefer global route-map applied on neighbors
-
-    Parameter:
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : Input JSON data
-
-    Returns:
-    --------
-    True/errormsg
-
-    """
-
-    tc_name = request.node.name
-    logger.info("Remove prefer-global rmap applied on neighbors")
-    input_dict = {
-        "r1": {
-            "bgp": [
-                {
-                    "local_as": "100",
-                    "vrf": "ISR",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r2": {
-                                        "dest_link": {
-                                            "r1-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-                {
-                    "local_as": "100",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r3": {
-                                        "dest_link": {
-                                            "r1-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-                {
-                    "local_as": "100",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r4": {
-                                        "dest_link": {
-                                            "r1-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-            ]
-        },
-        "r2": {
-            "bgp": [
-                {
-                    "local_as": "100",
-                    "vrf": "ISR",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r1": {
-                                        "dest_link": {
-                                            "r2-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-                {
-                    "local_as": "100",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r3": {
-                                        "dest_link": {
-                                            "r2-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-                {
-                    "local_as": "100",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r4": {
-                                        "dest_link": {
-                                            "r2-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-            ]
-        },
-        "r3": {
-            "bgp": [
-                {
-                    "local_as": "300",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r1": {
-                                        "dest_link": {
-                                            "r3-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-                {
-                    "local_as": "300",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r2": {
-                                        "dest_link": {
-                                            "r3-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-            ]
-        },
-        "r4": {
-            "bgp": [
-                {
-                    "local_as": "400",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r1": {
-                                        "dest_link": {
-                                            "r4-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-                {
-                    "local_as": "400",
-                    "address_family": {
-                        "ipv6": {
-                            "unicast": {
-                                "neighbor": {
-                                    "r2": {
-                                        "dest_link": {
-                                            "r4-link1": {
-                                                "route_maps": [
-                                                    {
-                                                        "name": "rmap_global",
-                                                        "direction": "in",
-                                                        "delete": True,
-                                                    }
-                                                ]
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    },
-                },
-            ]
-        },
-    }
-
-    result = create_router_bgp(tgen, topo, input_dict)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
-
-    return True
 
 
 #####################################################
@@ -780,6 +491,354 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
 
         result = create_static_routes(tgen, input_routes_r1)
         assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    write_test_footer(tc_name)
+
+
+def test_dynamic_imported_routes_advertised_to_eBGP_peer_p0(request):
+    """
+    TC4_FUNC_4:
+    Verify that dynamically imported routes are further advertised "
+    to eBGP peers(ToRs).
+    """
+
+    tgen = get_topogen()
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    build_config_from_json(tgen, topo)
+
+    if tgen.routers_have_failure():
+        check_router_status(tgen)
+
+    step("Redistribute configured static routes into BGP process" " on R1/R2 and R3")
+
+    for addr_type in ADDR_TYPES:
+
+        input_dict_1 = {}
+        DUT = ["r1", "r2", "r3", "r4"]
+        VRFS = ["ISR", "ISR", "default", "default"]
+        AS_NUM = [100, 100, 300, 400]
+
+        for dut, vrf, as_num in zip(DUT, VRFS, AS_NUM):
+            temp = {dut: {"bgp": []}}
+            input_dict_1.update(temp)
+
+            temp[dut]["bgp"].append(
+                {
+                    "local_as": as_num,
+                    "vrf": vrf,
+                    "address_family": {
+                        addr_type: {
+                            "unicast": {"redistribute": [{"redist_type": "static"}]}
+                        }
+                    },
+                }
+            )
+
+        result = create_router_bgp(tgen, topo, input_dict_1)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+
+        step(
+            "Verify that R1 and R2 receive routes originated from "
+            "R3&R4 in vrf default and installs in RIB and FIB"
+            "show bgp vrf default ipv4/ipv6"
+            "show ipv4/ipv6 fib vrf default"
+        )
+
+        input_routes_r3 = {
+            "r3": {
+                "static_routes": [
+                    {
+                        "network": [
+                            NETWORK3_1[addr_type],
+                            NETWORK3_2[addr_type],
+                            NETWORK3_3[addr_type],
+                            NETWORK3_4[addr_type],
+                        ]
+                    }
+                ]
+            }
+        }
+
+        input_routes_r4 = {
+            "r4": {
+                "static_routes": [
+                    {
+                        "network": [
+                            NETWORK4_1[addr_type],
+                            NETWORK4_2[addr_type],
+                            NETWORK4_3[addr_type],
+                            NETWORK4_4[addr_type],
+                        ]
+                    }
+                ]
+            }
+        }
+
+        DUT = ["r1", "r2"]
+        INPUT_DICT = [input_routes_r3, input_routes_r4]
+
+        for dut, routes in zip(DUT, INPUT_DICT):
+            result = verify_bgp_rib(tgen, addr_type, dut, routes)
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
+
+            result = verify_fib_routes(tgen, addr_type, dut, routes)
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
+
+    for addr_type in ADDR_TYPES:
+
+        step("Import from vrf ISR into default vrf on R1/R2 as below:")
+
+        input_dict_isr = {}
+        DUT = ["r1", "r2"]
+        VRFS = ["default", "default"]
+        AS_NUM = [100, 100]
+
+        for dut, vrf, as_num in zip(DUT, VRFS, AS_NUM):
+            temp = {dut: {"bgp": []}}
+            input_dict_isr.update(temp)
+
+            temp[dut]["bgp"].append(
+                {
+                    "local_as": as_num,
+                    "vrf": vrf,
+                    "address_family": {
+                        addr_type: {"unicast": {"import": {"vrf": "ISR"}}}
+                    },
+                }
+            )
+
+        result = create_router_bgp(tgen, topo, input_dict_isr)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+
+        step(
+            "Verify that locally imported routes in default VRF are "
+            "installed in RIB & FIB of R1 and R2. (locally imported "
+            "routes won't have next-hop as peer router's IP)"
+            "Also R3 & R4 receive vrf ISL's routes into default vrf both"
+            " from R1 and R2 with next-hop IP's (R3 - 13.1.1.1, 23.1.1.2 "
+            "and R4 14.1.1.1, 24.1.1.2) respectively."
+        )
+
+        input_routes_r1 = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type], NETWORK1_2[addr_type]],
+                        "vrf": "default",
+                    }
+                ]
+            }
+        }
+
+        input_routes_r2 = {
+            "r2": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK2_1[addr_type], NETWORK2_2[addr_type]],
+                        "vrf": "default",
+                    }
+                ]
+            }
+        }
+
+        INPUT_DICT_VRF = [input_routes_r1, input_routes_r2]
+
+        for dut, routes in zip(DUT, INPUT_DICT_VRF):
+            result = verify_bgp_rib(tgen, addr_type, dut, routes)
+            assert result is True, "Testcase {} : Failed \n Error {}".format(
+                tc_name, result
+            )
+
+    intf_r3_r1 = topo["routers"]["r3"]["links"]["r1-link1"]
+    for addr_type in ADDR_TYPES:
+
+        step(
+            "Create a loopback10 interface on R1 with below IP address and "
+            "associate with vrf ISR:"
+        )
+
+        create_interface_in_kernel(
+            tgen,
+            "r1",
+            "loopback1",
+            LOOPBACK_1[addr_type],
+            "ISR",
+            LOOPBACK_1["{}_mask".format(addr_type)],
+        )
+
+    for addr_type in ADDR_TYPES:
+
+        step(
+            "On router R1 Change the next-hop of static routes in vrf "
+            "ISR to LOOPBACK_1"
+        )
+
+        input_routes_r1 = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type], NETWORK1_2[addr_type]],
+                        "next_hop": "Null0",
+                        "vrf": "ISR",
+                        "delete": True,
+                    }
+                ]
+            }
+        }
+
+        result = create_static_routes(tgen, input_routes_r1)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        input_routes_r1 = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type], NETWORK1_2[addr_type]],
+                        "next_hop": (intf_r3_r1[addr_type]).split("/")[0],
+                        "vrf": "ISR",
+                    }
+                ]
+            }
+        }
+
+        result = create_static_routes(tgen, input_routes_r1)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+        input_routes_r2 = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK2_1[addr_type], NETWORK2_2[addr_type]],
+                        "next_hop": (intf_r3_r1[addr_type]).split("/")[0],
+                        "vrf": "ISR",
+                    }
+                ]
+            }
+        }
+
+        result = create_static_routes(tgen, input_routes_r2)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+
+        step(
+            "Verify on R3 that R1 changes next-hop attribute for imported "
+            "routes before advertising it further to eBGP peer R3."
+        )
+        step(
+            "Verify that R1 prefers locally originated routes, over routes "
+            "received from iBGP peer R2, to advertise further to eBGP peer R3."
+        )
+
+        input_routes_r1 = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK1_1[addr_type], NETWORK1_2[addr_type]],
+                        "next_hop": (intf_r3_r1[addr_type]).split("/")[0],
+                    }
+                ]
+            }
+        }
+
+        result = verify_bgp_rib(
+            tgen,
+            addr_type,
+            "r1",
+            input_routes_r1,
+            next_hop=(intf_r3_r1[addr_type]).split("/")[0],
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+        result = verify_fib_routes(
+            tgen,
+            addr_type,
+            "r1",
+            input_routes_r1,
+            next_hop=(intf_r3_r1[addr_type]).split("/")[0],
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+
+        step("Remove configured static routes in step-5.")
+
+        input_routes_r2 = {
+            "r1": {
+                "static_routes": [
+                    {
+                        "network": [NETWORK2_1[addr_type], NETWORK2_2[addr_type]],
+                        "next_hop": (intf_r3_r1[addr_type]).split("/")[0],
+                        "vrf": "ISR",
+                        "delete": True,
+                    }
+                ]
+            }
+        }
+
+        result = create_static_routes(tgen, input_routes_r2)
+        assert result is True, "Testcase {} :Failed \n Error: {}".format(
+            tc_name, result
+        )
+
+    for addr_type in ADDR_TYPES:
+
+        step(
+            "Verify that once 22.22.22.x routes are deleted from R1's vrf ISR,"
+            "then R1 advertises same prefixes to R3, received from iBGP peer R2."
+        )
+
+        input_routes_r2 = {
+            "r1": {
+                "static_routes": [
+                    {"network": [NETWORK2_1[addr_type], NETWORK2_2[addr_type]],}
+                ]
+            }
+        }
+
+        intf_r1_r3 = topo["routers"]["r1"]["links"]["r3-link1"]["interface"]
+        intf_r2_r3 = topo["routers"]["r2"]["links"]["r3-link1"]["interface"]
+
+        if addr_type == "ipv6" and "link_local" in PREFERRED_NEXT_HOP:
+            next_hop_r1 = get_frr_ipv6_linklocal(tgen, "r1", intf=intf_r1_r3)
+            next_hop_r2 = get_frr_ipv6_linklocal(tgen, "r2", intf=intf_r2_r3)
+        else:
+            next_hop_r1 = topo["routers"]["r1"]["links"]["r3-link1"][addr_type].split(
+                "/"
+            )[0]
+            next_hop_r2 = topo["routers"]["r2"]["links"]["r3-link1"][addr_type].split(
+                "/"
+            )[0]
+
+        result = verify_bgp_rib(
+            tgen, addr_type, "r1", input_routes_r1, next_hop=[next_hop_r1, next_hop_r2]
+        )
+        assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
 
