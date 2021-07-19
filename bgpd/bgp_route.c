@@ -418,6 +418,29 @@ void bgp_path_info_add(struct bgp_dest *dest, struct bgp_path_info *pi)
 	hook_call(bgp_snmp_update_stats, dest, pi, true);
 }
 
+/* Add the selected path to the head of the list */
+void bgp_path_info_update_list(struct bgp_dest *dest,
+			       struct bgp_path_info *select)
+{
+	struct bgp_path_info *top;
+
+	if (select) {
+		top = bgp_dest_get_bgp_path_info(dest);
+
+		if (top && (top != select)) {
+			if (select->prev)
+				select->prev->next = select->next;
+			if (select->next)
+				select->next->prev = select->prev;
+
+			select->next = top;
+			select->prev = NULL;
+			top->prev = select;
+			bgp_dest_set_bgp_path_info(dest, select);
+		}
+	}
+}
+
 /* Do the actual removal of info from RIB, for use by bgp_process
    completion callback *only* */
 void bgp_path_info_reap(struct bgp_dest *dest, struct bgp_path_info *pi)
@@ -2320,6 +2343,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	struct list mp_list;
 	char pfx_buf[PREFIX2STR_BUFFER];
 	char path_buf[PATH_ADDPATH_STR_BUFFER];
+	bool old_select_valid = false;
 
 	bgp_mp_list_init(&mp_list);
 	do_mpath =
@@ -2409,12 +2433,15 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 	/* Check old selected route and new selected route. */
 	old_select = NULL;
 	new_select = NULL;
+
 	for (pi = bgp_dest_get_bgp_path_info(dest);
 	     (pi != NULL) && (nextpi = pi->next, 1); pi = nextpi) {
 		enum bgp_path_selection_reason reason;
 
-		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED))
+		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 			old_select = pi;
+			old_select_valid = true;
+		}
 
 		if (BGP_PATH_HOLDDOWN(pi)) {
 			/* reap REMOVED routes, if needs be
@@ -2428,6 +2455,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				zlog_debug("%s: pi %p in holddown", __func__,
 					   pi);
 
+			if (pi == old_select)
+				old_select_valid = false;
 			continue;
 		}
 
@@ -2440,6 +2469,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 						"%s: pi %p non self peer %s not estab state",
 						__func__, pi, pi->peer->host);
 
+				if (pi == old_select)
+					old_select_valid = false;
 				continue;
 			}
 
@@ -2448,12 +2479,27 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 			if (debug)
 				zlog_debug("%s: pi %p dmed", __func__, pi);
+
+			if (pi == old_select)
+				old_select_valid = false;
 			continue;
 		}
 
 		bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 
 		reason = dest->reason;
+
+		/* Compare paths till the old selected path is found
+		 * in the list
+		 */
+		if ((old_select_valid) && (pi == old_select->next))
+			continue;
+
+		if (debug)
+			zlog_debug("comparing pi %s, new_select %s",
+				pi->peer->host,
+				(new_select) ? new_select->peer->host : "NULL");
+
 		if (bgp_path_info_cmp(bgp, pi, new_select, &paths_eq, mpath_cfg,
 				      debug, pfx_buf, afi, safi,
 				      &dest->reason)) {
@@ -2479,6 +2525,9 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			dest, path_buf,
 			old_select ? old_select->peer->host : "NONE");
 	}
+
+	/* Add the new selected path to the head of the list */
+	bgp_path_info_update_list(dest, new_select);
 
 	if (do_mpath && new_select) {
 		for (pi = bgp_dest_get_bgp_path_info(dest);
