@@ -102,41 +102,92 @@ static void codec_free(struct codec *c)
 }
 #endif
 
-/* Generic script APIs */
+/* Lua function hash utils */
 
-int _frrscript_call(struct frrscript *fs)
+unsigned int lua_function_hash_key(const void *data)
+{
+	const struct lua_function_state *lfs = data;
+
+	return string_hash_make(lfs->name);
+}
+
+bool lua_function_hash_cmp(const void *d1, const void *d2)
+{
+	const struct lua_function_state *lfs1 = d1;
+	const struct lua_function_state *lfs2 = d2;
+
+	return strmatch(lfs1->name, lfs2->name);
+}
+
+void *lua_function_alloc(void *arg)
+{
+	struct lua_function_state *tmp = arg;
+
+	struct lua_function_state *lfs =
+		XCALLOC(MTYPE_SCRIPT, sizeof(struct lua_function_state));
+	lfs->name = tmp->name;
+	lfs->L = tmp->L;
+	return lfs;
+}
+
+static void lua_function_free(struct hash_bucket *b, void *data)
+{
+	struct lua_function_state *lfs = (struct lua_function_state *)b->data;
+	lua_close(lfs->L);
+	XFREE(MTYPE_SCRIPT, lfs);
+}
+
+/* internal frrscript APIs */
+
+int _frrscript_call_lua(struct lua_function_state *lfs, int nargs)
 {
 
-	int ret = lua_pcall(fs->L, 0, 0, 0);
+	int ret;
+	ret = lua_pcall(lfs->L, nargs, 1, 0);
 
 	switch (ret) {
 	case LUA_OK:
 		break;
 	case LUA_ERRRUN:
-		zlog_err("Script '%s' runtime error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : runtime error: %s", lfs->name,
+			 lua_tostring(lfs->L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Script '%s' memory error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : memory error: %s", lfs->name,
+			 lua_tostring(lfs->L, -1));
 		break;
 	case LUA_ERRERR:
-		zlog_err("Script '%s' error handler error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : error handler error: %s",
+			 lfs->name, lua_tostring(lfs->L, -1));
 		break;
 	case LUA_ERRGCMM:
-		zlog_err("Script '%s' garbage collector error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : garbage collector error: %s",
+			 lfs->name, lua_tostring(lfs->L, -1));
 		break;
 	default:
-		zlog_err("Script '%s' unknown error: %s", fs->name,
-			 lua_tostring(fs->L, -1));
+		zlog_err("Lua hook call '%s' : unknown error: %s", lfs->name,
+			 lua_tostring(lfs->L, -1));
 		break;
 	}
 
 	if (ret != LUA_OK) {
-		lua_pop(fs->L, 1);
+		lua_pop(lfs->L, 1);
 		goto done;
+	}
+
+	if (lua_gettop(lfs->L) != 1) {
+		zlog_err(
+			"Lua hook call '%s': Lua function should return only 1 result",
+			lfs->name);
+		ret = 1;
+		goto done;
+	}
+
+	if (lua_istable(lfs->L, 1) != 1) {
+		zlog_err(
+			"Lua hook call '%s': Lua function should return a Lua table",
+			lfs->name);
+		ret = 1;
 	}
 
 done:
@@ -144,25 +195,33 @@ done:
 	return ret;
 }
 
-void *frrscript_get_result(struct frrscript *fs,
-			   const struct frrscript_env *result)
+void *frrscript_get_result(struct frrscript *fs, const char *function_name,
+			   const char *name,
+			   void *(*lua_to)(lua_State *L, int idx))
 {
-	void *r;
-	struct frrscript_codec c = {.typename = result->typename};
+	void *p;
+	struct lua_function_state *lfs;
+	struct lua_function_state lookup = {.name = function_name};
 
-	struct frrscript_codec *codec = hash_lookup(codec_hash, &c);
-	assert(codec && "No encoder for type");
+	lfs = hash_lookup(fs->lua_function_hash, &lookup);
 
-	if (!codec->decoder) {
-		zlog_err("No script decoder for type '%s'", result->typename);
+	if (lfs == NULL)
+		return NULL;
+
+	/* results table is idx 1 on the stack, getfield pushes our item to idx
+	 * 2
+	 */
+	lua_getfield(lfs->L, 1, name);
+	if (lua_isnil(lfs->L, -1)) {
+		lua_pop(lfs->L, 1);
+		zlog_warn(
+			"frrscript: '%s.lua': '%s': tried to decode '%s' as result but failed",
+			fs->name, function_name, name);
 		return NULL;
 	}
+	p = lua_to(lfs->L, 2);
 
-	lua_getglobal(fs->L, result->name);
-	r = codec->decoder(fs->L, -1);
-	lua_pop(fs->L, 1);
-
-	return r;
+	return p;
 }
 
 void frrscript_register_type_codec(struct frrscript_codec *codec)
@@ -183,61 +242,87 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs)
 		frrscript_register_type_codec(&codecs[i]);
 }
 
-struct frrscript *frrscript_load(const char *name,
-				 int (*load_cb)(struct frrscript *))
+struct frrscript *frrscript_new(const char *name)
 {
 	struct frrscript *fs = XCALLOC(MTYPE_SCRIPT, sizeof(struct frrscript));
 
 	fs->name = XSTRDUP(MTYPE_SCRIPT, name);
-	fs->L = luaL_newstate();
-	frrlua_export_logging(fs->L);
+	fs->lua_function_hash =
+		hash_create(lua_function_hash_key, lua_function_hash_cmp,
+			    "Lua function state hash");
+	return fs;
+}
 
-	char fname[MAXPATHLEN * 2];
-	snprintf(fname, sizeof(fname), "%s/%s.lua", scriptdir, fs->name);
+int frrscript_load(struct frrscript *fs, const char *function_name,
+		   int (*load_cb)(struct frrscript *))
+{
 
-	int ret = luaL_loadfile(fs->L, fname);
+	/* Set up the Lua script */
+	lua_State *L = luaL_newstate();
+
+	frrlua_export_logging(L);
+
+	char script_name[MAXPATHLEN * 2];
+
+	snprintf(script_name, sizeof(script_name), "%s/%s.lua", scriptdir,
+		 fs->name);
+	int ret = luaL_dofile(L, script_name);
 
 	switch (ret) {
 	case LUA_OK:
 		break;
 	case LUA_ERRSYNTAX:
-		zlog_err("Failed loading script '%s': syntax error: %s", fname,
-			 lua_tostring(fs->L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': syntax error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	case LUA_ERRMEM:
-		zlog_err("Failed loading script '%s': out-of-memory error: %s",
-			 fname, lua_tostring(fs->L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': out-of-memory error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	case LUA_ERRGCMM:
 		zlog_err(
-			"Failed loading script '%s': garbage collector error: %s",
-			fname, lua_tostring(fs->L, -1));
+			"frrscript: failed loading script '%s.lua': garbage collector error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	case LUA_ERRFILE:
-		zlog_err("Failed loading script '%s': file read error: %s",
-			 fname, lua_tostring(fs->L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': file read error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	default:
-		zlog_err("Failed loading script '%s': unknown error: %s", fname,
-			 lua_tostring(fs->L, -1));
+		zlog_err(
+			"frrscript: failed loading script '%s.lua': unknown error: %s",
+			script_name, lua_tostring(L, -1));
 		break;
 	}
 
 	if (ret != LUA_OK)
 		goto fail;
 
+	/* Push the Lua function we want */
+	lua_getglobal(L, function_name);
+	if (lua_isfunction(L, lua_gettop(L)) == 0)
+		goto fail;
+
 	if (load_cb && (*load_cb)(fs) != 0)
 		goto fail;
 
-	return fs;
+	/* Add the Lua function state to frrscript */
+	struct lua_function_state key = {.name = function_name, .L = L};
+
+	hash_get(fs->lua_function_hash, &key, lua_function_alloc);
+
+	return 0;
 fail:
-	frrscript_unload(fs);
-	return NULL;
+	lua_close(L);
+	return 1;
 }
 
-void frrscript_unload(struct frrscript *fs)
+void frrscript_delete(struct frrscript *fs)
 {
-	lua_close(fs->L);
+	hash_iterate(fs->lua_function_hash, lua_function_free, NULL);
 	XFREE(MTYPE_SCRIPT, fs->name);
 	XFREE(MTYPE_SCRIPT, fs);
 }

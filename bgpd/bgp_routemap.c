@@ -365,16 +365,18 @@ static enum route_map_cmd_result_t
 route_match_script(void *rule, const struct prefix *prefix, void *object)
 {
 	const char *scriptname = rule;
+	const char *routematch_function = "route_match";
 	struct bgp_path_info *path = (struct bgp_path_info *)object;
 
-	struct frrscript *fs = frrscript_load(scriptname, NULL);
+	struct frrscript *fs = frrscript_new(scriptname);
 
-	if (!fs) {
-		zlog_err("Issue loading script rule; defaulting to no match");
+	if (frrscript_load(fs, routematch_function, NULL)) {
+		zlog_err(
+			"Issue loading script or function function; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
-	enum frrlua_rm_status lrm_status = LUA_RM_FAILURE,
+	enum frrlua_rm_status status_failure = LUA_RM_FAILURE,
 			      status_nomatch = LUA_RM_NOMATCH,
 			      status_match = LUA_RM_MATCH,
 			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
@@ -382,21 +384,24 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 	struct attr newattr = *path->attr;
 
 	int result = frrscript_call(
-		fs, ("RM_FAILURE", (long long *)&lrm_status),
-		("RM_NOMATCH", (long long *)&status_nomatch),
-		("RM_MATCH", (long long *)&status_match),
-		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
-		("action", (long long *)&lrm_status), ("prefix", prefix),
-		("attributes", &newattr), ("peer", path->peer));
+		fs, routematch_function, ("prefix", prefix),
+		("attributes", &newattr), ("peer", path->peer),
+		("RM_FAILURE", (int)status_failure),
+		("RM_NOMATCH", (int)status_nomatch),
+		("RM_MATCH", (int)status_match),
+		("RM_MATCH_AND_CHANGE", (int)status_match_and_change));
 
 	if (result) {
 		zlog_err("Issue running script rule; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
+	long long *action = frrscript_get_result(fs, routematch_function,
+						 "action", lua_tointegerp);
+
 	int status = RMAP_NOMATCH;
 
-	switch (lrm_status) {
+	switch (*action) {
 	case LUA_RM_FAILURE:
 		zlog_err(
 			"Executing route-map match script '%s' failed; defaulting to no match",
@@ -427,7 +432,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		break;
 	}
 
-	frrscript_unload(fs);
+	XFREE(MTYPE_TMP, action);
+
+	frrscript_delete(fs);
 
 	return status;
 }
