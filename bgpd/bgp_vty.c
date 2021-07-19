@@ -5103,55 +5103,38 @@ DEFUN (neighbor_set_peer_group,
        "Member of the peer-group\n"
        "Peer-group name\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
 	int idx_peer = 1;
 	int idx_word = 3;
-	int ret;
-	as_t as;
 	union sockunion su;
-	struct peer *peer;
-	struct peer_group *group;
+	char unnbr_xpath[XPATH_MAXLEN];
+	char nbr_xpath[XPATH_MAXLEN];
+	char base_xpath[XPATH_MAXLEN];
 
-	ret = str2sockunion(argv[idx_peer]->arg, &su);
-	if (ret < 0) {
-		peer = peer_lookup_by_conf_if(bgp, argv[idx_peer]->arg);
-		if (!peer) {
-			vty_out(vty, "%% Malformed address or name: %s\n",
-				argv[idx_peer]->arg);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+
+	/** peer-group validation **/
+	if (peer_and_group_lookup_nb(vty, argv[idx_word]->arg, base_xpath,
+				     sizeof(base_xpath), NULL)
+	    < 0)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	/** prepare the xpath for neighbor numbered and unnumbered **/
+	if (str2sockunion(argv[idx_peer]->arg, &su) < 0) {
+		/** prepare the neighbor and peer-group binding **/
+		snprintf(unnbr_xpath, sizeof(unnbr_xpath),
+			 FRR_BGP_NEIGHBOR_UNNUM_XPATH, argv[idx_peer]->arg,
+			 "/peer-group");
+		nb_cli_enqueue_change(vty, unnbr_xpath, NB_OP_MODIFY,
+				      argv[idx_word]->arg);
 	} else {
-		if (peer_address_self_check(bgp, &su)) {
-			vty_out(vty,
-				"%% Can not configure the local system as neighbor\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		/* Disallow for dynamic neighbor. */
-		peer = peer_lookup(bgp, &su);
-		if (peer && peer_dynamic_neighbor(peer)) {
-			vty_out(vty,
-				"%% Operation not allowed on a dynamic neighbor\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
+		/** prepare the neighbor and peer-group binding **/
+		snprintf(nbr_xpath, sizeof(nbr_xpath),
+			 FRR_BGP_NEIGHBOR_NUM_XPATH, argv[idx_peer]->arg,
+			 "/peer-group");
+		nb_cli_enqueue_change(vty, nbr_xpath, NB_OP_MODIFY,
+				      argv[idx_word]->arg);
 	}
 
-	group = peer_group_lookup(bgp, argv[idx_word]->arg);
-	if (!group) {
-		vty_out(vty, "%% Configure the peer-group first\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ret = peer_group_bind(bgp, &su, peer, group, &as);
-
-	if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
-		vty_out(vty,
-			"%% Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
-			as);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return bgp_vty_return(vty, ret);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 ALIAS_HIDDEN(neighbor_set_peer_group, neighbor_set_peer_group_hidden_cmd,
@@ -5170,20 +5153,28 @@ DEFUN_YANG (no_neighbor_set_peer_group,
 	    "Peer-group name\n")
 {
 	int idx_peer = 2;
-	char base_xpath[XPATH_MAXLEN];
+	union sockunion su;
+	char unnbr_xpath[XPATH_MAXLEN];
+	char nbr_xpath[XPATH_MAXLEN];
 
-	if (peer_and_group_lookup_nb(vty, argv[idx_peer]->arg, base_xpath,
-				     sizeof(base_xpath), NULL)
-	    < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	nb_cli_enqueue_change(vty, "./peer-group", NB_OP_DESTROY, NULL);
+	/** prepare the xpath for neighbor numbered and unnumbered **/
+	if (str2sockunion(argv[idx_peer]->arg, &su) < 0) {
+		/** prepare the neighbor and peer-group binding **/
+		snprintf(unnbr_xpath, sizeof(unnbr_xpath),
+			 FRR_BGP_NEIGHBOR_UNNUM_XPATH, argv[idx_peer]->arg, "");
+		nb_cli_enqueue_change(vty, unnbr_xpath, NB_OP_DESTROY, NULL);
+	} else {
+		/** prepare the neighbor and peer-group binding **/
+		snprintf(nbr_xpath, sizeof(nbr_xpath),
+			 FRR_BGP_NEIGHBOR_NUM_XPATH, argv[idx_peer]->arg, "");
+		nb_cli_enqueue_change(vty, nbr_xpath, NB_OP_DESTROY, NULL);
+	}
 
 	/*
 	 * Need to commit any pending so this command doesn't merge with a
 	 * create into a modify, which BGP can't handle
 	 */
-	return nb_cli_apply_changes_clear_pending(vty, base_xpath);
+	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
 ALIAS_HIDDEN(no_neighbor_set_peer_group, no_neighbor_set_peer_group_hidden_cmd,

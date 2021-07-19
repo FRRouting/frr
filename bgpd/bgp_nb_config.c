@@ -2456,7 +2456,6 @@ int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 	struct bgp *bgp;
 	const char *peer_str;
 	const char *peer_grp_str;
-	struct peer *peer;
 	struct peer_group *group;
 	union sockunion su;
 	as_t as;
@@ -2486,8 +2485,6 @@ int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 		bgp = nb_running_get_entry(args->dnode, NULL, true);
 		peer_str =
 			yang_dnode_get_string(args->dnode, "../remote-address");
-		peer = bgp_neighbor_peer_lookup(bgp, peer_str, args->errmsg,
-						args->errmsg_len);
 
 		str2sockunion(peer_str, &su);
 
@@ -2500,7 +2497,7 @@ int bgp_neighbors_neighbor_peer_group_modify(struct nb_cb_modify_args *args)
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		ret = peer_group_bind(bgp, &su, peer, group, &as);
+		ret = peer_group_bind(bgp, &su, NULL, group, &as);
 
 		if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
 			snprintf(
