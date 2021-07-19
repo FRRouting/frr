@@ -1115,9 +1115,27 @@ void prefix_free_lists(void *arg)
 	prefix_free(&p);
 }
 
+void prefix_flowspec_allocate(struct prefix *p, uint8_t *pnt, int size)
+{
+	char *temp = XCALLOC(MTYPE_PREFIX_FLOWSPEC, size);
+
+	memcpy(temp, pnt, size);
+	p->u.prefix_flowspec.ptr = (uintptr_t)temp;
+	p->u.prefix_flowspec.prefixlen = size;
+}
+
 /* Free prefix structure. */
 void prefix_free(struct prefix **p)
 {
+	struct prefix *pp = *p;
+	void *ptr = NULL;
+
+	if (!pp)
+		return;
+	if (pp->family == AF_FLOWSPEC) {
+		ptr = (void *)pp->u.prefix_flowspec.ptr;
+		XFREE(MTYPE_PREFIX_FLOWSPEC, ptr);
+	}
 	XFREE(MTYPE_PREFIX, *p);
 }
 
