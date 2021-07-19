@@ -92,6 +92,111 @@ const struct frr_yang_module_info frr_zebra_info = {
 			}
 		},
 		{
+			.xpath = "/frr-zebra:zebra/evpn/global/enable-evpn/enable",
+			.cbs = {
+				.modify = zebra_evpn_global_enable_evpn_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/enable-evpn/vrf",
+			.cbs = {
+				.modify = zebra_evpn_global_enable_evpn_vrf_modify,
+				.destroy = zebra_evpn_global_enable_evpn_vrf_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap",
+			.cbs = {
+				.create = zebra_evpn_global_encapsulations_encap_create,
+				.destroy = zebra_evpn_global_encapsulations_encap_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/advertise-default-gw",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_advertise_default_gw_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/advertise-svi-ip",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_advertise_svi_ip_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/advertise-pip",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_advertise_pip_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/dup-addr-detect",
+			.cbs = {
+				.create = zebra_evpn_global_encapsulations_encap_dup_addr_detect_create,
+				.destroy = zebra_evpn_global_encapsulations_encap_dup_addr_detect_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/dup-addr-detect/enable",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_dup_addr_detect_enable_modify,
+				.destroy = zebra_evpn_global_encapsulations_encap_dup_addr_detect_enable_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/dup-addr-detect/timeout",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_dup_addr_detect_timeout_modify,
+				.destroy = zebra_evpn_global_encapsulations_encap_dup_addr_detect_timeout_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/dup-addr-detect/move-threshold",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_dup_addr_detect_move_threshold_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/evpn-instances/evi",
+			.cbs = {
+				.create = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_create,
+				.destroy = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/evpn-instances/evi/vni-id",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_vni_id_modify,
+				.destroy = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_vni_id_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/evpn-instances/evi/br-vlan/bridge-id",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_br_vlan_bridge_id_modify,
+				.destroy = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_br_vlan_bridge_id_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/evpn-instances/evi/br-vlan/vlan-id",
+			.cbs = {
+				.create = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_br_vlan_vlan_id_create,
+				.destroy = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_br_vlan_vlan_id_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/evpn-instances/evi/advertise-default-gw",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_advertise_default_gw_modify,
+			}
+		},
+		{
+			.xpath = "/frr-zebra:zebra/evpn/global/encapsulations/encap/evpn-instances/evi/advertise-svi-ip",
+			.cbs = {
+				.modify = zebra_evpn_global_encapsulations_encap_evpn_instances_evi_advertise_svi_ip_modify,
+			}
+		},
+		{
 			.xpath = "/frr-zebra:zebra/debugs/debug-events",
 			.cbs = {
 				.modify = zebra_debugs_debug_events_modify,

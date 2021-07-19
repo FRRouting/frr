@@ -663,6 +663,41 @@ module frr-zebra {
     }
   }
 
+  grouping dup-detect-params {
+    container dup-addr-detect {
+      presence "Enable/disable Duplicate Address Detection (DAD).";
+      choice freeze {
+        case permanent {
+          description
+            "DAD permanent freeze.";
+          leaf enable {
+            type boolean;
+          }
+        }
+
+        case duration {
+          leaf timeout {
+            type uint32 {
+              range "30..3600";
+            }
+            units "seconds";
+            description
+              "DAD freeze interval; freeze the address until the duration.";
+          }
+        }
+      }
+
+      leaf move-threshold {
+        type uint32 {
+          range "2..1000";
+        }
+        default "5";
+        description
+          "Maximum moves allowed before the address is considered as duplicate.";
+      }
+    }
+  }
+
   // End of zebra container
   /*
    * RPCs
@@ -2155,6 +2190,119 @@ module frr-zebra {
       description
         "Limit on the number of updates queued to the dataplane subsystem.";
     }
+
+    container evpn {
+      description
+        "EVPN control plane configuraitons and informations.";
+      container global {
+        container enable-evpn {
+          leaf enable {
+            type boolean;
+            default "false";
+            description
+              "Advertise all local VNIs.";
+          }
+
+          leaf vrf {
+            type string {
+              length "1..36";
+            }
+            description
+              "The tenant VRF under which vxlan is enabled.";
+          }
+        }
+
+        container encapsulations {
+          list encap {
+            key "encap-type";
+            leaf encap-type {
+              type enumeration {
+                enum "vxlan" {
+                  value 1;
+                }
+                enum "mpls" {
+                  value 2;
+                }
+              }
+            }
+
+            leaf advertise-default-gw {
+              type boolean;
+              default "false";
+              description
+                "In centralize routing, advertise all SVI addresses across EVIs as type-2 routes.";
+            }
+
+            leaf advertise-svi-ip {
+              type boolean;
+              default "false";
+              description
+                "Advertise addresses of SVIs across all EVIs as MAC-IP routes in EVPN.";
+            }
+
+            leaf advertise-pip {
+              type boolean;
+              default "true";
+              description
+                "Advertise type-5 routes across VRFs and
+                 self type-2 evpn routes across all EVIs with system's primary IP as nexthop in EVPN.";
+            }
+
+            uses dup-detect-params;
+
+            container evpn-instances {
+              list evi {
+                key "name";
+                description
+                  "evpn ethernet virtual instance; Per-EVI informations.";
+                leaf name {
+                  type string;
+                  description
+                    "EVI instance name.";
+                }
+
+                leaf vni-id {
+                  type vni-id-type;
+                  description
+                    "An L2 VNI identifier for VxLAN.";
+                }
+
+                container br-vlan {
+                  leaf bridge-id {
+                    type uint32;
+                    description
+                      "Bridge Id.";
+                  }
+
+                  leaf-list vlan-id {
+                    type uint16 {
+                      range "1..4094";
+                    }
+                    description
+                      "A VLAN identifier.";
+                  }
+                }
+
+                leaf advertise-default-gw {
+                  type boolean;
+                  default "false";
+                  description
+                    "In centralize routing, advertises gateway macip routes for a vni.";
+                }
+
+                leaf advertise-svi-ip {
+                  type boolean;
+                  default "false";
+                  description
+                    "Advertise addresses of SVIs per  EVI as MAC-IP routes in EVPN.";
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
     /*
      * Debug options
      */
