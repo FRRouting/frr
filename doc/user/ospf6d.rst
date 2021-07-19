@@ -228,6 +228,39 @@ Redistribute routes to OSPF6
    argument injects the default route regardless of it being present in the
    router. Metric values and route-map can also be specified optionally.
 
+Graceful Restart Helper
+=======================
+
+.. clicmd:: graceful-restart helper-only [A.B.C.D]
+
+
+   Configure Graceful Restart (RFC 3623) helper support.
+   By default, helper support is disabled for all neighbours.
+   This config enables/disables helper support on this router
+   for all neighbours.
+   To enable/disable helper support for a specific
+   neighbour, the router-id (A.B.C.D) has to be specified.
+
+.. clicmd:: graceful-restart helper strict-lsa-checking
+
+
+   If 'strict-lsa-checking' is configured then the helper will
+   abort the Graceful Restart when a LSA change occurs which
+   affects the restarting router.
+   By default 'strict-lsa-checking' is enabled"
+
+.. clicmd:: graceful-restart helper supported-grace-time
+
+
+   Supports as HELPER for configured grace period.
+
+.. clicmd:: graceful-restart helper planned-only
+
+
+   It helps to support as HELPER only for planned
+   restarts. By default, it supports both planned and
+   unplanned outages.
+
 .. _showing-ospf6-information:
 
 Showing OSPF6 information
@@ -320,6 +353,11 @@ Showing OSPF6 information
    tree in JSON format. Each area that the router belongs to has it's own
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
+
+.. clicmd:: show ipv6 ospf6 graceful-restart helper [detail] [json]
+
+   Displays the Grcaeful Restart Helper details including helper
+   config changes
 
 
 Sample configuration

@@ -219,6 +219,8 @@ extern void install_element_ospf6_clear_interface(void);
 
 extern int config_write_ospf6_debug_interface(struct vty *vty);
 extern void install_element_ospf6_debug_interface(void);
+extern int ospf6_interface_neighbor_count(struct ospf6_interface *oi);
+extern uint8_t dr_election(struct ospf6_interface *oi);
 
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
