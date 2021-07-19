@@ -2559,10 +2559,6 @@ void cmd_init(int terminal)
 		hash_cmd_init();
 	}
 
-	install_element(CONFIG_NODE, &hostname_cmd);
-	install_element(CONFIG_NODE, &no_hostname_cmd);
-	install_element(CONFIG_NODE, &domainname_cmd);
-	install_element(CONFIG_NODE, &no_domainname_cmd);
 
 	if (terminal > 0) {
 		full_cli = true;
@@ -2573,6 +2569,11 @@ void cmd_init(int terminal)
 		install_element(CONFIG_NODE, &no_password_cmd);
 		install_element(CONFIG_NODE, &enable_password_cmd);
 		install_element(CONFIG_NODE, &no_enable_password_cmd);
+
+		install_element(CONFIG_NODE, &hostname_cmd);
+		install_element(CONFIG_NODE, &no_hostname_cmd);
+		install_element(CONFIG_NODE, &domainname_cmd);
+		install_element(CONFIG_NODE, &no_domainname_cmd);
 
 		install_element(CONFIG_NODE, &service_password_encrypt_cmd);
 		install_element(CONFIG_NODE, &no_service_password_encrypt_cmd);

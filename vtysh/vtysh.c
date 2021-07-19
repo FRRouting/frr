@@ -462,6 +462,31 @@ static void vtysh_client_config(struct vtysh_client *head_client, char *line)
 	vty->of = vty->of_saved;
 }
 
+/* Command execution to some special commands */
+int vtysh_client_run_special_commands()
+{
+	char line[] = "do write terminal\n";
+	struct vtysh_client *head_client;
+	unsigned int i;
+
+	for (i = 0; i < array_size(vtysh_client); i++) {
+		head_client = &vtysh_client[i];
+
+		/* One daemon is enough */
+		if (head_client->flag != VTYSH_ZEBRA)
+			continue;
+
+		/* suppress output to user */
+		vty->of_saved = vty->of;
+		vty->of = NULL;
+		vtysh_client_run_all(head_client, line, 1, vtysh_config_parse_name_line,
+				     NULL);
+		vty->of = vty->of_saved;
+    }
+
+    return 1;
+}
+
 /* Command execution over the vty interface. */
 static int vtysh_execute_func(const char *line, int pager)
 {
@@ -662,8 +687,16 @@ static int vtysh_execute_func(const char *line, int pager)
 		if (cmd_stat != CMD_SUCCESS)
 			break;
 
-		if (cmd->func)
-			(*cmd->func)(cmd, vty, 0, NULL);
+		if (cmd->func) {
+			/* XX
+			 * Need make it better
+			 */
+			if (!strcmp(cmd->string, "hostname WORD")
+			    || !strcmp(cmd->string, "domainname WORD"))
+				(*cmd->func)(cmd, vty, 1, (struct cmd_token **)line);
+			else
+				(*cmd->func)(cmd, vty, 0, NULL);
+		}
 	}
 	}
 	if (vty->is_paged)
@@ -3191,6 +3224,50 @@ DEFUNSH(VTYSH_ALL, no_vtysh_config_enable_password,
 	return CMD_SUCCESS;
 }
 
+/* Hostname configuration */
+DEFUNSH(VTYSH_ALL, vtysh_config_hostname,
+       vtysh_hostname_cmd,
+       "hostname WORD",
+       "Set system's network name\n"
+       "This system's network name\n")
+{
+	/* Skip all checks, which are already checked in other daemons */
+        char * m = strrchr((char*)argv, ' ');
+        return cmd_hostname_set(m + 1);
+}
+
+DEFUNSH(VTYSH_ALL, vtysh_config_no_hostname,
+       vtysh_no_hostname_cmd,
+       "no hostname [HOSTNAME]",
+       NO_STR
+       "Reset system's network name\n"
+       "Host name of this router\n")
+{
+	return cmd_hostname_set(NULL);
+}
+
+/* Domainname configuration */
+DEFUNSH(VTYSH_ALL, vtysh_config_domainname,
+      vtysh_domainname_cmd,
+      "domainname WORD",
+      "Set system's domain name\n"
+      "This system's domain name\n")
+{
+	/* Skip all checks, which are already checked in other daemons */
+        char *m = strrchr((char*)argv, ' ');
+        return cmd_domainname_set(m + 1);
+}
+
+DEFUNSH(VTYSH_ALL, vysh_config_no_domainname,
+      vtysh_no_domainname_cmd,
+      "no domainname [DOMAINNAME]",
+      NO_STR
+      "Reset system's domain name\n"
+      "domain name of this router\n")
+{
+	return cmd_domainname_set(NULL);
+}
+
 DEFUN (vtysh_write_terminal,
        vtysh_write_terminal_cmd,
        "write terminal ["DAEMONS_LIST"] [no-header]",
@@ -4588,4 +4665,9 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &no_vtysh_password_cmd);
 	install_element(CONFIG_NODE, &vtysh_enable_password_cmd);
 	install_element(CONFIG_NODE, &no_vtysh_enable_password_cmd);
+
+	install_element(CONFIG_NODE, &vtysh_hostname_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_hostname_cmd);
+	install_element(CONFIG_NODE, &vtysh_domainname_cmd);
+	install_element(CONFIG_NODE, &vtysh_no_domainname_cmd);
 }

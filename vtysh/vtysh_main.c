@@ -570,6 +570,16 @@ int main(int argc, char **argv, char **env)
 		}
 		vtysh_execute("enable");
 		return vtysh_write_config_integrated();
+	} else {
+		/*
+		 * Exec some special commands from other daemon at booting
+		 * Because these commands of vtysh itself maybe not exact
+		 *
+		 * Here, maybe better way?
+		 */
+		vtysh_execute("enable");
+		vtysh_client_run_special_commands();
+		vtysh_execute("disable");
 	}
 
 	if (inputfile) {

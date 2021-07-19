@@ -236,6 +236,27 @@ static void config_add_line_uniq_end(struct list *config, const char *line)
 		listnode_move_to_tail(config, node);
 }
 
+void vtysh_config_parse_name_line(void *arg, const char *line)
+{
+	char c;
+
+	if (!line)
+		return;
+
+	c = line[0];
+
+	if (c == '\0')
+		return;
+
+	if (strncmp(line, "hostname", strlen("hostname")) == 0
+	    || strncmp(line, "domainname", strlen("domainname")) == 0) {
+		vtysh_execute("configure terminal");
+		vtysh_execute(line);
+		vtysh_execute("end");
+	}
+	return;
+}
+
 void vtysh_config_parse_line(void *arg, const char *line)
 {
 	char c;
@@ -588,18 +609,6 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
  */
 void vtysh_config_write(void)
 {
-	char line[512];
-
-	if (cmd_hostname_get()) {
-		snprintf(line, sizeof(line), "hostname %s", cmd_hostname_get());
-		vtysh_config_parse_line(NULL, line);
-	}
-
-	if (cmd_domainname_get()) {
-		snprintf(line, sizeof(line), "domainname %s",
-			 cmd_domainname_get());
-		vtysh_config_parse_line(NULL, line);
-	}
 	if (vtysh_write_integrated == WRITE_INTEGRATED_NO)
 		vtysh_config_parse_line(NULL,
 					"no service integrated-vtysh-config");
