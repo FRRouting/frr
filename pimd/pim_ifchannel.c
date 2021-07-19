@@ -1021,6 +1021,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 			if (remain > holdtime)
 				return;
 		}
+		THREAD_OFF(ch->t_ifjoin_expiry_timer);
 
 		break;
 	case PIM_IFJOIN_PRUNE_TMP:
