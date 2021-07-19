@@ -78,6 +78,8 @@ int graceful_restart;
 
 bool v6_rr_semantics = false;
 
+char *interface_pattern = NULL;
+
 #ifdef HAVE_NETLINK
 /* Receive buffer size for netlink socket */
 uint32_t nl_rcvbufsize = 4194304;
@@ -100,6 +102,7 @@ const struct option longopts[] = {
 	{"vrfwnetns", no_argument, NULL, 'n'},
 	{"nl-bufsize", required_argument, NULL, 's'},
 	{"v6-rr-semantics", no_argument, NULL, OPTION_V6_RR_SEMANTICS},
+	{"interfaces", required_argument, NULL, 'I'},
 #endif /* HAVE_NETLINK */
 	{0}};
 
@@ -297,7 +300,7 @@ int main(int argc, char **argv)
 	frr_opt_add(
 		"baz:e:o:rK:"
 #ifdef HAVE_NETLINK
-		"s:n"
+		"s:nI:"
 #endif
 		,
 		longopts,
@@ -313,6 +316,7 @@ int main(int argc, char **argv)
 		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
 		"      --v6-rr-semantics    Use v6 RR semantics\n"
+		"  -I, --interfaces         Set interface name pattern\n"
 #endif /* HAVE_NETLINK */
 	);
 
@@ -380,6 +384,9 @@ int main(int argc, char **argv)
 			if (!strcmp(optarg, "notify_on_ack"))
 				notify_on_ack = true;
 			asic_offload = true;
+			break;
+		case 'I':
+			interface_pattern = strdup(optarg);
 			break;
 #endif /* HAVE_NETLINK */
 		default:
