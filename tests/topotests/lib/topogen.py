@@ -70,6 +70,8 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 # Global Topogen variable. This is being used to keep the Topogen available on
 # all test functions without declaring a test local variable.
 global_tgen = None
+# Global remote router name if any
+global_remote_router = None
 
 
 def get_topogen(topo=None):
@@ -87,6 +89,13 @@ def set_topogen(tgen):
     # pylint: disable=W0603
     global global_tgen
     global_tgen = tgen
+
+
+def set_remote_router(r_router):
+    "Helper function to set remote_router"
+    # pylint: disable=W0603
+    global global_remote_router
+    global_remote_router = r_router
 
 
 #
@@ -125,6 +134,20 @@ class Topogen(object):
         self.peern = 1
         self._init_topo(cls)
         logger.info("loading topology: {}".format(self.modname))
+
+    @property
+    def r_router(self):
+        global global_remote_router
+        if global_remote_router is not None:
+            # Global remote_router is set by CLI option and has a precedence.
+            return global_remote_router
+        else:
+            # Otherwise check pytest.ini
+            r_router = None
+            if self.config.has_option(self.CONFIG_SECTION, "r_router"):
+                r_router = self.config.get(self.CONFIG_SECTION, "r_router")
+                global_remote_router = r_router
+            return r_router
 
     @staticmethod
     def _mininet_reset():
@@ -180,7 +203,12 @@ class Topogen(object):
             name = "r{}".format(self.routern)
         if name in self.gears:
             raise KeyError("router already exists")
-
+        if self.r_router and name == self.r_router:
+            cls = topotest.RemoteLinuxRouter
+            params["server"] = self.config.get(self.CONFIG_SECTION, "r_server")
+            params["user"] = self.config.get(self.CONFIG_SECTION, "r_user")
+            params["keyFile"] = self.config.get(self.CONFIG_SECTION, "r_keyFile")
+            params["sshPort"] = self.config.get(self.CONFIG_SECTION, "r_sshPort")
         params["frrdir"] = self.config.get(self.CONFIG_SECTION, "frrdir")
         params["memleak_path"] = self.config.get(self.CONFIG_SECTION, "memleak_path")
         if "routertype" not in params:
@@ -256,9 +284,34 @@ class Topogen(object):
         if ifname2 is None:
             ifname2 = node2.new_link()
 
-        node1.register_link(ifname1, node2, ifname2)
-        node2.register_link(ifname2, node1, ifname1)
-        self.topo.addLink(node1.name, node2.name, intfName1=ifname1, intfName2=ifname2)
+        if self.r_router and self.r_router in [node1.name, node2.name]:
+            if node1.name == self.r_router:
+                r_router = node1
+                neigh = node2
+            else:
+                r_router = node2
+                neigh = node1
+            lport, rport = self.config.get(
+                self.CONFIG_SECTION, "r_link_{}".format(r_router.linkn - 1)
+            ).split(",")
+            r_router.register_link(rport, neigh, lport)
+            neigh.register_link(lport, r_router, rport)
+            self.topo.addLink(
+                neigh.name,
+                r_router.name,
+                cls=topotest.RemoteLink,
+                cls1=topotest.HWIntf,
+                cls2=topotest.HWIntf,
+                intfName2=lport,
+                hwport1=lport,
+                hwport2=rport,
+            )
+        else:
+            node1.register_link(ifname1, node2, ifname2)
+            node2.register_link(ifname2, node1, ifname1)
+            self.topo.addLink(
+                node1.name, node2.name, intfName1=ifname1, intfName2=ifname2
+            )
 
     def get_gears(self, geartype):
         """
@@ -690,6 +743,25 @@ class TopoRouter(TopoGear):
         self.logger.info("checking if daemons are running")
         return self.tgen.net[self.name].checkRouterRunning()
 
+    def link_name_update(self, daemon="zebra", file_name=None):
+        """
+        Update link names in config files if HW router is used
+        """
+        if not file_name:
+            file_name = "/etc/{rtype}/{daemon}.conf".format(
+                rtype=self.routertype, daemon=daemon
+            )
+        for linkn in range(self.linkn):
+            default_ifname = "{}-eth{}".format(self.name, linkn)  # See new_link()
+            hw_iface = self.tgen.config.get(
+                Topogen.CONFIG_SECTION, "r_link_{}".format(linkn)
+            ).split(",")[-1]
+            self.run(
+                'sed -i "s/{iface}/{hwiface}/g" {file_name}'.format(
+                    iface=default_ifname, hwiface=hw_iface, file_name=file_name
+                )
+            )
+
     def start(self):
         """
         Start router:
@@ -699,6 +771,13 @@ class TopoRouter(TopoGear):
         * Start daemons (e.g. FRR)
         * Configure daemon logging files
         """
+
+        if self.tgen.r_router and self.name == self.tgen.r_router:
+            # Replace interface names in config files
+            for daemon, enabled in self.tgen.net[self.name].daemons.items():
+                if enabled == 1:
+                    self.link_name_update(daemon)
+
         self.logger.debug("starting")
         nrouter = self.tgen.net[self.name]
         result = nrouter.startRouter(self.tgen)
@@ -816,6 +895,8 @@ class TopoRouter(TopoGear):
         """
         # Prepare the temporary file that will hold the commands
         fname = topotest.get_file(commands)
+        if self.tgen.r_router and self.name == self.tgen.r_router:
+            self.tgen.net[self.name].scp(fname, fname)
 
         dparam = ""
         if daemon is not None:

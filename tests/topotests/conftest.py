@@ -8,13 +8,14 @@ import pdb
 import re
 import pytest
 
-from lib.topogen import get_topogen, diagnose_env
+from lib.topogen import get_topogen, diagnose_env, set_remote_router
 from lib.topotest import json_cmp_result
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topolog import logger
 
 try:
     from _pytest._code.code import ExceptionInfo
+
     leak_check_ok = True
 except ImportError:
     leak_check_ok = False
@@ -85,6 +86,13 @@ def pytest_addoption(parser):
         default=False,
         help="Only set up this topology, don't run tests",
     )
+    parser.addoption(
+        "--hw-router",
+        action="store",
+        dest="r_router",
+        default=None,
+        help="Topology router name to replace with HW router.",
+    )
 
     parser.addoption(
         "--valgrind-extra",
@@ -132,7 +140,7 @@ def check_for_memleaks():
             vfcontent = vf.read()
             match = re.search(r"ERROR SUMMARY: (\d+) errors", vfcontent)
             if match and match.group(1) != "0":
-                emsg = '{} in {}'.format(match.group(1), vfile)
+                emsg = "{} in {}".format(match.group(1), vfile)
                 leaks.append(emsg)
 
     if leaks:
@@ -220,6 +228,9 @@ def pytest_configure(config):
     topotest_extra_config["pause_after"] = pause_after or shell or vtysh
 
     topotest_extra_config["topology_only"] = config.getoption("--topology-only")
+
+    if config.getoption("r_router"):
+        set_remote_router(config.getoption("r_router"))
 
 
 def pytest_runtest_makereport(item, call):
