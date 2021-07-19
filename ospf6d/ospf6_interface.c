@@ -44,9 +44,10 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+#include "ospf6_gr.h"
 #include "lib/json.h"
 
-DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_IF,       "OSPF6 interface");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_IF, "OSPF6 interface");
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names");
 DEFINE_QOBJ_TYPE(ospf6_interface);
 DEFINE_HOOK(ospf6_interface_change,
@@ -58,6 +59,22 @@ unsigned char conf_debug_ospf6_interface = 0;
 const char *const ospf6_interface_state_str[] = {
 	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
 	"DROther", "BDR",  "DR",       NULL};
+
+int ospf6_interface_neighbor_count(struct ospf6_interface *oi)
+{
+	int count = 0;
+	struct ospf6_neighbor *nbr = NULL;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, nbr)) {
+		/* Down state is not shown. */
+		if (nbr->state == OSPF6_NEIGHBOR_DOWN)
+			continue;
+		count++;
+	}
+
+	return count;
+}
 
 struct ospf6_interface *ospf6_interface_lookup_by_ifindex(ifindex_t ifindex,
 							  vrf_id_t vrf_id)
@@ -592,7 +609,7 @@ static struct ospf6_neighbor *better_drouter(struct ospf6_neighbor *a,
 	return a;
 }
 
-static uint8_t dr_election(struct ospf6_interface *oi)
+uint8_t dr_election(struct ospf6_interface *oi)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on, *drouter, *bdrouter, myself;
@@ -906,6 +923,18 @@ int interface_down(struct thread *thread)
 
 	/* Stop trying to set socket options. */
 	THREAD_OFF(oi->thread_sso);
+	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+
+	/* Cease the HELPER role for all the neighbours
+	 * of this interface.
+	 */
+	if (ospf6_interface_neighbor_count(oi)) {
+		struct listnode *ln;
+		struct ospf6_neighbor *nbr = NULL;
+
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, ln, nbr))
+			ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_TOPO_CHG);
+	}
 
 	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
 		ospf6_neighbor_delete(on);

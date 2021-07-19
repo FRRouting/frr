@@ -44,6 +44,7 @@
 #include "ospf6d.h"
 #include "ospf6_abr.h"
 #include "ospf6_nssa.h"
+#include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_VERTEX, "OSPF6 vertex");
 
@@ -438,8 +439,8 @@ void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
 	}
 }
 
-static const char *const ospf6_spf_reason_str[] = {"R+", "R-", "N+", "N-", "L+",
-						   "L-", "R*", "N*", "C"};
+static const char *const ospf6_spf_reason_str[] = {
+	"R+", "R-", "N+", "N-", "L+", "L-", "R*", "N*", "C", "A", "GR"};
 
 void ospf6_spf_reason_string(unsigned int reason, char *buf, int size)
 {
@@ -1258,6 +1259,16 @@ static int ospf6_ase_calculate_timer(struct thread *t)
 			}
 		}
 	}
+
+	/*
+	 * Uninstall remnant routes that were installed before the restart, but
+	 * that are no longer valid.
+	 */
+	if (ospf6->gr_info.finishing_restart) {
+		ospf6_zebra_gr_disable(ospf6);
+		ospf6->gr_info.finishing_restart = false;
+	}
+
 	return 0;
 }
 

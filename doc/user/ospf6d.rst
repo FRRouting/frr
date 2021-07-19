@@ -228,6 +228,58 @@ Redistribute routes to OSPF6
    argument injects the default route regardless of it being present in the
    router. Metric values and route-map can also be specified optionally.
 
+Graceful Restart
+================
+
+.. clicmd:: graceful-restart [grace-period (1-1800)]
+
+
+   Configure Graceful Restart (RFC 5187) restarting support.
+   When enabled, the default grace period is 120 seconds.
+
+   To perform a graceful shutdown, the "graceful-restart prepare ipv6 ospf"
+   EXEC-level command needs to be issued before restarting the ospf6d daemon.
+
+.. clicmd:: graceful-restart helper-only [A.B.C.D]
+
+
+   Configure Graceful Restart (RFC 3623) helper support.
+   By default, helper support is disabled for all neighbours.
+   This config enables/disables helper support on this router
+   for all neighbours.
+   To enable/disable helper support for a specific
+   neighbour, the router-id (A.B.C.D) has to be specified.
+
+.. clicmd:: graceful-restart helper strict-lsa-checking
+
+
+   If 'strict-lsa-checking' is configured then the helper will
+   abort the Graceful Restart when a LSA change occurs which
+   affects the restarting router.
+   By default 'strict-lsa-checking' is enabled"
+
+.. clicmd:: graceful-restart helper supported-grace-time
+
+
+   Supports as HELPER for configured grace period.
+
+.. clicmd:: graceful-restart helper planned-only
+
+
+   It helps to support as HELPER only for planned
+   restarts. By default, it supports both planned and
+   unplanned outages.
+
+.. clicmd:: graceful-restart prepare ipv6 ospf
+
+
+   Initiate a graceful restart for all OSPFv3 instances configured with the
+   "graceful-restart" command. The ospf6d daemon should be restarted during
+   the instance-specific grace period, otherwise the graceful restart will fail.
+
+   This is an EXEC-level command.
+
+
 .. _showing-ospf6-information:
 
 Showing OSPF6 information
@@ -320,6 +372,11 @@ Showing OSPF6 information
    tree in JSON format. Each area that the router belongs to has it's own
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
+
+.. clicmd:: show ipv6 ospf6 graceful-restart helper [detail] [json]
+
+   Displays the Grcaeful Restart Helper details including helper
+   config changes
 
 
 Sample configuration

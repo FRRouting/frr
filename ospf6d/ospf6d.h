@@ -104,6 +104,12 @@ extern struct thread_master *master;
 		vrf_name = VRF_DEFAULT_NAME;                                   \
 	}
 
+#define OSPF6_FALSE false
+#define OSPF6_TRUE true
+#define OSPF6_SUCCESS 1
+#define OSPF6_FAILURE 0
+#define OSPF6_INVALID -1
+
 extern struct zebra_privs_t ospf6d_privs;
 
 /* Function Prototypes */

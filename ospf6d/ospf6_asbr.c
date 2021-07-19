@@ -52,6 +52,7 @@
 #include "ospf6d.h"
 #include "ospf6_spf.h"
 #include "ospf6_nssa.h"
+#include "ospf6_gr.h"
 #include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_EXTERNAL_INFO, "OSPF6 ext. info");
@@ -81,6 +82,14 @@ void ospf6_as_external_lsa_originate(struct ospf6_route *route,
 
 	struct ospf6_as_external_lsa *as_external_lsa;
 	caddr_t p;
+
+	if (ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR_HELPER) {
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		}
+		return;
+	}
 
 	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
 		zlog_debug("Originate AS-External-LSA for %pFX",

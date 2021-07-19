@@ -47,6 +47,7 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 #include "ospf6_spf.h"
+#include "ospf6_gr.h"
 
 unsigned char conf_debug_ospf6_brouter = 0;
 uint32_t conf_debug_ospf6_brouter_specific_router_id;
@@ -248,6 +249,14 @@ int ospf6_router_lsa_originate(struct thread *thread)
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
 	oa->thread_router_lsa = NULL;
+
+	if (oa->ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR_HELPER) {
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		}
+		return 0;
+	}
 
 	if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
 		zlog_debug("Originate Router-LSA for Area %s", oa->name);
@@ -532,6 +541,14 @@ int ospf6_network_lsa_originate(struct thread *thread)
 	   by ospf6_lsa_refresh (), and does not come here. */
 	assert(oi->area);
 
+	if (oi->area->ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR_HELPER) {
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		}
+		return 0;
+	}
+
 	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_NETWORK),
 				htonl(oi->interface->ifindex),
 				oi->area->ospf6->router_id, oi->area->lsdb);
@@ -773,6 +790,15 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	oi->thread_link_lsa = NULL;
 
 	assert(oi->area);
+
+	if (oi->area->ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR_HELPER) {
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		}
+		return 0;
+	}
+
 
 	/* find previous LSA */
 	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_LINK),
@@ -1019,6 +1045,14 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
 	oa->thread_intra_prefix_lsa = NULL;
 
+	if (oa->ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR_HELPER) {
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		}
+		return 0;
+	}
+
 	/* find previous LSA */
 	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_INTRA_PREFIX), htonl(0),
 				oa->ospf6->router_id, oa->lsdb);
@@ -1260,6 +1294,14 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	oi->thread_intra_prefix_lsa = NULL;
 
 	assert(oi->area);
+
+	if (oi->area->ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR_HELPER) {
+			zlog_debug(
+				"Graceful Restart in progress, don't originate LSA");
+		}
+		return 0;
+	}
 
 	/* find previous LSA */
 	old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_INTRA_PREFIX),

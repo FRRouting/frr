@@ -67,7 +67,8 @@
 #define OSPF6_LSTYPE_TYPE_7           0x2007
 #define OSPF6_LSTYPE_LINK             0x0008
 #define OSPF6_LSTYPE_INTRA_PREFIX     0x2009
-#define OSPF6_LSTYPE_SIZE             0x000a
+#define OSPF6_LSTYPE_GRACE_LSA	      0x000b
+#define OSPF6_LSTYPE_SIZE             0x000c
 
 /* Masks for LS Type : RFC 2740 A.4.2.1 "LS type" */
 #define OSPF6_LSTYPE_UBIT_MASK        0x8000
@@ -143,6 +144,9 @@ struct ospf6_lsa {
 
 	/* lsa instance */
 	struct ospf6_lsa_header *header;
+
+	/*For topo chg detection in HELPER role*/
+	bool tobe_acknowledged;
 };
 
 #define OSPF6_LSA_HEADERONLY 0x01
@@ -207,6 +211,14 @@ extern vector ospf6_lsa_handler_vector;
 		continue;                                                      \
 	}
 
+#define CHECK_LSA_TOPO_CHG_ELIGIBLE(type)		\
+	((type == OSPF6_LSTYPE_ROUTER)			\
+	 || (type == OSPF6_LSTYPE_NETWORK)		\
+	 || (type == OSPF6_LSTYPE_INTER_PREFIX)		\
+	 || (type == OSPF6_LSTYPE_INTER_ROUTER)		\
+	 || (type == OSPF6_LSTYPE_AS_EXTERNAL)		\
+	 || (type == OSPF6_LSTYPE_TYPE_7)		\
+	 || (type == OSPF6_LSTYPE_INTRA_PREFIX))
 
 /* Function Prototypes */
 extern const char *ospf6_lstype_name(uint16_t type);

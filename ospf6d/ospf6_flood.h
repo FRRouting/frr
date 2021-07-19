@@ -32,7 +32,7 @@ extern struct ospf6_lsdb *ospf6_get_scoped_lsdb(struct ospf6_lsa *lsa);
 extern struct ospf6_lsdb *ospf6_get_scoped_lsdb_self(struct ospf6_lsa *lsa);
 
 /* origination & purging */
-extern void ospf6_lsa_originate(struct ospf6_lsa *lsa);
+extern void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa);
 extern void ospf6_lsa_originate_process(struct ospf6_lsa *lsa,
 					struct ospf6 *process);
 extern void ospf6_lsa_originate_area(struct ospf6_lsa *lsa,
