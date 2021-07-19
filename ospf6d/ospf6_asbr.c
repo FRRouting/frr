@@ -57,6 +57,7 @@
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_EXTERNAL_INFO, "OSPF6 ext. info");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DIST_ARGS,     "OSPF6 Distribute arguments");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_REDISTRIBUTE, "OSPF6 Redistribute arguments");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_SUMMARY_ADDRESS, "OSPF6 summary address");
 
 static void ospf6_asbr_redistribute_set(struct ospf6 *ospf6, int type);
 static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
@@ -67,8 +68,342 @@ static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
 #endif
 
 unsigned char conf_debug_ospf6_asbr = 0;
+unsigned char conf_debug_ospf6_summary = 0;
 
 #define ZROUTE_NAME(x) zebra_route_string(x)
+
+static void summary_address_originate(struct summary_address *sum)
+{
+	struct ospf6 *o = sum->ospf6;
+	struct ospf6_area *oa;
+	struct listnode *lnode;
+	struct ospf6_route *route;
+	struct ospf6_external_info *info;
+
+	/* Check if we already originated the route. */
+	if (sum->flags & SUMMARY_ADDRESS_F_ORIGINATED)
+		return;
+
+	/* Make sure it was not created. */
+	if (sum->route) {
+		SET_FLAG(sum->flags, SUMMARY_ADDRESS_F_ORIGINATED);
+		zlog_warn("%s: summary route %pFX already exists", __func__,
+			  &sum->node->p);
+		return;
+	}
+
+	if (IS_OSPF6_DEBUG_SUMMARY)
+		zlog_debug("Advertise summary route %pFX", &sum->node->p);
+
+	/* Create summary route and save it. */
+	route = ospf6_route_create();
+	route->type = OSPF6_DEST_TYPE_NETWORK;
+	/* Use big distance so to not shadow a legitimate route. */
+	route->path.cost = 255;
+	route->path.metric_type = metric_type(o, ZEBRA_ROUTE_OSPF6, 0);
+	prefix_copy(&route->prefix, &sum->node->p);
+
+	info = XCALLOC(MTYPE_OSPF6_EXTERNAL_INFO, sizeof(*info));
+	route->route_option = info;
+	info->tag = sum->tag;
+	info->id = o->external_id++;
+	route->path.origin.id = htonl(info->id);
+
+	sum->route = route;
+	/* Needed to install route. */
+	SET_FLAG(route->flag, OSPF6_ROUTE_BEST);
+	/* Add next-hop to Null interface. */
+	ospf6_add_route_nexthop_blackhole(route);
+
+	ospf6_zebra_route_update_add(route, o);
+
+	/* Originate LSA using the summary route. */
+	ospf6_as_external_lsa_originate(route, o);
+	ospf6_asbr_status_update(o, o->redistribute);
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, lnode, oa))
+		if (IS_AREA_NSSA(oa))
+			ospf6_nssa_lsa_originate(route, oa);
+
+	/* Mark as route originated. */
+	SET_FLAG(sum->flags, SUMMARY_ADDRESS_F_ORIGINATED);
+}
+
+static void summary_address_originate_del(struct summary_address *sum)
+{
+	struct ospf6 *o = sum->ospf6;
+	struct listnode *lnode;
+	struct ospf6_lsa *lsa;
+	struct ospf6_area *oa;
+	struct ospf6_route *route;
+	struct ospf6_external_info *info;
+
+	/* Check if we already don't have an originated route. */
+	if (!(sum->flags & SUMMARY_ADDRESS_F_ORIGINATED))
+		return;
+
+	/* Consistency check: route is there. */
+	route = sum->route;
+	if (route == NULL) {
+		zlog_err("%s: no summary route found", __func__);
+		return;
+	}
+
+	if (IS_OSPF6_DEBUG_SUMMARY)
+		zlog_debug("Remove summary route %pFX", &sum->node->p);
+
+	info = route->route_option;
+
+	/* Remove LSA globally. */
+	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
+				htonl(info->id), o->router_id, o->lsdb);
+	if (lsa)
+		ospf6_lsa_purge(lsa);
+
+	/* Remove LSA for all NSSA areas. */
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, lnode, oa)) {
+		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7),
+					htonl(info->id), o->router_id,
+					oa->lsdb);
+		if (lsa == NULL)
+			continue;
+
+		ospf6_lsa_purge(lsa);
+	}
+
+	ospf6_zebra_route_update_remove(route, o);
+	ospf6_route_delete(route);
+	sum->route = NULL;
+
+	ospf6_asbr_status_update(o, o->redistribute);
+
+	/* Mark as originated route removed. */
+	UNSET_FLAG(sum->flags, SUMMARY_ADDRESS_F_ORIGINATED);
+}
+
+struct summary_address *summary_address_new(struct ospf6 *ospf6,
+					    const struct prefix *p)
+{
+	struct summary_address *sum;
+	struct route_node *node;
+
+	node = route_node_get(ospf6->summary_table, p);
+	assert(node->info == NULL);
+
+	sum = XCALLOC(MTYPE_OSPF6_SUMMARY_ADDRESS, sizeof(*sum));
+	sum->ospf6 = ospf6;
+	sum->node = node;
+	sum->refcount = 1;
+	node->info = sum;
+
+	return sum;
+}
+
+void summary_address_free(struct summary_address **sum)
+{
+	/* NULL pointer convenience check. */
+	if (*sum == NULL)
+		return;
+
+	(*sum)->refcount -= 1;
+
+	/* Remove originated route. */
+	if ((*sum)->refcount <= 1 &&
+	    ((*sum)->flags & SUMMARY_ADDRESS_F_ORIGINATED))
+		summary_address_originate_del(*sum);
+
+	/* If there are still users then keep it. */
+	if ((*sum)->refcount > 0) {
+		*sum = NULL;
+		return;
+	}
+
+	(*sum)->node->info = NULL;
+	route_unlock_node((*sum)->node);
+	(*sum)->node = NULL;
+	XFREE(MTYPE_OSPF6_SUMMARY_ADDRESS, (*sum));
+}
+
+/**
+ * Helper function to increment reference count.
+ *
+ * The main objective of this function is to not spread the increment of the
+ * counter throughout the code.
+ */
+static inline void
+ospf6_external_info_set_summary(struct ospf6_external_info *info,
+				struct summary_address *sum)
+{
+	info->summary = sum;
+	sum->refcount++;
+
+	/*
+	 * We've got a route that matches a summary, generate the summary
+	 * route for it if there is at least one route that can be summarized.
+	 */
+	summary_address_originate(sum);
+}
+
+/** Lookup for summary address best matching the address. */
+static struct summary_address *summary_address_match(struct ospf6 *o,
+						     const struct prefix *p)
+{
+	struct route_node *node;
+
+	node = route_node_match(o->summary_table, p);
+	if (node)
+		route_unlock_node(node);
+
+	return node ? node->info : NULL;
+}
+
+static void ospf6_route_summary_del(struct ospf6 *o, struct ospf6_route *route)
+{
+	struct ospf6_external_info *info = route->route_option;
+	struct listnode *lnode;
+	struct ospf6_area *oa;
+
+	summary_address_free(&info->summary);
+
+	/* Put back the route LSAs. */
+	ospf6_as_external_lsa_originate(route, o);
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, lnode, oa))
+		if (IS_AREA_NSSA(oa))
+			ospf6_nssa_lsa_originate(route, oa);
+}
+
+static void ospf6_route_summary_add(struct ospf6_route *route,
+				    struct summary_address *sum)
+{
+	struct ospf6_external_info *info = route->route_option;
+	struct ospf6 *o = sum->ospf6;
+	struct listnode *lnode;
+	struct ospf6_area *oa;
+	struct ospf6_lsa *lsa;
+
+	ospf6_external_info_set_summary(info, sum);
+
+	/* Remove LSA globally. */
+	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
+				htonl(info->id), o->router_id, o->lsdb);
+	if (lsa)
+		ospf6_lsa_purge(lsa);
+
+	/* Remove LSA for all NSSA areas. */
+	for (ALL_LIST_ELEMENTS_RO(o->area_list, lnode, oa)) {
+		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7),
+					htonl(info->id), o->router_id,
+					oa->lsdb);
+		if (lsa == NULL)
+			continue;
+
+		ospf6_lsa_purge(lsa);
+	}
+}
+
+static int summary_address_event_cb(struct thread *t)
+{
+	struct ospf6 *o = THREAD_ARG(t);
+	struct ospf6_external_info *info;
+	struct summary_address *sum;
+	struct ospf6_route *route;
+
+	if (IS_OSPF6_DEBUG_SUMMARY)
+		zlog_debug("Summarize all configured prefixes");
+
+	/*
+	 * Remove old summaries.
+	 *
+	 * Summaries marked for deletion need to be removed first because they
+	 * might affect other old summaries which might now have some effect.
+	 */
+	for (route = ospf6_route_head(o->external_table); route;
+	     route = ospf6_route_next(route)) {
+		/* Skip default routes. */
+		if (is_default_prefix(&route->prefix))
+			continue;
+		/* Skip routes without summary. */
+		sum = summary_address_match(o, &route->prefix);
+		if (sum == NULL)
+			continue;
+		if (!(sum->flags & SUMMARY_ADDRESS_F_DELETED))
+			continue;
+
+		info = route->route_option;
+		if (info->summary == NULL) {
+			zlog_warn(
+				"%s: route %pFX was supposed to be summarized",
+				__func__, &route->prefix);
+			continue;
+		}
+
+		ospf6_route_summary_del(o, route);
+	}
+
+	/* Apply new summaries. */
+	for (route = ospf6_route_head(o->external_table); route;
+	     route = ospf6_route_next(route)) {
+		info = route->route_option;
+		/* Skip default routes. */
+		if (is_default_prefix(&route->prefix))
+			continue;
+		/* Skip routes without summary. */
+		sum = summary_address_match(o, &route->prefix);
+		if (sum == NULL)
+			continue;
+
+		/* TODO: check if LSA can be originated, otherwise skip it.
+		 * - Filter
+		 * - Apply route map
+		 */
+
+		/* No changes, skip this route. */
+		if (info->summary == sum)
+			continue;
+
+		if (IS_OSPF6_DEBUG_SUMMARY) {
+			if (info->summary && info->summary != sum)
+				zlog_debug(
+					"%s: summarize %pFX (replacing summary-address %pFX with %pFX)",
+					__func__, &route->prefix,
+					&info->summary->node->p, &sum->node->p);
+			else
+				zlog_debug(
+					"%s: summarize %pFX (using summary-address %pFX)",
+					__func__, &route->prefix,
+					&sum->node->p);
+		}
+
+		/* Remove previously configured summary if any. */
+		summary_address_free(&info->summary);
+
+		ospf6_route_summary_add(route, sum);
+	}
+
+	return 0;
+}
+
+void summary_address_schedule_process(struct ospf6 *o)
+{
+	thread_add_event(master, summary_address_event_cb, o, 0,
+			 &o->summary_ev);
+}
+
+bool summary_address_apply(struct ospf6 *o, struct ospf6_route *route)
+{
+	struct summary_address *sum;
+
+	sum = summary_address_match(o, &route->prefix);
+	if (sum == NULL)
+		return false;
+
+	if (IS_OSPF6_DEBUG_SUMMARY)
+		zlog_debug("%s: summarize prefix %pFX", __func__,
+			   &route->prefix);
+
+	ospf6_route_summary_add(route, sum);
+
+	return true;
+}
 
 /* AS External LSA origination */
 void ospf6_as_external_lsa_originate(struct ospf6_route *route,
@@ -1414,6 +1749,11 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 		}
 
 		match->path.origin.id = htonl(info->id);
+
+		/* Summarize route if configured. */
+		if (summary_address_apply(ospf6, match))
+			return;
+
 		ospf6_as_external_lsa_originate(match, ospf6);
 		ospf6_asbr_status_update(ospf6, ospf6->redistribute);
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
@@ -1481,6 +1821,11 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	}
 
 	route->path.origin.id = htonl(info->id);
+
+	/* Summarize route if configured. */
+	if (summary_address_apply(ospf6, route))
+		return;
+
 	ospf6_as_external_lsa_originate(route, ospf6);
 	ospf6_asbr_status_update(ospf6, ospf6->redistribute);
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
@@ -2216,6 +2561,36 @@ static void ospf6_routemap_init(void)
 	install_element(RMAP_NODE, &ospf6_routemap_no_set_forwarding_cmd);
 }
 
+DEFPY(ospf6_summary_address_config, ospf6_summary_address_config_cmd,
+      "[no] summary-address X:X::X:X/M$addr [tag (1-4294967295)$tag]",
+      NO_STR
+      "External summary address\n"
+      "Summary address prefix\n"
+      "Router tag\n"
+      "Router tag value\n")
+{
+	struct summary_address *sum;
+	VTY_DECLVAR_CONTEXT(ospf6, o);
+
+	sum = summary_address_match(o, (const struct prefix *)addr);
+	if (no) {
+		if (sum == NULL)
+			return CMD_SUCCESS;
+
+		SET_FLAG(sum->flags, SUMMARY_ADDRESS_F_DELETED);
+		summary_address_free(&sum);
+	} else {
+		if (sum == NULL)
+			sum = summary_address_new(o,
+						  (const struct prefix *)addr);
+
+		sum->tag = tag_str ? (route_tag_t)tag : 0;
+	}
+
+	summary_address_schedule_process(o);
+
+	return CMD_SUCCESS;
+}
 
 /* Display functions */
 static char *ospf6_as_external_lsa_get_prefix_str(struct ospf6_lsa *lsa,
@@ -2477,6 +2852,8 @@ void ospf6_asbr_init(void)
 	install_element(OSPF6_NODE, &ospf6_redistribute_cmd);
 	install_element(OSPF6_NODE, &ospf6_redistribute_routemap_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_redistribute_cmd);
+
+	install_element(OSPF6_NODE, &ospf6_summary_address_config_cmd);
 }
 
 void ospf6_asbr_redistribute_disable(struct ospf6 *ospf6)
@@ -2536,6 +2913,21 @@ void ospf6_asbr_terminate(void)
 	route_map_finish();
 }
 
+DEFPY(debug_ospf6_summary, debug_ospf6_summary_cmd,
+      "[no] debug ospf6 summary-address",
+      NO_STR
+      DEBUG_STR
+      OSPF6_STR
+      "External summary address\n")
+{
+	if (!no)
+		OSPF6_DEBUG_SUMMARY_ON();
+	else
+		OSPF6_DEBUG_SUMMARY_OFF();
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_ospf6_asbr,
        debug_ospf6_asbr_cmd,
        "debug ospf6 asbr",
@@ -2565,6 +2957,8 @@ int config_write_ospf6_debug_asbr(struct vty *vty)
 {
 	if (IS_OSPF6_DEBUG_ASBR)
 		vty_out(vty, "debug ospf6 asbr\n");
+	if (IS_OSPF6_DEBUG_SUMMARY)
+		vty_out(vty, "debug ospf6 summary-address\n");
 	return 0;
 }
 
@@ -2594,6 +2988,21 @@ static void ospf6_default_originate_write(struct vty *vty, struct ospf6 *o)
 	vty_out(vty, "\n");
 }
 
+static void ospf6_summary_address_write(struct vty *vty, struct ospf6 *o)
+{
+	struct route_node *rn;
+	struct summary_address *sum;
+
+	for (rn = route_top(o->summary_table); rn; rn = route_next(rn)) {
+		sum = rn->info;
+
+		vty_out(vty, " summary-address %pFX", &rn->p);
+		if (sum->tag)
+			vty_out(vty, " tag %u", sum->tag);
+		vty_out(vty, "\n");
+	}
+}
+
 int ospf6_distribute_config_write(struct vty *vty, struct ospf6 *o)
 {
 	if (o == NULL)
@@ -2602,6 +3011,9 @@ int ospf6_distribute_config_write(struct vty *vty, struct ospf6 *o)
 	/* Print default originate configuration. */
 	if (o->default_originate != DEFAULT_ORIGINATE_NONE)
 		ospf6_default_originate_write(vty, o);
+
+	/* Print summary address configuration. */
+	ospf6_summary_address_write(vty, o);
 
 	return 0;
 }
@@ -2612,4 +3024,7 @@ void install_element_ospf6_debug_asbr(void)
 	install_element(ENABLE_NODE, &no_debug_ospf6_asbr_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_asbr_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_asbr_cmd);
+
+	install_element(ENABLE_NODE, &debug_ospf6_summary_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_summary_cmd);
 }

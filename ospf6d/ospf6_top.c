@@ -412,6 +412,8 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->external_id_table = route_table_init();
 
+	o->summary_table = route_table_init();
+
 	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
 	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
 
@@ -461,6 +463,7 @@ struct ospf6 *ospf6_instance_create(const char *name)
 void ospf6_delete(struct ospf6 *o)
 {
 	struct listnode *node, *nnode;
+	struct route_node *rn;
 	struct ospf6_area *oa;
 	struct vrf *vrf;
 
@@ -488,6 +491,12 @@ void ospf6_delete(struct ospf6 *o)
 
 	ospf6_route_table_delete(o->external_table);
 	route_table_finish(o->external_id_table);
+
+	for (rn = route_top(o->summary_table); rn; rn = route_next(rn)) {
+		summary_address_free((struct summary_address **)&rn->info);
+		route_unlock_node(rn);
+	}
+	route_table_finish(o->summary_table);
 
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);

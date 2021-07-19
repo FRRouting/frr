@@ -1024,8 +1024,8 @@ static void ospf6_external_lsa_refresh_type(struct ospf6 *ospf6, uint8_t type,
 				/* LSA not found in the database
 				 * Verify and originate  external LSA
 				 */
-				if (ospf6_redistribute_check(ospf6, route,
-							     type))
+				if (ospf6_redistribute_check(ospf6, route, type)
+				    && !summary_address_apply(ospf6, route))
 					ospf6_as_external_lsa_originate(route,
 									ospf6);
 			}
@@ -1064,6 +1064,10 @@ static void ospf6_external_lsa_refresh_default(struct ospf6 *ospf6)
 				if (IS_OSPF6_DEBUG_NSSA)
 					zlog_debug(
 						"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
+
+				if (summary_address_apply(ospf6, route))
+					return;
+
 				ospf6_as_external_lsa_originate(route, ospf6);
 			}
 		}

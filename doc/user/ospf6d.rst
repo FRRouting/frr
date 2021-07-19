@@ -85,6 +85,17 @@ OSPF6 router
    change to take effect, user can use this cli instead of restarting the
    ospf6d daemon.
 
+.. clicmd:: summary-address X:X::X:X/M [tag (1-4294967295)]
+
+   Summarize all routes that match or are more specific than the prefix
+   supplied. Only the LSAs with type 5 will be suppressed.
+
+   This functionality helps reduce the amount of routes that are propagated
+   to other network to save resources (e.g. less memory and less route flapping)
+   and simplify management.
+
+   If the optional tag is provided it will be used in the generated summary route.
+
 .. _ospf6-debugging:
 
 OSPFv3 Debugging
@@ -135,6 +146,10 @@ The following debug commands are supported:
 .. clicmd:: debug ospf6 spf
 
    Toggle OSPFv3 Shortest Path calculation debugging messages.
+
+.. clicmd:: debug ospf6 summary-address
+
+   Toggle OSPFv3 summary address debugging messages.
 
 .. clicmd:: debug ospf6 zebra
 
