@@ -38,7 +38,9 @@
 #define SET_LABEL(label) ((label << 8) & SET_LABEL_MASK)
 #define GET_LABEL(label) ((label >> 8) & GET_LABEL_MASK)
 
-#define OSPF_SR_DEFAULT_METRIC		1
+/* smallest configurable SRGB / SRLB sizes */
+#define MIN_SRLB_SIZE 16
+#define MIN_SRGB_SIZE 16
 
 /* Segment Routing TLVs as per RFC 8665 */
 
@@ -221,7 +223,7 @@ struct sr_local_block {
 enum sid_type { PREF_SID, LOCAL_SID, ADJ_SID, LAN_ADJ_SID };
 
 /* Status of Segment Routing: Off (Disable), On (Enable), (Up) Started */
-enum sr_status { SR_OFF, SR_ON, SR_UP, SR_DOWN };
+enum sr_status { SR_OFF, SR_ON, SR_UP };
 
 /* Structure aggregating all OSPF Segment Routing information for the node */
 struct ospf_sr_db {
@@ -359,6 +361,9 @@ extern void ospf_sr_ext_prefix_lsa_delete(struct ospf_lsa *lsa);
 struct ext_itf;
 extern void ospf_sr_ext_itf_add(struct ext_itf *exti);
 extern void ospf_sr_ext_itf_delete(struct ext_itf *exti);
+/* Segment Routing Prefix-SID management */
+struct sr_prefix *ospf_sr_lookup_prefix(struct prefix *p);
+int ospf_sr_remove_prefix(struct sr_prefix *srp);
 /* Segment Routing configuration functions */
 extern void ospf_sr_config_write_router(struct vty *vty);
 extern void ospf_sr_update_local_prefix(struct interface *ifp,

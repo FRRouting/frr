@@ -64,15 +64,23 @@
     "nexthops":[
       {
         "type":"SR (OSPF)",
-        "outLabel":16060,
+        "outLabel":17060,
+        "outLabelStack":[
+          17060
+        ],
+        "distance":150,
         "installed":true,
-        "nexthop":"10.0.1.2"
+        "nexthop":"10.0.1.3"
       },
       {
         "type":"SR (OSPF)",
-        "outLabel":17060,
+        "outLabel":16060,
+        "outLabelStack":[
+          16060
+        ],
+        "distance":150,
         "installed":true,
-        "nexthop":"10.0.1.3"
+        "nexthop":"10.0.1.2"
       }
     ]
   }

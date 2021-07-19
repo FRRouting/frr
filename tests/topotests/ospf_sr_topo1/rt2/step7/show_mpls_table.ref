@@ -30,13 +30,13 @@
         "type":"SR (OSPF)",
         "outLabel":16040,
         "installed":true,
-        "nexthop":"10.0.2.4"
+        "nexthop":"10.0.3.4"
       },
       {
         "type":"SR (OSPF)",
         "outLabel":16040,
         "installed":true,
-        "nexthop":"10.0.3.4"
+        "nexthop":"10.0.2.4"
       }
     ]
   },
@@ -60,13 +60,13 @@
         "type":"SR (OSPF)",
         "outLabel":16060,
         "installed":true,
-        "nexthop":"10.0.2.4"
+        "nexthop":"10.0.3.4"
       },
       {
         "type":"SR (OSPF)",
         "outLabel":16060,
         "installed":true,
-        "nexthop":"10.0.3.4"
+        "nexthop":"10.0.2.4"
       }
     ]
   }

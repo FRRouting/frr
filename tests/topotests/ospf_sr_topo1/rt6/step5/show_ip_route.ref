@@ -26,6 +26,33 @@
       ]
     }
   ],
+  "1.1.2.1\/32":[
+    {
+      "prefix":"1.1.2.1\/32",
+      "protocol":"ospf",
+      "selected":true,
+      "destSelected":true,
+      "distance":110,
+      "metric":30,
+      "installed":true,
+      "nexthops":[
+        {
+          "fib":true,
+          "ip":"10.0.7.4",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt4",
+          "active":true
+        },
+        {
+          "fib":true,
+          "ip":"10.0.8.5",
+          "afi":"ipv4",
+          "interfaceName":"eth-rt5",
+          "active":true
+        }
+      ]
+    }
+  ],
   "2.2.2.2\/32":[
     {
       "prefix":"2.2.2.2\/32",
@@ -101,6 +128,21 @@
           "ip":"10.0.8.5",
           "afi":"ipv4",
           "interfaceName":"eth-rt5",
+          "active":true
+        }
+      ]
+    }
+  ],
+  "6.6.6.6\/32":[
+    {
+      "prefix":"6.6.6.6\/32",
+      "protocol":"ospf",
+      "distance":110,
+      "metric":0,
+      "nexthops":[
+        {
+          "directlyConnected":true,
+          "interfaceName":"lo",
           "active":true
         }
       ]
