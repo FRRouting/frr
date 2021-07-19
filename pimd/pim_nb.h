@@ -99,6 +99,10 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_re
 	struct nb_cb_destroy_args *args);
 int lib_interface_pim_dr_priority_modify(
 	struct nb_cb_modify_args *args);
+int lib_interface_pim_allow_rp_create(struct nb_cb_create_args *args);
+int lib_interface_pim_allow_rp_destroy(struct nb_cb_destroy_args *args);
+int lib_interface_pim_allow_rp_rp_list_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_allow_rp_rp_list_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_create(struct nb_cb_create_args *args);
 int lib_interface_pim_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_pim_enable_modify(struct nb_cb_modify_args *args);

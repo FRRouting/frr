@@ -428,6 +428,17 @@ module frr-pim {
       description
         "DR (Designated Router) priority";
     }
+
+    container allow-rp {
+      presence
+        "Ignore mismatched RP addresses when processing (*, G) joins";
+
+      leaf rp-list {
+        type plist-ref;
+        description
+          "Prefix-list used to filter which RPs will be accepted";
+      }
+    }
   } // interface-pim-config-attributes
 
   grouping per-af-interface-pim-config-attributes {

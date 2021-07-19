@@ -1940,6 +1940,115 @@ int lib_interface_pim_dr_priority_modify(struct nb_cb_modify_args *args)
 }
 
 /*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/allow-rp
+ */
+int lib_interface_pim_allow_rp_create(struct nb_cb_create_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->allow_rp = true;
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_allow_rp_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->allow_rp = false;
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/allow-rp/rp-list
+ */
+int lib_interface_pim_allow_rp_rp_list_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const struct lyd_node *if_dnode;
+	const char *plist;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if_dnode = yang_dnode_get_parent(args->dnode, "interface");
+		if (!is_pim_interface(if_dnode)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Pim not enabled on this interface");
+			return NB_ERR_VALIDATION;
+		}
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		plist = yang_dnode_get_string(args->dnode, NULL);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->allow_rp_plist);
+		pim_ifp->allow_rp_plist = XSTRDUP(MTYPE_PIM_INTERFACE, plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_allow_rp_rp_list_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const char *plist;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		plist = yang_dnode_get_string(args->dnode, NULL);
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_PIM_INTERFACE, pim_ifp->allow_rp_plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
+
+/*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family
  */
 int lib_interface_pim_address_family_create(struct nb_cb_create_args *args)

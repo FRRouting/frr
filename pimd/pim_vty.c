@@ -351,6 +351,15 @@ int pim_interface_config_write(struct vty *vty)
 					++writes;
 				}
 
+				/* allow-rp */
+				if (pim_ifp->allow_rp) {
+					vty_out(vty, " ip pim allow-rp");
+					if (pim_ifp->allow_rp_plist)
+						vty_out(vty, " rp-list %s",
+							pim_ifp->allow_rp_plist);
+					vty_out(vty, "\n");
+				}
+
 				/* IF ip igmp */
 				if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
 					vty_out(vty, " ip igmp\n");

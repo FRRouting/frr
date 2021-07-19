@@ -8498,6 +8498,29 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 	return CMD_SUCCESS;
 }
 
+DEFPY(interface_ip_pim_allowrp, interface_ip_pim_allowrp_cmd,
+      "[no] ip pim allow-rp [rp-list PLIST]",
+      NO_STR IP_STR PIM_STR
+      "Ignore mismatched RP addresses when processing (*,G) Joins\n"
+      "Specify a prefix-list which the RP address must match in order to be accepted\n"
+      "The prefix-list to check the RP address against\n")
+
+{
+	if (no) {
+		nb_cli_enqueue_change(vty, "./allow-rp", NB_OP_DESTROY, NULL);
+	} else {
+		nb_cli_enqueue_change(vty, "./allow-rp", NB_OP_CREATE, NULL);
+		if (plist) {
+			nb_cli_enqueue_change(vty, "./allow-rp/rp-list",
+					      NB_OP_MODIFY, plist);
+		}
+	}
+
+	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (interface_ip_pim_activeactive,
        interface_ip_pim_activeactive_cmd,
        "[no$no] ip pim active-active",
@@ -11168,6 +11191,7 @@ void pim_cmd_init(void)
 			&interface_ip_igmp_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ip_igmp_last_member_query_interval_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_allowrp_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_activeactive_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_ssm_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_ssm_cmd);

@@ -52,7 +52,7 @@ static void on_trace(const char *label, struct interface *ifp,
 
 static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		      uint16_t holdtime, struct in_addr upstream,
-		      struct prefix_sg *sg, uint8_t source_flags)
+		      struct prefix_sg *sg, uint8_t source_flags, bool allow_rp)
 {
 	struct pim_interface *pim_ifp = NULL;
 
@@ -88,11 +88,17 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 				  sg);
 			return;
 		}
+
 		/*
-		 * If the RP sent in the message is not
-		 * our RP for the group, drop the message
+		 * If the RP sent in the message is not our RP for the group,
+		 * drop the message - unless the user has specified the
+		 * allow-rp option, which means we skip this check and use our
+		 * RP instead, provided policy allows it. This latter bit is a
+		 * non-RFC-compliant option.
 		 */
-		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr) {
+		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr
+		    && (!pim_ifp->allow_rp
+			|| !pim_is_rp_allowed(pim_ifp, &sg->src))) {
 			char received_rp[INET_ADDRSTRLEN];
 			char local_rp[INET_ADDRSTRLEN];
 			pim_inet4_dump("<received?>", sg->src, received_rp,
@@ -304,7 +310,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 			recv_join(ifp, neigh, msg_holdtime,
 				  msg_upstream_addr.u.prefix4, &sg,
-				  msg_source_flags);
+				  msg_source_flags, pim_ifp->allow_rp);
 
 			if (sg.src.s_addr == INADDR_ANY) {
 				starg_ch = pim_ifchannel_find(ifp, &sg);
