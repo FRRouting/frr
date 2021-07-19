@@ -133,6 +133,11 @@ daemon_prep() {
 	daemon="$1"
 	inst="$2"
 	[ "$daemon" = "watchfrr" ] && return 0
+	# instances only support ospfd and ospf6d
+	[ "${daemon:0:4}" != "ospf" ] && [ -n "$inst" ] && {
+		log_failure_msg "cannot start $daemon${inst:+ (instance $inst)}: daemon instances not supported"
+		return 1
+	}
 	[ -x "$D_PATH/$daemon" ] || {
 		log_failure_msg "cannot start $daemon${inst:+ (instance $inst)}: daemon binary not installed"
 		return 1
