@@ -2702,6 +2702,20 @@ sysctl configurations:
 
 For more information, see ``man 7 arp``.
 
+.. _bgp-evpn-l3-route-targets:
+
+EVPN L3 Route-Targets
+^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: route-target <import|export|both> <RTLIST|auto>
+
+Modify the route-target set for EVPN advertised type-2/type-5 routes.
+RTLIST is a list of any of matching
+``(A.B.C.D:MN|EF:OPQR|GHJK:MN|*:OPQR|*:MN)`` where ``*`` indicates wildcard
+matching for the AS number. It will be set to match any AS number. This is
+useful in datacenter deployments with Downstream VNI. ``auto`` is used to
+retain the autoconfigure that is default behavior for L3 RTs.
+
 .. _bgp-evpn-advertise-pip:
 
 EVPN advertise-PIP

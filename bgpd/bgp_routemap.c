@@ -637,6 +637,20 @@ route_match_prefix_list_flowspec(afi_t afi, struct prefix_list *plist,
 }
 
 static enum route_map_cmd_result_t
+route_match_prefix_list_evpn(afi_t afi, struct prefix_list *plist,
+			     const struct prefix *p)
+{
+	/* Convert to match a general plist */
+	struct prefix new;
+
+	if (evpn_prefix2prefix(p, &new))
+		return RMAP_NOMATCH;
+
+	return (prefix_list_apply(plist, &new) == PREFIX_DENY ? RMAP_NOMATCH
+							      : RMAP_MATCH);
+}
+
+static enum route_map_cmd_result_t
 route_match_address_prefix_list(void *rule, afi_t afi,
 				const struct prefix *prefix, void *object)
 {
@@ -649,6 +663,10 @@ route_match_address_prefix_list(void *rule, afi_t afi,
 	if (prefix->family == AF_FLOWSPEC)
 		return route_match_prefix_list_flowspec(afi, plist,
 							prefix);
+
+	else if (prefix->family == AF_EVPN)
+		return route_match_prefix_list_evpn(afi, plist, prefix);
+
 	return (prefix_list_apply(plist, prefix) == PREFIX_DENY ? RMAP_NOMATCH
 								: RMAP_MATCH);
 }

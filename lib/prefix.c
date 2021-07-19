@@ -1353,6 +1353,63 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	return buf;
 }
 
+static int ipaddr2prefix(const struct ipaddr *ip, uint16_t prefixlen,
+			 struct prefix *p)
+{
+	switch (ip->ipa_type) {
+	case (IPADDR_V4):
+		p->family = AF_INET;
+		p->u.prefix4 = ip->ipaddr_v4;
+		p->prefixlen = prefixlen;
+		break;
+	case (IPADDR_V6):
+		p->family = AF_INET6;
+		p->u.prefix6 = ip->ipaddr_v6;
+		p->prefixlen = prefixlen;
+		break;
+	case (IPADDR_NONE):
+		p->family = AF_UNSPEC;
+		break;
+	}
+
+	return 0;
+}
+
+/*
+ * Convert type-2 and type-5 evpn route prefixes into the more
+ * general ipv4/ipv6 prefix types so we can match prefix lists
+ * and such.
+ */
+int evpn_prefix2prefix(const struct prefix *evpn, struct prefix *to)
+{
+	const struct evpn_addr *addr;
+
+	if (evpn->family != AF_EVPN)
+		return -1;
+
+	addr = &evpn->u.prefix_evpn;
+
+	switch (addr->route_type) {
+	case (2):
+		if (IS_IPADDR_V4(&addr->macip_addr.ip))
+			ipaddr2prefix(&addr->macip_addr.ip, 32, to);
+		else if (IS_IPADDR_V6(&addr->macip_addr.ip))
+			ipaddr2prefix(&addr->macip_addr.ip, 128, to);
+		else
+			return -1; /* mac only? */
+
+		break;
+	case (5):
+		ipaddr2prefix(&addr->prefix_addr.ip,
+			      addr->prefix_addr.ip_prefix_length, to);
+		break;
+	default:
+		return -1;
+	}
+
+	return 0;
+}
+
 printfrr_ext_autoreg_p("EA", printfrr_ea)
 static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
