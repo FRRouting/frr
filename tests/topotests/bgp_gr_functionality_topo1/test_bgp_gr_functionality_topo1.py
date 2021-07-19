@@ -106,7 +106,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.topojson import build_topo_from_json, build_config_from_json

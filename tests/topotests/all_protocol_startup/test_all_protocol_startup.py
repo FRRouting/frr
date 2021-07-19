@@ -34,14 +34,11 @@ import pytest
 import glob
 from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
+CWD = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(CWD, "../"))
 
-from functools import partial
+from lib.micronet_compat import Mininet
+from lib.micronet_compat import Topo, setLogLevel
 
 pytestmark = [
     pytest.mark.babeld,
@@ -82,7 +79,7 @@ class NetworkTopo(Topo):
         switch = {}
         #
         for i in range(0, 10):
-            switch[i] = self.addSwitch("sw%s" % i, cls=topotest.LegacySwitch)
+            switch[i] = self.addSwitch("sw%s" % i)
             self.addLink(switch[i], router[1], intfName2="r1-eth%s" % i)
 
 
@@ -765,7 +762,7 @@ def test_ospfv2_interfaces():
             )
             # Mask out Bandwidth portion. They may change..
             actual = re.sub(r"BW [0-9]+ Mbit", "BW XX Mbit", actual)
-            actual = re.sub(r"ifindex [0-9]", "ifindex X", actual)
+            actual = re.sub(r"ifindex [0-9]+", "ifindex X", actual)
 
             # Drop time in next due
             actual = re.sub(r"Hello due in [0-9\.]+s", "Hello due in XX.XXXs", actual)

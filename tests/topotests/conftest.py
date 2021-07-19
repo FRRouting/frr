@@ -8,10 +8,12 @@ import pdb
 import re
 import pytest
 
+from lib.micronet_compat import Mininet
 from lib.topogen import get_topogen, diagnose_env
 from lib.topotest import json_cmp_result
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topolog import logger
+
 
 try:
     from _pytest._code.code import ExceptionInfo
@@ -274,17 +276,23 @@ def pytest_runtest_makereport(item, call):
                 tgen.set_error("{}/{}".format(modname, item.name))
 
     if error and topotest_extra_config["shell_on_error"]:
-        for router in tgen.routers():
+        # Really would like something better than using this global here.
+        # Not all tests use topogen though so get_topogen() won't work.
+        for node in Mininet.g_mnet_inst.hosts.values():
             pause = True
-            tgen.net[router].runInWindow(os.getenv("SHELL", "bash"))
+            node.runInWindow(os.getenv("SHELL", "bash"))
 
     if error and topotest_extra_config["vtysh_on_error"]:
-        for router in tgen.routers():
+        # Really would like something better than using this global here.
+        # Not all tests use topogen though so get_topogen() won't work.
+        for node in Mininet.g_mnet_inst.hosts.values():
             pause = True
-            tgen.net[router].runInWindow("vtysh")
+            node.runInWindow("vtysh")
 
     if error and topotest_extra_config["mininet_on_error"]:
-        tgen.mininet_cli()
+        # Really would like something better than using this global here.
+        # Not all tests use topogen though so get_topogen() won't work.
+        Mininet.g_mnet_inst.cli()
 
     if pause:
         try:

@@ -28,6 +28,7 @@ test_bgp_evpn_vxlan.py: Test VXLAN EVPN MAC a route signalling over BGP.
 import os
 import sys
 import json
+import re
 from functools import partial
 from time import sleep
 import pytest
@@ -43,7 +44,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
@@ -156,6 +157,17 @@ def show_vni_json_elide_ifindex(pe, vni, expected):
     return topotest.json_cmp(output_json, expected)
 
 
+def check_vni_macs_present(tgen, router, vni, maclist):
+    result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
+    for rname, ifname in maclist:
+        m = tgen.net.macs[(rname, ifname)]
+        if m not in result["macs"]:
+            return "MAC ({}) for interface {} on {} missing on {} from {}".format(
+                m, ifname, rname, router.name, json.dumps(result, indent=4)
+            )
+    return None
+
+
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
@@ -169,10 +181,17 @@ def test_pe1_converge_evpn():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
-    _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
-    assert result is None, assertmsg
-    # tgen.mininet_cli()
+
+    test_func = partial(check_vni_macs_present, tgen, pe1, 101, (
+        ("host1", "host1-eth0"),
+        ("host2", "host2-eth0")
+    ))
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result:
+        logger.warning("%s", result)
+        assert None, '"{}" missing expected MACs'.format(pe1.name)
 
 
 def test_pe2_converge_evpn():
@@ -188,10 +207,18 @@ def test_pe2_converge_evpn():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
-    _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
-    # tgen.mininet_cli()
+
+    test_func = partial(check_vni_macs_present, tgen, pe2, 101, (
+        ("host1", "host1-eth0"),
+        ("host2", "host2-eth0")
+    ))
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result:
+        logger.warning("%s", result)
+        assert None, '"{}" missing expected MACs'.format(pe2.name)
 
 
 def mac_learn_test(host, local):

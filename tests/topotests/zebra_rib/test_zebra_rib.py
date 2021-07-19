@@ -44,7 +44,7 @@ from lib.topolog import logger
 from time import sleep
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 class ZebraTopo(Topo):
