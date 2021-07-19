@@ -259,6 +259,7 @@ struct dplane_ctx_rule {
 	uint8_t dsfield;
 	struct prefix src_ip;
 	struct prefix dst_ip;
+	uint8_t ip_proto;
 	char ifname[INTERFACE_NAMSIZ + 1];
 };
 
@@ -1929,6 +1930,20 @@ uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rule.old.fwmark;
 }
 
+uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.ip_proto;
+}
+
+uint8_t dplane_ctx_rule_get_old_ipproto(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.ip_proto;
+}
+
 uint8_t dplane_ctx_rule_get_dsfield(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2636,6 +2651,7 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->filter_bm = rule->rule.filter.filter_bm;
 	dplane_rule->fwmark = rule->rule.filter.fwmark;
 	dplane_rule->dsfield = rule->rule.filter.dsfield;
+	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
 	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);

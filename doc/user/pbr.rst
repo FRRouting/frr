@@ -117,6 +117,21 @@ end destination.
    both v4 and v6 prefixes.  This command is used in conjunction of the
    :clicmd:`match src-ip PREFIX` command for matching.
 
+.. clicmd:: match src-port (1-65535)
+
+   When a incoming packet matches the source port specified, take the
+   packet and forward according to the nexthops specified.
+
+.. clicmd:: match dst-port (1-65535)
+
+   When a incoming packet matches the destination port specified, take the
+   packet and forward according to the nexthops specified.
+
+.. clicmd:: match ip-protocol [tcp|udp]
+
+   When a incoming packet matches the specified ip protocol, take the
+   packet and forward according to the nexthops specified.
+
 .. clicmd:: match mark (1-4294967295)
 
    Select the mark to match.  This is a linux only command and if attempted

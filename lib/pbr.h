@@ -49,7 +49,8 @@ struct pbr_filter {
 #define PBR_FILTER_PROTO		(1 << 5)
 #define PBR_FILTER_SRC_PORT_RANGE	(1 << 6)
 #define PBR_FILTER_DST_PORT_RANGE	(1 << 7)
-#define PBR_FILTER_DSFIELD			(1 << 8)
+#define PBR_FILTER_DSFIELD		(1 << 8)
+#define PBR_FILTER_IP_PROTOCOL		(1 << 9)
 
 #define PBR_DSFIELD_DSCP (0xfc) /* Upper 6 bits of DS field: DSCP */
 #define PBR_DSFIELD_ECN (0x03)	/* Lower 2 bits of DS field: BCN */
@@ -67,6 +68,9 @@ struct pbr_filter {
 
 	/* Filter with fwmark */
 	uint32_t fwmark;
+
+	/* Filter with the ip protocol */
+	uint8_t ip_proto;
 };
 
 /*

@@ -193,6 +193,76 @@ DEFPY(pbr_map_match_dst, pbr_map_match_dst_cmd,
 	return CMD_SUCCESS;
 }
 
+DEFPY(pbr_map_match_ip_proto, pbr_map_match_ip_proto_cmd,
+      "[no] match ip-protocol [tcp|udp]$ip_proto",
+      NO_STR
+      "Match the rest of the command\n"
+      "Choose an ip-protocol\n"
+      "Match on tcp flows\n"
+      "Match on udp flows\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+	struct protoent *p;
+
+	if (!no) {
+		p = getprotobyname(ip_proto);
+		if (!p) {
+			vty_out(vty, "Unable to convert %s to proto id\n",
+				ip_proto);
+			return CMD_WARNING;
+		}
+
+		pbrms->ip_proto = p->p_proto;
+	} else
+		pbrms->ip_proto = 0;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_match_src_port, pbr_map_match_src_port_cmd,
+      "[no] match src-port (1-65535)$port",
+      NO_STR
+      "Match the rest of the command\n"
+      "Choose the source port to use\n"
+      "The Source Port\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if (pbrms->src_prt == port)
+			return CMD_SUCCESS;
+		else
+			pbrms->src_prt = port;
+	} else
+		pbrms->src_prt = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_match_dst_port, pbr_map_match_dst_port_cmd,
+      "[no] match dst-port (1-65535)$port",
+      NO_STR
+      "Match the rest of the command\n"
+      "Choose the destination port to use\n"
+      "The Destination Port\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no) {
+		if (pbrms->dst_prt == port)
+			return CMD_SUCCESS;
+		else
+			pbrms->dst_prt = port;
+	} else
+		pbrms->dst_prt = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(pbr_map_match_dscp, pbr_map_match_dscp_cmd,
       "[no] match dscp DSCP$dscp",
       NO_STR
@@ -674,6 +744,13 @@ static void vty_show_pbrms(struct vty *vty,
 			pbrms->installed ? "yes" : "no",
 			pbrms->reason ? rbuf : "Valid");
 
+	if (pbrms->ip_proto) {
+		struct protoent *p;
+
+		p = getprotobynumber(pbrms->ip_proto);
+		vty_out(vty, "        IP Protocol Match: %s\n", p->p_name);
+	}
+
 	if (pbrms->src)
 		vty_out(vty, "        SRC Match: %pFX\n", pbrms->src);
 	if (pbrms->dst)
@@ -1079,6 +1156,18 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	if (pbrms->dst)
 		vty_out(vty, " match dst-ip %pFX\n", pbrms->dst);
 
+	if (pbrms->src_prt)
+		vty_out(vty, " match src-port %u\n", pbrms->src_prt);
+	if (pbrms->dst_prt)
+		vty_out(vty, " match dst-port %u\n", pbrms->dst_prt);
+
+	if (pbrms->ip_proto) {
+		struct protoent *p;
+
+		p = getprotobynumber(pbrms->ip_proto);
+		vty_out(vty, " match ip-protocol %s\n", p->p_name);
+	}
+
 	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
 		vty_out(vty, " match dscp %u\n",
 			(pbrms->dsfield & PBR_DSFIELD_DSCP) >> 2);
@@ -1169,6 +1258,9 @@ void pbr_vty_init(void)
 	install_element(CONFIG_NODE, &pbr_set_table_range_cmd);
 	install_element(CONFIG_NODE, &no_pbr_set_table_range_cmd);
 	install_element(INTERFACE_NODE, &pbr_policy_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_ip_proto_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_src_port_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_match_dst_port_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_src_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dst_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_dscp_cmd);

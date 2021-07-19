@@ -3129,6 +3129,7 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 		STREAM_GETL(s, zpr.rule.seq);
 		STREAM_GETL(s, zpr.rule.priority);
 		STREAM_GETL(s, zpr.rule.unique);
+		STREAM_GETC(s, zpr.rule.filter.ip_proto);
 		STREAM_GETC(s, zpr.rule.filter.src_ip.family);
 		STREAM_GETC(s, zpr.rule.filter.src_ip.prefixlen);
 		STREAM_GET(&zpr.rule.filter.src_ip.u.prefix, s,
@@ -3161,6 +3162,9 @@ static inline void zread_rule(ZAPI_HANDLER_ARGS)
 
 		if (zpr.rule.filter.dsfield)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_DSFIELD;
+
+		if (zpr.rule.filter.ip_proto)
+			zpr.rule.filter.filter_bm |= PBR_FILTER_IP_PROTOCOL;
 
 		if (zpr.rule.filter.fwmark)
 			zpr.rule.filter.filter_bm |= PBR_FILTER_FWMARK;
