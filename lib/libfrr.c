@@ -979,6 +979,20 @@ static int frr_config_read_in(struct thread *t)
 	return 0;
 }
 
+void frr_load_module(const char *name)
+{
+	const char *dir;
+	dir = di->module_path ? di->module_path : frr_moduledir;
+	char moderr[256];
+	struct frrmod_runtime *module;
+
+	module = frrmod_load(name, dir, moderr, sizeof(moderr));
+	if (!module) {
+		fprintf(stderr, "%s\n", moderr);
+		exit(1);
+	}
+}
+
 void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
