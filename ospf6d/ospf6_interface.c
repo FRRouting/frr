@@ -44,6 +44,7 @@
 #include "ospf6d.h"
 #include "ospf6_bfd.h"
 #include "ospf6_zebra.h"
+#include "ospf6_proto.h"
 #include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_IF,       "OSPF6 interface");
@@ -455,6 +456,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		route->path.area_id = oi->area->area_id;
 		route->path.type = OSPF6_PATH_TYPE_INTRA;
 		route->path.cost = oi->cost;
+		if (oi->type == OSPF_IFTYPE_LOOPBACK)
+			SET_FLAG(route->path.prefix_options,
+				 OSPF6_PREFIX_OPTION_LA);
 		inet_pton(AF_INET6, "::1", &nh_addr);
 		ospf6_route_add_nexthop(route, oi->interface->ifindex,
 					&nh_addr);
