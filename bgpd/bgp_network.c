@@ -49,7 +49,7 @@
 
 extern struct zebra_privs_t bgpd_privs;
 
-static char *bgp_get_bound_name(struct peer *peer);
+static char *bgp_get_bound_name(struct peer *peer, int fd);
 
 /* BGP listening socket. */
 struct bgp_listener {
@@ -572,7 +572,8 @@ static int bgp_accept(struct thread *thread)
 	peer1->doppelganger = peer;
 	peer->fd = bgp_sock;
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
+		vrf_bind(peer->bgp->vrf_id, bgp_sock,
+			 bgp_get_bound_name(peer, bgp_sock));
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
@@ -609,7 +610,7 @@ static int bgp_accept(struct thread *thread)
 }
 
 /* BGP socket bind. */
-static char *bgp_get_bound_name(struct peer *peer)
+static char *bgp_get_bound_name(struct peer *peer, int sock)
 {
 	char *name = NULL;
 
@@ -628,11 +629,29 @@ static char *bgp_get_bound_name(struct peer *peer)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
 	 */
-	if (peer->su.sa.sa_family == AF_INET6)
-		name = (peer->conf_if ? peer->conf_if
-				      : (peer->ifname ? peer->ifname
-						      : peer->bgp->name));
-	else
+	if (peer->su.sa.sa_family == AF_INET6) {
+		if (peer->conf_if)
+			name = peer->conf_if;
+		else if (peer->ifname)
+			name = peer->ifname;
+		else if (sock) {
+			union sockunion
+				*su_local; /* Sockunion of local address.  */
+			struct interface *ifp = NULL;
+
+			su_local = sockunion_getsockname(sock);
+			if (su_local
+			    && IN6_IS_ADDR_LINKLOCAL(
+				    &su_local->sin6.sin6_addr)) {
+				ifp = if_lookup_by_ipv6_exact(
+					&su_local->sin6.sin6_addr,
+					su_local->sin6.sin6_scope_id,
+					peer->bgp->vrf_id);
+			}
+			sockunion_free(peer->su_local);
+			return ifp ? ifp->name : peer->bgp->name;
+		}
+	} else
 		name = peer->ifname ? peer->ifname : peer->bgp->name;
 
 	return name;
@@ -710,9 +729,9 @@ int bgp_connect(struct peer *peer)
 		return 0;
 	}
 	frr_with_privs(&bgpd_privs) {
-	/* Make socket for the peer. */
+		/* Make socket for the peer. */
 		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
-						bgp_get_bound_name(peer));
+						bgp_get_bound_name(peer, -1));
 	}
 	if (peer->fd < 0)
 		return -1;
