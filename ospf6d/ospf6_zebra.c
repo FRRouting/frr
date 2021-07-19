@@ -131,37 +131,16 @@ void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
-	struct ospf6_interface *oi;
-	int ipv6_count = 0;
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
 	if (c == NULL)
 		return 0;
 
-	oi = (struct ospf6_interface *)c->ifp->info;
-	if (oi == NULL)
-		oi = ospf6_interface_create(c->ifp);
-	assert(oi);
-
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface address add: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
 			   c->address);
-
-	ipv6_count = connected_count_by_family(c->ifp, AF_INET6);
-	if (oi->ifmtu == OSPF6_DEFAULT_MTU && ipv6_count > OSPF6_MAX_IF_ADDRS) {
-		zlog_warn(
-			"Zebra Interface : %s has too many interface addresses %d only support %d, increase MTU",
-			c->ifp->name, ipv6_count, OSPF6_MAX_IF_ADDRS);
-		return 0;
-	} else if (oi->ifmtu >= OSPF6_JUMBO_MTU
-		   && ipv6_count > OSPF6_MAX_IF_ADDRS_JUMBO) {
-		zlog_warn(
-			"Zebra Interface : %s has too many interface addresses %d only support %d",
-			c->ifp->name, ipv6_count, OSPF6_MAX_IF_ADDRS_JUMBO);
-		return 0;
-	}
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_state_update(c->ifp);

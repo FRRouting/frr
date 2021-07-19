@@ -385,7 +385,6 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	struct connected *c;
 	struct listnode *node, *nnode;
 	struct in6_addr nh_addr;
-	int count = 0, max_addr_count;
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
@@ -404,21 +403,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	/* update "route to advertise" interface route table */
 	ospf6_route_remove_all(oi->route_connected);
 
-	if (oi->ifmtu >= OSPF6_JUMBO_MTU)
-		max_addr_count = OSPF6_MAX_IF_ADDRS_JUMBO;
-	else
-		max_addr_count = OSPF6_MAX_IF_ADDRS;
-
 	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
 		if (c->address->family != AF_INET6)
 			continue;
-
-		/* number of interface addresses supported is based on MTU
-		 * size of OSPFv3 packet
-		 */
-		count++;
-		if (count >= max_addr_count)
-			break;
 
 		CONTINUE_IF_ADDRESS_LINKLOCAL(IS_OSPF6_DEBUG_INTERFACE,
 					      c->address);
@@ -1728,7 +1715,6 @@ DEFUN (ipv6_ospf6_area,
 	int idx_ipv4 = 3;
 	uint32_t area_id;
 	int format;
-	int ipv6_count = 0;
 
 	assert(ifp);
 
@@ -1741,23 +1727,6 @@ DEFUN (ipv6_ospf6_area,
 		vty_out(vty, "%s already attached to Area %s\n",
 			oi->interface->name, oi->area->name);
 		return CMD_SUCCESS;
-	}
-
-	/* if more than OSPF6_MAX_IF_ADDRS are configured on this interface
-	 * then don't allow ospfv3 to be configured
-	 */
-	ipv6_count = connected_count_by_family(ifp, AF_INET6);
-	if (oi->ifmtu == OSPF6_DEFAULT_MTU && ipv6_count > OSPF6_MAX_IF_ADDRS) {
-		vty_out(vty,
-			"can not configure OSPFv3 on if %s, must have less than %d interface addresses but has %d addresses\n",
-			ifp->name, OSPF6_MAX_IF_ADDRS, ipv6_count);
-		return CMD_WARNING_CONFIG_FAILED;
-	} else if (oi->ifmtu >= OSPF6_JUMBO_MTU
-		   && ipv6_count > OSPF6_MAX_IF_ADDRS_JUMBO) {
-		vty_out(vty,
-			"can not configure OSPFv3 on if %s, must have less than %d interface addresses but has %d addresses\n",
-			ifp->name, OSPF6_MAX_IF_ADDRS_JUMBO, ipv6_count);
-		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	if (str2area_id(argv[idx_ipv4]->arg, &area_id, &format)) {
