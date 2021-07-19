@@ -484,6 +484,16 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, int igmp_msg_len,
 		return false;
 	}
 
+	if ((msg_type != PIM_IGMP_MTRACE_RESPONSE)
+	    && (msg_type != PIM_IGMP_MTRACE_QUERY_REQUEST)) {
+		if (ip_hdr->ip_ttl != 1) {
+			zlog_warn(
+				"Recv IGMP packet with invalid ttl=%u, discarding the packet",
+				ip_hdr->ip_ttl);
+			return -1;
+		}
+	}
+
 	return true;
 }
 
