@@ -55,7 +55,6 @@
 
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_EXTERNAL, "OSPF External route table");
 DEFINE_MTYPE_STATIC(OSPFD, OSPF_REDISTRIBUTE, "OSPF Redistriute");
-DEFINE_MTYPE_STATIC(OSPFD, OSPF_DIST_ARGS, "OSPF Distribute arguments");
 
 
 /* Zebra structure to hold current status. */
@@ -1493,12 +1492,8 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	struct external_info *ei;
 	struct route_table *rt;
 	struct ospf_lsa *lsa;
-	int type, default_refresh = 0, arg_type;
-	struct ospf *ospf = NULL;
-	void **arg = THREAD_ARG(thread);
-
-	ospf = (struct ospf *)arg[0];
-	arg_type = (int)(intptr_t)arg[1];
+	int type, default_refresh = 0;
+	struct ospf *ospf = THREAD_ARG(thread);
 
 	if (ospf == NULL)
 		return 0;
@@ -1508,10 +1503,9 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	zlog_info("Zebra[Redistribute]: distribute-list update timer fired!");
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug(
-			"%s: ospf distribute-list update arg_type %d vrf %s id %d",
-			__func__, arg_type, ospf_vrf_id_to_name(ospf->vrf_id),
-			ospf->vrf_id);
+		zlog_debug("%s: ospf distribute-list update vrf %s id %d",
+			   __func__, ospf_vrf_id_to_name(ospf->vrf_id),
+			   ospf->vrf_id);
 	}
 
 	/* foreach all external info. */
@@ -1610,7 +1604,6 @@ static int ospf_distribute_list_update_timer(struct thread *thread)
 	if (default_refresh)
 		ospf_external_lsa_refresh_default(ospf);
 
-	XFREE(MTYPE_OSPF_DIST_ARGS, arg);
 	return 0;
 }
 
@@ -1619,27 +1612,19 @@ void ospf_distribute_list_update(struct ospf *ospf, int type,
 				 unsigned short instance)
 {
 	struct ospf_external *ext;
-	void **args = XCALLOC(MTYPE_OSPF_DIST_ARGS, sizeof(void *) * 2);
-
-	args[0] = ospf;
-	args[1] = (void *)((ptrdiff_t)type);
 
 	/* External info does not exist. */
 	ext = ospf_external_lookup(ospf, type, instance);
-	if (!ext || !EXTERNAL_INFO(ext)) {
-		XFREE(MTYPE_OSPF_DIST_ARGS, args);
+	if (!ext || !EXTERNAL_INFO(ext))
 		return;
-	}
 
 	/* If exists previously invoked thread, then let it continue. */
-	if (ospf->t_distribute_update) {
-		XFREE(MTYPE_OSPF_DIST_ARGS, args);
+	if (ospf->t_distribute_update)
 		return;
-	}
 
 	/* Set timer. */
 	ospf->t_distribute_update = NULL;
-	thread_add_timer_msec(master, ospf_distribute_list_update_timer, args,
+	thread_add_timer_msec(master, ospf_distribute_list_update_timer, ospf,
 			      ospf->min_ls_interval,
 			      &ospf->t_distribute_update);
 }
