@@ -1111,7 +1111,7 @@ void rtm_read(struct rt_msghdr *rtm)
 	    || rtm->rtm_type == RTM_CHANGE)
 		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
 			zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN,
-			0, 0, 0, 0);
+			0, 0, 0, 0, false);
 	else
 		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
 			   0, zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,

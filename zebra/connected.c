@@ -291,10 +291,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	}
 
 	rib_add(afi, SAFI_UNICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
+		false);
 
 	rib_add(afi, SAFI_MULTICAST, zvrf->vrf->vrf_id, ZEBRA_ROUTE_CONNECT, 0,
-		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0);
+		flags, &p, NULL, &nh, 0, zvrf->table_id, metric, 0, 0, 0,
+		false);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
 	if (zvrf->vrf->vrf_id == VRF_DEFAULT) {

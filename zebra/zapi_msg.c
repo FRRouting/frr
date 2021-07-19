@@ -2108,7 +2108,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		nhe.backup_info = bnhg;
 	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
-				    re, &nhe);
+				    re, &nhe, false);
 
 	/* At this point, these allocations are not needed: 're' has been
 	 * retained or freed, and if 're' still exists, it is using
