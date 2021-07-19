@@ -24,7 +24,6 @@ import sys
 import json
 import time
 import pytest
-import inspect
 import os
 from time import sleep
 
@@ -34,7 +33,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, get_topogen
 from mininet.topo import Topo
 
@@ -44,25 +42,17 @@ from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
-    verify_bgp_community,
     verify_rib,
-    delete_route_maps,
-    create_bgp_community_lists,
-    interface_status,
     create_route_maps,
     create_static_routes,
     create_prefix_lists,
-    verify_route_maps,
     check_address_types,
-    shutdown_bringup_interface,
-    verify_prefix_lists,
     reset_config_on_routers,
 )
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_bgp_attributes,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
@@ -475,8 +465,7 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
         )
-        assert result is not True, ("Testcase {} : Failed \n"
-        "routes are not present in rib \n Error: {}".format(tc_name, result))
+        assert result is not True, ("Testcase {} : Failed \nroutes are not present in rib \n Error: {}".format(tc_name, result))
         logger.info("Expected behaviour: {}".format(result))
 
         # Verifying RIB routes
@@ -495,8 +484,7 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, ("Testcase {} : Failed \n "
-        "routes are not present in rib \n Error: {}".format(tc_name, result))
+        assert result is not True, ("Testcase {} : Failed \nroutes are not present in rib \n Error: {}".format(tc_name, result))
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
@@ -691,8 +679,7 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
             result = verify_rib(
                 tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
             )
-            assert result is not True, ("Testcase {} : Failed \n "
-            "Routes are still present \n Error: {}".format(tc_name, result))
+            assert result is not True, ("Testcase {} : Failed \nRoutes are still present \n Error: {}".format(tc_name, result))
             logger.info("Expected behaviour: {}".format(result))
         else:
             result = verify_rib(
