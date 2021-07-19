@@ -2520,7 +2520,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Gateway IP nexthop should be resolved */
 	if (attr.evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
 		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi,
-					    NULL, 0))
+					    NULL, 0, NULL))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
