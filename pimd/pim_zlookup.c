@@ -400,8 +400,6 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 			   int max_lookup)
 {
 	int lookup;
-	uint32_t route_metric = 0xFFFFFFFF;
-	uint8_t protocol_distance = 0xFF;
 
 	pim->nexthop_lookups++;
 
@@ -423,13 +421,6 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 					pim->vrf->name);
 			}
 			return -1;
-		}
-
-		if (lookup < 1) {
-			/* this is the non-recursive lookup - save original
-			 * metric/distance */
-			route_metric = nexthop_tab[0].route_metric;
-			protocol_distance = nexthop_tab[0].protocol_distance;
 		}
 
 		/*
@@ -464,14 +455,6 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 							.protocol_distance,
 						nexthop_tab[0].route_metric);
 				}
-
-				/* use last address as nexthop address */
-				nexthop_tab[0].nexthop_addr.u.prefix4 = addr;
-
-				/* report original route metric/distance */
-				nexthop_tab[0].route_metric = route_metric;
-				nexthop_tab[0].protocol_distance =
-					protocol_distance;
 			}
 
 			return num_ifindex;
