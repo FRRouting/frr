@@ -102,6 +102,8 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 	CMGD_TRXN_DBG("Processing SET_CONFIG for Trxn:%p Session:0x%lx",
 		trxn, trxn->session_id);
 
+	// nb_candidate_edit();
+
 	/*
 	 * For now send a positive reply.
 	 */
@@ -125,7 +127,7 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 	/*
 	 * For now send a positive reply.
 	 */
-	// (void) cmgd_frntnd_send_set_cfg_reply(
+	// (void) cmgd_frntnd_send_comm_cfg_reply(
 	// 	trxn->session_id, (cmgd_trxn_id_t) trxn, CMGD_DB_CANDIDATE,
 	// 	0, CMGD_SUCCESS, NULL);
 	

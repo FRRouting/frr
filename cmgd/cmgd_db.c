@@ -46,19 +46,30 @@
 
 typedef struct cmgd_db_ctxt_ {
         cmgd_database_id_t db_id;
-		pthread_rwlock_t rw_lock;
+	pthread_rwlock_t rw_lock;
 
-        struct nb_config *root;
+	bool config_db;
+
+	union {
+		struct nb_config *cfg_root;
+		struct lyd_node *dnode_root;
+	} root;
 } cmgd_db_ctxt_t;
+
+static cmgd_db_ctxt_t running, candidate, oper;
 
 int cmgd_db_init(struct cmgd_master *cm)
 {
-	cmgd_db_ctxt_t running, candidate, oper;
+	if (cm->running_db || cm->cnadidate_db || cm->oper_db)
+		assert(!"Call cmgd_db_init() only once!");
 
 	// db_id to be added
-	running.root = nb_config_new(NULL);
-	candidate.root = nb_config_new(NULL);
-	oper.root = nb_config_new(NULL);
+	running.root.cfg_root = nb_config_new(NULL);
+	running.config_db = true;
+	candidate.root.cfg_root = nb_config_new(NULL);
+	candidate.config_db = true;
+	oper.root.dnode_root = yang_dnode_new(ly_native_ctx, true);
+	oper.config_db = false;
 
 	cm->running_db = (cmgd_db_hndl_t)&running;
 	cm->cnadidate_db = (cmgd_db_hndl_t)&candidate;
@@ -109,7 +120,8 @@ int cmgd_db_unlock(cmgd_db_hndl_t db_hndl)
 
 int cmgd_db_lookup_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath,
-        struct lyd_node *dnodes[], int *num_nodes)
+        struct lyd_node *dnodes[], struct nb_node *nbnodes[],
+	int *num_nodes, bool get_childs_as_well)
 {
 	cmgd_db_ctxt_t *db_ctxt;
 	struct ly_set *set = NULL;
@@ -122,11 +134,18 @@ int cmgd_db_lookup_data_nodes(
 	if (xpath[0] == '.' && xpath[1] == '/')
 		xpath += 2;
 
-	lyd_find_xpath(db_ctxt->root->dnode, xpath, &set);
-	for(i = 0; i < set->count; i++)
+	lyd_find_xpath(db_ctxt->config_db ?
+		db_ctxt->root.cfg_root->dnode :
+		db_ctxt->root.dnode_root, xpath, &set);
+	for(i = 0; i < set->count; i++) {
 		dnodes[i] = set->dnodes[i];
+		assert(dnodes[i]->schema && dnodes[i]->priv);
+		nbnodes[i] = (struct nb_node *) dnodes[i]->priv;
+		*num_nodes++;
 
-	*num_nodes = set->count;
+		if (!get_childs_as_well)
+			break;
+	}
 
 	ly_set_free(set, NULL);
 
@@ -147,7 +166,10 @@ int cmgd_db_delete_data_nodes(
 
 	nb_node = nb_node_find(xpath);
 
-	dnode = yang_dnode_get(db_ctxt->root->dnode, xpath);
+	dnode = yang_dnode_get(db_ctxt->config_db ?
+			db_ctxt->root.cfg_root->dnode :
+			db_ctxt->root.dnode_root, xpath);
+
 	if (!dnode)
 		/*
 			* Return a special error code so the caller can choose
@@ -158,7 +180,9 @@ int cmgd_db_delete_data_nodes(
 	if (nb_node->dep_cbs.get_dependant_xpath) {
 		nb_node->dep_cbs.get_dependant_xpath(dnode, dep_xpath);
 
-		dep_dnode = yang_dnode_get(db_ctxt->root->dnode, dep_xpath);
+		dep_dnode = yang_dnode_get(db_ctxt->config_db ?
+				db_ctxt->root.cfg_root->dnode :
+				db_ctxt->root.dnode_root, dep_xpath);
 		if (dep_dnode)
 			lyd_free_tree(dep_dnode);
 	}
@@ -167,24 +191,33 @@ int cmgd_db_delete_data_nodes(
 	return 0;
 }
 
+#define CMGD_MAX_NUM_DATA_IN_BATCH	128
+
 int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
         cmgd_db_node_iter_fn iter_fn)
 {
 	cmgd_db_ctxt_t *db_ctxt;
 	int i, count;
-	struct lyd_node **dnodes = NULL;
+	struct lyd_node *dnodes[CMGD_MAX_NUM_DATA_IN_BATCH] = {0};
+	struct nb_node *nbnodes[CMGD_MAX_NUM_DATA_IN_BATCH] = {0};
 	struct lyd_node *dnode_iter;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
 
-	cmgd_db_lookup_data_nodes(db_hndl, base_xpath, dnodes, &count);
+	count = CMGD_MAX_NUM_DATA_IN_BATCH;
+	cmgd_db_lookup_data_nodes(db_hndl, base_xpath, dnodes,
+		nbnodes, &count, true);
 
 	for(i = 0; i < count; i++) {
 		LYD_TREE_DFS_BEGIN (dnodes[i], dnode_iter) {
-			iter_fn(db_hndl, dnode_iter);
+			if (!dnode_iter->schema->priv)
+				assert(!"Dnode Nb-Node pointer not set properly!");
+
+			iter_fn(db_hndl, dnode_iter,
+				(struct nb_node *) dnode_iter->schema->priv);
 
 			LYD_TREE_DFS_END (dnodes[i], dnode_iter);
 		}
