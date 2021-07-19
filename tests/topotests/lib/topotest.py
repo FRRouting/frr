@@ -1449,7 +1449,7 @@ class Router(Node):
                 logger.info("BFD Test, but no bfdd compiled or installed")
                 return "BFD Test, but no bfdd compiled or installed"
 
-        return self.startRouterDaemons()
+        return self.startRouterDaemons(tgen=tgen)
 
     def getStdErr(self, daemon):
         return self.getLog("err", daemon)
@@ -1460,7 +1460,7 @@ class Router(Node):
     def getLog(self, log, daemon):
         return self.cmd("cat {}/{}/{}.{}".format(self.logdir, self.name, daemon, log))
 
-    def startRouterDaemons(self, daemons=None):
+    def startRouterDaemons(self, daemons=None, tgen=None):
         "Starts all FRR daemons for this router."
 
         asan_abort = g_extra_config["asan_abort"]
