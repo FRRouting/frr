@@ -15,6 +15,14 @@ module frr-staticd {
     prefix inet;
   }
 
+  import frr-bfdd {
+    prefix frr-bfdd;
+  }
+
+  import frr-interface {
+    prefix frr-interface;
+  }
+
   organization
     "FRRouting";
   contact
@@ -87,6 +95,14 @@ module frr-staticd {
     }
   }
 
+  typedef route-group {
+    type leafref {
+      path "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol/frr-staticd:staticd/frr-staticd:route-group/frr-staticd:name";
+      require-instance false;
+    }
+    description "Reference to a staticd route group.";
+  }
+
   augment "/frr-rt:routing/frr-rt:control-plane-protocols/frr-rt:control-plane-protocol" {
     container staticd {
       when "../frr-rt:type = 'frr-staticd:staticd'" {
@@ -114,7 +130,39 @@ module frr-staticd {
             "AFI-SAFI type.";
         }
 
-        uses staticd-prefix-attributes;
+        uses staticd-prefix-attributes {
+          augment "path-list/frr-nexthops/nexthop" {
+            container bfd-monitoring {
+              description "Next hop BFD monitoring options.";
+              presence
+                "Present if BFD monitoring is configured.";
+
+              choice bfd-options {
+                description
+                  "Choose between using group monitoring or individual
+                  monitoring.";
+
+                case monitor {
+                  description
+                    "Configure BFD session to monitor this next hop.";
+                  when "../nh-type = 'ip4' or ../nh-type = 'ip4-ifindex' or
+                        ../nh-type = 'ip6' or ../nh-type = 'ip6-ifindex'";
+                  uses frr-bfdd:bfd-monitoring;
+                }
+
+                case group-monitor {
+                  description
+                    "On group monitoring a single BFD session will monitor one
+                    or more next hops.";
+                  leaf group {
+                    description "Group name.";
+                    type route-group;
+                  }
+                }
+              }
+            }
+          }
+        }
 
         list src-list {
           key "src-prefix";
@@ -125,6 +173,26 @@ module frr-staticd {
           }
 
           uses staticd-prefix-attributes;
+        }
+      }
+
+      list route-group {
+        description "Static route group profile.";
+
+        key "name";
+
+        leaf name {
+          type string {
+            length 1..64;
+          }
+          description "Group name.";
+        }
+
+        container bfd-monitoring {
+          presence
+            "Present if BFD monitoring is configured.";
+
+          uses frr-bfdd:bfd-session-configuration;
         }
       }
     }

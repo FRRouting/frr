@@ -353,6 +353,85 @@ The following commands are available inside the interface configuration node.
    that interface.
 
 
+.. _bfd-static-peer-config:
+
+BFD Static Route Monitoring Configuration
+-----------------------------------------
+
+BFD static route monitoring serves the purpose of installing/removing a route
+from the RIB: when the BFD session is working correctly the route is installed
+and when the session is down it is removed.
+
+The following commands are available inside the configuration node:
+
+.. index:: [no] ip route A.B.C.D/M A.B.C.D {bfd [{multi-hop|profile BFDPROF}]|group STRGRP}
+.. clicmd:: [no] ip route A.B.C.D/M A.B.C.D {bfd [{multi-hop|profile BFDPROF}]|group STRGRP}
+
+   Configure a static route for ``A.B.C.D/M`` using gateway ``A.B.C.D`` and use
+   the gateway address as BFD peer destination address.
+
+   If ``group`` is specified then instead of the gateway address the specified
+   route group configuration will be used.
+
+.. index:: [no] ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X {bfd [{multi-hop|profile BFDPROF}]|group STRGRP}
+.. clicmd:: [no] ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X {bfd [{multi-hop|profile BFDPROF}]|group STRGRP}
+
+   Configure a static route for ``X:X::X:X/M`` using gateway
+   ``X:X::X:X`` and use the gateway address as BFD peer destination
+   address.
+
+   If ``group`` is specified then instead of the gateway address the specified
+   route group configuration will be used.
+
+.. index:: [no] ip route A.B.C.D/M [{IFNAME|Null0|reject|blackhole}] group STRGRP
+.. clicmd:: [no] ip route A.B.C.D/M [{IFNAME|Null0|reject|blackhole}] group STRGRP
+
+   Configure a static route for ``A.B.C.D/M`` using
+   interface/reject/blackhole as destination and monitoring the route
+   installation status with the group configuration specified in
+   ``group``.
+
+.. index:: [no] ipv6 route X:X::X:X/M [from X:X::X:X/M] [{IFNAME|Null0|reject|blackhole}] group STRGRP
+.. clicmd:: [no] ipv6 route X:X::X:X/M [from X:X::X:X/M] [{IFNAME|Null0|reject|blackhole}] group STRGRP
+
+   Create static route for ``X:X::X:X/M`` using
+   interface/reject/blackhole as destination and monitoring the route
+   installation status with the group configuration specified in
+   ``group``.
+
+.. index:: [no] route group STRGRP bfd [vrf VRFNAME] [interface IFNAME] peer <A.B.C.D|X:X::X:X> [multi-hop source <A.B.C.D|X:X::X:X>] [profile BFDPROF]
+.. clicmd:: [no] route group STRGRP bfd [vrf VRFNAME] [interface IFNAME] peer <A.B.C.D|X:X::X:X> [multi-hop source <A.B.C.D|X:X::X:X>] [profile BFDPROF]
+
+   Configure route group configuration for BFD.
+
+
+The static routes when uninstalled will no longer show up in the output of
+the command ``show ip route`` or ``show ipv6 route``, instead we must use the
+proper BFD static route show command to see these monitored route status.
+
+.. index:: show bfd static route [json]
+.. clicmd:: show bfd static route [json]
+
+   Show all monitored static routes and their status.
+
+   Example output:
+
+   ::
+
+      Showing BFD monitored static routes:
+
+        Route groups:
+          rtg1 peer 172.16.0.1 (status: uninstalled):
+              2001:db8::100/128
+
+      Next hops:
+        VRF default IPv4 Unicast:
+            192.168.100.0/24 peer 172.16.0.1 (status: uninstalled)
+
+        VRF default IPv4 Multicast:
+
+        VRF default IPv6 Unicast:
+
 .. _bfd-configuration:
 
 Configuration

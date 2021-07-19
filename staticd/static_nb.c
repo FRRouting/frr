@@ -106,6 +106,41 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring",
+			.cbs = {
+				.create = route_next_hop_bfd_create,
+				.destroy = route_next_hop_bfd_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/frr-staticd:bfd-monitoring/enable",
+			.cbs = {
+				.modify = route_next_hop_bfd_monitor_enable_modify,
+				.destroy = route_next_hop_bfd_monitor_enable_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/multi-hop",
+			.cbs = {
+				.modify = route_next_hop_bfd_multi_hop_modify,
+				.destroy = route_next_hop_bfd_multi_hop_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/profile",
+			.cbs = {
+				.modify = route_next_hop_bfd_profile_modify,
+				.destroy = route_next_hop_bfd_profile_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/group",
+			.cbs = {
+				.modify = route_next_hop_bfd_group_modify,
+				.destroy = route_next_hop_bfd_group_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create,
@@ -179,6 +214,66 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.cbs = {
 				.modify = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_modify,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group",
+			.cbs = {
+				.create = route_group_create,
+				.destroy = route_group_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring",
+			.cbs = {
+				.create = route_group_bfd_monitor_create,
+				.destroy = route_group_bfd_monitor_destroy,
+				.cli_show = static_route_group_show,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/vrf",
+			.cbs = {
+				.modify = route_group_bfd_vrf_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/peer",
+			.cbs = {
+				.modify = route_group_bfd_peer_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/source",
+			.cbs = {
+				.modify = route_group_bfd_source_modify,
+				.destroy = route_group_bfd_source_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/interface",
+			.cbs = {
+				.modify = route_group_bfd_interface_modify,
+				.destroy = route_group_bfd_interface_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/enable",
+			.cbs = {
+				.modify = route_group_bfd_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/multi-hop",
+			.cbs = {
+				.modify = route_group_bfd_multi_hop_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/profile",
+			.cbs = {
+				.modify = route_group_bfd_profile_modify,
+				.destroy = route_group_bfd_profile_destroy,
 			}
 		},
 		{

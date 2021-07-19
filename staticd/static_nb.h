@@ -63,6 +63,16 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_create(struct nb_cb_create_args *args);
+int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_monitor_enable_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_monitor_enable_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_multi_hop_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_group_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_group_destroy(struct nb_cb_destroy_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(
@@ -101,6 +111,22 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_mpls_label_stack_entry_traffic_class_destroy(
 	struct nb_cb_destroy_args *args);
+int route_group_create(struct nb_cb_create_args *args);
+int route_group_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_monitor_create(struct nb_cb_create_args *args);
+int route_group_bfd_monitor_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_vrf_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_peer_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_source_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_source_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_interface_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_interface_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_enable_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_profile_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int route_group_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
+void static_route_group_show(struct vty *vty, struct lyd_node *dnode,
+			     bool show_def);
 
 /* Optional 'apply_finish' callbacks. */
 
@@ -184,6 +210,16 @@ int routing_control_plane_protocols_name_validate(
 #define FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH                           \
 	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
+
+/* route-group */
+#define FRR_STATIC_ROUTE_GROUP                                                 \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-staticd:staticd/route-group[name='%s']"
+
+/* staticd root XPath. */
+#define FRR_STATIC_ROOT_XPATH                                                  \
+	"/frr-routing:routing/control-plane-protocols/control-plane-protocol"
 
 #ifdef __cplusplus
 }

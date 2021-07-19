@@ -20,6 +20,7 @@
 #ifndef __STATIC_ROUTES_H__
 #define __STATIC_ROUTES_H__
 
+#include "lib/bfd.h"
 #include "lib/mpls.h"
 #include "table.h"
 #include "memory.h"
@@ -29,6 +30,8 @@ extern "C" {
 #endif
 
 DECLARE_MGROUP(STATIC);
+
+#include "staticd/static_vrf.h"
 
 /* Static route label information */
 struct static_nh_label {
@@ -142,10 +145,20 @@ struct static_nexthop {
 
 	/* SR-TE color */
 	uint32_t color;
+
+	/** BFD integration data. */
+	struct bfd_session_params *bsp;
+	/** Back pointer for route node. */
+	struct route_node *rn;
+	/** Back pointer for path list. */
+	struct static_path *sp;
+	/** Route SAFI type. */
+	safi_t safi;
+	/** Path connection status. */
+	bool path_down;
 };
 
 DECLARE_DLIST(static_nexthop_list, struct static_nexthop, list);
-
 
 /*
  * rib_dest_from_rnode
@@ -220,6 +233,89 @@ extern void zebra_stable_node_cleanup(struct route_table *table,
  */
 extern void static_get_nh_str(struct static_nexthop *nh, char *nexthop,
 			      size_t size);
+
+/*
+ * Route group settings.
+ */
+/** Next hop member data structure. */
+struct static_group_member {
+	/** Next hop pointer. */
+	struct static_nexthop *sgm_sn;
+
+	/** Pointer to group. */
+	struct static_route_group *sgm_srg;
+
+	/** List entry. */
+	TAILQ_ENTRY(static_group_member) sgm_entry;
+};
+
+/** Route group name maximum size. */
+#define ROUTE_GROUP_NAME_MAX_SIZE 64
+
+/** static route group data structure. */
+struct static_route_group {
+	/** Group name. */
+	char srg_name[ROUTE_GROUP_NAME_MAX_SIZE];
+
+	/** BFD group monitor settings. */
+	struct bfd_session_params *srg_bsp;
+
+	/** Next hop entries. */
+	TAILQ_HEAD(sgmlist, static_group_member) srg_sgmlist;
+
+	/** List entry data. */
+	TAILQ_ENTRY(static_route_group) srg_entry;
+};
+
+TAILQ_HEAD(srglist, static_route_group);
+
+extern struct static_route_group *static_route_group_new(const char *name);
+extern void static_route_group_free(struct static_route_group **srg);
+
+/**
+ * TODO remove me.
+ *
+ * This function was temporarly created to enable us to implement
+ * `write_config`, once full northbound migration happens please
+ * remove this function.
+ */
+extern struct static_group_member *
+static_group_member_glookup(struct static_nexthop *sn);
+
+/*
+ * BFD integration.
+ */
+extern void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
+					       const struct lyd_node *dnode);
+extern void static_next_hop_bfd_monitor_disable(struct static_nexthop *sn);
+extern void static_next_hop_bfd_profile(struct static_nexthop *sn,
+					const char *name);
+extern void static_next_hop_bfd_multi_hop(struct static_nexthop *sn, bool mhop);
+
+extern void static_group_monitor_enable(const char *name,
+					struct static_nexthop *sn);
+extern void static_group_monitor_disable(const char *name,
+					 struct static_nexthop *sn);
+
+/* Route group settings. */
+extern void static_route_group_bfd_vrf(struct static_route_group *srg,
+				       const char *vrfname);
+extern void static_route_group_bfd_addresses(struct static_route_group *srg,
+					     const struct lyd_node *dnode);
+extern void static_route_group_bfd_interface(struct static_route_group *srg,
+					     const char *ifname);
+extern void static_route_group_bfd_enable(struct static_route_group *srg,
+					  const struct lyd_node *dnode);
+extern void static_route_group_bfd_disable(struct static_route_group *srg);
+extern void static_route_group_bfd_profile(struct static_route_group *srg,
+					   const char *profile);
+extern void static_route_group_bfd_multi_hop(struct static_route_group *srg,
+					     bool mhop);
+
+/** Call this function after zebra client initialization. */
+extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);
+
+extern void static_bfd_show(struct vty *vty, bool isjson);
 
 #ifdef __cplusplus
 }
