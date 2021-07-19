@@ -1002,7 +1002,6 @@ static int zfpm_build_route_updates(void)
 			data_len = zfpm_encode_route(dest, re, (char *)data,
 						     buf_end - data, &msg_type);
 
-			assert(data_len);
 			if (data_len) {
 				hdr->msg_type = msg_type;
 				msg_len = fpm_data_len_to_msg_len(data_len);
@@ -1013,6 +1012,8 @@ static int zfpm_build_route_updates(void)
 					zfpm_g->stats.route_adds++;
 				else
 					zfpm_g->stats.route_dels++;
+			} else {
+				zlog_debug("%s: data_len is 0.", __func__);
 			}
 		}
 
