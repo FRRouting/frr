@@ -191,7 +191,7 @@ daemon_stop() {
 	[ -z "$fail" -a -z "$pid" ] && fail="pid file is empty"
 	[ -n "$fail" ] || kill -0 "$pid" 2>/dev/null || fail="pid $pid not running"
 
-	if [ -n "$fail" ]; then
+	if [ -n "$fail" ] && [ "$2" != "--skiplog" ]; then
 		log_failure_msg "Cannot stop $dmninst: $fail"
 		return 1
 	fi
@@ -262,7 +262,7 @@ all_stop() {
 	done
 
 	for dmninst in $reversed; do
-		daemon_stop "$dmninst" &
+		daemon_stop "$dmninst" "$1" &
 		pids="$pids $!"
 	done
 	for pid in $pids; do
@@ -350,7 +350,7 @@ frrcommon_main() {
 		start)	all_start;;
 		stop)	all_stop;;
 		restart)
-			all_stop
+			all_stop --skiplog
 			all_start
 			;;
 		*)	$cmd "$@";;
