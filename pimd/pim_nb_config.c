@@ -22,6 +22,7 @@
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
+#include "lib/sockopt.h"
 #include "pim_igmpv3.h"
 #include "pim_pim.h"
 #include "pim_mlag.h"
@@ -30,6 +31,7 @@
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
 #include "pim_vxlan.h"
+#include "pim_msdp_socket.h"
 #include "log.h"
 #include "lib_errors.h"
 
@@ -1255,6 +1257,83 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 		mp = nb_running_get_entry(args->dnode, NULL, true);
 		yang_dnode_get_ip(&source_ip, args->dnode, NULL);
 		pim_msdp_peer_change_source(mp, &source_ip.ipaddr_v4);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/authentication-type
+ */
+int pim_msdp_peer_authentication_type_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		mp->auth_type = yang_dnode_get_enum(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-peer/authentication-key
+ */
+int pim_msdp_peer_authentication_key_modify(struct nb_cb_modify_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		if (strlen(yang_dnode_get_string(args->dnode, NULL))
+		    > TCP_MD5SIG_MAXKEYLEN) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "MD5 authentication key too long");
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
+		mp->auth_key =
+			XSTRDUP(MTYPE_PIM_MSDP_AUTH_KEY,
+				yang_dnode_get_string(args->dnode, NULL));
+
+		/* We must start listening the new authentication key now. */
+		if (PIM_MSDP_PEER_IS_LISTENER(mp))
+			pim_msdp_sock_auth_listen(mp);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int pim_msdp_peer_authentication_key_destroy(struct nb_cb_destroy_args *args)
+{
+	struct pim_msdp_peer *mp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		/* NOTHING */
+		break;
+	case NB_EV_APPLY:
+		mp = nb_running_get_entry(args->dnode, NULL, true);
+		XFREE(MTYPE_PIM_MSDP_AUTH_KEY, mp->auth_key);
 		break;
 	}
 

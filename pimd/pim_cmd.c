@@ -6578,6 +6578,40 @@ DEFUN (clear_ip_mroute_count,
 	return CMD_SUCCESS;
 }
 
+DEFPY(clear_ip_msdp_peer, clear_ip_msdp_peer_cmd,
+      "clear ip msdp peer A.B.C.D$peer [vrf WORD$vrfname]",
+      CLEAR_STR
+      IP_STR
+      MSDP_STR
+      "Restart MSDP peer\n"
+      "MSDP peer address\n"
+       VRF_CMD_HELP_STR)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct pim_msdp_peer *mp;
+	struct listnode *node;
+
+	if (vrfname) {
+		vrf = vrf_lookup_by_name(vrfname);
+		if (!vrf)
+			return CMD_WARNING;
+	} else
+		vrf = vrf_lookup_by_name(VRF_DEFAULT_NAME);
+
+	pim = vrf->info;
+
+	for (ALL_LIST_ELEMENTS_RO(pim->msdp.peer_list, node, mp)) {
+		if (mp->peer.s_addr != peer.s_addr)
+			continue;
+
+		pim_msdp_peer_restart(mp);
+		break;
+	}
+
+	return CMD_SUCCESS;
+}
+
 static void show_mroute_count_per_channel_oil(struct channel_oil *c_oil,
 					      json_object *json,
 					      struct vty *vty)
@@ -9762,6 +9796,72 @@ DEFUN (no_ip_msdp_peer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFPY(ip_msdp_peer_md5, ip_msdp_peer_md5_cmd,
+      "ip msdp peer A.B.C.D$peer password WORD$psk",
+      IP_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "Use MD5 authentication\n"
+      "MD5 pre shared key\n")
+{
+	const struct lyd_node *peer_node;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath),
+		 FRR_PIM_AF_XPATH "/msdp-peer[peer-ip='%s']", "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4", peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./authentication-type", NB_OP_MODIFY,
+			      "MD5");
+	nb_cli_enqueue_change(vty, "./authentication-key", NB_OP_MODIFY, psk);
+
+	return nb_cli_apply_changes(vty, xpath);
+}
+
+DEFPY(no_ip_msdp_peer_md5, no_ip_msdp_peer_md5_cmd,
+      "no ip msdp peer A.B.C.D$peer password [WORD]",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "Configure MSDP peer\n"
+      "MSDP Peer address\n"
+      "Use MD5 authentication\n"
+      "MD5 pre shared key\n")
+{
+	const struct lyd_node *peer_node;
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath),
+		 FRR_PIM_AF_XPATH "/msdp-peer[peer-ip='%s']", "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4", peer_str);
+	peer_node = yang_dnode_get(vty->candidate_config->dnode, xpath);
+	if (peer_node == NULL) {
+		vty_out(vty, "%% MSDP peer %s not yet configured\n", peer_str);
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./authentication-type", NB_OP_MODIFY,
+			      "None");
+
+	return nb_cli_apply_changes(vty, xpath);
+}
+
 DEFPY(ip_msdp_mesh_group_member,
       ip_msdp_mesh_group_member_cmd,
       "ip msdp mesh-group WORD$gname member A.B.C.D$maddr",
@@ -11128,6 +11228,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
 	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
+	install_element(CONFIG_NODE, &ip_msdp_peer_md5_cmd);
+	install_element(VRF_NODE, &ip_msdp_peer_md5_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_peer_md5_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_peer_md5_cmd);
 	install_element(CONFIG_NODE, &ip_pim_ecmp_cmd);
 	install_element(VRF_NODE, &ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_cmd);
@@ -11253,6 +11357,7 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &clear_ip_pim_oil_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_statistics_cmd);
 	install_element(ENABLE_NODE, &clear_ip_pim_bsr_db_cmd);
+	install_element(ENABLE_NODE, &clear_ip_msdp_peer_cmd);
 
 	install_element(ENABLE_NODE, &show_debugging_pim_cmd);
 
