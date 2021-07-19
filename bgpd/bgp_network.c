@@ -666,6 +666,10 @@ static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
 		return 1;
 
 	prefix2sockunion(sel, addr);
+
+	if (IN6_IS_ADDR_LINKLOCAL(&addr->sin6.sin6_addr))
+		addr->sin6.sin6_scope_id = ifp->ifindex;
+
 	return 0;
 }
 
