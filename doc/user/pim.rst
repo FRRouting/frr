@@ -199,7 +199,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the DR Priority for the interface. This command is useful to allow the
    user to influence what node becomes the DR for a lan segment.
 
-.. clicmd:: ip pim hello (1-180) (1-180)
+.. clicmd:: ip pim hello (1-180) (1-630)
 
    Set the pim hello and hold interval for a interface.
 
