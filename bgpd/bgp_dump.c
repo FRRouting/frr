@@ -536,8 +536,8 @@ int bgp_dump_state(struct peer *peer)
 			bgp_dump_all.type);
 	bgp_dump_common(obuf, peer, 1); /* force this in as4speak*/
 
-	stream_putw(obuf, peer->ostatus);
-	stream_putw(obuf, peer->status);
+	stream_putw(obuf, peer->connection.ostatus);
+	stream_putw(obuf, peer->connection.status);
 
 	/* Set length. */
 	bgp_dump_set_size(obuf, MSG_PROTOCOL_BGP4MP);

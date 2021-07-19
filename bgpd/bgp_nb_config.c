@@ -2280,7 +2280,7 @@ int bgp_neighbors_neighbor_destroy(struct nb_cb_destroy_args *args)
 
 			peer_notify_unconfig(peer);
 			peer_delete(peer);
-			if (other && other->status != Deleted) {
+			if (other && other->connection.status != Deleted) {
 				peer_notify_unconfig(other);
 				peer_delete(other);
 			}

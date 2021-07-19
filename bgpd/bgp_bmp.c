@@ -698,10 +698,12 @@ static int bmp_peer_established(struct peer *peer)
 		return 0;
 
 	/* Check if this peer just went to Established */
-	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
+	if ((peer->connection.ostatus != OpenConfirm)
+	    || !(peer_established(peer)))
 		return 0;
 
-	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
+	if (peer->doppelganger
+	    && (peer->doppelganger->connection.status != Deleted)) {
 		struct bmp_bgp_peer *bbpeer, *bbdopp;
 
 		bbpeer = bmp_bgp_peer_get(peer);

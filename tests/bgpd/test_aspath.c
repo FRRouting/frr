@@ -1230,10 +1230,10 @@ static int handle_attr_test(struct aspath_tests *t)
 	asp = make_aspath(t->segment->asdata, t->segment->len, 0);
 
 	peer.curr = stream_new(BGP_MAX_PACKET_SIZE);
-	peer.obuf = stream_fifo_new();
+	peer.connection.obuf = stream_fifo_new();
 	peer.bgp = &bgp;
 	peer.host = (char *)"none";
-	peer.fd = -1;
+	peer.connection.fd = -1;
 	peer.cap = t->cap;
 	peer.max_packet_size = BGP_STANDARD_MESSAGE_MAX_PACKET_SIZE;
 

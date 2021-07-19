@@ -957,7 +957,7 @@ int main(void)
 		parse_test(peer, &opt_params[i++], OPT_PARAM);
 
 	SET_FLAG(peer->cap, PEER_CAP_DYNAMIC_ADV);
-	peer->status = Established;
+	peer->connection.status = Established;
 
 	i = 0;
 	while (dynamic_cap_msgs[i].name)

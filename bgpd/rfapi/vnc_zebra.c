@@ -184,32 +184,12 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 			 * Same setup as in rfapi_open()
 			 */
 			vncHD1VR.peer = peer_new(bgp);
-			vncHD1VR.peer->status =
+			vncHD1VR.peer->connection.status =
 				Established; /* keep bgp core happy */
 			bgp_sync_delete(vncHD1VR.peer); /* don't need these */
 
-			/*
-			 * since this peer is not on the I/O thread, this lock
-			 * is not strictly necessary, but serves as a reminder
-			 * to those who may meddle...
-			 */
-			frr_with_mutex(&vncHD1VR.peer->io_mtx) {
-				// we don't need any I/O related facilities
-				if (vncHD1VR.peer->ibuf)
-					stream_fifo_free(vncHD1VR.peer->ibuf);
-				if (vncHD1VR.peer->obuf)
-					stream_fifo_free(vncHD1VR.peer->obuf);
-
-				if (vncHD1VR.peer->ibuf_work)
-					ringbuf_del(vncHD1VR.peer->ibuf_work);
-				if (vncHD1VR.peer->obuf_work)
-					stream_free(vncHD1VR.peer->obuf_work);
-
-				vncHD1VR.peer->ibuf = NULL;
-				vncHD1VR.peer->obuf = NULL;
-				vncHD1VR.peer->obuf_work = NULL;
-				vncHD1VR.peer->ibuf_work = NULL;
-			}
+			bgp_peer_connection_buffers_free(
+				&vncHD1VR.peer->connection);
 
 			/* base code assumes have valid host pointer */
 			vncHD1VR.peer->host =
