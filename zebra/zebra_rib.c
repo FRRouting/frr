@@ -3803,7 +3803,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	if (same) {
 		if (fromkernel && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)
 		    && !allow_delete) {
-			rib_install_kernel(rn, same, NULL);
+			// skip route entry with changed status
+			if (!CHECK_FLAG(same->status, ROUTE_ENTRY_CHANGED)) {
+				rib_install_kernel(rn, same, NULL);
+			}
 			route_unlock_node(rn);
 
 			return;
