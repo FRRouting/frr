@@ -276,7 +276,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 	ri->af = rib_dest_af(dest);
 
 	if (zvrf && zvrf->zns)
-		ri->nlmsg_pid = zvrf->zns->netlink_dplane.snl.nl_pid;
+		ri->nlmsg_pid = zvrf->zns->netlink_dplane_out.snl.nl_pid;
 
 	ri->nlmsg_type = cmd;
 	ri->rtm_table = table_info->table_id;
