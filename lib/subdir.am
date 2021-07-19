@@ -110,6 +110,8 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/zlog.c \
+	lib/zlog_5424.c \
+	lib/zlog_5424_cli.c \
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
@@ -170,6 +172,7 @@ clippy_scan += \
 	lib/routemap_cli.c \
 	lib/thread.c \
 	lib/vty.c \
+	lib/zlog_5424_cli.c \
 	# end
 
 pkginclude_HEADERS += \
@@ -283,6 +286,7 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
+	lib/zlog_5424.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/routing_nb.h \

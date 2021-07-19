@@ -2693,7 +2693,7 @@ int vty_config_node_exit(struct vty *vty)
 }
 
 /* Master of the threads. */
-static struct thread_master *vty_master;
+struct thread_master *vty_master;
 
 static void vty_event_serv(enum event event, int sock)
 {

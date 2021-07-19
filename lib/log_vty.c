@@ -773,6 +773,8 @@ __attribute__((_CONSTRUCTOR(475))) static void log_vty_preinit(void)
 	hook_register(zlog_init, log_vty_init);
 }
 
+extern void log_5424_cmd_init(void);
+
 void log_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_logging_cmd);
@@ -801,4 +803,6 @@ void log_cmd_init(void)
 	install_element(CONFIG_NODE, &config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &no_config_log_filterfile_cmd);
 	install_element(CONFIG_NODE, &log_immediate_mode_cmd);
+
+	log_5424_cmd_init();
 }

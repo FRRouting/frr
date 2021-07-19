@@ -75,6 +75,7 @@ clippy_scan += \
 
 check_PROGRAMS = \
 	tests/lib/cxxcompat \
+	tests/lib/fuzz_zlog \
 	tests/lib/test_assert \
 	tests/lib/test_atomlist \
 	tests/lib/test_buffer \
@@ -283,6 +284,10 @@ tests_lib_test_grpc_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_grpc_LDADD = $(GRPC_TESTS_LDADD)
 tests_lib_test_grpc_SOURCES = tests/lib/test_grpc.cpp
 endif
+tests_lib_fuzz_zlog_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_fuzz_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_fuzz_zlog_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_fuzz_zlog_SOURCES = tests/lib/fuzz_zlog.c
 tests_lib_test_assert_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_assert_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_assert_LDADD = $(ALL_TESTS_LDADD)

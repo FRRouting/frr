@@ -11,6 +11,7 @@ user_RSTFILES = \
 	doc/user/bugs.rst \
 	doc/user/conf.py \
 	doc/user/eigrpd.rst \
+	doc/user/extlog.rst \
 	doc/user/fabricd.rst \
 	doc/user/filter.rst \
 	doc/user/frr-reload.rst \

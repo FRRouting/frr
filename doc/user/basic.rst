@@ -160,15 +160,24 @@ Basic Config Commands
    debugging, but can be changed using the deprecated ``log trap`` command) will
    be used. The ``no`` form of the command disables logging to syslog.
 
+   .. note::
+
+      This uses the system's ``syslog()`` API, which does not support message
+      batching or structured key/value data pairs.  If possible, use
+      :clicmd:`log extended EXTLOGNAME` with
+      :clicmd:`destination syslog [supports-rfc5424]` instead of this.
+
+.. clicmd:: log extended EXTLOGNAME
+
+   Create an extended logging target with the specified name.  The name has
+   no further meaning and is only used to identify the target.  Multiple
+   targets can be created and deleted with the ``no`` form.
+
+   Refer to :ref:`ext-log-target` for further details and suboptions.
+
 .. clicmd:: log monitor [LEVEL]
 
-   Enable logging output to vty terminals that have enabled logging using the
-   ``terminal monitor`` command. By default, monitor logging is enabled at the
-   debugging level, but this command (or the deprecated ``log trap`` command)
-   can be used to change the monitor logging level. If the optional second
-   argument specifying the logging level is not present, the default logging
-   level (typically debugging) will be used. The ``no`` form of the command
-   disables logging to terminal monitors.
+   This command is deprecated and does nothing.
 
 .. clicmd:: log facility [FACILITY]
 
