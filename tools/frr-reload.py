@@ -213,6 +213,9 @@ class Context(object):
         for ligne in lines:
             self.dlines[ligne] = True
 
+    def __str__(self):
+        return (str(self.keys) + ' : ' +  str(self.lines))
+
     def add_lines(self, lines):
         """
         Add lines to specified context
@@ -349,7 +352,7 @@ class Config(object):
         """
 
         for (_, ctx) in sorted(iteritems(self.contexts)):
-            print(str(ctx) + "\n")
+            print(str(ctx))
 
     def save_contexts(self, key, lines):
         """
@@ -634,18 +637,9 @@ end
                     continue
 
             # one line contexts
-            # there is one exception though: ldpd accepts a 'router-id' clause
-            # as part of its 'mpls ldp' config context. If we are processing
-            # ldp configuration and encounter a router-id we should NOT switch
-            # to a new context
             if (
                 new_ctx is True
                 and any(line.startswith(keyword) for keyword in oneline_ctx_keywords)
-                and not (
-                    ctx_keys
-                    and ctx_keys[0].startswith("mpls ldp")
-                    and line.startswith("router-id ")
-                )
             ):
                 self.save_contexts(ctx_keys, current_context_lines)
 
@@ -660,17 +654,10 @@ end
                 self.save_contexts(ctx_keys, current_context_lines)
                 new_ctx = True
 
-            elif line == "end":
-                self.save_contexts(ctx_keys, current_context_lines)
-                log.debug("LINE %-50s: exiting old context, %-50s", line, ctx_keys)
-
-                # Start a new context
-                new_ctx = True
-                main_ctx_key = []
-                ctx_keys = []
-                current_context_lines = []
-
-            elif line == "exit" and ctx_keys[0].startswith("rpki"):
+            elif (
+                line == "end"
+                or (line == "exit" and ctx_keys[0].startswith("rpki"))
+            ):
                 self.save_contexts(ctx_keys, current_context_lines)
                 log.debug("LINE %-50s: exiting old context, %-50s", line, ctx_keys)
 
@@ -780,26 +767,15 @@ end
                     ctx_keys.append(line)
 
             elif (
-                line.startswith("vni ")
+                (line.startswith("vni ")
                 and len(ctx_keys) == 2
                 and ctx_keys[0].startswith("router bgp")
-                and ctx_keys[1] == "address-family l2vpn evpn"
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                sub_main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug(
-                    "LINE %-50s: entering sub-sub-context, append to ctx_keys", line
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("interface ")
+                and ctx_keys[1] == "address-family l2vpn evpn")
+                or
+                (line.startswith("interface ")
                 and len(ctx_keys) == 2
                 and ctx_keys[0].startswith("mpls ldp")
-                and ctx_keys[1].startswith("address-family")
+                and ctx_keys[1].startswith("address-family"))
             ):
 
                 # Save old context first
@@ -807,46 +783,25 @@ end
                 current_context_lines = []
                 sub_main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
-                    "LINE %-50s: entering sub-sub-context, append to ctx_keys", line
+                    "LINE %-50s: entering sub-sub-context, append to ctx_keys",
+                    line
                 )
                 ctx_keys.append(line)
 
             elif (
-                line.startswith("traffic-eng")
+                (line.startswith("traffic-eng")
                 and len(ctx_keys) == 1
-                and ctx_keys[0].startswith("segment-routing")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
-                    line,
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("segment-list ")
+                and ctx_keys[0].startswith("segment-routing"))
+                or
+                (line.startswith("segment-list ")
                 and len(ctx_keys) == 2
                 and ctx_keys[0].startswith("segment-routing")
-                and ctx_keys[1].startswith("traffic-eng")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                log.debug(
-                    "LINE %-50s: entering segment routing sub-context, append to ctx_keys",
-                    line,
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("policy ")
+                and ctx_keys[1].startswith("traffic-eng"))
+                or
+                (line.startswith("policy ")
                 and len(ctx_keys) == 2
                 and ctx_keys[0].startswith("segment-routing")
-                and ctx_keys[1].startswith("traffic-eng")
+                and ctx_keys[1].startswith("traffic-eng"))
             ):
 
                 # Save old context first
@@ -859,96 +814,39 @@ end
                 ctx_keys.append(line)
 
             elif (
-                line.startswith("candidate-path ")
+                (line.startswith("candidate-path ")
                 and line.endswith(" dynamic")
                 and len(ctx_keys) == 3
                 and ctx_keys[0].startswith("segment-routing")
                 and ctx_keys[1].startswith("traffic-eng")
-                and ctx_keys[2].startswith("policy")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug(
-                    "LINE %-50s: entering candidate-path sub-context, append to ctx_keys",
-                    line,
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("pcep")
+                and ctx_keys[2].startswith("policy"))
+                or
+                (line.startswith("pcep")
                 and len(ctx_keys) == 2
                 and ctx_keys[0].startswith("segment-routing")
-                and ctx_keys[1].startswith("traffic-eng")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug(
-                    "LINE %-50s: entering pcep sub-context, append to ctx_keys", line
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("pce-config ")
+                and ctx_keys[1].startswith("traffic-eng"))
+                or
+                (line.startswith("pce-config ")
                 and len(ctx_keys) == 3
                 and ctx_keys[0].startswith("segment-routing")
                 and ctx_keys[1].startswith("traffic-eng")
-                and ctx_keys[2].startswith("pcep")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug(
-                    "LINE %-50s: entering pce-config sub-context, append to ctx_keys",
-                    line,
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("pce ")
+                and ctx_keys[2].startswith("pcep"))
+                or
+                (line.startswith("pce ")
                 and len(ctx_keys) == 3
                 and ctx_keys[0].startswith("segment-routing")
                 and ctx_keys[1].startswith("traffic-eng")
-                and ctx_keys[2].startswith("pcep")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug(
-                    "LINE %-50s: entering pce sub-context, append to ctx_keys", line
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("pcc")
+                and ctx_keys[2].startswith("pcep"))
+                or
+                (line.startswith("pcc")
                 and len(ctx_keys) == 3
                 and ctx_keys[0].startswith("segment-routing")
                 and ctx_keys[1].startswith("traffic-eng")
-                and ctx_keys[2].startswith("pcep")
-            ):
-
-                # Save old context first
-                self.save_contexts(ctx_keys, current_context_lines)
-                current_context_lines = []
-                main_ctx_key = copy.deepcopy(ctx_keys)
-                log.debug(
-                    "LINE %-50s: entering pcc sub-context, append to ctx_keys", line
-                )
-                ctx_keys.append(line)
-
-            elif (
-                line.startswith("profile ")
+                and ctx_keys[2].startswith("pcep"))
+                or
+                (line.startswith("profile ")
                 and len(ctx_keys) == 1
-                and ctx_keys[0].startswith("bfd")
+                and ctx_keys[0].startswith("bfd"))
             ):
 
                 # Save old context first
@@ -956,8 +854,8 @@ end
                 current_context_lines = []
                 main_ctx_key = copy.deepcopy(ctx_keys)
                 log.debug(
-                    "LINE %-50s: entering BFD profile sub-context, append to ctx_keys",
-                    line,
+                    "LINE %-50s: entering %s sub-context, append to ctx_keys",
+                    line, line.split(" ")[0]
                 )
                 ctx_keys.append(line)
 
