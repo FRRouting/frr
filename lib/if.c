@@ -1211,7 +1211,10 @@ DEFPY_YANG_NOSH (interface,
 	 * VRF.
 	 */
 	VRF_GET_ID(vrf_id, vrf_name, false);
-	ifp = if_lookup_by_name_all_vrf(ifname);
+	if (vrf_name)
+		ifp = if_lookup_by_name(ifname, vrf_id);
+	else
+		ifp = if_lookup_by_name_all_vrf(ifname);
 	if (ifp && ifp->vrf_id != vrf_id) {
 		struct vrf *vrf;
 
