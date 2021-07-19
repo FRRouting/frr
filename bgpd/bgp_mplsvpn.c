@@ -48,6 +48,7 @@
 #include "bgpd/bgp_nht.h"
 #include "bgpd/bgp_evpn.h"
 #include "bgpd/bgp_memory.h"
+#include "bgpd/bgp_aspath.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -1375,6 +1376,8 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	struct bgp_path_info *bpi_ultimate = NULL;
 	int origin_local = 0;
 	struct bgp *src_vrf;
+	struct aspath *new_aspath;
+	struct bgp_path_info *bpi;
 
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_TO_VRF);
 
@@ -1392,6 +1395,32 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 			zlog_debug(
 				"from vpn to vrf %s, skipping after no intersection of route targets",
 				bgp_vrf->name_pretty);
+		return;
+	}
+
+	bn = bgp_afi_node_get(bgp_vrf->rib[afi][safi], afi, safi, p, NULL);
+
+	/* Check if leaked route has our asn. If so, don't import it. */
+	if (aspath_loop_check(path_vpn->attr->aspath, bgp_vrf->as)) {
+		for (bpi = bgp_dest_get_bgp_path_info(bn); bpi;
+		     bpi = bpi->next) {
+			if (bpi->extra
+			    && (struct bgp_path_info *)bpi->extra->parent
+				== path_vpn) {
+				break;
+			}
+		}
+
+		if (bpi) {
+			if (debug)
+				zlog_debug("%s: blocking import of %p, as-path match",
+					   __func__, bpi);
+			bgp_aggregate_decrement(bgp_vrf, p, bpi, afi, safi);
+			bgp_path_info_delete(bn, bpi);
+			bgp_process(bgp_vrf, bn, afi, safi);
+		}
+		bgp_dest_unlock_node(bn);
+
 		return;
 	}
 
@@ -1499,10 +1528,21 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 			nexthop_self_flag = 0;
 	}
 
+	/*
+	 * if the asn values are different, copy the asn of the source vrf
+	 * into the entry before importing. This helps with as-path loop
+	 * detection
+	 */
+	if (path_vpn->extra && path_vpn->extra->bgp_orig
+	    && (bgp_vrf->as != path_vpn->extra->bgp_orig->as)) {
+		new_aspath = aspath_dup(static_attr.aspath);
+		new_aspath = aspath_add_seq(new_aspath,
+					    path_vpn->extra->bgp_orig->as);
+		static_attr.aspath = new_aspath;
+	}
+
 	new_attr = bgp_attr_intern(&static_attr);
 	bgp_attr_flush(&static_attr);
-
-	bn = bgp_afi_node_get(bgp_vrf->rib[afi][safi], afi, safi, p, NULL);
 
 	/*
 	 * ensure labels are copied
@@ -2907,7 +2947,8 @@ void bgp_vpn_leak_unimport(struct bgp *from_bgp)
 	bool is_vrf_leak_bind;
 	int debug;
 
-	if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF)
+	if (from_bgp->inst_type != BGP_INSTANCE_TYPE_VRF &&
+	    from_bgp->inst_type != BGP_INSTANCE_TYPE_DEFAULT)
 		return;
 
 	debug = (BGP_DEBUG(vpn, VPN_LEAK_TO_VRF) |

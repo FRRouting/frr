@@ -145,8 +145,11 @@ int bgp_router_create(struct nb_cb_create_args *args)
 		 * Leak the routes to importing bgp vrf instances,
 		 * only when new bgp vrf instance is configured.
 		 */
-		if (is_new_bgp)
+		if (is_new_bgp || IS_BGP_INSTANCE_HIDDEN(bgp)) {
 			bgp_vpn_leak_export(bgp);
+			UNSET_FLAG(bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
+			UNSET_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS);
+		}
 
 		UNSET_FLAG(bgp->vrf_flags, BGP_VRF_AUTO);
 
@@ -9944,7 +9947,6 @@ static int bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
 	afi_t afi;
 	safi_t safi;
 	int ret = 0;
-	as_t as;
 	struct bgp *vrf_bgp, *bgp_default;
 	const char *import_name;
 	char *vname;
@@ -9956,7 +9958,6 @@ static int bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
 	yang_afi_safi_identity2value(af_name, &afi, &safi);
 	bgp = nb_running_get_entry(af_dnode, NULL, true);
 
-	as = bgp->as;
 	import_name = yang_dnode_get_string(args->dnode, "./vrf");
 
 	if (((BGP_INSTANCE_TYPE_DEFAULT == bgp->inst_type)
@@ -9970,7 +9971,9 @@ static int bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
 
 	bgp_default = bgp_get_default();
 	if (!bgp_default) {
-		/* Auto-create assuming the same AS */
+		as_t as = AS_UNSPECIFIED;
+
+		/* Auto-create with AS_UNSPECIFIED, to be filled in later */
 		ret = bgp_get_vty(&bgp_default, &as, NULL,
 				  BGP_INSTANCE_TYPE_DEFAULT);
 
@@ -9980,21 +9983,28 @@ static int bgp_global_afi_safi_ip_unicast_vpn_config_import_vrfs_create(
 				"VRF default is not configured as a bgp instance");
 			return NB_ERR_INCONSISTENCY;
 		}
+
+		SET_FLAG(bgp_default->flags, BGP_FLAG_INSTANCE_HIDDEN);
 	}
 
 	vrf_bgp = bgp_lookup_by_name(import_name);
 	if (!vrf_bgp) {
 		if (strcmp(import_name, VRF_DEFAULT_NAME) == 0)
 			vrf_bgp = bgp_default;
-		else
-			/* Auto-create assuming the same AS */
+		else {
+			as_t as = AS_UNSPECIFIED;
+
+			/* Auto-create with AS_UNSPECIFIED, fill in later */
 			ret = bgp_get_vty(&vrf_bgp, &as, import_name, bgp_type);
 
-		if (ret) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "VRF %s is not configured as a bgp instance\n",
-				 import_name);
-			return NB_ERR_INCONSISTENCY;
+			if (ret) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "VRF %s is not configured as a bgp instance\n",
+					 import_name);
+				return NB_ERR_INCONSISTENCY;
+			}
+
+			SET_FLAG(vrf_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN);
 		}
 	}
 

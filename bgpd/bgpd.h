@@ -488,6 +488,7 @@ struct bgp {
 #define BGP_FLAG_GR_DISABLE_EOR (1 << 22)
 #define BGP_FLAG_EBGP_REQUIRES_POLICY (1 << 23)
 #define BGP_FLAG_SHOW_NEXTHOP_HOSTNAME (1 << 24)
+#define BGP_FLAG_INSTANCE_HIDDEN (1 << 25)
 
 /* This flag is set if the instance is in administrative shutdown */
 #define BGP_FLAG_SHUTDOWN (1 << 25)
@@ -1895,6 +1896,7 @@ enum bgp_clear_type {
 /* BGP error codes.  */
 #define BGP_SUCCESS                               0
 #define BGP_CREATED                               1
+#define BGP_INSTANCE_EXISTS                       2
 #define BGP_ERR_INVALID_VALUE                    -1
 #define BGP_ERR_INVALID_FLAG                     -2
 #define BGP_ERR_INVALID_AS                       -3
@@ -2454,4 +2456,18 @@ void peer_nsf_stop(struct peer *peer);
 
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
 void peer_tcp_mss_unset(struct peer *peer);
+
+/* Macro to check if default bgp instance is hidden */
+#define IS_BGP_INSTANCE_HIDDEN(_bgp)                        \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_INSTANCE_HIDDEN) &&  \
+	(_bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT ||   \
+	_bgp->inst_type == BGP_INSTANCE_TYPE_VRF))
+
+/* Macro to check if bgp instance delete in-progress and !hidden */
+#define BGP_INSTANCE_HIDDEN_DELETE_IN_PROGRESS(_bgp, _afi, _safi)   \
+	(CHECK_FLAG(_bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS) &&       \
+	!IS_BGP_INSTANCE_HIDDEN(_bgp) &&                           \
+	!(_afi == AFI_IP && _safi == SAFI_MPLS_VPN) &&             \
+	!(_afi == AFI_IP6 && _safi == SAFI_MPLS_VPN))
+
 #endif /* _QUAGGA_BGPD_H */
