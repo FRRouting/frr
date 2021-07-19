@@ -642,6 +642,7 @@ int zebra_ptm_sock_read(struct thread *thread)
 	do {
 		rc = ptm_lib_process_msg(ptm_hdl, sock, ptm_cb.in_data,
 					 ZEBRA_PTM_MAX_SOCKBUF, NULL);
+		memset(ptm_cb.in_data, 0, ZEBRA_PTM_MAX_SOCKBUF);
 	} while (rc > 0);
 
 	if (((rc == 0) && !errno)
