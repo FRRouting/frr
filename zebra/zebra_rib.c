@@ -1899,7 +1899,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	 * Update is a bit of a special case, where we may have both old and new
 	 * routes to post-process.
 	 */
-	is_update = dplane_ctx_is_update(ctx);
+	is_update = (op == DPLANE_OP_ROUTE_UPDATE);
 
 	/*
 	 * Take a pass through the routes, look for matches with the context

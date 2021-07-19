@@ -1912,9 +1912,17 @@ ssize_t netlink_route_multipath_msg_encode(int cmd,
 	req->r.rtm_src_len = src_p ? src_p->prefixlen : 0;
 	req->r.rtm_scope = RT_SCOPE_UNIVERSE;
 
-	if (cmd == RTM_DELROUTE)
-		req->r.rtm_protocol = zebra2proto(dplane_ctx_get_old_type(ctx));
-	else
+	if (cmd == RTM_DELROUTE) {
+		/* Special case for ipv6 route install: we're sending a
+		 * preemptive delete operation, and there's no 'old' proto info.
+		 */
+		if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL &&
+		    p->family == AF_INET6)
+			req->r.rtm_protocol = RTPROT_UNSPEC;
+		else
+			req->r.rtm_protocol =
+				zebra2proto(dplane_ctx_get_old_type(ctx));
+	} else
 		req->r.rtm_protocol = zebra2proto(dplane_ctx_get_type(ctx));
 
 	/*
@@ -2681,6 +2689,19 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 	if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_DELETE) {
 		cmd = RTM_DELROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_INSTALL) {
+		if (p->family == AF_INET6 && !v6_rr_semantics &&
+		    v6_preempt_delete) {
+			/* For v6 routes, let's do a preemptive delete,
+			 * as we do for updates. We want the fib to look
+			 * like the incoming rib ctx. We'll need to create
+			 * a delete message even though we don't have
+			 * 'old' context data,
+			 */
+			netlink_batch_add_msg(
+				bth, ctx, netlink_delroute_msg_encoder,
+				true);
+		}
+
 		cmd = RTM_NEWROUTE;
 	} else if (dplane_ctx_get_op(ctx) == DPLANE_OP_ROUTE_UPDATE) {
 

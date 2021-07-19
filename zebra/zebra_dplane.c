@@ -2190,6 +2190,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	zebra_l3vni_t *zl3vni;
 	const struct interface *ifp;
 	struct dplane_intf_extra *if_extra;
+	bool update_p = false;
 
 	if (!ctx || !rn || !re)
 		goto done;
@@ -2287,10 +2288,23 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		goto done;
 	}
 
-	/* Extract ns info - can't use pointers to 'core' structs */
+	/* Extract ns info - can't use pointers to 'core' structs in dplane. */
 	zvrf = vrf_info_lookup(re->vrf_id);
 	zns = zvrf->zns;
-	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_ROUTE_UPDATE));
+
+	/* For route update, or v6 route add with configure option,
+	 * we take two sequence numbers.
+	 */
+	if (op == DPLANE_OP_ROUTE_UPDATE)
+		update_p = true;
+	else if (op == DPLANE_OP_ROUTE_INSTALL &&
+		 ctx->u.rinfo.zd_dest.family == AF_INET6 &&
+		 v6_preempt_delete) {
+
+		update_p = true;
+	}
+
+	dplane_ctx_ns_init(ctx, zns, update_p);
 
 #ifdef HAVE_NETLINK
 	{

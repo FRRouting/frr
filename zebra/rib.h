@@ -628,6 +628,9 @@ extern pid_t pid;
 
 extern bool v6_rr_semantics;
 
+/* Perform preemptive deletes for v6 route updates. */
+extern bool v6_preempt_delete;
+
 #ifdef __cplusplus
 }
 #endif
