@@ -589,6 +589,7 @@ end
             "domainname ",
             "dump ",
             "enable ",
+            "evpn mh",
             "frr ",
             "fpm ",
             "hostname ",
@@ -606,9 +607,9 @@ end
             "service ",
             "table ",
             "username ",
-            "zebra ",
+            "vni ",
             "vrrp autoconfigure",
-            "evpn mh",
+            "zebra "
         )
 
         for line in self.lines:
