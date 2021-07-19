@@ -518,7 +518,7 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 		return;
 	}
 
-	stream_putl(s, pbr_vrf->vrf->data.l.table_id);
+	stream_putl(s, pbr_vrf->vrf->data.l.local_table_id);
 }
 
 static void pbr_encode_pbr_map_sequence(struct stream *s,
