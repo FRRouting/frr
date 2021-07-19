@@ -204,6 +204,26 @@ static struct rp_info *pim_rp_find_exact(struct pim_instance *pim,
 }
 
 /*
+ * XXX: long-term issue:  we don't actually have a good "ip address-list"
+ * implementation.  ("access-list XYZ" is the closest but honestly it's
+ * kinda garbage.)
+ *
+ * So it's using a prefix-list to match an address here, which causes very
+ * unexpected results for the user since prefix-lists by default only match
+ * when the prefix length is an exact match too.  i.e. you'd have to add the
+ * "le 32" and do "ip prefix-list foo permit 10.0.0.0/24 le 32"
+ *
+ * To avoid this pitfall, this code uses "address_mode = true" for the prefix
+ * list match (this is the only user for that.)
+ *
+ * In the long run, we need to add a "ip address-list", but that's a wholly
+ * separate bag of worms, and existing configs using ip prefix-list would
+ * drop into the UX pitfall.
+ */
+
+#include "lib/plist_int.h"
+
+/*
  * Given a group, return the rp_info for that group
  */
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
@@ -213,7 +233,8 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	struct rp_info *best = NULL;
 	struct rp_info *rp_info;
 	struct prefix_list *plist;
-	const struct prefix *p, *bp;
+	const struct prefix *bp;
+	const struct prefix_list_entry *entry;
 	struct route_node *rn;
 
 	bp = NULL;
@@ -221,19 +242,19 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 		if (rp_info->plist) {
 			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
 
-			if (prefix_list_apply_which_prefix(plist, &p, group)
-			    == PREFIX_DENY)
+			if (prefix_list_apply_ext(plist, &entry, group, true)
+			    == PREFIX_DENY || !entry)
 				continue;
 
 			if (!best) {
 				best = rp_info;
-				bp = p;
+				bp = &entry->prefix;
 				continue;
 			}
 
-			if (bp && bp->prefixlen < p->prefixlen) {
+			if (bp && bp->prefixlen < entry->prefix.prefixlen) {
 				best = rp_info;
-				bp = p;
+				bp = &entry->prefix;
 			}
 		}
 	}

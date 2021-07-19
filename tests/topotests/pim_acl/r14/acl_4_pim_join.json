@@ -1,0 +1,19 @@
+{
+  "r14-eth0":{
+    "name":"r14-eth0",
+    "state":"up",
+    "address":"192.168.101.14",
+    "flagMulticast":true,
+    "flagBroadcast":true,
+    "lanDelayEnabled":true,
+    "239.100.0.255":{
+      "*":{
+        "source":"*",
+        "group":"239.100.0.255",
+        "prune":"--:--",
+        "channelJoinName":"JOIN",
+        "protocolPim":1
+      }
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "red":{
+    "vrfName":"red",
+    "neighbors":{
+      "192.168.0.12":[
+        {
+          "priority":10,
+          "state":"Full\/Backup",
+          "address":"192.168.101.12",
+          "ifaceName":"r1-eth3:192.168.101.1"
+        }
+      ]
+    }
+  }
+}
+

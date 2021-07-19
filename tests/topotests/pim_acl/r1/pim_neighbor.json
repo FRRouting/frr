@@ -1,0 +1,31 @@
+{
+  "r1-eth0":{
+  },
+  "r1-eth1":{
+    "192.168.101.12":{
+      "interface":"r1-eth1",
+      "neighbor":"192.168.101.12",
+      "drPriority":1
+    },
+    "192.168.101.15":{
+      "interface":"r1-eth1",
+      "neighbor":"192.168.101.15",
+      "drPriority":1
+    },
+    "192.168.101.14":{
+      "interface":"r1-eth1",
+      "neighbor":"192.168.101.14",
+      "drPriority":1
+    },
+    "192.168.101.11":{
+      "interface":"r1-eth1",
+      "neighbor":"192.168.101.11",
+      "drPriority":1
+    },
+    "192.168.101.13":{
+      "interface":"r1-eth1",
+      "neighbor":"192.168.101.13",
+      "drPriority":1
+    }
+  }
+}
