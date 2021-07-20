@@ -505,7 +505,7 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 {
 	int i, j, row;
 	time_t diff_time;
-	struct tm *tm_info;
+	struct tm tm_info;
 	char tm_buffer[26];
 	struct counters_group *group;
 	struct counters_subgroup *subgroup;
@@ -522,8 +522,8 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 	}
 
 	diff_time = time(NULL) - group->start_time;
-	tm_info = localtime(&group->start_time);
-	strftime(tm_buffer, sizeof(tm_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+	localtime_r(&group->start_time, &tm_info);
+	strftime(tm_buffer, sizeof(tm_buffer), "%Y-%m-%d %H:%M:%S", &tm_info);
 
 	vty_out(vty, "PCEP counters since %s (%uh %um %us):\n", tm_buffer,
 		(uint32_t)(diff_time / 3600), (uint32_t)((diff_time / 60) % 60),
