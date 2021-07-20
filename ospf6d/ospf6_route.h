@@ -79,9 +79,6 @@ struct ospf6_path {
 	/* Optional Capabilities */
 	uint8_t options[3];
 
-	/* Prefix Options */
-	uint8_t prefix_options;
-
 	/* Associated Area */
 	in_addr_t area_id;
 
@@ -146,6 +143,9 @@ struct ospf6_route {
 
 	/* flag */
 	uint8_t flag;
+
+	/* Prefix Options */
+	uint8_t prefix_options;
 
 	/* route option */
 	void *route_option;

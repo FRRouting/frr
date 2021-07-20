@@ -1296,7 +1296,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	as_external_lsa->prefix.prefix_length = route->prefix.prefixlen;
 
 	/* PrefixOptions */
-	as_external_lsa->prefix.prefix_options = route->path.prefix_options;
+	as_external_lsa->prefix.prefix_options = route->prefix_options;
 
 	/* Set the P bit */
 	as_external_lsa->prefix.prefix_options |= OSPF6_PREFIX_OPTION_P;
