@@ -1941,6 +1941,26 @@ ospf6_print_json_external_routes_walkcb(struct hash_bucket *bucket, void *arg)
 	return HASHWALK_CONTINUE;
 }
 
+static void
+ospf6_show_vrf_name(struct vty *vty, struct ospf6 *ospf6,
+		    json_object *json)
+{
+	if (json) {
+		if (ospf6->vrf_id == VRF_DEFAULT)
+			json_object_string_add(json, "vrfName",
+					       "default");
+		else
+			json_object_string_add(json, "vrfName",
+					       ospf6->name);
+		json_object_int_add(json, "vrfId", ospf6->vrf_id);
+	} else {
+		if (ospf6->vrf_id == VRF_DEFAULT)
+			vty_out(vty, "VRF Name: %s\n", "default");
+		else if (ospf6->name)
+			vty_out(vty, "VRF Name: %s\n", ospf6->name);
+	}
+}
+
 static int
 ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object *json,
@@ -1948,15 +1968,22 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 {
 	struct route_node *rn;
 	static const char header[] = "Summary-address       Metric-type     Metric     Tag         External_Rt_count\n";
+	json_object *json_vrf = NULL;
 
 	if (!uj) {
+		ospf6_show_vrf_name(vty, ospf6, json_vrf);
 		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
 				ospf6->aggr_delay_interval);
 		vty_out(vty, "%s\n", header);
 	} else {
-		json_object_int_add(json, "aggregation delay interval",
+		json_vrf = json_object_new_object();
+
+		ospf6_show_vrf_name(vty, ospf6, json_vrf);
+
+		json_object_int_add(json_vrf, "aggregation delay interval",
 				ospf6->aggr_delay_interval);
 	}
+
 
 	for (rn = route_top(ospf6->rt_aggr_tbl); rn; rn = route_next(rn)) {
 		if (!rn->info)
@@ -1972,7 +1999,7 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 
 			json_aggr = json_object_new_object();
 
-			json_object_object_add(json,
+			json_object_object_add(json_vrf,
 						buf,
 						json_aggr);
 
@@ -2036,15 +2063,21 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 		}
 	}
 
+	if (uj)
+		json_object_object_add(json, ospf6->name,
+					json_vrf);
+
 	return CMD_SUCCESS;
 }
 
 DEFPY (show_ipv6_ospf6_external_aggregator,
        show_ipv6_ospf6_external_aggregator_cmd,
-       "show ipv6 ospf6 summary-address [detail$detail] [json]",
+       "show ipv6 ospf6 [vrf <NAME|all>] summary-address [detail$detail] [json]",
        SHOW_STR
        IP6_STR
        OSPF6_STR
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
        "Show external summary addresses\n"
        "detailed informtion\n"
        JSON_STR)
@@ -2052,25 +2085,27 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 	bool uj = use_json(argc, argv);
 	struct ospf6 *ospf6 = NULL;
 	json_object *json = NULL;
+	const char *vrf_name = NULL;
+	struct listnode *node;
+	bool all_vrf = false;
+	int idx_vrf = 0;
 
 	if (uj)
 		json = json_object_new_object();
 
-		/* Default Vrf */
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	if (ospf6 == NULL) {
-		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
-			vty_out(vty, "OSPFv3 is not running\n");
+	OSPF6_CMD_CHECK_RUNNING();
+	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
-		return CMD_SUCCESS;
+	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
+		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+
+			ospf6_show_summary_address(vty, ospf6, json, uj,
+						   detail);
+
+			if (!all_vrf)
+				break;
+		}
 	}
-
-	ospf6_show_summary_address(vty, ospf6, json, uj, detail);
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(

@@ -2978,7 +2978,7 @@ static void ospf6_aggr_handle_external_info(void *data)
 					__func__,
 					&rt->prefix);
 
-	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
+	ospf6 = rt->ospf6;
 	assert(ospf6);
 
 	aggr = ospf6_external_aggr_match(ospf6,
