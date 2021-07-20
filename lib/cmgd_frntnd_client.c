@@ -432,8 +432,8 @@ static int cmgd_frntnd_client_handle_msg(
 				sessn->client_id, (cmgd_session_id_t) sessn,
 				frntnd_msg->setcfg_reply->req_id, 
 				sessn->user_ctxt,
-				frntnd_msg->setcfg_reply->db_id, 
 				frntnd_msg->setcfg_reply->success,
+				frntnd_msg->setcfg_reply->db_id, 
 				frntnd_msg->setcfg_reply->error_if_any);
 		break;
 	case CMGD__FRNTND_MESSAGE__TYPE__COMMIT_CONFIG_REPLY:

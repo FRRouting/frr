@@ -50,6 +50,7 @@
 #include "cmgd/cmgd_bcknd_adapter.h"
 #include "cmgd/cmgd_frntnd_server.h"
 #include "cmgd/cmgd_frntnd_adapter.h"
+#include "cmgd/cmgd_db.h"
 #include "cmgd/cmgd_memory.h"
 
 // DEFINE_MTYPE_STATIC(CMGDD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
@@ -4766,14 +4767,17 @@ void cmgd_init(void)
 	/* pre-init pthreads */
 	cmgd_pthreads_init();
 
+	/* Initialize databases */
+	cmgd_db_init(cm);
+
 	/* Initialize CMGD Transaction module */
-	cmgd_trxn_init(cm);
+	cmgd_trxn_init(cm, cm->master);
 
 	/* Initialize the CMGD Backend Adapter Module */
 	cmgd_bcknd_adapter_init(cm->master);
 	
 	/* Initialize the CMGD Frontend Adapter Module */
-	cmgd_frntnd_adapter_init(cm->master);
+	cmgd_frntnd_adapter_init(cm->master, cm);
 
 	/* Start the CMGD Backend Server for clients to connect */
 	cmgd_bcknd_server_init(cm->master);

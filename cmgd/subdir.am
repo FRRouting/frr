@@ -113,7 +113,7 @@ cmgd_cmgd_SOURCES = \
 
 cmgd_cmgd_CFLAGS = $(AM_CFLAGS) -I ./
 
-cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
+cmgd_cmgd_LDADD = cmgd/libcmgd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
 cmgd_cmgd_LDADD += cmgd/libcmgd_bcknd_nb.la
 
 cmgd_cmgd_test_frntnd_SOURCES = \

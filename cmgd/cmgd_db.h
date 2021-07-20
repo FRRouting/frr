@@ -28,6 +28,7 @@
 #include "cmgd/cmgd_bcknd_adapter.h"
 #include "cmgd/cmgd_frntnd_adapter.h"
 #include "lib/cmgd_frntnd_client.h"
+#include "cmgd/cmgd.h"
 
 typedef uintptr_t cmgd_db_hndl_t;
 
@@ -36,11 +37,16 @@ typedef void (*cmgd_db_node_iter_fn)(cmgd_db_hndl_t db_hndl,
 
 extern int cmgd_db_init(struct cmgd_master *cm);
 
+extern cmgd_db_hndl_t cmgd_db_get_hndl_by_id(
+        struct cmgd_master *cm, cmgd_database_id_t db_id);
+
 extern int cmgd_db_read_lock(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_write_lock(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_unlock(cmgd_db_hndl_t db_hndl);
+
+extern struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_lookup_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath,
@@ -58,7 +64,6 @@ extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,
         cmgd_yang_getdata_req_t *data_req, int num_reqs);
 
-extern void cmgd_db_hndl_status_write(
-        struct vty *vty, cmgd_db_hndl_t db_hndl);
+extern void cmgd_db_status_write(struct vty *vty);
 
 #endif /* _FRR_CMGD_DB_H_ */

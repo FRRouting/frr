@@ -25,6 +25,7 @@
 
 #include "hook.h"
 #include "frr_pthread.h"
+#include "lib/compiler.h"
 #include "lib/json.h"
 #include "vrf.h"
 #include "vty.h"
@@ -54,7 +55,6 @@
 		__typeof__(b) _b = (b);                                        \
 		_a > _b ? _a : _b;                                             \
 	})
-
 
 // extern struct frr_pthread *cmgd_pth_io;
 // extern struct frr_pthread *cmgd_pth_ka;
@@ -96,7 +96,7 @@ struct cmgd_master {
 
 	/* Databases */
 	cmgd_db_hndl_t running_db;
-	cmgd_db_hndl_t cnadidate_db;
+	cmgd_db_hndl_t candidate_db;
 	cmgd_db_hndl_t oper_db;
 
 	bool terminating;	/* global flag that sigint terminate seen */

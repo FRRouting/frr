@@ -113,6 +113,12 @@ enum nb_operation {
 	NB_OP_RPC,
 };
 
+struct nb_cfg_change {
+	char xpath[XPATH_MAXLEN];
+	enum nb_operation operation;
+	const char *value;
+};
+
 union nb_resource {
 	int fd;
 	void *ptr;
@@ -908,6 +914,14 @@ extern bool nb_candidate_needs_update(const struct nb_config *candidate);
  *    NB_OK on success, NB_ERR otherwise.
  */
 extern int nb_candidate_update(struct nb_config *candidate);
+
+extern void nb_apply_config_changes(struct nb_config *candidate_config,
+					struct nb_cfg_change cfg_changes[],
+					size_t num_cfg_changes,
+					const char *xpath_base,
+					const char *curr_xpath,
+					int xpath_index, char *err_buf,
+					int err_bufsize, bool *error);
 
 /*
  * Validate a candidate configuration. Perform both YANG syntactic/semantic

@@ -46,6 +46,10 @@
 
 #define CMGD_MAX_NUM_XPATH_REG                  128
 
+#define CMGD_MAX_NUM_DATA_IN_BATCH		128
+
+#define CMGD_MAX_CFG_CHANGES_IN_BATCH		128
+
 typedef uintptr_t cmgd_lib_hndl_t;
 
 typedef uintptr_t cmgd_user_data_t;

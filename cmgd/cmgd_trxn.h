@@ -29,6 +29,7 @@
 #include "cmgd/cmgd.h"
 
 #define CMGD_TRXN_PROC_DELAY_MSEC       100
+#define CMGD_TRXN_MAX_NUM_SETCFG_PROC   128
 
 PREDECL_LIST(cmgd_trxn_list);
 
@@ -62,7 +63,7 @@ static inline const char* cmgd_trxn_type2str(cmgd_trxn_type_t type)
         return "Unknown";
 }
 
-extern int cmgd_trxn_init(struct cmgd_master *cm);
+extern int cmgd_trxn_init(struct cmgd_master *cm, struct thread_master *tm);
 
 extern void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn);
 

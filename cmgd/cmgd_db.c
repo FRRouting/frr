@@ -31,6 +31,7 @@
 #include "lib/cmgd_pb.h"
 #include "lib/vty.h"
 #include "cmgd/cmgd_db.h"
+#include "libyang/libyang.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_DB_DBG(fmt, ...)				\
@@ -56,11 +57,12 @@ typedef struct cmgd_db_ctxt_ {
 	} root;
 } cmgd_db_ctxt_t;
 
+static struct cmgd_master *cmgd_db_cm = NULL;
 static cmgd_db_ctxt_t running, candidate, oper;
 
 int cmgd_db_init(struct cmgd_master *cm)
 {
-	if (cm->running_db || cm->cnadidate_db || cm->oper_db)
+	if (cmgd_db_cm || cm->running_db || cm->candidate_db || cm->oper_db)
 		assert(!"Call cmgd_db_init() only once!");
 
 	// db_id to be added
@@ -72,8 +74,26 @@ int cmgd_db_init(struct cmgd_master *cm)
 	oper.config_db = false;
 
 	cm->running_db = (cmgd_db_hndl_t)&running;
-	cm->cnadidate_db = (cmgd_db_hndl_t)&candidate;
+	cm->candidate_db = (cmgd_db_hndl_t)&candidate;
 	cm->oper_db = (cmgd_db_hndl_t)&oper;
+	cmgd_db_cm = cm;
+
+	return 0;
+}
+
+cmgd_db_hndl_t cmgd_db_get_hndl_by_id(
+        struct cmgd_master *cm, cmgd_database_id_t db_id)
+{
+	switch (db_id) {
+	case CMGD_DB_CANDIDATE:
+		return (cm->candidate_db);
+	case CMGD_DB_RUNNING:
+		return (cm->running_db);
+	case CMGD_DB_OPERATIONAL:
+		return (cm->oper_db);
+	default:
+		break;
+	}
 
 	return 0;
 }
@@ -118,6 +138,17 @@ int cmgd_db_unlock(cmgd_db_hndl_t db_hndl)
 	return lock_status;
 }
 
+struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return NULL;
+
+	return (db_ctxt->config_db ? db_ctxt->root.cfg_root : NULL);
+}
+
 int cmgd_db_lookup_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath,
         struct lyd_node *dnodes[], struct nb_node *nbnodes[],
@@ -128,20 +159,25 @@ int cmgd_db_lookup_data_nodes(
 	uint32_t i;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
+	if (!db_ctxt || !num_nodes)
 		return -1;
 
 	if (xpath[0] == '.' && xpath[1] == '/')
 		xpath += 2;
 
-	lyd_find_xpath(db_ctxt->config_db ?
-		db_ctxt->root.cfg_root->dnode :
-		db_ctxt->root.dnode_root, xpath, &set);
+	*num_nodes = 0;
+	if (LY_SUCCESS != lyd_find_xpath(db_ctxt->config_db ?
+				db_ctxt->root.cfg_root->dnode :
+				db_ctxt->root.dnode_root, xpath,
+				&set)) {
+		return -1;
+	}
+
 	for(i = 0; i < set->count; i++) {
-		dnodes[i] = set->dnodes[i];
-		assert(dnodes[i]->schema && dnodes[i]->priv);
-		nbnodes[i] = (struct nb_node *) dnodes[i]->priv;
-		*num_nodes++;
+		dnodes[*num_nodes] = set->dnodes[i];
+		assert(dnodes[*num_nodes]->schema && dnodes[i]->priv);
+		nbnodes[*num_nodes] = (struct nb_node *) dnodes[i]->priv;
+		(*num_nodes)++;
 
 		if (!get_childs_as_well)
 			break;
@@ -191,8 +227,6 @@ int cmgd_db_delete_data_nodes(
 	return 0;
 }
 
-#define CMGD_MAX_NUM_DATA_IN_BATCH	128
-
 int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
         cmgd_db_node_iter_fn iter_fn)
@@ -207,7 +241,7 @@ int cmgd_db_iter_data(
 	if (!db_ctxt)
 		return -1;
 
-	count = CMGD_MAX_NUM_DATA_IN_BATCH;
+	count = array_size(dnodes);
 	cmgd_db_lookup_data_nodes(db_hndl, base_xpath, dnodes,
 		nbnodes, &count, true);
 
@@ -239,17 +273,33 @@ int cmgd_db_hndl_send_get_data_req(
 	return 0;
 }
 
-void cmgd_db_hndl_status_write(
+static void cmgd_db_hndl_status_write(
         struct vty *vty, cmgd_db_hndl_t db_hndl)
 {
 	cmgd_db_ctxt_t *db_ctxt;
 
-	// vty_out(vty, "CMGD Transactions\n");
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt) {
+		vty_out(vty, "    >>>>> Database Not Initialized!\n");
+		return;
+	}
 
-	// FOREACH_TRXN_IN_LIST(cmgd_trxn_cm, trxn) {
-	// 	vty_out(vty, "  Trxn-Id: \t\t\t%p\n", trxn);
-	// 	vty_out(vty, "    Session-Id: \t\t\t%lx\n", trxn->session_id);
-	// }
-	// vty_out(vty, "  Total: %d\n", 
-	// 	(int) cmgd_trxn_list_count(&cmgd_trxn_cm->cmgd_trxns));
+	vty_out(vty, "    DB-Hndl: \t\t\t0x%p\n", db_ctxt);
+	vty_out(vty, "    Config: \t\t\t%s\n", db_ctxt->config_db ? "True" : "False");
+}
+
+void cmgd_db_status_write(struct vty *vty)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+
+	vty_out(vty, "CMGD Databases\n");
+
+	vty_out(vty, "  Candidate DB:\n");
+	cmgd_db_hndl_status_write(vty, cmgd_db_cm->candidate_db);
+
+	vty_out(vty, "  Running DB:\n");
+	cmgd_db_hndl_status_write(vty, cmgd_db_cm->running_db);
+
+	vty_out(vty, "  Operational DB:\n");
+	cmgd_db_hndl_status_write(vty, cmgd_db_cm->oper_db);
 }

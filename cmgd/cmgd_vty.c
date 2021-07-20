@@ -184,6 +184,19 @@ DEFPY(show_cmgd_trxn,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_cmgd_db,
+	show_cmgd_db_cmd,
+	"show cmgd database all",
+	SHOW_STR
+	CMGD_STR
+	CMGD_TRXN_STR
+	"Display all Databases\n")
+{
+	cmgd_db_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 void cmgd_vty_init(void)
 {
 	/* 
@@ -197,6 +210,7 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_trxn_cmd);
+	install_element(VIEW_NODE, &show_cmgd_db_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

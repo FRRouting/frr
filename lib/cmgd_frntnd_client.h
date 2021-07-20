@@ -68,6 +68,7 @@ typedef Cmgd__DatabaseId cmgd_database_id_t;
 #define CMGD_DB_RUNNING 	CMGD__DATABASE_ID__RUNNING_DB
 #define CMGD_DB_CANDIDATE 	CMGD__DATABASE_ID__CANDIDATE_DB
 #define CMGD_DB_OPERATIONAL 	CMGD__DATABASE_ID__OPERATIONAL_DB
+#define CMGD_DB_MAX_ID		CMGD_DB_OPERATIONAL+1
 
 typedef struct cmgd_frntnd_msg_hdr_ {
 	uint16_t		marker;
