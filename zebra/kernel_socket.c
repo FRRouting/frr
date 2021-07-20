@@ -849,8 +849,8 @@ int ifam_read(struct ifa_msghdr *ifam)
 	bool dest_same = false;
 	char ifname[INTERFACE_NAMSIZ];
 	short ifnlen = 0;
-	char isalias = 0;
-	int flags = 0;
+	bool isalias = false;
+	uint32_t flags = 0;
 
 	ifname[0] = ifname[INTERFACE_NAMSIZ - 1] = '\0';
 
@@ -865,7 +865,13 @@ int ifam_read(struct ifa_msghdr *ifam)
 	}
 
 	if (ifnlen && strncmp(ifp->name, ifname, INTERFACE_NAMSIZ))
-		isalias = 1;
+		isalias = true;
+
+	/*
+	 * Mark the alias prefixes as secondary
+	 */
+	if (isalias)
+		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
 
 	/* N.B. The info in ifa_msghdr does not tell us whether the RTA_BRD
 	   field contains a broadcast address or a peer address, so we are
