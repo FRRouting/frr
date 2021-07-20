@@ -706,6 +706,9 @@ static int netlink_bridge_vxlan_update(struct interface *ifp,
 	struct bridge_vlan_info *vinfo;
 	vlanid_t access_vlan;
 
+	if (!af_spec)
+		return 0;
+
 	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
 	 * only 1 access VLAN is accepted.
 	 */
@@ -742,23 +745,26 @@ static void netlink_bridge_vlan_update(struct interface *ifp,
 	/* create a new bitmap space for re-eval */
 	bf_init(zif->vlan_bitmap, IF_VLAN_BITMAP_MAX);
 
-	for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec);
-			RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
+	if (af_spec) {
+		for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec);
+		     RTA_OK(i, rem); i = RTA_NEXT(i, rem)) {
 
-		if (i->rta_type != IFLA_BRIDGE_VLAN_INFO)
-			continue;
+			if (i->rta_type != IFLA_BRIDGE_VLAN_INFO)
+				continue;
 
-		vinfo = RTA_DATA(i);
+			vinfo = RTA_DATA(i);
 
-		if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
-			vid_range_start = vinfo->vid;
-			continue;
+			if (vinfo->flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+				vid_range_start = vinfo->vid;
+				continue;
+			}
+
+			if (!(vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END))
+				vid_range_start = vinfo->vid;
+
+			zebra_vlan_bitmap_compute(ifp, vid_range_start,
+						  vinfo->vid);
 		}
-
-		if (!(vinfo->flags & BRIDGE_VLAN_INFO_RANGE_END))
-			vid_range_start = vinfo->vid;
-
-		zebra_vlan_bitmap_compute(ifp, vid_range_start, vinfo->vid);
 	}
 
 	zebra_vlan_mbr_re_eval(ifp, old_vlan_bitmap);
@@ -794,8 +800,6 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 
 	/* We are only interested in the access VLAN i.e., AF_SPEC */
 	af_spec = tb[IFLA_AF_SPEC];
-	if (!af_spec)
- 		return 0;
 
 	if (IS_ZEBRA_IF_VXLAN(ifp))
 		return netlink_bridge_vxlan_update(ifp, af_spec);
