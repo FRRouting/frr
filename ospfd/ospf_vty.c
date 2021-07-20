@@ -11389,6 +11389,11 @@ DEFPY (clear_ip_ospf_neighbor,
 		if (!ospf->oi_running)
 			continue;
 
+		if (nbr_id_str && IPV4_ADDR_SAME(&ospf->router_id, &nbr_id)) {
+			vty_out(vty, "Self router-id is not allowed.\r\n ");
+			return CMD_SUCCESS;
+		}
+
 		ospf_neighbor_reset(ospf, nbr_id, nbr_id_str);
 	}
 
