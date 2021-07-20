@@ -41,10 +41,7 @@ pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd, pytest.mark.ospfd]
 CWD = os.path.dirname(os.path.realpath(__file__))
 
 
-def build(self, *_args, **_opts):
-    "Build function"
-    tgen = get_topogen(self)
-
+def build_topo(tgen):
     # Create 4 routers.
     for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))

@@ -29,21 +29,13 @@ test_ospf6_topo2.py: Test the FRR OSPFv3 daemon.
 import os
 import sys
 from functools import partial
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.ospf6d]
 
 
@@ -90,33 +82,29 @@ def expect_ospfv3_routes(router, routes, wait=5):
     assert result is None, assertmsg
 
 
-class OSPFv3Topo2(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 4 routers
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 4 routers
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r4"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFv3Topo2, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

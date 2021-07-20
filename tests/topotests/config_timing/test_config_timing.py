@@ -36,29 +36,22 @@ import ipaddress
 import math
 import os
 import sys
+
 import pytest
-
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.staticd]
 
-class TimingTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+def build_topo(tgen):
+    tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TimingTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

@@ -27,60 +27,47 @@ test_ospf_topo1.py: Test the FRR OSPF routing daemon.
 """
 
 import os
-import re
 import sys
 from functools import partial
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.ospfd]
 
 
-class OSPFTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 3 routers
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 3 routers
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    # Create a empty network for router 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+    # Create a empty network for router 2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
 
-        # Create a empty network for router 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
+    # Interconect router 1, 2 and 3
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        # Interconect router 1, 2 and 3
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        # Create empty netowrk for router3
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r3"])
+    # Create empty netowrk for router3
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

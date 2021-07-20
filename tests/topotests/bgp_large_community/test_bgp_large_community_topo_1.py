@@ -46,45 +46,31 @@ Following tests are covered to test large-community/community functionality:
 
 """
 
-import pytest
-import time
-from os import path as os_path
 import sys
+import time
 from json import load as json_load
+from os import path as os_path
 
-# Required to instantiate the topology builder class.
+import pytest
+from lib.bgp import (clear_bgp_and_verify, create_router_bgp,
+                     verify_bgp_convergence)
+from lib.common_config import (check_address_types, create_bgp_community_lists,
+                               create_prefix_lists, create_route_maps,
+                               required_linux_kernel_version,
+                               reset_config_on_routers, start_topology, step,
+                               verify_bgp_community, write_test_footer,
+                               write_test_header)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    create_route_maps,
-    create_bgp_community_lists,
-    create_prefix_lists,
-    verify_bgp_community,
-    step,
-    check_address_types,
-    required_linux_kernel_version,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
-from lib.topojson import build_topo_from_json, build_config_from_json
 
-# Save the Current Working Directory to find configuration files.
 CWD = os_path.dirname(os_path.realpath(__file__))
-sys.path.append(os_path.join(CWD, "../"))
-sys.path.append(os_path.join(CWD, "../lib/"))
-
-# Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/bgp_large_community_topo_1.json".format(CWD)
 try:
     with open(jsonFile, "r") as topoJson:
         topo = json_load(topoJson)
 except IOError:
-    logger.info("Could not read file:", jsonFile)
+    logger.info("Could not read file: %s", jsonFile)
 
 # Global variables
 bgp_convergence = False
@@ -121,20 +107,11 @@ STANDARD_COMM = {
 }
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder
+def build_topo(tgen):
+    """Build function"""
 
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -156,7 +133,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

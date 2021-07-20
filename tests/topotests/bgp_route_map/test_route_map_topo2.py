@@ -102,54 +102,31 @@ TC_60
 
 """
 
-import sys
-import json
-import time
-import pytest
 import inspect
+import json
 import os
+import sys
+import time
 from time import sleep
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib import topotest
+import pytest
+from lib.bgp import (clear_bgp_and_verify, create_router_bgp,
+                     verify_bgp_attributes, verify_bgp_convergence)
+from lib.common_config import (check_address_types, create_bgp_community_lists,
+                               create_prefix_lists, create_route_maps,
+                               create_static_routes, delete_route_maps,
+                               reset_config_on_routers,
+                               shutdown_bringup_interface, start_topology,
+                               verify_bgp_community,
+                               verify_create_community_list,
+                               verify_prefix_lists, verify_rib,
+                               verify_route_maps, write_test_footer,
+                               write_test_header)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-# Required to instantiate the topology builder class.
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    create_static_routes,
-    verify_rib,
-    delete_route_maps,
-    create_bgp_community_lists,
-    interface_status,
-    create_route_maps,
-    create_prefix_lists,
-    verify_route_maps,
-    check_address_types,
-    verify_bgp_community,
-    shutdown_bringup_interface,
-    verify_prefix_lists,
-    reset_config_on_routers,
-    verify_create_community_list,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence,
-    create_router_bgp,
-    clear_bgp_and_verify,
-    verify_bgp_attributes,
-)
-from lib.topojson import build_topo_from_json, build_config_from_json
 
-# Reading the data from JSON File for topology and configuration creation
+CWD = os.path.dirname(os.path.realpath(__file__))
 jsonFile = "{}/bgp_route_map_topo2.json".format(CWD)
 
 try:
@@ -168,19 +145,11 @@ BGP_CONVERGENCE = False
 ADDR_TYPES = check_address_types()
 
 
-class BGPRmapTopo(Topo):
-    """BGPRmapTopo.
+def build_topo(tgen):
+    """Build function."""
 
-    BGPRmap topology 1
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology and configuration from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology and configuration from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -196,7 +165,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(BGPRmapTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -1046,8 +1015,11 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are not present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
@@ -1057,9 +1029,11 @@ def test_modify_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Expected behaviour: routes are not present \n "
-        "Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nExpected behaviour: routes are not present \n Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -1312,8 +1286,11 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are not present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
@@ -1323,8 +1300,11 @@ def test_remove_prefix_list_referenced_by_rmap_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are not present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
@@ -2152,8 +2132,11 @@ def test_add_remove_rmap_to_specific_neighbor_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n Error"
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n Error Routes are still present: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     # Remove applied rmap from neighbor
@@ -2563,8 +2546,11 @@ def test_rmap_without_match_and_set_clause_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are not present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
@@ -2808,8 +2794,11 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
             input_dict_3_addr_type[addr_type],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Attributes are not set \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nAttributes are not set \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
@@ -2839,8 +2828,11 @@ def test_set_localpref_weight_to_ebgp_and_med_to_ibgp_peers_p0():
             input_dict_3_addr_type[addr_type],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Attributes are not set \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nAttributes are not set \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
@@ -3645,8 +3637,11 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are not present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     # Verifying RIB routes
@@ -3656,8 +3651,11 @@ def test_create_rmap_match_prefix_list_to_deny_in_and_outbound_prefixes_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are not present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are not present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
@@ -3958,8 +3956,11 @@ def test_create_rmap_to_match_tag_deny_outbound_prefixes_p0():
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "routes are denied \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nroutes are denied \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)

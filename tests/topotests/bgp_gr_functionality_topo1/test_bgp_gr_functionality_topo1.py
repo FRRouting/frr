@@ -87,65 +87,35 @@ Basic Common Test steps for all the test case below :
     GR Mode effective : GR Disable
 """
 
+import json
 import os
 import sys
-import json
 import time
-import inspect
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join("../"))
-sys.path.append(os.path.join("../lib/"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.bgp import (clear_bgp, create_router_bgp, verify_bgp_convergence,
+                     verify_bgp_convergence_from_running_config,
+                     verify_bgp_rib, verify_f_bit, verify_graceful_restart,
+                     verify_r_bit)
+from lib.common_config import (check_address_types, check_router_status,
+                               get_frr_ipv6_linklocal, kill_router_daemons,
+                               required_linux_kernel_version,
+                               reset_config_on_routers,
+                               shutdown_bringup_interface,
+                               start_router_daemons, start_topology, step,
+                               verify_rib, write_test_footer,
+                               write_test_header)
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
-
-# Import topoJson from lib, to create topology and initial configuration
-from lib.topojson import build_topo_from_json, build_config_from_json
-from lib.bgp import (
-    clear_bgp,
-    verify_bgp_rib,
-    verify_graceful_restart,
-    create_router_bgp,
-    verify_r_bit,
-    verify_f_bit,
-    verify_graceful_restart_timers,
-    verify_bgp_convergence,
-    verify_bgp_convergence_from_running_config,
-)
-
-from lib.common_config import (
-    write_test_header,
-    reset_config_on_routers,
-    start_topology,
-    kill_router_daemons,
-    start_router_daemons,
-    verify_rib,
-    check_address_types,
-    write_test_footer,
-    check_router_status,
-    shutdown_bringup_interface,
-    step,
-    get_frr_ipv6_linklocal,
-    create_route_maps,
-    required_linux_kernel_version,
-)
-
-# Reading the data from JSON File for topology and configuration creation
+CWD = os.path.dirname(os.path.realpath(__file__))
 jsonFile = "{}/bgp_gr_topojson_topo1.json".format(CWD)
 try:
     with open(jsonFile, "r") as topoJson:
         topo = json.load(topoJson)
 except IOError:
-    logger.info("Could not read file:", jsonFile)
+    logger.info("Could not read file: %s", jsonFile)
 
 
 # Global variables
@@ -157,26 +127,18 @@ GR_RESTART_TIMER = 20
 PREFERRED_NEXT_HOP = "link_local"
 
 
-class GenerateTopo(Topo):
-    """
-    Test topology builder
+def build_topo(tgen):
+    "Build function"
 
-    * `Topo`: Topology object
-    """
+    # This function only purpose is to create topology
+    # as defined in input json file.
+    #
+    # Create topology (setup module)
+    # Creating 2 routers topology, r1, r2in IBGP
+    # Bring up topology
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # This function only purpose is to create topology
-        # as defined in input json file.
-        #
-        # Create topology (setup module)
-        # Creating 2 routers topology, r1, r2in IBGP
-        # Bring up topology
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -200,7 +162,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(GenerateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

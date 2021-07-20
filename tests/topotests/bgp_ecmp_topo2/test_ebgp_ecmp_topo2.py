@@ -36,38 +36,23 @@ Following tests are covered to test ecmp functionality on EBGP.
 7. Verify routes are cleared from BGP and RIB table of DUT when advertise
    network configuration is removed.
 """
+import json
 import os
 import sys
 import time
-import json
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+from lib.bgp import clear_bgp, create_router_bgp, verify_bgp_convergence
+from lib.common_config import (check_address_types, create_static_routes,
+                               interface_status, required_linux_kernel_version,
+                               reset_config_on_routers, start_topology,
+                               verify_rib, write_test_footer,
+                               write_test_header)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    verify_rib,
-    create_static_routes,
-    check_address_types,
-    interface_status,
-    reset_config_on_routers,
-    required_linux_kernel_version,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
 
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
@@ -89,19 +74,11 @@ NEXT_HOP_IP = {"ipv4": "10.0.0.1", "ipv6": "fd00::1"}
 BGP_CONVERGENCE = False
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
+def build_topo(tgen):
+    """Build function."""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -125,7 +102,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers

@@ -26,42 +26,35 @@
 test_bgp_prefix_sid.py: Test BGP topology with EBGP on prefix-sid
 """
 
+import functools
 import json
 import os
 import sys
-import functools
+
 import pytest
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
+def build_topo(tgen):
+    router = tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(router)
 
-class TemplateTopo(Topo):
-    def build(self, **_opts):
-        tgen = get_topogen(self)
-        router = tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(router)
-
-        switch = tgen.gears["s1"]
-        peer1 = tgen.add_exabgp_peer(
-            "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
-        )
-        peer2 = tgen.add_exabgp_peer(
-            "peer2", ip="10.0.0.102", defaultRoute="via 10.0.0.1"
-        )
-        switch.add_link(peer1)
-        switch.add_link(peer2)
+    switch = tgen.gears["s1"]
+    peer1 = tgen.add_exabgp_peer(
+        "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
+    )
+    peer2 = tgen.add_exabgp_peer(
+        "peer2", ip="10.0.0.102", defaultRoute="via 10.0.0.1"
+    )
+    switch.add_link(peer1)
+    switch.add_link(peer2)
 
 
 def setup_module(module):
-    tgen = Topogen(TemplateTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     router = tgen.gears["r1"]

@@ -123,38 +123,30 @@ the configured condition-map (exist-map/non-exist-map) 10.139.224.0/20
 will be either advertised/withdrawn to/from R3.
 """
 
+import functools
+import json
 import os
 import sys
-import json
 import time
+
 import pytest
-import functools
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
+def build_topo(tgen):
+    r1 = tgen.add_router("r1")
+    r2 = tgen.add_router("r2")
+    r3 = tgen.add_router("r3")
 
-class BgpConditionalAdvertisementTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+    switch = tgen.add_switch("s1")
+    switch.add_link(r1)
+    switch.add_link(r2)
 
-        r1 = tgen.add_router("r1")
-        r2 = tgen.add_router("r2")
-        r3 = tgen.add_router("r3")
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(r1)
-        switch.add_link(r2)
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(r2)
-        switch.add_link(r3)
+    switch = tgen.add_switch("s2")
+    switch.add_link(r2)
+    switch.add_link(r3)
 
 
 def setup_module(mod):
@@ -164,7 +156,7 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    tgen = Topogen(BgpConditionalAdvertisementTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

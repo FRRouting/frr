@@ -33,65 +33,30 @@ Following tests are covered to test EVPN-Type5 functionality:
 6. BGP attributes for EVPN address-family.
 """
 
-import os
-import re
-import sys
 import json
-import time
-import pytest
+import os
 import platform
+import sys
+import time
 from copy import deepcopy
-from time import sleep
 
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.topotest import version_cmp
+import pytest
+from lib.bgp import (create_router_bgp, verify_attributes_for_evpn_routes,
+                     verify_best_path_as_per_bgp_attribute,
+                     verify_bgp_convergence, verify_evpn_routes)
+from lib.common_config import (apply_raw_config, check_address_types,
+                               check_router_status, configure_brctl,
+                               configure_vxlan, create_interface_in_kernel,
+                               create_route_maps, create_static_routes,
+                               create_vrf_cfg, reset_config_on_routers,
+                               start_topology, step, verify_rib,
+                               write_test_footer, write_test_header)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    check_address_types,
-    write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
-    step,
-    create_route_maps,
-    verify_cli_json,
-    start_router_daemons,
-    create_static_routes,
-    stop_router,
-    start_router,
-    create_vrf_cfg,
-    check_router_status,
-    apply_raw_config,
-    configure_vxlan,
-    configure_brctl,
-    verify_vrf_vni,
-    create_interface_in_kernel,
-)
-
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence,
-    create_router_bgp,
-    clear_bgp,
-    verify_best_path_as_per_bgp_attribute,
-    verify_attributes_for_evpn_routes,
-    verify_evpn_routes,
-)
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topotest import version_cmp
 
-# Reading the data from JSON File for topology creation
+CWD = os.path.dirname(os.path.realpath(__file__))
 jsonFile = "{}/evpn_type5_topo1.json".format(CWD)
 try:
     with open(jsonFile, "r") as topoJson:
@@ -139,19 +104,8 @@ BRCTL = {
 }
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+def build_topo(tgen):
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -169,7 +123,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -251,9 +205,7 @@ def prerequisite_config_for_test_suite(tgen):
         }
 
         result = configure_vxlan(tgen, vxlan_input)
-        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
-            tc_name, dut, result
-        )
+        assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
         step("Configure bridge interface")
         brctl_input = {
@@ -269,9 +221,7 @@ def prerequisite_config_for_test_suite(tgen):
             }
         }
         result = configure_brctl(tgen, topo, brctl_input)
-        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
-            tc_name, dut, result
-        )
+        assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
     step("Configure default routes")
     add_default_routes(tgen)
@@ -340,7 +290,7 @@ def add_default_routes(tgen):
     }
 
     result = create_static_routes(tgen, default_routes)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
 
 def test_RD_verification_manual_and_auto_p0(request):
@@ -1345,15 +1295,17 @@ def test_evpn_routes_from_VNFs_p1(request):
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase :Failed \n Routes are still present: {}".format(result)
         logger.info("Expected Behavior: {}".format(result))
 
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_rib(tgen, addr_type, "r3", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
     step("Re-advertise IP prefixes from VFN(R1).")
@@ -1428,13 +1380,15 @@ def test_evpn_routes_from_VNFs_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
         result = verify_rib(tgen, addr_type, "r4", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
     step("Add vrf BLUE on router Edge-1 again.")
@@ -1529,13 +1483,15 @@ def test_evpn_routes_from_VNFs_p1(request):
     }
 
     result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-    assert result is not True, "Testcase {} :Failed \n "
-    "Routes are still present: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
     logger.info("Expected Behavior: {}".format(result))
 
     result = verify_rib(tgen, addr_type, "r4", input_routes, expected=False)
-    assert result is not True, "Testcase {} :Failed \n "
-    "Routes are still present: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
     logger.info("Expected Behavior: {}".format(result))
 
     step("Advertise IPv6 address-family in EVPN advertisements " "for VRF GREEN.")
@@ -1987,7 +1943,7 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         input_dict_1 = {
             "e1": {
                 "route_maps": {
-                    "rmap_d1".format(addr_type): [
+                    "rmap_d1": [
                         {
                             "action": "permit",
                             "set": {
@@ -1998,7 +1954,7 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
                             },
                         }
                     ],
-                    "rmap_d2".format(addr_type): [
+                    "rmap_d2": [
                         {
                             "action": "permit",
                             "set": {
@@ -2013,10 +1969,10 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         input_dict_1 = {
             "e1": {
                 "route_maps": {
-                    "rmap_d1".format(addr_type): [
+                    "rmap_d1": [
                         {"action": "permit", "set": {attribute: 120}}
                     ],
-                    "rmap_d2".format(addr_type): [
+                    "rmap_d2": [
                         {"action": "permit", "set": {attribute: 150}}
                     ],
                 }

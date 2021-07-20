@@ -37,44 +37,26 @@
 
     -Verify 8 static route functionality with 8 ECMP next hop
 """
-import sys
 import json
-import time
 import os
-import pytest
 import platform
-from time import sleep
 import random
+import sys
+import time
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.micronet_compat import Topo
+import pytest
+from lib.bgp import create_router_bgp, verify_bgp_convergence, verify_bgp_rib
+from lib.common_config import (check_address_types, create_static_routes,
+                               reset_config_on_routers,
+                               shutdown_bringup_interface, start_router,
+                               start_topology, step, stop_router, verify_rib,
+                               write_test_footer, write_test_header)
 from lib.topogen import Topogen, get_topogen
-
-# Import topoJson from lib, to create topology and initial configuration
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
-    check_address_types,
-    step,
-    create_interfaces_cfg,
-    shutdown_bringup_interface,
-    stop_router,
-    start_router,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
-from lib.topojson import build_topo_from_json, build_config_from_json
 from lib.topotest import version_cmp
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 # Reading the data from JSON File for topology creation
@@ -125,19 +107,11 @@ topo_diag = """
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test CreateTopo - topology 1.
+def build_topo(tgen):
+    """Build function."""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -155,7 +129,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

@@ -45,62 +45,32 @@ Following tests are covered:
     and no shut of the source interface
 """
 
+import json
 import os
 import sys
-import json
 import time
-import datetime
-from time import sleep
+
 import pytest
-
-pytestmark = pytest.mark.pimd
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+from lib.common_config import (addKernelRoute, iperfSendIGMPJoin,
+                               iperfSendTraffic, kill_iperf,
+                               kill_router_daemons,
+                               required_linux_kernel_version,
+                               reset_config_on_routers,
+                               shutdown_bringup_interface, start_router,
+                               start_router_daemons, start_topology, step,
+                               stop_router, topo_daemons, write_test_footer,
+                               write_test_header)
+from lib.pim import (clear_ip_mroute, clear_ip_pim_interface_traffic,
+                     create_igmp_config, create_pim_config, verify_igmp_groups,
+                     verify_ip_mroutes, verify_pim_interface_traffic,
+                     verify_pim_neighbors, verify_pim_state,
+                     verify_upstream_iif)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
-    iperfSendIGMPJoin,
-    addKernelRoute,
-    reset_config_on_routers,
-    iperfSendTraffic,
-    kill_iperf,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router,
-    start_router_daemons,
-    stop_router,
-    required_linux_kernel_version,
-    topo_daemons,
-)
-from lib.pim import (
-    create_pim_config,
-    create_igmp_config,
-    verify_igmp_groups,
-    verify_ip_mroutes,
-    verify_pim_interface_traffic,
-    verify_upstream_iif,
-    verify_pim_neighbors,
-    verify_pim_state,
-    verify_ip_pim_join,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
-    verify_igmp_config,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+
+CWD = os.path.dirname(os.path.realpath(__file__))
+pytestmark = pytest.mark.pimd
 
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/multicast_pim_sm_topo2.json".format(CWD)
@@ -161,19 +131,11 @@ GROUP_RANGE_3 = [
 IGMP_JOIN_RANGE_3 = ["227.1.1.1", "227.1.1.2", "227.1.1.3", "227.1.1.4", "227.1.1.5"]
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -195,7 +157,7 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.

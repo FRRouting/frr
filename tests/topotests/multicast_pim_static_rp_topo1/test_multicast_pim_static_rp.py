@@ -97,63 +97,33 @@ TC_32 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
         shut the RPF inteface
 """
 
+import datetime
+import json
 import os
 import sys
-import json
 import time
 from time import sleep
-import datetime
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.micronet_compat import Topo
-
+from lib.common_config import (addKernelRoute, create_static_routes,
+                               iperfSendIGMPJoin, iperfSendTraffic, kill_iperf,
+                               kill_router_daemons, reset_config_on_routers,
+                               shutdown_bringup_interface,
+                               start_router_daemons, start_topology, step,
+                               topo_daemons, write_test_footer,
+                               write_test_header)
+from lib.pim import (clear_ip_igmp_interfaces, clear_ip_mroute,
+                     clear_ip_mroute_verify, clear_ip_pim_interface_traffic,
+                     clear_ip_pim_interfaces, create_pim_config,
+                     verify_igmp_groups, verify_ip_mroutes,
+                     verify_join_state_and_timer, verify_pim_interface_traffic,
+                     verify_pim_neighbors, verify_pim_rp_info,
+                     verify_pim_state, verify_upstream_iif)
 from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
 
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    step,
-    iperfSendIGMPJoin,
-    iperfSendTraffic,
-    addKernelRoute,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router_daemons,
-    create_static_routes,
-    kill_iperf,
-    topo_daemons,
-)
-from lib.pim import (
-    create_pim_config,
-    verify_igmp_groups,
-    verify_upstream_iif,
-    verify_join_state_and_timer,
-    verify_ip_mroutes,
-    verify_pim_neighbors,
-    verify_pim_interface_traffic,
-    verify_pim_rp_info,
-    verify_pim_state,
-    clear_ip_pim_interface_traffic,
-    clear_ip_igmp_interfaces,
-    clear_ip_pim_interfaces,
-    clear_ip_mroute,
-    clear_ip_mroute_verify,
-)
-
-# Reading the data from JSON File for topology and configuration creation
+CWD = os.path.dirname(os.path.realpath(__file__))
 jsonFile = "{}/multicast_pim_static_rp.json".format(CWD)
 try:
     with open(jsonFile, "r") as topoJson:
@@ -192,23 +162,15 @@ SOURCE_ADDRESS = "10.0.6.2"
 SOURCE = "Static"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
+    # Building topology from json file
+    build_topo_from_json(tgen, TOPO)
 
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, TOPO)
-
-    def dumdum(self):
-        """ Dummy """
-        print("%s", self.name)
+def dumdum(self):
+    """ Dummy """
+    print("%s", self.name)
 
 
 def setup_module(mod):
@@ -238,7 +200,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
 
     # ... and here it calls Mininet initialization functions.
 

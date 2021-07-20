@@ -25,69 +25,60 @@
 test_pim.py: Test pim
 """
 
+import json
 import os
 import sys
-import pytest
-import json
 from functools import partial
 
-pytestmark = pytest.mark.pimd
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-from lib.micronet_compat import Topo
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.pimd]
 
 
-class PIMTopo(Topo):
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        tgen.add_router("rp")
+    tgen.add_router("rp")
 
-        #   rp ------ r1 -------- r2
-        #              \
-        #               --------- r3
-        # r1 -> .1
-        # r2 -> .2
-        # rp -> .3
-        # r3 -> .4
-        # loopback network is 10.254.0.X/32
-        #
-        # r1 <- sw1 -> r2
-        # r1-eth0 <-> r2-eth0
-        # 10.0.20.0/24
-        sw = tgen.add_switch("sw1")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r2"])
+    #   rp ------ r1 -------- r2
+    #              \
+    #               --------- r3
+    # r1 -> .1
+    # r2 -> .2
+    # rp -> .3
+    # r3 -> .4
+    # loopback network is 10.254.0.X/32
+    #
+    # r1 <- sw1 -> r2
+    # r1-eth0 <-> r2-eth0
+    # 10.0.20.0/24
+    sw = tgen.add_switch("sw1")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r2"])
 
-        # r1 <- sw2 -> rp
-        # r1-eth1 <-> rp-eth0
-        # 10.0.30.0/24
-        sw = tgen.add_switch("sw2")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["rp"])
+    # r1 <- sw2 -> rp
+    # r1-eth1 <-> rp-eth0
+    # 10.0.30.0/24
+    sw = tgen.add_switch("sw2")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["rp"])
 
-        # 10.0.40.0/24
-        sw = tgen.add_switch("sw3")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r3"])
+    # 10.0.40.0/24
+    sw = tgen.add_switch("sw3")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(PIMTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file
@@ -149,7 +140,6 @@ def test_pim_send_mcast_stream():
     r1 = tgen.gears["r1"]
 
     # Let's establish a S,G stream from r2 -> r1
-    CWD = os.path.dirname(os.path.realpath(__file__))
     r2.run(
         "{}/mcast-tx.py --ttl 5 --count 5 --interval 10 229.1.1.1 r2-eth0 > /tmp/bar".format(
             CWD

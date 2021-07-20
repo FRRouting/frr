@@ -59,73 +59,59 @@ ce1-eth0 (172.16.1.1/24)|                          |ce2-eth0 (172.16.1.2/24)
                                  +---------+
 """
 
-import os
-import re
-import sys
-import pytest
 import json
-from time import sleep
+import os
+import sys
 from functools import partial
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
+from lib.snmptest import SnmpTester
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.snmptest import SnmpTester
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
+CWD = os.path.dirname(os.path.realpath(__file__))
 
+def build_topo(tgen):
+    "Build function"
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+    #
+    # Define FRR Routers
+    #
+    for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
+        tgen.add_router(router)
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["ce1"])
+    switch.add_link(tgen.gears["r1"])
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
-            tgen.add_router(router)
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["ce2"])
+    switch.add_link(tgen.gears["r2"])
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["ce1"])
-        switch.add_link(tgen.gears["r1"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["ce3"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["ce2"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["ce3"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

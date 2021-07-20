@@ -1,48 +1,20 @@
 #!/usr/bin/python
 
+import json
 import os
 import sys
 import time
+
 import pytest
-import json
+from lib.common_config import (reset_config_on_routers, start_topology, step,
+                               topo_daemons, write_test_footer,
+                               write_test_header)
+from lib.ospf import verify_ospf6_neighbor, verify_ospf_neighbor
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
+from lib.topolog import logger
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-from lib.micronet_compat import Topo
-from lib.topogen import Topogen, get_topogen
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    stop_router,
-    start_router,
-    verify_rib,
-    create_static_routes,
-    step,
-    start_router_daemons,
-    shutdown_bringup_interface,
-    topo_daemons,
-    create_prefix_lists,
-    create_interfaces_cfg,
-    run_frr_cmd,
-)
-from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
-from lib.ospf import (
-    verify_ospf_neighbor,
-    verify_ospf6_neighbor,
-    create_router_ospf,
-    create_router_ospf6,
-    verify_ospf_summary,
-    redistribute_ospf,
-    verify_ospf_database,
-)
-
-# Global variables
 topo = None
 
 # Reading the data from JSON File for topology creation
@@ -54,15 +26,11 @@ except IOError:
     assert False, "Could not read file {}".format(jsonFile)
 
 
-class CreateTopo(Topo):
-    """Test topology builder."""
+def build_topo(tgen):
+    """Build function."""
 
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -75,7 +43,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.

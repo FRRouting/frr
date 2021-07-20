@@ -24,6 +24,7 @@
 Following tests are covered to test BGP basic functionality:
 
 Test steps
+
 - Create topology (setup module)
   Creating 4 routers topology, r1, r2, r3 are in IBGP and
   r3, r4 are in EBGP
@@ -48,14 +49,6 @@ import time
 from copy import deepcopy
 
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
 from lib.bgp import (clear_bgp_and_verify, create_router_bgp, modify_as_number,
                      verify_as_numbers, verify_bgp_convergence, verify_bgp_rib,
                      verify_bgp_timers_and_functionality, verify_router_id)
@@ -68,13 +61,11 @@ from lib.common_config import (addKernelRoute, apply_raw_config,
                                verify_bgp_community, verify_fib_routes,
                                verify_rib, write_test_footer,
                                write_test_header)
-from lib.micronet_compat import Topo
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
@@ -103,19 +94,9 @@ NETWORK = {
 }
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+def build_topo(tgen):
+    """Build function"""
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -137,7 +118,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

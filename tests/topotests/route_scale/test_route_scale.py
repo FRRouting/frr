@@ -34,9 +34,10 @@ import sys
 from functools import partial
 
 import pytest
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+
+from lib import topotest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 

@@ -41,70 +41,30 @@ Tests covered in this suite
     and contain all the contacts
 """
 
+import json
 import os
 import sys
-import json
 import time
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+from lib.common_config import (addKernelRoute, create_static_routes,
+                               iperfSendIGMPJoin, kill_iperf,
+                               required_linux_kernel_version,
+                               reset_config_on_routers, run_frr_cmd,
+                               start_topology, step, topo_daemons,
+                               write_test_footer, write_test_header)
+from lib.pim import (add_rp_interfaces_and_pim_config, clear_ip_mroute,
+                     clear_ip_pim_interface_traffic, find_rp_from_bsrp_info,
+                     reconfig_interfaces, scapy_send_bsr_raw_packet,
+                     verify_igmp_groups, verify_ip_mroutes,
+                     verify_ip_pim_upstream_rpf, verify_join_state_and_timer,
+                     verify_pim_bsr, verify_pim_grp_rp_source,
+                     verify_pim_state, verify_upstream_iif)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
-    addKernelRoute,
-    create_static_routes,
-    iperfSendIGMPJoin,
-    stop_router,
-    start_router,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router_daemons,
-    reset_config_on_routers,
-    do_countdown,
-    apply_raw_config,
-    kill_iperf,
-    run_frr_cmd,
-    required_linux_kernel_version,
-    topo_daemons,
-)
-
-from lib.pim import (
-    create_pim_config,
-    add_rp_interfaces_and_pim_config,
-    reconfig_interfaces,
-    scapy_send_bsr_raw_packet,
-    find_rp_from_bsrp_info,
-    verify_pim_grp_rp_source,
-    verify_pim_bsr,
-    verify_ip_mroutes,
-    verify_join_state_and_timer,
-    verify_pim_state,
-    verify_upstream_iif,
-    verify_igmp_groups,
-    verify_ip_pim_upstream_rpf,
-    enable_disable_pim_unicast_bsm,
-    enable_disable_pim_bsm,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
-    verify_pim_interface_traffic,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
 
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.pimd]
 
 
@@ -143,19 +103,11 @@ BSR1_ADDR = "1.1.2.7/32"
 BSR2_ADDR = "10.2.1.1/32"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -178,7 +130,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.

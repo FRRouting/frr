@@ -24,41 +24,32 @@ Test if BGP UPDATE with AS-PATH attribute with value zero (0)
 is threated as withdrawal.
 """
 
+import functools
+import json
 import os
 import sys
-import json
-import time
+
 import pytest
-import functools
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 
-class BgpAggregatorAsnZero(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    r1 = tgen.add_router("r1")
+    peer1 = tgen.add_exabgp_peer(
+        "peer1", ip="10.0.0.2", defaultRoute="via 10.0.0.1"
+    )
 
-        r1 = tgen.add_router("r1")
-        peer1 = tgen.add_exabgp_peer(
-            "peer1", ip="10.0.0.2", defaultRoute="via 10.0.0.1"
-        )
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(r1)
-        switch.add_link(peer1)
+    switch = tgen.add_switch("s1")
+    switch.add_link(r1)
+    switch.add_link(peer1)
 
 
 def setup_module(mod):
-    tgen = Topogen(BgpAggregatorAsnZero, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router = tgen.gears["r1"]

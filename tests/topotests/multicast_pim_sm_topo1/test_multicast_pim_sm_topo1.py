@@ -49,63 +49,33 @@ Following tests are covered:
     should get update accordingly
 """
 
+import ipaddress
+import json
 import os
 import sys
-import json
 import time
-import datetime
 from time import sleep
+
 import pytest
+from lib.common_config import (addKernelRoute, iperfSendIGMPJoin,
+                               iperfSendTraffic, kill_iperf,
+                               required_linux_kernel_version,
+                               reset_config_on_routers,
+                               shutdown_bringup_interface, start_topology,
+                               step, topo_daemons, write_test_footer,
+                               write_test_header)
+from lib.pim import (clear_ip_mroute, clear_ip_mroute_verify,
+                     clear_ip_pim_interface_traffic, create_igmp_config,
+                     create_pim_config, verify_igmp_config, verify_igmp_groups,
+                     verify_ip_mroutes, verify_ip_pim_join,
+                     verify_pim_interface_traffic, verify_upstream_iif)
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
+from lib.topolog import logger
+from lib.topotest import frr_unicode
 
 pytestmark = pytest.mark.pimd
-
-# Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
-    iperfSendIGMPJoin,
-    addKernelRoute,
-    reset_config_on_routers,
-    iperfSendTraffic,
-    kill_iperf,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router,
-    start_router_daemons,
-    stop_router,
-    required_linux_kernel_version,
-    topo_daemons,
-)
-from lib.pim import (
-    create_pim_config,
-    create_igmp_config,
-    verify_igmp_groups,
-    verify_ip_mroutes,
-    verify_pim_interface_traffic,
-    verify_upstream_iif,
-    verify_pim_neighbors,
-    verify_pim_state,
-    verify_ip_pim_join,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
-    verify_igmp_config,
-    clear_ip_mroute_verify,
-)
-from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/multicast_pim_sm_topo1.json".format(CWD)
@@ -166,19 +136,11 @@ GROUP_RANGE_3 = [
 IGMP_JOIN_RANGE_3 = ["227.1.1.1", "227.1.1.2", "227.1.1.3", "227.1.1.4", "227.1.1.5"]
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -200,11 +162,13 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    tgen = Topogen(CreateTopo, mod.__name__)
+    testdir = os.path.dirname(os.path.realpath(__file__))
+    jsonfile = "{}/multicast_pim_sm_topo1.json".format(testdir)
+    tgen = Topogen(jsonfile, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
-    daemons = topo_daemons(tgen, topo)
+    daemons = topo_daemons(tgen, tgen.json_topo)
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
@@ -344,8 +308,9 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = iperfSendIGMPJoin(tgen, "i1", ["{}%{}".format(IGMP_JOIN, intf_i1_l1)], join_interval=1)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -415,8 +380,9 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step(
         "l1 sent PIM (*,G) join to r2 verify using"
@@ -497,8 +463,9 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = iperfSendIGMPJoin(tgen, "i1", IGMP_JOIN, join_interval=1)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -522,8 +489,13 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     # (41 * (2 + .5)) == 102.
     for data in input_dict:
         result = verify_ip_mroutes(
-            tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"],
-            retry_timeout=102
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN,
+            data["iif"],
+            data["oil"],
+            retry_timeout=102,
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -540,8 +512,9 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step(
         "l1 sent PIM (*,G) join to r2 verify using"
@@ -947,8 +920,11 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     step(
@@ -1174,8 +1150,11 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     result = verify_ip_mroutes(
         tgen, "c1", "*", IGMP_JOIN, "c1-c2-eth1", "c1-l1-eth0", expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n mroutes are"
-    " still present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+        tc_name, result
+    )
     logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
@@ -1287,8 +1266,11 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     result = verify_ip_mroutes(
         tgen, "f1", "*", IGMP_JOIN, "f1-r2-eth3", "f1-i8-eth2", expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n mroutes are"
-    " still present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+        tc_name, result
+    )
     logger.info("Expected Behavior: {}".format(result))
 
     step("IGMP groups are present verify using 'show ip igmp group'")

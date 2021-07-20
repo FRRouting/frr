@@ -25,21 +25,20 @@
 ltemplate.py: LabN template for FRR tests.
 """
 
-import os
-import sys
-import platform
-import pytest
 import imp
+import os
+import platform
+import sys
+
+import pytest
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+from lib.lutil import *
+# Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.lutil import *
-
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 customize = None
 
@@ -65,7 +64,7 @@ class LTemplate:
     def setup_module(self, mod):
         "Sets up the pytest environment"
         # This function initiates the topology build with Topogen...
-        tgen = Topogen(customize.ThisTestTopo, mod.__name__)
+        tgen = Topogen(customize.build_topo, mod.__name__)
         # ... and here it calls Mininet initialization functions.
         tgen.start_topology()
 

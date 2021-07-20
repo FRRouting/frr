@@ -26,46 +26,35 @@
 test_nhrp_topo.py: Test the FRR/Quagga NHRP daemon
 """
 
+import json
 import os
 import sys
-import json
 from functools import partial
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
+CWD = os.path.dirname(os.path.realpath(__file__))
 
+def build_topo(tgen):
+    "Build function"
 
-class NHRPTopo(Topo):
-    "Test topology builder"
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 3 routers.
+    for routern in range(1, 4):
+        tgen.add_router('r{}'.format(routern))
 
-        # Create 3 routers.
-        for routern in range(1, 4):
-            tgen.add_router('r{}'.format(routern))
-
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r3'])
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r2'])
-        switch.add_link(tgen.gears['r3'])
-        switch = tgen.add_switch('s3')
-        switch.add_link(tgen.gears['r2'])
-        switch = tgen.add_switch('s4')
-        switch.add_link(tgen.gears['r1'])
+    switch = tgen.add_switch('s1')
+    switch.add_link(tgen.gears['r1'])
+    switch.add_link(tgen.gears['r3'])
+    switch = tgen.add_switch('s2')
+    switch.add_link(tgen.gears['r2'])
+    switch.add_link(tgen.gears['r3'])
+    switch = tgen.add_switch('s3')
+    switch.add_link(tgen.gears['r2'])
+    switch = tgen.add_switch('s4')
+    switch.add_link(tgen.gears['r1'])
 
 
 def _populate_iface():
@@ -97,13 +86,13 @@ def _populate_iface():
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(NHRPTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
     _populate_iface()
         
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, '{}/zebra.conf'.format(rname)),
@@ -140,7 +129,7 @@ def test_protocols_convergence():
     logger.info("Checking NHRP cache and IPv4 routes for convergence")
     router_list = tgen.routers()
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r3':
             continue
 
@@ -161,7 +150,7 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r3':
             continue
 
@@ -182,7 +171,7 @@ def test_protocols_convergence():
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
-    for rname, router in router_list.iteritems():
+    for rname, router in router_list.items():
         if rname == 'r3':
             continue
         logger.info('Dump neighbor information on {}-gre0'.format(rname))

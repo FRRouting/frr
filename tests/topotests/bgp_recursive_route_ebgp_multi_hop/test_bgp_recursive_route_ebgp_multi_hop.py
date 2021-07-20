@@ -37,57 +37,29 @@ multi-hop functionality:
 7.  Verify that BGP Active/Standby/Pre-emption/ECMP.
 """
 
+import json
 import os
 import sys
 import time
-import json
-import pytest
 from time import sleep
-from copy import deepcopy
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib import topotest
-from lib.micronet_compat import Topo
+import pytest
+from lib.bgp import (clear_bgp, create_router_bgp, modify_as_number,
+                     verify_bgp_attributes, verify_bgp_convergence,
+                     verify_bgp_convergence_from_running_config,
+                     verify_bgp_rib)
+from lib.common_config import (apply_raw_config, check_address_types,
+                               create_interface_in_kernel, create_route_maps,
+                               create_static_routes, reset_config_on_routers,
+                               shutdown_bringup_interface, start_topology,
+                               step, verify_rib, write_test_footer,
+                               write_test_header)
 from lib.topogen import Topogen, get_topogen
-
-# Import topoJson from lib, to create topology and initial configuration
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    apply_raw_config,
-    write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
-    check_address_types,
-    step,
-    create_route_maps,
-    create_interface_in_kernel,
-    shutdown_bringup_interface,
-    addKernelRoute,
-    delete_route_maps,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence,
-    create_router_bgp,
-    clear_bgp_and_verify,
-    verify_bgp_rib,
-    verify_bgp_convergence_from_running_config,
-    modify_as_number,
-    verify_bgp_attributes,
-    clear_bgp,
-)
-from lib.topojson import build_topo_from_json, build_config_from_json
-
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/bgp_recursive_route_ebgp_multi_hop.json".format(CWD)
@@ -95,7 +67,7 @@ try:
     with open(jsonFile, "r") as topoJson:
         topo = json.load(topoJson)
 except IOError:
-    logger.info("Could not read file:", jsonFile)
+    logger.info("Could not read file: %s", jsonFile)
 
 # Global variables
 BGP_CONVERGENCE = False
@@ -124,19 +96,11 @@ Loopabck_IP = {
 }
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -153,7 +117,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

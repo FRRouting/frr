@@ -23,42 +23,32 @@
 """
 """
 
+import json
 import os
 import sys
-import json
-import time
-import pytest
 from functools import partial
 from time import sleep
 
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
+def build_topo(tgen):
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

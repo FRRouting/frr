@@ -73,74 +73,51 @@ test_ospf6_topo1.py:
 import os
 import re
 import sys
-import pytest
-from time import sleep
-
 from functools import partial
 
-from lib.micronet_compat import Topo
-
-# Save the Current Working Directory to find configuration files later.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-import platform
 
-#####################################################
-##
-##   Network Topology Definition
-##
-#####################################################
+CWD = os.path.dirname(os.path.realpath(__file__))
 
+def build_topo(tgen):
+    # Create 4 routers
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-class NetworkTopo(Topo):
-    "OSPFv3 (IPv6) Test Topology 1"
+    #
+    # Wire up the switches and routers
+    # Note that we specify the link names so we match the config files
+    #
 
-    def build(self, **_opts):
-        "Build function"
+    # Create a empty network for router 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-stubnet")
 
-        tgen = get_topogen(self)
+    # Create a empty network for router 2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-stubnet")
 
-        # Create 4 routers
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    # Create a empty network for router 3
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-stubnet")
 
-        #
-        # Wire up the switches and routers
-        # Note that we specify the link names so we match the config files
-        #
+    # Create a empty network for router 4
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-stubnet")
 
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"], nodeif="r1-stubnet")
+    # Interconnect routers 1, 2, and 3
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-sw5")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-sw5")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-sw5")
 
-        # Create a empty network for router 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"], nodeif="r2-stubnet")
-
-        # Create a empty network for router 3
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r3"], nodeif="r3-stubnet")
-
-        # Create a empty network for router 4
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r4"], nodeif="r4-stubnet")
-
-        # Interconnect routers 1, 2, and 3
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"], nodeif="r1-sw5")
-        switch.add_link(tgen.gears["r2"], nodeif="r2-sw5")
-        switch.add_link(tgen.gears["r3"], nodeif="r3-sw5")
-
-        # Interconnect routers 3 and 4
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r3"], nodeif="r3-sw6")
-        switch.add_link(tgen.gears["r4"], nodeif="r4-sw6")
+    # Interconnect routers 3 and 4
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-sw6")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-sw6")
 
 
 #####################################################
@@ -153,7 +130,7 @@ class NetworkTopo(Topo):
 def setup_module(mod):
     "Sets up the pytest environment"
 
-    tgen = Topogen(NetworkTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     logger.info("** %s: Setup Topology" % mod.__name__)

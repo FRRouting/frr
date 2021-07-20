@@ -30,64 +30,44 @@ routes around
 
 """
 
-import os
-import re
-import sys
-import pytest
 import json
+import os
+import sys
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
-
-#####################################################
-##
-##   Network Topology Definition
-##
-#####################################################
+CWD = os.path.dirname(os.path.realpath(__file__))
+def build_topo(tgen):
+    "Build function"
 
 
-class NetworkTopo(Topo):
-    "BGP_RR_IBGP Topology 1"
+    tgen.add_router("tor1")
+    tgen.add_router("tor2")
+    tgen.add_router("spine1")
 
-    def build(self, **_opts):
-        "Build function"
+    # First switch is for a dummy interface (for local network)
+    # on tor1
+    # 192.168.1.0/24
+    switch = tgen.add_switch("sw1")
+    switch.add_link(tgen.gears["tor1"])
 
-        tgen = get_topogen(self)
+    # 192.168.2.0/24 - tor1 <-> spine1 connection
+    switch = tgen.add_switch("sw2")
+    switch.add_link(tgen.gears["tor1"])
+    switch.add_link(tgen.gears["spine1"])
 
-        tgen.add_router("tor1")
-        tgen.add_router("tor2")
-        tgen.add_router("spine1")
+    # 3rd switch is for a dummy interface (for local netwokr)
+    # 192.168.3.0/24 - tor2
+    switch = tgen.add_switch("sw3")
+    switch.add_link(tgen.gears["tor2"])
 
-        # First switch is for a dummy interface (for local network)
-        # on tor1
-        # 192.168.1.0/24
-        switch = tgen.add_switch("sw1")
-        switch.add_link(tgen.gears["tor1"])
-
-        # 192.168.2.0/24 - tor1 <-> spine1 connection
-        switch = tgen.add_switch("sw2")
-        switch.add_link(tgen.gears["tor1"])
-        switch.add_link(tgen.gears["spine1"])
-
-        # 3rd switch is for a dummy interface (for local netwokr)
-        # 192.168.3.0/24 - tor2
-        switch = tgen.add_switch("sw3")
-        switch.add_link(tgen.gears["tor2"])
-
-        # 192.168.4.0/24 - tor2 <-> spine1 connection
-        switch = tgen.add_switch("sw4")
-        switch.add_link(tgen.gears["tor2"])
-        switch.add_link(tgen.gears["spine1"])
+    # 192.168.4.0/24 - tor2 <-> spine1 connection
+    switch = tgen.add_switch("sw4")
+    switch.add_link(tgen.gears["tor2"])
+    switch.add_link(tgen.gears["spine1"])
 
 
 #####################################################
@@ -99,7 +79,7 @@ class NetworkTopo(Topo):
 
 def setup_module(module):
     "Setup topology"
-    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     # This is a sample of configuration loading.

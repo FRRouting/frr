@@ -28,50 +28,26 @@ Following tests are covered to test bgp community functionality:
 
 """
 
+import json
 import os
 import sys
 import time
-import json
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
-from lib.micronet_compat import Topo
+from lib.bgp import (create_router_bgp, verify_bgp_community,
+                     verify_bgp_convergence, verify_bgp_rib)
+from lib.common_config import (check_address_types, create_route_maps,
+                               create_static_routes,
+                               required_linux_kernel_version,
+                               reset_config_on_routers, start_topology, step,
+                               verify_rib, write_test_footer,
+                               write_test_header)
 from lib.topogen import Topogen, get_topogen
-
-# Import topoJson from lib, to create topology and initial configuration
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
-    check_address_types,
-    step,
-    create_route_maps,
-    create_prefix_lists,
-    create_route_maps,
-    required_linux_kernel_version,
-)
-
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence,
-    create_router_bgp,
-    clear_bgp_and_verify,
-    verify_bgp_rib,
-    verify_bgp_community,
-)
-from lib.topojson import build_topo_from_json, build_config_from_json
-from copy import deepcopy
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
-
 
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/bgp_communities_topo2.json".format(CWD)
@@ -90,19 +66,11 @@ NETWORK = {
 }
 
 
-class BGPCOMMUNITIES(Topo):
-    """
-    Test BGPCOMMUNITIES - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -124,7 +92,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(BGPCOMMUNITIES, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -292,7 +260,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 input_dict_4,
                 next_hop=topo["routers"]["r1"]["links"]["r2"][addr_type].split("/")[0],
             )
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -311,7 +279,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                         0
                     ],
                 )
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
             else:
@@ -330,7 +298,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                     ],
                     expected=False,
                 )
-                assert result is not True, "Testcase  : Failed \n Error: {}".format(
+                assert result is not True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
@@ -358,7 +326,9 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("Configure redistribute static")
         input_dict_2 = {
@@ -376,7 +346,9 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step(
             "Verify that these prefixes, originated on R1, are now"
@@ -402,7 +374,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 input_dict_4,
                 next_hop=topo["routers"]["r1"]["links"]["r2"][addr_type].split("/")[0],
             )
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -413,7 +385,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 input_dict_4,
                 next_hop=topo["routers"]["r1"]["links"]["r3"][addr_type].split("/")[0],
             )
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 

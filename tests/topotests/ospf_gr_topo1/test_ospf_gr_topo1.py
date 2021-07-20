@@ -68,88 +68,69 @@ test_ospf_gr_topo1.py:
   +---------+           +---------+
 """
 
+import json
 import os
 import sys
-import pytest
-import json
-import re
-import tempfile
-from time import sleep
 from functools import partial
+from time import sleep
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
+from lib.common_config import kill_router_daemons, start_router_daemons
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import (
-    kill_router_daemons,
-    start_router_daemons,
-)
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.ospfd]
 
 # Global multi-dimensional dictionary containing all expected outputs
 outputs = {}
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    #
+    # Define FRR Routers
+    #
+    for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
+        tgen.add_router(router)
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["rt1"], nodeif="eth-rt2")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-rt1")
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
-            tgen.add_router(router)
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["rt1"], nodeif="stub1")
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["rt1"], nodeif="eth-rt2")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt1")
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-rt3")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt2")
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["rt1"], nodeif="stub1")
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt4")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt3")
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt3")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt2")
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt6")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-rt3")
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt4")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt3")
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt6")
-        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt3")
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-rt7")
+    switch.add_link(tgen.gears["rt7"], nodeif="eth-rt6")
 
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
-
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt7")
-        switch.add_link(tgen.gears["rt7"], nodeif="eth-rt6")
-
-        switch = tgen.add_switch("s8")
-        switch.add_link(tgen.gears["rt7"], nodeif="stub1")
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["rt7"], nodeif="stub1")
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

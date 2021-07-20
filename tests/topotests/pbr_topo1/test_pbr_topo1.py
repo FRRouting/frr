@@ -27,28 +27,19 @@ test_pbr_topo1.py: Testing PBR
 
 """
 
-import os
-import re
-import sys
-import pytest
 import json
+import os
 import platform
+import sys
 from functools import partial
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
+from lib.common_config import shutdown_bringup_interface
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
-
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.pbrd]
 
 #####################################################
@@ -58,22 +49,18 @@ pytestmark = [pytest.mark.pbrd]
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "PBR Topology 1"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, **_opts):
-        "Build function"
 
-        tgen = get_topogen(self)
+    # Populate routers
+    for routern in range(1, 2):
+        tgen.add_router("r{}".format(routern))
 
-        # Populate routers
-        for routern in range(1, 2):
-            tgen.add_router("r{}".format(routern))
-
-        # Populate switches
-        for switchn in range(1, 6):
-            switch = tgen.add_switch("sw{}".format(switchn))
-            switch.add_link(tgen.gears["r1"])
+    # Populate switches
+    for switchn in range(1, 6):
+        switch = tgen.add_switch("sw{}".format(switchn))
+        switch.add_link(tgen.gears["r1"])
 
 
 #####################################################
@@ -85,7 +72,7 @@ class NetworkTopo(Topo):
 
 def setup_module(module):
     "Setup topology"
-    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     krel = platform.release()

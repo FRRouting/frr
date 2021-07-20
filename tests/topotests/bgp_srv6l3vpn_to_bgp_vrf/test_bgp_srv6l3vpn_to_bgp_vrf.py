@@ -21,26 +21,20 @@
 # OF THIS SOFTWARE.
 #
 
-import os
-import re
-import sys
-import json
 import functools
+import json
+import os
+import sys
+
 import pytest
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
+from lib.common_config import required_linux_kernel_version
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import required_linux_kernel_version
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 
-class Topology(Topo):
+def build_topo(tgen):
     """
       CE1     CE3      CE5
     (eth0)  (eth0)   (eth0)
@@ -77,24 +71,22 @@ class Topology(Topo):
       (eth0)      (eth0)      (eth0)
         CE2         CE4         CE6
     """
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router("r1")
-        tgen.add_router("r2")
-        tgen.add_router("ce1")
-        tgen.add_router("ce2")
-        tgen.add_router("ce3")
-        tgen.add_router("ce4")
-        tgen.add_router("ce5")
-        tgen.add_router("ce6")
+    tgen.add_router("r1")
+    tgen.add_router("r2")
+    tgen.add_router("ce1")
+    tgen.add_router("ce2")
+    tgen.add_router("ce3")
+    tgen.add_router("ce4")
+    tgen.add_router("ce5")
+    tgen.add_router("ce6")
 
-        tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")
-        tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "eth0", "eth1")
-        tgen.add_link(tgen.gears["ce2"], tgen.gears["r2"], "eth0", "eth1")
-        tgen.add_link(tgen.gears["ce3"], tgen.gears["r1"], "eth0", "eth2")
-        tgen.add_link(tgen.gears["ce4"], tgen.gears["r2"], "eth0", "eth2")
-        tgen.add_link(tgen.gears["ce5"], tgen.gears["r1"], "eth0", "eth3")
-        tgen.add_link(tgen.gears["ce6"], tgen.gears["r2"], "eth0", "eth3")
+    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")
+    tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "eth0", "eth1")
+    tgen.add_link(tgen.gears["ce2"], tgen.gears["r2"], "eth0", "eth1")
+    tgen.add_link(tgen.gears["ce3"], tgen.gears["r1"], "eth0", "eth2")
+    tgen.add_link(tgen.gears["ce4"], tgen.gears["r2"], "eth0", "eth2")
+    tgen.add_link(tgen.gears["ce5"], tgen.gears["r1"], "eth0", "eth3")
+    tgen.add_link(tgen.gears["ce6"], tgen.gears["r2"], "eth0", "eth3")
 
 
 def setup_module(mod):
@@ -102,7 +94,7 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
-    tgen = Topogen(Topology, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():

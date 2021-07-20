@@ -58,20 +58,12 @@ import time
 from functools import partial
 
 import pytest
-
-#Current Working Directory
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
 from lib.common_config import (
     generate_support_bundle,
     step,
     write_test_footer,
     write_test_header,
 )
-
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
@@ -80,6 +72,7 @@ from lib.topolog import logger
 from lib import topotest
 
 #Global variables
+CWD = os.path.dirname(os.path.realpath(__file__))
 PES = ['PE1', 'PE2']
 HOSTS = ['host1', 'host2']
 PE_SUFFIX = {'PE1': '1', 'PE2': '2'}
@@ -87,29 +80,23 @@ HOST_SUFFIX = {'host1': '1', 'host2': '2'}
 TRIGGERS = ["base", "no_rt5", "no_rt2"]
 
 
-class TemplateTopo(Topo):
-    """Test topology builder"""
+def build_topo(tgen):
+    # This function only purpose is to define allocation and relationship
+    # between routers and add links.
 
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
+    # Create routers
+    for pe in PES:
+        tgen.add_router(pe)
+    for host in HOSTS:
+        tgen.add_router(host)
 
-        # This function only purpose is to define allocation and relationship
-        # between routers and add links.
+    krel = platform.release()
+    logger.info('Kernel version ' + krel)
 
-        # Create routers
-        for pe in PES:
-            tgen.add_router(pe)
-        for host in HOSTS:
-            tgen.add_router(host)
-
-        krel = platform.release()
-        logger.info('Kernel version ' + krel)
-
-        #Add links
-        tgen.add_link(tgen.gears['PE1'], tgen.gears['PE2'], 'PE1-eth0', 'PE2-eth0')
-        tgen.add_link(tgen.gears['PE1'], tgen.gears['host1'], 'PE1-eth1', 'host1-eth0')
-        tgen.add_link(tgen.gears['PE2'], tgen.gears['host2'], 'PE2-eth1', 'host2-eth0')
+    #Add links
+    tgen.add_link(tgen.gears['PE1'], tgen.gears['PE2'], 'PE1-eth0', 'PE2-eth0')
+    tgen.add_link(tgen.gears['PE1'], tgen.gears['host1'], 'PE1-eth1', 'host1-eth0')
+    tgen.add_link(tgen.gears['PE2'], tgen.gears['host2'], 'PE2-eth1', 'host2-eth0')
 
 
 def setup_module(mod):
@@ -122,7 +109,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     kernelv = platform.release()

@@ -27,51 +27,37 @@
 """
 
 import os
-import sys
-import json
-from functools import partial
-import pytest
 import platform
+import sys
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
+CWD = os.path.dirname(os.path.realpath(__file__))
 
+def build_topo(tgen):
+    "Build function"
 
-class BGPEVPNTopo(Topo):
-    "Test topology builder"
+    tgen.add_router("r1")
+    tgen.add_router("r2")
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        tgen.add_router("r1")
-        tgen.add_router("r2")
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
 
-    tgen = Topogen(BGPEVPNTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

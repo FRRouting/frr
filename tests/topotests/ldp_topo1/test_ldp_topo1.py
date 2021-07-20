@@ -62,13 +62,13 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
 import os
 import re
 import sys
-import pytest
 from time import sleep
+
+import pytest
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
-from lib.micronet_compat import Topo
-from lib.micronet_compat import Mininet
+from lib.micronet_compat import Mininet, Topo
 
 fatal_error = ""
 
@@ -336,8 +336,7 @@ def test_mpls_ldp_neighbor_establish():
             break
     else:
         # Bail out with error if a router fails to converge
-        fatal_error = "MPLS LDP neighbors did not establish"
-        assert False, "MPLS LDP neighbors did not establish" % ospfStatus
+        assert False, "MPLS LDP neighbors did not establish"
 
     print("MPLS LDP neighbors established.")
 

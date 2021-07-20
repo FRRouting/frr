@@ -50,70 +50,36 @@ Tests covered in this suite
     BSM received
 """
 
+import json
 import os
 import sys
-import json
 import time
+
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-sys.path.append(os.path.join(CWD, "../lib/"))
-
-# Required to instantiate the topology builder class.
-
-# pylint: disable=C0413
-# Import topogen and topotest helpers
+from lib.common_config import (addKernelRoute, apply_raw_config,
+                               create_static_routes, do_countdown,
+                               iperfSendIGMPJoin, kill_iperf,
+                               kill_router_daemons,
+                               required_linux_kernel_version,
+                               reset_config_on_routers, run_frr_cmd,
+                               shutdown_bringup_interface, start_router,
+                               start_router_daemons, start_topology, step,
+                               stop_router, topo_daemons, write_test_footer,
+                               write_test_header)
+from lib.pim import (add_rp_interfaces_and_pim_config, clear_ip_mroute,
+                     clear_ip_pim_interface_traffic, create_pim_config,
+                     enable_disable_pim_bsm, enable_disable_pim_unicast_bsm,
+                     find_rp_from_bsrp_info, reconfig_interfaces,
+                     scapy_send_bsr_raw_packet, verify_igmp_groups,
+                     verify_ip_mroutes, verify_ip_pim_upstream_rpf,
+                     verify_join_state_and_timer, verify_pim_bsr,
+                     verify_pim_grp_rp_source, verify_pim_interface_traffic,
+                     verify_pim_state, verify_upstream_iif)
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-
-from lib.common_config import (
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    step,
-    addKernelRoute,
-    create_static_routes,
-    iperfSendIGMPJoin,
-    stop_router,
-    start_router,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router_daemons,
-    reset_config_on_routers,
-    do_countdown,
-    apply_raw_config,
-    kill_iperf,
-    run_frr_cmd,
-    required_linux_kernel_version,
-    topo_daemons,
-)
-
-from lib.pim import (
-    create_pim_config,
-    add_rp_interfaces_and_pim_config,
-    reconfig_interfaces,
-    scapy_send_bsr_raw_packet,
-    find_rp_from_bsrp_info,
-    verify_pim_grp_rp_source,
-    verify_pim_bsr,
-    verify_ip_mroutes,
-    verify_join_state_and_timer,
-    verify_pim_state,
-    verify_upstream_iif,
-    verify_igmp_groups,
-    verify_ip_pim_upstream_rpf,
-    enable_disable_pim_unicast_bsm,
-    enable_disable_pim_bsm,
-    clear_ip_mroute,
-    clear_ip_pim_interface_traffic,
-    verify_pim_interface_traffic,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
 
-# Reading the data from JSON File for topology creation
+CWD = os.path.dirname(os.path.realpath(__file__))
 jsonFile = "{}/mcast_pim_bsmp_01.json".format(CWD)
 try:
     with open(jsonFile, "r") as topoJson:
@@ -148,19 +114,11 @@ BSR1_ADDR = "1.1.2.7/32"
 BSR2_ADDR = "10.2.1.1/32"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -183,7 +141,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -684,8 +642,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Sending BSR after Configure black hole address for BSR and candidate RP")
     step("Send BSR packet from b1 to FHR")
@@ -708,8 +667,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is not True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -1326,8 +1286,7 @@ def test_bsmp_stress_add_del_restart_p2(request):
         assert (
             rp_add1 == rp2[group]
         ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
-            tc_name,
-            rp_add1,
+            tc_name, rp_add1, rp2[group]
         )
 
         # Verify if that rp is installed

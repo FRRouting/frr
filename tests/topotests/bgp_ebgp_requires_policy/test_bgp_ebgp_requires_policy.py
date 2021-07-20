@@ -41,48 +41,40 @@ Scenario 3:
   RFC8212. All routes for both directions MUST work.
 """
 
+import functools
+import json
 import os
 import sys
-import json
-import time
+
 import pytest
-import functools
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    for routern in range(1, 7):
+        tgen.add_router("r{}".format(routern))
 
-        for routern in range(1, 7):
-            tgen.add_router("r{}".format(routern))
+    # Scenario 1.
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        # Scenario 1.
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # Scenario 2.
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
 
-        # Scenario 2.
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
-
-        # Scenario 3.
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r5"])
-        switch.add_link(tgen.gears["r6"])
+    # Scenario 3.
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r5"])
+    switch.add_link(tgen.gears["r6"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

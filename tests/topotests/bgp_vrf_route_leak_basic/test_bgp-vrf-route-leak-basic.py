@@ -25,35 +25,26 @@
 test_bgp-vrf-route-leak-basic.py.py: Test basic vrf route leaking
 """
 
-import json
 import os
 import sys
 from functools import partial
+
 import pytest
-
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-from lib.micronet_compat import Topo
+CWD = os.path.dirname(os.path.realpath(__file__))
+def build_topo(tgen):
+    "Build function"
 
-
-class BGPVRFTopo(Topo):
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        for routern in range(1, 2):
-            tgen.add_router("r{}".format(routern))
+    for routern in range(1, 2):
+        tgen.add_router("r{}".format(routern))
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BGPVRFTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file

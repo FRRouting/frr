@@ -38,24 +38,18 @@ connections on multiple addresses.
   +------------+--------------------------------+-------------+
 """
 
+import json
 import os
 import sys
-import json
-import pytest
-
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-from lib.topogen import Topogen, get_topogen
-from lib.topojson import build_topo_from_json, build_config_from_json
-from lib.common_config import start_topology
-from lib.topotest import router_json_cmp, run_and_expect
-from lib.micronet_compat import Topo
 from functools import partial
 
+import pytest
+from lib.common_config import start_topology
+from lib.topogen import Topogen, get_topogen
+from lib.topojson import build_config_from_json, build_topo_from_json
+from lib.topotest import router_json_cmp, run_and_expect
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 LISTEN_ADDRESSES = {
     "r1": ["10.0.0.1"],
     "r2": ["10.0.0.2", "10.0.1.1"],
@@ -73,18 +67,14 @@ except IOError:
     assert False, "Could not read file {}".format(jsonFile)
 
 
-class TemplateTopo(Topo):
-    "Topology builder."
-
-    def build(self, *_args, **_opts):
-        "Defines the allocation and relationship between routers and switches."
-        tgen = get_topogen(self)
-        build_topo_from_json(tgen, topo)
+def build_topo(tgen):
+    "Defines the allocation and relationship between routers and switches."
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
     "Sets up the test environment."
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
 
     # Adds extra parameters to bgpd so they listen for connections on specific
     # multiple addresses.

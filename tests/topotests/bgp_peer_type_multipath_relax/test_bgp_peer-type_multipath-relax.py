@@ -61,45 +61,39 @@ next hops.
 import functools
 import json
 import os
-import pytest
 import sys
 
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
+import pytest
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.micronet_compat import Topo
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 
-class PeerTypeRelaxTopo(Topo):
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        # Set up routers
-        tgen.add_router("r1")  # DUT
-        tgen.add_router("r2")
+    # Set up routers
+    tgen.add_router("r1")  # DUT
+    tgen.add_router("r2")
 
-        # Set up peers
-        for peern in range(1, 5):
-            peer = tgen.add_exabgp_peer(
-                "peer{}".format(peern),
-                ip="10.0.{}.2/24".format(peern),
-                defaultRoute="via 10.0.{}.1".format(peern),
-            )
-            if peern == 2:
-                tgen.add_link(tgen.gears["r2"], peer)
-            else:
-                tgen.add_link(tgen.gears["r1"], peer)
-        tgen.add_link(tgen.gears["r1"], tgen.gears["r2"])
+    # Set up peers
+    for peern in range(1, 5):
+        peer = tgen.add_exabgp_peer(
+            "peer{}".format(peern),
+            ip="10.0.{}.2/24".format(peern),
+            defaultRoute="via 10.0.{}.1".format(peern),
+        )
+        if peern == 2:
+            tgen.add_link(tgen.gears["r2"], peer)
+        else:
+            tgen.add_link(tgen.gears["r1"], peer)
+    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(PeerTypeRelaxTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file

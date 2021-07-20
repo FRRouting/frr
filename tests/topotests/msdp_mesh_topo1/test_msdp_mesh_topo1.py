@@ -26,34 +26,25 @@
 test_msdp_mesh_topo1.py: Test the FRR PIM MSDP mesh groups.
 """
 
-import json
 import os
 import socket
 import sys
 from functools import partial
 
 import pytest
-
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# pylint: disable=C0413
-# Import topogen and topotest helpers
 from lib import topotest
 
+CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pimd]
 
 #
 # Test global variables:
 # They are used to handle communicating with external application.
 #
-HELPER_APP_PATH = os.path.join(CWD, "../lib/mcast-tester.py")
+HELPER_APP_PATH = os.path.abspath(os.path.join(CWD, "../lib/mcast-tester.py"))
 app_listener = None
 app_clients = {}
 app_procs = []
@@ -114,40 +105,36 @@ def close_applications():
         p.wait()
 
 
-class MSDPMeshTopo1(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 3 routers
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 3 routers
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    # Create stub networks for multicast traffic.
+    tgen.add_host("h1", "192.168.10.2/24", "via 192.168.10.1")
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["h1"])
 
-        # Create stub networks for multicast traffic.
-        tgen.add_host("h1", "192.168.10.2/24", "via 192.168.10.1")
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["h1"])
-
-        tgen.add_host("h2", "192.168.30.2/24", "via 192.168.30.1")
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["h2"])
+    tgen.add_host("h2", "192.168.30.2/24", "via 192.168.30.1")
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["h2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(MSDPMeshTopo1, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
