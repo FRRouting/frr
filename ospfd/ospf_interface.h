@@ -345,7 +345,8 @@ extern void ospf_if_set_multicast(struct ospf_interface *);
 extern void ospf_if_interface(struct interface *ifp);
 
 extern uint32_t ospf_if_count_area_params(struct interface *ifp);
-
+extern void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
+				   bool is_addr);
 DECLARE_HOOK(ospf_vl_add, (struct ospf_vl_data * vd), (vd));
 DECLARE_HOOK(ospf_vl_delete, (struct ospf_vl_data * vd), (vd));
 

@@ -8312,10 +8312,12 @@ DEFUN (ip_ospf_hello_interval,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = 0L};
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
 	uint32_t seconds = 0;
+	bool is_addr = false;
+	uint32_t old_interval = 0;
 
 	argv_find(argv, argc, "(1-65535)", &idx);
 	seconds = strtol(argv[idx]->arg, NULL, 10);
@@ -8329,7 +8331,14 @@ DEFUN (ip_ospf_hello_interval,
 
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
+		is_addr = true;
 	}
+
+	old_interval = params->v_hello;
+
+	/* Return, if same interval is configured. */
+	if (old_interval == seconds)
+		return CMD_SUCCESS;
 
 	SET_IF_PARAM(params, v_hello);
 	params->v_hello = seconds;
@@ -8344,6 +8353,8 @@ DEFUN (ip_ospf_hello_interval,
 		 */
 		params->v_wait	= 4 * seconds;
 	}
+
+	ospf_reset_hello_timer(ifp, addr, is_addr);
 
 	return CMD_SUCCESS;
 }
@@ -8371,7 +8382,7 @@ DEFUN (no_ip_ospf_hello_interval,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = 0L};
 	struct ospf_if_params *params;
 	struct route_node *rn;
 
