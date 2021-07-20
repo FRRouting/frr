@@ -491,7 +491,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	on->hello_in++;
 
 	/* Always override neighbor's source address */
-	memcpy(&on->linklocal_addr, src, sizeof(struct in6_addr));
+	ospf6_neighbor_lladdr_set(on, src);
 
 	/* Neighbor ifindex check */
 	if (on->ifindex != (ifindex_t)ntohl(hello->interface_id)) {

@@ -195,6 +195,15 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	XFREE(MTYPE_OSPF6_NEIGHBOR, on);
 }
 
+void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
+			       const struct in6_addr *addr)
+{
+	if (IPV6_ADDR_SAME(addr, &on->linklocal_addr))
+		return;
+
+	memcpy(&on->linklocal_addr, addr, sizeof(struct in6_addr));
+}
+
 static void ospf6_neighbor_state_change(uint8_t next_state,
 					struct ospf6_neighbor *on, int event)
 {
