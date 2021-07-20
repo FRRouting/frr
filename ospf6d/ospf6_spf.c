@@ -374,7 +374,7 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 	   up to here. */
 	assert(route == NULL);
 
-	route = ospf6_route_create();
+	route = ospf6_route_create(v->area->ospf6);
 	memcpy(&route->prefix, &v->vertex_id, sizeof(struct prefix));
 	route->type = OSPF6_DEST_TYPE_LINKSTATE;
 	route->path.type = OSPF6_PATH_TYPE_INTRA;

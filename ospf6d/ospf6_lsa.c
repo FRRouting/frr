@@ -45,6 +45,10 @@
 #include "ospf6_flood.h"
 #include "ospf6d.h"
 
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_lsa_clippy.c"
+#endif
+
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_HEADER,  "OSPF6 LSA header");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA_SUMMARY, "OSPF6 LSA summary");
@@ -822,6 +826,8 @@ int ospf6_lsa_expire(struct thread *thread)
 	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_HEADERONLY))
 		return 0; /* dbexchange will do something ... */
 	ospf6 = ospf6_get_by_lsdb(lsa);
+	assert(ospf6);
+
 	/* reinstall lsa */
 	ospf6_install_lsa(lsa);
 
@@ -994,6 +1000,30 @@ static char *ospf6_lsa_handler_name(const struct ospf6_lsa_handler *h)
 	return buf;
 }
 
+DEFPY (debug_ospf6_lsa_aggregation,
+       debug_ospf6_lsa_aggregation_cmd,
+       "[no] debug ospf6 lsa aggregation",
+       NO_STR
+       DEBUG_STR
+       OSPF6_STR
+       "Debug Link State Advertisements (LSAs)\n"
+       "External LSA Aggregation\n")
+{
+
+	struct ospf6_lsa_handler *handler;
+
+	handler = ospf6_get_lsa_handler(OSPF6_LSTYPE_AS_EXTERNAL);
+	if (handler == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (no)
+		UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_AGGR);
+	else
+		SET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_AGGR);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_ospf6_lsa_type,
        debug_ospf6_lsa_hex_cmd,
        "debug ospf6 lsa <router|network|inter-prefix|inter-router|as-external|link|intra-prefix|unknown> [<originate|examine|flooding>]",
@@ -1105,6 +1135,9 @@ void install_element_ospf6_debug_lsa(void)
 	install_element(ENABLE_NODE, &no_debug_ospf6_lsa_hex_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_lsa_hex_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_lsa_hex_cmd);
+
+	install_element(ENABLE_NODE, &debug_ospf6_lsa_aggregation_cmd);
+	install_element(CONFIG_NODE, &debug_ospf6_lsa_aggregation_cmd);
 }
 
 int config_write_ospf6_debug_lsa(struct vty *vty)
@@ -1128,6 +1161,8 @@ int config_write_ospf6_debug_lsa(struct vty *vty)
 		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_FLOOD))
 			vty_out(vty, "debug ospf6 lsa %s flooding\n",
 				ospf6_lsa_handler_name(handler));
+		if (CHECK_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG_AGGR))
+			vty_out(vty, "debug ospf6 lsa aggregation\n");
 	}
 
 	return 0;

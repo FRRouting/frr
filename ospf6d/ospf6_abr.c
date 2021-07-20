@@ -728,7 +728,7 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 	if (!route)
 		return;
 
-	def = ospf6_route_create();
+	def = ospf6_route_create(o);
 	def->type = OSPF6_DEST_TYPE_NETWORK;
 	def->prefix.family = AF_INET6;
 	def->prefix.prefixlen = 0;
@@ -1163,7 +1163,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 	/* (5),(6): the path preference is handled by the sorting
 	   in the routing table. Always install the path by substituting
 	   old route (if any). */
-	route = ospf6_route_create();
+	route = ospf6_route_create(oa->ospf6);
 
 	route->type = type;
 	route->prefix = prefix;
@@ -1250,7 +1250,9 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 					listcount(old_route->nh_list));
 			}
 		} else {
-			struct ospf6_route *tmp_route = ospf6_route_create();
+			struct ospf6_route *tmp_route;
+
+			tmp_route = ospf6_route_create(oa->ospf6);
 
 			ospf6_copy_nexthops(tmp_route->nh_list,
 					    o_path->nh_list);

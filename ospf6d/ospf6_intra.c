@@ -1347,7 +1347,7 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 			    || current + OSPF6_PREFIX_SIZE(op) > end)
 				break;
 
-			route = ospf6_route_create();
+			route = ospf6_route_create(oi->area->ospf6);
 
 			route->type = OSPF6_DEST_TYPE_NETWORK;
 			route->prefix.family = AF_INET6;
@@ -1810,7 +1810,7 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 			continue;
 		}
 
-		route = ospf6_route_create();
+		route = ospf6_route_create(oa->ospf6);
 
 		memset(&route->prefix, 0, sizeof(struct prefix));
 		route->prefix.family = AF_INET6;
