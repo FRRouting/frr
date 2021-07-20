@@ -96,6 +96,9 @@ struct ospf_external_aggr_rt {
 	/* Tag for summary route */
 	route_tag_t tag;
 
+	/* Cost for summary route */
+	int metric;
+
 	/* Action to be done at the delay
 	 * timer expairy.
 	 */
@@ -158,10 +161,10 @@ void ospf_unset_all_aggr_flag(struct ospf *ospf);
 
 extern int ospf_asbr_external_aggregator_set(struct ospf *ospf,
 					     struct prefix_ipv4 *p,
-					     route_tag_t tag);
+					     route_tag_t tag, int metric);
 extern int ospf_asbr_external_aggregator_unset(struct ospf *ospf,
 					       struct prefix_ipv4 *p,
-					       route_tag_t tag);
+					       route_tag_t tag, int metric);
 extern int ospf_asbr_external_rt_no_advertise(struct ospf *ospf,
 					      struct prefix_ipv4 *p);
 extern int ospf_asbr_external_rt_advertise(struct ospf *ospf,
