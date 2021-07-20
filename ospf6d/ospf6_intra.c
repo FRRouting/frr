@@ -342,7 +342,7 @@ void ospf6_router_lsa_originate(struct thread *thread)
 					continue;
 
 				lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
-				lsdesc->metric = htons(oi->cost);
+				lsdesc->metric = htons(ospf6_neighbor_cost(on));
 				lsdesc->interface_id =
 					htonl(oi->interface->ifindex);
 				lsdesc->neighbor_interface_id =

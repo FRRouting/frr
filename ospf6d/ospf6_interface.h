@@ -28,6 +28,8 @@
 
 DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
 
+#include "ospf6_neighbor.h"
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
 #define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
@@ -80,6 +82,10 @@ struct ospf6_interface {
 	/* Network Type */
 	uint8_t type;
 	bool type_cfg;
+
+	/* P2P/P2MP behavior: */
+
+	struct ospf6_if_p2xp_neighcfgs_head p2xp_neighs;
 
 	/* Router Priority */
 	uint8_t priority;
