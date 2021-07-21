@@ -2,7 +2,7 @@
 # libfrr
 #
 lib_LTLIBRARIES += lib/libfrr.la
-lib_libfrr_la_LDFLAGS = -version-info 0:0:0 -Xlinker -e_libfrr_version
+lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
 lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
@@ -322,7 +322,7 @@ lib_LTLIBRARIES += lib/libfrrsnmp.la
 endif
 
 lib_libfrrsnmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
-lib_libfrrsnmp_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrsnmp_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 lib_libfrrsnmp_la_LIBADD = $(SNMP_LIBS)
 lib_libfrrsnmp_la_SOURCES = \
 	lib/agentx.c \
@@ -338,7 +338,7 @@ pkginclude_HEADERS += lib/resolver.h
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
-lib_libfrrcares_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrcares_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 lib_libfrrcares_la_LIBADD = $(CARES_LIBS)
 lib_libfrrcares_la_SOURCES = \
 	lib/resolver.c \
@@ -353,7 +353,7 @@ pkginclude_HEADERS += lib/frr_zmq.h
 endif
 
 lib_libfrrzmq_la_CFLAGS = $(AM_CFLAGS) $(ZEROMQ_CFLAGS)
-lib_libfrrzmq_la_LDFLAGS = -version-info 0:0:0
+lib_libfrrzmq_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 lib_libfrrzmq_la_LIBADD = $(ZEROMQ_LIBS)
 lib_libfrrzmq_la_SOURCES = \
 	lib/frr_zmq.c \
@@ -367,7 +367,7 @@ module_LTLIBRARIES += lib/confd.la
 endif
 
 lib_confd_la_CFLAGS = $(AM_CFLAGS) $(CONFD_CFLAGS)
-lib_confd_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_confd_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_confd_la_LIBADD = lib/libfrr.la $(CONFD_LIBS)
 lib_confd_la_SOURCES = lib/northbound_confd.c
 
@@ -379,7 +379,7 @@ module_LTLIBRARIES += lib/sysrepo.la
 endif
 
 lib_sysrepo_la_CFLAGS = $(AM_CFLAGS) $(SYSREPO_CFLAGS)
-lib_sysrepo_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_sysrepo_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_sysrepo_la_LIBADD = lib/libfrr.la $(SYSREPO_LIBS)
 lib_sysrepo_la_SOURCES = lib/northbound_sysrepo.c
 
@@ -391,7 +391,7 @@ module_LTLIBRARIES += lib/grpc.la
 endif
 
 lib_grpc_la_CXXFLAGS = $(WERROR) $(GRPC_CFLAGS)
-lib_grpc_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+lib_grpc_la_LDFLAGS = $(MODULE_LDFLAGS)
 lib_grpc_la_LIBADD = lib/libfrr.la grpc/libfrrgrpc_pb.la $(GRPC_LIBS)
 lib_grpc_la_SOURCES = lib/northbound_grpc.cpp
 
@@ -419,7 +419,8 @@ lib_grammar_sandbox_LDADD = \
 lib_clippy_CPPFLAGS = $(CPPFLAGS_BASE) -D_GNU_SOURCE -DBUILDING_CLIPPY
 lib_clippy_CFLAGS = $(AC_CFLAGS) $(PYTHON_CFLAGS)
 lib_clippy_LDADD = $(PYTHON_LIBS) $(UST_LIBS) -lelf
-lib_clippy_LDFLAGS = -export-dynamic
+# no $(SAN_FLAGS) here
+lib_clippy_LDFLAGS = -export-dynamic $(AC_LDFLAGS) $(AC_LDFLAGS_EXEC)
 lib_clippy_SOURCES = \
 	lib/jhash.c \
 	lib/clippy.c \

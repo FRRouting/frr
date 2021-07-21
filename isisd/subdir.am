@@ -139,7 +139,7 @@ nodist_isisd_isisd_SOURCES = \
 
 isisd_isisd_snmp_la_SOURCES = isisd/isis_snmp.c
 isisd_isisd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
-isisd_isisd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+isisd_isisd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 isisd_isisd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 # Building fabricd

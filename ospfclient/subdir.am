@@ -8,7 +8,7 @@ noinst_PROGRAMS += ospfclient/ospfclient
 #man8 += $(MANBUILD)/frr-ospfclient.8
 endif
 
-ospfclient_libfrrospfapiclient_la_LDFLAGS = -version-info 0:0:0
+ospfclient_libfrrospfapiclient_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 ospfclient_libfrrospfapiclient_la_LIBADD = lib/libfrr.la
 ospfclient_libfrrospfapiclient_la_SOURCES = \
 	ospfclient/ospf_apiclient.c \

@@ -196,14 +196,14 @@ zebra_zebra_irdp_la_SOURCES = \
 	zebra/irdp_main.c \
 	zebra/irdp_packet.c \
 	# end
-zebra_zebra_irdp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_irdp_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 zebra_zebra_snmp_la_SOURCES = zebra/zebra_snmp.c
 zebra_zebra_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
-zebra_zebra_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_zebra_snmp_la_LIBADD = lib/libfrrsnmp.la
 
-zebra_zebra_fpm_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_fpm_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_zebra_fpm_la_LIBADD =
 zebra_zebra_fpm_la_SOURCES = zebra/zebra_fpm.c
 zebra_zebra_fpm_la_SOURCES += zebra/zebra_fpm_netlink.c
@@ -220,7 +220,7 @@ endif
 # Sample dataplane plugin
 if DEV_BUILD
 zebra_dplane_sample_plugin_la_SOURCES = zebra/sample_plugin.c
-zebra_dplane_sample_plugin_la_LDFLAGS = -module -shared -avoid-version -export-dynamic
+zebra_dplane_sample_plugin_la_LDFLAGS = $(MODULE_LDFLAGS)
 endif
 
 nodist_zebra_zebra_SOURCES = \
@@ -229,13 +229,13 @@ nodist_zebra_zebra_SOURCES = \
 	# end
 
 zebra_zebra_cumulus_mlag_la_SOURCES = zebra/zebra_mlag_private.c
-zebra_zebra_cumulus_mlag_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_cumulus_mlag_la_LDFLAGS = $(MODULE_LDFLAGS)
 
 if LINUX
 module_LTLIBRARIES += zebra/dplane_fpm_nl.la
 
 zebra_dplane_fpm_nl_la_SOURCES = zebra/dplane_fpm_nl.c
-zebra_dplane_fpm_nl_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_dplane_fpm_nl_la_LDFLAGS = $(MODULE_LDFLAGS)
 zebra_dplane_fpm_nl_la_LIBADD  =
 
 vtysh_scan += zebra/dplane_fpm_nl.c

@@ -4,7 +4,7 @@ lib_LTLIBRARIES += fpm/libfrrfpm_pb.la
 endif
 endif
 
-fpm_libfrrfpm_pb_la_LDFLAGS = -version-info 0:0:0
+fpm_libfrrfpm_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 fpm_libfrrfpm_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
 fpm_libfrrfpm_pb_la_SOURCES = \
 	fpm/fpm.h \
