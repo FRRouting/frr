@@ -28,8 +28,10 @@
 #include "cmgd/cmgd_frntnd_adapter.h"
 #include "cmgd/cmgd.h"
 
-#define CMGD_TRXN_PROC_DELAY_MSEC       100
-#define CMGD_TRXN_MAX_NUM_SETCFG_PROC   128
+#define CMGD_TRXN_PROC_DELAY_MSEC               100
+#define CMGD_TRXN_MAX_NUM_SETCFG_PROC           128
+#define CMGD_TRXN_MAX_NUM_GETCFG_PROC           128
+#define CMGD_TRXN_MAX_NUM_GETDATA_PROC          128
 
 PREDECL_LIST(cmgd_trxn_list);
 
@@ -74,7 +76,7 @@ extern cmgd_session_id_t cmgd_config_trxn_in_progress(void);
 extern cmgd_trxn_id_t cmgd_create_trxn(
         cmgd_session_id_t session_id, cmgd_trxn_type_t type);
 
-extern void cmgd_destroy_trxn(cmgd_trxn_id_t trxn_id);
+extern void cmgd_destroy_trxn(cmgd_trxn_id_t *trxn_id);
 
 extern cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id);
 
@@ -87,6 +89,9 @@ extern int cmgd_trxn_send_commit_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
         bool validate_only);
+
+extern int cmgd_trxn_send_commit_config_reply(
+        cmgd_trxn_id_t trxn_id, bool success, const char *error_if_any);
 
 extern int cmgd_trxn_send_get_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,

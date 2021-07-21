@@ -60,18 +60,28 @@ typedef struct cmgd_db_ctxt_ {
 static struct cmgd_master *cmgd_db_cm = NULL;
 static cmgd_db_ctxt_t running, candidate, oper;
 
+extern struct nb_config *running_config;
+
 int cmgd_db_init(struct cmgd_master *cm)
 {
 	if (cmgd_db_cm || cm->running_db || cm->candidate_db || cm->oper_db)
 		assert(!"Call cmgd_db_init() only once!");
 
-	// db_id to be added
-	running.root.cfg_root = nb_config_new(NULL);
+	// Use Running DB from NB module???
+	if (!running_config)
+		assert(!"Call cmgd_db_init() after frr_init() only!");
+	// running.root.cfg_root = nb_config_new(NULL);
+	running.root.cfg_root = running_config;
 	running.config_db = true;
+	running.db_id = CMGD_DB_RUNNING;
+
 	candidate.root.cfg_root = nb_config_new(NULL);
 	candidate.config_db = true;
+	candidate.db_id = CMGD_DB_CANDIDATE;
+
 	oper.root.dnode_root = yang_dnode_new(ly_native_ctx, true);
 	oper.config_db = false;
+	oper.db_id = CMGD_DB_OPERATIONAL;
 
 	cm->running_db = (cmgd_db_hndl_t)&running;
 	cm->candidate_db = (cmgd_db_hndl_t)&candidate;
@@ -96,6 +106,17 @@ cmgd_db_hndl_t cmgd_db_get_hndl_by_id(
 	}
 
 	return 0;
+}
+
+bool cmgd_db_is_config(cmgd_db_hndl_t db_hndl)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return false;
+
+	return db_ctxt->config_db;
 }
 
 int cmgd_db_read_lock(cmgd_db_hndl_t db_hndl)

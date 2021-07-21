@@ -453,11 +453,11 @@ static int cmgd_frntnd_client_handle_msg(
 				(cmgd_lib_hndl_t)clnt_ctxt,
 				clnt_ctxt->client_params.user_data,
 				sessn->client_id, (cmgd_session_id_t) sessn,
-				frntnd_msg->commcfg_reply->req_id, 
 				sessn->user_ctxt,
+				frntnd_msg->commcfg_reply->req_id, 
+				frntnd_msg->commcfg_reply->success,
 				frntnd_msg->commcfg_reply->src_db_id, 
 				frntnd_msg->commcfg_reply->dst_db_id, 
-				frntnd_msg->commcfg_reply->success,
 				frntnd_msg->commcfg_reply->validate_only,
 				frntnd_msg->commcfg_reply->error_if_any);
 		break;

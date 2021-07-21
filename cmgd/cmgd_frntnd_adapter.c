@@ -78,6 +78,10 @@ static void cmgd_frntnd_cleanup_session(cmgd_frntnd_sessn_ctxt_t *sessn)
 {
 	if (sessn->adptr) {
 		/* TODO: Cleanup transaction (if any) */
+		if (sessn->cfg_trxn_id != CMGD_TRXN_ID_NONE)
+			cmgd_destroy_trxn(&sessn->cfg_trxn_id);
+		if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
+			cmgd_destroy_trxn(&sessn->trxn_id);
 
 		cmgd_frntnd_sessn_list_del(&sessn->adptr->frntnd_sessns, sessn);
 		cmgd_frntnd_adapter_unlock(&sessn->adptr);
@@ -238,6 +242,7 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	commcfg_reply.dst_db_id = dst_db_id;
 	commcfg_reply.req_id = req_id;
 	commcfg_reply.success = success;
+	commcfg_reply.validate_only = validate_only;
 	if (error_if_any) {
 		commcfg_reply.error_if_any = (char *) error_if_any;
 	}
@@ -380,10 +385,10 @@ static int cmgd_frntnd_session_handle_config_req_msg(
 			return 0;
 		}
 
-		CMGD_FRNTND_ADPTR_DBG("Created new Config Trxn 0x%lx for session 0x%p",
+		CMGD_FRNTND_ADPTR_DBG("Created new Config Trxn 0x%lx for session %p",
 			sessn->cfg_trxn_id, sessn);
 	} else {
-		CMGD_FRNTND_ADPTR_DBG("Config Trxn 0x%lx for session 0x%p already created",
+		CMGD_FRNTND_ADPTR_DBG("Config Trxn 0x%lx for session %p already created",
 			sessn->cfg_trxn_id, sessn);
 	}
 
@@ -427,7 +432,7 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 
 	if (cmgd_trxn_send_commit_config_req(
 		sessn->cfg_trxn_id, commcfg_req->req_id, commcfg_req->src_db_id,
-		commcfg_req->src_db_id, commcfg_req->validate_only) != 0)
+		commcfg_req->dst_db_id, commcfg_req->validate_only) != 0)
 	{
 		cmgd_frntnd_send_commitcfg_reply(sessn,
 			commcfg_req->src_db_id, commcfg_req->dst_db_id,
@@ -846,6 +851,21 @@ int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
 	return cmgd_frntnd_send_commitcfg_reply(sessn,
 			src_db_id, dst_db_id, req_id, result == CMGD_SUCCESS,
 			validate_only, error_if_any);
+}
+
+int cmgd_frntnd_send_get_cfg_reply(cmgd_session_id_t session_id,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_client_req_id_t req_id, cmgd_result_t result,
+        cmgd_yang_data_t *data_resp[], int num_data,
+	const char *error_if_any)
+{
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	sessn = (cmgd_frntnd_sessn_ctxt_t *)session_id;
+	if (!sessn || sessn->trxn_id != trxn_id)
+		return -1;
+
+	return 0;
 }
 
 int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,

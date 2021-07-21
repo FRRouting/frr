@@ -40,6 +40,8 @@ extern int cmgd_db_init(struct cmgd_master *cm);
 extern cmgd_db_hndl_t cmgd_db_get_hndl_by_id(
         struct cmgd_master *cm, cmgd_database_id_t db_id);
 
+extern bool cmgd_db_is_config(cmgd_db_hndl_t db_hndl);
+
 extern int cmgd_db_read_lock(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_write_lock(cmgd_db_hndl_t db_hndl);

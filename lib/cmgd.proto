@@ -38,20 +38,25 @@ message YangDataXPath {
 
 message YangDataValue {
   oneof value {
-    bool bool_val = 2;
-    double double_val = 3;
-    float float_val = 4;
-    string string_val = 5;
-    bytes bytes_val = 6;
-    int32 int32_val = 7;
-    int64 int64_val = 8;
-    uint32 uint32_val = 9;
-    uint64 uint64_val = 10;
-    int32 int8_val = 11;
-    uint32 uint8_val = 12;
-    int32 int16_val = 13;
-    uint32 uint16_val = 14;
-    string encoded_str_val = 15;
+    // 
+    // NOTE: For now let's use stringized value ONLY.
+    // We will enhance it later to pass native-format
+    // if needed.
+    //
+    // bool bool_val = 2;
+    // double double_val = 3;
+    // float float_val = 4;
+    // string string_val = 5;
+    // bytes bytes_val = 6;
+    // int32 int32_val = 7;
+    // int64 int64_val = 8;
+    // uint32 uint32_val = 9;
+    // uint64 uint64_val = 10;
+    // int32 int8_val = 11;
+    // uint32 uint8_val = 12;
+    // int32 int16_val = 13;
+    // uint32 uint16_val = 14;
+    string encoded_str_val = 100;
   }
 }
 

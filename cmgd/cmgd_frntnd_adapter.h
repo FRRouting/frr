@@ -89,6 +89,12 @@ extern int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
 	bool validate_only, cmgd_result_t result,
 	const char *error_if_any);
 
+extern int cmgd_frntnd_send_get_cfg_reply(cmgd_session_id_t session_id,
+        cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
+        cmgd_client_req_id_t req_id, cmgd_result_t result,
+        cmgd_yang_data_t *data_resp[], int num_data,
+        const char *error_if_any);
+
 extern int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
         cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
         cmgd_client_req_id_t req_id, cmgd_result_t result,
