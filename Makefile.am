@@ -29,11 +29,33 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/lib/assert \
 	$(CPPFLAGS_BASE) \
 	# end
+
+# AM_LDFLAGS is used for executables (daemons).  LDFLAGS can be left alone,
+# but if it is changed it should include $(AM_LDFLAGS)
 AM_LDFLAGS = \
+	-export-dynamic \
+	$(AC_LDFLAGS) \
+	$(AC_LDFLAGS_EXEC) \
+	$(SAN_FLAGS) \
+	# end
+
+# libraries need to use libxxx_LDFLAGS = $(LIB_LDFLAGS) -version-info X:Y:Z
+LIB_LDFLAGS = \
 	-export-dynamic \
 	$(AC_LDFLAGS) \
 	$(SAN_FLAGS) \
 	# end
+
+# modules need to use xxx_LDFLAGS = $(MODULE_LDFLAGS)
+MODULE_LDFLAGS = \
+	-export-dynamic \
+	-avoid-version \
+	-module \
+	-shared \
+	$(AC_LDFLAGS) \
+	$(SAN_FLAGS) \
+	# end
+
 DEFS = @DEFS@ -DSYSCONFDIR=\"$(sysconfdir)/\" -DCONFDATE=$(CONFDATE)
 
 AR_FLAGS = @AR_FLAGS@
