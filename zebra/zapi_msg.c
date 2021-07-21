@@ -3107,6 +3107,8 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 	}
 
 	zvrf->label[afi] = nlabel;
+	zvrf->label_proto[afi] = client->proto;
+
 stream_failure:
 	return;
 }

@@ -595,6 +595,8 @@ static void zserv_client_free(struct zserv *client)
 		close(client->sock);
 
 		if (DYNAMIC_CLIENT_GR_DISABLED(client)) {
+			zebra_mpls_client_cleanup_vrf_label(client->proto);
+
 			nroutes = rib_score_proto(client->proto,
 						  client->instance);
 			zlog_notice(
