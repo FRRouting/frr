@@ -765,8 +765,7 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
                     ll_per_if_count = 0
 
                 # Interface ip
-                m1 = re_search('inet6 (fe80[:a-fA-F0-9]+[\/0-9]+)',
-                              line)
+                m1 = re_search('inet6 (fe80[:a-fA-F0-9]+/[0-9]+)', line)
                 if m1:
                     local = m1.group(1)
                     ll_per_if_count += 1

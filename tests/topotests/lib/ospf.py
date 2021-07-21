@@ -25,8 +25,6 @@ from copy import deepcopy
 from ipaddress import IPv6Address
 from time import sleep
 
-import ipaddr
-
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
     create_common_configurations,
@@ -1147,7 +1145,7 @@ def verify_ospf_rib(
                     nh_found = False
 
                     for st_rt in ip_list:
-                        st_rt = str(ipaddr.IPNetwork(frr_unicode(st_rt)))
+                        st_rt = str(ipaddress.ip_network(frr_unicode(st_rt)))
 
                         _addr_type = validate_ip_address(st_rt)
                         if _addr_type != "ipv4":
@@ -1720,7 +1718,7 @@ def verify_ospf6_rib(tgen, dut, input_dict, next_hop=None,
     additional_nexthops_in_required_nhs = []
     found_hops = []
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 

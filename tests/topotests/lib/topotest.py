@@ -44,8 +44,10 @@ from lib.topolog import logger
 
 if sys.version_info[0] > 2:
     import configparser
+    from collections.abc import Mapping
 else:
     import ConfigParser as configparser
+    from collections import Mapping
 
 from lib import micronet
 from lib.micronet_compat import Node
@@ -2071,3 +2073,7 @@ def frr_unicode(s):
         return s
     else:
         return unicode(s)  # pylint: disable=E0602
+
+
+def is_mapping(o):
+    return isinstance(o, Mapping)
