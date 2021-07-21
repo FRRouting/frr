@@ -25,7 +25,6 @@ from collections import OrderedDict
 from copy import deepcopy
 from re import search as re_search
 
-import ipaddr
 import pytest
 
 from lib.bgp import create_router_bgp
@@ -94,7 +93,7 @@ def build_topo_from_json(tgen, topo):
         # Physical Interfaces
         if "links" in topo["routers"][curRouter]:
             for destRouterLink, data in sorted(
-                topo["routers"][curRouter]["links"].iteritems()
+                topo["routers"][curRouter]["links"].items()
             ):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]
                 # Loopback interfaces
@@ -275,7 +274,7 @@ def build_topo_from_json(tgen, topo):
                             ] = "{}/{}".format(
                                 ipv6Next, topo["link_ip_start"]["v6mask"]
                             )
-                            ipv6Next = ipaddr.IPv6Address(int(ipv6Next) + ipv6Step)
+                            ipv6Next = ipaddress.IPv6Address(int(ipv6Next) + ipv6Step)
 
             logger.debug(
                 "Generated link data for router: %s\n%s",
