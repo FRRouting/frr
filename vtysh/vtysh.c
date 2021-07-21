@@ -2803,6 +2803,18 @@ DEFUNSH(VTYSH_INTERFACE, vtysh_quit_interface, vtysh_quit_interface_cmd, "quit",
 	return vtysh_exit_interface(self, vty, argc, argv);
 }
 
+DEFUNSH(VTYSH_ZEBRA, vtysh_exit_pseudowire, vtysh_exit_pseudowire_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_ZEBRA, vtysh_quit_pseudowire, vtysh_quit_pseudowire_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_pseudowire(self, vty, argc, argv);
+}
+
 static char *do_prepend(struct vty *vty, struct cmd_token **argv, int argc)
 {
 	const char *argstr[argc + 1];
@@ -2905,6 +2917,20 @@ DEFUNSH(VTYSH_ZEBRA, exit_link_params, exit_link_params_cmd, "exit-link-params",
 	if (vty->node == LINK_PARAMS_NODE)
 		vty->node = INTERFACE_NODE;
 	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, vtysh_exit_link_params, vtysh_exit_link_params_cmd, "exit",
+	"Exit current mode and down to previous mode\n")
+{
+	if (vty->node == LINK_PARAMS_NODE)
+		vty->node = INTERFACE_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUNSH(VTYSH_ZEBRA, vtysh_quit_link_params, vtysh_quit_link_params_cmd, "quit",
+	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_link_params(self, vty, argc, argv);
 }
 
 DEFUNSH_HIDDEN (0x00,
@@ -4445,13 +4471,14 @@ void vtysh_init_vty(void)
 	install_element(INTERFACE_NODE, &vtysh_link_params_cmd);
 	install_element(LINK_PARAMS_NODE, &exit_link_params_cmd);
 	install_element(LINK_PARAMS_NODE, &vtysh_end_all_cmd);
-	install_element(LINK_PARAMS_NODE, &vtysh_exit_interface_cmd);
+	install_element(LINK_PARAMS_NODE, &vtysh_exit_link_params_cmd);
+	install_element(LINK_PARAMS_NODE, &vtysh_quit_link_params_cmd);
 
 	install_node(&pw_node);
 	install_element(CONFIG_NODE, &vtysh_pseudowire_cmd);
 	install_element(PW_NODE, &vtysh_end_all_cmd);
-	install_element(PW_NODE, &vtysh_exit_interface_cmd);
-	install_element(PW_NODE, &vtysh_quit_interface_cmd);
+	install_element(PW_NODE, &vtysh_exit_pseudowire_cmd);
+	install_element(PW_NODE, &vtysh_quit_pseudowire_cmd);
 
 	install_node(&vrf_node);
 	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
