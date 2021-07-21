@@ -2247,7 +2247,7 @@ def verify_bgp_attributes(
     """
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         if router != dut:
             continue
 

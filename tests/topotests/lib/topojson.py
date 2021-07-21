@@ -91,7 +91,7 @@ def build_topo_from_json(tgen, topo):
         # Physical Interfaces
         if "links" in topo["routers"][curRouter]:
             for destRouterLink, data in sorted(
-                topo["routers"][curRouter]["links"].iteritems()
+                topo["routers"][curRouter]["links"].items()
             ):
                 currRouter_lo_json = topo["routers"][curRouter]["links"][destRouterLink]
                 # Loopback interfaces

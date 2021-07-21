@@ -1645,7 +1645,7 @@ def verify_ospf6_rib(tgen, dut, input_dict, next_hop=None,
     additional_nexthops_in_required_nhs = []
     found_hops = []
     for routerInput in input_dict.keys():
-        for router, rnode in router_list.iteritems():
+        for router, rnode in router_list.items():
             if router != dut:
                 continue
 
@@ -1920,8 +1920,8 @@ def verify_ospf6_interface(tgen, topo, dut=None,lan=False, input_dict=None):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
 
-    for router, rnode in tgen.routers().iteritems():
-        if "ospf6" not in topo["routers"][router]:
+    for router, rnode in tgen.routers().items():
+        if 'ospf6' not in topo['routers'][router]:
             continue
 
         if dut is not None and dut != router:
