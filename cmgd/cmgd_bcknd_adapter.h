@@ -25,6 +25,25 @@
 #include "cmgd/cmgd_defines.h"
 #include "lib/cmgd_bcknd_client.h"
 
+#define CMGD_FIND_ADAPTER_BY_INDEX(adapter_index)	\
+	cmgd_adaptr_ref[adapter_index]
+
+// List of adapter clients of CMGD
+#define CMGD_BCKND_CLIENT_INDEX_STATICD (1 << CMGD_BCKND_CLIENT_ID_STATICD)
+#define CMGD_BCKND_CLIENT_INDEX_BGPD (1 << CMGD_BCKND_CLIENT_ID_BGPD)
+
+// XPATH regular expression map index
+typedef enum cmgd_bcknd_xpath_regexp_id_ {
+	CMGD_BCKND_XPATH_REGEXP_ID_FILTER,
+	CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE,
+	CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP,
+	CMGD_BCKND_XPATH_REGEXP_ID_VRF,
+	CMGD_BCKND_XPATH_REGEXP_ID_ROUTING,
+	CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC,
+	CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP,
+	CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP,
+} cmgd_bcknd_xpath_regexp_id_t;
+
 typedef enum cmgd_bcknd_req_type_ {
         CMGD_BCKND_REQ_NONE = 0,
         CMGD_BCKND_REQ_CFG_VALIDATE,
@@ -32,6 +51,12 @@ typedef enum cmgd_bcknd_req_type_ {
         CMGD_BCKND_REQ_DATA_GET_ELEM,
         CMGD_BCKND_REQ_DATA_GET_NEXT
 } cmgd_bcknd_req_type_t;
+
+typedef struct cmgd_bcknd_xpath_map_ {
+	uint32_t xpath_regex_id;   // ID for easy access
+	const char *xpath_regexp;  // hierarchical expression
+	uint32_t bknd_client_ids;  // Stores list of adapter IDs
+} cmgd_bcknd_xpath_map_t;
 
 typedef struct cmgd_bcknd_cfgreq_ {
         cmgd_bcknd_req_type_t req_type;
@@ -97,6 +122,7 @@ typedef struct cmgd_bcknd_client_adapter_ {
 	/* Buffer of data waiting to be written to client. */
 	// struct buffer *wb;
 
+        int adapter_index;
         int refcount;
 
         struct cmgd_bcknd_adptr_list_item list_linkage;
@@ -105,6 +131,8 @@ typedef struct cmgd_bcknd_client_adapter_ {
 
 DECLARE_LIST(cmgd_bcknd_adptr_list, cmgd_bcknd_client_adapter_t, list_linkage);
 DECLARE_LIST(cmgd_trxn_badptr_list, cmgd_bcknd_client_adapter_t, trxn_list_linkage);
+
+extern cmgd_bcknd_client_adapter_t *cmgd_adaptr_ref[CMGD_BCKND_CLIENT_ID_MAX];
 
 extern int cmgd_bcknd_adapter_init(struct thread_master *tm);
 
@@ -137,4 +165,6 @@ extern int cmgd_bcknd_send_get_next_data_req(
 
 extern void cmgd_bcknd_adapter_status_write(struct vty *vty);
 
+extern void cmgd_bcknd_adaptr_ref_init(void);
+extern uint32_t cmgd_trxn_derive_adapters_for_xpath(const char *xpath);
 #endif /* _FRR_CMGD_BCKND_ADAPTER_H_ */

@@ -46,9 +46,18 @@ extern "C" {
 #define CMGD_BCKND_MSG_MAX_LEN		        4096
 
 
+#define CMGD_BCKND_CLIENT_BGPD			"bgpd"
+#define CMGD_BCKND_CLIENT_STATICD		"staticd"
+
 /***************************************************************
  * Data-structures
  ***************************************************************/
+
+typedef enum cmgd_bcknd_client_id_ {
+        CMGD_BCKND_CLIENT_ID_STATICD = 0,
+        CMGD_BCKND_CLIENT_ID_BGPD,
+        CMGD_BCKND_CLIENT_ID_MAX
+} cmgd_bcknd_client_id_t;
 
 typedef struct cmgd_bcknd_msg_hdr_ {
 	uint16_t		marker;
