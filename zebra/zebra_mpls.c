@@ -3932,6 +3932,40 @@ void zebra_mpls_cleanup_tables(struct zebra_vrf *zvrf)
 }
 
 /*
+ * When a vrf label is assigned and the client goes away
+ * we should cleanup the vrf labels associated with
+ * that zclient.
+ */
+void zebra_mpls_client_cleanup_vrf_label(uint8_t proto)
+{
+	struct vrf *vrf;
+	struct zebra_vrf *def_zvrf = zebra_vrf_lookup_by_id(VRF_DEFAULT);
+
+	if (def_zvrf == NULL)
+		return;
+
+	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+		struct zebra_vrf *zvrf = vrf->info;
+		afi_t afi;
+
+		if (!zvrf)
+			continue;
+
+		for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+			if (zvrf->label_proto[afi] == proto
+			    && zvrf->label[afi] != MPLS_LABEL_NONE)
+				lsp_uninstall(def_zvrf, zvrf->label[afi]);
+
+			/*
+			 * Cleanup data structures by fiat
+			 */
+			zvrf->label_proto[afi] = 0;
+			zvrf->label[afi] = MPLS_LABEL_NONE;
+		}
+	}
+}
+
+/*
  * Called upon process exiting, need to delete LSP forwarding
  * entries from the kernel.
  * NOTE: Currently supported only for default VRF.

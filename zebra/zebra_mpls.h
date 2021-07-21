@@ -416,6 +416,12 @@ void zebra_mpls_init(void);
  */
 void zebra_mpls_vty_init(void);
 
+/*
+ * When cleaning up a client connection ensure that there are no
+ * vrf labels that need cleaning up too
+ */
+void zebra_mpls_client_cleanup_vrf_label(uint8_t proto);
+
 /* Inline functions. */
 
 /*
