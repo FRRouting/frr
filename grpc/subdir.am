@@ -2,7 +2,7 @@ if GRPC
 lib_LTLIBRARIES += grpc/libfrrgrpc_pb.la
 endif
 
-grpc_libfrrgrpc_pb_la_LDFLAGS = -version-info 0:0:0
+grpc_libfrrgrpc_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 grpc_libfrrgrpc_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(GRPC_CXXFLAGS)
 
 if GRPC
