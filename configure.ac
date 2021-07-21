@@ -264,11 +264,11 @@ AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 dnl if the user has specified any CFLAGS, override our settings
 if test "$enable_gcov" = "yes"; then
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-coverage])
+      AC_C_FLAG([--coverage])
       AC_C_FLAG([-O0])
    fi
 
-   AC_LDFLAGS="${AC_LDFLAGS} -lgcov"
+   AC_LDFLAGS="${AC_LDFLAGS} --coverage"
 fi
 
 if test "$enable_clang_coverage" = "yes"; then
