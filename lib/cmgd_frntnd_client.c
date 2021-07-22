@@ -228,6 +228,7 @@ static int cmgd_frntnd_send_lockdb_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 
 	cmgd__frntnd_lock_db_req__init(&lockdb_req);
 	lockdb_req.session_id = (uint64_t) sessn->session_id;
+	lockdb_req.req_id = req_id;
 	lockdb_req.db_id = db_id;
 	lockdb_req.lock = lock;
 
@@ -413,6 +414,28 @@ static int cmgd_frntnd_client_handle_msg(
 				frntnd_msg->sessn_reply->success,
 				(cmgd_session_id_t) sessn, sessn->user_ctxt);
 		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__LOCK_DB_REPLY:
+		assert(frntnd_msg->message_case == 
+			CMGD__FRNTND_MESSAGE__MESSAGE_LOCKDB_REPLY);
+		CMGD_FRNTND_CLNT_DBG(
+			"Got LockDb Reply Msg for session-id %llu", 
+			frntnd_msg->lockdb_reply->session_id);
+		sessn = cmgd_frntnd_find_session_by_sessn_id(clnt_ctxt,
+				frntnd_msg->lockdb_reply->session_id);
+
+		if (sessn && sessn->clnt_ctxt &&
+		    sessn->clnt_ctxt->client_params.lock_db_result_cb)
+			(*sessn->clnt_ctxt->client_params.lock_db_result_cb)(
+				(cmgd_lib_hndl_t)clnt_ctxt,
+				clnt_ctxt->client_params.user_data,
+				sessn->client_id, (cmgd_session_id_t) sessn,
+				sessn->user_ctxt,
+				frntnd_msg->lockdb_reply->req_id,
+				frntnd_msg->lockdb_reply->lock,
+				frntnd_msg->lockdb_reply->success,
+				frntnd_msg->lockdb_reply->db_id, 
+				frntnd_msg->lockdb_reply->error_if_any);
+		break;
 	case CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REPLY:
 		assert(frntnd_msg->message_case == 
 			CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REPLY);
@@ -430,8 +453,8 @@ static int cmgd_frntnd_client_handle_msg(
 				(cmgd_lib_hndl_t)clnt_ctxt,
 				clnt_ctxt->client_params.user_data,
 				sessn->client_id, (cmgd_session_id_t) sessn,
-				frntnd_msg->setcfg_reply->req_id, 
 				sessn->user_ctxt,
+				frntnd_msg->setcfg_reply->req_id, 
 				frntnd_msg->setcfg_reply->success,
 				frntnd_msg->setcfg_reply->db_id, 
 				frntnd_msg->setcfg_reply->error_if_any);
@@ -880,7 +903,7 @@ cmgd_result_t cmgd_frntnd_lock_db(
 		return CMGD_INVALID_PARAM;
 
 	if (cmgd_frntnd_send_lockdb_req(
-		clnt_ctxt, sessn, req_id, lock_db, db_id) != 0)
+		clnt_ctxt, sessn, lock_db, req_id, db_id) != 0)
 		return CMGD_INTERNAL_ERROR;
 
 	return CMGD_SUCCESS;

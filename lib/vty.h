@@ -344,8 +344,11 @@ extern void vty_stdio_close(void);
 extern void vty_log_fixed(char *buf, size_t len);
 
 extern void vty_init_cmgd(void);
-extern void vty_cmgd_send_config_data(struct vty *vty);
-extern cmgd_result_t vty_cmgd_send_commit_config(struct vty *vty);
+extern int vty_cmgd_send_config_data(struct vty *vty);
+extern int vty_cmgd_send_commit_config(struct vty *vty);
+extern int vty_cmgd_send_lockdb_req(struct vty *vty,
+	cmgd_database_id_t db_id, bool lock);
+
 #ifdef __cplusplus
 }
 #endif

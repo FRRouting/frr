@@ -86,8 +86,56 @@ static void cmgd_frntnd_adapter_disconnect(
 static void cmgd_frntnd_session_register_event(
 	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event);
 
+static int cmgd_frntnd_session_write_lock_db(
+	cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+	cmgd_frntnd_sessn_ctxt_t *sessn)
+{
+	if (!sessn->db_write_locked[db_id]) { 
+		if (cmgd_db_write_lock(db_hndl) != 0) {
+			CMGD_FRNTND_ADPTR_DBG("Failed to unlock the DB %u for Sessn: %p from %s!",
+				db_id, sessn, sessn->adptr->name);
+			return -1;
+		}
+
+		sessn->db_write_locked[db_id] = true;
+		CMGD_FRNTND_ADPTR_DBG("Write-Locked the DB %u for Sessn: %p from %s!",
+			db_id, sessn, sessn->adptr->name);
+	}
+
+	return 0;
+}
+
+static int cmgd_frntnd_session_write_unlock_db(
+	cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+	cmgd_frntnd_sessn_ctxt_t *sessn)
+{
+	if (sessn->db_write_locked[db_id]) { 
+		sessn->db_write_locked[db_id] = false;
+		if (cmgd_db_unlock(db_hndl) != 0) {
+			CMGD_FRNTND_ADPTR_DBG("Failed to unlock the DB %u taken earlier by Sessn: %p from %s!",
+				db_id, sessn, sessn->adptr->name);
+			return -1;
+		}
+
+		CMGD_FRNTND_ADPTR_DBG("Unlocked DB %u locked earlier by Sessn: %p from %s",
+			db_id, sessn, sessn->adptr->name);
+	}
+
+	return 0;
+}
+
 static void cmgd_frntnd_sessn_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 {
+	cmgd_database_id_t db_id;
+	cmgd_db_hndl_t db_hndl;
+
+	for (db_id = 0; db_id < CMGD_DB_MAX_ID; db_id++) {
+		db_hndl = cmgd_db_get_hndl_by_id(cmgd_frntnd_adptr_cm, db_id);
+		if (db_hndl) {
+			cmgd_frntnd_session_write_unlock_db(db_id, db_hndl, sessn);
+		}
+	}
+
 	if (sessn->cfg_trxn_id != CMGD_TRXN_ID_NONE)
 		cmgd_destroy_trxn(&sessn->cfg_trxn_id);
 	if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
@@ -214,6 +262,36 @@ static int cmgd_frntnd_send_session_reply(cmgd_frntnd_client_adapter_t *adptr,
 	return cmgd_frntnd_adapter_send_msg(adptr, &frntnd_msg);
 }
 
+static int cmgd_frntnd_send_lockdb_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
+	cmgd_database_id_t db_id, cmgd_client_req_id_t req_id, bool lock_db,
+	bool success, const char *error_if_any)
+{
+	Cmgd__FrntndMessage frntnd_msg;
+	Cmgd__FrntndLockDbReply lockdb_reply;
+
+	assert(sessn->adptr);
+
+	cmgd__frntnd_lock_db_reply__init(&lockdb_reply);
+	lockdb_reply.session_id = (uint64_t) sessn;
+	lockdb_reply.db_id = db_id;
+	lockdb_reply.req_id = req_id;
+	lockdb_reply.lock = lock_db;
+	lockdb_reply.success = success;
+	if (error_if_any) {
+		lockdb_reply.error_if_any = (char *) error_if_any;
+	}
+
+	cmgd__frntnd_message__init(&frntnd_msg);
+	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__LOCK_DB_REPLY;
+	frntnd_msg.message_case = CMGD__FRNTND_MESSAGE__MESSAGE_LOCKDB_REPLY;
+	frntnd_msg.lockdb_reply = &lockdb_reply;
+
+	CMGD_FRNTND_ADPTR_DBG("Sending LOCK_DB_REPLY message to CMGD Frontend client '%s'",
+		sessn->adptr->name);
+
+	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
+}
+
 static int cmgd_frntnd_send_setcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	cmgd_database_id_t db_id, cmgd_client_req_id_t req_id,
 	bool success, const char *error_if_any)
@@ -282,6 +360,33 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
 
+static int cmgd_frntnd_session_trxn_clnup(struct thread *thread)
+{
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	sessn = (cmgd_frntnd_sessn_ctxt_t *)THREAD_ARG(thread);
+
+	cmgd_frntnd_sessn_trxn_cleanup(sessn);
+
+	return 0;
+}
+
+static void cmgd_frntnd_session_register_event(
+	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event)
+{
+	switch (event) {
+	case CMGD_FRNTND_SESSN_TRXN_CLNUP:
+		sessn->proc_trxn_clnp = 
+			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
+				cmgd_frntnd_session_trxn_clnup, sessn,
+				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+		break;
+	default:
+		assert(!"cmgd_frntnd_adptr_post_event() called incorrectly");
+		break;
+	}
+}
+
 static cmgd_frntnd_client_adapter_t *cmgd_frntnd_find_adapter_by_fd(int conn_fd)
 {
 	cmgd_frntnd_client_adapter_t *adptr;
@@ -340,7 +445,68 @@ static void cmgd_frntnd_adapter_cleanup_old_conn(
 	}
 }
 
-static int cmgd_frntnd_session_handle_config_req_msg(
+static int cmgd_frntnd_session_handle_lockdb_req_msg(
+	cmgd_frntnd_sessn_ctxt_t *sessn,
+	Cmgd__FrntndLockDbReq *lockdb_req)
+{
+	cmgd_db_hndl_t db_hndl;
+
+	/*
+	 * Next check first if the SET_CONFIG_REQ is for Candidate DB 
+	 * or not. Report failure if its not. CMGD currently only
+	 * supports editing the Candidate DB.
+	 */
+	if (lockdb_req->db_id != CMGD_DB_CANDIDATE) {
+		cmgd_frntnd_send_lockdb_reply(sessn,
+			lockdb_req->db_id, lockdb_req->req_id,
+			lockdb_req->lock, false,
+			"Lock/Unlock on databases other than Candidate DB not permitted!");
+		return -1;
+	}
+
+	db_hndl = cmgd_db_get_hndl_by_id(
+		cmgd_frntnd_adptr_cm, lockdb_req->db_id);
+	if (!db_hndl) {
+		cmgd_frntnd_send_lockdb_reply(sessn,
+			lockdb_req->db_id, lockdb_req->req_id,
+			lockdb_req->lock, false,
+			"Failed to retrieve handle for DB!");
+		return -1;
+	}
+
+	if (lockdb_req->lock) {
+		if (cmgd_frntnd_session_write_lock_db(
+			lockdb_req->db_id, db_hndl, sessn) != 0) {
+			cmgd_frntnd_send_lockdb_reply(sessn,
+				lockdb_req->db_id, lockdb_req->req_id,
+				lockdb_req->lock, false,
+				"Lock already taken on DB by another session!");
+			return -1;
+		}
+	} else {
+		if (!sessn->db_write_locked[lockdb_req->db_id]) {
+			cmgd_frntnd_send_lockdb_reply(sessn,
+				lockdb_req->db_id, lockdb_req->req_id,
+				lockdb_req->lock, false,
+				"Lock on DB was not taken by this session!");
+			return 0;
+		}
+
+		(void) cmgd_frntnd_session_write_unlock_db(lockdb_req->db_id,
+				db_hndl, sessn);
+	}
+
+	if (!cmgd_frntnd_send_lockdb_reply(sessn,
+		lockdb_req->db_id, lockdb_req->req_id,
+		lockdb_req->lock, true, NULL) != 0) {
+		CMGD_FRNTND_ADPTR_DBG("Failed to send LOCK_DB_REPLY for DB %u Sessn: %p from %s",
+				lockdb_req->db_id, sessn, sessn->adptr->name);
+	}
+
+	return 0;
+}
+
+static int cmgd_frntnd_session_handle_setcfg_req_msg(
 	cmgd_frntnd_sessn_ctxt_t *sessn,
 	Cmgd__FrntndSetConfigReq *setcfg_req)
 {
@@ -386,15 +552,12 @@ static int cmgd_frntnd_session_handle_config_req_msg(
 			return 0;
 		}
 
-		if (!sessn->db_write_locked[setcfg_req->db_id]) { 
-			if (cmgd_db_write_lock(db_hndl) != 0) {
-				cmgd_frntnd_send_setcfg_reply(sessn,
-					setcfg_req->db_id, setcfg_req->req_id, false,
-					"Failed to lock the DB!");
-				return 0;
-			}
-
-			sessn->db_write_locked[setcfg_req->db_id] = true;
+		if (cmgd_frntnd_session_write_lock_db(
+			setcfg_req->db_id, db_hndl, sessn) != 0) {
+			cmgd_frntnd_send_setcfg_reply(sessn,
+				setcfg_req->db_id, setcfg_req->req_id, false,
+				"Failed to lock the DB!");
+			return 0;
 		}
 
 		/*
@@ -468,33 +631,6 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 	return 0;
 }
 
-static int cmgd_frntnd_session_trxn_clnup(struct thread *thread)
-{
-	cmgd_frntnd_sessn_ctxt_t *sessn;
-
-	sessn = (cmgd_frntnd_sessn_ctxt_t *)THREAD_ARG(thread);
-
-	cmgd_frntnd_sessn_trxn_cleanup(sessn);
-
-	return 0;
-}
-
-static void cmgd_frntnd_session_register_event(
-	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event)
-{
-	switch (event) {
-	case CMGD_FRNTND_SESSN_TRXN_CLNUP:
-		sessn->proc_trxn_clnp = 
-			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
-				cmgd_frntnd_session_trxn_clnup, sessn,
-				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
-		break;
-	default:
-		assert(!"cmgd_frntnd_adptr_post_event() called incorrectly");
-		break;
-	}
-}
-
 static int cmgd_frntnd_adapter_handle_msg(
 	cmgd_frntnd_client_adapter_t *adptr, Cmgd__FrntndMessage *frntnd_msg)
 {
@@ -540,6 +676,17 @@ static int cmgd_frntnd_adapter_handle_msg(
 			cmgd_frntnd_cleanup_session(&sessn);
 		}
 		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__LOCK_DB_REQ:
+		assert(frntnd_msg->message_case == CMGD__FRNTND_MESSAGE__MESSAGE_LOCKDB_REQ);
+		sessn = (cmgd_frntnd_sessn_ctxt_t *)
+				frntnd_msg->lockdb_req->session_id;
+		CMGD_FRNTND_ADPTR_DBG(
+				"Got %sockDB Req Msg for DB:%d for session-id %llx from '%s'", 
+				frntnd_msg->lockdb_req->lock ? "L" : "Unl",
+				frntnd_msg->lockdb_req->db_id,
+				frntnd_msg->lockdb_req->session_id, adptr->name);
+		cmgd_frntnd_session_handle_lockdb_req_msg(sessn, frntnd_msg->lockdb_req);
+		break;
 	case CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REQ:
 		assert(frntnd_msg->message_case == CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REQ);
 		sessn = (cmgd_frntnd_sessn_ctxt_t *)
@@ -550,7 +697,7 @@ static int cmgd_frntnd_adapter_handle_msg(
 				frntnd_msg->setcfg_req->db_id,
 				frntnd_msg->setcfg_req->session_id, adptr->name);
 
-		cmgd_frntnd_session_handle_config_req_msg(
+		cmgd_frntnd_session_handle_setcfg_req_msg(
 				sessn, frntnd_msg->setcfg_req);
 		break;
 	case CMGD__FRNTND_MESSAGE__TYPE__COMMIT_CONFIG_REQ:

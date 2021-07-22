@@ -261,16 +261,18 @@ enum DatabaseId {
 
 message FrntndLockDbReq {
   required uint64 session_id = 1;
-  required DatabaseId db_id = 2;
-  required bool lock = 3;
+  required uint64 req_id = 2;
+  required DatabaseId db_id = 3;
+  required bool lock = 4;
 }
 
 message FrntndLockDbReply {
   required uint64 session_id = 1;
-  required DatabaseId db_id = 2;
-  required bool lock = 3;
-  required bool success = 4;
-  optional string error_if_any = 5;
+  required uint64 req_id = 2;
+  required DatabaseId db_id = 3;
+  required bool lock = 4;
+  required bool success = 5;
+  optional string error_if_any = 6;
 }
 
 message FrntndSetConfigReq {

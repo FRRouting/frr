@@ -48,6 +48,10 @@ extern int cmgd_db_write_lock(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_unlock(cmgd_db_hndl_t db_hndl);
 
+extern int cmgd_db_merge_dbs(cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db);
+
+extern int cmgd_db_copy_dbs(cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db);
+
 extern struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_lookup_data_nodes(

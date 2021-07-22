@@ -63,7 +63,9 @@ typedef struct cmgd_set_cfg_req_ {
 
 typedef struct cmgd_commit_cfg_req_ {
 	cmgd_database_id_t src_db_id;
+	cmgd_db_hndl_t src_db_hndl;
 	cmgd_database_id_t dst_db_id;
+	cmgd_db_hndl_t dst_db_hndl;
 	bool validate_only;
 	uint32_t nb_trxn_id;
 } cmgd_commit_cfg_req_t;
@@ -402,6 +404,20 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 			trxn, trxn->session_id);
 		return -1;
 	}
+
+	if (success) {
+		/*
+		 * Successful commit: Merge Src DB into Dst DB.
+		 */
+		cmgd_db_merge_dbs(trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
+			trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
+	} else {
+		/*
+		 * Commit Failure: Copy Dst DB onto Src DB.
+		 */
+		cmgd_db_copy_dbs(trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
+			trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
+	}
 	
 	cmgd_trxn_req_free(&trxn->commit_cfg_req);
 
@@ -416,7 +432,6 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	struct nb_context nb_ctxt = { 0 };
-	cmgd_db_hndl_t db_hndl;
 	struct nb_config *nb_config;
 	char err_buf[1024];
 
@@ -442,16 +457,28 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		goto cmgd_trxn_process_commit_cfg_done;	
 	}
 
-	db_hndl = cmgd_db_get_hndl_by_id(
+	trxn->commit_cfg_req->req.commit_cfg.src_db_hndl = 
+		cmgd_db_get_hndl_by_id(
 			cmgd_trxn_cm,
 			trxn->commit_cfg_req->req.commit_cfg.src_db_id);
-	if (!db_hndl) {
+	if (!trxn->commit_cfg_req->req.commit_cfg.src_db_hndl) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
-			"No such database!");
+			"No such source database!");
 		goto cmgd_trxn_process_commit_cfg_done;
 	}
 
-	nb_config = cmgd_db_get_nb_config(db_hndl);
+	trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl = 
+		cmgd_db_get_hndl_by_id(
+			cmgd_trxn_cm,
+			trxn->commit_cfg_req->req.commit_cfg.dst_db_id);
+	if (!trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl) {
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
+			"No such destination database!");
+		goto cmgd_trxn_process_commit_cfg_done;
+	}
+
+	nb_config = cmgd_db_get_nb_config(
+			trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
 	if (!nb_config) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
 			"Unable to retrieve Commit DB Config Tree!");

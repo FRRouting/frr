@@ -202,9 +202,29 @@ DEFPY(cmgd_commit,
       "commit-apply",
       "Commit the set of commands\n")
 {
-	cmgd_result_t ret;
-	ret = vty_cmgd_send_commit_config(vty);
-	if (ret != CMGD_SUCCESS)
+	if (vty_cmgd_send_commit_config(vty) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_lock_db_candidate,
+      cmgd_lock_db_candidate_cmd,
+      "lock-database candidate",
+      "Lock the database\n"
+      "Candidate database\n")
+{
+	if (vty_cmgd_send_lockdb_req(vty, CMGD_DB_CANDIDATE, true) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_unlock_db_candidate,
+      cmgd_unlock_db_candidate_cmd,
+      "unlock-database candidate",
+      "Unlock the database\n"
+      "Candidate database\n")
+{
+	if (vty_cmgd_send_lockdb_req(vty, CMGD_DB_CANDIDATE, false) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	return CMD_SUCCESS;
 }
@@ -225,6 +245,8 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_db_cmd);
 
 	install_element(CONFIG_NODE, &cmgd_commit_cmd);
+	install_element(CONFIG_NODE, &cmgd_lock_db_candidate_cmd);
+	install_element(CONFIG_NODE, &cmgd_unlock_db_candidate_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

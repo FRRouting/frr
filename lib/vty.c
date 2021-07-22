@@ -3152,7 +3152,7 @@ static void vty_cmgd_session_created(
 	if (!success) {
 		zlog_err("ERROR: %s session for client %lu failed!", 
 			create ? "Creating" : "Destroying", client_id);
-		assert(!"CMGD session creation for VTY failed!");
+		// assert(!"CMGD session creation for VTY failed!");
 		return;
 	}
 
@@ -3160,8 +3160,30 @@ static void vty_cmgd_session_created(
 		create ? "Created" : "Destroyed", client_id);
 	if (create)
 		vty->cmgd_session_id = session_id;
-	// else
-	// 	vty->cmgd_session_id = 0;
+}
+
+static void vty_cmgd_db_lock_notified(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
+	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool lock_db,
+	bool success, cmgd_database_id_t db_id, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)client_id;
+
+	if (!success) {
+		zlog_err("ERROR: %socking for DB %u failed!", 
+			lock_db ? "L" : "Unl", db_id);
+		vty_out(vty, "ERROR: %socking for DB %u failed!", 
+			lock_db ? "L" : "Unl", db_id);
+		return;
+	}
+
+	zlog_err("%socked DB %u successfully!", 
+		lock_db ? "L" : "Unl", db_id);
+	vty_out(vty, "%socked DB %u successfully!", 
+		lock_db ? "L" : "Unl", db_id);
 }
 
 static void vty_cmgd_set_config_result_notified(
@@ -3185,24 +3207,6 @@ static void vty_cmgd_set_config_result_notified(
 
 	zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
 		client_id, req_id);
-#if 0
-	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-		if (cmgd_frntnd_commit_config_data(
-			cmgd_lib_hndl, vty->cmgd_session_id,
-			vty->cmgd_req_id, CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, false)
-			!= CMGD_SUCCESS) {
-			zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu/%lu!",
-				vty->cmgd_req_id, req_id);
-			vty_out(vty, "Failed to send COMMIT-REQ to CMGD!");
-			return;
-		}
-
-		zlog_err("Sent COMMIT_CONFIG request for client 0x%lx, req-id: %lu!",
-			client_id, vty->cmgd_req_id);
-	} else {
-		vty_out(vty, "\n");
-	}
-#endif
 }
 
 static void vty_cmgd_commit_config_result_notified(
@@ -3221,7 +3225,6 @@ static void vty_cmgd_commit_config_result_notified(
 			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed! Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
-		// assert(!"CMGD COMMIT_CONFIG request for VTY failed!");
 		return;
 	}
 
@@ -3234,6 +3237,7 @@ static void vty_cmgd_commit_config_result_notified(
 static cmgd_frntnd_client_params_t client_params = {
 	.name = "LIB-VTY",
 	.conn_notify_cb = vty_cmgd_server_connected,
+	.lock_db_result_cb = vty_cmgd_db_lock_notified,
 	.sess_req_result_cb = vty_cmgd_session_created,
 	.set_config_result_cb = vty_cmgd_set_config_result_notified,
 	.commit_cfg_result_cb = vty_cmgd_commit_config_result_notified,
@@ -3251,7 +3255,29 @@ void vty_init_cmgd(void)
 	assert(cmgd_lib_hndl);
 }
 
-void vty_cmgd_send_config_data(struct vty *vty)
+int vty_cmgd_send_lockdb_req(struct vty *vty,
+	cmgd_database_id_t db_id, bool lock)
+{
+	cmgd_result_t ret;
+
+	vty->cmgd_req_id++;
+	ret = cmgd_frntnd_lock_db(
+		cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
+		db_id, lock);
+	if (ret != CMGD_SUCCESS) {
+		zlog_err("Failed to send %sLOCK-DB-REQ to CMGD for req-id %lu.",
+			lock ? "" : "UN", vty->cmgd_req_id);
+		vty_out(vty, "Failed to send %sLOCK-DB-REQ to CMGD!",
+			lock ? "" : "UN");
+		return -1;
+	}
+
+	zlog_err("Sent %sLOCK-DB-REQ request for session 0x%lx, req-id: %lu!",
+		lock ? "" : "UN", vty->cmgd_session_id, vty->cmgd_req_id);
+	return 0;
+}
+
+int vty_cmgd_send_config_data(struct vty *vty)
 {
 	cmgd_yang_data_value_t value[VTY_MAXCFGCHANGES];
 	cmgd_yang_data_t cfg_data[VTY_MAXCFGCHANGES];
@@ -3292,33 +3318,33 @@ void vty_cmgd_send_config_data(struct vty *vty)
 			!= CMGD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to CMGD!!",
 				(int) indx);
-			return;
+			return -1;
 		}
 
 		vty->cmgd_req_pending = true;
 	}
+
+	return 0;
 }
 
-cmgd_result_t vty_cmgd_send_commit_config(struct vty *vty)
+int vty_cmgd_send_commit_config(struct vty *vty)
 {
 	cmgd_result_t ret;
 
 	vty->cmgd_req_id++;
-	ret = cmgd_frntnd_commit_config_data(cmgd_lib_hndl,
-					     vty->cmgd_session_id,
-					     vty->cmgd_req_id,
-					     CMGD_DB_CANDIDATE,
-					     CMGD_DB_RUNNING, false);
+	ret = cmgd_frntnd_commit_config_data(
+		cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
+		CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, false);
 	if (ret != CMGD_SUCCESS) {
 		zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu.",
-			 vty->cmgd_req_id);
+			vty->cmgd_req_id);
 		vty_out(vty, "Failed to send COMMIT-REQ to CMGD!");
-		return ret;
+		return -1;
 	}
 
 	zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
-		 vty->cmgd_session_id, vty->cmgd_req_id);
-	return CMGD_SUCCESS;
+		vty->cmgd_session_id, vty->cmgd_req_id);
+	return 0;
 }
 
 /* Install vty's own commands like `who' command. */
