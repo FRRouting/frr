@@ -197,6 +197,18 @@ DEFPY(show_cmgd_db,
 	return CMD_SUCCESS;
 }
 
+DEFPY(cmgd_commit,
+      cmgd_commit_cmd,
+      "commit-apply",
+      "Commit the set of commands\n")
+{
+	cmgd_result_t ret;
+	ret = vty_cmgd_send_commit_config(vty);
+	if (ret != CMGD_SUCCESS)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
 void cmgd_vty_init(void)
 {
 	/* 
@@ -211,6 +223,8 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_trxn_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_cmd);
+
+	install_element(CONFIG_NODE, &cmgd_commit_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

@@ -3185,6 +3185,7 @@ static void vty_cmgd_set_config_result_notified(
 
 	zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
 		client_id, req_id);
+#if 0
 	if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
 		if (cmgd_frntnd_commit_config_data(
 			cmgd_lib_hndl, vty->cmgd_session_id,
@@ -3201,6 +3202,7 @@ static void vty_cmgd_set_config_result_notified(
 	} else {
 		vty_out(vty, "\n");
 	}
+#endif
 }
 
 static void vty_cmgd_commit_config_result_notified(
@@ -3294,6 +3296,28 @@ void vty_cmgd_send_config_data(struct vty *vty)
 
 		vty->cmgd_req_pending = true;
 	}
+}
+
+cmgd_result_t vty_cmgd_send_commit_config(struct vty *vty)
+{
+	cmgd_result_t ret;
+
+	vty->cmgd_req_id++;
+	ret = cmgd_frntnd_commit_config_data(cmgd_lib_hndl,
+					     vty->cmgd_session_id,
+					     vty->cmgd_req_id,
+					     CMGD_DB_CANDIDATE,
+					     CMGD_DB_RUNNING, false);
+	if (ret != CMGD_SUCCESS) {
+		zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu.",
+			 vty->cmgd_req_id);
+		vty_out(vty, "Failed to send COMMIT-REQ to CMGD!");
+		return ret;
+	}
+
+	zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
+		 vty->cmgd_session_id, vty->cmgd_req_id);
+	return CMGD_SUCCESS;
 }
 
 /* Install vty's own commands like `who' command. */
