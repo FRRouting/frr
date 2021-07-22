@@ -3123,6 +3123,17 @@ static void rib_addnode(struct route_node *rn,
 	rib_link(rn, re, process);
 }
 
+static void rib_re_nhg_free(struct route_entry *re)
+{
+	if (re->nhe && re->nhe_id) {
+		assert(re->nhe->id == re->nhe_id);
+		route_entry_update_nhe(re, NULL);
+	} else if (re->nhe && re->nhe->nhg.nexthop)
+		nexthops_free(re->nhe->nhg.nexthop);
+
+	nexthops_free(re->fib_ng.nexthop);
+}
+
 /*
  * rib_unlink
  *
@@ -3149,14 +3160,7 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 	if (dest->selected_fib == re)
 		dest->selected_fib = NULL;
 
-	if (re->nhe && re->nhe_id) {
-		assert(re->nhe->id == re->nhe_id);
-
-		route_entry_update_nhe(re, NULL);
-	} else if (re->nhe && re->nhe->nhg.nexthop)
-		nexthops_free(re->nhe->nhg.nexthop);
-
-	nexthops_free(re->fib_ng.nexthop);
+	rib_re_nhg_free(re);
 
 	zapi_re_opaque_free(re->opaque);
 
@@ -3451,13 +3455,7 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 			 * but an earlier response was just handed
 			 * back.  Drop it on the floor
 			 */
-			if (re->nhe && re->nhe_id) {
-				assert(re->nhe->id == re->nhe_id);
-				route_entry_update_nhe(re, NULL);
-			} else if (re->nhe && re->nhe->nhg.nexthop)
-				nexthops_free(re->nhe->nhg.nexthop);
-
-			nexthops_free(re->fib_ng.nexthop);
+			rib_re_nhg_free(re);
 
 			XFREE(MTYPE_RE, re);
 			return ret;
