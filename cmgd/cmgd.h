@@ -56,6 +56,8 @@
 		_a > _b ? _a : _b;                                             \
 	})
 
+// #define REDIRECT_DEBUG_TO_STDERR
+
 // extern struct frr_pthread *cmgd_pth_io;
 // extern struct frr_pthread *cmgd_pth_ka;
 

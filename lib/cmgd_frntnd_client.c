@@ -127,9 +127,9 @@ static void cmgd_frntnd_server_disconnect(
 		clnt_ctxt->conn_fd = 0;
 	}
 
-	THREAD_OFF(clnt_ctxt->conn_read_ev);
-	THREAD_OFF(clnt_ctxt->conn_retry_tmr);
-	THREAD_OFF(clnt_ctxt->msg_proc_ev);
+	// THREAD_OFF(clnt_ctxt->conn_read_ev);
+	// THREAD_OFF(clnt_ctxt->conn_retry_tmr);
+	// THREAD_OFF(clnt_ctxt->msg_proc_ev);
 
 	if (reconnect)
 		cmgd_frntnd_client_schedule_conn_retry(
@@ -819,7 +819,7 @@ cmgd_result_t cmgd_frntnd_create_client_session(
 	if (!clnt_ctxt)
 		return CMGD_INVALID_PARAM;
 
-	sessn = XMALLOC(MTYPE_CMGD_FRNTND_SESSION, 
+	sessn = XCALLOC(MTYPE_CMGD_FRNTND_SESSION, 
 			sizeof(cmgd_frntnd_client_session_t));
 	assert(sessn);
 	sessn->user_ctxt = user_ctxt;

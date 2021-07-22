@@ -387,7 +387,7 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 
 	adptr = cmgd_bcknd_find_adapter_by_fd(conn_fd);
 	if (!adptr) {
-		adptr = XMALLOC(MTYPE_CMGD_BCKND_ADPATER, 
+		adptr = XCALLOC(MTYPE_CMGD_BCKND_ADPATER, 
 				sizeof(cmgd_bcknd_client_adapter_t));
 		assert(adptr);
 

@@ -3262,8 +3262,6 @@ void vty_cmgd_send_config_data(struct vty *vty)
 		cnt = 0;
 		for (indx = 0; indx < vty->num_cfg_changes; indx++) {
 			cmgd_yang_data_init(&cfg_data[cnt]);
-			cfg_data[cnt].xpath =
-				vty->cfg_changes[indx].xpath;
 
 			if (vty->cfg_changes[indx].value) {
 				cmgd_yang_data_value_init(&value[cnt]);
@@ -3273,6 +3271,9 @@ void vty_cmgd_send_config_data(struct vty *vty)
 					CMGD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
 				cfg_data[cnt].value = &value[cnt];
 			}
+
+			cfg_data[cnt].xpath =
+				vty->cfg_changes[indx].xpath;
 				
 			cmgd_yang_cfg_data_req_init(&cfg_req[cnt]);
 			cfg_req[cnt].data = &cfg_data[cnt];

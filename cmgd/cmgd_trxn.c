@@ -42,11 +42,15 @@
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
+#define CMGD_TRXN_LOCK(trxn)	cmgd_trxn_lock(trxn, __FILE__, __LINE__)
+#define CMGD_TRXN_UNLOCK(trxn)	cmgd_trxn_unlock(trxn, __FILE__, __LINE__)
+
 typedef enum cmgd_trxn_event_ {
 	CMGD_TRXN_PROC_SETCFG = 1,
 	CMGD_TRXN_PROC_COMMITCFG,
 	CMGD_TRXN_PROC_GETCFG,
-	CMGD_TRXN_PROC_GETDATA
+	CMGD_TRXN_PROC_GETDATA,
+	CMGD_TRXN_CLEANUP
 } cmgd_trxn_event_t;
 
 PREDECL_LIST(cmgd_trxn_req_list);
@@ -107,44 +111,35 @@ struct cmgd_trxn_ctxt_ {
         /* List of backend adapters involved in this transaction */
         struct cmgd_trxn_badptr_list_head bcknd_adptrs;
 
-        /* IO streams for read and write */
-	// pthread_mutex_t ibuf_mtx;
-	// struct stream_fifo *ibuf_fifo;
-	// pthread_mutex_t obuf_mtx;
-	// struct stream_fifo *obuf_fifo;
-
-	// /* Private I/O buffers */
-	// struct stream *ibuf_work;
-	// struct stream *obuf_work;
-
-	/* Buffer of data waiting to be written to client. */
-	// struct buffer *wb;
-
         int refcount;
 
         struct cmgd_trxn_list_item list_linkage;
 
  	/* 
 	 * List of pending set-config requests for a given
-	 * transaction/session
+	 * transaction/session. Just one list for requests 
+	 * not processed at all. There's no backend interaction
+	 * involved.
 	 */
 	struct cmgd_trxn_req_list_head set_cfg_reqs;
-	struct cmgd_trxn_req_list_head pending_set_cfgs;
  	/* 
 	 * List of pending get-config requests for a given
-	 * transaction/session
+	 * transaction/session. Just one list for requests 
+	 * not processed at all. There's no backend interaction
+	 * involved.
 	 */
 	struct cmgd_trxn_req_list_head get_cfg_reqs;
-	struct cmgd_trxn_req_list_head pending_get_cfgs;
  	/* 
 	 * List of pending get-data requests for a given
-	 * transaction/session
+	 * transaction/session Two lists, one for requests 
+	 * not processed at all, and one for requests that 
+	 * has been sent to backend for processing.
 	 */
 	struct cmgd_trxn_req_list_head get_data_reqs;
 	struct cmgd_trxn_req_list_head pending_get_datas;
  	/* 
 	 * There will always be one commit-config allowed for a given
-	 * transaction/session
+	 * transaction/session. No need to maintain lists for it.
 	 */
 	cmgd_trxn_req_t *commit_cfg_req;
 };
@@ -160,6 +155,8 @@ DECLARE_LIST(cmgd_trxn_list, cmgd_trxn_ctxt_t, list_linkage);
 		(next) = cmgd_trxn_list_next(&(cm)->cmgd_trxns, (curr));\
 		(curr);	(curr) = (next))
 
+static void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn, const char* file, int line);
+static void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn, const char* file, int line);
 
 static struct thread_master *cmgd_trxn_tm = NULL;
 static struct cmgd_master *cmgd_trxn_cm = NULL;
@@ -173,39 +170,48 @@ static cmgd_trxn_req_t *cmgd_trxn_req_alloc(
 {
 	cmgd_trxn_req_t *trxn_req;
 
-	trxn_req = XMALLOC(MTYPE_CMGD_TRXN_REQ, sizeof(cmgd_trxn_req_t));
+	trxn_req = XCALLOC(MTYPE_CMGD_TRXN_REQ, sizeof(cmgd_trxn_req_t));
 	assert(trxn_req);
 	trxn_req->trxn = trxn;
-	cmgd_trxn_lock(trxn);
 	trxn_req->req_id = req_id;
 	trxn_req->req_event = req_event;
-	
+	trxn_req->pending_bknd_proc = false;
+
 	switch (trxn_req->req_event) {
 	case CMGD_TRXN_PROC_SETCFG:
-		trxn_req->req.set_cfg = XMALLOC(MTYPE_CMGD_TRXN_SETCFG_REQ,
+		trxn_req->req.set_cfg = XCALLOC(MTYPE_CMGD_TRXN_SETCFG_REQ,
 						sizeof(cmgd_set_cfg_req_t));
 		assert(trxn_req->req.set_cfg);
 		cmgd_trxn_req_list_add_tail(&trxn->set_cfg_reqs, trxn_req);
+		CMGD_TRXN_DBG("Added a new SETCFG Req: %p for Trxn: %p, Sessn: 0x%lx",
+			trxn_req, trxn, trxn->session_id);
 		break;
 	case CMGD_TRXN_PROC_COMMITCFG:
 		trxn->commit_cfg_req = trxn_req;
+		CMGD_TRXN_DBG("Added a new COMMITCFG Req: %p for Trxn: %p, Sessn: 0x%lx",
+			trxn_req, trxn, trxn->session_id);
 		break;
 	case CMGD_TRXN_PROC_GETCFG:
-		trxn_req->req.get_data = XMALLOC(MTYPE_CMGD_TRXN_GETDATA_REQ,
+		trxn_req->req.get_data = XCALLOC(MTYPE_CMGD_TRXN_GETDATA_REQ,
 						sizeof(cmgd_get_data_req_t));
 		assert(trxn_req->req.get_data);
 		cmgd_trxn_req_list_add_tail(&trxn->get_cfg_reqs, trxn_req);
+		CMGD_TRXN_DBG("Added a new GETCFG Req: %p for Trxn: %p, Sessn: 0x%lx",
+			trxn_req, trxn, trxn->session_id);
 		break;
 	case CMGD_TRXN_PROC_GETDATA:
-		trxn_req->req.get_data = XMALLOC(MTYPE_CMGD_TRXN_GETDATA_REQ,
+		trxn_req->req.get_data = XCALLOC(MTYPE_CMGD_TRXN_GETDATA_REQ,
 						sizeof(cmgd_get_data_req_t));
 		assert(trxn_req->req.get_data);
 		cmgd_trxn_req_list_add_tail(&trxn->get_data_reqs, trxn_req);
+		CMGD_TRXN_DBG("Added a new GETDATA Req: %p for Trxn: %p, Sessn: 0x%lx",
+			trxn_req, trxn, trxn->session_id);
 		break;
 	default:
 		break;
 	}
 
+	CMGD_TRXN_LOCK(trxn);
 
 	return (trxn_req);
 }
@@ -213,23 +219,34 @@ static cmgd_trxn_req_t *cmgd_trxn_req_alloc(
 static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 {
 	size_t indx;
+	struct cmgd_trxn_req_list_head *req_list = NULL;
+	struct cmgd_trxn_req_list_head *pending_list = NULL;
 
 	switch ((*trxn_req)->req_event) {
 	case CMGD_TRXN_PROC_SETCFG:
 		for (indx = 0;
 			indx < (*trxn_req)->req.set_cfg->num_cfg_changes;
 			indx++) {
-			if ((*trxn_req)->req.set_cfg->cfg_changes[indx].value)
+			if ((*trxn_req)->req.set_cfg->cfg_changes[indx].value) {
+				CMGD_TRXN_DBG("Freeing value for %s at %p ==> '%s'",
+					(*trxn_req)->req.set_cfg->
+						cfg_changes[indx].xpath,
+					(*trxn_req)->req.set_cfg->
+						cfg_changes[indx].value,
+					(*trxn_req)->req.set_cfg->
+						cfg_changes[indx].value);
 				free((void *)(*trxn_req)->req.set_cfg->
 					cfg_changes[indx].value);
+			}
 		}
-		cmgd_trxn_req_list_del(
-			(*trxn_req)->pending_bknd_proc ?
-				&(*trxn_req)->trxn->pending_set_cfgs :
-				&(*trxn_req)->trxn->set_cfg_reqs, *trxn_req);
+		req_list = &(*trxn_req)->trxn->set_cfg_reqs;
+		CMGD_TRXN_DBG("Deleting SETCFG Req: %p for Trxn: %p",
+			*trxn_req, (*trxn_req)->trxn);
 		XFREE(MTYPE_CMGD_TRXN_SETCFG_REQ, (*trxn_req)->req.set_cfg);
 		break;
 	case CMGD_TRXN_PROC_COMMITCFG:
+		CMGD_TRXN_DBG("Deleting COMMITCFG Req: %p for Trxn: %p",
+			*trxn_req, (*trxn_req)->trxn);
 		break;
 	case CMGD_TRXN_PROC_GETCFG:
 		for (indx = 0;
@@ -239,10 +256,9 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 				free((void *)(*trxn_req)->req.get_data->
 					xpaths[indx]);
 		}
-		cmgd_trxn_req_list_del(
-			(*trxn_req)->pending_bknd_proc ?
-				&(*trxn_req)->trxn->pending_get_cfgs :
-				&(*trxn_req)->trxn->get_cfg_reqs, *trxn_req);
+		req_list = &(*trxn_req)->trxn->get_cfg_reqs;
+		CMGD_TRXN_DBG("Deleting GETCFG Req: %p for Trxn: %p",
+			*trxn_req, (*trxn_req)->trxn);
 		XFREE(MTYPE_CMGD_TRXN_GETDATA_REQ, (*trxn_req)->req.get_data);
 		break;
 	case CMGD_TRXN_PROC_GETDATA:
@@ -252,18 +268,28 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 			if ((*trxn_req)->req.get_data->xpaths[indx])
 				free((void *)(*trxn_req)->req.get_data->xpaths[indx]);
 		}
-		cmgd_trxn_req_list_del(
-			(*trxn_req)->pending_bknd_proc ?
-				&(*trxn_req)->trxn->pending_get_datas :
-				&(*trxn_req)->trxn->get_data_reqs, *trxn_req);
+		pending_list = &(*trxn_req)->trxn->pending_get_datas;
+		req_list = &(*trxn_req)->trxn->get_data_reqs;
+		CMGD_TRXN_DBG("Deleting GETDATA Req: %p for Trxn: %p",
+			*trxn_req, (*trxn_req)->trxn);
 		XFREE(MTYPE_CMGD_TRXN_GETDATA_REQ, (*trxn_req)->req.get_data);
 		break;
 	default:
 		break;
 	}
 
+	if ((*trxn_req)->pending_bknd_proc && pending_list) {
+		cmgd_trxn_req_list_del(pending_list, *trxn_req);
+		CMGD_TRXN_DBG("Removed Req: %p from pending-list (left:%d)", 
+			*trxn_req, (int) cmgd_trxn_req_list_count(pending_list));
+	} else if (req_list) {
+		cmgd_trxn_req_list_del(req_list, *trxn_req);
+		CMGD_TRXN_DBG("Removed Req: %p from request-list (left:%d)", 
+			*trxn_req, (int) cmgd_trxn_req_list_count(req_list));
+	}
+
 	(*trxn_req)->pending_bknd_proc = false;
-	cmgd_trxn_unlock(&(*trxn_req)->trxn);
+	CMGD_TRXN_UNLOCK(&(*trxn_req)->trxn);
 	XFREE(MTYPE_CMGD_TRXN_REQ, (*trxn_req));
 	*trxn_req = NULL;
 }
@@ -277,6 +303,7 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 	char err_buf[1024];
 	bool error;
 	int num_processed = 0;
+	size_t left;
 
 	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
@@ -347,9 +374,10 @@ cmgd_trxn_process_set_cfg_done:
 		}
 	}
 
-	if (cmgd_trxn_req_list_count(&trxn->set_cfg_reqs)) {
-		CMGD_TRXN_DBG("Processed maximum number of Set-Config requests (%d/%d). Rescheduling for rest.", 
-			num_processed, CMGD_TRXN_MAX_NUM_SETCFG_PROC);
+	left = cmgd_trxn_req_list_count(&trxn->set_cfg_reqs);
+	if (left) {
+		CMGD_TRXN_DBG("Processed maximum number of Set-Config requests (%d/%d/%d). Rescheduling for rest.", 
+			num_processed, CMGD_TRXN_MAX_NUM_SETCFG_PROC, (int)left);
 		cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_SETCFG);
 	}
 	
@@ -375,12 +403,11 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		return -1;
 	}
 	
-	/*
-	 * TODO: Need to take care of some post-commit cleanup for both
-	 * successful commit and abort.
-	 */
-	
 	cmgd_trxn_req_free(&trxn->commit_cfg_req);
+
+	/*
+	 * The CONFIG Transaction should be destroyed from Frontend-adapter.
+	 */
 
 	return 0;
 }
@@ -455,13 +482,12 @@ static int cmgd_trxn_get_config(cmgd_trxn_ctxt_t *trxn,
 	cmgd_trxn_req_t *trxn_req, cmgd_db_hndl_t db_hndl)
 {
 	struct nb_config *nb_config;
-	struct cmgd_trxn_req_list_head *req_list;
-	struct cmgd_trxn_req_list_head *pending_list;
+	struct cmgd_trxn_req_list_head *req_list = NULL;
+	struct cmgd_trxn_req_list_head *pending_list = NULL;
 
 	switch (trxn_req->req_event) {
 	case CMGD_TRXN_PROC_GETCFG:
 		req_list = &trxn->get_cfg_reqs;
-		pending_list = NULL;
 		break;
 	case CMGD_TRXN_PROC_GETDATA:
 		req_list = &trxn->get_data_reqs;
@@ -510,6 +536,8 @@ static int cmgd_trxn_get_config(cmgd_trxn_ctxt_t *trxn,
 		cmgd_trxn_req_list_del(req_list, trxn_req);
 		trxn_req->pending_bknd_proc = true;
 		cmgd_trxn_req_list_add_tail(pending_list, trxn_req);
+		CMGD_TRXN_DBG("Moved Req: %p for Trxn: %p from Req-List to Pending-List",
+			trxn_req, trxn_req->trxn);
 	} else {
 		/*
 		 * Delete the trxn request. It will also remove it from request list.
@@ -708,23 +736,37 @@ static cmgd_trxn_ctxt_t *cmgd_frntnd_find_trxn_by_session_id(
 	return NULL;
 }
 
-void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn)
+static void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn, const char* file, int line)
 {
 	trxn->refcount++;
+	CMGD_TRXN_DBG("%s:%d --> Lock %s Trxn %p, Count: %d",
+			file, line, cmgd_trxn_type2str(trxn->type), trxn,
+			trxn->refcount);
 }
 
-extern void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn)
+static void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn, const char* file, int line)
 {
 	assert(*trxn && (*trxn)->refcount);
 
 	(*trxn)->refcount--;
+	CMGD_TRXN_DBG("%s:%d --> Unlock %s Trxn %p, Count: %d",
+			file, line, cmgd_trxn_type2str((*trxn)->type), *trxn,
+			(*trxn)->refcount);
 	if (!(*trxn)->refcount) {
+		switch ((*trxn)->type) {
+		case CMGD_TRXN_TYPE_CONFIG:
+			if (cmgd_trxn_cm->cfg_trxn == *trxn)
+				cmgd_trxn_cm->cfg_trxn = NULL;
+			break;
+		default:
+			break;
+		}
+
 		cmgd_trxn_list_del(&cmgd_trxn_cm->cmgd_trxns, *trxn);
 
-		// stream_fifo_free((*trxn)->ibuf_fifo);
-		// stream_free((*trxn)->ibuf_work);
-		// stream_fifo_free((*trxn)->obuf_fifo);
-		// stream_free((*trxn)->obuf_work);
+		CMGD_TRXN_DBG("Deleted %s Trxn %p for Sessn: 0x%lx",
+			cmgd_trxn_type2str((*trxn)->type), *trxn,
+			(*trxn)->session_id);
 
 		XFREE(MTYPE_CMGD_TRXN, *trxn);
 	}
@@ -772,28 +814,28 @@ cmgd_trxn_id_t cmgd_create_trxn(
 
 	trxn = cmgd_frntnd_find_trxn_by_session_id(cmgd_trxn_cm, session_id);
 	if (!trxn) {
-		trxn = XMALLOC(MTYPE_CMGD_TRXN, 
+		trxn = XCALLOC(MTYPE_CMGD_TRXN, 
 				sizeof(cmgd_trxn_ctxt_t));
 		assert(trxn);
 
 		trxn->session_id = session_id;
 		trxn->type = type;
 		cmgd_trxn_badptr_list_init(&trxn->bcknd_adptrs);
-		cmgd_trxn_lock(trxn);
 		cmgd_trxn_list_add_tail(&cmgd_trxn_cm->cmgd_trxns, trxn);
 		cmgd_trxn_req_list_init(&trxn->set_cfg_reqs);
-		cmgd_trxn_req_list_init(&trxn->pending_set_cfgs);
 		cmgd_trxn_req_list_init(&trxn->get_cfg_reqs);
-		cmgd_trxn_req_list_init(&trxn->pending_get_cfgs);
 		cmgd_trxn_req_list_init(&trxn->get_data_reqs);
 		cmgd_trxn_req_list_init(&trxn->pending_get_datas);
 		trxn->commit_cfg_req = NULL;
+		trxn->refcount = 0;
 
 		CMGD_TRXN_DBG("Added new '%s' CMGD Transaction '%p'",
 			cmgd_trxn_type2str(type), trxn);
 
 		if (type == CMGD_TRXN_TYPE_CONFIG)
 			cmgd_trxn_cm->cfg_trxn = trxn;
+
+		CMGD_TRXN_LOCK(trxn);
 	}
 
 cmgd_create_trxn_done:
@@ -809,7 +851,9 @@ void cmgd_destroy_trxn(cmgd_trxn_id_t *trxn_id)
 		return;
 	}
 
-	cmgd_trxn_unlock(trxn);
+	CMGD_TRXN_UNLOCK(trxn);
+
+	*trxn_id = CMGD_TRXN_ID_NONE;
 }
 
 cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id)
@@ -857,6 +901,9 @@ int cmgd_trxn_send_set_config_req(
 			 cfg_req[indx]->data->value->encoded_str_val ? 
 			 strdup(cfg_req[indx]->data->value->encoded_str_val) :
 			 NULL);
+		if (cfg_chg->value)
+			CMGD_TRXN_DBG("Allocated value at %p ==> '%s'",
+				cfg_chg->value, cfg_chg->value);
 		(*num_chgs)++;
 	}
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_SETCFG);

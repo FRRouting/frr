@@ -69,9 +69,9 @@ static void cmgd_bcknd_server_disconnect(
 		clnt_ctxt->conn_fd = 0;
 	}
 
-	THREAD_OFF(clnt_ctxt->conn_read_ev);
-	THREAD_OFF(clnt_ctxt->conn_retry_tmr);
-	THREAD_OFF(clnt_ctxt->msg_proc_ev);
+	// THREAD_OFF(clnt_ctxt->conn_read_ev);
+	// THREAD_OFF(clnt_ctxt->conn_retry_tmr);
+	// THREAD_OFF(clnt_ctxt->msg_proc_ev);
 
 	if (reconnect)
 		cmgd_bcknd_client_schedule_conn_retry(

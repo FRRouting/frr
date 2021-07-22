@@ -67,9 +67,9 @@ static inline const char* cmgd_trxn_type2str(cmgd_trxn_type_t type)
 
 extern int cmgd_trxn_init(struct cmgd_master *cm, struct thread_master *tm);
 
-extern void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn);
+// extern void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn);
 
-extern void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn);
+// extern void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn);
 
 extern cmgd_session_id_t cmgd_config_trxn_in_progress(void);
 

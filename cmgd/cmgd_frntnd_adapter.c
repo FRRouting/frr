@@ -47,12 +47,17 @@
 	for ((adptr) = cmgd_frntnd_adptr_list_first(&cmgd_frntnd_adptrs); (adptr);	\
 		(adptr) = cmgd_frntnd_adptr_list_next(&cmgd_frntnd_adptrs, (adptr)))
 
+typedef enum cmgd_sessn_event_ {
+	CMGD_FRNTND_SESSN_TRXN_CLNUP = 1,
+} cmgd_sessn_event_t;
+
 typedef struct cmgd_frntnd_sessn_ctxt_ {
 	struct cmgd_frntnd_client_adapter_ *adptr;
         cmgd_client_id_t client_id;
 	cmgd_trxn_id_t	trxn_id;
 	cmgd_trxn_id_t	cfg_trxn_id;
 	bool db_write_locked[CMGD_DB_MAX_ID];
+        struct thread *proc_trxn_clnp;
 
 	struct cmgd_frntnd_sessn_list_item list_linkage;
 } cmgd_frntnd_sessn_ctxt_t;
@@ -62,6 +67,11 @@ DECLARE_LIST(cmgd_frntnd_sessn_list, cmgd_frntnd_sessn_ctxt_t, list_linkage);
 #define FOREACH_SESSN_IN_LIST(adptr, sessn)						\
 	for ((sessn) = cmgd_frntnd_sessn_list_first(&(adptr)->frntnd_sessns); (sessn);	\
 		(sessn) = cmgd_frntnd_sessn_list_next(&(adptr)->frntnd_sessns, (sessn)))
+
+#define FOREACH_SESSN_IN_LIST_SAFE(adptr, sessn, next)					\
+	for ((sessn) = cmgd_frntnd_sessn_list_first(&(adptr)->frntnd_sessns),		\
+		(next) = cmgd_frntnd_sessn_list_next(&(adptr)->frntnd_sessns, (sessn));	\
+		(sessn); (sessn) = (next))
 
 static struct thread_master *cmgd_frntnd_adptr_tm = NULL;
 static struct cmgd_master *cmgd_frntnd_adptr_cm = NULL;
@@ -73,21 +83,28 @@ static void cmgd_frntnd_adptr_register_event(
 	cmgd_frntnd_client_adapter_t *adptr, cmgd_event_t event);
 static void cmgd_frntnd_adapter_disconnect(
 	cmgd_frntnd_client_adapter_t *adptr);
+static void cmgd_frntnd_session_register_event(
+	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event);
 
-static void cmgd_frntnd_cleanup_session(cmgd_frntnd_sessn_ctxt_t *sessn)
+static void cmgd_frntnd_sessn_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 {
-	if (sessn->adptr) {
-		/* TODO: Cleanup transaction (if any) */
-		if (sessn->cfg_trxn_id != CMGD_TRXN_ID_NONE)
-			cmgd_destroy_trxn(&sessn->cfg_trxn_id);
-		if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
-			cmgd_destroy_trxn(&sessn->trxn_id);
+	if (sessn->cfg_trxn_id != CMGD_TRXN_ID_NONE)
+		cmgd_destroy_trxn(&sessn->cfg_trxn_id);
+	if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
+		cmgd_destroy_trxn(&sessn->trxn_id);
+}
 
-		cmgd_frntnd_sessn_list_del(&sessn->adptr->frntnd_sessns, sessn);
-		cmgd_frntnd_adapter_unlock(&sessn->adptr);
+static void cmgd_frntnd_cleanup_session(cmgd_frntnd_sessn_ctxt_t **sessn)
+{
+	if ((*sessn)->adptr) {
+		cmgd_frntnd_sessn_trxn_cleanup((*sessn));
+
+		cmgd_frntnd_sessn_list_del(&(*sessn)->adptr->frntnd_sessns, *sessn);
+		cmgd_frntnd_adapter_unlock(&(*sessn)->adptr);
 	}
 
-	XFREE(MTYPE_CMGD_FRNTND_SESSN, sessn);
+	XFREE(MTYPE_CMGD_FRNTND_SESSN, *sessn);
+	*sessn = NULL;
 }
 
 static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_find_session_by_id(
@@ -110,10 +127,10 @@ static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_create_session(
 
 	sessn = cmgd_frntnd_find_session_by_id(adptr, client_id);
 	if (sessn) {
-		cmgd_frntnd_cleanup_session(sessn);
+		cmgd_frntnd_cleanup_session(&sessn);
 	}
 
-	sessn = XMALLOC(MTYPE_CMGD_FRNTND_SESSN, sizeof(cmgd_frntnd_sessn_ctxt_t));
+	sessn = XCALLOC(MTYPE_CMGD_FRNTND_SESSN, sizeof(cmgd_frntnd_sessn_ctxt_t));
 	assert(sessn);
 	sessn->client_id = client_id;
 	sessn->adptr = adptr;
@@ -127,10 +144,10 @@ static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_create_session(
 
 static void cmgd_frntnd_cleanup_sessions(cmgd_frntnd_client_adapter_t *adptr)
 {
-	cmgd_frntnd_sessn_ctxt_t *sessn;
+	cmgd_frntnd_sessn_ctxt_t *sessn, *next;
 
-	FOREACH_SESSN_IN_LIST(adptr, sessn) {
-		cmgd_frntnd_cleanup_session(sessn);
+	FOREACH_SESSN_IN_LIST_SAFE(adptr, sessn, next) {
+		cmgd_frntnd_cleanup_session(&sessn);
 	}
 }
 
@@ -254,6 +271,13 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 
 	CMGD_FRNTND_ADPTR_DBG("Sending COMMIT_CONFIG_REPLY message to CMGD Frontend client '%s'",
 		sessn->adptr->name);
+
+	/*
+	 * Cleanup the CONFIG transaction associated with this session.
+	 */
+	if (sessn->cfg_trxn_id)
+		cmgd_frntnd_session_register_event(
+			sessn, CMGD_FRNTND_SESSN_TRXN_CLNUP);
 
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
@@ -444,6 +468,33 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 	return 0;
 }
 
+static int cmgd_frntnd_session_trxn_clnup(struct thread *thread)
+{
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	sessn = (cmgd_frntnd_sessn_ctxt_t *)THREAD_ARG(thread);
+
+	cmgd_frntnd_sessn_trxn_cleanup(sessn);
+
+	return 0;
+}
+
+static void cmgd_frntnd_session_register_event(
+	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event)
+{
+	switch (event) {
+	case CMGD_FRNTND_SESSN_TRXN_CLNUP:
+		sessn->proc_trxn_clnp = 
+			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
+				cmgd_frntnd_session_trxn_clnup, sessn,
+				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+		break;
+	default:
+		assert(!"cmgd_frntnd_adptr_post_event() called incorrectly");
+		break;
+	}
+}
+
 static int cmgd_frntnd_adapter_handle_msg(
 	cmgd_frntnd_client_adapter_t *adptr, Cmgd__FrntndMessage *frntnd_msg)
 {
@@ -486,6 +537,7 @@ static int cmgd_frntnd_adapter_handle_msg(
 				frntnd_msg->sessn_req->session_id;
 			cmgd_frntnd_send_session_reply(
 				adptr, sessn, false, true);
+			cmgd_frntnd_cleanup_session(&sessn);
 		}
 		break;
 	case CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REQ:
@@ -789,7 +841,7 @@ cmgd_frntnd_client_adapter_t *cmgd_frntnd_create_adapter(
 
 	adptr = cmgd_frntnd_find_adapter_by_fd(conn_fd);
 	if (!adptr) {
-		adptr = XMALLOC(MTYPE_CMGD_FRNTND_ADPATER, 
+		adptr = XCALLOC(MTYPE_CMGD_FRNTND_ADPATER, 
 				sizeof(cmgd_frntnd_client_adapter_t));
 		assert(adptr);
 
