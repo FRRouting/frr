@@ -1168,18 +1168,6 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		buf += sizeof(struct bsmmsg_grpinfo);
 		offset += sizeof(struct bsmmsg_grpinfo);
 
-		if (grpinfo.rp_count == 0) {
-			if (PIM_DEBUG_BSM) {
-				char grp_str[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<Group?>", grpinfo.group.addr,
-					       grp_str, sizeof(grp_str));
-				zlog_debug("%s, Rp count is zero for group: %s",
-					   __func__, grp_str);
-			}
-			return false;
-		}
-
 		group.family = AF_INET;
 		if (grpinfo.group.mask > IPV4_MAX_BITLEN) {
 			if (PIM_DEBUG_BSM)
@@ -1193,6 +1181,32 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 
 		/* Get the Group node for the BSM rp table */
 		bsgrp = pim_bsm_get_bsgrp_node(scope, &group);
+
+		if (grpinfo.rp_count == 0) {
+			struct bsm_rpinfo *old_rpinfo;
+
+			/* BSR explicitly no longer has RPs for this group */
+			if (!bsgrp)
+				continue;
+
+			if (PIM_DEBUG_BSM) {
+				char grp_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<Group?>", grpinfo.group.addr,
+					       grp_str, sizeof(grp_str));
+				zlog_debug("%s, Rp count is zero for group: %s",
+					   __func__, grp_str);
+			}
+
+			old_rpinfo = bsm_rpinfos_first(bsgrp->bsrp_list);
+			if (old_rpinfo)
+				pim_rp_del(scope->pim, old_rpinfo->rp_address,
+					   group, NULL, RP_SRC_BSR);
+
+			pim_free_bsgrp_node(scope->bsrp_table, &bsgrp->group);
+			pim_free_bsgrp_data(bsgrp);
+			continue;
+		}
 
 		if (!bsgrp) {
 			if (PIM_DEBUG_BSM)
