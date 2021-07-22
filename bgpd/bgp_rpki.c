@@ -908,7 +908,7 @@ static int config_write(struct vty *vty)
 
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
-	vty_out(vty, "  rpki polling_period %d\n", polling_period);
+	vty_out(vty, " rpki polling_period %d\n", polling_period);
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		switch (cache->type) {
 			struct tr_tcp_config *tcp_config;
@@ -917,13 +917,13 @@ static int config_write(struct vty *vty)
 #endif
 		case TCP:
 			tcp_config = cache->tr_config.tcp_config;
-			vty_out(vty, "  rpki cache %s %s ", tcp_config->host,
+			vty_out(vty, " rpki cache %s %s ", tcp_config->host,
 				tcp_config->port);
 			break;
 #if defined(FOUND_SSH)
 		case SSH:
 			ssh_config = cache->tr_config.ssh_config;
-			vty_out(vty, "  rpki cache %s %u %s %s %s ",
+			vty_out(vty, " rpki cache %s %u %s %s %s ",
 				ssh_config->host, ssh_config->port,
 				ssh_config->username,
 				ssh_config->client_privkey_path,
@@ -938,7 +938,7 @@ static int config_write(struct vty *vty)
 
 		vty_out(vty, "preference %hhu\n", cache->preference);
 	}
-	vty_out(vty, "  exit\n");
+	vty_out(vty, " exit\n");
 
 	return 1;
 }
