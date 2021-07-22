@@ -36,6 +36,12 @@ module frr-bgp-route-map {
       "Initial revision";
   }
 
+  identity match-alias {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match BGP community alias name";
+  }
+
   identity match-local-preference {
     base frr-route-map:rmap-match-type;
     description
@@ -352,7 +358,14 @@ module frr-bgp-route-map {
       }
     }
 
-    case script { 
+    case alias {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-alias')";
+      leaf alias {
+        type string;
+      }
+    }
+
+    case script {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-script')";
       leaf script {
         type string;
