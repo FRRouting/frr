@@ -3173,10 +3173,10 @@ static void vty_cmgd_db_lock_notified(
 	vty = (struct vty *)client_id;
 
 	if (!success) {
-		zlog_err("ERROR: %socking for DB %u failed!", 
-			lock_db ? "L" : "Unl", db_id);
-		vty_out(vty, "ERROR: %socking for DB %u failed!", 
-			lock_db ? "L" : "Unl", db_id);
+		zlog_err("ERROR: %socking for DB %u failed! Err: '%s'", 
+			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
+		vty_out(vty, "ERROR: %socking for DB %u failed! Err: '%s'", 
+			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
 		return;
 	}
 

@@ -56,7 +56,8 @@ typedef struct cmgd_frntnd_sessn_ctxt_ {
         cmgd_client_id_t client_id;
 	cmgd_trxn_id_t	trxn_id;
 	cmgd_trxn_id_t	cfg_trxn_id;
-	bool db_write_locked[CMGD_DB_MAX_ID];
+	uint8_t db_write_locked[CMGD_DB_MAX_ID];
+	uint8_t db_locked_implict[CMGD_DB_MAX_ID];
         struct thread *proc_trxn_clnp;
 
 	struct cmgd_frntnd_sessn_list_item list_linkage;
@@ -111,6 +112,7 @@ static int cmgd_frntnd_session_write_unlock_db(
 {
 	if (sessn->db_write_locked[db_id]) { 
 		sessn->db_write_locked[db_id] = false;
+		sessn->db_locked_implict[db_id] = false;
 		if (cmgd_db_unlock(db_hndl) != 0) {
 			CMGD_FRNTND_ADPTR_DBG("Failed to unlock the DB %u taken earlier by Sessn: %p from %s!",
 				db_id, sessn, sessn->adptr->name);
@@ -132,7 +134,8 @@ static void cmgd_frntnd_sessn_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 	for (db_id = 0; db_id < CMGD_DB_MAX_ID; db_id++) {
 		db_hndl = cmgd_db_get_hndl_by_id(cmgd_frntnd_adptr_cm, db_id);
 		if (db_hndl) {
-			cmgd_frntnd_session_write_unlock_db(db_id, db_hndl, sessn);
+			if (sessn->db_locked_implict[db_id])
+				cmgd_frntnd_session_write_unlock_db(db_id, db_hndl, sessn);
 		}
 	}
 
@@ -483,6 +486,8 @@ static int cmgd_frntnd_session_handle_lockdb_req_msg(
 				"Lock already taken on DB by another session!");
 			return -1;
 		}
+
+		sessn->db_locked_implict[lockdb_req->db_id] = false;
 	} else {
 		if (!sessn->db_write_locked[lockdb_req->db_id]) {
 			cmgd_frntnd_send_lockdb_reply(sessn,
@@ -493,7 +498,7 @@ static int cmgd_frntnd_session_handle_lockdb_req_msg(
 		}
 
 		(void) cmgd_frntnd_session_write_unlock_db(lockdb_req->db_id,
-				db_hndl, sessn);
+					db_hndl, sessn);
 	}
 
 	if (!cmgd_frntnd_send_lockdb_reply(sessn,
@@ -552,12 +557,16 @@ static int cmgd_frntnd_session_handle_setcfg_req_msg(
 			return 0;
 		}
 
-		if (cmgd_frntnd_session_write_lock_db(
-			setcfg_req->db_id, db_hndl, sessn) != 0) {
-			cmgd_frntnd_send_setcfg_reply(sessn,
-				setcfg_req->db_id, setcfg_req->req_id, false,
-				"Failed to lock the DB!");
-			return 0;
+		if (!sessn->db_write_locked[setcfg_req->db_id]) {
+			if (cmgd_frntnd_session_write_lock_db(
+				setcfg_req->db_id, db_hndl, sessn) != 0) {
+				cmgd_frntnd_send_setcfg_reply(sessn,
+					setcfg_req->db_id, setcfg_req->req_id, false,
+					"Failed to lock the DB!");
+				return 0;
+			}
+
+			sessn->db_locked_implict[setcfg_req->db_id] = true;
 		}
 
 		/*
