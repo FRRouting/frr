@@ -313,7 +313,7 @@ void lua_decode_noop(lua_State *L, int idx, const void *ptr)
 /*
  * Noop decoder for int.
  */
-void lua_decode_int_noop(lua_State *L, int idx, int i)
+void lua_decode_integer_noop(lua_State *L, int idx, int i)
 {
 }
 

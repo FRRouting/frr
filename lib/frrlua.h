@@ -166,7 +166,7 @@ void *lua_tostringp(lua_State *L, int idx);
  */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr);
 
-void lua_decode_int_noop(lua_State *L, int idx, int i);
+void lua_decode_integer_noop(lua_State *L, int idx, int i);
 
 /*
  * Retrieve an integer from table on the top of the stack.
