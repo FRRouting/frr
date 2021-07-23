@@ -90,15 +90,16 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	zebra_router_id_update_read(zclient->ibuf, &router_id);
 
-	om6->zebra_router_id = router_id.u.prefix4.s_addr;
+	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
+		zlog_debug("Zebra router-id update %pI4 vrf %s id %u",
+			   &router_id.u.prefix4, ospf6_vrf_id_to_name(vrf_id),
+			   vrf_id);
+
 	o = ospf6_lookup_by_vrf_id(vrf_id);
 	if (o == NULL)
 		return 0;
 
-	o->router_id_zebra = router_id.u.prefix4;
-	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
-		zlog_debug("%s: zebra router-id %pI4 update", __func__,
-			   &router_id.u.prefix4);
+	o->router_id_zebra = router_id.u.prefix4.s_addr;
 
 	ospf6_router_id_update(o);
 
