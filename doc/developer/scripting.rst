@@ -245,7 +245,7 @@ To delete a script and the all Lua states associated with it:
 A complete example
 """"""""""""""""""
 
-So, a typical exection call, with error checking, looks something like this:
+So, a typical execution call, with error checking, looks something like this:
 
 .. code-block:: c
 
