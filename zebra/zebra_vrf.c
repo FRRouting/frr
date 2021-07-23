@@ -44,6 +44,7 @@
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_vrf_clippy.c"
 #endif
+#include "zebra/table_manager.h"
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -113,6 +114,10 @@ static int zebra_vrf_new(struct vrf *vrf)
 	otable_init(&zvrf->other_tables);
 
 	router_id_init(zvrf);
+
+	/* Initiate Table Manager per ZNS */
+	table_manager_enable(zvrf);
+
 	return 0;
 }
 
@@ -175,6 +180,8 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
+
+	table_manager_disable(zvrf);
 
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
@@ -503,6 +510,12 @@ static int vrf_config_write(struct vty *vty)
 
 			if (zvrf->zebra_rnh_ipv6_default_route)
 				vty_out(vty, "ipv6 nht resolve-via-default\n");
+
+			if (zvrf->tbl_mgr
+			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
+				vty_out(vty, "ip table range %u %u\n",
+					zvrf->tbl_mgr->start,
+					zvrf->tbl_mgr->end);
 		} else {
 			vty_frame(vty, "vrf %s\n", zvrf_name(zvrf));
 			if (zvrf->l3vni)
@@ -517,6 +530,12 @@ static int vrf_config_write(struct vty *vty)
 
 			if (zvrf->zebra_rnh_ipv6_default_route)
 				vty_out(vty, " ipv6 nht resolve-via-default\n");
+
+			if (zvrf->tbl_mgr && vrf_is_backend_netns()
+			    && (zvrf->tbl_mgr->start || zvrf->tbl_mgr->end))
+				vty_out(vty, " ip table range %u %u\n",
+					zvrf->tbl_mgr->start,
+					zvrf->tbl_mgr->end);
 		}
 
 

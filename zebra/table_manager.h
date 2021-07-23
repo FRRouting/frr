@@ -57,15 +57,20 @@ struct table_manager_chunk {
  */
 struct table_manager {
 	struct list *lc_list;
+	uint32_t start;
+	uint32_t end;
 };
 
-void table_manager_enable(ns_id_t ns_id);
+void table_manager_enable(struct zebra_vrf *zvrf);
 struct table_manager_chunk *assign_table_chunk(uint8_t proto, uint16_t instance,
-					       uint32_t size);
+					       uint32_t size,
+					       struct zebra_vrf *zvrf);
 int release_table_chunk(uint8_t proto, uint16_t instance, uint32_t start,
-			uint32_t end);
+			uint32_t end, struct zebra_vrf *zvrf);
 int release_daemon_table_chunks(struct zserv *client);
-void table_manager_disable(ns_id_t ns_id);
+void table_manager_disable(struct zebra_vrf *zvrf);
+int table_manager_range(struct vty *vty, bool add, struct zebra_vrf *zvrf,
+			const char *min, const char *max);
 
 #ifdef __cplusplus
 }

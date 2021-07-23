@@ -2827,7 +2827,7 @@ static void zread_label_manager_request(ZAPI_HANDLER_ARGS)
 }
 
 static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
-				  vrf_id_t vrf_id)
+				  struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	uint32_t size;
@@ -2839,7 +2839,7 @@ static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
 	/* Get data. */
 	STREAM_GETL(s, size);
 
-	tmc = assign_table_chunk(client->proto, client->instance, size);
+	tmc = assign_table_chunk(client->proto, client->instance, size, zvrf);
 	if (!tmc)
 		flog_err(EC_ZEBRA_TM_CANNOT_ASSIGN_CHUNK,
 			 "%s: Unable to assign Table Chunk of size %u",
@@ -2848,13 +2848,14 @@ static void zread_get_table_chunk(struct zserv *client, struct stream *msg,
 		zlog_debug("Assigned Table Chunk %u - %u", tmc->start,
 			   tmc->end);
 	/* send response back */
-	zsend_assign_table_chunk_response(client, vrf_id, tmc);
+	zsend_assign_table_chunk_response(client, zvrf_id(zvrf), tmc);
 
 stream_failure:
 	return;
 }
 
-static void zread_release_table_chunk(struct zserv *client, struct stream *msg)
+static void zread_release_table_chunk(struct zserv *client, struct stream *msg,
+				      struct zebra_vrf *zvrf)
 {
 	struct stream *s;
 	uint32_t start, end;
@@ -2866,7 +2867,7 @@ static void zread_release_table_chunk(struct zserv *client, struct stream *msg)
 	STREAM_GETL(s, start);
 	STREAM_GETL(s, end);
 
-	release_table_chunk(client->proto, client->instance, start, end);
+	release_table_chunk(client->proto, client->instance, start, end, zvrf);
 
 stream_failure:
 	return;
@@ -2886,9 +2887,9 @@ static void zread_table_manager_request(ZAPI_HANDLER_ARGS)
 			return;
 		}
 		if (hdr->command == ZEBRA_GET_TABLE_CHUNK)
-			zread_get_table_chunk(client, msg, zvrf_id(zvrf));
+			zread_get_table_chunk(client, msg, zvrf);
 		else if (hdr->command == ZEBRA_RELEASE_TABLE_CHUNK)
-			zread_release_table_chunk(client, msg);
+			zread_release_table_chunk(client, msg, zvrf);
 	}
 }
 
