@@ -122,8 +122,22 @@ void frrscript_register_type_codecs(struct frrscript_codec *codecs);
  */
 void frrscript_init(const char *scriptdir);
 
+/*
+ * This macro is mapped to every (name, value) in frrscript_call,
+ * so this in turn maps them onto their encoders
+ */
 #define ENCODE_ARGS(name, value) ENCODE_ARGS_WITH_STATE(lfs->L, value)
 
+/*
+ * This macro is also mapped to every (name, value) in frrscript_call, but
+ * not every value can be mapped to its decoder - only those that appear
+ * in the returned table will. To find out if they appear in the returned
+ * table, first pop the value and check if its nil. Only call the decoder
+ * if non-nil.
+ *
+ * At the end, the only thing left on the stack should be the
+ * returned table.
+ */
 #define DECODE_ARGS(name, value)                                               \
 	do {                                                                   \
 		lua_getfield(lfs->L, 1, name);                                 \
