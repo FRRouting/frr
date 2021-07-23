@@ -2422,11 +2422,10 @@ DEFUN(find,
 }
 
 #if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
-DEFUN(script,
-      script_cmd,
-      "script SCRIPT",
-      "Test command - execute a script\n"
-      "Script name (same as filename in /etc/frr/scripts/\n")
+DEFUN(script, script_cmd, "script SCRIPT FUNCTION",
+      "Test command - execute a function in a script\n"
+      "Script name (same as filename in /etc/frr/scripts/)\n"
+      "Function name (in the script)\n")
 {
 	struct prefix p;
 
@@ -2435,7 +2434,7 @@ DEFUN(script,
 
 	if (frrscript_load(fs, argv[2]->arg, NULL)) {
 		vty_out(vty,
-			"/etc/frr/scripts%s.lua or function '/%s' not found\n",
+			"/etc/frr/scripts/%s.lua or function '%s' not found\n",
 			argv[1]->arg, argv[2]->arg);
 	}
 
