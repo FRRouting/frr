@@ -262,10 +262,15 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	frrlua_export_logging(L);
 
-	char script_name[MAXPATHLEN * 2];
+	char script_name[MAXPATHLEN];
 
-	snprintf(script_name, sizeof(script_name), "%s/%s.lua", scriptdir,
-		 fs->name);
+	if (snprintf(script_name, sizeof(script_name), "%s/%s.lua", scriptdir,
+		     fs->name)
+	    < 0) {
+		zlog_err("frrscript: path to script %s/%s.lua is too long",
+			 scriptdir, fs->name);
+		goto fail;
+	}
 	int ret = luaL_dofile(L, script_name);
 
 	switch (ret) {
