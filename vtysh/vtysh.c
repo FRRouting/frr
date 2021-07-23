@@ -475,25 +475,6 @@ static int vtysh_execute_func(const char *line, int pager)
 	if (vline == NULL)
 		return CMD_SUCCESS;
 
-	if (user_mode) {
-		bool allow = true;
-		if (strncmp("en", vector_slot(vline, 0), 2) == 0) {
-			if (strlen(line) >= 3) {
-				if (strncmp("ena", vector_slot(vline, 0), 3)
-				    == 0)
-					allow = false;
-			} else
-				allow = false;
-
-			if (!allow) {
-				cmd_free_strvec(vline);
-				vty_out(vty,
-					"%% Command not allowed: enable\n");
-				return CMD_WARNING;
-			}
-		}
-	}
-
 	saved_ret = ret = cmd_execute(vty, line, &cmd, 1);
 	saved_node = vty->node;
 
@@ -4383,7 +4364,8 @@ void vtysh_init_vty(void)
 
 	/* vtysh */
 
-	install_element(VIEW_NODE, &vtysh_enable_cmd);
+	if (!user_mode)
+		install_element(VIEW_NODE, &vtysh_enable_cmd);
 	install_element(ENABLE_NODE, &vtysh_config_terminal_cmd);
 	install_element(ENABLE_NODE, &vtysh_disable_cmd);
 
