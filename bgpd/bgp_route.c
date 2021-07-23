@@ -10862,8 +10862,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						const char *com2alias =
 							bgp_community2alias(
 								communities[i]);
-						if (strncmp(alias, com2alias,
-							    strlen(com2alias))
+						if (strcmp(alias, com2alias)
 						    == 0) {
 							found = true;
 							break;
@@ -10878,8 +10877,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						const char *com2alias =
 							bgp_community2alias(
 								communities[i]);
-						if (strncmp(alias, com2alias,
-							    strlen(com2alias))
+						if (strcmp(alias, com2alias)
 						    == 0) {
 							found = true;
 							break;

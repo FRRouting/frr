@@ -1195,7 +1195,7 @@ route_match_alias(void *rule, const struct prefix *prefix, void *object)
 		for (int i = 0; i < num; i++) {
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
-			if (strncmp(alias, com2alias, strlen(com2alias)) == 0)
+			if (strcmp(alias, com2alias) == 0)
 				return RMAP_MATCH;
 		}
 	}
@@ -1206,7 +1206,7 @@ route_match_alias(void *rule, const struct prefix *prefix, void *object)
 		for (int i = 0; i < num; i++) {
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
-			if (strncmp(alias, com2alias, strlen(com2alias)) == 0)
+			if (strcmp(alias, com2alias) == 0)
 				return RMAP_MATCH;
 		}
 	}
