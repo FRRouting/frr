@@ -377,20 +377,14 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	}
 
-	enum frrlua_rm_status status_failure = LUA_RM_FAILURE,
-			      status_nomatch = LUA_RM_NOMATCH,
-			      status_match = LUA_RM_MATCH,
-			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
-
 	struct attr newattr = *path->attr;
 
 	int result = frrscript_call(
 		fs, routematch_function, ("prefix", prefix),
 		("attributes", &newattr), ("peer", path->peer),
-		("RM_FAILURE", (int)status_failure),
-		("RM_NOMATCH", (int)status_nomatch),
-		("RM_MATCH", (int)status_match),
-		("RM_MATCH_AND_CHANGE", (int)status_match_and_change));
+		("RM_FAILURE", LUA_RM_FAILURE), ("RM_NOMATCH", LUA_RM_NOMATCH),
+		("RM_MATCH", LUA_RM_MATCH),
+		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE));
 
 	if (result) {
 		zlog_err("Issue running script rule; defaulting to no match");
