@@ -5970,6 +5970,7 @@ void bgp_static_add(struct bgp *bgp)
 	struct bgp_table *table;
 	struct bgp_static *bgp_static;
 
+	SET_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS);
 	FOREACH_AFI_SAFI (afi, safi)
 		for (dest = bgp_table_top(bgp->route[afi][safi]); dest;
 		     dest = bgp_route_next(dest)) {
@@ -5996,6 +5997,7 @@ void bgp_static_add(struct bgp *bgp)
 					safi);
 			}
 		}
+	UNSET_FLAG(bgp->flags, BGP_FLAG_FORCE_STATIC_PROCESS);
 }
 
 /* Called from bgp_delete().  Delete all static routes from the BGP
