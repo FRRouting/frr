@@ -162,7 +162,7 @@ void lua_decode_stringp(lua_State *L, int idx, char *str);
 void *lua_tostringp(lua_State *L, int idx);
 
 /*
- * No-op decocders
+ * No-op decoders
  */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr);
 
