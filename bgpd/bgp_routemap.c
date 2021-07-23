@@ -373,7 +373,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 
 	if (frrscript_load(fs, routematch_function, NULL)) {
 		zlog_err(
-			"Issue loading script or function function; defaulting to no match");
+			"Issue loading script or function; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
