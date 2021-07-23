@@ -27,6 +27,7 @@
 #include <zebra/zebra_ns.h>
 #include <zebra/zebra_pw.h>
 #include <lib/vxlan.h>
+#include <zebra/zebra_vrf.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -176,6 +177,8 @@ struct zebra_vrf {
 	uint64_t lsp_removals_queued;
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
+
+	struct table_manager *tbl_mgr;
 
 #if defined(HAVE_RTADV)
 	struct rtadv rtadv;
