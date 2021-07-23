@@ -195,7 +195,7 @@ const struct prefix * : lua_decode_noop                         \
  *
  * lfs
  *    The Lua function to call; this should have been loaded in by
- * frrscript_load(). nargs Number of arguments the function accepts
+ *    frrscript_load(). nargs Number of arguments the function accepts
  *
  * Returns:
  *    0 if the script ran successfully, nonzero otherwise.
