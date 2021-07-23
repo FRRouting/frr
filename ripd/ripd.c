@@ -3690,6 +3690,8 @@ void rip_vrf_init(void)
 {
 	vrf_init(rip_vrf_new, rip_vrf_enable, rip_vrf_disable, rip_vrf_delete,
 		 rip_vrf_enable);
+
+	vrf_cmd_init(NULL, &ripd_privs);
 }
 
 void rip_vrf_terminate(void)
