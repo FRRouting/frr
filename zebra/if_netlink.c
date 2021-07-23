@@ -1610,6 +1610,19 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					/* unknown interface */
 					ifp = if_get_by_name(name, vrf_id);
 			} else {
+				struct interface *old_ifp;
+
+				old_ifp = if_lookup_by_index_per_ns(zns,
+								    ifi->ifi_index);
+				if (old_ifp) {
+					if (strcmp(old_ifp->name, name)) {
+						if (IS_ZEBRA_DEBUG_KERNEL)
+							zlog_debug(
+								   "interface index %d with old name %s. removing",
+								   old_ifp->ifindex, old_ifp->name);
+						if_delete_update(oifp);
+					}
+				}
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)
 					if_update_to_new_vrf(ifp, vrf_id);
