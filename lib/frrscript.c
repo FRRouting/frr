@@ -208,10 +208,14 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 	if (lfs == NULL)
 		return NULL;
 
-	/* results table is idx 1 on the stack, getfield pushes our item to idx
-	 * 2
+	/* At this point, the Lua state should have only the returned table.
+	 * We will then search the table for the key/value we're interested in.
+	 * Then if the value is present (i.e. non-nil), call the lua_to*
+	 * decoder.
 	 */
-	lua_getfield(lfs->L, 1, name);
+	assert(lua_gettop(lfs->L) == 1);
+	assert(lua_istable(lfs->L, -1) == 1);
+	lua_getfield(lfs->L, -1, name);
 	if (lua_isnil(lfs->L, -1)) {
 		lua_pop(lfs->L, 1);
 		zlog_warn(
@@ -220,6 +224,11 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 		return NULL;
 	}
 	p = lua_to(lfs->L, 2);
+
+	/* At the end, the Lua state should be same as it was at the start
+	 * i.e. containing soley the returned table. */
+	assert(lua_gettop(lfs->L) == 1);
+	assert(lua_istable(lfs->L, -1) == 1);
 
 	return p;
 }
