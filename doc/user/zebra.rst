@@ -473,6 +473,21 @@ be updated with the new name. To illustrate, if you want to recompile with
 
    ./configure --with-defaultvrfname=global
 
+.. _zebra-table-allocation:
+
+Table Allocation
+================
+
+Some services like BGP flowspec allocate routing tables to perform policy
+routing based on netfilter criteria and IP rules. In order to avoid
+conflicts between VRF allocated routing tables and those services, Zebra
+proposes to define a chunk of routing tables to use by other services.
+
+Allocation configuration can be done like below, with the range of the
+chunk of routing tables to be used by the given service.
+
+.. clicmd:: ip table range <STARTTABLENO> <ENDTABLENO>
+
 .. _zebra-ecmp:
 
 ECMP

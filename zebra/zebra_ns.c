@@ -128,9 +128,6 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	route_read(zns);
 	kernel_read_pbr_rules(zns);
 
-	/* Initiate Table Manager per ZNS */
-	table_manager_enable(ns_id);
-
 	return 0;
 }
 
@@ -144,8 +141,6 @@ static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
 	kernel_terminate(zns, complete);
-
-	table_manager_disable(zns->ns_id);
 
 	zns->ns_id = NS_DEFAULT;
 

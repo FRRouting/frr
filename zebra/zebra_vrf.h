@@ -177,6 +177,8 @@ struct zebra_vrf {
 	uint64_t lsp_installs;
 	uint64_t lsp_removals;
 
+	struct table_manager *tbl_mgr;
+
 #if defined(HAVE_RTADV)
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */

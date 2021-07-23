@@ -59,6 +59,7 @@
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/table_manager.h"
 
 extern int allow_delete;
 
@@ -4291,6 +4292,31 @@ DEFUN_HIDDEN(no_zebra_kernel_netlink_batch_tx_buf,
 
 #endif /* HAVE_NETLINK */
 
+DEFUN(ip_table_range, ip_table_range_cmd,
+      "[no] ip table range (1-4294967295) (1-4294967295)",
+      NO_STR IP_STR
+      "table configuration\n"
+      "Configure table range\n"
+      "Start Routing Table\n"
+      "End Routing Table\n")
+{
+	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
+
+	if (!zvrf)
+		return CMD_WARNING;
+
+	if (zvrf_id(zvrf) != VRF_DEFAULT && !vrf_is_backend_netns()) {
+		vty_out(vty,
+			"VRF subcommand does not make any sense in l3mdev based vrf's\n");
+		return CMD_WARNING;
+	}
+
+	if (strmatch(argv[0]->text, "no"))
+		return table_manager_range(vty, false, zvrf, NULL, NULL);
+
+	return table_manager_range(vty, true, zvrf, argv[3]->arg, argv[4]->arg);
+}
+
 /* IP node for static routes. */
 static int zebra_ip_config(struct vty *vty);
 static struct cmd_node ip_node = {
@@ -4438,6 +4464,9 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_dataplane_providers_cmd);
 	install_element(CONFIG_NODE, &zebra_dplane_queue_limit_cmd);
 	install_element(CONFIG_NODE, &no_zebra_dplane_queue_limit_cmd);
+
+	install_element(CONFIG_NODE, &ip_table_range_cmd);
+	install_element(VRF_NODE, &ip_table_range_cmd);
 
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);
