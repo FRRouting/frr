@@ -49,7 +49,7 @@ extern struct zebra_privs_t zserv_privs;
 /*****************************************************************************
  * ARP-ND handling
  * A snooper socket is created for each bridge access port to listen
- * in on ARP replies and NAs. These packets are redirected to an ES-peer
+ * in on ARP and ND. These packets are redirected to an ES-peer
  * via the VxLAN overlay if the destination associated with the DMAC
  * is oper-down
  ****************************************************************************/
@@ -60,9 +60,9 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 	if (uj) {
 		json = json_object_new_object();
 		json_object_boolean_true_add(json, "arpRedirect");
-		json_object_int_add(json, "arpReplyPkts",
+		json_object_int_add(json, "arpPkts",
 				    zevpn_arp_nd_info.stat.arp);
-		json_object_int_add(json, "naPkts", zevpn_arp_nd_info.stat.na);
+		json_object_int_add(json, "ndPkts", zevpn_arp_nd_info.stat.na);
 		json_object_int_add(json, "redirectPkts",
 				    zevpn_arp_nd_info.stat.redirect);
 		json_object_int_add(json, "notReadyPkts",
@@ -81,9 +81,8 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 				? "enabled"
 				: "disabled");
 		vty_out(vty, "Stats:\n");
-		vty_out(vty, "  IPv4 ARP replies: %u\n",
-			zevpn_arp_nd_info.stat.arp);
-		vty_out(vty, "  IPv6 neighbor advertisements: %u\n",
+		vty_out(vty, "  IPv4 ARP: %u\n", zevpn_arp_nd_info.stat.arp);
+		vty_out(vty, "  IPv6 neighbor discovery: %u\n",
 			zevpn_arp_nd_info.stat.na);
 		vty_out(vty, "  Redirected packets: %u\n",
 			zevpn_arp_nd_info.stat.redirect);
@@ -111,8 +110,7 @@ void zebra_evpn_arp_nd_print_summary(struct vty *vty, bool uj)
 void zebra_evpn_arp_nd_if_print(struct vty *vty, struct zebra_if *zif)
 {
 	if (zif->arp_nd_info.pkt_fd > 0)
-		vty_out(vty,
-			"  ARP-ND redirect enabled: ARP-replies %u NA %u\n",
+		vty_out(vty, "  ARP-ND redirect enabled: ARP %u ND %u\n",
 			zif->arp_nd_info.arp_pkts, zif->arp_nd_info.na_pkts);
 }
 
@@ -410,19 +408,20 @@ static int zebra_evpn_arp_nd_read(struct thread *t)
 	return 0;
 }
 
-/* BPF filter for snooping on ARP replies and IPv6 Neighbor advertisements -
- * tcpdump -dd '((arp and arp[6:2] == 2)
- *			or (icmp6 and ip6[40] == 136)) and inbound'
+/* BPF filter for snooping on unicast ARP req/replies and unicast IPv6 NS/NA -
+ * tcpdump -dd '((ether[0] &1 == 0) and (arp or
+ *               (icmp6 and (ip6[40] == 135 or ip6[40] == 136)))) and inbound'
  */
-static struct sock_filter arp_nd_reply_filter[] = {
-	{0x28, 0, 0, 0x0000000c},  {0x15, 0, 2, 0x00000806},
-	{0x28, 0, 0, 0x00000014},  {0x15, 8, 11, 0x00000002},
-	{0x15, 0, 10, 0x000086dd}, {0x30, 0, 0, 0x00000014},
-	{0x15, 3, 0, 0x0000003a},  {0x15, 0, 7, 0x0000002c},
-	{0x30, 0, 0, 0x00000036},  {0x15, 0, 5, 0x0000003a},
-	{0x30, 0, 0, 0x00000036},  {0x15, 0, 3, 0x00000088},
-	{0x28, 0, 0, 0xfffff004},  {0x15, 1, 0, 0x00000004},
-	{0x6, 0, 0, 0x00040000},   {0x6, 0, 0, 0x00000000},
+static struct sock_filter arp_nd_filter[] = {
+	{0x30, 0, 0, 0x00000000},  {0x45, 14, 0, 0x00000001},
+	{0x28, 0, 0, 0x0000000c},  {0x15, 9, 0, 0x00000806},
+	{0x15, 0, 11, 0x000086dd}, {0x30, 0, 0, 0x00000014},
+	{0x15, 3, 0, 0x0000003a},  {0x15, 0, 8, 0x0000002c},
+	{0x30, 0, 0, 0x00000036},  {0x15, 0, 6, 0x0000003a},
+	{0x30, 0, 0, 0x00000036},  {0x15, 1, 0, 0x00000087},
+	{0x15, 0, 3, 0x00000088},  {0x28, 0, 0, 0xfffff004},
+	{0x15, 1, 0, 0x00000004},  {0x6, 0, 0, 0x00040000},
+	{0x6, 0, 0, 0x00000000},
 };
 
 /* Setup socket per-access bridge port */
@@ -433,9 +432,8 @@ static int zebra_evpn_arp_nd_sock_create(struct zebra_if *zif)
 	int rcvbuf = ZEBRA_EVPN_ARP_ND_SOC_RCVBUF;
 	long flags;
 	struct sock_fprog prog = {
-		.len = sizeof(arp_nd_reply_filter)
-		       / sizeof(arp_nd_reply_filter[0]),
-		.filter = arp_nd_reply_filter,
+		.len = sizeof(arp_nd_filter) / sizeof(arp_nd_filter[0]),
+		.filter = arp_nd_filter,
 	};
 
 	frr_with_privs (&zserv_privs) {
@@ -523,7 +521,7 @@ static int zebra_evpn_arp_nd_sock_create(struct zebra_if *zif)
 	return fd;
 }
 
-/* ARP-replies and NA packets are snooped on non-vxlan bridge members.
+/* ARP and ND packets are snooped on non-vxlan bridge members.
  * Create a raw socket and read thread to do that per-member.
  */
 void zebra_evpn_arp_nd_if_update(struct zebra_if *zif, bool enable)
