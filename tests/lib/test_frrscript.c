@@ -37,7 +37,7 @@ int main(int argc, char **argv)
 	result = frrscript_call(fs, "foo", ("a", &a), ("b", &b));
 	assert(result == 0);
 	assert(a == 101);
-	assert(b == 202);
+	assert(b == 201);
 
 	a = 100, b = 200;
 
@@ -49,7 +49,7 @@ int main(int argc, char **argv)
 
 	/* a should not occur in the returned table in script */
 	assert(a == 100);
-	assert(b == 202);
+	assert(b == 201);
 	assert(*cptr == 303);
 	XFREE(MTYPE_TMP, cptr);
 
