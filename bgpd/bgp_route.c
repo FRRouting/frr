@@ -10482,6 +10482,49 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					continue;
 			}
 
+<<<<<<< HEAD
+=======
+			if (type == bgp_show_type_community_alias) {
+				char *alias = output_arg;
+				char **communities;
+				int num;
+				bool found = false;
+
+				if (pi->attr->community) {
+					frrstr_split(pi->attr->community->str,
+						     " ", &communities, &num);
+					for (int i = 0; i < num; i++) {
+						const char *com2alias =
+							bgp_community2alias(
+								communities[i]);
+						if (strcmp(alias, com2alias)
+						    == 0) {
+							found = true;
+							break;
+						}
+					}
+				}
+
+				if (!found && pi->attr->lcommunity) {
+					frrstr_split(pi->attr->lcommunity->str,
+						     " ", &communities, &num);
+					for (int i = 0; i < num; i++) {
+						const char *com2alias =
+							bgp_community2alias(
+								communities[i]);
+						if (strcmp(alias, com2alias)
+						    == 0) {
+							found = true;
+							break;
+						}
+					}
+				}
+
+				if (!found)
+					continue;
+			}
+
+>>>>>>> 35a45e807 (bgpd: Use strcmp comparing BGP alias with an actual entered alias)
 			if (type == bgp_show_type_rpki) {
 				if (dest_p->family == AF_INET
 				    || dest_p->family == AF_INET6)

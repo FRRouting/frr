@@ -1131,6 +1131,58 @@ static const struct route_map_rule_cmd route_match_vrl_source_vrf_cmd = {
 	route_match_vrl_source_vrf_free
 };
 
+<<<<<<< HEAD
+=======
+/* `match alias` */
+static enum route_map_cmd_result_t
+route_match_alias(void *rule, const struct prefix *prefix, void *object)
+{
+	char *alias = rule;
+	struct bgp_path_info *path = object;
+	char **communities;
+	int num;
+
+	if (path->attr->community) {
+		frrstr_split(path->attr->community->str, " ", &communities,
+			     &num);
+		for (int i = 0; i < num; i++) {
+			const char *com2alias =
+				bgp_community2alias(communities[i]);
+			if (strcmp(alias, com2alias) == 0)
+				return RMAP_MATCH;
+		}
+	}
+
+	if (path->attr->lcommunity) {
+		frrstr_split(path->attr->lcommunity->str, " ", &communities,
+			     &num);
+		for (int i = 0; i < num; i++) {
+			const char *com2alias =
+				bgp_community2alias(communities[i]);
+			if (strcmp(alias, com2alias) == 0)
+				return RMAP_MATCH;
+		}
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_alias_compile(const char *arg)
+{
+
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_alias_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_match_alias_cmd = {
+	"alias", route_match_alias, route_match_alias_compile,
+	route_match_alias_free};
+
+>>>>>>> 35a45e807 (bgpd: Use strcmp comparing BGP alias with an actual entered alias)
 /* `match local-preference LOCAL-PREF' */
 
 /* Match function return 1 if match is success else return zero. */
