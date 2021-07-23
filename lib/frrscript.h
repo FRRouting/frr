@@ -176,7 +176,7 @@ const struct prefix * : lua_pushprefix                          \
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
-int : lua_decode_int_noop,                                      \
+int : lua_decode_integer_noop,                                  \
 long long * : lua_decode_integerp,                              \
 struct prefix * : lua_decode_prefix,                            \
 struct interface * : lua_decode_interface,                      \
