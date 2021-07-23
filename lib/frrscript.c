@@ -317,11 +317,18 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	/* Push the Lua function we want */
 	lua_getglobal(L, function_name);
-	if (lua_isfunction(L, lua_gettop(L)) == 0)
+	if (lua_isfunction(L, lua_gettop(L)) == 0) {
+		zlog_err("frrscript: loaded script '%s.lua' but %s not found",
+			 script_name, function_name);
 		goto fail;
+	}
 
-	if (load_cb && (*load_cb)(fs) != 0)
+	if (load_cb && (*load_cb)(fs) != 0) {
+		zlog_err(
+			"frrscript: '%s.lua': %s: loaded but callback returned non-zero exit code",
+			script_name, function_name);
 		goto fail;
+	}
 
 	/* Add the Lua function state to frrscript */
 	struct lua_function_state key = {.name = function_name, .L = L};
