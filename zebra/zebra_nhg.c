@@ -453,8 +453,13 @@ static void *zebra_nhg_hash_alloc(void *arg)
 	/* Mark duplicate nexthops in a group at creation time. */
 	nexthop_group_mark_duplicates(&(nhe->nhg));
 
-	/* Add the ifp now if it's not a group or recursive and has ifindex */
-	if (nhe->nhg.nexthop && nhe->nhg.nexthop->ifindex) {
+	/*
+	 * Add the ifp now if it's not a group or recursive and has ifindex.
+	 *
+	 * A proto-owned ID is always a group.
+	 */
+	if (!PROTO_OWNED(nhe) && nhe->nhg.nexthop && !nhe->nhg.nexthop->next
+	    && !nhe->nhg.nexthop->resolved && nhe->nhg.nexthop->ifindex) {
 		struct interface *ifp = NULL;
 
 		ifp = if_lookup_by_index(nhe->nhg.nexthop->ifindex,
