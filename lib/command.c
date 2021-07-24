@@ -160,6 +160,9 @@ static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
 		|| node == BGP_FLOWSPECV6_NODE))
 		return false;
 
+	if (target_node == INTERFACE_NODE && node == LINK_PARAMS_NODE)
+		return false;
+
 	return true;
 }
 
