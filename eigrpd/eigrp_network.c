@@ -219,7 +219,7 @@ int eigrp_network_set(struct eigrp *eigrp, struct prefix *p)
 	}
 
 	struct prefix *pref = prefix_new();
-	PREFIX_COPY_IPV4(pref, p);
+	prefix_copy(pref, p);
 	rn->info = (void *)pref;
 
 	/* Schedule Router ID Update. */
