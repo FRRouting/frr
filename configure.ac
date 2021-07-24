@@ -273,11 +273,11 @@ AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
 dnl if the user has specified any CFLAGS, override our settings
 if test "$enable_gcov" = "yes"; then
    if test "$orig_cflags" = ""; then
-      AC_C_FLAG([-coverage])
+      AC_C_FLAG([--coverage])
       AC_C_FLAG([-O0])
    fi
 
-   AC_LDFLAGS="${AC_LDFLAGS} -lgcov"
+   AC_LDFLAGS="${AC_LDFLAGS} --coverage"
 fi
 
 if test "$enable_clang_coverage" = "yes"; then
@@ -497,7 +497,7 @@ _LT_CONFIG_LIBTOOL([
   sed -e 's%func_warning ".*has not been installed in%true #\0%' -i libtool || true
 ])
 if test "$enable_static_bin" = "yes"; then
-  AC_LDFLAGS="-static"
+  AC_LDFLAGS_EXEC="-static"
   if test "$enable_static" != "yes"; then
     AC_MSG_ERROR([The --enable-static-bin option must be combined with --enable-static.])
   fi
@@ -506,6 +506,7 @@ if test "$enable_shared" != "yes"; then
   AC_MSG_ERROR([FRR cannot be built with --disable-shared.  If you want statically linked daemons, use --enable-shared --enable-static --enable-static-bin])
 fi
 AC_SUBST([AC_LDFLAGS])
+AC_SUBST([AC_LDFLAGS_EXEC])
 AM_CONDITIONAL([STATIC_BIN], [test "$enable_static_bin" = "yes"])
 
 AC_ARG_ENABLE([rpath],
