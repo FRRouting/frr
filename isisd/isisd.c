@@ -2154,8 +2154,8 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	return CMD_SUCCESS;
 }
 
-struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
-			     struct isis *isis)
+struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
+			       struct isis *isis)
 {
 	char sysid[255] = {0};
 	uint8_t number[3] = {0};
@@ -2164,11 +2164,11 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 	struct isis_dynhn *dynhn;
 	struct isis_lsp *lsp = NULL;
 
-	if (!argv)
+	if (!sysid_str)
 		return NULL;
 
 	/*
-	 * extract fragment and pseudo id from the string argv
+	 * extract fragment and pseudo id from the string sysid_str
 	 * in the forms:
 	 * (a) <systemid/hostname>.<pseudo-id>-<framenent> or
 	 * (b) <systemid/hostname>.<pseudo-id> or
@@ -2176,10 +2176,10 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 	 * Where systemid is in the form:
 	 * xxxx.xxxx.xxxx
 	 */
-	if (argv)
-		strlcpy(sysid, argv, sizeof(sysid));
-	if (argv && strlen(argv) > 3) {
-		pos = argv + strlen(argv) - 3;
+	strlcpy(sysid, sysid_str, sizeof(sysid));
+
+	if (strlen(sysid_str) > 3) {
+		pos = sysid_str + strlen(sysid_str) - 3;
 		if (strncmp(pos, "-", 1) == 0) {
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN + 1] =
@@ -2192,14 +2192,13 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 			memcpy(number, ++pos, 2);
 			lspid[ISIS_SYS_ID_LEN] =
 				(uint8_t)strtol((char *)number, NULL, 16);
-			sysid[pos - argv - 1] = '\0';
+			sysid[pos - sysid_str - 1] = '\0';
 		}
 	}
 
 	/*
-	 * Try to find the lsp-id if the argv
-	 * string is in
-	 * the form
+	 * Try to find the lsp-id if the sysid_str
+	 * is in the form
 	 * hostname.<pseudo-id>-<fragment>
 	 */
 	if (sysid2buff(lspid, sysid)) {
@@ -2217,15 +2216,15 @@ struct isis_lsp *lsp_for_arg(struct lspdb_head *head, const char *argv,
 
 void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
 			      int level, struct lspdb_head *lspdb,
-			      const char *argv, int ui_level)
+			      const char *sysid_str, int ui_level)
 {
 	struct isis_lsp *lsp;
 	int lsp_count;
 
 	if (lspdb_count(lspdb) > 0) {
-		lsp = lsp_for_arg(lspdb, argv, area->isis);
+		lsp = lsp_for_sysid(lspdb, sysid_str, area->isis);
 
-		if (lsp != NULL || argv == NULL) {
+		if (lsp != NULL || sysid_str == NULL) {
 			vty_out(vty, "IS-IS Level-%d link-state database:\n",
 				level + 1);
 
@@ -2241,7 +2240,7 @@ void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
 			else
 				lsp_print(lsp, vty, area->dynhostname,
 					  area->isis);
-		} else if (argv == NULL) {
+		} else if (sysid_str == NULL) {
 			lsp_count =
 				lsp_print_all(vty, lspdb, ui_level,
 					      area->dynhostname, area->isis);
@@ -2251,7 +2250,7 @@ void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
 	}
 }
 
-static void show_isis_database_common(struct vty *vty, const char *argv,
+static void show_isis_database_common(struct vty *vty, const char *sysid_str,
 				      int ui_level, struct isis *isis)
 {
 	struct listnode *node;
@@ -2267,7 +2266,7 @@ static void show_isis_database_common(struct vty *vty, const char *argv,
 
 		for (level = 0; level < ISIS_LEVELS; level++)
 			show_isis_database_lspdb(vty, area, level,
-						 &area->lspdb[level], argv,
+						 &area->lspdb[level], sysid_str,
 						 ui_level);
 	}
 }
@@ -2287,8 +2286,8 @@ static void show_isis_database_common(struct vty *vty, const char *argv,
  * [ show isis database detail <sysid>.<pseudo-id>-<fragment-number> ]
  * [ show isis database detail <hostname>.<pseudo-id>-<fragment-number> ]
  */
-static int show_isis_database(struct vty *vty, const char *argv, int ui_level,
-			      const char *vrf_name, bool all_vrf)
+static int show_isis_database(struct vty *vty, const char *sysid_str,
+			      int ui_level, const char *vrf_name, bool all_vrf)
 {
 	struct listnode *node;
 	struct isis *isis;
@@ -2296,14 +2295,15 @@ static int show_isis_database(struct vty *vty, const char *argv, int ui_level,
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_database_common(vty, argv, ui_level,
-							  isis);
+				show_isis_database_common(vty, sysid_str,
+							  ui_level, isis);
 
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis)
-			show_isis_database_common(vty, argv, ui_level, isis);
+			show_isis_database_common(vty, sysid_str, ui_level,
+						  isis);
 	}
 
 	return CMD_SUCCESS;
