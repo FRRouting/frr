@@ -153,6 +153,20 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
 
+/* frr-cand-bsr */
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_destroy(
+	struct nb_cb_destroy_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_priority_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_create(
+	struct nb_cb_create_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_modify(
+	struct nb_cb_modify_args *args);
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_bsr_addrsel_destroy(
+	struct nb_cb_destroy_args *args);
+
 /* frr-candidate */
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
 	struct nb_cb_create_args *args);
@@ -232,6 +246,11 @@ int routing_control_plane_protocols_name_validate(
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
 	"frr-pim:pim/address-family[address-family='%s']/"              \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
+#define FRR_PIM_CAND_BSR_XPATH                                                 \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-pim:pim/address-family[address-family='%s']/"                     \
+	"frr-pim-candidate:candidate-bsr"
 #define FRR_PIM_CAND_RP_XPATH                                                  \
 	"/frr-routing:routing/control-plane-protocols/"                        \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \

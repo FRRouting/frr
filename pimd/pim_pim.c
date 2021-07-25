@@ -139,7 +139,7 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 }
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
-		   pim_sgaddr sg)
+		   pim_sgaddr sg, bool is_mcast)
 {
 	struct iovec iov[2], *iovp = iov;
 #if PIM_IPV == 4
@@ -274,6 +274,16 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		return -1;
 	}
 
+	if (!is_mcast) {
+		if (header->type == PIM_MSG_TYPE_CANDIDATE)
+			return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len);
+
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"ignoring link traffic on BSR unicast socket");
+		return -1;
+	}
+
 	switch (header->type) {
 	case PIM_MSG_TYPE_HELLO:
 		return pim_hello_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
@@ -321,6 +331,13 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 	case PIM_MSG_TYPE_BOOTSTRAP:
 		return pim_bsm_process(ifp, &sg, pim_msg, pim_msg_len, no_fwd);
 		break;
+
+	case PIM_MSG_TYPE_CANDIDATE:
+		/* return pim_crp_process(ifp, &sg, pim_msg, pim_msg_len); */
+		if (PIM_DEBUG_PIM_PACKETS)
+			zlog_debug(
+				"ignoring Candidate-RP packet on multicast socket");
+		return 0;
 
 	default:
 		if (PIM_DEBUG_PIM_PACKETS) {
@@ -395,7 +412,7 @@ static void pim_sock_read(struct event *t)
 		sg.grp = ((struct sockaddr_in6 *)&to)->sin6_addr;
 #endif
 
-		int fail = pim_pim_packet(ifp, buf, len, sg);
+		int fail = pim_pim_packet(ifp, buf, len, sg, true);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug("%s: pim_pim_packet() return=%d",
