@@ -2495,6 +2495,245 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 	return NB_OK;
 }
 
+static void yang_addrsel(struct cand_addrsel *addrsel,
+			 const struct lyd_node *node)
+{
+	memset(addrsel->cfg_ifname, 0, sizeof(addrsel->cfg_ifname));
+	addrsel->cfg_addr = PIMADDR_ANY;
+
+	if (yang_dnode_exists(node, "if-any")) {
+		addrsel->cfg_mode = CAND_ADDR_ANY;
+	} else if (yang_dnode_exists(node, "address")) {
+		addrsel->cfg_mode = CAND_ADDR_EXPLICIT;
+		yang_dnode_get_pimaddr(&addrsel->cfg_addr, node, "address");
+	} else if (yang_dnode_exists(node, "interface")) {
+		addrsel->cfg_mode = CAND_ADDR_IFACE;
+		strlcpy(addrsel->cfg_ifname,
+			yang_dnode_get_string(node, "interface"),
+			sizeof(addrsel->cfg_ifname));
+	} else if (yang_dnode_exists(node, "if-loopback")) {
+		addrsel->cfg_mode = CAND_ADDR_LO;
+	}
+}
+
+static int candidate_rp_addrsel(struct bsm_scope *scope,
+				const struct lyd_node *cand_rp_node)
+{
+	yang_addrsel(&scope->cand_rp_addrsel, cand_rp_node);
+	pim_cand_rp_apply(scope);
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_addrsel.cfg_enable = true;
+		scope->cand_rp_prio = yang_dnode_get_uint8(args->dnode,
+							   "rp-priority");
+		scope->cand_rp_interval =
+			yang_dnode_get_uint32(args->dnode,
+					      "advertisement-interval");
+
+		candidate_rp_addrsel(scope, args->dnode);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_addrsel.cfg_enable = false;
+
+		pim_cand_rp_apply(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_priority_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_prio = yang_dnode_get_uint8(args->dnode, NULL);
+
+		pim_cand_rp_trigger(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_adv_interval_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		scope->cand_rp_interval = yang_dnode_get_uint32(args->dnode,
+								NULL);
+
+		pim_cand_rp_trigger(scope);
+		break;
+	}
+
+	return NB_OK;
+}
+
+#if PIM_IPV == 4
+#define yang_dnode_get_pim_p yang_dnode_get_ipv4p
+#else
+#define yang_dnode_get_pim_p yang_dnode_get_ipv6p
+#endif
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_create(
+	struct nb_cb_create_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	prefix_pim p;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		yang_dnode_get_pim_p(&p, args->dnode, ".");
+		pim_cand_rp_grp_add(scope, &p);
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_group_list_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+	prefix_pim p;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(args->dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		yang_dnode_get_pim_p(&p, args->dnode, ".");
+		pim_cand_rp_grp_del(scope, &p);
+		break;
+	}
+	return NB_OK;
+}
+
+static int candidate_rp_addrsel_common(enum nb_event event,
+				       const struct lyd_node *dnode)
+{
+	struct vrf *vrf;
+	struct pim_instance *pim;
+	struct bsm_scope *scope;
+
+	dnode = lyd_parent(dnode);
+
+	switch (event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		vrf = nb_running_get_entry(dnode, NULL, true);
+		pim = vrf->info;
+		scope = &pim->global_scope;
+
+		candidate_rp_addrsel(scope, dnode);
+		break;
+	}
+	return NB_OK;
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_create(
+	struct nb_cb_create_args *args)
+{
+	return candidate_rp_addrsel_common(args->event, args->dnode);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_modify(
+	struct nb_cb_modify_args *args)
+{
+	return candidate_rp_addrsel_common(args->event, args->dnode);
+}
+
+int routing_control_plane_protocols_control_plane_protocol_pim_address_family_candidate_rp_addrsel_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* nothing to do here - we'll get a create or modify event too */
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family
  */
