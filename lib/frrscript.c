@@ -226,7 +226,8 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 	p = lua_to(lfs->L, 2);
 
 	/* At the end, the Lua state should be same as it was at the start
-	 * i.e. containing soley the returned table. */
+	 * i.e. containing soley the returned table.
+	 */
 	assert(lua_gettop(lfs->L) == 1);
 	assert(lua_istable(lfs->L, -1) == 1);
 
