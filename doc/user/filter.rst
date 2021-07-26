@@ -137,6 +137,15 @@ Showing ip prefix-list
 .. clicmd:: show ip prefix-list detail
 .. clicmd:: show ip prefix-list detail NAME
 
+.. clicmd:: debug prefix-list NAME match <A.B.C.D/M|X:X::X:X/M> [address-mode]
+
+   Execute the prefix list matching code for the specified list and prefix.
+   Shows which entry matched, if any.  (``address-mode`` is used for
+   PIM RP lookups and skips prefix length checks.)
+
+   The return value from this command is success only if the prefix-list
+   result is to permit the prefix, so the command can be used in scripting.
+
 Clear counter of ip prefix-list
 -------------------------------
 

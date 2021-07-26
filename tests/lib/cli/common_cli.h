@@ -25,6 +25,9 @@
 #include "zebra.h"
 #include "vty.h"
 #include "command.h"
+#include "northbound.h"
+
+extern const struct frr_yang_module_info *const *test_yang_modules;
 
 /* function to be implemented by test */
 extern void test_init(int argc, char **argv);
