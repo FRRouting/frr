@@ -62,18 +62,18 @@ are respectively encapsulated in the following structures:
 .. code-block:: c
 
    struct frrscript {
-   	/* Lua file name */
-   	char *name;
+       /* Lua file name */
+       char *name;
 
-   	/* hash of lua_function_states */
-   	struct hash *lua_function_hash;
+       /* hash of lua_function_states */
+       struct hash *lua_function_hash;
    };
 
    struct lua_function_state {
-   	/* Lua function name */
-   	char *name;
+       /* Lua function name */
+       char *name;
 
-   	lua_State *L;
+       lua_State *L;
    };
 
 
