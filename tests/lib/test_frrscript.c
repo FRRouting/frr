@@ -51,7 +51,7 @@ int main(int argc, char **argv)
 	assert(a == 100);
 	assert(b == 201);
 	assert(*cptr == 303);
-	XFREE(MTYPE_TMP, cptr);
+	XFREE(MTYPE_SCRIPT_RES, cptr);
 
 	long long n = 5;
 
@@ -62,7 +62,7 @@ int main(int argc, char **argv)
 	long long *ansptr =
 		frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
 	assert(*ansptr == 120);
-	XFREE(MTYPE_TMP, ansptr);
+	XFREE(MTYPE_SCRIPT_RES, ansptr);
 
 	/* Negative testing */
 

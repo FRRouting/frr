@@ -274,7 +274,7 @@ So, a typical execution call, with error checking, looks something like this:
        goto DONE; // "d" might not have been in returned table
 
    assert(*d == 800);
-   XFREE(MTYPE_TMP, d); // caller responsible for free
+   XFREE(MTYPE_SCRIPT_RES, d); // caller responsible for free
 
    DONE:
    frrscript_delete(fs);
@@ -430,7 +430,7 @@ This function can and should be implemented using ``lua_decode_*``:
 
    void *lua_toprefix(lua_State *L, int idx)
    {
-           struct prefix *p = XCALLOC(MTYPE_TMP, sizeof(struct prefix));
+           struct prefix *p = XCALLOC(MTYPE_SCRIPT_RES, sizeof(struct prefix));
 
            lua_decode_prefix(L, idx, p);
            return p;
@@ -438,7 +438,7 @@ This function can and should be implemented using ``lua_decode_*``:
 
 
 The returned data must always be copied off the stack and the copy must be
-allocated with ``MTYPE_TMP``. This way it is possible to unload the script
+allocated with ``MTYPE_SCRIPT_RES``. This way it is possible to unload the script
 (destroy the state) without invalidating any references to values stored in it.
 Note that it is the caller's responsibility to free the data.
 
