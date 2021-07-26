@@ -70,10 +70,6 @@ void pim_sendmsg_zebra_rnh(struct pim_instance *pim, struct zclient *zclient,
 int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 				     struct prefix *src, struct prefix *grp);
 void pim_rp_nexthop_del(struct rp_info *rp_info);
-bool pim_nexthop_match(struct pim_instance *pim, struct in_addr addr,
-		       struct in_addr ip_src);
-bool pim_nexthop_match_nht_cache(struct pim_instance *pim, struct in_addr addr,
-				 struct in_addr ip_src);
 
 /* for RPF check on BSM message receipt */
 void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr bsr_addr);
