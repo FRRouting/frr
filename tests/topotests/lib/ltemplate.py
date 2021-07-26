@@ -59,7 +59,7 @@ class LTemplate:
         self.test = test
         self.testdir = testdir
         self.scriptdir = testdir
-        self.logdir = "/tmp/topotests/{0}.test_{0}".format(test)
+        self.logdir = ""
         logger.info("LTemplate: " + test)
 
     def setup_module(self, mod):
@@ -68,6 +68,8 @@ class LTemplate:
         tgen = Topogen(customize.ThisTestTopo, mod.__name__)
         # ... and here it calls Mininet initialization functions.
         tgen.start_topology()
+
+        self.logdir = tgen.logdir
 
         logger.info("Topology started")
         try:

@@ -18,37 +18,35 @@
 # OF THIS SOFTWARE.
 #
 
-from copy import deepcopy
-from time import sleep
-import traceback
-import ipaddr
 import ipaddress
 import os
 import sys
-from lib import topotest
-from lib.topolog import logger
+import traceback
+from copy import deepcopy
+from time import sleep
 
-from lib.topogen import TopoRouter, get_topogen
-from lib.topotest import frr_unicode
+import ipaddr
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
-    create_common_configuration,
-    InvalidCLIError,
-    load_config_to_router,
-    check_address_types,
-    generate_ips,
-    validate_ip_address,
-    find_interface_with_greater_ip,
-    run_frr_cmd,
     FRRCFG_FILE,
-    retry,
+    InvalidCLIError,
+    check_address_types,
+    create_common_configuration,
+    find_interface_with_greater_ip,
+    generate_ips,
+    get_frr_ipv6_linklocal,
     get_ipv6_linklocal_address,
-    get_frr_ipv6_linklocal
+    load_config_to_router,
+    retry,
+    run_frr_cmd,
+    validate_ip_address,
 )
+from lib.topogen import TopoRouter, get_topogen
+from lib.topolog import logger
+from lib.topotest import frr_unicode
 
-LOGDIR = "/tmp/topotests/"
-TMPDIR = None
+from lib import topotest
 
 
 def create_router_bgp(tgen, topo, input_dict=None, build=False, load_config=True):
@@ -1083,9 +1081,6 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     try:
-
-        global LOGDIR
-
         result = create_router_bgp(
             tgen, topo, input_dict, build=False, load_config=False
         )
@@ -1099,13 +1094,10 @@ def modify_bgp_config_when_bgpd_down(tgen, topo, input_dict):
                 if router != dut:
                     continue
 
-                TMPDIR = os.path.join(LOGDIR, tgen.modname)
-
                 logger.info("Delete BGP config when BGPd is down in {}".format(router))
-                # Reading the config from /tmp/topotests and
-                # copy to /etc/frr/bgpd.conf
+                # Reading the config from "rundir" and copy to /etc/frr/bgpd.conf
                 cmd = "cat {}/{}/{} >> /etc/frr/bgpd.conf".format(
-                    TMPDIR, router, FRRCFG_FILE
+                    tgen.logdir, router, FRRCFG_FILE
                 )
                 router_list[router].run(cmd)
 

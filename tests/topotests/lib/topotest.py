@@ -22,37 +22,46 @@
 # OF THIS SOFTWARE.
 #
 
-import json
-import os
+import difflib
 import errno
-import re
-import sys
 import functools
 import glob
-import subprocess
-import tempfile
+import json
+import os
 import platform
-import difflib
-import time
+import re
 import signal
+import subprocess
+import sys
+import tempfile
+import time
+from copy import deepcopy
 
 from lib.topolog import logger
-from copy import deepcopy
 
 if sys.version_info[0] > 2:
     import configparser
 else:
     import ConfigParser as configparser
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
-from mininet.term import makeTerm
+from lib.micronet import Bridge
+from lib.micronet_compat import Node
 
 g_extra_config = {}
+
+def get_logs_path(rundir):
+    xdist_worker = os.getenv("PYTEST_XDIST_WORKER", None)
+    cur_test = os.environ["PYTEST_CURRENT_TEST"]
+    cur_test = cur_test.split(" ")[0]
+    # Some tests have square brackets from fixtures, sub those
+    cur_test = cur_test.replace("[", "_").replace("]", "_")
+    path, testname = cur_test.split("::")
+    assert path.endswith(".py")
+    path = path[:-3].replace("/", ".")
+
+    if xdist_worker:
+        return os.path.join(rundir, path, testname)
+    return os.path.join(rundir, path)
 
 
 def gdb_core(obj, daemon, corefiles):
@@ -283,7 +292,7 @@ def json_cmp(d1, d2, exact=False):
     * `d2`: parsed JSON data structure
 
     Returns 'None' when all JSON Object keys and all Array elements of d2 have a match
-    in d1, e.g. when d2 is a "subset" of d1 without honoring any order. Otherwise an
+    in d1, i.e., when d2 is a "subset" of d1 without honoring any order. Otherwise an
     error report is generated and wrapped in a 'json_cmp_result()'. There are special
     parameters and notations explained below which can be used to cover rather unusual
     cases:
@@ -1101,6 +1110,7 @@ class Router(Node):
             defaults={
                 "verbosity": "info",
                 "frrdir": "/usr/lib/frr",
+                "rundir": "/tmp/topotests",
                 "routertype": "frr",
                 "memleak_path": "",
             }
@@ -1112,18 +1122,15 @@ class Router(Node):
         # If this topology is using old API and doesn't have logdir
         # specified, then attempt to generate an unique logdir.
         if self.logdir is None:
-            cur_test = os.environ["PYTEST_CURRENT_TEST"]
-            self.logdir = "/tmp/topotests/" + cur_test[
-                cur_test.find("/") + 1 : cur_test.find(".py")
-            ].replace("/", ".")
+            self.logdir = get_logs_path(self.config_defaults.get("topogen", "rundir"))
 
-        # If the logdir is not created, then create it and set the
-        # appropriated permissions.
-        if not os.path.isdir(self.logdir):
-            os.system("mkdir -p " + self.logdir + "/" + name)
-            os.system("chmod -R go+rw /tmp/topotests")
-            # Erase logs of previous run
-            os.system("rm -rf " + self.logdir + "/" + name)
+        if not params.get("logfile"):
+            # If logfile is present topogen has already set this up
+            self.cmd_raises(
+                "rm -rf {0} && mkdir -p {0} && chmod go+rw {0}".format(
+                    "{}/{}".format(self.logdir, name)
+                )
+            )
 
         self.daemondir = None
         self.hasmpls = False
@@ -1152,7 +1159,7 @@ class Router(Node):
         self.reportCores = True
         self.version = None
 
-        self.ns_cmd = "sudo nsenter -m -n -t {} ".format(self.pid)
+        self.ns_cmd = "sudo nsenter -a -t {} ".format(self.pid)
         try:
             # Allow escaping from running inside docker
             cgroup = open("/proc/1/cgroup").read()
@@ -1207,7 +1214,7 @@ class Router(Node):
         set_sysctl(self, "net.ipv4.ip_forward", 0)
         set_sysctl(self, "net.ipv6.conf.all.forwarding", 0)
         super(Router, self).terminate()
-        os.system("chmod -R go+rw /tmp/topotests")
+        os.system("chmod -R go+rw " + self.logdir)
 
     # Return count of running daemons
     def listDaemons(self):
@@ -1294,7 +1301,6 @@ class Router(Node):
                             )
                         )
                         self.cmd("kill -7 %s" % daemonpid)
-                        self.waitOutput()
                     self.cmd("rm -- {}".format(d.rstrip()))
 
         if not wait:
@@ -1310,7 +1316,7 @@ class Router(Node):
 
     def removeIPs(self):
         for interface in self.intfNames():
-            self.cmd("ip address flush", interface)
+            self.cmd("ip address flush " + interface)
 
     def checkCapability(self, daemon, param):
         if param is not None:
@@ -1331,22 +1337,26 @@ class Router(Node):
                 self.daemons_options[daemon] = param
             if source is None:
                 self.cmd("touch /etc/%s/%s.conf" % (self.routertype, daemon))
-                self.waitOutput()
             else:
                 self.cmd("cp %s /etc/%s/%s.conf" % (source, self.routertype, daemon))
-                self.waitOutput()
             self.cmd("chmod 640 /etc/%s/%s.conf" % (self.routertype, daemon))
-            self.waitOutput()
             self.cmd(
                 "chown %s:%s /etc/%s/%s.conf"
                 % (self.routertype, self.routertype, self.routertype, daemon)
             )
-            self.waitOutput()
             if (daemon == "snmpd") and (self.routertype == "frr"):
+                # /etc/snmp is private mount now
                 self.cmd('echo "agentXSocket /etc/frr/agentx" > /etc/snmp/frr.conf')
+                self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
+
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
-                staticd_path = os.path.join(self.daemondir, "staticd")
+                try:
+                    staticd_path = os.path.join(self.daemondir, "staticd")
+                except:
+                    import pdb
+                    pdb.set_trace()
+
                 if os.path.isfile(staticd_path):
                     self.daemons["staticd"] = 1
                     self.daemons_options["staticd"] = ""
@@ -1355,27 +1365,8 @@ class Router(Node):
             logger.info("No daemon {} known".format(daemon))
         # print "Daemons after:", self.daemons
 
-    # Run a command in a new window (gnome-terminal, screen, tmux, xterm)
     def runInWindow(self, cmd, title=None):
-        topo_terminal = os.getenv("FRR_TOPO_TERMINAL")
-        if topo_terminal or ("TMUX" not in os.environ and "STY" not in os.environ):
-            term = topo_terminal if topo_terminal else "xterm"
-            makeTerm(self, title=title if title else cmd, term=term, cmd=cmd)
-        else:
-            nscmd = self.ns_cmd + cmd
-            if "TMUX" in os.environ:
-                self.cmd("tmux select-layout main-horizontal")
-                wcmd = "tmux split-window -h"
-                cmd = "{} {}".format(wcmd, nscmd)
-            elif "STY" in os.environ:
-                if os.path.exists(
-                    "/run/screen/S-{}/{}".format(os.environ["USER"], os.environ["STY"])
-                ):
-                    wcmd = "screen"
-                else:
-                    wcmd = "sudo -u {} screen".format(os.environ["SUDO_USER"])
-                cmd = "{} {}".format(wcmd, nscmd)
-            self.cmd(cmd)
+        return self.run_in_window(cmd, title)
 
     def startRouter(self, tgen=None):
         # Disable integrated-vtysh-config
@@ -1431,11 +1422,11 @@ class Router(Node):
 
         shell_routers = g_extra_config["shell"]
         if "all" in shell_routers or self.name in shell_routers:
-            self.runInWindow(os.getenv("SHELL", "bash"))
+            self.run_in_window(os.getenv("SHELL", "bash"))
 
         vtysh_routers = g_extra_config["vtysh"]
         if "all" in vtysh_routers or self.name in vtysh_routers:
-            self.runInWindow("vtysh")
+            self.run_in_window("vtysh")
 
         if self.daemons["eigrpd"] == 1:
             eigrpd_path = os.path.join(self.daemondir, "eigrpd")
@@ -1484,7 +1475,7 @@ class Router(Node):
         # Starts actual daemons without init (ie restart)
         # cd to per node directory
         self.cmd("install -d {}/{}".format(self.logdir, self.name))
-        self.cmd("cd {}/{}".format(self.logdir, self.name))
+        self.set_cwd("{}/{}".format(self.logdir, self.name))
         self.cmd("umask 000")
 
         # Re-enable to allow for report per run
@@ -1557,7 +1548,7 @@ class Router(Node):
                     gdbcmd += " -ex 'b {}'".format(bp)
                 gdbcmd += " -ex 'run {}'".format(cmdopt)
 
-                self.runInWindow(gdbcmd, daemon)
+                self.run_in_window(gdbcmd, daemon)
             else:
                 if daemon != "snmpd":
                     cmdopt += " -d "
@@ -1584,9 +1575,11 @@ class Router(Node):
 
         # Fix Link-Local Addresses
         # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
-        self.cmd(
-            "for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; IFS=':'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done"
+        _, output, _ = self.cmd_status(
+            "for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; echo $i: $mac; [ -z \"$mac\" ] && continue; IFS=':'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done",
+            stderr=subprocess.STDOUT
         )
+        logger.debug("Set MACs:\n%s", output)
 
         # Now start all the other daemons
         for daemon in daemons_list:
@@ -1627,7 +1620,6 @@ class Router(Node):
                                 )
                             )
                             self.cmd("kill -9 %s" % daemonpid)
-                            self.waitOutput()
                             if pid_exists(int(daemonpid)):
                                 numRunning += 1
                         if wait and numRunning > 0:
@@ -1654,7 +1646,6 @@ class Router(Node):
                                             )
                                         )
                                         self.cmd("kill -9 %s" % daemonpid)
-                                        self.waitOutput()
                                     self.cmd("rm -- {}".format(d.rstrip()))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
@@ -1945,14 +1936,6 @@ class FreeBSDRouter(Router):
 
     def __init__(self, name, **params):
         Router.__init__(self, name, **params)
-
-
-class LegacySwitch(OVSSwitch):
-    "A Legacy Switch without OpenFlow"
-
-    def __init__(self, name, **params):
-        OVSSwitch.__init__(self, name, failMode="standalone", **params)
-        self.switchIP = None
 
 
 def frr_unicode(s):

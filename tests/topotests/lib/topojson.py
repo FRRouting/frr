@@ -18,34 +18,24 @@
 # OF THIS SOFTWARE.
 #
 
+import ipaddress
 from collections import OrderedDict
+from copy import deepcopy
 from json import dumps as json_dumps
 from re import search as re_search
-import ipaddress
-import pytest
+
 import ipaddr
-from copy import deepcopy
+import pytest
 
-
-# Import topogen and topotest helpers
-from lib.topolog import logger
-
-# Required to instantiate the topology builder class.
-from lib.common_config import (
-    number_to_row,
-    number_to_column,
-    load_config_to_router,
-    create_interfaces_cfg,
-    create_static_routes,
-    create_prefix_lists,
-    create_route_maps,
-    create_bgp_community_lists,
-    create_vrf_cfg,
-)
-
-from lib.pim import create_pim_config, create_igmp_config
 from lib.bgp import create_router_bgp
+from lib.common_config import (create_bgp_community_lists,
+                               create_interfaces_cfg, create_prefix_lists,
+                               create_route_maps, create_static_routes,
+                               create_vrf_cfg, load_config_to_router,
+                               number_to_column)
 from lib.ospf import create_router_ospf, create_router_ospf6
+from lib.pim import create_igmp_config, create_pim_config
+from lib.topolog import logger
 
 ROUTER_LIST = []
 

@@ -26,8 +26,9 @@ Logging utilities for topology tests.
 This file defines our logging abstraction.
 """
 
-import sys
 import logging
+
+BASENAME = "topolog"
 
 # Helper dictionary to convert Topogen logging levels to Python's logging.
 DEBUG_TOPO2LOGGING = {
@@ -38,81 +39,40 @@ DEBUG_TOPO2LOGGING = {
     "error": logging.ERROR,
     "critical": logging.CRITICAL,
 }
+FORMAT = "%(asctime)s.%(msecs)03d %(levelname)s: %(name)s: %(message)s"
 
+logger = logging.getLogger("topolog")
 
-class InfoFilter(logging.Filter):
-    def filter(self, rec):
-        return rec.levelno in (logging.DEBUG, logging.INFO)
-
-
-#
-# Logger class definition
-#
-
-
-class Logger(object):
-    """
-    Logger class that encapsulates logging functions, internaly it uses Python
-    logging module with a separated instance instead of global.
-
-    Default logging level is 'info'.
-    """
-
-    def __init__(self):
-        # Create default global logger
-        self.log_level = logging.INFO
-        self.logger = logging.Logger("topolog", level=self.log_level)
-
-        handler_stdout = logging.StreamHandler(sys.stdout)
-        handler_stdout.setLevel(logging.DEBUG)
-        handler_stdout.addFilter(InfoFilter())
-        handler_stdout.setFormatter(
-            logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s")
-        )
-        handler_stderr = logging.StreamHandler()
-        handler_stderr.setLevel(logging.WARNING)
-        handler_stderr.setFormatter(
-            logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s")
-        )
-
-        self.logger.addHandler(handler_stdout)
-        self.logger.addHandler(handler_stderr)
-
-        # Handle more loggers
-        self.loggers = {"topolog": self.logger}
-
-    def set_log_level(self, level):
-        "Set the logging level"
-        self.log_level = DEBUG_TOPO2LOGGING.get(level)
-        self.logger.setLevel(self.log_level)
-
-    def get_logger(self, name="topolog", log_level=None, target=sys.stdout):
-        """
-        Get a new logger entry. Allows creating different loggers for formating,
-        filtering or handling (file, stream or stdout/stderr).
-        """
-        if log_level is None:
-            log_level = self.log_level
-        if name in self.loggers:
-            return self.loggers[name]
-
-        nlogger = logging.Logger(name, level=log_level)
+def set_handler(l, target=None):
+    if target is None:
+        h = logging.NullHandler()
+    else:
         if isinstance(target, str):
-            handler = logging.FileHandler(filename=target)
+            h = logging.FileHandler(filename=target, mode="w")
         else:
-            handler = logging.StreamHandler(stream=target)
+            h = logging.StreamHandler(stream=target)
+        h.setFormatter(logging.Formatter(fmt=FORMAT))
+    # Don't filter anything at the handler level
+    h.setLevel(logging.DEBUG)
+    l.addHandler(h)
 
-        handler.setFormatter(
-            logging.Formatter(fmt="%(asctime)s %(levelname)s: %(message)s")
-        )
-        nlogger.addHandler(handler)
-        self.loggers[name] = nlogger
-        return nlogger
+def set_log_level(l, level):
+    "Set the logging level."
+    # Messages sent to this logger only are created if this level or above.
+    log_level = DEBUG_TOPO2LOGGING.get(level, level)
+    l.setLevel(log_level)
+
+def get_logger(name, log_level=None, target=None):
+    l = logging.getLogger("{}.{}".format(BASENAME, name))
+
+    if log_level is not None:
+        set_log_level(l, log_level)
+
+    if target is not None:
+        set_handler(l, target)
+
+    return l
 
 
-#
-# Global variables
-#
-
-logger_config = Logger()
-logger = logger_config.logger
+set_handler(logger, None)
+set_log_level(logger, "debug")

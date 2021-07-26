@@ -93,7 +93,7 @@ class SnmpTester(object):
         return tokens[0].split(".", 1)[1]
 
     def _parse_multiline(self, snmp_output):
-        results = snmp_output.strip().split("\r\n")
+        results = snmp_output.strip().split("\n")
 
         out_dict = {}
         out_list = []
