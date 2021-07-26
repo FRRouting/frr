@@ -28,8 +28,8 @@ ltemplate.py: LabN template for FRR tests.
 import os
 import sys
 import platform
+
 import pytest
-import imp
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
@@ -43,7 +43,6 @@ from mininet.topo import Topo
 
 customize = None
 
-
 class LTemplate:
     test = None
     testdir = None
@@ -54,12 +53,20 @@ class LTemplate:
     iproute2Ver = None
 
     def __init__(self, test, testdir):
+        pathname = os.path.join(testdir, "customize.py")
         global customize
-        customize = imp.load_source("customize", os.path.join(testdir, "customize.py"))
+        if sys.version_info >= (3, 5):
+            import importlib.util
+            spec = importlib.util.spec_from_file_location("customize", pathname)
+            customize = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(customize)
+        else:
+            import imp
+            customize = imp.load_source("customize", pathname)
         self.test = test
         self.testdir = testdir
         self.scriptdir = testdir
-        self.logdir = "/tmp/topotests/{0}.test_{0}".format(test)
+        self.logdir = ""
         logger.info("LTemplate: " + test)
 
     def setup_module(self, mod):
@@ -68,6 +75,8 @@ class LTemplate:
         tgen = Topogen(customize.ThisTestTopo, mod.__name__)
         # ... and here it calls Mininet initialization functions.
         tgen.start_topology()
+
+        self.logdir = tgen.logdir
 
         logger.info("Topology started")
         try:

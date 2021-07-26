@@ -18,37 +18,35 @@
 # OF THIS SOFTWARE.
 #
 
-import ipaddr
 import ipaddress
 import sys
-
+import traceback
 from copy import deepcopy
-from time import sleep
-from lib.topolog import logger
-from lib.topotest import frr_unicode
 from ipaddress import IPv6Address
-import sys
+from time import sleep
+
+import ipaddr
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
     create_common_configurations,
     InvalidCLIError,
-    retry,
-    generate_ips,
     check_address_types,
-    validate_ip_address,
+    create_common_configuration,
+    generate_ips,
+    retry,
     run_frr_cmd,
+    validate_ip_address,
 )
-
-LOGDIR = "/tmp/topotests/"
-TMPDIR = None
+from lib.topolog import logger
+from lib.topotest import frr_unicode
 
 ################################
 # Configure procs
 ################################
 
 
-def create_router_ospf(tgen, topo, input_dict=None, build=False, load_config=True):
+def create_router_ospf(tgen, topo=None, input_dict=None, build=False, load_config=True):
     """
     API to configure ospf on router.
 
@@ -78,6 +76,9 @@ def create_router_ospf(tgen, topo, input_dict=None, build=False, load_config=Tru
     """
     logger.debug("Entering lib API: create_router_ospf()")
     result = False
+
+    if topo is None:
+        topo = tgen.json_topo
 
     if not input_dict:
         input_dict = deepcopy(topo)
@@ -373,7 +374,7 @@ def __create_ospf_global(
     return config_data
 
 
-def create_router_ospf6(tgen, topo, input_dict=None, build=False, load_config=True):
+def create_router_ospf6(tgen, topo=None, input_dict=None, build=False, load_config=True):
     """
     API to configure ospf on router
 
@@ -399,6 +400,9 @@ def create_router_ospf6(tgen, topo, input_dict=None, build=False, load_config=Tr
     """
     logger.debug("Entering lib API: create_router_ospf6()")
     result = False
+
+    if topo is None:
+        topo = tgen.json_topo
 
     if not input_dict:
         input_dict = deepcopy(topo)
@@ -431,7 +435,7 @@ def create_router_ospf6(tgen, topo, input_dict=None, build=False, load_config=Tr
     return result
 
 
-def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=True):
+def config_ospf_interface(tgen, topo=None, input_dict=None, build=False, load_config=True):
     """
     API to configure ospf on router.
 
@@ -466,6 +470,10 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
     """
     logger.debug("Enter lib config_ospf_interface")
     result = False
+
+    if topo is None:
+        topo = tgen.json_topo
+
     if not input_dict:
         input_dict = deepcopy(topo)
     else:
@@ -632,7 +640,7 @@ def redistribute_ospf(tgen, topo, dut, route_type, **kwargs):
 # Verification procs
 ################################
 @retry(retry_timeout=80)
-def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False, expected=True):
+def verify_ospf_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False, expected=True):
     """
     This API is to verify ospf neighborship by running
     show ip ospf neighbour command,
@@ -680,6 +688,9 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False, expec
     """
     logger.debug("Entering lib API: verify_ospf_neighbor()")
     result = False
+    if topo is None:
+        topo = tgen.json_topo
+
     if input_dict:
         for router, rnode in tgen.routers().items():
             if "ospf" not in topo["routers"][router]:
@@ -827,7 +838,7 @@ def verify_ospf_neighbor(tgen, topo, dut=None, input_dict=None, lan=False, expec
 # Verification procs
 ################################
 @retry(retry_timeout=50)
-def verify_ospf6_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
+def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False):
     """
     This API is to verify ospf neighborship by running
     show ipv6 ospf neighbour command,
@@ -874,6 +885,9 @@ def verify_ospf6_neighbor(tgen, topo, dut=None, input_dict=None, lan=False):
     """
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
+
+    if topo is None:
+        topo = tgen.json_topo
 
     if input_dict:
         for router, rnode in tgen.routers().items():
@@ -1318,7 +1332,7 @@ def verify_ospf_rib(
 
 
 @retry(retry_timeout=20)
-def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None, expected=True):
+def verify_ospf_interface(tgen, topo=None, dut=None, lan=False, input_dict=None, expected=True):
     """
     This API is to verify ospf routes by running
     show ip ospf interface command.
@@ -1360,6 +1374,9 @@ def verify_ospf_interface(tgen, topo, dut=None, lan=False, input_dict=None, expe
 
     logger.debug("Entering lib API: verify_ospf_interface()")
     result = False
+    if topo is None:
+        topo = tgen.json_topo
+
     for router, rnode in tgen.routers().items():
         if "ospf" not in topo["routers"][router]:
             continue
@@ -1936,7 +1953,7 @@ def verify_ospf6_rib(tgen, dut, input_dict, next_hop=None,
 
 
 @retry(retry_timeout=6)
-def verify_ospf6_interface(tgen, topo, dut=None,lan=False, input_dict=None):
+def verify_ospf6_interface(tgen, topo=None, dut=None,lan=False, input_dict=None):
     """
     This API is to verify ospf routes by running
     show ip ospf interface command.
@@ -1978,8 +1995,11 @@ def verify_ospf6_interface(tgen, topo, dut=None,lan=False, input_dict=None):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
 
-    for router, rnode in tgen.routers().iteritems():
-        if "ospf6" not in topo["routers"][router]:
+    if topo is None:
+        topo = tgen.json_topo
+
+    for router, rnode in tgen.routers().items():
+        if 'ospf6' not in topo['routers'][router]:
             continue
 
         if dut is not None and dut != router:
@@ -2315,7 +2335,7 @@ def verify_ospf6_database(tgen, topo, dut, input_dict):
     return result
 
 
-def config_ospf6_interface(tgen, topo, input_dict=None, build=False, load_config=True):
+def config_ospf6_interface(tgen, topo=None, input_dict=None, build=False, load_config=True):
     """
     API to configure ospf on router.
 
@@ -2350,6 +2370,9 @@ def config_ospf6_interface(tgen, topo, input_dict=None, build=False, load_config
     """
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
+    if topo is None:
+        topo = tgen.json_topo
+
     if not input_dict:
         input_dict = deepcopy(topo)
     else:

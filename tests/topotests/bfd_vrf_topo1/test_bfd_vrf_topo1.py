@@ -108,10 +108,10 @@ def setup_module(mod):
     for rname, router in router_list.items():
         # create VRF rx-bfd-cust1 and link rx-eth0 to rx-bfd-cust1
         for cmd in cmds:
-            output = tgen.net[rname].cmd(cmd.format(rname))
+            output = tgen.net[rname].cmd_raises(cmd.format(rname))
         if rname == "r2":
             for cmd in cmds2:
-                output = tgen.net[rname].cmd(cmd.format(rname))
+                output = tgen.net[rname].cmd_raises(cmd.format(rname))
 
     for rname, router in router_list.items():
         router.load_config(
