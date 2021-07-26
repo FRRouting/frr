@@ -920,9 +920,11 @@ static int rip_auth_md5(struct rip_packet *packet, struct sockaddr_in *from,
 		if (key == NULL || key->string == NULL)
 			return 0;
 
-		strlcpy(auth_str, key->string, sizeof(auth_str));
+		memcpy(auth_str, key->string,
+		       MIN(sizeof(auth_str), strlen(key->string)));
 	} else if (ri->auth_str)
-		strlcpy(auth_str, ri->auth_str, sizeof(auth_str));
+		memcpy(auth_str, ri->auth_str,
+		       MIN(sizeof(auth_str), strlen(ri->auth_str)));
 
 	if (auth_str[0] == 0)
 		return 0;
@@ -965,9 +967,11 @@ static void rip_auth_prepare_str_send(struct rip_interface *ri, struct key *key,
 
 	memset(auth_str, 0, len);
 	if (key && key->string)
-		strlcpy(auth_str, key->string, len);
+		memcpy(auth_str, key->string,
+		       MIN((size_t)len, strlen(key->string)));
 	else if (ri->auth_str)
-		strlcpy(auth_str, ri->auth_str, len);
+		memcpy(auth_str, ri->auth_str,
+		       MIN((size_t)len, strlen(ri->auth_str)));
 
 	return;
 }
