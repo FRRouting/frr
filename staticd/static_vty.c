@@ -1205,7 +1205,7 @@ static void static_cmgd_bcknd_client_connect(
 }
 
 static cmgd_bcknd_client_params_t cmgd_params = {
-	.name = "Staticd",
+	.name = CMGD_BCKND_CLIENT_STATICD,
 	.conn_retry_intvl_sec = 3,
 	.conn_notify_cb = static_cmgd_bcknd_client_connect
 };

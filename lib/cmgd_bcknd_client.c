@@ -37,6 +37,8 @@
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
+const char *cmgd_bcknd_client_names[] = {CMGD_BCKND_CLIENT_STATICD, CMGD_BCKND_CLIENT_BGPD};
+
 typedef struct cmgd_bcknd_client_ctxt_ {
 	int conn_fd;
 	struct thread_master *tm;

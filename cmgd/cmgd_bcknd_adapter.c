@@ -51,9 +51,137 @@ static struct thread_master *cmgd_bcknd_adptr_tm = NULL;
 
 static struct cmgd_bcknd_adptr_list_head cmgd_bcknd_adptrs = {0};
 
+cmgd_bcknd_client_adapter_t *cmgd_adaptr_ref[CMGD_BCKND_CLIENT_ID_MAX];
+
+/* Static map to find the adapters to which
+ * transations needs to be sent based on XPATH string
+ */
+static cmgd_bcknd_xpath_map_t xpath_map[] = {
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_FILTER,
+		.xpath_regexp = "frr-filter:lib",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
+				    | CMGD_BCKND_CLIENT_INDEX_BGPD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE,
+		.xpath_regexp = "frr-interface:lib",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
+			     | CMGD_BCKND_CLIENT_INDEX_BGPD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP,
+		.xpath_regexp = "frr-route-map:lib",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_BGPD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_VRF,
+		.xpath_regexp = "frr-vrf:lib",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
+				    | CMGD_BCKND_CLIENT_INDEX_BGPD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTING,
+		.xpath_regexp = "frr-routing:routing",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
+				    | CMGD_BCKND_CLIENT_INDEX_BGPD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC,
+		.xpath_regexp = "frr-staticd:staticd",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP,
+		.xpath_regexp = "frr-bgp:bgp",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_BGPD)
+	},
+	{
+		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP,
+		.xpath_regexp = "frr-bgp-route-map",
+		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_BGPD)
+	}
+};
+
 /* Forward declarations */
 static void cmgd_bcknd_adptr_register_event(
 	cmgd_bcknd_client_adapter_t *adptr, cmgd_event_t event);
+
+static int cmgd_bcknd_adapter_find_client_id_by_name(char *name)
+{
+	if (strcmp(name, CMGD_BCKND_CLIENT_STATICD) == 0) {
+		return CMGD_BCKND_CLIENT_ID_STATICD;
+	} else if (strcmp(name, CMGD_BCKND_CLIENT_BGPD) == 0) {
+		return CMGD_BCKND_CLIENT_ID_BGPD;
+	} else {
+		CMGD_BCKND_ADPTR_ERR("Unsupported adapter client %s", name);
+		return -1;
+	}
+}
+
+void cmgd_bcknd_adaptr_ref_init(void)
+{
+	int i = 0;
+	for (i = 0; i < CMGD_BCKND_CLIENT_ID_MAX; i++)
+		cmgd_adaptr_ref[i] = NULL;
+}
+
+/* This function does a hierarchial lookup on the XPATH with
+ * available xpath_regexp to derive the appropriate adapter
+ * list from the static xpath_map.
+ * Return value is a collection of adapters interested in the
+ * xpath.
+ * Each bit in return value represent a client adapter.
+ */
+uint32_t cmgd_trxn_derive_adapters_for_xpath(const char *xpath)
+{
+	if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_FILTER]
+				.xpath_regexp))
+		return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_FILTER]
+			.bknd_client_ids;
+	// regexp for xpath with \"frr-interface:lib\"
+	else if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE]
+				       .xpath_regexp))
+		return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE]
+				.bknd_client_ids;
+	// regexp for xpath with \"frr-route-map:lib\"
+	else if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP]
+					 .xpath_regexp)) {
+		if (strstr(xpath,
+			xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP]
+					.xpath_regexp))
+			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP]
+				.bknd_client_ids;
+		else
+			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP]
+				.bknd_client_ids;
+	// regexp for xpath with \"frr-vrf:lib\"
+	} else if (strstr(xpath,
+			xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_VRF].xpath_regexp))
+		return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_VRF]
+				.bknd_client_ids;
+	// regexp for xpath with \"frr-routing:routing\"
+	else if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING]
+					 .xpath_regexp)) {
+		if (strstr(xpath,
+			xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC]
+					  .xpath_regexp))
+			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC]
+				.bknd_client_ids;
+		else if (strstr(xpath,
+				xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP]
+					.xpath_regexp))
+			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP]
+					.bknd_client_ids;
+		else
+			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING]
+					.bknd_client_ids;
+	} else {
+		CMGD_BCKND_ADPTR_ERR(
+			"Cannot convert given XPATH %s to adapter list", xpath);
+		return -1;
+	}
+}
 
 static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_fd(int conn_fd)
 {
@@ -87,6 +215,10 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 	}
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
+	if (adptr->adapter_index != -1) {
+		cmgd_adaptr_ref[adptr->adapter_index] = NULL;
+		adptr->adapter_index = -1;
+	}
 
 	cmgd_bcknd_adptr_list_del(&cmgd_bcknd_adptrs, adptr);
 
@@ -128,6 +260,10 @@ static int cmgd_bcknd_adapter_handle_msg(
 		if (strlen(bcknd_msg->subscr_req->client_name)) {
 			strlcpy(adptr->name, bcknd_msg->subscr_req->client_name, 
 				sizeof(adptr->name));
+			adptr->adapter_index =
+				cmgd_bcknd_adapter_find_client_id_by_name(
+					adptr->name);
+			cmgd_adaptr_ref[adptr->adapter_index] = adptr;
 			cmgd_bcknd_adapter_cleanup_old_conn(adptr);
 		}
 		break;
@@ -392,6 +528,7 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		assert(adptr);
 
 		adptr->conn_fd = conn_fd;
+		adptr->adapter_index = -1;
 		memcpy(&adptr->conn_su, from, sizeof(adptr->conn_su));
 		snprintf(adptr->name, sizeof(adptr->name), "Unknown-FD-%d", adptr->conn_fd);
 		adptr->ibuf_fifo = stream_fifo_new();
@@ -461,6 +598,8 @@ void cmgd_bcknd_adapter_status_write(struct vty *vty)
 	FOREACH_ADPTR_IN_LIST(adptr) {
 		vty_out(vty, "  Client: \t\t\t%s\n", adptr->name);
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
+		vty_out(vty, "    adapter-index: \t\t%d\n",
+			adptr->adapter_index);
 		vty_out(vty, "    Total Xpaths Registered: \t%u\n", 
 			adptr->num_xpath_reg);
 		for (indx = 0; indx < adptr->num_xpath_reg; indx++)
