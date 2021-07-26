@@ -1701,7 +1701,6 @@ DEFUN (no_ipv6_nht_default_route,
        "Filter Next Hop tracking route resolution\n"
        "Resolve via default route\n")
 {
-
 	ZEBRA_DECLVAR_CONTEXT(vrf, zvrf);
 
 	if (!zvrf)
@@ -1712,6 +1711,17 @@ DEFUN (no_ipv6_nht_default_route,
 
 	zvrf->zebra_rnh_ipv6_default_route = 0;
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(rnh_hide_backups, rnh_hide_backups_cmd,
+	     "[no] ip nht hide-backup-events",
+	     NO_STR
+	     IP_STR
+	     "Nexthop-tracking configuration\n"
+	     "Hide notification about backup nexthops\n")
+{
+	rnh_set_hide_backups(!no);
 	return CMD_SUCCESS;
 }
 
@@ -3661,6 +3671,9 @@ static int config_write_protocol(struct vty *vty)
 	if (!zebra_nhg_recursive_use_backups())
 		vty_out(vty, "no zebra nexthop resolve-via-backup\n");
 
+	if (rnh_get_hide_backups())
+		vty_out(vty, "ip nht hide-backup-events\n");
+
 #ifdef HAVE_NETLINK
 	/* Include netlink info */
 	netlink_config_write_helper(vty);
@@ -4120,6 +4133,8 @@ void zebra_vty_init(void)
 	install_element(VRF_NODE, &no_ip_nht_default_route_cmd);
 	install_element(VRF_NODE, &ipv6_nht_default_route_cmd);
 	install_element(VRF_NODE, &no_ipv6_nht_default_route_cmd);
+	install_element(CONFIG_NODE, &rnh_hide_backups_cmd);
+
 	install_element(VIEW_NODE, &show_ipv6_mroute_cmd);
 
 	/* Commands for VRF */

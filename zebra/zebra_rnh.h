@@ -64,6 +64,13 @@ extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 
+extern bool rnh_nexthop_valid(const struct route_entry *re,
+			      const struct nexthop *nh);
+
+/* UI control to avoid notifications if backup nexthop status changes */
+void rnh_set_hide_backups(bool hide_p);
+bool rnh_get_hide_backups(void);
+
 #ifdef __cplusplus
 }
 #endif
