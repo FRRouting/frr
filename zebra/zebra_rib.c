@@ -4212,6 +4212,52 @@ struct route_entry *zebra_rib_route_entry_new(vrf_id_t vrf_id, int type,
 	return re;
 }
 /*
+ * This is a helper to add a kernel route avoiding duplicate connected routes
+ */
+int rib_add_kernel_route(afi_t afi, uint32_t flags, struct prefix *p,
+			 const struct nexthop *nh, uint8_t distance)
+{
+	struct route_table *table;
+	struct route_node *rn;
+	struct route_entry *re;
+	int vrf_id = VRF_DEFAULT;
+	struct vrf *vrf = NULL;
+
+	vrf = vrf_lookup_by_id(vrf_id);
+
+	/* Lookup table.  */
+	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
+	if (!table) {
+		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
+			 "%s:%s(%u) zebra_vrf_table() returned NULL", __func__,
+			 VRF_LOGNAME(vrf), vrf_id);
+		return -1;
+	}
+
+	/* Scan the RIB table for exactly matching RE entry. */
+	rn = route_node_lookup(table, (struct prefix *)p);
+
+	/* Route found for this prefix */
+	if (rn) {
+		bool seen_in_connected = false;
+
+		RNODE_FOREACH_RE (rn, re) {
+			if (re->type == ZEBRA_ROUTE_CONNECT) {
+				seen_in_connected = true;
+				break;
+			}
+		}
+		route_unlock_node(rn);
+
+		if (seen_in_connected)
+			return -1;
+	}
+
+	return rib_add(afi, SAFI_UNICAST, vrf_id, ZEBRA_ROUTE_KERNEL, 0, flags,
+		       p, NULL, nh, 0, RT_TABLE_MAIN, 0, 0, distance, 0, false);
+}
+
+/*
  * Internal route-add implementation; there are a couple of different public
  * signatures. Callers in this path are responsible for the memory they
  * allocate: if they allocate a nexthop_group or backup nexthop info, they
