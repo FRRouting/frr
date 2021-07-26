@@ -7187,7 +7187,7 @@ DEFPY (pim_register_accept_list,
 
 DEFUN (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval (60-600)",
+       "ip pim join-prune-interval (5-600)",
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
@@ -7201,7 +7201,7 @@ DEFUN (ip_pim_joinprune_time,
 
 DEFUN (no_ip_pim_joinprune_time,
        no_ip_pim_joinprune_time_cmd,
-       "no ip pim join-prune-interval (60-600)",
+       "no ip pim join-prune-interval (5-600)",
        NO_STR
        IP_STR
        "pim multicast routing\n"
