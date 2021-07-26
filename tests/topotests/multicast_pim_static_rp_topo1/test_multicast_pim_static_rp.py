@@ -156,14 +156,6 @@ from lib.pim import (
 pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 
 
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/multicast_pim_static_rp.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        TOPO = json.load(topoJson)
-except IOError:
-    logger.info("Could not read file: %s", jsonFile)
-
 # Global variables
 GROUP_RANGE_ALL = "224.0.0.0/4"
 GROUP_RANGE = "225.1.1.1/32"
@@ -241,7 +233,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/multicast_pim_static_rp.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global TOPO
+    TOPO = tgen.json_topo
 
     # ... and here it calls Mininet initialization functions.
 
@@ -1269,7 +1264,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     shutdown_bringup_interface(tgen, dut, intf, False)
 
     dut = "r1"
-    intf = "r1-r3-eth1"
+    intf = "r1-r3-eth2"
     shutdown_bringup_interface(tgen, dut, intf, False)
 
     step("r1 : Verify joinTx count before sending join")

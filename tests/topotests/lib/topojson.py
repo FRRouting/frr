@@ -18,34 +18,27 @@
 # OF THIS SOFTWARE.
 #
 
-from collections import OrderedDict
-from json import dumps as json_dumps
-from re import search as re_search
+import json
 import ipaddress
-import pytest
-import ipaddr
+import os
+from collections import OrderedDict
 from copy import deepcopy
+from re import search as re_search
 
+import ipaddr
+import pytest
 
-# Import topogen and topotest helpers
-from lib.topolog import logger
-
-# Required to instantiate the topology builder class.
-from lib.common_config import (
-    number_to_row,
-    number_to_column,
-    load_config_to_routers,
-    create_interfaces_cfg,
-    create_static_routes,
-    create_prefix_lists,
-    create_route_maps,
-    create_bgp_community_lists,
-    create_vrf_cfg,
-)
-
-from lib.pim import create_pim_config, create_igmp_config
 from lib.bgp import create_router_bgp
+from lib.common_config import (create_bgp_community_lists,
+                               create_interfaces_cfg, create_prefix_lists,
+                               create_route_maps, create_static_routes,
+                               create_vrf_cfg, load_config_to_routers,
+                               start_topology,
+                               topo_daemons,
+                               number_to_column)
 from lib.ospf import create_router_ospf, create_router_ospf6
+from lib.pim import create_igmp_config, create_pim_config
+from lib.topolog import logger
 
 ROUTER_LIST = []
 
@@ -60,13 +53,13 @@ def build_topo_from_json(tgen, topo):
     """
 
     ROUTER_LIST = sorted(
-        topo["routers"].keys(), key=lambda x: int(re_search("\d+", x).group(0))
+        topo["routers"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
     )
 
     SWITCH_LIST = []
     if "switches" in topo:
         SWITCH_LIST = sorted(
-            topo["switches"].keys(), key=lambda x: int(re_search("\d+", x).group(0))
+            topo["switches"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
         )
 
     listRouters = sorted(ROUTER_LIST[:])
@@ -204,7 +197,7 @@ def build_topo_from_json(tgen, topo):
             logger.debug(
                 "Generated link data for router: %s\n%s",
                 curRouter,
-                json_dumps(
+                json.dumps(
                     topo["routers"][curRouter]["links"], indent=4, sort_keys=True
                 ),
             )
@@ -287,7 +280,7 @@ def build_topo_from_json(tgen, topo):
             logger.debug(
                 "Generated link data for router: %s\n%s",
                 curRouter,
-                json_dumps(
+                json.dumps(
                     topo["routers"][curRouter]["links"], indent=4, sort_keys=True
                 ),
             )
@@ -297,7 +290,7 @@ def linux_intf_config_from_json(tgen, topo):
     """Configure interfaces from linux based on topo."""
     routers = topo["routers"]
     for rname in routers:
-        router = tgen.gears[rname]
+        router = tgen.net[rname]
         links = routers[rname]["links"]
         for rrname in links:
             link = links[rrname]
@@ -306,9 +299,9 @@ def linux_intf_config_from_json(tgen, topo):
             else:
                 lname = link["interface"]
             if "ipv4" in link:
-                router.run("ip addr add {} dev {}".format(link["ipv4"], lname))
+                router.cmd_raises("ip addr add {} dev {}".format(link["ipv4"], lname))
             if "ipv6" in link:
-                router.run("ip -6 addr add {} dev {}".format(link["ipv6"], lname))
+                router.cmd_raises("ip -6 addr add {} dev {}".format(link["ipv6"], lname))
 
 
 def build_config_from_json(tgen, topo, save_bkup=True):
@@ -347,3 +340,50 @@ def build_config_from_json(tgen, topo, save_bkup=True):
     if not result:
         logger.info("build_config_from_json: failed to configure topology")
         pytest.exit(1)
+
+
+def create_tgen_from_json(testfile, json_file=None):
+    """Create a topogen object given a testfile.
+
+    - `testfile`  : The path to the testfile.
+    - `json_file` : The path to the json config file. If None the pathname is derived
+      from the `testfile` first by trying to replace `.py` by `.json` and if that isn't
+      present then by removing `test_` prefix as well.
+    """
+    from lib.topogen import Topogen                    # Topogen imports this module too
+    thisdir = os.path.dirname(os.path.realpath(testfile))
+    basename = os.path.basename(testfile)
+    logger.debug("starting standard JSON based module setup for %s", basename)
+
+    assert basename.startswith("test_")
+    assert basename.endswith(".py")
+    json_file = os.path.join(thisdir, basename[:-3] + ".json")
+    if not os.path.exists(json_file):
+        json_file = os.path.join(thisdir, basename[5:-3] + ".json")
+        assert os.path.exists(json_file)
+    with open(json_file, "r") as topof:
+        topo = json.load(topof)
+
+    # Create topology
+    tgen = Topogen(lambda tgen: build_topo_from_json(tgen, topo), basename[:-3])
+    tgen.json_topo = topo
+    return tgen
+
+
+def setup_module_from_json(testfile, json_file=None):
+    """Do the standard module setup for JSON based test.
+
+    * `testfile` : The path to the testfile. The name is used to derive the json config
+      file name as well (removing `test_` prefix and replacing `.py` suffix with `.json`
+    """
+    # Create topology object
+    tgen = create_tgen_from_json(testfile, json_file)
+
+    # Start routers (and their daemons)
+    start_topology(tgen, topo_daemons(tgen))
+
+    # Configure routers
+    build_config_from_json(tgen)
+    assert not tgen.routers_have_failure()
+
+    return tgen

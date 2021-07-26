@@ -117,8 +117,6 @@ NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 LOOPBACK_1 = {
     "ipv4": "10.0.0.7/24",
     "ipv6": "fd00:0:0:1::7/64",
-    "ipv4_mask": "255.255.255.0",
-    "ipv6_mask": None,
 }
 LOOPBACK_2 = {
     "ipv4": "10.0.0.16/24",
