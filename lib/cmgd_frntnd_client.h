@@ -136,7 +136,7 @@ typedef cmgd_result_t (*cmgd_frntnd_client_get_data_notify_t)(
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
 	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[],
-	int *num_data, int next_key, char *errmsg_if_any);
+	size_t *num_data, int next_key, char *errmsg_if_any);
 
 /*
  * Handler to get YANG Notifications for one or more 'notification' type 

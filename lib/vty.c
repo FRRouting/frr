@@ -3234,6 +3234,32 @@ static void vty_cmgd_commit_config_result_notified(
 	vty_out(vty, "\n");
 }
 
+static cmgd_result_t vty_cmgd_get_data_result_notified(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
+	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
+	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[],
+	size_t *num_data, int next_key, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)client_id;
+
+	if (!success) {
+		zlog_err("ERROR: GET_DATA request for client 0x%lx failed! Error: '%s'",
+			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: GET_DATA request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		return CMGD_INTERNAL_ERROR;
+	}
+
+	zlog_err("GET_DATA request for client 0x%lx req-id %lu was successfull!",
+		client_id, req_id);
+
+	vty_out(vty, "\n");
+	return CMGD_SUCCESS;
+}
+
 static cmgd_frntnd_client_params_t client_params = {
 	.name = "LIB-VTY",
 	.conn_notify_cb = vty_cmgd_server_connected,
@@ -3241,6 +3267,7 @@ static cmgd_frntnd_client_params_t client_params = {
 	.sess_req_result_cb = vty_cmgd_session_created,
 	.set_config_result_cb = vty_cmgd_set_config_result_notified,
 	.commit_cfg_result_cb = vty_cmgd_commit_config_result_notified,
+	.get_data_result_cb = vty_cmgd_get_data_result_notified,
 };
 
 void vty_init_cmgd(void)

@@ -484,6 +484,31 @@ static int cmgd_frntnd_client_handle_msg(
 				frntnd_msg->commcfg_reply->validate_only,
 				frntnd_msg->commcfg_reply->error_if_any);
 		break;
+	case CMGD__FRNTND_MESSAGE__TYPE__GET_DATA_REPLY:
+		assert(frntnd_msg->message_case ==
+			CMGD__FRNTND_MESSAGE__MESSAGE_GETDATA_REPLY);
+
+		CMGD_FRNTND_CLNT_DBG(
+			"Got Get Config Reply Msg for session-id %llu",
+				frntnd_msg->commcfg_reply->session_id);
+
+		sessn = cmgd_frntnd_find_session_by_sessn_id(
+				clnt_ctxt, frntnd_msg->getdata_reply->session_id);
+
+		if (sessn && sessn->clnt_ctxt &&
+		    sessn->clnt_ctxt->client_params.get_data_result_cb)
+			(*sessn->clnt_ctxt->client_params.get_data_result_cb)(
+				(cmgd_lib_hndl_t)clnt_ctxt,
+				clnt_ctxt->client_params.user_data,
+				sessn->client_id, (cmgd_session_id_t) sessn,
+				sessn->user_ctxt,
+				frntnd_msg->getdata_reply->req_id,
+				frntnd_msg->getdata_reply->success,
+				frntnd_msg->getdata_reply->db_id,
+				*frntnd_msg->getdata_reply->data->data,
+				&frntnd_msg->getdata_reply->data->n_data,
+				frntnd_msg->getdata_reply->data->next_indx,
+				frntnd_msg->getdata_reply->error_if_any);
 	default:
 		break;
 	}
