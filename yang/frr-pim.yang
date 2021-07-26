@@ -529,7 +529,7 @@ module frr-pim {
     }
     leaf join-prune-interval {
       type uint16 {
-        range "60..600";
+        range "5..600";
       }
       default "60";
       description
