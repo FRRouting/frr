@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+DECLARE_MTYPE(SCRIPT_RES);
+
 /*
  * gcc-10 is complaining about the wrapper function
  * not being compatible with lua_pushstring returning

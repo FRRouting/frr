@@ -427,7 +427,7 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		break;
 	}
 
-	XFREE(MTYPE_TMP, action);
+	XFREE(MTYPE_SCRIPT_RES, action);
 
 	frrscript_delete(fs);
 
