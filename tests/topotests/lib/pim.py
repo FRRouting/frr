@@ -16,23 +16,24 @@
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
-import sys
+import datetime
 import os
 import re
-import datetime
+import sys
 import traceback
-import pytest
-from time import sleep
 from copy import deepcopy
-from lib.topolog import logger
+from time import sleep
+
+import pytest
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
-    create_common_configuration,
     InvalidCLIError,
+    create_common_configuration,
     retry,
     run_frr_cmd,
 )
+from lib.topolog import logger
 
 ####
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -943,7 +944,8 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, ex
             error = (
                 "[DUT %s]: Verifying join timer for"
                 " (%s,%s) [FAILED]!! "
-                " Expected: %s, Found: %s",
+                " Expected: %s, Found: %s"
+            ) % (
                 dut,
                 src_address,
                 grp_addr,
@@ -2048,9 +2050,7 @@ def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
     return result
 
 
-def scapy_send_bsr_raw_packet(
-    tgen, topo, senderRouter, receiverRouter, packet=None, interval=1, count=1
-):
+def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=None):
     """
     Using scapy Raw() method to send BSR raw packet from one FRR
     to other
@@ -2062,8 +2062,6 @@ def scapy_send_bsr_raw_packet(
     * `senderRouter` : Sender router
     * `receiverRouter` : Receiver router
     * `packet` : BSR packet in raw format
-    * `interval` : Interval between the packets
-    * `count` : Number of packets to be sent
 
     returns:
     --------
@@ -2074,7 +2072,9 @@ def scapy_send_bsr_raw_packet(
     result = ""
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    rnode = tgen.routers()[senderRouter]
+    python3_path = tgen.net.get_exec_path(["python3", "python"])
+    script_path = os.path.join(CWD, "send_bsr_packet.py")
+    node = tgen.net[senderRouter]
 
     for destLink, data in topo["routers"][senderRouter]["links"].items():
         if "type" in data and data["type"] == "loopback":
@@ -2085,26 +2085,16 @@ def scapy_send_bsr_raw_packet(
 
         packet = topo["routers"][senderRouter]["bsm"]["bsr_packets"][packet]["data"]
 
-        if interval > 1 or count > 1:
-            cmd = (
-                "nohup /usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
-                "--interval={} --count={} &".format(
-                    CWD, packet, sender_interface, interval, count
-                )
-            )
-        else:
-            cmd = (
-                "/usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
-                "--interval={} --count={}".format(
-                    CWD, packet, sender_interface, interval, count
-                )
-            )
-
+        cmd = [
+            python3_path,
+            script_path,
+            packet,
+            sender_interface,
+            "--interval=1",
+            "--count=1",
+        ]
         logger.info("Scapy cmd: \n %s", cmd)
-        result = rnode.run(cmd)
-
-        if result == "":
-            return result
+        node.cmd_raises(cmd)
 
     logger.debug("Exiting lib API: scapy_send_bsr_raw_packet")
     return True

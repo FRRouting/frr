@@ -18,30 +18,27 @@
 # OF THIS SOFTWARE.
 #
 
-import traceback
-import ipaddr
 import ipaddress
 import sys
-
+import traceback
 from copy import deepcopy
-from time import sleep
-from lib.topolog import logger
-from lib.topotest import frr_unicode
 from ipaddress import IPv6Address
+from time import sleep
+
+import ipaddr
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
-    create_common_configuration,
     InvalidCLIError,
-    retry,
-    generate_ips,
     check_address_types,
-    validate_ip_address,
+    create_common_configuration,
+    generate_ips,
+    retry,
     run_frr_cmd,
+    validate_ip_address,
 )
-
-LOGDIR = "/tmp/topotests/"
-TMPDIR = None
+from lib.topolog import logger
+from lib.topotest import frr_unicode
 
 ################################
 # Configure procs

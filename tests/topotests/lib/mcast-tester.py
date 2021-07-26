@@ -21,13 +21,14 @@ for the multicast group we subscribed to.
 """
 
 import argparse
-import os
 import json
+import os
 import socket
-import subprocess
 import struct
+import subprocess
 import sys
 import time
+
 
 #
 # Functions
@@ -64,7 +65,7 @@ parser.add_argument('group', help='Multicast IP')
 parser.add_argument('interface', help='Interface name')
 parser.add_argument(
     '--send',
-    help='Transmit instead of join with interval (defaults to 0.7 sec)',
+    help='Transmit instead of join with interval',
     type=float, default=0)
 args = parser.parse_args()
 

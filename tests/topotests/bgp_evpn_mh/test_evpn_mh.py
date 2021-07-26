@@ -30,6 +30,9 @@ test_evpn_mh.py: Testing EVPN multihoming
 import os
 import re
 import sys
+import subprocess
+from functools import partial
+
 import pytest
 import json
 import platform
@@ -599,18 +602,20 @@ def test_evpn_ead_update():
 def ping_anycast_gw(tgen):
     # ping the anycast gw from the local and remote hosts to populate
     # the mac address on the PEs
+    python3_path = tgen.net.get_exec_path(["python3", "python"])
     script_path = os.path.abspath(os.path.join(CWD, "../lib/scapy_sendpkt.py"))
     intf = "torbond"
     ipaddr = "45.0.0.1"
     ping_cmd = [
+        python3_path,
         script_path,
         "--imports=Ether,ARP",
         "--interface=" + intf,
-        "'Ether(dst=\"ff:ff:ff:ff:ff:ff\")/ARP(pdst=\"{}\")'".format(ipaddr)
+        'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr)
     ]
     for name in ("hostd11", "hostd21"):
-        host = tgen.net[name]
-        stdout = host.cmd(ping_cmd)
+        host = tgen.net.hosts[name]
+        _, stdout, _ = host.cmd_status(ping_cmd, warn=False, stderr=subprocess.STDOUT)
         stdout = stdout.strip()
         if stdout:
             host.logger.debug("%s: arping on %s for %s returned: %s", name, intf, ipaddr, stdout)
