@@ -473,14 +473,32 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 	return 0;
 }
 
-bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, int igmp_msg_len,
-			    int msg_type)
+bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 {
+	char *igmp_msg;
+	int igmp_msg_len;
+	int msg_type;
+	size_t ip_hlen; /* ip header length in bytes */
+
 	if (len < sizeof(*ip_hdr)) {
 		zlog_warn("IGMP packet size=%zu shorter than minimum=%zu", len,
 			  sizeof(*ip_hdr));
 		return false;
 	}
+
+	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
+	*hlen = ip_hlen;
+
+	if (ip_hlen > len) {
+		zlog_warn(
+			"IGMP packet header claims size %zu, but we only have %zu bytes",
+			ip_hlen, len);
+		return false;
+	}
+
+	igmp_msg = (char *)ip_hdr + ip_hlen;
+	igmp_msg_len = len - ip_hlen;
+	msg_type = *igmp_msg;
 
 	if (igmp_msg_len < PIM_IGMP_MIN_LEN) {
 		zlog_warn("IGMP message size=%d shorter than minimum=%d",
@@ -514,7 +532,7 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, int igmp_msg_len,
 
 int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 {
-	struct ip *ip_hdr;
+	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
 	char *igmp_msg;
 	int igmp_msg_len;
@@ -522,16 +540,8 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 	char from_str[INET_ADDRSTRLEN];
 	char to_str[INET_ADDRSTRLEN];
 
-	ip_hdr = (struct ip *)buf;
-
-	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
-
-	if (ip_hlen > len) {
-		zlog_warn(
-			"IGMP packet header claims size %zu, but we only have %zu bytes",
-			ip_hlen, len);
+	if (!pim_igmp_verify_header(ip_hdr, len, &ip_hlen))
 		return -1;
-	}
 
 	igmp_msg = buf + ip_hlen;
 	igmp_msg_len = len - ip_hlen;
@@ -545,14 +555,6 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 			"Recv IGMP packet from %s to %s on %s: size=%zu ttl=%d msg_type=%d msg_size=%d",
 			from_str, to_str, igmp->interface->name, len, ip_hdr->ip_ttl,
 			msg_type, igmp_msg_len);
-	}
-
-	if (!pim_igmp_verify_header(ip_hdr, len, igmp_msg_len, msg_type)) {
-		zlog_warn(
-			"Recv IGMP packet from %s to %s on %s: size=%zu ttl=%u msg_type=%d msg_size=%d",
-			from_str, to_str, igmp->interface->name, len,
-			ip_hdr->ip_ttl, msg_type, igmp_msg_len);
-		return -1;
 	}
 
 	switch (msg_type) {
