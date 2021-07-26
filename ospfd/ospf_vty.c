@@ -286,7 +286,7 @@ DEFPY (ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, use “clear ip ospf process” command\n");
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -319,7 +319,7 @@ DEFUN_HIDDEN (ospf_router_id_old,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, use “clear ip ospf process” command\n");
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -352,7 +352,7 @@ DEFPY (no_ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, use “clear ip ospf process” command\n");
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
 			return CMD_SUCCESS;
 		}
 
