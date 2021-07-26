@@ -65,6 +65,7 @@ typedef uintptr_t cmgd_client_id_t;
 typedef uintptr_t cmgd_client_req_id_t;
 
 typedef Cmgd__DatabaseId cmgd_database_id_t;
+#define CMGD_DB_NONE		CMGD__DATABASE_ID__DB_NONE
 #define CMGD_DB_RUNNING 	CMGD__DATABASE_ID__RUNNING_DB
 #define CMGD_DB_CANDIDATE 	CMGD__DATABASE_ID__CANDIDATE_DB
 #define CMGD_DB_OPERATIONAL 	CMGD__DATABASE_ID__OPERATIONAL_DB

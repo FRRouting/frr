@@ -3347,6 +3347,38 @@ int vty_cmgd_send_commit_config(struct vty *vty)
 	return 0;
 }
 
+int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database, const char** xpath_list, int num_req)
+{
+	cmgd_result_t ret;
+	cmgd_yang_data_t yang_data[VTY_MAXCFGCHANGES];
+	cmgd_yang_getdata_req_t get_req[VTY_MAXCFGCHANGES];
+	cmgd_yang_getdata_req_t *get_req_pnt[VTY_MAXCFGCHANGES];
+	int i;
+
+	vty->cmgd_req_id++;
+
+	for (i = 0; i < num_req; i++) {
+		cmgd_yang_get_data_req_init(&get_req[i]);
+		cmgd_yang_data_init(&yang_data[i]);
+
+		yang_data->xpath = (char *)xpath_list[0];
+
+		get_req[i].data = &yang_data[i];
+		get_req_pnt[i] = &get_req[i];
+
+	}
+	ret = cmgd_frntnd_get_config_data(cmgd_lib_hndl, vty->cmgd_session_id,
+		vty->cmgd_req_id, database, get_req_pnt, num_req);
+
+	if (ret != CMGD_SUCCESS) {
+		zlog_err("Failed to send GET-CONFIG to CMGD for req-id %lu.",
+			vty->cmgd_req_id);
+		vty_out(vty, "Failed to send GET-CONFIG to CMGD!");
+		return -1;
+	}
+	return 0;
+}
+
 /* Install vty's own commands like `who' command. */
 void vty_init(struct thread_master *master_thread, bool do_command_logging)
 {
