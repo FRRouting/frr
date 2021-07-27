@@ -2284,6 +2284,13 @@ void ospf6_hello_send(struct event *thread)
 		return;
 	}
 
+	event_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
+			 &oi->thread_send_hello);
+
+	if (oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	    && oi->p2xp_no_multicast_hello)
+		return 0;
+
 	op = ospf6_packet_new(oi->ifmtu);
 
 	ospf6_make_header(OSPF6_MESSAGE_TYPE_HELLO, oi, op->s);
@@ -2310,10 +2317,6 @@ void ospf6_hello_send(struct event *thread)
 	 * can't get delayed by things like long queues of LS Update packets
 	 */
 	ospf6_packet_add_top(oi, op);
-
-	/* set next thread */
-	event_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
-			&oi->thread_send_hello);
 
 	OSPF6_MESSAGE_WRITE_ON(oi);
 }
