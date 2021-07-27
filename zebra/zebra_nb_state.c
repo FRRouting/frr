@@ -25,6 +25,7 @@
 #include "zebra/zebra_router.h"
 #include "zebra/debug.h"
 #include "printfrr.h"
+#include "zebra/zebra_vxlan.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
@@ -101,15 +102,18 @@ lib_interface_zebra_state_vni_id_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
-	struct zebra_l2info_vxlan *vxlan_info;
+	struct zebra_vxlan_vni *vni;
 
 	if (!IS_ZEBRA_IF_VXLAN(ifp))
 		return NULL;
 
 	zebra_if = ifp->info;
-	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_uint32(args->xpath, vxlan_info->vni);
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zebra_if))
+		return NULL;
+
+	vni = zebra_vxlan_if_vni_find(zebra_if, 0);
+	return yang_data_new_uint32(args->xpath, vni->vni);
 }
 
 /*
@@ -139,15 +143,18 @@ lib_interface_zebra_state_mcast_group_get_elem(struct nb_cb_get_elem_args *args)
 {
 	const struct interface *ifp = args->list_entry;
 	struct zebra_if *zebra_if;
-	struct zebra_l2info_vxlan *vxlan_info;
+	struct zebra_vxlan_vni *vni;
 
 	if (!IS_ZEBRA_IF_VXLAN(ifp))
 		return NULL;
 
 	zebra_if = ifp->info;
-	vxlan_info = &zebra_if->l2info.vxl;
 
-	return yang_data_new_ipv4(args->xpath, &vxlan_info->mcast_grp);
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zebra_if))
+		return NULL;
+
+	vni = zebra_vxlan_if_vni_find(zebra_if, 0);
+	return yang_data_new_ipv4(args->xpath, &vni->mcast_grp);
 }
 
 const void *lib_vrf_zebra_ribs_rib_get_next(struct nb_cb_get_next_args *args)

@@ -349,7 +349,8 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 
 	if (add) {
 		memcpy(&zif->l2info.vxl, vxlan_info, sizeof(*vxlan_info));
-		zebra_evpn_vl_vxl_ref(zif->l2info.vxl.access_vlan, zif);
+		zebra_evpn_vl_vxl_ref(zif->l2info.vxl.vni_info.vni.access_vlan,
+				      zif->l2info.vxl.vni_info.vni.vni, zif);
 		zebra_vxlan_if_add(ifp);
 		return;
 	}
@@ -361,10 +362,13 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 		zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
 	}
 
-	if (!IPV4_ADDR_SAME(&zif->l2info.vxl.mcast_grp,
-				&vxlan_info->mcast_grp)) {
-		chgflags |= ZEBRA_VXLIF_MCAST_GRP_CHANGE;
-		zif->l2info.vxl.mcast_grp = vxlan_info->mcast_grp;
+	if (IS_ZEBRA_VXLAN_IF_VNI(zif)) {
+		if (!IPV4_ADDR_SAME(&zif->l2info.vxl.vni_info.vni.mcast_grp,
+				    &vxlan_info->vni_info.vni.mcast_grp)) {
+			chgflags |= ZEBRA_VXLIF_MCAST_GRP_CHANGE;
+			zif->l2info.vxl.vni_info.vni.mcast_grp =
+				vxlan_info->vni_info.vni.mcast_grp;
+		}
 	}
 
 	if (chgflags)
@@ -379,18 +383,25 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 {
 	struct zebra_if *zif;
 	vlanid_t old_access_vlan;
+	struct zebra_vxlan_vni *vni;
+
 
 	zif = ifp->info;
 	assert(zif);
 
-	old_access_vlan = zif->l2info.vxl.access_vlan;
+	/* This would be called only in non svd case */
+	assert(IS_ZEBRA_VXLAN_IF_VNI(zif));
+
+	old_access_vlan = zif->l2info.vxl.vni_info.vni.access_vlan;
+	;
 	if (old_access_vlan == access_vlan)
 		return;
 
-	zif->l2info.vxl.access_vlan = access_vlan;
+	vni = zebra_vxlan_if_vni_find(zif, 0);
+	vni->access_vlan = access_vlan;
 
-	zebra_evpn_vl_vxl_deref(old_access_vlan, zif);
-	zebra_evpn_vl_vxl_ref(zif->l2info.vxl.access_vlan, zif);
+	zebra_evpn_vl_vxl_deref(old_access_vlan, vni->vni, zif);
+	zebra_evpn_vl_vxl_ref(access_vlan, vni->vni, zif);
 	zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_VLAN_CHANGE);
 }
 
@@ -404,7 +415,8 @@ void zebra_l2_vxlanif_del(struct interface *ifp)
 	zif = ifp->info;
 	assert(zif);
 
-	zebra_evpn_vl_vxl_deref(zif->l2info.vxl.access_vlan, zif);
+	zebra_evpn_vl_vxl_deref(zif->l2info.vxl.vni_info.vni.access_vlan,
+				zif->l2info.vxl.vni_info.vni.vni, zif);
 	zebra_vxlan_if_del(ifp);
 }
 
