@@ -1259,13 +1259,10 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	struct in6_addr *fwd_addr;
 
 	struct ospf6_as_external_lsa *as_external_lsa;
-	char buf[PREFIX2STR_BUFFER];
 	caddr_t p;
 
-	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL)) {
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("Originate AS-External-LSA for %s", buf);
-	}
+	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
+		zlog_debug("Originate NSSA-LSA for %pFX", &route->prefix);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
@@ -1334,7 +1331,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	lsa_header->adv_router = area->ospf6->router_id;
 	lsa_header->seqnum =
 		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
-				    lsa_header->adv_router, area->ospf6->lsdb);
+				    lsa_header->adv_router, area->lsdb);
 	lsa_header->length = htons((caddr_t)p - (caddr_t)lsa_header);
 
 	/* LSA checksum */
