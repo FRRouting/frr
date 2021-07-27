@@ -124,7 +124,7 @@ def test_zebra_kernel_admin_distance():
             "show ip route 4.5.{}.0 json".format(i),
             expected,
         )
-        _, result = topotest.run_and_expect(test_func, None, count=2, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
         assertmsg = '"r1" JSON output mismatches'
         assert result is None, assertmsg
     # tgen.mininet_cli()
@@ -145,7 +145,7 @@ def test_zebra_kernel_override():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route 4.5.1.0 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=2, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
     assert result is None, '"r1" JSON output mismatches'
 
     logger.info(
@@ -158,7 +158,7 @@ def test_zebra_kernel_override():
     test_func = partial(
         topotest.router_json_cmp, r1, "show ip route 4.5.1.0 json", expected
     )
-    _, result = topotest.run_and_expect(test_func, None, count=2, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
     assert result is None, '"r1" JSON output mismatches'
 
 
