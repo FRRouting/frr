@@ -44,6 +44,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_l2_bridge_if.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
@@ -117,6 +118,9 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 	if (json == NULL) {
 		vty_out(vty, "VNI: %u\n", zevpn->vni);
 		vty_out(vty, " Type: %s\n", "L2");
+		vty_out(vty, " Vlan: %u\n", zevpn->vid);
+		vty_out(vty, " Bridge: %s\n",
+			zevpn->bridge_if ? zevpn->bridge_if->name : "-");
 		vty_out(vty, " Tenant VRF: %s\n", vrf_id_to_name(zevpn->vrf_id));
 	} else {
 		json_object_int_add(json, "vni", zevpn->vni);
@@ -663,6 +667,7 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 				  void *_in_param,
 				  void **_p_zevpn)
 {
+	int found = 0;
 	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
@@ -670,43 +675,58 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 	struct zebra_evpn *zevpn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	struct zebra_vxlan_vni *vni;
 	struct zebra_from_svi_param *in_param =
 		(struct zebra_from_svi_param *)_in_param;
+	vlanid_t vid;
+	vni_t vni_id = 0;
+	uint8_t bridge_vlan_aware;
 
 	assert(p_zevpn && in_param);
 
 	br_if = in_param->br_if;
+	assert(br_if);
 	zif = in_param->zif;
 	assert(zif);
-	assert(br_if);
+	vid = in_param->vid;
+	bridge_vlan_aware = in_param->bridge_vlan_aware;
 
-	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
-	/* TODO: Optimize with a hash. */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		if (!tmp_if)
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
-		if (!if_is_operative(tmp_if))
-			continue;
+	if (bridge_vlan_aware) {
+		vni_id = zebra_l2_bridge_if_vni_find(zif, vid);
+		if (vni_id)
+			found = 1;
+	} else {
+		/* See if this interface (or interface plus VLAN Id) maps to a
+		 * VxLAN */
+		/* TODO: Optimize with a hash. */
+		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+			tmp_if = (struct interface *)rn->info;
+			if (!tmp_if)
+				continue;
+			zif = tmp_if->info;
+			if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+				continue;
+			if (!if_is_operative(tmp_if))
+				continue;
 
-		if (zif->brslave_info.br_if != br_if)
-			continue;
+			if (zif->brslave_info.br_if != br_if)
+				continue;
 
-		vni = zebra_vxlan_if_access_vlan_find(
-			zif, in_param->bridge_vlan_aware, in_param->vid);
+			vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, vid,
+								     br_if);
+			if (vni_id) {
+				found = 1;
+				break;
+			}
 
-		if (!in_param->bridge_vlan_aware || vni) {
-			zevpn = zebra_evpn_lookup(vni->vni);
-			*p_zevpn = zevpn;
-			return NS_WALK_STOP;
 		}
 	}
 
-	return NS_WALK_CONTINUE;
+	if (!found)
+		return NS_WALK_CONTINUE;
+
+	zevpn = zebra_evpn_lookup(vni_id);
+	*p_zevpn = zevpn;
+	return NS_WALK_STOP;
 }
 
 /*
@@ -747,35 +767,51 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	struct zebra_evpn *zevpn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
-	struct zebra_vxlan_vni *vni;
+	struct zebra_if *br_zif;
+	struct zebra_l2_bridge_vlan *bvlan;
 	struct zebra_from_svi_param *in_param =
 		(struct zebra_from_svi_param *)_in_param;
 	int found = 0;
+	vni_t vni_id = 0;
+	vlanid_t vid = 0;
+	uint8_t bridge_vlan_aware;
 
 	if (!in_param)
 		return NS_WALK_STOP;
+
 	br_if = in_param->br_if;
 	zif = in_param->zif;
 	assert(zif);
+	bridge_vlan_aware = in_param->bridge_vlan_aware;
+	vid = in_param->vid;
+	br_zif = br_if->info;
+	assert(br_zif);
 
-	/* TODO: Optimize with a hash. */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		if (!tmp_if)
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
-		if (!if_is_operative(tmp_if))
-			continue;
-
-		if (zif->brslave_info.br_if != br_if)
-			continue;
-
-		vni = zebra_vxlan_if_access_vlan_find(
-			zif, in_param->bridge_vlan_aware, in_param->vid);
-		if (!in_param->bridge_vlan_aware || vni) {
+	if (bridge_vlan_aware) {
+		bvlan = zebra_l2_bridge_if_vlan_find(br_zif, vid);
+		if (bvlan && bvlan->access_bd && bvlan->access_bd->vni) {
 			found = 1;
+			vni_id = bvlan->access_bd->vni;
+		}
+	} else {
+		/* TODO: Optimize with a hash. */
+		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+			tmp_if = (struct interface *)rn->info;
+			if (!tmp_if)
+				continue;
+			zif = tmp_if->info;
+			if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+				continue;
+			if (!if_is_operative(tmp_if))
+				continue;
+
+			if (zif->brslave_info.br_if != br_if)
+				continue;
+
+			vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, vid,
+								     br_if);
+			if (vni_id)
+				found = 1;
 			break;
 		}
 	}
@@ -783,7 +819,7 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	if (!found)
 		return NS_WALK_CONTINUE;
 
-	zevpn = zebra_evpn_lookup(vni->vni);
+	zevpn = zebra_evpn_lookup(vni_id);
 	if (p_zevpn)
 		*p_zevpn = zevpn;
 	return NS_WALK_STOP;

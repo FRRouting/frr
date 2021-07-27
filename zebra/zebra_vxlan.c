@@ -46,6 +46,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_l2_bridge_if.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/zebra_vxlan.h"
@@ -722,6 +723,9 @@ static void zl3vni_print(struct zebra_l3vni *zl3vni, void **ctx)
 		vty_out(vty, "VNI: %u\n", zl3vni->vni);
 		vty_out(vty, "  Type: %s\n", "L3");
 		vty_out(vty, "  Tenant VRF: %s\n", zl3vni_vrf_name(zl3vni));
+		vty_out(vty, "  Vlan: %u\n", zl3vni->vid);
+		vty_out(vty, "  Bridge: %s\n",
+			zl3vni->bridge_if ? zl3vni->bridge_if->name : "-");
 		vty_out(vty, "  Local Vtep Ip: %pI4\n",
 			&zl3vni->local_vtep_ip);
 		vty_out(vty, "  Vxlan-Intf: %s\n",
@@ -909,7 +913,9 @@ struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 
 int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn)
 {
+	zevpn->vid = 0;
 	zevpn_vxlan_if_set(zevpn, zevpn->vxlan_if, false /* set */);
+	zevpn_bridge_if_set(zevpn, zevpn->bridge_if, false /* set */);
 
 	/* Remove references to the BUM mcast grp */
 	zebra_vxlan_sg_deref(zevpn->local_vtep_ip, zevpn->mcast_grp);
@@ -925,6 +931,7 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 	struct zebra_l3vni *zl3vni;
 	struct interface *ifp;
 	struct zebra_l2info_vxlan *vxl;
+	struct interface *br_if;
 
 	ifp = zif->ifp;
 	vxl = &zif->l2info.vxl;
@@ -1019,9 +1026,11 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				zebra_evpn_es_set_base_evpn(zevpn);
 			}
 			zevpn_vxlan_if_set(zevpn, ifp, true /* set */);
-			vlan_if = zvni_map_to_svi(vnip->access_vlan,
-						  zif->brslave_info.br_if);
+			br_if = zif->brslave_info.br_if;
+			zevpn_bridge_if_set(zevpn, br_if, true /* set */);
+			vlan_if = zvni_map_to_svi(vnip->access_vlan, br_if);
 			if (vlan_if) {
+				zevpn->vid = vnip->access_vlan;
 				zevpn->svi_if = vlan_if;
 				zevpn->vrf_id = vlan_if->vrf->vrf_id;
 				zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
@@ -1868,6 +1877,8 @@ struct zebra_l3vni *zl3vni_from_vrf(vrf_id_t vrf_id)
 
 static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 {
+	int found = 0;
+	vni_t vni_id = 0;
 	struct zebra_ns *zns = ns->info;
 	struct zebra_l3vni **p_zl3vni = (struct zebra_l3vni **)_p_zl3vni;
 	struct zebra_from_svi_param *in_param =
@@ -1875,33 +1886,46 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 	struct route_node *rn = NULL;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif = NULL;
-	struct zebra_vxlan_vni *vni = NULL;
+	struct zebra_if *br_zif = NULL;
 
 	assert(in_param && p_zl3vni);
 
-	/* loop through all vxlan-interface */
-	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		tmp_if = (struct interface *)rn->info;
-		if (!tmp_if)
-			continue;
-		zif = tmp_if->info;
-		if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
-			continue;
-		if (!if_is_operative(tmp_if))
-			continue;
+	br_zif = in_param->br_if->info;
+	assert(br_zif);
 
-		if (zif->brslave_info.br_if != in_param->br_if)
-			continue;
+	if (in_param->bridge_vlan_aware) {
+		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param->vid);
+		if (vni_id)
+			found = 1;
+	} else {
+		/* loop through all vxlan-interface */
+		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
+			tmp_if = (struct interface *)rn->info;
+			if (!tmp_if)
+				continue;
+			zif = tmp_if->info;
+			if (!zif || zif->zif_type != ZEBRA_IF_VXLAN)
+				continue;
+			if (!if_is_operative(tmp_if))
+				continue;
 
-		vni = zebra_vxlan_if_access_vlan_find(zif, in_param->bridge_vlan_aware,
-						      in_param->vid);
-		if (!in_param->bridge_vlan_aware || vni) {
-			*p_zl3vni = zl3vni_lookup(vni->vni);
-			return NS_WALK_STOP;
+			if (zif->brslave_info.br_if != in_param->br_if)
+				continue;
+
+			vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, in_param->vid,
+								     in_param->br_if);
+			if (vni_id) {
+				found = 1;
+				break;
+			}
 		}
 	}
 
-	return NS_WALK_CONTINUE;
+	if (!found)
+		return NS_WALK_CONTINUE;
+
+	*p_zl3vni = zl3vni_lookup(vni_id);
+	return NS_WALK_STOP;
 }
 
 /*

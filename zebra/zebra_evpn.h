@@ -84,6 +84,10 @@ struct zebra_evpn {
 	uint32_t flags;
 #define ZEVPN_READY_FOR_BGP (1 << 0) /* ready to be sent to BGP */
 
+	/* Corresponding Bridge information */
+	vlanid_t vid;
+	struct interface *bridge_if;
+
 	/* Flag for advertising gw macip */
 	uint8_t advertise_gw_macip;
 

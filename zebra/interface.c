@@ -228,6 +228,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 
 		rtadv_if_fini(zebra_if);
 
+		zebra_l2_bridge_if_cleanup(ifp);
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
 
