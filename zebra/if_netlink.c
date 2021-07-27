@@ -720,15 +720,109 @@ static void netlink_interface_update_l2info(struct interface *ifp,
 	}
 }
 
+static int netlink_bridge_vxlan_vlan_vni_map_update(struct interface *ifp,
+						    struct rtattr *af_spec)
+{
+	int rem;
+	vni_t vni_id;
+	vlanid_t vid;
+	uint16_t flags;
+	struct rtattr *i;
+	struct zebra_vxlan_vni vni;
+	struct zebra_vxlan_vni *vnip;
+	struct hash *vni_table = NULL;
+	struct zebra_vxlan_vni vni_end;
+	struct zebra_vxlan_vni vni_start;
+	struct rtattr *aftb[IFLA_BRIDGE_VLAN_TUNNEL_MAX + 1];
+
+	for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec); RTA_OK(i, rem);
+	     i = RTA_NEXT(i, rem)) {
+
+		if (i->rta_type != IFLA_BRIDGE_VLAN_TUNNEL_INFO)
+			continue;
+
+		memset(aftb, 0, sizeof(aftb));
+		netlink_parse_rtattr_nested(aftb, IFLA_BRIDGE_VLAN_TUNNEL_MAX,
+					    i);
+		if (!aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID]
+		    || !aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID])
+			/* vlan-vni info missing */
+			return 0;
+
+		flags = 0;
+		memset(&vni, 0, sizeof(vni));
+
+		vni.vni = *(vni_t *)RTA_DATA(aftb[IFLA_BRIDGE_VLAN_TUNNEL_ID]);
+		vni.access_vlan = *(vlanid_t *)RTA_DATA(
+			aftb[IFLA_BRIDGE_VLAN_TUNNEL_VID]);
+
+		if (aftb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS])
+			flags = *(uint16_t *)RTA_DATA(
+				aftb[IFLA_BRIDGE_VLAN_TUNNEL_FLAGS]);
+
+		if (flags & BRIDGE_VLAN_INFO_RANGE_BEGIN) {
+			vni_start = vni;
+			continue;
+		}
+
+		if (flags & BRIDGE_VLAN_INFO_RANGE_END)
+			vni_end = vni;
+
+		if (!(flags & BRIDGE_VLAN_INFO_RANGE_END)) {
+			vni_start = vni;
+			vni_end = vni;
+		}
+
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug(
+				"Vlan-Vni(%d:%d-%d:%d) update for VxLAN IF %s(%u)",
+				vni_start.access_vlan, vni_end.access_vlan,
+				vni_start.vni, vni_end.vni, ifp->name,
+				ifp->ifindex);
+
+		if (!vni_table) {
+			vni_table = zebra_vxlan_vni_table_create();
+			if (!vni_table)
+				return 0;
+		}
+
+		for (vid = vni_start.access_vlan, vni_id = vni_start.vni;
+		     vid <= vni_end.access_vlan; vid++, vni_id++) {
+
+			memset(&vni, 0, sizeof(vni));
+			vni.vni = vni_id;
+			vni.access_vlan = vid;
+			vnip = hash_get(vni_table, &vni, zebra_vxlan_vni_alloc);
+			if (!vnip)
+				return 0;
+		}
+
+		memset(&vni_start, 0, sizeof(vni_start));
+		memset(&vni_end, 0, sizeof(vni_end));
+	}
+
+	if (vni_table)
+		zebra_vxlan_if_vni_table_add_update(ifp, vni_table);
+
+	return 0;
+}
+
 static int netlink_bridge_vxlan_update(struct interface *ifp,
 		struct rtattr *af_spec)
 {
 	struct rtattr *aftb[IFLA_BRIDGE_MAX + 1];
 	struct bridge_vlan_info *vinfo;
+	struct zebra_if *zif;
 	vlanid_t access_vlan;
 
 	if (!af_spec)
 		return 0;
+
+	zif = (struct zebra_if *)ifp->info;
+
+	/* Single vxlan devices has vni-vlan range to update */
+	if (IS_ZEBRA_VXLAN_IF_SVD(zif))
+		return netlink_bridge_vxlan_vlan_vni_map_update(ifp, af_spec);
 
 	/* There is a 1-to-1 mapping of VLAN to VxLAN - hence
 	 * only 1 access VLAN is accepted.

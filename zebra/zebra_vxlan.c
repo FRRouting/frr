@@ -917,6 +917,131 @@ int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn)
 	return zebra_evpn_del(zevpn);
 }
 
+static int zevpn_build_vni_hash_table(struct zebra_if *zif,
+				      struct zebra_vxlan_vni *vnip, void *arg)
+{
+	vni_t vni;
+	struct zebra_evpn *zevpn;
+	struct zebra_l3vni *zl3vni;
+	struct interface *ifp;
+	struct zebra_l2info_vxlan *vxl;
+
+	ifp = zif->ifp;
+	vxl = &zif->l2info.vxl;
+	vni = vnip->vni;
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug("Build vni table for vni %u for Intf %s", vni,
+			   ifp->name);
+
+	/* L3-VNI and L2-VNI are handled seperately */
+	zl3vni = zl3vni_lookup(vni);
+	if (zl3vni) {
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"create L3-VNI hash for Intf %s(%u) L3-VNI %u",
+				ifp->name, ifp->ifindex, vni);
+
+		/* associate with vxlan_if */
+		zl3vni->local_vtep_ip = vxl->vtep_ip;
+		zl3vni->vxlan_if = ifp;
+
+		/*
+		 * we need to associate with SVI.
+		 * we can associate with svi-if only after association
+		 * with vxlan-intf is complete
+		 */
+		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
+
+		/* Associate l3vni to mac-vlan and extract VRR MAC */
+		zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"create l3vni %u svi_if %s mac_vlan_if %s", vni,
+				zl3vni->svi_if ? zl3vni->svi_if->name : "NIL",
+				zl3vni->mac_vlan_if ? zl3vni->mac_vlan_if->name
+						    : "NIL");
+
+		if (is_l3vni_oper_up(zl3vni))
+			zebra_vxlan_process_l3vni_oper_up(zl3vni);
+
+	} else {
+		struct interface *vlan_if = NULL;
+
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Create L2-VNI hash for intf %s(%u) L2-VNI %u local IP %pI4",
+				ifp->name, ifp->ifindex, vni, &vxl->vtep_ip);
+
+		/* EVPN hash entry is expected to exist, if the BGP process is
+		 * killed */
+		zevpn = zebra_evpn_lookup(vni);
+		if (zevpn) {
+			zlog_debug(
+				"EVPN hash already present for IF %s(%u) L2-VNI %u",
+				ifp->name, ifp->ifindex, vni);
+
+			/*
+			 * Inform BGP if intf is up and mapped to
+			 * bridge.
+			 */
+			if (if_is_operative(ifp) && zif->brslave_info.br_if)
+				zebra_evpn_send_add_to_client(zevpn);
+
+			/* Send Local MAC-entries to client */
+			zebra_evpn_send_mac_list_to_client(zevpn);
+
+			/* Send Loval Neighbor entries to client */
+			zebra_evpn_send_neigh_to_client(zevpn);
+		} else {
+			zevpn = zebra_evpn_add(vni);
+			if (!zevpn) {
+				zlog_debug(
+					"Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
+					ifp->name, ifp->ifindex, vni);
+				return 0;
+			}
+
+			if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr
+			    || zevpn->mcast_grp.s_addr
+				       != vnip->mcast_grp.s_addr) {
+				zebra_vxlan_sg_deref(zevpn->local_vtep_ip,
+						     zevpn->mcast_grp);
+				zebra_vxlan_sg_ref(vxl->vtep_ip,
+						   vnip->mcast_grp);
+				zevpn->local_vtep_ip = vxl->vtep_ip;
+				zevpn->mcast_grp = vnip->mcast_grp;
+				/* on local vtep-ip check if ES
+				 * orig-ip needs to be updated
+				 */
+				zebra_evpn_es_set_base_evpn(zevpn);
+			}
+			zevpn_vxlan_if_set(zevpn, ifp, true /* set */);
+			vlan_if = zvni_map_to_svi(vnip->access_vlan,
+						  zif->brslave_info.br_if);
+			if (vlan_if) {
+				zevpn->svi_if = vlan_if;
+				zevpn->vrf_id = vlan_if->vrf->vrf_id;
+				zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
+				if (zl3vni)
+					listnode_add_sort(zl3vni->l2vnis,
+							  zevpn);
+			}
+
+			/*
+			 * Inform BGP if intf is up and mapped to
+			 * bridge.
+			 */
+			if (if_is_operative(ifp) && zif->brslave_info.br_if)
+				zebra_evpn_send_add_to_client(zevpn);
+		}
+	}
+
+	return 0;
+}
+
 static int zevpn_build_hash_table_zns(struct ns *ns,
 				     void *param_in __attribute__((unused)),
 				     void **param_out __attribute__((unused)))
@@ -930,12 +1055,8 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 
 	/* Walk VxLAN interfaces and create EVPN hash. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
-		vni_t vni;
-		struct zebra_evpn *zevpn = NULL;
-		struct zebra_l3vni *zl3vni = NULL;
 		struct zebra_if *zif;
 		struct zebra_l2info_vxlan *vxl;
-		struct zebra_vxlan_vni *vnip;
 
 		ifp = (struct interface *)rn->info;
 		if (!ifp)
@@ -945,127 +1066,23 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 			continue;
 
 		vxl = &zif->l2info.vxl;
-		vnip = zebra_vxlan_if_vni_find(zif, 0);
-		vni = vnip->vni;
 		/* link of VXLAN interface should be in zebra_evpn_vrf */
 		if (zvrf->zns->ns_id != vxl->link_nsid) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"Intf %s(%u) VNI %u, link not in same "
+					"Intf %s(%u) link not in same "
 					"namespace than BGP EVPN core instance ",
-					ifp->name, ifp->ifindex, vni);
+					ifp->name, ifp->ifindex);
 			continue;
 		}
-		/* L3-VNI and L2-VNI are handled seperately */
-		zl3vni = zl3vni_lookup(vni);
-		if (zl3vni) {
 
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"create L3-VNI hash for Intf %s(%u) L3-VNI %u",
-					ifp->name, ifp->ifindex, vni);
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug("Building vni table for %s-if %s",
+				   IS_ZEBRA_VXLAN_IF_VNI(zif) ? "vni" : "svd",
+				   ifp->name);
 
-			/* associate with vxlan_if */
-			zl3vni->local_vtep_ip = vxl->vtep_ip;
-			zl3vni->vxlan_if = ifp;
-
-			/*
-			 * we need to associate with SVI.
-			 * we can associate with svi-if only after association
-			 * with vxlan-intf is complete
-			 */
-			zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
-
-			/* Associate l3vni to mac-vlan and extract VRR MAC */
-			zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
-
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug("create l3vni %u svi_if %s mac_vlan_if %s",
-				   vni, zl3vni->svi_if ? zl3vni->svi_if->name
-				   : "NIL",
-				   zl3vni->mac_vlan_if ?
-				   zl3vni->mac_vlan_if->name : "NIL");
-
-			if (is_l3vni_oper_up(zl3vni))
-				zebra_vxlan_process_l3vni_oper_up(zl3vni);
-
-		} else {
-			struct interface *vlan_if = NULL;
-
-			if (IS_ZEBRA_DEBUG_VXLAN)
-				zlog_debug(
-					"Create L2-VNI hash for intf %s(%u) L2-VNI %u local IP %pI4",
-					ifp->name, ifp->ifindex, vni,
-					&vxl->vtep_ip);
-
-			/* EVPN hash entry is expected to exist, if the BGP process is killed */
-			zevpn = zebra_evpn_lookup(vni);
-			if (zevpn) {
-				zlog_debug(
-					"EVPN hash already present for IF %s(%u) L2-VNI %u",
-					ifp->name, ifp->ifindex, vni);
-
-				/*
-				 * Inform BGP if intf is up and mapped to
-				 * bridge.
-				 */
-				if (if_is_operative(ifp) &&
-					zif->brslave_info.br_if)
-					zebra_evpn_send_add_to_client(zevpn);
-
-				/* Send Local MAC-entries to client */
-				zebra_evpn_send_mac_list_to_client(zevpn);
-
-				/* Send Loval Neighbor entries to client */
-				zebra_evpn_send_neigh_to_client(zevpn);
-			} else {
-				zevpn = zebra_evpn_add(vni);
-				if (!zevpn) {
-					zlog_debug(
-						"Failed to add EVPN hash, IF %s(%u) L2-VNI %u",
-						ifp->name, ifp->ifindex, vni);
-					return NS_WALK_CONTINUE;
-				}
-
-				if (zevpn->local_vtep_ip.s_addr
-					    != vxl->vtep_ip.s_addr
-				    || zevpn->mcast_grp.s_addr
-					       != vnip->mcast_grp.s_addr) {
-					zebra_vxlan_sg_deref(
-						zevpn->local_vtep_ip,
-						zevpn->mcast_grp);
-					zebra_vxlan_sg_ref(vxl->vtep_ip,
-							   vnip->mcast_grp);
-					zevpn->local_vtep_ip = vxl->vtep_ip;
-					zevpn->mcast_grp = vnip->mcast_grp;
-					/* on local vtep-ip check if ES
-					 * orig-ip needs to be updated
-					 */
-					zebra_evpn_es_set_base_evpn(zevpn);
-				}
-				zevpn_vxlan_if_set(zevpn, ifp, true /* set */);
-				vlan_if = zvni_map_to_svi(
-					vnip->access_vlan,
-					zif->brslave_info.br_if);
-				if (vlan_if) {
-					zevpn->svi_if = vlan_if;
-					zevpn->vrf_id = vlan_if->vrf->vrf_id;
-					zl3vni = zl3vni_from_vrf(
-						vlan_if->vrf->vrf_id);
-					if (zl3vni)
-						listnode_add_sort(
-							zl3vni->l2vnis, zevpn);
-				}
-
-				/*
-				 * Inform BGP if intf is up and mapped to
-				 * bridge.
-				 */
-				if (if_is_operative(ifp) &&
-					zif->brslave_info.br_if)
-					zebra_evpn_send_add_to_client(zevpn);
-			}
-		}
+		zebra_vxlan_if_vni_iterate(zif, zevpn_build_vni_hash_table,
+					   NULL);
 	}
 	return NS_WALK_CONTINUE;
 }
