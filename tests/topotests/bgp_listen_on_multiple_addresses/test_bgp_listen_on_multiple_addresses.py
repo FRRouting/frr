@@ -94,6 +94,44 @@ def setup_module(mod):
         )
 
     start_topology(tgen)
+    # This code that is adding in the addresses here is important
+    # because when we call build_config_from_json we were also
+    # generating the addresses via zebra.  The problem is that
+    # at the same time we are configuring bgp and thus have
+    # a race condition on being able to bind to the listen addresses
+    # specified in zebra.  So let's move the zebra configuration
+    # of ip addresses before we generate the bgp config
+    # removing the race condition.
+    # I put the `ip addr show` in to allow us to look at the
+    # output in case something goes wrong upstream as well.
+    r1 = tgen.gears["r1"]
+    r1.run("ip addr add 1.0.1.17/32 dev lo")
+    r1.run("ip -6 addr add 2001:dB8:F::1:17/128 dev lo")
+    r1.run("ip addr add 10.0.0.1/24 dev r1-r2-eth0")
+    r1.run("ip -6 addr add fd00::1/64 dev r1-r2-eth0")
+    r1.run("ip addr show")
+    r2 = tgen.gears["r2"]
+    r2.run("ip addr add 1.0.2.17/32 dev lo")
+    r2.run("ip -6 addr add 2001:dB8:F::2:17/128 dev lo")
+    r2.run("ip addr add 10.0.0.2/24 dev r2-r1-eth0")
+    r2.run("ip -6 addr add fd00::2/64 dev r2-r1-eth0")
+    r2.run("ip addr add 10.0.1.1/24 dev r2-r3-eth1")
+    r2.run("ip -6 addr add fd00:0:0:1::1/64 dev r2-r3-eth1")
+    r2.run("ip addr show")
+    r3 = tgen.gears["r3"]
+    r3.run("ip addr add 1.0.3.17/32 dev lo")
+    r3.run("ip -6 addr add 2001:dB8:F::3:17/128 dev lo")
+    r3.run("ip addr add 10.0.1.2/24 dev r3-r2-eth0")
+    r3.run("ip -6 addr add fd00:09:0:1::2/64 dev r3-r2-eth0")
+    r3.run("ip addr add 10.0.2.1/24 dev r3-r4-eth1")
+    r3.run("ip -6 addr add fd00:0:0:2::1/64 dev r3-r4-eth1")
+    r3.run("ip addr show")
+    r4 = tgen.gears["r4"]
+    r4.run("ip addr add 1.0.4.17/32 dev lo")
+    r4.run("ip -6 addr add 2001:dB8:F::4:17/128 dev lo")
+    r4.run("ip addr add 10.0.2.2/24 dev r4-r3-eth0")
+    r4.run("ip -6 addr add fd00:0:0:2::2/64 dev r4-r3-eth0")
+    r4.run("ip addr show")
     build_config_from_json(tgen, topo)
 
 
