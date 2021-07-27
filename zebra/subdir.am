@@ -105,6 +105,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
+	zebra/zebra_vxlan_if.c \
 	zebra/zebra_evpn_mh.c \
 	zebra/zebra_neigh.c \
 	zebra/zserv.c \

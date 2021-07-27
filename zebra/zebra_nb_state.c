@@ -26,6 +26,7 @@
 #include "zebra/debug.h"
 #include "printfrr.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_if.h"
 
 /*
  * XPath: /frr-interface:lib/interface/frr-zebra:zebra/state/up-count
