@@ -3416,15 +3416,30 @@ static ssize_t netlink_neigh_update_msg_encode(
 
 	if (op == DPLANE_OP_MAC_INSTALL || op == DPLANE_OP_MAC_DELETE) {
 		vlanid_t vid = dplane_ctx_mac_get_vlan(ctx);
+		vni_t vni = dplane_ctx_mac_get_vni(ctx);
 
 		if (vid > 0) {
 			if (!nl_attr_put16(&req->n, datalen, NDA_VLAN, vid))
 				return 0;
 		}
 
+		if (vni > 0) {
+			if (!nl_attr_put32(&req->n, datalen, NDA_SRC_VNI, vni))
+				return 0;
+		}
+
 		if (!nl_attr_put32(&req->n, datalen, NDA_MASTER,
 				   dplane_ctx_mac_get_br_ifindex(ctx)))
 			return 0;
+	}
+
+	if (op == DPLANE_OP_VTEP_ADD || op == DPLANE_OP_VTEP_DELETE) {
+		vni_t vni = dplane_ctx_neigh_get_vni(ctx);
+
+		if (vni > 0) {
+			if (!nl_attr_put32(&req->n, datalen, NDA_SRC_VNI, vni))
+				return 0;
+		}
 	}
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);

@@ -1245,8 +1245,8 @@ static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
 	else
 		vid = 0;
 
-	res = dplane_rem_mac_add(zl3vni->vxlan_if, br_ifp, vid,
-			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip, 0, 0,
+	res = dplane_rem_mac_add(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr,
+				 vni->vni, zrmac->fwd_info.r_vtep_ip, 0, 0,
 				 false /*was_static*/);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
@@ -1294,8 +1294,8 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 	else
 		vid = 0;
 
-	res = dplane_rem_mac_del(zl3vni->vxlan_if, br_ifp, vid,
-			     &zrmac->macaddr, zrmac->fwd_info.r_vtep_ip);
+	res = dplane_rem_mac_del(zl3vni->vxlan_if, br_ifp, vid, &zrmac->macaddr,
+				 vni->vni, zrmac->fwd_info.r_vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else

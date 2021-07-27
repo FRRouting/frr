@@ -242,7 +242,7 @@ int zebra_evpn_rem_mac_install(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 		vid = 0;
 
 	res = dplane_rem_mac_add(zevpn->vxlan_if, br_ifp, vid, &mac->macaddr,
-				 vtep_ip, sticky, nhg_id, was_static);
+				 vni->vni, vtep_ip, sticky, nhg_id, was_static);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
@@ -296,7 +296,8 @@ int zebra_evpn_rem_mac_uninstall(struct zebra_evpn *zevpn,
 	ifp = zevpn->vxlan_if;
 	vtep_ip = mac->fwd_info.r_vtep_ip;
 
-	res = dplane_rem_mac_del(ifp, br_ifp, vid, &mac->macaddr, vtep_ip);
+	res = dplane_rem_mac_del(ifp, br_ifp, vid, &mac->macaddr, vni->vni,
+				 vtep_ip);
 	if (res != ZEBRA_DPLANE_REQUEST_FAILURE)
 		return 0;
 	else
