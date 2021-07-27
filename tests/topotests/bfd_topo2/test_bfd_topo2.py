@@ -130,7 +130,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ip route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
@@ -146,7 +146,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ipv6 route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
