@@ -436,6 +436,7 @@ struct ospf6_route *ospf6_route_copy(struct ospf6_route *route)
 	new = ospf6_route_create();
 	new->type = route->type;
 	memcpy(&new->prefix, &route->prefix, sizeof(struct prefix));
+	new->prefix_options = route->prefix_options;
 	new->installed = route->installed;
 	new->changed = route->changed;
 	new->flag = route->flag;
@@ -1137,6 +1138,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 {
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
+	char pfx_options[16];
 	struct timeval now, res;
 	char duration[64];
 	struct listnode *node;
@@ -1264,10 +1266,13 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 		vty_out(vty, "Router Bits: %s\n", capa);
 
 	/* Prefix Options */
+	ospf6_prefix_options_printbuf(route->prefix_options, pfx_options,
+				      sizeof(pfx_options));
 	if (use_json)
-		json_object_string_add(json_route, "prefixOptions", "xxx");
+		json_object_string_add(json_route, "prefixOptions",
+				       pfx_options);
 	else
-		vty_out(vty, "Prefix Options: xxx\n");
+		vty_out(vty, "Prefix Options: %s\n", pfx_options);
 
 	/* Metrics */
 	if (use_json) {
