@@ -3383,7 +3383,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				return 0;
 
 			if (vni_mcast_grp)
-				/* TODO: handle mcast group update for svd */
+				return zebra_vxlan_if_vni_mcast_group_update(
+					ifp, vni, &vtep_ip);
 
 				return zebra_vxlan_dp_network_mac_add(
 					ifp, br_if, &mac, vid, vni, nhg_id,
@@ -3410,7 +3411,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	if (dst_present) {
 		if (vni_mcast_grp)
-			/* TODO: handle mcast group update for svd */
+			return zebra_vxlan_if_vni_mcast_group_update(ifp, vni,
+								     NULL);
 
 			if (is_zero_mac(&mac))
 				return zebra_vxlan_check_readd_vtep(ifp, vni,
