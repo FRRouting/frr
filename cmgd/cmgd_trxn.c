@@ -1022,7 +1022,9 @@ void cmgd_trxn_status_write(struct vty *vty)
 
 	FOREACH_TRXN_IN_LIST(cmgd_trxn_cm, trxn) {
 		vty_out(vty, "  Trxn-Id: \t\t\t%p\n", trxn);
-		vty_out(vty, "    Session-Id: \t\t\t%lx\n", trxn->session_id);
+		vty_out(vty, "    Session-Id: \t\t0x%lx\n", trxn->session_id);
+		vty_out(vty, "    Type: \t\t\t%s\n", cmgd_trxn_type2str(trxn->type));
+		vty_out(vty, "    Ref-Count: \t\t\t%d\n", trxn->refcount);
 	}
 	vty_out(vty, "  Total: %d\n", 
 		(int) cmgd_trxn_list_count(&cmgd_trxn_cm->cmgd_trxns));

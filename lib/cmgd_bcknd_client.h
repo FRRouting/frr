@@ -45,7 +45,10 @@ extern "C" {
 
 #define CMGD_BCKND_MSG_MAX_LEN		        4096
 
-
+/*
+ * List of name identifiers for all backend clients to 
+ * supply while calling cmgd_bcknd_client_lib_init().
+ */
 #define CMGD_BCKND_CLIENT_BGPD			"bgpd"
 #define CMGD_BCKND_CLIENT_STATICD		"staticd"
 
@@ -54,10 +57,17 @@ extern "C" {
  ***************************************************************/
 
 typedef enum cmgd_bcknd_client_id_ {
-        CMGD_BCKND_CLIENT_ID_STATICD = 0,
+	CMGD_BCKND_CLIENT_ID_MIN = 0,
+        CMGD_BCKND_CLIENT_ID_STATICD = CMGD_BCKND_CLIENT_ID_MIN,
         CMGD_BCKND_CLIENT_ID_BGPD,
         CMGD_BCKND_CLIENT_ID_MAX
 } cmgd_bcknd_client_id_t;
+
+#define FOREACH_CMGD_BCKND_CLIENT_ID(id)			\
+	for ((id) = CMGD_BCKND_CLIENT_ID_MIN; 			\
+		(id) < CMGD_BCKND_CLIENT_ID_MAX; (id)++)
+
+#define CMGD_BCKND_MAX_CLIENTS_PER_XPATH_REG   32
 
 typedef struct cmgd_bcknd_msg_hdr_ {
 	uint16_t		marker;
@@ -80,7 +90,7 @@ typedef void (*cmgd_bcknd_client_connect_notify_t)(
 	bool connected);
 
 /*
- * Single handler to notify connection/disconnoect to/from 
+ * Single handler to notify subscribe/unsubscribe to/from 
  * CMGD daemon.
  */
 typedef void (*cmgd_bcknd_client_subscribe_notify_t)(
@@ -157,6 +167,32 @@ typedef struct cmgd_bcknd_client_params_ {
 	cmgd_bcknd_client_get_data_t		get_data_cb;
 	cmgd_bcknd_client_get_next_data_t	get_next_data_cb;
 } cmgd_bcknd_client_params_t;
+
+/***************************************************************
+ * Global data exported
+ ***************************************************************/
+
+extern const char *cmgd_bcknd_client_names[CMGD_CLIENT_NAME_MAX_LEN];
+
+static inline const char *cmgd_bknd_client_id2name(cmgd_bcknd_client_id_t id)
+{
+	if (id > CMGD_BCKND_CLIENT_ID_MAX)
+		id = CMGD_BCKND_CLIENT_ID_MAX;
+	return cmgd_bcknd_client_names[id];
+}
+
+static inline cmgd_bcknd_client_id_t cmgd_bknd_client_name2id(const char* name)
+{
+	cmgd_bcknd_client_id_t id;
+
+	FOREACH_CMGD_BCKND_CLIENT_ID(id) {
+		if (!strncmp(cmgd_bcknd_client_names[id], name,
+			CMGD_CLIENT_NAME_MAX_LEN))
+			return id;
+	}
+
+	return CMGD_BCKND_CLIENT_ID_MAX;
+}
 
 /***************************************************************
  * API prototypes

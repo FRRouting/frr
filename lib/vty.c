@@ -3178,12 +3178,16 @@ static void vty_cmgd_db_lock_notified(
 		vty_out(vty, "ERROR: %socking for DB %u failed! Err: '%s'", 
 			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
 		return;
+	} else {
+		zlog_err("%socked DB %u successfully!", 
+			lock_db ? "L" : "Unl", db_id);
+		vty_out(vty, "%socked DB %u successfully!\n", 
+			lock_db ? "L" : "Unl", db_id);
 	}
 
-	zlog_err("%socked DB %u successfully!", 
-		lock_db ? "L" : "Unl", db_id);
-	vty_out(vty, "%socked DB %u successfully!", 
-		lock_db ? "L" : "Unl", db_id);
+	vty->cmgd_req_pending = false;
+	// vty_prompt(vty);
+	// vty_event(VTY_WRITE, vty);
 }
 
 static void vty_cmgd_set_config_result_notified(
@@ -3202,11 +3206,15 @@ static void vty_cmgd_set_config_result_notified(
 		vty_out(vty, "ERROR: SET_CONFIG request failed! Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
 		// assert(!"CMGD SET_CONFIG request for VTY failed!");
-		return;
+	} else {
+		zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
+			client_id, req_id);
+		vty_out(vty, "\n");
 	}
 
-	zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
-		client_id, req_id);
+	vty->cmgd_req_pending = false;
+	// vty_prompt(vty);
+	// vty_event(VTY_WRITE, vty);
 }
 
 static void vty_cmgd_commit_config_result_notified(
@@ -3225,13 +3233,15 @@ static void vty_cmgd_commit_config_result_notified(
 			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed! Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
-		return;
+	} else {
+		zlog_err("COMMIT_CONFIG request for client 0x%lx req-id %lu was successfull!",
+			client_id, req_id);
+		vty_out(vty, "\n");
 	}
 
-	zlog_err("COMMIT_CONFIG request for client 0x%lx req-id %lu was successfull!",
-		client_id, req_id);
-
-	vty_out(vty, "\n");
+	vty->cmgd_req_pending = false;
+	// vty_prompt(vty);
+	// vty_event(VTY_WRITE, vty);
 }
 
 static cmgd_result_t vty_cmgd_get_data_result_notified(
@@ -3257,6 +3267,10 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 		client_id, req_id);
 
 	vty_out(vty, "\n");
+
+	vty->cmgd_req_pending = false;
+	// vty_prompt(vty);
+	// vty_event(VTY_WRITE, vty);
 	return CMGD_SUCCESS;
 }
 
@@ -3287,20 +3301,25 @@ int vty_cmgd_send_lockdb_req(struct vty *vty,
 {
 	cmgd_result_t ret;
 
-	vty->cmgd_req_id++;
-	ret = cmgd_frntnd_lock_db(
-		cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
-		db_id, lock);
-	if (ret != CMGD_SUCCESS) {
-		zlog_err("Failed to send %sLOCK-DB-REQ to CMGD for req-id %lu.",
-			lock ? "" : "UN", vty->cmgd_req_id);
-		vty_out(vty, "Failed to send %sLOCK-DB-REQ to CMGD!",
-			lock ? "" : "UN");
-		return -1;
+	if (cmgd_lib_hndl && vty->cmgd_session_id) {
+		vty->cmgd_req_id++;
+		ret = cmgd_frntnd_lock_db(
+			cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
+			db_id, lock);
+		if (ret != CMGD_SUCCESS) {
+			zlog_err("Failed to send %sLOCK-DB-REQ to CMGD for req-id %lu.",
+				lock ? "" : "UN", vty->cmgd_req_id);
+			vty_out(vty, "Failed to send %sLOCK-DB-REQ to CMGD!",
+				lock ? "" : "UN");
+			return -1;
+		}
+
+		zlog_err("Sent %sLOCK-DB-REQ request for session 0x%lx, req-id: %lu!",
+			lock ? "" : "UN", vty->cmgd_session_id, vty->cmgd_req_id);
+
+		vty->cmgd_req_pending = true;
 	}
 
-	zlog_err("Sent %sLOCK-DB-REQ request for session 0x%lx, req-id: %lu!",
-		lock ? "" : "UN", vty->cmgd_session_id, vty->cmgd_req_id);
 	return 0;
 }
 
@@ -3358,28 +3377,34 @@ int vty_cmgd_send_commit_config(struct vty *vty)
 {
 	cmgd_result_t ret;
 
-	vty->cmgd_req_id++;
-	ret = cmgd_frntnd_commit_config_data(
-		cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
-		CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, false);
-	if (ret != CMGD_SUCCESS) {
-		zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu.",
-			vty->cmgd_req_id);
-		vty_out(vty, "Failed to send COMMIT-REQ to CMGD!");
-		return -1;
+	if (cmgd_lib_hndl && vty->cmgd_session_id) {
+			vty->cmgd_req_id++;
+		ret = cmgd_frntnd_commit_config_data(
+			cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
+			CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, false);
+		if (ret != CMGD_SUCCESS) {
+			zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu.",
+				vty->cmgd_req_id);
+			vty_out(vty, "Failed to send COMMIT-REQ to CMGD!");
+			return -1;
+		}
+
+		zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
+			vty->cmgd_session_id, vty->cmgd_req_id);
+
+		vty->cmgd_req_pending = true;
 	}
 
-	zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
-		vty->cmgd_session_id, vty->cmgd_req_id);
 	return 0;
 }
 
-int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database, const char** xpath_list, int num_req)
+int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database,
+	const char** xpath_list, int num_req)
 {
 	cmgd_result_t ret;
 	cmgd_yang_data_t yang_data[VTY_MAXCFGCHANGES];
 	cmgd_yang_getdata_req_t get_req[VTY_MAXCFGCHANGES];
-	cmgd_yang_getdata_req_t *get_req_pnt[VTY_MAXCFGCHANGES];
+	cmgd_yang_getdata_req_t *getreq[VTY_MAXCFGCHANGES];
 	int i;
 
 	vty->cmgd_req_id++;
@@ -3388,14 +3413,14 @@ int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database, const c
 		cmgd_yang_get_data_req_init(&get_req[i]);
 		cmgd_yang_data_init(&yang_data[i]);
 
-		yang_data->xpath = (char *)xpath_list[0];
+		yang_data->xpath = (char *) xpath_list[i];
 
 		get_req[i].data = &yang_data[i];
-		get_req_pnt[i] = &get_req[i];
+		getreq[i] = &get_req[i];
 
 	}
 	ret = cmgd_frntnd_get_config_data(cmgd_lib_hndl, vty->cmgd_session_id,
-		vty->cmgd_req_id, database, get_req_pnt, num_req);
+		vty->cmgd_req_id, database, getreq, num_req);
 
 	if (ret != CMGD_SUCCESS) {
 		zlog_err("Failed to send GET-CONFIG to CMGD for req-id %lu.",
@@ -3403,6 +3428,9 @@ int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database, const c
 		vty_out(vty, "Failed to send GET-CONFIG to CMGD!");
 		return -1;
 	}
+
+	vty->cmgd_req_pending = true;
+
 	return 0;
 }
 

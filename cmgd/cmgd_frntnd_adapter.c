@@ -1103,6 +1103,7 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty)
 {
 	cmgd_frntnd_client_adapter_t *adptr;
 	cmgd_frntnd_sessn_ctxt_t *sessn;
+	cmgd_database_id_t db_id;
 
 	vty_out(vty, "CMGD Frontend Adpaters\n");
 
@@ -1113,7 +1114,18 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty)
 		FOREACH_SESSN_IN_LIST(adptr, sessn) {
 			vty_out(vty, "      Client-Id: \t\t0x%lx\n",
 				sessn->client_id);
-			vty_out(vty, "      Session-Id: \t\t%p\n", sessn);
+			vty_out(vty, "        Session-Id: \t\t%p\n", sessn);
+			vty_out(vty, "        DB-Locks: \n");
+			FOREACH_CMGD_DB_ID(db_id) {
+				if (sessn->db_write_locked[db_id]) {
+					vty_out(vty, "        %s\t\t\t\t%s, %s\n",
+						cmgd_db_id2name(db_id),
+						sessn->db_write_locked ?
+							"Write" : "Read",
+						sessn->db_locked_implict ?
+							"Implicit" : "Explicit");
+				}
+			}
 		}
 		vty_out(vty, "    Total: %d\n",
 			(int) cmgd_frntnd_sessn_list_count(&adptr->frntnd_sessns));

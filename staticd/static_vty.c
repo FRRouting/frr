@@ -1204,10 +1204,102 @@ static void static_cmgd_bcknd_client_connect(
 		(void) cmgd_bcknd_subscribe_yang_data(cmgd_lib_hndl, NULL, 0);
 }
 
+static void static_cmgd_trxn_notify(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, bool destroyed)
+{
+	zlog_debug("Got Trxn %s Notify from CMGD server", 
+		 destroyed ? "DESTROY" : "CREATE");
+
+	if (!destroyed) {
+		/* 
+		 * TODO: Allocate and install a private scratchpad for this 
+		 * transaction if required
+		 */
+	} else {
+		/* 
+		 * TODO: Uninstall and deallocate the private scratchpad for 
+		 * this transaction if installed earlier.
+		 */
+	}
+}
+
+static cmgd_result_t static_cmgd_data_validate(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+	struct nb_yang_value *data, bool delete, char *error_if_any)
+{
+	/*
+	 * Get the private scratchpad for this transaction (if installed).
+	 * scratchpad = trxn_ctxt->user_ctx;
+	 */
+
+	return CMGD_SUCCESS;
+}
+
+static cmgd_result_t static_cmgd_data_apply(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+	struct nb_yang_value *data, bool delete)
+{
+	/*
+	 * Get the private scratchpad for this transaction (if installed).
+	 * scratchpad = trxn_ctxt->user_ctx;
+	 */
+
+	return CMGD_SUCCESS;
+}
+
+static cmgd_result_t static_cmgd_get_data_elem(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+	struct nb_yang_xpath_elem *elem)
+{
+	/*
+	 * Get the private scratchpad for this transaction (if installed).
+	 * scratchpad = trxn_ctxt->user_ctx;
+	 */
+
+	return CMGD_SUCCESS;
+}
+
+static cmgd_result_t static_cmgd_get_data(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+	bool keys_only, struct nb_yang_xpath_elem **elems, int *num_elems, 
+	int *next_key)
+{
+	/*
+	 * Get the private scratchpad for this transaction (if installed).
+	 * scratchpad = trxn_ctxt->user_ctx;
+	 */
+
+	return CMGD_SUCCESS;
+}
+
+static cmgd_result_t static_cmgd_get_next_data(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+	bool keys_only, struct nb_yang_xpath_elem **elems, int *num_elems)
+{
+	/*
+	 * Get the private scratchpad for this transaction (if installed).
+	 * scratchpad = trxn_ctxt->user_ctx;
+	 */
+
+	return CMGD_SUCCESS;
+}
+
 static cmgd_bcknd_client_params_t cmgd_params = {
 	.name = CMGD_BCKND_CLIENT_STATICD,
 	.conn_retry_intvl_sec = 3,
-	.conn_notify_cb = static_cmgd_bcknd_client_connect
+	.conn_notify_cb = static_cmgd_bcknd_client_connect,
+	.trxn_notify_cb = static_cmgd_trxn_notify,
+	.data_validate_cb = static_cmgd_data_validate,
+	.data_apply_cb = static_cmgd_data_apply,
+	.get_data_elem_cb = static_cmgd_get_data_elem,
+	.get_data_cb = static_cmgd_get_data,
+	.get_next_data_cb = static_cmgd_get_next_data
 };
 
 void static_cmgd_init(struct thread_master *master)

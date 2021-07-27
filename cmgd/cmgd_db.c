@@ -57,6 +57,14 @@ typedef struct cmgd_db_ctxt_ {
 	} root;
 } cmgd_db_ctxt_t;
 
+const char *cmgd_db_names[CMGD_DB_MAX_ID+1] = {
+	CMGD_DB_NAME_NONE, 		/* CMGD_DB_NONE */
+	CMGD_DB_NAME_RUNNING, 		/* CMGD_DB_RUNNING */
+	CMGD_DB_NAME_CANDIDATE, 	/* CMGD_DB_RUNNING */
+	CMGD_DB_NAME_OPERATION, 	/* CMGD_DB_OPERATIONAL */
+	"Unknown/Invalid", 		/* CMGD_DB_ID_MAX */
+};
+
 static struct cmgd_master *cmgd_db_cm = NULL;
 static cmgd_db_ctxt_t running, candidate, oper;
 
@@ -70,8 +78,8 @@ int cmgd_db_init(struct cmgd_master *cm)
 	// Use Running DB from NB module???
 	if (!running_config)
 		assert(!"Call cmgd_db_init() after frr_init() only!");
-	// running.root.cfg_root = nb_config_new(NULL);
 	running.root.cfg_root = running_config;
+	// running.root.cfg_root = nb_config_new(NULL);
 	running.config_db = true;
 	running.db_id = CMGD_DB_RUNNING;
 
@@ -320,7 +328,7 @@ int cmgd_db_hndl_send_get_data_req(
 	return 0;
 }
 
-static void cmgd_db_hndl_status_write(
+void cmgd_db_status_write_one(
         struct vty *vty, cmgd_db_hndl_t db_hndl)
 {
 	cmgd_db_ctxt_t *db_ctxt;
@@ -330,7 +338,8 @@ static void cmgd_db_hndl_status_write(
 		vty_out(vty, "    >>>>> Database Not Initialized!\n");
 		return;
 	}
-
+	
+	vty_out(vty, "  DB: %s\n", cmgd_db_id2name(db_ctxt->db_id));
 	vty_out(vty, "    DB-Hndl: \t\t\t0x%p\n", db_ctxt);
 	vty_out(vty, "    Config: \t\t\t%s\n", db_ctxt->config_db ? "True" : "False");
 }
@@ -341,12 +350,9 @@ void cmgd_db_status_write(struct vty *vty)
 
 	vty_out(vty, "CMGD Databases\n");
 
-	vty_out(vty, "  Candidate DB:\n");
-	cmgd_db_hndl_status_write(vty, cmgd_db_cm->candidate_db);
+	cmgd_db_status_write_one(vty, cmgd_db_cm->running_db);
 
-	vty_out(vty, "  Running DB:\n");
-	cmgd_db_hndl_status_write(vty, cmgd_db_cm->running_db);
+	cmgd_db_status_write_one(vty, cmgd_db_cm->candidate_db);
 
-	vty_out(vty, "  Operational DB:\n");
-	cmgd_db_hndl_status_write(vty, cmgd_db_cm->oper_db);
+	cmgd_db_status_write_one(vty, cmgd_db_cm->oper_db);
 }

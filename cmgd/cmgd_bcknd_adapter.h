@@ -32,18 +32,6 @@
 #define CMGD_BCKND_CLIENT_INDEX_STATICD (1 << CMGD_BCKND_CLIENT_ID_STATICD)
 #define CMGD_BCKND_CLIENT_INDEX_BGPD (1 << CMGD_BCKND_CLIENT_ID_BGPD)
 
-// XPATH regular expression map index
-typedef enum cmgd_bcknd_xpath_regexp_id_ {
-	CMGD_BCKND_XPATH_REGEXP_ID_FILTER,
-	CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE,
-	CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP,
-	CMGD_BCKND_XPATH_REGEXP_ID_VRF,
-	CMGD_BCKND_XPATH_REGEXP_ID_ROUTING,
-	CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC,
-	CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP,
-	CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP,
-} cmgd_bcknd_xpath_regexp_id_t;
-
 typedef enum cmgd_bcknd_req_type_ {
         CMGD_BCKND_REQ_NONE = 0,
         CMGD_BCKND_REQ_CFG_VALIDATE,
@@ -51,12 +39,6 @@ typedef enum cmgd_bcknd_req_type_ {
         CMGD_BCKND_REQ_DATA_GET_ELEM,
         CMGD_BCKND_REQ_DATA_GET_NEXT
 } cmgd_bcknd_req_type_t;
-
-typedef struct cmgd_bcknd_xpath_map_ {
-	uint32_t xpath_regex_id;   // ID for easy access
-	const char *xpath_regexp;  // hierarchical expression
-	uint32_t bknd_client_ids;  // Stores list of adapter IDs
-} cmgd_bcknd_xpath_map_t;
 
 typedef struct cmgd_bcknd_cfgreq_ {
         cmgd_bcknd_req_type_t req_type;
@@ -95,6 +77,7 @@ PREDECL_LIST(cmgd_bcknd_adptr_list);
 PREDECL_LIST(cmgd_trxn_badptr_list);
 
 typedef struct cmgd_bcknd_client_adapter_ {
+        cmgd_bcknd_client_id_t id;
         int conn_fd;
         union sockunion conn_su;
         struct thread *conn_read_ev;
@@ -132,7 +115,18 @@ typedef struct cmgd_bcknd_client_adapter_ {
 DECLARE_LIST(cmgd_bcknd_adptr_list, cmgd_bcknd_client_adapter_t, list_linkage);
 DECLARE_LIST(cmgd_trxn_badptr_list, cmgd_bcknd_client_adapter_t, trxn_list_linkage);
 
-extern cmgd_bcknd_client_adapter_t *cmgd_adaptr_ref[CMGD_BCKND_CLIENT_ID_MAX];
+typedef union cmgd_bcknd_xpath_subscr_info_ {
+	uint8_t subscribed;
+	struct {
+		uint8_t validate_config:1;
+		uint8_t notify_config:1;
+		uint8_t own_oper_data:1;
+	};
+} cmgd_bcknd_xpath_subscr_info_t;
+
+typedef struct cmgd_bcknd_client_subscr_info_ {
+	cmgd_bcknd_xpath_subscr_info_t xpath_subscr[CMGD_BCKND_CLIENT_ID_MAX];
+} cmgd_bcknd_client_subscr_info_t;
 
 extern int cmgd_bcknd_adapter_init(struct thread_master *tm);
 
@@ -143,7 +137,11 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr);
 extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
         int conn_fd, union sockunion *su);
 
-extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter(const char *name);
+extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_name(
+        const char *name);
+
+extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_id(
+        cmgd_bcknd_client_id_t id);
 
 extern int cmgd_bcknd_create_trxn(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id);
@@ -165,6 +163,12 @@ extern int cmgd_bcknd_send_get_next_data_req(
 
 extern void cmgd_bcknd_adapter_status_write(struct vty *vty);
 
-extern void cmgd_bcknd_adaptr_ref_init(void);
-extern uint32_t cmgd_trxn_derive_adapters_for_xpath(const char *xpath);
+extern void cmgd_bcknd_xpath_register_write(struct vty *vty);
+
+extern int cmgd_bcknd_get_subscr_info_for_xpath(const char *xpath, 
+	cmgd_bcknd_client_subscr_info_t *subscr_info);
+
+extern void cmgd_bcknd_xpath_subscr_info_write(
+        struct vty *vty, const char *xpath);
+
 #endif /* _FRR_CMGD_BCKND_ADAPTER_H_ */

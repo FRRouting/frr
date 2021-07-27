@@ -30,10 +30,57 @@
 #include "lib/cmgd_frntnd_client.h"
 #include "cmgd/cmgd.h"
 
+#define CMGD_DB_NAME_MAX_LEN    32
+#define CMGD_DB_NAME_NONE                       "none"
+#define CMGD_DB_NAME_RUNNING                    "running"
+#define CMGD_DB_NAME_CANDIDATE                  "candidate"
+#define CMGD_DB_NAME_OPERATION                  "operational"
+
+#define FOREACH_CMGD_DB_ID(id)			                \
+	for ((id) = CMGD_DB_NONE; (id) < CMGD_DB_MAX_ID; (id)++)
+
 typedef uintptr_t cmgd_db_hndl_t;
 
 typedef void (*cmgd_db_node_iter_fn)(cmgd_db_hndl_t db_hndl, 
         struct lyd_node *node, struct nb_node *nb_node);
+
+
+/***************************************************************
+ * Global data exported
+ ***************************************************************/
+
+extern const char *cmgd_db_names[CMGD_DB_MAX_ID+1];
+
+static inline const char *cmgd_db_id2name(cmgd_database_id_t id)
+{
+	if (id > CMGD_DB_MAX_ID)
+		id = CMGD_DB_MAX_ID;
+	return cmgd_db_names[id];
+}
+
+static inline cmgd_database_id_t cmgd_db_name2id(const char* name)
+{
+	cmgd_database_id_t id;
+
+	FOREACH_CMGD_DB_ID(id) {
+		if (!strncmp(cmgd_db_names[id], name,
+			CMGD_DB_NAME_MAX_LEN))
+			return id;
+	}
+
+	return CMGD_DB_NONE;
+}
+
+static inline cmgd_database_id_t cmgd_get_db_id_by_name(const char *db_name)
+{
+        if (!strncmp(db_name, "candidate", sizeof("candidate")))
+		return CMGD_DB_CANDIDATE;
+	else if (!strncmp(db_name, "running", sizeof("running")))
+		return CMGD_DB_RUNNING;
+	else if (!strncmp(db_name, "operational", sizeof("operational")))
+		return CMGD_DB_OPERATIONAL;
+	return CMGD_DB_NONE;
+}
 
 extern int cmgd_db_init(struct cmgd_master *cm);
 
@@ -69,6 +116,9 @@ extern int cmgd_db_iter_data(
 extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,
         cmgd_yang_getdata_req_t *data_req, int num_reqs);
+
+extern void cmgd_db_status_write_one(
+        struct vty *vty, cmgd_db_hndl_t db_hndl);
 
 extern void cmgd_db_status_write(struct vty *vty);
 

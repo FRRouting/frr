@@ -37,7 +37,11 @@
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
-const char *cmgd_bcknd_client_names[] = {CMGD_BCKND_CLIENT_STATICD, CMGD_BCKND_CLIENT_BGPD};
+const char *cmgd_bcknd_client_names[CMGD_CLIENT_NAME_MAX_LEN] = {
+	CMGD_BCKND_CLIENT_STATICD, 	/* CMGD_BCKND_CLIENT_ID_STATICD */
+	CMGD_BCKND_CLIENT_BGPD, 	/* CMGD_BCKND_CLIENT_ID_BGPDD */
+	"Unknown/Invalid",		/* CMGD_BCKND_CLIENT_ID_MAX */
+};
 
 typedef struct cmgd_bcknd_client_ctxt_ {
 	int conn_fd;
@@ -66,6 +70,12 @@ static void cmgd_bcknd_client_schedule_conn_retry(
 static void cmgd_bcknd_server_disconnect(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, bool reconnect)
 {
+	/* Notify client through registered callback (if any) */
+	if (clnt_ctxt->client_params.conn_notify_cb)
+		(void) (*clnt_ctxt->client_params.conn_notify_cb)(
+			(cmgd_lib_hndl_t)clnt_ctxt, 
+			clnt_ctxt->client_params.user_data, false);
+
 	if (clnt_ctxt->conn_fd) {
 		close(clnt_ctxt->conn_fd);
 		clnt_ctxt->conn_fd = 0;

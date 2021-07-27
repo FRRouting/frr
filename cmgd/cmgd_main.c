@@ -579,7 +579,6 @@ int main(int argc, char **argv)
 	/* must be called after fork() */
 	cmgd_gr_apply_running_config();
 #endif
-	cmgd_bcknd_adaptr_ref_init();
 	cmgd_pthreads_run();
 
 	frr_run(cm->master);

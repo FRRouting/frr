@@ -47,141 +47,85 @@
 	for ((adptr) = cmgd_bcknd_adptr_list_first(&cmgd_bcknd_adptrs); (adptr);\
 		(adptr) = cmgd_bcknd_adptr_list_next(&cmgd_bcknd_adptrs, (adptr)))
 
+/* 
+ * Static mapping of YANG XPath regular expressions and 
+ * the corresponding interested backend clients. 
+ * NOTE: Thiis is a static mapping defined by all CMGD 
+ * backend client modules (for now, till we develop a 
+ * more dynamic way of creating and updating this map).
+ * A running map is created by CMGD in run-time to 
+ * handle real-time mapping of YANG xpaths to one or 
+ * more interested backend client adapters.
+ * 
+ * Please see xpath_map_reg[] in lib/cmgd_bcknd_client.c
+ * for the actual map
+ */
+typedef struct cmgd_bcknd_xpath_map_reg_ {
+	const char *xpath_regexp;  /* Longest matching regular expression */
+        uint8_t num_clients;    /* Number of clients */
+	const char *bcknd_clients[CMGD_BCKND_MAX_CLIENTS_PER_XPATH_REG];  /* List of clients */
+} cmgd_bcknd_xpath_map_reg_t;
+
+typedef struct cmgd_bcknd_xpath_regexp_map_ {
+	const char *xpath_regexp;
+	cmgd_bcknd_client_subscr_info_t bcknd_subscrs;
+} cmgd_bcknd_xpath_regexp_map_t;
+
+/* 
+ * Static mapping of YANG XPath regular expressions and 
+ * the corresponding interested backend clients. 
+ * NOTE: Thiis is a static mapping defined by all CMGD 
+ * backend client modules (for now, till we develop a 
+ * more dynamic way of creating and updating this map).
+ * A running map is created by CMGD in run-time to 
+ * handle real-time mapping of YANG xpaths to one or 
+ * more interested backend client adapters.
+ */
+static const cmgd_bcknd_xpath_map_reg_t xpath_static_map_reg[] = {
+	{
+		.xpath_regexp = "/frr-interface:lib/*",
+		.num_clients = 2,
+		.bcknd_clients = {
+			CMGD_BCKND_CLIENT_STATICD,
+			CMGD_BCKND_CLIENT_BGPD
+		}
+	},
+	{
+		.xpath_regexp = 
+			"/frr-routing:routing/control-plane-protocols/"
+			"control-plane-protocol[type='frr-staticd:staticd']"
+			"[name='staticd'][vrf='default']/frr-staticd:staticd/*",
+		.num_clients = 1,
+		.bcknd_clients = {
+			CMGD_BCKND_CLIENT_STATICD
+		}
+	},
+	{
+		.xpath_regexp = 
+			"/frr-routing:routing/control-plane-protocols/"
+			"control-plane-protocol[type='frr-bgp:bgp']"
+			"[name='bgp'][vrf='default']/frr-bgp:bgp/*",
+		.num_clients = 1,
+		.bcknd_clients = {
+			CMGD_BCKND_CLIENT_BGPD
+		}
+	}
+};
+
+#define CMGD_BCKND_MAX_NUM_XPATH_MAP	256
+static cmgd_bcknd_xpath_regexp_map_t 
+	cmgd_xpath_map[CMGD_BCKND_MAX_NUM_XPATH_MAP] = { 0 };
+static int cmgd_num_xpath_maps = 0;
+
 static struct thread_master *cmgd_bcknd_adptr_tm = NULL;
 
 static struct cmgd_bcknd_adptr_list_head cmgd_bcknd_adptrs = {0};
 
-cmgd_bcknd_client_adapter_t *cmgd_adaptr_ref[CMGD_BCKND_CLIENT_ID_MAX];
-
-/* Static map to find the adapters to which
- * transations needs to be sent based on XPATH string
- */
-static cmgd_bcknd_xpath_map_t xpath_map[] = {
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_FILTER,
-		.xpath_regexp = "frr-filter:lib",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
-				    | CMGD_BCKND_CLIENT_INDEX_BGPD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE,
-		.xpath_regexp = "frr-interface:lib",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
-			     | CMGD_BCKND_CLIENT_INDEX_BGPD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP,
-		.xpath_regexp = "frr-route-map:lib",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_BGPD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_VRF,
-		.xpath_regexp = "frr-vrf:lib",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
-				    | CMGD_BCKND_CLIENT_INDEX_BGPD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTING,
-		.xpath_regexp = "frr-routing:routing",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD
-				    | CMGD_BCKND_CLIENT_INDEX_BGPD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC,
-		.xpath_regexp = "frr-staticd:staticd",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_STATICD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP,
-		.xpath_regexp = "frr-bgp:bgp",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_BGPD)
-	},
-	{
-		.xpath_regex_id = CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP,
-		.xpath_regexp = "frr-bgp-route-map",
-		.bknd_client_ids = (CMGD_BCKND_CLIENT_INDEX_BGPD)
-	}
-};
+static cmgd_bcknd_client_adapter_t *cmgd_bcknd_adptrs_by_id[CMGD_BCKND_CLIENT_ID_MAX] = { 0 };
 
 /* Forward declarations */
 static void cmgd_bcknd_adptr_register_event(
 	cmgd_bcknd_client_adapter_t *adptr, cmgd_event_t event);
-
-static int cmgd_bcknd_adapter_find_client_id_by_name(char *name)
-{
-	if (strcmp(name, CMGD_BCKND_CLIENT_STATICD) == 0) {
-		return CMGD_BCKND_CLIENT_ID_STATICD;
-	} else if (strcmp(name, CMGD_BCKND_CLIENT_BGPD) == 0) {
-		return CMGD_BCKND_CLIENT_ID_BGPD;
-	} else {
-		CMGD_BCKND_ADPTR_ERR("Unsupported adapter client %s", name);
-		return -1;
-	}
-}
-
-void cmgd_bcknd_adaptr_ref_init(void)
-{
-	int i = 0;
-	for (i = 0; i < CMGD_BCKND_CLIENT_ID_MAX; i++)
-		cmgd_adaptr_ref[i] = NULL;
-}
-
-/* This function does a hierarchial lookup on the XPATH with
- * available xpath_regexp to derive the appropriate adapter
- * list from the static xpath_map.
- * Return value is a collection of adapters interested in the
- * xpath.
- * Each bit in return value represent a client adapter.
- */
-uint32_t cmgd_trxn_derive_adapters_for_xpath(const char *xpath)
-{
-	if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_FILTER]
-				.xpath_regexp))
-		return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_FILTER]
-			.bknd_client_ids;
-	// regexp for xpath with \"frr-interface:lib\"
-	else if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE]
-				       .xpath_regexp))
-		return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_INTERFACE]
-				.bknd_client_ids;
-	// regexp for xpath with \"frr-route-map:lib\"
-	else if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP]
-					 .xpath_regexp)) {
-		if (strstr(xpath,
-			xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP]
-					.xpath_regexp))
-			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP_BGP]
-				.bknd_client_ids;
-		else
-			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTEMAP]
-				.bknd_client_ids;
-	// regexp for xpath with \"frr-vrf:lib\"
-	} else if (strstr(xpath,
-			xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_VRF].xpath_regexp))
-		return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_VRF]
-				.bknd_client_ids;
-	// regexp for xpath with \"frr-routing:routing\"
-	else if (strstr(xpath, xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING]
-					 .xpath_regexp)) {
-		if (strstr(xpath,
-			xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC]
-					  .xpath_regexp))
-			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_STATIC]
-				.bknd_client_ids;
-		else if (strstr(xpath,
-				xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP]
-					.xpath_regexp))
-			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING_BGP]
-					.bknd_client_ids;
-		else
-			return xpath_map[CMGD_BCKND_XPATH_REGEXP_ID_ROUTING]
-					.bknd_client_ids;
-	} else {
-		CMGD_BCKND_ADPTR_ERR(
-			"Cannot convert given XPATH %s to adapter list", xpath);
-		return -1;
-	}
-}
 
 static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_fd(int conn_fd)
 {
@@ -207,6 +151,116 @@ static cmgd_bcknd_client_adapter_t *cmgd_bcknd_find_adapter_by_name(const char *
 	return NULL;
 }
 
+static void cmgd_bcknd_xpath_map_init(void)
+{
+        int indx, num_xpath_maps;
+        uint16_t indx1;
+        cmgd_bcknd_client_id_t id;
+
+	CMGD_BCKND_ADPTR_DBG("Init XPath Maps");
+
+	num_xpath_maps = (int) array_size(xpath_static_map_reg);
+        for (indx = 0; indx < num_xpath_maps; indx++) {
+		CMGD_BCKND_ADPTR_DBG(" - XPATH: '%s'",
+				xpath_static_map_reg[indx].xpath_regexp);
+                cmgd_xpath_map[indx].xpath_regexp = 
+                        xpath_static_map_reg[indx].xpath_regexp;
+                for (indx1 = 0;
+                        indx1 < xpath_static_map_reg[indx].num_clients;
+                        indx1++) {
+                        id  = cmgd_bknd_client_name2id(
+                                xpath_static_map_reg[indx].bcknd_clients[indx1]);
+			CMGD_BCKND_ADPTR_DBG("   -- Client: '%s' --> Id: %u",
+				xpath_static_map_reg[indx].bcknd_clients[indx1], id);
+                        if (id < CMGD_BCKND_CLIENT_ID_MAX) {
+                        	cmgd_xpath_map[indx].bcknd_subscrs.
+			      		xpath_subscr[id].validate_config = 1;
+                        	cmgd_xpath_map[indx].bcknd_subscrs.
+			      		xpath_subscr[id].notify_config = 1;
+                        	cmgd_xpath_map[indx].bcknd_subscrs.
+			      		xpath_subscr[id].own_oper_data = 1;
+                        }
+                }
+        }
+
+	cmgd_num_xpath_maps = indx;
+	CMGD_BCKND_ADPTR_DBG("Total XPath Maps: %u", cmgd_num_xpath_maps);
+}
+
+static int cmgd_bcknd_eval_regexp_match(
+	const char *xpath_regexp, const char *xpath)
+{
+	int match_len = 0, re_indx = 0, xp_indx = 0;
+	int rexp_len, xpath_len;
+	bool match = true, re_wild = false, xp_wild = false;
+	bool key = false, incr_re = false, incr_xp = false;
+	// char re_str[1024], xp_str[1024];
+
+	rexp_len = strlen(xpath_regexp);
+	xpath_len = strlen(xpath);
+	// memset(re_str, 0, sizeof(re_str));
+	// memset(xp_str, 0, sizeof(xp_str));
+
+	if (!rexp_len || !xpath_len)
+		return 0;
+
+	CMGD_BCKND_ADPTR_DBG(" REGEXP: '%s'", xpath_regexp);
+
+	for (re_indx = 0, xp_indx = 0;
+	     match && re_indx < rexp_len && xp_indx < xpath_len; ) {
+		incr_re = true;
+		incr_xp = true;
+
+		// re_str[re_indx] = xpath_regexp[re_indx];
+		// xp_str[xp_indx] = xpath[xp_indx];
+		// CMGD_BCKND_ADPTR_DBG("'%s' || '%s'", re_str, xp_str);
+
+		if (!key && xpath_regexp[re_indx] == '\'' && xpath[xp_indx] == '\'')
+			key = key ? false : true;
+		if (key && xpath_regexp[re_indx] == '*' && xpath[xp_indx] != '*') {
+			incr_re = false;
+			re_wild = true;
+		} else if (key && xpath_regexp[re_indx] != '*' && xpath[xp_indx] == '*') {
+			incr_xp = false;
+			xp_wild = true;
+		}
+
+		match = (xp_wild || re_wild ||
+			xpath_regexp[re_indx] == xpath[xp_indx]);
+
+		if (match && re_indx && xp_indx &&
+			((xpath_regexp[re_indx-1] == '/' && xpath[xp_indx-1] == '/') ||
+			(xpath_regexp[re_indx-1] == '[' && xpath[xp_indx-1] == '[') ||
+			(xpath_regexp[re_indx-1] == ']' && xpath[xp_indx-1] == '[')))
+			match_len++;
+
+		if (key && re_wild && xpath[xp_indx+1] == '\'') {
+			re_wild = false;
+			incr_re = true;
+		}
+		if (key && xp_wild && xpath_regexp[re_indx+1] == '\'') {
+			xp_wild = false;
+			incr_xp = true;
+		}
+
+		CMGD_BCKND_ADPTR_DBG("K:%d, RI:%d, RX:%d, RW:%d, XW:%d, M:%d, IR: %d, IX:%d",
+			key, re_indx, xp_indx, re_wild, xp_wild, match, incr_re, incr_xp);
+
+		if (incr_re)
+			re_indx++;
+		if (incr_xp)
+			xp_indx++;
+	}
+
+	if (match) {
+		match_len++;
+	}
+
+	CMGD_BCKND_ADPTR_DBG(" - REGEXP: %s, Match: %d",
+		xpath_regexp, match_len);
+	return match_len;
+}
+
 static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 {
 	if (adptr->conn_fd) {
@@ -215,9 +269,9 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 	}
 
 	/* TODO: notify about client disconnect for appropriate cleanup */
-	if (adptr->adapter_index != -1) {
-		cmgd_adaptr_ref[adptr->adapter_index] = NULL;
-		adptr->adapter_index = -1;
+	if (adptr->id < CMGD_BCKND_CLIENT_ID_MAX) {
+		cmgd_bcknd_adptrs_by_id[adptr->id] = NULL;
+		adptr->id = CMGD_BCKND_CLIENT_ID_MAX;
 	}
 
 	cmgd_bcknd_adptr_list_del(&cmgd_bcknd_adptrs, adptr);
@@ -260,10 +314,13 @@ static int cmgd_bcknd_adapter_handle_msg(
 		if (strlen(bcknd_msg->subscr_req->client_name)) {
 			strlcpy(adptr->name, bcknd_msg->subscr_req->client_name, 
 				sizeof(adptr->name));
-			adptr->adapter_index =
-				cmgd_bcknd_adapter_find_client_id_by_name(
+			adptr->id = cmgd_bknd_client_name2id(adptr->name);
+			if (adptr->id >= CMGD_BCKND_CLIENT_ID_MAX) {
+				CMGD_BCKND_ADPTR_ERR("Unable to resolve adapter '%s' to a valid ID. Disconnecting!",
 					adptr->name);
-			cmgd_adaptr_ref[adptr->adapter_index] = adptr;
+				cmgd_bcknd_adapter_disconnect(adptr);
+			}
+			cmgd_bcknd_adptrs_by_id[adptr->id] = adptr;
 			cmgd_bcknd_adapter_cleanup_old_conn(adptr);
 		}
 		break;
@@ -511,6 +568,7 @@ int cmgd_bcknd_adapter_init(struct thread_master *tm)
 	if (!cmgd_bcknd_adptr_tm) {
 		cmgd_bcknd_adptr_tm = tm;
 		cmgd_bcknd_adptr_list_init(&cmgd_bcknd_adptrs);
+		cmgd_bcknd_xpath_map_init();
 	}
 
 	return 0;
@@ -528,7 +586,7 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		assert(adptr);
 
 		adptr->conn_fd = conn_fd;
-		adptr->adapter_index = -1;
+		adptr->id = CMGD_BCKND_CLIENT_ID_MAX;
 		memcpy(&adptr->conn_su, from, sizeof(adptr->conn_su));
 		snprintf(adptr->name, sizeof(adptr->name), "Unknown-FD-%d", adptr->conn_fd);
 		adptr->ibuf_fifo = stream_fifo_new();
@@ -550,7 +608,14 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 	return adptr;
 }
 
-cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter(const char *name)
+cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_id(
+        cmgd_bcknd_client_id_t id)
+{
+        return (id < CMGD_BCKND_CLIENT_ID_MAX ?
+		cmgd_bcknd_adptrs_by_id[id] : NULL);
+}
+
+cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_name(const char *name)
 {
 	return cmgd_bcknd_find_adapter_by_name(name);
 }
@@ -588,25 +653,129 @@ int cmgd_bcknd_send_get_next_data_req(
 	return 0;
 }
 
+/* 
+ * This function maps a YANG dtata Xpath to one or more 
+ * Backend Clients that should be contacted for various purposes.
+ */
+int cmgd_bcknd_get_subscr_info_for_xpath(const char *xpath, 
+	cmgd_bcknd_client_subscr_info_t *subscr_info)
+{
+	int indx, match, max_match = 0, num_reg;
+	cmgd_bcknd_client_id_t id;
+	cmgd_bcknd_client_subscr_info_t *reg_maps[array_size(cmgd_xpath_map)] = { 0 };
+
+	if (!subscr_info)
+		return -1;
+
+	num_reg = 0;
+	memset(subscr_info, 0, sizeof(*subscr_info));
+
+	CMGD_BCKND_ADPTR_DBG("XPATH: %s", xpath);
+	for (indx = 0; indx < cmgd_num_xpath_maps; indx++) {
+		match = cmgd_bcknd_eval_regexp_match(
+			cmgd_xpath_map[indx].xpath_regexp, xpath);
+
+		if (match < max_match)
+			continue;
+	
+		if (match > max_match) {
+			num_reg = 0;
+			max_match = match;
+		}
+
+		reg_maps[num_reg] = &cmgd_xpath_map[indx].bcknd_subscrs;
+		num_reg++;
+	}
+
+	for (indx = 0; indx < num_reg; indx++) {
+		FOREACH_CMGD_BCKND_CLIENT_ID(id) {
+			if (reg_maps[indx]->xpath_subscr[id].subscribed) {
+				CMGD_BCKND_ADPTR_DBG(
+					"Cient: %s", 
+					cmgd_bknd_client_id2name(id));
+				memcpy(&subscr_info->xpath_subscr[id],
+					&reg_maps[indx]->xpath_subscr[id],
+					sizeof(subscr_info->xpath_subscr[id]));
+			}
+		}
+	}
+	
+	return 0;
+}
+
 void cmgd_bcknd_adapter_status_write(struct vty *vty)
 {
 	cmgd_bcknd_client_adapter_t *adptr;
-	uint8_t indx;
 
 	vty_out(vty, "CMGD Backend Adpaters\n");
 
 	FOREACH_ADPTR_IN_LIST(adptr) {
 		vty_out(vty, "  Client: \t\t\t%s\n", adptr->name);
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
-		vty_out(vty, "    adapter-index: \t\t%d\n",
-			adptr->adapter_index);
-		vty_out(vty, "    Total Xpaths Registered: \t%u\n", 
-			adptr->num_xpath_reg);
-		for (indx = 0; indx < adptr->num_xpath_reg; indx++)
-			if (strlen(adptr->xpath_reg[indx]))
-				vty_out(vty, "    [%u] %s\n", 
-					indx, adptr->xpath_reg[indx]);
+		vty_out(vty, "    Client-Id: \t\t\t%d\n", adptr->id);
+		vty_out(vty, "    Ref-Count: \t%u\n", adptr->refcount);
 	}
 	vty_out(vty, "  Total: %d\n", 
 		(int) cmgd_bcknd_adptr_list_count(&cmgd_bcknd_adptrs));
+}
+
+void cmgd_bcknd_xpath_register_write(struct vty *vty)
+{
+        int indx;
+        cmgd_bcknd_client_id_t id;
+	cmgd_bcknd_client_adapter_t *adptr;
+
+	vty_out(vty, "CMGD Backend XPath Registry\n");
+
+        for (indx = 0; indx < cmgd_num_xpath_maps; indx++) {
+		vty_out(vty, " - XPATH: '%s'\n",
+			cmgd_xpath_map[indx].xpath_regexp);
+                FOREACH_CMGD_BCKND_CLIENT_ID(id) {
+			if (cmgd_xpath_map[indx].bcknd_subscrs.
+				xpath_subscr[id].subscribed) {
+                        	vty_out(vty, "   -- Client: '%s' \t Validate:%s, Notify:%s, Own:%s\n",
+					cmgd_bknd_client_id2name(id),
+					cmgd_xpath_map[indx].bcknd_subscrs.
+						xpath_subscr[id].validate_config ? "T" : "F",
+					cmgd_xpath_map[indx].bcknd_subscrs.
+						xpath_subscr[id].notify_config ? "T" : "F",
+					cmgd_xpath_map[indx].bcknd_subscrs.
+						xpath_subscr[id].own_oper_data ? "T" : "F");
+				adptr = cmgd_bcknd_get_adapter_by_id(id);
+				if (adptr) {
+					vty_out(vty, "     -- Adapter: 0x%p\n", adptr);
+				}
+			}
+                }
+        }
+
+	vty_out(vty, "Total XPath Registries: %u\n", cmgd_num_xpath_maps);
+}
+
+void cmgd_bcknd_xpath_subscr_info_write(struct vty *vty, const char *xpath)
+{
+	cmgd_bcknd_client_subscr_info_t subscr;
+	cmgd_bcknd_client_id_t id;
+	cmgd_bcknd_client_adapter_t *adptr;
+
+	if (cmgd_bcknd_get_subscr_info_for_xpath(xpath, &subscr) != 0) {
+		vty_out(vty, "ERROR: Failed to get subscriber for '%s'\n",
+			xpath);
+		return;
+	}
+
+	vty_out(vty, "XPath: '%s'\n", xpath);
+	FOREACH_CMGD_BCKND_CLIENT_ID(id) {
+		if (subscr.xpath_subscr[id].subscribed) {
+			vty_out(vty, "  -- Client: '%s' \t Validate:%s, Notify:%s, Own:%s\n",
+				cmgd_bknd_client_id2name(id),
+				subscr.xpath_subscr[id].validate_config ? "T" : "F",
+				subscr.xpath_subscr[id].notify_config ? "T" : "F",
+				subscr.xpath_subscr[id].own_oper_data ? "T" : "F");
+			adptr = cmgd_bcknd_get_adapter_by_id(id);
+			if (adptr) {
+				vty_out(vty, "    -- Adapter: 0x%p\n", adptr);
+			}
+		}
+	}
 }

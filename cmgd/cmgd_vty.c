@@ -48,6 +48,7 @@
 #include "cmgd/cmgd_bcknd_adapter.h"
 #include "cmgd/cmgd_frntnd_server.h"
 #include "cmgd/cmgd_frntnd_adapter.h"
+#include "cmgd/cmgd_db.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "cmgd/cmgd_vty_clippy.c"
@@ -158,6 +159,18 @@ DEFPY(show_cmgd_bcknd_adapter,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_cmgd_bcknd_reg,
+	show_cmgd_bcknd_reg_cmd,
+	"show cmgd backend-registry",
+	SHOW_STR
+	CMGD_STR
+	"Backend Adapter Xpath Registry\n")
+{
+	cmgd_bcknd_xpath_register_write(vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_cmgd_frntnd_adapter,
 	show_cmgd_frntnd_adapter_cmd,
 	"show cmgd frontend-adapter all",
@@ -184,8 +197,8 @@ DEFPY(show_cmgd_trxn,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_cmgd_db,
-	show_cmgd_db_cmd,
+DEFPY(show_cmgd_db_all,
+	show_cmgd_db_all_cmd,
 	"show cmgd database all",
 	SHOW_STR
 	CMGD_STR
@@ -197,9 +210,73 @@ DEFPY(show_cmgd_db,
 	return CMD_SUCCESS;
 }
 
-DEFPY(cmgd_commit,
-      cmgd_commit_cmd,
-      "commit-apply",
+DEFPY(show_cmgd_db_runn,
+	show_cmgd_db_runn_cmd,
+	"show cmgd database running",
+	SHOW_STR
+	CMGD_STR
+	CMGD_TRXN_STR
+	"Display Running Database\n")
+{
+	cmgd_db_hndl_t db_hndl;
+
+	db_hndl = cmgd_db_get_hndl_by_id(cm, CMGD_DB_RUNNING);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access running database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	cmgd_db_status_write_one(vty, db_hndl);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_cmgd_db_cand,
+	show_cmgd_db_cand_cmd,
+	"show cmgd database candidate",
+	SHOW_STR
+	CMGD_STR
+	CMGD_DB_STR
+	"Display Candidate Database\n")
+{
+	cmgd_db_hndl_t db_hndl;
+
+	db_hndl = cmgd_db_get_hndl_by_id(cm, CMGD_DB_CANDIDATE);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access candidate database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	cmgd_db_status_write_one(vty, db_hndl);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_cmgd_db_oper,
+	show_cmgd_db_oper_cmd,
+	"show cmgd database operational",
+	SHOW_STR
+	CMGD_STR
+	CMGD_DB_STR
+	"Display Operational Database\n")
+{
+	cmgd_db_hndl_t db_hndl;
+
+	db_hndl = cmgd_db_get_hndl_by_id(cm, CMGD_DB_OPERATIONAL);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access operational database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	cmgd_db_status_write_one(vty, db_hndl);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_commit_appply,
+      cmgd_commit_apply_cmd,
+      "cmgd commit-apply",
+      CMGD_STR
       "Commit the set of commands\n")
 {
 	if (vty_cmgd_send_commit_config(vty) != 0)
@@ -207,43 +284,64 @@ DEFPY(cmgd_commit,
 	return CMD_SUCCESS;
 }
 
-static cmgd_database_id_t get_database(const char *db_name)
+DEFPY(cmgd_set_config_data,
+	  cmgd_set_config_data_cmd,
+	  "cmgd set-config [db-name WORD$dbname] xpath WORD$path value WORD$val",
+	  CMGD_STR
+	  "Set configuration data\n"
+	  "DB name\n"
+	  "<candidate | running | operational>\n"
+	  "XPath expression specifying the YANG data path\n"
+	  "XPath string\n"
+	  "Value of the data to set to\n"
+	  "<value of the data>\n")
 {
-	if (!strncmp(db_name, "candidate", sizeof("candidate")))
-		return CMGD_DB_CANDIDATE;
-	else if (!strncmp(db_name, "running", sizeof("running")))
-		return CMGD_DB_RUNNING;
-	else if (!strncmp(db_name, "operational", sizeof("operational")))
-		return CMGD_DB_OPERATIONAL;
-	return CMGD_DB_NONE;
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = val;
+	vty->num_cfg_changes = 1;
+	vty_cmgd_send_config_data(vty);
+	return CMD_SUCCESS;
 }
 
-DEFPY (cmgd_get_config_data,
-	  cmgd_get_config_data_cmd,
-	  "show cmgd get-data [db-name WORD$dbname] xpath WORD$path",
+DEFPY(show_cmgd_get_config_data,
+	  show_cmgd_get_config_data_cmd,
+	  "show cmgd get-config [db-name WORD$dbname] xpath WORD$path",
 	  SHOW_STR
 	  CMGD_STR
 	  "Get configuration data\n"
 	  "DB name\n"
-	  "candidate running operational\n"
+	  "<candidate running operational>\n"
 	  "XPath expression specifying the YANG data path\n"
-	  "XPath string\n"
-	  )
+	  "XPath string\n")
 {
 	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
 	cmgd_database_id_t database = CMGD_DB_NONE;
 
 	if (dbname)
-		database = get_database(dbname);
+		database = cmgd_db_name2id(dbname);
 
 	xpath_list[0] = path;
 	vty_cmgd_send_get_data(vty, database, xpath_list, 1);
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_cmgd_map_xpath,
+	  show_cmgd_map_xpath_cmd,
+	  "show cmgd yang-xpath-subscription WORD$path",
+	  SHOW_STR
+	  CMGD_STR
+	  "Get YANG Backend Subscription\n"
+	  "XPath expression specifying the YANG data path\n")
+{
+	cmgd_bcknd_xpath_subscr_info_write(vty, path);
+	return CMD_SUCCESS;
+}
+
 DEFPY(cmgd_lock_db_candidate,
-      cmgd_lock_db_candidate_cmd,
-      "lock-database candidate",
+      cmgd_lock_db_cand_cmd,
+      "cmgd lock-database candidate",
+      CMGD_STR
       "Lock the database\n"
       "Candidate database\n")
 {
@@ -253,8 +351,9 @@ DEFPY(cmgd_lock_db_candidate,
 }
 
 DEFPY(cmgd_unlock_db_candidate,
-      cmgd_unlock_db_candidate_cmd,
-      "unlock-database candidate",
+      cmgd_unlock_db_cand_cmd,
+      "cmgd unlock-database candidate",
+      CMGD_STR
       "Unlock the database\n"
       "Candidate database\n")
 {
@@ -274,14 +373,20 @@ void cmgd_vty_init(void)
 	static_vty_init();
 
 	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
+	install_element(VIEW_NODE, &show_cmgd_bcknd_reg_cmd);
 	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_trxn_cmd);
-	install_element(VIEW_NODE, &show_cmgd_db_cmd);
+	install_element(VIEW_NODE, &show_cmgd_db_all_cmd);
+	install_element(VIEW_NODE, &show_cmgd_db_runn_cmd);
+	install_element(VIEW_NODE, &show_cmgd_db_cand_cmd);
+	install_element(VIEW_NODE, &show_cmgd_db_oper_cmd);
+	install_element(VIEW_NODE, &show_cmgd_get_config_data_cmd);
+	install_element(VIEW_NODE, &show_cmgd_map_xpath_cmd);
 
-	install_element(CONFIG_NODE, &cmgd_commit_cmd);
-	install_element(VIEW_NODE, &cmgd_get_config_data_cmd);
-	install_element(CONFIG_NODE, &cmgd_lock_db_candidate_cmd);
-	install_element(CONFIG_NODE, &cmgd_unlock_db_candidate_cmd);
+	install_element(CONFIG_NODE, &cmgd_commit_apply_cmd);
+	install_element(CONFIG_NODE, &cmgd_lock_db_cand_cmd);
+	install_element(CONFIG_NODE, &cmgd_unlock_db_cand_cmd);
+	install_element(CONFIG_NODE, &cmgd_set_config_data_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

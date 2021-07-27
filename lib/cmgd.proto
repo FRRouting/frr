@@ -255,8 +255,8 @@ enum DatabaseId {
   DB_NONE = 0;
   RUNNING_DB = 1;
   CANDIDATE_DB = 2;
-  STARTUP_DB = 3;
-  OPERATIONAL_DB = 4;
+  OPERATIONAL_DB = 3;
+  STARTUP_DB = 4;
 }
 
 message FrntndLockDbReq {
