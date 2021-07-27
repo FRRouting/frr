@@ -112,6 +112,70 @@ static const struct route_map_rule_cmd route_match_interface_cmd = {
 	route_match_interface_free
 };
 
+/* match ipv6 address WORD */
+
+static enum route_map_cmd_result_t
+route_match_ipv6_address(void *rule, const struct prefix *prefix, void *object)
+{
+	struct access_list *alist;
+
+	alist = access_list_lookup(AFI_IP6, (char *)rule);
+	if (access_list_apply(alist, prefix) != FILTER_DENY)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ipv6_address_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ipv6_address_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_match_ipv6_address_cmd = {
+	"ipv6 address",
+	route_match_ipv6_address,
+	route_match_ipv6_address_compile,
+	route_match_ipv6_address_free
+};
+
+/* match ipv6 address prefix-list PREFIX_LIST */
+
+static enum route_map_cmd_result_t
+route_match_ipv6_address_prefix_list(void *rule, const struct prefix *prefix,
+				     void *object)
+{
+	struct prefix_list *plist;
+
+	plist = prefix_list_lookup(AFI_IP6, (char *)rule);
+	if (prefix_list_apply(plist, prefix) != PREFIX_DENY)
+		return RMAP_MATCH;
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ipv6_address_prefix_list_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ipv6_address_prefix_list_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd
+		route_match_ipv6_address_prefix_list_cmd = {
+	"ipv6 address prefix-list",
+	route_match_ipv6_address_prefix_list,
+	route_match_ipv6_address_prefix_list_compile,
+	route_match_ipv6_address_prefix_list_free
+};
+
 /* `match tag TAG' */
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t route_match_tag(void *rule,
@@ -327,6 +391,12 @@ void ripng_route_map_init(void)
 	route_map_match_interface_hook(generic_match_add);
 	route_map_no_match_interface_hook(generic_match_delete);
 
+	route_map_match_ipv6_address_hook(generic_match_add);
+	route_map_no_match_ipv6_address_hook(generic_match_delete);
+
+	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
+	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
+
 	route_map_match_metric_hook(generic_match_add);
 	route_map_no_match_metric_hook(generic_match_delete);
 
@@ -344,6 +414,8 @@ void ripng_route_map_init(void)
 
 	route_map_install_match(&route_match_metric_cmd);
 	route_map_install_match(&route_match_interface_cmd);
+	route_map_install_match(&route_match_ipv6_address_cmd);
+	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_set(&route_set_metric_cmd);
 	route_map_install_set(&route_set_ipv6_nexthop_local_cmd);
