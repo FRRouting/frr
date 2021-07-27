@@ -65,6 +65,7 @@ typedef uintptr_t cmgd_client_id_t;
 typedef uintptr_t cmgd_client_req_id_t;
 
 typedef Cmgd__DatabaseId cmgd_database_id_t;
+#define CMGD_DB_NONE		CMGD__DATABASE_ID__DB_NONE
 #define CMGD_DB_RUNNING 	CMGD__DATABASE_ID__RUNNING_DB
 #define CMGD_DB_CANDIDATE 	CMGD__DATABASE_ID__CANDIDATE_DB
 #define CMGD_DB_OPERATIONAL 	CMGD__DATABASE_ID__OPERATIONAL_DB
@@ -135,7 +136,7 @@ typedef cmgd_result_t (*cmgd_frntnd_client_get_data_notify_t)(
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
 	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[],
-	int *num_data, int next_key, char *errmsg_if_any);
+	size_t *num_data, int next_key, char *errmsg_if_any);
 
 /*
  * Handler to get YANG Notifications for one or more 'notification' type 

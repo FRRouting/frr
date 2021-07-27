@@ -3234,6 +3234,32 @@ static void vty_cmgd_commit_config_result_notified(
 	vty_out(vty, "\n");
 }
 
+static cmgd_result_t vty_cmgd_get_data_result_notified(
+	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
+	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
+	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[],
+	size_t *num_data, int next_key, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)client_id;
+
+	if (!success) {
+		zlog_err("ERROR: GET_DATA request for client 0x%lx failed! Error: '%s'",
+			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: GET_DATA request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		return CMGD_INTERNAL_ERROR;
+	}
+
+	zlog_err("GET_DATA request for client 0x%lx req-id %lu was successfull!",
+		client_id, req_id);
+
+	vty_out(vty, "\n");
+	return CMGD_SUCCESS;
+}
+
 static cmgd_frntnd_client_params_t client_params = {
 	.name = "LIB-VTY",
 	.conn_notify_cb = vty_cmgd_server_connected,
@@ -3241,6 +3267,7 @@ static cmgd_frntnd_client_params_t client_params = {
 	.sess_req_result_cb = vty_cmgd_session_created,
 	.set_config_result_cb = vty_cmgd_set_config_result_notified,
 	.commit_cfg_result_cb = vty_cmgd_commit_config_result_notified,
+	.get_data_result_cb = vty_cmgd_get_data_result_notified,
 };
 
 void vty_init_cmgd(void)
@@ -3344,6 +3371,38 @@ int vty_cmgd_send_commit_config(struct vty *vty)
 
 	zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
 		vty->cmgd_session_id, vty->cmgd_req_id);
+	return 0;
+}
+
+int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database, const char** xpath_list, int num_req)
+{
+	cmgd_result_t ret;
+	cmgd_yang_data_t yang_data[VTY_MAXCFGCHANGES];
+	cmgd_yang_getdata_req_t get_req[VTY_MAXCFGCHANGES];
+	cmgd_yang_getdata_req_t *get_req_pnt[VTY_MAXCFGCHANGES];
+	int i;
+
+	vty->cmgd_req_id++;
+
+	for (i = 0; i < num_req; i++) {
+		cmgd_yang_get_data_req_init(&get_req[i]);
+		cmgd_yang_data_init(&yang_data[i]);
+
+		yang_data->xpath = (char *)xpath_list[0];
+
+		get_req[i].data = &yang_data[i];
+		get_req_pnt[i] = &get_req[i];
+
+	}
+	ret = cmgd_frntnd_get_config_data(cmgd_lib_hndl, vty->cmgd_session_id,
+		vty->cmgd_req_id, database, get_req_pnt, num_req);
+
+	if (ret != CMGD_SUCCESS) {
+		zlog_err("Failed to send GET-CONFIG to CMGD for req-id %lu.",
+			vty->cmgd_req_id);
+		vty_out(vty, "Failed to send GET-CONFIG to CMGD!");
+		return -1;
+	}
 	return 0;
 }
 

@@ -207,6 +207,40 @@ DEFPY(cmgd_commit,
 	return CMD_SUCCESS;
 }
 
+static cmgd_database_id_t get_database(const char *db_name)
+{
+	if (!strncmp(db_name, "candidate", sizeof("candidate")))
+		return CMGD_DB_CANDIDATE;
+	else if (!strncmp(db_name, "running", sizeof("running")))
+		return CMGD_DB_RUNNING;
+	else if (!strncmp(db_name, "operational", sizeof("operational")))
+		return CMGD_DB_OPERATIONAL;
+	return CMGD_DB_NONE;
+}
+
+DEFPY (cmgd_get_config_data,
+	  cmgd_get_config_data_cmd,
+	  "show cmgd get-data [db-name WORD$dbname] xpath WORD$path",
+	  SHOW_STR
+	  CMGD_STR
+	  "Get configuration data\n"
+	  "DB name\n"
+	  "candidate running operational\n"
+	  "XPath expression specifying the YANG data path\n"
+	  "XPath string\n"
+	  )
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	cmgd_database_id_t database = CMGD_DB_NONE;
+
+	if (dbname)
+		database = get_database(dbname);
+
+	xpath_list[0] = path;
+	vty_cmgd_send_get_data(vty, database, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
 DEFPY(cmgd_lock_db_candidate,
       cmgd_lock_db_candidate_cmd,
       "lock-database candidate",
@@ -245,6 +279,7 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_db_cmd);
 
 	install_element(CONFIG_NODE, &cmgd_commit_cmd);
+	install_element(VIEW_NODE, &cmgd_get_config_data_cmd);
 	install_element(CONFIG_NODE, &cmgd_lock_db_candidate_cmd);
 	install_element(CONFIG_NODE, &cmgd_unlock_db_candidate_cmd);
 
