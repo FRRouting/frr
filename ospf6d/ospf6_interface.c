@@ -480,6 +480,13 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			ospf6_route_add(la_route, oi->route_connected);
 		}
 
+		if (oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT
+		    && !oi->p2xp_connected_pfx_include)
+			continue;
+		if (oi->state == OSPF6_INTERFACE_POINTTOPOINT
+		    && oi->p2xp_connected_pfx_exclude)
+			continue;
+
 		struct ospf6_route *route;
 
 		route = ospf6_route_create(oi->area->ospf6);
@@ -1391,6 +1398,10 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 	}
 	return CMD_SUCCESS;
 }
+
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_interface_clippy.c"
+#endif
 
 /* show interface */
 DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
@@ -2666,6 +2677,52 @@ DEFPY (ipv6_ospf6_p2xp_no_multicast_hello,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ipv6_ospf6_p2xp_connected_pfx,
+       ipv6_ospf6_p2xp_connected_pfx_cmd,
+       "[no] ipv6 ospf6 p2p-p2mp connected-prefixes <include$incl|exclude$excl>",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Adjust handling of directly connected prefixes\n"
+       "Advertise prefixes and own /128 (default for PtP)\n"
+       "Ignore, only advertise own /128 (default for PtMP)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	bool old_incl, old_excl;
+
+	if (no && !oi)
+		return CMD_SUCCESS;
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	old_incl = oi->p2xp_connected_pfx_include;
+	old_excl = oi->p2xp_connected_pfx_exclude;
+	oi->p2xp_connected_pfx_include = false;
+	oi->p2xp_connected_pfx_exclude = false;
+
+	if (incl && !no)
+		oi->p2xp_connected_pfx_include = true;
+	if (excl && !no)
+		oi->p2xp_connected_pfx_exclude = true;
+
+	if (oi->p2xp_connected_pfx_include != old_incl
+	    || oi->p2xp_connected_pfx_exclude != old_excl)
+		ospf6_interface_connected_route_update(ifp);
+	return CMD_SUCCESS;
+}
+
+ALIAS (ipv6_ospf6_p2xp_connected_pfx,
+       no_ipv6_ospf6_p2xp_connected_pfx_cmd,
+       "no ipv6 ospf6 p2p-p2mp connected-prefixes",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Adjust handling of directly connected prefixes\n")
+
 
 static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 {
@@ -2741,6 +2798,13 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi->p2xp_no_multicast_hello)
 			vty_out(vty,
 				" ipv6 ospf6 p2p-p2mp disable-multicast-hello\n");
+
+		if (oi->p2xp_connected_pfx_include)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp connected-prefixes include\n");
+		else if (oi->p2xp_connected_pfx_exclude)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp connected-prefixes exclude\n");
 
 		config_write_ospf6_p2xp_neighbor(vty, oi);
 		ospf6_bfd_write_config(vty, oi);
@@ -2868,6 +2932,8 @@ void ospf6_interface_init(void)
 	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_only_cfg_neigh_cmd);
 	install_element(INTERFACE_NODE,
 			&ipv6_ospf6_p2xp_no_multicast_hello_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_connected_pfx_cmd);
+	install_element(INTERFACE_NODE, &no_ipv6_ospf6_p2xp_connected_pfx_cmd);
 
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);

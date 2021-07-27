@@ -89,6 +89,11 @@ struct ospf6_interface {
 	bool p2xp_no_multicast_hello;
 	/* only allow explicitly configured neighbors? */
 	bool p2xp_only_cfg_neigh;
+	/* override mode default for advertising connected prefixes.
+	 * both false by default (= do include for PtP, exclude for PtMP)
+	 */
+	bool p2xp_connected_pfx_include;
+	bool p2xp_connected_pfx_exclude;
 
 	struct ospf6_if_p2xp_neighcfgs_head p2xp_neighs;
 
