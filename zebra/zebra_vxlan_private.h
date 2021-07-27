@@ -29,6 +29,7 @@
 #include "if.h"
 #include "linklist.h"
 #include "zebra_vxlan.h"
+#include "zebra_vxlan_if.h"
 #include "zebra_evpn.h"
 #include "zebra_evpn_mac.h"
 

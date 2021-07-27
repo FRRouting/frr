@@ -43,6 +43,7 @@
 #include "zebra/interface.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/zebra_vxlan.h"
+#include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_evpn_mh.h"
 
 /* definitions */
@@ -349,8 +350,6 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 
 	if (add) {
 		memcpy(&zif->l2info.vxl, vxlan_info, sizeof(*vxlan_info));
-		zebra_evpn_vl_vxl_ref(zif->l2info.vxl.vni_info.vni.access_vlan,
-				      zif->l2info.vxl.vni_info.vni.vni, zif);
 		zebra_vxlan_if_add(ifp);
 		return;
 	}
@@ -415,8 +414,6 @@ void zebra_l2_vxlanif_del(struct interface *ifp)
 	zif = ifp->info;
 	assert(zif);
 
-	zebra_evpn_vl_vxl_deref(zif->l2info.vxl.vni_info.vni.access_vlan,
-				zif->l2info.vxl.vni_info.vni.vni, zif);
 	zebra_vxlan_if_del(ifp);
 }
 
