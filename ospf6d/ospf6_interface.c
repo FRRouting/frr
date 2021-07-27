@@ -2596,6 +2596,34 @@ DEFUN (no_ipv6_ospf6_network,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ipv6_ospf6_p2xp_only_cfg_neigh,
+       ipv6_ospf6_p2xp_only_cfg_neigh_cmd,
+       "[no] ipv6 ospf6 p2p-p2mp config-neighbors-only",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Only form adjacencies with explicitly configured neighbors\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+
+	if (no) {
+		if (!oi)
+			return CMD_SUCCESS;
+
+		oi->p2xp_only_cfg_neigh = false;
+		return CMD_SUCCESS;
+	}
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	oi->p2xp_only_cfg_neigh = true;
+	return CMD_SUCCESS;
+}
+
+
 static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 {
 	struct ospf6_interface *oi;
@@ -2659,6 +2687,10 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 			vty_out(vty, " ipv6 ospf6 network point-to-point\n");
 		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_BROADCAST)
 			vty_out(vty, " ipv6 ospf6 network broadcast\n");
+
+		if (oi->p2xp_only_cfg_neigh)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp config-neighbors-only\n");
 
 		ospf6_bfd_write_config(vty, oi);
 
@@ -2781,6 +2813,8 @@ void ospf6_interface_init(void)
 
 	install_element(INTERFACE_NODE, &ipv6_ospf6_network_cmd);
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_network_cmd);
+
+	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_only_cfg_neigh_cmd);
 
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);

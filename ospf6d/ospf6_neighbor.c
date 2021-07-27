@@ -54,8 +54,6 @@ DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEIGHBOR_P2XP_CFG,
 
 static int ospf6_if_p2xp_neighcfg_cmp(const struct ospf6_if_p2xp_neighcfg *a,
 				      const struct ospf6_if_p2xp_neighcfg *b);
-static struct ospf6_if_p2xp_neighcfg *
-ospf6_if_p2xp_find(struct ospf6_interface *oi, const struct in6_addr *addr);
 
 DECLARE_RBTREE_UNIQ(ospf6_if_p2xp_neighcfgs, struct ospf6_if_p2xp_neighcfg,
 		    item, ospf6_if_p2xp_neighcfg_cmp);
@@ -661,8 +659,8 @@ static int ospf6_if_p2xp_neighcfg_cmp(const struct ospf6_if_p2xp_neighcfg *a,
 	return IPV6_ADDR_CMP(&a->addr, &b->addr);
 }
 
-static struct ospf6_if_p2xp_neighcfg *
-ospf6_if_p2xp_find(struct ospf6_interface *oi, const struct in6_addr *addr)
+struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
+						  const struct in6_addr *addr)
 {
 	struct ospf6_if_p2xp_neighcfg ref;
 

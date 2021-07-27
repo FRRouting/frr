@@ -85,6 +85,9 @@ struct ospf6_interface {
 
 	/* P2P/P2MP behavior: */
 
+	/* only allow explicitly configured neighbors? */
+	bool p2xp_only_cfg_neigh;
+
 	struct ospf6_if_p2xp_neighcfgs_head p2xp_neighs;
 
 	/* Router Priority */

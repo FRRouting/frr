@@ -232,6 +232,8 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
 void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
 			       const struct in6_addr *addr);
+struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
+						  const struct in6_addr *addr);
 
 uint32_t ospf6_neighbor_cost(struct ospf6_neighbor *on);
 

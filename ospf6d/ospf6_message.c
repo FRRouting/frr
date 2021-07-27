@@ -422,6 +422,24 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
+	if (oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	    && oi->p2xp_only_cfg_neigh) {
+		/* NEVER, never, ever, do this on broadcast (or NBMA)!
+		 * DR/BDR election requires everyone to talk to everyone else
+		 * only for PtP/PtMP we can be selective in adjacencies!
+		 */
+		struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+		p2xp_cfg = ospf6_if_p2xp_find(oi, src);
+		if (!p2xp_cfg) {
+			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR))
+				zlog_debug(
+					"ignoring PtP/PtMP hello from %pI6, neighbor not configured",
+					src);
+			return;
+		}
+	}
+
 	/* HelloInterval check */
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
 		zlog_warn(
