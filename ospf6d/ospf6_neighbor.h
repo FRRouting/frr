@@ -175,9 +175,12 @@ struct ospf6_if_p2xp_neighcfg {
 	bool cfg_cost : 1;
 
 	uint32_t cost;
+	uint16_t poll_interval;
 
 	/* NULL if down */
 	struct ospf6_neighbor *active;
+
+	struct thread *t_unicast_hello;
 };
 
 /* Neighbor state */
@@ -234,6 +237,7 @@ void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
 			       const struct in6_addr *addr);
 struct ospf6_if_p2xp_neighcfg *ospf6_if_p2xp_find(struct ospf6_interface *oi,
 						  const struct in6_addr *addr);
+void ospf6_if_p2xp_up(struct ospf6_interface *oi);
 
 uint32_t ospf6_neighbor_cost(struct ospf6_neighbor *on);
 

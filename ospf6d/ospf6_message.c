@@ -283,6 +283,18 @@ static struct ospf6_packet *ospf6_packet_new(size_t size)
 	return new;
 }
 
+static struct ospf6_packet *ospf6_packet_dup(struct ospf6_packet *old)
+{
+	struct ospf6_packet *new;
+
+	new = XCALLOC(MTYPE_OSPF6_PACKET, sizeof(struct ospf6_packet));
+	new->s = stream_dup(old->s);
+	new->dst = old->dst;
+	new->length = old->length;
+
+	return new;
+}
+
 static void ospf6_packet_free(struct ospf6_packet *op)
 {
 	if (op->s)
@@ -2261,8 +2273,6 @@ static void ospf6_write(struct thread *thread)
 void ospf6_hello_send(struct thread *thread)
 {
 	struct ospf6_interface *oi;
-	struct ospf6_packet *op;
-	uint16_t length = OSPF6_HEADER_SIZE;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 
@@ -2276,9 +2286,16 @@ void ospf6_hello_send(struct thread *thread)
 	thread_add_timer(master, ospf6_hello_send, oi, oi->hello_interval,
 			 &oi->thread_send_hello);
 
-	if (oi->state == OSPF6_INTERFACE_POINTTOPOINT
-	    && oi->p2xp_no_multicast_hello)
-		return 0;
+	ospf6_hello_send_addr(oi, NULL);
+}
+
+/* used to send polls for PtP/PtMP too */
+void ospf6_hello_send_addr(struct ospf6_interface *oi,
+			   const struct in6_addr *addr)
+{
+	struct ospf6_packet *op;
+	uint16_t length = OSPF6_HEADER_SIZE;
+	bool anything = false;
 
 	op = ospf6_packet_new(oi->ifmtu);
 
@@ -2298,16 +2315,37 @@ void ospf6_hello_send(struct thread *thread)
 	/* Set packet length. */
 	op->length = length;
 
-	op->dst = allspfrouters6;
+	if (!addr && oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	    && oi->p2xp_no_multicast_hello) {
+		struct listnode *node;
+		struct ospf6_neighbor *on;
+		struct ospf6_packet *opdup;
 
-	ospf6_fill_hdr_checksum(oi, op);
+		for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, node, on)) {
+			if (on->state < OSPF6_NEIGHBOR_INIT)
+				/* poll-interval for these */
+				continue;
 
-	/* Add packet to the top of the interface output queue, so that they
-	 * can't get delayed by things like long queues of LS Update packets
-	 */
-	ospf6_packet_add_top(oi, op);
+			opdup = ospf6_packet_dup(op);
+			opdup->dst = on->linklocal_addr;
+			ospf6_packet_add_top(oi, opdup);
+			anything = true;
+		}
 
-	OSPF6_MESSAGE_WRITE_ON(oi);
+		ospf6_packet_free(op);
+	} else {
+		op->dst = addr ? *addr : allspfrouters6;
+
+		/* Add packet to the top of the interface output queue, so that
+		 * they can't get delayed by things like long queues of LS
+		 * Update packets
+		 */
+		ospf6_packet_add_top(oi, op);
+		anything = true;
+	}
+
+	if (anything)
+		OSPF6_MESSAGE_WRITE_ON(oi);
 }
 
 static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)

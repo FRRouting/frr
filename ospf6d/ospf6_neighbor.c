@@ -784,9 +784,7 @@ DEFPY (ipv6_ospf6_p2xp_neigh_cost,
 		oi = ospf6_interface_create(ifp);
 	}
 
-	p2xp_cfg = ospf6_if_p2xp_find(oi, &neighbor);
-	if (!p2xp_cfg)
-		return CMD_SUCCESS;
+	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
 
 	uint32_t prev_cost;
 	if (p2xp_cfg->active)
@@ -802,6 +800,74 @@ DEFPY (ipv6_ospf6_p2xp_neigh_cost,
 
 	if (p2xp_cfg->active)
 		p2xp_neigh_refresh(p2xp_cfg->active, prev_cost);
+	return CMD_SUCCESS;
+}
+
+static void p2xp_unicast_hello_send(struct thread *thread);
+
+static void p2xp_unicast_hello_sched(struct ospf6_if_p2xp_neighcfg *p2xp_cfg)
+{
+	if (!p2xp_cfg->poll_interval
+	    || p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOPOINT)
+		/* state check covers DOWN state too */
+		THREAD_OFF(p2xp_cfg->t_unicast_hello);
+	else
+		thread_add_timer(master, p2xp_unicast_hello_send, p2xp_cfg,
+				 p2xp_cfg->poll_interval,
+				 &p2xp_cfg->t_unicast_hello);
+}
+
+void ospf6_if_p2xp_up(struct ospf6_interface *oi)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	frr_each (ospf6_if_p2xp_neighcfgs, &oi->p2xp_neighs, p2xp_cfg)
+		p2xp_unicast_hello_sched(p2xp_cfg);
+}
+
+static void p2xp_unicast_hello_send(struct thread *thread)
+{
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg = THREAD_ARG(thread);
+	struct ospf6_interface *oi = p2xp_cfg->ospf6_if;
+
+	if (oi->state != OSPF6_INTERFACE_POINTTOPOINT)
+		return;
+
+	p2xp_unicast_hello_sched(p2xp_cfg);
+
+	if (p2xp_cfg->active && p2xp_cfg->active->state >= OSPF6_NEIGHBOR_INIT)
+		return;
+
+	ospf6_hello_send_addr(oi, &p2xp_cfg->addr);
+}
+
+DEFPY (ipv6_ospf6_p2xp_neigh_poll_interval,
+       ipv6_ospf6_p2xp_neigh_poll_interval_cmd,
+       "[no] ipv6 ospf6 neighbor X:X::X:X poll-interval (1-65535)",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Configure static neighbor\n"
+       "Neighbor link-local address\n"
+       "Send unicast hellos to neighbor when down\n"
+       "Unicast hello interval when down (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+	struct ospf6_if_p2xp_neighcfg *p2xp_cfg;
+
+	if (!oi) {
+		if (no)
+			return CMD_SUCCESS;
+		oi = ospf6_interface_create(ifp);
+	}
+	if (no)
+		poll_interval = 0;
+
+	p2xp_cfg = ospf6_if_p2xp_get(oi, &neighbor);
+	p2xp_cfg->poll_interval = poll_interval;
+
+	p2xp_unicast_hello_sched(p2xp_cfg);
 	return CMD_SUCCESS;
 }
 
@@ -1415,6 +1481,8 @@ void ospf6_neighbor_init(void)
 
 	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_neigh_cmd);
 	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_neigh_cost_cmd);
+	install_element(INTERFACE_NODE,
+			&ipv6_ospf6_p2xp_neigh_poll_interval_cmd);
 }
 
 DEFUN (debug_ospf6_neighbor,
@@ -1524,6 +1592,11 @@ int config_write_ospf6_p2xp_neighbor(struct vty *vty,
 
 	frr_each (ospf6_if_p2xp_neighcfgs, &oi->p2xp_neighs, p2xp_cfg) {
 		vty_out(vty, " ipv6 ospf6 neighbor %pI6\n", &p2xp_cfg->addr);
+
+		if (p2xp_cfg->poll_interval)
+			vty_out(vty,
+				" ipv6 ospf6 neighbor %pI6 poll-interval %u\n",
+				&p2xp_cfg->addr, p2xp_cfg->poll_interval);
 
 		if (p2xp_cfg->cfg_cost)
 			vty_out(vty, " ipv6 ospf6 neighbor %pI6 cost %u\n",

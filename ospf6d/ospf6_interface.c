@@ -554,6 +554,9 @@ static int ospf6_interface_state_change(uint8_t next_state,
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 	}
 
+	if (next_state == OSPF6_INTERFACE_POINTTOPOINT)
+		ospf6_if_p2xp_up(oi);
+
 	hook_call(ospf6_interface_change, oi, next_state, prev_state);
 
 	return 0;
@@ -2723,6 +2726,7 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 			vty_out(vty,
 				" ipv6 ospf6 p2p-p2mp disable-multicast-hello\n");
 
+		config_write_ospf6_p2xp_neighbor(vty, oi);
 		ospf6_bfd_write_config(vty, oi);
 
 		ospf6_auth_write_config(vty, &oi->at_data);
