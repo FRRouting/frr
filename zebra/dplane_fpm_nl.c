@@ -45,9 +45,10 @@
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_mpls.h"
 #include "zebra/zebra_router.h"
+#include "zebra/interface.h"
+#include "zebra/zebra_vxlan_private.h"
 #include "zebra/zebra_evpn.h"
 #include "zebra/zebra_evpn_mac.h"
-#include "zebra/zebra_vxlan_private.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/rt_netlink.h"
 #include "zebra/debug.h"
@@ -1189,7 +1190,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	struct fpm_rmac_arg *fra = arg;
 	struct zebra_mac *zrmac = bucket->data;
 	struct zebra_if *zif = fra->zl3vni->vxlan_if->info;
-	const struct zebra_l2info_vxlan *vxl = &zif->l2info.vxl;
+	struct zebra_vxlan_vni *vni;
 	struct zebra_if *br_zif;
 	vlanid_t vid;
 	bool sticky;
@@ -1201,7 +1202,8 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 	sticky = !!CHECK_FLAG(zrmac->flags,
 			      (ZEBRA_MAC_STICKY | ZEBRA_MAC_REMOTE_DEF_GW));
 	br_zif = (struct zebra_if *)(zif->brslave_info.br_if->info);
-	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vxl->access_vlan : 0;
+	vni = zebra_vxlan_if_vni_find(zif, fra->zl3vni->vni);
+	vid = IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) ? vni->access_vlan : 0;
 
 	dplane_ctx_reset(fra->ctx);
 	dplane_ctx_set_op(fra->ctx, DPLANE_OP_MAC_INSTALL);

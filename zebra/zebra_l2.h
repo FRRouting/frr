@@ -71,12 +71,44 @@ struct zebra_l2info_gre {
 	ns_id_t link_nsid;
 };
 
+struct zebra_vxlan_vni {
+	vni_t vni;	    /* VNI */
+	vlanid_t access_vlan; /* Access VLAN - for VLAN-aware bridge. */
+	struct in_addr mcast_grp;
+};
+
+typedef enum {
+	ZEBRA_VXLAN_IF_VNI = 0, /* per vni vxlan if */
+	ZEBRA_VXLAN_IF_SVD      /* single vxlan device */
+} zebra_vxlan_iftype_t;
+
+struct zebra_vxlan_if_vlan_ctx {
+	vlanid_t vid;
+	struct zebra_vxlan_vni *vni;
+};
+
+struct zebra_vxlan_if_ctx {
+	/* input */
+	struct zebra_if *zif;
+	int (*func)(struct zebra_if *, struct zebra_vxlan_vni *, void *);
+
+	/* input-output */
+	void *arg;
+};
+
+struct zebra_vxlan_vni_info {
+	zebra_vxlan_iftype_t iftype;
+	union {
+		struct zebra_vxlan_vni vni; /* per vni vxlan device vni info */
+		struct hash
+			*vni_table; /* table of vni's assocated with this if */
+	};
+};
+
 /* zebra L2 interface information - VXLAN interface */
 struct zebra_l2info_vxlan {
-	vni_t vni;		/* VNI */
+	struct zebra_vxlan_vni_info vni_info;
 	struct in_addr vtep_ip; /* Local tunnel IP */
-	vlanid_t access_vlan;   /* Access VLAN - for VLAN-aware bridge. */
-	struct in_addr mcast_grp;
 	ifindex_t ifindex_link; /* Interface index of interface
 				 * linked with VXLAN
 				 */
@@ -99,7 +131,11 @@ union zebra_l2if_info {
  * IOW, the macro VNI_FROM_ZEBRA_IF() will assume the interface is
  * of type ZEBRA_IF_VXLAN.
  */
-#define VNI_FROM_ZEBRA_IF(zif) (zif)->l2info.vxl.vni
+#define VNI_INFO_FROM_ZEBRA_IF(zif) (&((zif)->l2info.vxl.vni_info))
+#define IS_ZEBRA_VXLAN_IF_SVD(zif)                                             \
+	((zif)->l2info.vxl.vni_info.iftype == ZEBRA_VXLAN_IF_SVD)
+#define IS_ZEBRA_VXLAN_IF_VNI(zif)                                             \
+	((zif)->l2info.vxl.vni_info.iftype == ZEBRA_VXLAN_IF_VNI)
 #define VLAN_ID_FROM_ZEBRA_IF(zif) (zif)->l2info.vl.vid
 
 #define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) ((zif)->l2info.br.vlan_aware == 1)

@@ -36,6 +36,7 @@
 #include "zebra/zebra_vrf.h"
 #include "zebra/zserv.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/interface.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -55,6 +56,38 @@ is_vxlan_flooding_head_end(void)
 	return (zvrf->vxlan_flood_ctrl == VXLAN_FLOOD_HEAD_END_REPL);
 }
 
+static inline struct zebra_vxlan_vni *
+zebra_vxlan_if_vni_find(const struct zebra_if *zif, vni_t vni)
+{
+	struct zebra_vxlan_vni *vnip = NULL;
+	const struct zebra_vxlan_vni_info *vni_info;
+
+	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
+	if (IS_ZEBRA_VXLAN_IF_VNI(zif)) {
+		vnip = (struct zebra_vxlan_vni *)&vni_info->vni;
+		assert(vnip);
+		if (vni && (vnip->vni != vni))
+			vnip = NULL;
+
+		return vnip;
+	}
+	return NULL;
+}
+
+static inline struct zebra_vxlan_vni *
+zebra_vxlan_if_access_vlan_find(struct zebra_if *zif, uint8_t vlan_aware,
+				vlanid_t vid)
+{
+	struct zebra_vxlan_vni *vni = NULL;
+
+	if (IS_ZEBRA_VXLAN_IF_VNI(zif)) {
+		vni = zebra_vxlan_if_vni_find(zif, 0);
+		if (vlan_aware && vni->access_vlan != vid)
+			vni = NULL;
+	}
+	return vni;
+}
+
 /* VxLAN interface change flags of interest. */
 #define ZEBRA_VXLIF_LOCAL_IP_CHANGE     (1 << 0)
 #define ZEBRA_VXLIF_MASTER_CHANGE       (1 << 1)
@@ -62,6 +95,10 @@ is_vxlan_flooding_head_end(void)
 #define ZEBRA_VXLIF_MCAST_GRP_CHANGE    (1 << 3)
 #define ZEBRA_VXLIF_MASTER_MAC_CHANGE (1 << 4)
 
+#define ZEBRA_VXLIF_VNI_UPDATE(__flags)                                        \
+	((__flags) & (ZEBRA_VXLIF_VLAN_CHANGE | ZEBRA_VXLIF_MCAST_GRP_CHANGE))
+#define ZEBRA_VXLIF_UPDATE(__flags)                                            \
+	((__flags) & (ZEBRA_VXLIF_LOCAL_IP_CHANGE | ZEBRA_VXLIF_MASTER_CHANGE))
 
 #define VNI_STR_LEN 32
 

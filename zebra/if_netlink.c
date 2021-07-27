@@ -627,7 +627,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	}
 
 	vni_in_msg = *(vni_t *)RTA_DATA(attr[IFLA_VXLAN_ID]);
-	vxl_info->vni = vni_in_msg;
+	vxl_info->vni_info.vni.vni = vni_in_msg;
 	if (!attr[IFLA_VXLAN_LOCAL]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -639,7 +639,7 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	}
 
 	if (attr[IFLA_VXLAN_GROUP]) {
-		vxl_info->mcast_grp =
+		vxl_info->vni_info.vni.mcast_grp =
 			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_GROUP]);
 	}
 

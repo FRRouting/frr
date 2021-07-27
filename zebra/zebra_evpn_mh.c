@@ -481,6 +481,7 @@ void zebra_evpn_update_all_es(struct zebra_evpn *zevpn)
 	struct interface *vlan_if;
 	struct interface *vxlan_if;
 	struct zebra_if *vxlan_zif;
+	struct zebra_vxlan_vni *vni;
 
 	/* the EVPN is now elgible as a base for EVPN-MH */
 	if (zebra_evpn_send_to_client_ok(zevpn))
@@ -497,9 +498,10 @@ void zebra_evpn_update_all_es(struct zebra_evpn *zevpn)
 		vxlan_zif = vxlan_if->info;
 		if (if_is_operative(vxlan_if)
 		    && vxlan_zif->brslave_info.br_if) {
-			vlan_if = zvni_map_to_svi(
-				vxlan_zif->l2info.vxl.access_vlan,
-				vxlan_zif->brslave_info.br_if);
+			vni = zebra_vxlan_if_vni_find(vxlan_zif, zevpn->vni);
+			vlan_if =
+				zvni_map_to_svi(vni->access_vlan,
+						vxlan_zif->brslave_info.br_if);
 			if (vlan_if)
 				zebra_evpn_acc_bd_svi_mac_add(vlan_if);
 		}
@@ -711,13 +713,17 @@ static void zebra_evpn_acc_bd_evpn_set(struct zebra_evpn_access_bd *acc_bd,
 }
 
 /* handle VLAN->VxLAN_IF association */
-void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif)
+void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
+			   struct zebra_if *vxlan_zif)
 {
+	vni_t old_vni;
 	struct zebra_evpn_access_bd *acc_bd;
-	struct zebra_if *old_vxlan_zif;
 	struct zebra_evpn *old_zevpn;
 
 	if (!vid)
+		return;
+
+	if (!vni_id)
 		return;
 
 	acc_bd = zebra_evpn_acc_vl_find(vid);
@@ -725,19 +731,23 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif)
 		acc_bd = zebra_evpn_acc_vl_new(vid,
 					       vxlan_zif->brslave_info.br_if);
 
-	old_vxlan_zif = acc_bd->vxlan_zif;
-	acc_bd->vxlan_zif = vxlan_zif;
-	if (vxlan_zif == old_vxlan_zif)
+	old_vni = acc_bd->vni;
+
+	if (vni_id == old_vni)
 		return;
 
+	acc_bd->vni = vni_id;
+	acc_bd->vxlan_zif = vxlan_zif;
+
 	old_zevpn = acc_bd->zevpn;
-	acc_bd->zevpn = zebra_evpn_lookup(vxlan_zif->l2info.vxl.vni);
+	acc_bd->zevpn = zebra_evpn_lookup(vni_id);
 	if (acc_bd->zevpn == old_zevpn)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("access vlan %d vni %u ref",
-				acc_bd->vid, vxlan_zif->l2info.vxl.vni);
+		zlog_debug("access vlan %d vni %u ref", acc_bd->vid, vni_id);
+
+	zlog_err("access vlan %d vni %u ref", acc_bd->vid, vni_id);
 
 	if (old_zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, old_zevpn);
@@ -747,11 +757,15 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif)
 }
 
 /* handle VLAN->VxLAN_IF deref */
-void zebra_evpn_vl_vxl_deref(uint16_t vid, struct zebra_if *vxlan_zif)
+void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
+			     struct zebra_if *vxlan_zif)
 {
 	struct zebra_evpn_access_bd *acc_bd;
 
 	if (!vid)
+		return;
+
+	if (!vni_id)
 		return;
 
 	acc_bd = zebra_evpn_acc_vl_find(vid);
@@ -759,18 +773,18 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, struct zebra_if *vxlan_zif)
 		return;
 
 	/* clear vxlan_if only if it matches */
-	if (acc_bd->vxlan_zif != vxlan_zif)
+	if (acc_bd->vni != vni_id)
 		return;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("access vlan %d vni %u deref",
-				acc_bd->vid, vxlan_zif->l2info.vxl.vni);
+		zlog_debug("access vlan %d vni %u deref", acc_bd->vid, vni_id);
 
 	if (acc_bd->zevpn)
 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
 
 	acc_bd->zevpn = NULL;
 	acc_bd->vxlan_zif = NULL;
+	acc_bd->vni = 0;
 
 	/* if there are no other references the access_bd can be freed */
 	zebra_evpn_acc_bd_free_on_deref(acc_bd);
@@ -780,15 +794,18 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, struct zebra_if *vxlan_zif)
 void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, struct zebra_evpn *zevpn,
 			     bool set)
 {
-	struct zebra_l2info_vxlan *vxl;
+	struct zebra_vxlan_vni *vni;
 	struct zebra_evpn_access_bd *acc_bd;
 
 	if (!zif)
 		return;
 
 	/* locate access_bd associated with the vxlan device */
-	vxl = &zif->l2info.vxl;
-	acc_bd = zebra_evpn_acc_vl_find(vxl->access_vlan);
+	vni = zebra_vxlan_if_vni_find(zif, zevpn->vni);
+	if (!vni)
+		return;
+
+	acc_bd = zebra_evpn_acc_vl_find(vni->access_vlan);
 	if (!acc_bd)
 		return;
 
@@ -1986,9 +2003,10 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
 				       struct interface *ifp)
 {
+	vlanid_t vid;
 	struct zebra_if *zif;
 	struct interface *br_ifp;
-	vlanid_t vid;
+	struct zebra_vxlan_vni *vni;
 
 	zif = ifp->info;
 	br_ifp = zif->brslave_info.br_if;
@@ -1997,7 +2015,8 @@ static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
 
 	if (mac->zevpn->vxlan_if) {
 		zif = mac->zevpn->vxlan_if->info;
-		vid = zif->l2info.vxl.access_vlan;
+		vni = zebra_vxlan_if_vni_find(zif, mac->zevpn->vni);
+		vid = vni->access_vlan;
 	} else {
 		vid = 0;
 	}

@@ -3702,7 +3702,7 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 	zif = (struct zebra_if *)ifp->info;
 	vxl = &zif->l2info.vxl;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		filter_vlan = vxl->access_vlan;
+		filter_vlan = vxl->vni_info.vni.access_vlan;
 
 	/* Get bridge FDB table for specific bridge - we do the VLAN filtering.
 	 */
