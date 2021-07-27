@@ -2623,6 +2623,33 @@ DEFPY (ipv6_ospf6_p2xp_only_cfg_neigh,
 	return CMD_SUCCESS;
 }
 
+DEFPY (ipv6_ospf6_p2xp_no_multicast_hello,
+       ipv6_ospf6_p2xp_no_multicast_hello_cmd,
+       "[no] ipv6 ospf6 p2p-p2mp disable-multicast-hello",
+       NO_STR
+       IP6_STR
+       OSPF6_STR
+       "Point-to-point and Point-to-Multipoint parameters\n"
+       "Do not send multicast hellos\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi = ifp->info;
+
+	if (no) {
+		if (!oi)
+			return CMD_SUCCESS;
+
+		oi->p2xp_no_multicast_hello = false;
+		return CMD_SUCCESS;
+	}
+
+	if (!oi)
+		oi = ospf6_interface_create(ifp);
+
+	oi->p2xp_no_multicast_hello = true;
+	return CMD_SUCCESS;
+}
+
 
 static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 {
@@ -2691,6 +2718,10 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi->p2xp_only_cfg_neigh)
 			vty_out(vty,
 				" ipv6 ospf6 p2p-p2mp config-neighbors-only\n");
+
+		if (oi->p2xp_no_multicast_hello)
+			vty_out(vty,
+				" ipv6 ospf6 p2p-p2mp disable-multicast-hello\n");
 
 		ospf6_bfd_write_config(vty, oi);
 
@@ -2815,6 +2846,8 @@ void ospf6_interface_init(void)
 	install_element(INTERFACE_NODE, &no_ipv6_ospf6_network_cmd);
 
 	install_element(INTERFACE_NODE, &ipv6_ospf6_p2xp_only_cfg_neigh_cmd);
+	install_element(INTERFACE_NODE,
+			&ipv6_ospf6_p2xp_no_multicast_hello_cmd);
 
 	/* reference bandwidth commands */
 	install_element(OSPF6_NODE, &auto_cost_reference_bandwidth_cmd);

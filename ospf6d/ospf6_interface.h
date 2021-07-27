@@ -85,6 +85,8 @@ struct ospf6_interface {
 
 	/* P2P/P2MP behavior: */
 
+	/* disable hellos on standard multicast? */
+	bool p2xp_no_multicast_hello;
 	/* only allow explicitly configured neighbors? */
 	bool p2xp_only_cfg_neigh;
 
