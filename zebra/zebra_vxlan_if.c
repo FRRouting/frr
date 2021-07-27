@@ -471,30 +471,6 @@ static int zebra_vxlan_if_add_vni(struct interface *ifp,
 	return 0;
 }
 
-static int zebra_vxlan_if_vni_entry_update(struct zebra_if *zif,
-					   struct zebra_vxlan_vni *old_vni,
-					   struct zebra_vxlan_vni *new_vni,
-					   uint16_t chgflags)
-{
-	if (!chgflags)
-		return 0;
-
-	/* vni cannot change */
-	assert(old_vni->vni == new_vni->vni);
-
-	if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE) {
-		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
-					zif);
-		zebra_evpn_vl_vxl_ref(new_vni->access_vlan, new_vni->vni, zif);
-	}
-
-	if (chgflags & ZEBRA_VXLIF_MCAST_GRP_CHANGE) {
-		old_vni->mcast_grp = new_vni->mcast_grp;
-	}
-
-	return zebra_vxlan_if_update_vni(zif->ifp, new_vni, chgflags);
-}
-
 static void zebra_vxlan_if_vni_entry_del(struct zebra_if *zif,
 					 struct zebra_vxlan_vni *vni)
 {
@@ -532,16 +508,22 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 		return 0;
 	}
 
+	/* copy mcast group from old_vni as thats not being changed here */
+	vni->mcast_grp = old_vni->mcast_grp;
+
 	if (old_vni->access_vlan != vni->access_vlan) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
 				"vxlan %s updating vni(%d, %d) -> vni(%d, %d)",
 				zif->ifp->name, old_vni->vni,
-				old_vni->access_vlan, vni_tmp.vni,
-				vni_tmp.access_vlan);
+				old_vni->access_vlan, vni->vni,
+				vni->access_vlan);
 
-		zebra_vxlan_if_vni_entry_update(zif, old_vni, &vni_tmp,
-						ZEBRA_VXLIF_VLAN_CHANGE);
+		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
+					zif);
+		zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
+		zebra_vxlan_if_update_vni(zif->ifp, vni,
+					  ZEBRA_VXLIF_VLAN_CHANGE);
 		zebra_vxlan_vni_free(old_vni);
 	}
 
@@ -555,7 +537,7 @@ static int zebra_vxlan_if_vni_entry_update_callback(struct zebra_if *zif,
 	uint16_t *chgflags;
 
 	chgflags = (uint16_t *)ctxt;
-	return zebra_vxlan_if_vni_update(zif->ifp, vni, *chgflags);
+	return zebra_vxlan_if_update_vni(zif->ifp, vni, *chgflags);
 }
 
 static int zebra_vxlan_if_vni_entry_del_callback(struct zebra_if *zif,
@@ -582,12 +564,12 @@ static int zebra_vxlan_if_vni_entry_up_callback(struct zebra_if *zif,
 
 static void zebra_vxlan_if_vni_clean(struct hash_bucket *bucket, void *arg)
 {
-	struct interface *ifp;
+	struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
 
-	ifp = (struct interface *)arg;
+	zif = (struct zebra_if *)arg;
 	vni = (struct zebra_vxlan_vni *)bucket->data;
-	zebra_vxlan_if_vni_del(ifp, vni->vni);
+	zebra_vxlan_if_vni_entry_del(zif, vni);
 }
 
 void zebra_vxlan_vni_free(void *arg)
@@ -768,7 +750,7 @@ int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
 	if (old_vni_table) {
 		if (hashcount(old_vni_table))
 			hash_iterate(old_vni_table, zebra_vxlan_if_vni_clean,
-				     ifp);
+				     zif);
 		zebra_vxlan_vni_table_destroy(old_vni_table);
 	}
 
@@ -779,23 +761,23 @@ int zebra_vxlan_if_vni_mcast_group_update(struct interface *ifp, vni_t vni_id,
 					  struct in_addr *mcast_group)
 {
 	struct zebra_if *zif;
-	struct zebra_vxlan_vni vni;
-	struct in_addr grp_ip;
+	struct zebra_vxlan_vni *vni;
 
 	zif = (struct zebra_if *)ifp->info;
 
 	if (!IS_ZEBRA_VXLAN_IF_SVD(zif))
 		return 0;
 
-	if (mcast_group)
-		memcpy(&grp_ip, mcast_group, sizeof(grp_ip));
-	else
-		memset(&grp_ip, 0, sizeof(grp_ip));
+	vni = zebra_vxlan_if_vni_find(zif, vni_id);
+	if (!vni)
+		return 0;
 
-	memset(&vni, 0, sizeof(vni));
-	vni.vni = vni_id;
-	vni.mcast_grp = grp_ip;
-	return zebra_vxlan_if_vni_update(ifp, &vni,
+	if (mcast_group)
+		vni->mcast_grp = *mcast_group;
+	else
+		memset(&vni->mcast_grp, 0, sizeof(vni->mcast_grp));
+
+	return zebra_vxlan_if_update_vni(ifp, vni,
 					 ZEBRA_VXLIF_MCAST_GRP_CHANGE);
 }
 
@@ -1028,30 +1010,6 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	zebra_vxlan_if_vni_table_destroy(zif);
 
 	return 0;
-}
-
-int zebra_vxlan_if_vni_update(struct interface *ifp,
-			      struct zebra_vxlan_vni *vni, uint16_t chgflags)
-{
-	int ret;
-	struct zebra_if *zif;
-	struct zebra_vxlan_vni *old_vni;
-
-	zif = ifp->info;
-	assert(zif);
-
-	/* This should be called in SVD context only */
-	assert(IS_ZEBRA_VXLAN_IF_SVD(zif));
-
-	old_vni = zebra_vxlan_if_vni_find(zif, vni->vni);
-	ret = zebra_vxlan_if_vni_entry_update(zif, old_vni, vni, chgflags);
-	if (!ret) {
-		if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE)
-			old_vni->access_vlan = vni->access_vlan;
-		if (chgflags & ZEBRA_VXLIF_MCAST_GRP_CHANGE)
-			old_vni->mcast_grp = vni->mcast_grp;
-	}
-	return ret;
 }
 
 /*

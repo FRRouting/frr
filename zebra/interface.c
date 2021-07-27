@@ -807,12 +807,12 @@ void if_delete_update(struct interface **pifp)
 	/* Reset some zebra interface params to default values. */
 	zif = ifp->info;
 	if (zif) {
+		zebra_evpn_if_cleanup(zif);
 		zif->zif_type = ZEBRA_IF_OTHER;
 		zif->zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 		memset(&zif->l2info, 0, sizeof(union zebra_l2if_info));
 		memset(&zif->brslave_info, 0,
 		       sizeof(struct zebra_l2info_brslave));
-		zebra_evpn_if_cleanup(zif);
 		zebra_evpn_mac_ifp_del(ifp);
 	}
 
