@@ -188,15 +188,16 @@ struct ospf6_interface {
 DECLARE_QOBJ_TYPE(ospf6_interface);
 
 /* interface state */
-#define OSPF6_INTERFACE_NONE             0
-#define OSPF6_INTERFACE_DOWN             1
-#define OSPF6_INTERFACE_LOOPBACK         2
-#define OSPF6_INTERFACE_WAITING          3
-#define OSPF6_INTERFACE_POINTTOPOINT     4
-#define OSPF6_INTERFACE_DROTHER          5
-#define OSPF6_INTERFACE_BDR              6
-#define OSPF6_INTERFACE_DR               7
-#define OSPF6_INTERFACE_MAX              8
+#define OSPF6_INTERFACE_NONE               0
+#define OSPF6_INTERFACE_DOWN               1
+#define OSPF6_INTERFACE_LOOPBACK           2
+#define OSPF6_INTERFACE_WAITING            3
+#define OSPF6_INTERFACE_POINTTOPOINT       4
+#define OSPF6_INTERFACE_POINTTOMULTIPOINT  5
+#define OSPF6_INTERFACE_DROTHER            6
+#define OSPF6_INTERFACE_BDR                7
+#define OSPF6_INTERFACE_DR                 8
+#define OSPF6_INTERFACE_MAX                9
 
 extern const char *const ospf6_interface_state_str[];
 

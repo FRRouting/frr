@@ -216,7 +216,8 @@ void ospf6_neighbor_lladdr_set(struct ospf6_neighbor *on,
 
 	memcpy(&on->linklocal_addr, addr, sizeof(struct in6_addr));
 
-	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT) {
+	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT
+	    || on->ospf6_if->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
 		uint32_t prev_cost = ospf6_neighbor_cost(on);
 
 		p2xp_neigh_refresh(on, prev_cost);
@@ -299,6 +300,7 @@ static void ospf6_neighbor_state_change(uint8_t next_state,
 static int need_adjacency(struct ospf6_neighbor *on)
 {
 	if (on->ospf6_if->state == OSPF6_INTERFACE_POINTTOPOINT
+	    || on->ospf6_if->state == OSPF6_INTERFACE_POINTTOMULTIPOINT
 	    || on->ospf6_if->state == OSPF6_INTERFACE_DR
 	    || on->ospf6_if->state == OSPF6_INTERFACE_BDR)
 		return 1;
@@ -808,7 +810,8 @@ static void p2xp_unicast_hello_send(struct thread *thread);
 static void p2xp_unicast_hello_sched(struct ospf6_if_p2xp_neighcfg *p2xp_cfg)
 {
 	if (!p2xp_cfg->poll_interval
-	    || p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOPOINT)
+	    || (p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOMULTIPOINT
+		&& p2xp_cfg->ospf6_if->state != OSPF6_INTERFACE_POINTTOPOINT))
 		/* state check covers DOWN state too */
 		THREAD_OFF(p2xp_cfg->t_unicast_hello);
 	else
@@ -830,7 +833,8 @@ static void p2xp_unicast_hello_send(struct thread *thread)
 	struct ospf6_if_p2xp_neighcfg *p2xp_cfg = THREAD_ARG(thread);
 	struct ospf6_interface *oi = p2xp_cfg->ospf6_if;
 
-	if (oi->state != OSPF6_INTERFACE_POINTTOPOINT)
+	if (oi->state != OSPF6_INTERFACE_POINTTOPOINT
+	    && oi->state != OSPF6_INTERFACE_POINTTOMULTIPOINT)
 		return;
 
 	p2xp_unicast_hello_sched(p2xp_cfg);
@@ -905,6 +909,8 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 	/* Neighbor State */
 	if (on->ospf6_if->type == OSPF_IFTYPE_POINTOPOINT)
 		snprintf(nstate, sizeof(nstate), "PointToPoint");
+	else if (on->ospf6_if->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+		snprintf(nstate, sizeof(nstate), "PtMultipoint");
 	else {
 		if (on->router_id == on->drouter)
 			snprintf(nstate, sizeof(nstate), "DR");

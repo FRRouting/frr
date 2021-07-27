@@ -1141,6 +1141,8 @@ static uint8_t *ospfv3IfEntry(struct variable *v, oid *name, size_t *length,
 			return SNMP_INTEGER(1);
 		else if (oi->type == OSPF_IFTYPE_POINTOPOINT)
 			return SNMP_INTEGER(3);
+		else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			return SNMP_INTEGER(5);
 		else
 			break; /* Unknown, don't put anything */
 	case OSPFv3IFADMINSTATUS:
@@ -1382,6 +1384,7 @@ static int ospf6TrapIfStateChange(struct ospf6_interface *oi, int next_state,
 
 	/* Terminal state or regression */
 	if ((next_state != OSPF6_INTERFACE_POINTTOPOINT)
+	    && (next_state != OSPF6_INTERFACE_POINTTOMULTIPOINT)
 	    && (next_state != OSPF6_INTERFACE_DROTHER)
 	    && (next_state != OSPF6_INTERFACE_BDR)
 	    && (next_state != OSPF6_INTERFACE_DR) && (next_state >= prev_state))

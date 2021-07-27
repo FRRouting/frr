@@ -434,7 +434,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	hello = (struct ospf6_hello *)((caddr_t)oh
 				       + sizeof(struct ospf6_header));
 
-	if (oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
 	    && oi->p2xp_only_cfg_neigh) {
 		/* NEVER, never, ever, do this on broadcast (or NBMA)!
 		 * DR/BDR election requires everyone to talk to everyone else
@@ -2315,8 +2316,9 @@ void ospf6_hello_send_addr(struct ospf6_interface *oi,
 	/* Set packet length. */
 	op->length = length;
 
-	if (!addr && oi->state == OSPF6_INTERFACE_POINTTOPOINT
-	    && oi->p2xp_no_multicast_hello) {
+	if ((oi->state == OSPF6_INTERFACE_POINTTOPOINT
+	     || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
+	    && !addr && oi->p2xp_no_multicast_hello) {
 		struct listnode *node;
 		struct ospf6_neighbor *on;
 		struct ospf6_packet *opdup;
