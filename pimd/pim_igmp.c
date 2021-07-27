@@ -494,7 +494,7 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, int igmp_msg_len,
 			zlog_warn(
 				"Recv IGMP packet with invalid ttl=%u, discarding the packet",
 				ip_hdr->ip_ttl);
-			return -1;
+			return false;
 		}
 	}
 
@@ -505,7 +505,7 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, int igmp_msg_len,
 		if (ip_hdr->ip_tos != IPTOS_PREC_INTERNETCONTROL) {
 			zlog_warn("Received IGMP Packet with invalid TOS %u",
 				  ip_hdr->ip_tos);
-			return -1;
+			return false;
 		}
 	}
 
