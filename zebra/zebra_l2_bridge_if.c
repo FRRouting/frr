@@ -174,7 +174,7 @@ static int zebra_l2_bridge_if_vlan_table_create(struct zebra_if *zif)
 	if (!br->vlan_table) {
 		br->vlan_table = zebra_l2_bridge_vlan_table_create();
 		if (!br->vlan_table)
-			return ENOMEM;
+			return -ENOMEM;
 	}
 
 	return 0;
@@ -340,9 +340,8 @@ int zebra_l2_bridge_if_vlan_access_bd_ref(struct zebra_evpn_access_bd *bd)
 	bvl.access_bd = bd;
 
 	bvlan = zebra_l2_bridge_if_vlan_find(zif, bd->vid);
-	if (!bvlan) {
+	if (!bvlan)
 		return zebra_l2_bridge_if_vlan_add(zif->ifp, &bvl);
-	}
 
 	chgflags = ZEBRA_BRIDGEIF_ACCESS_BD_CHANGE;
 	return zebra_l2_bridge_if_vlan_update(zif->ifp, &bvl, chgflags);
