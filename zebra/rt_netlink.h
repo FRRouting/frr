@@ -92,7 +92,8 @@ extern int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id);
 extern int netlink_macfdb_read(struct zebra_ns *zns);
 extern int netlink_macfdb_read_for_bridge(struct zebra_ns *zns,
 					  struct interface *ifp,
-					  struct interface *br_if);
+					  struct interface *br_if,
+					  vlanid_t vid);
 extern int netlink_neigh_read(struct zebra_ns *zns);
 extern int netlink_neigh_read_for_vlan(struct zebra_ns *zns,
 				       struct interface *vlan_if);

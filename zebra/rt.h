@@ -103,7 +103,7 @@ extern void kernel_init(struct zebra_ns *zns);
 extern void kernel_terminate(struct zebra_ns *zns, bool complete);
 extern void macfdb_read(struct zebra_ns *zns);
 extern void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-				   struct interface *br_if);
+				   struct interface *br_if, vlanid_t vid);
 extern void macfdb_read_specific_mac(struct zebra_ns *zns,
 				     struct interface *br_if,
 				     const struct ethaddr *mac, vlanid_t vid);

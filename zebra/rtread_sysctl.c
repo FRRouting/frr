@@ -84,7 +84,7 @@ void macfdb_read(struct zebra_ns *zns)
 }
 
 void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-			    struct interface *br_if)
+			    struct interface *br_if, vlanid_t vid)
 {
 }
 

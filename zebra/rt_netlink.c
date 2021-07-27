@@ -153,6 +153,22 @@ static bool is_proto_nhg(uint32_t id, int type)
 	return false;
 }
 
+/* Is vni mcast group */
+static bool is_mac_vni_mcast_group(struct ethaddr *mac, vni_t vni,
+				   struct in_addr grp_addr)
+{
+	if (!vni)
+		return false;
+
+	if (!is_zero_mac(mac))
+		return false;
+
+	if (!IN_MULTICAST(ntohl(grp_addr.s_addr)))
+		return false;
+
+	return true;
+}
+
 /*
  * The ipv4_ll data structure is used for all 5549
  * additions to the kernel.  Let's figure out the
@@ -3457,7 +3473,9 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	bool sticky;
 	bool local_inactive = false;
 	bool dp_static = false;
+	vni_t vni = 0;
 	uint32_t nhg_id = 0;
+	bool vni_mcast_grp = false;
 
 	ndm = NLMSG_DATA(h);
 
@@ -3528,12 +3546,16 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		}
 	}
 
+	if (tb[NDA_SRC_VNI])
+		vni = *(vni_t *)RTA_DATA(tb[NDA_SRC_VNI]);
+
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %pEA%s nhg %d",
-			   nl_msg_type_to_str(h->nlmsg_type),
-			   ndm->ndm_ifindex, vid_present ? vid_buf : "",
-			   ndm->ndm_state, ndm->ndm_flags, &mac,
-			   dst_present ? dst_buf : "", nhg_id);
+		zlog_debug(
+			"Rx %s AF_BRIDGE IF %u%s st 0x%x fl 0x%x MAC %pEA%s nhg %d vni %d",
+			nl_msg_type_to_str(h->nlmsg_type), ndm->ndm_ifindex,
+			vid_present ? vid_buf : "", ndm->ndm_state,
+			ndm->ndm_flags, &mac, dst_present ? dst_buf : "",
+			nhg_id, vni);
 
 	/* The interface should exist. */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
@@ -3556,6 +3578,13 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
+	/* For per vni device, vni comes from device itself */
+	if (IS_ZEBRA_IF_VXLAN(ifp) && IS_ZEBRA_VXLAN_IF_VNI(zif)) {
+		struct zebra_vxlan_vni *vnip;
+		vnip = zebra_vxlan_if_vni_find(zif, 0);
+		vni = vnip->vni;
+	}
+
 	sticky = !!(ndm->ndm_flags & NTF_STICKY);
 
 	if (filter_vlan && vid != filter_vlan) {
@@ -3565,6 +3594,11 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 	}
 
+	/*
+	 * Check if this is a mcast group update (svd case)
+	 */
+	vni_mcast_grp = is_mac_vni_mcast_group(&mac, vni, vtep_ip);
+
 	/* If add or update, do accordingly if learnt on a "local" interface; if
 	 * the notification is over VxLAN, this has to be related to
 	 * multi-homing,
@@ -3572,17 +3606,25 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 */
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
                 /* Drop "permanent" entries. */
-                if (ndm->ndm_state & NUD_PERMANENT) {
+		if (!vni_mcast_grp && (ndm->ndm_state & NUD_PERMANENT)) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
 					"        Dropping entry because of NUD_PERMANENT");
 			return 0;
 		}
 
-		if (IS_ZEBRA_IF_VXLAN(ifp))
-			return zebra_vxlan_dp_network_mac_add(
-				ifp, br_if, &mac, vid, nhg_id, sticky,
-				!!(ndm->ndm_flags & NTF_EXT_LEARNED));
+		if (IS_ZEBRA_IF_VXLAN(ifp)) {
+			if (!dst_present)
+				return 0;
+
+			if (vni_mcast_grp)
+				/* TODO: handle mcast group update for svd */
+
+				return zebra_vxlan_dp_network_mac_add(
+					ifp, br_if, &mac, vid, vni, nhg_id,
+					sticky,
+					!!(ndm->ndm_flags & NTF_EXT_LEARNED));
+		}
 
 		return zebra_vxlan_local_mac_add_update(ifp, br_if, &mac, vid,
 				sticky, local_inactive, dp_static);
@@ -3602,15 +3644,18 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		return 0;
 
 	if (dst_present) {
-		u_char zero_mac[6] = {0x0, 0x0, 0x0, 0x0, 0x0, 0x0};
+		if (vni_mcast_grp)
+			/* TODO: handle mcast group update for svd */
 
-		if (!memcmp(zero_mac, mac.octet, ETH_ALEN))
-			return zebra_vxlan_check_readd_vtep(ifp, vtep_ip);
+			if (is_zero_mac(&mac))
+				return zebra_vxlan_check_readd_vtep(ifp, vni,
+								    vtep_ip);
+
 		return 0;
 	}
 
 	if (IS_ZEBRA_IF_VXLAN(ifp))
-		return zebra_vxlan_dp_network_mac_del(ifp, br_if, &mac, vid);
+		return 0;
 
 	return zebra_vxlan_local_mac_del(ifp, br_if, &mac, vid);
 }
@@ -3687,11 +3732,9 @@ int netlink_macfdb_read(struct zebra_ns *zns)
  * specific bridge and matching specific access VLAN (if VLAN-aware bridge).
  */
 int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
-				   struct interface *br_if)
+				   struct interface *br_if, vlanid_t vid)
 {
 	struct zebra_if *br_zif;
-	struct zebra_if *zif;
-	struct zebra_l2info_vxlan *vxl;
 	struct zebra_dplane_info dp_info;
 	int ret = 0;
 
@@ -3699,10 +3742,8 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 	/* Save VLAN we're filtering on, if needed. */
 	br_zif = (struct zebra_if *)br_if->info;
-	zif = (struct zebra_if *)ifp->info;
-	vxl = &zif->l2info.vxl;
 	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif))
-		filter_vlan = vxl->vni_info.vni.access_vlan;
+		filter_vlan = vid;
 
 	/* Get bridge FDB table for specific bridge - we do the VLAN filtering.
 	 */

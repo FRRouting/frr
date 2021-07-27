@@ -632,7 +632,6 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 			       struct zebra_if *br_zif, bool is_up)
 {
 	struct zebra_evpn_access_bd *acc_bd;
-	struct zebra_l2info_bridge *br;
 	uint16_t vid;
 	struct zebra_if *tmp_br_zif = br_zif;
 
@@ -643,9 +642,8 @@ void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 		tmp_br_zif = vlan_zif->link->info;
 	}
 
-	br = &tmp_br_zif->l2info.br;
 	/* ignore vlan unaware bridges */
-	if (!br->vlan_aware)
+	if (!IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(tmp_br_zif))
 		return;
 
 	vid = vlan_zif->l2info.vl.vid;

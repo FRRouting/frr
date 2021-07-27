@@ -49,9 +49,29 @@ struct zebra_l2info_bond {
 	struct list *mbr_zifs; /* slaves using this bond as a master */
 };
 
+struct zebra_l2_bridge_vlan {
+	vlanid_t vid;
+	struct zebra_evpn_access_bd *access_bd;
+};
+
+struct zebra_l2_bridge_if_ctx {
+	/* input */
+	struct zebra_if *zif;
+	int (*func)(struct zebra_if *, struct zebra_l2_bridge_vlan *, void *);
+
+	/* input-output */
+	void *arg;
+};
+
+struct zebra_l2_bridge_if {
+	uint8_t vlan_aware;
+	struct zebra_if *br_zif;
+	struct hash *vlan_table;
+};
+
 /* zebra L2 interface information - bridge interface */
 struct zebra_l2info_bridge {
-	uint8_t vlan_aware; /* VLAN-aware bridge? */
+	struct zebra_l2_bridge_if bridge;
 };
 
 /* zebra L2 interface information - VLAN interface */
@@ -138,7 +158,9 @@ union zebra_l2if_info {
 	((zif)->l2info.vxl.vni_info.iftype == ZEBRA_VXLAN_IF_VNI)
 #define VLAN_ID_FROM_ZEBRA_IF(zif) (zif)->l2info.vl.vid
 
-#define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) ((zif)->l2info.br.vlan_aware == 1)
+#define BRIDGE_FROM_ZEBRA_IF(zif) (&((zif)->l2info.br.bridge))
+#define IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif)                                     \
+	((zif)->l2info.br.bridge.vlan_aware == 1)
 
 extern void zebra_l2_map_slave_to_bridge(struct zebra_l2info_brslave *br_slave,
 					 struct zebra_ns *zns);

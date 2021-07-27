@@ -260,5 +260,11 @@ extern void zebra_vxlan_sync_mac_dp_install(struct zebra_mac *mac,
 					    bool force_clear_static,
 					    const char *caller);
 extern bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf);
+extern void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
+			       struct in_addr mcast_grp);
+extern void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
+				 struct in_addr mcast_grp);
+extern void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
+extern void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 
 #endif /* _ZEBRA_VXLAN_PRIVATE_H */

@@ -2437,7 +2437,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 		bridge_info = &zebra_if->l2info.br;
 		json_object_boolean_add(json_if, "bridgeVlanAware",
-					bridge_info->vlan_aware);
+					bridge_info->bridge.vlan_aware);
 	} else if (IS_ZEBRA_IF_VLAN(ifp)) {
 		struct zebra_l2info_vlan *vlan_info;
 

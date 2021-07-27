@@ -544,7 +544,7 @@ static int netlink_extract_bridge_info(struct rtattr *link_data,
 	memset(bridge_info, 0, sizeof(*bridge_info));
 	netlink_parse_rtattr_nested(attr, IFLA_BR_MAX, link_data);
 	if (attr[IFLA_BR_VLAN_FILTERING])
-		bridge_info->vlan_aware =
+		bridge_info->bridge.vlan_aware =
 			*(uint8_t *)RTA_DATA(attr[IFLA_BR_VLAN_FILTERING]);
 	return 0;
 }
@@ -612,6 +612,7 @@ static int netlink_extract_gre_info(struct rtattr *link_data,
 static int netlink_extract_vxlan_info(struct rtattr *link_data,
 				      struct zebra_l2info_vxlan *vxl_info)
 {
+	uint8_t svd = 0;
 	struct rtattr *attr[IFLA_VXLAN_MAX + 1];
 	vni_t vni_in_msg;
 	struct in_addr vtep_ip_in_msg;
@@ -619,15 +620,31 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 
 	memset(vxl_info, 0, sizeof(*vxl_info));
 	netlink_parse_rtattr_nested(attr, IFLA_VXLAN_MAX, link_data);
-	if (!attr[IFLA_VXLAN_ID]) {
+	if (attr[IFLA_VXLAN_COLLECT_METADATA]) {
+		svd = *(uint8_t *)RTA_DATA(attr[IFLA_VXLAN_COLLECT_METADATA]);
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"IFLA_VXLAN_ID missing from VXLAN IF message");
-		return -1;
+				"IFLA_VXLAN_COLLECT_METADATA=%u in VXLAN IF message",
+				svd);
 	}
 
-	vni_in_msg = *(vni_t *)RTA_DATA(attr[IFLA_VXLAN_ID]);
-	vxl_info->vni_info.vni.vni = vni_in_msg;
+	if (!svd) {
+		/* in case of svd we will not get vni info directly from the
+		 * device */
+		if (!attr[IFLA_VXLAN_ID]) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"IFLA_VXLAN_ID missing from VXLAN IF message");
+			return -1;
+		}
+
+		vxl_info->vni_info.iftype = ZEBRA_VXLAN_IF_VNI;
+		vni_in_msg = *(vni_t *)RTA_DATA(attr[IFLA_VXLAN_ID]);
+		vxl_info->vni_info.vni.vni = vni_in_msg;
+	} else {
+		vxl_info->vni_info.iftype = ZEBRA_VXLAN_IF_SVD;
+	}
+
 	if (!attr[IFLA_VXLAN_LOCAL]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
@@ -639,8 +656,10 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	}
 
 	if (attr[IFLA_VXLAN_GROUP]) {
-		vxl_info->vni_info.vni.mcast_grp =
-			*(struct in_addr *)RTA_DATA(attr[IFLA_VXLAN_GROUP]);
+		if (!svd)
+			vxl_info->vni_info.vni.mcast_grp =
+				*(struct in_addr *)RTA_DATA(
+					attr[IFLA_VXLAN_GROUP]);
 	}
 
 	if (!attr[IFLA_VXLAN_LINK]) {
