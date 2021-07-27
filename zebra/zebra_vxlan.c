@@ -1912,8 +1912,8 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 			if (zif->brslave_info.br_if != in_param->br_if)
 				continue;
 
-			vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, in_param->vid,
-								     in_param->br_if);
+			vni_id = zebra_vxlan_if_access_vlan_vni_find(
+					zif, in_param->br_if);
 			if (vni_id) {
 				found = 1;
 				break;

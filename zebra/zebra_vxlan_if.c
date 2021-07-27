@@ -655,6 +655,7 @@ struct zebra_vxlan_vni *zebra_vxlan_if_vni_find(const struct zebra_if *zif,
 		return vnip;
 	}
 
+	/* For SVD, the VNI value is a required parameter. */
 	assert(vni);
 
 	memset(&vni_tmp, 0, sizeof(vni_tmp));
@@ -716,13 +717,17 @@ void zebra_vxlan_if_vni_walk(struct zebra_if *zif,
 	hash_walk(vni_info->vni_table, zebra_vxlan_if_vni_walk_callback, &ctx);
 }
 
-vni_t zebra_vxlan_if_access_vlan_vni_find(struct zebra_if *zif, vlanid_t vid,
+vni_t zebra_vxlan_if_access_vlan_vni_find(struct zebra_if *zif,
 					  struct interface *br_if)
 {
 	struct zebra_vxlan_vni *vni = NULL;
 
-	/* Expected to be called only for vlan-unware bridges */
-	assert(!IS_ZEBRA_IF_BRIDGE_VLAN_AWARE((struct zebra_if *)br_if->info));
+	/* Expected to be called only for vlan-unware bridges. In this case,
+	 * we only support a per-VNI VXLAN interface model.
+	 */
+	if (!IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return 0;
+
 	vni = zebra_vxlan_if_vni_find(zif, 0);
 	assert(vni);
 

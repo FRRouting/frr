@@ -711,13 +711,12 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 			if (zif->brslave_info.br_if != br_if)
 				continue;
 
-			vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, vid,
-								     br_if);
+			vni_id =
+				zebra_vxlan_if_access_vlan_vni_find(zif, br_if);
 			if (vni_id) {
 				found = 1;
 				break;
 			}
-
 		}
 	}
 
@@ -808,11 +807,12 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 			if (zif->brslave_info.br_if != br_if)
 				continue;
 
-			vni_id = zebra_vxlan_if_access_vlan_vni_find(zif, vid,
-								     br_if);
-			if (vni_id)
+			vni_id =
+				zebra_vxlan_if_access_vlan_vni_find(zif, br_if);
+			if (vni_id) {
 				found = 1;
-			break;
+				break;
+			}
 		}
 	}
 

@@ -500,11 +500,14 @@ void zebra_evpn_update_all_es(struct zebra_evpn *zevpn)
 		if (if_is_operative(vxlan_if)
 		    && vxlan_zif->brslave_info.br_if) {
 			vni = zebra_vxlan_if_vni_find(vxlan_zif, zevpn->vni);
-			vlan_if =
-				zvni_map_to_svi(vni->access_vlan,
-						vxlan_zif->brslave_info.br_if);
-			if (vlan_if)
-				zebra_evpn_acc_bd_svi_mac_add(vlan_if);
+			/* VLAN-VNI mappings may not exist */
+			if (vni) {
+				vlan_if = zvni_map_to_svi(
+					vni->access_vlan,
+					vxlan_zif->brslave_info.br_if);
+				if (vlan_if)
+					zebra_evpn_acc_bd_svi_mac_add(vlan_if);
+			}
 		}
 	}
 }
