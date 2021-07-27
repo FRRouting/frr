@@ -42,10 +42,46 @@
 extern "C" {
 #endif
 
+extern void *zebra_vxlan_vni_alloc(void *p);
+extern void zebra_vxlan_vni_free(void *arg);
+extern struct hash *zebra_vxlan_vni_table_create(void);
+extern void zebra_vxlan_vni_table_destroy(struct hash *vni_table);
+extern int zebra_vxlan_if_vni_table_create(struct zebra_if *zif);
+extern int zebra_vxlan_if_vni_table_destroy(struct zebra_if *zif);
+extern struct zebra_vxlan_vni *
+zebra_vxlan_if_vni_find(const struct zebra_if *zif, vni_t vni);
+extern void zebra_vxlan_if_vni_iterate(struct zebra_if *zif,
+				       int (*func)(struct zebra_if *zif,
+						   struct zebra_vxlan_vni *,
+						   void *),
+				       void *arg);
+extern void zebra_vxlan_if_vni_walk(struct zebra_if *zif,
+				    int (*func)(struct zebra_if *zif,
+						struct zebra_vxlan_vni *,
+						void *),
+				    void *arg);
+extern struct zebra_vxlan_vni *
+zebra_vxlan_if_access_vlan_find(struct zebra_if *zif, uint8_t vlan_aware,
+				vlanid_t vid);
+extern int zebra_vxlan_if_vni_mcast_group_update(struct interface *ifp,
+						 vni_t vni_id,
+						 struct in_addr *mcast_group);
+extern int zebra_vxlan_if_vni_down(struct interface *ifp,
+				   struct zebra_vxlan_vni *vni);
 extern int zebra_vxlan_if_down(struct interface *ifp);
+extern int zebra_vxlan_if_vni_up(struct interface *ifp,
+				 struct zebra_vxlan_vni *vni);
 extern int zebra_vxlan_if_up(struct interface *ifp);
+extern int zebra_vxlan_if_vni_del(struct interface *ifp, vni_t vni);
 extern int zebra_vxlan_if_del(struct interface *ifp);
+extern int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
+					       struct hash *vni_table);
+extern int zebra_vxlan_if_vni_update(struct interface *ifp,
+				     struct zebra_vxlan_vni *vni,
+				     uint16_t chgflags);
 extern int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags);
+extern int zebra_vxlan_if_vni_add(struct interface *ifp,
+				  struct zebra_vxlan_vni *vni);
 extern int zebra_vxlan_if_add(struct interface *ifp);
 
 #ifdef __cplusplus
