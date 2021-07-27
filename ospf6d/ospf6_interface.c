@@ -407,7 +407,6 @@ void ospf6_interface_state_update(struct interface *ifp)
 void ospf6_interface_connected_route_update(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
-	struct ospf6_route *route;
 	struct connected *c;
 	struct listnode *node, *nnode;
 	struct in6_addr nh_addr;
@@ -460,6 +459,27 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 				continue;
 			}
 		}
+
+		if (oi->state == OSPF6_INTERFACE_LOOPBACK
+		    || oi->state == OSPF6_INTERFACE_POINTTOPOINT) {
+			struct ospf6_route *la_route;
+
+			la_route = ospf6_route_create(oi->area->ospf6);
+			la_route->prefix = *c->address;
+			la_route->prefix.prefixlen = 128;
+			la_route->prefix_options |= OSPF6_PREFIX_OPTION_LA;
+
+			la_route->type = OSPF6_DEST_TYPE_NETWORK;
+			la_route->path.area_id = oi->area->area_id;
+			la_route->path.type = OSPF6_PATH_TYPE_INTRA;
+			la_route->path.cost = 0;
+			inet_pton(AF_INET6, "::1", &nh_addr);
+			ospf6_route_add_nexthop(
+				la_route, oi->interface->ifindex, &nh_addr);
+			ospf6_route_add(la_route, oi->route_connected);
+		}
+
+		struct ospf6_route *route;
 
 		route = ospf6_route_create(oi->area->ospf6);
 		memcpy(&route->prefix, c->address, sizeof(struct prefix));
