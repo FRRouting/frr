@@ -57,7 +57,8 @@ struct zebra_l2_bridge_vlan {
 struct zebra_l2_bridge_if_ctx {
 	/* input */
 	struct zebra_if *zif;
-	int (*func)(struct zebra_if *, struct zebra_l2_bridge_vlan *, void *);
+	int (*func)(struct zebra_if *zif, struct zebra_l2_bridge_vlan *vlan,
+		    void *arg);
 
 	/* input-output */
 	void *arg;
@@ -97,10 +98,10 @@ struct zebra_vxlan_vni {
 	struct in_addr mcast_grp;
 };
 
-typedef enum {
+enum {
 	ZEBRA_VXLAN_IF_VNI = 0, /* per vni vxlan if */
 	ZEBRA_VXLAN_IF_SVD      /* single vxlan device */
-} zebra_vxlan_iftype_t;
+};
 
 struct zebra_vxlan_if_vlan_ctx {
 	vlanid_t vid;
@@ -110,14 +111,15 @@ struct zebra_vxlan_if_vlan_ctx {
 struct zebra_vxlan_if_ctx {
 	/* input */
 	struct zebra_if *zif;
-	int (*func)(struct zebra_if *, struct zebra_vxlan_vni *, void *);
+	int (*func)(struct zebra_if *zif, struct zebra_vxlan_vni *vni,
+		    void *arg);
 
 	/* input-output */
 	void *arg;
 };
 
 struct zebra_vxlan_vni_info {
-	zebra_vxlan_iftype_t iftype;
+	int iftype;
 	union {
 		struct zebra_vxlan_vni vni; /* per vni vxlan device vni info */
 		struct hash

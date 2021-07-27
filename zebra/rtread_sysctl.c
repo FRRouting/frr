@@ -88,6 +88,11 @@ void macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 {
 }
 
+void macfdb_read_mcast_entry_for_vni(struct zebra_ns *zns,
+				     struct interface *ifp, vni_t vni)
+{
+}
+
 void macfdb_read_specific_mac(struct zebra_ns *zns, struct interface *br_if,
 			      const struct ethaddr *mac, vlanid_t vid)
 {

@@ -1893,12 +1893,15 @@ static inline bool if_is_protodown_applicable(struct interface *ifp)
 static void zebra_vxlan_if_vni_dump_vty(struct vty *vty,
 					struct zebra_vxlan_vni *vni)
 {
+	char str[INET6_ADDRSTRLEN];
+
 	vty_out(vty, "  VxLAN Id %u", vni->vni);
 	if (vni->access_vlan)
 		vty_out(vty, " Access VLAN Id %u\n", vni->access_vlan);
 
 	if (vni->mcast_grp.s_addr != INADDR_ANY)
-		vty_out(vty, "  Mcast Group %s", inet_ntoa(vni->mcast_grp));
+		vty_out(vty, "  Mcast Group %s",
+			inet_ntop(AF_INET, &vni->mcast_grp, str, sizeof(str)));
 }
 
 static void zebra_vxlan_if_vni_dump_vty_json(struct zebra_vxlan_vni *vni,
@@ -1938,6 +1941,7 @@ static void zebra_vxlan_if_vni_hash_dump_vty(struct hash_bucket *bucket,
 static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
 {
 	struct vxlan_if_dump_ctx dump_ctx;
+	char str[INET6_ADDRSTRLEN];
 	struct zebra_l2info_vxlan *vxlan_info;
 	struct zebra_vxlan_vni_info *vni_info;
 
@@ -1945,7 +1949,9 @@ static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
 	vni_info = &vxlan_info->vni_info;
 
 	if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-		vty_out(vty, " VTEP IP: %s", inet_ntoa(vxlan_info->vtep_ip));
+		vty_out(vty, " VTEP IP: %s",
+			inet_ntop(AF_INET, &vxlan_info->vtep_ip, str,
+				  sizeof(str)));
 
 	if (vxlan_info->ifindex_link && (vxlan_info->link_nsid != NS_UNKNOWN)) {
 		struct interface *ifp;

@@ -3596,6 +3596,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	/* For per vni device, vni comes from device itself */
 	if (IS_ZEBRA_IF_VXLAN(ifp) && IS_ZEBRA_VXLAN_IF_VNI(zif)) {
 		struct zebra_vxlan_vni *vnip;
+
 		vnip = zebra_vxlan_if_vni_find(zif, 0);
 		vni = vnip->vni;
 	}
@@ -3776,40 +3777,45 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 
 /* Request for MAC FDB for a specific MAC address in VLAN from the kernel */
-static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
-						  int family, int type,
-						  struct interface *br_if,
-						  const struct ethaddr *mac,
-						  vlanid_t vid)
+static int netlink_request_specific_mac(struct zebra_ns *zns, int family,
+					int type, struct interface *ifp,
+					const struct ethaddr *mac, vlanid_t vid,
+					vni_t vni, uint8_t flags)
 {
 	struct {
 		struct nlmsghdr n;
 		struct ndmsg ndm;
 		char buf[256];
 	} req;
-	struct zebra_if *br_zif;
+	struct zebra_if *zif;
 
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ndmsg));
 	req.n.nlmsg_type = type;	/* RTM_GETNEIGH */
 	req.n.nlmsg_flags = NLM_F_REQUEST;
 	req.ndm.ndm_family = family;	/* AF_BRIDGE */
+	req.ndm.ndm_flags = flags;
 	/* req.ndm.ndm_state = NUD_REACHABLE; */
 
 	nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, mac, 6);
 
-	br_zif = (struct zebra_if *)br_if->info;
-	if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(br_zif) && vid > 0)
-		nl_attr_put16(&req.n, sizeof(req), NDA_VLAN, vid);
-
-	nl_attr_put32(&req.n, sizeof(req), NDA_MASTER, br_if->ifindex);
+	zif = (struct zebra_if *)ifp->info;
+	/* Is this a read on a VXLAN interface? */
+	if (IS_ZEBRA_IF_VXLAN(ifp)) {
+		nl_attr_put32(&req.n, sizeof(req), NDA_VNI, vni);
+		/* TBD: Why is ifindex not filled in the non-vxlan case? */
+		req.ndm.ndm_ifindex = ifp->ifindex;
+	} else {
+		if (IS_ZEBRA_IF_BRIDGE_VLAN_AWARE(zif) && vid > 0)
+			nl_attr_put16(&req.n, sizeof(req), NDA_VLAN, vid);
+		nl_attr_put32(&req.n, sizeof(req), NDA_MASTER, ifp->ifindex);
+	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug(
-			"%s: Tx family %s IF %s(%u) vrf %s(%u) MAC %pEA vid %u",
-			__func__, nl_family_to_str(req.ndm.ndm_family),
-			br_if->name, br_if->ifindex, br_if->vrf->name,
-			br_if->vrf->vrf_id, mac, vid);
+		zlog_debug("Tx %s %s IF %s(%u) MAC %pEA vid %u vni %u",
+			   nl_msg_type_to_str(type),
+			   nl_family_to_str(req.ndm.ndm_family), ifp->name,
+			   ifp->ifindex, mac, vid, vni);
 
 	return netlink_request(&zns->netlink_cmd, &req);
 }
@@ -3825,9 +3831,34 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 
 	/* Get bridge FDB table for specific bridge - we do the VLAN filtering.
 	 */
-	ret = netlink_request_specific_mac_in_bridge(zns, AF_BRIDGE,
-						     RTM_GETNEIGH,
-						     br_if, mac, vid);
+	ret = netlink_request_specific_mac(zns, AF_BRIDGE, RTM_GETNEIGH, br_if,
+					   mac, vid, 0, 0);
+	if (ret < 0)
+		return ret;
+
+	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
+				 &dp_info, 1, 0);
+
+	return ret;
+}
+
+int netlink_macfdb_read_mcast_for_vni(struct zebra_ns *zns,
+				      struct interface *ifp, vni_t vni)
+{
+	struct zebra_if *zif;
+	struct ethaddr mac = { .octet = {0} };
+	struct zebra_dplane_info dp_info;
+	int ret = 0;
+
+	zif = ifp->info;
+	if (IS_ZEBRA_VXLAN_IF_VNI(zif))
+		return 0;
+
+	zebra_dplane_info_from_zns(&dp_info, zns, true /*is_cmd*/);
+
+	/* Get specific FDB entry for BUM handling, if any */
+	ret = netlink_request_specific_mac(zns, AF_BRIDGE, RTM_GETNEIGH, ifp,
+					   &mac, 0, vni, NTF_SELF);
 	if (ret < 0)
 		return ret;
 

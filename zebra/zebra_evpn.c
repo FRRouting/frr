@@ -695,8 +695,10 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 		if (vni_id)
 			found = 1;
 	} else {
-		/* See if this interface (or interface plus VLAN Id) maps to a
-		 * VxLAN */
+		/*
+		 * See if this interface (or interface plus VLAN Id) maps to a
+		 * VxLAN
+		 */
 		/* TODO: Optimize with a hash. */
 		for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 			tmp_if = (struct interface *)rn->info;
@@ -982,6 +984,10 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 
 	macfdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if,
 			       vni->access_vlan);
+	/* We need to specifically read and retrieve the entry for BUM handling
+	 * via multicast, if any.
+	 */
+	macfdb_read_mcast_entry_for_vni(zns, ifp, zevpn->vni);
 	vlan_if = zvni_map_to_svi(vni->access_vlan, zif->brslave_info.br_if);
 	if (vlan_if) {
 		/* Add SVI MAC */

@@ -982,8 +982,10 @@ static int zevpn_build_vni_hash_table(struct zebra_if *zif,
 				"Create L2-VNI hash for intf %s(%u) L2-VNI %u local IP %pI4",
 				ifp->name, ifp->ifindex, vni, &vxl->vtep_ip);
 
-		/* EVPN hash entry is expected to exist, if the BGP process is
-		 * killed */
+		/*
+		 * EVPN hash entry is expected to exist, if the BGP process is
+		 * killed
+		 */
 		zevpn = zebra_evpn_lookup(vni);
 		if (zevpn) {
 			zlog_debug(

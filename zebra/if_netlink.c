@@ -629,8 +629,10 @@ static int netlink_extract_vxlan_info(struct rtattr *link_data,
 	}
 
 	if (!svd) {
-		/* in case of svd we will not get vni info directly from the
-		 * device */
+		/*
+		 * In case of svd we will not get vni info directly from the
+		 * device
+		 */
 		if (!attr[IFLA_VXLAN_ID]) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(

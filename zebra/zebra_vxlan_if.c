@@ -156,11 +156,11 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 		zebra_evpn_send_del_to_client(zevpn);
 
 		/* Free up all neighbors and MAC, if any. */
-		zebra_evpn_neigh_del_all(zevpn, 0, 0, DEL_ALL_NEIGH);
-		zebra_evpn_mac_del_all(zevpn, 0, 0, DEL_ALL_MAC);
+		zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
+		zebra_evpn_mac_del_all(zevpn, 1, 0, DEL_ALL_MAC);
 
 		/* Free up all remote VTEPs, if any. */
-		zebra_evpn_vtep_del_all(zevpn, 0);
+		zebra_evpn_vtep_del_all(zevpn, 1);
 
 		/* Delete the hash entry. */
 		if (zebra_evpn_vxlan_del(zevpn)) {
@@ -401,8 +401,10 @@ static int zebra_vxlan_if_add_vni(struct interface *ifp,
 		zl3vni->local_vtep_ip = vxl->vtep_ip;
 		zl3vni->vxlan_if = ifp;
 
-		/* Associate with SVI, if any. We can associate with svi-if only
-		 * after association with vxlan_if is complete */
+		/*
+		 * Associate with SVI, if any. We can associate with svi-if only
+		 * after association with vxlan_if is complete
+		 */
 		zl3vni->svi_if = zl3vni_map_to_svi_if(zl3vni);
 
 		zl3vni->mac_vlan_if = zl3vni_map_to_mac_vlan_if(zl3vni);
@@ -498,8 +500,8 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 	old_vni_table = (struct hash *)ctxt;
 	memcpy(&vni_tmp, vni, sizeof(*vni));
 
-	if ((hashcount(old_vni_table) == 0)
-	    || !(old_vni = hash_release(old_vni_table, &vni_tmp))) {
+	old_vni = hash_release(old_vni_table, &vni_tmp);
+	if (!old_vni) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("vxlan %s adding vni(%d, %d)",
 				   zif->ifp->name, vni->vni, vni->access_vlan);
@@ -633,7 +635,7 @@ int zebra_vxlan_if_vni_table_create(struct zebra_if *zif)
 	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
 	vni_info->vni_table = zebra_vxlan_vni_table_create();
 	if (!vni_info->vni_table)
-		return ENOMEM;
+		return -ENOMEM;
 
 	return 0;
 }
