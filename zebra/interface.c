@@ -239,6 +239,7 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		list_delete(&rtadv->AdvDNSSLList);
 #endif /* HAVE_RTADV */
 
+		zebra_l2_bridge_if_cleanup(ifp);
 		zebra_evpn_if_cleanup(zebra_if);
 		zebra_evpn_mac_ifp_del(ifp);
 

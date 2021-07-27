@@ -42,6 +42,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/interface.h"
 #include "zebra/zebra_l2.h"
+#include "zebra/zebra_l2_bridge_if.h"
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_vxlan_if.h"
 #include "zebra/zebra_evpn_mh.h"
@@ -263,12 +264,14 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 				int add)
 {
 	struct zebra_if *zif;
+	struct zebra_l2_bridge_if *br;
 
 	zif = ifp->info;
 	assert(zif);
 
-	/* Copy over the L2 information. */
-	memcpy(&zif->l2info.br, bridge_info, sizeof(*bridge_info));
+	br = BRIDGE_FROM_ZEBRA_IF(zif);
+	br->vlan_aware = bridge_info->bridge.vlan_aware;
+	zebra_l2_bridge_if_add(ifp);
 
 	/* Link all slaves to this bridge */
 	map_slaves_to_bridge(ifp, 1, false, ZEBRA_BRIDGE_NO_ACTION);
@@ -279,6 +282,8 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
  */
 void zebra_l2_bridge_del(struct interface *ifp)
 {
+	zebra_l2_bridge_if_del(ifp);
+
 	/* Unlink all slaves to this bridge */
 	map_slaves_to_bridge(ifp, 0, false, ZEBRA_BRIDGE_NO_ACTION);
 }

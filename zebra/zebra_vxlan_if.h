@@ -1,5 +1,5 @@
 /*
- * Zebra VxLAN (EVPN) Data structures and definitions
+ * Zebra VxLAN (EVPN) interface data structures and definitions
  * These are public definitions referenced by other files.
  * Copyright (C) 2021 Cumulus Networks, Inc.
  * Sharath Ramamurthy
@@ -60,9 +60,9 @@ extern void zebra_vxlan_if_vni_walk(struct zebra_if *zif,
 						struct zebra_vxlan_vni *,
 						void *),
 				    void *arg);
-extern struct zebra_vxlan_vni *
-zebra_vxlan_if_access_vlan_find(struct zebra_if *zif, uint8_t vlan_aware,
-				vlanid_t vid);
+extern vni_t zebra_vxlan_if_access_vlan_vni_find(struct zebra_if *zif,
+						 vlanid_t vid,
+						 struct interface *br_if);
 extern int zebra_vxlan_if_vni_mcast_group_update(struct interface *ifp,
 						 vni_t vni_id,
 						 struct in_addr *mcast_group);
