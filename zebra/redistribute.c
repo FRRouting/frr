@@ -153,8 +153,14 @@ static bool zebra_redistribute_check(const struct route_entry *re,
 				     struct zserv *client,
 				     const struct prefix *p, int afi)
 {
+	struct zebra_vrf *zvrf;
+
 	/* Process only if there is valid re */
 	if (!re)
+		return false;
+
+	zvrf = vrf_info_lookup(re->vrf_id);
+	if (re->vrf_id == VRF_DEFAULT && zvrf->table_id != re->table)
 		return false;
 
 	/* If default route and redistributed */
