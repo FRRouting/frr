@@ -49,8 +49,8 @@ DEFINE_HOOK(ospf6_interface_change,
 unsigned char conf_debug_ospf6_interface = 0;
 
 const char *const ospf6_interface_state_str[] = {
-	"None",    "Down", "Loopback", "Waiting", "PointToPoint",
-	"DROther", "BDR",  "DR",       NULL};
+	"None",		"Down",	   "Loopback", "Waiting", "PointToPoint",
+	"PtMultipoint", "DROther", "BDR",      "DR",	  NULL};
 
 int ospf6_interface_neighbor_count(struct ospf6_interface *oi)
 {
@@ -451,6 +451,7 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 		}
 
 		if (oi->state == OSPF6_INTERFACE_LOOPBACK
+		    || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT
 		    || oi->state == OSPF6_INTERFACE_POINTTOPOINT) {
 			struct ospf6_route *la_route;
 
@@ -543,7 +544,8 @@ static int ospf6_interface_state_change(uint8_t next_state,
 		OSPF6_INTRA_PREFIX_LSA_SCHEDULE_STUB(oi->area);
 	}
 
-	if (next_state == OSPF6_INTERFACE_POINTTOPOINT)
+	if (next_state == OSPF6_INTERFACE_POINTTOPOINT
+	    || next_state == OSPF6_INTERFACE_POINTTOMULTIPOINT)
 		ospf6_if_p2xp_up(oi);
 
 	hook_call(ospf6_interface_change, oi, next_state, prev_state);
@@ -862,6 +864,9 @@ void interface_up(struct event *thread)
 		ospf6_interface_state_change(OSPF6_INTERFACE_LOOPBACK, oi);
 	} else if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
 		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOPOINT, oi);
+	} else if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+		ospf6_interface_state_change(OSPF6_INTERFACE_POINTTOMULTIPOINT,
+					     oi);
 	} else if (oi->priority == 0)
 		ospf6_interface_state_change(OSPF6_INTERFACE_DROTHER, oi);
 	else {
@@ -990,6 +995,8 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 		return "BROADCAST";
 	case OSPF_IFTYPE_POINTOPOINT:
 		return "POINTOPOINT";
+	case OSPF_IFTYPE_POINTOMULTIPOINT:
+		return "POINTOMULTIPOINT";
 	}
 	return "UNKNOWN";
 }
@@ -2573,12 +2580,13 @@ DEFUN (no_ipv6_ospf6_advertise_prefix_list,
 
 DEFUN (ipv6_ospf6_network,
        ipv6_ospf6_network_cmd,
-       "ipv6 ospf6 network <broadcast|point-to-point>",
+       "ipv6 ospf6 network <broadcast|point-to-point|point-to-multipoint>",
        IP6_STR
        OSPF6_STR
        "Network type\n"
        "Specify OSPF6 broadcast network\n"
        "Specify OSPF6 point-to-point network\n"
+       "Specify OSPF6 point-to-multipoint network\n"
        )
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
@@ -2604,6 +2612,11 @@ DEFUN (ipv6_ospf6_network,
 			return CMD_SUCCESS;
 		}
 		oi->type = OSPF_IFTYPE_POINTOPOINT;
+	} else if (strncmp(argv[idx_network]->arg, "point-to-m", 10) == 0) {
+		if (oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+			return CMD_SUCCESS;
+		}
+		oi->type = OSPF_IFTYPE_POINTOMULTIPOINT;
 	}
 
 	/* Reset the interface */
@@ -2763,7 +2776,10 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi->mtu_ignore)
 			vty_out(vty, " ipv6 ospf6 mtu-ignore\n");
 
-		if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
+		if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOMULTIPOINT)
+			vty_out(vty,
+				" ipv6 ospf6 network point-to-multipoint\n");
+		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
 			vty_out(vty, " ipv6 ospf6 network point-to-point\n");
 		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_BROADCAST)
 			vty_out(vty, " ipv6 ospf6 network broadcast\n");
