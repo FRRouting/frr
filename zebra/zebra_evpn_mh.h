@@ -179,6 +179,9 @@ struct zebra_evpn_es_vtep {
 struct zebra_evpn_access_bd {
 	vlanid_t vid;
 
+	ifindex_t bridge_ifindex;
+	struct zebra_if *bridge_zif; /* associated bridge */
+
 	vni_t vni;		    /* vni associated with the vxlan device */
 	struct zebra_if *vxlan_zif; /* vxlan device */
 	/* list of members associated with the BD i.e. (potential) ESs */
@@ -348,9 +351,12 @@ extern void zebra_evpn_interface_init(void);
 extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
 extern void zebra_evpn_acc_vl_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj);
-extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid);
 extern void zebra_evpn_if_es_print(struct vty *vty, json_object *json,
 				   struct zebra_if *zif);
+extern struct zebra_evpn_access_bd *
+zebra_evpn_acc_vl_find(vlanid_t vid, struct interface *br_if);
+extern void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid,
+				       struct interface *br_if);
 extern void zebra_evpn_es_cleanup(void);
 extern int zebra_evpn_mh_mac_holdtime_update(struct vty *vty,
 		uint32_t duration, bool set_default);
@@ -376,6 +382,9 @@ extern void zebra_evpn_l2_nh_show(struct vty *vty, bool uj);
 extern void zebra_evpn_acc_bd_svi_set(struct zebra_if *vlan_zif,
 				      struct zebra_if *br_zif, bool is_up);
 extern void zebra_evpn_acc_bd_svi_mac_add(struct interface *vlan_if);
+extern void
+zebra_evpn_access_bd_bridge_cleanup(vlanid_t vid, struct interface *br_if,
+				    struct zebra_evpn_access_bd *acc_bd);
 extern void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 					struct interface *ifp, bool bypass);
 extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);

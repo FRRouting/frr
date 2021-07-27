@@ -66,6 +66,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_errors.c \
 	zebra/zebra_gr.c \
 	zebra/zebra_l2.c \
+	zebra/zebra_l2_bridge_if.c \
 	zebra/zebra_evpn.c \
 	zebra/zebra_evpn_mac.c \
 	zebra/zebra_evpn_neigh.c \

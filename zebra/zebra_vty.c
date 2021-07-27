@@ -3016,20 +3016,36 @@ DEFPY(show_evpn_es_evi,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_evpn_access_vlan,
-      show_evpn_access_vlan_cmd,
-      "show evpn access-vlan [(1-4094)$vid | detail$detail] [json$json]",
+DEFPY(show_evpn_access_vlan, show_evpn_access_vlan_cmd,
+      "show evpn access-vlan [IFNAME$if_name (1-4094)$vid | detail$detail] [json$json]",
       SHOW_STR
       "EVPN\n"
       "Access VLANs\n"
       "VLAN ID\n"
-      "Detailed information\n"
-      JSON_STR)
+      "Detailed information\n" JSON_STR)
 {
 	bool uj = !!json;
 
-	if (vid) {
-		zebra_evpn_acc_vl_show_vid(vty, uj, vid);
+	if (if_name && vid) {
+		bool found = false;
+		struct vrf *vrf;
+		struct interface *ifp;
+
+		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+			if (if_name) {
+				ifp = if_lookup_by_name(if_name, vrf->vrf_id);
+				if (ifp) {
+					zebra_evpn_acc_vl_show_vid(vty, uj, vid,
+								   ifp);
+					found = true;
+					break;
+				}
+			}
+		}
+		if (!found) {
+			vty_out(vty, "%% Can't find interface %s\n", if_name);
+			return CMD_WARNING;
+		}
 	} else {
 		if (detail)
 			zebra_evpn_acc_vl_show_detail(vty, uj);
