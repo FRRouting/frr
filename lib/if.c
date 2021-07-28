@@ -278,7 +278,8 @@ void if_delete(struct interface **ifp)
 	struct interface *ptr = *ifp;
 	struct vrf *vrf = ptr->vrf;
 
-	IFNAME_RB_REMOVE(vrf, ptr);
+	if ((*ifp)->name[0] != '\0')
+		IFNAME_RB_REMOVE(vrf, ptr);
 	if (ptr->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_REMOVE(vrf, ptr);
 
