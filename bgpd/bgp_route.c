@@ -12156,12 +12156,11 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	enum bgp_show_type sh_type = bgp_show_type_normal;
+	void *output_arg = NULL;
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	int exact_match = 0;
 	char *community = NULL;
-	char *prefix_version = NULL;
-	char *bgp_community_alias = NULL;
 	bool first = true;
 	uint16_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
@@ -12235,13 +12234,13 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 	/* Display prefixes with matching version numbers */
 	if (argv_find(argv, argc, "version", &idx)) {
 		sh_type = bgp_show_type_prefix_version;
-		prefix_version = argv[idx + 1]->arg;
+		output_arg = argv[idx + 1]->arg;
 	}
 
 	/* Display prefixes with matching BGP community alias */
 	if (argv_find(argv, argc, "alias", &idx)) {
 		sh_type = bgp_show_type_community_alias;
-		bgp_community_alias = argv[idx + 1]->arg;
+		output_arg = argv[idx + 1]->arg;
 	}
 
 	if (!all) {
@@ -12250,17 +12249,10 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 			return bgp_show_community(vty, bgp, community,
 						  exact_match, afi, safi,
 						  show_flags);
-		else if (prefix_version)
-			return bgp_show(vty, bgp, afi, safi, sh_type,
-					prefix_version, show_flags,
-					rpki_target_state);
-		else if (bgp_community_alias)
-			return bgp_show(vty, bgp, afi, safi, sh_type,
-					bgp_community_alias, show_flags,
-					rpki_target_state);
 		else
-			return bgp_show(vty, bgp, afi, safi, sh_type, NULL,
-					show_flags, rpki_target_state);
+			return bgp_show(vty, bgp, afi, safi, sh_type,
+					output_arg, show_flags,
+					rpki_target_state);
 	} else {
 		/* show <ip> bgp ipv4 all: AFI_IP, show <ip> bgp ipv6 all:
 		 * AFI_IP6 */
@@ -12295,19 +12287,9 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 					bgp_show_community(vty, bgp, community,
 							   exact_match, afi,
 							   safi, show_flags);
-				else if (prefix_version)
-					return bgp_show(vty, bgp, afi, safi,
-							sh_type, prefix_version,
-							show_flags,
-							rpki_target_state);
-				else if (bgp_community_alias)
-					return bgp_show(
-						vty, bgp, afi, safi, sh_type,
-						bgp_community_alias, show_flags,
-						rpki_target_state);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
-						 NULL, show_flags,
+						 output_arg, show_flags,
 						 rpki_target_state);
 				if (uj)
 					vty_out(vty, "}\n");
@@ -12337,19 +12319,9 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 					bgp_show_community(vty, bgp, community,
 							   exact_match, afi,
 							   safi, show_flags);
-				else if (prefix_version)
-					return bgp_show(vty, bgp, afi, safi,
-							sh_type, prefix_version,
-							show_flags,
-							rpki_target_state);
-				else if (bgp_community_alias)
-					return bgp_show(
-						vty, bgp, afi, safi, sh_type,
-						bgp_community_alias, show_flags,
-						rpki_target_state);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
-						 NULL, show_flags,
+						 output_arg, show_flags,
 						 rpki_target_state);
 				if (uj)
 					vty_out(vty, "}\n");
