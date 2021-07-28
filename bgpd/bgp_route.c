@@ -222,7 +222,10 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 
 	e = *extra;
 
+	if (e->damp_info)
+		bgp_damp_info_free(e->damp_info, 0);
 	e->damp_info = NULL;
+
 	if (e->parent) {
 		struct bgp_path_info *bpi = (struct bgp_path_info *)e->parent;
 
