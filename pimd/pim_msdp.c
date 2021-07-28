@@ -1217,6 +1217,7 @@ void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg **mgp)
 	if ((*mgp)->mbr_list)
 		list_delete(&(*mgp)->mbr_list);
 
+	SLIST_REMOVE(&pim->msdp.mglist, (*mgp), pim_msdp_mg, mg_entry);
 	XFREE(MTYPE_PIM_MSDP_MG, (*mgp));
 }
 
