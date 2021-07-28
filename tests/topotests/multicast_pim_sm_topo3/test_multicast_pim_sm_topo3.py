@@ -2014,7 +2014,7 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
 
     intf_l1_i1 = topo["routers"]["l1"]["links"]["i1"]["interface"]
     input_dict_1 = {
-        "l1": {"igmp": {"interfaces": {intf_l1_i1: {"igmp": {"version": "2"}}}}}
+        "l1": {"igmp": {"interfaces": {intf_l1_i1: {"igmp": {"version": "2", "query": {"query-max-response-time": 40, "query-interval": 5}}}}}}
     }
 
     result = verify_igmp_config(tgen, input_dict_1)

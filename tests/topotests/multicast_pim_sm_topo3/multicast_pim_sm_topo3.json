@@ -13,10 +13,12 @@
                 "r2": {"ipv4": "auto", "pim": "enable"},
                 "c1": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "igmp": {
                 "interfaces": {
                     "l1-i1-eth1" :{
                         "igmp":{
+                            "query": {"query-max-response-time": 40, "query-interval": 5},
                             "version":  "2"
                         }
                     }
@@ -38,6 +40,7 @@
                 "f1": {"ipv4": "auto", "pim": "enable"},
                 "i3": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["10.0.5.0/24", "10.0.6.0/24", "1.0.2.2/32", "10.0.1.0/24", "1.0.3.5/32"],
                 "next_hop": "10.0.7.1"
@@ -55,6 +58,7 @@
                 "i2": {"ipv4": "auto", "pim": "enable"},
                 "i8": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["1.0.5.17/32", "10.0.8.0/24", "10.0.9.0/24", "10.0.10.0/24", "10.0.11.0/24", "10.0.12.0/24"],
                 "next_hop": "10.0.7.2"
@@ -71,6 +75,7 @@
                 "l1": {"ipv4": "auto", "pim": "enable"},
                 "i4": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["1.0.5.17/32", "10.0.6.0/24", "10.0.8.0/24", "10.0.9.0/24", "10.0.10.0/24", "10.0.11.0/24"],
                 "next_hop": "10.0.2.2"
@@ -87,6 +92,7 @@
                 "f1": {"ipv4": "auto", "pim": "enable"},
                 "i5": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["1.0.5.17/32", "10.0.5.0/24", "10.0.6.0/24", "10.0.7.0/24", "10.0.8.0/24", "10.0.9.0/24", "10.0.10.0/24", "10.0.11.0/24"],
                 "next_hop": "10.0.3.2"
