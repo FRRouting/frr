@@ -153,6 +153,9 @@ from lib.pim import (
     clear_ip_mroute_verify,
 )
 
+pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
+
+
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/multicast_pim_static_rp.json".format(CWD)
 try:

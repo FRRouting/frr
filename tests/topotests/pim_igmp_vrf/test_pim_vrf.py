@@ -111,7 +111,7 @@ from lib.common_config import (
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
-pytestmark = [pytest.mark.pimd]
+pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
 
 
 #
