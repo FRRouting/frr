@@ -18290,7 +18290,7 @@ static struct cmd_node bgp_ipv4_labeled_unicast_node = {
 };
 
 static struct cmd_node bgp_ipv6_unicast_node = {
-	.name = "bgp ipv6",
+	.name = "bgp ipv6 unicast",
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
