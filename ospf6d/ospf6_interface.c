@@ -509,7 +509,8 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 
 		if (oi->state == OSPF6_INTERFACE_LOOPBACK
 		    || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT
-		    || oi->state == OSPF6_INTERFACE_POINTTOPOINT) {
+		    || oi->state == OSPF6_INTERFACE_POINTTOPOINT
+		    || c->address->prefixlen == 128) {
 			struct ospf6_route *la_route;
 
 			la_route = ospf6_route_create(oi->area->ospf6);
@@ -527,6 +528,8 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			ospf6_route_add(la_route, oi->route_connected);
 		}
 
+		if (c->address->prefixlen == 128)
+			continue;
 		if (oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT
 		    && !oi->p2xp_connected_pfx_include)
 			continue;
