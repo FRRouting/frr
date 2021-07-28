@@ -45,6 +45,8 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.nhrpd]
+
 
 class NHRPTopo(Topo):
     "Test topology builder"
@@ -115,7 +117,7 @@ def setup_module(mod):
             )
 
     # Initialize all routers.
-    logger.info('Launching BGP, NHRP')
+    logger.info('Launching NHRP')
     for name in router_list:
         router = tgen.gears[name]
         router.start()
