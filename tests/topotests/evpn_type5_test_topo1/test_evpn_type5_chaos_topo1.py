@@ -85,6 +85,9 @@ from lib.bgp import (
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/evpn_type5_chaos_topo1.json".format(CWD)
 try:
