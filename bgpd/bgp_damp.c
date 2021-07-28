@@ -24,72 +24,32 @@
 
 static void bgp_reuselist_add(struct reuselist *list, struct bgp_damp_info *info)
 {
-	struct reuselist_node *new_node;
-
 	assert(info);
-	new_node = XCALLOC(MTYPE_BGP_DAMP_REUSELIST, sizeof(*new_node));
-	new_node->info = info;
-	SLIST_INSERT_HEAD(list, new_node, entry);
+	SLIST_INSERT_HEAD(list, info, entry);
 }
 
-static void bgp_reuselist_del(struct reuselist *list,
-			      struct reuselist_node **node)
+static void bgp_reuselist_del(struct reuselist *list, struct bgp_damp_info *info)
 {
-	if ((*node) == NULL)
-		return;
-	assert(list && node && *node);
-	SLIST_REMOVE(list, (*node), reuselist_node, entry);
-	XFREE(MTYPE_BGP_DAMP_REUSELIST, (*node));
-	*node = NULL;
+	assert(info);
+	SLIST_REMOVE(list, info, bgp_damp_info, entry);
 }
 
 static void bgp_reuselist_switch(struct reuselist *source,
-				 struct reuselist_node *node,
+				 struct bgp_damp_info *info,
 				 struct reuselist *target)
 {
-	assert(source && target && node);
-	SLIST_REMOVE(source, node, reuselist_node, entry);
-	SLIST_INSERT_HEAD(target, node, entry);
-}
-
-static void bgp_reuselist_free(struct reuselist *list)
-{
-	struct reuselist_node *rn;
-
-	assert(list);
-	while ((rn = SLIST_FIRST(list)) != NULL)
-		bgp_reuselist_del(list, &rn);
-}
-
-static struct reuselist_node *bgp_reuselist_find(struct reuselist *list,
-						 struct bgp_damp_info *info)
-{
-	struct reuselist_node *rn;
-
-	assert(list && info);
-	SLIST_FOREACH (rn, list, entry) {
-		if (rn->info == info)
-			return rn;
-	}
-	return NULL;
+	assert(source && target && info);
+	SLIST_REMOVE(source, info, bgp_damp_info, entry);
+	SLIST_INSERT_HEAD(target, info, entry);
 }
 
 static void bgp_damp_info_unclaim(struct bgp_damp_info *bdi)
 {
-	struct reuselist_node *node;
-
 	assert(bdi && bdi->config);
-	if (bdi->index == BGP_DAMP_NO_REUSE_LIST_INDEX) {
-		node = bgp_reuselist_find(&bdi->config->no_reuse_list, bdi);
-		if (node)
-			bgp_reuselist_del(&bdi->config->no_reuse_list, &node);
-	} else {
-		node = bgp_reuselist_find(&bdi->config->reuse_list[bdi->index],
-					  bdi);
-		if (node)
-			bgp_reuselist_del(&bdi->config->reuse_list[bdi->index],
-					  &node);
-	}
+	if (bdi->index == BGP_DAMP_NO_REUSE_LIST_INDEX)
+		bgp_reuselist_del(&bdi->config->no_reuse_list, bdi);
+	else
+		bgp_reuselist_del(&bdi->config->reuse_list[bdi->index], bdi);
 	bdi->config = NULL;
 }
 
@@ -170,19 +130,9 @@ static void bgp_no_reuse_list_add(struct bgp_damp_info *bdi,
 	bgp_reuselist_add(&bdc->no_reuse_list, bdi);
 }
 
-static void bgp_no_reuse_list_delete(struct bgp_damp_info *bdi,
-				     struct bgp_damp_config *bdc)
+static void bgp_no_reuse_list_delete(struct bgp_damp_info *bdi)
 {
-	struct reuselist_node *rn;
-
-	assert(bdc && bdi);
-	if (bdi->config == NULL) {
-		bgp_damp_info_unclaim(bdi);
-		return;
-	}
-	bdi->config = NULL;
-	rn = bgp_reuselist_find(&bdc->no_reuse_list, bdi);
-	bgp_reuselist_del(&bdc->no_reuse_list, &rn);
+	bgp_damp_info_unclaim(bdi);
 }
 
 /* Return decayed penalty value.  */
@@ -207,7 +157,6 @@ static void bgp_reuse_timer(struct event *t)
 {
 	struct bgp_damp_info *bdi;
 	struct reuselist plist;
-	struct reuselist_node *node;
 	struct bgp *bgp;
 	time_t t_now, t_diff;
 	struct bgp_damp_config *bdc = EVENT_ARG(t);
@@ -230,8 +179,7 @@ static void bgp_reuse_timer(struct event *t)
 	assert(bdc->reuse_offset < bdc->reuse_list_size);
 
 	/* 3. if ( the saved list head pointer is non-empty ) */
-	while ((node = SLIST_FIRST(&plist)) != NULL) {
-		bdi = node->info;
+	while ((bdi = SLIST_FIRST(&plist)) != NULL) {
 		bgp = bdi->path->peer->bgp;
 
 		/* Set t-diff = t-now - t-updated.  */
@@ -262,20 +210,19 @@ static void bgp_reuse_timer(struct event *t)
 			}
 
 			if (bdi->penalty <= bdc->reuse_limit / 2.0) {
+				bgp_reuselist_del(&plist, bdi);
 				bgp_damp_info_free(bdi, bdc, 1, bdi->afi,
 						   bdi->safi);
-				bgp_reuselist_del(&plist, &node);
 			} else {
-				node->info->index =
-					BGP_DAMP_NO_REUSE_LIST_INDEX;
-				bgp_reuselist_switch(&plist, node,
+				bdi->index = BGP_DAMP_NO_REUSE_LIST_INDEX;
+				bgp_reuselist_switch(&plist, bdi,
 						     &bdc->no_reuse_list);
 			}
 		} else {
 			/* Re-insert into another list (See RFC2439 Section
 			 * 4.8.6).  */
 			bdi->index = bgp_reuse_index(bdi->penalty, bdc);
-			bgp_reuselist_switch(&plist, node,
+			bgp_reuselist_switch(&plist, bdi,
 					     &bdc->reuse_list[bdi->index]);
 		}
 	}
@@ -369,7 +316,7 @@ int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 	if (bdi->penalty >= bdc->suppress_value) {
 		bgp_path_info_set_flag(dest, path, BGP_PATH_DAMPED);
 		bdi->suppress_time = t_now;
-		bgp_no_reuse_list_delete(bdi, bdc);
+		bgp_no_reuse_list_delete(bdi);
 		bgp_reuse_list_add(bdi, bdc);
 	}
 	return BGP_DAMP_USED;
@@ -536,15 +483,13 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 			 afi_t afi, safi_t safi)
 {
 	struct bgp_damp_info *bdi;
-	struct reuselist_node *rn;
 	struct reuselist *list;
 	unsigned int i;
 
 	bdc->reuse_offset = 0;
 	for (i = 0; i < bdc->reuse_list_size; ++i) {
 		list = &bdc->reuse_list[i];
-		while ((rn = SLIST_FIRST(list)) != NULL) {
-			bdi = rn->info;
+		while ((bdi = SLIST_FIRST(list)) != NULL) {
 			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
 				bgp_aggregate_increment(bgp,
 							bgp_dest_get_prefix(
@@ -554,14 +499,13 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 				bgp_process(bgp, bdi->dest, bdi->path, bdi->afi,
 					    bdi->safi);
 			}
-			bgp_reuselist_del(list, &rn);
+			bgp_reuselist_del(list, bdi);
 			bgp_damp_info_free(bdi, bdc, 1, afi, safi);
 		}
 	}
 
-	while ((rn = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
-		bdi = rn->info;
-		bgp_reuselist_del(&bdc->no_reuse_list, &rn);
+	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
+		bgp_reuselist_del(&bdc->no_reuse_list, bdi);
 		bgp_damp_info_free(bdi, bdc, 1, afi, safi);
 	}
 
@@ -572,10 +516,6 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 	/* Free reuse index array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, bdc->reuse_index);
 	bdc->reuse_index_size = 0;
-
-	/* Free reuse list array. */
-	for (i = 0; i < bdc->reuse_list_size; ++i)
-		bgp_reuselist_free(&bdc->reuse_list[i]);
 
 	XFREE(MTYPE_BGP_DAMP_ARRAY, bdc->reuse_list);
 	bdc->reuse_list_size = 0;
