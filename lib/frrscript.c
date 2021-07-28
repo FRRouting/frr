@@ -276,7 +276,7 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 
 	if (snprintf(script_name, sizeof(script_name), "%s/%s.lua", scriptdir,
 		     fs->name)
-	    < 0) {
+	    >= (int)sizeof(script_name)) {
 		zlog_err("frrscript: path to script %s/%s.lua is too long",
 			 scriptdir, fs->name);
 		goto fail;
