@@ -81,6 +81,10 @@ from functools import partial
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
 
+
+pytestmark = [pytest.mark.bgpd]
+
+
 fatal_error = ""
 
 

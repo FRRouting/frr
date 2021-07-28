@@ -77,6 +77,9 @@ from lib.common_config import (
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd]
+
+
 #Global variables
 PES = ['PE1', 'PE2']
 HOSTS = ['host1', 'host2']
