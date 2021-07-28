@@ -139,6 +139,8 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd]
+
 
 class BgpConditionalAdvertisementTopo(Topo):
     def build(self, *_args, **_opts):

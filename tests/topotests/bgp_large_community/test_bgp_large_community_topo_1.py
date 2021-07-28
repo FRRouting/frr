@@ -73,6 +73,9 @@ from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+pytestmark = [pytest.mark.bgpd]
+
+
 # Save the Current Working Directory to find configuration files.
 CWD = os_path.dirname(os_path.realpath(__file__))
 sys.path.append(os_path.join(CWD, "../"))

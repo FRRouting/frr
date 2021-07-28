@@ -40,6 +40,9 @@ from lib.topolog import logger
 from mininet.topo import Topo
 
 
+pytestmark = [pytest.mark.bgpd]
+
+
 class TemplateTopo(Topo):
     def build(self, *_args, **_opts):
         tgen = get_topogen(self)

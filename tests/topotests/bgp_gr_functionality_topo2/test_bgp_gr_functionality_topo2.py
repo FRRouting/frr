@@ -138,6 +138,9 @@ from lib.common_config import (
     required_linux_kernel_version,
 )
 
+pytestmark = [pytest.mark.bgpd]
+
+
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/bgp_gr_topojson_topo2.json".format(CWD)
 try:

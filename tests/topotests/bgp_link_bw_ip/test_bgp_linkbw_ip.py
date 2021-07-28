@@ -46,6 +46,9 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd]
+
+
 """
 This topology is for validating one of the primary use cases for
 weighted ECMP (a.k.a. Unequal cost multipath) using BGP link-bandwidth:

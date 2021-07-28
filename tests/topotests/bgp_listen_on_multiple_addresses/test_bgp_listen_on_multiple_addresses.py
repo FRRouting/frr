@@ -55,6 +55,8 @@ from lib.topotest import router_json_cmp, run_and_expect
 from mininet.topo import Topo
 from functools import partial
 
+pytestmark = [pytest.mark.bgpd]
+
 
 LISTEN_ADDRESSES = {
     "r1": ["10.0.0.1"],

@@ -46,6 +46,7 @@ from lib.topolog import logger
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd]
 
 class BGPEVPNTopo(Topo):
     "Test topology builder"

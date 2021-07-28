@@ -47,6 +47,8 @@ from lib.common_config import required_linux_kernel_version
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd]
+
 
 class BGPIPV6RTADVVRFTopo(Topo):
     "Test topology builder"
