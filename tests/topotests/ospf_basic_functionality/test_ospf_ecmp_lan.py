@@ -70,6 +70,9 @@ from lib.ospf import (
 )
 from ipaddress import IPv4Address
 
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+
+
 # Global variables
 topo = None
 # Reading the data from JSON File for topology creation

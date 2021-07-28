@@ -65,6 +65,9 @@ from lib.ospf import (
     redistribute_ospf,
 )
 
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+
+
 # Global variables
 topo = None
 # Reading the data from JSON File for topology creation

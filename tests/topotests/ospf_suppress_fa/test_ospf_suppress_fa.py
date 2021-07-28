@@ -50,6 +50,8 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.ospfd]
+
 
 class NetworkTopo(Topo):
     "OSPF topology builder"

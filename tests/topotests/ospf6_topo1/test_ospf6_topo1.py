@@ -91,6 +91,9 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 import platform
 
+pytestmark = [pytest.mark.ospfd]
+
+
 #####################################################
 ##
 ##   Network Topology Definition
