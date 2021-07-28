@@ -457,7 +457,7 @@ add the mapping in the following macros in ``frrscript.h``:
    - struct peer * : lua_pushpeer \
    + struct peer * : lua_pushpeer, \
    + struct prefix * : lua_pushprefix \
-     )(L, value)
+     )((L), (value))
 
      #define DECODE_ARGS_WITH_STATE(L, value) \
           _Generic((value), \
@@ -465,7 +465,7 @@ add the mapping in the following macros in ``frrscript.h``:
    - struct peer * : lua_decode_peer \
    + struct peer * : lua_decode_peer, \
    + struct prefix * : lua_decode_prefix \
-     )(L, -1, value)
+     )((L), -1, (value))
 
 
 At compile time, the compiler will search for encoders/decoders for the type of
