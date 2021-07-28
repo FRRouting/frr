@@ -229,6 +229,7 @@ static int bgp_reuse_timer(struct thread *t)
 
 			if (bdi->penalty <= bdc->reuse_limit / 2.0) {
 <<<<<<< HEAD
+<<<<<<< HEAD
 				bgp_damp_info_free(&bdi, bdc, 1, bdi->afi,
 =======
 				bgp_reuselist_del(&plist, bdi);
@@ -237,6 +238,8 @@ static int bgp_reuse_timer(struct thread *t)
 >>>>>>> 5054cfcbb (bgpd: fix incorrect usage of slist in dampening)
 						   bdi->safi);
 =======
+=======
+>>>>>>> 755a977b8 (bgpd: fix missing delete from the list in dampening)
 				bgp_damp_info_free(bdi, 1);
 >>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 			} else {
@@ -379,6 +382,7 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 
 	if (bdi->penalty > bdc->reuse_limit / 2.0)
 		bdi->t_updated = t_now;
+<<<<<<< HEAD
 	else {
 		bgp_damp_info_unclaim(bdi);
 <<<<<<< HEAD
@@ -387,6 +391,10 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 		bgp_damp_info_free(bdi, 0);
 >>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 	}
+=======
+	else
+		bgp_damp_info_free(bdi, 0);
+>>>>>>> 755a977b8 (bgpd: fix missing delete from the list in dampening)
 
 	return status;
 }
@@ -408,12 +416,17 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
 	assert(bdi);
 >>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 
+<<<<<<< HEAD
 	(*bdi)->path->extra->damp_info = NULL;
 	bgp_path_info_unset_flag((*bdi)->dest, (*bdi)->path,
 				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 	if ((*bdi)->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
 		bgp_path_info_delete((*bdi)->dest, (*bdi)->path);
 =======
+=======
+	bgp_damp_info_unclaim(bdi);
+
+>>>>>>> 755a977b8 (bgpd: fix missing delete from the list in dampening)
 	bdi->path->extra->damp_info = NULL;
 	bgp_path_info_unset_flag(bdi->dest, bdi->path,
 				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
@@ -533,6 +546,7 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 					    bdi->safi);
 			}
 <<<<<<< HEAD
+<<<<<<< HEAD
 			bgp_reuselist_del(list, &rn);
 			bgp_damp_info_free(&bdi, bdc, 1, afi, safi);
 		}
@@ -544,10 +558,13 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 		bgp_damp_info_free(&bdi, bdc, 1, afi, safi);
 =======
 			bgp_reuselist_del(list, bdi);
+=======
+>>>>>>> 755a977b8 (bgpd: fix missing delete from the list in dampening)
 			bgp_damp_info_free(bdi, 1);
 		}
 	}
 
+<<<<<<< HEAD
 	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
 		bgp_reuselist_del(&bdc->no_reuse_list, bdi);
 <<<<<<< HEAD
@@ -557,6 +574,10 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 		bgp_damp_info_free(bdi, 1);
 >>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 	}
+=======
+	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL)
+		bgp_damp_info_free(bdi, 1);
+>>>>>>> 755a977b8 (bgpd: fix missing delete from the list in dampening)
 
 	/* Free decay array */
 	XFREE(MTYPE_BGP_DAMP_ARRAY, bdc->decay_array);
