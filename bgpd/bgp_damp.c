@@ -388,6 +388,7 @@ void bgp_damp_info_free(struct bgp_damp_info **bdi, struct bgp_damp_config *bdc,
 {
 	assert(bdc && bdi && *bdi);
 
+<<<<<<< HEAD
 	if ((*bdi)->path == NULL) {
 		XFREE(MTYPE_BGP_DAMP_INFO, (*bdi));
 		return;
@@ -398,6 +399,15 @@ void bgp_damp_info_free(struct bgp_damp_info **bdi, struct bgp_damp_config *bdc,
 				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 	if ((*bdi)->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
 		bgp_path_info_delete((*bdi)->dest, (*bdi)->path);
+=======
+	bdi->path->extra->damp_info = NULL;
+	bgp_path_info_unset_flag(bdi->dest, bdi->path,
+				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
+	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
+		bgp_path_info_delete(bdi->dest, bdi->path);
+
+	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
+>>>>>>> 322e1085f (bgpd: fix memory leak in dampening)
 }
 
 static void bgp_damp_parameter_set(int hlife, int reuse, int sup, int maxsup,
