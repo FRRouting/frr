@@ -11997,22 +11997,28 @@ DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
 	return ret;
 }
 
-/* BGP route print out function without JSON */
-DEFPY(show_ip_bgp, show_ip_bgp_cmd,
+DEFPY(show_ip_bgp_dampening_params, show_ip_bgp_dampening_params_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
       " [" BGP_SAFI_WITH_LABEL_CMD_STR
-      "]] [all$all] dampening parameters",
+      "]] [all$all] dampening parameters [json]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
       "Display detailed information about dampening\n"
-      "Display detail of configured dampening parameters\n")
+      "Display detail of configured dampening parameters\n"
+      JSON_STR)
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	uint16_t show_flags = 0;
+	bool uj = use_json(argc, argv);
+
+	if (uj) {
+		argc--;
+		SET_FLAG(show_flags, BGP_SHOW_OPT_JSON);
+	}
 
 	/* [<ipv4|ipv6> [all]] */
 	if (all) {
@@ -12029,17 +12035,11 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	if (!idx)
 		return CMD_WARNING;
 
-	if (argv_find(argv, argc, "dampening", &idx)) {
-		if (argv_find(argv, argc, "parameters", &idx))
-			return bgp_show_dampening_parameters(vty, afi, safi,
-							     show_flags);
-	}
-
-	return CMD_WARNING;
+	return bgp_show_dampening_parameters(vty, afi, safi, show_flags);
 }
 
-/* BGP route print out function with JSON */
-DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
+/* BGP route print out function */
+DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
       " [" BGP_SAFI_WITH_LABEL_CMD_STR
       "]]\
@@ -15026,10 +15026,10 @@ void bgp_route_init(void)
 	install_element(BGP_IPV4L_NODE, &aggregate_addressv4_cmd);
 
 	install_element(VIEW_NODE, &show_ip_bgp_instance_all_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_afi_safi_statistics_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_l2vpn_evpn_statistics_cmd);
-	install_element(VIEW_NODE, &show_ip_bgp_json_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_dampening_params_cmd);
+	install_element(VIEW_NODE, &show_ip_bgp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_route_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_regexp_cmd);
 	install_element(VIEW_NODE, &show_ip_bgp_statistics_all_cmd);

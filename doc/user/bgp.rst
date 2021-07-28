@@ -3553,6 +3553,13 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Display flap statistics of routes of the selected afi and safi selected.
 
+.. clicmd:: show bgp [afi] [safi] [all] dampening parameters [json]
+
+   Display details of configured dampening parameters of the selected afi and
+   safi.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. clicmd:: show bgp [afi] [safi] [all] version (1-4294967295) [wide|json]
 
    Display prefixes with matching version numbers. The version number and
