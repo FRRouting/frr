@@ -13,10 +13,12 @@
                 "r2": {"ipv4": "auto", "pim": "enable"},
                 "c1": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "igmp": {
                 "interfaces": {
                     "l1-i1-eth1" :{
                         "igmp":{
+                            "query": {"query-max-response-time": 40, "query-interval": 5},
                             "version":  "2"
                         }
                     }
@@ -40,6 +42,7 @@
                 "f1": {"ipv4": "auto", "pim": "enable"},
                 "i3": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["10.0.4.0/24","10.0.3.1/24"],
                 "next_hop": "10.0.7.1"
@@ -57,6 +60,7 @@
                 "i2": {"ipv4": "auto", "pim": "enable"},
                 "i8": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["10.0.4.0/24","10.0.3.1/24"],
                 "next_hop": "10.0.3.1"
@@ -73,6 +77,7 @@
                 "l1": {"ipv4": "auto", "pim": "enable"},
                 "i4": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [{
                 "network": ["1.0.4.11/32","10.0.4.2/24", "10.0.3.1/24"],
                 "next_hop": "10.0.2.2"
@@ -87,6 +92,7 @@
                 "f1": {"ipv4": "auto", "pim": "enable"},
                 "i5": {"ipv4": "auto", "pim": "enable"}
             },
+            "pim": { "join-prune-interval": "5", "keep-alive-timer": 15, "register-suppress-time": 12 },
             "static_routes": [
             {
                 "network": ["1.0.4.11/32", "10.0.2.1/24", "10.0.1.2/24"],
