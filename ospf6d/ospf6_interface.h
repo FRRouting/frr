@@ -234,6 +234,10 @@ ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
 extern struct ospf6_interface *ospf6_interface_create(struct interface *ifp);
 extern void ospf6_interface_delete(struct ospf6_interface *oi);
 
+/* "basic" interface = used for virtual links */
+extern struct ospf6_interface *ospf6_interface_basic_create(struct interface *);
+extern void ospf6_interface_basic_delete(struct ospf6_interface *oi);
+
 extern void ospf6_interface_enable(struct ospf6_interface *oi);
 extern void ospf6_interface_disable(struct ospf6_interface *oi);
 

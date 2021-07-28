@@ -199,10 +199,9 @@ static void ospf6_interface_recalculate_cost(struct ospf6_interface *oi)
 }
 
 /* Create new ospf6 interface structure */
-struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
+struct ospf6_interface *ospf6_interface_basic_create(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
-	unsigned int iobuflen;
 
 	oi = XCALLOC(MTYPE_OSPF6_IF, sizeof(struct ospf6_interface));
 
@@ -225,6 +224,22 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	oi->mtu_ignore = 0;
 	oi->c_ifmtu = 0;
 
+	oi->route_connected =
+		OSPF6_ROUTE_TABLE_CREATE(INTERFACE, CONNECTED_ROUTES);
+	oi->route_connected->scope = oi;
+
+	/* link both */
+	oi->interface = ifp;
+	ifp->info = oi;
+
+	return oi;
+}
+
+struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
+{
+	struct ospf6_interface *oi = ospf6_interface_basic_create(ifp);
+	unsigned int iobuflen;
+
 	/* Try to adjust I/O buffer size with IfMtu */
 	oi->ifmtu = ifp->mtu6;
 	iobuflen = ospf6_iobuf_size(ifp->mtu6);
@@ -245,14 +260,6 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 	oi->lsdb->hook_remove = ospf6_interface_lsdb_hook_remove;
 	oi->lsdb_self = ospf6_lsdb_create(oi);
 
-	oi->route_connected =
-		OSPF6_ROUTE_TABLE_CREATE(INTERFACE, CONNECTED_ROUTES);
-	oi->route_connected->scope = oi;
-
-	/* link both */
-	oi->interface = ifp;
-	ifp->info = oi;
-
 	/* Compute cost. */
 	oi->cost = ospf6_interface_get_cost(oi);
 
@@ -263,17 +270,7 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 
 void ospf6_interface_delete(struct ospf6_interface *oi)
 {
-	struct listnode *node, *nnode;
-	struct ospf6_neighbor *on;
-
 	QOBJ_UNREG(oi);
-
-	ospf6_fifo_free(oi->obuf);
-
-	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
-		ospf6_neighbor_delete(on);
-
-	list_delete(&oi->neighbor_list);
 
 	THREAD_OFF(oi->thread_send_hello);
 	THREAD_OFF(oi->thread_send_lsupdate);
@@ -291,7 +288,22 @@ void ospf6_interface_delete(struct ospf6_interface *oi)
 	ospf6_lsdb_delete(oi->lsupdate_list);
 	ospf6_lsdb_delete(oi->lsack_list);
 
+	ospf6_interface_basic_delete(oi);
+}
+
+void ospf6_interface_basic_delete(struct ospf6_interface *oi)
+{
+	struct listnode *node, *nnode;
+	struct ospf6_neighbor *on;
+
 	ospf6_route_table_delete(oi->route_connected);
+
+	for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on))
+		ospf6_neighbor_delete(on);
+
+	list_delete(&oi->neighbor_list);
+
+	ospf6_fifo_free(oi->obuf);
 
 	/* cut link */
 	oi->interface->info = NULL;
