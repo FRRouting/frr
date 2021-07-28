@@ -22,6 +22,7 @@
 #define _QUAGGA_BGP_DAMP_H
 
 #include "bgpd/bgp_table.h"
+#include "lib/typesafe.h"
 
 /* Structure maintained on a per-route basis. */
 struct bgp_damp_info {
@@ -64,11 +65,12 @@ struct bgp_damp_info {
 };
 
 struct reuselist_node {
-	SLIST_ENTRY(reuselist_node) entry;
+	RB_ENTRY(reuselist_node) entry;
 	struct bgp_damp_info *info;
 };
 
-SLIST_HEAD(reuselist, reuselist_node);
+RB_HEAD(reuselist, reuselist_node);
+RB_PROTOTYPE(reuselist, reuselist_node, entry, bgp_damp_info_compare);
 
 /* Specified parameter set configuration. */
 struct bgp_damp_config {
@@ -148,7 +150,7 @@ extern int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 			     afi_t afi, safi_t safi, int attr_change);
 extern int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 			   afi_t afi, safi_t saff);
-extern void bgp_damp_info_free(struct bgp_damp_info **path,
+extern void bgp_damp_info_free(struct bgp_damp_info *path,
 			       struct bgp_damp_config *bdc, int withdraw,
 			       afi_t afi, safi_t safi);
 extern void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
