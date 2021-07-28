@@ -12342,6 +12342,11 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 							sh_type, prefix_version,
 							show_flags,
 							rpki_target_state);
+				else if (bgp_community_alias)
+					return bgp_show(
+						vty, bgp, afi, safi, sh_type,
+						bgp_community_alias, show_flags,
+						rpki_target_state);
 				else
 					bgp_show(vty, bgp, afi, safi, sh_type,
 						 NULL, show_flags,
