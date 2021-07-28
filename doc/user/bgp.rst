@@ -3623,9 +3623,9 @@ attribute.
    community are displayed. When `exact-match` is specified, it display only
    routes that have an exact match.
 
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD
+.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD [json]
 
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD exact-match
+.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD exact-match [json]
 
    These commands display BGP routes for the address family specified that
    match the specified community list. When `exact-match` is specified, it

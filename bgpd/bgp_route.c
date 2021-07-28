@@ -10644,9 +10644,6 @@ static int bgp_show_filter_list(struct vty *vty, struct bgp *bgp,
 static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
 			      const char *rmap_str, afi_t afi, safi_t safi,
 			      enum bgp_show_type type);
-static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
-				   const char *com, int exact, afi_t afi,
-				   safi_t safi);
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 				  const char *prefix, afi_t afi, safi_t safi,
 				  enum bgp_show_type type);
@@ -12021,7 +12018,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
            |route-map WORD\
            |prefix-list WORD\
            |filter-list AS_PATH_FILTER_NAME\
-           |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
          >",
@@ -12036,10 +12032,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "Prefix-list name\n"
       "Display routes conforming to the filter-list\n"
       "Regular expression access list name\n"
-      "Display routes matching the community-list\n"
-      "community-list number\n"
-      "community-list name\n"
-      "Exact match of the communities\n"
       "IPv4 prefix\n"
       "Display route and more specific routes\n"
       "IPv6 prefix\n"
@@ -12047,7 +12039,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
-	int exact_match = 0;
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	uint16_t show_flags = 0;
@@ -12085,13 +12076,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 		return bgp_show_route_map(vty, bgp, argv[idx + 1]->arg, afi,
 					  safi, bgp_show_type_route_map);
 
-	if (argv_find(argv, argc, "community-list", &idx)) {
-		const char *clist_number_or_name = argv[++idx]->arg;
-		if (++idx < argc && strmatch(argv[idx]->text, "exact-match"))
-			exact_match = 1;
-		return bgp_show_community_list(vty, bgp, clist_number_or_name,
-					       exact_match, afi, safi);
-	}
 	/* prefix-longer */
 	if (argv_find(argv, argc, "A.B.C.D/M", &idx)
 	    || argv_find(argv, argc, "X:X::X:X/M", &idx))
@@ -12115,6 +12099,7 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
                      |accept-own|accept-own-nexthop|route-filter-v6\
                      |route-filter-v4|route-filter-translated-v6\
                      |route-filter-translated-v4] [exact-match]\
+          |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
           |alias ALIAS_NAME\
@@ -12141,6 +12126,10 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
       "RT VPNv4 route filtering (well-known community)\n"
       "RT translated VPNv6 route filtering (well-known community)\n"
       "RT translated VPNv4 route filtering (well-known community)\n"
+      "Exact match of the communities\n"
+      "Community-list number\n"
+      "Community-list name\n"
+      "Display routes matching the community-list\n"
       "Exact match of the communities\n"
       "RPKI route types\n"
       "A valid path as determined by rpki\n"
@@ -12221,6 +12210,29 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 
 		if (!community)
 			sh_type = bgp_show_type_community_all;
+	}
+
+	if (argv_find(argv, argc, "community-list", &idx)) {
+		const char *clist_number_or_name = argv[++idx]->arg;
+		struct community_list *list;
+
+		if (argv_find(argv, argc, "exact-match", &idx))
+			exact_match = 1;
+
+		list = community_list_lookup(bgp_clist, clist_number_or_name, 0,
+					     COMMUNITY_LIST_MASTER);
+		if (list == NULL) {
+			vty_out(vty,
+				"%% %s is not a valid community-list name\n",
+				clist_number_or_name);
+			return CMD_WARNING;
+		}
+
+		if (exact_match)
+			sh_type = bgp_show_type_community_list_exact;
+		else
+			sh_type = bgp_show_type_community_list;
+		output_arg = list;
 	}
 
 	if (argv_find(argv, argc, "rpki", &idx)) {
@@ -12582,25 +12594,6 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 	community_free(&com);
 
 	return ret;
-}
-
-static int bgp_show_community_list(struct vty *vty, struct bgp *bgp,
-				   const char *com, int exact, afi_t afi,
-				   safi_t safi)
-{
-	struct community_list *list;
-	uint16_t show_flags = 0;
-
-	list = community_list_lookup(bgp_clist, com, 0, COMMUNITY_LIST_MASTER);
-	if (list == NULL) {
-		vty_out(vty, "%% %s is not a valid community-list name\n", com);
-		return CMD_WARNING;
-	}
-
-	return bgp_show(vty, bgp, afi, safi,
-			(exact ? bgp_show_type_community_list_exact
-			       : bgp_show_type_community_list),
-			list, show_flags, RPKI_NOT_BEING_USED);
 }
 
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
