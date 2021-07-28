@@ -157,16 +157,9 @@ static void bgp_reuse_list_add(struct bgp_damp_info *bdi,
 }
 
 /* Delete BGP dampening information from reuse list.  */
-static void bgp_reuse_list_delete(struct bgp_damp_info *bdi,
-				  struct bgp_damp_config *bdc)
+static void bgp_reuse_list_delete(struct bgp_damp_info *bdi)
 {
-	struct reuselist *list;
-	struct reuselist_node *rn;
-
-	list = &bdc->reuse_list[bdi->index];
-	rn = bgp_reuselist_find(list, bdi);
 	bgp_damp_info_unclaim(bdi);
-	bgp_reuselist_del(list, &rn);
 }
 
 static void bgp_no_reuse_list_add(struct bgp_damp_info *bdi,
@@ -358,7 +351,7 @@ int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 	if (CHECK_FLAG(bdi->path->flags, BGP_PATH_DAMPED)) {
 		/* If decay rate isn't equal to 0, reinsert brn. */
 		if (bdi->penalty != last_penalty) {
-			bgp_reuse_list_delete(bdi, bdc);
+			bgp_reuse_list_delete(bdi);
 			bgp_reuse_list_add(bdi, bdc);
 		}
 		return BGP_DAMP_SUPPRESSED;
@@ -402,7 +395,7 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 	else if (CHECK_FLAG(bdi->path->flags, BGP_PATH_DAMPED)
 		 && (bdi->penalty < bdc->reuse_limit)) {
 		bgp_path_info_unset_flag(dest, path, BGP_PATH_DAMPED);
-		bgp_reuse_list_delete(bdi, bdc);
+		bgp_reuse_list_delete(bdi);
 		bgp_no_reuse_list_add(bdi, bdc);
 		bdi->suppress_time = 0;
 		status = BGP_DAMP_USED;
