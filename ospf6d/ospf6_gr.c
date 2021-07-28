@@ -56,8 +56,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi)
 	char buffer[OSPF6_MAX_LSASIZE];
 
 	if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
-		zlog_debug("Originate Grace-LSA for Interface %s",
-			   oi->interface->name);
+		zlog_debug("Originate Grace-LSA for Interface %pOI", oi);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
@@ -124,9 +123,8 @@ static void ospf6_gr_flush_grace_lsas(struct ospf6 *ospf6)
 						oi->lsdb);
 			if (!lsa) {
 				zlog_warn(
-					"%s: Grace-LSA not found [interface %s] [area %pI4]",
-					__func__, oi->interface->name,
-					&area->area_id);
+					"%s: Grace-LSA not found [interface %pOI] [area %pI4]",
+					__func__, oi, &area->area_id);
 				continue;
 			}
 

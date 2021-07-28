@@ -474,7 +474,7 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
 			json_object_array_add(
 				array_interfaces,
-				json_object_new_string(oi->interface->name));
+				json_object_new_string(ospf6_ifname(oi)));
 
 		json_object_object_add(json_area, "interfacesAttachedToArea",
 				       array_interfaces);
@@ -522,7 +522,7 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 
 		vty_out(vty, "     Interface attached to this area:");
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi))
-			vty_out(vty, " %s", oi->interface->name);
+			vty_out(vty, " %pOI", oi);
 		vty_out(vty, "\n");
 
 		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {

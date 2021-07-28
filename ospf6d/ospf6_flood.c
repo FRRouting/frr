@@ -354,8 +354,7 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (IS_OSPF6_DEBUG_FLOODING
 	    || IS_OSPF6_DEBUG_FLOOD_TYPE(lsa->header->type)) {
 		is_debug++;
-		zlog_debug("Flooding on %s: %s", oi->interface->name,
-			   lsa->name);
+		zlog_debug("Flooding on %pOI: %s", oi, lsa->name);
 	}
 
 	/* (1) For each neighbor */
@@ -501,8 +500,8 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 	if (retrans_added == 0) {
 		if (is_debug)
 			zlog_debug(
-				"No retransmission scheduled, next interface %s",
-				oi->interface->name);
+				"No retransmission scheduled, next interface %pOI",
+				oi);
 		return;
 	}
 

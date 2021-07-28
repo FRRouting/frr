@@ -123,7 +123,7 @@ DEFUN_NOSH (show_debugging_ospf6,
 #define AREA_LSDB_TITLE_FORMAT                                                 \
 	"\n        Area Scoped Link State Database (Area %s)\n\n"
 #define IF_LSDB_TITLE_FORMAT                                                   \
-	"\n        I/F Scoped Link State Database (I/F %s in Area %s)\n\n"
+	"\n        I/F Scoped Link State Database (I/F %pOI in Area %s)\n\n"
 #define AS_LSDB_TITLE_FORMAT "\n        AS Scoped Link State Database\n\n"
 
 static int parse_show_level(int idx_level, int argc, struct cmd_token **argv)
@@ -270,10 +270,10 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 				json_object_string_add(json_obj, "areaId",
 						       oa->name);
 				json_object_string_add(json_obj, "interface",
-						       oi->interface->name);
+						       ospf6_ifname(oi));
 			} else
-				vty_out(vty, IF_LSDB_TITLE_FORMAT,
-					oi->interface->name, oa->name);
+				vty_out(vty, IF_LSDB_TITLE_FORMAT, oi,
+					oa->name);
 			ospf6_lsdb_show(vty, level, type, id, adv_router,
 					oi->lsdb, json_obj, uj);
 			if (uj)
@@ -349,10 +349,10 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 						json_obj, "areaId", oa->name);
 					json_object_string_add(
 						json_obj, "interface",
-						oi->interface->name);
+						ospf6_ifname(oi));
 				} else
-					vty_out(vty, IF_LSDB_TITLE_FORMAT,
-						oi->interface->name, oa->name);
+					vty_out(vty, IF_LSDB_TITLE_FORMAT, oi,
+						oa->name);
 
 				ospf6_lsdb_show(vty, level, type, id,
 						adv_router, oi->lsdb, json_obj,

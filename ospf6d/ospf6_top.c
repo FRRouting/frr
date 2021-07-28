@@ -1096,8 +1096,8 @@ DEFUN_HIDDEN (ospf6_interface_area,
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
 	if (oi->area) {
-		vty_out(vty, "%s already attached to Area %s\n",
-			oi->interface->name, oi->area->name);
+		vty_out(vty, "%pOI already attached to Area %s\n", oi,
+			oi->area->name);
 		return CMD_SUCCESS;
 	}
 
@@ -1179,14 +1179,14 @@ DEFUN_HIDDEN (no_ospf6_interface_area,
 
 	/* Verify Area */
 	if (oi->area == NULL) {
-		vty_out(vty, "%s not attached to area %s\n",
-			oi->interface->name, argv[idx_ipv4]->arg);
+		vty_out(vty, "%pOI not attached to area %s\n",
+			oi, argv[idx_ipv4]->arg);
 		return CMD_SUCCESS;
 	}
 
 	if (oi->area->area_id != area_id) {
-		vty_out(vty, "Wrong Area-ID: %s is attached to area %s\n",
-			oi->interface->name, oi->area->name);
+		vty_out(vty, "Wrong Area-ID: %pOI is attached to area %s\n",
+			oi, oi->area->name);
 		return CMD_SUCCESS;
 	}
 

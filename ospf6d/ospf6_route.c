@@ -103,13 +103,11 @@ static char *ospf6_route_table_name(struct ospf6_route_table *table)
 		switch (table->table_type) {
 		case OSPF6_TABLE_TYPE_CONNECTED_ROUTES:
 			snprintf(name, sizeof(name),
-				 "interface %s connected table",
-				 oi->interface->name);
+				 "interface %pOI connected table", oi);
 			break;
 		default:
 			snprintf(name, sizeof(name),
-				 "interface %s unknown table",
-				 oi->interface->name);
+				 "interface %pOI unknown table", oi);
 			break;
 		}
 	} break;

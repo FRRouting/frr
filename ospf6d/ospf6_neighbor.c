@@ -143,8 +143,7 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 
 	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
-	snprintf(on->name, sizeof(on->name), "%s%%%s", buf,
-		 oi->interface->name);
+	snprintfrr(on->name, sizeof(on->name), "%s%%%pOI", buf, oi);
 	on->ospf6_if = oi;
 	on->state = OSPF6_NEIGHBOR_DOWN;
 	on->state_change = 0;
@@ -940,17 +939,17 @@ static void ospf6_neighbor_show(struct vty *vty, struct ospf6_neighbor *on,
 		json_object_string_add(json_route, "ifState", nstate);
 		json_object_string_add(json_route, "duration", duration);
 		json_object_string_add(json_route, "interfaceName",
-				       on->ospf6_if->interface->name);
+				       ospf6_ifname(on->ospf6_if));
 		json_object_string_add(
 			json_route, "interfaceState",
 			ospf6_interface_state_str[on->ospf6_if->state]);
 
 		json_object_array_add(json_array, json_route);
 	} else
-		vty_out(vty, "%-15s %3d %11s %8s/%-12s %11s %s[%s]\n",
+		vty_out(vty, "%-15s %3d %11s %8s/%-12s %11s %pOI[%s]\n",
 			router_id, on->priority, deadtime,
 			ospf6_neighbor_state_str[on->state], nstate, duration,
-			on->ospf6_if->interface->name,
+			on->ospf6_if,
 			ospf6_interface_state_str[on->ospf6_if->state]);
 }
 
@@ -987,16 +986,16 @@ static void ospf6_neighbor_show_drchoice(struct vty *vty,
 		json_object_string_add(json_route, "dRouter", drouter);
 		json_object_string_add(json_route, "bdRouter", bdrouter);
 		json_object_string_add(json_route, "interfaceName",
-				       on->ospf6_if->interface->name);
+				       ospf6_ifname(on->ospf6_if));
 		json_object_string_add(
 			json_route, "interfaceState",
 			ospf6_interface_state_str[on->ospf6_if->state]);
 
 		json_object_array_add(json_array, json_route);
 	} else
-		vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %s[%s]\n", router_id,
-			ospf6_neighbor_state_str[on->state], duration, drouter,
-			bdrouter, on->ospf6_if->interface->name,
+		vty_out(vty, "%-15s %8s/%-11s %-15s %-15s %pOI[%s]\n",
+			router_id, ospf6_neighbor_state_str[on->state],
+			duration, drouter, bdrouter, on->ospf6_if,
 			ospf6_interface_state_str[on->ospf6_if->state]);
 }
 
@@ -1026,7 +1025,7 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 		json_object_string_add(json_neighbor, "area",
 				       on->ospf6_if->area->name);
 		json_object_string_add(json_neighbor, "interface",
-				       on->ospf6_if->interface->name);
+				       ospf6_ifname(on->ospf6_if));
 		json_object_int_add(json_neighbor, "interfaceIndex",
 				    on->ospf6_if->interface->ifindex);
 		json_object_int_add(json_neighbor, "neighborInterfaceIndex",
@@ -1207,8 +1206,8 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 	} else {
 		vty_out(vty, " Neighbor %s\n", on->name);
-		vty_out(vty, "    Area %s via interface %s (ifindex %d)\n",
-			on->ospf6_if->area->name, on->ospf6_if->interface->name,
+		vty_out(vty, "    Area %s via interface %pOI (ifindex %d)\n",
+			on->ospf6_if->area->name, on->ospf6_if,
 			on->ospf6_if->interface->ifindex);
 		vty_out(vty, "    His IfIndex: %d Link-local address: %s\n",
 			on->ifindex, linklocal_addr);

@@ -28,6 +28,7 @@
 #include "prefix.h"
 #include "plist.h"
 #include "zclient.h"
+#include "printfrr.h"
 
 #include "ospf6_lsa.h"
 #include "ospf6_lsdb.h"
@@ -65,6 +66,17 @@ unsigned char conf_debug_ospf6_interface = 0;
 const char *const ospf6_interface_state_str[] = {
 	"None",		"Down",	   "Loopback", "Waiting", "PointToPoint",
 	"PtMultipoint", "DROther", "BDR",      "DR",	  NULL};
+
+printfrr_ext_autoreg_p("OI", printfrr_oi);
+static ssize_t printfrr_oi(struct fbuf *buf, struct printfrr_eargs *ea,
+			   const void *ptr)
+{
+	const struct ospf6_interface *oi = ptr;
+
+	if (!oi)
+		return bputs(buf, "(null)");
+	return bputs(buf, ospf6_ifname(oi));
+}
 
 int ospf6_interface_neighbor_count(struct ospf6_interface *oi)
 {
@@ -465,9 +477,8 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 			if (ret == PREFIX_DENY) {
 				if (IS_OSPF6_DEBUG_INTERFACE)
 					zlog_debug(
-						"%pFX on %s filtered by prefix-list %s ",
-						c->address, oi->interface->name,
-						oi->plist_name);
+						"%pFX on %pOI filtered by prefix-list %s ",
+						c->address, oi, oi->plist_name);
 				continue;
 			}
 		}
@@ -537,8 +548,7 @@ static int ospf6_interface_state_change(uint8_t next_state,
 
 	/* log */
 	if (IS_OSPF6_DEBUG_INTERFACE) {
-		zlog_debug("Interface state change %s: %s -> %s",
-			   oi->interface->name,
+		zlog_debug("Interface state change %pOI: %s -> %s", oi,
 			   ospf6_interface_state_str[prev_state],
 			   ospf6_interface_state_str[next_state]);
 	}
@@ -719,8 +729,7 @@ uint8_t dr_election(struct ospf6_interface *oi)
 	if (oi->drouter != (drouter ? drouter->router_id : htonl(0))
 	    || oi->bdrouter != (bdrouter ? bdrouter->router_id : htonl(0))) {
 		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug("DR Election on %s: DR: %s BDR: %s",
-				   oi->interface->name,
+			zlog_debug("DR Election on %pOI: DR: %s BDR: %s", oi,
 				   (drouter ? drouter->name : "0.0.0.0"),
 				   (bdrouter ? bdrouter->name : "0.0.0.0"));
 
@@ -791,13 +800,12 @@ void interface_up(struct thread *thread)
 	thread_cancel(&oi->thread_sso);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [InterfaceUp]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %pOI: [InterfaceUp]", oi);
 
 	/* check physical interface is up */
 	if (!if_is_operative(oi->interface)) {
-		zlog_warn("Interface %s is down, can't execute [InterfaceUp]",
-			  oi->interface->name);
+		zlog_warn("Interface %pOI is down, can't execute [InterfaceUp]",
+			  oi);
 		return;
 	}
 
@@ -805,8 +813,8 @@ void interface_up(struct thread *thread)
 	if (!(ospf6_interface_get_linklocal_address(oi->interface)
 	      || if_is_loopback(oi->interface))) {
 		zlog_warn(
-			"Interface %s has no link local address, can't execute [InterfaceUp]",
-			oi->interface->name);
+			"Interface %pOI has no link local address, can't execute [InterfaceUp]",
+			oi);
 		return;
 	}
 
@@ -816,16 +824,15 @@ void interface_up(struct thread *thread)
 	/* if already enabled, do nothing */
 	if (oi->state > OSPF6_INTERFACE_DOWN) {
 		if (IS_OSPF6_DEBUG_INTERFACE)
-			zlog_debug("Interface %s already enabled",
-				   oi->interface->name);
+			zlog_debug("Interface %pOI already enabled", oi);
 		return;
 	}
 
 	/* If no area assigned, return */
 	if (oi->area == NULL) {
 		zlog_warn(
-			"%s: Not scheduling Hello for %s as there is no area assigned yet",
-			__func__, oi->interface->name);
+			"%s: Not scheduling Hello for %pOI as there is no area assigned yet",
+			__func__, oi);
 		return;
 	}
 
@@ -840,8 +847,8 @@ void interface_up(struct thread *thread)
 	 */
 	if (ifmaddr_check(oi->interface->ifindex, &allspfrouters6)) {
 		zlog_info(
-			"Interface %s is still in all routers group, rescheduling for SSO",
-			oi->interface->name);
+			"Interface %pOI is still in all routers group, rescheduling for SSO",
+			oi);
 		thread_add_timer(master, interface_up, oi,
 				 OSPF6_INTERFACE_SSO_RETRY_INT,
 				 &oi->thread_sso);
@@ -857,8 +864,8 @@ void interface_up(struct thread *thread)
 	    < 0) {
 		if (oi->sso_try_cnt++ < OSPF6_INTERFACE_SSO_RETRY_MAX) {
 			zlog_info(
-				"Scheduling %s for sso retry, trial count: %d",
-				oi->interface->name, oi->sso_try_cnt);
+				"Scheduling %pOI for sso retry, trial count: %d",
+				oi, oi->sso_try_cnt);
 			thread_add_timer(master, interface_up, oi,
 					 OSPF6_INTERFACE_SSO_RETRY_INT,
 					 &oi->thread_sso);
@@ -902,8 +909,7 @@ void wait_timer(struct thread *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [WaitTimer]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %pOI: [WaitTimer]", oi);
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
@@ -917,8 +923,7 @@ void backup_seen(struct thread *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [BackupSeen]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %pOI: [BackupSeen]", oi);
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
@@ -932,8 +937,7 @@ void neighbor_change(struct thread *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [NeighborChange]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %pOI: [NeighborChange]", oi);
 
 	if (oi->state == OSPF6_INTERFACE_DROTHER
 	    || oi->state == OSPF6_INTERFACE_BDR
@@ -952,8 +956,7 @@ void interface_down(struct thread *thread)
 	assert(oi && oi->interface);
 
 	if (IS_OSPF6_DEBUG_INTERFACE)
-		zlog_debug("Interface Event %s: [InterfaceDown]",
-			   oi->interface->name);
+		zlog_debug("Interface Event %pOI: [InterfaceDown]", oi);
 
 	/* Stop Hellos */
 	THREAD_OFF(oi->thread_send_hello);
@@ -1510,17 +1513,16 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 						    oi->ls_ack_out);
 
 				json_object_object_add(json,
-						       oi->interface->name,
+						       ospf6_ifname(oi),
 						       json_interface);
 			} else
 				vty_out(vty,
-					"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
-					oi->interface->name, oi->hello_in,
-					oi->hello_out, oi->db_desc_in,
-					oi->db_desc_out, oi->ls_req_in,
-					oi->ls_req_out, oi->ls_upd_in,
-					oi->ls_upd_out, oi->ls_ack_in,
-					oi->ls_ack_out);
+					"%-10pOI %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+					oi, oi->hello_in, oi->hello_out,
+					oi->db_desc_in, oi->db_desc_out,
+					oi->ls_req_in, oi->ls_req_out,
+					oi->ls_upd_in, oi->ls_upd_out,
+					oi->ls_ack_in, oi->ls_ack_out);
 		}
 	} else {
 		oi = intf_ifp->info;
@@ -1550,15 +1552,16 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 			json_object_int_add(json_interface, "lsAckTx",
 					    oi->ls_ack_out);
 
-			json_object_object_add(json, oi->interface->name,
+			json_object_object_add(json, ospf6_ifname(oi),
 					       json_interface);
 		} else
 			vty_out(vty,
-				"%-10s %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
-				oi->interface->name, oi->hello_in,
-				oi->hello_out, oi->db_desc_in, oi->db_desc_out,
-				oi->ls_req_in, oi->ls_req_out, oi->ls_upd_in,
-				oi->ls_upd_out, oi->ls_ack_in, oi->ls_ack_out);
+				"%-10pOI %8u/%-8u %7u/%-7u %7u/%-7u %7u/%-7u %7u/%-7u\n",
+				oi, oi->hello_in, oi->hello_out,
+				oi->db_desc_in, oi->db_desc_out,
+				oi->ls_req_in, oi->ls_req_out,
+				oi->ls_upd_in, oi->ls_upd_out,
+				oi->ls_ack_in, oi->ls_ack_out);
 	}
 
 	return CMD_SUCCESS;
@@ -1850,8 +1853,8 @@ DEFUN (ipv6_ospf6_area,
 	assert(oi);
 
 	if (oi->area) {
-		vty_out(vty, "%s already attached to Area %s\n",
-			oi->interface->name, oi->area->name);
+		vty_out(vty, "%pOI already attached to Area %s\n", oi,
+			oi->area->name);
 		return CMD_SUCCESS;
 	}
 

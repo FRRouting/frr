@@ -596,8 +596,7 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	p = (buffer + strlen(buffer) < end ? buffer + strlen(buffer) : end);
 
 	for (ALL_LIST_ELEMENTS_RO(oa->if_list, node, oi)) {
-		snprintf(p, end - p, " I/F %s: %d", oi->interface->name,
-			 oi->lsdb->count);
+		snprintfrr(p, end - p, " I/F %pOI: %d", oi, oi->lsdb->count);
 		p = (buffer + strlen(buffer) < end ? buffer + strlen(buffer)
 						   : end);
 	}

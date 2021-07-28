@@ -28,6 +28,7 @@
 
 DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
 
+#include "lib/libospf.h"
 #include "ospf6_neighbor.h"
 
 /* Debug option */
@@ -266,8 +267,19 @@ extern uint8_t dr_election(struct ospf6_interface *oi);
 extern void ospf6_interface_auth_trailer_cmd_init(void);
 extern void ospf6_auth_write_config(struct vty *vty,
 				    struct ospf6_auth_data *at_data);
+
+static inline const char *ospf6_ifname(const struct ospf6_interface *oi)
+{
+	return oi->type == OSPF_IFTYPE_VIRTUALLINK ? "vlink"
+		: oi->interface->name;
+}
+
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));
+
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pOI"  (struct ospf6_interface *)
+#endif
 
 #endif /* OSPF6_INTERFACE_H */
