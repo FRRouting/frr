@@ -126,7 +126,7 @@ void frrscript_init(const char *scriptdir);
  * This macro is mapped to every (name, value) in frrscript_call,
  * so this in turn maps them onto their encoders
  */
-#define ENCODE_ARGS(name, value) ENCODE_ARGS_WITH_STATE(lfs->L, value)
+#define ENCODE_ARGS(name, value) ENCODE_ARGS_WITH_STATE(lfs->L, (value))
 
 /*
  * This macro is also mapped to every (name, value) in frrscript_call, but
@@ -140,11 +140,11 @@ void frrscript_init(const char *scriptdir);
  */
 #define DECODE_ARGS(name, value)                                               \
 	do {                                                                   \
-		lua_getfield(lfs->L, 1, name);                                 \
+		lua_getfield(lfs->L, 1, (name));                               \
 		if (lua_isnil(lfs->L, 2)) {                                    \
 			lua_pop(lfs->L, 1);                                    \
 		} else {                                                       \
-			DECODE_ARGS_WITH_STATE(lfs->L, value);                 \
+			DECODE_ARGS_WITH_STATE(lfs->L, (value));               \
 		}                                                              \
 		assert(lua_gettop(lfs->L) == 1);                               \
 	} while (0)
@@ -172,7 +172,7 @@ char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
 struct peer * : lua_pushpeer,                                   \
 const struct prefix * : lua_pushprefix                          \
-)(L, value)
+)((L), (value))
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
@@ -188,7 +188,7 @@ char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
 struct peer * : lua_decode_noop,                                \
 const struct prefix * : lua_decode_noop                         \
-)(L, -1, value)
+)((L), -1, (value))
 
 /*
  * Call Lua function state (abstraction for a single Lua function)
