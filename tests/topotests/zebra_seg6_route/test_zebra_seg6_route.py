@@ -43,6 +43,8 @@ from lib.topolog import logger
 from lib.common_config import shutdown_bringup_interface
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.sharpd]
+
 
 def open_json_file(filename):
     try:

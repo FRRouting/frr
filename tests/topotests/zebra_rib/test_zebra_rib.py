@@ -46,6 +46,8 @@ from time import sleep
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.sharpd]
+
 
 class ZebraTopo(Topo):
     "Test topology builder"
