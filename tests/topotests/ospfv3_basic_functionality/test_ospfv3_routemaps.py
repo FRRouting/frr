@@ -73,6 +73,9 @@ from lib.ospf import (
 
 from ipaddress import IPv6Address
 
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+
+
 # Global variables
 topo = None
 

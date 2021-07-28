@@ -56,6 +56,9 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 from lib.ospf import verify_ospf_neighbor, config_ospf_interface, clear_ospf
 from ipaddress import IPv4Address
 
+pytestmark = [pytest.mark.ospfd]
+
+
 # Global variables
 topo = None
 # Reading the data from JSON File for topology creation
