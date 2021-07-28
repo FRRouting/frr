@@ -10666,9 +10666,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path\n"
 #define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path\n"
 
-static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
-			      const char *rmap_str, afi_t afi, safi_t safi,
-			      enum bgp_show_type type);
 static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
 				  const char *prefix, afi_t afi, safi_t safi,
 				  enum bgp_show_type type);
@@ -12040,7 +12037,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       " [" BGP_SAFI_WITH_LABEL_CMD_STR
       "]]\
           <[all$all] dampening <parameters>\
-           |route-map WORD\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
          >",
@@ -12049,8 +12045,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "Display the entries for all address families\n"
       "Display detailed information about dampening\n"
       "Display detail of configured dampening parameters\n"
-      "Display routes matching the route-map\n"
-      "A route-map to match on\n"
       "IPv4 prefix\n"
       "Display route and more specific routes\n"
       "IPv6 prefix\n"
@@ -12083,10 +12077,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 							     show_flags);
 	}
 
-	if (argv_find(argv, argc, "route-map", &idx))
-		return bgp_show_route_map(vty, bgp, argv[idx + 1]->arg, afi,
-					  safi, bgp_show_type_route_map);
-
 	/* prefix-longer */
 	if (argv_find(argv, argc, "A.B.C.D/M", &idx)
 	    || argv_find(argv, argc, "X:X::X:X/M", &idx))
@@ -12113,6 +12103,7 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
           |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
           |filter-list AS_PATH_FILTER_NAME\
           |prefix-list WORD\
+          |route-map WORD\
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
           |alias ALIAS_NAME\
@@ -12148,6 +12139,8 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
       "Regular expression access list name\n"
       "Display routes conforming to the prefix-list\n"
       "Prefix-list name\n"
+      "Display routes matching the route-map\n"
+      "A route-map to match on\n"
       "RPKI route types\n"
       "A valid path as determined by rpki\n"
       "A invalid path as determined by rpki\n"
@@ -12281,6 +12274,21 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 
 		sh_type = bgp_show_type_prefix_list;
 		output_arg = plist;
+	}
+
+	if (argv_find(argv, argc, "route-map", &idx)) {
+		const char *rmap_str = argv[++idx]->arg;
+		struct route_map *rmap;
+
+		rmap = route_map_lookup_by_name(rmap_str);
+		if (!rmap) {
+			vty_out(vty, "%% %s is not a valid route-map name\n",
+				rmap_str);
+			return CMD_WARNING;
+		}
+
+		sh_type = bgp_show_type_route_map;
+		output_arg = rmap;
 	}
 
 	if (argv_find(argv, argc, "rpki", &idx)) {
@@ -12567,23 +12575,6 @@ static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 		      RPKI_NOT_BEING_USED);
 	bgp_regex_free(regex);
 	return rc;
-}
-
-static int bgp_show_route_map(struct vty *vty, struct bgp *bgp,
-			      const char *rmap_str, afi_t afi, safi_t safi,
-			      enum bgp_show_type type)
-{
-	struct route_map *rmap;
-	uint16_t show_flags = 0;
-
-	rmap = route_map_lookup_by_name(rmap_str);
-	if (!rmap) {
-		vty_out(vty, "%% %s is not a valid route-map name\n", rmap_str);
-		return CMD_WARNING;
-	}
-
-	return bgp_show(vty, bgp, afi, safi, type, rmap, show_flags,
-			RPKI_NOT_BEING_USED);
 }
 
 static int bgp_show_community(struct vty *vty, struct bgp *bgp,
