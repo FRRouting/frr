@@ -10635,9 +10635,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 #define BGP_SHOW_DAMP_HEADER "   Network          From             Reuse    Path\n"
 #define BGP_SHOW_FLAP_HEADER "   Network          From            Flaps Duration Reuse    Path\n"
 
-static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
-				  const char *prefix, afi_t afi, safi_t safi,
-				  enum bgp_show_type type);
 static int bgp_show_regexp(struct vty *vty, struct bgp *bgp, const char *regstr,
 			   afi_t afi, safi_t safi, enum bgp_show_type type,
 			   bool use_json);
@@ -12004,20 +12001,12 @@ DEFUN(show_ip_bgp_afi_safi_statistics, show_ip_bgp_afi_safi_statistics_cmd,
 DEFPY(show_ip_bgp, show_ip_bgp_cmd,
       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [" BGP_AFI_CMD_STR
       " [" BGP_SAFI_WITH_LABEL_CMD_STR
-      "]]\
-          <[all$all] dampening <parameters>\
-           |A.B.C.D/M longer-prefixes\
-           |X:X::X:X/M longer-prefixes\
-         >",
+      "]] [all$all] dampening parameters",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
       "Display the entries for all address families\n"
       "Display detailed information about dampening\n"
-      "Display detail of configured dampening parameters\n"
-      "IPv4 prefix\n"
-      "Display route and more specific routes\n"
-      "IPv6 prefix\n"
-      "Display route and more specific routes\n")
+      "Display detail of configured dampening parameters\n")
 {
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
@@ -12046,13 +12035,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 							     show_flags);
 	}
 
-	/* prefix-longer */
-	if (argv_find(argv, argc, "A.B.C.D/M", &idx)
-	    || argv_find(argv, argc, "X:X::X:X/M", &idx))
-		return bgp_show_prefix_longer(vty, bgp, argv[idx]->arg, afi,
-					      safi,
-					      bgp_show_type_prefix_longer);
-
 	return CMD_WARNING;
 }
 
@@ -12076,6 +12058,8 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
           |rpki <invalid|valid|notfound>\
           |version (1-4294967295)\
           |alias ALIAS_NAME\
+          |A.B.C.D/M longer-prefixes\
+          |X:X::X:X/M longer-prefixes\
           ] [json$uj [detail$detail] | wide$wide]",
       SHOW_STR IP_STR BGP_STR BGP_INSTANCE_HELP_STR BGP_AFI_HELP_STR
 	      BGP_SAFI_WITH_LABEL_HELP_STR
@@ -12117,7 +12101,12 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
       "Display prefixes with matching version numbers\n"
       "Version number and above\n"
       "Display prefixes with matching BGP community alias\n"
-      "BGP community alias\n" JSON_STR
+      "BGP community alias\n"
+      "IPv4 prefix\n"
+      "Display route and more specific routes\n"
+      "IPv6 prefix\n"
+      "Display route and more specific routes\n"
+      JSON_STR
       "Display detailed version of JSON output\n"
       "Increase table width for longer prefixes\n")
 {
@@ -12278,6 +12267,21 @@ DEFPY(show_ip_bgp_json, show_ip_bgp_json_cmd,
 	if (argv_find(argv, argc, "alias", &idx)) {
 		sh_type = bgp_show_type_community_alias;
 		output_arg = argv[idx + 1]->arg;
+	}
+
+	/* prefix-longer */
+	if (argv_find(argv, argc, "A.B.C.D/M", &idx)
+	    || argv_find(argv, argc, "X:X::X:X/M", &idx)) {
+		const char *prefix_str = argv[idx]->arg;
+		struct prefix p;
+
+		if (!str2prefix(prefix_str, &p)) {
+			vty_out(vty, "%% Malformed Prefix\n");
+			return CMD_WARNING;
+		}
+
+		sh_type = bgp_show_type_prefix_longer;
+		output_arg = &p;
 	}
 
 	if (!all) {
@@ -12565,28 +12569,6 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 		       com, show_flags, RPKI_NOT_BEING_USED);
 	community_free(&com);
 
-	return ret;
-}
-
-static int bgp_show_prefix_longer(struct vty *vty, struct bgp *bgp,
-				  const char *prefix, afi_t afi, safi_t safi,
-				  enum bgp_show_type type)
-{
-	int ret;
-	struct prefix *p;
-	uint16_t show_flags = 0;
-
-	p = prefix_new();
-
-	ret = str2prefix(prefix, p);
-	if (!ret) {
-		vty_out(vty, "%% Malformed Prefix\n");
-		return CMD_WARNING;
-	}
-
-	ret = bgp_show(vty, bgp, afi, safi, type, p, show_flags,
-		       RPKI_NOT_BEING_USED);
-	prefix_free(&p);
 	return ret;
 }
 
