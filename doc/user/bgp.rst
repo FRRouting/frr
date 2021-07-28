@@ -3594,6 +3594,15 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Display routes with non-natural netmasks.
 
+.. clicmd:: show [ip] bgp [afi] [safi] [all] prefix-list WORD [wide|json]
+
+   Display routes that match the specified prefix-list.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [json|wide]
 
    Display the routes advertised to a BGP neighbor or received routes
