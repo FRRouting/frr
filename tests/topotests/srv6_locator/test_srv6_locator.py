@@ -43,6 +43,8 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
+
 
 def open_json_file(filename):
     try:
