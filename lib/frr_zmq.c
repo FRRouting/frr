@@ -17,6 +17,14 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
+/*
+ * IF YOU MODIFY THIS FILE PLEASE RUN `make check` and ensure that
+ * the test_zmq.c unit test is still working.  There are dependancies
+ * between the two that are extremely fragile.  My understanding
+ * is that there is specialized ownership of the cb pointer based
+ * upon what is happening.  Those assumptions are supposed to be
+ * tested in the test_zmq.c
+ */
 #include <zebra.h>
 #include <zmq.h>
 
@@ -309,8 +317,22 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 	core->cancelled = true;
 	thread_cancel(&core->thread);
 
+	/*
+	 * Looking at this code one would assume that FRR
+	 * would want a `!(*cb)->write.thread.  This was
+	 * attempted in e08165def1c62beee0e87385 but this
+	 * change caused `make check` to stop working
+	 * which was not noticed because our CI system
+	 * does not build with zeromq.  Put this back
+	 * to the code as written in 2017.  e08165de..
+	 * was introduced in 2021.  So someone was ok
+	 * with frrzmq_thread_cancel for 4 years.  This will
+	 * allow those people doing `make check` to continue
+	 * working.  In the meantime if the people using
+	 * this code see an issue they can fix it
+	 */
 	if ((*cb)->read.cancelled && !(*cb)->read.thread
-	    && (*cb)->write.cancelled && !(*cb)->write.thread)
+	    && (*cb)->write.cancelled && (*cb)->write.thread)
 		XFREE(MTYPE_ZEROMQ_CB, *cb);
 }
 
