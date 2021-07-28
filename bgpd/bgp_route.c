@@ -14356,9 +14356,14 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
 						bgp_damp_info_free(
+<<<<<<< HEAD
 							&pi->extra->damp_info,
 							&bgp->damp[afi][safi],
 							1, afi, safi);
+=======
+							pi->extra->damp_info,
+							1);
+>>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 						pi = pi_temp;
 					} else
 						pi = pi->next;
@@ -14394,9 +14399,14 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 								    bdi->safi);
 						}
 						bgp_damp_info_free(
+<<<<<<< HEAD
 							&pi->extra->damp_info,
 							&bgp->damp[afi][safi],
 							1, afi, safi);
+=======
+							pi->extra->damp_info,
+							1);
+>>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 						pi = pi_temp;
 					} else
 						pi = pi->next;

@@ -232,9 +232,13 @@ static int bgp_reuse_timer(struct thread *t)
 				bgp_damp_info_free(&bdi, bdc, 1, bdi->afi,
 =======
 				bgp_reuselist_del(&plist, bdi);
+<<<<<<< HEAD
 				bgp_damp_info_free(bdi, bdc, 1, bdi->afi,
 >>>>>>> 5054cfcbb (bgpd: fix incorrect usage of slist in dampening)
 						   bdi->safi);
+=======
+				bgp_damp_info_free(bdi, 1);
+>>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 			} else {
 				bdi->index = BGP_DAMP_NO_REUSE_LIST_INDEX;
 				bgp_reuselist_switch(&plist, bdi,
@@ -377,12 +381,17 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 		bdi->t_updated = t_now;
 	else {
 		bgp_damp_info_unclaim(bdi);
+<<<<<<< HEAD
 		bgp_damp_info_free(&bdi, bdc, 0, afi, safi);
+=======
+		bgp_damp_info_free(bdi, 0);
+>>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 	}
 
 	return status;
 }
 
+<<<<<<< HEAD
 void bgp_damp_info_free(struct bgp_damp_info **bdi, struct bgp_damp_config *bdc,
 			int withdraw, afi_t afi, safi_t safi)
 {
@@ -393,6 +402,11 @@ void bgp_damp_info_free(struct bgp_damp_info **bdi, struct bgp_damp_config *bdc,
 		XFREE(MTYPE_BGP_DAMP_INFO, (*bdi));
 		return;
 	}
+=======
+void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
+{
+	assert(bdi);
+>>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 
 	(*bdi)->path->extra->damp_info = NULL;
 	bgp_path_info_unset_flag((*bdi)->dest, (*bdi)->path,
@@ -530,14 +544,18 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 		bgp_damp_info_free(&bdi, bdc, 1, afi, safi);
 =======
 			bgp_reuselist_del(list, bdi);
-			bgp_damp_info_free(bdi, bdc, 1, afi, safi);
+			bgp_damp_info_free(bdi, 1);
 		}
 	}
 
 	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
 		bgp_reuselist_del(&bdc->no_reuse_list, bdi);
+<<<<<<< HEAD
 		bgp_damp_info_free(bdi, bdc, 1, afi, safi);
 >>>>>>> 5054cfcbb (bgpd: fix incorrect usage of slist in dampening)
+=======
+		bgp_damp_info_free(bdi, 1);
+>>>>>>> 97766ac8a (bgpd: cleanup bgp_damp_info_free)
 	}
 
 	/* Free decay array */
