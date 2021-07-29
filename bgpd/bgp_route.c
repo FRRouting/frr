@@ -14760,7 +14760,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 								    bdi->safi);
 						}
 						bgp_damp_info_free(
-							&pi->extra->damp_info,
+							pi->extra->damp_info,
 							&bgp->damp[afi][safi],
 							1, afi, safi);
 						pi = pi_temp;
@@ -14783,7 +14783,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
 						bgp_damp_info_free(
-							&pi->extra->damp_info,
+							pi->extra->damp_info,
 							&bgp->damp[afi][safi],
 							1, afi, safi);
 						pi = pi_temp;
