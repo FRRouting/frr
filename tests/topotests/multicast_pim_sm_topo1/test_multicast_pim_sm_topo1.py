@@ -78,6 +78,7 @@ from lib.common_config import (
     step,
     iperfSendIGMPJoin,
     addKernelRoute,
+    apply_raw_config,
     reset_config_on_routers,
     iperfSendTraffic,
     kill_iperf,
@@ -1553,8 +1554,10 @@ def test_modify_igmp_max_query_response_timer_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Delete the PIM and IGMP on FRR1")
-    input_dict_1 = {"l1": {"pim": {"disable": ["l1-i1-eth1"]}}}
-    result = create_pim_config(tgen, topo, input_dict_1)
+    raw_config = {
+        "l1": {"raw_config": ["interface l1-i1-eth1", "no ip pim"]}
+    }
+    result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     input_dict_2 = {
