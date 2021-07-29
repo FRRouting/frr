@@ -149,6 +149,9 @@ from lib.bgp import (
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
+
 # Reading the data from JSON File for topology and configuration creation
 jsonFile = "{}/bgp_route_map_topo2.json".format(CWD)
 

@@ -73,6 +73,9 @@ from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+pytestmark = [pytest.mark.bgpd]
+
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/prefix_lists.json".format(CWD)
 

@@ -39,6 +39,8 @@ from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.bgpd]
+
 
 class Topology(Topo):
     """

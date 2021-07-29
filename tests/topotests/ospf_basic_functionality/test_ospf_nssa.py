@@ -63,6 +63,9 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+
+
 # Global variables
 topo = None
 # Reading the data from JSON File for topology creation

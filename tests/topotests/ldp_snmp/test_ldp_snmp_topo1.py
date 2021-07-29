@@ -81,6 +81,7 @@ from lib.snmptest import SnmpTester
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
 
+pytestmark = [pytest.mark.ldpd, pytest.mark.isisd, pytest.mark.snmp]
 
 class TemplateTopo(Topo):
     "Test topology builder"

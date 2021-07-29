@@ -113,6 +113,9 @@ from lib.pim import (
 from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json
 
+pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
+
+
 # Reading the data from JSON File for topology creation
 jsonFile = "{}/mcast_pim_bsmp_01.json".format(CWD)
 try:
