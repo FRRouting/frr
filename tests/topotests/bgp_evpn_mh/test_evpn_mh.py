@@ -597,14 +597,23 @@ def test_evpn_ead_update():
 
 
 def ping_anycast_gw(tgen):
-    local_host = tgen.gears["hostd11"]
-    remote_host = tgen.gears["hostd21"]
-
     # ping the anycast gw from the local and remote hosts to populate
     # the mac address on the PEs
-    cmd_str = "arping -I torbond -c 1 45.0.0.1"
-    local_host.run(cmd_str)
-    remote_host.run(cmd_str)
+    script_path = os.path.abspath(os.path.join(CWD, "../lib/scapy_sendpkt.py"))
+    intf = "torbond"
+    ipaddr = "45.0.0.1"
+    ping_cmd = [
+        script_path,
+        "--imports=Ether,ARP",
+        "--interface=" + intf,
+        "'Ether(dst=\"ff:ff:ff:ff:ff:ff\")/ARP(pdst=\"{}\")'".format(ipaddr)
+    ]
+    for name in ("hostd11", "hostd21"):
+        host = tgen.net[name]
+        stdout = host.cmd(ping_cmd)
+        stdout = stdout.strip()
+        if stdout:
+            host.logger.debug("%s: arping on %s for %s returned: %s", name, intf, ipaddr, stdout)
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):
