@@ -243,6 +243,9 @@ static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
 	cmgd_bcknd_msg_t *msg;
 
+	if (clnt_ctxt->conn_fd == 0)
+		return -1;
+
 	msg_size = cmgd__bcknd_message__get_packed_size(bcknd_msg);
 	msg_size += CMGD_BCKND_MSG_HDR_LEN;
 	if (msg_size > sizeof(msg_buf)) {
