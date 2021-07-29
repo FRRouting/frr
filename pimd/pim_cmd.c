@@ -8184,13 +8184,17 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 	      "IGMP version number\n")
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
-	int igmp_version = 2;
+	int igmp_version;
+	struct pim_interface *pim_ifp = ifp->info;
 
 	if (!ifp->info) {
 		vty_out(vty, "IGMP/PIM is not enabled on the interface %s\n",
 			ifp->name);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	/* It takes the igmp version configured on the interface as default */
+	igmp_version = pim_ifp->version;
 
 	if (argc > 3)
 		igmp_version = atoi(argv[4]->arg);
