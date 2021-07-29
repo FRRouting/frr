@@ -26,15 +26,6 @@ static struct cmd_node zebra_node = {
 	.config_write = nhrp_config_write,
 };
 
-static int interface_config_write(struct vty *vty);
-static struct cmd_node nhrp_interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = interface_config_write,
-};
-
 #define NHRP_DEBUG_FLAGS_CMD "<all|common|event|interface|kernel|route|vici>"
 
 #define NHRP_DEBUG_FLAGS_STR                                                   \
@@ -1263,9 +1254,7 @@ void nhrp_config_init(void)
 	vrf_cmd_init(NULL, &nhrpd_privs);
 
 	/* interface specific commands */
-	install_node(&nhrp_interface_node);
-
-	if_cmd_init();
+	if_cmd_init(interface_config_write);
 	install_element(INTERFACE_NODE, &tunnel_protection_cmd);
 	install_element(INTERFACE_NODE, &no_tunnel_protection_cmd);
 	install_element(INTERFACE_NODE, &tunnel_source_cmd);

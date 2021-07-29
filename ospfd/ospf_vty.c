@@ -12622,22 +12622,11 @@ void ospf_vty_show_init(void)
 	install_element(VIEW_NODE, &show_ip_ospf_external_aggregator_cmd);
 }
 
-static int config_write_interface(struct vty *vty);
-/* ospfd's interface node. */
-static struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = config_write_interface,
-};
-
 /* Initialization of OSPF interface. */
 static void ospf_vty_if_init(void)
 {
 	/* Install interface node. */
-	install_node(&interface_node);
-	if_cmd_init();
+	if_cmd_init(config_write_interface);
 
 	/* "ip ospf authentication" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_authentication_args_addr_cmd);

@@ -72,14 +72,6 @@
 #include "pimd/pim_cmd_clippy.c"
 #endif
 
-static struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = pim_interface_config_write,
-};
-
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -11104,8 +11096,7 @@ DEFUN_HIDDEN (ip_pim_mlag,
 
 void pim_cmd_init(void)
 {
-	install_node(&interface_node); /* INTERFACE_NODE */
-	if_cmd_init();
+	if_cmd_init(pim_interface_config_write);
 
 	install_node(&debug_node);
 
