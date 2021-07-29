@@ -135,8 +135,8 @@ typedef cmgd_result_t (*cmgd_frntnd_client_get_data_notify_t)(
 	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
-	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[],
-	size_t *num_data, int next_key, char *errmsg_if_any);
+	cmgd_database_id_t db_id, cmgd_yang_data_t *yang_data[],
+	size_t num_data, int next_key, char *errmsg_if_any);
 
 /*
  * Handler to get YANG Notifications for one or more 'notification' type 
@@ -145,7 +145,8 @@ typedef cmgd_result_t (*cmgd_frntnd_client_get_data_notify_t)(
 typedef cmgd_result_t (*cmgd_frntnd_client_data_notify_t)(
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id,
-	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[], int num_data);
+	cmgd_database_id_t db_id, cmgd_yang_data_t *yang_data[],
+	size_t num_data);
 
 typedef struct cmgd_frntnd_client_params_ {
 	char			name[CMGD_CLIENT_NAME_MAX_LEN];

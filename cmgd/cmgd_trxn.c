@@ -57,6 +57,7 @@ PREDECL_LIST(cmgd_trxn_req_list);
 
 typedef struct cmgd_set_cfg_req_ {
 	cmgd_database_id_t db_id;
+	cmgd_db_hndl_t db_hndl;
 	struct nb_cfg_change cfg_changes[CMGD_MAX_CFG_CHANGES_IN_BATCH];
 	uint16_t num_cfg_changes;
 } cmgd_set_cfg_req_t;
@@ -70,10 +71,33 @@ typedef struct cmgd_commit_cfg_req_ {
 	uint32_t nb_trxn_id;
 } cmgd_commit_cfg_req_t;
 
+typedef struct cmgd_get_data_reply_ {
+	/* Buffer space for preparing data reply */
+	int num_reply;
+	cmgd_yang_data_reply_t data_reply;
+	cmgd_yang_data_t reply_data[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	cmgd_yang_data_t *reply_datap[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
+	cmgd_yang_data_value_t reply_value[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
+
+	struct lyd_node *dnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH];
+	char reply_xpath[CMGD_MAX_NUM_DBNODES_PER_BATCH][CMGD_MAX_XPATH_LEN];
+	char *reply_xpathp[CMGD_MAX_NUM_DBNODES_PER_BATCH];
+} cmgd_get_data_reply_t;
+
 typedef struct cmgd_get_data_req_ {
 	cmgd_database_id_t db_id;
-	char *xpaths[CMGD_MAX_NUM_DATA_IN_BATCH];
-	uint16_t num_xpaths;
+	cmgd_db_hndl_t db_hndl;
+	char *xpaths[CMGD_MAX_NUM_DATA_REQ_IN_BATCH];
+	int num_xpaths;
+
+	/*
+	 * Buffer space for preparing reply.
+	 * NOTE: Should only be malloc-ed on demand to reduce 
+	 * memory footprint. Freed up via cmgd_trx_req_free()
+	 */
+	cmgd_get_data_reply_t *reply;
+
+	int total_reply;
 } cmgd_get_data_req_t;
 
 typedef struct cmgd_trxn_req_ {
@@ -220,7 +244,7 @@ static cmgd_trxn_req_t *cmgd_trxn_req_alloc(
 
 static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 {
-	size_t indx;
+	int indx;
 	struct cmgd_trxn_req_list_head *req_list = NULL;
 	struct cmgd_trxn_req_list_head *pending_list = NULL;
 
@@ -261,6 +285,9 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 		req_list = &(*trxn_req)->trxn->get_cfg_reqs;
 		CMGD_TRXN_DBG("Deleting GETCFG Req: %p for Trxn: %p",
 			*trxn_req, (*trxn_req)->trxn);
+		if ((*trxn_req)->req.get_data->reply)
+			XFREE(MTYPE_CMGD_TRXN_GETDATA_REPLY,
+				(*trxn_req)->req.get_data->reply);
 		XFREE(MTYPE_CMGD_TRXN_GETDATA_REQ, (*trxn_req)->req.get_data);
 		break;
 	case CMGD_TRXN_PROC_GETDATA:
@@ -274,6 +301,9 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 		req_list = &(*trxn_req)->trxn->get_data_reqs;
 		CMGD_TRXN_DBG("Deleting GETDATA Req: %p for Trxn: %p",
 			*trxn_req, (*trxn_req)->trxn);
+		if ((*trxn_req)->req.get_data->reply)
+			XFREE(MTYPE_CMGD_TRXN_GETDATA_REPLY,
+				(*trxn_req)->req.get_data->reply);
 		XFREE(MTYPE_CMGD_TRXN_GETDATA_REQ, (*trxn_req)->req.get_data);
 		break;
 	default:
@@ -317,8 +347,7 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 	FOREACH_TRXN_REQ_IN_LIST_SAFE(&trxn->set_cfg_reqs, trxn_req, next) {
 		error = false;
 		assert(trxn_req->req_event == CMGD_TRXN_PROC_SETCFG);
-		db_hndl = cmgd_db_get_hndl_by_id(
-				cmgd_trxn_cm, trxn_req->req.set_cfg->db_id);
+		db_hndl = trxn_req->req.set_cfg->db_hndl;
 		if (!db_hndl) {
 			cmgd_frntnd_send_set_cfg_reply(
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
@@ -457,20 +486,12 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		goto cmgd_trxn_process_commit_cfg_done;	
 	}
 
-	trxn->commit_cfg_req->req.commit_cfg.src_db_hndl = 
-		cmgd_db_get_hndl_by_id(
-			cmgd_trxn_cm,
-			trxn->commit_cfg_req->req.commit_cfg.src_db_id);
 	if (!trxn->commit_cfg_req->req.commit_cfg.src_db_hndl) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
 			"No such source database!");
 		goto cmgd_trxn_process_commit_cfg_done;
 	}
 
-	trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl = 
-		cmgd_db_get_hndl_by_id(
-			cmgd_trxn_cm,
-			trxn->commit_cfg_req->req.commit_cfg.dst_db_id);
 	if (!trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
 			"No such destination database!");
@@ -505,12 +526,141 @@ cmgd_trxn_process_commit_cfg_done:
 	return 0;
 }
 
+static void cmgd_init_get_data_reply(
+	cmgd_get_data_reply_t *get_reply)
+{
+	size_t indx;
+
+	for (indx = 0; indx < array_size(get_reply->reply_data); indx++) {
+		get_reply->reply_datap[indx] = &get_reply->reply_data[indx];
+	}
+	for (indx = 0; indx < array_size(get_reply->reply_xpath); indx++) {
+		get_reply->reply_xpathp[indx] = &get_reply->reply_xpath[indx][0];
+	}
+}
+
+static void cmgd_reset_get_data_reply(
+	cmgd_get_data_reply_t *get_reply)
+{
+	get_reply->num_reply = 0;
+	memset(&get_reply->data_reply, 0,
+		sizeof(get_reply->data_reply));
+	memset(&get_reply->reply_data, 0,
+		sizeof(get_reply->reply_data));
+	memset(&get_reply->reply_datap, 0,
+		sizeof(get_reply->reply_datap));
+	memset(get_reply->reply_xpath, 0,
+		sizeof(get_reply->reply_xpath));
+	memset(get_reply->reply_xpathp, 0,
+		sizeof(get_reply->reply_xpathp));
+	memset(&get_reply->reply_value, 0,
+		sizeof(get_reply->reply_value));
+	
+	cmgd_init_get_data_reply(get_reply);
+}
+
+static void cmgd_reset_get_data_reply_buf(
+	cmgd_get_data_req_t *get_data)
+{
+	if (get_data->reply)
+		cmgd_reset_get_data_reply(get_data->reply);
+}
+
+static void cmgd_trxn_send_getcfg_reply_data(cmgd_trxn_req_t *trxn_req,
+	cmgd_get_data_req_t *get_req)
+{
+	cmgd_get_data_reply_t *get_reply;
+	cmgd_yang_data_reply_t *data_reply;
+
+	get_reply = get_req->reply;
+	if (!get_reply)
+		return;
+
+	data_reply = &get_reply->data_reply;
+	cmgd_yang_data_reply_init(data_reply);
+	data_reply->n_data = get_reply->num_reply;
+	data_reply->data = get_reply->reply_datap;
+	data_reply->next_indx = get_req->total_reply;
+
+	CMGD_TRXN_DBG("Sending %d Get-Config/Data replies (next-idx:%lld)",
+		(int) data_reply->n_data, data_reply->next_indx);
+
+	if (CMGD_TRXN_PROC_GETCFG ==
+		trxn_req->req_event &&
+		cmgd_frntnd_send_get_cfg_reply(
+			trxn_req->trxn->session_id,
+			(cmgd_trxn_id_t) trxn_req->trxn,
+			get_req->db_id, trxn_req->req_id,
+			CMGD_SUCCESS, data_reply, NULL) != 0) {
+		CMGD_TRXN_ERR("Failed to send GET-CONFIG-REPLY for Trxn %p, Sessn: 0x%lx, Req: %ld",
+			trxn_req->trxn, trxn_req->trxn->session_id,
+			trxn_req->req_id);
+	} else if (cmgd_frntnd_send_get_data_reply(
+			trxn_req->trxn->session_id,
+			(cmgd_trxn_id_t) trxn_req->trxn,
+			get_req->db_id, trxn_req->req_id,
+			CMGD_SUCCESS, data_reply, NULL) != 0) {
+		CMGD_TRXN_ERR("Failed to send GET-DATA-REPLY for Trxn %p, Sessn: 0x%lx, Req: %ld",
+			trxn_req->trxn, trxn_req->trxn->session_id,
+			trxn_req->req_id);
+	}
+
+	/*
+	 * Reset reply buffer for next reply.
+	 * This will alset *num_resp to 0.
+	 */
+	cmgd_reset_get_data_reply_buf(get_req);
+}
+
+static void cmgd_trxn_iter_and_send_get_cfg_reply(cmgd_db_hndl_t db_hndl, 
+        char *xpath, struct lyd_node *node, struct nb_node *nb_node,
+	void *ctxt)
+{
+	cmgd_trxn_req_t *trxn_req;
+	cmgd_get_data_req_t *get_req;
+	cmgd_get_data_reply_t *get_reply;
+	cmgd_yang_data_t *data;
+	cmgd_yang_data_value_t *data_value;
+
+	trxn_req = (cmgd_trxn_req_t *)ctxt;
+	if (!trxn_req)
+		return;
+
+	assert(trxn_req->req_event == CMGD_TRXN_PROC_GETCFG ||
+		trxn_req->req_event == CMGD_TRXN_PROC_GETDATA);
+
+	get_req = trxn_req->req.get_data;
+	assert(get_req);
+	get_reply = get_req->reply;
+	data = &get_reply->reply_data[get_reply->num_reply];
+	data_value = &get_reply->reply_value[get_reply->num_reply];
+
+	cmgd_yang_data_init(data);
+	data->xpath = xpath;
+	cmgd_yang_data_value_init(data_value);
+	data_value->value_case = 
+		CMGD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
+	data_value->encoded_str_val = (char *)"Blahblahblah";
+	data->value = data_value;
+
+	get_reply->num_reply++;
+	get_req->total_reply++;
+	CMGD_TRXN_DBG(" [%d] XPATH: '%s', Value: '%s'",
+		get_req->total_reply, data->xpath, data_value->encoded_str_val);
+
+	if (get_reply->num_reply == CMGD_MAX_NUM_DATA_REPLY_IN_BATCH) {
+		cmgd_trxn_send_getcfg_reply_data(trxn_req, get_req);
+	}
+}
+
 static int cmgd_trxn_get_config(cmgd_trxn_ctxt_t *trxn,
 	cmgd_trxn_req_t *trxn_req, cmgd_db_hndl_t db_hndl)
 {
-	struct nb_config *nb_config;
 	struct cmgd_trxn_req_list_head *req_list = NULL;
 	struct cmgd_trxn_req_list_head *pending_list = NULL;
+	int indx; 
+	cmgd_get_data_req_t *get_data;
+	cmgd_get_data_reply_t *get_reply;
 
 	switch (trxn_req->req_event) {
 	case CMGD_TRXN_PROC_GETCFG:
@@ -518,43 +668,48 @@ static int cmgd_trxn_get_config(cmgd_trxn_ctxt_t *trxn,
 		break;
 	case CMGD_TRXN_PROC_GETDATA:
 		req_list = &trxn->get_data_reqs;
-		pending_list = &trxn->pending_get_datas;
+		// pending_list = &trxn->pending_get_datas;
 		break;
 	default:
 		assert(!"Wrong trxn request type!");
 		break;
 	}
 
-	nb_config = cmgd_db_get_nb_config(db_hndl);
-	if (!nb_config) {
-		cmgd_frntnd_send_get_cfg_reply(
-			trxn->session_id, (cmgd_trxn_id_t) trxn,
-			trxn_req->req.get_data->db_id,
-			trxn_req->req_id, CMGD_INTERNAL_ERROR,
-			NULL, 0, "Unable to retrieve DB Config Tree!");
-		return -1;
+	get_data = trxn_req->req.get_data;
+
+	if (!get_data->reply) {
+		get_data->reply = 
+			XCALLOC(MTYPE_CMGD_TRXN_GETDATA_REPLY,
+				sizeof(cmgd_get_data_reply_t));
+		if (!get_data->reply) {
+			cmgd_frntnd_send_get_cfg_reply(
+				trxn->session_id, (cmgd_trxn_id_t) trxn,
+				get_data->db_id, trxn_req->req_id,
+				CMGD_INTERNAL_ERROR, NULL,
+				"Internal error: Unable to allocate reply buffers!");
+			goto cmgd_trxn_get_config_failed;
+		}
 	}
 
 	/*
-	 * TODO: Read data contents from the DB and respond back directly. 
+	 * Read data contents from the DB and respond back directly. 
 	 * No need to go to backend for getting data.
 	 */
-	/* For now send a blank DATA/CONFIG REPLY */
-	if (CMGD_TRXN_PROC_GETCFG == trxn_req->req_event && 
-	    cmgd_frntnd_send_get_cfg_reply(
-		trxn->session_id, (cmgd_trxn_id_t) trxn,
-		trxn_req->req.get_data->db_id,
-		trxn_req->req_id, CMGD_SUCCESS, NULL, 0, NULL) != 0) {
-		CMGD_TRXN_ERR("Failed to send GET-CONNFIG-REPLY for Trxn %p, Sessn: 0x%lx, Req: %ld",
-			trxn, trxn->session_id, trxn_req->req_id);
-	} else if (cmgd_frntnd_send_get_data_reply(
-		trxn->session_id, (cmgd_trxn_id_t) trxn,
-		trxn_req->req.get_data->db_id,
-		trxn_req->req_id, CMGD_SUCCESS, NULL, 0, NULL) != 0) {
-		CMGD_TRXN_ERR("Failed to send GET-DATA-REPLY for Trxn %p, Sessn: 0x%lx, Req: %ld",
-			trxn, trxn->session_id, trxn_req->req_id);
+	get_reply = get_data->reply;
+	for (indx = 0; indx < get_data->num_xpaths; indx++) {
+		CMGD_TRXN_DBG("Trying to get all data under '%s'",
+			get_data->xpaths[indx]);
+		cmgd_init_get_data_reply(get_reply);
+		cmgd_db_iter_data(get_data->db_hndl, get_data->xpaths[indx],
+			cmgd_trxn_iter_and_send_get_cfg_reply,
+			(void *)trxn_req);
 
+		CMGD_TRXN_DBG("Got %d remaining data-replies for xpath '%s'",
+			get_reply->num_reply, get_data->xpaths[indx]);
+		cmgd_trxn_send_getcfg_reply_data(trxn_req, get_data);
 	}
+
+cmgd_trxn_get_config_failed:
 
 	if (pending_list) {
 		/*
@@ -587,20 +742,19 @@ static int cmgd_trxn_process_get_cfg(struct thread *thread)
 	assert(trxn);
 
 	CMGD_TRXN_DBG("Processing %d GET_CONFIG requests for Trxn:%p Session:0x%lx",
-		(int) cmgd_trxn_req_list_count(&trxn->set_cfg_reqs), trxn,
+		(int) cmgd_trxn_req_list_count(&trxn->get_cfg_reqs), trxn,
 		trxn->session_id);
 
 	FOREACH_TRXN_REQ_IN_LIST_SAFE(&trxn->get_cfg_reqs, trxn_req, next) {
 		error = false;
 		assert(trxn_req->req_event == CMGD_TRXN_PROC_GETCFG);
-		db_hndl = cmgd_db_get_hndl_by_id(
-				cmgd_trxn_cm, trxn_req->req.set_cfg->db_id);
+		db_hndl = trxn_req->req.get_data->db_hndl;
 		if (!db_hndl) {
 			cmgd_frntnd_send_get_cfg_reply(
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
 				trxn_req->req.get_data->db_id,
 				trxn_req->req_id, CMGD_INTERNAL_ERROR,
-				NULL, 0, "No such database!");
+				NULL, "No such database!");
 			error = true;
 			goto cmgd_trxn_process_get_cfg_done;
 		}
@@ -668,9 +822,9 @@ static int cmgd_trxn_process_get_data(struct thread *thread)
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
 				trxn_req->req.get_data->db_id,
 				trxn_req->req_id, CMGD_INTERNAL_ERROR,
-				NULL, 0, "No such database!");
+				NULL, "No such database!");
 			error = true;
-			goto cmgd_trxn_process_get_cfg_done;
+			goto cmgd_trxn_process_get_data_done;
 		}
 
 		if (cmgd_db_is_config(db_hndl) &&
@@ -679,12 +833,12 @@ static int cmgd_trxn_process_get_data(struct thread *thread)
 				trxn_req->req.get_data->db_id, trxn,
 				trxn->session_id, trxn_req->req_id);
 			error = true;
-			goto cmgd_trxn_process_get_cfg_done;
+			goto cmgd_trxn_process_get_data_done;
 		} else {
 			/* TODO: Trigger GET procedures for Backend */
 		}
 
-cmgd_trxn_process_get_cfg_done:
+cmgd_trxn_process_get_data_done:
 
 		if (error) {
 			/*
@@ -897,12 +1051,12 @@ cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id)
 
 int cmgd_trxn_send_set_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t db_id,
-        cmgd_yang_cfgdata_req_t *cfg_req[], int num_req)
+        cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+        cmgd_yang_cfgdata_req_t *cfg_req[], size_t num_req)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
-	int indx;
+	size_t indx;
 	uint16_t *num_chgs;
 	struct nb_cfg_change *cfg_chg;
 
@@ -912,6 +1066,7 @@ int cmgd_trxn_send_set_config_req(
 
 	trxn_req = cmgd_trxn_req_alloc(trxn, req_id, CMGD_TRXN_PROC_SETCFG);
 	trxn_req->req.set_cfg->db_id = db_id;
+	trxn_req->req.set_cfg->db_hndl = db_hndl;
 	num_chgs = &trxn_req->req.set_cfg->num_cfg_changes;
 	for (indx = 0; indx < num_req; indx++) {
 		cfg_chg = &trxn_req->req.set_cfg->cfg_changes[*num_chgs];
@@ -940,7 +1095,8 @@ int cmgd_trxn_send_set_config_req(
 
 int cmgd_trxn_send_commit_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
+        cmgd_database_id_t src_db_id, cmgd_db_hndl_t src_db_hndl,
+	cmgd_database_id_t dst_db_id, cmgd_db_hndl_t dst_db_hndl,
 	bool validate_only)
 {
 	cmgd_trxn_ctxt_t *trxn;
@@ -958,7 +1114,9 @@ int cmgd_trxn_send_commit_config_req(
 
 	trxn_req = cmgd_trxn_req_alloc(trxn, req_id, CMGD_TRXN_PROC_COMMITCFG);
 	trxn_req->req.commit_cfg.src_db_id = src_db_id;
+	trxn_req->req.commit_cfg.src_db_hndl = src_db_hndl;
 	trxn_req->req.commit_cfg.dst_db_id = dst_db_id;
+	trxn_req->req.commit_cfg.dst_db_hndl = dst_db_hndl;
 	trxn_req->req.commit_cfg.validate_only = validate_only;
 
 	/*
@@ -988,22 +1146,37 @@ int cmgd_trxn_send_commit_config_reply(
 
 int cmgd_trxn_send_get_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t db_id,
-        cmgd_yang_getdata_req_t *data_req, int num_reqs)
+        cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+        cmgd_yang_getdata_req_t **data_req, size_t num_reqs)
 {
 	cmgd_trxn_ctxt_t *trxn;
+	cmgd_trxn_req_t *trxn_req;
+	size_t indx;
 
 	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
 	if (!trxn)
 		return -1;
+
+	trxn_req = cmgd_trxn_req_alloc(trxn, req_id, CMGD_TRXN_PROC_GETCFG);
+	trxn_req->req.get_data->db_id = db_id;
+	trxn_req->req.get_data->db_hndl = db_hndl;
+	for (indx = 0; indx < num_reqs &&
+		indx < CMGD_MAX_NUM_DATA_REPLY_IN_BATCH; indx++) {
+		CMGD_TRXN_DBG("XPath: '%s'", data_req[indx]->data->xpath);
+		trxn_req->req.get_data->xpaths[indx] =
+			strdup(data_req[indx]->data->xpath);
+		trxn_req->req.get_data->num_xpaths++;
+	}
+
+	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_GETCFG);
 
 	return 0;
 }
 
 int cmgd_trxn_send_get_data_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t db_id,
-        cmgd_yang_getdata_req_t *data_req, int num_reqs)
+        cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+        cmgd_yang_getdata_req_t **data_req, size_t num_reqs)
 {
 	cmgd_trxn_ctxt_t *trxn;
 

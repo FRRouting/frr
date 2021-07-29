@@ -204,14 +204,107 @@ struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl)
 	return (db_ctxt->config_db ? db_ctxt->root.cfg_root : NULL);
 }
 
+static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt, 
+	char *base_xpath, cmgd_db_node_iter_fn iter_fn,
+	void *ctxt, char *xpaths[], struct lyd_node *dnodes[],
+	struct nb_node *nbnodes[], int *num_nodes,
+	bool childs_as_well)
+{
+	uint32_t indx;
+	struct ly_set *set = NULL;
+	char *xpath;
+	size_t xp_len; 
+	int ret, num_left, num_found;
+
+	if (!num_nodes)
+		return -1;
+
+	if (!*num_nodes)
+		return 0;
+
+	xp_len = 0;
+	cmgd_xpath_append_trail_wildcard(base_xpath, &xp_len);
+	ret = lyd_find_xpath(db_ctxt->config_db ?
+			db_ctxt->root.cfg_root->dnode :
+			db_ctxt->root.dnode_root, base_xpath,
+			&set);
+	cmgd_xpath_remove_trail_wildcard(base_xpath, &xp_len);
+
+	if (LY_SUCCESS != ret) {
+		return -1;
+	}
+
+	num_left = *num_nodes;
+	CMGD_DB_DBG(" -- START: *num_nodes:%d, num_left:%d",
+		*num_nodes, num_left);
+	*num_nodes = 0;
+	for(indx = 0; indx < set->count; indx++) {
+		if (dnodes) {
+			dnodes[*num_nodes] = set->dnodes[indx];
+			assert(dnodes[*num_nodes]->schema &&
+				dnodes[*num_nodes]->schema->priv);
+		}
+		if (nbnodes)
+			nbnodes[*num_nodes] =
+				(struct nb_node *) dnodes[indx]->schema->priv;
+
+		xpath = NULL;
+		if (xpaths) {
+			if (xpaths[*num_nodes]) {
+				xpath = lyd_path(dnodes[*num_nodes],
+						LYD_PATH_STD,
+						xpaths[*num_nodes],
+						CMGD_MAX_XPATH_LEN);
+			} else {
+				xpath = lyd_path(dnodes[*num_nodes],
+						LYD_PATH_STD, NULL, 0);
+				xpaths[*num_nodes] = xpath;
+			}
+			CMGD_DB_DBG(" -- XPATH: %s", xpath);
+		}
+
+		if (iter_fn) {
+			(*iter_fn)((cmgd_db_hndl_t) db_ctxt,
+				xpath, dnodes[*num_nodes],
+				nbnodes ? nbnodes[*num_nodes] : NULL, 
+				ctxt);
+		}		
+
+		(*num_nodes)++;
+		num_left--;
+
+		if (!childs_as_well)
+			continue;
+
+		if (set->count > 1) {
+			num_found = num_left;
+			if (cmgd_walk_db_nodes(db_ctxt, xpath, iter_fn,
+				ctxt, xpaths ? &xpaths[*num_nodes] : NULL,
+				&dnodes[*num_nodes],
+				nbnodes ? &nbnodes[*num_nodes] : NULL,
+				&num_found, childs_as_well) != 0) {
+				break;
+			}
+			num_left -= num_found;
+			(*num_nodes) += num_found;
+		}
+	}
+
+	ly_set_free(set, NULL);
+
+	CMGD_DB_DBG(" -- END: *num_nodes:%d, num_left:%d",
+		*num_nodes, num_left);
+
+	return 0;
+}
+
 int cmgd_db_lookup_data_nodes(
-        cmgd_db_hndl_t db_hndl, const char *xpath,
+        cmgd_db_hndl_t db_hndl, const char *xpath, char *dxpaths[],
         struct lyd_node *dnodes[], struct nb_node *nbnodes[],
 	int *num_nodes, bool get_childs_as_well)
 {
 	cmgd_db_ctxt_t *db_ctxt;
-	struct ly_set *set = NULL;
-	uint32_t i;
+	char base_xpath[CMGD_MAX_XPATH_LEN];
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt || !num_nodes)
@@ -220,27 +313,11 @@ int cmgd_db_lookup_data_nodes(
 	if (xpath[0] == '.' && xpath[1] == '/')
 		xpath += 2;
 
-	*num_nodes = 0;
-	if (LY_SUCCESS != lyd_find_xpath(db_ctxt->config_db ?
-				db_ctxt->root.cfg_root->dnode :
-				db_ctxt->root.dnode_root, xpath,
-				&set)) {
-		return -1;
-	}
+	strncpy(base_xpath, xpath, sizeof(base_xpath));
 
-	for(i = 0; i < set->count; i++) {
-		dnodes[*num_nodes] = set->dnodes[i];
-		assert(dnodes[*num_nodes]->schema && dnodes[i]->priv);
-		nbnodes[*num_nodes] = (struct nb_node *) dnodes[i]->priv;
-		(*num_nodes)++;
-
-		if (!get_childs_as_well)
-			break;
-	}
-
-	ly_set_free(set, NULL);
-
-	return 0;
+	return (cmgd_walk_db_nodes(db_ctxt, base_xpath, NULL, NULL,
+			dxpaths, dnodes, nbnodes, num_nodes,
+			get_childs_as_well));
 }
 
 int cmgd_db_delete_data_nodes(
@@ -284,35 +361,29 @@ int cmgd_db_delete_data_nodes(
 
 int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
-        cmgd_db_node_iter_fn iter_fn)
+        cmgd_db_node_iter_fn iter_fn, void *ctxt)
 {
 	cmgd_db_ctxt_t *db_ctxt;
-	int i, count;
-	struct lyd_node *dnodes[CMGD_MAX_NUM_DATA_IN_BATCH] = {0};
-	struct nb_node *nbnodes[CMGD_MAX_NUM_DATA_IN_BATCH] = {0};
-	struct lyd_node *dnode_iter;
+	int indx, ret, max_iter;
+	char *xpaths[CMGD_MAX_NUM_DBNODES_PER_BATCH] = { 0 };
+	struct lyd_node *dnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH] = {0};
+	struct nb_node *nbnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH] = {0};
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
 
-	count = array_size(dnodes);
-	cmgd_db_lookup_data_nodes(db_hndl, base_xpath, dnodes,
-		nbnodes, &count, true);
+	max_iter = array_size(dnodes);
+	ret = cmgd_walk_db_nodes(db_ctxt, base_xpath, iter_fn, ctxt,
+			xpaths, dnodes, nbnodes, &max_iter, true);
 
-	for(i = 0; i < count; i++) {
-		LYD_TREE_DFS_BEGIN (dnodes[i], dnode_iter) {
-			if (!dnode_iter->schema->priv)
-				assert(!"Dnode Nb-Node pointer not set properly!");
-
-			iter_fn(db_hndl, dnode_iter,
-				(struct nb_node *) dnode_iter->schema->priv);
-
-			LYD_TREE_DFS_END (dnodes[i], dnode_iter);
+	for (indx = 0; indx < max_iter; indx++) {
+		if (xpaths[indx]) {
+			free(xpaths[indx]);
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
 int cmgd_db_hndl_send_get_data_req(

@@ -32,6 +32,9 @@ typedef Cmgd__YangDataValue cmgd_yang_data_value_t;
 typedef Cmgd__YangData cmgd_yang_data_t;
 #define cmgd_yang_data_init(ptr) cmgd__yang_data__init(ptr)
 
+typedef Cmgd__YangDataReply cmgd_yang_data_reply_t;
+#define cmgd_yang_data_reply_init(ptr) cmgd__yang_data_reply__init(ptr)
+
 typedef Cmgd__YangCfgDataReq cmgd_yang_cfgdata_req_t;
 #define cmgd_yang_cfg_data_req_init(ptr) cmgd__yang_cfg_data_req__init(ptr)
 

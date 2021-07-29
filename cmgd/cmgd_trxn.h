@@ -27,6 +27,7 @@
 #include "cmgd/cmgd_bcknd_adapter.h"
 #include "cmgd/cmgd_frntnd_adapter.h"
 #include "cmgd/cmgd.h"
+#include "cmgd/cmgd_db.h"
 
 #define CMGD_TRXN_PROC_DELAY_MSEC               100
 #define CMGD_TRXN_MAX_NUM_SETCFG_PROC           128
@@ -82,12 +83,13 @@ extern cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id);
 
 extern int cmgd_trxn_send_set_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t db_id, 
-        cmgd_yang_cfgdata_req_t *cfg_req[], int num_req);
+        cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+        cmgd_yang_cfgdata_req_t *cfg_req[], size_t num_req);
 
 extern int cmgd_trxn_send_commit_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t src_db_id, cmgd_database_id_t dst_db_id,
+        cmgd_database_id_t src_db_id, cmgd_db_hndl_t dst_db_hndl,
+        cmgd_database_id_t dst_db_id, cmgd_db_hndl_t src_db_hndl,
         bool validate_only);
 
 extern int cmgd_trxn_send_commit_config_reply(
@@ -95,13 +97,13 @@ extern int cmgd_trxn_send_commit_config_reply(
 
 extern int cmgd_trxn_send_get_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t db_id,
-        cmgd_yang_getdata_req_t *data_req, int num_reqs);
+        cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+        cmgd_yang_getdata_req_t **data_req, size_t num_reqs);
 
 extern int cmgd_trxn_send_get_data_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
-        cmgd_database_id_t db_id,
-        cmgd_yang_getdata_req_t *data_req, int num_reqs);
+        cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
+        cmgd_yang_getdata_req_t **data_req, size_t num_reqs);
 
 extern void cmgd_trxn_status_write(struct vty *vty);
 

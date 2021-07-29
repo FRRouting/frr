@@ -3248,10 +3248,11 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
 	uintptr_t user_ctxt, cmgd_client_req_id_t req_id, bool success,
-	cmgd_database_id_t db_id, cmgd_yang_data_t yang_data[],
-	size_t *num_data, int next_key, char *errmsg_if_any)
+	cmgd_database_id_t db_id, cmgd_yang_data_t *yang_data[],
+	size_t num_data, int next_key, char *errmsg_if_any)
 {
 	struct vty *vty;
+	size_t indx;
 
 	vty = (struct vty *)client_id;
 
@@ -3266,7 +3267,16 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 	zlog_err("GET_DATA request for client 0x%lx req-id %lu was successfull!",
 		client_id, req_id);
 
-	vty_out(vty, "\n");
+	vty_out(vty, "[\n");
+	for (indx = 0; indx < num_data; indx++) {
+		zlog_err("XPATH: %s\n - Data: %s\n",
+			yang_data[indx]->xpath,
+			yang_data[indx]->value->encoded_str_val);
+		vty_out(vty, "  \"%s\": \"%s\"\n",
+			yang_data[indx]->xpath,
+			yang_data[indx]->value->encoded_str_val);
+	}
+	vty_out(vty, "]\n");
 
 	vty->cmgd_req_pending = false;
 	// vty_prompt(vty);

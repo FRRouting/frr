@@ -30,6 +30,8 @@
 #include "lib/cmgd_frntnd_client.h"
 #include "cmgd/cmgd.h"
 
+#define CMGD_MAX_NUM_DBNODES_PER_BATCH		128
+
 #define CMGD_DB_NAME_MAX_LEN    32
 #define CMGD_DB_NAME_NONE                       "none"
 #define CMGD_DB_NAME_RUNNING                    "running"
@@ -42,7 +44,8 @@
 typedef uintptr_t cmgd_db_hndl_t;
 
 typedef void (*cmgd_db_node_iter_fn)(cmgd_db_hndl_t db_hndl, 
-        struct lyd_node *node, struct nb_node *nb_node);
+        char *xpath, struct lyd_node *node, struct nb_node *nb_node,
+	void *ctxt);
 
 
 /***************************************************************
@@ -81,6 +84,46 @@ static inline cmgd_database_id_t cmgd_get_db_id_by_name(const char *db_name)
 		return CMGD_DB_OPERATIONAL;
 	return CMGD_DB_NONE;
 }
+static inline void cmgd_xpath_append_trail_wildcard(
+	char *xpath, size_t *xpath_len)
+{
+	if (!xpath || !xpath_len)
+		return;
+
+	if (!*xpath_len)
+		*xpath_len = strlen(xpath);
+
+	if (*xpath_len > 2 && *xpath_len < CMGD_MAX_XPATH_LEN-2) { 
+		if (xpath[*xpath_len-1] == '/') {
+			xpath[*xpath_len] = '*';
+			xpath[*xpath_len+1] = 0;
+                        (*xpath_len)++;
+		} else if (xpath[*xpath_len-1] != '*') {
+			xpath[*xpath_len] = '/';
+			xpath[*xpath_len+1] = '*';
+			xpath[*xpath_len+2] = 0;
+                        (*xpath_len) += 2;
+		}
+	}
+}
+
+static inline void cmgd_xpath_remove_trail_wildcard(
+	char *xpath, size_t *xpath_len)
+{
+	if (!xpath || !xpath_len)
+		return;
+
+	if (!*xpath_len)
+		*xpath_len = strlen(xpath);
+
+	if (*xpath_len > 2 && xpath[*xpath_len-2] == '/' &&
+		xpath[*xpath_len-1] == '*') {
+		xpath[*xpath_len-2] = 0;
+                (*xpath_len) -= 2;
+                // xpath[*xpath_len-1] = 0;
+                // (*xpath_len)--;
+        }
+}
 
 extern int cmgd_db_init(struct cmgd_master *cm);
 
@@ -102,7 +145,7 @@ extern int cmgd_db_copy_dbs(cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db);
 extern struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl);
 
 extern int cmgd_db_lookup_data_nodes(
-        cmgd_db_hndl_t db_hndl, const char *xpath,
+        cmgd_db_hndl_t db_hndl, const char *xpath, char *dxpaths[],
         struct lyd_node *dnodes[], struct nb_node *nbnodes[],
 	int *num_nodes, bool get_childs_as_well);
 
@@ -111,7 +154,7 @@ extern int cmgd_db_delete_data_nodes(
 
 extern int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
-        cmgd_db_node_iter_fn iter_fn);
+        cmgd_db_node_iter_fn iter_fn, void *ctxt);
 
 extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,

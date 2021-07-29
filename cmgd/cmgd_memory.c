@@ -36,3 +36,4 @@ DEFINE_MTYPE(CMGD, CMGD_TRXN_REQ, "CMGD Transaction Requests");
 DEFINE_MTYPE(CMGD, CMGD_TRXN_SETCFG_REQ, "CMGD Transaction Set-Config Requests");
 DEFINE_MTYPE(CMGD, CMGD_TRXN_COMMCFG_REQ, "CMGD Transaction Commit-Config Requests");
 DEFINE_MTYPE(CMGD, CMGD_TRXN_GETDATA_REQ, "CMGD Transaction Get-Data Requests");
+DEFINE_MTYPE(CMGD, CMGD_TRXN_GETDATA_REPLY, "CMGD Transaction Get-Data Replies");
