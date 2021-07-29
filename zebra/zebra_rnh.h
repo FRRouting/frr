@@ -24,6 +24,7 @@
 
 #include "prefix.h"
 #include "vty.h"
+#include "lib/json.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -46,8 +47,8 @@ extern void zebra_remove_rnh_client(struct rnh *rnh, struct zserv *client);
 extern void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 			       const struct prefix *p, safi_t safi);
 extern void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
-				  struct vty *vty, const struct prefix *p);
-
+				  struct vty *vty, const struct prefix *p,
+				  json_object *json);
 extern int rnh_resolve_via_default(struct zebra_vrf *zvrf, int family);
 
 extern bool rnh_nexthop_valid(const struct route_entry *re,
