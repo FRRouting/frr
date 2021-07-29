@@ -144,6 +144,9 @@ static int cmgd_frntnd_client_send_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	uint8_t msg_buf[CMGD_FRNTND_MSG_MAX_LEN];
 	cmgd_frntnd_msg_t *msg;
 
+	if (clnt_ctxt->conn_fd == 0)
+		return -1;
+
 	msg_size = cmgd__frntnd_message__get_packed_size(frntnd_msg);
 	msg_size += CMGD_FRNTND_MSG_HDR_LEN;
 	if (msg_size > sizeof(msg_buf)) {
