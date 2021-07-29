@@ -1,4 +1,4 @@
-from lib.lutil import luCommand
+from lib.lutil import luCommand, luLast
 
 num = 50000
 b = int(num / (256 * 256))

@@ -915,7 +915,7 @@ def test_modify_route_map_match_set_clauses_p1(request):
             rmap_name="rmap_IMP_{}".format(addr_type),
             input_dict=input_rmap,
         )
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Change community-list to match a different value then " "100:100.")
 

@@ -1,3 +1,5 @@
+from lib.lutil import luCommand
+
 luCommand(
     "r1", "ping 2.2.2.2 -c 1", " 0. packet loss", "wait", "PE->P2 (loopback) ping", 60
 )

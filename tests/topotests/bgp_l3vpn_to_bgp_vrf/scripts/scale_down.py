@@ -1,4 +1,4 @@
-from lib.lutil import luCommand
+from lib.lutil import luCommand, luLast
 
 ret = luCommand(
     "ce1",

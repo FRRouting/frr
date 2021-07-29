@@ -26,6 +26,9 @@
 test_pim_vrf.py: Test PIM with VRFs.
 """
 
+# XXX clean up in later commit to avoid conflict on rebase
+# pylint: disable=C0413
+
 # Tests PIM with VRF
 #
 # R1 is split into 2 VRF: Blue and Red, the others are normal
