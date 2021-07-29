@@ -2231,8 +2231,10 @@ def test_verify_remove_add_pim_commands_when_igmp_configured_p1(request):
     step("Remove 'no ip pim' on receiver interface on FRR1")
 
     intf_l1_i1 = topo["routers"]["l1"]["links"]["i1"]["interface"]
-    input_dict_1 = {"l1": {"pim": {"disable": intf_l1_i1}}}
-    result = create_pim_config(tgen, topo, input_dict_1)
+    raw_config = {
+        "l1": {"raw_config": ["interface {}".format(intf_l1_i1), "no ip pim"]}
+    }
+    result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Verify that no core is observed")
