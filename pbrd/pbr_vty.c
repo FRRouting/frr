@@ -1100,15 +1100,6 @@ DEFUN_NOSH(show_debugging_pbr,
 /* ------------------------------------------------------------------------- */
 
 
-static int pbr_interface_config_write(struct vty *vty);
-static struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = pbr_interface_config_write,
-};
-
 static int pbr_interface_config_write(struct vty *vty)
 {
 	struct interface *ifp;
@@ -1240,8 +1231,7 @@ void pbr_vty_init(void)
 
 	vrf_cmd_init(NULL, &pbr_privs);
 
-	install_node(&interface_node);
-	if_cmd_init();
+	if_cmd_init(pbr_interface_config_write);
 
 	install_node(&pbr_map_node);
 
