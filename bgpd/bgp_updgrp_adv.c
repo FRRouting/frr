@@ -829,6 +829,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 				struct bgp_path_info_extra tmp_pie;
 
 				tmp_attr = *pi->attr;
+				tmp_attr.aspath = attr.aspath;
 
 				prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi,
 						    pi->peer, &tmp_attr);
@@ -838,11 +839,12 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					bgp_dest_get_prefix(dest), &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
+					/* The aspath belongs to 'attr' */
+					tmp_attr.aspath = NULL;
 					bgp_attr_flush(&tmp_attr);
 					continue;
 				} else {
 					new_attr = bgp_attr_intern(&tmp_attr);
-					new_attr->aspath = attr.aspath;
 
 					subgroup_announce_reset_nhop(
 						(peer_cap_enhe(peer, afi, safi)
