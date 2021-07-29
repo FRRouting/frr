@@ -684,8 +684,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Sending BSR after Configure black hole address for BSR and candidate RP")
     step("Send BSR packet from b1 to FHR")
@@ -708,8 +709,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is not True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -1326,8 +1328,7 @@ def test_bsmp_stress_add_del_restart_p2(request):
         assert (
             rp_add1 == rp2[group]
         ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
-            tc_name,
-            rp_add1,
+            tc_name, rp_add1, rp2[group]
         )
 
         # Verify if that rp is installed

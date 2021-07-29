@@ -119,6 +119,7 @@ def setup_module(module):
 
 
 def teardown_module(module):
+    del module
     tgen = get_topogen()
     tgen.stop_topology()
 

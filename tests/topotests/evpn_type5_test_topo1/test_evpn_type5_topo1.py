@@ -254,9 +254,7 @@ def prerequisite_config_for_test_suite(tgen):
         }
 
         result = configure_vxlan(tgen, vxlan_input)
-        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
-            tc_name, dut, result
-        )
+        assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
         step("Configure bridge interface")
         brctl_input = {
@@ -272,9 +270,7 @@ def prerequisite_config_for_test_suite(tgen):
             }
         }
         result = configure_brctl(tgen, topo, brctl_input)
-        assert result is True, "Testcase {} on {} :Failed \n Error: {}".format(
-            tc_name, dut, result
-        )
+        assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
     step("Configure default routes")
     add_default_routes(tgen)
@@ -343,7 +339,7 @@ def add_default_routes(tgen):
     }
 
     result = create_static_routes(tgen, default_routes)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
 
 def test_RD_verification_manual_and_auto_p0(request):
@@ -1348,15 +1344,17 @@ def test_evpn_routes_from_VNFs_p1(request):
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase :Failed \n Routes are still present: {}".format(result)
         logger.info("Expected Behavior: {}".format(result))
 
     for addr_type in ADDR_TYPES:
         input_routes = {key: topo["routers"][key] for key in ["r1"]}
         result = verify_rib(tgen, addr_type, "r3", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
     step("Re-advertise IP prefixes from VFN(R1).")
@@ -1431,13 +1429,15 @@ def test_evpn_routes_from_VNFs_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
         result = verify_rib(tgen, addr_type, "r4", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
     step("Add vrf BLUE on router Edge-1 again.")
@@ -1532,13 +1532,15 @@ def test_evpn_routes_from_VNFs_p1(request):
     }
 
     result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-    assert result is not True, "Testcase {} :Failed \n "
-    "Routes are still present: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
     logger.info("Expected Behavior: {}".format(result))
 
     result = verify_rib(tgen, addr_type, "r4", input_routes, expected=False)
-    assert result is not True, "Testcase {} :Failed \n "
-    "Routes are still present: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
     logger.info("Expected Behavior: {}".format(result))
 
     step("Advertise IPv6 address-family in EVPN advertisements " "for VRF GREEN.")
@@ -1990,7 +1992,7 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         input_dict_1 = {
             "e1": {
                 "route_maps": {
-                    "rmap_d1".format(addr_type): [
+                    "rmap_d1": [
                         {
                             "action": "permit",
                             "set": {
@@ -2001,7 +2003,7 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
                             },
                         }
                     ],
-                    "rmap_d2".format(addr_type): [
+                    "rmap_d2": [
                         {
                             "action": "permit",
                             "set": {
@@ -2016,10 +2018,10 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         input_dict_1 = {
             "e1": {
                 "route_maps": {
-                    "rmap_d1".format(addr_type): [
+                    "rmap_d1": [
                         {"action": "permit", "set": {attribute: 120}}
                     ],
-                    "rmap_d2".format(addr_type): [
+                    "rmap_d2": [
                         {"action": "permit", "set": {attribute: 150}}
                     ],
                 }

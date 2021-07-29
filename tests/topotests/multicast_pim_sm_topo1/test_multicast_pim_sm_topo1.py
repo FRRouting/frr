@@ -353,8 +353,9 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = iperfSendIGMPJoin(tgen, "i1", IGMP_JOIN, join_interval=1)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -430,8 +431,9 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step(
         "l1 sent PIM (*,G) join to r2 verify using"
@@ -511,8 +513,9 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = iperfSendIGMPJoin(tgen, "i1", IGMP_JOIN, join_interval=1)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -554,8 +557,9 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase {} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step(
         "l1 sent PIM (*,G) join to r2 verify using"
@@ -958,8 +962,11 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n mroutes are"
-        " still present \n Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     step(
@@ -1184,8 +1191,11 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     result = verify_ip_mroutes(
         tgen, "c1", "*", IGMP_JOIN, "c1-c2-eth1", "c1-l1-eth0", expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n mroutes are"
-    " still present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+        tc_name, result
+    )
     logger.info("Expected Behavior: {}".format(result))
 
     write_test_footer(tc_name)
@@ -1296,8 +1306,11 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     result = verify_ip_mroutes(
         tgen, "f1", "*", IGMP_JOIN, "f1-r2-eth3", "f1-i8-eth2", expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n mroutes are"
-    " still present \n Error: {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n mroutes are still present \n Error: {}".format(
+        tc_name, result
+    )
     logger.info("Expected Behavior: {}".format(result))
 
     step("IGMP groups are present verify using 'show ip igmp group'")

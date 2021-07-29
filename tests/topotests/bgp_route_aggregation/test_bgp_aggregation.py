@@ -242,7 +242,9 @@ def test_route_summarisation_with_summary_only_p1(request):
         step("Configuring {} static routes on router R1 ".format(addr_type))
 
         result = create_static_routes(tgen, input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step(
             "Configuring redistribute static for {} address-family on router R1 ".format(
@@ -273,7 +275,9 @@ def test_route_summarisation_with_summary_only_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "r3", input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step("Advertise some prefixes using network command")
     step(
@@ -358,7 +362,9 @@ def test_route_summarisation_with_summary_only_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "r3", input_advertise)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step("Configure aggregate-address to summarise all the advertised routes.")
 
@@ -413,22 +419,28 @@ def test_route_summarisation_with_summary_only_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "r3", input_static_agg, protocol="bgp")
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(
             tgen, addr_type, "r3", input_static, protocol="bgp", expected=False
         )
         assert (
             result is not True
-        ), "Testcase  : Failed \n " "Routes are still present \n Error: {}".format(
+        ), "Testcase {} : Failed \n " "Routes are still present \n Error: {}".format(
             tc_name, result
         )
 
         result = verify_rib(tgen, addr_type, "r1", input_static_agg, protocol="bgp")
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(tgen, addr_type, "r1", input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     for action, value in zip(["removed", "add"], [True, False]):
 
@@ -454,7 +466,7 @@ def test_route_summarisation_with_summary_only_p1(request):
             }
 
             result = create_static_routes(tgen, input_static)
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -481,18 +493,19 @@ def test_route_summarisation_with_summary_only_p1(request):
                 result = verify_rib(
                     tgen, addr_type, "r1", input_static_1, expected=False
                 )
-                assert result is not True, (
-                    "Testcase  : Failed \n "
-                    "Routes are still present \n Error: {}".format(tc_name, result)
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \n Routes are still present \n Error: {}".format(
+                    tc_name, result
                 )
             else:
                 result = verify_rib(tgen, addr_type, "r1", input_static_1)
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
             result = verify_rib(tgen, addr_type, "r3", input_static_2, protocol="bgp")
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -579,17 +592,17 @@ def test_route_summarisation_with_summary_only_p1(request):
                     tgen, addr_type, "r1", input_advertise_1, expected=False
                 )
                 assert result is not True, (
-                    "Testcase  : Failed \n "
+                    "Testcase {} : Failed \n "
                     "Routes are still present \n Error: {}".format(tc_name, result)
                 )
             else:
                 result = verify_bgp_rib(tgen, addr_type, "r1", input_advertise_1)
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
             result = verify_rib(tgen, addr_type, "r3", input_advertise_2)
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -608,7 +621,9 @@ def test_route_summarisation_with_summary_only_p1(request):
         }
 
         result = create_static_routes(tgen, input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
         input_advertise = {
@@ -645,7 +660,9 @@ def test_route_summarisation_with_summary_only_p1(request):
         input_static = {"r1": {"static_routes": [{"network": AGGREGATE_NW[addr_type]}]}}
 
         result = verify_rib(tgen, addr_type, "r3", input_static, protocol="bgp")
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         input_advertise_2 = {
             "r1": {
@@ -669,7 +686,9 @@ def test_route_summarisation_with_summary_only_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "r3", input_advertise_2, protocol="bgp")
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     for action, value in zip(["Delete", "Re-add"], [True, False]):
         step("{} aggregation command from R1.".format(action))
@@ -715,30 +734,28 @@ def test_route_summarisation_with_summary_only_p1(request):
                 result = verify_rib(
                     tgen, addr_type, "r1", input_static_agg, expected=False
                 )
-                assert result is not True, (
-                    "Testcase : Failed \n "
-                    "Aggregated route is still present \n Error: {}".format(
-                        tc_name, result
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \n Aggregated route is still present \n Error: {}".format(
+                    tc_name, result
                 )
 
                 result = verify_rib(
                     tgen, addr_type, "r3", input_static_agg, expected=False
                 )
-                assert result is not True, (
-                    "Testcase : Failed \n "
-                    "Aggregated route is still present \n Error: {}".format(
-                        tc_name, result
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \n Aggregated route is still present \n Error: {}".format(
+                    tc_name, result
                 )
             else:
                 result = verify_rib(tgen, addr_type, "r1", input_static_agg)
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
                 result = verify_rib(tgen, addr_type, "r3", input_static_agg)
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
@@ -793,7 +810,9 @@ def test_route_summarisation_with_as_set_p1(request):
         step("Configuring {} static routes on router R1 ".format(addr_type))
 
         result = create_static_routes(tgen, input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step(
             "Configuring redistribute static for {} address-family on router R1 ".format(
@@ -826,7 +845,9 @@ def test_route_summarisation_with_as_set_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, "r3", input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step(
         "Configure a route-map to attach a unique community attribute value "
@@ -977,7 +998,9 @@ def test_route_summarisation_with_as_set_p1(request):
         }
 
         result = create_static_routes(tgen, input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step(
         "Verify on R3 that whenever we remove the static routes, we still"
@@ -1017,7 +1040,9 @@ def test_route_summarisation_with_as_set_p1(request):
         }
 
         result = create_static_routes(tgen, input_static)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
         for (
@@ -1134,30 +1159,28 @@ def test_route_summarisation_with_as_set_p1(request):
                 result = verify_rib(
                     tgen, addr_type, "r1", input_static_agg, expected=False
                 )
-                assert result is not True, (
-                    "Testcase : Failed \n "
-                    "Aggregated route is still present \n Error: {}".format(
-                        tc_name, result
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \n Aggregated route is still present \n Error: {}".format(
+                    tc_name, result
                 )
 
                 result = verify_rib(
                     tgen, addr_type, "r3", input_static_agg, expected=False
                 )
-                assert result is not True, (
-                    "Testcase : Failed \n "
-                    "Aggregated route is still present \n Error: {}".format(
-                        tc_name, result
-                    )
+                assert (
+                    result is not True
+                ), "Testcase {} : Failed \n Aggregated route is still present \n Error: {}".format(
+                    tc_name, result
                 )
             else:
                 result = verify_rib(tgen, addr_type, "r1", input_static_agg)
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
                 result = verify_rib(tgen, addr_type, "r3", input_static_agg)
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
