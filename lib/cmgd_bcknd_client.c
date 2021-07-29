@@ -20,10 +20,12 @@
 
 #include "northbound.h"
 #include "libfrr.h"
+#include "lib/typesafe.h"
 #include "lib/cmgd_bcknd_client.h"
 #include "lib/cmgd_pb.h"
 #include "lib/network.h"
 #include "lib/stream.h"
+#include "lib/memory.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define CMGD_BCKND_CLNT_DBG(fmt, ...)					\
@@ -43,6 +45,64 @@ const char *cmgd_bcknd_client_names[CMGD_CLIENT_NAME_MAX_LEN] = {
 	"Unknown/Invalid",		/* CMGD_BCKND_CLIENT_ID_MAX */
 };
 
+DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_BATCH, "CMGD backend transaction batch data");
+DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN, "CMGD backend transaction data");
+DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_REQ,"CMGD backend transaction request");
+DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_SETCFG_REQ, "CMGD backend transaction set request");
+DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_GETDATA_REQ, "CMGD backend transaction get request");
+
+const char *cmgd_bcknd_client_names[] = {CMGD_BCKND_CLIENT_STATICD, CMGD_BCKND_CLIENT_BGPD};
+
+typedef enum cmgd_bcknd_trxn_event_ {
+	CMGD_BCKND_TRXN_PROC_SETCFG = 1,
+	CMGD_BCKND_TRXN_PROC_GETCFG,
+	CMGD_BCKND_TRXN_PROC_GETDATA
+} cmgd_bcknd_trxn_event_t;
+
+typedef struct cmgd_bcknd_set_cfg_req_ {
+	struct nb_cfg_change cfg_changes[CMGD_MAX_CFG_CHANGES_IN_BATCH];
+	uint16_t num_cfg_changes;
+} cmgd_bcknd_set_cfg_req_t;
+
+typedef struct cmgd_bcknd_get_data_req_ {
+	char *xpaths[CMGD_MAX_NUM_DATA_IN_BATCH];
+	uint16_t num_xpaths;
+} cmgd_bcknd_get_data_req_t;
+
+PREDECL_LIST(cmgd_bcknd_trxn_req_list);
+typedef struct cmgd_bcknd_trxn_req_ {
+	cmgd_bcknd_trxn_event_t event;
+	union {
+		cmgd_bcknd_set_cfg_req_t *set_cfg;
+		cmgd_bcknd_get_data_req_t *get_data;
+	} req;
+
+	struct cmgd_bcknd_trxn_req_list_item list_linkage;
+} cmgd_bcknd_trxn_req_t;
+DECLARE_LIST(cmgd_bcknd_trxn_req_list, cmgd_bcknd_trxn_req_t, list_linkage);
+
+PREDECL_LIST(cmgd_bcknd_batch_list);
+typedef struct cmgd_bcknd_batch_ctxt_ {
+	//add private data
+	uint64_t batch_id;
+	struct cmgd_bcknd_trxn_req_list_head trxn_data;
+
+	struct cmgd_bcknd_batch_list_item batch_list_linkage;
+} cmgd_bcknd_batch_ctxt_t;
+DECLARE_LIST(cmgd_bcknd_batch_list, cmgd_bcknd_batch_ctxt_t, batch_list_linkage);
+
+PREDECL_LIST(cmgd_bcknd_trxn_list);
+typedef struct cmgd_bcknd_trxn_ctxt_ {
+	//add private data
+	uint64_t trxn_id;
+
+	cmgd_bcknd_client_trxn_ctxt_t client_data;
+	//add batching data
+	struct cmgd_bcknd_batch_list_head batch_head;
+	struct cmgd_bcknd_trxn_list_item trxn_list_linkage;
+} cmgd_bcknd_trxn_ctxt_t;
+DECLARE_LIST(cmgd_bcknd_trxn_list, cmgd_bcknd_trxn_ctxt_t, trxn_list_linkage);
+
 typedef struct cmgd_bcknd_client_ctxt_ {
 	int conn_fd;
 	struct thread_master *tm;
@@ -56,6 +116,7 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 	// struct stream_fifo *obuf_fifo;
 	// struct stream *obuf_work;
 
+	struct cmgd_bcknd_trxn_list_head trxn_head;
 	cmgd_bcknd_client_params_t client_params;
 } cmgd_bcknd_client_ctxt_t;
 
@@ -66,6 +127,8 @@ static void cmgd_bcknd_client_register_event(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, cmgd_event_t event);
 static void cmgd_bcknd_client_schedule_conn_retry(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, unsigned long intvl_secs);
+static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+	Cmgd__BckndMessage *bcknd_msg);
 
 static void cmgd_bcknd_server_disconnect(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, bool reconnect)
@@ -90,16 +153,625 @@ static void cmgd_bcknd_server_disconnect(
 			clnt_ctxt, clnt_ctxt->client_params.conn_retry_intvl_sec);
 }
 
-static int cmgd_bcknd_client_process_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt, 
-	uint8_t *bcknd_msg, int bytes_read)
+static int cmgd_bcknd_trxn_req_init(cmgd_bcknd_batch_ctxt_t *batch)
 {
-	(void) bcknd_msg;
-	(void) clnt_ctxt;
+	cmgd_bcknd_trxn_req_list_init(&batch->trxn_data);
+	return 0;
+}
+
+static void
+cmgd_bcknd_trxn_req_delete(struct cmgd_bcknd_trxn_req_list_head *trxn_data,
+			   cmgd_bcknd_trxn_req_t *trxn_req)
+{
+	if (!trxn_req)
+		return;
+
+	cmgd_bcknd_trxn_req_list_del(trxn_data, trxn_req);
+
+	switch (trxn_req->event) {
+	case CMGD_BCKND_TRXN_PROC_SETCFG:
+		if (trxn_req->req.set_cfg)
+			XFREE(MTYPE_CMGD_BCKND_TRXN_SETCFG_REQ,
+				trxn_req->req.set_cfg);
+		break;
+	case CMGD_BCKND_TRXN_PROC_GETCFG:
+	case CMGD_BCKND_TRXN_PROC_GETDATA:
+		if (trxn_req->req.get_data)
+			XFREE(MTYPE_CMGD_BCKND_TRXN_GETDATA_REQ,
+				trxn_req->req.get_data);
+		break;
+	default:
+		break;
+	}
+
+	XFREE(MTYPE_CMGD_BCKND_TRXN, trxn_req);
+}
+
+static void
+cmgd_bcknd_trxn_req_cleanup(struct cmgd_bcknd_trxn_req_list_head *trxn_data)
+{
+        cmgd_bcknd_trxn_req_t *trxn_req = NULL;
+
+        trxn_req = cmgd_bcknd_trxn_req_list_pop(trxn_data);
+        while (trxn_req) {
+                cmgd_bcknd_trxn_req_delete(trxn_data, trxn_req);
+		trxn_req = cmgd_bcknd_trxn_req_list_pop(trxn_data);
+        }
+}
+
+static int cmgd_bcknd_batch_init(cmgd_bcknd_trxn_ctxt_t *trxn)
+{
+	cmgd_bcknd_batch_list_init(&trxn->batch_head);
+	return 0;
+}
+
+static cmgd_bcknd_batch_ctxt_t *
+cmgd_bcknd_find_batch_by_id(struct cmgd_bcknd_batch_list_head *batch_head,
+			    uint64_t batch_id)
+{
+	cmgd_bcknd_batch_ctxt_t *batch = NULL;
+
+	frr_each_safe(cmgd_bcknd_batch_list, batch_head, batch) {
+		if (batch->batch_id == batch_id)
+			return batch;
+	}
+
+	return NULL;
+}
+
+static cmgd_bcknd_batch_ctxt_t *
+cmgd_bcknd_batch_create(struct cmgd_bcknd_batch_list_head *batch_head,
+			uint64_t batch_id)
+{
+	cmgd_bcknd_batch_ctxt_t *batch = NULL;
+
+	batch = cmgd_bcknd_find_batch_by_id(batch_head, batch_id);
+	if (!batch) {
+		batch = XCALLOC(MTYPE_CMGD_BCKND_BATCH,
+				sizeof(cmgd_bcknd_batch_ctxt_t));
+		assert(batch);
+
+		batch->batch_id = batch_id;
+		cmgd_bcknd_trxn_req_init(batch);
+		cmgd_bcknd_batch_list_add_tail(batch_head, batch);
+
+		CMGD_BCKND_CLNT_DBG("Added new batch %llu to transaction",
+				    batch_id);
+	}
+
+	return batch;
+}
+
+static void
+cmgd_bcknd_batch_delete(struct cmgd_bcknd_batch_list_head *batch_head,
+			cmgd_bcknd_batch_ctxt_t *batch)
+{
+	if (!batch)
+		return;
+
+	if (cmgd_bcknd_trxn_req_list_count(&batch->trxn_data) != 0) {
+		CMGD_BCKND_CLNT_ERR("calling batch %llu delete before freeing trxn req data",
+				batch->batch_id);
+		cmgd_bcknd_trxn_req_cleanup(&batch->trxn_data);
+	}
+
+	cmgd_bcknd_trxn_req_list_fini(&batch->trxn_data);
+	cmgd_bcknd_batch_list_del(batch_head, batch);
+	XFREE(MTYPE_CMGD_BCKND_BATCH, batch);
+}
+
+static void
+cmgd_bcknd_batch_cleanup(struct cmgd_bcknd_batch_list_head *batch_head)
+{
+	cmgd_bcknd_batch_ctxt_t *batch = NULL;
+
+	batch = cmgd_bcknd_batch_list_pop(batch_head);
+	while (batch) {
+		cmgd_bcknd_batch_delete(batch_head, batch);
+		batch = cmgd_bcknd_batch_list_pop(batch_head);
+	}
+}
+
+static cmgd_bcknd_trxn_req_t *
+cmgd_bcknd_trxn_req_alloc(cmgd_bcknd_trxn_event_t event)
+{
+	cmgd_bcknd_trxn_req_t *trxn_req = NULL;
+
+	trxn_req = XCALLOC(MTYPE_CMGD_BCKND_TRXN_REQ,
+			   sizeof(cmgd_bcknd_trxn_req_t));
+	assert(trxn_req);
+	trxn_req->event = event;
+
+	switch (trxn_req->event) {
+		case CMGD_BCKND_TRXN_PROC_SETCFG:
+			trxn_req->req.set_cfg = XCALLOC(MTYPE_CMGD_BCKND_TRXN_SETCFG_REQ,
+					sizeof(cmgd_bcknd_set_cfg_req_t));
+			assert(trxn_req->req.set_cfg);
+			break;
+		case CMGD_BCKND_TRXN_PROC_GETCFG:
+		case CMGD_BCKND_TRXN_PROC_GETDATA:
+			trxn_req->req.get_data = XCALLOC(MTYPE_CMGD_BCKND_TRXN_GETDATA_REQ,
+							sizeof(cmgd_bcknd_get_data_req_t));
+			assert(trxn_req->req.get_data);
+			break;
+		default:
+			break;
+	}
+
+	return trxn_req;
+}
+
+static int
+cmgd_bcknd_update_setcfg_in_batch(cmgd_bcknd_trxn_ctxt_t *trxn,
+				uint64_t batch_id,
+				cmgd_yang_cfgdata_req_t *cfg_req[],
+				int num_req, cmgd_bcknd_trxn_event_t event)
+{
+	cmgd_bcknd_batch_ctxt_t *batch = NULL;
+	cmgd_bcknd_trxn_req_t *trxn_req = NULL;
+	int index;
+	struct nb_cfg_change *cfg_chg;
+
+	batch = cmgd_bcknd_batch_create(&trxn->batch_head, batch_id);
+	if (!batch) {
+		CMGD_BCKND_CLNT_ERR("Batch create failed!");
+		return -1;
+	}
+
+	trxn_req = cmgd_bcknd_trxn_req_alloc(event);
+	CMGD_BCKND_CLNT_DBG("created trxn %u request for batch %llu, trxn id %llu",
+			    event, batch_id, trxn->trxn_id);
+
+	trxn_req->req.set_cfg->num_cfg_changes = num_req;
+	for (index = 0; index < num_req; index++) {
+		cfg_chg = &trxn_req->req.set_cfg->cfg_changes[index];
+		CMGD_BCKND_CLNT_DBG("XPath: '%s', Value: '%s'",
+			cfg_req[index]->data->xpath,
+			(cfg_req[index]->data->value &&
+			 cfg_req[index]->data->value->encoded_str_val ?
+			 cfg_req[index]->data->value->encoded_str_val :
+			 "NULL"));
+		strlcpy(cfg_chg->xpath, cfg_req[index]->data->xpath,
+			sizeof(cfg_chg->xpath));
+		cfg_chg->value =
+			(cfg_req[index]->data->value &&
+			 cfg_req[index]->data->value->encoded_str_val ?
+			 strdup(cfg_req[index]->data->value->encoded_str_val) :
+			 NULL);
+	}
+
+	cmgd_bcknd_trxn_req_list_add_tail(&batch->trxn_data, trxn_req);
+	return 0;
+}
+
+static int cmgd_bcknd_trxn_init(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
+{
+	cmgd_bcknd_trxn_list_init(&clnt_ctxt->trxn_head);
+	return 0;
+}
+
+static cmgd_bcknd_trxn_ctxt_t *
+cmgd_bcknd_find_trxn_by_id(struct cmgd_bcknd_trxn_list_head *trxn_head,
+			   uint64_t trxn_id)
+{
+	cmgd_bcknd_trxn_ctxt_t *trxn = NULL;
+
+	frr_each_safe(cmgd_bcknd_trxn_list, trxn_head, trxn) {
+		if (trxn->trxn_id == trxn_id)
+			return trxn;
+	}
+
+	return NULL;
+}
+
+static cmgd_bcknd_trxn_ctxt_t *
+cmgd_bcknd_trxn_create(struct cmgd_bcknd_trxn_list_head *trxn_head,
+		       uint64_t trxn_id)
+{
+	cmgd_bcknd_trxn_ctxt_t *trxn = NULL;
+
+	trxn = cmgd_bcknd_find_trxn_by_id(trxn_head, trxn_id);
+	if (!trxn) {
+		trxn = XCALLOC(MTYPE_CMGD_BCKND_TRXN,
+				sizeof(cmgd_bcknd_trxn_ctxt_t));
+		assert(trxn);
+
+		trxn->trxn_id = trxn_id;
+		cmgd_bcknd_batch_init(trxn);
+		cmgd_bcknd_trxn_list_add_tail(trxn_head, trxn);
+
+		CMGD_BCKND_CLNT_DBG("Added new transaction %llu",
+				trxn_id);
+	}
+
+	return trxn;
+}
+
+static void
+cmgd_bcknd_trxn_delete(struct cmgd_bcknd_trxn_list_head *trxn_head,
+		       cmgd_bcknd_trxn_ctxt_t *trxn)
+{
+	if (!trxn)
+		return;
+
+	if (cmgd_bcknd_batch_list_count(&trxn->batch_head) != 0) {
+		CMGD_BCKND_CLNT_ERR("calling transaction %llu delete before freeing batch data",
+				trxn->trxn_id);
+		cmgd_bcknd_batch_cleanup(&trxn->batch_head);
+	}
+
+	cmgd_bcknd_batch_list_fini(&trxn->batch_head);
+	cmgd_bcknd_trxn_list_del(trxn_head, trxn);
+	XFREE(MTYPE_CMGD_BCKND_TRXN, trxn);
+}
+
+static void
+cmgd_bcknd_trxn_cleanup(struct cmgd_bcknd_trxn_list_head *trxn_head)
+{
+        cmgd_bcknd_trxn_ctxt_t *trxn = NULL;
+
+        trxn = cmgd_bcknd_trxn_list_pop(trxn_head);
+        while (trxn) {
+                cmgd_bcknd_trxn_delete(trxn_head, trxn);
+                trxn = cmgd_bcknd_trxn_list_pop(trxn_head);
+        }
+
+	cmgd_bcknd_trxn_list_fini(trxn_head);
+}
+
+static int
+cmgd_bcknd_send_trxn_reply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+			   uint64_t trxn_id, bool create, bool success)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndTrxnReply trxn_reply;
+
+	cmgd__bcknd_trxn_reply__init(&trxn_reply);
+	trxn_reply.create = create;
+	trxn_reply.trxn_id = trxn_id;
+	trxn_reply.success = success;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__TRXN_REPLY;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_TRXN_REPLY;
+	bcknd_msg.trxn_reply = &trxn_reply;
+
+	CMGD_BCKND_CLNT_DBG("Sending TRXN_REPLY message to CMGD for trxn %llu",
+			    trxn_id);
+
+	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
+}
+
+static int
+cmgd_bcknd_send_validate_reply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+			       uint64_t trxn_id, uint64_t batch_id,
+			       bool success, const char *error_if_any)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndCfgDataValidateReply validate_reply;
+
+	cmgd__bcknd_cfg_data_validate_reply__init(&validate_reply);
+	validate_reply.success = success;
+	validate_reply.trxn_id = trxn_id;
+	validate_reply.batch_id = batch_id;
+	if (error_if_any)
+		validate_reply.error_if_any = (char *)error_if_any;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REPLY;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REPLY;
+	bcknd_msg.cfg_validate_reply = &validate_reply;
+
+	CMGD_BCKND_CLNT_DBG("Sending CFG_VALIDATE_REPLY message to CMGD for trxn %llu batch %llu",
+			    trxn_id, batch_id);
+
+	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
+}
+
+static int
+cmgd_bcknd_send_apply_reply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+			    uint64_t trxn_id, uint64_t batch_id)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndCfgDataApplyReply apply_reply;
+
+	cmgd__bcknd_cfg_data_apply_reply__init(&apply_reply);
+	apply_reply.trxn_id = trxn_id;
+	apply_reply.batch_id = batch_id;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_APPLY_REPLY;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_APPLY_REPLY;
+	bcknd_msg.cfg_apply_reply = &apply_reply;
+
+	CMGD_BCKND_CLNT_DBG("Sending CFG_VALIDATE_REPLY message to CMGD for trxn %llu batch %llu",
+			    trxn_id, batch_id);
+
+	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
+}
+
+static int
+cmgd_bcknd_send_cfgdata_create_reply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+				     uint64_t trxn_id, uint64_t batch_id,
+				     const char *error_if_any)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndCfgDataCreateFail cfgdata_fail;
+
+	cmgd__bcknd_cfg_data_create_fail__init(&cfgdata_fail);
+	cfgdata_fail.trxn_id = trxn_id;
+	cfgdata_fail.batch_id = batch_id;
+	if (error_if_any)
+		cfgdata_fail.error_if_any = (char *)error_if_any;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_FAIL;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_FAIL;
+	bcknd_msg.cfg_data_fail = &cfgdata_fail;
+
+	CMGD_BCKND_CLNT_DBG("Sending CFGDATA_CREATE_FAIL message to CMGD for trxn %llu batch %llu",
+			    trxn_id, batch_id);
+
+	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
+}
+static cmgd_result_t
+cmgd_bcknd_validate(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+		    cmgd_bcknd_trxn_ctxt_t *trxn,
+		    cmgd_bcknd_batch_ctxt_t *batch)
+{
+	int index;
+	cmgd_result_t ret = CMGD_SUCCESS;
+	cmgd_bcknd_trxn_req_t *trxn_req = NULL;
+
+	frr_each_safe(cmgd_bcknd_trxn_req_list, &batch->trxn_data, trxn_req) {
+		if (trxn_req->event != CMGD_BCKND_TRXN_PROC_SETCFG) {
+			CMGD_BCKND_CLNT_ERR("Validate for wrong trxn_id %llu batch_id %llu event %u",
+					    trxn->trxn_id, batch->batch_id,
+					    trxn_req->event);
+			continue;
+		}
+
+		for (index = 0; index < trxn_req->req.set_cfg->num_cfg_changes; index++) {
+			if (clnt_ctxt->client_params.data_validate_cb) {
+				//call the callback and check for failure
+				if (ret != CMGD_SUCCESS) {
+					//cleanup the batch
+					//add debug
+					//send reply
+					break;
+				}
+			}
+		}
+
+		if (ret != CMGD_SUCCESS) {
+			break;
+		}
+	}
+
+	return ret;
+}
+
+static cmgd_result_t
+cmgd_bcknd_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
+		 cmgd_bcknd_trxn_ctxt_t *trxn,
+		 cmgd_bcknd_batch_ctxt_t *batch)
+{
+        int index;
+        cmgd_result_t ret = CMGD_SUCCESS;
+        cmgd_bcknd_trxn_req_t *trxn_req = NULL;
+
+	frr_each_safe(cmgd_bcknd_trxn_req_list, &batch->trxn_data, trxn_req) {
+                if (trxn_req->event != CMGD_BCKND_TRXN_PROC_SETCFG) {
+                        CMGD_BCKND_CLNT_ERR("Apply for wrong trxn_id %llu batch_id %llu event %u",
+                                            trxn->trxn_id, batch->batch_id,
+                                            trxn_req->event);
+                        continue;
+                }
+
+                for (index = 0; index < trxn_req->req.set_cfg->num_cfg_changes; index++) {
+                        if (clnt_ctxt->client_params.data_apply_cb) {
+                                //call the callback and check for failure
+                                if (ret != CMGD_SUCCESS) {
+                                        //cleanup the batch
+                                        //add debug
+                                        //send reply
+                                        break;
+                                }
+                        }
+                }
+
+                if (ret != CMGD_SUCCESS) {
+                        break;
+                }
+        }
+
+        return ret;
+}
+
+static int cmgd_bcknd_client_handle_msg(
+        cmgd_bcknd_client_ctxt_t *clnt_ctxt, Cmgd__BckndMessage *bcknd_msg)
+{
+	cmgd_bcknd_trxn_ctxt_t *trxn = NULL;
+	cmgd_bcknd_batch_ctxt_t *batch = NULL;
+	cmgd_result_t ret = CMGD_SUCCESS;
+
+        switch(bcknd_msg->type) {
+        case CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REPLY:
+                assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REPLY);
+                CMGD_BCKND_CLNT_DBG(
+                        "Subscribe Reply Msg from cmgd, status %u",
+                        bcknd_msg->subscr_reply->success);
+		//Need to add handle code
+                break;
+	case CMGD__BCKND_MESSAGE__TYPE__TRXN_REQ:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_TRXN_REQ);
+		if (bcknd_msg->trxn_req->create) {
+			CMGD_BCKND_CLNT_DBG("Created new transaction %llu",
+					bcknd_msg->trxn_req->trxn_id);
+			trxn = cmgd_bcknd_trxn_create(&clnt_ctxt->trxn_head,
+					bcknd_msg->trxn_req->trxn_id);
+		} else {
+			CMGD_BCKND_CLNT_DBG("Deleted transaction %llu",
+					bcknd_msg->trxn_req->trxn_id);
+			trxn = cmgd_bcknd_find_trxn_by_id(&clnt_ctxt->trxn_head,
+					bcknd_msg->trxn_req->trxn_id);
+		}
+
+		// Delete client_data as part of this callback
+		if (trxn && clnt_ctxt->client_params.trxn_notify_cb)
+			(void) (*clnt_ctxt->client_params.trxn_notify_cb)(
+					(cmgd_lib_hndl_t)clnt_ctxt,
+					clnt_ctxt->client_params.user_data,
+					&trxn->client_data,
+					!bcknd_msg->trxn_req->create);
+
+		if (!bcknd_msg->trxn_req->create) {
+			cmgd_bcknd_trxn_delete(&clnt_ctxt->trxn_head, trxn);
+		}
+
+		cmgd_bcknd_send_trxn_reply(clnt_ctxt, bcknd_msg->trxn_req->trxn_id,
+					   bcknd_msg->trxn_req->create,
+					   true);
+		break;
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_REQ:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_REQ);
+		trxn = cmgd_bcknd_find_trxn_by_id(&clnt_ctxt->trxn_head,
+				bcknd_msg->cfg_data_req->trxn_id);
+		if (!trxn)
+			cmgd_bcknd_send_cfgdata_create_reply(clnt_ctxt,
+					bcknd_msg->cfg_data_req->trxn_id,
+					bcknd_msg->cfg_data_req->batch_id,
+					"Transaction context not created yet");
+
+		cmgd_bcknd_update_setcfg_in_batch(trxn,
+				bcknd_msg->cfg_data_req->batch_id,
+				bcknd_msg->cfg_data_req->data_req,
+				bcknd_msg->cfg_data_req->n_data_req,
+				CMGD_BCKND_TRXN_PROC_SETCFG);
+		break;
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REQ:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REQ);
+		trxn = cmgd_bcknd_find_trxn_by_id(&clnt_ctxt->trxn_head,
+				bcknd_msg->cfg_validate_req->trxn_id);
+		if (!trxn)
+			cmgd_bcknd_send_validate_reply(clnt_ctxt,
+					bcknd_msg->cfg_validate_req->trxn_id,
+					bcknd_msg->cfg_validate_req->batch_id,
+					false,
+					"Transaction context not created!");
+
+		batch = cmgd_bcknd_find_batch_by_id(&trxn->batch_head,
+				bcknd_msg->cfg_validate_req->batch_id);
+
+		if (!batch)
+			cmgd_bcknd_send_validate_reply(clnt_ctxt,
+					bcknd_msg->cfg_validate_req->trxn_id,
+					bcknd_msg->cfg_validate_req->batch_id,
+					false,
+					"Batch context not created!");
+
+		ret = cmgd_bcknd_validate(clnt_ctxt, trxn, batch);
+		if (ret == CMGD_SUCCESS)
+			cmgd_bcknd_send_validate_reply(clnt_ctxt,
+					bcknd_msg->cfg_validate_req->trxn_id,
+					bcknd_msg->cfg_validate_req->batch_id,
+					true, NULL);
+		else
+			cmgd_bcknd_send_validate_reply(clnt_ctxt,
+					bcknd_msg->cfg_validate_req->trxn_id,
+					bcknd_msg->cfg_validate_req->batch_id,
+					false,
+					"Validate failed");
+		break;
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_APPLY_REQ:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_APPLY_REQ);
+		trxn = cmgd_bcknd_find_trxn_by_id(&clnt_ctxt->trxn_head,
+				bcknd_msg->cfg_apply_req->trxn_id);
+		if (!trxn) {
+			CMGD_BCKND_CLNT_ERR("Transaction not created for id %llu",
+					bcknd_msg->cfg_apply_req->trxn_id);
+			cmgd_bcknd_send_apply_reply(clnt_ctxt,
+					bcknd_msg->cfg_apply_req->trxn_id,
+					bcknd_msg->cfg_apply_req->batch_id);
+			return 0;
+		}
+
+		batch = cmgd_bcknd_find_batch_by_id(&trxn->batch_head,
+				bcknd_msg->cfg_apply_req->batch_id);
+		if (!batch) {
+			CMGD_BCKND_CLNT_ERR("Batch info missing for trxn_id %llu batch_id %llu",
+					bcknd_msg->cfg_apply_req->trxn_id,
+					bcknd_msg->cfg_apply_req->batch_id);
+			cmgd_bcknd_send_apply_reply(clnt_ctxt,
+					bcknd_msg->cfg_apply_req->trxn_id,
+					bcknd_msg->cfg_apply_req->batch_id);
+			return 0;
+		}
+
+		ret = cmgd_bcknd_apply(clnt_ctxt, trxn, batch);
+		if (ret != CMGD_SUCCESS)
+			CMGD_BCKND_CLNT_ERR("Failed to apply config for trxn_id %llu, batch_id %llu, ret %u",
+					    bcknd_msg->cfg_apply_req->trxn_id,
+					    bcknd_msg->cfg_apply_req->batch_id,
+					    ret);
+		//Send success since it should not fail at this stage
+		cmgd_bcknd_send_apply_reply(clnt_ctxt,
+				bcknd_msg->cfg_apply_req->trxn_id,
+				bcknd_msg->cfg_apply_req->batch_id);
+		cmgd_bcknd_batch_delete(&trxn->batch_head, batch);
+		break;
+        default:
+                break;
+        }
+
+        return 0;
+}
+
+static int cmgd_bcknd_client_process_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt, 
+	uint8_t *msg_buf, int bytes_read)
+{
+	Cmgd__BckndMessage *bcknd_msg;
+	cmgd_bcknd_msg_t *msg;
+	uint16_t bytes_left;
+	uint16_t processed = 0;
 
 	CMGD_BCKND_CLNT_DBG(
 		"Got message of %d bytes from CMGD Backend Server", bytes_read);
 
-	return 0;
+	bytes_left = bytes_read;
+	for ( ; bytes_left > CMGD_BCKND_MSG_HDR_LEN;
+		bytes_left -= msg->hdr.len, msg_buf += msg->hdr.len) {
+		msg = (cmgd_bcknd_msg_t *)msg_buf;
+		if (msg->hdr.marker != CMGD_BCKND_MSG_MARKER) {
+			CMGD_BCKND_CLNT_DBG(
+				"Marker not found in message from CMGD '%s'",
+				clnt_ctxt->client_params.name);
+			break;
+		}
+
+		if (bytes_left < msg->hdr.len) {
+			CMGD_BCKND_CLNT_DBG(
+				"Incomplete message of %d bytes (epxected: %u) from CMGD '%s'",
+				bytes_left, msg->hdr.len, clnt_ctxt->client_params.name);
+			break;
+		}
+
+		bcknd_msg = cmgd__bcknd_message__unpack(
+			NULL, (size_t) (msg->hdr.len - CMGD_BCKND_MSG_HDR_LEN),
+			msg->payload);
+		if (!bcknd_msg) {
+			CMGD_BCKND_CLNT_DBG(
+				"Failed to decode %d bytes from CMGD '%s'",
+				msg->hdr.len, clnt_ctxt->client_params.name);
+			continue;
+		}
+
+		(void) cmgd_bcknd_client_handle_msg(clnt_ctxt, bcknd_msg);
+		cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
+		processed++;
+	}
+
+	return processed;
 }
 
 static int cmgd_bcknd_client_proc_msgbufs(struct thread *thread)
@@ -432,7 +1104,8 @@ cmgd_lib_hndl_t cmgd_bcknd_client_lib_init(
 		!cmgd_bcknd_clntctxt.ibuf_work/* &&
 		!cmgd_bcknd_clntctxt.obuf_fifo &&
 		!cmgd_bcknd_clntctxt.obuf_work*/);
-	
+
+	cmgd_bcknd_trxn_init(&cmgd_bcknd_clntctxt);
 	cmgd_bcknd_clntctxt.ibuf_fifo = stream_fifo_new();
 	cmgd_bcknd_clntctxt.ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 	// cmgd_bcknd_clntctxt.obuf_fifo = stream_fifo_new();
@@ -528,4 +1201,6 @@ void cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 	stream_free(cmgd_bcknd_clntctxt.ibuf_work);
 	// stream_fifo_free(cmgd_bcknd_clntctxt.obuf_fifo);
 	// stream_free(cmgd_bcknd_clntctxt.obuf_work);
+
+	cmgd_bcknd_trxn_cleanup(&clnt_ctxt->trxn_head);
 }
