@@ -85,45 +85,41 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.isisd, pytest.mark.ldpd, pytest.mark.snmp]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define FRR Routers
+    #
+    for router in ["ce3", "r1", "r2", "r3", "r4", "r5"]:
+        tgen.add_router(router)
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["ce3", "r1", "r2", "r3", "r4", "r5"]:
-            tgen.add_router(router)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r4"])
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r4"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r5"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r5"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["ce3"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["ce3"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["r5"])
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["r5"])
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -135,7 +131,7 @@ def setup_module(mod):
         pytest.skip(error_msg)
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 

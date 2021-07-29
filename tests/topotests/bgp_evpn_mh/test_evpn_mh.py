@@ -62,7 +62,7 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 #####################################################
 
 
-class NetworkTopo(Topo):
+def build_topo(tgen):
     """
     EVPN Multihoming Topology -
     1. Two level CLOS
@@ -71,110 +71,105 @@ class NetworkTopo(Topo):
     4. Two dual attached hosts per-rack - hostdx1, hostdx2
     """
 
-    def build(self, **_opts):
-        "Build function"
+    tgen.add_router("spine1")
+    tgen.add_router("spine2")
+    tgen.add_router("torm11")
+    tgen.add_router("torm12")
+    tgen.add_router("torm21")
+    tgen.add_router("torm22")
+    tgen.add_router("hostd11")
+    tgen.add_router("hostd12")
+    tgen.add_router("hostd21")
+    tgen.add_router("hostd22")
 
-        tgen = get_topogen(self)
+    # On main router
+    # First switch is for a dummy interface (for local network)
 
-        tgen.add_router("spine1")
-        tgen.add_router("spine2")
-        tgen.add_router("torm11")
-        tgen.add_router("torm12")
-        tgen.add_router("torm21")
-        tgen.add_router("torm22")
-        tgen.add_router("hostd11")
-        tgen.add_router("hostd12")
-        tgen.add_router("hostd21")
-        tgen.add_router("hostd22")
+    ##################### spine1 ########################
+    # spine1-eth0 is connected to torm11-eth0
+    switch = tgen.add_switch("sw1")
+    switch.add_link(tgen.gears["spine1"])
+    switch.add_link(tgen.gears["torm11"])
 
-        # On main router
-        # First switch is for a dummy interface (for local network)
+    # spine1-eth1 is connected to torm12-eth0
+    switch = tgen.add_switch("sw2")
+    switch.add_link(tgen.gears["spine1"])
+    switch.add_link(tgen.gears["torm12"])
 
-        ##################### spine1 ########################
-        # spine1-eth0 is connected to torm11-eth0
-        switch = tgen.add_switch("sw1")
-        switch.add_link(tgen.gears["spine1"])
-        switch.add_link(tgen.gears["torm11"])
+    # spine1-eth2 is connected to torm21-eth0
+    switch = tgen.add_switch("sw3")
+    switch.add_link(tgen.gears["spine1"])
+    switch.add_link(tgen.gears["torm21"])
 
-        # spine1-eth1 is connected to torm12-eth0
-        switch = tgen.add_switch("sw2")
-        switch.add_link(tgen.gears["spine1"])
-        switch.add_link(tgen.gears["torm12"])
+    # spine1-eth3 is connected to torm22-eth0
+    switch = tgen.add_switch("sw4")
+    switch.add_link(tgen.gears["spine1"])
+    switch.add_link(tgen.gears["torm22"])
 
-        # spine1-eth2 is connected to torm21-eth0
-        switch = tgen.add_switch("sw3")
-        switch.add_link(tgen.gears["spine1"])
-        switch.add_link(tgen.gears["torm21"])
+    ##################### spine2 ########################
+    # spine2-eth0 is connected to torm11-eth1
+    switch = tgen.add_switch("sw5")
+    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["torm11"])
 
-        # spine1-eth3 is connected to torm22-eth0
-        switch = tgen.add_switch("sw4")
-        switch.add_link(tgen.gears["spine1"])
-        switch.add_link(tgen.gears["torm22"])
+    # spine2-eth1 is connected to torm12-eth1
+    switch = tgen.add_switch("sw6")
+    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["torm12"])
 
-        ##################### spine2 ########################
-        # spine2-eth0 is connected to torm11-eth1
-        switch = tgen.add_switch("sw5")
-        switch.add_link(tgen.gears["spine2"])
-        switch.add_link(tgen.gears["torm11"])
+    # spine2-eth2 is connected to torm21-eth1
+    switch = tgen.add_switch("sw7")
+    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["torm21"])
 
-        # spine2-eth1 is connected to torm12-eth1
-        switch = tgen.add_switch("sw6")
-        switch.add_link(tgen.gears["spine2"])
-        switch.add_link(tgen.gears["torm12"])
+    # spine2-eth3 is connected to torm22-eth1
+    switch = tgen.add_switch("sw8")
+    switch.add_link(tgen.gears["spine2"])
+    switch.add_link(tgen.gears["torm22"])
 
-        # spine2-eth2 is connected to torm21-eth1
-        switch = tgen.add_switch("sw7")
-        switch.add_link(tgen.gears["spine2"])
-        switch.add_link(tgen.gears["torm21"])
+    ##################### torm11 ########################
+    # torm11-eth2 is connected to hostd11-eth0
+    switch = tgen.add_switch("sw9")
+    switch.add_link(tgen.gears["torm11"])
+    switch.add_link(tgen.gears["hostd11"])
 
-        # spine2-eth3 is connected to torm22-eth1
-        switch = tgen.add_switch("sw8")
-        switch.add_link(tgen.gears["spine2"])
-        switch.add_link(tgen.gears["torm22"])
+    # torm11-eth3 is connected to hostd12-eth0
+    switch = tgen.add_switch("sw10")
+    switch.add_link(tgen.gears["torm11"])
+    switch.add_link(tgen.gears["hostd12"])
 
-        ##################### torm11 ########################
-        # torm11-eth2 is connected to hostd11-eth0
-        switch = tgen.add_switch("sw9")
-        switch.add_link(tgen.gears["torm11"])
-        switch.add_link(tgen.gears["hostd11"])
+    ##################### torm12 ########################
+    # torm12-eth2 is connected to hostd11-eth1
+    switch = tgen.add_switch("sw11")
+    switch.add_link(tgen.gears["torm12"])
+    switch.add_link(tgen.gears["hostd11"])
 
-        # torm11-eth3 is connected to hostd12-eth0
-        switch = tgen.add_switch("sw10")
-        switch.add_link(tgen.gears["torm11"])
-        switch.add_link(tgen.gears["hostd12"])
+    # torm12-eth3 is connected to hostd12-eth1
+    switch = tgen.add_switch("sw12")
+    switch.add_link(tgen.gears["torm12"])
+    switch.add_link(tgen.gears["hostd12"])
 
-        ##################### torm12 ########################
-        # torm12-eth2 is connected to hostd11-eth1
-        switch = tgen.add_switch("sw11")
-        switch.add_link(tgen.gears["torm12"])
-        switch.add_link(tgen.gears["hostd11"])
+    ##################### torm21 ########################
+    # torm21-eth2 is connected to hostd21-eth0
+    switch = tgen.add_switch("sw13")
+    switch.add_link(tgen.gears["torm21"])
+    switch.add_link(tgen.gears["hostd21"])
 
-        # torm12-eth3 is connected to hostd12-eth1
-        switch = tgen.add_switch("sw12")
-        switch.add_link(tgen.gears["torm12"])
-        switch.add_link(tgen.gears["hostd12"])
+    # torm21-eth3 is connected to hostd22-eth0
+    switch = tgen.add_switch("sw14")
+    switch.add_link(tgen.gears["torm21"])
+    switch.add_link(tgen.gears["hostd22"])
 
-        ##################### torm21 ########################
-        # torm21-eth2 is connected to hostd21-eth0
-        switch = tgen.add_switch("sw13")
-        switch.add_link(tgen.gears["torm21"])
-        switch.add_link(tgen.gears["hostd21"])
+    ##################### torm22 ########################
+    # torm22-eth2 is connected to hostd21-eth1
+    switch = tgen.add_switch("sw15")
+    switch.add_link(tgen.gears["torm22"])
+    switch.add_link(tgen.gears["hostd21"])
 
-        # torm21-eth3 is connected to hostd22-eth0
-        switch = tgen.add_switch("sw14")
-        switch.add_link(tgen.gears["torm21"])
-        switch.add_link(tgen.gears["hostd22"])
-
-        ##################### torm22 ########################
-        # torm22-eth2 is connected to hostd21-eth1
-        switch = tgen.add_switch("sw15")
-        switch.add_link(tgen.gears["torm22"])
-        switch.add_link(tgen.gears["hostd21"])
-
-        # torm22-eth3 is connected to hostd22-eth1
-        switch = tgen.add_switch("sw16")
-        switch.add_link(tgen.gears["torm22"])
-        switch.add_link(tgen.gears["hostd22"])
+    # torm22-eth3 is connected to hostd22-eth1
+    switch = tgen.add_switch("sw16")
+    switch.add_link(tgen.gears["torm22"])
+    switch.add_link(tgen.gears["hostd22"])
 
 
 #####################################################
@@ -371,7 +366,7 @@ def config_hosts(tgen, hosts):
 
 def setup_module(module):
     "Setup topology"
-    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     krel = platform.release()

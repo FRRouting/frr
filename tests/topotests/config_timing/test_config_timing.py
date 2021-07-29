@@ -49,16 +49,14 @@ from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.staticd]
 
-class TimingTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+def build_topo(tgen):
+    tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TimingTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

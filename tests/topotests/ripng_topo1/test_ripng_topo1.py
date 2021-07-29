@@ -38,8 +38,7 @@ from functools import partial
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
-from lib.micronet_compat import Topo
-from lib.micronet_compat import Mininet
+from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
@@ -52,46 +51,34 @@ pytestmark = [pytest.mark.ripd]
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "RIPng Topology 1"
+def build_topo(tgen):
+    # Setup RIPng Routers
+    for i in range(1, 4):
+        tgen.add_router("r%s" % i)
 
-    def build(self, **_opts):
+    #
+    # On main router
+    # First switch is for a dummy interface (for local network)
+    switch = tgen.add_switch("sw1")
+    switch.add_link(tgen.gears["r1"])
+    #
+    # Switches for RIPng
+    # switch 2 switch is for connection to RIP router
+    switch = tgen.add_switch("sw2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    # switch 3 is between RIP routers
+    switch = tgen.add_switch("sw3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"], nodeif="r3-eth1")
+    # switch 4 is stub on remote RIP router
+    switch = tgen.add_switch("sw4")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-eth0")
 
-        # Setup Routers
-        router = {}
-        #
-        # Setup Main Router
-        router[1] = topotest.addRouter(self, "r1")
-        #
-        # Setup RIPng Routers
-        for i in range(2, 4):
-            router[i] = topotest.addRouter(self, "r%s" % i)
-
-        # Setup Switches
-        switch = {}
-        #
-        # On main router
-        # First switch is for a dummy interface (for local network)
-        switch[1] = self.addSwitch("sw1")
-        self.addLink(switch[1], router[1], intfName2="r1-eth0")
-        #
-        # Switches for RIPng
-        # switch 2 switch is for connection to RIP router
-        switch[2] = self.addSwitch("sw2")
-        self.addLink(switch[2], router[1], intfName2="r1-eth1")
-        self.addLink(switch[2], router[2], intfName2="r2-eth0")
-        # switch 3 is between RIP routers
-        switch[3] = self.addSwitch("sw3")
-        self.addLink(switch[3], router[2], intfName2="r2-eth1")
-        self.addLink(switch[3], router[3], intfName2="r3-eth1")
-        # switch 4 is stub on remote RIP router
-        switch[4] = self.addSwitch("sw4")
-        self.addLink(switch[4], router[3], intfName2="r3-eth0")
-
-        switch[5] = self.addSwitch("sw5")
-        self.addLink(switch[5], router[1], intfName2="r1-eth2")
-        switch[6] = self.addSwitch("sw6")
-        self.addLink(switch[6], router[1], intfName2="r1-eth3")
+    switch = tgen.add_switch("sw5")
+    switch.add_link(tgen.gears["r1"])
+    switch = tgen.add_switch("sw6")
+    switch.add_link(tgen.gears["r1"])
 
 
 #####################################################
@@ -102,44 +89,36 @@ class NetworkTopo(Topo):
 
 
 def setup_module(module):
-    global topo, net
-
     print("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
 
-    print("Cleanup old Mininet runs")
-    os.system("sudo mn -c > /dev/null 2>&1")
-
     thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
+    tgen = Topogen(build_topo, module.__name__)
+    tgen.start_topology()
 
-    net = Mininet(controller=None, topo=topo)
-    net.start()
+    net = tgen.net
 
     # Starting Routers
     #
     for i in range(1, 4):
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ripngd", "%s/r%s/ripngd.conf" % (thisDir, i))
-        net["r%s" % i].startRouter()
+        tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
 def teardown_module(module):
-    global net
-
     print("\n\n** %s: Shutdown Topology" % module.__name__)
     print("******************************************\n")
-
-    # End - Shutdown network
-    net.stop()
+    tgen = get_topogen()
+    tgen.stop_topology()
 
 
 def test_router_running():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -159,7 +138,7 @@ def test_router_running():
 
 def test_converge_protocols():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -184,7 +163,7 @@ def test_converge_protocols():
 
 def test_ripng_status():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -252,7 +231,7 @@ def test_ripng_status():
 
 def test_ripng_routes():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -319,7 +298,7 @@ def test_ripng_routes():
 
 def test_zebra_ipv6_routingTable():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -387,7 +366,7 @@ def test_zebra_ipv6_routingTable():
 
 def test_shutdown_check_stderr():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -416,7 +395,7 @@ def test_shutdown_check_stderr():
 
 def test_shutdown_check_memleak():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":

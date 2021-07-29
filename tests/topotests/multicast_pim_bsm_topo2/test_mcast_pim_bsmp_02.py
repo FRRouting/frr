@@ -107,13 +107,6 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/mcast_pim_bsmp_02.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 TOPOLOGY = """
 
@@ -142,21 +135,6 @@ BSR1_ADDR = "1.1.2.7/32"
 BSR2_ADDR = "10.2.1.1/32"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -177,7 +155,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/mcast_pim_bsmp_02.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.

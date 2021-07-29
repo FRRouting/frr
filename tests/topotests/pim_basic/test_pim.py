@@ -46,48 +46,46 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.pimd]
 
 
-class PIMTopo(Topo):
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        tgen.add_router("rp")
+    tgen.add_router("rp")
 
-        #   rp ------ r1 -------- r2
-        #              \
-        #               --------- r3
-        # r1 -> .1
-        # r2 -> .2
-        # rp -> .3
-        # r3 -> .4
-        # loopback network is 10.254.0.X/32
-        #
-        # r1 <- sw1 -> r2
-        # r1-eth0 <-> r2-eth0
-        # 10.0.20.0/24
-        sw = tgen.add_switch("sw1")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r2"])
+    #   rp ------ r1 -------- r2
+    #              \
+    #               --------- r3
+    # r1 -> .1
+    # r2 -> .2
+    # rp -> .3
+    # r3 -> .4
+    # loopback network is 10.254.0.X/32
+    #
+    # r1 <- sw1 -> r2
+    # r1-eth0 <-> r2-eth0
+    # 10.0.20.0/24
+    sw = tgen.add_switch("sw1")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r2"])
 
-        # r1 <- sw2 -> rp
-        # r1-eth1 <-> rp-eth0
-        # 10.0.30.0/24
-        sw = tgen.add_switch("sw2")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["rp"])
+    # r1 <- sw2 -> rp
+    # r1-eth1 <-> rp-eth0
+    # 10.0.30.0/24
+    sw = tgen.add_switch("sw2")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["rp"])
 
-        # 10.0.40.0/24
-        sw = tgen.add_switch("sw3")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r3"])
+    # 10.0.40.0/24
+    sw = tgen.add_switch("sw3")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(PIMTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file

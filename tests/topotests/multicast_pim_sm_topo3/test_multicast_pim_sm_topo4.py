@@ -101,14 +101,6 @@ from lib.pim import (
 from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/multicast_pim_sm_topo4.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
-
 TOPOLOGY = """
 
 
@@ -149,21 +141,6 @@ NEW_ADDRESS_1_SUBNET = "192.168.20.1/24"
 NEW_ADDRESS_2_SUBNET = "192.168.20.2/24"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -183,7 +160,10 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/multicast_pim_sm_topo4.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.

@@ -69,6 +69,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
 from lib.micronet_compat import Topo
 from lib.micronet_compat import Mininet
+from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
@@ -81,73 +82,25 @@ pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "LDP Test Topology 1"
+def build_topo(tgen):
 
-    def build(self, **_opts):
+    # Setup Routers
+    for i in range(1, 5):
+        tgen.add_router("r%s" % i)
 
-        # Setup Routers
-        router = {}
-        for i in range(1, 5):
-            router[i] = topotest.addRouter(self, "r%s" % i)
-
-        # Setup Switches, add Interfaces and Connections
-        switch = {}
-        # First switch
-        switch[0] = self.addSwitch("sw0")
-        self.addLink(
-            switch[0],
-            router[1],
-            intfName2="r1-eth0",
-            addr1="80:AA:00:00:00:00",
-            addr2="00:11:00:01:00:00",
-        )
-        self.addLink(
-            switch[0],
-            router[2],
-            intfName2="r2-eth0",
-            addr1="80:AA:00:00:00:01",
-            addr2="00:11:00:02:00:00",
-        )
-        # Second switch
-        switch[1] = self.addSwitch("sw1")
-        self.addLink(
-            switch[1],
-            router[2],
-            intfName2="r2-eth1",
-            addr1="80:AA:00:01:00:00",
-            addr2="00:11:00:02:00:01",
-        )
-        self.addLink(
-            switch[1],
-            router[3],
-            intfName2="r3-eth0",
-            addr1="80:AA:00:01:00:01",
-            addr2="00:11:00:03:00:00",
-        )
-        self.addLink(
-            switch[1],
-            router[4],
-            intfName2="r4-eth0",
-            addr1="80:AA:00:01:00:02",
-            addr2="00:11:00:04:00:00",
-        )
-        # Third switch
-        switch[2] = self.addSwitch("sw2")
-        self.addLink(
-            switch[2],
-            router[2],
-            intfName2="r2-eth2",
-            addr1="80:AA:00:02:00:00",
-            addr2="00:11:00:02:00:02",
-        )
-        self.addLink(
-            switch[2],
-            router[3],
-            intfName2="r3-eth1",
-            addr1="80:AA:00:02:00:01",
-            addr2="00:11:00:03:00:01",
-        )
+    # First switch
+    switch = tgen.add_switch("sw0")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    # Second switch
+    switch = tgen.add_switch("sw1")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
+    # Third switch
+    switch = tgen.add_switch("sw2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 #####################################################
@@ -158,48 +111,36 @@ class NetworkTopo(Topo):
 
 
 def setup_module(module):
-    global topo, net
-    global fatal_error
-
     print("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
 
-    print("Cleanup old Mininet runs")
-    os.system("sudo mn -c > /dev/null 2>&1")
-
     thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
+    tgen = Topogen(build_topo, module.__name__)
+    tgen.start_topology()
 
-    net = Mininet(controller=None, topo=topo)
-    net.start()
+    net = tgen.net
 
     # Starting Routers
     for i in range(1, 5):
         net["r%s" % i].loadConf("zebra", "%s/r%s/zebra.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ospfd", "%s/r%s/ospfd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("ldpd", "%s/r%s/ldpd.conf" % (thisDir, i))
-        fatal_error = net["r%s" % i].startRouter()
-
-        if fatal_error != "":
-            break
+        tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
 def teardown_module(module):
-    global net
-
     print("\n\n** %s: Shutdown Topology" % module.__name__)
     print("******************************************\n")
-
-    # End - Shutdown network
-    net.stop()
+    tgen = get_topogen()
+    tgen.stop_topology()
 
 
 def test_router_running():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -220,7 +161,7 @@ def test_router_running():
 
 def test_mpls_interfaces():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -286,7 +227,7 @@ def test_mpls_interfaces():
 
 def test_mpls_ldp_neighbor_establish():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -354,7 +295,7 @@ def test_mpls_ldp_neighbor_establish():
 
 def test_mpls_ldp_discovery():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -423,7 +364,7 @@ def test_mpls_ldp_discovery():
 
 def test_mpls_ldp_neighbor():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -493,7 +434,7 @@ def test_mpls_ldp_neighbor():
 
 def test_mpls_ldp_binding():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip this test for now until proper sorting of the output
     # is implemented
@@ -585,7 +526,7 @@ def test_mpls_ldp_binding():
 
 def test_zebra_ipv4_routingTable():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -662,7 +603,7 @@ def test_zebra_ipv4_routingTable():
 
 def test_mpls_table():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -741,7 +682,7 @@ def test_mpls_table():
 
 def test_linux_mpls_routes():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -825,7 +766,7 @@ def test_linux_mpls_routes():
 
 def test_shutdown_check_stderr():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -857,7 +798,7 @@ def test_shutdown_check_stderr():
 
 def test_shutdown_check_memleak():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":

@@ -67,27 +67,12 @@ LISTEN_ADDRESSES = {
 }
 
 
-# Reads data from JSON File for topology and configuration creation.
-jsonFile = "{}/bgp_listen_on_multiple_addresses.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
-
-
-class TemplateTopo(Topo):
-    "Topology builder."
-
-    def build(self, *_args, **_opts):
-        "Defines the allocation and relationship between routers and switches."
-        tgen = get_topogen(self)
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     "Sets up the test environment."
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    json_file = "{}/bgp_listen_on_multiple_addresses.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
 
     # Adds extra parameters to bgpd so they listen for connections on specific
     # multiple addresses.

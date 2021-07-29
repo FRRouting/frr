@@ -60,31 +60,29 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
 
-        for routern in range(1, 7):
-            tgen.add_router("r{}".format(routern))
+def build_topo(tgen):
+    for routern in range(1, 7):
+        tgen.add_router("r{}".format(routern))
 
-        # Scenario 1.
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # Scenario 1.
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        # Scenario 2.
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
+    # Scenario 2.
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
 
-        # Scenario 3.
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r5"])
-        switch.add_link(tgen.gears["r6"])
+    # Scenario 3.
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r5"])
+    switch.add_link(tgen.gears["r6"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
