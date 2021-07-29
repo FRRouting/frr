@@ -40,6 +40,8 @@ Test steps
 - Verify routes not installed in zebra when /32 routes received
    with loopback BGP session subnet
 """
+# XXX clean up in later commit to avoid conflict on rebase
+# pylint: disable=C0413
 
 import os
 import sys

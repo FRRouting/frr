@@ -337,7 +337,7 @@ def test_mpls_ldp_neighbor_establish():
     else:
         # Bail out with error if a router fails to converge
         fatal_error = "MPLS LDP neighbors did not establish"
-        assert False, "MPLS LDP neighbors did not establish" % ospfStatus
+        assert False, "MPLS LDP neighbors did not establish"
 
     print("MPLS LDP neighbors established.")
 

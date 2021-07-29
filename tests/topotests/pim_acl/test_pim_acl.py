@@ -69,7 +69,8 @@ test_pim_acl.py: Test PIM with RP selection using ACLs
 #     shutdown topology
 #
 
-
+# XXX clean up in later commit to avoid conflict on rebase
+# pylint: disable=C0413
 TOPOLOGY = """
                                              +----------+
                                              |  Host H2 |

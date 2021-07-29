@@ -1046,8 +1046,9 @@ def test_PIM_hello_tx_rx_p1(request):
     c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Flap PIM nbr while doing interface c1-l1 interface shut from f1 side")
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, False)
@@ -1062,8 +1063,9 @@ def test_PIM_hello_tx_rx_p1(request):
     c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify stats not increamented on c1")
     result = verify_state_incremented(c1_state_before, c1_state_after)
@@ -1081,8 +1083,9 @@ def test_PIM_hello_tx_rx_p1(request):
     l1_state_before = verify_pim_interface_traffic(tgen, l1_state_dict)
     assert isinstance(
         l1_state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Flap PIM nbr while doing interface r2-c1 shut from r2 side")
     shutdown_bringup_interface(tgen, "l1", intf_l1_c1, False)
@@ -1097,8 +1100,9 @@ def test_PIM_hello_tx_rx_p1(request):
     l1_state_after = verify_pim_interface_traffic(tgen, l1_state_dict)
     assert isinstance(
         l1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify stats not increamented on l1")
     result = verify_state_incremented(l1_state_before, l1_state_after)
@@ -1122,8 +1126,9 @@ def test_PIM_hello_tx_rx_p1(request):
     c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Flap c1-r2 pim nbr while changing ip address from c1 side")
     c1_l1_ip_subnet = topo["routers"]["c1"]["links"]["l1"]["ipv4"]
@@ -1145,8 +1150,9 @@ def test_PIM_hello_tx_rx_p1(request):
     c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("verify stats not increamented on c1")
     result = verify_state_incremented(c1_state_before, c1_state_after)

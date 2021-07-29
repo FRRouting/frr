@@ -340,14 +340,18 @@ def test_bgp_no_advertise_community_p0(request):
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict, expected=False)
-        assert result is not True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert result is not True, "Testcase {} : Failed \n ".format(
+            tc_name
+        ) + " Routes still present in R3 router. Error: {}".format(result)
 
         result = verify_rib(
             tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
         step("Remove and Add no advertise community")
         # Configure neighbor for route map
@@ -392,12 +396,18 @@ def test_bgp_no_advertise_community_p0(request):
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
     step("Repeat above steps when IBGP nbr configured between R1, R2 & R2, R3")
     topo1 = deepcopy(topo)
@@ -579,12 +589,18 @@ def test_bgp_no_advertise_community_p0(request):
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
         step("Remove and Add no advertise community")
         # Configure neighbor for route map
@@ -629,12 +645,18 @@ def test_bgp_no_advertise_community_p0(request):
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(tgen, addr_type, dut, input_dict, protocol=protocol)
-        assert result is True, "Testcase {} : Failed \n "
-        " Routes still present in R3 router. Error: {}".format(tc_name, result)
+        assert (
+            result is True
+        ), "Testcase {} : Failed \n  Routes still present in R3 router. Error: {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 

@@ -24,7 +24,6 @@
 test_isis_topo1_vrf.py: Test ISIS vrf topology.
 """
 
-import collections
 import functools
 import json
 import os
@@ -291,7 +290,7 @@ def dict_merge(dct, merge_dct):
         if (
             k in dct
             and isinstance(dct[k], dict)
-            and isinstance(merge_dct[k], collections.Mapping)
+            and topotest.is_mapping(merge_dct[k])
         ):
             dict_merge(dct[k], merge_dct[k])
         else:

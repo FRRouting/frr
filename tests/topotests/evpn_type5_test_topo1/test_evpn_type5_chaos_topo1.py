@@ -251,9 +251,7 @@ def prerequisite_config_for_test_suite(tgen):
         }
 
         result = configure_vxlan(tgen, vxlan_input)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
-        )
+        assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
         step("Configure bridge interface")
         brctl_input = {
@@ -269,9 +267,7 @@ def prerequisite_config_for_test_suite(tgen):
             }
         }
         result = configure_brctl(tgen, topo, brctl_input)
-        assert result is True, "Testcase {} :Failed \n Error: {}".format(
-            tc_name, result
-        )
+        assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
     step("Configure default routes")
     add_default_routes(tgen)
@@ -340,7 +336,7 @@ def add_default_routes(tgen):
     }
 
     result = create_static_routes(tgen, default_routes)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
 
 def test_verify_overlay_index_p1(request):
@@ -865,8 +861,9 @@ def test_RT_verification_auto_p0(request):
         }
 
         result = verify_rib(tgen, addr_type, "d2", input_routes, expected=False)
-        assert result is not True, "Testcase {} :Failed \n "
-        "Routes are still present: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Routes are still present: {}".format(tc_name, result)
         logger.info("Expected Behavior: {}".format(result))
 
     step(
@@ -1000,8 +997,11 @@ def test_RT_verification_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, "d2", input_routes_1, rt="auto", rt_peer="e1", expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n "
-        "Malfaromed Auto-RT value accepted: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Malfaromed Auto-RT value accepted: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     step("Configure VNI number more than boundary limit (16777215)")
@@ -1032,8 +1032,11 @@ def test_RT_verification_auto_p0(request):
         result = verify_attributes_for_evpn_routes(
             tgen, topo, "d2", input_routes_1, rt="auto", rt_peer="e1", expected=False
         )
-        assert result is not True, "Testcase {} :Failed \n "
-        "Malfaromed Auto-RT value accepted: {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Malfaromed Auto-RT value accepted: {}".format(
+            tc_name, result
+        )
         logger.info("Expected Behavior: {}".format(result))
 
     step("Un-configure VNI number more than boundary limit (16777215)")

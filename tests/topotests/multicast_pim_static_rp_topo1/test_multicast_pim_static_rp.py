@@ -759,7 +759,7 @@ def test_not_reachable_static_RP_p0(request):
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
-        tc_name, result
+        tc_name, state_before
     )
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
@@ -1088,7 +1088,7 @@ def test_reachable_static_RP_after_join_p0(request):
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
-        tc_name, result
+        tc_name, state_before
     )
 
     step("r1: Make RP un-reachable")
@@ -1277,7 +1277,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
-        tc_name, result
+        tc_name, state_before
     )
 
     step("r0 : Send IGMP join for 225.1.1.1")

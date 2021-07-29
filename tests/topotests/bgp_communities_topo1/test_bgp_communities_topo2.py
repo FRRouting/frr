@@ -292,7 +292,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 input_dict_4,
                 next_hop=topo["routers"]["r1"]["links"]["r2"][addr_type].split("/")[0],
             )
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -311,7 +311,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                         0
                     ],
                 )
-                assert result is True, "Testcase  : Failed \n Error: {}".format(
+                assert result is True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
             else:
@@ -330,7 +330,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                     ],
                     expected=False,
                 )
-                assert result is not True, "Testcase  : Failed \n Error: {}".format(
+                assert result is not True, "Testcase {} : Failed \n Error: {}".format(
                     tc_name, result
                 )
 
@@ -358,7 +358,9 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step("Configure redistribute static")
         input_dict_2 = {
@@ -376,7 +378,9 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
             }
         }
         result = create_router_bgp(tgen, topo, input_dict_2)
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         step(
             "Verify that these prefixes, originated on R1, are now"
@@ -402,7 +406,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 input_dict_4,
                 next_hop=topo["routers"]["r1"]["links"]["r2"][addr_type].split("/")[0],
             )
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
@@ -413,7 +417,7 @@ def test_bgp_no_export_local_as_and_internet_communities_p0(request):
                 input_dict_4,
                 next_hop=topo["routers"]["r1"]["links"]["r3"][addr_type].split("/")[0],
             )
-            assert result is True, "Testcase  : Failed \n Error: {}".format(
+            assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )
 
