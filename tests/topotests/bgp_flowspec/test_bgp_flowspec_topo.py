@@ -82,24 +82,18 @@ pytestmark = [pytest.mark.bgpd]
 #####################################################
 
 
-class BGPFLOWSPECTopo1(Topo):
-    "BGP EBGP Flowspec Topology 1"
+def build_topo(tgen):
+    tgen.add_router("r1")
 
-    def build(self, **_opts):
-        tgen = get_topogen(self)
+    # Setup Control Path Switch 1. r1-eth0
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Setup Routers
-        tgen.add_router("r1")
-
-        # Setup Control Path Switch 1. r1-eth0
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-
-        ## Add eBGP ExaBGP neighbors
-        peer_ip = "10.0.1.101"  ## peer
-        peer_route = "via 10.0.1.1"  ## router
-        peer = tgen.add_exabgp_peer("peer1", ip=peer_ip, defaultRoute=peer_route)
-        switch.add_link(peer)
+    ## Add eBGP ExaBGP neighbors
+    peer_ip = "10.0.1.101"  ## peer
+    peer_route = "via 10.0.1.1"  ## router
+    peer = tgen.add_exabgp_peer("peer1", ip=peer_ip, defaultRoute=peer_route)
+    switch.add_link(peer)
 
 
 #####################################################
@@ -110,7 +104,7 @@ class BGPFLOWSPECTopo1(Topo):
 
 
 def setup_module(module):
-    tgen = Topogen(BGPFLOWSPECTopo1, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
 
     tgen.start_topology()
     # check for zebra capability

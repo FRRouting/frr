@@ -62,55 +62,52 @@ from time import sleep
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    tgen.add_router("z1")
+    tgen.add_router("y1")
+    tgen.add_router("y2")
+    tgen.add_router("y3")
+    tgen.add_router("x1")
+    tgen.add_router("c1")
 
-        tgen.add_router("z1")
-        tgen.add_router("y1")
-        tgen.add_router("y2")
-        tgen.add_router("y3")
-        tgen.add_router("x1")
-        tgen.add_router("c1")
+    # 10.0.1.0/30
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["c1"])
+    switch.add_link(tgen.gears["x1"])
 
-        # 10.0.1.0/30
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["c1"])
-        switch.add_link(tgen.gears["x1"])
+    # 10.0.2.0/30
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["x1"])
+    switch.add_link(tgen.gears["y1"])
 
-        # 10.0.2.0/30
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["x1"])
-        switch.add_link(tgen.gears["y1"])
+    # 10.0.3.0/30
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["y1"])
+    switch.add_link(tgen.gears["y2"])
 
-        # 10.0.3.0/30
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["y1"])
-        switch.add_link(tgen.gears["y2"])
+    # 10.0.4.0/30
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["y1"])
+    switch.add_link(tgen.gears["y3"])
 
-        # 10.0.4.0/30
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["y1"])
-        switch.add_link(tgen.gears["y3"])
+    # 10.0.5.0/30
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["y2"])
+    switch.add_link(tgen.gears["y3"])
 
-        # 10.0.5.0/30
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["y2"])
-        switch.add_link(tgen.gears["y3"])
+    # 10.0.6.0/30
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["y2"])
+    switch.add_link(tgen.gears["z1"])
 
-        # 10.0.6.0/30
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["y2"])
-        switch.add_link(tgen.gears["z1"])
-
-        # 10.0.7.0/30
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["y3"])
-        switch.add_link(tgen.gears["z1"])
+    # 10.0.7.0/30
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["y3"])
+    switch.add_link(tgen.gears["z1"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

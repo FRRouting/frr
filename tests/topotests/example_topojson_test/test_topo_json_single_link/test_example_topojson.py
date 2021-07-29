@@ -79,27 +79,19 @@ bgp_convergence = False
 input_dict = {}
 
 
-class TemplateTopo(Topo):
-    """
-    Test topology builder
+def build_topo(tgen):
+    "Build function"
 
-    * `Topo`: Topology object
-    """
+    # This function only purpose is to create topology
+    # as defined in input json file.
+    #
+    # Example
+    #
+    # Creating 2 routers having single links in between,
+    # which is used to establised BGP neighborship
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # This function only purpose is to create topology
-        # as defined in input json file.
-        #
-        # Example
-        #
-        # Creating 2 routers having single links in between,
-        # which is used to establised BGP neighborship
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -116,7 +108,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

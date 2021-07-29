@@ -50,75 +50,71 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # This function only purpose is to define allocation and relationship
+    # between routers, switches and hosts.
+    #
+    #
+    # Create routers
+    tgen.add_router("r1")
+    tgen.add_router("r2")
+    tgen.add_router("r3")
+    tgen.add_router("r4")
+    tgen.add_router("ce1")
+    tgen.add_router("ce2")
+    tgen.add_router("ce3")
+    tgen.add_router("ce4")
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        #
-        # Create routers
-        tgen.add_router("r1")
-        tgen.add_router("r2")
-        tgen.add_router("r3")
-        tgen.add_router("r4")
-        tgen.add_router("ce1")
-        tgen.add_router("ce2")
-        tgen.add_router("ce3")
-        tgen.add_router("ce4")
+    # r1-r2
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        # r1-r2
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # r1-r3
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        # r1-r3
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
+    # r1-r4
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r4"])
 
-        # r1-r4
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r4"])
+    # r1-ce1
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["ce1"])
 
-        # r1-ce1
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["ce1"])
+    # r1-ce3
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["ce3"])
 
-        # r1-ce3
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["ce3"])
+    # r1-ce4
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["ce4"])
 
-        # r1-ce4
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["ce4"])
+    # r1-dangling
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["r1"])
 
-        # r1-dangling
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["r1"])
+    # r2-r3
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        # r2-r3
-        switch = tgen.add_switch("s8")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    # r3-r4
+    switch = tgen.add_switch("s9")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
 
-        # r3-r4
-        switch = tgen.add_switch("s9")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
-
-        # r4-ce2
-        switch = tgen.add_switch("s10")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["ce2"])
+    # r4-ce2
+    switch = tgen.add_switch("s10")
+    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["ce2"])
 
 
 def setup_module(mod):
@@ -131,7 +127,7 @@ def setup_module(mod):
         pytest.skip(error_msg)
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 

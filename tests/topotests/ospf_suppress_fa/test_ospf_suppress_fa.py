@@ -53,33 +53,29 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.ospfd]
 
 
-class NetworkTopo(Topo):
-    "OSPF topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
 
-        tgen = get_topogen(self)
+    # Create routers
+    for router in range(1, 4):
+        tgen.add_router("r{}".format(router))
 
-        # Create routers
-        for router in range(1, 4):
-            tgen.add_router("r{}".format(router))
+    # R1-R2 backbone area
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        # R1-R2 backbone area
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        # R2-R3 NSSA area
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    # R2-R3 NSSA area
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
 
-    tgen = Topogen(NetworkTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     # This is a sample of configuration loading.

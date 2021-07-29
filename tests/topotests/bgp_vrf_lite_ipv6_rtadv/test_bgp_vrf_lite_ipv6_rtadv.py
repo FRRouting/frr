@@ -50,20 +50,16 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.bgpd]
 
 
-class BGPIPV6RTADVVRFTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 2 routers.
+    tgen.add_router("r1")
+    tgen.add_router("r2")
 
-        # Create 2 routers.
-        tgen.add_router("r1")
-        tgen.add_router("r2")
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
@@ -74,7 +70,7 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
-    tgen = Topogen(BGPIPV6RTADVVRFTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

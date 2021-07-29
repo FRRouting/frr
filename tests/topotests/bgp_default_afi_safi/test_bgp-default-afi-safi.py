@@ -50,22 +50,20 @@ from lib.common_config import step
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
 
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+def build_topo(tgen):
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

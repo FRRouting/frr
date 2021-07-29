@@ -187,23 +187,11 @@ SOURCE_ADDRESS = "10.0.6.2"
 SOURCE = "Static"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, TOPO)
-
-    def dumdum(self):
-        """ Dummy """
-        print("%s", self.name)
+    # Building topology from json file
+    build_topo_from_json(tgen, TOPO)
 
 
 def setup_module(mod):
