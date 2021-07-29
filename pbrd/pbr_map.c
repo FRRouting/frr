@@ -732,6 +732,14 @@ void pbr_map_schedule_policy_from_nhg(const char *nh_group, bool installed)
 
 				pbr_map_check(pbrms, false);
 			}
+
+			/*
+			 * vrf_unchanged pbrms have no nhg but their
+			 * installation is contingent on other sequences which
+			 * may...
+			 */
+			if (pbrms->vrf_unchanged)
+				pbr_map_check(pbrms, false);
 		}
 	}
 }
