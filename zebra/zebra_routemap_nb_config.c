@@ -247,9 +247,7 @@ lib_route_map_entry_set_action_rmap_set_action_ipv4_src_address_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
-	struct interface *pif = NULL;
 	const char *source;
-	struct vrf *vrf;
 	struct prefix p;
 	int rv;
 
@@ -259,18 +257,6 @@ lib_route_map_entry_set_action_rmap_set_action_ipv4_src_address_modify(
 		yang_dnode_get_ipv4p(&p, args->dnode, NULL);
 		if (zebra_check_addr(&p) == 0) {
 			zlog_warn("%s: invalid IPv4 address: %s", __func__,
-				  yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
-		RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
-			pif = if_lookup_exact_address(&p.u.prefix4, AF_INET,
-						      vrf->vrf_id);
-			if (pif != NULL)
-				break;
-		}
-		if (pif == NULL) {
-			zlog_warn("%s: is not a local address: %s", __func__,
 				  yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
@@ -325,9 +311,7 @@ lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct routemap_hook_context *rhc;
-	struct interface *pif = NULL;
 	const char *source;
-	struct vrf *vrf;
 	struct prefix p;
 	int rv;
 
@@ -337,18 +321,6 @@ lib_route_map_entry_set_action_rmap_set_action_ipv6_src_address_modify(
 		yang_dnode_get_ipv6p(&p, args->dnode, NULL);
 		if (zebra_check_addr(&p) == 0) {
 			zlog_warn("%s: invalid IPv6 address: %s", __func__,
-				  yang_dnode_get_string(args->dnode, NULL));
-			return NB_ERR_VALIDATION;
-		}
-
-		RB_FOREACH(vrf, vrf_id_head, &vrfs_by_id) {
-			pif = if_lookup_exact_address(&p.u.prefix6, AF_INET6,
-						      vrf->vrf_id);
-			if (pif != NULL)
-				break;
-		}
-		if (pif == NULL) {
-			zlog_warn("%s: is not a local address: %s", __func__,
 				  yang_dnode_get_string(args->dnode, NULL));
 			return NB_ERR_VALIDATION;
 		}
