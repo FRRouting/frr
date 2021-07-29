@@ -30,18 +30,9 @@ import os
 import sys
 import pytest
 
-# Save the Current Working Directory to find configuration files.
-CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, "../"))
-
-# pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
-# Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 
 # TODO: select markers based on daemons used during test
@@ -56,37 +47,40 @@ pytestmark = [
 """
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 2 routers
+    for routern in range(1, 3):
+        tgen.add_router("r{}".format(routern))
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        # Example
-        #
-        # Create 2 routers
-        for routern in range(1, 3):
-            tgen.add_router("r{}".format(routern))
+    # Create a switch with just one router connected to it to simulate a
+    # empty network.
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Create a switch with just one router connected to it to simulate a
-        # empty network.
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-
-        # Create a connection between r1 and r2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # Create a connection between r1 and r2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
+
+
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
+
+    # The basic topology above could also have be more easily specified using a
+    # dictionary, remove the build_topo function and use the following instead:
+    #
+    # topodef = {
+    #     "s1": "r1"
+    #     "s2": ("r1", "r2")
+    # }
+    # tgen = Topogen(topodef, mod.__name__)
+
     # ... and here it calls initialization functions.
     tgen.start_topology()
 
@@ -94,6 +88,7 @@ def setup_module(mod):
     router_list = tgen.routers()
 
     # For all registred routers, load the zebra configuration file
+    # CWD = os.path.dirname(os.path.realpath(__file__))
     for rname, router in router_list.items():
         router.load_config(
             TopoRouter.RD_ZEBRA,

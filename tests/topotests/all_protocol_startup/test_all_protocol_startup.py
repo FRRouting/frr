@@ -34,8 +34,6 @@ import pytest
 import glob
 from time import sleep
 
-from lib.micronet_compat import Mininet, Topo
-
 from functools import partial
 
 pytestmark = [
@@ -50,6 +48,7 @@ pytestmark = [
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
+from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""
 
@@ -61,24 +60,10 @@ fatal_error = ""
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "All Protocol Startup Test"
-
-    def build(self, **_opts):
-
-        # Setup Routers
-        router = {}
-        #
-        # Setup Main Router
-        router[1] = topotest.addRouter(self, "r1")
-        #
-
-        # Setup Switches
-        switch = {}
-        #
-        for i in range(0, 10):
-            switch[i] = self.addSwitch("sw%s" % i)
-            self.addLink(switch[i], router[1], intfName2="r1-eth%s" % i)
+def build_topo(tgen):
+    router = tgen.add_router("r1")
+    for i in range(0, 10):
+        tgen.add_switch("sw%d" % i).add_link(router)
 
 
 #####################################################
@@ -89,21 +74,16 @@ class NetworkTopo(Topo):
 
 
 def setup_module(module):
-    global topo, net
     global fatal_error
 
     print("\n\n** %s: Setup Topology" % module.__name__)
     print("******************************************\n")
 
-    print("Cleanup old Mininet runs")
-    os.system("sudo mn -c > /dev/null 2>&1")
-    os.system("sudo rm /tmp/r* > /dev/null 2>&1")
-
     thisDir = os.path.dirname(os.path.realpath(__file__))
-    topo = NetworkTopo()
+    tgen = Topogen(build_topo, module.__name__)
+    tgen.start_topology()
 
-    net = Mininet(controller=None, topo=topo)
-    net.start()
+    net = tgen.net
 
     if net["r1"].get_routertype() != "frr":
         fatal_error = "Test is only implemented for FRR"
@@ -133,25 +113,22 @@ def setup_module(module):
         net["r%s" % i].loadConf("nhrpd", "%s/r%s/nhrpd.conf" % (thisDir, i))
         net["r%s" % i].loadConf("babeld", "%s/r%s/babeld.conf" % (thisDir, i))
         net["r%s" % i].loadConf("pbrd", "%s/r%s/pbrd.conf" % (thisDir, i))
-        net["r%s" % i].startRouter()
+        tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
     # CLI(net)
 
 
 def teardown_module(module):
-    global net
-
     print("\n\n** %s: Shutdown Topology" % module.__name__)
     print("******************************************\n")
-
-    # End - Shutdown network
-    net.stop()
+    tgen = get_topogen()
+    tgen.stop_topology()
 
 
 def test_router_running():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -172,7 +149,7 @@ def test_router_running():
 
 def test_error_messages_vtysh():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -228,7 +205,7 @@ def test_error_messages_vtysh():
 
 def test_error_messages_daemons():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -319,7 +296,7 @@ def test_error_messages_daemons():
 
 def test_converge_protocols():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -408,6 +385,7 @@ def test_converge_protocols():
 
 
 def route_get_nhg_id(route_str):
+    net = get_topogen().net
     output = net["r1"].cmd('vtysh -c "show ip route %s nexthop-group"' % route_str)
     match = re.search(r"Nexthop Group ID: (\d+)", output)
     assert match is not None, (
@@ -419,6 +397,7 @@ def route_get_nhg_id(route_str):
 
 
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
+    net = get_topogen().net
     # Verify NHG is valid/installed
     output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
@@ -457,7 +436,7 @@ def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
 
 def test_nexthop_groups():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -606,7 +585,7 @@ def test_nexthop_groups():
 
 def test_rip_status():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -666,7 +645,7 @@ def test_rip_status():
 
 def test_ripng_status():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -733,7 +712,7 @@ def test_ripng_status():
 
 def test_ospfv2_interfaces():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -818,7 +797,7 @@ def test_ospfv2_interfaces():
 
 def test_isis_interfaces():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -884,7 +863,7 @@ def test_isis_interfaces():
 
 def test_bgp_summary():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1045,7 +1024,7 @@ def test_bgp_summary():
 
 def test_bgp_ipv6_summary():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1140,6 +1119,7 @@ def test_bgp_ipv6_summary():
 
 
 def test_nht():
+    net = get_topogen().net
     print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
@@ -1188,7 +1168,7 @@ def test_nht():
 
 def test_bgp_ipv4():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1258,7 +1238,7 @@ def test_bgp_ipv4():
 
 def test_bgp_ipv6():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1327,7 +1307,7 @@ def test_bgp_ipv6():
 
 def test_route_map():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     if fatal_error != "":
         pytest.skip(fatal_error)
@@ -1370,7 +1350,7 @@ def test_route_map():
 
 def test_nexthop_groups_with_route_maps():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1467,7 +1447,7 @@ def test_nexthop_groups_with_route_maps():
 
 def test_nexthop_group_replace():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1500,7 +1480,7 @@ def test_nexthop_group_replace():
 
 def test_mpls_interfaces():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1569,7 +1549,7 @@ def test_mpls_interfaces():
 
 def test_shutdown_check_stderr():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -1632,7 +1612,7 @@ def test_shutdown_check_stderr():
 
 def test_shutdown_check_memleak():
     global fatal_error
-    global net
+    net = get_topogen().net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":

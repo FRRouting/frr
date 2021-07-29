@@ -44,22 +44,20 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, **_opts):
-        tgen = get_topogen(self)
-        router = tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(router)
+def build_topo(tgen):
+    router = tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(router)
 
-        switch = tgen.gears["s1"]
-        peer1 = tgen.add_exabgp_peer(
-            "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
-        )
-        switch.add_link(peer1)
+    switch = tgen.gears["s1"]
+    peer1 = tgen.add_exabgp_peer(
+        "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
+    )
+    switch.add_link(peer1)
 
 
 def setup_module(module):
-    tgen = Topogen(TemplateTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     router = tgen.gears["r1"]

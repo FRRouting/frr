@@ -48,26 +48,23 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.nhrpd]
 
 
-class NHRPTopo(Topo):
-    "Test topology builder"
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        # Create 3 routers.
-        for routern in range(1, 4):
-            tgen.add_router('r{}'.format(routern))
+    # Create 3 routers.
+    for routern in range(1, 4):
+        tgen.add_router('r{}'.format(routern))
 
-        switch = tgen.add_switch('s1')
-        switch.add_link(tgen.gears['r1'])
-        switch.add_link(tgen.gears['r3'])
-        switch = tgen.add_switch('s2')
-        switch.add_link(tgen.gears['r2'])
-        switch.add_link(tgen.gears['r3'])
-        switch = tgen.add_switch('s3')
-        switch.add_link(tgen.gears['r2'])
-        switch = tgen.add_switch('s4')
-        switch.add_link(tgen.gears['r1'])
+    switch = tgen.add_switch('s1')
+    switch.add_link(tgen.gears['r1'])
+    switch.add_link(tgen.gears['r3'])
+    switch = tgen.add_switch('s2')
+    switch.add_link(tgen.gears['r2'])
+    switch.add_link(tgen.gears['r3'])
+    switch = tgen.add_switch('s3')
+    switch.add_link(tgen.gears['r2'])
+    switch = tgen.add_switch('s4')
+    switch.add_link(tgen.gears['r1'])
 
 
 def _populate_iface():
@@ -99,7 +96,7 @@ def _populate_iface():
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(NHRPTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

@@ -113,40 +113,36 @@ def close_applications():
         p.wait()
 
 
-class MSDPMeshTopo1(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 3 routers
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 3 routers
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    # Create stub networks for multicast traffic.
+    tgen.add_host("h1", "192.168.10.2/24", "via 192.168.10.1")
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["h1"])
 
-        # Create stub networks for multicast traffic.
-        tgen.add_host("h1", "192.168.10.2/24", "via 192.168.10.1")
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["h1"])
-
-        tgen.add_host("h2", "192.168.30.2/24", "via 192.168.30.1")
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["h2"])
+    tgen.add_host("h2", "192.168.30.2/24", "via 192.168.30.1")
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["h2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(MSDPMeshTopo1, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

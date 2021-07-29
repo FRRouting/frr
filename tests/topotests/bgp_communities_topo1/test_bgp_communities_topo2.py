@@ -73,14 +73,6 @@ from copy import deepcopy
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_communities_topo2.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
-
 # Global variables
 BGP_CONVERGENCE = False
 ADDR_TYPES = check_address_types()
@@ -88,21 +80,6 @@ NETWORK = {
     "ipv4": ["192.0.2.1/32", "192.0.2.2/32"],
     "ipv6": ["2001:DB8::1:1/128", "2001:DB8::1:2/128"],
 }
-
-
-class BGPCOMMUNITIES(Topo):
-    """
-    Test BGPCOMMUNITIES - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -124,7 +101,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(BGPCOMMUNITIES, mod.__name__)
+    json_file = "{}/bgp_communities_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

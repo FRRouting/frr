@@ -66,62 +66,57 @@ this scenario, the servers are also routers as they have to announce
 anycast IP (VIP) addresses via BGP.
 """
 
+def build_topo(tgen):
+    "Build function"
 
-class BgpLinkBwTopo(Topo):
-    "Test topology builder"
+    # Create 10 routers - 1 super-spine, 2 spines, 3 leafs
+    # and 4 servers
+    routers = {}
+    for i in range(1, 11):
+        routers[i] = tgen.add_router("r{}".format(i))
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 13 "switches" - to interconnect the above routers
+    switches = {}
+    for i in range(1, 14):
+        switches[i] = tgen.add_switch("s{}".format(i))
 
-        # Create 10 routers - 1 super-spine, 2 spines, 3 leafs
-        # and 4 servers
-        routers = {}
-        for i in range(1, 11):
-            routers[i] = tgen.add_router("r{}".format(i))
+    # Interconnect R1 (super-spine) to R2 and R3 (the two spines)
+    switches[1].add_link(tgen.gears["r1"])
+    switches[1].add_link(tgen.gears["r2"])
+    switches[2].add_link(tgen.gears["r1"])
+    switches[2].add_link(tgen.gears["r3"])
 
-        # Create 13 "switches" - to interconnect the above routers
-        switches = {}
-        for i in range(1, 14):
-            switches[i] = tgen.add_switch("s{}".format(i))
+    # Interconnect R2 (spine in pod-1) to R4 and R5 (the associated
+    # leaf switches)
+    switches[3].add_link(tgen.gears["r2"])
+    switches[3].add_link(tgen.gears["r4"])
+    switches[4].add_link(tgen.gears["r2"])
+    switches[4].add_link(tgen.gears["r5"])
 
-        # Interconnect R1 (super-spine) to R2 and R3 (the two spines)
-        switches[1].add_link(tgen.gears["r1"])
-        switches[1].add_link(tgen.gears["r2"])
-        switches[2].add_link(tgen.gears["r1"])
-        switches[2].add_link(tgen.gears["r3"])
+    # Interconnect R3 (spine in pod-2) to R6 (associated leaf)
+    switches[5].add_link(tgen.gears["r3"])
+    switches[5].add_link(tgen.gears["r6"])
 
-        # Interconnect R2 (spine in pod-1) to R4 and R5 (the associated
-        # leaf switches)
-        switches[3].add_link(tgen.gears["r2"])
-        switches[3].add_link(tgen.gears["r4"])
-        switches[4].add_link(tgen.gears["r2"])
-        switches[4].add_link(tgen.gears["r5"])
+    # Interconnect leaf switches to servers
+    switches[6].add_link(tgen.gears["r4"])
+    switches[6].add_link(tgen.gears["r7"])
+    switches[7].add_link(tgen.gears["r4"])
+    switches[7].add_link(tgen.gears["r8"])
+    switches[8].add_link(tgen.gears["r5"])
+    switches[8].add_link(tgen.gears["r9"])
+    switches[9].add_link(tgen.gears["r6"])
+    switches[9].add_link(tgen.gears["r10"])
 
-        # Interconnect R3 (spine in pod-2) to R6 (associated leaf)
-        switches[5].add_link(tgen.gears["r3"])
-        switches[5].add_link(tgen.gears["r6"])
-
-        # Interconnect leaf switches to servers
-        switches[6].add_link(tgen.gears["r4"])
-        switches[6].add_link(tgen.gears["r7"])
-        switches[7].add_link(tgen.gears["r4"])
-        switches[7].add_link(tgen.gears["r8"])
-        switches[8].add_link(tgen.gears["r5"])
-        switches[8].add_link(tgen.gears["r9"])
-        switches[9].add_link(tgen.gears["r6"])
-        switches[9].add_link(tgen.gears["r10"])
-
-        # Create empty networks for the servers
-        switches[10].add_link(tgen.gears["r7"])
-        switches[11].add_link(tgen.gears["r8"])
-        switches[12].add_link(tgen.gears["r9"])
-        switches[13].add_link(tgen.gears["r10"])
+    # Create empty networks for the servers
+    switches[10].add_link(tgen.gears["r7"])
+    switches[11].add_link(tgen.gears["r8"])
+    switches[12].add_link(tgen.gears["r9"])
+    switches[13].add_link(tgen.gears["r10"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BgpLinkBwTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

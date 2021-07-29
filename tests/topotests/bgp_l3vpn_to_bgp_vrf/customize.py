@@ -95,54 +95,50 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 TEST = os.path.basename(CWD)
 
 
-class ThisTestTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # This function only purpose is to define allocation and relationship
+    # between routers, switches and hosts.
+    #
+    # Create P/PE routers
+    # check for mpls
+    tgen.add_router("r1")
+    if tgen.hasmpls != True:
+        logger.info("MPLS not available, tests will be skipped")
+        return
+    mach = platform.machine()
+    krel = platform.release()
+    if mach[:1] == "a" and topotest.version_cmp(krel, "4.11") < 0:
+        logger.info("Need Kernel version 4.11 to run on arm processor")
+        return
+    for routern in range(2, 5):
+        tgen.add_router("r{}".format(routern))
+    # Create CE routers
+    for routern in range(1, 5):
+        tgen.add_router("ce{}".format(routern))
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        # Create P/PE routers
-        # check for mpls
-        tgen.add_router("r1")
-        if tgen.hasmpls != True:
-            logger.info("MPLS not available, tests will be skipped")
-            return
-        mach = platform.machine()
-        krel = platform.release()
-        if mach[:1] == "a" and topotest.version_cmp(krel, "4.11") < 0:
-            logger.info("Need Kernel version 4.11 to run on arm processor")
-            return
-        for routern in range(2, 5):
-            tgen.add_router("r{}".format(routern))
-        # Create CE routers
-        for routern in range(1, 5):
-            tgen.add_router("ce{}".format(routern))
+    # CE/PE links
+    tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "ce1-eth0", "r1-eth4")
+    tgen.add_link(tgen.gears["ce2"], tgen.gears["r3"], "ce2-eth0", "r3-eth4")
+    tgen.add_link(tgen.gears["ce3"], tgen.gears["r4"], "ce3-eth0", "r4-eth4")
+    tgen.add_link(tgen.gears["ce4"], tgen.gears["r4"], "ce4-eth0", "r4-eth5")
 
-        # CE/PE links
-        tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "ce1-eth0", "r1-eth4")
-        tgen.add_link(tgen.gears["ce2"], tgen.gears["r3"], "ce2-eth0", "r3-eth4")
-        tgen.add_link(tgen.gears["ce3"], tgen.gears["r4"], "ce3-eth0", "r4-eth4")
-        tgen.add_link(tgen.gears["ce4"], tgen.gears["r4"], "ce4-eth0", "r4-eth5")
+    # Create a switch with just one router connected to it to simulate a
+    # empty network.
+    switch = {}
+    switch[0] = tgen.add_switch("sw0")
+    switch[0].add_link(tgen.gears["r1"], nodeif="r1-eth0")
+    switch[0].add_link(tgen.gears["r2"], nodeif="r2-eth0")
 
-        # Create a switch with just one router connected to it to simulate a
-        # empty network.
-        switch = {}
-        switch[0] = tgen.add_switch("sw0")
-        switch[0].add_link(tgen.gears["r1"], nodeif="r1-eth0")
-        switch[0].add_link(tgen.gears["r2"], nodeif="r2-eth0")
+    switch[1] = tgen.add_switch("sw1")
+    switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth1")
+    switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth0")
+    switch[1].add_link(tgen.gears["r4"], nodeif="r4-eth0")
 
-        switch[1] = tgen.add_switch("sw1")
-        switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth1")
-        switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth0")
-        switch[1].add_link(tgen.gears["r4"], nodeif="r4-eth0")
-
-        switch[1] = tgen.add_switch("sw2")
-        switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth2")
-        switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth1")
+    switch[1] = tgen.add_switch("sw2")
+    switch[1].add_link(tgen.gears["r2"], nodeif="r2-eth2")
+    switch[1].add_link(tgen.gears["r3"], nodeif="r3-eth1")
 
 
 def ltemplatePreRouterStartHook():

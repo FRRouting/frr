@@ -141,14 +141,6 @@ from lib.common_config import (
 pytestmark = [pytest.mark.bgpd]
 
 
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/bgp_gr_topojson_topo2.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    logger.info("Could not read file:", jsonFile)
-
 # Global variables
 BGP_CONVERGENCE = False
 GR_RESTART_TIMER = 5
@@ -157,28 +149,6 @@ GR_STALEPATH_TIMER = 5
 PREFERRED_NEXT_HOP = "link_local"
 NEXT_HOP_4 = ["192.168.1.1", "192.168.4.2"]
 NEXT_HOP_6 = ["fd00:0:0:1::1", "fd00:0:0:4::2"]
-
-
-class GenerateTopo(Topo):
-    """
-    Test topology builder
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # This function only purpose is to create topology
-        # as defined in input json file.
-        #
-        # Create topology (setup module)
-        # Creating 2 routers topology, r1, r2in IBGP
-        # Bring up topology
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -202,7 +172,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(GenerateTopo, mod.__name__)
+    json_file = "{}/bgp_gr_topojson_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

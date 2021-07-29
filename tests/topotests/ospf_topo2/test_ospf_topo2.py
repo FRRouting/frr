@@ -49,34 +49,32 @@ from lib.micronet_compat import Topo
 pytestmark = [pytest.mark.ospfd]
 
 
-class OSPFTopo(Topo):
-    "Test topology builder"
+CWD = os.path.dirname(os.path.realpath(__file__))
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        # Create 4 routers
-        for routern in range(1, 3):
-            tgen.add_router("r{}".format(routern))
+    # Create 4 routers
+    for routern in range(1, 3):
+        tgen.add_router("r{}".format(routern))
 
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+    # Create a empty network for router 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Create a empty network for router 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
+    # Create a empty network for router 2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
 
-        # Interconect router 1, 2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # Interconect router 1, 2
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

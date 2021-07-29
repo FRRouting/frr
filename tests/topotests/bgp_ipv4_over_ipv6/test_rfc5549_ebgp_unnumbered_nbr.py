@@ -37,7 +37,6 @@ sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../../"))
 
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     write_test_header,
@@ -62,13 +61,6 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 
 # Global variables
 topo = None
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/rfc5549_ebgp_unnumbered_nbr.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 NO_OF_RTES = 2
@@ -124,21 +116,6 @@ shut / no shut of nexthop and BGP peer interfaces
  """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """Set up the pytest environment."""
     global topo, ADDR_TYPES
@@ -150,7 +127,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/rfc5549_ebgp_unnumbered_nbr.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers

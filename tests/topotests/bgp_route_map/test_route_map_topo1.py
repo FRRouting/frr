@@ -115,13 +115,6 @@ TC_38:
 bgp_convergence = False
 BGP_CONVERGENCE = False
 ADDR_TYPES = check_address_types()
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/bgp_route_map_topo1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 bgp_convergence = False
@@ -129,22 +122,6 @@ NETWORK = {"ipv4": ["11.0.20.1/32", "20.0.20.1/32"], "ipv6": ["1::1/128", "2::1/
 MASK = {"ipv4": "32", "ipv6": "128"}
 NEXT_HOP = {"ipv4": "10.0.0.2", "ipv6": "fd00::2"}
 ADDR_TYPES = check_address_types()
-
-
-class CreateTopo(Topo):
-    """
-    Test topology builder
-
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -161,7 +138,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_route_map_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

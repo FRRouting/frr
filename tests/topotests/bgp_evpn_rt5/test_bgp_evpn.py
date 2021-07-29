@@ -48,31 +48,28 @@ from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
-class BGPEVPNTopo(Topo):
-    "Test topology builder"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        tgen.add_router("r1")
-        tgen.add_router("r2")
+    tgen.add_router("r1")
+    tgen.add_router("r2")
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
 
-    tgen = Topogen(BGPEVPNTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
