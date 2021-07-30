@@ -3539,7 +3539,7 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    It helps to identify which prefixes were installed at some point.
 
    Here is an example of how to check what prefixes were installed starting
-   with an arbitrary version::
+   with an arbitrary version:
 
 .. code-block:: shell
 
