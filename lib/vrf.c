@@ -287,6 +287,7 @@ void vrf_delete(struct vrf *vrf)
 			RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
 			vrf->vrf_id = VRF_UNKNOWN;
 		}
+		vrf->ns_ctxt = NULL;
 		return;
 	}
 
