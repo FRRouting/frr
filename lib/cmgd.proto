@@ -210,7 +210,7 @@ message BckndMessage {
     BckndSubscribeReq subscr_req = 2;
     BckndSubscribeReply subscr_reply = 3;
     BckndTrxnReq trxn_req = 4;
-    BckndTrxnReply trxn_repl = 5;
+    BckndTrxnReply trxn_reply = 5;
     BckndCfgDataCreateReq cfg_data_req = 6;
     BckndCfgDataCreateFail cfg_data_fail = 7;
     BckndCfgDataValidateReq cfg_validate_req = 8;

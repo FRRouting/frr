@@ -216,9 +216,9 @@ static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_create_session(
 
 static void cmgd_frntnd_cleanup_sessions(cmgd_frntnd_client_adapter_t *adptr)
 {
-	cmgd_frntnd_sessn_ctxt_t *sessn, *next;
+	cmgd_frntnd_sessn_ctxt_t *sessn;
 
-	FOREACH_SESSN_IN_LIST_SAFE(adptr, sessn, next) {
+	frr_each_safe(cmgd_frntnd_sessn_list, &adptr->frntnd_sessns, sessn) {
 		cmgd_frntnd_cleanup_session(&sessn);
 	}
 }
