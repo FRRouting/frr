@@ -62,10 +62,10 @@ struct bgp_damp_info {
 	afi_t afi;
 	safi_t safi;
 
-	LIST_ENTRY(bgp_damp_info) entry;
+	SLIST_ENTRY(bgp_damp_info) entry;
 };
 
-LIST_HEAD(reuselist, bgp_damp_info);
+SLIST_HEAD(reuselist, bgp_damp_info);
 
 /* Specified parameter set configuration. */
 struct bgp_damp_config {

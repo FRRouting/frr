@@ -41,14 +41,14 @@ static void bgp_reuselist_add(struct reuselist *list,
 			      struct bgp_damp_info *info)
 {
 	assert(info);
-	LIST_INSERT_HEAD(list, info, entry);
+	SLIST_INSERT_HEAD(list, info, entry);
 }
 
 static void bgp_reuselist_del(struct reuselist *list,
 			      struct bgp_damp_info *info)
 {
 	assert(info);
-	LIST_REMOVE(info, entry);
+	SLIST_REMOVE(list, info, bgp_damp_info, entry);
 }
 
 static void bgp_reuselist_switch(struct reuselist *source,
@@ -56,8 +56,8 @@ static void bgp_reuselist_switch(struct reuselist *source,
 				 struct reuselist *target)
 {
 	assert(source && target && info);
-	LIST_REMOVE(info, entry);
-	LIST_INSERT_HEAD(target, info, entry);
+	SLIST_REMOVE(source, info, bgp_damp_info, entry);
+	SLIST_INSERT_HEAD(target, info, entry);
 }
 
 static void bgp_damp_info_unclaim(struct bgp_damp_info *bdi)
@@ -188,7 +188,7 @@ static int bgp_reuse_timer(struct thread *t)
 	 * list head entry. */
 	assert(bdc->reuse_offset < bdc->reuse_list_size);
 	plist = bdc->reuse_list[bdc->reuse_offset];
-	LIST_INIT(&bdc->reuse_list[bdc->reuse_offset]);
+	SLIST_INIT(&bdc->reuse_list[bdc->reuse_offset]);
 
 	/* 2.  set offset = modulo reuse-list-size ( offset + 1 ), thereby
 	   rotating the circular queue of list-heads.  */
@@ -196,7 +196,7 @@ static int bgp_reuse_timer(struct thread *t)
 	assert(bdc->reuse_offset < bdc->reuse_list_size);
 
 	/* 3. if ( the saved list head pointer is non-empty ) */
-	while ((bdi = LIST_FIRST(&plist)) != NULL) {
+	while ((bdi = SLIST_FIRST(&plist)) != NULL) {
 		bgp = bdi->path->peer->bgp;
 
 		/* Set t-diff = t-now - t-updated.  */
@@ -242,7 +242,7 @@ static int bgp_reuse_timer(struct thread *t)
 		}
 	}
 
-	assert(LIST_EMPTY(&plist));
+	assert(SLIST_EMPTY(&plist));
 
 	return 0;
 }
@@ -496,7 +496,7 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 	bdc->reuse_offset = 0;
 	for (i = 0; i < bdc->reuse_list_size; ++i) {
 		list = &bdc->reuse_list[i];
-		while ((bdi = LIST_FIRST(list)) != NULL) {
+		while ((bdi = SLIST_FIRST(list)) != NULL) {
 			if (bdi->lastrecord == BGP_RECORD_UPDATE) {
 				bgp_aggregate_increment(bgp, &bdi->dest->p,
 							bdi->path, bdi->afi,
@@ -508,7 +508,7 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 		}
 	}
 
-	while ((bdi = LIST_FIRST(&bdc->no_reuse_list)) != NULL)
+	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL)
 		bgp_damp_info_free(bdi, 1);
 
 	/* Free decay array */
