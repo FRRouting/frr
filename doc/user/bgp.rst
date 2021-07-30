@@ -3541,15 +3541,15 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    Here is an example of how to check what prefixes were installed starting
    with an arbitrary version::
 
-   .. code-block:: frr
+.. code-block:: shell
 
-      ~# vtysh -c 'show bgp ipv4 unicast json' | jq '.tableVersion'
-      9
-      ~# vtysh -c 'show ip bgp version 9 json' | jq -r '.routes | keys[]'
-      192.168.3.0/24
-      ~# vtysh -c 'show ip bgp version 8 json' | jq -r '.routes | keys[]'
-      192.168.2.0/24
-      192.168.3.0/24
+   # vtysh -c 'show bgp ipv4 unicast json' | jq '.tableVersion'
+   9
+   # vtysh -c 'show ip bgp version 9 json' | jq -r '.routes | keys[]'
+   192.168.3.0/24
+   # vtysh -c 'show ip bgp version 8 json' | jq -r '.routes | keys[]'
+   192.168.2.0/24
+   192.168.3.0/24
 
 .. clicmd:: show bgp [afi] [safi] statistics
 
