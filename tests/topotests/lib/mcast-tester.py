@@ -60,9 +60,9 @@ def multicast_join(sock, ifindex, group, port):
 # Main code.
 #
 parser = argparse.ArgumentParser(description="Multicast RX utility")
-parser.add_argument('socket', help='Point to topotest UNIX socket')
 parser.add_argument('group', help='Multicast IP')
 parser.add_argument('interface', help='Interface name')
+parser.add_argument('--socket', help='Point to topotest UNIX socket')
 parser.add_argument(
     '--send',
     help='Transmit instead of join with interval',
@@ -84,14 +84,19 @@ if os.geteuid() != 0:
     sys.exit(1)
 
 # Wait for topotest to synchronize with us.
-toposock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-while True:
-    try:
-        toposock.connect(args.socket)
-        break
-    except ConnectionRefusedError:
-        time.sleep(1)
-        continue
+if not args.socket:
+    toposock = None
+else:
+    toposock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+    while True:
+        try:
+            toposock.connect(args.socket)
+            break
+        except ConnectionRefusedError:
+            time.sleep(1)
+            continue
+    # Set topotest socket non blocking so we can multiplex the main loop.
+    toposock.setblocking(False)
 
 msock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 if args.send > 0:
@@ -105,26 +110,30 @@ if args.send > 0:
         socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("b", ttl))
     # Block to ensure packet send.
     msock.setblocking(True)
-    # Set topotest socket non blocking so we can multiplex the main loop.
-    toposock.setblocking(False)
 else:
     multicast_join(msock, ifindex, args.group, port)
 
+def should_exit():
+    if not toposock:
+        # If we are sending then we have slept
+        if not args.send:
+            time.sleep(100)
+        return False
+    else:
+        try:
+            data = toposock.recv(1)
+            if data == b'':
+                print(' -> Connection closed')
+                return True
+        except BlockingIOError:
+            return False
+
 counter = 0
-while True:
+while not should_exit():
     if args.send > 0:
         msock.sendto(b"test %d" % counter, (args.group, port))
         counter += 1
         time.sleep(args.send)
 
-    try:
-        data = toposock.recv(1)
-        if data == b'':
-            print(' -> Connection closed')
-            break
-    except BlockingIOError:
-        continue
-
 msock.close()
-
 sys.exit(0)

@@ -19,7 +19,9 @@
 import datetime
 import os
 import re
+import socket
 import sys
+import tempfile
 import traceback
 from copy import deepcopy
 from time import sleep
@@ -29,12 +31,16 @@ import pytest
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
     create_common_configurations,
+    HostApplicationHelper,
+    InvalidCLIError,
     create_common_configuration,
     InvalidCLIError,
     retry,
     run_frr_cmd,
 )
+from lib.micronet import comm_error, get_exec_path
 from lib.topolog import logger
+from lib.topotest import frr_unicode
 
 ####
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -3412,3 +3418,113 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=Tr
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+class McastTesterHelper (HostApplicationHelper):
+
+    def __init__(self, tgen=None):
+        self.script_path = os.path.join(CWD, "mcast-tester.py")
+        self.host_conn = {}
+        self.listen_sock = None
+
+        # # Get a temporary file for socket path
+        # (fd, sock_path) = tempfile.mkstemp("-mct.sock", "tmp" + str(os.getpid()))
+        # os.close(fd)
+        # os.remove(sock_path)
+        # self.app_sock_path = sock_path
+
+        # # Listen on unix socket
+        # logger.debug("%s: listening on socket %s", self, self.app_sock_path)
+        # self.listen_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+        # self.listen_sock.settimeout(10)
+        # self.listen_sock.bind(self.app_sock_path)
+        # self.listen_sock.listen(10)
+
+        python3_path = get_exec_path(["python3", "python"])
+        super(McastTesterHelper, self).__init__(
+            tgen,
+            # [python3_path, self.script_path, self.app_sock_path]
+            [python3_path, self.script_path]
+        )
+
+    def __str__ (self):
+        return "McastTesterHelper({})".format(self.script_path)
+
+    def run_join(self, host, join_addrs, join_towards=None, join_intf=None):
+        """
+        Join a UDP multicast group.
+
+        One of join_towards or join_intf MUST be set.
+
+        Parameters:
+        -----------
+        * `host`: host from where IGMP join would be sent
+        * `join_addrs`: multicast address (or addresses) to join to
+        * `join_intf`: the interface to bind the join[s] to
+        * `join_towards`: router whos interface to bind the join[s] to
+        """
+        if not isinstance(join_addrs, list) and not isinstance(join_addrs, tuple):
+            join_addrs = [join_addrs]
+
+        if join_towards:
+            join_intf = frr_unicode(self.tgen.json_topo["routers"][host]["links"][join_towards]["interface"])
+        else:
+            assert join_intf
+
+        for join in join_addrs:
+            self.run(host, [join, join_intf])
+
+        return True
+
+    def run_traffic(self, host, send_to_addrs, bind_towards=None, bind_intf=None):
+        """
+        Send UDP multicast traffic.
+
+        One of bind_towards or bind_intf MUST be set.
+
+        Parameters:
+        -----------
+        * `host`: host to send traffic from
+        * `send_to_addrs`: multicast address (or addresses) to send traffic to
+        * `bind_towards`: Router who's interface the source ip address is got from
+        """
+        if bind_towards:
+            bind_intf = frr_unicode(self.tgen.json_topo["routers"][host]["links"][bind_towards]["interface"])
+        else:
+            assert bind_intf
+
+        if not isinstance(send_to_addrs, list) and not isinstance(send_to_addrs, tuple):
+            send_to_addrs = [send_to_addrs]
+
+        for send_to in send_to_addrs:
+            self.run(host, ["--send=0.7", send_to, bind_intf])
+
+        return True
+
+    # def cleanup(self):
+    #     super(McastTesterHelper, self).cleanup()
+
+    #     if not self.listen_sock:
+    #         return
+
+    #     logger.debug("%s: closing listen socket %s", self, self.app_sock_path)
+    #     self.listen_sock.close()
+    #     self.listen_sock = None
+
+    #     if os.path.exists(self.app_sock_path):
+    #         os.remove(self.app_sock_path)
+
+    # def started_proc(self, host, p):
+    #     logger.debug("%s: %s: accepting on socket %s", self, host, self.app_sock_path)
+    #     try:
+    #         conn = self.listen_sock.accept()
+    #         return conn
+    #     except Exception as error:
+    #         logger.error("%s: %s: accept on socket failed: %s", self, host, error)
+    #         if p.poll() is not None:
+    #             logger.error("%s: %s: helper app quit: %s", self, host, comm_error(p))
+    #         raise
+
+    # def stopping_proc(self, host, p, conn):
+    #     logger.debug("%s: %s: closing socket %s", self, host, conn)
+    #     conn[0].close()
