@@ -150,9 +150,28 @@ static int host_rb_entry_compare(const struct host_rb_entry *hle1,
 		return memcmp(&hle1->p.u.prefix6, &hle2->p.u.prefix6,
 			      IPV6_MAX_BYTELEN);
 	} else if (hle1->p.family == AF_EVPN) {
-		/* a single dummy prefix of route_type BGP_EVPN_AD_ROUTE is
-		 * used for all nexthops associated with a non-zero ESI
+		uint8_t family1;
+		uint8_t family2;
+
+		/* two (v4/v6) dummy prefixes of route_type BGP_EVPN_AD_ROUTE
+		 * are used for all nexthops associated with a non-zero ESI
 		 */
+		family1 = is_evpn_prefix_ipaddr_v4(
+				  (const struct prefix_evpn *)&hle1->p)
+				  ? AF_INET
+				  : AF_INET6;
+		family2 = is_evpn_prefix_ipaddr_v4(
+				  (const struct prefix_evpn *)&hle2->p)
+				  ? AF_INET
+				  : AF_INET6;
+
+
+		if (family1 < family2)
+			return -1;
+
+		if (family1 > family2)
+			return 1;
+
 		return 0;
 	} else {
 		zlog_debug("%s: Unexpected family type: %d", __func__,
