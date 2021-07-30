@@ -913,12 +913,13 @@ static void cmgd_trxn_register_event(
 }
 
 static cmgd_trxn_ctxt_t *cmgd_frntnd_find_trxn_by_session_id(
-	struct cmgd_master *cm, cmgd_session_id_t session_id)
+	struct cmgd_master *cm, cmgd_session_id_t session_id,
+	cmgd_trxn_type_t type)
 {
 	cmgd_trxn_ctxt_t *trxn;
 
 	FOREACH_TRXN_IN_LIST(cm, trxn) {
-		if (trxn->session_id == session_id) 
+		if (trxn->session_id == session_id && trxn->type == type)
 			return trxn;
 	}
 
@@ -1001,7 +1002,7 @@ cmgd_trxn_id_t cmgd_create_trxn(
 		goto cmgd_create_trxn_done;
 	}
 
-	trxn = cmgd_frntnd_find_trxn_by_session_id(cmgd_trxn_cm, session_id);
+	trxn = cmgd_frntnd_find_trxn_by_session_id(cmgd_trxn_cm, session_id, type);
 	if (!trxn) {
 		trxn = XCALLOC(MTYPE_CMGD_TRXN, 
 				sizeof(cmgd_trxn_ctxt_t));

@@ -748,7 +748,7 @@ static int cmgd_frntnd_session_handle_getcfg_req_msg(
 		CMGD_FRNTND_ADPTR_DBG("Created new Show Trxn 0x%lx for session %p",
 			sessn->trxn_id, sessn);
 	} else {
-		CMGD_FRNTND_ADPTR_DBG("Config Trxn 0x%lx for session %p already created",
+		CMGD_FRNTND_ADPTR_DBG("Show Trxn 0x%lx for session %p already created",
 			sessn->trxn_id, sessn);
 	}
 
