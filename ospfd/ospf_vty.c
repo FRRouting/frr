@@ -375,9 +375,26 @@ static void ospf_passive_interface_default_update(struct ospf *ospf,
 		ospf_if_set_multicast(oi);
 }
 
-static void ospf_passive_interface_update(struct interface *ifp)
+static void ospf_passive_interface_update(struct interface *ifp,
+					  struct ospf_if_params *params,
+					  struct in_addr addr, uint8_t newval)
 {
 	struct route_node *rn;
+
+	if (OSPF_IF_PARAM_CONFIGURED(params, passive_interface)) {
+		if (params->passive_interface == newval)
+			return;
+
+		params->passive_interface = newval;
+		UNSET_IF_PARAM(params, passive_interface);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, addr);
+			ospf_if_update_params(ifp, addr);
+		}
+	} else {
+		params->passive_interface = newval;
+		SET_IF_PARAM(params, passive_interface);
+	}
 
 	/*
 	 * XXX We should call ospf_if_set_multicast on exactly those
@@ -457,10 +474,7 @@ DEFUN_HIDDEN (ospf_passive_interface_addr,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_PASSIVE;
-	SET_IF_PARAM(params, passive_interface);
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_PASSIVE);
 
 	return CMD_SUCCESS;
 }
@@ -521,14 +535,7 @@ DEFUN_HIDDEN (no_ospf_passive_interface,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_ACTIVE;
-	UNSET_IF_PARAM(params, passive_interface);
-	if (params != IF_DEF_PARAMS(ifp)) {
-		ospf_free_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	}
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
 
 	return CMD_SUCCESS;
 }
@@ -9082,7 +9089,7 @@ DEFUN (ip_ospf_passive,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 3;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = INADDR_ANY};
 	struct ospf_if_params *params;
 	int ret;
 
@@ -9099,10 +9106,7 @@ DEFUN (ip_ospf_passive,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_PASSIVE;
-	SET_IF_PARAM(params, passive_interface);
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_PASSIVE);
 
 	return CMD_SUCCESS;
 }
@@ -9118,7 +9122,7 @@ DEFUN (no_ip_ospf_passive,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 4;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = INADDR_ANY};
 	struct ospf_if_params *params;
 	int ret;
 
@@ -9136,14 +9140,7 @@ DEFUN (no_ip_ospf_passive,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_ACTIVE;
-	UNSET_IF_PARAM(params, passive_interface);
-	if (params != IF_DEF_PARAMS(ifp)) {
-		ospf_free_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	}
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
 
 	return CMD_SUCCESS;
 }
@@ -11932,7 +11929,11 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			if (OSPF_IF_PARAM_CONFIGURED(params,
 						     passive_interface)) {
-				vty_out(vty, " ip ospf passive");
+				vty_out(vty, " %sip ospf passive",
+					params->passive_interface
+							== OSPF_IF_ACTIVE
+						? "no "
+						: "");
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
