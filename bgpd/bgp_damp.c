@@ -388,13 +388,16 @@ void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
 {
 	assert(bdi);
 
+	if (bdi->path == NULL) {
+		XFREE(MTYPE_BGP_DAMP_INFO, bdi);
+		return;
+	}
+
 	bdi->path->extra->damp_info = NULL;
 	bgp_path_info_unset_flag(bdi->dest, bdi->path,
 				 BGP_PATH_HISTORY | BGP_PATH_DAMPED);
 	if (bdi->lastrecord == BGP_RECORD_WITHDRAW && withdraw)
 		bgp_path_info_delete(bdi->dest, bdi->path);
-
-	XFREE(MTYPE_BGP_DAMP_INFO, bdi);
 }
 
 static void bgp_damp_parameter_set(int hlife, int reuse, int sup, int maxsup,
