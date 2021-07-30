@@ -46,71 +46,11 @@ from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
+from lib.pim import McastTesterHelper
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 
-#
-# Test global variables:
-# They are used to handle communicating with external application.
-#
-HELPER_APP_PATH = os.path.join(CWD, "../lib/mcast-tester.py")
-app_listener = None
-app_clients = {}
-
-
-def get_app_sock_path():
-    tgen = get_topogen()
-    return os.path.join(tgen.logdir, "apps.sock")
-
-
-def listen_to_applications():
-    "Start listening socket to connect with applications."
-
-    app_sock_path = get_app_sock_path()
-    # Remove old socket.
-    try:
-        os.unlink(app_sock_path)
-    except OSError:
-        pass
-
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-    # Do not block forever
-    sock.settimeout(10)
-    sock.bind(app_sock_path)
-    sock.listen(10)
-    global app_listener
-    app_listener = sock
-
-
-def accept_host(host):
-    "Accept connection from application running in hosts."
-    global app_listener, app_clients
-    conn = app_listener.accept()
-    app_clients[host] = {
-        'fd': conn[0],
-        'address': conn[1]
-    }
-
-
-def close_applications():
-    "Signal applications to stop and close all sockets."
-    global app_listener, app_clients
-
-    # Close listening socket.
-    app_listener.close()
-
-    app_sock_path = get_app_sock_path()
-    # Remove old socket.
-    try:
-        os.unlink(app_sock_path)
-    except OSError:
-        pass
-
-    # Close all host connections.
-    for host in ["h1", "h2"]:
-        if app_clients.get(host) is None:
-            continue
-        app_clients[host]["fd"].close()
+app_helper = McastTesterHelper()
 
 
 def build_topo(tgen):
@@ -172,14 +112,12 @@ def setup_module(mod):
     # Initialize all routers.
     tgen.start_router()
 
-    # Start applications socket.
-    listen_to_applications()
-
+    app_helper.init(tgen)
 
 def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
-    close_applications()
+    app_helper.cleanup()
     tgen.stop_topology()
 
 
@@ -368,34 +306,14 @@ def test_mroute_install():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    ph1 = ph2 = None
+    logger.info("Starting helper1")
+    mcastaddr = "229.1.2.3"
+    app_helper.run("h1", [mcastaddr, "h1-eth0"])
 
-    app_sock_path = get_app_sock_path()
-    try:
-        logger.info("Starting helper1")
-        ph1 = tgen.gears["h1"].popen(
-            "{} '{}' '{}' '{}'".format(
-                HELPER_APP_PATH, app_sock_path, "229.1.2.3", "h1-eth0"
-            )
-        )
-        logger.info("Accepting helper1")
-        accept_host("h1")
+    logger.info("Starting helper2")
+    app_helper.run("h2", ["--send=0.7", mcastaddr, "h2-eth0"])
 
-        logger.info("Starting helper2")
-        ph2 = tgen.gears["h2"].popen(
-            "{} --send='0.7' '{}' '{}' '{}'".format(
-                HELPER_APP_PATH, app_sock_path, "229.1.2.3", "h2-eth0"
-            )
-        )
-        accept_host("h2")
-
-        _test_mroute_install()
-    finally:
-        if ph1:
-            ph1.terminate()
-            ph1.wait()
-            ph2.terminate()
-            ph2.wait()
+    _test_mroute_install()
 
 def test_msdp():
     """
