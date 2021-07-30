@@ -1517,7 +1517,7 @@ def verify_ospf_database(tgen, topo, dut, input_dict, expected=True):
 
 
 @retry(retry_timeout=20)
-def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
+def verify_ospf_summary(tgen, topo, dut, input_dict, ospf=None, expected=True):
     """
     This API is to verify ospf routes by running
     show ip ospf interface command.
@@ -1528,7 +1528,6 @@ def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
     * `topo` : topology descriptions
     * `dut`: device under test
     * `input_dict` : Input dict data, required when configuring from testcase
-    * `expected` : expected results from API, by-default True
 
     Usage
     -----
@@ -1548,18 +1547,30 @@ def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
     True or False (Error Message)
     """
 
-    logger.debug("Entering lib API: verify_ospf_summary()")
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
     router = dut
 
     logger.info("Verifying OSPF summary on router %s:", router)
 
-    if "ospf" not in topo["routers"][dut]:
-        errormsg = "[DUT: {}] OSPF is not configured on the router.".format(router)
-        return errormsg
-
     rnode = tgen.routers()[dut]
-    show_ospf_json = run_frr_cmd(rnode, "show ip ospf summary detail json", isjson=True)
+
+    if ospf:
+        if 'ospf6' not in topo['routers'][dut]:
+            errormsg = "[DUT: {}] OSPF6 is not configured on the router.".format(
+                router)
+            return errormsg
+
+        show_ospf_json = run_frr_cmd(rnode, "show ipv6 ospf summary detail json",
+                                 isjson=True)
+    else:
+        if 'ospf' not in topo['routers'][dut]:
+            errormsg = "[DUT: {}] OSPF is not configured on the router.".format(
+                router)
+            return errormsg
+
+        show_ospf_json = run_frr_cmd(rnode, "show ip ospf summary detail json",
+                                 isjson=True)
 
     # Verifying output dictionary show_ospf_json is empty or not
     if not bool(show_ospf_json):
@@ -1568,33 +1579,29 @@ def verify_ospf_summary(tgen, topo, dut, input_dict, expected=True):
 
     # To find neighbor ip type
     ospf_summary_data = input_dict
+
+    if ospf:
+        show_ospf_json = show_ospf_json['default']
+
     for ospf_summ, summ_data in ospf_summary_data.items():
         if ospf_summ not in show_ospf_json:
             continue
-        summary = ospf_summary_data[ospf_summ]["Summary address"]
+        summary = ospf_summary_data[ospf_summ]['Summary address']
+
         if summary in show_ospf_json:
             for summ in summ_data:
                 if summ_data[summ] == show_ospf_json[summary][summ]:
-                    logger.info(
-                        "[DUT: %s] OSPF summary %s:%s is %s",
-                        router,
-                        summary,
-                        summ,
-                        summ_data[summ],
-                    )
+                    logger.info("[DUT: %s] OSPF summary %s:%s is %s",
+                                router, summary, summ, summ_data[summ])
                     result = True
                 else:
-                    errormsg = (
-                        "[DUT: {}] OSPF summary {}:{} is %s, "
-                        "Expected is {}".format(
-                            router, summary, summ, show_ospf_json[summary][summ]
-                        )
-                    )
+                    errormsg = ("[DUT: {}] OSPF summary {} : {} is {}, "
+                    "Expected is {}".format(router, summary, summ,show_ospf_json[
+                        summary][summ], summ_data[summ] ))
                     return errormsg
 
-    logger.debug("Exiting API: verify_ospf_summary()")
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
-
 
 
 @retry(retry_timeout=30)
