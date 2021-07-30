@@ -159,12 +159,12 @@ DEFPY(show_cmgd_bcknd_adapter,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_cmgd_bcknd_reg,
-	show_cmgd_bcknd_reg_cmd,
-	"show cmgd backend-registry",
+DEFPY(show_cmgd_bcknd_xpath_reg,
+	show_cmgd_bcknd_xpath_reg_cmd,
+	"show cmgd backend-yang-xpath-registry",
 	SHOW_STR
 	CMGD_STR
-	"Backend Adapter Xpath Registry\n")
+	"Backend Adapter YANG Xpath Registry\n")
 {
 	cmgd_bcknd_xpath_register_write(vty);
 
@@ -304,12 +304,34 @@ DEFPY(cmgd_set_config_data,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_cmgd_get_config_data,
-	  show_cmgd_get_config_data_cmd,
+DEFPY(show_cmgd_get_config,
+	  show_cmgd_get_config_cmd,
 	  "show cmgd get-config [db-name WORD$dbname] xpath WORD$path",
 	  SHOW_STR
 	  CMGD_STR
-	  "Get configuration data\n"
+	  "Get configuration data from a specific configuration database\n"
+	  "DB name\n"
+	  "<candidate running operational>\n"
+	  "XPath expression specifying the YANG data path\n"
+	  "XPath string\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	cmgd_database_id_t database = CMGD_DB_NONE;
+
+	if (dbname)
+		database = cmgd_db_name2id(dbname);
+
+	xpath_list[0] = path;
+	vty_cmgd_send_get_data(vty, database, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_cmgd_get_data,
+	  show_cmgd_get_data_cmd,
+	  "show cmgd get-data [db-name WORD$dbname] xpath WORD$path",
+	  SHOW_STR
+	  CMGD_STR
+	  "Get data from a specific database\n"
 	  "DB name\n"
 	  "<candidate running operational>\n"
 	  "XPath expression specifying the YANG data path\n"
@@ -373,14 +395,15 @@ void cmgd_vty_init(void)
 	static_vty_init();
 
 	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
-	install_element(VIEW_NODE, &show_cmgd_bcknd_reg_cmd);
+	install_element(VIEW_NODE, &show_cmgd_bcknd_xpath_reg_cmd);
 	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_trxn_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_all_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_runn_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_cand_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_oper_cmd);
-	install_element(VIEW_NODE, &show_cmgd_get_config_data_cmd);
+	install_element(VIEW_NODE, &show_cmgd_get_config_cmd);
+	install_element(VIEW_NODE, &show_cmgd_get_data_cmd);
 	install_element(VIEW_NODE, &show_cmgd_map_xpath_cmd);
 
 	install_element(CONFIG_NODE, &cmgd_commit_apply_cmd);

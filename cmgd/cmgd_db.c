@@ -385,16 +385,12 @@ int cmgd_db_iter_data(
         cmgd_db_node_iter_fn iter_fn, void *ctxt, bool donot_free_alloced)
 {
 	cmgd_db_ctxt_t *db_ctxt;
-	int indx, ret, max_iter;
-	// char *xpaths[CMGD_MAX_NUM_DBNODES_PER_BATCH] = { 0 };
-	// struct lyd_node *dnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH] = {0};
-	// struct nb_node *nbnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH] = {0};
+	int ret;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
 
-	// max_iter = array_size(dnodes);
 	ret = cmgd_walk_db_nodes(db_ctxt, base_xpath, iter_fn, ctxt,
 			NULL, NULL, NULL, NULL, true, donot_free_alloced);
 

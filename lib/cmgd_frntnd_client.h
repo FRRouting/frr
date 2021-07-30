@@ -218,9 +218,9 @@ extern cmgd_result_t cmgd_frntnd_get_config_data(
 	cmgd_yang_getdata_req_t *data_req[], int num_reqs);
 
 /*
- * Send GET_OPERDATA_REQ to CMGD for one or more config data item(s).
+ * Send GET_DATA_REQ to CMGD for one or more data item(s).
  */
-extern cmgd_result_t cmgd_frntnd_get_oper_data(
+extern cmgd_result_t cmgd_frntnd_get_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
 	cmgd_yang_getdata_req_t *data_req[], int num_reqs);

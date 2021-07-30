@@ -819,16 +819,15 @@ static int cmgd_trxn_process_get_data(struct thread *thread)
 	assert(trxn);
 
 	CMGD_TRXN_DBG("Processing %d GET_DATA requests for Trxn:%p Session:0x%lx",
-		(int) cmgd_trxn_req_list_count(&trxn->set_cfg_reqs), trxn,
+		(int) cmgd_trxn_req_list_count(&trxn->get_data_reqs), trxn,
 		trxn->session_id);
 
 	FOREACH_TRXN_REQ_IN_LIST_SAFE(&trxn->get_data_reqs, trxn_req, next) {
 		error = false;
-		assert(trxn_req->req_event == CMGD_TRXN_PROC_GETCFG);
-		db_hndl = cmgd_db_get_hndl_by_id(
-				cmgd_trxn_cm, trxn_req->req.set_cfg->db_id);
+		assert(trxn_req->req_event == CMGD_TRXN_PROC_GETDATA);
+		db_hndl = trxn_req->req.get_data->db_hndl;
 		if (!db_hndl) {
-			cmgd_frntnd_send_get_cfg_reply(
+			cmgd_frntnd_send_get_data_reply(
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
 				trxn_req->req.get_data->db_id,
 				trxn_req->req_id, CMGD_INTERNAL_ERROR,
@@ -845,7 +844,17 @@ static int cmgd_trxn_process_get_data(struct thread *thread)
 			error = true;
 			goto cmgd_trxn_process_get_data_done;
 		} else {
-			/* TODO: Trigger GET procedures for Backend */
+			/* 
+			 * TODO: Trigger GET procedures for Backend 
+			 * For now return back error.
+			 */
+			cmgd_frntnd_send_get_data_reply(
+				trxn->session_id, (cmgd_trxn_id_t) trxn,
+				trxn_req->req.get_data->db_id,
+				trxn_req->req_id, CMGD_INTERNAL_ERROR,
+				NULL, "GET-DATA on Oper DB is not supported yet!");
+			error = true;
+			goto cmgd_trxn_process_get_data_done;
 		}
 
 cmgd_trxn_process_get_data_done:
@@ -857,7 +866,7 @@ cmgd_trxn_process_get_data_done:
 			 * as well.
 			 */
 			cmgd_trxn_req_free(&trxn_req);
-		}
+		} 
 
 		/*
 		 * Else the transaction would have been already deleted or
@@ -1190,10 +1199,25 @@ int cmgd_trxn_send_get_data_req(
         cmgd_yang_getdata_req_t **data_req, size_t num_reqs)
 {
 	cmgd_trxn_ctxt_t *trxn;
+	cmgd_trxn_req_t *trxn_req;
+	size_t indx;
 
 	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
 	if (!trxn)
 		return -1;
+
+	trxn_req = cmgd_trxn_req_alloc(trxn, req_id, CMGD_TRXN_PROC_GETDATA);
+	trxn_req->req.get_data->db_id = db_id;
+	trxn_req->req.get_data->db_hndl = db_hndl;
+	for (indx = 0; indx < num_reqs &&
+		indx < CMGD_MAX_NUM_DATA_REPLY_IN_BATCH; indx++) {
+		CMGD_TRXN_DBG("XPath: '%s'", data_req[indx]->data->xpath);
+		trxn_req->req.get_data->xpaths[indx] =
+			strdup(data_req[indx]->data->xpath);
+		trxn_req->req.get_data->num_xpaths++;
+	}
+
+	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_GETDATA);
 
 	return 0;
 }

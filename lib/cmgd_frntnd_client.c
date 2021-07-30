@@ -348,6 +348,9 @@ static int cmgd_frntnd_send_getdata_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	frntnd_msg.message_case = CMGD__FRNTND_MESSAGE__MESSAGE_GETDATA_REQ;
 	frntnd_msg.getdata_req = &getdata_req;
 
+	CMGD_FRNTND_CLNT_DBG("Sending GET_CONFIG_REQ message for Db:%d session %lu (#xpaths:%d) to CMGD Frontend server",
+		db_id, sessn->client_id, num_data_reqs);
+
 	return cmgd_frntnd_client_send_msg(clnt_ctxt, &frntnd_msg);
 }
 
@@ -1056,9 +1059,9 @@ cmgd_result_t cmgd_frntnd_get_config_data(
 }
 
 /*
- * Send GET_OPERDATA_REQ to CMGD for one or more config data item(s).
+ * Send GET_DATA_REQ to CMGD for one or more config data item(s).
  */
-cmgd_result_t cmgd_frntnd_get_oper_data(
+cmgd_result_t cmgd_frntnd_get_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
 	cmgd_yang_getdata_req_t *data_req[], int num_reqs)

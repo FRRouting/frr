@@ -39,19 +39,11 @@
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
-const char *cmgd_bcknd_client_names[CMGD_CLIENT_NAME_MAX_LEN] = {
-	CMGD_BCKND_CLIENT_STATICD, 	/* CMGD_BCKND_CLIENT_ID_STATICD */
-	CMGD_BCKND_CLIENT_BGPD, 	/* CMGD_BCKND_CLIENT_ID_BGPDD */
-	"Unknown/Invalid",		/* CMGD_BCKND_CLIENT_ID_MAX */
-};
-
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_BATCH, "CMGD backend transaction batch data");
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN, "CMGD backend transaction data");
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_REQ,"CMGD backend transaction request");
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_SETCFG_REQ, "CMGD backend transaction set request");
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_GETDATA_REQ, "CMGD backend transaction get request");
-
-const char *cmgd_bcknd_client_names[] = {CMGD_BCKND_CLIENT_STATICD, CMGD_BCKND_CLIENT_BGPD};
 
 typedef enum cmgd_bcknd_trxn_event_ {
 	CMGD_BCKND_TRXN_PROC_SETCFG = 1,
@@ -65,7 +57,7 @@ typedef struct cmgd_bcknd_set_cfg_req_ {
 } cmgd_bcknd_set_cfg_req_t;
 
 typedef struct cmgd_bcknd_get_data_req_ {
-	char *xpaths[CMGD_MAX_NUM_DATA_IN_BATCH];
+	char *xpaths[CMGD_MAX_NUM_DATA_REQ_IN_BATCH];
 	uint16_t num_xpaths;
 } cmgd_bcknd_get_data_req_t;
 
@@ -121,6 +113,12 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 } cmgd_bcknd_client_ctxt_t;
 
 static cmgd_bcknd_client_ctxt_t cmgd_bcknd_clntctxt = { 0 };
+
+const char *cmgd_bcknd_client_names[CMGD_CLIENT_NAME_MAX_LEN] = {
+	CMGD_BCKND_CLIENT_STATICD, 	/* CMGD_BCKND_CLIENT_ID_STATICD */
+	CMGD_BCKND_CLIENT_BGPD, 	/* CMGD_BCKND_CLIENT_ID_BGPDD */
+	"Unknown/Invalid",		/* CMGD_BCKND_CLIENT_ID_MAX */
+};
 
 /* Forward declarations */
 static void cmgd_bcknd_client_register_event(

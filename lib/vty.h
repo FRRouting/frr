@@ -346,6 +346,8 @@ extern void vty_log_fixed(char *buf, size_t len);
 extern void vty_init_cmgd(void);
 extern int vty_cmgd_send_config_data(struct vty *vty);
 extern int vty_cmgd_send_commit_config(struct vty *vty);
+extern int vty_cmgd_send_get_config(struct vty *vty,
+	cmgd_database_id_t database, const char** xpath_list, int num_req);
 extern int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database,
 	const char** xpath_list, int num_req);
 extern int vty_cmgd_send_lockdb_req(struct vty *vty,
