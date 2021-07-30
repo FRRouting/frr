@@ -68,11 +68,8 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     step,
-    iperfSendIGMPJoin,
     addKernelRoute,
     reset_config_on_routers,
-    iperfSendTraffic,
-    kill_iperf,
     shutdown_bringup_interface,
     start_router,
     stop_router,
@@ -97,6 +94,7 @@ from lib.pim import (
     verify_pim_rp_info,
     verify_pim_interface_traffic,
     verify_igmp_interface,
+    McastTesterHelper,
 )
 from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json
@@ -180,6 +178,10 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
+    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -190,8 +192,7 @@ def teardown_module():
 
     tgen = get_topogen()
 
-    # Kill any iperfs we left running.
-    kill_iperf(tgen)
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -311,7 +312,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -347,7 +348,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendIGMPJoin(tgen, recvr, IGMP_JOIN_RANGE_1, join_interval=1)
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for (225.1.1.1-5) as R2")
@@ -380,7 +381,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
         )
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendTraffic(tgen, src, IGMP_JOIN_RANGE_1, 32, 2500)
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     source_i4 = topo["routers"]["i4"]["links"]["c1"]["ipv4"].split("/")[0]
@@ -610,7 +611,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
         pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -646,7 +647,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
         )
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendIGMPJoin(tgen, recvr, IGMP_JOIN_RANGE_1, join_interval=1)
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for (225.1.1.1-5) as R2")
@@ -679,7 +680,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
         )
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendTraffic(tgen, src, IGMP_JOIN_RANGE_1, 32, 2500)
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     source_i5 = topo["routers"]["i5"]["links"]["c2"]["ipv4"].split("/")[0]
@@ -898,7 +899,7 @@ def test_PIM_hello_tx_rx_p1(request):
         pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -934,7 +935,7 @@ def test_PIM_hello_tx_rx_p1(request):
         )
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendIGMPJoin(tgen, recvr, IGMP_JOIN_RANGE_1, join_interval=1)
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for (225.1.1.1-5) as R2")
@@ -967,7 +968,7 @@ def test_PIM_hello_tx_rx_p1(request):
         )
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendTraffic(tgen, src, IGMP_JOIN_RANGE_1, 32, 2500)
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     source_i5 = topo["routers"]["i5"]["links"]["c2"]["ipv4"].split("/")[0]

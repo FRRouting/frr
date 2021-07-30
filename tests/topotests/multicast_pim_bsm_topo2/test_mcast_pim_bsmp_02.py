@@ -66,7 +66,6 @@ from lib.common_config import (
     step,
     addKernelRoute,
     create_static_routes,
-    iperfSendIGMPJoin,
     stop_router,
     start_router,
     shutdown_bringup_interface,
@@ -75,7 +74,6 @@ from lib.common_config import (
     reset_config_on_routers,
     do_countdown,
     apply_raw_config,
-    kill_iperf,
     run_frr_cmd,
     required_linux_kernel_version,
     topo_daemons,
@@ -100,6 +98,7 @@ from lib.pim import (
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
     verify_pim_interface_traffic,
+    McastTesterHelper,
 )
 from lib.topolog import logger
 from lib.topojson import build_topo_from_json, build_config_from_json
@@ -175,6 +174,10 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
+    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -185,8 +188,7 @@ def teardown_module():
 
     tgen = get_topogen()
 
-    # Kill any iperfs we left running.
-    kill_iperf(tgen)
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -342,7 +344,7 @@ def test_starg_mroute_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -368,7 +370,7 @@ def test_starg_mroute_p0(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -494,7 +496,7 @@ def test_overlapping_group_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -521,7 +523,7 @@ def test_overlapping_group_p0(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -600,7 +602,7 @@ def test_RP_priority_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -627,7 +629,7 @@ def test_RP_priority_p0(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -729,7 +731,7 @@ def test_BSR_election_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -762,7 +764,7 @@ def test_BSR_election_p0(request):
     ]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -849,7 +851,7 @@ def test_RP_hash_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -875,7 +877,7 @@ def test_RP_hash_p0(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     dut = "l1"
@@ -942,7 +944,7 @@ def test_BSM_fragmentation_p1(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -999,7 +1001,7 @@ def test_BSM_fragmentation_p1(request):
     result = scapy_send_bsr_raw_packet(tgen, topo, "b1", "f1", "packet2")
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -1060,7 +1062,7 @@ def test_RP_with_all_ip_octet_p1(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
@@ -1082,7 +1084,7 @@ def test_RP_with_all_ip_octet_p1(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet8"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     dut = "l1"
