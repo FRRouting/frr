@@ -124,96 +124,34 @@ from lib.pim import McastTesterHelper
 pytestmark = [pytest.mark.pimd, pytest.mark.ospfd]
 
 
-#
-# Test global variables:
-# They are used to handle communicating with external application.
-#
-APP_SOCK_PATH = '/tmp/topotests/apps.sock'
-HELPER_APP_PATH = os.path.join(CWD, "../lib/mcast-tester.py")
-app_listener = None
-app_clients = {}
 
-def listen_to_applications():
-    "Start listening socket to connect with applications."
-    # Remove old socket.
-    try:
-        os.unlink(APP_SOCK_PATH)
-    except OSError:
-        pass
+def build_topo(tgen):
+    for hostNum in range(1,3):
+        tgen.add_router("h{}".format(hostNum))
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-    sock.bind(APP_SOCK_PATH)
-    sock.listen(10)
-    global app_listener
-    app_listener = sock
+    # Create the main router
+    tgen.add_router("r1")
 
-def accept_host(host):
-    "Accept connection from application running in hosts."
-    global app_listener, app_clients
-    conn = app_listener.accept()
-    app_clients[host] = {
-        'fd': conn[0],
-        'address': conn[1]
-    }
+    # Create the PIM RP routers
+    for rtrNum in range(11, 16):
+        tgen.add_router("r{}".format(rtrNum))
 
-def close_applications():
-    "Signal applications to stop and close all sockets."
-    global app_listener, app_clients
+    # Setup Switches and connections
+    for swNum in range(1, 3):
+        tgen.add_switch("sw{}".format(swNum))
 
-    if app_listener:
-        # Close listening socket.
-        app_listener.close()
+    # Add connections H1 to R1 switch sw1
+    tgen.gears["h1"].add_link(tgen.gears["sw1"])
+    tgen.gears["r1"].add_link(tgen.gears["sw1"])
 
-        # Remove old socket.
-        try:
-            os.unlink(APP_SOCK_PATH)
-        except OSError:
-            pass
-
-    # Close all host connections.
-    for host in ["h1", "h2"]:
-        if app_clients.get(host) is None:
-            continue
-        app_clients[host]["fd"].close()
-
-    # Reset listener and clients data struct
-    app_listener = None
-    app_clients = {}
-
-
-class PIMACLTopo(Topo):
-    "PIM ACL Test Topology"
-
-    def build(self):
-        tgen = get_topogen(self)
-
-        # Create the hosts
-        for hostNum in range(1,3):
-            tgen.add_router("h{}".format(hostNum))
-
-        # Create the main router
-        tgen.add_router("r1")
-
-        # Create the PIM RP routers
-        for rtrNum in range(11, 16):
-            tgen.add_router("r{}".format(rtrNum))
-
-        # Setup Switches and connections
-        for swNum in range(1, 3):
-            tgen.add_switch("sw{}".format(swNum))
-
-        # Add connections H1 to R1 switch sw1
-        tgen.gears["h1"].add_link(tgen.gears["sw1"])
-        tgen.gears["r1"].add_link(tgen.gears["sw1"])
-
-        # Add connections R1 to R1x switch sw2
-        tgen.gears["r1"].add_link(tgen.gears["sw2"])
-        tgen.gears["h2"].add_link(tgen.gears["sw2"])
-        tgen.gears["r11"].add_link(tgen.gears["sw2"])
-        tgen.gears["r12"].add_link(tgen.gears["sw2"])
-        tgen.gears["r13"].add_link(tgen.gears["sw2"])
-        tgen.gears["r14"].add_link(tgen.gears["sw2"])
-        tgen.gears["r15"].add_link(tgen.gears["sw2"])
+    # Add connections R1 to R1x switch sw2
+    tgen.gears["r1"].add_link(tgen.gears["sw2"])
+    tgen.gears["h2"].add_link(tgen.gears["sw2"])
+    tgen.gears["r11"].add_link(tgen.gears["sw2"])
+    tgen.gears["r12"].add_link(tgen.gears["sw2"])
+    tgen.gears["r13"].add_link(tgen.gears["sw2"])
+    tgen.gears["r14"].add_link(tgen.gears["sw2"])
+    tgen.gears["r15"].add_link(tgen.gears["sw2"])
 
 
 #####################################################
@@ -225,7 +163,7 @@ class PIMACLTopo(Topo):
 def setup_module(module):
     logger.info("PIM RP ACL Topology: \n {}".format(TOPOLOGY))
 
-    tgen = Topogen(PIMACLTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     # Starting Routers
@@ -250,7 +188,6 @@ def setup_module(module):
 def teardown_module(module):
     tgen = get_topogen()
     tgen.stop_topology()
-    close_applications()
 
 
 def test_ospf_convergence():
@@ -304,46 +241,38 @@ def check_mcast_entry(entry, mcastaddr, pimrp):
 
     logger.info("Testing PIM RP selection for ACL {} entry using {}".format(entry, mcastaddr));
 
-    # Start applications socket.
-    listen_to_applications()
+    with McastTesterHelper(tgen) as helper:
+        helper.run("h2", ["--send=0.7", mcastaddr, "h2-eth0"])
+        helper.run("h1", [mcastaddr, "h1-eth0"])
 
-    tgen.gears["h2"].run("{} --send='0.7' '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, mcastaddr, 'h2-eth0'))
-    accept_host("h2")
+        logger.info("mcast join and source for {} started".format(mcastaddr))
 
-    tgen.gears["h1"].run("{} '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, mcastaddr, 'h1-eth0'))
-    accept_host("h1")
+        # tgen.mininet_cli()
 
-    logger.info("mcast join and source for {} started".format(mcastaddr))
+        router = tgen.gears["r1"]
+        reffile = os.path.join(CWD, "r1/acl_{}_pim_join.json".format(entry))
+        expected = json.loads(open(reffile).read())
 
-    # tgen.mininet_cli()
+        logger.info("verifying pim join on r1 for {}".format(mcastaddr))
+        test_func = functools.partial(
+            topotest.router_json_cmp, router, "show ip pim join json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+        assertmsg = "PIM router r1 did not show join status"
+        assert res is None, assertmsg
 
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/acl_{}_pim_join.json".format(entry))
-    expected = json.loads(open(reffile).read())
+        logger.info("verifying pim join on PIM RP {} for {}".format(pimrp, mcastaddr))
+        router = tgen.gears[pimrp]
+        reffile = os.path.join(CWD, "{}/acl_{}_pim_join.json".format(pimrp, entry))
+        expected = json.loads(open(reffile).read())
 
-    logger.info("verifying pim join on r1 for {}".format(mcastaddr))
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip pim join json", expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-    assertmsg = "PIM router r1 did not show join status"
-    assert res is None, assertmsg
+        test_func = functools.partial(
+            topotest.router_json_cmp, router, "show ip pim join json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
+        assertmsg = "PIM router {} did not get selected as the PIM RP".format(pimrp)
+        assert res is None, assertmsg
 
-    logger.info("verifying pim join on PIM RP {} for {}".format(pimrp, mcastaddr))
-    router = tgen.gears[pimrp]
-    reffile = os.path.join(CWD, "{}/acl_{}_pim_join.json".format(pimrp, entry))
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip pim join json", expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
-    assertmsg = "PIM router {} did not get selected as the PIM RP".format(pimrp)
-    assert res is None, assertmsg
-
-    close_applications()
     return
 
 
