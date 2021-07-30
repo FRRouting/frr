@@ -74,6 +74,7 @@ typedef struct cmgd_commit_cfg_req_ {
 typedef struct cmgd_get_data_reply_ {
 	/* Buffer space for preparing data reply */
 	int num_reply;
+	int last_batch;
 	cmgd_yang_data_reply_t data_reply;
 	cmgd_yang_data_t reply_data[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
 	cmgd_yang_data_t *reply_datap[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
@@ -588,7 +589,8 @@ static void cmgd_trxn_send_getcfg_reply_data(cmgd_trxn_req_t *trxn_req,
 	cmgd_yang_data_reply_init(data_reply);
 	data_reply->n_data = get_reply->num_reply;
 	data_reply->data = get_reply->reply_datap;
-	data_reply->next_indx = get_req->total_reply;
+	data_reply->next_indx = (!get_reply->last_batch ?
+		get_req->total_reply : -1);
 
 	CMGD_TRXN_DBG("Sending %d Get-Config/Data replies (next-idx:%lld)",
 		(int) data_reply->n_data, data_reply->next_indx);
@@ -615,7 +617,6 @@ static void cmgd_trxn_send_getcfg_reply_data(cmgd_trxn_req_t *trxn_req,
 
 	/*
 	 * Reset reply buffer for next reply.
-	 * This will alset *num_resp to 0.
 	 */
 	cmgd_reset_get_data_reply_buf(get_req);
 }
@@ -714,6 +715,7 @@ static int cmgd_trxn_get_config(cmgd_trxn_ctxt_t *trxn,
 
 		CMGD_TRXN_DBG("Got %d remaining data-replies for xpath '%s'",
 			get_reply->num_reply, get_data->xpaths[indx]);
+		get_reply->last_batch = true;
 		cmgd_trxn_send_getcfg_reply_data(trxn_req, get_data);
 	}
 

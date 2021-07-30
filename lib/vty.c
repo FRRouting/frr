@@ -3244,6 +3244,8 @@ static void vty_cmgd_commit_config_result_notified(
 	// vty_event(VTY_WRITE, vty);
 }
 
+static cmgd_client_req_id_t last_req_id = 0xFFFFFFFFFFFFFFFF;
+
 static cmgd_result_t vty_cmgd_get_data_result_notified(
 	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
 	cmgd_client_id_t client_id, cmgd_session_id_t session_id,
@@ -3267,7 +3269,10 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 	zlog_err("GET_DATA request for client 0x%lx req-id %lu was successfull!",
 		client_id, req_id);
 
-	vty_out(vty, "[\n");
+	if (req_id != last_req_id) {
+		last_req_id = req_id;
+		vty_out(vty, "[\n");
+	}
 	for (indx = 0; indx < num_data; indx++) {
 		zlog_err("XPATH: %s\n - Data: %s\n",
 			yang_data[indx]->xpath,
@@ -3276,7 +3281,9 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 			yang_data[indx]->xpath,
 			yang_data[indx]->value->encoded_str_val);
 	}
-	vty_out(vty, "]\n");
+	if (next_key < 0) {
+		vty_out(vty, "]\n");
+	}
 
 	vty->cmgd_req_pending = false;
 	// vty_prompt(vty);
