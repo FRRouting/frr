@@ -147,14 +147,14 @@ extern struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl);
 extern int cmgd_db_lookup_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath, char *dxpaths[],
         struct lyd_node *dnodes[], struct nb_node *nbnodes[],
-	int *num_nodes, bool get_childs_as_well);
+	int *num_nodes, bool get_childs_as_well, bool donot_free_alloced);
 
 extern int cmgd_db_delete_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath);
 
 extern int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
-        cmgd_db_node_iter_fn iter_fn, void *ctxt);
+        cmgd_db_node_iter_fn iter_fn, void *ctxt, bool donot_free_alloced);
 
 extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,

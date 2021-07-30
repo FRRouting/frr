@@ -716,9 +716,12 @@ static int cmgd_frntnd_session_handle_getcfg_req_msg(
 #endif
 
 		/*
-		 * Try taking read-lock on the requested DB (if not already).
+		 * Try taking read-lock on the requested DB (if not already locked).
+		 * If the DB has already been write-locked by a ongoing CONFIG transaction
+		 * we may allow reading the contents of the same DB.
 		 */
-		if (!sessn->db_read_locked[getcfg_req->db_id]) {
+		if (!sessn->db_read_locked[getcfg_req->db_id] &&
+			!sessn->db_write_locked[getcfg_req->db_id]) {
 			if (cmgd_frntnd_session_read_lock_db(
 				getcfg_req->db_id, db_hndl, sessn) != 0) {
 				cmgd_frntnd_send_getcfg_reply(sessn,

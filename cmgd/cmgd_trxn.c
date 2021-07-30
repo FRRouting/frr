@@ -79,9 +79,9 @@ typedef struct cmgd_get_data_reply_ {
 	cmgd_yang_data_t *reply_datap[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
 	cmgd_yang_data_value_t reply_value[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
 
-	struct lyd_node *dnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH];
-	char reply_xpath[CMGD_MAX_NUM_DBNODES_PER_BATCH][CMGD_MAX_XPATH_LEN];
-	char *reply_xpathp[CMGD_MAX_NUM_DBNODES_PER_BATCH];
+	// struct lyd_node *dnodes[CMGD_MAX_NUM_DBNODES_PER_BATCH];
+	// char reply_xpath[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH][CMGD_MAX_XPATH_LEN];
+	char *reply_xpathp[CMGD_MAX_NUM_DATA_REPLY_IN_BATCH];
 } cmgd_get_data_reply_t;
 
 typedef struct cmgd_get_data_req_ {
@@ -534,14 +534,16 @@ static void cmgd_init_get_data_reply(
 	for (indx = 0; indx < array_size(get_reply->reply_data); indx++) {
 		get_reply->reply_datap[indx] = &get_reply->reply_data[indx];
 	}
-	for (indx = 0; indx < array_size(get_reply->reply_xpath); indx++) {
-		get_reply->reply_xpathp[indx] = &get_reply->reply_xpath[indx][0];
-	}
+	// for (indx = 0; indx < array_size(get_reply->reply_xpath); indx++) {
+	// 	get_reply->reply_xpathp[indx] = &get_reply->reply_xpath[indx][0];
+	// }
 }
 
 static void cmgd_reset_get_data_reply(
 	cmgd_get_data_reply_t *get_reply)
 {
+	size_t indx;
+
 	get_reply->num_reply = 0;
 	memset(&get_reply->data_reply, 0,
 		sizeof(get_reply->data_reply));
@@ -549,10 +551,16 @@ static void cmgd_reset_get_data_reply(
 		sizeof(get_reply->reply_data));
 	memset(&get_reply->reply_datap, 0,
 		sizeof(get_reply->reply_datap));
-	memset(get_reply->reply_xpath, 0,
-		sizeof(get_reply->reply_xpath));
-	memset(get_reply->reply_xpathp, 0,
-		sizeof(get_reply->reply_xpathp));
+	// memset(get_reply->reply_xpath, 0,
+	// 	sizeof(get_reply->reply_xpath));
+	// memset(get_reply->reply_xpathp, 0,
+	// 	sizeof(get_reply->reply_xpathp));
+	for (indx = 0; indx < array_size(get_reply->reply_xpathp); indx++) {
+		if (get_reply->reply_xpathp[indx]) {
+			free(get_reply->reply_xpathp[indx]);
+			get_reply->reply_xpathp[indx] = 0;
+		}
+	}
 	memset(&get_reply->reply_value, 0,
 		sizeof(get_reply->reply_value));
 	
@@ -702,7 +710,7 @@ static int cmgd_trxn_get_config(cmgd_trxn_ctxt_t *trxn,
 		cmgd_init_get_data_reply(get_reply);
 		cmgd_db_iter_data(get_data->db_hndl, get_data->xpaths[indx],
 			cmgd_trxn_iter_and_send_get_cfg_reply,
-			(void *)trxn_req);
+			(void *)trxn_req, true);
 
 		CMGD_TRXN_DBG("Got %d remaining data-replies for xpath '%s'",
 			get_reply->num_reply, get_data->xpaths[indx]);
