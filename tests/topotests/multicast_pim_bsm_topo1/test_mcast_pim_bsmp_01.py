@@ -66,7 +66,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -212,6 +212,9 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    # Kill any iperfs we left running.
+    kill_iperf(tgen)
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -401,14 +404,14 @@ def test_BSR_higher_prefer_ip_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
@@ -607,14 +610,14 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
@@ -784,14 +787,14 @@ def test_new_router_fwd_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
 
@@ -921,14 +924,14 @@ def test_int_bsm_config_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
 
@@ -1082,14 +1085,14 @@ def test_static_rp_override_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
 
@@ -1233,14 +1236,14 @@ def test_bsmp_stress_add_del_restart_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
 
@@ -1401,14 +1404,14 @@ def test_BSM_timeout_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1558,14 +1561,14 @@ def test_iif_join_state_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     reset_config_on_routers(tgen)
 

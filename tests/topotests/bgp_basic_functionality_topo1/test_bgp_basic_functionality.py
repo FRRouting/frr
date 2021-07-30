@@ -55,41 +55,24 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # Required to instantiate the topology builder class.
 
+from lib.bgp import (clear_bgp_and_verify, create_router_bgp, modify_as_number,
+                     verify_as_numbers, verify_bgp_convergence, verify_bgp_rib,
+                     verify_bgp_timers_and_functionality, verify_router_id)
+from lib.common_config import (addKernelRoute, apply_raw_config,
+                               check_address_types, create_prefix_lists,
+                               create_route_maps, create_static_routes,
+                               required_linux_kernel_version,
+                               reset_config_on_routers, start_topology, step,
+                               verify_admin_distance_for_static_routes,
+                               verify_bgp_community, verify_fib_routes,
+                               verify_rib, write_test_footer,
+                               write_test_header)
+from lib.micronet_compat import Topo
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
-
-from lib.common_config import (
-    step,
-    start_topology,
-    write_test_header,
-    write_test_footer,
-    reset_config_on_routers,
-    create_static_routes,
-    verify_rib,
-    verify_admin_distance_for_static_routes,
-    check_address_types,
-    apply_raw_config,
-    addKernelRoute,
-    verify_fib_routes,
-    create_prefix_lists,
-    create_route_maps,
-    verify_bgp_community,
-    required_linux_kernel_version,
-)
+from lib.topojson import build_config_from_json, build_topo_from_json
 from lib.topolog import logger
-from lib.bgp import (
-    verify_bgp_convergence,
-    create_router_bgp,
-    verify_router_id,
-    modify_as_number,
-    verify_as_numbers,
-    clear_bgp_and_verify,
-    verify_bgp_timers_and_functionality,
-    verify_bgp_rib,
-)
-from lib.topojson import build_topo_from_json, build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
@@ -1134,10 +1117,12 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r1"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1)
-        assert result is not True, "Testcase {} : Failed \n"
-        "Expected behavior: routes should not present in fib \n"
-        "Error: {}".format(tc_name, result)
+        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)  # pylint: disable=E1123
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name) +
+            "Expected behavior: routes should not present in fib \n" +
+            "Error: {}".format(result)
+        )
 
     step("Verify Ipv4 and Ipv6 network installed in r3 RIB but not in FIB")
     input_dict_r3 = {
@@ -1151,10 +1136,12 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r3"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1)
-        assert result is not True, "Testcase {} : Failed \n"
-        "Expected behavior: routes should not present in fib \n"
-        "Error: {}".format(tc_name, result)
+        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)  # pylint: disable=E1123
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name) +
+            "Expected behavior: routes should not present in fib \n" +
+            "Error: {}".format(result)
+        )
 
     write_test_footer(tc_name)
 

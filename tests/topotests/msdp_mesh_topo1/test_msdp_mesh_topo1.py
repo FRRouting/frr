@@ -40,11 +40,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+# Required to instantiate the topology builder class.
+from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pimd]
 
@@ -52,21 +52,28 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pimd]
 # Test global variables:
 # They are used to handle communicating with external application.
 #
-APP_SOCK_PATH = '/tmp/topotests/apps.sock'
 HELPER_APP_PATH = os.path.join(CWD, "../lib/mcast-tester.py")
 app_listener = None
 app_clients = {}
+app_procs = []
+
+
+def get_app_sock_path():
+    tgen = get_topogen()
+    return os.path.join(tgen.logdir, "apps.sock")
+
 
 def listen_to_applications():
     "Start listening socket to connect with applications."
     # Remove old socket.
+    app_sock_path = get_app_sock_path()
     try:
-        os.unlink(APP_SOCK_PATH)
+        os.unlink(app_sock_path)
     except OSError:
         pass
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-    sock.bind(APP_SOCK_PATH)
+    sock.bind(app_sock_path)
     sock.listen(10)
     global app_listener
     app_listener = sock
@@ -87,9 +94,11 @@ def close_applications():
     # Close listening socket.
     app_listener.close()
 
+    app_sock_path = get_app_sock_path()
+
     # Remove old socket.
     try:
-        os.unlink(APP_SOCK_PATH)
+        os.unlink(app_sock_path)
     except OSError:
         pass
 
@@ -98,6 +107,10 @@ def close_applications():
         if app_clients.get(host) is None:
             continue
         app_clients["h1"]["fd"].close()
+
+    for p in app_procs:
+        p.terminate()
+        p.wait()
 
 
 class MSDPMeshTopo1(Topo):
@@ -120,12 +133,12 @@ class MSDPMeshTopo1(Topo):
         switch.add_link(tgen.gears["r3"])
 
         # Create stub networks for multicast traffic.
-        tgen.add_host("h1", "192.168.10.2/24", "192.168.10.1")
+        tgen.add_host("h1", "192.168.10.2/24", "via 192.168.10.1")
         switch = tgen.add_switch("s3")
         switch.add_link(tgen.gears["r1"])
         switch.add_link(tgen.gears["h1"])
 
-        tgen.add_host("h2", "192.168.30.2/24", "192.168.30.1")
+        tgen.add_host("h2", "192.168.30.2/24", "via 192.168.30.1")
         switch = tgen.add_switch("s4")
         switch.add_link(tgen.gears["r3"])
         switch.add_link(tgen.gears["h2"])
@@ -206,14 +219,6 @@ def test_wait_msdp_convergence():
 
     logger.info("test MSDP convergence")
 
-    tgen.gears["h1"].run("{} --send='0.7' '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, '229.0.1.10', 'h1-eth0'))
-    accept_host("h1")
-
-    tgen.gears["h2"].run("{} '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, '229.0.1.10', 'h2-eth0'))
-    accept_host("h2")
-
     def expect_msdp_peer(router, peer, sa_count=0):
         "Expect MSDP peer connection to be established with SA amount."
         logger.info("waiting MSDP connection from peer {} on router {}".format(peer, router))
@@ -226,6 +231,22 @@ def test_wait_msdp_convergence():
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" MSDP connection failure'.format(router)
         assert result is None, assertmsg
+
+    app_sock_path = get_app_sock_path()
+
+
+    python3_path = tgen.net.get_exec_path(["python3", "python"])
+    ph_base = [python3_path, HELPER_APP_PATH, app_sock_path]
+
+    ph1_cmd = ph_base + ["--send=0.7", "229.0.1.10", "h1-eth0"]
+    ph1 = tgen.gears["h1"].popen(ph1_cmd)
+    app_procs.append(ph1)
+    accept_host("h1")
+
+    ph2_cmd = ph_base + ["229.0.1.10", "h2-eth0"]
+    ph2 = tgen.gears["h2"].popen(ph2_cmd)
+    app_procs.append(ph2)
+    accept_host("h2")
 
     # R1 peers.
     expect_msdp_peer("r1", "10.254.254.2")

@@ -10,7 +10,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (

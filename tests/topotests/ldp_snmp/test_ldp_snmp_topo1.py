@@ -79,7 +79,7 @@ from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.isisd, pytest.mark.snmp]
 
@@ -241,7 +241,7 @@ def test_r1_ldp_lsr_objects():
     "Test mplsLdpLsrObjects objects"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid("mplsLdpLsrId", "01 01 01 01")
@@ -252,7 +252,7 @@ def test_r1_ldp_entity_table():
     "Test mplsLdpEntityTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpEntityLdpId", ["1.1.1.1:0"])
@@ -286,7 +286,7 @@ def test_r1_ldp_entity_stats_table():
     "Test mplsLdpEntityStatsTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpEntityStatsSessionAttempts", ["0"])
@@ -312,7 +312,7 @@ def test_r1_ldp_peer_table():
     "Test mplsLdpPeerTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpPeerLdpId", ["2.2.2.2:0", "3.3.3.3:0"])
@@ -331,7 +331,7 @@ def test_r1_ldp_session_table():
     "Test mplsLdpSessionTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk(
@@ -354,7 +354,7 @@ def test_r1_ldp_session_stats_table():
     "Test mplsLdpSessionStatsTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpSessionStatsUnknownMesTypeErrors", ["0", "0"])
@@ -365,7 +365,7 @@ def test_r1_ldp_hello_adjacency_table():
     "Test mplsLdpHelloAdjacencyTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpHelloAdjacencyIndex", ["1", "2", "1"])

@@ -65,7 +65,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -225,6 +225,9 @@ def teardown_module():
 
     tgen = get_topogen()
 
+    # Kill any iperfs we left running.
+    kill_iperf(tgen)
+
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
@@ -330,15 +333,15 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -542,15 +545,15 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -753,15 +756,15 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) and " "(232.1.1.1-5) in c2")
 
@@ -915,15 +918,15 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -1131,21 +1134,11 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     intf_l1_c1 = "l1-c1-eth0"
     shutdown_bringup_interface(tgen, dut, intf_l1_c1, False)
 
-    done_flag = False
-    for retry in range(1, 11):
-        result = verify_upstream_iif(
-            tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
-        )
-        if result is not True:
-            done_flag = True
-        else:
-            continue
 
-        if done_flag:
-            logger.info("Expected Behavior: {}".format(result))
-            break
-
-    assert done_flag is True, (
+    result = verify_upstream_iif(
+        tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
+    )
+    assert result is not True, (
         "Testcase {} : Failed Error: \n "
         "mroutes are still present, after waiting for 10 mins".format(tc_name)
     )
@@ -1198,15 +1191,15 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP on c1 for group range " "(226.1.1.1-5) and (232.1.1.1-5)")
 
@@ -1338,15 +1331,15 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for group range (226.1.1.1-5) and " "(232.1.1.1-5) on c1")
     _GROUP_RANGE = GROUP_RANGE_2 + GROUP_RANGE_3
@@ -1484,31 +1477,18 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         {"dut": "f1", "src_address": "*", "iif": "f1-c2-eth0", "oil": "f1-i8-eth2"},
         {"dut": "l1", "src_address": "*", "iif": "l1-c1-eth0", "oil": "l1-i1-eth1"},
     ]
-
-    done_flag = False
-    for retry in range(1, 11):
-        for data in input_dict:
-            result = verify_ip_mroutes(
-                tgen,
-                data["dut"],
-                data["src_address"],
-                _IGMP_JOIN_RANGE,
-                data["iif"],
-                data["oil"],
-            )
-
-            if result is True:
-                done_flag = True
-            else:
-                continue
-
-        if done_flag:
-            break
-
-    assert done_flag is True, (
-        "Testcase {} : Failed Error: \n "
-        "mroutes are still present, after waiting for 10 mins".format(tc_name)
-    )
+    for data in input_dict:
+        result = verify_ip_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            _IGMP_JOIN_RANGE,
+            data["iif"],
+            data["oil"],
+        )
+        assert result is True, (
+            "Testcase {} : Failed Error mroutes were flushed.".format(tc_name)
+        )
 
     step(
         "After traffic stopped , verify (S,G) entries are flushed out"
@@ -1520,31 +1500,19 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         {"dut": "f1", "src_address": source, "iif": "i2-f1-eth0", "oil": "f1-r2-eth3"},
     ]
 
-    done_flag = False
-    for retry in range(1, 11):
-        for data in input_dict:
-            result = verify_ip_mroutes(
-                tgen,
-                data["dut"],
-                data["src_address"],
-                _IGMP_JOIN_RANGE,
-                data["iif"],
-                data["oil"],
-                expected=False,
-            )
-            if result is not True:
-                done_flag = True
-            else:
-                continue
-
-        if done_flag:
-            logger.info("Expected Behavior: {}".format(result))
-            break
-
-    assert done_flag is True, (
-        "Testcase {} : Failed Error: \n "
-        "mroutes are still present, after waiting for 10 mins".format(tc_name)
-    )
+    for data in input_dict:
+        result = verify_ip_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            _IGMP_JOIN_RANGE,
+            data["iif"],
+            data["oil"],
+            expected=False,
+        )
+        assert result is not True, (
+            "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
+        )
 
     write_test_footer(tc_name)
 
@@ -1559,15 +1527,15 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -1790,15 +1758,15 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")

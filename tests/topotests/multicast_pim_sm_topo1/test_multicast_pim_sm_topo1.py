@@ -69,7 +69,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -133,8 +133,8 @@ TOPOLOGY = """
     Description:
     i1, i2, i3. i4, i5, i6, i7, i8 - FRR running iperf to send IGMP
                                      join and traffic
-    l1 - LHR
-    f1 - FHR
+    l1 - LHR (last hop router)
+    f1 - FHR (first hop router)
     r2 - FRR router
     c1 - FRR router
     c2 - FRR router
@@ -219,7 +219,7 @@ def setup_module(mod):
         pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
-    build_config_from_json(tgen, topo)
+    build_config_from_json(tgen, tgen.json_topo)
 
     logger.info("Running setup_module() done")
 
@@ -230,6 +230,9 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    # Kill any iperfs we left running.
+    kill_iperf(tgen)
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -276,13 +279,8 @@ def config_to_send_igmp_join_and_traffic(
         result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        router_list = tgen.routers()
-        for router in router_list.keys():
-            if router == iperf:
-                continue
-
-            rnode = router_list[router]
-            rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
+        rnode = tgen.gears[iperf]
+        rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
 
     return True
 
@@ -333,6 +331,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
 
@@ -342,10 +341,6 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     intf_i1_l1 = topo["routers"]["i1"]["links"]["l1"]["interface"]
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", intf_i1_l1, GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("joinRx value before join sent")
     intf_r2_l1 = topo["routers"]["r2"]["links"]["l1"]["interface"]
@@ -357,7 +352,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
         tc_name, result
     )
 
-    result = iperfSendIGMPJoin(tgen, "i1", IGMP_JOIN, join_interval=1)
+    result = iperfSendIGMPJoin(tgen, "i1", ["{}%{}".format(IGMP_JOIN, intf_i1_l1)], join_interval=1)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send the IGMP join first and then start the traffic")
@@ -383,13 +378,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to 225.1.1.1 receiver")
-    intf_i2_f1 = topo["routers"]["i2"]["links"]["f1"]["interface"]
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", intf_i2_f1, GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = iperfSendTraffic(tgen, "i2", IGMP_JOIN, 32, 2500)
+    result = iperfSendTraffic(tgen, "i2", IGMP_JOIN, 32, 2500, bindToIntf="f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
@@ -458,18 +447,19 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure RP on R2 (loopback interface) for the" " group range 225.0.0.0/8")
 
@@ -584,18 +574,19 @@ def test_clear_pim_neighbors_and_mroute_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP on c1 for group (225.1.1.1-5)")
     input_dict = {
@@ -677,18 +668,19 @@ def test_verify_mroute_when_same_receiver_in_FHR_LHR_and_RP_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure RP on R2 (loopback interface) for the" " group range 225.0.0.0/8")
 
@@ -742,7 +734,7 @@ def test_verify_mroute_when_same_receiver_in_FHR_LHR_and_RP_p0(request):
     step("IGMP is received on FRR1 , FRR2 , FRR3, using " "'show ip igmp groups'")
     igmp_groups = {"l1": "l1-i1-eth1", "r2": "r2-i3-eth1", "f1": "f1-i8-eth2"}
     for dut, interface in igmp_groups.items():
-        result = verify_igmp_groups(tgen, dut, interface, IGMP_JOIN)
+        result = verify_igmp_groups(tgen, dut, interface, IGMP_JOIN, retry_timeout=80)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("(*,G) present on all the node with correct OIL" " using 'show ip mroute'")
@@ -772,18 +764,19 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) and (232.1.1.1-5)" " in c1")
 
@@ -1095,18 +1088,19 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure static RP for (226.1.1.1-5) in c2")
     input_dict = {
@@ -1207,18 +1201,19 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Configure RP on FRR2 (loopback interface) for " "the group range 225.0.0.0/8")
 
@@ -1330,18 +1325,19 @@ def test_modify_igmp_query_timer_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     result = config_to_send_igmp_join_and_traffic(
@@ -1468,18 +1464,19 @@ def test_modify_igmp_max_query_response_timer_p0(request):
     """
 
     tgen = get_topogen()
+    topo = tgen.json_topo
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
 
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
-
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     result = config_to_send_igmp_join_and_traffic(
@@ -1490,7 +1487,7 @@ def test_modify_igmp_max_query_response_timer_p0(request):
     result = iperfSendIGMPJoin(tgen, "i1", IGMP_JOIN, join_interval=1)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-    step("Configure IGMP query response time to 10 sec on FRR1")
+    step("Configure IGMP query response time to 10 deci-sec on FRR1")
     input_dict_1 = {
         "l1": {
             "igmp": {

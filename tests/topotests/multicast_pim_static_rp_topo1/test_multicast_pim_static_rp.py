@@ -114,7 +114,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -267,6 +267,9 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    # Kill any iperfs we left running.
+    kill_iperf(tgen)
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()

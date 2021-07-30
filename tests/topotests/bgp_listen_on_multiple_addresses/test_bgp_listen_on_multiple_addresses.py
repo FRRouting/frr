@@ -53,7 +53,7 @@ from lib.topojson import build_topo_from_json, build_config_from_json
 from lib.topojson import linux_intf_config_from_json
 from lib.common_config import start_topology
 from lib.topotest import router_json_cmp, run_and_expect
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 from functools import partial
 
 pytestmark = [pytest.mark.bgpd]

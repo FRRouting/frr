@@ -41,11 +41,11 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+# Required to instantiate the topology builder class.
+from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 
@@ -53,22 +53,30 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 # Test global variables:
 # They are used to handle communicating with external application.
 #
-APP_SOCK_PATH = '/tmp/topotests/apps.sock'
 HELPER_APP_PATH = os.path.join(CWD, "../lib/mcast-tester.py")
 app_listener = None
 app_clients = {}
 
 
+def get_app_sock_path():
+    tgen = get_topogen()
+    return os.path.join(tgen.logdir, "apps.sock")
+
+
 def listen_to_applications():
     "Start listening socket to connect with applications."
+
+    app_sock_path = get_app_sock_path()
     # Remove old socket.
     try:
-        os.unlink(APP_SOCK_PATH)
+        os.unlink(app_sock_path)
     except OSError:
         pass
 
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-    sock.bind(APP_SOCK_PATH)
+    # Do not block forever
+    sock.settimeout(10)
+    sock.bind(app_sock_path)
     sock.listen(10)
     global app_listener
     app_listener = sock
@@ -91,9 +99,10 @@ def close_applications():
     # Close listening socket.
     app_listener.close()
 
+    app_sock_path = get_app_sock_path()
     # Remove old socket.
     try:
-        os.unlink(APP_SOCK_PATH)
+        os.unlink(app_sock_path)
     except OSError:
         pass
 
@@ -135,12 +144,12 @@ class MSDPTopo1(Topo):
         switch.add_link(tgen.gears["r4"])
 
         # Create a host connected and direct at r4:
-        tgen.add_host("h1", "192.168.4.100/24", "192.168.4.1")
+        tgen.add_host("h1", "192.168.4.100/24", "via 192.168.4.1")
         switch.add_link(tgen.gears["h1"])
 
         # Create a host connected and direct at r1:
         switch = tgen.add_switch("s6")
-        tgen.add_host("h2", "192.168.10.100/24", "192.168.10.1")
+        tgen.add_host("h2", "192.168.10.100/24", "via 192.168.10.1")
         switch.add_link(tgen.gears["r1"])
         switch.add_link(tgen.gears["h2"])
 
@@ -219,20 +228,11 @@ def test_bgp_convergence():
     expect_loopback_route("r4", "ip", "10.254.254.2/32", "bgp")
     expect_loopback_route("r4", "ip", "10.254.254.3/32", "bgp")
 
-
-def test_mroute_install():
+def _test_mroute_install():
     "Test that multicast routes propagated and installed"
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-
-    tgen.gears["h1"].run("{} '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, '229.1.2.3', 'h1-eth0'))
-    accept_host("h1")
-
-    tgen.gears["h2"].run("{} --send='0.7' '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, '229.1.2.3', 'h2-eth0'))
-    accept_host("h2")
 
     #
     # Test R1 mroute
@@ -366,6 +366,40 @@ def test_mroute_install():
     _, val = topotest.run_and_expect(test_func, None, count=55, wait=2)
     assert val is None, 'multicast route convergence failure'
 
+def test_mroute_install():
+    tgen = get_topogen()
+    # pytest.skip("FOO")
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    ph1 = ph2 = None
+
+    app_sock_path = get_app_sock_path()
+    try:
+        logger.info("Starting helper1")
+        ph1 = tgen.gears["h1"].popen(
+            "{} '{}' '{}' '{}'".format(
+                HELPER_APP_PATH, app_sock_path, "229.1.2.3", "h1-eth0"
+            )
+        )
+        logger.info("Accepting helper1")
+        accept_host("h1")
+
+        logger.info("Starting helper2")
+        ph2 = tgen.gears["h2"].popen(
+            "{} --send='0.7' '{}' '{}' '{}'".format(
+                HELPER_APP_PATH, app_sock_path, "229.1.2.3", "h2-eth0"
+            )
+        )
+        accept_host("h2")
+
+        _test_mroute_install()
+    finally:
+        if ph1:
+            ph1.terminate()
+            ph1.wait()
+            ph2.terminate()
+            ph2.wait()
 
 def test_msdp():
     """
