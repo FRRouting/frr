@@ -293,6 +293,24 @@ def build_topo_from_json(tgen, topo):
             )
 
 
+def linux_intf_config_from_json(tgen, topo):
+    """Configure interfaces from linux based on topo."""
+    routers = topo["routers"]
+    for rname in routers:
+        router = tgen.gears[rname]
+        links = routers[rname]["links"]
+        for rrname in links:
+            link = links[rrname]
+            if rrname == "lo":
+                lname = "lo"
+            else:
+                lname = link["interface"]
+            if "ipv4" in link:
+                router.run("ip addr add {} dev {}".format(link["ipv4"], lname))
+            if "ipv6" in link:
+                router.run("ip -6 addr add {} dev {}".format(link["ipv6"], lname))
+
+
 def build_config_from_json(tgen, topo, save_bkup=True):
     """
     Reads initial configuraiton from JSON for each router, builds
