@@ -943,9 +943,29 @@ int vtysh_config_from_file(struct vty *vty, FILE *fp)
 	int lineno = 0;
 	/* once we have an error, we remember & return that */
 	int retcode = CMD_SUCCESS;
+	const char *copy;
 
 	while (fgets(vty->buf, VTY_BUFSIZ, fp)) {
 		lineno++;
+
+		copy = vty->buf;
+		while (isspace((unsigned char)*copy) && *copy != '\0')
+			copy++;
+
+		if (*copy == '!') {
+			if (vty->node != CONFIG_NODE) {
+				struct cmd_node *cnode =
+					vector_lookup(cmdvec, vty->node);
+
+				if (cnode->node_exit)
+					cnode->node_exit(vty);
+
+				if (cnode->parent_node)
+					vty->node = cnode->parent_node;
+			}
+
+			continue;
+		}
 
 		ret = command_config_read_one_line(vty, &cmd, lineno, 1);
 
