@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -321,6 +321,72 @@ noinst_HEADERS += \
 # libfrr available to modules.  If some OS platform has a dynamic linker that
 # doesn't do that, libfrr needs to be readded to modules, but _only_ _if_
 # it's not linked into daemons statically.
+
+if BUILD_LUA
+lib_libfrr_la_LIBADD += lua/liblua.la
+lib_LTLIBRARIES += lua/liblua.la
+
+lua_liblua_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 5:3:6
+lua_liblua_la_SOURCES = \
+	lua/src/lapi.c \
+	lua/src/lauxlib.c \
+	lua/src/lbaselib.c \
+	lua/src/lbitlib.c \
+	lua/src/lcode.c \
+	lua/src/lcorolib.c \
+	lua/src/lctype.c \
+	lua/src/ldblib.c \
+	lua/src/ldebug.c \
+	lua/src/ldo.c \
+	lua/src/ldump.c \
+	lua/src/lfunc.c \
+	lua/src/lgc.c \
+	lua/src/linit.c \
+	lua/src/liolib.c \
+	lua/src/llex.c \
+	lua/src/lmathlib.c \
+	lua/src/lmem.c \
+	lua/src/loadlib.c \
+	lua/src/lobject.c \
+	lua/src/lopcodes.c \
+	lua/src/loslib.c \
+	lua/src/lparser.c \
+	lua/src/lstate.c \
+	lua/src/lstring.c \
+	lua/src/lstrlib.c \
+	lua/src/ltable.c \
+	lua/src/ltablib.c \
+	lua/src/ltm.c \
+	lua/src/lundump.c \
+	lua/src/lutf8lib.c \
+	lua/src/lvm.c \
+	lua/src/lzio.c \
+	lua/src/lapi.h \
+	lua/src/lcode.h \
+	lua/src/lctype.h \
+	lua/src/ldebug.h \
+	lua/src/ldo.h \
+	lua/src/lfunc.h \
+	lua/src/lgc.h \
+	lua/src/llex.h \
+	lua/src/llimits.h
+	lua/src/lmem.h \
+	lua/src/lobject.h \
+	lua/src/lopcodes.h \
+	lua/src/lparser.h \
+	lua/src/lstate.h \
+	lua/src/lstring.h \
+	lua/src/ltable.h \
+	lua/src/ltm.h \
+	lua/src/lundump.h \
+	lua/src/lvm.h \
+	lua/src/lzio.h \
+	# end
+
+else
+# if using system Lua, $LUA_LIB should have been defined by AX_LUA_LIBS
+lib_libfrr_la_LIBADD += $(LUA_LIB)
+endif
 
 #
 # SNMP support
