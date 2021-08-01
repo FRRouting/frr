@@ -50,6 +50,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 from lib.topogen import Topogen, get_topogen
 from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import linux_intf_config_from_json
 from lib.common_config import start_topology
 from lib.topotest import router_json_cmp, run_and_expect
 from mininet.topo import Topo
@@ -96,6 +97,9 @@ def setup_module(mod):
         )
 
     start_topology(tgen)
+
+    linux_intf_config_from_json(tgen, topo)
+
     build_config_from_json(tgen, topo)
 
 
