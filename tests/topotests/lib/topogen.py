@@ -172,6 +172,7 @@ class Topogen(object):
         self.exabgp_cmd = None
         self._init_topo(topodef)
 
+
         logger.info("loading topology: {}".format(self.modname))
 
     # @staticmethod

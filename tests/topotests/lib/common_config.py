@@ -488,6 +488,9 @@ def reset_config_on_routers(tgen, routerName=None):
 
     logger.debug("Entering API: reset_config_on_routers")
 
+    tgen.cfg_gen += 1
+    gen = tgen.cfg_gen
+
     # Trim the router list if needed
     router_list = tgen.routers()
     if routerName:
@@ -496,9 +499,10 @@ def reset_config_on_routers(tgen, routerName=None):
             return True
         router_list = { routerName: router_list[routerName] }
 
-    delta_fmt = tgen.logdir + "/{}/delta.conf"
-    init_cfg_fmt = tgen.logdir + "/{}/frr_json_initial.conf"
-    run_cfg_fmt = tgen.logdir + "/{}/frr.sav"
+    delta_fmt = tgen.logdir + "/{}/delta-{}.conf"
+    # FRRCFG_BKUP_FILE
+    target_cfg_fmt = tgen.logdir + "/{}/frr_json_initial.conf"
+    run_cfg_fmt = tgen.logdir + "/{}/frr-{}.sav"
 
     #
     # Get all running configs in parallel
@@ -509,7 +513,7 @@ def reset_config_on_routers(tgen, routerName=None):
         procs[rname] = router_list[rname].popen(
             ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
             stdin=None,
-            stdout=open(run_cfg_fmt.format(rname), "w"),
+            stdout=open(run_cfg_fmt.format(rname, gen), "w"),
             stderr=subprocess.PIPE,
         )
     for rname, p in procs.items():
@@ -523,16 +527,16 @@ def reset_config_on_routers(tgen, routerName=None):
     #
     procs = {}
     for rname in router_list:
-        logger.info("Generating delta for router %s to new configuration", rname)
+        logger.info("Generating delta for router %s to new configuration (gen %d)", rname, gen)
         procs[rname] = tgen.net.popen(
             [ "/usr/lib/frr/frr-reload.py",
               "--test-reset",
               "--input",
-              run_cfg_fmt.format(rname),
+              run_cfg_fmt.format(rname, gen),
               "--test",
-              init_cfg_fmt.format(rname) ],
+              target_cfg_fmt.format(rname) ],
             stdin=None,
-            stdout=open(delta_fmt.format(rname), "w"),
+            stdout=open(delta_fmt.format(rname, gen), "w"),
             stderr=subprocess.PIPE,
         )
     for rname, p in procs.items():
@@ -549,14 +553,14 @@ def reset_config_on_routers(tgen, routerName=None):
         logger.info("Applying delta config on router %s", rname)
 
         procs[rname] = router_list[rname].popen(
-            ["/usr/bin/env", "vtysh", "-f", delta_fmt.format(rname)],
+            ["/usr/bin/env", "vtysh", "-f", delta_fmt.format(rname, gen)],
             stdin=None,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
         )
     for rname, p in procs.items():
         output, _ = p.communicate()
-        vtysh_command = "vtysh -f {}".format(delta_fmt.format(rname))
+        vtysh_command = "vtysh -f {}".format(delta_fmt.format(rname, gen))
         if not p.returncode:
             router_list[rname].logger.info(
                 '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
@@ -615,6 +619,9 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
 
     logger.debug("Entering API: load_config_to_routers")
 
+    tgen.cfg_gen += 1
+    gen = tgen.cfg_gen
+
     base_router_list = tgen.routers()
     router_list = {}
     for router in routers:
@@ -623,6 +630,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
         router_list[router] = base_router_list[router]
 
     frr_cfg_file_fmt = tgen.logdir + "/{}/" + FRRCFG_FILE
+    frr_cfg_save_file_fmt = tgen.logdir + "/{}/{}-" + FRRCFG_FILE
     frr_cfg_bkup_fmt = tgen.logdir + "/{}/" + FRRCFG_BKUP_FILE
 
     procs = {}
@@ -630,6 +638,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
         router = router_list[rname]
         try:
             frr_cfg_file = frr_cfg_file_fmt.format(rname)
+            frr_cfg_save_file = frr_cfg_save_file_fmt.format(rname, gen)
             frr_cfg_bkup =  frr_cfg_bkup_fmt.format(rname)
             with open(frr_cfg_file, "r+") as cfg:
                 data = cfg.read()
@@ -637,6 +646,9 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
                     "Applying following configuration on router %s (gen: %d):\n%s",
                     rname, gen, data
                 )
+                # Always save a copy of what we just did
+                with open(frr_cfg_save_file, "w") as bkup:
+                    bkup.write(data)
                 if save_bkup:
                     with open(frr_cfg_bkup, "w") as bkup:
                         bkup.write(data)
