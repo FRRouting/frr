@@ -290,24 +290,30 @@ if test "$enable_clang_coverage" = "yes"; then
    ])
 fi
 
-AM_CONDITIONAL([SCRIPTING], [test "$enable_scripting" = "yes"])
+AM_CONDITIONAL([BUILD_LUA], [ false ])
 
-if test "$enable_scripting" = "yes"; then
-   AX_PROG_LUA([5.3], [5.4], [], [
-     AC_MSG_ERROR([Lua 5.3 is required to build with Lua support. No other version is supported.])
-   ])
-   AX_LUA_HEADERS([], [
-     AC_MSG_ERROR([Lua 5.3 headers are required to build with Lua support. No other version is supported.])
-   ])
-   AX_LUA_LIBS([
-     AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-     LIBS="$LIBS $LUA_LIB"
-     SCRIPTING=true
-   ], [
-     SCRIPTING=false
-     AC_MSG_ERROR([Lua 5.3 libraries are required to build with Lua support. No other version is supported.])
-   ])
-fi
+LUA_INCLUDE=""
+dnl For AX_LUA_HEADERS to check
+LUA_VERSION="5.3.6"
+
+AX_PROG_LUA([5.3], [5.4], [], [
+  AC_MSG_NOTICE([Did not find Lua 5.3 on this system. Building Lua 5.3 from tarball.])
+  BUILD_LUA=true
+])
+AX_LUA_HEADERS([], [
+  AC_MSG_NOTICE([Did not find Lua 5.3 headers on this system. Building Lua 5.3 from tarball.])
+  LUA_INCLUDE="-Ilua/src"
+  BUILD_LUA=true
+])
+AX_LUA_LIBS([
+  AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
+    LIBS="$LIBS $LUA_LIB"
+  ], [
+  AC_MSG_NOTICE([Did not find Lua 5.3 libraries on this system. Building Lua 5.3 from tarball.])
+  BUILD_LUA=true
+])
+
+AC_SUBST([LUA_INCLUDE])
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
 dnl sense to be overridden by the user

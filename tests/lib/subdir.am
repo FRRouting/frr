@@ -1,5 +1,5 @@
 ##############################################################################
-if SCRIPTING
+if BUILD_LUA
 check_PROGRAMS += tests/lib/test_frrlua
 endif
 tests_lib_test_frrlua_CFLAGS = $(TESTS_CFLAGS)
@@ -8,7 +8,7 @@ tests_lib_test_frrlua_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_frrlua_SOURCES = tests/lib/test_frrlua.c
 EXTRA_DIST += tests/lib/test_frrlua.py
 
-if SCRIPTING
+if BUILD_LUA
 check_PROGRAMS += tests/lib/test_frrscript
 endif
 tests_lib_test_frrscript_CFLAGS = $(TESTS_CFLAGS)
