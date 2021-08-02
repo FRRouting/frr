@@ -326,7 +326,8 @@ if BUILD_LUA
 lib_libfrr_la_LIBADD += lua/liblua.la
 lib_LTLIBRARIES += lua/liblua.la
 
-lua_liblua_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 5:3:6
+lua_liblua_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 5:3:5
+lua_liblua_la_CFLAGS = $(AC_CFLAGS) $(SAN_FLAGS) -Wno-error
 lua_liblua_la_SOURCES = \
 	lua/src/lapi.c \
 	lua/src/lauxlib.c \
