@@ -1092,14 +1092,20 @@ static const char *zebra_ptm_get_status_str(int status)
 	}
 }
 
-void zebra_ptm_show_status(struct vty *vty, struct interface *ifp)
+void zebra_ptm_show_status(struct vty *vty, json_object *json,
+			   struct interface *ifp)
 {
-	vty_out(vty, "  PTM status: ");
-	if (ifp->ptm_enable) {
-		vty_out(vty, "%s\n", zebra_ptm_get_status_str(ifp->ptm_status));
-	} else {
-		vty_out(vty, "disabled\n");
-	}
+	const char *status;
+
+	if (ifp->ptm_enable)
+		status = zebra_ptm_get_status_str(ifp->ptm_status);
+	else
+		status = "disabled";
+
+	if (json)
+		json_object_string_add(json, "ptmStatus", status);
+	else
+		vty_out(vty, "  PTM status: %s\n", status);
 }
 
 void zebra_ptm_send_status_req(void)
@@ -1537,6 +1543,7 @@ int zebra_ptm_get_enable_state(void)
 }
 
 void zebra_ptm_show_status(struct vty *vty __attribute__((__unused__)),
+			   json_object *json __attribute__((__unused__)),
 			   struct interface *ifp __attribute__((__unused__)))
 {
 	/* NOTHING */
