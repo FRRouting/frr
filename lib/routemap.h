@@ -350,6 +350,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-large-community"))
 #define IS_SET_COMMUNITY(A)                                                    \
 	(strmatch(A, "frr-bgp-route-map:set-community"))
+#define IS_SET_EXTCOMMUNITY_NONE(A)                                            \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-none"))
 #define IS_SET_EXTCOMMUNITY_RT(A)                                              \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-rt"))
 #define IS_SET_EXTCOMMUNITY_SOO(A)                                             \

@@ -2518,26 +2518,40 @@ static const struct route_map_rule_cmd route_set_community_delete_cmd = {
 
 /* `set extcommunity rt COMMUNITY' */
 
+struct rmap_ecom_set {
+	struct ecommunity *ecom;
+	bool none;
+};
+
 /* For community set mechanism.  Used by _rt and _soo. */
 static enum route_map_cmd_result_t
 route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 {
-	struct ecommunity *ecom;
+	struct rmap_ecom_set *rcs;
 	struct ecommunity *new_ecom;
 	struct ecommunity *old_ecom;
 	struct bgp_path_info *path;
+	struct attr *attr;
 
-	ecom = rule;
+	rcs = rule;
 	path = object;
+	attr = path->attr;
 
-	if (!ecom)
+	if (rcs->none) {
+		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+		attr->ecommunity = NULL;
+		return RMAP_OKAY;
+	}
+
+	if (!rcs->ecom)
 		return RMAP_OKAY;
 
 	/* We assume additive for Extended Community. */
 	old_ecom = path->attr->ecommunity;
 
 	if (old_ecom) {
-		new_ecom = ecommunity_merge(ecommunity_dup(old_ecom), ecom);
+		new_ecom =
+			ecommunity_merge(ecommunity_dup(old_ecom), rcs->ecom);
 
 		/* old_ecom->refcnt = 1 => owned elsewhere, e.g.
 		 * bgp_update_receive()
@@ -2546,7 +2560,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	} else
-		new_ecom = ecommunity_dup(ecom);
+		new_ecom = ecommunity_dup(rcs->ecom);
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
 	path->attr->ecommunity = new_ecom;
@@ -2556,23 +2570,54 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	return RMAP_OKAY;
 }
 
-/* Compile function for set community. */
+static void *route_set_ecommunity_none_compile(const char *arg)
+{
+	struct rmap_ecom_set *rcs;
+	bool none = false;
+
+	if (strncmp(arg, "none", 4) == 0)
+		none = true;
+
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = NULL;
+	rcs->none = none;
+
+	return rcs;
+}
+
 static void *route_set_ecommunity_rt_compile(const char *arg)
 {
+	struct rmap_ecom_set *rcs;
 	struct ecommunity *ecom;
 
 	ecom = ecommunity_str2com(arg, ECOMMUNITY_ROUTE_TARGET, 0);
 	if (!ecom)
 		return NULL;
-	return ecommunity_intern(ecom);
+
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = ecommunity_intern(ecom);
+	rcs->none = false;
+
+	return rcs;
 }
 
 /* Free function for set community.  Used by _rt and _soo */
 static void route_set_ecommunity_free(void *rule)
 {
-	struct ecommunity *ecom = rule;
-	ecommunity_unintern(&ecom);
+	struct rmap_ecom_set *rcs = rule;
+
+	if (rcs->ecom)
+		ecommunity_unintern(&rcs->ecom);
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcs);
 }
+
+static const struct route_map_rule_cmd route_set_ecommunity_none_cmd = {
+	"extcommunity",
+	route_set_ecommunity,
+	route_set_ecommunity_none_compile,
+	route_set_ecommunity_free,
+};
 
 /* Set community rule structure. */
 static const struct route_map_rule_cmd route_set_ecommunity_rt_cmd = {
@@ -2587,13 +2632,18 @@ static const struct route_map_rule_cmd route_set_ecommunity_rt_cmd = {
 /* Compile function for set community. */
 static void *route_set_ecommunity_soo_compile(const char *arg)
 {
+	struct rmap_ecom_set *rcs;
 	struct ecommunity *ecom;
 
 	ecom = ecommunity_str2com(arg, ECOMMUNITY_SITE_ORIGIN, 0);
 	if (!ecom)
 		return NULL;
 
-	return ecommunity_intern(ecom);
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = ecommunity_intern(ecom);
+	rcs->none = false;
+
+	return rcs;
 }
 
 /* Set community rule structure. */
@@ -5749,6 +5799,37 @@ ALIAS_YANG (no_set_ecommunity_soo,
             "GP extended community attribute\n"
             "Site-of-Origin extended community\n")
 
+DEFUN_YANG(set_ecommunity_none, set_ecommunity_none_cmd,
+	   "set extcommunity none",
+	   SET_STR
+	   "BGP extended community attribute\n"
+	   "No extended community attribute\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-none']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-none",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
+	   "no set extcommunity none",
+	   NO_STR SET_STR
+	   "BGP extended community attribute\n"
+	   "No extended community attribute\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-none']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (set_ecommunity_lb,
 	    set_ecommunity_lb_cmd,
 	    "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
@@ -6453,6 +6534,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_rt_cmd);
 	route_map_install_set(&route_set_ecommunity_soo_cmd);
 	route_map_install_set(&route_set_ecommunity_lb_cmd);
+	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 
@@ -6545,6 +6627,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ecommunity_lb_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_lb_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_lb_short_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_none_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_none_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);
