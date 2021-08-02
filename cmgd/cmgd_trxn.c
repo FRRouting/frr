@@ -635,6 +635,9 @@ static void cmgd_trxn_iter_and_send_get_cfg_reply(cmgd_db_hndl_t db_hndl,
 	if (!trxn_req)
 		return;
 
+	if (!(node->schema->nodetype & LYD_NODE_TERM))
+		return;
+
 	assert(trxn_req->req_event == CMGD_TRXN_PROC_GETCFG ||
 		trxn_req->req_event == CMGD_TRXN_PROC_GETDATA);
 
@@ -649,7 +652,7 @@ static void cmgd_trxn_iter_and_send_get_cfg_reply(cmgd_db_hndl_t db_hndl,
 	cmgd_yang_data_value_init(data_value);
 	data_value->value_case = 
 		CMGD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
-	data_value->encoded_str_val = (char *)"Blahblahblah";
+	data_value->encoded_str_val = (char *)lyd_get_value(node);
 	data->value = data_value;
 
 	get_reply->num_reply++;
