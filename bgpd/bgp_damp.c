@@ -342,14 +342,7 @@ int bgp_damp_withdraw(struct bgp_path_info *path, struct bgp_dest *dest,
 		(bgp_path_info_extra_get(path))->damp_info = bdi;
 		bgp_no_reuse_list_add(bdi, bdc);
 	} else {
-		if (bdi->config != bdc) {
-			bgp_damp_info_claim(bdi, bdc);
-			if (bdi->index == BGP_DAMP_NO_REUSE_LIST_INDEX)
-				bgp_reuselist_add(&bdc->no_reuse_list, bdi);
-			else
-				bgp_reuselist_add(&bdc->reuse_list[bdi->index],
-						  bdi);
-		}
+		bgp_damp_info_claim(bdi, bdc);
 		last_penalty = bdi->penalty;
 
 		/* 1. Set t-diff = t-now - t-updated.  */
