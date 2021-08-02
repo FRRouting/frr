@@ -787,7 +787,7 @@ const char *bgp_damp_reuse_time_vty(struct vty *vty, struct bgp_path_info *path,
 
 	/* If dampening is not enabled or there is no dampening information,
 	   return immediately.  */
-	if (!bdi)
+	if (!bdc || !bdi)
 		return NULL;
 
 	/* Calculate new penalty.  */
