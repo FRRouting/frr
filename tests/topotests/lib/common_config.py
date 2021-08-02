@@ -30,6 +30,7 @@ from functools import wraps
 from re import search as re_search
 from tempfile import mkdtemp
 
+import json
 import os
 import sys
 import traceback
@@ -235,14 +236,12 @@ def run_frr_cmd(rnode, cmd, isjson=False):
 
         if True:
             if isjson:
-                logger.debug(ret_data)
-                print_data = rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
+                print_data = json.dumps(ret_data)
             else:
                 print_data = ret_data
-
             logger.info(
-                "Output for command [ %s] on router %s:\n%s",
-                cmd.rstrip("json"),
+                "Output for command [%s] on router %s:\n%s",
+                cmd,
                 rnode.name,
                 print_data,
             )
