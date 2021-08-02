@@ -90,10 +90,12 @@ cont
 
 .. _route-map-show-command:
 
-.. clicmd:: show route-map [WORD]
+.. clicmd:: show route-map [WORD] [json]
 
    Display data about each daemons knowledge of individual route-maps.
    If WORD is supplied narrow choice to that particular route-map.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. _route-map-clear-counter-command:
 
