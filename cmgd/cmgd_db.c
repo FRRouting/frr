@@ -265,7 +265,8 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 			xpaths[*num_nodes] = xpath;
 		} else {
 			alloc_xp = true;
-			xpath = lyd_path(dnode, LYD_PATH_STD, NULL, 0);
+			xpath = (char *)calloc(1, CMGD_MAX_XPATH_LEN);
+			xpath = lyd_path(dnode, LYD_PATH_STD, xpath, CMGD_MAX_XPATH_LEN);
 		}
 
 		assert(xpath);
@@ -386,12 +387,15 @@ int cmgd_db_iter_data(
 {
 	cmgd_db_ctxt_t *db_ctxt;
 	int ret;
+	char xpath[CMGD_MAX_XPATH_LEN];
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
 
-	ret = cmgd_walk_db_nodes(db_ctxt, base_xpath, iter_fn, ctxt,
+	strncpy(xpath, base_xpath, sizeof(xpath));
+
+	ret = cmgd_walk_db_nodes(db_ctxt, xpath, iter_fn, ctxt,
 			NULL, NULL, NULL, NULL, true, donot_free_alloced);
 
 	return ret;
