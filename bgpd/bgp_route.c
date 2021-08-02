@@ -218,6 +218,9 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 		return;
 
 	e = *extra;
+	if (e->damp_info)
+		bgp_damp_info_free(e->damp_info, 0, e->damp_info->afi,
+				   e->damp_info->safi);
 
 	e->damp_info = NULL;
 	if (e->parent) {
@@ -3388,16 +3391,14 @@ static void bgp_rib_withdraw(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* apply dampening, if result is suppressed, we'll be retaining
 	 * the bgp_path_info in the RIB for historical reference.
 	 */
-	if (peer->sort == BGP_PEER_EBGP) {
-		if (get_active_bdc_from_pi(pi, afi, safi)) {
-			if (bgp_damp_withdraw(pi, dest, afi, safi, 0)
-			    == BGP_DAMP_SUPPRESSED) {
-				bgp_aggregate_decrement(peer->bgp, p, pi, afi,
-							safi);
-				return;
-			}
+	if (CHECK_FLAG(peer->bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
+	    && peer->sort == BGP_PEER_EBGP)
+		if ((bgp_damp_withdraw(pi, dest, afi, safi, 0))
+		    == BGP_DAMP_SUPPRESSED) {
+			bgp_aggregate_decrement(peer->bgp, p, pi, afi,
+						safi);
+			return;
 		}
-	}
 
 #ifdef ENABLE_BGP_VNC
 	if (safi == SAFI_MPLS_VPN) {
@@ -3846,7 +3847,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			|| memcmp(&(bgp_path_info_extra_get(pi))->label, label,
 				  num_labels * sizeof(mpls_label_t))
 				   == 0)) {
-			if (get_active_bdc_from_pi(pi, afi, safi)
+			if (CHECK_FLAG(bgp->af_flags[afi][safi],
+				       BGP_CONFIG_DAMPENING)
 			    && peer->sort == BGP_PEER_EBGP
 			    && CHECK_FLAG(pi->flags, BGP_PATH_HISTORY)) {
 				if (bgp_debug_update(peer, p, NULL, 1)) {
@@ -3948,11 +3950,11 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		bgp_aggregate_decrement(bgp, p, pi, afi, safi);
 
 		/* Update bgp route dampening information.  */
-		if (get_active_bdc_from_pi(pi, afi, safi)
+		if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
 		    && peer->sort == BGP_PEER_EBGP) {
 			/* This is implicit withdraw so we should update
-			 * dampening information.
-			 */
+			   dampening
+			   information.  */
 			if (!CHECK_FLAG(pi->flags, BGP_PATH_HISTORY))
 				bgp_damp_withdraw(pi, dest, afi, safi, 1);
 		}
@@ -4075,7 +4077,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 #endif
 
 		/* Update bgp route dampening information.  */
-		if (get_active_bdc_from_pi(pi, afi, safi)
+		if (CHECK_FLAG(bgp->af_flags[afi][safi], BGP_CONFIG_DAMPENING)
 		    && peer->sort == BGP_PEER_EBGP) {
 			/* Now we do normal update dampening.  */
 			ret = bgp_damp_update(pi, dest, afi, safi);
@@ -10436,7 +10438,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	if (path->extra && path->extra->damp_info)
-		bgp_damp_info_vty(vty, bgp, path, afi, safi, json_path);
+		bgp_damp_info_vty(vty, path, afi, safi, json_path);
 
 	/* Remote Label */
 	if (path->extra && bgp_is_valid_label(&path->extra->label[0])
@@ -14643,8 +14645,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
 						bgp_damp_info_free(
-							&pi->extra->damp_info,
-							&bgp->damp[afi][safi],
+							pi->extra->damp_info,
 							1, afi, safi);
 						pi = pi_temp;
 					} else
@@ -14666,8 +14667,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 					if (pi->extra && pi->extra->damp_info) {
 						pi_temp = pi->next;
 						bgp_damp_info_free(
-							&pi->extra->damp_info,
-							&bgp->damp[afi][safi],
+							pi->extra->damp_info,
 							1, afi, safi);
 						pi = pi_temp;
 					} else
@@ -14690,9 +14690,7 @@ DEFUN (clear_ip_bgp_dampening,
        BGP_STR
        "Clear route flap dampening information\n")
 {
-	VTY_DECLVAR_CONTEXT(bgp, bgp);
-	bgp_damp_info_clean(&bgp->damp[AFI_IP][SAFI_UNICAST], AFI_IP,
-			    SAFI_UNICAST);
+	bgp_damp_info_clean(AFI_IP, SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
 
