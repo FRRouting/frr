@@ -123,18 +123,24 @@ ip prefix-list description
 Showing ip prefix-list
 ----------------------
 
-.. clicmd:: show ip prefix-list
+.. clicmd:: show ip prefix-list [json]
 
    Display all IP prefix lists.
 
-.. clicmd:: show ip prefix-list NAME
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show ip prefix-list NAME [json]
 
    Show IP prefix list can be used with a prefix list name.
 
-.. clicmd:: show ip prefix-list NAME seq NUM
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show ip prefix-list NAME seq NUM [json]
 
    Show IP prefix list can be used with a prefix list name and sequential
    number.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M
 
@@ -144,10 +150,10 @@ Showing ip prefix-list
 
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M longer
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M first-match
-.. clicmd:: show ip prefix-list summary
-.. clicmd:: show ip prefix-list summary NAME
-.. clicmd:: show ip prefix-list detail
-.. clicmd:: show ip prefix-list detail NAME
+.. clicmd:: show ip prefix-list summary [json]
+.. clicmd:: show ip prefix-list summary NAME [json]
+.. clicmd:: show ip prefix-list detail [json]
+.. clicmd:: show ip prefix-list detail NAME [json]
 
 .. clicmd:: debug prefix-list NAME match <A.B.C.D/M|X:X::X:X/M> [address-mode]
 
