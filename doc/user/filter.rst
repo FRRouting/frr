@@ -35,6 +35,18 @@ IP Access List
       access-list filter permit 10.0.0.0/8
       access-list filter seq 13 permit 10.0.0.0/7
 
+.. clicmd:: show <ip|ipv6> access-list [json]
+
+   Display all IPv4 or IPv6 access lists.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show <ip|ipv6> access-list WORD [json]
+
+   Display the specified IPv4 or IPv6 access list.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 
 IP Prefix List
 ==============
