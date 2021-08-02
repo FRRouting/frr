@@ -228,7 +228,8 @@ static int bgp_reuse_timer(struct thread *t)
 
 			if (bdi->penalty <= bdc->reuse_limit / 2.0) {
 				bgp_reuselist_del(&plist, bdi);
-				bgp_damp_info_free(bdi, 1);
+				bgp_damp_info_free(bdi, bdc, 1, bdi->afi,
+						   bdi->safi);
 			} else {
 				bdi->index = BGP_DAMP_NO_REUSE_LIST_INDEX;
 				bgp_reuselist_switch(&plist, bdi,
@@ -378,15 +379,16 @@ int bgp_damp_update(struct bgp_path_info *path, struct bgp_dest *dest,
 		bdi->t_updated = t_now;
 	else {
 		bgp_damp_info_unclaim(bdi);
-		bgp_damp_info_free(bdi, 0);
+		bgp_damp_info_free(bdi, bdc, 0, afi, safi);
 	}
 
 	return status;
 }
 
-void bgp_damp_info_free(struct bgp_damp_info *bdi, int withdraw)
+void bgp_damp_info_free(struct bgp_damp_info *bdi, struct bgp_damp_config *bdc,
+			int withdraw, afi_t afi, safi_t safi)
 {
-	assert(bdi);
+	assert(bdc && bdi);
 
 	if (bdi->path == NULL) {
 		XFREE(MTYPE_BGP_DAMP_INFO, bdi);
@@ -509,13 +511,13 @@ void bgp_damp_info_clean(struct bgp *bgp, struct bgp_damp_config *bdc,
 					    bdi->safi);
 			}
 			bgp_reuselist_del(list, bdi);
-			bgp_damp_info_free(bdi, 1);
+			bgp_damp_info_free(bdi, bdc, 1, afi, safi);
 		}
 	}
 
 	while ((bdi = SLIST_FIRST(&bdc->no_reuse_list)) != NULL) {
 		bgp_reuselist_del(&bdc->no_reuse_list, bdi);
-		bgp_damp_info_free(bdi, 1);
+		bgp_damp_info_free(bdi, bdc, 1, afi, safi);
 	}
 
 	/* Free decay array */
