@@ -2688,7 +2688,7 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_is_update = (op == DPLANE_OP_RULE_UPDATE);
 
 	ctx->zd_vrf_id = new_rule->vrf_id;
-	memcpy(ctx->zd_ifname, new_rule->ifname, sizeof(new_rule->ifname));
+	strlcpy(ctx->zd_ifname, new_rule->ifname, sizeof(ctx->zd_ifname));
 
 	ctx->u.rule.sock = new_rule->sock;
 	ctx->u.rule.unique = new_rule->rule.unique;
