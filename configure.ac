@@ -292,7 +292,7 @@ fi
 
 dnl set BUILD_LUA true if can't detect system Lua 5.3
 dnl this triggers the build from tarball.
-AM_CONDITIONAL([BUILD_LUA], [ false ])
+build_lua=false
 
 LUA_INCLUDE=""
 dnl For AX_LUA_HEADERS to check
@@ -300,20 +300,21 @@ LUA_VERSION="5.3.6"
 
 AX_PROG_LUA([5.3], [5.4], [], [
   AC_MSG_NOTICE([Did not find Lua 5.3 on this system. Building Lua 5.3 from tarball.])
-  BUILD_LUA=true
+  build_lua=true
 ])
 AX_LUA_HEADERS([], [
   AC_MSG_NOTICE([Did not find Lua 5.3 headers on this system. Building Lua 5.3 from tarball.])
   LUA_INCLUDE="-Ilua/src"
-  BUILD_LUA=true
+  build_lua=true
 ])
 AX_LUA_LIBS([
   LIBS="$LIBS $LUA_LIB"
 ], [
   AC_MSG_NOTICE([Did not find Lua 5.3 libraries on this system. Building Lua 5.3 from tarball.])
-  BUILD_LUA=true
+  build_lua=true
 ])
 
+AM_CONDITIONAL([BUILD_LUA], [ $build_lua ])
 AC_SUBST([LUA_INCLUDE])
 
 dnl the following flags go in CFLAGS rather than AC_CFLAGS since they make
