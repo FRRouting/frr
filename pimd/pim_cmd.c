@@ -8347,11 +8347,12 @@ DEFUN (interface_ip_igmp_last_member_query_count,
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
        interface_no_ip_igmp_last_member_query_count_cmd,
-       "no ip igmp last-member-query-count",
+       "no ip igmp last-member-query-count [(1-7)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
-       IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR)
+       IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
+       "Last member query count\n")
 {
 	char default_robustness[2];
 
@@ -8394,11 +8395,12 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
        interface_no_ip_igmp_last_member_query_interval_cmd,
-       "no ip igmp last-member-query-interval",
+       "no ip igmp last-member-query-interval [(1-255)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
-       IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR)
+       IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
+       "Last member query interval in deciseconds\n")
 {
 	char default_last_member_query_count[4];
 
