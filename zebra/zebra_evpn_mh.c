@@ -2781,41 +2781,76 @@ bool zebra_evpn_is_if_es_capable(struct zebra_if *zif)
 	return false;
 }
 
-void zebra_evpn_if_es_print(struct vty *vty, struct zebra_if *zif)
+void zebra_evpn_if_es_print(struct vty *vty, json_object *json,
+			    struct zebra_if *zif)
 {
 	char buf[ETHER_ADDR_STRLEN];
-	char mh_buf[80];
-	bool vty_print = false;
 	char esi_buf[ESI_STR_LEN];
 
-	mh_buf[0] = '\0';
-	strlcat(mh_buf, "  EVPN-MH:", sizeof(mh_buf));
-	if (zif->es_info.lid || !is_zero_mac(&zif->es_info.sysmac)) {
-		vty_print = true;
-		snprintf(
-			mh_buf + strlen(mh_buf),
-			sizeof(mh_buf) - strlen(mh_buf),
-			" ES id %u ES sysmac %s", zif->es_info.lid,
-			prefix_mac2str(&zif->es_info.sysmac, buf, sizeof(buf)));
-	} else if (memcmp(&zif->es_info.esi, zero_esi, sizeof(*zero_esi))) {
-		vty_print = true;
-		snprintf(mh_buf + strnlen(mh_buf, sizeof(mh_buf)),
-			 sizeof(mh_buf) - strnlen(mh_buf, sizeof(mh_buf)),
-			 " ES id %s",
-			 esi_to_str(&zif->es_info.esi, esi_buf,
-				    sizeof(esi_buf)));
-	}
+	if (json) {
+		json_object *json_evpn;
 
-	if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK) {
-		vty_print = true;
-		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)
-			strlcat(mh_buf, " uplink (up)", sizeof(mh_buf));
-		else
-			strlcat(mh_buf, " uplink (down)", sizeof(mh_buf));
-	}
+		json_evpn = json_object_new_object();
+		json_object_object_add(json, "evpnMh", json_evpn);
 
-	if (vty_print)
-		vty_out(vty, "%s\n", mh_buf);
+		if (zif->es_info.lid || !is_zero_mac(&zif->es_info.sysmac)) {
+			json_object_int_add(json_evpn, "esId",
+					    zif->es_info.lid);
+			json_object_string_add(
+				json_evpn, "esSysmac",
+				prefix_mac2str(&zif->es_info.sysmac, buf,
+					       sizeof(buf)));
+		} else if (memcmp(&zif->es_info.esi, zero_esi,
+				  sizeof(*zero_esi))) {
+			json_object_string_add(json_evpn, "esId",
+					       esi_to_str(&zif->es_info.esi,
+							  esi_buf,
+							  sizeof(esi_buf)));
+		}
+
+		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK)
+			json_object_string_add(
+				json_evpn, "uplink",
+				CHECK_FLAG(zif->flags,
+					   ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)
+					? "up"
+					: "down");
+	} else {
+		char mh_buf[80];
+		bool vty_print = false;
+
+		mh_buf[0] = '\0';
+		strlcat(mh_buf, "  EVPN-MH:", sizeof(mh_buf));
+		if (zif->es_info.lid || !is_zero_mac(&zif->es_info.sysmac)) {
+			vty_print = true;
+			snprintf(mh_buf + strlen(mh_buf),
+				 sizeof(mh_buf) - strlen(mh_buf),
+				 " ES id %u ES sysmac %s", zif->es_info.lid,
+				 prefix_mac2str(&zif->es_info.sysmac, buf,
+						sizeof(buf)));
+		} else if (memcmp(&zif->es_info.esi, zero_esi,
+				  sizeof(*zero_esi))) {
+			vty_print = true;
+			snprintf(mh_buf + strnlen(mh_buf, sizeof(mh_buf)),
+				 sizeof(mh_buf)
+					 - strnlen(mh_buf, sizeof(mh_buf)),
+				 " ES id %s",
+				 esi_to_str(&zif->es_info.esi, esi_buf,
+					    sizeof(esi_buf)));
+		}
+
+		if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK) {
+			vty_print = true;
+			if (zif->flags & ZIF_FLAG_EVPN_MH_UPLINK_OPER_UP)
+				strlcat(mh_buf, " uplink (up)", sizeof(mh_buf));
+			else
+				strlcat(mh_buf, " uplink (down)",
+					sizeof(mh_buf));
+		}
+
+		if (vty_print)
+			vty_out(vty, "%s\n", mh_buf);
+	}
 }
 
 static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)

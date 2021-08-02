@@ -1139,6 +1139,10 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
+.. clicmd:: show interface [NAME] [{vrf VRF|brief}] [json]
+
+.. clicmd:: show interface [NAME] [{vrf all|brief}] [json]
+
 .. clicmd:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
 
 .. clicmd:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
@@ -1147,6 +1151,8 @@ zebra Terminal Mode Commands
    dump information on all interfaces. If [NAME] is specified, it will display
    detailed information about that single interface. If [nexthop-group] is
    specified, it will display nexthop groups pointing out that interface.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show ip prefix-list [NAME]
 
