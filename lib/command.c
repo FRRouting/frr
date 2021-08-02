@@ -2422,27 +2422,29 @@ DEFUN(find,
 }
 
 #if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
-DEFUN(script,
-      script_cmd,
-      "script SCRIPT",
-      "Test command - execute a script\n"
-      "Script name (same as filename in /etc/frr/scripts/\n")
+DEFUN(script, script_cmd, "script SCRIPT FUNCTION",
+      "Test command - execute a function in a script\n"
+      "Script name (same as filename in /etc/frr/scripts/)\n"
+      "Function name (in the script)\n")
 {
 	struct prefix p;
 
 	(void)str2prefix("1.2.3.4/24", &p);
-	struct frrscript *fs = frrscript_load(argv[1]->arg, NULL);
+	struct frrscript *fs = frrscript_new(argv[1]->arg);
 
-	if (fs == NULL) {
-		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
-			argv[1]->arg);
-	} else {
-		int ret = frrscript_call(fs, ("p", &p));
-		char buf[40];
-		prefix2str(&p, buf, sizeof(buf));
-		vty_out(vty, "p: %s\n", buf);
-		vty_out(vty, "Script result: %d\n", ret);
+	if (frrscript_load(fs, argv[2]->arg, NULL)) {
+		vty_out(vty,
+			"/etc/frr/scripts/%s.lua or function '%s' not found\n",
+			argv[1]->arg, argv[2]->arg);
 	}
+
+	int ret = frrscript_call(fs, argv[2]->arg, ("p", &p));
+	char buf[40];
+	prefix2str(&p, buf, sizeof(buf));
+	vty_out(vty, "p: %s\n", buf);
+	vty_out(vty, "Script result: %d\n", ret);
+
+	frrscript_delete(fs);
 
 	return CMD_SUCCESS;
 }
