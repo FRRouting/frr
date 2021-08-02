@@ -2379,7 +2379,7 @@ DEFUN(find,
 	return cmd_find_cmds(vty, argv, argc);
 }
 
-#if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
+#if defined(DEV_BUILD)
 DEFUN(script, script_cmd, "script SCRIPT FUNCTION",
       "Test command - execute a function in a script\n"
       "Script name (same as filename in /etc/frr/scripts/)\n"
@@ -2506,7 +2506,7 @@ void cmd_init(int terminal)
 		install_element(VIEW_NODE, &echo_cmd);
 		install_element(VIEW_NODE, &autocomplete_cmd);
 		install_element(VIEW_NODE, &find_cmd);
-#if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
+#if defined(DEV_BUILD)
 		install_element(VIEW_NODE, &script_cmd);
 #endif
 

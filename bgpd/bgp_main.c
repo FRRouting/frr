@@ -494,9 +494,7 @@ int main(int argc, char **argv)
 	/* Initializations. */
 	bgp_vrf_init();
 
-#ifdef HAVE_SCRIPTING
 	bgp_script_init();
-#endif
 
 	/* BGP related initialization.  */
 	bgp_init((unsigned short)instance);

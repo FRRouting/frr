@@ -21,8 +21,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SCRIPTING
-
 #include <lua.h>
 #include <lualib.h>
 #include <lauxlib.h>
@@ -211,7 +209,5 @@ char *frrlua_stackdump(lua_State *L);
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* HAVE_SCRIPTING */
 
 #endif /* __FRRLUA_H__ */

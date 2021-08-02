@@ -801,9 +801,7 @@ struct thread_master *frr_init(void)
 	lib_cmd_init();
 
 	frr_pthread_init();
-#ifdef HAVE_SCRIPTING
 	frrscript_init(di->script_path ? di->script_path : frr_scriptdir);
-#endif
 
 	log_ref_init();
 	log_ref_vty_init();

@@ -18,8 +18,6 @@
  */
 #include <zebra.h>
 
-#ifdef HAVE_SCRIPTING
-
 #include <stdarg.h>
 #include <lua.h>
 
@@ -425,4 +423,3 @@ void frrscript_init(const char *sd)
 	frrscript_register_type_codecs(frrscript_codecs_lib);
 }
 
-#endif /* HAVE_SCRIPTING */

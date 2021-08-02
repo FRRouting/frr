@@ -23,8 +23,6 @@
 #include <zebra.h>
 #include "bgpd.h"
 
-#ifdef HAVE_SCRIPTING
-
 #include "frrlua.h"
 
 /*
@@ -39,7 +37,5 @@ void lua_pushattr(lua_State *L, const struct attr *attr);
 void lua_decode_attr(lua_State *L, int idx, struct attr *attr);
 
 void *lua_toattr(lua_State *L, int idx);
-
-#endif /* HAVE_SCRIPTING */
 
 #endif /* __BGP_SCRIPT__ */

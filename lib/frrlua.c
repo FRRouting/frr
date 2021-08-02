@@ -22,8 +22,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SCRIPTING
-
 #include "prefix.h"
 #include "frrlua.h"
 #include "log.h"
@@ -498,4 +496,3 @@ char *frrlua_stackdump(lua_State *L)
 	return result;
 }
 
-#endif /* HAVE_SCRIPTING */

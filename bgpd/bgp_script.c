@@ -20,8 +20,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SCRIPTING
-
 #include "bgpd.h"
 #include "bgp_script.h"
 #include "bgp_debug.h"
@@ -192,4 +190,3 @@ void bgp_script_init(void)
 	frrscript_register_type_codecs(frrscript_codecs_bgpd);
 }
 
-#endif /* HAVE_SCRIPTING */

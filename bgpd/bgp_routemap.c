@@ -341,8 +341,6 @@ static const struct route_map_rule_cmd route_match_peer_cmd = {
 	route_match_peer_free
 };
 
-#ifdef HAVE_SCRIPTING
-
 enum frrlua_rm_status {
 	/*
 	 * Script function run failure.  This will translate into a deny
@@ -454,8 +452,6 @@ static const struct route_map_rule_cmd route_match_script_cmd = {
 	route_match_script_compile,
 	route_match_script_free
 };
-
-#endif /* HAVE_SCRIPTING */
 
 /* `match ip address IP_ACCESS_LIST' */
 
@@ -4597,7 +4593,6 @@ DEFUN_YANG (no_match_peer,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-#ifdef HAVE_SCRIPTING
 DEFUN_YANG (match_script,
 	    match_script_cmd,
 	    "[no] match script WORD",
@@ -4634,7 +4629,6 @@ DEFUN_YANG (match_script,
 
 	return nb_cli_apply_changes(vty, NULL);
 }
-#endif /* HAVE_SCRIPTING */
 
 /* match probability */
 DEFUN_YANG (match_probability,
@@ -6697,9 +6691,7 @@ void bgp_route_map_init(void)
 	route_map_install_match(&route_match_peer_cmd);
 	route_map_install_match(&route_match_alias_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
-#ifdef HAVE_SCRIPTING
 	route_map_install_match(&route_match_script_cmd);
-#endif
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
 	route_map_install_match(&route_match_ip_route_source_cmd);
@@ -6881,9 +6873,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_prefer_global_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_peer_cmd);
 	install_element(RMAP_NODE, &no_set_ipv6_nexthop_peer_cmd);
-#ifdef HAVE_SCRIPTING
 	install_element(RMAP_NODE, &match_script_cmd);
-#endif
 }
 
 void bgp_route_map_terminate(void)

@@ -21,8 +21,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SCRIPTING
-
 #include <lua.h>
 #include <nexthop.h>
 #include <nexthop_group.h>
@@ -331,7 +329,5 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#endif /* HAVE_SCRIPTING */
 
 #endif /* __FRRSCRIPT_H__ */
