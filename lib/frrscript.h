@@ -21,8 +21,6 @@
 
 #include <zebra.h>
 
-#ifdef HAVE_SCRIPTING
-
 #include <lua.h>
 #include "frrlua.h"
 #include "bgpd/bgp_script.h" // for peer and attr encoders/decoders
@@ -270,7 +268,5 @@ void *frrscript_get_result(struct frrscript *fs, const char *function_name,
 #ifdef __cplusplus
 }
 #endif /* __cplusplus */
-
-#endif /* HAVE_SCRIPTING */
 
 #endif /* __FRRSCRIPT_H__ */

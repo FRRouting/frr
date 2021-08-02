@@ -280,6 +280,8 @@ if test "$enable_clang_coverage" = "yes"; then
    ])
 fi
 
+dnl set BUILD_LUA true if can't detect system Lua 5.3
+dnl this triggers the build from tarball.
 AM_CONDITIONAL([BUILD_LUA], [ false ])
 
 LUA_INCLUDE=""
@@ -296,9 +298,8 @@ AX_LUA_HEADERS([], [
   BUILD_LUA=true
 ])
 AX_LUA_LIBS([
-  AC_DEFINE([HAVE_SCRIPTING], [1], [Have support for scripting])
-    LIBS="$LIBS $LUA_LIB"
-  ], [
+  LIBS="$LIBS $LUA_LIB"
+], [
   AC_MSG_NOTICE([Did not find Lua 5.3 libraries on this system. Building Lua 5.3 from tarball.])
   BUILD_LUA=true
 ])
