@@ -97,7 +97,7 @@ module frr-pim {
 
     leaf keep-alive-timer {
       type uint16 {
-        range "31..60000";
+        range "1..max";
       }
       default "210";
       description
@@ -106,7 +106,7 @@ module frr-pim {
 
     leaf rp-keep-alive-timer {
       type uint16 {
-        range "31..60000";
+        range "1..max";
       }
       default "210";
       description
@@ -116,36 +116,34 @@ module frr-pim {
 
   grouping msdp-timers {
     leaf hold-time {
-      type uint32 {
-        range 3..600;
+      type uint16 {
+        range "1..max";
       }
       units seconds;
       default 75;
       description
         "Hold period is started at the MSDP peer connection establishment
          and is reset every new message. When the period expires the
-         connection is closed.
-
-         This value needs to be greater than `keep-alive-period`.";
+         connection is closed. This value should be greater than the
+         remote keep-alive time.";
     }
 
     leaf keep-alive {
-      type uint32 {
-        range 2..600;
+      type uint16 {
+        range "1..max";
       }
       units seconds;
       default 60;
       description
         "To maintain a connection established it is necessary to send
          keep alive messages in a certain frequency and this allows its
-         configuration.
-
-         This value needs to be lesser than `hold-time-period`.";
+         configuration. This value should be less than the remote
+         hold time.";
     }
 
     leaf connection-retry {
-      type uint32 {
-        range 1..600;
+      type uint16 {
+        range "1..max";
       }
       units seconds;
       default 30;
@@ -343,7 +341,7 @@ module frr-pim {
 
     leaf hello-interval {
       type uint8 {
-        range "1..180";
+        range "1..max";
       }
       default "30";
       description
@@ -352,7 +350,7 @@ module frr-pim {
 
     leaf hello-holdtime {
       type uint16 {
-        range "1..630";
+        range "1..max";
       }
       must ". > ./../hello-interval" {
       error-message "HoldTime must be greater than Hello";
@@ -367,7 +365,7 @@ module frr-pim {
 
       leaf min-rx-interval {
         type uint16 {
-          range "50..60000";
+          range "1..max";
         }
         default "300";
           description
@@ -376,7 +374,7 @@ module frr-pim {
 
       leaf min-tx-interval {
         type uint16 {
-          range "50..60000";
+          range "1..max";
         }
         default "300";
         description
@@ -422,7 +420,7 @@ module frr-pim {
 
     leaf dr-priority {
       type uint32 {
-        range "1..4294967295";
+        range "1..max";
       }
       default 1;
       description
@@ -521,7 +519,7 @@ module frr-pim {
       "PIM router parameters.";
     leaf packets {
       type uint8 {
-        range "1..100";
+        range "1..max";
       }
       default "3";
       description
@@ -529,7 +527,7 @@ module frr-pim {
     }
     leaf join-prune-interval {
       type uint16 {
-        range "5..600";
+        range "1..max";
       }
       default "60";
       description
@@ -537,7 +535,7 @@ module frr-pim {
     }
     leaf register-suppress-time {
       type uint16 {
-        range "5..60000";
+        range "1..max";
       }
       default "60";
       description
