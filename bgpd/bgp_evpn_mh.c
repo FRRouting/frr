@@ -1533,6 +1533,9 @@ void bgp_evpn_path_es_link(struct bgp_path_info *pi, vni_t vni, esi_t *esi)
 	if (es_info->es == es)
 		return;
 
+	/* Set change flag for ES value is updated */
+	SET_FLAG(pi->flags, BGP_PATH_ATTR_CHANGED);
+
 	/* unlink old ES if any */
 	bgp_evpn_path_es_unlink(es_info);
 
