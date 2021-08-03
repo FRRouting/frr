@@ -763,6 +763,10 @@ struct bgp {
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 
+	/* timer to generate routes in batches */
+	struct thread *t_route_gen;
+#define BGP_ROUTE_GEN_SCHED_TIMER_MSEC 50
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);

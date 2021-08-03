@@ -33,6 +33,23 @@
 struct bgp_nexthop_cache;
 struct bgp_route_evpn;
 
+struct route_generate_t {
+	struct bgp *bgp;
+	struct bgp_static *bgp_static;
+	struct prefix p;
+	int count;
+	int cur_count;
+	uint32_t fromIp;
+	afi_t afi;
+	safi_t safi;
+	bool withdraw;
+	bool task;
+	int batch_size;
+	int sched_intvl;
+};
+
+#define BGP_MAX_ROUTE_GEN_DEF_BATCH_SIZE 1000
+
 enum bgp_show_type {
 	bgp_show_type_normal,
 	bgp_show_type_regexp,

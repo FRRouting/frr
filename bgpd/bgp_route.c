@@ -6672,6 +6672,281 @@ DEFUN (no_bgp_table_map,
 				   argv[idx_word]->arg);
 }
 
+static struct route_generate_t *
+bgp_route_generate_init(struct bgp *bgp, int count, afi_t afi, safi_t safi,
+			const char *map_name, struct prefix *p, bool withdraw,
+			bool task, uint32_t fromIp, int batch_size,
+			int sched_intvl)
+{
+	struct route_generate_t *route_gen = NULL;
+
+	route_gen =
+		XCALLOC(MTYPE_BGP_ROUTE_GENERATE_REF,
+			sizeof(struct route_generate_t));
+	if (!route_gen)
+		return NULL;
+
+	route_gen->bgp_static =
+		XCALLOC(MTYPE_BGP_STATIC, sizeof(struct bgp_static));
+	;
+	if (!route_gen->bgp_static) {
+		XFREE(MTYPE_BGP_ROUTE_GENERATE_REF, route_gen);
+		return NULL;
+	}
+
+	route_gen->bgp_static->backdoor = 0;
+	route_gen->bgp_static->valid = 1;
+	route_gen->bgp_static->igpmetric = 0;
+	route_gen->bgp_static->igpnexthop.s_addr = 0;
+	route_gen->bgp_static->label_index = 0;
+
+	if (map_name) {
+		route_gen->bgp_static->rmap.name =
+			XSTRDUP(MTYPE_ROUTE_MAP_NAME, map_name);
+		route_gen->bgp_static->rmap.map =
+			route_map_lookup_by_name(map_name);
+		route_map_counter_increment(route_gen->bgp_static->rmap.map);
+	}
+
+	route_gen->bgp = bgp;
+	bgp_lock(route_gen->bgp);
+	prefix_copy(&route_gen->p, (struct prefix *)p);
+	route_gen->count = count;
+	route_gen->afi = afi;
+	route_gen->safi = safi;
+	route_gen->fromIp = fromIp;
+	route_gen->withdraw = withdraw;
+	route_gen->cur_count = 0;
+	route_gen->task = task;
+	if (batch_size)
+		route_gen->batch_size = batch_size;
+	else
+		route_gen->batch_size = BGP_MAX_ROUTE_GEN_DEF_BATCH_SIZE;
+
+	if (sched_intvl)
+		route_gen->sched_intvl = sched_intvl;
+	else
+		route_gen->sched_intvl = BGP_ROUTE_GEN_SCHED_TIMER_MSEC;
+
+	return route_gen;
+}
+
+static void bgp_route_generate_free(struct route_generate_t *route_gen)
+{
+	if (!route_gen || !route_gen->bgp)
+		return;
+
+	BGP_TIMER_OFF(route_gen->bgp->t_route_gen);
+	bgp_unlock(route_gen->bgp);
+	if (route_gen->bgp_static->rmap.name)
+		XFREE(MTYPE_ROUTE_MAP_NAME, route_gen->bgp_static->rmap.name);
+
+	if (route_gen->bgp_static->rmap.map)
+		route_map_counter_decrement(route_gen->bgp_static->rmap.map);
+
+	XFREE(MTYPE_BGP_STATIC, route_gen->bgp_static);
+	XFREE(MTYPE_BGP_ROUTE_GENERATE_REF, route_gen);
+}
+
+static int bgp_route_generate_execute(struct thread *thread)
+{
+	int count = 0;
+	struct prefix p;
+	uint32_t *ptr = NULL;
+	int i = 0;
+	struct route_generate_t *route_gen;
+
+	route_gen = THREAD_ARG(thread);
+
+	if (!route_gen)
+		return 0;
+
+	prefix_copy(&p, &route_gen->p);
+	if (route_gen->task) {
+		if ((route_gen->count - route_gen->cur_count)
+		    < route_gen->batch_size)
+			count = route_gen->count - route_gen->cur_count;
+		else
+			count = route_gen->batch_size;
+	} else
+		count = route_gen->count;
+
+	if (route_gen->afi == AFI_IP6) {
+		p.prefixlen = IPV6_MAX_BITLEN;
+		ptr = (uint32_t *)&(p.u.prefix);
+	} else
+		p.prefixlen = IPV4_MAX_BITLEN;
+
+	for (i = 0; i < count; i++) {
+		route_gen->fromIp++;
+		if (route_gen->afi == AFI_IP6)
+			*(ptr + 3) = htonl(route_gen->fromIp);
+		else
+			p.u.prefix4.s_addr = htonl(route_gen->fromIp);
+
+		if (route_gen->withdraw)
+			bgp_static_withdraw(route_gen->bgp, &p, route_gen->afi,
+					    route_gen->safi);
+		else
+			bgp_static_update(route_gen->bgp, &p,
+					  route_gen->bgp_static, route_gen->afi,
+					  route_gen->safi);
+	}
+
+	route_gen->cur_count += count;
+	if (route_gen->cur_count < route_gen->count) {
+		route_gen->bgp->t_route_gen = thread_add_timer_msec(
+			bm->master, bgp_route_generate_execute, route_gen,
+			route_gen->sched_intvl,
+			&route_gen->bgp->t_route_gen);
+	} else
+		bgp_route_generate_free(route_gen);
+
+	return 0;
+}
+
+DEFPY_HIDDEN(test_bgp_ipv4_route_gen, test_bgp_ipv4_route_gen_cmd,
+	     "[no] route-generate A.B.C.D/M$prefix count (1-1000000)$count "
+	     "[route-map WORD$map_name] [batch-size (10-1000000)$batch_size "
+	     "schedule-interval (1-1000)$sched_intvl]",
+	     NO_STR
+	     "Route generate command\n"
+	     "prefix (a.b.c.d/m)\n"
+	     "Count\n"
+	     "Prefix count\n"
+	     "Route-map to modify the attributes\n"
+	     "Name of the route map\n"
+	     "Batch size to process number of routes together\n"
+	     "(10-1000000) default is 5000\n"
+	     "Interval between processing batches\n"
+	     "(1-1000) msec, default is 50msec\n")
+{
+	struct prefix p;
+	uint32_t fromIp = 0;
+	int ret;
+	struct route_generate_t *route_gen = NULL;
+	bool task = false;
+	afi_t afi = AFI_IP;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
+		vty_out(vty,
+			"Need to set 'no bgp network import-check' for route-generate to work\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (count != batch_size)
+		task = true;
+
+	/* Convert IP prefix string to struct prefix. */
+	ret = str2prefix(prefix_str, &p);
+	if (!ret) {
+		vty_out(vty, "%% Malformed prefix\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	apply_mask(&p);
+	fromIp = ntohl(p.u.prefix4.s_addr);
+
+	if ((fromIp + count)
+	    > (fromIp | ((1 << ((32 - p.prefixlen) + 1)) - 1))) {
+		vty_out(vty, "Cannot generate %ld routes with prefix %s\n",
+			count, prefix_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	route_gen = bgp_route_generate_init(bgp, count, afi, bgp_node_safi(vty),
+					    map_name, &p, no, task, fromIp,
+					    batch_size, sched_intvl);
+	if (!route_gen) {
+		vty_out(vty, "Memory allocation failed\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	route_gen->bgp->t_route_gen = thread_add_timer_msec(
+		bm->master, bgp_route_generate_execute, route_gen, 1,
+		&route_gen->bgp->t_route_gen);
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(test_bgp_ipv6_route_gen, test_bgp_ipv6_route_gen_cmd,
+	     "[no] route-generate X:X::X:X/M$prefix count (1-1000000)$count "
+	     "[route-map WORD$map_name] [batch-size (10-1000000)$batch_size "
+	     "schedule-interval (1-1000)$sched_intvl]",
+	     NO_STR
+	     "Route generate command\n"
+	     "IPv6 prefix (X:X::X:X/M)\n"
+	     "Count\n"
+	     "Prefix count\n"
+	     "Route-map to modify the attributes\n"
+	     "Name of the route map\n"
+	     "Batch size to process number of routes together\n"
+	     "(10-1000000) default is 5000\n"
+	     "Interval between processing batches\n"
+	     "(1-1000) msec, default is 50msec\n")
+{
+	struct prefix p;
+	uint32_t fromIp = 0;
+	uint32_t prefixlen = 0;
+	int ret;
+	uint32_t *ptr = NULL;
+	uint32_t compute_len = 0;
+	bool task = false;
+	struct route_generate_t *route_gen = NULL;
+	afi_t afi = AFI_IP6;
+
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	if (CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK)) {
+		vty_out(vty,
+			"Need to set 'no bgp network import-check' for route-generate to work\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (count != batch_size)
+		task = true;
+
+	/* Convert IP prefix string to struct prefix. */
+	ret = str2prefix(prefix_str, &p);
+	if (!ret) {
+		vty_out(vty, "%% Malformed prefix\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	if (IN6_IS_ADDR_LINKLOCAL(&p.u.prefix6)) {
+		vty_out(vty, "%% Malformed prefix (link-local address)\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	apply_mask(&p);
+	ptr = (uint32_t *)&(p.u.prefix);
+	fromIp = ntohl(*(ptr + 3));
+	prefixlen = p.prefixlen;
+	compute_len = IPV6_MAX_BITLEN - prefixlen;
+
+	if ((compute_len <= 19)
+	    && ((fromIp + count)
+		> (fromIp | ((1 << ((compute_len) + 1)) - 1)))) {
+		vty_out(vty, "Cannot generate %ld routes with prefix %s\n",
+			count, prefix_str);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	route_gen = bgp_route_generate_init(bgp, count, afi, bgp_node_safi(vty),
+					    map_name, &p, no, task, fromIp,
+					    batch_size, sched_intvl);
+	if (!route_gen) {
+		vty_out(vty, "Memory allocation failed\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	route_gen->bgp->t_route_gen = thread_add_timer_msec(
+		bm->master, bgp_route_generate_execute, route_gen, 1,
+		&route_gen->bgp->t_route_gen);
+	return CMD_SUCCESS;
+}
+
 DEFPY(bgp_network,
 	bgp_network_cmd,
 	"[no] network \
@@ -15090,6 +15365,7 @@ void bgp_route_init(void)
 	/* IPv4 BGP commands. */
 	install_element(BGP_NODE, &bgp_table_map_cmd);
 	install_element(BGP_NODE, &bgp_network_cmd);
+	install_element(BGP_NODE, &test_bgp_ipv4_route_gen_cmd);
 	install_element(BGP_NODE, &no_bgp_table_map_cmd);
 
 	install_element(BGP_NODE, &aggregate_addressv4_cmd);
@@ -15097,6 +15373,7 @@ void bgp_route_init(void)
 	/* IPv4 unicast configuration.  */
 	install_element(BGP_IPV4_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV4_NODE, &bgp_network_cmd);
+	install_element(BGP_IPV4_NODE, &test_bgp_ipv4_route_gen_cmd);
 	install_element(BGP_IPV4_NODE, &no_bgp_table_map_cmd);
 
 	install_element(BGP_IPV4_NODE, &aggregate_addressv4_cmd);
@@ -15104,6 +15381,7 @@ void bgp_route_init(void)
 	/* IPv4 multicast configuration.  */
 	install_element(BGP_IPV4M_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV4M_NODE, &bgp_network_cmd);
+	install_element(BGP_IPV4M_NODE, &test_bgp_ipv4_route_gen_cmd);
 	install_element(BGP_IPV4M_NODE, &no_bgp_table_map_cmd);
 	install_element(BGP_IPV4M_NODE, &aggregate_addressv4_cmd);
 
@@ -15152,11 +15430,13 @@ void bgp_route_init(void)
 	/* New config IPv6 BGP commands.  */
 	install_element(BGP_IPV6_NODE, &bgp_table_map_cmd);
 	install_element(BGP_IPV6_NODE, &ipv6_bgp_network_cmd);
+	install_element(BGP_IPV6_NODE, &test_bgp_ipv6_route_gen_cmd);
 	install_element(BGP_IPV6_NODE, &no_bgp_table_map_cmd);
 
 	install_element(BGP_IPV6_NODE, &aggregate_addressv6_cmd);
 
 	install_element(BGP_IPV6M_NODE, &ipv6_bgp_network_cmd);
+	install_element(BGP_IPV6M_NODE, &test_bgp_ipv6_route_gen_cmd);
 
 	/* IPv6 labeled unicast address family. */
 	install_element(BGP_IPV6L_NODE, &ipv6_bgp_network_cmd);

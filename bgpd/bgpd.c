@@ -3431,6 +3431,7 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	*bgp_val = bgp;
 
 	bgp->t_rmap_def_originate_eval = NULL;
+	bgp->t_route_gen = NULL;
 
 	/* If Default instance or VRF, link to the VRF structure, if present. */
 	if (bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT
@@ -3536,6 +3537,12 @@ void bgp_instance_down(struct bgp *bgp)
 				    why? */
 	}
 
+	/* stop route_gen timer */
+	if (bgp->t_route_gen) {
+		BGP_TIMER_OFF(bgp->t_route_gen);
+		bgp_unlock(bgp);
+	}
+
 	/* Bring down peers, so corresponding routes are purged. */
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, next, peer)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
@@ -3632,6 +3639,12 @@ int bgp_delete(struct bgp *bgp)
 		BGP_TIMER_OFF(bgp->t_rmap_def_originate_eval);
 		bgp_unlock(bgp); /* TODO - This timer is started with a lock -
 				    why? */
+	}
+
+	/* stop route_gen timer */
+	if (bgp->t_route_gen) {
+		BGP_TIMER_OFF(bgp->t_route_gen);
+		bgp_unlock(bgp);
 	}
 
 	/* Inform peers we're going down. */
