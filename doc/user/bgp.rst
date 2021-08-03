@@ -1896,7 +1896,17 @@ AS path access list is user defined AS path.
 
    This command defines a new AS path access list.
 
+.. clicmd:: show bgp as-path-access-list [json]
 
+   Display all BGP AS Path access lists.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show bgp as-path-access-list WORD [json]
+
+   Display the specified BGP AS Path access list.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. _bgp-bogon-filter-example:
 

@@ -35,6 +35,18 @@ IP Access List
       access-list filter permit 10.0.0.0/8
       access-list filter seq 13 permit 10.0.0.0/7
 
+.. clicmd:: show <ip|ipv6> access-list [json]
+
+   Display all IPv4 or IPv6 access lists.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show <ip|ipv6> access-list WORD [json]
+
+   Display the specified IPv4 or IPv6 access list.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 
 IP Prefix List
 ==============
@@ -111,18 +123,24 @@ ip prefix-list description
 Showing ip prefix-list
 ----------------------
 
-.. clicmd:: show ip prefix-list
+.. clicmd:: show ip prefix-list [json]
 
    Display all IP prefix lists.
 
-.. clicmd:: show ip prefix-list NAME
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show ip prefix-list NAME [json]
 
    Show IP prefix list can be used with a prefix list name.
 
-.. clicmd:: show ip prefix-list NAME seq NUM
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show ip prefix-list NAME seq NUM [json]
 
    Show IP prefix list can be used with a prefix list name and sequential
    number.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M
 
@@ -132,10 +150,10 @@ Showing ip prefix-list
 
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M longer
 .. clicmd:: show ip prefix-list NAME A.B.C.D/M first-match
-.. clicmd:: show ip prefix-list summary
-.. clicmd:: show ip prefix-list summary NAME
-.. clicmd:: show ip prefix-list detail
-.. clicmd:: show ip prefix-list detail NAME
+.. clicmd:: show ip prefix-list summary [json]
+.. clicmd:: show ip prefix-list summary NAME [json]
+.. clicmd:: show ip prefix-list detail [json]
+.. clicmd:: show ip prefix-list detail NAME [json]
 
 .. clicmd:: debug prefix-list NAME match <A.B.C.D/M|X:X::X:X/M> [address-mode]
 
