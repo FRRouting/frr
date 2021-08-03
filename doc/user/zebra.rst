@@ -908,10 +908,11 @@ IPv6 example for OSPFv3.
 
 .. note::
 
-   For both IPv4 and IPv6, the IP address has to exist at the point the
-   route-map is created.  Be wary of race conditions if the interface is
-   not created at startup.  On Debian, FRR might start before ifupdown
-   completes. Consider a reboot test.
+   For both IPv4 and IPv6, the IP address has to exist on some interface when
+   the route is getting installed into the system. Otherwise, kernel rejects
+   the route. To solve the problem of disappearing IPv6 addresses when the
+   interface goes down, use ``net.ipv6.conf.all.keep_addr_on_down``
+   :ref:`sysctl option <zebra-sysctl>`.
 
 .. clicmd:: zebra route-map delay-timer (0-600)
 
@@ -1237,6 +1238,8 @@ For protocols requiring an IPv6 router-id, the following commands are available:
 .. clicmd:: show ipv6 router-id [vrf NAME]
 
    Display the user configured IPv6 router-id.
+
+.. _zebra-sysctl:
 
 Expected sysctl settings
 ========================
