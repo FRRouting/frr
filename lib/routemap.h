@@ -354,6 +354,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-rt"))
 #define IS_SET_EXTCOMMUNITY_SOO(A)                                             \
 	(strmatch(A, "frr-bgp-route-map:set-extcommunity-soo"))
+#define IS_SET_EXTCOMMUNITY_LB(A)                                              \
+	(strmatch(A, "frr-bgp-route-map:set-extcommunity-lb"))
 #define IS_SET_AGGREGATOR(A)                                                   \
 	(strmatch(A, "frr-bgp-route-map:aggregator"))
 #define IS_SET_AS_PREPEND(A)                                                   \
