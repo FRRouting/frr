@@ -217,7 +217,10 @@ void bgp_path_info_extra_free(struct bgp_path_info_extra **extra)
 
 	e = *extra;
 
+	if (e->damp_info)
+		bgp_damp_info_free(e->damp_info, 0);
 	e->damp_info = NULL;
+
 	if (e->parent) {
 		struct bgp_path_info *bpi = (struct bgp_path_info *)e->parent;
 
@@ -14359,8 +14362,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 						pi_temp = pi->next;
 						bgp_damp_info_free(
 							pi->extra->damp_info,
-							&bgp->damp[afi][safi],
-							1, afi, safi);
+							1);
 						pi = pi_temp;
 					} else
 						pi = pi->next;
@@ -14397,8 +14399,7 @@ static int bgp_clear_damp_route(struct vty *vty, const char *view_name,
 						}
 						bgp_damp_info_free(
 							pi->extra->damp_info,
-							&bgp->damp[afi][safi],
-							1, afi, safi);
+							1);
 						pi = pi_temp;
 					} else
 						pi = pi->next;
