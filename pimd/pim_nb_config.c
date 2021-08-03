@@ -956,21 +956,13 @@ int pim_msdp_hold_time_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (yang_dnode_get_uint32(args->dnode, NULL)
-		    <= yang_dnode_get_uint32(args->dnode, "../keep-alive")) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Hold time must be greater than keep alive interval");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		pim->msdp.hold_time = yang_dnode_get_uint32(args->dnode, NULL);
+		pim->msdp.hold_time = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -988,21 +980,13 @@ int pim_msdp_keep_alive_modify(struct nb_cb_modify_args *args)
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (yang_dnode_get_uint32(args->dnode, NULL)
-		    >= yang_dnode_get_uint32(args->dnode, "../hold-time")) {
-			snprintf(
-				args->errmsg, args->errmsg_len,
-				"Keep alive must be less than hold time interval");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		pim->msdp.keep_alive = yang_dnode_get_uint32(args->dnode, NULL);
+		pim->msdp.keep_alive = yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -1027,7 +1011,7 @@ int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args)
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
 		pim->msdp.connection_retry =
-			yang_dnode_get_uint32(args->dnode, NULL);
+			yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
@@ -2636,9 +2620,7 @@ int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 	int query_interval;
-	int query_interval_dsec;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2647,18 +2629,8 @@ int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
 		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
-		query_interval_dsec = 10 * query_interval;
-		if (query_interval_dsec <=
-				pim_ifp->igmp_query_max_response_time_dsec) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Can't set general query interval %d dsec <= query max response time %d dsec.",
-				 query_interval_dsec,
-				 pim_ifp->igmp_query_max_response_time_dsec);
-			return NB_ERR_INCONSISTENCY;
-		}
-		change_query_interval(pim_ifp, query_interval);
+		change_query_interval(ifp->info, query_interval);
 	}
 
 	return NB_OK;
@@ -2671,9 +2643,7 @@ int lib_interface_igmp_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 	int query_max_response_time_dsec;
-	int default_query_interval_dsec;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2682,22 +2652,9 @@ int lib_interface_igmp_query_max_response_time_modify(
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
 		query_max_response_time_dsec =
-			yang_dnode_get_uint8(args->dnode, NULL);
-		default_query_interval_dsec =
-			10 * pim_ifp->igmp_default_query_interval;
-
-		if (query_max_response_time_dsec
-			>= default_query_interval_dsec) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Can't set query max response time %d sec >= general query interval %d sec",
-				 query_max_response_time_dsec,
-				 pim_ifp->igmp_default_query_interval);
-			return NB_ERR_INCONSISTENCY;
-		}
-
-		change_query_max_response_time(pim_ifp,
+			yang_dnode_get_uint16(args->dnode, NULL);
+		change_query_max_response_time(ifp->info,
 				query_max_response_time_dsec);
 	}
 
@@ -2722,8 +2679,8 @@ int lib_interface_igmp_last_member_query_interval_modify(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		last_member_query_interval = yang_dnode_get_uint8(args->dnode,
-				NULL);
+		last_member_query_interval =
+			yang_dnode_get_uint16(args->dnode, NULL);
 		pim_ifp->igmp_specific_query_max_response_time_dsec =
 			last_member_query_interval;
 
