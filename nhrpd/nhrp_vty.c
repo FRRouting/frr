@@ -1201,7 +1201,7 @@ static int interface_config_write(struct vty *vty)
 					vty_out(vty, "dynamic");
 				else
 					vty_out(vty, "%pSU", &nhs->proto_addr);
-				vty_out(vty, "nbma %s\n", nhs->nbma_fqdn);
+				vty_out(vty, " nbma %s\n", nhs->nbma_fqdn);
 			}
 
 			list_for_each_entry(mcast, &ad->mcastlist_head,
