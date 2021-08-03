@@ -281,40 +281,12 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 			 scriptdir, fs->name);
 		goto fail;
 	}
-	int ret = luaL_dofile(L, script_name);
 
-	switch (ret) {
-	case LUA_OK:
-		break;
-	case LUA_ERRSYNTAX:
-		zlog_err(
-			"frrscript: failed loading script '%s.lua': syntax error: %s",
-			script_name, lua_tostring(L, -1));
-		break;
-	case LUA_ERRMEM:
-		zlog_err(
-			"frrscript: failed loading script '%s.lua': out-of-memory error: %s",
-			script_name, lua_tostring(L, -1));
-		break;
-	case LUA_ERRGCMM:
-		zlog_err(
-			"frrscript: failed loading script '%s.lua': garbage collector error: %s",
-			script_name, lua_tostring(L, -1));
-		break;
-	case LUA_ERRFILE:
-		zlog_err(
-			"frrscript: failed loading script '%s.lua': file read error: %s",
-			script_name, lua_tostring(L, -1));
-		break;
-	default:
-		zlog_err(
-			"frrscript: failed loading script '%s.lua': unknown error: %s",
-			script_name, lua_tostring(L, -1));
-		break;
-	}
-
-	if (ret != LUA_OK)
+	if (luaL_dofile(L, script_name) != 0) {
+		zlog_err("frrscript: failed loading script '%s.lua': error: %s",
+			 script_name, lua_tostring(L, -1));
 		goto fail;
+	}
 
 	/* Push the Lua function we want */
 	lua_getglobal(L, function_name);
