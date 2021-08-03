@@ -737,6 +737,7 @@ def proto_name_to_number(protocol):
         "sharp": "194",
         "pbr": "195",
         "static": "196",
+        "ospf6": "197",
     }.get(
         protocol, protocol
     )  # default return same as input
