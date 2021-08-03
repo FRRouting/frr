@@ -7179,7 +7179,7 @@ DEFPY (pim_register_accept_list,
 
 DEFUN (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval (5-600)",
+       "ip pim join-prune-interval (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
@@ -7193,27 +7193,22 @@ DEFUN (ip_pim_joinprune_time,
 
 DEFUN (no_ip_pim_joinprune_time,
        no_ip_pim_joinprune_time_cmd,
-       "no ip pim join-prune-interval (5-600)",
+       "no ip pim join-prune-interval [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char jp_default_timer[5];
-
-	snprintf(jp_default_timer, sizeof(jp_default_timer), "%d",
-		 PIM_DEFAULT_T_PERIODIC);
-
 	nb_cli_enqueue_change(vty, "/frr-pim:pim/join-prune-interval",
-			      NB_OP_MODIFY, jp_default_timer);
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_register_suppress,
        ip_pim_register_suppress_cmd,
-       "ip pim register-suppress-time (5-60000)",
+       "ip pim register-suppress-time (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
@@ -7227,27 +7222,22 @@ DEFUN (ip_pim_register_suppress,
 
 DEFUN (no_ip_pim_register_suppress,
        no_ip_pim_register_suppress_cmd,
-       "no ip pim register-suppress-time (5-60000)",
+       "no ip pim register-suppress-time [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char rs_default_timer[5];
-
-	snprintf(rs_default_timer, sizeof(rs_default_timer), "%d",
-		 PIM_REGISTER_SUPPRESSION_TIME_DEFAULT);
-
 	nb_cli_enqueue_change(vty, "/frr-pim:pim/register-suppress-time",
-			      NB_OP_MODIFY, rs_default_timer);
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp_keep_alive,
        ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer (31-60000)",
+       "ip pim rp keep-alive-timer (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
@@ -7274,20 +7264,26 @@ DEFUN (ip_pim_rp_keep_alive,
 
 DEFUN (no_ip_pim_rp_keep_alive,
        no_ip_pim_rp_keep_alive_cmd,
-       "no ip pim rp keep-alive-timer (31-60000)",
+       "no ip pim rp keep-alive-timer [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
        "Keep alive Timer\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
 	const char *vrfname;
-	char rp_ka_timer[5];
+	char rp_ka_timer[6];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
+	uint v;
 
-	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d",
-				PIM_RP_KEEPALIVE_PERIOD);
+	/* RFC4601 */
+	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
+				  "/frr-pim:pim/register-suppress-time");
+	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
+	if (v > UINT16_MAX)
+		v = UINT16_MAX;
+	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
@@ -7306,7 +7302,7 @@ DEFUN (no_ip_pim_rp_keep_alive,
 
 DEFUN (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer (31-60000)",
+       "ip pim keep-alive-timer (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
@@ -7331,18 +7327,15 @@ DEFUN (ip_pim_keep_alive,
 
 DEFUN (no_ip_pim_keep_alive,
        no_ip_pim_keep_alive_cmd,
-       "no ip pim keep-alive-timer (31-60000)",
+       "no ip pim keep-alive-timer [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
 	const char *vrfname;
-	char ka_timer[5];
 	char ka_timer_xpath[XPATH_MAXLEN];
-
-	snprintf(ka_timer, sizeof(ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
@@ -7352,15 +7345,14 @@ DEFUN (no_ip_pim_keep_alive,
 		 "frr-pim:pimd", "pim", vrfname);
 	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
 
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
-			      ka_timer);
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_packets,
        ip_pim_packets_cmd,
-       "ip pim packets (1-100)",
+       "ip pim packets (1-255)",
        IP_STR
        "pim multicast routing\n"
        "packets to process at one time per fd\n"
@@ -7374,27 +7366,21 @@ DEFUN (ip_pim_packets,
 
 DEFUN (no_ip_pim_packets,
        no_ip_pim_packets_cmd,
-       "no ip pim packets (1-100)",
+       "no ip pim packets [(1-255)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "packets to process at one time per fd\n"
-       "Number of packets\n")
+       IGNORED_IN_NO_STR)
 {
-	char default_packet[3];
-
-	snprintf(default_packet, sizeof(default_packet), "%d",
-		 PIM_DEFAULT_PACKET_PROCESS);
-
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_MODIFY,
-			      default_packet);
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (igmp_group_watermark,
        igmp_group_watermark_cmd,
-       "ip igmp watermark-warn (10-60000)$limit",
+       "ip igmp watermark-warn (1-65535)$limit",
        IP_STR
        IGMP_STR
        "Configure group limit for watermark warning\n"
@@ -7408,12 +7394,12 @@ DEFPY (igmp_group_watermark,
 
 DEFPY (no_igmp_group_watermark,
        no_igmp_group_watermark_cmd,
-       "no ip igmp watermark-warn [(10-60000)$limit]",
+       "no ip igmp watermark-warn [(1-65535)$limit]",
        NO_STR
        IP_STR
        IGMP_STR
        "Unconfigure group limit for watermark warning\n"
-       "Group count to generate watermark warning\n")
+       IGNORED_IN_NO_STR)
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	pim->igmp_watermark_limit = 0;
@@ -8146,7 +8132,7 @@ DEFUN (interface_no_ip_igmp_join,
 
 DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
-       "ip igmp query-interval (1-1800)",
+       "ip igmp query-interval (1-65535)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR
@@ -8174,19 +8160,14 @@ DEFUN (interface_ip_igmp_query_interval,
 
 DEFUN (interface_no_ip_igmp_query_interval,
        interface_no_ip_igmp_query_interval_cmd,
-       "no ip igmp query-interval",
+       "no ip igmp query-interval [(1-65535)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
-       IFACE_IGMP_QUERY_INTERVAL_STR)
+       IFACE_IGMP_QUERY_INTERVAL_STR
+       IGNORED_IN_NO_STR)
 {
-	char default_query_interval[5];
-
-	snprintf(default_query_interval, sizeof(default_query_interval), "%d",
-		 IGMP_GENERAL_QUERY_INTERVAL);
-
-	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
-			      default_query_interval);
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
@@ -8222,7 +8203,7 @@ DEFUN (interface_no_ip_igmp_version,
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
-       "ip igmp query-max-response-time (10-250)",
+       "ip igmp query-max-response-time (1-65535)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
@@ -8251,27 +8232,21 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
        interface_no_ip_igmp_query_max_response_time_cmd,
-       "no ip igmp query-max-response-time (10-250)",
+       "no ip igmp query-max-response-time [(1-65535)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
-       "Time for response in deci-seconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char default_query_max_response_time[4];
-
-	snprintf(default_query_max_response_time,
-		 sizeof(default_query_max_response_time),
-		 "%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
-			      default_query_max_response_time);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
+			      NULL);
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      interface_ip_igmp_query_max_response_time_dsec_cmd,
-	      "ip igmp query-max-response-time-dsec (10-250)",
+	      "ip igmp query-max-response-time-dsec (1-65535)",
 	      IP_STR
 	      IFACE_IGMP_STR
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
@@ -8299,27 +8274,22 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 
 DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      interface_no_ip_igmp_query_max_response_time_dsec_cmd,
-	      "no ip igmp query-max-response-time-dsec",
+	      "no ip igmp query-max-response-time-dsec [(1-65535)]",
 	      NO_STR
 	      IP_STR
 	      IFACE_IGMP_STR
-	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
+	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
+	      IGNORED_IN_NO_STR)
 {
-	char default_query_max_response_time[4];
-
-	snprintf(default_query_max_response_time,
-		 sizeof(default_query_max_response_time),
-		 "%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
-			      default_query_max_response_time);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_count,
        interface_ip_igmp_last_member_query_count_cmd,
-       "ip igmp last-member-query-count (1-7)",
+       "ip igmp last-member-query-count (1-255)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
@@ -8347,27 +8317,22 @@ DEFUN (interface_ip_igmp_last_member_query_count,
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
        interface_no_ip_igmp_last_member_query_count_cmd,
-       "no ip igmp last-member-query-count [(1-7)]",
+       "no ip igmp last-member-query-count [(1-255)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
-       "Last member query count\n")
+       IGNORED_IN_NO_STR)
 {
-	char default_robustness[2];
-
-	snprintf(default_robustness, sizeof(default_robustness), "%d",
-		 IGMP_DEFAULT_ROBUSTNESS_VARIABLE);
-
-	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
-			      default_robustness);
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
        interface_ip_igmp_last_member_query_interval_cmd,
-       "ip igmp last-member-query-interval (1-255)",
+       "ip igmp last-member-query-interval (1-65535)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
@@ -8395,21 +8360,15 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
        interface_no_ip_igmp_last_member_query_interval_cmd,
-       "no ip igmp last-member-query-interval [(1-255)]",
+       "no ip igmp last-member-query-interval [(1-65535)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
-       "Last member query interval in deciseconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char default_last_member_query_count[4];
-
-	snprintf(default_last_member_query_count,
-		 sizeof(default_last_member_query_count),
-		 "%d", IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
-			      default_last_member_query_count);
+	nb_cli_enqueue_change(vty, "./last-member-query-interval",
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
@@ -8439,13 +8398,7 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-	char default_priority[10];
-
-	snprintf(default_priority, sizeof(default_priority), "%d",
-		 PIM_DEFAULT_DR_PRIORITY);
-
-	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
-			      default_priority);
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
@@ -8780,7 +8733,7 @@ DEFUN (interface_no_ip_mroute,
 
 DEFUN (interface_ip_pim_hello,
        interface_ip_pim_hello_cmd,
-       "ip pim hello (1-180) [(1-630)]",
+       "ip pim hello (1-65535) [(1-65535)]",
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
@@ -8815,21 +8768,15 @@ DEFUN (interface_ip_pim_hello,
 
 DEFUN (interface_no_ip_pim_hello,
        interface_no_ip_pim_hello_cmd,
-       "no ip pim hello [(1-180) [(1-630)]]",
+       "no ip pim hello [(1-65535) [(1-65535)]]",
        NO_STR
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
-       IFACE_PIM_HELLO_TIME_STR
-       IFACE_PIM_HELLO_HOLD_STR)
+       IGNORED_IN_NO_STR
+       IGNORED_IN_NO_STR)
 {
-	char hello_default_timer[3];
-
-	snprintf(hello_default_timer, sizeof(hello_default_timer), "%d",
-		 PIM_DEFAULT_HELLO_PERIOD);
-
-	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
-			      hello_default_timer);
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
@@ -9636,10 +9583,10 @@ DEFUN (no_ip_pim_ucast_bsm,
 }
 
 #if HAVE_BFDD > 0
-DEFUN_HIDDEN(
+DEFUN_HIDDEN (
 	ip_pim_bfd_param,
 	ip_pim_bfd_param_cmd,
-	"ip pim bfd (2-255) (50-60000) (50-60000)",
+	"ip pim bfd (2-255) (1-65535) (1-65535)",
 	IP_STR
 	PIM_STR
 	"Enables BFD support\n"
@@ -9650,7 +9597,7 @@ DEFUN_HIDDEN(
 	DEFUN(
 		ip_pim_bfd_param,
 		ip_pim_bfd_param_cmd,
-		"ip pim bfd (2-255) (50-60000) (50-60000)",
+		"ip pim bfd (2-255) (1-65535) (1-65535)",
 		IP_STR
 		PIM_STR
 		"Enables BFD support\n"
@@ -9689,7 +9636,10 @@ DEFUN_HIDDEN(
 
 #if HAVE_BFDD == 0
 ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
-      "no ip pim bfd (2-255) (50-60000) (50-60000)", NO_STR IP_STR PIM_STR
+      "no ip pim bfd (2-255) (1-65535) (1-65535)",
+      NO_STR
+      IP_STR
+      PIM_STR
       "Enables BFD support\n"
       "Detect Multiplier\n"
       "Required min receive interval\n"
@@ -9728,7 +9678,7 @@ DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
 }
 
 DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
-      "ip msdp timers (2-600)$keepalive (3-600)$holdtime [(1-600)$connretry]",
+      "ip msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
       IP_STR
       CFG_MSDP_STR
       "MSDP timers configuration\n"
@@ -9753,6 +9703,35 @@ DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
 	else
 		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY,
 				      NULL);
+
+	nb_cli_apply_changes(vty, xpath);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ip_msdp_timers, no_ip_msdp_timers_cmd,
+      "no ip msdp timers [(1-65535) (1-65535) [(1-65535)]]",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "MSDP timers configuration\n"
+      IGNORED_IN_NO_STR
+      IGNORED_IN_NO_STR
+      IGNORED_IN_NO_STR)
+{
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4");
+
+	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY, NULL);
 
 	nb_cli_apply_changes(vty, xpath);
 
@@ -11383,6 +11362,8 @@ void pim_cmd_init(void)
 
 	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
 	install_element(VRF_NODE, &ip_msdp_timers_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_timers_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_timers_cmd);
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);

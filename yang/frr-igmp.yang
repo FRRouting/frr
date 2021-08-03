@@ -84,9 +84,10 @@ module frr-igmp {
 
     leaf query-interval {
       type uint16 {
-        range "1..1800";
+        range "1..max";
       }
       units seconds;
+      must ". * 10 >= ../query-max-response-time";
       default "125";
       description
         "The Query Interval is the interval between General Queries
@@ -94,10 +95,11 @@ module frr-igmp {
     }
 
     leaf query-max-response-time {
-      type uint8 {
-        range "10..250";
+      type uint16 {
+        range "1..max";
       }
       units deciseconds;
+      must ". <= ../query-interval * 10";
       default "100";
       description
         "Query maximum response time specifies the maximum time
@@ -105,8 +107,8 @@ module frr-igmp {
     }
 
     leaf last-member-query-interval {
-      type uint8 {
-        range "1..255";
+      type uint16 {
+        range "1..max";
       }
       units deciseconds;
       default "10";
@@ -117,7 +119,7 @@ module frr-igmp {
 
     leaf robustness-variable {
       type uint8 {
-        range "1..7";
+        range "1..max";
       }
       default "2";
       description

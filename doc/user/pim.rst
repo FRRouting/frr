@@ -93,7 +93,7 @@ Certain signals have special meanings to *pimd*.
    down. This command is vrf aware, to configure for a vrf, enter the vrf
    submode.
 
-.. clicmd:: ip pim join-prune-interval (5-600)
+.. clicmd:: ip pim join-prune-interval (1-65535)
 
    Modify the join/prune interval that pim uses to the new value. Time is
    specified in seconds. This command is vrf aware, to configure for a vrf,
@@ -101,14 +101,14 @@ Certain signals have special meanings to *pimd*.
    a value smaller than 60 seconds be aware that this can and will affect
    convergence at scale.
 
-.. clicmd:: ip pim keep-alive-timer (31-60000)
+.. clicmd:: ip pim keep-alive-timer (1-65535)
 
-   Modify the time out value for a S,G flow from 31-60000 seconds. 31 seconds
-   is chosen for a lower bound because some hardware platforms cannot see data
+   Modify the time out value for a S,G flow from 1-60000 seconds. If choosing
+   a value below 31 seconds be aware that some hardware platforms cannot see data
    flowing in better than 30 second chunks. This command is vrf aware, to
    configure for a vrf, enter the vrf submode.
 
-.. clicmd:: ip pim packets (1-100)
+.. clicmd:: ip pim packets (1-255)
 
    When processing packets from a neighbor process the number of packets
    incoming at one time before moving on to the next task. The default value is
@@ -116,7 +116,7 @@ Certain signals have special meanings to *pimd*.
    a large number of pim control packets flowing. This command is vrf aware, to
    configure for a vrf, enter the vrf submode.
 
-.. clicmd:: ip pim register-suppress-time (5-60000)
+.. clicmd:: ip pim register-suppress-time (1-65535)
 
    Modify the time that pim will register suppress a FHR will send register
    notifications to the kernel. This command is vrf aware, to configure for a
@@ -162,7 +162,7 @@ Certain signals have special meanings to *pimd*.
    the existing IGMP general query timer.If no version is provided in the cli,
    it will be considered as default v2 query.This is a hidden command.
 
-.. clicmd:: ip igmp watermark-warn (10-60000)
+.. clicmd:: ip igmp watermark-warn (1-65535)
 
    Configure watermark warning generation for an igmp group limit. Generates
    warning once the configured group limit is reached while adding new groups.
@@ -201,7 +201,7 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    Set the DR Priority for the interface. This command is useful to allow the
    user to influence what node becomes the DR for a lan segment.
 
-.. clicmd:: ip pim hello (1-180) (1-630)
+.. clicmd:: ip pim hello (1-65535) (1-65535)
 
    Set the pim hello and hold interval for a interface.
 
@@ -227,11 +227,11 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
 
    Join multicast group or source-group on an interface.
 
-.. clicmd:: ip igmp query-interval (1-1800)
+.. clicmd:: ip igmp query-interval (1-65535)
 
    Set the IGMP query interval that PIM will use.
 
-.. clicmd:: ip igmp query-max-response-time (10-250)
+.. clicmd:: ip igmp query-max-response-time (1-65535)
 
    Set the IGMP query response timeout value. If an report is not returned in
    the specified time we will assume the S,G or \*,G has timed out.
@@ -246,12 +246,12 @@ is in a vrf, enter the interface command with the vrf keyword at the end.
    or IGMP report is received on this interface and the Group is denied by the
    prefix-list, PIM will ignore the join or report.
 
-.. clicmd:: ip igmp last-member-query-count (1-7)
+.. clicmd:: ip igmp last-member-query-count (1-255)
 
    Set the IGMP last member query count. The default value is 2. 'no' form of
    this command is used to to configure back to the default value.
 
-.. clicmd:: ip igmp last-member-query-interval (1-255)
+.. clicmd:: ip igmp last-member-query-interval (1-65535)
 
    Set the IGMP last member query interval in deciseconds. The default value is
    10 deciseconds. 'no' form of this command is used to to configure back to the
@@ -319,17 +319,17 @@ MSDP can be setup in different ways:
 
 Commands available for MSDP:
 
-.. clicmd:: ip msdp timers (2-600) (3-600) [(1-600)]
+.. clicmd:: ip msdp timers (1-65535) (1-65535) [(1-65535)]
 
    Configure global MSDP timers.
 
-   First value is the keep-alive interval and it must be less than the
-   second value which is hold-time. This configures the interval in
-   seconds between keep-alive messages. The default value is 60 seconds.
+   First value is the keep-alive interval. This configures the interval in
+   seconds between keep-alive messages. The default value is 60 seconds. It
+   should be less than the remote hold time.
 
-   Second value is the hold-time and it must be greater than the keep-alive
-   interval. This configures the interval in seconds before closing a non
-   responding connection. The default value is 75.
+   Second value is the hold-time. This configures the interval in seconds before
+   closing a non responding connection. The default value is 75. This value
+   should be greater than the remote keep alive time.
 
    Third value is the connection retry interval and it is optional. This
    configures the interval between connection attempts. The default value
