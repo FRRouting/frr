@@ -4361,6 +4361,65 @@ Show command json output:
        "bgpTcpMssConfigured":150,                                  => new entry
        "bgpTcpMssSynced":138,                                  => new entry
 
+.. _bgp-route-generate:
+
+BGP route generate command support:
+===================================
+To execute scale testing we either need traffic generators
+or sharpd process in the final product. If you want to generate
+millions of routes we need to write scripts to configure
+millions of static routes and redistribute them. This is
+complex to execute.
+
+As part of this commit have implemented a new CLI to generate
+BGP updates to peer with BGP daemon.
+
+CLI Configuration:
+------------------
+Below is the new CLI added in hidden mode to generate millions
+of prefix to neighbors.
+It supports two modes of operation.
+1. Generate 1million prefix in single shot.
+2. Generate 1million prefix using timer events.
+
+This feature adds support for IPv4 and IPv6 route generation.
+It is a hidden command and cannot be saved in running config.
+
+This command can also be used if we plan to add scale topotest
+for BGP.
+
+The CLI also supports route-map for modifying BGP path
+attributes using route-map set operation.
+
+It is very fast in generating the routes. It hardly takes few
+seconds to generate 1million routes.
+
+As part of task based route generation support, CLI
+takes batch-size and schedule-interval as input and will
+generate routes based on user inputs.
+For the command to generate routes in one go, configure
+count value same as batch--size.
+The schedule-interval is in terms of milliseconds.
+
+Below CLIs are executed in address-family view.
+
+IPv4 CLI:
+---------
+
+.. clicmd:: route-generate x.x.x.x/M count (1-1000000) [route-map name]
+                [batch-size (10-1000000) schedule-interval (1-1000)]
+
+IPv6 CLI:
+---------
+
+.. clicmd:: route-generate x:x::x:x/M count (1-1000000) [route-map name]
+                [batch-size (10-1000000) schedule-interval (1-1000)]
+
+.. note::
+    The new command is implemented using the "network x.x.x.x/x" command
+    framework. so we need to configure "no bgp network import-check" for
+    the feature to work.
+
 .. include:: routeserver.rst
 
 .. include:: rpki.rst
