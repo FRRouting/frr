@@ -3607,6 +3607,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	afi_t nh_afi;
 	uint8_t pi_type = 0;
 	uint8_t pi_sub_type = 0;
+	bool force_evpn_import = false;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -3919,6 +3920,14 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			}
 
 			bgp_path_info_restore(dest, pi);
+
+			/*
+			 * If the BGP_PATH_REMOVED flag is set, then EVPN
+			 * routes would have been unimported already when a
+			 * prior BGP withdraw processing happened. Such routes
+			 * need to be imported again, so flag accordingly.
+			 */
+			force_evpn_import = true;
 		}
 
 		/* Received Logging. */
@@ -4141,7 +4150,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 #endif
 
 		/* If this is an EVPN route and some attribute has changed,
-		 * process
+		 * or we are explicitly told to perform a route import, process
 		 * route for import. If the extended community has changed, we
 		 * would
 		 * have done the un-import earlier and the import would result
@@ -4152,7 +4161,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * updating
 		 * the attributes for the route in the VNI(s).
 		 */
-		if (safi == SAFI_EVPN && !same_attr &&
+		if (safi == SAFI_EVPN &&
+		    (!same_attr || force_evpn_import) &&
 		    CHECK_FLAG(pi->flags, BGP_PATH_VALID))
 			bgp_evpn_import_route(bgp, afi, safi, p, pi);
 
