@@ -88,22 +88,45 @@ FRR employs a ``<MAJOR>.<MINOR>.<BUGFIX>`` versioning scheme.
 ``BUGFIX``
    Fixes for actual bugs and/or security issues.  Fully compatible.
 
-We will pull a new development branch for the next release every 4 months.  The
-current schedule is Feb/June/October 1. The decision for a ``MAJOR/MINOR``
-release is made at the time of branch pull based on what has been received the
-previous 4 months. The branch name will be ``dev/MAJOR.MINOR``. At this point
-in time the master branch and this new branch, :file:`configure.ac`,
-documentation and packaging systems will be updated to reflect the next
-possible release name to allow for easy distinguishing.
+Releases are scheduled in a 4-month cycle on the first Tuesday each
+March/July/November.  Walking backwards from this date:
 
-After one month the development branch will be renamed to
-``stable/MAJOR.MINOR``.  The branch is a stable branch. This process is not
-held up unless a crash or security issue has been found and needs to
-be addressed. Issues being fixed will not cause a delay.
+ - 6 weeks earlier, ``master`` is frozen for new features, and feature PRs
+   are considered lowest priority (regardless of when they were opened.)
 
-Bugfix releases are made as needed at 1 month intervals until the next
-``MAJOR.MINOR`` release branch is pulled. Depending on the severity of the bugs,
-bugfix releases may occur sooner.
+ - 4 weeks earlier, the stable branch separates from master (named
+   ``dev/MAJOR.MINOR`` at this point) and a ``rc1`` release candidate is
+   tagged.  Master is unfrozen and new features may again proceed.
+
+ - 2 weeks earlier, a ``rc2`` release candidate is tagged.
+
+ - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
+
+The 2 week window between each of these events should be used to run any and
+all testing possible for the release in progress.  However, the current
+intention is to stick to the schedule even if known issues remain.  This would
+hopefully occur only after all avenues of fixing issues are exhausted, but to
+achieve this, an as exhaustive as possible list of issues needs to be available
+as early as possible, i.e. the first 2-week window.
+
+For reference, the expected release schedule according to the above is:
+
++------------+------------+------------+------------+------------+------------+
+| Release    | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
++------------+------------+------------+------------+------------+------------+
+| rc2        | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
++------------+------------+------------+------------+------------+------------+
+| rc1/branch | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
++------------+------------+------------+------------+------------+------------+
+| freeze     | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
++------------+------------+------------+------------+------------+------------+
+
+Each release is managed by one or more volunteer release managers from the FRR
+community.  To spread and distribute this workload, this should be rotated for
+subsequent releases.  The release managers are currently assumed/expected to
+run a release management meeting during the weeks listed above.  Barring other
+constraints, this would be scheduled before the regular weekly FRR community
+call such that important items can be carried over into that call.
 
 Bugfixes are applied to the two most recent releases. However, backporting of bug
 fixes to older than the two most recent releases will not be prevented, if acked
