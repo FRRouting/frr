@@ -3502,6 +3502,9 @@ void ospf_schedule_lsa_flood_area(struct ospf_area *area, struct ospf_lsa *lsa)
 	data->lsa = ospf_lsa_lock(lsa); /* Message / Flood area */
 
 	thread_add_event(master, ospf_lsa_action, data, 0, NULL);
+#ifdef FUZZING
+	XFREE(MTYPE_OSPF_MESSAGE, data);
+#endif
 }
 
 void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa)
@@ -3514,6 +3517,9 @@ void ospf_schedule_lsa_flush_area(struct ospf_area *area, struct ospf_lsa *lsa)
 	data->lsa = ospf_lsa_lock(lsa); /* Message / Flush area */
 
 	thread_add_event(master, ospf_lsa_action, data, 0, NULL);
+#ifdef FUZZING
+	XFREE(MTYPE_OSPF_MESSAGE, data);
+#endif
 }
 
 
