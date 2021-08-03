@@ -25,6 +25,7 @@
 #include "lib/routemap.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_routemap_nb.h"
+#include "bgpd/bgp_ecommunity.h"
 
 /* Add bgp route map rule. */
 static int bgp_route_match_add(struct route_map_index *index,
@@ -2536,12 +2537,6 @@ lib_route_map_entry_set_action_rmap_set_action_comm_list_name_destroy(
 	return NB_OK;
 }
 
-enum e_community_lb_type {
-	EXPLICIT_BANDWIDTH,
-	CUMULATIVE_BANDWIDTH,
-	COMPUTED_BANDWIDTH
-};
-
 /*
  * XPath:
  * /frr-route-map:lib/route-map/entry/set-action/rmap-set-action/frr-bgp-route-map:extcommunity-lb
@@ -2551,7 +2546,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	struct nb_cb_apply_finish_args *args)
 {
 	struct routemap_hook_context *rhc;
-	int lb_type;
+	enum ecommunity_lb_type lb_type;
 	char str[VTY_BUFSIZ];
 	uint16_t bandwidth;
 
