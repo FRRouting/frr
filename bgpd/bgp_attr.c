@@ -1497,8 +1497,10 @@ static int bgp_attr_aspath(struct bgp_attr_parser_args *args)
 	 * peer with AS4 => will get 4Byte ASnums
 	 * otherwise, will get 16 Bit
 	 */
-	attr->aspath = aspath_parse(peer->curr, length,
-				    CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV));
+	attr->aspath = aspath_parse(
+		peer->curr, length,
+		CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)
+			&& CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV));
 
 	/* In case of IBGP, length will be zero. */
 	if (!attr->aspath) {
@@ -3745,7 +3747,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	struct aspath *aspath;
 	int send_as4_path = 0;
 	int send_as4_aggregator = 0;
-	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV);
+	bool use32bit = CHECK_FLAG(peer->cap, PEER_CAP_AS4_RCV)
+			&& CHECK_FLAG(peer->cap, PEER_CAP_AS4_ADV);
 
 	if (!bgp)
 		bgp = peer->bgp;
