@@ -504,7 +504,7 @@ DEFUN (area_range,
 	struct ospf6_area *oa;
 	struct prefix prefix;
 	struct ospf6_route *range;
-	uint32_t cost = OSPF_AREA_RANGE_COST_UNSPEC;
+	uint32_t cost;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -526,16 +526,15 @@ DEFUN (area_range,
 		range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC;
 	}
 
+	/* default settings */
+	cost = OSPF_AREA_RANGE_COST_UNSPEC;
+	UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+
 	if (argc > idx_type) {
-		if (strmatch(argv[idx_type]->text, "not-advertise")) {
+		if (strmatch(argv[idx_type]->text, "not-advertise"))
 			SET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
-		} else if (strmatch(argv[idx_type]->text, "advertise")) {
-			UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
-			cost = range->path.u.cost_config;
-		} else {
+		else if (strmatch(argv[idx_type]->text, "cost"))
 			cost = strtoul(argv[5]->arg, NULL, 10);
-			UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
-		}
 	}
 
 	range->path.u.cost_config = cost;
