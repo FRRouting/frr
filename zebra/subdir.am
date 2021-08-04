@@ -193,6 +193,7 @@ noinst_HEADERS += \
 	zebra/zebra_vxlan_private.h \
 	zebra/zebra_evpn_mh.h \
 	zebra/zebra_l2_bridge_if.h \
+	zebra/zebra_vxlan_if.h \
 	zebra/zserv.h \
 	# end
 
