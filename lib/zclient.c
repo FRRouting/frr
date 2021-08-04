@@ -3442,6 +3442,14 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 
 		if (zapi_nexthop_decode(s, znh, 0, 0) < 0)
 			return -1;
+
+		if (znh->type == NEXTHOP_TYPE_BLACKHOLE) {
+			flog_warn(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: Prefix %pFX has a blackhole nexthop which we cannot use for a label",
+				__func__, &zl->route.prefix);
+			return -1;
+		}
 	}
 
 	if (CHECK_FLAG(zl->message, ZAPI_LABELS_HAS_BACKUPS)) {
@@ -3463,6 +3471,14 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 
 			if (zapi_nexthop_decode(s, znh, 0, 0) < 0)
 				return -1;
+
+			if (znh->type == NEXTHOP_TYPE_BLACKHOLE) {
+				flog_warn(
+					EC_LIB_ZAPI_ENCODE,
+					"%s: Prefix %pFX has a backup blackhole nexthop which we cannot use for a label",
+					__func__, &zl->route.prefix);
+				return -1;
+			}
 		}
 	}
 
