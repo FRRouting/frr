@@ -173,43 +173,6 @@ struct ospf6_lsa_handler {
 #define OSPF6_LSA_IS_KNOWN(t)                                                  \
 	(ospf6_get_lsa_handler(t)->lh_type != OSPF6_LSTYPE_UNKNOWN ? 1 : 0)
 
-/* Macro for LSA Origination */
-/* addr is (struct prefix *) */
-#define CONTINUE_IF_ADDRESS_LINKLOCAL(debug, addr)                             \
-	if (IN6_IS_ADDR_LINKLOCAL(&(addr)->u.prefix6)) {                       \
-		if (debug)                                                     \
-			zlog_debug("Filter out Linklocal: %pFX", addr);        \
-		continue;                                                      \
-	}
-
-#define CONTINUE_IF_ADDRESS_UNSPECIFIED(debug, addr)                           \
-	if (IN6_IS_ADDR_UNSPECIFIED(&(addr)->u.prefix6)) {                     \
-		if (debug)                                                     \
-			zlog_debug("Filter out Unspecified: %pFX", addr);      \
-		continue;                                                      \
-	}
-
-#define CONTINUE_IF_ADDRESS_LOOPBACK(debug, addr)                              \
-	if (IN6_IS_ADDR_LOOPBACK(&(addr)->u.prefix6)) {                        \
-		if (debug)                                                     \
-			zlog_debug("Filter out Loopback: %pFX", addr);         \
-		continue;                                                      \
-	}
-
-#define CONTINUE_IF_ADDRESS_V4COMPAT(debug, addr)                              \
-	if (IN6_IS_ADDR_V4COMPAT(&(addr)->u.prefix6)) {                        \
-		if (debug)                                                     \
-			zlog_debug("Filter out V4Compat: %pFX", addr);         \
-		continue;                                                      \
-	}
-
-#define CONTINUE_IF_ADDRESS_V4MAPPED(debug, addr)                              \
-	if (IN6_IS_ADDR_V4MAPPED(&(addr)->u.prefix6)) {                        \
-		if (debug)                                                     \
-			zlog_debug("Filter out V4Mapped: %pFX", addr);         \
-		continue;                                                      \
-	}
-
 #define CHECK_LSA_TOPO_CHG_ELIGIBLE(type)		\
 	((type == OSPF6_LSTYPE_ROUTER)			\
 	 || (type == OSPF6_LSTYPE_NETWORK)		\

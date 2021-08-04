@@ -428,6 +428,56 @@ void ospf6_interface_state_update(struct interface *ifp)
 	return;
 }
 
+bool ospf6_interface_addr_valid(struct ospf6_interface *oi, struct connected *c,
+				bool debug)
+{
+	if (c->address->family != AF_INET6)
+		return false;
+
+	if (IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6)) {
+		if (debug)
+			zlog_debug("Filter out Linklocal: %pFX", c->address);
+		return false;
+	}
+	if (IN6_IS_ADDR_UNSPECIFIED(&c->address->u.prefix6)) {
+		if (debug)
+			zlog_debug("Filter out Unspecified: %pFX", c->address);
+		return false;
+	}
+	if (IN6_IS_ADDR_LOOPBACK(&c->address->u.prefix6)) {
+		if (debug)
+			zlog_debug("Filter out Loopback: %pFX", c->address);
+		return false;
+	}
+	if (IN6_IS_ADDR_V4COMPAT(&c->address->u.prefix6)) {
+		if (debug)
+			zlog_debug("Filter out V4Compat: %pFX", c->address);
+		return false;
+	}
+	if (IN6_IS_ADDR_V4MAPPED(&c->address->u.prefix6)) {
+		if (debug)
+			zlog_debug("Filter out V4Mapped: %pFX", c->address);
+		return false;
+	}
+
+	/* apply filter */
+	if (oi->plist_name) {
+		struct prefix_list *plist;
+		enum prefix_list_type ret;
+
+		plist = prefix_list_lookup(AFI_IP6, oi->plist_name);
+		ret = prefix_list_apply(plist, (void *)c->address);
+		if (ret == PREFIX_DENY) {
+			if (debug)
+				zlog_debug(
+					"%pFX on %pOI filtered by prefix-list %s ",
+					c->address, oi, oi->plist_name);
+			return false;
+		}
+	}
+	return true;
+}
+
 void ospf6_interface_connected_route_update(struct interface *ifp)
 {
 	struct ospf6_interface *oi;
@@ -453,35 +503,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 	ospf6_route_remove_all(oi->route_connected);
 
 	for (ALL_LIST_ELEMENTS(oi->interface->connected, node, nnode, c)) {
-		if (c->address->family != AF_INET6)
+		if (!ospf6_interface_addr_valid(oi, c,
+						IS_OSPF6_DEBUG_INTERFACE))
 			continue;
-
-		CONTINUE_IF_ADDRESS_LINKLOCAL(IS_OSPF6_DEBUG_INTERFACE,
-					      c->address);
-		CONTINUE_IF_ADDRESS_UNSPECIFIED(IS_OSPF6_DEBUG_INTERFACE,
-						c->address);
-		CONTINUE_IF_ADDRESS_LOOPBACK(IS_OSPF6_DEBUG_INTERFACE,
-					     c->address);
-		CONTINUE_IF_ADDRESS_V4COMPAT(IS_OSPF6_DEBUG_INTERFACE,
-					     c->address);
-		CONTINUE_IF_ADDRESS_V4MAPPED(IS_OSPF6_DEBUG_INTERFACE,
-					     c->address);
-
-		/* apply filter */
-		if (oi->plist_name) {
-			struct prefix_list *plist;
-			enum prefix_list_type ret;
-
-			plist = prefix_list_lookup(AFI_IP6, oi->plist_name);
-			ret = prefix_list_apply(plist, (void *)c->address);
-			if (ret == PREFIX_DENY) {
-				if (IS_OSPF6_DEBUG_INTERFACE)
-					zlog_debug(
-						"%pFX on %pOI filtered by prefix-list %s ",
-						c->address, oi, oi->plist_name);
-				continue;
-			}
-		}
 
 		if (oi->state == OSPF6_INTERFACE_LOOPBACK
 		    || oi->state == OSPF6_INTERFACE_POINTTOMULTIPOINT
