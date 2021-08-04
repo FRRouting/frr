@@ -1232,6 +1232,16 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 					   __FILE__, __func__, child->sg_str,
 					   ifp->name, up->sg_str);
 
+			if (!child->rpf.source_nexthop.interface) {
+				/* when iif unknown, do not inherit */
+				if (PIM_DEBUG_EVENTS)
+					zlog_debug(
+						"Skipped (S,G)=%s(%s) from %s: no iif",
+						child->sg_str, ifp->name,
+						up->sg_str);
+				continue;
+			}
+
 			ch = pim_ifchannel_find(ifp, &child->sg);
 			if (pim_upstream_evaluate_join_desired_interface(
 				    child, ch, starch)) {
