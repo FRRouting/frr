@@ -752,7 +752,7 @@ static int nhlfe_nexthop_active(zebra_nhlfe_t *nhlfe)
 		}
 		break;
 
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1183,7 +1183,7 @@ static char *nhlfe2str(const zebra_nhlfe_t *nhlfe, char *buf, int size)
 		break;
 	case NEXTHOP_TYPE_IFINDEX:
 		snprintf(buf, size, "Ifindex: %u", nexthop->ifindex);
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1224,7 +1224,7 @@ static int nhlfe_nhop_match(zebra_nhlfe_t *nhlfe, enum nexthop_types_t gtype,
 	case NEXTHOP_TYPE_IFINDEX:
 		cmp = !(nhop->ifindex == ifindex);
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1294,7 +1294,7 @@ static zebra_nhlfe_t *nhlfe_alloc(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 	case NEXTHOP_TYPE_IFINDEX:
 		nexthop->ifindex = ifindex;
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
 		nexthop_free(nexthop);
 		XFREE(MTYPE_NHLFE, nhlfe);
 		return NULL;
@@ -1527,7 +1527,8 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 					       ifindex2ifname(nexthop->ifindex,
 							      nexthop->vrf_id));
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
+	case NEXTHOP_TYPE_IFINDEX:
 		break;
 	}
 
@@ -1588,7 +1589,8 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
 				ifindex2ifname(nexthop->ifindex,
 					       nexthop->vrf_id));
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
+	case NEXTHOP_TYPE_IFINDEX:
 		break;
 	}
 	vty_out(vty, "%s",
@@ -2830,7 +2832,8 @@ static bool ftn_update_znh(bool add_p, enum lsp_types_t type,
 				break;
 			success = true;
 			break;
-		default:
+		case NEXTHOP_TYPE_BLACKHOLE:
+		case NEXTHOP_TYPE_IFINDEX:
 			break;
 		}
 
@@ -3752,7 +3755,7 @@ void zebra_mpls_print_lsp_table(struct vty *vty, struct zebra_vrf *zvrf,
 					inet_ntop(AF_INET6, &nexthop->gate.ipv6,
 						  nh_buf, sizeof(nh_buf));
 					break;
-				default:
+				case NEXTHOP_TYPE_BLACKHOLE:
 					break;
 				}
 
@@ -3795,7 +3798,11 @@ static char *nhlfe_config_str(const zebra_nhlfe_t *nhlfe, char *buf, int size)
 	buf[0] = '\0';
 	switch (nh->type) {
 	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		inet_ntop(AF_INET, &nh->gate.ipv4, buf, size);
+		if (nh->ifindex)
+			strlcat(buf, ifindex2ifname(nh->ifindex, VRF_DEFAULT),
+				size);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
@@ -3805,7 +3812,8 @@ static char *nhlfe_config_str(const zebra_nhlfe_t *nhlfe, char *buf, int size)
 				ifindex2ifname(nh->ifindex, VRF_DEFAULT),
 				size);
 		break;
-	default:
+	case NEXTHOP_TYPE_BLACKHOLE:
+	case NEXTHOP_TYPE_IFINDEX:
 		break;
 	}
 
