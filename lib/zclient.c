@@ -1299,7 +1299,13 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 		stream_putl(s, api->tableid);
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
-		assert(api->opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		if (api->opaque.length > ZAPI_MESSAGE_OPAQUE_LENGTH) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: opaque length %u is greater than allowed value",
+				__func__, api->opaque.length);
+			return -1;
+		}
 
 		stream_putw(s, api->opaque.length);
 		stream_write(s, api->opaque.data, api->opaque.length);
@@ -1537,7 +1543,13 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
 		STREAM_GETW(s, api->opaque.length);
-		assert(api->opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		if (api->opaque.length > ZAPI_MESSAGE_OPAQUE_LENGTH) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: opaque length %u is greater than allowed value",
+				__func__, api->opaque.length);
+			return -1;
+		}
 
 		STREAM_GET(api->opaque.data, s, api->opaque.length);
 	}
