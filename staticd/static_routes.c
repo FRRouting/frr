@@ -188,8 +188,8 @@ void static_del_route(struct route_node *rn, safi_t safi,
 	route_unlock_node(rn);
 }
 
-bool static_add_nexthop_validate(const char *nh_vrf_name, static_types type,
-				 struct ipaddr *ipaddr)
+bool static_add_nexthop_validate(const char *nh_vrf_name,
+				 enum static_types type, struct ipaddr *ipaddr)
 {
 	struct vrf *vrf;
 
@@ -259,7 +259,7 @@ void static_del_path(struct route_node *rn, struct static_path *pn, safi_t safi,
 
 struct static_nexthop *
 static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
-		   struct static_vrf *svrf, static_types type,
+		   struct static_vrf *svrf, enum static_types type,
 		   struct ipaddr *ipaddr, const char *ifname,
 		   const char *nh_vrf, uint32_t color)
 {
@@ -358,7 +358,7 @@ static_add_nexthop(struct route_node *rn, struct static_path *pn, safi_t safi,
 void static_install_nexthop(struct route_node *rn, struct static_path *pn,
 			    struct static_nexthop *nh, safi_t safi,
 			    struct static_vrf *svrf, const char *ifname,
-			    static_types type, const char *nh_vrf)
+			    enum static_types type, const char *nh_vrf)
 {
 	struct interface *ifp;
 
@@ -778,7 +778,7 @@ void static_ifindex_update(struct interface *ifp, bool up)
 	static_ifindex_update_af(ifp, up, AFI_IP6, SAFI_MULTICAST);
 }
 
-void static_get_nh_type(static_types stype, char *type, size_t size)
+void static_get_nh_type(enum static_types stype, char *type, size_t size)
 {
 	switch (stype) {
 	case STATIC_IFNAME:
