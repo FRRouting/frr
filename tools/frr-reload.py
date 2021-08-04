@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/env python3
 # Frr Reloader
 # Copyright (C) 2014 Cumulus Networks, Inc.
 #
@@ -39,26 +39,12 @@ import string
 import subprocess
 import sys
 from collections import OrderedDict
-
-try:
-    from ipaddress import IPv6Address, ip_network
-except ImportError:
-    from ipaddr import IPv6Address, IPNetwork
+from ipaddress import IPv6Address, ip_network
 from pprint import pformat
 
-try:
-    dict.iteritems
-except AttributeError:
-    # Python 3
-    def iteritems(d):
-        return iter(d.items())
-
-
-else:
-    # Python 2
-    def iteritems(d):
-        return d.iteritems()
-
+# Python 3
+def iteritems(d):
+    return iter(d.items())
 
 log = logging.getLogger(__name__)
 
@@ -372,22 +358,13 @@ class Config(object):
             addr = re_key_rt.group(2)
             if "/" in addr:
                 try:
-                    if "ipaddress" not in sys.modules:
-                        newaddr = IPNetwork(addr)
-                        key[0] = "%s route %s/%s%s" % (
-                            re_key_rt.group(1),
-                            newaddr.network,
-                            newaddr.prefixlen,
-                            re_key_rt.group(3),
-                        )
-                    else:
-                        newaddr = ip_network(addr, strict=False)
-                        key[0] = "%s route %s/%s%s" % (
-                            re_key_rt.group(1),
-                            str(newaddr.network_address),
-                            newaddr.prefixlen,
-                            re_key_rt.group(3),
-                        )
+                    newaddr = ip_network(addr, strict=False)
+                    key[0] = "%s route %s/%s%s" % (
+                        re_key_rt.group(1),
+                        str(newaddr.network_address),
+                        newaddr.prefixlen,
+                        re_key_rt.group(3),
+                    )
                 except ValueError:
                     pass
 
@@ -398,17 +375,11 @@ class Config(object):
             addr = re_key_rt.group(4)
             if "/" in addr:
                 try:
-                    if "ipaddress" not in sys.modules:
-                        newaddr = "%s/%s" % (
-                            IPNetwork(addr).network,
-                            IPNetwork(addr).prefixlen,
-                        )
-                    else:
-                        network_addr = ip_network(addr, strict=False)
-                        newaddr = "%s/%s" % (
-                            str(network_addr.network_address),
-                            network_addr.prefixlen,
-                        )
+                    network_addr = ip_network(addr, strict=False)
+                    newaddr = "%s/%s" % (
+                        str(network_addr.network_address),
+                        network_addr.prefixlen,
+                    )
                 except ValueError:
                     newaddr = addr
             else:
@@ -444,20 +415,12 @@ class Config(object):
                         addr = addr + "/8"
 
                     try:
-                        if "ipaddress" not in sys.modules:
-                            newaddr = IPNetwork(addr)
-                            line = "network %s/%s %s" % (
-                                newaddr.network,
-                                newaddr.prefixlen,
-                                re_net.group(2),
-                            )
-                        else:
-                            network_addr = ip_network(addr, strict=False)
-                            line = "network %s/%s %s" % (
-                                str(network_addr.network_address),
-                                network_addr.prefixlen,
-                                re_net.group(2),
-                            )
+                        network_addr = ip_network(addr, strict=False)
+                        line = "network %s/%s %s" % (
+                            str(network_addr.network_address),
+                            network_addr.prefixlen,
+                            re_net.group(2),
+                        )
                         newlines.append(line)
                     except ValueError:
                         # Really this should be an error. Whats a network
@@ -785,15 +748,11 @@ def get_normalized_ipv6_line(line):
             norm_word = None
             if "/" in word:
                 try:
-                    if "ipaddress" not in sys.modules:
-                        v6word = IPNetwork(word)
-                        norm_word = "%s/%s" % (v6word.network, v6word.prefixlen)
-                    else:
-                        v6word = ip_network(word, strict=False)
-                        norm_word = "%s/%s" % (
-                            str(v6word.network_address),
-                            v6word.prefixlen,
-                        )
+                    v6word = ip_network(word, strict=False)
+                    norm_word = "%s/%s" % (
+                        str(v6word.network_address),
+                        v6word.prefixlen,
+                    )
                 except ValueError:
                     pass
             if not norm_word:
