@@ -1264,6 +1264,46 @@ def test_ospf_type5_summary_tc45_p0(request):
 
     protocol = "ospf"
 
+
+    #
+    # Triaging CI intermittent failure. This route should *not* be present
+    # and if it is we'd like support bundles right now.
+    #
+
+    step("start: show ip ospf summary should not have any summary address.")
+    input_dict = {
+        SUMMARY["ipv4"][0]: {
+            "Summary address": SUMMARY["ipv4"][0],
+            "Metric-type": "E2",
+            "Metric": 20,
+            "Tag": 1234,
+            "External route count": 5,
+        }
+    }
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
+
+    input_dict_summary = {
+        "r0": {"static_routes": [{"network": SUMMARY["ipv4"][0], "tag": "1234"}]}
+    }
+    step("Verify that summary lsa is withdrawn from R1.")
+    dut = "r1"
+    result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
+    assert result is not True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
+        tc_name
+    )
+
+
     step(
         "Configure 5 static routes from the same network on R0"
         "5 static routes from different networks and redistribute in R0"
@@ -1364,7 +1404,7 @@ def test_ospf_type5_summary_tc45_p0(request):
 
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
+    result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
