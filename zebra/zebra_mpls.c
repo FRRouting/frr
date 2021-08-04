@@ -1323,6 +1323,9 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 	nhlfe = nhlfe_alloc(lsp, lsp_type, gtype, gate, ifindex, num_labels,
 			    labels);
 
+	if (!nhlfe)
+		return NULL;
+
 	/* Enqueue to LSP: primaries at head of list, backups at tail */
 	if (is_backup) {
 		SET_FLAG(nhlfe->flags, NHLFE_FLAG_IS_BACKUP);
