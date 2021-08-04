@@ -471,6 +471,12 @@ class TopoGear(object):
         """
         return self.tgen.net[self.name].cmd(command)
 
+    def popen(self, *params, **kwargs):
+        """
+        Popen on the router.
+        """
+        return self.tgen.net[self.name].popen(*params, **kwargs)
+
     def add_link(self, node, myif=None, nodeif=None):
         """
         Creates a link (connection) between myself and the specified node.
