@@ -197,7 +197,6 @@ def setup_module(mod):
     tgen.start_router()
 
     logger.info("Running setup_module() done")
-    topotest.sleep(200)
 
 
 def teardown_module(mod):
