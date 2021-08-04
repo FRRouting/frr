@@ -1270,6 +1270,12 @@ def test_ospf_type5_summary_tc45_p0(request):
     # and if it is we'd like support bundles right now.
     #
 
+    logger.info("show run on r0: %s", tgen.gears["r0"].run("show run"))
+    logger.info("show run on r1: %s", tgen.gears["r1"].run("show run"))
+    logger.info("show ip route on r0: %s", tgen.gears["r0"].run("show ip route"))
+    logger.info("show ip route on r1: %s", tgen.gears["r1"].run("show ip route"))
+    logger.info("show ip ospf summary on r0: %s", tgen.gears["r0"].run("show ip ospf summary detail json"))
+
     step("start: show ip ospf summary should not have any summary address.")
     input_dict = {
         SUMMARY["ipv4"][0]: {
