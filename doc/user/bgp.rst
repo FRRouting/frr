@@ -1102,6 +1102,13 @@ Route Aggregation-IPv4 Address Family
 
    This command specifies an aggregate address.
 
+   In order to advertise an aggregated prefix, a more specific (longer) prefix
+   MUST exist in the BGP table. For example, if you want to create an
+   ``aggregate-address 10.0.0.0/24``, you should make sure you have something
+   like ``10.0.0.5/32`` or ``10.0.0.0/26``, or any other smaller prefix in the
+   BGP table. The routing information table (RIB) is not enough, you have to
+   redistribute them into the BGP table.
+
 .. clicmd:: aggregate-address A.B.C.D/M route-map NAME
 
    Apply a route-map for an aggregated prefix.
@@ -1117,8 +1124,9 @@ Route Aggregation-IPv4 Address Family
 
 .. clicmd:: aggregate-address A.B.C.D/M summary-only
 
-   This command specifies an aggregate address. Aggregated routes will
-   not be announced.
+   This command specifies an aggregate address.
+
+   Longer prefixes advertisements of more specific routes to all neighbors are suppressed.
 
 .. clicmd:: aggregate-address A.B.C.D/M matching-MED-only
 
@@ -1169,8 +1177,9 @@ Route Aggregation-IPv6 Address Family
 
 .. clicmd:: aggregate-address X:X::X:X/M summary-only
 
-   This command specifies an aggregate address. Aggregated routes will
-   not be announced.
+   This command specifies an aggregate address.
+
+   Longer prefixes advertisements of more specific routes to all neighbors are suppressed
 
 .. clicmd:: aggregate-address X:X::X:X/M matching-MED-only
 
