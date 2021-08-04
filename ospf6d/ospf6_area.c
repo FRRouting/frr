@@ -49,6 +49,7 @@
 #include "ospf6d.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#include "ospf6_vlink.h"
 #include "ospf6d/ospf6_area_clippy.c"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AREA,      "OSPF6 area");
@@ -291,6 +292,8 @@ struct ospf6_area *ospf6_area_create(uint32_t area_id, struct ospf6 *o, int df)
 	oa->area_id = area_id;
 	oa->if_list = list_new();
 
+	ospf6_vlink_area_init(oa);
+
 	oa->lsdb = ospf6_lsdb_create(oa);
 	oa->lsdb->hook_add = ospf6_area_lsdb_hook_add;
 	oa->lsdb->hook_remove = ospf6_area_lsdb_hook_remove;
@@ -342,6 +345,8 @@ void ospf6_area_delete(struct ospf6_area *oa)
 {
 	struct listnode *n;
 	struct ospf6_interface *oi;
+
+	ospf6_vlink_area_fini(oa);
 
 	/* The ospf6_interface structs store configuration
 	 * information which should not be lost/reset when
@@ -741,6 +746,7 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 		if (EXPORT_NAME(oa))
 			vty_out(vty, " area %s export-list %s\n", oa->name,
 				EXPORT_NAME(oa));
+		ospf6_vlink_area_config(oa, vty);
 	}
 }
 

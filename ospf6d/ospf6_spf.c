@@ -45,6 +45,7 @@
 #include "ospf6_abr.h"
 #include "ospf6_nssa.h"
 #include "ospf6_zebra.h"
+#include "ospf6_vlink.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_VERTEX, "OSPF6 vertex");
 
@@ -596,7 +597,8 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	p = (buffer + strlen(buffer) < end ? buffer + strlen(buffer) : end);
 
 	for (ALL_LIST_ELEMENTS_RO(oa->if_list, node, oi)) {
-		snprintfrr(p, end - p, " I/F %pOI: %d", oi, oi->lsdb->count);
+		snprintfrr(p, end - p, " I/F %pOI: %d", oi,
+			 oi->lsdb ? (int)oi->lsdb->count : -1);
 		p = (buffer + strlen(buffer) < end ? buffer + strlen(buffer)
 						   : end);
 	}
@@ -636,11 +638,26 @@ static void ospf6_spf_calculation_thread(struct thread *t)
 		ospf6_spf_calculation(ospf6->router_id, oa->spf_table, oa);
 		ospf6_intra_route_calculation(oa);
 		ospf6_intra_brouter_calculation(oa);
+		ospf6_vlink_area_calculation(oa);
 
 		areas_processed++;
 	}
 
 	if (ospf6->backbone) {
+		if (ospf6->backbone->thread_router_lsa) {
+			/* virtual links' costs are updated by the area SPF
+			 * runs above and carried into the router LSA for the
+			 * backbone area.  To avoid triggering a second SPF
+			 * run, take care of this here and now
+			 */
+			if (ospf6->backbone->thread_router_lsa) {
+				THREAD_OFF(ospf6->backbone->thread_router_lsa);
+				thread_execute(master,
+					       ospf6_router_lsa_originate,
+					       ospf6->backbone, 0);
+			}
+		}
+
 		monotime(&ospf6->backbone->ts_spf);
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
 			zlog_debug("SPF calculation for Backbone area %s",

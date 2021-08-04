@@ -21,8 +21,12 @@
 #ifndef OSPF_AREA_H
 #define OSPF_AREA_H
 
+#include "typesafe.h"
+
 #include "ospf6_top.h"
 #include "lib/json.h"
+
+PREDECL_RBTREE_UNIQ(ospf6_area_vlinks);
 
 struct ospf6_area {
 	/* Reference to Top data structure */
@@ -65,6 +69,9 @@ struct ospf6_area {
 
 	/* OSPF interface list */
 	struct list *if_list;
+
+	/* virtual links traversing this area */
+	struct ospf6_area_vlinks_head vlinks[1];
 
 	struct ospf6_lsdb *lsdb;
 	struct ospf6_lsdb *lsdb_self;
@@ -122,6 +129,9 @@ struct ospf6_area {
 	uint8_t NSSATranslatorState; /* NSSA operational role */
 #define OSPF6_NSSA_TRANSLATE_DISABLED 0
 #define OSPF6_NSSA_TRANSLATE_ENABLED  1
+
+	/* virtual links that are up & full (for setting V-bit) */
+	size_t virtual_link_full;
 };
 
 #define OSPF6_AREA_ENABLE     0x01

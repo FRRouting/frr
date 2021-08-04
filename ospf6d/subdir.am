@@ -34,6 +34,7 @@ ospf6d_libospf6_a_SOURCES = \
 	ospf6d/ospf6_route.c \
 	ospf6d/ospf6_spf.c \
 	ospf6d/ospf6_top.c \
+	ospf6d/ospf6_vlink.c \
 	ospf6d/ospf6_zebra.c \
 	ospf6d/ospf6d.c \
 	ospf6d/ospf6_auth_trailer.c \
@@ -59,6 +60,7 @@ noinst_HEADERS += \
 	ospf6d/ospf6_routemap_nb.h \
 	ospf6d/ospf6_spf.h \
 	ospf6d/ospf6_top.h \
+	ospf6d/ospf6_vlink.h \
 	ospf6d/ospf6_zebra.h \
 	ospf6d/ospf6d.h \
 	ospf6d/ospf6_auth_trailer.h \
@@ -85,6 +87,7 @@ clippy_scan += \
 	ospf6d/ospf6_nssa.c \
 	ospf6d/ospf6_route.c \
 	ospf6d/ospf6_neighbor.c \
+	ospf6d/ospf6_vlink.c \
 	# end
 
 nodist_ospf6d_ospf6d_SOURCES = \

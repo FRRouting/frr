@@ -64,8 +64,10 @@ DEFINE_HOOK(ospf6_interface_change,
 unsigned char conf_debug_ospf6_interface = 0;
 
 const char *const ospf6_interface_state_str[] = {
-	"None",		"Down",	   "Loopback", "Waiting", "PointToPoint",
-	"PtMultipoint", "DROther", "BDR",      "DR",	  NULL};
+	"None",		"Down",	       "Loopback", "Waiting", "PointToPoint",
+	"PtMultipoint", "VirtualLink", "DROther",  "BDR",     "DR",
+	NULL
+};
 
 printfrr_ext_autoreg_p("OI", printfrr_oi);
 static ssize_t printfrr_oi(struct fbuf *buf, struct printfrr_eargs *ea,
@@ -339,12 +341,19 @@ void ospf6_interface_basic_delete(struct ospf6_interface *oi)
 void ospf6_interface_enable(struct ospf6_interface *oi)
 {
 	UNSET_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE);
+
+	if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+		return;
+
 	ospf6_interface_state_update(oi->interface);
 }
 
 void ospf6_interface_disable(struct ospf6_interface *oi)
 {
 	SET_FLAG(oi->flag, OSPF6_INTERFACE_DISABLE);
+
+	if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+		return;
 
 	thread_execute(master, interface_down, oi, 0);
 
@@ -487,6 +496,9 @@ void ospf6_interface_connected_route_update(struct interface *ifp)
 
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
+		return;
+
+	if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
 		return;
 
 	/* reset linklocal pointer */
@@ -1221,12 +1233,15 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	if (use_json) {
 		json_object_string_add(json_obj, "dr", drouter);
 		json_object_string_add(json_obj, "bdr", bdrouter);
-		json_object_int_add(json_obj, "numberOfInterfaceScopedLsa",
-				    oi->lsdb->count);
+		if (oi->lsdb)
+			json_object_int_add(json_obj,
+					    "numberOfInterfaceScopedLsa",
+					    oi->lsdb->count);
 	} else {
 		vty_out(vty, "  DR: %s BDR: %s\n", drouter, bdrouter);
-		vty_out(vty, "  Number of I/F scoped LSAs is %u\n",
-			oi->lsdb->count);
+		if (oi->lsdb)
+			vty_out(vty, "  Number of I/F scoped LSAs is %u\n",
+				oi->lsdb->count);
 	}
 
 	monotime(&now);

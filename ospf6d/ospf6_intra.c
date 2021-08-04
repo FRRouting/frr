@@ -48,6 +48,7 @@
 #include "ospf6d.h"
 #include "ospf6_spf.h"
 #include "ospf6_gr.h"
+#include "ospf6_vlink.h"
 
 unsigned char conf_debug_ospf6_brouter = 0;
 uint32_t conf_debug_ospf6_brouter_specific_router_id;
@@ -201,7 +202,11 @@ static void ospf6_router_lsa_options_set(struct ospf6_area *oa,
 		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_NT);
 	}
 
-	UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_V);
+	if (oa->virtual_link_full)
+		SET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_V);
+	else
+		UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_V);
+
 	UNSET_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_W);
 }
 
@@ -337,15 +342,20 @@ void ospf6_router_lsa_originate(struct thread *thread)
 
 		/* Point-to-Point interfaces */
 		if (oi->type == OSPF_IFTYPE_POINTOPOINT
-		    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT) {
+		    || oi->type == OSPF_IFTYPE_POINTOMULTIPOINT
+		    || oi->type == OSPF_IFTYPE_VIRTUALLINK) {
 			for (ALL_LIST_ELEMENTS_RO(oi->neighbor_list, j, on)) {
 				if (on->state != OSPF6_NEIGHBOR_FULL)
 					continue;
 
-				lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
+				if (oi->type != OSPF_IFTYPE_VIRTUALLINK)
+					lsdesc->type = OSPF6_ROUTER_LSDESC_POINTTOPOINT;
+				else
+					lsdesc->type = OSPF6_ROUTER_LSDESC_VIRTUAL_LINK;
 				lsdesc->metric = htons(ospf6_neighbor_cost(on));
 				lsdesc->interface_id =
-					htonl(oi->interface->ifindex);
+					htonl(on->vlink ? on->vlink->v_ifindex
+						: oi->interface->ifindex);
 				lsdesc->neighbor_interface_id =
 					htonl(on->ifindex);
 				lsdesc->neighbor_router_id = on->router_id;
@@ -532,6 +542,7 @@ void ospf6_network_lsa_originate(struct thread *thread)
 	   disabled interface (but was once enabled) should be flushed
 	   by ospf6_lsa_refresh (), and does not come here. */
 	assert(oi->area);
+	assert(oi->type != OSPF_IFTYPE_VIRTUALLINK);
 
 	if (oi->area->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -776,6 +787,7 @@ void ospf6_link_lsa_originate(struct thread *thread)
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 
 	assert(oi->area);
+	assert(oi->type != OSPF_IFTYPE_VIRTUALLINK);
 
 	if (oi->area->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -996,6 +1008,57 @@ static int ospf6_intra_prefix_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 	return 0;
 }
 
+static struct ospf6_route *ospf6_intra_vlink_find_la(struct ospf6_area *oa)
+{
+	bool debug = IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX);
+	struct connected *c;
+	struct listnode *i, *j;
+	struct in6_addr result, nh_addr;
+	struct ospf6_interface *oi, *oi_best = NULL;
+	struct ospf6_route *route;
+
+	memset(&result, 0xff, sizeof(result));
+
+	for (ALL_LIST_ELEMENTS_RO(oa->if_list, i, oi)) {
+		for (ALL_LIST_ELEMENTS_RO(oi->interface->connected, j, c)) {
+			if (!ospf6_interface_addr_valid(oi, c, debug))
+				continue;
+
+			if (IPV6_ADDR_CMP(&c->address->u.prefix6, &result) >= 0)
+				continue;
+
+			result = c->address->u.prefix6;
+			oi_best = oi;
+		}
+	}
+
+	if (!oi_best) {
+		zlog_warn(
+			"area %pI4: %zu virtual links will not work, no viable global IPv6 address",
+			&oa->area_id, ospf6_vlink_area_vlcount(oa));
+		return NULL;
+	}
+
+	if (debug)
+		zlog_debug(
+			"area %pI4: %zu virtual links; adding %pI6 as local address to Intra-Prefix LSA",
+			&oa->area_id, ospf6_vlink_area_vlcount(oa), &result);
+
+	route = ospf6_route_create(oa->ospf6);
+	route->prefix.family = AF_INET6;
+	route->prefix.prefixlen = 128;
+	route->prefix.u.prefix6 = result;
+	route->prefix_options = OSPF6_PREFIX_OPTION_LA;
+	route->type = OSPF6_DEST_TYPE_NETWORK;
+	route->path.area_id = oa->area_id;
+	route->path.type = OSPF6_PATH_TYPE_INTRA;
+	route->path.cost = 0;
+	inet_pton(AF_INET6, "::1", &nh_addr);
+	ospf6_route_add_nexthop(route, oi_best->interface->ifindex, &nh_addr);
+
+	return route;
+}
+
 void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 {
 	struct ospf6_area *oa;
@@ -1014,6 +1077,7 @@ void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	unsigned short prefix_num = 0;
 	struct ospf6_route_table *route_advertise;
 	int ls_id = 0;
+	bool have_la = false;
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
 
@@ -1096,11 +1160,30 @@ void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 		/* connected prefix to advertise */
 		for (route = ospf6_route_head(oi->route_connected); route;
 		     route = ospf6_route_best_next(route)) {
+			const char *la_flag = "";
+
+			if (route->prefix_options & OSPF6_PREFIX_OPTION_LA) {
+				la_flag = " (LA)";
+				have_la = true;
+			}
 			if (IS_OSPF6_DEBUG_ORIGINATE(INTRA_PREFIX))
-				zlog_debug("    include %pFX", &route->prefix);
+				zlog_debug("    include %pFX%s",
+					   &route->prefix, la_flag);
 			ospf6_route_add(ospf6_route_copy(route),
 					route_advertise);
 		}
+	}
+
+	if (ospf6_vlink_area_vlcount(oa) && !have_la) {
+		/* if we're here, we have no loopback or ptp interfaces in
+		 * the area (those always create LA=1 prefixes).  So we need
+		 * to grab a local addr somewhere else.  Unfortunately,
+		 * oi->route_connected contains masked prefixes, no addrs...
+		 */
+
+		route = ospf6_intra_vlink_find_la(oa);
+		if (route)
+			ospf6_route_add(route, route_advertise);
 	}
 
 	if (route_advertise->count == 0) {
@@ -1255,6 +1338,7 @@ void ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 
 	assert(oi->area);
+	assert(oi->type != OSPF_IFTYPE_VIRTUALLINK);
 
 	if (oi->area->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -1881,6 +1965,8 @@ void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa)
 		}
 		prefix_num--;
 	}
+
+	ospf6_vlink_prefix_update(oa, lsa->header->adv_router);
 
 	if (current != end && IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 		zlog_debug("Trailing garbage ignored");

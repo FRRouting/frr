@@ -612,6 +612,9 @@ static void ospf6_maxage_remover(struct thread *thread)
 
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
+			/* virtual links have no LSDB */
+			if (!oi->lsdb)
+				continue;
 			if (ospf6_lsdb_maxage_remover(oi->lsdb)) {
 				reschedule = 1;
 			}
@@ -729,6 +732,9 @@ static void ospf6_db_clear(struct ospf6 *ospf6)
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		if (if_is_operative(ifp) && ifp->info != NULL) {
 			oi = (struct ospf6_interface *)ifp->info;
+			if (oi->type == OSPF_IFTYPE_VIRTUALLINK)
+				continue;
+
 			ospf6_lsdb_remove_all(oi->lsdb);
 			ospf6_lsdb_remove_all(oi->lsdb_self);
 			ospf6_lsdb_remove_all(oi->lsupdate_list);

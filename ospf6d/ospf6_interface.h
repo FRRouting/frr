@@ -200,10 +200,11 @@ DECLARE_QOBJ_TYPE(ospf6_interface);
 #define OSPF6_INTERFACE_WAITING            3
 #define OSPF6_INTERFACE_POINTTOPOINT       4
 #define OSPF6_INTERFACE_POINTTOMULTIPOINT  5
-#define OSPF6_INTERFACE_DROTHER            6
-#define OSPF6_INTERFACE_BDR                7
-#define OSPF6_INTERFACE_DR                 8
-#define OSPF6_INTERFACE_MAX                9
+#define OSPF6_INTERFACE_VIRTUALLINK        6
+#define OSPF6_INTERFACE_DROTHER            7
+#define OSPF6_INTERFACE_BDR                8
+#define OSPF6_INTERFACE_DR                 9
+#define OSPF6_INTERFACE_MAX                10
 
 extern const char *const ospf6_interface_state_str[];
 

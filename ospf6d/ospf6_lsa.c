@@ -929,6 +929,10 @@ void ospf6_flush_self_originated_lsas_now(struct ospf6 *ospf6)
 		}
 
 		for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
+			/* virtual links have no interface LSDBs */
+			if (!oi->lsdb_self)
+				continue;
+
 			end = ospf6_lsdb_head(oi->lsdb_self, 0, 0,
 					      ospf6->router_id, &lsa);
 			while (lsa) {
