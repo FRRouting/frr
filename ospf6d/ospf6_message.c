@@ -1798,6 +1798,11 @@ enum ospf6_read_return_enum {
 	OSPF6_READ_CONTINUE,
 };
 
+static int ospf6_rxpacket_process(struct in6_addr *src, struct in6_addr *dst,
+				  struct ospf6_interface *oi,
+				  struct ospf6_header *oh, int len,
+				  uint32_t at_len, uint32_t lls_len);
+
 static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 {
 	int len;
@@ -1875,7 +1880,14 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 
 	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK)
 		return OSPF6_READ_CONTINUE;
+	return ospf6_rxpacket_process(&src, &dst, oi, oh, len, at_len, lls_len);
+}
 
+static int ospf6_rxpacket_process(struct in6_addr *src, struct in6_addr *dst,
+				  struct ospf6_interface *oi,
+				  struct ospf6_header *oh, int len,
+				  uint32_t at_len, uint32_t lls_len)
+{
 	/* Being here means, that no sizing/alignment issues were detected in
 	   the input packet. This renders the additional checks performed below
 	   and also in the type-specific dispatching functions a dead code,
@@ -1885,8 +1897,8 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR)) {
 		zlog_debug("%s received on %pOI", ospf6_message_type(oh->type),
 			   oi);
-		zlog_debug("    src: %pI6", &src);
-		zlog_debug("    dst: %pI6", &dst);
+		zlog_debug("    src: %pI6", src);
+		zlog_debug("    dst: %pI6", dst);
 
 		switch (oh->type) {
 		case OSPF6_MESSAGE_TYPE_HELLO:
@@ -1915,23 +1927,23 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 
 	switch (oh->type) {
 	case OSPF6_MESSAGE_TYPE_HELLO:
-		ospf6_hello_recv(&src, &dst, oi, oh);
+		ospf6_hello_recv(src, dst, oi, oh);
 		break;
 
 	case OSPF6_MESSAGE_TYPE_DBDESC:
-		ospf6_dbdesc_recv(&src, &dst, oi, oh);
+		ospf6_dbdesc_recv(src, dst, oi, oh);
 		break;
 
 	case OSPF6_MESSAGE_TYPE_LSREQ:
-		ospf6_lsreq_recv(&src, &dst, oi, oh);
+		ospf6_lsreq_recv(src, dst, oi, oh);
 		break;
 
 	case OSPF6_MESSAGE_TYPE_LSUPDATE:
-		ospf6_lsupdate_recv(&src, &dst, oi, oh);
+		ospf6_lsupdate_recv(src, dst, oi, oh);
 		break;
 
 	case OSPF6_MESSAGE_TYPE_LSACK:
-		ospf6_lsack_recv(&src, &dst, oi, oh);
+		ospf6_lsack_recv(src, dst, oi, oh);
 		break;
 
 	default:
