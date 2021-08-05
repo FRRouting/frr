@@ -917,13 +917,13 @@ extern bool nb_candidate_needs_update(const struct nb_config *candidate);
  */
 extern int nb_candidate_update(struct nb_config *candidate);
 
-extern void nb_apply_config_changes(struct nb_config *candidate_config,
-					struct nb_cfg_change cfg_changes[],
-					size_t num_cfg_changes,
-					const char *xpath_base,
-					const char *curr_xpath,
-					int xpath_index, char *err_buf,
-					int err_bufsize, bool *error);
+extern void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
+					     struct nb_cfg_change cfg_changes[],
+					     size_t num_cfg_changes,
+					     const char *xpath_base,
+					     const char *curr_xpath,
+					     int xpath_index, char *err_buf,
+					     int err_bufsize, bool *error);
 
 extern void nb_config_diff_del_changes(struct nb_config_cbs *changes);
 

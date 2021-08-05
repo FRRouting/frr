@@ -387,12 +387,6 @@ static void cmgd_trxn_cleanup_bcknd_cfg_batches(cmgd_trxn_ctxt_t *trxn,
 	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
 	struct cmgd_trxn_batch_list_head *list;
 
-	/*
-	 * FIXME: The following is causing a crash now. Hence 
-	 * avoiding it. But need to fix it soon.
-	 */
-	// if (true) return;
-
 	list = &trxn->commit_cfg_req->req.commit_cfg.curr_batches[id];
 	FOREACH_TRXN_CFG_BATCH_IN_LIST(list, cfg_btch) {
 		/* TODO: Maybe need to cleanup some state on backend */
@@ -603,7 +597,7 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 		}
 
 		error = false;
-		nb_apply_config_changes(nb_config,
+		nb_candidate_edit_config_changes(nb_config,
 			trxn_req->req.set_cfg->cfg_changes,
 			(size_t) trxn_req->req.set_cfg->num_cfg_changes,
 			NULL, NULL, 0, err_buf, sizeof(err_buf), &error);
@@ -866,11 +860,9 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 
 		value = (char *) lyd_get_value(chg->cb.dnode);
 		if (!value) {
-			// (void) cmgd_trxn_send_commit_cfg_reply(trxn_req->trxn, false,
-			// 		"Internal error! Could not get value from Db node!");
-			// goto cmgd_trxn_create_config_batches_failed;
-			free(xpath);
-			continue;
+			// free(xpath);
+			// continue;
+			value = (char *)CMGD_BCKND_CONTAINER_NODE_VAL;
 		}
 
 		CMGD_TRXN_DBG("XPATH: %s, Value: '%s'", xpath, value ? value : "NIL");

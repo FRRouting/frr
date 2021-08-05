@@ -52,6 +52,9 @@ extern "C" {
 #define CMGD_BCKND_CLIENT_BGPD			"bgpd"
 #define CMGD_BCKND_CLIENT_STATICD		"staticd"
 
+
+#define CMGD_BCKND_CONTAINER_NODE_VAL		"<<container>>"
+
 /***************************************************************
  * Data-structures
  ***************************************************************/
