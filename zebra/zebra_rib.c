@@ -3274,55 +3274,6 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 }
 
 /*
- * This is an exported helper to rtm_read() to dump the strange
- * RE entry found by rib_lookup_ipv4_route()
- */
-void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct route_entry *re;
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-
-	/* Lookup table.  */
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table) {
-		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
-			 "%s:%s(%u) zebra_vrf_table() returned NULL", __func__,
-			 VRF_LOGNAME(vrf), vrf_id);
-		return;
-	}
-
-	/* Scan the RIB table for exactly matching RE entry. */
-	rn = route_node_lookup(table, (struct prefix *)p);
-
-	/* No route for this prefix. */
-	if (!rn) {
-		zlog_debug("%s:%s(%u) lookup failed for %pFX", __func__,
-			   VRF_LOGNAME(vrf), vrf_id, (struct prefix *)p);
-		return;
-	}
-
-	/* Unlock node. */
-	route_unlock_node(rn);
-
-	/* let's go */
-	RNODE_FOREACH_RE (rn, re) {
-		zlog_debug("%s:%s(%u) rn %p, re %p: %s, %s", __func__,
-			   VRF_LOGNAME(vrf), vrf_id, (void *)rn, (void *)re,
-			   (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
-				    ? "removed"
-				    : "NOT removed"),
-			   (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
-				    ? "selected"
-				    : "NOT selected"));
-		route_entry_dump(p, NULL, re);
-	}
-}
-
-/*
  * Internal route-add implementation; there are a couple of different public
  * signatures. Callers in this path are responsible for the memory they
  * allocate: if they allocate a nexthop_group or backup nexthop info, they
