@@ -372,7 +372,6 @@ extern void _route_entry_dump(const char *func, union prefixconstptr pp,
 			      const struct route_entry *re);
 
 extern void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id);
-extern void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id);
 
 #define ZEBRA_RIB_LOOKUP_ERROR -1
 #define ZEBRA_RIB_FOUND_EXACT 0
