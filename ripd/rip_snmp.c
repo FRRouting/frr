@@ -166,7 +166,7 @@ static uint8_t *rip2Globals(struct variable *v, oid name[], size_t *length,
 	if (!rip)
 		return NULL;
 
-	/* Retrun global counter. */
+	/* Return global counter. */
 	switch (v->magic) {
 	case RIP2GLOBALROUTECHANGES:
 		return SNMP_INTEGER(rip->counters.route_changes);

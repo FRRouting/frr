@@ -544,7 +544,7 @@ struct community *community_dup(struct community *com)
 	return new;
 }
 
-/* Retrun string representation of communities attribute. */
+/* Return string representation of communities attribute. */
 char *community_str(struct community *com, bool make_json)
 {
 	if (!com)
@@ -594,8 +594,6 @@ bool community_match(const struct community *com1, const struct community *com2)
 		return false;
 }
 
-/* If two aspath have same value then return 1 else return 0. This
-   function is used by hash package. */
 bool community_cmp(const struct community *com1, const struct community *com2)
 {
 	if (com1 == NULL && com2 == NULL)

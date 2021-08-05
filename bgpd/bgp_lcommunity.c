@@ -287,7 +287,7 @@ void lcommunity_unintern(struct lcommunity **lcom)
 	}
 }
 
-/* Retrun string representation of communities attribute. */
+/* Return string representation of lcommunities attribute. */
 char *lcommunity_str(struct lcommunity *lcom, bool make_json)
 {
 	if (!lcom)
