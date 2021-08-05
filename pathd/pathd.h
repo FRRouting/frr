@@ -34,6 +34,8 @@
 
 DECLARE_MGROUP(PATHD);
 
+DECLARE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
+
 enum srte_protocol_origin {
 	SRTE_ORIGIN_UNDEFINED = 0,
 	SRTE_ORIGIN_PCEP = 1,

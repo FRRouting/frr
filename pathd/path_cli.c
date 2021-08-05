@@ -45,9 +45,6 @@
 
 
 static int config_write_segment_routing(struct vty *vty);
-static int config_write_traffic_eng(struct vty *vty);
-static int config_write_segment_lists(struct vty *vty);
-static int config_write_sr_policies(struct vty *vty);
 static int segment_list_has_src_dst(
 	struct vty *vty, char *xpath, long index, const char *index_str,
 	struct in_addr adj_src_ipv4, struct in_addr adj_dst_ipv4,
@@ -63,6 +60,8 @@ static int segment_list_has_prefix(
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
+DEFINE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
+
 /* Vty node structures. */
 static struct cmd_node segment_routing_node = {
 	.name = "segment-routing",
@@ -77,7 +76,6 @@ static struct cmd_node sr_traffic_eng_node = {
 	.node = SR_TRAFFIC_ENG_NODE,
 	.parent_node = SEGMENT_ROUTING_NODE,
 	.prompt = "%s(config-sr-te)# ",
-	.config_write = config_write_traffic_eng,
 };
 
 static struct cmd_node srte_segment_list_node = {
@@ -85,7 +83,6 @@ static struct cmd_node srte_segment_list_node = {
 	.node = SR_SEGMENT_LIST_NODE,
 	.parent_node = SR_TRAFFIC_ENG_NODE,
 	.prompt = "%s(config-sr-te-segment-list)# ",
-	.config_write = config_write_segment_lists,
 };
 
 static struct cmd_node srte_policy_node = {
@@ -93,7 +90,6 @@ static struct cmd_node srte_policy_node = {
 	.node = SR_POLICY_NODE,
 	.parent_node = SR_TRAFFIC_ENG_NODE,
 	.prompt = "%s(config-sr-te-policy)# ",
-	.config_write = config_write_sr_policies,
 };
 
 static struct cmd_node srte_candidate_dyn_node = {
@@ -1249,28 +1245,16 @@ static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 int config_write_segment_routing(struct vty *vty)
 {
 	vty_out(vty, "segment-routing\n");
-	return 1;
-}
-
-int config_write_traffic_eng(struct vty *vty)
-{
 	vty_out(vty, " traffic-eng\n");
-	path_ted_config_write(vty);
-	return 1;
-}
 
-int config_write_segment_lists(struct vty *vty)
-{
+	path_ted_config_write(vty);
+
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/segment-list");
-
-	return 1;
-}
-
-int config_write_sr_policies(struct vty *vty)
-{
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/policy");
+
+	hook_call(pathd_srte_config_write, vty);
 
 	return 1;
 }
