@@ -516,16 +516,16 @@ uint32_t path_ted_config_write(struct vty *vty)
 {
 
 	if (ted_state_g.enabled) {
-		vty_out(vty, " mpls-te on\n");
+		vty_out(vty, "  mpls-te on\n");
 		switch (ted_state_g.import) {
 		case IMPORT_ISIS:
-			vty_out(vty, " mpls-te import isis\n");
+			vty_out(vty, "  mpls-te import isis\n");
 			break;
 		case IMPORT_OSPFv2:
-			vty_out(vty, " mpls-te import ospfv2\n");
+			vty_out(vty, "  mpls-te import ospfv2\n");
 			break;
 		case IMPORT_OSPFv3:
-			vty_out(vty, " mpls-te import ospfv3\n");
+			vty_out(vty, "  mpls-te import ospfv3\n");
 			break;
 		default:
 			break;
