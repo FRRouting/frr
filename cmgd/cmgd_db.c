@@ -190,9 +190,9 @@ int cmgd_db_merge_dbs(
 	/* Not using nb_config_replace as the oper db does not contain nb_config */
 	dst_dnode = yang_dnode_dup(src_dnode);
 	if (dst->config_db)
-		dst->root.cfg_root->dnode = src_dnode;
+		dst->root.cfg_root->dnode = dst_dnode;
 	else
-		dst->root.dnode_root = src_dnode;
+		dst->root.dnode_root = dst_dnode;
 
 	// TODO: Update the versions if nb_config present
 
