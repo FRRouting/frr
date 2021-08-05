@@ -70,10 +70,8 @@ DECLARE_LIST(cmgd_frntnd_sessn_list, cmgd_frntnd_sessn_ctxt_t, list_linkage);
 	for ((sessn) = cmgd_frntnd_sessn_list_first(&(adptr)->frntnd_sessns); (sessn);	\
 		(sessn) = cmgd_frntnd_sessn_list_next(&(adptr)->frntnd_sessns, (sessn)))
 
-#define FOREACH_SESSN_IN_LIST_SAFE(adptr, sessn, next)					\
-	for ((sessn) = cmgd_frntnd_sessn_list_first(&(adptr)->frntnd_sessns),		\
-		(next) = cmgd_frntnd_sessn_list_next(&(adptr)->frntnd_sessns, (sessn));	\
-		(sessn); (sessn) = (next))
+#define FOREACH_SESSN_IN_LIST_SAFE(adptr, sessn)					\
+	frr_each_safe(cmgd_frntnd_sessn_list, &(adptr)->frntnd_sessns, (sessn))
 
 static struct thread_master *cmgd_frntnd_adptr_tm = NULL;
 static struct cmgd_master *cmgd_frntnd_adptr_cm = NULL;
@@ -218,7 +216,7 @@ static void cmgd_frntnd_cleanup_sessions(cmgd_frntnd_client_adapter_t *adptr)
 {
 	cmgd_frntnd_sessn_ctxt_t *sessn;
 
-	frr_each_safe(cmgd_frntnd_sessn_list, &adptr->frntnd_sessns, sessn) {
+	FOREACH_SESSN_IN_LIST_SAFE(adptr, sessn) {
 		cmgd_frntnd_cleanup_session(&sessn);
 	}
 }

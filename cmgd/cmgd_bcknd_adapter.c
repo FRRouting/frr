@@ -204,7 +204,7 @@ static int cmgd_bcknd_eval_regexp_match(
 	if (!rexp_len || !xpath_len)
 		return 0;
 
-	CMGD_BCKND_ADPTR_DBG(" REGEXP: '%s'", xpath_regexp);
+	// CMGD_BCKND_ADPTR_DBG(" REGEXP: '%s'", xpath_regexp);
 
 	for (re_indx = 0, xp_indx = 0;
 	     match && re_indx < rexp_len && xp_indx < xpath_len; ) {
@@ -243,8 +243,8 @@ static int cmgd_bcknd_eval_regexp_match(
 			incr_xp = true;
 		}
 
-		CMGD_BCKND_ADPTR_DBG("K:%d, RI:%d, RX:%d, RW:%d, XW:%d, M:%d, IR: %d, IX:%d",
-			key, re_indx, xp_indx, re_wild, xp_wild, match, incr_re, incr_xp);
+		// CMGD_BCKND_ADPTR_DBG("K:%d, RI:%d, RX:%d, RW:%d, XW:%d, M:%d, IR: %d, IX:%d",
+		// 	key, re_indx, xp_indx, re_wild, xp_wild, match, incr_re, incr_xp);
 
 		if (incr_re)
 			re_indx++;
@@ -256,8 +256,8 @@ static int cmgd_bcknd_eval_regexp_match(
 		match_len++;
 	}
 
-	CMGD_BCKND_ADPTR_DBG(" - REGEXP: %s, Match: %d",
-		xpath_regexp, match_len);
+	// CMGD_BCKND_ADPTR_DBG(" - REGEXP: %s, Match: %d",
+	// 	xpath_regexp, match_len);
 	return match_len;
 }
 
@@ -301,6 +301,7 @@ static void cmgd_bcknd_adapter_cleanup_old_conn(
 static int cmgd_bcknd_adapter_handle_msg(
 	cmgd_bcknd_client_adapter_t *adptr, Cmgd__BckndMessage *bcknd_msg)
 {
+
 	switch(bcknd_msg->type) {
 	case CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REQ);
@@ -324,11 +325,207 @@ static int cmgd_bcknd_adapter_handle_msg(
 			cmgd_bcknd_adapter_cleanup_old_conn(adptr);
 		}
 		break;
+	case CMGD__BCKND_MESSAGE__TYPE__TRXN_REPLY:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_TRXN_REPLY);
+		CMGD_BCKND_ADPTR_DBG(
+			"Got %s TRXN_REPLY Msg for Trxn-Id 0x%llx from '%s' with '%s'", 
+			bcknd_msg->trxn_reply->create ? "Create" : "Delete", 
+			bcknd_msg->trxn_reply->trxn_id, adptr->name,
+			bcknd_msg->trxn_reply->success ? "success" : "failure");
+		cmgd_trxn_notify_bcknd_trxn_reply(bcknd_msg->trxn_reply->trxn_id,
+			bcknd_msg->trxn_reply->create,
+			bcknd_msg->trxn_reply->success, adptr);
+		break;
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_FAIL:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_FAIL);
+		CMGD_BCKND_ADPTR_DBG(
+			"Got CFGDATA_FAIL Msg from '%s' for Trxn-Id 0x%llx Batch-Id 0x%llx with Err:'%s'", 
+			adptr->name, bcknd_msg->cfg_data_fail->trxn_id,
+			bcknd_msg->cfg_data_fail->batch_id,
+			bcknd_msg->cfg_data_fail->error_if_any ?
+				bcknd_msg->cfg_data_fail->error_if_any : "None");
+		cmgd_trxn_notify_bcknd_cfgdata_fail(bcknd_msg->cfg_data_fail->trxn_id,
+			bcknd_msg->cfg_data_fail->batch_id,
+			bcknd_msg->cfg_data_fail->error_if_any, adptr);
+		break;
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REPLY:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REPLY);
+		CMGD_BCKND_ADPTR_DBG(
+			"Got %s CFG_VALIDATE_REPLY Msg from '%s' for Trxn-Id 0x%llx for %d batches (Id 0x%llx-0x%llx),  Err:'%s'", 
+			bcknd_msg->cfg_validate_reply->success ?
+				"successful" : "failed",
+			adptr->name, bcknd_msg->cfg_validate_reply->trxn_id,
+			(int) bcknd_msg->cfg_validate_reply->n_batch_ids,
+			bcknd_msg->cfg_validate_reply->batch_ids[0],
+			bcknd_msg->cfg_validate_reply->batch_ids
+				[bcknd_msg->cfg_validate_reply->n_batch_ids-1],
+			bcknd_msg->cfg_validate_reply->error_if_any ?
+				bcknd_msg->cfg_validate_reply->error_if_any : "None");
+		cmgd_trxn_notify_bcknd_cfg_validate_reply(bcknd_msg->cfg_validate_reply->trxn_id,
+			bcknd_msg->cfg_validate_reply->success,
+			(cmgd_trxn_batch_id_t *) bcknd_msg->
+				cfg_validate_reply->batch_ids,
+			bcknd_msg->cfg_validate_reply->n_batch_ids,
+			bcknd_msg->cfg_validate_reply->error_if_any, adptr);
+		break;
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_APPLY_REPLY:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_APPLY_REPLY);
+		CMGD_BCKND_ADPTR_DBG(
+			"Got %s CFG_APPLY_REPLY Msg from '%s' for Trxn-Id 0x%llx for %d batches (Id 0x%llx-0x%llx),  Err:'%s'", 
+			bcknd_msg->cfg_apply_reply->success ?
+				"successful" : "failed",
+			adptr->name, bcknd_msg->cfg_apply_reply->trxn_id,
+			(int) bcknd_msg->cfg_apply_reply->n_batch_ids,
+			bcknd_msg->cfg_apply_reply->batch_ids[0],
+			bcknd_msg->cfg_apply_reply->batch_ids
+				[bcknd_msg->cfg_apply_reply->n_batch_ids-1],
+			bcknd_msg->cfg_apply_reply->error_if_any ?
+				bcknd_msg->cfg_apply_reply->error_if_any : "None");
+		cmgd_trxn_notify_bcknd_cfg_apply_reply(bcknd_msg->cfg_apply_reply->trxn_id,
+			bcknd_msg->cfg_apply_reply->success,
+			(cmgd_trxn_batch_id_t *) bcknd_msg->
+				cfg_apply_reply->batch_ids,
+			bcknd_msg->cfg_apply_reply->n_batch_ids,
+			bcknd_msg->cfg_apply_reply->error_if_any, adptr);
+		break;
 	default:
 		break;
 	}
 
 	return 0;
+}
+
+static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr, 
+	Cmgd__BckndMessage *bcknd_msg)
+{
+	int bytes_written;
+	size_t msg_size;
+	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
+	cmgd_bcknd_msg_t *msg;
+
+	if (adptr->conn_fd == 0)
+		return -1;
+
+	msg_size = cmgd__bcknd_message__get_packed_size(bcknd_msg);
+	msg_size += CMGD_BCKND_MSG_HDR_LEN;
+	if (msg_size > sizeof(msg_buf)) {
+		CMGD_BCKND_ADPTR_ERR(
+			"Message size %d more than max size'%d. Not sending!'", 
+			(int) msg_size, (int)sizeof(msg_buf));
+		return -1;
+	}
+	
+	msg = (cmgd_bcknd_msg_t *)msg_buf;
+	msg->hdr.marker = CMGD_BCKND_MSG_MARKER;
+	msg->hdr.len = (uint16_t) msg_size;
+	cmgd__bcknd_message__pack(bcknd_msg, msg->payload);
+
+	bytes_written = write(adptr->conn_fd, (void *)msg_buf, msg_size);
+	if (bytes_written != (int) msg_size) {
+		CMGD_BCKND_ADPTR_ERR(
+			"Could not write all %d bytes (wrote: %d) to CMGD Backend client '%s'. Err: '%s'", 
+			(int) msg_size, bytes_written, adptr->name, safe_strerror(errno));
+		cmgd_bcknd_adapter_disconnect(adptr);
+		return -1;
+	}
+
+	CMGD_BCKND_ADPTR_DBG(
+		"Wrote %d bytes of message to CMGD Backend client '%s'.'", 
+		bytes_written, adptr->name);
+	return 0;
+}
+
+static int cmgd_bcknd_send_trxn_req(cmgd_bcknd_client_adapter_t *adptr,
+	cmgd_trxn_id_t trxn_id, bool create)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndTrxnReq trxn_req;
+
+	cmgd__bcknd_trxn_req__init(&trxn_req);
+	trxn_req.create = create;
+	trxn_req.trxn_id = trxn_id;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__TRXN_REQ;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_TRXN_REQ;
+	bcknd_msg.trxn_req = &trxn_req;
+
+	CMGD_BCKND_ADPTR_DBG("Sending TRXN_REQ message to Backend client '%s' for Trxn-Id %lx",
+		adptr->name, trxn_id);
+
+	return cmgd_bcknd_adapter_send_msg(adptr, &bcknd_msg);
+}
+
+static int cmgd_bcknd_send_cfgdata_create_req(cmgd_bcknd_client_adapter_t *adptr,
+	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id,
+	cmgd_yang_cfgdata_req_t **cfgdata_reqs, size_t num_reqs)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndCfgDataCreateReq cfgdata_req;
+
+	cmgd__bcknd_cfg_data_create_req__init(&cfgdata_req);
+	cfgdata_req.batch_id = batch_id;
+	cfgdata_req.trxn_id = trxn_id;
+	cfgdata_req.data_req = cfgdata_reqs;
+	cfgdata_req.n_data_req = num_reqs;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_REQ;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_REQ;
+	bcknd_msg.cfg_data_req = &cfgdata_req;
+
+	CMGD_BCKND_ADPTR_DBG("Sending CFGDATA_CREATE_REQ message to Backend client '%s' for Trxn-Id %lx, Batch-Id: %lx",
+		adptr->name, trxn_id, batch_id);
+
+	return cmgd_bcknd_adapter_send_msg(adptr, &bcknd_msg);
+}
+
+static int cmgd_bcknd_send_cfgvalidate_req(cmgd_bcknd_client_adapter_t *adptr,
+	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_ids[],
+	size_t num_batch_ids)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndCfgDataValidateReq vldt_req;
+
+	cmgd__bcknd_cfg_data_validate_req__init(&vldt_req);
+	vldt_req.trxn_id = trxn_id;
+	vldt_req.batch_ids = (uint64_t *)batch_ids;
+	vldt_req.n_batch_ids = num_batch_ids;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REQ;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REQ;
+	bcknd_msg.cfg_validate_req = &vldt_req;
+
+	CMGD_BCKND_ADPTR_DBG("Sending CFG_VALIDATE_REQ message to Backend client '%s' for Trxn-Id %lx, #Batches: %d [0x%lx - 0x%lx]",
+		adptr->name, trxn_id, (int) num_batch_ids, batch_ids[0],
+		batch_ids[num_batch_ids-1]);
+
+	return cmgd_bcknd_adapter_send_msg(adptr, &bcknd_msg);
+}
+
+static int cmgd_bcknd_send_cfgapply_req(cmgd_bcknd_client_adapter_t *adptr,
+	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_ids[],
+	size_t num_batch_ids)
+{
+	Cmgd__BckndMessage bcknd_msg;
+	Cmgd__BckndCfgDataApplyReq apply_req;
+
+	cmgd__bcknd_cfg_data_apply_req__init(&apply_req);
+	apply_req.trxn_id = trxn_id;
+	apply_req.batch_ids = (uint64_t *)batch_ids;
+	apply_req.n_batch_ids = num_batch_ids;
+
+	cmgd__bcknd_message__init(&bcknd_msg);
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_APPLY_REQ;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_APPLY_REQ;
+	bcknd_msg.cfg_apply_req = &apply_req;
+
+	CMGD_BCKND_ADPTR_DBG("Sending CFG_APPLY_REQ message to Backend client '%s' for Trxn-Id %lx, #Batches: %d [0x%lx - 0x%lx]",
+		adptr->name, trxn_id, (int) num_batch_ids, batch_ids[0],
+		batch_ids[num_batch_ids-1]);
+
+	return cmgd_bcknd_adapter_send_msg(adptr, &bcknd_msg);
 }
 
 static uint16_t cmgd_bcknd_adapter_process_msg(
@@ -623,20 +820,35 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_name(const char *name)
 int cmgd_bcknd_create_trxn(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id)
 {
-	return 0;
+	return cmgd_bcknd_send_trxn_req(adptr, trxn_id, true);
 }
 
 int cmgd_bcknd_destroy_trxn(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id)
 {
-	return 0;
+	return cmgd_bcknd_send_trxn_req(adptr, trxn_id, false);
 }
 
-int cmgd_bcknd_send_cfg_req(
+int cmgd_bcknd_send_cfg_data_create_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
         cmgd_trxn_batch_id_t batch_id, cmgd_bcknd_cfgreq_t *cfg_req)
 {
-	return 0;
+	return cmgd_bcknd_send_cfgdata_create_req(adptr, trxn_id, batch_id,
+			cfg_req->cfgdata_reqs, cfg_req->num_reqs);
+}
+
+extern int cmgd_bcknd_send_cfg_validate_req(
+        cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
+        cmgd_trxn_batch_id_t batch_ids[], size_t num_batch_ids)
+{
+	return cmgd_bcknd_send_cfgvalidate_req(adptr, trxn_id, batch_ids, num_batch_ids);
+}
+
+extern int cmgd_bcknd_send_cfg_apply_req(
+        cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
+        cmgd_trxn_batch_id_t batch_ids[], size_t num_batch_ids)
+{
+	return cmgd_bcknd_send_cfgapply_req(adptr, trxn_id, batch_ids, num_batch_ids);
 }
 
 int cmgd_bcknd_send_get_data_req(

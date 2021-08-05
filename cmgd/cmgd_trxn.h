@@ -34,6 +34,9 @@
 #define CMGD_TRXN_MAX_NUM_GETCFG_PROC           128
 #define CMGD_TRXN_MAX_NUM_GETDATA_PROC          128
 
+#define CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC   500
+#define CMGD_TRXN_CFG_COMMIT_DELAY_MSEC         10000   /* 10 seconds */
+
 PREDECL_LIST(cmgd_trxn_list);
 
 struct cmgd_master;
@@ -104,6 +107,24 @@ extern int cmgd_trxn_send_get_data_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
         cmgd_yang_getdata_req_t **data_req, size_t num_reqs);
+
+extern int cmgd_trxn_notify_bcknd_trxn_reply(
+	cmgd_trxn_id_t trxn_id, bool create, bool success,
+	cmgd_bcknd_client_adapter_t *adptr);
+
+extern int cmgd_trxn_notify_bcknd_cfgdata_fail(
+	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id,
+	char *error_if_any, cmgd_bcknd_client_adapter_t *adptr);
+
+extern int cmgd_trxn_notify_bcknd_cfg_validate_reply(
+	cmgd_trxn_id_t trxn_id, bool success, cmgd_trxn_batch_id_t batch_ids[],
+	size_t num_batch_ids, char *error_if_any,
+        cmgd_bcknd_client_adapter_t *adptr);
+
+extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
+	cmgd_trxn_id_t trxn_id, bool success, cmgd_trxn_batch_id_t batch_ids[],
+	size_t num_batch_ids, char *error_if_any,
+        cmgd_bcknd_client_adapter_t *adptr);
 
 extern void cmgd_trxn_status_write(struct vty *vty);
 

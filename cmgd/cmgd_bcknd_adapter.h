@@ -40,6 +40,8 @@ typedef enum cmgd_bcknd_req_type_ {
         CMGD_BCKND_REQ_DATA_GET_NEXT
 } cmgd_bcknd_req_type_t;
 
+#if 0
+
 typedef struct cmgd_bcknd_cfgreq_ {
         cmgd_bcknd_req_type_t req_type;
         struct nb_yang_xpath_elem elems[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
@@ -58,6 +60,22 @@ typedef struct cmgd_bcknd_dataresults_ {
         int num_elems;
         int next_data_indx;
 } cmgd_bcknd_dataresults_t;
+#else
+typedef struct cmgd_bcknd_cfgreq_ {
+        cmgd_yang_cfgdata_req_t **cfgdata_reqs;
+        size_t num_reqs;
+} cmgd_bcknd_cfgreq_t;
+
+typedef struct cmgd_bcknd_datareq_ {
+        cmgd_yang_getdata_req_t **getdata_reqs;
+        size_t num_reqs;
+} cmgd_bcknd_datareq_t;
+
+typedef struct cmgd_bcknd_dataresults_ {
+        cmgd_yang_data_reply_t **data_replies;
+        size_t num_replies;
+} cmgd_bcknd_dataresults_t;
+#endif
 
 typedef void (*cmgd_bcknd_trxn_result_notify_t)(
         cmgd_trxn_id_t trxn_id, cmgd_result_t result);
@@ -149,9 +167,17 @@ extern int cmgd_bcknd_create_trxn(
 extern int cmgd_bcknd_destroy_trxn(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id);
 
-extern int cmgd_bcknd_send_cfg_req(
+extern int cmgd_bcknd_send_cfg_data_create_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
         cmgd_trxn_batch_id_t batch_id, cmgd_bcknd_cfgreq_t *cfg_req);
+
+extern int cmgd_bcknd_send_cfg_validate_req(
+        cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
+        cmgd_trxn_batch_id_t batch_ids[], size_t num_batch_ids);
+
+extern int cmgd_bcknd_send_cfg_apply_req(
+        cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
+        cmgd_trxn_batch_id_t batch_ids[], size_t num_batch_ids);
 
 extern int cmgd_bcknd_send_get_data_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,

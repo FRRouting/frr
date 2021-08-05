@@ -418,7 +418,7 @@ static void nb_config_diff_add_change(struct nb_config_cbs *changes,
 	RB_INSERT(nb_config_cbs, changes, &change->cb);
 }
 
-static void nb_config_diff_del_changes(struct nb_config_cbs *changes)
+void nb_config_diff_del_changes(struct nb_config_cbs *changes)
 {
 	while (!RB_EMPTY(nb_config_cbs, changes)) {
 		struct nb_config_change *change;
@@ -823,6 +823,21 @@ static int nb_candidate_validate_code(struct nb_context *context,
 	return NB_OK;
 }
 
+int nb_candidate_diff_and_validate_yang(struct nb_context *context,
+				        struct nb_config *candidate,
+				        struct nb_config_cbs *changes, char *errmsg,
+				        size_t errmsg_len)
+{
+	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
+	    != NB_OK)
+		return NB_ERR_VALIDATION;
+
+	RB_INIT(nb_config_cbs, changes);
+	nb_config_diff(running_config, candidate, changes);
+
+	return NB_OK;
+}
+
 int nb_candidate_validate(struct nb_context *context,
 			  struct nb_config *candidate, char *errmsg,
 			  size_t errmsg_len)
@@ -830,12 +845,11 @@ int nb_candidate_validate(struct nb_context *context,
 	struct nb_config_cbs changes;
 	int ret;
 
-	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
-	    != NB_OK)
-		return NB_ERR_VALIDATION;
+	ret = nb_candidate_diff_and_validate_yang(context, candidate, &changes,
+			                          errmsg, errmsg_len);
+	if (ret != NB_OK)
+		return ret;
 
-	RB_INIT(nb_config_cbs, &changes);
-	nb_config_diff(running_config, candidate, &changes);
 	ret = nb_candidate_validate_code(context, candidate, &changes, errmsg,
 					 errmsg_len);
 	nb_config_diff_del_changes(&changes);

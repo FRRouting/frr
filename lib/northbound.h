@@ -663,6 +663,8 @@ enum nb_client {
 	NB_CLIENT_SYSREPO,
 	NB_CLIENT_GRPC,
 	NB_CLIENT_PCEP,
+	NB_CLIENT_CMGD_SERVER,
+	NB_CLIENT_CMGD_BCKND,
 };
 
 /* Northbound context. */
@@ -922,6 +924,13 @@ extern void nb_apply_config_changes(struct nb_config *candidate_config,
 					const char *curr_xpath,
 					int xpath_index, char *err_buf,
 					int err_bufsize, bool *error);
+
+extern void nb_config_diff_del_changes(struct nb_config_cbs *changes);
+
+extern int nb_candidate_diff_and_validate_yang(struct nb_context *context,
+				               struct nb_config *candidate,
+				               struct nb_config_cbs *changes, char *errmsg,
+				               size_t errmsg_len);
 
 /*
  * Validate a candidate configuration. Perform both YANG syntactic/semantic

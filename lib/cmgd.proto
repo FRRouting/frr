@@ -119,31 +119,32 @@ message BckndCfgDataCreateFail {
 
 message BckndCfgDataValidateReq {
   required uint64 trxn_id = 1;
-  required uint64 batch_id = 2;
+  repeated uint64 batch_ids = 2;
 }
 
 message BckndCfgDataValidateReply {
   required uint64 trxn_id = 1;
-  required uint64 batch_id = 2;
+  repeated uint64 batch_ids = 2;
   required bool success = 3;
   optional string error_if_any = 4;
 }
 
 message BckndCfgDataApplyReq {
   required uint64 trxn_id = 1;
-  required uint64 batch_id = 2;
+  repeated uint64 batch_ids = 2;
 }
 
 message BckndCfgDataApplyReply {
   required uint64 trxn_id = 1;
-  required uint64 batch_id = 2;
-  // required bool success = 3;
-  // optional string error = 4;
+  repeated uint64 batch_ids = 2;
+  required bool success = 3;
+  optional string error_if_any = 4;
 }
 
 message BckndOperDataGetReq {
   required uint64 trxn_id = 1;
-  repeated YangGetDataReq data = 2;
+  required uint64 batch_id = 2;
+  repeated YangGetDataReq data = 3;
 }
 
 message YangDataReply {
