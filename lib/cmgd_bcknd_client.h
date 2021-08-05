@@ -43,7 +43,7 @@ extern "C" {
 
 #define GMGD_BCKND_MAX_NUM_REQ_ITEMS    	64
 
-#define CMGD_BCKND_MSG_MAX_LEN		        4096
+#define CMGD_BCKND_MSG_MAX_LEN		        9000
 
 /*
  * List of name identifiers for all backend clients to 

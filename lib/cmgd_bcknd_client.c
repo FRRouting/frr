@@ -51,8 +51,6 @@ typedef enum cmgd_bcknd_trxn_event_ {
 typedef struct cmgd_bcknd_set_cfg_req_ {
 	struct nb_cfg_change cfg_changes[CMGD_MAX_CFG_CHANGES_IN_BATCH];
 	uint16_t num_cfg_changes;
-	struct nb_transaction *nb_trxn;
-	uint32_t nb_trxn_id;
 } cmgd_bcknd_set_cfg_req_t;
 
 typedef struct cmgd_bcknd_get_data_req_ {
@@ -91,6 +89,9 @@ typedef struct cmgd_bcknd_trxn_ctxt_ {
 	/* List of batches belonging to this transaction */
 	struct cmgd_bcknd_batch_list_head batch_head;
 	struct cmgd_bcknd_trxn_list_item trxn_list_linkage;
+
+	struct nb_transaction *nb_trxn;
+	uint32_t nb_trxn_id;
 } cmgd_bcknd_trxn_ctxt_t;
 DECLARE_LIST(cmgd_bcknd_trxn_list, cmgd_bcknd_trxn_ctxt_t, trxn_list_linkage);
 
@@ -444,21 +445,21 @@ static int cmgd_bcknd_process_cfg_validate(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 				"Failed to update Candidate Db on backend!");
 			return -1;
 		}
+	}
 
-		nb_ctxt.client = NB_CLIENT_CLI;
-		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-		if (nb_candidate_commit_prepare(&nb_ctxt,
-			clnt_ctxt->candidate_config, "CMGD Trxn",
-			&trxn_req->req.set_cfg.nb_trxn, err_buf,
-			sizeof(err_buf)-1) != NB_OK) {
-			err_buf[sizeof(err_buf)-1] = 0;
-			CMGD_BCKND_CLNT_ERR("Failed to validate configs for Trxn %lx Batch %lx! Err: '%s'",
-				trxn_id, batch_ids[indx], err_buf);
-			cmgd_bcknd_send_validate_reply(clnt_ctxt, trxn_id,
-				batch_ids, num_batch_ids, false,
-				"Failed to validate Config on backend!");
-			return -1;
-		}
+	nb_ctxt.client = NB_CLIENT_CLI;
+	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
+	if (nb_candidate_commit_prepare(&nb_ctxt,
+		clnt_ctxt->candidate_config, "CMGD Trxn",
+		&trxn->nb_trxn, err_buf,
+		sizeof(err_buf)-1) != NB_OK) {
+		err_buf[sizeof(err_buf)-1] = 0;
+		CMGD_BCKND_CLNT_ERR("Failed to validate configs for Trxn %lx Batch %lx! Err: '%s'",
+			trxn_id, batch_ids[indx], err_buf);
+		cmgd_bcknd_send_validate_reply(clnt_ctxt, trxn_id,
+			batch_ids, num_batch_ids, false,
+			"Failed to validate Config on backend!");
+		return -1;
 	}
 
 	if (ret == 0) {
@@ -530,7 +531,7 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 		nb_ctxt.client = NB_CLIENT_CLI;
 		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 
-		if (!trxn_req->req.set_cfg.nb_trxn) {
+		if (!trxn->nb_trxn) {
 			error = false;
 			nb_candidate_edit_config_changes(
 				clnt_ctxt->candidate_config,
@@ -542,36 +543,38 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 				err_buf[sizeof(err_buf)-1] = 0;
 				CMGD_BCKND_CLNT_ERR("Failed to update configs for Trxn %lx Batch %lx to Candidate! Err: '%s'",
 					trxn_id, batch_ids[indx], err_buf);
-				// cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id,
-				// 	batch_ids, num_batch_ids, false,
-				// 	"Failed to update Candidate Db on backend!");
-				// return -1;
-			}
-
-			nb_ctxt.client = NB_CLIENT_CLI;
-			nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-			if (nb_candidate_commit_prepare(&nb_ctxt,
-				clnt_ctxt->candidate_config, "CMGD Trxn",
-				&trxn_req->req.set_cfg.nb_trxn, err_buf,
-				sizeof(err_buf)-1) != NB_OK) {
-				err_buf[sizeof(err_buf)-1] = 0;
-				CMGD_BCKND_CLNT_ERR("Failed prepare configs for Trxn %lx Batch %lx! Err: '%s'",
-					trxn_id, batch_ids[indx], err_buf);
-				// cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id,
-				// 	batch_ids, num_batch_ids, false,
-				// 	"Failed to validate Config on backend!");
+				cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id,
+					batch_ids, num_batch_ids, false,
+					"Failed to update Candidate Db on backend!");
+				return -1;
 			}
 		}
-
-		nb_candidate_commit_apply(trxn_req->req.set_cfg.nb_trxn, true,
-			&trxn_req->req.set_cfg.nb_trxn_id, err_buf,
-			sizeof(err_buf)-1);
 
 		/*
 		 * No need to delete the batch yet. Will be deleted during transaction
 		 * cleanup on receiving TRXN_DELETE_REQ.
 		 */
 	}
+
+	if (!trxn->nb_trxn) {
+		nb_ctxt.client = NB_CLIENT_CLI;
+		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
+		if (nb_candidate_commit_prepare(&nb_ctxt,
+			clnt_ctxt->candidate_config, "CMGD Trxn",
+			&trxn->nb_trxn, err_buf, sizeof(err_buf)-1) != NB_OK) {
+			err_buf[sizeof(err_buf)-1] = 0;
+			CMGD_BCKND_CLNT_ERR("Failed to prepare configs for Trxn %lx Batch %lx! Err: '%s'",
+				trxn_id, batch_ids[indx], err_buf);
+			cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id,
+				batch_ids, num_batch_ids, false,
+				"Failed to validate Config on backend!");
+			return -1;
+		}
+	}
+
+	nb_candidate_commit_apply(trxn->nb_trxn, true,
+		&trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
+	trxn->nb_trxn = NULL;
 
 	if (ret == 0) {
 		cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,

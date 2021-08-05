@@ -49,7 +49,7 @@ extern "C" {
 
 #define GMGD_FRNTND_MAX_NUM_REQ_ITEMS    		64
 
-#define CMGD_FRNTND_MSG_MAX_LEN		        	4096
+#define CMGD_FRNTND_MSG_MAX_LEN		        	9000
 
 
 /***************************************************************
