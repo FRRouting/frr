@@ -1149,10 +1149,15 @@ static void rib_process(struct route_node *rn)
 	assert(rn);
 
 	dest = rib_dest_from_rnode(rn);
-	if (dest) {
-		zvrf = rib_dest_vrf(dest);
-		vrf_id = zvrf_id(zvrf);
-	}
+	/*
+	 * We have an enqueued node with nothing to process here
+	 * let's just finish up and return;
+	 */
+	if (!dest)
+		return;
+
+	zvrf = rib_dest_vrf(dest);
+	vrf_id = zvrf_id(zvrf);
 
 	vrf = vrf_lookup_by_id(vrf_id);
 
@@ -1165,17 +1170,15 @@ static void rib_process(struct route_node *rn)
 	 * additionally we know RNODE_FOREACH_RE_SAFE
 	 * will not iterate so we are ok.
 	 */
-	if (dest) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-			struct route_entry *re = re_list_first(&dest->routes);
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct route_entry *re = re_list_first(&dest->routes);
 
-			zlog_debug("%s(%u:%u):%s: Processing rn %p",
-				   VRF_LOGNAME(vrf), vrf_id, re->table, buf,
-				   rn);
-		}
-
-		old_fib = dest->selected_fib;
+		zlog_debug("%s(%u:%u):%s: Processing rn %p",
+			   VRF_LOGNAME(vrf), vrf_id, re->table, buf,
+			   rn);
 	}
+
+	old_fib = dest->selected_fib;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
