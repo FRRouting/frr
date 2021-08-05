@@ -52,10 +52,10 @@ Example:
      index 20 mpls label 16030
     !
     segment-list SL2
-     index 10  nai prefix 10.1.2.1/32 iface 1
-     index 20  nai adjacency 10.1.20.1 10.1.20.2
-     index 30  nai prefix 10.10.10.5/32 algorithm 0
-     index 40  mpls label 18001
+     index 10 nai prefix 10.1.2.1/32 iface 1
+     index 20 nai adjacency 10.1.20.1 10.1.20.2
+     index 30 nai prefix 10.10.10.5/32 algorithm 0
+     index 40 mpls label 18001
     !
     policy color 1 endpoint 1.1.1.1
      name default
@@ -70,7 +70,7 @@ Example:
     !
     pcep
      pce-config GROUP1
-      source-address 1.1.1.1
+      source-address ip 1.1.1.1
       tcp-md5-auth secret
       timer keep-alive 30
      !
