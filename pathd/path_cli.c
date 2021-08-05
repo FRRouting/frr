@@ -550,7 +550,7 @@ void cli_show_srte_segment_list_segment(struct vty *vty,
 					struct lyd_node *dnode,
 					bool show_defaults)
 {
-	vty_out(vty, " index %s ", yang_dnode_get_string(dnode, "./index"));
+	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "./index"));
 	if (yang_dnode_exists(dnode, "./sid-value")) {
 		vty_out(vty, " mpls label %s",
 			yang_dnode_get_string(dnode, "./sid-value"));
