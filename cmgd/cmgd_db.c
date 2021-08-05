@@ -285,7 +285,7 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		if (!childs_as_well)
 			continue;
 
-		if (set->count > 1) {
+		if (set->count >= 1) {
 			if (num_nodes)
 				num_found = num_left;
 
