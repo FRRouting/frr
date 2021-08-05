@@ -171,11 +171,30 @@ int cmgd_db_merge_dbs(
         cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db)
 {
 	cmgd_db_ctxt_t *src, *dst;
+	struct lyd_node *dst_dnode, *src_dnode;
 
 	src = (cmgd_db_ctxt_t *)src_db;
 	dst = (cmgd_db_ctxt_t *)dst_db;
 	if (!src || !dst)
 		return -1;
+	CMGD_DB_DBG("Replacing %d with %d", dst->db_id, src->db_id);
+
+	src_dnode = src->config_db ? src->root.cfg_root->dnode :
+				dst->root.dnode_root;
+	dst_dnode = dst->config_db ? dst->root.cfg_root->dnode :
+				dst->root.dnode_root;
+
+	if (dst_dnode)
+		yang_dnode_free(dst_dnode);
+
+	/* Not using nb_config_replace as the oper db does not contain nb_config */
+	dst_dnode = yang_dnode_dup(src_dnode);
+	if (dst->config_db)
+		dst->root.cfg_root->dnode = src_dnode;
+	else
+		dst->root.dnode_root = src_dnode;
+
+	// TODO: Update the versions if nb_config present
 
 	return 0;
 }
@@ -395,6 +414,7 @@ int cmgd_db_iter_data(
 
 	strncpy(xpath, base_xpath, sizeof(xpath));
 
+	CMGD_DB_DBG(" -- START DB walk for DBid: %d", db_ctxt->db_id);
 	ret = cmgd_walk_db_nodes(db_ctxt, xpath, iter_fn, ctxt,
 			NULL, NULL, NULL, NULL, true, donot_free_alloced);
 
