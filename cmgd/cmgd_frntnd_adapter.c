@@ -963,6 +963,22 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 		return 0;
 	}
 
+	/*
+	 * Try taking write-lock on the destination DB (if not already).
+	 */
+	if (!sessn->db_write_locked[commcfg_req->dst_db_id]) {
+		if (cmgd_frntnd_session_write_lock_db(
+			commcfg_req->dst_db_id, dst_db_hndl, sessn) != 0) {
+			cmgd_frntnd_send_commitcfg_reply(sessn,
+				commcfg_req->src_db_id, commcfg_req->dst_db_id,
+				commcfg_req->req_id, false, commcfg_req->validate_only,
+				"Failed to lock the destination DB!");
+			return 0;
+		}
+
+		sessn->db_locked_implict[commcfg_req->dst_db_id] = true;
+	}
+
 	if (cmgd_trxn_send_commit_config_req(
 		sessn->cfg_trxn_id, commcfg_req->req_id, 
 		commcfg_req->src_db_id, src_db_hndl,

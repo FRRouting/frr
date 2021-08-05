@@ -41,9 +41,6 @@
 
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_BATCH, "CMGD backend transaction batch data");
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN, "CMGD backend transaction data");
-// DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_REQ,"CMGD backend transaction request");
-// DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_SETCFG_REQ, "CMGD backend transaction set request");
-// DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN_GETDATA_REQ, "CMGD backend transaction get request");
 
 typedef enum cmgd_bcknd_trxn_event_ {
 	CMGD_BCKND_TRXN_PROC_SETCFG = 1,
@@ -450,16 +447,10 @@ static int cmgd_bcknd_process_cfg_validate(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 
 		nb_ctxt.client = NB_CLIENT_CLI;
 		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-#if 0
-		if (nb_candidate_validate(&nb_ctxt,
-			clnt_ctxt->candidate_config, err_buf,
-			sizeof(err_buf)-1) != NB_OK) {
-#else
 		if (nb_candidate_commit_prepare(&nb_ctxt,
 			clnt_ctxt->candidate_config, "CMGD Trxn",
 			&trxn_req->req.set_cfg.nb_trxn, err_buf,
 			sizeof(err_buf)-1) != NB_OK) {
-#endif
 			err_buf[sizeof(err_buf)-1] = 0;
 			CMGD_BCKND_CLNT_ERR("Failed to validate configs for Trxn %lx Batch %lx! Err: '%s'",
 				trxn_id, batch_ids[indx], err_buf);

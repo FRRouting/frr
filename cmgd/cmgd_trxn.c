@@ -789,27 +789,6 @@ static int cmgd_move_bcknd_commit_to_next_phase(cmgd_trxn_ctxt_t *trxn,
 		cmgd_trxn_commit_phase_str(trxn, true),
 		cmgd_trxn_commit_phase_str(trxn, false));
 
-#if 0
-	switch (cmtcfg_req->next_phase) {
-	case CMGD_COMMIT_PHASE_PREPARE_CFG:
-		break;
-	case CMGD_COMMIT_PHASE_TRXN_CREATE:
-		break;
-	case CMGD_COMMIT_PHASE_SEND_CFG:
-		/* Send CFGDATA_CREATE_REQ for this backend */
-		// cmgd_trxn_send_bcknd_cfg_data(trxn, adptr);
-		break;
-	case CMGD_COMMIT_PHASE_VALIDATE_CFG:
-		break;
-	case CMGD_COMMIT_PHASE_APPLY_CFG:
-		break;
-	case CMGD_COMMIT_PHASE_TRXN_DELETE:
-		break;
-	default:
-		break;
-	}
-#endif
-
 	CMGD_TRXN_DBG("Move all config batches for '%s' from current to next list",
 		adptr->name);
 	curr_list = &cmtcfg_req->curr_batches[adptr->id];
