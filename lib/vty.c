@@ -78,6 +78,7 @@ static bool cmgd_frntnd_connected = false;
 
 static void vty_event_serv(enum event event, int sock);
 static void vty_event(enum event, struct vty *);
+static int vtysh_flush(struct vty *vty);
 
 /* Extern host structure from command.c */
 extern struct host host;
@@ -108,6 +109,34 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
 static bool do_log_commands;
 static bool do_log_commands_perm;
+
+#define VTY_CMGD_WAIT_RESPONSE(vty)	\
+	if (vty->cmgd_req_pending)	\
+		return 0;
+
+static void vty_cmgd_resume_response(struct vty *vty, uint8_t ret)
+{
+	uint8_t header[4] = {0, 0, 0, 0};
+
+	if (!vty->cmgd_req_pending) {
+		zlog_err("vty response called without setting cmgd_req_pending");
+		return;
+	}
+
+	vty->cmgd_req_pending = false;
+	header[3] = ret;
+	buffer_put(vty->obuf, header, 4);
+
+	if (!vty->t_write && (vtysh_flush(vty) < 0))
+		/* Try to flush results; exit if a write
+		 * error occurs. */
+		return;
+
+	if (vty->status == VTY_CLOSE)
+		vty_close(vty);
+	else
+		vty_event(VTYSH_READ, vty);
+}
 
 void vty_frame(struct vty *vty, const char *format, ...)
 {
@@ -2142,6 +2171,11 @@ static int vtysh_read(struct thread *thread)
 				if (ret == CMD_SUSPEND)
 					break;
 
+				/* with new infra we need to stop response till we get
+				 * response through callback.
+				 */
+				VTY_CMGD_WAIT_RESPONSE(vty);
+
 				/* warning: watchfrr hardcodes this result write
 				 */
 				header[3] = ret;
@@ -3185,9 +3219,7 @@ static void vty_cmgd_db_lock_notified(
 			lock_db ? "L" : "Unl", db_id);
 	}
 
-	vty->cmgd_req_pending = false;
-	// vty_prompt(vty);
-	// vty_event(VTY_WRITE, vty);
+	vty_cmgd_resume_response(vty, success);
 }
 
 static void vty_cmgd_set_config_result_notified(
@@ -3209,12 +3241,9 @@ static void vty_cmgd_set_config_result_notified(
 	} else {
 		zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
 			client_id, req_id);
-		vty_out(vty, "\n");
 	}
 
-	vty->cmgd_req_pending = false;
-	// vty_prompt(vty);
-	// vty_event(VTY_WRITE, vty);
+	vty_cmgd_resume_response(vty, success);
 }
 
 static void vty_cmgd_commit_config_result_notified(
@@ -3236,12 +3265,9 @@ static void vty_cmgd_commit_config_result_notified(
 	} else {
 		zlog_err("COMMIT_CONFIG request for client 0x%lx req-id %lu was successfull!",
 			client_id, req_id);
-		vty_out(vty, "\n");
 	}
 
-	vty->cmgd_req_pending = false;
-	// vty_prompt(vty);
-	// vty_event(VTY_WRITE, vty);
+	vty_cmgd_resume_response(vty, success);
 }
 
 static cmgd_client_req_id_t last_req_id = 0xFFFFFFFFFFFFFFFF;
@@ -3273,6 +3299,7 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 		last_req_id = req_id;
 		vty_out(vty, "[\n");
 	}
+
 	for (indx = 0; indx < num_data; indx++) {
 		zlog_err("XPATH: %s\n - Data: %s\n",
 			yang_data[indx]->xpath,
@@ -3283,11 +3310,9 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 	}
 	if (next_key < 0) {
 		vty_out(vty, "]\n");
+		vty_cmgd_resume_response(vty, success);
 	}
 
-	vty->cmgd_req_pending = false;
-	// vty_prompt(vty);
-	// vty_event(VTY_WRITE, vty);
 	return CMGD_SUCCESS;
 }
 
