@@ -1457,8 +1457,10 @@ void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
 		struct prefix p;
 		struct ospf_interface *oi = NULL;
 
+		memset(&p, 0, sizeof(struct prefix));
 		p.u.prefix4 = addr;
 		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
 
 		oi = ospf_if_table_lookup(ifp, &p);
 
