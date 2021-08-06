@@ -2039,7 +2039,7 @@ int cmgd_trxn_notify_bcknd_trxn_reply(
 	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG) 
 		return -1;
 
-	if (!success && !trxn->commit_cfg_req)
+	if (!create && !trxn->commit_cfg_req)
 		return 0;
 
 	assert(trxn->commit_cfg_req);
