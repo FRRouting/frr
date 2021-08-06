@@ -51,7 +51,7 @@ typedef enum cmgd_trxn_event_ {
 	CMGD_TRXN_PROC_GETCFG,
 	CMGD_TRXN_PROC_GETDATA,
 	CMGD_TRXN_SEND_BCKND_CFG_VALIDATE,
-	CMGD_TRXN_SEND_BCKND_CFG_APPLY,
+	CMGD_TRXN_COMMITCFG_TIMEOUT,
 	CMGD_TRXN_CLEANUP
 } cmgd_trxn_event_t;
 
@@ -229,6 +229,7 @@ struct cmgd_trxn_ctxt_ {
 	struct thread *proc_set_cfg;
 	struct thread *proc_comm_cfg;
 	struct thread *send_cfg_validate;
+	struct thread *comm_cfg_timeout;
 
         /* List of backend adapters involved in this transaction */
         struct cmgd_trxn_badptr_list_head bcknd_adptrs;
@@ -295,6 +296,8 @@ static inline const char* cmgd_trxn_commit_phase_str(
 
 static void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn, const char* file, int line);
 static void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn, const char* file, int line);
+static int cmgd_trxn_send_bcknd_trxn_delete(cmgd_trxn_ctxt_t *trxn,
+	cmgd_bcknd_client_adapter_t *adptr);
 
 static struct thread_master *cmgd_trxn_tm = NULL;
 static struct cmgd_master *cmgd_trxn_cm = NULL;
@@ -389,12 +392,9 @@ static void cmgd_trxn_cleanup_bcknd_cfg_batches(cmgd_trxn_ctxt_t *trxn,
 
 	list = &trxn->commit_cfg_req->req.commit_cfg.curr_batches[id];
 	FOREACH_TRXN_CFG_BATCH_IN_LIST(list, cfg_btch) {
-		/* TODO: Maybe need to cleanup some state on backend */
 		cmgd_trxn_cfg_batch_free(&cfg_btch);
 	}
 	cmgd_trxn_batch_list_fini(list);
-
-	/* TODO: Maybe need to cleanup some state on backend */
 
 	list = &trxn->commit_cfg_req->req.commit_cfg.next_batches[id];
 	FOREACH_TRXN_CFG_BATCH_IN_LIST(list, cfg_btch) {
@@ -471,6 +471,7 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 	struct cmgd_trxn_req_list_head *req_list = NULL;
 	struct cmgd_trxn_req_list_head *pending_list = NULL;
 	cmgd_bcknd_client_id_t id;
+	cmgd_bcknd_client_adapter_t *adptr;
 
 	switch ((*trxn_req)->req_event) {
 	case CMGD_TRXN_PROC_SETCFG:
@@ -498,6 +499,20 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 		CMGD_TRXN_DBG("Deleting COMMITCFG Req: %p for Trxn: %p",
 			*trxn_req, (*trxn_req)->trxn);
 		FOREACH_CMGD_BCKND_CLIENT_ID(id) {
+			/* 
+			 * Send TRXN_DELETE to cleanup state for this
+			 * transaction on backend
+			 */
+			if ((*trxn_req)->req.commit_cfg.curr_phase >=
+				CMGD_COMMIT_PHASE_TRXN_CREATE && 
+				(*trxn_req)->req.commit_cfg.subscr_info.
+				xpath_subscr[id].subscribed) {
+				adptr = cmgd_bcknd_get_adapter_by_id(id);
+				if (adptr)
+					cmgd_trxn_send_bcknd_trxn_delete(
+						(*trxn_req)->trxn, adptr);
+			}
+
 			cmgd_trxn_cleanup_bcknd_cfg_batches(
 				(*trxn_req)->trxn, id);
 		}
@@ -663,6 +678,9 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 	}
 
 	if (success) {
+		/* Stop the commit-timeout timer */
+		THREAD_OFF(trxn->comm_cfg_timeout);
+
 		/*
 		 * Successful commit: Merge Src DB into Dst DB.
 		 */
@@ -1207,6 +1225,35 @@ static int cmgd_trxn_send_bcknd_cfg_validate(struct thread *thread)
 	 * come back.
 	 */
 
+	/*
+	 * Start the COMMIT Timeout Timer to abort Trxn if things get stuck at 
+	 * backend.
+	 */
+	cmgd_trxn_register_event(trxn, CMGD_TRXN_COMMITCFG_TIMEOUT);
+
+	return 0;
+}
+
+static int cmgd_trxn_cfg_commit_timedout(struct thread *thread)
+{
+	cmgd_trxn_ctxt_t *trxn;
+
+	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
+	assert(trxn);
+
+	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
+
+	CMGD_TRXN_ERR("Backend operations for Config Trxn %p has timedout! Aborting commit!!",
+		trxn);
+
+	/*
+	 * Send a COMMIT_CONFIG_REPLY with failure. 
+	 * NOTE: The transaction cleanup will be triggered from Front-end
+	 * adapter.
+	 */
+	cmgd_trxn_send_commit_cfg_reply(trxn, false,
+		"Operation on the backend timed-out. Aborting commit!");
+	
 	return 0;
 }
 
@@ -1328,7 +1375,6 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		cmgd_trxn_send_bcknd_cfg_apply(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_TRXN_DELETE:
-		// cmgd_trxn_send_bcknd_trxn_delete(trxn);
 		/*
 		 * We would have sent TRXN_DELETE_REQ to all backend by now.
 		 * Send a successful CONFIG_COMMIT_REPLY back to front-end.
@@ -1748,7 +1794,11 @@ static void cmgd_trxn_register_event(
 				cmgd_trxn_send_bcknd_cfg_validate, trxn,
 				CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC, NULL);
 		break;
-	case CMGD_TRXN_SEND_BCKND_CFG_APPLY:
+	case CMGD_TRXN_COMMITCFG_TIMEOUT:
+		trxn->comm_cfg_timeout = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_cfg_commit_timedout, trxn,
+				CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC, NULL);
 		break;
 	default:
 		assert(!"cmgd_trxn_register_event() called incorrectly");

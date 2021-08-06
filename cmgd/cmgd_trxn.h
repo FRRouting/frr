@@ -35,7 +35,7 @@
 #define CMGD_TRXN_MAX_NUM_GETDATA_PROC          128
 
 #define CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC   500
-#define CMGD_TRXN_CFG_COMMIT_DELAY_MSEC         10000   /* 10 seconds */
+#define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     10000   /* 10 seconds */
 
 PREDECL_LIST(cmgd_trxn_list);
 
