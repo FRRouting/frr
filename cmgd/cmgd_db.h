@@ -120,8 +120,6 @@ static inline void cmgd_xpath_remove_trail_wildcard(
 		xpath[*xpath_len-1] == '*') {
 		xpath[*xpath_len-2] = 0;
                 (*xpath_len) -= 2;
-                // xpath[*xpath_len-1] = 0;
-                // (*xpath_len)--;
         }
 }
 

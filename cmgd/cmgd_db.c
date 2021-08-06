@@ -224,8 +224,9 @@ struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl)
 }
 
 static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt, 
-	char *base_xpath, cmgd_db_node_iter_fn iter_fn,
-	void *ctxt, char *xpaths[], struct lyd_node *dnodes[],
+	char *base_xpath, struct lyd_node *base_dnode,
+	cmgd_db_node_iter_fn iter_fn, void *ctxt,
+	char *xpaths[], struct lyd_node *dnodes[],
 	struct nb_node *nbnodes[], int *num_nodes,
 	bool childs_as_well, bool donot_free_alloced)
 {
@@ -250,17 +251,21 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		*num_nodes = 0;
 	}
 
-	dnode = yang_dnode_get(db_ctxt->config_db ?
-			db_ctxt->root.cfg_root->dnode :
-			db_ctxt->root.dnode_root, base_xpath);
-	if (!dnode)
+	CMGD_DB_DBG(" -- START: Base: %s", base_xpath);
+
+	if (!base_dnode)
+		base_dnode = yang_dnode_get(db_ctxt->config_db ?
+				db_ctxt->root.cfg_root->dnode :
+				db_ctxt->root.dnode_root, base_xpath);
+	if (!base_dnode)
 		return -1;
 
 	/* If the base_xpath points to leaf node, we can skip the tree walk */
-	if(dnode->schema->nodetype & LYD_NODE_TERM) {
+	if(base_dnode->schema->nodetype & LYD_NODE_TERM) {
 		if (donot_free_alloced) {
 			if (xpaths && xpaths[*num_nodes]) {
 				xpath = xpaths[*num_nodes];
+				(*num_nodes)++;
 			} else {
 				xpath = (char *)calloc(1, CMGD_MAX_XPATH_LEN);
 			}
@@ -268,12 +273,17 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		} else {
 			xpath = base_xpath;
 		}
-		(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath, dnode,
-			dnode->schema->priv, ctxt);
+
+		/*
+		 * NOTE: With this a node is iterated if and only if its a leaf-node.
+		 */
+		(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath, base_dnode,
+			base_dnode->schema->priv, ctxt);
 		return 0;
 	}
 
 	xp_len = 0;
+	(void) lyd_path(base_dnode, LYD_PATH_STD, base_xpath, CMGD_MAX_XPATH_LEN);
 	cmgd_xpath_append_trail_wildcard(base_xpath, &xp_len);
 	ret = lyd_find_xpath(db_ctxt->config_db ?
 			db_ctxt->root.cfg_root->dnode :
@@ -314,10 +324,14 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		assert(xpath);
 		CMGD_DB_DBG(" -- XPATH: %s", xpath);
 
-		if (iter_fn) {
-			(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath,
-				dnode, nbnode, ctxt);
-		}		
+		/* 
+		 * NOTE: This specific child will be visited from the next call to 
+		 * cmgd_walk_db_nodes().
+		 */
+		// if (iter_fn) {
+		// 	(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath,
+		// 		dnode, nbnode, ctxt);
+		// }
 
 		if (num_nodes) {
 			(*num_nodes)++;
@@ -331,7 +345,7 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 			if (num_nodes)
 				num_found = num_left;
 
-			ret = cmgd_walk_db_nodes(db_ctxt, xpath, iter_fn,
+			ret = cmgd_walk_db_nodes(db_ctxt, xpath, dnode, iter_fn,
 				ctxt, xpaths ? &xpaths[*num_nodes] : NULL,
 				dnodes ? &dnodes[*num_nodes] : NULL,
 				nbnodes ? &nbnodes[*num_nodes] : NULL,
@@ -379,7 +393,7 @@ int cmgd_db_lookup_data_nodes(
 
 	strncpy(base_xpath, xpath, sizeof(base_xpath));
 
-	return (cmgd_walk_db_nodes(db_ctxt, base_xpath, NULL, NULL,
+	return (cmgd_walk_db_nodes(db_ctxt, base_xpath, NULL, NULL, NULL,
 			dxpaths, dnodes, nbnodes, num_nodes,
 			get_childs_as_well, donot_free_alloced));
 }
@@ -438,7 +452,7 @@ int cmgd_db_iter_data(
 	strncpy(xpath, base_xpath, sizeof(xpath));
 
 	CMGD_DB_DBG(" -- START DB walk for DBid: %d", db_ctxt->db_id);
-	ret = cmgd_walk_db_nodes(db_ctxt, xpath, iter_fn, ctxt,
+	ret = cmgd_walk_db_nodes(db_ctxt, xpath, NULL, iter_fn, ctxt,
 			NULL, NULL, NULL, NULL, true, donot_free_alloced);
 
 	return ret;
