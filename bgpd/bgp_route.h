@@ -641,9 +641,9 @@ extern bool bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 				 const union g_addr *nexthop, ifindex_t ifindex,
-				 enum nexthop_types_t nhtype, uint32_t metric,
-				 uint8_t type, unsigned short instance,
-				 route_tag_t tag);
+				 enum nexthop_types_t nhtype, uint8_t distance,
+				 uint32_t metric, uint8_t type,
+				 unsigned short instance, route_tag_t tag);
 extern void bgp_redistribute_delete(struct bgp *, struct prefix *, uint8_t,
 				    unsigned short);
 extern void bgp_redistribute_withdraw(struct bgp *, afi_t, int, unsigned short);

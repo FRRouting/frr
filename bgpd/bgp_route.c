@@ -8063,9 +8063,9 @@ DEFPY(aggregate_addressv6, aggregate_addressv6_cmd,
 /* Redistribute route treatment. */
 void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 			  const union g_addr *nexthop, ifindex_t ifindex,
-			  enum nexthop_types_t nhtype, uint32_t metric,
-			  uint8_t type, unsigned short instance,
-			  route_tag_t tag)
+			  enum nexthop_types_t nhtype, uint8_t distance,
+			  uint32_t metric, uint8_t type,
+			  unsigned short instance, route_tag_t tag)
 {
 	struct bgp_path_info *new;
 	struct bgp_path_info *bpi;
@@ -8112,6 +8112,7 @@ void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 	attr.nh_ifindex = ifindex;
 
 	attr.med = metric;
+	attr.distance = distance;
 	attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_MULTI_EXIT_DISC);
 	attr.tag = tag;
 
