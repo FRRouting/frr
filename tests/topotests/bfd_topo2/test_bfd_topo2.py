@@ -80,32 +80,27 @@ def setup_module(mod):
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospf6d.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bfdd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BFD, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
+
+        daemon_file = "{}/{}/ospfd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_OSPF, daemon_file)
+
+        daemon_file = "{}/{}/ospf6d.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_OSPF6, daemon_file)
 
     # Initialize all routers.
     tgen.start_router()
-
-    # Verify that we are using the proper version and that the BFD
-    # daemon exists.
-    for router in router_list.values():
-        # Check for Version
-        if router.has_version("<", "5.1"):
-            tgen.set_error("Unsupported FRR version")
-            break
 
 
 def teardown_module(_mod):
@@ -135,7 +130,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ip route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
@@ -151,7 +146,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ipv6 route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
