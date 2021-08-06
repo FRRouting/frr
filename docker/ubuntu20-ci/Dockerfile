@@ -6,21 +6,23 @@ ENV APT_KEY_DONT_WARN_ON_DANGEROUS_USAGE=DontWarn
 RUN apt update && \
     apt-get install -y \
       git autoconf automake libtool make libreadline-dev texinfo \
-      pkg-config libpam0g-dev libjson-c-dev bison flex python3-pytest \
-      libc-ares-dev python3-dev python-ipaddress python3-sphinx \
+      pkg-config libpam0g-dev libjson-c-dev bison flex python3-pip \
+      libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
       libcap-dev python2 libelf-dev \
       sudo gdb curl iputils-ping time \
       libgrpc++-dev libgrpc-dev protobuf-compiler-grpc \
       lua5.3 liblua5.3-dev \
-      mininet iproute2 iperf && \
+      net-tools iproute2 && \
       curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output /tmp/get-pip.py && \
       python2 /tmp/get-pip.py && \
       rm -f  /tmp/get-pip.py && \
-      pip2 install ipaddr && \
-      pip2 install "pytest<5" && \
-      pip2 install "scapy>=2.4.2" && \
-      pip2 install exabgp==3.4.17
+      python3 -m pip install wheel && \
+      python3 -m pip install pytest && \
+      python3 -m pip install pytest-xdist && \
+      python3 -m pip install "scapy>=2.4.2" && \
+      python3 -m pip install xmltodict && \
+      python2 -m pip install 'exabgp<4.0.0'
 
 RUN groupadd -r -g 92 frr && \
       groupadd -r -g 85 frrvty && \
