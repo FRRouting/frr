@@ -417,6 +417,132 @@ int vpn_leak_label_callback(
 	return 0;
 }
 
+<<<<<<< HEAD
+=======
+static void sid_register(struct bgp *bgp, const struct in6_addr *sid,
+			 const char *locator_name)
+{
+	struct bgp_srv6_function *func;
+	func = XCALLOC(MTYPE_BGP_SRV6_FUNCTION,
+		       sizeof(struct bgp_srv6_function));
+	func->sid = *sid;
+	snprintf(func->locator_name, sizeof(func->locator_name),
+		 "%s", locator_name);
+	listnode_add(bgp->srv6_functions, func);
+}
+
+static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct bgp_srv6_function *func;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func))
+		if (sid_same(&func->sid, sid))
+			return true;
+	return false;
+}
+
+/*
+ * if index != 0: try to allocate as index-mode
+ * else: try to allocate as auto-mode
+ */
+static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
+			  struct in6_addr *sid)
+{
+	struct listnode *node;
+	struct prefix_ipv6 *chunk;
+	struct in6_addr sid_buf;
+	bool alloced = false;
+
+	if (!bgp || !sid)
+		return false;
+
+	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+		sid_buf = chunk->prefix;
+		if (index != 0) {
+			sid_buf.s6_addr[15] = index;
+			if (sid_exist(bgp, &sid_buf))
+				return false;
+			alloced = true;
+			break;
+		}
+
+		for (size_t i = 1; i < 255; i++) {
+			sid_buf.s6_addr[15] = (i & 0xff00) >> 8;
+			sid_buf.s6_addr[14] = (i & 0x00ff);
+
+			if (sid_exist(bgp, &sid_buf))
+				continue;
+			alloced = true;
+			break;
+		}
+	}
+
+	if (!alloced)
+		return false;
+
+	sid_register(bgp, &sid_buf, bgp->srv6_locator_name);
+	*sid = sid_buf;
+	return true;
+}
+
+void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
+{
+	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
+	bool alloced = false;
+	char buf[256];
+	struct in6_addr *sid;
+	uint32_t tovpn_sid_index = 0;
+	bool tovpn_sid_auto = false;
+
+	if (debug)
+		zlog_debug("%s: try to allocate new SID for vrf %s: afi %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+
+	/* skip when tovpn sid is already allocated on vrf instance */
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid)
+		return;
+
+	/*
+	 * skip when bgp vpn instance ins't allocated
+	 * or srv6 locator chunk isn't allocated
+	 */
+	if (!bgp_vpn || !bgp_vpn->srv6_locator_chunks)
+		return;
+
+	tovpn_sid_index = bgp_vrf->vpn_policy[afi].tovpn_sid_index;
+	tovpn_sid_auto = CHECK_FLAG(bgp_vrf->vpn_policy[afi].flags,
+				    BGP_VPN_POLICY_TOVPN_SID_AUTO);
+
+	/* skip when VPN isn't configured on vrf-instance */
+	if (tovpn_sid_index == 0 && !tovpn_sid_auto)
+		return;
+
+	/* check invalid case both configured index and auto */
+	if (tovpn_sid_index != 0 && tovpn_sid_auto) {
+		zlog_err("%s: index-mode and auto-mode both selected. ignored.",
+			 __func__);
+		return;
+	}
+
+	sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
+	alloced = alloc_new_sid(bgp_vpn, tovpn_sid_index, sid);
+	if (!alloced) {
+		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
+			   __func__, bgp_vrf->name_pretty, afi2str(afi));
+		return;
+	}
+
+	if (debug) {
+		inet_ntop(AF_INET6, sid, buf, sizeof(buf));
+		zlog_debug("%s: new sid %s allocated for vrf %s: afi %s",
+			   __func__, buf, bgp_vrf->name_pretty,
+			   afi2str(afi));
+	}
+	bgp_vrf->vpn_policy[afi].tovpn_sid = sid;
+}
+
+>>>>>>> f7cafbb71 (bgpd: fix typo in ensure_vrf_tovpn_sid)
 static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
 {
 	uint32_t i, j;
