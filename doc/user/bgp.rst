@@ -4354,3 +4354,35 @@ Show command json output:
 .. [bgp-route-osci-cond] McPherson, D. and Gill, V. and Walton, D., "Border Gateway Protocol (BGP) Persistent Route Oscillation Condition", IETF RFC3345
 .. [stable-flexible-ibgp] Flavel, A. and M. Roughan, "Stable and flexible iBGP", ACM SIGCOMM 2009
 .. [ibgp-correctness] Griffin, T. and G. Wilfong, "On the correctness of IBGP configuration", ACM SIGCOMM 2002
+
+.. _bgp-fast-convergence:
+
+BGP fast-convergence support
+============================
+Whenever BGP peer address becomes unreachable we must bring down the BGP
+session immediately. Currently only single-hop EBGP sessions are brought 
+down immediately.IBGP and multi-hop EBGP sessions wait for hold-timer 
+expiry to bring down the sessions.
+
+This new configuration option helps user to teardown BGP sessions immediately
+whenever peer becomes unreachable.
+
+.. clicmd:: bgp fast-convergence
+
+This configuration is available at the bgp level. When enabled, configuration
+is applied to all the neighbors configured in that bgp instance.
+
+.. code-block:: frr
+
+   router bgp 64496
+    neighbor 10.0.0.2 remote-as 64496
+    neighbor fd00::2 remote-as 64496
+    bgp fast-convergence
+   !
+   address-family ipv4 unicast
+    redistribute static
+   exit-address-family
+   !
+   address-family ipv6 unicast
+    neighbor fd00::2 activate
+   exit-address-family
