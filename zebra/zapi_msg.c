@@ -2110,6 +2110,13 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
 				    re, &nhe);
 
+	/*
+	 * rib_add_multipath_nhe only fails in a couple spots
+	 * and in those spots we have not freed memory
+	 */
+	if (ret == -1)
+		XFREE(MTYPE_RE, re);
+
 	/* At this point, these allocations are not needed: 're' has been
 	 * retained or freed, and if 're' still exists, it is using
 	 * a reference to a shared group object.
