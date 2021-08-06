@@ -90,6 +90,9 @@ enum bgp_show_adj_route_type {
 /* Maximum number of sids we can process or send with a prefix. */
 #define BGP_MAX_SIDS 6
 
+/* Maximum buffer length for storing BGP best path selection reason */
+#define BGP_MAX_SELECTION_REASON_STR_BUF 32
+
 /* Error codes for handling NLRI */
 #define BGP_NLRI_PARSE_OK 0
 #define BGP_NLRI_PARSE_ERROR_PREFIX_OVERFLOW -1
@@ -803,4 +806,6 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 					    const struct prefix *p, afi_t afi,
 					    safi_t safi, bool suppress);
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
+const char *
+bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
 #endif /* _QUAGGA_BGP_ROUTE_H */

@@ -8433,8 +8433,7 @@ enum bgp_display_type {
 	normal_list,
 };
 
-static const char *
-bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
+const char *bgp_path_selection_reason2str(enum bgp_path_selection_reason reason)
 {
 	switch (reason) {
 	case bgp_path_selection_none:
