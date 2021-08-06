@@ -1443,6 +1443,118 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 	}		  /* scan interfaces */
 }
 
+struct vty_pnc_cache_walk_data {
+	struct vty *vty;
+	struct pim_instance *pim;
+};
+
+struct json_pnc_cache_walk_data {
+	json_object *json_obj;
+	struct pim_instance *pim;
+};
+
+static int pim_print_vty_pnc_cache_walkcb(struct hash_bucket *bucket, void *arg)
+{
+	struct pim_nexthop_cache *pnc = bucket->data;
+	struct vty_pnc_cache_walk_data *cwd = arg;
+	struct vty *vty = cwd->vty;
+	struct pim_instance *pim = cwd->pim;
+	struct nexthop *nh_node = NULL;
+	ifindex_t first_ifindex;
+	struct interface *ifp = NULL;
+	char buf[PREFIX_STRLEN];
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		first_ifindex = nh_node->ifindex;
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
+
+		vty_out(vty, "%-15s ", inet_ntop(AF_INET,
+						 &pnc->rpf.rpf_addr.u.prefix4,
+						 buf, sizeof(buf)));
+		vty_out(vty, "%-16s ", ifp ? ifp->name : "NULL");
+		vty_out(vty, "%pI4 ", &nh_node->gate.ipv4);
+		vty_out(vty, "\n");
+	}
+	return CMD_SUCCESS;
+}
+
+static int pim_print_json_pnc_cache_walkcb(struct hash_bucket *backet,
+					   void *arg)
+{
+	struct pim_nexthop_cache *pnc = backet->data;
+	struct json_pnc_cache_walk_data *cwd = arg;
+	struct pim_instance *pim = cwd->pim;
+	struct nexthop *nh_node = NULL;
+	ifindex_t first_ifindex;
+	struct interface *ifp = NULL;
+	char buf[PREFIX_STRLEN];
+	json_object *json_row = NULL;
+	json_object *json_ifp = NULL;
+	json_object *json_arr = NULL;
+
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
+		first_ifindex = nh_node->ifindex;
+		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
+		json_object_object_get_ex(
+			cwd->json_obj,
+			inet_ntop(AF_INET, &pnc->rpf.rpf_addr.u.prefix4,
+				buf, sizeof(buf)),
+			&json_row);
+		if (!json_row) {
+			json_row = json_object_new_object();
+			json_object_string_add(
+				json_row, "address",
+				inet_ntop(AF_INET, &pnc->rpf.rpf_addr.u.prefix4,
+				buf, sizeof(buf)));
+			json_object_object_add(
+				cwd->json_obj,
+				inet_ntop(AF_INET, &pnc->rpf.rpf_addr.u.prefix4,
+				buf, sizeof(buf)),
+				json_row);
+			json_arr = json_object_new_array();
+			json_object_object_add(json_row, "nextHops", json_arr);
+		}
+		json_ifp = json_object_new_object();
+		json_object_string_add(json_ifp, "interface",
+				       ifp ? ifp->name : "NULL");
+		json_object_string_add(json_ifp, "nexthop",
+				       inet_ntop(AF_INET, &nh_node->gate.ipv4,
+						buf, sizeof(buf)));
+		json_object_array_add(json_arr, json_ifp);
+	}
+	return CMD_SUCCESS;
+}
+
+static void pim_show_nexthop_json(struct pim_instance *pim, struct vty *vty, bool uj)
+{
+	struct vty_pnc_cache_walk_data cwd;
+	struct json_pnc_cache_walk_data jcwd;
+
+	cwd.vty = vty;
+	cwd.pim = pim;
+	jcwd.pim = pim;
+
+	if (uj) {
+		jcwd.json_obj = json_object_new_object();
+	} else {
+		vty_out(vty, "Number of registered addresses: %lu\n",
+			pim->rpf_hash->count);
+		vty_out(vty, "Address         Interface        Nexthop\n");
+		vty_out(vty, "---------------------------------------------\n");
+	}
+
+	if (uj) {
+		hash_walk(pim->rpf_hash, pim_print_json_pnc_cache_walkcb,
+			  &jcwd);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				jcwd.json_obj, JSON_C_TO_STRING_PRETTY));
+		json_object_free(jcwd.json_obj);
+	} else {
+		hash_walk(pim->rpf_hash, pim_print_vty_pnc_cache_walkcb, &cwd);
+	}
+}
+
 static void pim_show_bsr(struct pim_instance *pim,
 			 struct vty *vty,
 			 bool uj)
@@ -2782,14 +2894,24 @@ DEFPY (show_ip_pim_rpf_vrf_all,
 
 DEFPY (show_ip_pim_nexthop,
        show_ip_pim_nexthop_cmd,
-       "show ip pim [vrf NAME] nexthop",
+       "show ip pim [vrf NAME] nexthop [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
        VRF_CMD_HELP_STR
-       "PIM cached nexthop rpf information\n")
+       "PIM cached nexthop rpf information\n"
+       JSON_STR)
 {
-	return pim_show_nexthop_cmd_helper(vrf, vty);
+	struct vrf *v;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_nexthop_json(v->info, vty, !!json);
+
+	return CMD_SUCCESS;
 }
 
 DEFPY (show_ip_pim_nexthop_lookup,
