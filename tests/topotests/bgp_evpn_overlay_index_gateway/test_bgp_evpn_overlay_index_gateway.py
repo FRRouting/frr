@@ -203,6 +203,8 @@ def setup_module(mod):
 
     logger.info("Running setup_module() done")
 
+    time.sleep(10)
+
 
 def teardown_module(mod):
     """Teardown the pytest environment"""
