@@ -36,6 +36,12 @@ struct bgp_zebra_opaque {
 
 	/* Show at least 10 large-communities AA:BB:CC */
 	char lcommunity[LCOMMUNITY_SIZE * 30];
+
+	/* 32 bytes seems enough because of
+	 * bgp_path_selection_confed_as_path which is
+	 * `Confederation based AS Path`.
+	 */
+	char selection_reason[BGP_MAX_SELECTION_REASON_STR_BUF];
 };
 
 static_assert(sizeof(struct bgp_zebra_opaque) <= ZAPI_MESSAGE_OPAQUE_LENGTH,

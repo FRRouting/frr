@@ -449,6 +449,8 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 					       bzo.community);
 			json_object_string_add(json, "largeCommunities",
 					       bzo.lcommunity);
+			json_object_string_add(json, "selectionReason",
+					       bzo.selection_reason);
 		} else {
 			vty_out(vty, "    AS-Path          : %s\n", bzo.aspath);
 
@@ -459,6 +461,9 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 			if (bzo.lcommunity[0] != '\0')
 				vty_out(vty, "    Large-Communities: %s\n",
 					bzo.lcommunity);
+
+			vty_out(vty, "    Selection reason : %s\n",
+				bzo.selection_reason);
 		}
 	}
 	default:

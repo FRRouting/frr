@@ -1489,6 +1489,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 	if (is_add && CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA)) {
 		struct bgp_zebra_opaque bzo = {};
+		const char *reason =
+			bgp_path_selection_reason2str(dest->reason);
 
 		strlcpy(bzo.aspath, info->attr->aspath->str,
 			sizeof(bzo.aspath));
@@ -1501,6 +1503,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		    & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
 			strlcpy(bzo.lcommunity, info->attr->lcommunity->str,
 				sizeof(bzo.lcommunity));
+
+		strlcpy(bzo.selection_reason, reason,
+			sizeof(bzo.selection_reason));
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
 		api.opaque.length = MIN(sizeof(struct bgp_zebra_opaque),
