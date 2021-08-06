@@ -128,7 +128,7 @@ class MSDPTopo1(Topo):
         switch.add_link(tgen.gears["r4"])
 
         switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r3"])
+        #switch.add_link(tgen.gears["r3"])
         switch.add_link(tgen.gears["r4"])
 
         switch = tgen.add_switch("s5")
@@ -434,11 +434,11 @@ def test_msdp():
             "local": "192.168.1.2",
             "state": "established"
         },
-        "192.168.3.2": {
-            "peer": "192.168.3.2",
-            "local": "192.168.3.1",
-            "state": "established"
-        }
+        #"192.169.3.2": {
+        #    "peer": "192.168.3.2",
+        #    "local": "192.168.3.1",
+        #    "state": "established"
+        #}
     }
     r4_expect = {
         "192.168.2.1": {
@@ -446,11 +446,11 @@ def test_msdp():
             "local": "192.168.2.2",
             "state": "established"
         },
-        "192.168.3.1": {
-            "peer": "192.168.3.1",
-            "local": "192.168.3.2",
-            "state": "established"
-        }
+        #"192.168.3.1": {
+        #    "peer": "192.168.3.1",
+        #    "local": "192.168.3.2",
+        #    "state": "established"
+        #}
     }
     r4_sa_expect = {
         "229.1.2.3": {
