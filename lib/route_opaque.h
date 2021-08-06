@@ -26,7 +26,7 @@
 #include "bgpd/bgp_lcommunity.h"
 
 struct bgp_zebra_opaque {
-	char aspath[ASPATH_STR_DEFAULT_LEN];
+	char aspath[256];
 
 	/* Show at least 10 communities AA:BB */
 	char community[COMMUNITY_SIZE * 20];
