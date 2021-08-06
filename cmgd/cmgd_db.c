@@ -283,7 +283,7 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 	}
 
 	xp_len = 0;
-	(void) lyd_path(base_dnode, LYD_PATH_STD, base_xpath, CMGD_MAX_XPATH_LEN);
+	// (void) lyd_path(base_dnode, LYD_PATH_STD, base_xpath, CMGD_MAX_XPATH_LEN);
 	cmgd_xpath_append_trail_wildcard(base_xpath, &xp_len);
 	ret = lyd_find_xpath(db_ctxt->config_db ?
 			db_ctxt->root.cfg_root->dnode :
