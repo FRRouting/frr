@@ -3166,7 +3166,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->reject_as_sets = false;
 	bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
-
+	bgp->fast_convergence = false;
 	bgp->as = *as;
 
 #ifdef ENABLE_BGP_VNC
