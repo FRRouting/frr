@@ -532,6 +532,11 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 
 		if (!trxn->nb_trxn) {
+			/*
+			 * This happens when the current backend client is only interested
+			 * in consuming the config items but is not interested in validating 
+			 * it.
+			 */
 			error = false;
 			nb_candidate_edit_config_changes(
 				clnt_ctxt->candidate_config,
@@ -557,6 +562,11 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	}
 
 	if (!trxn->nb_trxn) {
+		/*
+		 * This happens when the current backend client is only interested
+		 * in consuming the config items but is not interested in validating 
+		 * it.
+		 */
 		nb_ctxt.client = NB_CLIENT_CLI;
 		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 		if (nb_candidate_commit_prepare(&nb_ctxt,

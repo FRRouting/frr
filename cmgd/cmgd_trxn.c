@@ -394,9 +394,10 @@ static void cmgd_trxn_cleanup_bcknd_cfg_batches(cmgd_trxn_ctxt_t *trxn,
 	}
 	cmgd_trxn_batch_list_fini(list);
 
+	/* TODO: Maybe need to cleanup some state on backend */
+
 	list = &trxn->commit_cfg_req->req.commit_cfg.next_batches[id];
 	FOREACH_TRXN_CFG_BATCH_IN_LIST(list, cfg_btch) {
-		/* TODO: Maybe need to cleanup some state on backend */
 		cmgd_trxn_cfg_batch_free(&cfg_btch);
 	}
 	cmgd_trxn_batch_list_fini(list);

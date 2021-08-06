@@ -250,6 +250,29 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		*num_nodes = 0;
 	}
 
+	dnode = yang_dnode_get(db_ctxt->config_db ?
+			db_ctxt->root.cfg_root->dnode :
+			db_ctxt->root.dnode_root, base_xpath);
+	if (!dnode)
+		return -1;
+
+	/* If the base_xpath points to leaf node, we can skip the tree walk */
+	if(dnode->schema->nodetype & LYD_NODE_TERM) {
+		if (donot_free_alloced) {
+			if (xpaths && xpaths[*num_nodes]) {
+				xpath = xpaths[*num_nodes];
+			} else {
+				xpath = (char *)calloc(1, CMGD_MAX_XPATH_LEN);
+			}
+			strncpy(xpath, base_xpath, CMGD_MAX_XPATH_LEN);
+		} else {
+			xpath = base_xpath;
+		}
+		(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath, dnode,
+			dnode->schema->priv, ctxt);
+		return 0;
+	}
+
 	xp_len = 0;
 	cmgd_xpath_append_trail_wildcard(base_xpath, &xp_len);
 	ret = lyd_find_xpath(db_ctxt->config_db ?
@@ -407,25 +430,12 @@ int cmgd_db_iter_data(
 	cmgd_db_ctxt_t *db_ctxt;
 	int ret;
 	char xpath[CMGD_MAX_XPATH_LEN];
-	struct lyd_node *node;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
 
 	strncpy(xpath, base_xpath, sizeof(xpath));
-
-	node = yang_dnode_get(db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode :
-			db_ctxt->root.dnode_root, xpath);
-
-	if (!node)
-		return -1;
-
-	/* If the base_xpath points to leaf node, we can skip the tree walk */
-	if(node->schema->nodetype & LYD_NODE_TERM) {
-		(*iter_fn)(db_hndl, base_xpath, node, node->schema->priv, ctxt);
-		return 0;
-	}
 
 	CMGD_DB_DBG(" -- START DB walk for DBid: %d", db_ctxt->db_id);
 	ret = cmgd_walk_db_nodes(db_ctxt, xpath, iter_fn, ctxt,

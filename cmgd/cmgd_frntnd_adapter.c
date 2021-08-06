@@ -48,7 +48,8 @@
 		(adptr) = cmgd_frntnd_adptr_list_next(&cmgd_frntnd_adptrs, (adptr)))
 
 typedef enum cmgd_sessn_event_ {
-	CMGD_FRNTND_SESSN_TRXN_CLNUP = 1,
+	CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP = 1,
+	CMGD_FRNTND_SESSN_SHOW_TRXN_CLNUP,
 } cmgd_sessn_event_t;
 
 typedef struct cmgd_frntnd_sessn_ctxt_ {
@@ -59,7 +60,8 @@ typedef struct cmgd_frntnd_sessn_ctxt_ {
 	uint8_t db_write_locked[CMGD_DB_MAX_ID];
 	uint8_t db_read_locked[CMGD_DB_MAX_ID];
 	uint8_t db_locked_implict[CMGD_DB_MAX_ID];
-        struct thread *proc_trxn_clnp;
+        struct thread *proc_cfg_trxn_clnp;
+        struct thread *proc_show_trxn_clnp;
 
 	struct cmgd_frntnd_sessn_list_item list_linkage;
 } cmgd_frntnd_sessn_ctxt_t;
@@ -126,10 +128,20 @@ static int cmgd_frntnd_session_read_lock_db(
 
 static int cmgd_frntnd_session_unlock_db(
 	cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
-	cmgd_frntnd_sessn_ctxt_t *sessn)
+	cmgd_frntnd_sessn_ctxt_t *sessn, bool unlock_write, bool unlock_read)
 {
-	if (sessn->db_write_locked[db_id] || sessn->db_read_locked[db_id]) { 
+	if (unlock_write && sessn->db_write_locked[db_id]) {
 		sessn->db_write_locked[db_id] = false;
+		sessn->db_locked_implict[db_id] = false;
+		if (cmgd_db_unlock(db_hndl) != 0) {
+			CMGD_FRNTND_ADPTR_DBG("Failed to unlock the DB %u taken earlier by Sessn: %p from %s!",
+				db_id, sessn, sessn->adptr->name);
+			return -1;
+		}
+
+		CMGD_FRNTND_ADPTR_DBG("Unlocked DB %u write-locked earlier by Sessn: %p from %s",
+			db_id, sessn, sessn->adptr->name);
+	} else if (unlock_read && sessn->db_read_locked[db_id]) { 
 		sessn->db_read_locked[db_id] = false;
 		sessn->db_locked_implict[db_id] = false;
 		if (cmgd_db_unlock(db_hndl) != 0) {
@@ -138,14 +150,14 @@ static int cmgd_frntnd_session_unlock_db(
 			return -1;
 		}
 
-		CMGD_FRNTND_ADPTR_DBG("Unlocked DB %u locked earlier by Sessn: %p from %s",
+		CMGD_FRNTND_ADPTR_DBG("Unlocked DB %u read-locked earlier by Sessn: %p from %s",
 			db_id, sessn, sessn->adptr->name);
 	}
 
 	return 0;
 }
 
-static void cmgd_frntnd_sessn_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
+static void cmgd_frntnd_sessn_cfg_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 {
 	cmgd_database_id_t db_id;
 	cmgd_db_hndl_t db_hndl;
@@ -154,12 +166,28 @@ static void cmgd_frntnd_sessn_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 		db_hndl = cmgd_db_get_hndl_by_id(cmgd_frntnd_adptr_cm, db_id);
 		if (db_hndl) {
 			if (sessn->db_locked_implict[db_id])
-				cmgd_frntnd_session_unlock_db(db_id, db_hndl, sessn);
+				cmgd_frntnd_session_unlock_db(db_id, db_hndl, sessn,
+					true, false);
 		}
 	}
 
 	if (sessn->cfg_trxn_id != CMGD_TRXN_ID_NONE)
 		cmgd_destroy_trxn(&sessn->cfg_trxn_id);
+}
+
+static void cmgd_frntnd_sessn_show_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
+{
+	cmgd_database_id_t db_id;
+	cmgd_db_hndl_t db_hndl;
+
+	for (db_id = 0; db_id < CMGD_DB_MAX_ID; db_id++) {
+		db_hndl = cmgd_db_get_hndl_by_id(cmgd_frntnd_adptr_cm, db_id);
+		if (db_hndl) {
+			cmgd_frntnd_session_unlock_db(db_id, db_hndl, sessn,
+				false, true);
+		}
+	}
+
 	if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
 		cmgd_destroy_trxn(&sessn->trxn_id);
 }
@@ -167,7 +195,8 @@ static void cmgd_frntnd_sessn_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 static void cmgd_frntnd_cleanup_session(cmgd_frntnd_sessn_ctxt_t **sessn)
 {
 	if ((*sessn)->adptr) {
-		cmgd_frntnd_sessn_trxn_cleanup((*sessn));
+		cmgd_frntnd_sessn_cfg_trxn_cleanup((*sessn));
+		cmgd_frntnd_sessn_show_trxn_cleanup((*sessn));
 
 		cmgd_frntnd_sessn_list_del(&(*sessn)->adptr->frntnd_sessns, *sessn);
 		cmgd_frntnd_adapter_unlock(&(*sessn)->adptr);
@@ -380,7 +409,7 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	 */
 	if (sessn->cfg_trxn_id)
 		cmgd_frntnd_session_register_event(
-			sessn, CMGD_FRNTND_SESSN_TRXN_CLNUP);
+			sessn, CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP);
 
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
@@ -412,6 +441,13 @@ static int cmgd_frntnd_send_getcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	CMGD_FRNTND_ADPTR_DBG("Sending GET_CONFIG_REPLY message to CMGD Frontend client '%s'",
 		sessn->adptr->name);
 
+	/*
+	 * Cleanup the SHOW transaction associated with this session.
+	 */
+	if (data->next_indx < 0 && sessn->trxn_id)
+		cmgd_frntnd_session_register_event(
+			sessn, CMGD_FRNTND_SESSN_SHOW_TRXN_CLNUP);
+
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
 
@@ -442,16 +478,34 @@ static int cmgd_frntnd_send_getdata_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	CMGD_FRNTND_ADPTR_DBG("Sending GET_DATA_REPLY message to CMGD Frontend client '%s'",
 		sessn->adptr->name);
 
+	/*
+	 * Cleanup the SHOW transaction associated with this session.
+	 */
+	if (data->next_indx < 0 && sessn->trxn_id)
+		cmgd_frntnd_session_register_event(
+			sessn, CMGD_FRNTND_SESSN_SHOW_TRXN_CLNUP);
+
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
 
-static int cmgd_frntnd_session_trxn_clnup(struct thread *thread)
+static int cmgd_frntnd_session_cfg_trxn_clnup(struct thread *thread)
 {
 	cmgd_frntnd_sessn_ctxt_t *sessn;
 
 	sessn = (cmgd_frntnd_sessn_ctxt_t *)THREAD_ARG(thread);
 
-	cmgd_frntnd_sessn_trxn_cleanup(sessn);
+	cmgd_frntnd_sessn_cfg_trxn_cleanup(sessn);
+
+	return 0;
+}
+
+static int cmgd_frntnd_session_show_trxn_clnup(struct thread *thread)
+{
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	sessn = (cmgd_frntnd_sessn_ctxt_t *)THREAD_ARG(thread);
+
+	cmgd_frntnd_sessn_show_trxn_cleanup(sessn);
 
 	return 0;
 }
@@ -460,10 +514,16 @@ static void cmgd_frntnd_session_register_event(
 	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event)
 {
 	switch (event) {
-	case CMGD_FRNTND_SESSN_TRXN_CLNUP:
-		sessn->proc_trxn_clnp = 
+	case CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP:
+		sessn->proc_cfg_trxn_clnp = 
 			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
-				cmgd_frntnd_session_trxn_clnup, sessn,
+				cmgd_frntnd_session_cfg_trxn_clnup, sessn,
+				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+		break;
+	case CMGD_FRNTND_SESSN_SHOW_TRXN_CLNUP:
+		sessn->proc_show_trxn_clnp = 
+			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
+				cmgd_frntnd_session_show_trxn_clnup, sessn,
 				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
 		break;
 	default:
@@ -580,7 +640,7 @@ static int cmgd_frntnd_session_handle_lockdb_req_msg(
 		}
 
 		(void) cmgd_frntnd_session_unlock_db(lockdb_req->db_id,
-					db_hndl, sessn);
+					db_hndl, sessn, true, false);
 	}
 
 	if (!cmgd_frntnd_send_lockdb_reply(sessn,
@@ -690,7 +750,8 @@ cmgd_frntnd_session_handle_setcfg_req_failed:
 	if (sessn->cfg_trxn_id != CMGD_TRXN_ID_NONE)
 		cmgd_destroy_trxn(&sessn->cfg_trxn_id);
 	if (db_hndl && sessn->db_write_locked[setcfg_req->db_id])
-		cmgd_frntnd_session_unlock_db(setcfg_req->db_id, db_hndl, sessn);
+		cmgd_frntnd_session_unlock_db(setcfg_req->db_id, db_hndl, sessn,
+			true, false);
 
 	return 0;
 }
@@ -797,7 +858,8 @@ cmgd_frntnd_session_handle_getcfg_req_failed:
 	if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
 		cmgd_destroy_trxn(&sessn->trxn_id);
 	if (db_hndl && sessn->db_read_locked[getcfg_req->db_id])
-		cmgd_frntnd_session_unlock_db(getcfg_req->db_id, db_hndl, sessn);
+		cmgd_frntnd_session_unlock_db(getcfg_req->db_id, db_hndl, sessn,
+			false, true);
 
 	return -1;
 }
@@ -905,7 +967,8 @@ cmgd_frntnd_session_handle_getdata_req_failed:
 	if (sessn->trxn_id != CMGD_TRXN_ID_NONE)
 		cmgd_destroy_trxn(&sessn->trxn_id);
 	if (db_hndl && sessn->db_read_locked[getdata_req->db_id])
-		cmgd_frntnd_session_unlock_db(getdata_req->db_id, db_hndl, sessn);
+		cmgd_frntnd_session_unlock_db(getdata_req->db_id, db_hndl, sessn,
+			false, true);
 
 	return -1;
 }
