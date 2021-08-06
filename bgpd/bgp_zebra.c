@@ -1416,8 +1416,9 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		struct aspath *aspath = info->attr->aspath;
 
 		SET_FLAG(api.message, ZAPI_MESSAGE_OPAQUE);
-		api.opaque.length = strlen(aspath->str) + 1;
-		memcpy(api.opaque.data, aspath->str, api.opaque.length);
+		strlcpy((char *)api.opaque.data, aspath->str,
+			sizeof(api.opaque.data));
+		api.opaque.length = strlen((char *)api.opaque.data) + 1;
 	}
 
 	if (allow_recursion)
