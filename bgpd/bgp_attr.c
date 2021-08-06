@@ -789,9 +789,9 @@ static void attr_show_all_iterator(struct hash_bucket *bucket, struct vty *vty)
 		inet_ntop(AF_INET6, &attr->srv6_vpn->sid, sid_str, BUFSIZ);
 
 	vty_out(vty,
-		"\tflags: %" PRIu64" med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
-		attr->flag, attr->med, attr->local_pref, attr->origin,
-		attr->weight, attr->label, sid_str);
+		"\tflags: %" PRIu64" distance: %u med: %u local_pref: %u origin: %u weight: %u label: %u sid: %s\n",
+		attr->flag, attr->distance, attr->med, attr->local_pref,
+		attr->origin, attr->weight, attr->label, sid_str);
 }
 
 void attr_show_all(struct vty *vty)

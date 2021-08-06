@@ -517,8 +517,8 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 		/* Now perform the add/update. */
 		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
-				     nhtype, api.metric, api.type, api.instance,
-				     api.tag);
+				     nhtype, api.distance, api.metric, api.type,
+				     api.instance, api.tag);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);
