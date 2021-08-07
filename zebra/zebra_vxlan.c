@@ -1791,7 +1791,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 
 		vxl = &zif->l2info.vxl;
 		vni = zebra_vxlan_if_vni_find(zif, zl3vni->vni);
-		if (vni->vni != zl3vni->vni)
+		if (!vni || vni->vni != zl3vni->vni)
 			continue;
 
 		/* link of VXLAN interface should be in zebra_evpn_vrf */
