@@ -1353,6 +1353,15 @@ Optional sysctl settings
    When ndisc_notify is set to 0, no U-NA is sent.
    When ndisc_notify is set to 1, a U-NA is sent when the interface comes UP.
 
+Useful sysctl settings
+----------------------
+
+.. option:: net.ipv6.conf.all.use_oif_addrs_only=1
+
+   When enabled, the candidate source addresses for destinations routed via this interface are
+   restricted to the set of addresses configured on this interface (RFC 6724 section 4).  If
+   an operator has hundreds of IP addresses per interface this solves the latency problem.
+
 Debugging
 =========
 
