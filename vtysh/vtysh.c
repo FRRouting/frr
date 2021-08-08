@@ -1691,7 +1691,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 	return vtysh_end();
 }
 
-DEFUNSH(VTYSH_SR, srv6, srv6_cmd,
+DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
 	"srv6",
 	"Segment-Routing SRv6 configration\n")
 {
@@ -1699,7 +1699,7 @@ DEFUNSH(VTYSH_SR, srv6, srv6_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_SR, srv6_locators, srv6_locators_cmd,
+DEFUNSH(VTYSH_ZEBRA, srv6_locators, srv6_locators_cmd,
 	"locators",
 	"Segment-Routing SRv6 locators configration\n")
 {
@@ -1707,7 +1707,7 @@ DEFUNSH(VTYSH_SR, srv6_locators, srv6_locators_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_SR, srv6_locator, srv6_locator_cmd,
+DEFUNSH(VTYSH_ZEBRA, srv6_locator, srv6_locator_cmd,
 	"locator WORD",
 	"Segment Routing SRv6 locator\n"
 	"Specify locator-name\n")
@@ -2456,7 +2456,7 @@ DEFUNSH(VTYSH_VRF, exit_vrf_config, exit_vrf_config_cmd, "exit-vrf",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_SR, exit_srv6_config, exit_srv6_config_cmd, "exit",
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_config, exit_srv6_config_cmd, "exit",
 	"Exit from SRv6 configuration mode\n")
 {
 	if (vty->node == SRV6_NODE)
@@ -2464,7 +2464,7 @@ DEFUNSH(VTYSH_SR, exit_srv6_config, exit_srv6_config_cmd, "exit",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_SR, exit_srv6_locs_config, exit_srv6_locs_config_cmd, "exit",
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_locs_config, exit_srv6_locs_config_cmd, "exit",
 	"Exit from SRv6-locator configuration mode\n")
 {
 	if (vty->node == SRV6_LOCS_NODE)
@@ -2472,7 +2472,7 @@ DEFUNSH(VTYSH_SR, exit_srv6_locs_config, exit_srv6_locs_config_cmd, "exit",
 	return CMD_SUCCESS;
 }
 
-DEFUNSH(VTYSH_SR, exit_srv6_loc_config, exit_srv6_loc_config_cmd, "exit",
+DEFUNSH(VTYSH_ZEBRA, exit_srv6_loc_config, exit_srv6_loc_config_cmd, "exit",
 	"Exit from SRv6-locators configuration mode\n")
 {
 	if (vty->node == SRV6_LOC_NODE)
