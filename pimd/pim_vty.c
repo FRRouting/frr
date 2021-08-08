@@ -451,7 +451,7 @@ int pim_interface_config_write(struct vty *vty)
 				pim_bfd_write_config(vty, ifp);
 				++writes;
 			}
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, "exit\n!\n");
 			++writes;
 		}
 	}

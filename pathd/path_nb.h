@@ -112,10 +112,12 @@ void pathd_apply_finish(struct nb_cb_apply_finish_args *args);
 /* Optional 'cli_show' callbacks. */
 void cli_show_srte_segment_list(struct vty *vty, struct lyd_node *dnode,
 				bool show_defaults);
+void cli_show_srte_segment_list_end(struct vty *vty, struct lyd_node *dnode);
 void cli_show_srte_segment_list_segment(struct vty *vty, struct lyd_node *dnode,
 					bool show_defaults);
 void cli_show_srte_policy(struct vty *vty, struct lyd_node *dnode,
 			  bool show_defaults);
+void cli_show_srte_policy_end(struct vty *vty, struct lyd_node *dnode);
 void cli_show_srte_policy_name(struct vty *vty, struct lyd_node *dnode,
 			       bool show_defaults);
 void cli_show_srte_policy_binding_sid(struct vty *vty, struct lyd_node *dnode,
@@ -123,6 +125,8 @@ void cli_show_srte_policy_binding_sid(struct vty *vty, struct lyd_node *dnode,
 void cli_show_srte_policy_candidate_path(struct vty *vty,
 					 struct lyd_node *dnode,
 					 bool show_defaults);
+void cli_show_srte_policy_candidate_path_end(struct vty *vty,
+					     struct lyd_node *dnode);
 
 /* Utility functions */
 typedef void (*of_pref_cp_t)(enum objfun_type type, void *arg);

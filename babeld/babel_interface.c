@@ -1362,7 +1362,7 @@ interface_config_write (struct vty *vty)
                 write++;
             }
         }
-        vty_endframe (vty, "!\n");
+        vty_endframe (vty, "exit\n!\n");
         write++;
     }
     return write;

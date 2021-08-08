@@ -305,6 +305,11 @@ void cli_show_srte_segment_list(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "./name"));
 }
 
+void cli_show_srte_segment_list_end(struct vty *vty, struct lyd_node *dnode)
+{
+	vty_out(vty, "  exit\n");
+}
+
 static int segment_list_has_src_dst(
 	struct vty *vty, char *xpath, long index, const char *index_str,
 	struct in_addr adj_src_ipv4, struct in_addr adj_dst_ipv4,
@@ -660,6 +665,11 @@ void cli_show_srte_policy(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "  policy color %s endpoint %s\n",
 		yang_dnode_get_string(dnode, "./color"),
 		yang_dnode_get_string(dnode, "./endpoint"));
+}
+
+void cli_show_srte_policy_end(struct vty *vty, struct lyd_node *dnode)
+{
+	vty_out(vty, "  exit\n");
 }
 
 /*
@@ -1233,6 +1243,15 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 	}
 }
 
+void cli_show_srte_policy_candidate_path_end(struct vty *vty,
+					     struct lyd_node *dnode)
+{
+	const char *type = yang_dnode_get_string(dnode, "./type");
+
+	if (strmatch(type, "dynamic"))
+		vty_out(vty, "   exit\n");
+}
+
 static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 {
 	struct vty *vty = arg;
@@ -1255,6 +1274,9 @@ int config_write_segment_routing(struct vty *vty)
 			   "/frr-pathd:pathd/srte/policy");
 
 	hook_call(pathd_srte_config_write, vty);
+
+	vty_out(vty, " exit\n");
+	vty_out(vty, "exit\n");
 
 	return 1;
 }

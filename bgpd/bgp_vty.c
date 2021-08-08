@@ -17213,6 +17213,7 @@ int bgp_config_write(struct vty *vty)
 		bgp_rfapi_cfg_write(vty, bgp);
 #endif
 
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 	return 0;

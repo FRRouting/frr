@@ -32,6 +32,7 @@ const struct frr_yang_module_info frr_isisd_info = {
 			.xpath = "/frr-isisd:isis/instance",
 			.cbs = {
 				.cli_show = cli_show_router_isis,
+				.cli_show_end = cli_show_router_isis_end,
 				.create = isis_instance_create,
 				.destroy = isis_instance_destroy,
 			},

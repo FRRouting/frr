@@ -1443,6 +1443,7 @@ int pcep_cli_pcep_config_write(struct vty *vty)
 	pcep_cli_pcep_pce_config_write(vty);
 	pcep_cli_pce_config_write(vty);
 	pcep_cli_pcc_config_write(vty);
+	vty_out(vty, "  exit\n");
 	return 1;
 }
 
@@ -1467,7 +1468,7 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	}
 
 	if (pce_connections_g.num_connections == 0) {
-		return lines;
+		goto exit;
 	}
 
 	buf[0] = 0;
@@ -1494,6 +1495,8 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 		lines++;
 		buf[0] = 0;
 	}
+exit:
+	vty_out(vty, "   exit\n");
 
 	return lines;
 }
@@ -1654,6 +1657,8 @@ int pcep_cli_pce_config_write(struct vty *vty)
 
 		vty_out(vty, "%s", buf);
 		buf[0] = '\0';
+
+		vty_out(vty, "   exit\n");
 	}
 
 	return lines;
@@ -1678,6 +1683,8 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
 			pcep_cli_print_pce_config(group_opts, buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
 		buf[0] = 0;
+
+		vty_out(vty, "   exit\n");
 	}
 
 	return lines;

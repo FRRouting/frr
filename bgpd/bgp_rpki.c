@@ -932,7 +932,7 @@ static int config_write(struct vty *vty)
 
 		vty_out(vty, "preference %hhu\n", cache->preference);
 	}
-	vty_out(vty, " exit\n");
+	vty_out(vty, "exit\n");
 
 	return 1;
 }

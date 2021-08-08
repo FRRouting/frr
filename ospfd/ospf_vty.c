@@ -11970,7 +11970,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 		ospf_opaque_config_write_if(vty, ifp);
 
-		vty_endframe(vty, NULL);
+		vty_endframe(vty, "exit\n!\n");
 	}
 
 	return write;
@@ -12545,6 +12545,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 
 	/* LDP-Sync print */
 	ospf_ldp_sync_write_config(vty, ospf);
+
+	vty_out(vty, "exit\n");
 
 	write++;
 	return write;

@@ -1291,6 +1291,11 @@ static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+static void cli_show_interface_end(struct vty *vty, struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+}
+
 /*
  * XPath: /frr-interface:lib/interface/description
  */
@@ -1652,6 +1657,7 @@ const struct frr_yang_module_info frr_interface_info = {
 				.create = lib_interface_create,
 				.destroy = lib_interface_destroy,
 				.cli_show = cli_show_interface,
+				.cli_show_end = cli_show_interface_end,
 				.get_next = lib_interface_get_next,
 				.get_keys = lib_interface_get_keys,
 				.lookup_entry = lib_interface_lookup_entry,

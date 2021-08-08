@@ -320,10 +320,14 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "   locator %s\n", locator->name);
 			vty_out(vty, "    prefix %s/%u\n", str,
 				locator->prefix.prefixlen);
+			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}
+		vty_out(vty, "  exit\n");
 		vty_out(vty, "  !\n");
+		vty_out(vty, " exit\n");
 		vty_out(vty, " !\n");
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 	return 0;

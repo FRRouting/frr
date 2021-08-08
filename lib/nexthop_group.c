@@ -1156,6 +1156,7 @@ static int nexthop_group_write(struct vty *vty)
 			nexthop_group_write_nexthop_internal(vty, nh);
 		}
 
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 

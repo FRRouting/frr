@@ -315,7 +315,6 @@ domainname test.domain
 !
 !
 !
-line vty
 !
 end
 test# conf t
@@ -332,7 +331,6 @@ domainname test.domain
 !
 !
 !
-line vty
 !
 end
 foohost(config)# 

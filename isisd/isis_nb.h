@@ -415,6 +415,7 @@ void isis_instance_segment_routing_prefix_sid_map_prefix_sid_apply_finish(
 /* Optional 'cli_show' callbacks. */
 void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
 			  bool show_defaults);
+void cli_show_router_isis_end(struct vty *vty, struct lyd_node *dnode);
 void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 			   bool show_defaults);
 void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
