@@ -146,6 +146,11 @@ void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+void cli_show_router_isis_end(struct vty *vty, struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/ipv4-routing

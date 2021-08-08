@@ -2400,6 +2400,8 @@ static int bmp_config_write(struct bgp *bgp, struct vty *vty)
 		frr_each (bmp_actives, &bt->actives, ba)
 			vty_out(vty, "  bmp connect %s port %u min-retry %u max-retry %u\n",
 				ba->hostname, ba->port, ba->minretry, ba->maxretry);
+
+		vty_out(vty, " exit\n");
 	}
 
 	return 0;

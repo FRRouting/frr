@@ -521,7 +521,7 @@ static int vrf_config_write(struct vty *vty)
 		router_id_write(vty, zvrf);
 
 		if (zvrf_id(zvrf) != VRF_DEFAULT)
-			vty_endframe(vty, " exit-vrf\n!\n");
+			vty_endframe(vty, "exit-vrf\n!\n");
 		else
 			vty_out(vty, "!\n");
 	}

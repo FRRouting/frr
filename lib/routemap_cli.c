@@ -125,6 +125,7 @@ void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 
 void route_map_instance_show_end(struct vty *vty, struct lyd_node *dnode)
 {
+	vty_out(vty, "exit\n");
 	vty_out(vty, "!\n");
 }
 

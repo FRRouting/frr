@@ -132,6 +132,8 @@ babel_config_write (struct vty *vty)
 
     lines += config_write_distribute (vty, babel_routing_process->distribute_ctx);
 
+    vty_out (vty, "exit\n");
+
     return lines;
 }
 

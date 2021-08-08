@@ -836,6 +836,7 @@ static int zebra_pw_config(struct vty *vty)
 		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
 			vty_out(vty, " control-word exclude\n");
 
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 		write = 1;
 	}

@@ -1044,6 +1044,7 @@ static int keychain_config_write(struct vty *vty)
 
 			vty_out(vty, " exit\n");
 		}
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 

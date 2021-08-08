@@ -1290,7 +1290,7 @@ static int isis_interface_config_write(struct vty *vty)
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
 		}
-		vty_endframe(vty, "!\n");
+		vty_endframe(vty, "exit\n!\n");
 	}
 
 	return write;

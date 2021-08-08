@@ -2270,6 +2270,8 @@ static int ripng_config_write(struct vty *vty)
 		config_write_distribute(vty, ripng->distribute_ctx);
 		config_write_if_rmap(vty, ripng->if_rmap_ctx);
 
+		vty_out(vty, "exit\n");
+
 		write = 1;
 	}
 

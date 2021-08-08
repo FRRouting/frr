@@ -1118,7 +1118,7 @@ static int pbr_interface_config_write(struct vty *vty)
 
 			pbr_map_write_interfaces(vty, ifp);
 
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, "exit\n!\n");
 		}
 	}
 
@@ -1184,6 +1184,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 	}
 
+	vty_out(vty, "exit\n");
 	vty_out(vty, "!\n");
 	return 1;
 }

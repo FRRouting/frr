@@ -2237,6 +2237,8 @@ static int config_write_ospf6(struct vty *vty)
 		ospf6_distribute_config_write(vty, ospf6);
 		ospf6_asbr_summary_config_write(vty, ospf6);
 		config_write_ospf6_gr_helper(vty, ospf6);
+
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 	return 0;

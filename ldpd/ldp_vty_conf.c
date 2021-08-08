@@ -133,6 +133,8 @@ ldp_af_iface_config_write(struct vty *vty, int af)
 		    ia->hello_interval != 0)
 			vty_out (vty, "   discovery hello interval %u\n",
 			    ia->hello_interval);
+
+		vty_out (vty, "  exit\n");
 	}
 }
 
@@ -314,6 +316,7 @@ ldp_config_write(struct vty *vty)
 	ldp_af_config_write(vty, AF_INET, ldpd_conf, &ldpd_conf->ipv4);
 	ldp_af_config_write(vty, AF_INET6, ldpd_conf, &ldpd_conf->ipv6);
 	vty_out (vty, " !\n");
+	vty_out (vty, "exit\n");
 	vty_out (vty, "!\n");
 
 	return (1);
@@ -353,6 +356,8 @@ ldp_l2vpn_pw_config_write(struct vty *vty, struct l2vpn_pw *pw)
 		          "  ! Incomplete config, specify a neighbor lsr-id\n");
 	if (missing_pwid)
 		vty_out (vty,"  ! Incomplete config, specify a pw-id\n");
+
+	vty_out (vty, " exit\n");
 }
 
 static int
@@ -383,6 +388,7 @@ ldp_l2vpn_config_write(struct vty *vty)
 			ldp_l2vpn_pw_config_write(vty, pw);
 
 		vty_out (vty, " !\n");
+		vty_out (vty, "exit\n");
 		vty_out (vty, "!\n");
 	}
 
