@@ -737,6 +737,9 @@ static int netlink_bridge_vxlan_vlan_vni_map_update(struct interface *ifp,
 	struct zebra_vxlan_vni vni_start;
 	struct rtattr *aftb[IFLA_BRIDGE_VLAN_TUNNEL_MAX + 1];
 
+	memset(&vni_start, 0, sizeof(vni_start));
+	memset(&vni_end, 0, sizeof(vni_end));
+
 	for (i = RTA_DATA(af_spec), rem = RTA_PAYLOAD(af_spec); RTA_OK(i, rem);
 	     i = RTA_NEXT(i, rem)) {
 

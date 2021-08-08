@@ -3536,7 +3536,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 		       IPV4_MAX_BYTELEN);
 		snprintfrr(dst_buf, sizeof(dst_buf), " dst %pI4",
 			   &vtep_ip);
-	}
+	} else
+		memset(&vtep_ip, 0, sizeof(vtep_ip));
 
 	if (tb[NDA_NH_ID])
 		nhg_id = *(uint32_t *)RTA_DATA(tb[NDA_NH_ID]);
