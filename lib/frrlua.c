@@ -346,21 +346,6 @@ void *lua_tostringp(lua_State *L, int idx)
 }
 
 /*
- * Decoder for const values, since we cannot modify them.
- */
-void lua_decode_noop(lua_State *L, int idx, const void *ptr)
-{
-}
-
-
-/*
- * Noop decoder for int.
- */
-void lua_decode_integer_noop(lua_State *L, int idx, int i)
-{
-}
-
-/*
  * Logging.
  *
  * Lua-compatible wrappers for FRR logging functions.
