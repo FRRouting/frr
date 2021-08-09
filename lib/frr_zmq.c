@@ -92,7 +92,8 @@ static int frrzmq_read_msg(struct thread *t)
 						    ZMQ_POLLOUT);
 				cb->read.thread = NULL;
 				if (cb->write.cancelled && !cb->write.thread)
-					XFREE(MTYPE_ZEROMQ_CB, cb);
+					XFREE(MTYPE_ZEROMQ_CB, *cbp);
+
 				return 0;
 			}
 			continue;
@@ -120,7 +121,8 @@ static int frrzmq_read_msg(struct thread *t)
 						    ZMQ_POLLOUT);
 				cb->read.thread = NULL;
 				if (cb->write.cancelled && !cb->write.thread)
-					XFREE(MTYPE_ZEROMQ_CB, cb);
+					XFREE(MTYPE_ZEROMQ_CB, *cbp);
+
 				return 0;
 			}
 
@@ -239,7 +241,8 @@ static int frrzmq_write_msg(struct thread *t)
 				frrzmq_check_events(cbp, &cb->read, ZMQ_POLLIN);
 				cb->write.thread = NULL;
 				if (cb->read.cancelled && !cb->read.thread)
-					XFREE(MTYPE_ZEROMQ_CB, cb);
+					XFREE(MTYPE_ZEROMQ_CB, *cbp);
+
 				return 0;
 			}
 			continue;
