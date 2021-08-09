@@ -471,13 +471,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 		yang_afi_safi_identity2value(afi_safi, &afi, &safi);
 
 		rn = static_add_route(afi, safi, &prefix, NULL, s_vrf);
-		if (!rn) {
-			flog_warn(
-				EC_LIB_NB_CB_CONFIG_APPLY,
-				"route node %s creation failed",
-				yang_dnode_get_string(args->dnode, "./prefix"));
-			return NB_ERR;
-		}
 		if (vrf->vrf_id == VRF_UNKNOWN)
 			snprintf(
 				args->errmsg, args->errmsg_len,
@@ -752,13 +745,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		afi = family2afi(src_prefix.family);
 		src_rn =
 			static_add_route(afi, safi, &rn->p, &src_prefix, s_vrf);
-		if (!src_rn) {
-			flog_warn(EC_LIB_NB_CB_CONFIG_APPLY,
-				  "src rn %s creation failed",
-				  yang_dnode_get_string(args->dnode,
-							"./src-prefix"));
-			return NB_ERR;
-		}
 		nb_running_set_entry(args->dnode, src_rn);
 		break;
 	}
