@@ -197,6 +197,7 @@ void _lua_decode_noop(lua_State *, ...);
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 int : lua_pushinteger,                                          \
+long long : lua_pushinteger,                                    \
 long long * : lua_pushintegerp,                                 \
 struct prefix * : lua_pushprefix,                               \
 struct interface * : lua_pushinterface,                         \
