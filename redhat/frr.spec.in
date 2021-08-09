@@ -451,7 +451,7 @@ ln -s %{_sbindir}/frrinit.sh %{buildroot}%{_initddir}/frr
 %endif
 
 install %{zeb_src}/tools/etc/frr/daemons %{buildroot}%{_sysconfdir}/frr
-install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr
+install %{zeb_src}/tools/etc/frr/frr.conf %{buildroot}%{_sysconfdir}/frr/frr.conf.template
 install -m644 %{zeb_rh_src}/frr.pam %{buildroot}%{_sysconfdir}/pam.d/frr
 install -m644 %{zeb_rh_src}/frr.logrotate %{buildroot}%{_sysconfdir}/logrotate.d/frr
 install -d -m750 %{buildroot}%{rundir}
@@ -558,24 +558,15 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
-# Create dummy files if they don't exist so basic functions can be used.
+# Create dummy config file if they don't exist so basic functions can be used.
 if [ ! -e %{configdir}/zebra.conf ]; then
-    echo "hostname `hostname`" > %{configdir}/zebra.conf
+    # per daemon configs exist
+    mv %{configdir}/frr.conf.template %{configdir}/frr.conf
 %if 0%{?frr_user:1}
-    chown %{frr_user}:%{frr_user} %{configdir}/zebra.conf*
+    chown %{frr_user}:%{frr_user} %{configdir}/frr.conf
 %endif
-    chmod 640 %{configdir}/zebra.conf*
+    chmod 640 %{configdir}/frr.conf
 fi
-for daemon in %{all_daemons} ; do
-    if [ x"${daemon}" != x"" ] ; then
-        if [ ! -e %{configdir}/${daemon}.conf ]; then
-            touch %{configdir}/${daemon}.conf
-            %if 0%{?frr_user:1}
-                chown %{frr_user}:%{frr_user} %{configdir}/${daemon}.conf*
-            %endif
-        fi
-    fi
-done
 %if 0%{?frr_user:1}
     chown %{frr_user}:%{frr_user} %{configdir}/daemons
 %endif
