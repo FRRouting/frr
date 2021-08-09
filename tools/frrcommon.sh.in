@@ -60,7 +60,7 @@ chownfrr() {
 	[ -n "$FRR_GROUP" ] && chgrp "$FRR_GROUP" "$1"
 	[ -n "$FRR_CONFIG_MODE" ] && chmod "$FRR_CONFIG_MODE" "$1"
 	if [ -d "$1" ]; then
-		chmod u+x "$1"
+		chmod gu+x "$1"
 	fi
 }
 
