@@ -149,8 +149,6 @@ static int zebra_ns_delete(char *name)
 			  "NS notify : no VRF found using NS %s", name);
 		return 0;
 	}
-	/* Clear configured flag and invoke delete. */
-	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 	ns = (struct ns *)vrf->ns_ctxt;
 	/* the deletion order is the same
 	 * as the one used when siging signal is received
