@@ -84,7 +84,10 @@ static int frrzmq_read_msg(struct thread *t)
 			break;
 
 		if (cb->read.cb_msg) {
+			cb->in_cb = true;
 			cb->read.cb_msg(cb->read.arg, cb->zmqsock);
+			cb->in_cb = false;
+
 			read = 1;
 
 			if (cb->read.cancelled) {
@@ -113,8 +116,11 @@ static int frrzmq_read_msg(struct thread *t)
 			}
 			read = 1;
 
+			cb->in_cb = true;
 			cb->read.cb_part(cb->read.arg, cb->zmqsock, &msg,
 					 partno);
+			cb->in_cb = false;
+
 			if (cb->read.cancelled) {
 				zmq_msg_close(&msg);
 				frrzmq_check_events(cbp, &cb->write,
@@ -185,7 +191,6 @@ int _frrzmq_thread_add_read(const struct xref_threadsched *xref,
 		cb = *cbp;
 	else {
 		cb = XCALLOC(MTYPE_ZEROMQ_CB, sizeof(struct frrzmq_cb));
-
 		cb->write.cancelled = true;
 		*cbp = cb;
 	}
@@ -197,6 +202,7 @@ int _frrzmq_thread_add_read(const struct xref_threadsched *xref,
 	cb->read.cb_part = partfunc;
 	cb->read.cb_error = errfunc;
 	cb->read.cancelled = false;
+	cb->in_cb = false;
 
 	if (events & ZMQ_POLLIN) {
 		thread_cancel(&cb->read.thread);
@@ -234,7 +240,10 @@ static int frrzmq_write_msg(struct thread *t)
 			break;
 
 		if (cb->write.cb_msg) {
+			cb->in_cb = true;
 			cb->write.cb_msg(cb->write.arg, cb->zmqsock);
+			cb->in_cb = false;
+
 			written = 1;
 
 			if (cb->write.cancelled) {
@@ -289,7 +298,6 @@ int _frrzmq_thread_add_write(const struct xref_threadsched *xref,
 		cb = *cbp;
 	else {
 		cb = XCALLOC(MTYPE_ZEROMQ_CB, sizeof(struct frrzmq_cb));
-
 		cb->read.cancelled = true;
 		*cbp = cb;
 	}
@@ -301,6 +309,7 @@ int _frrzmq_thread_add_write(const struct xref_threadsched *xref,
 	cb->write.cb_part = NULL;
 	cb->write.cb_error = errfunc;
 	cb->write.cancelled = false;
+	cb->in_cb = false;
 
 	if (events & ZMQ_POLLOUT) {
 		thread_cancel(&cb->write.thread);
@@ -320,22 +329,15 @@ void frrzmq_thread_cancel(struct frrzmq_cb **cb, struct cb_core *core)
 	core->cancelled = true;
 	thread_cancel(&core->thread);
 
-	/*
-	 * Looking at this code one would assume that FRR
-	 * would want a `!(*cb)->write.thread.  This was
-	 * attempted in e08165def1c62beee0e87385 but this
-	 * change caused `make check` to stop working
-	 * which was not noticed because our CI system
-	 * does not build with zeromq.  Put this back
-	 * to the code as written in 2017.  e08165de..
-	 * was introduced in 2021.  So someone was ok
-	 * with frrzmq_thread_cancel for 4 years.  This will
-	 * allow those people doing `make check` to continue
-	 * working.  In the meantime if the people using
-	 * this code see an issue they can fix it
+	/* If cancelled from within a callback, don't try to free memory
+	 * in this path.
 	 */
+	if ((*cb)->in_cb)
+		return;
+
+	/* Ok to free the callback context if no more ... context. */
 	if ((*cb)->read.cancelled && !(*cb)->read.thread
-	    && (*cb)->write.cancelled && (*cb)->write.thread)
+	    && (*cb)->write.cancelled && ((*cb)->write.thread == NULL))
 		XFREE(MTYPE_ZEROMQ_CB, *cb);
 }
 
