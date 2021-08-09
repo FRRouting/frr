@@ -138,6 +138,17 @@ def test_bgp_community_alias():
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Cannot see BGP prefixes by community alias at r1"
 
+    def _bgp_show_prefixes_by_large_community_list(router):
+        output = json.loads(
+            router.vtysh_cmd("show bgp ipv4 unicast large-community-list r2 json")
+        )
+        expected = {"routes": {"172.16.16.1/32": [{"valid": True}]}}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_show_prefixes_by_large_community_list, router)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Cannot see BGP prefixes by large community list at r1"
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
