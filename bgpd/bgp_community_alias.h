@@ -42,6 +42,8 @@ extern void bgp_ca_community_delete(struct community_alias *ca);
 extern void bgp_ca_alias_delete(struct community_alias *ca);
 extern int bgp_community_alias_write(struct vty *vty);
 extern const char *bgp_community2alias(char *community);
+extern const char *bgp_alias2community(char *alias);
+extern const char *bgp_alias2community_str(const char *str);
 extern void bgp_community_alias_command_completion_setup(void);
 
 #endif /* FRR_BGP_COMMUNITY_ALIAS_H */

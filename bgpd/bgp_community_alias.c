@@ -20,6 +20,7 @@
 
 #include "memory.h"
 #include "lib/jhash.h"
+#include "frrstr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community_alias.h"
@@ -151,6 +152,45 @@ const char *bgp_community2alias(char *community)
 		return find->alias;
 
 	return community;
+}
+
+const char *bgp_alias2community(char *alias)
+{
+	struct community_alias ca;
+	struct community_alias *find;
+
+	memset(&ca, 0, sizeof(ca));
+	strlcpy(ca.alias, alias, sizeof(ca.alias));
+
+	find = bgp_ca_alias_lookup(&ca);
+	if (find)
+		return find->community;
+
+	return alias;
+}
+
+/* Communities structs have `->str` which is used
+ * for vty outputs and extended BGP community lists
+ * with regexp.
+ * This is a helper to convert already aliased version
+ * of communities into numerical-only format.
+ */
+const char *bgp_alias2community_str(const char *str)
+{
+	char **aliases;
+	int num;
+
+	frrstr_split(str, " ", &aliases, &num);
+	const char *communities[num + 1];
+
+	for (int i = 0; i < num; i++) {
+		communities[i] =
+			XSTRDUP(MTYPE_TMP, bgp_alias2community(aliases[i]));
+		XFREE(MTYPE_TMP, aliases[i]);
+	}
+	XFREE(MTYPE_TMP, aliases);
+
+	return frrstr_join(communities, num, " ");
 }
 
 static int bgp_community_alias_vector_walker(struct hash_bucket *bucket,

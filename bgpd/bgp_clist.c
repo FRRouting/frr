@@ -33,6 +33,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
@@ -557,7 +558,7 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 		str = community_str(com, false);
 
 	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
+	if (regexec(reg, bgp_alias2community_str(str), 0, NULL, 0) == 0)
 		return true;
 
 	/* No match.  */
@@ -627,7 +628,7 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 		str = lcommunity_str(com, false);
 
 	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
+	if (regexec(reg, bgp_alias2community_str(str), 0, NULL, 0) == 0)
 		return true;
 
 	/* No match.  */
