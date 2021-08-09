@@ -388,6 +388,11 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			     struct prefix_ipv6 *src_p, struct route_entry *re,
 			     struct nexthop_group *ng);
+/*
+ * -1 -> some sort of error
+ *  0 -> an add
+ *  1 -> an update
+ */
 extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 				 struct prefix_ipv6 *src_p,
 				 struct route_entry *re,

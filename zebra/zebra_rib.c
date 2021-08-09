@@ -3140,6 +3140,10 @@ void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
  * allocate: if they allocate a nexthop_group or backup nexthop info, they
  * must free those objects. If this returns < 0, an error has occurred and the
  * route_entry 're' has not been captured; the caller should free that also.
+ *
+ * -1 -> error
+ *  0 -> Add
+ *  1 -> update
  */
 int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 			  struct prefix_ipv6 *src_p, struct route_entry *re,
@@ -3254,11 +3258,12 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
-	ret = 1;
 
 	/* Free implicit route.*/
-	if (same)
+	if (same) {
+		ret = 1;
 		rib_delnode(rn, same);
+	}
 
 	/* See if we can remove some RE entries that are queued for
 	 * removal, but won't be considered in rib processing.
