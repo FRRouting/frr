@@ -117,6 +117,7 @@ Load
 The function to be called must first be loaded. Use ``frrscript_load()``
 which takes a ``frrscript`` object, the name of the Lua function
 and a callback function.
+The script file will be read to load and compile the function.
 
 For example, to load the Lua function ``on_foo``
 in ``/etc/frr/scripts/bingus.lua``:
@@ -138,7 +139,7 @@ should not be able to write the scripts directory anyway.
 Call
 ^^^^
 
-After loading, Lua functions may be called.
+After loading, a Lua function can be called any number of times.
 
 Input
 """""
@@ -230,6 +231,18 @@ Returns the pointer to the decoded value, or NULL if it was not found.
 In the example, ``d`` is a "new" value in C space,
 so memory allocation might take place. Hence the caller is
 responsible for memory deallocation.
+
+``frrscript_call()`` may be called multiple times without re-loading with
+``frrscript_load()``. Results are not preserved between consecutive calls.
+
+.. code-block:: c
+
+   frrscript_load(fs, "on_foo");
+
+   frrscript_call(fs, "on_foo");
+   frrscript_get_result(fs, "on_foo", ...);
+   frrscript_call(fs, "on_foo");
+   frrscript_get_result(fs, "on_foo", ...);
 
 
 Delete
