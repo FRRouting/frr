@@ -181,6 +181,11 @@ void frrscript_fini(void);
 	} while (0)
 
 /*
+ * Noop function. Used below where we need a noop decoder for any type.
+ */
+void _lua_decode_noop(lua_State *, ...);
+
+/*
  * Maps the type of value to its encoder/decoder.
  * Add new mappings here.
  *
@@ -220,13 +225,7 @@ struct in6_addr * : lua_decode_in6addr,                         \
 union sockunion * : lua_decode_sockunion,                       \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
-struct peer * : lua_decode_noop,                                \
-const struct prefix * : lua_decode_noop,                        \
-const struct ipaddr * : lua_decode_noop,                        \
-const struct ethaddr * : lua_decode_noop,                       \
-const struct nexthop_group * : lua_decode_noop,                 \
-const struct nexthop * : lua_decode_noop,                       \
-struct zebra_dplane_ctx * : lua_decode_noop                     \
+default : _lua_decode_noop                                      \
 )((L), -1, (value))
 
 /*
