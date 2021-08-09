@@ -240,7 +240,9 @@ void lua_pushsockunion(lua_State *L, const union sockunion *su)
 void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su)
 {
 	lua_getfield(L, idx, "string");
-	(void)str2sockunion(lua_tostring(L, -1), su);
+	if (str2sockunion(lua_tostring(L, -1), su) < 0) {
+		zlog_err("Lua hook call: Failed to decode sockunion");
+	}
 	lua_pop(L, 1);
 	/* pop the table */
 	lua_pop(L, 1);
