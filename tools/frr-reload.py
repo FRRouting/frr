@@ -609,7 +609,7 @@ end
             "username ",
             "vni ",
             "vrrp autoconfigure",
-            "zebra "
+            "zebra ",
         )
 
         for line in self.lines:
@@ -2178,7 +2178,9 @@ if __name__ == "__main__":
                     nolines = [x.strip() for x in nolines]
                     # For topotests leave these lines in (don't delete them)
                     # [chopps: why is "log file" more special than other "log" commands?]
-                    nolines = [x for x in nolines if "debug" not in x and "log file" not in x]
+                    nolines = [
+                        x for x in nolines if "debug" not in x and "log file" not in x
+                    ]
                     if not nolines:
                         continue
 
