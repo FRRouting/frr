@@ -398,7 +398,7 @@ Again, for ``struct prefix *``:
    {
         lua_getfield(L, idx, "network");
         (void)str2prefix(lua_tostring(L, -1), prefix);
-        /* pop the netork string */
+        /* pop the network string */
         lua_pop(L, 1);
         /* pop the prefix table */
         lua_pop(L, 1);
