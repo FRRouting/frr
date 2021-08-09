@@ -274,7 +274,7 @@ void lua_decode_integerp(lua_State *L, int idx, int *num)
 
 void *lua_tointegerp(lua_State *L, int idx)
 {
-	int *num = XCALLOC(MTYPE_TMP, sizeof(int));
+	int *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(int));
 
 	lua_decode_integerp(L, idx, num);
 	return num;
@@ -348,7 +348,7 @@ void lua_decode_longlongp(lua_State *L, int idx, long long *num)
 
 void *lua_tolonglongp(lua_State *L, int idx)
 {
-	long long *num = XCALLOC(MTYPE_TMP, sizeof(long long));
+	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
 
 	lua_decode_longlongp(L, idx, num);
 	return num;
