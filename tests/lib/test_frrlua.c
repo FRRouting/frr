@@ -13,12 +13,20 @@ static void test_encode_decode(void)
 {
 	lua_State *L = luaL_newstate();
 
-	long long a = 123;
-	long long b = a;
+	int a = 123;
+	int b = a;
 
 	lua_pushintegerp(L, &a);
 	lua_decode_integerp(L, -1, &a);
 	assert(a == b);
+	assert(lua_gettop(L) == 0);
+
+	long long ll_a = 123L;
+	long long ll_b = a;
+
+	lua_pushlonglongp(L, &ll_a);
+	lua_decode_longlongp(L, -1, &ll_a);
+	assert(ll_a == ll_b);
 	assert(lua_gettop(L) == 0);
 
 	time_t time_a = 100;

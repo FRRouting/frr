@@ -197,8 +197,9 @@ void _lua_decode_noop(lua_State *, ...);
 #define ENCODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
 int : lua_pushinteger,                                          \
+int * : lua_pushintegerp,                                       \
 long long : lua_pushinteger,                                    \
-long long * : lua_pushintegerp,                                 \
+long long * : lua_pushlonglongp,                                \
 struct prefix * : lua_pushprefix,                               \
 struct interface * : lua_pushinterface,                         \
 struct in_addr * : lua_pushinaddr,                              \
@@ -217,8 +218,8 @@ struct zebra_dplane_ctx * : lua_pushzebra_dplane_ctx            \
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
 	_Generic((value), \
-int : lua_decode_integer_noop,                                  \
-long long * : lua_decode_integerp,                              \
+int * : lua_decode_integerp,                                    \
+long long * : lua_decode_longlongp,                             \
 struct prefix * : lua_decode_prefix,                            \
 struct interface * : lua_decode_interface,                      \
 struct in_addr * : lua_decode_inaddr,                           \

@@ -121,9 +121,9 @@ void lua_pushnexthop(lua_State *L, const struct nexthop *nexthop);
 /*
  * Converts an int to a Lua value and pushes it on the stack.
  */
-void lua_pushintegerp(lua_State *L, const long long *num);
+void lua_pushintegerp(lua_State *L, const int *num);
 
-void lua_decode_integerp(lua_State *L, int idx, long long *num);
+void lua_decode_integerp(lua_State *L, int idx, int *num);
 
 /*
  * Converts the Lua value at idx to an int.
@@ -132,6 +132,21 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num);
  *    int allocated with MTYPE_TMP.
  */
 void *lua_tointegerp(lua_State *L, int idx);
+
+/*
+ * Converts a long long to a Lua value and pushes it on the stack.
+ */
+void lua_pushlonglongp(lua_State *L, const long long *num);
+
+void lua_decode_longlongp(lua_State *L, int idx, long long *num);
+
+/*
+ * Converts the Lua value at idx to a long long.
+ *
+ * Returns:
+ *    long long allocated with MTYPE_TMP.
+ */
+void *lua_tolonglongp(lua_State *L, int idx);
 
 void lua_decode_stringp(lua_State *L, int idx, char *str);
 
