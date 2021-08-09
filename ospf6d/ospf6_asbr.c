@@ -2715,32 +2715,12 @@ void ospf6_fill_aggr_route_details(struct ospf6 *ospf6,
 	rt_aggr->path.origin.id = htonl(aggr->id);
 }
 
-static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
-					 struct ospf6_external_aggr_rt *aggr)
+static void
+ospf6_summary_add_aggr_route_and_blackhole(struct ospf6 *ospf6,
+					   struct ospf6_external_aggr_rt *aggr)
 {
-
-	struct prefix prefix_id;
-	struct route_node *node;
-	struct ospf6_lsa *lsa = NULL;
 	struct ospf6_route *rt_aggr;
 	struct ospf6_external_info *info;
-
-	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Originate new aggregate route(%pFX)", __func__,
-			   &aggr->p);
-
-	aggr->id = ospf6->external_id++;
-	/* create/update binding in external_id_table */
-	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
-	prefix_id.u.prefix4.s_addr = htonl(aggr->id);
-	node = route_node_get(ospf6->external_id_table, &prefix_id);
-	node->info = aggr;
-
-	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug(
-			"Advertise AS-External Id:%pI4 prefix %pFX metric %u",
-			&prefix_id.u.prefix4, &aggr->p, aggr->metric);
 
 	/* Create summary route and save it. */
 	rt_aggr = ospf6_route_create(ospf6);
@@ -2761,9 +2741,37 @@ static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
 	ospf6_add_route_nexthop_blackhole(rt_aggr);
 
 	ospf6_zebra_route_update_add(rt_aggr, ospf6);
+}
+
+static void ospf6_originate_new_aggr_lsa(struct ospf6 *ospf6,
+					 struct ospf6_external_aggr_rt *aggr)
+{
+	struct prefix prefix_id;
+	struct route_node *node;
+	struct ospf6_lsa *lsa = NULL;
+
+	if (IS_OSPF6_DEBUG_AGGR)
+		zlog_debug("%s: Originate new aggregate route(%pFX)", __func__,
+			   &aggr->p);
+
+	aggr->id = ospf6->external_id++;
+
+	/* create/update binding in external_id_table */
+	prefix_id.family = AF_INET;
+	prefix_id.prefixlen = 32;
+	prefix_id.u.prefix4.s_addr = htonl(aggr->id);
+	node = route_node_get(ospf6->external_id_table, &prefix_id);
+	node->info = aggr;
+
+	if (IS_OSPF6_DEBUG_AGGR)
+		zlog_debug(
+			"Advertise AS-External Id:%pI4 prefix %pFX metric %u",
+			&prefix_id.u.prefix4, &aggr->p, aggr->metric);
+
+	ospf6_summary_add_aggr_route_and_blackhole(ospf6, aggr);
 
 	/* Originate summary LSA */
-	lsa = ospf6_originate_type5_type7_lsas(rt_aggr, ospf6);
+	lsa = ospf6_originate_type5_type7_lsas(aggr->route, ospf6);
 	if (lsa) {
 		if (IS_OSPF6_DEBUG_AGGR)
 			zlog_debug("%s: Set the origination bit for aggregator",
@@ -2842,12 +2850,10 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	/* The key for ID field is a running number and not prefix */
 	info = rt->route_option;
 	assert(info);
-	if (info->id) {
+	if (info->id)
 		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 					htonl(info->id), ospf6->router_id,
 					ospf6->lsdb);
-		assert(lsa);
-	}
 
 	aggr_lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 				htonl(aggr->id), ospf6->router_id, ospf6->lsdb);
@@ -2939,20 +2945,22 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 
 	/* If the external route prefix same as aggregate route
 	 * and if external route is already originated as TYPE-5
-	 * then it need to be refreshed and originate bit should
-	 * be set.
+	 * then just update the aggr info and remove the route info
 	 */
 	if (lsa && prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: External route prefix is same as aggr so refreshing LSA(%pFX)",
-				__PRETTY_FUNCTION__,
-				&aggr->p);
+			zlog_debug(
+				"%s: Route prefix is same as aggr so no need to re-originate LSA(%pFX)",
+				__PRETTY_FUNCTION__, &aggr->p);
 
-		THREAD_OFF(lsa->refresh);
-		thread_add_event(master, ospf6_lsa_refresh, lsa, 0,
-				 &lsa->refresh);
 		aggr->id = info->id;
+		info->id = 0;
+		rt->path.origin.id = 0;
+
+		ospf6_summary_add_aggr_route_and_blackhole(ospf6, aggr);
+
 		SET_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_ORIGINATED);
+
 		return;
 	}
 
