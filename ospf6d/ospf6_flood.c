@@ -169,9 +169,26 @@ void ospf6_remove_id_from_external_id_table(struct ospf6 *ospf6,
 
 void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 {
+	uint32_t id = lsa->header->id;
+	struct ospf6_area *oa;
+	struct listnode *lnode;
+
 	ospf6_lsa_purge(lsa);
 
-	ospf6_remove_id_from_external_id_table(ospf6, lsa->header->id);
+	ospf6_remove_id_from_external_id_table(ospf6, id);
+
+	/* Delete the corresponding NSSA LSA */
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
+		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7), id,
+					ospf6->router_id, oa->lsdb);
+		if (lsa) {
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug("withdraw type 7 lsa, LS ID: %u",
+					   htonl(id));
+
+			ospf6_lsa_purge(lsa);
+		}
+	}
 }
 
 void ospf6_lsa_purge(struct ospf6_lsa *lsa)

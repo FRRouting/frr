@@ -1514,8 +1514,6 @@ static void ospf6_asbr_external_lsa_remove_by_id(struct ospf6 *ospf6,
 					 uint32_t id)
 {
 	struct ospf6_lsa *lsa;
-	struct ospf6_area *oa;
-	struct listnode *lnode;
 
 	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
 				htonl(id), ospf6->router_id, ospf6->lsdb);
@@ -1523,20 +1521,6 @@ static void ospf6_asbr_external_lsa_remove_by_id(struct ospf6 *ospf6,
 		return;
 
 	ospf6_external_lsa_purge(ospf6, lsa);
-
-	/* Delete the NSSA LSA */
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
-		lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7),
-					htonl(id), ospf6->router_id,
-					oa->lsdb);
-		if (lsa) {
-			if (IS_OSPF6_DEBUG_ASBR)
-				zlog_debug("withdraw type 7 lsa, LS ID: %u",
-					   htonl(id));
-
-			ospf6_lsa_purge(lsa);
-		}
-	}
 
 }
 
