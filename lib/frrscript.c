@@ -288,13 +288,16 @@ int frrscript_load(struct frrscript *fs, const char *function_name,
 		goto fail;
 	}
 
-	/* Push the Lua function we want */
+	/* To check the Lua function, we get it from the global table */
 	lua_getglobal(L, function_name);
 	if (lua_isfunction(L, lua_gettop(L)) == 0) {
 		zlog_err("frrscript: loaded script '%s.lua' but %s not found",
 			 script_name, function_name);
 		goto fail;
 	}
+	/* Then pop the function (frrscript_call will push it when it needs it)
+	 */
+	lua_pop(L, 1);
 
 	if (load_cb && (*load_cb)(fs) != 0) {
 		zlog_err(
