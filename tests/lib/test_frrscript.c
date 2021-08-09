@@ -62,6 +62,14 @@ int main(int argc, char **argv)
 	long long *ansptr =
 		frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
 	assert(*ansptr == 120);
+
+	/* check consecutive call + get_result without re-loading */
+	n = 4;
+	result = frrscript_call(fs, "fact", ("n", &n));
+	assert(result == 0);
+	ansptr = frrscript_get_result(fs, "fact", "ans", lua_tointegerp);
+	assert(*ansptr == 24);
+
 	XFREE(MTYPE_SCRIPT_RES, ansptr);
 
 	/* Negative testing */
