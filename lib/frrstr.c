@@ -18,9 +18,7 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#include "zebra.h"
 
 #include <string.h>
 #include <ctype.h>
@@ -216,4 +214,22 @@ int all_digit(const char *str)
 		if (!isdigit((unsigned char)*str))
 			return 0;
 	return 1;
+}
+
+
+char *frrstr_hex(char *buff, size_t bufsiz, const uint8_t *str, size_t num)
+{
+	if (bufsiz == 0)
+		return buff;
+
+	char tmp[3];
+
+	buff[0] = '\0';
+
+	for (size_t i = 0; i < num; i++) {
+		snprintf(tmp, sizeof(tmp), "%02x", (unsigned char)str[i]);
+		strlcat(buff, tmp, bufsiz);
+	}
+
+	return buff;
 }
