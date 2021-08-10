@@ -932,6 +932,16 @@ extern int nb_candidate_diff_and_validate_yang(struct nb_context *context,
 				               struct nb_config_cbs *changes, char *errmsg,
 				               size_t errmsg_len);
 
+extern int nb_candidate_validate_code(struct nb_context *context,
+				      struct nb_config *candidate,
+				      struct nb_config_cbs *changes,
+				      char *errmsg, size_t errmsg_len);
+
+extern int nb_candidate_apply(struct nb_context *context, struct nb_config *candidate,
+			      struct nb_transaction *transaction, const char *comment,
+			      bool save_transaction, uint32_t *transaction_id,
+			      char *errmsg, size_t errmsg_len);
+
 /*
  * Validate a candidate configuration. Perform both YANG syntactic/semantic
  * validation and code-level validation using the northbound callbacks.

@@ -33,7 +33,8 @@
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
 #define CMGD_FRNTND_CLNT_DBG(fmt, ...)					\
-	zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
+	if (cmgd_debug_frntnd_clnt)					\
+		zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
 #define CMGD_FRNTND_CLNT_ERR(fmt, ...)					\
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
@@ -76,6 +77,8 @@ typedef struct cmgd_frntnd_client_ctxt_ {
 #define FOREACH_SESSN_IN_LIST(clntctxt, sessn)						\
 	for ((sessn) = cmgd_session_list_first(&(clntctxt)->client_sessions); (sessn);	\
 		(sessn) = cmgd_session_list_next(&(clntctxt)->client_sessions, (sessn)))
+
+static bool cmgd_debug_frntnd_clnt = false;
 
 static cmgd_frntnd_client_ctxt_t cmgd_frntnd_clntctxt = { 0 };
 

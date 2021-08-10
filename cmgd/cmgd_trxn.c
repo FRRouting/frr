@@ -36,9 +36,10 @@
 #define CMGD_TRXN_ERR(fmt, ...)				\
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
-#define CMGD_TRXN_DBG(fmt, ...)				\
-	zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
-#define CMGD_TRXN_ERR(fmt, ...)				\
+#define CMGD_TRXN_DBG(fmt, ...)					\
+	if (cmgd_debug_trxn)					\
+		zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
+#define CMGD_TRXN_ERR(fmt, ...)					\
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
@@ -50,7 +51,11 @@ typedef enum cmgd_trxn_event_ {
 	CMGD_TRXN_PROC_COMMITCFG,
 	CMGD_TRXN_PROC_GETCFG,
 	CMGD_TRXN_PROC_GETDATA,
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	CMGD_TRXN_SEND_BCKND_CFG_VALIDATE,
+#else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+	CMGD_TRXN_SEND_BCKND_CFG_APPLY,
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	CMGD_TRXN_COMMITCFG_TIMEOUT,
 	CMGD_TRXN_CLEANUP
 } cmgd_trxn_event_t;
@@ -228,7 +233,11 @@ struct cmgd_trxn_ctxt_ {
 
 	struct thread *proc_set_cfg;
 	struct thread *proc_comm_cfg;
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	struct thread *send_cfg_validate;
+#else /* CMGD_LOCAL_VALIDATIONS_ENABLED */
+	struct thread *send_cfg_apply;
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	struct thread *comm_cfg_timeout;
 
         /* List of backend adapters involved in this transaction */
@@ -687,7 +696,11 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		cmgd_db_merge_dbs(trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
 			trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
 	} else {
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 		THREAD_OFF(trxn->send_cfg_validate);
+#else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+		THREAD_OFF(trxn->send_cfg_apply);
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
 		/*
 		 * Commit Failure: Copy Dst DB onto Src DB.
@@ -840,6 +853,7 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 	cmgd_bcknd_client_adapter_t *adptr;
 	cmgd_commit_cfg_req_t *cmtcfg_req;
 	bool found_validator;
+	int num_chgs = 0;
 
 	cmtcfg_req = &trxn_req->req.commit_cfg;
 
@@ -936,6 +950,7 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 				cfg_btch, (int) cfg_btch->num_cfg_data);
 
 			cfg_btch->num_cfg_data++;
+			num_chgs++;
 		}
 
 		if (!found_validator) {
@@ -945,6 +960,12 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 					trxn_req->trxn, false, err_buf);
 			goto cmgd_trxn_create_config_batches_failed;
 		}
+	}
+
+	if (!num_chgs) {
+		(void) cmgd_trxn_send_commit_cfg_reply(
+				trxn_req->trxn, false, "No changes found to commit!");
+		goto cmgd_trxn_create_config_batches_failed;
 	}
 
 	cmtcfg_req->next_phase = CMGD_COMMIT_PHASE_TRXN_CREATE;
@@ -1014,7 +1035,6 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	 */
 	nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
 	nb_ctxt.user = (void *)trxn;
-
 	ret = nb_candidate_diff_and_validate_yang(&nb_ctxt, nb_config,
 		&changes, err_buf, sizeof(err_buf)-1);
 	if (ret != NB_OK) {
@@ -1022,6 +1042,21 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		ret = -1;
 		goto cmgd_trxn_prepare_config_done;
 	}
+
+#ifdef CMGD_LOCAL_VALIDATIONS_ENABLED
+	/*
+	 * Perform application level validations locally on the CMGD 
+	 * process by calling application specific validation routines
+	 * loaded onto CMGD process using libraries.
+	 */
+	ret = nb_candidate_validate_code(&nb_ctxt, nb_config,
+		&changes, err_buf, sizeof(err_buf)-1);
+	if (ret != NB_OK) {
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
+		ret = -1;
+		goto cmgd_trxn_prepare_config_done;
+	}
+#endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
 	/*
 	 * Iterate over the diffs and create ordered batches of config 
@@ -1037,6 +1072,12 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	trxn->commit_cfg_req->req.commit_cfg.curr_phase = 
 		CMGD_COMMIT_PHASE_TRXN_CREATE;
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_COMMITCFG);
+
+	/*
+	 * Start the COMMIT Timeout Timer to abort Trxn if things get stuck at 
+	 * backend.
+	 */
+	cmgd_trxn_register_event(trxn, CMGD_TRXN_COMMITCFG_TIMEOUT);
 
 cmgd_trxn_prepare_config_done:
 
@@ -1157,83 +1198,6 @@ static int cmgd_trxn_send_bcknd_trxn_delete(cmgd_trxn_ctxt_t *trxn,
 	return 0;
 }
 
-/*
- * Send CFG_VALIDATE_REQs to all the backend client.
- *
- * NOTE:This is always dispatched through a timer expiry which is
- * started when all CFGDATA_CREATE_REQs for all backend clients
- * has been generated. Please see cmgd_trxn_register_event() and
- * cmgd_trxn_process_commit_cfg() for details.
- */
-static int cmgd_trxn_send_bcknd_cfg_validate(struct thread *thread)
-{
-	cmgd_trxn_ctxt_t *trxn;
-	cmgd_bcknd_client_id_t id;
-	cmgd_bcknd_client_adapter_t *adptr;
-	cmgd_commit_cfg_req_t *cmtcfg_req;
-	cmgd_trxn_batch_id_t *batch_ids;
-	size_t indx, num_batches;
-	struct cmgd_trxn_batch_list_head *btch_list;
-	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
-
-	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
-	assert(trxn);
-
-	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
-
-	cmtcfg_req = &trxn->commit_cfg_req->req.commit_cfg;
-	FOREACH_CMGD_BCKND_CLIENT_ID(id) {
-		if (cmtcfg_req->subscr_info.xpath_subscr[id].validate_config) {
-			adptr = cmgd_bcknd_get_adapter_by_id(id);
-			if (!adptr) 
-				return -1;
-
-			btch_list = &cmtcfg_req->curr_batches[id];
-			num_batches = cmgd_trxn_batch_list_count(btch_list);
-			batch_ids = (cmgd_trxn_batch_id_t *)
-					calloc(num_batches,
-						sizeof(cmgd_trxn_batch_id_t));
-
-			indx = 0;
-			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
-				batch_ids[indx] = (cmgd_trxn_batch_id_t) cfg_btch;
-				indx++;
-				assert(indx <= num_batches);
-			}
-		
-			if (cmgd_bcknd_send_cfg_validate_req(adptr,
-				(cmgd_trxn_id_t) trxn, batch_ids, indx) != 0) {
-				(void) cmgd_trxn_send_commit_cfg_reply(
-					trxn, false,
-					"Could not send TRXN_CREATE to backend adapter");
-				return -1;
-			}
-
-			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
-				cfg_btch->comm_phase = CMGD_COMMIT_PHASE_VALIDATE_CFG;
-			}
-
-			free(batch_ids);
-		}
-	}
-
-	trxn->commit_cfg_req->req.commit_cfg.next_phase =
-		CMGD_COMMIT_PHASE_APPLY_CFG;
-
-	/*
-	 * Dont move the commit to next phase yet. Wait for all VALIDATE_REPLIES to
-	 * come back.
-	 */
-
-	/*
-	 * Start the COMMIT Timeout Timer to abort Trxn if things get stuck at 
-	 * backend.
-	 */
-	cmgd_trxn_register_event(trxn, CMGD_TRXN_COMMITCFG_TIMEOUT);
-
-	return 0;
-}
-
 static int cmgd_trxn_cfg_commit_timedout(struct thread *thread)
 {
 	cmgd_trxn_ctxt_t *trxn;
@@ -1324,6 +1288,100 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 	return 0;
 }
 
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
+/*
+ * Send CFG_VALIDATE_REQs to all the backend client.
+ *
+ * NOTE:This is always dispatched through a timer expiry which is
+ * started when all CFGDATA_CREATE_REQs for all backend clients
+ * has been generated. Please see cmgd_trxn_register_event() and
+ * cmgd_trxn_process_commit_cfg() for details.
+ */
+static int cmgd_trxn_send_bcknd_cfg_validate(struct thread *thread)
+{
+	cmgd_trxn_ctxt_t *trxn;
+	cmgd_bcknd_client_id_t id;
+	cmgd_bcknd_client_adapter_t *adptr;
+	cmgd_commit_cfg_req_t *cmtcfg_req;
+	cmgd_trxn_batch_id_t *batch_ids;
+	size_t indx, num_batches;
+	struct cmgd_trxn_batch_list_head *btch_list;
+	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
+
+	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
+	assert(trxn);
+
+	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
+
+	cmtcfg_req = &trxn->commit_cfg_req->req.commit_cfg;
+	FOREACH_CMGD_BCKND_CLIENT_ID(id) {
+		if (cmtcfg_req->subscr_info.xpath_subscr[id].validate_config) {
+			adptr = cmgd_bcknd_get_adapter_by_id(id);
+			if (!adptr) 
+				return -1;
+
+			btch_list = &cmtcfg_req->curr_batches[id];
+			num_batches = cmgd_trxn_batch_list_count(btch_list);
+			batch_ids = (cmgd_trxn_batch_id_t *)
+					calloc(num_batches,
+						sizeof(cmgd_trxn_batch_id_t));
+
+			indx = 0;
+			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
+				batch_ids[indx] = (cmgd_trxn_batch_id_t) cfg_btch;
+				indx++;
+				assert(indx <= num_batches);
+			}
+		
+			if (cmgd_bcknd_send_cfg_validate_req(adptr,
+				(cmgd_trxn_id_t) trxn, batch_ids, indx) != 0) {
+				(void) cmgd_trxn_send_commit_cfg_reply(
+					trxn, false,
+					"Could not send TRXN_CREATE to backend adapter");
+				return -1;
+			}
+
+			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
+				cfg_btch->comm_phase = CMGD_COMMIT_PHASE_VALIDATE_CFG;
+			}
+
+			free(batch_ids);
+		}
+	}
+
+	trxn->commit_cfg_req->req.commit_cfg.next_phase =
+		CMGD_COMMIT_PHASE_APPLY_CFG;
+
+	/*
+	 * Dont move the commit to next phase yet. Wait for all VALIDATE_REPLIES to
+	 * come back.
+	 */
+
+	return 0;
+}
+#else /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
+/*
+ * Send CFG_APPLY_REQs to all the backend client.
+ *
+ * NOTE:This is always dispatched through a timer expiry which is
+ * started when all CFGDATA_CREATE_REQs for all backend clients
+ * has been generated. Please see cmgd_trxn_register_event() and
+ * cmgd_trxn_process_commit_cfg() for details.
+ */
+static int cmgd_trxn_send_bcknd_config_apply(struct thread *thread)
+{
+	cmgd_trxn_ctxt_t *trxn;
+
+	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
+	assert(trxn);
+
+	if (cmgd_trxn_send_bcknd_cfg_apply(trxn) != 0)
+		return -1;
+
+	return 0;
+}
+#endif /* iddef CMGD_LOCAL_VALIDATIONS_ENABLED */
+
 static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 {
 	cmgd_trxn_ctxt_t *trxn;
@@ -1358,7 +1416,11 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		assert(cmtcfg_req->next_phase == CMGD_COMMIT_PHASE_VALIDATE_CFG);
 		CMGD_TRXN_DBG("Trxn:%p Session:0x%lx, trigger sending CFG_VALIDATE_REQ to all backend clients",
 			trxn, trxn->session_id);
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 		cmgd_trxn_register_event(trxn, CMGD_TRXN_SEND_BCKND_CFG_VALIDATE);
+#else  /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+		cmgd_trxn_register_event(trxn, CMGD_TRXN_SEND_BCKND_CFG_APPLY);
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 		break;
 	case CMGD_COMMIT_PHASE_VALIDATE_CFG:
 		/*
@@ -1788,12 +1850,21 @@ static void cmgd_trxn_register_event(
 				cmgd_trxn_process_get_data, trxn,
 				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
 		break;
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	case CMGD_TRXN_SEND_BCKND_CFG_VALIDATE:
 		trxn->send_cfg_validate = 
 			thread_add_timer_msec(cmgd_trxn_tm,
 				cmgd_trxn_send_bcknd_cfg_validate, trxn,
 				CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC, NULL);
 		break;
+#else /* CMGD_LOCAL_VALIDATIONS_ENABLED */
+	case CMGD_TRXN_SEND_BCKND_CFG_APPLY:
+		trxn->send_cfg_apply = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_send_bcknd_config_apply, trxn,
+				CMGD_TRXN_SEND_CFGAPPLY_DELAY_MSEC, NULL);
+		break;
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	case CMGD_TRXN_COMMITCFG_TIMEOUT:
 		trxn->comm_cfg_timeout = 
 			thread_add_timer_msec(cmgd_trxn_tm,
@@ -2022,7 +2093,7 @@ int cmgd_trxn_send_commit_config_req(
 	trxn_req->req.commit_cfg.validate_only = validate_only;
 
 	/*
-	 * For now send a positive reply back.
+	 * Trigger a COMMIT-CONFIG process.
 	 */
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_COMMITCFG);
 	return 0;

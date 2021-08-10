@@ -39,9 +39,10 @@
 #define CMGD_DB_ERR(fmt, ...)				\
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
-#define CMGD_DB_DBG(fmt, ...)				\
-	zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
-#define CMGD_DB_ERR(fmt, ...)				\
+#define CMGD_DB_DBG(fmt, ...)					\
+	if (cmgd_debug_db)					\
+		zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
+#define CMGD_DB_ERR(fmt, ...)					\
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 

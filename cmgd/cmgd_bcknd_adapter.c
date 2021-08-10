@@ -38,7 +38,8 @@
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
 #define CMGD_BCKND_ADPTR_DBG(fmt, ...)				\
-	zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
+	if (cmgd_debug_bcknd)					\
+		zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
 #define CMGD_BCKND_ADPTR_ERR(fmt, ...)				\
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */

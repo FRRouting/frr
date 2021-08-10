@@ -3301,9 +3301,6 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 	}
 
 	for (indx = 0; indx < num_data; indx++) {
-		zlog_err("XPATH: %s\n - Data: %s\n",
-			yang_data[indx]->xpath,
-			yang_data[indx]->value->encoded_str_val);
 		vty_out(vty, "  \"%s\": \"%s\"\n",
 			yang_data[indx]->xpath,
 			yang_data[indx]->value->encoded_str_val);

@@ -286,11 +286,9 @@ DEFPY(cmgd_commit_appply,
 
 DEFPY(cmgd_set_config_data,
 	  cmgd_set_config_data_cmd,
-	  "cmgd set-config [db-name WORD$dbname] xpath WORD$path value WORD$val",
+	  "cmgd set-config xpath WORD$path value WORD$val",
 	  CMGD_STR
 	  "Set configuration data\n"
-	  "DB name\n"
-	  "<candidate | running | operational>\n"
 	  "XPath expression specifying the YANG data path\n"
 	  "XPath string\n"
 	  "Value of the data to set to\n"

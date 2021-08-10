@@ -61,6 +61,11 @@
 // extern struct frr_pthread *cmgd_pth_io;
 // extern struct frr_pthread *cmgd_pth_ka;
 
+extern bool cmgd_debug_bcknd;
+extern bool cmgd_debug_frntnd;
+extern bool cmgd_debug_db;
+extern bool cmgd_debug_trxn;
+
 /* CMGD master for system wide configurations and variables.  */
 struct cmgd_master {
 	/* CMGD instance list.  */

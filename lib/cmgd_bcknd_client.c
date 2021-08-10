@@ -34,7 +34,8 @@
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
 #define CMGD_BCKND_CLNT_DBG(fmt, ...)					\
-	zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
+	if (cmgd_debug_bcknd_clnt)					\
+		zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
 #define CMGD_BCKND_CLNT_ERR(fmt, ...)					\
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */
@@ -120,6 +121,9 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 
 #define FOREACH_BCKND_TRXN_IN_LIST(clntctxt, trxn)			\
 	frr_each_safe(cmgd_bcknd_trxn_list, &(clntctxt)->trxn_head, (trxn))
+
+// static bool cmgd_debug_bcknd_clnt = false;
+static bool cmgd_debug_bcknd_clnt = true;
 
 static cmgd_bcknd_client_ctxt_t cmgd_bcknd_clntctxt = { 0 };
 
@@ -502,7 +506,6 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_ids[],
 	size_t num_batch_ids)
 {
-        int ret = 0;
 	size_t indx;
 	cmgd_bcknd_trxn_ctxt_t *trxn;
 	cmgd_bcknd_trxn_req_t *trxn_req = NULL;
@@ -561,6 +564,7 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 		 */
 	}
 
+#if 0
 	if (!trxn->nb_trxn) {
 		/*
 		 * This happens when the current backend client is only interested
@@ -584,14 +588,19 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 
 	nb_candidate_commit_apply(trxn->nb_trxn, true,
 		&trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
+#else
+	nb_ctxt.client = NB_CLIENT_CLI;
+	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
+	(void) nb_candidate_apply(&nb_ctxt, clnt_ctxt->candidate_config,
+			trxn->nb_trxn, "CMGD Backend Trxn",
+			true, &trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
+#endif
 	trxn->nb_trxn = NULL;
 
-	if (ret == 0) {
-		cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
-			num_batch_ids, true, NULL);
-	}
+	cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
+		num_batch_ids, true, NULL);
 
-        return ret;
+        return 0;
 }
 
 static int cmgd_bcknd_client_handle_msg(
