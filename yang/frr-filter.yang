@@ -145,6 +145,7 @@ module frr-filter {
                 leaf ipv4-prefix {
                   description "Configure IPv4 prefix to match";
                   type inet:ipv4-prefix;
+                  mandatory true;
                 }
 
                 leaf ipv4-exact-match {
@@ -216,6 +217,7 @@ module frr-filter {
             leaf ipv6-prefix {
               description "Configure IPv6 prefix to match";
               type inet:ipv6-prefix;
+              mandatory true;
             }
 
             leaf ipv6-exact-match {
@@ -277,7 +279,7 @@ module frr-filter {
         key "sequence";
 
         leaf sequence {
-          description "Access list sequence value";
+          description "Prefix list sequence value";
           type access-list-sequence;
         }
 
@@ -295,6 +297,7 @@ module frr-filter {
             leaf ipv4-prefix {
               description "Configure IPv4 prefix to match";
               type inet:ipv4-prefix;
+              mandatory true;
             }
 
             leaf ipv4-prefix-length-greater-or-equal {
@@ -319,6 +322,7 @@ module frr-filter {
             leaf ipv6-prefix {
               description "Configure IPv6 prefix to match";
               type inet:ipv6-prefix;
+              mandatory true;
             }
 
             leaf ipv6-prefix-length-greater-or-equal {
