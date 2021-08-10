@@ -1196,11 +1196,9 @@ static int plist_remove_if_empty(struct vty *vty, const char *iptype,
 
 static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 			const char *seq, const char *action,
-			const char *prefix_str, const char *ge_str,
-			const char *le_str)
+			union prefixconstptr prefix, int ge, int le)
 {
 	int64_t sseq;
-	int arg_idx = 0;
 	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 32];
@@ -1225,43 +1223,13 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	pda.pda_type = iptype;
 	pda.pda_name = name;
 	pda.pda_action = action;
-	if (prefix_str) {
-		if (strmatch(iptype, "ipv4")) {
-			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
-			pda.pda_value[arg_idx] = prefix_str;
-			arg_idx++;
-			if (ge_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv4-prefix-length-greater-or-equal";
-				pda.pda_value[arg_idx] = ge_str;
-				arg_idx++;
-			}
-			if (le_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv4-prefix-length-lesser-or-equal";
-				pda.pda_value[arg_idx] = le_str;
-				arg_idx++;
-			}
-		} else {
-			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
-			pda.pda_value[arg_idx] = prefix_str;
-			arg_idx++;
-			if (ge_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv6-prefix-length-greater-or-equal";
-				pda.pda_value[arg_idx] = ge_str;
-				arg_idx++;
-			}
-			if (le_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv6-prefix-length-lesser-or-equal";
-				pda.pda_value[arg_idx] = le_str;
-				arg_idx++;
-			}
-		}
+	if (prefix.p) {
+		prefix_copy(&pda.prefix, prefix);
+		apply_mask(&pda.prefix);
+		pda.ge = ge;
+		pda.le = le;
 	} else {
-		pda.pda_xpath[0] = "./any";
-		pda.pda_value[0] = "";
+		pda.any = true;
 	}
 
 	if (plist_is_dup(vty->candidate_config->dnode, &pda))
@@ -1298,7 +1266,6 @@ DEFPY_YANG(
 	"Maximum prefix length\n")
 {
 	int64_t sseq;
-	int arg_idx = 0;
 	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -1312,24 +1279,11 @@ DEFPY_YANG(
 		pda.pda_name = name;
 		pda.pda_action = action;
 		if (prefix_str) {
-			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
-			pda.pda_value[arg_idx] = prefix_str;
-			arg_idx++;
-			if (ge_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv4-prefix-length-greater-or-equal";
-				pda.pda_value[arg_idx] = ge_str;
-				arg_idx++;
-			}
-			if (le_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv4-prefix-length-lesser-or-equal";
-				pda.pda_value[arg_idx] = le_str;
-				arg_idx++;
-			}
+			prefix_copy(&pda.prefix, prefix);
+			pda.ge = ge;
+			pda.le = le;
 		} else {
-			pda.pda_xpath[0] = "./any";
-			pda.pda_value[0] = "";
+			pda.any = true;
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -1408,8 +1362,8 @@ DEFPY_YANG(
 	"Maximum prefix length to be matched\n"
 	"Maximum prefix length\n")
 {
-	return plist_remove(vty, "ipv4", name, seq_str, action, prefix_str,
-			    ge_str, le_str);
+	return plist_remove(vty, "ipv4", name, seq_str, action,
+			    prefix_str ? prefix : NULL, ge, le);
 }
 
 DEFPY_YANG(
@@ -1421,7 +1375,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, NULL, NULL);
+	return plist_remove(vty, "ipv4", name, seq_str, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
@@ -1516,7 +1470,6 @@ DEFPY_YANG(
 	"Minimum prefix length\n")
 {
 	int64_t sseq;
-	int arg_idx = 0;
 	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -1530,24 +1483,11 @@ DEFPY_YANG(
 		pda.pda_name = name;
 		pda.pda_action = action;
 		if (prefix_str) {
-			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
-			pda.pda_value[arg_idx] = prefix_str;
-			arg_idx++;
-			if (ge_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv6-prefix-length-greater-or-equal";
-				pda.pda_value[arg_idx] = ge_str;
-				arg_idx++;
-			}
-			if (le_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv6-prefix-length-lesser-or-equal";
-				pda.pda_value[arg_idx] = le_str;
-				arg_idx++;
-			}
+			prefix_copy(&pda.prefix, prefix);
+			pda.ge = ge;
+			pda.le = le;
 		} else {
-			pda.pda_xpath[0] = "./any";
-			pda.pda_value[0] = "";
+			pda.any = true;
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -1626,8 +1566,8 @@ DEFPY_YANG(
 	"Minimum prefix length to be matched\n"
 	"Minimum prefix length\n")
 {
-	return plist_remove(vty, "ipv6", name, seq_str, action, prefix_str,
-			    ge_str, le_str);
+	return plist_remove(vty, "ipv6", name, seq_str, action,
+			    prefix_str ? prefix : NULL, ge, le);
 }
 
 DEFPY_YANG(
@@ -1639,7 +1579,7 @@ DEFPY_YANG(
 	PREFIX_LIST_NAME_STR
 	ACCESS_LIST_SEQ_STR)
 {
-	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, NULL, NULL);
+	return plist_remove(vty, "ipv6", name, seq_str, NULL, NULL, 0, 0);
 }
 
 DEFPY_YANG(
