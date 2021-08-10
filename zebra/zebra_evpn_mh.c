@@ -186,8 +186,8 @@ static void zebra_evpn_es_evi_free(struct zebra_evpn_es_evi *es_evi)
 }
 
 /* find the ES-EVI in the per-L2-VNI RB tree */
-static struct zebra_evpn_es_evi *
-zebra_evpn_es_evi_find(struct zebra_evpn_es *es, struct zebra_evpn *zevpn)
+struct zebra_evpn_es_evi *zebra_evpn_es_evi_find(struct zebra_evpn_es *es,
+						 struct zebra_evpn *zevpn)
 {
 	struct zebra_evpn_es_evi es_evi;
 
@@ -229,6 +229,34 @@ static void zebra_evpn_local_es_evi_del(struct zebra_evpn_es *es,
 		zebra_evpn_local_es_evi_do_del(es_evi);
 }
 
+/* If there are any existing MAC entries for this es/zevpn we need
+ * to install it in the dataplane.
+ *
+ * Note: primary purpose of this is to handle es del/re-add windows where
+ * sync MAC entries may be added by bgpd before the es-evi membership is
+ * created in the dataplane and in zebra
+ */
+static void zebra_evpn_es_evi_mac_install(struct zebra_evpn_es_evi *es_evi)
+{
+	struct zebra_mac *mac;
+	struct listnode *node;
+	struct zebra_evpn_es *es = es_evi->es;
+
+	if (listcount(es->mac_list) && IS_ZEBRA_DEBUG_EVPN_MH_ES)
+		zlog_debug("dp-mac install on es %s evi %d add", es->esi_str,
+			   es_evi->zevpn->vni);
+
+	for (ALL_LIST_ELEMENTS_RO(es->mac_list, node, mac)) {
+		if (mac->zevpn != es_evi->zevpn)
+			continue;
+
+		if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL))
+			continue;
+
+		zebra_evpn_sync_mac_dp_install(mac, false, false, __func__);
+	}
+}
+
 /* Create an ES-EVI if it doesn't already exist and tell BGP */
 static void zebra_evpn_local_es_evi_add(struct zebra_evpn_es *es,
 					struct zebra_evpn *zevpn)
@@ -250,6 +278,8 @@ static void zebra_evpn_local_es_evi_add(struct zebra_evpn_es *es,
 		listnode_add(zevpn->local_es_evi_list, &es_evi->l2vni_listnode);
 
 		zebra_evpn_es_evi_re_eval_send_to_client(es_evi);
+
+		zebra_evpn_es_evi_mac_install(es_evi);
 	}
 }
 
