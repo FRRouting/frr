@@ -1479,9 +1479,6 @@ struct peer *peer_new(struct bgp *bgp)
 	/* Initialize per peer bgp GR FSM */
 	bgp_peer_gr_init(peer);
 
-	/* Create buffers.  */
-	peer->connection = bgp_peer_connection_new(peer);
-
 	/* Get service port number.  */
 	sp = getservbyname("bgp", "tcp");
 	peer->port = (sp == NULL) ? BGP_PORT_DEFAULT : ntohs(sp->s_port);
@@ -2615,7 +2612,7 @@ int peer_delete(struct peer *peer)
 	 * executed after peer structure is deleted.
 	 */
 	peer->last_reset = PEER_DOWN_NEIGHBOR_DELETE;
-	bgp_stop(peer);
+	bgp_stop(peer->connection);
 	UNSET_FLAG(peer->flags, PEER_FLAG_DELETE);
 
 	if (peer->doppelganger) {
