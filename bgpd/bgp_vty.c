@@ -19910,6 +19910,8 @@ static void community_list_vty(void)
 	install_element(CONFIG_NODE, &no_bgp_lcommunity_list_name_expanded_cmd);
 	install_element(VIEW_NODE, &show_bgp_lcommunity_list_cmd);
 	install_element(VIEW_NODE, &show_bgp_lcommunity_list_arg_cmd);
+
+	bgp_community_list_command_completion_setup();
 }
 
 static struct cmd_node community_alias_node = {

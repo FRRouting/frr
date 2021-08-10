@@ -184,4 +184,6 @@ static inline uint32_t bgp_clist_hash_key(char *name)
 	return jhash(name, strlen(name), 0xdeadbeaf);
 }
 
+extern void bgp_community_list_command_completion_setup(void);
+
 #endif /* _QUAGGA_BGP_CLIST_H */
