@@ -520,7 +520,13 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	if (!strcmp(ZEBRA_PTM_INVALID_VRF, vrf_str) && ifp) {
 		vrf_id = ifp->vrf_id;
 	} else {
-		vrf_id = vrf_name_to_id(vrf_str);
+		struct vrf *pVrf;
+
+		pVrf = vrf_lookup_by_name(vrf_str);
+		if (pVrf)
+			vrf_id = pVrf->vrf_id;
+		else
+			vrf_id = VRF_DEFAULT;
 	}
 
 	if (!strcmp(bfdst_str, ZEBRA_PTM_BFDSTATUS_DOWN_STR)) {
