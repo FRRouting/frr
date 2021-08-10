@@ -172,7 +172,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	EVENT_OFF(from_peer->t_delayopen);
 	EVENT_OFF(from_peer->t_connect_check_r);
 	EVENT_OFF(from_peer->t_connect_check_w);
-	EVENT_OFF(from_peer->t_process_packet);
+	EVENT_OFF(from_peer->connection.t_process_packet);
 
 	/*
 	 * At this point in time, it is possible that there are packets pending
@@ -341,7 +341,7 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	bgp_reads_on(&peer->connection);
 	bgp_writes_on(&peer->connection);
 	event_add_event(bm->master, bgp_process_packet, &peer->connection, 0,
-			&peer->t_process_packet);
+			&peer->connection.t_process_packet);
 
 	return (peer);
 }

@@ -1139,6 +1139,9 @@ struct peer_connection {
 	struct event *t_read;
 	struct event *t_write;
 
+	struct event *t_process_packet;
+	struct event *t_process_packet_error;
+
 	/* Thread flags */
 	_Atomic uint32_t thread_flags;
 #define PEER_THREAD_WRITES_ON (1U << 0)
@@ -1557,8 +1560,6 @@ struct peer {
 	struct event *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct event *t_revalidate_all[AFI_MAX][SAFI_MAX];
 	struct event *t_generate_updgrp_packets;
-	struct event *t_process_packet;
-	struct event *t_process_packet_error;
 	struct event *t_refresh_stalepath;
 
 	/* Thread flags. */

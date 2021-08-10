@@ -97,13 +97,12 @@ void bgp_reads_on(struct peer_connection *connection)
 
 void bgp_reads_off(struct peer_connection *connection)
 {
-	struct peer *peer = connection->peer;
 	struct frr_pthread *fpt = bgp_pth_io;
 	assert(fpt->running);
 
 	event_cancel_async(fpt->master, &connection->t_read, NULL);
-	EVENT_OFF(peer->t_process_packet);
-	EVENT_OFF(peer->t_process_packet_error);
+	EVENT_OFF(connection->t_process_packet);
+	EVENT_OFF(connection->t_process_packet_error);
 
 	UNSET_FLAG(connection->thread_flags, PEER_THREAD_READS_ON);
 }
@@ -255,8 +254,8 @@ static void bgp_process_reads(struct event *thread)
 		/* Handle the error in the main pthread, include the
 		 * specific state change from 'bgp_read'.
 		 */
-		event_add_event(bm->master, bgp_packet_process_error,
-				connection, code, &peer->t_process_packet_error);
+		event_add_event(bm->master, bgp_packet_process_error, connection,
+				code, &connection->t_process_packet_error);
 		goto done;
 	}
 
@@ -299,7 +298,7 @@ done:
 		       &connection->t_read);
 	if (added_pkt)
 		event_add_event(bm->master, bgp_process_packet, connection, 0,
-				&peer->t_process_packet);
+				&connection->t_process_packet);
 }
 
 /*
