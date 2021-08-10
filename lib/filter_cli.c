@@ -1249,6 +1249,7 @@ static int plist_remove_if_empty(struct vty *vty, const char *iptype,
 }
 
 static int plist_remove(struct vty *vty, const char *iptype, const char *name,
+<<<<<<< HEAD
 			const char *seq, const char *action, struct prefix *p,
 			long ge, long le)
 {
@@ -1256,6 +1257,13 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	enum prefix_list_type plt;
 	struct prefix_list *pl;
 	struct lyd_node *dnode;
+=======
+			const char *seq, const char *action,
+			union prefixconstptr prefix, int ge, int le)
+{
+	int64_t sseq;
+	struct plist_dup_args pda = {};
+>>>>>>> 667dcc277 (lib: fix prefix-list duplication check)
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 32];
 	int rv;
@@ -1276,9 +1284,23 @@ static int plist_remove(struct vty *vty, const char *iptype, const char *name,
 	}
 
 	/* Otherwise, to keep compatibility, we need to figure it out. */
+<<<<<<< HEAD
 	snprintf(xpath, sizeof(xpath),
 		 "/frr-filter:lib/prefix-list[type='%s'][name='%s']", iptype,
 		 name);
+=======
+	pda.pda_type = iptype;
+	pda.pda_name = name;
+	pda.pda_action = action;
+	if (prefix.p) {
+		prefix_copy(&pda.prefix, prefix);
+		apply_mask(&pda.prefix);
+		pda.ge = ge;
+		pda.le = le;
+	} else {
+		pda.any = true;
+	}
+>>>>>>> 667dcc277 (lib: fix prefix-list duplication check)
 
 	/* Access-list must exist before entries. */
 	if (yang_dnode_exists(running_config->dnode, xpath) == false)
@@ -1324,7 +1346,6 @@ DEFPY_YANG(
 	"Maximum prefix length\n")
 {
 	int64_t sseq;
-	int arg_idx = 0;
 	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -1338,24 +1359,11 @@ DEFPY_YANG(
 		pda.pda_name = name;
 		pda.pda_action = action;
 		if (prefix_str) {
-			pda.pda_xpath[arg_idx] = "./ipv4-prefix";
-			pda.pda_value[arg_idx] = prefix_str;
-			arg_idx++;
-			if (ge_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv4-prefix-length-greater-or-equal";
-				pda.pda_value[arg_idx] = ge_str;
-				arg_idx++;
-			}
-			if (le_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv4-prefix-length-lesser-or-equal";
-				pda.pda_value[arg_idx] = le_str;
-				arg_idx++;
-			}
+			prefix_copy(&pda.prefix, prefix);
+			pda.ge = ge;
+			pda.le = le;
 		} else {
-			pda.pda_xpath[0] = "./any";
-			pda.pda_value[0] = "";
+			pda.any = true;
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -1418,7 +1426,11 @@ DEFPY_YANG(
 	"Maximum prefix length\n")
 {
 	return plist_remove(vty, "ipv4", name, seq_str, action,
+<<<<<<< HEAD
 			    (struct prefix *)prefix, ge, le);
+=======
+			    prefix_str ? prefix : NULL, ge, le);
+>>>>>>> 667dcc277 (lib: fix prefix-list duplication check)
 }
 
 DEFPY_YANG(
@@ -1520,7 +1532,6 @@ DEFPY_YANG(
 	"Minimum prefix length\n")
 {
 	int64_t sseq;
-	int arg_idx = 0;
 	struct plist_dup_args pda = {};
 	char xpath[XPATH_MAXLEN];
 	char xpath_entry[XPATH_MAXLEN + 128];
@@ -1534,24 +1545,11 @@ DEFPY_YANG(
 		pda.pda_name = name;
 		pda.pda_action = action;
 		if (prefix_str) {
-			pda.pda_xpath[arg_idx] = "./ipv6-prefix";
-			pda.pda_value[arg_idx] = prefix_str;
-			arg_idx++;
-			if (ge_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv6-prefix-length-greater-or-equal";
-				pda.pda_value[arg_idx] = ge_str;
-				arg_idx++;
-			}
-			if (le_str) {
-				pda.pda_xpath[arg_idx] =
-					"./ipv6-prefix-length-lesser-or-equal";
-				pda.pda_value[arg_idx] = le_str;
-				arg_idx++;
-			}
+			prefix_copy(&pda.prefix, prefix);
+			pda.ge = ge;
+			pda.le = le;
 		} else {
-			pda.pda_xpath[0] = "./any";
-			pda.pda_value[0] = "";
+			pda.any = true;
 		}
 
 		/* Duplicated entry without sequence, just quit. */
@@ -1614,7 +1612,11 @@ DEFPY_YANG(
 	"Minimum prefix length\n")
 {
 	return plist_remove(vty, "ipv6", name, seq_str, action,
+<<<<<<< HEAD
 			    (struct prefix *)prefix, ge, le);
+=======
+			    prefix_str ? prefix : NULL, ge, le);
+>>>>>>> 667dcc277 (lib: fix prefix-list duplication check)
 }
 
 DEFPY_YANG(
