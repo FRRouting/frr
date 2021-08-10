@@ -1236,9 +1236,9 @@ static int rfapi_open_inner(struct rfapi_descriptor *rfd, struct bgp *bgp,
 	 * Fill in BGP peer structure
 	 */
 	rfd->peer = peer_new(bgp);
-	rfd->peer->connection.status = Established; /* keep bgp core happy */
+	rfd->peer->connection->status = Established; /* keep bgp core happy */
 
-	bgp_peer_connection_buffers_free(&rfd->peer->connection);
+	bgp_peer_connection_buffers_free(rfd->peer->connection);
 
 	{ /* base code assumes have valid host pointer */
 		char buf[INET6_ADDRSTRLEN];

@@ -251,7 +251,7 @@ static uint8_t *bgpPeerTable(struct variable *v, oid name[], size_t *length,
 	case BGPPEERIDENTIFIER:
 		return SNMP_IPADDRESS(peer->remote_id);
 	case BGPPEERSTATE:
-		return SNMP_INTEGER(peer->connection.status);
+		return SNMP_INTEGER(peer->connection->status);
 	case BGPPEERADMINSTATUS:
 		*write_method = write_bgpPeerTable;
 #define BGP_PeerAdmin_stop 1
@@ -756,7 +756,7 @@ int bgpTrapEstablished(struct peer *peer)
 	oid index[sizeof(oid) * IN_ADDR_SIZE];
 
 	/* Check if this peer just went to Established */
-	if ((peer->connection.ostatus != OpenConfirm) ||
+	if ((peer->connection->ostatus != OpenConfirm) ||
 	    !(peer_established(peer)))
 		return 0;
 

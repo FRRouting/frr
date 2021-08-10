@@ -71,7 +71,7 @@ void bgp_writes_off(struct peer_connection *connection)
 	event_cancel_async(fpt->master, &connection->t_write, NULL);
 	EVENT_OFF(peer->t_generate_updgrp_packets);
 
-	UNSET_FLAG(peer->connection.thread_flags, PEER_THREAD_WRITES_ON);
+	UNSET_FLAG(peer->connection->thread_flags, PEER_THREAD_WRITES_ON);
 }
 
 void bgp_reads_on(struct peer_connection *connection)
@@ -294,8 +294,8 @@ done:
 		return;
 	}
 
-	event_add_read(fpt->master, bgp_process_reads, peer, connection->fd,
-		       &connection->t_read);
+	event_add_read(fpt->master, bgp_process_reads, connection,
+		       connection->fd, &connection->t_read);
 	if (added_pkt)
 		event_add_event(bm->master, bgp_process_packet, connection, 0,
 				&connection->t_process_packet);

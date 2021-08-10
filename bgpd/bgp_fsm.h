@@ -17,13 +17,13 @@ enum bgp_fsm_state_progress {
 /* Macro for BGP read, write and timer thread.  */
 #define BGP_TIMER_ON(T, F, V)                                                  \
 	do {                                                                   \
-		if ((peer->connection.status != Deleted))                      \
+		if ((peer->connection->status != Deleted))                     \
 			event_add_timer(bm->master, (F), peer, (V), &(T));     \
 	} while (0)
 
 #define BGP_EVENT_ADD(P, E)                                                     \
 	do {                                                                    \
-		if ((P)->connection.status != Deleted)                          \
+		if ((P)->connection->status != Deleted)                         \
 			event_add_event(bm->master, bgp_event, (P), (E), NULL); \
 	} while (0)
 

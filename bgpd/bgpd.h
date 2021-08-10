@@ -1147,6 +1147,7 @@ struct peer_connection {
 #define PEER_THREAD_WRITES_ON (1U << 0)
 #define PEER_THREAD_READS_ON (1U << 1)
 };
+extern struct peer_connection *bgp_peer_connection_new(struct peer *peer);
 extern void bgp_peer_connection_buffers_free(struct peer_connection *connection);
 
 /* BGP neighbor structure. */
@@ -1213,7 +1214,7 @@ struct peer {
 	 * time to consolidate between the two, we'll solidify
 	 * into the connection variable being used.
 	 */
-	struct peer_connection connection;
+	struct peer_connection *connection;
 
 	int ttl;	     /* TTL of TCP connection to the peer. */
 	int rtt;	     /* Estimated round-trip-time from TCP_INFO */
@@ -2595,7 +2596,7 @@ static inline char *timestamp_string(time_t ts)
 
 static inline bool peer_established(struct peer *peer)
 {
-	return peer->connection.status == Established;
+	return peer->connection->status == Established;
 }
 
 static inline bool peer_dynamic_neighbor(struct peer *peer)
