@@ -161,102 +161,8 @@ class Node(LinuxNamespace):
 
 
 class Topo(object):  # pylint: disable=R0205
-    """
-    Topology object passed to Micronet to build actual topology.
-    """
-
     def __init__(self, *args, **kwargs):
-        self.params = kwargs
-        self.name = kwargs["name"] if "name" in kwargs else "unnamed"
-        self.tgen = kwargs["tgen"] if "tgen" in kwargs else None
-
-        self.logger = logging.getLogger(__name__ + ".topo")
-
-        self.logger.debug("%s: Creating", self)
-
-        self.nodes = {}
-        self.hosts = {}
-        self.switches = {}
-        self.links = {}
-
-        # if "no_init_build" in kwargs and kwargs["no_init_build"]:
-        #     return
-
-        # This needs to move outside of here. Current tests count on it being called on init;
-        # however, b/c of this there is lots of twisty logic to support topogen based tests where
-        # the build routine must get get_topogen() so topogen can then set it's topogen.topo to the
-        # class it's in the process of instantiating (this one) b/c build will use topogen before
-        # the instantiation completes.
-        self.build(*args, **kwargs)
-
-    def __str__(self):
-        return "Topo({})".format(self.name)
-
-    def build(self, *args, **kwargs):
-        "Overriden by real class"
-        del args
-        del kwargs
-        raise NotImplementedError("Needs to be overriden")
-
-    def addHost(self, name, **kwargs):
-        self.logger.debug("%s: addHost %s", self, name)
-        self.nodes[name] = dict(**kwargs)
-        self.hosts[name] = self.nodes[name]
-        return name
-
-    addNode = addHost
-
-    def addSwitch(self, name, **kwargs):
-        self.logger.debug("%s: addSwitch %s", self, name)
-        self.nodes[name] = dict(**kwargs)
-        if "cls" in self.nodes[name]:
-            self.logger.warning("Overriding Bridge class with micronet.Bridge")
-            del self.nodes[name]["cls"]
-        self.switches[name] = self.nodes[name]
-        return name
-
-    def addLink(self, name1, name2, **kwargs):
-        """Link up switch and a router.
-
-        possible kwargs:
-        - intfName1 :: switch-side interface name - sometimes missing
-        - intfName2 :: router-side interface name
-        - addr1 :: switch-side MAC used by test_ldp_topo1 only
-        - addr2 :: router-side MAC used by test_ldp_topo1 only
-        """
-        if1 = (
-            kwargs["intfName1"]
-            if "intfName1" in kwargs
-            else "{}-{}".format(name1, name2)
-        )
-        if2 = (
-            kwargs["intfName2"]
-            if "intfName2" in kwargs
-            else "{}-{}".format(name2, name1)
-        )
-
-        self.logger.debug("%s: addLink %s %s if1: %s if2: %s", self, name1, name2, if1, if2)
-
-        if name1 in self.switches:
-            assert name2 in self.hosts
-            swname, rname = name1, name2
-        elif name2 in self.switches:
-            assert name1 in self.hosts
-            swname, rname = name2, name1
-            if1, if2 = if2, if1
-        else:
-            # p2p link
-            assert name1 in self.hosts
-            assert name2 in self.hosts
-            swname, rname = name1, name2
-
-        if swname not in self.links:
-            self.links[swname] = {}
-
-        if rname not in self.links[swname]:
-            self.links[swname][rname] = set()
-
-        self.links[swname][rname].add((if1, if2))
+        raise Exception("Remove Me")
 
 
 class Mininet(Micronet):
@@ -266,7 +172,7 @@ class Mininet(Micronet):
 
     g_mnet_inst = None
 
-    def __init__(self, controller=None, topo=None):
+    def __init__(self, controller=None):
         """
         Create a Micronet.
         """
@@ -289,27 +195,6 @@ class Mininet(Micronet):
         super(Mininet, self).__init__()
 
         self.logger.debug("%s: Creating", self)
-
-        if topo and topo.hosts:
-            self.logger.debug("Adding hosts: %s", topo.hosts.keys())
-            for name in topo.hosts:
-                self.add_host(name, **topo.hosts[name])
-
-        if topo and topo.switches:
-            self.logger.debug("Adding switches: %s", topo.switches.keys())
-            for name in topo.switches:
-                self.add_switch(name, **topo.switches[name])
-
-        if topo and topo.links:
-            self.logger.debug("Adding links: ")
-            for swname in sorted(topo.links):
-                for rname in sorted(topo.links[swname]):
-                    for link in topo.links[swname][rname]:
-                        self.add_link(swname, rname, link[0], link[1])
-
-        if topo:
-            # Now that topology is built, configure hosts
-            self.configure_hosts()
 
     def __str__(self):
         return "Mininet()"
