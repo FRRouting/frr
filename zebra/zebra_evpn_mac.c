@@ -1342,6 +1342,25 @@ int zebra_evpn_sync_mac_dp_install(struct zebra_mac *mac, bool set_inactive,
 	struct zebra_if *zif;
 	struct interface *br_ifp;
 
+	/* If the ES-EVI doesn't exist defer install. When the ES-EVI is
+	 * created we will attempt to install the mac entry again
+	 */
+	if (mac->es) {
+		struct zebra_evpn_es_evi *es_evi;
+
+		es_evi = zebra_evpn_es_evi_find(mac->es, mac->zevpn);
+		if (!es_evi) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_MAC)
+				zlog_debug(
+					"%s: dp-install sync-mac vni %u mac %pEA es %s 0x%x %sskipped, no es-evi",
+					caller, zevpn->vni, &mac->macaddr,
+					mac->es ? mac->es->esi_str : "-",
+					mac->flags,
+					set_inactive ? "inactive " : "");
+			return -1;
+		}
+	}
+
 	/* get the access vlan from the vxlan_device */
 	zebra_evpn_mac_get_access_info(mac, &ifp, &vid);
 
