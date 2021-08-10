@@ -316,10 +316,16 @@ DEFPY(show_cmgd_get_config,
 	  "XPath string\n")
 {
 	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	cmgd_database_id_t database = CMGD_DB_NONE;
+	cmgd_database_id_t database = CMGD_DB_CANDIDATE;
 
 	if (dbname)
 		database = cmgd_db_name2id(dbname);
+
+	if (database == CMGD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
 
 	xpath_list[0] = path;
 	vty_cmgd_send_get_data(vty, database, xpath_list, 1);
@@ -338,10 +344,16 @@ DEFPY(show_cmgd_get_data,
 	  "XPath string\n")
 {
 	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
-	cmgd_database_id_t database = CMGD_DB_NONE;
+	cmgd_database_id_t database = CMGD_DB_CANDIDATE;
 
 	if (dbname)
 		database = cmgd_db_name2id(dbname);
+
+	if (database == CMGD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
 
 	xpath_list[0] = path;
 	vty_cmgd_send_get_data(vty, database, xpath_list, 1);
