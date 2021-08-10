@@ -83,9 +83,6 @@ static void bgp_connect_timer(struct event *event);
 static void bgp_holdtime_timer(struct event *event);
 static void bgp_delayopen_timer(struct event *event);
 
-/* BGP FSM functions. */
-static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection);
-
 /* Register peer with NHT */
 int bgp_peer_reg_with_nht(struct peer *peer)
 {
@@ -1833,7 +1830,7 @@ bgp_connect_fail(struct peer_connection *connection)
 /* This function is the first starting point of all BGP connection. It
  * try to connect to remote peer with non-blocking IO.
  */
-enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
+static enum bgp_fsm_state_progress bgp_start(struct peer_connection *connection)
 {
 	struct peer *peer = connection->peer;
 	int status;
