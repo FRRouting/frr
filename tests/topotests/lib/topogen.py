@@ -160,7 +160,6 @@ class Topogen(object):
         * `modname`: module name must be a unique name to identify logs later.
         """
         self.config = None
-        self.topo = None
         self.net = None
         self.gears = {}
         self.routern = 1
@@ -220,14 +219,13 @@ class Topogen(object):
             # Allow anyone, but set the sticky bit to avoid file deletions
             os.chmod(self.logdir, 0o1777)
 
-        # Old twisty way of creating sub-classed topology object which has it's build
-        # method invoked which calls Topogen methods which then call Topo methods to
-        # create a topology within the Topo object, which is then used by
+        # Remove old twisty way of creating sub-classed topology object which has it's
+        # build method invoked which calls Topogen methods which then call Topo methods
+        # to create a topology within the Topo object, which is then used by
         # Mininet(Micronet) to build the actual topology.
-        if inspect.isclass(topodef):
-            self.topo = topodef()
+        assert not inspect.isclass(topodef)
 
-        self.net = Mininet(controller=None, topo=self.topo)
+        self.net = Mininet(controller=None)
 
         # New direct way: Either a dictionary defines the topology or a build function
         # is supplied, or a json filename all of which build the topology by calling
@@ -390,10 +388,7 @@ class Topogen(object):
 
         node1.register_link(ifname1, node2, ifname2)
         node2.register_link(ifname2, node1, ifname1)
-        if self.net:
-            self.net.add_link(node1.name, node2.name, ifname1, ifname2)
-        else:
-            self.topo.addLink(node1.name, node2.name, intfName1=ifname1, intfName2=ifname2)
+        self.net.add_link(node1.name, node2.name, ifname1, ifname2)
 
     def get_gears(self, geartype):
         """

@@ -44,7 +44,6 @@ except ImportError:
     import configparser
     from io import StringIO
 
-from lib.micronet_compat import Mininet
 from lib.topogen import TopoRouter, get_topogen
 from lib.topolog import get_logger, logger
 from lib.topotest import frr_unicode, interface_set_status, version_cmp
