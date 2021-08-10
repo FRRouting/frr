@@ -861,6 +861,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		}
 		memcpy(&src_p.prefix, src, 16);
 		src_p.prefixlen = rtm->rtm_src_len;
+	} else {
+		/* We only handle the AFs we handle... */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: unknown address-family %u", __func__,
+				   rtm->rtm_family);
+		return 0;
 	}
 
 	/*
