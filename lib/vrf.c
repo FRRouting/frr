@@ -384,21 +384,6 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 	return VRF_LOGNAME(vrf);
 }
 
-vrf_id_t vrf_name_to_id(const char *name)
-{
-	struct vrf *vrf;
-	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
-				       // id/ routine not used.
-
-	if (!name)
-		return vrf_id;
-	vrf = vrf_lookup_by_name(name);
-	if (vrf)
-		vrf_id = vrf->vrf_id;
-
-	return vrf_id;
-}
-
 /* Get the data pointer of the specified VRF. If not found, create one. */
 void *vrf_info_get(vrf_id_t vrf_id)
 {
