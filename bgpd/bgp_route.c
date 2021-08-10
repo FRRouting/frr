@@ -11948,7 +11948,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
            |route-map WORD\
            |prefix-list WORD\
            |filter-list WORD\
-           |community-list <(1-500)|WORD> [exact-match]\
+           |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
          >",
