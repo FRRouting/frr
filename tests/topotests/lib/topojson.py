@@ -42,14 +42,16 @@ from lib.topolog import logger
 ROUTER_LIST = []
 
 
-def build_topo_from_json(tgen, topo):
+def build_topo_from_json(tgen, topo=None):
     """
     Reads configuration from JSON file. Adds routers, creates interface
     names dynamically and link routers as defined in JSON to create
     topology. Assigns IPs dynamically to all interfaces of each router.
     * `tgen`: Topogen object
-    * `topo`: json file data
+    * `topo`: json file data, or use tgen.json_topo if None
     """
+    if topo is None:
+        topo = tgen.json_topo
 
     ROUTER_LIST = sorted(
         topo["routers"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
@@ -285,8 +287,11 @@ def build_topo_from_json(tgen, topo):
             )
 
 
-def linux_intf_config_from_json(tgen, topo):
+def linux_intf_config_from_json(tgen, topo=None):
     """Configure interfaces from linux based on topo."""
+    if topo is None:
+        topo = tgen.json_topo
+
     routers = topo["routers"]
     for rname in routers:
         router = tgen.net[rname]
@@ -303,13 +308,13 @@ def linux_intf_config_from_json(tgen, topo):
                 router.cmd_raises("ip -6 addr add {} dev {}".format(link["ipv6"], lname))
 
 
-def build_config_from_json(tgen, topo, save_bkup=True):
+def build_config_from_json(tgen, topo=None, save_bkup=True):
     """
     Reads initial configuraiton from JSON for each router, builds
     configuration and loads its to router.
 
     * `tgen`: Topogen object
-    * `topo`: json file data
+    * `topo`: json file data, or use tgen.json_topo if None
     """
 
     func_dict = OrderedDict(
@@ -327,6 +332,9 @@ def build_config_from_json(tgen, topo, save_bkup=True):
             ("ospf6", create_router_ospf6),
         ]
     )
+
+    if topo is None:
+        topo = tgen.json_topo
 
     data = topo["routers"]
     for func_type in func_dict.keys():
