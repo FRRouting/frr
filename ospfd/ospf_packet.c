@@ -108,9 +108,9 @@ static const uint16_t ospf_lsa_minlen[] = {
 	0,
 	OSPF_AS_EXTERNAL_LSA_MIN_SIZE,
 	0,
-	0,
-	0,
-	0,
+	OSPF_OPAQUE_LSA_MIN_SIZE,
+	OSPF_OPAQUE_LSA_MIN_SIZE,
+	OSPF_OPAQUE_LSA_MIN_SIZE,
 };
 
 /* for ospf_check_auth() */
