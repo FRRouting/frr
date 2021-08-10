@@ -203,8 +203,18 @@ const struct prefix * : lua_decode_noop                         \
 int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 
 /*
- * Wrapper for calling Lua function state. Maps values passed in to their
- * encoder and decoder types.
+ * Wrapper for calling Lua function state.
+ *
+ * The Lua function name (f) to run should have already been checked by
+ * frrscript_load. So this wrapper will:
+ * 1) Find the Lua function state, which contains the Lua state
+ * 2) Clear the Lua state (there may be leftovers items from previous call)
+ * 3) Push the Lua function (f)
+ * 4) Map frrscript_call arguments onto their encoder and decoders, push those
+ * 5) Call _frrscript_call_lua (Lua execution takes place)
+ * 6) Write back to frrscript_call arguments using their decoders
+ *
+ * This wrapper can be called multiple times (after one frrscript_load).
  *
  * fs
  *    The struct frrscript in which the Lua fuction was loaded into
@@ -226,6 +236,8 @@ int _frrscript_call_lua(struct lua_function_state *lfs, int nargs);
 			1;                                                                                                                                         \
 		})                                                                                                                                                 \
 			    : ({                                                                                                                                   \
+				      lua_settop(lfs->L, 0);                                                                                                       \
+				      lua_getglobal(lfs->L, f);                                                                                                    \
 				      MAP_LISTS(ENCODE_ARGS, ##__VA_ARGS__);                                                                                       \
 				      _frrscript_call_lua(                                                                                                         \
 					      lfs, PP_NARG(__VA_ARGS__));                                                                                          \
