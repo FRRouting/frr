@@ -3412,7 +3412,8 @@ int vty_cmgd_send_config_data(struct vty *vty)
 	return 0;
 }
 
-int vty_cmgd_send_commit_config(struct vty *vty)
+int vty_cmgd_send_commit_config(struct vty *vty, bool validate_only,
+	bool abort)
 {
 	cmgd_result_t ret;
 
@@ -3420,7 +3421,8 @@ int vty_cmgd_send_commit_config(struct vty *vty)
 			vty->cmgd_req_id++;
 		ret = cmgd_frntnd_commit_config_data(
 			cmgd_lib_hndl, vty->cmgd_session_id, vty->cmgd_req_id,
-			CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, false);
+			CMGD_DB_CANDIDATE, CMGD_DB_RUNNING, validate_only,
+			abort);
 		if (ret != CMGD_SUCCESS) {
 			zlog_err("Failed to send COMMIT-REQ to CMGD for req-id %lu.",
 				vty->cmgd_req_id);

@@ -207,7 +207,7 @@ extern cmgd_result_t cmgd_frntnd_set_config_data(
 extern cmgd_result_t cmgd_frntnd_commit_config_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t src_db_id, 
-	cmgd_database_id_t dst_db_id, bool validate_only);
+	cmgd_database_id_t dst_db_id, bool validate_only, bool abort);
 
 /*
  * Send GET_CONFIG_REQ to CMGD for one or more config data item(s).

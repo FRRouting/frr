@@ -279,7 +279,7 @@ static int cmgd_frntnd_send_setcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 static int cmgd_frntnd_send_commitcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd_frntnd_client_session_t *sessn, cmgd_client_req_id_t req_id,
 	cmgd_database_id_t src_db_id, cmgd_database_id_t dest_db_id, 
-	bool validate_only)
+	bool validate_only, bool abort)
 {
 	(void) req_id;
 	Cmgd__FrntndMessage frntnd_msg;
@@ -291,6 +291,7 @@ static int cmgd_frntnd_send_commitcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	commitcfg_req.dst_db_id = dest_db_id;
 	commitcfg_req.req_id = req_id;
 	commitcfg_req.validate_only = validate_only;
+	commitcfg_req.abort = abort;
 
 	cmgd__frntnd_message__init(&frntnd_msg);
 	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__COMMIT_CONFIG_REQ;
@@ -1014,7 +1015,7 @@ cmgd_result_t cmgd_frntnd_set_config_data(
 cmgd_result_t cmgd_frntnd_commit_config_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t src_db_id, 
-	cmgd_database_id_t dst_db_id, bool validate_only)
+	cmgd_database_id_t dst_db_id, bool validate_only, bool abort)
 {
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
 	cmgd_frntnd_client_session_t *sessn;
@@ -1029,7 +1030,7 @@ cmgd_result_t cmgd_frntnd_commit_config_data(
 
 	if (cmgd_frntnd_send_commitcfg_req(
 		clnt_ctxt, sessn, req_id, src_db_id, dst_db_id,
-		validate_only) != 0)
+		validate_only, abort) != 0)
 		return CMGD_INTERNAL_ERROR;
 
 	return CMGD_SUCCESS;

@@ -203,14 +203,7 @@ int cmgd_db_merge_dbs(
 int cmgd_db_copy_dbs(
         cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db)
 {
-	cmgd_db_ctxt_t *src, *dst;
-
-	src = (cmgd_db_ctxt_t *)src_db;
-	dst = (cmgd_db_ctxt_t *)dst_db;
-	if (!src || !dst)
-		return -1;
-
-	return 0;
+	return cmgd_db_merge_dbs(src_db, dst_db);
 }
 
 struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl)

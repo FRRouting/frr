@@ -103,7 +103,7 @@ extern int cmgd_trxn_send_commit_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t src_db_id, cmgd_db_hndl_t dst_db_hndl,
         cmgd_database_id_t dst_db_id, cmgd_db_hndl_t src_db_hndl,
-        bool validate_only);
+        bool validate_only, bool abort);
 
 extern int cmgd_trxn_send_commit_config_reply(
         cmgd_trxn_id_t trxn_id, bool success, const char *error_if_any);

@@ -297,6 +297,7 @@ message FrntndCommitConfigReq {
   required DatabaseId dst_db_id = 3;
   required uint64 req_id = 4;
   required bool validate_only = 5;
+  required bool abort = 6;
 }
 
 message FrntndCommitConfigReply {
@@ -306,7 +307,8 @@ message FrntndCommitConfigReply {
   required uint64 req_id = 4;
   required bool validate_only = 5;
   required bool success = 6;
-  optional string error_if_any = 7;
+  required bool abort = 7;
+  optional string error_if_any = 8;
 }
 
 message FrntndGetConfigReq {

@@ -408,7 +408,7 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 	/*
 	 * Cleanup the CONFIG transaction associated with this session.
 	 */
-	if (sessn->cfg_trxn_id)
+	if (success && !validate_only &&sessn->cfg_trxn_id)
 		cmgd_frntnd_session_register_event(
 			sessn, CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP);
 
@@ -1047,7 +1047,7 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 		sessn->cfg_trxn_id, commcfg_req->req_id, 
 		commcfg_req->src_db_id, src_db_hndl,
 		commcfg_req->dst_db_id, dst_db_hndl,
-		commcfg_req->validate_only) != 0)
+		commcfg_req->validate_only, commcfg_req->abort) != 0)
 	{
 		cmgd_frntnd_send_commitcfg_reply(sessn,
 			commcfg_req->src_db_id, commcfg_req->dst_db_id,

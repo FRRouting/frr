@@ -135,6 +135,7 @@ typedef struct cmgd_commit_cfg_req_ {
 	cmgd_database_id_t dst_db_id;
 	cmgd_db_hndl_t dst_db_hndl;
 	bool validate_only;
+	bool abort;
 	uint32_t nb_trxn_id;
 
 	/* Track commit phases */
@@ -691,22 +692,29 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		THREAD_OFF(trxn->comm_cfg_timeout);
 
 		/*
-		 * Successful commit: Merge Src DB into Dst DB.
+		 * Successful commit: Merge Src DB into Dst DB if and only if
+		 * this was not a validate-only or abort request.
 		 */
-		cmgd_db_merge_dbs(trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
-			trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
+		if (!trxn->commit_cfg_req->req.commit_cfg.validate_only && 
+			 !trxn->commit_cfg_req->req.commit_cfg.abort)
+			cmgd_db_merge_dbs(
+				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
+				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
+
+		/*
+		 * Restore Src DB back to Dest DB only through a commit abort
+		 * request.
+		 */
+		if (trxn->commit_cfg_req->req.commit_cfg.abort)
+			cmgd_db_copy_dbs(
+				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
+				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
 	} else {
 #ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 		THREAD_OFF(trxn->send_cfg_validate);
 #else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 		THREAD_OFF(trxn->send_cfg_apply);
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
-
-		/*
-		 * Commit Failure: Copy Dst DB onto Src DB.
-		 */
-		cmgd_db_copy_dbs(trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
-			trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
 	}
 	
 	cmgd_trxn_req_free(&trxn->commit_cfg_req);
@@ -1020,6 +1028,16 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		goto cmgd_trxn_prepare_config_done;
 	}
 
+	if (trxn->commit_cfg_req->req.commit_cfg.abort) {
+		/*
+		 * This is a commit abort request. Return back success. 
+		 * That should trigger a restore of Candidate database to 
+		 * Running.
+		 */
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
+		goto cmgd_trxn_prepare_config_done;
+	}
+
 	nb_config = cmgd_db_get_nb_config(
 			trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
 	if (!nb_config) {
@@ -1054,6 +1072,14 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	if (ret != NB_OK) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
 		ret = -1;
+		goto cmgd_trxn_prepare_config_done;
+	}
+
+	if (trxn->commit_cfg_req->req.commit_cfg.validate_only) {
+		/*
+		 * This was a validate-only COMMIT request return success.
+		 */
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
 		goto cmgd_trxn_prepare_config_done;
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
@@ -1242,6 +1268,14 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
 
 	cmtcfg_req = &trxn->commit_cfg_req->req.commit_cfg;
+	if (cmtcfg_req->validate_only) {
+		/*
+		 * If this was a validate-only COMMIT request return success.
+		 */
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
+		return 0;
+	}
+
 	FOREACH_CMGD_BCKND_CLIENT_ID(id) {
 		if (cmtcfg_req->subscr_info.xpath_subscr[id].notify_config) {
 			adptr = cmgd_bcknd_get_adapter_by_id(id);
@@ -2070,7 +2104,7 @@ int cmgd_trxn_send_commit_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t src_db_id, cmgd_db_hndl_t src_db_hndl,
 	cmgd_database_id_t dst_db_id, cmgd_db_hndl_t dst_db_hndl,
-	bool validate_only)
+	bool validate_only, bool abort)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
@@ -2091,6 +2125,7 @@ int cmgd_trxn_send_commit_config_req(
 	trxn_req->req.commit_cfg.dst_db_id = dst_db_id;
 	trxn_req->req.commit_cfg.dst_db_hndl = dst_db_hndl;
 	trxn_req->req.commit_cfg.validate_only = validate_only;
+	trxn_req->req.commit_cfg.abort = abort;
 
 	/*
 	 * Trigger a COMMIT-CONFIG process.

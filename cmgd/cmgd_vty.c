@@ -273,13 +273,35 @@ DEFPY(show_cmgd_db_oper,
 	return CMD_SUCCESS;
 }
 
-DEFPY(cmgd_commit_appply,
+DEFPY(cmgd_commit_apply,
       cmgd_commit_apply_cmd,
       "cmgd commit-apply",
       CMGD_STR
-      "Commit the set of commands\n")
+      "Validate and apply the set of config commands\n")
 {
-	if (vty_cmgd_send_commit_config(vty) != 0)
+	if (vty_cmgd_send_commit_config(vty, false, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_commit_check,
+      cmgd_commit_check_cmd,
+      "cmgd commit-check",
+      CMGD_STR
+      "Validate the set of config commands only\n")
+{
+	if (vty_cmgd_send_commit_config(vty, true, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_commit_abort,
+      cmgd_commit_abort_cmd,
+      "cmgd commit-abort",
+      CMGD_STR
+      "Abort and drop the set of config commands recently added\n")
+{
+	if (vty_cmgd_send_commit_config(vty, false, true) != 0)
 		return CMD_WARNING_CONFIG_FAILED;
 	return CMD_SUCCESS;
 }
@@ -417,6 +439,8 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_map_xpath_cmd);
 
 	install_element(CONFIG_NODE, &cmgd_commit_apply_cmd);
+	install_element(CONFIG_NODE, &cmgd_commit_abort_cmd);
+	install_element(CONFIG_NODE, &cmgd_commit_check_cmd);
 	install_element(CONFIG_NODE, &cmgd_lock_db_cand_cmd);
 	install_element(CONFIG_NODE, &cmgd_unlock_db_cand_cmd);
 	install_element(CONFIG_NODE, &cmgd_set_config_data_cmd);
