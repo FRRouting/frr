@@ -2237,8 +2237,7 @@ DEFUNSH(VTYSH_PATHD, pcep, pcep_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
-	"[no] pcc",
-	NO_STR
+	"pcc",
 	"PCC configuration\n")
 {
 	vty->node = PCEP_PCC_NODE;
@@ -2246,8 +2245,7 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcc, pcep_cli_pcc_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, pcep_cli_pce, pcep_cli_pce_cmd,
-	"[no] pce WORD",
-	NO_STR
+	"pce WORD",
 	"PCE configuration\n"
 	"Peer name\n")
 {
@@ -2256,8 +2254,7 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pce, pcep_cli_pce_cmd,
 }
 
 DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
-	"[no] pce-config WORD",
-	NO_STR
+	"pce-config WORD",
 	"PCEP peer Configuration Group\n"
 	"PCEP peer Configuration Group name\n")
 {
