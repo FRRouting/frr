@@ -1189,27 +1189,38 @@ route_match_alias(void *rule, const struct prefix *prefix, void *object)
 	struct bgp_path_info *path = object;
 	char **communities;
 	int num;
+	bool found;
 
 	if (path->attr->community) {
+		found = false;
 		frrstr_split(path->attr->community->str, " ", &communities,
 			     &num);
 		for (int i = 0; i < num; i++) {
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
-			if (strcmp(alias, com2alias) == 0)
-				return RMAP_MATCH;
+			if (!found && strcmp(alias, com2alias) == 0)
+				found = true;
+			XFREE(MTYPE_TMP, communities[i]);
 		}
+		XFREE(MTYPE_TMP, communities);
+		if (found)
+			return RMAP_MATCH;
 	}
 
 	if (path->attr->lcommunity) {
+		found = false;
 		frrstr_split(path->attr->lcommunity->str, " ", &communities,
 			     &num);
 		for (int i = 0; i < num; i++) {
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
-			if (strcmp(alias, com2alias) == 0)
-				return RMAP_MATCH;
+			if (!found && strcmp(alias, com2alias) == 0)
+				found = false;
+			XFREE(MTYPE_TMP, communities[i]);
 		}
+		XFREE(MTYPE_TMP, communities);
+		if (found)
+			return RMAP_MATCH;
 	}
 
 	return RMAP_NOMATCH;
