@@ -391,6 +391,20 @@ int cmgd_db_lookup_data_nodes(
 			get_childs_as_well, donot_free_alloced));
 }
 
+struct lyd_node *cmgd_db_find_data_node_by_xpath(cmgd_db_hndl_t db_hndl,
+	const char *xpath)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return NULL;
+	
+	return yang_dnode_get(db_ctxt->config_db ?
+			db_ctxt->root.cfg_root->dnode :
+			db_ctxt->root.dnode_root, xpath);
+}
+
 int cmgd_db_delete_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath)
 {

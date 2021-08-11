@@ -373,6 +373,17 @@ static int cmgd_bcknd_update_setcfg_in_batch(cmgd_bcknd_client_ctxt_t *clnt_ctxt
 	trxn_req->req.set_cfg.num_cfg_changes = num_req;
 	for (index = 0; index < num_req; index++) {
 		cfg_chg = &trxn_req->req.set_cfg.cfg_changes[index];
+
+		switch(cfg_req[index]->req_type) {
+		case CMGD__CFG_DATA_REQ_TYPE__DELETE_DATA:
+			cfg_chg->operation = NB_OP_DESTROY;
+			break;
+		case CMGD__CFG_DATA_REQ_TYPE__SET_DATA:
+		default:
+			cfg_chg->operation = NB_OP_CREATE;
+			break;
+		}
+
 		CMGD_BCKND_CLNT_DBG("XPath: '%s', Value: '%s'",
 			cfg_req[index]->data->xpath,
 			(cfg_req[index]->data->value &&

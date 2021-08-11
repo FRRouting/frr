@@ -923,11 +923,17 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 				&cfg_btch->cfg_data[cfg_btch->num_cfg_data]);
 			cfg_btch->cfg_datap[cfg_btch->num_cfg_data] = 
 				&cfg_btch->cfg_data[cfg_btch->num_cfg_data];
-			/*
-			 * TODO: Consider later how to deal with deletes.
-			 */
-			cfg_btch->cfg_data[cfg_btch->num_cfg_data].req_type =
-				CMGD__CFG_DATA_REQ_TYPE__SET_DATA;
+
+			switch(chg->cb.operation) {
+			case NB_OP_DESTROY:
+				cfg_btch->cfg_data[cfg_btch->num_cfg_data].req_type =
+					CMGD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+				break;
+			default:
+				cfg_btch->cfg_data[cfg_btch->num_cfg_data].req_type =
+					CMGD__CFG_DATA_REQ_TYPE__SET_DATA;
+				break;
+			}
 
 			cmgd_yang_data_init(
 				&cfg_btch->data[cfg_btch->num_cfg_data]);
@@ -2077,6 +2083,21 @@ int cmgd_trxn_send_set_config_req(
 	num_chgs = &trxn_req->req.set_cfg->num_cfg_changes;
 	for (indx = 0; indx < num_req; indx++) {
 		cfg_chg = &trxn_req->req.set_cfg->cfg_changes[*num_chgs];
+
+		switch(cfg_req[indx]->req_type) {
+		case CMGD__CFG_DATA_REQ_TYPE__DELETE_DATA:
+			cfg_chg->operation = NB_OP_DESTROY;
+			break;
+		case CMGD__CFG_DATA_REQ_TYPE__SET_DATA:
+			cfg_chg->operation = 
+				cmgd_db_find_data_node_by_xpath(
+					db_hndl, cfg_req[indx]->data->xpath) ?
+				NB_OP_MODIFY : NB_OP_CREATE;
+			break;
+		default:
+			continue;
+		}
+
 		CMGD_TRXN_DBG("XPath: '%s', Value: '%s'",
 			cfg_req[indx]->data->xpath,
 			(cfg_req[indx]->data->value &&
@@ -2093,6 +2114,7 @@ int cmgd_trxn_send_set_config_req(
 		if (cfg_chg->value)
 			CMGD_TRXN_DBG("Allocated value at %p ==> '%s'",
 				cfg_chg->value, cfg_chg->value);
+
 		(*num_chgs)++;
 	}
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_SETCFG);

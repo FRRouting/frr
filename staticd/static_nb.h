@@ -133,6 +133,11 @@ int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args);
 
 /* xpath macros */
+#define FRR_STATIC_ROUTE_INFO_XPATH                                            \
+	"/frr-routing:routing/control-plane-protocols/"                        \
+	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
+	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']"
+
 /* route-list */
 #define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                        \
 	"/frr-routing:routing/control-plane-protocols/"                        \

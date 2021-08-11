@@ -147,6 +147,9 @@ extern int cmgd_db_lookup_data_nodes(
         struct lyd_node *dnodes[], struct nb_node *nbnodes[],
 	int *num_nodes, bool get_childs_as_well, bool donot_free_alloced);
 
+extern struct lyd_node *cmgd_db_find_data_node_by_xpath(cmgd_db_hndl_t db_hndl,
+	const char *xpath);
+
 extern int cmgd_db_delete_data_nodes(
         cmgd_db_hndl_t db_hndl, const char *xpath);
 

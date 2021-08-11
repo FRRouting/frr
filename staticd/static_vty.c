@@ -310,6 +310,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		}
 		ret = NB_APPLY_CLI_COMMANDS(vty, xpath_prefix);
 	} else {
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 		if (src_str)
 			snprintf(ab_xpath, sizeof(ab_xpath),
 				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
@@ -336,6 +337,13 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		dnode = yang_get_subtree_with_no_sibling(dnode);
 		assert(dnode);
 		yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
+#else /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+		snprintf(ab_xpath, sizeof(ab_xpath),
+			FRR_STATIC_ROUTE_INFO_XPATH,
+			"frr-staticd:staticd", "staticd", svrf,
+			buf_prefix,
+			yang_afi_safi_value2identity(afi, safi));
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 		NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_DESTROY, NULL);
 		ret = NB_APPLY_CLI_COMMANDS(vty, ab_xpath);

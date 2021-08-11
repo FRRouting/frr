@@ -3390,7 +3390,16 @@ int vty_cmgd_send_config_data(struct vty *vty)
 				
 			cmgd_yang_cfg_data_req_init(&cfg_req[cnt]);
 			cfg_req[cnt].data = &cfg_data[cnt];
-			cfg_req[cnt].req_type = CMGD__CFG_DATA_REQ_TYPE__SET_DATA;
+			switch (vty->cfg_changes[indx].operation) {
+			case NB_OP_DESTROY:
+				cfg_req[cnt].req_type =
+					CMGD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+				break;
+			default:
+				cfg_req[cnt].req_type =
+					CMGD__CFG_DATA_REQ_TYPE__SET_DATA;
+				break;
+			}
 
 			cfgreq[cnt] = &cfg_req[cnt];
 			cnt++;
