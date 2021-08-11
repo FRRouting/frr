@@ -10728,12 +10728,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						const char *com2alias =
 							bgp_community2alias(
 								communities[i]);
-						if (strcmp(alias, com2alias)
-						    == 0) {
+						if (!found
+						    && strcmp(alias, com2alias)
+							       == 0)
 							found = true;
-							break;
-						}
+						XFREE(MTYPE_TMP,
+						      communities[i]);
 					}
+					XFREE(MTYPE_TMP, communities);
 				}
 
 				if (!found && pi->attr->lcommunity) {
@@ -10743,12 +10745,14 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 						const char *com2alias =
 							bgp_community2alias(
 								communities[i]);
-						if (strcmp(alias, com2alias)
-						    == 0) {
+						if (!found
+						    && strcmp(alias, com2alias)
+							       == 0)
 							found = true;
-							break;
-						}
+						XFREE(MTYPE_TMP,
+						      communities[i]);
 					}
+					XFREE(MTYPE_TMP, communities);
 				}
 
 				if (!found)
