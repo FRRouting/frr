@@ -175,22 +175,25 @@ const char *bgp_alias2community(char *alias)
  * This is a helper to convert already aliased version
  * of communities into numerical-only format.
  */
-const char *bgp_alias2community_str(const char *str)
+char *bgp_alias2community_str(const char *str)
 {
 	char **aliases;
-	int num;
+	char *comstr;
+	int num, i;
 
 	frrstr_split(str, " ", &aliases, &num);
-	const char *communities[num + 1];
+	const char *communities[num];
 
-	for (int i = 0; i < num; i++) {
-		communities[i] =
-			XSTRDUP(MTYPE_TMP, bgp_alias2community(aliases[i]));
+	for (i = 0; i < num; i++)
+		communities[i] = bgp_alias2community(aliases[i]);
+
+	comstr = frrstr_join(communities, num, " ");
+
+	for (i = 0; i < num; i++)
 		XFREE(MTYPE_TMP, aliases[i]);
-	}
 	XFREE(MTYPE_TMP, aliases);
 
-	return frrstr_join(communities, num, " ");
+	return comstr;
 }
 
 static int bgp_community_alias_vector_walker(struct hash_bucket *bucket,
