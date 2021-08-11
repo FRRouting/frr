@@ -1755,13 +1755,20 @@ DEFPY_NOSH(
 DEFPY_NOSH(
       pcep_cli_pcep_pce_config,
       pcep_cli_pcep_pce_config_cmd,
-      "[no] pce-config WORD$name",
+      "pce-config WORD$name",
+      "Shared configuration\n"
+      "Shared configuration name\n")
+{
+	return path_pcep_cli_pcep_pce_config(vty, name);
+}
+
+DEFPY(pcep_cli_pcep_no_pce_config,
+      pcep_cli_pcep_no_pce_config_cmd,
+      "no pce-config WORD$name",
       NO_STR
       "Shared configuration\n"
       "Shared configuration name\n")
 {
-	if (no == NULL)
-		return path_pcep_cli_pcep_pce_config(vty, name);
 	return path_pcep_cli_pcep_pce_config_delete(vty, name);
 }
 
@@ -1781,13 +1788,20 @@ DEFPY(pcep_cli_show_srte_pcep_pce_config,
 DEFPY_NOSH(
       pcep_cli_pce,
       pcep_cli_pce_cmd,
-      "[no] pce WORD$name",
+      "pce WORD$name",
+      "PCE configuration, address sub-config is mandatory\n"
+      "PCE name\n")
+{
+	return path_pcep_cli_pce(vty, name);
+}
+
+DEFPY(pcep_cli_no_pce,
+      pcep_cli_no_pce_cmd,
+      "no pce WORD$name",
       NO_STR
       "PCE configuration, address sub-config is mandatory\n"
       "PCE name\n")
 {
-	if (no == NULL)
-		return path_pcep_cli_pce(vty, name);
 	return path_pcep_cli_pce_delete(vty, name);
 }
 
@@ -1906,15 +1920,19 @@ DEFPY(pcep_cli_peer_timers,
 DEFPY_NOSH(
       pcep_cli_pcc,
       pcep_cli_pcc_cmd,
-      "[no] pcc",
+      "pcc",
+      "PCC configuration\n")
+{
+	return path_pcep_cli_pcc(vty);
+}
+
+DEFPY(pcep_cli_no_pcc,
+      pcep_cli_no_pcc_cmd,
+      "no pcc",
       NO_STR
       "PCC configuration\n")
 {
-	if (no != NULL) {
-		return path_pcep_cli_pcc_delete(vty);
-	} else {
-		return path_pcep_cli_pcc(vty);
-	}
+	return path_pcep_cli_pcc_delete(vty);
 }
 
 DEFPY(pcep_cli_pcc_pcc_msd,
@@ -2001,6 +2019,7 @@ void pcep_cli_init(void)
 
 	/* PCEP configuration group related configuration commands */
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
+	install_element(PCEP_NODE, &pcep_cli_pcep_no_pce_config_cmd);
 	install_element(PCEP_PCE_CONFIG_NODE,
 			&pcep_cli_peer_source_address_cmd);
 	install_element(PCEP_PCE_CONFIG_NODE, &pcep_cli_peer_timers_cmd);
@@ -2010,6 +2029,7 @@ void pcep_cli_init(void)
 
 	/* PCE peer related configuration commands */
 	install_element(PCEP_NODE, &pcep_cli_pce_cmd);
+	install_element(PCEP_NODE, &pcep_cli_no_pce_cmd);
 	install_element(PCEP_PCE_NODE, &pcep_cli_peer_address_cmd);
 	install_element(PCEP_PCE_NODE, &pcep_cli_peer_source_address_cmd);
 	install_element(PCEP_PCE_NODE, &pcep_cli_peer_pcep_pce_config_ref_cmd);
@@ -2021,6 +2041,7 @@ void pcep_cli_init(void)
 	/* PCC related configuration commands */
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcc_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pcc_cmd);
+	install_element(PCEP_NODE, &pcep_cli_no_pcc_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_peer_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_msd_cmd);
 
