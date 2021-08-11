@@ -2038,9 +2038,8 @@ route_set_aspath_prepend(void *rule, const struct prefix *prefix, void *object)
 		aspath_prepend(aspath, new);
 	} else {
 		as_t as = aspath_leftmost(new);
-		if (!as)
-			as = path->peer->as;
-		new = aspath_add_seq_n(new, as, (uintptr_t)rule);
+		if (as)
+			new = aspath_add_seq_n(new, as, (uintptr_t)rule);
 	}
 
 	path->attr->aspath = new;
@@ -5208,7 +5207,7 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    "Use the peer's AS-number\n"
+	    "Use the last AS-number in the as-path\n"
 	    "Number of times to insert\n")
 {
 	int idx_num = 4;
