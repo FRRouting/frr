@@ -67,6 +67,11 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (gate_str == NULL) {
+		vty_out(vty, "%% No Nexthop Information\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	out_label = MPLS_LABEL_IMPLICIT_NULL; /* as initialization */
 	label = atoi(inlabel_str);
 	if (!IS_MPLS_UNRESERVED_LABEL(label)) {
@@ -86,21 +91,18 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 	}
 
 	in_label = label;
-	gtype = NEXTHOP_TYPE_BLACKHOLE; /* as initialization */
 
-	if (gate_str) {
-		/* Gateway is a IPv4 or IPv6 nexthop. */
-		ret = inet_pton(AF_INET6, gate_str, &gate.ipv6);
-		if (ret)
-			gtype = NEXTHOP_TYPE_IPV6;
+	/* Gateway is a IPv4 or IPv6 nexthop. */
+	ret = inet_pton(AF_INET6, gate_str, &gate.ipv6);
+	if (ret == 1)
+		gtype = NEXTHOP_TYPE_IPV6;
+	else {
+		ret = inet_pton(AF_INET, gate_str, &gate.ipv4);
+		if (ret == 1)
+			gtype = NEXTHOP_TYPE_IPV4;
 		else {
-			ret = inet_pton(AF_INET, gate_str, &gate.ipv4);
-			if (ret)
-				gtype = NEXTHOP_TYPE_IPV4;
-			else {
-				vty_out(vty, "%% Invalid nexthop\n");
-				return CMD_WARNING_CONFIG_FAILED;
-			}
+			vty_out(vty, "%% Invalid nexthop\n");
+			return CMD_WARNING_CONFIG_FAILED;
 		}
 	}
 
@@ -131,7 +133,7 @@ static int zebra_mpls_transit_lsp(struct vty *vty, int add_cmd,
 		ret = zebra_mpls_static_lsp_del(zvrf, in_label, gtype, &gate,
 						0);
 
-	if (ret) {
+	if (ret != 0) {
 		vty_out(vty, "%% LSP cannot be %s\n",
 			add_cmd ? "added" : "deleted");
 		return CMD_WARNING_CONFIG_FAILED;
