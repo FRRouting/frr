@@ -3920,8 +3920,18 @@ void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS)
 	struct ipaddr nh;
 	struct ethaddr rmac;
 	struct prefix_evpn dummy_prefix;
+	size_t min_len = 4 + sizeof(nh);
 
 	s = msg;
+
+	/*
+	 * Ensure that the stream sent to us is long enough
+	 */
+	if (hdr->command == ZEBRA_EVPN_REMOTE_NH_ADD)
+		min_len += sizeof(rmac);
+	if (hdr->length < min_len)
+		return;
+
 	vrf_id = stream_getl(s);
 	stream_get(&nh, s, sizeof(nh));
 
