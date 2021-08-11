@@ -157,66 +157,6 @@ ASBR Summarisation Support in OSPFv3
    When detail option is used, it shows all the prefixes falling under each
    summary-configuration apart from other information.
 
-.. clicmd:: debug ospf6 lsa aggregation
-
-   This command can be used to enable the debugs related to the summarisation
-   of these LSAs.
-
-.. _ospf6-debugging:
-
-OSPFv3 Debugging
-================
-
-The following debug commands are supported:
-
-.. clicmd:: debug ospf6 abr
-
-   Toggle OSPFv3 ABR debugging messages.
-
-.. clicmd:: debug ospf6 asbr
-
-   Toggle OSPFv3 ASBR debugging messages.
-
-.. clicmd:: debug ospf6 border-routers
-
-   Toggle OSPFv3 border router debugging messages.
-
-.. clicmd:: debug ospf6 flooding
-
-   Toggle OSPFv3 flooding debugging messages.
-
-.. clicmd:: debug ospf6 interface
-
-   Toggle OSPFv3 interface related debugging messages.
-
-.. clicmd:: debug ospf6 lsa
-
-   Toggle OSPFv3 Link State Advertisements debugging messages.
-
-.. clicmd:: debug ospf6 message
-
-   Toggle OSPFv3 message exchange debugging messages.
-
-.. clicmd:: debug ospf6 neighbor
-
-   Toggle OSPFv3 neighbor interaction debugging messages.
-
-.. clicmd:: debug ospf6 nssa
-
-   Toggle OSPFv3 Not So Stubby Area (NSSA) debugging messages.
-
-.. clicmd:: debug ospf6 route
-
-   Toggle OSPFv3 routes debugging messages.
-
-.. clicmd:: debug ospf6 spf
-
-   Toggle OSPFv3 Shortest Path calculation debugging messages.
-
-.. clicmd:: debug ospf6 zebra
-
-   Toggle OSPFv3 zebra interaction debugging messages.
-
 .. _ospf6-area:
 
 OSPF6 area
@@ -412,6 +352,65 @@ Showing OSPF6 information
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
 
+
+.. _ospf6-debugging:
+
+OSPFv3 Debugging
+================
+
+The following debug commands are supported:
+
+.. clicmd:: debug ospf6 abr
+
+   Toggle OSPFv3 ABR debugging messages.
+
+.. clicmd:: debug ospf6 asbr
+
+   Toggle OSPFv3 ASBR debugging messages.
+
+.. clicmd:: debug ospf6 border-routers
+
+   Toggle OSPFv3 border router debugging messages.
+
+.. clicmd:: debug ospf6 flooding
+
+   Toggle OSPFv3 flooding debugging messages.
+
+.. clicmd:: debug ospf6 interface
+
+   Toggle OSPFv3 interface related debugging messages.
+
+.. clicmd:: debug ospf6 lsa
+
+   Toggle OSPFv3 Link State Advertisements debugging messages.
+
+.. clicmd:: debug ospf6 lsa aggregation
+
+   Toggle OSPFv3 Link State Advertisements summarization debugging messages.
+
+.. clicmd:: debug ospf6 message
+
+   Toggle OSPFv3 message exchange debugging messages.
+
+.. clicmd:: debug ospf6 neighbor
+
+   Toggle OSPFv3 neighbor interaction debugging messages.
+
+.. clicmd:: debug ospf6 nssa
+
+   Toggle OSPFv3 Not So Stubby Area (NSSA) debugging messages.
+
+.. clicmd:: debug ospf6 route
+
+   Toggle OSPFv3 routes debugging messages.
+
+.. clicmd:: debug ospf6 spf
+
+   Toggle OSPFv3 Shortest Path calculation debugging messages.
+
+.. clicmd:: debug ospf6 zebra
+
+   Toggle OSPFv3 zebra interaction debugging messages.
 
 Sample configuration
 ====================
