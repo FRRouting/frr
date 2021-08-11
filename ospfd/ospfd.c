@@ -1130,8 +1130,8 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 				if (add_to_ospf) {
 					if (ospf_external_info_find_lsa(ospf,
 									&ei->p))
-						if (!ospf_distribute_check_connected(
-							    ospf, ei))
+						if (!ospf_redistribute_check(
+							    ospf, ei, NULL))
 							ospf_external_lsa_flush(
 								ospf, ei->type,
 								&ei->p,
@@ -1139,8 +1139,8 @@ static void update_redistributed(struct ospf *ospf, int add_to_ospf)
 				} else {
 					if (!ospf_external_info_find_lsa(
 						    ospf, &ei->p))
-						if (ospf_distribute_check_connected(
-							    ospf, ei))
+						if (ospf_redistribute_check(
+							    ospf, ei, NULL))
 							ospf_external_lsa_originate(
 								ospf, ei);
 				}
