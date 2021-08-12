@@ -1937,6 +1937,11 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 
 		flog_warn(EC_ZEBRA_NEXTHOP_CREATION_FAILED,
 			  "%s: Nexthop Group Creation failed", __func__);
+
+		/* Free any local allocations */
+		nexthop_group_delete(&nhg);
+		zebra_nhg_backup_free(&bnhg);
+
 		return;
 	}
 
