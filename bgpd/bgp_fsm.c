@@ -2948,8 +2948,9 @@ int bgp_gr_update_all(struct bgp *bgp, enum global_gr_command global_gr_cmd)
 
 	if (global_old_state == GLOBAL_INVALID)
 		return BGP_ERR_GR_OPERATION_FAILED;
+	/* Next state 'invalid is actually an 'ignore' */
 	if (global_new_state == GLOBAL_INVALID)
-		return BGP_ERR_GR_INVALID_CMD;
+		return BGP_GR_NO_OPERATION;
 	if (global_new_state == global_old_state)
 		return BGP_GR_NO_OPERATION;
 
@@ -3061,8 +3062,9 @@ int bgp_neighbor_graceful_restart(struct peer *peer,
 	if (peer_old_state == PEER_INVALID)
 		return BGP_ERR_GR_OPERATION_FAILED;
 
+	/* Next state 'invalid' is actually an 'ignore' */
 	if (peer_new_state == PEER_INVALID)
-		return BGP_ERR_GR_INVALID_CMD;
+		return BGP_GR_NO_OPERATION;
 
 	if (peer_new_state == peer_old_state)
 		return BGP_GR_NO_OPERATION;
@@ -3093,8 +3095,10 @@ unsigned int bgp_peer_gr_action(struct peer *peer, enum peer_mode old_state,
 
 	if (old_state == new_state)
 		return BGP_GR_NO_OPERATION;
-	if ((old_state == PEER_INVALID) || (new_state == PEER_INVALID))
+	if (old_state == PEER_INVALID)
 		return BGP_ERR_GR_INVALID_CMD;
+	if (new_state == PEER_INVALID)
+		return BGP_GR_NO_OPERATION;
 
 	global_gr_mode = bgp_global_gr_mode_get(peer->bgp);
 

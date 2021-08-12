@@ -3173,7 +3173,7 @@ def configure_interface_mac(tgen, input_dict):
 #############################################
 # Verification APIs
 #############################################
-@retry(retry_timeout=40)
+@retry(retry_timeout=120)
 def verify_rib(
     tgen,
     addr_type,
@@ -3262,7 +3262,6 @@ def verify_rib(
                 static_routes = input_dict[routerInput]["static_routes"]
 
                 for idx, static_route in enumerate(static_routes):
-
                     if "vrf" in static_route and static_route["vrf"] is not None:
                         logger.info(
                             "[DUT: %s]: Verifying routes for VRF: %s",
@@ -3458,9 +3457,12 @@ def verify_rib(
 
                                 # If no route entry passed verification, report error
                                 if not rib_verification_passed:
-                                    errormsg = "No route entry passed next hop verification for " "route {} in RIB of router {}\n".format(
-                                        st_rt,
-                                        dut,
+                                    errormsg = (
+                                        "No route entry passed next hop verification for "
+                                        "route {} in RIB of router {}\n".format(
+                                            st_rt,
+                                            dut,
+                                        )
                                     )
                                     verification_errors.append(errormsg)
                                     continue
