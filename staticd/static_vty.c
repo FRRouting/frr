@@ -338,6 +338,10 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		assert(dnode);
 		yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
 #else /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+		/*
+		 * TODO: Right now deletes the entire route. Need to handle
+		 * delete of specific route attributes.
+		 */
 		snprintf(ab_xpath, sizeof(ab_xpath),
 			FRR_STATIC_ROUTE_INFO_XPATH,
 			"frr-staticd:staticd", "staticd", svrf,

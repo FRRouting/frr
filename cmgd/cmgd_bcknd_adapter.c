@@ -337,17 +337,18 @@ static int cmgd_bcknd_adapter_handle_msg(
 			bcknd_msg->trxn_reply->create,
 			bcknd_msg->trxn_reply->success, adptr);
 		break;
-	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_FAIL:
-		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_FAIL);
+	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_REPLY:
+		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_REPLY);
 		CMGD_BCKND_ADPTR_DBG(
-			"Got CFGDATA_FAIL Msg from '%s' for Trxn-Id 0x%llx Batch-Id 0x%llx with Err:'%s'", 
-			adptr->name, bcknd_msg->cfg_data_fail->trxn_id,
-			bcknd_msg->cfg_data_fail->batch_id,
-			bcknd_msg->cfg_data_fail->error_if_any ?
-				bcknd_msg->cfg_data_fail->error_if_any : "None");
-		cmgd_trxn_notify_bcknd_cfgdata_fail(bcknd_msg->cfg_data_fail->trxn_id,
-			bcknd_msg->cfg_data_fail->batch_id,
-			bcknd_msg->cfg_data_fail->error_if_any, adptr);
+			"Got CFGDATA_REPLY Msg from '%s' for Trxn-Id 0x%llx Batch-Id 0x%llx with Err:'%s'", 
+			adptr->name, bcknd_msg->cfg_data_reply->trxn_id,
+			bcknd_msg->cfg_data_reply->batch_id,
+			bcknd_msg->cfg_data_reply->error_if_any ?
+				bcknd_msg->cfg_data_reply->error_if_any : "None");
+		cmgd_trxn_notify_bcknd_cfgdata_reply(bcknd_msg->cfg_data_reply->trxn_id,
+			bcknd_msg->cfg_data_reply->batch_id,
+			bcknd_msg->cfg_data_reply->success,
+			bcknd_msg->cfg_data_reply->error_if_any, adptr);
 		break;
 	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REPLY:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REPLY);

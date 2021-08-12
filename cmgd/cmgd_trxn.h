@@ -122,8 +122,8 @@ extern int cmgd_trxn_notify_bcknd_trxn_reply(
 	cmgd_trxn_id_t trxn_id, bool create, bool success,
 	cmgd_bcknd_client_adapter_t *adptr);
 
-extern int cmgd_trxn_notify_bcknd_cfgdata_fail(
-	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id,
+extern int cmgd_trxn_notify_bcknd_cfgdata_reply(
+	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id, bool success,
 	char *error_if_any, cmgd_bcknd_client_adapter_t *adptr);
 
 extern int cmgd_trxn_notify_bcknd_cfg_validate_reply(

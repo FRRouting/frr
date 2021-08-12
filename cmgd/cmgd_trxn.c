@@ -51,11 +51,6 @@ typedef enum cmgd_trxn_event_ {
 	CMGD_TRXN_PROC_COMMITCFG,
 	CMGD_TRXN_PROC_GETCFG,
 	CMGD_TRXN_PROC_GETDATA,
-#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
-	CMGD_TRXN_SEND_BCKND_CFG_VALIDATE,
-#else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
-	CMGD_TRXN_SEND_BCKND_CFG_APPLY,
-#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	CMGD_TRXN_COMMITCFG_TIMEOUT,
 	CMGD_TRXN_CLEANUP
 } cmgd_trxn_event_t;
@@ -73,7 +68,9 @@ typedef enum cmgd_commit_phase_ {
 	CMGD_COMMIT_PHASE_PREPARE_CFG = 0,
 	CMGD_COMMIT_PHASE_TRXN_CREATE,
 	CMGD_COMMIT_PHASE_SEND_CFG,
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	CMGD_COMMIT_PHASE_VALIDATE_CFG,
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	CMGD_COMMIT_PHASE_APPLY_CFG,
 	CMGD_COMMIT_PHASE_TRXN_DELETE,
 	CMGD_COMMIT_PHASE_MAX
@@ -92,9 +89,11 @@ static inline const char* cmgd_commit_phase2str(
 	case CMGD_COMMIT_PHASE_SEND_CFG:
 		return "SEND-CFG";
 		break;
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	case CMGD_COMMIT_PHASE_VALIDATE_CFG:
 		return "VALIDATE-CFG";
 		break;
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	case CMGD_COMMIT_PHASE_APPLY_CFG:
 		return "APPLY-CFG";
 		break;
@@ -514,7 +513,9 @@ static void cmgd_trxn_req_free(cmgd_trxn_req_t **trxn_req)
 			 * transaction on backend
 			 */
 			if ((*trxn_req)->req.commit_cfg.curr_phase >=
-				CMGD_COMMIT_PHASE_TRXN_CREATE && 
+				CMGD_COMMIT_PHASE_TRXN_CREATE &&
+				(*trxn_req)->req.commit_cfg.curr_phase <
+				CMGD_COMMIT_PHASE_TRXN_DELETE &&
 				(*trxn_req)->req.commit_cfg.subscr_info.
 				xpath_subscr[id].subscribed) {
 				adptr = cmgd_bcknd_get_adapter_by_id(id);
@@ -739,7 +740,6 @@ static void cmgd_move_trxn_cfg_batch_to_next(cmgd_commit_cfg_req_t *cmtcfg_req,
 			cfg_btch->trxn, cfg_btch,
 			cmgd_commit_phase2str(cfg_btch->comm_phase),
 			cmgd_trxn_commit_phase_str(cfg_btch->trxn, false));
-		// assert(cfg_btch->comm_phase == cmtcfg_req->curr_phase);
 		cfg_btch->comm_phase = to_phase;
 	}
 
@@ -1331,15 +1331,9 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 #ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 /*
  * Send CFG_VALIDATE_REQs to all the backend client.
- *
- * NOTE:This is always dispatched through a timer expiry which is
- * started when all CFGDATA_CREATE_REQs for all backend clients
- * has been generated. Please see cmgd_trxn_register_event() and
- * cmgd_trxn_process_commit_cfg() for details.
  */
-static int cmgd_trxn_send_bcknd_cfg_validate(struct thread *thread)
+static int cmgd_trxn_send_bcknd_cfg_validate(cmgd_trxn_ctxt_t *trxn)
 {
-	cmgd_trxn_ctxt_t *trxn;
 	cmgd_bcknd_client_id_t id;
 	cmgd_bcknd_client_adapter_t *adptr;
 	cmgd_commit_cfg_req_t *cmtcfg_req;
@@ -1347,9 +1341,6 @@ static int cmgd_trxn_send_bcknd_cfg_validate(struct thread *thread)
 	size_t indx, num_batches;
 	struct cmgd_trxn_batch_list_head *btch_list;
 	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
-
-	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
-	assert(trxn);
 
 	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
 
@@ -1399,27 +1390,6 @@ static int cmgd_trxn_send_bcknd_cfg_validate(struct thread *thread)
 
 	return 0;
 }
-#else /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
-/*
- * Send CFG_APPLY_REQs to all the backend client.
- *
- * NOTE:This is always dispatched through a timer expiry which is
- * started when all CFGDATA_CREATE_REQs for all backend clients
- * has been generated. Please see cmgd_trxn_register_event() and
- * cmgd_trxn_process_commit_cfg() for details.
- */
-static int cmgd_trxn_send_bcknd_config_apply(struct thread *thread)
-{
-	cmgd_trxn_ctxt_t *trxn;
-
-	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
-	assert(trxn);
-
-	if (cmgd_trxn_send_bcknd_cfg_apply(trxn) != 0)
-		return -1;
-
-	return 0;
-}
 #endif /* iddef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
 static int cmgd_trxn_process_commit_cfg(struct thread *thread)
@@ -1449,25 +1419,27 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 	case CMGD_COMMIT_PHASE_SEND_CFG:
 		/*
 		 * All CFGDATA_CREATE_REQ should have been sent to Backend by now.
-		 * Start the wait timer for receiving any CFGDATA_CREATE_FAIL.
-		 * On expiry of the wait timer we will start sending CFG_VALIDATE_REQ
-		 * to all backend clients.
 		 */
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 		assert(cmtcfg_req->next_phase == CMGD_COMMIT_PHASE_VALIDATE_CFG);
 		CMGD_TRXN_DBG("Trxn:%p Session:0x%lx, trigger sending CFG_VALIDATE_REQ to all backend clients",
 			trxn, trxn->session_id);
-#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
-		cmgd_trxn_register_event(trxn, CMGD_TRXN_SEND_BCKND_CFG_VALIDATE);
 #else  /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
-		cmgd_trxn_register_event(trxn, CMGD_TRXN_SEND_BCKND_CFG_APPLY);
+		assert(cmtcfg_req->next_phase == CMGD_COMMIT_PHASE_APPLY_CFG);
+		CMGD_TRXN_DBG("Trxn:%p Session:0x%lx, trigger sending CFG_APPLY_REQ to all backend clients",
+			trxn, trxn->session_id);
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 		break;
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	case CMGD_COMMIT_PHASE_VALIDATE_CFG:
 		/*
-		 * Nothing to do. Currently we must be waiting for successful
-		 * CFG_VALIDATE_REPLY from all backend clients.
+		 * We should have received successful CFFDATA_CREATE_REPLY from all
+		 * concerned Backend Clients by now. Send out the CFG_VALIDATE_REQs
+		 * now.
 		 */
+		cmgd_trxn_send_bcknd_cfg_validate(trxn);
 		break;
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	case CMGD_COMMIT_PHASE_APPLY_CFG:
 		/*
 		 * We should have received successful CFG_VALIDATE_REPLY from all
@@ -1890,21 +1862,6 @@ static void cmgd_trxn_register_event(
 				cmgd_trxn_process_get_data, trxn,
 				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
 		break;
-#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
-	case CMGD_TRXN_SEND_BCKND_CFG_VALIDATE:
-		trxn->send_cfg_validate = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_send_bcknd_cfg_validate, trxn,
-				CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC, NULL);
-		break;
-#else /* CMGD_LOCAL_VALIDATIONS_ENABLED */
-	case CMGD_TRXN_SEND_BCKND_CFG_APPLY:
-		trxn->send_cfg_apply = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_send_bcknd_config_apply, trxn,
-				CMGD_TRXN_SEND_CFGAPPLY_DELAY_MSEC, NULL);
-		break;
-#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	case CMGD_TRXN_COMMITCFG_TIMEOUT:
 		trxn->comm_cfg_timeout = 
 			thread_add_timer_msec(cmgd_trxn_tm,
@@ -2180,7 +2137,6 @@ int cmgd_trxn_notify_bcknd_trxn_reply(
 			 */
 			assert(cmtcfg_req->curr_phase == 
 				CMGD_COMMIT_PHASE_TRXN_CREATE);
-			// cmgd_move_bcknd_commit_to_next_phase(trxn, adptr);
 
 			/*
 			 * Send CFGDATA_CREATE-REQs to the backend immediately.
@@ -2200,28 +2156,48 @@ int cmgd_trxn_notify_bcknd_trxn_reply(
 	return 0;
 }
 
-int cmgd_trxn_notify_bcknd_cfgdata_fail(
-	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id,
+int cmgd_trxn_notify_bcknd_cfgdata_reply(
+	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_id, bool success,
 	char *error_if_any, cmgd_bcknd_client_adapter_t *adptr)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
+	cmgd_commit_cfg_req_t *cmtcfg_req = NULL;
 
 	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
 	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG) 
 		return -1;
 
 	assert(trxn->commit_cfg_req);
+	cmtcfg_req = 
+		&trxn->commit_cfg_req->req.commit_cfg;
 
 	cfg_btch = (cmgd_trxn_bcknd_cfg_batch_t *)batch_id;
 	if (cfg_btch->trxn != trxn)
 		return -1;
 
-	CMGD_TRXN_ERR("CFGDATA_CREATE_REQ sent to '%s' failed for Trxn %p, Batch %p, Err: %s",
+	if (!success) {
+		CMGD_TRXN_ERR("CFGDATA_CREATE_REQ sent to '%s' failed for Trxn %p, Batch %p, Err: %s",
+			adptr->name, trxn, cfg_btch,
+			error_if_any ? error_if_any : "None");
+		cmgd_trxn_send_commit_cfg_reply(trxn, false,
+			"Internal error! Failed to download config data to backend!");
+		return 0;
+	}
+
+	CMGD_TRXN_DBG("CFGDATA_CREATE_REQ sent to '%s' was successful for Trxn %p, Batch %p, Err: %s",
 		adptr->name, trxn, cfg_btch,
 		error_if_any ? error_if_any : "None");
-	cmgd_trxn_send_commit_cfg_reply(trxn, false,
-			"Internal error! Failed to download config data to backend!");
+	cmgd_move_trxn_cfg_batch_to_next(cmtcfg_req, cfg_btch,
+		&cmtcfg_req->curr_batches[adptr->id],
+		&cmtcfg_req->next_batches[adptr->id], true,
+#ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
+		CMGD_COMMIT_PHASE_VALIDATE_CFG);
+#else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+		CMGD_COMMIT_PHASE_APPLY_CFG);
+#endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+
+	cmgd_try_move_commit_to_next_phase(trxn, cmtcfg_req);
 
 	return 0;
 }
@@ -2257,7 +2233,6 @@ int cmgd_trxn_notify_bcknd_cfg_validate_reply(
 		cfg_btch = (cmgd_trxn_bcknd_cfg_batch_t *)batch_ids[indx];
 		if (cfg_btch->trxn != trxn)
 			return -1;
-		// cfg_btch->comm_phase = CMGD_COMMIT_PHASE_APPLY_CFG;
 		cmgd_move_trxn_cfg_batch_to_next(cmtcfg_req, cfg_btch,
 			&cmtcfg_req->curr_batches[adptr->id],
 			&cmtcfg_req->next_batches[adptr->id], true,

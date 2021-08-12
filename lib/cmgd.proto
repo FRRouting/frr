@@ -111,10 +111,11 @@ message BckndCfgDataCreateReq {
   repeated YangCfgDataReq data_req = 3;
 }
 
-message BckndCfgDataCreateFail {
+message BckndCfgDataCreateReply {
   required uint64 trxn_id = 1;
   required uint64 batch_id = 2;
-  optional string error_if_any = 3;
+  required bool success = 3;
+  optional string error_if_any = 4;
 }
 
 message BckndCfgDataValidateReq {
@@ -193,7 +194,7 @@ message BckndMessage {
     TRXN_REQ = 3;
     TRXN_REPLY = 4;
     CFGDATA_CREATE_REQ = 5;
-    CFGDATA_CREATE_FAIL = 6;
+    CFGDATA_CREATE_REPLY = 6;
     CFGDATA_VALIDATE_REQ = 7;
     CFGDATA_VALIDATE_REPLY = 8;
     CFGDATA_APPLY_REQ = 9;
@@ -213,7 +214,7 @@ message BckndMessage {
     BckndTrxnReq trxn_req = 4;
     BckndTrxnReply trxn_reply = 5;
     BckndCfgDataCreateReq cfg_data_req = 6;
-    BckndCfgDataCreateFail cfg_data_fail = 7;
+    BckndCfgDataCreateReply cfg_data_reply = 7;
     BckndCfgDataValidateReq cfg_validate_req = 8;
     BckndCfgDataValidateReply cfg_validate_reply = 9;
     BckndCfgDataApplyReq cfg_apply_req = 10;

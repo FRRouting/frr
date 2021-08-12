@@ -297,25 +297,26 @@ static int cmgd_bcknd_send_trxn_reply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
 }
 
-static int cmgd_bcknd_send_cfgdata_create_failed(
+static int cmgd_bcknd_send_cfgdata_create_reply(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, cmgd_trxn_id_t trxn_id,
-	cmgd_trxn_batch_id_t batch_id, const char *error_if_any)
+	cmgd_trxn_batch_id_t batch_id, bool success, const char *error_if_any)
 {
 	Cmgd__BckndMessage bcknd_msg;
-	Cmgd__BckndCfgDataCreateFail cfgdata_fail;
+	Cmgd__BckndCfgDataCreateReply cfgdata_reply;
 
-	cmgd__bcknd_cfg_data_create_fail__init(&cfgdata_fail);
-	cfgdata_fail.trxn_id = (uint64_t) trxn_id;
-	cfgdata_fail.batch_id = (uint64_t) batch_id;
+	cmgd__bcknd_cfg_data_create_reply__init(&cfgdata_reply);
+	cfgdata_reply.trxn_id = (uint64_t) trxn_id;
+	cfgdata_reply.batch_id = (uint64_t) batch_id;
+	cfgdata_reply.success =success;
 	if (error_if_any)
-		cfgdata_fail.error_if_any = (char *)error_if_any;
+		cfgdata_reply.error_if_any = (char *)error_if_any;
 
 	cmgd__bcknd_message__init(&bcknd_msg);
-	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_FAIL;
-	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_FAIL;
-	bcknd_msg.cfg_data_fail = &cfgdata_fail;
+	bcknd_msg.type = CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_REPLY;
+	bcknd_msg.message_case = CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_REPLY;
+	bcknd_msg.cfg_data_reply = &cfgdata_reply;
 
-	CMGD_BCKND_CLNT_DBG("Sending CFGDATA_CREATE_FAIL message to CMGD for trxn 0x%lx batch 0x%lx",
+	CMGD_BCKND_CLNT_DBG("Sending CFGDATA_CREATE_REPLY message to CMGD for trxn 0x%lx batch 0x%lx",
 			    trxn_id, batch_id);
 
 	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
@@ -659,23 +660,33 @@ static int cmgd_bcknd_client_handle_msg(
 		}
 
 		cmgd_bcknd_send_trxn_reply(clnt_ctxt, bcknd_msg->trxn_req->trxn_id,
-					   bcknd_msg->trxn_req->create,
-					   true);
+					   bcknd_msg->trxn_req->create, true);
 		break;
 	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_DATA_REQ);
 		trxn = cmgd_bcknd_find_trxn_by_id(clnt_ctxt,
 				bcknd_msg->cfg_data_req->trxn_id);
-		if (!trxn)
-			cmgd_bcknd_send_cfgdata_create_failed(clnt_ctxt,
+		if (!trxn) {
+			CMGD_BCKND_CLNT_ERR("Invalid trxn-id 0x%llx provided from CMGD server",
+				bcknd_msg->cfg_data_req->trxn_id);
+			cmgd_bcknd_send_cfgdata_create_reply(clnt_ctxt,
 					bcknd_msg->cfg_data_req->trxn_id,
 					bcknd_msg->cfg_data_req->batch_id,
+					false,
 					"Transaction context not created yet");
-
-		cmgd_bcknd_update_setcfg_in_batch(clnt_ctxt, trxn,
+		}  else {
+			cmgd_bcknd_update_setcfg_in_batch(clnt_ctxt, trxn,
 				bcknd_msg->cfg_data_req->batch_id,
 				bcknd_msg->cfg_data_req->data_req,
 				bcknd_msg->cfg_data_req->n_data_req);
+			/*
+			 * Send back success immediately.
+			 */
+			cmgd_bcknd_send_cfgdata_create_reply(clnt_ctxt,
+					bcknd_msg->cfg_data_req->trxn_id,
+					bcknd_msg->cfg_data_req->batch_id,
+					true, NULL);
+		}
 		break;
 	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REQ);
