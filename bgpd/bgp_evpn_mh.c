@@ -1796,8 +1796,8 @@ bgp_evpn_es_find_frag_with_space(struct bgp_evpn_es *es)
 	struct bgp_evpn_es_frag *es_frag;
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_frag_list, node, es_frag)) {
-		if (listcount(es_frag->es_evi_frag_list)
-		    < BGP_EVPN_MAX_EVI_PER_ES_FRAG)
+		if (listcount(es_frag->es_evi_frag_list) <
+		    bgp_mh_info->evi_per_es_frag)
 			return es_frag;
 	}
 
@@ -4989,6 +4989,7 @@ void bgp_evpn_mh_init(void)
 	bgp_mh_info->host_routes_use_l3nhg = BGP_EVPN_MH_USE_ES_L3NHG_DEF;
 	bgp_mh_info->suppress_l3_ecomm_on_inactive_es = true;
 	bgp_mh_info->bgp_evpn_nh_setup = true;
+	bgp_mh_info->evi_per_es_frag = BGP_EVPN_MAX_EVI_PER_ES_FRAG;
 
 	memset(&zero_esi_buf, 0, sizeof(esi_t));
 }
