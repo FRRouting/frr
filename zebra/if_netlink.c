@@ -1527,6 +1527,14 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	name = (char *)RTA_DATA(tb[IFLA_IFNAME]);
 
+	/* Must be valid string. */
+	len = RTA_PAYLOAD(tb[IFLA_IFNAME]);
+	if (len < 2 || name[len - 1] != '\0') {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: invalid intf name", __func__);
+		return -1;
+	}
+
 	if (tb[IFLA_LINKINFO]) {
 		netlink_parse_rtattr_nested(linkinfo, IFLA_INFO_MAX,
 					    tb[IFLA_LINKINFO]);
