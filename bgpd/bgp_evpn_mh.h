@@ -341,6 +341,11 @@ struct bgp_evpn_mh_info {
 	 * sending the ead-per-es route instead of the L2-VNI(s) RTs
 	 */
 	struct list *ead_es_export_rtl;
+
+	/* Number of EVIs in an ES fragment - used of EAD-per-ES route
+	 * construction
+	 */
+	uint32_t evi_per_es_frag;
 };
 
 /****************************************************************************/
