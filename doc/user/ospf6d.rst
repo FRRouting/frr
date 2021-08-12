@@ -70,20 +70,6 @@ OSPF6 router
    Use this command to control the maximum number of parallel routes that
    OSPFv3 can support. The default is 64.
 
-.. clicmd:: area A.B.C.D range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]
-
-.. clicmd:: area (0-4294967295) range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]
-
-    Summarize a group of internal subnets into a single Inter-Area-Prefix LSA.
-    This command can only be used at the area boundary (ABR router).
-
-    By default, the metric of the summary route is calculated as the highest
-    metric among the summarized routes. The `cost` option, however, can be used
-    to set an explicit metric.
-
-    The `not-advertise` option, when present, prevents the summary route from
-    being advertised, effectively filtering the summarized routes.
-
 .. clicmd:: write-multiplier (1-100)
 
    Use this command to tune the amount of work done in the packet read and
@@ -171,89 +157,42 @@ ASBR Summarisation Support in OSPFv3
    When detail option is used, it shows all the prefixes falling under each
    summary-configuration apart from other information.
 
-.. clicmd:: debug ospf6 lsa aggregation
-
-   This command can be used to enable the debugs related to the summarisation
-   of these LSAs.
-
-.. _ospf6-debugging:
-
-OSPFv3 Debugging
-================
-
-The following debug commands are supported:
-
-.. clicmd:: debug ospf6 abr
-
-   Toggle OSPFv3 ABR debugging messages.
-
-.. clicmd:: debug ospf6 asbr
-
-   Toggle OSPFv3 ASBR debugging messages.
-
-.. clicmd:: debug ospf6 border-routers
-
-   Toggle OSPFv3 border router debugging messages.
-
-.. clicmd:: debug ospf6 flooding
-
-   Toggle OSPFv3 flooding debugging messages.
-
-.. clicmd:: debug ospf6 interface
-
-   Toggle OSPFv3 interface related debugging messages.
-
-.. clicmd:: debug ospf6 lsa
-
-   Toggle OSPFv3 Link State Advertisements debugging messages.
-
-.. clicmd:: debug ospf6 message
-
-   Toggle OSPFv3 message exchange debugging messages.
-
-.. clicmd:: debug ospf6 neighbor
-
-   Toggle OSPFv3 neighbor interaction debugging messages.
-
-.. clicmd:: debug ospf6 nssa
-
-   Toggle OSPFv3 Not So Stubby Area (NSSA) debugging messages.
-
-.. clicmd:: debug ospf6 route
-
-   Toggle OSPFv3 routes debugging messages.
-
-.. clicmd:: debug ospf6 spf
-
-   Toggle OSPFv3 Shortest Path calculation debugging messages.
-
-.. clicmd:: debug ospf6 zebra
-
-   Toggle OSPFv3 zebra interaction debugging messages.
-
 .. _ospf6-area:
 
 OSPF6 area
 ==========
 
+.. clicmd:: area A.B.C.D range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]
+
+.. clicmd:: area (0-4294967295) range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]
+
+    Summarize a group of internal subnets into a single Inter-Area-Prefix LSA.
+    This command can only be used at the area boundary (ABR router).
+
+    By default, the metric of the summary route is calculated as the highest
+    metric among the summarized routes. The `cost` option, however, can be used
+    to set an explicit metric.
+
+    The `not-advertise` option, when present, prevents the summary route from
+    being advertised, effectively filtering the summarized routes.
+
 .. clicmd:: area A.B.C.D nssa
 
-NSSA Support in OSPFv3
-=======================
+.. clicmd:: area (0-4294967295) nssa
 
-The configuration of NSSA areas in OSPFv3 is supported using the CLI command
-``area A.B.C.D nssa`` in ospf6 router configuration mode.
-The following functionalities are implemented as per RFC 3101:
+   Configure the area to be a NSSA (Not-So-Stubby Area).
 
-1. Advertising Type-7 LSA into NSSA area when external route is redistributed
-   into OSPFv3
-2. Processing Type-7 LSA received from neighbor and installing route in the
-   route table
-3. Support for NSSA ABR functionality which is generating Type-5 LSA when
-   backbone area is configured. Currently translation of Type-7 LSA to Type-5 LSA
-   is enabled by default.
-4. Support for NSSA Translator functionality when there are multiple NSSA ABR
-   in an area
+   The following functionalities are implemented as per RFC 3101:
+
+   1. Advertising Type-7 LSA into NSSA area when external route is
+      redistributed into OSPFv3.
+   2. Processing Type-7 LSA received from neighbor and installing route in the
+      route table.
+   3. Support for NSSA ABR functionality which is generating Type-5 LSA when
+      backbone area is configured. Currently translation of Type-7 LSA to
+      Type-5 LSA is enabled by default.
+   4. Support for NSSA Translator functionality when there are multiple NSSA
+      ABR in an area.
 
 .. _ospf6-interface:
 
@@ -412,6 +351,65 @@ Showing OSPF6 information
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
 
+
+.. _ospf6-debugging:
+
+OSPFv3 Debugging
+================
+
+The following debug commands are supported:
+
+.. clicmd:: debug ospf6 abr
+
+   Toggle OSPFv3 ABR debugging messages.
+
+.. clicmd:: debug ospf6 asbr
+
+   Toggle OSPFv3 ASBR debugging messages.
+
+.. clicmd:: debug ospf6 border-routers
+
+   Toggle OSPFv3 border router debugging messages.
+
+.. clicmd:: debug ospf6 flooding
+
+   Toggle OSPFv3 flooding debugging messages.
+
+.. clicmd:: debug ospf6 interface
+
+   Toggle OSPFv3 interface related debugging messages.
+
+.. clicmd:: debug ospf6 lsa
+
+   Toggle OSPFv3 Link State Advertisements debugging messages.
+
+.. clicmd:: debug ospf6 lsa aggregation
+
+   Toggle OSPFv3 Link State Advertisements summarization debugging messages.
+
+.. clicmd:: debug ospf6 message
+
+   Toggle OSPFv3 message exchange debugging messages.
+
+.. clicmd:: debug ospf6 neighbor
+
+   Toggle OSPFv3 neighbor interaction debugging messages.
+
+.. clicmd:: debug ospf6 nssa
+
+   Toggle OSPFv3 Not So Stubby Area (NSSA) debugging messages.
+
+.. clicmd:: debug ospf6 route
+
+   Toggle OSPFv3 routes debugging messages.
+
+.. clicmd:: debug ospf6 spf
+
+   Toggle OSPFv3 Shortest Path calculation debugging messages.
+
+.. clicmd:: debug ospf6 zebra
+
+   Toggle OSPFv3 zebra interaction debugging messages.
 
 Sample configuration
 ====================
