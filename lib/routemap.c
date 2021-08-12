@@ -1431,7 +1431,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 			 * the same as the existing configuration then,
 			 * ignore the duplicate configuration.
 			 */
-			if (strcmp(match_arg, rule->rule_str) == 0) {
+			if (rulecmp(match_arg, rule->rule_str) == 0) {
 				if (cmd->func_free)
 					(*cmd->func_free)(compile);
 
