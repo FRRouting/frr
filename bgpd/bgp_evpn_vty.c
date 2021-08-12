@@ -5992,6 +5992,19 @@ DEFUN (no_bgp_evpn_vrf_rt,
 	return CMD_SUCCESS;
 }
 
+DEFPY(bgp_evpn_ead_ess_frag_evi_limit, bgp_evpn_ead_es_frag_evi_limit_cmd,
+      "[no$no] ead-es-frag evi-limit (1-1000)$limit",
+      NO_STR
+      "EAD ES fragment config\n"
+      "EVIs per-fragment\n"
+      "limit\n")
+{
+	bgp_mh_info->evi_per_es_frag =
+		no ? BGP_EVPN_MAX_EVI_PER_ES_FRAG : limit;
+
+	return CMD_SUCCESS;
+}
+
 DEFUN(bgp_evpn_ead_es_rt, bgp_evpn_ead_es_rt_cmd,
       "ead-es-route-target export RT",
       "EAD ES Route Target\n"
@@ -6326,6 +6339,10 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
 	if (bgp->resolve_overlay_index)
 		vty_out(vty, "  enable-resolve-overlay-index\n");
 
+	if (bgp_mh_info->evi_per_es_frag != BGP_EVPN_MAX_EVI_PER_ES_FRAG)
+		vty_out(vty, "  ead-es-frag evi-limit %u\n",
+			bgp_mh_info->evi_per_es_frag);
+
 	if (bgp_mh_info->host_routes_use_l3nhg !=
 			BGP_EVPN_MH_USE_ES_L3NHG_DEF) {
 		if (bgp_mh_info->host_routes_use_l3nhg)
@@ -6593,6 +6610,7 @@ void bgp_ethernetvpn_init(void)
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_vrf_rt_cmd);
 	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_rt_cmd);
 	install_element(BGP_EVPN_NODE, &no_bgp_evpn_ead_es_rt_cmd);
+	install_element(BGP_EVPN_NODE, &bgp_evpn_ead_es_frag_evi_limit_cmd);
 	install_element(BGP_EVPN_VNI_NODE, &bgp_evpn_advertise_svi_ip_vni_cmd);
 	install_element(BGP_EVPN_VNI_NODE,
 			&bgp_evpn_advertise_default_gw_vni_cmd);
