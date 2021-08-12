@@ -4307,6 +4307,10 @@ void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)
 
 	thread_add_event(master, ospf_ls_ack_send_event, oi, 0,
 			 &oi->t_ls_ack_direct);
+#ifdef FUZZING
+	listnode_delete(oi->ls_ack_direct.ls_ack, lsa);
+	ospf_lsa_unlock(&lsa);
+#endif
 }
 
 /* Send Link State Acknowledgment delayed. */
