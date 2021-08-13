@@ -2935,6 +2935,8 @@ Example configuration:
     exit-address-family
    !
 
+.. _bgp-evpn-mh:
+
 EVPN Multihoming
 ^^^^^^^^^^^^^^^^
 
@@ -3044,6 +3046,55 @@ ES bonds are held protodown. The startup delay is configurable via the
 following zebra command -
 
 .. clicmd:: evpn mh startup-delay (0-3600)
+
+EAD-per-ES fragmentation
+""""""""""""""""""""""""
+The EAD-per-ES route carries the EVI route targets for all the broadcast
+domains associated with the ES. Depending on the EVI scale the EAD-per-ES
+route maybe fragmented.
+
+The number of EVIs per-EAD route can be configured via the following
+BGP command -
+
+.. index:: [no] ead-es-frag evi-limit(1-1000)
+.. clicmd:: [no] ead-es-frag evi-limit(1-1000)
+
+Sample Configuration
+^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: frr
+
+    !
+    router bgp 5556
+     !
+     address-family l2vpn evpn
+      ead-es-frag evi-limit 200
+     exit-address-family
+     !
+    !
+
+EAD-per-ES route-target
+"""""""""""""""""""""""
+The EAD-per-ES route by default carries all the EVI route targets. Depending
+on EVI scale that can result in route fragmentation. In some cases it maybe
+necessary to avoid this fragmentation and that can be done via the following
+workaround -
+1. Configure a single supplementary BD per-tenant VRF. This SBD needs to
+be provisioned on all EVPN PEs associated with the tenant-VRF.
+2. Config the SBD's RT as the EAD-per-ES route's export RT.
+
+Sample Configuration
+^^^^^^^^^^^^^^^^^^^^^
+.. code-block:: frr
+
+    !
+    router bgp 5556
+     !
+     address-family l2vpn evpn
+      ead-es-route-target export 5556:1001
+      ead-es-route-target export 5556:1004
+      ead-es-route-target export 5556:1008
+     exit-address-family
+    !
 
 Support with VRF network namespace backend
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
