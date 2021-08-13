@@ -673,7 +673,7 @@ void ospf6_asbr_lsa_remove(struct ospf6_lsa *lsa,
 				/* Compare LSA cost with current
 				 * route info.
 				 */
-				if (!asbr_entry
+				if (asbr_entry
 				    && (o_path->cost != route_to_del->path.cost
 					|| o_path->u.cost_e2
 						   != route_to_del->path.u
