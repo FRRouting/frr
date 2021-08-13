@@ -35,8 +35,10 @@ if OSPFD
 TESTS_OSPFD = \
 	tests/ospfd/test_ospf_spf \
 	# end
+IGNORE_OSPFD =
 else
 TESTS_OSPFD =
+IGNORE_OSPFD = --ignore=ospfd/
 endif
 
 if OSPF6D
@@ -486,7 +488,7 @@ endif
 
 .PHONY: tests/tests.xml
 tests/tests.xml: $(check_PROGRAMS)
-	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests $(IGNORE_BGPD) $(IGNORE_ISISD) $(IGNORE_OSPF6D); )
+	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests $(IGNORE_BGPD) $(IGNORE_ISISD) $(IGNORE_OSPFD) $(IGNORE_OSPF6D); )
 check: tests/tests.xml
 
 clean-local: clean-tests
