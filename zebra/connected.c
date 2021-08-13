@@ -252,7 +252,6 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 		flog_warn(EC_ZEBRA_CONNECTED_AFI_UNKNOWN,
 			  "Received unknown AFI: %s", afi2str(afi));
 		return;
-		break;
 	}
 
 	metric = (ifc->metric < (uint32_t)METRIC_MAX) ?

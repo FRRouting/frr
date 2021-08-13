@@ -338,7 +338,6 @@ static int _ptm_lib_read_ptm_socket(int fd, char *buf, int len)
 				     errno, strerror(errno), bytes_read, len);
 				return (bytes_read);
 			}
-			break;
 		} else {
 			bytes_read += rc;
 		}

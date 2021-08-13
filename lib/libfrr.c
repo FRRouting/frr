@@ -418,11 +418,9 @@ static int frr_opt(int opt)
 	switch (opt) {
 	case 'h':
 		frr_help_exit(0);
-		break;
 	case 'v':
 		print_version(di->progname);
 		exit(0);
-		break;
 	case 'd':
 		di->daemon_mode = true;
 		break;
@@ -613,7 +611,7 @@ static int frr_opt(int opt)
 int frr_getopt(int argc, char *const argv[], int *longindex)
 {
 	int opt;
-	int lidx;
+	int lidx = 0;
 
 	comb_next_lo->name = NULL;
 

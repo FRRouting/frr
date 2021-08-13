@@ -38,6 +38,26 @@
 #include <dlfcn.h>
 #endif
 
+int message_cmp(const struct message *msg1, const struct message *msg2)
+{
+	/* Return 1 if key value is differemt */
+	if (msg1->key != msg2->key)
+		return 1;
+
+	/* Return 0, when key value is same and both
+	 * strings are NULL */
+	if (!msg1->str && !msg2->str)
+		return 0;
+
+	/* Return 1, when key value is same and one
+	 * of the string is NULL */
+	if (!msg1->str || !msg2->str)
+		return 1;
+
+	/* Check if both strings are same */
+	return strcmp(msg1->str, msg2->str);
+}
+
 /**
  * Looks up a message in a message list by key.
  *
@@ -55,7 +75,7 @@ const char *lookup_msg(const struct message *mz, int kz, const char *nf)
 	static struct message nt = {0};
 	const char *rz = nf ? nf : "(no message found)";
 	const struct message *pnt;
-	for (pnt = mz; memcmp(pnt, &nt, sizeof(struct message)); pnt++)
+	for (pnt = mz; message_cmp(pnt, &nt); pnt++)
 		if (pnt->key == kz) {
 			rz = pnt->str ? pnt->str : rz;
 			break;

@@ -78,6 +78,7 @@ extern int zlog_filter_add(const char *filter);
 extern int zlog_filter_del(const char *filter);
 extern int zlog_filter_dump(char *buf, size_t max_size);
 
+int message_cmp(const struct message *msg1, const struct message *msg2);
 const char *lookup_msg(const struct message *mz, int kz, const char *nf);
 
 /* Safe version of strerror -- never returns NULL. */

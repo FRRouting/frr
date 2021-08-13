@@ -1316,7 +1316,6 @@ static int rulecmp(const char *dst, const char *src)
 		else
 			return strcmp(dst, src);
 	}
-	return 1;
 }
 
 /* Use this to return the already specified argument for this match. This is

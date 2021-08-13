@@ -4047,8 +4047,6 @@ int netlink_neigh_change(struct nlmsghdr *h, ns_id_t ns_id)
 			ndm->ndm_family, nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
-
-	return 0;
 }
 
 /*

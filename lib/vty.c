@@ -1032,11 +1032,9 @@ static void vty_describe_command(struct vty *vty)
 	case CMD_ERR_AMBIGUOUS:
 		vty_out(vty, "%% Ambiguous command.\n");
 		goto out;
-		break;
 	case CMD_ERR_NO_MATCH:
 		vty_out(vty, "%% There is no matched command.\n");
 		goto out;
-		break;
 	}
 
 	/* Get width of command string. */

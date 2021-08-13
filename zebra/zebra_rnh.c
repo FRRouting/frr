@@ -492,7 +492,7 @@ static void zebra_rnh_eval_import_check_entry(struct zebra_vrf *zvrf, afi_t afi,
 	} else {
 		int family = rnh->resolved_route.family;
 
-		memset(&rnh->resolved_route.family, 0, sizeof(struct prefix));
+		memset(&rnh->resolved_route, 0, sizeof(struct prefix));
 		rnh->resolved_route.family = family;
 	}
 	zebra_rnh_store_in_routing_table(rnh);

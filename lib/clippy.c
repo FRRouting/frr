@@ -47,6 +47,7 @@ static wchar_t *wconv(const char *s)
 int main(int argc, char **argv)
 {
 	pychar **wargv;
+	int ret = 0;
 
 #if PY_VERSION_HEX >= 0x03040000 /* 3.4 */
 	Py_SetStandardStreamEncoding("UTF-8", NULL);
@@ -68,9 +69,8 @@ int main(int argc, char **argv)
 		fp = fopen(pyfile, "r");
 		if (!fp) {
 			fprintf(stderr, "%s: %s\n", pyfile, strerror(errno));
-
-			free(name);
-			return 1;
+			ret = 1;
+			goto EXIT;
 		}
 	} else {
 		fp = stdin;
@@ -88,11 +88,14 @@ int main(int argc, char **argv)
 	if (PyRun_AnyFile(fp, pyfile)) {
 		if (PyErr_Occurred())
 			PyErr_Print();
-
-		free(name);
-		return 1;
+		ret = 1;
+		goto EXIT;
 	}
 	Py_Finalize();
+
+EXIT:
+	if (fp && fp != stdin)
+		fclose(fp);
 
 #if PY_MAJOR_VERSION >= 3
 	for (int i = 1; i < argc; i++)
@@ -100,7 +103,7 @@ int main(int argc, char **argv)
 #endif
 	free(name);
 	free(wargv);
-	return 0;
+	return ret;
 }
 
 /* and now for the ugly part... provide simplified logging functions so we
