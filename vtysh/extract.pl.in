@@ -42,11 +42,13 @@ sub scan_file {
 
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
-    open (FH, "@CPP@ -P -std=gnu11 -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ @LIBYANG_CFLAGS@ $cppadd $file |");
+    $command_line = "@CPP@ -P -std=gnu11 -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ @LIBYANG_CFLAGS@ $cppadd $file |";
+    open (FH, $command_line)
+	|| die "Open to the pipeline failed: $!\n\nCommand Issued:\n$command_line";
     local $/; undef $/;
     $line = <FH>;
     if (!close (FH)) {
-	printf "File: $file failed to compile, when extracting cli from it please inspect\n"
+	die "File: $file failed to compile:\n$!\nwhen extracting cli from it please inspect\n"
     }
 
     # ?: makes a group non-capturing
