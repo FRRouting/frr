@@ -419,9 +419,12 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	active = bsm_rpinfos_first(bsgrp_node->bsrp_list);
 
 	/* Remove nodes with hold time 0 & check if list still has a head */
-	frr_each_safe (bsm_rpinfos, bsgrp_node->partial_bsrp_list, pend)
-		if (is_hold_time_zero(pend))
+	frr_each_safe (bsm_rpinfos, bsgrp_node->partial_bsrp_list, pend) {
+		if (is_hold_time_zero(pend)) {
 			bsm_rpinfos_del(bsgrp_node->partial_bsrp_list, pend);
+			pim_bsm_rpinfo_free(pend);
+		}
+	}
 
 	pend = bsm_rpinfos_first(bsgrp_node->partial_bsrp_list);
 
