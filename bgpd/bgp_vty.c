@@ -2332,6 +2332,38 @@ DEFUN (no_bgp_timers,
 	return CMD_SUCCESS;
 }
 
+/* BGP minimum holdtime.  */
+
+DEFUN(bgp_minimum_holdtime, bgp_minimum_holdtime_cmd,
+      "bgp minimum-holdtime (1-65535)",
+      "BGP specific commands\n"
+      "BGP minimum holdtime\n"
+      "Seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+	int idx_number = 2;
+	unsigned long min_holdtime;
+
+	min_holdtime = strtoul(argv[idx_number]->arg, NULL, 10);
+
+	bgp->default_min_holdtime = min_holdtime;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_minimum_holdtime, no_bgp_minimum_holdtime_cmd,
+      "no bgp minimum-holdtime [(1-65535)]",
+      NO_STR
+      "BGP specific commands\n"
+      "BGP minimum holdtime\n"
+      "Seconds\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp->default_min_holdtime = 0;
+
+	return CMD_SUCCESS;
+}
 
 DEFUN (bgp_client_to_client_reflection,
        bgp_client_to_client_reflection_cmd,
@@ -17112,6 +17144,12 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty, " timers bgp %u %u\n",
 				bgp->default_keepalive, bgp->default_holdtime);
 
+		/* BGP minimum holdtime configuration. */
+		if (bgp->default_min_holdtime != SAVE_BGP_HOLDTIME
+		    && bgp->default_min_holdtime != 0)
+			vty_out(vty, " bgp minimum-holdtime %u\n",
+				bgp->default_min_holdtime);
+
 		/* Conditional advertisement timer configuration */
 		if (bgp->condition_check_period
 		    != DEFAULT_CONDITIONAL_ROUTES_POLL_TIME)
@@ -17505,6 +17543,10 @@ void bgp_vty_init(void)
 	/* "timers bgp" commands. */
 	install_element(BGP_NODE, &bgp_timers_cmd);
 	install_element(BGP_NODE, &no_bgp_timers_cmd);
+
+	/* "minimum-holdtime" commands. */
+	install_element(BGP_NODE, &bgp_minimum_holdtime_cmd);
+	install_element(BGP_NODE, &no_bgp_minimum_holdtime_cmd);
 
 	/* route-map delay-timer commands - per instance for backwards compat.
 	 */

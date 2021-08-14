@@ -1693,6 +1693,12 @@ Configuring Peers
    default, the DelayOpenTimer is disabled. The timer interval may be set to a
    duration of 1 to 240 seconds.
 
+.. clicmd:: bgp minimum-holdtime (1-65535)
+
+   This command allows user to prevent session establishment with BGP peers
+   with lower holdtime less than configured minimum holdtime.
+   When this command is not set, minimum holdtime does not work.
+
 Displaying Information about Peers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
