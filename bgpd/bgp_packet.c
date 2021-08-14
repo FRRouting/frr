@@ -1353,6 +1353,16 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 		return BGP_Stop;
 	}
 
+	/* Send notification message when Hold Time received in the OPEN message
+	 * is smaller than configured minimum Hold Time. */
+	if (holdtime < peer->bgp->default_min_holdtime
+	    && peer->bgp->default_min_holdtime != 0) {
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
+					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
+					  (uint8_t *)holdtime_ptr, 2);
+		return BGP_Stop;
+	}
+
 	/* From the rfc: A reasonable maximum time between KEEPALIVE messages
 	   would be one third of the Hold Time interval.  KEEPALIVE messages
 	   MUST NOT be sent more frequently than one per second.  An
