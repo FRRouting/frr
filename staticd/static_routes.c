@@ -126,8 +126,7 @@ struct route_node *static_add_route(afi_t afi, safi_t safi, struct prefix *p,
 	struct static_route_info *si;
 	struct route_table *stable = svrf->stable[afi][safi];
 
-	if (!stable)
-		return NULL;
+	assert(stable);
 
 	/* Lookup static route prefix. */
 	rn = srcdest_rnode_get(stable, p, src_p);
