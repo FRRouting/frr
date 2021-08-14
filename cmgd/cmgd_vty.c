@@ -307,19 +307,41 @@ DEFPY(cmgd_commit_abort,
 }
 
 DEFPY(cmgd_set_config_data,
-	  cmgd_set_config_data_cmd,
-	  "cmgd set-config xpath WORD$path value WORD$val",
-	  CMGD_STR
-	  "Set configuration data\n"
-	  "XPath expression specifying the YANG data path\n"
-	  "XPath string\n"
-	  "Value of the data to set to\n"
-	  "<value of the data>\n")
+      cmgd_set_config_data_cmd,
+      "cmgd set-config xpath WORD$path value WORD$val",
+      CMGD_STR
+      "Set configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n"
+      "Value of the data to set to\n"
+      "<value of the data>\n")
 {
+
 	strlcpy(vty->cfg_changes[0].xpath, path,
 		sizeof(vty->cfg_changes[0].xpath));
 	vty->cfg_changes[0].value = val;
+	vty->cfg_changes[0].operation = NB_OP_CREATE;
 	vty->num_cfg_changes = 1;
+
+	vty_cmgd_send_config_data(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_delete_config_data,
+      cmgd_delete_config_data_cmd,
+      "cmgd delete-config xpath WORD$path",
+      CMGD_STR
+      "Delete configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = NULL;
+	vty->cfg_changes[0].operation = NB_OP_DESTROY;
+	vty->num_cfg_changes = 1;
+
 	vty_cmgd_send_config_data(vty);
 	return CMD_SUCCESS;
 }
@@ -444,6 +466,7 @@ void cmgd_vty_init(void)
 	install_element(CONFIG_NODE, &cmgd_lock_db_cand_cmd);
 	install_element(CONFIG_NODE, &cmgd_unlock_db_cand_cmd);
 	install_element(CONFIG_NODE, &cmgd_set_config_data_cmd);
+	install_element(CONFIG_NODE, &cmgd_delete_config_data_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.
