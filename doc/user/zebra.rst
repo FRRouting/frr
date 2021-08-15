@@ -222,7 +222,7 @@ Link Parameters Commands
    Bandwidth for each 0-7 priority and Admin Group (ISIS) or Resource
    Class/Color (OSPF).
 
-   Note that BANDIWDTH is specified in IEEE floating point format and express
+   Note that BANDWIDTH is specified in IEEE floating point format and express
    in Bytes/second.
 
 .. clicmd:: delay (0-16777215) [min (0-16777215) | max (0-16777215)]
