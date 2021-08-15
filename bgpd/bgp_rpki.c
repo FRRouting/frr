@@ -388,33 +388,25 @@ static int bgpd_sync_callback(struct thread *thread)
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		struct peer *peer;
-		struct listnode *peer_listnode;
+		safi_t safi;
 
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
-			safi_t safi;
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+			if (!bgp->rib[afi][safi])
+				continue;
 
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (!peer->bgp->rib[afi][safi])
-					continue;
+			struct bgp_dest *match;
+			struct bgp_dest *node;
 
-				struct bgp_dest *match;
-				struct bgp_dest *node;
+			match = bgp_table_subtree_lookup(bgp->rib[afi][safi],
+							 prefix);
+			node = match;
 
-				match = bgp_table_subtree_lookup(
-					peer->bgp->rib[afi][safi], prefix);
-				node = match;
-
-				while (node) {
-					if (bgp_dest_has_bgp_path_info_data(
-						    node)) {
-						revalidate_bgp_node(node, afi,
-								    safi);
-					}
-
-					node = bgp_route_next_until(node,
-								    match);
+			while (node) {
+				if (bgp_dest_has_bgp_path_info_data(node)) {
+					revalidate_bgp_node(node, afi, safi);
 				}
+
+				node = bgp_route_next_until(node, match);
 			}
 		}
 	}
