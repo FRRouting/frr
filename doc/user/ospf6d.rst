@@ -70,6 +70,11 @@ OSPF6 router
    Use this command to control the maximum number of parallel routes that
    OSPFv3 can support. The default is 64.
 
+.. _ospf6-area:
+
+OSPF6 area
+==========
+
 .. clicmd:: area A.B.C.D range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]
 
 .. clicmd:: area (0-4294967295) range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]
@@ -83,13 +88,6 @@ OSPF6 router
 
     The `not-advertise` option, when present, prevents the summary route from
     being advertised, effectively filtering the summarized routes.
-
-.. _ospf6-area:
-
-OSPF6 area
-==========
-
-Area support for OSPFv3 is not yet implemented.
 
 .. _ospf6-interface:
 
