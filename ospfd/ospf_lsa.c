@@ -3601,6 +3601,8 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 
 				ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
 						  LSA_REFRESH_FORCE, true);
+				SET_FLAG(aggr->flags,
+					 OSPF_EXTERNAL_AGGRT_ORIGINATED);
 			} else
 				ospf_lsa_flush_as(ospf, lsa);
 		}
