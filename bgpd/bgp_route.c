@@ -11715,7 +11715,7 @@ static int bgp_show_lcommunity_list(struct vty *vty, struct bgp *bgp,
 
 DEFUN (show_ip_bgp_large_community_list,
        show_ip_bgp_large_community_list_cmd,
-       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community-list <(1-500)|WORD> [exact-match] [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] ["BGP_AFI_CMD_STR" ["BGP_SAFI_WITH_LABEL_CMD_STR"]] large-community-list <(1-500)|LCOMMUNITY_LIST_NAME> [exact-match] [json]",
        SHOW_STR
        IP_STR
        BGP_STR
@@ -11948,7 +11948,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
            |route-map WORD\
            |prefix-list WORD\
            |filter-list WORD\
-           |community-list <(1-500)|WORD> [exact-match]\
+           |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
          >",
