@@ -56,7 +56,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	int ret;
 	struct prefix p, src;
 	struct in_addr mask;
-	uint8_t type;
+	enum static_nh_type type;
 	const char *bh_type;
 	char xpath_prefix[XPATH_MAXLEN];
 	char xpath_nexthop[XPATH_MAXLEN];
