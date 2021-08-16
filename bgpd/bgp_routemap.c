@@ -5750,7 +5750,7 @@ DEFUN_YANG (set_ecommunity_lb,
 	    "Attribute is set as non-transitive\n")
 {
 	int idx_lb = 3;
-	int idx_non_transitive = 4;
+	int idx_non_transitive = 0;
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-lb']";
 	char xpath_lb_type[XPATH_MAXLEN];
@@ -5782,7 +5782,7 @@ DEFUN_YANG (set_ecommunity_lb,
 				      argv[idx_lb]->arg);
 	}
 
-	if (argv[idx_non_transitive])
+	if (argv_find(argv, argc, "non-transitive", &idx_non_transitive))
 		nb_cli_enqueue_change(vty, xpath_non_transitive, NB_OP_MODIFY,
 				      "true");
 	else
