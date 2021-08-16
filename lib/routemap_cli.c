@@ -25,6 +25,7 @@
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
 #include "lib/routemap.h"
+#include "bgpd/bgp_ecommunity.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/routemap_cli_clippy.c"
@@ -1189,6 +1190,34 @@ void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:extcommunity-soo"));
+	} else if (IS_SET_EXTCOMMUNITY_LB(action)) {
+		enum ecommunity_lb_type lb_type;
+		char str[VTY_BUFSIZ];
+		uint16_t bandwidth;
+
+		lb_type = yang_dnode_get_enum(
+			dnode,
+			"./rmap-set-action/frr-bgp-route-map:extcommunity-lb/lb-type");
+		switch (lb_type) {
+		case EXPLICIT_BANDWIDTH:
+			bandwidth = yang_dnode_get_uint16(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:extcommunity-lb/bandwidth");
+			snprintf(str, sizeof(str), "%d", bandwidth);
+			break;
+		case CUMULATIVE_BANDWIDTH:
+			snprintf(str, sizeof(str), "%s", "cumulative");
+			break;
+		case COMPUTED_BANDWIDTH:
+			snprintf(str, sizeof(str), "%s", "num-multipaths");
+		}
+
+		if (yang_dnode_get_bool(
+			    dnode,
+			    "./rmap-set-action/frr-bgp-route-map:extcommunity-lb/two-octet-as-specific"))
+			strlcat(str, " non-transitive", sizeof(str));
+
+		vty_out(vty, " set extcommunity bandwidth %s\n", str);
 	} else if (IS_SET_AGGREGATOR(action)) {
 		vty_out(vty, " set aggregator as %s %s\n",
 			yang_dnode_get_string(
