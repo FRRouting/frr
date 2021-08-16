@@ -1295,6 +1295,9 @@ static zebra_nhlfe_t *nhlfe_alloc(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 		nexthop->ifindex = ifindex;
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
+		if (IS_ZEBRA_DEBUG_MPLS)
+			zlog_debug("%s: invalid: blackhole nexthop", __func__);
+
 		nexthop_free(nexthop);
 		XFREE(MTYPE_NHLFE, nhlfe);
 		return NULL;
@@ -1318,6 +1321,14 @@ static zebra_nhlfe_t *nhlfe_add(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
 
 	if (!lsp)
 		return NULL;
+
+	/* Must have labels */
+	if (num_labels == 0 || labels == NULL) {
+		if (IS_ZEBRA_DEBUG_MPLS)
+			zlog_debug("%s: invalid nexthop: no labels", __func__);
+
+		return NULL;
+	}
 
 	/* Allocate new object */
 	nhlfe = nhlfe_alloc(lsp, lsp_type, gtype, gate, ifindex, num_labels,
@@ -1530,8 +1541,13 @@ static json_object *nhlfe_json(zebra_nhlfe_t *nhlfe)
 					       ifindex2ifname(nexthop->ifindex,
 							      nexthop->vrf_id));
 		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
 	case NEXTHOP_TYPE_IFINDEX:
+		if (nexthop->ifindex)
+			json_object_string_add(json_nhlfe, "interface",
+					       ifindex2ifname(nexthop->ifindex,
+							      nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
@@ -1592,8 +1608,13 @@ static void nhlfe_print(zebra_nhlfe_t *nhlfe, struct vty *vty,
 				ifindex2ifname(nexthop->ifindex,
 					       nexthop->vrf_id));
 		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
 	case NEXTHOP_TYPE_IFINDEX:
+		if (nexthop->ifindex)
+			vty_out(vty, "  dev %s",
+				ifindex2ifname(nexthop->ifindex,
+					       nexthop->vrf_id));
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 	vty_out(vty, "%s",
@@ -2835,9 +2856,21 @@ static bool ftn_update_znh(bool add_p, enum lsp_types_t type,
 				break;
 			success = true;
 			break;
-		case NEXTHOP_TYPE_BLACKHOLE:
 		case NEXTHOP_TYPE_IFINDEX:
+			if (znh->type != NEXTHOP_TYPE_IFINDEX)
+				continue;
+			if (nexthop->ifindex != znh->ifindex)
+				continue;
+
+			found = true;
+
+			if (!ftn_update_nexthop(add_p, nexthop, type, znh))
+				break;
+			success = true;
 			break;
+		case NEXTHOP_TYPE_BLACKHOLE:
+			/* Not valid */
+			continue;
 		}
 
 		if (found)
@@ -3815,8 +3848,13 @@ static char *nhlfe_config_str(const zebra_nhlfe_t *nhlfe, char *buf, int size)
 				ifindex2ifname(nh->ifindex, VRF_DEFAULT),
 				size);
 		break;
-	case NEXTHOP_TYPE_BLACKHOLE:
 	case NEXTHOP_TYPE_IFINDEX:
+		if (nh->ifindex)
+			strlcat(buf,
+				ifindex2ifname(nh->ifindex, VRF_DEFAULT),
+				size);
+		break;
+	case NEXTHOP_TYPE_BLACKHOLE:
 		break;
 	}
 
