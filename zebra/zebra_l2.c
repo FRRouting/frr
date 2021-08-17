@@ -434,6 +434,8 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 		if (ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
 			zebra_vxlan_if_update(ifp,
 					      ZEBRA_VXLIF_MASTER_MAC_CHANGE);
+		if (ZEBRA_BRIDGE_MASTER_UP)
+			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 	}
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
 	old_ns_id = zif->brslave_info.ns_id;
