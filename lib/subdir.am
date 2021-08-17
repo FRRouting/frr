@@ -144,7 +144,6 @@ vtysh_scan += \
 	lib/log_vty.c \
 	lib/nexthop_group.c \
 	lib/plist.c \
-	lib/resolver.c \
 	lib/routemap.c \
 	lib/routemap_cli.c \
 	lib/spf_backoff.c \
@@ -335,6 +334,7 @@ lib_libfrrsnmp_la_SOURCES = \
 if CARES
 lib_LTLIBRARIES += lib/libfrrcares.la
 pkginclude_HEADERS += lib/resolver.h
+vtysh_scan += lib/resolver.c
 endif
 
 lib_libfrrcares_la_CFLAGS = $(AM_CFLAGS) $(CARES_CFLAGS)
