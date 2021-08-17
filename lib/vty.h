@@ -300,6 +300,8 @@ struct vty_arg {
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
 #endif
 
+extern struct nb_config *vty_cmgd_candidate_config;
+
 /* Prototypes. */
 extern void vty_init(struct thread_master *, bool do_command_logging);
 extern void vty_init_vtysh(void);

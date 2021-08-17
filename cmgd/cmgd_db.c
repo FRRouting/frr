@@ -88,6 +88,12 @@ int cmgd_db_init(struct cmgd_master *cm)
 	candidate.config_db = true;
 	candidate.db_id = CMGD_DB_CANDIDATE;
 
+	/*
+	 * Redirect lib/vty candidate-config database to the global candidate
+	 * config Db on the CMGD process.
+	 */
+	vty_cmgd_candidate_config = candidate.root.cfg_root;
+
 	oper.root.dnode_root = yang_dnode_new(ly_native_ctx, true);
 	oper.config_db = false;
 	oper.db_id = CMGD_DB_OPERATIONAL;

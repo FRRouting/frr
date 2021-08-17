@@ -73,6 +73,8 @@ enum event {
 #endif /* VTYSH */
 };
 
+struct nb_config *vty_cmgd_candidate_config = NULL;
+	
 static cmgd_lib_hndl_t cmgd_lib_hndl = 0;
 static bool cmgd_frntnd_connected = false;
 
@@ -2640,7 +2642,13 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		vty_out(vty,
 			"Warning: uncommitted changes will be discarded on exit.\n\n");
 	} else {
-		vty->candidate_config = vty_shared_candidate_config;
+		/*
+		 * NOTE: On the CMGD daemon we point the VTY candidate DB to
+		 * the global CMGD candidate DB. Else we point to the VTY
+		 * Shared Candidate Config.
+		 */
+		vty->candidate_config = vty_cmgd_candidate_config ?
+			vty_cmgd_candidate_config : vty_shared_candidate_config;
 		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
 			vty->candidate_config_base =
 				nb_config_dup(running_config);
