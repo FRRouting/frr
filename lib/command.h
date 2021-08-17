@@ -229,6 +229,7 @@ struct cmd_node {
 #define CMD_WARNING_CONFIG_FAILED 13
 #define CMD_NOT_MY_INSTANCE	14
 #define CMD_NO_LEVEL_UP 15
+#define CMD_ERR_NO_DAEMON 16
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
