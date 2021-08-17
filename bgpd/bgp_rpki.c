@@ -388,33 +388,25 @@ static int bgpd_sync_callback(struct thread *thread)
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		struct peer *peer;
-		struct listnode *peer_listnode;
+		safi_t safi;
 
-		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
-			safi_t safi;
+		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
+			if (!bgp->rib[afi][safi])
+				continue;
 
-			for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
-				if (!peer->bgp->rib[afi][safi])
-					continue;
+			struct bgp_dest *match;
+			struct bgp_dest *node;
 
-				struct bgp_dest *match;
-				struct bgp_dest *node;
+			match = bgp_table_subtree_lookup(bgp->rib[afi][safi],
+							 prefix);
+			node = match;
 
-				match = bgp_table_subtree_lookup(
-					peer->bgp->rib[afi][safi], prefix);
-				node = match;
-
-				while (node) {
-					if (bgp_dest_has_bgp_path_info_data(
-						    node)) {
-						revalidate_bgp_node(node, afi,
-								    safi);
-					}
-
-					node = bgp_route_next_until(node,
-								    match);
+			while (node) {
+				if (bgp_dest_has_bgp_path_info_data(node)) {
+					revalidate_bgp_node(node, afi, safi);
 				}
+
+				node = bgp_route_next_until(node, match);
 			}
 		}
 	}
@@ -429,7 +421,6 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 	struct bgp_adj_in *ain;
 
 	for (ain = bgp_dest->adj_in; ain; ain = ain->next) {
-		int ret;
 		struct bgp_path_info *path =
 			bgp_dest_get_bgp_path_info(bgp_dest);
 		mpls_label_t *label = NULL;
@@ -439,13 +430,10 @@ static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,
 			label = path->extra->label;
 			num_labels = path->extra->num_labels;
 		}
-		ret = bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest),
+		(void)bgp_update(ain->peer, bgp_dest_get_prefix(bgp_dest),
 				 ain->addpath_rx_id, ain->attr, afi, safi,
 				 ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL, NULL, label,
 				 num_labels, 1, NULL);
-
-		if (ret < 0)
-			return;
 	}
 }
 
@@ -909,6 +897,12 @@ static int config_write(struct vty *vty)
 	vty_out(vty, "!\n");
 	vty_out(vty, "rpki\n");
 	vty_out(vty, " rpki polling_period %d\n", polling_period);
+
+	if (retry_interval != RETRY_INTERVAL_DEFAULT)
+		vty_out(vty, " rpki retry_interval %d\n", retry_interval);
+	if (expire_interval != EXPIRE_INTERVAL_DEFAULT)
+		vty_out(vty, " rpki expire_interval %d\n", expire_interval);
+
 	for (ALL_LIST_ELEMENTS_RO(cache_list, cache_node, cache)) {
 		switch (cache->type) {
 			struct tr_tcp_config *tcp_config;
