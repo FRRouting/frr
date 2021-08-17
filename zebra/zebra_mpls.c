@@ -3637,7 +3637,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 		return 0;
 
 	/* Is it delete of entire LSP or a specific NHLFE? */
-	if (gtype == NEXTHOP_TYPE_BLACKHOLE) {
+	if (gate == NULL) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug("Del static LSP in-label %u", in_label);
 
@@ -3657,6 +3657,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 
 		if (IS_ZEBRA_DEBUG_MPLS) {
 			char buf[BUFSIZ];
+
 			nhlfe2str(nhlfe, buf, sizeof(buf));
 			zlog_debug("Del static LSP in-label %u nexthop %s",
 				   in_label, buf);
