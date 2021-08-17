@@ -99,6 +99,7 @@ All the commands are prefixed with frr.
     frr.staticd-debug
     frr.bfdd-debug
     frr.fabricd-debug
+    frr.pathd-debug
 
 vtysh can be accessed as frr.vtysh (Make sure you have /snap/bin in your
 path). If access as `vtysh` instead of `frr.vtysh` is needed, you can enable it

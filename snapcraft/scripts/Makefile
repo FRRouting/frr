@@ -19,6 +19,7 @@ install:
 	install -D -m 0755 bfdd-service $(DESTDIR)/bin/
 	install -D -m 0755 fabricd-service $(DESTDIR)/bin/
 	install -D -m 0755 vrrpd-service $(DESTDIR)/bin/
+	install -D -m 0755 pathd-service $(DESTDIR)/bin/
 	install -D -m 0755 set-options $(DESTDIR)/bin/
 	install -D -m 0755 show_version $(DESTDIR)/bin/
 
