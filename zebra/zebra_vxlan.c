@@ -4939,6 +4939,13 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 			return 0;
 		}
 
+		if ((chgflags & ZEBRA_VXLIF_MASTER_MAC_CHANGE)
+		    && if_is_operative(ifp) && is_l3vni_oper_up(zl3vni)) {
+			zebra_vxlan_process_l3vni_oper_down(zl3vni);
+			zebra_vxlan_process_l3vni_oper_up(zl3vni);
+			return 0;
+		}
+
 		/* access-vlan change - process oper down, associate with new
 		 * svi_if and then process oper up again
 		 */

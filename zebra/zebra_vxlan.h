@@ -65,6 +65,7 @@ is_vxlan_flooding_head_end(void)
 #define ZEBRA_VXLIF_MASTER_CHANGE       (1 << 1)
 #define ZEBRA_VXLIF_VLAN_CHANGE         (1 << 2)
 #define ZEBRA_VXLIF_MCAST_GRP_CHANGE    (1 << 3)
+#define ZEBRA_VXLIF_MASTER_MAC_CHANGE (1 << 4)
 
 
 #define VNI_STR_LEN 32

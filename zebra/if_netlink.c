@@ -1039,7 +1039,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_IF_BOND(ifp))
 		zebra_l2if_update_bond(ifp, true);
 	if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
-		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex, ns_id);
+		zebra_l2if_update_bridge_slave(ifp, bridge_ifindex, ns_id,
+					       ZEBRA_BRIDGE_NO_ACTION);
 	else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 		zebra_l2if_update_bond_slave(ifp, bond_ifindex, !!bypass);
 
@@ -1668,9 +1669,9 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 				ifp, linkinfo[IFLA_INFO_DATA],
 				1, link_nsid);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp))
-				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex,
-							       ns_id);
+				zebra_l2if_update_bridge_slave(
+					ifp, bridge_ifindex, ns_id,
+					ZEBRA_BRIDGE_NO_ACTION);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp))
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
 							     !!bypass);
@@ -1694,6 +1695,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			if_handle_vrf_change(ifp, vrf_id);
 		} else {
 			bool was_bridge_slave, was_bond_slave;
+			uint8_t chgflags = ZEBRA_BRIDGE_NO_ACTION;
 
 			/* Interface update. */
 			if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1737,6 +1739,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					if_down(ifp);
 					rib_update(RIB_UPDATE_KERNEL);
 				} else if (if_is_operative(ifp)) {
+					bool mac_updated = false;
+
 					/* Must notify client daemons of new
 					 * interface status. */
 					if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1747,9 +1751,11 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 					/* Update EVPN VNI when SVI MAC change
 					 */
-					if (IS_ZEBRA_IF_VLAN(ifp) &&
-					    memcmp(old_hw_addr, ifp->hw_addr,
-						   INTERFACE_HWADDR_MAX)) {
+					if (memcmp(old_hw_addr, ifp->hw_addr,
+						   INTERFACE_HWADDR_MAX))
+						mac_updated = true;
+					if (IS_ZEBRA_IF_VLAN(ifp)
+					    && mac_updated) {
 						struct interface *link_if;
 
 						link_if =
@@ -1759,6 +1765,13 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 						if (link_if)
 							zebra_vxlan_svi_up(ifp,
 								link_if);
+					} else if (mac_updated
+						   && IS_ZEBRA_IF_BRIDGE(ifp)) {
+						zlog_debug(
+							"Intf %s(%u) bridge changed MAC address",
+							name, ifp->ifindex);
+						chgflags =
+							ZEBRA_BRIDGE_MASTER_MAC_CHANGE;
 					}
 				}
 			} else {
@@ -1784,12 +1797,13 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			netlink_interface_update_l2info(
 				ifp, linkinfo[IFLA_INFO_DATA],
 				0, link_nsid);
+			if (IS_ZEBRA_IF_BRIDGE(ifp))
+				zebra_l2if_update_bridge(ifp, chgflags);
 			if (IS_ZEBRA_IF_BOND(ifp))
 				zebra_l2if_update_bond(ifp, true);
 			if (IS_ZEBRA_IF_BRIDGE_SLAVE(ifp) || was_bridge_slave)
-				zebra_l2if_update_bridge_slave(ifp,
-							       bridge_ifindex,
-							       ns_id);
+				zebra_l2if_update_bridge_slave(
+					ifp, bridge_ifindex, ns_id, chgflags);
 			else if (IS_ZEBRA_IF_BOND_SLAVE(ifp) || was_bond_slave)
 				zebra_l2if_update_bond_slave(ifp, bond_ifindex,
 							     !!bypass);
