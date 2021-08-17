@@ -686,6 +686,7 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	struct stream *s;
 	uint16_t ipa_len;
 	static struct in_addr zero_remote_vtep_ip;
+	bool esi_valid;
 
 	/* Check socket. */
 	if (!zclient || zclient->sock < 0)
@@ -727,10 +728,13 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	/* If the ESI is valid that becomes the nexthop; tape out the
 	 * VTEP-IP for that case
 	 */
-	if (bgp_evpn_is_esi_valid(esi))
+	if (bgp_evpn_is_esi_valid(esi)) {
+		esi_valid = true;
 		stream_put_in_addr(s, &zero_remote_vtep_ip);
-	else
+	} else {
+		esi_valid = false;
 		stream_put_in_addr(s, &remote_vtep_ip);
+	}
 
 	/* TX flags - MAC sticky status and/or gateway mac */
 	/* Also TX the sequence number of the best route. */
@@ -742,12 +746,19 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 
 	stream_putw_at(s, 0, stream_get_endp(s));
 
-	if (bgp_debug_zebra(NULL))
+	if (bgp_debug_zebra(NULL)) {
+		char esi_buf[ESI_STR_LEN];
+
+		if (esi_valid)
+			esi_to_str(esi, esi_buf, sizeof(esi_buf));
+		else
+			snprintf(esi_buf, sizeof(esi_buf), "-");
 		zlog_debug(
-			"Tx %s MACIP, VNI %u MAC %pEA IP %pIA flags 0x%x seq %u remote VTEP %pI4",
+			"Tx %s MACIP, VNI %u MAC %pEA IP %pIA flags 0x%x seq %u remote VTEP %pI4 esi %s",
 			add ? "ADD" : "DEL", vpn->vni,
 			&p->prefix.macip_addr.mac, &p->prefix.macip_addr.ip,
-			flags, seq, &remote_vtep_ip);
+			flags, seq, &remote_vtep_ip, esi_buf);
+	}
 
 	frrtrace(5, frr_bgp, evpn_mac_ip_zsend, add, vpn, p, remote_vtep_ip,
 		 esi);
