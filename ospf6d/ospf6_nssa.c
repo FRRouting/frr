@@ -1203,8 +1203,7 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 static void ospf6_area_nssa_update(struct ospf6_area *area)
 {
 	if (IS_AREA_NSSA(area)) {
-		if (!ospf6_check_and_set_router_abr(area->ospf6))
-			OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
+		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA++;
 		OSPF6_OPT_SET(area->options, OSPF6_OPT_N);
 		area->NSSATranslatorRole = OSPF6_NSSA_ROLE_CANDIDATE;
@@ -1212,8 +1211,7 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
 			zlog_debug("Normal area for if %s", area->name);
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_N);
-		if (ospf6_check_and_set_router_abr(area->ospf6))
-			OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
+		OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA--;
 		area->NSSATranslatorState = OSPF6_NSSA_TRANSLATE_DISABLED;
 	}
