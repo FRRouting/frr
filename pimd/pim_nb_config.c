@@ -459,6 +459,10 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	struct listnode *sock_node;
 	struct igmp_sock *igmp;
 
+	if (pim_ifp->igmp_query_max_response_time_dsec
+	    == query_max_response_time_dsec)
+		return;
+
 	pim_ifp->igmp_query_max_response_time_dsec =
 		query_max_response_time_dsec;
 
