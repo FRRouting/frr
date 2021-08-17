@@ -75,6 +75,7 @@
 /* SRv6 Service Sub-TLV types */
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO 1
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH 21
+<<<<<<< HEAD
 
 /* SRv6 Service Data Sub-Sub-TLV types */
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
@@ -87,6 +88,8 @@
 #define BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH 0
 #define BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH 16
 #define BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET 64
+=======
+>>>>>>> a3e3b5b08 (bgpd: fix prefix sid sub-tlv header is missing)
 
 #define BGP_ATTR_NH_AFI(afi, attr) \
 	((afi != AFI_L2VPN) ? afi : \

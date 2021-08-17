@@ -4278,6 +4278,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) {
 		if (attr->srv6_l3vpn) {
 			uint8_t subtlv_len =
+<<<<<<< HEAD
 				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH
 				+ BGP_ATTR_MIN_LEN
 				+ BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH;
@@ -4292,6 +4293,22 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 			stream_putc(s, 0); /* reserved */
 			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO);
 			stream_putw(s, subtlv_len);
+=======
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH
+				+ BGP_ATTR_MIN_LEN + 1; // reserved
+			uint8_t tlv_len = subtlv_len + BGP_ATTR_MIN_LEN;
+			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
+					       | BGP_ATTR_FLAG_TRANS);
+			stream_putc(s, BGP_ATTR_PREFIX_SID);
+			stream_putc(s, tlv_len);
+			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE);
+			stream_putw(s, subtlv_len);
+			stream_putc(s, 0); /* reserved */
+			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO);
+			stream_putw(
+				s,
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH);
+>>>>>>> a3e3b5b08 (bgpd: fix prefix sid sub-tlv header is missing)
 			stream_putc(s, 0);      /* reserved */
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
