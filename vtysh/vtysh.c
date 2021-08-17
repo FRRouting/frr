@@ -542,6 +542,9 @@ static int vtysh_execute_func(const char *line, int pager)
 			    || saved_node == LDP_IPV6_IFACE_NODE)
 			   && (tried == 1)) {
 			vtysh_execute("exit");
+		} else if ((saved_node == BFD_PROFILE_NODE)
+			   && (tried == 1)) {
+			vtysh_execute("exit");
 		} else if ((saved_node == SR_SEGMENT_LIST_NODE
 			    || saved_node == SR_POLICY_NODE
 			    || saved_node == SR_CANDIDATE_DYN_NODE
