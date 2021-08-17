@@ -33,6 +33,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
@@ -548,6 +549,8 @@ static bool community_regexp_include(regex_t *reg, struct community *com, int i)
 static bool community_regexp_match(struct community *com, regex_t *reg)
 {
 	const char *str;
+	char *regstr;
+	int rv;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
@@ -556,12 +559,14 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	else
 		str = community_str(com, false);
 
-	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return true;
+	regstr = bgp_alias2community_str(str);
 
-	/* No match.  */
-	return false;
+	/* Regular expression match.  */
+	rv = regexec(reg, regstr, 0, NULL, 0);
+
+	XFREE(MTYPE_TMP, regstr);
+
+	return rv == 0;
 }
 
 static char *lcommunity_str_get(struct lcommunity *lcom, int i)
@@ -618,6 +623,8 @@ static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
 static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 {
 	const char *str;
+	char *regstr;
+	int rv;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
@@ -626,12 +633,14 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	else
 		str = lcommunity_str(com, false);
 
-	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return true;
+	regstr = bgp_alias2community_str(str);
 
-	/* No match.  */
-	return false;
+	/* Regular expression match.  */
+	rv = regexec(reg, regstr, 0, NULL, 0);
+
+	XFREE(MTYPE_TMP, regstr);
+
+	return rv == 0;
 }
 
 
