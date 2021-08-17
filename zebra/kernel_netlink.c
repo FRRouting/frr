@@ -350,21 +350,9 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELADDR:
 		return netlink_interface_addr(h, ns_id, startup);
 	case RTM_NEWNEIGH:
-		return netlink_neigh_change(h, ns_id);
 	case RTM_DELNEIGH:
-		return netlink_neigh_change(h, ns_id);
 	case RTM_GETNEIGH:
-		/*
-		 * Kernel in some situations when it expects
-		 * user space to resolve arp entries, we will
-		 * receive this notification.  As we don't
-		 * need this notification and as that
-		 * we don't want to spam the log file with
-		 * below messages, just ignore.
-		 */
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("Received RTM_GETNEIGH, ignoring");
-		break;
+		return netlink_neigh_change(h, ns_id);
 	case RTM_NEWRULE:
 		return netlink_rule_change(h, ns_id, startup);
 	case RTM_DELRULE:
