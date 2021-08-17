@@ -43,6 +43,16 @@ struct key_range {
 	uint8_t duration;
 };
 
+/** TCP Authentication Option Algorithm
+ *
+ * Values match linux ABI but zebra is technically portable so it defines a
+ * separate enum.
+ */
+enum zebra_tcp_authopt_alg {
+	ZEBRA_TCP_AUTHOPT_ALG_HMAC_SHA_1_96 = 1,
+	ZEBRA_TCP_AUTHOPT_ALG_AES_128_CMAC_96 = 2,
+};
+
 struct key {
 	uint32_t index;
 
@@ -50,6 +60,11 @@ struct key {
 
 	struct key_range send;
 	struct key_range accept;
+
+	bool tcp_authopt_enabled;
+	enum zebra_tcp_authopt_alg tcp_authopt_alg;
+	int tcp_authopt_send_id;
+	int tcp_authopt_recv_id;
 
 	QOBJ_FIELDS;
 };

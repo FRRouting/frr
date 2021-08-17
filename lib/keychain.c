@@ -19,6 +19,7 @@
  */
 
 #include <zebra.h>
+#include <stdlib.h>
 
 #include "command.h"
 #include "memory.h"
@@ -970,6 +971,83 @@ DEFUN (no_send_lifetime,
 	return CMD_SUCCESS;
 }
 
+static enum zebra_tcp_authopt_alg tcp_authopt_alg_name_to_id(const char *name)
+{
+	if (!strcasecmp(name, "hmac-sha-1-96"))
+		return ZEBRA_TCP_AUTHOPT_ALG_HMAC_SHA_1_96;
+	else if (!strcasecmp(name, "aes-128-cmac-96"))
+		return ZEBRA_TCP_AUTHOPT_ALG_AES_128_CMAC_96;
+	else
+		return -1;
+}
+
+static const char *tcp_authopt_alg_id_to_name(enum zebra_tcp_authopt_alg id)
+{
+	if (id == ZEBRA_TCP_AUTHOPT_ALG_HMAC_SHA_1_96)
+		return "hmac-sha-1-96";
+	else if (id == ZEBRA_TCP_AUTHOPT_ALG_AES_128_CMAC_96)
+		return "aes-128-cmac-96";
+	else
+		return NULL;
+}
+
+DEFUN(tcp_authopt_enable,
+      tcp_authopt_enable_cmd,
+      "tcp-authopt <enabled|disabled>",
+      "TCP Authentication Option\n"
+      "Enable using this key for TCP Authentication Option\n"
+      "Disable using this key for TCP Authentication Option\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+	key->tcp_authopt_enabled = (argv[1]->arg[0] == 'e');
+	return CMD_SUCCESS;
+}
+
+DEFUN(tcp_authopt_algorithm,
+      tcp_authopt_algorithm_cmd,
+      "tcp-authopt algorithm <hmac-sha-1-96|aes-128-cmac-96>",
+      "TCP Authentication Option\n"
+      "TCP Authentication Option algorithm\n"
+      "HMAC-SHA-1-96\n"
+      "AES-128-CMAC-96\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+	int alg;
+
+	alg = tcp_authopt_alg_name_to_id(argv[2]->arg);
+
+	if (alg < 0) {
+		vty_out(vty, "Unknown algorithm\n");
+		return CMD_WARNING;
+	}
+	key->tcp_authopt_alg = alg;
+	return CMD_SUCCESS;
+}
+
+DEFUN(tcp_authopt_send_id,
+      tcp_authopt_send_id_cmd,
+      "tcp-authopt send-id (0-255)",
+      "TCP Authentication Option\n"
+      "SendID\n"
+      "SendID\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+	key->tcp_authopt_send_id = atoi(argv[2]->arg);
+	return CMD_SUCCESS;
+}
+
+DEFUN(tcp_authopt_recv_id,
+      tcp_authopt_recv_id_cmd,
+      "tcp-authopt recv-id (0-255)",
+      "TCP Authentication Option\n"
+      "RecvID\n"
+      "RecvID\n")
+{
+	VTY_DECLVAR_CONTEXT_SUB(key, key);
+	key->tcp_authopt_recv_id = atoi(argv[2]->arg);
+	return CMD_SUCCESS;
+}
+
 static int keychain_config_write(struct vty *vty);
 static struct cmd_node keychain_node = {
 	.name = "keychain",
@@ -1052,7 +1130,18 @@ static int keychain_config_write(struct vty *vty)
 				}
 				vty_out(vty, "\n");
 			}
-
+			if (key->tcp_authopt_enabled)
+				vty_out(vty, "  tcp-authopt enabled\n");
+			if (key->tcp_authopt_alg)
+				vty_out(vty, "  tcp-authopt algorithm %s\n",
+					tcp_authopt_alg_id_to_name(
+						key->tcp_authopt_alg));
+			if (key->tcp_authopt_send_id)
+				vty_out(vty, "  tcp-authopt send-id %d\n",
+					key->tcp_authopt_send_id);
+			if (key->tcp_authopt_recv_id)
+				vty_out(vty, "  tcp-authopt recv-id %d\n",
+					key->tcp_authopt_recv_id);
 			vty_out(vty, " exit\n");
 		}
 		vty_out(vty, "exit\n");
@@ -1124,4 +1213,9 @@ void keychain_init(void)
 	install_element(KEYCHAIN_KEY_NODE,
 			&send_lifetime_duration_month_day_cmd);
 	install_element(KEYCHAIN_KEY_NODE, &no_send_lifetime_cmd);
+
+	install_element(KEYCHAIN_KEY_NODE, &tcp_authopt_enable_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &tcp_authopt_algorithm_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &tcp_authopt_send_id_cmd);
+	install_element(KEYCHAIN_KEY_NODE, &tcp_authopt_recv_id_cmd);
 }
