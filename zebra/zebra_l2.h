@@ -35,6 +35,7 @@ extern "C" {
 
 #define ZEBRA_BRIDGE_NO_ACTION (0)
 #define ZEBRA_BRIDGE_MASTER_MAC_CHANGE (1 << 1)
+#define ZEBRA_BRIDGE_MASTER_UP (1 << 2)
 
 /* zebra L2 interface information - bridge slave (linkage to bridge) */
 struct zebra_l2info_brslave {
