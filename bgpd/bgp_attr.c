@@ -2555,7 +2555,10 @@ static bgp_attr_parse_ret_t
 bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
+<<<<<<< HEAD
 	struct attr *const attr = args->attr;
+=======
+>>>>>>> 73604f821 (bgpd: fix parser of srv6 infomation)
 	uint8_t type, loc_block_len, loc_node_len, func_len, arg_len,
 		transposition_len, transposition_offset;
 	uint16_t length;
@@ -2598,6 +2601,7 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 				arg_len, transposition_len,
 				transposition_offset);
 		}
+<<<<<<< HEAD
 
 		attr->srv6_l3vpn->loc_block_len = loc_block_len;
 		attr->srv6_l3vpn->loc_node_len = loc_node_len;
@@ -2605,6 +2609,8 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 		attr->srv6_l3vpn->arg_len = arg_len;
 		attr->srv6_l3vpn->transposition_len = transposition_len;
 		attr->srv6_l3vpn->transposition_offset = transposition_offset;
+=======
+>>>>>>> 73604f821 (bgpd: fix parser of srv6 infomation)
 	}
 
 	else {
@@ -2631,7 +2637,10 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	uint8_t type, sid_flags;
 	uint16_t length, endpoint_behavior;
 	size_t headersz = sizeof(type) + sizeof(length);
+<<<<<<< HEAD
 	bgp_attr_parse_ret_t err;
+=======
+>>>>>>> 73604f821 (bgpd: fix parser of srv6 infomation)
 	char buf[BUFSIZ];
 
 	if (STREAM_READABLE(peer->curr) < headersz) {
@@ -2679,6 +2688,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		}
 		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 					   sizeof(struct bgp_attr_srv6_l3vpn));
+<<<<<<< HEAD
 		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
 		attr->srv6_l3vpn->sid_flags = sid_flags;
 		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
@@ -2698,6 +2708,16 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		}
 
 		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+=======
+		attr->srv6_l3vpn->sid_flags = sid_flags;
+		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
+		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
+		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+
+		// Sub-Sub-TLV found
+		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH)
+			return bgp_attr_srv6_service_data(args);
+>>>>>>> 73604f821 (bgpd: fix parser of srv6 infomation)
 	}
 
 	/* Placeholder code for unsupported type */
