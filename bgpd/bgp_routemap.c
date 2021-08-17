@@ -1215,7 +1215,7 @@ route_match_alias(void *rule, const struct prefix *prefix, void *object)
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
 			if (!found && strcmp(alias, com2alias) == 0)
-				found = false;
+				found = true;
 			XFREE(MTYPE_TMP, communities[i]);
 		}
 		XFREE(MTYPE_TMP, communities);
