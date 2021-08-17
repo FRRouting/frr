@@ -1767,51 +1767,22 @@ zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id)
 	return zl3vni_lookup(zvrf->l3vni);
 }
 
-/*
- * Map SVI and associated bridge to a VNI. This is invoked upon getting
- * neighbor notifications, to see if they are of interest.
- */
-static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
-				      struct interface *br_if)
+static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 {
 	int found = 0;
-	vlanid_t vid = 0;
-	uint8_t bridge_vlan_aware = 0;
-	zebra_l3vni_t *zl3vni = NULL;
-	struct zebra_ns *zns = NULL;
+	struct zebra_ns *zns = ns->info;
+	zebra_l3vni_t **p_zl3vni = (zebra_l3vni_t **)_p_zl3vni;
+	struct zebra_from_svi_param *in_param =
+		(struct zebra_from_svi_param *)_in_param;
 	struct route_node *rn = NULL;
-	struct zebra_if *zif = NULL;
 	struct interface *tmp_if = NULL;
-	struct zebra_l2info_bridge *br = NULL;
+	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 
-	if (!br_if)
-		return NULL;
+	if (!in_param)
+		return NS_WALK_STOP;
 
-	/* Make sure the linked interface is a bridge. */
-	if (!IS_ZEBRA_IF_BRIDGE(br_if))
-		return NULL;
-
-	/* Determine if bridge is VLAN-aware or not */
-	zif = br_if->info;
-	assert(zif);
-	br = &zif->l2info.br;
-	bridge_vlan_aware = br->vlan_aware;
-	if (bridge_vlan_aware) {
-		struct zebra_l2info_vlan *vl;
-
-		if (!IS_ZEBRA_IF_VLAN(ifp))
-			return NULL;
-
-		zif = ifp->info;
-		assert(zif);
-		vl = &zif->l2info.vl;
-		vid = vl->vid;
-	}
-
-	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
-	/* TODO: Optimize with a hash. */
-	zns = zebra_ns_lookup(NS_DEFAULT);
+	/* loop through all vxlan-interface */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		tmp_if = (struct interface *)rn->info;
 		if (!tmp_if)
@@ -1823,19 +1794,68 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 			continue;
 		vxl = &zif->l2info.vxl;
 
-		if (zif->brslave_info.br_if != br_if)
+		if (zif->brslave_info.br_if != in_param->br_if)
 			continue;
 
-		if (!bridge_vlan_aware || vxl->access_vlan == vid) {
+		if (!in_param->bridge_vlan_aware
+		    || vxl->access_vlan == in_param->vid) {
 			found = 1;
 			break;
 		}
 	}
 
 	if (!found)
+		return NS_WALK_CONTINUE;
+
+	if (p_zl3vni)
+		*p_zl3vni = (void *)zl3vni_lookup(vxl->vni);
+	return NS_WALK_STOP;
+}
+
+/*
+ * Map SVI and associated bridge to a VNI. This is invoked upon getting
+ * neighbor notifications, to see if they are of interest.
+ */
+static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
+				      struct interface *br_if)
+{
+	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_if *zif = NULL;
+	struct zebra_l2info_bridge *br = NULL;
+	struct zebra_from_svi_param in_param = {};
+	zebra_l3vni_t **p_zl3vni;
+
+	if (!br_if)
 		return NULL;
 
-	zl3vni = zl3vni_lookup(vxl->vni);
+	/* Make sure the linked interface is a bridge. */
+	if (!IS_ZEBRA_IF_BRIDGE(br_if))
+		return NULL;
+	in_param.br_if = br_if;
+
+	/* Determine if bridge is VLAN-aware or not */
+	zif = br_if->info;
+	assert(zif);
+	br = &zif->l2info.br;
+	in_param.bridge_vlan_aware = br->vlan_aware;
+	if (in_param.bridge_vlan_aware) {
+		struct zebra_l2info_vlan *vl;
+
+		if (!IS_ZEBRA_IF_VLAN(ifp))
+			return NULL;
+
+		zif = ifp->info;
+		assert(zif);
+		vl = &zif->l2info.vl;
+		in_param.vid = vl->vid;
+	}
+
+	/* See if this interface (or interface plus VLAN Id) maps to a VxLAN */
+	/* TODO: Optimize with a hash. */
+
+	p_zl3vni = &zl3vni;
+
+	ns_walk_func(zl3vni_from_svi_ns, (void *)&in_param, (void **)p_zl3vni);
 	return zl3vni;
 }
 
