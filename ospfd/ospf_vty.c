@@ -12522,6 +12522,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* LDP-Sync print */
 	ospf_ldp_sync_write_config(vty, ospf);
 
+	vty_out(vty, " exit\n");
+
 	write++;
 	return write;
 }
