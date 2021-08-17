@@ -76,6 +76,9 @@
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO 1
 #define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH 21
 
+/* SRv6 Service Data Sub-Sub-TLV types */
+#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
+
 #define BGP_ATTR_NH_AFI(afi, attr) \
 	((afi != AFI_L2VPN) ? afi : \
 	((attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV4) ? AFI_IP : AFI_IP6))
