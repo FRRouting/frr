@@ -387,10 +387,50 @@ static bool acl_zebra_is_dup(const struct lyd_node *dnode,
 	return acl_is_dup(entry_dnode, &ada);
 }
 
+static void plist_dnode_to_prefix(const struct lyd_node *dnode, bool *any,
+				  struct prefix *p, int *ge, int *le)
+{
+	*any = false;
+	*ge = 0;
+	*le = 0;
+
+	if (yang_dnode_exists(dnode, "./any")) {
+		*any = true;
+		return;
+	}
+
+	switch (yang_dnode_get_enum(dnode, "../type")) {
+	case YPLT_IPV4:
+		yang_dnode_get_prefix(p, dnode, "./ipv4-prefix");
+		if (yang_dnode_exists(dnode,
+				      "./ipv4-prefix-length-greater-or-equal"))
+			*ge = yang_dnode_get_uint8(
+				dnode, "./ipv4-prefix-length-greater-or-equal");
+		if (yang_dnode_exists(dnode,
+				      "./ipv4-prefix-length-lesser-or-equal"))
+			*le = yang_dnode_get_uint8(
+				dnode, "./ipv4-prefix-length-lesser-or-equal");
+		break;
+	case YPLT_IPV6:
+		yang_dnode_get_prefix(p, dnode, "./ipv6-prefix");
+		if (yang_dnode_exists(dnode,
+				      "./ipv6-prefix-length-greater-or-equal"))
+			*ge = yang_dnode_get_uint8(
+				dnode, "./ipv6-prefix-length-greater-or-equal");
+		if (yang_dnode_exists(dnode,
+				      "./ipv6-prefix-length-lesser-or-equal"))
+			*le = yang_dnode_get_uint8(
+				dnode, "./ipv6-prefix-length-lesser-or-equal");
+		break;
+	}
+}
+
 static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 {
 	struct plist_dup_args *pda = arg;
-	int idx;
+	struct prefix p;
+	int ge, le;
+	bool any;
 
 	/* This entry is the caller, so skip it. */
 	if (pda->pda_entry_dnode
@@ -400,19 +440,14 @@ static int _plist_is_dup(const struct lyd_node *dnode, void *arg)
 	if (strcmp(yang_dnode_get_string(dnode, "action"), pda->pda_action))
 		return YANG_ITER_CONTINUE;
 
-	/* Check if all values match. */
-	for (idx = 0; idx < PDA_MAX_VALUES; idx++) {
-		/* No more values. */
-		if (pda->pda_xpath[idx] == NULL)
-			break;
+	plist_dnode_to_prefix(dnode, &any, &p, &ge, &le);
 
-		/* Not same type, just skip it. */
-		if (!yang_dnode_exists(dnode, pda->pda_xpath[idx]))
+	if (pda->any) {
+		if (!any)
 			return YANG_ITER_CONTINUE;
-
-		/* Check if different value. */
-		if (strcmp(yang_dnode_get_string(dnode, pda->pda_xpath[idx]),
-			   pda->pda_value[idx]))
+	} else {
+		if (!prefix_same(&pda->prefix, &p) || pda->ge != ge
+		    || pda->le != le)
 			return YANG_ITER_CONTINUE;
 	}
 
@@ -439,17 +474,6 @@ static bool plist_is_dup_nb(const struct lyd_node *dnode)
 	const struct lyd_node *entry_dnode =
 		yang_dnode_get_parent(dnode, "entry");
 	struct plist_dup_args pda = {};
-	int idx = 0, arg_idx = 0;
-	static const char *entries[] = {
-		"./ipv4-prefix",
-		"./ipv4-prefix-length-greater-or-equal",
-		"./ipv4-prefix-length-lesser-or-equal",
-		"./ipv6-prefix",
-		"./ipv6-prefix-length-greater-or-equal",
-		"./ipv6-prefix-length-lesser-or-equal",
-		"./any",
-		NULL
-	};
 
 	/* Initialize. */
 	pda.pda_type = yang_dnode_get_string(entry_dnode, "../type");
@@ -457,19 +481,8 @@ static bool plist_is_dup_nb(const struct lyd_node *dnode)
 	pda.pda_action = yang_dnode_get_string(entry_dnode, "action");
 	pda.pda_entry_dnode = entry_dnode;
 
-	/* Load all values/XPaths. */
-	while (entries[idx] != NULL) {
-		if (!yang_dnode_exists(entry_dnode, entries[idx])) {
-			idx++;
-			continue;
-		}
-
-		pda.pda_xpath[arg_idx] = entries[idx];
-		pda.pda_value[arg_idx] =
-			yang_dnode_get_string(entry_dnode, entries[idx]);
-		arg_idx++;
-		idx++;
-	}
+	plist_dnode_to_prefix(entry_dnode, &pda.any, &pda.prefix, &pda.ge,
+			      &pda.le);
 
 	return plist_is_dup(entry_dnode, &pda);
 }

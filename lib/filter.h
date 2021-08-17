@@ -207,11 +207,10 @@ struct plist_dup_args {
 	/** Entry action. */
 	const char *pda_action;
 
-#define PDA_MAX_VALUES 4
-	/** Entry XPath for value. */
-	const char *pda_xpath[PDA_MAX_VALUES];
-	/** Entry value to match. */
-	const char *pda_value[PDA_MAX_VALUES];
+	bool any;
+	struct prefix prefix;
+	int ge;
+	int le;
 
 	/** Duplicated entry found in list? */
 	bool pda_found;
