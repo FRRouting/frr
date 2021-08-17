@@ -46,6 +46,7 @@
 #include "lib/sockopt.h"
 #include "frr_pthread.h"
 #include "bitfield.h"
+#include "keychain.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -7778,6 +7779,9 @@ void bgp_init(unsigned short instance)
 	bgp_bfd_init(bm->master);
 
 	bgp_lp_vty_init();
+
+	/* Keychain init */
+	keychain_init();
 
 	cmd_variable_handler_register(bgp_viewvrf_var_handlers);
 }
