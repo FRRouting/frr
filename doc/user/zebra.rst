@@ -590,6 +590,38 @@ nexthops are chosen to forward packets on.  Currently the Linux kernel
 has a ``fib_multipath_hash_policy`` sysctl which dictates how the hashing
 algorithm is used to forward packets.
 
+.. _zebra-svd:
+
+Single Vxlan Device Support
+===========================
+
+FRR supports a new way of configuring VLAN-to-VNI mappings for EVPN-VXLAN,
+when working with the Linux kernel. In this new way, the mapping of a VLAN
+to a VNI is configured against a container VXLAN interface which is referred
+to as a ‘Single VXLAN device (SVD)’. Multiple VLAN to VNI mappings can be
+configured against the same SVD. This allows for a significant scaling of
+the number of VNIs since a separate VXLAN interface is no longer required
+for each VNI. Sample configuration of SVD with VLAN to VNI mappings is shown
+below.
+
+If you are using the Linux kernel as a Data Plane, this can be configured
+via `ip link`, `bridge link` and `bridge vlan` commands:
+
+.. code-block:: shell
+
+   # linux shell
+   ip link add dev bridge type bridge
+   ip link set dev bridge type bridge vlan_filtering 1
+   ip link add dev vxlan0 type vxlan external
+   ip link set dev vxlan0 master bridge
+   bridge link set dev vxlan0 vlan_tunnel on
+   bridge vlan add dev vxlan0 vid 100
+   bridge vlan add dev vxlan0 vid 100 tunnel_info id 100
+   bridge vlan tunnelshow
+    port    vlan ids        tunnel id
+    bridge  None
+    vxlan0   100     100
+
 .. _zebra-mpls:
 
 MPLS Commands
