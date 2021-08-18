@@ -852,96 +852,13 @@ char **cmd_complete_command(vector vline, struct vty *vty, int *status)
 /* MUST eventually converge on CONFIG_NODE */
 enum node_type node_parent(enum node_type node)
 {
-	enum node_type ret;
+	struct cmd_node *cnode;
 
 	assert(node > CONFIG_NODE);
 
-	switch (node) {
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case BMP_NODE:
-		ret = BGP_NODE;
-		break;
-	case BGP_EVPN_VNI_NODE:
-		ret = BGP_EVPN_NODE;
-		break;
-	case KEYCHAIN_KEY_NODE:
-		ret = KEYCHAIN_NODE;
-		break;
-	case LINK_PARAMS_NODE:
-		ret = INTERFACE_NODE;
-		break;
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-		ret = LDP_NODE;
-		break;
-	case LDP_IPV4_IFACE_NODE:
-		ret = LDP_IPV4_NODE;
-		break;
-	case LDP_IPV6_IFACE_NODE:
-		ret = LDP_IPV6_NODE;
-		break;
-	case LDP_PSEUDOWIRE_NODE:
-		ret = LDP_L2VPN_NODE;
-		break;
-	case BFD_PEER_NODE:
-		ret = BFD_NODE;
-		break;
-	case BFD_PROFILE_NODE:
-		ret = BFD_NODE;
-		break;
-	case SR_TRAFFIC_ENG_NODE:
-		ret = SEGMENT_ROUTING_NODE;
-		break;
-	case SR_SEGMENT_LIST_NODE:
-		ret = SR_TRAFFIC_ENG_NODE;
-		break;
-	case SR_POLICY_NODE:
-		ret = SR_TRAFFIC_ENG_NODE;
-		break;
-	case SR_CANDIDATE_DYN_NODE:
-		ret = SR_POLICY_NODE;
-		break;
-	case PCEP_NODE:
-		ret = SR_TRAFFIC_ENG_NODE;
-		break;
-	case PCEP_PCE_CONFIG_NODE:
-		ret = PCEP_NODE;
-		break;
-	case PCEP_PCE_NODE:
-		ret = PCEP_NODE;
-		break;
-	case PCEP_PCC_NODE:
-		ret = PCEP_NODE;
-		break;
-	case SRV6_NODE:
-		ret = SEGMENT_ROUTING_NODE;
-		break;
-	case SRV6_LOCS_NODE:
-		ret = SRV6_NODE;
-		break;
-	case SRV6_LOC_NODE:
-		ret = SRV6_LOCS_NODE;
-		break;
-	default:
-		ret = CONFIG_NODE;
-		break;
-	}
+	cnode = vector_lookup(cmdvec, node);
 
-	return ret;
+	return cnode->parent_node;
 }
 
 /* Execute command by argument vline vector. */
