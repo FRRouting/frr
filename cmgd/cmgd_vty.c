@@ -415,6 +415,48 @@ DEFPY(show_cmgd_get_data,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_cmgd_dump_data,
+      show_cmgd_dump_data_cmd,
+      "show cmgd database-contents db-name WORD$dbname [xpath WORD$path] format WORD$format_str",
+      SHOW_STR
+      CMGD_STR
+      "Get Database Contenents from a specific database\n"
+      "DB name\n"
+      "<candidate running operational\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n"
+      "Format the output\n"
+      "JSON|XML")
+{
+	cmgd_database_id_t database = CMGD_DB_CANDIDATE;
+	cmgd_db_hndl_t db_hndl;
+	LYD_FORMAT format = LYD_UNKNOWN;
+
+	database = cmgd_db_name2id(dbname);
+
+	if (database == CMGD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	db_hndl = cmgd_db_get_hndl_by_id(cm, database);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	format = cmgd_str2format(format_str);
+	if (format == LYD_UNKNOWN) {
+		vty_out(vty, "String Format %s does not matches existing format\n",
+			format_str);
+		return CMD_SUCCESS;
+	}
+
+	cmgd_db_dump_tree(vty, db_hndl, path, format);
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_cmgd_map_xpath,
 	  show_cmgd_map_xpath_cmd,
 	  "show cmgd yang-xpath-subscription WORD$path",
@@ -472,6 +514,7 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_db_oper_cmd);
 	install_element(VIEW_NODE, &show_cmgd_get_config_cmd);
 	install_element(VIEW_NODE, &show_cmgd_get_data_cmd);
+	install_element(VIEW_NODE, &show_cmgd_dump_data_cmd);
 	install_element(VIEW_NODE, &show_cmgd_map_xpath_cmd);
 
 	install_element(CONFIG_NODE, &cmgd_commit_apply_cmd);
