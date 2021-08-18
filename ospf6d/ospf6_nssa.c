@@ -1218,6 +1218,9 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 	if (IS_AREA_NSSA(area)) {
 		OSPF6_ROUTER_LSA_SCHEDULE(area);
 
+		/* Flush external LSAs. */
+		ospf6_asbr_remove_externals_from_area(area);
+
 		/* Check if router is ABR */
 		if (ospf6_check_and_set_router_abr(area->ospf6)) {
 			if (IS_OSPF6_DEBUG_NSSA)
