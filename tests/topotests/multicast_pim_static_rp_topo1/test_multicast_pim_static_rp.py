@@ -275,40 +275,6 @@ def teardown_module():
 #####################################################
 
 
-def config_to_send_igmp_join_and_traffic(tgen, tc_name):
-    """
-    API to do pre-configuration to send IGMP join and multicast
-    traffic
-
-    parameters:
-    -----------
-    * `tgen`: topogen object
-    * `tc_name`: caller test case name
-    """
-
-    step("r0: Add route to kernal")
-    result = addKernelRoute(tgen, "r0", "r0-r1-eth0", GROUP_RANGE_ALL)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
-
-    step("r5: Add route to kernal")
-    result = addKernelRoute(tgen, "r5", "r5-r3-eth0", GROUP_RANGE_ALL)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
-
-    rnode = tgen.routers()["r1"]
-    rnode.run("ip route add 10.0.6.0/24 via 10.0.2.2")
-    rnode = tgen.routers()["r2"]
-    rnode.run("ip route add 10.0.6.0/24 via 10.0.4.2")
-    rnode = tgen.routers()["r4"]
-    rnode.run("ip route add 10.0.6.0/24 via 10.0.5.1")
-
-    router_list = tgen.routers()
-    for router in router_list.keys():
-        rnode = router_list[router]
-        rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
-
-    return True
-
-
 def verify_mroute_repopulated(uptime_before, uptime_after):
     """
     API to compare uptime for mroutes
@@ -405,8 +371,6 @@ def test_add_delete_static_RP_p0(request):
         pytest.skip(tgen.errors)
 
     step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
     step("Configure r2 loopback interface as RP")
@@ -572,10 +536,6 @@ def test_SPT_RPT_path_same_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     dut = "r1"
     intf = "r1-r3-eth2"
     shutdown_bringup_interface(tgen, dut, intf, False)
@@ -727,10 +687,6 @@ def test_not_reachable_static_RP_p0(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     dut = "r1"
     intf = "r1-r3-eth2"
@@ -893,10 +849,6 @@ def test_add_RP_after_join_received_p1(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on R1 interface")
     step("Configure r2 loopback interface as RP")
@@ -1064,10 +1016,6 @@ def test_reachable_static_RP_after_join_p0(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
     step("Configure r2 loopback interface as RP")
     step("Enable PIM between r1 and r2")
@@ -1230,10 +1178,6 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range " "224.0.0.0/4")
@@ -1472,10 +1416,6 @@ def test_RP_configured_as_LHR_1_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface")
     step("Configure RP on r1 (loopback interface) for the group range" " 224.0.0.0/4")
     step("Enable the PIM on all the interfaces of r1, r2, r3 and r4 routers")
@@ -1688,10 +1628,6 @@ def test_RP_configured_as_LHR_2_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface")
     step("Configure RP on r1 (loopback interface) for the group range" " 224.0.0.0/4")
     step("Enable the PIM on all the interfaces of r1, r2, r3 and r4 routers")
@@ -1898,10 +1834,6 @@ def test_RP_configured_as_FHR_1_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 225.1.1.0/24")
     step("Enable the PIM on all the interfaces of r1, r2, r3 and r4 routers")
@@ -2106,10 +2038,6 @@ def test_RP_configured_as_FHR_2_p2(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 225.1.1.0/24")
@@ -2320,10 +2248,6 @@ def test_SPT_RPT_path_different_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to r1")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
     step("Enable the PIM on all the interfaces of r1, r2, r3 and r4 routers")
@@ -2475,10 +2399,6 @@ def test_clear_pim_configuration_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
     step("Enable the PIM on all the interfaces of r1, r2, r3 and r4 routers")
@@ -2571,10 +2491,6 @@ def test_restart_pimd_process_p2(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to R1")
     step("Configure RP on r3 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2731,10 +2647,6 @@ def test_multiple_groups_same_RP_address_p2(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to r1")
     step("Configure RP on r2 (loopback interface) for the group range" "225.1.1.0/24")
@@ -3040,10 +2952,6 @@ def test_multiple_groups_different_RP_address_p2(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Delete existing RP configuration")
     input_dict = {
@@ -3612,10 +3520,6 @@ def test_shutdown_primary_path_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     # Steps to execute
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -3805,10 +3709,6 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
 
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
-
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
     step("r1: Delete the RP config")
@@ -3937,10 +3837,6 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (lo) for the group range" " 224.0.0.0/4")

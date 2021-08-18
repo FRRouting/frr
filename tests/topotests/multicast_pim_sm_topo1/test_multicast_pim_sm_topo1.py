@@ -232,41 +232,6 @@ def teardown_module():
 #####################################################
 
 
-def config_to_send_igmp_join_and_traffic(
-    tgen, topo, tc_name, iperf, iperf_intf, GROUP_RANGE, join=False, traffic=False
-):
-    """
-    API to do pre-configuration to send IGMP join and multicast
-    traffic
-
-    parameters:
-    -----------
-    * `tgen`: topogen object
-    * `topo`: input json data
-    * `tc_name`: caller test case name
-    * `iperf`: router running iperf
-    * `iperf_intf`: interface name router running iperf
-    * `GROUP_RANGE`: group range
-    * `join`: IGMP join, default False
-    * `traffic`: multicast traffic, default False
-    """
-
-    if join:
-        # Add route to kernal
-        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    if traffic:
-        # Add route to kernal
-        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        rnode = tgen.gears[iperf]
-        rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
-
-    return True
-
-
 def verify_state_incremented(state_before, state_after):
     """
     API to compare interface traffic state incrementing
@@ -467,20 +432,10 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     step("Start traffic first and then send the IGMP join")
 
     step("Send multicast traffic from FRR3 to 225.1.1.1 receiver")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     step("joinRx value before join sent")
     state_dict = {"r2": {"r2-l1-eth2": ["joinRx"]}}
     state_before = verify_pim_interface_traffic(tgen, state_dict)
@@ -594,20 +549,10 @@ def test_clear_pim_neighbors_and_mroute_p0(request):
         "Enable IGMP on FRR1 interface and send IGMP join 225.1.1.1 "
         "to 225.1.1.5 from different interfaces"
     )
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", GROUP_RANGE_1, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_join("i1", IGMP_JOIN_RANGE_1, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3, wait for SPT switchover")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE_1, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN_RANGE_1, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -697,20 +642,10 @@ def test_verify_mroute_when_same_receiver_in_FHR_LHR_and_RP_p0(request):
     input_join = {"i1": "i1-l1-eth0", "i8": "i8-f1-eth0", "i3": "i3-r2-eth0"}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, GROUP_RANGE, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
         result = app_helper.run_join(recvr, IGMP_JOIN, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from R3 to 225.1.1.1 receiver")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -789,11 +724,6 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
         "for group (226.1.1.1-5, 232.1.1.1-5)"
     )
 
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", _GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_join("i1", _IGMP_JOIN_RANGE, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
@@ -801,11 +731,6 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
         "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15} }}}}}
     }
     result = create_igmp_config(tgen, topo, input_dict)
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i8", "i8-f1-eth0", _GROUP_RANGE, join=True
-    )
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     result = app_helper.run_join("i8", _IGMP_JOIN_RANGE, "f1")
@@ -825,11 +750,6 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
     }
 
     for src, src_intf in input_traffic.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, _GROUP_RANGE, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
         result = app_helper.run_traffic(src, _IGMP_JOIN_RANGE, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -1105,20 +1025,10 @@ def test_verify_mroute_when_frr_is_transit_router_p2(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on FRR1 interface and send IGMP join " "(225.1.1.1-5) to FRR1")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", GROUP_RANGE_1, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_join("i1", IGMP_JOIN_RANGE_1, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to 225.1.1.1-5 receivers")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE_1, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN_RANGE_1, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -1220,20 +1130,10 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
 
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_join("i1", IGMP_JOIN, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to 225.1.1.1 receiver")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -1242,11 +1142,6 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
         "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15} }}}}}
     }
     result = create_igmp_config(tgen, topo, input_dict)
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i8", "i8-f1-eth0", GROUP_RANGE, join=True
-    )
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     result = app_helper.run_join("i8", IGMP_JOIN, "f1")
@@ -1323,11 +1218,6 @@ def test_modify_igmp_query_timer_p0(request):
     clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_join("i1", IGMP_JOIN, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
@@ -1352,11 +1242,6 @@ def test_modify_igmp_query_timer_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to 225.1.1.1 receiver")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -1462,11 +1347,6 @@ def test_modify_igmp_max_query_response_timer_p0(request):
     clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_join("i1", IGMP_JOIN, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
@@ -1512,11 +1392,6 @@ def test_modify_igmp_max_query_response_timer_p0(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to 225.1.1.1 receiver")
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     result = app_helper.run_traffic("i2", IGMP_JOIN, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
