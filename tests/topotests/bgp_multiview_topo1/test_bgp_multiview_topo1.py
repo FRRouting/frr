@@ -62,6 +62,7 @@ test_bgp_multiview_topo1.py: Simple FRR Route-Server Test
         ~~~~~~~~~~~~~
 """
 
+import json
 import os
 import re
 import sys
@@ -75,6 +76,7 @@ from functools import partial
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
 from lib.topogen import get_topogen, Topogen
+from lib.common_config import step
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -161,6 +163,7 @@ def test_bgp_converge():
         pytest.skip(tgen.errors)
 
     # Wait for BGP to converge  (All Neighbors in either Full or TwoWay State)
+    step("Verify for BGP to converge")
 
     timeout = 125
     while timeout > 0:
@@ -190,17 +193,6 @@ def test_bgp_converge():
         bgpStatus = tgen.net["r%s" % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
         assert False, "BGP did not converge:\n%s" % bgpStatus
 
-    # Wait for an extra 5s to announce all routes
-    print("Waiting 5s for routes to be announced")
-    sleep(5)
-
-    print("BGP converged.")
-
-    # if timeout < 60:
-    #     # Only wait if we actually went through a convergence
-    #     print("\nwaiting 15s for routes to populate")
-    #     sleep(15)
-
     tgen.routers_have_failure()
 
 
@@ -212,101 +204,22 @@ def test_bgp_routingTable():
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
 
-    print("\n\n** Verifying BGP Routing Tables")
-    print("******************************************\n")
-    diffresult = {}
-    for i in range(1, 2):
-        for view in range(1, 4):
-            success = 0
-            # This glob pattern should work as long as number of views < 10
-            for refTableFile in glob.glob(
-                "%s/r%s/show_ip_bgp_view_%s*.ref" % (thisDir, i, view)
-            ):
+    step("Verifying BGP Routing Tables")
 
-                if os.path.isfile(refTableFile):
-                    # Read expected result from file
-                    expected = open(refTableFile).read().rstrip()
-                    # Fix newlines (make them all the same)
-                    expected = ("\n".join(expected.splitlines()) + "\n").splitlines(1)
-
-                    # Actual output from router
-                    actual = (
-                        tgen.net["r%s" % i]
-                        .cmd('vtysh -c "show ip bgp view %s" 2> /dev/null' % view)
-                        .rstrip()
-                    )
-
-                    # Fix inconsitent spaces between 0.99.24 and newer versions
-                    actual = re.sub("0             0", "0              0", actual)
-                    actual = re.sub(
-                        r"([0-9])         32768", r"\1          32768", actual
-                    )
-                    # Remove summary line (changed recently)
-                    actual = re.sub(r"Total number.*", "", actual)
-                    actual = re.sub(r"Displayed.*", "", actual)
-                    actual = actual.rstrip()
-                    # Fix table version (ignore it)
-                    actual = re.sub(r"(BGP table version is )[0-9]+", r"\1XXX", actual)
-
-                    # Fix newlines (make them all the same)
-                    actual = ("\n".join(actual.splitlines()) + "\n").splitlines(1)
-
-                # Generate Diff
-                diff = topotest.get_textdiff(
-                    actual,
-                    expected,
-                    title1="actual BGP routing table",
-                    title2="expected BGP routing table",
-                )
-
-                if diff:
-                    diffresult[refTableFile] = diff
-                else:
-                    success = 1
-                    print("template %s matched: r%s ok" % (refTableFile, i))
-                    break
-
-            if not success:
-                resultstr = "No template matched.\n"
-                for f in diffresult.keys():
-                    resultstr += (
-                        "template %s: r%s failed Routing Table Check for view %s:\n%s\n"
-                        % (f, i, view, diffresult[f])
-                    )
-                raise AssertionError(
-                    "Routing Table verification failed for router r%s, view %s:\n%s"
-                    % (i, view, resultstr)
-                )
+    router = tgen.gears["r1"]
+    for view in range(1, 4):
+        json_file = "{}/{}/view_{}.json".format(thisDir, router.name, view)
+        expected = json.loads(open(json_file).read())
+        test_func = partial(
+            topotest.router_json_cmp, router, "show ip bgp view {} json".format(view), expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
+        assertmsg = "Routing Table verification failed for router {}, view {}".format(
+            router.name, view
+        )
+        assert result is None, assertmsg
 
     tgen.routers_have_failure()
-
-
-def test_shutdown_check_stderr():
-    tgen = get_topogen()
-
-    # Skip if previous fatal error condition is raised
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
-
-    if os.environ.get("TOPOTESTS_CHECK_STDERR") is None:
-        print(
-            "SKIPPED final check on StdErr output: Disabled (TOPOTESTS_CHECK_STDERR undefined)\n"
-        )
-        pytest.skip("Skipping test for Stderr output")
-
-    thisDir = os.path.dirname(os.path.realpath(__file__))
-
-    print("\n\n** Verifying unexpected STDERR output from daemons")
-    print("******************************************\n")
-
-    tgen.net["r1"].stopRouter()
-
-    log = tgen.net["r1"].getStdErr("bgpd")
-    if log:
-        print("\nBGPd StdErr Log:\n" + log)
-    log = tgen.net["r1"].getStdErr("zebra")
-    if log:
-        print("\nZebra StdErr Log:\n" + log)
 
 
 def test_shutdown_check_memleak():
