@@ -4,9 +4,9 @@ Status codes: s suppressed, d damped, h history, * valid, > best, = multipath,
 Origin codes: i - IGP, e - EGP, ? - incomplete
 
    Network          Next Hop            Metric LocPrf Weight Path
-*  10.0.1.0/24      172.16.1.8                             0 65008 i
-*                   172.16.1.7                             0 65007 i
-*>                  172.16.1.6                             0 65006 i
+*  10.0.1.0/24      172.16.1.8               8             0 65008 i
+*                   172.16.1.7               7             0 65007 i
+*>                  172.16.1.6               6             0 65006 i
 *> 10.106.0.0/24    172.16.1.6             100              0 65006 i
 *> 10.106.1.0/24    172.16.1.6             100              0 65006 i
 *> 10.106.2.0/24    172.16.1.6             100              0 65006 i

@@ -7,9 +7,9 @@ Origin codes:  i - IGP, e - EGP, ? - incomplete
 RPKI validation codes: V valid, I invalid, N Not found
 
    Network          Next Hop            Metric LocPrf Weight Path
-*  10.0.1.0/24      172.16.1.5                             0 65005 i
-*                   172.16.1.2                             0 65002 i
-*>                  172.16.1.1                             0 65001 i
+*  10.0.1.0/24      172.16.1.5               5             0 65005 i
+*                   172.16.1.2               2             0 65002 i
+*>                  172.16.1.1               1             0 65001 i
 *> 10.101.0.0/24    172.16.1.1             100              0 65001 i
 *> 10.101.1.0/24    172.16.1.1             100              0 65001 i
 *> 10.101.2.0/24    172.16.1.1             100              0 65001 i
