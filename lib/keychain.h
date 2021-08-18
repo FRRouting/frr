@@ -57,6 +57,8 @@ DECLARE_QOBJ_TYPE(key);
 
 extern void keychain_init(void);
 extern struct keychain *keychain_lookup(const char *);
+extern bool key_valid_for_accept(struct key *key, time_t now);
+extern bool key_valid_for_send(struct key *key, time_t now);
 extern struct key *key_lookup_for_accept(const struct keychain *, uint32_t);
 extern struct key *key_match_for_accept(const struct keychain *, const char *);
 extern struct key *key_lookup_for_send(const struct keychain *);

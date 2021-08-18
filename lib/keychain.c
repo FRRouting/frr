@@ -135,6 +135,30 @@ static struct key *key_lookup(const struct keychain *keychain, uint32_t index)
 	return NULL;
 }
 
+bool key_valid_for_accept(struct key *key, time_t now)
+{
+	if (key->accept.start == 0)
+		return true;
+
+	if (key->accept.start <= now
+	    && (key->accept.end >= now || key->accept.end == -1))
+		return true;
+
+	return false;
+}
+
+bool key_valid_for_send(struct key *key, time_t now)
+{
+	if (key->send.start == 0)
+		return true;
+
+	if (key->send.start <= now
+	    && (key->send.end >= now || key->send.end == -1))
+		return true;
+
+	return false;
+}
+
 struct key *key_lookup_for_accept(const struct keychain *keychain,
 				  uint32_t index)
 {
@@ -144,17 +168,10 @@ struct key *key_lookup_for_accept(const struct keychain *keychain,
 
 	now = time(NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->index >= index) {
-			if (key->accept.start == 0)
-				return key;
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key))
+		if (key->index >= index && key_valid_for_accept(key, now))
+			return key;
 
-			if (key->accept.start <= now)
-				if (key->accept.end >= now
-				    || key->accept.end == -1)
-					return key;
-		}
-	}
 	return NULL;
 }
 
@@ -167,13 +184,11 @@ struct key *key_match_for_accept(const struct keychain *keychain,
 
 	now = time(NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->accept.start == 0
-		    || (key->accept.start <= now
-			&& (key->accept.end >= now || key->accept.end == -1)))
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key))
+		if (key_valid_for_accept(key, now))
 			if (key->string && (strncmp(key->string, auth_str, 16) == 0))
 				return key;
-	}
+
 	return NULL;
 }
 
@@ -185,14 +200,10 @@ struct key *key_lookup_for_send(const struct keychain *keychain)
 
 	now = time(NULL);
 
-	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key)) {
-		if (key->send.start == 0)
+	for (ALL_LIST_ELEMENTS_RO(keychain->key, node, key))
+		if (key_valid_for_send(key, now))
 			return key;
 
-		if (key->send.start <= now)
-			if (key->send.end >= now || key->send.end == -1)
-				return key;
-	}
 	return NULL;
 }
 
