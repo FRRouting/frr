@@ -267,6 +267,8 @@ static void ospf_process_self_originated_lsa(struct ospf *ospf,
 
 				ospf_external_lsa_refresh(ospf, new, &ei_aggr,
 						  LSA_REFRESH_FORCE, true);
+				SET_FLAG(aggr->flags,
+					 OSPF_EXTERNAL_AGGRT_ORIGINATED);
 			} else
 				ospf_lsa_flush_as(ospf, new);
 		}
