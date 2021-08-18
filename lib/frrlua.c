@@ -223,6 +223,21 @@ void *lua_toin6addr(lua_State *L, int idx)
 	return in6addr;
 }
 
+void lua_pushipaddr(lua_State *L, const struct ipaddr *addr)
+{
+	if (IS_IPADDR_V4(addr))
+		lua_pushinaddr(L, &addr->ipaddr_v4);
+	else
+		lua_pushin6addr(L, &addr->ipaddr_v6);
+}
+
+void lua_pushethaddr(lua_State *L, const struct ethaddr *addr)
+{
+	lua_newtable(L);
+	lua_pushinteger(L, *(addr->octet));
+	lua_setfield(L, -2, "octet");
+}
+
 void lua_pushsockunion(lua_State *L, const union sockunion *su)
 {
 	char buf[SU_ADDRSTRLEN];

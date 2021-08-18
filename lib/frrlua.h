@@ -100,6 +100,10 @@ void lua_pushin6addr(lua_State *L, const struct in6_addr *addr);
 
 void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *addr);
 
+void lua_pushipaddr(lua_State *L, const struct ipaddr *addr);
+
+void lua_pushethaddr(lua_State *L, const struct ethaddr *addr);
+
 /*
  * Converts the Lua value at idx to an in6_addr.
  *
