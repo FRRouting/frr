@@ -1307,9 +1307,9 @@ void ospf6_asbr_remove_externals_from_area(struct ospf6_area *oa)
 	struct ospf6 *ospf6 = oa->ospf6;
 	const struct route_node *iterend;
 
-	/* skip if router is in other non-stub areas */
+	/* skip if router is in other non-stub/non-NSSA areas */
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area))
-		if (!IS_AREA_STUB(area))
+		if (!IS_AREA_STUB(area) && !IS_AREA_NSSA(area))
 			return;
 
 	/* if router is only in a stub area then purge AS-External LSAs */
