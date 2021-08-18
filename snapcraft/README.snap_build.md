@@ -1,7 +1,6 @@
 Building your own FRRouting Snap
 ========================================
-(Tested on Ubuntu 16.04 with Snap Version 2, does not work on Ubuntu 15.x
-which uses earlier versions of snaps)
+(Tested on Ubuntu 18.04)
 
 1. Install snapcraft:
 
@@ -100,6 +99,7 @@ All the commands are prefixed with frr.
     frr.staticd-debug
     frr.bfdd-debug
     frr.fabricd-debug
+    frr.pathd-debug
 
 vtysh can be accessed as frr.vtysh (Make sure you have /snap/bin in your
 path). If access as `vtysh` instead of `frr.vtysh` is needed, you can enable it

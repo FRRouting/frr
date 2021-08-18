@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e -x
+
+if ! [ -e $SNAP_DATA/pathd.conf ]; then
+    cp $SNAP/etc/frr/pathd.conf.default $SNAP_DATA/pathd.conf
+fi
+exec $SNAP/sbin/pathd \
+    -f $SNAP_DATA/pathd.conf \
+    --pid_file $SNAP_DATA/pathd.pid \
+    --socket $SNAP_DATA/zsock \
+    --vty_socket $SNAP_DATA
+
