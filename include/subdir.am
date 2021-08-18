@@ -16,4 +16,5 @@ noinst_HEADERS += \
 	include/linux/seg6_hmac.h \
 	include/linux/seg6_iptunnel.h \
 	include/linux/seg6_local.h \
+	include/linux/tcp_authopt.h \
 	# end
