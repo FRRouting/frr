@@ -39,6 +39,7 @@
 #include "nexthop_group_private.h"
 #include "frr_pthread.h"
 #include "printfrr.h"
+#include "frrscript.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -57,6 +58,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_script.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
@@ -4134,7 +4136,31 @@ static int rib_process_dplane_results(struct thread *thread)
 			continue;
 		}
 
+#ifdef HAVE_SCRIPTING
+		char *script_name = frrscript_names_get_script_name(
+			ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
+
+		int ret = 1;
+		struct frrscript *fs;
+
+		if (script_name) {
+			fs = frrscript_new(script_name);
+			if (fs)
+				ret = frrscript_load(
+					fs, ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					NULL);
+		}
+#endif /* HAVE_SCRIPTING */
+
 		while (ctx) {
+
+#ifdef HAVE_SCRIPTING
+			if (ret == 0)
+				frrscript_call(fs,
+					       ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					       ("ctx", ctx));
+#endif /* HAVE_SCRIPTING */
+
 			switch (dplane_ctx_get_op(ctx)) {
 			case DPLANE_OP_ROUTE_INSTALL:
 			case DPLANE_OP_ROUTE_UPDATE:
