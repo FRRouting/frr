@@ -1238,8 +1238,6 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("Normal area %s", area->name);
 		ospf6_nssa_flush_area(area);
-		ospf6_area_disable(area);
-		ospf6_area_delete(area);
 	}
 }
 
