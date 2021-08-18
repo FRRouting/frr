@@ -524,6 +524,82 @@ def check_vrf_peer_change_passwords(vrf="", prefix="no"):
     check_all_peers_established(vrf)
 
 
+def test_tcp_authopt_keychain():
+    tgen = get_topogen()
+    r1 = tgen.gears["R1"]
+    r2 = tgen.gears["R2"]
+    r3 = tgen.gears["R3"]
+    out = r1.vtysh_cmd("""
+        configure terminal
+        key chain aaa
+            key 1
+                key-string aaa
+                tcp-authopt enabled
+                tcp-authopt algorithm hmac-sha-1-96
+                tcp-authopt send-id 1
+                tcp-authopt recv-id 2
+            !
+        !
+        router bgp 65001
+            no neighbor 2.2.2.2 password
+            neighbor 2.2.2.2 tcp-authopt aaa
+        !
+""")
+    logger.info("config msg:\n%s", out)
+    out = r1.vtysh_cmd("show running-config")
+    logger.info("new R1 config:\n%s", out)
+    assert "key chain aaa" in out
+    assert "key 1" in out
+    assert "tcp-authopt enabled" in out
+    assert "tcp-authopt send-id 1" in out
+    assert "neighbor 2.2.2.2 tcp-authopt aaa" in out
+
+    # configure R2:
+    r2.vtysh_cmd("""
+        configure terminal
+        key chain aaa
+            key 1
+                key-string aaa
+                tcp-authopt enabled
+                tcp-authopt algorithm hmac-sha-1-96
+                tcp-authopt send-id 2
+                tcp-authopt recv-id 1
+            !
+        !
+        router bgp 65002
+            no neighbor 1.1.1.1 password
+            neighbor 1.1.1.1 tcp-authopt aaa
+        !
+""")
+    out = r2.vtysh_cmd("show running-config")
+    logger.info("new R2 config:\n%s", out)
+    assert "neighbor 1.1.1.1 tcp-authopt aaa" in out
+
+    # wait connections established
+    check_neigh_state(r1, "2.2.2.2", "Established")
+    check_neigh_state(r2, "1.1.1.1", "Established")
+
+    # Check keyids in json output
+    assert router_bgp_tcp_authopt_cmp(r1, "2.2.2.2", dict(send_keyid=1, recv_keyid=2))
+    assert router_bgp_tcp_authopt_cmp(r2, "1.1.1.1", dict(send_keyid=1, recv_keyid=2))
+
+    # Check keyids in plain text output
+    out = r1.vtysh_cmd("show bgp neighbor 2.2.2.2")
+    logger.info("r1 peer r2:\n%s", out)
+    assert " keyid 1 " in out
+    assert " recv_keyid 2 " in out
+    out = r2.vtysh_cmd("show bgp neighbor 1.1.1.1")
+    logger.info("r2 peer r1:\n%s", out)
+    assert " keyid 2 " in out
+    assert " recv_keyid 1 " in out
+
+
+def router_bgp_tcp_authopt_cmp(router, peer, tcp_authopt_data):
+    cmd = "show bgp neighbor {} json".format(peer)
+    data = dict(peer=dict(tcp_authopt=tcp_authopt_data))
+    return topotest.router_json_cmp(router, cmd, data)
+
+
 def test_default_peer_established():
     "default vrf 3 peers same password"
 
