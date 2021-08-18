@@ -322,6 +322,7 @@ parts:
            - bison
            - flex
            - python3-dev
+           - libprotobuf-c-dev
            - protobuf-c-compiler
            - python3-sphinx
         stage-packages:
