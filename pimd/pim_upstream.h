@@ -24,7 +24,7 @@
 #include <prefix.h>
 #include "plist.h"
 
-#include <pimd/pim_rpf.h>
+#include "pim_rpf.h"
 #include "pim_str.h"
 #include "pim_ifchannel.h"
 

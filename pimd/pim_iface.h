@@ -30,6 +30,7 @@
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
+#include "pim_instance.h"
 #include "bfd.h"
 
 #define PIM_IF_MASK_PIM                             (1 << 0)

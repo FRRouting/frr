@@ -23,6 +23,8 @@
 #include <zebra.h>
 #include "if.h"
 
+#include "pim_igmp.h"
+
 #define IGMP_V3_CHECKSUM_OFFSET            (2)
 #define IGMP_V3_REPORT_NUMGROUPS_OFFSET    (6)
 #define IGMP_V3_REPORT_GROUPPRECORD_OFFSET (8)
