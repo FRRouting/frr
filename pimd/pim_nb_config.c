@@ -2163,6 +2163,55 @@ int lib_interface_pim_address_family_hello_holdtime_destroy(
 
 	return NB_OK;
 }
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/neighbor-filter-prefix-list
+ */
+int lib_interface_pim_address_family_nbr_plist_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+	const char *plist;
+
+	plist = yang_dnode_get_string(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+
+		XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
+		pim_ifp->nbr_plist = XSTRDUP(MTYPE_PIM_PLIST_NAME, plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_address_family_nbr_plist_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		XFREE(MTYPE_PIM_PLIST_NAME, pim_ifp->nbr_plist);
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd
  */
