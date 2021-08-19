@@ -32,6 +32,38 @@ extern unsigned char conf_debug_ospf6_neighbor;
 #define IS_OSPF6_DEBUG_NEIGHBOR(level)                                         \
 	(conf_debug_ospf6_neighbor & OSPF6_DEBUG_NEIGHBOR_##level)
 
+struct ospf6_helper_info {
+
+	/* Grace interval received from
+	 * Restarting Router.
+	 */
+	uint32_t recvd_grace_period;
+
+	/* Grace interval used for grace
+	 * gracetimer.
+	 */
+	uint32_t actual_grace_period;
+
+	/* Grace timer,This Router acts as
+	 * helper until this timer until
+	 * this timer expires.
+	 */
+	struct thread *t_grace_timer;
+
+	/* Helper status */
+	uint32_t gr_helper_status;
+
+	/* Helper exit reason*/
+	uint32_t helper_exit_reason;
+
+	/* Planned/Unplanned restart*/
+	uint32_t gr_restart_reason;
+
+
+	/* Helper rejected reason */
+	uint32_t rejected_reason;
+};
+
 /* Neighbor structure */
 struct ospf6_neighbor {
 	/* Neighbor Router ID String */
@@ -104,6 +136,9 @@ struct ospf6_neighbor {
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
+
+	/* ospf6 graceful restart HELPER info */
+	struct ospf6_helper_info gr_helper_info;
 };
 
 /* Neighbor state */
