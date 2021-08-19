@@ -131,6 +131,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->gm_group_limit = UINT32_MAX;
 	pim_ifp->gm_source_limit = UINT32_MAX;
 	pim_ifp->periodic_jp_sec = -1;
+	pim_ifp->assert_msec = PIM_ASSERT_TIME;
+	pim_ifp->assert_override_msec = -1;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
