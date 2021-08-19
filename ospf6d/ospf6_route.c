@@ -667,6 +667,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
 		ospf6_linkstate_prefix2str(&route->prefix, buf, sizeof(buf));
+	else if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+			  sizeof(buf));
 	else
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
@@ -899,6 +902,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 
 	if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
 		ospf6_linkstate_prefix2str(&route->prefix, buf, sizeof(buf));
+	else if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+			  sizeof(buf));
 	else
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
