@@ -130,6 +130,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool gm, bool pim,
 	pim_ifp->gm_last_member_query_count = GM_DEFAULT_ROBUSTNESS_VARIABLE;
 	pim_ifp->gm_group_limit = UINT32_MAX;
 	pim_ifp->gm_source_limit = UINT32_MAX;
+	pim_ifp->periodic_jp_sec = -1;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
@@ -1148,6 +1149,19 @@ uint16_t pim_if_jp_override_interval_msec(struct interface *ifp)
 	       + pim_if_effective_override_interval_msec(ifp);
 }
 
+int pim_if_jp_period(const struct pim_interface *pim_interface)
+{
+	if (pim_interface->periodic_jp_sec != -1)
+		return pim_interface->periodic_jp_sec;
+
+	return router->t_periodic;
+}
+
+int pim_if_jp_hold(const struct pim_interface *pim_interface)
+{
+	return pim_if_jp_period(pim_interface) * 7 / 2;
+}
+
 /*
   RFC 4601: 4.1.6.  State Summarization Macros
 
@@ -1210,7 +1224,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 
 	/* t_suppressed = t_periodic * rand(1.1, 1.4) */
 	ramount = 1100 + (frr_weak_random() % (1400 - 1100 + 1));
-	t_suppressed_msec = (long)(router->t_periodic) * ramount;
+	t_suppressed_msec = pim_if_jp_period(pim_ifp) * ramount;
 
 	return t_suppressed_msec;
 }

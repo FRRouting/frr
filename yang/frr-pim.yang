@@ -561,6 +561,14 @@ module frr-pim {
         "Prefix-List to filter allowed PIM neighbors.";
     }
 
+    leaf join-prune-interval {
+      type uint16 {
+        range "5..600";
+      }
+      description
+        "Join Prune Send Interval in seconds (defaults to global value).";
+    }
+
     container bfd {
       presence
         "Enable BFD support on the interface.";
