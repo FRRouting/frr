@@ -3938,7 +3938,7 @@ int zebra_vxlan_check_readd_vtep(struct interface *ifp,
 	struct zebra_l2info_vxlan *vxl;
 	vni_t vni;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_vtep_t *zvtep = NULL;
+	struct zebra_vtep *zvtep = NULL;
 
 	zif = ifp->info;
 	assert(zif);
@@ -4271,7 +4271,7 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 				 struct in_addr vtep_ip)
 {
 	struct zebra_evpn *zevpn;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 	struct interface *ifp;
 	struct zebra_if *zif;
 	struct zebra_vrf *zvrf;
@@ -4337,7 +4337,7 @@ void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 	struct zebra_evpn *zevpn;
 	struct interface *ifp;
 	struct zebra_if *zif;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 	struct zebra_vrf *zvrf;
 
 	if (!is_evpn_enabled()) {
