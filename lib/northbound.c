@@ -741,6 +741,16 @@ int nb_candidate_edit(struct nb_config *candidate,
 	return NB_OK;
 }
 
+static bool nb_is_operation_allowed(struct nb_node *nb_node, struct nb_cfg_change *change)
+{
+	enum nb_operation oper = change->operation;
+	if(lysc_is_key(nb_node->snode)) {
+		if (oper == NB_OP_MODIFY || oper == NB_OP_DESTROY)
+			return false;
+	}
+	return true;
+}
+
 void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 				      struct nb_cfg_change cfg_changes[],
 				      size_t num_cfg_changes,
@@ -786,6 +796,13 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 				  "%s: unknown data path: %s", __func__, xpath);
 			*error = true;
 			continue;
+		}
+		/* Find if the node to be edited is not a key node */
+		if (!nb_is_operation_allowed(nb_node, change))
+		{
+			zlog_err(" Xpath %s points to key node", xpath);
+			*error = true;
+			break;
 		}
 
 		/* If the value is not set, get the default if it exists. */
