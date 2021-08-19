@@ -1055,7 +1055,7 @@ struct fpm_rmac_arg {
 static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
-	zebra_mac_t *zrmac = bucket->data;
+	struct zebra_mac *zrmac = bucket->data;
 	struct zebra_if *zif = fra->zl3vni->vxlan_if->info;
 	const struct zebra_l2info_vxlan *vxl = &zif->l2info.vxl;
 	struct zebra_if *br_zif;
@@ -1190,7 +1190,7 @@ static int fpm_rib_reset(struct thread *t)
  */
 static void fpm_unset_rmac_table(struct hash_bucket *bucket, void *arg)
 {
-	zebra_mac_t *zrmac = bucket->data;
+	struct zebra_mac *zrmac = bucket->data;
 
 	UNSET_FLAG(zrmac->flags, ZEBRA_MAC_FPM_SENT);
 }

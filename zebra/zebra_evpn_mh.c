@@ -1183,7 +1183,7 @@ bool zebra_evpn_nhg_is_local_es(uint32_t nhg_id,
 /* update remote macs associated with the ES */
 static void zebra_evpn_nhg_mac_update(struct zebra_evpn_es *es)
 {
-	zebra_mac_t *mac;
+	struct zebra_mac *mac;
 	struct listnode *node;
 	bool local_via_nw;
 
@@ -1995,7 +1995,8 @@ static void zebra_evpn_es_setup_evis(struct zebra_evpn_es *es)
 	}
 }
 
-static void zebra_evpn_flush_local_mac(zebra_mac_t *mac, struct interface *ifp)
+static void zebra_evpn_flush_local_mac(struct zebra_mac *mac,
+				       struct interface *ifp)
 {
 	struct zebra_if *zif;
 	struct interface *br_ifp;
@@ -2022,7 +2023,7 @@ static void zebra_evpn_flush_local_mac(zebra_mac_t *mac, struct interface *ifp)
 static void zebra_evpn_es_flush_local_macs(struct zebra_evpn_es *es,
 					   struct interface *ifp, bool add)
 {
-	zebra_mac_t *mac;
+	struct zebra_mac *mac;
 	struct listnode	*node;
 	struct listnode *nnode;
 
@@ -2508,7 +2509,7 @@ stream_failure:
 	return;
 }
 
-void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac)
+void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac)
 {
 	struct zebra_evpn_es *es = mac->es;
 
@@ -2524,7 +2525,8 @@ void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac)
 /* Associate a MAC entry with a local or remote ES. Returns false if there
  * was no ES change.
  */
-bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac, struct zebra_evpn_es *es)
+bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
+				 struct zebra_evpn_es *es)
 {
 	if (mac->es == es)
 		return false;
@@ -2542,7 +2544,7 @@ bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac, struct zebra_evpn_es *es)
 	return true;
 }
 
-bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, const esi_t *esi)
+bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi)
 {
 	struct zebra_evpn_es *es;
 
@@ -2681,7 +2683,7 @@ static void zebra_evpn_es_df_pref_update(struct zebra_if *zif, uint16_t df_pref)
 static void zebra_evpn_es_bypass_update_macs(struct zebra_evpn_es *es,
 					     struct interface *ifp, bool bypass)
 {
-	zebra_mac_t *mac;
+	struct zebra_mac *mac;
 	struct listnode *node;
 	struct listnode *nnode;
 	struct zebra_if *zif;
@@ -2856,7 +2858,7 @@ void zebra_evpn_if_es_print(struct vty *vty, json_object *json,
 
 static void zebra_evpn_local_mac_oper_state_change(struct zebra_evpn_es *es)
 {
-	zebra_mac_t *mac;
+	struct zebra_mac *mac;
 	struct listnode *node;
 
 	/* If fast-failover is supported by the dataplane via the use

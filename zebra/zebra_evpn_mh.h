@@ -272,7 +272,7 @@ static inline bool zebra_evpn_send_to_client_ok(struct zebra_evpn *zevpn)
 	return !!(zevpn->flags & ZEVPN_READY_FOR_BGP);
 }
 
-static inline bool zebra_evpn_mac_is_es_local(zebra_mac_t *mac)
+static inline bool zebra_evpn_mac_is_es_local(struct zebra_mac *mac)
 {
 	return mac->es && (mac->es->flags & ZEBRA_EVPNES_LOCAL);
 }
@@ -336,10 +336,10 @@ int zebra_evpn_remote_es_del(const esi_t *esi, struct in_addr vtep_ip);
 extern void zebra_evpn_es_evi_show(struct vty *vty, bool uj, int detail);
 extern void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj,
 		vni_t vni, int detail);
-extern void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac);
-extern bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac,
+extern void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac);
+extern bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
 					struct zebra_evpn_es *es);
-extern bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, const esi_t *esi);
+extern bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
 extern void zebra_evpn_interface_init(void);
 extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
