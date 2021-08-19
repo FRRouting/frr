@@ -28,6 +28,7 @@
 #include "pimd.h"
 #include "pim_iface.h"
 #include "pim_instance.h"
+#include "pim_neighbor.h"
 #include "pim_rpf.h"
 #include "pim_hello.h"
 #include "pim_pim.h"

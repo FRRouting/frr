@@ -25,6 +25,8 @@
 #include "if.h"
 #include "prefix.h"
 
+#include "pim_assert.h"
+
 struct pim_ifchannel;
 #include "pim_upstream.h"
 
@@ -37,20 +39,6 @@ enum pim_ifjoin_state {
 	PIM_IFJOIN_PRUNE_PENDING,
 	PIM_IFJOIN_PRUNE_TMP,
 	PIM_IFJOIN_PRUNE_PENDING_TMP,
-};
-
-enum pim_ifassert_state {
-	PIM_IFASSERT_NOINFO,
-	PIM_IFASSERT_I_AM_WINNER,
-	PIM_IFASSERT_I_AM_LOSER
-};
-
-struct pim_assert_metric {
-	uint32_t rpt_bit_flag;
-	uint32_t metric_preference;
-	uint32_t route_metric;
-	struct in_addr ip_address; /* neighbor router that sourced the Assert
-				      message */
 };
 
 /*

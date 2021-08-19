@@ -22,9 +22,6 @@
 
 #include <zebra.h>
 
-#include "pim_upstream.h"
-#include "pim_neighbor.h"
-
 /*
   RFC 4601:
 

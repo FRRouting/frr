@@ -23,6 +23,7 @@
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
 #include "pim_igmpv3.h"
+#include "pim_neighbor.h"
 #include "pim_pim.h"
 #include "pim_mlag.h"
 #include "pim_bfd.h"
