@@ -102,6 +102,6 @@ extern int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
 extern int cmgd_frntnd_send_data_notify(
         cmgd_database_id_t db_id, cmgd_yang_data_t *data_resp[], int num_data);
 
-extern void cmgd_frntnd_adapter_status_write(struct vty *vty);
+extern void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail);
 
 #endif /* _FRR_CMGD_FRNTND_ADAPTER_H_ */

@@ -264,6 +264,7 @@ extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
 
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
+unsigned long timeval_elapsed(struct timeval a, struct timeval b);
 
 #ifdef __cplusplus
 }

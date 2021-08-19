@@ -179,7 +179,20 @@ DEFPY(show_cmgd_frntnd_adapter,
 	CMGD_FRNTND_ADPTR_STR
 	"Display all Frontend Adapters\n")
 {
-	cmgd_frntnd_adapter_status_write(vty);
+	cmgd_frntnd_adapter_status_write(vty, false);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_cmgd_frntnd_adapter_detail,
+	show_cmgd_frntnd_adapter_detail_cmd,
+	"show cmgd frontend-adapter all detail",
+	SHOW_STR
+	CMGD_STR
+	CMGD_FRNTND_ADPTR_STR
+	"Display all Frontend Adapters\n")
+{
+	cmgd_frntnd_adapter_status_write(vty, true);
 
 	return CMD_SUCCESS;
 }
@@ -451,6 +464,7 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_bcknd_xpath_reg_cmd);
 	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_cmd);
+	install_element(VIEW_NODE, &show_cmgd_frntnd_adapter_detail_cmd);
 	install_element(VIEW_NODE, &show_cmgd_trxn_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_all_cmd);
 	install_element(VIEW_NODE, &show_cmgd_db_runn_cmd);
