@@ -1803,6 +1803,34 @@ DEFPY (interface_no_ipv6_mld_last_member_query_interval,
 	return gm_process_no_last_member_query_interval_cmd(vty);
 }
 
+DEFPY_YANG(interface_ipv6_pim_neighbor_prefix_list,
+           interface_ipv6_pim_neighbor_prefix_list_cmd,
+           "[no] ipv6 pim allowed-neighbors prefix-list PREFIXLIST6_NAME$prefix_list",
+           NO_STR
+           IP_STR
+           PIM_STR
+           "Restrict allowed PIM neighbors\n"
+           "Use prefix-list to filter neighbors\n"
+           "Name of a prefix-list\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_MODIFY,
+				      prefix_list);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS(interface_ipv6_pim_neighbor_prefix_list,
+      interface_no_ipv6_pim_neighbor_prefix_list_cmd,
+      "no ipv6 pim allowed-neighbors [prefix-list]",
+      NO_STR
+      IP_STR
+      PIM_STR
+      "Restrict allowed PIM neighbors\n"
+      "Use prefix-list to filter neighbors\n")
+
 DEFPY (show_ipv6_pim_rp,
        show_ipv6_pim_rp_cmd,
        "show ipv6 pim [vrf NAME] rp-info [X:X::X:X/M$group] [json$json]",
@@ -2973,6 +3001,8 @@ void pim_cmd_init(void)
 			&interface_ipv6_mld_last_member_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_last_member_query_interval_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_pim_neighbor_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_pim_neighbor_prefix_list_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_vrf_all_cmd);

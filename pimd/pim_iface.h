@@ -121,6 +121,7 @@ struct pim_interface {
 	uint32_t pim_generation_id;
 	uint16_t pim_propagation_delay_msec; /* config */
 	uint16_t pim_override_interval_msec; /* config */
+	char *nbr_plist;
 	struct list *pim_neighbor_list;      /* list of struct pim_neighbor */
 	struct list *upstream_switch_list;
 	struct pim_ifchannel_rb ifchannel_rb;

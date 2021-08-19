@@ -6035,6 +6035,34 @@ DEFPY (interface_ip_igmp_proxy,
 }
 
 
+DEFPY_YANG(interface_ip_pim_neighbor_prefix_list,
+           interface_ip_pim_neighbor_prefix_list_cmd,
+           "[no] ip pim allowed-neighbors prefix-list WORD",
+           NO_STR
+           IP_STR
+           "pim multicast routing\n"
+           "Restrict allowed PIM neighbors\n"
+           "Use prefix-list to filter neighbors\n"
+           "Name of a prefix-list\n")
+{
+	if (no)
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_DESTROY, NULL);
+	else
+		nb_cli_enqueue_change(vty, "./neighbor-filter-prefix-list", NB_OP_MODIFY,
+				      prefix_list);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH, FRR_PIM_AF_XPATH_VAL);
+}
+
+ALIAS (interface_ip_pim_neighbor_prefix_list,
+       interface_no_ip_pim_neighbor_prefix_list_cmd,
+       "no ip pim allowed-neighbors [prefix-list]",
+       NO_STR
+       IP_STR
+       "pim multicast routing\n"
+       "Restrict allowed PIM neighbors\n"
+       "Use prefix-list to filter neighbors\n")
+
 DEFUN (debug_igmp,
        debug_igmp_cmd,
        "debug igmp",
@@ -9169,6 +9197,8 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ip_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_pim_boundary_acl_cmd);
 	install_element(INTERFACE_NODE, &interface_ip_igmp_query_generate_cmd);
+	install_element(INTERFACE_NODE, &interface_ip_pim_neighbor_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ip_pim_neighbor_prefix_list_cmd);
 
 	// Static mroutes NEB
 	install_element(INTERFACE_NODE, &interface_ip_mroute_cmd);
