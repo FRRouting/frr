@@ -165,6 +165,16 @@ struct cmgd {
 
 extern struct cmgd_master *cm;
 
+/* Inline functions */
+static inline void cmgd_remove_trailing_separator(char *str, char sep)
+{
+	size_t len;
+	
+	len = strlen(str);
+	if (len && str[len - 1] == sep)
+		str[len - 1] = '\0';
+}
+
 /* Prototypes. */
 extern void cmgd_terminate(void);
 extern void cmgd_reset(void);

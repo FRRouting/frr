@@ -41,9 +41,6 @@
 #define FOREACH_CMGD_DB_ID(id)			                \
 	for ((id) = CMGD_DB_NONE; (id) < CMGD_DB_MAX_ID; (id)++)
 
-#define remove_slash_at_the_end(str)					\
-	if (str[strlen(str) - 1] == '/') str[strlen(str) - 1] = '\0'
-
 typedef uintptr_t cmgd_db_hndl_t;
 
 typedef void (*cmgd_db_node_iter_fn)(cmgd_db_hndl_t db_hndl, 
