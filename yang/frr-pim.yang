@@ -569,6 +569,26 @@ module frr-pim {
         "Join Prune Send Interval in seconds (defaults to global value).";
     }
 
+    leaf assert-interval {
+      type uint32 {
+        range "1000..86400000";
+      }
+      default "180000";
+      description
+        "Assert interval in milliseconds. (defaults to 180s)";
+    }
+
+    leaf assert-override-interval {
+      type uint32 {
+        range "1000..86400000";
+      }
+      must ". < ./../assert-interval - 100" {
+        error-message "Assert override interval must be at least 0.1s smaller than assert interval.";
+      }
+      description
+        "Assert override interval in milliseconds. (calculated from assert interval by default)";
+    }
+
     container bfd {
       presence
         "Enable BFD support on the interface.";
