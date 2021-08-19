@@ -38,8 +38,6 @@
 extern "C" {
 #endif
 
-typedef struct zebra_vtep_t_ zebra_vtep_t;
-
 RB_HEAD(zebra_es_evi_rb_head, zebra_evpn_es_evi);
 RB_PROTOTYPE(zebra_es_evi_rb_head, zebra_evpn_es_evi, rb_node,
 	     zebra_es_evi_rb_cmp);
@@ -57,7 +55,7 @@ struct zebra_evpn_show {
  *
  * Right now, this just has each remote VTEP's IP address.
  */
-struct zebra_vtep_t_ {
+struct zebra_vtep {
 	/* Remote IP. */
 	/* NOTE: Can only be IPv4 right now. */
 	struct in_addr vtep_ip;
@@ -67,8 +65,8 @@ struct zebra_vtep_t_ {
 	int flood_control;
 
 	/* Links. */
-	struct zebra_vtep_t_ *next;
-	struct zebra_vtep_t_ *prev;
+	struct zebra_vtep *next;
+	struct zebra_vtep *prev;
 };
 
 /*
@@ -101,7 +99,7 @@ struct zebra_evpn {
 	struct interface *svi_if;
 
 	/* List of remote VTEPs */
-	zebra_vtep_t *vteps;
+	struct zebra_vtep *vteps;
 
 	/* Local IP */
 	struct in_addr local_vtep_ip;
@@ -194,13 +192,14 @@ struct zebra_evpn *zebra_evpn_add(vni_t vni);
 int zebra_evpn_del(struct zebra_evpn *zevpn);
 int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn);
 int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn);
-zebra_vtep_t *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
-				   struct in_addr *vtep_ip);
-zebra_vtep_t *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
-				  struct in_addr *vtep_ip, int flood_control);
-int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, zebra_vtep_t *zvtep);
+struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
+					struct in_addr *vtep_ip);
+struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
+				       struct in_addr *vtep_ip,
+				       int flood_control);
+int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
 int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall);
-int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, zebra_vtep_t *zvtep);
+int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep);
 int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn,
 			      struct in_addr *vtep_ip);
 void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket,

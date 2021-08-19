@@ -102,7 +102,7 @@ int advertise_svi_macip_enabled(struct zebra_evpn *zevpn)
 void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 {
 	struct vty *vty;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 	uint32_t num_macs;
 	uint32_t num_neigh;
 	json_object *json = NULL;
@@ -218,7 +218,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 {
 	struct vty *vty;
 	struct zebra_evpn *zevpn;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 	uint32_t num_vteps = 0;
 	uint32_t num_macs = 0;
 	uint32_t num_neigh = 0;
@@ -1171,7 +1171,8 @@ int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn)
 /*
  * See if remote VTEP matches with prefix.
  */
-static int zebra_evpn_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep)
+static int zebra_evpn_vtep_match(struct in_addr *vtep_ip,
+				 struct zebra_vtep *zvtep)
 {
 	return (IPV4_ADDR_SAME(vtep_ip, &zvtep->vtep_ip));
 }
@@ -1179,10 +1180,10 @@ static int zebra_evpn_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep)
 /*
  * Locate remote VTEP in EVPN hash table.
  */
-zebra_vtep_t *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
-				   struct in_addr *vtep_ip)
+struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
+					struct in_addr *vtep_ip)
 {
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 
 	if (!zevpn)
 		return NULL;
@@ -1198,13 +1199,14 @@ zebra_vtep_t *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
 /*
  * Add remote VTEP to EVPN hash table.
  */
-zebra_vtep_t *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
-				  struct in_addr *vtep_ip, int flood_control)
+struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
+				       struct in_addr *vtep_ip,
+				       int flood_control)
 
 {
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 
-	zvtep = XCALLOC(MTYPE_ZEVPN_VTEP, sizeof(zebra_vtep_t));
+	zvtep = XCALLOC(MTYPE_ZEVPN_VTEP, sizeof(struct zebra_vtep));
 
 	zvtep->vtep_ip = *vtep_ip;
 	zvtep->flood_control = flood_control;
@@ -1220,7 +1222,7 @@ zebra_vtep_t *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
 /*
  * Remove remote VTEP from EVPN hash table.
  */
-int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, zebra_vtep_t *zvtep)
+int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
 	if (zvtep->next)
 		zvtep->next->prev = zvtep->prev;
@@ -1241,7 +1243,7 @@ int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, zebra_vtep_t *zvtep)
  */
 int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall)
 {
-	zebra_vtep_t *zvtep, *zvtep_next;
+	struct zebra_vtep *zvtep, *zvtep_next;
 
 	if (!zevpn)
 		return -1;
@@ -1260,7 +1262,7 @@ int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall)
  * Install remote VTEP into the kernel if the remote VTEP has asked
  * for head-end-replication.
  */
-int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, zebra_vtep_t *zvtep)
+int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
 	if (is_vxlan_flooding_head_end() &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
@@ -1299,7 +1301,7 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket,
 					     void *zvrf)
 {
 	struct zebra_evpn *zevpn;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 
 	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn)
@@ -1391,7 +1393,7 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 			      struct in_addr vtep_ip, const esi_t *esi)
 {
 	struct zebra_evpn *zevpn;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 	zebra_mac_t *mac = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
