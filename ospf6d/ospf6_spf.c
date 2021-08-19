@@ -1250,12 +1250,9 @@ static int ospf6_ase_calculate_timer(struct thread *t)
 				zlog_debug("%s : looking at area %s", __func__,
 					   area->name);
 
-			if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-				type = htons(OSPF6_LSTYPE_TYPE_7);
-				for (ALL_LSDB_TYPED(area->lsdb, type, lsa))
-					ospf6_ase_calculate_route(ospf6, lsa,
-								  area);
-			}
+			type = htons(OSPF6_LSTYPE_TYPE_7);
+			for (ALL_LSDB_TYPED(area->lsdb, type, lsa))
+				ospf6_ase_calculate_route(ospf6, lsa, area);
 		}
 	}
 	return 0;
