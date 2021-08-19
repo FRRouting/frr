@@ -132,6 +132,8 @@ int lib_interface_pim_address_family_hello_holdtime_modify(
 	struct nb_cb_modify_args *args);
 int lib_interface_pim_address_family_hello_holdtime_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_pim_address_family_join_prune_interval_modify(struct nb_cb_modify_args *args);
+int lib_interface_pim_address_family_join_prune_interval_destroy(struct nb_cb_destroy_args *args);
 int lib_interface_pim_address_family_bfd_create(struct nb_cb_create_args *args);
 int lib_interface_pim_address_family_bfd_destroy(
 	struct nb_cb_destroy_args *args);
