@@ -172,9 +172,19 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 	uint16_t type;
 	int is_debug = 0;
 
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : start area %s, route %pFX", __func__,
-			   area->name, &route->prefix);
+	if (IS_OSPF6_DEBUG_ABR) {
+		char buf[BUFSIZ];
+
+		if (route->type == OSPF6_DEST_TYPE_ROUTER)
+			inet_ntop(AF_INET,
+				  &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+				  sizeof(buf));
+		else
+			prefix2str(&route->prefix, buf, sizeof(buf));
+
+		zlog_debug("%s : start area %s, route %s", __func__, area->name,
+			   buf);
+	}
 
 	if (route->type == OSPF6_DEST_TYPE_ROUTER)
 		summary_table = area->summary_router;
@@ -684,8 +694,18 @@ void ospf6_abr_originate_summary(struct ospf6_route *route, struct ospf6 *ospf6)
 	struct ospf6_area *oa;
 	struct ospf6_route *range = NULL;
 
-	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s: route %pFX", __func__, &route->prefix);
+	if (IS_OSPF6_DEBUG_ABR) {
+		char buf[BUFSIZ];
+
+		if (route->type == OSPF6_DEST_TYPE_ROUTER)
+			inet_ntop(AF_INET,
+				  &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+				  sizeof(buf));
+		else
+			prefix2str(&route->prefix, buf, sizeof(buf));
+
+		zlog_debug("%s: route %s", __func__, buf);
+	}
 
 	if (route->type == OSPF6_DEST_TYPE_NETWORK) {
 		oa = ospf6_area_lookup(route->path.area_id, ospf6);
