@@ -17152,6 +17152,7 @@ int bgp_config_write(struct vty *vty)
 			if (strlen(bgp->srv6_locator_name))
 				vty_out(vty, "  locator %s\n",
 					bgp->srv6_locator_name);
+			vty_endframe(vty, " exit\n");
 		}
 
 
