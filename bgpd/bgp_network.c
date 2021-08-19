@@ -230,6 +230,101 @@ int bgp_md5_unset(struct peer *peer)
 	return bgp_md5_set_password(peer, NULL);
 }
 
+static int bgp_tcp_authopt_connect(struct peer *peer)
+{
+	int ret;
+
+	if (!peer->tcp_authopt_keychain)
+		return BGP_SUCCESS;
+
+	zlog_info("peer %p %s tcp_authopt_keychain %s fd %d",
+			peer, peer->host,
+			peer->tcp_authopt_keychain, peer->fd);
+	ret = tcp_authopt_user_init(&peer->tcp_authopt_user,
+			peer->fd, &peer->su);
+	if (ret)
+		return BGP_ERR_TCP_AUTHOPT_FAILED;
+	ret = tcp_authopt_user_set(&peer->tcp_authopt_user,
+			peer->tcp_authopt_keychain);
+	if (ret)
+		return BGP_ERR_TCP_AUTHOPT_FAILED;
+
+	return BGP_SUCCESS;
+}
+
+static int bgp_tcp_authopt_accept(struct peer *peer)
+{
+	int ret;
+
+	zlog_info("peer %p %s fd=%d keychain_name=%s",
+		peer, peer->host,
+		peer->fd, peer->tcp_authopt_keychain);
+	ret = tcp_authopt_user_init_accept(
+			&peer->tcp_authopt_user,
+			peer->fd,
+			&peer->su,
+			peer->tcp_authopt_keychain);
+
+	return ret ? BGP_ERR_TCP_AUTHOPT_FAILED : BGP_SUCCESS;
+}
+
+int bgp_tcp_authopt_close(struct peer *peer)
+{
+	tcp_authopt_user_reset(&peer->tcp_authopt_user);
+	return 0;
+}
+
+int bgp_tcp_authopt_transfer(struct peer *newpeer, struct peer *oldpeer)
+{
+	zlog_info("oldpeer %s keychain %s",
+			oldpeer->host, oldpeer->tcp_authopt_keychain);
+	zlog_info("newpeer %s keychain %s fd %d",
+			newpeer->host, newpeer->tcp_authopt_keychain,
+			newpeer->fd);
+
+	tcp_authopt_user_reset(&oldpeer->tcp_authopt_user);
+	tcp_authopt_user_init_accept(
+			&newpeer->tcp_authopt_user,
+			newpeer->fd,
+			&newpeer->su,
+			newpeer->tcp_authopt_keychain);
+
+	return 0;
+}
+
+int
+bgp_tcp_authopt_set(struct peer *peer)
+{
+	struct listnode *node;
+	struct bgp_listener *listener;
+	int ret = 0;
+
+	if (BGP_PEER_SU_UNSPEC(peer))
+		return BGP_SUCCESS;
+
+	/* We only need to configure listener dynamically.
+	 * Changing keychain causes causes which causes bgp_tcp_authopt_connect
+	 */
+	for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+		if (listener->su.sa.sa_family != peer->su.sa.sa_family)
+			continue;
+		zlog_info("peer %s keychain %s listener->fd %d",
+				peer->host,
+				peer->tcp_authopt_keychain,
+				listener->fd);
+		ret = tcp_authopt_user_init(&peer->tcp_authopt_user_listen,
+				listener->fd, &peer->su);
+		if (ret)
+			return BGP_ERR_TCP_AUTHOPT_FAILED;
+		ret = tcp_authopt_user_set(&peer->tcp_authopt_user_listen,
+				peer->tcp_authopt_keychain);
+		if (ret)
+			return BGP_ERR_TCP_AUTHOPT_FAILED;
+	}
+
+	return BGP_SUCCESS;
+}
+
 int bgp_set_socket_ttl(struct peer *peer, int bgp_sock)
 {
 	int ret = 0;
@@ -574,6 +669,7 @@ static int bgp_accept(struct thread *thread)
 	frr_with_privs(&bgpd_privs) {
 		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
 	}
+	bgp_tcp_authopt_accept(peer);
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
 	BGP_TIMER_OFF(peer->t_start); /* created in peer_create() */
@@ -750,6 +846,8 @@ int bgp_connect(struct peer *peer)
 		bgp_md5_set_connect(peer->fd, &peer->su, prefixlen,
 				    peer->password);
 	}
+
+	bgp_tcp_authopt_connect(peer);
 
 	/* Update source bind. */
 	if (bgp_update_source(peer) < 0) {

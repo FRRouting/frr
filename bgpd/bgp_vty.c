@@ -13699,6 +13699,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				ntohs(p->su_remote->sin.sin_port));
 	}
 
+	if (p->fd >= 0) {
+		if (use_json) {
+			tcp_authopt_show_sock_json(json_neigh, p->fd);
+		} else {
+			tcp_authopt_show_sock(vty, p->fd);
+		}
+	}
+
 	/* Nexthop display. */
 	if (p->su_local) {
 		if (use_json) {

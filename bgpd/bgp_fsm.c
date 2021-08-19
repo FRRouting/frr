@@ -339,6 +339,8 @@ static struct peer *peer_xfer_conn(struct peer *from_peer)
 	if (from_peer)
 		bgp_replace_nexthop_by_peer(from_peer, peer);
 
+	bgp_tcp_authopt_transfer(peer, from_peer);
+
 	bgp_reads_on(peer);
 	bgp_writes_on(peer);
 	thread_add_event(bm->master, bgp_process_packet, peer, 0,
@@ -1377,7 +1379,7 @@ int bgp_stop(struct peer *peer)
 		close(peer->fd);
 		peer->fd = -1;
 	}
-
+	bgp_tcp_authopt_close(peer);
 	/* Reset capabilities. */
 	peer->cap = 0;
 

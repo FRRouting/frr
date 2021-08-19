@@ -252,6 +252,8 @@ static char *str_printf(const char *fmt, ...)
 
 TEST_ATTR_HANDLER_DECL(advertisement_interval, v_routeadv, 10, 20);
 TEST_STR_ATTR_HANDLER_DECL(password, password, "FRR-Peer", "FRR-Group");
+TEST_STR_ATTR_HANDLER_DECL(tcp_authopt, tcp_authopt_keychain,
+		"KC-Peer", "KC-Group");
 TEST_ATTR_HANDLER_DECL(local_as, change_local_as, 1, 2);
 TEST_ATTR_HANDLER_DECL(timers_1, keepalive, 10, 20);
 TEST_ATTR_HANDLER_DECL(timers_2, holdtime, 30, 60);
@@ -371,6 +373,14 @@ static struct test_peer_attr test_peer_attrs[] = {
 		.u.flag = PEER_FLAG_PASSWORD,
 		.type = PEER_AT_GLOBAL_FLAG,
 		.handlers[0] = TEST_HANDLER(password),
+	},
+	{
+		.cmd = "tcp-authopt",
+		.peer_cmd = "tcp-authopt KC-Peer",
+		.group_cmd = "tcp-authopt KC-Group",
+		.u.flag = PEER_FLAG_TCP_AUTHOPT_KEYCHAIN,
+		.type = PEER_AT_GLOBAL_FLAG,
+		.handlers[0] = TEST_HANDLER(tcp_authopt),
 	},
 	{
 		.cmd = "shutdown",

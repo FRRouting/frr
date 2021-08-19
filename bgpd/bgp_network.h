@@ -37,9 +37,8 @@ extern int bgp_md5_unset_prefix(struct bgp *bgp, struct prefix *p);
 extern int bgp_md5_set(struct peer *);
 extern int bgp_md5_unset(struct peer *);
 extern int bgp_set_socket_ttl(struct peer *, int fd);
-static inline int bgp_tcp_authopt_set(struct peer *peer)
-{
-	return BGP_SUCCESS;
-}
+extern int bgp_tcp_authopt_set(struct peer *peer);
+extern int bgp_tcp_authopt_close(struct peer *peer);
+extern int bgp_tcp_authopt_transfer(struct peer *oldpeer, struct peer *newpeer);
 
 #endif /* _QUAGGA_BGP_NETWORK_H */
