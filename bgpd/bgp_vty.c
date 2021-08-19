@@ -15982,6 +15982,7 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 					    afi_t afi)
 {
 	int indent = 2;
+	uint32_t tovpn_sid_index = 0;
 
 	if (bgp->vpn_policy[afi].rmap_name[BGP_VPN_POLICY_DIR_FROMVPN]) {
 		if (CHECK_FLAG(bgp->af_flags[afi][SAFI_UNICAST],
@@ -16011,6 +16012,16 @@ static void bgp_vpn_policy_config_write_afi(struct vty *vty, struct bgp *bgp,
 				bgp->vpn_policy[afi].tovpn_label);
 		}
 	}
+
+	tovpn_sid_index = bgp->vpn_policy[afi].tovpn_sid_index;
+	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
+		       BGP_VPN_POLICY_TOVPN_SID_AUTO)) {
+		vty_out(vty, "%*ssid vpn export %s\n", indent, "", "auto");
+	} else if (tovpn_sid_index != 0) {
+		vty_out(vty, "%*ssid vpn export %d\n", indent, "",
+			tovpn_sid_index);
+	}
+
 	if (CHECK_FLAG(bgp->vpn_policy[afi].flags,
 		       BGP_VPN_POLICY_TOVPN_RD_SET)) {
 		char buf[RD_ADDRSTRLEN];
