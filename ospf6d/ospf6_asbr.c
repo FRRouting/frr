@@ -1643,10 +1643,15 @@ DEFUN (ospf6_redistribute,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	red = ospf6_redist_lookup(ospf6, type, 0);
-	if (!red)
+	if (!red) {
 		ospf6_redist_add(ospf6, type, 0);
-	else
+	} else {
+		/* To check, if user is providing same config */
+		if (ROUTEMAP_NAME(red) == NULL)
+			return CMD_SUCCESS;
+
 		ospf6_asbr_redistribute_unset(ospf6, red, type);
+	}
 
 	ospf6_asbr_redistribute_set(ospf6, type);
 
@@ -1674,10 +1679,16 @@ DEFUN (ospf6_redistribute_routemap,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	red = ospf6_redist_lookup(ospf6, type, 0);
-	if (!red)
+	if (!red) {
 		red = ospf6_redist_add(ospf6, type, 0);
-	else
+	} else {
+		/* To check, if user is providing same route map */
+		if ((ROUTEMAP_NAME(red) != NULL)
+		    && (strcmp(argv[idx_word]->arg, ROUTEMAP_NAME(red)) == 0))
+			return CMD_SUCCESS;
+
 		ospf6_asbr_redistribute_unset(ospf6, red, type);
+	}
 
 	ospf6_asbr_routemap_set(red, argv[idx_word]->arg);
 	ospf6_asbr_redistribute_set(ospf6, type);
