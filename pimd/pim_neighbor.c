@@ -256,15 +256,15 @@ static void on_neighbor_jp_timer(struct event *t)
 	rpf.rpf_addr = neigh->source_addr;
 	pim_joinprune_send(&rpf, neigh->upstream_jp_agg);
 
-	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
-			router->t_periodic, &neigh->jp_timer);
+	event_add_timer(router->master, on_neighbor_jp_timer, neigh, pim_neigh_jp_period(neigh),
+			&neigh->jp_timer);
 }
 
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)
 {
 	event_cancel(&neigh->jp_timer);
-	event_add_timer(router->master, on_neighbor_jp_timer, neigh,
-			router->t_periodic, &neigh->jp_timer);
+	event_add_timer(router->master, on_neighbor_jp_timer, neigh, pim_neigh_jp_period(neigh),
+			&neigh->jp_timer);
 }
 
 static struct pim_neighbor *
