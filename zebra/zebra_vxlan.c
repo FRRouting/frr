@@ -200,7 +200,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 {
 	struct vty *vty;
 	json_object *json = NULL, *json_evpn = NULL;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
@@ -210,7 +210,7 @@ static void zevpn_print_neigh_hash_all_evpn(struct hash_bucket *bucket,
 	json = (json_object *)args[1];
 	print_dup = (uint32_t)(uintptr_t)args[2];
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	num_neigh = hashcount(zevpn->neigh_table);
 
@@ -267,7 +267,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 {
 	struct vty *vty;
 	json_object *json = NULL, *json_evpn = NULL;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
@@ -277,7 +277,7 @@ static void zevpn_print_neigh_hash_all_evpn_detail(struct hash_bucket *bucket,
 	json = (json_object *)args[1];
 	print_dup = (uint32_t)(uintptr_t)args[2];
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn) {
 		if (json)
 			vty_out(vty, "{}\n");
@@ -402,7 +402,7 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 	struct vty *vty;
 	json_object *json = NULL, *json_evpn = NULL;
 	json_object *json_mac = NULL;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_macs;
 	struct mac_walk_ctx *wctx = ctxt;
 	char vni_str[VNI_STR_LEN];
@@ -410,7 +410,7 @@ static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt
 	vty = wctx->vty;
 	json = wctx->json;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	wctx->zevpn = zevpn;
 
 	/*We are iterating over a new VNI, set the count to 0*/
@@ -477,7 +477,7 @@ static void zevpn_print_mac_hash_all_evpn_detail(struct hash_bucket *bucket,
 	struct vty *vty;
 	json_object *json = NULL, *json_evpn = NULL;
 	json_object *json_mac = NULL;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_macs;
 	struct mac_walk_ctx *wctx = ctxt;
 	char vni_str[VNI_STR_LEN];
@@ -485,7 +485,7 @@ static void zevpn_print_mac_hash_all_evpn_detail(struct hash_bucket *bucket,
 	vty = wctx->vty;
 	json = wctx->json;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn) {
 		if (json)
 			vty_out(vty, "{}\n");
@@ -690,7 +690,7 @@ static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
 	char buf[PREFIX_STRLEN];
 	struct vty *vty = NULL;
 	json_object *json = NULL;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	json_object *json_evpn_list = NULL;
 	struct listnode *node = NULL, *nnode = NULL;
 
@@ -887,7 +887,7 @@ struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 	return tmp_if;
 }
 
-static int zebra_evpn_vxlan_del(zebra_evpn_t *zevpn)
+static int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn)
 {
 	zevpn_vxlan_if_set(zevpn, zevpn->vxlan_if, false /* set */);
 
@@ -914,7 +914,7 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 	/* Walk VxLAN interfaces and create EVPN hash. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
-		zebra_evpn_t *zevpn = NULL;
+		struct zebra_evpn *zevpn = NULL;
 		zebra_l3vni_t *zl3vni = NULL;
 		struct zebra_if *zif;
 		struct zebra_l2info_vxlan *vxl;
@@ -1068,11 +1068,11 @@ static void zevpn_build_hash_table(void)
  */
 static void zebra_evpn_vxlan_cleanup_all(struct hash_bucket *bucket, void *arg)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 	struct zebra_vrf *zvrf = (struct zebra_vrf *)arg;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	/* remove from l3-vni list */
 	if (zvrf->l3vni)
@@ -1862,7 +1862,7 @@ static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
 vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if)
 {
 	vni_t vni = 0;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if an L3VNI belongs to this SVI interface.
@@ -2004,7 +2004,7 @@ static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 
 static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
 {
-	zebra_evpn_t *zevpn = (zebra_evpn_t *)bucket->data;
+	struct zebra_evpn *zevpn = (struct zebra_evpn *)bucket->data;
 	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)ctxt;
 
 	if (zevpn->vrf_id == zl3vni_vrf_id(zl3vni))
@@ -2020,7 +2020,7 @@ static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
 static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 					     int add)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 
 	/* There is a possibility that VNI notification was already received
 	 * from kernel and we programmed it as L2-VNI
@@ -2565,7 +2565,7 @@ void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
 void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				 vni_t vni, bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
 	json_object *json = NULL;
@@ -2683,7 +2683,7 @@ void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 					  struct zebra_vrf *zvrf, vni_t vni,
 					  struct ipaddr *ip, bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_neigh_t *n;
 	json_object *json = NULL;
 
@@ -2725,7 +2725,7 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 				      vni_t vni, struct in_addr vtep_ip,
 				      bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
 	json_object *json = NULL;
@@ -2774,7 +2774,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 				     vni_t vni,
 				     bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_neigh;
 	struct neigh_walk_ctx wctx;
 	json_object *json = NULL;
@@ -2837,7 +2837,7 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 				vni_t vni, bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_macs;
 	struct mac_walk_ctx wctx;
 	json_object *json = NULL;
@@ -2987,7 +2987,7 @@ void zebra_vxlan_print_specific_mac_vni(struct vty *vty, struct zebra_vrf *zvrf,
 					vni_t vni, struct ethaddr *macaddr,
 					bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_mac_t *mac;
 	json_object *json = NULL;
 
@@ -3029,7 +3029,7 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 				    struct zebra_vrf *zvrf,
 				    vni_t vni, bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	struct mac_walk_ctx wctx;
 	uint32_t num_macs;
 	json_object *json = NULL;
@@ -3086,7 +3086,7 @@ int zebra_vxlan_clear_dup_detect_vni_mac(struct zebra_vrf *zvrf, vni_t vni,
 					 struct ethaddr *macaddr, char *errmsg,
 					 size_t errmsg_len)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_mac_t *mac;
 	struct listnode *node = NULL;
 	zebra_neigh_t *nbr = NULL;
@@ -3174,7 +3174,7 @@ int zebra_vxlan_clear_dup_detect_vni_ip(struct zebra_vrf *zvrf, vni_t vni,
 					struct ipaddr *ip, char *errmsg,
 					size_t errmsg_len)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_neigh_t *nbr;
 	zebra_mac_t *mac;
 	char buf[INET6_ADDRSTRLEN];
@@ -3241,7 +3241,7 @@ static void zevpn_clear_dup_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct mac_walk_ctx *wctx = ctxt;
 	zebra_mac_t *mac;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	struct listnode *node = NULL;
 	zebra_neigh_t *nbr = NULL;
 
@@ -3296,12 +3296,12 @@ static void zevpn_clear_dup_mac_hash(struct hash_bucket *bucket, void *ctxt)
 static void zevpn_clear_dup_detect_hash_vni_all(struct hash_bucket *bucket,
 					    void **args)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	struct zebra_vrf *zvrf;
 	struct mac_walk_ctx m_wctx;
 	struct neigh_walk_ctx n_wctx;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn)
 		return;
 
@@ -3342,7 +3342,7 @@ int zebra_vxlan_clear_dup_detect_vni_all(struct zebra_vrf *zvrf)
 
 int zebra_vxlan_clear_dup_detect_vni(struct zebra_vrf *zvrf, vni_t vni)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	struct mac_walk_ctx m_wctx;
 	struct neigh_walk_ctx n_wctx;
 
@@ -3380,7 +3380,7 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 				     vni_t vni, struct in_addr vtep_ip,
 				     bool use_json)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	uint32_t num_macs;
 	struct mac_walk_ctx wctx;
 	json_object *json = NULL;
@@ -3438,7 +3438,7 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 	json_object *json = NULL;
 	void *args[2];
 	zebra_l3vni_t *zl3vni = NULL;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 
 	if (!is_evpn_enabled())
 		return;
@@ -3686,7 +3686,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 					struct interface *link_if,
 					struct ipaddr *ip)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* check if this is a remote neigh entry corresponding to remote
@@ -3737,7 +3737,7 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 					   bool is_router,
 					   bool local_inactive, bool dp_static)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* check if this is a remote neigh entry corresponding to remote
@@ -3937,7 +3937,7 @@ int zebra_vxlan_check_readd_vtep(struct interface *ifp,
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_l2info_vxlan *vxl;
 	vni_t vni;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_vtep_t *zvtep = NULL;
 
 	zif = ifp->info;
@@ -3986,7 +3986,7 @@ static int zebra_vxlan_check_del_local_mac(struct interface *ifp,
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
 	vni_t vni;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_mac_t *mac;
 
 	zif = ifp->info;
@@ -4082,7 +4082,7 @@ int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	vni_t vni;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 	zebra_mac_t *mac = NULL;
 
@@ -4138,7 +4138,7 @@ int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 int zebra_vxlan_local_mac_del(struct interface *ifp, struct interface *br_if,
 			      struct ethaddr *macaddr, vlanid_t vid)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_mac_t *mac;
 
 	/* We are interested in MACs only on ports or (port, VLAN) that
@@ -4175,7 +4175,7 @@ int zebra_vxlan_local_mac_add_update(struct interface *ifp,
 					 bool sticky, bool local_inactive,
 					 bool dp_static)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	struct zebra_vrf *zvrf;
 
 	assert(ifp);
@@ -4270,7 +4270,7 @@ stream_failure:
 void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 				 struct in_addr vtep_ip)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_vtep_t *zvtep;
 	struct interface *ifp;
 	struct zebra_if *zif;
@@ -4334,7 +4334,7 @@ void zebra_vxlan_remote_vtep_del(vrf_id_t vrf_id, vni_t vni,
 void zebra_vxlan_remote_vtep_add(vrf_id_t vrf_id, vni_t vni,
 				 struct in_addr vtep_ip, int flood_control)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	struct interface *ifp;
 	struct zebra_if *zif;
 	zebra_vtep_t *zvtep;
@@ -4468,7 +4468,7 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
 {
 	struct ipaddr ip;
 	struct ethaddr macaddr;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 
 	memset(&ip, 0, sizeof(struct ipaddr));
 	memset(&macaddr, 0, sizeof(struct ethaddr));
@@ -4603,7 +4603,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 		/* remove association with svi-if */
 		zl3vni->svi_if = NULL;
 	} else {
-		zebra_evpn_t *zevpn = NULL;
+		struct zebra_evpn *zevpn = NULL;
 
 		/* Unlink the SVI from the access VLAN */
 		zebra_evpn_acc_bd_svi_set(ifp->info, link_if->info, false);
@@ -4635,7 +4635,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
  */
 int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	zl3vni = zl3vni_from_svi(ifp, link_if);
@@ -4769,7 +4769,7 @@ int zebra_vxlan_if_down(struct interface *ifp)
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -4831,7 +4831,7 @@ int zebra_vxlan_if_up(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
@@ -4908,7 +4908,7 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
@@ -4982,7 +4982,7 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 	struct interface *vlan_if = NULL;
 
@@ -5159,7 +5159,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	zebra_l3vni_t *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
@@ -5235,24 +5235,15 @@ int zebra_vxlan_if_add(struct interface *ifp)
 				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 		}
 
-		if (IS_ZEBRA_DEBUG_VXLAN) {
-			char addr_buf1[INET_ADDRSTRLEN];
-			char addr_buf2[INET_ADDRSTRLEN];
-
-			inet_ntop(AF_INET, &vxl->vtep_ip,
-					addr_buf1, INET_ADDRSTRLEN);
-			inet_ntop(AF_INET, &vxl->mcast_grp,
-					addr_buf2, INET_ADDRSTRLEN);
-
+		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug(
-				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %s mcast_grp %s master %u",
+				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %pI4 mcast_grp %pI4 master %u",
 				vni,
 				vlan_if ? vrf_id_to_name(vlan_if->vrf_id)
 					: VRF_DEFAULT_NAME,
 				ifp->name, ifp->ifindex, vxl->access_vlan,
-				addr_buf1, addr_buf2,
+				&vxl->vtep_ip, &vxl->mcast_grp,
 				zif->brslave_info.bridge_ifindex);
-		}
 
 		/* If down or not mapped to a bridge, we're done. */
 		if (!if_is_operative(ifp) || !zif->brslave_info.br_if)
@@ -5488,7 +5479,7 @@ void zebra_vxlan_advertise_svi_macip(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	int advertise;
 	vni_t vni = 0;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	struct interface *ifp = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
@@ -5588,7 +5579,7 @@ void zebra_vxlan_advertise_subnet(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	int advertise;
 	vni_t vni = 0;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan zl2_info;
@@ -5654,7 +5645,7 @@ void zebra_vxlan_advertise_gw_macip(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	int advertise;
 	vni_t vni = 0;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	struct interface *ifp = NULL;
 
 	if (!EVPN_ENABLED(zvrf)) {
