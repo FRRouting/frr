@@ -1198,7 +1198,7 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 
 }
 
-static void ospf6_area_nssa_update(struct ospf6_area *area)
+void ospf6_area_nssa_update(struct ospf6_area *area)
 {
 	if (IS_AREA_NSSA(area)) {
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
@@ -1246,6 +1246,9 @@ int ospf6_area_nssa_set(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 
 	if (!IS_AREA_NSSA(area)) {
+		/* Disable stub first. */
+		ospf6_area_stub_unset(ospf6, area);
+
 		SET_FLAG(area->flag, OSPF6_AREA_NSSA);
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("area %s nssa set", area->name);
