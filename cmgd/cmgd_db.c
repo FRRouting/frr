@@ -391,6 +391,7 @@ int cmgd_db_lookup_data_nodes(
 		xpath += 2;
 
 	strncpy(base_xpath, xpath, sizeof(base_xpath));
+	remove_slash_at_the_end(base_xpath);
 
 	return (cmgd_walk_db_nodes(db_ctxt, base_xpath, NULL, NULL, NULL,
 			dxpaths, dnodes, nbnodes, num_nodes,
@@ -461,6 +462,8 @@ int cmgd_db_iter_data(
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
 		return -1;
+
+	remove_slash_at_the_end(base_xpath);
 
 	strncpy(xpath, base_xpath, sizeof(xpath));
 
