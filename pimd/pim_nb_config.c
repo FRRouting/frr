@@ -556,8 +556,27 @@ int pim_join_prune_interval_modify(struct nb_cb_modify_args *args)
  */
 int pim_register_suppress_time_modify(struct nb_cb_modify_args *args)
 {
+	uint16_t value;
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+		value = yang_dnode_get_uint16(args->dnode, NULL);
+		/*
+		 * As soon as this is non-constant it needs to be replaced with
+		 * a yang_dnode_get to lookup the candidate value, *not* the
+		 * operational value. Since the code has a field assigned and
+		 * used for this value it should have YANG/CLI to set it too,
+		 * otherwise just use the #define!
+		 */
+		/* RFC7761: 4.11.  Timer Values */
+		if (value <= router->register_probe_time * 2) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Register suppress time (%u) must be more than "
+				"twice the register probe time (%u).",
+				value, router->register_probe_time);
+			return NB_ERR_VALIDATION;
+		}
+		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
