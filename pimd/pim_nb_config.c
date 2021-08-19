@@ -2400,6 +2400,66 @@ int lib_interface_pim_address_family_join_prune_interval_destroy(struct nb_cb_de
 	return NB_OK;
 }
 
+int lib_interface_pim_assert_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->assert_msec = yang_dnode_get_uint32(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_assert_override_interval_modify(struct nb_cb_modify_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->assert_override_msec = yang_dnode_get_uint32(args->dnode, NULL);
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_pim_assert_override_interval_destroy(struct nb_cb_destroy_args *args)
+{
+	struct interface *ifp;
+	struct pim_interface *pim_ifp;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_ABORT:
+	case NB_EV_PREPARE:
+		break;
+	case NB_EV_APPLY:
+		ifp = nb_running_get_entry(args->dnode, NULL, true);
+		pim_ifp = ifp->info;
+		pim_ifp->assert_override_msec = -1;
+		break;
+	}
+
+	return NB_OK;
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd
  */
