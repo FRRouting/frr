@@ -74,6 +74,8 @@ static struct cmgd_master cmgd_master;
 /* CMGD process wide configuration pointer to export.  */
 struct cmgd_master *cm;
 
+cmgd_cli_profiling_t *g_prof_cmt_apply = NULL;
+
 #if 0
 /* handle main socket creation or deletion */
 static int cmgd_check_main_socket(bool create, struct cmgd *cmgd)

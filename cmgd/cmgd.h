@@ -66,6 +66,27 @@ extern bool cmgd_debug_frntnd;
 extern bool cmgd_debug_db;
 extern bool cmgd_debug_trxn;
 
+typedef struct cmgd_cli_profiling_ {
+        struct timeval start;
+        struct timeval validate_st;
+        struct timeval prep_cfg_st;
+        struct timeval trxn_create_st;
+        struct timeval send_cfg_st;
+        struct timeval apply_cfg_st;
+        struct timeval apply_cfg_nd;
+        struct timeval trxn_del_st;
+        struct timeval end;
+        unsigned long last_exec_tm;
+        unsigned long max_tm;
+        unsigned long min_tm;
+	unsigned long last_batch_cnt;
+	unsigned long max_batch_cnt;
+	unsigned long min_batch_cnt;
+        unsigned long commit_cnt;
+} cmgd_cli_profiling_t;
+
+extern cmgd_cli_profiling_t *g_prof_cmt_apply;
+
 /* CMGD master for system wide configurations and variables.  */
 struct cmgd_master {
 	/* CMGD instance list.  */
@@ -253,6 +274,26 @@ static inline void cmgd_vrf_unlink(struct cmgd *cmgd, struct vrf *vrf)
 		cmgd_unlock(cmgd);
 	}
 	cmgd->vrf_id = VRF_UNKNOWN;
+}
+
+static inline void cmgd_get_realtime(struct timeval *tv)
+{
+	gettimeofday(tv, NULL);
+}
+
+static inline char *cmgd_realtime_to_string(struct timeval *tv,
+	char *buf, size_t sz)
+{
+	char tmp[50];
+	struct tm *lm;
+
+	lm = localtime((const time_t *) &tv->tv_sec);
+	if (lm) {
+		strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", lm);
+		snprintf(buf, sz, "%s.%06lu", tmp, tv->tv_usec);
+	}
+
+	return buf;
 }
 
 extern void cmgd_unset_redist_vrf_bitmaps(struct cmgd *, vrf_id_t);
