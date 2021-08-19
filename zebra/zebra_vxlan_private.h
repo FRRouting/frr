@@ -208,7 +208,7 @@ static inline void zl3vni_get_svi_rmac(zebra_l3vni_t *zl3vni,
 /* context for neigh hash walk - update l3vni and rmac */
 struct neigh_l3info_walk_ctx {
 
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	zebra_l3vni_t *zl3vni;
 	int add;
 };
@@ -256,7 +256,7 @@ typedef struct zebra_vxlan_sg_ {
 	uint32_t ref_cnt;
 } zebra_vxlan_sg_t;
 
-extern zebra_evpn_t *zevpn_lookup(vni_t vni);
+extern struct zebra_evpn *zevpn_lookup(vni_t vni);
 extern void zebra_vxlan_sync_mac_dp_install(zebra_mac_t *mac, bool set_inactive,
 		bool force_clear_static, const char *caller);
 extern bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf);
