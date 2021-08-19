@@ -867,7 +867,7 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 }
 
 void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
-				uint16_t note)
+				enum zapi_iptable_notify_owner note)
 {
 	struct listnode *node;
 	struct zserv *client;
@@ -901,7 +901,8 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	zserv_send_message(client, s);
 }
 
-void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx, uint16_t note)
+void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
+			      enum zapi_ipset_notify_owner note)
 {
 	struct listnode *node;
 	struct zserv *client;
@@ -936,7 +937,7 @@ void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx, uint16_t note)
 }
 
 void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
-				    uint16_t note)
+				    enum zapi_ipset_entry_notify_owner note)
 {
 	struct listnode *node;
 	struct zserv *client;
