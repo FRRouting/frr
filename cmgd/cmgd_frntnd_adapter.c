@@ -63,7 +63,7 @@ typedef struct cmgd_frntnd_sessn_ctxt_ {
 	uint8_t db_locked_implict[CMGD_DB_MAX_ID];
         struct thread *proc_cfg_trxn_clnp;
         struct thread *proc_show_trxn_clnp;
-	cmgd_cli_profiling_t prof_cmt_apply;
+	cmgd_sessn_commit_stats_t cmt_stats;
 
 	struct cmgd_frntnd_sessn_list_item list_linkage;
 } cmgd_frntnd_sessn_ctxt_t;
@@ -194,18 +194,18 @@ static void cmgd_frntnd_sessn_show_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 		cmgd_destroy_trxn(&sessn->trxn_id);
 }
 
-static void cmgd_compute_timers(cmgd_cli_profiling_t *prof_cmt_apply)
+static void cmgd_compute_timers(cmgd_sessn_commit_stats_t *cmt_stats)
 {
-	prof_cmt_apply->last_exec_tm = timeval_elapsed(prof_cmt_apply->end,
-						prof_cmt_apply->start);
-	if (prof_cmt_apply->last_exec_tm > prof_cmt_apply->max_tm) {
-		prof_cmt_apply->max_tm = prof_cmt_apply->last_exec_tm;
-		prof_cmt_apply->max_batch_cnt = prof_cmt_apply->last_batch_cnt;
+	cmt_stats->last_exec_tm = timeval_elapsed(cmt_stats->end,
+						cmt_stats->start);
+	if (cmt_stats->last_exec_tm > cmt_stats->max_tm) {
+		cmt_stats->max_tm = cmt_stats->last_exec_tm;
+		cmt_stats->max_batch_cnt = cmt_stats->last_batch_cnt;
 	}
 
-	if (prof_cmt_apply->last_exec_tm < prof_cmt_apply->min_tm) {
-		prof_cmt_apply->min_tm = prof_cmt_apply->last_exec_tm;
-		prof_cmt_apply->min_batch_cnt = prof_cmt_apply->last_batch_cnt;
+	if (cmt_stats->last_exec_tm < cmt_stats->min_tm) {
+		cmt_stats->min_tm = cmt_stats->last_exec_tm;
+		cmt_stats->min_batch_cnt = cmt_stats->last_batch_cnt;
 	}
 }
 
@@ -253,7 +253,7 @@ static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_create_session(
 	sessn->trxn_id = CMGD_TRXN_ID_NONE;
 	sessn->cfg_trxn_id = CMGD_TRXN_ID_NONE;
 	cmgd_frntnd_adapter_lock(adptr);
-	sessn->prof_cmt_apply.min_tm = ULONG_MAX;
+	sessn->cmt_stats.min_tm = ULONG_MAX;
 	cmgd_frntnd_sessn_list_add_tail(&adptr->frntnd_sessns, sessn);
 
 	return sessn;
@@ -429,8 +429,8 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 		cmgd_frntnd_session_register_event(
 			sessn, CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP);
 
-	cmgd_get_realtime(&sessn->prof_cmt_apply.end);
-	cmgd_compute_timers(&sessn->prof_cmt_apply);
+	cmgd_get_realtime(&sessn->cmt_stats.end);
+	cmgd_compute_timers(&sessn->cmt_stats);
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
 
@@ -999,9 +999,9 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 {
 	cmgd_db_hndl_t src_db_hndl, dst_db_hndl;
 
-	cmgd_get_realtime(&sessn->prof_cmt_apply.start);
-	g_prof_cmt_apply = &sessn->prof_cmt_apply;
-	sessn->prof_cmt_apply.commit_cnt++;
+	cmgd_get_realtime(&sessn->cmt_stats.start);
+	sessn->cmt_stats.commit_cnt++;
+
 	/*
 	 * Get the source DB handle.
 	 */
@@ -1565,63 +1565,75 @@ int cmgd_frntnd_send_data_notify(
 	return 0;
 }
 
+cmgd_sessn_commit_stats_t *cmgd_frntnd_get_sessn_commit_stats(
+        cmgd_session_id_t session_id)
+{
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	sessn = (cmgd_frntnd_sessn_ctxt_t *)session_id;
+	if (!sessn)
+		return NULL;
+
+	return &sessn->cmt_stats;
+}
+
 static void cmgd_frntnd_adapter_status_detail(struct vty *vty,
 	cmgd_frntnd_sessn_ctxt_t *sessn)
 {
 	char buf[100] = {0};
 
-	if (sessn->prof_cmt_apply.commit_cnt > 0) {
+	if (sessn->cmt_stats.commit_cnt > 0) {
 		vty_out(vty, "        Num-Commits: \t\t%lu\n",
-				sessn->prof_cmt_apply.commit_cnt);
+				sessn->cmt_stats.commit_cnt);
 		vty_out(vty, "        Max-Commit-Duration: \t\t%zu uSecs\n",
-				sessn->prof_cmt_apply.max_tm);
+				sessn->cmt_stats.max_tm);
 		vty_out(vty, "        Max-Commit-Batch-Size: \t\t%lu\n",
-				sessn->prof_cmt_apply.max_batch_cnt);
+				sessn->cmt_stats.max_batch_cnt);
 		vty_out(vty, "        Min-Commit-Duration: \t\t%zu uSecs\n",
-				sessn->prof_cmt_apply.min_tm);
+				sessn->cmt_stats.min_tm);
 		vty_out(vty, "        Min-Commit-Batch-Size: \t\t%lu\n",
-				sessn->prof_cmt_apply.min_batch_cnt);
+				sessn->cmt_stats.min_batch_cnt);
 		vty_out(vty, "        Last-Commit-Duration: \t\t%zu uSecs\n",
-				sessn->prof_cmt_apply.last_exec_tm);
+				sessn->cmt_stats.last_exec_tm);
 		vty_out(vty, "        Last-Commit-Batch-Size: \t%lu\n",
-				sessn->prof_cmt_apply.last_batch_cnt);
+				sessn->cmt_stats.last_batch_cnt);
 		vty_out(vty, "        Last-Commit-Details:\n");
 
 		vty_out(vty, "          Commit Start: \t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.start,
+				&sessn->cmt_stats.start,
 				buf, sizeof(buf)));
 		vty_out(vty, "            Config-Validate Start: \t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.validate_st,
+				&sessn->cmt_stats.validate_start,
 				buf, sizeof(buf)));
 		vty_out(vty, "            Prep-Config Start: \t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.prep_cfg_st,
+				&sessn->cmt_stats.prep_cfg_start,
 				buf, sizeof(buf)));
 		vty_out(vty, "            Trxn-Create Start: \t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.trxn_create_st,
+				&sessn->cmt_stats.trxn_create_start,
 				buf, sizeof(buf)));
 		vty_out(vty, "            Send-Config Start: \t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.send_cfg_st,
+				&sessn->cmt_stats.send_cfg_start,
 				buf, sizeof(buf)));
 		vty_out(vty, "            Apply-Config Start: \t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.apply_cfg_st,
+				&sessn->cmt_stats.apply_cfg_start,
 				buf, sizeof(buf)));
 		vty_out(vty, "            Apply-Config End: \t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.apply_cfg_nd,
+				&sessn->cmt_stats.apply_cfg_end,
 				buf, sizeof(buf)));
-		vty_out(vty, "            Trxn-Del Start: \t\t%s\n",
+		vty_out(vty, "            Trxn-Delete Start: \t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.trxn_del_st,
+				&sessn->cmt_stats.trxn_del_start,
 				buf, sizeof(buf)));
 		vty_out(vty, "          Commit End: \t\t\t%s\n",
 			cmgd_realtime_to_string(
-				&sessn->prof_cmt_apply.end,
+				&sessn->cmt_stats.end,
 				buf, sizeof(buf)));
 	}
 }

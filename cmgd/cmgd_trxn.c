@@ -163,6 +163,8 @@ typedef struct cmgd_commit_cfg_req_ {
 	 * 'curr_batches'
 	 */
 	cmgd_trxn_bcknd_cfg_batch_t *last_bcknd_cfg_batch[CMGD_BCKND_CLIENT_ID_MAX];
+
+	cmgd_sessn_commit_stats_t *cmt_stats;
 } cmgd_commit_cfg_req_t;
 
 typedef struct cmgd_get_data_reply_ {
@@ -717,7 +719,8 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		THREAD_OFF(trxn->send_cfg_apply);
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	}
-	
+
+	trxn->commit_cfg_req->req.commit_cfg.cmt_stats = NULL;
 	cmgd_trxn_req_free(&trxn->commit_cfg_req);
 
 	/*
@@ -976,7 +979,7 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 		}
 	}
 
-	g_prof_cmt_apply->last_batch_cnt = num_chgs;
+	cmtcfg_req->cmt_stats->last_batch_cnt = num_chgs;
 	if (!num_chgs) {
 		(void) cmgd_trxn_send_commit_cfg_reply(
 				trxn_req->trxn, false, "No changes found to commit!");
@@ -1069,7 +1072,9 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 
 #ifdef CMGD_LOCAL_VALIDATIONS_ENABLED
-	cmgd_get_realtime(&g_prof_cmt_apply->validate_st);
+	cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
+		cmt_stats->validate_start);
+
 	/*
 	 * Perform application level validations locally on the CMGD 
 	 * process by calling application specific validation routines
@@ -1410,18 +1415,18 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 	cmtcfg_req = &trxn->commit_cfg_req->req.commit_cfg;
 	switch (cmtcfg_req->curr_phase) {
 	case CMGD_COMMIT_PHASE_PREPARE_CFG:
-		cmgd_get_realtime(&g_prof_cmt_apply->prep_cfg_st);
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->prep_cfg_start);
 		cmgd_trxn_prepare_config(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_TRXN_CREATE:
-		cmgd_get_realtime(&g_prof_cmt_apply->trxn_create_st);
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->trxn_create_start);
 		/*
 		 * Send TRXN_CREATE_REQ to all Backend now.
 		 */
 		cmgd_trxn_send_bcknd_trxn_create(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_SEND_CFG:
-		cmgd_get_realtime(&g_prof_cmt_apply->send_cfg_st);
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->send_cfg_start);
 		/*
 		 * All CFGDATA_CREATE_REQ should have been sent to Backend by now.
 		 */
@@ -1437,7 +1442,7 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		break;
 #ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	case CMGD_COMMIT_PHASE_VALIDATE_CFG:
-		cmgd_get_realtime(&g_prof_cmt_apply->validate_st);
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->validate_start);
 		/*
 		 * We should have received successful CFFDATA_CREATE_REPLY from all
 		 * concerned Backend Clients by now. Send out the CFG_VALIDATE_REQs
@@ -1447,7 +1452,7 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		break;
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	case CMGD_COMMIT_PHASE_APPLY_CFG:
-		cmgd_get_realtime(&g_prof_cmt_apply->apply_cfg_st);
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_start);
 		/*
 		 * We should have received successful CFG_VALIDATE_REPLY from all
 		 * concerned Backend Clients by now. Send out the CFG_APPLY_REQs
@@ -1456,7 +1461,7 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		cmgd_trxn_send_bcknd_cfg_apply(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_TRXN_DELETE:
-		cmgd_get_realtime(&g_prof_cmt_apply->trxn_del_st);
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->trxn_del_start);
 		/*
 		 * We would have sent TRXN_DELETE_REQ to all backend by now.
 		 * Send a successful CONFIG_COMMIT_REPLY back to front-end.
@@ -2113,6 +2118,8 @@ int cmgd_trxn_send_commit_config_req(
 	trxn_req->req.commit_cfg.dst_db_hndl = dst_db_hndl;
 	trxn_req->req.commit_cfg.validate_only = validate_only;
 	trxn_req->req.commit_cfg.abort = abort;
+	trxn_req->req.commit_cfg.cmt_stats = 
+		cmgd_frntnd_get_sessn_commit_stats(trxn->session_id);
 
 	/*
 	 * Trigger a COMMIT-CONFIG process.
@@ -2293,6 +2300,7 @@ extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
 		cmgd_trxn_send_bcknd_trxn_delete(trxn, adptr);
 
 	cmgd_try_move_commit_to_next_phase(trxn, cmtcfg_req);
+	cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_end);
 
 	return 0;
 }

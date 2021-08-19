@@ -66,27 +66,6 @@ extern bool cmgd_debug_frntnd;
 extern bool cmgd_debug_db;
 extern bool cmgd_debug_trxn;
 
-typedef struct cmgd_cli_profiling_ {
-        struct timeval start;
-        struct timeval validate_st;
-        struct timeval prep_cfg_st;
-        struct timeval trxn_create_st;
-        struct timeval send_cfg_st;
-        struct timeval apply_cfg_st;
-        struct timeval apply_cfg_nd;
-        struct timeval trxn_del_st;
-        struct timeval end;
-        unsigned long last_exec_tm;
-        unsigned long max_tm;
-        unsigned long min_tm;
-	unsigned long last_batch_cnt;
-	unsigned long max_batch_cnt;
-	unsigned long min_batch_cnt;
-        unsigned long commit_cnt;
-} cmgd_cli_profiling_t;
-
-extern cmgd_cli_profiling_t *g_prof_cmt_apply;
-
 /* CMGD master for system wide configurations and variables.  */
 struct cmgd_master {
 	/* CMGD instance list.  */

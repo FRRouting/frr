@@ -30,6 +30,25 @@
 struct cmgd_frntnd_client_adapter_;
 struct cmgd_master;
 
+typedef struct cmgd_sessn_commit_stats_ {
+        struct timeval start;
+        struct timeval validate_start;
+        struct timeval prep_cfg_start;
+        struct timeval trxn_create_start;
+        struct timeval send_cfg_start;
+        struct timeval apply_cfg_start;
+        struct timeval apply_cfg_end;
+        struct timeval trxn_del_start;
+        struct timeval end;
+        unsigned long last_exec_tm;
+        unsigned long max_tm;
+        unsigned long min_tm;
+	unsigned long last_batch_cnt;
+	unsigned long max_batch_cnt;
+	unsigned long min_batch_cnt;
+        unsigned long commit_cnt;
+} cmgd_sessn_commit_stats_t;
+
 PREDECL_LIST(cmgd_frntnd_sessn_list);
 
 PREDECL_LIST(cmgd_frntnd_adptr_list);
@@ -101,6 +120,9 @@ extern int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
 
 extern int cmgd_frntnd_send_data_notify(
         cmgd_database_id_t db_id, cmgd_yang_data_t *data_resp[], int num_data);
+
+extern cmgd_sessn_commit_stats_t *cmgd_frntnd_get_sessn_commit_stats(
+        cmgd_session_id_t session_id);
 
 extern void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail);
 

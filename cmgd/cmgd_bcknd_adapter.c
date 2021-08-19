@@ -389,7 +389,6 @@ static int cmgd_bcknd_adapter_handle_msg(
 				cfg_apply_reply->batch_ids,
 			bcknd_msg->cfg_apply_reply->n_batch_ids,
 			bcknd_msg->cfg_apply_reply->error_if_any, adptr);
-		cmgd_get_realtime(&g_prof_cmt_apply->apply_cfg_nd);
 		break;
 	default:
 		break;
