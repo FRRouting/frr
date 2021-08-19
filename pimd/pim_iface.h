@@ -145,6 +145,8 @@ struct pim_interface {
 
 	/* Periodic join prune interval (-1 means `router->t_periodic`). */
 	int periodic_jp_sec;
+	int assert_msec;
+	int assert_override_msec;
 
 	/* neighbors without lan_delay */
 	int pim_number_of_nonlandelay_neighbors;
