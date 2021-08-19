@@ -133,7 +133,7 @@ void zebra_evpn_find_neigh_addr_width(struct hash_bucket *bucket, void *ctxt)
 /*
  * Count of remote neighbors referencing this MAC.
  */
-int remote_neigh_count(zebra_mac_t *zmac)
+int remote_neigh_count(struct zebra_mac *zmac)
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
@@ -205,7 +205,7 @@ static void *zebra_evpn_neigh_alloc(void *p)
 
 static void zebra_evpn_local_neigh_ref_mac(zebra_neigh_t *n,
 					   const struct ethaddr *macaddr,
-					   zebra_mac_t *mac,
+					   struct zebra_mac *mac,
 					   bool send_mac_update)
 {
 	bool old_static;
@@ -286,8 +286,8 @@ static void zebra_evpn_sync_neigh_dp_install(zebra_neigh_t *n,
  */
 int zebra_evpn_neigh_send_add_to_client(vni_t vni, const struct ipaddr *ip,
 					const struct ethaddr *macaddr,
-					zebra_mac_t *zmac, uint32_t neigh_flags,
-					uint32_t seq)
+					struct zebra_mac *zmac,
+					uint32_t neigh_flags, uint32_t seq)
 {
 	uint8_t flags = 0;
 
@@ -359,7 +359,7 @@ void zebra_evpn_sync_neigh_static_chg(zebra_neigh_t *n, bool old_n_static,
 				      bool new_n_static, bool defer_n_dp,
 				      bool defer_mac_dp, const char *caller)
 {
-	zebra_mac_t *mac = n->mac;
+	struct zebra_mac *mac = n->mac;
 	bool old_mac_static;
 	bool new_mac_static;
 
@@ -467,7 +467,7 @@ static inline void zebra_evpn_neigh_start_hold_timer(zebra_neigh_t *n)
 static void zebra_evpn_local_neigh_deref_mac(zebra_neigh_t *n,
 					     bool send_mac_update)
 {
-	zebra_mac_t *mac = n->mac;
+	struct zebra_mac *mac = n->mac;
 	struct zebra_evpn *zevpn = n->zevpn;
 	bool old_static;
 	bool new_static;
@@ -545,7 +545,8 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(struct zebra_evpn *zevpn, zebra_neigh_t *n,
 static zebra_neigh_t *zebra_evpn_neigh_add(struct zebra_evpn *zevpn,
 					   const struct ipaddr *ip,
 					   const struct ethaddr *mac,
-					   zebra_mac_t *zmac, uint32_t n_flags)
+					   struct zebra_mac *zmac,
+					   uint32_t n_flags)
 {
 	zebra_neigh_t tmp_n;
 	zebra_neigh_t *n = NULL;
@@ -621,7 +622,7 @@ zebra_evpn_proc_sync_neigh_update(struct zebra_evpn *zevpn, zebra_neigh_t *n,
 {
 	struct interface *ifp = NULL;
 	bool is_router;
-	zebra_mac_t *mac = ctx->mac;
+	struct zebra_mac *mac = ctx->mac;
 	uint32_t tmp_seq;
 	bool old_router = false;
 	bool old_bgp_ready = false;
@@ -914,7 +915,7 @@ zebra_neigh_t *zebra_evpn_neigh_lookup(struct zebra_evpn *zevpn,
  * locally or undergoing any other change (such as sequence number).
  */
 void zebra_evpn_process_neigh_on_local_mac_change(struct zebra_evpn *zevpn,
-						  zebra_mac_t *zmac,
+						  struct zebra_mac *zmac,
 						  bool seq_change,
 						  bool es_change)
 {
@@ -958,7 +959,7 @@ void zebra_evpn_process_neigh_on_local_mac_change(struct zebra_evpn *zevpn,
  * deleted.
  */
 void zebra_evpn_process_neigh_on_local_mac_del(struct zebra_evpn *zevpn,
-					       zebra_mac_t *zmac)
+					       struct zebra_mac *zmac)
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
@@ -991,7 +992,7 @@ void zebra_evpn_process_neigh_on_local_mac_del(struct zebra_evpn *zevpn,
  * learnt.
  */
 void zebra_evpn_process_neigh_on_remote_mac_add(struct zebra_evpn *zevpn,
-						zebra_mac_t *zmac)
+						struct zebra_mac *zmac)
 {
 	zebra_neigh_t *n = NULL;
 	struct listnode *node = NULL;
@@ -1021,7 +1022,7 @@ void zebra_evpn_process_neigh_on_remote_mac_add(struct zebra_evpn *zevpn,
  * deleted.
  */
 void zebra_evpn_process_neigh_on_remote_mac_del(struct zebra_evpn *zevpn,
-						zebra_mac_t *zmac)
+						struct zebra_mac *zmac)
 {
 	/* NOTE: Currently a NO-OP. */
 }
@@ -1049,8 +1050,8 @@ static inline void zebra_evpn_local_neigh_update_log(
  * from MAC.
  */
 static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
-					      zebra_mac_t *old_zmac,
-					      zebra_mac_t *new_zmac,
+					      struct zebra_mac *old_zmac,
+					      struct zebra_mac *new_zmac,
 					      zebra_neigh_t *nbr)
 {
 	bool is_old_mac_dup = false;
@@ -1263,7 +1264,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 {
 	struct zebra_vrf *zvrf;
 	zebra_neigh_t *n = NULL;
-	zebra_mac_t *zmac = NULL, *old_zmac = NULL;
+	struct zebra_mac *zmac = NULL, *old_zmac = NULL;
 	uint32_t old_mac_seq = 0, mac_new_seq = 0;
 	bool upd_mac_seq = false;
 	bool neigh_mac_change = false;
@@ -1605,7 +1606,7 @@ int zebra_evpn_remote_neigh_update(struct zebra_evpn *zevpn,
 				   uint16_t state)
 {
 	zebra_neigh_t *n = NULL;
-	zebra_mac_t *zmac = NULL;
+	struct zebra_mac *zmac = NULL;
 
 	/* If the neighbor is unknown, there is no further action. */
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
@@ -1649,7 +1650,7 @@ zebra_evpn_send_neigh_hash_entry_to_client(struct hash_bucket *bucket,
 {
 	struct mac_walk_ctx *wctx = arg;
 	zebra_neigh_t *zn = bucket->data;
-	zebra_mac_t *zmac = NULL;
+	struct zebra_mac *zmac = NULL;
 
 	if (CHECK_FLAG(zn->flags, ZEBRA_NEIGH_DEF_GW))
 		return;
@@ -2054,12 +2055,13 @@ void zebra_evpn_print_dad_neigh_hash_detail(struct hash_bucket *bucket,
 void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 				       struct zebra_vrf *zvrf,
 				       const struct ipaddr *ipaddr,
-				       zebra_mac_t *mac, struct in_addr vtep_ip,
-				       uint8_t flags, uint32_t seq)
+				       struct zebra_mac *mac,
+				       struct in_addr vtep_ip, uint8_t flags,
+				       uint32_t seq)
 {
 	zebra_neigh_t *n;
 	int update_neigh = 0;
-	zebra_mac_t *old_mac = NULL;
+	struct zebra_mac *old_mac = NULL;
 	bool old_static = false;
 	bool do_dad = false;
 	bool is_dup_detect = false;
@@ -2187,7 +2189,7 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 
 int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 				  struct zebra_evpn *zevpn, struct ipaddr *ip,
-				  zebra_mac_t *mac)
+				  struct zebra_mac *mac)
 {
 	zebra_neigh_t *n;
 
@@ -2247,7 +2249,7 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 
 void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 				       struct zebra_vrf *zvrf, zebra_neigh_t *n,
-				       zebra_mac_t *mac,
+				       struct zebra_mac *mac,
 				       const struct ipaddr *ipaddr)
 {
 	if (zvrf->dad_freeze && CHECK_FLAG(n->flags, ZEBRA_NEIGH_DUPLICATE)
@@ -2284,7 +2286,7 @@ void zebra_evpn_neigh_remote_uninstall(struct zebra_evpn *zevpn,
 int zebra_evpn_neigh_del_ip(struct zebra_evpn *zevpn, const struct ipaddr *ip)
 {
 	zebra_neigh_t *n;
-	zebra_mac_t *zmac;
+	struct zebra_mac *zmac;
 	bool old_bgp_ready;
 	bool new_bgp_ready;
 	struct zebra_vrf *zvrf;

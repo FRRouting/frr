@@ -434,7 +434,7 @@ int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ethaddr *macaddr, struct ipaddr *ip)
 {
-	zebra_mac_t *mac = NULL;
+	struct zebra_mac *mac = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 
@@ -459,7 +459,7 @@ int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ipaddr *ip)
 {
 	zebra_neigh_t *n = NULL;
-	zebra_mac_t *mac = NULL;
+	struct zebra_mac *mac = NULL;
 
 	/* If the neigh entry is not present nothing to do*/
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
@@ -900,10 +900,10 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
  */
 void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
-	zebra_mac_t *mac;
+	struct zebra_mac *mac;
 	struct mac_walk_ctx *wctx = ctxt;
 
-	mac = (zebra_mac_t *)bucket->data;
+	mac = (struct zebra_mac *)bucket->data;
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 		zebra_evpn_rem_mac_install(wctx->zevpn, mac, false);
@@ -1394,7 +1394,7 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_vtep *zvtep;
-	zebra_mac_t *mac = NULL;
+	struct zebra_mac *mac = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_vrf *zvrf;
@@ -1470,7 +1470,7 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 			      struct in_addr vtep_ip)
 {
 	struct zebra_evpn *zevpn;
-	zebra_mac_t *mac = NULL;
+	struct zebra_mac *mac = NULL;
 	zebra_neigh_t *n = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
