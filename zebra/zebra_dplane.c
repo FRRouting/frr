@@ -2202,7 +2202,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
-	zebra_l3vni_t *zl3vni;
+	struct zebra_l3vni *zl3vni;
 	const struct interface *ifp;
 	struct dplane_intf_extra *if_extra;
 

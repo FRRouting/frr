@@ -64,7 +64,7 @@ DEFINE_MTYPE_STATIC(ZEBRA, L3NEIGH, "EVPN Neighbor");
 DEFINE_MTYPE_STATIC(ZEBRA, ZVXLAN_SG, "zebra VxLAN multicast group");
 
 DEFINE_HOOK(zebra_rmac_update,
-	    (struct zebra_mac * rmac, zebra_l3vni_t *zl3vni, bool delete,
+	    (struct zebra_mac * rmac, struct zebra_l3vni *zl3vni, bool delete,
 	     const char *reason),
 	    (rmac, zl3vni, delete, reason));
 
@@ -78,34 +78,35 @@ static void zl3vni_print_rmac(struct zebra_mac *zrmac, struct vty *vty,
 static void zevpn_print_mac_hash_all_evpn(struct hash_bucket *bucket, void *ctxt);
 
 /* l3-vni next-hop neigh related APIs */
-static zebra_neigh_t *zl3vni_nh_lookup(zebra_l3vni_t *zl3vni,
+static zebra_neigh_t *zl3vni_nh_lookup(struct zebra_l3vni *zl3vni,
 				       const struct ipaddr *ip);
 static void *zl3vni_nh_alloc(void *p);
-static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni,
+static zebra_neigh_t *zl3vni_nh_add(struct zebra_l3vni *zl3vni,
 				    const struct ipaddr *vtep_ip,
 				    const struct ethaddr *rmac);
-static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
-static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
-static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n);
+static int zl3vni_nh_del(struct zebra_l3vni *zl3vni, zebra_neigh_t *n);
+static int zl3vni_nh_install(struct zebra_l3vni *zl3vni, zebra_neigh_t *n);
+static int zl3vni_nh_uninstall(struct zebra_l3vni *zl3vni, zebra_neigh_t *n);
 
 /* l3-vni rmac related APIs */
 static void zl3vni_print_rmac_hash(struct hash_bucket *, void *);
-static struct zebra_mac *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
+static struct zebra_mac *zl3vni_rmac_lookup(struct zebra_l3vni *zl3vni,
 					    const struct ethaddr *rmac);
 static void *zl3vni_rmac_alloc(void *p);
-static struct zebra_mac *zl3vni_rmac_add(zebra_l3vni_t *zl3vni,
+static struct zebra_mac *zl3vni_rmac_add(struct zebra_l3vni *zl3vni,
 					 const struct ethaddr *rmac);
-static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac);
-static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac);
-static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni,
+static int zl3vni_rmac_del(struct zebra_l3vni *zl3vni, struct zebra_mac *zrmac);
+static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
+			       struct zebra_mac *zrmac);
+static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 				 struct zebra_mac *zrmac);
 
 /* l3-vni related APIs*/
 static void *zl3vni_alloc(void *p);
-static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
-static int zl3vni_del(zebra_l3vni_t *zl3vni);
-static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni);
-static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni);
+static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
+static int zl3vni_del(struct zebra_l3vni *zl3vni);
+static void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
+static void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 
 static void zevpn_build_hash_table(void);
 static unsigned int zebra_vxlan_sg_hash_key_make(const void *p);
@@ -578,7 +579,7 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
 	struct vty *vty = NULL;
 	json_object *json = NULL;
 	json_object *json_evpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	uint32_t num_nh = 0;
 	struct nh_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
@@ -586,7 +587,7 @@ static void zl3vni_print_nh_hash_all_vni(struct hash_bucket *bucket,
 	vty = (struct vty *)args[0];
 	json = (struct json_object *)args[1];
 
-	zl3vni = (zebra_l3vni_t *)bucket->data;
+	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	num_nh = hashcount(zl3vni->nh_table);
 	if (!num_nh)
@@ -617,7 +618,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
 	struct vty *vty = NULL;
 	json_object *json = NULL;
 	json_object *json_evpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	uint32_t num_rmacs;
 	struct rmac_walk_ctx wctx;
 	char vni_str[VNI_STR_LEN];
@@ -625,7 +626,7 @@ static void zl3vni_print_rmac_hash_all_vni(struct hash_bucket *bucket,
 	vty = (struct vty *)args[0];
 	json = (struct json_object *)args[1];
 
-	zl3vni = (zebra_l3vni_t *)bucket->data;
+	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	num_rmacs = hashcount(zl3vni->rmac_table);
 	if (!num_rmacs)
@@ -689,7 +690,7 @@ static void zl3vni_print_rmac_hash(struct hash_bucket *bucket, void *ctx)
 }
 
 /* print a specific L3 VNI entry */
-static void zl3vni_print(zebra_l3vni_t *zl3vni, void **ctx)
+static void zl3vni_print(struct zebra_l3vni *zl3vni, void **ctx)
 {
 	char buf[PREFIX_STRLEN];
 	struct vty *vty = NULL;
@@ -762,12 +763,12 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 	struct vty *vty = NULL;
 	json_object *json = NULL;
 	json_object *json_evpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	vty = (struct vty *)ctx[0];
 	json = (json_object *)ctx[1];
 
-	zl3vni = (zebra_l3vni_t *)bucket->data;
+	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	if (!json) {
 		vty_out(vty, "%-10u %-4s %-21s %-8lu %-8lu %-15s %-37s\n",
@@ -799,7 +800,7 @@ static void zl3vni_print_hash(struct hash_bucket *bucket, void *ctx[])
 static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 {
 	struct vty *vty = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	json_object *json_array = NULL;
 	bool use_json = false;
 	struct zebra_evpn_show *zes = data;
@@ -808,7 +809,7 @@ static void zl3vni_print_hash_detail(struct hash_bucket *bucket, void *data)
 	json_array = zes->json;
 	use_json = zes->use_json;
 
-	zl3vni = (zebra_l3vni_t *)bucket->data;
+	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	zebra_vxlan_print_vni(vty, zes->zvrf, zl3vni->vni,
 		use_json, json_array);
@@ -919,7 +920,7 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
 		vni_t vni;
 		struct zebra_evpn *zevpn = NULL;
-		zebra_l3vni_t *zl3vni = NULL;
+		struct zebra_l3vni *zl3vni = NULL;
 		struct zebra_if *zif;
 		struct zebra_l2info_vxlan *vxl;
 
@@ -1073,7 +1074,7 @@ static void zevpn_build_hash_table(void)
 static void zebra_evpn_vxlan_cleanup_all(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_vrf *zvrf = (struct zebra_vrf *)arg;
 
 	zevpn = (struct zebra_evpn *)bucket->data;
@@ -1090,9 +1091,9 @@ static void zebra_evpn_vxlan_cleanup_all(struct hash_bucket *bucket, void *arg)
 /* cleanup L3VNI */
 static void zl3vni_cleanup_all(struct hash_bucket *bucket, void *args)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
-	zl3vni = (zebra_l3vni_t *)bucket->data;
+	zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	zebra_vxlan_process_l3vni_oper_down(zl3vni);
 }
@@ -1136,7 +1137,7 @@ static void rb_delete_host(struct host_rb_tree_entry *hrbe, struct prefix *host)
 /*
  * Look up MAC hash entry.
  */
-static struct zebra_mac *zl3vni_rmac_lookup(zebra_l3vni_t *zl3vni,
+static struct zebra_mac *zl3vni_rmac_lookup(struct zebra_l3vni *zl3vni,
 					    const struct ethaddr *rmac)
 {
 	struct zebra_mac tmp;
@@ -1166,7 +1167,7 @@ static void *zl3vni_rmac_alloc(void *p)
 /*
  * Add RMAC entry to l3-vni
  */
-static struct zebra_mac *zl3vni_rmac_add(zebra_l3vni_t *zl3vni,
+static struct zebra_mac *zl3vni_rmac_add(struct zebra_l3vni *zl3vni,
 					 const struct ethaddr *rmac)
 {
 	struct zebra_mac tmp_rmac;
@@ -1188,7 +1189,7 @@ static struct zebra_mac *zl3vni_rmac_add(zebra_l3vni_t *zl3vni,
 /*
  * Delete MAC entry.
  */
-static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac)
+static int zl3vni_rmac_del(struct zebra_l3vni *zl3vni, struct zebra_mac *zrmac)
 {
 	struct zebra_mac *tmp_rmac;
 	struct host_rb_entry *hle;
@@ -1209,7 +1210,8 @@ static int zl3vni_rmac_del(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac)
 /*
  * Install remote RMAC into the forwarding plane.
  */
-static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac)
+static int zl3vni_rmac_install(struct zebra_l3vni *zl3vni,
+			       struct zebra_mac *zrmac)
 {
 	const struct zebra_if *zif = NULL, *br_zif = NULL;
 	const struct zebra_l2info_vxlan *vxl = NULL;
@@ -1250,7 +1252,8 @@ static int zl3vni_rmac_install(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac)
 /*
  * Uninstall remote RMAC from the forwarding plane.
  */
-static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac)
+static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
+				 struct zebra_mac *zrmac)
 {
 	const struct zebra_if *zif = NULL, *br_zif;
 	const struct zebra_l2info_vxlan *vxl = NULL;
@@ -1295,7 +1298,7 @@ static int zl3vni_rmac_uninstall(zebra_l3vni_t *zl3vni, struct zebra_mac *zrmac)
 }
 
 /* handle rmac add */
-static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
+static int zl3vni_remote_rmac_add(struct zebra_l3vni *zl3vni,
 				  const struct ethaddr *rmac,
 				  const struct ipaddr *vtep_ip,
 				  const struct prefix *host_prefix)
@@ -1343,7 +1346,7 @@ static int zl3vni_remote_rmac_add(zebra_l3vni_t *zl3vni,
 
 
 /* handle rmac delete */
-static void zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
+static void zl3vni_remote_rmac_del(struct zebra_l3vni *zl3vni,
 				   struct zebra_mac *zrmac,
 				   struct prefix *host_prefix)
 {
@@ -1365,7 +1368,7 @@ static void zl3vni_remote_rmac_del(zebra_l3vni_t *zl3vni,
 /*
  * Look up nh hash entry on a l3-vni.
  */
-static zebra_neigh_t *zl3vni_nh_lookup(zebra_l3vni_t *zl3vni,
+static zebra_neigh_t *zl3vni_nh_lookup(struct zebra_l3vni *zl3vni,
 				       const struct ipaddr *ip)
 {
 	zebra_neigh_t tmp;
@@ -1396,7 +1399,7 @@ static void *zl3vni_nh_alloc(void *p)
 /*
  * Add neighbor entry.
  */
-static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni,
+static zebra_neigh_t *zl3vni_nh_add(struct zebra_l3vni *zl3vni,
 				    const struct ipaddr *ip,
 				    const struct ethaddr *mac)
 {
@@ -1420,7 +1423,7 @@ static zebra_neigh_t *zl3vni_nh_add(zebra_l3vni_t *zl3vni,
 /*
  * Delete neighbor entry.
  */
-static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
+static int zl3vni_nh_del(struct zebra_l3vni *zl3vni, zebra_neigh_t *n)
 {
 	zebra_neigh_t *tmp_n;
 	struct host_rb_entry *hle;
@@ -1441,7 +1444,7 @@ static int zl3vni_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 /*
  * Install remote nh as neigh into the kernel.
  */
-static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
+static int zl3vni_nh_install(struct zebra_l3vni *zl3vni, zebra_neigh_t *n)
 {
 	uint8_t flags;
 	int ret = 0;
@@ -1466,7 +1469,7 @@ static int zl3vni_nh_install(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 /*
  * Uninstall remote nh from the kernel.
  */
-static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
+static int zl3vni_nh_uninstall(struct zebra_l3vni *zl3vni, zebra_neigh_t *n)
 {
 	if (!(n->flags & ZEBRA_NEIGH_REMOTE)
 	    || !(n->flags & ZEBRA_NEIGH_REMOTE_NH))
@@ -1481,7 +1484,7 @@ static int zl3vni_nh_uninstall(zebra_l3vni_t *zl3vni, zebra_neigh_t *n)
 }
 
 /* add remote vtep as a neigh entry */
-static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
+static int zl3vni_remote_nh_add(struct zebra_l3vni *zl3vni,
 				const struct ipaddr *vtep_ip,
 				const struct ethaddr *rmac,
 				const struct prefix *host_prefix)
@@ -1519,7 +1522,7 @@ static int zl3vni_remote_nh_add(zebra_l3vni_t *zl3vni,
 }
 
 /* handle nh neigh delete */
-static void zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *nh,
+static void zl3vni_remote_nh_del(struct zebra_l3vni *zl3vni, zebra_neigh_t *nh,
 				 struct prefix *host_prefix)
 {
 	rb_delete_host(&nh->host_rb, host_prefix);
@@ -1536,8 +1539,8 @@ static void zl3vni_remote_nh_del(zebra_l3vni_t *zl3vni, zebra_neigh_t *nh,
 /* handle neigh update from kernel - the only thing of interest is to
  * readd stale entries.
  */
-static int zl3vni_local_nh_add_update(zebra_l3vni_t *zl3vni, struct ipaddr *ip,
-				      uint16_t state)
+static int zl3vni_local_nh_add_update(struct zebra_l3vni *zl3vni,
+				      struct ipaddr *ip, uint16_t state)
 {
 #ifdef GNU_LINUX
 	zebra_neigh_t *n = NULL;
@@ -1556,7 +1559,7 @@ static int zl3vni_local_nh_add_update(zebra_l3vni_t *zl3vni, struct ipaddr *ip,
 }
 
 /* handle neigh delete from kernel */
-static int zl3vni_local_nh_del(zebra_l3vni_t *zl3vni, struct ipaddr *ip)
+static int zl3vni_local_nh_del(struct zebra_l3vni *zl3vni, struct ipaddr *ip)
 {
 	zebra_neigh_t *n = NULL;
 
@@ -1578,7 +1581,7 @@ static int zl3vni_local_nh_del(zebra_l3vni_t *zl3vni, struct ipaddr *ip)
  */
 static unsigned int l3vni_hash_keymake(const void *p)
 {
-	const zebra_l3vni_t *zl3vni = p;
+	const struct zebra_l3vni *zl3vni = p;
 
 	return jhash_1word(zl3vni->vni, 0);
 }
@@ -1588,8 +1591,8 @@ static unsigned int l3vni_hash_keymake(const void *p)
  */
 static bool l3vni_hash_cmp(const void *p1, const void *p2)
 {
-	const zebra_l3vni_t *zl3vni1 = p1;
-	const zebra_l3vni_t *zl3vni2 = p2;
+	const struct zebra_l3vni *zl3vni1 = p1;
+	const struct zebra_l3vni *zl3vni2 = p2;
 
 	return (zl3vni1->vni == zl3vni2->vni);
 }
@@ -1599,10 +1602,10 @@ static bool l3vni_hash_cmp(const void *p1, const void *p2)
  */
 static void *zl3vni_alloc(void *p)
 {
-	zebra_l3vni_t *zl3vni = NULL;
-	const zebra_l3vni_t *tmp_l3vni = p;
+	struct zebra_l3vni *zl3vni = NULL;
+	const struct zebra_l3vni *tmp_l3vni = p;
 
-	zl3vni = XCALLOC(MTYPE_ZL3VNI, sizeof(zebra_l3vni_t));
+	zl3vni = XCALLOC(MTYPE_ZL3VNI, sizeof(struct zebra_l3vni));
 	zl3vni->vni = tmp_l3vni->vni;
 	return ((void *)zl3vni);
 }
@@ -1610,12 +1613,12 @@ static void *zl3vni_alloc(void *p)
 /*
  * Look up L3 VNI hash entry.
  */
-zebra_l3vni_t *zl3vni_lookup(vni_t vni)
+struct zebra_l3vni *zl3vni_lookup(vni_t vni)
 {
-	zebra_l3vni_t tmp_l3vni;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni tmp_l3vni;
+	struct zebra_l3vni *zl3vni = NULL;
 
-	memset(&tmp_l3vni, 0, sizeof(zebra_l3vni_t));
+	memset(&tmp_l3vni, 0, sizeof(struct zebra_l3vni));
 	tmp_l3vni.vni = vni;
 	zl3vni = hash_lookup(zrouter.l3vni_table, &tmp_l3vni);
 
@@ -1625,12 +1628,12 @@ zebra_l3vni_t *zl3vni_lookup(vni_t vni)
 /*
  * Add L3 VNI hash entry.
  */
-static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
+static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 {
-	zebra_l3vni_t tmp_zl3vni;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni tmp_zl3vni;
+	struct zebra_l3vni *zl3vni = NULL;
 
-	memset(&tmp_zl3vni, 0, sizeof(zebra_l3vni_t));
+	memset(&tmp_zl3vni, 0, sizeof(struct zebra_l3vni));
 	tmp_zl3vni.vni = vni;
 
 	zl3vni = hash_get(zrouter.l3vni_table, &tmp_zl3vni, zl3vni_alloc);
@@ -1654,9 +1657,9 @@ static zebra_l3vni_t *zl3vni_add(vni_t vni, vrf_id_t vrf_id)
 /*
  * Delete L3 VNI hash entry.
  */
-static int zl3vni_del(zebra_l3vni_t *zl3vni)
+static int zl3vni_del(struct zebra_l3vni *zl3vni)
 {
-	zebra_l3vni_t *tmp_zl3vni;
+	struct zebra_l3vni *tmp_zl3vni;
 
 	/* free the list of l2vnis */
 	list_delete(&zl3vni->l2vnis);
@@ -1682,7 +1685,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 				     void **_pifp)
 {
 	struct zebra_ns *zns = ns->info;
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)_zl3vni;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)_zl3vni;
 	struct route_node *rn = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_vrf *zvrf;
@@ -1730,7 +1733,7 @@ static int zl3vni_map_to_vxlan_if_ns(struct ns *ns,
 	return NS_WALK_CONTINUE;
 }
 
-struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
+struct interface *zl3vni_map_to_vxlan_if(struct zebra_l3vni *zl3vni)
 {
 	struct interface **p_ifp;
 	struct interface *ifp = NULL;
@@ -1742,7 +1745,7 @@ struct interface *zl3vni_map_to_vxlan_if(zebra_l3vni_t *zl3vni)
 	return ifp;
 }
 
-struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
+struct interface *zl3vni_map_to_svi_if(struct zebra_l3vni *zl3vni)
 {
 	struct zebra_if *zif = NULL;	   /* zebra_if for vxlan_if */
 	struct zebra_l2info_vxlan *vxl = NULL; /* l2 info for vxlan_if */
@@ -1762,7 +1765,7 @@ struct interface *zl3vni_map_to_svi_if(zebra_l3vni_t *zl3vni)
 	return zvni_map_to_svi(vxl->access_vlan, zif->brslave_info.br_if);
 }
 
-struct interface *zl3vni_map_to_mac_vlan_if(zebra_l3vni_t *zl3vni)
+struct interface *zl3vni_map_to_mac_vlan_if(struct zebra_l3vni *zl3vni)
 {
 	struct zebra_if *zif = NULL;	   /* zebra_if for vxlan_if */
 
@@ -1781,7 +1784,7 @@ struct interface *zl3vni_map_to_mac_vlan_if(zebra_l3vni_t *zl3vni)
 }
 
 
-zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id)
+struct zebra_l3vni *zl3vni_from_vrf(vrf_id_t vrf_id)
 {
 	struct zebra_vrf *zvrf = NULL;
 
@@ -1796,13 +1799,13 @@ zebra_l3vni_t *zl3vni_from_vrf(vrf_id_t vrf_id)
  * Map SVI and associated bridge to a VNI. This is invoked upon getting
  * neighbor notifications, to see if they are of interest.
  */
-static zebra_l3vni_t *zl3vni_from_svi(struct interface *ifp,
-				      struct interface *br_if)
+static struct zebra_l3vni *zl3vni_from_svi(struct interface *ifp,
+					   struct interface *br_if)
 {
 	int found = 0;
 	vlanid_t vid = 0;
 	uint8_t bridge_vlan_aware = 0;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_ns *zns = NULL;
 	struct route_node *rn = NULL;
 	struct zebra_if *zif = NULL;
@@ -1868,7 +1871,7 @@ vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if)
 {
 	vni_t vni = 0;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* Check if an L3VNI belongs to this SVI interface.
 	 * If not, check if an L2VNI belongs to this SVI interface.
@@ -1885,7 +1888,7 @@ vni_t vni_id_from_svi(struct interface *ifp, struct interface *br_if)
 	return vni;
 }
 
-static inline void zl3vni_get_vrr_rmac(zebra_l3vni_t *zl3vni,
+static inline void zl3vni_get_vrr_rmac(struct zebra_l3vni *zl3vni,
 				       struct ethaddr *rmac)
 {
 	if (!zl3vni)
@@ -1901,7 +1904,7 @@ static inline void zl3vni_get_vrr_rmac(zebra_l3vni_t *zl3vni,
 /*
  * Inform BGP about l3-vni.
  */
-static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
+static int zl3vni_send_add_to_client(struct zebra_l3vni *zl3vni)
 {
 	struct stream *s = NULL;
 	struct zserv *client = NULL;
@@ -1962,7 +1965,7 @@ static int zl3vni_send_add_to_client(zebra_l3vni_t *zl3vni)
 /*
  * Inform BGP about local l3-VNI deletion.
  */
-static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
+static int zl3vni_send_del_to_client(struct zebra_l3vni *zl3vni)
 {
 	struct stream *s = NULL;
 	struct zserv *client = NULL;
@@ -1989,7 +1992,7 @@ static int zl3vni_send_del_to_client(zebra_l3vni_t *zl3vni)
 	return zserv_send_message(client, s);
 }
 
-static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
+static void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni)
 {
 	if (!zl3vni)
 		return;
@@ -1998,7 +2001,7 @@ static void zebra_vxlan_process_l3vni_oper_up(zebra_l3vni_t *zl3vni)
 	zl3vni_send_add_to_client(zl3vni);
 }
 
-static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
+static void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni)
 {
 	if (!zl3vni)
 		return;
@@ -2010,7 +2013,7 @@ static void zebra_vxlan_process_l3vni_oper_down(zebra_l3vni_t *zl3vni)
 static void zevpn_add_to_l3vni_list(struct hash_bucket *bucket, void *ctxt)
 {
 	struct zebra_evpn *zevpn = (struct zebra_evpn *)bucket->data;
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)ctxt;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)ctxt;
 
 	if (zevpn->vrf_id == zl3vni_vrf_id(zl3vni))
 		listnode_add_sort(zl3vni->l2vnis, zevpn);
@@ -2135,10 +2138,10 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 static void zl3vni_del_rmac_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
 	struct zebra_mac *zrmac = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zrmac = (struct zebra_mac *)bucket->data;
-	zl3vni = (zebra_l3vni_t *)ctx;
+	zl3vni = (struct zebra_l3vni *)ctx;
 	zl3vni_rmac_uninstall(zl3vni, zrmac);
 
 	/* Send RMAC for FPM processing */
@@ -2151,16 +2154,16 @@ static void zl3vni_del_rmac_hash_entry(struct hash_bucket *bucket, void *ctx)
 static void zl3vni_del_nh_hash_entry(struct hash_bucket *bucket, void *ctx)
 {
 	zebra_neigh_t *n = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	n = (zebra_neigh_t *)bucket->data;
-	zl3vni = (zebra_l3vni_t *)ctx;
+	zl3vni = (struct zebra_l3vni *)ctx;
 	zl3vni_nh_uninstall(zl3vni, n);
 	zl3vni_nh_del(zl3vni, n);
 }
 
 /* re-add remote rmac if needed */
-static int zebra_vxlan_readd_remote_rmac(zebra_l3vni_t *zl3vni,
+static int zebra_vxlan_readd_remote_rmac(struct zebra_l3vni *zl3vni,
 					 struct ethaddr *rmac)
 {
 	struct zebra_mac *zrmac = NULL;
@@ -2181,7 +2184,7 @@ static int zebra_vxlan_readd_remote_rmac(zebra_l3vni_t *zl3vni,
 
 int is_l3vni_for_prefix_routes_only(vni_t vni)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zl3vni = zl3vni_lookup(vni);
 	if (!zl3vni)
@@ -2195,7 +2198,7 @@ void zebra_vxlan_evpn_vrf_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
 				    const struct ipaddr *vtep_ip,
 				    const struct prefix *host_prefix)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct ipaddr ipv4_vtep;
 
 	zl3vni = zl3vni_from_vrf(vrf_id);
@@ -2234,7 +2237,7 @@ void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 				    struct ipaddr *vtep_ip,
 				    struct prefix *host_prefix)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	zebra_neigh_t *nh = NULL;
 	struct zebra_mac *zrmac = NULL;
 
@@ -2260,7 +2263,7 @@ void zebra_vxlan_evpn_vrf_route_del(vrf_id_t vrf_id,
 void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 					   struct ethaddr *rmac, bool use_json)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_mac *zrmac = NULL;
 	json_object *json = NULL;
 
@@ -2304,7 +2307,7 @@ void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 
 void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 {
-	zebra_l3vni_t *zl3vni;
+	struct zebra_l3vni *zl3vni;
 	uint32_t num_rmacs;
 	struct rmac_walk_ctx wctx;
 	json_object *json = NULL;
@@ -2377,7 +2380,7 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
 void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 					 struct ipaddr *ip, bool use_json)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	zebra_neigh_t *n = NULL;
 	json_object *json = NULL;
 
@@ -2424,7 +2427,7 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 	uint32_t num_nh;
 	struct nh_walk_ctx wctx;
 	json_object *json = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	if (!is_evpn_enabled())
 		return;
@@ -2498,7 +2501,7 @@ void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, bool use_json)
 {
 	void *args[2];
 	json_object *json = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	if (!is_evpn_enabled()) {
 		if (use_json)
@@ -2533,7 +2536,7 @@ void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
 			       json_object *json_vrfs)
 {
 	char buf[ETHER_ADDR_STRLEN];
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zl3vni = zl3vni_lookup(zvrf->l3vni);
 	if (!zl3vni)
@@ -3442,7 +3445,7 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 {
 	json_object *json = NULL;
 	void *args[2];
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_evpn *zevpn = NULL;
 
 	if (!is_evpn_enabled())
@@ -3692,7 +3695,7 @@ int zebra_vxlan_handle_kernel_neigh_del(struct interface *ifp,
 					struct ipaddr *ip)
 {
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* check if this is a remote neigh entry corresponding to remote
 	 * next-hop
@@ -3743,7 +3746,7 @@ int zebra_vxlan_handle_kernel_neigh_update(struct interface *ifp,
 					   bool local_inactive, bool dp_static)
 {
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* check if this is a remote neigh entry corresponding to remote
 	 * next-hop
@@ -4088,7 +4091,7 @@ int zebra_vxlan_dp_network_mac_del(struct interface *ifp,
 	struct zebra_l2info_vxlan *vxl = NULL;
 	vni_t vni;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_mac *mac = NULL;
 
 	zif = ifp->info;
@@ -4597,7 +4600,7 @@ int zebra_vxlan_add_del_gw_macip(struct interface *ifp, const struct prefix *p,
  */
 int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zl3vni = zl3vni_from_svi(ifp, link_if);
 	if (zl3vni) {
@@ -4641,7 +4644,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 {
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zl3vni = zl3vni_from_svi(ifp, link_if);
 	if (zl3vni) {
@@ -4702,7 +4705,7 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
  */
 void zebra_vxlan_macvlan_down(struct interface *ifp)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_if *zif, *link_zif;
 	struct interface *link_ifp, *link_if;
 
@@ -4742,7 +4745,7 @@ void zebra_vxlan_macvlan_down(struct interface *ifp)
  */
 void zebra_vxlan_macvlan_up(struct interface *ifp)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_if *zif, *link_zif;
 	struct interface *link_ifp, *link_if;
 
@@ -4773,7 +4776,7 @@ int zebra_vxlan_if_down(struct interface *ifp)
 	vni_t vni;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_evpn *zevpn;
 
 	/* Check if EVPN is enabled. */
@@ -4837,7 +4840,7 @@ int zebra_vxlan_if_up(struct interface *ifp)
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -4914,7 +4917,7 @@ int zebra_vxlan_if_del(struct interface *ifp)
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -4988,7 +4991,7 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct interface *vlan_if = NULL;
 
 	/* Check if EVPN is enabled. */
@@ -5165,7 +5168,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 	struct zebra_evpn *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -5268,7 +5271,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 				    char *err, int err_str_sz, int filter,
 				    int add)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_vrf *zvrf_evpn = NULL;
 
 	zvrf_evpn = zebra_vrf_get_evpn();
@@ -5384,7 +5387,7 @@ int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 
 int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	if (zvrf->l3vni)
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
@@ -5399,7 +5402,7 @@ int zebra_vxlan_vrf_enable(struct zebra_vrf *zvrf)
 
 int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	if (zvrf->l3vni)
 		zl3vni = zl3vni_lookup(zvrf->l3vni);
@@ -5420,7 +5423,7 @@ int zebra_vxlan_vrf_disable(struct zebra_vrf *zvrf)
 
 int zebra_vxlan_vrf_delete(struct zebra_vrf *zvrf)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	vni_t vni;
 
 	if (zvrf->l3vni)
@@ -5912,7 +5915,7 @@ void zebra_vxlan_disable(void)
 /* get the l3vni svi ifindex */
 ifindex_t get_l3vni_svi_ifindex(vrf_id_t vrf_id)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zl3vni = zl3vni_from_vrf(vrf_id);
 	if (!zl3vni || !is_l3vni_oper_up(zl3vni))
@@ -6214,7 +6217,7 @@ void zebra_vxlan_sg_replay(ZAPI_HANDLER_ARGS)
 /* Cleanup EVPN configuration of a specific VRF */
 static void zebra_evpn_vrf_cfg_cleanup(struct zebra_vrf *zvrf)
 {
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	zvrf->advertise_all_vni = 0;
 	zvrf->advertise_gw_macip = 0;
