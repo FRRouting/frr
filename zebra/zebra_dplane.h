@@ -385,7 +385,7 @@ uint8_t dplane_ctx_get_nhe_nh_grp_count(const struct zebra_dplane_ctx *ctx);
  * context data area.
  */
 int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
-			zebra_lsp_t *lsp);
+			struct zebra_lsp *lsp);
 
 mpls_label_t dplane_ctx_get_in_label(const struct zebra_dplane_ctx *ctx);
 void dplane_ctx_set_in_label(struct zebra_dplane_ctx *ctx,
@@ -593,12 +593,12 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe);
 /*
  * Enqueue LSP change operations for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp);
-enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp);
-enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp);
+enum zebra_dplane_result dplane_lsp_add(struct zebra_lsp *lsp);
+enum zebra_dplane_result dplane_lsp_update(struct zebra_lsp *lsp);
+enum zebra_dplane_result dplane_lsp_delete(struct zebra_lsp *lsp);
 
 /* Update or un-install resulting from an async notification */
-enum zebra_dplane_result dplane_lsp_notif_update(zebra_lsp_t *lsp,
+enum zebra_dplane_result dplane_lsp_notif_update(struct zebra_lsp *lsp,
 						 enum dplane_op_e op,
 						 struct zebra_dplane_ctx *ctx);
 
