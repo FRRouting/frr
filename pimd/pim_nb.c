@@ -757,6 +757,12 @@ const struct frr_yang_module_info frr_gmp_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/require-router-alert",
+			.cbs = {
+				.modify = lib_interface_gmp_require_router_alert_modify,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group",
 			.cbs = {
 				.create = lib_interface_gmp_address_family_static_group_create,

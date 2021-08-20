@@ -1817,7 +1817,7 @@ static void gm_t_recv(struct event *t)
 		goto out_free;
 	}
 
-	if (!ip6_check_hopopts_ra(hopopts, hopopt_len, IP6_ALERT_MLD)) {
+	if (pim_ifp->gmp_require_ra && !ip6_check_hopopts_ra(hopopts, hopopt_len, IP6_ALERT_MLD)) {
 		zlog_err(log_pkt_src(
 			"packet without IPv6 Router Alert MLD option"));
 		gm_ifp->stats.rx_drop_ra++;

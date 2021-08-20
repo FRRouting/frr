@@ -194,6 +194,13 @@ module frr-gmp {
          Has no effect when IGMPv3/MLDv2 is in use.";
     }
 
+    leaf require-router-alert {
+      type boolean;
+      default "false";
+      description
+        "Only process IGMP packets with IP Router Alert option set.";
+    }
+
     list static-group {
       key "group-addr source-addr";
       description
