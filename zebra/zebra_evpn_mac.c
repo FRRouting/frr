@@ -383,7 +383,7 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 	struct zebra_mac *mac = NULL;
 	struct zebra_evpn *zevpn = NULL;
 	struct listnode *node = NULL;
-	zebra_neigh_t *nbr = NULL;
+	struct zebra_neigh *nbr = NULL;
 
 	mac = THREAD_ARG(t);
 
@@ -461,7 +461,7 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 					       bool do_dad, bool *is_dup_detect,
 					       bool is_local)
 {
-	zebra_neigh_t *nbr;
+	struct zebra_neigh *nbr;
 	struct listnode *node = NULL;
 	struct timeval elapsed = {0, 0};
 	bool reset_params = false;
@@ -609,7 +609,7 @@ static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
 void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 {
 	struct vty *vty;
-	zebra_neigh_t *n = NULL;
+	struct zebra_neigh *n = NULL;
 	struct listnode *node = NULL;
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
