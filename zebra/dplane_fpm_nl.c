@@ -874,7 +874,7 @@ struct fpm_lsp_arg {
 
 static int fpm_lsp_send_cb(struct hash_bucket *bucket, void *arg)
 {
-	zebra_lsp_t *lsp = bucket->data;
+	struct zebra_lsp *lsp = bucket->data;
 	struct fpm_lsp_arg *fla = arg;
 
 	/* Skip entries which have already been sent */
@@ -1138,7 +1138,7 @@ static int fpm_nhg_reset(struct thread *t)
  */
 static void fpm_lsp_reset_cb(struct hash_bucket *bucket, void *arg)
 {
-	zebra_lsp_t *lsp = bucket->data;
+	struct zebra_lsp *lsp = bucket->data;
 
 	UNSET_FLAG(lsp->flags, LSP_FLAG_FPM);
 }

@@ -49,7 +49,6 @@ extern "C" {
 
 /* Typedefs */
 
-typedef struct zebra_lsp_t_ zebra_lsp_t;
 typedef struct zebra_fec_t_ zebra_fec_t;
 
 /* Declare LSP nexthop list types */
@@ -66,7 +65,7 @@ struct zebra_nhlfe {
 	struct nexthop *nexthop;
 
 	/* Backpointer to base entry. */
-	zebra_lsp_t *lsp;
+	struct zebra_lsp *lsp;
 
 	/* Runtime info - flags, pointers etc. */
 	uint32_t flags;
@@ -93,7 +92,7 @@ struct zebra_ile {
 /*
  * Label swap entry (ile -> list of nhlfes)
  */
-struct zebra_lsp_t_ {
+struct zebra_lsp {
 	/* Incoming label */
 	struct zebra_ile ile;
 
@@ -177,26 +176,26 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
 
 /* Add an NHLFE to an LSP, return the newly-added object */
 struct zebra_nhlfe *
-zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
+zebra_mpls_lsp_add_nhlfe(struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
 			 enum nexthop_types_t gtype, const union g_addr *gate,
 			 ifindex_t ifindex, uint8_t num_labels,
 			 const mpls_label_t *out_labels);
 
 /* Add or update a backup NHLFE for an LSP; return the object */
 struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nhlfe(
-	zebra_lsp_t *lsp, enum lsp_types_t lsp_type, enum nexthop_types_t gtype,
-	const union g_addr *gate, ifindex_t ifindex, uint8_t num_labels,
-	const mpls_label_t *out_labels);
+	struct zebra_lsp *lsp, enum lsp_types_t lsp_type,
+	enum nexthop_types_t gtype, const union g_addr *gate, ifindex_t ifindex,
+	uint8_t num_labels, const mpls_label_t *out_labels);
 
 /*
  * Add NHLFE or backup NHLFE to an LSP based on a nexthop. These just maintain
  * the LSP and NHLFE objects; nothing is scheduled for processing.
  * Return: the newly-added object
  */
-struct zebra_nhlfe *zebra_mpls_lsp_add_nh(zebra_lsp_t *lsp,
+struct zebra_nhlfe *zebra_mpls_lsp_add_nh(struct zebra_lsp *lsp,
 					  enum lsp_types_t lsp_type,
 					  const struct nexthop *nh);
-struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nh(zebra_lsp_t *lsp,
+struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nh(struct zebra_lsp *lsp,
 						 enum lsp_types_t lsp_type,
 						 const struct nexthop *nh);
 
@@ -289,7 +288,7 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 /*
  * Lookup LSP by its input label.
  */
-zebra_lsp_t *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label);
+struct zebra_lsp *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label);
 
 /*
  * Uninstall a particular NHLFE in the forwarding table. If this is

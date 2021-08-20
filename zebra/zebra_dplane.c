@@ -324,7 +324,7 @@ struct zebra_dplane_ctx {
 	/* Support info for different kinds of updates */
 	union {
 		struct dplane_route_info rinfo;
-		zebra_lsp_t lsp;
+		struct zebra_lsp lsp;
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
@@ -515,7 +515,7 @@ static struct zebra_dplane_globals {
 static int dplane_thread_loop(struct thread *event);
 static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 				 struct zebra_ns *zns);
-static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
+static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 						   enum dplane_op_e op);
@@ -2400,7 +2400,7 @@ done:
  * Capture information for an LSP update in a dplane context.
  */
 int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
-			zebra_lsp_t *lsp)
+			struct zebra_lsp *lsp)
 {
 	int ret = AOK;
 	struct zebra_nhlfe *nhlfe, *new_nhlfe;
@@ -3223,7 +3223,7 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
 /*
  * Enqueue LSP add for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_add(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_INSTALL);
@@ -3234,7 +3234,7 @@ enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
 /*
  * Enqueue LSP update for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_update(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_UPDATE);
@@ -3245,7 +3245,7 @@ enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp)
 /*
  * Enqueue LSP delete for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_delete(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_DELETE);
@@ -3255,8 +3255,7 @@ enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
 
 /* Update or un-install resulting from an async notification */
 enum zebra_dplane_result
-dplane_lsp_notif_update(zebra_lsp_t *lsp,
-			enum dplane_op_e op,
+dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 			struct zebra_dplane_ctx *notif_ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
@@ -3335,7 +3334,7 @@ enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw)
 /*
  * Common internal LSP update utility
  */
-static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
+static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
