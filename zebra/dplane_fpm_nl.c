@@ -1048,7 +1048,7 @@ static int fpm_rib_send(struct thread *t)
 struct fpm_rmac_arg {
 	struct zebra_dplane_ctx *ctx;
 	struct fpm_nl_ctx *fnc;
-	zebra_l3vni_t *zl3vni;
+	struct zebra_l3vni *zl3vni;
 	bool complete;
 };
 
@@ -1087,7 +1087,7 @@ static void fpm_enqueue_rmac_table(struct hash_bucket *bucket, void *arg)
 static void fpm_enqueue_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
 	struct fpm_rmac_arg *fra = arg;
-	zebra_l3vni_t *zl3vni = bucket->data;
+	struct zebra_l3vni *zl3vni = bucket->data;
 
 	fra->zl3vni = zl3vni;
 	hash_iterate(zl3vni->rmac_table, fpm_enqueue_rmac_table, zl3vni);
@@ -1197,7 +1197,7 @@ static void fpm_unset_rmac_table(struct hash_bucket *bucket, void *arg)
 
 static void fpm_unset_l3vni_table(struct hash_bucket *bucket, void *arg)
 {
-	zebra_l3vni_t *zl3vni = bucket->data;
+	struct zebra_l3vni *zl3vni = bucket->data;
 
 	hash_iterate(zl3vni->rmac_table, fpm_unset_rmac_table, zl3vni);
 }
