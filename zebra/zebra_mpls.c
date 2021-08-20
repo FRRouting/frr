@@ -166,7 +166,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	struct nexthop *nexthop;
@@ -271,7 +271,7 @@ static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	char buf[BUFSIZ];
@@ -576,7 +576,7 @@ static int fec_del(zebra_fec_t *fec)
  */
 static unsigned int label_hash(const void *p)
 {
-	const zebra_ile_t *ile = p;
+	const struct zebra_ile *ile = p;
 
 	return (jhash_1word(ile->in_label, 0));
 }
@@ -586,8 +586,8 @@ static unsigned int label_hash(const void *p)
  */
 static bool label_cmp(const void *p1, const void *p2)
 {
-	const zebra_ile_t *ile1 = p1;
-	const zebra_ile_t *ile2 = p2;
+	const struct zebra_ile *ile1 = p1;
+	const struct zebra_ile *ile2 = p2;
 
 	return (ile1->in_label == ile2->in_label);
 }
@@ -1099,7 +1099,7 @@ static int lsp_processq_add(zebra_lsp_t *lsp)
  */
 static void *lsp_alloc(void *p)
 {
-	const zebra_ile_t *ile = p;
+	const struct zebra_ile *ile = p;
 	zebra_lsp_t *lsp;
 
 	lsp = XCALLOC(MTYPE_LSP, sizeof(zebra_lsp_t));
@@ -1480,7 +1480,7 @@ static int mpls_static_lsp_uninstall_all(struct zebra_vrf *zvrf,
 					 mpls_label_t in_label)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 
 	/* Lookup table. */
@@ -1760,7 +1760,7 @@ void zebra_mpls_lsp_dplane_result(struct zebra_dplane_ctx *ctx)
 {
 	struct zebra_vrf *zvrf;
 	mpls_label_t label;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	struct hash *lsp_table;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
@@ -2038,7 +2038,7 @@ static int update_nhlfes_from_ctx(struct nhlfe_list_head *nhlfe_head,
 void zebra_mpls_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 {
 	struct zebra_vrf *zvrf;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	struct hash *lsp_table;
 	zebra_lsp_t *lsp;
 	const struct nhlfe_list_head *ctx_list;
@@ -2900,7 +2900,7 @@ int mpls_zapi_labels_process(bool add_p, struct zebra_vrf *zvrf,
 	afi_t afi = AFI_IP;
 	const struct prefix *prefix = NULL;
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp = NULL;
 
 	/* Prep LSP for add case */
@@ -3180,7 +3180,7 @@ int mpls_lsp_install(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		     const union g_addr *gate, ifindex_t ifindex)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 
@@ -3273,7 +3273,7 @@ static int lsp_backup_znh_install(zebra_lsp_t *lsp, enum lsp_types_t type,
 zebra_lsp_t *mpls_lsp_find(struct zebra_vrf *zvrf, mpls_label_t in_label)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 
 	/* Lookup table. */
 	lsp_table = zvrf->lsp_table;
@@ -3295,7 +3295,7 @@ int mpls_lsp_uninstall(struct zebra_vrf *zvrf, enum lsp_types_t type,
 		       bool backup_p)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	char buf[NEXTHOP_STRLEN];
@@ -3354,7 +3354,7 @@ int mpls_lsp_uninstall_all_vrf(struct zebra_vrf *zvrf, enum lsp_types_t type,
 			       mpls_label_t in_label)
 {
 	struct hash *lsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 
 	/* Lookup table. */
@@ -3474,7 +3474,7 @@ int zebra_mpls_lsp_label_consistent(struct zebra_vrf *zvrf,
 				    union g_addr *gate, ifindex_t ifindex)
 {
 	struct hash *slsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	const struct nexthop *nh;
@@ -3542,7 +3542,7 @@ int zebra_mpls_static_lsp_add(struct zebra_vrf *zvrf, mpls_label_t in_label,
 			      ifindex_t ifindex)
 {
 	struct hash *slsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 	char buf[BUFSIZ];
@@ -3621,7 +3621,7 @@ int zebra_mpls_static_lsp_del(struct zebra_vrf *zvrf, mpls_label_t in_label,
 			      ifindex_t ifindex)
 {
 	struct hash *slsp_table;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	zebra_lsp_t *lsp;
 	zebra_nhlfe_t *nhlfe;
 
@@ -3702,7 +3702,7 @@ void zebra_mpls_print_lsp(struct vty *vty, struct zebra_vrf *zvrf,
 {
 	struct hash *lsp_table;
 	zebra_lsp_t *lsp;
-	zebra_ile_t tmp_ile;
+	struct zebra_ile tmp_ile;
 	json_object *json = NULL;
 
 	/* Lookup table. */
