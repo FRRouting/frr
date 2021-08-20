@@ -49,7 +49,6 @@ extern "C" {
 
 /* Typedefs */
 
-typedef struct zebra_ile_t_ zebra_ile_t;
 typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
 typedef struct zebra_fec_t_ zebra_fec_t;
@@ -88,7 +87,7 @@ struct zebra_nhlfe_t_ {
 /*
  * Incoming label entry
  */
-struct zebra_ile_t_ {
+struct zebra_ile {
 	mpls_label_t in_label;
 };
 
@@ -97,7 +96,7 @@ struct zebra_ile_t_ {
  */
 struct zebra_lsp_t_ {
 	/* Incoming label */
-	zebra_ile_t ile;
+	struct zebra_ile ile;
 
 	/* List of NHLFEs, pointer to best, and num equal-cost. */
 	struct nhlfe_list_head nhlfe_list;
