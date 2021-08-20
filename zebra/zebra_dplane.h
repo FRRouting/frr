@@ -401,26 +401,23 @@ const struct nhlfe_list_head *dplane_ctx_get_nhlfe_list(
 const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
 	const struct zebra_dplane_ctx *ctx);
 
-zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
-				    enum lsp_types_t lsp_type,
-				    enum nexthop_types_t nh_type,
-				    const union g_addr *gate,
-				    ifindex_t ifindex,
-				    uint8_t num_labels,
-				    mpls_label_t *out_labels);
+struct zebra_nhlfe *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
+					 enum lsp_types_t lsp_type,
+					 enum nexthop_types_t nh_type,
+					 const union g_addr *gate,
+					 ifindex_t ifindex, uint8_t num_labels,
+					 mpls_label_t *out_labels);
 
-zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
-					   enum lsp_types_t lsp_type,
-					   enum nexthop_types_t nh_type,
-					   const union g_addr *gate,
-					   ifindex_t ifindex,
-					   uint8_t num_labels,
-					   mpls_label_t *out_labels);
+struct zebra_nhlfe *dplane_ctx_add_backup_nhlfe(
+	struct zebra_dplane_ctx *ctx, enum lsp_types_t lsp_type,
+	enum nexthop_types_t nh_type, const union g_addr *gate,
+	ifindex_t ifindex, uint8_t num_labels, mpls_label_t *out_labels);
 
-const zebra_nhlfe_t *dplane_ctx_get_best_nhlfe(
-	const struct zebra_dplane_ctx *ctx);
-const zebra_nhlfe_t *dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
-					       zebra_nhlfe_t *nhlfe);
+const struct zebra_nhlfe *
+dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx);
+const struct zebra_nhlfe *
+dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
+			  struct zebra_nhlfe *nhlfe);
 uint32_t dplane_ctx_get_lsp_num_ecmp(const struct zebra_dplane_ctx *ctx);
 
 /* Accessors for pseudowire information */

@@ -49,7 +49,6 @@ extern "C" {
 
 /* Typedefs */
 
-typedef struct zebra_nhlfe_t_ zebra_nhlfe_t;
 typedef struct zebra_lsp_t_ zebra_lsp_t;
 typedef struct zebra_fec_t_ zebra_fec_t;
 
@@ -59,7 +58,7 @@ PREDECL_DLIST(nhlfe_list);
 /*
  * (Outgoing) nexthop label forwarding entry
  */
-struct zebra_nhlfe_t_ {
+struct zebra_nhlfe {
 	/* Type of entry - static etc. */
 	enum lsp_types_t type;
 
@@ -101,7 +100,7 @@ struct zebra_lsp_t_ {
 	/* List of NHLFEs, pointer to best, and num equal-cost. */
 	struct nhlfe_list_head nhlfe_list;
 
-	zebra_nhlfe_t *best_nhlfe;
+	struct zebra_nhlfe *best_nhlfe;
 	uint32_t num_ecmp;
 
 	/* Backup nhlfes, if present. The nexthop in a primary/active nhlfe
@@ -144,7 +143,7 @@ struct zebra_fec_t_ {
 };
 
 /* Declare typesafe list apis/macros */
-DECLARE_DLIST(nhlfe_list, struct zebra_nhlfe_t_, list);
+DECLARE_DLIST(nhlfe_list, struct zebra_nhlfe, list);
 
 /* Function declarations. */
 
@@ -177,37 +176,32 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
 			     struct route_entry *re);
 
 /* Add an NHLFE to an LSP, return the newly-added object */
-zebra_nhlfe_t *zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp,
-					enum lsp_types_t lsp_type,
-					enum nexthop_types_t gtype,
-					const union g_addr *gate,
-					ifindex_t ifindex,
-					uint8_t num_labels,
-					const mpls_label_t *out_labels);
+struct zebra_nhlfe *
+zebra_mpls_lsp_add_nhlfe(zebra_lsp_t *lsp, enum lsp_types_t lsp_type,
+			 enum nexthop_types_t gtype, const union g_addr *gate,
+			 ifindex_t ifindex, uint8_t num_labels,
+			 const mpls_label_t *out_labels);
 
 /* Add or update a backup NHLFE for an LSP; return the object */
-zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nhlfe(zebra_lsp_t *lsp,
-					       enum lsp_types_t lsp_type,
-					       enum nexthop_types_t gtype,
-					       const union g_addr *gate,
-					       ifindex_t ifindex,
-					       uint8_t num_labels,
-					       const mpls_label_t *out_labels);
+struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nhlfe(
+	zebra_lsp_t *lsp, enum lsp_types_t lsp_type, enum nexthop_types_t gtype,
+	const union g_addr *gate, ifindex_t ifindex, uint8_t num_labels,
+	const mpls_label_t *out_labels);
 
 /*
  * Add NHLFE or backup NHLFE to an LSP based on a nexthop. These just maintain
  * the LSP and NHLFE objects; nothing is scheduled for processing.
  * Return: the newly-added object
  */
-zebra_nhlfe_t *zebra_mpls_lsp_add_nh(zebra_lsp_t *lsp,
-				     enum lsp_types_t lsp_type,
-				     const struct nexthop *nh);
-zebra_nhlfe_t *zebra_mpls_lsp_add_backup_nh(zebra_lsp_t *lsp,
-					    enum lsp_types_t lsp_type,
-					    const struct nexthop *nh);
+struct zebra_nhlfe *zebra_mpls_lsp_add_nh(zebra_lsp_t *lsp,
+					  enum lsp_types_t lsp_type,
+					  const struct nexthop *nh);
+struct zebra_nhlfe *zebra_mpls_lsp_add_backup_nh(zebra_lsp_t *lsp,
+						 enum lsp_types_t lsp_type,
+						 const struct nexthop *nh);
 
 /* Free an allocated NHLFE */
-void zebra_mpls_nhlfe_free(zebra_nhlfe_t *nhlfe);
+void zebra_mpls_nhlfe_free(struct zebra_nhlfe *nhlfe);
 
 int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 			    uint32_t label, uint32_t label_index,

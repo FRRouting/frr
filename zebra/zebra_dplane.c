@@ -641,7 +641,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_DELETE:
 	case DPLANE_OP_LSP_NOTIFY:
 	{
-		zebra_nhlfe_t *nhlfe;
+		struct zebra_nhlfe *nhlfe;
 
 		/* Unlink and free allocated NHLFEs */
 		frr_each_safe(nhlfe_list, &ctx->u.lsp.nhlfe_list, nhlfe) {
@@ -1512,15 +1512,14 @@ const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
 	return &(ctx->u.lsp.backup_nhlfe_list);
 }
 
-zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
-				    enum lsp_types_t lsp_type,
-				    enum nexthop_types_t nh_type,
-				    const union g_addr *gate,
-				    ifindex_t ifindex,
-				    uint8_t num_labels,
-				    mpls_label_t *out_labels)
+struct zebra_nhlfe *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
+					 enum lsp_types_t lsp_type,
+					 enum nexthop_types_t nh_type,
+					 const union g_addr *gate,
+					 ifindex_t ifindex, uint8_t num_labels,
+					 mpls_label_t *out_labels)
 {
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	DPLANE_CTX_VALID(ctx);
 
@@ -1531,15 +1530,12 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 	return nhlfe;
 }
 
-zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
-					   enum lsp_types_t lsp_type,
-					   enum nexthop_types_t nh_type,
-					   const union g_addr *gate,
-					   ifindex_t ifindex,
-					   uint8_t num_labels,
-					   mpls_label_t *out_labels)
+struct zebra_nhlfe *dplane_ctx_add_backup_nhlfe(
+	struct zebra_dplane_ctx *ctx, enum lsp_types_t lsp_type,
+	enum nexthop_types_t nh_type, const union g_addr *gate,
+	ifindex_t ifindex, uint8_t num_labels, mpls_label_t *out_labels)
 {
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	DPLANE_CTX_VALID(ctx);
 
@@ -1551,7 +1547,7 @@ zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
 	return nhlfe;
 }
 
-const zebra_nhlfe_t *
+const struct zebra_nhlfe *
 dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1559,9 +1555,9 @@ dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.best_nhlfe;
 }
 
-const zebra_nhlfe_t *
+const struct zebra_nhlfe *
 dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
-			  zebra_nhlfe_t *nhlfe)
+			  struct zebra_nhlfe *nhlfe)
 {
 	DPLANE_CTX_VALID(ctx);
 
@@ -2407,7 +2403,7 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			zebra_lsp_t *lsp)
 {
 	int ret = AOK;
-	zebra_nhlfe_t *nhlfe, *new_nhlfe;
+	struct zebra_nhlfe *nhlfe, *new_nhlfe;
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -3267,7 +3263,7 @@ dplane_lsp_notif_update(zebra_lsp_t *lsp,
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct nhlfe_list_head *head;
-	zebra_nhlfe_t *nhlfe, *new_nhlfe;
+	struct zebra_nhlfe *nhlfe, *new_nhlfe;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
