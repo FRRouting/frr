@@ -458,7 +458,7 @@ int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ipaddr *ip)
 {
-	zebra_neigh_t *n = NULL;
+	struct zebra_neigh *n = NULL;
 	struct zebra_mac *mac = NULL;
 
 	/* If the neigh entry is not present nothing to do*/
@@ -1346,7 +1346,7 @@ static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 	char ipbuf[INET6_ADDRSTRLEN];
 	bool sticky;
 	bool remote_gw;
-	zebra_neigh_t *n = NULL;
+	struct zebra_neigh *n = NULL;
 
 	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
@@ -1471,7 +1471,7 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 {
 	struct zebra_evpn *zevpn;
 	struct zebra_mac *mac = NULL;
-	zebra_neigh_t *n = NULL;
+	struct zebra_neigh *n = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_ns *zns;
