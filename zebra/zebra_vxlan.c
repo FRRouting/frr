@@ -112,8 +112,9 @@ static unsigned int zebra_vxlan_sg_hash_key_make(const void *p);
 static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2);
 static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 		struct in_addr sip, struct in_addr mcast_grp);
-static zebra_vxlan_sg_t *zebra_vxlan_sg_do_ref(struct zebra_vrf *vrf,
-				struct in_addr sip, struct in_addr mcast_grp);
+static struct zebra_vxlan_sg *zebra_vxlan_sg_do_ref(struct zebra_vrf *vrf,
+						    struct in_addr sip,
+						    struct in_addr mcast_grp);
 static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
 				struct in_addr mcast_grp);
 static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
@@ -5962,7 +5963,7 @@ static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
 
 static unsigned int zebra_vxlan_sg_hash_key_make(const void *p)
 {
-	const zebra_vxlan_sg_t *vxlan_sg = p;
+	const struct zebra_vxlan_sg *vxlan_sg = p;
 
 	return (jhash_2words(vxlan_sg->sg.src.s_addr,
 				vxlan_sg->sg.grp.s_addr, 0));
@@ -5970,17 +5971,17 @@ static unsigned int zebra_vxlan_sg_hash_key_make(const void *p)
 
 static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2)
 {
-	const zebra_vxlan_sg_t *sg1 = p1;
-	const zebra_vxlan_sg_t *sg2 = p2;
+	const struct zebra_vxlan_sg *sg1 = p1;
+	const struct zebra_vxlan_sg *sg2 = p2;
 
 	return ((sg1->sg.src.s_addr == sg2->sg.src.s_addr)
 		&& (sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
 }
 
-static zebra_vxlan_sg_t *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
-		struct prefix_sg *sg)
+static struct zebra_vxlan_sg *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
+						 struct prefix_sg *sg)
 {
-	zebra_vxlan_sg_t *vxlan_sg;
+	struct zebra_vxlan_sg *vxlan_sg;
 
 	vxlan_sg = XCALLOC(MTYPE_ZVXLAN_SG, sizeof(*vxlan_sg));
 
@@ -5996,20 +5997,20 @@ static zebra_vxlan_sg_t *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
 	return vxlan_sg;
 }
 
-static zebra_vxlan_sg_t *zebra_vxlan_sg_find(struct zebra_vrf *zvrf,
-					    struct prefix_sg *sg)
+static struct zebra_vxlan_sg *zebra_vxlan_sg_find(struct zebra_vrf *zvrf,
+						  struct prefix_sg *sg)
 {
-	zebra_vxlan_sg_t lookup;
+	struct zebra_vxlan_sg lookup;
 
 	lookup.sg = *sg;
 	return hash_lookup(zvrf->vxlan_sg_table, &lookup);
 }
 
-static zebra_vxlan_sg_t *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
-					   struct prefix_sg *sg)
+static struct zebra_vxlan_sg *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
+						 struct prefix_sg *sg)
 {
-	zebra_vxlan_sg_t *vxlan_sg;
-	zebra_vxlan_sg_t *parent = NULL;
+	struct zebra_vxlan_sg *vxlan_sg;
+	struct zebra_vxlan_sg *parent = NULL;
 	struct in_addr sip;
 
 	vxlan_sg = zebra_vxlan_sg_find(zvrf, sg);
@@ -6041,7 +6042,7 @@ static zebra_vxlan_sg_t *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 	return vxlan_sg;
 }
 
-static void zebra_vxlan_sg_del(zebra_vxlan_sg_t *vxlan_sg)
+static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 {
 	struct in_addr sip;
 	struct zebra_vrf *zvrf;
@@ -6072,7 +6073,7 @@ static void zebra_vxlan_sg_del(zebra_vxlan_sg_t *vxlan_sg)
 static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 		struct in_addr sip, struct in_addr mcast_grp)
 {
-	zebra_vxlan_sg_t *vxlan_sg;
+	struct zebra_vxlan_sg *vxlan_sg;
 	struct prefix_sg sg;
 
 	sg.family = AF_INET;
@@ -6090,10 +6091,11 @@ static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 		zebra_vxlan_sg_del(vxlan_sg);
 }
 
-static zebra_vxlan_sg_t *zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf,
-				struct in_addr sip, struct in_addr mcast_grp)
+static struct zebra_vxlan_sg *zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf,
+						    struct in_addr sip,
+						    struct in_addr mcast_grp)
 {
-	zebra_vxlan_sg_t *vxlan_sg;
+	struct zebra_vxlan_sg *vxlan_sg;
 	struct prefix_sg sg;
 
 	sg.family = AF_INET;
@@ -6140,7 +6142,7 @@ static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
 
 static void zebra_vxlan_xg_pre_cleanup(struct hash_bucket *bucket, void *arg)
 {
-	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)bucket->data;
+	struct zebra_vxlan_sg *vxlan_sg = (struct zebra_vxlan_sg *)bucket->data;
 
 	/* increment the ref count against (*,G) to prevent them from being
 	 * deleted
@@ -6151,7 +6153,7 @@ static void zebra_vxlan_xg_pre_cleanup(struct hash_bucket *bucket, void *arg)
 
 static void zebra_vxlan_xg_post_cleanup(struct hash_bucket *bucket, void *arg)
 {
-	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)bucket->data;
+	struct zebra_vxlan_sg *vxlan_sg = (struct zebra_vxlan_sg *)bucket->data;
 
 	/* decrement the dummy ref count against (*,G) to delete them */
 	if (vxlan_sg->sg.src.s_addr == INADDR_ANY) {
@@ -6164,7 +6166,7 @@ static void zebra_vxlan_xg_post_cleanup(struct hash_bucket *bucket, void *arg)
 
 static void zebra_vxlan_sg_cleanup(struct hash_bucket *bucket, void *arg)
 {
-	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)bucket->data;
+	struct zebra_vxlan_sg *vxlan_sg = (struct zebra_vxlan_sg *)bucket->data;
 
 	zebra_vxlan_sg_del(vxlan_sg);
 }
@@ -6184,7 +6186,7 @@ static void zebra_vxlan_cleanup_sg_table(struct zebra_vrf *zvrf)
 
 static void zebra_vxlan_sg_replay_send(struct hash_bucket *bucket, void *arg)
 {
-	zebra_vxlan_sg_t *vxlan_sg = (zebra_vxlan_sg_t *)bucket->data;
+	struct zebra_vxlan_sg *vxlan_sg = (struct zebra_vxlan_sg *)bucket->data;
 
 	zebra_vxlan_sg_send(vxlan_sg->zvrf, &vxlan_sg->sg,
 			vxlan_sg->sg_str, ZEBRA_VXLAN_SG_ADD);

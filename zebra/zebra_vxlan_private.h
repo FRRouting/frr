@@ -247,7 +247,7 @@ DECLARE_HOOK(zebra_rmac_update,
  * an aggregated table that pimd can consume without much
  * re-interpretation.
  */
-typedef struct zebra_vxlan_sg_ {
+struct zebra_vxlan_sg {
 	struct zebra_vrf *zvrf;
 
 	struct prefix_sg sg;
@@ -256,7 +256,7 @@ typedef struct zebra_vxlan_sg_ {
 	/* For SG - num of L2 VNIs using this entry for sending BUM traffic */
 	/* For XG - num of SG using this as parent */
 	uint32_t ref_cnt;
-} zebra_vxlan_sg_t;
+};
 
 extern struct zebra_evpn *zevpn_lookup(vni_t vni);
 extern void zebra_vxlan_sync_mac_dp_install(struct zebra_mac *mac,
