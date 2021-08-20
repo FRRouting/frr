@@ -97,6 +97,7 @@ struct pim_interface {
 	int gm_last_member_query_count;		      /* IGMP or MLD last member
 							 query count
 						       */
+	bool gmp_require_ra;			      /* drop IGMP without Router Alert */
 	struct list *gm_socket_list; /* list of struct IGMP or MLD sock */
 	struct list *gm_join_list;   /* list of struct IGMP or MLD join */
 	struct list *static_group_list; /* list of struct static group */
