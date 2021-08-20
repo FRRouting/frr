@@ -249,6 +249,8 @@ def configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut, peer):
     This function groups the repetitive function calls into one function.
     """
 
+    logger.info("configure_gr_followed_by_clear: dut %s peer %s", dut, peer)
+
     result = create_router_bgp(tgen, topo, input_dict)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -766,9 +768,7 @@ def test_BGP_GR_10_p2(request):
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
 
-    logger.info(
-        "[Step 1] : Test Setup " "[Helper Mode]R3-----R1[Restart Mode] initialized"
-    )
+    step("Test Setup: [Helper Mode]R3-----R1[Restart Mode] initialized")
 
     # Configure graceful-restart
     input_dict = {
@@ -847,6 +847,8 @@ def test_BGP_GR_10_p2(request):
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r3")
 
     for addr_type in ADDR_TYPES:
+        step("Verifying GR config and operational state for addr_type {}".format(addr_type))
+
         result = verify_graceful_restart(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r3"
         )
@@ -870,7 +872,7 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r1"
+            tgen, topo, addr_type, "ipv4Unicast", dut="r1", peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -878,7 +880,7 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r1"
+            tgen, topo, addr_type, "ipv6Unicast", dut="r1", peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -886,7 +888,7 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r3"
+            tgen, topo, addr_type, "ipv4Unicast", dut="r3", peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -894,11 +896,13 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r3"
+            tgen, topo, addr_type, "ipv6Unicast", dut="r3", peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
+
+    step("Killing bgpd on r1")
 
     # Kill BGPd daemon on R1
     kill_router_daemons(tgen, "r1", ["bgpd"])
@@ -916,6 +920,8 @@ def test_BGP_GR_10_p2(request):
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
         )
+
+    step("Starting bgpd on r1")
 
     # Start BGPd daemon on R1
     start_router_daemons(tgen, "r1", ["bgpd"])
@@ -1671,7 +1677,7 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r1"
+            tgen, topo, addr_type, "ipv4Unicast", dut="r1", peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1679,7 +1685,7 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r1"
+            tgen, topo, addr_type, "ipv6Unicast", dut="r1", peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1687,7 +1693,7 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r3"
+            tgen, topo, addr_type, "ipv4Unicast", dut="r3", peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1695,7 +1701,7 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r3"
+            tgen, topo, addr_type, "ipv6Unicast", dut="r3", peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
