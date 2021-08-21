@@ -106,13 +106,12 @@ def setup_module(module):
     if CustomizeVrfWithNetns == True:
         logger.info("Testing with VRF Namespace support")
 
-    # create VRF r1-cust1
-    # move r1-eth0 to VRF r1-cust1
+    # create VRF r1-bgp-cust1
+    # move r1-eth0 to VRF r1-bgp-cust1
     cmds = [
-        "if [ -e /var/run/netns/{0}-cust1 ] ; then ip netns del {0}-cust1 ; fi",
-        "ip netns add {0}-cust1",
-        "ip link set dev {0}-eth0 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth0 up",
+        "if [ -e /var/run/netns/{0}-bgp-cust1 ] ; then ip netns del {0}-bgp-cust1 ; fi",
+        "ip netns add {0}-bgp-cust1",
+        "ip link set {0}-eth0 netns {0}-bgp-cust1 up",
     ]
     for cmd in cmds:
         cmd = cmd.format("r1")
@@ -154,10 +153,10 @@ def setup_module(module):
 def teardown_module(module):
     tgen = get_topogen()
     # move back r1-eth0 to default VRF
-    # delete VRF r1-cust1
+    # delete VRF r1-bgp-cust1
     cmds = [
-        "ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns delete {0}-cust1",
+        "ip netns exec {0}-bgp-cust1 ip link set {0}-eth0 netns 1",
+        "ip netns delete {0}-bgp-cust1",
     ]
     for cmd in cmds:
         tgen.net["r1"].cmd(cmd.format("r1"))
@@ -203,7 +202,7 @@ def test_bgp_convergence():
     expected = json.loads(open(reffile).read())
 
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show bgp vrf r1-cust1 summary json", expected
+        topotest.router_json_cmp, router, "show bgp vrf r1-bgp-cust1 summary json", expected
     )
     _, res = topotest.run_and_expect(test_func, None, count=90, wait=0.5)
     assertmsg = "BGP router network did not converge"
@@ -231,11 +230,11 @@ def test_bgp_vrf_netns():
     test_func = functools.partial(
         topotest.router_json_cmp,
         tgen.gears["r1"],
-        "show ip bgp vrf r1-cust1 ipv4 json",
+        "show ip bgp vrf r1-bgp-cust1 ipv4 json",
         expect,
     )
     _, res = topotest.run_and_expect(test_func, None, count=12, wait=0.5)
-    assertmsg = 'expected routes in "show ip bgp vrf r1-cust1 ipv4" output'
+    assertmsg = 'expected routes in "show ip bgp vrf r1-bgp-cust1 ipv4" output'
     assert res is None, assertmsg
 
 

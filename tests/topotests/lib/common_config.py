@@ -971,22 +971,31 @@ def add_interfaces_to_vlan(tgen, input_dict):
                 for intf_dict in interfaces:
                     for interface, data in intf_dict.items():
                         # Adding interface to VLAN
-                        cmd = "vconfig add {} {}".format(interface, vlan)
+                        vlan_intf = "{}.{}".format(interface, vlan)
+                        cmd = "ip link add link {} name {} type vlan id {}".format(
+                            interface,
+                            vlan_intf,
+                            vlan
+                        )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
-                        vlan_intf = "{}.{}".format(interface, vlan)
-
-                        ip = data["ip"]
-                        subnet = data["subnet"]
-
                         # Bringing interface up
-                        cmd = "ip link set up {}".format(vlan_intf)
+                        cmd = "ip link set {} up".format(vlan_intf)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
                         # Assigning IP address
-                        cmd = "ifconfig {} {} netmask {}".format(vlan_intf, ip, subnet)
+                        ifaddr = ipaddress.ip_interface(
+                            u"{}/{}".format(
+                                frr_unicode(data["ip"]),
+                                frr_unicode(data["subnet"])
+                            )
+                        )
+
+                        cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
+                            ifaddr.version, vlan_intf, ifaddr
+                        )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
@@ -1391,15 +1400,20 @@ def create_interface_in_kernel(
     rnode = tgen.routers()[dut]
 
     if create:
-        cmd = "sudo ip link add name {} type dummy".format(name)
+        cmd = "ip link show {0} >/dev/null || ip link add {0} type dummy".format(name)
         rnode.run(cmd)
 
-    addr_type = validate_ip_address(ip_addr)
-    if addr_type == "ipv4":
-        cmd = "ifconfig {} {} netmask {}".format(name, ip_addr, netmask)
+    if not netmask:
+        ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
     else:
-        cmd = "ifconfig {} inet6 add {}/{}".format(name, ip_addr, netmask)
-
+        ifaddr = ipaddress.ip_interface(u"{}/{}".format(
+            frr_unicode(ip_addr),
+            frr_unicode(netmask)
+        ))
+    cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
+        ifaddr.version, name, ifaddr
+    )
+    logger.info("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
 
     if vrf:
@@ -2933,7 +2947,7 @@ def configure_interface_mac(tgen, input_dict):
         rnode = tgen.routers()[dut]
 
         for intf, mac in input_dict[dut].items():
-            cmd = "ifconfig {} hw ether {}".format(intf, mac)
+            cmd = "ip link set {} address {}".format(intf, mac)
             logger.info("[DUT: %s]: Running command: %s", dut, cmd)
 
             try:

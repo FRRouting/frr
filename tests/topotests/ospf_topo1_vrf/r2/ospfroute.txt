@@ -1,4 +1,4 @@
-VRF Name: r2-cust1
+VRF Name: r2-ospf-cust1
 ============ OSPF network routing table ============
 N    10.0.1.0/24           [20] area: 0.0.0.0
                            via 10.0.3.2, r2-eth1

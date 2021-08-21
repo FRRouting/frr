@@ -178,14 +178,10 @@ NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 LOOPBACK_1 = {
     "ipv4": "10.10.10.10/32",
     "ipv6": "10::10:10/128",
-    "ipv4_mask": "255.255.255.255",
-    "ipv6_mask": None,
 }
 LOOPBACK_2 = {
     "ipv4": "20.20.20.20/32",
     "ipv6": "20::20:20/128",
-    "ipv4_mask": "255.255.255.255",
-    "ipv6_mask": None,
 }
 
 
@@ -1911,7 +1907,6 @@ def test_static_routes_for_inter_vrf_route_leaking_p0(request):
             "loopback1",
             LOOPBACK_1[addr_type],
             "RED_A",
-            LOOPBACK_1["{}_mask".format(addr_type)],
         )
         create_interface_in_kernel(
             tgen,
@@ -1919,7 +1914,6 @@ def test_static_routes_for_inter_vrf_route_leaking_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "RED_B",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     step(
@@ -2047,7 +2041,6 @@ def test_inter_vrf_and_intra_vrf_communication_iBGP_p0(request):
             "loopback1",
             LOOPBACK_1[addr_type],
             "RED_A",
-            LOOPBACK_1["{}_mask".format(addr_type)],
         )
 
         create_interface_in_kernel(
@@ -2056,7 +2049,6 @@ def test_inter_vrf_and_intra_vrf_communication_iBGP_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "BLUE_A",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     step(
@@ -2216,7 +2208,6 @@ def test_inter_vrf_and_intra_vrf_communication_eBGP_p0(request):
             "loopback1",
             LOOPBACK_1[addr_type],
             "RED_A",
-            LOOPBACK_1["{}_mask".format(addr_type)],
         )
         create_interface_in_kernel(
             tgen,
@@ -2224,7 +2215,6 @@ def test_inter_vrf_and_intra_vrf_communication_eBGP_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "BLUE_A",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     step(

@@ -123,8 +123,6 @@ LOOPBACK_1 = {
 LOOPBACK_2 = {
     "ipv4": "10.0.0.16/24",
     "ipv6": "fd00:0:0:3::5/64",
-    "ipv4_mask": "255.255.255.0",
-    "ipv6_mask": None,
 }
 PREFERRED_NEXT_HOP = "global"
 
@@ -692,14 +690,13 @@ def test_dynamic_imported_routes_advertised_to_iBGP_peer_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "ISR",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     for addr_type in ADDR_TYPES:
 
         step(
             "On router R1 Change the next-hop of static routes in vrf "
-            "ISR to LOOPBACK_1"
+            "ISR to LOOPBACK_2"
         )
 
         input_routes_r1 = {

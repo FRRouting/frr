@@ -100,17 +100,17 @@ def setup_module(mod):
     logger.info("Testing with VRF Namespace support")
 
     cmds = [
-        "if [ -e /var/run/netns/{0}-cust1 ] ; then ip netns del {0}-cust1 ; fi",
-        "ip netns add {0}-cust1",
-        "ip link set dev {0}-eth0 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth0 up",
-        "ip link set dev {0}-eth1 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth1 up",
+        "if [ -e /var/run/netns/{0}-ospf-cust1 ] ; then ip netns del {0}-ospf-cust1 ; fi",
+        "ip netns add {0}-ospf-cust1",
+        "ip link set dev {0}-eth0 netns {0}-ospf-cust1",
+        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth0 up",
+        "ip link set dev {0}-eth1 netns {0}-ospf-cust1",
+        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth1 up",
     ]
 
     for rname, router in router_list.items():
 
-        # create VRF rx-cust1 and link rx-eth0 to rx-cust1
+        # create VRF rx-ospf-cust1 and link rx-eth0 to rx-ospf-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
 
@@ -137,9 +137,9 @@ def teardown_module(mod):
     # move back rx-eth0 to default VRF
     # delete rx-vrf
     cmds = [
-        "ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns exec {0}-cust1 ip link set {0}-eth1 netns 1",
-        "ip netns delete {0}-cust1",
+        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth0 netns 1",
+        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth1 netns 1",
+        "ip netns delete {0}-ospf-cust1",
     ]
 
     router_list = tgen.routers()
@@ -152,11 +152,11 @@ def teardown_module(mod):
 # Shared test function to validate expected output.
 def compare_show_ip_route_vrf(rname, expected):
     """
-    Calls 'show ip ospf vrf [rname]-cust1 route' for router `rname` and compare the obtained
+    Calls 'show ip ospf vrf [rname]-ospf-cust1 route' for router `rname` and compare the obtained
     result with the expected output.
     """
     tgen = get_topogen()
-    vrf_name = "{0}-cust1".format(rname)
+    vrf_name = "{0}-ospf-cust1".format(rname)
     current = topotest.ip4_route_zebra(tgen.gears[rname], vrf_name)
     ret = topotest.difflines(
         current, expected, title1="Current output", title2="Expected output"
@@ -182,7 +182,7 @@ def test_ospf_convergence():
         test_func = partial(
             topotest.router_output_cmp,
             router,
-            "show ip ospf vrf {0}-cust1 route".format(rname),
+            "show ip ospf vrf {0}-ospf-cust1 route".format(rname),
             expected,
         )
         result, diff = topotest.run_and_expect(test_func, "", count=160, wait=0.5)
@@ -220,13 +220,13 @@ def test_ospf_json():
 
     for rname, router in tgen.routers().items():
         logger.info(
-            'Comparing router "%s" "show ip ospf vrf %s-cust1 json" output',
+            'Comparing router "%s" "show ip ospf vrf %s-ospf-cust1 json" output',
             router.name,
             router.name,
         )
         expected = {
-            "{}-cust1".format(router.name): {
-                "vrfName": "{}-cust1".format(router.name),
+            "{}-ospf-cust1".format(router.name): {
+                "vrfName": "{}-ospf-cust1".format(router.name),
                 "routerId": "10.0.255.{}".format(rname[1:]),
                 "tosRoutesOnly": True,
                 "rfc2328Conform": True,
@@ -244,7 +244,7 @@ def test_ospf_json():
         }
         # Area specific additional checks
         if router.name == "r1" or router.name == "r2" or router.name == "r3":
-            expected["{}-cust1".format(router.name)]["areas"]["0.0.0.0"] = {
+            expected["{}-ospf-cust1".format(router.name)]["areas"]["0.0.0.0"] = {
                 "areaIfActiveCounter": 2,
                 "areaIfTotalCounter": 2,
                 "authentication": "authenticationNone",
@@ -263,7 +263,7 @@ def test_ospf_json():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip ospf vrf {0}-cust1 json".format(rname),
+            "show ip ospf vrf {0}-ospf-cust1 json".format(rname),
             expected,
         )
         _, diff = topotest.run_and_expect(test_func, None, count=10, wait=0.5)
@@ -281,7 +281,7 @@ def test_ospf_link_down():
     # Simulate a network down event on router3 switch3 interface.
     router3 = tgen.gears["r3"]
     topotest.interface_set_status(
-        router3, "r3-eth0", ifaceaction=False, vrf_name="r3-cust1"
+        router3, "r3-eth0", ifaceaction=False, vrf_name="r3-ospf-cust1"
     )
 
     # Expect convergence on all routers
@@ -295,7 +295,7 @@ def test_ospf_link_down():
         test_func = partial(
             topotest.router_output_cmp,
             router,
-            "show ip ospf vrf {0}-cust1 route".format(rname),
+            "show ip ospf vrf {0}-ospf-cust1 route".format(rname),
             expected,
         )
         result, diff = topotest.run_and_expect(test_func, "", count=140, wait=0.5)
@@ -316,7 +316,7 @@ def test_ospf_link_down_kernel_route():
             'Checking OSPF IPv4 kernel routes in "%s" after link down', router.name
         )
 
-        str = "{0}-cust1".format(router.name)
+        str = "{0}-ospf-cust1".format(router.name)
         reffile = os.path.join(CWD, "{}/zebraroutedown.txt".format(router.name))
         expected = open(reffile).read()
         # Run test function until we get an result. Wait at most 60 seconds.
