@@ -1008,8 +1008,8 @@ def test_BSM_fragmentation_p1(request):
 
     # set mtu of fhr(f1) to i1 interface to 100 so that bsm fragments
     step("set mtu of fhr(f1) to i1 interface to 100 so that bsm fragments")
-    fhr_node.run("ifconfig f1-i1-eth2 mtu 100")
-    inter_node.run("ifconfig i1-f1-eth0 mtu 100")
+    fhr_node.run("ip link set f1-i1-eth2 mtu 100")
+    inter_node.run("ip link set i1-f1-eth0 mtu 100")
 
     # Use scapy to send pre-defined packet from senser to receiver
     result = scapy_send_bsr_raw_packet(tgen, topo, "b1", "f1", "packet2")

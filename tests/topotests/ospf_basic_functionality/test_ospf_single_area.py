@@ -1011,7 +1011,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
     r0_r1_intf = topo["routers"]["r0"]["links"]["r1"]["interface"]
     r1_r0_intf = topo["routers"]["r1"]["links"]["r0"]["interface"]
 
-    rtr0.run("ifconfig {} mtu 1200".format(r0_r1_intf))
+    rtr0.run("ip link set {} mtu 1200".format(r0_r1_intf))
 
     clear_ospf(tgen, "r0")
 
@@ -1037,7 +1037,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
         "Modify the MTU to non default Value on R0 to R1 interface. "
         "Reset ospf neighbors on R0."
     )
-    rtr0.run("ifconfig {} mtu 1500".format(r0_r1_intf))
+    rtr0.run("ip link set {} mtu 1500".format(r0_r1_intf))
 
     clear_ospf(tgen, "r0")
 
@@ -1062,7 +1062,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
     result = config_ospf_interface(tgen, topo, r1_ospf_mtu)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
-    rtr0.run("ifconfig {} mtu 1200".format(r0_r1_intf))
+    rtr0.run("ip link set {} mtu 1200".format(r0_r1_intf))
 
     clear_ospf(tgen, "r0")
 
@@ -1094,7 +1094,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
 
     step("Modify the MTU to again default valaue on R0 to R1 interface.")
 
-    rtr0.run("ifconfig {} mtu 1500".format(r0_r1_intf))
+    rtr0.run("ip link set {} mtu 1500".format(r0_r1_intf))
 
     clear_ospf(tgen, "r0")
 
@@ -1106,8 +1106,8 @@ def test_ospf_tc4_mtu_ignore_p0(request):
         "Configure ospf interface with jumbo MTU (9216)." "Reset ospf neighbors on R0."
     )
 
-    rtr0.run("ifconfig {} mtu 9216".format(r0_r1_intf))
-    rtr1.run("ifconfig {} mtu 9216".format(r1_r0_intf))
+    rtr0.run("ip link set {} mtu 9216".format(r0_r1_intf))
+    rtr1.run("ip link set {} mtu 9216".format(r1_r0_intf))
 
     clear_ospf(tgen, "r0")
     clear_ospf(tgen, "r1")

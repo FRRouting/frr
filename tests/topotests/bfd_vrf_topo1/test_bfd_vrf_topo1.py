@@ -95,20 +95,18 @@ def setup_module(mod):
     logger.info("Testing with VRF Namespace support")
 
     cmds = [
-        "if [ -e /var/run/netns/{0}-cust1 ] ; then ip netns del {0}-cust1 ; fi",
-        "ip netns add {0}-cust1",
-        "ip link set dev {0}-eth0 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth0 up",
+        "if [ -e /var/run/netns/{0}-bfd-cust1 ] ; then ip netns del {0}-bfd-cust1 ; fi",
+        "ip netns add {0}-bfd-cust1",
+        "ip link set dev {0}-eth0 netns {0}-bfd-cust1 up",
     ]
     cmds2 = [
-        "ip link set dev {0}-eth1 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth1 up",
-        "ip link set dev {0}-eth2 netns {0}-cust1",
-        "ip netns exec {0}-cust1 ifconfig {0}-eth2 up",
+        "ip link set dev {0}-eth1 netns {0}-bfd-cust1",
+        "ip netns exec {0}-bfd-cust1 ip link set {0}-eth1 up",
+        "ip link set dev {0}-eth2 netns {0}-bfd-cust1 up",
     ]
 
     for rname, router in router_list.items():
-        # create VRF rx-cust1 and link rx-eth0 to rx-cust1
+        # create VRF rx-bfd-cust1 and link rx-eth0 to rx-bfd-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
         if rname == "r2":
@@ -138,11 +136,11 @@ def teardown_module(_mod):
     # move back rx-eth0 to default VRF
     # delete rx-vrf
     cmds = [
-        "ip netns exec {0}-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns delete {0}-cust1",
+        "ip netns exec {0}-bfd-cust1 ip link set {0}-eth0 netns 1",
+        "ip netns delete {0}-bfd-cust1",
     ]
     cmds2 = [
-        "ip netns exec {0}-cust1 ip link set {0}-eth1 netns 1",
+        "ip netns exec {0}-bfd-cust1 ip link set {0}-eth1 netns 1",
         "ip netns exec {0}-cust2 ip link set {0}-eth1 netns 1",
     ]
 
@@ -189,7 +187,7 @@ def test_bgp_convergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip bgp vrf {}-cust1 summary json".format(router.name),
+            "show ip bgp vrf {}-bfd-cust1 summary json".format(router.name),
             expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=125, wait=1.0)
@@ -211,7 +209,7 @@ def test_bgp_fast_convergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip bgp vrf {}-cust1 json".format(router.name),
+            "show ip bgp vrf {}-bfd-cust1 json".format(router.name),
             expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=40, wait=1)
@@ -231,7 +229,7 @@ def test_bfd_fast_convergence():
     # Disable r2-eth0 link
     router2 = tgen.gears["r2"]
     topotest.interface_set_status(
-        router2, "r2-eth0", ifaceaction=False, vrf_name="r2-cust1"
+        router2, "r2-eth0", ifaceaction=False, vrf_name="r2-bfd-cust1"
     )
 
     # Wait the minimum time we can before checking that BGP/BFD
@@ -286,7 +284,7 @@ def test_bgp_fast_reconvergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip bgp vrf {}-cust1 json".format(router.name),
+            "show ip bgp vrf {}-bfd-cust1 json".format(router.name),
             expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=16, wait=1)

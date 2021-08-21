@@ -131,8 +131,6 @@ NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 LOOPBACK_2 = {
     "ipv4": "20.20.20.20/32",
     "ipv6": "20::20:20/128",
-    "ipv4_mask": "255.255.255.255",
-    "ipv6_mask": None,
 }
 
 MAX_PATHS = 2
@@ -1928,7 +1926,6 @@ def test_vrf_route_leaking_next_hop_interface_flapping_p1(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "RED_B",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     intf_red1_r11 = topo["routers"]["red1"]["links"]["r1-link2"]["interface"]

@@ -1103,7 +1103,7 @@ def test_next_hop_with_recursive_lookup_p1(request):
             tc_name, result
         )
 
-    step("Toggle the interface on R3(ifconfig 192.34).")
+    step("Toggle the interface on R3.")
 
     intf_r3_r4 = topo["routers"]["r3"]["links"]["r4"]["interface"]
     shutdown_bringup_interface(tgen, "r3", intf_r3_r4)
@@ -1161,7 +1161,7 @@ def test_next_hop_with_recursive_lookup_p1(request):
             tc_name, result
         )
 
-    step("Toggle the interface on R4(ifconfig 192.34).")
+    step("Toggle the interface on R4.")
 
     intf_r4_r3 = topo["routers"]["r4"]["links"]["r3"]["interface"]
     shutdown_bringup_interface(tgen, "r4", intf_r4_r3)
