@@ -233,8 +233,13 @@ static bool ospf6_check_chg_in_rxmt_list(struct ospf6_neighbor *nbr)
 			ospf6_lsdb_lookup(lsa->header->type, lsa->header->id,
 					  lsa->header->adv_router, lsa->lsdb);
 
-		if (lsa_in_db && lsa_in_db->tobe_acknowledged)
+		if (lsa_in_db && lsa_in_db->tobe_acknowledged) {
+			ospf6_lsa_unlock(lsa);
+			if (lsanext)
+				ospf6_lsa_unlock(lsanext);
+
 			return OSPF6_TRUE;
+		}
 	}
 
 	return OSPF6_FALSE;
