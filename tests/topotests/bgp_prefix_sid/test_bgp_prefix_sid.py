@@ -120,7 +120,7 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
 
 
 def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
-    with open("/tmp/peer2-received.log") as f:
+    with open(filename) as f:
         for line in f.readlines():
             output = json.loads(line)
             ret = output.get("neighbor")
@@ -151,10 +151,11 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
 def test_peer2_receive_prefix_sid_type1():
     tgen = get_topogen()
     peer2 = tgen.gears["peer2"]
+    logfile = "{}/{}-received.log".format(peer2.gearlogdir, peer2.name)
 
     def _check_type1_peer2(prefix, labelindex):
         output = exabgp_get_update_prefix(
-            "/tmp/peer2-received.log", "ipv4 nlri-mpls", "10.0.0.101", prefix
+            logfile, "ipv4 nlri-mpls", "10.0.0.101", prefix
         )
         expected = {
             "type": "update",
