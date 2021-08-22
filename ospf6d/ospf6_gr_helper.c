@@ -855,7 +855,7 @@ static void show_ospfv6_gr_helper_per_nbr(struct vty *vty, json_object *json,
 	}
 }
 
-static int show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
+static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 					json_object *json, bool uj, bool detail)
 {
 	struct ospf6_interface *oi;
@@ -1004,8 +1004,6 @@ static int show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 				}
 			}
 	}
-
-	return CMD_SUCCESS;
 }
 
 /* Graceful Restart HELPER  config Commands */
