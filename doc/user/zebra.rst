@@ -1416,3 +1416,199 @@ Debugging
 
    Nexthop and nexthop-group events.
 
+Scripting
+=========
+
+.. clicmd:: zebra on-rib-process script SCRIPT
+
+   Set a Lua script for :ref:`on-rib-process-dplane-results` hook call.
+   SCRIPT is the basename of the script, without `.lua`.
+
+Data structures
+---------------
+
+.. _const-struct-zebra-dplane-ctx:
+
+const struct zebra_dplane_ctx
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+   * integer zd_op
+   * integer zd_status
+   * integer zd_provider
+   * integer zd_vrf_id
+   * integer zd_table_id
+   * integer zd_ifname
+   * integer zd_ifindex
+   * table rinfo (if zd_op is DPLANE_OP_ROUTE*, DPLANE_NH_*)
+
+     * prefix zd_dest
+     * prefix zd_src
+     * integer zd_afi
+     * integer zd_safi
+     * integer zd_type
+     * integer zd_old_type
+     * integer zd_tag
+     * integer zd_old_tag
+     * integer zd_metric
+     * integer zd_old_metric
+     * integer zd_instance
+     * integer zd_old_instance
+     * integer zd_distance
+     * integer zd_old_distance
+     * integer zd_mtu
+     * integer zd_nexthop_mtu
+     * table nhe
+
+       * integer id
+       * integer old_id
+       * integer afi
+       * integer vrf_id
+       * integer type
+       * nexthop_group ng
+       * nh_grp
+       * integer nh_grp_count
+
+     * integer zd_nhg_id
+     * nexthop_group zd_ng
+     * nexthop_group backup_ng
+     * nexthop_group zd_old_ng
+     * nexthop_group old_backup_ng
+
+   * integer label (if zd_op is DPLANE_OP_LSP_*)
+   * table pw (if zd_op is DPLANE_OP_PW_*)
+
+     * integer type
+     * integer af
+     * integer status
+     * integer flags
+     * integer local_label
+     * integer remote_label
+
+   * table macinfo (if zd_op is DPLANE_OP_MAC_*)
+
+     * integer vid
+     * integer br_ifindex
+     * ethaddr mac
+     * integer vtep_ip
+     * integer is_sticky
+     * integer nhg_id
+     * integer update_flags
+
+   * table rule (if zd_op is DPLANE_OP_RULE_*)
+
+     * integer sock
+     * integer unique
+     * integer seq
+     * string ifname
+     * integer priority
+     * integer old_priority
+     * integer table
+     * integer old_table
+     * integer filter_bm
+     * integer old_filter_bm
+     * integer fwmark
+     * integer old_fwmark
+     * integer dsfield
+     * integer old_dsfield
+     * integer ip_proto
+     * integer old_ip_proto
+     * prefix src_ip
+     * prefix old_src_ip
+     * prefix dst_ip
+     * prefix old_dst_ip
+
+   * table iptable (if zd_op is DPLANE_OP_IPTABLE_*)
+
+     * integer sock
+     * integer vrf_id
+     * integer unique
+     * integer type
+     * integer filter_bm
+     * integer fwmark
+     * integer action
+     * integer pkt_len_min
+     * integer pkt_len_max
+     * integer tcp_flags
+     * integer dscp_value
+     * integer fragment
+     * integer protocol
+     * integer nb_interface
+     * integer flow_label
+     * integer family
+     * string ipset_name
+
+   * table ipset (if zd_op is DPLANE_OP_IPSET_*)
+     * integer sock
+     * integer vrf_id
+     * integer unique
+     * integer type
+     * integer family
+     * string ipset_name
+
+   * table neigh (if zd_op is DPLANE_OP_NEIGH_*)
+
+     * ipaddr ip_addr
+     * table link
+
+       * ethaddr mac
+       * ipaddr ip_addr
+
+     * integer flags
+     * integer state
+     * integer update_flags
+
+   * table br_port (if zd_op is DPLANE_OP_BR_PORT_UPDATE)
+
+     * integer sph_filter_cnt
+     * integer flags
+     * integer backup_nhg_id
+
+   * table neightable (if zd_op is DPLANE_OP_NEIGH_TABLE_UPDATE)
+
+     * integer family
+     * integer app_probes
+     * integer ucast_probes
+     * integer mcast_probes
+
+   * table gre (if zd_op is DPLANE_OP_GRE_SET)**
+
+     * integer link_ifindex
+     * integer mtu
+
+
+.. _const-struct-nh-grp:
+
+const struct nh_grp
+^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+   * integer id
+   * integer weight
+
+
+.. _zebra-hook-calls:
+
+Zebra Hook calls
+----------------
+
+.. _on-rib-process-dplane-results:
+
+on_rib_process_dplane_results
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Called when RIB processes dataplane events.
+Set script location with the ``zebra on-rib-process script SCRIPT`` command.
+
+**Arguments**
+
+* :ref:`const struct zebra_dplane_ctx<const-struct-zebra-dplane-ctx>` ctx
+
+
+.. code-block:: lua
+
+   function on_rib_process_dplane_results(ctx)
+      log.info(ctx.rinfo.zd_dest.network)
+      return {}
