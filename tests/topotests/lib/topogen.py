@@ -1123,6 +1123,7 @@ class TopoExaBGP(TopoHost):
 
         self.run("mkdir -p /etc/exabgp")
         self.run("chmod 755 /etc/exabgp")
+        self.run("cp {}/exa-* /etc/exabgp/".format(CWD))
         self.run("cp {}/* /etc/exabgp/".format(peer_dir))
         if env_file is not None:
             self.run("cp {} /etc/exabgp/exabgp.env".format(env_file))
