@@ -389,15 +389,6 @@ Showing OSPF6 information
    This command shows the graceful-restart helper details including helper
    configuration parameters.
 
-Debugging OSPF6
-===============
-
-.. clicmd:: debug ospf6 graceful-restart
-
-   This command enables/disables debug information for ospf6 graceful restart
-   helper functionality.
-
-
 .. _ospf6-debugging:
 
 OSPFv3 Debugging
@@ -456,6 +447,10 @@ The following debug commands are supported:
 .. clicmd:: debug ospf6 zebra
 
    Toggle OSPFv3 zebra interaction debugging messages.
+
+.. clicmd:: debug ospf6 graceful-restart
+
+   Toggle OSPFv3 graceful-restart helper debugging messages.
 
 Sample configuration
 ====================
