@@ -1494,13 +1494,22 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 				   struct bgp_dest *dest, uint32_t loc_seq,
 				   uint32_t *max_sync_seq, bool *active_on_peer,
-				   bool *peer_router, bool *proxy_from_peer)
+				   bool *peer_router, bool *proxy_from_peer,
+				   const struct ethaddr *mac)
 {
 	struct bgp_path_info *tmp_pi;
 	struct bgp_path_info *second_best_path = NULL;
 	uint32_t tmp_mm_seq = 0;
 	esi_t *tmp_esi;
 	int paths_eq;
+	struct ethaddr *tmp_mac;
+	bool mac_cmp = false;
+	struct prefix_evpn *evp = (struct prefix_evpn *)&dest->p;
+
+
+	/* mac comparison is not needed for MAC-only routes */
+	if (mac && !is_evpn_prefix_ipaddr_none(evp))
+		mac_cmp = true;
 
 	/* find the best non-local path. a local path can only be present
 	 * as best path
@@ -1510,6 +1519,13 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 		if (tmp_pi->sub_type != BGP_ROUTE_IMPORTED ||
 			!CHECK_FLAG(tmp_pi->flags, BGP_PATH_VALID))
 			continue;
+
+		/* ignore paths that have a different mac */
+		if (mac_cmp) {
+			tmp_mac = evpn_type2_path_info_get_mac(tmp_pi);
+			if (memcmp(mac, tmp_mac, sizeof(*mac)))
+				continue;
+		}
 
 		if (bgp_evpn_path_info_cmp(bgp, tmp_pi,
 				second_best_path, &paths_eq))
@@ -1555,7 +1571,8 @@ static void bgp_evpn_get_sync_info(struct bgp *bgp, esi_t *esi,
 static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 					      struct bgp_dest *dest,
 					      struct attr *attr,
-					      uint32_t loc_seq, bool setup_sync)
+					      uint32_t loc_seq, bool setup_sync,
+					      const struct ethaddr *mac)
 {
 	esi_t *esi;
 	struct prefix_evpn *evp =
@@ -1574,7 +1591,8 @@ static void update_evpn_route_entry_sync_info(struct bgp *bgp,
 
 			bgp_evpn_get_sync_info(bgp, esi, dest, loc_seq,
 					       &max_sync_seq, &active_on_peer,
-					       &peer_router, &proxy_from_peer);
+					       &peer_router, &proxy_from_peer,
+					       mac);
 			attr->mm_sync_seqnum = max_sync_seq;
 			if (active_on_peer)
 				attr->es_flags |= ATTR_ES_PEER_ACTIVE;
@@ -1656,7 +1674,7 @@ static int update_evpn_route_entry(struct bgp *bgp, struct bgpevpn *vpn,
 	/* if a local path is being added with a non-zero esi look
 	 * for SYNC paths from ES peers and bubble up the sync-info
 	 */
-	update_evpn_route_entry_sync_info(bgp, dest, attr, seq, vpn_rt);
+	update_evpn_route_entry_sync_info(bgp, dest, attr, seq, vpn_rt, mac);
 
 	/* For non-GW MACs, update MAC mobility seq number, if needed. */
 	if (seq && !CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW))
