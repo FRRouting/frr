@@ -190,7 +190,8 @@ DEFPY(show_cmgd_frntnd_adapter_detail,
 	SHOW_STR
 	CMGD_STR
 	CMGD_FRNTND_ADPTR_STR
-	"Display all Frontend Adapters\n")
+	"Display all Frontend Adapters\n"
+	"Details of commit stats\n")
 {
 	cmgd_frntnd_adapter_status_write(vty, true);
 
