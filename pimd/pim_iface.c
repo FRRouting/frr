@@ -1776,8 +1776,9 @@ static int pim_ifp_destroy(struct interface *ifp)
 			ifp->mtu, if_is_operative(ifp));
 	}
 
-	if (!if_is_operative(ifp))
-		pim_if_addr_del_all(ifp);
+	/* Clear IGMP and PIM, this interface is being destroyed */
+	pim_gm_interface_delete(ifp);
+	pim_pim_interface_delete(ifp);
 
 #if PIM_IPV == 4
 	struct pim_instance *pim;
@@ -1810,4 +1811,62 @@ void pim_iface_init(void)
 
 	if_zapi_callbacks(pim_ifp_create, pim_ifp_up, pim_ifp_down,
 			  pim_ifp_destroy);
+}
+
+static void pim_if_membership_clear(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp;
+
+	pim_ifp = ifp->info;
+	assert(pim_ifp);
+
+	if (pim_ifp->pim_enable && pim_ifp->gm_enable)
+		return;
+
+	pim_ifchannel_membership_clear(ifp);
+}
+
+void pim_pim_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return;
+
+	pim_ifp->pim_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+	/*
+	 * pim_sock_delete() removes all neighbors from
+	 * pim_ifp->pim_neighbor_list.
+	 */
+	pim_sock_delete(ifp, "pim unconfigured on interface");
+
+	if (!pim_ifp->gm_enable) {
+		pim_if_addr_del_all(ifp);
+		pim_upstream_nh_if_update(pim_ifp->pim, ifp);
+		pim_if_delete(ifp);
+	}
+}
+
+void pim_gm_interface_delete(struct interface *ifp)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (!pim_ifp)
+		return;
+
+	pim_ifp->gm_enable = false;
+
+	pim_if_membership_clear(ifp);
+
+#if PIM_IPV == 4
+	igmp_sock_delete_all(ifp);
+#else
+	gm_ifp_teardown(ifp);
+#endif
+
+	if (!pim_ifp->pim_enable)
+		pim_if_delete(ifp);
 }

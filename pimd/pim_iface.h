@@ -257,4 +257,6 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 
 void pim_iface_init(void);
 
+void pim_pim_interface_delete(struct interface *ifp);
+void pim_gm_interface_delete(struct interface *ifp);
 #endif /* PIM_IFACE_H */

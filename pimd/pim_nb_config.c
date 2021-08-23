@@ -58,20 +58,6 @@ MACRO_REQUIRE_SEMICOLON()
 #define yang_dnode_get_pimaddr yang_dnode_get_ipv4
 #endif /* PIM_IPV != 6 */
 
-static void pim_if_membership_clear(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp;
-
-	pim_ifp = ifp->info;
-	assert(pim_ifp);
-
-	if (pim_ifp->pim_enable && pim_ifp->gm_enable) {
-		return;
-	}
-
-	pim_ifchannel_membership_clear(ifp);
-}
-
 /*
  * When PIM is disabled on interface, IGMPv3 local membership
  * information is not injected into PIM interface state.
@@ -151,32 +137,6 @@ static int pim_cmd_interface_add(struct interface *ifp)
 	pim_if_membership_refresh(ifp);
 
 	pim_if_create_pimreg(pim_ifp->pim);
-	return 1;
-}
-
-static int pim_cmd_interface_delete(struct interface *ifp)
-{
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (!pim_ifp)
-		return 1;
-
-	pim_ifp->pim_enable = false;
-
-	pim_if_membership_clear(ifp);
-
-	/*
-	 * pim_sock_delete() removes all neighbors from
-	 * pim_ifp->pim_neighbor_list.
-	 */
-	pim_sock_delete(ifp, "pim unconfigured on interface");
-
-	if (!pim_ifp->gm_enable) {
-		pim_if_addr_del_all(ifp);
-		pim_upstream_nh_if_update(pim_ifp->pim, ifp);
-		pim_if_delete(ifp);
-	}
-
 	return 1;
 }
 
@@ -1566,12 +1526,7 @@ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args)
 		if (!pim_ifp)
 			return NB_OK;
 
-		if (!pim_cmd_interface_delete(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Unable to delete interface information %s",
-				 ifp->name);
-			return NB_ERR_INCONSISTENCY;
-		}
+		pim_pim_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -1619,11 +1574,7 @@ int lib_interface_pim_address_family_pim_enable_modify(struct nb_cb_modify_args 
 			if (!pim_ifp)
 				return NB_ERR_INCONSISTENCY;
 
-			if (!pim_cmd_interface_delete(ifp)) {
-				snprintf(args->errmsg, args->errmsg_len,
-					 "Unable to delete interface information");
-				return NB_ERR_INCONSISTENCY;
-			}
+			pim_pim_interface_delete(ifp);
 		}
 		break;
 	}
@@ -2558,7 +2509,6 @@ int lib_interface_gmp_address_family_create(struct nb_cb_create_args *args)
 int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2567,19 +2517,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		pim_ifp = ifp->info;
-
-		if (!pim_ifp)
-			return NB_OK;
-
-		pim_ifp->gm_enable = false;
-
-		pim_if_membership_clear(ifp);
-
-		pim_if_addr_del_all_igmp(ifp);
-
-		if (!pim_ifp->pim_enable)
-			pim_if_delete(ifp);
+		pim_gm_interface_delete(ifp);
 	}
 
 	return NB_OK;
@@ -2593,7 +2531,6 @@ int lib_interface_gmp_address_family_enable_modify(
 {
 	struct interface *ifp;
 	bool gm_enable;
-	struct pim_interface *pim_ifp;
 	int mcast_if_count;
 	const char *ifp_name;
 	const struct lyd_node *if_dnode;
@@ -2622,26 +2559,8 @@ int lib_interface_gmp_address_family_enable_modify(
 
 		if (gm_enable)
 			return pim_cmd_gm_start(ifp);
-
-		else {
-			pim_ifp = ifp->info;
-
-			if (!pim_ifp)
-				return NB_ERR_INCONSISTENCY;
-
-			pim_ifp->gm_enable = false;
-
-			pim_if_membership_clear(ifp);
-
-#if PIM_IPV == 4
-			pim_if_addr_del_all_igmp(ifp);
-#else
-			gm_ifp_teardown(ifp);
-#endif
-
-			if (!pim_ifp->pim_enable)
-				pim_if_delete(ifp);
-		}
+		else
+			pim_gm_interface_delete(ifp);
 	}
 	return NB_OK;
 }
