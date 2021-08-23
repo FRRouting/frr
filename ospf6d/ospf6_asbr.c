@@ -570,6 +570,22 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 					&asbr_id);
 			return;
 		}
+
+		/*
+		 * RFC 3101 - Section 2.5:
+		 * "For a Type-7 LSA the matching routing table entry must
+		 * specify an intra-area path through the LSA's originating
+		 * NSSA".
+		 */
+		if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+		    && (asbr_entry->path.area_id != oa->area_id
+			|| asbr_entry->path.type != OSPF6_PATH_TYPE_INTRA)) {
+			if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
+				zlog_debug(
+					"Intra-area route to NSSA ASBR not found: %pFX",
+					&asbr_id);
+			return;
+		}
 	}
 
 	/* Check the forwarding address */
