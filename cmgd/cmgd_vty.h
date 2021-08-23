@@ -41,6 +41,15 @@ extern int cmgd_hndl_bknd_cmd(const struct cmd_element *, struct vty *, int,
 	DEFUN_CMD_ELEMENT(cmgd_hndl_bknd_cmd, cmdname, cmdstr, helpstr, 		\
 	CMD_ATTR_YANG|CMD_ATTR_HIDDEN, 0)
 
+static inline LYD_FORMAT cmgd_str2format(const char *format_str)
+{
+	if (!strncmp("json", format_str, sizeof("json")))
+		return LYD_JSON;
+	else if (!strncmp("xml", format_str, sizeof("xml")))
+		return LYD_XML;
+	return LYD_UNKNOWN;
+}
+
 #ifdef INCLUDE_CMGD_CMDDEFS_ONLY
 
 #define NB_ENQEUE_CLI_COMMAND(vty, xpath, op, val)					\

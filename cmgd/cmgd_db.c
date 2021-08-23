@@ -451,6 +451,37 @@ int cmgd_db_delete_data_nodes(
 	return 0;
 }
 
+/* Dump the data tree of the specified format in the file pointed by the path */
+static int cmgd_db_dump_in_memory(
+		cmgd_db_hndl_t db_hndl, char *base_xpath,
+		LYD_FORMAT format, struct ly_out *out)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+	struct lyd_node *root;
+	uint32_t options = 0;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return -1;
+	if (base_xpath[0] == '\0')
+		root = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
+					  : db_ctxt->root.dnode_root;
+	else
+		root = yang_dnode_get(db_ctxt->config_db
+					      ? db_ctxt->root.cfg_root->dnode
+					      : db_ctxt->root.dnode_root,
+				      base_xpath);
+	if (!root)
+		return -1;
+
+	if (base_xpath[0] == '\0')
+		lyd_print_all(out, root, format, options);
+	else
+		lyd_print_tree(out, root, format, options);
+
+	return 0;
+}
+
 int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
         cmgd_db_node_iter_fn iter_fn, void *ctxt, bool donot_free_alloced)
@@ -485,6 +516,33 @@ int cmgd_db_hndl_send_get_data_req(
 		return -1;
 
 	return 0;
+}
+
+void cmgd_db_dump_tree(
+		struct vty *vty, cmgd_db_hndl_t db_hndl, const char* xpath,
+		LYD_FORMAT format)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+	struct ly_out *out;
+	char *str;
+	char base_xpath[CMGD_MAX_XPATH_LEN] = {0};
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt) {
+		vty_out(vty, "    >>>>> Database Not Initialized!\n");
+		return;
+	}
+
+	if (xpath) {
+		strncpy(base_xpath, xpath, CMGD_MAX_XPATH_LEN);
+		cmgd_remove_trailing_separator(base_xpath, '/');
+	}
+
+	ly_out_new_memory(&str, 0, &out);
+	cmgd_db_dump_in_memory(db_hndl, base_xpath, format, out);
+
+	vty_out(vty, "%s", str);
+	ly_out_free(out, NULL, 0);
 }
 
 void cmgd_db_status_write_one(

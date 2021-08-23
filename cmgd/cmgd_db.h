@@ -160,6 +160,9 @@ extern int cmgd_db_iter_data(
 extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,
         cmgd_yang_getdata_req_t *data_req, int num_reqs);
+extern void cmgd_db_dump_tree(
+		struct vty *vty, cmgd_db_hndl_t db_hndl, const char* xpath,
+		LYD_FORMAT format);
 
 extern void cmgd_db_status_write_one(
         struct vty *vty, cmgd_db_hndl_t db_hndl);
