@@ -19,6 +19,7 @@ vtysh_scan += \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
 	zebra/zserv.c \
+	zebra/zebra_vrf.c \
 	# end
 
 # can be loaded as DSO - always include for vtysh
@@ -132,6 +133,7 @@ clippy_scan += \
 	zebra/zebra_routemap.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_srv6_vty.c \
+	zebra/zebra_vrf.c \
 	# end
 
 noinst_HEADERS += \

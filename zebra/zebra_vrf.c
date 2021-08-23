@@ -41,6 +41,9 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_netns_notify.h"
 #include "zebra/zebra_routemap.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "zebra/zebra_vrf_clippy.c"
+#endif
 
 static void zebra_vrf_table_create(struct zebra_vrf *zvrf, afi_t afi,
 				   safi_t safi);
@@ -528,6 +531,63 @@ static int vrf_config_write(struct vty *vty)
 	return 0;
 }
 
+DEFPY (vrf_netns,
+       vrf_netns_cmd,
+       "netns NAME$netns_name",
+       "Attach VRF to a Namespace\n"
+       "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+	char *pathname = ns_netns_pathname(vty, netns_name);
+	int ret;
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	if (!pathname)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	frr_with_privs(&zserv_privs) {
+		ret = vrf_netns_handler_create(vty, vrf, pathname,
+					       NS_UNKNOWN,
+					       NS_UNKNOWN,
+					       NS_UNKNOWN);
+	}
+
+	return ret;
+}
+
+DEFUN (no_vrf_netns,
+       no_vrf_netns_cmd,
+       "no netns [NAME]",
+       NO_STR
+       "Detach VRF from a Namespace\n"
+       "The file name in " NS_RUN_DIR ", or a full pathname\n")
+{
+	struct ns *ns = NULL;
+
+	VTY_DECLVAR_CONTEXT(vrf, vrf);
+
+	if (!vrf_is_backend_netns()) {
+		vty_out(vty, "VRF backend is not Netns. Aborting\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+	if (!vrf->ns_ctxt) {
+		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
+			vrf->name, vrf->vrf_id);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	ns = (struct ns *)vrf->ns_ctxt;
+
+	ns->vrf_ctxt = NULL;
+	vrf_disable(vrf);
+	/* vrf ID from VRF is necessary for Zebra
+	 * so that propagate to other clients is done
+	 */
+	ns_delete(ns);
+	vrf->ns_ctxt = NULL;
+	return CMD_SUCCESS;
+}
+
 /* Zebra VRF initialization. */
 void zebra_vrf_init(void)
 {
@@ -535,4 +595,10 @@ void zebra_vrf_init(void)
 		 zebra_vrf_delete, zebra_vrf_update);
 
 	vrf_cmd_init(vrf_config_write, &zserv_privs);
+
+	if (vrf_is_backend_netns() && ns_have_netns()) {
+		/* Install NS commands. */
+		install_element(VRF_NODE, &vrf_netns_cmd);
+		install_element(VRF_NODE, &no_vrf_netns_cmd);
+	}
 }
