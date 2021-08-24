@@ -508,7 +508,7 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 	sg.src = source->source_addr;
 	sg.grp = group->group_addr;
 
-	ch = pim_ifchannel_find(group->group_igmp_sock->interface, &sg);
+	ch = pim_ifchannel_find(group->interface, &sg);
 	if (pim_is_grp_ssm(pim, group->group_addr)) {
 		/* If SSM group withdraw local membership */
 		if (ch
@@ -518,7 +518,7 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 					"local membership del for %s as G is now SSM",
 					pim_str_sg_dump(&sg));
 			pim_ifchannel_local_membership_del(
-				group->group_igmp_sock->interface, &sg);
+				group->interface, &sg);
 		}
 	} else {
 		/* If ASM group add local membership */
@@ -529,7 +529,7 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 					"local membership add for %s as G is now ASM",
 					pim_str_sg_dump(&sg));
 			pim_ifchannel_local_membership_add(
-				group->group_igmp_sock->interface, &sg,
+				group->interface, &sg,
 				false /*is_vxlan*/);
 		}
 	}
@@ -541,33 +541,24 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct listnode *grpnode;
+		struct igmp_group *grp;
 
 		if (!pim_ifp)
 			continue;
 
-		/* scan igmp sockets */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					  igmp)) {
-			struct listnode *grpnode;
-			struct igmp_group *grp;
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+					  grp)) {
+			struct listnode *srcnode;
+			struct igmp_source *src;
 
-			/* scan igmp groups */
-			for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
-						  grpnode, grp)) {
-				struct listnode *srcnode;
-				struct igmp_source *src;
-
-				/* scan group sources */
-				for (ALL_LIST_ELEMENTS_RO(
-					     grp->group_source_list, srcnode,
-					     src)) {
-					igmp_source_forward_reevaluate_one(pim,
-									   src);
-				} /* scan group sources */
-			}	 /* scan igmp groups */
-		}		  /* scan igmp sockets */
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src)) {
+				igmp_source_forward_reevaluate_one(pim, src);
+			} /* scan group sources */
+		}	 /* scan igmp groups */
 	}			  /* scan interfaces */
 }
 
@@ -586,10 +577,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug(
-			"%s: (S,G)=%s igmp_sock=%d oif=%s fwd=%d", __func__,
+			"%s: (S,G)=%s oif=%s fwd=%d", __func__,
 			pim_str_sg_dump(&sg),
-			source->source_group->group_igmp_sock->fd,
-			source->source_group->group_igmp_sock->interface->name,
+			source->source_group->interface->name,
 			IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
@@ -600,13 +590,12 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	}
 
 	group = source->source_group;
-	pim_oif = group->group_igmp_sock->interface->info;
+	pim_oif = group->interface->info;
 	if (!pim_oif) {
 		if (PIM_DEBUG_IGMP_TRACE) {
 			zlog_debug("%s: multicast not enabled on oif=%s ?",
 				   __func__,
-				   source->source_group->group_igmp_sock
-					   ->interface->name);
+				   source->source_group->interface->name);
 		}
 		return;
 	}
@@ -688,14 +677,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					 */
 					if (PIM_DEBUG_IGMP_TRACE) {
 						zlog_debug(
-							"%s: ignoring request for looped MFC entry (S,G)=%s: igmp_sock=%d oif=%s vif_index=%d",
+							"%s: ignoring request for looped MFC entry (S,G)=%s: oif=%s vif_index=%d",
 							__func__,
 							pim_str_sg_dump(&sg),
 							source->source_group
-								->group_igmp_sock
-								->fd,
-							source->source_group
-								->group_igmp_sock
 								->interface->name,
 							input_iface_vif_index);
 					}
@@ -719,7 +704,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 
 	if (PIM_I_am_DR(pim_oif) || PIM_I_am_DualActive(pim_oif)) {
 		result = pim_channel_add_oif(source->source_channel_oil,
-					     group->group_igmp_sock->interface,
+					     group->interface,
 					     PIM_OIF_FLAG_PROTO_IGMP, __func__);
 		if (result) {
 			if (PIM_DEBUG_MROUTE) {
@@ -733,7 +718,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			zlog_debug(
 				"%s: %s was received on %s interface but we are not DR for that interface",
 				__func__, pim_str_sg_dump(&sg),
-				group->group_igmp_sock->interface->name);
+				group->interface->name);
 
 		return;
 	}
@@ -742,14 +727,14 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	  per-interface (S,G) state.
 	 */
 	if (!pim_ifchannel_local_membership_add(
-						group->group_igmp_sock->interface, &sg,
+						group->interface, &sg,
 						false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn("%s: Failure to add local membership for %s",
 				  __func__, pim_str_sg_dump(&sg));
 
 		pim_channel_del_oif(source->source_channel_oil,
-				    group->group_igmp_sock->interface,
+				    group->interface,
 				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
 		return;
 	}
@@ -773,10 +758,9 @@ void igmp_source_forward_stop(struct igmp_source *source)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug(
-			"%s: (S,G)=%s igmp_sock=%d oif=%s fwd=%d", __func__,
+			"%s: (S,G)=%s oif=%s fwd=%d", __func__,
 			pim_str_sg_dump(&sg),
-			source->source_group->group_igmp_sock->fd,
-			source->source_group->group_igmp_sock->interface->name,
+			source->source_group->interface->name,
 			IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
@@ -800,7 +784,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
 	 pim_forward_stop below.
 	*/
 	result = pim_channel_del_oif(source->source_channel_oil,
-				     group->group_igmp_sock->interface,
+				     group->interface,
 					 PIM_OIF_FLAG_PROTO_IGMP,
 					 __func__);
 	if (result) {
@@ -815,8 +799,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
 	  Feed IGMPv3-gathered local membership information into PIM
 	  per-interface (S,G) state.
 	 */
-	pim_ifchannel_local_membership_del(group->group_igmp_sock->interface,
-					   &sg);
+	pim_ifchannel_local_membership_del(group->interface, &sg);
 
 	IGMP_SOURCE_DONT_FORWARDING(source->source_flags);
 }

@@ -61,8 +61,9 @@ static void pim_if_membership_clear(struct interface *ifp)
 static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
+	struct listnode *grpnode;
+	struct igmp_group *grp;
+
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
@@ -84,36 +85,27 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	 * the interface
 	 */
 
-	/* scan igmp sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		struct listnode *grpnode;
-		struct igmp_group *grp;
+	/* scan igmp groups */
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode, grp)) {
+		struct listnode *srcnode;
+		struct igmp_source *src;
 
-		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grpnode,
-					  grp)) {
-			struct listnode *srcnode;
-			struct igmp_source *src;
+		/* scan group sources */
+		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode,
+					  src)) {
 
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						  srcnode, src)) {
+			if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags)) {
+				struct prefix_sg sg;
 
-				if (IGMP_SOURCE_TEST_FORWARDING(
-				    src->source_flags)) {
-					struct prefix_sg sg;
+				memset(&sg, 0, sizeof(struct prefix_sg));
+				sg.src = src->source_addr;
+				sg.grp = grp->group_addr;
+				pim_ifchannel_local_membership_add(
+					ifp, &sg, false /*is_vxlan*/);
+			}
 
-					memset(&sg, 0,
-					       sizeof(struct prefix_sg));
-					sg.src = src->source_addr;
-					sg.grp = grp->group_addr;
-					pim_ifchannel_local_membership_add(
-						ifp, &sg, false /*is_vxlan*/);
-				}
-
-			} /* scan group sources */
-		}        /* scan igmp groups */
-	}                 /* scan igmp sockets */
+		} /* scan group sources */
+	}        /* scan igmp groups */
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
@@ -459,6 +451,8 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 {
 	struct listnode *sock_node;
 	struct igmp_sock *igmp;
+	struct listnode *grp_node;
+	struct igmp_group *grp;
 
 	if (pim_ifp->igmp_query_max_response_time_dsec
 	    == query_max_response_time_dsec)
@@ -475,32 +469,28 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 
 	/* scan all sockets */
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		struct listnode *grp_node;
-		struct igmp_group *grp;
-
 		/* reschedule socket general query */
 		igmp_sock_query_reschedule(igmp);
+	}
 
-		/* scan socket groups */
-		for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list, grp_node,
-					grp)) {
-			struct listnode *src_node;
-			struct igmp_source *src;
+	/* scan socket groups */
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grp_node, grp)) {
+		struct listnode *src_node;
+		struct igmp_source *src;
 
-			/* reset group timers for groups in EXCLUDE mode */
-			if (grp->group_filtermode_isexcl)
-				igmp_group_reset_gmi(grp);
+		/* reset group timers for groups in EXCLUDE mode */
+		if (grp->group_filtermode_isexcl)
+			igmp_group_reset_gmi(grp);
 
-			/* scan group sources */
-			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-						src_node, src)) {
+		/* scan group sources */
+		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+					src_node, src)) {
 
-				/* reset source timers for sources with running
-				 * timers
-				 */
-				if (src->t_source_timer)
-					igmp_source_reset_gmi(igmp, grp, src);
-			}
+			/* reset source timers for sources with running
+			 * timers
+			 */
+			if (src->t_source_timer)
+				igmp_source_reset_gmi(grp, src);
 		}
 	}
 }

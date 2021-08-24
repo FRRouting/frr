@@ -99,11 +99,14 @@ struct igmp_sock {
 
 	bool mtrace_only;
 
-	struct list *igmp_group_list; /* list of struct igmp_group */
-	struct hash *igmp_group_hash;
-
 	struct igmp_stats rx_stats;
 };
+
+struct pim_interface;
+
+void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp);
+void pim_igmp_if_reset(struct pim_interface *pim_ifp);
+void pim_igmp_if_fini(struct pim_interface *pim_ifp);
 
 struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 					      struct in_addr ifaddr);
@@ -178,7 +181,7 @@ struct igmp_group {
 	int group_filtermode_isexcl;    /* 0=INCLUDE, 1=EXCLUDE */
 	struct list *group_source_list; /* list of struct igmp_source */
 	time_t group_creation;
-	struct igmp_sock *group_igmp_sock; /* back pointer */
+	struct interface *interface;
 	int64_t last_igmp_v1_report_dsec;
 	int64_t last_igmp_v2_report_dsec;
 };

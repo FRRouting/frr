@@ -54,7 +54,7 @@
 #define PIM_IGMP_OHPI_DSEC(qrv,qqi,qri_dsec) ((qrv) * (10 * (qqi)) + (qri_dsec))
 
 void igmp_group_reset_gmi(struct igmp_group *group);
-void igmp_source_reset_gmi(struct igmp_sock *igmp, struct igmp_group *group,
+void igmp_source_reset_gmi(struct igmp_group *group,
 			   struct igmp_source *source);
 
 void igmp_source_free(struct igmp_source *source);
