@@ -500,7 +500,7 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
                 else:
                     cmd = "ip ospf authentication"
 
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 
@@ -508,7 +508,7 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
                     cmd = "ip ospf message-digest-key {} md5 {}".format(
                         ospf_data["message-digest-key"], ospf_data["authentication-key"]
                     )
-                    if "del_action" in ospf_data:
+                    if "delete" in ospf_data and ospf_data["delete"] is True:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
@@ -519,28 +519,28 @@ def config_ospf_interface(tgen, topo, input_dict=None, build=False, load_config=
                     cmd = "ip ospf authentication-key {}".format(
                         ospf_data["authentication-key"]
                     )
-                    if "del_action" in ospf_data:
+                    if "delete" in ospf_data and ospf_data["delete"] is True:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
             # interface ospf dr priority
             if data_ospf_dr_priority:
                 cmd = "ip ospf priority {}".format(ospf_data["priority"])
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 
             # interface ospf cost
             if data_ospf_cost:
                 cmd = "ip ospf cost {}".format(ospf_data["cost"])
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 
             # interface ospf mtu
             if data_ospf_mtu:
                 cmd = "ip ospf mtu-ignore"
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 
@@ -2372,7 +2372,7 @@ def config_ospf6_interface(tgen, topo, input_dict=None, build=False, load_config
             if data_ospf_auth:
                 cmd = "ipv6 ospf6 authentication"
 
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
 
                 if "hash-algo" in ospf_data:
@@ -2382,28 +2382,28 @@ def config_ospf6_interface(tgen, topo, input_dict=None, build=False, load_config
                         ospf_data["hash-algo"],
                         ospf_data["key"],
                     )
-                    if "del_action" in ospf_data:
+                    if "delete" in ospf_data and ospf_data["delete"] is True:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
 
             # interface ospf dr priority
             if data_ospf_dr_priority:
                 cmd = "ipv6 ospf priority {}".format(ospf_data["priority"])
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 
             # interface ospf cost
             if data_ospf_cost:
                 cmd = "ipv6 ospf cost {}".format(ospf_data["cost"])
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 
             # interface ospf mtu
             if data_ospf_mtu:
                 cmd = "ipv6 ospf mtu-ignore"
-                if "del_action" in ospf_data:
+                if "delete" in ospf_data and ospf_data["delete"] is True:
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
 

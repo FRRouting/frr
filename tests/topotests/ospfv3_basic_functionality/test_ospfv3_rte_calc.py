@@ -255,7 +255,7 @@ def red_static(dut, config=True):
         ospf_red = {
             dut: {
                 "ospf6": {
-                    "redistribute": [{"redist_type": "static", "del_action": True}]
+                    "redistribute": [{"redist_type": "static", "delete": True}]
                 }
             }
         }
@@ -273,7 +273,7 @@ def red_connected(dut, config=True):
         ospf_red = {
             dut: {
                 "ospf6": {
-                    "redistribute": [{"redist_type": "connected", "del_action": True}]
+                    "redistribute": [{"redist_type": "connected", "delete": True}]
                 }
             }
         }
@@ -560,7 +560,7 @@ def test_ospfv3_cost_tc52_p0(request):
     step(" Un configure cost from the interface r0 - r1.")
 
     r0_ospf_cost = {
-        "r0": {"links": {"r1": {"ospf6": {"cost": 30, "del_action": True}}}}
+        "r0": {"links": {"r1": {"ospf6": {"cost": 30, "delete": True}}}}
     }
     result = config_ospf6_interface(tgen, topo, r0_ospf_cost)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
@@ -579,7 +579,7 @@ def test_ospfv3_cost_tc52_p0(request):
     step(" Un configure cost from the interface r0 - r2.")
 
     r0_ospf_cost = {
-        "r0": {"links": {"r2": {"ospf6": {"cost": 20, "del_action": True}}}}
+        "r0": {"links": {"r2": {"ospf6": {"cost": 20, "delete": True}}}}
     }
     result = config_ospf6_interface(tgen, topo, r0_ospf_cost)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
