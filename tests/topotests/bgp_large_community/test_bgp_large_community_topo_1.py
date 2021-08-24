@@ -79,6 +79,13 @@ CWD = os_path.dirname(os_path.realpath(__file__))
 sys.path.append(os_path.join(CWD, "../"))
 sys.path.append(os_path.join(CWD, "../lib/"))
 
+# Reading the data from JSON File for topology and configuration creation
+jsonFile = "{}/bgp_large_community_topo_1.json".format(CWD)
+try:
+    with open(jsonFile, "r") as topoJson:
+        topo = json_load(topoJson)
+except IOError:
+    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 bgp_convergence = False
@@ -791,9 +798,7 @@ def test_large_community_match_as_path(request):
             tc_name, result
         )
 
-        result = verify_bgp_community(
-            tgen, adt, "r5", [NETWORK[adt][1]], input_dict_1, expected=False
-        )
+        result = verify_bgp_community(tgen, adt, "r5", [NETWORK[adt][1]], input_dict_1)
 
         assert result is not True, "Test case {} : Should fail \n Error: {}".format(
             tc_name, result

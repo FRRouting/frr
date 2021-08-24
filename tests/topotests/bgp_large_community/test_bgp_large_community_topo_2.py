@@ -575,9 +575,7 @@ def test_large_community_lists_with_rmap_apply_and_remove(request):
 
     step("Verify large-community-list")
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(
-            tgen, adt, dut, NETWORKS[adt], input_dict_4, expected=False
-        )
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is not True, (
             "Testcase {} : Failed \n "
             "largeCommunity is still present after deleting route-map \n Error: {}".format(
@@ -880,7 +878,7 @@ def test_large_community_lists_with_rmap_set_none(request):
     step("Verify Community-list")
     dut = "r6"
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], expected=False)
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt])
         assert result is not True, (
             "Testcase {} : Failed \n "
             "Community-list is still present \n Error: {}".format(tc_name, result)
@@ -1327,9 +1325,7 @@ def test_large_community_lists_with_no_send_community(request):
 
     step("Verify Community-list")
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(
-            tgen, adt, dut, NETWORKS[adt], input_dict_4, expected=False
-        )
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_4)
         assert result is not True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
@@ -2217,9 +2213,7 @@ def test_large_community_lists_with_rmap_match_regex(request):
     dut = "r4"
     input_dict_7 = {"largeCommunity": "1:1:1 1:1:2 2:1:3 2:1:4 2:1:5"}
     for adt in ADDR_TYPES:
-        result = verify_bgp_community(
-            tgen, adt, dut, NETWORKS[adt], input_dict_7, expected=False
-        )
+        result = verify_bgp_community(tgen, adt, dut, NETWORKS[adt], input_dict_7)
         assert result is not True, (
             "Testcase {} : Failed \n "
             "largeCommunity is still present \n Error: {}".format(tc_name, result)

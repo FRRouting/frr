@@ -49,6 +49,7 @@ from lib.common_config import (
     create_route_maps,
     verify_prefix_lists,
     topo_daemons,
+    shutdown_bringup_interface,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json

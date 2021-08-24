@@ -209,8 +209,7 @@ def test_next_hop_attribute(request):
     # Verification should fail as nexthop-self is not enabled
     for addr_type in ADDR_TYPES:
         result = verify_rib(
-            tgen, addr_type, dut, input_dict, protocol=protocol, expected=False
-        )
+            tgen, addr_type, dut, input_dict, protocol=protocol)
         assert (
             result is not True
         ), "Testcase {} : Failed \n Error: " "{} routes are not present in RIB".format(
