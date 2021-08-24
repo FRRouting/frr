@@ -52,8 +52,10 @@ def pytest_addoption(parser):
     parser.addoption("--show-config", type=str, default=None, help="show specific configuration")
     parser.addoption("--show-topology", type=str, default=None, help="show specific topology")
     parser.addoption("--frr-builddir", type=str, default=None, help="override frr_builddir pytest.ini option")
+    parser.addoption("--reportato-dir", type=str, default=None, help="output directory for topotato HTML report")
 
     parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../..')
+    parser.addini('reportato_dir', 'Default output directory for topotato HTML report')
 
 def pytest_configure(config):
     assert config.pluginmanager.getplugin('html') is not None
@@ -95,22 +97,29 @@ def pytest_sessionstart(session):
         if check_tool(tool) is None:
             fail += 1
 
-    frr_builddir = session.config.getoption('--frr-builddir')
-    if frr_builddir is None:
-        frr_builddir = session.config.getini('frr_builddir')
+    def get_dir(optname, ininame):
+        basedir = os.getcwd()
+        val = session.config.getoption(optname)
+        if not val:
+            basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            val = session.config.getini(ininame)
 
-    if not os.path.isabs(frr_builddir):
-        selfdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        frr_builddir = os.path.abspath(os.path.join(selfdir, frr_builddir))
+        if val is None:
+            return
+        if not os.path.isabs(val):
+            val = os.path.abspath(os.path.join(basedir, val))
+        return val
 
-
+    frr_builddir = get_dir('--frr-builddir', 'frr_builddir')
     if not fail:
         if not FRRConfigs.init(frr_builddir):
             fail += 1
     if fail:
         TopotatoItem.skipall = 'topotato environment not set up correctly'
 
-    session.pretty = PrettySession(session)
+    reportato_dir = get_dir('--reportato-dir', 'reportato_dir')
+
+    session.pretty = PrettySession(session, reportato_dir)
 
 class LogFormatting(list):
     class Item:
