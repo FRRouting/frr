@@ -357,9 +357,11 @@ static void show_nexthop_detail_helper(struct vty *vty,
 		break;
 	}
 
-	if ((re->vrf_id != nexthop->vrf_id)
-	    && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE))
-		vty_out(vty, "(vrf %s)", vrf_id_to_name(nexthop->vrf_id));
+	if (re->vrf_id != nexthop->vrf_id) {
+		struct vrf *vrf = vrf_lookup_by_id(nexthop->vrf_id);
+
+		vty_out(vty, "(vrf %s)", VRF_LOGNAME(vrf));
+	}
 
 	if (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE))
 		vty_out(vty, " (duplicate nexthop removed)");
@@ -607,8 +609,7 @@ static void show_route_nexthop_helper(struct vty *vty,
 		break;
 	}
 
-	if ((re == NULL || (nexthop->vrf_id != re->vrf_id))
-	    && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE))
+	if ((re == NULL || (nexthop->vrf_id != re->vrf_id)))
 		vty_out(vty, " (vrf %s)", vrf_id_to_name(nexthop->vrf_id));
 
 	if (!CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE))
@@ -780,8 +781,7 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 		break;
 	}
 
-	if ((nexthop->vrf_id != re->vrf_id)
-	    && (nexthop->type != NEXTHOP_TYPE_BLACKHOLE))
+	if (nexthop->vrf_id != re->vrf_id)
 		json_object_string_add(json_nexthop, "vrf",
 				       vrf_id_to_name(nexthop->vrf_id));
 

@@ -307,6 +307,12 @@ struct attr {
 	/* EVPN DF preference and algorithm for DF election on local ESs */
 	uint16_t df_pref;
 	uint8_t df_alg;
+
+	/* Nexthop type */
+	enum nexthop_types_t nh_type;
+
+	/* If NEXTHOP_TYPE_BLACKHOLE, then blackhole type */
+	enum blackhole_type bh_type;
 };
 
 /* rmap_change_flags definition */

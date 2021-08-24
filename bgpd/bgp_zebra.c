@@ -472,8 +472,9 @@ static int bgp_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 {
 	enum nexthop_types_t nhtype;
+	enum blackhole_type bhtype = BLACKHOLE_UNSPEC;
 	struct zapi_route api;
-	union g_addr nexthop;
+	union g_addr nexthop = {};
 	ifindex_t ifindex;
 	int add, i;
 	struct bgp *bgp;
@@ -494,9 +495,15 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 	    && IN6_IS_ADDR_LINKLOCAL(&api.prefix.u.prefix6))
 		return 0;
 
-	nexthop = api.nexthops[0].gate;
 	ifindex = api.nexthops[0].ifindex;
 	nhtype = api.nexthops[0].type;
+
+	/* api_nh structure has union of gate and bh_type */
+	if (nhtype == NEXTHOP_TYPE_BLACKHOLE) {
+		/* bh_type is only applicable if NEXTHOP_TYPE_BLACKHOLE*/
+		bhtype = api.nexthops[0].bh_type;
+	} else
+		nexthop = api.nexthops[0].gate;
 
 	add = (cmd == ZEBRA_REDISTRIBUTE_ROUTE_ADD);
 	if (add) {
@@ -517,8 +524,8 @@ static int zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 		/* Now perform the add/update. */
 		bgp_redistribute_add(bgp, &api.prefix, &nexthop, ifindex,
-				     nhtype, api.distance, api.metric, api.type,
-				     api.instance, api.tag);
+				     nhtype, bhtype, api.distance, api.metric,
+				     api.type, api.instance, api.tag);
 	} else {
 		bgp_redistribute_delete(bgp, &api.prefix, api.type,
 					api.instance);
@@ -1076,8 +1083,10 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	 * a VRF (which are programmed as onlink on l3-vni SVI) as well as
 	 * connected routes leaked into a VRF.
 	 */
-	if (is_evpn) {
-
+	if (attr->nh_type == NEXTHOP_TYPE_BLACKHOLE) {
+		api_nh->type = attr->nh_type;
+		api_nh->bh_type = attr->bh_type;
+	} else if (is_evpn) {
 		/*
 		 * If the nexthop is EVPN overlay index gateway IP,
 		 * treat the nexthop as NEXTHOP_TYPE_IPV4
@@ -1090,8 +1099,7 @@ static bool update_ipv4nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
 			api_nh->ifindex = nh_bgp->l3vni_svi_ifindex;
 		}
-	} else if (nh_othervrf &&
-		 api_nh->gate.ipv4.s_addr == INADDR_ANY) {
+	} else if (nh_othervrf && api_nh->gate.ipv4.s_addr == INADDR_ANY) {
 		api_nh->type = NEXTHOP_TYPE_IFINDEX;
 		api_nh->ifindex = attr->nh_ifindex;
 	} else
@@ -1113,8 +1121,10 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 	attr = pi->attr;
 	api_nh->vrf_id = nh_bgp->vrf_id;
 
-	if (is_evpn) {
-
+	if (attr->nh_type == NEXTHOP_TYPE_BLACKHOLE) {
+		api_nh->type = attr->nh_type;
+		api_nh->bh_type = attr->bh_type;
+	} else if (is_evpn) {
 		/*
 		 * If the nexthop is EVPN overlay index gateway IP,
 		 * treat the nexthop as NEXTHOP_TYPE_IPV4
@@ -1169,7 +1179,8 @@ static bool update_ipv6nh_for_route_install(int nh_othervrf, struct bgp *nh_bgp,
 			api_nh->ifindex = 0;
 		}
 	}
-	if (nexthop)
+	/* api_nh structure has union of gate and bh_type */
+	if (nexthop && api_nh->type != NEXTHOP_TYPE_BLACKHOLE)
 		api_nh->gate.ipv6 = *nexthop;
 
 	return true;

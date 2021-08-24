@@ -1611,7 +1611,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			zlog_debug("%s: nh blackhole %d",
 				   __func__, api_nh->bh_type);
 
-		nexthop = nexthop_from_blackhole(api_nh->bh_type);
+		nexthop =
+			nexthop_from_blackhole(api_nh->bh_type, api_nh->vrf_id);
 		break;
 	}
 

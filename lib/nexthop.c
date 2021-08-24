@@ -519,12 +519,13 @@ struct nexthop *nexthop_from_ipv6_ifindex(const struct in6_addr *ipv6,
 	return nexthop;
 }
 
-struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type)
+struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type,
+				       vrf_id_t nh_vrf_id)
 {
 	struct nexthop *nexthop;
 
 	nexthop = nexthop_new();
-	nexthop->vrf_id = VRF_DEFAULT;
+	nexthop->vrf_id = nh_vrf_id;
 	nexthop->type = NEXTHOP_TYPE_BLACKHOLE;
 	nexthop->bh_type = bh_type;
 

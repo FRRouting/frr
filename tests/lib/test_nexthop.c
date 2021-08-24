@@ -112,15 +112,15 @@ static void test_run_first(void)
 	nexthop_free(nh2);
 
 	/* Blackhole */
-	nh1 = nexthop_from_blackhole(BLACKHOLE_REJECT);
-	nh2 = nexthop_from_blackhole(BLACKHOLE_REJECT);
+	nh1 = nexthop_from_blackhole(BLACKHOLE_REJECT, 0);
+	nh2 = nexthop_from_blackhole(BLACKHOLE_REJECT, 0);
 
 	ret = nexthop_cmp_basic(nh1, nh2);
 	assert(ret == 0);
 
 	nexthop_free(nh2);
 
-	nh2 = nexthop_from_blackhole(BLACKHOLE_NULL);
+	nh2 = nexthop_from_blackhole(BLACKHOLE_NULL, 0);
 
 	ret = nexthop_cmp_basic(nh1, nh2);
 	assert(ret != 0);
