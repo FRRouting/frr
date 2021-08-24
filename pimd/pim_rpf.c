@@ -419,8 +419,6 @@ int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf)
 	default:
 		return 0;
 	}
-
-	return 0;
 }
 
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
@@ -434,8 +432,6 @@ int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
 	default:
 		return 0;
 	}
-
-	return 0;
 }
 
 int pim_rpf_is_same(struct pim_rpf *rpf1, struct pim_rpf *rpf2)

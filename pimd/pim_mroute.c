@@ -668,19 +668,15 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 		case IGMPMSG_WRONGVIF:
 			return pim_mroute_msg_wrongvif(pim->mroute_socket, ifp,
 						       msg);
-			break;
 		case IGMPMSG_NOCACHE:
 			return pim_mroute_msg_nocache(pim->mroute_socket, ifp,
 						      msg);
-			break;
 		case IGMPMSG_WHOLEPKT:
 			return pim_mroute_msg_wholepkt(pim->mroute_socket, ifp,
 						       (const char *)msg);
-			break;
 		case IGMPMSG_WRVIFWHOLE:
 			return pim_mroute_msg_wrvifwhole(
 				pim->mroute_socket, ifp, (const char *)msg);
-			break;
 		default:
 			break;
 		}

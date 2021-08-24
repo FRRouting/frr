@@ -322,7 +322,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		}
 		return -1;
 	}
-	return -1;
 }
 
 static void pim_sock_read_on(struct interface *ifp);
