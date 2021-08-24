@@ -143,9 +143,13 @@ class TimedLog(base.TimedElement):
 
 
 class PrettySession:
-    def __init__(self, session):
+    def __init__(self, session, outdir=None):
         self.session = session
+        self.outdir = outdir
         self.pytest_html = session.config.pluginmanager.getplugin('html')
+
+        if outdir and not os.path.exists(outdir):
+            os.mkdir(outdir)
 
     def push(self, item, call, result):
         if not isinstance(item, base.TopotatoItem):
@@ -195,7 +199,8 @@ class PrettyInstance(list):
         topotatoinst = self[0].item.parent
         topotatocls = topotatoinst.parent
         nodeid = topotatocls.nodeid
-        filename = 'assets/%s.html' % (self._filename_sub.sub('_', nodeid))
+        filename = '%s.html' % (self._filename_sub.sub('_', nodeid))
+        filename = os.path.join(self.prettysession.outdir, filename)
 
         body = [
             html.h1(nodeid),
