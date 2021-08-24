@@ -53,7 +53,7 @@ def pytest_addoption(parser):
     parser.addoption("--show-topology", type=str, default=None, help="show specific topology")
     parser.addoption("--frr-builddir", type=str, default=None, help="override frr_builddir pytest.ini option")
 
-    parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../frr')
+    parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../..')
 
 def pytest_configure(config):
     assert config.pluginmanager.getplugin('html') is not None
