@@ -1662,7 +1662,7 @@ DEFPY (no_bgp_send_extra_data,
 DEFUN (bgp_confederation_identifier,
        bgp_confederation_identifier_cmd,
        "bgp confederation identifier (1-4294967295)",
-       "BGP specific commands\n"
+       BGP_STR
        "AS confederation parameters\n"
        "AS number\n"
        "Set routing domain confederation AS\n")
@@ -1682,7 +1682,7 @@ DEFUN (no_bgp_confederation_identifier,
        no_bgp_confederation_identifier_cmd,
        "no bgp confederation identifier [(1-4294967295)]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "AS confederation parameters\n"
        "AS number\n"
        "Set routing domain confederation AS\n")
@@ -1696,7 +1696,7 @@ DEFUN (no_bgp_confederation_identifier,
 DEFUN (bgp_confederation_peers,
        bgp_confederation_peers_cmd,
        "bgp confederation peers (1-4294967295)...",
-       "BGP specific commands\n"
+       BGP_STR
        "AS confederation parameters\n"
        "Peer ASs in BGP confederation\n"
        AS_STR)
@@ -1724,7 +1724,7 @@ DEFUN (no_bgp_confederation_peers,
        no_bgp_confederation_peers_cmd,
        "no bgp confederation peers (1-4294967295)...",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "AS confederation parameters\n"
        "Peer ASs in BGP confederation\n"
        AS_STR)
@@ -2336,7 +2336,7 @@ DEFUN (no_bgp_timers,
 DEFUN (bgp_client_to_client_reflection,
        bgp_client_to_client_reflection_cmd,
        "bgp client-to-client reflection",
-       "BGP specific commands\n"
+       BGP_STR
        "Configure client to client route reflection\n"
        "reflection of routes allowed\n")
 {
@@ -2351,7 +2351,7 @@ DEFUN (no_bgp_client_to_client_reflection,
        no_bgp_client_to_client_reflection_cmd,
        "no bgp client-to-client reflection",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Configure client to client route reflection\n"
        "reflection of routes allowed\n")
 {
@@ -2366,7 +2366,7 @@ DEFUN (no_bgp_client_to_client_reflection,
 DEFUN (bgp_always_compare_med,
        bgp_always_compare_med_cmd,
        "bgp always-compare-med",
-       "BGP specific commands\n"
+       BGP_STR
        "Allow comparing MED from different neighbors\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2380,7 +2380,7 @@ DEFUN (no_bgp_always_compare_med,
        no_bgp_always_compare_med_cmd,
        "no bgp always-compare-med",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Allow comparing MED from different neighbors\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2393,7 +2393,7 @@ DEFUN (no_bgp_always_compare_med,
 
 DEFUN(bgp_ebgp_requires_policy, bgp_ebgp_requires_policy_cmd,
       "bgp ebgp-requires-policy",
-      "BGP specific commands\n"
+      BGP_STR
       "Require in and out policy for eBGP peers (RFC8212)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2404,7 +2404,7 @@ DEFUN(bgp_ebgp_requires_policy, bgp_ebgp_requires_policy_cmd,
 DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
       "no bgp ebgp-requires-policy",
       NO_STR
-      "BGP specific commands\n"
+      BGP_STR
       "Require in and out policy for eBGP peers (RFC8212)\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2414,7 +2414,7 @@ DEFUN(no_bgp_ebgp_requires_policy, no_bgp_ebgp_requires_policy_cmd,
 
 DEFUN(bgp_suppress_duplicates, bgp_suppress_duplicates_cmd,
       "bgp suppress-duplicates",
-      "BGP specific commands\n"
+      BGP_STR
       "Suppress duplicate updates if the route actually not changed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2425,7 +2425,7 @@ DEFUN(bgp_suppress_duplicates, bgp_suppress_duplicates_cmd,
 DEFUN(no_bgp_suppress_duplicates, no_bgp_suppress_duplicates_cmd,
       "no bgp suppress-duplicates",
       NO_STR
-      "BGP specific commands\n"
+      BGP_STR
       "Suppress duplicate updates if the route actually not changed\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2435,7 +2435,7 @@ DEFUN(no_bgp_suppress_duplicates, no_bgp_suppress_duplicates_cmd,
 
 DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
       "bgp reject-as-sets",
-      "BGP specific commands\n"
+      BGP_STR
       "Reject routes with AS_SET or AS_CONFED_SET flag\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2461,7 +2461,7 @@ DEFUN(bgp_reject_as_sets, bgp_reject_as_sets_cmd,
 DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
       "no bgp reject-as-sets",
       NO_STR
-      "BGP specific commands\n"
+      BGP_STR
       "Reject routes with AS_SET or AS_CONFED_SET flag\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2488,7 +2488,7 @@ DEFUN(no_bgp_reject_as_sets, no_bgp_reject_as_sets_cmd,
 DEFUN (bgp_deterministic_med,
        bgp_deterministic_med_cmd,
        "bgp deterministic-med",
-       "BGP specific commands\n"
+       BGP_STR
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2505,7 +2505,7 @@ DEFUN (no_bgp_deterministic_med,
        no_bgp_deterministic_med_cmd,
        "no bgp deterministic-med",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Pick the best-MED path among paths advertised from the neighboring AS\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -2547,7 +2547,7 @@ DEFUN (no_bgp_deterministic_med,
 DEFUN (bgp_graceful_restart,
 	bgp_graceful_restart_cmd,
 	"bgp graceful-restart",
-	"BGP specific commands\n"
+	BGP_STR
 	GR_CMD
       )
 {
@@ -2574,7 +2574,7 @@ DEFUN (no_bgp_graceful_restart,
 	no_bgp_graceful_restart_cmd,
 	"no bgp graceful-restart",
 	NO_STR
-	"BGP specific commands\n"
+	BGP_STR
 	NO_GR_CMD
       )
 {
@@ -2601,7 +2601,7 @@ DEFUN (no_bgp_graceful_restart,
 DEFUN (bgp_graceful_restart_stalepath_time,
 	bgp_graceful_restart_stalepath_time_cmd,
 	"bgp graceful-restart stalepath-time (1-4095)",
-	"BGP specific commands\n"
+	BGP_STR
 	"Graceful restart capability parameters\n"
 	"Set the max time to hold onto restarting peer's stale paths\n"
 	"Delay value (seconds)\n")
@@ -2618,7 +2618,7 @@ DEFUN (bgp_graceful_restart_stalepath_time,
 DEFUN (bgp_graceful_restart_restart_time,
 	bgp_graceful_restart_restart_time_cmd,
 	"bgp graceful-restart restart-time (1-4095)",
-	"BGP specific commands\n"
+	BGP_STR
 	"Graceful restart capability parameters\n"
 	"Set the time to wait to delete stale routes before a BGP open message is received\n"
 	"Delay value (seconds)\n")
@@ -2635,7 +2635,7 @@ DEFUN (bgp_graceful_restart_restart_time,
 DEFUN (bgp_graceful_restart_select_defer_time,
        bgp_graceful_restart_select_defer_time_cmd,
        "bgp graceful-restart select-defer-time (0-3600)",
-       "BGP specific commands\n"
+       BGP_STR
        "Graceful restart capability parameters\n"
        "Set the time to defer the BGP route selection after restart\n"
        "Delay value (seconds, 0 - disable)\n")
@@ -2658,7 +2658,7 @@ DEFUN (no_bgp_graceful_restart_stalepath_time,
 	no_bgp_graceful_restart_stalepath_time_cmd,
 	"no bgp graceful-restart stalepath-time [(1-4095)]",
 	NO_STR
-	"BGP specific commands\n"
+	BGP_STR
 	"Graceful restart capability parameters\n"
 	"Set the max time to hold onto restarting peer's stale paths\n"
 	"Delay value (seconds)\n")
@@ -2673,7 +2673,7 @@ DEFUN (no_bgp_graceful_restart_restart_time,
 	no_bgp_graceful_restart_restart_time_cmd,
 	"no bgp graceful-restart restart-time [(1-4095)]",
 	NO_STR
-	"BGP specific commands\n"
+	BGP_STR
 	"Graceful restart capability parameters\n"
 	"Set the time to wait to delete stale routes before a BGP open message is received\n"
 	"Delay value (seconds)\n")
@@ -2688,7 +2688,7 @@ DEFUN (no_bgp_graceful_restart_select_defer_time,
        no_bgp_graceful_restart_select_defer_time_cmd,
        "no bgp graceful-restart select-defer-time [(0-3600)]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Graceful restart capability parameters\n"
        "Set the time to defer the BGP route selection after restart\n"
        "Delay value (seconds)\n")
@@ -2704,7 +2704,7 @@ DEFUN (no_bgp_graceful_restart_select_defer_time,
 DEFUN (bgp_graceful_restart_preserve_fw,
 	bgp_graceful_restart_preserve_fw_cmd,
 	"bgp graceful-restart preserve-fw-state",
-	"BGP specific commands\n"
+	BGP_STR
 	"Graceful restart capability parameters\n"
 	"Sets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
@@ -2717,7 +2717,7 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 	no_bgp_graceful_restart_preserve_fw_cmd,
 	"no bgp graceful-restart preserve-fw-state",
 	NO_STR
-	"BGP specific commands\n"
+	BGP_STR
 	"Graceful restart capability parameters\n"
 	"Unsets F-bit indication that fib is preserved while doing Graceful Restart\n")
 {
@@ -2729,7 +2729,7 @@ DEFUN (no_bgp_graceful_restart_preserve_fw,
 DEFUN (bgp_graceful_restart_disable,
 	bgp_graceful_restart_disable_cmd,
 	"bgp graceful-restart-disable",
-	"BGP specific commands\n"
+	BGP_STR
 	GR_DISABLE)
 {
 	int ret = BGP_GR_FAILURE;
@@ -2758,7 +2758,7 @@ DEFUN (no_bgp_graceful_restart_disable,
 	no_bgp_graceful_restart_disable_cmd,
 	"no bgp graceful-restart-disable",
 	NO_STR
-	"BGP specific commands\n"
+	BGP_STR
 	NO_GR_DISABLE
       )
 {
@@ -3011,7 +3011,7 @@ DEFUN (no_bgp_neighbor_graceful_restart_disable,
 DEFUN_HIDDEN (bgp_graceful_restart_disable_eor,
               bgp_graceful_restart_disable_eor_cmd,
               "bgp graceful-restart disable-eor",
-              "BGP specific commands\n"
+              BGP_STR
               "Graceful restart configuration parameters\n"
               "Disable EOR Check\n")
 {
@@ -3025,7 +3025,7 @@ DEFUN_HIDDEN (no_bgp_graceful_restart_disable_eor,
               no_bgp_graceful_restart_disable_eor_cmd,
               "no bgp graceful-restart disable-eor",
               NO_STR
-              "BGP specific commands\n"
+              BGP_STR
               "Graceful restart configuration parameters\n"
               "Disable EOR Check\n")
 {
@@ -3038,7 +3038,7 @@ DEFUN_HIDDEN (no_bgp_graceful_restart_disable_eor,
 DEFUN (bgp_graceful_restart_rib_stale_time,
        bgp_graceful_restart_rib_stale_time_cmd,
        "bgp graceful-restart rib-stale-time (1-3600)",
-       "BGP specific commands\n"
+       BGP_STR
        "Graceful restart configuration parameters\n"
        "Specify the stale route removal timer in rib\n"
        "Delay value (seconds)\n")
@@ -3060,7 +3060,7 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
        no_bgp_graceful_restart_rib_stale_time_cmd,
        "no bgp graceful-restart rib-stale-time [(1-3600)]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Graceful restart configuration parameters\n"
        "Specify the stale route removal timer in rib\n"
        "Delay value (seconds)\n")
@@ -3220,7 +3220,7 @@ DEFUN (no_bgp_fast_external_failover,
 DEFUN (bgp_bestpath_compare_router_id,
        bgp_bestpath_compare_router_id_cmd,
        "bgp bestpath compare-routerid",
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "Compare router-id for identical EBGP paths\n")
 {
@@ -3235,7 +3235,7 @@ DEFUN (no_bgp_bestpath_compare_router_id,
        no_bgp_bestpath_compare_router_id_cmd,
        "no bgp bestpath compare-routerid",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "Compare router-id for identical EBGP paths\n")
 {
@@ -3250,7 +3250,7 @@ DEFUN (no_bgp_bestpath_compare_router_id,
 DEFUN (bgp_bestpath_aspath_ignore,
        bgp_bestpath_aspath_ignore_cmd,
        "bgp bestpath as-path ignore",
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Ignore as-path length in selecting a route\n")
@@ -3266,7 +3266,7 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
        no_bgp_bestpath_aspath_ignore_cmd,
        "no bgp bestpath as-path ignore",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Ignore as-path length in selecting a route\n")
@@ -3282,7 +3282,7 @@ DEFUN (no_bgp_bestpath_aspath_ignore,
 DEFUN (bgp_bestpath_aspath_confed,
        bgp_bestpath_aspath_confed_cmd,
        "bgp bestpath as-path confed",
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
@@ -3298,7 +3298,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
        no_bgp_bestpath_aspath_confed_cmd,
        "no bgp bestpath as-path confed",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Compare path lengths including confederation sets & sequences in selecting a route\n")
@@ -3314,7 +3314,7 @@ DEFUN (no_bgp_bestpath_aspath_confed,
 DEFUN (bgp_bestpath_aspath_multipath_relax,
        bgp_bestpath_aspath_multipath_relax_cmd,
        "bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Allow load sharing across routes that have different AS paths (but same length)\n"
@@ -3341,7 +3341,7 @@ DEFUN (no_bgp_bestpath_aspath_multipath_relax,
        no_bgp_bestpath_aspath_multipath_relax_cmd,
        "no bgp bestpath as-path multipath-relax [<as-set|no-as-set>]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "AS-path attribute\n"
        "Allow load sharing across routes that have different AS paths (but same length)\n"
@@ -3391,7 +3391,7 @@ DEFUN(no_bgp_bestpath_peer_type_multipath_relax,
 DEFUN (bgp_log_neighbor_changes,
        bgp_log_neighbor_changes_cmd,
        "bgp log-neighbor-changes",
-       "BGP specific commands\n"
+       BGP_STR
        "Log neighbor up/down and reset reason\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -3403,7 +3403,7 @@ DEFUN (no_bgp_log_neighbor_changes,
        no_bgp_log_neighbor_changes_cmd,
        "no bgp log-neighbor-changes",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Log neighbor up/down and reset reason\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -3415,7 +3415,7 @@ DEFUN (no_bgp_log_neighbor_changes,
 DEFUN (bgp_bestpath_med,
        bgp_bestpath_med_cmd,
        "bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "MED attribute\n"
        "Compare MED among confederation paths\n"
@@ -3441,7 +3441,7 @@ DEFUN (no_bgp_bestpath_med,
        no_bgp_bestpath_med_cmd,
        "no bgp bestpath med <confed [missing-as-worst]|missing-as-worst [confed]>",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "MED attribute\n"
        "Compare MED among confederation paths\n"
@@ -3467,7 +3467,7 @@ DEFUN (no_bgp_bestpath_med,
 DEFPY (bgp_bestpath_bw,
        bgp_bestpath_bw_cmd,
        "bgp bestpath bandwidth <ignore|skip-missing|default-weight-for-missing>$bw_cfg",
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "Link Bandwidth attribute\n"
        "Ignore link bandwidth (i.e., do regular ECMP, not weighted)\n"
@@ -3505,7 +3505,7 @@ DEFPY (no_bgp_bestpath_bw,
        no_bgp_bestpath_bw_cmd,
        "no bgp bestpath bandwidth [<ignore|skip-missing|default-weight-for-missing>$bw_cfg]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Change the default bestpath selection\n"
        "Link Bandwidth attribute\n"
        "Ignore link bandwidth (i.e., do regular ECMP, not weighted)\n"
@@ -3540,7 +3540,7 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
       "ipv6-flowspec|"
       "l2vpn-evpn>$afi_safi",
       NO_STR
-      "BGP specific commands\n"
+      BGP_STR
       "Configure BGP defaults\n"
       "Activate ipv4-unicast for a peer by default\n"
       "Activate ipv4-multicast for a peer by default\n"
@@ -3588,7 +3588,7 @@ DEFPY(bgp_default_afi_safi, bgp_default_afi_safi_cmd,
 DEFUN (bgp_default_show_hostname,
        bgp_default_show_hostname_cmd,
        "bgp default show-hostname",
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "Show hostname in certain command outputs\n")
 {
@@ -3601,7 +3601,7 @@ DEFUN (no_bgp_default_show_hostname,
        no_bgp_default_show_hostname_cmd,
        "no bgp default show-hostname",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "Show hostname in certain command outputs\n")
 {
@@ -3614,7 +3614,7 @@ DEFUN (no_bgp_default_show_hostname,
 DEFUN (bgp_default_show_nexthop_hostname,
        bgp_default_show_nexthop_hostname_cmd,
        "bgp default show-nexthop-hostname",
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "Show hostname for nexthop in certain command outputs\n")
 {
@@ -3627,7 +3627,7 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
        no_bgp_default_show_nexthop_hostname_cmd,
        "no bgp default show-nexthop-hostname",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "Show hostname for nexthop in certain command outputs\n")
 {
@@ -3640,7 +3640,7 @@ DEFUN (no_bgp_default_show_nexthop_hostname,
 DEFUN (bgp_network_import_check,
        bgp_network_import_check_cmd,
        "bgp network import-check",
-       "BGP specific commands\n"
+       BGP_STR
        "BGP network command\n"
        "Check BGP network route exists in IGP\n")
 {
@@ -3655,7 +3655,7 @@ DEFUN (bgp_network_import_check,
 
 ALIAS_HIDDEN(bgp_network_import_check, bgp_network_import_check_exact_cmd,
 	     "bgp network import-check exact",
-	     "BGP specific commands\n"
+	     BGP_STR
 	     "BGP network command\n"
 	     "Check BGP network route exists in IGP\n"
 	     "Match route precisely\n")
@@ -3664,7 +3664,7 @@ DEFUN (no_bgp_network_import_check,
        no_bgp_network_import_check_cmd,
        "no bgp network import-check",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "BGP network command\n"
        "Check BGP network route exists in IGP\n")
 {
@@ -3680,7 +3680,7 @@ DEFUN (no_bgp_network_import_check,
 DEFUN (bgp_default_local_preference,
        bgp_default_local_preference_cmd,
        "bgp default local-preference (0-4294967295)",
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
@@ -3701,7 +3701,7 @@ DEFUN (no_bgp_default_local_preference,
        no_bgp_default_local_preference_cmd,
        "no bgp default local-preference [(0-4294967295)]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "local preference (higher=more preferred)\n"
        "Configure default local preference value\n")
@@ -3717,7 +3717,7 @@ DEFUN (no_bgp_default_local_preference,
 DEFUN (bgp_default_subgroup_pkt_queue_max,
        bgp_default_subgroup_pkt_queue_max_cmd,
        "bgp default subgroup-pkt-queue-max (20-100)",
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "subgroup-pkt-queue-max\n"
        "Configure subgroup packet queue max\n")
@@ -3737,7 +3737,7 @@ DEFUN (no_bgp_default_subgroup_pkt_queue_max,
        no_bgp_default_subgroup_pkt_queue_max_cmd,
        "no bgp default subgroup-pkt-queue-max [(20-100)]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP defaults\n"
        "subgroup-pkt-queue-max\n"
        "Configure subgroup packet queue max\n")
@@ -3751,7 +3751,7 @@ DEFUN (no_bgp_default_subgroup_pkt_queue_max,
 DEFUN (bgp_rr_allow_outbound_policy,
        bgp_rr_allow_outbound_policy_cmd,
        "bgp route-reflector allow-outbound-policy",
-       "BGP specific commands\n"
+       BGP_STR
        "Allow modifications made by out route-map\n"
        "on ibgp neighbors\n")
 {
@@ -3770,7 +3770,7 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
        no_bgp_rr_allow_outbound_policy_cmd,
        "no bgp route-reflector allow-outbound-policy",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Allow modifications made by out route-map\n"
        "on ibgp neighbors\n")
 {
@@ -3788,7 +3788,7 @@ DEFUN (no_bgp_rr_allow_outbound_policy,
 DEFUN (bgp_listen_limit,
        bgp_listen_limit_cmd,
        "bgp listen limit (1-65535)",
-       "BGP specific commands\n"
+       BGP_STR
        "BGP Dynamic Neighbors listen commands\n"
        "Maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value\n")
@@ -3808,7 +3808,7 @@ DEFUN (no_bgp_listen_limit,
        no_bgp_listen_limit_cmd,
        "no bgp listen limit [(1-65535)]",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "BGP Dynamic Neighbors listen commands\n"
        "Maximum number of BGP Dynamic Neighbors that can be created\n"
        "Configure Dynamic Neighbors listen limit value\n")
@@ -3853,7 +3853,7 @@ static struct peer_group *listen_range_exists(struct bgp *bgp,
 DEFUN (bgp_listen_range,
        bgp_listen_range_cmd,
        "bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
-       "BGP specific commands\n"
+       BGP_STR
        "Configure BGP dynamic neighbors listen range\n"
        "Configure BGP dynamic neighbors listen range\n"
        NEIGHBOR_ADDR_STR
@@ -3924,7 +3924,7 @@ DEFUN (no_bgp_listen_range,
        no_bgp_listen_range_cmd,
        "no bgp listen range <A.B.C.D/M|X:X::X:X/M> peer-group PGNAME",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Unconfigure BGP dynamic neighbors listen range\n"
        "Unconfigure BGP dynamic neighbors listen range\n"
        NEIGHBOR_ADDR_STR
@@ -3998,7 +3998,7 @@ void bgp_config_write_listen(struct vty *vty, struct bgp *bgp)
 DEFUN (bgp_disable_connected_route_check,
        bgp_disable_connected_route_check_cmd,
        "bgp disable-ebgp-connected-route-check",
-       "BGP specific commands\n"
+       BGP_STR
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
@@ -4012,7 +4012,7 @@ DEFUN (no_bgp_disable_connected_route_check,
        no_bgp_disable_connected_route_check_cmd,
        "no bgp disable-ebgp-connected-route-check",
        NO_STR
-       "BGP specific commands\n"
+       BGP_STR
        "Disable checking if nexthop is connected on ebgp sessions\n")
 {
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
