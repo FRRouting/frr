@@ -176,9 +176,9 @@ OSPF6 area
     The `not-advertise` option, when present, prevents the summary route from
     being advertised, effectively filtering the summarized routes.
 
-.. clicmd:: area A.B.C.D nssa
+.. clicmd:: area A.B.C.D nssa [no-summary]
 
-.. clicmd:: area (0-4294967295) nssa
+.. clicmd:: area (0-4294967295) nssa [no-summary]
 
    Configure the area to be a NSSA (Not-So-Stubby Area).
 
@@ -193,6 +193,10 @@ OSPF6 area
       Type-5 LSA is enabled by default.
    4. Support for NSSA Translator functionality when there are multiple NSSA
       ABR in an area.
+
+   An NSSA ABR can be configured with the `no-summary` option to prevent the
+   advertisement of summaries into the area. In that case, a single Type-3 LSA
+   containing a default route is originated into the NSSA.
 
 .. _ospf6-interface:
 

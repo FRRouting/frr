@@ -46,6 +46,9 @@
 #include "ospf6d.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_area_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_AREA,      "OSPF6 area");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PLISTNAME, "Prefix list name");
@@ -643,8 +646,12 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 			else
 				vty_out(vty, " area %s stub\n", oa->name);
 		}
-		if (IS_AREA_NSSA(oa))
-			vty_out(vty, " area %s nssa\n", oa->name);
+		if (IS_AREA_NSSA(oa)) {
+			vty_out(vty, " area %s nssa", oa->name);
+			if (oa->no_summary)
+				vty_out(vty, " no-summary");
+			vty_out(vty, "\n");
+		}
 		if (PREFIX_NAME_IN(oa))
 			vty_out(vty, " area %s filter-list prefix %s in\n",
 				oa->name, PREFIX_NAME_IN(oa));
@@ -1250,18 +1257,18 @@ DEFUN (no_ospf6_area_stub_no_summary,
 	return CMD_SUCCESS;
 }
 
-DEFUN(ospf6_area_nssa, ospf6_area_nssa_cmd,
-      "area <A.B.C.D|(0-4294967295)> nssa",
+DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
+      "area <A.B.C.D|(0-4294967295)>$area_str nssa [no-summary$no_summary]",
       "OSPF6 area parameters\n"
       "OSPF6 area ID in IP address format\n"
       "OSPF6 area ID as a decimal value\n"
-      "Configure OSPF6 area as nssa\n")
+      "Configure OSPF6 area as nssa\n"
+      "Do not inject inter-area routes into area\n")
 {
-	int idx_ipv4_number = 1;
 	struct ospf6_area *area;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
+	OSPF6_CMD_AREA_GET(area_str, area, ospf6);
 
 	if (!ospf6_area_nssa_set(ospf6, area)) {
 		vty_out(vty,
@@ -1269,26 +1276,32 @@ DEFUN(ospf6_area_nssa, ospf6_area_nssa_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	ospf6_area_no_summary_unset(ospf6, area);
+	if (no_summary)
+		ospf6_area_no_summary_set(ospf6, area);
+	else
+		ospf6_area_no_summary_unset(ospf6, area);
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_abr_defaults_to_stub(ospf6);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN(no_ospf6_area_nssa, no_ospf6_area_nssa_cmd,
-      "no area <A.B.C.D|(0-4294967295)> nssa",
+DEFPY(no_ospf6_area_nssa, no_ospf6_area_nssa_cmd,
+      "no area <A.B.C.D|(0-4294967295)>$area_str nssa [no-summary$no_summary]",
       NO_STR
       "OSPF6 area parameters\n"
       "OSPF6 area ID in IP address format\n"
       "OSPF6 area ID as a decimal value\n"
-      "Configure OSPF6 area as nssa\n")
+      "Configure OSPF6 area as nssa\n"
+      "Do not inject inter-area routes into area\n")
 {
-	int idx_ipv4_number = 2;
 	struct ospf6_area *area;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
-	OSPF6_CMD_AREA_GET(argv[idx_ipv4_number]->arg, area, ospf6);
+	OSPF6_CMD_AREA_GET(area_str, area, ospf6);
 
 	ospf6_area_nssa_unset(ospf6, area);
+	ospf6_area_no_summary_unset(ospf6, area);
 
 	return CMD_SUCCESS;
 }
