@@ -198,6 +198,17 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 	eval->val[7] = val & 0xff;
 }
 
+/* Helper function to convert uint32 to IEEE-754 Floating Point */
+static uint32_t uint32_to_ieee_float_uint32(uint32_t u)
+{
+	union {
+		float r;
+		uint32_t d;
+	} f = {.r = (float)u};
+
+	return f.d;
+}
+
 /*
  * Encode BGP Link Bandwidth extended community
  *  bandwidth (bw) is in bytes-per-sec
@@ -205,6 +216,8 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 				     struct ecommunity_val *eval)
 {
+	uint32_t bandwidth = uint32_to_ieee_float_uint32(bw);
+
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
 	if (non_trans)
@@ -212,10 +225,10 @@ static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 	eval->val[1] = ECOMMUNITY_LINK_BANDWIDTH;
 	eval->val[2] = (as >> 8) & 0xff;
 	eval->val[3] = as & 0xff;
-	eval->val[4] = (bw >> 24) & 0xff;
-	eval->val[5] = (bw >> 16) & 0xff;
-	eval->val[6] = (bw >> 8) & 0xff;
-	eval->val[7] = bw & 0xff;
+	eval->val[4] = (bandwidth >> 24) & 0xff;
+	eval->val[5] = (bandwidth >> 16) & 0xff;
+	eval->val[6] = (bandwidth >> 8) & 0xff;
+	eval->val[7] = bandwidth & 0xff;
 }
 
 extern void ecommunity_init(void);
