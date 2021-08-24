@@ -1126,6 +1126,9 @@ void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
 {
 	char hash_name[64];
 
+	pim_ifp->gm_group_limit = UINT32_MAX;
+	pim_ifp->gm_source_limit = UINT32_MAX;
+
 	pim_ifp->gm_socket_list = list_new();
 	pim_ifp->gm_socket_list->del = (void (*)(void *))igmp_sock_free;
 
@@ -1416,6 +1419,14 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 				__func__, &group_addr);
 		return NULL;
 	}
+
+	if (listcount(pim_ifp->gm_group_list) >= pim_ifp->gm_group_limit) {
+		if (PIM_DEBUG_GM_TRACE)
+			zlog_debug("interface %s has reached group limit (%u), refusing to add group %pI4",
+				   igmp->interface->name, pim_ifp->gm_group_limit, &group_addr);
+		return NULL;
+	}
+
 	/*
 	  Non-existant group is created as INCLUDE {empty}:
 
