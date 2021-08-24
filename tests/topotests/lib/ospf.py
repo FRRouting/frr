@@ -2375,3 +2375,66 @@ def config_ospf6_interface(tgen, topo, input_dict=None, build=False, load_config
                 )
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
+
+
+@retry(retry_timeout=20)
+def verify_ospf6_gr_helper(tgen, topo, dut, input_dict=None):
+    """
+    This API is used to vreify gr helper using command
+    show ip ospf graceful-restart helper
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : topology descriptions
+    * 'dut' : router
+    * 'input_dict' - values to be verified
+
+    Usage:
+    -------
+    input_dict = {
+                    "helperSupport":"Disabled",
+                    "strictLsaCheck":"Enabled",
+                    "restartSupoort":"Planned and Unplanned Restarts",
+                    "supportedGracePeriod":1800
+                }
+    result = verify_ospf6_gr_helper(tgen, topo, dut, input_dict)
+
+    """
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    result = False
+
+    if 'ospf6' not in topo['routers'][dut]:
+        errormsg = "[DUT: {}] OSPF is not configured on the router.".format(
+            dut)
+        return errormsg
+
+    rnode = tgen.routers()[dut]
+    logger.info("Verifying OSPF GR details on router %s:", dut)
+    show_ospf_json = run_frr_cmd(rnode, "show ipv6 ospf graceful-restart helper json",
+                                 isjson=True)
+    # Verifying output dictionary show_ospf_json is empty or not
+    if not bool(show_ospf_json):
+        errormsg = "OSPF is not running"
+        raise ValueError (errormsg)
+        return errormsg
+
+    for ospf_gr, gr_data  in input_dict.items():
+        try:
+            if input_dict[ospf_gr] == show_ospf_json[ospf_gr]:
+                logger.info("[DUT: FRR] OSPF GR Helper: %s is %s", ospf_gr,
+                    show_ospf_json[ospf_gr])
+                result = True
+            else:
+                errormsg = ("[DUT: FRR] OSPF GR Helper: {} expected is {}, Found "
+                "is {}".format(ospf_gr, input_dict[ospf_gr], show_ospf_json[
+                    ospf_gr]))
+                raise ValueError (errormsg)
+                return errormsg
+
+        except KeyError:
+            errormsg = ("[DUT: FRR] OSPF GR Helper: {}".format(ospf_gr))
+            return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return result

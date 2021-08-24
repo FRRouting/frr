@@ -4591,3 +4591,67 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_ip_nht()")
     return False
+
+
+
+
+def scapy_send_raw_packet(
+    tgen, topo, senderRouter, intf, packet=None, interval=1, count=1
+):
+    """
+    Using scapy Raw() method to send BSR raw packet from one FRR
+    to other
+
+    Parameters:
+    -----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+    * `senderRouter` : Sender router
+    * `packet` : packet in raw format
+    * `interval` : Interval between the packets
+    * `count` : Number of packets to be sent
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    global CD
+    result = ""
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    sender_interface = intf
+    rnode = tgen.routers()[senderRouter]
+
+    for destLink, data in topo["routers"][senderRouter]["links"].items():
+        if "type" in data and data["type"] == "loopback":
+            continue
+
+        if not packet:
+            packet = topo["routers"][senderRouter]["pkt"]["test_packets"][packet][
+                "data"
+            ]
+
+        if interval > 1 or count > 1:
+            cmd = (
+                "nohup /usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
+                "--interval={} --count={} &".format(
+                    CD, packet, sender_interface, interval, count
+                )
+            )
+        else:
+            cmd = (
+                "/usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
+                "--interval={} --count={}".format(
+                    CD, packet, sender_interface, interval, count
+                )
+            )
+
+        logger.info("Scapy cmd: \n %s", cmd)
+        result = rnode.run(cmd)
+
+        if result == "":
+            return result
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
