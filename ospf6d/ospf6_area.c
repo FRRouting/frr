@@ -189,6 +189,9 @@ static void ospf6_area_stub_update(struct ospf6_area *area)
 static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 	if (!IS_AREA_STUB(area)) {
+		/* Disable NSSA first. */
+		ospf6_area_nssa_unset(ospf6, area);
+
 		SET_FLAG(area->flag, OSPF6_AREA_STUB);
 		ospf6_area_stub_update(area);
 	}
@@ -196,7 +199,7 @@ static int ospf6_area_stub_set(struct ospf6 *ospf6, struct ospf6_area *area)
 	return 1;
 }
 
-static void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area)
+void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 	if (IS_AREA_STUB(area)) {
 		UNSET_FLAG(area->flag, OSPF6_AREA_STUB);
@@ -1265,6 +1268,8 @@ DEFUN(ospf6_area_nssa, ospf6_area_nssa_cmd,
 			"First deconfigure all virtual link through this area\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
+
+	ospf6_area_no_summary_unset(ospf6, area);
 
 	return CMD_SUCCESS;
 }

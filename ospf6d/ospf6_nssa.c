@@ -1130,18 +1130,17 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 	uint16_t type;
 	struct ospf6_lsa *lsa = NULL, *type5 = NULL;
 	struct ospf6 *ospf6 = area->ospf6;
-	const struct route_node *rt = NULL;
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("%s: area %s", __func__, area->name);
 
 	/* Flush the NSSA LSA */
 	type = htons(OSPF6_LSTYPE_TYPE_7);
-	rt = ospf6_lsdb_head(area->lsdb_self, 0, type, ospf6->router_id, &lsa);
-	while (lsa) {
+	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, lsa)) {
 		lsa->header->age = htons(OSPF_LSA_MAXAGE);
 		SET_FLAG(lsa->flag, OSPF6_LSA_FLUSH);
 		ospf6_flood(NULL, lsa);
+
 		/* Flush the translated LSA */
 		if (ospf6_check_and_set_router_abr(ospf6)) {
 			type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
@@ -1155,7 +1154,6 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 				ospf6_flood(NULL, type5);
 			}
 		}
-		lsa = ospf6_lsdb_next(rt, lsa);
 	}
 }
 
@@ -1200,11 +1198,10 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 
 }
 
-static void ospf6_area_nssa_update(struct ospf6_area *area)
+void ospf6_area_nssa_update(struct ospf6_area *area)
 {
 	if (IS_AREA_NSSA(area)) {
-		if (!ospf6_check_and_set_router_abr(area->ospf6))
-			OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
+		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA++;
 		OSPF6_OPT_SET(area->options, OSPF6_OPT_N);
 		area->NSSATranslatorRole = OSPF6_NSSA_ROLE_CANDIDATE;
@@ -1212,8 +1209,7 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
 			zlog_debug("Normal area for if %s", area->name);
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_N);
-		if (ospf6_check_and_set_router_abr(area->ospf6))
-			OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
+		OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA--;
 		area->NSSATranslatorState = OSPF6_NSSA_TRANSLATE_DISABLED;
 	}
@@ -1221,6 +1217,9 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 	/* Refresh router LSA */
 	if (IS_AREA_NSSA(area)) {
 		OSPF6_ROUTER_LSA_SCHEDULE(area);
+
+		/* Flush external LSAs. */
+		ospf6_asbr_remove_externals_from_area(area);
 
 		/* Check if router is ABR */
 		if (ospf6_check_and_set_router_abr(area->ospf6)) {
@@ -1240,8 +1239,6 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("Normal area %s", area->name);
 		ospf6_nssa_flush_area(area);
-		ospf6_area_disable(area);
-		ospf6_area_delete(area);
 	}
 }
 
@@ -1249,6 +1246,9 @@ int ospf6_area_nssa_set(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 
 	if (!IS_AREA_NSSA(area)) {
+		/* Disable stub first. */
+		ospf6_area_stub_unset(ospf6, area);
+
 		SET_FLAG(area->flag, OSPF6_AREA_NSSA);
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("area %s nssa set", area->name);
