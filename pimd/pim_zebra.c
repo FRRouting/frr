@@ -474,7 +474,7 @@ void igmp_anysource_forward_start(struct pim_instance *pim,
 	assert(group->group_filtermode_isexcl);
 	assert(listcount(group->group_source_list) < 1);
 
-	source = source_new(group, src_addr);
+	source = igmp_get_source_by_addr(group, src_addr, NULL);
 	if (!source) {
 		zlog_warn("%s: Failure to create * source", __func__);
 		return;

@@ -191,15 +191,16 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 					  struct in_addr group_addr);
 
+struct igmp_source *igmp_get_source_by_addr(struct igmp_group *group,
+					    struct in_addr src_addr,
+					    bool *created);
+
 void igmp_group_delete_empty_include(struct igmp_group *group);
 
 void igmp_startup_mode_on(struct igmp_sock *igmp);
 
 void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 			 const char *ifname);
-
-struct igmp_source *source_new(struct igmp_group *group,
-			       struct in_addr src_addr);
 
 void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
 		     const char *ifname, char *query_buf, int query_buf_size,
