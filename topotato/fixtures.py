@@ -29,7 +29,8 @@ def mkfixture_pytest(*args, **kwargs):
     all of pytest.  Intended to be overridden/replaced when writing a
     standalone script that imports some test class.
     """
-    from pytest import fixture  # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
+    from pytest import fixture
 
     return fixture(*args, **kwargs)
 

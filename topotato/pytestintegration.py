@@ -13,8 +13,7 @@ from .htmlmonkeypatch import ResultMonkey
 
 ResultMonkey.apply()
 
-from .topolinux import NetworkInstance
-from .utils import deindent
+from .utils import deindent, ClassHooks, get_textdiff
 from .assertions import TopotatoItem, TopotatoCompareFail
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
@@ -57,16 +56,19 @@ def pytest_addoption(parser):
     parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../frr')
     parser.addini('reportato_dir', 'Default output directory for topotato HTML report')
 
-def pytest_configure(config):
-    assert config.pluginmanager.getplugin('html') is not None
-    #config.option.css.insert(0,
-    #        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'protomato.css'))
-    #config.option.css.insert(0,
-    #        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'topotato.css'))
+#@pytest.hookimpl()
+#def pytest_configure(config):
+#    pass
 
 from .pretty import *
 
+@pytest.hookimpl()
 def pytest_sessionstart(session):
+    envstate = ClassHooks._check_env_all()
+
+    if not envstate:
+        raise TopotatoEnvProblem('\n'.join(envstate.errors))
+
     path = os.environ['PATH'].split(':')
     fail = 0
 
@@ -84,14 +86,9 @@ def pytest_sessionstart(session):
         logger.error('topotato must be run as root.  skipping all tests.')
         fail += 1
 
-    tools = ['dot', 'dumpcap', 'tshark']
-    if sys.platform == 'linux':
-        tools.extend(['ip', 'unshare', 'nsenter', 'tini'])
-    elif sys.platform == 'freebsd12':
-        tools.extend(['jail', 'jexec', 'ifconfig', 'netstat'])
-    else:
-        logger.error('this platform (%s) is not supported by topotato.' % (sys.platform))
-        fail += 1
+    tools = ['tshark']
+    #if sys.platform == 'freebsd12':
+    #    tools.extend(['jail', 'jexec', 'ifconfig', 'netstat'])
 
     for tool in tools:
         if check_tool(tool) is None:
@@ -312,15 +309,6 @@ def pytest_collection(session):
         session.items = []
 
 from .frr import FRRConfigs
-
-def get_textdiff(text1, text2, title1="", title2="", **opts):
-    "Returns empty string if same or formatted diff"
-
-    diff = '\n'.join(difflib.unified_diff(text1, text2,
-           fromfile=title1, tofile=title2, **opts))
-    # Clean up line endings
-    diff = os.linesep.join([s for s in diff.splitlines() if s])
-    return diff
 
 def text_rich_cmp(configs, rtr, out, expect, outtitle):
     lines = []

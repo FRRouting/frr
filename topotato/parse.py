@@ -13,18 +13,18 @@ from typing import Tuple, List, Dict, Sequence, Optional, ClassVar, Type, cast
 
 class Topology:
     """
-    parse an ASCII network diagram to an intermediate representation
+    Parse an ASCII network diagram to an intermediate representation:
 
-    - routers are created as "[ router ]"
-    - lans/switches/bridges as "{ lan }"
-    - routers & lans can be continued on another line with an empty { } / [ ]
-      (but it must be the same size)
-    - links are drawn with ---- or | lines
-    - interface names can optionally be added at the end of links with ( eth0 )
+    - routers are created as ``[ router ]``
+    - lans/switches/bridges as ``{ lan }``
+    - routers & lans can be continued on another line with an empty ``{ }``
+      / ``[ ]`` (but it must be the same size!)
+    - links are drawn with ``----`` or ``|`` lines
+    - interface names can optionally be added at the end of links with
+      ``( eth0 )``
 
-    refer to the example at the end of the file
-
-    this does not do any address/prefix assignment, only topology
+    This class does not do any address/prefix assignment, it only parses the
+    topology into usable items.
     """
 
     # typing annotations at the end due to forward references
@@ -32,6 +32,8 @@ class Topology:
     class Token:
         """
         helper base class for the various token types
+
+        :meta private:
         """
 
         rx: ClassVar["re.Pattern"]
@@ -170,14 +172,26 @@ class Topology:
             return ' "%s"' % (self.name,)
 
     class Router(BoxMerge):
-        pass
+        """
+        Represent a router/host created from a ``[ name ]`` item.
+
+        .. py:attribute:: name
+
+           The router's name, as given in the diagram (cannot be empty.)
+        """
 
     class LAN(BoxMerge):
-        pass
+        """
+        Represent a LAN/multi-access network created from a ``{ name }`` item.
+
+        .. py:attribute:: name
+
+           The network's name, as given in the diagram (cannot be empty.)
+        """
 
     class Link(Item, metaclass=abc.ABCMeta):
         """
-        common code for horizontal & vertical link lines
+        Common code for horizontal & vertical link lines.
         """
 
         routers: List[Tuple["Topology.Item", "Topology.Router"]]
@@ -198,11 +212,15 @@ class Topology:
 
         @abc.abstractmethod
         def connect(self, items: List["Topology.Item"]):
-            pass
+            """
+            Find boxes to connect to.
+            """
 
     class LinkH(Link):
         """
-        cobble together horizontal (ifname)-------(ifname)
+        A horizontal ``(ifname)-------(ifname)`` link.
+
+        Interface names are optional.
         """
 
         def __init__(self, token):
@@ -227,11 +245,7 @@ class Topology:
                 self.left = ref
 
         def connect(self, items: List["Topology.Item"]):
-            """
-            find boxes to connect to
-
-            routers is the list of BOTH routers and switches/lans
-            """
+            # self.routers is the list of BOTH routers and switches/lans
             for r in items:
                 if not r.y1 <= self.y1 < r.y2:
                     continue
@@ -242,12 +256,14 @@ class Topology:
 
     class LinkV(Link):
         """
-        cobble together vertical
+        A vertical link.
 
-        (ifname)
-            |
-            |
-        (ifname)
+        .. code-block:: none
+
+           (ifname)
+               |
+               |
+           (ifname)
         """
 
         def __init__(self, token):
@@ -275,11 +291,7 @@ class Topology:
                 self.bot = ref
 
         def connect(self, items: List["Topology.Item"]):
-            """
-            find boxes to connect to
-
-            routers is the list of BOTH routers and switches/lans
-            """
+            # routers is the list of BOTH routers and switches/lans
             for r in items:
                 if not r.x1 <= self.xmain < r.x2:
                     continue
@@ -289,14 +301,29 @@ class Topology:
                     self.routers.append((r, self.bot))
 
     topo: str
+    """
+    Diagram text as given on construction.
+    """
+
     tokendct: Dict[Type[Token], List[Token]]
     alltokens: Sequence[Token]
 
     routers: List[Router]
+    """
+    All routers defined in this topology.  Note that same-name routers are
+    NOT merged yet in this list.
+    """
     lans: List[LAN]
+    """
+    All networks defined in this topology.  As with routers, same-name networks
+    are NOT merged yet in this list.
+    """
     links: List[Link]
+    """
+    All links defined in this topology.
+    """
 
-    # pylint: disable=R0912,R0914
+    # pylint: disable=too-many-branches,too-many-locals
     def __init__(self, topo: str):
         """
         ascii art topology parsing
@@ -387,8 +414,8 @@ class Topology:
 def test():
     topo = """
 
-    [ r1 ](eth0)------[ r2 ]
-    [    ]
+    [    ](eth0)------[ r2 ]
+    [ r1 ]
     [    ](eth1)------[ r4 ]
     [    ]------------[    ]
        |                 |
@@ -401,7 +428,7 @@ def test():
 
     topo = Topology(topo)
 
-    # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
     from pprint import pprint
 
     pprint(topo.routers)

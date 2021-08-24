@@ -16,7 +16,7 @@ logger.setLevel(logging.DEBUG)
 
 TopotatoCompareFail = TopotatoCLICompareFail
 
-from .base import TopotatoItem, topotatofunc
+from .base import TopotatoItem, topotatofunc, skiptrace
 
 class TopotatoAssertion(TopotatoItem):
     pass
@@ -58,8 +58,6 @@ class AssertKernelRoutesV6(AssertKernelRoutes):
     af = 6
 
 class AssertVtysh(TopotatoAssertion):
-    plaintext_arg = 'compare'
-
     @classmethod
     def from_parent(cls, parent, name, rtr, daemon, command, compare = None, *, delay = 0.1, maxwait = None):
         name = '%s:%s/%s/vtysh "%s"' % (name, rtr.name, daemon, command.replace('\n', '; '))
@@ -228,10 +226,10 @@ class BackgroundCommand(object):
             if ret != 0:
                 raise ValueError('nonzero exit: %s!' % ret)
 
+    @skiptrace
     def start(self):
-        _skipframe = True
         yield from self.Start.make(self)
 
+    @skiptrace
     def wait(self):
-        _skipframe = True
         yield from self.Wait.make(self)
