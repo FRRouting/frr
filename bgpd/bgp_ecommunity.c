@@ -836,11 +836,22 @@ static int ecommunity_rt_soo_str(char *buf, size_t bufsz, const uint8_t *pnt,
 					      ECOMMUNITY_SIZE);
 }
 
+/* Helper function to convert IEEE-754 Floating Point to uint32 */
+static uint32_t ieee_float_uint32_to_uint32(uint32_t u)
+{
+	union {
+		float r;
+		uint32_t d;
+	} f = {.d = u};
+
+	return (uint32_t)f.r;
+}
+
 static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 {
 	int len = 0;
 	as_t as;
-	uint32_t bw;
+	uint32_t bw_tmp, bw;
 	char bps_buf[20] = {0};
 
 #define ONE_GBPS_BYTES (1000 * 1000 * 1000 / 8)
@@ -849,7 +860,10 @@ static int ecommunity_lb_str(char *buf, size_t bufsz, const uint8_t *pnt)
 
 	as = (*pnt++ << 8);
 	as |= (*pnt++);
-	(void)ptr_get_be32(pnt, &bw);
+	(void)ptr_get_be32(pnt, &bw_tmp);
+
+	bw = ieee_float_uint32_to_uint32(bw_tmp);
+
 	if (bw >= ONE_GBPS_BYTES)
 		snprintf(bps_buf, sizeof(bps_buf), "%.3f Gbps",
 			 (float)(bw / ONE_GBPS_BYTES));
@@ -1533,7 +1547,7 @@ const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom, uint32_t *bw)
 			pnt = ptr_get_be32(pnt, &bwval);
 			(void)pnt; /* consume value */
 			if (bw)
-				*bw = bwval;
+				*bw = ieee_float_uint32_to_uint32(bwval);
 			return eval;
 		}
 	}
