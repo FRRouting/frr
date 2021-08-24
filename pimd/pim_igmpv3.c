@@ -441,10 +441,17 @@ struct igmp_source *igmp_find_source_by_addr(struct igmp_group *group,
 	return 0;
 }
 
-struct igmp_source *source_new(struct igmp_group *group,
-			       struct in_addr src_addr)
+struct igmp_source *igmp_get_source_by_addr(struct igmp_group *group,
+					    struct in_addr src_addr, bool *new)
 {
 	struct igmp_source *src;
+
+	if (new)
+		*new = false;
+
+	src = igmp_find_source_by_addr(group, src_addr);
+	if (src)
+		return src;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -472,23 +479,6 @@ struct igmp_source *source_new(struct igmp_group *group,
 
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	igmp_anysource_forward_stop(group);
-
-	return src;
-}
-
-static struct igmp_source *add_source_by_addr(struct igmp_sock *igmp,
-					      struct igmp_group *group,
-					      struct in_addr src_addr)
-{
-	struct igmp_source *src;
-
-	src = igmp_find_source_by_addr(group, src_addr);
-	if (src) {
-		return src;
-	}
-
-	src = source_new(group, src_addr);
-
 	return src;
 }
 
@@ -540,10 +530,9 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 
 		src_addr = sources + i;
 
-		source = add_source_by_addr(igmp, group, *src_addr);
-		if (!source) {
+		source = igmp_get_source_by_addr(group, *src_addr, NULL);
+		if (!source)
 			continue;
-		}
 
 		/*
 		  RFC 3376: 6.4.1. Reception of Current-State Records
@@ -585,18 +574,21 @@ static void isex_excl(struct igmp_group *group, int num_sources,
 	/* scan received sources (A) */
 	for (i = 0; i < num_sources; ++i) {
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* E.2: lookup reported source from (A) in (X,Y) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* E.3: if found, clear deletion flag: (X*A) or (Y*A) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 		} else {
 			/* E.4: if not found, create source with timer=GMI:
 			 * (A-X-Y) */
-			source = source_new(group, *src_addr);
 			assert(!source->t_source_timer); /* timer == 0 */
 			igmp_source_reset_gmi(group, source);
 			assert(source->t_source_timer); /* (A-X-Y) timer > 0 */
@@ -637,18 +629,21 @@ static void isex_incl(struct igmp_group *group, int num_sources,
 	for (i = 0; i < num_sources; ++i) {
 		struct igmp_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* I.2: lookup reported source (B) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* I.3: if found, clear deletion flag (A*B) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 		} else {
 			/* I.4: if not found, create source with timer=0 (B-A)
 			 */
-			source = source_new(group, *src_addr);
 			assert(!source->t_source_timer); /* (B-A) timer=0 */
 		}
 
@@ -714,18 +709,19 @@ static void toin_incl(struct igmp_group *group, int num_sources,
 	for (i = 0; i < num_sources; ++i) {
 		struct igmp_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* Lookup reported source (B) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* If found, clear SEND flag (A*B) */
 			IGMP_SOURCE_DONT_SEND(source->source_flags);
 			--num_sources_tosend;
-		} else {
-			/* If not found, create new source */
-			source = source_new(group, *src_addr);
 		}
 
 		/* (B)=GMI */
@@ -751,21 +747,20 @@ static void toin_excl(struct igmp_group *group, int num_sources,
 	for (i = 0; i < num_sources; ++i) {
 		struct igmp_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* Lookup reported source (A) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
-			if (source->t_source_timer) {
-				/* If found and timer running, clear SEND flag
-				 * (X*A) */
-				IGMP_SOURCE_DONT_SEND(source->source_flags);
-				--num_sources_tosend;
-			}
-		} else {
-			/* If not found, create new source */
-			source = source_new(group, *src_addr);
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (source->t_source_timer) {
+			/* If found and timer running, clear SEND flag
+			 * (X*A) */
+			IGMP_SOURCE_DONT_SEND(source->source_flags);
+			--num_sources_tosend;
 		}
 
 		/* (A)=GMI */
@@ -835,22 +830,18 @@ static void toex_incl(struct igmp_group *group, int num_sources,
 	for (i = 0; i < num_sources; ++i) {
 		struct igmp_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* Lookup reported source (B) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!new) {
 			/* If found, clear deletion flag: (A*B) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
 			/* and set SEND flag (A*B) */
 			IGMP_SOURCE_DO_SEND(source->source_flags);
 			++num_sources_tosend;
-		} else {
-			/* If source not found, create source with timer=0:
-			 * (B-A)=0 */
-			source = source_new(group, *src_addr);
-			assert(!source->t_source_timer); /* (B-A) timer=0 */
 		}
 
 	} /* Scan received sources (B) */
@@ -895,12 +886,16 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 	for (i = 0; i < num_sources; ++i) {
 		struct igmp_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* lookup reported source (A) in known sources (X,Y) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (!new) {
 			/* if found, clear off DELETE flag from reported source
 			 * (A) */
 			IGMP_SOURCE_DONT_DELETE(source->source_flags);
@@ -908,7 +903,6 @@ static void toex_excl(struct igmp_group *group, int num_sources,
 			/* if not found, create source with Group Timer:
 			 * (A-X-Y)=Group Timer */
 			long group_timer_msec;
-			source = source_new(group, *src_addr);
 
 			assert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
@@ -1404,16 +1398,19 @@ static void block_excl(struct igmp_group *group, int num_sources,
 	for (i = 0; i < num_sources; ++i) {
 		struct igmp_source *source;
 		struct in_addr *src_addr;
+		bool new;
 
 		src_addr = sources + i;
 
 		/* lookup reported source (A) in known sources (X,Y) */
-		source = igmp_find_source_by_addr(group, *src_addr);
-		if (!source) {
+		source = igmp_get_source_by_addr(group, *src_addr, &new);
+		if (!source)
+			continue;
+
+		if (new) {
 			/* 3: if not found, create source with Group Timer:
 			 * (A-X-Y)=Group Timer */
 			long group_timer_msec;
-			source = source_new(group, *src_addr);
 
 			assert(!source->t_source_timer); /* timer == 0 */
 			group_timer_msec = igmp_group_timer_remain_msec(group);
