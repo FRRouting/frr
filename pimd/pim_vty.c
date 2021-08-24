@@ -457,6 +457,20 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	/* IF ip igmp max-sources */
+	if (pim_ifp->gm_source_limit != UINT32_MAX) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-sources %u\n",
+			pim_ifp->gm_source_limit);
+		++writes;
+	}
+
+	/* IF ip igmp max-groups */
+	if (pim_ifp->gm_group_limit != UINT32_MAX) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " max-groups %u\n",
+			pim_ifp->gm_group_limit);
+		++writes;
+	}
+
 	/* IF ip pim drpriority */
 	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
 		vty_out(vty, " " PIM_AF_NAME " pim drpriority %u\n",

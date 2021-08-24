@@ -154,6 +154,20 @@ module frr-gmp {
         "Enable IGMP proxy on the interface.";
     }
 
+    leaf max-groups {
+      type uint32;
+      default "4294967295";
+      description
+        "Limit number of tracked IGMP group memberships on this interface.";
+    }
+
+    leaf max-sources {
+      type uint32;
+      default "4294967295";
+      description
+        "Limit number of tracked IGMPv3 sources on this interface.";
+    }
+
     list join-group {
       key "group-addr source-addr";
       description
