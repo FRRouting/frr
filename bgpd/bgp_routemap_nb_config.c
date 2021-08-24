@@ -25,7 +25,6 @@
 #include "lib/routemap.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_routemap_nb.h"
-#include "bgpd/bgp_ecommunity.h"
 
 /* Add bgp route map rule. */
 static int bgp_route_match_add(struct route_map_index *index,

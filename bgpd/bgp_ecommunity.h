@@ -151,12 +151,6 @@ struct ecommunity_val_ipv6 {
 	char val[IPV6_ECOMMUNITY_SIZE];
 };
 
-enum ecommunity_lb_type {
-	EXPLICIT_BANDWIDTH,
-	CUMULATIVE_BANDWIDTH,
-	COMPUTED_BANDWIDTH
-};
-
 #define ecom_length_size(X, Y)    ((X)->size * (Y))
 
 /*
