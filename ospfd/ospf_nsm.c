@@ -298,8 +298,6 @@ static int nsm_negotiation_done(struct ospf_neighbor *nbr)
 		ospf_db_summary_add(nbr, lsa);
 	LSDB_LOOP (SUMMARY_LSDB(area), rn, lsa)
 		ospf_db_summary_add(nbr, lsa);
-	LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
-		ospf_db_summary_add(nbr, lsa);
 
 	/* Process only if the neighbor is opaque capable. */
 	if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)) {
@@ -314,10 +312,14 @@ static int nsm_negotiation_done(struct ospf_neighbor *nbr)
 			ospf_db_summary_add(nbr, lsa);
 	}
 
+	/* For Stub/NSSA area, we should not send Type-4 and Type-5 LSAs */
 	if (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
-	    && area->external_routing == OSPF_AREA_DEFAULT)
+	    && area->external_routing == OSPF_AREA_DEFAULT) {
+		LSDB_LOOP (ASBR_SUMMARY_LSDB(area), rn, lsa)
+			ospf_db_summary_add(nbr, lsa);
 		LSDB_LOOP (EXTERNAL_LSDB(nbr->oi->ospf), rn, lsa)
 			ospf_db_summary_add(nbr, lsa);
+	}
 
 	if (CHECK_FLAG(nbr->options, OSPF_OPTION_O)
 	    && (nbr->oi->type != OSPF_IFTYPE_VIRTUALLINK
