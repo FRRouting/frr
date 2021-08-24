@@ -1076,7 +1076,7 @@ def test_ospf_tc4_mtu_ignore_p0(request):
     )
 
     r1_ospf_mtu = {
-        "r1": {"links": {"r0": {"ospf": {"mtu_ignore": True, "delete": True}}}}
+        "r1": {"links": {"r0": {"ospf": {"mtu_ignore": True, "del_action": True}}}}
     }
     result = config_ospf_interface(tgen, topo, r1_ospf_mtu)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
