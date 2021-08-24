@@ -691,6 +691,8 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 	MIX(attr->rmap_table_id);
+	MIX(attr->nh_type);
+	MIX(attr->bh_type);
 
 	return key;
 }
@@ -747,7 +749,9 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->distance == attr2->distance
 		    && srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn)
 		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn)
-		    && attr1->srte_color == attr2->srte_color)
+		    && attr1->srte_color == attr2->srte_color
+		    && attr1->nh_type == attr2->nh_type
+		    && attr1->bh_type == attr2->bh_type)
 			return true;
 	}
 
