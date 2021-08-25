@@ -36,7 +36,9 @@
 #define CMGD_DB_NAME_NONE                       "none"
 #define CMGD_DB_NAME_RUNNING                    "running"
 #define CMGD_DB_NAME_CANDIDATE                  "candidate"
-#define CMGD_DB_NAME_OPERATION                  "operational"
+#define CMGD_DB_NAME_OPERATIONAL                "operational"
+
+#define CMGD_STARTUP_DB_FILE_PATH		"/etc/frr/frr_startup.json"
 
 #define FOREACH_CMGD_DB_ID(id)			                \
 	for ((id) = CMGD_DB_NONE; (id) < CMGD_DB_MAX_ID; (id)++)
@@ -157,7 +159,8 @@ extern int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
         cmgd_db_node_iter_fn iter_fn, void *ctxt, bool donot_free_alloced);
 
-extern int cmgd_db_load_config_from_file(const char * file_path, bool merge);
+extern int cmgd_db_load_config_from_file(cmgd_db_hndl_t db_hndl,
+	const char * file_path, bool merge);
 
 extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,

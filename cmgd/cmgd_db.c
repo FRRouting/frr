@@ -62,7 +62,7 @@ const char *cmgd_db_names[CMGD_DB_MAX_ID+1] = {
 	CMGD_DB_NAME_NONE, 		/* CMGD_DB_NONE */
 	CMGD_DB_NAME_RUNNING, 		/* CMGD_DB_RUNNING */
 	CMGD_DB_NAME_CANDIDATE, 	/* CMGD_DB_RUNNING */
-	CMGD_DB_NAME_OPERATION, 	/* CMGD_DB_OPERATIONAL */
+	CMGD_DB_NAME_OPERATIONAL, 	/* CMGD_DB_OPERATIONAL */
 	"Unknown/Invalid", 		/* CMGD_DB_ID_MAX */
 };
 
@@ -70,6 +70,78 @@ static struct cmgd_master *cmgd_db_cm = NULL;
 static cmgd_db_ctxt_t running, candidate, oper;
 
 extern struct nb_config *running_config;
+
+/* Dump the data tree of the specified format in the file pointed by the path */
+static int cmgd_db_dump_in_memory(
+		cmgd_db_ctxt_t *db_ctxt, const char *base_xpath,
+		LYD_FORMAT format, struct ly_out *out)
+{
+	struct lyd_node *root;
+	uint32_t options = 0;
+
+	if (base_xpath[0] == '\0')
+		root = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
+					  : db_ctxt->root.dnode_root;
+	else
+		root = yang_dnode_get(db_ctxt->config_db
+					      ? db_ctxt->root.cfg_root->dnode
+					      : db_ctxt->root.dnode_root,
+				      base_xpath);
+	if (!root)
+		return -1;
+
+	if (base_xpath[0] == '\0')
+		lyd_print_all(out, root, format, options);
+	else
+		lyd_print_tree(out, root, format, options);
+
+	return 0;
+}
+
+static int cmgd_db_replace_dst_with_src_db(
+        cmgd_db_ctxt_t *src, cmgd_db_ctxt_t *dst)
+{
+	struct lyd_node *dst_dnode, *src_dnode;
+	struct ly_out *out;
+
+	if (!src || !dst)
+		return -1;
+	CMGD_DB_DBG("Replacing %d with %d", dst->db_id, src->db_id);
+
+	src_dnode = src->config_db ? src->root.cfg_root->dnode :
+				dst->root.dnode_root;
+	dst_dnode = dst->config_db ? dst->root.cfg_root->dnode :
+				dst->root.dnode_root;
+
+	if (dst_dnode)
+		yang_dnode_free(dst_dnode);
+
+	/* Not using nb_config_replace as the oper db does not contain nb_config */
+	dst_dnode = yang_dnode_dup(src_dnode);
+	if (dst->config_db)
+		dst->root.cfg_root->dnode = dst_dnode;
+	else
+		dst->root.dnode_root = dst_dnode;
+
+	if (dst->db_id == CMGD_DB_RUNNING) {
+		if (ly_out_new_filepath(CMGD_STARTUP_DB_FILE_PATH, &out) == LY_SUCCESS)
+			cmgd_db_dump_in_memory(dst, "", LYD_JSON, out);
+		ly_out_free(out, NULL, 0);
+	}
+
+	// TODO: Update the versions if nb_config present
+
+	return 0;
+}
+
+static int cmgd_db_merge_src_with_dst_db(
+        cmgd_db_ctxt_t *src, cmgd_db_ctxt_t *dst)
+{
+	/*
+	 * FIXME: This is not really merge. We need to change the implementation
+	 */
+	return cmgd_db_replace_dst_with_src_db(src, dst);
+}
 
 int cmgd_db_init(struct cmgd_master *cm)
 {
@@ -174,80 +246,26 @@ int cmgd_db_unlock(cmgd_db_hndl_t db_hndl)
 	return lock_status;
 }
 
-/* Dump the data tree of the specified format in the file pointed by the path */
-static int cmgd_db_dump_in_memory(
-		cmgd_db_hndl_t db_hndl, const char *base_xpath,
-		LYD_FORMAT format, struct ly_out *out)
-{
-	cmgd_db_ctxt_t *db_ctxt;
-	struct lyd_node *root;
-	uint32_t options = 0;
-
-	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
-		return -1;
-	if (base_xpath[0] == '\0')
-		root = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
-					  : db_ctxt->root.dnode_root;
-	else
-		root = yang_dnode_get(db_ctxt->config_db
-					      ? db_ctxt->root.cfg_root->dnode
-					      : db_ctxt->root.dnode_root,
-				      base_xpath);
-	if (!root)
-		return -1;
-
-	if (base_xpath[0] == '\0')
-		lyd_print_all(out, root, format, options);
-	else
-		lyd_print_tree(out, root, format, options);
-
-	return 0;
-}
-
 int cmgd_db_merge_dbs(
         cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db)
 {
 	cmgd_db_ctxt_t *src, *dst;
-	struct lyd_node *dst_dnode, *src_dnode;
-	struct ly_out *out;
 
 	src = (cmgd_db_ctxt_t *)src_db;
 	dst = (cmgd_db_ctxt_t *)dst_db;
-	if (!src || !dst)
-		return -1;
-	CMGD_DB_DBG("Replacing %d with %d", dst->db_id, src->db_id);
 
-	src_dnode = src->config_db ? src->root.cfg_root->dnode :
-				dst->root.dnode_root;
-	dst_dnode = dst->config_db ? dst->root.cfg_root->dnode :
-				dst->root.dnode_root;
-
-	if (dst_dnode)
-		yang_dnode_free(dst_dnode);
-
-	/* Not using nb_config_replace as the oper db does not contain nb_config */
-	dst_dnode = yang_dnode_dup(src_dnode);
-	if (dst->config_db)
-		dst->root.cfg_root->dnode = dst_dnode;
-	else
-		dst->root.dnode_root = dst_dnode;
-
-	if (dst->db_id == CMGD_DB_RUNNING) {
-		if (ly_out_new_filepath("/etc/frr/frr.json", &out) == LY_SUCCESS)
-			cmgd_db_dump_in_memory(dst_db, "", LYD_JSON, out);
-		ly_out_free(out, NULL, 0);
-	}
-
-	// TODO: Update the versions if nb_config present
-
-	return 0;
+	return cmgd_db_replace_dst_with_src_db(src, dst);
 }
 
 int cmgd_db_copy_dbs(
         cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db)
 {
-	return cmgd_db_merge_dbs(src_db, dst_db);
+	cmgd_db_ctxt_t *src, *dst;
+
+	src = (cmgd_db_ctxt_t *)src_db;
+	dst = (cmgd_db_ctxt_t *)dst_db;
+
+	return cmgd_db_merge_src_with_dst_db(src, dst);
 }
 
 struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl)
@@ -489,12 +507,17 @@ int cmgd_db_delete_data_nodes(
 	return 0;
 }
 
-int cmgd_db_load_config_from_file(const char * file_path, bool merge)
+int cmgd_db_load_config_from_file(cmgd_db_hndl_t db_hndl,
+	const char * file_path, bool merge)
 {
 	struct lyd_node *iter;
 	LY_ERR ret;
-	cmgd_db_hndl_t candidate_db;
+	cmgd_db_ctxt_t *dst;
 	cmgd_db_ctxt_t parsed;
+
+	dst = (cmgd_db_ctxt_t *)db_hndl;
+	if (!dst)
+		return -1;
 
 	ret = lyd_parse_data_path(ly_native_ctx, file_path, LYD_JSON, LYD_PARSE_STRICT, 0, &iter);
 
@@ -506,12 +529,10 @@ int cmgd_db_load_config_from_file(const char * file_path, bool merge)
 	parsed.root.cfg_root = nb_config_new(iter);
 	parsed.config_db = true;
 
-	candidate_db = cmgd_db_get_hndl_by_id(cm, CMGD_DB_CANDIDATE);
-
 	if (merge)
-		cmgd_db_merge_dbs((cmgd_db_hndl_t)&parsed, candidate_db);
+		cmgd_db_merge_src_with_dst_db(&parsed, dst);
 	else
-		cmgd_db_copy_dbs((cmgd_db_hndl_t)&parsed, candidate_db);
+		cmgd_db_replace_dst_with_src_db(&parsed, dst);
 
 	nb_config_free(parsed.root.cfg_root);
 
@@ -579,7 +600,7 @@ void cmgd_db_dump_tree(
 	else
 		ly_out_new_memory(&str, 0, &out);
 
-	cmgd_db_dump_in_memory(db_hndl, base_xpath, format, out);
+	cmgd_db_dump_in_memory(db_ctxt, base_xpath, format, out);
 
 	if (!f)
 		vty_out(vty, "%s", str);

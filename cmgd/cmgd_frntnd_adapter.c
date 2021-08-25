@@ -1042,11 +1042,18 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 	}
 
 	if (sessn->cfg_trxn_id == CMGD_TRXN_ID_NONE) {
-		cmgd_frntnd_send_commitcfg_reply(sessn,
-			commcfg_req->src_db_id, commcfg_req->dst_db_id,
-			commcfg_req->req_id, false, commcfg_req->validate_only,
-			"No config commands has been entered after last commit!");
-		return 0;
+		/*
+		 * Start a CONFIG Transaction (if not started already)
+		 */
+		sessn->cfg_trxn_id = cmgd_create_trxn(
+			(cmgd_session_id_t) sessn, CMGD_TRXN_TYPE_CONFIG);
+		if (sessn->cfg_trxn_id == CMGD_SESSION_ID_NONE) {
+			cmgd_frntnd_send_commitcfg_reply(sessn,
+				commcfg_req->src_db_id, commcfg_req->dst_db_id,
+				commcfg_req->req_id, false, commcfg_req->validate_only,
+				"Failed to create a Configuration session!");
+			return 0;
+		}
 	}
 
 	/*

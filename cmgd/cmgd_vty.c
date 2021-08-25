@@ -418,17 +418,17 @@ DEFPY(show_cmgd_get_data,
 
 DEFPY(show_cmgd_dump_data,
       show_cmgd_dump_data_cmd,
-      "show cmgd database-contents db-name WORD$dbname [xpath WORD$path] [filepath WORD$filepath] format WORD$format_str",
+      "show cmgd database-contents db-name WORD$dbname [xpath WORD$path] [file WORD$filepath] format WORD$format_str",
       SHOW_STR
       CMGD_STR
       "Get Database Contenents from a specific database\n"
       "DB name\n"
-      "<candidate running operational\n"
+      "<candidate | running | operational>\n"
       "XPath expression specifying the YANG data path\n"
       "XPath string\n"
-      "Path to the file\n"
-      "Path string\n"
-      "Format the output\n"
+      "Dump the contents to a file\n"
+      "Full path of the file\n"
+      "Format of the output\n"
       "JSON|XML")
 {
 	cmgd_database_id_t database = CMGD_DB_CANDIDATE;
@@ -487,17 +487,24 @@ DEFPY(show_cmgd_map_xpath,
 
 DEFPY(cmgd_load_config,
       cmgd_load_config_cmd,
-      "cmgd load-config filepath WORD$path <merge|replace>",
+      "cmgd load-config file WORD$filepath <merge|replace>",
       CMGD_STR
-      "Load config from file\n"
-      "Path to the file\n"
-      "Path\n"
-      "Merge with candidate\n"
-      "Replace candidate")
+      "Load configuration onto Candidate Database\n"
+      "Read the configuration from a file\n"
+      "Full path of the file\n"
+      "Merge configuration with contents of Candidate Database\n"
+      "Replace the existing contents of Candidate database")
 {
 	bool merge = false;
 	int idx_merge = 4;
 	int ret;
+	cmgd_db_hndl_t db_hndl;
+
+	db_hndl = cmgd_db_get_hndl_by_id(cm, CMGD_DB_CANDIDATE);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access Candidate database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
 
 	if (strncmp(argv[idx_merge]->arg, "merge", sizeof("merge")) == 0)
 		merge = true;
@@ -508,9 +515,64 @@ DEFPY(cmgd_load_config,
 		return CMD_SUCCESS;
 	}
 
-	ret = cmgd_db_load_config_from_file(path, merge);
+	ret = cmgd_db_load_config_from_file(db_hndl, filepath, merge);
 	if (ret != 0)
 		vty_out(vty, "Error with parsing the file with error code %d\n", ret);
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_save_config,
+      cmgd_save_config_cmd,
+      "cmgd save-config db-name WORD$dbname file WORD$filepath",
+      CMGD_STR
+      "Save configuration from database\n"
+      "Name of the database\n"
+      "<candidate|running>"
+      "Write the configuration to a file\n"
+      "Full path of the file")
+{
+	cmgd_db_hndl_t db_hndl;
+	cmgd_database_id_t database;
+	FILE *f;
+
+	database = cmgd_db_name2id(dbname);
+
+	if (database == CMGD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	if (database != CMGD_DB_CANDIDATE &&
+		database != CMGD_DB_RUNNING) {
+		vty_out(vty, "DB Name %s is not a configuration database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	db_hndl = cmgd_db_get_hndl_by_id(cm, database);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access the '%s' database!\n",
+			dbname);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	if (!filepath) {
+		vty_out(vty, "ERROR: No file path mentioned!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	f = fopen(filepath, "w");
+	if (!f) {
+		vty_out(vty, "Could not open file pointed by filepath %s\n",
+			filepath);
+		return CMD_SUCCESS;
+	}
+
+	cmgd_db_dump_tree(vty, db_hndl, "/", f, LYD_JSON);
+
+	fclose(f);
+
 	return CMD_SUCCESS;
 }
 
@@ -570,6 +632,7 @@ void cmgd_vty_init(void)
 	install_element(CONFIG_NODE, &cmgd_set_config_data_cmd);
 	install_element(CONFIG_NODE, &cmgd_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &cmgd_load_config_cmd);
+	install_element(CONFIG_NODE, &cmgd_save_config_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.
