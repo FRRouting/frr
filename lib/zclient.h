@@ -867,11 +867,9 @@ struct zapi_neigh_ip {
 	uint32_t ndm_state;
 };
 int zclient_neigh_ip_decode(struct stream *s, struct zapi_neigh_ip *api);
-int zclient_neigh_ip_encode(struct stream *s,
-			    uint16_t cmd,
-			    union sockunion *in,
-			    union sockunion *out,
-			    struct interface *ifp);
+int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
+			    union sockunion *out, struct interface *ifp,
+			    int ndm_state);
 
 /*
  * We reserve the top 4 bits for l2-NHG, everything else

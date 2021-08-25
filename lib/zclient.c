@@ -4487,11 +4487,9 @@ static int zclient_neigh_ip_read_entry(struct stream *s, struct ipaddr *add)
 	return -1;
 }
 
-int zclient_neigh_ip_encode(struct stream *s,
-			    uint16_t cmd,
-			    union sockunion *in,
-			    union sockunion *out,
-			    struct interface *ifp)
+int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
+			    union sockunion *out, struct interface *ifp,
+			    int ndm_state)
 {
 	int ret = 0;
 
@@ -4506,7 +4504,7 @@ int zclient_neigh_ip_encode(struct stream *s,
 		stream_putc(s, AF_UNSPEC);
 	stream_putl(s, ifp->ifindex);
 	if (out)
-		stream_putl(s, ZEBRA_NEIGH_STATE_REACHABLE);
+		stream_putl(s, ndm_state);
 	else
 		stream_putl(s, ZEBRA_NEIGH_STATE_FAILED);
 	return ret;
