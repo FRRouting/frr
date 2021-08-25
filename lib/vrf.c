@@ -907,8 +907,7 @@ void vrf_install_commands(void)
 	install_element(ENABLE_NODE, &no_vrf_debug_cmd);
 }
 
-void vrf_cmd_init(int (*writefunc)(struct vty *vty),
-		  struct zebra_privs_t *daemon_privs)
+void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 {
 	install_element(CONFIG_NODE, &vrf_cmd);
 	install_element(CONFIG_NODE, &no_vrf_cmd);

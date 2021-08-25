@@ -238,7 +238,7 @@ void ospf6_vrf_init(void)
 	vrf_init(ospf6_vrf_new, ospf6_vrf_enable, ospf6_vrf_disable,
 		 ospf6_vrf_delete, ospf6_vrf_enable);
 
-	vrf_cmd_init(NULL, &ospf6d_privs);
+	vrf_cmd_init(NULL);
 }
 
 static void ospf6_top_lsdb_hook_add(struct ospf6_lsa *lsa)

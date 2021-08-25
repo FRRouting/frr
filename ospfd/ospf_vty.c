@@ -12986,7 +12986,7 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_max_multipath_cmd);
 	install_element(OSPF_NODE, &no_ospf_max_multipath_cmd);
 
-	vrf_cmd_init(NULL, &ospfd_privs);
+	vrf_cmd_init(NULL);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

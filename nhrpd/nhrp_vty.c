@@ -1259,7 +1259,7 @@ void nhrp_config_init(void)
 	install_element(CONFIG_NODE, &nhrp_multicast_nflog_group_cmd);
 	install_element(CONFIG_NODE, &no_nhrp_multicast_nflog_group_cmd);
 
-	vrf_cmd_init(NULL, &nhrpd_privs);
+	vrf_cmd_init(NULL);
 
 	/* interface specific commands */
 	if_cmd_init(interface_config_write);

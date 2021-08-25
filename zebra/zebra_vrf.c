@@ -594,7 +594,7 @@ void zebra_vrf_init(void)
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
 		 zebra_vrf_delete, zebra_vrf_update);
 
-	vrf_cmd_init(vrf_config_write, &zserv_privs);
+	vrf_cmd_init(vrf_config_write);
 
 	if (vrf_is_backend_netns() && ns_have_netns()) {
 		/* Install NS commands. */
