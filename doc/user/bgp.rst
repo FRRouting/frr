@@ -464,9 +464,9 @@ Require policy on EBGP
       RIB entries 7, using 1344 bytes of memory
       Peers 2, using 43 KiB of memory
 
-      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt
-      192.168.0.2     4      65002         8        10        0    0    0 00:03:09            5 (Policy)
-      fe80:1::2222    4      65002         9        11        0    0    0 00:03:09     (Policy) (Policy)
+      Neighbor        V         AS   MsgRcvd   MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd   PfxSnt Desc
+      192.168.0.2     4      65002         8        10        0    0    0 00:03:09            5 (Policy) N/A
+      fe80:1::2222    4      65002         9        11        0    0    0 00:03:09     (Policy) (Policy) N/A
 
    Additionally a `show bgp neighbor` command would indicate in the `For address family:`
    block that:
