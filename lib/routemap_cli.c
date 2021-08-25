@@ -25,7 +25,6 @@
 #include "lib/command.h"
 #include "lib/northbound_cli.h"
 #include "lib/routemap.h"
-#include "bgpd/bgp_ecommunity.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "lib/routemap_cli_clippy.c"

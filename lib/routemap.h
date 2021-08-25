@@ -379,6 +379,12 @@ DECLARE_QOBJ_TYPE(route_map);
 #define IS_SET_BGP_EVPN_GATEWAY_IP_IPV6(A)                                     \
 	(strmatch(A, "frr-bgp-route-map:set-evpn-gateway-ip-ipv6"))
 
+enum ecommunity_lb_type {
+	EXPLICIT_BANDWIDTH,
+	CUMULATIVE_BANDWIDTH,
+	COMPUTED_BANDWIDTH
+};
+
 /* Prototypes. */
 extern void route_map_init(void);
 
