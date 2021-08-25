@@ -157,6 +157,8 @@ extern int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
         cmgd_db_node_iter_fn iter_fn, void *ctxt, bool donot_free_alloced);
 
+extern int cmgd_db_load_config_from_file(const char * file_path, bool merge);
+
 extern int cmgd_db_hndl_send_get_data_req(
         cmgd_db_hndl_t db_hndl, cmgd_database_id_t db_id,
         cmgd_yang_getdata_req_t *data_req, int num_reqs);

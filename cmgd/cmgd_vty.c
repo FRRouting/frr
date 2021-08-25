@@ -485,6 +485,35 @@ DEFPY(show_cmgd_map_xpath,
 	return CMD_SUCCESS;
 }
 
+DEFPY(cmgd_load_config,
+      cmgd_load_config_cmd,
+      "cmgd load-config filepath WORD$path <merge|replace>",
+      CMGD_STR
+      "Load config from file\n"
+      "Path to the file\n"
+      "Path\n"
+      "Merge with candidate\n"
+      "Replace candidate")
+{
+	bool merge = false;
+	int idx_merge = 4;
+	int ret;
+
+	if (strncmp(argv[idx_merge]->arg, "merge", sizeof("merge")) == 0)
+		merge = true;
+	else if (strncmp(argv[idx_merge]->arg, "replace", sizeof("replace")) == 0)
+		merge = false;
+	else {
+		vty_out(vty, "Chosen option: %s not valid\n", argv[idx_merge]->arg);
+		return CMD_SUCCESS;
+	}
+
+	ret = cmgd_db_load_config_from_file(path, merge);
+	if (ret != 0)
+		vty_out(vty, "Error with parsing the file with error code %d\n", ret);
+	return CMD_SUCCESS;
+}
+
 DEFPY(cmgd_lock_db_candidate,
       cmgd_lock_db_cand_cmd,
       "cmgd lock-database candidate",
@@ -540,6 +569,7 @@ void cmgd_vty_init(void)
 	install_element(CONFIG_NODE, &cmgd_unlock_db_cand_cmd);
 	install_element(CONFIG_NODE, &cmgd_set_config_data_cmd);
 	install_element(CONFIG_NODE, &cmgd_delete_config_data_cmd);
+	install_element(CONFIG_NODE, &cmgd_load_config_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

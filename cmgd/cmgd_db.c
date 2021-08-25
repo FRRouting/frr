@@ -489,6 +489,35 @@ int cmgd_db_delete_data_nodes(
 	return 0;
 }
 
+int cmgd_db_load_config_from_file(const char * file_path, bool merge)
+{
+	struct lyd_node *iter;
+	LY_ERR ret;
+	cmgd_db_hndl_t candidate_db;
+	cmgd_db_ctxt_t parsed;
+
+	ret = lyd_parse_data_path(ly_native_ctx, file_path, LYD_JSON, LYD_PARSE_STRICT, 0, &iter);
+
+	if (ret != LY_SUCCESS) {
+		yang_dnode_free(iter);
+		return ret;
+	}
+
+	parsed.root.cfg_root = nb_config_new(iter);
+	parsed.config_db = true;
+
+	candidate_db = cmgd_db_get_hndl_by_id(cm, CMGD_DB_CANDIDATE);
+
+	if (merge)
+		cmgd_db_merge_dbs((cmgd_db_hndl_t)&parsed, candidate_db);
+	else
+		cmgd_db_copy_dbs((cmgd_db_hndl_t)&parsed, candidate_db);
+
+	nb_config_free(parsed.root.cfg_root);
+
+	return 0;
+}
+
 int cmgd_db_iter_data(
         cmgd_db_hndl_t db_hndl, char *base_xpath,
         cmgd_db_node_iter_fn iter_fn, void *ctxt, bool donot_free_alloced)
