@@ -384,7 +384,6 @@ int main(int argc, char **argv)
 #endif /* HAVE_NETLINK */
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 

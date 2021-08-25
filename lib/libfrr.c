@@ -418,7 +418,6 @@ static int frr_opt(int opt)
 	switch (opt) {
 	case 'h':
 		frr_help_exit(0);
-		break;
 	case 'v':
 		print_version(di->progname);
 		exit(0);

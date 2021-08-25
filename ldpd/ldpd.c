@@ -304,7 +304,6 @@ main(int argc, char *argv[])
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 

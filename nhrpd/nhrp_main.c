@@ -71,7 +71,6 @@ static void parse_arguments(int argc, char **argv)
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 }
