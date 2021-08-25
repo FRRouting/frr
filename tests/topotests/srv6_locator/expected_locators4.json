@@ -23,11 +23,13 @@
       ]
     },
     {
-      "name":"loc3",
-      "statusUp":false,
-      "chunks":[
+      "name": "loc3",
+      "prefix": "2001:db8:3:3::/64",
+      "statusUp": true,
+      "chunks": [
         {
-          "proto":"sharp"
+          "prefix": "2001:db8:3:3::/64",
+          "proto": "system"
         }
       ]
     }
