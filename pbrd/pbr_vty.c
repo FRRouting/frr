@@ -1229,7 +1229,7 @@ void pbr_vty_init(void)
 {
 	cmd_variable_handler_register(pbr_map_name);
 
-	vrf_cmd_init(NULL, &pbr_privs);
+	vrf_cmd_init(NULL);
 
 	if_cmd_init(pbr_interface_config_write);
 
