@@ -13,6 +13,9 @@ from lib.topotest import json_cmp_result
 from lib.topotest import g_extra_config as topotest_extra_config
 from lib.topolog import logger
 
+def bingus():
+    pass
+
 try:
     from _pytest._code.code import ExceptionInfo
     leak_check_ok = True
