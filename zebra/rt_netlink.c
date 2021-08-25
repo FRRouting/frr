@@ -3333,6 +3333,15 @@ static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
 #define NUD_LOCAL_ACTIVE                                                 \
 	(NUD_PERMANENT | NUD_NOARP | NUD_REACHABLE)
 
+static int netlink_nbr_entry_state_to_zclient(int nbr_state)
+{
+	/* an exact match is done between
+	 * - netlink neighbor state values: NDM_XXX (see in linux/neighbour.h)
+	 * - zclient neighbor state values: ZEBRA_NEIGH_STATE_XXX
+	 *  (see in lib/zclient.h)
+	 */
+	return nbr_state;
+}
 static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
@@ -3421,8 +3430,10 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			       RTA_DATA(tb[NDA_LLADDR]), l2_len);
 		} else
 			sockunion_family(&link_layer_ipv4) = AF_UNSPEC;
-		zsend_nhrp_neighbor_notify(cmd, ifp, &ip, ndm->ndm_state,
-					   &link_layer_ipv4);
+		zsend_nhrp_neighbor_notify(
+			cmd, ifp, &ip,
+			netlink_nbr_entry_state_to_zclient(ndm->ndm_state),
+			&link_layer_ipv4);
 	}
 
 	if (h->nlmsg_type == RTM_GETNEIGH)

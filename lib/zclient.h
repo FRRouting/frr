@@ -843,9 +843,18 @@ extern struct zclient_options zclient_options_default;
  * ip_in is the underlay IP, ip_out is the tunnel dest
  * index stands for the index of the interface
  * ndm state stands for the NDM value in netlink
+ * (see linux/neighbour.h)
  */
+#define ZEBRA_NEIGH_STATE_INCOMPLETE (0x01)
 #define ZEBRA_NEIGH_STATE_REACHABLE (0x02)
-#define ZEBRA_NEIGH_STATE_FAILED    (0x20)
+#define ZEBRA_NEIGH_STATE_STALE (0x04)
+#define ZEBRA_NEIGH_STATE_DELAY (0x08)
+#define ZEBRA_NEIGH_STATE_PROBE (0x10)
+#define ZEBRA_NEIGH_STATE_FAILED (0x20)
+#define ZEBRA_NEIGH_STATE_NOARP (0x40)
+#define ZEBRA_NEIGH_STATE_PERMANENT (0x80)
+#define ZEBRA_NEIGH_STATE_NONE (0x00)
+
 struct zapi_neigh_ip {
 	int cmd;
 	struct ipaddr ip_in;
