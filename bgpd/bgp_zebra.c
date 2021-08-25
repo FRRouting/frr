@@ -1491,6 +1491,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 			label_buf[0] = '\0';
 			eth_buf[0] = '\0';
+			segs_buf[0] = '\0';
 			if (has_valid_label
 			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				snprintf(label_buf, sizeof(label_buf),
