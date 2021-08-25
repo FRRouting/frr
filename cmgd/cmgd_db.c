@@ -174,11 +174,43 @@ int cmgd_db_unlock(cmgd_db_hndl_t db_hndl)
 	return lock_status;
 }
 
+/* Dump the data tree of the specified format in the file pointed by the path */
+static int cmgd_db_dump_in_memory(
+		cmgd_db_hndl_t db_hndl, const char *base_xpath,
+		LYD_FORMAT format, struct ly_out *out)
+{
+	cmgd_db_ctxt_t *db_ctxt;
+	struct lyd_node *root;
+	uint32_t options = 0;
+
+	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return -1;
+	if (base_xpath[0] == '\0')
+		root = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
+					  : db_ctxt->root.dnode_root;
+	else
+		root = yang_dnode_get(db_ctxt->config_db
+					      ? db_ctxt->root.cfg_root->dnode
+					      : db_ctxt->root.dnode_root,
+				      base_xpath);
+	if (!root)
+		return -1;
+
+	if (base_xpath[0] == '\0')
+		lyd_print_all(out, root, format, options);
+	else
+		lyd_print_tree(out, root, format, options);
+
+	return 0;
+}
+
 int cmgd_db_merge_dbs(
         cmgd_db_hndl_t src_db, cmgd_db_hndl_t dst_db)
 {
 	cmgd_db_ctxt_t *src, *dst;
 	struct lyd_node *dst_dnode, *src_dnode;
+	struct ly_out *out;
 
 	src = (cmgd_db_ctxt_t *)src_db;
 	dst = (cmgd_db_ctxt_t *)dst_db;
@@ -200,6 +232,12 @@ int cmgd_db_merge_dbs(
 		dst->root.cfg_root->dnode = dst_dnode;
 	else
 		dst->root.dnode_root = dst_dnode;
+
+	if (dst->db_id == CMGD_DB_RUNNING) {
+		if (ly_out_new_filepath("/etc/frr/frr.json", &out) == LY_SUCCESS)
+			cmgd_db_dump_in_memory(dst_db, "", LYD_JSON, out);
+		ly_out_free(out, NULL, 0);
+	}
 
 	// TODO: Update the versions if nb_config present
 
@@ -447,37 +485,6 @@ int cmgd_db_delete_data_nodes(
 			lyd_free_tree(dep_dnode);
 	}
 	lyd_free_tree(dnode);
-
-	return 0;
-}
-
-/* Dump the data tree of the specified format in the file pointed by the path */
-static int cmgd_db_dump_in_memory(
-		cmgd_db_hndl_t db_hndl, char *base_xpath,
-		LYD_FORMAT format, struct ly_out *out)
-{
-	cmgd_db_ctxt_t *db_ctxt;
-	struct lyd_node *root;
-	uint32_t options = 0;
-
-	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
-		return -1;
-	if (base_xpath[0] == '\0')
-		root = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
-					  : db_ctxt->root.dnode_root;
-	else
-		root = yang_dnode_get(db_ctxt->config_db
-					      ? db_ctxt->root.cfg_root->dnode
-					      : db_ctxt->root.dnode_root,
-				      base_xpath);
-	if (!root)
-		return -1;
-
-	if (base_xpath[0] == '\0')
-		lyd_print_all(out, root, format, options);
-	else
-		lyd_print_tree(out, root, format, options);
 
 	return 0;
 }
