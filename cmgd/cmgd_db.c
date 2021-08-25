@@ -520,7 +520,7 @@ int cmgd_db_hndl_send_get_data_req(
 
 void cmgd_db_dump_tree(
 		struct vty *vty, cmgd_db_hndl_t db_hndl, const char* xpath,
-		LYD_FORMAT format)
+		FILE *f, LYD_FORMAT format)
 {
 	cmgd_db_ctxt_t *db_ctxt;
 	struct ly_out *out;
@@ -538,10 +538,16 @@ void cmgd_db_dump_tree(
 		cmgd_remove_trailing_separator(base_xpath, '/');
 	}
 
-	ly_out_new_memory(&str, 0, &out);
+	if (f)
+		ly_out_new_file(f, &out);
+	else
+		ly_out_new_memory(&str, 0, &out);
+
 	cmgd_db_dump_in_memory(db_hndl, base_xpath, format, out);
 
-	vty_out(vty, "%s", str);
+	if (!f)
+		vty_out(vty, "%s", str);
+
 	ly_out_free(out, NULL, 0);
 }
 

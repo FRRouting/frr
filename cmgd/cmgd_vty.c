@@ -418,7 +418,7 @@ DEFPY(show_cmgd_get_data,
 
 DEFPY(show_cmgd_dump_data,
       show_cmgd_dump_data_cmd,
-      "show cmgd database-contents db-name WORD$dbname [xpath WORD$path] format WORD$format_str",
+      "show cmgd database-contents db-name WORD$dbname [xpath WORD$path] [filepath WORD$filepath] format WORD$format_str",
       SHOW_STR
       CMGD_STR
       "Get Database Contenents from a specific database\n"
@@ -426,12 +426,15 @@ DEFPY(show_cmgd_dump_data,
       "<candidate running operational\n"
       "XPath expression specifying the YANG data path\n"
       "XPath string\n"
+      "Path to the file\n"
+      "Path string\n"
       "Format the output\n"
       "JSON|XML")
 {
 	cmgd_database_id_t database = CMGD_DB_CANDIDATE;
 	cmgd_db_hndl_t db_hndl;
 	LYD_FORMAT format = LYD_UNKNOWN;
+	FILE *f = NULL;
 
 	database = cmgd_db_name2id(dbname);
 
@@ -447,6 +450,15 @@ DEFPY(show_cmgd_dump_data,
 		return CMD_ERR_NO_MATCH;
 	}
 
+	if (filepath) {
+		f = fopen(filepath, "w");
+		if (!f) {
+			vty_out(vty, "Could not open file pointed by filepath %s\n",
+				filepath);
+			return CMD_SUCCESS;
+		}
+	}
+
 	format = cmgd_str2format(format_str);
 	if (format == LYD_UNKNOWN) {
 		vty_out(vty, "String Format %s does not matches existing format\n",
@@ -454,7 +466,10 @@ DEFPY(show_cmgd_dump_data,
 		return CMD_SUCCESS;
 	}
 
-	cmgd_db_dump_tree(vty, db_hndl, path, format);
+	cmgd_db_dump_tree(vty, db_hndl, path, f, format);
+
+	if (f)
+		fclose(f);
 	return CMD_SUCCESS;
 }
 
