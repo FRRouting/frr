@@ -997,7 +997,8 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 			continue;
 
 		s = stream_new(ZEBRA_MAX_PACKET_SIZ);
-		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp);
+		zclient_neigh_ip_encode(s, cmd, &ip, link_layer_ipv4, ifp,
+					ndm_state);
 		stream_putw_at(s, 0, stream_get_endp(s));
 		zserv_send_message(client, s);
 	}
