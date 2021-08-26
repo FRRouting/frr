@@ -64,6 +64,7 @@ enum cmd_token_type {
 	JOIN_TKN,  // marks subgraph end
 	START_TKN, // first token in line
 	END_TKN,   // last token in line
+	NEG_ONLY_TKN,    // filter token, match if "no ..." command
 
 	SPECIAL_TKN = FORK_TKN,
 };

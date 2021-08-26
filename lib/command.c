@@ -74,6 +74,7 @@ const struct message tokennames[] = {
 	item(JOIN_TKN),
 	item(START_TKN),
 	item(END_TKN),
+	item(NEG_ONLY_TKN),
 	{0},
 };
 /* clang-format on */

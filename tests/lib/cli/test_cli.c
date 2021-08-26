@@ -40,6 +40,8 @@ DUMMY_DEFUN(cmd12, "alt a A.B.C.D");
 DUMMY_DEFUN(cmd13, "alt a X:X::X:X");
 DUMMY_DEFUN(cmd14,
 	    "pat g {  foo A.B.C.D$foo|foo|bar   X:X::X:X$bar| baz } [final]");
+DUMMY_DEFUN(cmd15, "no pat g ![ WORD ]");
+DUMMY_DEFUN(cmd16, "[no] pat h {foo ![A.B.C.D$foo]|bar X:X::X:X$bar} final");
 
 #include "tests/lib/cli/test_cli_clippy.c"
 
@@ -81,5 +83,7 @@ void test_init(int argc, char **argv)
 		install_element(ENABLE_NODE, &cmd13_cmd);
 	}
 	install_element(ENABLE_NODE, &cmd14_cmd);
+	install_element(ENABLE_NODE, &cmd15_cmd);
+	install_element(ENABLE_NODE, &cmd16_cmd);
 	install_element(ENABLE_NODE, &magic_test_cmd);
 }
