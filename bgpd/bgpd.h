@@ -1280,9 +1280,12 @@ struct peer {
 #define PEER_FLAG_GRACEFUL_RESTART_HELPER   (1U << 23) /* Helper */
 #define PEER_FLAG_GRACEFUL_RESTART          (1U << 24) /* Graceful Restart */
 #define PEER_FLAG_GRACEFUL_RESTART_GLOBAL_INHERIT (1U << 25) /* Global-Inherit */
+
 #define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
 #define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
 #define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
+	/* TCP Authentication Option keychain: */
+#define PEER_FLAG_TCP_AUTHOPT_KEYCHAIN      (1U << 29)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1352,6 +1355,9 @@ struct peer {
 
 	/* MD5 password */
 	char *password;
+
+	/* TCP Authentication Option keychain */
+	char *tcp_authopt_keychain;
 
 	/* default-originate route-map.  */
 	struct {
@@ -1926,6 +1932,8 @@ enum bgp_clear_type {
 #define BGP_ERR_GR_OPERATION_FAILED             -37
 #define BGP_GR_NO_OPERATION                     -38
 
+#define BGP_ERR_TCP_AUTHOPT_FAILED              -39
+
 /*
  * Enumeration of different policy kinds a peer can be configured with.
  */
@@ -2160,6 +2168,9 @@ extern int peer_advertise_map_set(struct peer *peer, afi_t afi, safi_t safi,
 
 extern int peer_password_set(struct peer *, const char *);
 extern int peer_password_unset(struct peer *);
+
+extern int peer_tcp_authopt_keychain_set(struct peer *peer, const char *kc);
+extern int peer_tcp_authopt_keychain_unset(struct peer *peer);
 
 extern int peer_unsuppress_map_unset(struct peer *, afi_t, safi_t);
 

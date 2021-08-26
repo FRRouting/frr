@@ -38,6 +38,7 @@ DEFINE_MTYPE(BGPD, PEER_GROUP, "Peer group");
 DEFINE_MTYPE(BGPD, PEER_GROUP_HOST, "BGP Peer group hostname");
 DEFINE_MTYPE(BGPD, PEER_DESC, "Peer description");
 DEFINE_MTYPE(BGPD, PEER_PASSWORD, "Peer password string");
+DEFINE_MTYPE(BGPD, PEER_TCP_AUTHOPT_KEYCHAIN, "Peer tcp_authopt keychain name");
 DEFINE_MTYPE(BGPD, BGP_PEER_AF, "BGP peer af");
 DEFINE_MTYPE(BGPD, BGP_UPDGRP, "BGP update group");
 DEFINE_MTYPE(BGPD, BGP_UPD_SUBGRP, "BGP update subgroup");

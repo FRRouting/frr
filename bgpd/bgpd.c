@@ -2456,6 +2456,10 @@ int peer_delete(struct peer *peer)
 			bgp_md5_unset(peer);
 	}
 
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN))
+		XFREE(MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN,
+				peer->tcp_authopt_keychain);
+
 	bgp_timer_set(peer); /* stops all timers for Deleted */
 
 	/* Delete from all peer list. */
@@ -2672,6 +2676,12 @@ static void peer_group2peer_config_copy(struct peer_group *group,
 
 	if (!BGP_PEER_SU_UNSPEC(peer))
 		bgp_md5_set(peer);
+
+	/* tcp authopt */
+	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN))
+		PEER_STR_ATTR_INHERIT(peer, group, tcp_authopt_keychain,
+				      MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN);
+	bgp_tcp_authopt_set(peer);
 
 	/* update-source apply */
 	if (!CHECK_FLAG(peer->flags_override, PEER_FLAG_UPDATE_SOURCE)) {
@@ -4161,6 +4171,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_TIMER_CONNECT, 0, peer_change_none},
 	{PEER_FLAG_TIMER_DELAYOPEN, 0, peer_change_none},
 	{PEER_FLAG_PASSWORD, 0, peer_change_none},
+	{PEER_FLAG_TCP_AUTHOPT_KEYCHAIN, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_none},
@@ -5953,6 +5964,129 @@ int peer_local_as_unset(struct peer *peer)
 					BGP_NOTIFY_CEASE_CONFIG_CHANGE);
 		} else
 			bgp_session_reset(member);
+	}
+
+	return 0;
+}
+
+static void bgp_notify_cease_config_change_or_reset(struct peer *peer)
+{
+	if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
+		bgp_notify_send(peer, BGP_NOTIFY_CEASE,
+				BGP_NOTIFY_CEASE_CONFIG_CHANGE);
+	else
+		bgp_session_reset(peer);
+}
+
+int peer_tcp_authopt_keychain_set(struct peer *peer, const char *keychain_name)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+	int ret = BGP_SUCCESS;
+
+	assert(keychain_name);
+	zlog_debug("set peer %s tcp_authopt keychain_name %s",
+			peer->host, keychain_name);
+
+	/* Set flag and configuration on peer. */
+	ret = peer_flag_set(peer, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN);
+	if (ret) {
+		zlog_err("failed to set PEER_FLAG_TCP_AUTHOPT_KEYCHAIN");
+		return ret;
+	}
+	if (peer->tcp_authopt_keychain && !strcmp(
+			peer->tcp_authopt_keychain, keychain_name))
+		return 0;
+	XFREE(MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN, peer->tcp_authopt_keychain);
+	peer->tcp_authopt_keychain =
+			XSTRDUP(MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN, keychain_name);
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		bgp_notify_cease_config_change_or_reset(peer);
+		return bgp_tcp_authopt_set(peer);
+	}
+
+	/*
+	 * Set flag and configuration on all peer-group members, unless they are
+	 * explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override,
+				PEER_FLAG_TCP_AUTHOPT_KEYCHAIN))
+			continue;
+
+		/* Skip peers with the same keychain name. */
+		if (member->tcp_authopt_keychain && !strcmp(
+				member->tcp_authopt_keychain, keychain_name))
+			continue;
+
+		/* Set flag and configuration on peer-group member. */
+		SET_FLAG(member->flags, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN);
+		XFREE(MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN,
+				member->tcp_authopt_keychain);
+		member->tcp_authopt_keychain = XSTRDUP(
+				MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN, keychain_name);
+
+		bgp_notify_cease_config_change_or_reset(peer);
+		if (bgp_tcp_authopt_set(member) < 0)
+			ret = BGP_ERR_TCP_AUTHOPT_FAILED;
+	}
+
+	return ret;
+}
+
+int peer_tcp_authopt_keychain_unset(struct peer *peer)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+	int ret = BGP_SUCCESS;
+
+	zlog_debug("unset peer %s tcp_authopt keychain_name %s",
+			peer->host, peer->tcp_authopt_keychain);
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN))
+		return 0;
+
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_flag_inherit(peer, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN);
+		PEER_STR_ATTR_INHERIT(peer, peer->group, tcp_authopt_keychain,
+				      MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN);
+	} else {
+		/* Otherwise remove flag and configuration from peer. */
+		ret = peer_flag_unset(peer, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN);
+		if (ret) {
+			zlog_err("failed to unset PEER_FLAG_TCP_AUTHOPT_KEYCHAIN");
+			return ret;
+		}
+		XFREE(MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN,
+				peer->tcp_authopt_keychain);
+	}
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		bgp_notify_cease_config_change_or_reset(peer);
+		return bgp_tcp_authopt_set(peer);
+	}
+
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->flags_override,
+				PEER_FLAG_TCP_AUTHOPT_KEYCHAIN))
+			continue;
+
+		/* Remove flag and configuration on peer-group member. */
+		UNSET_FLAG(member->flags, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN);
+		XFREE(MTYPE_PEER_TCP_AUTHOPT_KEYCHAIN,
+				member->tcp_authopt_keychain);
+
+		bgp_notify_cease_config_change_or_reset(peer);
+		bgp_tcp_authopt_set(member);
 	}
 
 	return 0;

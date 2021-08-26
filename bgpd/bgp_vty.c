@@ -4692,6 +4692,45 @@ DEFUN (no_neighbor_password,
 	return bgp_vty_return(vty, ret);
 }
 
+DEFUN (neighbor_tcp_authopt,
+       neighbor_tcp_authopt_cmd,
+       "neighbor <A.B.C.D|X:X::X:X|WORD> tcp-authopt [KEYCHAIN]",
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enable the TCP Authentication Option\n"
+       "Name of the KEYCHAIN\n")
+{
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, argv[1]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_tcp_authopt_keychain_set(peer, argv[3]->arg);
+	return bgp_vty_return(vty, ret);
+}
+
+DEFUN (no_neighbor_tcp_authopt,
+       no_neighbor_tcp_authopt_cmd,
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> tcp-authopt [KEYCHAIN]",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Disable the TCP Authentication Option\n"
+       "Name of the KEYCHAIN\n")
+{
+	struct peer *peer;
+	int ret;
+
+	peer = peer_and_group_lookup_vty(vty, argv[2]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	ret = peer_tcp_authopt_keychain_unset(peer);
+	return bgp_vty_return(vty, ret);
+}
+
 DEFUN (neighbor_activate,
        neighbor_activate_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> activate",
@@ -16299,6 +16338,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s password %s\n", addr,
 			peer->password);
 
+	/* tcp authentication option keychain */
+	if (peergroup_flag_check(peer, PEER_FLAG_TCP_AUTHOPT_KEYCHAIN))
+		vty_out(vty, " neighbor %s tcp-authopt %s\n", addr,
+			peer->tcp_authopt_keychain);
+
 	/* neighbor solo */
 	if (CHECK_FLAG(peer->flags, PEER_FLAG_LONESOUL)) {
 		if (!peer_group_active(peer)) {
@@ -17702,6 +17746,10 @@ void bgp_vty_init(void)
 	/* "neighbor password" commands. */
 	install_element(BGP_NODE, &neighbor_password_cmd);
 	install_element(BGP_NODE, &no_neighbor_password_cmd);
+
+	/* "neighbor tcp-authopt" commands. */
+	install_element(BGP_NODE, &neighbor_tcp_authopt_cmd);
+	install_element(BGP_NODE, &no_neighbor_tcp_authopt_cmd);
 
 	/* "neighbor activate" commands. */
 	install_element(BGP_NODE, &neighbor_activate_hidden_cmd);
