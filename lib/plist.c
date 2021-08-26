@@ -750,7 +750,7 @@ static const char *prefix_list_type_str(struct prefix_list_entry *pentry)
 }
 
 static int prefix_list_entry_match(struct prefix_list_entry *pentry,
-				   const struct prefix *p)
+				   const struct prefix *p, bool address_mode)
 {
 	int ret;
 
@@ -760,6 +760,9 @@ static int prefix_list_entry_match(struct prefix_list_entry *pentry,
 	ret = prefix_match(&pentry->prefix, p);
 	if (!ret)
 		return 0;
+
+	if (address_mode)
+		return 1;
 
 	/* In case of le nor ge is specified, exact match is performed. */
 	if (!pentry->le && !pentry->ge) {
@@ -777,14 +780,15 @@ static int prefix_list_entry_match(struct prefix_list_entry *pentry,
 	return 1;
 }
 
-enum prefix_list_type prefix_list_apply_which_prefix(
+enum prefix_list_type prefix_list_apply_ext(
 	struct prefix_list *plist,
-	const struct prefix **which,
-	const void *object)
+	const struct prefix_list_entry **which,
+	union prefixconstptr object,
+	bool address_mode)
 {
 	struct prefix_list_entry *pentry, *pbest = NULL;
 
-	const struct prefix *p = (const struct prefix *)object;
+	const struct prefix *p = object.p;
 	const uint8_t *byte = p->u.val;
 	size_t depth;
 	size_t validbits = p->prefixlen;
@@ -809,7 +813,7 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 		     pentry = pentry->next_best) {
 			if (pbest && pbest->seq < pentry->seq)
 				continue;
-			if (prefix_list_entry_match(pentry, p))
+			if (prefix_list_entry_match(pentry, p, address_mode))
 				pbest = pentry;
 		}
 
@@ -830,7 +834,7 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 		     pentry = pentry->next_best) {
 			if (pbest && pbest->seq < pentry->seq)
 				continue;
-			if (prefix_list_entry_match(pentry, p))
+			if (prefix_list_entry_match(pentry, p, address_mode))
 				pbest = pentry;
 		}
 		break;
@@ -838,7 +842,7 @@ enum prefix_list_type prefix_list_apply_which_prefix(
 
 	if (which) {
 		if (pbest)
-			*which = &pbest->prefix;
+			*which = pbest;
 		else
 			*which = NULL;
 	}
