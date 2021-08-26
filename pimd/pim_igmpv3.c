@@ -509,8 +509,22 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 		  So, deleting the group present.
 		*/
 		group = find_group_by_addr(igmp, group_addr);
-		if (group && (group->group_filtermode_isexcl == 0))
+		if (!group) {
+			return;
+		}
+		if (group->group_filtermode_isexcl) {
+			if (listcount(group->group_source_list) == 1) {
+				struct in_addr star = {.s_addr = INADDR_ANY};
+
+				source = igmp_find_source_by_addr(group, star);
+				if (source)
+					igmp_source_reset_gmi(igmp, group,
+							      source);
+			}
+		} else {
 			igmp_group_delete(group);
+		}
+
 		return;
 	}
 
@@ -544,15 +558,6 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 		igmp_source_reset_gmi(igmp, group, source);
 
 	} /* scan received sources */
-
-	if ((num_sources == 0) && (group->group_filtermode_isexcl)
-	    && (listcount(group->group_source_list) == 1)) {
-		struct in_addr star = {.s_addr = INADDR_ANY};
-
-		source = igmp_find_source_by_addr(group, star);
-		if (source)
-			igmp_source_reset_gmi(igmp, group, source);
-	}
 }
 
 void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
