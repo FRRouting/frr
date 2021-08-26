@@ -40,7 +40,6 @@
 #include "vtysh/vtysh.h"
 #include "vtysh/vtysh_daemons.h"
 #include "log.h"
-#include "ns.h"
 #include "vrf.h"
 #include "libfrr.h"
 #include "command_graph.h"
@@ -2744,17 +2743,6 @@ DEFUNSH(VTYSH_VRF, vtysh_vrf, vtysh_vrf_cmd, "vrf NAME",
 	return CMD_SUCCESS;
 }
 
-DEFSH(VTYSH_ZEBRA, vtysh_vrf_netns_cmd,
-      "netns NAME",
-      "Attach VRF to a Namespace\n"
-      "The file name in " NS_RUN_DIR ", or a full pathname\n")
-
-DEFSH(VTYSH_ZEBRA, vtysh_no_vrf_netns_cmd,
-      "no netns [NAME]",
-      NO_STR
-      "Detach VRF from a Namespace\n"
-      "The file name in " NS_RUN_DIR ", or a full pathname\n")
-
 DEFUNSH(VTYSH_VRF, vtysh_exit_vrf, vtysh_exit_vrf_cmd, "exit",
 	"Exit current mode and down to previous mode\n")
 {
@@ -4472,8 +4460,6 @@ void vtysh_init_vty(void)
 
 	install_node(&vrf_node);
 	install_element(CONFIG_NODE, &vtysh_vrf_cmd);
-	install_element(VRF_NODE, &vtysh_vrf_netns_cmd);
-	install_element(VRF_NODE, &vtysh_no_vrf_netns_cmd);
 	install_element(VRF_NODE, &exit_vrf_config_cmd);
 	install_element(VRF_NODE, &vtysh_end_all_cmd);
 	install_element(VRF_NODE, &vtysh_exit_vrf_cmd);
