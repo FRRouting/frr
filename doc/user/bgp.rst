@@ -424,8 +424,8 @@ Administrative Distance Metrics
 
 .. clicmd:: distance bgp (1-255) (1-255) (1-255)
 
-   This command change distance value of BGP. The arguments are the distance
-   values for for external routes, internal routes and local routes
+   This command changes distance value of BGP. The arguments are the distance
+   values for external routes, internal routes and local routes
    respectively.
 
 .. clicmd:: distance (1-255) A.B.C.D/M
@@ -959,7 +959,7 @@ BGP GR Global Mode Commands
 
 .. clicmd:: bgp graceful-restart
 
-   This command will enable BGP graceful restart ifunctionality at the global
+   This command will enable BGP graceful restart functionality at the global
    level.
 
 .. clicmd:: bgp graceful-restart disable
@@ -975,7 +975,7 @@ BGP GR Peer Mode Commands
 
 .. clicmd:: neighbor A.B.C.D graceful-restart
 
-   This command will enable BGP graceful restart ifunctionality at the peer
+   This command will enable BGP graceful restart functionality at the peer
    level.
 
 .. clicmd:: neighbor A.B.C.D graceful-restart-helper
@@ -1082,7 +1082,7 @@ IPv6 Support
 
    This configuration demonstrates how the 'no bgp default ipv4-unicast' might
    be used in a setup with two upstreams where each of the upstreams should only
-   receive either IPv4 or IPv6 annocuments.
+   receive either IPv4 or IPv6 announcements.
 
    Using the ``bgp default ipv6-unicast`` configuration, IPv6 unicast
    address family is enabled by default for all new neighbors.
@@ -1263,7 +1263,7 @@ Redistribute routes from other protocols into BGP.
 
    This feature is used to enable read-only mode on BGP process restart or when
    a BGP process is cleared using 'clear ip bgp \*'.  Note that this command is
-   configured under the specific bgp instance/vrf that the feaure is enabled for.
+   configured under the specific bgp instance/vrf that the feature is enabled for.
    It cannot be used at the same time as the global "bgp update-delay" described
    above, which is entered at the global level and applies to all bgp instances.
    The global and per-vrf approaches to defining update-delay are mutually
@@ -1368,7 +1368,7 @@ Defining Peers
    limit is set to 100 by default. Increasing this value will really be
    possible if more file descriptors are available in the BGP process. This
    value is defined by the underlying system (ulimit value), and can be
-   overriden by `--limit-fds`. More information is available in chapter
+   overridden by `--limit-fds`. More information is available in chapter
    (:ref:`common-invocation-options`).
 
 .. clicmd:: coalesce-time (0-4294967295)
@@ -1555,7 +1555,7 @@ Configuring Peers
    can't connect them directly. This is an alternative to
    `neighbor WORD as-override`.
 
-   The parameter `(1-10)` configures the amount of accepted occurences of the
+   The parameter `(1-10)` configures the amount of accepted occurrences of the
    system AS number in AS path.
 
    The parameter `origin` configures BGP to only accept routes originated with
@@ -2566,7 +2566,7 @@ BGP routes may be leaked (i.e. copied) between a unicast VRF RIB and the VPN
 SAFI RIB of the default VRF for use in MPLS-based L3VPNs. Unicast routes may
 also be leaked between any VRFs (including the unicast RIB of the default BGP
 instanced). A shortcut syntax is also available for specifying leaking from one
-VRF to another VRF using the default instance's VPN RIB as the intemediary. A
+VRF to another VRF using the default instance's VPN RIB as the intermediary. A
 common application of the VRF-VRF feature is to connect a customer's private
 routing domain to a provider's VPN service. Leaking is configured from the
 point of view of an individual VRF: ``import`` refers to routes leaked from VPN
@@ -2747,7 +2747,7 @@ the same behavior of using same next-hop and RMAC values.
 
 .. clicmd:: advertise-pip [ip <addr> [mac <addr>]]
 
-Enables or disables advertise-pip feature, specifiy system-IP and/or system-MAC
+Enables or disables advertise-pip feature, specify system-IP and/or system-MAC
 parameters.
 
 EVPN advertise-svi-ip
@@ -2803,7 +2803,7 @@ Topology requirements:
 1. This feature is supported for asymmetric routing model only. While
    sending packets to SN1, ingress PE (PE2) performs routing and
    egress PE (PE1) performs only bridging.
-2. This feature supports only tratitional(non vlan-aware) bridge model. Bridge
+2. This feature supports only traditional(non vlan-aware) bridge model. Bridge
    interface associated with L2VNI is an L3 interface. i.e., this interface is
    configured with an address in the L2VNI subnet. Note that the gateway IP
    should also have an address in the same subnet.
@@ -2881,7 +2881,7 @@ This group of server links is referred to as an Ethernet Segment.
 Ethernet Segments
 """""""""""""""""
 An Ethernet Segment can be configured by specifying a system-MAC and a
-local discriminatior against the bond interface on the PE (via zebra) -
+local discriminator against the bond interface on the PE (via zebra) -
 
 .. clicmd:: evpn mh es-id (1-16777215)
 
@@ -2912,7 +2912,7 @@ The DF preference is configurable per-ES (via zebra) -
 
 BUM traffic is rxed via the overlay by all PEs attached to a server but
 only the DF can forward the de-capsulated traffic to the access port. To
-accomodate that non-DF filters are installed in the dataplane to drop
+accommodate that non-DF filters are installed in the dataplane to drop
 the traffic.
 
 Similarly traffic received from ES peers via the overlay cannot be forwarded
@@ -3472,12 +3472,12 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
 .. clicmd:: show bgp [afi] [safi] [all] summary failed [json]
 
-   Show a bgp peer summary for peers that are not succesfully exchanging routes
+   Show a bgp peer summary for peers that are not successfully exchanging routes
    for the specified address family, and subsequent address-family.
 
 .. clicmd:: show bgp [afi] [safi] [all] summary established [json]
 
-   Show a bgp peer summary for peers that are succesfully exchanging routes
+   Show a bgp peer summary for peers that are successfully exchanging routes
    for the specified address family, and subsequent address-family.
 
 .. clicmd:: show bgp [afi] [safi] [all] summary neighbor [PEER] [json]
@@ -3635,7 +3635,7 @@ attribute.
 
    If ``summary`` option is specified, output is a summary of the counts for
    the chunks, inuse, ledger and requests list along with the count of
-   outstanding chunk requests to Zebra and the nummber of zebra reconnects
+   outstanding chunk requests to Zebra and the number of zebra reconnects
    that have happened
 
    If ``json`` option is specified, output is displayed in JSON format.
