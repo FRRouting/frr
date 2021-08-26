@@ -248,9 +248,11 @@ Usage of *ospfd6*'s route-map support.
 Redistribute routes to OSPF6
 ============================
 
-.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [route-map WORD]
+.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [metric-type (1-2)] [metric (0-16777214)] [route-map WORD]
 
-   Redistribute routes from other protocols into OSPFv3.
+   Redistribute routes of the specified protocol or kind into OSPFv3, with the
+   metric type and metric set if specified, filtering the routes using the
+   given route-map if specified.
 
 .. clicmd:: default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]
 
