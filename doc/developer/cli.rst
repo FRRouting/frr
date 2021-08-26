@@ -139,6 +139,7 @@ by the parser.
    selector: "<" `selector_seq_seq` ">" `varname_token`
            : "{" `selector_seq_seq` "}" `varname_token`
            : "[" `selector_seq_seq` "]" `varname_token`
+           : "![" `selector_seq_seq` "]" `varname_token`
    selector_seq_seq: `selector_seq_seq` "|" `selector_token_seq`
                    : `selector_token_seq`
    selector_token_seq: `selector_token_seq` `selector_token`
@@ -218,6 +219,10 @@ one-or-more selection and repetition.
    provide mutual exclusion. User input matches at most one option.
 -  ``[square brackets]`` -- Contains sequences of tokens that can be omitted.
    ``[<a|b>]`` can be shortened to ``[a|b]``.
+-  ``![exclamation square brackets]`` -- same as ``[square brackets]``, but
+   only allow skipping the contents if the command input starts with ``no``.
+   (For cases where the positive command needs a parameter, but the parameter
+   is optional for the negative case.)
 -  ``{curly|braces}`` -- similar to angle brackets, but instead of mutual
    exclusion, curly braces indicate that one or more of the pipe-separated
    sequences may be provided in any order.
