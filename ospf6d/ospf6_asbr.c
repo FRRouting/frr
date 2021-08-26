@@ -1641,72 +1641,55 @@ void ospf6_asbr_redistribute_remove(int type, ifindex_t ifindex,
 	ospf6_asbr_status_update(ospf6, ospf6->redistribute);
 }
 
-DEFUN (ospf6_redistribute,
+DEFPY (ospf6_redistribute,
        ospf6_redistribute_cmd,
-       "redistribute " FRR_REDIST_STR_OSPF6D,
-       "Redistribute\n"
-       FRR_REDIST_HELP_STR_OSPF6D)
-{
-	int type;
-	struct ospf6_redist *red;
-
-	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
-
-	char *proto = argv[argc - 1]->text;
-
-	type = proto_redistnum(AFI_IP6, proto);
-	if (type < 0)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	red = ospf6_redist_lookup(ospf6, type, 0);
-	if (!red) {
-		ospf6_redist_add(ospf6, type, 0);
-	} else {
-		/* To check, if user is providing same config */
-		if (ROUTEMAP_NAME(red) == NULL)
-			return CMD_SUCCESS;
-
-		ospf6_asbr_redistribute_unset(ospf6, red, type);
-	}
-
-	ospf6_asbr_redistribute_set(ospf6, type);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ospf6_redistribute_routemap,
-       ospf6_redistribute_routemap_cmd,
-       "redistribute " FRR_REDIST_STR_OSPF6D " route-map WORD",
+       "redistribute " FRR_REDIST_STR_OSPF6D "[{metric (0-16777214)|metric-type (1-2)$metric_type|route-map WORD$rmap_str}]",
        "Redistribute\n"
        FRR_REDIST_HELP_STR_OSPF6D
+       "Metric for redistributed routes\n"
+       "OSPF default metric\n"
+       "OSPF exterior metric type for redistributed routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Route map name\n")
 {
-	int idx_protocol = 1;
-	int idx_word = 3;
 	int type;
 	struct ospf6_redist *red;
+	int idx_protocol = 1;
+	char *proto = argv[idx_protocol]->text;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-	char *proto = argv[idx_protocol]->text;
 	type = proto_redistnum(AFI_IP6, proto);
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
+
+	if (!metric_str)
+		metric = -1;
+	if (!metric_type_str)
+		metric_type = -1;
 
 	red = ospf6_redist_lookup(ospf6, type, 0);
 	if (!red) {
 		red = ospf6_redist_add(ospf6, type, 0);
 	} else {
-		/* To check, if user is providing same route map */
-		if ((ROUTEMAP_NAME(red) != NULL)
-		    && (strcmp(argv[idx_word]->arg, ROUTEMAP_NAME(red)) == 0))
+		/* Check if nothing has changed. */
+		if (red->dmetric.value == metric
+		    && red->dmetric.type == metric_type
+		    && ((!ROUTEMAP_NAME(red) && !rmap_str)
+			|| (ROUTEMAP_NAME(red) && rmap_str
+			    && strmatch(ROUTEMAP_NAME(red), rmap_str))))
 			return CMD_SUCCESS;
 
 		ospf6_asbr_redistribute_unset(ospf6, red, type);
 	}
 
-	ospf6_asbr_routemap_set(red, argv[idx_word]->arg);
+	red->dmetric.value = metric;
+	red->dmetric.type = metric_type;
+	if (rmap_str)
+		ospf6_asbr_routemap_set(red, rmap_str);
+	else
+		ospf6_asbr_routemap_unset(red);
 	ospf6_asbr_redistribute_set(ospf6, type);
 
 	return CMD_SUCCESS;
@@ -1714,20 +1697,24 @@ DEFUN (ospf6_redistribute_routemap,
 
 DEFUN (no_ospf6_redistribute,
        no_ospf6_redistribute_cmd,
-       "no redistribute " FRR_REDIST_STR_OSPF6D " [route-map WORD]",
+       "no redistribute " FRR_REDIST_STR_OSPF6D "[{metric (0-16777214)|metric-type (1-2)|route-map WORD}]",
        NO_STR
        "Redistribute\n"
        FRR_REDIST_HELP_STR_OSPF6D
+       "Metric for redistributed routes\n"
+       "OSPF default metric\n"
+       "OSPF exterior metric type for redistributed routes\n"
+       "Set OSPF External Type 1/2 metrics\n"
        "Route map reference\n"
        "Route map name\n")
 {
-	int idx_protocol = 2;
 	int type;
 	struct ospf6_redist *red;
+	int idx_protocol = 2;
+	char *proto = argv[idx_protocol]->text;
 
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
-	char *proto = argv[idx_protocol]->text;
 	type = proto_redistnum(AFI_IP6, proto);
 	if (type < 0)
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1754,11 +1741,14 @@ int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
 		if (type == ZEBRA_ROUTE_OSPF6)
 			continue;
 
+		vty_out(vty, " redistribute %s", ZROUTE_NAME(type));
+		if (red->dmetric.value >= 0)
+			vty_out(vty, " metric %d", red->dmetric.value);
+		if (red->dmetric.type != DEFAULT_METRIC_TYPE)
+			vty_out(vty, " metric-type 1");
 		if (ROUTEMAP_NAME(red))
-			vty_out(vty, " redistribute %s route-map %s\n",
-				ZROUTE_NAME(type), ROUTEMAP_NAME(red));
-		else
-			vty_out(vty, " redistribute %s\n", ZROUTE_NAME(type));
+			vty_out(vty, " route-map %s", ROUTEMAP_NAME(red));
+		vty_out(vty, "\n");
 	}
 
 	return 0;
@@ -2566,7 +2556,6 @@ void ospf6_asbr_init(void)
 	install_element(OSPF6_NODE,
 			&no_ospf6_default_information_originate_cmd);
 	install_element(OSPF6_NODE, &ospf6_redistribute_cmd);
-	install_element(OSPF6_NODE, &ospf6_redistribute_routemap_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_redistribute_cmd);
 }
 

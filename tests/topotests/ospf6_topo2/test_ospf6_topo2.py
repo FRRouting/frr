@@ -73,15 +73,20 @@ def expect_lsas(router, area, lsas, wait=5, extra_params=""):
     assert result is None, assertmsg
 
 
-def expect_ospfv3_routes(router, routes, wait=5):
+def expect_ospfv3_routes(router, routes, wait=5, detail=False):
     "Run command `ipv6 ospf6 route` and expect route with type."
     tgen = get_topogen()
+
+    if detail == False:
+        cmd = "show ipv6 ospf6 route json"
+    else:
+        cmd = "show ipv6 ospf6 route detail json"
 
     logger.info("waiting OSPFv3 router '{}' route".format(router))
     test_func = partial(
         topotest.router_json_cmp,
         tgen.gears[router],
-        "show ipv6 ospf6 route json",
+        cmd,
         {"routes": routes}
     )
     _, result = topotest.run_and_expect(test_func, None, count=wait, wait=1)
@@ -234,6 +239,51 @@ def test_ospf6_default_route():
         extra_params="inter-prefix detail",
     )
     expect_route("r1", "::/0", metric + 10)
+
+
+def test_redistribute_metrics():
+    """
+    Test that the configured metrics are honored when a static route is
+    redistributed.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    # Add new static route on r3.
+    config = """
+    configure terminal
+    ipv6 route 2001:db8:500::/64 Null0
+    """
+    tgen.gears["r3"].vtysh_cmd(config)
+
+    route = {
+        "2001:db8:500::/64": {
+            "metricType":2, 
+            "metricCost":10,
+        }
+    }
+    logger.info("Expecting AS-external route 2001:db8:500::/64 to show up with default metrics")
+    expect_ospfv3_routes("r2", route, wait=30, detail=True)
+
+    # Change the metric of redistributed routes of the static type on r3.
+    config = """
+    configure terminal
+    router ospf6
+    redistribute static metric 50 metric-type 1
+    """
+    tgen.gears["r3"].vtysh_cmd(config)
+
+    # Check if r3 reinstalled 2001:db8:500::/64 using the new metric type and value.
+    route = {
+        "2001:db8:500::/64": {
+            "metricType":1, 
+            "metricCost":60,
+        }
+    }
+    logger.info("Expecting AS-external route 2001:db8:500::/64 to show up with updated metric type and value")
+    expect_ospfv3_routes("r2", route, wait=30, detail=True)
+
 
 
 def test_nssa_lsa_type7():
