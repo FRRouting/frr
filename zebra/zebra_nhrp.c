@@ -796,6 +796,7 @@ static int zebra_nhrp_call_only(const char *script, vrf_id_t vrf_id,
 		if (strlen(buf_response)) {
 			if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_SEND)
 				zlog_debug("NHRP : %s", buf_response);
+			pclose(fp);
 			return -1;
 		}
 	}
