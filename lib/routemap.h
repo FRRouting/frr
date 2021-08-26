@@ -249,6 +249,8 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(C, "frr-route-map:ipv6-prefix-list"))
 #define IS_MATCH_IPv4_NEXTHOP_PREFIX_LIST(C)                                   \
 	(strmatch(C, "frr-route-map:ipv4-next-hop-prefix-list"))
+#define IS_MATCH_IPv6_NEXTHOP_PREFIX_LIST(C)                                   \
+	(strmatch(C, "frr-route-map:ipv6-next-hop-prefix-list"))
 #define IS_MATCH_IPv4_NEXTHOP_TYPE(C)                                          \
 	(strmatch(C, "frr-route-map:ipv4-next-hop-type"))
 #define IS_MATCH_IPv6_NEXTHOP_TYPE(C)                                          \
@@ -563,6 +565,16 @@ extern void route_map_no_match_ipv6_address_prefix_list_hook(int (*func)(
 	struct route_map_index *index, const char *command,
 	const char *arg, route_map_event_t type,
 	char *errmsg, size_t errmsg_len));
+/* match ipv6 next hop prefix list */
+extern void route_map_match_ipv6_next_hop_prefix_list_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len));
+/* no match ipv6 next hop prefix list */
+extern void route_map_no_match_ipv6_next_hop_prefix_list_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len));
 /* match ipv6 next-hop type */
 extern void route_map_match_ipv6_next_hop_type_hook(int (*func)(
 	struct route_map_index *index, const char *command,
@@ -766,6 +778,21 @@ struct route_map_match_set_hooks {
 						 route_map_event_t type,
 						 char *errmsg,
 						 size_t errmsg_len);
+
+	/* match ipv6 next-hop prefix-list */
+	int (*match_ipv6_next_hop_prefix_list)(struct route_map_index *index,
+					       const char *command,
+					       const char *arg,
+					       route_map_event_t type,
+					       char *errmsg, size_t errmsg_len);
+
+	/* no match ipv6 next-hop prefix-list */
+	int (*no_match_ipv6_next_hop_prefix_list)(struct route_map_index *index,
+						  const char *command,
+						  const char *arg,
+						  route_map_event_t type,
+						  char *errmsg,
+						  size_t errmsg_len);
 
 	/* match ipv6 next-hop type */
 	int (*match_ipv6_next_hop_type)(struct route_map_index *index,

@@ -326,6 +326,47 @@ DEFPY_YANG(
 }
 
 DEFPY_YANG(
+	match_ipv6_next_hop_prefix_list,
+	match_ipv6_next_hop_prefix_list_cmd,
+	"match ipv6 next-hop prefix-list WORD$name",
+	MATCH_STR
+	IPV6_STR
+	"Match next-hop address of route\n"
+	"Match entries of prefix-lists\n"
+	"IP prefix-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, name);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
+	no_match_ipv6_next_hop_prefix_list,
+	no_match_ipv6_next_hop_prefix_list_cmd,
+	"no match ipv6 next-hop prefix-list [WORD]",
+	NO_STR
+	MATCH_STR
+	IPV6_STR
+	"Match next-hop address of route\n"
+	"Match entries of prefix-lists\n"
+	"IP prefix-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:ipv6-next-hop-prefix-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(
 	match_ip_next_hop_type, match_ip_next_hop_type_cmd,
 	"match ip next-hop type <blackhole>$type",
 	MATCH_STR
@@ -584,6 +625,10 @@ void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
 				dnode, "./rmap-match-condition/list-name"));
 	} else if (IS_MATCH_IPv6_PREFIX_LIST(condition)) {
 		vty_out(vty, " match ipv6 address prefix-list %s\n",
+			yang_dnode_get_string(
+				dnode, "./rmap-match-condition/list-name"));
+	} else if (IS_MATCH_IPv6_NEXTHOP_PREFIX_LIST(condition)) {
+		vty_out(vty, " match ipv6 next-hop prefix-list %s\n",
 			yang_dnode_get_string(
 				dnode, "./rmap-match-condition/list-name"));
 	} else if (IS_MATCH_IPv4_NEXTHOP_TYPE(condition)) {
@@ -1600,6 +1645,9 @@ void route_map_cli_init(void)
 
 	install_element(RMAP_NODE, &match_ipv6_address_prefix_list_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_address_prefix_list_cmd);
+
+	install_element(RMAP_NODE, &match_ipv6_next_hop_prefix_list_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_next_hop_prefix_list_cmd);
 
 	install_element(RMAP_NODE, &match_ipv6_next_hop_type_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_type_cmd);
