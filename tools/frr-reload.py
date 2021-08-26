@@ -31,6 +31,7 @@ This program
 from __future__ import print_function, unicode_literals
 import argparse
 import copy
+import json
 import logging
 import os, os.path
 import random
@@ -609,7 +610,7 @@ end
             "username ",
             "vni ",
             "vrrp autoconfigure",
-            "zebra "
+            "zebra ",
         )
 
         for line in self.lines:
@@ -1728,6 +1729,7 @@ def compare_context_objects(newconf, running):
     pcclist_to_del = []
     candidates_to_add = []
     delete_bgpd = False
+    restart_frr = False
 
     # Find contexts that are in newconf but not in running
     # Find contexts that are in running but not in newconf
@@ -1741,6 +1743,8 @@ def compare_context_objects(newconf, running):
             # running but not in newconf.
             if "router bgp" in running_ctx_keys[0] and len(running_ctx_keys) == 1:
                 delete_bgpd = True
+                if "vrf" not in running_ctx_keys[0]:
+                    restart_frr = True
                 lines_to_del.append((running_ctx_keys, None))
 
             # We cannot do 'no interface' or 'no vrf' in FRR, and so deal with it
@@ -1948,7 +1952,31 @@ def compare_context_objects(newconf, running):
         lines_to_add, lines_to_del
     )
 
-    return (lines_to_add, lines_to_del)
+    return (lines_to_add, lines_to_del, restart_frr)
+
+
+def is_evpn_enabled():
+    """
+    Returns True if bgpd is currently running with EVPN enabled
+    """
+
+    evpn_enabled = False
+    cmd = ["/usr/bin/vtysh", "-c", "show bgp l2vpn evpn vni json"]
+    output = ""
+    DEVNULL = open(os.devnull, "wb")
+
+    try:
+        output = subprocess.check_output(cmd, stderr=DEVNULL).strip()
+    except:
+        pass
+
+    if output:
+        output = json.loads(output)
+        adv_vnis = output.get("advertiseAllVnis", "")
+        if "Enabled" in adv_vnis:
+            evpn_enabled = True
+
+    return evpn_enabled
 
 
 if __name__ == "__main__":
@@ -2158,7 +2186,9 @@ if __name__ == "__main__":
         else:
             running.load_from_show_running(args.daemon)
 
-        (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+        (lines_to_add, lines_to_del, restart_frr) = compare_context_objects(
+            newconf, running
+        )
 
         if lines_to_del:
             if not args.test_reset:
@@ -2178,7 +2208,9 @@ if __name__ == "__main__":
                     nolines = [x.strip() for x in nolines]
                     # For topotests leave these lines in (don't delete them)
                     # [chopps: why is "log file" more special than other "log" commands?]
-                    nolines = [x for x in nolines if "debug" not in x and "log file" not in x]
+                    nolines = [
+                        x for x in nolines if "debug" not in x and "log file" not in x
+                    ]
                     if not nolines:
                         continue
 
@@ -2258,7 +2290,20 @@ if __name__ == "__main__":
             running.load_from_show_running(args.daemon)
             log.debug("Running Frr Config (Pass #%d)\n%s", x, running.get_lines())
 
-            (lines_to_add, lines_to_del) = compare_context_objects(newconf, running)
+            (lines_to_add, lines_to_del, restart_frr) = compare_context_objects(
+                newconf, running
+            )
+            if restart_frr and is_evpn_enabled():
+                # currently EVPN has heavy dependencies on the BGP default
+                # instance i.e. FRR cannot survive a BGP default instance
+                # delete. so as a workaround we "silently" restart FRR
+                # if the change in config requires a bgp delete (and if
+                # EVPN is enabled).
+                log.info("EVPN is enabled and default instance del needed")
+                log.info("Restarting FRR")
+                subprocess.call("systemctl reset-failed frr.service".split())
+                subprocess.call("systemctl --no-block restart frr.service".split())
+                sys.exit(0)
 
             if x == 0:
                 lines_to_add_first_pass = lines_to_add
