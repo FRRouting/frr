@@ -159,6 +159,24 @@ void route_map_no_match_ip_next_hop_hook(int (*func)(
 	rmap_match_set_hook.no_match_ip_next_hop = func;
 }
 
+/* match ipv6 next-hop */
+void route_map_match_ipv6_next_hop_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.match_ipv6_next_hop = func;
+}
+
+/* no match ipv6 next-hop */
+void route_map_no_match_ipv6_next_hop_hook(int (*func)(
+	struct route_map_index *index, const char *command,
+	const char *arg, route_map_event_t type,
+	char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.no_match_ipv6_next_hop = func;
+}
+
 /* match ip next hop prefix list */
 void route_map_match_ip_next_hop_prefix_list_hook(int (*func)(
 	struct route_map_index *index, const char *command,

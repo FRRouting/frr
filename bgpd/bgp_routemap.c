@@ -503,17 +503,46 @@ static const struct route_map_rule_cmd route_match_ip_address_cmd = {
 
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
+route_match_next_hop(void *rule, const struct prefix *prefix, void *object,
+		     afi_t afi)
 {
 	struct access_list *alist;
-	struct bgp_path_info *path;
-	struct prefix_ipv4 p;
+	struct bgp_path_info *path = object;
+	struct prefix p;
 
-	if (prefix->family == AF_INET) {
-		path = object;
+	if (path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL
+	    || path->attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
+		if (afi != AFI_IP6)
+			return RMAP_NOMATCH;
+
+		alist = access_list_lookup(AFI_IP6, (char *)rule);
+		if (alist == NULL)
+			return RMAP_NOMATCH;
+
+		p.family = AF_INET6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+
+		p.u.prefix6 = path->attr->mp_nexthop_global;
+		if (access_list_apply(alist, &p) == FILTER_PERMIT)
+			return RMAP_MATCH;
+
+		if (path->attr->mp_nexthop_len
+		    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+			p.u.prefix6 = path->attr->mp_nexthop_local;
+			if (access_list_apply(alist, &p) == FILTER_PERMIT)
+				return RMAP_MATCH;
+		}
+
+		return RMAP_NOMATCH;
+	}
+
+	if (path->attr->nexthop.s_addr) {
+		if (afi != AFI_IP)
+			return RMAP_NOMATCH;
+
 		p.family = AF_INET;
-		p.prefix = path->attr->nexthop;
 		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = path->attr->nexthop;
 
 		alist = access_list_lookup(AFI_IP, (char *)rule);
 		if (alist == NULL)
@@ -523,18 +552,32 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 				? RMAP_NOMATCH
 				: RMAP_MATCH);
 	}
+
 	return RMAP_NOMATCH;
+}
+
+static enum route_map_cmd_result_t
+route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
+{
+	return route_match_next_hop(rule, prefix, object, AFI_IP);
+}
+
+static enum route_map_cmd_result_t
+route_match_ipv6_next_hop_access_list(void *rule, const struct prefix *prefix,
+				      void *object)
+{
+	return route_match_next_hop(rule, prefix, object, AFI_IP6);
 }
 
 /* Route map `ip next-hop' match statement. `arg' is
    access-list name. */
-static void *route_match_ip_next_hop_compile(const char *arg)
+static void *route_match_next_hop_compile(const char *arg)
 {
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `ip address' value. */
-static void route_match_ip_next_hop_free(void *rule)
+static void route_match_next_hop_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
@@ -543,8 +586,15 @@ static void route_match_ip_next_hop_free(void *rule)
 static const struct route_map_rule_cmd route_match_ip_next_hop_cmd = {
 	"ip next-hop",
 	route_match_ip_next_hop,
-	route_match_ip_next_hop_compile,
-	route_match_ip_next_hop_free
+	route_match_next_hop_compile,
+	route_match_next_hop_free
+};
+
+static const struct route_map_rule_cmd route_match_ipv6_next_hop_list_cmd = {
+	"ipv6 next-hop access-list",
+	route_match_ipv6_next_hop_access_list,
+	route_match_next_hop_compile,
+	route_match_next_hop_free
 };
 
 /* `match ip route-source ACCESS-LIST' */
@@ -6425,6 +6475,9 @@ void bgp_route_map_init(void)
 	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
 
+	route_map_match_ipv6_next_hop_hook(generic_match_add);
+	route_map_no_match_ipv6_next_hop_hook(generic_match_delete);
+
 	route_map_match_ipv6_next_hop_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_next_hop_prefix_list_hook(generic_match_delete);
 
@@ -6460,6 +6513,7 @@ void bgp_route_map_init(void)
 #endif
 	route_map_install_match(&route_match_ip_address_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
+	route_map_install_match(&route_match_ipv6_next_hop_list_cmd);
 	route_map_install_match(&route_match_ip_route_source_cmd);
 	route_map_install_match(&route_match_ip_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);

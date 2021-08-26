@@ -957,11 +957,12 @@ DEFPY_YANG (show_ipv6_protocol_nht,
 
 /* Match function return 1 if match is success else return zero. */
 static enum route_map_cmd_result_t
-route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
+route_match_next_hop(void *rule, const struct prefix *prefix, void *object,
+		     afi_t afi)
 {
 	struct access_list *alist;
 	struct nh_rmap_obj *nh_data;
-	struct prefix_ipv4 p;
+	struct prefix p;
 
 	nh_data = object;
 	if (!nh_data)
@@ -973,14 +974,24 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 	case NEXTHOP_TYPE_IPV4:
+		if (afi != AFI_IP)
+			return RMAP_NOMATCH;
 		p.family = AF_INET;
-		p.prefix = nh_data->nexthop->gate.ipv4;
 		p.prefixlen = IPV4_MAX_BITLEN;
+		p.u.prefix4 = nh_data->nexthop->gate.ipv4;
+		break;
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+	case NEXTHOP_TYPE_IPV6:
+		if (afi != AFI_IP6)
+			return RMAP_NOMATCH;
+		p.family = AF_INET6;
+		p.prefixlen = IPV6_MAX_BITLEN;
+		p.u.prefix6 = nh_data->nexthop->gate.ipv6;
 		break;
 	default:
 		return RMAP_NOMATCH;
 	}
-	alist = access_list_lookup(AFI_IP, (char *)rule);
+	alist = access_list_lookup(afi, (char *)rule);
 	if (alist == NULL)
 		return RMAP_NOMATCH;
 
@@ -988,15 +999,28 @@ route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
 							    : RMAP_MATCH);
 }
 
+static enum route_map_cmd_result_t
+route_match_ip_next_hop(void *rule, const struct prefix *prefix, void *object)
+{
+	return route_match_next_hop(rule, prefix, object, AFI_IP);
+}
+
+static enum route_map_cmd_result_t
+route_match_ipv6_next_hop_access_list(void *rule, const struct prefix *prefix,
+				      void *object)
+{
+	return route_match_next_hop(rule, prefix, object, AFI_IP6);
+}
+
 /* Route map `ip next-hop' match statement.  `arg' should be
    access-list name. */
-static void *route_match_ip_next_hop_compile(const char *arg)
+static void *route_match_next_hop_compile(const char *arg)
 {
 	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
 }
 
 /* Free route map's compiled `. */
-static void route_match_ip_next_hop_free(void *rule)
+static void route_match_next_hop_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
@@ -1005,8 +1029,15 @@ static void route_match_ip_next_hop_free(void *rule)
 static const struct route_map_rule_cmd route_match_ip_next_hop_cmd = {
 	"ip next-hop",
 	route_match_ip_next_hop,
-	route_match_ip_next_hop_compile,
-	route_match_ip_next_hop_free
+	route_match_next_hop_compile,
+	route_match_next_hop_free
+};
+
+static const struct route_map_rule_cmd route_match_ipv6_next_hop_list_cmd = {
+	"ipv6 next-hop access-list",
+	route_match_ipv6_next_hop_access_list,
+	route_match_next_hop_compile,
+	route_match_next_hop_free
 };
 
 /* `match ip next-hop prefix-list PREFIX_LIST' */
@@ -1968,6 +1999,9 @@ void zebra_route_map_init(void)
 	route_map_match_ipv6_address_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_address_prefix_list_hook(generic_match_delete);
 
+	route_map_match_ipv6_next_hop_hook(generic_match_add);
+	route_map_no_match_ipv6_next_hop_hook(generic_match_delete);
+
 	route_map_match_ipv6_next_hop_prefix_list_hook(generic_match_add);
 	route_map_no_match_ipv6_next_hop_prefix_list_hook(generic_match_delete);
 
@@ -1977,6 +2011,7 @@ void zebra_route_map_init(void)
 	route_map_install_match(&route_match_tag_cmd);
 	route_map_install_match(&route_match_interface_cmd);
 	route_map_install_match(&route_match_ip_next_hop_cmd);
+	route_map_install_match(&route_match_ipv6_next_hop_list_cmd);
 	route_map_install_match(&route_match_ip_next_hop_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_prefix_list_cmd);
 	route_map_install_match(&route_match_ip_address_cmd);
