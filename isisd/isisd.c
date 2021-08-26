@@ -3011,6 +3011,8 @@ static int isis_config_write(struct vty *vty)
 
 			write += area_write_mt_settings(area, vty);
 			write += fabricd_write_settings(area, vty);
+
+			vty_out(vty, "exit\n");
 		}
 	}
 

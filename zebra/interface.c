@@ -4096,7 +4096,7 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 	if (IS_PARAM_SET(iflp, LP_RMT_AS))
 		vty_out(vty, "  neighbor %pI4 as %u\n", &iflp->rmt_ip,
 			iflp->rmt_as);
-	vty_out(vty, "  exit-link-params\n");
+	vty_out(vty, " exit-link-params\n");
 	return 0;
 }
 
@@ -4188,7 +4188,7 @@ static int if_config_write(struct vty *vty)
 			zebra_evpn_mh_if_write(vty, ifp);
 			link_params_config_write(vty, ifp);
 
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, "exit\n!\n");
 		}
 	return 0;
 }

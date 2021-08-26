@@ -175,7 +175,6 @@ static struct cmd_node pcep_node = {
 	.name = "srte pcep",
 	.node = PCEP_NODE,
 	.parent_node = SR_TRAFFIC_ENG_NODE,
-	.config_write = pcep_cli_pcep_config_write,
 	.prompt = "%s(config-sr-te-pcep)# "
 };
 
@@ -183,7 +182,6 @@ static struct cmd_node pcep_pcc_node = {
 	.name = "srte pcep pcc",
 	.node = PCEP_PCC_NODE,
 	.parent_node = PCEP_NODE,
-	.config_write = pcep_cli_pcc_config_write,
 	.prompt = "%s(config-sr-te-pcep-pcc)# "
 };
 
@@ -191,7 +189,6 @@ static struct cmd_node pcep_pce_node = {
 	.name = "srte pcep pce",
 	.node = PCEP_PCE_NODE,
 	.parent_node = PCEP_NODE,
-	.config_write = pcep_cli_pce_config_write,
 	.prompt = "%s(config-sr-te-pcep-pce)# "
 };
 
@@ -199,7 +196,6 @@ static struct cmd_node pcep_pce_config_node = {
 	.name = "srte pcep pce-config",
 	.node = PCEP_PCE_CONFIG_NODE,
 	.parent_node = PCEP_NODE,
-	.config_write = pcep_cli_pcep_pce_config_write,
 	.prompt = "%s(pce-sr-te-pcep-pce-config)# "
 };
 
@@ -1444,6 +1440,10 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
+	pcep_cli_pcep_pce_config_write(vty);
+	pcep_cli_pce_config_write(vty);
+	pcep_cli_pcc_config_write(vty);
+	vty_out(vty, "  exit\n");
 	return 1;
 }
 
@@ -1468,7 +1468,7 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	}
 
 	if (pce_connections_g.num_connections == 0) {
-		return lines;
+		goto exit;
 	}
 
 	buf[0] = 0;
@@ -1495,6 +1495,8 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 		lines++;
 		buf[0] = 0;
 	}
+exit:
+	vty_out(vty, "   exit\n");
 
 	return lines;
 }
@@ -1655,6 +1657,8 @@ int pcep_cli_pce_config_write(struct vty *vty)
 
 		vty_out(vty, "%s", buf);
 		buf[0] = '\0';
+
+		vty_out(vty, "   exit\n");
 	}
 
 	return lines;
@@ -1679,6 +1683,8 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
 			pcep_cli_print_pce_config(group_opts, buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
 		buf[0] = 0;
+
+		vty_out(vty, "   exit\n");
 	}
 
 	return lines;
@@ -1999,6 +2005,7 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 
 void pcep_cli_init(void)
 {
+	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
 	hook_register(nb_client_debug_config_write,
 		      pcep_cli_debug_config_write);
 	hook_register(nb_client_debug_set_all, pcep_cli_debug_set_all);

@@ -4043,7 +4043,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					rfg->routemap_redist_name
 						[ZEBRA_ROUTE_BGP_DIRECT_EXT]);
 			}
-			vty_out(vty, "  exit-vrf-policy\n");
+			vty_out(vty, " exit-vrf-policy\n");
 			vty_out(vty, "!\n");
 		}
 	if (hc->flags & BGP_VNC_CONFIG_ADV_UN_METHOD_ENCAP) {
@@ -4121,7 +4121,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						vty, bgp->rfapi->rfp,
 						RFAPI_RFP_CFG_GROUP_L2,
 						rfgc->name, rfgc->rfp_cfg);
-				vty_out(vty, "   exit-vnc\n");
+				vty_out(vty, " exit-vnc\n");
 				vty_out(vty, "!\n");
 			}
 		}
@@ -4199,7 +4199,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 					vty, bgp->rfapi->rfp,
 					RFAPI_RFP_CFG_GROUP_DEFAULT, NULL,
 					bgp->rfapi_cfg->default_rfp_cfg);
-			vty_out(vty, "  exit-vnc\n");
+			vty_out(vty, " exit-vnc\n");
 			vty_out(vty, "!\n");
 		}
 
@@ -4364,7 +4364,7 @@ int bgp_rfapi_cfg_write(struct vty *vty, struct bgp *bgp)
 						vty, bgp->rfapi->rfp,
 						RFAPI_RFP_CFG_GROUP_NVE,
 						rfg->name, rfg->rfp_cfg);
-				vty_out(vty, "  exit-vnc\n");
+				vty_out(vty, " exit-vnc\n");
 				vty_out(vty, "!\n");
 			}
 	} /* have listen ports */
