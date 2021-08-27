@@ -38,7 +38,7 @@
 #define CMGD_TRXN_SEND_CFGAPPLY_DELAY_MSEC      100
 #define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     10000   /* 10 seconds */
 
-#define CMGD_TRXN_MAX_BATCH_IDS_IN_REQ          (CMGD_BCKND_MSG_MAX_LEN/sizeof(cmgd_trxn_batch_id_t))/2
+#define CMGD_TRXN_MAX_BATCH_IDS_IN_REQ          (CMGD_BCKND_MSG_MAX_LEN-128)/sizeof(cmgd_trxn_batch_id_t)
 
 /*
  * The following definition enables local validation of config

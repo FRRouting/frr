@@ -59,14 +59,14 @@
 // DEFINE_QOBJ_TYPE(cmgd)
 // DEFINE_HOOK(cmgd_inst_delete, (struct cmgd *cmgd), (cmgd))
 
-bool cmgd_debug_bcknd = true;
-bool cmgd_debug_frntnd = true;
-bool cmgd_debug_db = true;
-bool cmgd_debug_trxn = true;
-// bool cmgd_debug_bcknd = false;
-// bool cmgd_debug_frntnd = false;
-// bool cmgd_debug_db = false;
-// bool cmgd_debug_trxn = false;
+// bool cmgd_debug_bcknd = true;
+// bool cmgd_debug_frntnd = true;
+// bool cmgd_debug_db = true;
+// bool cmgd_debug_trxn = true;
+bool cmgd_debug_bcknd = false;
+bool cmgd_debug_frntnd = false;
+bool cmgd_debug_db = false;
+bool cmgd_debug_trxn = false;
 
 /* CMGD process wide configuration.  */
 static struct cmgd_master cmgd_master;

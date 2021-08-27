@@ -22,6 +22,7 @@
 #include "libfrr.h"
 #include "static_nb.h"
 
+bool static_debug_nb = false;
 
 /* clang-format off */
 

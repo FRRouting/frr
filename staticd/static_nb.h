@@ -22,6 +22,8 @@
 extern "C" {
 #endif
 
+extern bool static_debug_nb;
+
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define STATIC_NB_DBG(fmt, ...)				\
 	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
@@ -29,7 +31,8 @@ extern "C" {
 	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
 #else /* REDIRECT_DEBUG_TO_STDERR */
 #define STATIC_NB_DBG(fmt, ...)				\
-	zlog_err("%s: " fmt , __func__, ##__VA_ARGS__)
+	if (static_debug_nb)				\
+		zlog_debug("%s: " fmt , __func__, ##__VA_ARGS__)
 #define STATIC_NB_ERR(fmt, ...)				\
 	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
 #endif /* REDIRECT_DEBUG_TO_STDERR */

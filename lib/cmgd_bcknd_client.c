@@ -108,7 +108,8 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 	struct thread *conn_writes_on;
 	struct thread *msg_proc_ev;
 	uint32_t flags;
-#define CMGD_BCKND_CLNT_WRITES_ON         (1U << 0)
+	uint32_t num_msg_tx;
+	uint32_t num_msg_rx;
 
 	struct stream_fifo *ibuf_fifo;
 	struct stream *ibuf_work;
@@ -122,11 +123,13 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 	cmgd_bcknd_client_params_t client_params;
 } cmgd_bcknd_client_ctxt_t;
 
+#define CMGD_BCKND_CLNT_FLAGS_WRITES_OFF         (1U << 0)
+
 #define FOREACH_BCKND_TRXN_IN_LIST(clntctxt, trxn)			\
 	frr_each_safe(cmgd_bcknd_trxn_list, &(clntctxt)->trxn_head, (trxn))
 
-// static bool cmgd_debug_bcknd_clnt = false;
-static bool cmgd_debug_bcknd_clnt = true;
+static bool cmgd_debug_bcknd_clnt = false;
+// static bool cmgd_debug_bcknd_clnt = true;
 
 static cmgd_bcknd_client_ctxt_t cmgd_bcknd_clntctxt = { 0 };
 
@@ -579,37 +582,11 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 		 */
 	}
 
-#if 0
-	if (!trxn->nb_trxn) {
-		/*
-		 * This happens when the current backend client is only interested
-		 * in consuming the config items but is not interested in validating 
-		 * it.
-		 */
-		nb_ctxt.client = NB_CLIENT_CLI;
-		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-		if (nb_candidate_commit_prepare(&nb_ctxt,
-			clnt_ctxt->candidate_config, "CMGD Trxn",
-			&trxn->nb_trxn, err_buf, sizeof(err_buf)-1) != NB_OK) {
-			err_buf[sizeof(err_buf)-1] = 0;
-			CMGD_BCKND_CLNT_ERR("Failed to prepare configs for Trxn %lx Batch %lx! Err: '%s'",
-				trxn_id, batch_ids[indx], err_buf);
-			cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id,
-				batch_ids, num_batch_ids, false,
-				"Failed to validate Config on backend!");
-			return -1;
-		}
-	}
-
-	nb_candidate_commit_apply(trxn->nb_trxn, true,
-		&trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
-#else
 	nb_ctxt.client = NB_CLIENT_CLI;
 	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 	(void) nb_candidate_apply(&nb_ctxt, clnt_ctxt->candidate_config,
 			trxn->nb_trxn, "CMGD Backend Trxn",
 			true, &trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
-#endif
 	trxn->nb_trxn = NULL;
 
 	cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
@@ -756,6 +733,7 @@ static int cmgd_bcknd_client_process_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 		(void) cmgd_bcknd_client_handle_msg(clnt_ctxt, bcknd_msg);
 		cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
 		processed++;
+		clnt_ctxt->num_msg_rx++;
 	}
 
 	return processed;
@@ -892,56 +870,24 @@ static int cmgd_bcknd_client_read(struct thread *thread)
 	return 0;
 }
 
-static int cmgd_bcknd_client_write(struct thread *thread)
+static inline void cmgd_bcknd_client_sched_msg_write(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
 {
-	int processed = 0;
-	int bytes_written = 0;
-	int msg_size = 0;
-	struct stream *s = NULL;
-	struct stream *free = NULL;
-	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+	if (!CHECK_FLAG(clnt_ctxt->flags, CMGD_BCKND_CLNT_FLAGS_WRITES_OFF))
+		cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITE);
+}
 
-	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)THREAD_ARG(thread);
-	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+static inline void cmgd_bcknd_client_writes_on(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
+{
+	CMGD_BCKND_CLNT_DBG("Resume writing msgs");
+	UNSET_FLAG(clnt_ctxt->flags, CMGD_BCKND_CLNT_FLAGS_WRITES_OFF);
+	if (clnt_ctxt->obuf_work || stream_fifo_count_safe(clnt_ctxt->obuf_fifo))
+		cmgd_bcknd_client_sched_msg_write(clnt_ctxt);
+}
 
-	s = stream_fifo_head(clnt_ctxt->obuf_fifo);
-	while ((processed < CMGD_BCKND_MAX_NUM_MSG_WRITE)
-	       && (s != NULL)) {
-		msg_size = (int)stream_get_size(s);
-		bytes_written = stream_flush(s, clnt_ctxt->conn_fd);
-		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-			cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITE);
-			return 0;
-		} else if (bytes_written != msg_size) {
-			CMGD_BCKND_CLNT_ERR(
-				"Could not write all %d bytes (wrote: %d) to CMGD Backend server socket. Err: '%s'",
-				(int) msg_size, bytes_written, safe_strerror(errno));
-			if (bytes_written > 0) {
-				stream_forward_getp(s, (size_t)bytes_written);
-				stream_pulldown(s);
-				cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITE);
-				return 0;
-			}
-			cmgd_bcknd_server_disconnect(clnt_ctxt, true);
-			return -1;
-		}
-
-		free = stream_fifo_pop(clnt_ctxt->obuf_fifo);
-		stream_free(free);
-		CMGD_BCKND_CLNT_DBG(
-			"Wrote %d bytes of message to CMGD Backend server socket.'",
-			bytes_written);
-		s = stream_fifo_head(clnt_ctxt->obuf_fifo);
-		processed++;
-	}
-
-	if (s) {
-		SET_FLAG(clnt_ctxt->flags, CMGD_BCKND_CLNT_WRITES_ON);
-		cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITES_ON);
-	} else
-		UNSET_FLAG(clnt_ctxt->flags, CMGD_BCKND_CLNT_WRITES_ON);
-
-	return 0;
+static inline void cmgd_bcknd_client_writes_off(cmgd_bcknd_client_ctxt_t *clnt_ctxt)
+{
+	SET_FLAG(clnt_ctxt->flags, CMGD_BCKND_CLNT_FLAGS_WRITES_OFF);
+	CMGD_BCKND_CLNT_DBG("Paused writing msgs");
 }
 
 static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt, 
@@ -968,11 +914,91 @@ static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	msg->hdr.len = (uint16_t) msg_size;
 	cmgd__bcknd_message__pack(bcknd_msg, msg->payload);
 
+#ifndef CMGD_PACK_TX_MSGS
 	clnt_ctxt->obuf_work = stream_new(msg_size);
 	stream_write(clnt_ctxt->obuf_work, (void *)msg_buf, msg_size);
 	stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
-	if (!CHECK_FLAG(clnt_ctxt->flags, CMGD_BCKND_CLNT_WRITES_ON))
-		cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITE);
+	clnt_ctxt->obuf_work = NULL;
+#else
+	if (!clnt_ctxt->obuf_work)
+		clnt_ctxt->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+	if (STREAM_WRITEABLE(clnt_ctxt->obuf_work) < msg_size) {
+		stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
+		clnt_ctxt->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+	}
+	stream_write(clnt_ctxt->obuf_work, (void *)msg_buf, msg_size);
+#endif
+	cmgd_bcknd_client_sched_msg_write(clnt_ctxt);
+	clnt_ctxt->num_msg_tx++;
+	return 0;
+}
+
+static int cmgd_bcknd_client_write(struct thread *thread)
+{
+	int bytes_written = 0;
+	int processed = 0;
+	int msg_size = 0;
+	struct stream *s = NULL;
+	struct stream *free = NULL;
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)THREAD_ARG(thread);
+	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+
+	/* Ensure pushing any pending write buffer to FIFO */
+	if (clnt_ctxt->obuf_work) {
+		stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
+		clnt_ctxt->obuf_work = NULL;
+	}
+
+	for (s = stream_fifo_head(clnt_ctxt->obuf_fifo);
+		s && processed < CMGD_BCKND_MAX_NUM_MSG_WRITE;
+		s = stream_fifo_head(clnt_ctxt->obuf_fifo)) {
+		// msg_size = (int)stream_get_size(s);
+		msg_size = (int) STREAM_READABLE(s);
+		bytes_written = stream_flush(s, clnt_ctxt->conn_fd);
+		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITE);
+			return 0;
+		} else if (bytes_written != msg_size) {
+			CMGD_BCKND_CLNT_ERR(
+				"Could not write all %d bytes (wrote: %d) to CMGD Backend client socket. Err: '%s'",
+				msg_size, bytes_written, safe_strerror(errno));
+			if (bytes_written > 0) {
+				stream_forward_getp(s, (size_t)bytes_written);
+				stream_pulldown(s);
+				cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITE);
+				return 0;
+			}
+			cmgd_bcknd_server_disconnect(clnt_ctxt, true);
+			return -1;
+		}
+
+		free = stream_fifo_pop(clnt_ctxt->obuf_fifo);
+		stream_free(free);
+		CMGD_BCKND_CLNT_DBG(
+			"Wrote %d bytes of message to CMGD Backend client socket.'",
+			bytes_written);
+		processed++;
+	}
+
+	if (s) {
+		cmgd_bcknd_client_writes_off(clnt_ctxt);
+		cmgd_bcknd_client_register_event(clnt_ctxt, CMGD_BCKND_CONN_WRITES_ON);
+	}
+
+	return 0;
+}
+
+static int cmgd_bcknd_client_resume_writes(struct thread *thread)
+{
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_bcknd_client_ctxt_t *)THREAD_ARG(thread);
+	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+
+	cmgd_bcknd_client_writes_on(clnt_ctxt);
+
 	return 0;
 }
 
@@ -1100,11 +1126,11 @@ static void cmgd_bcknd_client_register_event(
 	case CMGD_BCKND_CONN_WRITES_ON:
 		clnt_ctxt->conn_writes_on =
 			thread_add_timer_msec(clnt_ctxt->tm,
-				cmgd_bcknd_client_write, clnt_ctxt,
+				cmgd_bcknd_client_resume_writes, clnt_ctxt,
 				CMGD_BCKND_MSG_WRITE_DELAY_MSEC, NULL);
 		break;
 	default:
-		assert(!"cmgd_bcknd_clnt_ctxt_post_event() called incorrectly");
+		assert(!"cmgd_bcknd_client_post_event() called incorrectly");
 	}
 }
 

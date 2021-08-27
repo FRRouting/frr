@@ -44,6 +44,8 @@ typedef struct cmgd_sessn_commit_stats_ {
         unsigned long max_tm;
         unsigned long min_tm;
 	unsigned long last_batch_cnt;
+	unsigned long last_num_cfgdata_reqs;
+	unsigned long last_num_apply_reqs;
 	unsigned long max_batch_cnt;
 	unsigned long min_batch_cnt;
         unsigned long commit_cnt;
@@ -61,7 +63,6 @@ typedef struct cmgd_frntnd_client_adapter_ {
         struct thread *conn_writes_on;
         struct thread *proc_msg_ev;
         uint32_t flags;
-#define CMGD_FRNTND_ADPTR_WRITES_ON	(1U << 0)
 
         char name[CMGD_CLIENT_NAME_MAX_LEN];
         // uint8_t num_xpath_reg;
@@ -83,9 +84,13 @@ typedef struct cmgd_frntnd_client_adapter_ {
 	// struct buffer *wb;
 
         int refcount;
+        uint32_t num_msg_tx;
+        uint32_t num_msg_rx;
 
         struct cmgd_frntnd_adptr_list_item list_linkage;
 } cmgd_frntnd_client_adapter_t;
+
+#define CMGD_FRNTND_ADPTR_FLAGS_WRITES_OFF	(1U << 0)
 
 DECLARE_LIST(cmgd_frntnd_adptr_list, cmgd_frntnd_client_adapter_t, list_linkage);
 

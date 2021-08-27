@@ -398,6 +398,26 @@ static int cmgd_bcknd_adapter_handle_msg(
 	return 0;
 }
 
+static inline void cmgd_bcknd_adapter_sched_msg_write(cmgd_bcknd_client_adapter_t *adptr)
+{
+	if (!CHECK_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF))
+		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITE);
+}
+
+static inline void cmgd_bcknd_adapter_writes_on(cmgd_bcknd_client_adapter_t *adptr)
+{
+	CMGD_BCKND_ADPTR_DBG("Resume writing msgs for '%s'", adptr->name);
+	UNSET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF);
+	if (adptr->obuf_work || stream_fifo_count_safe(adptr->obuf_fifo))
+		cmgd_bcknd_adapter_sched_msg_write(adptr);
+}
+
+static inline void cmgd_bcknd_adapter_writes_off(cmgd_bcknd_client_adapter_t *adptr)
+{
+	SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF);
+	CMGD_BCKND_ADPTR_DBG("Pause writing msgs for '%s'", adptr->name);
+}
+
 static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr, 
 	Cmgd__BckndMessage *bcknd_msg)
 {
@@ -422,11 +442,22 @@ static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr,
 	msg->hdr.len = (uint16_t) msg_size;
 	cmgd__bcknd_message__pack(bcknd_msg, msg->payload);
 
+#ifndef CMGD_PACK_TX_MSGS
 	adptr->obuf_work = stream_new(msg_size);
 	stream_write(adptr->obuf_work, (void *)msg_buf, msg_size);
 	stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
-	if (!CHECK_FLAG(adptr->flags, CMGD_BCKND_ADPTR_WRITES_ON))
-		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITE);
+	adptr->obuf_work = NULL;
+#else
+	if (!adptr->obuf_work)
+		adptr->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+	if (STREAM_WRITEABLE(adptr->obuf_work) < msg_size) {
+		stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
+		adptr->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+	}
+	stream_write(adptr->obuf_work, (void *)msg_buf, msg_size);
+#endif
+	cmgd_bcknd_adapter_sched_msg_write(adptr);
+	adptr->num_msg_tx++;
 	return 0;
 }
 
@@ -562,6 +593,7 @@ static uint16_t cmgd_bcknd_adapter_process_msg(
 		(void) cmgd_bcknd_adapter_handle_msg(adptr, bcknd_msg);
 		cmgd__bcknd_message__free_unpacked(bcknd_msg, NULL);
 		processed++;
+		adptr->num_msg_rx++;
 	}
 
 	return processed;
@@ -710,11 +742,17 @@ static int cmgd_bcknd_adapter_write(struct thread *thread)
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
 
-	s = stream_fifo_head(adptr->obuf_fifo);
+	/* Ensure pushing any pending write buffer to FIFO */
+	if (adptr->obuf_work) {
+		stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
+		adptr->obuf_work = NULL;
+	}
 
-	while ((processed < CMGD_BCKND_MAX_NUM_MSG_WRITE)
-	       && (s != NULL)) {
-		msg_size = (int)stream_get_size(s);
+	for (s = stream_fifo_head(adptr->obuf_fifo);
+		s && processed < CMGD_BCKND_MAX_NUM_MSG_WRITE;
+		s = stream_fifo_head(adptr->obuf_fifo)) {
+		// msg_size = (int)stream_get_size(s);
+		msg_size = (int) STREAM_READABLE(s);
 		bytes_written = stream_flush(s, adptr->conn_fd);
 		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 			cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITE);
@@ -738,15 +776,25 @@ static int cmgd_bcknd_adapter_write(struct thread *thread)
 		CMGD_BCKND_ADPTR_DBG(
 			"Wrote %d bytes of message to CMGD Backend client socket.'",
 			bytes_written);
-		s = stream_fifo_head(adptr->obuf_fifo);
 		processed++;
 	}
 
 	if (s) {
-		SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_WRITES_ON);
+		cmgd_bcknd_adapter_writes_off(adptr);
 		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITES_ON);
-	} else
-		UNSET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_WRITES_ON);
+	}
+
+	return 0;
+}
+
+static int cmgd_bcknd_adapter_resume_writes(struct thread *thread)
+{
+	cmgd_bcknd_client_adapter_t *adptr;
+
+	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
+	assert(adptr && adptr->conn_fd);
+
+	cmgd_bcknd_adapter_writes_on(adptr);
 
 	return 0;
 }
@@ -776,7 +824,7 @@ static void cmgd_bcknd_adptr_register_event(
 	case CMGD_BCKND_CONN_WRITES_ON:
 		adptr->conn_writes_on =
 			thread_add_timer_msec(cmgd_bcknd_adptr_tm,
-				cmgd_bcknd_adapter_write, adptr,
+				cmgd_bcknd_adapter_resume_writes, adptr,
 				CMGD_BCKND_MSG_WRITE_DELAY_MSEC, NULL);
 		break;
 	default:
@@ -976,7 +1024,9 @@ void cmgd_bcknd_adapter_status_write(struct vty *vty)
 		vty_out(vty, "  Client: \t\t\t%s\n", adptr->name);
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
 		vty_out(vty, "    Client-Id: \t\t\t%d\n", adptr->id);
-		vty_out(vty, "    Ref-Count: \t%u\n", adptr->refcount);
+		vty_out(vty, "    Ref-Count: \t\t\t%u\n", adptr->refcount);
+		vty_out(vty, "    Msg-Sent: \t\t\t%u\n", adptr->num_msg_tx);
+		vty_out(vty, "    Msg-Recvd: \t\t\t%u\n", adptr->num_msg_rx);
 	}
 	vty_out(vty, "  Total: %d\n", 
 		(int) cmgd_bcknd_adptr_list_count(&cmgd_bcknd_adptrs));

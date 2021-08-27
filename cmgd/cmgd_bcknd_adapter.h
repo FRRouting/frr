@@ -103,7 +103,6 @@ typedef struct cmgd_bcknd_client_adapter_ {
         struct thread *conn_writes_on;
         struct thread *proc_msg_ev;
 	uint32_t flags;
-#define CMGD_BCKND_ADPTR_WRITES_ON         (1U << 0)
         char name[CMGD_CLIENT_NAME_MAX_LEN];
         uint8_t num_xpath_reg;
         char xpath_reg[CMGD_MAX_NUM_XPATH_REG][CMGD_MAX_XPATH_LEN];
@@ -126,12 +125,16 @@ typedef struct cmgd_bcknd_client_adapter_ {
 	/* Buffer of data waiting to be written to client. */
 	// struct buffer *wb;
 
-        int adapter_index;
+        // int adapter_index;
         int refcount;
+        uint32_t num_msg_tx;
+        uint32_t num_msg_rx;
 
         struct cmgd_bcknd_adptr_list_item list_linkage;
         struct cmgd_trxn_badptr_list_item trxn_list_linkage;
 } cmgd_bcknd_client_adapter_t;
+
+#define CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF         (1U << 0)
 
 DECLARE_LIST(cmgd_bcknd_adptr_list, cmgd_bcknd_client_adapter_t, list_linkage);
 DECLARE_LIST(cmgd_trxn_badptr_list, cmgd_bcknd_client_adapter_t, trxn_list_linkage);

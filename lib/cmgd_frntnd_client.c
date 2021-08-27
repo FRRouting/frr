@@ -65,7 +65,8 @@ typedef struct cmgd_frntnd_client_ctxt_ {
 	struct thread *conn_writes_on;
 	struct thread *msg_proc_ev;
 	uint32_t flags;
-#define CMGD_FRNTND_CLNT_WRITES_ON         (1U << 0)
+	uint32_t num_msg_tx;
+	uint32_t num_msg_rx;
 
 	struct stream_fifo *ibuf_fifo;
 	struct stream *ibuf_work;
@@ -76,6 +77,8 @@ typedef struct cmgd_frntnd_client_ctxt_ {
 
 	struct cmgd_session_list_head client_sessions;
 } cmgd_frntnd_client_ctxt_t;
+
+#define CMGD_FRNTND_CLNT_FLAGS_WRITES_OFF         (1U << 0)
 
 #define FOREACH_SESSN_IN_LIST(clntctxt, sessn)						\
 	for ((sessn) = cmgd_session_list_first(&(clntctxt)->client_sessions); (sessn);	\
@@ -142,6 +145,26 @@ static void cmgd_frntnd_server_disconnect(
 			clnt_ctxt, clnt_ctxt->client_params.conn_retry_intvl_sec);
 }
 
+static inline void cmgd_frntnd_client_sched_msg_write(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
+{
+	if (!CHECK_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_FLAGS_WRITES_OFF))
+		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
+}
+
+static inline void cmgd_frntnd_client_writes_on(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
+{
+	CMGD_FRNTND_CLNT_DBG("Resume writing msgs");
+	UNSET_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_FLAGS_WRITES_OFF);
+	if (clnt_ctxt->obuf_work || stream_fifo_count_safe(clnt_ctxt->obuf_fifo))
+		cmgd_frntnd_client_sched_msg_write(clnt_ctxt);
+}
+
+static inline void cmgd_frntnd_client_writes_off(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
+{
+	SET_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_FLAGS_WRITES_OFF);
+	CMGD_FRNTND_CLNT_DBG("Paused writing msgs");
+}
+
 static int cmgd_frntnd_client_send_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt, 
 	Cmgd__FrntndMessage *frntnd_msg)
 {
@@ -166,11 +189,91 @@ static int cmgd_frntnd_client_send_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	msg->hdr.len = (uint16_t) msg_size;
 	cmgd__frntnd_message__pack(frntnd_msg, msg->payload);
 
+#ifndef CMGD_PACK_TX_MSGS
 	clnt_ctxt->obuf_work = stream_new(msg_size);
 	stream_write(clnt_ctxt->obuf_work, (void *)msg_buf, msg_size);
 	stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
-	if (!CHECK_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_WRITES_ON))
-		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
+	clnt_ctxt->obuf_work = NULL;
+#else
+	if (!clnt_ctxt->obuf_work)
+		clnt_ctxt->obuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
+	if (STREAM_WRITEABLE(clnt_ctxt->obuf_work) < msg_size) {
+		stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
+		clnt_ctxt->obuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
+	}
+	stream_write(clnt_ctxt->obuf_work, (void *)msg_buf, msg_size);
+#endif
+	cmgd_frntnd_client_sched_msg_write(clnt_ctxt);
+	clnt_ctxt->num_msg_tx++;
+	return 0;
+}
+
+static int cmgd_frntnd_client_write(struct thread *thread)
+{
+	int bytes_written = 0;
+	int processed = 0;
+	int msg_size = 0;
+	struct stream *s = NULL;
+	struct stream *free = NULL;
+	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_frntnd_client_ctxt_t *)THREAD_ARG(thread);
+	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+
+	/* Ensure pushing any pending write buffer to FIFO */
+	if (clnt_ctxt->obuf_work) {
+		stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
+		clnt_ctxt->obuf_work = NULL;
+	}
+
+	for (s = stream_fifo_head(clnt_ctxt->obuf_fifo);
+		s && processed < CMGD_FRNTND_MAX_NUM_MSG_WRITE;
+		s = stream_fifo_head(clnt_ctxt->obuf_fifo)) {
+		// msg_size = (int)stream_get_size(s);
+		msg_size = (int) STREAM_READABLE(s);
+		bytes_written = stream_flush(s, clnt_ctxt->conn_fd);
+		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
+			return 0;
+		} else if (bytes_written != msg_size) {
+			CMGD_FRNTND_CLNT_ERR(
+				"Could not write all %d bytes (wrote: %d) to CMGD Backend client socket. Err: '%s'",
+				msg_size, bytes_written, safe_strerror(errno));
+			if (bytes_written > 0) {
+				stream_forward_getp(s, (size_t)bytes_written);
+				stream_pulldown(s);
+				cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
+				return 0;
+			}
+			cmgd_frntnd_server_disconnect(clnt_ctxt, true);
+			return -1;
+		}
+
+		free = stream_fifo_pop(clnt_ctxt->obuf_fifo);
+		stream_free(free);
+		CMGD_FRNTND_CLNT_DBG(
+			"Wrote %d bytes of message to CMGD Backend client socket.'",
+			bytes_written);
+		processed++;
+	}
+
+	if (s) {
+		cmgd_frntnd_client_writes_off(clnt_ctxt);
+		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITES_ON);
+	}
+
+	return 0;
+}
+
+static int cmgd_frntnd_client_resume_writes(struct thread *thread)
+{
+	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
+
+	clnt_ctxt = (cmgd_frntnd_client_ctxt_t *)THREAD_ARG(thread);
+	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+
+	cmgd_frntnd_client_writes_on(clnt_ctxt);
+
 	return 0;
 }
 
@@ -607,6 +710,7 @@ static int cmgd_frntnd_client_process_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 
 		cmgd__frntnd_message__free_unpacked(frntnd_msg, NULL);
 		processed++;
+		clnt_ctxt->num_msg_rx++;
 	}
 
 	return processed;
@@ -740,58 +844,6 @@ static int cmgd_frntnd_client_read(struct thread *thread)
 	return 0;
 }
 
-static int cmgd_frntnd_client_write(struct thread *thread)
-{
-	int processed = 0;
-	int bytes_written = 0;
-	int msg_size = 0;
-	struct stream *s = NULL;
-	struct stream *free = NULL;
-	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
-
-	clnt_ctxt = (cmgd_frntnd_client_ctxt_t *)THREAD_ARG(thread);
-	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-
-	s = stream_fifo_head(clnt_ctxt->obuf_fifo);
-	while ((processed < CMGD_FRNTND_MAX_NUM_MSG_WRITE)
-	       && (s != NULL)) {
-		msg_size = (int)stream_get_size(s);
-		bytes_written = stream_flush(s, clnt_ctxt->conn_fd);
-		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
-			cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
-			return 0;
-		} else if (bytes_written != msg_size) {
-			CMGD_FRNTND_CLNT_ERR(
-				"Could not write all %d bytes (wrote: %d) to CMGD Frontend server socket. Err: '%s'",
-				(int) msg_size, bytes_written, safe_strerror(errno));
-			if (bytes_written > 0) {
-				stream_forward_getp(s, (size_t)bytes_written);
-				stream_pulldown(s);
-				cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
-				return 0;
-			}
-			cmgd_frntnd_server_disconnect(clnt_ctxt, true);
-			return -1;
-		}
-
-		free = stream_fifo_pop(clnt_ctxt->obuf_fifo);
-		stream_free(free);
-		CMGD_FRNTND_CLNT_DBG(
-			"Wrote %d bytes of message to CMGD Frontend server socket.'",
-			bytes_written);
-		s = stream_fifo_head(clnt_ctxt->obuf_fifo);
-		processed++;
-	}
-
-	if (s) {
-		SET_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_WRITES_ON);
-		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITES_ON);
-	} else
-		UNSET_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_WRITES_ON);
-
-	return 0;
-}
-
 static int cmgd_frntnd_server_connect(cmgd_frntnd_client_ctxt_t *clnt_ctxt)
 {
 	int ret, sock, len;
@@ -895,7 +947,7 @@ static void cmgd_frntnd_client_register_event(
 	case CMGD_FRNTND_CONN_WRITES_ON:
 		clnt_ctxt->conn_writes_on =
 			thread_add_timer_msec(clnt_ctxt->tm,
-				cmgd_frntnd_client_write, clnt_ctxt,
+				cmgd_frntnd_client_resume_writes, clnt_ctxt,
 				CMGD_FRNTND_MSG_WRITE_DELAY_MSEC, NULL);
 		break;
 	default:

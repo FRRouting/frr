@@ -51,6 +51,13 @@
 
 #define CMGD_MAX_CFG_CHANGES_IN_BATCH		10
 
+/*
+ * The following packs a buffer of size MAX_PKT_SIZE with multiple 
+ * messages to minimize number of mallocs and number of write() 
+ * calls.
+ */
+#define CMGD_PACK_TX_MSGS
+
 typedef uintptr_t cmgd_lib_hndl_t;
 
 typedef uintptr_t cmgd_user_data_t;

@@ -1201,6 +1201,7 @@ static int cmgd_trxn_send_bcknd_cfg_data(cmgd_trxn_ctxt_t *trxn,
 			return -1;
 		}
 
+		cmtcfg_req->cmt_stats->last_num_cfgdata_reqs++;
 		cmgd_move_trxn_cfg_batch_to_next(cmtcfg_req, cfg_btch,
 			&cmtcfg_req->curr_batches[adptr->id],
 			&cmtcfg_req->next_batches[adptr->id], true,
@@ -1321,6 +1322,7 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 							"Could not send CFG_APPLY_REQ to backend adapter");
 						return -1;
 					}
+					cmtcfg_req->cmt_stats->last_num_apply_reqs++;
 					indx = 0;
 				}
 			}
@@ -1333,6 +1335,7 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 					"Could not send CFG_APPLY_REQ to backend adapter");
 				return -1;
 			}
+			cmtcfg_req->cmt_stats->last_num_apply_reqs++;
 
 			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
 				cfg_btch->comm_phase = CMGD_COMMIT_PHASE_APPLY_CFG;

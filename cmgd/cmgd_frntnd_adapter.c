@@ -269,6 +269,26 @@ static void cmgd_frntnd_cleanup_sessions(cmgd_frntnd_client_adapter_t *adptr)
 	}
 }
 
+static inline void cmgd_frntnd_adapter_sched_msg_write(cmgd_frntnd_client_adapter_t *adptr)
+{
+	if (!CHECK_FLAG(adptr->flags, CMGD_FRNTND_ADPTR_FLAGS_WRITES_OFF))
+		cmgd_frntnd_adptr_register_event(adptr, CMGD_FRNTND_CONN_WRITE);
+}
+
+static inline void cmgd_frntnd_adapter_writes_on(cmgd_frntnd_client_adapter_t *adptr)
+{
+	CMGD_FRNTND_ADPTR_DBG("Resume writing msgs for '%s'", adptr->name);
+	UNSET_FLAG(adptr->flags, CMGD_FRNTND_ADPTR_FLAGS_WRITES_OFF);
+	if (adptr->obuf_work || stream_fifo_count_safe(adptr->obuf_fifo))
+		cmgd_frntnd_adapter_sched_msg_write(adptr);
+}
+
+static inline void cmgd_frntnd_adapter_writes_off(cmgd_frntnd_client_adapter_t *adptr)
+{
+	SET_FLAG(adptr->flags, CMGD_FRNTND_ADPTR_FLAGS_WRITES_OFF);
+	CMGD_FRNTND_ADPTR_DBG("Paused writing msgs for '%s'", adptr->name);
+}
+
 static int cmgd_frntnd_adapter_send_msg(cmgd_frntnd_client_adapter_t *adptr, 
 	Cmgd__FrntndMessage *frntnd_msg)
 {
@@ -293,11 +313,22 @@ static int cmgd_frntnd_adapter_send_msg(cmgd_frntnd_client_adapter_t *adptr,
 	msg->hdr.len = (uint16_t) msg_size;
 	cmgd__frntnd_message__pack(frntnd_msg, msg->payload);
 
+#ifndef CMGD_PACK_TX_MSGS
 	adptr->obuf_work = stream_new(msg_size);
 	stream_write(adptr->obuf_work, (void *)msg_buf, msg_size);
 	stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
-	if (!CHECK_FLAG(adptr->flags, CMGD_FRNTND_ADPTR_WRITES_ON))
-		cmgd_frntnd_adptr_register_event(adptr, CMGD_FRNTND_CONN_WRITE);
+	adptr->obuf_work = NULL;
+#else
+	if (!adptr->obuf_work)
+		adptr->obuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
+	if (STREAM_WRITEABLE(adptr->obuf_work) < msg_size) {
+		stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
+		adptr->obuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
+	}
+	stream_write(adptr->obuf_work, (void *)msg_buf, msg_size);
+#endif
+	cmgd_frntnd_adapter_sched_msg_write(adptr);
+	adptr->num_msg_tx++;
 	return 0;
 }
 
@@ -1240,6 +1271,7 @@ static uint16_t cmgd_frntnd_adapter_process_msg(
 
 		cmgd__frntnd_message__free_unpacked(frntnd_msg, NULL);
 		processed++;
+		adptr->num_msg_rx++;
 	}
 
 	return processed;
@@ -1389,10 +1421,17 @@ static int cmgd_frntnd_adapter_write(struct thread *thread)
 	adptr = (cmgd_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
 
-	s = stream_fifo_head(adptr->obuf_fifo);
-	while ((processed < CMGD_FRNTND_MAX_NUM_MSG_WRITE)
-	       && (s != NULL)) {
-		msg_size = (int)stream_get_size(s);
+	/* Ensure pushing any pending write buffer to FIFO */
+	if (adptr->obuf_work) {
+		stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
+		adptr->obuf_work = NULL;
+	}
+
+	for (s = stream_fifo_head(adptr->obuf_fifo);
+		s && processed < CMGD_FRNTND_MAX_NUM_MSG_WRITE;
+		s = stream_fifo_head(adptr->obuf_fifo)) {
+		// msg_size = (int)stream_get_size(s);
+		msg_size = (int) STREAM_READABLE(s);
 		bytes_written = stream_flush(s, adptr->conn_fd);
 		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
 			cmgd_frntnd_adptr_register_event(adptr, CMGD_FRNTND_CONN_WRITE);
@@ -1416,15 +1455,25 @@ static int cmgd_frntnd_adapter_write(struct thread *thread)
 		CMGD_FRNTND_ADPTR_DBG(
 			"Wrote %d bytes of message to CMGD Frontend client socket.'",
 			bytes_written);
-		s = stream_fifo_head(adptr->obuf_fifo);
 		processed++;
 	}
 
 	if (s) {
-		SET_FLAG(adptr->flags, CMGD_FRNTND_ADPTR_WRITES_ON);
+		cmgd_frntnd_adapter_writes_off(adptr);
 		cmgd_frntnd_adptr_register_event(adptr, CMGD_FRNTND_CONN_WRITES_ON);
-	} else
-		UNSET_FLAG(adptr->flags, CMGD_FRNTND_ADPTR_WRITES_ON);
+	}
+
+	return 0;
+}
+
+static int cmgd_frntnd_adapter_resume_writes(struct thread *thread)
+{
+	cmgd_frntnd_client_adapter_t *adptr;
+
+	adptr = (cmgd_frntnd_client_adapter_t *)THREAD_ARG(thread);
+	assert(adptr && adptr->conn_fd);
+
+	cmgd_frntnd_adapter_writes_on(adptr);
 
 	return 0;
 }
@@ -1454,7 +1503,7 @@ static void cmgd_frntnd_adptr_register_event(
 	case CMGD_FRNTND_CONN_WRITES_ON:
 		adptr->conn_writes_on =
 			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
-				cmgd_frntnd_adapter_write, adptr,
+				cmgd_frntnd_adapter_resume_writes, adptr,
 				CMGD_FRNTND_MSG_WRITE_DELAY_MSEC, NULL);
 		break;
 	default:
@@ -1643,6 +1692,10 @@ static void cmgd_frntnd_adapter_status_detail(struct vty *vty,
 				sessn->cmt_stats.last_exec_tm);
 		vty_out(vty, "        Last-Commit-Batch-Size: \t%lu\n",
 				sessn->cmt_stats.last_batch_cnt);
+		vty_out(vty, "        Last-Commit-CfgData-Reqs: \t%lu\n",
+				sessn->cmt_stats.last_num_cfgdata_reqs);
+		vty_out(vty, "        Last-Commit-CfgApply-Reqs: \t%lu\n",
+				sessn->cmt_stats.last_num_apply_reqs);
 		vty_out(vty, "        Last-Commit-Details:\n");
 
 		vty_out(vty, "          Commit Start: \t\t%s\n",
@@ -1697,9 +1750,9 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail)
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
 		vty_out(vty, "    Sessions\n");
 		FOREACH_SESSN_IN_LIST(adptr, sessn) {
-			vty_out(vty, "      Client-Id: \t\t0x%lx\n",
+			vty_out(vty, "      Client-Id: \t\t\t0x%lx\n",
 				sessn->client_id);
-			vty_out(vty, "        Session-Id: \t\t%p\n", sessn);
+			vty_out(vty, "        Session-Id: \t\t\t%p\n", sessn);
 			vty_out(vty, "        DB-Locks: \n");
 			FOREACH_CMGD_DB_ID(db_id) {
 				if (sessn->db_write_locked[db_id] ||
@@ -1716,8 +1769,10 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail)
 			if (detail)
 				cmgd_frntnd_adapter_status_detail(vty, sessn);
 		}
-		vty_out(vty, "    Total: %d\n",
+		vty_out(vty, "    Total-Sessions: \t\t\t%d\n",
 			(int) cmgd_frntnd_sessn_list_count(&adptr->frntnd_sessns));
+		vty_out(vty, "    Msg-Sent: \t\t\t\t%u\n", adptr->num_msg_tx);
+		vty_out(vty, "    Msg-Recvd: \t\t\t\t%u\n", adptr->num_msg_rx);
 	}
 	vty_out(vty, "  Total: %d\n", 
 		(int) cmgd_frntnd_adptr_list_count(&cmgd_frntnd_adptrs));
