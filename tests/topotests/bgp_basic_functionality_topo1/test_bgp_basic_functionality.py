@@ -208,6 +208,9 @@ def test_modify_and_delete_router_id(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
     # Modify router id
     input_dict = {
         "r1": {"bgp": {"router_id": "12.12.12.12"}},
@@ -252,6 +255,9 @@ def test_bgp_config_with_4byte_as_number(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
     input_dict = {
         "r1": {"bgp": {"local_as": 131079}},
         "r2": {"bgp": {"local_as": 131079}},
@@ -283,6 +289,9 @@ def test_BGP_config_with_invalid_ASN_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
     # Api call to modify AS number
     input_dict = {
         "r1": {
@@ -307,11 +316,18 @@ def test_BGP_config_with_invalid_ASN_p2(request):
         },
     }
     result = modify_as_number(tgen, topo, input_dict)
-    try:
-        assert result is True
-    except AssertionError:
-        logger.info("Expected behaviour: {}".format(result))
-        logger.info("BGP config is not created because of invalid ASNs")
+    assert result is not True, (
+        "Expected BGP config is not created because of invalid ASNs: {}".format(
+            result
+        )
+    )
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    result = verify_bgp_convergence(tgen, topo)
+    if result != True:
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".format(result)
 
     write_test_footer(tc_name)
 
@@ -330,6 +346,13 @@ def test_BGP_config_with_2byteAS_and_4byteAS_number_p1(request):
     # test case name
     tc_name = request.node.name
     write_test_header(tc_name)
+
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
+
+    result = verify_bgp_convergence(tgen, topo)
+    if result != True:
+        assert False, "Testcase " + tc_name + " :Failed \n Error: {}".format(result)
 
     # Api call to modify AS number
     input_dict = {
@@ -586,7 +609,8 @@ def test_BGP_attributes_with_vrf_default_keyword_p0(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    # reset_config_on_routers(tgen)
+    # Creating configuration from JSON
+    reset_config_on_routers(tgen)
 
     step("Configure static routes and redistribute in BGP on R3")
     for addr_type in ADDR_TYPES:
