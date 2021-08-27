@@ -78,7 +78,7 @@ from time import sleep
 
 from functools import partial
 
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 # Save the Current Working Directory to find configuration files later.
 CWD = os.path.dirname(os.path.realpath(__file__))

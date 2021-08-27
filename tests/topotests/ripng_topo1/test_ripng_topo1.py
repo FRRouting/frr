@@ -34,17 +34,12 @@ import pytest
 import unicodedata
 from time import sleep
 
-from mininet.topo import Topo
-from mininet.net import Mininet
-from mininet.node import Node, OVSSwitch, Host
-from mininet.log import setLogLevel, info
-from mininet.cli import CLI
-from mininet.link import Intf
-
 from functools import partial
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
+from lib.micronet_compat import Topo
+from lib.micronet_compat import Mininet
 
 fatal_error = ""
 
@@ -77,25 +72,25 @@ class NetworkTopo(Topo):
         #
         # On main router
         # First switch is for a dummy interface (for local network)
-        switch[1] = self.addSwitch("sw1", cls=topotest.LegacySwitch)
+        switch[1] = self.addSwitch("sw1")
         self.addLink(switch[1], router[1], intfName2="r1-eth0")
         #
         # Switches for RIPng
         # switch 2 switch is for connection to RIP router
-        switch[2] = self.addSwitch("sw2", cls=topotest.LegacySwitch)
+        switch[2] = self.addSwitch("sw2")
         self.addLink(switch[2], router[1], intfName2="r1-eth1")
         self.addLink(switch[2], router[2], intfName2="r2-eth0")
         # switch 3 is between RIP routers
-        switch[3] = self.addSwitch("sw3", cls=topotest.LegacySwitch)
+        switch[3] = self.addSwitch("sw3")
         self.addLink(switch[3], router[2], intfName2="r2-eth1")
         self.addLink(switch[3], router[3], intfName2="r3-eth1")
         # switch 4 is stub on remote RIP router
-        switch[4] = self.addSwitch("sw4", cls=topotest.LegacySwitch)
+        switch[4] = self.addSwitch("sw4")
         self.addLink(switch[4], router[3], intfName2="r3-eth0")
 
-        switch[5] = self.addSwitch("sw5", cls=topotest.LegacySwitch)
+        switch[5] = self.addSwitch("sw5")
         self.addLink(switch[5], router[1], intfName2="r1-eth2")
-        switch[6] = self.addSwitch("sw6", cls=topotest.LegacySwitch)
+        switch[6] = self.addSwitch("sw6")
         self.addLink(switch[6], router[1], intfName2="r1-eth3")
 
 
@@ -443,7 +438,6 @@ def test_shutdown_check_memleak():
 
 if __name__ == "__main__":
 
-    setLogLevel("info")
     # To suppress tracebacks, either use the following pytest call or add "--tb=no" to cli
     # retval = pytest.main(["-s", "--tb=no"])
     retval = pytest.main(["-s"])

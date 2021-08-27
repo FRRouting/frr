@@ -119,7 +119,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.pim import McastTesterHelper
 
 pytestmark = [pytest.mark.pimd, pytest.mark.ospfd]
 

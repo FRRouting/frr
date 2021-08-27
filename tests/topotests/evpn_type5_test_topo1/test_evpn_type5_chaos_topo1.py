@@ -51,7 +51,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topotest import version_cmp
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -99,7 +99,6 @@ except IOError:
 # Reading the data from JSON File for topology creation
 # Global variables
 TCPDUMP_FILE = "evpn_log.txt"
-LOGDIR = "/tmp/topotests/"
 NETWORK1_1 = {"ipv4": "10.1.1.1/32", "ipv6": "10::1/128"}
 NETWORK1_2 = {"ipv4": "40.1.1.1/32", "ipv6": "40::1/128"}
 NETWORK1_3 = {"ipv4": "40.1.1.2/32", "ipv6": "40::2/128"}

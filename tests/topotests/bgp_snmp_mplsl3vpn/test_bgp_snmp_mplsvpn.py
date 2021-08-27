@@ -45,7 +45,7 @@ from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
 
@@ -255,7 +255,7 @@ def test_pe1_converge_evpn():
     "Wait for protocol convergence"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     assertmsg = "BGP SNMP does not seem to be running"
@@ -297,7 +297,7 @@ interfaces_down_test = {
 def test_r1_mplsvpn_scalars():
     "check scalar values"
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     for item in interfaces_up_test.keys():
@@ -310,12 +310,11 @@ def test_r1_mplsvpn_scalars():
 def test_r1_mplsvpn_scalars_interface():
     "check scalar interface changing values"
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
-    r1_cmd = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth4\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth4\nshutdown")
 
     for item in interfaces_up_test.keys():
         assertmsg = "{} should be {}: value {}".format(
@@ -323,8 +322,8 @@ def test_r1_mplsvpn_scalars_interface():
         )
         assert r1_snmp.test_oid(item, interfaces_down_test[item]), assertmsg
 
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth4\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth4\nno shutdown")
 
     for item in interfaces_up_test.keys():
         assertmsg = "{} should be {}: value {}".format(
@@ -378,15 +377,14 @@ def test_r1_mplsvpn_IfTable():
     "mplsL3VpnIf table values"
 
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     # tgen.mininet_cli()
-    eth3_ifindex = router_interface_get_ifindex(r1r, "eth3")
-    eth4_ifindex = router_interface_get_ifindex(r1r, "eth4")
-    eth5_ifindex = router_interface_get_ifindex(r1r, "eth5")
+    eth3_ifindex = router_interface_get_ifindex(r1, "eth3")
+    eth4_ifindex = router_interface_get_ifindex(r1, "eth4")
+    eth5_ifindex = router_interface_get_ifindex(r1, "eth5")
 
     # get ifindex and make sure the oid is correct
 
@@ -432,8 +430,7 @@ vrftable_test = {
 def test_r1_mplsvpn_VrfTable():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -476,7 +473,7 @@ def test_r1_mplsvpn_VrfTable():
         "mplsL3VpnVrfConfLastChanged.{}".format(snmp_str_to_oid("VRF-a"))
     )
     ts_val_last_1 = get_timetick_val(ts_last)
-    r1r.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
     active_int = r1_snmp.get(
         "mplsL3VpnVrfActiveInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
     )
@@ -491,7 +488,7 @@ def test_r1_mplsvpn_VrfTable():
     ts_val_last_2 = get_timetick_val(ts_last)
     assertmsg = "mplsL3VpnVrfConfLastChanged does not update on interface change"
     assert ts_val_last_2 > ts_val_last_1, assertmsg
-    r1r.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
 
     # take Last changed time, fiddle with associated interfaces, ensure
     # time changes and active interfaces change
@@ -533,8 +530,7 @@ rt_table_test = {
 def test_r1_mplsvpn_VrfRT_table():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -554,8 +550,7 @@ def test_r1_mplsvpn_VrfRT_table():
 def test_r1_mplsvpn_perf_table():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -682,8 +677,7 @@ rte_table_test = {
 def test_r1_mplsvpn_rte_table():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -734,12 +728,12 @@ def test_r1_mplsvpn_rte_table():
     # generate ifindex row grabbing ifindices from vtysh
     if passed:
         ifindex_row = [
-            router_interface_get_ifindex(r1r, "eth3"),
-            router_interface_get_ifindex(r1r, "eth4"),
-            router_interface_get_ifindex(r1r, "eth2"),
-            router_interface_get_ifindex(r1r, "eth3"),
+            router_interface_get_ifindex(r1, "eth3"),
+            router_interface_get_ifindex(r1, "eth4"),
+            router_interface_get_ifindex(r1, "eth2"),
+            router_interface_get_ifindex(r1, "eth3"),
             "0",
-            router_interface_get_ifindex(r1r, "eth4"),
+            router_interface_get_ifindex(r1, "eth4"),
             "0",
         ]
         if not r1_snmp.test_oid_walk(

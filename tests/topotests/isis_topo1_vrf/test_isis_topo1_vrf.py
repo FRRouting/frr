@@ -43,7 +43,7 @@ from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import required_linux_kernel_version
 
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.isisd]
 

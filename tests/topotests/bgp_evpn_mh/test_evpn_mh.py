@@ -47,14 +47,12 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+# Required to instantiate the topology builder class.
+from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
 pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
-
 
 #####################################################
 ##

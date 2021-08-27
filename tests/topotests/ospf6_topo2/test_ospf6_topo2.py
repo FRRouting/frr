@@ -42,7 +42,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ospf6d]
 
@@ -346,7 +346,7 @@ def test_nssa_lsa_type7():
     def dont_expect_route(unexpected_route):
         "Specialized test function to expect route go missing"
         output = tgen.gears["r4"].vtysh_cmd("show ipv6 ospf6 route json", isjson=True)
-        if output["routes"].has_key(unexpected_route):
+        if unexpected_route in output["routes"]:
             return output["routes"][unexpected_route]
         return None
 

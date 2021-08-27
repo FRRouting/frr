@@ -43,7 +43,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
@@ -99,20 +99,12 @@ def setup_module(mod):
 
     logger.info("Testing with VRF Namespace support")
 
-    cmds = [
-        "if [ -e /var/run/netns/{0}-ospf-cust1 ] ; then ip netns del {0}-ospf-cust1 ; fi",
-        "ip netns add {0}-ospf-cust1",
-        "ip link set dev {0}-eth0 netns {0}-ospf-cust1",
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth0 up",
-        "ip link set dev {0}-eth1 netns {0}-ospf-cust1",
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth1 up",
-    ]
-
     for rname, router in router_list.items():
-
-        # create VRF rx-ospf-cust1 and link rx-eth0 to rx-ospf-cust1
-        for cmd in cmds:
-            output = tgen.net[rname].cmd(cmd.format(rname))
+        # create VRF rx-ospf-cust1 and link rx-eth{0,1} to rx-ospf-cust1
+        ns = "{}-ospf-cust1".format(rname)
+        router.net.add_netns(ns)
+        router.net.set_intf_netns(rname + "-eth0", ns, up=True)
+        router.net.set_intf_netns(rname + "-eth1", ns, up=True)
 
         router.load_config(
             TopoRouter.RD_ZEBRA,
@@ -134,18 +126,12 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
-    # move back rx-eth0 to default VRF
-    # delete rx-vrf
-    cmds = [
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth1 netns 1",
-        "ip netns delete {0}-ospf-cust1",
-    ]
-
+    # Move interfaces out of vrf namespace and delete the namespace
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        for cmd in cmds:
-            tgen.net[rname].cmd(cmd.format(rname))
+        tgen.net[rname].reset_intf_netns(rname + "-eth0")
+        tgen.net[rname].reset_intf_netns(rname + "-eth1")
+        tgen.net[rname].delete_netns(rname + "-ospf-cust1")
     tgen.stop_topology()
 
 

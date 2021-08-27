@@ -45,7 +45,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.staticd]
 
@@ -172,7 +172,7 @@ def test_static_timing():
         do_config(prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0])
 
         # Remove 1/2 of duplicate
-        do_config(prefix_count / 2, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][0])
+        do_config(prefix_count // 2, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][0])
 
         # Add all back in so 1/2 replicate 1/2 new
         do_config(prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0])
