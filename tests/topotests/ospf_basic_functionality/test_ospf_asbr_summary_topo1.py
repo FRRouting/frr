@@ -1384,7 +1384,7 @@ def test_ospf_type5_summary_tc45_p0(request):
 
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
+    result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
