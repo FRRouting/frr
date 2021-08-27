@@ -366,6 +366,9 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		if (args->ifnamelen)
 			stream_put(s, args->ifname, args->ifnamelen);
 	}
+
+	/* Send the C bit indicator. */
+	stream_putc(s, args->cbit);
 #endif /* HAVE_BFDD */
 
 	/* Finish the message by writing the size. */
