@@ -517,8 +517,8 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 				zlog_debug(
 					"local membership del for %s as G is now SSM",
 					pim_str_sg_dump(&sg));
-			pim_ifchannel_local_membership_del(
-				group->interface, &sg);
+			pim_ifchannel_local_membership_del(group->interface,
+							   &sg);
 		}
 	} else {
 		/* If ASM group add local membership */
@@ -529,8 +529,7 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 					"local membership add for %s as G is now ASM",
 					pim_str_sg_dump(&sg));
 			pim_ifchannel_local_membership_add(
-				group->interface, &sg,
-				false /*is_vxlan*/);
+				group->interface, &sg, false /*is_vxlan*/);
 		}
 	}
 }
@@ -557,8 +556,8 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
 						  srcnode, src)) {
 				igmp_source_forward_reevaluate_one(pim, src);
-			} /* scan group sources */
-		}	 /* scan igmp groups */
+			}	  /* scan group sources */
+		}		  /* scan igmp groups */
 	}			  /* scan interfaces */
 }
 
@@ -576,11 +575,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
-		zlog_debug(
-			"%s: (S,G)=%s oif=%s fwd=%d", __func__,
-			pim_str_sg_dump(&sg),
-			source->source_group->interface->name,
-			IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
+		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
+			   pim_str_sg_dump(&sg),
+			   source->source_group->interface->name,
+			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
 	/* Prevent IGMP interface from installing multicast route multiple
@@ -726,16 +724,15 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	  Feed IGMPv3-gathered local membership information into PIM
 	  per-interface (S,G) state.
 	 */
-	if (!pim_ifchannel_local_membership_add(
-						group->interface, &sg,
+	if (!pim_ifchannel_local_membership_add(group->interface, &sg,
 						false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_warn("%s: Failure to add local membership for %s",
 				  __func__, pim_str_sg_dump(&sg));
 
 		pim_channel_del_oif(source->source_channel_oil,
-				    group->interface,
-				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
+				    group->interface, PIM_OIF_FLAG_PROTO_IGMP,
+				    __func__);
 		return;
 	}
 
@@ -757,11 +754,10 @@ void igmp_source_forward_stop(struct igmp_source *source)
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
-		zlog_debug(
-			"%s: (S,G)=%s oif=%s fwd=%d", __func__,
-			pim_str_sg_dump(&sg),
-			source->source_group->interface->name,
-			IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
+		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
+			   pim_str_sg_dump(&sg),
+			   source->source_group->interface->name,
+			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
 
 	/* Prevent IGMP interface from removing multicast route multiple
@@ -784,9 +780,8 @@ void igmp_source_forward_stop(struct igmp_source *source)
 	 pim_forward_stop below.
 	*/
 	result = pim_channel_del_oif(source->source_channel_oil,
-				     group->interface,
-					 PIM_OIF_FLAG_PROTO_IGMP,
-					 __func__);
+				     group->interface, PIM_OIF_FLAG_PROTO_IGMP,
+				     __func__);
 	if (result) {
 		if (PIM_DEBUG_IGMP_TRACE)
 			zlog_debug(

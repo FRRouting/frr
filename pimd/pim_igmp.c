@@ -938,11 +938,9 @@ void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
 	pim_ifp->igmp_group_list = list_new();
 	pim_ifp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
 
-	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash",
-		 ifp->name);
-	pim_ifp->igmp_group_hash = hash_create(igmp_group_hash_key,
-					       igmp_group_hash_equal,
-					       hash_name);
+	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
+	pim_ifp->igmp_group_hash = hash_create(
+		igmp_group_hash_key, igmp_group_hash_equal, hash_name);
 }
 
 void pim_igmp_if_reset(struct pim_interface *pim_ifp)
