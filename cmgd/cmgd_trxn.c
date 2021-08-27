@@ -1097,6 +1097,9 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
+	cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
+                cmt_stats->prep_cfg_start);
+
 	/*
 	 * Iterate over the diffs and create ordered batches of config 
 	 * commands to be validated.
@@ -1244,7 +1247,10 @@ static int cmgd_trxn_cfg_commit_timedout(struct thread *thread)
 	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
 
-	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
+	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG);
+
+	if (!trxn->commit_cfg_req)
+		return 0;
 
 	CMGD_TRXN_ERR("Backend operations for Config Trxn %p has timedout! Aborting commit!!",
 		trxn);
@@ -1298,7 +1304,7 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 			btch_list = &cmtcfg_req->curr_batches[id];
 			num_batches = cmgd_trxn_batch_list_count(btch_list);
 			batch_ids = (cmgd_trxn_batch_id_t *)
-					calloc(num_batches,
+					calloc(CMGD_TRXN_MAX_BATCH_IDS_IN_REQ,
 						sizeof(cmgd_trxn_batch_id_t));
 
 			indx = 0;
@@ -1306,13 +1312,25 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 				batch_ids[indx] = (cmgd_trxn_batch_id_t) cfg_btch;
 				indx++;
 				assert(indx <= num_batches);
+				if (indx == CMGD_TRXN_MAX_BATCH_IDS_IN_REQ) {
+					if (cmgd_bcknd_send_cfg_apply_req(adptr,
+						(cmgd_trxn_id_t) trxn,
+						batch_ids, indx) != 0) {
+						(void) cmgd_trxn_send_commit_cfg_reply(
+							trxn, false,
+							"Could not send CFG_APPLY_REQ to backend adapter");
+						return -1;
+					}
+					indx = 0;
+				}
 			}
-		
-			if (cmgd_bcknd_send_cfg_apply_req(adptr,
-				(cmgd_trxn_id_t) trxn, batch_ids, indx) != 0) {
+
+			if (indx && cmgd_bcknd_send_cfg_apply_req(adptr,
+					(cmgd_trxn_id_t) trxn, batch_ids,
+					indx) != 0) {
 				(void) cmgd_trxn_send_commit_cfg_reply(
 					trxn, false,
-					"Could not send TRXN_CREATE to backend adapter");
+					"Could not send CFG_APPLY_REQ to backend adapter");
 				return -1;
 			}
 
@@ -1375,7 +1393,7 @@ static int cmgd_trxn_send_bcknd_cfg_validate(cmgd_trxn_ctxt_t *trxn)
 				(cmgd_trxn_id_t) trxn, batch_ids, indx) != 0) {
 				(void) cmgd_trxn_send_commit_cfg_reply(
 					trxn, false,
-					"Could not send TRXN_CREATE to backend adapter");
+					"Could not send CFG_VALIDATE_REQ to backend adapter");
 				return -1;
 			}
 
@@ -1415,7 +1433,6 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 	cmtcfg_req = &trxn->commit_cfg_req->req.commit_cfg;
 	switch (cmtcfg_req->curr_phase) {
 	case CMGD_COMMIT_PHASE_PREPARE_CFG:
-		cmgd_get_realtime(&cmtcfg_req->cmt_stats->prep_cfg_start);
 		cmgd_trxn_prepare_config(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_TRXN_CREATE:
@@ -2270,10 +2287,10 @@ extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
 	size_t indx;
 
 	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
-	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG) 
+	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG
+	    || !trxn->commit_cfg_req)
 		return -1;
 
-	assert(trxn->commit_cfg_req);
 	cmtcfg_req = 
 		&trxn->commit_cfg_req->req.commit_cfg;
 

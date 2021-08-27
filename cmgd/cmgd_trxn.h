@@ -29,7 +29,7 @@
 #include "cmgd/cmgd.h"
 #include "cmgd/cmgd_db.h"
 
-#define CMGD_TRXN_PROC_DELAY_MSEC               10
+#define CMGD_TRXN_PROC_DELAY_MSEC               5
 #define CMGD_TRXN_MAX_NUM_SETCFG_PROC           128
 #define CMGD_TRXN_MAX_NUM_GETCFG_PROC           128
 #define CMGD_TRXN_MAX_NUM_GETDATA_PROC          128
@@ -37,6 +37,8 @@
 #define CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC   100
 #define CMGD_TRXN_SEND_CFGAPPLY_DELAY_MSEC      100
 #define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     10000   /* 10 seconds */
+
+#define CMGD_TRXN_MAX_BATCH_IDS_IN_REQ          (CMGD_BCKND_MSG_MAX_LEN/sizeof(cmgd_trxn_batch_id_t))/2
 
 /*
  * The following definition enables local validation of config

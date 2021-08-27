@@ -436,7 +436,7 @@ int main(int argc, char **argv)
 	// int no_zebra_flag = 0;
 	// int skip_runas = 0;
 	// int instance = 0;
-	int buffer_size = CMGD_SOCKET_SNDBUF_SIZE;
+	int buffer_size = CMGD_SOCKET_BUF_SIZE;
 	// char *address;
 	// struct listnode *node;
 
