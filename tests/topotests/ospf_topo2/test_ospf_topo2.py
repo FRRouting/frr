@@ -44,7 +44,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
@@ -95,10 +95,10 @@ def setup_module(mod):
         # the rp_filter.  Setting it to '0' allows the OS to pass
         # up the mcast packet not destined for the local routers
         # network.
-        topotest.set_sysctl(tgen.net["r1"], "net.ipv4.conf.r1-eth1.rp_filter", 0)
-        topotest.set_sysctl(tgen.net["r1"], "net.ipv4.conf.all.rp_filter", 0)
-        topotest.set_sysctl(tgen.net["r2"], "net.ipv4.conf.r2-eth1.rp_filter", 0)
-        topotest.set_sysctl(tgen.net["r2"], "net.ipv4.conf.all.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r1"], "net.ipv4.conf.r1-eth1.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r1"], "net.ipv4.conf.all.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r2"], "net.ipv4.conf.r2-eth1.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r2"], "net.ipv4.conf.all.rp_filter", 0)
 
     # Initialize all routers.
     tgen.start_router()

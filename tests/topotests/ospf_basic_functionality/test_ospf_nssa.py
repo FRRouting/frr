@@ -49,7 +49,7 @@ from lib.common_config import (
 )
 from ipaddress import IPv4Address
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 import os
 import sys
 import time

@@ -41,7 +41,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 
 # TODO: select markers based on daemons used during test
@@ -87,7 +87,7 @@ def setup_module(mod):
     "Sets up the pytest environment"
     # This function initiates the topology build with Topogen...
     tgen = Topogen(TemplateTopo, mod.__name__)
-    # ... and here it calls Mininet initialization functions.
+    # ... and here it calls initialization functions.
     tgen.start_topology()
 
     # This is a sample of configuration loading.
@@ -113,15 +113,15 @@ def teardown_module(mod):
     tgen.stop_topology()
 
 
-def test_call_mininet_cli():
-    "Dummy test that just calls mininet CLI so we can interact with the build."
+def test_call_cli():
+    "Dummy test that just calls tgen.cli() so we can interact with the build."
     tgen = get_topogen()
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    logger.info("calling mininet CLI")
-    tgen.mininet_cli()
+    # logger.info("calling CLI")
+    # tgen.cli()
 
 
 # Memory leak test template

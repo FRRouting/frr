@@ -54,7 +54,7 @@ from json import load as json_load
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,

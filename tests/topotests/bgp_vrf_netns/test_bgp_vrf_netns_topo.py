@@ -42,7 +42,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -108,24 +108,11 @@ def setup_module(module):
 
     # create VRF r1-bgp-cust1
     # move r1-eth0 to VRF r1-bgp-cust1
-    cmds = [
-        "if [ -e /var/run/netns/{0}-bgp-cust1 ] ; then ip netns del {0}-bgp-cust1 ; fi",
-        "ip netns add {0}-bgp-cust1",
-        "ip link set {0}-eth0 netns {0}-bgp-cust1 up",
-    ]
-    for cmd in cmds:
-        cmd = cmd.format("r1")
-        logger.info("cmd: " + cmd)
-        output = router.run(cmd.format("r1"))
-        if output != None and len(output) > 0:
-            logger.info(
-                'Aborting due to unexpected output: cmd="{}" output=\n{}'.format(
-                    cmd, output
-                )
-            )
-            return pytest.skip(
-                "Skipping BGP VRF NETNS Test. Unexpected output to command: " + cmd
-            )
+
+    ns = "{}-bgp-cust1".format("r1")
+    router.net.add_netns(ns)
+    router.net.set_intf_netns("r1-eth0", ns, up=True)
+
     # run daemons
     router.load_config(
         TopoRouter.RD_ZEBRA,
@@ -152,14 +139,10 @@ def setup_module(module):
 
 def teardown_module(module):
     tgen = get_topogen()
-    # move back r1-eth0 to default VRF
-    # delete VRF r1-bgp-cust1
-    cmds = [
-        "ip netns exec {0}-bgp-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns delete {0}-bgp-cust1",
-    ]
-    for cmd in cmds:
-        tgen.net["r1"].cmd(cmd.format("r1"))
+
+    # Move interfaces out of vrf namespace and delete the namespace
+    tgen.net["r1"].reset_intf_netns("r1-eth0")
+    tgen.net["r1"].delete_netns("r1-bgp-cust1")
 
     tgen.stop_topology()
 

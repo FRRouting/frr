@@ -41,7 +41,7 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.pimd]
 
@@ -208,22 +208,29 @@ def test_pim_igmp_report():
     r1 = tgen.gears["r1"]
 
     # Let's send a igmp report from r2->r1
-    CWD = os.path.dirname(os.path.realpath(__file__))
-    r2.run("{}/mcast-rx.py 229.1.1.2 r2-eth0 &".format(CWD))
-
-    out = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
-    expected = {
-        "229.1.1.2": {
-            "*": {
-                "sourceIgmp": 1,
-                "joinState": "Joined",
-                "regState": "RegNoInfo",
-                "sptBit": 0,
+    cmd = [ os.path.join(CWD, "mcast-rx.py"), "229.1.1.2", "r2-eth0" ]
+    p = r2.popen(cmd)
+    try:
+        expected = {
+            "229.1.1.2": {
+                "*": {
+                    "sourceIgmp": 1,
+                    "joinState": "Joined",
+                    "regState": "RegNoInfo",
+                    "sptBit": 0,
+                }
             }
         }
-    }
-
-    assert topotest.json_cmp(out, expected) is None, "failed to converge pim"
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip pim upstream json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=.5)
+        assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+        assert result is None, assertmsg
+    finally:
+        if p:
+            p.terminate()
+            p.wait()
 
 
 def test_memory_leak():

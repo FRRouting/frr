@@ -39,7 +39,7 @@ from lib.topolog import logger
 from lib.lutil import *
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 customize = None
 

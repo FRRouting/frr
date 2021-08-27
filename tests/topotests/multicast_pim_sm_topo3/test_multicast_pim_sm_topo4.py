@@ -61,7 +61,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -210,6 +210,9 @@ def teardown_module():
 
     tgen = get_topogen()
 
+    # Kill any iperfs we left running.
+    kill_iperf(tgen)
+
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
 
@@ -323,15 +326,16 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove c1-c2 connected link to simulate topo "
         "c1(FHR)---l1(RP)----r2---f1-----c2(LHR)"
@@ -621,15 +625,16 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove c1-c2 connected link to simulate topo "
         "c1(LHR)---l1(RP)----r2---f1-----c2(FHR)"
@@ -908,15 +913,16 @@ def test_PIM_hello_tx_rx_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
     kill_iperf(tgen)
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove c1-c2 connected link to simulate topo "
         "c1(LHR)---l1(RP)----r2---f1-----c2(FHR)"

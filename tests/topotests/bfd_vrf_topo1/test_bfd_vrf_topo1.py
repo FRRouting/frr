@@ -44,7 +44,7 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
 
@@ -94,24 +94,14 @@ def setup_module(mod):
 
     logger.info("Testing with VRF Namespace support")
 
-    cmds = [
-        "if [ -e /var/run/netns/{0}-bfd-cust1 ] ; then ip netns del {0}-bfd-cust1 ; fi",
-        "ip netns add {0}-bfd-cust1",
-        "ip link set dev {0}-eth0 netns {0}-bfd-cust1 up",
-    ]
-    cmds2 = [
-        "ip link set dev {0}-eth1 netns {0}-bfd-cust1",
-        "ip netns exec {0}-bfd-cust1 ip link set {0}-eth1 up",
-        "ip link set dev {0}-eth2 netns {0}-bfd-cust1 up",
-    ]
-
     for rname, router in router_list.items():
         # create VRF rx-bfd-cust1 and link rx-eth0 to rx-bfd-cust1
-        for cmd in cmds:
-            output = tgen.net[rname].cmd_raises(cmd.format(rname))
+        ns = "{}-bfd-cust1".format(rname)
+        router.net.add_netns(ns)
+        router.net.set_intf_netns(rname + "-eth0", ns, up=True)
         if rname == "r2":
-            for cmd in cmds2:
-                output = tgen.net[rname].cmd_raises(cmd.format(rname))
+            router.net.set_intf_netns(rname + "-eth1", ns, up=True)
+            router.net.set_intf_netns(rname + "-eth2", ns, up=True)
 
     for rname, router in router_list.items():
         router.load_config(
@@ -133,24 +123,15 @@ def setup_module(mod):
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
-    # move back rx-eth0 to default VRF
-    # delete rx-vrf
-    cmds = [
-        "ip netns exec {0}-bfd-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns delete {0}-bfd-cust1",
-    ]
-    cmds2 = [
-        "ip netns exec {0}-bfd-cust1 ip link set {0}-eth1 netns 1",
-        "ip netns exec {0}-cust2 ip link set {0}-eth1 netns 1",
-    ]
 
+    # Move interfaces out of vrf namespace and delete the namespace
     router_list = tgen.routers()
     for rname, router in router_list.items():
         if rname == "r2":
-            for cmd in cmds2:
-                tgen.net[rname].cmd(cmd.format(rname))
-        for cmd in cmds:
-            tgen.net[rname].cmd(cmd.format(rname))
+            router.net.reset_intf_netns(rname + "-eth2")
+            router.net.reset_intf_netns(rname + "-eth1")
+        router.net.reset_intf_netns(rname + "-eth0")
+        router.net.delete_netns("{}-bfd-cust1".format(rname))
     tgen.stop_topology()
 
 

@@ -41,7 +41,6 @@ sys.path.append(os.path.join(CWD, '../'))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.sharpd]
 
@@ -54,16 +53,11 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router('r1')
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()
-    router_list = tgen.routers()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
         router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, '{}/zebra.conf'.format(rname)))

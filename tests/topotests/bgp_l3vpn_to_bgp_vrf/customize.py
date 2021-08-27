@@ -86,7 +86,7 @@ from lib.topolog import logger
 from lib.ltemplate import ltemplateRtrCmd
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
+from lib.micronet_compat import Topo
 
 import shutil
 
@@ -154,10 +154,6 @@ def ltemplatePreRouterStartHook():
     # check for mpls
     if tgen.hasmpls != True:
         logger.info("MPLS not available, skipping setup")
-        return False
-    # check for normal init
-    if len(tgen.net) == 1:
-        logger.info("Topology not configured, skipping setup")
         return False
     # trace errors/unexpected output
     cc.resetCounts()

@@ -41,7 +41,6 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import shutdown_bringup_interface
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.sharpd]
 
@@ -54,14 +53,8 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-class TemplateTopo(Topo):
-    def build(self, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router("r1")
-
-
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():
