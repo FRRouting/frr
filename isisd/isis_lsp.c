@@ -641,7 +641,7 @@ void lsp_insert(struct lspdb_head *head, struct isis_lsp *lsp)
 }
 
 /*
- * Build a list of LSPs with non-zero ht bounded by start and stop ids
+ * Build a list of LSPs with non-zero ht and seqno bounded by start and stop ids
  */
 void lsp_build_list_nonzero_ht(struct lspdb_head *head, const uint8_t *start_id,
 			       const uint8_t *stop_id, struct list *list)
@@ -657,7 +657,7 @@ void lsp_build_list_nonzero_ht(struct lspdb_head *head, const uint8_t *start_id,
 			   ISIS_SYS_ID_LEN + 2) > 0)
 			break;
 
-		if (lsp->hdr.rem_lifetime)
+		if (lsp->hdr.rem_lifetime && lsp->hdr.seqno)
 			listnode_add(list, lsp);
 	}
 }
