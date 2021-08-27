@@ -2694,7 +2694,7 @@ void ripng_vrf_init(void)
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
 		 ripng_vrf_delete, ripng_vrf_enable);
 
-	vrf_cmd_init(NULL, &ripngd_privs);
+	vrf_cmd_init(NULL);
 }
 
 void ripng_vrf_terminate(void)
