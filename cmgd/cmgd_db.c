@@ -143,14 +143,38 @@ static int cmgd_db_merge_src_with_dst_db(
 	return cmgd_db_replace_dst_with_src_db(src, dst);
 }
 
+static int cmgd_db_load_cfg_from_file(const char *filepath, struct lyd_node **dnode)
+{
+	LY_ERR ret;
+
+	*dnode = NULL;
+	ret = lyd_parse_data_path(ly_native_ctx, filepath, LYD_JSON, LYD_PARSE_STRICT, 0, dnode);
+
+	if (ret != LY_SUCCESS) {
+		if (*dnode)
+			yang_dnode_free(*dnode);
+		return -1;
+	}
+
+	return 0;
+}
+
 int cmgd_db_init(struct cmgd_master *cm)
 {
+	struct lyd_node *root;
+
 	if (cmgd_db_cm || cm->running_db || cm->candidate_db || cm->oper_db)
 		assert(!"Call cmgd_db_init() only once!");
 
 	// Use Running DB from NB module???
 	if (!running_config)
 		assert(!"Call cmgd_db_init() after frr_init() only!");
+
+	if (cmgd_db_load_cfg_from_file(CMGD_STARTUP_DB_FILE_PATH, &root) == 0) {
+		nb_config_free(running_config);
+		running_config = nb_config_new(root);
+	}
+
 	running.root.cfg_root = running_config;
 	// running.root.cfg_root = nb_config_new(NULL);
 	running.config_db = true;
@@ -511,7 +535,6 @@ int cmgd_db_load_config_from_file(cmgd_db_hndl_t db_hndl,
 	const char * file_path, bool merge)
 {
 	struct lyd_node *iter;
-	LY_ERR ret;
 	cmgd_db_ctxt_t *dst;
 	cmgd_db_ctxt_t parsed;
 
@@ -519,15 +542,14 @@ int cmgd_db_load_config_from_file(cmgd_db_hndl_t db_hndl,
 	if (!dst)
 		return -1;
 
-	ret = lyd_parse_data_path(ly_native_ctx, file_path, LYD_JSON, LYD_PARSE_STRICT, 0, &iter);
-
-	if (ret != LY_SUCCESS) {
-		yang_dnode_free(iter);
-		return ret;
+	if (cmgd_db_load_cfg_from_file(file_path, &iter) != 0) {
+		CMGD_DB_ERR("Failed to load config from the file %s", file_path);
+		return -1;
 	}
 
 	parsed.root.cfg_root = nb_config_new(iter);
 	parsed.config_db = true;
+	parsed.db_id = ((cmgd_db_ctxt_t *)db_hndl)->db_id;
 
 	if (merge)
 		cmgd_db_merge_src_with_dst_db(&parsed, dst);
