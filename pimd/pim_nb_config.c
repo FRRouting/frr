@@ -105,7 +105,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 			}
 
 		} /* scan group sources */
-	}        /* scan igmp groups */
+	}	  /* scan igmp groups */
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
@@ -483,8 +483,8 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 			igmp_group_reset_gmi(grp);
 
 		/* scan group sources */
-		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
-					src_node, src)) {
+		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, src_node,
+					  src)) {
 
 			/* reset source timers for sources with running
 			 * timers

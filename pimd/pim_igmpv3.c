@@ -198,8 +198,7 @@ static void source_timer_off(struct igmp_group *group,
 			       sizeof(source_str));
 		zlog_debug(
 			"Cancelling TIMER event for group %s source %s on %s",
-			group_str, source_str,
-			group->interface->name);
+			group_str, source_str, group->interface->name);
 	}
 
 	THREAD_OFF(source->t_source_timer);
@@ -362,8 +361,7 @@ void igmp_source_delete(struct igmp_source *source)
 			       sizeof(source_str));
 		zlog_debug(
 			"Deleting IGMP source %s for group %s from interface %s c_oil ref_count %d",
-			source_str, group_str,
-			group->interface->name,
+			source_str, group_str, group->interface->name,
 			source->source_channel_oil
 				? source->source_channel_oil->oil_ref_count
 				: 0);
@@ -994,14 +992,13 @@ static void igmp_send_query_group(struct igmp_group *group, char *query_buf,
 	struct listnode *sock_node;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
-		igmp_send_query(pim_ifp->igmp_version, group, igmp->fd,
-				ifp->name, query_buf, query_buf_size,
-				num_sources, group->group_addr,
-				group->group_addr,
-				pim_ifp->igmp_specific_query_max_response_time_dsec,
-				s_flag,
-				igmp->querier_robustness_variable,
-				igmp->querier_query_interval);
+		igmp_send_query(
+			pim_ifp->igmp_version, group, igmp->fd, ifp->name,
+			query_buf, query_buf_size, num_sources,
+			group->group_addr, group->group_addr,
+			pim_ifp->igmp_specific_query_max_response_time_dsec,
+			s_flag, igmp->querier_robustness_variable,
+			igmp->querier_query_interval);
 	}
 }
 
@@ -1177,10 +1174,9 @@ static int group_retransmit_sources(struct igmp_group *group,
 				  interest.
 				*/
 
-				igmp_send_query_group(group, query_buf1,
-						      sizeof(query_buf1),
-						      num_sources_tosend1,
-						      1 /* s_flag */);
+				igmp_send_query_group(
+					group, query_buf1, sizeof(query_buf1),
+					num_sources_tosend1, 1 /* s_flag */);
 			}
 
 		} /* send_with_sflag_set */
@@ -1214,10 +1210,9 @@ static int group_retransmit_sources(struct igmp_group *group,
 			  interest.
 			*/
 
-			igmp_send_query_group(group, query_buf2,
-					      sizeof(query_buf2),
-					      num_sources_tosend2,
-					      0 /* s_flag */);
+			igmp_send_query_group(
+				group, query_buf2, sizeof(query_buf2),
+				num_sources_tosend2, 0 /* s_flag */);
 		}
 	}
 
