@@ -19,6 +19,7 @@
  */
 
 #include "thread.h"
+#include "sockopt.h"
 #include "sockunion.h"
 #include "prefix.h"
 #include "network.h"
@@ -400,7 +401,6 @@ static int cmgd_bcknd_adapter_handle_msg(
 static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr, 
 	Cmgd__BckndMessage *bcknd_msg)
 {
-	int bytes_written;
 	size_t msg_size;
 	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
 	cmgd_bcknd_msg_t *msg;
@@ -422,18 +422,11 @@ static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr,
 	msg->hdr.len = (uint16_t) msg_size;
 	cmgd__bcknd_message__pack(bcknd_msg, msg->payload);
 
-	bytes_written = write(adptr->conn_fd, (void *)msg_buf, msg_size);
-	if (bytes_written != (int) msg_size) {
-		CMGD_BCKND_ADPTR_ERR(
-			"Could not write all %d bytes (wrote: %d) to CMGD Backend client '%s'. Err: '%s'", 
-			(int) msg_size, bytes_written, adptr->name, safe_strerror(errno));
-		cmgd_bcknd_adapter_disconnect(adptr);
-		return -1;
-	}
-
-	CMGD_BCKND_ADPTR_DBG(
-		"Wrote %d bytes of message to CMGD Backend client '%s'.'", 
-		bytes_written, adptr->name);
+	adptr->obuf_work = stream_new(msg_size);
+	stream_write(adptr->obuf_work, (void *)msg_buf, msg_size);
+	stream_fifo_push(adptr->obuf_fifo, adptr->obuf_work);
+	if (!CHECK_FLAG(adptr->flags, CMGD_BCKND_ADPTR_WRITES_ON))
+		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITE);
 	return 0;
 }
 
@@ -581,7 +574,10 @@ static int cmgd_bcknd_adapter_proc_msgbufs(struct thread *thread)
 	int processed = 0;
 
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
-	assert(adptr && adptr->conn_fd);
+	assert(adptr);
+
+	if (adptr->conn_fd == 0)
+		return 0;
 
 	for ( ; processed < CMGD_BCKND_MAX_NUM_MSG_PROC ; ) {
 		work = stream_fifo_pop_safe(adptr->ibuf_fifo);
@@ -631,7 +627,12 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 			"Got %d bytes of message from CMGD Backend adapter '%s'", 
 			bytes_read, adptr->name);
 		if (bytes_read <= 0) {
-			if (!total_bytes) {
+			if (bytes_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
+				return 0;
+			}
+
+			if (!bytes_read) {
 				/* Looks like connection closed */
 				CMGD_BCKND_ADPTR_ERR(
 					"Got error (%d) while reading from CMGD Backend adapter '%s'. Err: '%s'", 
@@ -658,25 +659,12 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 			(STREAM_DATA(adptr->ibuf_work) + total_bytes);
 		if (msg_hdr->marker != CMGD_BCKND_MSG_MARKER) {
 			/* Corrupted buffer. Force disconnect?? */
+			CMGD_BCKND_ADPTR_ERR(
+				"Received corrupted buffer from CMGD Backend client.");
 			cmgd_bcknd_adapter_disconnect(adptr);
 			return -1;
 		}
 		if (msg_hdr->len > bytes_left) {
-			/* 
-			 * Incomplete message. Terminate the current buffer
-			 * and add it to process fifo. And then copy the rest
-			 * to a new Ibuf 
-			 */
-			incomplete = true;
-			stream_set_endp(adptr->ibuf_work, total_bytes);
-			stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
-
-			CMGD_BCKND_ADPTR_DBG("Incomplete message of %d bytes (epxected: %u) found", 
-				(int) bytes_left, msg_hdr->len);
-
-			adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
-			stream_put(adptr->ibuf_work, msg_hdr, bytes_left);
-			stream_set_endp(adptr->ibuf_work, bytes_left);
 			break;
 		}
 
@@ -685,12 +673,23 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 		msg_cnt++;
 	}
 
+	if (bytes_left > 0)
+		incomplete = true;
+
 	/* 
 	 * We would have read one or several messages.
 	 * Schedule processing them now.
 	 */
-	if (!incomplete)
-		stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
+	msg_hdr = (cmgd_bcknd_msg_hdr_t *)
+		(STREAM_DATA(adptr->ibuf_work) + total_bytes);
+	stream_set_endp(adptr->ibuf_work, total_bytes);
+	stream_fifo_push(adptr->ibuf_fifo, adptr->ibuf_work);
+	adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+	if (incomplete) {
+		stream_put(adptr->ibuf_work, msg_hdr, bytes_left);
+		stream_set_endp(adptr->ibuf_work, bytes_left);
+	}
+
 	if (msg_cnt)
 		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_PROC_MSG);
 
@@ -701,12 +700,53 @@ static int cmgd_bcknd_adapter_read(struct thread *thread)
 
 static int cmgd_bcknd_adapter_write(struct thread *thread)
 {
+	int bytes_written = 0;
+	int processed = 0;
+	int msg_size = 0;
+	struct stream *s = NULL;
+	struct stream *free = NULL;
 	cmgd_bcknd_client_adapter_t *adptr;
-	// uint8_t bkcnd_msg[CMGD_BCKND_MSG_MAX_LEN];
-	//int bytes_read;
 
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+
+	s = stream_fifo_head(adptr->obuf_fifo);
+
+	while ((processed < CMGD_BCKND_MAX_NUM_MSG_WRITE)
+	       && (s != NULL)) {
+		msg_size = (int)stream_get_size(s);
+		bytes_written = stream_flush(s, adptr->conn_fd);
+		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITE);
+			return 0;
+		} else if (bytes_written != msg_size) {
+			CMGD_BCKND_ADPTR_ERR(
+				"Could not write all %d bytes (wrote: %d) to CMGD Backend client socket. Err: '%s'",
+				msg_size, bytes_written, safe_strerror(errno));
+			if (bytes_written > 0) {
+				stream_forward_getp(s, (size_t)bytes_written);
+				stream_pulldown(s);
+				cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITE);
+				return 0;
+			}
+			cmgd_bcknd_adapter_disconnect(adptr);
+			return -1;
+		}
+
+		free = stream_fifo_pop(adptr->obuf_fifo);
+		stream_free(free);
+		CMGD_BCKND_ADPTR_DBG(
+			"Wrote %d bytes of message to CMGD Backend client socket.'",
+			bytes_written);
+		s = stream_fifo_head(adptr->obuf_fifo);
+		processed++;
+	}
+
+	if (s) {
+		SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_WRITES_ON);
+		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_WRITES_ON);
+	} else
+		UNSET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_WRITES_ON);
 
 	return 0;
 }
@@ -733,6 +773,12 @@ static void cmgd_bcknd_adptr_register_event(
 				cmgd_bcknd_adapter_proc_msgbufs, adptr,
 				CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
 		break;
+	case CMGD_BCKND_CONN_WRITES_ON:
+		adptr->conn_writes_on =
+			thread_add_timer_msec(cmgd_bcknd_adptr_tm,
+				cmgd_bcknd_adapter_write, adptr,
+				CMGD_BCKND_MSG_WRITE_DELAY_MSEC, NULL);
+		break;
 	default:
 		assert(!"cmgd_bcknd_adptr_post_event() called incorrectly");
 	}
@@ -753,8 +799,8 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr)
 
 		stream_fifo_free((*adptr)->ibuf_fifo);
 		stream_free((*adptr)->ibuf_work);
-		// stream_fifo_free((*adptr)->obuf_fifo);
-		// stream_free((*adptr)->obuf_work);
+		stream_fifo_free((*adptr)->obuf_fifo);
+		stream_free((*adptr)->obuf_work);
 
 		XFREE(MTYPE_CMGD_BCKND_ADPATER, *adptr);
 	}
@@ -790,8 +836,9 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		snprintf(adptr->name, sizeof(adptr->name), "Unknown-FD-%d", adptr->conn_fd);
 		adptr->ibuf_fifo = stream_fifo_new();
 		adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
-		// adptr->obuf_fifo = stream_fifo_new();
+		adptr->obuf_fifo = stream_fifo_new();
 		// adptr->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
+		adptr->obuf_work = NULL;
 		cmgd_bcknd_adapter_lock(adptr);
 
 		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
@@ -803,6 +850,8 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(adptr->conn_fd);
+	setsockopt_so_sendbuf(adptr->conn_fd, CMGD_SOCKET_BUF_SIZE);
+	setsockopt_so_recvbuf(adptr->conn_fd, CMGD_SOCKET_BUF_SIZE);
 
 	return adptr;
 }

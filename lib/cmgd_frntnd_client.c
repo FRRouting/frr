@@ -62,12 +62,15 @@ typedef struct cmgd_frntnd_client_ctxt_ {
 	struct thread *conn_retry_tmr;
 	struct thread *conn_read_ev;
 	struct thread *conn_write_ev;
+	struct thread *conn_writes_on;
 	struct thread *msg_proc_ev;
+	uint32_t flags;
+#define CMGD_FRNTND_CLNT_WRITES_ON         (1U << 0)
 
 	struct stream_fifo *ibuf_fifo;
 	struct stream *ibuf_work;
-	// struct stream_fifo *obuf_fifo;
-	// struct stream *obuf_work;
+	struct stream_fifo *obuf_fifo;
+	struct stream *obuf_work;
 
 	cmgd_frntnd_client_params_t client_params;
 
@@ -142,7 +145,6 @@ static void cmgd_frntnd_server_disconnect(
 static int cmgd_frntnd_client_send_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt, 
 	Cmgd__FrntndMessage *frntnd_msg)
 {
-	int bytes_written;
 	size_t msg_size;
 	uint8_t msg_buf[CMGD_FRNTND_MSG_MAX_LEN];
 	cmgd_frntnd_msg_t *msg;
@@ -164,18 +166,11 @@ static int cmgd_frntnd_client_send_msg(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	msg->hdr.len = (uint16_t) msg_size;
 	cmgd__frntnd_message__pack(frntnd_msg, msg->payload);
 
-	bytes_written = write(clnt_ctxt->conn_fd, (void *)msg_buf, msg_size);
-	if (bytes_written != (int) msg_size) {
-		CMGD_FRNTND_CLNT_ERR(
-			"Could not write all %d bytes (wrote: %d) to CMGD Frontend server socket. Err: '%s'", 
-			(int) msg_size, bytes_written, safe_strerror(errno));
-		cmgd_frntnd_server_disconnect(clnt_ctxt, true);
-		return -1;
-	}
-
-	CMGD_FRNTND_CLNT_DBG(
-		"Wrote %d bytes of message to CMGD Frontend server socket.'", 
-		bytes_written);
+	clnt_ctxt->obuf_work = stream_new(msg_size);
+	stream_write(clnt_ctxt->obuf_work, (void *)msg_buf, msg_size);
+	stream_fifo_push(clnt_ctxt->obuf_fifo, clnt_ctxt->obuf_work);
+	if (!CHECK_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_WRITES_ON))
+		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
 	return 0;
 }
 
@@ -675,7 +670,12 @@ static int cmgd_frntnd_client_read(struct thread *thread)
 			"Got %d bytes of message from CMGD Frontend server", 
 			bytes_read);
 		if (bytes_read <= 0) {
-			if (!total_bytes) {
+			if (bytes_read == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+				cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_READ);
+				return 0;
+			}
+
+			if (!bytes_read) {
 				/* Looks like connection closed */
 				CMGD_FRNTND_CLNT_ERR(
 					"Got error (%d) while reading from CMGD Frontend server. Err: '%s'", 
@@ -702,36 +702,36 @@ static int cmgd_frntnd_client_read(struct thread *thread)
 			(STREAM_DATA(clnt_ctxt->ibuf_work) + total_bytes);
 		if (msg_hdr->marker != CMGD_FRNTND_MSG_MARKER) {
 			/* Corrupted buffer. Force disconnect?? */
+			CMGD_FRNTND_CLNT_ERR(
+				"Received corrupted buffer from CMGD frontend server.");
 			cmgd_frntnd_server_disconnect(clnt_ctxt, true);
 			return -1;
 		}
-		if (msg_hdr->len > bytes_left) {
-			/* 
-			 * Incomplete message. Terminate the current buffer
-			 * and add it to process fifo. And then copy the rest
-			 * to a new Ibuf 
-			 */
-			incomplete = true;
-			stream_set_endp(clnt_ctxt->ibuf_work, total_bytes);
-			stream_fifo_push(clnt_ctxt->ibuf_fifo, clnt_ctxt->ibuf_work);
-
-			clnt_ctxt->ibuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
-			stream_put(clnt_ctxt->ibuf_work, msg_hdr, bytes_left);
-			stream_set_endp(clnt_ctxt->ibuf_work, bytes_left);
+		if (msg_hdr->len > bytes_left)
 			break;
-		}
 
 		total_bytes += msg_hdr->len;
 		bytes_left -= msg_hdr->len;
 		msg_cnt++;
 	}
 
+	if (bytes_left > 0)
+		incomplete = true;
+
 	/* 
 	 * We would have read one or several messages.
 	 * Schedule processing them now.
 	 */
-	if (!incomplete)
-		stream_fifo_push(clnt_ctxt->ibuf_fifo, clnt_ctxt->ibuf_work);
+	msg_hdr = (cmgd_frntnd_msg_hdr_t *)
+		(STREAM_DATA(clnt_ctxt->ibuf_work) + total_bytes);
+	stream_set_endp(clnt_ctxt->ibuf_work, total_bytes);
+	stream_fifo_push(clnt_ctxt->ibuf_fifo, clnt_ctxt->ibuf_work);
+	clnt_ctxt->ibuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
+	if (incomplete) {
+		stream_put(clnt_ctxt->ibuf_work, msg_hdr, bytes_left);
+		stream_set_endp(clnt_ctxt->ibuf_work, bytes_left);
+	}
+
 	if (msg_cnt)
 		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_PROC_MSG);
 
@@ -742,10 +742,52 @@ static int cmgd_frntnd_client_read(struct thread *thread)
 
 static int cmgd_frntnd_client_write(struct thread *thread)
 {
+	int processed = 0;
+	int bytes_written = 0;
+	int msg_size = 0;
+	struct stream *s = NULL;
+	struct stream *free = NULL;
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
 
 	clnt_ctxt = (cmgd_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+
+	s = stream_fifo_head(clnt_ctxt->obuf_fifo);
+	while ((processed < CMGD_FRNTND_MAX_NUM_MSG_WRITE)
+	       && (s != NULL)) {
+		msg_size = (int)stream_get_size(s);
+		bytes_written = stream_flush(s, clnt_ctxt->conn_fd);
+		if (bytes_written == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) {
+			cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
+			return 0;
+		} else if (bytes_written != msg_size) {
+			CMGD_FRNTND_CLNT_ERR(
+				"Could not write all %d bytes (wrote: %d) to CMGD Frontend server socket. Err: '%s'",
+				(int) msg_size, bytes_written, safe_strerror(errno));
+			if (bytes_written > 0) {
+				stream_forward_getp(s, (size_t)bytes_written);
+				stream_pulldown(s);
+				cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITE);
+				return 0;
+			}
+			cmgd_frntnd_server_disconnect(clnt_ctxt, true);
+			return -1;
+		}
+
+		free = stream_fifo_pop(clnt_ctxt->obuf_fifo);
+		stream_free(free);
+		CMGD_FRNTND_CLNT_DBG(
+			"Wrote %d bytes of message to CMGD Frontend server socket.'",
+			bytes_written);
+		s = stream_fifo_head(clnt_ctxt->obuf_fifo);
+		processed++;
+	}
+
+	if (s) {
+		SET_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_WRITES_ON);
+		cmgd_frntnd_client_register_event(clnt_ctxt, CMGD_FRNTND_CONN_WRITES_ON);
+	} else
+		UNSET_FLAG(clnt_ctxt->flags, CMGD_FRNTND_CLNT_WRITES_ON);
 
 	return 0;
 }
@@ -850,6 +892,12 @@ static void cmgd_frntnd_client_register_event(
 				cmgd_frntnd_client_proc_msgbufs, clnt_ctxt,
 				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
 		break;
+	case CMGD_FRNTND_CONN_WRITES_ON:
+		clnt_ctxt->conn_writes_on =
+			thread_add_timer_msec(clnt_ctxt->tm,
+				cmgd_frntnd_client_write, clnt_ctxt,
+				CMGD_FRNTND_MSG_WRITE_DELAY_MSEC, NULL);
+		break;
 	default:
 		assert(!"cmgd_frntnd_clnt_ctxt_post_event() called incorrectly");
 	}
@@ -883,14 +931,15 @@ cmgd_lib_hndl_t cmgd_frntnd_client_lib_init(
 			CMGD_FRNTND_DEFAULT_CONN_RETRY_INTVL_SEC;
 
 	assert(!cmgd_frntnd_clntctxt.ibuf_fifo &&
-		!cmgd_frntnd_clntctxt.ibuf_work/* &&
+		!cmgd_frntnd_clntctxt.ibuf_work &&
 		!cmgd_frntnd_clntctxt.obuf_fifo &&
-		!cmgd_frntnd_clntctxt.obuf_work*/);
+		!cmgd_frntnd_clntctxt.obuf_work);
 	
 	cmgd_frntnd_clntctxt.ibuf_fifo = stream_fifo_new();
 	cmgd_frntnd_clntctxt.ibuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
-	// cmgd_frntnd_clntctxt.obuf_fifo = stream_fifo_new();
+	cmgd_frntnd_clntctxt.obuf_fifo = stream_fifo_new();
 	// cmgd_frntnd_clntctxt.obuf_work = stream_new(CMGD_FRNTND_MSG_MAX_LEN);
+	cmgd_frntnd_clntctxt.obuf_work = NULL;
 
 	cmgd_session_list_init(&cmgd_frntnd_clntctxt.client_sessions);
 
@@ -1131,12 +1180,12 @@ void cmgd_frntnd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 	cmgd_frntnd_server_disconnect(clnt_ctxt, false);
 
 	assert(cmgd_frntnd_clntctxt.ibuf_fifo &&
-		cmgd_frntnd_clntctxt.ibuf_work/* &&
+		cmgd_frntnd_clntctxt.ibuf_work &&
 		cmgd_frntnd_clntctxt.obuf_fifo &&
-		cmgd_frntnd_clntctxt.obuf_work*/);
+		cmgd_frntnd_clntctxt.obuf_work);
 	
 	stream_fifo_free(cmgd_frntnd_clntctxt.ibuf_fifo);
 	stream_free(cmgd_frntnd_clntctxt.ibuf_work);
-	// stream_fifo_free(cmgd_frntnd_clntctxt.obuf_fifo);
-	// stream_free(cmgd_frntnd_clntctxt.obuf_work);
+	stream_fifo_free(cmgd_frntnd_clntctxt.obuf_fifo);
+	stream_free(cmgd_frntnd_clntctxt.obuf_work);
 }

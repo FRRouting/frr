@@ -47,7 +47,7 @@
 // #define CMGD_MAX_HOSTNAME 64	/* Linux max, is larger than most other sys */
 
 #define CMGD_VTY_PORT			2622
-#define CMGD_SOCKET_SNDBUF_SIZE 	65536
+#define CMGD_SOCKET_BUF_SIZE		65535
 
 #define max(a, b)                                                              \
 	({                                                                     \

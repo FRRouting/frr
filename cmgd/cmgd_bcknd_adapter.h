@@ -100,7 +100,10 @@ typedef struct cmgd_bcknd_client_adapter_ {
         union sockunion conn_su;
         struct thread *conn_read_ev;
         struct thread *conn_write_ev;
+        struct thread *conn_writes_on;
         struct thread *proc_msg_ev;
+	uint32_t flags;
+#define CMGD_BCKND_ADPTR_WRITES_ON         (1U << 0)
         char name[CMGD_CLIENT_NAME_MAX_LEN];
         uint8_t num_xpath_reg;
         char xpath_reg[CMGD_MAX_NUM_XPATH_REG][CMGD_MAX_XPATH_LEN];
@@ -114,11 +117,11 @@ typedef struct cmgd_bcknd_client_adapter_ {
 	// pthread_mutex_t ibuf_mtx;
 	struct stream_fifo *ibuf_fifo;
 	// pthread_mutex_t obuf_mtx;
-	// struct stream_fifo *obuf_fifo;
+	struct stream_fifo *obuf_fifo;
 
 	// /* Private I/O buffers */
 	struct stream *ibuf_work;
-	// struct stream *obuf_work;
+	struct stream *obuf_work;
 
 	/* Buffer of data waiting to be written to client. */
 	// struct buffer *wb;
