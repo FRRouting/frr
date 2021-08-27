@@ -1,3 +1,9 @@
+frr (8.0.1-0) unstable; urgency=medium
+
+  * New upstream release FRR 8.0.1
+
+ -- Martin Winter <mwinter@opensourcerouting.org>  Wed, 21 Jul 2021 23:54:00 +0200
+
 frr (8.0-0) unstable; urgency=medium
 
   * New upstream release FRR 8.0

@@ -770,6 +770,12 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
+* Wed Aug 27 2021 Martin Winter <mwinter@opensourcerouting.org> - 8.0.1
+- Bug fix release
+- Many bug fixes across all protocols
+- Revert of per peer/peergroup dampening as it has various problems and
+  needs a rework
+
 * Wed Jul 21 2021 Martin Winter <mwinter@opensourcerouting.org> - 8.0
 - Major changes
 -    New daemon pathd for segment routing
