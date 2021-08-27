@@ -322,7 +322,6 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		}
 		return -1;
 	}
-	return -1;
 }
 
 static void pim_sock_read_on(struct interface *ifp);
@@ -514,7 +513,7 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 {
 	struct ip *ip = (struct ip *)buf;
 
-	while (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
+	if (sendto(fd, buf, len, MSG_DONTWAIT, dst, salen) < 0) {
 		char dst_str[INET_ADDRSTRLEN];
 
 		switch (errno) {
