@@ -1,5 +1,8 @@
 dist: focal
 os: linux
+arch:
+  - arm64
+  - ppc64le
 language: c
 services:
   - docker
