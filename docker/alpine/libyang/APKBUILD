@@ -1,0 +1,46 @@
+# Contributor: Sören Tempel <soeren+alpine@soeren-tempel.net>
+# Maintainer: Christian Franke <nobody@nowhere.ws>
+pkgname=libyang
+pkgver=2.0.7
+pkgrel=0
+pkgdesc="YANG data modelling language parser and toolkit"
+url="https://github.com/CESNET/libyang"
+arch="all"
+license="BSD-3-Clause-Clear"
+makedepends="bison cmake cmocka-dev flex pcre2-dev"
+checkdepends="expect grep shunit2"
+subpackages="$pkgname-dev $pkgname-doc"
+source="$pkgname-$pkgver.tar.gz::https://github.com/CESNET/libyang/archive/v$pkgver.tar.gz
+	10-remove-non-standard-headers.patch
+	11-utest-dont-parse-dlerror.patch"
+
+# secfixes:
+#   1.0.215-r1:
+#     - CVE-2021-28902
+#     - CVE-2021-28903
+#     - CVE-2021-28904
+#     - CVE-2021-28905
+#     - CVE-2021-28906
+
+build() {
+	if [ "$CBUILD" != "$CHOST" ]; then
+		CMAKE_CROSSOPTS="-DCMAKE_SYSTEM_NAME=Linux -DCMAKE_HOST_SYSTEM_NAME=Linux"
+	fi
+	cmake -B build \
+		-DCMAKE_BUILD_TYPE=None \
+		-DCMAKE_INSTALL_PREFIX=/usr \
+		-DCMAKE_INSTALL_LIBDIR=lib \
+		-DBUILD_SHARED_LIBS=True \
+		-DCMAKE_C_FLAGS="$CFLAGS" \
+		-DENABLE_BUILD_TESTS=ON \
+		"$CMAKE_CROSSOPTS"
+	make -C build
+}
+
+package() {
+	make -C build DESTDIR="$pkgdir" install
+}
+
+sha512sums="edb1d8d372b25ed820fa312e0dc96d4af7c8cd5ddeb785964de73f64774062ea7a5586bb27e2039ad24189d4a2ba04268921ca86e82423fc48647d1d10a2a0a7  libyang-2.0.7.tar.gz
+385008c715e6b0dc9e8f33c9cb550b3af7ee16f056f35d09a4ba01b9e00ddb88940915f93fc608fedd30b4f9a6a1503df414ae0be64b1263681b0ee18e6f4db8  10-remove-non-standard-headers.patch
+b16881d301a6aec68fbe6bfb7ba53a8fcdb4b9eead3b03573e0e2a4a8c3c3d6962db623be14d29c023b5a7ad0f685da1f6033dd9985f7a2914ad2f4da07e60cb  11-utest-dont-parse-dlerror.patch"
