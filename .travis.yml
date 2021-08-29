@@ -1,7 +1,7 @@
 dist: focal
 os: linux
 arch:
-  - ppc64le
+  - s390x
 language: c
 services:
   - docker
