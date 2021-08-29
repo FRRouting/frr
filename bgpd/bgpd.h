@@ -1283,6 +1283,10 @@ struct peer {
 #define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
 #define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
 #define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
+/* Disable IEEE floating-point link bandwidth encoding in
+ * extended communities.
+ */
+#define PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE (1U << 29)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART

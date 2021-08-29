@@ -6138,6 +6138,29 @@ DEFUN (no_neighbor_disable_connected_check,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
 
+/* link-bw-encoding-ieee */
+DEFUN(neighbor_link_bw_encoding_ieee, neighbor_link_bw_encoding_ieee_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> disable-link-bw-encoding-ieee",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Enable IEEE floating-point encoding for extended community bandwidth\n")
+{
+	int idx_peer = 1;
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
+				 PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+}
+
+DEFUN(no_neighbor_link_bw_encoding_ieee, no_neighbor_link_bw_encoding_ieee_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-link-bw-encoding-ieee",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Enable IEEE floating-point encoding for extended community bandwidth\n")
+{
+	int idx_peer = 2;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
+				   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
+}
+
 
 /* enforce-first-as */
 DEFUN (neighbor_enforce_first_as,
@@ -16347,6 +16370,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 	if (peergroup_flag_check(peer, PEER_FLAG_DISABLE_CONNECTED_CHECK))
 		vty_out(vty, " neighbor %s disable-connected-check\n", addr);
 
+	/* link-bw-encoding-ieee */
+	if (peergroup_flag_check(peer, PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE))
+		vty_out(vty, " neighbor %s disable-link-bw-encoding-ieee\n",
+			addr);
+
 	/* enforce-first-as */
 	if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
 		vty_out(vty, " neighbor %s enforce-first-as\n", addr);
@@ -18239,6 +18267,10 @@ void bgp_vty_init(void)
 	/* "neighbor disable-connected-check" commands.  */
 	install_element(BGP_NODE, &neighbor_disable_connected_check_cmd);
 	install_element(BGP_NODE, &no_neighbor_disable_connected_check_cmd);
+
+	/* "neighbor link-bw-encoding-ieee" commands.  */
+	install_element(BGP_NODE, &neighbor_link_bw_encoding_ieee_cmd);
+	install_element(BGP_NODE, &no_neighbor_link_bw_encoding_ieee_cmd);
 
 	/* "neighbor enforce-first-as" commands. */
 	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
