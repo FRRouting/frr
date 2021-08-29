@@ -2311,8 +2311,10 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	attr->ecommunity =
-		ecommunity_parse(stream_pnt(peer->curr), length);
+	attr->ecommunity = ecommunity_parse(
+		stream_pnt(peer->curr), length,
+		CHECK_FLAG(peer->flags,
+			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 
@@ -2380,7 +2382,10 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	ipv6_ecomm = ecommunity_parse_ipv6(stream_pnt(peer->curr), length);
+	ipv6_ecomm = ecommunity_parse_ipv6(
+		stream_pnt(peer->curr), length,
+		CHECK_FLAG(peer->flags,
+			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 	bgp_attr_set_ipv6_ecommunity(attr, ipv6_ecomm);
 
 	/* XXX: fix ecommunity_parse to use stream API */

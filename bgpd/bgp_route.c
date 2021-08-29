@@ -2276,7 +2276,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET))
 		attr->ecommunity = ecommunity_replace_linkbw(
-					bgp->as, attr->ecommunity, cum_bw);
+			bgp->as, attr->ecommunity, cum_bw,
+			CHECK_FLAG(peer->flags,
+				   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 
 	return true;
 }
