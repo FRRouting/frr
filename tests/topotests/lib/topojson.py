@@ -34,7 +34,7 @@ from lib.topolog import logger
 from lib.common_config import (
     number_to_row,
     number_to_column,
-    load_config_to_router,
+    load_config_to_routers,
     create_interfaces_cfg,
     create_static_routes,
     create_prefix_lists,
@@ -342,10 +342,8 @@ def build_config_from_json(tgen, topo, save_bkup=True):
 
         func_dict.get(func_type)(tgen, data, build=True)
 
-    for router in sorted(topo["routers"].keys()):
-        logger.debug("Configuring router {}...".format(router))
-
-        result = load_config_to_router(tgen, router, save_bkup)
-        if not result:
-            logger.info("Failed while configuring {}".format(router))
-            pytest.exit(1)
+    routers = sorted(topo["routers"].keys())
+    result = load_config_to_routers(tgen, routers, save_bkup)
+    if not result:
+        logger.info("build_config_from_json: failed to configure topology")
+        pytest.exit(1)
