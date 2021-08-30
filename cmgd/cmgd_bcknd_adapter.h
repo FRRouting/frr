@@ -25,6 +25,8 @@
 #include "cmgd/cmgd_defines.h"
 #include "lib/cmgd_bcknd_client.h"
 
+#define CMGD_BCKND_CONN_INIT_DELAY_MSEC		50
+
 #define CMGD_FIND_ADAPTER_BY_INDEX(adapter_index)	\
 	cmgd_adaptr_ref[adapter_index]
 
@@ -98,6 +100,7 @@ typedef struct cmgd_bcknd_client_adapter_ {
         cmgd_bcknd_client_id_t id;
         int conn_fd;
         union sockunion conn_su;
+        struct thread *conn_init_ev;
         struct thread *conn_read_ev;
         struct thread *conn_write_ev;
         struct thread *conn_writes_on;
@@ -135,6 +138,7 @@ typedef struct cmgd_bcknd_client_adapter_ {
 } cmgd_bcknd_client_adapter_t;
 
 #define CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF         (1U << 0)
+#define CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED         (1U << 1)
 
 DECLARE_LIST(cmgd_bcknd_adptr_list, cmgd_bcknd_client_adapter_t, list_linkage);
 DECLARE_LIST(cmgd_trxn_badptr_list, cmgd_bcknd_client_adapter_t, trxn_list_linkage);

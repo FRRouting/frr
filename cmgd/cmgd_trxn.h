@@ -38,6 +38,8 @@
 #define CMGD_TRXN_SEND_CFGAPPLY_DELAY_MSEC      100
 #define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     10000   /* 10 seconds */
 
+#define CMGD_TRXN_CLEANUP_DELAY_MSEC            100
+
 #define CMGD_TRXN_MAX_BATCH_IDS_IN_REQ          (CMGD_BCKND_MSG_MAX_LEN-128)/sizeof(cmgd_trxn_batch_id_t)
 
 /*
@@ -119,6 +121,10 @@ extern int cmgd_trxn_send_get_data_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
         cmgd_yang_getdata_req_t **data_req, size_t num_reqs);
+
+extern int cmgd_trxn_notify_bcknd_adapter_conn(
+	cmgd_bcknd_client_adapter_t *adptr, bool connect,
+        struct nb_config_cbs *bcknd_cfgs);
 
 extern int cmgd_trxn_notify_bcknd_trxn_reply(
 	cmgd_trxn_id_t trxn_id, bool create, bool success,

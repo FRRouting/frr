@@ -71,6 +71,7 @@ typedef enum cmgd_result_ {
 
 typedef enum cmgd_event_ {
 	CMGD_BCKND_SERVER = 1,
+	CMGD_BCKND_CONN_INIT,
 	CMGD_BCKND_CONN_READ,
 	CMGD_BCKND_CONN_WRITE,
 	CMGD_BCKND_CONN_WRITES_ON,

@@ -270,7 +270,9 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 		adptr->conn_fd = 0;
 	}
 
-	/* TODO: notify about client disconnect for appropriate cleanup */
+	/* Notify about client disconnect for appropriate cleanup */
+	cmgd_trxn_notify_bcknd_adapter_conn(adptr, false, NULL);
+
 	if (adptr->id < CMGD_BCKND_CLIENT_ID_MAX) {
 		cmgd_bcknd_adptrs_by_id[adptr->id] = NULL;
 		adptr->id = CMGD_BCKND_CLIENT_ID_MAX;
@@ -799,10 +801,62 @@ static int cmgd_bcknd_adapter_resume_writes(struct thread *thread)
 	return 0;
 }
 
+static int cmgd_bcknd_get_adapter_config(cmgd_bcknd_client_adapter_t *adptr,
+	cmgd_db_hndl_t db_hndl, struct nb_config_cbs **changes)
+{
+	return 0;
+}
+
+static int cmgd_bcknd_adapter_conn_init(struct thread *thread)
+{
+	cmgd_bcknd_client_adapter_t *adptr;
+	struct nb_config_cbs *changes = NULL;
+
+	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
+	assert(adptr && adptr->conn_fd);
+
+	/*
+	 * Check first if the current session can run a CONFIG
+	 * transaction or not. Reschedule if a CONFIG transaction
+	 * from another session is already in progress.
+	 */
+	if (cmgd_config_trxn_in_progress() != CMGD_SESSION_ID_NONE) {
+		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_INIT);
+		return 0;
+	}
+
+	/* Get config for this single backend client */
+	cmgd_bcknd_get_adapter_config(adptr, cm->running_db, &changes);
+
+	if (!changes || RB_EMPTY(nb_config_cbs, changes)) {
+		/* No CONFIG to sync */
+		SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
+	} else if (cmgd_trxn_notify_bcknd_adapter_conn(
+			adptr, true, changes) != 0) {
+		/*
+		 * Notify TRXN module to create a CONFIG transaction and 
+		 * download the CONFIGs identified for this new client.
+		 * If the TRXN module fails to initiate the CONFIG transaction
+		 * disconnect from the client forcing a reconnect later.
+		 * That should also take care of destroying the adapter.
+		 */
+		cmgd_bcknd_adapter_disconnect(adptr);
+		adptr = NULL;
+	}
+
+	return 0;
+}
+
 static void cmgd_bcknd_adptr_register_event(
 	cmgd_bcknd_client_adapter_t *adptr, cmgd_event_t event)
 {
 	switch (event) {
+	case CMGD_BCKND_CONN_INIT:
+		adptr->conn_read_ev =
+			thread_add_timer_msec(cmgd_bcknd_adptr_tm,
+				cmgd_bcknd_adapter_conn_init, adptr,
+				CMGD_BCKND_CONN_INIT_DELAY_MSEC, NULL);
+		break;
 	case CMGD_BCKND_CONN_READ:
 		adptr->conn_read_ev = 
 			thread_add_read(cmgd_bcknd_adptr_tm,
@@ -900,6 +954,9 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 	set_nonblocking(adptr->conn_fd);
 	setsockopt_so_sendbuf(adptr->conn_fd, CMGD_SOCKET_BUF_SIZE);
 	setsockopt_so_recvbuf(adptr->conn_fd, CMGD_SOCKET_BUF_SIZE);
+
+	/* Trigger resync of config with the new adapter */
+	cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_INIT);
 
 	return adptr;
 }

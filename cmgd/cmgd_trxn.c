@@ -142,6 +142,16 @@ typedef struct cmgd_commit_cfg_req_ {
 	cmgd_commit_phase_t next_phase;
 
 	/*
+	 * Set of config changes to commit. This is used only 
+	 * when changes are NOT to be determined by comparing 
+	 * candidate and running DBs. This is typically used 
+	 * for downloading all relevant configs for a new backend
+	 * client that has recently come up and connected with
+	 * CMGD.
+	 */
+	struct nb_config_cbs *cfg_chgs;
+
+	/*
 	 * Details on all the Backend Clients associated with
 	 * this commit.
 	 */
@@ -241,6 +251,7 @@ struct cmgd_trxn_ctxt_ {
 	struct thread *send_cfg_apply;
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	struct thread *comm_cfg_timeout;
+	struct thread *clnup;
 
         /* List of backend adapters involved in this transaction */
         struct cmgd_trxn_badptr_list_head bcknd_adptrs;
@@ -677,7 +688,7 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 	if (!trxn->commit_cfg_req)
 		return -1;
 
-	if (cmgd_frntnd_send_commit_cfg_reply(
+	if (trxn->session_id && cmgd_frntnd_send_commit_cfg_reply(
 		trxn->session_id, (cmgd_trxn_id_t) trxn,
 		trxn->commit_cfg_req->req.commit_cfg.src_db_id,
 		trxn->commit_cfg_req->req.commit_cfg.dst_db_id,
@@ -698,8 +709,9 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		 * Successful commit: Merge Src DB into Dst DB if and only if
 		 * this was not a validate-only or abort request.
 		 */
-		if (!trxn->commit_cfg_req->req.commit_cfg.validate_only && 
-			 !trxn->commit_cfg_req->req.commit_cfg.abort)
+		if (trxn->session_id &&
+			!trxn->commit_cfg_req->req.commit_cfg.validate_only && 
+			!trxn->commit_cfg_req->req.commit_cfg.abort)
 			cmgd_db_merge_dbs(
 				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
 				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
@@ -708,7 +720,8 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		 * Restore Src DB back to Dest DB only through a commit abort
 		 * request.
 		 */
-		if (trxn->commit_cfg_req->req.commit_cfg.abort)
+		if (trxn->session_id &&
+			trxn->commit_cfg_req->req.commit_cfg.abort)
 			cmgd_db_copy_dbs(
 				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
 				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
@@ -725,7 +738,12 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 
 	/*
 	 * The CONFIG Transaction should be destroyed from Frontend-adapter.
+	 * But in case the transaction is not triggered from a front-end session
+	 * we need to cleanup by itself.
 	 */
+	if (!trxn->session_id) {
+		cmgd_trxn_register_event(trxn, CMGD_TRXN_CLEANUP);
+	}
 
 	return 0;
 }
@@ -1005,9 +1023,16 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	struct nb_config *nb_config;
 	char err_buf[1024] = { 0 };
 	struct nb_config_cbs changes = { 0 };
+	struct nb_config_cbs *cfg_chgs = NULL;
 	int ret;
 
 	ret = 0;
+
+	if (trxn->commit_cfg_req->req.commit_cfg.cfg_chgs) {
+		cfg_chgs = trxn->commit_cfg_req->req.commit_cfg.cfg_chgs;
+		goto cmgd_trxn_prep_config_validation_done;
+	}
+
 	if (trxn->commit_cfg_req->req.commit_cfg.src_db_id !=
 		CMGD_DB_CANDIDATE) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
@@ -1097,6 +1122,10 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
+	cfg_chgs = &changes;
+
+cmgd_trxn_prep_config_validation_done:
+
 	cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
                 cmt_stats->prep_cfg_start);
 
@@ -1104,7 +1133,7 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	 * Iterate over the diffs and create ordered batches of config 
 	 * commands to be validated.
 	 */
-	ret = cmgd_trxn_create_config_batches(trxn->commit_cfg_req, &changes);
+	ret = cmgd_trxn_create_config_batches(trxn->commit_cfg_req, cfg_chgs);
 	if (ret != 0) {
 		ret = -1;
 		goto cmgd_trxn_prepare_config_done;
@@ -1123,7 +1152,7 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 
 cmgd_trxn_prepare_config_done:
 
-	nb_config_diff_del_changes(&changes);
+	nb_config_diff_del_changes(cfg_chgs);
 
 	return ret;
 }
@@ -1865,47 +1894,6 @@ cmgd_trxn_process_get_data_done:
 	return 0;
 }
 
-static void cmgd_trxn_register_event(
-	cmgd_trxn_ctxt_t *trxn, cmgd_trxn_event_t event)
-{
-	assert(cmgd_trxn_cm && cmgd_trxn_tm);
-
-	switch (event) {
-	case CMGD_TRXN_PROC_SETCFG:
-		trxn->proc_set_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_process_set_cfg, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
-		break;
-	case CMGD_TRXN_PROC_COMMITCFG:
-		trxn->proc_comm_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_process_commit_cfg, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
-		break;
-	case CMGD_TRXN_PROC_GETCFG:
-		trxn->proc_comm_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_process_get_cfg, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
-		break;
-	case CMGD_TRXN_PROC_GETDATA:
-		trxn->proc_comm_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_process_get_data, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
-		break;
-	case CMGD_TRXN_COMMITCFG_TIMEOUT:
-		trxn->comm_cfg_timeout = 
-			thread_add_timer_msec(cmgd_trxn_tm,
-				cmgd_trxn_cfg_commit_timedout, trxn,
-				CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC, NULL);
-		break;
-	default:
-		assert(!"cmgd_trxn_register_event() called incorrectly");
-	}
-}
-
 static cmgd_trxn_ctxt_t *cmgd_frntnd_find_trxn_by_session_id(
 	struct cmgd_master *cm, cmgd_session_id_t session_id,
 	cmgd_trxn_type_t type)
@@ -1920,68 +1908,7 @@ static cmgd_trxn_ctxt_t *cmgd_frntnd_find_trxn_by_session_id(
 	return NULL;
 }
 
-static void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn, const char* file, int line)
-{
-	trxn->refcount++;
-	CMGD_TRXN_DBG("%s:%d --> Lock %s Trxn %p, Count: %d",
-			file, line, cmgd_trxn_type2str(trxn->type), trxn,
-			trxn->refcount);
-}
-
-static void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn, const char* file, int line)
-{
-	assert(*trxn && (*trxn)->refcount);
-
-	(*trxn)->refcount--;
-	CMGD_TRXN_DBG("%s:%d --> Unlock %s Trxn %p, Count: %d",
-			file, line, cmgd_trxn_type2str((*trxn)->type), *trxn,
-			(*trxn)->refcount);
-	if (!(*trxn)->refcount) {
-		switch ((*trxn)->type) {
-		case CMGD_TRXN_TYPE_CONFIG:
-			if (cmgd_trxn_cm->cfg_trxn == *trxn)
-				cmgd_trxn_cm->cfg_trxn = NULL;
-			break;
-		default:
-			break;
-		}
-
-		cmgd_trxn_list_del(&cmgd_trxn_cm->cmgd_trxns, *trxn);
-
-		CMGD_TRXN_DBG("Deleted %s Trxn %p for Sessn: 0x%lx",
-			cmgd_trxn_type2str((*trxn)->type), *trxn,
-			(*trxn)->session_id);
-
-		XFREE(MTYPE_CMGD_TRXN, *trxn);
-	}
-
-	*trxn = NULL;
-}
-
-int cmgd_trxn_init(struct cmgd_master *cm, struct thread_master *tm)
-{
-	if (cmgd_trxn_cm || cmgd_trxn_tm)
-		assert(!"Call cmgd_trxn_init() only once");
-
-	cmgd_trxn_cm = cm;
-	cmgd_trxn_tm = tm;
-	cmgd_trxn_list_init(&cm->cmgd_trxns);
-	assert(!cm->cfg_trxn);
-	cm->cfg_trxn = NULL;
-
-	return 0;
-}
-
-cmgd_session_id_t cmgd_config_trxn_in_progress(void)
-{
-	if (cmgd_trxn_cm && cmgd_trxn_cm->cfg_trxn) {
-		return cmgd_trxn_cm->cfg_trxn->session_id;
-	}
-
-	return CMGD_SESSION_ID_NONE;
-}
-
-cmgd_trxn_id_t cmgd_create_trxn(
+static cmgd_trxn_ctxt_t *cmgd_trxn_create_new(
         cmgd_session_id_t session_id, cmgd_trxn_type_t type)
 {
 	cmgd_trxn_ctxt_t *trxn = NULL;
@@ -2023,6 +1950,139 @@ cmgd_trxn_id_t cmgd_create_trxn(
 	}
 
 cmgd_create_trxn_done:
+	return trxn;
+}
+
+static void cmgd_trxn_destroy(cmgd_trxn_ctxt_t **trxn)
+{
+	CMGD_TRXN_UNLOCK(trxn);
+}
+
+static void cmgd_trxn_lock(cmgd_trxn_ctxt_t *trxn, const char* file, int line)
+{
+	trxn->refcount++;
+	CMGD_TRXN_DBG("%s:%d --> Lock %s Trxn %p, Count: %d",
+			file, line, cmgd_trxn_type2str(trxn->type), trxn,
+			trxn->refcount);
+}
+
+static void cmgd_trxn_unlock(cmgd_trxn_ctxt_t **trxn, const char* file, int line)
+{
+	assert(*trxn && (*trxn)->refcount);
+
+	(*trxn)->refcount--;
+	CMGD_TRXN_DBG("%s:%d --> Unlock %s Trxn %p, Count: %d",
+			file, line, cmgd_trxn_type2str((*trxn)->type), *trxn,
+			(*trxn)->refcount);
+	if (!(*trxn)->refcount) {
+		switch ((*trxn)->type) {
+		case CMGD_TRXN_TYPE_CONFIG:
+			if (cmgd_trxn_cm->cfg_trxn == *trxn)
+				cmgd_trxn_cm->cfg_trxn = NULL;
+			break;
+		default:
+			break;
+		}
+
+		cmgd_trxn_list_del(&cmgd_trxn_cm->cmgd_trxns, *trxn);
+
+		CMGD_TRXN_DBG("Deleted %s Trxn %p for Sessn: 0x%lx",
+			cmgd_trxn_type2str((*trxn)->type), *trxn,
+			(*trxn)->session_id);
+
+		XFREE(MTYPE_CMGD_TRXN, *trxn);
+	}
+
+	*trxn = NULL;
+}
+
+static int cmgd_trxn_cleanup(struct thread *thread)
+{
+	cmgd_trxn_ctxt_t *trxn;
+
+	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
+	assert(trxn);
+
+	cmgd_trxn_destroy(&trxn);
+	return 0;
+}
+
+static void cmgd_trxn_register_event(
+	cmgd_trxn_ctxt_t *trxn, cmgd_trxn_event_t event)
+{
+	assert(cmgd_trxn_cm && cmgd_trxn_tm);
+
+	switch (event) {
+	case CMGD_TRXN_PROC_SETCFG:
+		trxn->proc_set_cfg = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_process_set_cfg, trxn,
+				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+		break;
+	case CMGD_TRXN_PROC_COMMITCFG:
+		trxn->proc_comm_cfg = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_process_commit_cfg, trxn,
+				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+		break;
+	case CMGD_TRXN_PROC_GETCFG:
+		trxn->proc_comm_cfg = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_process_get_cfg, trxn,
+				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+		break;
+	case CMGD_TRXN_PROC_GETDATA:
+		trxn->proc_comm_cfg = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_process_get_data, trxn,
+				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+		break;
+	case CMGD_TRXN_COMMITCFG_TIMEOUT:
+		trxn->comm_cfg_timeout = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_cfg_commit_timedout, trxn,
+				CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC, NULL);
+		break;
+	case CMGD_TRXN_CLEANUP:
+		trxn->clnup = 
+			thread_add_timer_msec(cmgd_trxn_tm,
+				cmgd_trxn_cleanup, trxn,
+				CMGD_TRXN_CLEANUP_DELAY_MSEC, NULL);
+		break;
+	default:
+		assert(!"cmgd_trxn_register_event() called incorrectly");
+	}
+}
+
+int cmgd_trxn_init(struct cmgd_master *cm, struct thread_master *tm)
+{
+	if (cmgd_trxn_cm || cmgd_trxn_tm)
+		assert(!"Call cmgd_trxn_init() only once");
+
+	cmgd_trxn_cm = cm;
+	cmgd_trxn_tm = tm;
+	cmgd_trxn_list_init(&cm->cmgd_trxns);
+	assert(!cm->cfg_trxn);
+	cm->cfg_trxn = NULL;
+
+	return 0;
+}
+
+cmgd_session_id_t cmgd_config_trxn_in_progress(void)
+{
+	if (cmgd_trxn_cm && cmgd_trxn_cm->cfg_trxn) {
+		return cmgd_trxn_cm->cfg_trxn->session_id;
+	}
+
+	return CMGD_SESSION_ID_NONE;
+}
+
+cmgd_trxn_id_t cmgd_create_trxn(
+        cmgd_session_id_t session_id, cmgd_trxn_type_t type)
+{
+	cmgd_trxn_ctxt_t *trxn;
+
+	trxn = cmgd_trxn_create_new(session_id, type);
 	return (cmgd_trxn_id_t) trxn;
 }
 
@@ -2035,8 +2095,7 @@ void cmgd_destroy_trxn(cmgd_trxn_id_t *trxn_id)
 		return;
 	}
 
-	CMGD_TRXN_UNLOCK(trxn);
-
+	cmgd_trxn_destroy(trxn);
 	*trxn_id = CMGD_TRXN_ID_NONE;
 }
 
@@ -2145,6 +2204,75 @@ int cmgd_trxn_send_commit_config_req(
 	 * Trigger a COMMIT-CONFIG process.
 	 */
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_COMMITCFG);
+	return 0;
+}
+
+int cmgd_trxn_notify_bcknd_adapter_conn(
+	cmgd_bcknd_client_adapter_t *adptr, bool connect,
+        struct nb_config_cbs *bcknd_cfgs)
+{
+	cmgd_trxn_ctxt_t *trxn;
+	cmgd_trxn_req_t *trxn_req;
+	cmgd_commit_cfg_req_t *cmtcfg_req;
+	static cmgd_sessn_commit_stats_t dummy_stats = { 0 };
+
+	if (connect) {
+		assert(bcknd_cfgs && !RB_EMPTY(nb_config_cbs, bcknd_cfgs));
+
+		/*
+		 * Create a CONFIG transaction to push the config changes
+		 * provided to the backend client.
+		 */
+		trxn = cmgd_trxn_create_new(0, CMGD_TRXN_TYPE_CONFIG);
+		if (!trxn) {
+			CMGD_TRXN_ERR("Failed to create CONFIG Transaction for downloading CONFIGs for client '%s'",
+				adptr->name);
+			return -1;
+		}
+
+		/*
+		 * Set the changeset for transaction to commit and trigger the commit request.
+		 */
+		trxn_req = cmgd_trxn_req_alloc(trxn, 0, CMGD_TRXN_PROC_COMMITCFG);
+		trxn_req->req.commit_cfg.src_db_id = CMGD_DB_NONE;
+		trxn_req->req.commit_cfg.src_db_hndl = 0;
+		trxn_req->req.commit_cfg.dst_db_id = CMGD_DB_NONE;
+		trxn_req->req.commit_cfg.dst_db_hndl = 0;
+		trxn_req->req.commit_cfg.validate_only = false;
+		trxn_req->req.commit_cfg.abort = false;
+		trxn_req->req.commit_cfg.cmt_stats = &dummy_stats;
+		trxn_req->req.commit_cfg.cfg_chgs = bcknd_cfgs;
+
+		/*
+		 * Trigger a COMMIT-CONFIG process.
+		 */
+		cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_COMMITCFG);
+
+	} else {
+		/*
+		 * Check if any transaction is currently on-going that
+		 * involves this backend client. If so, report the transaction 
+		 * has failed.
+		 */
+		FOREACH_TRXN_IN_LIST(cmgd_trxn_cm, trxn) {
+			switch (trxn->type) {
+			case CMGD_TRXN_TYPE_CONFIG:
+				cmtcfg_req = trxn->commit_cfg_req ?
+					&trxn->commit_cfg_req->req.commit_cfg :
+					NULL;
+				if (cmtcfg_req && 
+					cmtcfg_req->subscr_info.xpath_subscr
+					[adptr->id].subscribed) {
+					cmgd_trxn_send_commit_cfg_reply(trxn, false,
+						"Backend daemon disconnected while processing commit!");
+				}
+				break;
+			default:
+				break;
+			}
+		}
+	}
+
 	return 0;
 }
 
