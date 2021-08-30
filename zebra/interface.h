@@ -46,6 +46,11 @@ extern "C" {
 
 #define IF_VLAN_BITMAP_MAX 4096
 
+/* For interface MPLS input configuration */
+#define IF_ZEBRA_MPLS_UNSPEC 0
+#define IF_ZEBRA_MPLS_ON 1
+#define IF_ZEBRA_MPLS_OFF 2
+
 #if defined(HAVE_RTADV)
 /* Router advertisement parameter.  From RFC4861, RFC6275 and RFC4191. */
 struct rtadvconf {
@@ -325,6 +330,9 @@ struct zebra_if {
 
 	/* Router advertise configuration. */
 	uint8_t rtadv_enable;
+
+	/* Mpls configuration. */
+	uint8_t mpls;
 
 	/* Installed addresses chains tree. */
 	struct route_table *ipv4_subnets;

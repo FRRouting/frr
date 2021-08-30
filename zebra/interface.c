@@ -33,6 +33,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "vrf.h"
+#include "mpls.h"
 
 #include "zebra/rtadv.h"
 #include "zebra_ns.h"
@@ -61,8 +62,10 @@ DEFINE_HOOK(zebra_if_extra_info, (struct vty * vty, struct interface *ifp),
 DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 	    (vty, ifp));
 
+extern struct zebra_privs_t zserv_privs;
 
 static void if_down_del_nbr_connected(struct interface *ifp);
+static void mpls_enable_if_set(struct interface *ifp);
 
 static int if_zebra_speed_update(struct thread *thread)
 {
@@ -133,6 +136,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
+	zebra_if->mpls = IF_ZEBRA_MPLS_UNSPEC;
 
 	zebra_if_nhg_dependents_init(zebra_if);
 
@@ -605,6 +609,9 @@ void if_add_update(struct interface *ifp)
 	zebra_ptm_if_set_ptm_state(ifp, if_data);
 
 	zebra_interface_add_update(ifp);
+
+	if (if_data->mpls != IF_ZEBRA_MPLS_UNSPEC)
+		mpls_enable_if_set(ifp);
 
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
@@ -3262,6 +3269,54 @@ DEFUN (no_ip_address,
 				    NULL, NULL);
 }
 
+static void mpls_enable_if_set(struct interface *ifp)
+{
+	struct zebra_if *if_data;
+
+	if_data = ifp->info;
+	if (if_data->mpls == IF_ZEBRA_MPLS_UNSPEC)
+		return;
+	frr_with_privs (&zserv_privs) {
+		vrf_switch_to_netns(ifp->vrf_id);
+		if (if_data->mpls == IF_ZEBRA_MPLS_ON)
+			mpls_interface_set(ifp->name, true);
+		else
+			mpls_interface_set(ifp->name, false);
+		vrf_switchback_to_initial();
+	}
+}
+
+static int mpls_enable_interface(struct interface *ifp, uint8_t flag)
+{
+	struct zebra_if *if_data;
+
+	if_data = ifp->info;
+
+	if (if_data->mpls == flag)
+		return CMD_SUCCESS;
+	if_data->mpls = flag;
+
+	if (CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE))
+		mpls_enable_if_set(ifp);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(mpls_enable_if, mpls_enable_if_cmd, "[no] mpls",
+      NO_STR "Enable MPLS traffic reception on this interface\n")
+{
+	int idx = 0;
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	uint8_t flag;
+
+	if (argv_find(argv, argc, "no", &idx))
+		flag = IF_ZEBRA_MPLS_OFF;
+	else
+		flag = IF_ZEBRA_MPLS_ON;
+	mpls_enable_interface(ifp, flag);
+	return CMD_SUCCESS;
+}
+
 DEFUN(ip_address_peer,
       ip_address_peer_cmd,
       "ip address A.B.C.D peer A.B.C.D/M",
@@ -3301,6 +3356,7 @@ DEFUN (ip_address_label,
 {
 	int idx_ipv4_prefixlen = 2;
 	int idx_line = 4;
+
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	return ip_address_install(vty, ifp, argv[idx_ipv4_prefixlen]->arg, NULL,
 				  argv[idx_line]->arg);
@@ -3318,6 +3374,7 @@ DEFUN (no_ip_address_label,
 {
 	int idx_ipv4_prefixlen = 3;
 	int idx_line = 5;
+
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	return ip_address_uninstall(vty, ifp, argv[idx_ipv4_prefixlen]->arg,
 				    NULL, argv[idx_line]->arg);
@@ -3686,6 +3743,11 @@ static int if_config_write(struct vty *vty)
 								== IF_ZEBRA_MULTICAST_ON
 							? ""
 							: "no ");
+				if (if_data->mpls != IF_ZEBRA_MPLS_UNSPEC)
+					vty_out(vty, " %smpls\n",
+						if_data->mpls == IF_ZEBRA_MPLS_ON
+							? ""
+							: "no ");
 			}
 
 			hook_call(zebra_if_config_wr, vty, ifp);
@@ -3739,6 +3801,7 @@ void zebra_if_init(void)
 	install_element(INTERFACE_NODE, &ip_address_label_cmd);
 	install_element(INTERFACE_NODE, &no_ip_address_label_cmd);
 #endif /* HAVE_NETLINK */
+	install_element(INTERFACE_NODE, &mpls_enable_if_cmd);
 	install_element(INTERFACE_NODE, &link_params_cmd);
 	install_default(LINK_PARAMS_NODE);
 	install_element(LINK_PARAMS_NODE, &link_params_enable_cmd);
