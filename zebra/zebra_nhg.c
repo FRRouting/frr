@@ -2212,6 +2212,20 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					 */
 					return 0;
 				}
+				/* Turn on MPLS over interface */
+				if (nexthop->nh_label && nexthop->nh_label->num_labels
+				    && nexthop->ifindex != IFINDEX_INTERNAL) {
+					struct interface *ifp =
+						if_lookup_by_index(nexthop->ifindex,
+								   nexthop->vrf_id);
+					if (ifp) {
+						frr_with_privs(&zserv_privs) {
+							vrf_switch_to_netns(ifp->vrf_id);
+							mpls_interface_set(ifp->name, true);
+							vrf_switchback_to_initial();
+						}
+					}
+				}
 			}
 
 			if (IS_ZEBRA_DEBUG_NHG_DETAIL)
