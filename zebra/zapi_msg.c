@@ -1742,10 +1742,13 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				struct interface *ifp =
 					if_lookup_by_index(nexthop->ifindex,
 							   nexthop->vrf_id);
-				if (ifp) {
+				int ret;
+
+				if (ifp && !is_mpls_interface_on(ifp)) {
 					frr_with_privs(&zserv_privs) {
 						vrf_switch_to_netns(ifp->vrf_id);
-						mpls_interface_set(ifp->name, true);
+						ret = mpls_interface_set(ifp->name, true);
+						mpls_update_interface_val(ifp, ret);
 						vrf_switchback_to_initial();
 					}
 				}
@@ -3039,14 +3042,13 @@ static void zread_vrf_label(ZAPI_HANDLER_ARGS)
 	}
 
 	if (nlabel != MPLS_LABEL_NONE) {
-		zlog_info("Enabling mpls input in interface %s",
-			  ifp->name);
-		if (zserv_privs.change(ZPRIVS_RAISE))
-			zlog_err("Can't raise privileges");
-		mpls_interface_set(ifp->name, true);
-		if (zserv_privs.change(ZPRIVS_LOWER))
-			zlog_err("Can't lower privileges");
-
+		if (!is_mpls_interface_on(ifp)) {
+			zlog_info("Enabling mpls input in interface %s",
+				  ifp->name);
+			frr_with_privs(&zserv_privs) {
+				mpls_interface_set(ifp->name, true);
+			}
+		}
 		mpls_label_t out_label = MPLS_LABEL_IMPLICIT_NULL;
 		mpls_lsp_install(def_zvrf, ltype, nlabel, 1, &out_label,
 				 NEXTHOP_TYPE_IFINDEX, NULL, ifp->ifindex);

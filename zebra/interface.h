@@ -333,6 +333,7 @@ struct zebra_if {
 
 	/* Mpls configuration. */
 	uint8_t mpls;
+	uint8_t mpls_current;
 
 	/* Installed addresses chains tree. */
 	struct route_table *ipv4_subnets;
@@ -521,6 +522,9 @@ extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);
 extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
 extern const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
 					  char *pd_buf, uint32_t pd_buf_len);
+/* mpls */
+extern bool is_mpls_interface_on(struct interface *ifp);
+extern void mpls_update_interface_val(struct interface *ifp, int ret);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc(void);

@@ -2218,10 +2218,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					struct interface *ifp =
 						if_lookup_by_index(nexthop->ifindex,
 								   nexthop->vrf_id);
-					if (ifp) {
+					int ret;
+
+					if (ifp && !is_mpls_interface_on(ifp)) {
 						frr_with_privs(&zserv_privs) {
 							vrf_switch_to_netns(ifp->vrf_id);
-							mpls_interface_set(ifp->name, true);
+							ret = mpls_interface_set(ifp->name, true);
+							mpls_update_interface_val(ifp, ret);
 							vrf_switchback_to_initial();
 						}
 					}

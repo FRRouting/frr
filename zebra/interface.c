@@ -137,6 +137,7 @@ static int if_zebra_new_hook(struct interface *ifp)
 	zebra_if->multicast = IF_ZEBRA_MULTICAST_UNSPEC;
 	zebra_if->shutdown = IF_ZEBRA_SHUTDOWN_OFF;
 	zebra_if->mpls = IF_ZEBRA_MPLS_UNSPEC;
+	zebra_if->mpls_current = IF_ZEBRA_MPLS_UNSPEC;
 
 	zebra_if_nhg_dependents_init(zebra_if);
 
@@ -3272,6 +3273,7 @@ DEFUN (no_ip_address,
 static void mpls_enable_if_set(struct interface *ifp)
 {
 	struct zebra_if *if_data;
+	int ret;
 
 	if_data = ifp->info;
 	if (if_data->mpls == IF_ZEBRA_MPLS_UNSPEC)
@@ -3279,11 +3281,39 @@ static void mpls_enable_if_set(struct interface *ifp)
 	frr_with_privs (&zserv_privs) {
 		vrf_switch_to_netns(ifp->vrf_id);
 		if (if_data->mpls == IF_ZEBRA_MPLS_ON)
-			mpls_interface_set(ifp->name, true);
+			ret = mpls_interface_set(ifp->name, true);
 		else
-			mpls_interface_set(ifp->name, false);
+			ret = mpls_interface_set(ifp->name, false);
+		mpls_update_interface_val(ifp, ret);
 		vrf_switchback_to_initial();
 	}
+}
+
+bool is_mpls_interface_on(struct interface *ifp)
+{
+	struct zebra_if *if_data;
+
+	if_data = ifp->info;
+	if (if_data->mpls_current == IF_ZEBRA_MPLS_ON)
+		return true;
+	/* return false even if mpls current status is unknown */
+	return false;
+
+
+}
+
+void mpls_update_interface_val(struct interface *ifp, int ret)
+{
+	struct zebra_if *if_data;
+
+	if_data = ifp->info;
+
+	if (ret < 0)
+		return;
+	if (ret)
+		if_data->mpls_current = IF_ZEBRA_MPLS_ON;
+	else
+		if_data->mpls_current = IF_ZEBRA_MPLS_OFF;
 }
 
 static int mpls_enable_interface(struct interface *ifp, uint8_t flag)
