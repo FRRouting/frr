@@ -60,20 +60,20 @@ bool mpls_pw_reach_strict; /* Strict reachability checking */
 
 static void fec_evaluate(struct zebra_vrf *zvrf);
 static uint32_t fec_derive_label_from_index(struct zebra_vrf *vrf,
-					    zebra_fec_t *fec);
+					    struct zebra_fec *fec);
 static int lsp_install(struct zebra_vrf *zvrf, mpls_label_t label,
 		       struct route_node *rn, struct route_entry *re);
 static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label);
-static int fec_change_update_lsp(struct zebra_vrf *zvrf, zebra_fec_t *fec,
+static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 				 mpls_label_t old_label);
-static int fec_send(zebra_fec_t *fec, struct zserv *client);
-static void fec_update_clients(zebra_fec_t *fec);
-static void fec_print(zebra_fec_t *fec, struct vty *vty);
-static zebra_fec_t *fec_find(struct route_table *table, struct prefix *p);
-static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
-			    mpls_label_t label, uint32_t flags,
-			    uint32_t label_index);
-static int fec_del(zebra_fec_t *fec);
+static int fec_send(struct zebra_fec *fec, struct zserv *client);
+static void fec_update_clients(struct zebra_fec *fec);
+static void fec_print(struct zebra_fec *fec, struct vty *vty);
+static struct zebra_fec *fec_find(struct route_table *table, struct prefix *p);
+static struct zebra_fec *fec_add(struct route_table *table, struct prefix *p,
+				 mpls_label_t label, uint32_t flags,
+				 uint32_t label_index);
+static int fec_del(struct zebra_fec *fec);
 
 static unsigned int label_hash(const void *p);
 static bool label_cmp(const void *p1, const void *p2);
@@ -331,7 +331,7 @@ static int lsp_uninstall(struct zebra_vrf *zvrf, mpls_label_t label)
 static void fec_evaluate(struct zebra_vrf *zvrf)
 {
 	struct route_node *rn;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	uint32_t old_label, new_label;
 	int af;
 
@@ -381,7 +381,7 @@ static void fec_evaluate(struct zebra_vrf *zvrf)
  * globally configured label block (SRGB).
  */
 static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
-					    zebra_fec_t *fec)
+					    struct zebra_fec *fec)
 {
 	uint32_t label;
 
@@ -400,7 +400,7 @@ static uint32_t fec_derive_label_from_index(struct zebra_vrf *zvrf,
  * There is a change for this FEC. Install or uninstall label forwarding
  * entries, as appropriate.
  */
-static int fec_change_update_lsp(struct zebra_vrf *zvrf, zebra_fec_t *fec,
+static int fec_change_update_lsp(struct zebra_vrf *zvrf, struct zebra_fec *fec,
 				 mpls_label_t old_label)
 {
 	struct route_table *table;
@@ -445,7 +445,7 @@ static int fec_change_update_lsp(struct zebra_vrf *zvrf, zebra_fec_t *fec,
 /*
  * Inform about FEC to a registered client.
  */
-static int fec_send(zebra_fec_t *fec, struct zserv *client)
+static int fec_send(struct zebra_fec *fec, struct zserv *client)
 {
 	struct stream *s;
 	struct route_node *rn;
@@ -468,7 +468,7 @@ static int fec_send(zebra_fec_t *fec, struct zserv *client)
  * Update all registered clients about this FEC. Caller should've updated
  * FEC and ensure no duplicate updates.
  */
-static void fec_update_clients(zebra_fec_t *fec)
+static void fec_update_clients(struct zebra_fec *fec)
 {
 	struct listnode *node;
 	struct zserv *client;
@@ -485,7 +485,7 @@ static void fec_update_clients(zebra_fec_t *fec)
 /*
  * Print a FEC-label binding entry.
  */
-static void fec_print(zebra_fec_t *fec, struct vty *vty)
+static void fec_print(struct zebra_fec *fec, struct vty *vty)
 {
 	struct route_node *rn;
 	struct listnode *node;
@@ -511,7 +511,7 @@ static void fec_print(zebra_fec_t *fec, struct vty *vty)
 /*
  * Locate FEC-label binding that matches with passed info.
  */
-static zebra_fec_t *fec_find(struct route_table *table, struct prefix *p)
+static struct zebra_fec *fec_find(struct route_table *table, struct prefix *p)
 {
 	struct route_node *rn;
 
@@ -528,12 +528,12 @@ static zebra_fec_t *fec_find(struct route_table *table, struct prefix *p)
  * Add a FEC. This may be upon a client registering for a binding
  * or when a binding is configured.
  */
-static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
-			    mpls_label_t label, uint32_t flags,
-			    uint32_t label_index)
+static struct zebra_fec *fec_add(struct route_table *table, struct prefix *p,
+				 mpls_label_t label, uint32_t flags,
+				 uint32_t label_index)
 {
 	struct route_node *rn;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 
 	apply_mask(p);
 
@@ -545,7 +545,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
 	fec = rn->info;
 
 	if (!fec) {
-		fec = XCALLOC(MTYPE_FEC, sizeof(zebra_fec_t));
+		fec = XCALLOC(MTYPE_FEC, sizeof(struct zebra_fec));
 
 		rn->info = fec;
 		fec->rn = rn;
@@ -565,7 +565,7 @@ static zebra_fec_t *fec_add(struct route_table *table, struct prefix *p,
  * a FEC and no binding exists or when the binding is deleted and there
  * are no registered clients.
  */
-static int fec_del(zebra_fec_t *fec)
+static int fec_del(struct zebra_fec *fec)
 {
 	list_delete(&fec->client_list);
 	fec->rn->info = NULL;
@@ -2154,7 +2154,7 @@ int zebra_mpls_lsp_install(struct zebra_vrf *zvrf, struct route_node *rn,
 			   struct route_entry *re)
 {
 	struct route_table *table;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(&rn->p))];
 	if (!table)
@@ -2184,7 +2184,7 @@ int zebra_mpls_lsp_uninstall(struct zebra_vrf *zvrf, struct route_node *rn,
 			     struct route_entry *re)
 {
 	struct route_table *table;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(&rn->p))];
 	if (!table)
@@ -2292,7 +2292,7 @@ int zebra_mpls_fec_register(struct zebra_vrf *zvrf, struct prefix *p,
 			    struct zserv *client)
 {
 	struct route_table *table;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	bool new_client;
 	bool label_change = false;
 	uint32_t old_label;
@@ -2396,7 +2396,7 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
 			      struct zserv *client)
 {
 	struct route_table *table;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
 	if (!table)
@@ -2437,7 +2437,7 @@ static int zebra_mpls_cleanup_fecs_for_client(struct zserv *client)
 {
 	struct zebra_vrf *zvrf = vrf_info_lookup(VRF_DEFAULT);
 	struct route_node *rn;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	struct listnode *node;
 	struct zserv *fec_client;
 	int af;
@@ -2512,11 +2512,11 @@ static int zebra_mpls_cleanup_zclient_labels(struct zserv *client)
  * TODO: Currently walks entire table, can optimize later with another
  * hash..
  */
-zebra_fec_t *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
-				      mpls_label_t label)
+struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
+					   mpls_label_t label)
 {
 	struct route_node *rn;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	int af;
 
 	for (af = AFI_IP; af < AFI_MAX; af++) {
@@ -2553,7 +2553,7 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 			      mpls_label_t in_label)
 {
 	struct route_table *table;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	mpls_label_t old_label;
 	int ret = 0;
 
@@ -2604,7 +2604,7 @@ int zebra_mpls_static_fec_add(struct zebra_vrf *zvrf, struct prefix *p,
 int zebra_mpls_static_fec_del(struct zebra_vrf *zvrf, struct prefix *p)
 {
 	struct route_table *table;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	mpls_label_t old_label;
 
 	table = zvrf->fec_table[family2afi(PREFIX_FAMILY(p))];
@@ -2652,7 +2652,7 @@ int zebra_mpls_write_fec_config(struct vty *vty, struct zebra_vrf *zvrf)
 {
 	struct route_node *rn;
 	int af;
-	zebra_fec_t *fec;
+	struct zebra_fec *fec;
 	int write = 0;
 
 	for (af = AFI_IP; af < AFI_MAX; af++) {
