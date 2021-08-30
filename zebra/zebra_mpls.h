@@ -47,10 +47,6 @@ extern "C" {
 		 ? AF_INET6                                                    \
 		 : AF_INET)
 
-/* Typedefs */
-
-typedef struct zebra_fec_t_ zebra_fec_t;
-
 /* Declare LSP nexthop list types */
 PREDECL_DLIST(nhlfe_list);
 
@@ -123,7 +119,7 @@ struct zebra_lsp {
 /*
  * FEC to label binding.
  */
-struct zebra_fec_t_ {
+struct zebra_fec {
 	/* FEC (prefix) */
 	struct route_node *rn;
 
@@ -221,8 +217,8 @@ int zebra_mpls_fec_unregister(struct zebra_vrf *zvrf, struct prefix *p,
  * TODO: Currently walks entire table, can optimize later with another
  * hash..
  */
-zebra_fec_t *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
-				      mpls_label_t label);
+struct zebra_fec *zebra_mpls_fec_for_label(struct zebra_vrf *zvrf,
+					   mpls_label_t label);
 
 /*
  * Inform if specified label is currently bound to a FEC or not.
