@@ -251,7 +251,7 @@ static enum zebra_link_type netlink_to_zebra_link_type(unsigned int hwt)
 
 static inline void zebra_if_set_ziftype(struct interface *ifp,
 					enum zebra_iftype zif_type,
-					zebra_slave_iftype_t zif_slave_type)
+					enum zebra_slave_iftype zif_slave_type)
 {
 	struct zebra_if *zif;
 
@@ -876,7 +876,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct zebra_ns *zns = NULL;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	enum zebra_iftype zif_type = ZEBRA_IF_OTHER;
-	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
+	enum zebra_slave_iftype zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
@@ -1468,7 +1468,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct zebra_ns *zns;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	enum zebra_iftype zif_type = ZEBRA_IF_OTHER;
-	zebra_slave_iftype_t zif_slave_type = ZEBRA_IF_SLAVE_NONE;
+	enum zebra_slave_iftype zif_slave_type = ZEBRA_IF_SLAVE_NONE;
 	ifindex_t bridge_ifindex = IFINDEX_INTERNAL;
 	ifindex_t bond_ifindex = IFINDEX_INTERNAL;
 	ifindex_t link_ifindex = IFINDEX_INTERNAL;
