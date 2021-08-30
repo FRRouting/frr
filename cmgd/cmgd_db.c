@@ -310,9 +310,7 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 	bool childs_as_well, bool donot_free_alloced)
 {
 	uint32_t indx;
-	struct ly_set *set = NULL;
 	char *xpath;
-	size_t xp_len; 
 	int ret, num_left = 0, num_found = 0;
 	struct lyd_node *dnode;
 	struct nb_node *nbnode;
@@ -361,22 +359,9 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		return 0;
 	}
 
-	xp_len = 0;
-	cmgd_xpath_append_trail_wildcard(base_xpath, &xp_len);
-	ret = lyd_find_xpath(db_ctxt->config_db ?
-			db_ctxt->root.cfg_root->dnode :
-			db_ctxt->root.dnode_root, base_xpath,
-			&set);
-	cmgd_xpath_remove_trail_wildcard(base_xpath, &xp_len);
+	indx = 0;
+	LY_LIST_FOR(lyd_child(base_dnode), dnode) {
 
-	if (LY_SUCCESS != ret) {
-		return -1;
-	}
-
-	for(indx = 0; indx < set->count; indx++) {
-		dnode = set->dnodes[indx];
-		if (dnodes) 
-			dnodes[indx] = dnode;
 	
 		assert(dnode->schema && dnode->schema->priv);
 		nbnode = (struct nb_node *) dnode->schema->priv;
@@ -419,32 +404,30 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		if (!childs_as_well)
 			continue;
 
-		if (set->count >= 1) {
-			if (num_nodes)
-				num_found = num_left;
+		if (num_nodes)
+			num_found = num_left;
 
-			ret = cmgd_walk_db_nodes(db_ctxt, xpath, dnode, iter_fn,
-				ctxt, xpaths ? &xpaths[*num_nodes] : NULL,
-				dnodes ? &dnodes[*num_nodes] : NULL,
-				nbnodes ? &nbnodes[*num_nodes] : NULL,
-				num_nodes ? &num_found : NULL, childs_as_well,
-				donot_free_alloced);
+		ret = cmgd_walk_db_nodes(db_ctxt, xpath, dnode, iter_fn,
+			ctxt, xpaths ? &xpaths[*num_nodes] : NULL,
+			dnodes ? &dnodes[*num_nodes] : NULL,
+			nbnodes ? &nbnodes[*num_nodes] : NULL,
+			num_nodes ? &num_found : NULL, childs_as_well,
+			donot_free_alloced);
 
-			if (num_nodes) {
-				num_left -= num_found;
-				(*num_nodes) += num_found;
-			}
+		if (num_nodes) {
+			num_left -= num_found;
+			(*num_nodes) += num_found;
+		}
 
-			if (ret != 0) {
-				break;
-			}
+		if (ret != 0) {
+			break;
 		}
 
 		if (alloc_xp && !donot_free_alloced)
 			free(xpath);
+		indx++;
 	}
 
-	ly_set_free(set, NULL);
 
 	if (num_nodes) {
 		CMGD_DB_DBG(" -- END: *num_nodes:%d, num_left:%d",
@@ -567,6 +550,8 @@ int cmgd_db_iter_data(
 	cmgd_db_ctxt_t *db_ctxt;
 	int ret;
 	char xpath[CMGD_MAX_XPATH_LEN];
+	struct lyd_node *base_dnode = NULL;
+	struct lyd_node *node;
 
 	db_ctxt = (cmgd_db_ctxt_t *)db_hndl;
 	if (!db_ctxt)
@@ -577,7 +562,27 @@ int cmgd_db_iter_data(
 	strncpy(xpath, base_xpath, sizeof(xpath));
 
 	CMGD_DB_DBG(" -- START DB walk for DBid: %d", db_ctxt->db_id);
-	ret = cmgd_walk_db_nodes(db_ctxt, xpath, NULL, iter_fn, ctxt,
+
+	/* If the base_xpath is empty then crawl the sibblings */
+	if (xpath[0] == '\0') {
+		base_dnode = db_ctxt->config_db ?
+				db_ctxt->root.cfg_root->dnode :
+				db_ctxt->root.dnode_root;
+
+		/* get first top-level sibling */
+		while (base_dnode->parent) {
+			base_dnode = lyd_parent(base_dnode);
+		}
+		while (base_dnode->prev->next) {
+			base_dnode = base_dnode->prev;
+		}
+
+		LY_LIST_FOR(base_dnode, node) {
+			ret = cmgd_walk_db_nodes(db_ctxt, xpath, node, iter_fn, ctxt,
+				NULL, NULL, NULL, NULL, true, donot_free_alloced);
+		}
+	} else
+		ret = cmgd_walk_db_nodes(db_ctxt, xpath, base_dnode, iter_fn, ctxt,
 			NULL, NULL, NULL, NULL, true, donot_free_alloced);
 
 	return ret;
