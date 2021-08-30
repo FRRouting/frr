@@ -267,13 +267,13 @@ enum zebra_iftype {
 };
 
 /* Zebra "slave" interface type */
-typedef enum {
+enum zebra_slave_iftype {
 	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
 	ZEBRA_IF_SLAVE_VRF,    /* Member of a VRF */
 	ZEBRA_IF_SLAVE_BRIDGE, /* Member of a bridge */
 	ZEBRA_IF_SLAVE_BOND,   /* Bond member */
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
-} zebra_slave_iftype_t;
+};
 
 struct irdp_interface;
 
@@ -368,7 +368,7 @@ struct zebra_if {
 
 	/* Zebra interface and "slave" interface type */
 	enum zebra_iftype zif_type;
-	zebra_slave_iftype_t zif_slave_type;
+	enum zebra_slave_iftype zif_slave_type;
 
 	/* Additional L2 info, depends on zif_type */
 	union zebra_l2if_info l2info;

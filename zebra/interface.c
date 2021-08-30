@@ -1278,7 +1278,8 @@ static void nbr_connected_dump_vty(struct vty *vty, json_object *json,
 		vty_out(vty, "  %s %pFX\n", prefix_family_str(p), p);
 }
 
-static const char *zebra_zifslavetype_2str(zebra_slave_iftype_t zif_slave_type)
+static const char *
+zebra_zifslavetype_2str(enum zebra_slave_iftype zif_slave_type)
 {
 	switch (zif_slave_type) {
 	case ZEBRA_IF_SLAVE_BRIDGE:
