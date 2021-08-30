@@ -253,7 +253,7 @@ struct rtadv_dnssl {
 #endif /* HAVE_RTADV */
 
 /* Zebra interface type - ones of interest. */
-typedef enum {
+enum zebra_iftype {
 	ZEBRA_IF_OTHER = 0, /* Anything else */
 	ZEBRA_IF_VXLAN,     /* VxLAN interface */
 	ZEBRA_IF_VRF,       /* VRF device */
@@ -264,7 +264,7 @@ typedef enum {
 	ZEBRA_IF_BOND,	    /* Bond */
 	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
-} zebra_iftype_t;
+};
 
 /* Zebra "slave" interface type */
 typedef enum {
@@ -367,7 +367,7 @@ struct zebra_if {
 	uint8_t ptm_enable;
 
 	/* Zebra interface and "slave" interface type */
-	zebra_iftype_t zif_type;
+	enum zebra_iftype zif_type;
 	zebra_slave_iftype_t zif_slave_type;
 
 	/* Additional L2 info, depends on zif_type */
