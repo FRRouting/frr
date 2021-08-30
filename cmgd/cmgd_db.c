@@ -176,11 +176,10 @@ int cmgd_db_init(struct cmgd_master *cm)
 	}
 
 	running.root.cfg_root = running_config;
-	// running.root.cfg_root = nb_config_new(NULL);
 	running.config_db = true;
 	running.db_id = CMGD_DB_RUNNING;
 
-	candidate.root.cfg_root = nb_config_new(NULL);
+	candidate.root.cfg_root = nb_config_dup(running.root.cfg_root);
 	candidate.config_db = true;
 	candidate.db_id = CMGD_DB_CANDIDATE;
 
