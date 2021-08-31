@@ -75,7 +75,7 @@ int timer_list_node_timer_ptr_compare(void *list_entry, void *new_entry)
 }
 
 /* internal util method */
-static pcep_timers_context *create_timers_context_()
+static pcep_timers_context *create_timers_context_(void)
 {
 	if (timers_context_ == NULL) {
 		timers_context_ = pceplib_malloc(PCEPLIB_INFRA,
