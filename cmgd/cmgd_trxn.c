@@ -2209,15 +2209,25 @@ int cmgd_trxn_send_commit_config_req(
 
 int cmgd_trxn_notify_bcknd_adapter_conn(
 	cmgd_bcknd_client_adapter_t *adptr, bool connect,
-        struct nb_config_cbs *bcknd_cfgs)
+	struct nb_config_cbs *bcknd_cfgs)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
 	cmgd_commit_cfg_req_t *cmtcfg_req;
 	static cmgd_sessn_commit_stats_t dummy_stats = { 0 };
+	cmgd_bcknd_client_adapter_config_t adptr_config = { 0 };
 
 	if (connect) {
-		assert(bcknd_cfgs && !RB_EMPTY(nb_config_cbs, bcknd_cfgs));
+		adptr_config.adptr = adptr;
+
+		if (bcknd_cfgs && !RB_EMPTY(nb_config_cbs, bcknd_cfgs)) {
+			SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
+			return -1;
+		}
+		RB_INIT(nb_config_cbs, bcknd_cfgs);
+
+		/* Get config for this single backend client */
+		cmgd_bcknd_get_adapter_config(&adptr_config, cm->running_db);
 
 		/*
 		 * Create a CONFIG transaction to push the config changes

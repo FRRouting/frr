@@ -354,8 +354,8 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		/*
 		 * NOTE: With this a node is iterated if and only if its a leaf-node.
 		 */
-		(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath, base_dnode,
-			base_dnode->schema->priv, ctxt);
+		// (*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath, base_dnode,
+		// 	base_dnode->schema->priv, ctxt);
 		return 0;
 	}
 
@@ -387,14 +387,10 @@ static int cmgd_walk_db_nodes(cmgd_db_ctxt_t *db_ctxt,
 		assert(xpath);
 		CMGD_DB_DBG(" -- XPATH: %s", xpath);
 
-		/* 
-		 * NOTE: This specific child will be visited from the next call to 
-		 * cmgd_walk_db_nodes().
-		 */
-		// if (iter_fn) {
-		// 	(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath,
-		// 		dnode, nbnode, ctxt);
-		// }
+		if (iter_fn) {
+			(*iter_fn)((cmgd_db_hndl_t) db_ctxt, xpath,
+				dnode, nbnode, ctxt);
+		}
 
 		if (num_nodes) {
 			(*num_nodes)++;
