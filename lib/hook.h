@@ -183,6 +183,12 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 #define HOOK_ADDDEF(...) (void *hookarg , ## __VA_ARGS__)
 #define HOOK_ADDARG(...) (hookarg , ## __VA_ARGS__)
 
+/* and another helper to convert () into (void) to get a proper prototype */
+#define _SKIP_10(x0, x1, x2, x3, x4, x5, x6, x7, x8, x9, ret, ...) ret
+#define _MAKE_VOID(...) _SKIP_10(, ##__VA_ARGS__, , , , , , , , , , void)
+
+#define HOOK_VOIDIFY(...) (_MAKE_VOID(__VA_ARGS__) __VA_ARGS__)
+
 /* use in header file - declares the hook and its arguments
  * usage:  DECLARE_HOOK(my_hook, (int arg1, struct foo *arg2), (arg1, arg2));
  * as above, "passlist" must use the same order and same names as "arglist"
@@ -192,13 +198,14 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
  */
 #define DECLARE_HOOK(hookname, arglist, passlist)                              \
 	extern struct hook _hook_##hookname;                                   \
-	__attribute__((unused)) static void *_hook_typecheck_##hookname(       \
-		int(*funcptr) arglist)                                         \
+	__attribute__((unused)) static inline void *                           \
+		_hook_typecheck_##hookname(int(*funcptr) HOOK_VOIDIFY arglist) \
 	{                                                                      \
 		return (void *)funcptr;                                        \
 	}                                                                      \
-	__attribute__((unused)) static void *_hook_typecheck_arg_##hookname(   \
-		int(*funcptr) HOOK_ADDDEF arglist)                             \
+	__attribute__((unused)) static inline void                             \
+		*_hook_typecheck_arg_##hookname(int(*funcptr)                  \
+							HOOK_ADDDEF arglist)   \
 	{                                                                      \
 		return (void *)funcptr;                                        \
 	}                                                                      \
@@ -213,14 +220,14 @@ extern void _hook_unregister(struct hook *hook, void *funcptr, void *arg,
 	struct hook _hook_##hookname = {                                       \
 		.name = #hookname, .entries = NULL, .reverse = rev,            \
 	};                                                                     \
-	static int hook_call_##hookname arglist                                \
+	static int hook_call_##hookname HOOK_VOIDIFY arglist                   \
 	{                                                                      \
 		int hooksum = 0;                                               \
 		struct hookent *he = _hook_##hookname.entries;                 \
 		void *hookarg;                                                 \
 		union {                                                        \
 			void *voidptr;                                         \
-			int(*fptr) arglist;                                    \
+			int(*fptr) HOOK_VOIDIFY arglist;                       \
 			int(*farg) HOOK_ADDDEF arglist;                        \
 		} hookp;                                                       \
 		for (; he; he = he->next) {                                    \
