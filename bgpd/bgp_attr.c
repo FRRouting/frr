@@ -530,6 +530,12 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 	key = jhash(&l3vpn->sid, 16, key);
 	key = jhash_1word(l3vpn->sid_flags, key);
 	key = jhash_1word(l3vpn->endpoint_behavior, key);
+	key = jhash_1word(l3vpn->loc_block_len, key);
+	key = jhash_1word(l3vpn->loc_node_len, key);
+	key = jhash_1word(l3vpn->func_len, key);
+	key = jhash_1word(l3vpn->arg_len, key);
+	key = jhash_1word(l3vpn->transposition_len, key);
+	key = jhash_1word(l3vpn->transposition_offset, key);
 	return key;
 }
 
@@ -540,7 +546,13 @@ static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
 
 	return sid_same(&l3vpn1->sid, &l3vpn2->sid)
 	       && l3vpn1->sid_flags == l3vpn2->sid_flags
-	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior;
+	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior
+	       && l3vpn1->loc_block_len == l3vpn2->loc_block_len
+	       && l3vpn1->loc_node_len == l3vpn2->loc_node_len
+	       && l3vpn1->func_len == l3vpn2->func_len
+	       && l3vpn1->arg_len == l3vpn2->arg_len
+	       && l3vpn1->transposition_len == l3vpn2->transposition_len
+	       && l3vpn1->transposition_offset == l3vpn2->transposition_offset;
 }
 
 static bool srv6_l3vpn_same(const struct bgp_attr_srv6_l3vpn *h1,
@@ -2532,6 +2544,7 @@ static bgp_attr_parse_ret_t
 bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 {
 	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
 	uint8_t type, loc_block_len, loc_node_len, func_len, arg_len,
 		transposition_len, transposition_offset;
 	uint16_t length;
@@ -2574,6 +2587,13 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 				arg_len, transposition_len,
 				transposition_offset);
 		}
+
+		attr->srv6_l3vpn->loc_block_len = loc_block_len;
+		attr->srv6_l3vpn->loc_node_len = loc_node_len;
+		attr->srv6_l3vpn->func_len = func_len;
+		attr->srv6_l3vpn->arg_len = arg_len;
+		attr->srv6_l3vpn->transposition_len = transposition_len;
+		attr->srv6_l3vpn->transposition_offset = transposition_offset;
 	}
 
 	else {
@@ -2600,6 +2620,7 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 	uint8_t type, sid_flags;
 	uint16_t length, endpoint_behavior;
 	size_t headersz = sizeof(type) + sizeof(length);
+	bgp_attr_parse_ret_t err;
 	char buf[BUFSIZ];
 
 	if (STREAM_READABLE(peer->curr) < headersz) {
@@ -2647,14 +2668,25 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		}
 		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 					   sizeof(struct bgp_attr_srv6_l3vpn));
+		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
 		attr->srv6_l3vpn->sid_flags = sid_flags;
 		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
-		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
-		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+		attr->srv6_l3vpn->loc_block_len = 0;
+		attr->srv6_l3vpn->loc_node_len = 0;
+		attr->srv6_l3vpn->func_len = 0;
+		attr->srv6_l3vpn->arg_len = 0;
+		attr->srv6_l3vpn->transposition_len = 0;
+		attr->srv6_l3vpn->transposition_offset = 0;
 
 		// Sub-Sub-TLV found
-		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH)
-			return bgp_attr_srv6_service_data(args);
+		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+			err = bgp_attr_srv6_service_data(args);
+
+			if (err != BGP_ATTR_PARSE_PROCEED)
+				return err;
+		}
+
+		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
 	}
 
 	/* Placeholder code for unsupported type */
