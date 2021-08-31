@@ -4048,6 +4048,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 					 &attr->srv6_l3vpn->sid);
 				extra->num_sids = 1;
 
+<<<<<<< HEAD
 				extra->sid[0].loc_block_len = 0;
 				extra->sid[0].loc_node_len = 0;
 				extra->sid[0].func_len = 0;
@@ -4064,6 +4065,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						attr->srv6_l3vpn->arg_len;
 				}
 
+=======
+>>>>>>> cc8f05dfd (bgpd: add transpose operation)
 				/*
 				 * draft-ietf-bess-srv6-services-07
 				 * The part of SRv6 SID may be encoded as MPLS
@@ -4071,7 +4074,11 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				 */
 				if (attr->srv6_l3vpn->transposition_len != 0)
 					transpose_sid(
+<<<<<<< HEAD
 						&extra->sid[0].sid,
+=======
+						&extra->sid[0],
+>>>>>>> cc8f05dfd (bgpd: add transpose operation)
 						decode_label(label),
 						attr->srv6_l3vpn
 							->transposition_offset,
@@ -4267,6 +4274,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			sid_copy(&extra->sid[0].sid, &attr->srv6_l3vpn->sid);
 			extra->num_sids = 1;
 
+<<<<<<< HEAD
 			extra->sid[0].loc_block_len =
 				attr->srv6_l3vpn->loc_block_len;
 			extra->sid[0].loc_node_len =
@@ -4274,6 +4282,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			extra->sid[0].func_len = attr->srv6_l3vpn->func_len;
 			extra->sid[0].arg_len = attr->srv6_l3vpn->arg_len;
 
+=======
+>>>>>>> cc8f05dfd (bgpd: add transpose operation)
 			/*
 			 * draft-ietf-bess-srv6-services-07
 			 * The part of SRv6 SID may be encoded as MPLS Label for
@@ -4281,7 +4291,11 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 			 */
 			if (attr->srv6_l3vpn->transposition_len != 0)
 				transpose_sid(
+<<<<<<< HEAD
 					&extra->sid[0].sid, decode_label(label),
+=======
+					&extra->sid[0], decode_label(label),
+>>>>>>> cc8f05dfd (bgpd: add transpose operation)
 					attr->srv6_l3vpn->transposition_offset,
 					attr->srv6_l3vpn->transposition_len);
 		} else if (attr->srv6_vpn) {
