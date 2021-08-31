@@ -4044,6 +4044,20 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				sid_copy(&extra->sid[0],
 					 &attr->srv6_l3vpn->sid);
 				extra->num_sids = 1;
+
+				/*
+				 * draft-ietf-bess-srv6-services-07
+				 * The part of SRv6 SID may be encoded as MPLS
+				 * Label for the efficient packing.
+				 */
+				if (attr->srv6_l3vpn->transposition_len != 0)
+					transpose_sid(
+						&extra->sid[0],
+						decode_label(label),
+						attr->srv6_l3vpn
+							->transposition_offset,
+						attr->srv6_l3vpn
+							->transposition_len);
 			}
 		} else if (attr->srv6_vpn) {
 			extra = bgp_path_info_extra_get(pi);
@@ -4231,6 +4245,17 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (attr->srv6_l3vpn) {
 			sid_copy(&extra->sid[0], &attr->srv6_l3vpn->sid);
 			extra->num_sids = 1;
+
+			/*
+			 * draft-ietf-bess-srv6-services-07
+			 * The part of SRv6 SID may be encoded as MPLS Label for
+			 * the efficient packing.
+			 */
+			if (attr->srv6_l3vpn->transposition_len != 0)
+				transpose_sid(
+					&extra->sid[0], decode_label(label),
+					attr->srv6_l3vpn->transposition_offset,
+					attr->srv6_l3vpn->transposition_len);
 		} else if (attr->srv6_vpn) {
 			sid_copy(&extra->sid[0], &attr->srv6_vpn->sid);
 			extra->num_sids = 1;
