@@ -272,6 +272,7 @@ def __create_bgp_global(tgen, input_dict, router, build=False):
     if router_id:
         config_data.append("bgp router-id {}".format(router_id))
 
+    config_data.append("bgp log-neighbor-changes")
     config_data.append("no bgp network import-check")
     bgp_peer_grp_data = bgp_data.setdefault("peer-group", {})
 
@@ -805,6 +806,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                 )
 
             disable_connected = peer.setdefault("disable_connected_check", False)
+            connect = peer.setdefault("connecttimer", 120)
             keep_alive = peer.setdefault("keepalivetimer", 3)
             hold_down = peer.setdefault("holddowntimer", 10)
             password = peer.setdefault("password", None)
@@ -834,6 +836,9 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                 config_data.append(
                     "{} timers {} {}".format(neigh_cxt, keep_alive, hold_down)
                 )
+            if int(connect) != 120:
+                config_data.append("{} connect {}".format(neigh_cxt, connect))
+
             if graceful_restart:
                 config_data.append("{} graceful-restart".format(neigh_cxt))
             elif graceful_restart == False:
