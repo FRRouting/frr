@@ -1745,7 +1745,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 				if (ifp) {
 					frr_with_privs(&zserv_privs) {
 						vrf_switch_to_netns(ifp->vrf_id);
-						mpls_interface_set(ifp->name, 1);
+						mpls_interface_set(ifp->name, true);
 						vrf_switchback_to_initial();
 					}
 				}
