@@ -515,12 +515,12 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (twoway)
 		thread_execute(master, twoway_received, on, 0);
 	else {
-		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"%s, Received oneway hello from RESTARTER so ignore here.",
-				__PRETTY_FUNCTION__);
-
-		if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s, Received oneway hello from RESTARTER so ignore here.",
+					__PRETTY_FUNCTION__);
+		} else {
 			/* If the router is DR_OTHER, RESTARTER will not wait
 			 * until it receives the hello from it if it receives
 			 * from DR and BDR.
