@@ -1373,6 +1373,6 @@ int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6)
 int config_write_ospf6_debug_gr_helper(struct vty *vty)
 {
 	if (IS_DEBUG_OSPF6_GR)
-		vty_out(vty, "debug ospf6 gr helper\n");
+		vty_out(vty, "debug ospf6 graceful-restart\n");
 	return 0;
 }
