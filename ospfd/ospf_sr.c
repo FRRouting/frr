@@ -305,7 +305,7 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
  * Remove Segment Routing Local Block.
  *
  */
-static void sr_local_block_delete()
+static void sr_local_block_delete(void)
 {
 	struct sr_local_block *srlb = &OspfSR.srlb;
 

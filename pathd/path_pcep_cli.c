@@ -69,7 +69,7 @@ static int pcep_cli_pcep_pce_config_write(struct vty *vty);
 /* Internal Util Function declarations */
 static struct pce_opts_cli *pcep_cli_find_pce(const char *pce_name);
 static bool pcep_cli_add_pce(struct pce_opts_cli *pce_opts_cli);
-static struct pce_opts_cli *pcep_cli_create_pce_opts();
+static struct pce_opts_cli *pcep_cli_create_pce_opts(const char *name);
 static void pcep_cli_delete_pce(const char *pce_name);
 static void
 pcep_cli_merge_pcep_pce_config_options(struct pce_opts_cli *pce_opts_cli);
