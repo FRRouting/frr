@@ -270,6 +270,7 @@ def test_weighted_ecmp():
 
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
 
     # Configure anycast IP on additional server r9
     logger.info("Configure anycast IP on server r9")
@@ -303,6 +304,19 @@ def test_weighted_ecmp():
     logger.info("Configure anycast IP on server r10")
 
     tgen.net["r10"].cmd("ip addr add 198.10.1.1/32 dev r10-eth1")
+
+    # Check if bandwidth is properly encoded with non IEEE floatig-point (uint32) format on r3
+    logger.info(
+        "Check if bandwidth is properly encoded with non IEEE floatig-point (uint32) format on r3"
+    )
+    json_file = "{}/r3/bgp-route-1.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r3, "show bgp ipv4 uni 198.10.1.1/32 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=200, wait=0.5)
+    assertmsg = "JSON output mismatch on r3"
+    assert result is None, assertmsg
 
     # Check multipath on super-spine router r1
     logger.info("Check multipath on super-spine router r1")
