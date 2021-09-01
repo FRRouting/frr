@@ -1263,14 +1263,14 @@ void cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 	cmgd_bcknd_server_disconnect(clnt_ctxt, false);
 
 	assert(cmgd_bcknd_clntctxt.ibuf_fifo &&
-		cmgd_bcknd_clntctxt.ibuf_work &&
-		cmgd_bcknd_clntctxt.obuf_fifo &&
-		cmgd_bcknd_clntctxt.obuf_work);
+		cmgd_bcknd_clntctxt.obuf_fifo);
 	
 	stream_fifo_free(cmgd_bcknd_clntctxt.ibuf_fifo);
-	stream_free(cmgd_bcknd_clntctxt.ibuf_work);
+	if (cmgd_bcknd_clntctxt.ibuf_work)
+		stream_free(cmgd_bcknd_clntctxt.ibuf_work);
 	stream_fifo_free(cmgd_bcknd_clntctxt.obuf_fifo);
-	stream_free(cmgd_bcknd_clntctxt.obuf_work);
+	if (cmgd_bcknd_clntctxt.obuf_work)
+		stream_free(cmgd_bcknd_clntctxt.obuf_work);
 
 	cmgd_bcknd_cleanup_all_trxns(clnt_ctxt);
 	cmgd_bcknd_trxn_list_fini(&clnt_ctxt->trxn_head);

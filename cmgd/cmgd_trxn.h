@@ -123,8 +123,7 @@ extern int cmgd_trxn_send_get_data_req(
         cmgd_yang_getdata_req_t **data_req, size_t num_reqs);
 
 extern int cmgd_trxn_notify_bcknd_adapter_conn(
-	cmgd_bcknd_client_adapter_t *adptr, bool connect,
-        struct nb_config_cbs *bcknd_cfgs);
+	cmgd_bcknd_client_adapter_t *adptr, bool connect);
 
 extern int cmgd_trxn_notify_bcknd_trxn_reply(
 	cmgd_trxn_id_t trxn_id, bool create, bool success,

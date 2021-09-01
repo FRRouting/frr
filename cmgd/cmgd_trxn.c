@@ -1365,6 +1365,8 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 				return -1;
 			}
 			cmtcfg_req->cmt_stats->last_num_apply_reqs++;
+			UNSET_FLAG(adptr->flags,
+				CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
 
 			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
 				cfg_btch->comm_phase = CMGD_COMMIT_PHASE_APPLY_CFG;
@@ -2208,26 +2210,22 @@ int cmgd_trxn_send_commit_config_req(
 }
 
 int cmgd_trxn_notify_bcknd_adapter_conn(
-	cmgd_bcknd_client_adapter_t *adptr, bool connect,
-	struct nb_config_cbs *bcknd_cfgs)
+	cmgd_bcknd_client_adapter_t *adptr, bool connect)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
 	cmgd_commit_cfg_req_t *cmtcfg_req;
 	static cmgd_sessn_commit_stats_t dummy_stats = { 0 };
-	cmgd_bcknd_client_adapter_config_t adptr_config = { 0 };
+	struct nb_config_cbs *adptr_cfgs = NULL;
 
 	if (connect) {
-		adptr_config.adptr = adptr;
-
-		if (bcknd_cfgs && !RB_EMPTY(nb_config_cbs, bcknd_cfgs)) {
-			SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
-			return -1;
-		}
-		RB_INIT(nb_config_cbs, bcknd_cfgs);
-
 		/* Get config for this single backend client */
-		cmgd_bcknd_get_adapter_config(&adptr_config, cm->running_db);
+		cmgd_bcknd_get_adapter_config(adptr, cm->running_db, &adptr_cfgs);
+
+		if (!adptr_cfgs || RB_EMPTY(nb_config_cbs, adptr_cfgs)) {
+			SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
+			return 0;
+		}
 
 		/*
 		 * Create a CONFIG transaction to push the config changes
@@ -2251,7 +2249,7 @@ int cmgd_trxn_notify_bcknd_adapter_conn(
 		trxn_req->req.commit_cfg.validate_only = false;
 		trxn_req->req.commit_cfg.abort = false;
 		trxn_req->req.commit_cfg.cmt_stats = &dummy_stats;
-		trxn_req->req.commit_cfg.cfg_chgs = bcknd_cfgs;
+		trxn_req->req.commit_cfg.cfg_chgs = adptr_cfgs;
 
 		/*
 		 * Trigger a COMMIT-CONFIG process.
@@ -2454,8 +2452,14 @@ extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
 			CMGD_COMMIT_PHASE_TRXN_DELETE);
 	}
 
-	if (!cmgd_trxn_batch_list_count(&cmtcfg_req->curr_batches[adptr->id]))
+	if (!cmgd_trxn_batch_list_count(&cmtcfg_req->curr_batches[adptr->id])) {
+		/*
+		 * All configuration for the specific backend has been applied.
+		 * Send TRXN-DELETE to wrap up the transaction for this backend.
+		 */
+		SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
 		cmgd_trxn_send_bcknd_trxn_delete(trxn, adptr);
+	}
 
 	cmgd_try_move_commit_to_next_phase(trxn, cmtcfg_req);
 	cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_end);

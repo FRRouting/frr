@@ -73,6 +73,12 @@ typedef struct cmgd_bcknd_xpath_regexp_map_ {
 	cmgd_bcknd_client_subscr_info_t bcknd_subscrs;
 } cmgd_bcknd_xpath_regexp_map_t;
 
+typedef struct cmgd_bcknd_get_adptr_config_params_ {
+        cmgd_bcknd_client_adapter_t *adptr;
+	struct nb_config_cbs *cfg_chgs;
+        uint32_t seq;
+} cmgd_bcknd_get_adptr_cfgreq_params_t;
+
 /* 
  * Static mapping of YANG XPath regular expressions and 
  * the corresponding interested backend clients. 
@@ -271,7 +277,7 @@ static void cmgd_bcknd_adapter_disconnect(cmgd_bcknd_client_adapter_t *adptr)
 	}
 
 	/* Notify about client disconnect for appropriate cleanup */
-	cmgd_trxn_notify_bcknd_adapter_conn(adptr, false, NULL);
+	cmgd_trxn_notify_bcknd_adapter_conn(adptr, false);
 
 	if (adptr->id < CMGD_BCKND_CLIENT_ID_MAX) {
 		cmgd_bcknd_adptrs_by_id[adptr->id] = NULL;
@@ -806,7 +812,7 @@ static void cmgd_bcknd_iter_and_get_cfg(cmgd_db_hndl_t db_hndl,
 		void *ctxt)
 {
 	cmgd_bcknd_client_subscr_info_t subscr_info;
-	cmgd_bcknd_client_adapter_config_t *adptr_config;
+	cmgd_bcknd_get_adptr_cfgreq_params_t *parms;
 	cmgd_bcknd_client_adapter_t *adptr;
 	struct nb_config_cbs *root;
 	uint32_t *seq;
@@ -817,26 +823,17 @@ static void cmgd_bcknd_iter_and_get_cfg(cmgd_db_hndl_t db_hndl,
 		return;
 	}
 
-	adptr_config = (cmgd_bcknd_client_adapter_config_t *)ctxt;
+	parms = (cmgd_bcknd_get_adptr_cfgreq_params_t *)ctxt;
 
-	adptr = adptr_config->adptr;
+	adptr = parms->adptr;
 	if (!subscr_info.xpath_subscr[adptr->id].subscribed)
 		return;
 
-	root = &adptr_config->adptr->cfg_chgs;
-	seq = &adptr_config->seq;
+	root = parms->cfg_chgs;
+	seq = &parms->seq;
 	nb_config_diff_created(node, seq, root);
+
 	return;
-}
-
-int cmgd_bcknd_get_adapter_config(
-	cmgd_bcknd_client_adapter_config_t *adptr_config, cmgd_db_hndl_t db_hndl)
-{
-	char base_xpath[] = "/";
-
-	cmgd_db_iter_data(db_hndl, base_xpath, cmgd_bcknd_iter_and_get_cfg,
-		(void *)adptr_config, true);
-	return 0;
 }
 
 static int cmgd_bcknd_adapter_conn_init(struct thread *thread)
@@ -856,8 +853,7 @@ static int cmgd_bcknd_adapter_conn_init(struct thread *thread)
 		return 0;
 	}
 
-	if (cmgd_trxn_notify_bcknd_adapter_conn(
-			adptr, true, &adptr->cfg_chgs) != 0) {
+	if (cmgd_trxn_notify_bcknd_adapter_conn(adptr, true) != 0) {
 		/*
 		 * Notify TRXN module to create a CONFIG transaction and 
 		 * download the CONFIGs identified for this new client.
@@ -971,6 +967,8 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		cmgd_bcknd_adptr_register_event(adptr, CMGD_BCKND_CONN_READ);
 		cmgd_bcknd_adptr_list_add_tail(&cmgd_bcknd_adptrs, adptr);
 
+		RB_INIT(nb_config_cbs, &adptr->cfg_chgs);
+
 		CMGD_BCKND_ADPTR_DBG(
 			"Added new CMGD Backend adapter '%s'", adptr->name);
 	}
@@ -996,6 +994,28 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_id(
 cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_name(const char *name)
 {
 	return cmgd_bcknd_find_adapter_by_name(name);
+}
+
+int cmgd_bcknd_get_adapter_config(
+	cmgd_bcknd_client_adapter_t *adptr, cmgd_db_hndl_t db_hndl,
+	struct nb_config_cbs **cfg_chgs)
+{
+	char base_xpath[] = "/";
+	cmgd_bcknd_get_adptr_cfgreq_params_t parms;
+
+	assert(cfg_chgs);
+
+	if (RB_EMPTY(nb_config_cbs, &adptr->cfg_chgs)) {
+		parms.adptr = adptr;
+		parms.cfg_chgs = &adptr->cfg_chgs;
+		parms.seq = 0;
+
+		cmgd_db_iter_data(db_hndl, base_xpath, cmgd_bcknd_iter_and_get_cfg,
+			(void *)&parms, true);
+	}
+
+	*cfg_chgs = &adptr->cfg_chgs;
+	return 0;
 }
 
 int cmgd_bcknd_create_trxn(

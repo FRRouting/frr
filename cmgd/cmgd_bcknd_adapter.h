@@ -134,16 +134,17 @@ typedef struct cmgd_bcknd_client_adapter_ {
         uint32_t num_msg_tx;
         uint32_t num_msg_rx;
 
+        /*
+         * List of config items that should be sent to the 
+         * backend during re/connect. This is temporarily 
+         * created and then freed-up as soon as the initial 
+         * config items has been applied onto the backend.
+         */
         struct nb_config_cbs cfg_chgs;
 
         struct cmgd_bcknd_adptr_list_item list_linkage;
         struct cmgd_trxn_badptr_list_item trxn_list_linkage;
 } cmgd_bcknd_client_adapter_t;
-
-typedef struct cmgd_bcknd_client_adapter_config_ {
-        cmgd_bcknd_client_adapter_t *adptr;
-        uint32_t seq;
-} cmgd_bcknd_client_adapter_config_t;
 
 #define CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF         (1U << 0)
 #define CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED         (1U << 1)
@@ -170,9 +171,6 @@ extern void cmgd_bcknd_adapter_lock(cmgd_bcknd_client_adapter_t *adptr);
 
 extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr);
 
-extern int cmgd_bcknd_get_adapter_config(
-        cmgd_bcknd_client_adapter_config_t *adptr_config, cmgd_db_hndl_t db_hndl);
-
 extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
         int conn_fd, union sockunion *su);
 
@@ -181,6 +179,10 @@ extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_name(
 
 extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_get_adapter_by_id(
         cmgd_bcknd_client_id_t id);
+
+extern int cmgd_bcknd_get_adapter_config(
+        cmgd_bcknd_client_adapter_t *adptr, cmgd_db_hndl_t db_hndl,
+	struct nb_config_cbs **cfg_chgs);
 
 extern int cmgd_bcknd_create_trxn(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id);

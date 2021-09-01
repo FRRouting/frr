@@ -1232,12 +1232,12 @@ void cmgd_frntnd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 	cmgd_frntnd_server_disconnect(clnt_ctxt, false);
 
 	assert(cmgd_frntnd_clntctxt.ibuf_fifo &&
-		cmgd_frntnd_clntctxt.ibuf_work &&
-		cmgd_frntnd_clntctxt.obuf_fifo &&
-		cmgd_frntnd_clntctxt.obuf_work);
+		cmgd_frntnd_clntctxt.obuf_fifo);
 	
 	stream_fifo_free(cmgd_frntnd_clntctxt.ibuf_fifo);
-	stream_free(cmgd_frntnd_clntctxt.ibuf_work);
+	if (cmgd_frntnd_clntctxt.ibuf_work)
+		stream_free(cmgd_frntnd_clntctxt.ibuf_work);
 	stream_fifo_free(cmgd_frntnd_clntctxt.obuf_fifo);
-	stream_free(cmgd_frntnd_clntctxt.obuf_work);
+	if (cmgd_frntnd_clntctxt.obuf_work)
+		stream_free(cmgd_frntnd_clntctxt.obuf_work);
 }
