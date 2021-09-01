@@ -893,6 +893,9 @@ extern int nb_candidate_edit(struct nb_config *candidate,
 			     const struct yang_data *previous,
 			     const struct yang_data *data);
 
+extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
+				   struct nb_config_cbs *changes);
+
 /*
  * Check if a candidate configuration is outdated and needs to be updated.
  *

@@ -801,16 +801,47 @@ static int cmgd_bcknd_adapter_resume_writes(struct thread *thread)
 	return 0;
 }
 
-static int cmgd_bcknd_get_adapter_config(cmgd_bcknd_client_adapter_t *adptr,
-	cmgd_db_hndl_t db_hndl, struct nb_config_cbs **changes)
+static void cmgd_bcknd_iter_and_get_cfg(cmgd_db_hndl_t db_hndl,
+        char *xpath, struct lyd_node *node, struct nb_node *nb_node,
+		void *ctxt)
 {
+	cmgd_bcknd_client_subscr_info_t subscr_info;
+	cmgd_bcknd_client_adapter_config_t *adptr_config;
+	cmgd_bcknd_client_adapter_t *adptr;
+	struct nb_config_cbs *root;
+	uint32_t *seq;
+
+	if (cmgd_bcknd_get_subscr_info_for_xpath(xpath, &subscr_info) != 0) {
+		CMGD_BCKND_ADPTR_ERR("ERROR: Failed to get subscriber for '%s'",
+			xpath);
+		return;
+	}
+
+	adptr_config = (cmgd_bcknd_client_adapter_config_t *)ctxt;
+
+	adptr = adptr_config->adptr;
+	if (!subscr_info.xpath_subscr[adptr->id].subscribed)
+		return;
+
+	root = &adptr_config->adptr->cfg_chgs;
+	seq = &adptr_config->seq;
+	nb_config_diff_created(node, seq, root);
+	return;
+}
+
+int cmgd_bcknd_get_adapter_config(
+	cmgd_bcknd_client_adapter_config_t *adptr_config, cmgd_db_hndl_t db_hndl)
+{
+	char base_xpath[] = "/";
+
+	cmgd_db_iter_data(db_hndl, base_xpath, cmgd_bcknd_iter_and_get_cfg,
+		(void *)adptr_config, true);
 	return 0;
 }
 
 static int cmgd_bcknd_adapter_conn_init(struct thread *thread)
 {
 	cmgd_bcknd_client_adapter_t *adptr;
-	struct nb_config_cbs *changes = NULL;
 
 	adptr = (cmgd_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
@@ -825,14 +856,8 @@ static int cmgd_bcknd_adapter_conn_init(struct thread *thread)
 		return 0;
 	}
 
-	/* Get config for this single backend client */
-	cmgd_bcknd_get_adapter_config(adptr, cm->running_db, &changes);
-
-	if (!changes || RB_EMPTY(nb_config_cbs, changes)) {
-		/* No CONFIG to sync */
-		SET_FLAG(adptr->flags, CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
-	} else if (cmgd_trxn_notify_bcknd_adapter_conn(
-			adptr, true, changes) != 0) {
+	if (cmgd_trxn_notify_bcknd_adapter_conn(
+			adptr, true, &adptr->cfg_chgs) != 0) {
 		/*
 		 * Notify TRXN module to create a CONFIG transaction and 
 		 * download the CONFIGs identified for this new client.

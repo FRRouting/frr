@@ -24,6 +24,7 @@
 #include "lib/typesafe.h"
 #include "cmgd/cmgd_defines.h"
 #include "lib/cmgd_bcknd_client.h"
+#include "cmgd/cmgd_db.h"
 
 #define CMGD_BCKND_CONN_INIT_DELAY_MSEC		50
 
@@ -133,9 +134,16 @@ typedef struct cmgd_bcknd_client_adapter_ {
         uint32_t num_msg_tx;
         uint32_t num_msg_rx;
 
+        struct nb_config_cbs cfg_chgs;
+
         struct cmgd_bcknd_adptr_list_item list_linkage;
         struct cmgd_trxn_badptr_list_item trxn_list_linkage;
 } cmgd_bcknd_client_adapter_t;
+
+typedef struct cmgd_bcknd_client_adapter_config_ {
+        cmgd_bcknd_client_adapter_t *adptr;
+        uint32_t seq;
+} cmgd_bcknd_client_adapter_config_t;
 
 #define CMGD_BCKND_ADPTR_FLAGS_WRITES_OFF         (1U << 0)
 #define CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED         (1U << 1)
@@ -161,6 +169,9 @@ extern int cmgd_bcknd_adapter_init(struct thread_master *tm);
 extern void cmgd_bcknd_adapter_lock(cmgd_bcknd_client_adapter_t *adptr);
 
 extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr);
+
+extern int cmgd_bcknd_get_adapter_config(
+        cmgd_bcknd_client_adapter_config_t *adptr_config, cmgd_db_hndl_t db_hndl);
 
 extern cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
         int conn_fd, union sockunion *su);
