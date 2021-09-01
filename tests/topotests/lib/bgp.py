@@ -727,6 +727,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
     tgen = get_topogen()
     bgp_data = input_dict["address_family"]
     neigh_data = bgp_data[addr_type]["unicast"]["neighbor"]
+    global_connect = input_dict.get("connecttimer", 5)
 
     for name, peer_dict in neigh_data.items():
         for dest_link, peer in peer_dict["dest_link"].items():
@@ -806,7 +807,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                 )
 
             disable_connected = peer.setdefault("disable_connected_check", False)
-            connect = peer.setdefault("connecttimer", 120)
+            connect = peer.get("connecttimer", global_connect)
             keep_alive = peer.setdefault("keepalivetimer", 3)
             hold_down = peer.setdefault("holddowntimer", 10)
             password = peer.setdefault("password", None)
@@ -837,7 +838,7 @@ def __create_bgp_neighbor(topo, input_dict, router, addr_type, add_neigh=True):
                     "{} timers {} {}".format(neigh_cxt, keep_alive, hold_down)
                 )
             if int(connect) != 120:
-                config_data.append("{} connect {}".format(neigh_cxt, connect))
+                config_data.append("{} timers connect {}".format(neigh_cxt, connect))
 
             if graceful_restart:
                 config_data.append("{} graceful-restart".format(neigh_cxt))
