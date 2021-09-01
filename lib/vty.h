@@ -346,6 +346,7 @@ extern void vty_stdio_close(void);
 extern void vty_log_fixed(char *buf, size_t len);
 
 extern void vty_init_cmgd_frntnd(void);
+extern bool vty_cmgd_frntnd_enabled(void);
 extern int vty_cmgd_send_config_data(struct vty *vty);
 extern int vty_cmgd_send_commit_config(struct vty *vty, bool validate_only,
 	bool abort);

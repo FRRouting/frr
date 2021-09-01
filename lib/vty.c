@@ -3249,6 +3249,10 @@ static void vty_cmgd_set_config_result_notified(
 	} else {
 		zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
 			client_id, req_id);
+		if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
+			vty_cmgd_send_commit_config(vty, false, false);
+			return;
+		}
 	}
 
 	vty_cmgd_resume_response(vty, success);
@@ -3322,7 +3326,6 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 }
 
 static cmgd_frntnd_client_params_t client_params = {
-	.name = "LIB-VTY",
 	.conn_notify_cb = vty_cmgd_server_connected,
 	.lock_db_result_cb = vty_cmgd_db_lock_notified,
 	.sess_req_result_cb = vty_cmgd_session_created,
@@ -3339,8 +3342,15 @@ void vty_init_cmgd_frntnd(void)
 	}
 
 	assert(!cmgd_lib_hndl);
+	snprintf(client_params.name, sizeof(client_params.name), "%s-%lld",
+		frr_get_progname(), (uint64_t)getpid());
 	cmgd_lib_hndl = cmgd_frntnd_client_lib_init(&client_params, vty_master);
 	assert(cmgd_lib_hndl);
+}
+
+bool vty_cmgd_frntnd_enabled(void)
+{
+	return cmgd_lib_hndl && cmgd_frntnd_connected ? true : false;
 }
 
 int vty_cmgd_send_lockdb_req(struct vty *vty,

@@ -2322,7 +2322,8 @@ int cmgd_trxn_notify_bcknd_trxn_reply(
 		/*
 		 * Done with TRXN_DELETE. Move the backend client to next phase.
 		 */
-		cmgd_move_bcknd_commit_to_next_phase(trxn, adptr);
+		if (false)
+			cmgd_move_bcknd_commit_to_next_phase(trxn, adptr);
 	}
 
 	return 0;
