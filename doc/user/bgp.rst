@@ -1680,7 +1680,7 @@ Configuring Peers
    Set keepalive and hold timers for a neighbor. The first value is keepalive
    and the second is hold time.
 
-.. clicmd:: neighbor PEER connect (1-65535)
+.. clicmd:: neighbor PEER timers connect (1-65535)
 
    Set connect timer for a neighbor. The connect timer controls how long BGP
    waits between connection attempts to a neighbor.
