@@ -602,6 +602,9 @@ struct bgp {
 	uint32_t default_connect_retry;
 	uint32_t default_delayopen;
 
+	/* BGP minimum holdtime.  */
+	uint16_t default_min_holdtime;
+
 	/* BGP graceful restart */
 	uint32_t restart_time;
 	uint32_t stalepath_time;
