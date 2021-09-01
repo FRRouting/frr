@@ -4655,6 +4655,7 @@ void cmgd_master_init(struct thread_master *master, const int buffer_size,
 	// cmgd_l3nhg_init();
 	// cmgd_evpn_mh_init();
 	// QOBJ_REG(bm, cmgd_master);
+	cm->perf_stats_en = true;
 }
 
 #if 0

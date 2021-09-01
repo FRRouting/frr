@@ -3249,10 +3249,10 @@ static void vty_cmgd_set_config_result_notified(
 	} else {
 		zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
 			client_id, req_id);
-		if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
+		/*if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
 			vty_cmgd_send_commit_config(vty, false, false);
 			return;
-		}
+		}*/
 	}
 
 	vty_cmgd_resume_response(vty, success);

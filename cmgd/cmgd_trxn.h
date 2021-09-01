@@ -30,6 +30,7 @@
 #include "cmgd/cmgd_db.h"
 
 #define CMGD_TRXN_PROC_DELAY_MSEC               5
+#define CMGD_TRXN_PROC_DELAY_USEC               10
 #define CMGD_TRXN_MAX_NUM_SETCFG_PROC           128
 #define CMGD_TRXN_MAX_NUM_GETCFG_PROC           128
 #define CMGD_TRXN_MAX_NUM_GETDATA_PROC          128
@@ -39,6 +40,7 @@
 #define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     10000   /* 10 seconds */
 
 #define CMGD_TRXN_CLEANUP_DELAY_MSEC            100
+#define CMGD_TRXN_CLEANUP_DELAY_USEC            10
 
 #define CMGD_TRXN_MAX_BATCH_IDS_IN_REQ          (CMGD_BCKND_MSG_MAX_LEN-128)/sizeof(cmgd_trxn_batch_id_t)
 

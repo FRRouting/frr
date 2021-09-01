@@ -195,7 +195,25 @@ static void cmgd_frntnd_sessn_show_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 		cmgd_destroy_trxn(&sessn->trxn_id);
 }
 
-static void cmgd_compute_timers(cmgd_sessn_commit_stats_t *cmt_stats)
+static void cmgd_frntnd_adptr_compute_set_cfg_timers(
+		cmgd_sessn_set_cfg_stats_t *set_cfg_stats)
+{
+	set_cfg_stats->last_exec_tm = timeval_elapsed(set_cfg_stats->end,
+						set_cfg_stats->start);
+	if (set_cfg_stats->last_exec_tm > set_cfg_stats->max_tm)
+		set_cfg_stats->max_tm = set_cfg_stats->last_exec_tm;
+
+	if (set_cfg_stats->last_exec_tm < set_cfg_stats->min_tm)
+		set_cfg_stats->min_tm = set_cfg_stats->last_exec_tm;
+
+	set_cfg_stats->avg_tm = (((set_cfg_stats->avg_tm * 
+			       		(set_cfg_stats->set_cfg_count - 1)) +
+					set_cfg_stats->last_exec_tm) /
+					set_cfg_stats->set_cfg_count);
+}
+
+static void cmgd_frntnd_sessn_compute_commit_timers(
+		cmgd_sessn_commit_stats_t *cmt_stats)
 {
 	cmt_stats->last_exec_tm = timeval_elapsed(cmt_stats->end,
 						cmt_stats->start);
@@ -296,8 +314,10 @@ static int cmgd_frntnd_adapter_send_msg(cmgd_frntnd_client_adapter_t *adptr,
 	uint8_t msg_buf[CMGD_FRNTND_MSG_MAX_LEN];
 	cmgd_frntnd_msg_t *msg;
 
-	if (adptr->conn_fd == 0)
+	if (adptr->conn_fd == 0) {
+		CMGD_FRNTND_ADPTR_ERR("Connection already reset");
 		return -1;
+	}
 
 	msg_size = cmgd__frntnd_message__get_packed_size(frntnd_msg);
 	msg_size += CMGD_FRNTND_MSG_HDR_LEN;
@@ -413,7 +433,9 @@ static int cmgd_frntnd_send_setcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 
 	CMGD_FRNTND_ADPTR_DBG("Sending SET_CONFIG_REPLY message to CMGD Frontend client '%s'",
 		sessn->adptr->name);
-
+	if (cm->perf_stats_en)
+		cmgd_get_realtime(&sessn->adptr->set_cfg_stats.end);
+	cmgd_frntnd_adptr_compute_set_cfg_timers(&sessn->adptr->set_cfg_stats);
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
 
@@ -453,8 +475,9 @@ static int cmgd_frntnd_send_commitcfg_reply(cmgd_frntnd_sessn_ctxt_t *sessn,
 		cmgd_frntnd_session_register_event(
 			sessn, CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP);
 
-	cmgd_get_realtime(&sessn->cmt_stats.end);
-	cmgd_compute_timers(&sessn->cmt_stats);
+	if (cm->perf_stats_en)
+		cmgd_get_realtime(&sessn->cmt_stats.end);
+	cmgd_frntnd_sessn_compute_commit_timers(&sessn->cmt_stats);
 	return cmgd_frntnd_adapter_send_msg(sessn->adptr, &frntnd_msg);
 }
 
@@ -557,18 +580,20 @@ static int cmgd_frntnd_session_show_trxn_clnup(struct thread *thread)
 static void cmgd_frntnd_session_register_event(
 	cmgd_frntnd_sessn_ctxt_t *sessn, cmgd_sessn_event_t event)
 {
+	struct timeval tv = {.tv_sec = 0, .tv_usec = CMGD_FRNTND_MSG_PROC_DELAY_USEC};
+
 	switch (event) {
 	case CMGD_FRNTND_SESSN_CFG_TRXN_CLNUP:
 		sessn->proc_cfg_trxn_clnp = 
-			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
+			thread_add_timer_tv(cmgd_frntnd_adptr_tm,
 				cmgd_frntnd_session_cfg_trxn_clnup, sessn,
-				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_FRNTND_SESSN_SHOW_TRXN_CLNUP:
 		sessn->proc_show_trxn_clnp = 
-			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
+			thread_add_timer_tv(cmgd_frntnd_adptr_tm,
 				cmgd_frntnd_session_show_trxn_clnup, sessn,
-				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	default:
 		assert(!"cmgd_frntnd_adptr_post_event() called incorrectly");
@@ -1023,7 +1048,8 @@ static int cmgd_frntnd_session_handle_commit_config_req_msg(
 {
 	cmgd_db_hndl_t src_db_hndl, dst_db_hndl;
 
-	cmgd_get_realtime(&sessn->cmt_stats.start);
+	if (cm->perf_stats_en)
+		cmgd_get_realtime(&sessn->cmt_stats.start);
 	sessn->cmt_stats.commit_cnt++;
 	/*
 	 * Get the source DB handle.
@@ -1171,6 +1197,9 @@ static int cmgd_frntnd_adapter_handle_msg(
 		assert(frntnd_msg->message_case == CMGD__FRNTND_MESSAGE__MESSAGE_SETCFG_REQ);
 		sessn = (cmgd_frntnd_sessn_ctxt_t *)
 				frntnd_msg->setcfg_req->session_id;
+		if (cm->perf_stats_en)
+			cmgd_get_realtime(&sessn->adptr->set_cfg_stats.start);
+		sessn->adptr->set_cfg_stats.set_cfg_count++;
 		CMGD_FRNTND_ADPTR_DBG(
 				"Got Set Config Req Msg (%d Xpaths) on DB:%d for session-id %llu from '%s'", 
 				(int) frntnd_msg->setcfg_req->n_data,
@@ -1481,6 +1510,8 @@ static int cmgd_frntnd_adapter_resume_writes(struct thread *thread)
 static void cmgd_frntnd_adptr_register_event(
 	cmgd_frntnd_client_adapter_t *adptr, cmgd_event_t event)
 {
+	struct timeval tv = { 0 };
+
 	switch (event) {
 	case CMGD_FRNTND_CONN_READ:
 		adptr->conn_read_ev = 
@@ -1495,10 +1526,11 @@ static void cmgd_frntnd_adptr_register_event(
 				adptr->conn_fd, NULL);
 		break;
 	case CMGD_FRNTND_PROC_MSG:
+		tv.tv_usec = CMGD_FRNTND_MSG_PROC_DELAY_USEC;
 		adptr->proc_msg_ev = 
-			thread_add_timer_msec(cmgd_frntnd_adptr_tm,
+			thread_add_timer_tv(cmgd_frntnd_adptr_tm,
 				cmgd_frntnd_adapter_proc_msgbufs, adptr,
-				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_FRNTND_CONN_WRITES_ON:
 		adptr->conn_writes_on =
@@ -1572,6 +1604,7 @@ cmgd_frntnd_client_adapter_t *cmgd_frntnd_create_adapter(
 		cmgd_frntnd_adptr_register_event(adptr, CMGD_FRNTND_CONN_READ);
 		cmgd_frntnd_adptr_list_add_tail(&cmgd_frntnd_adptrs, adptr);
 
+		adptr->set_cfg_stats.min_tm = ULONG_MAX;
 		CMGD_FRNTND_ADPTR_DBG(
 			"Added new CMGD Frontend adapter '%s'", adptr->name);
 	}
@@ -1596,8 +1629,13 @@ int cmgd_frntnd_send_set_cfg_reply(cmgd_session_id_t session_id,
 	cmgd_frntnd_sessn_ctxt_t *sessn;
 
 	sessn = (cmgd_frntnd_sessn_ctxt_t *)session_id;
-	if (!sessn || sessn->cfg_trxn_id != trxn_id)
+	if (!sessn || sessn->cfg_trxn_id != trxn_id) {
+		if (sessn)
+			CMGD_FRNTND_ADPTR_ERR(
+				"Trxn_id doesnot match, session trxn is 0x%lx, current trxn 0x%lx",
+				sessn->cfg_trxn_id, trxn_id);
 		return -1;
+	}
 
 	return cmgd_frntnd_send_setcfg_reply(sessn, db_id, req_id,
 		result == CMGD_SUCCESS ? true : false, error_if_any);
@@ -1672,10 +1710,14 @@ cmgd_sessn_commit_stats_t *cmgd_frntnd_get_sessn_commit_stats(
 	return &sessn->cmt_stats;
 }
 
-static void cmgd_frntnd_adapter_status_detail(struct vty *vty,
+static void cmgd_frntnd_adapter_cmt_stats_detail(struct vty *vty,
 	cmgd_frntnd_sessn_ctxt_t *sessn)
 {
 	char buf[100] = {0};
+
+	if (!cm->perf_stats_en) {
+		return;
+	}
 
 	if (sessn->cmt_stats.commit_cnt > 0) {
 		vty_out(vty, "        Num-Commits: \t\t%lu\n",
@@ -1737,6 +1779,36 @@ static void cmgd_frntnd_adapter_status_detail(struct vty *vty,
 	}
 }
 
+static void cmgd_frntnd_adapter_set_cfg_stats_detail(struct vty *vty,
+	cmgd_frntnd_client_adapter_t *adptr)
+{
+	char buf[100] = {0};
+
+	if (!cm->perf_stats_en) {
+		return;
+	}
+
+	if (adptr->set_cfg_stats.set_cfg_count > 0) {
+		vty_out(vty, "    Num-Set-Cfg: \t\t\t%lu\n",
+			adptr->set_cfg_stats.set_cfg_count);
+		vty_out(vty, "    Max-Set-Cfg-Duration: \t\t%zu uSec\n",
+			adptr->set_cfg_stats.max_tm);
+		vty_out(vty, "    Min-Set-Cfg-Duration: \t\t%zu uSec\n",
+			adptr->set_cfg_stats.min_tm);
+		vty_out(vty, "    Avg-Set-Cfg-Duration: \t\t%zu uSec\n",
+			adptr->set_cfg_stats.avg_tm);
+		vty_out(vty, "    Last-Set-Cfg-Details:\n");
+		vty_out(vty, "      Set-Cfg Start: \t\t\t%s\n",
+			cmgd_realtime_to_string(
+				&adptr->set_cfg_stats.start,
+				buf, sizeof(buf)));
+		vty_out(vty, "      Set-Cfg End: \t\t\t%s\n",
+			cmgd_realtime_to_string(
+				&adptr->set_cfg_stats.end,
+				buf, sizeof(buf)));
+	}
+}
+
 void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail)
 {
 	cmgd_frntnd_client_adapter_t *adptr;
@@ -1748,6 +1820,8 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail)
 	FOREACH_ADPTR_IN_LIST(adptr) {
 		vty_out(vty, "  Client: \t\t\t%s\n", adptr->name);
 		vty_out(vty, "    Conn-FD: \t\t\t%d\n", adptr->conn_fd);
+		if (detail)
+			cmgd_frntnd_adapter_set_cfg_stats_detail(vty, adptr);
 		vty_out(vty, "    Sessions\n");
 		FOREACH_SESSN_IN_LIST(adptr, sessn) {
 			vty_out(vty, "      Client-Id: \t\t\t0x%lx\n",
@@ -1767,7 +1841,7 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail)
 			}
 
 			if (detail)
-				cmgd_frntnd_adapter_status_detail(vty, sessn);
+				cmgd_frntnd_adapter_cmt_stats_detail(vty, sessn);
 		}
 		vty_out(vty, "    Total-Sessions: \t\t\t%d\n",
 			(int) cmgd_frntnd_sessn_list_count(&adptr->frntnd_sessns));
@@ -1776,4 +1850,22 @@ void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail)
 	}
 	vty_out(vty, "  Total: %d\n", 
 		(int) cmgd_frntnd_adptr_list_count(&cmgd_frntnd_adptrs));
+}
+
+void cmgd_frntnd_adapter_perf_measurement(struct vty *vty, bool config)
+{
+	cm->perf_stats_en = config;
+}
+
+void cmgd_frntnd_adapter_reset_perf_stats(struct vty *vty)
+{
+	cmgd_frntnd_client_adapter_t *adptr;
+	cmgd_frntnd_sessn_ctxt_t *sessn;
+
+	FOREACH_ADPTR_IN_LIST(adptr) {
+		memset(&adptr->set_cfg_stats, 0, sizeof(adptr->set_cfg_stats));
+		FOREACH_SESSN_IN_LIST(adptr, sessn) {
+			memset(&sessn->cmt_stats, 0, sizeof(sessn->cmt_stats));
+		}
+	}
 }

@@ -198,6 +198,32 @@ DEFPY(show_cmgd_frntnd_adapter_detail,
 	return CMD_SUCCESS;
 }
 
+DEFPY_HIDDEN(cmgd_performance_measurement,
+	cmgd_performance_measurement_cmd,
+	"[no] cmgd performance-measurement",
+	NO_STR
+	CMGD_STR
+	"Enable performance measurement\n")
+{
+	if (no)
+		cmgd_frntnd_adapter_perf_measurement(vty, false);
+	else
+		cmgd_frntnd_adapter_perf_measurement(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_reset_performance_stats,
+	cmgd_reset_performance_stats_cmd,
+	"cmgd reset-statistics",
+	CMGD_STR
+	"Reset the Performance measurement statistics\n")
+{
+	cmgd_frntnd_adapter_reset_perf_stats(vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_cmgd_trxn,
 	show_cmgd_trxn_cmd,
 	"show cmgd transaction all",
@@ -633,6 +659,10 @@ void cmgd_vty_init(void)
 	install_element(CONFIG_NODE, &cmgd_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &cmgd_load_config_cmd);
 	install_element(CONFIG_NODE, &cmgd_save_config_cmd);
+
+	/* Enable view */
+	install_element(ENABLE_NODE, &cmgd_performance_measurement_cmd);
+	install_element(ENABLE_NODE, &cmgd_reset_performance_stats_cmd);
 
 	/*
 	 * TODO: Register and handlers for auto-completion here.

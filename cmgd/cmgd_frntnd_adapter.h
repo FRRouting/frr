@@ -51,6 +51,16 @@ typedef struct cmgd_sessn_commit_stats_ {
         unsigned long commit_cnt;
 } cmgd_sessn_commit_stats_t;
 
+typedef struct cmgd_sessn_set_cfg_stats_ {
+	struct timeval start;
+	struct timeval end;
+	unsigned long last_exec_tm;
+	unsigned long max_tm;
+	unsigned long min_tm;
+	unsigned long avg_tm;
+	unsigned long set_cfg_count;
+} cmgd_sessn_set_cfg_stats_t;
+
 PREDECL_LIST(cmgd_frntnd_sessn_list);
 
 PREDECL_LIST(cmgd_frntnd_adptr_list);
@@ -86,6 +96,7 @@ typedef struct cmgd_frntnd_client_adapter_ {
         int refcount;
         uint32_t num_msg_tx;
         uint32_t num_msg_rx;
+        cmgd_sessn_set_cfg_stats_t set_cfg_stats;
 
         struct cmgd_frntnd_adptr_list_item list_linkage;
 } cmgd_frntnd_client_adapter_t;
@@ -134,5 +145,6 @@ extern cmgd_sessn_commit_stats_t *cmgd_frntnd_get_sessn_commit_stats(
         cmgd_session_id_t session_id);
 
 extern void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail);
-
+extern void cmgd_frntnd_adapter_perf_measurement(struct vty *vty, bool config);
+extern void cmgd_frntnd_adapter_reset_perf_stats(struct vty *vty);
 #endif /* _FRR_CMGD_FRNTND_ADAPTER_H_ */

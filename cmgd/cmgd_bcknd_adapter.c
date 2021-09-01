@@ -871,6 +871,8 @@ static int cmgd_bcknd_adapter_conn_init(struct thread *thread)
 static void cmgd_bcknd_adptr_register_event(
 	cmgd_bcknd_client_adapter_t *adptr, cmgd_event_t event)
 {
+	struct timeval tv = { 0 };
+
 	switch (event) {
 	case CMGD_BCKND_CONN_INIT:
 		adptr->conn_read_ev =
@@ -891,10 +893,11 @@ static void cmgd_bcknd_adptr_register_event(
 				adptr->conn_fd, NULL);
 		break;
 	case CMGD_BCKND_PROC_MSG:
+		tv.tv_usec = CMGD_BCKND_MSG_PROC_DELAY_USEC;
 		adptr->proc_msg_ev = 
-			thread_add_timer_msec(cmgd_bcknd_adptr_tm,
+			thread_add_timer_tv(cmgd_bcknd_adptr_tm,
 				cmgd_bcknd_adapter_proc_msgbufs, adptr,
-				CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_BCKND_CONN_WRITES_ON:
 		adptr->conn_writes_on =
