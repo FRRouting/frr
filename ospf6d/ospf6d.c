@@ -827,7 +827,6 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-
 	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
@@ -841,9 +840,8 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
-			ospf6_lsdb_type_show_wrapper(vty, level, NULL, &id,
-						     &adv_router, uj, ospf6);
-
+			ospf6_lsdb_show_wrapper(vty, level, NULL, &id,
+						&adv_router, uj, ospf6);
 			if (!all_vrf)
 				break;
 		}
