@@ -3331,10 +3331,10 @@ static cmgd_frntnd_client_params_t client_params = {
 	.get_data_result_cb = vty_cmgd_get_data_result_notified,
 };
 
-void vty_init_cmgd(void)
+void vty_init_cmgd_frntnd(void)
 {
 	if (!vty_master) {
-		zlog_err("Always call vty_cmgd_init() after vty_init()!!");
+		zlog_err("Always call vty_cmgd_init_frntnd() after vty_init()!!");
 		return;
 	}
 

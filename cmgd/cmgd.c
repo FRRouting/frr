@@ -4771,7 +4771,7 @@ void cmgd_init(void)
 
 	/* allocates some vital data structures used by peer commands in
 	 * vty_init */
-	vty_init_cmgd();
+	vty_init_cmgd_frntnd();
 
 	/* pre-init pthreads */
 	cmgd_pthreads_init();

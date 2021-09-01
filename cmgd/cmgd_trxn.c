@@ -1152,7 +1152,8 @@ cmgd_trxn_prep_config_validation_done:
 
 cmgd_trxn_prepare_config_done:
 
-	nb_config_diff_del_changes(cfg_chgs);
+	if (cfg_chgs)
+		nb_config_diff_del_changes(cfg_chgs);
 
 	return ret;
 }
