@@ -11834,9 +11834,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* Router Dead Interval print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, v_wait)
-			    && params->is_v_wait_set
-			    && params->v_wait
-				       != OSPF_ROUTER_DEAD_INTERVAL_DEFAULT) {
+			    && params->is_v_wait_set) {
 				vty_out(vty, " ip ospf dead-interval ");
 
 				/* fast hello ? */
