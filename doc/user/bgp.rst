@@ -2429,6 +2429,12 @@ BGP Extended Communities in Route Map
 
 .. clicmd:: match extcommunity WORD
 
+.. clicmd:: set extcommunity none
+
+   This command resets the extended community value in BGP updates. If the attribute is
+   already configured or received from the peer, the attribute is discarded and set to
+   none. This is useful if you need to strip incoming extended communities.
+
 .. clicmd:: set extcommunity rt EXTCOMMUNITY
 
    This command set Route Target value.
