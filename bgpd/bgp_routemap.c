@@ -2708,7 +2708,9 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		bw_bytes *= mpath_count;
 	}
 
-	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval);
+	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
+			  CHECK_FLAG(peer->flags,
+				     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 
 	/* add to route or merge with existing */
 	old_ecom = path->attr->ecommunity;

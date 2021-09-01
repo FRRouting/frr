@@ -1402,6 +1402,15 @@ Configuring Peers
    Allow peerings between directly connected eBGP peers using loopback
    addresses.
 
+.. clicmd:: neighbor PEER disable-link-bw-encoding-ieee
+
+   By default bandwidth in extended communities is carried encoded as IEEE
+   floating-point format, which is according to the draft.
+
+   Older versions have the implementation where extended community bandwidth
+   value is carried encoded as uint32. To enable backward compatibility we
+   need to disable IEEE floating-point encoding option per-peer.
+
 .. clicmd:: neighbor PEER ebgp-multihop
 
    Specifying ``ebgp-multihop`` allows sessions with eBGP neighbors to
