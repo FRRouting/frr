@@ -462,6 +462,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 	size_t packet_left = 0;
 	size_t packet_size = 0;
 	size_t group_size = 0;
+	bool pkt_loaded = false;
 
 	if (rpf->source_nexthop.interface)
 		pim_ifp = rpf->source_nexthop.interface->info;
@@ -514,6 +515,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			msg->holdtime = htons(PIM_JP_HOLDTIME);
 
 			new_packet = false;
+			pkt_loaded = false;
 
 			grp = &msg->groups[0];
 			curr_ptr = (uint8_t *)grp;
@@ -540,6 +542,21 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 
 		group_size = pim_msg_get_jp_group_size(group->sources);
 		if (group_size > packet_left) {
+			if (!pkt_loaded) {
+				msg->num_groups++;
+				packet_size += group_size;
+				pim_msg_build_jp_groups(grp, group, group_size);
+
+				if (PIM_DEBUG_PIM_TRACE)
+					zlog_debug(
+						"%s: interface %s num_joins %u num_prunes %u",
+						__func__,
+						rpf->source_nexthop
+							.interface->name,
+						ntohs(grp->joins),
+						ntohs(grp->prunes));
+			}
+
 			pim_msg_build_header(pim_msg, packet_size,
 					     PIM_MSG_TYPE_JOIN_PRUNE, false);
 			if (pim_msg_send(pim_ifp->pim_sock_fd,
@@ -552,6 +569,20 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 					__func__,
 					rpf->source_nexthop.interface->name);
 			}
+
+			pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
+			pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
+
+			/* Current group is sent, go to next group */
+			if (!pkt_loaded) {
+				new_packet = true;
+				continue;
+			}
+
+			/*
+			 * It comes here cuz couldn't hold current group.
+			 * only old group was sent. Make new pkt for curr group.
+			 */
 
 			msg = (struct pim_jp *)pim_msg;
 			memset(msg, 0, sizeof(*msg));
@@ -583,6 +614,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		packet_left -= group_size;
 		packet_size += group_size;
 		pim_msg_build_jp_groups(grp, group, group_size);
+
+		pkt_loaded = true;
 
 		pim_ifp->pim_ifstat_join_send += ntohs(grp->joins);
 		pim_ifp->pim_ifstat_prune_send += ntohs(grp->prunes);
