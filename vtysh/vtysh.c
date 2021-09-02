@@ -26,8 +26,12 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 
+/* readline carries some ancient definitions around */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <readline/readline.h>
 #include <readline/history.h>
+#pragma GCC diagnostic pop
 
 #include <dirent.h>
 #include <stdio.h>
