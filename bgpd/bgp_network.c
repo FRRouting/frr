@@ -706,7 +706,8 @@ int bgp_connect(struct peer *peer)
 	ifindex_t ifindex = 0;
 
 	if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer)) {
-		zlog_debug("Peer address not learnt: Returning from connect");
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
 	frr_with_privs(&bgpd_privs) {
@@ -714,8 +715,13 @@ int bgp_connect(struct peer *peer)
 		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
 						bgp_get_bound_name(peer));
 	}
-	if (peer->fd < 0)
+	if (peer->fd < 0) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
+				   __func__, peer->host, safe_strerror(errno),
+				   errno);
 		return -1;
+	}
 
 	set_nonblocking(peer->fd);
 
@@ -725,8 +731,13 @@ int bgp_connect(struct peer *peer)
 
 	bgp_socket_set_buffer_size(peer->fd);
 
-	if (bgp_set_socket_ttl(peer, peer->fd) < 0)
+	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
+				   __func__, peer->host, safe_strerror(errno),
+				   errno);
 		return -1;
+	}
 
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
