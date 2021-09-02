@@ -161,13 +161,6 @@ def setup_module(mod):
     r1.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
     r1.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
     r1.run("sysctl -w net.mpls.conf.r1-eth2.input=1")
-    r2.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
-    r2.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
-    r3.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
-    r3.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
-    r3.run("sysctl -w net.mpls.conf.r1-eth2.input=1")
-    r4.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
-    r4.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
 
     router_list = tgen.routers()
 
