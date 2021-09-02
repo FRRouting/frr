@@ -182,6 +182,7 @@ int cmgd_db_init(struct cmgd_master *cm)
 	candidate.root.cfg_root = nb_config_dup(running.root.cfg_root);
 	candidate.config_db = true;
 	candidate.db_id = CMGD_DB_CANDIDATE;
+	RB_INIT(nb_config_cbs, &candidate.root.cfg_root->cfg_chgs);
 
 	/*
 	 * Redirect lib/vty candidate-config database to the global candidate

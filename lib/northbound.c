@@ -741,6 +741,51 @@ int nb_candidate_edit(struct nb_config *candidate,
 	return NB_OK;
 }
 
+static void nb_update_candidate_changes(struct nb_config *candidate,
+	struct nb_cfg_change *change)
+{
+	enum nb_operation oper = change->operation;
+	char *xpath = change->xpath;
+	struct lyd_node *root, *dnode;
+	struct nb_config_cbs *cfg_chgs = &candidate->cfg_chgs;
+	uint32_t seq = 0;
+
+	switch (oper)
+	{
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+		root = yang_dnode_get(candidate->dnode, xpath);
+		break;
+	case NB_OP_DESTROY:
+		root = yang_dnode_get(running_config->dnode, xpath);
+		/* code */
+		break;
+	default:
+		break;
+	}
+	LYD_TREE_DFS_BEGIN (root, dnode) {
+		switch (oper)
+		{
+		case NB_OP_CREATE:
+			nb_config_diff_created(dnode, &seq, cfg_chgs);
+			LYD_TREE_DFS_continue = 1;
+			break;
+		case NB_OP_DESTROY:
+			nb_config_diff_deleted(dnode, &seq, cfg_chgs);
+			LYD_TREE_DFS_continue = 1;
+			break;
+		case NB_OP_MODIFY:
+			nb_config_diff_add_change(cfg_chgs, NB_OP_MODIFY,
+							  &seq, dnode);
+			break;
+		default:
+			break;
+		}
+	LYD_TREE_DFS_END(root, dnode);
+	}
+
+}
+
 static bool nb_is_operation_allowed(struct nb_node *nb_node, struct nb_cfg_change *change)
 {
 	enum nb_operation oper = change->operation;
@@ -816,6 +861,7 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 		 */
 		ret = nb_candidate_edit(candidate_config, nb_node,
 					change->operation, xpath, NULL, data);
+		nb_update_candidate_changes(candidate_config, change);
 		yang_data_free(data);
 		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
 			flog_warn(
@@ -868,7 +914,7 @@ int nb_candidate_update(struct nb_config *candidate)
  * WARNING: lyd_validate() can change the configuration as part of the
  * validation process.
  */
-static int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
+int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
 				      size_t errmsg_len)
 {
 	if (lyd_validate_all(&candidate->dnode, ly_native_ctx,

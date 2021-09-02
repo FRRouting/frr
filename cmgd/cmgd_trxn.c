@@ -1088,8 +1088,7 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	 */
 	nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
 	nb_ctxt.user = (void *)trxn;
-	ret = nb_candidate_diff_and_validate_yang(&nb_ctxt, nb_config,
-		&changes, err_buf, sizeof(err_buf)-1);
+	ret = nb_candidate_validate_yang(nb_config, err_buf, sizeof(err_buf)-1);
 	if (ret != NB_OK) {
 		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
 		ret = -1;
@@ -1122,7 +1121,8 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
-	cfg_chgs = &changes;
+	// cfg_chgs = &changes;
+	cfg_chgs = &nb_config->cfg_chgs;
 
 cmgd_trxn_prep_config_validation_done:
 
