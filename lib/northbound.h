@@ -692,12 +692,6 @@ struct nb_context {
 #endif
 };
 
-/* Northbound configuration. */
-struct nb_config {
-	struct lyd_node *dnode;
-	uint32_t version;
-};
-
 /* Northbound configuration callback. */
 struct nb_config_cb {
 	RB_ENTRY(nb_config_cb) entry;
@@ -722,6 +716,13 @@ struct nb_transaction {
 	char comment[80];
 	struct nb_config *config;
 	struct nb_config_cbs changes;
+};
+
+/* Northbound configuration. */
+struct nb_config {
+	struct lyd_node *dnode;
+	uint32_t version;
+	struct nb_config_cbs cfg_chgs;
 };
 
 /* Callback function used by nb_oper_data_iterate(). */
@@ -934,6 +935,9 @@ extern int nb_candidate_diff_and_validate_yang(struct nb_context *context,
 				               struct nb_config *candidate,
 				               struct nb_config_cbs *changes, char *errmsg,
 				               size_t errmsg_len);
+
+extern int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
+				      size_t errmsg_len);
 
 extern int nb_candidate_validate_code(struct nb_context *context,
 				      struct nb_config *candidate,
