@@ -323,7 +323,6 @@ extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
-extern vrf_id_t vrf_generate_id(void);
 
 extern const struct frr_yang_module_info frr_vrf_info;
 
