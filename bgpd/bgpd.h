@@ -1356,6 +1356,7 @@ struct peer {
 #define PEER_FLAG_SEND_LARGE_COMMUNITY      (1U << 26) /* Send large Communities */
 #define PEER_FLAG_MAX_PREFIX_OUT            (1U << 27) /* outgoing maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_FORCE          (1U << 28) /* maximum-prefix <num> force */
+#define PEER_FLAG_DISABLE_ADDPATH_RX        (1U << 29) /* disable-addpath-rx */
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
