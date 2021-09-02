@@ -1582,6 +1582,10 @@ Configuring Peers
    Configure BGP to send best known paths to neighbor in order to preserve multi
    path capabilities inside a network.
 
+.. clicmd:: neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx
+
+   Do not accept additional paths from this neighbor.
+
 .. clicmd:: neighbor PEER ttl-security hops NUMBER
 
    This command enforces Generalized TTL Security Mechanism (GTSM), as
@@ -4375,8 +4379,8 @@ Show command json output:
 BGP fast-convergence support
 ============================
 Whenever BGP peer address becomes unreachable we must bring down the BGP
-session immediately. Currently only single-hop EBGP sessions are brought 
-down immediately.IBGP and multi-hop EBGP sessions wait for hold-timer 
+session immediately. Currently only single-hop EBGP sessions are brought
+down immediately.IBGP and multi-hop EBGP sessions wait for hold-timer
 expiry to bring down the sessions.
 
 This new configuration option helps user to teardown BGP sessions immediately
