@@ -611,8 +611,6 @@ static int bgp_accept(struct thread *thread)
 /* BGP socket bind. */
 static char *bgp_get_bound_name(struct peer *peer)
 {
-	char *name = NULL;
-
 	if (!peer)
 		return NULL;
 
@@ -628,14 +626,16 @@ static char *bgp_get_bound_name(struct peer *peer)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
 	 */
-	if (peer->su.sa.sa_family == AF_INET6)
-		name = (peer->conf_if ? peer->conf_if
-				      : (peer->ifname ? peer->ifname
-						      : peer->bgp->name));
-	else
-		name = peer->ifname ? peer->ifname : peer->bgp->name;
+	if (peer->su.sa.sa_family == AF_INET6 && peer->conf_if)
+		return peer->conf_if;
 
-	return name;
+	if (peer->ifname)
+		return peer->ifname;
+
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+		return NULL;
+
+	return peer->bgp->name;
 }
 
 static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
@@ -706,7 +706,8 @@ int bgp_connect(struct peer *peer)
 	ifindex_t ifindex = 0;
 
 	if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer)) {
-		zlog_debug("Peer address not learnt: Returning from connect");
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
 	frr_with_privs(&bgpd_privs) {
@@ -714,8 +715,13 @@ int bgp_connect(struct peer *peer)
 		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
 						bgp_get_bound_name(peer));
 	}
-	if (peer->fd < 0)
+	if (peer->fd < 0) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
+				   __func__, peer->host, safe_strerror(errno),
+				   errno);
 		return -1;
+	}
 
 	set_nonblocking(peer->fd);
 
@@ -725,8 +731,13 @@ int bgp_connect(struct peer *peer)
 
 	bgp_socket_set_buffer_size(peer->fd);
 
-	if (bgp_set_socket_ttl(peer, peer->fd) < 0)
+	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
+				   __func__, peer->host, safe_strerror(errno),
+				   errno);
 		return -1;
+	}
 
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
