@@ -6196,11 +6196,12 @@ DEFUN (no_neighbor_disable_connected_check,
 				   PEER_FLAG_DISABLE_CONNECTED_CHECK);
 }
 
-/* link-bw-encoding-ieee */
-DEFUN(neighbor_link_bw_encoding_ieee, neighbor_link_bw_encoding_ieee_cmd,
+/* disable-link-bw-encoding-ieee */
+DEFUN(neighbor_disable_link_bw_encoding_ieee,
+      neighbor_disable_link_bw_encoding_ieee_cmd,
       "neighbor <A.B.C.D|X:X::X:X|WORD> disable-link-bw-encoding-ieee",
       NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Enable IEEE floating-point encoding for extended community bandwidth\n")
+      "Disable IEEE floating-point encoding for extended community bandwidth\n")
 {
 	int idx_peer = 1;
 
@@ -6208,10 +6209,11 @@ DEFUN(neighbor_link_bw_encoding_ieee, neighbor_link_bw_encoding_ieee_cmd,
 				 PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 }
 
-DEFUN(no_neighbor_link_bw_encoding_ieee, no_neighbor_link_bw_encoding_ieee_cmd,
+DEFUN(no_neighbor_disable_link_bw_encoding_ieee,
+      no_neighbor_disable_link_bw_encoding_ieee_cmd,
       "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-link-bw-encoding-ieee",
       NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
-      "Enable IEEE floating-point encoding for extended community bandwidth\n")
+      "Disable IEEE floating-point encoding for extended community bandwidth\n")
 {
 	int idx_peer = 2;
 
@@ -18400,9 +18402,10 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_disable_connected_check_cmd);
 	install_element(BGP_NODE, &no_neighbor_disable_connected_check_cmd);
 
-	/* "neighbor link-bw-encoding-ieee" commands.  */
-	install_element(BGP_NODE, &neighbor_link_bw_encoding_ieee_cmd);
-	install_element(BGP_NODE, &no_neighbor_link_bw_encoding_ieee_cmd);
+	/* "neighbor disable-link-bw-encoding-ieee" commands.  */
+	install_element(BGP_NODE, &neighbor_disable_link_bw_encoding_ieee_cmd);
+	install_element(BGP_NODE,
+			&no_neighbor_disable_link_bw_encoding_ieee_cmd);
 
 	/* "neighbor enforce-first-as" commands. */
 	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
