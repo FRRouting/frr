@@ -572,7 +572,9 @@ static int bgp_accept(struct thread *thread)
 	peer1->doppelganger = peer;
 	peer->fd = bgp_sock;
 	frr_with_privs(&bgpd_privs) {
-		vrf_bind(peer->bgp->vrf_id, bgp_sock, bgp_get_bound_name(peer));
+		vrf_bind(peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW
+			 ? peer->bgp->vrf_id : VRF_DEFAULT, bgp_sock,
+			 bgp_get_bound_name(peer));
 	}
 	bgp_peer_reg_with_nht(peer);
 	bgp_fsm_change_status(peer, Active);
@@ -611,8 +613,6 @@ static int bgp_accept(struct thread *thread)
 /* BGP socket bind. */
 static char *bgp_get_bound_name(struct peer *peer)
 {
-	char *name = NULL;
-
 	if (!peer)
 		return NULL;
 
@@ -628,14 +628,16 @@ static char *bgp_get_bound_name(struct peer *peer)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
 	 */
-	if (peer->su.sa.sa_family == AF_INET6)
-		name = (peer->conf_if ? peer->conf_if
-				      : (peer->ifname ? peer->ifname
-						      : peer->bgp->name));
-	else
-		name = peer->ifname ? peer->ifname : peer->bgp->name;
+	if (peer->su.sa.sa_family == AF_INET6 && peer->conf_if)
+		return peer->conf_if;
 
-	return name;
+	if (peer->ifname)
+		return peer->ifname;
+
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+		return NULL;
+
+	return peer->bgp->name;
 }
 
 static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
@@ -711,7 +713,10 @@ int bgp_connect(struct peer *peer)
 	}
 	frr_with_privs(&bgpd_privs) {
 	/* Make socket for the peer. */
-		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
+		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->inst_type
+						!= BGP_INSTANCE_TYPE_VIEW
+						? peer->bgp->vrf_id
+						: VRF_DEFAULT,
 						bgp_get_bound_name(peer));
 	}
 	if (peer->fd < 0)
