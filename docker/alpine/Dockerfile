@@ -1,3 +1,26 @@
+# syntax=docker/dockerfile:1
+
+# Create a basic stage set up to build APKs
+FROM alpine:3.13 as alpine-builder
+RUN apk add \
+		--update-cache \
+		abuild \
+		alpine-conf \
+		alpine-sdk \
+	&& setup-apkcache /var/cache/apk \
+	&& mkdir -p /pkgs/apk \
+	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
+RUN adduser -D -G abuild builder && su builder -c 'abuild-keygen -a -n'
+
+# This stage builds a libyang APK from source
+FROM alpine-builder as libyang-builder
+RUN mkdir -p /libyang && chown -R builder /pkgs /libyang
+COPY docker/alpine/libyang/ /libyang
+USER builder
+RUN cd /libyang \
+	&& abuild checksum \
+	&& abuild -r -P /pkgs/apk
+
 # This stage builds a dist tarball from the source
 FROM alpine:3.13 as source-builder
 
@@ -9,7 +32,14 @@ RUN source /src/alpine/APKBUILD.in \
 		--update-cache \
 		$makedepends \
 		gzip \
+		py-pip \
 	&& pip install pytest
+
+RUN mkdir -p /pkgs/apk
+COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
+RUN apk add \
+		--no-cache \
+		--allow-untrusted /pkgs/apk/*/*.apk
 
 COPY . /src
 ARG PKGVER
@@ -20,25 +50,17 @@ RUN cd /src \
 		--with-pkg-extra-version="_git$PKGVER" \
 	&& make dist
 
-# This stage builds an apk from the dist tarball
-FROM alpine:3.13 as alpine-builder
-# Don't use nocache here so that abuild can use the cache
-RUN apk add \
-		--update-cache \
-		abuild \
-		alpine-conf \
-		alpine-sdk \
-		py-pip \
-	&& pip install pytest \
-	&& setup-apkcache /var/cache/apk \
-	&& mkdir -p /pkgs/apk \
-	&& echo 'builder ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers
-
+# This stage builds an APK from the dist tarball
+FROM alpine-builder as frr-apk-builder
+COPY --from=libyang-builder /pkgs/apk/ /pkgs/apk/
 COPY --from=source-builder /src/frr-*.tar.gz /src/alpine/* /dist/
-RUN adduser -D -G abuild builder && chown -R builder /dist /pkgs
+RUN find /pkgs/apk -type f -name APKINDEX.tar.gz -delete
+RUN apk add \
+		--no-cache \
+		--allow-untrusted /pkgs/apk/*/*.apk
+RUN chown -R builder /dist /pkgs
 USER builder
 RUN cd /dist \
-	&& abuild-keygen -a -n \
 	&& abuild checksum \
 	&& git init \
 	&& abuild -r -P /pkgs/apk
@@ -46,7 +68,7 @@ RUN cd /dist \
 # This stage installs frr from the apk
 FROM alpine:3.13
 RUN mkdir -p /pkgs/apk
-COPY --from=alpine-builder /pkgs/apk/ /pkgs/apk/
+COPY --from=frr-apk-builder /pkgs/apk/ /pkgs/apk/
 RUN apk add \
 		--no-cache \
 		--update-cache \
