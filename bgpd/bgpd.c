@@ -3222,8 +3222,21 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 	}
 
 	bgp = bgp_create(as, name, inst_type);
-	if (bgp_option_check(BGP_OPT_NO_ZEBRA) && name)
-		bgp->vrf_id = vrf_generate_id();
+
+	/*
+	 * view instances will never work inside of a vrf
+	 * as such they must always be in the VRF_DEFAULT
+	 * Also we must set this to something useful because
+	 * of the vrf socket code needing an actual useful
+	 * default value to send to the underlying OS.
+	 *
+	 * This code is currently ignoring vrf based
+	 * code using the -Z option( and that is probably
+	 * best addressed elsewhere in the code )
+	 */
+	if (inst_type == BGP_INSTANCE_TYPE_VIEW)
+		bgp->vrf_id = VRF_DEFAULT;
+
 	bgp_router_id_set(bgp, &bgp->router_id_zebra, true);
 	bgp_address_init(bgp);
 	bgp_tip_hash_init(bgp);
