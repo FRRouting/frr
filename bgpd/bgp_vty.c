@@ -7968,6 +7968,48 @@ DEFUN (no_neighbor_ttl_security,
 	return bgp_vty_return(vty, peer_ttl_security_hops_unset(peer));
 }
 
+/* disable-addpath-rx */
+DEFUN(neighbor_disable_addpath_rx,
+      neighbor_disable_addpath_rx_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx",
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Do not accept additional paths\n")
+{
+	char *peer_str = argv[1]->arg;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return peer_af_flag_set_vty(vty, peer_str, afi, safi,
+				    PEER_FLAG_DISABLE_ADDPATH_RX);
+}
+
+DEFUN(no_neighbor_disable_addpath_rx,
+      no_neighbor_disable_addpath_rx_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> disable-addpath-rx",
+      NO_STR
+      NEIGHBOR_STR
+      NEIGHBOR_ADDR_STR2
+      "Do not accept additional paths\n")
+{
+	char *peer_str = argv[2]->arg;
+	struct peer *peer;
+	afi_t afi = bgp_node_afi(vty);
+	safi_t safi = bgp_node_safi(vty);
+
+	peer = peer_and_group_lookup_vty(vty, peer_str);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	return peer_af_flag_unset_vty(vty, peer_str, afi, safi,
+				      PEER_FLAG_DISABLE_ADDPATH_RX);
+}
+
 DEFUN (neighbor_addpath_tx_all_paths,
        neighbor_addpath_tx_all_paths_cmd,
        "neighbor <A.B.C.D|X:X::X:X|WORD> addpath-tx-all-paths",
@@ -16606,6 +16648,9 @@ static void bgp_config_write_peer_af(struct vty *vty, struct bgp *bgp,
 		}
 	}
 
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_DISABLE_ADDPATH_RX))
+		vty_out(vty, "  neighbor %s disable-addpath-rx\n", addr);
+
 	/* ORF capability.  */
 	if (peergroup_af_flag_check(peer, afi, safi, PEER_FLAG_ORF_PREFIX_SM)
 	    || peergroup_af_flag_check(peer, afi, safi,
@@ -18227,6 +18272,24 @@ void bgp_vty_init(void)
 	install_element(BGP_FLOWSPECV6_NODE, &neighbor_route_server_client_cmd);
 	install_element(BGP_FLOWSPECV6_NODE,
 			&no_neighbor_route_server_client_cmd);
+
+	/* "neighbor disable-addpath-rx" commands. */
+	install_element(BGP_IPV4_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV4_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV4M_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV4M_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV4L_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV4L_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV6_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV6_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV6M_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV6M_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV6L_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_IPV6L_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_VPNV4_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_VPNV4_NODE, &no_neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_VPNV6_NODE, &neighbor_disable_addpath_rx_cmd);
+	install_element(BGP_VPNV6_NODE, &no_neighbor_disable_addpath_rx_cmd);
 
 	/* "neighbor addpath-tx-all-paths" commands.*/
 	install_element(BGP_NODE, &neighbor_addpath_tx_all_paths_hidden_cmd);
