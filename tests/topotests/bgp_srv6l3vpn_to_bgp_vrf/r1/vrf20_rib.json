@@ -22,12 +22,9 @@
           "interfaceName": "eth0",
           "vrf": "default",
           "active": true,
-          "labels": [
-            3
-          ],
           "weight": 1,
           "seg6": {
-            "segs": "2001:db8:2:2::200"
+            "segs": "2001:db8:2:2:200::"
           }
         }
       ],
@@ -83,12 +80,9 @@
           "interfaceName": "eth0",
           "vrf": "default",
           "active": true,
-          "labels": [
-            3
-          ],
           "weight": 1,
           "seg6": {
-            "segs": "2001:db8:2:2::200"
+            "segs": "2001:db8:2:2:200::"
           }
         }
       ],
