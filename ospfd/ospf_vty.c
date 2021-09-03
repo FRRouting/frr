@@ -4682,7 +4682,6 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 			json_vrf = json_object_new_object();
 		else
 			json_vrf = json;
-		json_neighbor_sub = json_object_new_object();
 	}
 
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
@@ -4708,6 +4707,8 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 			if (nbr_nbma->nbr == NULL
 			    || nbr_nbma->nbr->state == NSM_Down) {
 				if (use_json) {
+					json_neighbor_sub =
+						json_object_new_object();
 					json_object_int_add(json_neighbor_sub,
 							    "nbrNbmaPriority",
 							    nbr_nbma->priority);
