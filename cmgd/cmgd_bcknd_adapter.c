@@ -311,7 +311,6 @@ static void cmgd_bcknd_adapter_cleanup_old_conn(
 static int cmgd_bcknd_adapter_handle_msg(
 	cmgd_bcknd_client_adapter_t *adptr, Cmgd__BckndMessage *bcknd_msg)
 {
-
 	switch(bcknd_msg->type) {
 	case CMGD__BCKND_MESSAGE__TYPE__SUBSCRIBE_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_SUBSCR_REQ);
@@ -875,7 +874,7 @@ static void cmgd_bcknd_adptr_register_event(
 
 	switch (event) {
 	case CMGD_BCKND_CONN_INIT:
-		adptr->conn_read_ev =
+		adptr->conn_init_ev =
 			thread_add_timer_msec(cmgd_bcknd_adptr_tm,
 				cmgd_bcknd_adapter_conn_init, adptr,
 				CMGD_BCKND_CONN_INIT_DELAY_MSEC, NULL);
@@ -927,6 +926,8 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr)
 		stream_free((*adptr)->ibuf_work);
 		stream_fifo_free((*adptr)->obuf_fifo);
 		stream_free((*adptr)->obuf_work);
+
+		THREAD_OFF((*adptr)->conn_init_ev);
 
 		XFREE(MTYPE_CMGD_BCKND_ADPATER, *adptr);
 	}
