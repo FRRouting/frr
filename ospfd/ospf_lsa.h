@@ -349,6 +349,8 @@ extern struct ospf_lsa *ospf_translated_nssa_refresh(struct ospf *ospf,
 extern struct ospf_lsa *ospf_translated_nssa_originate(struct ospf *ospf,
 						       struct ospf_lsa *type7,
 						       struct ospf_lsa *type5);
+extern void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
+					    struct ospf_lsa *lsa);
 extern void ospf_flush_lsa_from_area(struct ospf *ospf, struct in_addr area_id,
 				     int type);
 #endif /* _ZEBRA_OSPF_LSA_H */
