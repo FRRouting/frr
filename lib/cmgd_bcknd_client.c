@@ -21,6 +21,7 @@
 #include "northbound.h"
 #include "libfrr.h"
 #include "lib/typesafe.h"
+#include "cmgd/cmgd.h"
 #include "lib/cmgd_bcknd_client.h"
 #include "lib/cmgd_pb.h"
 #include "lib/network.h"
@@ -531,6 +532,17 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	bool error;
 	char err_buf[1024];
 	struct nb_context nb_ctxt = { 0 };
+	struct timeval find_batch_start;
+	struct timeval find_batch_end;
+	unsigned long batch_find_tm;
+	unsigned long avg_batch_find_tm;
+	struct timeval edit_nb_cfg_start;
+	struct timeval edit_nb_cfg_end;
+	unsigned long edit_nb_cfg_tm;
+	unsigned long avg_edit_nb_cfg_tm;
+	struct timeval apply_nb_cfg_start;
+	struct timeval apply_nb_cfg_end;
+	unsigned long apply_nb_cfg_tm;
 
 	trxn = cmgd_bcknd_find_trxn_by_id(clnt_ctxt, trxn_id);
 	if (!trxn) {
@@ -540,11 +552,19 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	}
 
 	for (indx = 0; indx < num_batch_ids; indx++) {
+		if (cmgd_debug_bcknd_clnt)
+			cmgd_get_realtime(&find_batch_start);
 		batch = cmgd_bcknd_find_batch_by_id(trxn, batch_ids[indx]);
 		if (!batch) {
 			cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
 				num_batch_ids, false, "Batch context not created!");
 			return -1;
+		}
+
+		if (cmgd_debug_bcknd_clnt) {
+			cmgd_get_realtime(&find_batch_end);
+			batch_find_tm = timeval_elapsed(find_batch_end, find_batch_start);
+			avg_batch_find_tm = (avg_batch_find_tm + batch_find_tm)/2;
 		}
 
 		trxn_req = &batch->trxn_req;
@@ -559,6 +579,8 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 			 * it.
 			 */
 			error = false;
+			if (cmgd_debug_bcknd_clnt)
+				cmgd_get_realtime(&edit_nb_cfg_start);
 			nb_candidate_edit_config_changes(
 				clnt_ctxt->candidate_config,
 				trxn_req->req.set_cfg.cfg_changes,
@@ -574,6 +596,12 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 					"Failed to update Candidate Db on backend!");
 				return -1;
 			}
+			if (cmgd_debug_bcknd_clnt) {
+				cmgd_get_realtime(&edit_nb_cfg_end);
+				edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end,
+							edit_nb_cfg_start);
+				avg_edit_nb_cfg_tm = (avg_edit_nb_cfg_tm + edit_nb_cfg_tm)/2;
+			}
 		}
 
 		/*
@@ -584,11 +612,20 @@ static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 
 	nb_ctxt.client = NB_CLIENT_CLI;
 	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
+	if (cmgd_debug_bcknd_clnt)
+		cmgd_get_realtime(&apply_nb_cfg_start);
 	(void) nb_candidate_apply(&nb_ctxt, clnt_ctxt->candidate_config,
 			trxn->nb_trxn, "CMGD Backend Trxn",
 			true, &trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
+	if (cmgd_debug_bcknd_clnt) {
+		cmgd_get_realtime(&apply_nb_cfg_end);
+		apply_nb_cfg_tm = timeval_elapsed(apply_nb_cfg_end, apply_nb_cfg_start);
+	}
 	trxn->nb_trxn = NULL;
 
+	if (cmgd_debug_bcknd_clnt)
+		zlog_err("Avg-Find-Duration %zu uSec, Avg-nb-edit-duration %zu uSec, nb-apply-duration %zu uSec, batch size %lu",
+			avg_batch_find_tm, avg_edit_nb_cfg_tm, apply_nb_cfg_tm, num_batch_ids); 
 	cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
 		num_batch_ids, true, NULL);
 
@@ -1104,6 +1141,8 @@ static int cmgd_bcknd_client_conn_timeout(struct thread *thread)
 static void cmgd_bcknd_client_register_event(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, cmgd_event_t event)
 {
+	struct timeval tv = { 0 };
+
 	switch (event) {
 	case CMGD_BCKND_CONN_READ:
 		clnt_ctxt->conn_read_ev = 
@@ -1118,10 +1157,11 @@ static void cmgd_bcknd_client_register_event(
 				clnt_ctxt->conn_fd, NULL);
 		break;
 	case CMGD_BCKND_PROC_MSG:
+		tv.tv_usec = CMGD_BCKND_MSG_PROC_DELAY_USEC;
 		clnt_ctxt->msg_proc_ev = 
-			thread_add_timer_msec(clnt_ctxt->tm,
+			thread_add_timer_tv(clnt_ctxt->tm,
 				cmgd_bcknd_client_proc_msgbufs, clnt_ctxt,
-				CMGD_BCKND_MSG_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_BCKND_CONN_WRITES_ON:
 		clnt_ctxt->conn_writes_on =

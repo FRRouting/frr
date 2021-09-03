@@ -1096,8 +1096,9 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 
 #ifdef CMGD_LOCAL_VALIDATIONS_ENABLED
-	cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
-		cmt_stats->validate_start);
+	if (cm->perf_stats_en)
+		cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
+			cmt_stats->validate_start);
 
 	/*
 	 * Perform application level validations locally on the CMGD 
@@ -1126,8 +1127,9 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 
 cmgd_trxn_prep_config_validation_done:
 
-	cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
-                cmt_stats->prep_cfg_start);
+	if (cm->perf_stats_en)
+		cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
+			cmt_stats->prep_cfg_start);
 
 	/*
 	 * Iterate over the diffs and create ordered batches of config 
@@ -1471,14 +1473,17 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		cmgd_trxn_prepare_config(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_TRXN_CREATE:
-		cmgd_get_realtime(&cmtcfg_req->cmt_stats->trxn_create_start);
+		if (cm->perf_stats_en)
+			cmgd_get_realtime(
+				&cmtcfg_req->cmt_stats->trxn_create_start);
 		/*
 		 * Send TRXN_CREATE_REQ to all Backend now.
 		 */
 		cmgd_trxn_send_bcknd_trxn_create(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_SEND_CFG:
-		cmgd_get_realtime(&cmtcfg_req->cmt_stats->send_cfg_start);
+		if (cm->perf_stats_en)
+			cmgd_get_realtime(&cmtcfg_req->cmt_stats->send_cfg_start);
 		/*
 		 * All CFGDATA_CREATE_REQ should have been sent to Backend by now.
 		 */
@@ -1494,7 +1499,8 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		break;
 #ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 	case CMGD_COMMIT_PHASE_VALIDATE_CFG:
-		cmgd_get_realtime(&cmtcfg_req->cmt_stats->validate_start);
+		if (cm->perf_stats_en)
+			cmgd_get_realtime(&cmtcfg_req->cmt_stats->validate_start);
 		/*
 		 * We should have received successful CFFDATA_CREATE_REPLY from all
 		 * concerned Backend Clients by now. Send out the CFG_VALIDATE_REQs
@@ -1504,7 +1510,8 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		break;
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 	case CMGD_COMMIT_PHASE_APPLY_CFG:
-		cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_start);
+		if (cm->perf_stats_en)
+			cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_start);
 		/*
 		 * We should have received successful CFG_VALIDATE_REPLY from all
 		 * concerned Backend Clients by now. Send out the CFG_APPLY_REQs
@@ -1513,7 +1520,8 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		cmgd_trxn_send_bcknd_cfg_apply(trxn);
 		break;
 	case CMGD_COMMIT_PHASE_TRXN_DELETE:
-		cmgd_get_realtime(&cmtcfg_req->cmt_stats->trxn_del_start);
+		if (cm->perf_stats_en)
+			cmgd_get_realtime(&cmtcfg_req->cmt_stats->trxn_del_start);
 		/*
 		 * We would have sent TRXN_DELETE_REQ to all backend by now.
 		 * Send a successful CONFIG_COMMIT_REPLY back to front-end.
@@ -2013,32 +2021,35 @@ static int cmgd_trxn_cleanup(struct thread *thread)
 static void cmgd_trxn_register_event(
 	cmgd_trxn_ctxt_t *trxn, cmgd_trxn_event_t event)
 {
+	struct timeval tv = {.tv_sec = 0,
+		.tv_usec = CMGD_TRXN_PROC_DELAY_USEC};
+
 	assert(cmgd_trxn_cm && cmgd_trxn_tm);
 
 	switch (event) {
 	case CMGD_TRXN_PROC_SETCFG:
 		trxn->proc_set_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
+			thread_add_timer_tv(cmgd_trxn_tm,
 				cmgd_trxn_process_set_cfg, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_TRXN_PROC_COMMITCFG:
 		trxn->proc_comm_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
+			thread_add_timer_tv(cmgd_trxn_tm,
 				cmgd_trxn_process_commit_cfg, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_TRXN_PROC_GETCFG:
 		trxn->proc_comm_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
+			thread_add_timer_tv(cmgd_trxn_tm,
 				cmgd_trxn_process_get_cfg, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_TRXN_PROC_GETDATA:
 		trxn->proc_comm_cfg = 
-			thread_add_timer_msec(cmgd_trxn_tm,
+			thread_add_timer_tv(cmgd_trxn_tm,
 				cmgd_trxn_process_get_data, trxn,
-				CMGD_TRXN_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_TRXN_COMMITCFG_TIMEOUT:
 		trxn->comm_cfg_timeout = 
@@ -2047,10 +2058,11 @@ static void cmgd_trxn_register_event(
 				CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC, NULL);
 		break;
 	case CMGD_TRXN_CLEANUP:
+		tv.tv_usec = CMGD_TRXN_CLEANUP_DELAY_USEC;
 		trxn->clnup = 
-			thread_add_timer_msec(cmgd_trxn_tm,
+			thread_add_timer_tv(cmgd_trxn_tm,
 				cmgd_trxn_cleanup, trxn,
-				CMGD_TRXN_CLEANUP_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	default:
 		assert(!"cmgd_trxn_register_event() called incorrectly");
@@ -2464,7 +2476,8 @@ extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
 	}
 
 	cmgd_try_move_commit_to_next_phase(trxn, cmtcfg_req);
-	cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_end);
+	if (cm->perf_stats_en)
+		cmgd_get_realtime(&cmtcfg_req->cmt_stats->apply_cfg_end);
 
 	return 0;
 }

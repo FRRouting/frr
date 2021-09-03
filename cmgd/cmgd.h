@@ -107,6 +107,7 @@ struct cmgd_master {
 	cmgd_db_hndl_t oper_db;
 
 	bool terminating;	/* global flag that sigint terminate seen */
+	bool perf_stats_en;	/* to enable performance stats measurement */
 	// QOBJ_FIELDS
 };
 // DECLARE_QOBJ_TYPE(cmgd_master)

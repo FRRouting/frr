@@ -925,6 +925,8 @@ static int cmgd_frntnd_client_conn_timeout(struct thread *thread)
 static void cmgd_frntnd_client_register_event(
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt, cmgd_event_t event)
 {
+	struct timeval tv = { 0 };
+
 	switch (event) {
 	case CMGD_FRNTND_CONN_READ:
 		clnt_ctxt->conn_read_ev = 
@@ -939,10 +941,11 @@ static void cmgd_frntnd_client_register_event(
 				clnt_ctxt->conn_fd, NULL);
 		break;
 	case CMGD_FRNTND_PROC_MSG:
+		tv.tv_usec = CMGD_FRNTND_MSG_PROC_DELAY_USEC;
 		clnt_ctxt->msg_proc_ev = 
-			thread_add_timer_msec(clnt_ctxt->tm,
+			thread_add_timer_tv(clnt_ctxt->tm,
 				cmgd_frntnd_client_proc_msgbufs, clnt_ctxt,
-				CMGD_FRNTND_MSG_PROC_DELAY_MSEC, NULL);
+				&tv, NULL);
 		break;
 	case CMGD_FRNTND_CONN_WRITES_ON:
 		clnt_ctxt->conn_writes_on =
