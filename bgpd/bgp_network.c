@@ -173,9 +173,7 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 				 * must be the default vrf or a view instance
 				 */
 				if (!listener->bgp) {
-					if (peer->bgp->vrf_id != VRF_DEFAULT
-					    && peer->bgp->inst_type
-						       != BGP_INSTANCE_TYPE_VIEW)
+					if (peer->bgp->vrf_id != VRF_DEFAULT)
 						continue;
 				} else if (listener->bgp != peer->bgp)
 					continue;
@@ -856,8 +854,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	listener->name = XSTRDUP(MTYPE_BGP_LISTENER, bgp->name);
 
 	/* this socket is in a vrf record bgp back pointer */
-	if (bgp->vrf_id != VRF_DEFAULT
-	    && bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
+	if (bgp->vrf_id != VRF_DEFAULT)
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
@@ -909,9 +906,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			sock = vrf_socket(ainfo->ai_family,
 					  ainfo->ai_socktype,
 					  ainfo->ai_protocol,
-					  (bgp->inst_type
-					   != BGP_INSTANCE_TYPE_VIEW
-					   ? bgp->vrf_id : VRF_DEFAULT),
+					  bgp->vrf_id,
 					  (bgp->inst_type
 					   == BGP_INSTANCE_TYPE_VRF
 					   ? bgp->name : NULL));
