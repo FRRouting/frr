@@ -43,12 +43,10 @@ extern "C" {
 
 #define CMGD_FRNTND_DEFAULT_CONN_RETRY_INTVL_SEC	5
 
-#define CMGD_FRNTND_MSG_PROC_DELAY_MSEC			1
 #define CMGD_FRNTND_MSG_PROC_DELAY_USEC			10
 #define CMGD_FRNTND_MAX_NUM_MSG_PROC			500
 
 #define CMGD_FRNTND_MSG_WRITE_DELAY_MSEC		1
-#define CMGD_FRNTND_MSG_WRITE_DELAY_USEC		10
 #define CMGD_FRNTND_MAX_NUM_MSG_WRITE			100
 
 #define GMGD_FRNTND_MAX_NUM_REQ_ITEMS    		64
@@ -203,7 +201,8 @@ extern cmgd_result_t cmgd_frntnd_lock_db(
 extern cmgd_result_t cmgd_frntnd_set_config_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
-	cmgd_yang_cfgdata_req_t **config_req, int num_req);
+	cmgd_yang_cfgdata_req_t **config_req, int num_req, 
+	bool implicit_commit, cmgd_database_id_t dst_db_id);
 
 /*
  * Send SET_CONFIG_REQ to CMGD for one or more config data(s).

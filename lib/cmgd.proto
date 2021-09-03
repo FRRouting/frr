@@ -282,6 +282,8 @@ message FrntndSetConfigReq {
   required DatabaseId db_id = 2;
   required uint64 req_id = 3;
   repeated YangCfgDataReq data = 4;
+  required bool implicit_commit = 5;
+  required DatabaseId commit_db_id = 6;
 }
 
 message FrntndSetConfigReply {

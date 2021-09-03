@@ -310,6 +310,8 @@ struct nb_config *nb_config_new(struct lyd_node *dnode)
 		config->dnode = yang_dnode_new(ly_native_ctx, true);
 	config->version = 0;
 
+	RB_INIT(nb_config_cbs, &config->cfg_chgs);
+
 	return config;
 }
 
@@ -317,6 +319,7 @@ void nb_config_free(struct nb_config *config)
 {
 	if (config->dnode)
 		yang_dnode_free(config->dnode);
+	nb_config_diff_del_changes(&config->cfg_chgs);
 	XFREE(MTYPE_NB_CONFIG, config);
 }
 
@@ -327,6 +330,8 @@ struct nb_config *nb_config_dup(const struct nb_config *config)
 	dup = XCALLOC(MTYPE_NB_CONFIG, sizeof(*dup));
 	dup->dnode = yang_dnode_dup(config->dnode);
 	dup->version = config->version;
+
+	RB_INIT(nb_config_cbs, &dup->cfg_chgs);
 
 	return dup;
 }
@@ -538,10 +543,16 @@ static inline void nb_config_diff_dnode_log(const char *context,
 }
 #endif
 
-/* Calculate the delta between two different configurations. */
-static void nb_config_diff(const struct nb_config *config1,
-			   const struct nb_config *config2,
-			   struct nb_config_cbs *changes)
+/* 
+ * Calculate the delta between two different configurations.
+ *
+ * NOTE: 'config1' is the reference DB, while 'config2' is
+ * the DB being compared against 'config1'. Typically 'config21'
+ * should be the Running DB and 'config2' is the Candidate DB.
+ */
+void nb_config_diff(const struct nb_config *config1,
+		    const struct nb_config *config2,
+		    struct nb_config_cbs *changes)
 {
 	struct lyd_node *diff = NULL;
 	const struct lyd_node *root, *dnode;

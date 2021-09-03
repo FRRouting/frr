@@ -62,6 +62,9 @@ typedef struct cmgd_set_cfg_req_ {
 	cmgd_db_hndl_t db_hndl;
 	struct nb_cfg_change cfg_changes[CMGD_MAX_CFG_CHANGES_IN_BATCH];
 	uint16_t num_cfg_changes;
+	bool implicit_commit;
+	cmgd_database_id_t dst_db_id;
+	cmgd_db_hndl_t dst_db_hndl;
 } cmgd_set_cfg_req_t;
 
 typedef enum cmgd_commit_phase_ {
@@ -135,6 +138,7 @@ typedef struct cmgd_commit_cfg_req_ {
 	cmgd_db_hndl_t dst_db_hndl;
 	bool validate_only;
 	bool abort;
+	bool implicit;
 	uint32_t nb_trxn_id;
 
 	/* Track commit phases */
@@ -620,7 +624,8 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
 				trxn_req->req.set_cfg->db_id,
 				trxn_req->req_id, CMGD_INTERNAL_ERROR,
-				"No such database!");
+				"No such database!",
+				trxn_req->req.set_cfg->implicit_commit);
 			error = true;
 			goto cmgd_trxn_process_set_cfg_done;
 		}
@@ -631,7 +636,8 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
 				trxn_req->req.set_cfg->db_id,
 				trxn_req->req_id, CMGD_INTERNAL_ERROR,
-				"Unable to retrieve DB Config Tree!");
+				"Unable to retrieve DB Config Tree!",
+				trxn_req->req.set_cfg->implicit_commit);
 			error = true;
 			goto cmgd_trxn_process_set_cfg_done;
 		}
@@ -646,14 +652,25 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 				trxn->session_id, (cmgd_trxn_id_t) trxn,
 				trxn_req->req.set_cfg->db_id,
 				trxn_req->req_id, CMGD_INTERNAL_ERROR,
-				err_buf);
+				err_buf,
+				trxn_req->req.set_cfg->implicit_commit);
 			goto cmgd_trxn_process_set_cfg_done;
 		}
 
-		if (cmgd_frntnd_send_set_cfg_reply(
+		if (trxn_req->req.set_cfg->implicit_commit) {
+			assert(cmgd_trxn_req_list_count(&trxn->set_cfg_reqs) == 1);
+			assert(trxn_req->req.set_cfg->dst_db_hndl);
+
+			cmgd_trxn_send_commit_config_req((cmgd_trxn_id_t) trxn,
+				trxn_req->req_id, trxn_req->req.set_cfg->db_id,
+				trxn_req->req.set_cfg->db_hndl,
+				trxn_req->req.set_cfg->dst_db_id,
+				trxn_req->req.set_cfg->dst_db_hndl,
+				false, false, true);
+		} else if (cmgd_frntnd_send_set_cfg_reply(
 			trxn->session_id, (cmgd_trxn_id_t) trxn,
 			trxn_req->req.set_cfg->db_id,
-			trxn_req->req_id, CMGD_SUCCESS, NULL) != 0) {
+			trxn_req->req_id, CMGD_SUCCESS, NULL, false) != 0) {
 			CMGD_TRXN_ERR("Failed to send SET_CONFIG_REPLY for trxn %p sessn 0x%lx",
 				trxn, trxn->session_id);
 			error = true;
@@ -688,15 +705,30 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 	if (!trxn->commit_cfg_req)
 		return -1;
 
-	if (trxn->session_id && cmgd_frntnd_send_commit_cfg_reply(
-		trxn->session_id, (cmgd_trxn_id_t) trxn,
-		trxn->commit_cfg_req->req.commit_cfg.src_db_id,
-		trxn->commit_cfg_req->req.commit_cfg.dst_db_id,
-		trxn->commit_cfg_req->req_id,
-		trxn->commit_cfg_req->req.commit_cfg.validate_only,
-		success ? CMGD_SUCCESS : CMGD_INTERNAL_ERROR, error_if_any)
-		!= 0) {
+	if (!trxn->commit_cfg_req->req.commit_cfg.implicit &&
+		trxn->session_id &&
+		cmgd_frntnd_send_commit_cfg_reply(
+			trxn->session_id, (cmgd_trxn_id_t) trxn,
+			trxn->commit_cfg_req->req.commit_cfg.src_db_id,
+			trxn->commit_cfg_req->req.commit_cfg.dst_db_id,
+			trxn->commit_cfg_req->req_id,
+			trxn->commit_cfg_req->req.commit_cfg.validate_only,
+			success ? CMGD_SUCCESS : CMGD_INTERNAL_ERROR,
+			error_if_any) != 0) {
 		CMGD_TRXN_ERR("Failed to send COMMIT-CONFIG-REPLY for Trxn %p Sessn 0x%lx",
+			trxn, trxn->session_id);
+		return -1;
+	}
+
+	if (trxn->commit_cfg_req->req.commit_cfg.implicit &&
+		trxn->session_id &&
+		cmgd_frntnd_send_set_cfg_reply(
+			trxn->session_id, (cmgd_trxn_id_t) trxn,
+			trxn->commit_cfg_req->req.commit_cfg.src_db_id,
+			trxn->commit_cfg_req->req_id,
+			success ? CMGD_SUCCESS : CMGD_INTERNAL_ERROR,
+			error_if_any, true) != 0) {
+		CMGD_TRXN_ERR("Failed to send SET-CONFIG-REPLY for Trxn %p Sessn 0x%lx",
 			trxn, trxn->session_id);
 		return -1;
 	}
@@ -1025,11 +1057,13 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	struct nb_config_cbs changes = { 0 };
 	struct nb_config_cbs *cfg_chgs = NULL;
 	int ret;
+	bool del_cfg_chgs = false;
 
 	ret = 0;
 
 	if (trxn->commit_cfg_req->req.commit_cfg.cfg_chgs) {
 		cfg_chgs = trxn->commit_cfg_req->req.commit_cfg.cfg_chgs;
+		del_cfg_chgs = true;
 		goto cmgd_trxn_prep_config_validation_done;
 	}
 
@@ -1082,8 +1116,36 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		goto cmgd_trxn_prepare_config_done;
 	}
 
+	// cfg_chgs = &changes;
+	cfg_chgs = &nb_config->cfg_chgs;
+	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
+		/*
+		 * This could be the case when the config is directly
+		 * loaded onto the candidate DB from a file. Get the 
+		 * diff from a full comparison of the candidate and
+		 * running DBs.
+		 */
+		nb_config_diff(cmgd_db_get_nb_config(
+					trxn->commit_cfg_req->req.
+					commit_cfg.dst_db_hndl),
+			nb_config, &changes);
+		cfg_chgs = &changes;
+		del_cfg_chgs = true;
+	}
+
+	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
+		/*
+		 * This means there's no changes to commit whatsoever 
+		 * is the source of the changes in config.
+		 */
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
+			"No changes found to be committed!");
+		ret = -1;
+		goto cmgd_trxn_prepare_config_done;
+	}
+
 	/*
-	 * Validate YANG contents of the srource DB and get the diff 
+	 * Validate YANG contents of the source DB and get the diff 
 	 * between source and destination DB contents.
 	 */
 	nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
@@ -1122,9 +1184,6 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
-	// cfg_chgs = &changes;
-	cfg_chgs = &nb_config->cfg_chgs;
-
 cmgd_trxn_prep_config_validation_done:
 
 	if (cm->perf_stats_en)
@@ -1154,7 +1213,7 @@ cmgd_trxn_prep_config_validation_done:
 
 cmgd_trxn_prepare_config_done:
 
-	if (cfg_chgs)
+	if (cfg_chgs && del_cfg_chgs)
 		nb_config_diff_del_changes(cfg_chgs);
 
 	return ret;
@@ -2129,7 +2188,9 @@ cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id)
 int cmgd_trxn_send_set_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t db_id, cmgd_db_hndl_t db_hndl,
-        cmgd_yang_cfgdata_req_t *cfg_req[], size_t num_req)
+        cmgd_yang_cfgdata_req_t *cfg_req[], size_t num_req,
+	bool implicit_commit, cmgd_database_id_t dst_db_id,
+	cmgd_db_hndl_t dst_db_hndl)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
@@ -2140,6 +2201,12 @@ int cmgd_trxn_send_set_config_req(
 	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
 	if (!trxn)
 		return -1;
+
+	if (implicit_commit &&
+		cmgd_trxn_req_list_count(&trxn->set_cfg_reqs)) {
+		CMGD_TRXN_ERR("For implicit commit config only one SETCFG-REQ can be allowed!");
+		return -1;
+	}
 
 	trxn_req = cmgd_trxn_req_alloc(trxn, req_id, CMGD_TRXN_PROC_SETCFG);
 	trxn_req->req.set_cfg->db_id = db_id;
@@ -2181,6 +2248,9 @@ int cmgd_trxn_send_set_config_req(
 
 		(*num_chgs)++;
 	}
+	trxn_req->req.set_cfg->implicit_commit = implicit_commit;
+	trxn_req->req.set_cfg->dst_db_id = dst_db_id;
+	trxn_req->req.set_cfg->dst_db_hndl = dst_db_hndl;
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_SETCFG);
 
 	return 0;
@@ -2190,7 +2260,7 @@ int cmgd_trxn_send_commit_config_req(
         cmgd_trxn_id_t trxn_id, cmgd_client_req_id_t req_id,
         cmgd_database_id_t src_db_id, cmgd_db_hndl_t src_db_hndl,
 	cmgd_database_id_t dst_db_id, cmgd_db_hndl_t dst_db_hndl,
-	bool validate_only, bool abort)
+	bool validate_only, bool abort, bool implicit)
 {
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
@@ -2212,6 +2282,7 @@ int cmgd_trxn_send_commit_config_req(
 	trxn_req->req.commit_cfg.dst_db_hndl = dst_db_hndl;
 	trxn_req->req.commit_cfg.validate_only = validate_only;
 	trxn_req->req.commit_cfg.abort = abort;
+	trxn_req->req.commit_cfg.implicit = implicit;
 	trxn_req->req.commit_cfg.cmt_stats = 
 		cmgd_frntnd_get_sessn_commit_stats(trxn->session_id);
 

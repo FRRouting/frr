@@ -120,7 +120,7 @@ extern cmgd_frntnd_client_adapter_t *cmgd_frntnd_get_adapter(const char *name);
 extern int cmgd_frntnd_send_set_cfg_reply(cmgd_session_id_t session_id,
         cmgd_trxn_id_t trxn_id, cmgd_database_id_t db_id,
         cmgd_client_req_id_t req_id, cmgd_result_t result,
-        const char *error_if_any);
+        const char *error_if_any, bool implcit_commit);
 
 extern int cmgd_frntnd_send_commit_cfg_reply(cmgd_session_id_t session_id,
         cmgd_trxn_id_t trxn_id, cmgd_database_id_t src_db_id,

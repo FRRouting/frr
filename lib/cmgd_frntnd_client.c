@@ -350,7 +350,8 @@ static int cmgd_frntnd_send_lockdb_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 static int cmgd_frntnd_send_setcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	cmgd_frntnd_client_session_t *sessn,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id, 
-	cmgd_yang_cfgdata_req_t **data_req, int num_data_reqs)
+	cmgd_yang_cfgdata_req_t **data_req, int num_data_reqs, 
+	bool implicit_commit, cmgd_database_id_t dst_db_id)
 {
 	(void) req_id;
 	Cmgd__FrntndMessage frntnd_msg;
@@ -362,6 +363,8 @@ static int cmgd_frntnd_send_setcfg_req(cmgd_frntnd_client_ctxt_t *clnt_ctxt,
 	setcfg_req.req_id = req_id;
 	setcfg_req.data = data_req;
 	setcfg_req.n_data = (size_t) num_data_reqs;
+	setcfg_req.implicit_commit = implicit_commit;
+	setcfg_req.commit_db_id = dst_db_id;
 
 	cmgd__frntnd_message__init(&frntnd_msg);
 	frntnd_msg.type = CMGD__FRNTND_MESSAGE__TYPE__SET_CONFIG_REQ;
@@ -1093,7 +1096,8 @@ cmgd_result_t cmgd_frntnd_lock_db(
 cmgd_result_t cmgd_frntnd_set_config_data(
 	cmgd_lib_hndl_t lib_hndl, cmgd_session_id_t session_id,
 	cmgd_client_req_id_t req_id, cmgd_database_id_t db_id,
-	cmgd_yang_cfgdata_req_t **config_req, int num_reqs)
+	cmgd_yang_cfgdata_req_t **config_req, int num_reqs, 
+	bool implicit_commit, cmgd_database_id_t dst_db_id)
 {
 	cmgd_frntnd_client_ctxt_t *clnt_ctxt;
 	cmgd_frntnd_client_session_t *sessn;
@@ -1107,7 +1111,8 @@ cmgd_result_t cmgd_frntnd_set_config_data(
 		return CMGD_INVALID_PARAM;
 
 	if (cmgd_frntnd_send_setcfg_req(
-		clnt_ctxt, sessn, req_id, db_id, config_req, num_reqs) != 0)
+		clnt_ctxt, sessn, req_id, db_id, config_req, num_reqs,
+		implicit_commit, dst_db_id) != 0)
 		return CMGD_INTERNAL_ERROR;
 
 	return CMGD_SUCCESS;

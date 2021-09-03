@@ -936,6 +936,10 @@ extern int nb_candidate_diff_and_validate_yang(struct nb_context *context,
 				               struct nb_config_cbs *changes, char *errmsg,
 				               size_t errmsg_len);
 
+extern void nb_config_diff(const struct nb_config *reference,
+			   const struct nb_config *incremental,
+			   struct nb_config_cbs *changes);
+
 extern int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
 				      size_t errmsg_len);
 

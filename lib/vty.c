@@ -3249,10 +3249,6 @@ static void vty_cmgd_set_config_result_notified(
 	} else {
 		zlog_err("SET_CONFIG request for client 0x%lx req-id %lu was successfull!",
 			client_id, req_id);
-		/*if (frr_get_cli_mode() == FRR_CLI_CLASSIC) {
-			vty_cmgd_send_commit_config(vty, false, false);
-			return;
-		}*/
 	}
 
 	vty_cmgd_resume_response(vty, success);
@@ -3371,8 +3367,8 @@ int vty_cmgd_send_lockdb_req(struct vty *vty,
 			return -1;
 		}
 
-		zlog_err("Sent %sLOCK-DB-REQ request for session 0x%lx, req-id: %lu!",
-			lock ? "" : "UN", vty->cmgd_session_id, vty->cmgd_req_id);
+		// zlog_err("Sent %sLOCK-DB-REQ request for session 0x%lx, req-id: %lu!",
+		// 	lock ? "" : "UN", vty->cmgd_session_id, vty->cmgd_req_id);
 
 		vty->cmgd_req_pending = true;
 	}
@@ -3426,12 +3422,16 @@ int vty_cmgd_send_config_data(struct vty *vty)
 		vty->cmgd_req_id++;
 		if (cnt && cmgd_frntnd_set_config_data(
 			cmgd_lib_hndl, vty->cmgd_session_id,
-			vty->cmgd_req_id, CMGD_DB_CANDIDATE, cfgreq, cnt)
-			!= CMGD_SUCCESS) {
+			vty->cmgd_req_id, CMGD_DB_CANDIDATE, cfgreq, cnt,
+			frr_get_cli_mode() == FRR_CLI_CLASSIC ?
+			true : false, CMGD_DB_RUNNING) != CMGD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to CMGD!!",
 				(int) indx);
 			return -1;
 		}
+
+		// zlog_err("Sent SET_CONFIG request for session 0x%lx, req-id: %lu!",
+		// 	vty->cmgd_session_id, vty->cmgd_req_id);
 
 		vty->cmgd_req_pending = true;
 	}
@@ -3457,8 +3457,8 @@ int vty_cmgd_send_commit_config(struct vty *vty, bool validate_only,
 			return -1;
 		}
 
-		zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
-			vty->cmgd_session_id, vty->cmgd_req_id);
+		// zlog_err("Sent COMMIT_CONFIG request for session 0x%lx, req-id: %lu!",
+		// 	vty->cmgd_session_id, vty->cmgd_req_id);
 
 		vty->cmgd_req_pending = true;
 	}
@@ -3497,6 +3497,9 @@ int vty_cmgd_send_get_config(struct vty *vty, cmgd_database_id_t database,
 		return -1;
 	}
 
+	// zlog_err("Sent GET_CONFIG request for session 0x%lx, req-id: %lu!",
+	// 	vty->cmgd_session_id, vty->cmgd_req_id);
+
 	vty->cmgd_req_pending = true;
 
 	return 0;
@@ -3532,6 +3535,9 @@ int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database,
 		vty_out(vty, "Failed to send GET-CONFIG to CMGD!");
 		return -1;
 	}
+
+	// zlog_err("Sent GET_DATA request for session 0x%lx, req-id: %lu!",
+	// 	vty->cmgd_session_id, vty->cmgd_req_id);
 
 	vty->cmgd_req_pending = true;
 

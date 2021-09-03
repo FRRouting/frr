@@ -82,9 +82,9 @@ void cmgd_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
 	case NB_OP_MOVE:
 	case NB_OP_PRE_VALIDATE:
 		/* Process on CMGD daemon itself */
-		zlog_err("%s, cmd: '%s', '%s' xpath: '%s' ==> '%s'",
-			__func__, vty->buf, nb_operation_name(operation),
-			xpath, value ? value : "Nil");
+		// zlog_err("%s, cmd: '%s', '%s' xpath: '%s' ==> '%s'",
+		// 	__func__, vty->buf, nb_operation_name(operation),
+		// 	xpath, value ? value : "Nil");
 		// vty_out(vty, "CMGD: Equeued XPATH '%s' ==> '%s'\n", xpath,
 		// 	value ? value : "Nil");
 		nb_cli_enqueue_change(vty, xpath, operation, value);
@@ -126,7 +126,7 @@ int cmgd_apply_vty_nb_commands(struct vty *vty, const char *xpath_base_fmt,
 		va_end(ap);
 	}
 
-	zlog_err("%s, cmd: '%s'", __func__, vty->buf);
+	// zlog_err("%s, cmd: '%s'", __func__, vty->buf);
 	// vty_out(vty, "CMGD: Applying command '%s'\n", xpath_base);
 #if 0
 	return nb_cli_apply_changes(vty, xpath_base);

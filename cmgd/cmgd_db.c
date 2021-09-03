@@ -123,6 +123,13 @@ static int cmgd_db_replace_dst_with_src_db(
 	else
 		dst->root.dnode_root = dst_dnode;
 
+	if (src->db_id == CMGD_DB_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
 	if (dst->db_id == CMGD_DB_RUNNING) {
 		if (ly_out_new_filepath(CMGD_STARTUP_DB_FILE_PATH, &out) == LY_SUCCESS)
 			cmgd_db_dump_in_memory(dst, "", LYD_JSON, out);
@@ -182,7 +189,6 @@ int cmgd_db_init(struct cmgd_master *cm)
 	candidate.root.cfg_root = nb_config_dup(running.root.cfg_root);
 	candidate.config_db = true;
 	candidate.db_id = CMGD_DB_CANDIDATE;
-	RB_INIT(nb_config_cbs, &candidate.root.cfg_root->cfg_chgs);
 
 	/*
 	 * Redirect lib/vty candidate-config database to the global candidate
