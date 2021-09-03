@@ -13016,11 +13016,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									    [safi],
 								    PEER_CAP_ADDPATH_AF_TX_ADV))
 								vty_out(vty,
-									"advertised %s",
-									get_afi_safi_str(
-										afi,
-										safi,
-										false));
+									"advertised");
 
 							if (CHECK_FLAG(
 								    p->af_cap
@@ -13061,11 +13057,7 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									    [safi],
 								    PEER_CAP_ADDPATH_AF_RX_ADV))
 								vty_out(vty,
-									"advertised %s",
-									get_afi_safi_str(
-										afi,
-										safi,
-										false));
+									"advertised");
 
 							if (CHECK_FLAG(
 								    p->af_cap
