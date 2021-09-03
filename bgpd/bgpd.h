@@ -1593,6 +1593,7 @@ struct peer {
 #define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */
 #define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
 #define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
+#define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason

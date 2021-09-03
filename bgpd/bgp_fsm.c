@@ -640,7 +640,8 @@ const char *const peer_down_str[] = {"",
 			       "No AFI/SAFI activated for peer",
 			       "AS Set config change",
 			       "Waiting for peer OPEN",
-			       "Reached received prefix count"};
+			       "Reached received prefix count",
+			       "Socket Error"};
 
 static int bgp_graceful_restart_timer_expire(struct thread *thread)
 {

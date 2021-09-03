@@ -716,6 +716,7 @@ int bgp_connect(struct peer *peer)
 						bgp_get_bound_name(peer));
 	}
 	if (peer->fd < 0) {
+		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
@@ -732,6 +733,7 @@ int bgp_connect(struct peer *peer)
 	bgp_socket_set_buffer_size(peer->fd);
 
 	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
+		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
@@ -764,6 +766,7 @@ int bgp_connect(struct peer *peer)
 
 	/* Update source bind. */
 	if (bgp_update_source(peer) < 0) {
+		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		return connect_error;
 	}
 
