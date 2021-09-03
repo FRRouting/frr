@@ -1534,6 +1534,11 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 
 	FOREACH_AFI_SAFI (afi, safi) {
 		if (peer->afc[afi][safi]) {
+			bool adv_addpath_rx =
+				!CHECK_FLAG(peer->af_flags[afi][safi],
+					    PEER_FLAG_DISABLE_ADDPATH_RX);
+			uint8_t flags = 0;
+
 			/* Convert AFI, SAFI to values for packet. */
 			bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi,
 						  &pkt_safi);
@@ -1541,19 +1546,25 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 			stream_putw(s, pkt_afi);
 			stream_putc(s, pkt_safi);
 
-			if (adv_addpath_tx) {
-				stream_putc(s, BGP_ADDPATH_RX | BGP_ADDPATH_TX);
+			if (adv_addpath_rx) {
+				SET_FLAG(flags, BGP_ADDPATH_RX);
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_ADDPATH_AF_RX_ADV);
+			} else {
+				UNSET_FLAG(peer->af_cap[afi][safi],
+					   PEER_CAP_ADDPATH_AF_RX_ADV);
+			}
+
+			if (adv_addpath_tx) {
+				SET_FLAG(flags, BGP_ADDPATH_TX);
 				SET_FLAG(peer->af_cap[afi][safi],
 					 PEER_CAP_ADDPATH_AF_TX_ADV);
 			} else {
-				stream_putc(s, BGP_ADDPATH_RX);
-				SET_FLAG(peer->af_cap[afi][safi],
-					 PEER_CAP_ADDPATH_AF_RX_ADV);
 				UNSET_FLAG(peer->af_cap[afi][safi],
 					   PEER_CAP_ADDPATH_AF_TX_ADV);
 			}
+
+			stream_putc(s, flags);
 		}
 	}
 
