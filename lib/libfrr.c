@@ -674,13 +674,19 @@ static void frr_mkdir(const char *path, bool strip)
 			 strerror(errno));
 }
 
+static void _err_print(const void *cookie, const char *errstr)
+{
+	const char *prefix = (const char *)cookie;
+
+	fprintf(stderr, "%s: %s\n", prefix, errstr);
+}
+
 static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
 	struct option_chain *oc;
 	struct frrmod_runtime *module;
 	struct zprivs_ids_t ids;
-	char moderr[256];
 	char p_instance[16] = "", p_pathspace[256] = "";
 	const char *dir;
 	dir = di->module_path ? di->module_path : frr_moduledir;
@@ -734,11 +740,9 @@ struct thread_master *frr_init(void)
 	frrmod_init(di->module);
 	while (modules) {
 		modules = (oc = modules)->next;
-		module = frrmod_load(oc->arg, dir, moderr, sizeof(moderr));
-		if (!module) {
-			fprintf(stderr, "%s\n", moderr);
+		module = frrmod_load(oc->arg, dir, _err_print, __func__);
+		if (!module)
 			exit(1);
-		}
 		XFREE(MTYPE_TMP, oc);
 	}
 

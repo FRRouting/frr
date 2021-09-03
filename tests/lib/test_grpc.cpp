@@ -81,11 +81,16 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 
 static int grpc_thread_stop(struct thread *thread);
 
+static void _err_print(const void *cookie, const char *errstr)
+{
+	std::cout << "Failed to load grpc module:" << errstr << std::endl;
+}
+
 static void static_startup(void)
 {
 	// struct frrmod_runtime module;
 	// static struct option_chain *oc;
-	char moderr[256] = {};
+
 	cmd_init(1);
 
 	zlog_aux_init("NONE: ", LOG_DEBUG);
@@ -94,17 +99,14 @@ static void static_startup(void)
 
 	/* Load the server side module -- check libtool path first */
 	std::string modpath = std::string(binpath) + std::string("../../../lib/.libs");
-	grpc_module = frrmod_load("grpc:50051", modpath.c_str(), moderr, sizeof(moderr));
+	grpc_module = frrmod_load("grpc:50051", modpath.c_str(), 0, 0);
 	if (!grpc_module) {
 		modpath = std::string(binpath) +  std::string("../../lib");
-		grpc_module = frrmod_load("grpc:50051", modpath.c_str(), moderr,
-					  sizeof(moderr));
+		grpc_module = frrmod_load("grpc:50051", modpath.c_str(),
+					  _err_print, 0);
 	}
-	if (!grpc_module) {
-		std::cout << "Failed to load grpc module:" << moderr
-			  << std::endl;
+	if (!grpc_module)
 		exit(1);
-	}
 
 	static_debug_init();
 
