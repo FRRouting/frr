@@ -43,6 +43,7 @@
 
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_BATCH, "CMGD backend transaction batch data");
 DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_TRXN, "CMGD backend transaction data");
+DEFINE_MTYPE_STATIC(LIB, CMGD_BCKND_CLNT_MSG_BUF, "CMGD Backend Send/Revc Buffer");
 
 typedef enum cmgd_bcknd_trxn_event_ {
 	CMGD_BCKND_TRXN_PROC_SETCFG = 1,
@@ -130,6 +131,7 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 	struct stream *ibuf_work;
 	struct stream_fifo *obuf_fifo;
 	struct stream *obuf_work;
+	uint8_t *msg_buf;
 
 	struct nb_config *candidate_config;
 	struct nb_config *running_config;
@@ -1065,7 +1067,7 @@ static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	Cmgd__BckndMessage *bcknd_msg)
 {
 	size_t msg_size;
-	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
+	uint8_t *msg_buf = clnt_ctxt->msg_buf;
 	cmgd_bcknd_msg_t *msg;
 
 	if (clnt_ctxt->conn_fd == 0)
@@ -1073,10 +1075,10 @@ static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 
 	msg_size = cmgd__bcknd_message__get_packed_size(bcknd_msg);
 	msg_size += CMGD_BCKND_MSG_HDR_LEN;
-	if (msg_size > sizeof(msg_buf)) {
+	if (msg_size > CMGD_BCKND_MSG_MAX_LEN) {
 		CMGD_BCKND_CLNT_ERR(
 			"Message size %d more than max size'%d. Not sending!'", 
-			(int) msg_size, (int)sizeof(msg_buf));
+			(int) msg_size, (int)CMGD_BCKND_MSG_MAX_LEN);
 		return -1;
 	}
 	
@@ -1384,6 +1386,9 @@ cmgd_lib_hndl_t cmgd_bcknd_client_lib_init(
 	cmgd_bcknd_clntctxt.ibuf_fifo = stream_fifo_new();
 	cmgd_bcknd_clntctxt.ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 	cmgd_bcknd_clntctxt.obuf_fifo = stream_fifo_new();
+	cmgd_bcknd_clntctxt.msg_buf = XCALLOC(MTYPE_CMGD_BCKND_CLNT_MSG_BUF,
+					      CMGD_BCKND_MSG_MAX_LEN);
+	assert(cmgd_bcknd_clntctxt.msg_buf);
 	// cmgd_bcknd_clntctxt.obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 	cmgd_bcknd_clntctxt.obuf_work = NULL;
 
@@ -1477,6 +1482,8 @@ void cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl_t lib_hndl)
 	stream_fifo_free(cmgd_bcknd_clntctxt.obuf_fifo);
 	if (cmgd_bcknd_clntctxt.obuf_work)
 		stream_free(cmgd_bcknd_clntctxt.obuf_work);
+	XFREE(MTYPE_CMGD_BCKND_CLNT_MSG_BUF,
+		cmgd_bcknd_clntctxt.msg_buf);
 
 	cmgd_bcknd_cleanup_all_trxns(clnt_ctxt);
 	cmgd_bcknd_trxn_list_fini(&clnt_ctxt->trxn_head);
