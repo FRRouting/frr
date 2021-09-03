@@ -343,7 +343,6 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-
     step(
         "Verify 'show ip pim upstream' showing correct OIL and IIF" " on all the nodes"
     )
@@ -352,7 +351,6 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
             tgen, data["dut"], data["iif"], data["src_address"], IGMP_JOIN
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
-
 
     step("joinRx value after join sent")
     state_after = verify_pim_interface_traffic(tgen, state_dict)
@@ -457,8 +455,13 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     # (41 * (2 + .5)) == 102.
     for data in input_dict:
         result = verify_ip_mroutes(
-            tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"],
-            retry_timeout=102
+            tgen,
+            data["dut"],
+            data["src_address"],
+            IGMP_JOIN,
+            data["iif"],
+            data["oil"],
+            retry_timeout=102,
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
@@ -623,8 +626,24 @@ def test_verify_mroute_when_same_receiver_in_FHR_LHR_and_RP_p0(request):
     step("Enable IGMP on FRR1 interface and send IGMP join " "(225.1.1.1) to R1")
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15} }}}}},
-        "r2": {"igmp": {"interfaces": {"r2-i3-eth1": {"igmp": {"version": "2", "query": {"query-interval": 15} }}}}},
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        },
+        "r2": {
+            "igmp": {
+                "interfaces": {
+                    "r2-i3-eth1": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        },
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -718,7 +737,15 @@ def test_verify_mroute_when_same_receiver_joining_5_diff_sources_p0(request):
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15} }}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1129,7 +1156,15 @@ def test_verify_mroute_when_RP_unreachable_p1(request):
 
     step("Configure one IGMP interface on FRR3 node and send IGMP" " join (225.1.1.1)")
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15} }}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1402,7 +1437,6 @@ def test_modify_igmp_max_query_response_timer_p0(request):
         )
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-
     step(
         "Verify 'show ip pim upstream' showing correct OIL and IIF" " on all the nodes"
     )
@@ -1413,9 +1447,7 @@ def test_modify_igmp_max_query_response_timer_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Delete the PIM and IGMP on FRR1")
-    raw_config = {
-        "l1": {"raw_config": ["interface l1-i1-eth1", "no ip pim"]}
-    }
+    raw_config = {"l1": {"raw_config": ["interface l1-i1-eth1", "no ip pim"]}}
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 

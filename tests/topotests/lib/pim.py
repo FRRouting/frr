@@ -99,9 +99,7 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
             continue
         if "rp" not in input_dict[router]["pim"]:
             continue
-        _add_pim_rp_config(
-            tgen, topo, input_dict, router, build, config_data_dict
-        )
+        _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict)
 
     try:
         result = create_common_configurations(
@@ -153,8 +151,7 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
             # ip address of RP
             if "rp_addr" not in rp_dict and build:
                 logger.error(
-                    "Router %s: 'ip address of RP' not "
-                    "present in input_dict/JSON",
+                    "Router %s: 'ip address of RP' not " "present in input_dict/JSON",
                     router,
                 )
 
@@ -199,9 +196,7 @@ def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
                         config_data.append(cmd)
 
                 if prefix_list:
-                    cmd = "ip pim rp {} prefix-list {}".format(
-                        rp_addr, prefix_list
-                    )
+                    cmd = "ip pim rp {} prefix-list {}".format(rp_addr, prefix_list)
                     if del_action:
                         cmd = "no {}".format(cmd)
                     config_data.append(cmd)
@@ -357,9 +352,9 @@ def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
         pim_data = input_dict[router]["pim"]
         del_action = pim_data.setdefault("delete", False)
         for t in [
-                "join-prune-interval",
-                "keep-alive-timer",
-                "register-suppress-time",
+            "join-prune-interval",
+            "keep-alive-timer",
+            "register-suppress-time",
         ]:
             if t in pim_data:
                 cmd = "ip pim {} {}".format(t, pim_data[t])
@@ -681,7 +676,14 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
 
 @retry(retry_timeout=60)
 def verify_upstream_iif(
-    tgen, dut, iif, src_address, group_addresses, joinState=None, refCount=1, expected=True
+    tgen,
+    dut,
+    iif,
+    src_address,
+    group_addresses,
+    joinState=None,
+    refCount=1,
+    expected=True,
 ):
     """
     Verify upstream inbound interface  is updated correctly
@@ -834,7 +836,9 @@ def verify_upstream_iif(
 
 
 @retry(retry_timeout=12)
-def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, expected=True):
+def verify_join_state_and_timer(
+    tgen, dut, iif, src_address, group_addresses, expected=True
+):
     """
     Verify  join state is updated correctly and join timer is
     running with the help of "show ip pim upstream" cli
@@ -955,7 +959,15 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, ex
 
 @retry(retry_timeout=120)
 def verify_ip_mroutes(
-    tgen, dut, src_address, group_addresses, iif, oil, return_uptime=False, mwait=0, expected=True
+    tgen,
+    dut,
+    src_address,
+    group_addresses,
+    iif,
+    oil,
+    return_uptime=False,
+    mwait=0,
+    expected=True,
 ):
     """
     Verify ip mroutes and make sure (*, G)/(S, G) is present in mroutes
@@ -1152,7 +1164,15 @@ def verify_ip_mroutes(
 
 @retry(retry_timeout=60)
 def verify_pim_rp_info(
-    tgen, topo, dut, group_addresses, oif=None, rp=None, source=None, iamrp=None, expected=True
+    tgen,
+    topo,
+    dut,
+    group_addresses,
+    oif=None,
+    rp=None,
+    source=None,
+    iamrp=None,
+    expected=True,
 ):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
@@ -1309,7 +1329,14 @@ def verify_pim_rp_info(
 
 @retry(retry_timeout=60)
 def verify_pim_state(
-    tgen, dut, iif, oil, group_addresses, src_address=None, installed_fl=None, expected=True
+    tgen,
+    dut,
+    iif,
+    oil,
+    group_addresses,
+    src_address=None,
+    installed_fl=None,
+    expected=True,
 ):
     """
     Verify pim state by running "show ip pim state" cli
@@ -1478,7 +1505,9 @@ def verify_pim_interface_traffic(tgen, input_dict):
 
 
 @retry(retry_timeout=40)
-def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None, expected=True):
+def verify_pim_interface(
+    tgen, topo, dut, interface=None, interface_ip=None, expected=True
+):
     """
     Verify all PIM interface are up and running, config is verified
     using "show ip pim interface" cli
@@ -2150,7 +2179,9 @@ def find_rp_from_bsrp_info(tgen, dut, bsr, grp=None):
 
 
 @retry(retry_timeout=12)
-def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None, expected=True):
+def verify_pim_grp_rp_source(
+    tgen, topo, dut, grp_addr, rp_source, rpadd=None, expected=True
+):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
 
@@ -2309,7 +2340,9 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
 
 
 @retry(retry_timeout=60)
-def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=None, expected=True):
+def verify_ip_pim_upstream_rpf(
+    tgen, topo, dut, interface, group_addresses, rp=None, expected=True
+):
     """
     Verify IP PIM upstream rpf, config is verified
     using "show ip pim neighbor" cli
@@ -2507,7 +2540,9 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
 
 
 @retry(retry_timeout=60)
-def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=None, expected=True):
+def verify_ip_pim_join(
+    tgen, topo, dut, interface, group_addresses, src_address=None, expected=True
+):
     """
     Verify ip pim join by running "show ip pim join" cli
 
@@ -3257,7 +3292,9 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
 
 
 @retry(retry_timeout=40)
-def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag, expected=True):
+def verify_multicast_flag_state(
+    tgen, dut, src_address, group_addresses, flag, expected=True
+):
     """
     Verify flag state for mroutes and make sure (*, G)/(S, G) are having
     coorect flags by running "show ip mroute" cli
@@ -3417,8 +3454,7 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=Tr
     return True
 
 
-class McastTesterHelper (HostApplicationHelper):
-
+class McastTesterHelper(HostApplicationHelper):
     def __init__(self, tgen=None):
         self.script_path = os.path.join(CWD, "mcast-tester.py")
         self.host_conn = {}
@@ -3441,10 +3477,10 @@ class McastTesterHelper (HostApplicationHelper):
         super(McastTesterHelper, self).__init__(
             tgen,
             # [python3_path, self.script_path, self.app_sock_path]
-            [python3_path, self.script_path]
+            [python3_path, self.script_path],
         )
 
-    def __str__ (self):
+    def __str__(self):
         return "McastTesterHelper({})".format(self.script_path)
 
     def run_join(self, host, join_addrs, join_towards=None, join_intf=None):
@@ -3464,7 +3500,9 @@ class McastTesterHelper (HostApplicationHelper):
             join_addrs = [join_addrs]
 
         if join_towards:
-            join_intf = frr_unicode(self.tgen.json_topo["routers"][host]["links"][join_towards]["interface"])
+            join_intf = frr_unicode(
+                self.tgen.json_topo["routers"][host]["links"][join_towards]["interface"]
+            )
         else:
             assert join_intf
 
@@ -3486,7 +3524,9 @@ class McastTesterHelper (HostApplicationHelper):
         * `bind_towards`: Router who's interface the source ip address is got from
         """
         if bind_towards:
-            bind_intf = frr_unicode(self.tgen.json_topo["routers"][host]["links"][bind_towards]["interface"])
+            bind_intf = frr_unicode(
+                self.tgen.json_topo["routers"][host]["links"][bind_towards]["interface"]
+            )
         else:
             assert bind_intf
 

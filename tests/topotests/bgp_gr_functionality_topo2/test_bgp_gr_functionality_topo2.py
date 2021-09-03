@@ -814,7 +814,11 @@ def test_BGP_GR_10_p2(request):
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r3")
 
     for addr_type in ADDR_TYPES:
-        step("Verifying GR config and operational state for addr_type {}".format(addr_type))
+        step(
+            "Verifying GR config and operational state for addr_type {}".format(
+                addr_type
+            )
+        )
 
         result = verify_graceful_restart(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r3"
@@ -839,7 +843,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -847,7 +856,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -855,7 +869,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -863,7 +882,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1644,7 +1668,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1652,7 +1681,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1660,7 +1694,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1668,7 +1707,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result

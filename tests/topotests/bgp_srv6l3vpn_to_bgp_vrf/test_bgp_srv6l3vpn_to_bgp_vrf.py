@@ -105,10 +105,12 @@ def setup_module(mod):
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
 
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
@@ -151,11 +153,11 @@ def test_rib():
         return topotest.json_cmp(output, expected)
 
     def check(name, cmd, expected_file):
-        logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+        logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
         tgen = get_topogen()
         func = functools.partial(_check, name, cmd, expected_file)
         success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     check("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib.json")
     check("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib.json")
@@ -183,7 +185,7 @@ def test_ping():
         tgen = get_topogen()
         func = functools.partial(_check, name, dest_addr, match)
         success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     check("ce1", "2001:2::2", " 0% packet loss")
     check("ce1", "2001:3::2", " 0% packet loss")

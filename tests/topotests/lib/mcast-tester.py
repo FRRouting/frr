@@ -35,12 +35,11 @@ import time
 #
 def interface_name_to_index(name):
     "Gets the interface index using its name. Returns None on failure."
-    interfaces = json.loads(
-        subprocess.check_output('ip -j link show', shell=True))
+    interfaces = json.loads(subprocess.check_output("ip -j link show", shell=True))
 
     for interface in interfaces:
-        if interface['ifname'] == name:
-            return interface['ifindex']
+        if interface["ifname"] == name:
+            return interface["ifindex"]
 
     return None
 
@@ -60,13 +59,12 @@ def multicast_join(sock, ifindex, group, port):
 # Main code.
 #
 parser = argparse.ArgumentParser(description="Multicast RX utility")
-parser.add_argument('group', help='Multicast IP')
-parser.add_argument('interface', help='Interface name')
-parser.add_argument('--socket', help='Point to topotest UNIX socket')
+parser.add_argument("group", help="Multicast IP")
+parser.add_argument("interface", help="Interface name")
+parser.add_argument("--socket", help="Point to topotest UNIX socket")
 parser.add_argument(
-    '--send',
-    help='Transmit instead of join with interval',
-    type=float, default=0)
+    "--send", help="Transmit instead of join with interval", type=float, default=0
+)
 args = parser.parse_args()
 
 ttl = 16
@@ -75,7 +73,7 @@ port = 1000
 # Get interface index/validate.
 ifindex = interface_name_to_index(args.interface)
 if ifindex is None:
-    sys.stderr.write('Interface {} does not exists\n'.format(args.interface))
+    sys.stderr.write("Interface {} does not exists\n".format(args.interface))
     sys.exit(1)
 
 # We need root privileges to set up multicast.
@@ -102,16 +100,17 @@ msock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 if args.send > 0:
     # Prepare multicast bit in that interface.
     msock.setsockopt(
-        socket.SOL_SOCKET, 25,
-        struct.pack("%ds" % len(args.interface),
-                    args.interface.encode('utf-8')))
+        socket.SOL_SOCKET,
+        25,
+        struct.pack("%ds" % len(args.interface), args.interface.encode("utf-8")),
+    )
     # Set packets TTL.
-    msock.setsockopt(
-        socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("b", ttl))
+    msock.setsockopt(socket.IPPROTO_IP, socket.IP_MULTICAST_TTL, struct.pack("b", ttl))
     # Block to ensure packet send.
     msock.setblocking(True)
 else:
     multicast_join(msock, ifindex, args.group, port)
+
 
 def should_exit():
     if not toposock:
@@ -122,11 +121,12 @@ def should_exit():
     else:
         try:
             data = toposock.recv(1)
-            if data == b'':
-                print(' -> Connection closed')
+            if data == b"":
+                print(" -> Connection closed")
                 return True
         except BlockingIOError:
             return False
+
 
 counter = 0
 while not should_exit():

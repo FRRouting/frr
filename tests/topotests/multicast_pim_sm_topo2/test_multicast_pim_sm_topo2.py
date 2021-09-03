@@ -323,7 +323,15 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -525,7 +533,15 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -878,7 +894,15 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1028,7 +1052,6 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     intf_l1_c1 = "l1-c1-eth0"
     shutdown_bringup_interface(tgen, dut, intf_l1_c1, False)
 
-
     result = verify_upstream_iif(
         tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
     )
@@ -1137,7 +1160,15 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
         " join (226.1.1.1-5) and (232.1.1.1-5)"
     )
     input_dict = {
-        "c2": {"igmp": {"interfaces": {"c2-i5-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "c2": {
+            "igmp": {
+                "interfaces": {
+                    "c2-i5-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1270,7 +1301,15 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
 
     step("Configure one IGMP interface on f1 node and send IGMP" " join (225.1.1.1)")
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1350,9 +1389,9 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
             data["iif"],
             data["oil"],
         )
-        assert result is True, (
-            "Testcase {} : Failed Error mroutes were flushed.".format(tc_name)
-        )
+        assert (
+            result is True
+        ), "Testcase {} : Failed Error mroutes were flushed.".format(tc_name)
 
     step(
         "After traffic stopped , verify (S,G) entries are flushed out"
@@ -1374,9 +1413,9 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
             data["oil"],
             expected=False,
         )
-        assert result is not True, (
-            "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
-        )
+        assert (
+            result is not True
+        ), "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1454,12 +1493,24 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
         "f1": {
             "igmp": {
                 "interfaces": {
-                    "f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}},
-                    "f1-i2-eth1": {"igmp": {"version": "2", "query": {"query-interval": 15}}},
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    },
+                    "f1-i2-eth1": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    },
                 }
             }
         },
-        "l1": {"igmp": {"interfaces": {"l1-i6-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}},
+        "l1": {
+            "igmp": {
+                "interfaces": {
+                    "l1-i6-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        },
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1513,8 +1564,12 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
 
     source = topo["routers"]["i3"]["links"]["r2"]["ipv4"].split("/")[0]
     input_dict_all = [
-        {"dut": "l1", "src_address": source, "iif": ["l1-r2-eth4", "l1-c1-eth0"],
-            "oil": ["l1-i1-eth1", "l1-i6-eth2"]},
+        {
+            "dut": "l1",
+            "src_address": source,
+            "iif": ["l1-r2-eth4", "l1-c1-eth0"],
+            "oil": ["l1-i1-eth1", "l1-i6-eth2"],
+        },
         {"dut": "f1", "src_address": source, "iif": "f1-r2-eth3", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict_all:
@@ -1665,7 +1720,15 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)

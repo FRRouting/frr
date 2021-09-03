@@ -47,12 +47,9 @@ from time import sleep
 pytestmark = [pytest.mark.sharpd]
 
 
-
 def setup_module(mod):
     "Sets up the pytest environment"
-    topodef = {
-        "s1": ("r1", "r1", "r1", "r1", "r1", "r1", "r1", "r1")
-    }
+    topodef = {"s1": ("r1", "r1", "r1", "r1", "r1", "r1", "r1", "r1")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
@@ -88,16 +85,29 @@ def test_zebra_kernel_admin_distance():
 
     distance = 255
     metric = 8192
+
     def makekmetric(dist, metric):
         return (dist << 24) + metric
 
-    r1.run("ip route add 4.5.1.0/24 via 192.168.210.2 dev r1-eth0 metric " + str(makekmetric(255, 8192)))
+    r1.run(
+        "ip route add 4.5.1.0/24 via 192.168.210.2 dev r1-eth0 metric "
+        + str(makekmetric(255, 8192))
+    )
     # Route with 1/1 metric
-    r1.run("ip route add 4.5.2.0/24 via 192.168.211.2 dev r1-eth1 metric " + str(makekmetric(1, 1)))
+    r1.run(
+        "ip route add 4.5.2.0/24 via 192.168.211.2 dev r1-eth1 metric "
+        + str(makekmetric(1, 1))
+    )
     # Route with 10/1 metric
-    r1.run("ip route add 4.5.3.0/24 via 192.168.212.2 dev r1-eth2 metric " + str(makekmetric(10, 1)))
+    r1.run(
+        "ip route add 4.5.3.0/24 via 192.168.212.2 dev r1-eth2 metric "
+        + str(makekmetric(10, 1))
+    )
     # Same route with a 160/1 metric
-    r1.run("ip route add 4.5.3.0/24 via 192.168.213.2 dev r1-eth3 metric " + str(makekmetric(160, 1)))
+    r1.run(
+        "ip route add 4.5.3.0/24 via 192.168.213.2 dev r1-eth3 metric "
+        + str(makekmetric(160, 1))
+    )
 
     # Currently I believe we have a bug here with the same route and different
     # metric.  That needs to be properly resolved.  Making a note for
@@ -184,6 +194,7 @@ def test_route_map_usage():
     logger.info(
         "Does the show route-map static command run the correct number of times"
     )
+
     def check_static_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map static")
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
@@ -193,13 +204,17 @@ def test_route_map_usage():
             title1="Actual Route-map output",
             title2="Expected Route-map output",
         )
-    ok, result = topotest.run_and_expect(check_static_map_correct_runs, "", count=5, wait=1)
+
+    ok, result = topotest.run_and_expect(
+        check_static_map_correct_runs, "", count=5, wait=1
+    )
     assert ok, result
 
     sharp_rmapfile = "%s/r1/sharp_rmap.ref" % (thisDir)
     expected = open(sharp_rmapfile).read().rstrip()
     expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
     logger.info("Does the show route-map sharp command run the correct number of times")
+
     def check_sharp_map_correct_runs():
         actual = r1.vtysh_cmd("show route-map sharp")
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
@@ -209,7 +224,10 @@ def test_route_map_usage():
             title1="Actual Route-map output",
             title2="Expected Route-map output",
         )
-    ok, result = topotest.run_and_expect(check_sharp_map_correct_runs, "", count=5, wait=1)
+
+    ok, result = topotest.run_and_expect(
+        check_sharp_map_correct_runs, "", count=5, wait=1
+    )
     assert ok, result
 
     logger.info(
@@ -225,6 +243,7 @@ def test_route_map_usage():
     sharp_ipfile = "%s/r1/iproute.ref" % (thisDir)
     expected = open(sharp_ipfile).read().rstrip()
     expected = ("\n".join(expected.splitlines()) + "\n").rstrip()
+
     def check_routes_installed():
         actual = r1.run("ip route show")
         actual = ("\n".join(actual.splitlines()) + "\n").rstrip()
@@ -240,8 +259,12 @@ def test_route_map_usage():
         actual = re.sub(r"  metric", " metric", actual)
         actual = re.sub(r" link  ", " link ", actual)
         return topotest.get_textdiff(
-            actual, expected, title1="Actual ip route show", title2="Expected ip route show"
+            actual,
+            expected,
+            title1="Actual ip route show",
+            title2="Expected ip route show",
         )
+
     ok, result = topotest.run_and_expect(check_routes_installed, "", count=5, wait=1)
     assert ok, result
 

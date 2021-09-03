@@ -178,7 +178,10 @@ def test_bgp_convergence():
     expected = json.loads(open(reffile).read())
 
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show bgp vrf r1-bgp-cust1 summary json", expected
+        topotest.router_json_cmp,
+        router,
+        "show bgp vrf r1-bgp-cust1 summary json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=90, wait=0.5)
     assertmsg = "BGP router network did not converge"

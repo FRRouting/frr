@@ -58,7 +58,7 @@ import pytest
 import time
 import platform
 
-#Current Working Directory
+# Current Working Directory
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
@@ -79,11 +79,11 @@ from lib.common_config import (
 pytestmark = [pytest.mark.bgpd]
 
 
-#Global variables
-PES = ['PE1', 'PE2']
-HOSTS = ['host1', 'host2']
-PE_SUFFIX = {'PE1': '1', 'PE2': '2'}
-HOST_SUFFIX = {'host1': '1', 'host2': '2'}
+# Global variables
+PES = ["PE1", "PE2"]
+HOSTS = ["host1", "host2"]
+PE_SUFFIX = {"PE1": "1", "PE2": "2"}
+HOST_SUFFIX = {"host1": "1", "host2": "2"}
 TRIGGERS = ["base", "no_rt5", "no_rt2"]
 
 
@@ -98,12 +98,12 @@ def build_topo(tgen):
         tgen.add_router(host)
 
     krel = platform.release()
-    logger.info('Kernel version ' + krel)
+    logger.info("Kernel version " + krel)
 
-    #Add links
-    tgen.add_link(tgen.gears['PE1'], tgen.gears['PE2'], 'PE1-eth0', 'PE2-eth0')
-    tgen.add_link(tgen.gears['PE1'], tgen.gears['host1'], 'PE1-eth1', 'host1-eth0')
-    tgen.add_link(tgen.gears['PE2'], tgen.gears['host2'], 'PE2-eth1', 'host2-eth0')
+    # Add links
+    tgen.add_link(tgen.gears["PE1"], tgen.gears["PE2"], "PE1-eth0", "PE2-eth0")
+    tgen.add_link(tgen.gears["PE1"], tgen.gears["host1"], "PE1-eth1", "host1-eth0")
+    tgen.add_link(tgen.gears["PE2"], tgen.gears["host2"], "PE2-eth1", "host2-eth0")
 
 
 def setup_module(mod):
@@ -121,12 +121,16 @@ def setup_module(mod):
 
     kernelv = platform.release()
     if topotest.version_cmp(kernelv, "4.15") < 0:
-        logger.info("For EVPN, kernel version should be minimum 4.15. Kernel present {}".format(kernelv))
+        logger.info(
+            "For EVPN, kernel version should be minimum 4.15. Kernel present {}".format(
+                kernelv
+            )
+        )
         return
 
-    if topotest.version_cmp(kernelv, '4.15') == 0:
+    if topotest.version_cmp(kernelv, "4.15") == 0:
         l3mdev_accept = 1
-        logger.info('setting net.ipv4.tcp_l3mdev_accept={}'.format(l3mdev_accept))
+        logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
     else:
         l3mdev_accept = 0
 
@@ -232,18 +236,22 @@ def evpn_gateway_ip_show_op_check(trigger=" "):
     if trigger not in TRIGGERS:
         return "Unexpected trigger", "Unexpected trigger {}".format(trigger)
 
-    show_commands = {'bgp_vni_routes': 'show bgp l2vpn evpn route vni 100 json',
-                     'bgp_vrf_ipv4'  : 'show bgp vrf vrf-blue ipv4 json',
-                     'bgp_vrf_ipv6'  : 'show bgp vrf vrf-blue ipv6 json',
-                     'zebra_vrf_ipv4': 'show ip route vrf vrf-blue json',
-                     'zebra_vrf_ipv6': 'show ipv6 route vrf vrf-blue json'}
+    show_commands = {
+        "bgp_vni_routes": "show bgp l2vpn evpn route vni 100 json",
+        "bgp_vrf_ipv4": "show bgp vrf vrf-blue ipv4 json",
+        "bgp_vrf_ipv6": "show bgp vrf vrf-blue ipv6 json",
+        "zebra_vrf_ipv4": "show ip route vrf vrf-blue json",
+        "zebra_vrf_ipv6": "show ipv6 route vrf vrf-blue json",
+    }
 
     for (name, pe) in tgen.gears.items():
         if name not in PES:
             continue
 
         for (cmd_key, command) in show_commands.items():
-            expected_op_file = "{0}/{1}/{2}_{3}.json".format(CWD, name, cmd_key, trigger)
+            expected_op_file = "{0}/{1}/{2}_{3}.json".format(
+                CWD, name, cmd_key, trigger
+            )
             expected_op = json.loads(open(expected_op_file).read())
 
             test_func = partial(topotest.router_json_cmp, pe, command, expected_op)
@@ -265,7 +273,9 @@ def test_evpn_gateway_ip_basic_topo(request):
     write_test_header(tc_name)
 
     # Temporarily Disabled
-    tgen.set_error("%s: Failing under new micronet framework, please debug and re-enable", tc_name)
+    tgen.set_error(
+        "%s: Failing under new micronet framework, please debug and re-enable", tc_name
+    )
 
     kernelv = platform.release()
     if topotest.version_cmp(kernelv, "4.15") < 0:
@@ -304,18 +314,22 @@ def test_evpn_gateway_ip_flap_rt5(request):
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    h1 = tgen.gears['host1']
+    h1 = tgen.gears["host1"]
 
     step("Withdraw type-5 routes")
 
-    h1.run('vtysh  -c "config t" \
+    h1.run(
+        'vtysh  -c "config t" \
                    -c "router bgp 111" \
                    -c "address-family ipv4" \
-                   -c "no network 100.0.0.21/32"')
-    h1.run('vtysh  -c "config t" \
+                   -c "no network 100.0.0.21/32"'
+    )
+    h1.run(
+        'vtysh  -c "config t" \
                    -c "router bgp 111" \
                    -c "address-family ipv6" \
-                   -c "no network 100::21/128"')
+                   -c "no network 100::21/128"'
+    )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("no_rt5")
     if result is not None:
@@ -324,14 +338,18 @@ def test_evpn_gateway_ip_flap_rt5(request):
 
     step("Advertise type-5 routes again")
 
-    h1.run('vtysh  -c "config t" \
+    h1.run(
+        'vtysh  -c "config t" \
                    -c "router bgp 111" \
                    -c "address-family ipv4" \
-                   -c "network 100.0.0.21/32"')
-    h1.run('vtysh  -c "config t" \
+                   -c "network 100.0.0.21/32"'
+    )
+    h1.run(
+        'vtysh  -c "config t" \
                    -c "router bgp 111" \
                    -c "address-family ipv6" \
-                   -c "network 100::21/128"')
+                   -c "network 100::21/128"'
+    )
 
     result, assertmsg = evpn_gateway_ip_show_op_check("base")
     if result is not None:
@@ -344,8 +362,8 @@ def test_evpn_gateway_ip_flap_rt5(request):
 
 def test_evpn_gateway_ip_flap_rt2(request):
     """
-     Withdraw EVPN type-2 routes and check O/Ps at PE1 and PE2
-     """
+    Withdraw EVPN type-2 routes and check O/Ps at PE1 and PE2
+    """
     tgen = get_topogen()
     tc_name = request.node.name
     write_test_header(tc_name)
@@ -358,7 +376,6 @@ def test_evpn_gateway_ip_flap_rt2(request):
 
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-
 
     step("Shut down VxLAN interface at PE1 which results in withdraw of type-2 routes")
 
@@ -390,6 +407,7 @@ def test_memory_leak():
         pytest.skip("Memory leak test/report is disabled")
 
     tgen.report_memory_leaks()
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

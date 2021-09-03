@@ -98,7 +98,6 @@ pytestmark = [pytest.mark.ospfd]
 def build_topo(tgen):
     "Build function"
 
-
     # Create 4 routers
     for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))

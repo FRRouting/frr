@@ -93,7 +93,6 @@ from lib.topojson import build_config_from_json
 pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 
 
-
 TOPOLOGY = """
 
       b1_____
@@ -675,9 +674,7 @@ def test_RP_priority_p0(request):
     assert (
         rp_add1 == rp2[group]
     ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
-        tc_name,
-        rp_add1,
-        rp2[group] if group in rp2 else None
+        tc_name, rp_add1, rp2[group] if group in rp2 else None
     )
 
     # Verify if that rp is installed

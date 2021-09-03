@@ -111,15 +111,15 @@ def build_topo(tgen):
     switch = tgen.add_switch("s1")
     switch.add_link(tgen.gears["rt1"], nodeif="eth-sw1")
     switch.add_link(tgen.gears["rt2"], nodeif="eth-sw1")
-    #switch.add_link(tgen.gears["rt3"], nodeif="eth-sw1")
+    # switch.add_link(tgen.gears["rt3"], nodeif="eth-sw1")
 
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-1")
     switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-1")
 
-    #switch = tgen.add_switch("s3")
-    #switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-2")
-    #switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-2")
+    # switch = tgen.add_switch("s3")
+    # switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-2")
+    # switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-2")
 
     switch = tgen.add_switch("s4")
     switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-1")
@@ -153,7 +153,7 @@ def setup_module(mod):
 
     frrdir = tgen.config.get(tgen.CONFIG_SECTION, "frrdir")
     if not os.path.isfile(os.path.join(frrdir, "pathd")):
-        pytest.skip("pathd daemon wasn't built in:"+frrdir)
+        pytest.skip("pathd daemon wasn't built in:" + frrdir)
 
     tgen.start_topology()
 
@@ -391,21 +391,23 @@ def check_bsid(rt, bsid, fn_name, positive):
         candidate_output = router.vtysh_cmd("show mpls table json")
         candidate_output_json = json.loads(candidate_output)
         for item in candidate_output_json.items():
-                # logger.info('item "%s"', item)
-                if item[0] == candidate_key:
-                    matched_key = True
-                    if positive:
-                        break
+            # logger.info('item "%s"', item)
+            if item[0] == candidate_key:
+                matched_key = True
+                if positive:
+                    break
         if positive:
             if matched_key:
                 matched = True
             assertmsg = "{} don't has entry {} but is was expected".format(
-                 router.name, candidate_key)
+                router.name, candidate_key
+            )
         else:
             if not matched_key:
                 matched = True
             assertmsg = "{} has entry {} but is wans't expected".format(
-                router.name, candidate_key)
+                router.name, candidate_key
+            )
         if matched:
             logger.info('Success "%s" in "%s"', router.name, fn_name)
             return
@@ -430,7 +432,12 @@ def test_srte_add_candidate_check_mpls_table_step1():
 
     for rname, endpoint in [("rt1", "6.6.6.6"), ("rt6", "1.1.1.1")]:
         add_candidate_path(rname, endpoint, 100, "default")
-        check_bsid(rname, "1111" if rname == "rt1" else "6666", test_srte_init_step1.__name__, True)
+        check_bsid(
+            rname,
+            "1111" if rname == "rt1" else "6666",
+            test_srte_init_step1.__name__,
+            True,
+        )
         delete_candidate_path(rname, endpoint, 100)
 
 
@@ -445,7 +452,12 @@ def test_srte_reinstall_sr_policy_check_mpls_table_step1():
         check_bsid(rname, bsid, test_srte_init_step1.__name__, False)
         create_sr_policy(rname, endpoint, bsid)
         add_candidate_path(rname, endpoint, 100, "default")
-        check_bsid(rname, "1111" if rname == "rt1" else "6666", test_srte_init_step1.__name__, True)
+        check_bsid(
+            rname,
+            "1111" if rname == "rt1" else "6666",
+            test_srte_init_step1.__name__,
+            True,
+        )
         delete_candidate_path(rname, endpoint, 100)
 
 
@@ -572,7 +584,12 @@ def test_srte_change_segment_list_check_mpls_table_step4():
         add_candidate_path(rname, endpoint, 100, "default")
         # now change the segment list name
         add_candidate_path(rname, endpoint, 100, "default", "test")
-        check_bsid(rname, "1111" if rname == "rt1" else "6666", test_srte_init_step1.__name__, True)
+        check_bsid(
+            rname,
+            "1111" if rname == "rt1" else "6666",
+            test_srte_init_step1.__name__,
+            True,
+        )
         delete_segment(rname, "test", 10)
         delete_segment(rname, "test", 20)
         delete_segment(rname, "test", 30)
@@ -587,7 +604,12 @@ def test_srte_change_segment_list_check_mpls_table_step4():
             add_segment_adj(rname, "test", 20, "10.0.6.5", "10.0.6.4")
             add_segment_adj(rname, "test", 30, "10.0.2.4", "10.0.2.2")
             add_segment_adj(rname, "test", 40, "10.0.1.2", "10.0.1.1")
-        check_bsid(rname, "1111" if rname == "rt1" else "6666", test_srte_init_step1.__name__, True)
+        check_bsid(
+            rname,
+            "1111" if rname == "rt1" else "6666",
+            test_srte_init_step1.__name__,
+            True,
+        )
         delete_candidate_path(rname, endpoint, 100)
 
 
@@ -598,7 +620,12 @@ def test_srte_change_sl_priority_error_ted_check_mpls_table_step4():
         add_candidate_path(rname, endpoint, 100, "default")
         # now change the segment list name
         add_candidate_path(rname, endpoint, 200, "test", "test")
-        check_bsid(rname, "1111" if rname == "rt1" else "6666", test_srte_init_step1.__name__, True)
+        check_bsid(
+            rname,
+            "1111" if rname == "rt1" else "6666",
+            test_srte_init_step1.__name__,
+            True,
+        )
         delete_segment(rname, "test", 10)
         delete_segment(rname, "test", 20)
         delete_segment(rname, "test", 30)
@@ -615,7 +642,12 @@ def test_srte_change_sl_priority_error_ted_check_mpls_table_step4():
             add_segment_adj(rname, "test", 30, "10.0.2.99", "10.0.2.99")
             add_segment_adj(rname, "test", 40, "10.0.1.99", "10.0.1.99")
         # So policy sticks with default sl even higher prio
-        check_bsid(rname, "1111" if rname == "rt1" else "6666", test_srte_init_step1.__name__, True)
+        check_bsid(
+            rname,
+            "1111" if rname == "rt1" else "6666",
+            test_srte_init_step1.__name__,
+            True,
+        )
         delete_candidate_path(rname, endpoint, 100)
 
 

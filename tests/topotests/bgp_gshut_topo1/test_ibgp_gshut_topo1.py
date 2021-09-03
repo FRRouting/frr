@@ -313,7 +313,13 @@ def test_verify_graceful_shutdown_functionality_with_iBGP_peers_p0(request):
     step("local pref for routes coming from R1 is set to 0.")
 
     for addr_type in ADDR_TYPES:
-        rmap_dict = {"r1": {"route_maps": {"GSHUT-OUT": [{"set": {"locPrf": 0}}],}}}
+        rmap_dict = {
+            "r1": {
+                "route_maps": {
+                    "GSHUT-OUT": [{"set": {"locPrf": 0}}],
+                }
+            }
+        }
 
         static_routes = [NETWORK[addr_type]]
         result = verify_bgp_attributes(
@@ -499,7 +505,13 @@ def test_verify_deleting_re_adding_route_map_with_iBGP_peers_p0(request):
     step("local pref for routes coming from R1 is set to 0.")
 
     for addr_type in ADDR_TYPES:
-        rmap_dict = {"r1": {"route_maps": {"GSHUT-OUT": [{"set": {"locPrf": 0}}],}}}
+        rmap_dict = {
+            "r1": {
+                "route_maps": {
+                    "GSHUT-OUT": [{"set": {"locPrf": 0}}],
+                }
+            }
+        }
 
         static_routes = [NETWORK[addr_type]]
         result = verify_bgp_attributes(

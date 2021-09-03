@@ -145,7 +145,7 @@ def teardown_module(mod):
 
 
 def test_bgp_convergence(request):
-    " Test BGP daemon convergence "
+    "Test BGP daemon convergence"
 
     tgen = get_topogen()
     global bgp_convergence
@@ -168,7 +168,7 @@ def test_bgp_convergence(request):
 
 
 def test_static_routes(request):
-    " Test to create and verify static routes. "
+    "Test to create and verify static routes."
 
     tgen = get_topogen()
     if bgp_convergence is not True:

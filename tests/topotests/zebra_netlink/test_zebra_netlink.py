@@ -55,7 +55,7 @@ pytestmark = [pytest.mark.sharpd]
 def setup_module(mod):
     "Sets up the pytest environment"
 
-    topodef = { "s1": ("r1") }
+    topodef = {"s1": ("r1")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 

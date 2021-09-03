@@ -34,7 +34,7 @@ import pytest
 import functools
 
 CWD = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(CWD, '../'))
+sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 from lib import topotest
@@ -52,16 +52,20 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-
-
 def setup_module(mod):
     tgen = Topogen({None: "r1"}, mod.__name__)
     tgen.start_topology()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP, os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_SHARP, os.path.join(CWD, '{}/sharpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+        )
     tgen.start_router()
 
 
@@ -74,7 +78,7 @@ def test_srv6():
     tgen = get_topogen()
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
-    router = tgen.gears['r1']
+    router = tgen.gears["r1"]
 
     def _check_srv6_locator(router, expected_locator_file):
         logger.info("checking zebra locator status")
@@ -91,12 +95,12 @@ def test_srv6():
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     def check_sharpd_chunk(router, expected_file):
         func = functools.partial(_check_sharpd_chunk, router, expected_file)
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     logger.info("Test1 for Locator Configuration")
     check_srv6_locator(router, "expected_locators1.json")
@@ -132,6 +136,6 @@ def test_srv6():
     check_sharpd_chunk(router, "expected_chunks5.json")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))

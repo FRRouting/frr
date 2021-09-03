@@ -129,11 +129,17 @@ def setup_module(mod):
         output = router.cmd_raises(cmd.format("r2"))
         logger.info("result: " + output)
 
-    tgen.net["r1"].cmd_raises("ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.100.21")
+    tgen.net["r1"].cmd_raises(
+        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.100.21"
+    )
     tgen.net["r1"].set_intf_netns("vxlan-101", "r1-vrf-101", up=True)
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set lo up")
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link add name bridge-101 up type bridge stp_state 0")
-    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101")
+    tgen.net["r1"].cmd_raises(
+        "ip -n r1-vrf-101 link add name bridge-101 up type bridge stp_state 0"
+    )
+    tgen.net["r1"].cmd_raises(
+        "ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101"
+    )
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set bridge-101 up")
     tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set vxlan-101 up")
 

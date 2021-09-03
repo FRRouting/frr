@@ -26,6 +26,7 @@ import lib.topojson as topojson
 import lib.topogen as topogen
 from lib.topolog import logger
 
+
 def tgen_json(request):
     logger.info("Creating/starting topogen topology for %s", request.module.__name__)
 

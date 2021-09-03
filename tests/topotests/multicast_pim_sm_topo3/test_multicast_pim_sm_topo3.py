@@ -277,13 +277,11 @@ def verify_state_incremented(state_before, state_after):
         for intf, v2 in v1.items():
             for state, value in v2.items():
                 if value >= state_after[ttype][intf][state]:
-                    errormsg = (
-                        "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]" % (
-                            intf,
-                            state,
-                            value,
-                            state_after[ttype][intf][state],
-                        )
+                    errormsg = "[DUT: %s]: state %s value has not incremented, Initial value: %s, Current value: %s [FAILED!!]" % (
+                        intf,
+                        state,
+                        value,
+                        state_after[ttype][intf][state],
                     )
                     return errormsg
 
@@ -390,7 +388,15 @@ def test_verify_oil_when_join_prune_sent_scenario_1_p1(request):
 
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
     input_dict = {
-        "f1": {"igmp": {"interfaces": {intf_f1_i8: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    intf_f1_i8: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -764,7 +770,15 @@ def test_verify_oil_when_join_prune_sent_scenario_2_p1(request):
 
     intf_r2_i3 = topo["routers"]["r2"]["links"]["i3"]["interface"]
     input_dict = {
-        "r2": {"igmp": {"interfaces": {intf_r2_i3: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "r2": {
+            "igmp": {
+                "interfaces": {
+                    intf_r2_i3: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1107,9 +1121,9 @@ def test_shut_noshut_source_interface_when_upstream_cleared_from_LHR_p1(request)
     result = verify_upstream_iif(
         tgen, "l1", "Unknown", source_i2, IGMP_JOIN_RANGE_1, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed Error: \n mroutes are still present".format(tc_name)
-    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed Error: \n mroutes are still present".format(tc_name)
 
     step("No shut the Source interface just after the upstream is expired" " from FRR1")
     shutdown_bringup_interface(tgen, "f1", intf_f1_i2, True)
@@ -1300,9 +1314,9 @@ def test_shut_noshut_receiver_interface_when_upstream_cleared_from_LHR_p1(reques
     result = verify_upstream_iif(
         tgen, "l1", "Unknown", source_i2, IGMP_JOIN_RANGE_1, expected=False
     )
-    assert result is not True, (
-        "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
-    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
 
     step("No shut the Source interface just after the upstream is expired" " from FRR1")
     shutdown_bringup_interface(tgen, "l1", intf_l1_i1, True)
@@ -1528,7 +1542,15 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     )
 
     input_dict_2 = {
-        "l1": {"igmp": {"interfaces": {intf_l1_i1: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "l1": {
+            "igmp": {
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict_2)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1611,7 +1633,15 @@ def test_verify_remove_add_igmp_config_to_receiver_interface_p0(request):
     )
 
     input_dict_2 = {
-        "l1": {"igmp": {"interfaces": {intf_l1_i1: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "l1": {
+            "igmp": {
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict_2)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1845,7 +1875,21 @@ def test_verify_remove_add_igmp_commands_when_pim_configured_p0(request):
 
     intf_l1_i1 = topo["routers"]["l1"]["links"]["i1"]["interface"]
     input_dict_1 = {
-        "l1": {"igmp": {"interfaces": {intf_l1_i1: {"igmp": {"version": "2", "query": {"query-max-response-time": 40, "query-interval": 5}}}}}}
+        "l1": {
+            "igmp": {
+                "interfaces": {
+                    intf_l1_i1: {
+                        "igmp": {
+                            "version": "2",
+                            "query": {
+                                "query-max-response-time": 40,
+                                "query-interval": 5,
+                            },
+                        }
+                    }
+                }
+            }
+        }
     }
 
     result = verify_igmp_config(tgen, input_dict_1)
@@ -2620,7 +2664,15 @@ def test_mroute_after_removing_RP_sending_IGMP_prune_p2(request):
 
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
     input_dict = {
-        "f1": {"igmp": {"interfaces": {intf_f1_i8: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    intf_f1_i8: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -2918,7 +2970,15 @@ def test_prune_sent_to_LHR_and_FHR_when_PIMnbr_down_p2(request):
 
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
     input_dict = {
-        "f1": {"igmp": {"interfaces": {intf_f1_i8: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    intf_f1_i8: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -3550,7 +3610,15 @@ def test_mroute_flags_p1(request):
 
     intf_f1_i8 = topo["routers"]["f1"]["links"]["i8"]["interface"]
     input_dict = {
-        "f1": {"igmp": {"interfaces": {intf_f1_i8: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    intf_f1_i8: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -3721,7 +3789,15 @@ def test_verify_multicast_traffic_when_LHR_connected_to_RP_p1(request):
 
     intf_r2_i3 = topo["routers"]["r2"]["links"]["i3"]["interface"]
     input_dict = {
-        "r2": {"igmp": {"interfaces": {intf_r2_i3: {"igmp": {"version": "2", "query": {"query-interval": 15}}}}}}
+        "r2": {
+            "igmp": {
+                "interfaces": {
+                    intf_r2_i3: {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)

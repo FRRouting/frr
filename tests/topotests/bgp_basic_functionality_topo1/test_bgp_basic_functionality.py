@@ -56,18 +56,35 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # Required to instantiate the topology builder class.
 
-from lib.bgp import (clear_bgp_and_verify, create_router_bgp, modify_as_number,
-                     verify_as_numbers, verify_bgp_convergence, verify_bgp_rib,
-                     verify_bgp_timers_and_functionality, verify_router_id)
-from lib.common_config import (addKernelRoute, apply_raw_config,
-                               check_address_types, create_prefix_lists,
-                               create_route_maps, create_static_routes,
-                               required_linux_kernel_version,
-                               reset_config_on_routers, start_topology, step,
-                               verify_admin_distance_for_static_routes,
-                               verify_bgp_community, verify_fib_routes,
-                               verify_rib, write_test_footer,
-                               write_test_header)
+from lib.bgp import (
+    clear_bgp_and_verify,
+    create_router_bgp,
+    modify_as_number,
+    verify_as_numbers,
+    verify_bgp_convergence,
+    verify_bgp_rib,
+    verify_bgp_timers_and_functionality,
+    verify_router_id,
+)
+from lib.common_config import (
+    addKernelRoute,
+    apply_raw_config,
+    check_address_types,
+    create_prefix_lists,
+    create_route_maps,
+    create_static_routes,
+    required_linux_kernel_version,
+    reset_config_on_routers,
+    start_topology,
+    step,
+    verify_admin_distance_for_static_routes,
+    verify_bgp_community,
+    verify_fib_routes,
+    verify_rib,
+    write_test_footer,
+    write_test_header,
+)
+
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
@@ -75,7 +92,6 @@ from lib.topojson import build_config_from_json
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
-
 
 
 # Global Variable
@@ -162,7 +178,7 @@ def teardown_module():
 
 
 def test_modify_and_delete_router_id(request):
-    """ Test to modify, delete and verify router-id. """
+    """Test to modify, delete and verify router-id."""
 
     tgen = get_topogen()
     if BGP_CONVERGENCE is not True:
@@ -280,11 +296,9 @@ def test_BGP_config_with_invalid_ASN_p2(request):
         },
     }
     result = modify_as_number(tgen, topo, input_dict)
-    assert result is not True, (
-        "Expected BGP config is not created because of invalid ASNs: {}".format(
-            result
-        )
-    )
+    assert (
+        result is not True
+    ), "Expected BGP config is not created because of invalid ASNs: {}".format(result)
 
     # Creating configuration from JSON
     reset_config_on_routers(tgen)
@@ -394,7 +408,7 @@ def test_bgp_timers_functionality(request):
 
 
 def test_static_routes(request):
-    """ Test to create and verify static routes. """
+    """Test to create and verify static routes."""
 
     tgen = get_topogen()
     if BGP_CONVERGENCE is not True:
@@ -457,7 +471,7 @@ def test_static_routes(request):
 
 
 def test_admin_distance_for_existing_static_routes(request):
-    """ Test to modify and verify admin distance for existing static routes."""
+    """Test to modify and verify admin distance for existing static routes."""
 
     tgen = get_topogen()
     if BGP_CONVERGENCE is not True:
@@ -492,7 +506,7 @@ def test_admin_distance_for_existing_static_routes(request):
 
 
 def test_advertise_network_using_network_command(request):
-    """ Test advertise networks using network command."""
+    """Test advertise networks using network command."""
 
     tgen = get_topogen()
     if BGP_CONVERGENCE is not True:
@@ -762,9 +776,13 @@ def test_BGP_attributes_with_vrf_default_keyword_p0(request):
         }
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
         result = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
         dut = "r4"
@@ -781,9 +799,13 @@ def test_BGP_attributes_with_vrf_default_keyword_p0(request):
         }
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
         result = verify_rib(tgen, addr_type, dut, input_dict)
-        assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
         input_dict_4 = {"largeCommunity": "500:500:500", "community": "500:500"}
 
@@ -1122,11 +1144,13 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r1"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)  # pylint: disable=E1123
+        result = verify_fib_routes(
+            tgen, addr_type, dut, input_dict_r1, expected=False
+        )  # pylint: disable=E1123
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name) +
-            "Expected behavior: routes should not present in fib \n" +
-            "Error: {}".format(result)
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: routes should not present in fib \n"
+            + "Error: {}".format(result)
         )
 
     step("Verify Ipv4 and Ipv6 network installed in r3 RIB but not in FIB")
@@ -1141,11 +1165,13 @@ def test_bgp_with_loopback_with_same_subnet_p1(request):
     dut = "r3"
     protocol = "bgp"
     for addr_type in ADDR_TYPES:
-        result = verify_fib_routes(tgen, addr_type, dut, input_dict_r1, expected=False)  # pylint: disable=E1123
+        result = verify_fib_routes(
+            tgen, addr_type, dut, input_dict_r1, expected=False
+        )  # pylint: disable=E1123
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name) +
-            "Expected behavior: routes should not present in fib \n" +
-            "Error: {}".format(result)
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: routes should not present in fib \n"
+            + "Error: {}".format(result)
         )
 
     write_test_footer(tc_name)

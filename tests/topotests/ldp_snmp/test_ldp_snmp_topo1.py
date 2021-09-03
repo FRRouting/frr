@@ -80,6 +80,7 @@ from lib.snmptest import SnmpTester
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.isisd, pytest.mark.snmp]
 
+
 def build_topo(tgen):
     "Build function"
 

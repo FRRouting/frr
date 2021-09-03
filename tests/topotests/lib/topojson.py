@@ -28,13 +28,18 @@ from re import search as re_search
 import pytest
 
 from lib.bgp import create_router_bgp
-from lib.common_config import (create_bgp_community_lists,
-                               create_interfaces_cfg, create_prefix_lists,
-                               create_route_maps, create_static_routes,
-                               create_vrf_cfg, load_config_to_routers,
-                               start_topology,
-                               topo_daemons,
-                               number_to_column)
+from lib.common_config import (
+    create_bgp_community_lists,
+    create_interfaces_cfg,
+    create_prefix_lists,
+    create_route_maps,
+    create_static_routes,
+    create_vrf_cfg,
+    load_config_to_routers,
+    start_topology,
+    topo_daemons,
+    number_to_column,
+)
 from lib.ospf import create_router_ospf, create_router_ospf6
 from lib.pim import create_igmp_config, create_pim_config
 from lib.topolog import logger
@@ -305,7 +310,9 @@ def linux_intf_config_from_json(tgen, topo=None):
             if "ipv4" in link:
                 router.cmd_raises("ip addr add {} dev {}".format(link["ipv4"], lname))
             if "ipv6" in link:
-                router.cmd_raises("ip -6 addr add {} dev {}".format(link["ipv6"], lname))
+                router.cmd_raises(
+                    "ip -6 addr add {} dev {}".format(link["ipv6"], lname)
+                )
 
 
 def build_config_from_json(tgen, topo=None, save_bkup=True):
@@ -357,7 +364,8 @@ def create_tgen_from_json(testfile, json_file=None):
       from the `testfile` first by trying to replace `.py` by `.json` and if that isn't
       present then by removing `test_` prefix as well.
     """
-    from lib.topogen import Topogen                    # Topogen imports this module too
+    from lib.topogen import Topogen  # Topogen imports this module too
+
     thisdir = os.path.dirname(os.path.realpath(testfile))
     basename = os.path.basename(testfile)
     logger.debug("starting standard JSON based module setup for %s", basename)

@@ -45,8 +45,10 @@ def print_summary(results, args):
     for group in results:
         _ntest, _npass, _nfail, _nerror, _nskip = get_summary(results[group])
         if args.verbose:
-            print(f"Group: {group} Total: {_ntest} PASSED: {_npass}"
-                  " FAIL: {_nfail} ERROR: {_nerror} SKIP: {_nskip}")
+            print(
+                f"Group: {group} Total: {_ntest} PASSED: {_npass}"
+                " FAIL: {_nfail} ERROR: {_nerror} SKIP: {_nskip}"
+            )
         ntest += _ntest
         npass += _npass
         nfail += _nfail
@@ -85,7 +87,7 @@ def get_filtered(tfilters, results, args):
                     break
             else:
                 continue
-            #cname = testcase["@classname"]
+            # cname = testcase["@classname"]
             fname = testcase.get("@file", "")
             cname = testcase.get("@classname", "")
             if not fname and not cname:
@@ -106,7 +108,6 @@ def get_filtered(tfilters, results, args):
     return found_files
 
 
-
 def dump_testcase(testcase):
     expand_keys = ("failure", "error", "skipped")
 
@@ -122,10 +123,29 @@ def dump_testcase(testcase):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-A", "--save", action="store_true", help="Save /tmp/topotests{,.xml} in --rundir if --rundir does not yet exist")
-    parser.add_argument("-F", "--files-only", action="store_true", help="print test file names rather than individual full testcase names")
-    parser.add_argument("-S", "--select", default="fe", help="select results combination of letters: 'e'rrored 'f'ailed 'p'assed 's'kipped.")
-    parser.add_argument("-r", "--results", help="xml results file or directory containing xml results file")
+    parser.add_argument(
+        "-A",
+        "--save",
+        action="store_true",
+        help="Save /tmp/topotests{,.xml} in --rundir if --rundir does not yet exist",
+    )
+    parser.add_argument(
+        "-F",
+        "--files-only",
+        action="store_true",
+        help="print test file names rather than individual full testcase names",
+    )
+    parser.add_argument(
+        "-S",
+        "--select",
+        default="fe",
+        help="select results combination of letters: 'e'rrored 'f'ailed 'p'assed 's'kipped.",
+    )
+    parser.add_argument(
+        "-r",
+        "--results",
+        help="xml results file or directory containing xml results file",
+    )
     parser.add_argument("--rundir", help=argparse.SUPPRESS)
     parser.add_argument(
         "-E",
@@ -133,18 +153,14 @@ def main():
         action="store_true",
         help="enumerate each item (results scoped)",
     )
-    parser.add_argument(
-        "-T", "--test", help="print testcase at enumeration"
-    )
+    parser.add_argument("-T", "--test", help="print testcase at enumeration")
     parser.add_argument(
         "--errmsg", action="store_true", help="print testcase error message"
     )
     parser.add_argument(
         "--errtext", action="store_true", help="print testcase error text"
     )
-    parser.add_argument(
-        "--time", action="store_true", help="print testcase run times"
-    )
+    parser.add_argument("--time", action="store_true", help="print testcase run times")
 
     parser.add_argument("-s", "--summary", action="store_true", help="print summary")
     parser.add_argument("-v", "--verbose", action="store_true", help="be verbose")
@@ -152,14 +168,16 @@ def main():
 
     if args.save and args.results and not os.path.exists(args.results):
         if not os.path.exists("/tmp/topotests"):
-            logging.critical("No \"/tmp/topotests\" directory to save")
+            logging.critical('No "/tmp/topotests" directory to save')
             sys.exit(1)
         subprocess.run(["mv", "/tmp/topotests", args.results])
         # # Old location for results
         # if os.path.exists("/tmp/topotests.xml", args.results):
         #     subprocess.run(["mv", "/tmp/topotests.xml", args.results])
 
-    assert args.test is None or not args.files_only, "Can't have both --files and --test"
+    assert (
+        args.test is None or not args.files_only
+    ), "Can't have both --files and --test"
 
     results = {}
     ttfiles = []

@@ -59,7 +59,6 @@ pytestmark = [pytest.mark.pbrd]
 def build_topo(tgen):
     "Build function"
 
-
     # Populate routers
     for routern in range(1, 2):
         tgen.add_router("r{}".format(routern))

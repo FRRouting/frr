@@ -44,6 +44,7 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.ospfd]
 
+
 def setup_module(mod):
     "Sets up the pytest environment"
 

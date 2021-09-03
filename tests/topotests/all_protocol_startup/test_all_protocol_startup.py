@@ -879,22 +879,32 @@ def test_bgp_summary():
             # Read expected result from file
             expected_original = open(refTableFile).read().rstrip()
 
-            for arguments in ["", "remote-as internal", "remote-as external",
-                           "remote-as 100", "remote-as 123",
-                           "neighbor 192.168.7.10", "neighbor 192.168.7.10",
-                           "neighbor fc00:0:0:8::1000",
-                           "neighbor 10.0.0.1",
-                           "terse",
-                           "remote-as internal terse",
-                           "remote-as external terse",
-                           "remote-as 100 terse", "remote-as 123 terse",
-                           "neighbor 192.168.7.10 terse", "neighbor 192.168.7.10 terse",
-                           "neighbor fc00:0:0:8::1000 terse",
-                           "neighbor 10.0.0.1 terse"]:
+            for arguments in [
+                "",
+                "remote-as internal",
+                "remote-as external",
+                "remote-as 100",
+                "remote-as 123",
+                "neighbor 192.168.7.10",
+                "neighbor 192.168.7.10",
+                "neighbor fc00:0:0:8::1000",
+                "neighbor 10.0.0.1",
+                "terse",
+                "remote-as internal terse",
+                "remote-as external terse",
+                "remote-as 100 terse",
+                "remote-as 123 terse",
+                "neighbor 192.168.7.10 terse",
+                "neighbor 192.168.7.10 terse",
+                "neighbor fc00:0:0:8::1000 terse",
+                "neighbor 10.0.0.1 terse",
+            ]:
                 # Actual output from router
                 actual = (
                     net["r%s" % i]
-                    .cmd('vtysh -c "show ip bgp summary ' + arguments + '" 2> /dev/null')
+                    .cmd(
+                        'vtysh -c "show ip bgp summary ' + arguments + '" 2> /dev/null'
+                    )
                     .rstrip()
                 )
 
@@ -923,7 +933,9 @@ def test_bgp_summary():
                 actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
                 actual = re.sub(r"No Unknown neighbor is configured", "", actual)
 
-                actual = re.sub(r"IPv4 labeled-unicast Summary \(VRF default\):", "", actual)
+                actual = re.sub(
+                    r"IPv4 labeled-unicast Summary \(VRF default\):", "", actual
+                )
                 actual = re.sub(
                     r"No IPv4 labeled-unicast neighbor is configured", "", actual
                 )
@@ -937,19 +949,18 @@ def test_bgp_summary():
                 elif "remote-as 123" in arguments:
                     expected = re.sub(
                         r"(192.168.7.(1|2)0|fc00:0:0:8::(1|2)000).+Active.+",
-                        "", expected
+                        "",
+                        expected,
                     )
                     expected = re.sub(r"\nNeighbor.+Desc", "", expected)
                     expected = expected + "% No matching neighbor\n"
                 elif "192.168.7.10" in arguments:
                     expected = re.sub(
-                        r"(192.168.7.20|fc00:0:0:8::(1|2)000).+Active.+",
-                        "", expected
+                        r"(192.168.7.20|fc00:0:0:8::(1|2)000).+Active.+", "", expected
                     )
                 elif "fc00:0:0:8::1000" in arguments:
                     expected = re.sub(
-                        r"(192.168.7.(1|2)0|fc00:0:0:8::2000).+Active.+",
-                        "", expected
+                        r"(192.168.7.(1|2)0|fc00:0:0:8::2000).+Active.+", "", expected
                     )
                 elif "10.0.0.1" in arguments:
                     expected = "No such neighbor in VRF default"
@@ -975,8 +986,12 @@ def test_bgp_summary():
 
                 # realign expected neighbor columns if needed
                 try:
-                    idx_actual = re.search(r"(Neighbor\s+V\s+)", actual).group(1).find("V")
-                    idx_expected = re.search(r"(Neighbor\s+V\s+)", expected).group(1).find("V")
+                    idx_actual = (
+                        re.search(r"(Neighbor\s+V\s+)", actual).group(1).find("V")
+                    )
+                    idx_expected = (
+                        re.search(r"(Neighbor\s+V\s+)", expected).group(1).find("V")
+                    )
                     idx_diff = idx_expected - idx_actual
                     if idx_diff > 0:
                         # Neighbor        V         AS MsgRcvd MsgSent   TblVer  InQ OutQ  Up/Down State/PfxRcd
@@ -994,7 +1009,7 @@ def test_bgp_summary():
                 diff = topotest.get_textdiff(
                     actual,
                     expected,
-                    title1="actual SHOW IP BGP SUMMARY " + arguments.upper() ,
+                    title1="actual SHOW IP BGP SUMMARY " + arguments.upper(),
                     title2="expected SHOW IP BGP SUMMARY " + arguments.upper(),
                 )
 
@@ -1007,7 +1022,9 @@ def test_bgp_summary():
                 else:
                     print("r%s ok" % i)
 
-                assert failures == 0, "SHOW IP BGP SUMMARY failed for router r%s:\n%s" % (
+                assert (
+                    failures == 0
+                ), "SHOW IP BGP SUMMARY failed for router r%s:\n%s" % (
                     i,
                     diff,
                 )
@@ -1074,7 +1091,9 @@ def test_bgp_ipv6_summary():
             actual = re.sub(r"No Unknown neighbor is configured", "", actual)
 
             # Remove Labeled Unicast Summary (all of it)
-            actual = re.sub(r"IPv6 labeled-unicast Summary \(VRF default\):", "", actual)
+            actual = re.sub(
+                r"IPv6 labeled-unicast Summary \(VRF default\):", "", actual
+            )
             actual = re.sub(
                 r"No IPv6 labeled-unicast neighbor is configured", "", actual
             )

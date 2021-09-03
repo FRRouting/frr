@@ -46,7 +46,6 @@ from lib.common_config import step
 pytestmark = [pytest.mark.bgpd]
 
 
-
 def build_topo(tgen):
     for routern in range(1, 5):
         tgen.add_router("r{}".format(routern))

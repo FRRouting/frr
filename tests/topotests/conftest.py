@@ -82,7 +82,7 @@ def pytest_addoption(parser):
         help="Do not pause after (disables default when --shell or -vtysh given)",
     )
 
-    rundir_help="directory for running in and log files"
+    rundir_help = "directory for running in and log files"
     parser.addini("rundir", rundir_help, default="/tmp/topotests")
     parser.addoption("--rundir", metavar="DIR", help=rundir_help)
 
@@ -221,7 +221,6 @@ def pytest_configure(config):
         is_xdist = True
         is_worker = True
 
-
     # -----------------------------------------------------
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------
@@ -345,7 +344,7 @@ def pytest_runtest_makereport(item, call):
         except:
             call.excinfo = ExceptionInfo()
 
-    title='unset'
+    title = "unset"
 
     if call.excinfo is None:
         error = False
@@ -404,7 +403,11 @@ def pytest_runtest_makereport(item, call):
         for node in Mininet.g_mnet_inst.hosts.values():
             pause = True
 
-            channel = "{}-{}".format(os.getpid(), Commander.tmux_wait_gen) if not isatty else None
+            channel = (
+                "{}-{}".format(os.getpid(), Commander.tmux_wait_gen)
+                if not isatty
+                else None
+            )
             Commander.tmux_wait_gen += 1
             wait_for_channels.append(channel)
 
@@ -415,7 +418,7 @@ def pytest_runtest_makereport(item, call):
                 title="{} ({})".format(title, node.name),
                 name=title,
                 tmux_target=win_info,
-                wait_for=channel
+                wait_for=channel,
             )
             if win_info is None:
                 win_info = pane_info
@@ -439,9 +442,7 @@ def pytest_runtest_makereport(item, call):
                 'PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: '
             )
         except NameError:
-            user = input(
-                'PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: '
-            )
+            user = input('PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: ')
         user = user.strip()
 
         if user == "cli":

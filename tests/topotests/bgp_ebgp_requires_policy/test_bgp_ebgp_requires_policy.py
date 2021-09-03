@@ -58,7 +58,6 @@ from lib.topolog import logger
 pytestmark = [pytest.mark.bgpd]
 
 
-
 def build_topo(tgen):
     for routern in range(1, 7):
         tgen.add_router("r{}".format(routern))

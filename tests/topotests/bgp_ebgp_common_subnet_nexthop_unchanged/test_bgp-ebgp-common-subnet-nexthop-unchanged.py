@@ -51,7 +51,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 pytestmark = [pytest.mark.bgpd]
 
 
-
 def build_topo(tgen):
     for routern in range(1, 4):
         tgen.add_router("r{}".format(routern))

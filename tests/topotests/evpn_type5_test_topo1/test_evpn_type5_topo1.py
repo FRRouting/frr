@@ -1998,12 +1998,8 @@ def test_bgp_attributes_for_evpn_address_family_p1(request, attribute):
         input_dict_1 = {
             "e1": {
                 "route_maps": {
-                    "rmap_d1": [
-                        {"action": "permit", "set": {attribute: 120}}
-                    ],
-                    "rmap_d2": [
-                        {"action": "permit", "set": {attribute: 150}}
-                    ],
+                    "rmap_d1": [{"action": "permit", "set": {attribute: 120}}],
+                    "rmap_d2": [{"action": "permit", "set": {attribute: 150}}],
                 }
             }
         }

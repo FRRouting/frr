@@ -129,7 +129,6 @@ from lib.common_config import (
     start_router_daemons,
     create_static_routes,
     topo_daemons,
-
 )
 from lib.pim import (
     create_pim_config,
@@ -463,7 +462,9 @@ def test_add_delete_static_RP_p0(request):
     )
 
     step("r1: Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is up and join timer is running \n Error: {}".format(
@@ -785,7 +786,9 @@ def test_not_reachable_static_RP_p0(request):
         "r1: join state should not be joined and join timer should stop,"
         "verify using show ip pim upstream"
     )
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: join state is joined and timer is not stopped \n Error: {}".format(
@@ -910,7 +913,9 @@ def test_add_RP_after_join_received_p1(request):
 
     step("r1: Verify upstream join state and join timer")
 
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running \n Error: {}".format(
@@ -1060,7 +1065,9 @@ def test_reachable_static_RP_after_join_p0(request):
     )
 
     step("r1 : Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running\n Error: {}".format(
@@ -2567,7 +2574,8 @@ def test_restart_pimd_process_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False)
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(

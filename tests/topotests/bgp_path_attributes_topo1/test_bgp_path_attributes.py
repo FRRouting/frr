@@ -277,7 +277,7 @@ def test_next_hop_attribute(request):
 
 
 def test_aspath_attribute(request):
-    " Verifying AS_PATH attribute functionality"
+    "Verifying AS_PATH attribute functionality"
 
     tgen = get_topogen()
 
@@ -488,7 +488,7 @@ def test_aspath_attribute(request):
 
 
 def test_localpref_attribute(request):
-    " Verifying LOCAL PREFERENCE attribute functionality"
+    "Verifying LOCAL PREFERENCE attribute functionality"
 
     tgen = get_topogen()
 
@@ -1413,7 +1413,7 @@ def test_med_attribute(request):
 
 
 def test_admin_distance(request):
-    " Verifying admin distance functionality"
+    "Verifying admin distance functionality"
 
     tgen = get_topogen()
 

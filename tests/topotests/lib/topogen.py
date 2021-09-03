@@ -110,9 +110,7 @@ def get_exabgp_cmd(commander=None):
             return False
         version = m.group(1)
         if topotest.version_cmp(version, "4") >= 0:
-            logging.debug(
-                "found exabgp version >= 4 in %s will keep looking", exacmd
-            )
+            logging.debug("found exabgp version >= 4 in %s will keep looking", exacmd)
             return False
         logger.info("Using ExaBGP version %s in %s", version, exacmd)
         return True
@@ -172,7 +170,6 @@ class Topogen(object):
         self.exabgp_cmd = None
         self._init_topo(topodef)
 
-
         logger.info("loading topology: {}".format(self.modname))
 
     # @staticmethod
@@ -209,7 +206,9 @@ class Topogen(object):
 
         # Create new log directory
         self.logdir = topotest.get_logs_path(g_extra_config["rundir"])
-        subprocess.check_call("mkdir -p {0} && chmod 1777 {0}".format(self.logdir), shell=True)
+        subprocess.check_call(
+            "mkdir -p {0} && chmod 1777 {0}".format(self.logdir), shell=True
+        )
         try:
             routertype = self.config.get(self.CONFIG_SECTION, "routertype")
             # Only allow group, if it exist.
@@ -241,6 +240,7 @@ class Topogen(object):
                 # switch away from this use here to the topojson
                 # fixutre and remove this case
                 from lib.topojson import build_topo_from_json
+
                 with open(topodef, "r") as topof:
                     self.json_topo = json.load(topof)
                 build_topo_from_json(self, self.json_topo)
@@ -250,7 +250,11 @@ class Topogen(object):
 
     def add_topology_from_dict(self, topodef):
 
-        keylist = topodef.keys() if isinstance(topodef, OrderedDict) else sorted(topodef.keys())
+        keylist = (
+            topodef.keys()
+            if isinstance(topodef, OrderedDict)
+            else sorted(topodef.keys())
+        )
         # ---------------------------
         # Create all referenced hosts
         # ---------------------------
@@ -823,11 +827,15 @@ class TopoRouter(TopoGear):
         for daemon, enabled in nrouter.daemons.items():
             if enabled and daemon != "snmpd":
                 self.vtysh_cmd(
-                    "\n".join(["clear log cmdline-targets",
-                               "conf t",
-                               "log file {}.log debug".format(daemon),
-                               "log commands",
-                               "log timestamp precision 3"]),
+                    "\n".join(
+                        [
+                            "clear log cmdline-targets",
+                            "conf t",
+                            "log file {}.log debug".format(daemon),
+                            "log commands",
+                            "log timestamp precision 3",
+                        ]
+                    ),
                     daemon=daemon,
                 )
 
@@ -836,7 +844,9 @@ class TopoRouter(TopoGear):
         elif nrouter.daemons["ldpd"] == 1 or nrouter.daemons["pathd"] == 1:
             # Enable MPLS processing on all interfaces.
             for interface in self.links:
-                topotest.sysctl_assure(nrouter, "net.mpls.conf.{}.input".format(interface), 1)
+                topotest.sysctl_assure(
+                    nrouter, "net.mpls.conf.{}.input".format(interface), 1
+                )
 
         return result
 
@@ -867,11 +877,15 @@ class TopoRouter(TopoGear):
             enabled = nrouter.daemons[daemon]
             if enabled and daemon != "snmpd":
                 self.vtysh_cmd(
-                    "\n".join(["clear log cmdline-targets",
-                               "conf t",
-                               "log file {}.log debug".format(daemon),
-                               "log commands",
-                               "log timestamp precision 3"]),
+                    "\n".join(
+                        [
+                            "clear log cmdline-targets",
+                            "conf t",
+                            "log file {}.log debug".format(daemon),
+                            "log commands",
+                            "log timestamp precision 3",
+                        ]
+                    ),
                     daemon=daemon,
                 )
 
@@ -913,7 +927,7 @@ class TopoRouter(TopoGear):
         if dbgout:
             if "\n" in dbgout:
                 dbgout = dbgout.replace("\n", "\n\t")
-                self.logger.info('vtysh result:\n\t{}'.format(dbgout))
+                self.logger.info("vtysh result:\n\t{}".format(dbgout))
             else:
                 self.logger.info('vtysh result: "{}"'.format(dbgout))
 
@@ -923,7 +937,12 @@ class TopoRouter(TopoGear):
         try:
             return json.loads(output)
         except ValueError as error:
-            logger.warning("vtysh_cmd: %s: failed to convert json output: %s: %s", self.name, str(output), str(error))
+            logger.warning(
+                "vtysh_cmd: %s: failed to convert json output: %s: %s",
+                self.name,
+                str(output),
+                str(error),
+            )
             return {}
 
     def vtysh_multicmd(self, commands, pretty_output=True, daemon=None):
@@ -950,7 +969,7 @@ class TopoRouter(TopoGear):
 
         dbgcmds = commands if is_string(commands) else "\n".join(commands)
         dbgcmds = "\t" + dbgcmds.replace("\n", "\n\t")
-        self.logger.info('vtysh command => FILE:\n{}'.format(dbgcmds))
+        self.logger.info("vtysh command => FILE:\n{}".format(dbgcmds))
 
         res = self.run(vtysh_command)
         os.unlink(fname)
@@ -959,7 +978,7 @@ class TopoRouter(TopoGear):
         if dbgres:
             if "\n" in dbgres:
                 dbgres = dbgres.replace("\n", "\n\t")
-                self.logger.info('vtysh result:\n\t{}'.format(dbgres))
+                self.logger.info("vtysh result:\n\t{}".format(dbgres))
             else:
                 self.logger.info('vtysh result: "{}"'.format(dbgres))
         return res
@@ -1170,7 +1189,6 @@ def diagnose_env_linux(rundir):
     logger.addHandler(fhandler)
 
     logger.info("Running environment diagnostics")
-
 
     # Assert that we are running as root
     if os.getuid() != 0:
