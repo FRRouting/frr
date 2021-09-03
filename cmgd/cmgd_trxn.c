@@ -968,8 +968,8 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 			if (!cfg_btch ||
 				(cfg_btch->num_cfg_data ==
 					CMGD_MAX_CFG_CHANGES_IN_BATCH) ||
-				((cfg_btch->buf_space_left -
-					(xpath_len + value_len)) <= 0)) {
+				(cfg_btch->buf_space_left <
+					(xpath_len + value_len))) {
 				/* Allocate a new config batch */
 				cfg_btch = cmgd_trxn_cfg_batch_alloc(
 						trxn_req->trxn, id, adptr);
@@ -1124,9 +1124,15 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		goto cmgd_trxn_prepare_config_done;
 	}
 
+	/*
+	 * FIXME: There's a problem with scratch buffer management.
+	 * We cannot use the scratch buffer till then.
+	 * For now always get the diff from Candidate DB itself.
+	 */
 	// cfg_chgs = &changes;
-	cfg_chgs = &nb_config->cfg_chgs;
-	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
+	// cfg_chgs = &nb_config->cfg_chgs;
+	// if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
+	if (true) {
 		/*
 		 * This could be the case when the config is directly
 		 * loaded onto the candidate DB from a file. Get the 

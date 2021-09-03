@@ -928,7 +928,6 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr)
 		stream_free((*adptr)->obuf_work);
 
 		THREAD_OFF((*adptr)->conn_init_ev);
-		XFREE(MTYPE_CMGD_BCKND_ADPTR_MSG_BUF, (*adptr)->msg_buf);
 		XFREE(MTYPE_CMGD_BCKND_ADPATER, *adptr);
 	}
 
@@ -964,9 +963,6 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		adptr->ibuf_fifo = stream_fifo_new();
 		adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 		adptr->obuf_fifo = stream_fifo_new();
-		adptr->msg_buf = XCALLOC(MTYPE_CMGD_BCKND_ADPTR_MSG_BUF,
-					 CMGD_BCKND_MSG_MAX_LEN);
-		assert(adptr->msg_buf);
 		// adptr->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 		adptr->obuf_work = NULL;
 		cmgd_bcknd_adapter_lock(adptr);

@@ -127,6 +127,7 @@ static int cmgd_db_replace_dst_with_src_db(
 		/*
 		 * Drop the changes in scratch-buffer.
 		 */
+		CMGD_DB_DBG("Emptying Candidate Scratch buffer!");
 		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
 	}
 
@@ -144,10 +145,40 @@ static int cmgd_db_replace_dst_with_src_db(
 static int cmgd_db_merge_src_with_dst_db(
         cmgd_db_ctxt_t *src, cmgd_db_ctxt_t *dst)
 {
-	/*
-	 * FIXME: This is not really merge. We need to change the implementation
-	 */
-	return cmgd_db_replace_dst_with_src_db(src, dst);
+	int ret;
+	struct lyd_node **dst_dnode, *src_dnode;
+	struct ly_out *out;
+
+	if (!src || !dst)
+		return -1;
+
+	CMGD_DB_DBG("Merging DB %d with %d", dst->db_id, src->db_id);
+
+	src_dnode = src->config_db ? src->root.cfg_root->dnode :
+				dst->root.dnode_root;
+	dst_dnode = dst->config_db ? &dst->root.cfg_root->dnode :
+				&dst->root.dnode_root;
+	ret = lyd_merge_siblings(dst_dnode, src_dnode, 0);
+	if (ret != 0) {
+		CMGD_DB_ERR("lyd_merge() failed with err %d", ret);
+		return ret;
+	}
+
+	if (src->db_id == CMGD_DB_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		CMGD_DB_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
+	if (dst->db_id == CMGD_DB_RUNNING) {
+		if (ly_out_new_filepath(CMGD_STARTUP_DB_FILE_PATH, &out) == LY_SUCCESS)
+			cmgd_db_dump_in_memory(dst, "", LYD_JSON, out);
+		ly_out_free(out, NULL, 0);
+	}
+
+	return 0;
 }
 
 static int cmgd_db_load_cfg_from_file(const char *filepath, struct lyd_node **dnode)

@@ -125,7 +125,7 @@ typedef struct cmgd_bcknd_client_adapter_ {
 	// /* Private I/O buffers */
 	struct stream *ibuf_work;
 	struct stream *obuf_work;
-	uint8_t *msg_buf;
+	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
 
 	/* Buffer of data waiting to be written to client. */
 	// struct buffer *wb;
