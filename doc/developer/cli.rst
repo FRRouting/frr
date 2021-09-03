@@ -777,6 +777,7 @@ To add a new CLI node, you should:
 - call ``install_node()`` in the relevant daemon
 - define and install the new node in vtysh
 - define corresponding node entry commands in daemon and vtysh
+- add a new entry to the ``ctx_keywords`` dictionary in ``tools/frr-reload.py``
 
 Defining the numerical node constant
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -844,6 +845,9 @@ Defining corresponding node entry commands in daemon and vtysh
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 The command that descends into the new node is typically programmed
 with ``VTY_PUSH_CONTEXT`` or equivalent in the daemon's CLI handler function.
+(If the CLI has been updated to use the new northbound architecture,
+``VTY_PUSH_XPATH`` is used instead.)
+
 In vtysh, you must implement a corresponding node change so that vtysh
 tracks the daemon's movement through the node tree.
 
@@ -852,9 +856,9 @@ to replicate their parsing in vtysh, the node-descent function in the
 daemon must be blocked from this replication so that a hand-coded
 skeleton can be written in ``vtysh.c``.
 
-Accordingly, use one of the ``*_NOSH`` macros such as ``DEFUN_NOSH`` or
-``DEFPY_NOSH`` for the daemon's node-descent CLI definition, and use
-``DEFUNSH`` in ``vtysh.c`` for the vtysh equivalent.
+Accordingly, use one of the ``*_NOSH`` macros such as ``DEFUN_NOSH``,
+``DEFPY_NOSH``, or ``DEFUN_YANG_NOSH``  for the daemon's node-descent
+CLI definition, and use ``DEFUNSH`` in ``vtysh.c`` for the vtysh equivalent.
 
 .. seealso:: :ref:`vtysh-special-defuns`
 
@@ -876,6 +880,22 @@ Examples:
    }
 
 
+``ripd_whatever.c``
+
+.. code-block:: c
+
+   DEFPY_YANG_NOSH(my_new_node,
+        my_new_node_cmd,
+        "my-new-node foo",
+        "New Thing\n"
+        "A foo\n")
+   {
+      [...]
+      VTY_PUSH_XPATH(MY_NEW_NODE, xbar);
+      [...]
+   }
+
+
 ``vtysh.c``
 
 .. code-block:: c
@@ -892,6 +912,24 @@ Examples:
    [...]
    install_element(CONFIG_NODE, &my_new_node_cmd);
 
+
+Adding a new entry to the ``ctx_keywords`` dictionary
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+In file ``tools/frr-reload.py``, the ``ctx_keywords`` dictionary
+describes the various node relationships.
+Add a new node entry at the appropriate level in this dictionary.
+
+.. code-block:: python
+
+        ctx_keywords = {
+            [...]
+            "key chain ": {
+                "key ": {}
+            },
+            [...]
+            "my-new-node": {},
+            [...]
+        }
 
 
 
