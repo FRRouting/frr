@@ -54,6 +54,7 @@ from lib.micronet_compat import Node
 
 g_extra_config = {}
 
+
 def get_logs_path(rundir):
     logspath = topolog.get_test_logdir()
     return os.path.join(rundir, logspath)
@@ -1084,7 +1085,7 @@ def _sysctl_atleast(commander, variable, min_value):
         else:
             valstr = str(min_value)
         logger.info("Increasing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises("sysctl -w {}=\"{}\"\n".format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
 
 
 def _sysctl_assure(commander, variable, value):
@@ -1115,7 +1116,7 @@ def _sysctl_assure(commander, variable, value):
         else:
             valstr = str(value)
         logger.info("Changing sysctl %s from %s to %s", variable, cur_val, valstr)
-        commander.cmd_raises("sysctl -w {}=\"{}\"\n".format(variable, valstr))
+        commander.cmd_raises('sysctl -w {}="{}"\n'.format(variable, valstr))
 
 
 def sysctl_atleast(commander, variable, min_value, raises=False):
@@ -1126,7 +1127,9 @@ def sysctl_atleast(commander, variable, min_value, raises=False):
     except subprocess.CalledProcessError as error:
         logger.warning(
             "%s: Failed to assure sysctl min value %s = %s",
-            commander, variable, min_value
+            commander,
+            variable,
+            min_value,
         )
         if raises:
             raise
@@ -1140,7 +1143,10 @@ def sysctl_assure(commander, variable, value, raises=False):
     except subprocess.CalledProcessError as error:
         logger.warning(
             "%s: Failed to assure sysctl value %s = %s",
-            commander, variable, value, exc_info=True
+            commander,
+            variable,
+            value,
+            exc_info=True,
         )
         if raises:
             raise
@@ -1156,8 +1162,7 @@ def rlimit_atleast(rname, min_value, raises=False):
             resource.setrlimit(rname, nval)
     except subprocess.CalledProcessError as error:
         logger.warning(
-            "Failed to assure rlimit [%s] = %s",
-            rname, min_value, exc_info=True
+            "Failed to assure rlimit [%s] = %s", rname, min_value, exc_info=True
         )
         if raises:
             raise
@@ -1166,8 +1171,8 @@ def rlimit_atleast(rname, min_value, raises=False):
 def fix_netns_limits(ns):
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10*1024, 87380, 16*2**20])
-    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10*1024, 87380, 16*2**20])
+    sysctl_atleast(ns, "net.ipv4.tcp_rmem", [10 * 1024, 87380, 16 * 2 ** 20])
+    sysctl_atleast(ns, "net.ipv4.tcp_wmem", [10 * 1024, 87380, 16 * 2 ** 20])
 
     sysctl_assure(ns, "net.ipv4.conf.all.rp_filter", 0)
     sysctl_assure(ns, "net.ipv4.conf.default.rp_filter", 0)
@@ -1210,10 +1215,10 @@ def fix_netns_limits(ns):
 def fix_host_limits():
     """Increase system limits."""
 
-    rlimit_atleast(resource.RLIMIT_NPROC, 8*1024)
-    rlimit_atleast(resource.RLIMIT_NOFILE, 16*1024)
-    sysctl_atleast(None, "fs.file-max", 16*1024)
-    sysctl_atleast(None, "kernel.pty.max", 16*1024)
+    rlimit_atleast(resource.RLIMIT_NPROC, 8 * 1024)
+    rlimit_atleast(resource.RLIMIT_NOFILE, 16 * 1024)
+    sysctl_atleast(None, "fs.file-max", 16 * 1024)
+    sysctl_atleast(None, "kernel.pty.max", 16 * 1024)
 
     # Enable coredumps
     # Original on ubuntu 17.x, but apport won't save as in namespace
@@ -1223,20 +1228,20 @@ def fix_host_limits():
     sysctl_assure(None, "fs.suid_dumpable", 1)
 
     # Maximum connection backlog
-    sysctl_atleast(None, "net.core.netdev_max_backlog", 4*1024)
+    sysctl_atleast(None, "net.core.netdev_max_backlog", 4 * 1024)
 
     # Maximum read and write socket buffer sizes
-    sysctl_atleast(None, "net.core.rmem_max", 16 * 2**20)
-    sysctl_atleast(None, "net.core.wmem_max", 16 * 2**20)
+    sysctl_atleast(None, "net.core.rmem_max", 16 * 2 ** 20)
+    sysctl_atleast(None, "net.core.wmem_max", 16 * 2 ** 20)
 
     # Garbage Collection Settings for ARP and Neighbors
-    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4*1024)
-    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh3", 8*1024)
-    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh2", 4*1024)
-    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh3", 8*1024)
+    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh2", 4 * 1024)
+    sysctl_atleast(None, "net.ipv4.neigh.default.gc_thresh3", 8 * 1024)
+    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh2", 4 * 1024)
+    sysctl_atleast(None, "net.ipv6.neigh.default.gc_thresh3", 8 * 1024)
     # Hold entries for 10 minutes
-    sysctl_assure(None, "net.ipv4.neigh.default.base_reachable_time_ms", 10 * 60  * 1000)
-    sysctl_assure(None, "net.ipv6.neigh.default.base_reachable_time_ms", 10 * 60  * 1000)
+    sysctl_assure(None, "net.ipv4.neigh.default.base_reachable_time_ms", 10 * 60 * 1000)
+    sysctl_assure(None, "net.ipv6.neigh.default.base_reachable_time_ms", 10 * 60 * 1000)
 
     # igmp
     sysctl_assure(None, "net.ipv4.neigh.default.mcast_solicit", 10)
@@ -1245,22 +1250,21 @@ def fix_host_limits():
     sysctl_atleast(None, "net.ipv6.mld_max_msf", 512)
 
     # Increase routing table size to 128K
-    sysctl_atleast(None, "net.ipv4.route.max_size", 128*1024)
-    sysctl_atleast(None, "net.ipv6.route.max_size", 128*1024)
+    sysctl_atleast(None, "net.ipv4.route.max_size", 128 * 1024)
+    sysctl_atleast(None, "net.ipv6.route.max_size", 128 * 1024)
 
 
 def setup_node_tmpdir(logdir, name):
     # Cleanup old log, valgrind, and core files.
     subprocess.check_call(
-        "rm -rf {0}/{1}.valgrind.* {1}.*.asan {0}/{1}/".format(
-            logdir, name
-        ),
-        shell=True
+        "rm -rf {0}/{1}.valgrind.* {1}.*.asan {0}/{1}/".format(logdir, name), shell=True
     )
 
     # Setup the per node directory.
     nodelogdir = "{}/{}".format(logdir, name)
-    subprocess.check_call("mkdir -p {0} && chmod 1777 {0}".format(nodelogdir), shell=True)
+    subprocess.check_call(
+        "mkdir -p {0} && chmod 1777 {0}".format(nodelogdir), shell=True
+    )
     logfile = "{0}/{1}.log".format(logdir, name)
     return logfile
 
@@ -1382,7 +1386,9 @@ class Router(Node):
     # Return count of running daemons
     def listDaemons(self):
         ret = []
-        rc, stdout, _ = self.cmd_status("ls -1 /var/run/%s/*.pid" % self.routertype, warn=False)
+        rc, stdout, _ = self.cmd_status(
+            "ls -1 /var/run/%s/*.pid" % self.routertype, warn=False
+        )
         if rc:
             return ret
         for d in stdout.strip().split("\n"):
@@ -1394,7 +1400,13 @@ class Router(Node):
                 # probably not compatible with bsd.
                 rc, _, _ = self.cmd_status("test -d /proc/{}".format(pid), warn=False)
                 if rc:
-                    logger.warning("%s: %s exited leaving pidfile %s (%s)", self.name, name, pidfile, pid)
+                    logger.warning(
+                        "%s: %s exited leaving pidfile %s (%s)",
+                        self.name,
+                        name,
+                        pidfile,
+                        pid,
+                    )
                     self.cmd("rm -- " + pidfile)
                 else:
                     ret.append((name, pid))
@@ -1414,7 +1426,9 @@ class Router(Node):
             try:
                 os.kill(pid, signal.SIGTERM)
             except OSError as err:
-                logger.info("%s: could not kill %s (%s): %s", self.name, name, pid, str(err))
+                logger.info(
+                    "%s: could not kill %s (%s): %s", self.name, name, pid, str(err)
+                )
 
         running = self.listDaemons()
         if running:
@@ -1432,14 +1446,18 @@ class Router(Node):
         if not running:
             return ""
 
-        logger.warning("%s: sending SIGBUS to: %s", self.name, ", ".join([x[0] for x in running]))
+        logger.warning(
+            "%s: sending SIGBUS to: %s", self.name, ", ".join([x[0] for x in running])
+        )
         for name, pid in running:
             pidfile = "/var/run/{}/{}.pid".format(self.routertype, name)
             logger.info("%s: killing %s", self.name, name)
             self.cmd("kill -SIGBUS %d" % pid)
             self.cmd("rm -- " + pidfile)
 
-        sleep(0.5, "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name)
+        sleep(
+            0.5, "%s: waiting for daemons to exit/core after initial SIGBUS" % self.name
+        )
 
         errors = self.checkRouterCores(reportOnce=True)
         if self.checkRouterVersion("<", minErrorVersion):
@@ -1657,16 +1675,28 @@ class Router(Node):
                 cmdenv = "ASAN_OPTIONS="
                 if asan_abort:
                     cmdenv = "abort_on_error=1:"
-                cmdenv += "log_path={0}/{1}.{2}.asan ".format(self.logdir, self.name, daemon)
+                cmdenv += "log_path={0}/{1}.{2}.asan ".format(
+                    self.logdir, self.name, daemon
+                )
 
                 if valgrind_memleaks:
-                    this_dir = os.path.dirname(os.path.abspath(os.path.realpath(__file__)))
-                    supp_file = os.path.abspath(os.path.join(this_dir, "../../../tools/valgrind.supp"))
-                    cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(daemon, self.logdir, self.name, supp_file)
+                    this_dir = os.path.dirname(
+                        os.path.abspath(os.path.realpath(__file__))
+                    )
+                    supp_file = os.path.abspath(
+                        os.path.join(this_dir, "../../../tools/valgrind.supp")
+                    )
+                    cmdenv += " /usr/bin/valgrind --num-callers=50 --log-file={1}/{2}.valgrind.{0}.%p --leak-check=full --suppressions={3}".format(
+                        daemon, self.logdir, self.name, supp_file
+                    )
                     if valgrind_extra:
-                        cmdenv += "--gen-suppressions=all --expensive-definedness-checks=yes"
+                        cmdenv += (
+                            "--gen-suppressions=all --expensive-definedness-checks=yes"
+                        )
                 elif daemon in strace_daemons or "all" in strace_daemons:
-                    cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(daemon, self.logdir, self.name)
+                    cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(
+                        daemon, self.logdir, self.name
+                    )
 
                 cmdopt = "{} --log file:{}.log --log-level debug".format(
                     daemon_opts, daemon
@@ -1694,7 +1724,9 @@ class Router(Node):
 
                 self.run_in_window(gdbcmd, daemon)
 
-                logger.info("%s: %s %s launched in gdb window", self, self.routertype, daemon)
+                logger.info(
+                    "%s: %s %s launched in gdb window", self, self.routertype, daemon
+                )
             else:
                 if daemon != "snmpd":
                     cmdopt += " -d "
@@ -1705,9 +1737,16 @@ class Router(Node):
                 except subprocess.CalledProcessError as error:
                     self.logger.error(
                         '%s: Failed to launch "%s" daemon (%d) using: %s%s%s:',
-                        self, daemon, error.returncode, error.cmd,
-                        '\n:stdout: "{}"'.format(error.stdout.strip()) if error.stdout else "",
-                        '\n:stderr: "{}"'.format(error.stderr.strip()) if error.stderr else "",
+                        self,
+                        daemon,
+                        error.returncode,
+                        error.cmd,
+                        '\n:stdout: "{}"'.format(error.stdout.strip())
+                        if error.stdout
+                        else "",
+                        '\n:stderr: "{}"'.format(error.stderr.strip())
+                        if error.stderr
+                        else "",
                     )
                 else:
                     logger.info("%s: %s %s started", self, self.routertype, daemon)
@@ -1738,7 +1777,7 @@ class Router(Node):
             # Somehow (on Mininet only), Zebra removes the IPv6 Link-Local addresses on start. Fix this
             _, output, _ = self.cmd_status(
                 "for i in `ls /sys/class/net/` ; do mac=`cat /sys/class/net/$i/address`; echo $i: $mac; [ -z \"$mac\" ] && continue; IFS=':'; set $mac; unset IFS; ip address add dev $i scope link fe80::$(printf %02x $((0x$1 ^ 2)))$2:${3}ff:fe$4:$5$6/64; done",
-                stderr=subprocess.STDOUT
+                stderr=subprocess.STDOUT,
             )
             logger.debug("Set MACs:\n%s", output)
 

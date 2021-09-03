@@ -45,6 +45,7 @@ from pprint import pformat
 def iteritems(d):
     return iter(d.items())
 
+
 log = logging.getLogger(__name__)
 
 
@@ -556,49 +557,26 @@ end
             "router ospf6": {},
             "router eigrp ": {},
             "router babel": {},
-            "mpls ldp": {
-                "address-family ": {
-                    "interface ": {}
-                }
-            },
-            "l2vpn ": {
-                "member pseudowire ": {}
-            },
-            "key chain ": {
-                "key ": {}
-            },
+            "mpls ldp": {"address-family ": {"interface ": {}}},
+            "l2vpn ": {"member pseudowire ": {}},
+            "key chain ": {"key ": {}},
             "vrf ": {},
-            "interface ": {
-                "link-params": {}
-            },
+            "interface ": {"link-params": {}},
             "pseudowire ": {},
             "segment-routing": {
                 "traffic-eng": {
                     "segment-list ": {},
-                    "policy ": {
-                        "candidate-path ": {}
-                    },
-                    "pcep": {
-                        "pcc": {},
-                        "pce ": {},
-                        "pce-config ": {}
-                    }
+                    "policy ": {"candidate-path ": {}},
+                    "pcep": {"pcc": {}, "pce ": {}, "pce-config ": {}},
                 },
-                "srv6": {
-                    "locators": {
-                        "locator ": {}
-                    }
-                }
+                "srv6": {"locators": {"locator ": {}}},
             },
             "nexthop-group ": {},
             "route-map ": {},
             "pbr-map ": {},
             "rpki": {},
-            "bfd": {
-                "peer ": {},
-                "profile ": {}
-            },
-            "line vty": {}
+            "bfd": {"peer ": {}, "profile ": {}},
+            "line vty": {},
         }
 
         # stack of context keys
@@ -1890,7 +1868,9 @@ if __name__ == "__main__":
                     nolines = [x.strip() for x in nolines]
                     # For topotests leave these lines in (don't delete them)
                     # [chopps: why is "log file" more special than other "log" commands?]
-                    nolines = [x for x in nolines if "debug" not in x and "log file" not in x]
+                    nolines = [
+                        x for x in nolines if "debug" not in x and "log file" not in x
+                    ]
                     if not nolines:
                         continue
 

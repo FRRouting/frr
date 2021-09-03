@@ -242,9 +242,9 @@ def test_bgp_allowas_in_p0(request):
             expected=False,
         )
         assert result is not True, (
-            "Testcase {} : Failed \n".format(tc_name) +
-            "Expected behavior: routes should not present in rib \n" +
-            "Error: {}".format(result)
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: routes should not present in rib \n"
+            + "Error: {}".format(result)
         )
 
         step("Configure allowas-in on R3 for R2.")
@@ -389,9 +389,9 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
         tgen, "ipv6", dut, static_route_ipv6, protocol=protocol, expected=False
     )
     assert result is not True, (
-        "Testcase {} : Failed \n".format(tc_name) +
-        "Expected behavior: routes are should not be present in ipv6 rib\n" +
-        " Error: {}".format(result)
+        "Testcase {} : Failed \n".format(tc_name)
+        + "Expected behavior: routes are should not be present in ipv6 rib\n"
+        + " Error: {}".format(result)
     )
 
     step("Repeat the same test for IPv6 AFI.")
@@ -439,9 +439,9 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
         tgen, "ipv4", dut, static_route_ipv4, protocol=protocol, expected=False
     )
     assert result is not True, (
-        "Testcase {} : Failed \n".format(tc_name) +
-        "Expected behavior: routes should not be present in ipv4 rib\n" +
-        " Error: {}".format(result)
+        "Testcase {} : Failed \n".format(tc_name)
+        + "Expected behavior: routes should not be present in ipv4 rib\n"
+        + " Error: {}".format(result)
     )
     result = verify_rib(tgen, "ipv6", dut, static_route_ipv6, protocol=protocol)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -595,9 +595,9 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
             tgen, addr_type, dut, static_routes, protocol=protocol, expected=False
         )
         assert result is not True, (
-            "Testcase {} : Failed \n ".format(tc_name) +
-            "Expected behavior: routes are should not be present in rib\n" +
-            "Error: {}".format(result)
+            "Testcase {} : Failed \n ".format(tc_name)
+            + "Expected behavior: routes are should not be present in rib\n"
+            + "Error: {}".format(result)
         )
 
     for addr_type in ADDR_TYPES:

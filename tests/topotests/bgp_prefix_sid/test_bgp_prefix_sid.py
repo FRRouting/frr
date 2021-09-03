@@ -49,12 +49,8 @@ def build_topo(tgen):
     switch.add_link(router)
 
     switch = tgen.gears["s1"]
-    peer1 = tgen.add_exabgp_peer(
-        "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
-    )
-    peer2 = tgen.add_exabgp_peer(
-        "peer2", ip="10.0.0.102", defaultRoute="via 10.0.0.1"
-    )
+    peer1 = tgen.add_exabgp_peer("peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1")
+    peer2 = tgen.add_exabgp_peer("peer2", ip="10.0.0.102", defaultRoute="via 10.0.0.1")
     switch.add_link(peer1)
     switch.add_link(peer2)
 

@@ -209,7 +209,9 @@ def test_route_install():
     m = re.search("Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
     total_mem = int(m.group(2))
     if total_mem < 4000000:
-        logger.info("Limited memory available: {}, skipping x32 testcase".format(total_mem))
+        logger.info(
+            "Limited memory available: {}, skipping x32 testcase".format(total_mem)
+        )
         scale_setups = scale_setups[0:-1]
 
     # Run each step using the dicts we've built

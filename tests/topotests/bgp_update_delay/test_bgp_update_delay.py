@@ -74,6 +74,8 @@ pytestmark = [pytest.mark.bgpd]
 
 
 CWD = os.path.dirname(os.path.realpath(__file__))
+
+
 def build_topo(tgen):
     for routern in range(1, 6):
         tgen.add_router("r{}".format(routern))

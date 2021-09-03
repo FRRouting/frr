@@ -38,6 +38,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
@@ -47,6 +48,7 @@ from lib.pim import McastTesterHelper
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.pimd]
 
 app_helper = McastTesterHelper()
+
 
 def build_topo(tgen):
     "Build function"
@@ -104,7 +106,6 @@ def setup_module(mod):
     app_helper.init(tgen)
 
 
-
 def test_wait_ospf_convergence():
     "Wait for OSPF to converge"
     tgen = get_topogen()
@@ -120,7 +121,7 @@ def test_wait_ospf_convergence():
             topotest.router_json_cmp,
             tgen.gears[router],
             "show {} route json".format(iptype),
-            {route: [{"protocol": proto}]}
+            {route: [{"protocol": proto}]},
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=1)
         assertmsg = '"{}" OSPF convergence failure'.format(router)
@@ -152,12 +153,14 @@ def test_wait_msdp_convergence():
 
     def expect_msdp_peer(router, peer, sa_count=0):
         "Expect MSDP peer connection to be established with SA amount."
-        logger.info("waiting MSDP connection from peer {} on router {}".format(peer, router))
+        logger.info(
+            "waiting MSDP connection from peer {} on router {}".format(peer, router)
+        )
         test_func = partial(
             topotest.router_json_cmp,
             tgen.gears[router],
             "show ip msdp peer json",
-            {peer: {"state": "established", "saCount": sa_count}}
+            {peer: {"state": "established", "saCount": sa_count}},
         )
         _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" MSDP connection failure'.format(router)
@@ -198,7 +201,7 @@ def test_msdp_sa_configuration():
             topotest.router_json_cmp,
             tgen.gears[router],
             "show ip msdp sa json",
-            {group: {source: {"local": local, "rp": rp, "sptSetup": spt_setup}}}
+            {group: {source: {"local": local, "rp": rp, "sptSetup": spt_setup}}},
         )
         _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
         assertmsg = '"{}" MSDP SA failure'.format(router)

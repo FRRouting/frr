@@ -50,11 +50,7 @@ def setup_module(mod):
         error_msg = "SNMP not installed - skipping"
         pytest.skip(error_msg)
     # This function initiates the topology build with Topogen...
-    topodef = {
-        "s1": "r1",
-        "s2": "r1",
-        "s3": "r1"
-    }
+    topodef = {"s1": "r1", "s2": "r1", "s3": "r1"}
     tgen = Topogen(topodef, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()

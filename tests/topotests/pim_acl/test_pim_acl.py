@@ -40,7 +40,7 @@ test_pim_acl.py: Test PIM with RP selection using ACLs
 #     R1 and R11 - R15.
 # - test_pim_convergence()
 #     Wait for PIM convergence on all routers. PIM is run on
-#     R1 and R11 - R15. 
+#     R1 and R11 - R15.
 # - test_mcast_acl_1():
 #     Test 1st ACL entry 239.100.0.0/28 with 239.100.0.1 which
 #     should use R11 as RP
@@ -121,9 +121,8 @@ from lib.pim import McastTesterHelper
 pytestmark = [pytest.mark.pimd, pytest.mark.ospfd]
 
 
-
 def build_topo(tgen):
-    for hostNum in range(1,3):
+    for hostNum in range(1, 3):
         tgen.add_router("h{}".format(hostNum))
 
     # Create the main router
@@ -157,6 +156,7 @@ def build_topo(tgen):
 #
 #####################################################
 
+
 def setup_module(module):
     logger.info("PIM RP ACL Topology: \n {}".format(TOPOLOGY))
 
@@ -171,7 +171,7 @@ def setup_module(module):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        if rname[0] != 'h':
+        if rname[0] != "h":
             # Only load ospf on routers, not on end hosts
             router.load_config(
                 TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
@@ -231,12 +231,13 @@ def test_pim_convergence():
     assert res is None, assertmsg
 
 
-
 def check_mcast_entry(entry, mcastaddr, pimrp):
     "Helper function to check RP"
     tgen = get_topogen()
 
-    logger.info("Testing PIM RP selection for ACL {} entry using {}".format(entry, mcastaddr));
+    logger.info(
+        "Testing PIM RP selection for ACL {} entry using {}".format(entry, mcastaddr)
+    )
 
     with McastTesterHelper(tgen) as helper:
         helper.run("h2", ["--send=0.7", mcastaddr, "h2-eth0"])
@@ -281,7 +282,7 @@ def test_mcast_acl_1():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry(1, '239.100.0.1', 'r11')
+    check_mcast_entry(1, "239.100.0.1", "r11")
 
 
 def test_mcast_acl_2():
@@ -292,7 +293,7 @@ def test_mcast_acl_2():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry(2, '239.100.0.17', 'r12')
+    check_mcast_entry(2, "239.100.0.17", "r12")
 
 
 def test_mcast_acl_3():
@@ -303,7 +304,7 @@ def test_mcast_acl_3():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry(3, '239.100.0.32', 'r13')
+    check_mcast_entry(3, "239.100.0.32", "r13")
 
 
 def test_mcast_acl_4():
@@ -314,7 +315,7 @@ def test_mcast_acl_4():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry(4, '239.100.0.255', 'r14')
+    check_mcast_entry(4, "239.100.0.255", "r14")
 
 
 def test_mcast_acl_5():
@@ -325,7 +326,7 @@ def test_mcast_acl_5():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry(5, '239.100.0.97', 'r14')
+    check_mcast_entry(5, "239.100.0.97", "r14")
 
 
 def test_mcast_acl_6():
@@ -336,7 +337,7 @@ def test_mcast_acl_6():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry(6, '239.100.0.70', 'r15')
+    check_mcast_entry(6, "239.100.0.70", "r15")
 
 
 if __name__ == "__main__":

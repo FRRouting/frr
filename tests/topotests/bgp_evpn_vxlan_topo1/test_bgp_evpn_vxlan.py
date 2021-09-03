@@ -178,10 +178,13 @@ def test_pe1_converge_evpn():
     _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
 
-    test_func = partial(check_vni_macs_present, tgen, pe1, 101, (
-        ("host1", "host1-eth0"),
-        ("host2", "host2-eth0")
-    ))
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        pe1,
+        101,
+        (("host1", "host1-eth0"), ("host2", "host2-eth0")),
+    )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     if result:
         logger.warning("%s", result)
@@ -205,10 +208,13 @@ def test_pe2_converge_evpn():
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
 
-    test_func = partial(check_vni_macs_present, tgen, pe2, 101, (
-        ("host1", "host1-eth0"),
-        ("host2", "host2-eth0")
-    ))
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        pe2,
+        101,
+        (("host1", "host1-eth0"), ("host2", "host2-eth0")),
+    )
     _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
     if result:
         logger.warning("%s", result)
@@ -283,7 +289,7 @@ def test_learning_pe2():
 
 
 def test_local_remote_mac_pe1():
-    " Test MAC transfer PE1 local and PE2 remote"
+    "Test MAC transfer PE1 local and PE2 remote"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.
@@ -296,7 +302,7 @@ def test_local_remote_mac_pe1():
 
 
 def test_local_remote_mac_pe2():
-    " Test MAC transfer PE2 local and PE1 remote"
+    "Test MAC transfer PE2 local and PE1 remote"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.

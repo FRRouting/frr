@@ -42,7 +42,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def setup_module(mod):
-    topodef = { "s1": ("r1", "r2") }
+    topodef = {"s1": ("r1", "r2")}
     tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 

@@ -46,7 +46,7 @@ from lib.common_config import (
     reset_config_on_routers,
     step,
     create_interfaces_cfg,
-    topo_daemons
+    topo_daemons,
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json

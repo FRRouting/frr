@@ -66,7 +66,6 @@ def build_topo(tgen):
 def setup_module(mod):
     "Sets up the pytest environment"
 
-
     # This function initiates the topology build with Topogen...
     tgen = Topogen(build_topo, mod.__name__)
 

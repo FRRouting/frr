@@ -223,12 +223,12 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
 
     logger.info("Enable bgp fast-convergence cli")
     raw_config = {
-       "r2": {
-          "raw_config": [
-            "router bgp {}".format(topo["routers"]["r2"]["bgp"]["local_as"]),
-            "bgp fast-convergence",
-          ]
-       }
+        "r2": {
+            "raw_config": [
+                "router bgp {}".format(topo["routers"]["r2"]["bgp"]["local_as"]),
+                "bgp fast-convergence",
+            ]
+        }
     }
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)

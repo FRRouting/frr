@@ -10,9 +10,13 @@ from sys import stdin
 from datetime import datetime
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--no-timestamp", dest="timestamp", action="store_false", help='Disable timestamps')
-parser.add_argument("--logdir", default="/tmp/gearlogdir", help='The directory to store the peer log in')
-parser.add_argument("peer", type=int, help='The peer number')
+parser.add_argument(
+    "--no-timestamp", dest="timestamp", action="store_false", help="Disable timestamps"
+)
+parser.add_argument(
+    "--logdir", default="/tmp/gearlogdir", help="The directory to store the peer log in"
+)
+parser.add_argument("peer", type=int, help="The peer number")
 args = parser.parse_args()
 
 savepath = os.path.join(args.logdir, "peer{}-received.log".format(args.peer))

@@ -253,11 +253,7 @@ def dict_merge(dct, merge_dct):
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
     for k, v in merge_dct.items():
-        if (
-            k in dct
-            and isinstance(dct[k], dict)
-            and topotest.is_mapping(merge_dct[k])
-        ):
+        if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]

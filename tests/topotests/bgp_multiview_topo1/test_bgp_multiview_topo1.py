@@ -98,9 +98,7 @@ def build_topo(tgen):
     peer = {}
     for i in range(1, 9):
         peer[i] = tgen.add_exabgp_peer(
-            "peer%s" % i,
-            ip="172.16.1.%s/24" % i,
-            defaultRoute="via 172.16.1.254"
+            "peer%s" % i, ip="172.16.1.%s/24" % i, defaultRoute="via 172.16.1.254"
         )
 
     # First switch is for a dummy interface (for local network)
@@ -188,7 +186,9 @@ def test_bgp_converge():
             break
     else:
         # Bail out with error if a router fails to converge
-        bgpStatus = tgen.net["r%s" % i].cmd('vtysh -c "show ip bgp view %s summary"' % view)
+        bgpStatus = tgen.net["r%s" % i].cmd(
+            'vtysh -c "show ip bgp view %s summary"' % view
+        )
         assert False, "BGP did not converge:\n%s" % bgpStatus
 
     tgen.routers_have_failure()
@@ -209,7 +209,10 @@ def test_bgp_routingTable():
         json_file = "{}/{}/view_{}.json".format(thisDir, router.name, view)
         expected = json.loads(open(json_file).read())
         test_func = partial(
-            topotest.router_json_cmp, router, "show ip bgp view {} json".format(view), expected
+            topotest.router_json_cmp,
+            router,
+            "show ip bgp view {} json".format(view),
+            expected,
         )
         _, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
         assertmsg = "Routing Table verification failed for router {}, view {}".format(

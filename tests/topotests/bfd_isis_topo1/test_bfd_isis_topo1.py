@@ -87,6 +87,7 @@ from lib.topolog import logger
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.isisd]
 
+
 def setup_module(mod):
     "Sets up the pytest environment"
     topodef = {

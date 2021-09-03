@@ -44,7 +44,7 @@ from lib.common_config import (
     step,
     create_interfaces_cfg,
     topo_daemons,
-    scapy_send_raw_packet
+    scapy_send_raw_packet,
 )
 
 from lib.topolog import logger

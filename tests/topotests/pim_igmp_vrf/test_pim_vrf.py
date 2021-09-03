@@ -34,7 +34,7 @@ test_pim_vrf.py: Test PIM with VRFs.
 # R1 is split into 2 VRF: Blue and Red, the others are normal
 # routers and Hosts
 # There are 2 similar topologies with overlapping IPs in each
-# section. 
+# section.
 #
 # Test steps:
 # - setup_module()
@@ -48,15 +48,15 @@ test_pim_vrf.py: Test PIM with VRFs.
 #     R1, R11 and R12. R11 is the RP for vrf blue, R12 is RP
 #     for vrf red.
 # - test_vrf_pimreg_interfaces()
-#     Adding PIM RP in VRF information and verify pimreg 
+#     Adding PIM RP in VRF information and verify pimreg
 #     interfaces in VRF blue and red
 # - test_mcast_vrf_blue()
-#     Start multicast stream for group 239.100.0.1 from Host 
+#     Start multicast stream for group 239.100.0.1 from Host
 #     H2 and join from Host H1 on vrf blue
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
 # - test_mcast_vrf_red()
-#     Start multicast stream for group 239.100.0.1 from Host 
+#     Start multicast stream for group 239.100.0.1 from Host
 #     H4 and join from Host H3 on vrf blue
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
@@ -104,17 +104,15 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import (
-    required_linux_kernel_version)
+from lib.common_config import required_linux_kernel_version
 from lib.pim import McastTesterHelper
 
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
 
 
-
 def build_topo(tgen):
-    for hostNum in range(1,5):
+    for hostNum in range(1, 5):
         tgen.add_router("h{}".format(hostNum))
 
     # Create the main router
@@ -154,11 +152,13 @@ def build_topo(tgen):
     tgen.gears["h4"].add_link(tgen.gears["sw4"])
     tgen.gears["r12"].add_link(tgen.gears["sw4"])
 
+
 #####################################################
 #
 #   Tests starting
 #
 #####################################################
+
 
 def setup_module(module):
     logger.info("PIM IGMP VRF Topology: \n {}".format(TOPOLOGY))
@@ -189,7 +189,7 @@ def setup_module(module):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        if rname[0] != 'h':
+        if rname[0] != "h":
             # Only load ospf on routers, not on end hosts
             router.load_config(
                 TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
@@ -230,7 +230,10 @@ def test_ospf_convergence():
     expected = json.loads(open(reffile).read())
 
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip ospf vrf blue neighbor json", expected
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf vrf blue neighbor json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
     assertmsg = "OSPF router R1 did not converge on VRF blue"
@@ -297,7 +300,10 @@ def test_vrf_pimreg_interfaces():
     reffile = os.path.join(CWD, "r1/pim_blue_pimreg11.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, r1, "show ip pim vrf blue inter pimreg11 json", expected
+        topotest.router_json_cmp,
+        r1,
+        "show ip pim vrf blue inter pimreg11 json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=5, wait=2)
     assertmsg = "PIM router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
@@ -310,7 +316,10 @@ def test_vrf_pimreg_interfaces():
     reffile = os.path.join(CWD, "r1/pim_red_pimreg12.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, r1, "show ip pim vrf red inter pimreg12 json", expected
+        topotest.router_json_cmp,
+        r1,
+        "show ip pim vrf red inter pimreg12 json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=5, wait=2)
     assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
@@ -321,11 +330,12 @@ def test_vrf_pimreg_interfaces():
 ###  Test PIM / IGMP with VRF
 ##################################
 
+
 def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf):
     "Helper function to check RP"
     tgen = get_topogen()
 
-    logger.info("Testing PIM for VRF {} entry using {}".format(vrf, mcastaddr));
+    logger.info("Testing PIM for VRF {} entry using {}".format(vrf, mcastaddr))
 
     with McastTesterHelper(tgen) as helper:
         helper.run(sender, ["--send=0.7", mcastaddr, str(sender) + "-eth0"])
@@ -339,8 +349,10 @@ def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf):
 
         logger.info("verifying pim join on r1 for {} on VRF {}".format(mcastaddr, vrf))
         test_func = functools.partial(
-            topotest.router_json_cmp, router, "show ip pim vrf {} join json".format(vrf),
-            expected
+            topotest.router_json_cmp,
+            router,
+            "show ip pim vrf {} join json".format(vrf),
+            expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
         assertmsg = "PIM router r1 did not show join status on VRF {}".format(vrf)
@@ -355,7 +367,11 @@ def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf):
             topotest.router_json_cmp, router, "show ip pim join json", expected
         )
         _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-        assertmsg = "PIM router {} did not get selected as the PIM RP for VRF {}".format(pimrp, vrf)
+        assertmsg = (
+            "PIM router {} did not get selected as the PIM RP for VRF {}".format(
+                pimrp, vrf
+            )
+        )
         assert res is None, assertmsg
 
 
@@ -367,7 +383,7 @@ def test_mcast_vrf_blue():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry('239.100.0.1', 'r11', 'h1', 'h2', 'blue')
+    check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue")
 
 
 def test_mcast_vrf_red():
@@ -378,7 +394,7 @@ def test_mcast_vrf_red():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry('239.100.0.1', 'r12', 'h3', 'h4', 'red')
+    check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red")
 
 
 if __name__ == "__main__":

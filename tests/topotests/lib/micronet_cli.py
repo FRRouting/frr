@@ -176,9 +176,11 @@ def cli_server(unet, server_sock):
 
     for line in lineiter(sock):
         line = line.strip()
+
         def writef(x):
             xb = x.encode("utf-8")
             sock.send(xb)
+
         if not doline(unet, line, writef):
             return
         sock.send(ENDMARKER)
@@ -220,7 +222,7 @@ def cli_client(sockpath, prompt="unet> "):
             rb += lb
 
         # Remove the marker
-        rb = rb[:-len(ENDMARKER)]
+        rb = rb[: -len(ENDMARKER)]
 
         # Write the output
         sys.stdout.write(rb.decode("utf-8"))
@@ -239,7 +241,15 @@ def local_cli(unet, outf, prompt="unet> "):
             return
 
 
-def cli(unet, histfile=None, sockpath=None, force_window=False, title=None, prompt=None, background=True):
+def cli(
+    unet,
+    histfile=None,
+    sockpath=None,
+    force_window=False,
+    title=None,
+    prompt=None,
+    background=True,
+):
     if prompt is None:
         prompt = "unet> "
 

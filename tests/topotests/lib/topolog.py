@@ -39,8 +39,10 @@ else:
 try:
     from xdist import is_xdist_controller
 except ImportError:
+
     def is_xdist_controller():
         return False
+
 
 BASENAME = "topolog"
 
@@ -95,10 +97,11 @@ def get_logger(name, log_level=None, target=None):
 
 # nodeid: all_protocol_startup/test_all_protocol_startup.py::test_router_running
 
+
 def get_test_logdir(nodeid=None):
     """Get log directory relative pathname."""
     xdist_worker = os.getenv("PYTEST_XDIST_WORKER", "")
-    mode =  os.getenv("PYTEST_XDIST_MODE", "no")
+    mode = os.getenv("PYTEST_XDIST_MODE", "no")
 
     if not nodeid:
         nodeid = os.environ["PYTEST_CURRENT_TEST"].split(" ")[0]
@@ -114,9 +117,7 @@ def get_test_logdir(nodeid=None):
         return os.path.join(path, testname)
     else:
         assert (
-            mode == "no" or
-            mode == "loadfile" or
-            mode == "loadscope"
+            mode == "no" or mode == "loadfile" or mode == "loadscope"
         ), "Unknown dist mode {}".format(mode)
 
         return path
@@ -125,7 +126,7 @@ def get_test_logdir(nodeid=None):
 def logstart(nodeid, location, rundir):
     """Called from pytest before module setup."""
 
-    mode =  os.getenv("PYTEST_XDIST_MODE", "no")
+    mode = os.getenv("PYTEST_XDIST_MODE", "no")
     worker = os.getenv("PYTEST_TOPOTEST_WORKER", "")
 
     # We only per-test log in the workers (or non-dist)
@@ -137,7 +138,9 @@ def logstart(nodeid, location, rundir):
 
     rel_log_dir = get_test_logdir(nodeid)
     exec_log_dir = os.path.join(rundir, rel_log_dir)
-    subprocess.check_call("mkdir -p {0} && chmod 1777 {0}".format(exec_log_dir), shell=True)
+    subprocess.check_call(
+        "mkdir -p {0} && chmod 1777 {0}".format(exec_log_dir), shell=True
+    )
     exec_log_path = os.path.join(exec_log_dir, "exec.log")
 
     # Add test based exec log handler
@@ -145,7 +148,9 @@ def logstart(nodeid, location, rundir):
     handlers[handler_id] = h
 
     if worker:
-        logger.info("Logging on worker %s for %s into %s", worker, handler_id, exec_log_path)
+        logger.info(
+            "Logging on worker %s for %s into %s", worker, handler_id, exec_log_path
+        )
     else:
         logger.info("Logging for %s into %s", handler_id, exec_log_path)
 

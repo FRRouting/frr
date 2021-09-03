@@ -298,7 +298,7 @@ def test_ospf_chaos_tc31_p1(request):
 
 
 def test_ospf_chaos_tc32_p1(request):
-    """Verify ospf functionality after restart FRR service. """
+    """Verify ospf functionality after restart FRR service."""
     tc_name = request.node.name
     write_test_header(tc_name)
     tgen = get_topogen()

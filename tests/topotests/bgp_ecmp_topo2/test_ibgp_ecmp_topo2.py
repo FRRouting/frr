@@ -69,7 +69,6 @@ from lib.topojson import build_config_from_json
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
 
-
 # Global variables
 NEXT_HOPS = {"ipv4": [], "ipv6": []}
 INTF_LIST_R3 = []
@@ -311,7 +310,7 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
 @pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
-    """ Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""
+    """Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""
 
     tc_name = request.node.name
     write_test_header(tc_name)

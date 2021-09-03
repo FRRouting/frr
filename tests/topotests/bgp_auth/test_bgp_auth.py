@@ -71,6 +71,7 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
 
+
 def build_topo(tgen):
     # Create routers
     tgen.add_router("R1")

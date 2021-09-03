@@ -55,9 +55,15 @@ def setup_module(mod):
     tgen.start_topology()
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():
-        router.run("/bin/bash {}".format(os.path.join(CWD, "{}/setup.sh".format(rname))))
-        router.load_config(TopoRouter.RD_ZEBRA, os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname)))
+        router.run(
+            "/bin/bash {}".format(os.path.join(CWD, "{}/setup.sh".format(rname)))
+        )
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
+        )
     tgen.start_router()
 
 
@@ -74,26 +80,33 @@ def test_zebra_seg6local_routes():
     r1 = tgen.gears["r1"]
 
     def check(router, dest, nh, sid, expected):
-        router.vtysh_cmd("sharp install seg6-routes {} "\
-                         "nexthop-seg6 {} encap {} 1".format(dest, nh, sid))
+        router.vtysh_cmd(
+            "sharp install seg6-routes {} "
+            "nexthop-seg6 {} encap {} 1".format(dest, nh, sid)
+        )
         output = json.loads(router.vtysh_cmd("show ipv6 route {} json".format(dest)))
-        output = output.get('{}/128'.format(dest))
+        output = output.get("{}/128".format(dest))
         if output is None:
             return False
         return topotest.json_cmp(output, expected)
 
     manifests = open_json_file(os.path.join(CWD, "{}/routes.json".format("r1")))
     for manifest in manifests:
-        logger.info("CHECK {} {} {}".format(manifest['in']['dest'],
-                                            manifest['in']['nh'],
-                                            manifest['in']['sid']))
-        test_func = partial(check, r1,
-                            manifest['in']['dest'],
-                            manifest['in']['nh'],
-                            manifest['in']['sid'],
-                            manifest['out'])
+        logger.info(
+            "CHECK {} {} {}".format(
+                manifest["in"]["dest"], manifest["in"]["nh"], manifest["in"]["sid"]
+            )
+        )
+        test_func = partial(
+            check,
+            r1,
+            manifest["in"]["dest"],
+            manifest["in"]["nh"],
+            manifest["in"]["sid"],
+            manifest["out"],
+        )
         success, result = topotest.run_and_expect(test_func, None, count=5, wait=1)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
 
 if __name__ == "__main__":

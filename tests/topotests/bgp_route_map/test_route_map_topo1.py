@@ -444,8 +444,10 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
         )
-        assert result is not True, ("Testcase {} : Failed \n"
-        "routes are not present in rib \n Error: {}".format(tc_name, result))
+        assert result is not True, (
+            "Testcase {} : Failed \n"
+            "routes are not present in rib \n Error: {}".format(tc_name, result)
+        )
         logger.info("Expected behaviour: {}".format(result))
 
         # Verifying RIB routes
@@ -464,8 +466,10 @@ def test_route_map_inbound_outbound_same_neighbor_p0(request):
         result = verify_rib(
             tgen, adt, dut, input_dict, protocol=protocol, expected=False
         )
-        assert result is not True, ("Testcase {} : Failed \n "
-        "routes are not present in rib \n Error: {}".format(tc_name, result))
+        assert result is not True, (
+            "Testcase {} : Failed \n "
+            "routes are not present in rib \n Error: {}".format(tc_name, result)
+        )
         logger.info("Expected behaviour: {}".format(result))
 
     write_test_footer(tc_name)
@@ -660,13 +664,13 @@ def test_route_map_with_action_values_combination_of_prefix_action_p0(
             result = verify_rib(
                 tgen, adt, dut, input_dict_2, protocol=protocol, expected=False
             )
-            assert result is not True, ("Testcase {} : Failed \n "
-            "Routes are still present \n Error: {}".format(tc_name, result))
+            assert result is not True, (
+                "Testcase {} : Failed \n "
+                "Routes are still present \n Error: {}".format(tc_name, result)
+            )
             logger.info("Expected behaviour: {}".format(result))
         else:
-            result = verify_rib(
-                tgen, adt, dut, input_dict_2, protocol=protocol
-            )
+            result = verify_rib(tgen, adt, dut, input_dict_2, protocol=protocol)
             assert result is True, "Testcase {} : Failed \n Error: {}".format(
                 tc_name, result
             )

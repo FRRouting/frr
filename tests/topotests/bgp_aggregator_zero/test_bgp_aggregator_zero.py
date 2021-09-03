@@ -42,9 +42,7 @@ pytestmark = [pytest.mark.bgpd]
 
 def build_topo(tgen):
     r1 = tgen.add_router("r1")
-    peer1 = tgen.add_exabgp_peer(
-        "peer1", ip="10.0.0.2", defaultRoute="via 10.0.0.1"
-    )
+    peer1 = tgen.add_exabgp_peer("peer1", ip="10.0.0.2", defaultRoute="via 10.0.0.1")
 
     switch = tgen.add_switch("s1")
     switch.add_link(r1)

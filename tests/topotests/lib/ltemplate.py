@@ -42,6 +42,7 @@ from lib.lutil import *
 
 customize = None
 
+
 class LTemplate:
     test = None
     testdir = None
@@ -56,11 +57,13 @@ class LTemplate:
         global customize
         if sys.version_info >= (3, 5):
             import importlib.util
+
             spec = importlib.util.spec_from_file_location("customize", pathname)
             customize = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(customize)
         else:
             import imp
+
             customize = imp.load_source("customize", pathname)
         self.test = test
         self.testdir = testdir

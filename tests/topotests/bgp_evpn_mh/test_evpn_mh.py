@@ -46,6 +46,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
+
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
@@ -601,14 +602,16 @@ def ping_anycast_gw(tgen):
         script_path,
         "--imports=Ether,ARP",
         "--interface=" + intf,
-        'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr)
+        'Ether(dst="ff:ff:ff:ff:ff:ff")/ARP(pdst="{}")'.format(ipaddr),
     ]
     for name in ("hostd11", "hostd21"):
         host = tgen.net.hosts[name]
         _, stdout, _ = host.cmd_status(ping_cmd, warn=False, stderr=subprocess.STDOUT)
         stdout = stdout.strip()
         if stdout:
-            host.logger.debug("%s: arping on %s for %s returned: %s", name, intf, ipaddr, stdout)
+            host.logger.debug(
+                "%s: arping on %s for %s returned: %s", name, intf, ipaddr, stdout
+            )
 
 
 def check_mac(dut, vni, mac, m_type, esi, intf, ping_gw=False, tgen=None):

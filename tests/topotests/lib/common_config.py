@@ -129,11 +129,13 @@ DEBUG_LOGS = {
 g_iperf_client_procs = {}
 g_iperf_server_procs = {}
 
+
 def is_string(value):
     try:
         return isinstance(value, basestring)
     except NameError:
         return isinstance(value, str)
+
 
 if config.has_option("topogen", "verbosity"):
     loglevel = config.get("topogen", "verbosity")
@@ -148,7 +150,9 @@ if config.has_option("topogen", "frrtest_log_dir"):
     frrtest_log_file = frrtest_log_dir + logfile_name + str(time_stamp)
     print("frrtest_log_file..", frrtest_log_file)
 
-    logger = get_logger("test_execution_logs", log_level=loglevel, target=frrtest_log_file)
+    logger = get_logger(
+        "test_execution_logs", log_level=loglevel, target=frrtest_log_file
+    )
     print("Logs will be sent to logfile: {}".format(frrtest_log_file))
 
 if config.has_option("topogen", "show_router_config"):
@@ -206,7 +210,6 @@ def set_seq_id(obj_type, router, id, obj_name):
 
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
-
 
 
 def run_frr_cmd(rnode, cmd, isjson=False):
@@ -339,9 +342,7 @@ def create_common_configurations(
             frr_cfg_fd.write("\n")
 
         except IOError as err:
-            logger.error(
-                "Unable to open FRR Config '%s': %s" % (fname, str(err))
-            )
+            logger.error("Unable to open FRR Config '%s': %s" % (fname, str(err)))
             return False
         finally:
             frr_cfg_fd.close()
@@ -489,10 +490,10 @@ def reset_config_on_routers(tgen, routerName=None):
     # Trim the router list if needed
     router_list = tgen.routers()
     if routerName:
-        if ((routerName not in ROUTER_LIST) or (routerName not in router_list)):
+        if (routerName not in ROUTER_LIST) or (routerName not in router_list):
             logger.debug("Exiting API: reset_config_on_routers: no routers")
             return True
-        router_list = { routerName: router_list[routerName] }
+        router_list = {routerName: router_list[routerName]}
 
     delta_fmt = tgen.logdir + "/{}/delta-{}.conf"
     # FRRCFG_BKUP_FILE
@@ -514,22 +515,30 @@ def reset_config_on_routers(tgen, routerName=None):
     for rname, p in procs.items():
         _, error = p.communicate()
         if p.returncode:
-            logger.error("Get running config for %s failed %d: %s", rname, p.returncode, error)
-            raise InvalidCLIError("vtysh show running error on {}: {}".format(rname, error))
+            logger.error(
+                "Get running config for %s failed %d: %s", rname, p.returncode, error
+            )
+            raise InvalidCLIError(
+                "vtysh show running error on {}: {}".format(rname, error)
+            )
 
     #
     # Get all delta's in parallel
     #
     procs = {}
     for rname in router_list:
-        logger.info("Generating delta for router %s to new configuration (gen %d)", rname, gen)
+        logger.info(
+            "Generating delta for router %s to new configuration (gen %d)", rname, gen
+        )
         procs[rname] = tgen.net.popen(
-            [ "/usr/lib/frr/frr-reload.py",
-              "--test-reset",
-              "--input",
-              run_cfg_fmt.format(rname, gen),
-              "--test",
-              target_cfg_fmt.format(rname) ],
+            [
+                "/usr/lib/frr/frr-reload.py",
+                "--test-reset",
+                "--input",
+                run_cfg_fmt.format(rname, gen),
+                "--test",
+                target_cfg_fmt.format(rname),
+            ],
             stdin=None,
             stdout=open(delta_fmt.format(rname, gen), "w"),
             stderr=subprocess.PIPE,
@@ -537,7 +546,9 @@ def reset_config_on_routers(tgen, routerName=None):
     for rname, p in procs.items():
         _, error = p.communicate()
         if p.returncode:
-            logger.error("Delta file creation for %s failed %d: %s", rname, p.returncode, error)
+            logger.error(
+                "Delta file creation for %s failed %d: %s", rname, p.returncode, error
+            )
             raise InvalidCLIError("frr-reload error for {}: {}".format(rname, error))
 
     #
@@ -558,13 +569,19 @@ def reset_config_on_routers(tgen, routerName=None):
         vtysh_command = "vtysh -f {}".format(delta_fmt.format(rname, gen))
         if not p.returncode:
             router_list[rname].logger.info(
-                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
+                )
             )
         else:
             router_list[rname].logger.warning(
-                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
+                )
             )
-            logger.error("Delta file apply for %s failed %d: %s", rname, p.returncode, output)
+            logger.error(
+                "Delta file apply for %s failed %d: %s", rname, p.returncode, output
+            )
 
             # We really need to enable this failure; however, currently frr-reload.py
             # producing invalid "no" commands as it just preprends "no", but some of the
@@ -590,9 +607,16 @@ def reset_config_on_routers(tgen, routerName=None):
         for rname, p in procs.items():
             output, _ = p.communicate()
             if p.returncode:
-                logger.warning("Get running config for %s failed %d: %s", rname, p.returncode, output)
+                logger.warning(
+                    "Get running config for %s failed %d: %s",
+                    rname,
+                    p.returncode,
+                    output,
+                )
             else:
-                logger.info("Configuration on router %s after reset:\n%s", rname, output)
+                logger.info(
+                    "Configuration on router %s after reset:\n%s", rname, output
+                )
 
     logger.debug("Exiting API: reset_config_on_routers")
     return True
@@ -634,12 +658,14 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
         try:
             frr_cfg_file = frr_cfg_file_fmt.format(rname)
             frr_cfg_save_file = frr_cfg_save_file_fmt.format(rname, gen)
-            frr_cfg_bkup =  frr_cfg_bkup_fmt.format(rname)
+            frr_cfg_bkup = frr_cfg_bkup_fmt.format(rname)
             with open(frr_cfg_file, "r+") as cfg:
                 data = cfg.read()
                 logger.info(
                     "Applying following configuration on router %s (gen: %d):\n%s",
-                    rname, gen, data
+                    rname,
+                    gen,
+                    data,
                 )
                 # Always save a copy of what we just did
                 with open(frr_cfg_save_file, "w") as bkup:
@@ -654,13 +680,12 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
                 stderr=subprocess.STDOUT,
             )
         except IOError as err:
-            logging.error(
-                "Unable to open config File. error(%s): %s",
-                err.errno, err.strerror
+            logger.error(
+                "Unable to open config File. error(%s): %s", err.errno, err.strerror
             )
             return False
         except Exception as error:
-            logging.error("Unable to apply config on %s: %s", rname, str(error))
+            logger.error("Unable to apply config on %s: %s", rname, str(error))
             return False
 
     errors = []
@@ -670,15 +695,25 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
         vtysh_command = "vtysh -f " + frr_cfg_file
         if not p.returncode:
             router_list[rname].logger.info(
-                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
+                )
             )
         else:
             router_list[rname].logger.error(
-                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(vtysh_command, output)
+                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
+                )
             )
-            logger.error("Config apply for %s failed %d: %s", rname, p.returncode, output)
+            logger.error(
+                "Config apply for %s failed %d: %s", rname, p.returncode, output
+            )
             # We can't thorw an exception here as we won't clear the config file.
-            errors.append(InvalidCLIError("load_config_to_routers error for {}: {}".format(rname, output)))
+            errors.append(
+                InvalidCLIError(
+                    "load_config_to_routers error for {}: {}".format(rname, output)
+                )
+            )
 
         # Empty the config file or we append to it next time through.
         with open(frr_cfg_file, "r+") as cfg:
@@ -698,9 +733,14 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
         for rname, p in procs.items():
             output, _ = p.communicate()
             if p.returncode:
-                logger.warning("Get running config for %s failed %d: %s", rname, p.returncode, output)
+                logger.warning(
+                    "Get running config for %s failed %d: %s",
+                    rname,
+                    p.returncode,
+                    output,
+                )
             else:
-                logger.info("New configuration for router %s:\n%s", rname,output)
+                logger.info("New configuration for router %s:\n%s", rname, output)
 
     logger.debug("Exiting API: load_config_to_routers")
     return not errors
@@ -757,36 +797,38 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
         else:
             cmd = "show interface"
         for chk_ll in range(0, 60):
-            sleep(1/4)
+            sleep(1 / 4)
             ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
             # Fix newlines (make them all the same)
-            ifaces = ('\n'.join(ifaces.splitlines()) + '\n').splitlines()
+            ifaces = ("\n".join(ifaces.splitlines()) + "\n").splitlines()
 
             interface = None
             ll_per_if_count = 0
             for line in ifaces:
                 # Interface name
-                m = re_search('Interface ([a-zA-Z0-9-]+) is', line)
+                m = re_search("Interface ([a-zA-Z0-9-]+) is", line)
                 if m:
                     interface = m.group(1).split(" ")[0]
                     ll_per_if_count = 0
 
                 # Interface ip
-                m1 = re_search('inet6 (fe80[:a-fA-F0-9]+/[0-9]+)', line)
+                m1 = re_search("inet6 (fe80[:a-fA-F0-9]+/[0-9]+)", line)
                 if m1:
                     local = m1.group(1)
                     ll_per_if_count += 1
                     if ll_per_if_count > 1:
-                        linklocal += [["%s-%s" %
-                                       (interface, ll_per_if_count), local]]
+                        linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
                     else:
                         linklocal += [[interface, local]]
 
             try:
                 if linklocal:
                     if intf:
-                        return [_linklocal[1] for _linklocal in linklocal if _linklocal[0]==intf][0].\
-                            split("/")[0]
+                        return [
+                            _linklocal[1]
+                            for _linklocal in linklocal
+                            if _linklocal[0] == intf
+                        ][0].split("/")[0]
                     return linklocal
             except IndexError:
                 continue
@@ -804,7 +846,7 @@ def generate_support_bundle():
 
     tgen = get_topogen()
     router_list = tgen.routers()
-    test_name = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0]
+    test_name = os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
     bundle_procs = {}
     for rname, rnode in router_list.items():
@@ -812,7 +854,10 @@ def generate_support_bundle():
         dst_bundle = "{}/{}/support_bundles/{}".format(tgen.logdir, rname, test_name)
         rnode.run("mkdir -p " + dst_bundle)
 
-        gen_sup_cmd = ["/usr/lib/frr/generate_support_bundle.py", "--log-dir=" + dst_bundle]
+        gen_sup_cmd = [
+            "/usr/lib/frr/generate_support_bundle.py",
+            "--log-dir=" + dst_bundle,
+        ]
         bundle_procs[rname] = tgen.net[rname].popen(gen_sup_cmd, stdin=None)
 
     for rname, rnode in router_list.items():
@@ -879,14 +924,15 @@ def start_topology(tgen, daemon=None):
         except IOError as err:
             logger.error("I/O error({0}): {1}".format(err.errno, err.strerror))
 
-
         # Loading empty zebra.conf file to router, to start the zebra daemon
         router.load_config(
             TopoRouter.RD_ZEBRA, "{}/{}/zebra.conf".format(tgen.logdir, rname)
         )
 
         # Loading empty bgpd.conf file to router, to start the bgp daemon
-        router.load_config(TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(tgen.logdir, rname))
+        router.load_config(
+            TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(tgen.logdir, rname)
+        )
 
         if daemon and "ospfd" in daemon:
             # Loading empty ospf.conf file to router, to start the bgp daemon
@@ -1046,9 +1092,7 @@ def add_interfaces_to_vlan(tgen, input_dict):
                         # Adding interface to VLAN
                         vlan_intf = "{}.{}".format(interface, vlan)
                         cmd = "ip link add link {} name {} type vlan id {}".format(
-                            interface,
-                            vlan_intf,
-                            vlan
+                            interface, vlan_intf, vlan
                         )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
@@ -1061,8 +1105,7 @@ def add_interfaces_to_vlan(tgen, input_dict):
                         # Assigning IP address
                         ifaddr = ipaddress.ip_interface(
                             u"{}/{}".format(
-                                frr_unicode(data["ip"]),
-                                frr_unicode(data["subnet"])
+                                frr_unicode(data["ip"]), frr_unicode(data["subnet"])
                             )
                         )
 
@@ -1491,10 +1534,9 @@ def create_interface_in_kernel(
     if not netmask:
         ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
     else:
-        ifaddr = ipaddress.ip_interface(u"{}/{}".format(
-            frr_unicode(ip_addr),
-            frr_unicode(netmask)
-        ))
+        ifaddr = ipaddress.ip_interface(
+            u"{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
+        )
     cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
         ifaddr.version, name, ifaddr
     )
@@ -1778,7 +1820,9 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             _diag_pct = kwargs.pop("diag_pct", diag_pct)
 
             start_time = datetime.now()
-            retry_until = datetime.now() + timedelta(seconds=_retry_timeout + _initial_wait)
+            retry_until = datetime.now() + timedelta(
+                seconds=_retry_timeout + _initial_wait
+            )
 
             if initial_wait > 0:
                 logger.info("Waiting for [%s]s as initial delay", initial_wait)
@@ -1799,10 +1843,13 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
 
                         # Positive result, but happened after timeout failure, very important to
                         # note for fixing tests.
-                        logger.warning("RETRY DIAGNOSTIC: SUCCEED after FAILED with requested timeout of %.1fs; however, succeeded in %.1fs, investigate timeout timing",
-                                       _retry_timeout, (datetime.now() - start_time).total_seconds())
+                        logger.warning(
+                            "RETRY DIAGNOSTIC: SUCCEED after FAILED with requested timeout of %.1fs; however, succeeded in %.1fs, investigate timeout timing",
+                            _retry_timeout,
+                            (datetime.now() - start_time).total_seconds(),
+                        )
                         if isinstance(saved_failure, Exception):
-                            raise saved_failure             # pylint: disable=E0702
+                            raise saved_failure  # pylint: disable=E0702
                         return saved_failure
 
                 except Exception as error:
@@ -1810,16 +1857,20 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                     ret = error
 
                 if seconds_left < 0 and saved_failure:
-                    logger.info("RETRY DIAGNOSTIC: Retry timeout reached, still failing")
+                    logger.info(
+                        "RETRY DIAGNOSTIC: Retry timeout reached, still failing"
+                    )
                     if isinstance(saved_failure, Exception):
-                        raise saved_failure                 # pylint: disable=E0702
+                        raise saved_failure  # pylint: disable=E0702
                     return saved_failure
 
                 if seconds_left < 0:
                     logger.info("Retry timeout of %ds reached", _retry_timeout)
 
                     saved_failure = ret
-                    retry_extra_delta = timedelta(seconds=seconds_left + _retry_timeout * _diag_pct)
+                    retry_extra_delta = timedelta(
+                        seconds=seconds_left + _retry_timeout * _diag_pct
+                    )
                     retry_until = datetime.now() + retry_extra_delta
                     seconds_left = retry_extra_delta.total_seconds()
 
@@ -1833,11 +1884,17 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                         return saved_failure
 
                 if saved_failure:
-                    logger.info("RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
-                                retry_sleep, seconds_left)
+                    logger.info(
+                        "RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
+                        retry_sleep,
+                        seconds_left,
+                    )
                 else:
-                    logger.info("Sleeping %ds until next retry with %.1f retry time left",
-                                retry_sleep, seconds_left)
+                    logger.info(
+                        "Sleeping %ds until next retry with %.1f retry time left",
+                        retry_sleep,
+                        seconds_left,
+                    )
                 sleep(retry_sleep)
 
         func_retry._original = func
@@ -1961,12 +2018,13 @@ def create_interfaces_cfg(tgen, topo, build=False):
                         interface_data.append("ipv6 address {}".format(intf_addr))
 
                 # Wait for vrf interfaces to get link local address once they are up
-                if not destRouterLink == 'lo' and 'vrf' in topo[c_router][
-                    'links'][destRouterLink]:
-                    vrf = topo[c_router]['links'][destRouterLink]['vrf']
-                    intf = topo[c_router]['links'][destRouterLink]['interface']
-                    ll = get_frr_ipv6_linklocal(tgen, c_router, intf=intf,
-                                vrf = vrf)
+                if (
+                    not destRouterLink == "lo"
+                    and "vrf" in topo[c_router]["links"][destRouterLink]
+                ):
+                    vrf = topo[c_router]["links"][destRouterLink]["vrf"]
+                    intf = topo[c_router]["links"][destRouterLink]["interface"]
+                    ll = get_frr_ipv6_linklocal(tgen, c_router, intf=intf, vrf=vrf)
 
                 if "ipv6-link-local" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv6-link-local"]
@@ -4447,7 +4505,7 @@ def required_linux_kernel_version(required_version):
     return True
 
 
-class HostApplicationHelper (object):
+class HostApplicationHelper(object):
     """Helper to track and cleanup per-host based test processes."""
 
     def __init__(self, tgen=None, base_cmd=None):
@@ -4458,14 +4516,14 @@ class HostApplicationHelper (object):
         if tgen is not None:
             self.init(tgen)
 
-    def __enter__ (self):
+    def __enter__(self):
         self.init()
         return self
 
-    def __exit__ (self ,type, value, traceback):
+    def __exit__(self, type, value, traceback):
         self.cleanup()
 
-    def __str__ (self):
+    def __str__(self):
         return "HostApplicationHelper({})".format(self.base_cmd_str)
 
     def set_base_cmd(self, base_cmd):
@@ -4519,13 +4577,37 @@ class HostApplicationHelper (object):
                 hlogger.debug("%s: %s: terminating process %s", self, host, p.pid)
                 rc = p.poll()
                 if rc is not None:
-                    logger.error("%s: %s: process early exit %s: %s", self, host, p.pid, comm_error(p))
-                    hlogger.error("%s: %s: process early exit %s: %s", self, host, p.pid, comm_error(p))
+                    logger.error(
+                        "%s: %s: process early exit %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
+                    hlogger.error(
+                        "%s: %s: process early exit %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
                 else:
                     p.terminate()
                     p.wait()
-                    logger.debug("%s: %s: terminated process %s: %s", self, host, p.pid, comm_error(p))
-                    hlogger.debug("%s: %s: terminated process %s: %s", self, host, p.pid, comm_error(p))
+                    logger.debug(
+                        "%s: %s: terminated process %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
+                    hlogger.debug(
+                        "%s: %s: terminated process %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
 
             del self.host_procs[host]
 
@@ -4560,18 +4642,29 @@ class HostApplicationHelper (object):
                 rc = p.poll()
                 if rc is None:
                     continue
-                logger.error("%s: %s proc exited: %s", self, host, comm_error(p), exc_info=True)
-                hlogger.error("%s: %s proc exited: %s", self, host, comm_error(p), exc_info=True)
+                logger.error(
+                    "%s: %s proc exited: %s", self, host, comm_error(p), exc_info=True
+                )
+                hlogger.error(
+                    "%s: %s proc exited: %s", self, host, comm_error(p), exc_info=True
+                )
                 procs.append(p)
         return procs
 
 
 class IPerfHelper(HostApplicationHelper):
-
-    def __str__ (self):
+    def __str__(self):
         return "IPerfHelper()"
 
-    def run_join(self, host, join_addr, l4Type="UDP", join_interval=1, join_intf=None, join_towards=None):
+    def run_join(
+        self,
+        host,
+        join_addr,
+        l4Type="UDP",
+        join_interval=1,
+        join_intf=None,
+        join_towards=None,
+    ):
         """
         Use iperf to send IGMP join and listen to traffic
 
@@ -4601,13 +4694,16 @@ class IPerfHelper(HostApplicationHelper):
 
             iperf_args.append("-B")
             if join_towards:
-                to_intf = frr_unicode(self.tgen.json_topo["routers"][host]["links"][join_towards]["interface"])
+                to_intf = frr_unicode(
+                    self.tgen.json_topo["routers"][host]["links"][join_towards][
+                        "interface"
+                    ]
+                )
                 iperf_args.append("{}%{}".format(str(bindTo), to_intf))
             elif join_intf:
                 iperf_args.append("{}%{}".format(str(bindTo), join_intf))
             else:
                 iperf_args.append(str(bindTo))
-
 
             if join_interval:
                 iperf_args.append("-i")
@@ -4619,8 +4715,9 @@ class IPerfHelper(HostApplicationHelper):
                 return False
         return True
 
-
-    def run_traffic(self, host, sentToAddress, ttl, time=0, l4Type="UDP", bind_towards=None):
+    def run_traffic(
+        self, host, sentToAddress, ttl, time=0, l4Type="UDP", bind_towards=None
+    ):
         """
         Run iperf to send IGMP join and traffic
 
@@ -4646,7 +4743,9 @@ class IPerfHelper(HostApplicationHelper):
 
             # Bind to Interface IP
             if bind_towards:
-                ifaddr = frr_unicode(self.tgen.json_topo["routers"][host]["links"][bind_towards]["ipv4"])
+                ifaddr = frr_unicode(
+                    self.tgen.json_topo["routers"][host]["links"][bind_towards]["ipv4"]
+                )
                 ipaddr = ipaddress.IPv4Interface(ifaddr).ip
                 iperf_args.append("-B")
                 iperf_args.append(str(ipaddr))
@@ -4669,7 +4768,9 @@ class IPerfHelper(HostApplicationHelper):
 
             p = self.run(host, iperf_args)
             if p.poll() is not None:
-                logger.error("mcast traffic send failed for %s: %s", sendTo, comm_error(p))
+                logger.error(
+                    "mcast traffic send failed for %s: %s", sendTo, comm_error(p)
+                )
                 return False
 
         return True
@@ -4730,9 +4831,7 @@ def verify_ip_nht(tgen, input_dict):
     return False
 
 
-def scapy_send_raw_packet(
-    tgen, topo, senderRouter, intf, packet=None
-):
+def scapy_send_raw_packet(tgen, topo, senderRouter, intf, packet=None):
     """
     Using scapy Raw() method to send BSR raw packet from one FRR
     to other
@@ -4766,10 +4865,8 @@ def scapy_send_raw_packet(
 
         python3_path = tgen.net.get_exec_path(["python3", "python"])
         script_path = os.path.join(CD, "send_bsr_packet.py")
-        cmd = (
-            "{} {} '{}' '{}' --interval=1 --count=1".format(
-                python3_path, script_path, packet, sender_interface
-            )
+        cmd = "{} {} '{}' '{}' --interval=1 --count=1".format(
+            python3_path, script_path, packet, sender_interface
         )
 
         logger.info("Scapy cmd: \n %s", cmd)

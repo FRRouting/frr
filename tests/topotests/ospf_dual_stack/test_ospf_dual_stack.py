@@ -33,7 +33,6 @@ pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 topo = None
 
 
-
 def setup_module(mod):
     """Sets up the pytest environment."""
     testsuite_run_time = time.asctime(time.localtime(time.time()))

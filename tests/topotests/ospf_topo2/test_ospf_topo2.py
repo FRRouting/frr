@@ -49,6 +49,7 @@ pytestmark = [pytest.mark.ospfd]
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 
+
 def build_topo(tgen):
     "Build function"
 
