@@ -2089,11 +2089,11 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 		if (current == NULL
 		    || (ret = ospf_lsa_more_recent(current, lsa)) < 0) {
 			/* CVE-2017-3224 */
-			if (current && (lsa->data->ls_seqnum ==
-					htonl(OSPF_MAX_SEQUENCE_NUMBER)
-					&& !IS_LSA_MAXAGE(lsa))) {
+			if (current && (IS_LSA_MAX_SEQ(current))
+				&& (IS_LSA_MAX_SEQ(lsa))
+				&& !IS_LSA_MAXAGE(lsa)) {
 				zlog_debug(
-					"Link State Update[%s]: has Max Seq but not MaxAge. Dropping it",
+					"Link State Update[%s]: has Max Seq and higher checksum but not MaxAge. Dropping it",
 					dump_lsa_key(lsa));
 
 				DISCARD_LSA(lsa, 4);

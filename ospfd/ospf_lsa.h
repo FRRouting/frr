@@ -218,6 +218,8 @@ struct as_external_lsa {
 #define LS_AGE(x) (OSPF_LSA_MAXAGE < get_age(x) ? OSPF_LSA_MAXAGE : get_age(x))
 #define IS_LSA_SELF(L)          (CHECK_FLAG ((L)->flags, OSPF_LSA_SELF))
 #define IS_LSA_MAXAGE(L)        (LS_AGE ((L)) == OSPF_LSA_MAXAGE)
+#define IS_LSA_MAX_SEQ(L)                                                      \
+	((L)->data->ls_seqnum == htonl(OSPF_MAX_SEQUENCE_NUMBER))
 
 #define OSPF_LSA_UPDATE_DELAY		2
 
