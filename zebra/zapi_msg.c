@@ -2221,8 +2221,8 @@ stream_failure:
 static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 {
 	afi_t afi;
-
 	struct prefix p;
+	struct prefix zero;
 
 	STREAM_GETW(msg, afi);
 
@@ -2237,6 +2237,18 @@ static void zread_router_id_add(ZAPI_HANDLER_ARGS)
 	vrf_bitmap_set(client->ridinfo[afi], zvrf_id(zvrf));
 
 	router_id_get(afi, &p, zvrf);
+
+	/*
+	 * If we have not officially setup a router-id let's not
+	 * tell the upper level protocol about it yet.
+	 */
+	memset(&zero, 0, sizeof(zero));
+	if ((p.family == AF_INET && p.u.prefix4.s_addr == INADDR_ANY)
+	    || (p.family == AF_INET6
+		&& memcmp(&p.u.prefix6, &zero.u.prefix6,
+			  sizeof(struct in6_addr))
+			   == 0))
+		return;
 
 	zsend_router_id_update(client, afi, &p, zvrf_id(zvrf));
 
