@@ -767,6 +767,134 @@ User input:
 ``ip`` partially matches ``ipv6`` but exactly matches ``ip``, so ``ip`` will
 win.
 
+Adding a CLI Node
+-----------------
+
+To add a new CLI node, you should:
+
+- define a new numerical node constant
+- define a node structure in the relevant daemon
+- call ``install_node()`` in the relevant daemon
+- define and install the new node in vtysh
+- define corresponding node entry commands in daemon and vtysh
+
+Defining the numerical node constant
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Add your new node value to the enum before ``NODE_TYPE_MAX`` in
+``lib/command.h``:
+
+.. code-block:: c
+
+   enum node_type {
+        AUTH_NODE,               // Authentication mode of vty interface.
+        VIEW_NODE,               // View node. Default mode of vty interface.
+        [...]
+        MY_NEW_NODE,
+        NODE_TYPE_MAX, // maximum
+   };
+
+Defining a node structure
+^^^^^^^^^^^^^^^^^^^^^^^^^
+In your daemon-specific code where you define your new commands that
+attach to the new node, add a node definition:
+
+.. code-block:: c
+
+   static struct cmd_node my_new_node = {
+        .name = "my new node name",
+        .node = MY_NEW_NODE, // enum node_type lib/command.h
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(my-new-node-prompt)# ",
+        .config_write = my_new_node_config_write,
+   };
+
+You will need to define ``my_new_node_config_write(struct vty \*vty)``
+(or omit this field if you have no relevant configuration to save).
+
+Calling ``install_node()``
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+In the daemon's initialization function, before installing your new commands
+with ``install_element()``, add a call ``install_node(&my_new_node)``.
+
+Defining and installing the new node in vtysh
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The build tools automatically collect command definitions for vtysh.
+However, new nodes must be coded in vtysh specifically.
+
+In ``vtysh/vtysh.c``, define a stripped-down node structure and
+call ``install_node()``:
+
+.. code-block:: c
+
+   static struct cmd_node my_new_node = {
+        .name = "my new node name",
+        .node = MY_NEW_NODE, /* enum node_type lib/command.h */
+        .parent_node = CONFIG_NODE,
+        .prompt = "%s(my-new-node-prompt)# ",
+   };
+   [...]
+   void vtysh_init_vty(void)
+   {
+      [...]
+      install_node(&my_new_node)
+      [...]
+   }
+
+Defining corresponding node entry commands in daemon and vtysh
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+The command that descends into the new node is typically programmed
+with ``VTY_PUSH_CONTEXT`` or equivalent in the daemon's CLI handler function.
+In vtysh, you must implement a corresponding node change so that vtysh
+tracks the daemon's movement through the node tree.
+
+Although the build tools typically scan daemon code for CLI definitions
+to replicate their parsing in vtysh, the node-descent function in the
+daemon must be blocked from this replication so that a hand-coded
+skeleton can be written in ``vtysh.c``.
+
+Accordingly, use one of the ``*_NOSH`` macros such as ``DEFUN_NOSH`` or
+``DEFPY_NOSH`` for the daemon's node-descent CLI definition, and use
+``DEFUNSH`` in ``vtysh.c`` for the vtysh equivalent.
+
+.. seealso:: :ref:`vtysh-special-defuns`
+
+Examples:
+
+``zebra_whatever.c``
+
+.. code-block:: c
+
+   DEFPY_NOSH(my_new_node,
+        my_new_node_cmd,
+        "my-new-node foo",
+        "New Thing\n"
+        "A foo\n")
+   {
+      [...]
+      VTY_PUSH_CONTEXT(MY_NEW_NODE, bar);
+      [...]
+   }
+
+
+``vtysh.c``
+
+.. code-block:: c
+
+   DEFUNSH(VTYSH_ZEBRA, my_new_node,
+        my_new_node_cmd,
+        "my-new-node foo",
+        "New Thing\n"
+        "A foo\n")
+   {
+        vty->node = MY_NEW_NODE;
+        return CMD_SUCCESS;
+   }
+   [...]
+   install_element(CONFIG_NODE, &my_new_node_cmd);
+
+
+
+
 Inspection & Debugging
 ----------------------
 
