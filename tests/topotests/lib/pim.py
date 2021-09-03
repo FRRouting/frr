@@ -19,14 +19,11 @@
 import datetime
 import os
 import re
-import socket
 import sys
-import tempfile
 import traceback
 from copy import deepcopy
 from time import sleep
 
-import pytest
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
@@ -38,7 +35,7 @@ from lib.common_config import (
     retry,
     run_frr_cmd,
 )
-from lib.micronet import comm_error, get_exec_path
+from lib.micronet import get_exec_path
 from lib.topolog import logger
 from lib.topotest import frr_unicode
 

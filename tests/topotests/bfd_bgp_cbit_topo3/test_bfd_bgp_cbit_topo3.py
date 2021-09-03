@@ -46,7 +46,6 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.bfdd]
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    from collections import OrderedDict
     topodef = {
         "s1": ("r1", "r2"),
         "s2": ("r2", "r3"),

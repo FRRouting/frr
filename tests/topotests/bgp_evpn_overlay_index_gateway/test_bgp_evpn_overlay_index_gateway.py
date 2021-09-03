@@ -75,7 +75,6 @@ from lib.common_config import (
 )
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
 

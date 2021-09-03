@@ -48,7 +48,6 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ospfd]
 

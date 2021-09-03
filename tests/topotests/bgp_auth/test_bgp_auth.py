@@ -48,7 +48,6 @@ import os
 import sys
 import json
 import platform
-from functools import partial
 import pytest
 from time import sleep
 
@@ -60,12 +59,9 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
-from lib.common_config import apply_raw_config
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
 
@@ -74,7 +70,6 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
-    pass
 
 def build_topo(tgen):
     # Create routers

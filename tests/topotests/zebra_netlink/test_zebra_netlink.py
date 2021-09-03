@@ -26,11 +26,9 @@ test_zebra_netlink.py: Test some basic interactions with kernel using Netlink
 """
 
 import os
-import re
 import sys
 import pytest
 import json
-import platform
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -42,7 +40,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
 
 
 pytestmark = [pytest.mark.sharpd]

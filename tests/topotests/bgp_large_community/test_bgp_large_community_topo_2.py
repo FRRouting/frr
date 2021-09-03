@@ -61,7 +61,6 @@ Following tests are covered:
 
 import os
 import sys
-import json
 import pytest
 import time
 
@@ -74,7 +73,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 # Import topoJson from lib, to create topology and initial configuration
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -83,7 +81,6 @@ from lib.common_config import (
     reset_config_on_routers,
     create_route_maps,
     create_bgp_community_lists,
-    create_prefix_lists,
     verify_bgp_community,
     step,
     verify_create_community_list,
@@ -95,7 +92,7 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd]

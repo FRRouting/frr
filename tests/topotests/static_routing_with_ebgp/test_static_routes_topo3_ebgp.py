@@ -31,7 +31,6 @@
 
 """
 import sys
-import json
 import time
 import os
 import pytest
@@ -45,7 +44,6 @@ sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
@@ -57,7 +55,6 @@ from lib.common_config import (
     create_static_routes,
     check_address_types,
     step,
-    create_interfaces_cfg,
     shutdown_bringup_interface,
     stop_router,
     start_router,
@@ -66,7 +63,7 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

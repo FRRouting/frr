@@ -25,11 +25,7 @@
 import os
 import sys
 import time
-import json
 import pytest
-import ipaddr
-from copy import deepcopy
-from re import search as re_search
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -41,7 +37,6 @@ from lib.topogen import Topogen, get_topogen
 from lib.common_config import (
     write_test_header,
     start_topology,
-    create_route_maps,
     write_test_footer,
     start_router,
     stop_router,
@@ -50,14 +45,12 @@ from lib.common_config import (
     check_address_types,
     reset_config_on_routers,
     step,
-    shutdown_bringup_interface,
-    create_interfaces_cfg,
     get_frr_ipv6_linklocal,
 )
 from lib.topolog import logger
-from lib.bgp import clear_bgp, verify_bgp_convergence, create_router_bgp, verify_bgp_rib
+from lib.bgp import create_router_bgp, verify_bgp_convergence, verify_bgp_rib
 
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 # Global variables
 topo = None

@@ -26,9 +26,7 @@ import os
 import sys
 import time
 import pytest
-import json
 from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,9 +35,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
-from ipaddress import IPv4Address
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
@@ -50,21 +46,16 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
-    create_route_maps,
     shutdown_bringup_interface,
-    create_interfaces_cfg,
     topo_daemons,
 )
 from lib.topolog import logger
 
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.ospf import (
     verify_ospf_neighbor,
     config_ospf_interface,
-    clear_ospf,
     verify_ospf_rib,
-    create_router_ospf,
-    verify_ospf_interface,
     redistribute_ospf,
 )
 

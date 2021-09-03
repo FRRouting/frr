@@ -50,11 +50,9 @@ import pytest
 import time
 from os import path as os_path
 import sys
-from json import load as json_load
 
 # Required to instantiate the topology builder class.
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -71,7 +69,7 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd]
 

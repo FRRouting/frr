@@ -27,9 +27,6 @@ test_bgp_simple snmp.py: Test snmp infrastructure.
 
 import os
 import sys
-import json
-from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -38,9 +35,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 

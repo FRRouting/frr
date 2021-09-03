@@ -52,7 +52,6 @@ Tests covered in this suite
 
 import os
 import sys
-import json
 import time
 import pytest
 
@@ -66,7 +65,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -110,7 +108,7 @@ from lib.pim import (
     McastTesterHelper,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.pimd, pytest.mark.staticd]

@@ -28,7 +28,6 @@ import os
 import sys
 import time
 import json
-import inspect
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -41,7 +40,6 @@ sys.path.append(os.path.join(CWD, "../../"))
 from lib.topogen import Topogen, get_topogen
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (

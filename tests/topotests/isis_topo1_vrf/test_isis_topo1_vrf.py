@@ -30,7 +30,6 @@ import os
 import re
 import sys
 import pytest
-import platform
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -42,7 +41,6 @@ from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import required_linux_kernel_version
 
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.isisd]
 

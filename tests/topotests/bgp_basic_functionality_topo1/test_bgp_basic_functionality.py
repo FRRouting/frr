@@ -45,7 +45,6 @@ Test steps
 
 import os
 import sys
-import json
 import time
 import pytest
 from copy import deepcopy
@@ -69,11 +68,10 @@ from lib.common_config import (addKernelRoute, apply_raw_config,
                                verify_bgp_community, verify_fib_routes,
                                verify_rib, write_test_footer,
                                write_test_header)
-from lib.micronet_compat import Topo
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.topojson import build_config_from_json, build_topo_from_json
+from lib.topojson import build_config_from_json
 from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

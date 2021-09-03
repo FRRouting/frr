@@ -27,11 +27,8 @@ test_bgp_snmp_mplsl3vpn.py: Test mplsL3Vpn MIB [RFC4382].
 
 import os
 import sys
-import json
-from functools import partial
 from time import sleep
 import pytest
-import re
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -39,13 +36,10 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
 

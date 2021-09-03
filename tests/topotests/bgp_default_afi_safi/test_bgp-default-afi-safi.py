@@ -33,7 +33,6 @@ import os
 import sys
 import json
 import pytest
-import functools
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -41,10 +40,7 @@ CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from lib.micronet_compat import Topo
 from lib.common_config import step
 
 pytestmark = [pytest.mark.bgpd]

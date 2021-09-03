@@ -30,7 +30,6 @@ This program
 
 from __future__ import print_function, unicode_literals
 import argparse
-import copy
 import logging
 import os, os.path
 import random

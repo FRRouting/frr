@@ -28,7 +28,6 @@ test_evpn_pim_topo1.py: Testing evpn-pim
 """
 
 import os
-import re
 import sys
 import pytest
 import json
@@ -47,7 +46,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.bgpd]
 

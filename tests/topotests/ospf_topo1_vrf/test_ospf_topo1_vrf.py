@@ -27,7 +27,6 @@ test_ospf_topo1.py: Test the FRR OSPF routing daemon.
 """
 
 import os
-import re
 import sys
 from functools import partial
 import pytest
@@ -43,7 +42,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ospfd]
 

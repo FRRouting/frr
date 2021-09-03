@@ -28,7 +28,6 @@ test_pbr_topo1.py: Testing PBR
 """
 
 import os
-import re
 import sys
 import pytest
 import json
@@ -47,7 +46,6 @@ from lib.topolog import logger
 from lib.common_config import shutdown_bringup_interface
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.pbrd]
 

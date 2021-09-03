@@ -19,7 +19,6 @@
 #
 
 import ipaddress
-import os
 import sys
 import traceback
 from copy import deepcopy
@@ -31,17 +30,14 @@ from lib.common_config import (
     FRRCFG_FILE,
     InvalidCLIError,
     check_address_types,
-    create_common_configuration,
     find_interface_with_greater_ip,
     generate_ips,
     get_frr_ipv6_linklocal,
-    get_ipv6_linklocal_address,
-    load_config_to_router,
     retry,
     run_frr_cmd,
     validate_ip_address,
 )
-from lib.topogen import TopoRouter, get_topogen
+from lib.topogen import get_topogen
 from lib.topolog import logger
 from lib.topotest import frr_unicode
 

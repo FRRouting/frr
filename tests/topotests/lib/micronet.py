@@ -21,9 +21,7 @@
 import datetime
 import logging
 import os
-import pdb
 import re
-import readline
 import shlex
 import subprocess
 import sys

@@ -40,10 +40,8 @@ multi-hop functionality:
 import os
 import sys
 import time
-import json
 import pytest
 from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -51,8 +49,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
@@ -69,21 +65,18 @@ from lib.common_config import (
     create_route_maps,
     create_interface_in_kernel,
     shutdown_bringup_interface,
-    addKernelRoute,
-    delete_route_maps,
 )
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_bgp_rib,
     verify_bgp_convergence_from_running_config,
     modify_as_number,
     verify_bgp_attributes,
     clear_bgp,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

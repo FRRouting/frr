@@ -26,13 +26,11 @@
 <template>.py: Test <template>.
 """
 
-import os
 import sys
 import pytest
 
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 
 # TODO: select markers based on daemons used during test

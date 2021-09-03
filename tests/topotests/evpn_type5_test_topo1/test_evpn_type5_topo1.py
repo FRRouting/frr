@@ -34,14 +34,12 @@ Following tests are covered to test EVPN-Type5 functionality:
 """
 
 import os
-import re
 import sys
 import json
 import time
 import pytest
 import platform
 from copy import deepcopy
-from time import sleep
 
 
 # Save the Current Working Directory to find configuration files.
@@ -55,7 +53,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topotest import version_cmp
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -66,17 +63,12 @@ from lib.common_config import (
     verify_rib,
     step,
     create_route_maps,
-    verify_cli_json,
-    start_router_daemons,
     create_static_routes,
-    stop_router,
-    start_router,
     create_vrf_cfg,
     check_router_status,
     apply_raw_config,
     configure_vxlan,
     configure_brctl,
-    verify_vrf_vni,
     create_interface_in_kernel,
 )
 
@@ -84,7 +76,6 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp,
     verify_best_path_as_per_bgp_attribute,
     verify_attributes_for_evpn_routes,
     verify_evpn_routes,

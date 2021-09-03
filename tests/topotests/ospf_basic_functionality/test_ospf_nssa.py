@@ -25,14 +25,11 @@
 import ipaddress
 from lib.ospf import (
     verify_ospf_neighbor,
-    config_ospf_interface,
-    clear_ospf,
     verify_ospf_rib,
     create_router_ospf,
-    verify_ospf_interface,
     redistribute_ospf,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.topolog import logger
 from lib.common_config import (
     start_topology,
@@ -42,19 +39,13 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     step,
-    create_route_maps,
-    shutdown_bringup_interface,
-    create_interfaces_cfg,
     topo_daemons,
 )
-from ipaddress import IPv4Address
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 import os
 import sys
 import time
 import pytest
-import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

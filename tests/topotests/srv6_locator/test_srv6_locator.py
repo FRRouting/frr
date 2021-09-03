@@ -30,7 +30,6 @@ Test for SRv6 manager on zebra
 import os
 import sys
 import json
-import time
 import pytest
 import functools
 

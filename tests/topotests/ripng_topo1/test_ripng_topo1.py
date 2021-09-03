@@ -31,10 +31,8 @@ import os
 import re
 import sys
 import pytest
-import unicodedata
 from time import sleep
 
-from functools import partial
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest

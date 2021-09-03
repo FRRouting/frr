@@ -32,9 +32,9 @@ import subprocess
 import sys
 
 if sys.version_info[0] > 2:
-    import configparser
+    pass
 else:
-    import ConfigParser as configparser
+    pass
 
 try:
     from xdist import is_xdist_controller

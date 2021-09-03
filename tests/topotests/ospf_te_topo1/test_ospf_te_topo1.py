@@ -67,7 +67,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 # Import topogen and topotest helpers
 from lib import topotest
