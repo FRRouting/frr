@@ -21,10 +21,8 @@
 #
 import argparse
 import glob
-import json
 import logging
 import os
-import pdb
 import re
 import subprocess
 import sys

@@ -72,9 +72,7 @@ import os
 import sys
 import pytest
 import json
-import re
 from time import sleep
-from time import time
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -84,7 +82,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 

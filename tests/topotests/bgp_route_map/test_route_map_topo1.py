@@ -21,12 +21,9 @@
 #
 
 import sys
-import json
 import time
 import pytest
-import inspect
 import os
-from time import sleep
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -34,38 +31,27 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 # Required to instantiate the topology builder class.
-from lib.topojson import *
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
-    verify_bgp_community,
     verify_rib,
-    delete_route_maps,
-    create_bgp_community_lists,
-    interface_status,
     create_route_maps,
     create_static_routes,
     create_prefix_lists,
-    verify_route_maps,
     check_address_types,
-    shutdown_bringup_interface,
-    verify_prefix_lists,
     reset_config_on_routers,
 )
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_bgp_attributes,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

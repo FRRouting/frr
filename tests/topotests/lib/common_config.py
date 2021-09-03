@@ -22,7 +22,6 @@ import ipaddress
 import json
 import os
 import platform
-import signal
 import socket
 import subprocess
 import sys
@@ -32,17 +31,14 @@ from copy import deepcopy
 from datetime import datetime, timedelta
 from functools import wraps
 from re import search as re_search
-from tempfile import mkdtemp
 from time import sleep
 
 try:
     # Imports from python2
     import ConfigParser as configparser
-    from StringIO import StringIO
 except ImportError:
     # Imports from python3
     import configparser
-    from io import StringIO
 
 from lib.micronet import comm_error
 from lib.topogen import TopoRouter, get_topogen
@@ -211,7 +207,6 @@ def set_seq_id(obj_type, router, id, obj_name):
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
 
-    pass
 
 
 def run_frr_cmd(rnode, cmd, isjson=False):

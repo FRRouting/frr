@@ -99,10 +99,8 @@ FUNC_16_3:
 
 import os
 import sys
-import json
 import time
 import pytest
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -114,7 +112,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     step,
@@ -136,14 +133,13 @@ from lib.common_config import (
 
 from lib.topolog import logger
 from lib.bgp import (
-    clear_bgp,
     verify_bgp_rib,
     create_router_bgp,
     verify_bgp_community,
     verify_bgp_convergence,
     verify_best_path_as_per_bgp_attribute,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

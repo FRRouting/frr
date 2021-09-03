@@ -27,7 +27,6 @@ test_ospf_topo2.py: Test the OSPF unnumbered.
 """
 
 import os
-import re
 import sys
 from functools import partial
 import pytest
@@ -44,7 +43,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.ospfd]
 

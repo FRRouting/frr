@@ -28,7 +28,6 @@ test_pim_basic_topo2.py: Test the FRR PIM protocol convergence.
 
 import os
 import sys
-import json
 from functools import partial
 import pytest
 
@@ -43,7 +42,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.pimd]
 

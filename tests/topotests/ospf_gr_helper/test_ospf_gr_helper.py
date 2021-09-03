@@ -26,10 +26,6 @@ import os
 import sys
 import time
 import pytest
-import json
-from time import sleep
-from copy import deepcopy
-import ipaddress
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -45,26 +41,20 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
     step,
-    create_route_maps,
-    shutdown_bringup_interface,
     create_interfaces_cfg,
     topo_daemons,
     scapy_send_raw_packet
 )
 
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf_neighbor,
     clear_ospf,
     verify_ospf_gr_helper,
     create_router_ospf,
-    verify_ospf_interface,
-    verify_ospf_database,
 )
 
 # Global variables

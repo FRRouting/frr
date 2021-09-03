@@ -25,10 +25,7 @@
 import os
 import sys
 import time
-import json
 import pytest
-import ipaddr
-from re import search as re_search
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -43,7 +40,6 @@ from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
-    create_interfaces_cfg,
     verify_rib,
     create_static_routes,
     check_address_types,
@@ -52,8 +48,8 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
 )
 from lib.topolog import logger
-from lib.bgp import clear_bgp, verify_bgp_convergence, create_router_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.bgp import create_router_bgp, verify_bgp_convergence
+from lib.topojson import build_config_from_json
 
 # Global variables
 topo = None

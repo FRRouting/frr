@@ -31,7 +31,6 @@ import sys
 import json
 from functools import partial
 import pytest
-import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -45,7 +44,6 @@ from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
 

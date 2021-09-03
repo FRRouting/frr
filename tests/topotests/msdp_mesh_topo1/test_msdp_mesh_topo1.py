@@ -28,10 +28,8 @@ test_msdp_mesh_topo1.py: Test the FRR PIM MSDP mesh groups.
 
 import os
 import sys
-import json
 from functools import partial
 import pytest
-import socket
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -41,7 +39,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 

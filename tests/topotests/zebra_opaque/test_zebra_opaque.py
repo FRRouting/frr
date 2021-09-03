@@ -25,7 +25,6 @@ Test if Opaque Data is accessable from other daemons in Zebra
 import os
 import sys
 import json
-import time
 import pytest
 import functools
 
@@ -35,7 +34,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd]
 

@@ -43,7 +43,6 @@ Tests covered in this suite
 
 import os
 import sys
-import json
 import time
 import pytest
 
@@ -57,7 +56,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -66,21 +64,13 @@ from lib.common_config import (
     step,
     addKernelRoute,
     create_static_routes,
-    stop_router,
-    start_router,
-    shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router_daemons,
     reset_config_on_routers,
-    do_countdown,
-    apply_raw_config,
     run_frr_cmd,
     required_linux_kernel_version,
     topo_daemons,
 )
 
 from lib.pim import (
-    create_pim_config,
     add_rp_interfaces_and_pim_config,
     reconfig_interfaces,
     scapy_send_bsr_raw_packet,
@@ -93,15 +83,12 @@ from lib.pim import (
     verify_upstream_iif,
     verify_igmp_groups,
     verify_ip_pim_upstream_rpf,
-    enable_disable_pim_unicast_bsm,
-    enable_disable_pim_bsm,
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
-    verify_pim_interface_traffic,
     McastTesterHelper,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 

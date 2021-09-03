@@ -84,11 +84,9 @@ TC_30:
 
 import os
 import sys
-import json
 import time
 import pytest
 from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -97,15 +95,13 @@ sys.path.append(os.path.join("../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 # Import topoJson from lib, to create topology and initial configuration
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.bgp import (
     clear_bgp,
     verify_bgp_rib,
@@ -131,10 +127,8 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
-    shutdown_bringup_interface,
     step,
     get_frr_ipv6_linklocal,
-    create_route_maps,
     required_linux_kernel_version,
 )
 

@@ -30,7 +30,6 @@ correctly.
 import os
 import sys
 import json
-import time
 import pytest
 import functools
 
@@ -40,8 +39,6 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
 

@@ -67,7 +67,6 @@ from time import sleep
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
 
 fatal_error = ""

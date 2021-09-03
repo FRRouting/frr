@@ -28,7 +28,6 @@ Following tests are covered to test ecmp functionality on iBGP.
 import os
 import sys
 import time
-import json
 import pytest
 from time import sleep
 
@@ -39,25 +38,21 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
+from lib.topogen import get_topogen
 from lib import topojson
 
 from lib.common_config import (
-    start_topology,
     write_test_header,
     write_test_footer,
     verify_rib,
     create_static_routes,
     check_address_types,
-    interface_status,
     reset_config_on_routers,
-    required_linux_kernel_version,
     shutdown_bringup_interface,
     apply_raw_config,
 )
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.bgp import create_router_bgp, verify_bgp_convergence
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

@@ -51,7 +51,6 @@ Following tests are covered:
 import os
 import re
 import sys
-import json
 import time
 import datetime
 import pytest
@@ -74,17 +73,9 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     step,
-    addKernelRoute,
     reset_config_on_routers,
     shutdown_bringup_interface,
-    kill_router_daemons,
-    start_router,
-    start_router_daemons,
-    stop_router,
     apply_raw_config,
-    add_interfaces_to_vlan,
-    tcpdump_capture_start,
-    tcpdump_capture_stop,
     check_router_status,
     required_linux_kernel_version,
     topo_daemons,
@@ -94,22 +85,19 @@ from lib.pim import (
     create_igmp_config,
     verify_igmp_groups,
     verify_ip_mroutes,
-    clear_ip_mroute_verify,
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
     verify_igmp_config,
-    verify_pim_neighbors,
     verify_pim_config,
     verify_pim_interface,
     verify_upstream_iif,
     verify_multicast_traffic,
     verify_pim_rp_info,
-    get_refCount_for_mroute,
     verify_multicast_flag_state,
     McastTesterHelper,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 pytestmark = pytest.mark.pimd

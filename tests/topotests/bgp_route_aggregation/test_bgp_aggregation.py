@@ -31,10 +31,7 @@ Following tests are covered to test bgp aggregation functionality:
 import os
 import sys
 import time
-import json
 import pytest
-from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -42,15 +39,12 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
     start_topology,
     write_test_header,
-    apply_raw_config,
     write_test_footer,
     reset_config_on_routers,
     verify_rib,
@@ -66,9 +60,8 @@ from lib.bgp import (
     create_router_bgp,
     verify_bgp_rib,
     verify_bgp_community,
-    verify_bgp_timers_and_functionality,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

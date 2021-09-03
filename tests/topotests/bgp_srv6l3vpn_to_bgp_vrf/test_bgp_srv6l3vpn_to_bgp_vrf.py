@@ -22,7 +22,6 @@
 #
 
 import os
-import re
 import sys
 import json
 import functools
@@ -37,7 +36,6 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd]
 

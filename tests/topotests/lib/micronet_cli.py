@@ -19,22 +19,17 @@
 # Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 #
 import argparse
-import datetime
 import logging
 import os
-import pdb
 import pty
 import re
 import readline
 import select
-import shlex
 import socket
 import subprocess
 import sys
 import tempfile
 import termios
-import time as time_mod
-import traceback
 import tty
 
 

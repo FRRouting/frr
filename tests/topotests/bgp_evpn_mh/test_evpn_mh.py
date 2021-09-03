@@ -28,7 +28,6 @@ test_evpn_mh.py: Testing EVPN multihoming
 """
 
 import os
-import re
 import sys
 import subprocess
 from functools import partial
@@ -48,9 +47,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.pimd]
 

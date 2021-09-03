@@ -29,7 +29,6 @@ import os
 import sys
 import json
 from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -40,10 +39,8 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 
 pytestmark = [pytest.mark.bgpd]

@@ -4,13 +4,11 @@ import os
 import sys
 import time
 import pytest
-import json
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 
-from lib.micronet_compat import Topo
 from lib.topogen import Topogen, get_topogen
 
 from lib.common_config import (
@@ -18,28 +16,14 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    stop_router,
-    start_router,
-    verify_rib,
-    create_static_routes,
     step,
-    start_router_daemons,
-    shutdown_bringup_interface,
     topo_daemons,
-    create_prefix_lists,
-    create_interfaces_cfg,
-    run_frr_cmd,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.ospf import (
     verify_ospf_neighbor,
     verify_ospf6_neighbor,
-    create_router_ospf,
-    create_router_ospf6,
-    verify_ospf_summary,
-    redistribute_ospf,
-    verify_ospf_database,
 )
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]

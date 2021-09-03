@@ -64,10 +64,8 @@ test_bgp_multiview_topo1.py: Simple FRR Route-Server Test
 
 import json
 import os
-import re
 import sys
 import pytest
-import glob
 import json
 from time import sleep
 

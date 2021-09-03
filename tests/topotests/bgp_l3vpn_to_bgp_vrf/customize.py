@@ -74,21 +74,17 @@ r3-eth1 .3 |  | .3  r3-eth0      | .4 r4-eth0
 """
 
 import os
-import re
-import pytest
 import platform
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import get_topogen
 from lib.topolog import logger
 from lib.ltemplate import ltemplateRtrCmd
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
-import shutil
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 # test name based on directory

@@ -72,9 +72,7 @@ import os
 import sys
 import pytest
 import json
-import re
 from time import sleep
-from time import time
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.

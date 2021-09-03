@@ -89,9 +89,7 @@ Basic Common Test steps for all the test case below :
 
 import os
 import sys
-import json
 import time
-import inspect
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -101,15 +99,13 @@ sys.path.append(os.path.join("../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 # Import topoJson from lib, to create topology and initial configuration
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.bgp import (
     clear_bgp,
     verify_bgp_rib,
@@ -117,7 +113,6 @@ from lib.bgp import (
     create_router_bgp,
     verify_r_bit,
     verify_f_bit,
-    verify_graceful_restart_timers,
     verify_bgp_convergence,
     verify_bgp_convergence_from_running_config,
 )
@@ -135,7 +130,6 @@ from lib.common_config import (
     shutdown_bringup_interface,
     step,
     get_frr_ipv6_linklocal,
-    create_route_maps,
     required_linux_kernel_version,
 )
 

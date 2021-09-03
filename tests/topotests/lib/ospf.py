@@ -20,17 +20,12 @@
 
 import ipaddress
 import sys
-import traceback
 from copy import deepcopy
-from ipaddress import IPv6Address
-from time import sleep
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
     create_common_configurations,
     InvalidCLIError,
-    check_address_types,
-    create_common_configuration,
     generate_ips,
     retry,
     run_frr_cmd,

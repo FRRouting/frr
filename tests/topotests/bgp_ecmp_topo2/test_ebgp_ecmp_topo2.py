@@ -39,7 +39,6 @@ Following tests are covered to test ecmp functionality on EBGP.
 import os
 import sys
 import time
-import json
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -50,7 +49,6 @@ sys.path.append(os.path.join(CWD, "../../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
@@ -65,7 +63,7 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

@@ -75,12 +75,9 @@ import os
 import re
 import sys
 import pytest
-import platform
-from time import sleep
 
 from functools import partial
 
-from lib.micronet_compat import Topo
 
 # Save the Current Working Directory to find configuration files later.
 CWD = os.path.dirname(os.path.realpath(__file__))

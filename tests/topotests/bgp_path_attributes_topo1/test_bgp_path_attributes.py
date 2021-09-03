@@ -52,11 +52,7 @@ Teardown module:
 
 import os
 import sys
-import pdb
-import json
 import time
-import inspect
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -65,9 +61,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.micronet_compat import Topo
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 
 # Required to instantiate the topology builder class.
 from lib.common_config import (
@@ -78,7 +72,6 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     create_prefix_lists,
-    verify_prefix_lists,
     create_route_maps,
     check_address_types,
 )
@@ -86,13 +79,10 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_best_path_as_per_bgp_attribute,
     verify_best_path_as_per_admin_distance,
-    modify_as_number,
-    verify_as_numbers,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

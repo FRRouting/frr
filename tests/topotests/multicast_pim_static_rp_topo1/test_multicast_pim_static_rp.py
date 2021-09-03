@@ -99,7 +99,6 @@ TC_32 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
 
 import os
 import sys
-import json
 import time
 from time import sleep
 import datetime
@@ -114,7 +113,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.micronet_compat import Topo
 
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -126,7 +124,6 @@ from lib.common_config import (
     write_test_footer,
     reset_config_on_routers,
     step,
-    addKernelRoute,
     shutdown_bringup_interface,
     kill_router_daemons,
     start_router_daemons,

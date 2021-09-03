@@ -31,7 +31,6 @@ Following tests are covered to test ecmp functionality on BGP GSHUT.
 import os
 import sys
 import time
-import json
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -42,38 +41,28 @@ sys.path.append(os.path.join(CWD, "../../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
-from time import sleep
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
     verify_rib,
-    create_static_routes,
     check_address_types,
-    interface_status,
     reset_config_on_routers,
     step,
     get_frr_ipv6_linklocal,
-    kill_router_daemons,
-    start_router_daemons,
-    stop_router,
-    start_router,
     create_route_maps,
     create_bgp_community_lists,
-    delete_route_maps,
     required_linux_kernel_version,
 )
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp,
     verify_bgp_rib,
     verify_bgp_attributes,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 

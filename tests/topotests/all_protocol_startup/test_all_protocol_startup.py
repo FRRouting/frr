@@ -34,7 +34,6 @@ import pytest
 import glob
 from time import sleep
 
-from functools import partial
 
 pytestmark = [
     pytest.mark.babeld,

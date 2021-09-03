@@ -28,7 +28,6 @@ test_bgp_evpn_vxlan.py: Test VXLAN EVPN MAC a route signalling over BGP.
 import os
 import sys
 import json
-import re
 from functools import partial
 from time import sleep
 import pytest
@@ -44,7 +43,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 

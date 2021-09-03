@@ -34,7 +34,6 @@ import pytest
 from time import sleep
 
 
-from functools import partial
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest

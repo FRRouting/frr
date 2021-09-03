@@ -33,7 +33,6 @@ Following tests are covered to test BGP Multi-VRF Dynamic Route Leaking:
 
 import os
 import sys
-import json
 import time
 import pytest
 import platform
@@ -49,25 +48,20 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topotest import version_cmp
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     check_address_types,
     write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
     step,
     create_route_maps,
-    shutdown_bringup_interface,
     create_static_routes,
     create_prefix_lists,
     create_bgp_community_lists,
     create_interface_in_kernel,
     check_router_status,
     verify_cli_json,
-    get_frr_ipv6_linklocal,
     verify_fib_routes,
 )
 
@@ -75,11 +69,10 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp,
     verify_bgp_community,
     verify_bgp_rib,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

@@ -101,7 +101,6 @@ TC_60
 """
 
 import sys
-import json
 import time
 import pytest
 import inspect
@@ -114,9 +113,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, get_topogen
-from lib.micronet_compat import Topo
 
 # Required to instantiate the topology builder class.
 from lib.common_config import (
@@ -127,7 +124,6 @@ from lib.common_config import (
     verify_rib,
     delete_route_maps,
     create_bgp_community_lists,
-    interface_status,
     create_route_maps,
     create_prefix_lists,
     verify_route_maps,
@@ -145,7 +141,7 @@ from lib.bgp import (
     clear_bgp_and_verify,
     verify_bgp_attributes,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]

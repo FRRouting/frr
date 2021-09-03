@@ -54,7 +54,6 @@ import functools
 import os
 import sys
 import pytest
-import getopt
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -65,11 +64,8 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.lutil import lUtil
-from lib.lutil import luCommand
 
 # Required to instantiate the topology builder class.
-from lib.micronet_compat import Topo
 
 
 pytestmark = [pytest.mark.bgpd]

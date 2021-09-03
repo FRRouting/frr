@@ -26,11 +26,9 @@ test_zebra_seg6local_route.py: Test seg6local route addition with zapi.
 """
 
 import os
-import re
 import sys
 import pytest
 import json
-import platform
 from functools import partial
 
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -40,7 +38,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
 
 pytestmark = [pytest.mark.sharpd]
 

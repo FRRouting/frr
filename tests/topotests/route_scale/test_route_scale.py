@@ -43,7 +43,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
 
 
 pytestmark = [pytest.mark.sharpd]

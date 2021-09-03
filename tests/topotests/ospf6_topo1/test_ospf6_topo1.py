@@ -74,11 +74,9 @@ import os
 import re
 import sys
 import pytest
-from time import sleep
 
 from functools import partial
 
-from lib.micronet_compat import Topo
 
 # Save the Current Working Directory to find configuration files later.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -89,7 +87,6 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-import platform
 
 
 pytestmark = [pytest.mark.ospfd]

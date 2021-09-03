@@ -104,10 +104,6 @@ import functools
 import os
 import sys
 import pytest
-import re
-import time
-from time import sleep
-import socket
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))

@@ -47,19 +47,14 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topotest import version_cmp
-from lib.micronet_compat import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     check_address_types,
     write_test_footer,
-    verify_rib,
     step,
     create_route_maps,
-    create_static_routes,
-    stop_router,
-    start_router,
     create_prefix_lists,
     create_bgp_community_lists,
     check_router_status,
