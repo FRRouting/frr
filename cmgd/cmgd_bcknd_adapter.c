@@ -429,7 +429,7 @@ static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr,
 	Cmgd__BckndMessage *bcknd_msg)
 {
 	size_t msg_size;
-	uint8_t msg_buf[CMGD_BCKND_MSG_MAX_LEN];
+	uint8_t *msg_buf = adptr->msg_buf;
 	cmgd_bcknd_msg_t *msg;
 
 	if (adptr->conn_fd == 0)
@@ -437,10 +437,10 @@ static int cmgd_bcknd_adapter_send_msg(cmgd_bcknd_client_adapter_t *adptr,
 
 	msg_size = cmgd__bcknd_message__get_packed_size(bcknd_msg);
 	msg_size += CMGD_BCKND_MSG_HDR_LEN;
-	if (msg_size > sizeof(msg_buf)) {
+	if (msg_size > CMGD_BCKND_MSG_MAX_LEN) {
 		CMGD_BCKND_ADPTR_ERR(
 			"Message size %d more than max size'%d. Not sending!'", 
-			(int) msg_size, (int)sizeof(msg_buf));
+			(int) msg_size, (int)CMGD_BCKND_MSG_MAX_LEN);
 		return -1;
 	}
 	
@@ -928,7 +928,7 @@ extern void cmgd_bcknd_adapter_unlock(cmgd_bcknd_client_adapter_t **adptr)
 		stream_free((*adptr)->obuf_work);
 
 		THREAD_OFF((*adptr)->conn_init_ev);
-
+		XFREE(MTYPE_CMGD_BCKND_ADPTR_MSG_BUF, (*adptr)->msg_buf);
 		XFREE(MTYPE_CMGD_BCKND_ADPATER, *adptr);
 	}
 
@@ -964,6 +964,9 @@ cmgd_bcknd_client_adapter_t *cmgd_bcknd_create_adapter(
 		adptr->ibuf_fifo = stream_fifo_new();
 		adptr->ibuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 		adptr->obuf_fifo = stream_fifo_new();
+		adptr->msg_buf = XCALLOC(MTYPE_CMGD_BCKND_ADPTR_MSG_BUF,
+					 CMGD_BCKND_MSG_MAX_LEN);
+		assert(adptr->msg_buf);
 		// adptr->obuf_work = stream_new(CMGD_BCKND_MSG_MAX_LEN);
 		adptr->obuf_work = NULL;
 		cmgd_bcknd_adapter_lock(adptr);

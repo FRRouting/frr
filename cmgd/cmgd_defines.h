@@ -44,12 +44,16 @@
 
 #define CMGD_MAX_XPATH_LEN                      XPATH_MAXLEN
 
+#define CMGD_MAX_YANG_VALUE_LEN                 YANG_VALUE_MAXLEN
+
 #define CMGD_MAX_NUM_XPATH_REG                  128
 
 #define CMGD_MAX_NUM_DATA_REQ_IN_BATCH		32
 #define CMGD_MAX_NUM_DATA_REPLY_IN_BATCH	8
 
-#define CMGD_MAX_CFG_CHANGES_IN_BATCH		10
+#define CMGD_MAX_CFG_CHANGES_IN_BATCH   \
+        ((10*CMGD_BCKND_MSG_MAX_LEN)/      \
+         (CMGD_MAX_XPATH_LEN + CMGD_MAX_YANG_VALUE_LEN))
 
 /*
  * The following packs a buffer of size MAX_PKT_SIZE with multiple 

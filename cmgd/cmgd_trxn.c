@@ -122,6 +122,7 @@ typedef struct cmgd_trxn_bcknd_cfg_batch_ {
 	cmgd_yang_data_t data[CMGD_MAX_CFG_CHANGES_IN_BATCH];
 	cmgd_yang_data_value_t value[CMGD_MAX_CFG_CHANGES_IN_BATCH];
 	size_t num_cfg_data;
+	int buf_space_left;
 	cmgd_commit_phase_t comm_phase;
 	struct cmgd_trxn_batch_list_item list_linkage;
 } cmgd_trxn_bcknd_cfg_batch_t;
@@ -351,6 +352,7 @@ static cmgd_trxn_bcknd_cfg_batch_t *cmgd_trxn_cfg_batch_alloc(
 	cmgd_trxn_batch_list_add_tail(
 		&trxn->commit_cfg_req->req.commit_cfg.curr_batches[id], cfg_btch);
 	cfg_btch->bcknd_adptr = bcknd_adptr;
+	cfg_btch->buf_space_left = CMGD_BCKND_CFGDATA_MAX_MSG_LEN;
 	if (bcknd_adptr)
 		cmgd_bcknd_adapter_lock(bcknd_adptr);
 
@@ -915,6 +917,7 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 	cmgd_commit_cfg_req_t *cmtcfg_req;
 	bool found_validator;
 	int num_chgs = 0;
+	int xpath_len, value_len;
 
 	cmtcfg_req = &trxn_req->req.commit_cfg;
 
@@ -949,6 +952,8 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 			goto cmgd_trxn_create_config_batches_failed;
 		}
 
+		xpath_len = strlen(xpath)+1;
+		value_len = strlen(value)+1;
 		found_validator = false;
 		FOREACH_CMGD_BCKND_CLIENT_ID(id) {
 			if (!subscr_info.xpath_subscr[id].validate_config &&
@@ -961,13 +966,16 @@ static int cmgd_trxn_create_config_batches(cmgd_trxn_req_t *trxn_req,
 
 			cfg_btch = cmtcfg_req->last_bcknd_cfg_batch[id];
 			if (!cfg_btch ||
-				cfg_btch->num_cfg_data ==
-					CMGD_MAX_CFG_CHANGES_IN_BATCH) {
+				(cfg_btch->num_cfg_data ==
+					CMGD_MAX_CFG_CHANGES_IN_BATCH) ||
+				((cfg_btch->buf_space_left -
+					(xpath_len + value_len)) <= 0)) {
 				/* Allocate a new config batch */
 				cfg_btch = cmgd_trxn_cfg_batch_alloc(
 						trxn_req->trxn, id, adptr);
 			}
 
+			cfg_btch->buf_space_left -= (xpath_len + value_len);
 			memcpy(&cfg_btch->xp_subscr[cfg_btch->num_cfg_data],
 				&subscr_info.xpath_subscr[id],
 				sizeof(cfg_btch->xp_subscr[0]));

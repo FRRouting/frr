@@ -49,7 +49,16 @@ extern "C" {
 
 #define GMGD_BCKND_MAX_NUM_REQ_ITEMS    	64
 
-#define CMGD_BCKND_MSG_MAX_LEN		        9000
+#define CMGD_BCKND_MSG_MAX_LEN		        16384
+
+/* CMGD_BCKND_MSG_MAX_LEN must be used 80%
+ * since there is overhead of google protobuf
+ * that gets added to sent message
+ */
+#define CMGD_BCKND_CFGDATA_PACKING_EFFICIENCY          0.8
+#define CMGD_BCKND_CFGDATA_MAX_MSG_LEN          \
+        (CMGD_BCKND_MSG_MAX_LEN *               \
+	 CMGD_BCKND_CFGDATA_PACKING_EFFICIENCY)
 
 /*
  * List of name identifiers for all backend clients to 
