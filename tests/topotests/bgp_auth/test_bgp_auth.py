@@ -48,7 +48,6 @@ import os
 import sys
 import json
 import platform
-from functools import partial
 import pytest
 from time import sleep
 
@@ -60,12 +59,9 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
-from lib.common_config import apply_raw_config
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
 
@@ -75,75 +71,63 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
 
-    pass
 
+def build_topo(tgen):
+    # Create routers
+    tgen.add_router("R1")
+    tgen.add_router("R2")
+    tgen.add_router("R3")
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+    # R1-R2 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R2"])
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # R1-R3 1
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R3"])
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        #
-        # Create routers
-        tgen.add_router("R1")
-        tgen.add_router("R2")
-        tgen.add_router("R3")
+    # R2-R3 1
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["R2"])
+    switch.add_link(tgen.gears["R3"])
 
-        # R1-R2 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R2"])
+    # R1-R2 2
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R2"])
 
-        # R1-R3 1
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R3"])
+    # R1-R3 2
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R3"])
 
-        # R2-R3 1
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["R2"])
-        switch.add_link(tgen.gears["R3"])
+    # R2-R3 2
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["R2"])
+    switch.add_link(tgen.gears["R3"])
 
-        # R1-R2 2
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R2"])
+    # R1-R2 3
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R2"])
 
-        # R1-R3 2
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R3"])
+    # R1-R3 2
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R3"])
 
-        # R2-R3 2
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["R2"])
-        switch.add_link(tgen.gears["R3"])
-
-        # R1-R2 3
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R2"])
-
-        # R1-R3 2
-        switch = tgen.add_switch("s8")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R3"])
-
-        # R2-R3 2
-        switch = tgen.add_switch("s9")
-        switch.add_link(tgen.gears["R2"])
-        switch.add_link(tgen.gears["R3"])
+    # R2-R3 2
+    switch = tgen.add_switch("s9")
+    switch.add_link(tgen.gears["R2"])
+    switch.add_link(tgen.gears["R3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 

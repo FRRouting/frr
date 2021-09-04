@@ -26,10 +26,6 @@ import os
 import sys
 import time
 import pytest
-import json
-from time import sleep
-from copy import deepcopy
-import ipaddress
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,7 +33,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
@@ -46,26 +41,20 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
     step,
-    create_route_maps,
-    shutdown_bringup_interface,
     create_interfaces_cfg,
     topo_daemons,
-    scapy_send_raw_packet
+    scapy_send_raw_packet,
 )
 
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf_neighbor,
     clear_ospf,
     verify_ospf_gr_helper,
     create_router_ospf,
-    verify_ospf_interface,
-    verify_ospf_database,
 )
 
 # Global variables
@@ -75,14 +64,6 @@ sw_name = None
 intf = None
 intf1 = None
 pkt = None
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/ospf_gr_helper.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 """
 Topology:
@@ -118,21 +99,6 @@ TC8.    Verify helper functionality when dut is helping RR and new grace lsa
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -147,7 +113,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ospf_gr_helper.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -169,7 +138,7 @@ def setup_module(mod):
         ospf_covergence
     )
 
-    sw_name = topo["switches"].keys()[0]
+    sw_name = "s1"
     intf = topo["routers"]["r0"]["links"][sw_name]["interface"]
     intf1 = topo["routers"]["r1"]["links"][sw_name]["interface"]
     pkt = topo["routers"]["r1"]["opq_lsa_hex"]

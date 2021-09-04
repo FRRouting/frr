@@ -84,11 +84,9 @@ TC_30:
 
 import os
 import sys
-import json
 import time
 import pytest
 from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -97,15 +95,13 @@ sys.path.append(os.path.join("../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 # Import topoJson from lib, to create topology and initial configuration
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.bgp import (
     clear_bgp,
     verify_bgp_rib,
@@ -131,23 +127,13 @@ from lib.common_config import (
     check_address_types,
     write_test_footer,
     check_router_status,
-    shutdown_bringup_interface,
     step,
     get_frr_ipv6_linklocal,
-    create_route_maps,
     required_linux_kernel_version,
 )
 
 pytestmark = [pytest.mark.bgpd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/bgp_gr_topojson_topo2.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    logger.info("Could not read file:", jsonFile)
 
 # Global variables
 BGP_CONVERGENCE = False
@@ -157,28 +143,6 @@ GR_STALEPATH_TIMER = 5
 PREFERRED_NEXT_HOP = "link_local"
 NEXT_HOP_4 = ["192.168.1.1", "192.168.4.2"]
 NEXT_HOP_6 = ["fd00:0:0:1::1", "fd00:0:0:4::2"]
-
-
-class GenerateTopo(Topo):
-    """
-    Test topology builder
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # This function only purpose is to create topology
-        # as defined in input json file.
-        #
-        # Create topology (setup module)
-        # Creating 2 routers topology, r1, r2in IBGP
-        # Bring up topology
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -202,7 +166,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(GenerateTopo, mod.__name__)
+    json_file = "{}/bgp_gr_topojson_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -847,7 +814,11 @@ def test_BGP_GR_10_p2(request):
     configure_gr_followed_by_clear(tgen, topo, input_dict, tc_name, dut="r1", peer="r3")
 
     for addr_type in ADDR_TYPES:
-        step("Verifying GR config and operational state for addr_type {}".format(addr_type))
+        step(
+            "Verifying GR config and operational state for addr_type {}".format(
+                addr_type
+            )
+        )
 
         result = verify_graceful_restart(
             tgen, topo, addr_type, input_dict, dut="r1", peer="r3"
@@ -872,7 +843,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -880,7 +856,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -888,7 +869,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -896,7 +882,12 @@ def test_BGP_GR_10_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1677,7 +1668,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1685,7 +1681,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r1", peer="r3",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r1",
+            peer="r3",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1693,7 +1694,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv4Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv4Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result
@@ -1701,7 +1707,12 @@ def test_BGP_GR_26_p2(request):
 
         # verify multi address family
         result = verify_gr_address_family(
-            tgen, topo, addr_type, "ipv6Unicast", dut="r3", peer="r1",
+            tgen,
+            topo,
+            addr_type,
+            "ipv6Unicast",
+            dut="r3",
+            peer="r1",
         )
         assert result is True, "Testcase {} : Failed \n Error {}".format(
             tc_name, result

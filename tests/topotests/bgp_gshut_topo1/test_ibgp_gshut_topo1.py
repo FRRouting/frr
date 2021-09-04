@@ -31,7 +31,6 @@ Following tests are covered to test ecmp functionality on BGP GSHUT.
 import os
 import sys
 import time
-import json
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -42,49 +41,31 @@ sys.path.append(os.path.join(CWD, "../../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
-from time import sleep
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
     verify_rib,
-    create_static_routes,
     check_address_types,
-    interface_status,
     reset_config_on_routers,
     step,
     get_frr_ipv6_linklocal,
-    kill_router_daemons,
-    start_router_daemons,
-    stop_router,
-    start_router,
     create_route_maps,
     create_bgp_community_lists,
-    delete_route_maps,
     required_linux_kernel_version,
 )
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp,
     verify_bgp_rib,
     verify_bgp_attributes,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/ibgp_gshut_topo1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    logger.info("Could not read file:", jsonFile)
 
 # Global variables
 NETWORK = {"ipv4": "100.0.10.1/32", "ipv6": "1::1/128"}
@@ -92,28 +73,6 @@ NEXT_HOP_IP_1 = {"ipv4": "10.0.3.1", "ipv6": "fd00:0:0:3::1"}
 NEXT_HOP_IP_2 = {"ipv4": "10.0.4.1", "ipv6": "fd00:0:0:2::1"}
 PREFERRED_NEXT_HOP = "link_local"
 BGP_CONVERGENCE = False
-
-
-class GenerateTopo(Topo):
-    """
-    Test topology builder
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # This function only purpose is to create topology
-        # as defined in input json file.
-        #
-        # Create topology (setup module)
-        # Creating 2 routers topology, r1, r2in IBGP
-        # Bring up topology
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -137,7 +96,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(GenerateTopo, mod.__name__)
+    json_file = "{}/ibgp_gshut_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -351,7 +313,13 @@ def test_verify_graceful_shutdown_functionality_with_iBGP_peers_p0(request):
     step("local pref for routes coming from R1 is set to 0.")
 
     for addr_type in ADDR_TYPES:
-        rmap_dict = {"r1": {"route_maps": {"GSHUT-OUT": [{"set": {"locPrf": 0}}],}}}
+        rmap_dict = {
+            "r1": {
+                "route_maps": {
+                    "GSHUT-OUT": [{"set": {"locPrf": 0}}],
+                }
+            }
+        }
 
         static_routes = [NETWORK[addr_type]]
         result = verify_bgp_attributes(
@@ -537,7 +505,13 @@ def test_verify_deleting_re_adding_route_map_with_iBGP_peers_p0(request):
     step("local pref for routes coming from R1 is set to 0.")
 
     for addr_type in ADDR_TYPES:
-        rmap_dict = {"r1": {"route_maps": {"GSHUT-OUT": [{"set": {"locPrf": 0}}],}}}
+        rmap_dict = {
+            "r1": {
+                "route_maps": {
+                    "GSHUT-OUT": [{"set": {"locPrf": 0}}],
+                }
+            }
+        }
 
         static_routes = [NETWORK[addr_type]]
         result = verify_bgp_attributes(

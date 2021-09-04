@@ -67,7 +67,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 # Import topogen and topotest helpers
 from lib import topotest
@@ -80,38 +79,34 @@ import pytest
 pytestmark = [pytest.mark.ospfd]
 
 
-class OspfTeTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 4 routers
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 4 routers
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    # Interconect router 1 and 2 with 2 links
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        # Interconect router 1 and 2 with 2 links
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # Interconect router 3 and 2
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r2"])
 
-        # Interconect router 3 and 2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r2"])
+    # Interconect router 4 and 2
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["r2"])
 
-        # Interconect router 4 and 2
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["r2"])
-
-        # Interconnect router 3 with next AS
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r3"])
+    # Interconnect router 3 with next AS
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
@@ -119,7 +114,7 @@ def setup_module(mod):
 
     logger.info("\n\n---- Starting OSPF TE tests ----\n")
 
-    tgen = Topogen(OspfTeTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

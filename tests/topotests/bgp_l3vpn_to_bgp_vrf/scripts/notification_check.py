@@ -1,4 +1,4 @@
-from lib.lutil import luCommand
+from lib.lutil import luCommand, luLast
 
 rtrs = ["ce1", "ce2", "ce3", "r1", "r2", "r3", "r4"]
 for rtr in rtrs:

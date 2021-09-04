@@ -27,9 +27,6 @@ test_bgp_simple snmp.py: Test snmp infrastructure.
 
 import os
 import sys
-import json
-from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -38,42 +35,11 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
-
-
-class TemplateTopo(Topo):
-    "Test topology builder"
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        #
-        # Create routers
-        tgen.add_router("r1")
-
-        # r1-eth0
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-
-        # r1-eth1
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
-
-        # r1-eth2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
 
 
 def setup_module(mod):
@@ -84,7 +50,8 @@ def setup_module(mod):
         error_msg = "SNMP not installed - skipping"
         pytest.skip(error_msg)
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    topodef = {"s1": "r1", "s2": "r1", "s3": "r1"}
+    tgen = Topogen(topodef, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 
@@ -142,7 +109,7 @@ def test_r1_bgp_version():
         pytest.skip(tgen.errors)
 
     # tgen.mininet_cli()
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
     assert r1_snmp.test_oid("bgpVersin", None)
     assert r1_snmp.test_oid("bgpVersion", "10")

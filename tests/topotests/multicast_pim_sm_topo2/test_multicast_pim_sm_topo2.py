@@ -47,10 +47,7 @@ Following tests are covered:
 
 import os
 import sys
-import json
 import time
-import datetime
-from time import sleep
 import pytest
 
 pytestmark = pytest.mark.pimd
@@ -65,18 +62,13 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
     step,
-    iperfSendIGMPJoin,
-    addKernelRoute,
     reset_config_on_routers,
-    iperfSendTraffic,
-    kill_iperf,
     shutdown_bringup_interface,
     kill_router_daemons,
     start_router,
@@ -94,24 +86,15 @@ from lib.pim import (
     verify_upstream_iif,
     verify_pim_neighbors,
     verify_pim_state,
-    verify_ip_pim_join,
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
-    verify_igmp_config,
+    McastTesterHelper,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
+
 
 pytestmark = [pytest.mark.pimd]
-
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/multicast_pim_sm_topo2.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 TOPOLOGY = """
 
@@ -164,21 +147,6 @@ GROUP_RANGE_3 = [
 IGMP_JOIN_RANGE_3 = ["227.1.1.1", "227.1.1.2", "227.1.1.3", "227.1.1.4", "227.1.1.5"]
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -198,7 +166,10 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/multicast_pim_sm_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -215,6 +186,10 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
+    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -224,6 +199,8 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -239,46 +216,6 @@ def teardown_module():
 #   Testcases
 #
 #####################################################
-
-
-def config_to_send_igmp_join_and_traffic(
-    tgen, topo, tc_name, iperf, iperf_intf, GROUP_RANGE, join=False, traffic=False
-):
-    """
-    API to do pre-configuration to send IGMP join and multicast
-    traffic
-
-    parameters:
-    -----------
-    * `tgen`: topogen object
-    * `topo`: input json data
-    * `tc_name`: caller test case name
-    * `iperf`: router running iperf
-    * `iperf_intf`: interface name router running iperf
-    * `GROUP_RANGE`: group range
-    * `join`: IGMP join, default False
-    * `traffic`: multicast traffic, default False
-    """
-
-    if join:
-        # Add route to kernal
-        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    if traffic:
-        # Add route to kernal
-        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        router_list = tgen.routers()
-        for router in router_list.keys():
-            if router == iperf:
-                continue
-
-            rnode = router_list[router]
-            rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
-
-    return True
 
 
 def verify_state_incremented(state_before, state_after):
@@ -330,15 +267,15 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -386,7 +323,15 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2"}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -394,12 +339,7 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     input_join = {"i1": "i1-l1-eth0", "i8": "i8-f1-eth0"}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, _GROUP_RANGE, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, _IGMP_JOIN_RANGE, join_interval=1)
+        result = app_helper.run_join(recvr, _IGMP_JOIN_RANGE, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -414,12 +354,7 @@ def test_verify_mroute_and_traffic_when_pimd_restarted_p2(request):
     input_src = {"i2": "i2-f1-eth0", "i5": "i5-c2-eth0"}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, _GROUP_RANGE, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, _IGMP_JOIN_RANGE, 32, 2500)
+        result = app_helper.run_traffic(src, _IGMP_JOIN_RANGE, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     # Verifying mroutes before PIMd restart, fetching uptime
@@ -542,15 +477,15 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -598,7 +533,15 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2"}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -606,12 +549,7 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     input_join = {"i1": "i1-l1-eth0", "i8": "i8-f1-eth0"}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, _GROUP_RANGE, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, _IGMP_JOIN_RANGE, join_interval=1)
+        result = app_helper.run_join(recvr, _IGMP_JOIN_RANGE, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -626,12 +564,7 @@ def test_verify_mroute_and_traffic_when_frr_restarted_p2(request):
     input_src = {"i2": "i2-f1-eth0", "i5": "i5-c2-eth0"}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, _GROUP_RANGE, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, _IGMP_JOIN_RANGE, 32, 2500)
+        result = app_helper.run_traffic(src, _IGMP_JOIN_RANGE, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Verifying mroutes before FRR restart, fetching uptime")
@@ -753,15 +686,15 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) and " "(232.1.1.1-5) in c2")
 
@@ -791,20 +724,10 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         "(226.1.1.1-5) and (232.1.1.1-5)"
     )
 
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", _GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = iperfSendIGMPJoin(tgen, "i1", _IGMP_JOIN_RANGE, join_interval=1)
+    result = app_helper.run_join("i1", _IGMP_JOIN_RANGE, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to '226.1.1.1-5'" ", '232.1.1.1-5' receiver")
-
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", _GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("registerRx and registerStopTx value before traffic sent")
     state_dict = {"c2": {"c2-f1-eth1": ["registerRx", "registerStopTx"]}}
@@ -815,7 +738,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         tc_name, result
     )
 
-    result = iperfSendTraffic(tgen, "i2", _IGMP_JOIN_RANGE, 32, 2500)
+    result = app_helper.run_traffic("i2", _IGMP_JOIN_RANGE, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
@@ -868,7 +791,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
 
     step("Stop the traffic to all the receivers")
 
-    kill_iperf(tgen, "i2", "remove_traffic")
+    app_helper.stop_host("i2")
 
     step(
         "Null register packet being send periodically from FRR3 to RP, "
@@ -915,15 +838,15 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -971,7 +894,15 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2"}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -979,12 +910,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     input_join = {"i1": "i1-l1-eth0", "i8": "i8-f1-eth0"}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, _GROUP_RANGE, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, _IGMP_JOIN_RANGE, join_interval=1)
+        result = app_helper.run_join(recvr, _IGMP_JOIN_RANGE, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
@@ -999,12 +925,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     input_src = {"i2": "i2-f1-eth0", "i5": "i5-c2-eth0"}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, _GROUP_RANGE, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, _IGMP_JOIN_RANGE, 32, 2500)
+        result = app_helper.run_traffic(src, _IGMP_JOIN_RANGE, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
@@ -1131,21 +1052,10 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
     intf_l1_c1 = "l1-c1-eth0"
     shutdown_bringup_interface(tgen, dut, intf_l1_c1, False)
 
-    done_flag = False
-    for retry in range(1, 11):
-        result = verify_upstream_iif(
-            tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
-        )
-        if result is not True:
-            done_flag = True
-        else:
-            continue
-
-        if done_flag:
-            logger.info("Expected Behavior: {}".format(result))
-            break
-
-    assert done_flag is True, (
+    result = verify_upstream_iif(
+        tgen, "l1", "Unknown", source, IGMP_JOIN_RANGE_2, expected=False
+    )
+    assert result is not True, (
         "Testcase {} : Failed Error: \n "
         "mroutes are still present, after waiting for 10 mins".format(tc_name)
     )
@@ -1166,7 +1076,7 @@ def test_verify_mroute_after_shut_noshut_of_upstream_interface_p1(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("Stop the traffic to all the receivers")
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
 
     for data in input_dict:
         result = verify_ip_mroutes(
@@ -1198,15 +1108,15 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP on c1 for group range " "(226.1.1.1-5) and (232.1.1.1-5)")
 
@@ -1235,24 +1145,14 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
         "Enable IGMP on FRR1 interface and send IGMP join"
         " (226.1.1.1-5) and (232.1.1.1-5)"
     )
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", _GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = iperfSendIGMPJoin(tgen, "i1", _IGMP_JOIN_RANGE, join_interval=1)
+    result = app_helper.run_join("i1", _IGMP_JOIN_RANGE, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step(
         "Send multicast traffic from FRR3 to all the receivers "
         "(226.1.1.1-5) and (232.1.1.1-5)"
     )
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", _GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = iperfSendTraffic(tgen, "i2", _IGMP_JOIN_RANGE, 32, 2500)
+    result = app_helper.run_traffic("i2", _IGMP_JOIN_RANGE, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
@@ -1260,17 +1160,20 @@ def test_verify_mroute_when_receiver_is_outside_frr_p0(request):
         " join (226.1.1.1-5) and (232.1.1.1-5)"
     )
     input_dict = {
-        "c2": {"igmp": {"interfaces": {"c2-i5-eth2": {"igmp": {"version": "2"}}}}}
+        "c2": {
+            "igmp": {
+                "interfaces": {
+                    "c2-i5-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i5", "i5-c2-eth0", _GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = iperfSendIGMPJoin(tgen, "i5", _IGMP_JOIN_RANGE, join_interval=1)
+    result = app_helper.run_join("i5", _IGMP_JOIN_RANGE, "c2")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("FRR1 has 10 (*.G) and 10 (S,G) verify using 'show ip mroute count'")
@@ -1338,15 +1241,15 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for group range (226.1.1.1-5) and " "(232.1.1.1-5) on c1")
     _GROUP_RANGE = GROUP_RANGE_2 + GROUP_RANGE_3
@@ -1383,22 +1286,12 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         "(226.1.1.1-5) and (232.1.1.1-5)"
     )
 
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i1", "i1-l1-eth0", _GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i2", "i2-f1-eth0", _GROUP_RANGE, traffic=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
     step("Send IGMP join (226.1.1.1-5, 232.1.1.1-5) to LHR(l1)")
-    result = iperfSendIGMPJoin(tgen, "i1", _IGMP_JOIN_RANGE, join_interval=1)
+    result = app_helper.run_join("i1", _IGMP_JOIN_RANGE, "l1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Send multicast traffic from FRR3 to '226.1.1.1-5'" ", '232.1.1.1-5' receiver")
-    result = iperfSendTraffic(tgen, "i2", _IGMP_JOIN_RANGE, 32, 2500)
+    result = app_helper.run_traffic("i2", _IGMP_JOIN_RANGE, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(
@@ -1408,17 +1301,20 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
 
     step("Configure one IGMP interface on f1 node and send IGMP" " join (225.1.1.1)")
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2"}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-    result = config_to_send_igmp_join_and_traffic(
-        tgen, topo, tc_name, "i8", "i8-f1-eth0", _GROUP_RANGE, join=True
-    )
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    result = iperfSendIGMPJoin(tgen, "i8", _IGMP_JOIN_RANGE, join_interval=1)
+    result = app_helper.run_join("i8", _IGMP_JOIN_RANGE, "f1")
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
     step(
         "l1 and f1 has 10 IGMP groups (226.1.1.1-5, 232.1.1.1-5),"
@@ -1473,7 +1369,7 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
 
     # Stop the multicast traffic
     step("Stop the traffic to all the receivers")
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
 
     step(
         "After traffic stopped , verify (*,G) entries are not flushed"
@@ -1484,31 +1380,18 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         {"dut": "f1", "src_address": "*", "iif": "f1-c2-eth0", "oil": "f1-i8-eth2"},
         {"dut": "l1", "src_address": "*", "iif": "l1-c1-eth0", "oil": "l1-i1-eth1"},
     ]
-
-    done_flag = False
-    for retry in range(1, 11):
-        for data in input_dict:
-            result = verify_ip_mroutes(
-                tgen,
-                data["dut"],
-                data["src_address"],
-                _IGMP_JOIN_RANGE,
-                data["iif"],
-                data["oil"],
-            )
-
-            if result is True:
-                done_flag = True
-            else:
-                continue
-
-        if done_flag:
-            break
-
-    assert done_flag is True, (
-        "Testcase {} : Failed Error: \n "
-        "mroutes are still present, after waiting for 10 mins".format(tc_name)
-    )
+    for data in input_dict:
+        result = verify_ip_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            _IGMP_JOIN_RANGE,
+            data["iif"],
+            data["oil"],
+        )
+        assert (
+            result is True
+        ), "Testcase {} : Failed Error mroutes were flushed.".format(tc_name)
 
     step(
         "After traffic stopped , verify (S,G) entries are flushed out"
@@ -1520,31 +1403,19 @@ def test_verify_mroute_when_FRR_is_FHR_and_LHR_p0(request):
         {"dut": "f1", "src_address": source, "iif": "i2-f1-eth0", "oil": "f1-r2-eth3"},
     ]
 
-    done_flag = False
-    for retry in range(1, 11):
-        for data in input_dict:
-            result = verify_ip_mroutes(
-                tgen,
-                data["dut"],
-                data["src_address"],
-                _IGMP_JOIN_RANGE,
-                data["iif"],
-                data["oil"],
-                expected=False,
-            )
-            if result is not True:
-                done_flag = True
-            else:
-                continue
-
-        if done_flag:
-            logger.info("Expected Behavior: {}".format(result))
-            break
-
-    assert done_flag is True, (
-        "Testcase {} : Failed Error: \n "
-        "mroutes are still present, after waiting for 10 mins".format(tc_name)
-    )
+    for data in input_dict:
+        result = verify_ip_mroutes(
+            tgen,
+            data["dut"],
+            data["src_address"],
+            _IGMP_JOIN_RANGE,
+            data["iif"],
+            data["oil"],
+            expected=False,
+        )
+        assert (
+            result is not True
+        ), "Testcase {} : Failed Error: \nmroutes are still present".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1559,15 +1430,15 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -1622,12 +1493,24 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
         "f1": {
             "igmp": {
                 "interfaces": {
-                    "f1-i8-eth2": {"igmp": {"version": "2"}},
-                    "f1-i2-eth1": {"igmp": {"version": "2"}},
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    },
+                    "f1-i2-eth1": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    },
                 }
             }
         },
-        "l1": {"igmp": {"interfaces": {"l1-i6-eth2": {"igmp": {"version": "2"}}}}},
+        "l1": {
+            "igmp": {
+                "interfaces": {
+                    "l1-i6-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        },
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1640,13 +1523,9 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
     }
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, _GROUP_RANGE, join=True
-        )
+        result = app_helper.run_join(recvr, _IGMP_JOIN_RANGE, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
-        result = iperfSendIGMPJoin(tgen, recvr, _IGMP_JOIN_RANGE, join_interval=1)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
     step("Configure one source in FRR2 , one in c1")
     step(
         "Send multicast traffic from both the sources to all the"
@@ -1656,12 +1535,7 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
     input_src = {"i3": "i3-r2-eth0"}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, _GROUP_RANGE, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, _IGMP_JOIN_RANGE, 32, 2500)
+        result = app_helper.run_traffic(src, _IGMP_JOIN_RANGE, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
     step(
         "After all the IGMP groups received with correct port using"
@@ -1690,8 +1564,12 @@ def test_verify_mroute_when_5_different_receiver_joining_same_sources_p0(request
 
     source = topo["routers"]["i3"]["links"]["r2"]["ipv4"].split("/")[0]
     input_dict_all = [
-        {"dut": "l1", "src_address": source, "iif": ["l1-r2-eth4", "l1-c1-eth0"],
-            "oil": ["l1-i1-eth1", "l1-i6-eth2"]},
+        {
+            "dut": "l1",
+            "src_address": source,
+            "iif": ["l1-r2-eth4", "l1-c1-eth0"],
+            "oil": ["l1-i1-eth1", "l1-i6-eth2"],
+        },
         {"dut": "f1", "src_address": source, "iif": "f1-r2-eth3", "oil": "f1-i8-eth2"},
     ]
     for data in input_dict_all:
@@ -1790,15 +1668,15 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Creating configuration from JSON
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    # Creating configuration from JSON
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     step("Configure static RP for (226.1.1.1-5) in c1")
     step("Configure static RP for (232.1.1.1-5) in c2")
@@ -1842,7 +1720,15 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
     )
 
     input_dict = {
-        "f1": {"igmp": {"interfaces": {"f1-i8-eth2": {"igmp": {"version": "2"}}}}}
+        "f1": {
+            "igmp": {
+                "interfaces": {
+                    "f1-i8-eth2": {
+                        "igmp": {"version": "2", "query": {"query-interval": 15}}
+                    }
+                }
+            }
+        }
     }
     result = create_igmp_config(tgen, topo, input_dict)
     assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
@@ -1850,12 +1736,7 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
     input_join = {"i1": "i1-l1-eth0", "i8": "i8-f1-eth0"}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, _GROUP_RANGE, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, _IGMP_JOIN_RANGE, join_interval=1)
+        result = app_helper.run_join(recvr, _IGMP_JOIN_RANGE, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure 1 source in FRR1 , 1 in FRR3")
@@ -1867,12 +1748,7 @@ def test_verify_oil_iif_for_mroute_after_shut_noshut_source_interface_p1(request
     input_src = {"i6": "i6-l1-eth0", "i2": "i2-f1-eth0"}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, _GROUP_RANGE, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, _IGMP_JOIN_RANGE, 32, 2500)
+        result = app_helper.run_traffic(src, _IGMP_JOIN_RANGE, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step(

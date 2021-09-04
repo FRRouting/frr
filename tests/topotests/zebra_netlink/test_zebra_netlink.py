@@ -26,11 +26,9 @@ test_zebra_netlink.py: Test some basic interactions with kernel using Netlink
 """
 
 import os
-import re
 import sys
 import pytest
 import json
-import platform
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -42,33 +40,9 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from lib.common_config import shutdown_bringup_interface
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.sharpd]
-
-
-#####################################################
-##
-##   Network Topology Definition
-##
-#####################################################
-
-
-class ZebraTopo(Topo):
-    "Test topology builder"
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        tgen.add_router("r1")
-
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
 
 
 #####################################################
@@ -80,7 +54,9 @@ class ZebraTopo(Topo):
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(ZebraTopo, mod.__name__)
+
+    topodef = {"s1": ("r1")}
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

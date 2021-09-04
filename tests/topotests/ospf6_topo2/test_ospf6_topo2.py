@@ -42,7 +42,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospf6d]
 
@@ -84,10 +83,7 @@ def expect_ospfv3_routes(router, routes, wait=5, detail=False):
 
     logger.info("waiting OSPFv3 router '{}' route".format(router))
     test_func = partial(
-        topotest.router_json_cmp,
-        tgen.gears[router],
-        cmd,
-        {"routes": routes}
+        topotest.router_json_cmp, tgen.gears[router], cmd, {"routes": routes}
     )
     _, result = topotest.run_and_expect(test_func, None, count=wait, wait=1)
     assertmsg = '"{}" convergence failure'.format(router)
@@ -95,33 +91,29 @@ def expect_ospfv3_routes(router, routes, wait=5, detail=False):
     assert result is None, assertmsg
 
 
-class OSPFv3Topo2(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 4 routers
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 4 routers
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r4"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFv3Topo2, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -259,11 +251,13 @@ def test_redistribute_metrics():
 
     route = {
         "2001:db8:500::/64": {
-            "metricType":2, 
-            "metricCost":10,
+            "metricType": 2,
+            "metricCost": 10,
         }
     }
-    logger.info("Expecting AS-external route 2001:db8:500::/64 to show up with default metrics")
+    logger.info(
+        "Expecting AS-external route 2001:db8:500::/64 to show up with default metrics"
+    )
     expect_ospfv3_routes("r2", route, wait=30, detail=True)
 
     # Change the metric of redistributed routes of the static type on r3.
@@ -277,13 +271,14 @@ def test_redistribute_metrics():
     # Check if r3 reinstalled 2001:db8:500::/64 using the new metric type and value.
     route = {
         "2001:db8:500::/64": {
-            "metricType":1, 
-            "metricCost":60,
+            "metricType": 1,
+            "metricCost": 60,
         }
     }
-    logger.info("Expecting AS-external route 2001:db8:500::/64 to show up with updated metric type and value")
+    logger.info(
+        "Expecting AS-external route 2001:db8:500::/64 to show up with updated metric type and value"
+    )
     expect_ospfv3_routes("r2", route, wait=30, detail=True)
-
 
 
 def test_nssa_lsa_type7():
@@ -315,9 +310,7 @@ def test_nssa_lsa_type7():
     route = {
         "2001:db8:100::/64": {
             "pathType": "E1",
-            "nextHops": [
-                {"nextHop": "::", "interfaceName": "r4-eth0"}
-            ]
+            "nextHops": [{"nextHop": "::", "interfaceName": "r4-eth0"}],
         }
     }
 
@@ -336,8 +329,10 @@ def test_nssa_lsa_type7():
 
     def dont_expect_lsa(unexpected_lsa):
         "Specialized test function to expect LSA go missing"
-        output = tgen.gears["r4"].vtysh_cmd("show ipv6 ospf6 database type-7 detail json", isjson=True)
-        for lsa in output['areaScopedLinkStateDb'][0]['lsa']:
+        output = tgen.gears["r4"].vtysh_cmd(
+            "show ipv6 ospf6 database type-7 detail json", isjson=True
+        )
+        for lsa in output["areaScopedLinkStateDb"][0]["lsa"]:
             if lsa["prefix"] == unexpected_lsa["prefix"]:
                 if lsa["forwardingAddress"] == unexpected_lsa["forwardingAddress"]:
                     return lsa
@@ -346,10 +341,9 @@ def test_nssa_lsa_type7():
     def dont_expect_route(unexpected_route):
         "Specialized test function to expect route go missing"
         output = tgen.gears["r4"].vtysh_cmd("show ipv6 ospf6 route json", isjson=True)
-        if output["routes"].has_key(unexpected_route):
+        if unexpected_route in output["routes"]:
             return output["routes"][unexpected_route]
         return None
-
 
     logger.info("Expecting LSA type-7 and OSPFv3 route 2001:db8:100::/64 to go away")
 

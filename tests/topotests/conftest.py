@@ -6,15 +6,23 @@ import glob
 import os
 import pdb
 import re
-import pytest
+import sys
+import time
 
-from lib.topogen import get_topogen, diagnose_env
-from lib.topotest import json_cmp_result
-from lib.topotest import g_extra_config as topotest_extra_config
+import pytest
+import lib.fixtures
+from lib import topolog
+from lib.micronet import Commander
+from lib.micronet_cli import cli
+from lib.micronet_compat import Mininet, cleanup_current, cleanup_previous
+from lib.topogen import diagnose_env, get_topogen
 from lib.topolog import logger
+from lib.topotest import g_extra_config as topotest_extra_config
+from lib.topotest import json_cmp_result
 
 try:
     from _pytest._code.code import ExceptionInfo
+
     leak_check_ok = True
 except ImportError:
     leak_check_ok = False
@@ -29,6 +37,12 @@ def pytest_addoption(parser):
         "--asan-abort",
         action="store_true",
         help="Configure address sanitizer to abort process on error",
+    )
+
+    parser.addoption(
+        "--cli-on-error",
+        action="store_true",
+        help="Mininet cli on test failure",
     )
 
     parser.addoption(
@@ -50,16 +64,27 @@ def pytest_addoption(parser):
     )
 
     parser.addoption(
-        "--mininet-on-error",
-        action="store_true",
-        help="Mininet cli on test failure",
-    )
-
-    parser.addoption(
-        "--pause-after",
+        "--pause",
         action="store_true",
         help="Pause after each test",
     )
+
+    parser.addoption(
+        "--pause-on-error",
+        action="store_true",
+        help="Do not pause after (disables default when --shell or -vtysh given)",
+    )
+
+    parser.addoption(
+        "--no-pause-on-error",
+        dest="pause_on_error",
+        action="store_false",
+        help="Do not pause after (disables default when --shell or -vtysh given)",
+    )
+
+    rundir_help = "directory for running in and log files"
+    parser.addini("rundir", rundir_help, default="/tmp/topotests")
+    parser.addoption("--rundir", metavar="DIR", help=rundir_help)
 
     parser.addoption(
         "--shell",
@@ -120,7 +145,7 @@ def check_for_memleaks():
     latest = []
     existing = []
     if tgen is not None:
-        logdir = "/tmp/topotests/{}".format(tgen.modname)
+        logdir = tgen.logdir
         if hasattr(tgen, "valgrind_existing_files"):
             existing = tgen.valgrind_existing_files
         latest = glob.glob(os.path.join(logdir, "*.valgrind.*"))
@@ -132,7 +157,7 @@ def check_for_memleaks():
             vfcontent = vf.read()
             match = re.search(r"ERROR SUMMARY: (\d+) errors", vfcontent)
             if match and match.group(1) != "0":
-                emsg = '{} in {}'.format(match.group(1), vfile)
+                emsg = "{} in {}".format(match.group(1), vfile)
                 leaks.append(emsg)
 
     if leaks:
@@ -140,6 +165,16 @@ def check_for_memleaks():
             pytest.fail("Memleaks found:\n\t" + "\n\t".join(leaks))
         else:
             logger.error("Memleaks found:\n\t" + "\n\t".join(leaks))
+
+
+def pytest_runtest_logstart(nodeid, location):
+    # location is (filename, lineno, testname)
+    topolog.logstart(nodeid, location, topotest_extra_config["rundir"])
+
+
+def pytest_runtest_logfinish(nodeid, location):
+    # location is (filename, lineno, testname)
+    topolog.logfinish(nodeid, location)
 
 
 def pytest_runtest_call():
@@ -151,7 +186,7 @@ def pytest_runtest_call():
         tgen = get_topogen()
         if tgen is not None:
             # Allow user to play with the setup.
-            tgen.mininet_cli()
+            tgen.cli()
 
         pytest.exit("the topology executed successfully")
 
@@ -176,8 +211,55 @@ def pytest_configure(config):
     Assert that the environment is correctly configured, and get extra config.
     """
 
-    if not diagnose_env():
-        pytest.exit("environment has errors, please read the logs")
+    if "PYTEST_XDIST_WORKER" not in os.environ:
+        os.environ["PYTEST_XDIST_MODE"] = config.getoption("dist", "no")
+        os.environ["PYTEST_TOPOTEST_WORKER"] = ""
+        is_xdist = os.environ["PYTEST_XDIST_MODE"] != "no"
+        is_worker = False
+    else:
+        os.environ["PYTEST_TOPOTEST_WORKER"] = os.environ["PYTEST_XDIST_WORKER"]
+        is_xdist = True
+        is_worker = True
+
+    # -----------------------------------------------------
+    # Set some defaults for the pytest.ini [pytest] section
+    # ---------------------------------------------------
+
+    rundir = config.getoption("--rundir")
+    if not rundir:
+        rundir = config.getini("rundir")
+    if not rundir:
+        rundir = "/tmp/topotests"
+    if not config.getoption("--junitxml"):
+        config.option.xmlpath = os.path.join(rundir, "topotests.xml")
+    xmlpath = config.option.xmlpath
+
+    # Save an existing topotest.xml
+    if os.path.exists(xmlpath):
+        fmtime = time.localtime(os.path.getmtime(xmlpath))
+        suffix = "-" + time.strftime("%Y%m%d%H%M%S", fmtime)
+        commander = Commander("pytest")
+        mv_path = commander.get_exec_path("mv")
+        commander.cmd_status([mv_path, xmlpath, xmlpath + suffix])
+
+    topotest_extra_config["rundir"] = rundir
+
+    # Set the log_file (exec) to inside the rundir if not specified
+    if not config.getoption("--log-file") and not config.getini("log_file"):
+        config.option.log_file = os.path.join(rundir, "exec.log")
+
+    # Turn on live logging if user specified verbose and the config has a CLI level set
+    if config.getoption("--verbose") and not is_xdist and not config.getini("log_cli"):
+        if config.getoption("--log-cli-level", None) is None:
+            # By setting the CLI option to the ini value it enables log_cli=1
+            cli_level = config.getini("log_cli_level")
+            if cli_level is not None:
+                config.option.log_cli_level = cli_level
+    # ---------------------------------------
+    # Record our options in global dictionary
+    # ---------------------------------------
+
+    topotest_extra_config["rundir"] = rundir
 
     asan_abort = config.getoption("--asan-abort")
     topotest_extra_config["asan_abort"] = asan_abort
@@ -194,16 +276,14 @@ def pytest_configure(config):
     gdb_breakpoints = gdb_breakpoints.split(",") if gdb_breakpoints else []
     topotest_extra_config["gdb_breakpoints"] = gdb_breakpoints
 
-    mincli_on_error = config.getoption("--mininet-on-error")
-    topotest_extra_config["mininet_on_error"] = mincli_on_error
+    cli_on_error = config.getoption("--cli-on-error")
+    topotest_extra_config["cli_on_error"] = cli_on_error
 
     shell = config.getoption("--shell")
     topotest_extra_config["shell"] = shell.split(",") if shell else []
 
     strace = config.getoption("--strace-daemons")
     topotest_extra_config["strace_daemons"] = strace.split(",") if strace else []
-
-    pause_after = config.getoption("--pause-after")
 
     shell_on_error = config.getoption("--shell-on-error")
     topotest_extra_config["shell_on_error"] = shell_on_error
@@ -217,9 +297,36 @@ def pytest_configure(config):
     vtysh_on_error = config.getoption("--vtysh-on-error")
     topotest_extra_config["vtysh_on_error"] = vtysh_on_error
 
-    topotest_extra_config["pause_after"] = pause_after or shell or vtysh
+    pause_on_error = vtysh or shell or config.getoption("--pause-on-error")
+    if config.getoption("--no-pause-on-error"):
+        pause_on_error = False
+
+    topotest_extra_config["pause_on_error"] = pause_on_error
+    topotest_extra_config["pause"] = config.getoption("--pause")
 
     topotest_extra_config["topology_only"] = config.getoption("--topology-only")
+
+    # Check environment now that we have config
+    if not diagnose_env(rundir):
+        pytest.exit("environment has errors, please read the logs")
+
+
+@pytest.fixture(autouse=True, scope="session")
+def setup_session_auto():
+    if "PYTEST_TOPOTEST_WORKER" not in os.environ:
+        is_worker = False
+    elif not os.environ["PYTEST_TOPOTEST_WORKER"]:
+        is_worker = False
+    else:
+        is_worker = True
+
+    logger.debug("Before the run (is_worker: %s)", is_worker)
+    if not is_worker:
+        cleanup_previous()
+    yield
+    if not is_worker:
+        cleanup_current()
+    logger.debug("After the run (is_worker: %s)", is_worker)
 
 
 def pytest_runtest_makereport(item, call):
@@ -227,7 +334,7 @@ def pytest_runtest_makereport(item, call):
 
     # Nothing happened
     if call.when == "call":
-        pause = topotest_extra_config["pause_after"]
+        pause = topotest_extra_config["pause"]
     else:
         pause = False
 
@@ -236,6 +343,8 @@ def pytest_runtest_makereport(item, call):
             check_for_memleaks()
         except:
             call.excinfo = ExceptionInfo()
+
+    title = "unset"
 
     if call.excinfo is None:
         error = False
@@ -261,11 +370,15 @@ def pytest_runtest_makereport(item, call):
                     modname, item.name, call.excinfo.value
                 )
             )
+            title = "{}/{}".format(modname, item.name)
 
             # We want to pause, if requested, on any error not just test cases
             # (e.g., call.when == "setup")
             if not pause:
-                pause = topotest_extra_config["pause_after"]
+                pause = (
+                    topotest_extra_config["pause_on_error"]
+                    or topotest_extra_config["pause"]
+                )
 
             # (topogen) Set topology error to avoid advancing in the test.
             tgen = get_topogen()
@@ -273,23 +386,77 @@ def pytest_runtest_makereport(item, call):
                 # This will cause topogen to report error on `routers_have_failure`.
                 tgen.set_error("{}/{}".format(modname, item.name))
 
-    if error and topotest_extra_config["shell_on_error"]:
-        for router in tgen.routers():
-            pause = True
-            tgen.net[router].runInWindow(os.getenv("SHELL", "bash"))
+    commander = Commander("pytest")
+    isatty = sys.stdout.isatty()
+    error_cmd = None
 
     if error and topotest_extra_config["vtysh_on_error"]:
-        for router in tgen.routers():
+        error_cmd = commander.get_exec_path(["vtysh"])
+    elif error and topotest_extra_config["shell_on_error"]:
+        error_cmd = os.getenv("SHELL", commander.get_exec_path(["bash"]))
+
+    if error_cmd:
+        # Really would like something better than using this global here.
+        # Not all tests use topogen though so get_topogen() won't work.
+        win_info = None
+        wait_for_channels = []
+        for node in Mininet.g_mnet_inst.hosts.values():
             pause = True
-            tgen.net[router].runInWindow("vtysh")
 
-    if error and topotest_extra_config["mininet_on_error"]:
-        tgen.mininet_cli()
+            channel = (
+                "{}-{}".format(os.getpid(), Commander.tmux_wait_gen)
+                if not isatty
+                else None
+            )
+            Commander.tmux_wait_gen += 1
+            wait_for_channels.append(channel)
 
-    if pause:
+            pane_info = node.run_in_window(
+                error_cmd,
+                new_window=win_info is None,
+                background=True,
+                title="{} ({})".format(title, node.name),
+                name=title,
+                tmux_target=win_info,
+                wait_for=channel,
+            )
+            if win_info is None:
+                win_info = pane_info
+
+        # Now wait on any channels
+        for channel in wait_for_channels:
+            logger.debug("Waiting on TMUX channel %s", channel)
+            commander.cmd_raises([commander.get_exec_path("tmux"), "wait", channel])
+
+    if error and topotest_extra_config["cli_on_error"]:
+        # Really would like something better than using this global here.
+        # Not all tests use topogen though so get_topogen() won't work.
+        if Mininet.g_mnet_inst:
+            cli(Mininet.g_mnet_inst, title=title, background=False)
+        else:
+            logger.error("Could not launch CLI b/c no mininet exists yet")
+
+    while pause and isatty:
         try:
-            user = raw_input('Testing paused, "pdb" to debug, "Enter" to continue: ')
+            user = raw_input(
+                'PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: '
+            )
         except NameError:
-            user = input('Testing paused, "pdb" to debug, "Enter" to continue: ')
-        if user.strip() == "pdb":
+            user = input('PAUSED, "cli" for CLI, "pdb" to debug, "Enter" to continue: ')
+        user = user.strip()
+
+        if user == "cli":
+            cli(Mininet.g_mnet_inst)
+        elif user == "pdb":
             pdb.set_trace()
+        elif user:
+            print('Unrecognized input: "%s"' % user)
+        else:
+            break
+
+
+#
+# Add common fixtures available to all tests as parameters
+#
+tgen = pytest.fixture(lib.fixtures.tgen)
+topo = pytest.fixture(lib.fixtures.topo)

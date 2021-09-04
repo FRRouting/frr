@@ -93,16 +93,6 @@ def test_check_linux_mpls():
     ltemplateTest("scripts/check_linux_mpls.py", False, CliOnFail, CheckFunc)
 
 
-def test_notification_check():
-    CliOnFail = None
-    # For debugging, uncomment the next line
-    # CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = "ltemplateVersionCheck('4.1', iproute2='4.9')"
-    # uncomment next line to start cli *before* script is run
-    # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'
-    ltemplateTest("scripts/notification_check.py", False, CliOnFail, CheckFunc)
-
-
 def test_check_scale_up():
     CliOnFail = None
     # For debugging, uncomment the next line
@@ -113,16 +103,6 @@ def test_check_scale_up():
     ltemplateTest("scripts/scale_up.py", False, CliOnFail, CheckFunc)
 
 
-def test_notification_check():
-    CliOnFail = None
-    # For debugging, uncomment the next line
-    # CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = "ltemplateVersionCheck('4.1', iproute2='4.9')"
-    # uncomment next line to start cli *before* script is run
-    # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'
-    ltemplateTest("scripts/notification_check.py", False, CliOnFail, CheckFunc)
-
-
 def test_check_scale_down():
     CliOnFail = None
     # For debugging, uncomment the next line
@@ -131,16 +111,6 @@ def test_check_scale_down():
     # uncomment next line to start cli *before* script is run
     # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'
     ltemplateTest("scripts/scale_down.py", False, CliOnFail, CheckFunc)
-
-
-def test_notification_check():
-    CliOnFail = None
-    # For debugging, uncomment the next line
-    # CliOnFail = 'tgen.mininet_cli'
-    CheckFunc = "ltemplateVersionCheck('4.1', iproute2='4.9')"
-    # uncomment next line to start cli *before* script is run
-    # CheckFunc = 'ltemplateVersionCheck(\'4.1\', cli=True, iproute2=\'4.9\')'
-    ltemplateTest("scripts/notification_check.py", False, CliOnFail, CheckFunc)
 
 
 def SKIP_test_cleanup_all():

@@ -46,7 +46,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 #####################################################
 ##
@@ -55,36 +54,29 @@ from mininet.topo import Topo
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "EIGRP Topology 1"
+def build_topo(tgen):
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-    def build(self, **_opts):
-        "Build function"
+    # On main router
+    # First switch is for a dummy interface (for local network)
+    switch = tgen.add_switch("sw1")
+    switch.add_link(tgen.gears["r1"])
 
-        tgen = get_topogen(self)
+    # Switches for EIGRP
+    # switch 2 switch is for connection to EIGRP router
+    switch = tgen.add_switch("sw2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    # switch 4 is stub on remote EIGRP router
+    switch = tgen.add_switch("sw4")
+    switch.add_link(tgen.gears["r3"])
 
-        # On main router
-        # First switch is for a dummy interface (for local network)
-        switch = tgen.add_switch("sw1")
-        switch.add_link(tgen.gears["r1"])
-
-        # Switches for EIGRP
-        # switch 2 switch is for connection to EIGRP router
-        switch = tgen.add_switch("sw2")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        # switch 4 is stub on remote EIGRP router
-        switch = tgen.add_switch("sw4")
-        switch.add_link(tgen.gears["r3"])
-
-        # switch 3 is between EIGRP routers
-        switch = tgen.add_switch("sw3")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    # switch 3 is between EIGRP routers
+    switch = tgen.add_switch("sw3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 #####################################################
@@ -96,7 +88,7 @@ class NetworkTopo(Topo):
 
 def setup_module(module):
     "Setup topology"
-    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     # This is a sample of configuration loading.

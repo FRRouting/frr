@@ -28,8 +28,6 @@
 
 import os
 import sys
-import json
-from functools import partial
 import pytest
 import platform
 
@@ -44,35 +42,31 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
-class BGPEVPNTopo(Topo):
-    "Test topology builder"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        tgen.add_router("r1")
-        tgen.add_router("r2")
+    tgen.add_router("r1")
+    tgen.add_router("r2")
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
 
-    tgen = Topogen(BGPEVPNTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -97,12 +91,6 @@ def setup_module(mod):
         "ip link set dev loop101 master {}-vrf-101",
         "ip link set dev loop101 up",
     ]
-    cmds_netns = [
-        "ip netns add {}-vrf-101",
-        "ip link add loop101 type dummy",
-        "ip link set dev loop101 netns {}-vrf-101",
-        "ip netns exec {}-vrf-101 ip link set dev loop101 up",
-    ]
 
     cmds_r2 = [  # config routing 101
         "ip link add name bridge-101 up type bridge stp_state 0",
@@ -113,40 +101,47 @@ def setup_module(mod):
         "ip link set vxlan-101 up type bridge_slave learning off flood off mcast_flood off",
     ]
 
-    cmds_r1_netns_method3 = [
-        "ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21",
-        "ip link set dev vxlan-{1} netns {0}-vrf-{1}",
-        "ip netns exec {0}-vrf-{1} ip li set dev lo up",
-        "ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0",
-        "ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}",
-        "ip netns exec {0}-vrf-{1} ip link set bridge-{1} up",
-        "ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up",
-    ]
+    # cmds_r1_netns_method3 = [
+    #     "ip link add name vxlan-{1} type vxlan id {1} dstport 4789 dev {0}-eth0 local 192.168.100.21",
+    #     "ip link set dev vxlan-{1} netns {0}-vrf-{1}",
+    #     "ip netns exec {0}-vrf-{1} ip li set dev lo up",
+    #     "ip netns exec {0}-vrf-{1} ip link add name bridge-{1} up type bridge stp_state 0",
+    #     "ip netns exec {0}-vrf-{1} ip link set dev vxlan-{1} master bridge-{1}",
+    #     "ip netns exec {0}-vrf-{1} ip link set bridge-{1} up",
+    #     "ip netns exec {0}-vrf-{1} ip link set vxlan-{1} up",
+    # ]
 
     router = tgen.gears["r1"]
-    for cmd in cmds_netns:
-        logger.info("cmd to r1: " + cmd)
-        output = router.run(cmd.format("r1"))
-        logger.info("result: " + output)
+
+    ns = "r1-vrf-101"
+    tgen.net["r1"].add_netns(ns)
+    tgen.net["r1"].cmd_raises("ip link add loop101 type dummy")
+    tgen.net["r1"].set_intf_netns("loop101", ns, up=True)
 
     router = tgen.gears["r2"]
     for cmd in cmds_vrflite:
         logger.info("cmd to r2: " + cmd.format("r2"))
-        output = router.run(cmd.format("r2"))
+        output = router.cmd_raises(cmd.format("r2"))
         logger.info("result: " + output)
 
     for cmd in cmds_r2:
         logger.info("cmd to r2: " + cmd.format("r2"))
-        output = router.run(cmd.format("r2"))
+        output = router.cmd_raises(cmd.format("r2"))
         logger.info("result: " + output)
 
-    router = tgen.gears["r1"]
-    bridge_id = "101"
-    for cmd in cmds_r1_netns_method3:
-        logger.info("cmd to r1: " + cmd.format("r1", bridge_id))
-        output = router.run(cmd.format("r1", bridge_id))
-        logger.info("result: " + output)
-    router = tgen.gears["r1"]
+    tgen.net["r1"].cmd_raises(
+        "ip link add name vxlan-101 type vxlan id 101 dstport 4789 dev r1-eth0 local 192.168.100.21"
+    )
+    tgen.net["r1"].set_intf_netns("vxlan-101", "r1-vrf-101", up=True)
+    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set lo up")
+    tgen.net["r1"].cmd_raises(
+        "ip -n r1-vrf-101 link add name bridge-101 up type bridge stp_state 0"
+    )
+    tgen.net["r1"].cmd_raises(
+        "ip -n r1-vrf-101 link set dev vxlan-101 master bridge-101"
+    )
+    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set bridge-101 up")
+    tgen.net["r1"].cmd_raises("ip -n r1-vrf-101 link set vxlan-101 up")
 
     for rname, router in router_list.items():
         if rname == "r1":
@@ -170,12 +165,8 @@ def setup_module(mod):
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
-    cmds_rx_netns = ["ip netns del {}-vrf-101"]
 
-    router = tgen.gears["r1"]
-    for cmd in cmds_rx_netns:
-        logger.info("cmd to r1: " + cmd.format("r1"))
-        output = router.run(cmd.format("r1"))
+    tgen.net["r1"].delete_netns("r1-vrf-101")
     tgen.stop_topology()
 
 

@@ -45,26 +45,25 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.staticd]
 
-class TimingTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+
+def build_topo(tgen):
+    tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TimingTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname)),
+            TopoRouter.RD_ZEBRA,
+            os.path.join(CWD, "{}/zebra.conf".format(rname)),
         )
         router.load_config(
             TopoRouter.RD_STATIC, os.path.join(CWD, "{}/staticd.conf".format(rname))
@@ -77,6 +76,7 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+
 def get_ip_networks(super_prefix, count):
     count_log2 = math.log(count, 2)
     if count_log2 != int(count_log2):
@@ -86,6 +86,7 @@ def get_ip_networks(super_prefix, count):
     network = ipaddress.ip_network(super_prefix)
     return tuple(network.subnets(count_log2))[0:count]
 
+
 def test_static_timing():
     tgen = get_topogen()
 
@@ -93,7 +94,14 @@ def test_static_timing():
         pytest.skip(tgen.errors)
 
     def do_config(
-            count, bad_indices, base_delta, d_multiplier, add=True, do_ipv6=False, super_prefix=None, en_dbg=False
+        count,
+        bad_indices,
+        base_delta,
+        d_multiplier,
+        add=True,
+        do_ipv6=False,
+        super_prefix=None,
+        en_dbg=False,
     ):
         router_list = tgen.routers()
         tot_delta = float(0)
@@ -106,15 +114,11 @@ def test_static_timing():
         optyped = "added" if add else "removed"
 
         for rname, router in router_list.items():
-            router.logger.info("{} {} static {} routes".format(
-                optype, count, iptype)
-            )
+            router.logger.info("{} {} static {} routes".format(optype, count, iptype))
 
             # Generate config file.
             config_file = os.path.join(
-                router.logdir, rname, "{}-routes-{}.conf".format(
-                    iptype.lower(), optype
-                )
+                router.logdir, rname, "{}-routes-{}.conf".format(iptype.lower(), optype)
             )
             with open(config_file, "w") as f:
                 for i, net in enumerate(get_ip_networks(super_prefix, count)):
@@ -158,28 +162,51 @@ def test_static_timing():
 
     # Number of static routes
     prefix_count = 10000
-    prefix_base = [[u"10.0.0.0/8", u"11.0.0.0/8"],
-                   [u"2100:1111:2220::/44", u"2100:3333:4440::/44"]]
+    prefix_base = [
+        [u"10.0.0.0/8", u"11.0.0.0/8"],
+        [u"2100:1111:2220::/44", u"2100:3333:4440::/44"],
+    ]
 
     bad_indices = []
     for ipv6 in [False, True]:
-        base_delta = do_config(prefix_count, bad_indices, 0, 0, True, ipv6, prefix_base[ipv6][0])
+        base_delta = do_config(
+            prefix_count, bad_indices, 0, 0, True, ipv6, prefix_base[ipv6][0]
+        )
 
         # Another set of same number of prefixes
-        do_config(prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][1])
+        do_config(
+            prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][1]
+        )
 
         # Duplicate config
-        do_config(prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0])
+        do_config(
+            prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0]
+        )
 
         # Remove 1/2 of duplicate
-        do_config(prefix_count / 2, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][0])
+        do_config(
+            prefix_count // 2,
+            bad_indices,
+            base_delta,
+            2,
+            False,
+            ipv6,
+            prefix_base[ipv6][0],
+        )
 
         # Add all back in so 1/2 replicate 1/2 new
-        do_config(prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0])
+        do_config(
+            prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0]
+        )
 
         # remove all
-        delta = do_config(prefix_count, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][0])
-        delta += do_config(prefix_count, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][1])
+        delta = do_config(
+            prefix_count, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][0]
+        )
+        delta += do_config(
+            prefix_count, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][1]
+        )
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]

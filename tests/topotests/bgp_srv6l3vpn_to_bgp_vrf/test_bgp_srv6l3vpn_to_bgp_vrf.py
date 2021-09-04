@@ -22,7 +22,6 @@
 #
 
 import os
-import re
 import sys
 import json
 import functools
@@ -37,12 +36,11 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.common_config import required_linux_kernel_version
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
 
-class Topology(Topo):
+def build_topo(tgen):
     """
       CE1     CE3      CE5
     (eth0)  (eth0)   (eth0)
@@ -79,24 +77,22 @@ class Topology(Topo):
       (eth0)      (eth0)      (eth0)
         CE2         CE4         CE6
     """
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-        tgen.add_router("r1")
-        tgen.add_router("r2")
-        tgen.add_router("ce1")
-        tgen.add_router("ce2")
-        tgen.add_router("ce3")
-        tgen.add_router("ce4")
-        tgen.add_router("ce5")
-        tgen.add_router("ce6")
+    tgen.add_router("r1")
+    tgen.add_router("r2")
+    tgen.add_router("ce1")
+    tgen.add_router("ce2")
+    tgen.add_router("ce3")
+    tgen.add_router("ce4")
+    tgen.add_router("ce5")
+    tgen.add_router("ce6")
 
-        tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")
-        tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "eth0", "eth1")
-        tgen.add_link(tgen.gears["ce2"], tgen.gears["r2"], "eth0", "eth1")
-        tgen.add_link(tgen.gears["ce3"], tgen.gears["r1"], "eth0", "eth2")
-        tgen.add_link(tgen.gears["ce4"], tgen.gears["r2"], "eth0", "eth2")
-        tgen.add_link(tgen.gears["ce5"], tgen.gears["r1"], "eth0", "eth3")
-        tgen.add_link(tgen.gears["ce6"], tgen.gears["r2"], "eth0", "eth3")
+    tgen.add_link(tgen.gears["r1"], tgen.gears["r2"], "eth0", "eth0")
+    tgen.add_link(tgen.gears["ce1"], tgen.gears["r1"], "eth0", "eth1")
+    tgen.add_link(tgen.gears["ce2"], tgen.gears["r2"], "eth0", "eth1")
+    tgen.add_link(tgen.gears["ce3"], tgen.gears["r1"], "eth0", "eth2")
+    tgen.add_link(tgen.gears["ce4"], tgen.gears["r2"], "eth0", "eth2")
+    tgen.add_link(tgen.gears["ce5"], tgen.gears["r1"], "eth0", "eth3")
+    tgen.add_link(tgen.gears["ce6"], tgen.gears["r2"], "eth0", "eth3")
 
 
 def setup_module(mod):
@@ -104,15 +100,17 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
-    tgen = Topogen(Topology, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
     router_list = tgen.routers()
     for rname, router in tgen.routers().items():
         router.run("/bin/bash {}/{}/setup.sh".format(CWD, rname))
-        router.load_config(TopoRouter.RD_ZEBRA,
-                           os.path.join(CWD, '{}/zebra.conf'.format(rname)))
-        router.load_config(TopoRouter.RD_BGP,
-                           os.path.join(CWD, '{}/bgpd.conf'.format(rname)))
+        router.load_config(
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
 
     tgen.gears["r1"].run("ip link add vrf10 type vrf table 10")
     tgen.gears["r1"].run("ip link set vrf10 up")
@@ -155,11 +153,11 @@ def test_rib():
         return topotest.json_cmp(output, expected)
 
     def check(name, cmd, expected_file):
-        logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+        logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
         tgen = get_topogen()
         func = functools.partial(_check, name, cmd, expected_file)
         success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     check("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib.json")
     check("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib.json")
@@ -187,7 +185,7 @@ def test_ping():
         tgen = get_topogen()
         func = functools.partial(_check, name, dest_addr, match)
         success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     check("ce1", "2001:2::2", " 0% packet loss")
     check("ce1", "2001:3::2", " 0% packet loss")

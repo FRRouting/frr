@@ -99,7 +99,6 @@ TC_32 : Verify RP info and (*,G) mroute after deleting the RP and shut / no
 
 import os
 import sys
-import json
 import time
 from time import sleep
 import datetime
@@ -114,7 +113,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 
 from lib.topogen import Topogen, get_topogen
 from lib.topolog import logger
@@ -126,14 +124,10 @@ from lib.common_config import (
     write_test_footer,
     reset_config_on_routers,
     step,
-    iperfSendIGMPJoin,
-    iperfSendTraffic,
-    addKernelRoute,
     shutdown_bringup_interface,
     kill_router_daemons,
     start_router_daemons,
     create_static_routes,
-    kill_iperf,
     topo_daemons,
 )
 from lib.pim import (
@@ -151,18 +145,11 @@ from lib.pim import (
     clear_ip_pim_interfaces,
     clear_ip_mroute,
     clear_ip_mroute_verify,
+    McastTesterHelper,
 )
 
 pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/multicast_pim_static_rp.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        TOPO = json.load(topoJson)
-except IOError:
-    logger.info("Could not read file: %s", jsonFile)
 
 # Global variables
 GROUP_RANGE_ALL = "224.0.0.0/4"
@@ -195,23 +182,11 @@ SOURCE_ADDRESS = "10.0.6.2"
 SOURCE = "Static"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, TOPO)
-
-    def dumdum(self):
-        """ Dummy """
-        print("%s", self.name)
+    # Building topology from json file
+    build_topo_from_json(tgen, TOPO)
 
 
 def setup_module(mod):
@@ -241,7 +216,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/multicast_pim_static_rp.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global TOPO
+    TOPO = tgen.json_topo
 
     # ... and here it calls Mininet initialization functions.
 
@@ -263,6 +241,10 @@ def setup_module(mod):
     result = verify_pim_neighbors(tgen, TOPO)
     assert result is True, "setup_module :Failed \n Error:" " {}".format(result)
 
+    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -272,6 +254,8 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -285,40 +269,6 @@ def teardown_module():
 #   Testcases
 #
 #####################################################
-
-
-def config_to_send_igmp_join_and_traffic(tgen, tc_name):
-    """
-    API to do pre-configuration to send IGMP join and multicast
-    traffic
-
-    parameters:
-    -----------
-    * `tgen`: topogen object
-    * `tc_name`: caller test case name
-    """
-
-    step("r0: Add route to kernal")
-    result = addKernelRoute(tgen, "r0", "r0-r1-eth0", GROUP_RANGE_ALL)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
-
-    step("r5: Add route to kernal")
-    result = addKernelRoute(tgen, "r5", "r5-r3-eth0", GROUP_RANGE_ALL)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
-
-    rnode = tgen.routers()["r1"]
-    rnode.run("ip route add 10.0.6.0/24 via 10.0.2.2")
-    rnode = tgen.routers()["r2"]
-    rnode.run("ip route add 10.0.6.0/24 via 10.0.4.2")
-    rnode = tgen.routers()["r4"]
-    rnode.run("ip route add 10.0.6.0/24 via 10.0.5.1")
-
-    router_list = tgen.routers()
-    for router in router_list.keys():
-        rnode = router_list[router]
-        rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
-
-    return True
 
 
 def verify_mroute_repopulated(uptime_before, uptime_after):
@@ -417,8 +367,6 @@ def test_add_delete_static_RP_p0(request):
         pytest.skip(tgen.errors)
 
     step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
     step("Configure r2 loopback interface as RP")
@@ -446,7 +394,7 @@ def test_add_delete_static_RP_p0(request):
     )
 
     step("r0 : Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -514,7 +462,9 @@ def test_add_delete_static_RP_p0(request):
     )
 
     step("r1: Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is up and join timer is running \n Error: {}".format(
@@ -580,13 +530,9 @@ def test_SPT_RPT_path_same_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     dut = "r1"
     intf = "r1-r3-eth2"
@@ -615,7 +561,7 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -625,7 +571,7 @@ def test_SPT_RPT_path_same_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -736,13 +682,9 @@ def test_not_reachable_static_RP_p0(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     dut = "r1"
     intf = "r1-r3-eth2"
@@ -761,7 +703,7 @@ def test_not_reachable_static_RP_p0(request):
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
-        tc_name, result
+        tc_name, state_before
     )
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
@@ -769,7 +711,7 @@ def test_not_reachable_static_RP_p0(request):
     step("Enable PIM between r1 and r2")
 
     step("r0 : Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Verify rp info")
@@ -844,7 +786,9 @@ def test_not_reachable_static_RP_p0(request):
         "r1: join state should not be joined and join timer should stop,"
         "verify using show ip pim upstream"
     )
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: join state is joined and timer is not stopped \n Error: {}".format(
@@ -902,13 +846,9 @@ def test_add_RP_after_join_received_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on R1 interface")
     step("Configure r2 loopback interface as RP")
@@ -956,7 +896,7 @@ def test_add_RP_after_join_received_p1(request):
     )
 
     step("r0 : Send IGMP join (225.1.1.1) to r1, when rp is not configured" "in r1")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: IGMP group is received on R1 verify using show ip igmp groups")
@@ -973,7 +913,9 @@ def test_add_RP_after_join_received_p1(request):
 
     step("r1: Verify upstream join state and join timer")
 
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running \n Error: {}".format(
@@ -1072,13 +1014,9 @@ def test_reachable_static_RP_after_join_p0(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP " "join (225.1.1.1) to r1")
     step("Configure r2 loopback interface as RP")
@@ -1090,7 +1028,7 @@ def test_reachable_static_RP_after_join_p0(request):
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
-        tc_name, result
+        tc_name, state_before
     )
 
     step("r1: Make RP un-reachable")
@@ -1110,7 +1048,7 @@ def test_reachable_static_RP_after_join_p0(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Send IGMP join for 225.1.1.1")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Verify IGMP groups")
@@ -1127,7 +1065,9 @@ def test_reachable_static_RP_after_join_p0(request):
     )
 
     step("r1 : Verify upstream join state and join timer")
-    result = verify_join_state_and_timer(tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False)
+    result = verify_join_state_and_timer(
+        tgen, dut, iif, STAR, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r1: upstream join state is joined and timer is running\n Error: {}".format(
@@ -1239,13 +1179,9 @@ def test_send_join_on_higher_preffered_rp_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range " "224.0.0.0/4")
@@ -1269,7 +1205,7 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     shutdown_bringup_interface(tgen, dut, intf, False)
 
     dut = "r1"
-    intf = "r1-r3-eth1"
+    intf = "r1-r3-eth2"
     shutdown_bringup_interface(tgen, dut, intf, False)
 
     step("r1 : Verify joinTx count before sending join")
@@ -1279,11 +1215,11 @@ def test_send_join_on_higher_preffered_rp_p1(request):
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n " "Error: {}".format(
-        tc_name, result
+        tc_name, state_before
     )
 
     step("r0 : Send IGMP join for 225.1.1.1")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1 : Verify IGMP groups")
@@ -1480,13 +1416,9 @@ def test_RP_configured_as_LHR_1_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r1 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -1607,7 +1539,7 @@ def test_RP_configured_as_LHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -1616,7 +1548,7 @@ def test_RP_configured_as_LHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -1696,13 +1628,9 @@ def test_RP_configured_as_LHR_2_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r1 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -1816,11 +1744,11 @@ def test_RP_configured_as_LHR_2_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -1906,13 +1834,9 @@ def test_RP_configured_as_FHR_1_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 225.1.1.0/24")
@@ -2027,7 +1951,7 @@ def test_RP_configured_as_FHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Verify IGMP groups")
@@ -2036,7 +1960,7 @@ def test_RP_configured_as_FHR_1_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -2115,13 +2039,9 @@ def test_RP_configured_as_FHR_2_p2(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 225.1.1.0/24")
@@ -2237,11 +2157,11 @@ def test_RP_configured_as_FHR_2_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Verify IGMP groups")
@@ -2328,13 +2248,9 @@ def test_SPT_RPT_path_different_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to r1")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2349,7 +2265,7 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -2359,7 +2275,7 @@ def test_SPT_RPT_path_different_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -2483,13 +2399,9 @@ def test_clear_pim_configuration_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2507,7 +2419,7 @@ def test_clear_pim_configuration_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -2517,7 +2429,7 @@ def test_clear_pim_configuration_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -2580,13 +2492,9 @@ def test_restart_pimd_process_p2(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to R1")
     step("Configure RP on r3 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -2604,7 +2512,7 @@ def test_restart_pimd_process_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -2614,7 +2522,7 @@ def test_restart_pimd_process_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", GROUP_ADDRESS, 32, 2500)
+    result = app_helper.run_traffic("r5", GROUP_ADDRESS, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -2666,7 +2574,8 @@ def test_restart_pimd_process_p2(request):
 
     step("r3: Verify (S, G) upstream join state and join timer")
     result = verify_join_state_and_timer(
-        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False)
+        tgen, dut, iif, SOURCE_ADDRESS, GROUP_ADDRESS, expected=False
+    )
     assert result is not True, (
         "Testcase {} : Failed \n "
         "r3: (S,G) upstream state is joined and join timer is running\n Error: {}".format(
@@ -2740,13 +2649,9 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface and send IGMP join (225.1.1.1) to r1")
     step("Configure RP on r2 (loopback interface) for the group range" "225.1.1.0/24")
@@ -2771,7 +2676,7 @@ def test_multiple_groups_same_RP_address_p2(request):
 
     group_address_list = GROUP_ADDRESS_LIST_1 + GROUP_ADDRESS_LIST_2
     step("r0: Send IGMP join for 10 groups")
-    result = iperfSendIGMPJoin(tgen, "r0", group_address_list, join_interval=1)
+    result = app_helper.run_join("r0", group_address_list, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -2781,7 +2686,7 @@ def test_multiple_groups_same_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", group_address_list, 32, 2500)
+    result = app_helper.run_traffic("r5", group_address_list, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -3049,13 +2954,9 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Delete existing RP configuration")
     input_dict = {
@@ -3118,7 +3019,7 @@ def test_multiple_groups_different_RP_address_p2(request):
 
     group_address_list = GROUP_ADDRESS_LIST_1 + GROUP_ADDRESS_LIST_2
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", group_address_list, join_interval=1)
+    result = app_helper.run_join("r0", group_address_list, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -3128,7 +3029,7 @@ def test_multiple_groups_different_RP_address_p2(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r5: Send multicast traffic for group 225.1.1.1")
-    result = iperfSendTraffic(tgen, "r5", group_address_list, 32, 2500)
+    result = app_helper.run_traffic("r5", group_address_list, "r3")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify (*, G) upstream IIF interface")
@@ -3620,13 +3521,9 @@ def test_shutdown_primary_path_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     # Steps to execute
     step("Enable IGMP on r1 interface")
@@ -3646,7 +3543,7 @@ def test_shutdown_primary_path_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -3813,13 +3710,9 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (loopback interface) for the group range" " 224.0.0.0/4")
@@ -3837,7 +3730,7 @@ def test_delete_RP_shut_noshut_upstream_interface_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")
@@ -3946,13 +3839,9 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
 
     step("Creating configuration from JSON")
     reset_config_on_routers(tgen)
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     clear_ip_pim_interface_traffic(tgen, TOPO)
-
-    step("pre-configuration to send IGMP join and multicast traffic")
-    result = config_to_send_igmp_join_and_traffic(tgen, tc_name)
-    assert result is True, "Testcase{}: Failed Error: {}".format(tc_name, result)
 
     step("Enable IGMP on r1 interface")
     step("Configure RP on r2 (lo) for the group range" " 224.0.0.0/4")
@@ -3970,7 +3859,7 @@ def test_delete_RP_shut_noshut_RP_interface_p1(request):
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r0: Send IGMP join")
-    result = iperfSendIGMPJoin(tgen, "r0", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r0", GROUP_ADDRESS, "r1")
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
     step("r1: Verify IGMP groups")

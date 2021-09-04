@@ -26,12 +26,15 @@
 test_pim_vrf.py: Test PIM with VRFs.
 """
 
+# XXX clean up in later commit to avoid conflict on rebase
+# pylint: disable=C0413
+
 # Tests PIM with VRF
 #
 # R1 is split into 2 VRF: Blue and Red, the others are normal
 # routers and Hosts
 # There are 2 similar topologies with overlapping IPs in each
-# section. 
+# section.
 #
 # Test steps:
 # - setup_module()
@@ -45,15 +48,15 @@ test_pim_vrf.py: Test PIM with VRFs.
 #     R1, R11 and R12. R11 is the RP for vrf blue, R12 is RP
 #     for vrf red.
 # - test_vrf_pimreg_interfaces()
-#     Adding PIM RP in VRF information and verify pimreg 
+#     Adding PIM RP in VRF information and verify pimreg
 #     interfaces in VRF blue and red
 # - test_mcast_vrf_blue()
-#     Start multicast stream for group 239.100.0.1 from Host 
+#     Start multicast stream for group 239.100.0.1 from Host
 #     H2 and join from Host H1 on vrf blue
 #     Verify PIM JOIN status on R1 and R11
 #     Stop multicast after verification
 # - test_mcast_vrf_red()
-#     Start multicast stream for group 239.100.0.1 from Host 
+#     Start multicast stream for group 239.100.0.1 from Host
 #     H4 and join from Host H3 on vrf blue
 #     Verify PIM JOIN status on R1 and R12
 #     Stop multicast after verification
@@ -90,10 +93,6 @@ import functools
 import os
 import sys
 import pytest
-import re
-import time
-from time import sleep
-import socket
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -105,118 +104,54 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
-from lib.common_config import (
-    required_linux_kernel_version)
+from lib.common_config import required_linux_kernel_version
+from lib.pim import McastTesterHelper
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospfd, pytest.mark.pimd]
 
 
-#
-# Test global variables:
-# They are used to handle communicating with external application.
-#
-APP_SOCK_PATH = '/tmp/topotests/apps.sock'
-HELPER_APP_PATH = os.path.join(CWD, "../lib/mcast-tester.py")
-app_listener = None
-app_clients = {}
+def build_topo(tgen):
+    for hostNum in range(1, 5):
+        tgen.add_router("h{}".format(hostNum))
 
-def listen_to_applications():
-    "Start listening socket to connect with applications."
-    # Remove old socket.
-    try:
-        os.unlink(APP_SOCK_PATH)
-    except OSError:
-        pass
+    # Create the main router
+    tgen.add_router("r1")
 
-    sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
-    sock.bind(APP_SOCK_PATH)
-    sock.listen(10)
-    global app_listener
-    app_listener = sock
+    # Create the PIM RP routers
+    for rtrNum in range(11, 13):
+        tgen.add_router("r{}".format(rtrNum))
 
-def accept_host(host):
-    "Accept connection from application running in hosts."
-    global app_listener, app_clients
-    conn = app_listener.accept()
-    app_clients[host] = {
-        'fd': conn[0],
-        'address': conn[1]
-    }
+    # Setup Switches and connections
+    for swNum in range(1, 5):
+        tgen.add_switch("sw{}".format(swNum))
 
-def close_applications():
-    "Signal applications to stop and close all sockets."
-    global app_listener, app_clients
+    ################
+    # 1st set of connections to routers for VRF red
+    ################
 
-    if app_listener:
-        # Close listening socket.
-        app_listener.close()
+    # Add connections H1 to R1 switch sw1
+    tgen.gears["h1"].add_link(tgen.gears["sw1"])
+    tgen.gears["r1"].add_link(tgen.gears["sw1"])
 
-        # Remove old socket.
-        try:
-            os.unlink(APP_SOCK_PATH)
-        except OSError:
-            pass
+    # Add connections R1 to R1x switch sw2
+    tgen.gears["r1"].add_link(tgen.gears["sw2"])
+    tgen.gears["h2"].add_link(tgen.gears["sw2"])
+    tgen.gears["r11"].add_link(tgen.gears["sw2"])
 
-    # Close all host connections.
-    for host in ["h1", "h2"]:
-        if app_clients.get(host) is None:
-            continue
-        app_clients[host]["fd"].close()
+    ################
+    # 2nd set of connections to routers for vrf blue
+    ################
 
-    # Reset listener and clients data struct
-    app_listener = None
-    app_clients = {}
+    # Add connections H1 to R1 switch sw1
+    tgen.gears["h3"].add_link(tgen.gears["sw3"])
+    tgen.gears["r1"].add_link(tgen.gears["sw3"])
 
+    # Add connections R1 to R1x switch sw2
+    tgen.gears["r1"].add_link(tgen.gears["sw4"])
+    tgen.gears["h4"].add_link(tgen.gears["sw4"])
+    tgen.gears["r12"].add_link(tgen.gears["sw4"])
 
-class PIMVRFTopo(Topo):
-    "PIM VRF Test Topology"
-
-    def build(self):
-        tgen = get_topogen(self)
-
-        # Create the hosts
-        for hostNum in range(1,5):
-            tgen.add_router("h{}".format(hostNum))
-
-        # Create the main router
-        tgen.add_router("r1")
-
-        # Create the PIM RP routers
-        for rtrNum in range(11, 13):
-            tgen.add_router("r{}".format(rtrNum))
-
-        # Setup Switches and connections
-        for swNum in range(1, 5):
-            tgen.add_switch("sw{}".format(swNum))
-        
-        ################
-        # 1st set of connections to routers for VRF red
-        ################
-
-        # Add connections H1 to R1 switch sw1
-        tgen.gears["h1"].add_link(tgen.gears["sw1"])
-        tgen.gears["r1"].add_link(tgen.gears["sw1"])
-
-        # Add connections R1 to R1x switch sw2
-        tgen.gears["r1"].add_link(tgen.gears["sw2"])
-        tgen.gears["h2"].add_link(tgen.gears["sw2"])
-        tgen.gears["r11"].add_link(tgen.gears["sw2"])
-
-        ################
-        # 2nd set of connections to routers for vrf blue
-        ################
-
-        # Add connections H1 to R1 switch sw1
-        tgen.gears["h3"].add_link(tgen.gears["sw3"])
-        tgen.gears["r1"].add_link(tgen.gears["sw3"])
-
-        # Add connections R1 to R1x switch sw2
-        tgen.gears["r1"].add_link(tgen.gears["sw4"])
-        tgen.gears["h4"].add_link(tgen.gears["sw4"])
-        tgen.gears["r12"].add_link(tgen.gears["sw4"])
 
 #####################################################
 #
@@ -224,10 +159,11 @@ class PIMVRFTopo(Topo):
 #
 #####################################################
 
+
 def setup_module(module):
     logger.info("PIM IGMP VRF Topology: \n {}".format(TOPOLOGY))
 
-    tgen = Topogen(PIMVRFTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     vrf_setup_cmds = [
@@ -253,7 +189,7 @@ def setup_module(module):
         router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
-        if rname[0] != 'h':
+        if rname[0] != "h":
             # Only load ospf on routers, not on end hosts
             router.load_config(
                 TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
@@ -261,13 +197,13 @@ def setup_module(module):
             router.load_config(
                 TopoRouter.RD_PIM, os.path.join(CWD, "{}/pimd.conf".format(rname))
             )
+
     tgen.start_router()
 
 
 def teardown_module(module):
     tgen = get_topogen()
     tgen.stop_topology()
-    close_applications()
 
 
 def test_ospf_convergence():
@@ -294,7 +230,10 @@ def test_ospf_convergence():
     expected = json.loads(open(reffile).read())
 
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip ospf vrf blue neighbor json", expected
+        topotest.router_json_cmp,
+        router,
+        "show ip ospf vrf blue neighbor json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=60, wait=2)
     assertmsg = "OSPF router R1 did not converge on VRF blue"
@@ -361,7 +300,10 @@ def test_vrf_pimreg_interfaces():
     reffile = os.path.join(CWD, "r1/pim_blue_pimreg11.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, r1, "show ip pim vrf blue inter pimreg11 json", expected
+        topotest.router_json_cmp,
+        r1,
+        "show ip pim vrf blue inter pimreg11 json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=5, wait=2)
     assertmsg = "PIM router R1, VRF blue (table 11) pimreg11 interface missing or incorrect status"
@@ -374,7 +316,10 @@ def test_vrf_pimreg_interfaces():
     reffile = os.path.join(CWD, "r1/pim_red_pimreg12.json")
     expected = json.loads(open(reffile).read())
     test_func = functools.partial(
-        topotest.router_json_cmp, r1, "show ip pim vrf red inter pimreg12 json", expected
+        topotest.router_json_cmp,
+        r1,
+        "show ip pim vrf red inter pimreg12 json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=5, wait=2)
     assertmsg = "PIM router R1, VRF red (table 12) pimreg12 interface missing or incorrect status"
@@ -385,54 +330,49 @@ def test_vrf_pimreg_interfaces():
 ###  Test PIM / IGMP with VRF
 ##################################
 
+
 def check_mcast_entry(mcastaddr, pimrp, receiver, sender, vrf):
     "Helper function to check RP"
     tgen = get_topogen()
 
-    logger.info("Testing PIM for VRF {} entry using {}".format(vrf, mcastaddr));
+    logger.info("Testing PIM for VRF {} entry using {}".format(vrf, mcastaddr))
 
-    # Start applications socket.
-    listen_to_applications()
+    with McastTesterHelper(tgen) as helper:
+        helper.run(sender, ["--send=0.7", mcastaddr, str(sender) + "-eth0"])
+        helper.run(receiver, [mcastaddr, str(receiver) + "-eth0"])
 
-    tgen.gears[sender].run("{} --send='0.7' '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, mcastaddr, '{}-eth0'.format(sender)))
-    accept_host(sender)
+        logger.info("mcast join and source for {} started".format(mcastaddr))
 
-    tgen.gears[receiver].run("{} '{}' '{}' '{}' &".format(
-        HELPER_APP_PATH, APP_SOCK_PATH, mcastaddr, '{}-eth0'.format(receiver)))
-    accept_host(receiver)
+        router = tgen.gears["r1"]
+        reffile = os.path.join(CWD, "r1/pim_{}_join.json".format(vrf))
+        expected = json.loads(open(reffile).read())
 
-    logger.info("mcast join and source for {} started".format(mcastaddr))
+        logger.info("verifying pim join on r1 for {} on VRF {}".format(mcastaddr, vrf))
+        test_func = functools.partial(
+            topotest.router_json_cmp,
+            router,
+            "show ip pim vrf {} join json".format(vrf),
+            expected,
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
+        assertmsg = "PIM router r1 did not show join status on VRF {}".format(vrf)
+        assert res is None, assertmsg
 
-    # tgen.mininet_cli()
+        logger.info("verifying pim join on PIM RP {} for {}".format(pimrp, mcastaddr))
+        router = tgen.gears[pimrp]
+        reffile = os.path.join(CWD, "{}/pim_{}_join.json".format(pimrp, vrf))
+        expected = json.loads(open(reffile).read())
 
-    router = tgen.gears["r1"]
-    reffile = os.path.join(CWD, "r1/pim_{}_join.json".format(vrf))
-    expected = json.loads(open(reffile).read())
-
-    logger.info("verifying pim join on r1 for {} on VRF {}".format(mcastaddr, vrf))
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip pim vrf {} join json".format(vrf),
-        expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-    assertmsg = "PIM router r1 did not show join status on VRF".format(vrf)
-    assert res is None, assertmsg
-
-    logger.info("verifying pim join on PIM RP {} for {}".format(pimrp, mcastaddr))
-    router = tgen.gears[pimrp]
-    reffile = os.path.join(CWD, "{}/pim_{}_join.json".format(pimrp, vrf))
-    expected = json.loads(open(reffile).read())
-
-    test_func = functools.partial(
-        topotest.router_json_cmp, router, "show ip pim join json", expected
-    )
-    _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
-    assertmsg = "PIM router {} did not get selected as the PIM RP for VRF {}".format(pimrp, vrf)
-    assert res is None, assertmsg
-
-    close_applications()
-    return
+        test_func = functools.partial(
+            topotest.router_json_cmp, router, "show ip pim join json", expected
+        )
+        _, res = topotest.run_and_expect(test_func, None, count=10, wait=2)
+        assertmsg = (
+            "PIM router {} did not get selected as the PIM RP for VRF {}".format(
+                pimrp, vrf
+            )
+        )
+        assert res is None, assertmsg
 
 
 def test_mcast_vrf_blue():
@@ -443,7 +383,7 @@ def test_mcast_vrf_blue():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry('239.100.0.1', 'r11', 'h1', 'h2', 'blue')
+    check_mcast_entry("239.100.0.1", "r11", "h1", "h2", "blue")
 
 
 def test_mcast_vrf_red():
@@ -454,7 +394,7 @@ def test_mcast_vrf_red():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    check_mcast_entry('239.100.0.1', 'r12', 'h3', 'h4', 'red')
+    check_mcast_entry("239.100.0.1", "r12", "h3", "h4", "red")
 
 
 if __name__ == "__main__":

@@ -72,8 +72,6 @@ import os
 import sys
 import pytest
 import json
-import re
-import tempfile
 from time import sleep
 from functools import partial
 
@@ -92,7 +90,6 @@ from lib.common_config import (
 )
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
@@ -100,56 +97,50 @@ pytestmark = [pytest.mark.ospfd]
 outputs = {}
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    #
+    # Define FRR Routers
+    #
+    for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
+        tgen.add_router(router)
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["rt1"], nodeif="eth-rt2")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-rt1")
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
-            tgen.add_router(router)
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["rt1"], nodeif="stub1")
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["rt1"], nodeif="eth-rt2")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt1")
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-rt3")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt2")
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["rt1"], nodeif="stub1")
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt4")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt3")
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt3")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt2")
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt6")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-rt3")
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt4")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt3")
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt6")
-        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt3")
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-rt7")
+    switch.add_link(tgen.gears["rt7"], nodeif="eth-rt6")
 
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
-
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt7")
-        switch.add_link(tgen.gears["rt7"], nodeif="eth-rt6")
-
-        switch = tgen.add_switch("s8")
-        switch.add_link(tgen.gears["rt7"], nodeif="stub1")
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["rt7"], nodeif="stub1")
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

@@ -28,7 +28,6 @@ Following tests are covered to test ecmp functionality on iBGP.
 import os
 import sys
 import time
-import json
 import pytest
 from time import sleep
 
@@ -39,38 +38,25 @@ sys.path.append(os.path.join(CWD, "../../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
+from lib.topogen import get_topogen
+from lib import topojson
 
 from lib.common_config import (
-    start_topology,
     write_test_header,
     write_test_footer,
     verify_rib,
     create_static_routes,
     check_address_types,
-    interface_status,
     reset_config_on_routers,
-    required_linux_kernel_version,
     shutdown_bringup_interface,
     apply_raw_config,
 )
 from lib.topolog import logger
-from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.bgp import create_router_bgp, verify_bgp_convergence
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/ibgp_ecmp_topo3.json".format(CWD)
-
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 NEXT_HOPS = {"ipv4": [], "ipv6": []}
@@ -79,45 +65,20 @@ NEXT_HOP_IP = {"ipv4": "10.0.0.1", "ipv6": "fd00::1"}
 BGP_CONVERGENCE = False
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment.
 
     * `mod`: module name
     """
-    global NEXT_HOPS, INTF_LIST_R3, INTF_LIST_R2, TEST_STATIC
     global ADDR_TYPES
 
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
 
-    logger.info("Running setup_module to create topology")
-
-    # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
-
-    # Starting topology, create tmp files which are loaded to routers
-    #  to start deamons and then start routers
-    start_topology(tgen)
-
-    # Creating configuration from JSON
-    build_config_from_json(tgen, topo)
+    tgen = topojson.setup_module_from_json(mod.__file__)
+    topo = tgen.json_topo
 
     # Don't run this test if we have any failure.
     if tgen.routers_have_failure():
@@ -136,18 +97,7 @@ def setup_module(mod):
 
 
 def teardown_module():
-    """
-    Teardown the pytest environment.
-
-    * `mod`: module name
-    """
-
-    logger.info("Running teardown_module to delete topology")
-
-    tgen = get_topogen()
-
-    # Stop toplogy and Remove tmp files
-    tgen.stop_topology()
+    get_topogen().stop_topology()
 
 
 def static_or_nw(tgen, topo, tc_name, test_type, dut):
@@ -221,12 +171,11 @@ def static_or_nw(tgen, topo, tc_name, test_type, dut):
 
 
 @pytest.mark.parametrize("test_type", ["redist_static"])
-def test_ecmp_fast_convergence(request, test_type):
+def test_ecmp_fast_convergence(request, test_type, tgen, topo):
     """This test is to verify bgp fast-convergence cli functionality"""
 
     tc_name = request.node.name
     write_test_header(tc_name)
-    tgen = get_topogen()
 
     # Verifying RIB routes
     dut = "r3"
@@ -274,12 +223,12 @@ def test_ecmp_fast_convergence(request, test_type):
 
     logger.info("Enable bgp fast-convergence cli")
     raw_config = {
-       "r2": {
-          "raw_config": [
-            "router bgp {}".format(topo["routers"]["r2"]["bgp"]["local_as"]),
-            "bgp fast-convergence",
-          ]
-       }
+        "r2": {
+            "raw_config": [
+                "router bgp {}".format(topo["routers"]["r2"]["bgp"]["local_as"]),
+                "bgp fast-convergence",
+            ]
+        }
     }
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)

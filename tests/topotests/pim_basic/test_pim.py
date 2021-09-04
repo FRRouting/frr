@@ -41,53 +41,50 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.pimd]
 
 
-class PIMTopo(Topo):
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        tgen.add_router("rp")
+    tgen.add_router("rp")
 
-        #   rp ------ r1 -------- r2
-        #              \
-        #               --------- r3
-        # r1 -> .1
-        # r2 -> .2
-        # rp -> .3
-        # r3 -> .4
-        # loopback network is 10.254.0.X/32
-        #
-        # r1 <- sw1 -> r2
-        # r1-eth0 <-> r2-eth0
-        # 10.0.20.0/24
-        sw = tgen.add_switch("sw1")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r2"])
+    #   rp ------ r1 -------- r2
+    #              \
+    #               --------- r3
+    # r1 -> .1
+    # r2 -> .2
+    # rp -> .3
+    # r3 -> .4
+    # loopback network is 10.254.0.X/32
+    #
+    # r1 <- sw1 -> r2
+    # r1-eth0 <-> r2-eth0
+    # 10.0.20.0/24
+    sw = tgen.add_switch("sw1")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r2"])
 
-        # r1 <- sw2 -> rp
-        # r1-eth1 <-> rp-eth0
-        # 10.0.30.0/24
-        sw = tgen.add_switch("sw2")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["rp"])
+    # r1 <- sw2 -> rp
+    # r1-eth1 <-> rp-eth0
+    # 10.0.30.0/24
+    sw = tgen.add_switch("sw2")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["rp"])
 
-        # 10.0.40.0/24
-        sw = tgen.add_switch("sw3")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r3"])
+    # 10.0.40.0/24
+    sw = tgen.add_switch("sw3")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(PIMTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     # For all registered routers, load the zebra configuration file
@@ -208,22 +205,29 @@ def test_pim_igmp_report():
     r1 = tgen.gears["r1"]
 
     # Let's send a igmp report from r2->r1
-    CWD = os.path.dirname(os.path.realpath(__file__))
-    r2.run("{}/mcast-rx.py 229.1.1.2 r2-eth0 &".format(CWD))
-
-    out = r1.vtysh_cmd("show ip pim upstream json", isjson=True)
-    expected = {
-        "229.1.1.2": {
-            "*": {
-                "sourceIgmp": 1,
-                "joinState": "Joined",
-                "regState": "RegNoInfo",
-                "sptBit": 0,
+    cmd = [os.path.join(CWD, "mcast-rx.py"), "229.1.1.2", "r2-eth0"]
+    p = r2.popen(cmd)
+    try:
+        expected = {
+            "229.1.1.2": {
+                "*": {
+                    "sourceIgmp": 1,
+                    "joinState": "Joined",
+                    "regState": "RegNoInfo",
+                    "sptBit": 0,
+                }
             }
         }
-    }
-
-    assert topotest.json_cmp(out, expected) is None, "failed to converge pim"
+        test_func = partial(
+            topotest.router_json_cmp, r1, "show ip pim upstream json", expected
+        )
+        _, result = topotest.run_and_expect(test_func, None, count=5, wait=0.5)
+        assertmsg = '"{}" JSON output mismatches'.format(r1.name)
+        assert result is None, assertmsg
+    finally:
+        if p:
+            p.terminate()
+            p.wait()
 
 
 def test_memory_leak():
