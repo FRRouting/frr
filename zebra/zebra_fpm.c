@@ -1553,8 +1553,9 @@ static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
  * This function checks if we already have enqueued an update for this RMAC,
  * If yes, update the same fpm_mac_info_t. Else, create and enqueue an update.
  */
-static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
-					bool delete, const char *reason)
+static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
+				    struct zebra_l3vni *zl3vni, bool delete,
+				    const char *reason)
 {
 	struct fpm_mac_info_t *fpm_mac, key;
 	struct interface *vxlan_if, *svi_if;
@@ -1637,8 +1638,8 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 static void zfpm_trigger_rmac_update_wrapper(struct hash_bucket *bucket,
 					     void *args)
 {
-	zebra_mac_t *zrmac = (zebra_mac_t *)bucket->data;
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)args;
+	struct zebra_mac *zrmac = (struct zebra_mac *)bucket->data;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)args;
 
 	zfpm_trigger_rmac_update(zrmac, zl3vni, false, "RMAC added");
 }
@@ -1650,7 +1651,7 @@ static void zfpm_trigger_rmac_update_wrapper(struct hash_bucket *bucket,
  */
 static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args)
 {
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)bucket->data;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	hash_iterate(zl3vni->rmac_table, zfpm_trigger_rmac_update_wrapper,
 		     (void *)zl3vni);

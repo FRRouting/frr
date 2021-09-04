@@ -1731,12 +1731,11 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 	return true;
 }
 
-static inline bool _netlink_mpls_build_singlepath(const struct prefix *p,
-						  const char *routedesc,
-						  const zebra_nhlfe_t *nhlfe,
-						  struct nlmsghdr *nlmsg,
-						  struct rtmsg *rtmsg,
-						  size_t req_size, int cmd)
+static inline bool
+_netlink_mpls_build_singlepath(const struct prefix *p, const char *routedesc,
+			       const struct zebra_nhlfe *nhlfe,
+			       struct nlmsghdr *nlmsg, struct rtmsg *rtmsg,
+			       size_t req_size, int cmd)
 {
 	int bytelen;
 	uint8_t family;
@@ -1751,7 +1750,7 @@ static inline bool _netlink_mpls_build_singlepath(const struct prefix *p,
 
 static inline bool
 _netlink_mpls_build_multipath(const struct prefix *p, const char *routedesc,
-			      const zebra_nhlfe_t *nhlfe,
+			      const struct zebra_nhlfe *nhlfe,
 			      struct nlmsghdr *nlmsg, size_t req_size,
 			      struct rtmsg *rtmsg, const union g_addr **src)
 {
@@ -4252,7 +4251,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 {
 	mpls_lse_t lse;
 	const struct nhlfe_list_head *head;
-	const zebra_nhlfe_t *nhlfe;
+	const struct zebra_nhlfe *nhlfe;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
 	const char *routedesc;

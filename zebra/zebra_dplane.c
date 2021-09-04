@@ -324,7 +324,7 @@ struct zebra_dplane_ctx {
 	/* Support info for different kinds of updates */
 	union {
 		struct dplane_route_info rinfo;
-		zebra_lsp_t lsp;
+		struct zebra_lsp lsp;
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
@@ -515,7 +515,7 @@ static struct zebra_dplane_globals {
 static int dplane_thread_loop(struct thread *event);
 static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 				 struct zebra_ns *zns);
-static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
+static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 						   enum dplane_op_e op);
@@ -641,7 +641,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_DELETE:
 	case DPLANE_OP_LSP_NOTIFY:
 	{
-		zebra_nhlfe_t *nhlfe;
+		struct zebra_nhlfe *nhlfe;
 
 		/* Unlink and free allocated NHLFEs */
 		frr_each_safe(nhlfe_list, &ctx->u.lsp.nhlfe_list, nhlfe) {
@@ -1512,15 +1512,14 @@ const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
 	return &(ctx->u.lsp.backup_nhlfe_list);
 }
 
-zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
-				    enum lsp_types_t lsp_type,
-				    enum nexthop_types_t nh_type,
-				    const union g_addr *gate,
-				    ifindex_t ifindex,
-				    uint8_t num_labels,
-				    mpls_label_t *out_labels)
+struct zebra_nhlfe *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
+					 enum lsp_types_t lsp_type,
+					 enum nexthop_types_t nh_type,
+					 const union g_addr *gate,
+					 ifindex_t ifindex, uint8_t num_labels,
+					 mpls_label_t *out_labels)
 {
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	DPLANE_CTX_VALID(ctx);
 
@@ -1531,15 +1530,12 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 	return nhlfe;
 }
 
-zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
-					   enum lsp_types_t lsp_type,
-					   enum nexthop_types_t nh_type,
-					   const union g_addr *gate,
-					   ifindex_t ifindex,
-					   uint8_t num_labels,
-					   mpls_label_t *out_labels)
+struct zebra_nhlfe *dplane_ctx_add_backup_nhlfe(
+	struct zebra_dplane_ctx *ctx, enum lsp_types_t lsp_type,
+	enum nexthop_types_t nh_type, const union g_addr *gate,
+	ifindex_t ifindex, uint8_t num_labels, mpls_label_t *out_labels)
 {
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	DPLANE_CTX_VALID(ctx);
 
@@ -1551,7 +1547,7 @@ zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
 	return nhlfe;
 }
 
-const zebra_nhlfe_t *
+const struct zebra_nhlfe *
 dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1559,9 +1555,9 @@ dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.best_nhlfe;
 }
 
-const zebra_nhlfe_t *
+const struct zebra_nhlfe *
 dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
-			  zebra_nhlfe_t *nhlfe)
+			  struct zebra_nhlfe *nhlfe)
 {
 	DPLANE_CTX_VALID(ctx);
 
@@ -2202,7 +2198,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
-	zebra_l3vni_t *zl3vni;
+	struct zebra_l3vni *zl3vni;
 	const struct interface *ifp;
 	struct dplane_intf_extra *if_extra;
 
@@ -2404,10 +2400,10 @@ done:
  * Capture information for an LSP update in a dplane context.
  */
 int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
-			zebra_lsp_t *lsp)
+			struct zebra_lsp *lsp)
 {
 	int ret = AOK;
-	zebra_nhlfe_t *nhlfe, *new_nhlfe;
+	struct zebra_nhlfe *nhlfe, *new_nhlfe;
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -3227,7 +3223,7 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
 /*
  * Enqueue LSP add for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_add(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_INSTALL);
@@ -3238,7 +3234,7 @@ enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
 /*
  * Enqueue LSP update for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_update(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_UPDATE);
@@ -3249,7 +3245,7 @@ enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp)
 /*
  * Enqueue LSP delete for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_delete(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_DELETE);
@@ -3259,15 +3255,14 @@ enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
 
 /* Update or un-install resulting from an async notification */
 enum zebra_dplane_result
-dplane_lsp_notif_update(zebra_lsp_t *lsp,
-			enum dplane_op_e op,
+dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 			struct zebra_dplane_ctx *notif_ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct nhlfe_list_head *head;
-	zebra_nhlfe_t *nhlfe, *new_nhlfe;
+	struct zebra_nhlfe *nhlfe, *new_nhlfe;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
@@ -3339,7 +3334,7 @@ enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw)
 /*
  * Common internal LSP update utility
  */
-static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
+static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;

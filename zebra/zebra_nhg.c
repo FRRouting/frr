@@ -1965,7 +1965,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct route_node *rn;
 	struct route_entry *match = NULL;
 	int resolved;
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;

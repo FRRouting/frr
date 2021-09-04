@@ -68,7 +68,7 @@ static const struct message zvtep_flood_str[] = {
 	{0}
 };
 
-int advertise_gw_macip_enabled(zebra_evpn_t *zevpn)
+int advertise_gw_macip_enabled(struct zebra_evpn *zevpn)
 {
 	struct zebra_vrf *zvrf;
 
@@ -82,7 +82,7 @@ int advertise_gw_macip_enabled(zebra_evpn_t *zevpn)
 	return 0;
 }
 
-int advertise_svi_macip_enabled(zebra_evpn_t *zevpn)
+int advertise_svi_macip_enabled(struct zebra_evpn *zevpn)
 {
 	struct zebra_vrf *zvrf;
 
@@ -99,10 +99,10 @@ int advertise_svi_macip_enabled(zebra_evpn_t *zevpn)
 /*
  * Print a specific EVPN entry.
  */
-void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
+void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 {
 	struct vty *vty;
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 	uint32_t num_macs;
 	uint32_t num_neigh;
 	json_object *json = NULL;
@@ -217,8 +217,8 @@ void zebra_evpn_print(zebra_evpn_t *zevpn, void **ctxt)
 void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 {
 	struct vty *vty;
-	zebra_evpn_t *zevpn;
-	zebra_vtep_t *zvtep;
+	struct zebra_evpn *zevpn;
+	struct zebra_vtep *zvtep;
 	uint32_t num_vteps = 0;
 	uint32_t num_macs = 0;
 	uint32_t num_neigh = 0;
@@ -231,7 +231,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 	vty = ctxt[0];
 	json = ctxt[1];
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	zvtep = zevpn->vteps;
 	while (zvtep) {
@@ -283,7 +283,7 @@ void zebra_evpn_print_hash(struct hash_bucket *bucket, void *ctxt[])
 void zebra_evpn_print_hash_detail(struct hash_bucket *bucket, void *data)
 {
 	struct vty *vty;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	json_object *json_array = NULL;
 	bool use_json = false;
 	struct zebra_evpn_show *zes = data;
@@ -292,7 +292,7 @@ void zebra_evpn_print_hash_detail(struct hash_bucket *bucket, void *data)
 	json_array = zes->json;
 	use_json = zes->use_json;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	zebra_vxlan_print_vni(vty, zes->zvrf, zevpn->vni, use_json, json_array);
 
@@ -300,7 +300,8 @@ void zebra_evpn_print_hash_detail(struct hash_bucket *bucket, void *data)
 		vty_out(vty, "\n");
 }
 
-int zebra_evpn_del_macip_for_intf(struct interface *ifp, zebra_evpn_t *zevpn)
+int zebra_evpn_del_macip_for_intf(struct interface *ifp,
+				  struct zebra_evpn *zevpn)
 {
 	struct listnode *cnode = NULL, *cnnode = NULL;
 	struct connected *c = NULL;
@@ -333,7 +334,8 @@ int zebra_evpn_del_macip_for_intf(struct interface *ifp, zebra_evpn_t *zevpn)
 	return 0;
 }
 
-int zebra_evpn_add_macip_for_intf(struct interface *ifp, zebra_evpn_t *zevpn)
+int zebra_evpn_add_macip_for_intf(struct interface *ifp,
+				  struct zebra_evpn *zevpn)
 {
 	struct listnode *cnode = NULL, *cnnode = NULL;
 	struct connected *c = NULL;
@@ -397,7 +399,7 @@ static int ip_prefix_send_to_client(vrf_id_t vrf_id, struct prefix *p,
 	return zserv_send_message(client, s);
 }
 
-int zebra_evpn_advertise_subnet(zebra_evpn_t *zevpn, struct interface *ifp,
+int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 				int advertise)
 {
 	struct listnode *cnode = NULL, *cnnode = NULL;
@@ -429,10 +431,10 @@ int zebra_evpn_advertise_subnet(zebra_evpn_t *zevpn, struct interface *ifp,
 /*
  * zebra_evpn_gw_macip_add_to_client
  */
-int zebra_evpn_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
+int zebra_evpn_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ethaddr *macaddr, struct ipaddr *ip)
 {
-	zebra_mac_t *mac = NULL;
+	struct zebra_mac *mac = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan *vxl = NULL;
 
@@ -453,11 +455,11 @@ int zebra_evpn_gw_macip_add(struct interface *ifp, zebra_evpn_t *zevpn,
 /*
  * zebra_evpn_gw_macip_del_from_client
  */
-int zebra_evpn_gw_macip_del(struct interface *ifp, zebra_evpn_t *zevpn,
+int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 			    struct ipaddr *ip)
 {
-	zebra_neigh_t *n = NULL;
-	zebra_mac_t *mac = NULL;
+	struct zebra_neigh *n = NULL;
+	struct zebra_mac *mac = NULL;
 
 	/* If the neigh entry is not present nothing to do*/
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
@@ -502,7 +504,7 @@ int zebra_evpn_gw_macip_del(struct interface *ifp, zebra_evpn_t *zevpn,
 void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 					   void *ctxt)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan zl2_info;
 	struct interface *vlan_if = NULL;
@@ -510,7 +512,7 @@ void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 	struct interface *ifp;
 
 	/* Add primary SVI MAC*/
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	/* Global (Zvrf) advertise-default-gw is disabled,
 	 * but zevpn advertise-default-gw is enabled
@@ -552,14 +554,14 @@ void zebra_evpn_gw_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 void zebra_evpn_gw_macip_add_for_evpn_hash(struct hash_bucket *bucket,
 					   void *ctxt)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan zl2_info;
 	struct interface *vlan_if = NULL;
 	struct interface *vrr_if = NULL;
 	struct interface *ifp = NULL;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	ifp = zevpn->vxlan_if;
 	if (!ifp)
@@ -594,14 +596,14 @@ void zebra_evpn_gw_macip_add_for_evpn_hash(struct hash_bucket *bucket,
 void zebra_evpn_svi_macip_del_for_evpn_hash(struct hash_bucket *bucket,
 					    void *ctxt)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_l2info_vxlan zl2_info;
 	struct interface *vlan_if = NULL;
 	struct interface *ifp;
 
 	/* Add primary SVI MAC*/
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn)
 		return;
 
@@ -644,8 +646,8 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
 	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
-	zebra_evpn_t **p_zevpn = (zebra_evpn_t **)_p_zevpn;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn **p_zevpn = (struct zebra_evpn **)_p_zevpn;
+	struct zebra_evpn *zevpn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl = NULL;
@@ -695,13 +697,13 @@ static int zebra_evpn_map_vlan_ns(struct ns *ns,
  * Map port or (port, VLAN) to an EVPN. This is invoked upon getting MAC
  * notifications, to see if they are of interest.
  */
-zebra_evpn_t *zebra_evpn_map_vlan(struct interface *ifp,
-				  struct interface *br_if, vlanid_t vid)
+struct zebra_evpn *zebra_evpn_map_vlan(struct interface *ifp,
+				       struct interface *br_if, vlanid_t vid)
 {
 	struct zebra_if *zif;
 	struct zebra_l2info_bridge *br;
-	zebra_evpn_t **p_zevpn;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn **p_zevpn;
+	struct zebra_evpn *zevpn = NULL;
 	struct zebra_from_svi_param in_param;
 
 	/* Determine if bridge is VLAN-aware or not */
@@ -727,8 +729,8 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
 	struct zebra_ns *zns = ns->info;
 	struct route_node *rn;
 	struct interface *br_if;
-	zebra_evpn_t **p_zevpn = (zebra_evpn_t **)_p_zevpn;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn **p_zevpn = (struct zebra_evpn **)_p_zevpn;
+	struct zebra_evpn *zevpn;
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl = NULL;
@@ -777,12 +779,12 @@ static int zebra_evpn_from_svi_ns(struct ns *ns,
  * Map SVI and associated bridge to an EVPN. This is invoked upon getting
  * neighbor notifications, to see if they are of interest.
  */
-zebra_evpn_t *zebra_evpn_from_svi(struct interface *ifp,
-				  struct interface *br_if)
+struct zebra_evpn *zebra_evpn_from_svi(struct interface *ifp,
+				       struct interface *br_if)
 {
 	struct zebra_l2info_bridge *br;
-	zebra_evpn_t *zevpn = NULL;
-	zebra_evpn_t **p_zevpn;
+	struct zebra_evpn *zevpn = NULL;
+	struct zebra_evpn **p_zevpn;
 	struct zebra_if *zif;
 	struct zebra_from_svi_param in_param;
 
@@ -898,10 +900,10 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
  */
 void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
-	zebra_mac_t *mac;
+	struct zebra_mac *mac;
 	struct mac_walk_ctx *wctx = ctxt;
 
-	mac = (zebra_mac_t *)bucket->data;
+	mac = (struct zebra_mac *)bucket->data;
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 		zebra_evpn_rem_mac_install(wctx->zevpn, mac, false);
@@ -910,7 +912,7 @@ void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 /*
  * Read and populate local MACs and neighbors corresponding to this EVPN.
  */
-void zebra_evpn_read_mac_neigh(zebra_evpn_t *zevpn, struct interface *ifp)
+void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 {
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
@@ -959,7 +961,7 @@ void zebra_evpn_read_mac_neigh(zebra_evpn_t *zevpn, struct interface *ifp)
  */
 unsigned int zebra_evpn_hash_keymake(const void *p)
 {
-	const zebra_evpn_t *zevpn = p;
+	const struct zebra_evpn *zevpn = p;
 
 	return (jhash_1word(zevpn->vni, 0));
 }
@@ -969,16 +971,16 @@ unsigned int zebra_evpn_hash_keymake(const void *p)
  */
 bool zebra_evpn_hash_cmp(const void *p1, const void *p2)
 {
-	const zebra_evpn_t *zevpn1 = p1;
-	const zebra_evpn_t *zevpn2 = p2;
+	const struct zebra_evpn *zevpn1 = p1;
+	const struct zebra_evpn *zevpn2 = p2;
 
 	return (zevpn1->vni == zevpn2->vni);
 }
 
 int zebra_evpn_list_cmp(void *p1, void *p2)
 {
-	const zebra_evpn_t *zevpn1 = p1;
-	const zebra_evpn_t *zevpn2 = p2;
+	const struct zebra_evpn *zevpn1 = p1;
+	const struct zebra_evpn *zevpn2 = p2;
 
 	if (zevpn1->vni == zevpn2->vni)
 		return 0;
@@ -990,10 +992,10 @@ int zebra_evpn_list_cmp(void *p1, void *p2)
  */
 void *zebra_evpn_alloc(void *p)
 {
-	const zebra_evpn_t *tmp_vni = p;
-	zebra_evpn_t *zevpn;
+	const struct zebra_evpn *tmp_vni = p;
+	struct zebra_evpn *zevpn;
 
-	zevpn = XCALLOC(MTYPE_ZEVPN, sizeof(zebra_evpn_t));
+	zevpn = XCALLOC(MTYPE_ZEVPN, sizeof(struct zebra_evpn));
 	zevpn->vni = tmp_vni->vni;
 	return ((void *)zevpn);
 }
@@ -1001,15 +1003,15 @@ void *zebra_evpn_alloc(void *p)
 /*
  * Look up EVPN hash entry.
  */
-zebra_evpn_t *zebra_evpn_lookup(vni_t vni)
+struct zebra_evpn *zebra_evpn_lookup(vni_t vni)
 {
 	struct zebra_vrf *zvrf;
-	zebra_evpn_t tmp_vni;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn tmp_vni;
+	struct zebra_evpn *zevpn = NULL;
 
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
-	memset(&tmp_vni, 0, sizeof(zebra_evpn_t));
+	memset(&tmp_vni, 0, sizeof(struct zebra_evpn));
 	tmp_vni.vni = vni;
 	zevpn = hash_lookup(zvrf->evpn_table, &tmp_vni);
 
@@ -1019,16 +1021,16 @@ zebra_evpn_t *zebra_evpn_lookup(vni_t vni)
 /*
  * Add EVPN hash entry.
  */
-zebra_evpn_t *zebra_evpn_add(vni_t vni)
+struct zebra_evpn *zebra_evpn_add(vni_t vni)
 {
 	char buffer[80];
 	struct zebra_vrf *zvrf;
-	zebra_evpn_t tmp_zevpn;
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn tmp_zevpn;
+	struct zebra_evpn *zevpn = NULL;
 
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
-	memset(&tmp_zevpn, 0, sizeof(zebra_evpn_t));
+	memset(&tmp_zevpn, 0, sizeof(struct zebra_evpn));
 	tmp_zevpn.vni = vni;
 	zevpn = hash_get(zvrf->evpn_table, &tmp_zevpn, zebra_evpn_alloc);
 	assert(zevpn);
@@ -1050,10 +1052,10 @@ zebra_evpn_t *zebra_evpn_add(vni_t vni)
 /*
  * Delete EVPN hash entry.
  */
-int zebra_evpn_del(zebra_evpn_t *zevpn)
+int zebra_evpn_del(struct zebra_evpn *zevpn)
 {
 	struct zebra_vrf *zvrf;
-	zebra_evpn_t *tmp_zevpn;
+	struct zebra_evpn *tmp_zevpn;
 
 	zvrf = zebra_vrf_get_evpn();
 	assert(zvrf);
@@ -1083,7 +1085,7 @@ int zebra_evpn_del(zebra_evpn_t *zevpn)
 /*
  * Inform BGP about local EVPN addition.
  */
-int zebra_evpn_send_add_to_client(zebra_evpn_t *zevpn)
+int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -1133,7 +1135,7 @@ int zebra_evpn_send_add_to_client(zebra_evpn_t *zevpn)
 /*
  * Inform BGP about local EVPN deletion.
  */
-int zebra_evpn_send_del_to_client(zebra_evpn_t *zevpn)
+int zebra_evpn_send_del_to_client(struct zebra_evpn *zevpn)
 {
 	struct zserv *client;
 	struct stream *s;
@@ -1169,7 +1171,8 @@ int zebra_evpn_send_del_to_client(zebra_evpn_t *zevpn)
 /*
  * See if remote VTEP matches with prefix.
  */
-static int zebra_evpn_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep)
+static int zebra_evpn_vtep_match(struct in_addr *vtep_ip,
+				 struct zebra_vtep *zvtep)
 {
 	return (IPV4_ADDR_SAME(vtep_ip, &zvtep->vtep_ip));
 }
@@ -1177,9 +1180,10 @@ static int zebra_evpn_vtep_match(struct in_addr *vtep_ip, zebra_vtep_t *zvtep)
 /*
  * Locate remote VTEP in EVPN hash table.
  */
-zebra_vtep_t *zebra_evpn_vtep_find(zebra_evpn_t *zevpn, struct in_addr *vtep_ip)
+struct zebra_vtep *zebra_evpn_vtep_find(struct zebra_evpn *zevpn,
+					struct in_addr *vtep_ip)
 {
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 
 	if (!zevpn)
 		return NULL;
@@ -1195,13 +1199,14 @@ zebra_vtep_t *zebra_evpn_vtep_find(zebra_evpn_t *zevpn, struct in_addr *vtep_ip)
 /*
  * Add remote VTEP to EVPN hash table.
  */
-zebra_vtep_t *zebra_evpn_vtep_add(zebra_evpn_t *zevpn, struct in_addr *vtep_ip,
-				  int flood_control)
+struct zebra_vtep *zebra_evpn_vtep_add(struct zebra_evpn *zevpn,
+				       struct in_addr *vtep_ip,
+				       int flood_control)
 
 {
-	zebra_vtep_t *zvtep;
+	struct zebra_vtep *zvtep;
 
-	zvtep = XCALLOC(MTYPE_ZEVPN_VTEP, sizeof(zebra_vtep_t));
+	zvtep = XCALLOC(MTYPE_ZEVPN_VTEP, sizeof(struct zebra_vtep));
 
 	zvtep->vtep_ip = *vtep_ip;
 	zvtep->flood_control = flood_control;
@@ -1217,7 +1222,7 @@ zebra_vtep_t *zebra_evpn_vtep_add(zebra_evpn_t *zevpn, struct in_addr *vtep_ip,
 /*
  * Remove remote VTEP from EVPN hash table.
  */
-int zebra_evpn_vtep_del(zebra_evpn_t *zevpn, zebra_vtep_t *zvtep)
+int zebra_evpn_vtep_del(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
 	if (zvtep->next)
 		zvtep->next->prev = zvtep->prev;
@@ -1236,9 +1241,9 @@ int zebra_evpn_vtep_del(zebra_evpn_t *zevpn, zebra_vtep_t *zvtep)
  * Delete all remote VTEPs for this EVPN (upon VNI delete). Also
  * uninstall from kernel if asked to.
  */
-int zebra_evpn_vtep_del_all(zebra_evpn_t *zevpn, int uninstall)
+int zebra_evpn_vtep_del_all(struct zebra_evpn *zevpn, int uninstall)
 {
-	zebra_vtep_t *zvtep, *zvtep_next;
+	struct zebra_vtep *zvtep, *zvtep_next;
 
 	if (!zevpn)
 		return -1;
@@ -1257,7 +1262,7 @@ int zebra_evpn_vtep_del_all(zebra_evpn_t *zevpn, int uninstall)
  * Install remote VTEP into the kernel if the remote VTEP has asked
  * for head-end-replication.
  */
-int zebra_evpn_vtep_install(zebra_evpn_t *zevpn, zebra_vtep_t *zvtep)
+int zebra_evpn_vtep_install(struct zebra_evpn *zevpn, struct zebra_vtep *zvtep)
 {
 	if (is_vxlan_flooding_head_end() &&
 	    (zvtep->flood_control == VXLAN_FLOOD_HEAD_END_REPL)) {
@@ -1273,7 +1278,7 @@ int zebra_evpn_vtep_install(zebra_evpn_t *zevpn, zebra_vtep_t *zvtep)
 /*
  * Uninstall remote VTEP from the kernel.
  */
-int zebra_evpn_vtep_uninstall(zebra_evpn_t *zevpn, struct in_addr *vtep_ip)
+int zebra_evpn_vtep_uninstall(struct zebra_evpn *zevpn, struct in_addr *vtep_ip)
 {
 	if (!zevpn->vxlan_if) {
 		zlog_debug("VNI %u hash %p couldn't be uninstalled - no intf",
@@ -1295,10 +1300,10 @@ int zebra_evpn_vtep_uninstall(zebra_evpn_t *zevpn, struct in_addr *vtep_ip)
 void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket,
 					     void *zvrf)
 {
-	zebra_evpn_t *zevpn;
-	zebra_vtep_t *zvtep;
+	struct zebra_evpn *zevpn;
+	struct zebra_vtep *zvtep;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	if (!zevpn)
 		return;
 
@@ -1315,9 +1320,9 @@ void zebra_evpn_handle_flooding_remote_vteps(struct hash_bucket *bucket,
  */
 void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 
 	/* Free up all neighbors and MACs, if any. */
 	zebra_evpn_neigh_del_all(zevpn, 1, 0, DEL_ALL_NEIGH);
@@ -1330,7 +1335,7 @@ void zebra_evpn_cleanup_all(struct hash_bucket *bucket, void *arg)
 	zebra_evpn_del(zevpn);
 }
 
-static void zebra_evpn_process_sync_macip_add(zebra_evpn_t *zevpn,
+static void zebra_evpn_process_sync_macip_add(struct zebra_evpn *zevpn,
 					      const struct ethaddr *macaddr,
 					      uint16_t ipa_len,
 					      const struct ipaddr *ipaddr,
@@ -1341,7 +1346,7 @@ static void zebra_evpn_process_sync_macip_add(zebra_evpn_t *zevpn,
 	char ipbuf[INET6_ADDRSTRLEN];
 	bool sticky;
 	bool remote_gw;
-	zebra_neigh_t *n = NULL;
+	struct zebra_neigh *n = NULL;
 
 	sticky = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_STICKY);
 	remote_gw = !!CHECK_FLAG(flags, ZEBRA_MACIP_TYPE_GW);
@@ -1387,9 +1392,9 @@ void zebra_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
 			      uint8_t flags, uint32_t seq,
 			      struct in_addr vtep_ip, const esi_t *esi)
 {
-	zebra_evpn_t *zevpn;
-	zebra_vtep_t *zvtep;
-	zebra_mac_t *mac = NULL;
+	struct zebra_evpn *zevpn;
+	struct zebra_vtep *zvtep;
+	struct zebra_mac *mac = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_vrf *zvrf;
@@ -1464,9 +1469,9 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 			      uint16_t ipa_len, const struct ipaddr *ipaddr,
 			      struct in_addr vtep_ip)
 {
-	zebra_evpn_t *zevpn;
-	zebra_mac_t *mac = NULL;
-	zebra_neigh_t *n = NULL;
+	struct zebra_evpn *zevpn;
+	struct zebra_mac *mac = NULL;
+	struct zebra_neigh *n = NULL;
 	struct interface *ifp = NULL;
 	struct zebra_if *zif = NULL;
 	struct zebra_ns *zns;
@@ -1558,9 +1563,9 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 /************************** EVPN BGP config management ************************/
 void zebra_evpn_cfg_cleanup(struct hash_bucket *bucket, void *ctxt)
 {
-	zebra_evpn_t *zevpn = NULL;
+	struct zebra_evpn *zevpn = NULL;
 
-	zevpn = (zebra_evpn_t *)bucket->data;
+	zevpn = (struct zebra_evpn *)bucket->data;
 	zevpn->advertise_gw_macip = 0;
 	zevpn->advertise_svi_macip = 0;
 	zevpn->advertise_subnet = 0;
