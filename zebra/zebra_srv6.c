@@ -216,19 +216,7 @@ assign_srv6_locator_chunk(uint8_t proto,
 	if (!loc) {
 		zlog_info("%s: locator %s was not found",
 			  __func__, locator_name);
-
-		loc = srv6_locator_alloc(locator_name);
-		if (!loc) {
-			zlog_info("%s: locator %s can't allocated",
-				  __func__, locator_name);
-			return NULL;
-		}
-
-		loc->status_up = false;
-		chunk = srv6_locator_chunk_alloc();
-		chunk->proto = NO_PROTO;
-		listnode_add(loc->chunks, chunk);
-		zebra_srv6_locator_add(loc);
+		return NULL;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
