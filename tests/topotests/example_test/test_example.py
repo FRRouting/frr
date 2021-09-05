@@ -36,6 +36,7 @@ def test_fail_example():
     assert True, "Some Text with explaination in case of failure"
 
 
+@pytest.mark.xfail
 def test_ls_exits_zero():
     "Tests for ls command on invalid file"
 
