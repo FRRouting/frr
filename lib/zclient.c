@@ -1105,6 +1105,33 @@ stream_failure:
 	return -1;
 }
 
+int zapi_srv6_locator_encode(struct stream *s, const struct srv6_locator *l)
+{
+	stream_putw(s, strlen(l->name));
+	stream_put(s, l->name, strlen(l->name));
+	stream_putw(s, l->prefix.prefixlen);
+	stream_put(s, &l->prefix.prefix, sizeof(l->prefix.prefix));
+	return 0;
+}
+
+int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l)
+{
+	uint16_t len = 0;
+
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE)
+		goto stream_failure;
+
+	STREAM_GET(l->name, s, len);
+	STREAM_GETW(s, l->prefix.prefixlen);
+	STREAM_GET(&l->prefix.prefix, s, sizeof(l->prefix.prefix));
+	l->prefix.family = AF_INET6;
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;
