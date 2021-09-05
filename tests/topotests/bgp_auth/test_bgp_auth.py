@@ -57,15 +57,39 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib import common_config
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-
-# Required to instantiate the topology builder class.
-
+from lib.common_config import (
+    FRRCFG_FILE,
+    FRRCFG_BKUP_FILE,
+    load_config_to_routers,
+    reset_config_on_routers,
+)
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
+
+
+def reload_new_configs(tgen, *cflist):
+    reset_config_on_routers(tgen)
+
+    routers = tgen.routers()
+    for rname, router in routers.items():
+        destname = "{}/{}/{}".format(tgen.logdir, rname, FRRCFG_FILE)
+        wmode="w"
+        for cfbase in cflist:
+            confname = os.path.join(CWD, "{}/{}".format(rname, cfbase))
+            with open(confname, "r") as cf:
+                with open(destname, wmode) as df:
+                    df.write(cf.read())
+            wmode="a"
+
+    # import pdb
+    # pdb.set_trace()
+    common_config.ROUTER_LIST = routers
+    load_config_to_routers(tgen, routers, save_bkup=False)
 
 
 class InvalidCLIError(Exception):
@@ -79,49 +103,23 @@ def build_topo(tgen):
     tgen.add_router("R3")
 
     # R1-R2 1
-    switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["R1"])
-    switch.add_link(tgen.gears["R2"])
-
+    tgen.add_link(tgen.gears["R1"], tgen.gears["R2"])
     # R1-R3 1
-    switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["R1"])
-    switch.add_link(tgen.gears["R3"])
-
+    tgen.add_link(tgen.gears["R1"], tgen.gears["R3"])
     # R2-R3 1
-    switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["R2"])
-    switch.add_link(tgen.gears["R3"])
-
+    tgen.add_link(tgen.gears["R2"], tgen.gears["R3"])
     # R1-R2 2
-    switch = tgen.add_switch("s4")
-    switch.add_link(tgen.gears["R1"])
-    switch.add_link(tgen.gears["R2"])
-
+    tgen.add_link(tgen.gears["R1"], tgen.gears["R2"])
     # R1-R3 2
-    switch = tgen.add_switch("s5")
-    switch.add_link(tgen.gears["R1"])
-    switch.add_link(tgen.gears["R3"])
-
+    tgen.add_link(tgen.gears["R1"], tgen.gears["R3"])
     # R2-R3 2
-    switch = tgen.add_switch("s6")
-    switch.add_link(tgen.gears["R2"])
-    switch.add_link(tgen.gears["R3"])
-
+    tgen.add_link(tgen.gears["R2"], tgen.gears["R3"])
     # R1-R2 3
-    switch = tgen.add_switch("s7")
-    switch.add_link(tgen.gears["R1"])
-    switch.add_link(tgen.gears["R2"])
-
+    tgen.add_link(tgen.gears["R1"], tgen.gears["R2"])
     # R1-R3 2
-    switch = tgen.add_switch("s8")
-    switch.add_link(tgen.gears["R1"])
-    switch.add_link(tgen.gears["R3"])
-
+    tgen.add_link(tgen.gears["R1"], tgen.gears["R3"])
     # R2-R3 2
-    switch = tgen.add_switch("s9")
-    switch.add_link(tgen.gears["R2"])
-    switch.add_link(tgen.gears["R3"])
+    tgen.add_link(tgen.gears["R2"], tgen.gears["R3"])
 
 
 def setup_module(mod):
@@ -136,68 +134,68 @@ def setup_module(mod):
     r3 = tgen.gears["R3"]
 
     # blue vrf
-    r1.run("ip link add blue type vrf table 1001")
-    r1.run("ip link set up dev blue")
-    r2.run("ip link add blue type vrf table 1001")
-    r2.run("ip link set up dev blue")
-    r3.run("ip link add blue type vrf table 1001")
-    r3.run("ip link set up dev blue")
+    r1.cmd_raises("ip link add blue type vrf table 1001")
+    r1.cmd_raises("ip link set up dev blue")
+    r2.cmd_raises("ip link add blue type vrf table 1001")
+    r2.cmd_raises("ip link set up dev blue")
+    r3.cmd_raises("ip link add blue type vrf table 1001")
+    r3.cmd_raises("ip link set up dev blue")
 
-    r1.run("ip link add lo1 type dummy")
-    r1.run("ip link set lo1 master blue")
-    r1.run("ip link set up dev lo1")
-    r2.run("ip link add lo1 type dummy")
-    r2.run("ip link set up dev lo1")
-    r2.run("ip link set lo1 master blue")
-    r3.run("ip link add lo1 type dummy")
-    r3.run("ip link set up dev lo1")
-    r3.run("ip link set lo1 master blue")
+    r1.cmd_raises("ip link add lo1 type dummy")
+    r1.cmd_raises("ip link set lo1 master blue")
+    r1.cmd_raises("ip link set up dev lo1")
+    r2.cmd_raises("ip link add lo1 type dummy")
+    r2.cmd_raises("ip link set up dev lo1")
+    r2.cmd_raises("ip link set lo1 master blue")
+    r3.cmd_raises("ip link add lo1 type dummy")
+    r3.cmd_raises("ip link set up dev lo1")
+    r3.cmd_raises("ip link set lo1 master blue")
 
-    r1.run("ip link set R1-eth2 master blue")
-    r1.run("ip link set R1-eth3 master blue")
-    r2.run("ip link set R2-eth2 master blue")
-    r2.run("ip link set R2-eth3 master blue")
-    r3.run("ip link set R3-eth2 master blue")
-    r3.run("ip link set R3-eth3 master blue")
+    r1.cmd_raises("ip link set R1-eth2 master blue")
+    r1.cmd_raises("ip link set R1-eth3 master blue")
+    r2.cmd_raises("ip link set R2-eth2 master blue")
+    r2.cmd_raises("ip link set R2-eth3 master blue")
+    r3.cmd_raises("ip link set R3-eth2 master blue")
+    r3.cmd_raises("ip link set R3-eth3 master blue")
 
-    r1.run("ip link set up dev  R1-eth2")
-    r1.run("ip link set up dev  R1-eth3")
-    r2.run("ip link set up dev  R2-eth2")
-    r2.run("ip link set up dev  R2-eth3")
-    r3.run("ip link set up dev  R3-eth2")
-    r3.run("ip link set up dev  R3-eth3")
+    r1.cmd_raises("ip link set up dev  R1-eth2")
+    r1.cmd_raises("ip link set up dev  R1-eth3")
+    r2.cmd_raises("ip link set up dev  R2-eth2")
+    r2.cmd_raises("ip link set up dev  R2-eth3")
+    r3.cmd_raises("ip link set up dev  R3-eth2")
+    r3.cmd_raises("ip link set up dev  R3-eth3")
 
     # red vrf
-    r1.run("ip link add red type vrf table 1002")
-    r1.run("ip link set up dev red")
-    r2.run("ip link add red type vrf table 1002")
-    r2.run("ip link set up dev red")
-    r3.run("ip link add red type vrf table 1002")
-    r3.run("ip link set up dev red")
+    r1.cmd_raises("ip link add red type vrf table 1002")
+    r1.cmd_raises("ip link set up dev red")
+    r2.cmd_raises("ip link add red type vrf table 1002")
+    r2.cmd_raises("ip link set up dev red")
+    r3.cmd_raises("ip link add red type vrf table 1002")
+    r3.cmd_raises("ip link set up dev red")
 
-    r1.run("ip link add lo2 type dummy")
-    r1.run("ip link set lo2 master red")
-    r1.run("ip link set up dev lo2")
-    r2.run("ip link add lo2 type dummy")
-    r2.run("ip link set up dev lo2")
-    r2.run("ip link set lo2 master red")
-    r3.run("ip link add lo2 type dummy")
-    r3.run("ip link set up dev lo2")
-    r3.run("ip link set lo2 master red")
+    r1.cmd_raises("ip link add lo2 type dummy")
+    r1.cmd_raises("ip link set lo2 master red")
+    r1.cmd_raises("ip link set up dev lo2")
+    r2.cmd_raises("ip link add lo2 type dummy")
+    r2.cmd_raises("ip link set up dev lo2")
+    r2.cmd_raises("ip link set lo2 master red")
+    r3.cmd_raises("ip link add lo2 type dummy")
+    r3.cmd_raises("ip link set up dev lo2")
+    r3.cmd_raises("ip link set lo2 master red")
 
-    r1.run("ip link set R1-eth4 master red")
-    r1.run("ip link set R1-eth5 master red")
-    r2.run("ip link set R2-eth4 master red")
-    r2.run("ip link set R2-eth5 master red")
-    r3.run("ip link set R3-eth4 master red")
-    r3.run("ip link set R3-eth5 master red")
+    r1.cmd_raises("ip link set R1-eth4 master red")
+    r1.cmd_raises("ip link set R1-eth5 master red")
+    r2.cmd_raises("ip link set R2-eth4 master red")
+    r2.cmd_raises("ip link set R2-eth5 master red")
+    r3.cmd_raises("ip link set R3-eth4 master red")
+    r3.cmd_raises("ip link set R3-eth5 master red")
 
-    r1.run("ip link set up dev  R1-eth4")
-    r1.run("ip link set up dev  R1-eth5")
-    r2.run("ip link set up dev  R2-eth4")
-    r2.run("ip link set up dev  R2-eth5")
-    r3.run("ip link set up dev  R3-eth4")
-    r3.run("ip link set up dev  R3-eth5")
+    r1.cmd_raises("ip link set up dev  R1-eth4")
+    r1.cmd_raises("ip link set up dev  R1-eth5")
+    r2.cmd_raises("ip link set up dev  R2-eth4")
+    r2.cmd_raises("ip link set up dev  R2-eth5")
+    r3.cmd_raises("ip link set up dev  R3-eth4")
+    r3.cmd_raises("ip link set up dev  R3-eth5")
 
     # This is a sample of configuration loading.
     router_list = tgen.routers()
@@ -208,14 +206,22 @@ def setup_module(mod):
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
+            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/empty.conf".format(rname))
         )
         router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+            TopoRouter.RD_BGP, os.path.join(CWD, "{}/empty.conf".format(rname))
         )
 
     # After loading the configurations, this function loads configured daemons.
     tgen.start_router()
+
+    # Set the initial (saved) config to the zebra config. reset_config_on_routers
+    # will use this config to reset to.
+    routers = tgen.routers()
+    for rname, router in routers.items():
+        confname = os.path.join(CWD, "{}/zebra.conf".format(rname))
+        destname = "{}/{}/{}".format(tgen.logdir, rname, FRRCFG_BKUP_FILE)
+        router.cmd_raises("cp {} {}".format(confname, destname))
 
 
 def teardown_module(mod):
@@ -508,145 +514,159 @@ def check_vrf_peer_change_passwords(vrf="", prefix="no"):
     check_all_peers_established(vrf)
 
 
-def test_default_peer_established():
+def test_default_peer_established(tgen):
     "default vrf 3 peers same password"
 
-    configure_bgp("bgpd.conf")
-    configure_ospf("ospfd.conf")
+    # configure_bgp("bgpd.conf")
+    # configure_ospf("ospfd.conf")
+    reload_new_configs(tgen, "bgpd.conf", "ospfd.conf")
     check_all_peers_established()
     # tgen.mininet_cli()
 
 
-def test_default_peer_remove_passwords():
+def test_default_peer_remove_passwords(tgen):
     "selectively remove passwords checking state"
 
-    configure_bgp("bgpd.conf")
-    configure_ospf("ospfd.conf")
+    # configure_bgp("bgpd.conf")
+    # configure_ospf("ospfd.conf")
+    reload_new_configs(tgen, "bgpd.conf", "ospfd.conf")
     check_vrf_peer_remove_passwords()
 
 
-def test_default_peer_change_passwords():
+def test_default_peer_change_passwords(tgen):
     "selectively change passwords checking state"
 
-    configure_bgp("bgpd.conf")
-    configure_ospf("ospfd.conf")
+    # configure_bgp("bgpd.conf")
+    # configure_ospf("ospfd.conf")
+    reload_new_configs(tgen, "bgpd.conf", "ospfd.conf")
     check_vrf_peer_change_passwords()
 
 
-def test_default_prefix_peer_established():
+def test_default_prefix_peer_established(tgen):
     "default vrf 3 peers same password with prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_prefix.conf")
-    configure_ospf("ospfd.conf")
+    # configure_bgp("bgpd_prefix.conf")
+    # configure_ospf("ospfd.conf")
+    reload_new_configs(tgen, "bgpd_prefix.conf", "ospfd.conf")
     check_all_peers_established()
     # tgen.mininet_cli()
 
 
-def test_prefix_peer_remove_passwords():
+def test_prefix_peer_remove_passwords(tgen):
     "selectively remove passwords checking state with prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_prefix.conf")
-    configure_ospf("ospfd.conf")
+    # configure_bgp("bgpd_prefix.conf")
+    # configure_ospf("ospfd.conf")
+    reload_new_configs(tgen, "bgpd_prefix.conf", "ospfd.conf")
     check_vrf_peer_remove_passwords(prefix="yes")
 
 
-def test_prefix_peer_change_passwords():
+def test_prefix_peer_change_passwords(tgen):
     "selecively change passwords checkig state with prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_prefix.conf")
-    configure_ospf("ospfd.conf")
+    # configure_bgp("bgpd_prefix.conf")
+    # configure_ospf("ospfd.conf")
+    reload_new_configs(tgen, "bgpd_prefix.conf", "ospfd.conf")
     check_vrf_peer_change_passwords(prefix="yes")
 
 
-def test_vrf_peer_established():
+def test_vrf_peer_established(tgen):
     "default vrf 3 peers same password with VRF config"
 
     # clean routers and load vrf config
-    configure_bgp("bgpd_vrf.conf")
-    configure_ospf("ospfd_vrf.conf")
+    # configure_bgp("bgpd_vrf.conf")
+    # configure_ospf("ospfd_vrf.conf")
+    reload_new_configs(tgen, "bgpd_vrf.conf", "ospfd_vrf.conf")
     check_all_peers_established("blue")
     # tgen.mininet_cli()
 
 
-def test_vrf_peer_remove_passwords():
+def test_vrf_peer_remove_passwords(tgen):
     "selectively remove passwords checking state with VRF config"
 
-    configure_bgp("bgpd_vrf.conf")
-    configure_ospf("ospfd_vrf.conf")
+    # configure_bgp("bgpd_vrf.conf")
+    # configure_ospf("ospfd_vrf.conf")
+    reload_new_configs(tgen, "bgpd_vrf.conf", "ospfd_vrf.conf")
     check_vrf_peer_remove_passwords(vrf="blue")
 
 
-def test_vrf_peer_change_passwords():
+def test_vrf_peer_change_passwords(tgen):
     "selectively change passwords checking state with VRF config"
 
-    configure_bgp("bgpd_vrf.conf")
-    configure_ospf("ospfd_vrf.conf")
+    # configure_bgp("bgpd_vrf.conf")
+    # configure_ospf("ospfd_vrf.conf")
+    reload_new_configs(tgen, "bgpd_vrf.conf", "ospfd_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue")
 
 
-def test_vrf_prefix_peer_established():
+def test_vrf_prefix_peer_established(tgen):
     "default vrf 3 peers same password with VRF prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_vrf_prefix.conf")
-    configure_ospf("ospfd_vrf.conf")
+    # configure_bgp("bgpd_vrf_prefix.conf")
+    # configure_ospf("ospfd_vrf.conf")
+    reload_new_configs(tgen, "bgpd_vrf_prefix.conf", "ospfd_vrf.conf")
     check_all_peers_established("blue")
 
 
-def test_vrf_prefix_peer_remove_passwords():
+def test_vrf_prefix_peer_remove_passwords(tgen):
     "selectively remove passwords checking state with VRF prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_vrf_prefix.conf")
-    configure_ospf("ospfd_vrf.conf")
+    # configure_bgp("bgpd_vrf_prefix.conf")
+    # configure_ospf("ospfd_vrf.conf")
+    reload_new_configs(tgen, "bgpd_vrf_prefix.conf", "ospfd_vrf.conf")
     check_vrf_peer_remove_passwords(vrf="blue", prefix="yes")
 
 
-def test_vrf_prefix_peer_change_passwords():
+def test_vrf_prefix_peer_change_passwords(tgen):
     "selectively change passwords checking state with VRF prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_vrf_prefix.conf")
-    configure_ospf("ospfd_vrf.conf")
+    # configure_bgp("bgpd_vrf_prefix.conf")
+    # configure_ospf("ospfd_vrf.conf")
+    reload_new_configs(tgen, "bgpd_vrf_prefix.conf", "ospfd_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue", prefix="yes")
 
 
-def test_multiple_vrf_peer_established():
+def test_multiple_vrf_peer_established(tgen):
     "default vrf 3 peers same password with multiple VRFs"
 
-    configure_bgp("bgpd_multi_vrf.conf")
-    configure_ospf("ospfd_multi_vrf.conf")
+    # configure_bgp("bgpd_multi_vrf.conf")
+    # configure_ospf("ospfd_multi_vrf.conf")
+    reload_new_configs(tgen, "bgpd_multi_vrf.conf", "ospfd_multi_vrf.conf")
     check_all_peers_established("blue")
     check_all_peers_established("red")
     # tgen.mininet_cli()
 
 
-def test_multiple_vrf_peer_remove_passwords():
+def test_multiple_vrf_peer_remove_passwords(tgen):
     "selectively remove passwords checking state with multiple VRFs"
 
-    configure_bgp("bgpd_multi_vrf.conf")
-    configure_ospf("ospfd_multi_vrf.conf")
+    # configure_bgp("bgpd_multi_vrf.conf")
+    # configure_ospf("ospfd_multi_vrf.conf")
+    reload_new_configs(tgen, "bgpd_multi_vrf.conf", "ospfd_multi_vrf.conf")
     check_vrf_peer_remove_passwords("blue")
     check_all_peers_established("red")
     check_vrf_peer_remove_passwords("red")
@@ -654,11 +674,12 @@ def test_multiple_vrf_peer_remove_passwords():
     # tgen.mininet_cli()
 
 
-def test_multiple_vrf_peer_change_passwords():
+def test_multiple_vrf_peer_change_passwords(tgen):
     "selectively change passwords checking state with multiple VRFs"
 
-    configure_bgp("bgpd_multi_vrf.conf")
-    configure_ospf("ospfd_multi_vrf.conf")
+    # configure_bgp("bgpd_multi_vrf.conf")
+    # configure_ospf("ospfd_multi_vrf.conf")
+    reload_new_configs(tgen, "bgpd_multi_vrf.conf", "ospfd_multi_vrf.conf")
     check_vrf_peer_change_passwords("blue")
     check_all_peers_established("red")
     check_vrf_peer_change_passwords("red")
@@ -666,29 +687,31 @@ def test_multiple_vrf_peer_change_passwords():
     # tgen.mininet_cli()
 
 
-def test_multiple_vrf_prefix_peer_established():
+def test_multiple_vrf_prefix_peer_established(tgen):
     "default vrf 3 peers same password with multilpe VRFs and prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_multi_vrf_prefix.conf")
-    configure_ospf("ospfd_multi_vrf.conf")
+    # configure_bgp("bgpd_multi_vrf_prefix.conf")
+    # configure_ospf("ospfd_multi_vrf.conf")
+    reload_new_configs(tgen, "bgpd_multi_vrf_prefix.conf", "ospfd_multi_vrf.conf")
     check_all_peers_established("blue")
     check_all_peers_established("red")
     # tgen.mininet_cli()
 
 
-def test_multiple_vrf_prefix_peer_remove_passwords():
+def test_multiple_vrf_prefix_peer_remove_passwords(tgen):
     "selectively remove passwords checking state with multiple vrfs and prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_multi_vrf_prefix.conf")
-    configure_ospf("ospfd_multi_vrf.conf")
+    # configure_bgp("bgpd_multi_vrf_prefix.conf")
+    # configure_ospf("ospfd_multi_vrf.conf")
+    reload_new_configs(tgen, "bgpd_multi_vrf_prefix.conf", "ospfd_multi_vrf.conf")
     check_vrf_peer_remove_passwords(vrf="blue", prefix="yes")
     check_all_peers_established("red")
     check_vrf_peer_remove_passwords(vrf="red", prefix="yes")
@@ -696,15 +719,16 @@ def test_multiple_vrf_prefix_peer_remove_passwords():
     # tgen.mininet_cli()
 
 
-def test_multiple_vrf_prefix_peer_change_passwords():
+def test_multiple_vrf_prefix_peer_change_passwords(tgen):
     "selectively change passwords checking state with multiple vrfs and prefix config"
 
     # only supported in kernel > 5.3
     if topotest.version_cmp(platform.release(), "5.3") < 0:
         return
 
-    configure_bgp("bgpd_multi_vrf_prefix.conf")
-    configure_ospf("ospfd_multi_vrf.conf")
+    # configure_bgp("bgpd_multi_vrf_prefix.conf")
+    # configure_ospf("ospfd_multi_vrf.conf")
+    reload_new_configs(tgen, "bgpd_multi_vrf_prefix.conf", "ospfd_multi_vrf.conf")
     check_vrf_peer_change_passwords(vrf="blue", prefix="yes")
     check_all_peers_established("red")
     check_vrf_peer_change_passwords(vrf="red", prefix="yes")
@@ -712,9 +736,8 @@ def test_multiple_vrf_prefix_peer_change_passwords():
     # tgen.mininet_cli()
 
 
-def test_memory_leak():
+def test_memory_leak(tgen):
     "Run the memory leak test and report results."
-    tgen = get_topogen()
     if not tgen.is_memleak_enabled():
         pytest.skip("Memory leak test/report is disabled")
 
