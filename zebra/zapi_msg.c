@@ -1137,6 +1137,31 @@ static int zsend_table_manager_connect_response(struct zserv *client,
 	return zserv_send_message(client, s);
 }
 
+/* SRv6 locator add notification from zebra daemon. */
+int zsend_zebra_srv6_locator_add(struct zserv *client, struct srv6_locator *loc)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_SRV6_LOCATOR_ADD, VRF_DEFAULT);
+	zapi_srv6_locator_encode(s, loc);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
+/* SRv6 locator delete notification from zebra daemon. */
+int zsend_zebra_srv6_locator_delete(struct zserv *client,
+				    struct srv6_locator *loc)
+{
+	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
+
+	zclient_create_header(s, ZEBRA_SRV6_LOCATOR_DELETE, VRF_DEFAULT);
+	zapi_srv6_locator_encode(s, loc);
+	stream_putw_at(s, 0, stream_get_endp(s));
+
+	return zserv_send_message(client, s);
+}
+
 /* Inbound message handling ------------------------------------------------ */
 
 const int cmd2type[] = {
