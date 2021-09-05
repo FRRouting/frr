@@ -1488,7 +1488,25 @@ class Router(Node):
         return True
 
     def loadConf(self, daemon, source=None, param=None):
+        """Enabled and set config for a daemon.
+
+        Arranges for loading of daemon configuration from the specified source. Possible
+        `source` values are `None` for an empty config file, a path name which is used
+        directly, or a file name with no path components which is first looked for
+        directly and then looked for under a sub-directory named after router.
+        """
+
         # Unfortunately this API allowsfor source to not exist for any and all routers.
+        if source:
+            head, tail = os.path.split(source)
+            if not head and not self.path_exists(tail):
+                script_dir = os.environ["PYTEST_TOPOTEST_SCRIPTDIR"]
+                router_relative = os.path.join(script_dir, self.name, tail)
+                if self.path_exists(router_relative):
+                    source = router_relative
+                    self.logger.info(
+                        "using router relative configuration: {}".format(source)
+                    )
 
         # print "Daemons before:", self.daemons
         if daemon in self.daemons.keys():
@@ -1497,6 +1515,7 @@ class Router(Node):
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source is None or not os.path.exists(source):
+                self.cmd_raises("rm -f " + conf_file)
                 self.cmd_raises("touch " + conf_file)
             else:
                 self.cmd_raises("cp {} {}".format(source, conf_file))

@@ -44,8 +44,6 @@ from lib.ospf import create_router_ospf, create_router_ospf6
 from lib.pim import create_igmp_config, create_pim_config
 from lib.topolog import logger
 
-ROUTER_LIST = []
-
 
 def build_topo_from_json(tgen, topo=None):
     """
@@ -58,26 +56,26 @@ def build_topo_from_json(tgen, topo=None):
     if topo is None:
         topo = tgen.json_topo
 
-    ROUTER_LIST = sorted(
+    router_list = sorted(
         topo["routers"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
     )
 
-    SWITCH_LIST = []
+    switch_list = []
     if "switches" in topo:
-        SWITCH_LIST = sorted(
+        switch_list = sorted(
             topo["switches"].keys(), key=lambda x: int(re_search(r"\d+", x).group(0))
         )
 
-    listRouters = sorted(ROUTER_LIST[:])
-    listSwitches = sorted(SWITCH_LIST[:])
+    listRouters = sorted(router_list[:])
+    listSwitches = sorted(switch_list[:])
     listAllRouters = deepcopy(listRouters)
     dictSwitches = {}
 
-    for routerN in ROUTER_LIST:
+    for routerN in router_list:
         logger.info("Topo: Add router {}".format(routerN))
         tgen.add_router(routerN)
 
-    for switchN in SWITCH_LIST:
+    for switchN in switch_list:
         logger.info("Topo: Add switch {}".format(switchN))
         dictSwitches[switchN] = tgen.add_switch(switchN)
 
