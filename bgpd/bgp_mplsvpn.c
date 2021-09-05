@@ -714,6 +714,15 @@ static void setsids(struct bgp_path_info *bpi,
 	extra->num_sids = num_sids;
 }
 
+static void unsetsids(struct bgp_path_info *bpi)
+{
+	struct bgp_path_info_extra *extra;
+
+	extra = bgp_path_info_extra_get(bpi);
+	extra->num_sids = 0;
+	memset(extra->sid, 0, sizeof(extra->sid));
+}
+
 /*
  * returns pointer to new bgp_path_info upon success
  */
@@ -821,7 +830,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			else if (new_attr->srv6_vpn)
 				setsids(bpi, &new_attr->srv6_vpn->sid,
 					num_sids);
-		}
+		} else
+			unsetsids(bpi);
 
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
@@ -846,6 +856,17 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			 */
 			nh_valid = bgp_find_or_add_nexthop(
 				bgp, bgp_nexthop, afi, safi, bpi, NULL, 0, p);
+
+		/*
+		 * If you are using SRv6 VPN instead of MPLS, it need to check
+		 * the SID allocation. If the sid is not allocated, the rib
+		 * will be invalid.
+		 */
+		if (bgp->srv6_enabled
+		    && (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
+			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
+			nh_valid = false;
+		}
 
 		if (debug)
 			zlog_debug("%s: nexthop is %svalid (in vrf %s)",
@@ -893,7 +914,8 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			setsids(new, &new_attr->srv6_l3vpn->sid, num_sids);
 		else if (new_attr->srv6_vpn)
 			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
-	}
+	} else
+		unsetsids(new);
 
 	if (num_labels)
 		setlabels(new, label, num_labels);
@@ -932,6 +954,17 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 */
 		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
 						   new, NULL, 0, p);
+
+	/*
+	 * If you are using SRv6 VPN instead of MPLS, it need to check
+	 * the SID allocation. If the sid is not allocated, the rib
+	 * will be invalid.
+	 */
+	if (bgp->srv6_enabled
+	    && (!new->attr->srv6_l3vpn && !new->attr->srv6_vpn)) {
+		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
+		nh_valid = false;
+	}
 
 	if (debug)
 		zlog_debug("%s: nexthop is %svalid (in vrf %s)",
