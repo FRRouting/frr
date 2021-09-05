@@ -1090,6 +1090,9 @@ extern int zapi_labels_encode(struct stream *s, int cmd,
 			      struct zapi_labels *zl);
 extern int zapi_labels_decode(struct stream *s, struct zapi_labels *zl);
 
+extern int zapi_srv6_locator_encode(struct stream *s,
+				    const struct srv6_locator *l);
+extern int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l);
 extern int zapi_srv6_locator_chunk_encode(struct stream *s,
 					  const struct srv6_locator_chunk *c);
 extern int zapi_srv6_locator_chunk_decode(struct stream *s,
