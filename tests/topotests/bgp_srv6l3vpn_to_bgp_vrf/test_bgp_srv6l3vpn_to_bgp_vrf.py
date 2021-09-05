@@ -159,7 +159,7 @@ def check_ping(name, dest_addr, expect_connected):
     tgen = get_topogen()
     func = functools.partial(_check, name, dest_addr, match)
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-    assert result is None, 'Failed'
+    assert result is None, "Failed"
 
 
 def check_rib(name, cmd, expected_file):
@@ -175,7 +175,7 @@ def check_rib(name, cmd, expected_file):
     tgen = get_topogen()
     func = functools.partial(_check, name, cmd, expected_file)
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-    assert result is None, 'Failed'
+    assert result is None, "Failed"
 
 
 def test_rib():
@@ -204,6 +204,39 @@ def test_ping():
     check_ping("ce4", "2001:3::2", False)
     check_ping("ce4", "2001:5::2", True)
     check_ping("ce4", "2001:6::2", True)
+
+
+def test_locator_delete():
+    check_ping("ce1", "2001:2::2", True)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            no locator loc1
+        """
+    )
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
+    check_ping("ce1", "2001:2::2", False)
+
+
+def test_locator_recreate():
+    check_ping("ce1", "2001:2::2", False)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            locator loc1
+             prefix 2001:db8:1:1::/64
+        """
+    )
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
+    check_ping("ce1", "2001:2::2", True)
 
 
 if __name__ == "__main__":
