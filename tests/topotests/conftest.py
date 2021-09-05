@@ -255,6 +255,7 @@ def pytest_configure(config):
             cli_level = config.getini("log_cli_level")
             if cli_level is not None:
                 config.option.log_cli_level = cli_level
+
     # ---------------------------------------
     # Record our options in global dictionary
     # ---------------------------------------
@@ -327,6 +328,12 @@ def setup_session_auto():
     if not is_worker:
         cleanup_current()
     logger.debug("After the run (is_worker: %s)", is_worker)
+
+
+def pytest_runtest_setup(item):
+    module = item.parent.module
+    script_dir = os.path.abspath(os.path.dirname(module.__file__))
+    os.environ["PYTEST_TOPOTEST_SCRIPTDIR"] = script_dir
 
 
 def pytest_runtest_makereport(item, call):

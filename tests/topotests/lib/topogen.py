@@ -786,12 +786,15 @@ class TopoRouter(TopoGear):
         return self.net.checkCapability(daemonstr, param)
 
     def load_config(self, daemon, source=None, param=None):
-        """
-        Loads daemon configuration from the specified source
+        """Loads daemon configuration from the specified source
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
         TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP.
+
+        Possible `source` values are `None` for an empty config file, a path name which is
+        used directly, or a file name with no path components which is first looked for
+        directly and then looked for under a sub-directory named after router.
 
         This API unfortunately allows for source to not exist for any and
         all routers.

@@ -49,7 +49,6 @@ FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
-ROUTER_LIST = []
 
 ####
 CD = os.path.dirname(os.path.realpath(__file__))
@@ -471,6 +470,40 @@ def check_router_status(tgen):
     return True
 
 
+def save_initial_config_on_routers(tgen):
+    """Save current configuration on routers to FRRCFG_BKUP_FILE.
+
+    FRRCFG_BKUP_FILE is the file that will be restored when `reset_config_on_routers()`
+    is called.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    """
+    router_list = tgen.routers()
+    target_cfg_fmt = tgen.logdir + "/{}/frr_json_initial.conf"
+
+    # Get all running configs in parallel
+    procs = {}
+    for rname in router_list:
+        logger.info("Fetching running config for router %s", rname)
+        procs[rname] = router_list[rname].popen(
+            ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+            stdin=None,
+            stdout=open(target_cfg_fmt.format(rname), "w"),
+            stderr=subprocess.PIPE,
+        )
+    for rname, p in procs.items():
+        _, error = p.communicate()
+        if p.returncode:
+            logger.error(
+                "Get running config for %s failed %d: %s", rname, p.returncode, error
+            )
+            raise InvalidCLIError(
+                "vtysh show running error on {}: {}".format(rname, error)
+            )
+
+
 def reset_config_on_routers(tgen, routerName=None):
     """
     Resets configuration on routers to the snapshot created using input JSON
@@ -490,8 +523,12 @@ def reset_config_on_routers(tgen, routerName=None):
     # Trim the router list if needed
     router_list = tgen.routers()
     if routerName:
-        if (routerName not in ROUTER_LIST) or (routerName not in router_list):
-            logger.debug("Exiting API: reset_config_on_routers: no routers")
+        if routerName not in router_list:
+            logger.warning(
+                "Exiting API: reset_config_on_routers: no router %s",
+                routerName,
+                exc_info=True,
+            )
             return True
         router_list = {routerName: router_list[routerName]}
 
@@ -622,6 +659,44 @@ def reset_config_on_routers(tgen, routerName=None):
     return True
 
 
+def prep_load_config_to_routers(tgen, *config_name_list):
+    """Create common config for `load_config_to_routers`.
+
+    The common config file is constructed from the list of sub-config files passed as
+    position arguments to this function. Each entry in `config_name_list` is looked for
+    under the router sub-directory in the test directory and those files are
+    concatenated together to create the common config. e.g.,
+
+      # Routers are "r1" and "r2", test file is `example/test_example_foo.py`
+      prepare_load_config_to_routers(tgen, "bgpd.conf", "ospfd.conf")
+
+    When the above call is made the files in
+
+      example/r1/bgpd.conf
+      example/r1/ospfd.conf
+
+    Are concat'd together into a single config file that will be loaded on r1, and
+
+      example/r2/bgpd.conf
+      example/r2/ospfd.conf
+
+    Are concat'd together into a single config file that will be loaded on r2 when
+    the call to `load_config_to_routers` is made.
+    """
+
+    routers = tgen.routers()
+    for rname, router in routers.items():
+        destname = "{}/{}/{}".format(tgen.logdir, rname, FRRCFG_FILE)
+        wmode = "w"
+        for cfbase in config_name_list:
+            script_dir = os.environ["PYTEST_TOPOTEST_SCRIPTDIR"]
+            confname = os.path.join(script_dir, "{}/{}".format(rname, cfbase))
+            with open(confname, "r") as cf:
+                with open(destname, wmode) as df:
+                    df.write(cf.read())
+            wmode = "a"
+
+
 def load_config_to_routers(tgen, routers, save_bkup=False):
     """
     Loads configuration on routers from the file FRRCFG_FILE.
@@ -644,7 +719,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
     base_router_list = tgen.routers()
     router_list = {}
     for router in routers:
-        if (router not in ROUTER_LIST) or (router not in base_router_list):
+        if router not in base_router_list:
             continue
         router_list[router] = base_router_list[router]
 
@@ -757,6 +832,21 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
     * `save_bkup` : If True, Saves snapshot of FRRCFG_FILE to FRRCFG_BKUP_FILE
     """
     return load_config_to_routers(tgen, [routerName], save_bkup)
+
+
+def reset_with_new_configs(tgen, *cflist):
+    """Reset the router to initial config, then load new configs.
+
+    Resets routers to the initial config state (see `save_initial_config_on_routers()
+    and `reset_config_on_routers()` `), then concat list of router sub-configs together
+    and load onto the routers (see `prep_load_config_to_routers()` and
+    `load_config_to_routers()`)
+    """
+    routers = tgen.routers()
+
+    reset_config_on_routers(tgen)
+    prep_load_config_to_routers(tgen, *cflist)
+    load_config_to_routers(tgen, tgen.routers(), save_bkup=False)
 
 
 def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
@@ -882,20 +972,19 @@ def start_topology(tgen, daemon=None):
     * `tgen`  : topogen object
     """
 
-    global ROUTER_LIST
     # Starting topology
     tgen.start_topology()
 
     # Starting daemons
 
     router_list = tgen.routers()
-    ROUTER_LIST = sorted(
+    routers_sorted = sorted(
         router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
 
     linux_ver = ""
     router_list = tgen.routers()
-    for rname in ROUTER_LIST:
+    for rname in routers_sorted:
         router = router_list[rname]
 
         # It will help in debugging the failures, will give more details on which
@@ -1034,11 +1123,11 @@ def topo_daemons(tgen, topo=None):
         topo = tgen.json_topo
 
     router_list = tgen.routers()
-    ROUTER_LIST = sorted(
+    routers_sorted = sorted(
         router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
 
-    for rtr in ROUTER_LIST:
+    for rtr in routers_sorted:
         if "ospf" in topo["routers"][rtr] and "ospfd" not in daemon_list:
             daemon_list.append("ospfd")
 
