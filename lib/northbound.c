@@ -753,13 +753,13 @@ int nb_candidate_edit(struct nb_config *candidate,
 }
 
 static void nb_update_candidate_changes(struct nb_config *candidate,
-	struct nb_cfg_change *change)
+	struct nb_cfg_change *change, uint32_t *seq)
 {
 	enum nb_operation oper = change->operation;
 	char *xpath = change->xpath;
 	struct lyd_node *root, *dnode;
 	struct nb_config_cbs *cfg_chgs = &candidate->cfg_chgs;
-	uint32_t seq = 0;
+	int op;
 
 	switch (oper)
 	{
@@ -775,19 +775,20 @@ static void nb_update_candidate_changes(struct nb_config *candidate,
 		break;
 	}
 	LYD_TREE_DFS_BEGIN (root, dnode) {
-		switch (oper)
+		op = nb_lyd_diff_get_op(dnode);
+		switch (op)
 		{
-		case NB_OP_CREATE:
-			nb_config_diff_created(dnode, &seq, cfg_chgs);
+		case 'c':
+			nb_config_diff_created(dnode, seq, cfg_chgs);
 			LYD_TREE_DFS_continue = 1;
 			break;
-		case NB_OP_DESTROY:
-			nb_config_diff_deleted(dnode, &seq, cfg_chgs);
+		case 'd':
+			nb_config_diff_deleted(dnode, seq, cfg_chgs);
 			LYD_TREE_DFS_continue = 1;
 			break;
-		case NB_OP_MODIFY:
+		case 'r':
 			nb_config_diff_add_change(cfg_chgs, NB_OP_MODIFY,
-							  &seq, dnode);
+							  seq, dnode);
 			break;
 		default:
 			break;
@@ -815,6 +816,8 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 				      int xpath_index, char *err_buf,
 				      int err_bufsize, bool *error)
 {
+	uint32_t seq = 0;
+
 	if (error)
 		*error = false;
 
@@ -872,7 +875,6 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 		 */
 		ret = nb_candidate_edit(candidate_config, nb_node,
 					change->operation, xpath, NULL, data);
-		nb_update_candidate_changes(candidate_config, change);
 		yang_data_free(data);
 		if (ret != NB_OK && ret != NB_ERR_NOT_FOUND) {
 			flog_warn(
@@ -883,6 +885,7 @@ void nb_candidate_edit_config_changes(struct nb_config *candidate_config,
 			*error = true;
 			continue;
 		}
+		nb_update_candidate_changes(candidate_config, change, &seq);
 	}
 
 	if (error && *error) {

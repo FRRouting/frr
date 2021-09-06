@@ -1136,10 +1136,9 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	 * We cannot use the scratch buffer till then.
 	 * For now always get the diff from Candidate DB itself.
 	 */
-	// cfg_chgs = &changes;
-	// cfg_chgs = &nb_config->cfg_chgs;
-	// if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
-	if (true) {
+	cfg_chgs = &changes;
+	cfg_chgs = &nb_config->cfg_chgs;
+	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
 		/*
 		 * This could be the case when the config is directly
 		 * loaded onto the candidate DB from a file. Get the 
