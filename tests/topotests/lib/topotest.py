@@ -439,6 +439,19 @@ def run_and_expect_type(func, etype, count=20, wait=3, avalue=None):
     return (False, result)
 
 
+def router_json_cmp_retry(router, cmd, data, exact=False, retry_timeout=10.0):
+    """
+    Runs `cmd` that returns JSON data (normally the command ends with 'json')
+    and compare with `data` contents. Retry by default for 10 seconds
+    """
+
+    def test_func():
+        return router_json_cmp(router, cmd, data, exact)
+
+    ok, _ = run_and_expect(test_func, None, int(retry_timeout), 1)
+    return ok
+
+
 def int2dpid(dpid):
     "Converting Integer to DPID"
 
