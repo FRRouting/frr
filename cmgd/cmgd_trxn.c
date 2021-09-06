@@ -65,6 +65,7 @@ typedef struct cmgd_set_cfg_req_ {
 	bool implicit_commit;
 	cmgd_database_id_t dst_db_id;
 	cmgd_db_hndl_t dst_db_hndl;
+	cmgd_setcfg_stats_t *setcfg_stats;
 } cmgd_set_cfg_req_t;
 
 typedef enum cmgd_commit_phase_ {
@@ -179,7 +180,7 @@ typedef struct cmgd_commit_cfg_req_ {
 	 */
 	cmgd_trxn_bcknd_cfg_batch_t *last_bcknd_cfg_batch[CMGD_BCKND_CLIENT_ID_MAX];
 
-	cmgd_sessn_commit_stats_t *cmt_stats;
+	cmgd_commit_stats_t *cmt_stats;
 } cmgd_commit_cfg_req_t;
 
 typedef struct cmgd_get_data_reply_ {
@@ -609,9 +610,11 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 	bool error;
 	int num_processed = 0;
 	size_t left;
+	cmgd_commit_stats_t *cmt_stats;
 
 	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
+	cmt_stats = cmgd_frntnd_get_sessn_commit_stats(trxn->session_id);
 
 	CMGD_TRXN_DBG("Processing %d SET_CONFIG requests for Trxn:%p Session:0x%lx",
 		(int) cmgd_trxn_req_list_count(&trxn->set_cfg_reqs), trxn,
@@ -669,6 +672,10 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 				trxn_req->req.set_cfg->dst_db_id,
 				trxn_req->req.set_cfg->dst_db_hndl,
 				false, false, true);
+
+			if (cm->perf_stats_en)
+				cmgd_get_realtime(&cmt_stats->last_start);
+			cmt_stats->commit_cnt++;
 		} else if (cmgd_frntnd_send_set_cfg_reply(
 			trxn->session_id, (cmgd_trxn_id_t) trxn,
 			trxn_req->req.set_cfg->db_id,
@@ -2265,6 +2272,8 @@ int cmgd_trxn_send_set_config_req(
 	trxn_req->req.set_cfg->implicit_commit = implicit_commit;
 	trxn_req->req.set_cfg->dst_db_id = dst_db_id;
 	trxn_req->req.set_cfg->dst_db_hndl = dst_db_hndl;
+	trxn_req->req.set_cfg->setcfg_stats =
+		cmgd_frntnd_get_sessn_setcfg_stats(trxn->session_id);
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_SETCFG);
 
 	return 0;
@@ -2313,7 +2322,7 @@ int cmgd_trxn_notify_bcknd_adapter_conn(
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_trxn_req_t *trxn_req;
 	cmgd_commit_cfg_req_t *cmtcfg_req;
-	static cmgd_sessn_commit_stats_t dummy_stats = { 0 };
+	static cmgd_commit_stats_t dummy_stats = { 0 };
 	struct nb_config_cbs *adptr_cfgs = NULL;
 
 	if (connect) {

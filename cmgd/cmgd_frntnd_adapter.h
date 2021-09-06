@@ -30,8 +30,8 @@
 struct cmgd_frntnd_client_adapter_;
 struct cmgd_master;
 
-typedef struct cmgd_sessn_commit_stats_ {
-        struct timeval start;
+typedef struct cmgd_commit_stats_ {
+        struct timeval last_start;
         struct timeval validate_start;
         struct timeval prep_cfg_start;
         struct timeval trxn_create_start;
@@ -39,7 +39,7 @@ typedef struct cmgd_sessn_commit_stats_ {
         struct timeval apply_cfg_start;
         struct timeval apply_cfg_end;
         struct timeval trxn_del_start;
-        struct timeval end;
+        struct timeval last_end;
         unsigned long last_exec_tm;
         unsigned long max_tm;
         unsigned long min_tm;
@@ -49,17 +49,17 @@ typedef struct cmgd_sessn_commit_stats_ {
 	unsigned long max_batch_cnt;
 	unsigned long min_batch_cnt;
         unsigned long commit_cnt;
-} cmgd_sessn_commit_stats_t;
+} cmgd_commit_stats_t;
 
-typedef struct cmgd_sessn_set_cfg_stats_ {
-	struct timeval start;
-	struct timeval end;
+typedef struct cmgd_setcfg_stats_ {
+	struct timeval last_start;
+	struct timeval last_end;
 	unsigned long last_exec_tm;
 	unsigned long max_tm;
 	unsigned long min_tm;
 	unsigned long avg_tm;
 	unsigned long set_cfg_count;
-} cmgd_sessn_set_cfg_stats_t;
+} cmgd_setcfg_stats_t;
 
 PREDECL_LIST(cmgd_frntnd_sessn_list);
 
@@ -96,7 +96,8 @@ typedef struct cmgd_frntnd_client_adapter_ {
         int refcount;
         uint32_t num_msg_tx;
         uint32_t num_msg_rx;
-        cmgd_sessn_set_cfg_stats_t set_cfg_stats;
+	cmgd_commit_stats_t cmt_stats;
+        cmgd_setcfg_stats_t setcfg_stats;
 
         struct cmgd_frntnd_adptr_list_item list_linkage;
 } cmgd_frntnd_client_adapter_t;
@@ -141,7 +142,10 @@ extern int cmgd_frntnd_send_get_data_reply(cmgd_session_id_t session_id,
 extern int cmgd_frntnd_send_data_notify(
         cmgd_database_id_t db_id, cmgd_yang_data_t *data_resp[], int num_data);
 
-extern cmgd_sessn_commit_stats_t *cmgd_frntnd_get_sessn_commit_stats(
+extern cmgd_setcfg_stats_t *cmgd_frntnd_get_sessn_setcfg_stats(
+        cmgd_session_id_t session_id);
+
+extern cmgd_commit_stats_t *cmgd_frntnd_get_sessn_commit_stats(
         cmgd_session_id_t session_id);
 
 extern void cmgd_frntnd_adapter_status_write(struct vty *vty, bool detail);
