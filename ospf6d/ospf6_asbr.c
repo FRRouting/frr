@@ -49,6 +49,7 @@
 #include "ospf6_abr.h"
 #include "ospf6_intra.h"
 #include "ospf6_flood.h"
+#include "ospf6_nssa.h"
 #include "ospf6d.h"
 #include "ospf6_spf.h"
 #include "ospf6_nssa.h"
@@ -85,7 +86,7 @@ static struct ospf6_lsa *ospf6_originate_type5_type7_lsas(
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
 		if (IS_AREA_NSSA(oa))
-			ospf6_nssa_lsa_originate(route, oa);
+			ospf6_nssa_lsa_originate(route, oa, true);
 	}
 
 	return lsa;

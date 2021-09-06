@@ -43,6 +43,7 @@
 #include "ospf6_intra.h"
 #include "ospf6_abr.h"
 #include "ospf6_asbr.h"
+#include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
@@ -231,6 +232,36 @@ static void ospf6_area_no_summary_unset(struct ospf6 *ospf6,
 			ospf6_abr_range_reset_cost(ospf6);
 			ospf6_abr_prefix_resummarize(ospf6);
 		}
+	}
+}
+
+static void ospf6_nssa_default_originate_set(struct ospf6 *ospf6,
+					     struct ospf6_area *area,
+					     int metric, int metric_type)
+{
+	if (!area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = true;
+		if (++ospf6->nssa_default_import_check.refcnt == 1) {
+			ospf6->nssa_default_import_check.status = false;
+			ospf6_zebra_import_default_route(ospf6, false);
+		}
+	}
+
+	area->nssa_default_originate.metric_value = metric;
+	area->nssa_default_originate.metric_type = metric_type;
+}
+
+static void ospf6_nssa_default_originate_unset(struct ospf6 *ospf6,
+					       struct ospf6_area *area)
+{
+	if (area->nssa_default_originate.enabled) {
+		area->nssa_default_originate.enabled = false;
+		if (--ospf6->nssa_default_import_check.refcnt == 0) {
+			ospf6->nssa_default_import_check.status = false;
+			ospf6_zebra_import_default_route(ospf6, true);
+		}
+		area->nssa_default_originate.metric_value = -1;
+		area->nssa_default_originate.metric_type = -1;
 	}
 }
 
@@ -648,6 +679,17 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 		}
 		if (IS_AREA_NSSA(oa)) {
 			vty_out(vty, " area %s nssa", oa->name);
+			if (oa->nssa_default_originate.enabled) {
+				vty_out(vty, " default-information-originate");
+				if (oa->nssa_default_originate.metric_value
+				    != -1)
+					vty_out(vty, " metric %d",
+						oa->nssa_default_originate
+							.metric_value);
+				if (oa->nssa_default_originate.metric_type
+				    != DEFAULT_METRIC_TYPE)
+					vty_out(vty, " metric-type 1");
+			}
 			if (oa->no_summary)
 				vty_out(vty, " no-summary");
 			vty_out(vty, "\n");
@@ -1278,11 +1320,20 @@ DEFUN (no_ospf6_area_stub_no_summary,
 }
 
 DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
-      "area <A.B.C.D|(0-4294967295)>$area_str nssa [no-summary$no_summary]",
+      "area <A.B.C.D|(0-4294967295)>$area_str nssa\
+        [{\
+	  default-information-originate$dflt_originate [{metric (0-16777214)$mval|metric-type (1-2)$mtype}]\
+	  |no-summary$no_summary\
+	 }]",
       "OSPF6 area parameters\n"
       "OSPF6 area ID in IP address format\n"
       "OSPF6 area ID as a decimal value\n"
       "Configure OSPF6 area as nssa\n"
+      "Originate Type 7 default into NSSA area\n"
+      "OSPFv3 default metric\n"
+      "OSPFv3 metric\n"
+      "OSPFv3 metric type for default routes\n"
+      "Set OSPFv3 External Type 1/2 metrics\n"
       "Do not inject inter-area routes into area\n")
 {
 	struct ospf6_area *area;
@@ -1296,23 +1347,44 @@ DEFPY(ospf6_area_nssa, ospf6_area_nssa_cmd,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	if (dflt_originate) {
+		if (mval_str == NULL)
+			mval = -1;
+		if (mtype_str == NULL)
+			mtype = DEFAULT_METRIC_TYPE;
+		ospf6_nssa_default_originate_set(ospf6, area, mval, mtype);
+	} else
+		ospf6_nssa_default_originate_unset(ospf6, area);
+
 	if (no_summary)
 		ospf6_area_no_summary_set(ospf6, area);
 	else
 		ospf6_area_no_summary_unset(ospf6, area);
-	if (ospf6_check_and_set_router_abr(ospf6))
+
+	if (ospf6_check_and_set_router_abr(ospf6)) {
 		ospf6_abr_defaults_to_stub(ospf6);
+		ospf6_abr_nssa_type_7_defaults(ospf6);
+	}
 
 	return CMD_SUCCESS;
 }
 
 DEFPY(no_ospf6_area_nssa, no_ospf6_area_nssa_cmd,
-      "no area <A.B.C.D|(0-4294967295)>$area_str nssa [no-summary$no_summary]",
+      "no area <A.B.C.D|(0-4294967295)>$area_str nssa\
+        [{\
+	  default-information-originate [{metric (0-16777214)|metric-type (1-2)}]\
+	  |no-summary\
+	 }]",
       NO_STR
       "OSPF6 area parameters\n"
       "OSPF6 area ID in IP address format\n"
       "OSPF6 area ID as a decimal value\n"
       "Configure OSPF6 area as nssa\n"
+      "Originate Type 7 default into NSSA area\n"
+      "OSPFv3 default metric\n"
+      "OSPFv3 metric\n"
+      "OSPFv3 metric type for default routes\n"
+      "Set OSPFv3 External Type 1/2 metrics\n"
       "Do not inject inter-area routes into area\n")
 {
 	struct ospf6_area *area;
@@ -1322,6 +1394,7 @@ DEFPY(no_ospf6_area_nssa, no_ospf6_area_nssa_cmd,
 
 	ospf6_area_nssa_unset(ospf6, area);
 	ospf6_area_no_summary_unset(ospf6, area);
+	ospf6_nssa_default_originate_unset(ospf6, area);
 
 	return CMD_SUCCESS;
 }
