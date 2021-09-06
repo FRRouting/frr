@@ -368,6 +368,11 @@ static void ospf6_abr_task(struct ospf6 *ospf6)
 		if (IS_OSPF6_DEBUG_ABR)
 			zlog_debug("%s : announce stub defaults", __func__);
 		ospf6_abr_defaults_to_stub(ospf6);
+
+		if (IS_OSPF6_DEBUG_ABR)
+			zlog_debug("%s : announce NSSA Type-7 defaults",
+				   __func__);
+		ospf6_abr_nssa_type_7_defaults(ospf6);
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
@@ -872,6 +877,83 @@ static void ospf6_abr_remove_unapproved_translates(struct ospf6 *ospf6)
 		zlog_debug("ospf_abr_remove_unapproved_translates(): Stop");
 }
 
+static void ospf6_abr_nssa_type_7_default_create(struct ospf6 *ospf6,
+						 struct ospf6_area *oa)
+{
+	struct ospf6_route *def;
+	int metric;
+	int metric_type;
+
+	if (IS_OSPF6_DEBUG_NSSA)
+		zlog_debug("Announcing Type-7 default route into NSSA area %s",
+			   oa->name);
+
+	def = ospf6_route_create(ospf6);
+	def->type = OSPF6_DEST_TYPE_NETWORK;
+	def->prefix.family = AF_INET6;
+	def->prefix.prefixlen = 0;
+	memset(&def->prefix.u.prefix6, 0, sizeof(struct in6_addr));
+	def->type = OSPF6_DEST_TYPE_NETWORK;
+	def->path.subtype = OSPF6_PATH_SUBTYPE_DEFAULT_RT;
+	if (CHECK_FLAG(ospf6->flag, OSPF6_FLAG_ABR))
+		def->path.area_id = ospf6->backbone->area_id;
+	else
+		def->path.area_id = oa->area_id;
+
+	/* Compute default route type and metric. */
+	if (oa->nssa_default_originate.metric_value != -1)
+		metric = oa->nssa_default_originate.metric_value;
+	else
+		metric = DEFAULT_DEFAULT_ALWAYS_METRIC;
+	if (oa->nssa_default_originate.metric_type != -1)
+		metric_type = oa->nssa_default_originate.metric_type;
+	else
+		metric_type = DEFAULT_METRIC_TYPE;
+	def->path.metric_type = metric_type;
+	def->path.cost = metric;
+	if (metric_type == 1)
+		def->path.type = OSPF6_PATH_TYPE_EXTERNAL1;
+	else
+		def->path.type = OSPF6_PATH_TYPE_EXTERNAL2;
+
+	ospf6_nssa_lsa_originate(def, oa, false);
+	ospf6_route_delete(def);
+}
+
+static void ospf6_abr_nssa_type_7_default_delete(struct ospf6 *ospf6,
+						 struct ospf6_area *oa)
+{
+	struct ospf6_lsa *lsa;
+
+	lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_TYPE_7), 0,
+				oa->ospf6->router_id, oa->lsdb);
+	if (lsa && !OSPF6_LSA_IS_MAXAGE(lsa)) {
+		if (IS_OSPF6_DEBUG_NSSA)
+			zlog_debug(
+				"Withdrawing Type-7 default route from area %s",
+				oa->name);
+
+		ospf6_lsa_purge(lsa);
+	}
+}
+
+/* NSSA Type-7 default route. */
+void ospf6_abr_nssa_type_7_defaults(struct ospf6 *ospf6)
+{
+	struct listnode *node;
+	struct ospf6_area *oa;
+
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
+		if (IS_AREA_NSSA(oa) && oa->nssa_default_originate.enabled
+		    && (IS_OSPF6_ABR(ospf6)
+			|| (IS_OSPF6_ASBR(ospf6)
+			    && ospf6->nssa_default_import_check.status)))
+			ospf6_abr_nssa_type_7_default_create(ospf6, oa);
+		else
+			ospf6_abr_nssa_type_7_default_delete(ospf6, oa);
+	}
+}
+
 static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 {
 	/* called only if any_nssa */
@@ -1173,7 +1255,7 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 
 		/* This means the Type-5 LSA was originated for this route */
 		if (route->path.origin.id != 0 && info->type != DEFAULT_ROUTE)
-			ospf6_nssa_lsa_originate(route, area);
+			ospf6_nssa_lsa_originate(route, area, true);
 	}
 
 	/* Loop through the aggregation table to originate type-7 LSAs
@@ -1193,7 +1275,7 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 					"Originating Type-7 LSAs for area %s",
 					area->name);
 
-			ospf6_nssa_lsa_originate(aggr->route, area);
+			ospf6_nssa_lsa_originate(aggr->route, area, true);
 		}
 	}
 
@@ -1287,7 +1369,7 @@ static struct in6_addr *ospf6_get_nssa_fwd_addr(struct ospf6_area *oa)
 }
 
 void ospf6_nssa_lsa_originate(struct ospf6_route *route,
-			      struct ospf6_area *area)
+			      struct ospf6_area *area, bool p_bit)
 {
 	char buffer[OSPF6_MAX_LSASIZE];
 	struct ospf6_lsa_header *lsa_header;
@@ -1318,7 +1400,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 		UNSET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_E);
 
 	/* external route tag */
-	if (info->tag)
+	if (info && info->tag)
 		SET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T);
 	else
 		UNSET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T);
@@ -1333,7 +1415,8 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	as_external_lsa->prefix.prefix_options = route->prefix_options;
 
 	/* Set the P bit */
-	as_external_lsa->prefix.prefix_options |= OSPF6_PREFIX_OPTION_P;
+	if (p_bit)
+		as_external_lsa->prefix.prefix_options |= OSPF6_PREFIX_OPTION_P;
 
 	/* don't use refer LS-type */
 	as_external_lsa->prefix.prefix_refer_lstype = htons(0);
@@ -1354,7 +1437,8 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 		UNSET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_F);
 
 	/* External Route Tag */
-	if (CHECK_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T)) {
+	if (info
+	    && CHECK_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_T)) {
 		route_tag_t network_order = htonl(info->tag);
 
 		memcpy(p, &network_order, sizeof(network_order));

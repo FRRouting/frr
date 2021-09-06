@@ -52,6 +52,13 @@ struct ospf6_area {
 	/* Area type */
 	int no_summary;
 
+	/* NSSA default-information-originate */
+	struct {
+		bool enabled;
+		int metric_type;
+		int metric_value;
+	} nssa_default_originate;
+
 	/* Brouter traversal protection */
 	bool intra_brouter_calc;
 
