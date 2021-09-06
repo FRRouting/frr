@@ -44,6 +44,7 @@ static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr src)
 {
 	fprintf(stderr, "bingus\n");
+	fprintf(stderr, "bingus\n");
 	if (PIM_DEBUG_PIM_TRACE) {
 		char src_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", src, src_str, sizeof(src_str));
