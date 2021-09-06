@@ -292,9 +292,39 @@ static void cmgd_bcknd_trxn_delete(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	if (!trxn)
 		return;
 
-	cmgd_bcknd_cleanup_all_batches(*trxn);
+	/*
+	 * Remove the transaction from the list of transactions
+	 * so that future lookups with the same transaction id
+	 * does not return this one.
+	 */
 	cmgd_bcknd_trxn_list_del(&clnt_ctxt->trxn_head, *trxn);
-	XFREE(MTYPE_CMGD_BCKND_TRXN, *trxn);
+
+	if (cmgd_bcknd_batch_list_count(&(*trxn)->apply_cfgs)) {
+		/*
+		 * CFG_APPLY_REQs still pending for processing. Set 
+		 * appropraite flag so that the transaction will be
+		 * cleaned up after all CFG_APPLY_REQ has been 
+		 * processed.
+		 */
+		SET_FLAG((*trxn)->flags,
+			CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING);
+	} else {
+		/*
+		 * Time to delete the transaction which should also
+		 * take care of cleaning up all batches created via
+		 * CFGDATA_CREATE_REQs. But first notify the client 
+		 * about the transaction delete.
+		 */
+		if (clnt_ctxt->client_params.trxn_notify_cb)
+			(void) (*clnt_ctxt->client_params.trxn_notify_cb)(
+				(cmgd_lib_hndl_t)clnt_ctxt,
+				clnt_ctxt->client_params.user_data,
+				&(*trxn)->client_data, false);
+
+		cmgd_bcknd_cleanup_all_batches(*trxn);
+		XFREE(MTYPE_CMGD_BCKND_TRXN, *trxn);
+	}
+
 	*trxn = NULL;
 }
 
@@ -336,40 +366,40 @@ static int cmgd_bcknd_process_trxn_req(
 {
 	cmgd_bcknd_trxn_ctxt_t *trxn;
 
+	trxn = cmgd_bcknd_find_trxn_by_id(clnt_ctxt, trxn_id);
 	if (create) {
+		if (trxn) {
+			/* 
+			 * Transaction with same trxn-id already exists.
+			 * Should not happen under any circumstances.
+			 */
+			CMGD_BCKND_CLNT_ERR("Transaction 0x%lx already exists!!!",
+				trxn_id);
+			cmgd_bcknd_send_trxn_reply(clnt_ctxt, trxn_id, create,
+				false);
+		}
+
 		CMGD_BCKND_CLNT_DBG("Created new transaction 0x%lx",
 			trxn_id);
 		trxn = cmgd_bcknd_trxn_create(clnt_ctxt, trxn_id);
-	} else {
-		CMGD_BCKND_CLNT_DBG("Delete transaction 0x%lx",
-			trxn_id);
-		trxn = cmgd_bcknd_find_trxn_by_id(clnt_ctxt, trxn_id);
-	}
 
-	// Delete client_data as part of this callback
-	if (trxn && clnt_ctxt->client_params.trxn_notify_cb)
-		(void) (*clnt_ctxt->client_params.trxn_notify_cb)(
+		if (clnt_ctxt->client_params.trxn_notify_cb)
+			(void) (*clnt_ctxt->client_params.trxn_notify_cb)(
 				(cmgd_lib_hndl_t)clnt_ctxt,
 				clnt_ctxt->client_params.user_data,
-				&trxn->client_data, create);
-
-	if (trxn && !create) {
-		if (!cmgd_bcknd_batch_list_count(&trxn->apply_cfgs)) {
-			/*
-			 * Time to delete the transaction which should also
-			 * take care of cleaning up all batches created via
-			 * CFGDATA_CREATE_REQs.
+				&trxn->client_data, true);
+	} else {
+		if (!trxn) {
+			/* 
+			 * Transaction with same trxn-id does not exists.
+			 * Return sucess anyways.
 			 */
-			cmgd_bcknd_trxn_delete(clnt_ctxt, &trxn);
+			CMGD_BCKND_CLNT_DBG("Transaction to delete 0x%lx does NOT exists!!!",
+				trxn_id);
 		} else {
-			/*
-			 * CFG_APPLY_REQs still pening for processing. Set 
-			 * appropraite flag so that the transaction will be
-			 * cleaned up after all CFG_APPLY_REQ has been 
-			 * processed.
-			 */
-			SET_FLAG(trxn->flags,
-				CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING);
+			CMGD_BCKND_CLNT_DBG("Delete transaction 0x%lx",
+				trxn_id);
+			cmgd_bcknd_trxn_delete(clnt_ctxt, &trxn);
 		}
 	}
 
@@ -737,10 +767,12 @@ static int cmgd_bcknd_trxn_proc_cfgapply(struct thread *thread)
 		if (CHECK_FLAG(trxn->flags,
 			CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING)) {
 			/*
-			* Time to delete the transaction which should also
-			* take care of cleaning up all batches created via
-			* CFGDATA_CREATE_REQs.
-			*/
+			 * Time to delete the transaction which should also
+			 * take care of cleaning up all batches created via
+			 * CFGDATA_CREATE_REQs.
+			 */
+			UNSET_FLAG(trxn->flags,
+				CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING);
 			cmgd_bcknd_trxn_delete(clnt_ctxt, &trxn);
 		}
 	} else {
