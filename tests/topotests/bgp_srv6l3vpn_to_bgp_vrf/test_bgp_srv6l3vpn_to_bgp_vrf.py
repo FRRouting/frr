@@ -129,6 +129,10 @@ def setup_module(mod):
     tgen.gears["r2"].run("ip link set eth3 master vrf20")
     tgen.start_router()
 
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+
 
 def teardown_module(mod):
     tgen = get_topogen()
@@ -143,7 +147,22 @@ def open_json_file(filename):
         assert False, "Could not read file {}".format(filename)
 
 
-def test_rib():
+def check_ping(name, dest_addr, expect_connected):
+    def _check(name, dest_addr, match):
+        tgen = get_topogen()
+        output = tgen.gears[name].run("ping6 {} -c 1 -w 1".format(dest_addr))
+        logger.info(output)
+        assert match in output, "ping fail"
+
+    match = "{} packet loss".format("0%" if expect_connected else "100%")
+    logger.info("[+] check {} {} {}".format(name, dest_addr, match))
+    tgen = get_topogen()
+    func = functools.partial(_check, name, dest_addr, match)
+    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    assert result is None, 'Failed'
+
+
+def check_rib(name, cmd, expected_file):
     def _check(name, cmd, expected_file):
         logger.info("polling")
         tgen = get_topogen()
@@ -152,51 +171,39 @@ def test_rib():
         expected = open_json_file("{}/{}".format(CWD, expected_file))
         return topotest.json_cmp(output, expected)
 
-    def check(name, cmd, expected_file):
-        logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
-        tgen = get_topogen()
-        func = functools.partial(_check, name, cmd, expected_file)
-        success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, "Failed"
+    logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+    tgen = get_topogen()
+    func = functools.partial(_check, name, cmd, expected_file)
+    success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
+    assert result is None, 'Failed'
 
-    check("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib.json")
-    check("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib.json")
-    check("r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_rib.json")
-    check("r1", "show ipv6 route vrf vrf20 json", "r1/vrf20_rib.json")
-    check("r2", "show ipv6 route vrf vrf10 json", "r2/vrf10_rib.json")
-    check("r2", "show ipv6 route vrf vrf20 json", "r2/vrf20_rib.json")
-    check("ce1", "show ipv6 route json", "ce1/ipv6_rib.json")
-    check("ce2", "show ipv6 route json", "ce2/ipv6_rib.json")
-    check("ce3", "show ipv6 route json", "ce3/ipv6_rib.json")
-    check("ce4", "show ipv6 route json", "ce4/ipv6_rib.json")
-    check("ce5", "show ipv6 route json", "ce5/ipv6_rib.json")
-    check("ce6", "show ipv6 route json", "ce6/ipv6_rib.json")
+
+def test_rib():
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib.json")
+    check_rib("r1", "show ipv6 route vrf vrf10 json", "r1/vrf10_rib.json")
+    check_rib("r1", "show ipv6 route vrf vrf20 json", "r1/vrf20_rib.json")
+    check_rib("r2", "show ipv6 route vrf vrf10 json", "r2/vrf10_rib.json")
+    check_rib("r2", "show ipv6 route vrf vrf20 json", "r2/vrf20_rib.json")
+    check_rib("ce1", "show ipv6 route json", "ce1/ipv6_rib.json")
+    check_rib("ce2", "show ipv6 route json", "ce2/ipv6_rib.json")
+    check_rib("ce3", "show ipv6 route json", "ce3/ipv6_rib.json")
+    check_rib("ce4", "show ipv6 route json", "ce4/ipv6_rib.json")
+    check_rib("ce5", "show ipv6 route json", "ce5/ipv6_rib.json")
+    check_rib("ce6", "show ipv6 route json", "ce6/ipv6_rib.json")
 
 
 def test_ping():
-    def _check(name, dest_addr, match):
-        tgen = get_topogen()
-        output = tgen.gears[name].run("ping6 {} -c 1 -w 1".format(dest_addr))
-        logger.info(output)
-        assert match in output, "ping fail"
-
-    def check(name, dest_addr, match):
-        logger.info("[+] check {} {} {}".format(name, dest_addr, match))
-        tgen = get_topogen()
-        func = functools.partial(_check, name, dest_addr, match)
-        success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, "Failed"
-
-    check("ce1", "2001:2::2", " 0% packet loss")
-    check("ce1", "2001:3::2", " 0% packet loss")
-    check("ce1", "2001:4::2", " 100% packet loss")
-    check("ce1", "2001:5::2", " 100% packet loss")
-    check("ce1", "2001:6::2", " 100% packet loss")
-    check("ce4", "2001:1::2", " 100% packet loss")
-    check("ce4", "2001:2::2", " 100% packet loss")
-    check("ce4", "2001:3::2", " 100% packet loss")
-    check("ce4", "2001:5::2", " 0% packet loss")
-    check("ce4", "2001:6::2", " 0% packet loss")
+    check_ping("ce1", "2001:2::2", True)
+    check_ping("ce1", "2001:3::2", True)
+    check_ping("ce1", "2001:4::2", False)
+    check_ping("ce1", "2001:5::2", False)
+    check_ping("ce1", "2001:6::2", False)
+    check_ping("ce4", "2001:1::2", False)
+    check_ping("ce4", "2001:2::2", False)
+    check_ping("ce4", "2001:3::2", False)
+    check_ping("ce4", "2001:5::2", True)
+    check_ping("ce4", "2001:6::2", True)
 
 
 if __name__ == "__main__":
