@@ -27,8 +27,12 @@
 #include <sys/file.h>
 #include <unistd.h>
 
+/* readline carries some ancient definitions around */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <readline/readline.h>
 #include <readline/history.h>
+#pragma GCC diagnostic pop
 
 /*
  * The append_history function only appears in newer versions

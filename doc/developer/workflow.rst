@@ -1217,6 +1217,20 @@ it possible to use your apis in paths that involve ``const``
 objects. If you encounter existing apis that *could* be ``const``,
 consider including changes in your own pull-request.
 
+Help with specific warnings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+FRR's configure script enables a whole batch of extra warnings, some of which
+may not be obvious in how to fix.  Here are some notes on specific warnings:
+
+* ``-Wstrict-prototypes``:  you probably just forgot the ``void`` in a function
+  declaration with no parameters, i.e. ``static void foo() {...}`` rather than
+  ``static void foo(void) {...}``.
+
+  Without the ``void``, in C, it's a function with *unspecified* parameters
+  (and varargs calling convention.)  This is a notable difference to C++, where
+  the ``void`` is optional and an empty parameter list means no parameters.
+
 
 .. _documentation:
 
