@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-
+# -*- coding: utf-8 eval: (blacken-mode 1) -*-
 #
 # <template>.py
 # Part of NetDEF Topology Tests
@@ -29,54 +29,69 @@
 import sys
 import pytest
 
-# Import topogen and topotest helpers
-from lib.topogen import Topogen, TopoRouter, get_topogen
-
+from lib.topogen import Topogen, TopoRouter
+from lib.topolog import logger
 
 # TODO: select markers based on daemons used during test
 # pytest module level markers
-"""
-pytestmark = pytest.mark.bfdd # single marker
 pytestmark = [
-	pytest.mark.bgpd,
-	pytest.mark.ospfd,
-	pytest.mark.ospf6d
-] # multiple markers
-"""
+    # pytest.mark.babeld,
+    # pytest.mark.bfdd,
+    # pytest.mark.bgpd,
+    # pytest.mark.eigrpd,
+    # pytest.mark.isisd,
+    # pytest.mark.ldpd,
+    # pytest.mark.nhrpd,
+    # pytest.mark.ospf6d,
+    pytest.mark.ospfd,
+    # pytest.mark.pathd,
+    # pytest.mark.pbrd,
+    # pytest.mark.pimd,
+    # pytest.mark.ripd,
+    # pytest.mark.ripngd,
+    # pytest.mark.sharpd,
+    # pytest.mark.staticd,
+    # pytest.mark.vrrpd,
+]
 
-
+# Function we pass to Topogen to create the topology
 def build_topo(tgen):
     "Build function"
 
     # Create 2 routers
-    for routern in range(1, 3):
-        tgen.add_router("r{}".format(routern))
+    r1 = tgen.add_router("r1")
+    r2 = tgen.add_router("r2")
 
-    # Create a switch with just one router connected to it to simulate a
-    # empty network.
+    # Create a p2p connection between r1 and r2
+    tgen.add_link(r1, r2)
+
+    # Create a switch with one router connected to it to simulate a empty network.
     switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
+    switch.add_link(r1)
 
-    # Create a connection between r1 and r2
+    # Create a p2p connection between r1 and r2
     switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
+    switch.add_link(r1)
+    switch.add_link(r2)
 
 
-def setup_module(mod):
-    "Sets up the pytest environment"
+# New form of setup/teardown using pytest fixture
+@pytest.fixture(scope="module")
+def tgen(request):
+    "Setup/Teardown the environment and provide tgen argument to tests"
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(build_topo, mod.__name__)
+    tgen = Topogen(build_topo, request.module.__name__)
 
-    # The basic topology above could also have be more easily specified using a
-    # dictionary, remove the build_topo function and use the following instead:
+    # A basic topology similar to the above could also have be more easily specified
+    # using a # dictionary, remove the build_topo function and use the following
+    # instead:
     #
     # topodef = {
     #     "s1": "r1"
     #     "s2": ("r1", "r2")
     # }
-    # tgen = Topogen(topodef, mod.__name__)
+    # tgen = Topogen(topodef, request.module.__name__)
 
     # ... and here it calls initialization functions.
     tgen.start_topology()
@@ -84,42 +99,69 @@ def setup_module(mod):
     # This is a sample of configuration loading.
     router_list = tgen.routers()
 
-    # For all registred routers, load the zebra configuration file
-    # CWD = os.path.dirname(os.path.realpath(__file__))
+    # For all routers arrange for:
+    # - starting zebra using config file from <rtrname>/zebra.conf
+    # - starting ospfd using an empty config file.
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA,
-            # Uncomment next line to load configuration from ./router/zebra.conf
-            # os.path.join(CWD, '{}/zebra.conf'.format(rname))
-        )
+        router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
+        router.load_config(TopoRouter.RD_OSPF)
 
-    # After loading the configurations, this function loads configured daemons.
+    # Start and configure the router daemons
     tgen.start_router()
 
+    # Provide tgen as argument to each test function
+    yield tgen
 
-def teardown_module(mod):
-    "Teardown the pytest environment"
-    tgen = get_topogen()
-
-    # This function tears down the whole topology.
+    # Teardown after last test runs
     tgen.stop_topology()
 
 
-def test_call_cli():
-    "Dummy test that just calls tgen.cli() so we can interact with the build."
-    tgen = get_topogen()
-    # Don't run this test if we have any failure.
+# Fixture that executes before each test
+@pytest.fixture(autouse=True)
+def skip_on_failure(tgen):
     if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
+        pytest.skip("skipped because of previous test failure")
 
-    # logger.info("calling CLI")
-    # tgen.cli()
+
+# ===================
+# The tests functions
+# ===================
+
+
+def test_get_version(tgen):
+    "Test the logs the FRR version"
+
+    r1 = tgen.gears["r1"]
+    version = r1.vtysh_cmd("show version")
+    logger.info("FRR version is: " + version)
+
+
+def test_connectivity(tgen):
+    "Test the logs the FRR version"
+
+    r1 = tgen.gears["r1"]
+    r2 = tgen.gears["r2"]
+    output = r1.cmd_raises("ping -c1 192.168.1.2")
+    output = r2.cmd_raises("ping -c1 192.168.3.1")
+
+
+@pytest.mark.xfail
+def test_expect_failure(tgen):
+    "A test that is current expected to fail but should be fixed"
+
+    assert False, "Example of temporary expected failure that will eventually be fixed"
+
+
+@pytest.mark.skip
+def test_will_be_skipped(tgen):
+    "A test that will be skipped"
+    assert False
 
 
 # Memory leak test template
-def test_memory_leak():
+def test_memory_leak(tgen):
     "Run the memory leak test and report results."
-    tgen = get_topogen()
+
     if not tgen.is_memleak_enabled():
         pytest.skip("Memory leak test/report is disabled")
 
