@@ -10608,11 +10608,8 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 		prefix2str(&rn->p, buf1, sizeof(buf1));
 
 		json_route = json_object_new_object();
-		if (json) {
+		if (json)
 			json_object_object_add(json, buf1, json_route);
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_NOSLASHESCAPE);
-		}
 
 		switch (or->path_type) {
 		case OSPF_PATH_INTER_AREA:
@@ -10909,11 +10906,8 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 
 		snprintfrr(buf1, sizeof(buf1), "%pFX", &rn->p);
 		json_route = json_object_new_object();
-		if (json) {
+		if (json)
 			json_object_object_add(json, buf1, json_route);
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_NOSLASHESCAPE);
-		}
 
 		switch (er->path_type) {
 		case OSPF_PATH_TYPE1_EXTERNAL:
