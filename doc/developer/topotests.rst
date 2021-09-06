@@ -983,22 +983,20 @@ Writing Tests
 """""""""""""
 
 Test topologies should always be bootstrapped from
-:file:`tests/topotests/example-test/test_template.py` because it contains
+:file:`tests/topotests/example_test/test_template.py` because it contains
 important boilerplate code that can't be avoided, like:
 
 Example:
 
 .. code:: py
 
-   # For all registered routers, load the zebra configuration file
-   CWD = os.path.dirname(os.path.realpath(__file__))
-   for rname, router in router_list.items():
-       router.load_config(
-           TopoRouter.RD_ZEBRA,
-           os.path.join(CWD, '{}/zebra.conf'.format(rname))
-       )
-       # os.path.join() joins the CWD string with arguments adding the necessary
-       # slashes ('/'). Arguments must not begin with '/'.
+       # For all routers arrange for:
+       # - starting zebra using config file from <rtrname>/zebra.conf
+       # - starting ospfd using an empty config file.
+       for rname, router in router_list.items():
+           router.load_config(TopoRouter.RD_ZEBRA, "zebra.conf")
+           router.load_config(TopoRouter.RD_OSPF)
+
 
 - The topology definition or build function
 
@@ -1013,27 +1011,31 @@ Example:
        # topology build code
        ...
 
-- pytest ``setup_module()`` and ``teardown_module()`` to start the topology
+- pytest setup/teardown fixture to start the topology and supply `tgen` argument
+  to tests.
 
 .. code:: py
 
-   def setup_module(module):
+
+   @pytest.fixture(scope="module")
+   def tgen(request):
+       "Setup/Teardown the environment and provide tgen argument to tests"
+
        tgen = Topogen(topodef, module.__name__)
        # or
        tgen = Topogen(build_topo, module.__name__)
 
-       tgen.start_topology('debug')
+       ...
 
-   def teardown_module(_m):
-       tgen = get_topogen()
+       # Start and configure the router daemons
+       tgen.start_router()
+
+       # Provide tgen as argument to each test function
+       yield tgen
+
+       # Teardown after last test runs
        tgen.stop_topology()
 
-- ``__main__`` initialization code (to support running the script directly)
-
-.. code:: py
-
-   if __name__ == '__main__':
-       sys.exit(pytest.main(["-s"]))
 
 Requirements:
 
