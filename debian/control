@@ -63,8 +63,8 @@ Replaces: zebra,
 Description: FRRouting suite of internet protocols (BGP, OSPF, IS-IS, ...)
  FRRouting implements the routing protocols commonly used in the
  internet and private networks to exchange information between routers.
- Both IP and IPv6 are supported, as are BGP, OSPF, IS-IS, BABEL, EIGRP,
- RIP, LDP, BFD, PIM and NHRP protocols.
+ Both IP and IPv6 are supported, as are BGP, OSPFv2, OSPFv3, IS-IS, BABEL,
+ EIGRP, RIP, RIPng, LDP, BFD, PIM, VRRP, PBR, and NHRP.
  .
  These protocols are used to turn your system into a dynamic router,
  exchanging information about available connections with other routers
