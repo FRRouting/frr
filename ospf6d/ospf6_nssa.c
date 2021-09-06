@@ -1311,7 +1311,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 
 	/* Fill AS-External-LSA */
 	/* Metric type */
-	if (route->path.metric_type == OSPF6_PATH_TYPE_EXTERNAL2)
+	if (route->path.metric_type == 2)
 		SET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_E);
 	else
 		UNSET_FLAG(as_external_lsa->bits_metric, OSPF6_ASBR_BIT_E);
