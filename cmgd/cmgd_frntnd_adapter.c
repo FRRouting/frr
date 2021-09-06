@@ -271,7 +271,6 @@ static cmgd_frntnd_sessn_ctxt_t *cmgd_frntnd_create_session(
 	sessn->trxn_id = CMGD_TRXN_ID_NONE;
 	sessn->cfg_trxn_id = CMGD_TRXN_ID_NONE;
 	cmgd_frntnd_adapter_lock(adptr);
-	adptr->cmt_stats.min_tm = ULONG_MAX;
 	cmgd_frntnd_sessn_list_add_tail(&adptr->frntnd_sessns, sessn);
 
 	return sessn;
