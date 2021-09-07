@@ -1603,10 +1603,6 @@ class Router(Node):
         if "all" in shell_routers or self.name in shell_routers:
             self.run_in_window(os.getenv("SHELL", "bash"))
 
-        vtysh_routers = g_extra_config["vtysh"]
-        if "all" in vtysh_routers or self.name in vtysh_routers:
-            self.run_in_window("vtysh")
-
         if self.daemons["eigrpd"] == 1:
             eigrpd_path = os.path.join(self.daemondir, "eigrpd")
             if not os.path.isfile(eigrpd_path):
@@ -1619,7 +1615,13 @@ class Router(Node):
                 logger.info("BFD Test, but no bfdd compiled or installed")
                 return "BFD Test, but no bfdd compiled or installed"
 
-        return self.startRouterDaemons(tgen=tgen)
+        status = self.startRouterDaemons(tgen=tgen)
+
+        vtysh_routers = g_extra_config["vtysh"]
+        if "all" in vtysh_routers or self.name in vtysh_routers:
+            self.run_in_window("vtysh")
+
+        return status
 
     def getStdErr(self, daemon):
         return self.getLog("err", daemon)

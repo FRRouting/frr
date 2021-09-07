@@ -369,13 +369,13 @@ class Commander(object):  # pylint: disable=R0205
             cmd = [self.get_exec_path("xterm")]
             if "SUDO_USER" in os.environ:
                 cmd = [self.get_exec_path("sudo"), "-u", os.environ["SUDO_USER"]] + cmd
-            # if title:
-            #    cmd.append("-T")
-            #    cmd.append(title)
+            if title:
+                cmd.append("-T")
+                cmd.append(title)
             cmd.append("-e")
             cmd.append(sudo_path)
             cmd.extend(self.pre_cmd)
-            cmd.append(user_cmd)
+            cmd.extend(["bash", "-c", user_cmd])
             # if channel:
             #    return self.cmd_raises(cmd, skip_pre_cmd=True)
             # else:
@@ -384,13 +384,11 @@ class Commander(object):  # pylint: disable=R0205
                 skip_pre_cmd=True,
                 stdin=None,
                 shell=False,
-                # stdout=open("/dev/null", "w"),
-                # stderr=open("/dev/null", "w"),
             )
             time_mod.sleep(2)
             if p.poll() is not None:
                 self.logger.error("%s: Failed to launch xterm: %s", self, comm_error(p))
-            return ""
+            return p
         else:
             self.logger.error(
                 "DISPLAY, STY, and TMUX not in environment, can't open window"
