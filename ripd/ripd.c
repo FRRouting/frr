@@ -99,7 +99,7 @@ RB_GENERATE(rip_instance_head, rip, entry, rip_instance_compare)
 
 struct rip_instance_head rip_instances = RB_INITIALIZER(&rip_instances);
 
-/* Utility function to set boradcast option to the socket. */
+/* Utility function to set broadcast option to the socket. */
 static int sockopt_broadcast(int sock)
 {
 	int ret;
@@ -480,7 +480,7 @@ static void rip_rte_process(struct rte *rte, struct sockaddr_in *from,
 	}
 
 	/* Once the entry has been validated, update the metric by
-	   adding the cost of the network on wich the message
+	   adding the cost of the network on which the message
 	   arrived. If the result is greater than infinity, use infinity
 	   (RFC2453 Sec. 3.9.2) */
 	/* Zebra ripd can handle offset-list in. */
