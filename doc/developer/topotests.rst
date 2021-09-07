@@ -953,6 +953,32 @@ configuration files (per-daemon) using the following commands:
    end
    r1#
 
+You can also login to the node specified by nsenter using bash, etc.
+A pid file for each node will be created in the relevant test dir.
+You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
+
+.. code:: shell
+
+  [unet shell]
+  # cd tests/topotests/srv6_locator
+  # ./test_srv6_locator.py --topology-only
+  unet> r1 show segment-routing srv6 locator
+  Locator:
+  Name                 ID      Prefix                   Status
+  -------------------- ------- ------------------------ -------
+  loc1                       1 2001:db8:1:1::/64        Up
+  loc2                       2 2001:db8:2:2::/64        Up
+
+  [Another shell]
+  # nsenter -a -t $(cat /tmp/topotests/srv6_locator.test_srv6_locator/r1.pid) bash --norc
+  # vtysh
+  r1# r1 show segment-routing srv6 locator
+  Locator:
+  Name                 ID      Prefix                   Status
+  -------------------- ------- ------------------------ -------
+  loc1                       1 2001:db8:1:1::/64        Up
+  loc2                       2 2001:db8:2:2::/64        Up
+
 Writing Tests
 """""""""""""
 

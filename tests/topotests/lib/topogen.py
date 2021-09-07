@@ -771,6 +771,10 @@ class TopoRouter(TopoGear):
         # Mount gear log directory on a common path
         self.net.bind_mount(self.gearlogdir, "/tmp/gearlogdir")
 
+        # Ensure pid file
+        with open(os.path.join(self.logdir, self.name + ".pid"), "w") as f:
+            f.write(str(self.net.pid) + "\n")
+
     def __str__(self):
         gear = super(TopoRouter, self).__str__()
         gear += " TopoRouter<>"
