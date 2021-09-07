@@ -773,7 +773,7 @@ class TopoRouter(TopoGear):
 
         # Ensure pid file
         with open(os.path.join(self.logdir, self.name + ".pid"), "w") as f:
-            f.write(str(tgen.net.hosts[self.name].pid))
+            f.write(str(self.net.pid) + "\n")
 
     def __str__(self):
         gear = super(TopoRouter, self).__str__()
