@@ -6777,19 +6777,21 @@ DEFUN (neighbor_interface,
 {
 	int idx_ip = 1;
 	int idx_word = 3;
+
 	return peer_interface_vty(vty, argv[idx_ip]->arg, argv[idx_word]->arg);
 }
 
 DEFUN (no_neighbor_interface,
        no_neighbor_interface_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> interface WORD",
+       "no neighbor <A.B.C.D|X:X::X:X> interface WORD",
        NO_STR
        NEIGHBOR_STR
-       NEIGHBOR_ADDR_STR2
+       NEIGHBOR_ADDR_STR
        "Interface\n"
        "Interface name\n")
 {
 	int idx_peer = 2;
+
 	return peer_interface_vty(vty, argv[idx_peer]->arg, NULL);
 }
 
