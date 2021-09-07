@@ -962,7 +962,7 @@ You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
   [unet shell]
   # cd tests/topotests/srv6_locator
   # ./test_srv6_locator.py --topology-only
-  unet> r1 sh segment-routing srv6 locator
+  unet> r1 show segment-routing srv6 locator
   Locator:
   Name                 ID      Prefix                   Status
   -------------------- ------- ------------------------ -------
@@ -972,7 +972,7 @@ You can run scripts inside the node, or use vtysh's <tab> or <?> feature.
   [Another shell]
   # nsenter -a -t $(cat /tmp/topotests/srv6_locator.test_srv6_locator/r1.pid) bash --norc
   # vtysh
-  r1# r1 sh segment-routing srv6 locator
+  r1# r1 show segment-routing srv6 locator
   Locator:
   Name                 ID      Prefix                   Status
   -------------------- ------- ------------------------ -------
