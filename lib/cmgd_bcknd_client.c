@@ -1319,7 +1319,7 @@ static void cmgd_bcknd_trxn_register_event(
 				&tv, NULL);
 		break;
 	case CMGD_BCKND_RESCHED_CFG_APPLY:
-		tv.tv_usec = CMGD_BCKND_CFGAPPLY_SCHED_DELAY_USEC;
+		tv.tv_usec = CMGD_BCKND_CFGAPPLY_RESCHED_DELAY_USEC;
 		trxn->apply_cfg_ev = 
 			thread_add_timer_tv(trxn->clnt_ctxt->tm,
 				cmgd_bcknd_trxn_proc_cfgapply, trxn,
@@ -1355,13 +1355,13 @@ static void cmgd_bcknd_client_register_event(
 				cmgd_bcknd_client_proc_msgbufs, clnt_ctxt,
 				&tv, NULL);
 		break;
-	case CMGD_BCKND_SCHED_CFG_APPLY:
-		tv.tv_usec = CMGD_BCKND_CFGAPPLY_SCHED_DELAY_USEC;
-		clnt_ctxt->msg_proc_ev = 
-			thread_add_timer_tv(clnt_ctxt->tm,
-				cmgd_bcknd_client_proc_msgbufs, clnt_ctxt,
-				&tv, NULL);
-		break;
+	// case CMGD_BCKND_SCHED_CFG_APPLY:
+	// 	tv.tv_usec = CMGD_BCKND_CFGAPPLY_SCHED_DELAY_USEC;
+	// 	clnt_ctxt->msg_proc_ev = 
+	// 		thread_add_timer_tv(clnt_ctxt->tm,
+	// 			cmgd_bcknd_client_proc_msgbufs, clnt_ctxt,
+	// 			&tv, NULL);
+	// 	break;
 	case CMGD_BCKND_CONN_WRITES_ON:
 		clnt_ctxt->conn_writes_on =
 			thread_add_timer_msec(clnt_ctxt->tm,
