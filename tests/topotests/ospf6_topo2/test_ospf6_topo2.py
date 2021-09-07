@@ -72,14 +72,20 @@ def expect_lsas(router, area, lsas, wait=5, extra_params=""):
     assert result is None, assertmsg
 
 
-def expect_ospfv3_routes(router, routes, wait=5, detail=False):
+def expect_ospfv3_routes(router, routes, wait=5, type=None, detail=False):
     "Run command `ipv6 ospf6 route` and expect route with type."
     tgen = get_topogen()
 
     if detail == False:
-        cmd = "show ipv6 ospf6 route json"
+        if type == None:
+            cmd = "show ipv6 ospf6 route json"
+        else:
+            cmd = "show ipv6 ospf6 route {} json".format(type)
     else:
-        cmd = "show ipv6 ospf6 route detail json"
+        if type == None:
+            cmd = "show ipv6 ospf6 route detail json"
+        else:
+            cmd = "show ipv6 ospf6 route {} detail json".format(type)
 
     logger.info("waiting OSPFv3 router '{}' route".format(router))
     test_func = partial(
@@ -89,6 +95,21 @@ def expect_ospfv3_routes(router, routes, wait=5, detail=False):
     assertmsg = '"{}" convergence failure'.format(router)
 
     assert result is None, assertmsg
+
+
+def dont_expect_route(router, unexpected_route, type=None):
+    "Specialized test function to expect route go missing"
+    tgen = get_topogen()
+
+    if type == None:
+        cmd = "show ipv6 ospf6 route json"
+    else:
+        cmd = "show ipv6 ospf6 route {} json".format(type)
+
+    output = tgen.gears[router].vtysh_cmd(cmd, isjson=True)
+    if unexpected_route in output["routes"]:
+        return output["routes"][unexpected_route]
+    return None
 
 
 def build_topo(tgen):
@@ -338,13 +359,6 @@ def test_nssa_lsa_type7():
                     return lsa
         return None
 
-    def dont_expect_route(unexpected_route):
-        "Specialized test function to expect route go missing"
-        output = tgen.gears["r4"].vtysh_cmd("show ipv6 ospf6 route json", isjson=True)
-        if unexpected_route in output["routes"]:
-            return output["routes"][unexpected_route]
-        return None
-
     logger.info("Expecting LSA type-7 and OSPFv3 route 2001:db8:100::/64 to go away")
 
     # Test that LSA doesn't exist.
@@ -354,9 +368,66 @@ def test_nssa_lsa_type7():
     assert result is None, assertmsg
 
     # Test that route doesn't exist.
-    test_func = partial(dont_expect_route, "2001:db8:100::/64")
+    test_func = partial(dont_expect_route, "r4", "2001:db8:100::/64")
     _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
     assertmsg = '"{}" route still exists'.format("r4")
+    assert result is None, assertmsg
+
+
+def test_nssa_no_summary():
+    """
+    Test the following:
+    * Type-3 inter-area routes should be removed when the NSSA no-summary option
+      is configured;
+    * A type-3 inter-area default route should be originated into the NSSA area
+      when the no-summary option is configured;
+    * Once the no-summary option is unconfigured, all previously existing
+      Type-3 inter-area routes should be re-added, and the inter-area default
+      route removed.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #
+    # Configure area 1 as a NSSA totally stub area.
+    #
+    config = """
+    configure terminal
+    router ospf6
+    area 2 nssa no-summary
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting inter-area routes to be removed")
+    for route in ["2001:db8:1::/64", "2001:db8:2::/64"]:
+        test_func = partial(dont_expect_route, "r4", route, type="inter-area")
+        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+        assertmsg = "{}'s {} inter-area route still exists".format("r4", route)
+        assert result is None, assertmsg
+
+    logger.info("Expecting inter-area default-route to be added")
+    routes = {"::/0": {}}
+    expect_ospfv3_routes("r4", routes, wait=30, type="inter-area")
+
+    #
+    # Configure area 1 as a regular NSSA area.
+    #
+    config = """
+    configure terminal
+    router ospf6
+    area 2 nssa
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting inter-area routes to be re-added")
+    routes = {"2001:db8:1::/64": {}, "2001:db8:2::/64": {}}
+    expect_ospfv3_routes("r4", routes, wait=30, type="inter-area")
+
+    logger.info("Expecting inter-area default route to be removed")
+    test_func = partial(dont_expect_route, "r4", "::/0", type="inter-area")
+    _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+    assertmsg = "{}'s inter-area default route still exists".format("r4")
     assert result is None, assertmsg
 
 

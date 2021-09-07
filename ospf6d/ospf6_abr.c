@@ -748,7 +748,15 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 	def->path.cost = metric_value(o, type, 0);
 
 	for (ALL_LIST_ELEMENTS(o->area_list, node, nnode, oa)) {
-		if (!IS_AREA_STUB(oa)) {
+		if (IS_AREA_STUB(oa) || (IS_AREA_NSSA(oa) && oa->no_summary)) {
+			/* announce defaults to stubby areas */
+			if (IS_OSPF6_DEBUG_ABR)
+				zlog_debug(
+					"Announcing default route into stubby area %s",
+					oa->name);
+			UNSET_FLAG(def->flag, OSPF6_ROUTE_REMOVE);
+			ospf6_abr_originate_summary_to_area(def, oa);
+		} else {
 			/* withdraw defaults when an area switches from stub to
 			 * non-stub */
 			route = ospf6_route_lookup(&def->prefix,
@@ -762,14 +770,6 @@ void ospf6_abr_defaults_to_stub(struct ospf6 *o)
 				SET_FLAG(def->flag, OSPF6_ROUTE_REMOVE);
 				ospf6_abr_originate_summary_to_area(def, oa);
 			}
-		} else {
-			/* announce defaults to stubby areas */
-			if (IS_OSPF6_DEBUG_ABR)
-				zlog_debug(
-					"Announcing default route into stubby area %s",
-					oa->name);
-			UNSET_FLAG(def->flag, OSPF6_ROUTE_REMOVE);
-			ospf6_abr_originate_summary_to_area(def, oa);
 		}
 	}
 	ospf6_route_delete(def);

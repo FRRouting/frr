@@ -588,6 +588,32 @@ void ospf6_asbr_lsa_add(struct ospf6_lsa *lsa)
 		}
 	}
 
+	/*
+	 * RFC 3101 - Section 2.5:
+	 * "If the destination is a Type-7 default route (destination ID =
+	 * DefaultDestination) and one of the following is true, then do
+	 * nothing with this LSA and consider the next in the list:
+	 *
+	 *  o  The calculating router is a border router and the LSA has
+	 *     its P-bit clear.  Appendix E describes a technique
+	 *     whereby an NSSA border router installs a Type-7 default
+	 *     LSA without propagating it.
+	 *
+	 *  o  The calculating router is a border router and is
+	 *     suppressing the import of summary routes as Type-3
+	 *     summary-LSAs".
+	 */
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+	    && external->prefix.prefix_length == 0
+	    && CHECK_FLAG(ospf6->flag, OSPF6_FLAG_ABR)
+	    && (CHECK_FLAG(external->prefix.prefix_options,
+			   OSPF6_PREFIX_OPTION_P)
+		|| oa->no_summary)) {
+		if (IS_OSPF6_DEBUG_EXAMIN(AS_EXTERNAL))
+			zlog_debug("Skipping Type-7 default route");
+		return;
+	}
+
 	/* Check the forwarding address */
 	if (CHECK_FLAG(external->bits_metric, OSPF6_ASBR_BIT_F)) {
 		offset = sizeof(*external)
