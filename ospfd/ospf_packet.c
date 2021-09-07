@@ -1081,6 +1081,25 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 		return;
 	}
 
+	if (OSPF_GR_IS_ACTIVE_HELPER(nbr)) {
+		/* As per the GR Conformance Test Case 7.2. Section 3
+		 * "Also, if X was the Designated Router on network segment S
+		 * when the helping relationship began, Y maintains X as the
+		 * Designated Router until the helping relationship is
+		 * terminated."
+		 * When I am helper for this neighbor, I should not trigger the
+		 * ISM Events. Also Intentionally not setting the priority and
+		 * other fields so that when the neighbor exits the Grace
+		 * period, it can handle if there is any change before GR and
+		 * after GR. */
+		if (IS_DEBUG_OSPF_GR)
+			zlog_debug(
+				"%s, Neighbor is under GR Restart, hence ignoring the ISM Events",
+				__PRETTY_FUNCTION__);
+
+		return;
+	}
+
 	/* If neighbor itself declares DR and no BDR exists,
 	   cause event BackupSeen */
 	if (IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router))
