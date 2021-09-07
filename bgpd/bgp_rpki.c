@@ -923,25 +923,25 @@ static int config_write(struct vty *vty)
 #endif
 		case TCP:
 			tcp_config = cache->tr_config.tcp_config;
-			vty_out(vty, " rpki cache %s%s%s %s ", tcp_config->host,
-				tcp_config->bindaddr ? " source " : "",
-				tcp_config->bindaddr ? tcp_config->bindaddr
-						     : "",
+			vty_out(vty, " rpki cache %s %s ", tcp_config->host,
 				tcp_config->port);
+			if (tcp_config->bindaddr)
+				vty_out(vty, "source %s ",
+					tcp_config->bindaddr);
 			break;
 #if defined(FOUND_SSH)
 		case SSH:
 			ssh_config = cache->tr_config.ssh_config;
-			vty_out(vty, " rpki cache %s%s%s %u %s %s %s ",
-				ssh_config->host,
-				ssh_config->bindaddr ? "source " : "",
-				ssh_config->bindaddr ? ssh_config->bindaddr
-						     : "",
-				ssh_config->port, ssh_config->username,
+			vty_out(vty, " rpki cache %s %u %s %s %s ",
+				ssh_config->host, ssh_config->port,
+				ssh_config->username,
 				ssh_config->client_privkey_path,
 				ssh_config->server_hostkey_path != NULL
 					? ssh_config->server_hostkey_path
 					: " ");
+			if (ssh_config->bindaddr)
+				vty_out(vty, "source %s ",
+					ssh_config->bindaddr);
 			break;
 #endif
 		default:
@@ -1067,19 +1067,18 @@ DEFUN (no_rpki_retry_interval,
 }
 
 DEFPY(rpki_cache, rpki_cache_cmd,
-      "rpki cache <A.B.C.D|WORD> [source <A.B.C.D>$bindaddr] "
-      "<TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> preference (1-255)",
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
       RPKI_OUTPUT_STRING
       "Install a cache server to current group\n"
       "IP address of cache server\n Hostname of cache server\n"
-      "Configure source IP address of RPKI connection\n"
-      "Define a Source IP Address\n"
       "TCP port number\n"
       "SSH port number\n"
       "SSH user name\n"
       "Path to own SSH private key\n"
       "Path to own SSH public key\n"
       "Path to Public key of cache server\n"
+      "Configure source IP address of RPKI connection\n"
+      "Define a Source IP Address\n"
       "Preference of the cache server\n"
       "Preference value\n")
 {
