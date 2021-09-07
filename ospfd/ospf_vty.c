@@ -10607,9 +10607,10 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 
 		prefix2str(&rn->p, buf1, sizeof(buf1));
 
-		json_route = json_object_new_object();
-		if (json)
+		if (json) {
+			json_route = json_object_new_object();
 			json_object_object_add(json, buf1, json_route);
+		}
 
 		switch (or->path_type) {
 		case OSPF_PATH_INTER_AREA:
@@ -10730,8 +10731,6 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				}
 			}
 		}
-		if (!json)
-			json_object_free(json_route);
 	}
 	if (!json)
 		vty_out(vty, "\n");
@@ -10759,8 +10758,8 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 			continue;
 		int flag = 0;
 
-		json_route = json_object_new_object();
 		if (json) {
+			json_route = json_object_new_object();
 			json_object_object_add(
 				json, inet_ntop(AF_INET, &rn->p.u.prefix4,
 						buf, sizeof(buf)),
@@ -10875,8 +10874,6 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 				}
 			}
 		}
-		if (!json)
-			json_object_free(json_route);
 	}
 	if (!json)
 		vty_out(vty, "\n");
@@ -10905,9 +10902,10 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 		char buf1[19];
 
 		snprintfrr(buf1, sizeof(buf1), "%pFX", &rn->p);
-		json_route = json_object_new_object();
-		if (json)
+		if (json) {
+			json_route = json_object_new_object();
 			json_object_object_add(json, buf1, json_route);
+		}
 
 		switch (er->path_type) {
 		case OSPF_PATH_TYPE1_EXTERNAL:
@@ -11004,8 +11002,6 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 				}
 			}
 		}
-		if (!json)
-			json_object_free(json_route);
 	}
 	if (!json)
 		vty_out(vty, "\n");
