@@ -109,7 +109,7 @@ The following commands are independent of a specific cache server.
 
    The following commands configure one or multiple cache servers.
 
-.. clicmd:: rpki cache (A.B.C.D|WORD) [source A.B.C.D] PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
+.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] PREFERENCE
 
 
    Add a cache server to the socket. By default, the connection between router
@@ -119,9 +119,6 @@ The following commands are independent of a specific cache server.
 
    A.B.C.D|WORD
       Address of the cache server.
-
-   source A.B.C.D
-      Source address of the RPKI connection to access cache server.
 
    PORT
       Port number to connect to the cache server
@@ -142,6 +139,9 @@ The following commands are independent of a specific cache server.
       Local path that includes the known hosts file. The default value depends
       on the configuration of the operating system environment, usually
       :file:`~/.ssh/known_hosts`.
+
+   source A.B.C.D
+      Source address of the RPKI connection to access cache server.
 
 
 .. _validating-bgp-updates:
