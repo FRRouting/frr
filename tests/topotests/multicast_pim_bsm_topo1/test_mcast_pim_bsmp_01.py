@@ -306,12 +306,6 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    # Add kernal route for source
-    group = topo["routers"][bsr]["bsm"]["bsr_packets"][packet]["pkt_dst"]
-    bsr_interface = topo["routers"][bsr]["links"][fhr]["interface"]
-    result = addKernelRoute(tgen, bsr, bsr_interface, group)
-    assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
-
     # RP Mapping
     rp_mapping = topo["routers"][bsr]["bsm"]["bsr_packets"][packet]["rp_mapping"]
 
@@ -324,16 +318,6 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         mask = group.split("/")[1]
         if int(mask) == 32:
             group = group.split("/")[0]
-
-        # Add kernal routes for sender
-        s_interface = topo["routers"][sender]["links"][fhr]["interface"]
-        result = addKernelRoute(tgen, sender, s_interface, group)
-        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
-
-        # Add kernal routes for receiver
-        r_interface = topo["routers"][receiver]["links"][lhr]["interface"]
-        result = addKernelRoute(tgen, receiver, r_interface, group)
-        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Add static routes for RPs in FHR and LHR
         next_hop_fhr = topo["routers"][rp]["links"][fhr]["ipv4"].split("/")[0]
