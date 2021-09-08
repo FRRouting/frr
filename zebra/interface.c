@@ -1205,14 +1205,107 @@ void zebra_if_set_protodown(struct interface *ifp, bool down)
 #endif
 }
 
-/* Handler for incoming intf address change events */
+/*
+ * Handle an interface addr event based on info in a dplane context object.
+ * This runs in the main pthread, using the info in the context object to
+ * modify an interface.
+ */
 void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx)
 {
-#ifdef HAVE_NETLINK
-	netlink_interface_addr_ctx(ctx);
-#else
+	struct interface *ifp;
+	uint8_t flags = 0;
+	const char *label = NULL;
+	ns_id_t ns_id;
+	struct zebra_ns *zns;
+	uint32_t metric = METRIC_MAX;
+	ifindex_t ifindex;
+	const struct prefix *addr, *dest = NULL;
+	enum dplane_op_e op;
+
+	op = dplane_ctx_get_op(ctx);
+	ns_id = dplane_ctx_get_ns_id(ctx);
+
+	zns = zebra_ns_lookup(ns_id);
+	if (zns == NULL) {
+		/* No ns - deleted maybe? */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: can't find zns id %u", __func__, ns_id);
+		goto done;
+	}
+
+	ifindex = dplane_ctx_get_ifindex(ctx);
+
+	ifp = if_lookup_by_index_per_ns(zns, ifindex);
+	if (ifp == NULL) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: can't find ifp at nsid %u index %d",
+				   __func__, ns_id, ifindex);
+		goto done;
+	}
+
+	addr = dplane_ctx_get_intf_addr(ctx);
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: %s: ifindex %u, addr %pFX", __func__,
+			   dplane_op2str(op), ifindex, addr);
+
+	/* Is there a peer or broadcast address? */
+	dest = dplane_ctx_get_intf_dest(ctx);
+	if (dest->prefixlen == 0)
+		dest = NULL;
+
+	if (dplane_ctx_intf_is_connected(ctx))
+		SET_FLAG(flags, ZEBRA_IFA_PEER);
+
+	/* Flags. */
+	if (dplane_ctx_intf_is_secondary(ctx))
+		SET_FLAG(flags, ZEBRA_IFA_SECONDARY);
+
+	/* Label? */
+	if (dplane_ctx_intf_has_label(ctx))
+		label = dplane_ctx_get_intf_label(ctx);
+
+	if (label && strcmp(ifp->name, label) == 0)
+		label = NULL;
+
+	metric = dplane_ctx_get_intf_metric(ctx);
+
+	/* Register interface address to the interface. */
+	if (addr->family == AF_INET) {
+		if (op == DPLANE_OP_INTF_ADDR_ADD)
+			connected_add_ipv4(
+				ifp, flags, &addr->u.prefix4, addr->prefixlen,
+				dest ? &dest->u.prefix4 : NULL, label, metric);
+		else if (CHECK_FLAG(flags, ZEBRA_IFA_PEER)) {
+			/* Delete with a peer address */
+			connected_delete_ipv4(ifp, flags, &addr->u.prefix4,
+					      addr->prefixlen,
+					      &dest->u.prefix4);
+		} else
+			connected_delete_ipv4(ifp, flags, &addr->u.prefix4,
+					      addr->prefixlen, NULL);
+	}
+
+	if (addr->family == AF_INET6) {
+		if (op == DPLANE_OP_INTF_ADDR_ADD) {
+			connected_add_ipv6(ifp, flags, &addr->u.prefix6,
+					   dest ? &dest->u.prefix6 : NULL,
+					   addr->prefixlen, label, metric);
+		} else
+			connected_delete_ipv6(ifp, &addr->u.prefix6, NULL,
+					      addr->prefixlen);
+	}
+
+	/*
+	 * Linux kernel does not send route delete on interface down/addr del
+	 * so we have to re-process routes it owns (i.e. kernel routes)
+	 */
+	if (op != DPLANE_OP_INTF_ADDR_ADD)
+		rib_update(RIB_UPDATE_KERNEL);
+
+done:
+	/* We're responsible for the ctx object */
 	dplane_ctx_fini(&ctx);
-#endif /* HAVE_NETLINK */
 }
 
 /* Dump if address information to vty. */
