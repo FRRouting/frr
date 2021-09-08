@@ -3424,7 +3424,8 @@ int vty_cmgd_send_config_data(struct vty *vty)
 			cmgd_lib_hndl, vty->cmgd_session_id,
 			vty->cmgd_req_id, CMGD_DB_CANDIDATE, cfgreq, cnt,
 			frr_get_cli_mode() == FRR_CLI_CLASSIC ?
-			true : false, CMGD_DB_RUNNING) != CMGD_SUCCESS) {
+			((vty->pending_allowed) ? false : true) : false,
+			CMGD_DB_RUNNING) != CMGD_SUCCESS) {
 			zlog_err("Failed to send %d Config Xpaths to CMGD!!",
 				(int) indx);
 			return -1;
