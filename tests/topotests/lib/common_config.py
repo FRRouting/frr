@@ -2971,6 +2971,8 @@ def addKernelRoute(
             ip, mask = grp_addr.split("/")
             if mask == "32" or mask == "128":
                 grp_addr = ip
+        else:
+            mask = "32" if addr_type == "ipv4" else "128"
 
         if not re_search(r"{}".format(grp_addr), result) and mask != "0":
             errormsg = (
