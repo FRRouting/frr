@@ -222,6 +222,9 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 			ospf_lsdb_delete_all(ospf->lsdb);
 		}
 
+		/* Since the LSAs are deleted, need reset the aggr flag */
+		ospf_unset_all_aggr_flag(ospf);
+
 		/* Delete the LSDB */
 		for (ALL_LIST_ELEMENTS(ospf->areas, node, nnode, area))
 			ospf_area_lsdb_discard_delete(area);
