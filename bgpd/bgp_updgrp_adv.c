@@ -909,6 +909,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			subgroup_default_update_packet(subgrp, new_attr, from);
 		}
 	}
+
+	aspath_unintern(&attr.aspath);
 }
 
 /*
