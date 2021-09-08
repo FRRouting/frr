@@ -932,6 +932,9 @@ def test_bgp_summary():
                 # Remove Unknown Summary (all of it)
                 actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
                 actual = re.sub(r"No Unknown neighbor is configured", "", actual)
+                # Make Connect/Active/Idle the same (change them all to Active)
+                actual = re.sub(r" Connect ", "  Active ", actual)
+                actual = re.sub(r"    Idle ", "  Active ", actual)
 
                 actual = re.sub(
                     r"IPv4 labeled-unicast Summary \(VRF default\):", "", actual
@@ -1089,6 +1092,9 @@ def test_bgp_ipv6_summary():
             # Remove Unknown Summary (all of it)
             actual = re.sub(r"Unknown Summary \(VRF default\):", "", actual)
             actual = re.sub(r"No Unknown neighbor is configured", "", actual)
+            # Make Connect/Active/Idle the same (change them all to Active)
+            actual = re.sub(r" Connect ", "  Active ", actual)
+            actual = re.sub(r"    Idle ", "  Active ", actual)
 
             # Remove Labeled Unicast Summary (all of it)
             actual = re.sub(
