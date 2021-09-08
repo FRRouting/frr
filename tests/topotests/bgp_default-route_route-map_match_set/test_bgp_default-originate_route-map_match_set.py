@@ -94,7 +94,19 @@ def test_bgp_default_originate_route_map():
 
     def _bgp_default_route_has_metric(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
+<<<<<<< HEAD:tests/topotests/bgp_default-route_route-map_match_set/test_bgp_default-originate_route-map_match_set.py
         expected = {"paths": [{"metric": 123}]}
+=======
+        expected = {
+            "paths": [
+                {
+                    "aspath": {"string": "65000 65000 65000 65000"},
+                    "metric": 123,
+                    "community": None,
+                }
+            ]
+        }
+>>>>>>> 68d4b72ff (tests: add one more check for default-originate with route-map):tests/topotests/bgp_default_route_route_map_match_set/test_bgp_default-originate_route-map_match_set.py
         return topotest.json_cmp(output, expected)
 
     test_func = functools.partial(_bgp_converge, router)
