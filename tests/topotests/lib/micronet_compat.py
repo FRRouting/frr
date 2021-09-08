@@ -33,16 +33,22 @@ def get_pids_with_env(has_var, has_val=None):
     result = {}
     for pidenv in glob.iglob("/proc/*/environ"):
         pid = pidenv.split("/")[2]
-        with open(pidenv, "rb") as rfb:
-            envlist = [x.decode("utf-8").split("=", 1) for x in rfb.read().split(b"\0")]
-            envlist = [[x[0], ""] if len(x) == 1 else x for x in envlist]
-            envdict = dict(envlist)
-            if has_var not in envdict:
-                continue
-            if has_val is None:
-                result[pid] = envdict
-            elif envdict[has_var] == str(has_val):
-                result[pid] = envdict
+        try:
+            with open(pidenv, "rb") as rfb:
+                envlist = [
+                    x.decode("utf-8").split("=", 1) for x in rfb.read().split(b"\0")
+                ]
+                envlist = [[x[0], ""] if len(x) == 1 else x for x in envlist]
+                envdict = dict(envlist)
+                if has_var not in envdict:
+                    continue
+                if has_val is None:
+                    result[pid] = envdict
+                elif envdict[has_var] == str(has_val):
+                    result[pid] = envdict
+        except Exception:
+            # E.g., process exited and files are gone
+            pass
     return result
 
 
