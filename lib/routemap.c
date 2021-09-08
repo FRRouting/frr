@@ -2376,9 +2376,15 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 
    We need to make sure our route-map processing matches the above
 */
+<<<<<<< HEAD
 route_map_result_t route_map_apply(struct route_map *map,
 				   const struct prefix *prefix,
 				   route_map_object_t type, void *object)
+=======
+route_map_result_t route_map_apply_ext(struct route_map *map,
+				       const struct prefix *prefix,
+				       void *match_object, void *set_object)
+>>>>>>> c21258471 (lib: add ability to supply separate match/set objects to routemaps)
 {
 	static int recursion = 0;
 	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
@@ -2406,7 +2412,11 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 	if ((!map->optimization_disabled)
 	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
+<<<<<<< HEAD
 		index = route_map_get_index(map, prefix, type, object,
+=======
+		index = route_map_get_index(map, prefix, match_object,
+>>>>>>> c21258471 (lib: add ability to supply separate match/set objects to routemaps)
 					    (uint8_t *)&match_ret);
 		if (index) {
 			if (rmap_debug)
@@ -2442,7 +2452,11 @@ route_map_result_t route_map_apply(struct route_map *map,
 			index->applied++;
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
+<<<<<<< HEAD
 							  prefix, type, object);
+=======
+							  prefix, match_object);
+>>>>>>> c21258471 (lib: add ability to supply separate match/set objects to routemaps)
 			if (rmap_debug) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %s, result: %s",
@@ -2501,9 +2515,14 @@ route_map_result_t route_map_apply(struct route_map *map,
 					 * set succeeded or not. So, ignore
 					 * return code.
 					 */
+<<<<<<< HEAD
 					(void) (*set->cmd->func_apply)(
 						set->value, prefix, type,
 						object);
+=======
+					(void)(*set->cmd->func_apply)(
+						set->value, prefix, set_object);
+>>>>>>> c21258471 (lib: add ability to supply separate match/set objects to routemaps)
 
 				/* Call another route-map if available */
 				if (index->nextrm) {
@@ -2515,9 +2534,16 @@ route_map_result_t route_map_apply(struct route_map *map,
 						       jump to it */
 					{
 						recursion++;
+<<<<<<< HEAD
 						ret = route_map_apply(
 							nextrm, prefix, type,
 							object);
+=======
+						ret = route_map_apply_ext(
+							nextrm, prefix,
+							match_object,
+							set_object);
+>>>>>>> c21258471 (lib: add ability to supply separate match/set objects to routemaps)
 						recursion--;
 					}
 
