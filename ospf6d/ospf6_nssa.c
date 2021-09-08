@@ -1169,10 +1169,11 @@ static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 	for (route = ospf6_route_head(
 		     area->ospf6->external_table);
 	     route; route = ospf6_route_next(route)) {
-		/* This means the Type-5 LSA was originated for this route */
-		if (route->path.origin.id != 0)
-			ospf6_nssa_lsa_originate(route, area);
+		struct ospf6_external_info *info = route->route_option;
 
+		/* This means the Type-5 LSA was originated for this route */
+		if (route->path.origin.id != 0 && info->type != DEFAULT_ROUTE)
+			ospf6_nssa_lsa_originate(route, area);
 	}
 
 	/* Loop through the aggregation table to originate type-7 LSAs

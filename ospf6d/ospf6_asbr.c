@@ -1433,7 +1433,10 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	memset(&tinfo, 0, sizeof(tinfo));
 
 	if (IS_OSPF6_DEBUG_ASBR)
-		zlog_debug("Redistribute %pFX (%s)", prefix, ZROUTE_NAME(type));
+		zlog_debug("Redistribute %pFX (%s)", prefix,
+			   type == DEFAULT_ROUTE
+				   ? "default-information-originate"
+				   : ZROUTE_NAME(type));
 
 	/* if route-map was specified but not found, do not advertise */
 	if (ROUTEMAP_NAME(red)) {
