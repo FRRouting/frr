@@ -6,13 +6,14 @@ import glob
 import os
 import pdb
 import re
+import subprocess
 import sys
 import time
 
 import pytest
 import lib.fixtures
 from lib import topolog
-from lib.micronet import Commander
+from lib.micronet import Commander, proc_error
 from lib.micronet_cli import cli
 from lib.micronet_compat import Mininet, cleanup_current, cleanup_previous
 from lib.topogen import diagnose_env, get_topogen
@@ -256,6 +257,23 @@ def pytest_configure(config):
             if cli_level is not None:
                 config.option.log_cli_level = cli_level
 
+    have_tmux = bool(os.getenv("TMUX", ""))
+    have_screen = not have_tmux and bool(os.getenv("STY", ""))
+    have_xterm = not have_tmux and not have_screen and bool(os.getenv("DISPLAY", ""))
+    have_windows = have_tmux or have_screen or have_xterm
+    have_windows_pause = have_tmux or have_xterm
+    xdist_no_windows = is_xdist and not is_worker and not have_windows_pause
+
+    def assert_feature_windows(b, feature):
+        if b and xdist_no_windows:
+            pytest.exit(
+                "{} use requires byobu/TMUX/XTerm under dist {}".format(
+                    feature, os.environ["PYTEST_XDIST_MODE"]
+                )
+            )
+        elif b and not is_xdist and not have_windows:
+            pytest.exit("{} use requires byobu/TMUX/SCREEN/XTerm".format(feature))
+
     # ---------------------------------------
     # Record our options in global dictionary
     # ---------------------------------------
@@ -272,6 +290,7 @@ def pytest_configure(config):
     gdb_daemons = config.getoption("--gdb-daemons")
     gdb_daemons = gdb_daemons.split(",") if gdb_daemons else []
     topotest_extra_config["gdb_daemons"] = gdb_daemons
+    assert_feature_windows(gdb_routers or gdb_daemons, "GDB")
 
     gdb_breakpoints = config.getoption("--gdb-breakpoints")
     gdb_breakpoints = gdb_breakpoints.split(",") if gdb_breakpoints else []
@@ -279,31 +298,40 @@ def pytest_configure(config):
 
     cli_on_error = config.getoption("--cli-on-error")
     topotest_extra_config["cli_on_error"] = cli_on_error
+    assert_feature_windows(cli_on_error, "--cli-on-error")
 
     shell = config.getoption("--shell")
     topotest_extra_config["shell"] = shell.split(",") if shell else []
+    assert_feature_windows(shell, "--shell")
 
     strace = config.getoption("--strace-daemons")
     topotest_extra_config["strace_daemons"] = strace.split(",") if strace else []
 
     shell_on_error = config.getoption("--shell-on-error")
     topotest_extra_config["shell_on_error"] = shell_on_error
+    assert_feature_windows(shell_on_error, "--shell-on-error")
 
     topotest_extra_config["valgrind_extra"] = config.getoption("--valgrind-extra")
     topotest_extra_config["valgrind_memleaks"] = config.getoption("--valgrind-memleaks")
 
     vtysh = config.getoption("--vtysh")
     topotest_extra_config["vtysh"] = vtysh.split(",") if vtysh else []
+    assert_feature_windows(vtysh, "--vtysh")
 
     vtysh_on_error = config.getoption("--vtysh-on-error")
     topotest_extra_config["vtysh_on_error"] = vtysh_on_error
+    assert_feature_windows(vtysh_on_error, "--vtysh-on-error")
 
     pause_on_error = vtysh or shell or config.getoption("--pause-on-error")
     if config.getoption("--no-pause-on-error"):
         pause_on_error = False
 
     topotest_extra_config["pause_on_error"] = pause_on_error
-    topotest_extra_config["pause"] = config.getoption("--pause")
+    assert_feature_windows(pause_on_error, "--pause-on-error")
+
+    pause = config.getoption("--pause")
+    topotest_extra_config["pause"] = pause
+    assert_feature_windows(pause, "--pause")
 
     topotest_extra_config["topology_only"] = config.getoption("--topology-only")
 
@@ -403,20 +431,27 @@ def pytest_runtest_makereport(item, call):
         error_cmd = os.getenv("SHELL", commander.get_exec_path(["bash"]))
 
     if error_cmd:
-        # Really would like something better than using this global here.
-        # Not all tests use topogen though so get_topogen() won't work.
+        is_tmux = bool(os.getenv("TMUX", ""))
+        is_screen = not is_tmux and bool(os.getenv("STY", ""))
+        is_xterm = not is_tmux and not is_screen and bool(os.getenv("DISPLAY", ""))
+
+        channel = None
         win_info = None
         wait_for_channels = []
+        wait_for_procs = []
+        # Really would like something better than using this global here.
+        # Not all tests use topogen though so get_topogen() won't work.
         for node in Mininet.g_mnet_inst.hosts.values():
             pause = True
 
-            channel = (
-                "{}-{}".format(os.getpid(), Commander.tmux_wait_gen)
-                if not isatty
-                else None
-            )
-            Commander.tmux_wait_gen += 1
-            wait_for_channels.append(channel)
+            if is_tmux:
+                channel = (
+                    "{}-{}".format(os.getpid(), Commander.tmux_wait_gen)
+                    if not isatty
+                    else None
+                )
+                Commander.tmux_wait_gen += 1
+                wait_for_channels.append(channel)
 
             pane_info = node.run_in_window(
                 error_cmd,
@@ -427,13 +462,22 @@ def pytest_runtest_makereport(item, call):
                 tmux_target=win_info,
                 wait_for=channel,
             )
-            if win_info is None:
-                win_info = pane_info
+            if is_tmux:
+                if win_info is None:
+                    win_info = pane_info
+            elif is_xterm:
+                assert isinstance(pane_info, subprocess.Popen)
+                wait_for_procs.append(pane_info)
 
         # Now wait on any channels
         for channel in wait_for_channels:
             logger.debug("Waiting on TMUX channel %s", channel)
             commander.cmd_raises([commander.get_exec_path("tmux"), "wait", channel])
+        for p in wait_for_procs:
+            logger.debug("Waiting on TMUX xterm process %s", p)
+            o, e = p.communicate()
+            if p.wait():
+                logger.warning("xterm proc failed: %s:", proc_error(p, o, e))
 
     if error and topotest_extra_config["cli_on_error"]:
         # Really would like something better than using this global here.
