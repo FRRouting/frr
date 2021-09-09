@@ -1451,11 +1451,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		api_nh->weight = nh_weight;
 
-		if (mpinfo->extra
-		    && !sid_zero(&mpinfo->extra->sid[0])
+		if (mpinfo->extra && !sid_zero(&mpinfo->extra->sid[0].sid)
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 			has_valid_sid = 1;
-			memcpy(&api_nh->seg6_segs, &mpinfo->extra->sid[0],
+			memcpy(&api_nh->seg6_segs, &mpinfo->extra->sid[0].sid,
 			       sizeof(api_nh->seg6_segs));
 		}
 

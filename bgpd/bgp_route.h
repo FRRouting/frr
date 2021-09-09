@@ -145,6 +145,14 @@ struct bgp_path_mh_info {
 	struct bgp_path_evpn_nh_info *nh_info;
 };
 
+struct bgp_sid_info {
+	struct in6_addr sid;
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -168,7 +176,7 @@ struct bgp_path_info_extra {
 #define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
 
 	/* SRv6 SID(s) for SRv6-VPN */
-	struct in6_addr sid[BGP_MAX_SIDS];
+	struct bgp_sid_info sid[BGP_MAX_SIDS];
 	uint32_t num_sids;
 
 #ifdef ENABLE_BGP_VNC
