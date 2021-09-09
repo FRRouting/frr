@@ -48,6 +48,7 @@ static struct thread_master *master;
 
 static void vty_show_nb_errors(struct vty *vty, int error, const char *errmsg)
 {
+  fprintf(stderr, "bog\n");
 	vty_out(vty, "Error type: %s\n", nb_err_name(error));
 	if (strlen(errmsg) > 0)
 		vty_out(vty, "Error description: %s\n", errmsg);
