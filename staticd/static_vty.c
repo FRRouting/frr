@@ -17,9 +17,6 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#define STATICD_STR "Static route daemon\n"
-
 #include <zebra.h>
 
 #include "command.h"
@@ -44,8 +41,7 @@
 #endif
 #include "static_nb.h"
 
-#include "cmgd/cmgd_vty.h"
-#include "lib/cmgd_bcknd_client.h"
+#define STATICD_STR "Static route daemon\n"
 
 static int static_route_leak(struct vty *vty, const char *svrf,
 			     const char *nh_svrf, afi_t afi, safi_t safi,
@@ -184,7 +180,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			assert(dnode);
 			yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
 
-			NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_DESTROY,
+			nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY,
 					      NULL);
 		}
 
@@ -204,14 +200,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 yang_afi_safi_value2identity(afi, safi),
 				 table_id, distance);
 
-		NB_ENQEUE_CLI_COMMAND(vty, xpath_prefix, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, xpath_prefix, NB_OP_CREATE, NULL);
 
 		/* Tag processing */
 		snprintf(buf_tag, sizeof(buf_tag), "%u", tag);
 		strlcpy(ab_xpath, xpath_prefix, sizeof(ab_xpath));
 		strlcat(ab_xpath, FRR_STATIC_ROUTE_PATH_TAG_XPATH,
 			sizeof(ab_xpath));
-		NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
+		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_MODIFY, buf_tag);
 
 		/* nexthop processing */
 
@@ -220,7 +216,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			 buf_gate_str, ifname);
 		strlcpy(xpath_nexthop, xpath_prefix, sizeof(xpath_nexthop));
 		strlcat(xpath_nexthop, ab_xpath, sizeof(xpath_nexthop));
-		NB_ENQEUE_CLI_COMMAND(vty, xpath_nexthop, NB_OP_CREATE, NULL);
+		nb_cli_enqueue_change(vty, xpath_nexthop, NB_OP_CREATE, NULL);
 
 		if (type == STATIC_BLACKHOLE) {
 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
@@ -243,10 +239,10 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 					bh_type = NULL;
 					break;
 				}
-				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
+				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, bh_type);
 			} else {
-				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
+				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, "null");
 			}
 		}
@@ -257,10 +253,10 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				sizeof(ab_xpath));
 
 			if (onlink)
-				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
+				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, "true");
 			else
-				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
+				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, "false");
 		}
 		if (type == STATIC_IPV4_GATEWAY
@@ -271,7 +267,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcat(ab_xpath, FRR_STATIC_ROUTE_NH_COLOR_XPATH,
 				sizeof(ab_xpath));
 			if (color_str)
-				NB_ENQEUE_CLI_COMMAND(vty, ab_xpath,
+				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, color_str);
 		}
 		if (label_str) {
@@ -284,7 +280,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
 				sizeof(xpath_mpls));
 
-			NB_ENQEUE_CLI_COMMAND(vty, xpath_mpls, NB_OP_DESTROY,
+			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 
 			ostr = XSTRDUP(MTYPE_TMP, label_str);
@@ -296,7 +292,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 					sizeof(xpath_label));
 				strlcat(xpath_label, ab_xpath,
 					sizeof(xpath_label));
-				NB_ENQEUE_CLI_COMMAND(vty, xpath_label,
+				nb_cli_enqueue_change(vty, xpath_label,
 						      NB_OP_MODIFY, nump);
 				label_stack_id++;
 			}
@@ -305,47 +301,27 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcpy(xpath_mpls, xpath_nexthop, sizeof(xpath_mpls));
 			strlcat(xpath_mpls, FRR_STATIC_ROUTE_NH_LABEL_XPATH,
 				sizeof(xpath_mpls));
-			NB_ENQEUE_CLI_COMMAND(vty, xpath_mpls, NB_OP_DESTROY,
+			nb_cli_enqueue_change(vty, xpath_mpls, NB_OP_DESTROY,
 					      NULL);
 		}
-		ret = NB_APPLY_CLI_COMMANDS(vty, xpath_prefix);
+		ret = nb_cli_apply_changes(vty, xpath_prefix);
 	} else {
-		if (src_str) {
-			if (distance_str)
-				snprintf(ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
-					"frr-staticd:staticd", "staticd", svrf,
-					buf_prefix,
-					yang_afi_safi_value2identity(afi, safi),
-					buf_src_prefix, table_id, distance,
-					buf_nh_type, nh_svrf, buf_gate_str,
-					ifname);
-			else
-				snprintf(ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
-					"frr-staticd:staticd", "staticd", svrf,
-					buf_prefix,
-					yang_afi_safi_value2identity(afi, safi),
-					buf_src_prefix, table_id, buf_nh_type, nh_svrf,
-					buf_gate_str, ifname);
-		} else {
-			if (distance_str)
-				snprintf(ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_NH_KEY_XPATH,
-					"frr-staticd:staticd", "staticd", svrf,
-					buf_prefix,
-					yang_afi_safi_value2identity(afi, safi),
-					table_id, distance, buf_nh_type, nh_svrf,
-					buf_gate_str, ifname);
-			else
-				snprintf(ab_xpath, sizeof(ab_xpath),
-					FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
-					"frr-staticd:staticd", "staticd", svrf,
-					buf_prefix,
-					yang_afi_safi_value2identity(afi, safi),
-					table_id, buf_nh_type, nh_svrf, buf_gate_str,
-					ifname);
-		}
+		if (src_str)
+			snprintf(ab_xpath, sizeof(ab_xpath),
+				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
+				 "frr-staticd:staticd", "staticd", svrf,
+				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
+				 buf_src_prefix, table_id, buf_nh_type, nh_svrf,
+				 buf_gate_str, ifname);
+		else
+			snprintf(ab_xpath, sizeof(ab_xpath),
+				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
+				 "frr-staticd:staticd", "staticd", svrf,
+				 buf_prefix,
+				 yang_afi_safi_value2identity(afi, safi),
+				 table_id, buf_nh_type, nh_svrf, buf_gate_str,
+				 ifname);
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
@@ -358,13 +334,12 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		assert(dnode);
 		yang_dnode_get_path(dnode, ab_xpath, XPATH_MAXLEN);
 
-		NB_ENQEUE_CLI_COMMAND(vty, ab_xpath, NB_OP_DESTROY, NULL);
-		ret = NB_APPLY_CLI_COMMANDS(vty, ab_xpath);
+		nb_cli_enqueue_change(vty, ab_xpath, NB_OP_DESTROY, NULL);
+		ret = nb_cli_apply_changes(vty, ab_xpath);
 	}
 
 	return ret;
 }
-
 static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 			const char *negate, const char *dest_str,
 			const char *mask_str, const char *src_str,
@@ -382,7 +357,6 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 table_str, false, NULL);
 }
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 /* Write static route configuration. */
 int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 		  safi_t safi, const char *cmd)
@@ -505,7 +479,6 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	}
 	return write;
 }
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
@@ -1151,25 +1124,21 @@ DEFPY_YANG(ipv6_route_vrf,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str);
 }
-
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "[no] debug static [{events$events|route$route}]",
 	   NO_STR DEBUG_STR STATICD_STR
 	   "Debug events\n"
 	   "Debug route\n")
 {
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
 		static_debug_set(vty->node, !no, true, true);
 	else
 		static_debug_set(vty->node, !no, !!events, !!route);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 	return CMD_SUCCESS;
 }
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 DEFUN_NOSH (show_debugging_static,
 	    show_debugging_static_cmd,
 	    "show debugging [static]",
@@ -1191,161 +1160,9 @@ static struct cmd_node debug_node = {
 	.config_write = static_config_write_debug,
 };
 
-/* Static ip route configuration write function. */
-static int static_ip_config(struct vty *vty)
-{
-	int write = 0;
-
-	// write += zebra_import_table_config(vty, VRF_DEFAULT);
-	write += strlen(vty->buf);
-
-	return write;
-}
-
-static struct cmd_node ip_node = {
-	.name = "ip",
-	.node = IP_NODE,
-	.prompt = "",
-	.config_write = static_ip_config,
-};
-
-cmgd_lib_hndl_t cmgd_lib_hndl;
-
-static void static_cmgd_bcknd_client_connect(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	bool connected)
-{
-	(void) usr_data;
-
-	assert(lib_hndl == cmgd_lib_hndl);
-
-	zlog_debug("Got %s %s CMGD Backend Client Server", 
-		 connected ? "connected" : "disconnected", 
-		 connected ? "to" : "from");
-
-	if (connected)
-		(void) cmgd_bcknd_subscribe_yang_data(cmgd_lib_hndl, NULL, 0);
-}
-
-static void static_cmgd_trxn_notify(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, bool destroyed)
-{
-	zlog_debug("Got Trxn %s Notify from CMGD server", 
-		 destroyed ? "DESTROY" : "CREATE");
-
-	if (!destroyed) {
-		/* 
-		 * TODO: Allocate and install a private scratchpad for this 
-		 * transaction if required
-		 */
-	} else {
-		/* 
-		 * TODO: Uninstall and deallocate the private scratchpad for 
-		 * this transaction if installed earlier.
-		 */
-	}
-}
-
-static cmgd_result_t static_cmgd_data_validate(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
-	struct nb_yang_value *data, bool delete, char *error_if_any)
-{
-	/*
-	 * Get the private scratchpad for this transaction (if installed).
-	 * scratchpad = trxn_ctxt->user_ctx;
-	 */
-
-	return CMGD_SUCCESS;
-}
-
-static cmgd_result_t static_cmgd_data_apply(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
-	struct nb_yang_value *data, bool delete)
-{
-	/*
-	 * Get the private scratchpad for this transaction (if installed).
-	 * scratchpad = trxn_ctxt->user_ctx;
-	 */
-
-	return CMGD_SUCCESS;
-}
-
-static cmgd_result_t static_cmgd_get_data_elem(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
-	struct nb_yang_xpath_elem *elem)
-{
-	/*
-	 * Get the private scratchpad for this transaction (if installed).
-	 * scratchpad = trxn_ctxt->user_ctx;
-	 */
-
-	return CMGD_SUCCESS;
-}
-
-static cmgd_result_t static_cmgd_get_data(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
-	bool keys_only, struct nb_yang_xpath_elem **elems, int *num_elems, 
-	int *next_key)
-{
-	/*
-	 * Get the private scratchpad for this transaction (if installed).
-	 * scratchpad = trxn_ctxt->user_ctx;
-	 */
-
-	return CMGD_SUCCESS;
-}
-
-static cmgd_result_t static_cmgd_get_next_data(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
-	bool keys_only, struct nb_yang_xpath_elem **elems, int *num_elems)
-{
-	/*
-	 * Get the private scratchpad for this transaction (if installed).
-	 * scratchpad = trxn_ctxt->user_ctx;
-	 */
-
-	return CMGD_SUCCESS;
-}
-
-static cmgd_bcknd_client_params_t cmgd_params = {
-	.name = CMGD_BCKND_CLIENT_STATICD,
-	.conn_retry_intvl_sec = 3,
-	.conn_notify_cb = static_cmgd_bcknd_client_connect,
-	.trxn_notify_cb = static_cmgd_trxn_notify,
-	.data_validate_cb = static_cmgd_data_validate,
-	.data_apply_cb = static_cmgd_data_apply,
-	.get_data_elem_cb = static_cmgd_get_data_elem,
-	.get_data_cb = static_cmgd_get_data,
-	.get_next_data_cb = static_cmgd_get_next_data
-};
-
-void static_cmgd_init(struct thread_master *master)
-{
-	cmgd_lib_hndl = cmgd_bcknd_client_lib_init(&cmgd_params, master);
-	if (!cmgd_lib_hndl) {
-		zlog_err("Failed to initialize CMGD Backend Client library!");
-		exit(-1);
-	}
-}
-
-void static_cmgd_destroy(void)
-{
-	cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl);
-}
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
-
 void static_vty_init(void)
 {
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	install_node(&debug_node);
-	install_node(&ip_node);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
@@ -1363,9 +1180,7 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 }

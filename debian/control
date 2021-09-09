@@ -48,7 +48,6 @@ Recommends: frr-pythontools
 Suggests: frr-doc
 Conflicts: pimd,
            quagga,
-           quagga-cmgd,
            quagga-bgpd,
            quagga-core,
            quagga-isisd,

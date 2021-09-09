@@ -162,31 +162,6 @@ static_route_info_from_rnode(struct route_node *rn)
 	return (struct static_route_info *)(rn->info);
 }
 
-static inline void 
-static_get_nh_type(static_types stype, char *type, size_t size)
-{
-	switch (stype) {
-	case STATIC_IFNAME:
-		strlcpy(type, "ifindex", size);
-		break;
-	case STATIC_IPV4_GATEWAY:
-		strlcpy(type, "ip4", size);
-		break;
-	case STATIC_IPV4_GATEWAY_IFNAME:
-		strlcpy(type, "ip4-ifindex", size);
-		break;
-	case STATIC_BLACKHOLE:
-		strlcpy(type, "blackhole", size);
-		break;
-	case STATIC_IPV6_GATEWAY:
-		strlcpy(type, "ip6", size);
-		break;
-	case STATIC_IPV6_GATEWAY_IFNAME:
-		strlcpy(type, "ip6-ifindex", size);
-		break;
-	};
-}
-
 extern bool mpls_enabled;
 
 extern struct zebra_privs_t static_privs;

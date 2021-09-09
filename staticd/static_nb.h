@@ -22,21 +22,6 @@
 extern "C" {
 #endif
 
-extern bool static_debug_nb;
-
-#ifdef REDIRECT_DEBUG_TO_STDERR
-#define STATIC_NB_DBG(fmt, ...)				\
-	fprintf(stderr, "%s: " fmt "\n", __func__, ##__VA_ARGS__)
-#define STATIC_NB_ERR(fmt, ...)				\
-	fprintf(stderr, "%s: ERROR, " fmt "\n", __func__, ##__VA_ARGS__)
-#else /* REDIRECT_DEBUG_TO_STDERR */
-#define STATIC_NB_DBG(fmt, ...)				\
-	if (static_debug_nb)				\
-		zlog_debug("%s: " fmt , __func__, ##__VA_ARGS__)
-#define STATIC_NB_ERR(fmt, ...)				\
-	zlog_err("%s: ERROR: " fmt , __func__, ##__VA_ARGS__)
-#endif /* REDIRECT_DEBUG_TO_STDERR */
-
 extern const struct frr_yang_module_info frr_staticd_info;
 
 /* Mandatory callbacks. */
@@ -136,11 +121,6 @@ int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args);
 
 /* xpath macros */
-#define FRR_STATIC_ROUTE_INFO_XPATH                                            \
-	"/frr-routing:routing/control-plane-protocols/"                        \
-	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"              \
-	"frr-staticd:staticd/route-list[prefix='%s'][afi-safi='%s']"
-
 /* route-list */
 #define FRR_STATIC_ROUTE_INFO_KEY_XPATH                                        \
 	"/frr-routing:routing/control-plane-protocols/"                        \

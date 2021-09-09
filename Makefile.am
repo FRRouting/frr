@@ -147,8 +147,6 @@ man_MANS =
 vtysh_scan =
 vtysh_daemons =
 clippy_scan =
-cmgd_daemons =
-cmgd_scan = 
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
@@ -157,24 +155,6 @@ cmgd_scan =
 $(AUTOMAKE_DUMMY)install-moduleLTLIBRARIES: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-binPROGRAMS: install-libLTLIBRARIES
 $(AUTOMAKE_DUMMY)install-sbinPROGRAMS: install-libLTLIBRARIES
-
-# Include default rules to compile protobuf message sources
-SUFFIXES += .proto .pb-c.c .pb-c.h
-
-# Rules
-.proto.pb.h:
-	$(PROTOC) -I$(top_srcdir) --cpp_out=$(top_builddir) $^
-
-AM_V_PROTOC_C = $(am__v_PROTOC_C_$(V))
-am__v_PROTOC_C_ = $(am__v_PROTOC_C_$(AM_DEFAULT_VERBOSITY))
-am__v_PROTOC_C_0 = @echo "  PROTOC_C" $@;
-am__v_PROTOC_C_1 =
-
-.proto.pb-c.c:
-	$(AM_V_PROTOC_C)$(PROTOC_C) -I$(top_srcdir) --c_out=$(top_builddir) $^
-	$(AM_V_GEN)$(SED) -e '1i#include "config.h"' -i $@
-.pb-c.c.pb-c.h:
-	@/bin/true
 
 include doc/subdir.am
 include doc/user/subdir.am
@@ -189,8 +169,6 @@ include qpb/subdir.am
 include fpm/subdir.am
 include grpc/subdir.am
 include tools/subdir.am
-
-include cmgd/subdir.am
 
 include bgpd/subdir.am
 include bgpd/rfp-example/librfp/subdir.am
@@ -230,7 +208,6 @@ rc_SCRIPTS = \
 	pkgsrc/ripd.sh \
 	pkgsrc/ripngd.sh \
 	pkgsrc/zebra.sh \
-	pkgsrc/cmgd.sh \
 	# end
 endif
 
@@ -267,7 +244,6 @@ EXTRA_DIST += \
 	snapcraft/helpers \
 	snapcraft/snap \
 	babeld/Makefile \
-	cmgd/Makefile
 	bgpd/Makefile \
 	bgpd/rfp-example/librfp/Makefile \
 	bgpd/rfp-example/rfptest/Makefile \
@@ -345,7 +321,7 @@ redistclean:
 	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"
 
 indent:
-	tools/indent.py `find sharpd bgpd cmgd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
+	tools/indent.py `find sharpd bgpd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
 
 if HAVE_GCOV
 

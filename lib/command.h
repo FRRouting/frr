@@ -441,11 +441,6 @@ struct cmd_node {
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
-#define CMGD_STR "Central Management Daemon (CMGD) information\n"
-#define CMGD_BCKND_ADPTR_STR "CMGD Backend Adapter information\n"
-#define CMGD_FRNTND_ADPTR_STR "CMGD Frontend Adapter information\n"
-#define CMGD_TRXN_STR "CMGD Transaction information\n"
-#define CMGD_DB_STR "CMGD Database information\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"

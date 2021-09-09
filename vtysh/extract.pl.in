@@ -70,12 +70,6 @@ sub scan_file {
             $hidden = 0;
         }
 
-        if ($defun_or_alias =~ /_YANG/) {
-            $yang = 1;
-        } else {
-            $yang = 0;
-        }
-
         $defun_array[0] = '';
 
         # Actual input command string.
@@ -150,18 +144,6 @@ sub scan_file {
         else {
            ($protocol) = ($file =~ /^(?:.*\/)?([a-z0-9]+)\/[a-zA-Z0-9_\-]+\.c$/);
            $protocol = "VTYSH_" . uc $protocol;
-        }
-
-        if ($yang) {
-            # 
-            # CMGD-NOTE: Slowly bit-by-bit we will move all components and 
-            # their command handling to CMGD daemon. For now following 
-            # component commands will be handled by the new CMGD daemon.
-            #
-            if ($protocol =~ /VTYSH_STATICD$/) {
-                # Move all Static YANG commands to new CMGD daemon
-                $protocol = "VTYSH_CMGD";
-            }
         }
 
         # Append _vtysh to structure then build DEFUN again

@@ -11,5 +11,3 @@
 /grammar_sandbox
 /clippy
 /defun_lex.c
-/*.pb-c.c
-/*.pb-c.h

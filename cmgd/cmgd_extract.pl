@@ -1,6 +1,6 @@
-#! @PERL@
+#! /usr/bin/perl
 ##
-## @configure_input@
+## cmgd/cmgd_extract.pl.  Generated from cmgd_extract.pl.in by configure.
 ##
 ## CMGD backend daemon command extractor.
 ## Copyright (C) 2021  Vmware, Inc.
@@ -51,7 +51,7 @@ sub scan_file {
     $cppadd = $fabricd ? "-DFABRICD=1" : "";
 
     $filename = $file;
-    open (FH, "@CPP@ -P -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/@top_builddir@ -Ivtysh/@top_srcdir@ -Ivtysh/@top_srcdir@/lib -Ivtysh/@top_builddir@/lib -Ivtysh/@top_srcdir@/bgpd -Ivtysh/@top_srcdir@/bgpd/rfapi @LUA_INCLUDE@ @CPPFLAGS@ $cppadd $file |");
+    open (FH, "gcc -E -P -DHAVE_CONFIG_H -DVTYSH_EXTRACT_PL -Ivtysh/.. -Ivtysh/.. -Ivtysh/../lib -Ivtysh/../lib -Ivtysh/../bgpd -Ivtysh/../bgpd/rfapi  -Wdate-time -D_FORTIFY_SOURCE=2 $cppadd $file |");
     local $/; undef $/;
     $line = <FH>;
     if (!close (FH)) {
