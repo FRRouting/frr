@@ -352,7 +352,16 @@ static int segment_list_has_src_dst(
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 				      "ipv6_adjacency");
 		node_src_id = adj_src_ipv6_str;
+	} else {
+		/*
+		 * This is just to make the compiler happy about
+		 * node_src_id not being initialized.  This
+		 * should never happen unless we change the cli
+		 * function.
+		 */
+		assert(!"We must have a adj_src_ipv4_str or a adj_src_ipv6_str");
 	}
+
 	/* addresses */
 	snprintf(xpath, XPATH_MAXLEN, "./segment[index='%s']/nai/local-address",
 		 index_str);
