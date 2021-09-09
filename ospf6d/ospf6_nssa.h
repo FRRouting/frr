@@ -52,11 +52,11 @@ int ospf6_area_nssa_unset(struct ospf6 *ospf6, struct ospf6_area *area);
 int ospf6_area_nssa_set(struct ospf6 *ospf6, struct ospf6_area *area);
 
 extern void ospf6_nssa_lsa_flush(struct ospf6 *ospf6, struct prefix_ipv6 *p);
-extern struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *,
-						       struct ospf6_lsa *,
-						       struct ospf6_lsa *);
-extern struct ospf6_lsa *ospf6_translated_nssa_originate(struct ospf6_area *,
-							 struct ospf6_lsa *);
+extern struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *oa,
+						       struct ospf6_lsa *type7,
+						       struct ospf6_lsa *type5);
+extern struct ospf6_lsa *
+ospf6_translated_nssa_originate(struct ospf6_area *oa, struct ospf6_lsa *type7);
 
 extern void ospf6_asbr_nssa_redist_task(struct ospf6 *ospf6);
 

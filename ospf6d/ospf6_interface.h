@@ -193,23 +193,23 @@ extern void ospf6_interface_stop(struct ospf6_interface *oi);
 
 extern struct ospf6_interface *
 ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
-extern struct ospf6_interface *ospf6_interface_create(struct interface *);
-extern void ospf6_interface_delete(struct ospf6_interface *);
+extern struct ospf6_interface *ospf6_interface_create(struct interface *ifp);
+extern void ospf6_interface_delete(struct ospf6_interface *oi);
 
-extern void ospf6_interface_enable(struct ospf6_interface *);
-extern void ospf6_interface_disable(struct ospf6_interface *);
+extern void ospf6_interface_enable(struct ospf6_interface *oi);
+extern void ospf6_interface_disable(struct ospf6_interface *oi);
 
-extern void ospf6_interface_state_update(struct interface *);
-extern void ospf6_interface_connected_route_update(struct interface *);
+extern void ospf6_interface_state_update(struct interface *ifp);
+extern void ospf6_interface_connected_route_update(struct interface *ifp);
 extern struct in6_addr *
 ospf6_interface_get_global_address(struct interface *ifp);
 
 /* interface event */
-extern int interface_up(struct thread *);
-extern int interface_down(struct thread *);
-extern int wait_timer(struct thread *);
-extern int backup_seen(struct thread *);
-extern int neighbor_change(struct thread *);
+extern int interface_up(struct thread *thread);
+extern int interface_down(struct thread *thread);
+extern int wait_timer(struct thread *thread);
+extern int backup_seen(struct thread *thread);
+extern int neighbor_change(struct thread *thread);
 
 extern void ospf6_interface_init(void);
 extern void ospf6_interface_clear(struct interface *ifp);
