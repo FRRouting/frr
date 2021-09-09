@@ -753,7 +753,7 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		if (trxn->session_id &&
 			!trxn->commit_cfg_req->req.commit_cfg.validate_only && 
 			!trxn->commit_cfg_req->req.commit_cfg.abort)
-			cmgd_db_merge_dbs(
+			cmgd_db_copy_dbs(
 				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
 				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
 
