@@ -724,7 +724,7 @@ static void setsids(struct bgp_path_info *bpi,
 
 	extra = bgp_path_info_extra_get(bpi);
 	for (i = 0; i < num_sids; i++)
-		memcpy(&extra->sid[i], &sid[i], sizeof(struct in6_addr));
+		memcpy(&extra->sid[i].sid, &sid[i], sizeof(struct in6_addr));
 	extra->num_sids = num_sids;
 }
 
@@ -743,6 +743,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
+	struct bgp_path_info_extra *extra;
 	uint32_t num_sids = 0;
 
 	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
@@ -829,10 +830,31 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 * rewrite sid
 		 */
 		if (num_sids) {
-			if (new_attr->srv6_l3vpn)
+			if (new_attr->srv6_l3vpn) {
 				setsids(bpi, &new_attr->srv6_l3vpn->sid,
 					num_sids);
-			else if (new_attr->srv6_vpn)
+
+				extra = bgp_path_info_extra_get(bpi);
+
+				extra->sid[0].loc_block_len =
+					new_attr->srv6_l3vpn->loc_block_len;
+				extra->sid[0].loc_node_len =
+					new_attr->srv6_l3vpn->loc_node_len;
+				extra->sid[0].func_len =
+					new_attr->srv6_l3vpn->func_len;
+				extra->sid[0].arg_len =
+					new_attr->srv6_l3vpn->arg_len;
+
+				if (new_attr->srv6_l3vpn->transposition_len
+				    != 0)
+					transpose_sid(
+						&extra->sid[0].sid,
+						decode_label(label),
+						new_attr->srv6_l3vpn
+							->transposition_offset,
+						new_attr->srv6_l3vpn
+							->transposition_len);
+			} else if (new_attr->srv6_vpn)
 				setsids(bpi, &new_attr->srv6_vpn->sid,
 					num_sids);
 		}
@@ -903,9 +925,26 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	 * rewrite sid
 	 */
 	if (num_sids) {
-		if (new_attr->srv6_l3vpn)
+		if (new_attr->srv6_l3vpn) {
 			setsids(new, &new_attr->srv6_l3vpn->sid, num_sids);
-		else if (new_attr->srv6_vpn)
+
+			extra = bgp_path_info_extra_get(new);
+
+			extra->sid[0].loc_block_len =
+				new_attr->srv6_l3vpn->loc_block_len;
+			extra->sid[0].loc_node_len =
+				new_attr->srv6_l3vpn->loc_node_len;
+			extra->sid[0].func_len = new_attr->srv6_l3vpn->func_len;
+			extra->sid[0].arg_len = new_attr->srv6_l3vpn->arg_len;
+
+			if (new_attr->srv6_l3vpn->transposition_len != 0)
+				transpose_sid(&extra->sid[0].sid,
+					      decode_label(label),
+					      new_attr->srv6_l3vpn
+						      ->transposition_offset,
+					      new_attr->srv6_l3vpn
+						      ->transposition_len);
+		} else if (new_attr->srv6_vpn)
 			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
 	}
 
