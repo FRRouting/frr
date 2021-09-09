@@ -34,6 +34,7 @@
 #include "qobj.h"
 #include "compiler.h"
 #include "northbound.h"
+#include "cmgd_frntnd_client.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -48,12 +49,6 @@ extern "C" {
 struct vty_error {
 	char error_buf[VTY_BUFSIZ];
 	uint32_t line_num;
-};
-
-struct vty_cfg_change {
-	char xpath[XPATH_MAXLEN];
-	enum nb_operation operation;
-	const char *value;
 };
 
 /* VTY struct. */
@@ -116,7 +111,7 @@ struct vty {
 
 	/* Changes enqueued to be applied in the candidate configuration. */
 	size_t num_cfg_changes;
-	struct vty_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
+	struct nb_cfg_change cfg_changes[VTY_MAXCFGCHANGES];
 
 	/* XPath of the current node */
 	int xpath_index;
@@ -199,6 +194,10 @@ struct vty {
 	 * without any output. */
 	size_t frame_pos;
 	char frame[1024];
+
+	cmgd_session_id_t cmgd_session_id;
+	cmgd_client_req_id_t cmgd_req_id;
+	bool cmgd_req_pending;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
@@ -301,6 +300,8 @@ struct vty_arg {
 #define IS_DIRECTORY_SEP(c) ((c) == DIRECTORY_SEP)
 #endif
 
+extern struct nb_config *vty_cmgd_candidate_config;
+
 /* Prototypes. */
 extern void vty_init(struct thread_master *, bool do_command_logging);
 extern void vty_init_vtysh(void);
@@ -344,6 +345,18 @@ extern void vty_stdio_close(void);
 /* Send a fixed-size message to all vty terminal monitors; this should be
    an async-signal-safe function. */
 extern void vty_log_fixed(char *buf, size_t len);
+
+extern void vty_init_cmgd_frntnd(void);
+extern bool vty_cmgd_frntnd_enabled(void);
+extern int vty_cmgd_send_config_data(struct vty *vty);
+extern int vty_cmgd_send_commit_config(struct vty *vty, bool validate_only,
+	bool abort);
+extern int vty_cmgd_send_get_config(struct vty *vty,
+	cmgd_database_id_t database, const char** xpath_list, int num_req);
+extern int vty_cmgd_send_get_data(struct vty *vty, cmgd_database_id_t database,
+	const char** xpath_list, int num_req);
+extern int vty_cmgd_send_lockdb_req(struct vty *vty,
+	cmgd_database_id_t db_id, bool lock);
 
 #ifdef __cplusplus
 }

@@ -67,6 +67,8 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+	lib/cmgd_bcknd_client.c \
+	lib/cmgd_frntnd_client.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
@@ -132,6 +134,23 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-module-translator.yang.c \
 	yang/frr-nexthop.yang.c \
 	# end
+
+# Add logic to build cmgd.proto
+lib_libfrr_la_LIBADD += $(PROTOBUF_C_LIBS)
+
+BUILT_SOURCES += \
+	lib/cmgd.pb-c.c \
+	lib/cmgd.pb-c.h \
+	# end
+
+CLEANFILES += \
+	lib/cmgd.pb-c.h \
+	lib/cmgd.pb-c.c \
+	# end
+
+lib_libfrr_la_SOURCES += \
+	lib/cmgd.pb-c.c \
+	#end
 
 vtysh_scan += \
 	lib/distribute.c \

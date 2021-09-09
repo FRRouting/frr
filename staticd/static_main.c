@@ -78,6 +78,8 @@ static void sigint(void)
 {
 	zlog_notice("Terminating on signal");
 
+	static_cmgd_destroy();
+
 	static_vrf_terminate();
 
 	frr_fini();
@@ -159,6 +161,7 @@ int main(int argc, char **argv, char **envp)
 
 	static_zebra_init();
 	static_vty_init();
+	static_cmgd_init(master);
 
 	hook_register(routing_conf_event,
 		      routing_control_plane_protocols_name_validate);

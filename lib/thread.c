@@ -1812,7 +1812,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 	return fetch;
 }
 
-static unsigned long timeval_elapsed(struct timeval a, struct timeval b)
+unsigned long timeval_elapsed(struct timeval a, struct timeval b)
 {
 	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
 		+ (a.tv_usec - b.tv_usec));

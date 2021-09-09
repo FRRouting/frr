@@ -6,7 +6,8 @@ if BGPD
 noinst_LIBRARIES += bgpd/libbgp.a
 sbin_PROGRAMS += bgpd/bgpd
 noinst_PROGRAMS += bgpd/bgp_btoa
-vtysh_scan += \
+
+bgp_vtysh_scan = \
 	bgpd/bgp_bfd.c \
 	bgpd/bgp_debug.c \
 	bgpd/bgp_dump.c \
@@ -23,13 +24,13 @@ vtysh_scan += \
 	# end
 
 # can be loaded as DSO - always include for vtysh
-vtysh_scan += bgpd/bgp_rpki.c
-vtysh_scan += bgpd/bgp_bmp.c
+bgp_vtysh_scan += bgpd/bgp_rpki.c
+bgp_vtysh_scan += bgpd/bgp_bmp.c
 
 vtysh_daemons += bgpd
 
 if ENABLE_BGP_VNC
-vtysh_scan += \
+bgp_vtysh_scan += \
 	bgpd/rfapi/bgp_rfapi_cfg.c \
 	bgpd/rfapi/rfapi.c \
 	bgpd/rfapi/rfapi_vty.c \
@@ -227,6 +228,8 @@ bgpd_bgpd_rpki_la_LIBADD = $(RTRLIB_LIBS)
 bgpd_bgpd_bmp_la_SOURCES = bgpd/bgp_bmp.c
 bgpd_bgpd_bmp_la_LIBADD = lib/libfrrcares.la
 bgpd_bgpd_bmp_la_LDFLAGS = $(MODULE_LDFLAGS)
+
+vtysh_scan += $(bgp_vtysh_scan)
 
 clippy_scan += \
 	bgpd/bgp_bmp.c \

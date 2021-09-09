@@ -22,6 +22,7 @@
 #include "libfrr.h"
 #include "static_nb.h"
 
+bool static_debug_nb = false;
 
 /* clang-format off */
 
@@ -51,7 +52,9 @@ const struct frr_yang_module_info frr_staticd_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop",
 			.cbs = {
+#ifndef INCLUDE_CMGD_VALIDATE_ONLY
 				.apply_finish = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_apply_finish,
+#endif /* ifndef INCLUDE_CMGD_VALIDATE_ONLY */
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_destroy,
 				.pre_validate = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate,
@@ -128,7 +131,9 @@ const struct frr_yang_module_info frr_staticd_info = {
 		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/src-list/path-list/frr-nexthops/nexthop",
 			.cbs = {
+#ifndef INCLUDE_CMGD_VALIDATE_ONLY
 				.apply_finish = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_apply_finish,
+#endif /* ifndef INCLUDE_CMGD_VALIDATE_ONLY */
 				.create = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_path_list_frr_nexthops_nexthop_destroy,
 				.pre_validate = routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate,
