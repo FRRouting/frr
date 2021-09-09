@@ -1773,6 +1773,14 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		nexthop_add_labels(resolved_hop, label_type, num_labels,
 				   labels);
 
+	if (nexthop->nh_srv6) {
+		nexthop_add_srv6_seg6local(resolved_hop,
+					   nexthop->nh_srv6->seg6local_action,
+					   &nexthop->nh_srv6->seg6local_ctx);
+		nexthop_add_srv6_seg6(resolved_hop,
+				      &nexthop->nh_srv6->seg6_segs);
+	}
+
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 
