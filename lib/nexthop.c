@@ -938,6 +938,12 @@ int nexthop_str2backups(const char *str, int *num_backups,
  *		unreachable (blackhole)
  *	%pNHs
  *		nexthop2str()
+ *	%pNHcg
+ *		1.2.3.4
+ *		(0-length if no IP address present)
+ *	%pNHci
+ *		eth0
+ *		(0-length if no interface present)
  */
 printfrr_ext_autoreg_p("NH", printfrr_nh)
 static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
@@ -1031,6 +1037,54 @@ static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 		default:
 			ret += bputs(buf, "unknown");
 			break;
+		}
+		return ret;
+	case 'c':
+		ea->fmt++;
+		if (*ea->fmt == 'g') {
+			ea->fmt++;
+			if (!nexthop)
+				return bputs(buf, "(null)");
+			switch (nexthop->type) {
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+				ret += bprintfrr(buf, "%pI4",
+						 &nexthop->gate.ipv4);
+				break;
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				ret += bprintfrr(buf, "%pI6",
+						 &nexthop->gate.ipv6);
+				break;
+			case NEXTHOP_TYPE_IFINDEX:
+			case NEXTHOP_TYPE_BLACKHOLE:
+				break;
+			}
+		} else if (*ea->fmt == 'i') {
+			ea->fmt++;
+			if (!nexthop)
+				return bputs(buf, "(null)");
+			switch (nexthop->type) {
+			case NEXTHOP_TYPE_IFINDEX:
+				ret += bprintfrr(
+					buf, "%s",
+					ifindex2ifname(nexthop->ifindex,
+						       nexthop->vrf_id));
+				break;
+			case NEXTHOP_TYPE_IPV4:
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_IPV6:
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				if (nexthop->ifindex)
+					ret += bprintfrr(
+						buf, "%s",
+						ifindex2ifname(
+							nexthop->ifindex,
+							nexthop->vrf_id));
+				break;
+			case NEXTHOP_TYPE_BLACKHOLE:
+				break;
+			}
 		}
 		return ret;
 	}
