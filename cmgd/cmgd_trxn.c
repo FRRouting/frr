@@ -1132,9 +1132,8 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 	}
 
 	/*
-	 * FIXME: There's a problem with scratch buffer management.
-	 * We cannot use the scratch buffer till then.
-	 * For now always get the diff from Candidate DB itself.
+	 * Check for diffs from scratch buffer. If found empty
+	 * get the diff from Candidate DB itself.
 	 */
 	cfg_chgs = &changes;
 	cfg_chgs = &nb_config->cfg_chgs;

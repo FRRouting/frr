@@ -3192,7 +3192,7 @@ static void vty_cmgd_session_created(
 	vty = (struct vty *)client_id;
 
 	if (!success) {
-		zlog_err("ERROR: %s session for client %lu failed!", 
+		zlog_err("%s session for client %lu failed!", 
 			create ? "Creating" : "Destroying", client_id);
 		// assert(!"CMGD session creation for VTY failed!");
 		return;
@@ -3215,7 +3215,7 @@ static void vty_cmgd_db_lock_notified(
 	vty = (struct vty *)client_id;
 
 	if (!success) {
-		zlog_err("ERROR: %socking for DB %u failed! Err: '%s'", 
+		zlog_err("%socking for DB %u failed! Err: '%s'", 
 			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
 		vty_out(vty, "ERROR: %socking for DB %u failed! Err: '%s'", 
 			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
@@ -3241,7 +3241,7 @@ static void vty_cmgd_set_config_result_notified(
 	vty = (struct vty *)client_id;
 
 	if (!success) {
-		zlog_err("ERROR: SET_CONFIG request for client 0x%lx failed! Error: '%s'", 
+		zlog_err("SET_CONFIG request for client 0x%lx failed! Error: '%s'", 
 			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: SET_CONFIG request failed! Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
@@ -3266,7 +3266,7 @@ static void vty_cmgd_commit_config_result_notified(
 	vty = (struct vty *)client_id;
 
 	if (!success) {
-		zlog_err("ERROR: COMMIT_CONFIG request for client 0x%lx failed! Error: '%s'", 
+		zlog_err("COMMIT_CONFIG request for client 0x%lx failed! Error: '%s'", 
 			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: COMMIT_CONFIG request failed! Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");
@@ -3293,7 +3293,7 @@ static cmgd_result_t vty_cmgd_get_data_result_notified(
 	vty = (struct vty *)client_id;
 
 	if (!success) {
-		zlog_err("ERROR: GET_DATA request for client 0x%lx failed! Error: '%s'",
+		zlog_err("GET_DATA request for client 0x%lx failed! Error: '%s'",
 			client_id, errmsg_if_any ? errmsg_if_any : "Unknown");
 		vty_out(vty, "ERROR: GET_DATA request failed! Error: %s\n",
 			errmsg_if_any ? errmsg_if_any : "Unknown");

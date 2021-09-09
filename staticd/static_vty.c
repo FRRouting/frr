@@ -1151,22 +1151,24 @@ DEFPY_YANG(ipv6_route_vrf,
 				 table_str, false, color_str);
 }
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "[no] debug static [{events$events|route$route}]",
 	   NO_STR DEBUG_STR STATICD_STR
 	   "Debug events\n"
 	   "Debug route\n")
 {
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
 		static_debug_set(vty->node, !no, true, true);
 	else
 		static_debug_set(vty->node, !no, !!events, !!route);
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 
 	return CMD_SUCCESS;
 }
 
+#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 DEFUN_NOSH (show_debugging_static,
 	    show_debugging_static_cmd,
 	    "show debugging [static]",
@@ -1362,7 +1364,7 @@ void static_vty_init(void)
 
 #ifndef INCLUDE_CMGD_CMDDEFS_ONLY
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
+#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
 }

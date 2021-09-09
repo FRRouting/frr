@@ -315,7 +315,7 @@ int cmgd_db_merge_dbs(
 	src = (cmgd_db_ctxt_t *)src_db;
 	dst = (cmgd_db_ctxt_t *)dst_db;
 
-	return cmgd_db_replace_dst_with_src_db(src, dst);
+	return cmgd_db_merge_src_with_dst_db(src, dst);
 }
 
 int cmgd_db_copy_dbs(
@@ -326,7 +326,7 @@ int cmgd_db_copy_dbs(
 	src = (cmgd_db_ctxt_t *)src_db;
 	dst = (cmgd_db_ctxt_t *)dst_db;
 
-	return cmgd_db_merge_src_with_dst_db(src, dst);
+	return cmgd_db_replace_dst_with_src_db(src, dst);
 }
 
 struct nb_config *cmgd_db_get_nb_config(cmgd_db_hndl_t db_hndl)
