@@ -24,6 +24,7 @@
 #include "lib/printfrr.h"
 #include "lib/memory.h"
 #include "lib/prefix.h"
+#include "lib/nexthop.h"
 
 static int errors;
 
@@ -252,6 +253,26 @@ int main(int argc, char **argv)
 	printchk("\"\"", "%pSQqn", "");
 	printchk("\"\"", "%pSQqn", (char *)NULL);
 	printchk("(null)", "%pSQq", (char *)NULL);
+
+	/*
+	 * %pNH<foo> tests
+	 *
+	 * gateway addresses only for now: interfaces require more setup
+	 */
+	printchk("(null)", "%pNHcg", NULL);
+	printchk("(null)", "%pNHci", NULL);
+
+	struct nexthop nh;
+
+	memset(&nh, 0, sizeof(nh));
+
+	nh.type = NEXTHOP_TYPE_IPV4;
+	inet_aton("3.2.1.0", &nh.gate.ipv4);
+	printchk("3.2.1.0", "%pNHcg", &nh);
+
+	nh.type = NEXTHOP_TYPE_IPV6;
+	inet_pton(AF_INET6, "fe2c::34", &nh.gate.ipv6);
+	printchk("fe2c::34", "%pNHcg", &nh);
 
 	return !!errors;
 }
