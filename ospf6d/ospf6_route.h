@@ -343,7 +343,7 @@ extern int ospf6_route_get_first_nh_index(struct ospf6_route *route);
 	ospf6_add_nexthop(route->nh_list, ifindex, addr)
 
 extern struct ospf6_route *ospf6_route_create(struct ospf6 *ospf6);
-extern void ospf6_route_delete(struct ospf6_route *);
+extern void ospf6_route_delete(struct ospf6_route *route);
 extern struct ospf6_route *ospf6_route_copy(struct ospf6_route *route);
 extern int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb);
 
@@ -384,8 +384,10 @@ extern void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 				    json_object *json, bool use_json);
 
 
-extern int ospf6_route_table_show(struct vty *, int, int, struct cmd_token **,
-				  struct ospf6_route_table *, bool use_json);
+extern int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
+				  struct cmd_token **argv,
+				  struct ospf6_route_table *table,
+				  bool use_json);
 extern int ospf6_linkstate_table_show(struct vty *vty, int idx_ipv4, int argc,
 				      struct cmd_token **argv,
 				      struct ospf6_route_table *table);
