@@ -61,9 +61,22 @@ void permute(struct graph_node *start)
 	struct cmd_token *stok = start->data;
 	struct graph_node *gnn;
 	struct listnode *ln;
+	bool is_neg = false;
 
 	// recursive dfs
 	listnode_add(position, start);
+
+	for (ALL_LIST_ELEMENTS_RO(position, ln, gnn)) {
+		struct cmd_token *tok = gnn->data;
+
+		if (tok->type == WORD_TKN && !strcmp(tok->text, "no")) {
+			is_neg = true;
+			break;
+		}
+		if (tok->type < SPECIAL_TKN)
+			break;
+	}
+
 	for (unsigned int i = 0; i < vector_active(start->to); i++) {
 		struct graph_node *gn = vector_slot(start->to, i);
 		struct cmd_token *tok = gn->data;
@@ -82,6 +95,9 @@ void permute(struct graph_node *start)
 			fprintf(stdout, "\n");
 		} else {
 			bool skip = false;
+
+			if (tok->type == NEG_ONLY_TKN && !is_neg)
+				continue;
 			if (stok->type == FORK_TKN && tok->type != FORK_TKN)
 				for (ALL_LIST_ELEMENTS_RO(position, ln, gnn))
 					if (gnn == gn) {
