@@ -1450,6 +1450,10 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (mpinfo->extra && !sid_zero(&mpinfo->extra->sid[0].sid)
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
+<<<<<<< HEAD
+=======
+			has_valid_sid = 1;
+>>>>>>> 16f3db2d8 (bgpd: add sid struct info to bgp_path_info_extra)
 			memcpy(&api_nh->seg6_segs, &mpinfo->extra->sid[0].sid,
 			       sizeof(api_nh->seg6_segs));
 
