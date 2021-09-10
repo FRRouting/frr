@@ -2518,79 +2518,73 @@ DEFUN (no_ipv6_ospf6_network,
 	return CMD_SUCCESS;
 }
 
-static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
+static int config_write_ospf6_interface(struct vty *vty, struct interface *ifp)
 {
 	struct ospf6_interface *oi;
-	struct interface *ifp;
 	char buf[INET_ADDRSTRLEN];
 
-	FOR_ALL_INTERFACES (vrf, ifp) {
-		oi = (struct ospf6_interface *)ifp->info;
-		if (oi == NULL)
-			continue;
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		return 0;
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			vty_frame(vty, "interface %s\n", oi->interface->name);
-		else
-			vty_frame(vty, "interface %s vrf %s\n",
-				  oi->interface->name, vrf->name);
+	vty_frame(vty, "interface %s\n", oi->interface->name);
 
-		if (ifp->desc)
-			vty_out(vty, " description %s\n", ifp->desc);
-		if (oi->area_id_format != OSPF6_AREA_FMT_UNSET) {
-			area_id2str(buf, sizeof(buf), oi->area_id,
-				    oi->area_id_format);
-			vty_out(vty, " ipv6 ospf6 area %s\n", buf);
-		}
-		if (oi->c_ifmtu)
-			vty_out(vty, " ipv6 ospf6 ifmtu %d\n", oi->c_ifmtu);
-
-		if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
-			vty_out(vty, " ipv6 ospf6 cost %d\n", oi->cost);
-
-		if (oi->hello_interval != OSPF6_INTERFACE_HELLO_INTERVAL)
-			vty_out(vty, " ipv6 ospf6 hello-interval %d\n",
-				oi->hello_interval);
-
-		if (oi->dead_interval != OSPF6_INTERFACE_DEAD_INTERVAL)
-			vty_out(vty, " ipv6 ospf6 dead-interval %d\n",
-				oi->dead_interval);
-
-		if (oi->rxmt_interval != OSPF6_INTERFACE_RXMT_INTERVAL)
-			vty_out(vty, " ipv6 ospf6 retransmit-interval %d\n",
-				oi->rxmt_interval);
-
-		if (oi->priority != OSPF6_INTERFACE_PRIORITY)
-			vty_out(vty, " ipv6 ospf6 priority %d\n", oi->priority);
-
-		if (oi->transdelay != OSPF6_INTERFACE_TRANSDELAY)
-			vty_out(vty, " ipv6 ospf6 transmit-delay %d\n",
-				oi->transdelay);
-
-		if (oi->instance_id != OSPF6_INTERFACE_INSTANCE_ID)
-			vty_out(vty, " ipv6 ospf6 instance-id %d\n",
-				oi->instance_id);
-
-		if (oi->plist_name)
-			vty_out(vty, " ipv6 ospf6 advertise prefix-list %s\n",
-				oi->plist_name);
-
-		if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE))
-			vty_out(vty, " ipv6 ospf6 passive\n");
-
-		if (oi->mtu_ignore)
-			vty_out(vty, " ipv6 ospf6 mtu-ignore\n");
-
-		if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
-			vty_out(vty, " ipv6 ospf6 network point-to-point\n");
-		else if (oi->type_cfg && oi->type == OSPF_IFTYPE_BROADCAST)
-			vty_out(vty, " ipv6 ospf6 network broadcast\n");
-
-		ospf6_bfd_write_config(vty, oi);
-
-		vty_endframe(vty, "exit\n!\n");
+	if (ifp->desc)
+		vty_out(vty, " description %s\n", ifp->desc);
+	if (oi->area_id_format != OSPF6_AREA_FMT_UNSET) {
+		area_id2str(buf, sizeof(buf), oi->area_id,
+			    oi->area_id_format);
+		vty_out(vty, " ipv6 ospf6 area %s\n", buf);
 	}
-	return 0;
+	if (oi->c_ifmtu)
+		vty_out(vty, " ipv6 ospf6 ifmtu %d\n", oi->c_ifmtu);
+
+	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_NOAUTOCOST))
+		vty_out(vty, " ipv6 ospf6 cost %d\n", oi->cost);
+
+	if (oi->hello_interval != OSPF6_INTERFACE_HELLO_INTERVAL)
+		vty_out(vty, " ipv6 ospf6 hello-interval %d\n",
+			oi->hello_interval);
+
+	if (oi->dead_interval != OSPF6_INTERFACE_DEAD_INTERVAL)
+		vty_out(vty, " ipv6 ospf6 dead-interval %d\n",
+			oi->dead_interval);
+
+	if (oi->rxmt_interval != OSPF6_INTERFACE_RXMT_INTERVAL)
+		vty_out(vty, " ipv6 ospf6 retransmit-interval %d\n",
+			oi->rxmt_interval);
+
+	if (oi->priority != OSPF6_INTERFACE_PRIORITY)
+		vty_out(vty, " ipv6 ospf6 priority %d\n", oi->priority);
+
+	if (oi->transdelay != OSPF6_INTERFACE_TRANSDELAY)
+		vty_out(vty, " ipv6 ospf6 transmit-delay %d\n",
+			oi->transdelay);
+
+	if (oi->instance_id != OSPF6_INTERFACE_INSTANCE_ID)
+		vty_out(vty, " ipv6 ospf6 instance-id %d\n",
+			oi->instance_id);
+
+	if (oi->plist_name)
+		vty_out(vty, " ipv6 ospf6 advertise prefix-list %s\n",
+			oi->plist_name);
+
+	if (CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE))
+		vty_out(vty, " ipv6 ospf6 passive\n");
+
+	if (oi->mtu_ignore)
+		vty_out(vty, " ipv6 ospf6 mtu-ignore\n");
+
+	if (oi->type_cfg && oi->type == OSPF_IFTYPE_POINTOPOINT)
+		vty_out(vty, " ipv6 ospf6 network point-to-point\n");
+	else if (oi->type_cfg && oi->type == OSPF_IFTYPE_BROADCAST)
+		vty_out(vty, " ipv6 ospf6 network broadcast\n");
+
+	ospf6_bfd_write_config(vty, oi);
+
+	vty_endframe(vty, "exit\n!\n");
+
+	return 1;
 }
 
 /* Configuration write function for ospfd. */
@@ -2598,10 +2592,13 @@ static int config_write_interface(struct vty *vty)
 {
 	int write = 0;
 	struct vrf *vrf = NULL;
+	struct interface *ifp;
 
 	/* Display all VRF aware OSPF interface configuration */
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		write += config_write_ospf6_interface(vty, vrf);
+		FOR_ALL_INTERFACES (vrf, ifp) {
+			write += config_write_ospf6_interface(vty, ifp);
+		}
 	}
 
 	return write;
