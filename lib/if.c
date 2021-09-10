@@ -1280,14 +1280,8 @@ DEFPY_YANG (no_interface,
 static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
 			bool show_defaults)
 {
-	const char *vrf;
-
-	vrf = yang_dnode_get_string(dnode, "./vrf");
-
 	vty_out(vty, "!\n");
 	vty_out(vty, "interface %s", yang_dnode_get_string(dnode, "./name"));
-	if (!strmatch(vrf, VRF_DEFAULT_NAME))
-		vty_out(vty, " vrf %s", vrf);
 	vty_out(vty, "\n");
 }
 
