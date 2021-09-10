@@ -96,8 +96,7 @@ void eigrp_cli_show_header(struct vty *vty, struct lyd_node *dnode,
 
 void eigrp_cli_show_end_header(struct vty *vty, struct lyd_node *dnode)
 {
-	vty_out(vty, "exit\n");
-	vty_out(vty, "!\n");
+	vty_out(vty, "exit\n!\n");
 }
 
 /*
