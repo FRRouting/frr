@@ -190,7 +190,8 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV6
 	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		/* Special handling for IPv4 route with IPv6 Link Local next hop */
+		/* Special handling for IPv4 route with IPv6 Link Local next hop
+		 */
 		if (ri->af == AF_INET)
 			nhi.gateway = &ipv4_ll;
 		else
