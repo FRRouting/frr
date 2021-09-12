@@ -97,6 +97,8 @@ extern int zfpm_netlink_encode_mac(struct fpm_mac_info_t *mac, char *in_buf,
 
 extern struct route_entry *zfpm_route_for_update(rib_dest_t *dest);
 
+extern union g_addr ipv4ll_gateway;
+
 #ifdef __cplusplus
 }
 #endif
