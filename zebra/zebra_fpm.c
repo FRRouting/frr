@@ -292,6 +292,9 @@ static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
 static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
 
+static const char ipv4_ll_buf[16] = "169.254.0.1";
+union g_addr ipv4ll_gateway;
+
 /*
  * zfpm_thread_should_yield
  */
@@ -1992,6 +1995,9 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_stats_init(&zfpm_g->stats);
 	zfpm_stats_init(&zfpm_g->last_ivl_stats);
 	zfpm_stats_init(&zfpm_g->cumulative_stats);
+
+	memset(&ipv4ll_gateway, 0, sizeof(ipv4ll_gateway));
+	inet_pton(AF_INET, ipv4_ll_buf, &ipv4ll_gateway.ipv4);
 
 	install_node(&zebra_node);
 	install_element(ENABLE_NODE, &show_zebra_fpm_stats_cmd);
