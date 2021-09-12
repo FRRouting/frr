@@ -105,7 +105,7 @@ struct gw_family_t {
 };
 
 static const char ipv4_ll_buf[16] = "169.254.0.1";
-static struct in_addr ipv4_ll;
+struct in_addr ipv4_ll;
 
 /* Is this a ipv4 over ipv6 route? */
 static bool is_route_v4_over_v6(unsigned char rtm_family,

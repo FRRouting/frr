@@ -169,6 +169,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 	struct interface *ifp = NULL, *link_if = NULL;
 	struct zebra_if *zif = NULL;
 	vni_t vni = 0;
+	extern struct in_addr ipv4_ll;
 
 	memset(&nhi, 0, sizeof(nhi));
 	src = NULL;
@@ -189,7 +190,11 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV6
 	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		nhi.gateway = &nexthop->gate;
+		/* Special handling for IPv4 route with IPv6 Link Local next hop */
+		if (ri->af == AF_INET)
+			nhi.gateway = &ipv4_ll;
+		else
+			nhi.gateway = &nexthop->gate;
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
