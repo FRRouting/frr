@@ -90,7 +90,6 @@ from lib.pim import (
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
     verify_igmp_config,
-    clear_ip_mroute_verify,
     McastTesterHelper,
 )
 from lib.topolog import logger
@@ -549,20 +548,29 @@ def test_clear_pim_neighbors_and_mroute_p0(request):
     result = app_helper.run_traffic("i2", IGMP_JOIN_RANGE_1, "f1")
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("Clear the mroute on l1, wait for 5 sec")
-    result = clear_ip_mroute_verify(tgen, "l1")
-    assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
+    step(
+        "Verify clear ip mroute (*,g) entries are populated by using "
+        "'show ip mroute' cli"
+    )
+
+    input_dict = [
+        {"dut": "l1", "src_address": "*", "iif": "l1-c1-eth0", "oil": "l1-i1-eth1"}
+    ]
+
+    for data in input_dict:
+        result = verify_ip_mroutes(
+            tgen, data["dut"], data["src_address"], IGMP_JOIN, data["iif"], data["oil"]
+        )
+        assert result is True, "Testcase{} : Failed Error: {}".format(tc_name, result)
+
+    step("Clear mroutes on l1")
+    clear_ip_mroute(tgen, "l1")
 
     step(
         "After clear ip mroute (*,g) entries are re-populated again"
         " with same OIL and IIF, verify using 'show ip mroute' and "
         " 'show ip pim upstream' "
     )
-
-    source = topo["routers"]["i2"]["links"]["f1"]["ipv4"].split("/")[0]
-    input_dict = [
-        {"dut": "l1", "src_address": "*", "iif": "l1-c1-eth0", "oil": "l1-i1-eth1"}
-    ]
 
     for data in input_dict:
         result = verify_ip_mroutes(
