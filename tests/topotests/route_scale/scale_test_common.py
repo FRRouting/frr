@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# test_route_scale.py
+# scale_test_common.py
 #
 # Copyright (c) 2020 by
 # Cumulus Networks, Inc.
@@ -23,7 +23,7 @@
 #
 
 """
-test_route_scale.py: Testing route scale
+scale_test_common.py: Common routines for testing route scale
 
 """
 
@@ -45,9 +45,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 
-pytestmark = [pytest.mark.sharpd]
-
-
 #####################################################
 ##
 ##   Network Topology Definition
@@ -55,7 +52,7 @@ pytestmark = [pytest.mark.sharpd]
 #####################################################
 
 
-def build(tgen):
+def scale_build_common(tgen):
     "Build function"
 
     # Populate routers
@@ -68,16 +65,9 @@ def build(tgen):
         switch.add_link(tgen.gears["r1"])
 
 
-#####################################################
-##
-##   Tests starting
-##
-#####################################################
-
-
-def setup_module(module):
+def scale_setup_module(module):
     "Setup topology"
-    tgen = Topogen(build, module.__name__)
+    tgen = Topogen(scale_build_common, module.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -93,7 +83,7 @@ def setup_module(module):
     # tgen.mininet_cli()
 
 
-def teardown_module(_mod):
+def scale_teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -101,7 +91,7 @@ def teardown_module(_mod):
     tgen.stop_topology()
 
 
-def test_converge_protocols():
+def scale_converge_protocols():
     "Wait for protocol convergence"
 
     tgen = get_topogen()
@@ -156,7 +146,7 @@ def run_one_setup(r1, s):
     logger.info(output)
 
 
-def test_route_install():
+def route_install_helper(iter):
     "Test route install for a variety of ecmp"
 
     tgen = get_topogen()
@@ -165,6 +155,16 @@ def test_route_install():
         pytest.skip(tgen.errors)
 
     r1 = tgen.gears["r1"]
+
+    # Avoid top ecmp case for runs with < 4G memory
+    output = tgen.net.cmd_raises("free")
+    m = re.search("Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
+    total_mem = int(m.group(2))
+    if total_mem < 4000000 and iter == 5:
+        logger.info(
+            "Limited memory available: {}, skipping x32 testcase".format(total_mem)
+        )
+        return;
 
     installed_file = "{}/r1/installed.routes.json".format(CWD)
     expected_installed = json.loads(open(installed_file).read())
@@ -196,38 +196,20 @@ def test_route_install():
     # Build up a list of dicts with params for each step of the test;
     # use defaults where the step doesn't supply a value
     scale_setups = []
-    for s in scale_steps:
-        d = dict(zip(scale_keys, s))
-        for k in scale_keys:
-            if k not in d:
-                d[k] = scale_defaults[k]
+    s = scale_steps[iter]
 
-        scale_setups.append(d)
+    d = dict(zip(scale_keys, s))
+    for k in scale_keys:
+        if k not in d:
+            d[k] = scale_defaults[k]
 
-    # Avoid top ecmp case for runs with < 4G memory
-    output = tgen.net.cmd_raises("free")
-    m = re.search("Mem:\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)", output)
-    total_mem = int(m.group(2))
-    if total_mem < 4000000:
-        logger.info(
-            "Limited memory available: {}, skipping x32 testcase".format(total_mem)
-        )
-        scale_setups = scale_setups[0:-1]
-
-    # Run each step using the dicts we've built
-    for s in scale_setups:
-        run_one_setup(r1, s)
+    run_one_setup(r1, d)
 
 
 # Mem leak testcase
-def test_memory_leak():
+def scale_test_memory_leak():
     "Run the memory leak test and report results."
     tgen = get_topogen()
     if not tgen.is_memleak_enabled():
         pytest.skip("Memory leak test/report is disabled")
     tgen.report_memory_leaks()
-
-
-if __name__ == "__main__":
-    args = ["-s"] + sys.argv[1:]
-    sys.exit(pytest.main(args))
