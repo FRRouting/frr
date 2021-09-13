@@ -239,6 +239,65 @@ def test_locator_recreate():
     check_ping("ce1", "2001:2::2", True)
 
 
+def test_bgp_locator_unset():
+    check_ping("ce1", "2001:2::2", True)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          segment-routing srv6
+           no locator loc1
+        """
+    )
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
+    check_ping("ce1", "2001:2::2", False)
+
+
+def test_bgp_locator_reset():
+    check_ping("ce1", "2001:2::2", False)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          segment-routing srv6
+           locator loc1
+        """
+    )
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
+    check_ping("ce1", "2001:2::2", True)
+
+
+def test_bgp_srv6_unset():
+    check_ping("ce1", "2001:2::2", True)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          no segment-routing srv6
+        """
+    )
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_deleted.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_deleted.json")
+    check_ping("ce1", "2001:2::2", False)
+
+
+def test_bgp_srv6_reset():
+    check_ping("ce1", "2001:2::2", False)
+    get_topogen().gears["r1"].vtysh_cmd(
+        """
+        configure terminal
+         router bgp 1
+          segment-routing srv6
+           locator loc1
+        """
+    )
+    check_rib("r1", "show bgp ipv6 vpn json", "r1/vpnv6_rib_locator_recreated.json")
+    check_rib("r2", "show bgp ipv6 vpn json", "r2/vpnv6_rib_locator_recreated.json")
+    check_ping("ce1", "2001:2::2", True)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
