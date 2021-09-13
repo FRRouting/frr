@@ -9974,20 +9974,11 @@ static void bgp_show_failed_summary(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-/* If the peer's description includes whitespaces
- * then return the first occurrence. Also strip description
- * to the given size if needed.
- */
+/* Strip peer's description to the given size. */
 static char *bgp_peer_description_stripped(char *desc, uint32_t size)
 {
 	static char stripped[BUFSIZ];
-	char *pnt;
 	uint32_t len = size > strlen(desc) ? strlen(desc) : size;
-
-	pnt = strchr(desc, ' ');
-	if (pnt)
-		len = size > (uint32_t)(pnt - desc) ? (uint32_t)(pnt - desc)
-						    : size;
 
 	strlcpy(stripped, desc, len + 1);
 
@@ -10020,7 +10011,15 @@ static bool bgp_show_summary_is_peer_filtered(struct peer *peer,
 	return false;
 }
 
-/* Show BGP peer's summary information. */
+/* Show BGP peer's summary information.
+ *
+ * Peer's description is stripped according to if `wide` option is given
+ * or not.
+ *
+ * When adding new columns to `show bgp summary` output, please make
+ * sure `Desc` is the lastest column to show because it can contain
+ * whitespaces and the whole output will be tricky.
+ */
 static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			    struct peer *fpeer, int as_type, as_t as,
 			    uint16_t show_flags)
@@ -10685,6 +10684,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 					vty_out(vty, " %8u", 0);
 				}
+				/* Make sure `Desc` column is the lastest in
+				 * the output.
+				 */
 				if (peer->desc)
 					vty_out(vty, " %s",
 						bgp_peer_description_stripped(
