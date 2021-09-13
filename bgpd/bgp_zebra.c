@@ -3625,3 +3625,8 @@ int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 {
 	return srv6_manager_get_locator_chunk(zclient, name);
 }
+
+int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
+{
+	return srv6_manager_release_locator_chunk(zclient, name);
+}
