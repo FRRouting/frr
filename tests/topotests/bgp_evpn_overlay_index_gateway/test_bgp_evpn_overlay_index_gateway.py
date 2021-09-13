@@ -128,12 +128,6 @@ def setup_module(mod):
         )
         return
 
-    if topotest.version_cmp(kernelv, "4.15") == 0:
-        l3mdev_accept = 1
-        logger.info("setting net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
-    else:
-        l3mdev_accept = 0
-
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
     tgen.start_topology()
@@ -189,8 +183,6 @@ def setup_module(mod):
 
         pe.cmd_raises("sysctl -w net.ipv4.ip_forward=1")
         pe.cmd_raises("sysctl -w net.ipv6.conf.all.forwarding=1")
-        pe.cmd_raises("sysctl -w net.ipv4.udp_l3mdev_accept={}".format(l3mdev_accept))
-        pe.cmd_raises("sysctl -w net.ipv4.tcp_l3mdev_accept={}".format(l3mdev_accept))
 
     # For all registred routers, load the zebra configuration file
     for (name, router) in tgen.routers().items():
