@@ -44,6 +44,7 @@ from lib.micronet import comm_error
 from lib.topogen import TopoRouter, get_topogen
 from lib.topolog import get_logger, logger
 from lib.topotest import frr_unicode, interface_set_status, version_cmp
+from lib import topotest
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
