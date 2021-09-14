@@ -178,6 +178,7 @@ static void usage(int status)
 		       "-u  --user               Run as an unprivileged user\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-H, --histfile           Override history file\n"
+		       "    --no-fork            Don't fork clients to handle daemons (slower for large configs)\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
 		       "line by passing multiple -c args, or by embedding linefeed\n"
@@ -191,6 +192,7 @@ static void usage(int status)
 /* VTY shell options, we use GNU getopt library. */
 #define OPTION_VTYSOCK 1000
 #define OPTION_CONFDIR 1001
+#define OPTION_NOFORK 1002
 struct option longopts[] = {
 	{"boot", no_argument, NULL, 'b'},
 	/* For compatibility with older zebra/quagga versions */
@@ -210,6 +212,7 @@ struct option longopts[] = {
 	{"pathspace", required_argument, NULL, 'N'},
 	{"user", no_argument, NULL, 'u'},
 	{"timestamp", no_argument, NULL, 't'},
+	{"no-fork", no_argument, NULL, OPTION_NOFORK},
 	{0}};
 
 bool vtysh_loop_exited;
@@ -321,6 +324,7 @@ int main(int argc, char **argv, char **env)
 	int dryrun = 0;
 	int boot_flag = 0;
 	bool ts_flag = false;
+	bool no_fork = false;
 	const char *daemon_name = NULL;
 	const char *inputfile = NULL;
 	struct cmd_rec {
@@ -392,6 +396,9 @@ int main(int argc, char **argv, char **env)
 			ditch_suid = 1; /* option disables SUID */
 			snprintf(sysconfdir, sizeof(sysconfdir), "%s/", optarg);
 			break;
+		case OPTION_NOFORK:
+			no_fork = true;
+			break;
 		case 'N':
 			if (strchr(optarg, '/') || strchr(optarg, '.')) {
 				fprintf(stderr,
@@ -439,6 +446,10 @@ int main(int argc, char **argv, char **env)
 			break;
 		}
 	}
+
+	/* No need for forks if we're talking to 1 daemon */
+	if (daemon_name)
+		no_fork = true;
 
 	if (ditch_suid) {
 		elevuid = realuid;
@@ -705,19 +716,95 @@ int main(int argc, char **argv, char **env)
 
 	/* Boot startup configuration file. */
 	if (boot_flag) {
+		/*
+		 * flock config file before fork. After fork, each child will
+		 * hold the same lock. The lock can be released by any one of
+		 * them but they will exit without releasing the lock - the
+		 * parent (us) will release it when they are done
+		 */
 		vtysh_flock_config(frr_config);
+
+		/*
+		 * In boot mode, we need to apply the whole config file to all
+		 * daemons. Instead of having one client talk to N daemons, we
+		 * fork N times and let each child handle one daemon.
+		 */
+		pid_t fork_pid = getpid();
+		int status = 0;
+
+		if (!no_fork) {
+			for (unsigned int i = 0; i < array_size(vtysh_client);
+			     i++) {
+				/* Store name of client this fork will handle */
+				strlcpy(my_client, vtysh_client[i].name,
+					sizeof(my_client));
+				fork_pid = fork();
+
+				/* If child, break */
+				if (fork_pid == 0)
+					break;
+			}
+
+			/* parent, wait for children */
+			if (fork_pid != 0) {
+				fprintf(stdout,
+					"Waiting for children to finish applying config...\n");
+				while (wait(&status) > 0)
+					;
+				ret = 0;
+				goto boot_done;
+			}
+
+			/*
+			 * children, grow up to be cowboys
+			 */
+			for (unsigned int i = 0; i < array_size(vtysh_client);
+			     i++) {
+				if (strcmp(my_client, vtysh_client[i].name)) {
+					/*
+					 * If this is a client we aren't
+					 * responsible for, disconnect
+					 */
+					if (vtysh_client[i].fd >= 0)
+						close(vtysh_client[i].fd);
+					vtysh_client[i].fd = -1;
+				} else if (vtysh_client[i].fd == -1) {
+					/*
+					 * If this is the client we are
+					 * responsible for, but we aren't
+					 * already connected to that client,
+					 * that means the client isn't up in the
+					 * first place and we can exit early
+					 */
+					ret = 0;
+					goto boot_done;
+				}
+			}
+
+			fprintf(stdout, "[%d|%s] sending configuration\n",
+				getpid(), my_client);
+		}
+
 		ret = vtysh_read_config(frr_config, dryrun);
-		vtysh_unflock_config();
 		if (ret) {
-			fprintf(stderr,
-				"Configuration file[%s] processing failure: %d\n",
-				frr_config, ret);
-			if (no_error)
-				exit(0);
+			if (!no_fork)
+				fprintf(stderr,
+					"[%d|%s] Configuration file[%s] processing failure: %d\n",
+					getpid(), my_client, frr_config, ret);
 			else
-				exit(ret);
-		} else
-			exit(0);
+				fprintf(stderr,
+					"Configuration file[%s] processing failure: %d\n",
+					frr_config, ret);
+			if (no_error)
+				ret = 0;
+		} else if (!no_fork) {
+			fprintf(stderr, "[%d|%s] done\n", getpid(), my_client);
+		}
+
+	boot_done:
+		if (fork_pid != 0)
+			vtysh_unflock_config();
+		exit(ret);
 	}
 
 	vtysh_readline_init();

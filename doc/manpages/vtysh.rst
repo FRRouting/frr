@@ -67,6 +67,11 @@ OPTIONS available for the vtysh command:
 
    Display a usage message on standard output and exit.
 
+.. option:: --no-fork
+
+   When used in conjunction with ``-b``, prevents vtysh from forking children to handle configuring each target daemon.
+
+
 ENVIRONMENT VARIABLES
 =====================
 VTYSH_PAGER
