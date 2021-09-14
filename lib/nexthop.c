@@ -634,9 +634,6 @@ const char *nexthop2str(const struct nexthop *nexthop, char *str, int size)
 	case NEXTHOP_TYPE_BLACKHOLE:
 		snprintf(str, size, "blackhole");
 		break;
-	default:
-		snprintf(str, size, "unknown");
-		break;
 	}
 
 	return str;
@@ -993,11 +990,9 @@ static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 			case BLACKHOLE_NULL:
 				ret += bputs(buf, " (blackhole)");
 				break;
-			default:
+			case BLACKHOLE_UNSPEC:
 				break;
 			}
-			break;
-		default:
 			break;
 		}
 		if (do_ifi && nexthop->ifindex)
@@ -1028,9 +1023,6 @@ static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 			break;
 		case NEXTHOP_TYPE_BLACKHOLE:
 			ret += bputs(buf, "blackhole");
-			break;
-		default:
-			ret += bputs(buf, "unknown");
 			break;
 		}
 		return ret;
