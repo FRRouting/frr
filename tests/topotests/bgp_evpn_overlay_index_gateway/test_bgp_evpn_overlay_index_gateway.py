@@ -272,11 +272,6 @@ def test_evpn_gateway_ip_basic_topo(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    # Temporarily Disabled
-    tgen.set_error(
-        "%s: Failing under new micronet framework, please debug and re-enable", tc_name
-    )
-
     kernelv = platform.release()
     if topotest.version_cmp(kernelv, "4.15") < 0:
         logger.info("For EVPN, kernel version should be minimum 4.15")
