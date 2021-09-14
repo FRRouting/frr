@@ -37,6 +37,9 @@
 #include "ospf6_interface.h"
 #include "ospf6d.h"
 #include "ospf6_zebra.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_route_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");
@@ -1837,22 +1840,27 @@ void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 		OSPF6_PATH_TYPE_NAME(route->path.type), area);
 }
 
-DEFUN (debug_ospf6_route,
-       debug_ospf6_route_cmd,
-       "debug ospf6 route <table|intra-area|inter-area|memory>",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug routes\n"
-       "Debug route table calculation\n"
-       "Debug intra-area route calculation\n"
-       "Debug inter-area route calculation\n"
-       "Debug route memory use\n"
-       )
+DEFPY(debug_ospf6_route,
+      debug_ospf6_route_cmd,
+      "[no$no] debug ospf6 route <all|table|intra-area|inter-area|memory>",
+      NO_STR
+      DEBUG_STR
+      OSPF6_STR
+      "Debug routes\n"
+      "Debug for all types of route calculation\n"
+      "Debug route table calculation\n"
+      "Debug intra-area route calculation\n"
+      "Debug inter-area route calculation\n"
+      "Debug route memory use\n")
 {
-	int idx_type = 3;
+	int idx_type;
 	unsigned char level = 0;
 
-	if (!strcmp(argv[idx_type]->text, "table"))
+	idx_type = ((no) ? 4 : 3);
+
+	if (!strcmp(argv[idx_type]->text, "all"))
+		level = OSPF6_DEBUG_ROUTE_ALL;
+	else if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
 	else if (!strcmp(argv[idx_type]->text, "intra-area"))
 		level = OSPF6_DEBUG_ROUTE_INTRA;
@@ -1860,39 +1868,20 @@ DEFUN (debug_ospf6_route,
 		level = OSPF6_DEBUG_ROUTE_INTER;
 	else if (!strcmp(argv[idx_type]->text, "memory"))
 		level = OSPF6_DEBUG_ROUTE_MEMORY;
-	OSPF6_DEBUG_ROUTE_ON(level);
-	return CMD_SUCCESS;
-}
 
-DEFUN (no_debug_ospf6_route,
-       no_debug_ospf6_route_cmd,
-       "no debug ospf6 route <table|intra-area|inter-area|memory>",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug routes\n"
-       "Debug route table calculation\n"
-       "Debug intra-area route calculation\n"
-       "Debug inter-area route calculation\n"
-       "Debug route memory use\n")
-{
-	int idx_type = 4;
-	unsigned char level = 0;
-
-	if (!strcmp(argv[idx_type]->text, "table"))
-		level = OSPF6_DEBUG_ROUTE_TABLE;
-	else if (!strcmp(argv[idx_type]->text, "intra-area"))
-		level = OSPF6_DEBUG_ROUTE_INTRA;
-	else if (!strcmp(argv[idx_type]->text, "inter-area"))
-		level = OSPF6_DEBUG_ROUTE_INTER;
-	else if (!strcmp(argv[idx_type]->text, "memory"))
-		level = OSPF6_DEBUG_ROUTE_MEMORY;
-	OSPF6_DEBUG_ROUTE_OFF(level);
+	if (no)
+		OSPF6_DEBUG_ROUTE_OFF(level);
+	else
+		OSPF6_DEBUG_ROUTE_ON(level);
 	return CMD_SUCCESS;
 }
 
 int config_write_ospf6_debug_route(struct vty *vty)
 {
+	if (IS_OSPF6_DEBUG_ROUTE(ALL) == OSPF6_DEBUG_ROUTE_ALL) {
+		vty_out(vty, "debug ospf6 route all\n");
+		return 0;
+	}
 	if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		vty_out(vty, "debug ospf6 route table\n");
 	if (IS_OSPF6_DEBUG_ROUTE(INTRA))
@@ -1908,7 +1897,5 @@ int config_write_ospf6_debug_route(struct vty *vty)
 void install_element_ospf6_debug_route(void)
 {
 	install_element(ENABLE_NODE, &debug_ospf6_route_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf6_route_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_route_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf6_route_cmd);
 }
