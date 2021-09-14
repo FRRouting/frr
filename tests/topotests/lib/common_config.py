@@ -1505,11 +1505,9 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
             config_data = []
             if "vrfs" in c_data:
                 for vrf in c_data["vrfs"]:
-                    del_action = vrf.setdefault("delete", False)
                     name = vrf.setdefault("name", None)
                     table_id = vrf.setdefault("id", None)
-                    vni = vrf.setdefault("vni", None)
-                    del_vni = vrf.setdefault("no_vni", None)
+                    del_action = vrf.setdefault("delete", False)
 
                     if del_action:
                         # Kernel cmd- Add VRF and table
@@ -1543,43 +1541,45 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             )
                             rnode.run(cmd)
 
-                            if "links" in c_data:
-                                for destRouterLink, data in sorted(
-                                    c_data["links"].items()
-                                ):
-                                    # Loopback interfaces
-                                    if "type" in data and data["type"] == "loopback":
-                                        interface_name = destRouterLink
-                                    else:
-                                        interface_name = data["interface"]
+                for vrf in c_data["vrfs"]:
+                    vni = vrf.setdefault("vni", None)
+                    del_vni = vrf.setdefault("no_vni", None)
 
-                                    if "vrf" in data:
-                                        vrf_list = data["vrf"]
+                    if "links" in c_data:
+                        for destRouterLink, data in sorted(c_data["links"].items()):
+                            # Loopback interfaces
+                            if "type" in data and data["type"] == "loopback":
+                                interface_name = destRouterLink
+                            else:
+                                interface_name = data["interface"]
 
-                                        if type(vrf_list) is not list:
-                                            vrf_list = [vrf_list]
+                            if "vrf" in data:
+                                vrf_list = data["vrf"]
 
-                                        for _vrf in vrf_list:
-                                            cmd = "ip link set {} master {}".format(
-                                                interface_name, _vrf
-                                            )
+                                if type(vrf_list) is not list:
+                                    vrf_list = [vrf_list]
 
-                                            logger.info(
-                                                "[DUT: %s]: Running" " kernel cmd [%s]",
-                                                c_router,
-                                                cmd,
-                                            )
-                                            rnode.run(cmd)
+                                for _vrf in vrf_list:
+                                    cmd = "ip link set {} master {}".format(
+                                        interface_name, _vrf
+                                    )
 
-                        if vni:
-                            config_data.append("vrf {}".format(vrf["name"]))
-                            cmd = "vni {}".format(vni)
-                            config_data.append(cmd)
+                                    logger.info(
+                                        "[DUT: %s]: Running" " kernel cmd [%s]",
+                                        c_router,
+                                        cmd,
+                                    )
+                                    rnode.run(cmd)
 
-                        if del_vni:
-                            config_data.append("vrf {}".format(vrf["name"]))
-                            cmd = "no vni {}".format(del_vni)
-                            config_data.append(cmd)
+                    if vni:
+                        config_data.append("vrf {}".format(vrf["name"]))
+                        cmd = "vni {}".format(vni)
+                        config_data.append(cmd)
+
+                    if del_vni:
+                        config_data.append("vrf {}".format(vrf["name"]))
+                        cmd = "no vni {}".format(del_vni)
+                        config_data.append(cmd)
 
             if config_data:
                 config_data_dict[c_router] = config_data
