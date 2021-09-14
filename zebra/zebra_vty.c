@@ -353,8 +353,6 @@ static void show_nexthop_detail_helper(struct vty *vty,
 			break;
 		}
 		break;
-	default:
-		break;
 	}
 
 	if (re->vrf_id != nexthop->vrf_id) {
@@ -605,8 +603,6 @@ static void show_route_nexthop_helper(struct vty *vty,
 			break;
 		}
 		break;
-	default:
-		break;
 	}
 
 	if ((re == NULL || (nexthop->vrf_id != re->vrf_id)))
@@ -776,8 +772,6 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 		case BLACKHOLE_UNSPEC:
 			break;
 		}
-		break;
-	default:
 		break;
 	}
 
@@ -2246,8 +2240,6 @@ static void show_ip_route_nht_dump(struct vty *vty, struct nexthop *nexthop,
 		case BLACKHOLE_UNSPEC:
 			break;
 		}
-		break;
-	default:
 		break;
 	}
 }
