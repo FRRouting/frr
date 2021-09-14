@@ -3088,6 +3088,88 @@ static void bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	vpn_leak_postchange_all();
 }
 
+static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct bgp *bgp = bgp_get_default();
+	const char *loc_name = bgp->srv6_locator_name;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	if (!bgp || !bgp->srv6_enabled)
+		return 0;
+
+	if (bgp_zebra_srv6_manager_get_locator_chunk(loc_name) < 0)
+		return -1;
+
+	return 0;
+}
+
+static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
+{
+	struct srv6_locator loc = {};
+	struct bgp *bgp = bgp_get_default();
+	struct listnode *node, *nnode;
+	struct prefix_ipv6 *chunk;
+	struct bgp_srv6_function *func;
+	struct bgp *bgp_vrf;
+	struct in6_addr *tovpn_sid;
+	struct prefix_ipv6 tmp_prefi;
+
+	if (zapi_srv6_locator_decode(zclient->ibuf, &loc) < 0)
+		return -1;
+
+	// refresh chunks
+	for (ALL_LIST_ELEMENTS(bgp->srv6_locator_chunks, node, nnode, chunk))
+		if (prefix_match((struct prefix *)&loc.prefix,
+				 (struct prefix *)chunk))
+			listnode_delete(bgp->srv6_locator_chunks, chunk);
+
+	// refresh functions
+	for (ALL_LIST_ELEMENTS(bgp->srv6_functions, node, nnode, func)) {
+		tmp_prefi.family = AF_INET6;
+		tmp_prefi.prefixlen = 128;
+		tmp_prefi.prefix = func->sid;
+		if (prefix_match((struct prefix *)&loc.prefix,
+				 (struct prefix *)&tmp_prefi))
+			listnode_delete(bgp->srv6_functions, func);
+	}
+
+	// refresh tovpn_sid
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp_vrf)) {
+		if (bgp_vrf->inst_type != BGP_INSTANCE_TYPE_VRF)
+			continue;
+
+		// refresh vpnv4 tovpn_sid
+		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP].tovpn_sid;
+		if (tovpn_sid) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefix = *tovpn_sid;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID,
+				      bgp_vrf->vpn_policy[AFI_IP].tovpn_sid);
+		}
+
+		// refresh vpnv6 tovpn_sid
+		tovpn_sid = bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid;
+		if (tovpn_sid) {
+			tmp_prefi.family = AF_INET6;
+			tmp_prefi.prefixlen = 128;
+			tmp_prefi.prefix = *tovpn_sid;
+			if (prefix_match((struct prefix *)&loc.prefix,
+					 (struct prefix *)&tmp_prefi))
+				XFREE(MTYPE_BGP_SRV6_SID,
+				      bgp_vrf->vpn_policy[AFI_IP6].tovpn_sid);
+		}
+	}
+
+	vpn_leak_postchange_all();
+	return 0;
+}
+
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
@@ -3130,6 +3212,8 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->iptable_notify_owner = iptable_notify_owner;
 	zclient->route_notify_owner = bgp_zebra_route_notify_owner;
 	zclient->instance = instance;
+	zclient->srv6_locator_add = bgp_zebra_process_srv6_locator_add;
+	zclient->srv6_locator_delete = bgp_zebra_process_srv6_locator_delete;
 	zclient->process_srv6_locator_chunk =
 		bgp_zebra_process_srv6_locator_chunk;
 }
@@ -3540,4 +3624,9 @@ int bgp_zebra_stale_timer_update(struct bgp *bgp)
 int bgp_zebra_srv6_manager_get_locator_chunk(const char *name)
 {
 	return srv6_manager_get_locator_chunk(zclient, name);
+}
+
+int bgp_zebra_srv6_manager_release_locator_chunk(const char *name)
+{
+	return srv6_manager_release_locator_chunk(zclient, name);
 }

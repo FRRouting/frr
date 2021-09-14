@@ -102,6 +102,10 @@ def test_srv6():
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
         assert result is None, "Failed"
 
+    # FOR DEVELOPER:
+    # If you want to stop some specific line and start interactive shell,
+    # please use tgen.mininet_cli() to start it.
+
     logger.info("Test1 for Locator Configuration")
     check_srv6_locator(router, "expected_locators1.json")
     check_sharpd_chunk(router, "expected_chunks1.json")
@@ -116,12 +120,7 @@ def test_srv6():
     check_srv6_locator(router, "expected_locators3.json")
     check_sharpd_chunk(router, "expected_chunks3.json")
 
-    logger.info("Test4 get chunk for non-exist locator by zclient")
-    router.vtysh_cmd("sharp srv6-manager get-locator-chunk loc3")
-    check_srv6_locator(router, "expected_locators4.json")
-    check_sharpd_chunk(router, "expected_chunks4.json")
-
-    logger.info("Test5 Test for Zclient. after locator loc3 was configured")
+    logger.info("Test4 additional locator loc3")
     router.vtysh_cmd(
         """
         configure terminal
@@ -132,8 +131,32 @@ def test_srv6():
              prefix 2001:db8:3:3::/64
         """
     )
+    check_srv6_locator(router, "expected_locators4.json")
+    check_sharpd_chunk(router, "expected_chunks4.json")
+
+    logger.info("Test5 delete locator and chunk is released automatically")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          srv6
+           locators
+            no locator loc1
+        """
+    )
     check_srv6_locator(router, "expected_locators5.json")
     check_sharpd_chunk(router, "expected_chunks5.json")
+
+    logger.info("Test6 delete srv6 all configuration")
+    router.vtysh_cmd(
+        """
+        configure terminal
+         segment-routing
+          no srv6
+        """
+    )
+    check_srv6_locator(router, "expected_locators6.json")
+    check_sharpd_chunk(router, "expected_chunks6.json")
 
 
 if __name__ == "__main__":
