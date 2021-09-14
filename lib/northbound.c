@@ -1064,11 +1064,13 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 				struct nb_config *candidate,
 				const char *comment,
 				struct nb_transaction **transaction,
+				bool skip_validate,
 				char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cbs changes;
 
-	if (nb_candidate_validate_yang(candidate, errmsg, errmsg_len)
+	if (!skip_validate &&
+		nb_candidate_validate_yang(candidate, errmsg, errmsg_len)
 	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
@@ -1085,7 +1087,8 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 		return NB_ERR_NO_CHANGES;
 	}
 
-	if (nb_candidate_validate_code(context, candidate, &changes, errmsg,
+	if (!skip_validate &&
+		nb_candidate_validate_code(context, candidate, &changes, errmsg,
 				       errmsg_len)
 	    != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
@@ -1147,7 +1150,8 @@ int nb_candidate_commit(struct nb_context *context, struct nb_config *candidate,
 	int ret;
 
 	ret = nb_candidate_commit_prepare(context, candidate, comment,
-					  &transaction, errmsg, errmsg_len);
+					  &transaction, false, errmsg,
+					  errmsg_len);
 	/*
 	 * Apply the changes if the preparation phase succeeded. Otherwise abort
 	 * the transaction.

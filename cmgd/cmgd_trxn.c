@@ -1288,21 +1288,26 @@ static int cmgd_trxn_send_bcknd_cfg_data(cmgd_trxn_ctxt_t *trxn,
 	cmgd_commit_cfg_req_t *cmtcfg_req;
 	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
 	cmgd_bcknd_cfgreq_t cfg_req = { 0 };
+	size_t num_batches, indx;
 
 	assert(trxn->type == CMGD_TRXN_TYPE_CONFIG && trxn->commit_cfg_req);
 
 	cmtcfg_req = &trxn->commit_cfg_req->req.commit_cfg;
 	assert(cmtcfg_req->subscr_info.xpath_subscr[adptr->id].subscribed);
 
+	indx = 0;
+	num_batches = cmgd_trxn_batch_list_count(
+			&cmtcfg_req->curr_batches[adptr->id]);
 	FOREACH_TRXN_CFG_BATCH_IN_LIST(&cmtcfg_req->curr_batches[adptr->id],
 		cfg_btch) {
 		assert(cmtcfg_req->next_phase == CMGD_COMMIT_PHASE_SEND_CFG);
 
 		cfg_req.cfgdata_reqs = cfg_btch->cfg_datap;
 		cfg_req.num_reqs = cfg_btch->num_cfg_data;
+		indx++;
 		if (cmgd_bcknd_send_cfg_data_create_req(adptr,
 			(cmgd_trxn_id_t) trxn, (cmgd_trxn_batch_id_t) cfg_btch,
-			&cfg_req) != 0) {
+			&cfg_req, indx == num_batches ? true : false) != 0) {
 			(void) cmgd_trxn_send_commit_cfg_reply(
 				trxn, false,
 				"Internal Error! Could not send config data to backend!");
@@ -1390,8 +1395,8 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 	cmgd_bcknd_client_id_t id;
 	cmgd_bcknd_client_adapter_t *adptr;
 	cmgd_commit_cfg_req_t *cmtcfg_req;
-	cmgd_trxn_batch_id_t *batch_ids;
-	size_t indx, num_batches;
+	// cmgd_trxn_batch_id_t *batch_ids;
+	// size_t indx, num_batches;
 	struct cmgd_trxn_batch_list_head *btch_list;
 	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
 
@@ -1413,9 +1418,10 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 				return -1;
 
 			btch_list = &cmtcfg_req->curr_batches[id];
+#if 0
 			num_batches = cmgd_trxn_batch_list_count(btch_list);
 			batch_ids = (cmgd_trxn_batch_id_t *)
-					calloc(CMGD_TRXN_MAX_BATCH_IDS_IN_REQ,
+					calloc(CMGD_BCKND_MAX_BATCH_IDS_IN_REQ,
 						sizeof(cmgd_trxn_batch_id_t));
 
 			indx = 0;
@@ -1423,7 +1429,7 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 				batch_ids[indx] = (cmgd_trxn_batch_id_t) cfg_btch;
 				indx++;
 				assert(indx <= num_batches);
-				if (indx == CMGD_TRXN_MAX_BATCH_IDS_IN_REQ) {
+				if (indx == CMGD_BCKND_MAX_BATCH_IDS_IN_REQ) {
 					if (cmgd_bcknd_send_cfg_apply_req(adptr,
 						(cmgd_trxn_id_t) trxn,
 						batch_ids, indx) != 0) {
@@ -1446,6 +1452,17 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 				return -1;
 			}
 			cmtcfg_req->cmt_stats->last_num_apply_reqs++;
+#else
+			if (cmgd_bcknd_send_cfg_apply_req(adptr,
+				(cmgd_trxn_id_t) trxn) != 0) {
+				(void) cmgd_trxn_send_commit_cfg_reply(
+					trxn, false,
+					"Could not send CFG_APPLY_REQ to backend adapter");
+				return -1;
+			}
+			cmtcfg_req->cmt_stats->last_num_apply_reqs++;
+#endif
+
 			UNSET_FLAG(adptr->flags,
 				CMGD_BCKND_ADPTR_FLAGS_CFG_SYNCED);
 
@@ -1453,7 +1470,7 @@ static int cmgd_trxn_send_bcknd_cfg_apply(cmgd_trxn_ctxt_t *trxn)
 				cfg_btch->comm_phase = CMGD_COMMIT_PHASE_APPLY_CFG;
 			}
 
-			free(batch_ids);
+			// free(batch_ids);
 		}
 	}
 
@@ -1607,6 +1624,7 @@ static int cmgd_trxn_process_commit_cfg(struct thread *thread)
 		 * Please see cmgd_frntnd_send_commit_cfg_reply() for more 
 		 * details.
 		 */
+		THREAD_OFF(trxn->comm_cfg_timeout);
 		cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
 		break;
 	default:
@@ -2450,7 +2468,7 @@ int cmgd_trxn_notify_bcknd_cfgdata_reply(
 		&trxn->commit_cfg_req->req.commit_cfg;
 
 	cfg_btch = (cmgd_trxn_bcknd_cfg_batch_t *)batch_id;
-	if (cfg_btch->trxn != trxn)
+	if (!cfg_btch || cfg_btch->trxn != trxn)
 		return -1;
 
 	if (!success) {

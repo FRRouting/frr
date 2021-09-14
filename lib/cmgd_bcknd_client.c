@@ -77,8 +77,12 @@ typedef struct cmgd_bcknd_batch_ctxt_ {
 
 	cmgd_bcknd_trxn_req_t trxn_req;
 
+	uint32_t flags;
+
 	struct cmgd_bcknd_batch_list_item list_linkage;
 } cmgd_bcknd_batch_ctxt_t;
+#define CMGD_BCKND_BATCH_FLAGS_CFG_PREPARED  	(1U << 0)
+#define CMGD_BCKND_TRXN_FLAGS_CFG_APPLIED     	(1U << 1)
 DECLARE_LIST(cmgd_bcknd_batch_list, cmgd_bcknd_batch_ctxt_t, list_linkage);
 
 struct cmgd_bcknd_client_ctxt_;
@@ -92,6 +96,7 @@ typedef struct cmgd_bcknd_trxn_ctxt_ {
 	cmgd_bcknd_client_trxn_ctxt_t client_data;
 	struct cmgd_bcknd_client_ctxt_ *clnt_ctxt;
 
+	struct thread *prepare_cfg_ev;
 	struct thread *apply_cfg_ev;
 
 	/* List of batches belonging to this transaction */
@@ -103,8 +108,10 @@ typedef struct cmgd_bcknd_trxn_ctxt_ {
 	struct nb_transaction *nb_trxn;
 	uint32_t nb_trxn_id;
 } cmgd_bcknd_trxn_ctxt_t;
-#define CMGD_BCKND_TRXN_FLAGS_CFGAPPLY_OFF       (1U << 0)
-#define CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING    (1U << 1)
+#define CMGD_BCKND_TRXN_FLAGS_CFGPREP_OFF        (1U << 0)
+#define CMGD_BCKND_TRXN_FLAGS_CFGPREP_FAILED     (1U << 1)
+#define CMGD_BCKND_TRXN_FLAGS_CFGAPPLY_OFF       (1U << 2)
+#define CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING    (1U << 3)
 
 DECLARE_LIST(cmgd_bcknd_trxn_list, cmgd_bcknd_trxn_ctxt_t, list_linkage);
 
@@ -139,6 +146,8 @@ typedef struct cmgd_bcknd_client_ctxt_ {
 	unsigned long avg_batch_find_tm;
 	unsigned long num_edit_nb_cfg;
 	unsigned long avg_edit_nb_cfg_tm;
+	unsigned long num_prep_nb_cfg;
+	unsigned long avg_prep_nb_cfg_tm;
 	unsigned long num_apply_nb_cfg;
 	unsigned long avg_apply_nb_cfg_tm;
 
@@ -169,8 +178,6 @@ static void cmgd_bcknd_client_schedule_conn_retry(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, unsigned long intvl_secs);
 static int cmgd_bcknd_client_send_msg(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	Cmgd__BckndMessage *bcknd_msg);
-static void cmgd_bcknd_trxn_register_event(
-	cmgd_bcknd_trxn_ctxt_t *trxn, cmgd_event_t event);
 
 static void cmgd_bcknd_server_disconnect(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, bool reconnect)
@@ -433,6 +440,148 @@ static int cmgd_bcknd_send_cfgdata_create_reply(
 	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
 }
 
+static int cmgd_bcknd_trxn_cfg_abort(cmgd_bcknd_trxn_ctxt_t *trxn)
+{
+	char errmsg[BUFSIZ] = {0};
+
+	assert(trxn && trxn->clnt_ctxt);
+	if (!trxn->nb_trxn || 
+		!CHECK_FLAG(trxn->flags, CMGD_BCKND_TRXN_FLAGS_CFGPREP_FAILED))
+		return -1;
+
+	CMGD_BCKND_CLNT_ERR("Aborting configurations for Trxn 0x%lx", trxn->trxn_id);
+	nb_candidate_commit_abort(trxn->nb_trxn, errmsg, sizeof(errmsg));
+	trxn->nb_trxn = 0;
+	
+	return 0;
+}
+
+static int cmgd_bcknd_trxn_cfg_prepare(cmgd_bcknd_trxn_ctxt_t *trxn)
+{
+	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
+	cmgd_bcknd_trxn_req_t *trxn_req = NULL;
+	struct nb_context nb_ctxt = { 0 };
+	struct timeval edit_nb_cfg_start;
+	struct timeval edit_nb_cfg_end;
+	unsigned long edit_nb_cfg_tm;
+	struct timeval prep_nb_cfg_start;
+	struct timeval prep_nb_cfg_end;
+	unsigned long prep_nb_cfg_tm;
+	cmgd_bcknd_batch_ctxt_t *batch;
+	bool error;
+	char err_buf[BUFSIZ];
+	size_t num_processed;
+
+	assert(trxn && trxn->clnt_ctxt);
+	clnt_ctxt = trxn->clnt_ctxt;
+
+	UNSET_FLAG(trxn->flags, CMGD_BCKND_TRXN_FLAGS_CFGPREP_OFF);
+
+	num_processed = 0;
+	FOREACH_BCKND_TRXN_BATCH_IN_LIST(trxn, batch) {
+		trxn_req = &batch->trxn_req;
+		error = false;
+		nb_ctxt.client = NB_CLIENT_CLI;
+		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
+
+		if (!trxn->nb_trxn) {
+			/*
+			 * This happens when the current backend client is only interested
+			 * in consuming the config items but is not interested in validating 
+			 * it.
+			 */
+			error = false;
+			if (cmgd_debug_bcknd_clnt)
+				cmgd_get_realtime(&edit_nb_cfg_start);
+			nb_candidate_edit_config_changes(
+				clnt_ctxt->candidate_config,
+				trxn_req->req.set_cfg.cfg_changes,
+				(size_t) trxn_req->req.set_cfg.num_cfg_changes,
+				NULL, NULL, 0, err_buf, sizeof(err_buf),
+				&error);
+			if (error) {
+				err_buf[sizeof(err_buf)-1] = 0;
+				CMGD_BCKND_CLNT_ERR("Failed to update configs for Trxn %lx Batch %lx to Candidate! Err: '%s'",
+					trxn->trxn_id, batch->batch_id, err_buf);
+				return -1;
+			}
+			if (cmgd_debug_bcknd_clnt) {
+				cmgd_get_realtime(&edit_nb_cfg_end);
+				edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end,
+							edit_nb_cfg_start);
+				clnt_ctxt->avg_edit_nb_cfg_tm = 
+					((clnt_ctxt->avg_edit_nb_cfg_tm *
+						clnt_ctxt->num_edit_nb_cfg) + edit_nb_cfg_tm) /
+						(clnt_ctxt->num_edit_nb_cfg + 1);
+			}
+			clnt_ctxt->num_edit_nb_cfg++;
+		}
+
+		num_processed++;
+	}
+
+	if (!num_processed)
+		return 0;
+
+	/*
+	 * Now prepare all the batches we have applied in one go.
+	 */
+	nb_ctxt.client = NB_CLIENT_CLI;
+	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
+	if (cmgd_debug_bcknd_clnt)
+		cmgd_get_realtime(&prep_nb_cfg_start);
+	if (nb_candidate_commit_prepare(&nb_ctxt,
+			clnt_ctxt->candidate_config, "CMGD Backend Trxn",
+			&trxn->nb_trxn, true, err_buf,
+			sizeof(err_buf)-1) != NB_OK) {
+		err_buf[sizeof(err_buf)-1] = 0;
+		CMGD_BCKND_CLNT_ERR("Failed to prepare configs for Trxn %lx, %u Batches! Err: '%s'",
+			trxn->trxn_id, (uint32_t) num_processed, err_buf);
+		error = true;
+		SET_FLAG(trxn->flags, CMGD_BCKND_TRXN_FLAGS_CFGPREP_FAILED);
+	}
+
+	CMGD_BCKND_CLNT_DBG("Prepared configs for Trxn %lx, %u Batches! successfully!",
+			trxn->trxn_id, (uint32_t) num_processed);
+	if (cmgd_debug_bcknd_clnt) {
+		cmgd_get_realtime(&prep_nb_cfg_end);
+		prep_nb_cfg_tm =
+			timeval_elapsed(prep_nb_cfg_end,
+				prep_nb_cfg_start);
+		clnt_ctxt->avg_prep_nb_cfg_tm = 
+			((clnt_ctxt->avg_prep_nb_cfg_tm *
+				clnt_ctxt->num_prep_nb_cfg) + prep_nb_cfg_tm) /
+				(clnt_ctxt->num_prep_nb_cfg + 1);
+	}
+	clnt_ctxt->num_prep_nb_cfg++;
+
+	FOREACH_BCKND_TRXN_BATCH_IN_LIST(trxn, batch) {
+		cmgd_bcknd_send_cfgdata_create_reply(
+			clnt_ctxt, trxn->trxn_id, batch->batch_id,
+			error ? false : true, error ? err_buf : NULL);
+		if (!error) {
+			SET_FLAG(batch->flags,
+				CMGD_BCKND_BATCH_FLAGS_CFG_PREPARED);
+			cmgd_bcknd_batch_list_del(&trxn->cfg_batches, batch);
+			cmgd_bcknd_batch_list_add_tail(&trxn->apply_cfgs, batch);
+		}
+	}
+
+	if (cmgd_debug_bcknd_clnt)
+		CMGD_BCKND_CLNT_DBG("Avg-nb-edit-duration %zu uSec, nb-prep-duration %zu (avg: %zu) uSec, batch size %u",
+			clnt_ctxt->avg_edit_nb_cfg_tm, prep_nb_cfg_tm,
+			clnt_ctxt->avg_prep_nb_cfg_tm,
+			(uint32_t) num_processed);
+
+	if (error)
+		cmgd_bcknd_trxn_cfg_abort(trxn);
+	
+	return 0;
+}
+
+/*
+ * Process all CFG_DATA_REQs received so far and prepare them all in one go.
+ */
 static int cmgd_bcknd_update_setcfg_in_batch(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	cmgd_bcknd_trxn_ctxt_t *trxn, cmgd_trxn_batch_id_t batch_id,
 	cmgd_yang_cfgdata_req_t *cfg_req[], int num_req)
@@ -448,11 +597,10 @@ static int cmgd_bcknd_update_setcfg_in_batch(cmgd_bcknd_client_ctxt_t *clnt_ctxt
 		return -1;
 	}
 
-	// trxn_req = cmgd_bcknd_trxn_req_alloc(event);
 	trxn_req = &batch->trxn_req;
 	trxn_req->event = CMGD_BCKND_TRXN_PROC_SETCFG;
-	CMGD_BCKND_CLNT_DBG("Created Set-Config request for batch 0x%lx, trxn id 0x%lx",
-		batch_id, trxn->trxn_id);
+	CMGD_BCKND_CLNT_DBG("Created Set-Config request for batch 0x%lx, trxn id 0x%lx, cfg-items:%d",
+		batch_id, trxn->trxn_id, num_req);
 
 	trxn_req->req.set_cfg.num_cfg_changes = num_req;
 	for (index = 0; index < num_req; index++) {
@@ -468,12 +616,12 @@ static int cmgd_bcknd_update_setcfg_in_batch(cmgd_bcknd_client_ctxt_t *clnt_ctxt
 			break;
 		}
 
-		CMGD_BCKND_CLNT_DBG("XPath: '%s', Value: '%s'",
-			cfg_req[index]->data->xpath,
-			(cfg_req[index]->data->value &&
-			 cfg_req[index]->data->value->encoded_str_val ?
-			 cfg_req[index]->data->value->encoded_str_val :
-			 "NULL"));
+		// CMGD_BCKND_CLNT_DBG("XPath: '%s', Value: '%s'",
+		// 	cfg_req[index]->data->xpath,
+		// 	(cfg_req[index]->data->value &&
+		// 	 cfg_req[index]->data->value->encoded_str_val ?
+		// 	 cfg_req[index]->data->value->encoded_str_val :
+		// 	 "NULL"));
 		strlcpy(cfg_chg->xpath, cfg_req[index]->data->xpath,
 			sizeof(cfg_chg->xpath));
 		cfg_chg->value =
@@ -488,14 +636,13 @@ static int cmgd_bcknd_update_setcfg_in_batch(cmgd_bcknd_client_ctxt_t *clnt_ctxt
 		}
 	}
 
-	// cmgd_bcknd_trxn_req_list_add_tail(&batch->trxn_data, trxn_req);
 	return 0;
 }
 
 static int cmgd_bcknd_process_cfgdata_req(
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt, cmgd_trxn_id_t trxn_id,
 	cmgd_trxn_batch_id_t batch_id, cmgd_yang_cfgdata_req_t *cfg_req[],
-	int num_req)
+	int num_req, bool end_of_data)
 {
 	cmgd_bcknd_trxn_ctxt_t *trxn;
 
@@ -509,11 +656,11 @@ static int cmgd_bcknd_process_cfgdata_req(
 	}  else {
 		cmgd_bcknd_update_setcfg_in_batch(clnt_ctxt, trxn,
 			batch_id, cfg_req, num_req);
-		/*
-		 * Send back success immediately.
-		 */
-		cmgd_bcknd_send_cfgdata_create_reply(clnt_ctxt, trxn_id,
-			batch_id, true, NULL);
+	}
+
+	if (trxn && end_of_data) {
+		CMGD_BCKND_CLNT_DBG("Triggering CFG_PREPARE_REQ processing");
+		cmgd_bcknd_trxn_cfg_prepare(trxn);
 	}
 
 	return 0;
@@ -605,7 +752,7 @@ static int cmgd_bcknd_process_cfg_validate(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 	if (nb_candidate_commit_prepare(&nb_ctxt,
 		clnt_ctxt->candidate_config, "CMGD Trxn",
-		&trxn->nb_trxn, err_buf,
+		&trxn->nb_trxn, false, err_buf,
 		sizeof(err_buf)-1) != NB_OK) {
 		err_buf[sizeof(err_buf)-1] = 0;
 		CMGD_BCKND_CLNT_ERR("Failed to validate configs for Trxn %lx Batch %lx! Err: '%s'",
@@ -652,80 +799,25 @@ static int cmgd_bcknd_send_apply_reply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
 	return cmgd_bcknd_client_send_msg(clnt_ctxt, &bcknd_msg);
 }
 
-static int cmgd_bcknd_trxn_proc_cfgapply(struct thread *thread)
+static int cmgd_bcknd_trxn_proc_cfgapply(cmgd_bcknd_trxn_ctxt_t *trxn)
 {
 	cmgd_bcknd_client_ctxt_t *clnt_ctxt;
-	cmgd_bcknd_trxn_ctxt_t *trxn;
-	cmgd_bcknd_trxn_req_t *trxn_req = NULL;
 	struct nb_context nb_ctxt = { 0 };
-	struct timeval edit_nb_cfg_start;
-	struct timeval edit_nb_cfg_end;
-	unsigned long edit_nb_cfg_tm;
 	struct timeval apply_nb_cfg_start;
 	struct timeval apply_nb_cfg_end;
 	unsigned long apply_nb_cfg_tm;
 	cmgd_bcknd_batch_ctxt_t *batch;
-	bool error;
-	char err_buf[1024];
-	size_t num_processed, num_left;
+	char err_buf[BUFSIZ];
+	size_t num_processed;
+	static cmgd_trxn_batch_id_t batch_ids[CMGD_BCKND_MAX_BATCH_IDS_IN_REQ];
 
-	trxn = (cmgd_bcknd_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn && trxn->clnt_ctxt);
 	clnt_ctxt = trxn->clnt_ctxt;
+
 	UNSET_FLAG(trxn->flags, CMGD_BCKND_TRXN_FLAGS_CFGAPPLY_OFF);
 
+	assert(trxn->nb_trxn);
 	num_processed = 0;
-	num_left = cmgd_bcknd_batch_list_count(&trxn->apply_cfgs);
-	FOREACH_BCKND_APPLY_BATCH_IN_LIST(trxn, batch) {
-		trxn_req = &batch->trxn_req;
-		error = false;
-		nb_ctxt.client = NB_CLIENT_CLI;
-		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-
-		if (!trxn->nb_trxn) {
-			/*
-			 * This happens when the current backend client is only interested
-			 * in consuming the config items but is not interested in validating 
-			 * it.
-			 */
-			error = false;
-			if (cmgd_debug_bcknd_clnt)
-				cmgd_get_realtime(&edit_nb_cfg_start);
-			nb_candidate_edit_config_changes(
-				clnt_ctxt->candidate_config,
-				trxn_req->req.set_cfg.cfg_changes,
-				(size_t) trxn_req->req.set_cfg.num_cfg_changes,
-				NULL, NULL, 0, err_buf, sizeof(err_buf),
-				&error);
-			if (error) {
-				err_buf[sizeof(err_buf)-1] = 0;
-				CMGD_BCKND_CLNT_ERR("Failed to update configs for Trxn %lx Batch %lx to Candidate! Err: '%s'",
-					trxn->trxn_id, batch->batch_id, err_buf);
-				return -1;
-			}
-			if (cmgd_debug_bcknd_clnt) {
-				cmgd_get_realtime(&edit_nb_cfg_end);
-				edit_nb_cfg_tm = timeval_elapsed(edit_nb_cfg_end,
-							edit_nb_cfg_start);
-				clnt_ctxt->avg_edit_nb_cfg_tm = 
-					((clnt_ctxt->avg_edit_nb_cfg_tm *
-						clnt_ctxt->num_edit_nb_cfg) + edit_nb_cfg_tm) /
-						(clnt_ctxt->num_edit_nb_cfg + 1);
-			}
-			clnt_ctxt->num_edit_nb_cfg++;
-		}
-
-		/*
-		 * No need to delete the batch yet. Will be deleted during transaction
-		 * cleanup on receiving TRXN_DELETE_REQ.
-		 */
-		cmgd_bcknd_batch_list_del(&trxn->apply_cfgs, batch);
-		cmgd_bcknd_batch_list_add_tail(&trxn->cfg_batches, batch);
-
-		num_processed++;
-		if (num_processed == CMGD_BCKND_MAX_NUM_CFGAPPLY_BATCHES)
-			break;
-	}
 
 	/*
 	 * Now apply all the batches we have applied in one go.
@@ -750,100 +842,51 @@ static int cmgd_bcknd_trxn_proc_cfgapply(struct thread *thread)
 	clnt_ctxt->num_apply_nb_cfg++;
 	trxn->nb_trxn = NULL;
 
-	if (cmgd_debug_bcknd_clnt)
-		CMGD_BCKND_CLNT_DBG("Avg-nb-edit-duration %zu uSec, nb-apply-duration %zu (avg: %zu) uSec, batch size %u",
-			clnt_ctxt->avg_edit_nb_cfg_tm, apply_nb_cfg_tm,
-			clnt_ctxt->avg_apply_nb_cfg_tm,
-			(uint32_t) num_processed);
+	FOREACH_BCKND_APPLY_BATCH_IN_LIST(trxn, batch) {
+		nb_ctxt.client = NB_CLIENT_CLI;
+		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 
-	num_left = cmgd_bcknd_batch_list_count(&trxn->apply_cfgs);
-	if (!num_left) {
 		/*
-		 * Done with all pending CFG_APPLY_REQs. Cleanup this
-		 * transaction (if pending).
+		 * No need to delete the batch yet. Will be deleted during transaction
+		 * cleanup on receiving TRXN_DELETE_REQ.
 		 */
-		CMGD_BCKND_CLNT_DBG("Processed all pending %u batches (left: %u).",
-			(uint32_t) num_processed, (uint32_t) num_left);
-		if (CHECK_FLAG(trxn->flags,
-			CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING)) {
-			/*
-			 * Time to delete the transaction which should also
-			 * take care of cleaning up all batches created via
-			 * CFGDATA_CREATE_REQs.
-			 */
-			UNSET_FLAG(trxn->flags,
-				CMGD_BCKND_TRXN_FLAGS_CLEANUP_PENDING);
-			cmgd_bcknd_trxn_delete(clnt_ctxt, &trxn);
+		SET_FLAG(batch->flags, CMGD_BCKND_TRXN_FLAGS_CFG_APPLIED);
+		cmgd_bcknd_batch_list_del(&trxn->apply_cfgs, batch);
+		cmgd_bcknd_batch_list_add_tail(&trxn->cfg_batches, batch);
+
+		batch_ids[num_processed] = batch->batch_id;
+		num_processed++;
+		if (num_processed == CMGD_BCKND_MAX_BATCH_IDS_IN_REQ) {
+			cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn->trxn_id, batch_ids,
+				num_processed, true, NULL);
+			num_processed = 0;
 		}
-	} else {
-		CMGD_BCKND_CLNT_DBG("Processed %u batches (left: %u). Rechedule CFG_APPLY_REQ processing!",
-			(uint32_t) num_processed, (uint32_t) num_left);
-		SET_FLAG(trxn->flags, CMGD_BCKND_TRXN_FLAGS_CFGAPPLY_OFF);
-		cmgd_bcknd_trxn_register_event(trxn,
-			CMGD_BCKND_RESCHED_CFG_APPLY);
 	}
+
+	cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn->trxn_id, batch_ids,
+		num_processed, true, NULL);
+
+	if (cmgd_debug_bcknd_clnt)
+		CMGD_BCKND_CLNT_DBG("Nb-apply-duration %zu (avg: %zu) uSec",
+			apply_nb_cfg_tm, clnt_ctxt->avg_apply_nb_cfg_tm);
 	
 	return 0;
 }
 
 static int cmgd_bcknd_process_cfg_apply(cmgd_bcknd_client_ctxt_t *clnt_ctxt,
-	cmgd_trxn_id_t trxn_id, cmgd_trxn_batch_id_t batch_ids[],
-	size_t num_batch_ids)
+	cmgd_trxn_id_t trxn_id)
 {
-	size_t indx;
 	cmgd_bcknd_trxn_ctxt_t *trxn;
-	cmgd_bcknd_batch_ctxt_t *batch;
-	struct timeval find_batch_start;
-	struct timeval find_batch_end;
-	unsigned long batch_find_tm = { 0 };
 
 	trxn = cmgd_bcknd_find_trxn_by_id(clnt_ctxt, trxn_id);
 	if (!trxn) {
-		cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
-			num_batch_ids, false, "Transaction not created yet!");
+		cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, NULL,
+			0, false, "Transaction not created yet!");
 		return -1;
 	}
 
-	for (indx = 0; indx < num_batch_ids; indx++) {
-		if (cmgd_debug_bcknd_clnt)
-			cmgd_get_realtime(&find_batch_start);
-
-		batch = cmgd_bcknd_find_batch_by_id(trxn, batch_ids[indx]);
-
-		if (cmgd_debug_bcknd_clnt) {
-			cmgd_get_realtime(&find_batch_end);
-			batch_find_tm = 
-				timeval_elapsed(find_batch_end,
-					find_batch_start);
-			clnt_ctxt->avg_batch_find_tm = 
-				((clnt_ctxt->avg_batch_find_tm *
-				  clnt_ctxt->num_batch_find) + batch_find_tm) /
-				  (clnt_ctxt->num_batch_find + 1);
-		}
-		clnt_ctxt->num_batch_find++;
-
-		if (!batch) {
-			cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
-				num_batch_ids, false, "Batch context not created!");
-			return -1;
-		}
-
-		cmgd_bcknd_batch_list_del(&trxn->cfg_batches, batch);
-		cmgd_bcknd_batch_list_add_tail(&trxn->apply_cfgs, batch);
-	}
-
-	if (cmgd_debug_bcknd_clnt)
-		CMGD_BCKND_CLNT_DBG("Avg-batch-find-duration %zu uSec, batch size %lu",
-			clnt_ctxt->avg_batch_find_tm, num_batch_ids);
-
-	if (!CHECK_FLAG(trxn->flags, CMGD_BCKND_TRXN_FLAGS_CFGAPPLY_OFF)) {
-		CMGD_BCKND_CLNT_DBG("Schedule CFG_APPLY_REQ processing");
-		cmgd_bcknd_trxn_register_event(trxn,
-			CMGD_BCKND_SCHED_CFG_APPLY);
-	}
-
-	cmgd_bcknd_send_apply_reply(clnt_ctxt, trxn_id, batch_ids,
-		num_batch_ids, true, NULL);
+	CMGD_BCKND_CLNT_DBG("Trigger CFG_APPLY_REQ processing");
+	cmgd_bcknd_trxn_proc_cfgapply(trxn);
 
         return 0;
 }
@@ -870,7 +913,8 @@ static int cmgd_bcknd_client_handle_msg(
 			bcknd_msg->cfg_data_req->trxn_id,
 			bcknd_msg->cfg_data_req->batch_id,
 			bcknd_msg->cfg_data_req->data_req,
-			bcknd_msg->cfg_data_req->n_data_req);
+			bcknd_msg->cfg_data_req->n_data_req,
+			bcknd_msg->cfg_data_req->end_of_data);
 		break;
 	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_VALIDATE_REQ);
@@ -883,10 +927,7 @@ static int cmgd_bcknd_client_handle_msg(
 	case CMGD__BCKND_MESSAGE__TYPE__CFGDATA_APPLY_REQ:
 		assert(bcknd_msg->message_case == CMGD__BCKND_MESSAGE__MESSAGE_CFG_APPLY_REQ);
 		cmgd_bcknd_process_cfg_apply(clnt_ctxt,
-			(cmgd_trxn_id_t) bcknd_msg->cfg_apply_req->trxn_id,
-			(cmgd_trxn_batch_id_t *)
-				bcknd_msg->cfg_apply_req->batch_ids,
-			bcknd_msg->cfg_apply_req->n_batch_ids);
+			(cmgd_trxn_id_t) bcknd_msg->cfg_apply_req->trxn_id);
 		break;
         default:
                 break;
@@ -1303,31 +1344,6 @@ static int cmgd_bcknd_client_conn_timeout(struct thread *thread)
 
 	clnt_ctxt->conn_retry_tmr = NULL;
 	return cmgd_bcknd_server_connect(clnt_ctxt);
-}
-
-static void cmgd_bcknd_trxn_register_event(
-	cmgd_bcknd_trxn_ctxt_t *trxn, cmgd_event_t event)
-{
-	struct timeval tv = { 0 };
-
-	switch (event) {
-	case CMGD_BCKND_SCHED_CFG_APPLY:
-		tv.tv_usec = CMGD_BCKND_CFGAPPLY_SCHED_DELAY_USEC;
-		trxn->apply_cfg_ev = 
-			thread_add_timer_tv(trxn->clnt_ctxt->tm,
-				cmgd_bcknd_trxn_proc_cfgapply, trxn,
-				&tv, NULL);
-		break;
-	case CMGD_BCKND_RESCHED_CFG_APPLY:
-		tv.tv_usec = CMGD_BCKND_CFGAPPLY_RESCHED_DELAY_USEC;
-		trxn->apply_cfg_ev = 
-			thread_add_timer_tv(trxn->clnt_ctxt->tm,
-				cmgd_bcknd_trxn_proc_cfgapply, trxn,
-				&tv, NULL);
-		break;
-	default:
-		assert(!"cmgd_bcknd_trxn_register_event() called incorrectly");
-	}
 }
 
 static void cmgd_bcknd_client_register_event(

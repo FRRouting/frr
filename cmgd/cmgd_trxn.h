@@ -42,8 +42,6 @@
 #define CMGD_TRXN_CLEANUP_DELAY_MSEC            100
 #define CMGD_TRXN_CLEANUP_DELAY_USEC            10
 
-#define CMGD_TRXN_MAX_BATCH_IDS_IN_REQ          (CMGD_BCKND_MSG_MAX_LEN-128)/sizeof(cmgd_trxn_batch_id_t)
-
 /*
  * The following definition enables local validation of config
  * on the CMGD process by loading client-defined NB callbacks

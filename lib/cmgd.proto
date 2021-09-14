@@ -109,6 +109,7 @@ message BckndCfgDataCreateReq {
   required uint64 trxn_id = 1;
   required uint64 batch_id = 2;
   repeated YangCfgDataReq data_req = 3;
+  required bool end_of_data = 4;
 }
 
 message BckndCfgDataCreateReply {
@@ -132,7 +133,6 @@ message BckndCfgDataValidateReply {
 
 message BckndCfgDataApplyReq {
   required uint64 trxn_id = 1;
-  repeated uint64 batch_ids = 2;
 }
 
 message BckndCfgDataApplyReply {

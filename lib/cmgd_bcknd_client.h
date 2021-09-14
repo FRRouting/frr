@@ -43,10 +43,6 @@ extern "C" {
 #define CMGD_BCKND_MSG_WRITE_DELAY_MSEC		1
 #define CMGD_BCKND_MAX_NUM_MSG_WRITE		1000
 
-#define CMGD_BCKND_CFGAPPLY_SCHED_DELAY_USEC	10
-#define CMGD_BCKND_CFGAPPLY_RESCHED_DELAY_USEC	1000
-#define CMGD_BCKND_MAX_NUM_CFGAPPLY_BATCHES	100
-
 #define GMGD_BCKND_MAX_NUM_REQ_ITEMS    	64
 
 #define CMGD_BCKND_MSG_MAX_LEN		        16384
@@ -59,6 +55,10 @@ extern "C" {
 #define CMGD_BCKND_CFGDATA_MAX_MSG_LEN          \
         (CMGD_BCKND_MSG_MAX_LEN *               \
 	 CMGD_BCKND_CFGDATA_PACKING_EFFICIENCY)
+
+#define CMGD_BCKND_MAX_BATCH_IDS_IN_REQ         \
+	(CMGD_BCKND_MSG_MAX_LEN-128)/		\
+	sizeof(cmgd_trxn_batch_id_t)
 
 /*
  * List of name identifiers for all backend clients to 

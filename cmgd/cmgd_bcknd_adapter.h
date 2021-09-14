@@ -193,15 +193,15 @@ extern int cmgd_bcknd_destroy_trxn(
 
 extern int cmgd_bcknd_send_cfg_data_create_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
-        cmgd_trxn_batch_id_t batch_id, cmgd_bcknd_cfgreq_t *cfg_req);
+        cmgd_trxn_batch_id_t batch_id, cmgd_bcknd_cfgreq_t *cfg_req,
+        bool end_of_data);
 
 extern int cmgd_bcknd_send_cfg_validate_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
         cmgd_trxn_batch_id_t batch_ids[], size_t num_batch_ids);
 
 extern int cmgd_bcknd_send_cfg_apply_req(
-        cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
-        cmgd_trxn_batch_id_t batch_ids[], size_t num_batch_ids);
+        cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id);
 
 extern int cmgd_bcknd_send_get_data_req(
         cmgd_bcknd_client_adapter_t *adptr, cmgd_trxn_id_t trxn_id,
