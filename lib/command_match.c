@@ -81,7 +81,7 @@ static enum match_type match_mac(const char *, bool);
 
 static bool is_neg(vector vline, size_t idx)
 {
-	if (idx >= vector_active(vline))
+	if (idx >= vector_active(vline) || !vector_slot(vline, idx))
 		return false;
 	return !strcmp(vector_slot(vline, idx), "no");
 }
