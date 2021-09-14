@@ -121,4 +121,18 @@ extern int user_mode;
 
 extern bool vtysh_add_timestamp;
 
+struct vtysh_client {
+	int fd;
+	const char *name;
+	int flag;
+	char path[MAXPATHLEN];
+	struct vtysh_client *next;
+
+	struct thread *log_reader;
+	int log_fd;
+};
+
+extern struct vtysh_client vtysh_client[21];
+extern char my_client[64];
+
 #endif /* VTYSH_H */
