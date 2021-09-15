@@ -413,7 +413,6 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 	int idx_vrf = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_level += 2;
@@ -460,7 +459,6 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -505,7 +503,6 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (argv[idx_ipv4]->type == IPV4_TKN)
 		inet_pton(AF_INET, argv[idx_ipv4]->arg, &id);
@@ -548,7 +545,6 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 	int idx_vrf = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ipv4 += 2;
@@ -619,7 +615,6 @@ DEFUN_HIDDEN(
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
@@ -672,7 +667,6 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -731,7 +725,6 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -782,7 +775,6 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ls_id += 2;
@@ -833,7 +825,6 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_adv_rtr += 2;
@@ -891,7 +882,6 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -960,7 +950,6 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1008,7 +997,6 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_level += 2;
@@ -1063,7 +1051,6 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1123,7 +1110,6 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1185,7 +1171,6 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1268,7 +1253,6 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 	int idx_vrf = 0;
 	int idx_argc = 5;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_argc += 2;
@@ -1308,7 +1292,6 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
@@ -1348,8 +1331,6 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_detail += 2;

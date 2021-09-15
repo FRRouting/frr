@@ -780,10 +780,6 @@ void ospf6_area_plist_update(struct prefix_list *plist, int add)
 	const char *name = prefix_list_name(plist);
 	struct ospf6 *ospf6 = NULL;
 
-
-	if (!om6->ospf6)
-		return;
-
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, n, oa)) {
 			if (PREFIX_NAME_IN(oa)
@@ -988,7 +984,6 @@ DEFUN(show_ipv6_ospf6_spf_tree, show_ipv6_ospf6_spf_tree_cmd,
 	int idx_vrf = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
@@ -1048,7 +1043,6 @@ DEFUN(show_ipv6_ospf6_area_spf_tree, show_ipv6_ospf6_area_spf_tree_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
@@ -1132,7 +1126,6 @@ DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ipv4 += 2;
@@ -1340,8 +1333,6 @@ void ospf6_area_interface_delete(struct ospf6_interface *oi)
 	struct listnode *node, *nnode;
 	struct ospf6 *ospf6;
 
-	if (!om6->ospf6)
-		return;
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
 		for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
 			if (listnode_lookup(oa->if_list, oi))

@@ -1519,7 +1519,6 @@ DEFUN(show_ipv6_ospf6, show_ipv6_ospf6_cmd,
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
@@ -1560,7 +1559,6 @@ DEFUN(show_ipv6_ospf6_route, show_ipv6_ospf6_route_cmd,
 	int idx_arg_start = 4;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_arg_start += 2;
@@ -1594,7 +1592,6 @@ DEFUN(show_ipv6_ospf6_route_match, show_ipv6_ospf6_route_match_cmd,
 	int idx_start_arg = 4;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_start_arg += 2;
@@ -1629,7 +1626,6 @@ DEFUN(show_ipv6_ospf6_route_match_detail,
 	int idx_start_arg = 4;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_start_arg += 2;
@@ -1665,7 +1661,6 @@ DEFUN(show_ipv6_ospf6_route_type_detail, show_ipv6_ospf6_route_type_detail_cmd,
 	int idx_start_arg = 4;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_start_arg += 2;
@@ -2078,7 +2073,6 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 	if (uj)
 		json = json_object_new_object();
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
