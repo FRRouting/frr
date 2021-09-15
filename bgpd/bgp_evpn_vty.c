@@ -2723,7 +2723,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			/* RD header and legend - once overall. */
 			if (rd_header && !json) {
 				vty_out(vty,
-					"EVPN type-1 prefix: [1]:[ESI]:[EthTag]:[IPlen]:[VTEP-IP]\n");
+					"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]\n");
 				vty_out(vty,
 					"EVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]\n");
 				vty_out(vty,
