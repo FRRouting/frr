@@ -1120,11 +1120,6 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 	json_object *json_array_next_hops = NULL;
 	json_object *json_next_hop;
 
-	if (om6->ospf6 == NULL) {
-		vty_out(vty, "OSPFv3 is not running\n");
-		return;
-	}
-
 	monotime(&now);
 	timersub(&now, &route->changed, &res);
 	timerstring(&res, duration, sizeof(duration));
@@ -1207,11 +1202,6 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 	json_object *json_route = NULL;
 	json_object *json_array_next_hops = NULL;
 	json_object *json_next_hop;
-
-	if (om6->ospf6 == NULL) {
-		vty_out(vty, "OSPFv3 is not running\n");
-		return;
-	}
 
 	monotime(&now);
 

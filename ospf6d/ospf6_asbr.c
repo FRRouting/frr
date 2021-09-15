@@ -2522,7 +2522,6 @@ DEFUN(show_ipv6_ospf6_redistribute, show_ipv6_ospf6_redistribute_cmd,
 	json_object *json_array_routes = NULL;
 	json_object *json_array_redistribute = NULL;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (uj) {
