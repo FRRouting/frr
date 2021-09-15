@@ -336,6 +336,21 @@ static void cmgd_trxn_register_event(
 static int cmgd_move_bcknd_commit_to_next_phase(cmgd_trxn_ctxt_t *trxn,
 	cmgd_bcknd_client_adapter_t *adptr);
 
+static cmgd_trxn_ctxt_t *cmgd_trxn_id2ctxt(cmgd_trxn_id_t trxn_id)
+{
+	cmgd_trxn_ctxt_t *trxn;
+
+	if (trxn_id == (cmgd_trxn_id_t) cm->cfg_trxn)
+		return cm->cfg_trxn;
+
+	FOREACH_TRXN_IN_LIST(cm, trxn) {
+		if (trxn_id == (cmgd_trxn_id_t) trxn)
+		return trxn;
+	}
+
+	return NULL;
+}
+
 static cmgd_trxn_bcknd_cfg_batch_t *cmgd_trxn_cfg_batch_alloc(
 	cmgd_trxn_ctxt_t *trxn, cmgd_bcknd_client_id_t id, 
 	cmgd_bcknd_client_adapter_t *bcknd_adptr)
@@ -726,7 +741,7 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 			error_if_any) != 0) {
 		CMGD_TRXN_ERR("Failed to send COMMIT-CONFIG-REPLY for Trxn %p Sessn 0x%lx",
 			trxn, trxn->session_id);
-		return -1;
+		// return -1;
 	}
 
 	if (trxn->commit_cfg_req->req.commit_cfg.implicit &&
@@ -739,7 +754,7 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 			error_if_any, true) != 0) {
 		CMGD_TRXN_ERR("Failed to send SET-CONFIG-REPLY for Trxn %p Sessn 0x%lx",
 			trxn, trxn->session_id);
-		return -1;
+		// return -1;
 	}
 
 	if (success) {
@@ -2197,6 +2212,11 @@ cmgd_trxn_id_t cmgd_create_trxn(
 	return (cmgd_trxn_id_t) trxn;
 }
 
+bool cmgd_trxn_id_is_valid(cmgd_trxn_id_t trxn_id)
+{
+	return cmgd_trxn_id2ctxt(trxn_id) ? true : false;
+}
+
 void cmgd_destroy_trxn(cmgd_trxn_id_t *trxn_id)
 {
 	cmgd_trxn_ctxt_t **trxn;
@@ -2414,7 +2434,7 @@ int cmgd_trxn_notify_bcknd_trxn_reply(
 	cmgd_trxn_ctxt_t *trxn;
 	cmgd_commit_cfg_req_t *cmtcfg_req = NULL;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG) 
 		return -1;
 
@@ -2459,7 +2479,7 @@ int cmgd_trxn_notify_bcknd_cfgdata_reply(
 	cmgd_trxn_bcknd_cfg_batch_t *cfg_btch;
 	cmgd_commit_cfg_req_t *cmtcfg_req = NULL;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG) 
 		return -1;
 
@@ -2507,7 +2527,7 @@ int cmgd_trxn_notify_bcknd_cfg_validate_reply(
 	cmgd_commit_cfg_req_t *cmtcfg_req = NULL;
 	size_t indx;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG) 
 		return -1;
 
@@ -2549,7 +2569,7 @@ extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
 	cmgd_commit_cfg_req_t *cmtcfg_req = NULL;
 	size_t indx;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn || trxn->type != CMGD_TRXN_TYPE_CONFIG
 	    || !trxn->commit_cfg_req)
 		return -1;
@@ -2597,7 +2617,7 @@ int cmgd_trxn_send_commit_config_reply(
 {
 	cmgd_trxn_ctxt_t *trxn;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn)
 		return -1;
 
@@ -2619,7 +2639,7 @@ int cmgd_trxn_send_get_config_req(
 	cmgd_trxn_req_t *trxn_req;
 	size_t indx;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn)
 		return -1;
 
@@ -2648,7 +2668,7 @@ int cmgd_trxn_send_get_data_req(
 	cmgd_trxn_req_t *trxn_req;
 	size_t indx;
 
-	trxn = (cmgd_trxn_ctxt_t *)trxn_id;
+	trxn = cmgd_trxn_id2ctxt(trxn_id);
 	if (!trxn)
 		return -1;
 

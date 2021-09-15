@@ -37,7 +37,7 @@
 
 #define CMGD_TRXN_SEND_CFGVALIDATE_DELAY_MSEC   100
 #define CMGD_TRXN_SEND_CFGAPPLY_DELAY_MSEC      100
-#define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     10000   /* 10 seconds */
+#define CMGD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC     30000   /* 30 seconds */
 
 #define CMGD_TRXN_CLEANUP_DELAY_MSEC            100
 #define CMGD_TRXN_CLEANUP_DELAY_USEC            10
@@ -95,6 +95,8 @@ extern cmgd_trxn_id_t cmgd_create_trxn(
         cmgd_session_id_t session_id, cmgd_trxn_type_t type);
 
 extern void cmgd_destroy_trxn(cmgd_trxn_id_t *trxn_id);
+
+extern bool cmgd_trxn_id_is_valid(cmgd_trxn_id_t trxn_id);
 
 extern cmgd_trxn_type_t cmgd_get_trxn_type(cmgd_trxn_id_t trxn_id);
 

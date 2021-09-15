@@ -1098,8 +1098,12 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 		return NB_ERR_VALIDATION;
 	}
 
-	*transaction = nb_transaction_new(context, candidate, &changes, comment,
-					  errmsg, errmsg_len);
+	/*
+	 * Re-use an existing transaction if provided. Else allocate a new one.
+	 */
+	if (!*transaction)
+		*transaction = nb_transaction_new(context, candidate, &changes,
+					          comment, errmsg, errmsg_len);
 	if (*transaction == NULL) {
 		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
 			  "%s: failed to create transaction: %s", __func__,
