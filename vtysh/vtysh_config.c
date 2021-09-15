@@ -298,34 +298,12 @@ void vtysh_config_parse_line(void *arg, const char *line)
 					config_add_line_uniq(config->line,
 							     line);
 				}
-			} else if (strncmp(line, " link-params",
-					   strlen(" link-params"))
-				   == 0) {
-				config_add_line(config->line, line);
-				config->index = LINK_PARAMS_NODE;
-			} else if (strncmp(line, " ip multicast boundary",
-					   strlen(" ip multicast boundary"))
-				   == 0) {
-				config_add_line_uniq_end(config->line, line);
-			} else if (strncmp(line, " ip igmp query-interval",
-					   strlen(" ip igmp query-interval"))
-				   == 0) {
-				config_add_line_uniq_end(config->line, line);
-			} else if (config->index == LINK_PARAMS_NODE
-				   && strncmp(line, " exit-link-params",
-					      strlen(" exit"))
+			} else if (config->index == INTERFACE_NODE
+				   && strncmp(line, " description ",
+					      strlen(" description "))
 					      == 0) {
-				config_add_line(config->line, line);
-				config->index = INTERFACE_NODE;
-			} else if (!strncmp(line, " vrrp", strlen(" vrrp"))
-				   || !strncmp(line, " no vrrp",
-					       strlen(" no vrrp"))) {
-				config_add_line(config->line, line);
-			} else if (!strncmp(line, " ip mroute",
-					    strlen(" ip mroute"))) {
-				config_add_line_uniq_end(config->line, line);
+				config_add_line_uniq(config->line, line);
 			} else if (config->index == RMAP_NODE
-				   || config->index == INTERFACE_NODE
 				   || config->index == VTY_NODE
 				   || config->index == NH_GROUP_NODE)
 				config_add_line_uniq(config->line, line);
