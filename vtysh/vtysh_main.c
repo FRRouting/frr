@@ -178,6 +178,7 @@ static void usage(int status)
 		       "-u  --user               Run as an unprivileged user\n"
 		       "-w, --writeconfig        Write integrated config (frr.conf) and exit\n"
 		       "-H, --histfile           Override history file\n"
+		       "-t, --timestamp          Print a timestamp before going to shell or reading the configuration\n"
 		       "    --no-fork            Don't fork clients to handle daemons (slower for large configs)\n"
 		       "-h, --help               Display this help and exit\n\n"
 		       "Note that multiple commands may be executed from the command\n"
