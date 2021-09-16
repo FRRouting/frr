@@ -6048,10 +6048,12 @@ bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx)
 	 * type-5 routes. It may be tweaked later on for other routes, or
 	 * even removed completely when all routes are handled.
 	 */
-	if (pfx && pfx->family == AF_EVPN &&
-	    (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
-	     evp->prefix.route_type == BGP_EVPN_IMET_ROUTE ||
-	     evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
+	if (pfx && pfx->family == AF_EVPN
+	    && (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_AD_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_ES_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 		return true;
 
 	return false;
