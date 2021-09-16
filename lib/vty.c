@@ -3318,6 +3318,8 @@ static void vty_cmgd_commit_config_result_notified(
 	} else {
 		zlog_err("COMMIT_CONFIG request for client 0x%lx req-id %lu was successfull!",
 			client_id, req_id);
+		if (errmsg_if_any)
+			vty_out(vty, "CMGD: %s\n", errmsg_if_any);
 	}
 
 	vty_cmgd_resume_response(vty, success);

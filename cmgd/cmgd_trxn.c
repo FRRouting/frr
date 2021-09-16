@@ -1172,7 +1172,7 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		 * This means there's no changes to commit whatsoever 
 		 * is the source of the changes in config.
 		 */
-		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false,
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, true,
 			"No changes found to be committed!");
 		ret = -1;
 		goto cmgd_trxn_prepare_config_done;
