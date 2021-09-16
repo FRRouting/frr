@@ -163,15 +163,18 @@ For reference, the expected release schedule according to the above is:
 +---------+------------+------------+------------+------------+------------+
 
 Each release is managed by one or more volunteer release managers from the FRR
-community.  To spread and distribute this workload, this should be rotated for
+community.  These release managers are expected to handle the branch for a period
+of one year.  To spread and distribute this workload, this should be rotated for
 subsequent releases.  The release managers are currently assumed/expected to
 run a release management meeting during the weeks listed above.  Barring other
 constraints, this would be scheduled before the regular weekly FRR community
 call such that important items can be carried over into that call.
 
-Bugfixes are applied to the two most recent releases. However, backporting of bug
-fixes to older than the two most recent releases will not be prevented, if acked
-under the classical development workflow applying for a pull request.
+Bugfixes are applied to the two most recent releases.  It is expected that
+each bugfix backported should include some reasoning for its inclusion
+as well as receiving approval by the release managers for that release before
+accepted into the release branch.  This does not necessarily preclude backporting of
+bug fixes to older than the two most recent releases.
 
 Security fixes are backported to all releases less than or equal to at least one
 year old. Security fixes may also be backported to older releases depending on
