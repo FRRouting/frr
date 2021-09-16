@@ -810,13 +810,8 @@ static void igmp_group_free(struct igmp_group *group)
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
 
-static void igmp_group_count_incr(struct igmp_sock *igmp)
+static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 {
-	struct pim_interface *pim_ifp = igmp->interface->info;
-
-	if (!pim_ifp)
-		return;
-
 	++pim_ifp->pim->igmp_group_count;
 	if (pim_ifp->pim->igmp_group_count
 	    == pim_ifp->pim->igmp_watermark_limit) {
@@ -827,13 +822,8 @@ static void igmp_group_count_incr(struct igmp_sock *igmp)
 	}
 }
 
-static void igmp_group_count_decr(struct igmp_sock *igmp)
+static void igmp_group_count_decr(struct pim_interface *pim_ifp)
 {
-	struct pim_interface *pim_ifp = igmp->interface->info;
-
-	if (!pim_ifp)
-		return;
-
 	if (pim_ifp->pim->igmp_group_count == 0) {
 		zlog_warn("Cannot decrement igmp group count below 0(vrf: %s)",
 			  VRF_LOGNAME(pim_ifp->pim->vrf));
@@ -848,14 +838,14 @@ void igmp_group_delete(struct igmp_group *group)
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
 	struct igmp_source *src;
+	struct pim_interface *pim_ifp = group->interface->info;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
-		zlog_debug("Deleting IGMP group %s from socket %d interface %s",
-			   group_str, group->group_igmp_sock->fd,
-			   group->group_igmp_sock->interface->name);
+		zlog_debug("Deleting IGMP group %s from interface %s",
+			   group_str, group->interface->name);
 	}
 
 	for (ALL_LIST_ELEMENTS(group->group_source_list, src_node, src_nextnode,
@@ -866,9 +856,9 @@ void igmp_group_delete(struct igmp_group *group)
 	THREAD_OFF(group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
-	igmp_group_count_decr(group->group_igmp_sock);
-	listnode_delete(group->group_igmp_sock->igmp_group_list, group);
-	hash_release(group->group_igmp_sock->igmp_group_hash, group);
+	igmp_group_count_decr(pim_ifp);
+	listnode_delete(pim_ifp->igmp_group_list, group);
+	hash_release(pim_ifp->igmp_group_hash, group);
 
 	igmp_group_free(group);
 }
@@ -886,11 +876,6 @@ void igmp_sock_free(struct igmp_sock *igmp)
 	assert(!igmp->t_igmp_read);
 	assert(!igmp->t_igmp_query_timer);
 	assert(!igmp->t_other_querier_timer);
-	assert(igmp->igmp_group_list);
-	assert(!listcount(igmp->igmp_group_list));
-
-	list_delete(&igmp->igmp_group_list);
-	hash_free(igmp->igmp_group_hash);
 
 	XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);
 }
@@ -898,14 +883,6 @@ void igmp_sock_free(struct igmp_sock *igmp)
 void igmp_sock_delete(struct igmp_sock *igmp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *grp_node;
-	struct listnode *grp_nextnode;
-	struct igmp_group *grp;
-
-	for (ALL_LIST_ELEMENTS(igmp->igmp_group_list, grp_node, grp_nextnode,
-			       grp)) {
-		igmp_group_delete(grp);
-	}
 
 	sock_close(igmp);
 
@@ -914,6 +891,9 @@ void igmp_sock_delete(struct igmp_sock *igmp)
 	listnode_delete(pim_ifp->igmp_socket_list, igmp);
 
 	igmp_sock_free(igmp);
+
+	if (!listcount(pim_ifp->igmp_socket_list))
+		pim_igmp_if_reset(pim_ifp);
 }
 
 void igmp_sock_delete_all(struct interface *ifp)
@@ -948,12 +928,50 @@ static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 	return false;
 }
 
+void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
+{
+	char hash_name[64];
+
+	pim_ifp->igmp_socket_list = list_new();
+	pim_ifp->igmp_socket_list->del = (void (*)(void *))igmp_sock_free;
+
+	pim_ifp->igmp_group_list = list_new();
+	pim_ifp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
+
+	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
+	pim_ifp->igmp_group_hash = hash_create(
+		igmp_group_hash_key, igmp_group_hash_equal, hash_name);
+}
+
+void pim_igmp_if_reset(struct pim_interface *pim_ifp)
+{
+	struct listnode *grp_node, *grp_nextnode;
+	struct igmp_group *grp;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_group_list, grp_node, grp_nextnode,
+			       grp)) {
+		igmp_group_delete(grp);
+	}
+}
+
+void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+{
+	pim_igmp_if_reset(pim_ifp);
+
+	assert(pim_ifp->igmp_group_list);
+	assert(!listcount(pim_ifp->igmp_group_list));
+
+	list_delete(&pim_ifp->igmp_group_list);
+	hash_free(pim_ifp->igmp_group_hash);
+
+	list_delete(&pim_ifp->igmp_socket_list);
+}
+
 static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 				       struct interface *ifp, int mtrace_only)
 {
 	struct pim_interface *pim_ifp;
 	struct igmp_sock *igmp;
-	char hash_name[64];
 
 	pim_ifp = ifp->info;
 
@@ -964,13 +982,6 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	}
 
 	igmp = XCALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
-
-	igmp->igmp_group_list = list_new();
-	igmp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
-
-	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
-	igmp->igmp_group_hash = hash_create(igmp_group_hash_key,
-					    igmp_group_hash_equal, hash_name);
 
 	igmp->fd = fd;
 	igmp->interface = ifp;
@@ -1114,7 +1125,7 @@ static int igmp_group_timer(struct thread *t)
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug("%s: Timer for group %s on interface %s", __func__,
-			   group_str, group->group_igmp_sock->interface->name);
+			   group_str, group->interface->name);
 	}
 
 	assert(group->group_filtermode_isexcl);
@@ -1151,7 +1162,7 @@ static void group_timer_off(struct igmp_group *group)
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug("Cancelling TIMER event for group %s on %s",
-			   group_str, group->group_igmp_sock->interface->name);
+			   group_str, group->interface->name);
 	}
 	THREAD_OFF(group->t_group_timer);
 }
@@ -1188,16 +1199,18 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 				      struct in_addr group_addr)
 {
 	struct igmp_group lookup;
+	struct pim_interface *pim_ifp = igmp->interface->info;
 
 	lookup.group_addr.s_addr = group_addr.s_addr;
 
-	return hash_lookup(igmp->igmp_group_hash, &lookup);
+	return hash_lookup(pim_ifp->igmp_group_hash, &lookup);
 }
 
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 					  struct in_addr group_addr)
 {
 	struct igmp_group *group;
+	struct pim_interface *pim_ifp = igmp->interface->info;
 
 	group = find_group_by_addr(igmp, group_addr);
 	if (group) {
@@ -1239,7 +1252,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	group->t_group_query_retransmit_timer = NULL;
 	group->group_specific_query_retransmit_count = 0;
 	group->group_addr = group_addr;
-	group->group_igmp_sock = igmp;
+	group->interface = igmp->interface;
 	group->last_igmp_v1_report_dsec = -1;
 	group->last_igmp_v2_report_dsec = -1;
 	group->group_creation = pim_time_monotonic_sec();
@@ -1248,8 +1261,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	/* initialize new group as INCLUDE {empty} */
 	group->group_filtermode_isexcl = 0; /* 0=INCLUDE, 1=EXCLUDE */
 
-	listnode_add(igmp->igmp_group_list, group);
-	group = hash_get(igmp->igmp_group_hash, group, hash_alloc_intern);
+	listnode_add(pim_ifp->igmp_group_list, group);
+	group = hash_get(pim_ifp->igmp_group_hash, group, hash_alloc_intern);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1260,7 +1273,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 			group_str, igmp->fd, igmp->interface->name);
 	}
 
-	igmp_group_count_incr(igmp);
+	igmp_group_count_incr(pim_ifp);
 
 	/*
 	  RFC 3376: 6.2.2. Definition of Group Timers

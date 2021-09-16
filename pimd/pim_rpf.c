@@ -31,6 +31,7 @@
 #include "pim_pim.h"
 #include "pim_str.h"
 #include "pim_iface.h"
+#include "pim_neighbor.h"
 #include "pim_zlookup.h"
 #include "pim_ifchannel.h"
 #include "pim_time.h"

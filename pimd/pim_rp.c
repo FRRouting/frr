@@ -42,7 +42,7 @@
 #include "pim_rpf.h"
 #include "pim_sock.h"
 #include "pim_memory.h"
-#include "pim_iface.h"
+#include "pim_neighbor.h"
 #include "pim_msdp.h"
 #include "pim_nht.h"
 #include "pim_mroute.h"
