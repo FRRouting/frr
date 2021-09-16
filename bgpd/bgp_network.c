@@ -46,6 +46,7 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_nht.h"
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -605,6 +606,12 @@ static int bgp_accept(struct thread *thread)
 		else
 			BGP_EVENT_ADD(peer, TCP_connection_open);
 	}
+
+	/*
+	 * If we are doing nht for a peer that is v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
 
 	return 0;
 }
