@@ -1926,7 +1926,7 @@ dnl -----
 dnl LTTng
 dnl -----
 if test "$enable_lttng" = "yes"; then
-  PKG_CHECK_MODULES([UST], [lttng-ust >= 2.12.0], [
+  PKG_CHECK_MODULES([UST], [lttng-ust >= 2.10.0], [
     AC_DEFINE([HAVE_LTTNG], [1], [Enable LTTng support])
     LTTNG=true
   ], [
