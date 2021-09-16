@@ -1252,7 +1252,7 @@ with the linux kernel for that. The following link has helpful references to man
 sysctl values:  https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
 
 Expected sysctl settings
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. option:: net.ipv4.ip_forward = 1
 
@@ -1286,7 +1286,7 @@ Expected sysctl settings
    is the default behavior for v4 as well.
 
 Optional sysctl settings
-^^^^^^^^^^^^^^^^^^^^^^^^
+------------------------
 
 .. option:: net.ipv4.conf.{all,default,<interface>}.bc_forwarding = 0
 
