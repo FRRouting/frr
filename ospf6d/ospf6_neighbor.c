@@ -1081,7 +1081,6 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 	bool detail = false;
 	bool drchoice = false;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (argv_find(argv, argc, "detail", &idx_type))
@@ -1156,7 +1155,6 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
