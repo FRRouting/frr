@@ -138,7 +138,7 @@ def pytest_addoption(parser):
 
 
 def check_for_memleaks():
-    if not topotest_extra_config["valgrind_memleaks"]:
+    if topotest_extra_config["valgrind_memleaks"]:
         return
 
     leaks = []
