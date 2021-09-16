@@ -34,6 +34,7 @@
 #include <lttng/tracepoint.h>
 
 #include "bgpd/bgpd.h"
+#include "bgpd/bgp_attr.h"
 #include "lib/stream.h"
 
 /* clang-format off */
