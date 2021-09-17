@@ -10806,6 +10806,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				path.attr = &dummy_attr;
 
 				ret = route_map_apply(rmap, dest_p, &path);
+				bgp_attr_flush(&dummy_attr);
 				if (ret == RMAP_DENYMATCH)
 					continue;
 			}
