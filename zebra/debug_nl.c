@@ -20,6 +20,7 @@
 
 #include <sys/socket.h>
 
+#include <linux/netconf.h>
 #include <linux/netlink.h>
 #include <linux/nexthop.h>
 #include <linux/rtnetlink.h>
@@ -89,6 +90,11 @@ const char *nlmsg_type2str(uint16_t type)
 		return "DELNEXTHOP";
 	case RTM_GETNEXTHOP:
 		return "GETNEXTHOP";
+
+	case RTM_NEWNETCONF:
+		return "RTM_NEWNETCONF";
+	case RTM_DELNETCONF:
+		return "RTM_DELNETCONF";
 
 	default:
 		return "UNKNOWN";
@@ -657,6 +663,37 @@ const char *frh_action2str(uint8_t action)
 	}
 }
 
+static const char *ncm_rta2str(int type)
+{
+	switch (type) {
+	case NETCONFA_UNSPEC:
+		return "UNSPEC";
+	case NETCONFA_IFINDEX:
+		return "IFINDEX";
+	case NETCONFA_FORWARDING:
+		return "FORWARDING";
+	case NETCONFA_RP_FILTER:
+		return "RP_FILTER";
+	case NETCONFA_MC_FORWARDING:
+		return "MCAST";
+	case NETCONFA_PROXY_NEIGH:
+		return "PROXY_NEIGH";
+	case NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN:
+		return "IGNORE_LINKDOWN";
+	case NETCONFA_INPUT:
+		return "MPLS";
+	case NETCONFA_BC_FORWARDING:
+		return "BCAST";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+static void dump_on_off(uint32_t ival, const char *prefix)
+{
+	zlog_debug("%s%s", prefix, (ival != 0) ? "on" : "off");
+}
+
 static inline void flag_write(int flags, int flag, const char *flagstr,
 			      char *buf, size_t buflen)
 {
@@ -1118,6 +1155,7 @@ static void nlnh_dump(struct nhmsg *nhm, size_t msglen)
 	struct nexthop_grp *nhgrp;
 
 	rta = RTM_NHA(nhm);
+
 next_rta:
 	/* Check the header for valid length and for outbound access. */
 	if (RTA_OK(rta, msglen) == 0)
@@ -1296,6 +1334,52 @@ next_rta:
 	goto next_rta;
 }
 
+static void nlncm_dump(const struct netconfmsg *ncm, size_t msglen)
+{
+	const struct rtattr *rta;
+	size_t plen;
+	uint32_t ival;
+
+	rta = (void *)((const char *)ncm +
+		       NLMSG_ALIGN(sizeof(struct netconfmsg)));
+
+next_rta:
+	/* Check the attr header for valid length. */
+	if (RTA_OK(rta, msglen) == 0)
+		return;
+
+	plen = RTA_PAYLOAD(rta);
+
+	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
+		   plen, rta->rta_type, ncm_rta2str(rta->rta_type));
+
+	switch (rta->rta_type) {
+	case NETCONFA_IFINDEX:
+		ival = *(uint32_t *)RTA_DATA(rta);
+		zlog_debug("      %d", (int32_t)ival);
+		break;
+
+	/* Most attrs are just on/off. */
+	case NETCONFA_FORWARDING:
+	case NETCONFA_RP_FILTER:
+	case NETCONFA_MC_FORWARDING:
+	case NETCONFA_PROXY_NEIGH:
+	case NETCONFA_IGNORE_ROUTES_WITH_LINKDOWN:
+	case NETCONFA_INPUT:
+	case NETCONFA_BC_FORWARDING:
+		ival = *(uint32_t *)RTA_DATA(rta);
+		dump_on_off(ival, "      ");
+		break;
+	default:
+		/* NOTHING: unhandled. */
+		break;
+	}
+
+	/* Get next pointer and start iteration again. */
+	rta = RTA_NEXT(rta, msglen);
+	goto next_rta;
+}
+
 void nl_dump(void *msg, size_t msglen)
 {
 	struct nlmsghdr *nlmsg = msg;
@@ -1305,6 +1389,7 @@ void nl_dump(void *msg, size_t msglen)
 	struct ndmsg *ndm;
 	struct rtmsg *rtm;
 	struct nhmsg *nhm;
+	struct netconfmsg *ncm;
 	struct ifinfomsg *ifi;
 	struct fib_rule_hdr *frh;
 	char fbuf[128];
@@ -1420,6 +1505,14 @@ next_header:
 			nhm->nh_flags,
 			nh_flags2str(nhm->nh_flags, fbuf, sizeof(fbuf)));
 		nlnh_dump(nhm, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*nhm)));
+		break;
+
+	case RTM_NEWNETCONF:
+	case RTM_DELNETCONF:
+		ncm = NLMSG_DATA(nlmsg);
+		zlog_debug(" ncm [family=%s (%d)]",
+			   af_type2str(ncm->ncm_family), ncm->ncm_family);
+		nlncm_dump(ncm, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*ncm)));
 		break;
 
 	default:
