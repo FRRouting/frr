@@ -720,7 +720,7 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 /* XXX: this can use a bit of refining and extensions */
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 {
-	struct pim_nexthop nexthop;
+	struct pim_nexthop nexthop = {0};
 
 	if (mp->peer.s_addr == rp.s_addr) {
 		return true;
