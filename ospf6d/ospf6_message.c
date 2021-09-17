@@ -1878,11 +1878,13 @@ static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
 
 	oh->version = (uint8_t)OSPFV3_VERSION;
 	oh->type = type;
-
+	oh->length = 0;
 	oh->router_id = oi->area->ospf6->router_id;
 	oh->area_id = oi->area->area_id;
+	oh->checksum = 0;
 	oh->instance_id = oi->instance_id;
 	oh->reserved = 0;
+
 	stream_forward_endp(s, OSPF6_HEADER_SIZE);
 }
 
