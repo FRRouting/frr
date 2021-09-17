@@ -1670,6 +1670,9 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 		vty_out(vty, "mtu6 %d ", ifp->mtu6);
 	vty_out(vty, "\n  flags: %s\n", if_flag_dump(ifp->flags));
 
+	if (zebra_if->mpls)
+		vty_out(vty, "  MPLS enabled\n");
+
 	/* Hardware address. */
 	vty_out(vty, "  Type: %s\n", if_link_type_str(ifp->ll_type));
 	if (ifp->hw_addr_len != 0) {
@@ -1989,6 +1992,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	if (zebra_if->desc)
 		json_object_string_add(json_if, "OsDescription",
 				       zebra_if->desc);
+
+	json_object_boolean_add(json_if, "mplsEnabled", zebra_if->mpls);
 
 	if (ifp->ifindex == IFINDEX_INTERNAL) {
 		json_object_boolean_add(json_if, "pseudoInterface", true);

@@ -329,6 +329,9 @@ struct zebra_if {
 	/* Multicast configuration. */
 	uint8_t multicast;
 
+	/* MPLS status. */
+	bool mpls;
+
 	/* Router advertise configuration. */
 	uint8_t rtadv_enable;
 
