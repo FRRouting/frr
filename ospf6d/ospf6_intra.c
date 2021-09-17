@@ -1495,7 +1495,6 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 	struct listnode *anode, *anext;
 	struct listnode *nnode, *rnode, *rnext;
 	struct ospf6_nexthop *nh, *rnh;
-	char buf[PREFIX2STR_BUFFER];
 	bool route_found = false;
 	struct interface *ifp = NULL;
 	struct ospf6_lsa *lsa;
@@ -1679,8 +1678,9 @@ void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,
 				if (ls_entry == NULL) {
 					if (IS_OSPF6_DEBUG_EXAMIN(INTRA_PREFIX))
 						zlog_debug(
-							"%s: ls_prfix %s ls_entry not found.",
-							__func__, buf);
+							"%s: ls_prfix %pFX ls_entry not found.",
+							__func__,
+							&o_path->ls_prefix);
 					continue;
 				}
 				lsa = ospf6_lsdb_lookup(o_path->origin.type,
