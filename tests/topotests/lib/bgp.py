@@ -2672,7 +2672,7 @@ def verify_best_path_as_per_admin_distance(
     return True
 
 
-@retry(retry_timeout=10, initial_wait=2)
+@retry(retry_timeout=30)
 def verify_bgp_rib(
     tgen,
     addr_type,
