@@ -553,6 +553,21 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 		return;
 	}
 
+	/*
+	 * RFC 3623 - Section 2:
+	 * "If the restarting router determines that it was the Designated
+	 * Router on a given segment prior to the restart, it elects
+	 * itself as the Designated Router again.  The restarting router
+	 * knows that it was the Designated Router if, while the
+	 * associated interface is in Waiting state, a Hello packet is
+	 * received from a neighbor listing the router as the Designated
+	 * Router".
+	 */
+	if (oi->area->ospf6->gr_info.restart_in_progress
+	    && oi->state == OSPF6_INTERFACE_WAITING
+	    && hello->drouter == oi->area->ospf6->router_id)
+		oi->drouter = hello->drouter;
+
 	/* Schedule interface events */
 	if (backupseen)
 		thread_add_event(master, backup_seen, oi, 0, NULL);

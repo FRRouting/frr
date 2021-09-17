@@ -360,6 +360,16 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		return OSPF6_GR_NOT_HELPER;
 	}
 
+	if (ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"%s: router is in the process of graceful restart",
+				__func__);
+		restarter->gr_helper_info.rejected_reason =
+			OSPF6_HELPER_RESTARTING;
+		return OSPF6_GR_NOT_HELPER;
+	}
+
 	/* check supported grace period configured
 	 * if configured, use this to start the grace
 	 * timer otherwise use the interval received
