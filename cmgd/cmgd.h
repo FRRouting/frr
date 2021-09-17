@@ -48,6 +48,7 @@
 
 #define CMGD_VTY_PORT			2622
 #define CMGD_SOCKET_BUF_SIZE		65535
+#define CMGD_MAX_COMMIT_LIST		10
 
 #define max(a, b)                                                              \
 	({                                                                     \
@@ -108,6 +109,7 @@ struct cmgd_master {
 
 	bool terminating;	/* global flag that sigint terminate seen */
 	bool perf_stats_en;	/* to enable performance stats measurement */
+	struct cmgd_cmt_info_dlist_head cmt_dlist;	/* List of last 10 commits executed. */
 	// QOBJ_FIELDS
 };
 // DECLARE_QOBJ_TYPE(cmgd_master)
@@ -277,7 +279,10 @@ static inline char *cmgd_realtime_to_string(struct timeval *tv,
 }
 
 extern void cmgd_unset_redist_vrf_bitmaps(struct cmgd *, vrf_id_t);
-
-
-
+extern struct cmgd_cmt_info_t *cmgd_create_new_cmt_record(void);
+extern void show_cmgd_cmt_history(struct vty *vty);
+extern int cmgd_cmt_rollback(struct vty *vty, char *cmt_str, int last_n_cmts,
+        bool cmd_id_based);
+extern bool cmgd_cmt_record_read_index_file(void);
+extern bool cmgd_cmt_record_create_index_file(void);
 #endif /* _FRR_CMGD_H */

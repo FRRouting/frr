@@ -141,6 +141,8 @@ typedef struct cmgd_commit_cfg_req_ {
 	bool validate_only;
 	bool abort;
 	bool implicit;
+	bool skip_validation;
+	bool rollback;
 	uint32_t nb_trxn_id;
 
 	/* Track commit phases */
@@ -310,6 +312,9 @@ DECLARE_LIST(cmgd_trxn_list, cmgd_trxn_ctxt_t, list_linkage);
 #define FOREACH_TRXN_IN_LIST(cm, trxn)					\
 	frr_each_safe(cmgd_trxn_list, &(cm)->cmgd_trxns, (trxn))
 #endif
+
+static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
+        bool success, const char *error_if_any);
 
 static inline const char* cmgd_trxn_commit_phase_str(
 	cmgd_trxn_ctxt_t *trxn, bool curr)
@@ -626,6 +631,7 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 	int num_processed = 0;
 	size_t left;
 	cmgd_commit_stats_t *cmt_stats;
+	int ret = 0;
 
 	trxn = (cmgd_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
@@ -681,6 +687,16 @@ static int cmgd_trxn_process_set_cfg(struct thread *thread)
 			assert(cmgd_trxn_req_list_count(&trxn->set_cfg_reqs) == 1);
 			assert(trxn_req->req.set_cfg->dst_db_hndl);
 
+			ret = cmgd_db_write_lock(trxn_req->req.set_cfg->dst_db_hndl);
+			if (ret != 0) {
+				CMGD_TRXN_ERR("Failed to lock the DB %u for trxn: %p sessn 0x%lx, errstr %s!",
+					trxn_req->req.set_cfg->dst_db_id,
+					trxn, trxn->session_id, strerror(ret));
+				cmgd_trxn_send_commit_cfg_reply(trxn, false,
+					"Lock running DB before implicit commit failed!");
+				goto cmgd_trxn_process_set_cfg_done;
+			}
+
 			cmgd_trxn_send_commit_config_req((cmgd_trxn_id_t) trxn,
 				trxn_req->req_id, trxn_req->req.set_cfg->db_id,
 				trxn_req->req.set_cfg->db_hndl,
@@ -726,6 +742,9 @@ cmgd_trxn_process_set_cfg_done:
 static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 	bool success, const char *error_if_any)
 {
+	struct cmgd_cmt_info_t *cmt_info;
+	int ret = 0;
+
 	if (!trxn->commit_cfg_req)
 		return -1;
 
@@ -765,12 +784,25 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 		 * Successful commit: Merge Src DB into Dst DB if and only if
 		 * this was not a validate-only or abort request.
 		 */
-		if (trxn->session_id &&
-			!trxn->commit_cfg_req->req.commit_cfg.validate_only && 
-			!trxn->commit_cfg_req->req.commit_cfg.abort)
+		if ((trxn->session_id &&
+			!trxn->commit_cfg_req->req.commit_cfg.validate_only &&
+			!trxn->commit_cfg_req->req.commit_cfg.abort) ||
+			trxn->commit_cfg_req->req.commit_cfg.rollback) {
 			cmgd_db_copy_dbs(
-				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
-				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl);
+				trxn->commit_cfg_req->req.
+				commit_cfg.src_db_hndl,
+				trxn->commit_cfg_req->req.
+				commit_cfg.dst_db_hndl);
+			if (!trxn->commit_cfg_req->req.
+				commit_cfg.rollback) {
+				cmt_info = cmgd_create_new_cmt_record();
+				cmgd_db_dump_db_to_file(
+					cmt_info->cmt_json_file,
+					trxn->commit_cfg_req->req.
+					commit_cfg.dst_db_hndl);
+				cmgd_cmt_record_create_index_file();
+			}
+		}
 
 		/*
 		 * Restore Src DB back to Dest DB only through a commit abort
@@ -787,7 +819,31 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 #else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 		THREAD_OFF(trxn->send_cfg_apply);
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+		if (trxn->commit_cfg_req->req.commit_cfg.implicit)
+			cmgd_db_copy_dbs(
+				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
+				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
 	}
+
+	if (trxn->commit_cfg_req->req.commit_cfg.rollback) {
+		ret = cmgd_db_unlock(trxn->commit_cfg_req->req.
+				commit_cfg.dst_db_hndl);
+		if (ret != 0)
+			CMGD_TRXN_ERR("Failed to unlock the dst DB during rollback : %s",
+				strerror(ret));
+
+		ret = cmgd_db_unlock(trxn->commit_cfg_req->req.
+				commit_cfg.src_db_hndl);
+		if (ret != 0)
+			CMGD_TRXN_ERR("Failed to unlock the src DB during rollback : %s",
+				strerror(ret));
+	}
+
+	if (trxn->commit_cfg_req->req.commit_cfg.implicit)
+		if (cmgd_db_unlock(trxn->commit_cfg_req->req.
+					commit_cfg.dst_db_hndl) != 0)
+			CMGD_TRXN_ERR("Failed to unlock the dst DB during implicit : %s",
+				strerror(ret));
 
 	trxn->commit_cfg_req->req.commit_cfg.cmt_stats = NULL;
 	cmgd_trxn_req_free(&trxn->commit_cfg_req);
@@ -1178,43 +1234,46 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		goto cmgd_trxn_prepare_config_done;
 	}
 
-	/*
-	 * Validate YANG contents of the source DB and get the diff 
-	 * between source and destination DB contents.
-	 */
-	nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
-	nb_ctxt.user = (void *)trxn;
-	ret = nb_candidate_validate_yang(nb_config, err_buf, sizeof(err_buf)-1);
-	if (ret != NB_OK) {
-		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
-		ret = -1;
-		goto cmgd_trxn_prepare_config_done;
+	if (!trxn->commit_cfg_req->req.commit_cfg.skip_validation) {
+		/*
+		 * Validate YANG contents of the source DB and get the diff 
+		 * between source and destination DB contents.
+		 */
+		nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
+		nb_ctxt.user = (void *)trxn;
+		ret = nb_candidate_validate_yang(nb_config, err_buf, sizeof(err_buf)-1);
+		if (ret != NB_OK) {
+			(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
+			ret = -1;
+			goto cmgd_trxn_prepare_config_done;
+		}
 	}
-
 #ifdef CMGD_LOCAL_VALIDATIONS_ENABLED
 	if (cm->perf_stats_en)
 		cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
 			cmt_stats->validate_start);
 
-	/*
-	 * Perform application level validations locally on the CMGD 
-	 * process by calling application specific validation routines
-	 * loaded onto CMGD process using libraries.
-	 */
-	ret = nb_candidate_validate_code(&nb_ctxt, nb_config,
-		&changes, err_buf, sizeof(err_buf)-1);
-	if (ret != NB_OK) {
-		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
-		ret = -1;
-		goto cmgd_trxn_prepare_config_done;
-	}
-
-	if (trxn->commit_cfg_req->req.commit_cfg.validate_only) {
+	if (!trxn->commit_cfg_req->req.commit_cfg.skip_validation) {
 		/*
-		 * This was a validate-only COMMIT request return success.
+		 * Perform application level validations locally on the CMGD 
+		 * process by calling application specific validation routines
+		 * loaded onto CMGD process using libraries.
 		 */
-		(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
-		goto cmgd_trxn_prepare_config_done;
+		ret = nb_candidate_validate_code(&nb_ctxt, nb_config,
+			&changes, err_buf, sizeof(err_buf)-1);
+		if (ret != NB_OK) {
+			(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
+			ret = -1;
+			goto cmgd_trxn_prepare_config_done;
+		}
+
+		if (trxn->commit_cfg_req->req.commit_cfg.validate_only) {
+			/*
+			 * This was a validate-only COMMIT request return success.
+			 */
+			(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
+			goto cmgd_trxn_prepare_config_done;
+		}
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
@@ -1244,7 +1303,6 @@ cmgd_trxn_prep_config_validation_done:
 	 * backend.
 	 */
 	cmgd_trxn_register_event(trxn, CMGD_TRXN_COMMITCFG_TIMEOUT);
-
 cmgd_trxn_prepare_config_done:
 
 	if (cfg_chgs && del_cfg_chgs)
@@ -2702,4 +2760,63 @@ void cmgd_trxn_status_write(struct vty *vty)
 	}
 	vty_out(vty, "  Total: %d\n", 
 		(int) cmgd_trxn_list_count(&cmgd_trxn_cm->cmgd_trxns));
+}
+
+int cmgd_cmt_rollback_trigger_cfg_apply(cmgd_db_hndl_t src_db_hndl,
+	cmgd_db_hndl_t dst_db_hndl)
+{
+	struct nb_config_cbs changes = { 0 };
+	struct nb_config_cbs *cfg_chgs = NULL;
+	cmgd_trxn_ctxt_t *trxn;
+	cmgd_trxn_req_t *trxn_req;
+	static cmgd_commit_stats_t dummy_stats = { 0 };
+
+	/*
+	 * This could be the case when the config is directly
+	 * loaded onto the candidate DB from a file. Get the
+	 * diff from a full comparison of the candidate and
+	 * running DBs.
+	 */
+	nb_config_diff(cmgd_db_get_nb_config(dst_db_hndl),
+		cmgd_db_get_nb_config(src_db_hndl), &changes);
+	cfg_chgs = &changes;
+
+	if (RB_EMPTY(nb_config_cbs, cfg_chgs)) {
+		/*
+		 * This means there's no changes to commit whatsoever
+		 * is the source of the changes in config.
+		 */
+		return -1;
+	}
+
+	/*
+	 * Create a CONFIG transaction to push the config changes
+	 * provided to the backend client.
+	 */
+	trxn = cmgd_trxn_create_new(0, CMGD_TRXN_TYPE_CONFIG);
+	if (!trxn) {
+		CMGD_TRXN_ERR("Failed to create CONFIG Transaction for downloading CONFIGs");
+		return -1;
+	}
+
+	/*
+	 * Set the changeset for transaction to commit and trigger the commit request.
+	 */
+	trxn_req = cmgd_trxn_req_alloc(trxn, 0, CMGD_TRXN_PROC_COMMITCFG);
+	trxn_req->req.commit_cfg.src_db_id = CMGD_DB_CANDIDATE;
+	trxn_req->req.commit_cfg.src_db_hndl = src_db_hndl;
+	trxn_req->req.commit_cfg.dst_db_id = CMGD_DB_RUNNING;
+	trxn_req->req.commit_cfg.dst_db_hndl = dst_db_hndl;
+	trxn_req->req.commit_cfg.validate_only = false;
+	trxn_req->req.commit_cfg.abort = false;
+	trxn_req->req.commit_cfg.skip_validation = true;
+	trxn_req->req.commit_cfg.rollback = true;
+	trxn_req->req.commit_cfg.cmt_stats = &dummy_stats;
+	trxn_req->req.commit_cfg.cfg_chgs = cfg_chgs;
+
+	/*
+	 * Trigger a COMMIT-CONFIG process.
+	 */
+	cmgd_trxn_register_event(trxn, CMGD_TRXN_PROC_COMMITCFG);
+	return 0;
 }
