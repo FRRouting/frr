@@ -696,16 +696,16 @@ DEFUN (area_filter_list,
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_IN(area));
 		PREFIX_NAME_IN(area) =
 			XSTRDUP(MTYPE_OSPF6_PLISTNAME, plistname);
-		ospf6_abr_reimport(area);
 	} else {
 		PREFIX_LIST_OUT(area) = plist;
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_OUT(area));
 		PREFIX_NAME_OUT(area) =
 			XSTRDUP(MTYPE_OSPF6_PLISTNAME, plistname);
-
-		/* Redo summaries if required */
-		ospf6_abr_reexport(area);
 	}
+
+	/* Redo summaries if required */
+	if (ospf6_check_and_set_router_abr(area->ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -739,7 +739,6 @@ DEFUN (no_area_filter_list,
 
 		PREFIX_LIST_IN(area) = NULL;
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_IN(area));
-		ospf6_abr_reimport(area);
 	} else {
 		if (PREFIX_NAME_OUT(area))
 			if (!strmatch(PREFIX_NAME_OUT(area), plistname))
@@ -747,8 +746,11 @@ DEFUN (no_area_filter_list,
 
 		XFREE(MTYPE_OSPF6_PLISTNAME, PREFIX_NAME_OUT(area));
 		PREFIX_LIST_OUT(area) = NULL;
-		ospf6_abr_reexport(area);
 	}
+
+	/* Redo summaries if required */
+	if (ospf6_check_and_set_router_abr(area->ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -760,19 +762,30 @@ void ospf6_filter_update(struct access_list *access)
 	struct ospf6 *ospf6;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
+		bool update = false;
+
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, n, oa)) {
 			if (IMPORT_NAME(oa)
-			    && strcmp(IMPORT_NAME(oa), access->name) == 0)
-				ospf6_abr_reimport(oa);
+			    && strcmp(IMPORT_NAME(oa), access->name) == 0) {
+				IMPORT_LIST(oa) = access_list_lookup(
+					AFI_IP6, IMPORT_NAME(oa));
+				update = true;
+			}
 
 			if (EXPORT_NAME(oa)
-			    && strcmp(EXPORT_NAME(oa), access->name) == 0)
-				ospf6_abr_reexport(oa);
+			    && strcmp(EXPORT_NAME(oa), access->name) == 0) {
+				EXPORT_LIST(oa) = access_list_lookup(
+					AFI_IP6, EXPORT_NAME(oa));
+				update = true;
+			}
 		}
+
+		if (update && ospf6_check_and_set_router_abr(ospf6))
+			ospf6_schedule_abr_task(ospf6);
 	}
 }
 
-void ospf6_area_plist_update(struct prefix_list *plist, int add)
+void ospf6_plist_update(struct prefix_list *plist)
 {
 	struct listnode *node, *nnode;
 	struct ospf6_area *oa;
@@ -780,19 +793,29 @@ void ospf6_area_plist_update(struct prefix_list *plist, int add)
 	const char *name = prefix_list_name(plist);
 	struct ospf6 *ospf6 = NULL;
 
+	if (prefix_list_afi(plist) != AFI_IP6)
+		return;
+
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
+		bool update = false;
+
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, n, oa)) {
 			if (PREFIX_NAME_IN(oa)
 			    && !strcmp(PREFIX_NAME_IN(oa), name)) {
-				PREFIX_LIST_IN(oa) = add ? plist : NULL;
-				ospf6_abr_reexport(oa);
+				PREFIX_LIST_IN(oa) = prefix_list_lookup(
+					AFI_IP6, PREFIX_NAME_IN(oa));
+				update = true;
 			}
 			if (PREFIX_NAME_OUT(oa)
 			    && !strcmp(PREFIX_NAME_OUT(oa), name)) {
-				PREFIX_LIST_OUT(oa) = add ? plist : NULL;
-				ospf6_abr_reexport(oa);
+				PREFIX_LIST_OUT(oa) = prefix_list_lookup(
+					AFI_IP6, PREFIX_NAME_OUT(oa));
+				update = true;
 			}
 		}
+
+		if (update && ospf6_check_and_set_router_abr(ospf6))
+			ospf6_schedule_abr_task(ospf6);
 	}
 }
 
@@ -822,7 +845,8 @@ DEFUN (area_import_list,
 		free(IMPORT_NAME(area));
 
 	IMPORT_NAME(area) = strdup(argv[idx_name]->arg);
-	ospf6_abr_reimport(area);
+	if (ospf6_check_and_set_router_abr(area->ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -844,13 +868,14 @@ DEFUN (no_area_import_list,
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area, ospf6);
 
-	IMPORT_LIST(area) = 0;
+	IMPORT_LIST(area) = NULL;
 
 	if (IMPORT_NAME(area))
 		free(IMPORT_NAME(area));
 
 	IMPORT_NAME(area) = NULL;
-	ospf6_abr_reimport(area);
+	if (ospf6_check_and_set_router_abr(area->ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -883,7 +908,8 @@ DEFUN (area_export_list,
 	EXPORT_NAME(area) = strdup(argv[idx_name]->arg);
 
 	/* Redo summaries if required */
-	ospf6_abr_reexport(area);
+	if (ospf6_check_and_set_router_abr(area->ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -905,13 +931,14 @@ DEFUN (no_area_export_list,
 
 	OSPF6_CMD_AREA_GET(argv[idx_ipv4]->arg, area, ospf6);
 
-	EXPORT_LIST(area) = 0;
+	EXPORT_LIST(area) = NULL;
 
 	if (EXPORT_NAME(area))
 		free(EXPORT_NAME(area));
 
 	EXPORT_NAME(area) = NULL;
-	ospf6_abr_reexport(area);
+	if (ospf6_check_and_set_router_abr(area->ospf6))
+		ospf6_schedule_abr_task(ospf6);
 
 	return CMD_SUCCESS;
 }

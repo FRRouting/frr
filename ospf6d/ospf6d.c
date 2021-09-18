@@ -1355,20 +1355,6 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	return CMD_SUCCESS;
 }
 
-static void ospf6_plist_add(struct prefix_list *plist)
-{
-	if (prefix_list_afi(plist) != AFI_IP6)
-		return;
-	ospf6_area_plist_update(plist, 1);
-}
-
-static void ospf6_plist_del(struct prefix_list *plist)
-{
-	if (prefix_list_afi(plist) != AFI_IP6)
-		return;
-	ospf6_area_plist_update(plist, 0);
-}
-
 /* Install ospf related commands. */
 void ospf6_init(struct thread_master *master)
 {
@@ -1387,8 +1373,8 @@ void ospf6_init(struct thread_master *master)
 	ospf6_gr_helper_config_init();
 
 	/* initialize hooks for modifying filter rules */
-	prefix_list_add_hook(ospf6_plist_add);
-	prefix_list_delete_hook(ospf6_plist_del);
+	prefix_list_add_hook(ospf6_plist_update);
+	prefix_list_delete_hook(ospf6_plist_update);
 	access_list_add_hook(ospf6_filter_update);
 	access_list_delete_hook(ospf6_filter_update);
 

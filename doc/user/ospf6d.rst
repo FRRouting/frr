@@ -198,6 +198,47 @@ OSPF6 area
    advertisement of summaries into the area. In that case, a single Type-3 LSA
    containing a default route is originated into the NSSA.
 
+.. clicmd:: area A.B.C.D export-list NAME
+
+.. clicmd:: area (0-4294967295) export-list NAME
+
+   Filter Type-3 summary-LSAs announced to other areas originated from intra-
+   area paths from specified area.
+
+   .. code-block:: frr
+
+      router ospf6
+       area 0.0.0.10 export-list foo
+      !
+      ipv6 access-list foo permit 2001:db8:1000::/64
+      ipv6 access-list foo deny any
+
+   With example above any intra-area paths from area 0.0.0.10 and from range
+   2001:db8::/32 (for example 2001:db8:1::/64 and 2001:db8:2::/64) are announced
+   into other areas as Type-3 summary-LSA's, but any others (for example
+   2001:200::/48) aren't.
+
+   This command is only relevant if the router is an ABR for the specified
+   area.
+
+.. clicmd:: area A.B.C.D import-list NAME
+
+.. clicmd:: area (0-4294967295) import-list NAME
+
+   Same as export-list, but it applies to paths announced into specified area
+   as Type-3 summary-LSAs.
+
+.. clicmd:: area A.B.C.D filter-list prefix NAME in
+
+.. clicmd:: area A.B.C.D filter-list prefix NAME out
+
+.. clicmd:: area (0-4294967295) filter-list prefix NAME in
+
+.. clicmd:: area (0-4294967295) filter-list prefix NAME out
+
+   Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
+   makes sense in ABR only.
+
 .. _ospf6-interface:
 
 OSPF6 interface
