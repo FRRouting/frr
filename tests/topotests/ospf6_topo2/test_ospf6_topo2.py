@@ -431,6 +431,75 @@ def test_nssa_no_summary():
     assert result is None, assertmsg
 
 
+def test_area_filters():
+    """
+    Test ABR import/export filters.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #
+    # Configure import/export filters on r2 (ABR for area 1).
+    #
+    config = """
+    configure terminal
+    ipv6 access-list ACL_IMPORT seq 5 permit 2001:db8:2::/64
+    ipv6 access-list ACL_IMPORT seq 10 deny any
+    ipv6 access-list ACL_EXPORT seq 10 deny any
+    router ospf6
+    area 1 import-list ACL_IMPORT
+    area 1 export-list ACL_EXPORT
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting inter-area routes to be removed on r1")
+    for route in ["::/0", "2001:db8:3::/64"]:
+        test_func = partial(dont_expect_route, "r1", route, type="inter-area")
+        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+        assertmsg = "{}'s {} inter-area route still exists".format("r1", route)
+        assert result is None, assertmsg
+
+    logger.info("Expecting inter-area routes to be removed on r3")
+    for route in ["2001:db8:1::/64"]:
+        test_func = partial(dont_expect_route, "r3", route, type="inter-area")
+        _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
+        assertmsg = "{}'s {} inter-area route still exists".format("r3", route)
+        assert result is None, assertmsg
+
+    #
+    # Update the ACLs used by the import/export filters.
+    #
+    config = """
+    configure terminal
+    ipv6 access-list ACL_IMPORT seq 6 permit 2001:db8:3::/64
+    ipv6 access-list ACL_EXPORT seq 5 permit 2001:db8:1::/64
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting 2001:db8:3::/64 to be re-added on r1")
+    routes = {"2001:db8:3::/64": {}}
+    expect_ospfv3_routes("r1", routes, wait=30, type="inter-area")
+    logger.info("Expecting 2001:db8:1::/64 to be re-added on r3")
+    routes = {"2001:db8:1::/64": {}}
+    expect_ospfv3_routes("r3", routes, wait=30, type="inter-area")
+
+    #
+    # Unconfigure r2's ABR import/export filters.
+    #
+    config = """
+    configure terminal
+    router ospf6
+    no area 1 import-list ACL_IMPORT
+    no area 1 export-list ACL_EXPORT
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting ::/0 to be re-added on r1")
+    routes = {"::/0": {}}
+    expect_ospfv3_routes("r1", routes, wait=30, type="inter-area")
+
+
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
