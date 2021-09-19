@@ -2353,7 +2353,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 			 * the table. For an example, ospf6_abr_examin_summary,
 			 * removes brouters which are marked for remove.
 			 */
-			oa->intra_brouter_calc = 1;
+			oa->intra_brouter_calc = true;
 			ospf6_route_remove(brouter, oa->ospf6->brouter_table);
 			brouter = NULL;
 		} else if (CHECK_FLAG(brouter->flag, OSPF6_ROUTE_ADD)
@@ -2386,7 +2386,7 @@ void ospf6_intra_brouter_calculation(struct ospf6_area *oa)
 			UNSET_FLAG(brouter->flag, OSPF6_ROUTE_CHANGE);
 		}
 		/* Reset for nbrouter */
-		oa->intra_brouter_calc = 0;
+		oa->intra_brouter_calc = false;
 	}
 
 	if (IS_OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_ID(oa->area_id) ||
