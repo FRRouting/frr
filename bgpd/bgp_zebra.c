@@ -1220,7 +1220,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	int nh_family;
 	unsigned int valid_nh_count = 0;
 	bool allow_recursion = false;
-	int has_valid_sid = 0;
 	uint8_t distance;
 	struct peer *peer;
 	struct bgp_path_info *mpinfo;
@@ -1451,16 +1450,14 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (mpinfo->extra && !sid_zero(&mpinfo->extra->sid[0].sid)
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			has_valid_sid = 1;
 			memcpy(&api_nh->seg6_segs, &mpinfo->extra->sid[0].sid,
 			       sizeof(api_nh->seg6_segs));
+
+			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
 
 		valid_nh_count++;
 	}
-
-	if (has_valid_sid && !(CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)))
-		SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 
 	is_add = (valid_nh_count || nhg_id) ? true : false;
 
@@ -1562,7 +1559,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				snprintf(label_buf, sizeof(label_buf),
 					"label %u", api_nh->labels[0]);
-			if (has_valid_sid
+			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
 			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
 				inet_ntop(AF_INET6, &api_nh->seg6_segs,
 					  sid_buf, sizeof(sid_buf));
