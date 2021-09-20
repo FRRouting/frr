@@ -279,6 +279,10 @@ Route Map Set Command
 
    Set the BGP AS path to prepend.
 
+.. clicmd:: set as-path exclude AS-NUMBER...
+
+   Drop AS-NUMBER from the BGP AS path.
+
 .. clicmd:: set community COMMUNITY
 
    Set the BGP community attribute.
