@@ -198,6 +198,8 @@ pkginclude_HEADERS += \
 	lib/buffer.h \
 	lib/checksum.h \
 	lib/mlag.h \
+	lib/cmgd_bcknd_client.h \
+	lib/cmgd_frntnd_client.h \
 	lib/command.h \
 	lib/command_graph.h \
 	lib/command_match.h \

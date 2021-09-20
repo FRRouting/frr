@@ -647,12 +647,11 @@ DEFPY(cmgd_rollback,
       "Rollbak n commits\n"
       "Number of commits\n")
 {
-	bool cmt_id_based = false;
-
 	if (commit)
-		cmt_id_based = true;
+		cmgd_db_rollback_by_cmtid(vty, commit);
+	else
+		cmgd_db_rollback_commits(vty, last);
 
-	cmgd_cmt_rollback(vty, (char *)commit, last, cmt_id_based);
 	return CMD_SUCCESS;
 }
 

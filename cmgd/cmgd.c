@@ -120,7 +120,6 @@ void cmgd_master_init(struct thread_master *master, const int buffer_size,
 	// cmgd_evpn_mh_init();
 	// QOBJ_REG(bm, cmgd_master);
 	cm->perf_stats_en = true;
-	cmgd_cmt_info_dlist_init(&cm->cmt_dlist);
 }
 
 static void cmgd_pthreads_init(void)
@@ -189,9 +188,6 @@ void cmgd_init(void)
 
 	/* CMGD VTY commands installation.  */
 	cmgd_vty_init();
-
-	/* Create commit record for previously stored commit-apply */
-	cmgd_cmt_record_read_index_file();
 }
 
 void cmgd_terminate(void)
@@ -230,6 +226,6 @@ void cmgd_terminate(void)
 	cmgd_mac_finish();
 #endif
 
-	cmgd_cmt_info_dlist_fini(&cm->cmt_dlist);
 	cmgd_bcknd_server_destroy();
+	cmgd_db_destroy();
 }

@@ -149,6 +149,6 @@ extern int cmgd_trxn_notify_bcknd_cfg_apply_reply(
 
 extern void cmgd_trxn_status_write(struct vty *vty);
 
-extern int cmgd_cmt_rollback_trigger_cfg_apply(cmgd_db_hndl_t src_db_hndl,
+extern int cmgd_trxn_rollback_trigger_cfg_apply(cmgd_db_hndl_t src_db_hndl,
 	cmgd_db_hndl_t dst_db_hndl);
 #endif /* _FRR_CMGD_TRXN_H_ */

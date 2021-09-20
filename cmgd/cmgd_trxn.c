@@ -138,12 +138,11 @@ typedef struct cmgd_commit_cfg_req_ {
 	cmgd_db_hndl_t src_db_hndl;
 	cmgd_database_id_t dst_db_id;
 	cmgd_db_hndl_t dst_db_hndl;
-	bool validate_only;
-	bool abort;
-	bool implicit;
-	bool skip_validation;
-	bool rollback;
 	uint32_t nb_trxn_id;
+	uint8_t validate_only:1;
+	uint8_t abort:1;
+	uint8_t implicit:1;
+	uint8_t rollback:1;
 
 	/* Track commit phases */
 	cmgd_commit_phase_t curr_phase;
@@ -742,7 +741,6 @@ cmgd_trxn_process_set_cfg_done:
 static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 	bool success, const char *error_if_any)
 {
-	struct cmgd_cmt_info_t *cmt_info;
 	int ret = 0;
 
 	if (!trxn->commit_cfg_req)
@@ -792,16 +790,9 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 				trxn->commit_cfg_req->req.
 				commit_cfg.src_db_hndl,
 				trxn->commit_cfg_req->req.
-				commit_cfg.dst_db_hndl);
-			if (!trxn->commit_cfg_req->req.
-				commit_cfg.rollback) {
-				cmt_info = cmgd_create_new_cmt_record();
-				cmgd_db_dump_db_to_file(
-					cmt_info->cmt_json_file,
-					trxn->commit_cfg_req->req.
-					commit_cfg.dst_db_hndl);
-				cmgd_cmt_record_create_index_file();
-			}
+				commit_cfg.dst_db_hndl,
+				trxn->commit_cfg_req->req.
+				commit_cfg.rollback ? false : true);
 		}
 
 		/*
@@ -812,17 +803,23 @@ static int cmgd_trxn_send_commit_cfg_reply(cmgd_trxn_ctxt_t *trxn,
 			trxn->commit_cfg_req->req.commit_cfg.abort)
 			cmgd_db_copy_dbs(
 				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
-				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
+				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
+				false);
 	} else {
 #ifndef CMGD_LOCAL_VALIDATIONS_ENABLED
 		THREAD_OFF(trxn->send_cfg_validate);
 #else /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
 		THREAD_OFF(trxn->send_cfg_apply);
 #endif /* ifndef CMGD_LOCAL_VALIDATIONS_ENABLED */
+		/*
+		 * The commit has failied. For implicit commit requests restore
+		 * back the contents of the candidate DB.
+		 */
 		if (trxn->commit_cfg_req->req.commit_cfg.implicit)
 			cmgd_db_copy_dbs(
 				trxn->commit_cfg_req->req.commit_cfg.dst_db_hndl,
-				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl);
+				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
+				false);
 	}
 
 	if (trxn->commit_cfg_req->req.commit_cfg.rollback) {
@@ -1234,46 +1231,42 @@ static int cmgd_trxn_prepare_config(cmgd_trxn_ctxt_t *trxn)
 		goto cmgd_trxn_prepare_config_done;
 	}
 
-	if (!trxn->commit_cfg_req->req.commit_cfg.skip_validation) {
-		/*
-		 * Validate YANG contents of the source DB and get the diff 
-		 * between source and destination DB contents.
-		 */
-		nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
-		nb_ctxt.user = (void *)trxn;
-		ret = nb_candidate_validate_yang(nb_config, err_buf, sizeof(err_buf)-1);
-		if (ret != NB_OK) {
-			(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
-			ret = -1;
-			goto cmgd_trxn_prepare_config_done;
-		}
+	/*
+	 * Validate YANG contents of the source DB and get the diff 
+	 * between source and destination DB contents.
+	 */
+	nb_ctxt.client = NB_CLIENT_CMGD_SERVER;
+	nb_ctxt.user = (void *)trxn;
+	ret = nb_candidate_validate_yang(nb_config, err_buf, sizeof(err_buf)-1);
+	if (ret != NB_OK) {
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
+		ret = -1;
+		goto cmgd_trxn_prepare_config_done;
 	}
 #ifdef CMGD_LOCAL_VALIDATIONS_ENABLED
 	if (cm->perf_stats_en)
 		cmgd_get_realtime(&trxn->commit_cfg_req->req.commit_cfg.
 			cmt_stats->validate_start);
 
-	if (!trxn->commit_cfg_req->req.commit_cfg.skip_validation) {
-		/*
-		 * Perform application level validations locally on the CMGD 
-		 * process by calling application specific validation routines
-		 * loaded onto CMGD process using libraries.
-		 */
-		ret = nb_candidate_validate_code(&nb_ctxt, nb_config,
-			&changes, err_buf, sizeof(err_buf)-1);
-		if (ret != NB_OK) {
-			(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
-			ret = -1;
-			goto cmgd_trxn_prepare_config_done;
-		}
+	/*
+	 * Perform application level validations locally on the CMGD 
+	 * process by calling application specific validation routines
+	 * loaded onto CMGD process using libraries.
+	 */
+	ret = nb_candidate_validate_code(&nb_ctxt, nb_config,
+		&changes, err_buf, sizeof(err_buf)-1);
+	if (ret != NB_OK) {
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, false, err_buf);
+		ret = -1;
+		goto cmgd_trxn_prepare_config_done;
+	}
 
-		if (trxn->commit_cfg_req->req.commit_cfg.validate_only) {
-			/*
-			 * This was a validate-only COMMIT request return success.
-			 */
-			(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
-			goto cmgd_trxn_prepare_config_done;
-		}
+	if (trxn->commit_cfg_req->req.commit_cfg.validate_only) {
+		/*
+		 * This was a validate-only COMMIT request return success.
+		 */
+		(void) cmgd_trxn_send_commit_cfg_reply(trxn, true, NULL);
+		goto cmgd_trxn_prepare_config_done;
 	}
 #endif /* ifdef CMGD_LOCAL_VALIDATIONS_ENABLED */
 
@@ -2762,7 +2755,7 @@ void cmgd_trxn_status_write(struct vty *vty)
 		(int) cmgd_trxn_list_count(&cmgd_trxn_cm->cmgd_trxns));
 }
 
-int cmgd_cmt_rollback_trigger_cfg_apply(cmgd_db_hndl_t src_db_hndl,
+int cmgd_trxn_rollback_trigger_cfg_apply(cmgd_db_hndl_t src_db_hndl,
 	cmgd_db_hndl_t dst_db_hndl)
 {
 	struct nb_config_cbs changes = { 0 };
@@ -2809,7 +2802,6 @@ int cmgd_cmt_rollback_trigger_cfg_apply(cmgd_db_hndl_t src_db_hndl,
 	trxn_req->req.commit_cfg.dst_db_hndl = dst_db_hndl;
 	trxn_req->req.commit_cfg.validate_only = false;
 	trxn_req->req.commit_cfg.abort = false;
-	trxn_req->req.commit_cfg.skip_validation = true;
 	trxn_req->req.commit_cfg.rollback = true;
 	trxn_req->req.commit_cfg.cmt_stats = &dummy_stats;
 	trxn_req->req.commit_cfg.cfg_chgs = cfg_chgs;

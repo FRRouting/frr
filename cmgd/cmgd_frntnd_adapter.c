@@ -168,7 +168,7 @@ static void cmgd_frntnd_sessn_cfg_trxn_cleanup(cmgd_frntnd_sessn_ctxt_t *sessn)
 	 * Ensure any uncommitted changes in Candidate DB
 	 * is discarded.
 	 */
-	cmgd_db_copy_dbs(cm->running_db, cm->candidate_db);
+	cmgd_db_copy_dbs(cm->running_db, cm->candidate_db, false);
 
 	for (db_id = 0; db_id < CMGD_DB_MAX_ID; db_id++) {
 		db_hndl = cmgd_db_get_hndl_by_id(cmgd_frntnd_adptr_cm, db_id);

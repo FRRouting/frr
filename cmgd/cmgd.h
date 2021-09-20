@@ -279,10 +279,5 @@ static inline char *cmgd_realtime_to_string(struct timeval *tv,
 }
 
 extern void cmgd_unset_redist_vrf_bitmaps(struct cmgd *, vrf_id_t);
-extern struct cmgd_cmt_info_t *cmgd_create_new_cmt_record(void);
-extern void show_cmgd_cmt_history(struct vty *vty);
-extern int cmgd_cmt_rollback(struct vty *vty, char *cmt_str, int last_n_cmts,
-        bool cmd_id_based);
-extern bool cmgd_cmt_record_read_index_file(void);
-extern bool cmgd_cmt_record_create_index_file(void);
+
 #endif /* _FRR_CMGD_H */
