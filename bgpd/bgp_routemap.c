@@ -1953,6 +1953,57 @@ static const struct route_map_rule_cmd route_set_ip_nexthop_cmd = {
 	route_set_ip_nexthop_free
 };
 
+/* `set l3vpn next-hop encapsulation l3vpn gre' */
+
+/* Set nexthop to object */
+struct rmap_l3vpn_nexthop_encapsulation_set {
+	uint8_t protocol;
+};
+
+static enum route_map_cmd_result_t
+route_set_l3vpn_nexthop_encapsulation(void *rule, const struct prefix *prefix,
+				      void *object)
+{
+	struct rmap_l3vpn_nexthop_encapsulation_set *rins = rule;
+	struct bgp_path_info *path;
+
+	path = object;
+
+	if (rins->protocol != IPPROTO_GRE)
+		return RMAP_OKAY;
+
+	SET_FLAG(path->attr->rmap_change_flags, BATTR_RMAP_L3VPN_ACCEPT_GRE);
+	return RMAP_OKAY;
+}
+
+/* Route map `l3vpn nexthop encapsulation' compile function. */
+static void *route_set_l3vpn_nexthop_encapsulation_compile(const char *arg)
+{
+	struct rmap_l3vpn_nexthop_encapsulation_set *rins;
+
+	rins = XCALLOC(MTYPE_ROUTE_MAP_COMPILED,
+		       sizeof(struct rmap_l3vpn_nexthop_encapsulation_set));
+
+	/* XXX ALL GRE modes are accepted for now: gre or ip6gre */
+	rins->protocol = IPPROTO_GRE;
+
+	return rins;
+}
+
+/* Free route map's compiled `ip nexthop' value. */
+static void route_set_l3vpn_nexthop_encapsulation_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+/* Route map commands for l3vpn next-hop encapsulation set. */
+static const struct route_map_rule_cmd
+	route_set_l3vpn_nexthop_encapsulation_cmd = {
+		"l3vpn next-hop encapsulation",
+		route_set_l3vpn_nexthop_encapsulation,
+		route_set_l3vpn_nexthop_encapsulation_compile,
+		route_set_l3vpn_nexthop_encapsulation_free};
+
 /* `set local-preference LOCAL_PREF' */
 
 /* Set local preference. */
@@ -5291,6 +5342,34 @@ DEFUN_YANG (no_set_distance,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN_YANG(set_l3vpn_nexthop_encapsulation, set_l3vpn_nexthop_encapsulation_cmd,
+	   "[no] set l3vpn next-hop encapsulation gre",
+	   NO_STR SET_STR
+	   "L3VPN operations\n"
+	   "Next hop Information\n"
+	   "Encapsulation options (for BGP only)\n"
+	   "Accept L3VPN traffic over GRE encapsulation\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-l3vpn-nexthop-encapsulation']";
+	const char *xpath_value =
+		"./set-action[action='frr-bgp-route-map:set-l3vpn-nexthop-encapsulation']/rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation";
+	enum nb_operation operation;
+
+	if (strmatch(argv[0]->text, "no"))
+		operation = NB_OP_DESTROY;
+	else
+		operation = NB_OP_CREATE;
+
+	nb_cli_enqueue_change(vty, xpath, operation, NULL);
+	if (operation == NB_OP_DESTROY)
+		return nb_cli_apply_changes(vty, NULL);
+
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "gre");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (set_local_pref,
 	    set_local_pref_cmd,
 	    "set local-preference WORD",
@@ -6836,6 +6915,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
+	route_map_install_set(&route_set_l3vpn_nexthop_encapsulation_cmd);
 
 	install_element(RMAP_NODE, &match_peer_cmd);
 	install_element(RMAP_NODE, &match_peer_local_cmd);
@@ -6938,6 +7018,7 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_set_ipx_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &set_originator_id_cmd);
 	install_element(RMAP_NODE, &no_set_originator_id_cmd);
+	install_element(RMAP_NODE, &set_l3vpn_nexthop_encapsulation_cmd);
 
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_cmd);

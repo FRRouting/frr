@@ -330,6 +330,12 @@ module frr-bgp-route-map {
       "Set EVPN gateway IP overlay index IPv6";
   }
 
+  identity set-l3vpn-nexthop-encapsulation {
+    base frr-route-map:rmap-set-type;
+    description
+      "Accept L3VPN traffic over other than LSP encapsulation";
+  }
+
   grouping extcommunity-non-transitive-types {
     leaf two-octet-as-specific {
       type boolean;
@@ -900,6 +906,22 @@ module frr-bgp-route-map {
         "Set EVPN gateway IP overlay index IPv6";
       leaf evpn-gateway-ip-ipv6 {
         type inet:ipv6-address;
+      }
+    }
+    case l3vpn-nexthop-encapsulation {
+      when
+      "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action,
+      'frr-bgp-route-map:set-l3vpn-nexthop-encapsulation')";
+      description
+        "Accept L3VPN traffic over other than LSP encapsulation";
+      leaf l3vpn-nexthop-encapsulation {
+        type enumeration {
+          enum "gre" {
+            value 0;
+            description
+              "GRE protocol";
+          }
+        }
       }
     }
   }
