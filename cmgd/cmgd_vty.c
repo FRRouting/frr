@@ -626,6 +626,36 @@ DEFPY(cmgd_unlock_db_candidate,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_cmgd_cmt_hist,
+      show_cmgd_cmt_hist_cmd,
+      "show cmgd commit-history",
+      SHOW_STR
+      CMGD_STR
+      "Show commit history\n")
+{
+	show_cmgd_cmt_history(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(cmgd_rollback,
+      cmgd_rollback_cmd,
+      "cmgd rollback <commit-id WORD$commit | last [(1-10)]$last>",
+      CMGD_STR
+      "Rollback commits\n"
+      "Rollback to commit ID\n"
+      "Commit-ID\n"
+      "Rollbak n commits\n"
+      "Number of commits\n")
+{
+	bool cmt_id_based = false;
+
+	if (commit)
+		cmt_id_based = true;
+
+	cmgd_cmt_rollback(vty, (char *)commit, last, cmt_id_based);
+	return CMD_SUCCESS;
+}
+
 void cmgd_vty_init(void)
 {
 	/* 
@@ -649,6 +679,7 @@ void cmgd_vty_init(void)
 	install_element(VIEW_NODE, &show_cmgd_get_data_cmd);
 	install_element(VIEW_NODE, &show_cmgd_dump_data_cmd);
 	install_element(VIEW_NODE, &show_cmgd_map_xpath_cmd);
+	install_element(VIEW_NODE, &show_cmgd_cmt_hist_cmd);
 
 	install_element(CONFIG_NODE, &cmgd_commit_apply_cmd);
 	install_element(CONFIG_NODE, &cmgd_commit_abort_cmd);
@@ -659,6 +690,7 @@ void cmgd_vty_init(void)
 	install_element(CONFIG_NODE, &cmgd_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &cmgd_load_config_cmd);
 	install_element(CONFIG_NODE, &cmgd_save_config_cmd);
+	install_element(CONFIG_NODE, &cmgd_rollback_cmd);
 
 	/* Enable view */
 	install_element(ENABLE_NODE, &cmgd_performance_measurement_cmd);

@@ -43,6 +43,27 @@
 #define FOREACH_CMGD_DB_ID(id)			                \
 	for ((id) = CMGD_DB_NONE; (id) < CMGD_DB_MAX_ID; (id)++)
 
+#define CMGD_MAX_COMMIT_LIST			10
+#define CMGD_MD5_HASH_LEN			16
+#define CMGD_MD5_HASH_STR_HEX_LEN		33
+
+#define CMGD_MAX_COMMIT_FILE_PATH_LEN		55
+#define CMGD_COMMIT_FILE_PATH			"/etc/frr/commit-%s.json"
+#define CMGD_COMMIT_INDEX_FILE_NAME		"/etc/frr/commit-index.dat"
+#define CMGD_COMMIT_TIME_STR_LEN		30
+
+PREDECL_DLIST(cmgd_cmt_info_dlist);
+
+struct cmgd_cmt_info_t {
+	struct cmgd_cmt_info_dlist_item cmt_dlist;
+
+	char cmt_str[CMGD_MD5_HASH_STR_HEX_LEN];
+	char time_str[CMGD_COMMIT_TIME_STR_LEN];
+	char cmt_json_file[CMGD_MAX_COMMIT_FILE_PATH_LEN];
+};
+
+DECLARE_DLIST(cmgd_cmt_info_dlist, struct cmgd_cmt_info_t, cmt_dlist);
+
 typedef uintptr_t cmgd_db_hndl_t;
 
 typedef void (*cmgd_db_node_iter_fn)(cmgd_db_hndl_t db_hndl, 
@@ -173,5 +194,5 @@ extern void cmgd_db_status_write_one(
         struct vty *vty, cmgd_db_hndl_t db_hndl);
 
 extern void cmgd_db_status_write(struct vty *vty);
-
+extern int cmgd_db_dump_db_to_file(char *file_name, cmgd_db_hndl_t db);
 #endif /* _FRR_CMGD_DB_H_ */
