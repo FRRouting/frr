@@ -2457,6 +2457,16 @@ are reached using *core* MPLS labels which are distributed using LDP or BGP
 labeled unicast.  *bgpd* also supports inter-VRF route leaking.
 
 
+L3VPN over GRE interfraces
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+It is possible to configure and assign an incoming route-map to L3VPN peer,
+that permits BGP updates to be installed over a GRE interface instead of an
+MPLS based backbone. Command under route-map is the following one:
+
+.. clicmd:: set l3vpn next-hop encapsulation gre
+
+
 .. _bgp-vrf-route-leaking:
 
 VRF Route Leaking

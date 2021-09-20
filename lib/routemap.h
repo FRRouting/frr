@@ -368,6 +368,9 @@ DECLARE_QOBJ_TYPE(route_map);
 	(strmatch(A, "frr-bgp-route-map:ipv4-vpn-address"))
 #define IS_SET_BGP_IPV4_NH(A)                                                  \
 	(strmatch(A, "frr-bgp-route-map:set-ipv4-nexthop"))
+#define IS_SET_BGP_L3VPN_NEXTHOP_ENCAPSULATION(A)                              \
+	(strmatch(A, "frr-bgp-route-map:set-l3vpn-nexthop-encapsulation"))
+
 
 /* Prototypes. */
 extern void route_map_init(void);
