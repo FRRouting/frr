@@ -1258,6 +1258,11 @@ void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-set-action/frr-bgp-route-map:evpn-gateway-ip-ipv6"));
+	} else if (IS_SET_BGP_L3VPN_NEXTHOP_ENCAPSULATION(action)) {
+		vty_out(vty, " set l3vpn next-hop encapsulation %s\n",
+			yang_dnode_get_string(
+				dnode,
+				"./rmap-set-action/frr-bgp-route-map:l3vpn-nexthop-encapsulation"));
 	}
 }
 
