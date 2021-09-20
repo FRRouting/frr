@@ -1997,7 +1997,8 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_stats_init(&zfpm_g->cumulative_stats);
 
 	memset(&ipv4ll_gateway, 0, sizeof(ipv4ll_gateway));
-	inet_pton(AF_INET, ipv4_ll_buf, &ipv4ll_gateway.ipv4);
+	if (inet_pton(AF_INET, ipv4_ll_buf, &ipv4ll_gateway.ipv4) != 1)
+		zlog_warn("inet_pton failed for %s", ipv4_ll_buf);
 
 	install_node(&zebra_node);
 	install_element(ENABLE_NODE, &show_zebra_fpm_stats_cmd);
