@@ -655,6 +655,120 @@ DEFPY(cmgd_rollback,
 	return CMD_SUCCESS;
 }
 
+static int config_write_cmgd_debug(struct vty *vty);
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_cmgd_debug,
+};
+
+static int config_write_cmgd_debug(struct vty *vty)
+{
+	if (cmgd_debug_bcknd && cmgd_debug_frntnd && cmgd_debug_db && 
+		cmgd_debug_trxn) {
+		vty_out(vty, "debug cmgd all\n");
+		return 0;
+	}
+	if (cmgd_debug_bcknd)
+		vty_out(vty, "debug cmgd backend\n");
+	if (cmgd_debug_frntnd)
+		vty_out(vty, "debug cmgd frontend\n");
+	if (cmgd_debug_db)
+		vty_out(vty, "debug cmgd database\n");
+	if (cmgd_debug_trxn)
+		vty_out(vty, "debug cmgd transaction\n");
+
+	return 0;
+}
+
+
+DEFPY(debug_cmgd_bcknd,
+      debug_cmgd_bcknd_cmd,
+      "[no$no] debug cmgd backend",
+      NO_STR
+      DEBUG_STR
+      CMGD_STR
+      "Debug Backend Fucntionality")
+{
+	if (no)
+		cmgd_debug_bcknd = false;
+	else
+		cmgd_debug_bcknd = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_cmgd_frntnd,
+      debug_cmgd_frntnd_cmd,
+      "[no$no] debug cmgd frontend",
+      NO_STR
+      DEBUG_STR
+      CMGD_STR
+      "Debug Frontend Fucntionality")
+{
+	if (no)
+		cmgd_debug_frntnd = false;
+	else
+		cmgd_debug_frntnd = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_cmgd_db,
+      debug_cmgd_db_cmd,
+      "[no$no] debug cmgd database",
+      NO_STR
+      DEBUG_STR
+      CMGD_STR
+      "Debug Database Fucntionality")
+{
+	if (no)
+		cmgd_debug_db = false;
+	else
+		cmgd_debug_db = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_cmgd_trxn,
+      debug_cmgd_trxn_cmd,
+      "[no$no] debug cmgd transaction",
+      NO_STR
+      DEBUG_STR
+      CMGD_STR
+      "Debug Transaction Fucntionality")
+{
+	if (no)
+		cmgd_debug_trxn = false;
+	else
+		cmgd_debug_trxn = true;
+
+	return CMD_SUCCESS;
+}
+DEFPY(debug_cmgd_all,
+      debug_cmgd_all_cmd,
+      "[no$no] debug cmgd all",
+      NO_STR
+      DEBUG_STR
+      CMGD_STR
+      "Debug All Fucntionality")
+{
+	if (no) {
+		cmgd_debug_bcknd = false;
+		cmgd_debug_frntnd = false;
+		cmgd_debug_db = false;
+		cmgd_debug_trxn = false;
+	} else {
+		cmgd_debug_bcknd = true;
+		cmgd_debug_frntnd = true;
+		cmgd_debug_db = true;
+		cmgd_debug_trxn = true;
+	}
+
+	return CMD_SUCCESS;
+}
+
 void cmgd_vty_init(void)
 {
 	/* 
@@ -664,6 +778,8 @@ void cmgd_vty_init(void)
 	 * here one by one.
 	 */
 	static_vty_init();
+
+	install_node(&debug_node);
 
 	install_element(VIEW_NODE, &show_cmgd_bcknd_adapter_cmd);
 	install_element(VIEW_NODE, &show_cmgd_bcknd_xpath_reg_cmd);
@@ -690,6 +806,17 @@ void cmgd_vty_init(void)
 	install_element(CONFIG_NODE, &cmgd_load_config_cmd);
 	install_element(CONFIG_NODE, &cmgd_save_config_cmd);
 	install_element(CONFIG_NODE, &cmgd_rollback_cmd);
+
+	install_element(VIEW_NODE, &debug_cmgd_bcknd_cmd);
+	install_element(CONFIG_NODE, &debug_cmgd_bcknd_cmd);
+	install_element(VIEW_NODE, &debug_cmgd_frntnd_cmd);
+	install_element(CONFIG_NODE, &debug_cmgd_frntnd_cmd);
+	install_element(VIEW_NODE, &debug_cmgd_db_cmd);
+	install_element(CONFIG_NODE, &debug_cmgd_db_cmd);
+	install_element(VIEW_NODE, &debug_cmgd_trxn_cmd);
+	install_element(CONFIG_NODE, &debug_cmgd_trxn_cmd);
+	install_element(VIEW_NODE, &debug_cmgd_all_cmd);
+	install_element(CONFIG_NODE, &debug_cmgd_all_cmd);
 
 	/* Enable view */
 	install_element(ENABLE_NODE, &cmgd_performance_measurement_cmd);
