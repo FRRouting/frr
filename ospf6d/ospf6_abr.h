@@ -73,8 +73,6 @@ extern void ospf6_abr_defaults_to_stub(struct ospf6 *ospf6);
 extern void ospf6_abr_examin_brouter(uint32_t router_id,
 				     struct ospf6_route *route,
 				     struct ospf6 *ospf6);
-extern void ospf6_abr_reimport(struct ospf6_area *oa);
-extern void ospf6_abr_reexport(struct ospf6_area *oa);
 extern void ospf6_abr_range_reset_cost(struct ospf6 *ospf6);
 extern void ospf6_abr_prefix_resummarize(struct ospf6 *ospf6);
 
@@ -88,7 +86,6 @@ extern void ospf6_abr_old_path_update(struct ospf6_route *old_route,
 				      struct ospf6_route *route,
 				      struct ospf6_route_table *table);
 extern void ospf6_abr_init(void);
-extern void ospf6_abr_reexport(struct ospf6_area *oa);
 extern void ospf6_abr_range_update(struct ospf6_route *range,
 				   struct ospf6 *ospf6);
 extern void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6);
