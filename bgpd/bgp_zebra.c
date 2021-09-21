@@ -65,6 +65,8 @@
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_community.h"
+#include "bgpd/bgp_lcommunity.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
