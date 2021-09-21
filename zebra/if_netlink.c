@@ -1443,13 +1443,221 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					      NULL, ifa->ifa_prefixlen);
 	}
 
-
 	/*
 	 * Linux kernel does not send route delete on interface down/addr del
 	 * so we have to re-process routes it owns (i.e. kernel routes)
 	 */
 	if (h->nlmsg_type != RTM_NEWADDR)
 		rib_update(RIB_UPDATE_KERNEL);
+
+	return 0;
+}
+
+/*
+ * Parse and validate an incoming interface address change message,
+ * generating a dplane context object.
+ * This runs in the dplane pthread; the context is enqueued to the
+ * main pthread for processing.
+ */
+int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
+				  int startup /*ignored*/)
+{
+	int len;
+	struct ifaddrmsg *ifa;
+	struct rtattr *tb[IFA_MAX + 1];
+	void *addr;
+	void *broad;
+	char *label = NULL;
+	uint32_t metric = METRIC_MAX;
+	uint32_t kernel_flags = 0;
+	struct zebra_dplane_ctx *ctx;
+	struct prefix p;
+
+	ifa = NLMSG_DATA(h);
+
+	/* Validate message types */
+	if (h->nlmsg_type != RTM_NEWADDR && h->nlmsg_type != RTM_DELADDR)
+		return 0;
+
+	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s: Invalid address family: %u",
+				   __func__, nl_msg_type_to_str(h->nlmsg_type),
+				   ifa->ifa_family);
+		return 0;
+	}
+
+	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifaddrmsg));
+	if (len < 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s: netlink msg bad size: %d %zu",
+				   __func__, nl_msg_type_to_str(h->nlmsg_type),
+				   h->nlmsg_len,
+				   (size_t)NLMSG_LENGTH(
+					   sizeof(struct ifaddrmsg)));
+		return -1;
+	}
+
+	netlink_parse_rtattr(tb, IFA_MAX, IFA_RTA(ifa), len);
+
+	/* Flags passed through */
+	if (tb[IFA_FLAGS])
+		kernel_flags = *(int *)RTA_DATA(tb[IFA_FLAGS]);
+	else
+		kernel_flags = ifa->ifa_flags;
+
+	if (IS_ZEBRA_DEBUG_KERNEL) { /* remove this line to see initial ifcfg */
+		char buf[PREFIX_STRLEN];
+
+		zlog_debug("%s: %s nsid %u ifindex %u flags 0x%x:", __func__,
+			   nl_msg_type_to_str(h->nlmsg_type), ns_id,
+			   ifa->ifa_index, kernel_flags);
+		if (tb[IFA_LOCAL])
+			zlog_debug("  IFA_LOCAL     %s/%d",
+				   inet_ntop(ifa->ifa_family,
+					     RTA_DATA(tb[IFA_LOCAL]), buf,
+					     sizeof(buf)),
+				   ifa->ifa_prefixlen);
+		if (tb[IFA_ADDRESS])
+			zlog_debug("  IFA_ADDRESS   %s/%d",
+				   inet_ntop(ifa->ifa_family,
+					     RTA_DATA(tb[IFA_ADDRESS]), buf,
+					     sizeof(buf)),
+				   ifa->ifa_prefixlen);
+		if (tb[IFA_BROADCAST])
+			zlog_debug("  IFA_BROADCAST %s/%d",
+				   inet_ntop(ifa->ifa_family,
+					     RTA_DATA(tb[IFA_BROADCAST]), buf,
+					     sizeof(buf)),
+				   ifa->ifa_prefixlen);
+		if (tb[IFA_LABEL])
+			zlog_debug("  IFA_LABEL     %s",
+				   (const char *)RTA_DATA(tb[IFA_LABEL]));
+
+		if (tb[IFA_CACHEINFO]) {
+			struct ifa_cacheinfo *ci = RTA_DATA(tb[IFA_CACHEINFO]);
+
+			zlog_debug("  IFA_CACHEINFO pref %d, valid %d",
+				   ci->ifa_prefered, ci->ifa_valid);
+		}
+	}
+
+	/* Validate prefix length */
+
+	if (ifa->ifa_family == AF_INET
+	    && ifa->ifa_prefixlen > IPV4_MAX_BITLEN) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s: Invalid prefix length: %u",
+				   __func__, nl_msg_type_to_str(h->nlmsg_type),
+				   ifa->ifa_prefixlen);
+		return -1;
+	}
+
+	if (ifa->ifa_family == AF_INET6) {
+		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: %s: Invalid prefix length: %u",
+					   __func__,
+					   nl_msg_type_to_str(h->nlmsg_type),
+					   ifa->ifa_prefixlen);
+			return -1;
+		}
+
+		/* Only consider valid addresses; we'll not get a kernel
+		 * notification till IPv6 DAD has completed, but at init
+		 * time, FRR does query for and will receive all addresses.
+		 */
+		if (h->nlmsg_type == RTM_NEWADDR
+		    && (kernel_flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug("%s: %s: Invalid/tentative addr",
+					   __func__,
+					   nl_msg_type_to_str(h->nlmsg_type));
+			return 0;
+		}
+	}
+
+	/* logic copied from iproute2/ip/ipaddress.c:print_addrinfo() */
+	if (tb[IFA_LOCAL] == NULL)
+		tb[IFA_LOCAL] = tb[IFA_ADDRESS];
+	if (tb[IFA_ADDRESS] == NULL)
+		tb[IFA_ADDRESS] = tb[IFA_LOCAL];
+
+	/* local interface address */
+	addr = (tb[IFA_LOCAL] ? RTA_DATA(tb[IFA_LOCAL]) : NULL);
+
+	/* addr is primary key, SOL if we don't have one */
+	if (addr == NULL) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: %s: No local interface address",
+				   __func__, nl_msg_type_to_str(h->nlmsg_type));
+		return -1;
+	}
+
+	/* Allocate a context object, now that validation is done. */
+	ctx = dplane_ctx_alloc();
+	if (h->nlmsg_type == RTM_NEWADDR)
+		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_ADDR_ADD);
+	else
+		dplane_ctx_set_op(ctx, DPLANE_OP_INTF_ADDR_DEL);
+
+	dplane_ctx_set_ifindex(ctx, ifa->ifa_index);
+	dplane_ctx_set_ns_id(ctx, ns_id);
+
+	/* Convert addr to prefix */
+	memset(&p, 0, sizeof(p));
+	p.family = ifa->ifa_family;
+	p.prefixlen = ifa->ifa_prefixlen;
+	if (p.family == AF_INET)
+		p.u.prefix4 = *(struct in_addr *)addr;
+	else
+		p.u.prefix6 = *(struct in6_addr *)addr;
+
+	dplane_ctx_set_intf_addr(ctx, &p);
+
+	/* is there a peer address? */
+	if (tb[IFA_ADDRESS]
+	    && memcmp(RTA_DATA(tb[IFA_ADDRESS]), RTA_DATA(tb[IFA_LOCAL]),
+		      RTA_PAYLOAD(tb[IFA_ADDRESS]))) {
+		broad = RTA_DATA(tb[IFA_ADDRESS]);
+		dplane_ctx_intf_set_connected(ctx);
+	} else if (tb[IFA_BROADCAST]) {
+		/* seeking a broadcast address */
+		broad = RTA_DATA(tb[IFA_BROADCAST]);
+		dplane_ctx_intf_set_broadcast(ctx);
+	} else
+		broad = NULL;
+
+	if (broad) {
+		/* Convert addr to prefix */
+		memset(&p, 0, sizeof(p));
+		p.family = ifa->ifa_family;
+		p.prefixlen = ifa->ifa_prefixlen;
+		if (p.family == AF_INET)
+			p.u.prefix4 = *(struct in_addr *)broad;
+		else
+			p.u.prefix6 = *(struct in6_addr *)broad;
+
+		dplane_ctx_set_intf_dest(ctx, &p);
+	}
+
+	/* Flags. */
+	if (kernel_flags & IFA_F_SECONDARY)
+		dplane_ctx_intf_set_secondary(ctx);
+
+	/* Label */
+	if (tb[IFA_LABEL]) {
+		label = (char *)RTA_DATA(tb[IFA_LABEL]);
+		dplane_ctx_set_intf_label(ctx, label);
+	}
+
+	if (tb[IFA_RT_PRIORITY])
+		metric = *(uint32_t *)RTA_DATA(tb[IFA_RT_PRIORITY]);
+
+	dplane_ctx_set_intf_metric(ctx, metric);
+
+	/* Enqueue ctx for main pthread to process */
+	dplane_provider_enqueue_to_zebra(ctx);
 
 	return 0;
 }
