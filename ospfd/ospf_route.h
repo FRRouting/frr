@@ -128,6 +128,7 @@ struct ospf_route {
 	bool changed;
 };
 
+extern const char *ospf_path_type_name(int path_type);
 extern struct ospf_path *ospf_path_new(void);
 extern void ospf_path_free(struct ospf_path *);
 extern struct ospf_path *ospf_path_lookup(struct list *, struct ospf_path *);

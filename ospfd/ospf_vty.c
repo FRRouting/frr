@@ -2218,6 +2218,53 @@ ALIAS(no_ospf_compatible_rfc1583, no_ospf_rfc1583_flag_cmd,
       "OSPF specific commands\n"
       "Disable the RFC1583Compatibility flag\n")
 
+static void ospf_table_reinstall_routes(struct ospf *ospf,
+					struct route_table *rt)
+{
+	struct route_node *rn;
+
+	for (rn = route_top(rt); rn; rn = route_next(rn)) {
+		struct ospf_route *or;
+
+		or = rn->info;
+		if (!or)
+			continue;
+
+		if (or->type == OSPF_DESTINATION_NETWORK)
+			ospf_zebra_add(ospf, (struct prefix_ipv4 *)&rn->p, or);
+		else if (or->type == OSPF_DESTINATION_DISCARD)
+			ospf_zebra_add_discard(ospf,
+					       (struct prefix_ipv4 *)&rn->p);
+	}
+}
+
+static void ospf_reinstall_routes(struct ospf *ospf)
+{
+	ospf_table_reinstall_routes(ospf, ospf->new_table);
+	ospf_table_reinstall_routes(ospf, ospf->new_external_route);
+}
+
+DEFPY (ospf_send_extra_data,
+       ospf_send_extra_data_cmd,
+       "[no] ospf send-extra-data zebra",
+       NO_STR
+       OSPF_STR
+       "Extra data to Zebra for display/use\n"
+       "To zebra\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (no && CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA)) {
+		UNSET_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA);
+		ospf_reinstall_routes(ospf);
+	} else if (!CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA)) {
+		SET_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA);
+		ospf_reinstall_routes(ospf);
+	}
+
+	return CMD_SUCCESS;
+}
+
 static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
 			       unsigned int hold, unsigned int max)
 {
@@ -12212,6 +12259,10 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " ospf router-id %pI4\n",
 			&ospf->router_id_static);
 
+	/* zebra opaque attributes configuration. */
+	if (!CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
+		vty_out(vty, " no ospf send-extra-data zebra\n");
+
 	/* ABR type print. */
 	if (ospf->abr_type != OSPF_ABR_DEFAULT)
 		vty_out(vty, " ospf abr-type %s\n",
@@ -12662,6 +12713,9 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &no_ospf_compatible_rfc1583_cmd);
 	install_element(OSPF_NODE, &ospf_rfc1583_flag_cmd);
 	install_element(OSPF_NODE, &no_ospf_rfc1583_flag_cmd);
+
+	/* "ospf send-extra-data zebra" commands. */
+	install_element(OSPF_NODE, &ospf_send_extra_data_cmd);
 
 	/* "network area" commands. */
 	install_element(OSPF_NODE, &ospf_network_area_cmd);

@@ -429,6 +429,7 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 				       struct json_object *json)
 {
 	struct bgp_zebra_opaque bzo = {};
+	struct ospf_zebra_opaque ozo = {};
 
 	if (!re->opaque)
 		return;
@@ -442,7 +443,7 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 			vty_out(vty, "    Opaque Data: %s",
 				(char *)re->opaque->data);
 		break;
-	case ZEBRA_ROUTE_BGP: {
+	case ZEBRA_ROUTE_BGP:
 		memcpy(&bzo, re->opaque->data, re->opaque->length);
 
 		if (json) {
@@ -467,7 +468,31 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 			vty_out(vty, "    Selection reason : %s\n",
 				bzo.selection_reason);
 		}
-	}
+		break;
+	case ZEBRA_ROUTE_OSPF:
+	case ZEBRA_ROUTE_OSPF6:
+		memcpy(&ozo, re->opaque->data, re->opaque->length);
+
+		if (json) {
+			json_object_string_add(json, "ospfPathType",
+					       ozo.path_type);
+			if (ozo.area_id[0] != '\0')
+				json_object_string_add(json, "ospfAreaId",
+						       ozo.area_id);
+			if (ozo.tag[0] != '\0')
+				json_object_string_add(json, "ospfTag",
+						       ozo.tag);
+		} else {
+			vty_out(vty, "    OSPF path type        : %s\n",
+				ozo.path_type);
+			if (ozo.area_id[0] != '\0')
+				vty_out(vty, "    OSPF area ID          : %s\n",
+					ozo.area_id);
+			if (ozo.tag[0] != '\0')
+				vty_out(vty, "    OSPF tag              : %s\n",
+					ozo.tag);
+		}
+		break;
 	default:
 		break;
 	}
