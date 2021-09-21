@@ -50,7 +50,8 @@
 /* static function declarations */
 
 /* Private functions */
-static void map_slaves_to_bridge(struct interface *br_if, int link)
+static void map_slaves_to_bridge(struct interface *br_if, int link,
+				 bool update_slave, uint8_t chgflags)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
@@ -79,9 +80,17 @@ static void map_slaves_to_bridge(struct interface *br_if, int link)
 			br_slave = &zif->brslave_info;
 
 			if (link) {
-				if (br_slave->bridge_ifindex == br_if->ifindex &&
-				    br_slave->ns_id == zns->ns_id)
+				if (br_slave->bridge_ifindex == br_if->ifindex
+				    && br_slave->ns_id == zns->ns_id) {
 					br_slave->br_if = br_if;
+					if (update_slave) {
+						zebra_l2if_update_bridge_slave(
+							ifp,
+							br_slave->bridge_ifindex,
+							br_slave->ns_id,
+							chgflags);
+					}
+				}
 			} else {
 				if (br_slave->br_if == br_if)
 					br_slave->br_if = NULL;
@@ -261,7 +270,7 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 	memcpy(&zif->l2info.br, bridge_info, sizeof(*bridge_info));
 
 	/* Link all slaves to this bridge */
-	map_slaves_to_bridge(ifp, 1);
+	map_slaves_to_bridge(ifp, 1, false, ZEBRA_BRIDGE_NO_ACTION);
 }
 
 /*
@@ -270,7 +279,14 @@ void zebra_l2_bridge_add_update(struct interface *ifp,
 void zebra_l2_bridge_del(struct interface *ifp)
 {
 	/* Unlink all slaves to this bridge */
-	map_slaves_to_bridge(ifp, 0);
+	map_slaves_to_bridge(ifp, 0, false, ZEBRA_BRIDGE_NO_ACTION);
+}
+
+void zebra_l2if_update_bridge(struct interface *ifp, uint8_t chgflags)
+{
+	if (!chgflags)
+		return;
+	map_slaves_to_bridge(ifp, 1, true, chgflags);
 }
 
 /*
@@ -398,8 +414,8 @@ void zebra_l2_vxlanif_del(struct interface *ifp)
  * from a bridge before it can be mapped to another bridge.
  */
 void zebra_l2if_update_bridge_slave(struct interface *ifp,
-				    ifindex_t bridge_ifindex,
-				    ns_id_t ns_id)
+				    ifindex_t bridge_ifindex, ns_id_t ns_id,
+				    uint8_t chgflags)
 {
 	struct zebra_if *zif;
 	ifindex_t old_bridge_ifindex;
@@ -413,6 +429,14 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	if (!zvrf)
 		return;
 
+	if (zif->zif_type == ZEBRA_IF_VXLAN
+	    && chgflags != ZEBRA_BRIDGE_NO_ACTION) {
+		if (ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
+			zebra_vxlan_if_update(ifp,
+					      ZEBRA_VXLIF_MASTER_MAC_CHANGE);
+		if (ZEBRA_BRIDGE_MASTER_UP)
+			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
+	}
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
 	old_ns_id = zif->brslave_info.ns_id;
 	if (old_bridge_ifindex == bridge_ifindex &&
