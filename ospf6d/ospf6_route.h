@@ -148,8 +148,7 @@ struct ospf6_path {
 #define OSPF6_PATH_TYPE_INTER        2
 #define OSPF6_PATH_TYPE_EXTERNAL1    3
 #define OSPF6_PATH_TYPE_EXTERNAL2    4
-#define OSPF6_PATH_TYPE_REDISTRIBUTE 5
-#define OSPF6_PATH_TYPE_MAX          6
+#define OSPF6_PATH_TYPE_MAX          5
 
 #define OSPF6_PATH_SUBTYPE_DEFAULT_RT   1
 
