@@ -1019,10 +1019,11 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 /* Graceful Restart HELPER  config Commands */
 DEFPY(ospf6_gr_helper_enable,
       ospf6_gr_helper_enable_cmd,
-      "graceful-restart helper-only [A.B.C.D$rtr_id]",
+      "graceful-restart helper enable [A.B.C.D$rtr_id]",
       "ospf6 graceful restart\n"
+      "ospf6 GR Helper\n"
       "Enable Helper support\n"
-      "Advertisement RouterId\n")
+      "Advertisement Router-ID\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -1041,11 +1042,12 @@ DEFPY(ospf6_gr_helper_enable,
 
 DEFPY(ospf6_gr_helper_disable,
       ospf6_gr_helper_disable_cmd,
-      "no graceful-restart helper-only [A.B.C.D$rtr_id]",
+      "no graceful-restart helper enable [A.B.C.D$rtr_id]",
       NO_STR
       "ospf6 graceful restart\n"
-      "Disable Helper support\n"
-      "Advertisement RouterId\n")
+      "ospf6 GR Helper\n"
+      "Enable Helper support\n"
+      "Advertisement Router-ID\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -1354,14 +1356,14 @@ static int ospf6_cfg_write_helper_enable_rtr_walkcb(struct hash_bucket *backet,
 	struct advRtr *rtr = backet->data;
 	struct vty *vty = (struct vty *)arg;
 
-	vty_out(vty, " graceful-restart helper-only %pI4\n", &rtr->advRtrAddr);
+	vty_out(vty, " graceful-restart helper enable %pI4\n", &rtr->advRtrAddr);
 	return HASHWALK_CONTINUE;
 }
 
 int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (ospf6->ospf6_helper_cfg.is_helper_supported)
-		vty_out(vty, " graceful-restart helper-only\n");
+		vty_out(vty, " graceful-restart helper enable\n");
 
 	if (!ospf6->ospf6_helper_cfg.strict_lsa_check)
 		vty_out(vty, " graceful-restart helper lsa-check-disable\n");
