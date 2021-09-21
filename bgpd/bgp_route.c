@@ -4042,15 +4042,48 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		/* Update SRv6 SID */
 		if (attr->srv6_l3vpn) {
 			extra = bgp_path_info_extra_get(pi);
-			if (sid_diff(&extra->sid[0], &attr->srv6_l3vpn->sid)) {
-				sid_copy(&extra->sid[0],
+			if (sid_diff(&extra->sid[0].sid,
+				     &attr->srv6_l3vpn->sid)) {
+				sid_copy(&extra->sid[0].sid,
 					 &attr->srv6_l3vpn->sid);
 				extra->num_sids = 1;
+
+				extra->sid[0].loc_block_len = 0;
+				extra->sid[0].loc_node_len = 0;
+				extra->sid[0].func_len = 0;
+				extra->sid[0].arg_len = 0;
+
+				if (attr->srv6_l3vpn->loc_block_len != 0) {
+					extra->sid[0].loc_block_len =
+						attr->srv6_l3vpn->loc_block_len;
+					extra->sid[0].loc_node_len =
+						attr->srv6_l3vpn->loc_node_len;
+					extra->sid[0].func_len =
+						attr->srv6_l3vpn->func_len;
+					extra->sid[0].arg_len =
+						attr->srv6_l3vpn->arg_len;
+				}
+
+				/*
+				 * draft-ietf-bess-srv6-services-07
+				 * The part of SRv6 SID may be encoded as MPLS
+				 * Label for the efficient packing.
+				 */
+				if (attr->srv6_l3vpn->transposition_len != 0)
+					transpose_sid(
+						&extra->sid[0].sid,
+						decode_label(label),
+						attr->srv6_l3vpn
+							->transposition_offset,
+						attr->srv6_l3vpn
+							->transposition_len);
 			}
 		} else if (attr->srv6_vpn) {
 			extra = bgp_path_info_extra_get(pi);
-			if (sid_diff(&extra->sid[0], &attr->srv6_vpn->sid)) {
-				sid_copy(&extra->sid[0], &attr->srv6_vpn->sid);
+			if (sid_diff(&extra->sid[0].sid,
+				     &attr->srv6_vpn->sid)) {
+				sid_copy(&extra->sid[0].sid,
+					 &attr->srv6_vpn->sid);
 				extra->num_sids = 1;
 			}
 		}
@@ -4231,10 +4264,28 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (safi == SAFI_MPLS_VPN) {
 		extra = bgp_path_info_extra_get(new);
 		if (attr->srv6_l3vpn) {
-			sid_copy(&extra->sid[0], &attr->srv6_l3vpn->sid);
+			sid_copy(&extra->sid[0].sid, &attr->srv6_l3vpn->sid);
 			extra->num_sids = 1;
+
+			extra->sid[0].loc_block_len =
+				attr->srv6_l3vpn->loc_block_len;
+			extra->sid[0].loc_node_len =
+				attr->srv6_l3vpn->loc_node_len;
+			extra->sid[0].func_len = attr->srv6_l3vpn->func_len;
+			extra->sid[0].arg_len = attr->srv6_l3vpn->arg_len;
+
+			/*
+			 * draft-ietf-bess-srv6-services-07
+			 * The part of SRv6 SID may be encoded as MPLS Label for
+			 * the efficient packing.
+			 */
+			if (attr->srv6_l3vpn->transposition_len != 0)
+				transpose_sid(
+					&extra->sid[0].sid, decode_label(label),
+					attr->srv6_l3vpn->transposition_offset,
+					attr->srv6_l3vpn->transposition_len);
 		} else if (attr->srv6_vpn) {
-			sid_copy(&extra->sid[0], &attr->srv6_vpn->sid);
+			sid_copy(&extra->sid[0].sid, &attr->srv6_vpn->sid);
 			extra->num_sids = 1;
 		}
 	}
@@ -10450,7 +10501,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	/* Remote SID */
 	if (path->extra && path->extra->num_sids > 0 && safi != SAFI_EVPN) {
-		inet_ntop(AF_INET6, &path->extra->sid, buf, sizeof(buf));
+		inet_ntop(AF_INET6, &path->extra->sid[0].sid, buf, sizeof(buf));
 		if (json_paths)
 			json_object_string_add(json_path, "remoteSid", buf);
 		else

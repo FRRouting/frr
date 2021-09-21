@@ -530,6 +530,12 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 	key = jhash(&l3vpn->sid, 16, key);
 	key = jhash_1word(l3vpn->sid_flags, key);
 	key = jhash_1word(l3vpn->endpoint_behavior, key);
+	key = jhash_1word(l3vpn->loc_block_len, key);
+	key = jhash_1word(l3vpn->loc_node_len, key);
+	key = jhash_1word(l3vpn->func_len, key);
+	key = jhash_1word(l3vpn->arg_len, key);
+	key = jhash_1word(l3vpn->transposition_len, key);
+	key = jhash_1word(l3vpn->transposition_offset, key);
 	return key;
 }
 
@@ -540,7 +546,13 @@ static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
 
 	return sid_same(&l3vpn1->sid, &l3vpn2->sid)
 	       && l3vpn1->sid_flags == l3vpn2->sid_flags
-	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior;
+	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior
+	       && l3vpn1->loc_block_len == l3vpn2->loc_block_len
+	       && l3vpn1->loc_node_len == l3vpn2->loc_node_len
+	       && l3vpn1->func_len == l3vpn2->func_len
+	       && l3vpn1->arg_len == l3vpn2->arg_len
+	       && l3vpn1->transposition_len == l3vpn2->transposition_len
+	       && l3vpn1->transposition_offset == l3vpn2->transposition_offset;
 }
 
 static bool srv6_l3vpn_same(const struct bgp_attr_srv6_l3vpn *h1,
@@ -2533,6 +2545,172 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 	return 0;
 }
 
+
+/* SRv6 Service Data Sub-Sub-TLV attribute
+ * draft-ietf-bess-srv6-services-07
+ */
+static bgp_attr_parse_ret_t
+bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	uint8_t type, loc_block_len, loc_node_len, func_len, arg_len,
+		transposition_len, transposition_offset;
+	uint16_t length;
+	size_t headersz = sizeof(type) + sizeof(length);
+
+	if (STREAM_READABLE(peer->curr) < headersz) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+			headersz, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	type = stream_getc(peer->curr);
+	length = stream_getw(peer->curr);
+
+	if (STREAM_READABLE(peer->curr) < length) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficent data (need %hu for attribute data, have %zu remaining in UPDATE)",
+			length, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE) {
+		loc_block_len = stream_getc(peer->curr);
+		loc_node_len = stream_getc(peer->curr);
+		func_len = stream_getc(peer->curr);
+		arg_len = stream_getc(peer->curr);
+		transposition_len = stream_getc(peer->curr);
+		transposition_offset = stream_getc(peer->curr);
+
+		/* Log SRv6 Service Data Sub-Sub-TLV */
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+			zlog_debug(
+				"%s: srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
+				__func__, loc_block_len, loc_node_len, func_len,
+				arg_len, transposition_len,
+				transposition_offset);
+		}
+
+		attr->srv6_l3vpn->loc_block_len = loc_block_len;
+		attr->srv6_l3vpn->loc_node_len = loc_node_len;
+		attr->srv6_l3vpn->func_len = func_len;
+		attr->srv6_l3vpn->arg_len = arg_len;
+		attr->srv6_l3vpn->transposition_len = transposition_len;
+		attr->srv6_l3vpn->transposition_offset = transposition_offset;
+	}
+
+	else {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"%s attr SRv6 Service Data Sub-Sub-TLV sub-sub-type=%u is not supported, skipped",
+				peer->host, type);
+
+		stream_forward_getp(peer->curr, length);
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
+/* SRv6 Service Sub-TLV attribute
+ * draft-ietf-bess-srv6-services-07
+ */
+static bgp_attr_parse_ret_t
+bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	struct in6_addr ipv6_sid;
+	uint8_t type, sid_flags;
+	uint16_t length, endpoint_behavior;
+	size_t headersz = sizeof(type) + sizeof(length);
+	bgp_attr_parse_ret_t err;
+	char buf[BUFSIZ];
+
+	if (STREAM_READABLE(peer->curr) < headersz) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+			headersz, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	type = stream_getc(peer->curr);
+	length = stream_getw(peer->curr);
+
+	if (STREAM_READABLE(peer->curr) < length) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %hu for attribute data, have %zu remaining in UPDATE)",
+			length, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
+		stream_getc(peer->curr);
+		stream_get(&ipv6_sid, peer->curr, sizeof(ipv6_sid));
+		sid_flags = stream_getc(peer->curr);
+		endpoint_behavior = stream_getw(peer->curr);
+		stream_getc(peer->curr);
+
+		/* Log SRv6 Service Sub-TLV */
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+			zlog_debug(
+				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
+				__func__, buf, sid_flags, endpoint_behavior);
+		}
+
+		/* Configure from Info */
+		if (attr->srv6_l3vpn) {
+			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
+				 "Prefix SID SRv6 L3VPN field repeated");
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
+		}
+		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
+					   sizeof(struct bgp_attr_srv6_l3vpn));
+		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
+		attr->srv6_l3vpn->sid_flags = sid_flags;
+		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
+		attr->srv6_l3vpn->loc_block_len = 0;
+		attr->srv6_l3vpn->loc_node_len = 0;
+		attr->srv6_l3vpn->func_len = 0;
+		attr->srv6_l3vpn->arg_len = 0;
+		attr->srv6_l3vpn->transposition_len = 0;
+		attr->srv6_l3vpn->transposition_offset = 0;
+
+		// Sub-Sub-TLV found
+		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+			err = bgp_attr_srv6_service_data(args);
+
+			if (err != BGP_ATTR_PARSE_PROCEED)
+				return err;
+		}
+
+		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+	}
+
+	/* Placeholder code for unsupported type */
+	else {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"%s attr SRv6 Service Sub-TLV sub-type=%u is not supported, skipped",
+				peer->host, type);
+
+		stream_forward_getp(peer->curr, length);
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /*
  * Read an individual SID value returning how much data we have read
  * Returns 0 if there was an error that needs to be passed up the stack
@@ -2548,7 +2726,6 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 	uint32_t srgb_range;
 	int srgb_count;
 	uint8_t sid_type, sid_flags;
-	uint16_t endpoint_behavior;
 	char buf[BUFSIZ];
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
@@ -2703,45 +2880,20 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 
 	/* Placeholder code for the SRv6 L3 Service type */
 	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
-		if (STREAM_READABLE(peer->curr) < length
-		    || length != BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH) {
-			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID SRv6 L3-Service length is %hu instead of %u",
-				 length, BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH);
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Prefix SID SRv6 L3-Service length is %hu, but only %zu bytes remain",
+				length, STREAM_READABLE(peer->curr));
 			return bgp_attr_malformed(args,
 				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				 args->total);
 		}
 
-		/* Parse L3-SERVICE Sub-TLV */
-		stream_getc(peer->curr);               /* reserved  */
-		stream_get(&ipv6_sid, peer->curr,
-			   sizeof(ipv6_sid)); /* sid_value */
-		sid_flags = stream_getc(peer->curr);   /* sid_flags */
-		endpoint_behavior = stream_getw(peer->curr); /* endpoint */
-		stream_getc(peer->curr);               /* reserved  */
+		/* ignore reserved */
+		stream_getc(peer->curr);
 
-		/* Log L3-SERVICE Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
-			zlog_debug(
-				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
-				__func__, buf, sid_flags, endpoint_behavior);
-		}
-
-		/* Configure from Info */
-		if (attr->srv6_l3vpn) {
-			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
-				 "Prefix SID SRv6 L3VPN field repeated");
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
-		}
-		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
-					   sizeof(struct bgp_attr_srv6_l3vpn));
-		attr->srv6_l3vpn->sid_flags = sid_flags;
-		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
-		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
-		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+		return bgp_attr_srv6_service(args);
 	}
 
 	/* Placeholder code for Unsupported TLV */
@@ -4123,18 +4275,39 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* SRv6 Service Information Attribute. */
 	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) {
 		if (attr->srv6_l3vpn) {
+			uint8_t subtlv_len =
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH
+				+ BGP_ATTR_MIN_LEN
+				+ BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH;
+			uint8_t tlv_len = subtlv_len + BGP_ATTR_MIN_LEN + 1;
+			uint8_t attr_len = tlv_len + BGP_ATTR_MIN_LEN;
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_PREFIX_SID);
-			stream_putc(s, 24);     /* tlv len */
+			stream_putc(s, attr_len);
 			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE);
-			stream_putw(s, 21);     /* sub-tlv len */
+			stream_putw(s, tlv_len);
+			stream_putc(s, 0); /* reserved */
+			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO);
+			stream_putw(s, subtlv_len);
 			stream_putc(s, 0);      /* reserved */
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
 			stream_putw(s, 0xffff); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
+			stream_putc(
+				s,
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE);
+			stream_putw(
+				s,
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH);
+			stream_putc(s, attr->srv6_l3vpn->loc_block_len);
+			stream_putc(s, attr->srv6_l3vpn->loc_node_len);
+			stream_putc(s, attr->srv6_l3vpn->func_len);
+			stream_putc(s, attr->srv6_l3vpn->arg_len);
+			stream_putc(s, attr->srv6_l3vpn->transposition_len);
+			stream_putc(s, attr->srv6_l3vpn->transposition_offset);
 		} else if (attr->srv6_vpn) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
