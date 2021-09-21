@@ -286,7 +286,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == VTY_NODE
-				   || config->index == VRF_NODE
 				   || config->index == NH_GROUP_NODE)
 				config_add_line_uniq(config->line, line);
 			else
