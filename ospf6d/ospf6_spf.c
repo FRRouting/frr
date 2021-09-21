@@ -440,11 +440,22 @@ void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
 }
 
 static const char *const ospf6_spf_reason_str[] = {
-	"R+", "R-", "N+", "N-", "L+", "L-", "R*", "N*", "C", "A", "GR"};
+	"R+", /* OSPF6_SPF_FLAGS_ROUTER_LSA_ADDED */
+	"R-", /* OSPF6_SPF_FLAGS_ROUTER_LSA_REMOVED */
+	"N+", /* OSPF6_SPF_FLAGS_NETWORK_LSA_ADDED */
+	"N-", /* OSPF6_SPF_FLAGS_NETWORK_LSA_REMOVED */
+	"L+", /* OSPF6_SPF_FLAGS_NETWORK_LINK_LSA_ADDED */
+	"L-", /* OSPF6_SPF_FLAGS_NETWORK_LINK_LSA_REMOVED */
+	"R*", /* OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED */
+	"N*", /* OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED */
+	"C",  /* OSPF6_SPF_FLAGS_CONFIG_CHANGE */
+	"A",  /* OSPF6_SPF_FLAGS_ASBR_STATUS_CHANGE */
+	"GR", /* OSPF6_SPF_FLAGS_GR_FINISH */
+};
 
-void ospf6_spf_reason_string(unsigned int reason, char *buf, int size)
+void ospf6_spf_reason_string(uint32_t reason, char *buf, int size)
 {
-	unsigned int bit;
+	uint32_t bit;
 	int len = 0;
 
 	if (!buf)
