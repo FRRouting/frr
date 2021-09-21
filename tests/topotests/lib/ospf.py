@@ -329,14 +329,14 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
 
-        if "helper-only" in gr_data and not gr_data["helper-only"]:
-            cmd = "graceful-restart helper-only"
+        if "helper enable" in gr_data and not gr_data["helper enable"]:
+            cmd = "graceful-restart helper enable"
             if gr_data.setdefault("delete", False):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
-        elif "helper-only" in gr_data and type(gr_data["helper-only"]) is list:
-            for rtrs in gr_data["helper-only"]:
-                cmd = "graceful-restart helper-only {}".format(rtrs)
+        elif "helper enable" in gr_data and type(gr_data["helper enable"]) is list:
+            for rtrs in gr_data["helper enable"]:
+                cmd = "graceful-restart helper enable {}".format(rtrs)
                 if gr_data.setdefault("delete", False):
                     cmd = "no {}".format(cmd)
                 config_data.append(cmd)
