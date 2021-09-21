@@ -47,7 +47,15 @@ struct bgp_zebra_opaque {
 	char selection_reason[BGP_MAX_SELECTION_REASON_STR_BUF];
 };
 
+struct ospf_zebra_opaque {
+	char path_type[32];
+	char area_id[INET_ADDRSTRLEN];
+	char tag[16];
+};
+
 static_assert(sizeof(struct bgp_zebra_opaque) <= ZAPI_MESSAGE_OPAQUE_LENGTH,
               "BGP opaque data shouldn't be larger than zebra's buffer");
+static_assert(sizeof(struct ospf_zebra_opaque) <= ZAPI_MESSAGE_OPAQUE_LENGTH,
+              "OSPF opaque data shouldn't be larger than zebra's buffer");
 
 #endif /* FRR_ROUTE_OPAQUE_H */

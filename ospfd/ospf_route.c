@@ -39,6 +39,22 @@
 #include "ospfd/ospf_zebra.h"
 #include "ospfd/ospf_dump.h"
 
+const char *ospf_path_type_name(int path_type)
+{
+	switch (path_type) {
+	case OSPF_PATH_INTRA_AREA:
+		return "Intra-Area";
+	case OSPF_PATH_INTER_AREA:
+		return "Inter-Area";
+	case OSPF_PATH_TYPE1_EXTERNAL:
+		return "External-1";
+	case OSPF_PATH_TYPE2_EXTERNAL:
+		return "External-2";
+	default:
+		return "Unknown";
+	}
+}
+
 struct ospf_route *ospf_route_new(void)
 {
 	struct ospf_route *new;
