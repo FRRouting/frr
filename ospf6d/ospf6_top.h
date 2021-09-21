@@ -32,9 +32,9 @@ struct ospf6_master {
 };
 
 /* ospf6->config_flags */
-enum {
-	OSPF6_LOG_ADJACENCY_CHANGES =	(1 << 0),
-	OSPF6_LOG_ADJACENCY_DETAIL =	(1 << 1),
+enum { OSPF6_LOG_ADJACENCY_CHANGES	= (1 << 0),
+       OSPF6_LOG_ADJACENCY_DETAIL	= (1 << 1),
+       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA	= (1 << 2),
 };
 
 /* For processing route-map change update in the callback */

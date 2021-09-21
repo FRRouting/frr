@@ -27,6 +27,7 @@
 #include "stream.h"
 #include "zclient.h"
 #include "memory.h"
+#include "route_opaque.h"
 #include "lib/bfd.h"
 #include "lib_errors.h"
 
@@ -371,6 +372,38 @@ DEFUN(show_zebra,
 	return CMD_SUCCESS;
 }
 
+static void ospf6_zebra_append_opaque_attr(struct ospf6_route *request,
+					   struct zapi_route *api)
+{
+	struct ospf_zebra_opaque ospf_opaque = {};
+
+	/* OSPF path type */
+	snprintf(ospf_opaque.path_type, sizeof(ospf_opaque.path_type), "%s",
+		 OSPF6_PATH_TYPE_NAME(request->path.type));
+
+	switch (request->path.type) {
+	case OSPF6_PATH_TYPE_INTRA:
+	case OSPF6_PATH_TYPE_INTER:
+		/* OSPF area ID */
+		(void)inet_ntop(AF_INET, &request->path.area_id,
+				ospf_opaque.area_id,
+				sizeof(ospf_opaque.area_id));
+		break;
+	case OSPF6_PATH_TYPE_EXTERNAL1:
+	case OSPF6_PATH_TYPE_EXTERNAL2:
+		/* OSPF route tag */
+		snprintf(ospf_opaque.tag, sizeof(ospf_opaque.tag), "%u",
+			 request->path.tag);
+		break;
+	default:
+		break;
+	}
+
+	SET_FLAG(api->message, ZAPI_MESSAGE_OPAQUE);
+	api->opaque.length = sizeof(struct ospf_zebra_opaque);
+	memcpy(api->opaque.data, &ospf_opaque, api->opaque.length);
+}
+
 #define ADD    0
 #define REM    1
 static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
@@ -454,6 +487,10 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 	SET_FLAG(api.message, ZAPI_MESSAGE_DISTANCE);
 	api.distance = ospf6_distance_apply((struct prefix_ipv6 *)dest, request,
 					    ospf6);
+
+	if (type == ADD
+	    && CHECK_FLAG(ospf6->config_flags, OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
+		ospf6_zebra_append_opaque_attr(request, &api);
 
 	if (type == REM)
 		ret = zclient_route_send(ZEBRA_ROUTE_DELETE, zclient, &api);

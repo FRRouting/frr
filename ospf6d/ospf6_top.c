@@ -436,6 +436,7 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->fd = -1;
 
 	o->max_multipath = MULTIPATH_NUM;
+	SET_FLAG(o->config_flags, OSPF6_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	o->oi_write_q = list_new();
 
@@ -882,6 +883,39 @@ DEFUN (no_ospf6_log_adjacency_changes_detail,
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
 	UNSET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_DETAIL);
+	return CMD_SUCCESS;
+}
+
+static void ospf6_reinstall_routes(struct ospf6 *ospf6)
+{
+	struct ospf6_route *route;
+
+	for (route = ospf6_route_head(ospf6->route_table); route;
+	     route = ospf6_route_next(route))
+		ospf6_zebra_route_update_add(route, ospf6);
+}
+
+DEFPY (ospf6_send_extra_data,
+       ospf6_send_extra_data_cmd,
+       "[no] ospf6 send-extra-data zebra",
+       NO_STR
+       OSPF6_STR
+       "Extra data to Zebra for display/use\n"
+       "To zebra\n")
+{
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+
+	if (no
+	    && CHECK_FLAG(ospf6->config_flags,
+			  OSPF6_SEND_EXTRA_DATA_TO_ZEBRA)) {
+		UNSET_FLAG(ospf6->config_flags, OSPF6_SEND_EXTRA_DATA_TO_ZEBRA);
+		ospf6_reinstall_routes(ospf6);
+	} else if (!CHECK_FLAG(ospf6->config_flags,
+			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA)) {
+		SET_FLAG(ospf6->config_flags, OSPF6_SEND_EXTRA_DATA_TO_ZEBRA);
+		ospf6_reinstall_routes(ospf6);
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -2202,6 +2236,10 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " ospf6 router-id %pI4\n",
 				&ospf6->router_id_static);
 
+		if (!CHECK_FLAG(ospf6->config_flags,
+				OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
+			vty_out(vty, " no ospf6 send-extra-data zebra\n");
+
 		/* log-adjacency-changes flag print. */
 		if (CHECK_FLAG(ospf6->config_flags,
 			       OSPF6_LOG_ADJACENCY_CHANGES)) {
@@ -2287,6 +2325,7 @@ void ospf6_top_init(void)
 	install_element(OSPF6_NODE, &ospf6_log_adjacency_changes_detail_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_cmd);
 	install_element(OSPF6_NODE, &no_ospf6_log_adjacency_changes_detail_cmd);
+	install_element(OSPF6_NODE, &ospf6_send_extra_data_cmd);
 
 	/* LSA timers commands */
 	install_element(OSPF6_NODE, &ospf6_timers_lsa_cmd);
