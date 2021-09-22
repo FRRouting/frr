@@ -22,21 +22,6 @@
 
 #include <pthread.h>
 
-#include "hook.h"
-#include "frr_pthread.h"
-// #include "lib/json.h"
-// #include "vrf.h"
-// #include "vty.h"
-
-/* For union sockunion.  */
-#include "queue.h"
-#include "sockunion.h"
-// #include "routemap.h"
-#include "linklist.h"
-#include "defaults.h"
-#include "mgmt_memory.h"
-#include "bitfield.h"
-// #include "vxlan.h"
 #include "lib/northbound.h"
 #include "lib/mgmt_pb.h"
 

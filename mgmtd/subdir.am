@@ -13,42 +13,17 @@ vtysh_daemons += mgmtd
 # man8 += $(MANBUILD)/frr-mgmtd.8
 # endif
 
-# EXTRA_DIST += mgmtd/mgmt_daemons.pl
-# BUILT_SOURCES += mgmtd/mgmt_daemons.h
-
-# force mgmt_daemons.h
-# $(mgmtd_mgmtd_OBJECTS): mgmtd/mgmt_daemons.h mgmtd/mgmt_bcknd_cmd.c
-# CLEANFILES += mgmtd/mgmt_daemons.h mgmtd/mgmt_bcknd_cmd.c
 $(mgmtd_mgmtd_OBJECTS): yang/frr-staticd.yang.c
 CLEANFILES += yang/frr-staticd.yang.c
-
-mgmtd/mgmt_daemons.h:
-	$(PERL) $(top_srcdir)/mgmtd/mgmt_daemons.pl $(mgmt_daemons) > mgmtd/mgmt_daemons.h
 	
 AM_MGMTD_EXTRACT = $(am__mgmt_EXTRACT_$(V))
 am__mgmt_EXTRACT_ = $(am__mgmt_EXTRACT_$(AM_DEFAULT_VERBOSITY))
 am__mgmt_EXTRACT_0 = @echo "  EXTRACT " $@;
 am__mgmt_EXTRACT_1 =
 
-# if ISISD
-# MGMTD_HAVE_ISISD = --have-isisd
-# else
-# MGMTD_HAVE_ISISD =
-# endif
-
-# if FABRICD
-# MGMTD_HAVE_FABRICD = --have-fabricd
-# else
-# MGMTD_HAVE_FABRICD =
-# endif
-
 clippy_scan += \
 	mgmtd/mgmt_vty.c \
 	# end
-
-# nodist_mgmt_mgmt_SOURCES = \
-#	yang/frr-staticd.yang.c \
-#	# end
 
 lib_LTLIBRARIES += mgmtd/libmgmt_bcknd_nb.la
 nodist_mgmtd_libmgmt_bcknd_nb_la_SOURCES = \

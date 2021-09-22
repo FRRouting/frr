@@ -230,19 +230,8 @@ typedef struct mgmt_trxn_req_ {
 
 DECLARE_LIST(mgmt_trxn_req_list, mgmt_trxn_req_t, list_linkage);
 
-#if 0
-#define FOREACH_TRXN_REQ_IN_LIST(list, req)				\
-	for ((req) = mgmt_trxn_req_list_first(list); (req);		\
-	     (req) = mgmt_trxn_req_list_next((list), (req)))
-
-#define FOREACH_TRXN_REQ_IN_LIST_SAFE(list, curr, next)			\
-	for ((curr) = mgmt_trxn_req_list_first(list),			\
-	     (next) = mgmt_trxn_req_list_next((list), (curr)); (curr);	\
-	     (curr) = (next))
-#else
 #define FOREACH_TRXN_REQ_IN_LIST(list, req)				\
 	frr_each_safe(mgmt_trxn_req_list, list, req)
-#endif
 
 struct mgmt_trxn_ctxt_ {
         mgmt_session_id_t session_id; /* One transaction per client session */
@@ -298,19 +287,8 @@ struct mgmt_trxn_ctxt_ {
 
 DECLARE_LIST(mgmt_trxn_list, mgmt_trxn_ctxt_t, list_linkage);
 
-#if 0
-#define FOREACH_TRXN_IN_LIST(cm, trxn)					\
-	for ((trxn) = mgmt_trxn_list_first(&(cm)->mgmt_trxns); (trxn);	\
-		(trxn) = mgmt_trxn_list_next(&(cm)->mgmt_trxns, (trxn)))
-
-#define FOREACH_TRXN_IN_LIST_SAFE(cm, curr, next)			\
-	for ((curr) = mgmt_trxn_list_first(&(cm)->mgmt_trxns),		\
-		(next) = mgmt_trxn_list_next(&(cm)->mgmt_trxns, (curr));\
-		(curr);	(curr) = (next))
-#else
 #define FOREACH_TRXN_IN_LIST(cm, trxn)					\
 	frr_each_safe(mgmt_trxn_list, &(cm)->mgmt_trxns, (trxn))
-#endif
 
 static int mgmt_trxn_send_commit_cfg_reply(mgmt_trxn_ctxt_t *trxn,
         bool success, const char *error_if_any);
@@ -1484,41 +1462,6 @@ static int mgmt_trxn_send_bcknd_cfg_apply(mgmt_trxn_ctxt_t *trxn)
 				return -1;
 
 			btch_list = &cmtcfg_req->curr_batches[id];
-#if 0
-			num_batches = mgmt_trxn_batch_list_count(btch_list);
-			batch_ids = (mgmt_trxn_batch_id_t *)
-					calloc(MGMTD_BCKND_MAX_BATCH_IDS_IN_REQ,
-						sizeof(mgmt_trxn_batch_id_t));
-
-			indx = 0;
-			FOREACH_TRXN_CFG_BATCH_IN_LIST(btch_list, cfg_btch) {
-				batch_ids[indx] = (mgmt_trxn_batch_id_t) cfg_btch;
-				indx++;
-				assert(indx <= num_batches);
-				if (indx == MGMTD_BCKND_MAX_BATCH_IDS_IN_REQ) {
-					if (mgmt_bcknd_send_cfg_apply_req(adptr,
-						(mgmt_trxn_id_t) trxn,
-						batch_ids, indx) != 0) {
-						(void) mgmt_trxn_send_commit_cfg_reply(
-							trxn, false,
-							"Could not send CFG_APPLY_REQ to backend adapter");
-						return -1;
-					}
-					cmtcfg_req->cmt_stats->last_num_apply_reqs++;
-					indx = 0;
-				}
-			}
-
-			if (indx && mgmt_bcknd_send_cfg_apply_req(adptr,
-					(mgmt_trxn_id_t) trxn, batch_ids,
-					indx) != 0) {
-				(void) mgmt_trxn_send_commit_cfg_reply(
-					trxn, false,
-					"Could not send CFG_APPLY_REQ to backend adapter");
-				return -1;
-			}
-			cmtcfg_req->cmt_stats->last_num_apply_reqs++;
-#else
 			if (mgmt_bcknd_send_cfg_apply_req(adptr,
 				(mgmt_trxn_id_t) trxn) != 0) {
 				(void) mgmt_trxn_send_commit_cfg_reply(
@@ -1527,7 +1470,6 @@ static int mgmt_trxn_send_bcknd_cfg_apply(mgmt_trxn_ctxt_t *trxn)
 				return -1;
 			}
 			cmtcfg_req->cmt_stats->last_num_apply_reqs++;
-#endif
 
 			UNSET_FLAG(adptr->flags,
 				MGMTD_BCKND_ADPTR_FLAGS_CFG_SYNCED);

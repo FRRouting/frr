@@ -43,27 +43,6 @@ typedef enum mgmt_bcknd_req_type_ {
         MGMTD_BCKND_REQ_DATA_GET_NEXT
 } mgmt_bcknd_req_type_t;
 
-#if 0
-
-typedef struct mgmt_bcknd_cfgreq_ {
-        mgmt_bcknd_req_type_t req_type;
-        struct nb_yang_xpath_elem elems[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
-        int num_elems;
-} mgmt_bcknd_cfgreq_t;
-
-typedef struct mgmt_bcknd_datareq_ {
-        mgmt_bcknd_req_type_t req_type;
-        struct nb_yang_xpath xpaths[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
-        int num_xpaths;
-} mgmt_bcknd_datareq_t;
-
-typedef struct mgmt_bcknd_dataresults_ {
-        mgmt_bcknd_req_type_t req_type;
-        struct nb_yang_xpath_elem elems[GMGD_BCKND_MAX_NUM_REQ_ITEMS];
-        int num_elems;
-        int next_data_indx;
-} mgmt_bcknd_dataresults_t;
-#else
 typedef struct mgmt_bcknd_cfgreq_ {
         mgmt_yang_cfgdata_req_t **cfgdata_reqs;
         size_t num_reqs;
@@ -73,26 +52,6 @@ typedef struct mgmt_bcknd_datareq_ {
         mgmt_yang_getdata_req_t **getdata_reqs;
         size_t num_reqs;
 } mgmt_bcknd_datareq_t;
-
-typedef struct mgmt_bcknd_dataresults_ {
-        mgmt_yang_data_reply_t **data_replies;
-        size_t num_replies;
-} mgmt_bcknd_dataresults_t;
-#endif
-
-typedef void (*mgmt_bcknd_trxn_result_notify_t)(
-        mgmt_trxn_id_t trxn_id, mgmt_result_t result);
-
-typedef void (*mgmt_bcknd_cfg_result_notify_t)(
-        mgmt_trxn_id_t trxn_id, mgmt_trxn_batch_id_t batch_id,
-        mgmt_result_t result, mgmt_bcknd_req_type_t orig_req);
-
-typedef void (*mgmt_bcknd_get_data_result_notify_t)(
-        mgmt_trxn_id_t trxn_id, mgmt_trxn_batch_id_t batch_id,
-        mgmt_result_t result, mgmt_bcknd_dataresults_t *data_resp);
-
-typedef void (*mgmt_bcknd_data_notify_t)(
-        struct nb_yang_xpath *xpaths[], int num_xpaths);
 
 PREDECL_LIST(mgmt_bcknd_adptr_list);
 PREDECL_LIST(mgmt_trxn_badptr_list);
@@ -110,11 +69,6 @@ typedef struct mgmt_bcknd_client_adapter_ {
         char name[MGMTD_CLIENT_NAME_MAX_LEN];
         uint8_t num_xpath_reg;
         char xpath_reg[MGMTD_MAX_NUM_XPATH_REG][MGMTD_MAX_XPATH_LEN];
-
-        mgmt_bcknd_trxn_result_notify_t trxn_result_cb;
-        mgmt_bcknd_cfg_result_notify_t cfgresult_cb;
-        mgmt_bcknd_get_data_result_notify_t dataresult_cb;
-        mgmt_bcknd_data_notify_t notifydata_cb;
 
         /* IO streams for read and write */
 	// pthread_mutex_t ibuf_mtx;

@@ -123,8 +123,8 @@ extern time_t mgmt_clock(void);
 
 extern int mgmt_config_write(struct vty *);
 
-extern void mgmt_master_init(struct thread_master *master, const int buffer_size,
-			    struct list *addresses);
+extern void mgmt_master_init(struct thread_master *master,
+		const int buffer_size);
 
 extern void mgmt_init(void);
 extern void mgmt_pthreads_run(void);

@@ -167,86 +167,15 @@ void sigusr1(void)
 */
 static __attribute__((__noreturn__)) void mgmt_exit(int status)
 {
-	// struct mgmt *mgmt, *mgmt_default, *mgmt_evpn;
-	// struct listnode *node, *nnode;
-
 	/* it only makes sense for this to be called on a clean exit */
 	assert(status == 0);
 
 	frr_early_fini();
 
-#if 0
-	bfd_gbl_exit();
-
-	mgmt_close();
-
-	mgmt_default = mgmt_get_default();
-	mgmt_evpn = mgmt_get_evpn();
-
-	/* reverse mgmt_master_init */
-	for (ALL_LIST_ELEMENTS(mm->mgmt, node, nnode, mgmt)) {
-		if (mgmt_default == mgmt || mgmt_evpn == mgmt)
-			continue;
-		mgmt_delete(mgmt);
-	}
-	if (mgmt_evpn && mgmt_evpn != mgmt_default)
-		mgmt_delete(mgmt_evpn);
-	if (mgmt_default)
-		mgmt_delete(mgmt_default);
-
-	mgmt_evpn_mh_finish();
-	mgmt_l3nhg_finish();
-
-	/* reverse mgmt_dump_init */
-	mgmt_dump_finish();
-
-	/* reverse mgmt_route_init */
-	mgmt_route_finish();
-
-	/* cleanup route maps */
-	mgmt_route_map_terminate();
-
-	/* reverse mgmt_attr_init */
-	mgmt_attr_finish();
-#endif
-
-	/* stop pthreads */
+	/* stop pthreads (if any) */
 	mgmt_pthreads_finish();
 
-#if 0
-	/* reverse access_list_init */
-	access_list_add_hook(NULL);
-	access_list_delete_hook(NULL);
-	access_list_reset();
-
-	/* reverse mgmt_filter_init */
-	as_list_add_hook(NULL);
-	as_list_delete_hook(NULL);
-	mgmt_filter_reset();
-
-	/* reverse prefix_list_init */
-	prefix_list_add_hook(NULL);
-	prefix_list_delete_hook(NULL);
-	prefix_list_reset();
-
-	/* reverse community_list_init */
-	community_list_terminate(mgmt_clist);
-#endif
 	mgmt_vrf_terminate();
-#if 0
-#ifdef ENABLE_MGMTD_VNC
-	vnc_zebra_destroy();
-#endif
-	mgmt_zebra_destroy();
-
-	bf_free(mm->rd_idspace);
-	list_delete(&mm->mgmt);
-	list_delete(&mm->addresses);
-
-	mgmt_lp_finish();
-
-	memset(bm, 0, sizeof(*bm));
-#endif
 
 	frr_fini();
 	exit(status);
@@ -254,106 +183,28 @@ static __attribute__((__noreturn__)) void mgmt_exit(int status)
 
 static int mgmt_vrf_new(struct vrf *vrf)
 {
-	// if (MGMTD_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
+	zlog_debug("VRF Created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
 
 static int mgmt_vrf_delete(struct vrf *vrf)
 {
-	// if (MGMTD_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
+	zlog_debug("VRF Deletion: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
 
 static int mgmt_vrf_enable(struct vrf *vrf)
 {
-#if 0
-	struct mgmt *mgmt;
-	vrf_id_t old_vrf_id;
-
-	if (MGMTD_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF enable add %s id %u", vrf->name, vrf->vrf_id);
-
-	mgmt = mgmt_lookup_by_name(vrf->name);
-	if (mgmt && mgmt->vrf_id != vrf->vrf_id) {
-		if (mgmt->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_MGMTD, mgmt->name);
-			XFREE(MTYPE_MGMTD, mgmt->name_pretty);
-			mgmt->name_pretty = XSTRDUP(MTYPE_MGMTD, "VRF default");
-			mgmt->inst_type = MGMTD_INSTANCE_TYPE_DEFAULT;
-#ifdef ENABLE_MGMTD_VNC
-			if (!mgmt->rfapi) {
-				mgmt->rfapi = mgmt_rfapi_new(mgmt);
-				assert(mgmt->rfapi);
-				assert(mgmt->rfapi_cfg);
-			}
-#endif /* ENABLE_MGMTD_VNC */
-		}
-		old_vrf_id = mgmt->vrf_id;
-		/* We have instance configured, link to VRF and make it "up". */
-		mgmt_vrf_link(mgmt, vrf);
-
-		mgmt_handle_socket(mgmt, vrf, old_vrf_id, true);
-		/* Update any redistribution if vrf_id changed */
-		if (old_vrf_id != mgmt->vrf_id)
-			mgmt_redistribute_redo(mgmt);
-		mgmt_instance_up(mgmt);
-		vpn_leak_zebra_vrf_label_update(mgmt, AFI_IP);
-		vpn_leak_zebra_vrf_label_update(mgmt, AFI_IP6);
-		vpn_leak_postchange(MGMTD_VPN_POLICY_DIR_TOVPN, AFI_IP,
-				    mgmt_get_default(), mgmt);
-		vpn_leak_postchange(MGMTD_VPN_POLICY_DIR_FROMVPN, AFI_IP,
-				    mgmt_get_default(), mgmt);
-		vpn_leak_postchange(MGMTD_VPN_POLICY_DIR_TOVPN, AFI_IP6,
-				    mgmt_get_default(), mgmt);
-		vpn_leak_postchange(MGMTD_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
-				    mgmt_get_default(), mgmt);
-	}
-#endif
+	zlog_debug("VRF Enable: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
 
 static int mgmt_vrf_disable(struct vrf *vrf)
 {
-#if 0
-	struct mgmt *mgmt;
-	vrf_id_t old_vrf_id;
-
-	if (vrf->vrf_id == VRF_DEFAULT)
-		return 0;
-
-	if (MGMTD_DEBUG(zebra, ZEBRA))
-		zlog_debug("VRF disable %s id %d", vrf->name, vrf->vrf_id);
-
-	mgmt = mgmt_lookup_by_name(vrf->name);
-	if (mgmt) {
-
-		vpn_leak_zebra_vrf_label_withdraw(mgmt, AFI_IP);
-		vpn_leak_zebra_vrf_label_withdraw(mgmt, AFI_IP6);
-		vpn_leak_prechange(MGMTD_VPN_POLICY_DIR_TOVPN, AFI_IP,
-				   mgmt_get_default(), mgmt);
-		vpn_leak_prechange(MGMTD_VPN_POLICY_DIR_FROMVPN, AFI_IP,
-				   mgmt_get_default(), mgmt);
-		vpn_leak_prechange(MGMTD_VPN_POLICY_DIR_TOVPN, AFI_IP6,
-				   mgmt_get_default(), mgmt);
-		vpn_leak_prechange(MGMTD_VPN_POLICY_DIR_FROMVPN, AFI_IP6,
-				   mgmt_get_default(), mgmt);
-
-		old_vrf_id = mgmt->vrf_id;
-		mgmt_handle_socket(mgmt, vrf, VRF_UNKNOWN, false);
-		/* We have instance configured, unlink from VRF and make it
-		 * "down". */
-		mgmt_vrf_unlink(mgmt, vrf);
-		/* Delete any redistribute vrf bitmaps if the vrf_id changed */
-		if (old_vrf_id != mgmt->vrf_id)
-			mgmt_unset_redist_vrf_bitmaps(mgmt, old_vrf_id);
-		mgmt_instance_down(mgmt);
-	}
-#endif
+	zlog_debug("VRF Disable: %s(%u)", vrf->name, vrf->vrf_id);
 
 	/* Note: This is a callback, the VRF will be deleted by the caller. */
 	return 0;
@@ -361,25 +212,6 @@ static int mgmt_vrf_disable(struct vrf *vrf)
 
 static int mgmt_vrf_config_write(struct vty *vty)
 {
-#if 0
-	struct vrf *vrf;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_frame(vty, "vrf %s\n", vrf->name);
-
-		static_config(vty, vrf->info, AFI_IP,
-			      SAFI_UNICAST, "ip route");
-		static_config(vty, vrf->info, AFI_IP,
-			      SAFI_MULTICAST, "ip mroute");
-		static_config(vty, vrf->info, AFI_IP6,
-			      SAFI_UNICAST, "ipv6 route");
-
-		if (vrf->vrf_id != VRF_DEFAULT)
-			vty_endframe(vty, " exit-vrf\n!\n");
-	}
-#endif
-
 	return 0;
 }
 
@@ -422,30 +254,11 @@ FRR_DAEMON_INFO(mgmtd, MGMTD, .vty_port = MGMTD_VTY_PORT,
 int main(int argc, char **argv)
 {
 	int opt;
-	int tmp_port;
-
-	int mgmt_port = MGMTD_VTY_PORT;
-	struct list *addresses = list_new();
-	// int no_fib_flag = 0;
-	// int no_zebra_flag = 0;
-	// int skip_runas = 0;
-	// int instance = 0;
 	int buffer_size = MGMTD_SOCKET_BUF_SIZE;
-	// char *address;
-	// struct listnode *node;
-
-	addresses->cmp = (int (*)(void *, void *))strcmp;
 
 	frr_preinit(&mgmtd_di, argc, argv);
 	frr_opt_add(
-		"p:l:SnZe:I:s:" DEPRECATED_OPTIONS, longopts,
-		"  -p, --mgmt_port     Set MGMTD listen port number (0 means do not listen).\n"
-		"  -l, --listenon     Listen on specified address (implies -n)\n"
-		"  -n, --no_kernel    Do not install route to kernel.\n"
-		"  -Z, --no_zebra     Do not communicate with Zebra.\n"
-		"  -S, --skip_runas   Skip capabilities checks, and changing user and group IDs.\n"
-		"  -e, --ecmp         Specify ECMP to use.\n"
-		"  -I, --int_num      Set instance number (label-manager)\n"
+		"s:" DEPRECATED_OPTIONS, longopts,
 		"  -s, --socket_size  Set MGMTD peer socket send buffer size\n");
 
 	/* Command line argument treatment. */
@@ -465,53 +278,8 @@ int main(int argc, char **argv)
 		switch (opt) {
 		case 0:
 			break;
-		case 'p':
-			tmp_port = atoi(optarg);
-			if (tmp_port < 0 || tmp_port > 0xffff)
-				mgmt_port = MGMTD_VTY_PORT;
-			else
-				mgmt_port = tmp_port;
-			break;
-		case 'e': {
-#if 0
-			unsigned long int parsed_multipath =
-				strtoul(optarg, NULL, 10);
-			if (parsed_multipath == 0
-			    || parsed_multipath > MULTIPATH_NUM
-			    || parsed_multipath > UINT_MAX) {
-				flog_err(
-					EC_MGMTD_MULTIPATH,
-					"Multipath Number specified must be less than %u and greater than 0",
-					MULTIPATH_NUM);
-				return 1;
-			}
-			multipath_num = parsed_multipath;
-			break;
-#endif
-		}
-		case 'l':
-			listnode_add_sort_nodup(addresses, optarg);
-		/* listenon implies -n */
-		/* fallthru */
-#if 0
-		case 'n':
-			no_fib_flag = 1;
-			break;
-		case 'Z':
-			no_zebra_flag = 1;
-			break;
-		case 'S':
-			skip_runas = 1;
-			break;
-		case 'I':
-			instance = atoi(optarg);
-			if (instance > (unsigned short)-1)
-				zlog_err("Instance %i out of range (0..%u)",
-					 instance, (unsigned short)-1);
-			break;
-#endif
 		case 's':
-			// buffer_size = atoi(optarg);
+			buffer_size = atoi(optarg);
 			break;
 		default:
 			frr_help_exit(1);
@@ -519,60 +287,17 @@ int main(int argc, char **argv)
 		}
 	}
 
-#if 0
-	if (skip_runas)
-		memset(&mgmt_privs, 0, sizeof(mgmt_privs));
-#endif
-
 	/* MGMTD master init. */
-	mgmt_master_init(frr_init(), buffer_size, addresses);
+	mgmt_master_init(frr_init(), buffer_size);
 
-#if 0
-	mm->port = mgmt_port;
-	if (mgmt_port == 0)
-		mgmt_option_set(MGMTD_OPT_NO_LISTEN);
-	if (no_fib_flag || no_zebra_flag)
-		mgmt_option_set(MGMTD_OPT_NO_FIB);
-	if (no_zebra_flag)
-		mgmt_option_set(MGMTD_OPT_NO_ZEBRA);
-	mgmt_error_init();
-#endif
-
-	/* Initializations. */
+	/* VRF Initializations. */
 	mgmt_vrf_init();
-
-#if 0
-#ifdef HAVE_SCRIPTING
-	mgmt_script_init();
-#endif
-
-	hook_register(routing_conf_event,
-		      routing_control_plane_protocols_name_validate);
-
-#endif
 
 	/* MGMTD related initialization.  */
 	mgmt_init();
 
-#if 0
-	if (list_isempty(mm->addresses)) {
-		snprintf(mgmtd_di.startinfo, sizeof(mgmtd_di.startinfo),
-			 ", mgmt@<all>:%d", mm->port);
-	} else {
-		for (ALL_LIST_ELEMENTS_RO(mm->addresses, node, address))
-			snprintf(mgmtd_di.startinfo + strlen(mgmtd_di.startinfo),
-				 sizeof(mgmtd_di.startinfo)
-					 - strlen(mgmtd_di.startinfo),
-				 ", mgmt@%s:%d", address, mm->port);
-	}
-#endif
-
 	frr_config_fork();
 
-#if 0
-	/* must be called after fork() */
-	mgmt_gr_apply_running_config();
-#endif
 	mgmt_pthreads_run();
 
 	frr_run(mm->master);

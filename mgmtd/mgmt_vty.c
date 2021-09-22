@@ -128,12 +128,9 @@ int mgmt_apply_vty_nb_commands(struct vty *vty, const char *xpath_base_fmt,
 
 	// zlog_err("%s, cmd: '%s'", __func__, vty->buf);
 	// vty_out(vty, "MGMTD: Applying command '%s'\n", xpath_base);
-#if 0
-	return nb_cli_apply_changes(vty, xpath_base);
-#else
+
 	vty_mgmt_send_config_data(vty);
 	return 0;
-#endif
 }
 
 int mgmt_hndl_bknd_cmd(const struct cmd_element *cmd, struct vty *vty,

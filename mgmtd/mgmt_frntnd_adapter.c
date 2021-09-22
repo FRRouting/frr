@@ -906,22 +906,6 @@ static int mgmt_frntnd_session_handle_getcfg_req_msg(
 	}
 
 	if (sessn->trxn_id == MGMTD_TRXN_ID_NONE) {
-#if 0
-		/*
-		 * Check first if a CONFIG transaction is in progress or not. 
-		 * Report failure if a CONFIG transaction from a different session 
-		 * is already in progress.
-		 */
-		cfg_sessn_id = mgmt_config_trxn_in_progress();
-		if (cfg_sessn_id != MGMTD_SESSION_ID_NONE &&
-			cfg_sessn_id != (mgmt_session_id_t) sessn) {
-			mgmt_frntnd_send_getcfg_reply(sessn,
-				getcfg_req->db_id, getcfg_req->req_id, false, NULL,
-				"Configuration session currently in-progress through a different user session. Please try after sometime!");
-			goto mgmt_frntnd_session_handle_getcfg_req_failed;
-		}
-#endif
-
 		/*
 		 * Try taking read-lock on the requested DB (if not already locked).
 		 * If the DB has already been write-locked by a ongoing CONFIG transaction
@@ -1000,37 +984,7 @@ static int mgmt_frntnd_session_handle_getdata_req_msg(
 		return 0;
 	}
 
-#if 0
-	/*
-	 * Next check first if the SET_CONFIG_REQ is for Candidate DB 
-	 * or not. Report failure if its not. MGMTD currently only
-	 * supports editing the Candidate DB.
-	 */
-	if (getdata_req->db_id != MGMTD_DB_CANDIDATE &&
-		getdata_req->db_id != MGMTD_DB_RUNNING) {
-		mgmt_frntnd_send_getdata_reply(sessn,
-			getdata_req->db_id, getdata_req->req_id, false, NULL, 
-			"Get-Config on databases other than Candidate or Running DB not permitted!");
-		return 0;
-	}
-#endif
 	if (sessn->trxn_id == MGMTD_TRXN_ID_NONE) {
-#if 0
-		/*
-		 * Check first if a CONFIG transaction is in progress or not. 
-		 * Report failure if a CONFIG transaction from a different session 
-		 * is already in progress.
-		 */
-		cfg_sessn_id = mgmt_config_trxn_in_progress();
-		if (cfg_sessn_id != MGMTD_SESSION_ID_NONE &&
-			cfg_sessn_id != (mgmt_session_id_t) sessn) {
-			mgmt_frntnd_send_getdata_reply(sessn,
-				getdata_req->db_id, getdata_req->req_id, false, NULL,
-				"Configuration session currently in-progress through a different user session. Please try after sometime!");
-			goto mgmt_frntnd_session_handle_getdata_req_failed;
-		}
-#endif
-
 		/*
 		 * Try taking read-lock on the requested DB (if not already locked).
 		 * If the DB has already been write-locked by a ongoing CONFIG transaction

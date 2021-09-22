@@ -441,7 +441,7 @@ struct cmd_node {
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
-#define MGMTD_STR "Central Management Daemon (MGMTD) information\n"
+#define MGMTD_STR "Management Daemon (MGMTD) information\n"
 #define MGMTD_BCKND_ADPTR_STR "MGMTD Backend Adapter information\n"
 #define MGMTD_FRNTND_ADPTR_STR "MGMTD Frontend Adapter information\n"
 #define MGMTD_TRXN_STR "MGMTD Transaction information\n"

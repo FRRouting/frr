@@ -71,51 +71,6 @@ static int mgmt_bcknd_conn_accept(struct thread *thread)
 	set_nonblocking(client_conn_fd);
 	set_cloexec(client_conn_fd);
 
-#if 0
-	if (!sockunion2hostprefix(&su, &p)) {
-		close(client_conn_fd);
-		MGMTD_BCKND_SRVR_ERR("Unable to convert prefix from sockunion %pSU",
-			  &su);
-		return -1;
-	}
-
-	/* VTY's accesslist apply. */
-	if (p.family == AF_INET && vty_accesslist_name) {
-		if ((acl = access_list_lookup(AFI_IP, vty_accesslist_name))
-		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
-			zlog_info("Vty connection refused from %pSU", &su);
-			close(vty_sock);
-
-			/* continue accepting connections */
-			vty_event_serv(VTY_SERV, accept_sock);
-
-			return 0;
-		}
-	}
-
-	/* VTY's ipv6 accesslist apply. */
-	if (p.family == AF_INET6 && vty_ipv6_accesslist_name) {
-		if ((acl = access_list_lookup(AFI_IP6,
-					      vty_ipv6_accesslist_name))
-		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
-			zlog_info("Vty connection refused from %pSU", &su);
-			close(vty_sock);
-
-			/* continue accepting connections */
-			vty_event_serv(VTY_SERV, accept_sock);
-
-			return 0;
-		}
-	}
-
-	on = 1;
-	ret = setsockopt(client_conn_fd, IPPROTO_TCP, TCP_NODELAY,
-			 (char *)&on, sizeof(on));
-	if (ret < 0)
-		MGMTD_BCKND_SRVR_ERR("Can't set sockopt to server socket : %s",
-			  safe_strerror(errno));
-#endif
-
 	MGMTD_BCKND_SRVR_DBG("Got a new MGMTD Backend connection");
 
 	mgmt_bcknd_create_adapter(client_conn_fd, &su);

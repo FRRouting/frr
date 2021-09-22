@@ -1,4 +1,4 @@
-/* Centralised Management Daemon program
+/* FRR Management Daemon (MGMTD) program
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar
  *
@@ -81,11 +81,8 @@ time_t mgmt_clock(void)
 	return tv.tv_sec;
 }
 
-void mgmt_master_init(struct thread_master *master, const int buffer_size,
-		      struct list *addresses)
+void mgmt_master_init(struct thread_master *master, const int buffer_size)
 {
-	qobj_init();
-
 	memset(&mgmt_master, 0, sizeof(struct mgmt_master));
 
 	mm = &mgmt_master;
@@ -159,40 +156,6 @@ void mgmt_init(void)
 
 void mgmt_terminate(void)
 {
-#if 0
-	struct mgmt *mgmt;
-	struct peer *peer;
-	struct listnode *node, *nnode;
-	struct listnode *mnode, *mnnode;
-
-	QOBJ_UNREG(bm);
-
-	/* Close the listener sockets first as this prevents peers from
-	 * attempting
-	 * to reconnect on receiving the peer unconfig message. In the presence
-	 * of a large number of peers this will ensure that no peer is left with
-	 * a dangling connection
-	 */
-	/* reverse mgmt_master_init */
-	mgmt_close();
-
-	if (mm->listen_sockets)
-		list_delete(&mm->listen_sockets);
-
-	for (ALL_LIST_ELEMENTS(mm->mgmt, mnode, mnnode, mgmt))
-		for (ALL_LIST_ELEMENTS(mgmt->peer, node, nnode, peer))
-			if (peer->status == Established
-			    || peer->status == OpenSent
-			    || peer->status == OpenConfirm)
-				mgmt_notify_send(peer, MGMTD_NOTIFY_CEASE,
-						MGMTD_NOTIFY_CEASE_PEER_UNCONFIG);
-
-	if (mm->t_rmap_update)
-		MGMTD_TIMER_OFF(mm->t_rmap_update);
-
-	mgmt_mac_finish();
-#endif
-
 	mgmt_bcknd_server_destroy();
 	mgmt_db_destroy();
 }
