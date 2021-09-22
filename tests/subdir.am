@@ -98,6 +98,7 @@ check_PROGRAMS = \
 	tests/lib/test_segv \
 	tests/lib/test_seqlock \
 	tests/lib/test_sig \
+	tests/lib/test_skiplist \
 	tests/lib/test_stream \
 	tests/lib/test_table \
 	tests/lib/test_timer_correctness \
@@ -366,6 +367,10 @@ tests_lib_test_sig_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_sig_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_sig_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_sig_SOURCES = tests/lib/test_sig.c
+tests_lib_test_skiplist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_skiplist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_skiplist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_skiplist_SOURCES = tests/lib/test_skiplist.c
 tests_lib_test_srcdest_table_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_srcdest_table_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_srcdest_table_LDADD = $(ALL_TESTS_LDADD)
