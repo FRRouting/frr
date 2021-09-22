@@ -1292,11 +1292,22 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	ifp = if_lookup_by_index_per_ns(zns, ifa->ifa_index);
 	if (ifp == NULL) {
-		flog_err(
-			EC_LIB_INTERFACE,
-			"netlink_interface_addr can't find interface by index %d",
-			ifa->ifa_index);
-		return -1;
+		if (startup) {
+			/* During startup, failure to lookup the referenced
+			 * interface should not be an error, so we have
+			 * downgraded this condition to warning, and we permit
+			 * the startup interface state retrieval to continue.
+			 */
+			flog_warn(EC_LIB_INTERFACE,
+				  "%s: can't find interface by index %d",
+				  __func__, ifa->ifa_index);
+			return 0;
+		} else {
+			flog_err(EC_LIB_INTERFACE,
+				 "%s: can't find interface by index %d",
+				 __func__, ifa->ifa_index);
+			return -1;
+		}
 	}
 
 	/* Flags passed through */
