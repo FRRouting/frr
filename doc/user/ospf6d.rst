@@ -317,7 +317,7 @@ Graceful Restart
    To perform a graceful shutdown, the "graceful-restart prepare ipv6 ospf"
    EXEC-level command needs to be issued before restarting the ospf6d daemon.
 
-.. clicmd:: graceful-restart helper-only [A.B.C.D]
+.. clicmd:: graceful-restart helper enable [A.B.C.D]
 
 
    Configure Graceful Restart (RFC 5187) helper support.
