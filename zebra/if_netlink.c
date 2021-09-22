@@ -1103,16 +1103,6 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 
-	/* Get interface information - for bridge interfaces. */
-	ret = netlink_request_intf_addr(netlink_cmd, AF_BRIDGE, RTM_GETLINK,
-					RTEXT_FILTER_BRVLAN);
-	if (ret < 0)
-		return ret;
-	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
-				 0);
-	if (ret < 0)
-		return ret;
-
 	/* fixup linkages */
 	zebra_if_update_all_links(zns);
 	return 0;
