@@ -339,6 +339,12 @@ Files: tests/helpers/python/frrsix.py
 License: MIT
 Copyright: Copyright (c) 2010-2017 Benjamin Peterson
 
+Files: pbrd/pbr_map.c pbrd/pbr_vty.c zebra/rule_netlink.c zebra/zebra_dplane.*
+License: MIT
+Copyright:
+   Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+   Approved for Public Release; Distribution Unlimited 21-1402
+
 License: GPL-2+
  This program is free software; you can redistribute it and/or modify
  it under the terms of the GNU General Public License as published by
