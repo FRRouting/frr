@@ -147,8 +147,8 @@ man_MANS =
 vtysh_scan =
 vtysh_daemons =
 clippy_scan =
-cmgd_daemons =
-cmgd_scan = 
+mgmtd_daemons =
+mgmtd_scan = 
 
 ## libtool, the self-made GNU scourge
 ## ... this should fix relinking
@@ -190,7 +190,7 @@ include fpm/subdir.am
 include grpc/subdir.am
 include tools/subdir.am
 
-include cmgd/subdir.am
+include mgmtd/subdir.am
 
 include bgpd/subdir.am
 include bgpd/rfp-example/librfp/subdir.am
@@ -230,7 +230,7 @@ rc_SCRIPTS = \
 	pkgsrc/ripd.sh \
 	pkgsrc/ripngd.sh \
 	pkgsrc/zebra.sh \
-	pkgsrc/cmgd.sh \
+	pkgsrc/mgmtd.sh \
 	# end
 endif
 
@@ -267,7 +267,7 @@ EXTRA_DIST += \
 	snapcraft/helpers \
 	snapcraft/snap \
 	babeld/Makefile \
-	cmgd/Makefile
+	mgmtd/Makefile
 	bgpd/Makefile \
 	bgpd/rfp-example/librfp/Makefile \
 	bgpd/rfp-example/rfptest/Makefile \
@@ -345,7 +345,7 @@ redistclean:
 	$(MAKE) distclean CONFIG_CLEAN_FILES="$(filter-out $(EXTRA_DIST), $(CONFIG_CLEAN_FILES))"
 
 indent:
-	tools/indent.py `find sharpd bgpd cmgd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
+	tools/indent.py `find sharpd bgpd mgmtd eigrpd include isisd lib nhrpd ospf6d ospfd pimd qpb ripd vtysh zebra -name '*.[ch]' | grep -v include/linux`
 
 if HAVE_GCOV
 

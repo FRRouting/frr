@@ -67,8 +67,8 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
-	lib/cmgd_bcknd_client.c \
-	lib/cmgd_frntnd_client.c \
+	lib/mgmt_bcknd_client.c \
+	lib/mgmt_frntnd_client.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
@@ -135,21 +135,21 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-nexthop.yang.c \
 	# end
 
-# Add logic to build cmgd.proto
+# Add logic to build mgmt.proto
 lib_libfrr_la_LIBADD += $(PROTOBUF_C_LIBS)
 
 BUILT_SOURCES += \
-	lib/cmgd.pb-c.c \
-	lib/cmgd.pb-c.h \
+	lib/mgmt.pb-c.c \
+	lib/mgmt.pb-c.h \
 	# end
 
 CLEANFILES += \
-	lib/cmgd.pb-c.h \
-	lib/cmgd.pb-c.c \
+	lib/mgmt.pb-c.h \
+	lib/mgmt.pb-c.c \
 	# end
 
 lib_libfrr_la_SOURCES += \
-	lib/cmgd.pb-c.c \
+	lib/mgmt.pb-c.c \
 	#end
 
 vtysh_scan += \
@@ -198,8 +198,8 @@ pkginclude_HEADERS += \
 	lib/buffer.h \
 	lib/checksum.h \
 	lib/mlag.h \
-	lib/cmgd_bcknd_client.h \
-	lib/cmgd_frntnd_client.h \
+	lib/mgmt_bcknd_client.h \
+	lib/mgmt_frntnd_client.h \
 	lib/command.h \
 	lib/command_graph.h \
 	lib/command_match.h \

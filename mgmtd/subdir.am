@@ -1,0 +1,102 @@
+#
+# mgmtd -- Mangagement Daemon
+#
+
+# dist_examples_DATA += \
+	# end
+vtysh_scan += \
+	mgmtd/mgmt_vty.c \
+	# endif
+
+vtysh_daemons += mgmtd
+
+# man8 += $(MANBUILD)/frr-mgmtd.8
+# endif
+
+# EXTRA_DIST += mgmtd/mgmt_daemons.pl
+# BUILT_SOURCES += mgmtd/mgmt_daemons.h
+
+# force mgmt_daemons.h
+# $(mgmtd_mgmtd_OBJECTS): mgmtd/mgmt_daemons.h mgmtd/mgmt_bcknd_cmd.c
+# CLEANFILES += mgmtd/mgmt_daemons.h mgmtd/mgmt_bcknd_cmd.c
+$(mgmtd_mgmtd_OBJECTS): yang/frr-staticd.yang.c
+CLEANFILES += yang/frr-staticd.yang.c
+
+mgmtd/mgmt_daemons.h:
+	$(PERL) $(top_srcdir)/mgmtd/mgmt_daemons.pl $(mgmt_daemons) > mgmtd/mgmt_daemons.h
+	
+AM_MGMTD_EXTRACT = $(am__mgmt_EXTRACT_$(V))
+am__mgmt_EXTRACT_ = $(am__mgmt_EXTRACT_$(AM_DEFAULT_VERBOSITY))
+am__mgmt_EXTRACT_0 = @echo "  EXTRACT " $@;
+am__mgmt_EXTRACT_1 =
+
+# if ISISD
+# MGMTD_HAVE_ISISD = --have-isisd
+# else
+# MGMTD_HAVE_ISISD =
+# endif
+
+# if FABRICD
+# MGMTD_HAVE_FABRICD = --have-fabricd
+# else
+# MGMTD_HAVE_FABRICD =
+# endif
+
+clippy_scan += \
+	mgmtd/mgmt_vty.c \
+	# end
+
+# nodist_mgmt_mgmt_SOURCES = \
+#	yang/frr-staticd.yang.c \
+#	# end
+
+lib_LTLIBRARIES += mgmtd/libmgmt_bcknd_nb.la
+nodist_mgmtd_libmgmt_bcknd_nb_la_SOURCES = \
+	yang/frr-staticd.yang.c \
+	staticd/static_vty.c \
+	staticd/static_nb.c \
+	staticd/static_nb_config.c \
+	# end
+mgmtd_libmgmt_bcknd_nb_la_CFLAGS = $(AM_CFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY -DINCLUDE_MGMTD_VALIDATE_ONLY
+mgmtd_libmgmt_bcknd_nb_la_CPPFLAGS = $(AM_CPPFLAGS) -DINCLUDE_MGMTD_CMDDEFS_ONLY -DINCLUDE_MGMTD_VALIDATE_ONLY
+mgmtd_libmgmt_bcknd_nb_la_LDFLAGS = -version-info 0:0:0
+mgmtd_libmgmt_bcknd_nb_la_LIBADD = lib/libfrr.la
+
+noinst_LIBRARIES += mgmtd/libmgmtd.a
+mgmtd_libmgmtd_a_SOURCES = \
+	mgmtd/mgmt.c \
+	mgmtd/mgmt_memory.c \
+	mgmtd/mgmt_vty.c \
+	mgmtd/mgmt_bcknd_server.c \
+	mgmtd/mgmt_bcknd_adapter.c \
+	mgmtd/mgmt_frntnd_server.c \
+	mgmtd/mgmt_frntnd_adapter.c \
+	mgmtd/mgmt_trxn.c \
+	mgmtd/mgmt_db.c \
+	# end
+
+noinst_HEADERS += \
+	mgmtd/mgmt.h \
+	mgmtd/mgmt_memory.h \
+	mgmtd/mgmt_bcknd_adapter.h \
+	mgmtd/mgmt_bcknd_server.h \
+	mgmtd/mgmt_frntnd_adapter.h \
+	mgmtd/mgmt_frntnd_server.h \
+	mgmtd/mgmt_trxn.h \
+	# end
+
+sbin_PROGRAMS += mgmtd/mgmtd mgmtd/mgmt_test_frntnd
+
+mgmtd_mgmtd_SOURCES = \
+	mgmtd/mgmt_main.c \
+	# end
+mgmtd_mgmtd_CFLAGS = $(AM_CFLAGS) -I ./
+mgmtd_mgmtd_LDADD = mgmtd/libmgmtd.a lib/libfrr.la $(LIBCAP) $(LIBM) $(LIBYANG_LIBS) $(UST_LIBS)
+mgmtd_mgmtd_LDADD += mgmtd/libmgmt_bcknd_nb.la
+
+mgmtd_mgmt_test_frntnd_SOURCES = \
+	mgmtd/mgmt_test_frntnd.c \
+	# end
+mgmtd_mgmt_test_frntnd_CFLAGS = $(AM_CFLAGS)
+mgmtd_mgmt_test_frntnd_LDADD = lib/libfrr.la $(LIBCAP) $(LIBM) $(UST_LIBS)
+

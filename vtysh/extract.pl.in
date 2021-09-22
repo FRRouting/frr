@@ -154,13 +154,13 @@ sub scan_file {
 
         if ($yang) {
             # 
-            # CMGD-NOTE: Slowly bit-by-bit we will move all components and 
-            # their command handling to CMGD daemon. For now following 
-            # component commands will be handled by the new CMGD daemon.
+            # MGMTD-NOTE: Slowly bit-by-bit we will move all components and 
+            # their command handling to MGMTD daemon. For now following 
+            # component commands will be handled by the new MGMTD daemon.
             #
             if ($protocol =~ /VTYSH_STATICD$/) {
-                # Move all Static YANG commands to new CMGD daemon
-                $protocol = "VTYSH_CMGD";
+                # Move all Static YANG commands to new MGMTD daemon
+                $protocol = "VTYSH_MGMTD";
             }
         }
 

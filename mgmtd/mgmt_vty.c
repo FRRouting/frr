@@ -1,0 +1,829 @@
+/*
+ * MGMTD VTY Interface
+ * Copyright (C) 2021  Vmware, Inc.
+ *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ *
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the Free
+ * Software Foundation; either version 2 of the License, or (at your option)
+ * any later version.
+ *
+ * This program is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+ * more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; see the file COPYING; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+#include <zebra.h>
+
+#include "command.h"
+#include "lib/json.h"
+#include "lib_errors.h"
+#include "lib/libfrr.h"
+#include "lib/zclient.h"
+#include "prefix.h"
+#include "plist.h"
+#include "buffer.h"
+#include "linklist.h"
+#include "stream.h"
+#include "thread.h"
+#include "log.h"
+#include "memory.h"
+#include "lib_vty.h"
+#include "hash.h"
+#include "queue.h"
+#include "filter.h"
+#include "frrstr.h"
+
+#define INCLUDE_MGMTD_CMDDEFS_ONLY
+
+#include "lib/command.h"
+#include "mgmtd/mgmt.h"
+#include "mgmtd/mgmt_vty.h"
+#include "mgmtd/mgmt_bcknd_server.h"
+#include "mgmtd/mgmt_bcknd_adapter.h"
+#include "mgmtd/mgmt_frntnd_server.h"
+#include "mgmtd/mgmt_frntnd_adapter.h"
+#include "mgmtd/mgmt_db.h"
+
+#ifndef VTYSH_EXTRACT_PL
+#include "mgmtd/mgmt_vty_clippy.c"
+#endif
+
+
+/* 
+ * Declare prototypes for command initialization routines defined by
+ * backend components that have been moved to new MGMTD infra here 
+ * one by one.
+ */
+extern void static_vty_init(void);
+
+/*
+ * mgmt_enqueue_nb_command
+ *
+ * Add a config command from VTYSH for further processing. 
+ * 
+ * NOTE: This function is ALWAYS called from one of the
+ * command handlers installed on MGMTD daemon that is invoked
+ * by lib/vty.c on receiving a command from VTYSH.
+ */
+void mgmt_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
+				enum nb_operation operation,
+				const char *value)
+{
+	switch (operation) {
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+	case NB_OP_DESTROY:
+	case NB_OP_MOVE:
+	case NB_OP_PRE_VALIDATE:
+		/* Process on MGMTD daemon itself */
+		// zlog_err("%s, cmd: '%s', '%s' xpath: '%s' ==> '%s'",
+		// 	__func__, vty->buf, nb_operation_name(operation),
+		// 	xpath, value ? value : "Nil");
+		// vty_out(vty, "MGMTD: Equeued XPATH '%s' ==> '%s'\n", xpath,
+		// 	value ? value : "Nil");
+		nb_cli_enqueue_change(vty, xpath, operation, value);
+		break;
+	case NB_OP_APPLY_FINISH:
+	case NB_OP_GET_ELEM:
+	case NB_OP_GET_NEXT:
+	case NB_OP_GET_KEYS:
+		/* To be sent to backend for processing */
+		break;
+	case NB_OP_LOOKUP_ENTRY:
+	case NB_OP_RPC:
+	default:
+		break;
+	}
+}
+
+/*
+ * mgmt_apply_nb_commands
+ *
+ * Apply all config command enqueued from VTYSH so far for further
+ * processing. 
+ * 
+ * NOTE: This function is ALWAYS called from one of the
+ * command handlers installed on MGMTD daemon that is invoked
+ * by lib/vty.c on receiving a command from VTYSH.
+ */
+int mgmt_apply_vty_nb_commands(struct vty *vty, const char *xpath_base_fmt,
+				...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+
+	// zlog_err("%s, cmd: '%s'", __func__, vty->buf);
+	// vty_out(vty, "MGMTD: Applying command '%s'\n", xpath_base);
+#if 0
+	return nb_cli_apply_changes(vty, xpath_base);
+#else
+	vty_mgmt_send_config_data(vty);
+	return 0;
+#endif
+}
+
+int mgmt_hndl_bknd_cmd(const struct cmd_element *cmd, struct vty *vty,
+			int argc, struct cmd_token *argv[])
+{
+	vty_out(vty, "%s: %s, got the command '%s'\n", 
+		frr_get_progname(), __func__, vty->buf);
+	zlog_err("%s: %s, got the command '%s'", 
+		frr_get_progname(), __func__, vty->buf);
+	return 0;
+}
+
+DEFPY(show_mgmt_bcknd_adapter,
+	show_mgmt_bcknd_adapter_cmd,
+	"show mgmt backend-adapter all",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_BCKND_ADPTR_STR
+	"Display all Backend Adapters\n")
+{
+	mgmt_bcknd_adapter_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_bcknd_xpath_reg,
+	show_mgmt_bcknd_xpath_reg_cmd,
+	"show mgmt backend-yang-xpath-registry",
+	SHOW_STR
+	MGMTD_STR
+	"Backend Adapter YANG Xpath Registry\n")
+{
+	mgmt_bcknd_xpath_register_write(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_frntnd_adapter,
+	show_mgmt_frntnd_adapter_cmd,
+	"show mgmt frontend-adapter all",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_FRNTND_ADPTR_STR
+	"Display all Frontend Adapters\n")
+{
+	mgmt_frntnd_adapter_status_write(vty, false);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_frntnd_adapter_detail,
+	show_mgmt_frntnd_adapter_detail_cmd,
+	"show mgmt frontend-adapter all detail",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_FRNTND_ADPTR_STR
+	"Display all Frontend Adapters\n"
+	"Details of commit stats\n")
+{
+	mgmt_frntnd_adapter_status_write(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(mgmt_performance_measurement,
+	mgmt_performance_measurement_cmd,
+	"[no] mgmt performance-measurement",
+	NO_STR
+	MGMTD_STR
+	"Enable performance measurement\n")
+{
+	if (no)
+		mgmt_frntnd_adapter_perf_measurement(vty, false);
+	else
+		mgmt_frntnd_adapter_perf_measurement(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_reset_performance_stats,
+	mgmt_reset_performance_stats_cmd,
+	"mgmt reset-statistics",
+	MGMTD_STR
+	"Reset the Performance measurement statistics\n")
+{
+	mgmt_frntnd_adapter_reset_perf_stats(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_trxn,
+	show_mgmt_trxn_cmd,
+	"show mgmt transaction all",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_TRXN_STR
+	"Display all Transactions\n")
+{
+	mgmt_trxn_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_db_all,
+	show_mgmt_db_all_cmd,
+	"show mgmt database all",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_TRXN_STR
+	"Display all Databases\n")
+{
+	mgmt_db_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_db_runn,
+	show_mgmt_db_runn_cmd,
+	"show mgmt database running",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_TRXN_STR
+	"Display Running Database\n")
+{
+	mgmt_db_hndl_t db_hndl;
+
+	db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_RUNNING);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access running database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	mgmt_db_status_write_one(vty, db_hndl);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_db_cand,
+	show_mgmt_db_cand_cmd,
+	"show mgmt database candidate",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_DB_STR
+	"Display Candidate Database\n")
+{
+	mgmt_db_hndl_t db_hndl;
+
+	db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_CANDIDATE);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access candidate database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	mgmt_db_status_write_one(vty, db_hndl);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_db_oper,
+	show_mgmt_db_oper_cmd,
+	"show mgmt database operational",
+	SHOW_STR
+	MGMTD_STR
+	MGMTD_DB_STR
+	"Display Operational Database\n")
+{
+	mgmt_db_hndl_t db_hndl;
+
+	db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_OPERATIONAL);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access operational database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	mgmt_db_status_write_one(vty, db_hndl);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_commit_apply,
+      mgmt_commit_apply_cmd,
+      "mgmt commit-apply",
+      MGMTD_STR
+      "Validate and apply the set of config commands\n")
+{
+	if (vty_mgmt_send_commit_config(vty, false, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_commit_check,
+      mgmt_commit_check_cmd,
+      "mgmt commit-check",
+      MGMTD_STR
+      "Validate the set of config commands only\n")
+{
+	if (vty_mgmt_send_commit_config(vty, true, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_commit_abort,
+      mgmt_commit_abort_cmd,
+      "mgmt commit-abort",
+      MGMTD_STR
+      "Abort and drop the set of config commands recently added\n")
+{
+	if (vty_mgmt_send_commit_config(vty, false, true) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_set_config_data,
+      mgmt_set_config_data_cmd,
+      "mgmt set-config xpath WORD$path value WORD$val",
+      MGMTD_STR
+      "Set configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n"
+      "Value of the data to set to\n"
+      "<value of the data>\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = val;
+	vty->cfg_changes[0].operation = NB_OP_CREATE;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_delete_config_data,
+      mgmt_delete_config_data_cmd,
+      "mgmt delete-config xpath WORD$path",
+      MGMTD_STR
+      "Delete configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = NULL;
+	vty->cfg_changes[0].operation = NB_OP_DESTROY;
+	vty->num_cfg_changes = 1;
+
+	vty_mgmt_send_config_data(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_get_config,
+	  show_mgmt_get_config_cmd,
+	  "show mgmt get-config [db-name WORD$dbname] xpath WORD$path",
+	  SHOW_STR
+	  MGMTD_STR
+	  "Get configuration data from a specific configuration database\n"
+	  "DB name\n"
+	  "<candidate running operational>\n"
+	  "XPath expression specifying the YANG data path\n"
+	  "XPath string\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	mgmt_database_id_t database = MGMTD_DB_CANDIDATE;
+
+	if (dbname)
+		database = mgmt_db_name2id(dbname);
+
+	if (database == MGMTD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	xpath_list[0] = path;
+	vty_mgmt_send_get_data(vty, database, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_get_data,
+	  show_mgmt_get_data_cmd,
+	  "show mgmt get-data [db-name WORD$dbname] xpath WORD$path",
+	  SHOW_STR
+	  MGMTD_STR
+	  "Get data from a specific database\n"
+	  "DB name\n"
+	  "<candidate running operational>\n"
+	  "XPath expression specifying the YANG data path\n"
+	  "XPath string\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	mgmt_database_id_t database = MGMTD_DB_CANDIDATE;
+
+	if (dbname)
+		database = mgmt_db_name2id(dbname);
+
+	if (database == MGMTD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	xpath_list[0] = path;
+	vty_mgmt_send_get_data(vty, database, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_dump_data,
+      show_mgmt_dump_data_cmd,
+      "show mgmt database-contents db-name WORD$dbname [xpath WORD$path] [file WORD$filepath] format WORD$format_str",
+      SHOW_STR
+      MGMTD_STR
+      "Get Database Contenents from a specific database\n"
+      "DB name\n"
+      "<candidate | running | operational>\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n"
+      "Dump the contents to a file\n"
+      "Full path of the file\n"
+      "Format of the output\n"
+      "JSON|XML")
+{
+	mgmt_database_id_t database = MGMTD_DB_CANDIDATE;
+	mgmt_db_hndl_t db_hndl;
+	LYD_FORMAT format = LYD_UNKNOWN;
+	FILE *f = NULL;
+
+	database = mgmt_db_name2id(dbname);
+
+	if (database == MGMTD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	db_hndl = mgmt_db_get_hndl_by_id(mm, database);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	if (filepath) {
+		f = fopen(filepath, "w");
+		if (!f) {
+			vty_out(vty, "Could not open file pointed by filepath %s\n",
+				filepath);
+			return CMD_SUCCESS;
+		}
+	}
+
+	format = mgmt_str2format(format_str);
+	if (format == LYD_UNKNOWN) {
+		vty_out(vty, "String Format %s does not matches existing format\n",
+			format_str);
+		return CMD_SUCCESS;
+	}
+
+	mgmt_db_dump_tree(vty, db_hndl, path, f, format);
+
+	if (f)
+		fclose(f);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_map_xpath,
+	  show_mgmt_map_xpath_cmd,
+	  "show mgmt yang-xpath-subscription WORD$path",
+	  SHOW_STR
+	  MGMTD_STR
+	  "Get YANG Backend Subscription\n"
+	  "XPath expression specifying the YANG data path\n")
+{
+	mgmt_bcknd_xpath_subscr_info_write(vty, path);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_load_config,
+      mgmt_load_config_cmd,
+      "mgmt load-config file WORD$filepath <merge|replace>",
+      MGMTD_STR
+      "Load configuration onto Candidate Database\n"
+      "Read the configuration from a file\n"
+      "Full path of the file\n"
+      "Merge configuration with contents of Candidate Database\n"
+      "Replace the existing contents of Candidate database")
+{
+	bool merge = false;
+	int idx_merge = 4;
+	int ret;
+	mgmt_db_hndl_t db_hndl;
+
+	db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_CANDIDATE);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access Candidate database!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	if (strncmp(argv[idx_merge]->arg, "merge", sizeof("merge")) == 0)
+		merge = true;
+	else if (strncmp(argv[idx_merge]->arg, "replace", sizeof("replace")) == 0)
+		merge = false;
+	else {
+		vty_out(vty, "Chosen option: %s not valid\n", argv[idx_merge]->arg);
+		return CMD_SUCCESS;
+	}
+
+	ret = mgmt_db_load_config_from_file(db_hndl, filepath, merge);
+	if (ret != 0)
+		vty_out(vty, "Error with parsing the file with error code %d\n", ret);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_save_config,
+      mgmt_save_config_cmd,
+      "mgmt save-config db-name WORD$dbname file WORD$filepath",
+      MGMTD_STR
+      "Save configuration from database\n"
+      "Name of the database\n"
+      "<candidate|running>"
+      "Write the configuration to a file\n"
+      "Full path of the file")
+{
+	mgmt_db_hndl_t db_hndl;
+	mgmt_database_id_t database;
+	FILE *f;
+
+	database = mgmt_db_name2id(dbname);
+
+	if (database == MGMTD_DB_NONE) {
+		vty_out(vty, "DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	if (database != MGMTD_DB_CANDIDATE &&
+		database != MGMTD_DB_RUNNING) {
+		vty_out(vty, "DB Name %s is not a configuration database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	db_hndl = mgmt_db_get_hndl_by_id(mm, database);
+	if (!db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access the '%s' database!\n",
+			dbname);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	if (!filepath) {
+		vty_out(vty, "ERROR: No file path mentioned!\n");
+		return CMD_ERR_NO_MATCH;
+	}
+
+	f = fopen(filepath, "w");
+	if (!f) {
+		vty_out(vty, "Could not open file pointed by filepath %s\n",
+			filepath);
+		return CMD_SUCCESS;
+	}
+
+	mgmt_db_dump_tree(vty, db_hndl, "/", f, LYD_JSON);
+
+	fclose(f);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_lock_db_candidate,
+      mgmt_lock_db_cand_cmd,
+      "mgmt lock-database candidate",
+      MGMTD_STR
+      "Lock the database\n"
+      "Candidate database\n")
+{
+	if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, true) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_unlock_db_candidate,
+      mgmt_unlock_db_cand_cmd,
+      "mgmt unlock-database candidate",
+      MGMTD_STR
+      "Unlock the database\n"
+      "Candidate database\n")
+{
+	if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_cmt_hist,
+      show_mgmt_cmt_hist_cmd,
+      "show mgmt commit-history",
+      SHOW_STR
+      MGMTD_STR
+      "Show commit history\n")
+{
+	show_mgmt_cmt_history(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_rollback,
+      mgmt_rollback_cmd,
+      "mgmt rollback <commit-id WORD$commit | last [(1-10)]$last>",
+      MGMTD_STR
+      "Rollback commits\n"
+      "Rollback to commit ID\n"
+      "Commit-ID\n"
+      "Rollbak n commits\n"
+      "Number of commits\n")
+{
+	if (commit)
+		mgmt_db_rollback_by_cmtid(vty, commit);
+	else
+		mgmt_db_rollback_commits(vty, last);
+
+	return CMD_SUCCESS;
+}
+
+static int config_write_mgmt_debug(struct vty *vty);
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_mgmt_debug,
+};
+
+static int config_write_mgmt_debug(struct vty *vty)
+{
+	if (mgmt_debug_bcknd && mgmt_debug_frntnd && mgmt_debug_db && 
+		mgmt_debug_trxn) {
+		vty_out(vty, "debug mgmt all\n");
+		return 0;
+	}
+	if (mgmt_debug_bcknd)
+		vty_out(vty, "debug mgmt backend\n");
+	if (mgmt_debug_frntnd)
+		vty_out(vty, "debug mgmt frontend\n");
+	if (mgmt_debug_db)
+		vty_out(vty, "debug mgmt database\n");
+	if (mgmt_debug_trxn)
+		vty_out(vty, "debug mgmt transaction\n");
+
+	return 0;
+}
+
+
+DEFPY(debug_mgmt_bcknd,
+      debug_mgmt_bcknd_cmd,
+      "[no$no] debug mgmt backend",
+      NO_STR
+      DEBUG_STR
+      MGMTD_STR
+      "Debug Backend Fucntionality")
+{
+	if (no)
+		mgmt_debug_bcknd = false;
+	else
+		mgmt_debug_bcknd = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_mgmt_frntnd,
+      debug_mgmt_frntnd_cmd,
+      "[no$no] debug mgmt frontend",
+      NO_STR
+      DEBUG_STR
+      MGMTD_STR
+      "Debug Frontend Fucntionality")
+{
+	if (no)
+		mgmt_debug_frntnd = false;
+	else
+		mgmt_debug_frntnd = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_mgmt_db,
+      debug_mgmt_db_cmd,
+      "[no$no] debug mgmt database",
+      NO_STR
+      DEBUG_STR
+      MGMTD_STR
+      "Debug Database Fucntionality")
+{
+	if (no)
+		mgmt_debug_db = false;
+	else
+		mgmt_debug_db = true;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(debug_mgmt_trxn,
+      debug_mgmt_trxn_cmd,
+      "[no$no] debug mgmt transaction",
+      NO_STR
+      DEBUG_STR
+      MGMTD_STR
+      "Debug Transaction Fucntionality")
+{
+	if (no)
+		mgmt_debug_trxn = false;
+	else
+		mgmt_debug_trxn = true;
+
+	return CMD_SUCCESS;
+}
+DEFPY(debug_mgmt_all,
+      debug_mgmt_all_cmd,
+      "[no$no] debug mgmt all",
+      NO_STR
+      DEBUG_STR
+      MGMTD_STR
+      "Debug All Fucntionality")
+{
+	if (no) {
+		mgmt_debug_bcknd = false;
+		mgmt_debug_frntnd = false;
+		mgmt_debug_db = false;
+		mgmt_debug_trxn = false;
+	} else {
+		mgmt_debug_bcknd = true;
+		mgmt_debug_frntnd = true;
+		mgmt_debug_db = true;
+		mgmt_debug_trxn = true;
+	}
+
+	return CMD_SUCCESS;
+}
+
+void mgmt_vty_init(void)
+{
+	/* 
+	 * Initialize command handling from VTYSH connection. 
+	 * Call command initialization routines defined by
+	 * backend components that are moved new MGMTD infra
+	 * here one by one.
+	 */
+	static_vty_init();
+
+	install_node(&debug_node);
+
+	install_element(VIEW_NODE, &show_mgmt_bcknd_adapter_cmd);
+	install_element(VIEW_NODE, &show_mgmt_bcknd_xpath_reg_cmd);
+	install_element(VIEW_NODE, &show_mgmt_frntnd_adapter_cmd);
+	install_element(VIEW_NODE, &show_mgmt_frntnd_adapter_detail_cmd);
+	install_element(VIEW_NODE, &show_mgmt_trxn_cmd);
+	install_element(VIEW_NODE, &show_mgmt_db_all_cmd);
+	install_element(VIEW_NODE, &show_mgmt_db_runn_cmd);
+	install_element(VIEW_NODE, &show_mgmt_db_cand_cmd);
+	install_element(VIEW_NODE, &show_mgmt_db_oper_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
+	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
+	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
+	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);
+
+	install_element(CONFIG_NODE, &mgmt_commit_apply_cmd);
+	install_element(CONFIG_NODE, &mgmt_commit_abort_cmd);
+	install_element(CONFIG_NODE, &mgmt_commit_check_cmd);
+	install_element(CONFIG_NODE, &mgmt_lock_db_cand_cmd);
+	install_element(CONFIG_NODE, &mgmt_unlock_db_cand_cmd);
+	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
+	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
+	install_element(CONFIG_NODE, &mgmt_rollback_cmd);
+
+	install_element(VIEW_NODE, &debug_mgmt_bcknd_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_bcknd_cmd);
+	install_element(VIEW_NODE, &debug_mgmt_frntnd_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_frntnd_cmd);
+	install_element(VIEW_NODE, &debug_mgmt_db_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_db_cmd);
+	install_element(VIEW_NODE, &debug_mgmt_trxn_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_trxn_cmd);
+	install_element(VIEW_NODE, &debug_mgmt_all_cmd);
+	install_element(CONFIG_NODE, &debug_mgmt_all_cmd);
+
+	/* Enable view */
+	install_element(ENABLE_NODE, &mgmt_performance_measurement_cmd);
+	install_element(ENABLE_NODE, &mgmt_reset_performance_stats_cmd);
+
+	/*
+	 * TODO: Register and handlers for auto-completion here.
+	 */
+	// cmd_variable_handler_register(mgmt_viewvrf_var_handlers);
+}

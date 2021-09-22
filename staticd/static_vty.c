@@ -44,8 +44,8 @@
 #endif
 #include "static_nb.h"
 
-#include "cmgd/cmgd_vty.h"
-#include "lib/cmgd_bcknd_client.h"
+#include "mgmtd/mgmt_vty.h"
+#include "lib/mgmt_bcknd_client.h"
 
 static int static_route_leak(struct vty *vty, const char *svrf,
 			     const char *nh_svrf, afi_t afi, safi_t safi,
@@ -382,7 +382,7 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 table_str, false, NULL);
 }
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 /* Write static route configuration. */
 int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 		  safi_t safi, const char *cmd)
@@ -505,7 +505,7 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 	}
 	return write;
 }
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 /* Static unicast routes for multicast RPF lookup. */
 DEFPY_YANG (ip_mroute_dist,
@@ -1158,18 +1158,18 @@ DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "Debug events\n"
 	   "Debug route\n")
 {
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
 		static_debug_set(vty->node, !no, true, true);
 	else
 		static_debug_set(vty->node, !no, !!events, !!route);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 	return CMD_SUCCESS;
 }
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 DEFUN_NOSH (show_debugging_static,
 	    show_debugging_static_cmd,
 	    "show debugging [static]",
@@ -1209,29 +1209,29 @@ static struct cmd_node ip_node = {
 	.config_write = static_ip_config,
 };
 
-cmgd_lib_hndl_t cmgd_lib_hndl;
+mgmt_lib_hndl_t mgmt_lib_hndl;
 
-static void static_cmgd_bcknd_client_connect(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
+static void static_mgmt_bcknd_client_connect(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
 	bool connected)
 {
 	(void) usr_data;
 
-	assert(lib_hndl == cmgd_lib_hndl);
+	assert(lib_hndl == mgmt_lib_hndl);
 
-	zlog_debug("Got %s %s CMGD Backend Client Server", 
+	zlog_debug("Got %s %s MGMTD Backend Client Server", 
 		 connected ? "connected" : "disconnected", 
 		 connected ? "to" : "from");
 
 	if (connected)
-		(void) cmgd_bcknd_subscribe_yang_data(cmgd_lib_hndl, NULL, 0);
+		(void) mgmt_bcknd_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
 }
 
-static void static_cmgd_trxn_notify(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, bool destroyed)
+static void static_mgmt_trxn_notify(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
+	mgmt_bcknd_client_trxn_ctxt_t *trxn_ctxt, bool destroyed)
 {
-	zlog_debug("Got Trxn %s Notify from CMGD server", 
+	zlog_debug("Got Trxn %s Notify from MGMTD server", 
 		 destroyed ? "DESTROY" : "CREATE");
 
 	if (!destroyed) {
@@ -1247,9 +1247,9 @@ static void static_cmgd_trxn_notify(
 	}
 }
 
-static cmgd_result_t static_cmgd_data_validate(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+static mgmt_result_t static_mgmt_data_validate(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
+	mgmt_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
 	struct nb_yang_value *data, bool delete, char *error_if_any)
 {
 	/*
@@ -1257,12 +1257,12 @@ static cmgd_result_t static_cmgd_data_validate(
 	 * scratchpad = trxn_ctxt->user_ctx;
 	 */
 
-	return CMGD_SUCCESS;
+	return MGMTD_SUCCESS;
 }
 
-static cmgd_result_t static_cmgd_data_apply(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+static mgmt_result_t static_mgmt_data_apply(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
+	mgmt_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
 	struct nb_yang_value *data, bool delete)
 {
 	/*
@@ -1270,12 +1270,12 @@ static cmgd_result_t static_cmgd_data_apply(
 	 * scratchpad = trxn_ctxt->user_ctx;
 	 */
 
-	return CMGD_SUCCESS;
+	return MGMTD_SUCCESS;
 }
 
-static cmgd_result_t static_cmgd_get_data_elem(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+static mgmt_result_t static_mgmt_get_data_elem(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
+	mgmt_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
 	struct nb_yang_xpath_elem *elem)
 {
 	/*
@@ -1283,12 +1283,12 @@ static cmgd_result_t static_cmgd_get_data_elem(
 	 * scratchpad = trxn_ctxt->user_ctx;
 	 */
 
-	return CMGD_SUCCESS;
+	return MGMTD_SUCCESS;
 }
 
-static cmgd_result_t static_cmgd_get_data(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+static mgmt_result_t static_mgmt_get_data(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
+	mgmt_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
 	bool keys_only, struct nb_yang_xpath_elem **elems, int *num_elems, 
 	int *next_key)
 {
@@ -1297,12 +1297,12 @@ static cmgd_result_t static_cmgd_get_data(
 	 * scratchpad = trxn_ctxt->user_ctx;
 	 */
 
-	return CMGD_SUCCESS;
+	return MGMTD_SUCCESS;
 }
 
-static cmgd_result_t static_cmgd_get_next_data(
-	cmgd_lib_hndl_t lib_hndl, cmgd_user_data_t usr_data,
-	cmgd_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
+static mgmt_result_t static_mgmt_get_next_data(
+	mgmt_lib_hndl_t lib_hndl, mgmt_user_data_t usr_data,
+	mgmt_bcknd_client_trxn_ctxt_t *trxn_ctxt, struct nb_yang_xpath *xpath,
 	bool keys_only, struct nb_yang_xpath_elem **elems, int *num_elems)
 {
 	/*
@@ -1310,42 +1310,42 @@ static cmgd_result_t static_cmgd_get_next_data(
 	 * scratchpad = trxn_ctxt->user_ctx;
 	 */
 
-	return CMGD_SUCCESS;
+	return MGMTD_SUCCESS;
 }
 
-static cmgd_bcknd_client_params_t cmgd_params = {
-	.name = CMGD_BCKND_CLIENT_STATICD,
+static mgmt_bcknd_client_params_t mgmt_params = {
+	.name = MGMTD_BCKND_CLIENT_STATICD,
 	.conn_retry_intvl_sec = 3,
-	.conn_notify_cb = static_cmgd_bcknd_client_connect,
-	.trxn_notify_cb = static_cmgd_trxn_notify,
-	.data_validate_cb = static_cmgd_data_validate,
-	.data_apply_cb = static_cmgd_data_apply,
-	.get_data_elem_cb = static_cmgd_get_data_elem,
-	.get_data_cb = static_cmgd_get_data,
-	.get_next_data_cb = static_cmgd_get_next_data
+	.conn_notify_cb = static_mgmt_bcknd_client_connect,
+	.trxn_notify_cb = static_mgmt_trxn_notify,
+	.data_validate_cb = static_mgmt_data_validate,
+	.data_apply_cb = static_mgmt_data_apply,
+	.get_data_elem_cb = static_mgmt_get_data_elem,
+	.get_data_cb = static_mgmt_get_data,
+	.get_next_data_cb = static_mgmt_get_next_data
 };
 
-void static_cmgd_init(struct thread_master *master)
+void static_mgmt_init(struct thread_master *master)
 {
-	cmgd_lib_hndl = cmgd_bcknd_client_lib_init(&cmgd_params, master);
-	if (!cmgd_lib_hndl) {
-		zlog_err("Failed to initialize CMGD Backend Client library!");
+	mgmt_lib_hndl = mgmt_bcknd_client_lib_init(&mgmt_params, master);
+	if (!mgmt_lib_hndl) {
+		zlog_err("Failed to initialize MGMTD Backend Client library!");
 		exit(-1);
 	}
 }
 
-void static_cmgd_destroy(void)
+void static_mgmt_destroy(void)
 {
-	cmgd_bcknd_client_lib_destroy(cmgd_lib_hndl);
+	mgmt_bcknd_client_lib_destroy(mgmt_lib_hndl);
 }
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 void static_vty_init(void)
 {
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	install_node(&debug_node);
 	install_node(&ip_node);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
@@ -1363,9 +1363,9 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
-#ifndef INCLUDE_CMGD_CMDDEFS_ONLY
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
-#endif /* ifndef INCLUDE_CMGD_CMDDEFS_ONLY */
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 }

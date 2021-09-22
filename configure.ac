@@ -577,8 +577,8 @@ AC_ARG_ENABLE([zebra],
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE([bgpd],
   AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
-AC_ARG_ENABLE([cmgd],
-  AS_HELP_STRING([--disable-cmgd], [do not build cmgd]))
+AC_ARG_ENABLE([mgmtd],
+  AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -1637,7 +1637,7 @@ AS_IF([test "$enable_bgpd" != "no"], [
   AC_DEFINE([HAVE_BGPD], [1], [bgpd])
 ])
 
-AS_IF([test "$enable_cmgd" != "no"], [
+AS_IF([test "$enable_mgmtd" != "no"], [
   # Check for protoc & protoc-c
 
   # protoc is not required, it's only for a "be nice" helper target
@@ -1661,7 +1661,7 @@ AS_IF([test "$enable_cmgd" != "no"], [
                                   [#include <google/protobuf-c/protobuf-c.h>])],
                   [PROTO3=false && AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])])
 
-  AC_DEFINE([HAVE_CMGD], [1], [cmgd])
+  AC_DEFINE([HAVE_MGMTD], [1], [mgmtd])
 ])
 
 AS_IF([test "$enable_ripd" != "no"], [
@@ -2549,8 +2549,8 @@ AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control
 AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
 AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
 AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
-AC_DEFINE_UNQUOTED([CMGD_FRNTND_SERVER_PATH], ["$frr_statedir/cmgd_frntnd.sock"], [cmgd frontend server socket])
-AC_DEFINE_UNQUOTED([CMGD_BCKND_SERVER_PATH], ["$frr_statedir/cmgd_bcknd.sock"], [cmgd backend server socket])
+AC_DEFINE_UNQUOTED([MGMTD_FRNTND_SERVER_PATH], ["$frr_statedir/mgmtd_frntnd.sock"], [mgmtd frontend server socket])
+AC_DEFINE_UNQUOTED([MGMTD_BCKND_SERVER_PATH], ["$frr_statedir/mgmtd_bcknd.sock"], [mgmtd backend server socket])
 AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 
@@ -2623,7 +2623,7 @@ dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
-AM_CONDITIONAL([CMGD], [test "$enable_cmgd" != "no"])
+AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
@@ -2659,13 +2659,12 @@ AC_CONFIG_FILES([
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
-	  tests/lib/cli/test_cli.refout pkgsrc/cmgd.sh
+	  tests/lib/cli/test_cli.refout pkgsrc/mgmtd.sh
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
 	  pkgsrc/eigrpd.sh])
 
 AC_CONFIG_FILES([vtysh/extract.pl], [chmod +x vtysh/extract.pl])
-AC_CONFIG_FILES([cmgd/cmgd_extract.pl], [chmod +x cmgd/cmgd_extract.pl])
 AC_CONFIG_FILES([tools/frr], [chmod +x tools/frr])
 AC_CONFIG_FILES([tools/watchfrr.sh], [chmod +x tools/watchfrr.sh])
 AC_CONFIG_FILES([tools/frrinit.sh], [chmod +x tools/frrinit.sh])
