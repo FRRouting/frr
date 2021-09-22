@@ -637,6 +637,39 @@ well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
 with established practice.
 
+
+Container implementations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In particular to gain defensive coding benefits from better compiler type
+checks, there is a set of replacement container data structures to be found
+in :file:`lib/typesafe.h`.  They're documented under :ref:`lists`.
+
+Unfortunately, the FRR codebase is quite large, and migrating existing code to
+use these new structures is a tedious and far-reaching process (even if it
+can be automated with coccinelle, the patches would touch whole swaths of code
+and create tons of merge conflicts for ongoing work.)  Therefore, little
+existing code has been migrated.
+
+However, both **new code and refactors of existing code should use the new
+containers**.  If there are any reasons this can't be done, please work to
+remove these reasons (e.g. by adding necessary features to the new containers)
+rather than falling back to the old code.
+
+In order of likelyhood of removal, these are the old containers:
+
+- :file:`nhrpd/list.*`, ``hlist_*`` ⇒ ``DECLARE_LIST``
+- :file:`nhrpd/list.*`, ``list_*`` ⇒ ``DECLARE_DLIST``
+- :file:`lib/skiplist.*`, ``skiplist_*`` ⇒ ``DECLARE_SKIPLIST``
+- :file:`lib/*_queue.h` (BSD), ``SLIST_*`` ⇒ ``DECLARE_LIST``
+- :file:`lib/*_queue.h` (BSD), ``LIST_*`` ⇒ ``DECLARE_DLIST``
+- :file:`lib/*_queue.h` (BSD), ``STAILQ_*`` ⇒ ``DECLARE_LIST``
+- :file:`lib/*_queue.h` (BSD), ``TAILQ_*`` ⇒ ``DECLARE_DLIST``
+- :file:`lib/hash.*`, ``hash_*`` ⇒ ``DECLARE_HASH``
+- :file:`lib/linklist.*`, ``list_*`` ⇒ ``DECLARE_DLIST``
+- open-coded linked lists ⇒ ``DECLARE_LIST``/``DECLARE_DLIST``
+
+
 Code Formatting
 ---------------
 
