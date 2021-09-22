@@ -9314,7 +9314,8 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 			vty_out(vty, "notag/%d", label);
 			vty_out(vty, "\n");
 		}
-	}
+	} else if (!json)
+		vty_out(vty, "\n");
 }
 
 void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
