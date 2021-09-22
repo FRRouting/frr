@@ -1219,7 +1219,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	struct zapi_nexthop *api_nh;
 	int nh_family;
 	unsigned int valid_nh_count = 0;
-	int has_valid_label = 0;
 	bool allow_recursion = false;
 	int has_valid_sid = 0;
 	uint8_t distance;
@@ -1434,7 +1433,6 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 		if (mpinfo->extra
 		    && bgp_is_valid_label(&mpinfo->extra->label[0])
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			has_valid_label = 1;
 			label = label_pton(&mpinfo->extra->label[0]);
 
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL);
@@ -1560,7 +1558,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			label_buf[0] = '\0';
 			eth_buf[0] = '\0';
 			segs_buf[0] = '\0';
-			if (has_valid_label
+			if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
 			    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE))
 				snprintf(label_buf, sizeof(label_buf),
 					"label %u", api_nh->labels[0]);
