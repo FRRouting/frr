@@ -127,25 +127,59 @@ static void vtysh_pager_envdef(bool fallback)
 
 struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .next = NULL},
+#ifdef HAVE_RIPD
 	{.fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .next = NULL},
+#endif /* HAVE_RIPD */
+#ifdef HAVE_RIPNGD
 	{.fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .next = NULL},
+#endif /* HAVE_RIPNGD */
+#ifdef HAVE_OSPFD
 	{.fd = -1, .name = "ospfd", .flag = VTYSH_OSPFD, .next = NULL},
+#endif /* HAVE_OSPFD */
+#ifdef HAVE_OSPF6D
 	{.fd = -1, .name = "ospf6d", .flag = VTYSH_OSPF6D, .next = NULL},
+#endif /* HAVE_OSPF6D */
+#ifdef HAVE_LDPD
 	{.fd = -1, .name = "ldpd", .flag = VTYSH_LDPD, .next = NULL},
+#endif /* HAVE_LDPD */
+#ifdef HAVE_BGPD
 	{.fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .next = NULL},
+#endif /* HAVE_BGPD */
+#ifdef HAVE_ISISD
 	{.fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .next = NULL},
+#endif /* HAVE_ISISD */
+#ifdef HAVE_PIMD
 	{.fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .next = NULL},
+#endif /* HAVE_PIMD */
+#ifdef HAVE_NHRPD
 	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
+#endif /* HAVE_NHRPD */
+#ifdef HAVE_EIGRPD
 	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
+#endif /* HAVE_EIGRPD */
+#ifdef HAVE_BABELD
 	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
+#endif /* HAVE_BABELD */
+#ifdef HAVE_SHARPD
 	{.fd = -1, .name = "sharpd", .flag = VTYSH_SHARPD, .next = NULL},
+#endif /* HAVE_SHARPD */
+#ifdef HAVE_FABRICD
 	{.fd = -1, .name = "fabricd", .flag = VTYSH_FABRICD, .next = NULL},
+#endif /* HAVE_FABRICD */
 	{.fd = -1, .name = "watchfrr", .flag = VTYSH_WATCHFRR, .next = NULL},
+#ifdef HAVE_PBRD
 	{.fd = -1, .name = "pbrd", .flag = VTYSH_PBRD, .next = NULL},
+#endif /* HAVE_PBRD */
 	{.fd = -1, .name = "staticd", .flag = VTYSH_STATICD, .next = NULL},
+#if HAVE_BFDD > 0
 	{.fd = -1, .name = "bfdd", .flag = VTYSH_BFDD, .next = NULL},
+#endif /* HAVE_BFDD */
+#ifdef HAVE_VRRPD
 	{.fd = -1, .name = "vrrpd", .flag = VTYSH_VRRPD, .next = NULL},
+#endif /* HAVE_VRRPD */
+#ifdef HAVE_PATHD
 	{.fd = -1, .name = "pathd", .flag = VTYSH_PATHD, .next = NULL},
+#endif /* HAVE_PATHD */
 };
 
 /* Searches for client by name, returns index */
