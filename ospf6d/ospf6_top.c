@@ -226,7 +226,7 @@ static int ospf6_vrf_enable(struct vrf *vrf)
 			thread_add_read(master, ospf6_receive, ospf6, ospf6->fd,
 					&ospf6->t_ospf6_receive);
 
-			ospf6_router_id_update(ospf6);
+			ospf6_router_id_update(ospf6, true);
 		}
 	}
 
@@ -460,7 +460,7 @@ struct ospf6 *ospf6_instance_create(const char *name)
 	if (DFLT_OSPF6_LOG_ADJACENCY_CHANGES)
 		SET_FLAG(ospf6->config_flags, OSPF6_LOG_ADJACENCY_CHANGES);
 	if (ospf6->router_id == 0)
-		ospf6_router_id_update(ospf6);
+		ospf6_router_id_update(ospf6, true);
 	ospf6_add(ospf6);
 	if (ospf6->vrf_id != VRF_UNKNOWN) {
 		vrf = vrf_lookup_by_id(ospf6->vrf_id);
@@ -630,15 +630,35 @@ void ospf6_maxage_remove(struct ospf6 *o)
 				 &o->maxage_remover);
 }
 
-void ospf6_router_id_update(struct ospf6 *ospf6)
+bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 {
+	in_addr_t new_router_id;
+	struct listnode *node;
+	struct ospf6_area *oa;
+
 	if (!ospf6)
-		return;
+		return true;
 
 	if (ospf6->router_id_static != 0)
-		ospf6->router_id = ospf6->router_id_static;
+		new_router_id = ospf6->router_id_static;
 	else
-		ospf6->router_id = ospf6->router_id_zebra;
+		new_router_id = ospf6->router_id_zebra;
+
+	if (ospf6->router_id == new_router_id)
+		return true;
+
+	if (!init)
+		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
+			if (oa->full_nbrs) {
+				zlog_err(
+					"%s: cannot update router-id. Run the \"clear ipv6 ospf6 process\" command\n",
+					__func__);
+				return false;
+			}
+		}
+
+	ospf6->router_id = new_router_id;
+	return true;
 }
 
 /* start ospf6 */
@@ -731,8 +751,6 @@ static void ospf6_process_reset(struct ospf6 *ospf6)
 	ospf6->inst_shutdown = 0;
 	ospf6_db_clear(ospf6);
 
-	ospf6_router_id_update(ospf6);
-
 	ospf6_asbr_redistribute_reset(ospf6);
 	FOR_ALL_INTERFACES (vrf, ifp)
 		ospf6_interface_clear(ifp);
@@ -754,10 +772,12 @@ DEFPY (clear_router_ospf6,
 		vrf_name = name;
 
 	ospf6 = ospf6_lookup_by_vrf_name(vrf_name);
-	if (ospf6 == NULL)
+	if (ospf6 == NULL) {
 		vty_out(vty, "OSPFv3 is not configured\n");
-	else
+	} else {
+		ospf6_router_id_update(ospf6, true);
 		ospf6_process_reset(ospf6);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -775,8 +795,6 @@ DEFUN(ospf6_router_id,
 	int ret;
 	const char *router_id_str;
 	uint32_t router_id;
-	struct ospf6_area *oa;
-	struct listnode *node;
 
 	argv_find(argv, argc, "A.B.C.D", &idx);
 	router_id_str = argv[idx]->arg;
@@ -789,15 +807,11 @@ DEFUN(ospf6_router_id,
 
 	o->router_id_static = router_id;
 
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
-		if (oa->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, run the \"clear ipv6 ospf6 process\" command\n");
-			return CMD_SUCCESS;
-		}
-	}
-
-	o->router_id = router_id;
+	if (ospf6_router_id_update(o, false))
+		ospf6_process_reset(o);
+	else
+		vty_out(vty,
+			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
 
 	return CMD_SUCCESS;
 }
@@ -810,21 +824,15 @@ DEFUN(no_ospf6_router_id,
       V4NOTATION_STR)
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
-	struct ospf6_area *oa;
-	struct listnode *node;
 
 	o->router_id_static = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(o->area_list, node, oa)) {
-		if (oa->full_nbrs) {
-			vty_out(vty,
-				"For this router-id change to take effect, run the \"clear ipv6 ospf6 process\" command\n");
-			return CMD_SUCCESS;
-		}
-	}
-	o->router_id = 0;
-	if (o->router_id_zebra)
-		o->router_id = o->router_id_zebra;
+
+	if (ospf6_router_id_update(o, false))
+		ospf6_process_reset(o);
+	else
+		vty_out(vty,
+			"For this router-id change to take effect run the \"clear ipv6 ospf6 process\" command\n");
 
 	return CMD_SUCCESS;
 }
