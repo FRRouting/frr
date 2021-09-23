@@ -576,8 +576,6 @@ DEFUN (area_range,
 
 	range->path.u.cost_config = cost;
 
-	zlog_debug("%s: for prefix %s, flag = %x", __func__,
-		   argv[idx_ipv6_prefixlen]->arg, range->flag);
 	if (range->rnode == NULL) {
 		ospf6_route_add(range, oa->range_table);
 	}
