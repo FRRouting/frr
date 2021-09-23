@@ -106,8 +106,7 @@ static int ospf6_abr_nexthops_belong_to_area(struct ospf6_route *route,
 		return 0;
 }
 
-static void ospf6_abr_delete_route(struct ospf6_route *range,
-				   struct ospf6_route *summary,
+static void ospf6_abr_delete_route(struct ospf6_route *summary,
 				   struct ospf6_route_table *summary_table,
 				   struct ospf6_lsa *old)
 {
@@ -385,8 +384,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 					zlog_debug(
 						"The range is not active. withdraw");
 
-				ospf6_abr_delete_route(route, summary,
-						       summary_table, old);
+				ospf6_abr_delete_route(summary, summary_table,
+						       old);
 			}
 		} else if (old) {
 			ospf6_route_remove(summary, summary_table);
@@ -400,7 +399,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			zlog_debug(
 				"Area has been stubbed, purge Inter-Router LSA");
 
-		ospf6_abr_delete_route(route, summary, summary_table, old);
+		ospf6_abr_delete_route(summary, summary_table, old);
 		return 0;
 	}
 
@@ -409,7 +408,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		if (is_debug)
 			zlog_debug("Area has been stubbed, purge prefix LSA");
 
-		ospf6_abr_delete_route(route, summary, summary_table, old);
+		ospf6_abr_delete_route(summary, summary_table, old);
 		return 0;
 	}
 
@@ -444,8 +443,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			if (is_debug)
 				zlog_debug(
 					"This is the secondary path to the ASBR, ignore");
-			ospf6_abr_delete_route(route, summary, summary_table,
-					       old);
+			ospf6_abr_delete_route(summary, summary_table, old);
 			return 0;
 		}
 
@@ -475,8 +473,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 				zlog_debug(
 					"Suppressed by range %pFX of area %s",
 					&range->prefix, route_area->name);
-			ospf6_abr_delete_route(route, summary, summary_table,
-					       old);
+			ospf6_abr_delete_route(summary, summary_table, old);
 			return 0;
 		}
 	}
@@ -488,8 +485,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			if (is_debug)
 				zlog_debug(
 					"This is the range with DoNotAdvertise set. ignore");
-			ospf6_abr_delete_route(route, summary, summary_table,
-					       old);
+			ospf6_abr_delete_route(summary, summary_table, old);
 			return 0;
 		}
 
@@ -497,8 +493,7 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		if (!CHECK_FLAG(route->flag, OSPF6_ROUTE_ACTIVE_SUMMARY)) {
 			if (is_debug)
 				zlog_debug("The range is not active. withdraw");
-			ospf6_abr_delete_route(route, summary, summary_table,
-					       old);
+			ospf6_abr_delete_route(summary, summary_table, old);
 			return 0;
 		}
 	}
