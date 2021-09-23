@@ -262,22 +262,20 @@ static void ospf6_abr_announce_aggregates(struct ospf6 *ospf6)
 {
 	struct ospf6_area *area;
 	struct ospf6_route *range;
-	struct listnode *node, *nnode;
+	struct listnode *node;
 
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("ospf6_abr_announce_aggregates(): Start");
-
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
-		for (range = ospf6_route_head(area->range_table); range;
-		     range = ospf6_route_next(range))
-			ospf6_abr_range_update(range, ospf6);
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
 		if (IS_OSPF6_DEBUG_ABR)
 			zlog_debug(
 				"ospf_abr_announce_aggregates(): looking at area %pI4",
 				&area->area_id);
+
+		for (range = ospf6_route_head(area->range_table); range;
+		     range = ospf6_route_next(range))
+			ospf6_abr_range_update(range, ospf6);
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
