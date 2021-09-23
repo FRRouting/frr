@@ -218,6 +218,31 @@ TRACEPOINT_EVENT(
 
 TRACEPOINT_LOGLEVEL(frr_bgp, bmp_process, TRACE_DEBUG)
 
+/*
+ * bgp_dest_lock/bgp_dest_unlock
+ */
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_dest_lock,
+	TP_ARGS(struct bgp_dest *, dest),
+	TP_FIELDS(
+		ctf_string(prefix, bgp_dest_get_prefix_str(dest))
+		ctf_integer(unsigned int, count, bgp_dest_get_lock_count(dest))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_dest_lock, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	bgp_dest_unlock,
+	TP_ARGS(struct bgp_dest *, dest),
+	TP_FIELDS(
+		ctf_string(prefix, bgp_dest_get_prefix_str(dest))
+		ctf_integer(unsigned int, count, bgp_dest_get_lock_count(dest))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, bgp_dest_unlock, TRACE_INFO)
+
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
