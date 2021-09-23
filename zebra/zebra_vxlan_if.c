@@ -863,6 +863,8 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		if (zl3vni)
 			listnode_delete(zl3vni->l2vnis, zevpn);
 
+		zebra_evpn_vl_vxl_deref(vnip->access_vlan, vnip->vni, zif);
+
 		/* Delete this VNI from BGP. */
 		zebra_evpn_send_del_to_client(zevpn);
 
@@ -953,6 +955,7 @@ int zebra_vxlan_if_vni_up(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 		}
 
 		assert(zevpn->vxlan_if == ifp);
+		zebra_evpn_vl_vxl_ref(vnip->access_vlan, vnip->vni, zif);
 		vlan_if = zvni_map_to_svi(vnip->access_vlan,
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
