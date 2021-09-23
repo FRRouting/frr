@@ -306,7 +306,6 @@ struct ospf6_area *ospf6_area_create(uint32_t area_id, struct ospf6 *o, int df)
 
 	oa->range_table = OSPF6_ROUTE_TABLE_CREATE(AREA, PREFIX_RANGES);
 	oa->range_table->scope = oa;
-	bf_init(oa->range_table->idspace, 32);
 	oa->summary_prefix = OSPF6_ROUTE_TABLE_CREATE(AREA, SUMMARY_PREFIXES);
 	oa->summary_prefix->scope = oa;
 	oa->summary_router = OSPF6_ROUTE_TABLE_CREATE(AREA, SUMMARY_ROUTERS);

@@ -1100,7 +1100,6 @@ struct ospf6_route_table *ospf6_route_table_create(int s, int t)
 void ospf6_route_table_delete(struct ospf6_route_table *table)
 {
 	ospf6_route_remove_all(table);
-	bf_free(table->idspace);
 	route_table_finish(table->table);
 	XFREE(MTYPE_OSPF6_ROUTE_TABLE, table);
 }

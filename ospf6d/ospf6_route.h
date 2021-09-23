@@ -241,8 +241,6 @@ struct ospf6_route_table {
 
 	uint32_t count;
 
-	bitfield_t idspace;
-
 	/* hooks */
 	void (*hook_add)(struct ospf6_route *);
 	void (*hook_change)(struct ospf6_route *);
