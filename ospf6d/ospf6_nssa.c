@@ -1061,106 +1061,6 @@ int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
 	return 1;
 }
 
-static void ospf6_external_lsa_refresh_type(struct ospf6 *ospf6, uint8_t type,
-					    unsigned short instance, int force)
-{
-	struct ospf6_route *route;
-	struct ospf6_external_info *info;
-	struct ospf6_lsa *lsa;
-
-	if (type == ZEBRA_ROUTE_MAX)
-		return;
-
-	for (route = ospf6_route_head(ospf6->external_table); route;
-	     route = ospf6_route_next(route)) {
-		info = route->route_option;
-
-		/* Find the external LSA in the database */
-		if (!is_default_prefix(&route->prefix)) {
-			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
-						htonl(info->id),
-						ospf6->router_id, ospf6->lsdb);
-
-			if (lsa) {
-				THREAD_OFF(lsa->refresh);
-
-				/* LSA is maxage,  immediate refresh */
-				if (OSPF6_LSA_IS_MAXAGE(lsa))
-					ospf6_flood(NULL, lsa);
-				else
-					thread_add_timer(master,
-							 ospf6_lsa_refresh, lsa,
-							 OSPF_LS_REFRESH_TIME,
-							 &lsa->refresh);
-			} else {
-				/* LSA not found in the database
-				 * Verify and originate  external LSA
-				 */
-				if (ospf6_redistribute_check(ospf6, route,
-							     type))
-					ospf6_as_external_lsa_originate(route,
-									ospf6);
-			}
-		}
-	}
-}
-
-/* Refresh default route */
-static void ospf6_external_lsa_refresh_default(struct ospf6 *ospf6)
-{
-	struct ospf6_route *route;
-	struct ospf6_external_info *info;
-	struct ospf6_lsa *lsa;
-
-	for (route = ospf6_route_head(ospf6->external_table); route;
-	     route = ospf6_route_next(route)) {
-		if (is_default_prefix(&route->prefix)) {
-			info = route->route_option;
-			lsa = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
-						htonl(info->id),
-						ospf6->router_id, ospf6->lsdb);
-
-			if (lsa) {
-				if (IS_OSPF6_DEBUG_NSSA)
-					zlog_debug(
-						"LSA[Type5:0.0.0.0]: Refresh AS-external-LSA %p",
-						(void *)lsa);
-				if (OSPF6_LSA_IS_MAXAGE(lsa))
-					ospf6_flood(NULL, lsa);
-				else
-					thread_add_timer(master,
-							 ospf6_lsa_refresh, lsa,
-							 OSPF_LS_REFRESH_TIME,
-							 &lsa->refresh);
-			} else if (!lsa) {
-				if (IS_OSPF6_DEBUG_NSSA)
-					zlog_debug(
-						"LSA[Type5:0.0.0.0]: Originate AS-external-LSA");
-				ospf6_as_external_lsa_originate(route, ospf6);
-			}
-		}
-	}
-}
-
-/* If there's redistribution configured, we need to refresh external
- * LSAs in order to install Type-7 and flood to all NSSA Areas
- */
-void ospf6_asbr_nssa_redist_task(struct ospf6 *ospf6)
-{
-	int type;
-	struct ospf6_redist *red;
-
-	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
-		red = ospf6_redist_lookup(ospf6, type, 0);
-		if (!red)
-			return;
-
-		ospf6_external_lsa_refresh_type(ospf6, type, red->instance,
-						LSA_REFRESH_IF_CHANGED);
-	}
-	ospf6_external_lsa_refresh_default(ospf6);
-}
-
 /* This function performs ABR related processing */
 static int ospf6_abr_task_timer(struct thread *thread)
 {
@@ -1176,7 +1076,6 @@ static int ospf6_abr_task_timer(struct thread *thread)
 	ospf6_abr_task(ospf6);
 	/* if nssa-abr, then scan Type-7 LSDB */
 	ospf6_abr_nssa_task(ospf6);
-	ospf6_asbr_nssa_redist_task(ospf6);
 
 	return 0;
 }
