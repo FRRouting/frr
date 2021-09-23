@@ -87,11 +87,6 @@
 #define OSPF6_SCOPE_AS         0x4000
 #define OSPF6_SCOPE_RESERVED   0x6000
 
-/* AS-external-LSA refresh method. */
-#define LSA_REFRESH_IF_CHANGED  0
-#define LSA_REFRESH_FORCE       1
-
-
 /* XXX U-bit handling should be treated here */
 #define OSPF6_LSA_SCOPE(type) (ntohs(type) & OSPF6_LSTYPE_SCOPE_MASK)
 
