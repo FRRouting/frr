@@ -848,6 +848,10 @@ def test_new_router_fwd_p0(request):
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
     do_countdown(5)
 
+    step("Verify again if BSR is installed from bsm forwarded by i1")
+    result = verify_pim_bsr(tgen, topo, "l1", bsr_ip)
+    assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
+
     # Verify ip mroute populated again
     step("Verify mroute again on l1 (lhr)")
     result = verify_ip_mroutes(tgen, "l1", src_addr, GROUP_ADDRESS, iif, oil)
