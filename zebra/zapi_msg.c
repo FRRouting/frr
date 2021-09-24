@@ -1240,7 +1240,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 
 		/* Anything not AF_INET/INET6 has been filtered out above */
 		if (!exist || flag_changed)
-			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, &p);
+			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, &p,
+					   SAFI_UNICAST);
 
 		zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
 	}
@@ -1305,7 +1306,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf));
+		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
 			zebra_remove_rnh_client(rnh, client);
