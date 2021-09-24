@@ -70,14 +70,17 @@ void zebra_rnh_init(void)
 	hook_register(zserv_client_close, zebra_client_cleanup_rnh);
 }
 
-static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi)
+static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
+						safi_t safi)
 {
 	struct zebra_vrf *zvrf;
 	struct route_table *t = NULL;
 
 	zvrf = zebra_vrf_lookup_by_id(vrfid);
-	if (zvrf)
-		t = zvrf->rnh_table[afi];
+	if (zvrf) {
+		if (safi == SAFI_UNICAST)
+			t = zvrf->rnh_table[afi];
+	}
 
 	return t;
 }
@@ -133,13 +136,16 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, bool *exists)
 	struct route_node *rn;
 	struct rnh *rnh = NULL;
 	afi_t afi = family2afi(p->family);
+	safi_t safi = SAFI_UNICAST;
 
 	if (IS_ZEBRA_DEBUG_NHT) {
 		struct vrf *vrf = vrf_lookup_by_id(vrfid);
 
-		zlog_debug("%s(%u): Add RNH %pFX", VRF_LOGNAME(vrf), vrfid, p);
+		zlog_debug("%s(%u): Add RNH %pFX for safi: %u",
+			   VRF_LOGNAME(vrf), vrfid, p, safi);
 	}
-	table = get_rnh_table(vrfid, afi);
+
+	table = get_rnh_table(vrfid, afi, safi);
 	if (!table) {
 		struct vrf *vrf = vrf_lookup_by_id(vrfid);
 
@@ -170,6 +176,7 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, bool *exists)
 		rnh->vrf_id = vrfid;
 		rnh->seqno = 0;
 		rnh->afi = afi;
+		rnh->safi = safi;
 		rnh->zebra_pseudowire_list = list_new();
 		route_lock_node(rn);
 		rn->info = rnh;
@@ -184,12 +191,12 @@ struct rnh *zebra_add_rnh(struct prefix *p, vrf_id_t vrfid, bool *exists)
 	return (rn->info);
 }
 
-struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid)
+struct rnh *zebra_lookup_rnh(struct prefix *p, vrf_id_t vrfid, safi_t safi)
 {
 	struct route_table *table;
 	struct route_node *rn;
 
-	table = get_rnh_table(vrfid, family2afi(PREFIX_FAMILY(p)));
+	table = get_rnh_table(vrfid, family2afi(PREFIX_FAMILY(p)), safi);
 	if (!table)
 		return NULL;
 
@@ -343,7 +350,8 @@ void zebra_register_rnh_pseudowire(vrf_id_t vrf_id, struct zebra_pw *pw,
 	if (!listnode_lookup(rnh->zebra_pseudowire_list, pw)) {
 		listnode_add(rnh->zebra_pseudowire_list, pw);
 		pw->rnh = rnh;
-		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1, &nh);
+		zebra_evaluate_rnh(zvrf, family2afi(pw->af), 1, &nh,
+				   SAFI_UNICAST);
 	} else
 		*nht_exists = true;
 }
@@ -762,12 +770,12 @@ static void zebra_rnh_clear_nhc_flag(struct zebra_vrf *zvrf, afi_t afi,
  * of a particular VRF and address-family or a specific prefix.
  */
 void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
-			struct prefix *p)
+			struct prefix *p, safi_t safi)
 {
 	struct route_table *rnh_table;
 	struct route_node *nrn;
 
-	rnh_table = get_rnh_table(zvrf->vrf->vrf_id, afi);
+	rnh_table = get_rnh_table(zvrf->vrf->vrf_id, afi, safi);
 	if (!rnh_table) // unexpected
 		return;
 
@@ -802,7 +810,7 @@ void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
 	struct route_table *table;
 	struct route_node *rn;
 
-	table = get_rnh_table(vrfid, afi);
+	table = get_rnh_table(vrfid, afi, SAFI_UNICAST);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_NHT)
 			zlog_debug("print_rnhs: rnh table not found");
@@ -1323,7 +1331,7 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
 			   zebra_route_string(client->proto), afi2str(afi));
 	}
 
-	ntable = get_rnh_table(vrf_id, afi);
+	ntable = get_rnh_table(vrf_id, afi, SAFI_UNICAST);
 	if (!ntable) {
 		zlog_debug("cleanup_rnh_client: rnh table not found");
 		return -1;

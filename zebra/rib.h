@@ -61,6 +61,7 @@ struct rnh {
 	vrf_id_t vrf_id;
 
 	afi_t afi;
+	safi_t safi;
 
 	uint32_t seqno;
 

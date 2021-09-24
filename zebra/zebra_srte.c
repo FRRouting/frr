@@ -196,7 +196,7 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		exit(1);
 	}
 
-	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf));
+	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
 	if (!rnh)
 		return;
 
