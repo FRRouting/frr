@@ -79,9 +79,6 @@ struct zebra_vrf {
 	/* Recursive Nexthop table */
 	struct route_table *rnh_table[AFI_MAX];
 
-	/* Import check table (used mostly by BGP */
-	struct route_table *import_check_table[AFI_MAX];
-
 	struct otable_head other_tables;
 
 	/* 2nd pointer type used primarily to quell a warning on
