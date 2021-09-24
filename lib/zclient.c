@@ -4017,13 +4017,6 @@ static int zclient_read(struct thread *thread)
 			(*zclient->nexthop_update)(command, zclient, length,
 						   vrf_id);
 		break;
-	case ZEBRA_IMPORT_CHECK_UPDATE:
-		if (zclient_debug)
-			zlog_debug("zclient rcvd import check update");
-		if (zclient->import_check_update)
-			(*zclient->import_check_update)(command, zclient,
-							length, vrf_id);
-		break;
 	case ZEBRA_BFD_DEST_REPLAY:
 		if (zclient->bfd_dest_replay)
 			(*zclient->bfd_dest_replay)(command, zclient, length,
