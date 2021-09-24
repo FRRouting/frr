@@ -116,6 +116,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 	stream_putl(s, message);
 
+	stream_putw(s, SAFI_UNICAST);
 	switch (policy->endpoint.ipa_type) {
 	case IPADDR_V4:
 		stream_putw(s, AF_INET);

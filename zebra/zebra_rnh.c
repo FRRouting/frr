@@ -1173,6 +1173,7 @@ int zebra_send_rnh_update(struct rnh *rnh, struct zserv *client,
 		SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 	stream_putl(s, message);
 
+	stream_putw(s, rnh->safi);
 	stream_putw(s, rn->p.family);
 	switch (rn->p.family) {
 	case AF_INET:
