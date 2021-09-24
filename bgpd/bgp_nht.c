@@ -843,6 +843,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
 	bool exact_match = false;
+	bool resolve_via_default = false;
 	int ret;
 
 	if (!zclient)
@@ -863,11 +864,12 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 				"%s: We have not connected yet, cannot send nexthops",
 				__func__);
 	}
-	if ((command == ZEBRA_NEXTHOP_REGISTER
-	     || command == ZEBRA_IMPORT_ROUTE_REGISTER)
-	    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
-		|| CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
-		exact_match = true;
+	if (command == ZEBRA_NEXTHOP_REGISTER) {
+		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+			exact_match = true;
+		if (CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
+			resolve_via_default = true;
+	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%s: sending cmd %s for %pFX (vrf %s)", __func__,
@@ -875,7 +877,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   bnc->bgp->name_pretty);
 
 	ret = zclient_send_rnh(zclient, command, &bnc->prefix, exact_match,
-			       bnc->bgp->vrf_id);
+			       resolve_via_default, bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_warn(EC_BGP_ZEBRA_SEND,

@@ -700,10 +700,14 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 		 * match route to be exact if so specified
 		 */
 		if (is_default_prefix(&rn->p)
-		    && !rnh_resolve_via_default(zvrf, rn->p.family)) {
+		    && (!CHECK_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT)
+			&& !rnh_resolve_via_default(zvrf, rn->p.family))) {
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"        Not allowed to resolve through default prefix");
+					"        Not allowed to resolve through default prefix: rnh->resolve_via_default: %u",
+					CHECK_FLAG(
+						rnh->flags,
+						ZEBRA_NHT_RESOLVE_VIA_DEFAULT));
 			return NULL;
 		}
 
