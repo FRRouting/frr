@@ -150,6 +150,10 @@ static int zebra_vrf_enable(struct vrf *vrf)
 		table = route_table_init();
 		table->cleanup = zebra_rnhtable_node_cleanup;
 		zvrf->rnh_table[afi] = table;
+
+		table = route_table_init();
+		table->cleanup = zebra_rnhtable_node_cleanup;
+		zvrf->rnh_table_multicast[afi] = table;
 	}
 
 	/* Kick off any VxLAN-EVPN processing. */
@@ -192,6 +196,8 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		route_table_finish(zvrf->rnh_table[afi]);
 		zvrf->rnh_table[afi] = NULL;
+		route_table_finish(zvrf->rnh_table_multicast[afi]);
+		zvrf->rnh_table_multicast[afi] = NULL;
 
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++)
 			rib_close_table(zvrf->table[afi][safi]);
@@ -291,6 +297,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 		}
 
 		if (zvrf->rnh_table[afi])
+			route_table_finish(zvrf->rnh_table[afi]);
+		if (zvrf->rnh_table_multicast[afi])
 			route_table_finish(zvrf->rnh_table[afi]);
 	}
 

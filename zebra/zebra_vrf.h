@@ -78,6 +78,7 @@ struct zebra_vrf {
 
 	/* Recursive Nexthop table */
 	struct route_table *rnh_table[AFI_MAX];
+	struct route_table *rnh_table_multicast[AFI_MAX];
 
 	struct otable_head other_tables;
 
