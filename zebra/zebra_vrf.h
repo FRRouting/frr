@@ -181,8 +181,8 @@ struct zebra_vrf {
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
 
-	int zebra_rnh_ip_default_route;
-	int zebra_rnh_ipv6_default_route;
+	bool zebra_rnh_ip_default_route;
+	bool zebra_rnh_ipv6_default_route;
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name

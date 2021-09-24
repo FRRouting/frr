@@ -1378,7 +1378,7 @@ DEFUN (ip_nht_default_route,
 	if (zvrf->zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ip_default_route = 1;
+	zvrf->zebra_rnh_ip_default_route = true;
 
 	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
@@ -1717,7 +1717,7 @@ DEFUN (no_ip_nht_default_route,
 	if (!zvrf->zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ip_default_route = 0;
+	zvrf->zebra_rnh_ip_default_route = false;
 	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
@@ -1737,7 +1737,7 @@ DEFUN (ipv6_nht_default_route,
 	if (zvrf->zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ipv6_default_route = 1;
+	zvrf->zebra_rnh_ipv6_default_route = true;
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
@@ -1758,7 +1758,7 @@ DEFUN (no_ipv6_nht_default_route,
 	if (!zvrf->zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ipv6_default_route = 0;
+	zvrf->zebra_rnh_ipv6_default_route = false;
 	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
 	return CMD_SUCCESS;
 }
