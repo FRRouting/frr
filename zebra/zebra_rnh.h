@@ -36,8 +36,6 @@ static inline const char *rnh_type2str(enum rnh_type type)
 	switch (type) {
 	case RNH_NEXTHOP_TYPE:
 		return "Nexthop";
-	case RNH_IMPORT_CHECK_TYPE:
-		return "Import";
 	}
 
 	return "ERROR";

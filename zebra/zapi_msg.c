@@ -1240,14 +1240,6 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			else if (!flags
 				 && CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
 				UNSET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
-		} else if (type == RNH_IMPORT_CHECK_TYPE) {
-			if (flags
-			    && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH))
-				SET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
-			else if (!flags
-				 && CHECK_FLAG(rnh->flags,
-					       ZEBRA_NHT_EXACT_MATCH))
-				UNSET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
 		}
 
 		if (resolve_via_default)

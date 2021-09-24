@@ -1334,8 +1334,6 @@ DEFPY (show_ip_nht,
 
 	if (strcmp(type, "nht") == 0)
 		rtype = RNH_NEXTHOP_TYPE;
-	else
-		rtype = RNH_IMPORT_CHECK_TYPE;
 
 	if (vrf_all) {
 		struct vrf *vrf;
