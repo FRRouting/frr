@@ -46,7 +46,7 @@ DECLARE_MGROUP(ZEBRA);
 
 DECLARE_MTYPE(RE);
 
-enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
+enum rnh_type { RNH_NEXTHOP_TYPE };
 
 PREDECL_LIST(rnh_list);
 
