@@ -775,6 +775,7 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	zclient_create_header(s, command, vrf_id);
 	stream_putc(s, (connected) ? 1 : 0);
 	stream_putc(s, (resolve_via_def) ? 1 : 0);
+	stream_putw(s, SAFI_UNICAST);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
 	switch (PREFIX_FAMILY(p)) {
@@ -1926,6 +1927,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	memset(nhr, 0, sizeof(*nhr));
 
 	STREAM_GETL(s, nhr->message);
+	STREAM_GETW(s, nhr->safi);
 	STREAM_GETW(s, nhr->prefix.family);
 	STREAM_GETC(s, nhr->prefix.prefixlen);
 	switch (nhr->prefix.family) {
