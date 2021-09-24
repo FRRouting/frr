@@ -132,6 +132,8 @@ babel_config_write (struct vty *vty)
 
     lines += config_write_distribute (vty, babel_routing_process->distribute_ctx);
 
+    vty_out (vty, "exit\n");
+
     return lines;
 }
 
@@ -819,7 +821,7 @@ babeld_quagga_init(void)
     install_element(BABEL_NODE, &babel_ipv6_distribute_list_cmd);
     install_element(BABEL_NODE, &babel_no_ipv6_distribute_list_cmd);
 
-    vrf_cmd_init(NULL, &babeld_privs);
+    vrf_cmd_init(NULL);
 
     babel_if_init();
 

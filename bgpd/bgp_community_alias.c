@@ -20,6 +20,7 @@
 
 #include "memory.h"
 #include "lib/jhash.h"
+#include "frrstr.h"
 
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_community_alias.h"
@@ -151,4 +152,75 @@ const char *bgp_community2alias(char *community)
 		return find->alias;
 
 	return community;
+}
+
+const char *bgp_alias2community(char *alias)
+{
+	struct community_alias ca;
+	struct community_alias *find;
+
+	memset(&ca, 0, sizeof(ca));
+	strlcpy(ca.alias, alias, sizeof(ca.alias));
+
+	find = bgp_ca_alias_lookup(&ca);
+	if (find)
+		return find->community;
+
+	return alias;
+}
+
+/* Communities structs have `->str` which is used
+ * for vty outputs and extended BGP community lists
+ * with regexp.
+ * This is a helper to convert already aliased version
+ * of communities into numerical-only format.
+ */
+char *bgp_alias2community_str(const char *str)
+{
+	char **aliases;
+	char *comstr;
+	int num, i;
+
+	frrstr_split(str, " ", &aliases, &num);
+	const char *communities[num];
+
+	for (i = 0; i < num; i++)
+		communities[i] = bgp_alias2community(aliases[i]);
+
+	comstr = frrstr_join(communities, num, " ");
+
+	for (i = 0; i < num; i++)
+		XFREE(MTYPE_TMP, aliases[i]);
+	XFREE(MTYPE_TMP, aliases);
+
+	return comstr;
+}
+
+static int bgp_community_alias_vector_walker(struct hash_bucket *bucket,
+					     void *data)
+{
+	vector *comps = data;
+	struct community_alias *alias = bucket->data;
+
+	vector_set(*comps, XSTRDUP(MTYPE_COMPLETION, alias->alias));
+
+	return 1;
+}
+
+static void bgp_community_alias_cmd_completion(vector comps,
+					       struct cmd_token *token)
+{
+	hash_walk(bgp_ca_alias_hash, bgp_community_alias_vector_walker, &comps);
+}
+
+static const struct cmd_variable_handler community_alias_handlers[] = {
+	{.varname = "alias_name",
+	 .completions = bgp_community_alias_cmd_completion},
+	{.tokenname = "ALIAS_NAME",
+	 .completions = bgp_community_alias_cmd_completion},
+	{.completions = NULL}};
+
+void bgp_community_alias_command_completion_setup(void)
+{
+	cmd_variable_handler_register(community_alias_handlers);
 }

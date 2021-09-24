@@ -52,6 +52,7 @@
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_community.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_clist.h"
 #include "bgpd/bgp_filter.h"
 #include "bgpd/bgp_mplsvpn.h"
@@ -365,38 +366,37 @@ static enum route_map_cmd_result_t
 route_match_script(void *rule, const struct prefix *prefix, void *object)
 {
 	const char *scriptname = rule;
+	const char *routematch_function = "route_match";
 	struct bgp_path_info *path = (struct bgp_path_info *)object;
 
-	struct frrscript *fs = frrscript_load(scriptname, NULL);
+	struct frrscript *fs = frrscript_new(scriptname);
 
-	if (!fs) {
-		zlog_err("Issue loading script rule; defaulting to no match");
+	if (frrscript_load(fs, routematch_function, NULL)) {
+		zlog_err(
+			"Issue loading script or function; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
-
-	enum frrlua_rm_status lrm_status = LUA_RM_FAILURE,
-			      status_nomatch = LUA_RM_NOMATCH,
-			      status_match = LUA_RM_MATCH,
-			      status_match_and_change = LUA_RM_MATCH_AND_CHANGE;
 
 	struct attr newattr = *path->attr;
 
 	int result = frrscript_call(
-		fs, ("RM_FAILURE", (long long *)&lrm_status),
-		("RM_NOMATCH", (long long *)&status_nomatch),
-		("RM_MATCH", (long long *)&status_match),
-		("RM_MATCH_AND_CHANGE", (long long *)&status_match_and_change),
-		("action", (long long *)&lrm_status), ("prefix", prefix),
-		("attributes", &newattr), ("peer", path->peer));
+		fs, routematch_function, ("prefix", prefix),
+		("attributes", &newattr), ("peer", path->peer),
+		("RM_FAILURE", LUA_RM_FAILURE), ("RM_NOMATCH", LUA_RM_NOMATCH),
+		("RM_MATCH", LUA_RM_MATCH),
+		("RM_MATCH_AND_CHANGE", LUA_RM_MATCH_AND_CHANGE));
 
 	if (result) {
 		zlog_err("Issue running script rule; defaulting to no match");
 		return RMAP_NOMATCH;
 	}
 
+	long long *action = frrscript_get_result(fs, routematch_function,
+						 "action", lua_tointegerp);
+
 	int status = RMAP_NOMATCH;
 
-	switch (lrm_status) {
+	switch (*action) {
 	case LUA_RM_FAILURE:
 		zlog_err(
 			"Executing route-map match script '%s' failed; defaulting to no match",
@@ -427,7 +427,9 @@ route_match_script(void *rule, const struct prefix *prefix, void *object)
 		break;
 	}
 
-	frrscript_unload(fs);
+	XFREE(MTYPE_SCRIPT_RES, action);
+
+	frrscript_delete(fs);
 
 	return status;
 }
@@ -1178,6 +1180,66 @@ static const struct route_map_rule_cmd route_match_vrl_source_vrf_cmd = {
 	route_match_vrl_source_vrf_compile,
 	route_match_vrl_source_vrf_free
 };
+
+/* `match alias` */
+static enum route_map_cmd_result_t
+route_match_alias(void *rule, const struct prefix *prefix, void *object)
+{
+	char *alias = rule;
+	struct bgp_path_info *path = object;
+	char **communities;
+	int num;
+	bool found;
+
+	if (path->attr->community) {
+		found = false;
+		frrstr_split(path->attr->community->str, " ", &communities,
+			     &num);
+		for (int i = 0; i < num; i++) {
+			const char *com2alias =
+				bgp_community2alias(communities[i]);
+			if (!found && strcmp(alias, com2alias) == 0)
+				found = true;
+			XFREE(MTYPE_TMP, communities[i]);
+		}
+		XFREE(MTYPE_TMP, communities);
+		if (found)
+			return RMAP_MATCH;
+	}
+
+	if (path->attr->lcommunity) {
+		found = false;
+		frrstr_split(path->attr->lcommunity->str, " ", &communities,
+			     &num);
+		for (int i = 0; i < num; i++) {
+			const char *com2alias =
+				bgp_community2alias(communities[i]);
+			if (!found && strcmp(alias, com2alias) == 0)
+				found = true;
+			XFREE(MTYPE_TMP, communities[i]);
+		}
+		XFREE(MTYPE_TMP, communities);
+		if (found)
+			return RMAP_MATCH;
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_alias_compile(const char *arg)
+{
+
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_alias_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_match_alias_cmd = {
+	"alias", route_match_alias, route_match_alias_compile,
+	route_match_alias_free};
 
 /* `match local-preference LOCAL-PREF' */
 
@@ -1987,9 +2049,8 @@ route_set_aspath_prepend(void *rule, const struct prefix *prefix, void *object)
 		aspath_prepend(aspath, new);
 	} else {
 		as_t as = aspath_leftmost(new);
-		if (!as)
-			as = path->peer->as;
-		new = aspath_add_seq_n(new, as, (uintptr_t)rule);
+		if (as)
+			new = aspath_add_seq_n(new, as, (uintptr_t)rule);
 	}
 
 	path->attr->aspath = new;
@@ -2457,26 +2518,40 @@ static const struct route_map_rule_cmd route_set_community_delete_cmd = {
 
 /* `set extcommunity rt COMMUNITY' */
 
+struct rmap_ecom_set {
+	struct ecommunity *ecom;
+	bool none;
+};
+
 /* For community set mechanism.  Used by _rt and _soo. */
 static enum route_map_cmd_result_t
 route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 {
-	struct ecommunity *ecom;
+	struct rmap_ecom_set *rcs;
 	struct ecommunity *new_ecom;
 	struct ecommunity *old_ecom;
 	struct bgp_path_info *path;
+	struct attr *attr;
 
-	ecom = rule;
+	rcs = rule;
 	path = object;
+	attr = path->attr;
 
-	if (!ecom)
+	if (rcs->none) {
+		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+		attr->ecommunity = NULL;
+		return RMAP_OKAY;
+	}
+
+	if (!rcs->ecom)
 		return RMAP_OKAY;
 
 	/* We assume additive for Extended Community. */
 	old_ecom = path->attr->ecommunity;
 
 	if (old_ecom) {
-		new_ecom = ecommunity_merge(ecommunity_dup(old_ecom), ecom);
+		new_ecom =
+			ecommunity_merge(ecommunity_dup(old_ecom), rcs->ecom);
 
 		/* old_ecom->refcnt = 1 => owned elsewhere, e.g.
 		 * bgp_update_receive()
@@ -2485,7 +2560,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	} else
-		new_ecom = ecommunity_dup(ecom);
+		new_ecom = ecommunity_dup(rcs->ecom);
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
 	path->attr->ecommunity = new_ecom;
@@ -2495,23 +2570,54 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	return RMAP_OKAY;
 }
 
-/* Compile function for set community. */
+static void *route_set_ecommunity_none_compile(const char *arg)
+{
+	struct rmap_ecom_set *rcs;
+	bool none = false;
+
+	if (strncmp(arg, "none", 4) == 0)
+		none = true;
+
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = NULL;
+	rcs->none = none;
+
+	return rcs;
+}
+
 static void *route_set_ecommunity_rt_compile(const char *arg)
 {
+	struct rmap_ecom_set *rcs;
 	struct ecommunity *ecom;
 
 	ecom = ecommunity_str2com(arg, ECOMMUNITY_ROUTE_TARGET, 0);
 	if (!ecom)
 		return NULL;
-	return ecommunity_intern(ecom);
+
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = ecommunity_intern(ecom);
+	rcs->none = false;
+
+	return rcs;
 }
 
 /* Free function for set community.  Used by _rt and _soo */
 static void route_set_ecommunity_free(void *rule)
 {
-	struct ecommunity *ecom = rule;
-	ecommunity_unintern(&ecom);
+	struct rmap_ecom_set *rcs = rule;
+
+	if (rcs->ecom)
+		ecommunity_unintern(&rcs->ecom);
+
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rcs);
 }
+
+static const struct route_map_rule_cmd route_set_ecommunity_none_cmd = {
+	"extcommunity",
+	route_set_ecommunity,
+	route_set_ecommunity_none_compile,
+	route_set_ecommunity_free,
+};
 
 /* Set community rule structure. */
 static const struct route_map_rule_cmd route_set_ecommunity_rt_cmd = {
@@ -2526,13 +2632,18 @@ static const struct route_map_rule_cmd route_set_ecommunity_rt_cmd = {
 /* Compile function for set community. */
 static void *route_set_ecommunity_soo_compile(const char *arg)
 {
+	struct rmap_ecom_set *rcs;
 	struct ecommunity *ecom;
 
 	ecom = ecommunity_str2com(arg, ECOMMUNITY_SITE_ORIGIN, 0);
 	if (!ecom)
 		return NULL;
 
-	return ecommunity_intern(ecom);
+	rcs = XCALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(struct rmap_ecom_set));
+	rcs->ecom = ecommunity_intern(ecom);
+	rcs->none = false;
+
+	return rcs;
 }
 
 /* Set community rule structure. */
@@ -2597,7 +2708,9 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 		bw_bytes *= mpath_count;
 	}
 
-	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval);
+	encode_lb_extcomm(as, bw_bytes, rels->non_trans, &lb_eval,
+			  CHECK_FLAG(peer->flags,
+				     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 
 	/* add to route or merge with existing */
 	old_ecom = path->attr->ecommunity;
@@ -4597,6 +4710,58 @@ DEFUN_YANG (no_match_local_pref,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN_YANG(match_alias, match_alias_cmd, "match alias ALIAS_NAME",
+	   MATCH_STR
+	   "Match BGP community alias name\n"
+	   "BGP community alias name\n")
+{
+	const char *alias = argv[2]->arg;
+	struct community_alias ca1;
+	struct community_alias *lookup_alias;
+
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-alias']";
+	char xpath_value[XPATH_MAXLEN];
+
+	memset(&ca1, 0, sizeof(ca1));
+	strlcpy(ca1.alias, alias, sizeof(ca1.alias));
+	lookup_alias = bgp_ca_alias_lookup(&ca1);
+	if (!lookup_alias) {
+		vty_out(vty, "%% BGP alias name '%s' does not exist\n", alias);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:alias", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, alias);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+
+DEFUN_YANG(no_match_alias, no_match_alias_cmd, "no match alias [ALIAS_NAME]",
+	   NO_STR MATCH_STR
+	   "Match BGP community alias name\n"
+	   "BGP community alias name\n")
+{
+	int idx_alias = 3;
+	const char *xpath =
+		"./match-condition[condition='frr-bgp-route-map:match-alias']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	if (argc <= idx_alias)
+		return nb_cli_apply_changes(vty, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/frr-bgp-route-map:alias", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY,
+			      argv[idx_alias]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
 
 DEFPY_YANG (match_community,
        match_community_cmd,
@@ -5105,7 +5270,7 @@ DEFUN_YANG (set_aspath_prepend_lastas,
 	    SET_STR
 	    "Transform BGP AS_PATH attribute\n"
 	    "Prepend to the as-path\n"
-	    "Use the peer's AS-number\n"
+	    "Use the last AS-number in the as-path\n"
 	    "Number of times to insert\n")
 {
 	int idx_num = 4;
@@ -5636,6 +5801,37 @@ ALIAS_YANG (no_set_ecommunity_soo,
             "GP extended community attribute\n"
             "Site-of-Origin extended community\n")
 
+DEFUN_YANG(set_ecommunity_none, set_ecommunity_none_cmd,
+	   "set extcommunity none",
+	   SET_STR
+	   "BGP extended community attribute\n"
+	   "No extended community attribute\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-none']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-set-action/frr-bgp-route-map:extcommunity-none",
+		 xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, "true");
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG(no_set_ecommunity_none, no_set_ecommunity_none_cmd,
+	   "no set extcommunity none",
+	   NO_STR SET_STR
+	   "BGP extended community attribute\n"
+	   "No extended community attribute\n")
+{
+	const char *xpath =
+		"./set-action[action='frr-bgp-route-map:set-extcommunity-none']";
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 DEFUN_YANG (set_ecommunity_lb,
 	    set_ecommunity_lb_cmd,
 	    "set extcommunity bandwidth <(1-25600)|cumulative|num-multipaths> [non-transitive]",
@@ -5648,7 +5844,7 @@ DEFUN_YANG (set_ecommunity_lb,
 	    "Attribute is set as non-transitive\n")
 {
 	int idx_lb = 3;
-	int idx_non_transitive = 4;
+	int idx_non_transitive = 0;
 	const char *xpath =
 		"./set-action[action='frr-bgp-route-map:set-extcommunity-lb']";
 	char xpath_lb_type[XPATH_MAXLEN];
@@ -5680,7 +5876,7 @@ DEFUN_YANG (set_ecommunity_lb,
 				      argv[idx_lb]->arg);
 	}
 
-	if (argv[idx_non_transitive])
+	if (argv_find(argv, argc, "non-transitive", &idx_non_transitive))
 		nb_cli_enqueue_change(vty, xpath_non_transitive, NB_OP_MODIFY,
 				      "true");
 	else
@@ -6286,6 +6482,7 @@ void bgp_route_map_init(void)
 	route_map_no_set_tag_hook(generic_set_delete);
 
 	route_map_install_match(&route_match_peer_cmd);
+	route_map_install_match(&route_match_alias_cmd);
 	route_map_install_match(&route_match_local_pref_cmd);
 #ifdef HAVE_SCRIPTING
 	route_map_install_match(&route_match_script_cmd);
@@ -6339,6 +6536,7 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ecommunity_rt_cmd);
 	route_map_install_set(&route_set_ecommunity_soo_cmd);
 	route_map_install_set(&route_set_ecommunity_lb_cmd);
+	route_map_install_set(&route_set_ecommunity_none_cmd);
 	route_map_install_set(&route_set_tag_cmd);
 	route_map_install_set(&route_set_label_index_cmd);
 
@@ -6370,6 +6568,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &no_match_aspath_cmd);
 	install_element(RMAP_NODE, &match_local_pref_cmd);
 	install_element(RMAP_NODE, &no_match_local_pref_cmd);
+	install_element(RMAP_NODE, &match_alias_cmd);
+	install_element(RMAP_NODE, &no_match_alias_cmd);
 	install_element(RMAP_NODE, &match_community_cmd);
 	install_element(RMAP_NODE, &no_match_community_cmd);
 	install_element(RMAP_NODE, &match_lcommunity_cmd);
@@ -6429,6 +6629,8 @@ void bgp_route_map_init(void)
 	install_element(RMAP_NODE, &set_ecommunity_lb_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_lb_cmd);
 	install_element(RMAP_NODE, &no_set_ecommunity_lb_short_cmd);
+	install_element(RMAP_NODE, &set_ecommunity_none_cmd);
+	install_element(RMAP_NODE, &no_set_ecommunity_none_cmd);
 #ifdef KEEP_OLD_VPN_COMMANDS
 	install_element(RMAP_NODE, &set_vpn_nexthop_cmd);
 	install_element(RMAP_NODE, &no_set_vpn_nexthop_cmd);

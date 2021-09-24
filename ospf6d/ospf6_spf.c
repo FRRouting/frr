@@ -44,6 +44,7 @@
 #include "ospf6d.h"
 #include "ospf6_abr.h"
 #include "ospf6_nssa.h"
+#include "ospf6_zebra.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_VERTEX, "OSPF6 vertex");
 
@@ -374,7 +375,7 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 	   up to here. */
 	assert(route == NULL);
 
-	route = ospf6_route_create();
+	route = ospf6_route_create(v->area->ospf6);
 	memcpy(&route->prefix, &v->vertex_id, sizeof(struct prefix));
 	route->type = OSPF6_DEST_TYPE_LINKSTATE;
 	route->path.type = OSPF6_PATH_TYPE_INTRA;
@@ -438,12 +439,23 @@ void ospf6_spf_table_finish(struct ospf6_route_table *result_table)
 	}
 }
 
-static const char *const ospf6_spf_reason_str[] = {"R+", "R-", "N+", "N-", "L+",
-						   "L-", "R*", "N*", "C"};
+static const char *const ospf6_spf_reason_str[] = {
+	"R+", /* OSPF6_SPF_FLAGS_ROUTER_LSA_ADDED */
+	"R-", /* OSPF6_SPF_FLAGS_ROUTER_LSA_REMOVED */
+	"N+", /* OSPF6_SPF_FLAGS_NETWORK_LSA_ADDED */
+	"N-", /* OSPF6_SPF_FLAGS_NETWORK_LSA_REMOVED */
+	"L+", /* OSPF6_SPF_FLAGS_NETWORK_LINK_LSA_ADDED */
+	"L-", /* OSPF6_SPF_FLAGS_NETWORK_LINK_LSA_REMOVED */
+	"R*", /* OSPF6_SPF_FLAGS_ROUTER_LSA_ORIGINATED */
+	"N*", /* OSPF6_SPF_FLAGS_NETWORK_LSA_ORIGINATED */
+	"C",  /* OSPF6_SPF_FLAGS_CONFIG_CHANGE */
+	"A",  /* OSPF6_SPF_FLAGS_ASBR_STATUS_CHANGE */
+	"GR", /* OSPF6_SPF_FLAGS_GR_FINISH */
+};
 
-void ospf6_spf_reason_string(unsigned int reason, char *buf, int size)
+void ospf6_spf_reason_string(uint32_t reason, char *buf, int size)
 {
-	unsigned int bit;
+	uint32_t bit;
 	int len = 0;
 
 	if (!buf)
@@ -1250,14 +1262,22 @@ static int ospf6_ase_calculate_timer(struct thread *t)
 				zlog_debug("%s : looking at area %s", __func__,
 					   area->name);
 
-			if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
-				type = htons(OSPF6_LSTYPE_TYPE_7);
-				for (ALL_LSDB_TYPED(area->lsdb, type, lsa))
-					ospf6_ase_calculate_route(ospf6, lsa,
-								  area);
-			}
+			type = htons(OSPF6_LSTYPE_TYPE_7);
+			for (ALL_LSDB_TYPED(area->lsdb, type, lsa))
+				ospf6_ase_calculate_route(ospf6, lsa, area);
 		}
 	}
+
+	if (ospf6->gr_info.finishing_restart) {
+		/*
+		 * The routing table computation is complete. Uninstall remnant
+		 * routes that were installed before the restart, but that are
+		 * no longer valid.
+		 */
+		ospf6_zebra_gr_disable(ospf6);
+		ospf6->gr_info.finishing_restart = false;
+	}
+
 	return 0;
 }
 

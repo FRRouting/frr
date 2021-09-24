@@ -71,7 +71,22 @@
 #define BGP_PREFIX_SID_IPV6_LENGTH            19
 #define BGP_PREFIX_SID_ORIGINATOR_SRGB_LENGTH  6
 #define BGP_PREFIX_SID_VPN_SID_LENGTH         19
-#define BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH 21
+
+/* SRv6 Service Sub-TLV types */
+#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO 1
+#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH 21
+
+/* SRv6 Service Data Sub-Sub-TLV types */
+#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE 1
+#define BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH 6
+
+/* SRv6 SID Structure default values */
+#define BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH 40
+#define BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH 24
+#define BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH 16
+#define BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH 0
+#define BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH 16
+#define BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET 64
 
 #define BGP_ATTR_NH_AFI(afi, attr) \
 	((afi != AFI_L2VPN) ? afi : \
@@ -136,6 +151,12 @@ struct bgp_attr_srv6_l3vpn {
 	uint8_t sid_flags;
 	uint16_t endpoint_behavior;
 	struct in6_addr sid;
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+	uint8_t transposition_len;
+	uint8_t transposition_offset;
 };
 
 /* BGP core attribute structure. */
@@ -307,6 +328,12 @@ struct attr {
 	/* EVPN DF preference and algorithm for DF election on local ESs */
 	uint16_t df_pref;
 	uint8_t df_alg;
+
+	/* Nexthop type */
+	enum nexthop_types_t nh_type;
+
+	/* If NEXTHOP_TYPE_BLACKHOLE, then blackhole type */
+	enum blackhole_type bh_type;
 };
 
 /* rmap_change_flags definition */

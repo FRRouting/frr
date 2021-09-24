@@ -53,7 +53,7 @@ struct ospf6_area {
 	int no_summary;
 
 	/* Brouter traversal protection */
-	int intra_brouter_calc;
+	bool intra_brouter_calc;
 
 	/* OSPF interface list */
 	struct list *if_list;
@@ -149,18 +149,21 @@ extern void area_id2str(char *buf, int len, uint32_t area_id, int area_id_fmt);
 
 extern int ospf6_area_cmp(void *va, void *vb);
 
-extern struct ospf6_area *ospf6_area_create(uint32_t, struct ospf6 *, int);
-extern void ospf6_area_delete(struct ospf6_area *);
-extern struct ospf6_area *ospf6_area_lookup(uint32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_create(uint32_t area_id,
+					    struct ospf6 *ospf6, int df);
+extern void ospf6_area_delete(struct ospf6_area *oa);
+extern struct ospf6_area *ospf6_area_lookup(uint32_t area_id,
+					    struct ospf6 *ospf6);
 extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);
 
-extern void ospf6_area_enable(struct ospf6_area *);
-extern void ospf6_area_disable(struct ospf6_area *);
+extern void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area);
+extern void ospf6_area_enable(struct ospf6_area *oa);
+extern void ospf6_area_disable(struct ospf6_area *oa);
 
-extern void ospf6_area_show(struct vty *, struct ospf6_area *,
+extern void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 			    json_object *json_areas, bool use_json);
 
-extern void ospf6_area_plist_update(struct prefix_list *plist, int add);
+extern void ospf6_plist_update(struct prefix_list *plist);
 extern void ospf6_filter_update(struct access_list *access);
 extern void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern void ospf6_area_init(void);

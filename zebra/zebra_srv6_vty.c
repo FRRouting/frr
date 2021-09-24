@@ -197,6 +197,21 @@ DEFUN_NOSH (srv6,
 	return CMD_SUCCESS;
 }
 
+DEFUN (no_srv6,
+       no_srv6_cmd,
+       "no srv6",
+       NO_STR
+       "Segment Routing SRv6\n")
+{
+	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct srv6_locator *locator;
+	struct listnode *node, *nnode;
+
+	for (ALL_LIST_ELEMENTS(srv6->locators, node, nnode, locator))
+		zebra_srv6_locator_delete(locator);
+	return CMD_SUCCESS;
+}
+
 DEFUN_NOSH (srv6_locators,
             srv6_locators_cmd,
             "locators",
@@ -230,6 +245,23 @@ DEFUN_NOSH (srv6_locator,
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	vty->node = SRV6_LOC_NODE;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_srv6_locator,
+       no_srv6_locator_cmd,
+       "no locator WORD",
+       NO_STR
+       "Segment Routing SRv6 locator\n"
+       "Specify locator-name\n")
+{
+	struct srv6_locator *locator = zebra_srv6_locator_lookup(argv[2]->arg);
+	if (!locator) {
+		vty_out(vty, "%% Can't find SRv6 locator\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	zebra_srv6_locator_delete(locator);
 	return CMD_SUCCESS;
 }
 
@@ -320,10 +352,14 @@ static int zebra_sr_config(struct vty *vty)
 			vty_out(vty, "   locator %s\n", locator->name);
 			vty_out(vty, "    prefix %s/%u\n", str,
 				locator->prefix.prefixlen);
+			vty_out(vty, "   exit\n");
 			vty_out(vty, "   !\n");
 		}
+		vty_out(vty, "  exit\n");
 		vty_out(vty, "  !\n");
+		vty_out(vty, " exit\n");
 		vty_out(vty, " !\n");
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 	}
 	return 0;
@@ -344,8 +380,10 @@ void zebra_srv6_vty_init(void)
 	/* Command for change node */
 	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &srv6_cmd);
+	install_element(SEGMENT_ROUTING_NODE, &no_srv6_cmd);
 	install_element(SRV6_NODE, &srv6_locators_cmd);
 	install_element(SRV6_LOCS_NODE, &srv6_locator_cmd);
+	install_element(SRV6_LOCS_NODE, &no_srv6_locator_cmd);
 
 	/* Command for configuration */
 	install_element(SRV6_LOC_NODE, &locator_prefix_cmd);

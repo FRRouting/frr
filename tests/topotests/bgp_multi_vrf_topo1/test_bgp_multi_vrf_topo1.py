@@ -99,10 +99,8 @@ FUNC_16_3:
 
 import os
 import sys
-import json
 import time
 import pytest
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -114,7 +112,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     step,
@@ -136,23 +133,17 @@ from lib.common_config import (
 
 from lib.topolog import logger
 from lib.bgp import (
-    clear_bgp,
     verify_bgp_rib,
     create_router_bgp,
     verify_bgp_community,
     verify_bgp_convergence,
     verify_best_path_as_per_bgp_attribute,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_multi_vrf_topo1.json".format(CWD)
 
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
+pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
+
 
 # Global variables
 NETWORK1_1 = {"ipv4": "1.1.1.1/32", "ipv6": "1::1/128"}
@@ -177,30 +168,11 @@ NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 LOOPBACK_1 = {
     "ipv4": "10.10.10.10/32",
     "ipv6": "10::10:10/128",
-    "ipv4_mask": "255.255.255.255",
-    "ipv6_mask": None,
 }
 LOOPBACK_2 = {
     "ipv4": "20.20.20.20/32",
     "ipv6": "20::20:20/128",
-    "ipv4_mask": "255.255.255.255",
-    "ipv6_mask": None,
 }
-
-
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -225,7 +197,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_multi_vrf_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -1910,7 +1885,6 @@ def test_static_routes_for_inter_vrf_route_leaking_p0(request):
             "loopback1",
             LOOPBACK_1[addr_type],
             "RED_A",
-            LOOPBACK_1["{}_mask".format(addr_type)],
         )
         create_interface_in_kernel(
             tgen,
@@ -1918,7 +1892,6 @@ def test_static_routes_for_inter_vrf_route_leaking_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "RED_B",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     step(
@@ -2046,7 +2019,6 @@ def test_inter_vrf_and_intra_vrf_communication_iBGP_p0(request):
             "loopback1",
             LOOPBACK_1[addr_type],
             "RED_A",
-            LOOPBACK_1["{}_mask".format(addr_type)],
         )
 
         create_interface_in_kernel(
@@ -2055,7 +2027,6 @@ def test_inter_vrf_and_intra_vrf_communication_iBGP_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "BLUE_A",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     step(
@@ -2215,7 +2186,6 @@ def test_inter_vrf_and_intra_vrf_communication_eBGP_p0(request):
             "loopback1",
             LOOPBACK_1[addr_type],
             "RED_A",
-            LOOPBACK_1["{}_mask".format(addr_type)],
         )
         create_interface_in_kernel(
             tgen,
@@ -2223,7 +2193,6 @@ def test_inter_vrf_and_intra_vrf_communication_eBGP_p0(request):
             "loopback2",
             LOOPBACK_2[addr_type],
             "BLUE_A",
-            LOOPBACK_2["{}_mask".format(addr_type)],
         )
 
     step(
@@ -2673,12 +2642,16 @@ def test_route_map_within_vrf_to_alter_bgp_attribute_nexthop_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(
+            tc_name, result
+        )
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behaviour: Routes are rejected because nexthop-self config is deleted \n Error {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -4952,7 +4925,9 @@ def test_prefix_list_to_permit_deny_prefixes_p0(request):
 
         result = verify_rib(tgen, addr_type, dut, denied_routes, expected=False)
         assert result is not True, "Testcase {} : Failed \n"
-        "{}:Expected behaviour: Routes are denied by prefix-list \nError {}".format(tc_name, result)
+        "{}:Expected behaviour: Routes are denied by prefix-list \nError {}".format(
+            tc_name, result
+        )
 
     step(
         "On router R1, configure prefix-lists to permit 2 "
@@ -5162,7 +5137,11 @@ def test_prefix_list_to_permit_deny_prefixes_p0(request):
         )
 
         result = verify_rib(tgen, addr_type, dut, denied_routes, expected=False)
-        assert result is not True, "Testcase {} : Failed \nExpected behaviour: Routes are denied by prefix-list \nError {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nExpected behaviour: Routes are denied by prefix-list \nError {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -5440,7 +5419,9 @@ def test_route_map_set_and_match_tag_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 
@@ -5843,7 +5824,9 @@ def test_route_map_set_and_match_metric_p0(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
         assert (
             result is not True
-        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(tc_name, result)
+        ), "Testcase {} : Failed \n Expected Behavior: Routes are denied \nError {}".format(
+            tc_name, result
+        )
 
     write_test_footer(tc_name)
 

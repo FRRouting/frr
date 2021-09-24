@@ -25,7 +25,6 @@ Test if default-originate works without route-map.
 import os
 import sys
 import json
-import time
 import pytest
 import functools
 
@@ -35,24 +34,21 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from mininet.topo import Topo
+
+pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    for routern in range(1, 3):
+        tgen.add_router("r{}".format(routern))
 
-        for routern in range(1, 3):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -79,10 +75,10 @@ def test_bgp_default_originate_route_map():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
-
-    def _bgp_converge(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.1 json"))
+    def _bgp_check_if_received():
+        output = json.loads(
+            tgen.gears["r2"].vtysh_cmd("show ip bgp neighbor 192.168.255.1 json")
+        )
         expected = {
             "192.168.255.1": {
                 "bgpState": "Established",
@@ -91,22 +87,27 @@ def test_bgp_default_originate_route_map():
         }
         return topotest.json_cmp(output, expected)
 
+    def _bgp_check_if_originated():
+        output = json.loads(tgen.gears["r1"].vtysh_cmd("show ip bgp summary json"))
+        expected = {"ipv4Unicast": {"peers": {"192.168.255.2": {"pfxSnt": 1}}}}
+        return topotest.json_cmp(output, expected)
+
     def _bgp_default_route_is_valid(router):
         output = json.loads(router.vtysh_cmd("show ip bgp 0.0.0.0/0 json"))
         expected = {"paths": [{"valid": True}]}
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, router)
+    test_func = functools.partial(_bgp_check_if_received)
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "No 0.0.0.0/0 at r2 from r1"
 
-    assert result is None, 'Failed to see bgp convergence in "{}"'.format(router)
-
-    test_func = functools.partial(_bgp_default_route_is_valid, router)
+    test_func = functools.partial(_bgp_check_if_originated)
     success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "No 0.0.0.0/0 from r1 to r2"
 
-    assert (
-        result is None
-    ), 'Failed to see applied metric for default route in "{}"'.format(router)
+    test_func = functools.partial(_bgp_default_route_is_valid, tgen.gears["r2"])
+    success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+    assert result is None, "Failed to see 0.0.0.0/0 in r2"
 
 
 if __name__ == "__main__":

@@ -99,7 +99,7 @@ struct zebra_sr_policy *zebra_sr_policy_find_by_name(char *name)
 static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 						struct zserv *client)
 {
-	const zebra_nhlfe_t *nhlfe;
+	const struct zebra_nhlfe *nhlfe;
 	struct stream *s;
 	uint32_t message = 0;
 	unsigned long nump = 0;
@@ -211,7 +211,7 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 }
 
 static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
-				     zebra_lsp_t *lsp)
+				     struct zebra_lsp *lsp)
 {
 	policy->status = ZEBRA_SR_POLICY_UP;
 	policy->lsp = lsp;
@@ -222,7 +222,7 @@ static void zebra_sr_policy_activate(struct zebra_sr_policy *policy,
 }
 
 static void zebra_sr_policy_update(struct zebra_sr_policy *policy,
-				   zebra_lsp_t *lsp,
+				   struct zebra_lsp *lsp,
 				   struct zapi_srte_tunnel *old_tunnel)
 {
 	bool bsid_changed;
@@ -267,7 +267,7 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 			     struct zapi_srte_tunnel *new_tunnel)
 {
 	struct zapi_srte_tunnel old_tunnel = policy->segment_list;
-	zebra_lsp_t *lsp;
+	struct zebra_lsp *lsp;
 
 	if (new_tunnel)
 		policy->segment_list = *new_tunnel;
@@ -293,7 +293,7 @@ int zebra_sr_policy_validate(struct zebra_sr_policy *policy,
 int zebra_sr_policy_bsid_install(struct zebra_sr_policy *policy)
 {
 	struct zapi_srte_tunnel *zt = &policy->segment_list;
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	if (zt->local_label == MPLS_LABEL_NONE)
 		return 0;

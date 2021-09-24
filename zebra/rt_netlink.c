@@ -861,6 +861,12 @@ static int netlink_route_change_read_unicast(struct nlmsghdr *h, ns_id_t ns_id,
 		}
 		memcpy(&src_p.prefix, src, 16);
 		src_p.prefixlen = rtm->rtm_src_len;
+	} else {
+		/* We only handle the AFs we handle... */
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: unknown address-family %u", __func__,
+				   rtm->rtm_family);
+		return 0;
 	}
 
 	/*
@@ -1725,12 +1731,11 @@ static bool _netlink_route_build_multipath(const struct prefix *p,
 	return true;
 }
 
-static inline bool _netlink_mpls_build_singlepath(const struct prefix *p,
-						  const char *routedesc,
-						  const zebra_nhlfe_t *nhlfe,
-						  struct nlmsghdr *nlmsg,
-						  struct rtmsg *rtmsg,
-						  size_t req_size, int cmd)
+static inline bool
+_netlink_mpls_build_singlepath(const struct prefix *p, const char *routedesc,
+			       const struct zebra_nhlfe *nhlfe,
+			       struct nlmsghdr *nlmsg, struct rtmsg *rtmsg,
+			       size_t req_size, int cmd)
 {
 	int bytelen;
 	uint8_t family;
@@ -1745,7 +1750,7 @@ static inline bool _netlink_mpls_build_singlepath(const struct prefix *p,
 
 static inline bool
 _netlink_mpls_build_multipath(const struct prefix *p, const char *routedesc,
-			      const zebra_nhlfe_t *nhlfe,
+			      const struct zebra_nhlfe *nhlfe,
 			      struct nlmsghdr *nlmsg, size_t req_size,
 			      struct rtmsg *rtmsg, const union g_addr **src)
 {
@@ -3466,10 +3471,9 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 
 /* Request for MAC FDB for a specific MAC address in VLAN from the kernel */
 static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
-						  int family,
-						  int type,
+						  int family, int type,
 						  struct interface *br_if,
-						  struct ethaddr *mac,
+						  const struct ethaddr *mac,
 						  vlanid_t vid)
 {
 	struct {
@@ -3506,7 +3510,7 @@ static int netlink_request_specific_mac_in_bridge(struct zebra_ns *zns,
 
 int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 				     struct interface *br_if,
-				     struct ethaddr *mac, vlanid_t vid)
+				     const struct ethaddr *mac, vlanid_t vid)
 {
 	int ret = 0;
 	struct zebra_dplane_info dp_info;
@@ -3653,6 +3657,15 @@ static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
 #define NUD_LOCAL_ACTIVE                                                 \
 	(NUD_PERMANENT | NUD_NOARP | NUD_REACHABLE)
 
+static int netlink_nbr_entry_state_to_zclient(int nbr_state)
+{
+	/* an exact match is done between
+	 * - netlink neighbor state values: NDM_XXX (see in linux/neighbour.h)
+	 * - zclient neighbor state values: ZEBRA_NEIGH_STATE_XXX
+	 *  (see in lib/zclient.h)
+	 */
+	return nbr_state;
+}
 static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
@@ -3742,8 +3755,10 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 			       &mac, l2_len);
 		} else
 			sockunion_family(&link_layer_ipv4) = AF_UNSPEC;
-		zsend_nhrp_neighbor_notify(cmd, ifp, &ip, ndm->ndm_state,
-					   &link_layer_ipv4);
+		zsend_nhrp_neighbor_notify(
+			cmd, ifp, &ip,
+			netlink_nbr_entry_state_to_zclient(ndm->ndm_state),
+			&link_layer_ipv4);
 	}
 
 	if (h->nlmsg_type == RTM_GETNEIGH)
@@ -3946,7 +3961,8 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
  * read using netlink interface.
  */
 static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
-						  int type, struct ipaddr *ip,
+						  int type,
+						  const struct ipaddr *ip,
 						  ifindex_t ifindex)
 {
 	struct {
@@ -3983,8 +3999,8 @@ static int netlink_request_specific_neigh_in_vlan(struct zebra_ns *zns,
 	return netlink_request(&zns->netlink_cmd, &req);
 }
 
-int netlink_neigh_read_specific_ip(struct ipaddr *ip,
-				  struct interface *vlan_if)
+int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
+				   struct interface *vlan_if)
 {
 	int ret = 0;
 	struct zebra_ns *zns;
@@ -4235,7 +4251,7 @@ ssize_t netlink_mpls_multipath_msg_encode(int cmd, struct zebra_dplane_ctx *ctx,
 {
 	mpls_lse_t lse;
 	const struct nhlfe_list_head *head;
-	const zebra_nhlfe_t *nhlfe;
+	const struct zebra_nhlfe *nhlfe;
 	struct nexthop *nexthop = NULL;
 	unsigned int nexthop_num;
 	const char *routedesc;

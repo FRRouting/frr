@@ -105,6 +105,9 @@
 %token <string> MAC
 %token <string> MAC_PREFIX
 
+/* special syntax, value is irrelevant */
+%token <string> EXCL_BRACKET
+
 /* union types for parsed rules */
 %type <node> start
 %type <node> literal_token
@@ -367,6 +370,19 @@ selector: '[' selector_seq_seq ']' varname_token
 {
   $$ = $2;
   graph_add_edge ($$.start, $$.end);
+  cmd_token_varname_set ($2.end->data, $4);
+  XFREE (MTYPE_LEX, $4);
+}
+;
+
+/* ![option] productions */
+selector: EXCL_BRACKET selector_seq_seq ']' varname_token
+{
+  struct graph_node *neg_only = new_token_node (ctx, NEG_ONLY_TKN, NULL, NULL);
+
+  $$ = $2;
+  graph_add_edge ($$.start, neg_only);
+  graph_add_edge (neg_only, $$.end);
   cmd_token_varname_set ($2.end->data, $4);
   XFREE (MTYPE_LEX, $4);
 }

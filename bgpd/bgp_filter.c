@@ -612,78 +612,118 @@ DEFUN (no_as_path_all,
 	return CMD_SUCCESS;
 }
 
-static void as_list_show(struct vty *vty, struct as_list *aslist)
+static void as_list_show(struct vty *vty, struct as_list *aslist,
+			 json_object *json)
 {
 	struct as_filter *asfilter;
+	json_object *json_aslist = NULL;
 
-	vty_out(vty, "AS path access list %s\n", aslist->name);
-
-	for (asfilter = aslist->head; asfilter; asfilter = asfilter->next) {
-		vty_out(vty, "    %s %s\n", filter_type_str(asfilter->type),
-			asfilter->reg_str);
-	}
-}
-
-static void as_list_show_all(struct vty *vty)
-{
-	struct as_list *aslist;
-	struct as_filter *asfilter;
-
-	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next) {
+	if (json) {
+		json_aslist = json_object_new_array();
+		json_object_object_add(json, aslist->name, json_aslist);
+	} else
 		vty_out(vty, "AS path access list %s\n", aslist->name);
 
-		for (asfilter = aslist->head; asfilter;
-		     asfilter = asfilter->next) {
+	for (asfilter = aslist->head; asfilter; asfilter = asfilter->next) {
+		if (json) {
+			json_object *json_asfilter = json_object_new_object();
+
+			json_object_int_add(json_asfilter, "sequenceNumber",
+					    asfilter->seq);
+			json_object_string_add(json_asfilter, "type",
+					       filter_type_str(asfilter->type));
+			json_object_string_add(json_asfilter, "regExp",
+					       asfilter->reg_str);
+
+			json_object_array_add(json_aslist, json_asfilter);
+		} else
 			vty_out(vty, "    %s %s\n",
 				filter_type_str(asfilter->type),
 				asfilter->reg_str);
-		}
 	}
+}
+
+static void as_list_show_all(struct vty *vty, json_object *json)
+{
+	struct as_list *aslist;
+
+	for (aslist = as_list_master.str.head; aslist; aslist = aslist->next)
+		as_list_show(vty, aslist, json);
 }
 
 DEFUN (show_as_path_access_list,
        show_bgp_as_path_access_list_cmd,
-       "show bgp as-path-access-list WORD",
+       "show bgp as-path-access-list WORD [json]",
        SHOW_STR
        BGP_STR
        "List AS path access lists\n"
-       "AS path access list name\n")
+       "AS path access list name\n"
+       JSON_STR)
 {
 	int idx_word = 3;
 	struct as_list *aslist;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
 
 	aslist = as_list_lookup(argv[idx_word]->arg);
 	if (aslist)
-		as_list_show(vty, aslist);
+		as_list_show(vty, aslist, json);
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 
 	return CMD_SUCCESS;
 }
 
 ALIAS (show_as_path_access_list,
        show_ip_as_path_access_list_cmd,
-       "show ip as-path-access-list WORD",
+       "show ip as-path-access-list WORD [json]",
        SHOW_STR
        IP_STR
        "List AS path access lists\n"
-       "AS path access list name\n")
+       "AS path access list name\n"
+       JSON_STR)
 
 DEFUN (show_as_path_access_list_all,
        show_bgp_as_path_access_list_all_cmd,
-       "show bgp as-path-access-list",
+       "show bgp as-path-access-list [json]",
        SHOW_STR
        BGP_STR
-       "List AS path access lists\n")
+       "List AS path access lists\n"
+       JSON_STR)
 {
-	as_list_show_all(vty);
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
+	if (uj)
+		json = json_object_new_object();
+
+	as_list_show_all(vty, json);
+
+	if (uj) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
 	return CMD_SUCCESS;
 }
 
 ALIAS (show_as_path_access_list_all,
        show_ip_as_path_access_list_all_cmd,
-       "show ip as-path-access-list",
+       "show ip as-path-access-list [json]",
        SHOW_STR
        IP_STR
-       "List AS path access lists\n")
+       "List AS path access lists\n"
+       JSON_STR)
 
 static int config_write_as_list(struct vty *vty)
 {

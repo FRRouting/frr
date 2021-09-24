@@ -69,7 +69,7 @@ static int pcep_cli_pcep_pce_config_write(struct vty *vty);
 /* Internal Util Function declarations */
 static struct pce_opts_cli *pcep_cli_find_pce(const char *pce_name);
 static bool pcep_cli_add_pce(struct pce_opts_cli *pce_opts_cli);
-static struct pce_opts_cli *pcep_cli_create_pce_opts();
+static struct pce_opts_cli *pcep_cli_create_pce_opts(const char *name);
 static void pcep_cli_delete_pce(const char *pce_name);
 static void
 pcep_cli_merge_pcep_pce_config_options(struct pce_opts_cli *pce_opts_cli);
@@ -175,7 +175,6 @@ static struct cmd_node pcep_node = {
 	.name = "srte pcep",
 	.node = PCEP_NODE,
 	.parent_node = SR_TRAFFIC_ENG_NODE,
-	.config_write = pcep_cli_pcep_config_write,
 	.prompt = "%s(config-sr-te-pcep)# "
 };
 
@@ -183,7 +182,6 @@ static struct cmd_node pcep_pcc_node = {
 	.name = "srte pcep pcc",
 	.node = PCEP_PCC_NODE,
 	.parent_node = PCEP_NODE,
-	.config_write = pcep_cli_pcc_config_write,
 	.prompt = "%s(config-sr-te-pcep-pcc)# "
 };
 
@@ -191,7 +189,6 @@ static struct cmd_node pcep_pce_node = {
 	.name = "srte pcep pce",
 	.node = PCEP_PCE_NODE,
 	.parent_node = PCEP_NODE,
-	.config_write = pcep_cli_pce_config_write,
 	.prompt = "%s(config-sr-te-pcep-pce)# "
 };
 
@@ -199,7 +196,6 @@ static struct cmd_node pcep_pce_config_node = {
 	.name = "srte pcep pce-config",
 	.node = PCEP_PCE_CONFIG_NODE,
 	.parent_node = PCEP_NODE,
-	.config_write = pcep_cli_pcep_pce_config_write,
 	.prompt = "%s(pce-sr-te-pcep-pce-config)# "
 };
 
@@ -505,7 +501,7 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 {
 	int i, j, row;
 	time_t diff_time;
-	struct tm *tm_info;
+	struct tm tm_info;
 	char tm_buffer[26];
 	struct counters_group *group;
 	struct counters_subgroup *subgroup;
@@ -522,8 +518,8 @@ static int path_pcep_cli_show_srte_pcep_counters(struct vty *vty)
 	}
 
 	diff_time = time(NULL) - group->start_time;
-	tm_info = localtime(&group->start_time);
-	strftime(tm_buffer, sizeof(tm_buffer), "%Y-%m-%d %H:%M:%S", tm_info);
+	localtime_r(&group->start_time, &tm_info);
+	strftime(tm_buffer, sizeof(tm_buffer), "%Y-%m-%d %H:%M:%S", &tm_info);
 
 	vty_out(vty, "PCEP counters since %s (%uh %um %us):\n", tm_buffer,
 		(uint32_t)(diff_time / 3600), (uint32_t)((diff_time / 60) % 60),
@@ -1444,6 +1440,10 @@ int pcep_cli_debug_set_all(uint32_t flags, bool set)
 int pcep_cli_pcep_config_write(struct vty *vty)
 {
 	vty_out(vty, "  pcep\n");
+	pcep_cli_pcep_pce_config_write(vty);
+	pcep_cli_pce_config_write(vty);
+	pcep_cli_pcc_config_write(vty);
+	vty_out(vty, "  exit\n");
 	return 1;
 }
 
@@ -1468,7 +1468,7 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 	}
 
 	if (pce_connections_g.num_connections == 0) {
-		return lines;
+		goto exit;
 	}
 
 	buf[0] = 0;
@@ -1495,6 +1495,8 @@ int pcep_cli_pcc_config_write(struct vty *vty)
 		lines++;
 		buf[0] = 0;
 	}
+exit:
+	vty_out(vty, "   exit\n");
 
 	return lines;
 }
@@ -1655,6 +1657,8 @@ int pcep_cli_pce_config_write(struct vty *vty)
 
 		vty_out(vty, "%s", buf);
 		buf[0] = '\0';
+
+		vty_out(vty, "   exit\n");
 	}
 
 	return lines;
@@ -1679,6 +1683,8 @@ int pcep_cli_pcep_pce_config_write(struct vty *vty)
 			pcep_cli_print_pce_config(group_opts, buf, sizeof(buf));
 		vty_out(vty, "%s", buf);
 		buf[0] = 0;
+
+		vty_out(vty, "   exit\n");
 	}
 
 	return lines;
@@ -1755,13 +1761,20 @@ DEFPY_NOSH(
 DEFPY_NOSH(
       pcep_cli_pcep_pce_config,
       pcep_cli_pcep_pce_config_cmd,
-      "[no] pce-config WORD$name",
+      "pce-config WORD$name",
+      "Shared configuration\n"
+      "Shared configuration name\n")
+{
+	return path_pcep_cli_pcep_pce_config(vty, name);
+}
+
+DEFPY(pcep_cli_pcep_no_pce_config,
+      pcep_cli_pcep_no_pce_config_cmd,
+      "no pce-config WORD$name",
       NO_STR
       "Shared configuration\n"
       "Shared configuration name\n")
 {
-	if (no == NULL)
-		return path_pcep_cli_pcep_pce_config(vty, name);
 	return path_pcep_cli_pcep_pce_config_delete(vty, name);
 }
 
@@ -1781,13 +1794,20 @@ DEFPY(pcep_cli_show_srte_pcep_pce_config,
 DEFPY_NOSH(
       pcep_cli_pce,
       pcep_cli_pce_cmd,
-      "[no] pce WORD$name",
+      "pce WORD$name",
+      "PCE configuration, address sub-config is mandatory\n"
+      "PCE name\n")
+{
+	return path_pcep_cli_pce(vty, name);
+}
+
+DEFPY(pcep_cli_no_pce,
+      pcep_cli_no_pce_cmd,
+      "no pce WORD$name",
       NO_STR
       "PCE configuration, address sub-config is mandatory\n"
       "PCE name\n")
 {
-	if (no == NULL)
-		return path_pcep_cli_pce(vty, name);
 	return path_pcep_cli_pce_delete(vty, name);
 }
 
@@ -1906,15 +1926,19 @@ DEFPY(pcep_cli_peer_timers,
 DEFPY_NOSH(
       pcep_cli_pcc,
       pcep_cli_pcc_cmd,
-      "[no] pcc",
+      "pcc",
+      "PCC configuration\n")
+{
+	return path_pcep_cli_pcc(vty);
+}
+
+DEFPY(pcep_cli_no_pcc,
+      pcep_cli_no_pcc_cmd,
+      "no pcc",
       NO_STR
       "PCC configuration\n")
 {
-	if (no != NULL) {
-		return path_pcep_cli_pcc_delete(vty);
-	} else {
-		return path_pcep_cli_pcc(vty);
-	}
+	return path_pcep_cli_pcc_delete(vty);
 }
 
 DEFPY(pcep_cli_pcc_pcc_msd,
@@ -1981,6 +2005,7 @@ DEFPY(pcep_cli_clear_srte_pcep_session,
 
 void pcep_cli_init(void)
 {
+	hook_register(pathd_srte_config_write, pcep_cli_pcep_config_write);
 	hook_register(nb_client_debug_config_write,
 		      pcep_cli_debug_config_write);
 	hook_register(nb_client_debug_set_all, pcep_cli_debug_set_all);
@@ -2001,6 +2026,7 @@ void pcep_cli_init(void)
 
 	/* PCEP configuration group related configuration commands */
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
+	install_element(PCEP_NODE, &pcep_cli_pcep_no_pce_config_cmd);
 	install_element(PCEP_PCE_CONFIG_NODE,
 			&pcep_cli_peer_source_address_cmd);
 	install_element(PCEP_PCE_CONFIG_NODE, &pcep_cli_peer_timers_cmd);
@@ -2010,6 +2036,7 @@ void pcep_cli_init(void)
 
 	/* PCE peer related configuration commands */
 	install_element(PCEP_NODE, &pcep_cli_pce_cmd);
+	install_element(PCEP_NODE, &pcep_cli_no_pce_cmd);
 	install_element(PCEP_PCE_NODE, &pcep_cli_peer_address_cmd);
 	install_element(PCEP_PCE_NODE, &pcep_cli_peer_source_address_cmd);
 	install_element(PCEP_PCE_NODE, &pcep_cli_peer_pcep_pce_config_ref_cmd);
@@ -2021,6 +2048,7 @@ void pcep_cli_init(void)
 	/* PCC related configuration commands */
 	install_element(ENABLE_NODE, &pcep_cli_show_srte_pcc_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pcc_cmd);
+	install_element(PCEP_NODE, &pcep_cli_no_pcc_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_peer_cmd);
 	install_element(PCEP_PCC_NODE, &pcep_cli_pcc_pcc_msd_cmd);
 

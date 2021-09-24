@@ -57,5 +57,5 @@ nodist_ripd_ripd_SOURCES = \
 
 ripd_ripd_snmp_la_SOURCES = ripd/rip_snmp.c
 ripd_ripd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
-ripd_ripd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ripd_ripd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ripd_ripd_snmp_la_LIBADD = lib/libfrrsnmp.la

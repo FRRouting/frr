@@ -109,7 +109,7 @@ The following commands are independent of a specific cache server.
 
    The following commands configure one or multiple cache servers.
 
-.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] PREFERENCE
+.. clicmd:: rpki cache (A.B.C.D|WORD) PORT [SSH_USERNAME] [SSH_PRIVKEY_PATH] [SSH_PUBKEY_PATH] [KNOWN_HOSTS_PATH] [source A.B.C.D] PREFERENCE
 
 
    Add a cache server to the socket. By default, the connection between router
@@ -139,6 +139,9 @@ The following commands are independent of a specific cache server.
       Local path that includes the known hosts file. The default value depends
       on the configuration of the operating system environment, usually
       :file:`~/.ssh/known_hosts`.
+
+   source A.B.C.D
+      Source address of the RPKI connection to access cache server.
 
 
 .. _validating-bgp-updates:
@@ -230,7 +233,7 @@ RPKI Configuration Example
     rpki polling_period 1000
     rpki timeout 10
      ! SSH Example:
-     rpki cache example.com 22 rtr-ssh ./ssh_key/id_rsa ./ssh_key/id_rsa.pub preference 1
+     rpki cache example.com source 141.22.28.223 22 rtr-ssh ./ssh_key/id_rsa ./ssh_key/id_rsa.pub preference 1
      ! TCP Example:
      rpki cache rpki-validator.realmv6.org 8282 preference 2
      exit
@@ -240,10 +243,11 @@ RPKI Configuration Example
     network 192.168.0.0/16
     neighbor 123.123.123.0 remote-as 60002
     neighbor 123.123.123.0 route-map rpki in
+    neighbor 123.123.123.0 update-source 141.22.28.223
    !
     address-family ipv6
      neighbor 123.123.123.0 activate
-      neighbor 123.123.123.0 route-map rpki in
+     neighbor 123.123.123.0 route-map rpki in
     exit-address-family
    !
    route-map rpki permit 10

@@ -358,7 +358,7 @@ static void bgp_evpn_show_route_header(struct vty *vty, struct bgp *bgp,
 		"Status codes: s suppressed, d damped, h history, * valid, > best, i - internal\n");
 	vty_out(vty, "Origin codes: i - IGP, e - EGP, ? - incomplete\n");
 	vty_out(vty,
-		"EVPN type-1 prefix: [1]:[ESI]:[EthTag]:[IPlen]:[VTEP-IP]\n");
+		"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]\n");
 	vty_out(vty,
 		"EVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]:[IPlen]:[IP]\n");
 	vty_out(vty, "EVPN type-3 prefix: [3]:[EthTag]:[IPlen]:[OrigIP]\n");
@@ -396,8 +396,6 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 				  originator_ip, sizeof(originator_ip)));
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
 		json_object_string_add(json, "advertiseSviMacIp", "n/a");
-		json_object_to_json_string_ext(json,
-					       JSON_C_TO_STRING_NOSLASHESCAPE);
 		json_object_string_add(json, "advertisePip",
 				       bgp_vrf->evpn_info->advertise_pip ?
 				       "Enabled" : "Disabled");
@@ -967,8 +965,6 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		json_object_string_add(json_vni, "advertiseGatewayMacip",
 				       "n/a");
 		json_object_string_add(json_vni, "advertiseSviMacIp", "n/a");
-		json_object_to_json_string_ext(json_vni,
-					       JSON_C_TO_STRING_NOSLASHESCAPE);
 		json_object_string_add(
 			json_vni, "advertisePip",
 			bgp->evpn_info->advertise_pip ? "Enabled" : "Disabled");
@@ -2727,7 +2723,7 @@ static void evpn_show_route_rd(struct vty *vty, struct bgp *bgp,
 			/* RD header and legend - once overall. */
 			if (rd_header && !json) {
 				vty_out(vty,
-					"EVPN type-1 prefix: [1]:[ESI]:[EthTag]:[IPlen]:[VTEP-IP]\n");
+					"EVPN type-1 prefix: [1]:[EthTag]:[ESI]:[IPlen]:[VTEP-IP]\n");
 				vty_out(vty,
 					"EVPN type-2 prefix: [2]:[EthTag]:[MAClen]:[MAC]\n");
 				vty_out(vty,
@@ -4413,8 +4409,11 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json,
+				JSON_C_TO_STRING_PRETTY
+					| JSON_C_TO_STRING_NOSLASHESCAPE));
 		json_object_free(json);
 	}
 

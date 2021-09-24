@@ -119,7 +119,6 @@ extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
-extern vrf_id_t vrf_name_to_id(const char *);
 
 #define VRF_LOGNAME(V) V ? V->name : "Unknown"
 
@@ -285,8 +284,7 @@ extern int vrf_switchback_to_initial(void);
 
 /* VRF vty command initialisation
  */
-extern void vrf_cmd_init(int (*writefunc)(struct vty *vty),
-			 struct zebra_privs_t *daemon_priv);
+extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
 
 /* VRF vty debugging
  */
@@ -324,7 +322,6 @@ extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
-extern vrf_id_t vrf_generate_id(void);
 
 extern const struct frr_yang_module_info frr_vrf_info;
 

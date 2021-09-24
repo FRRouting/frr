@@ -56,13 +56,14 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
+#include "zebra/zebra_evpn_mh.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
 DEFINE_MTYPE(ZEBRA, RE,       "Route Entry");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_DEST,       "RIB destination");
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_UPDATE_CTX, "Rib update context object");
-DEFINE_MTYPE_STATIC(ZEBRA, WQ_NHG_WRAPPER, "WQ nhg wrapper");
+DEFINE_MTYPE_STATIC(ZEBRA, WQ_WRAPPER, "WQ wrapper");
 
 /*
  * Event, list, and mutex for delivery of dataplane results
@@ -74,7 +75,7 @@ static struct dplane_ctx_q rib_dplane_q;
 DEFINE_HOOK(rib_update, (struct route_node * rn, const char *reason),
 	    (rn, reason));
 
-/* Should we allow non Quagga processes to delete our routes */
+/* Should we allow non FRR processes to delete our routes */
 extern int allow_delete;
 
 /* Each route type's string and default distance value. */
@@ -83,40 +84,43 @@ static const struct {
 	uint8_t distance;
 	uint8_t meta_q_map;
 } route_info[ZEBRA_ROUTE_MAX] = {
-	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Uneeded for nhg's */, 0},
-	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 6},
-	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 2},
-	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, 1},
-	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 3},
-	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 4},
-	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 4},
-	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 4},
-	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 4},
-	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 4},
-	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 5},
-	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 6},
-	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 4},
-	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 4},
-	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 6},
-	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 6},
-	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 3},
-	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 6},
-	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 5},
-	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 5},
-	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 5},
-	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 5},
-	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 5},
-	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 4},
-	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 6},
-	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 6},
-	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 6},
-	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 4},
-	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 6},
-	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 6},
+	[ZEBRA_ROUTE_NHG] = {ZEBRA_ROUTE_NHG, 255 /* Unneeded for nhg's */, 0},
+	[ZEBRA_ROUTE_SYSTEM] = {ZEBRA_ROUTE_SYSTEM, 0, 7},
+	[ZEBRA_ROUTE_KERNEL] = {ZEBRA_ROUTE_KERNEL, 0, 3},
+	[ZEBRA_ROUTE_CONNECT] = {ZEBRA_ROUTE_CONNECT, 0, 2},
+	[ZEBRA_ROUTE_STATIC] = {ZEBRA_ROUTE_STATIC, 1, 4},
+	[ZEBRA_ROUTE_RIP] = {ZEBRA_ROUTE_RIP, 120, 5},
+	[ZEBRA_ROUTE_RIPNG] = {ZEBRA_ROUTE_RIPNG, 120, 5},
+	[ZEBRA_ROUTE_OSPF] = {ZEBRA_ROUTE_OSPF, 110, 5},
+	[ZEBRA_ROUTE_OSPF6] = {ZEBRA_ROUTE_OSPF6, 110, 5},
+	[ZEBRA_ROUTE_ISIS] = {ZEBRA_ROUTE_ISIS, 115, 5},
+	[ZEBRA_ROUTE_BGP] = {ZEBRA_ROUTE_BGP, 20 /* IBGP is 200. */, 6},
+	[ZEBRA_ROUTE_PIM] = {ZEBRA_ROUTE_PIM, 255, 7},
+	[ZEBRA_ROUTE_EIGRP] = {ZEBRA_ROUTE_EIGRP, 90, 5},
+	[ZEBRA_ROUTE_NHRP] = {ZEBRA_ROUTE_NHRP, 10, 5},
+	[ZEBRA_ROUTE_HSLS] = {ZEBRA_ROUTE_HSLS, 255, 7},
+	[ZEBRA_ROUTE_OLSR] = {ZEBRA_ROUTE_OLSR, 255, 7},
+	[ZEBRA_ROUTE_TABLE] = {ZEBRA_ROUTE_TABLE, 150, 4},
+	[ZEBRA_ROUTE_LDP] = {ZEBRA_ROUTE_LDP, 150, 7},
+	[ZEBRA_ROUTE_VNC] = {ZEBRA_ROUTE_VNC, 20, 6},
+	[ZEBRA_ROUTE_VNC_DIRECT] = {ZEBRA_ROUTE_VNC_DIRECT, 20, 6},
+	[ZEBRA_ROUTE_VNC_DIRECT_RH] = {ZEBRA_ROUTE_VNC_DIRECT_RH, 20, 6},
+	[ZEBRA_ROUTE_BGP_DIRECT] = {ZEBRA_ROUTE_BGP_DIRECT, 20, 6},
+	[ZEBRA_ROUTE_BGP_DIRECT_EXT] = {ZEBRA_ROUTE_BGP_DIRECT_EXT, 20, 6},
+	[ZEBRA_ROUTE_BABEL] = {ZEBRA_ROUTE_BABEL, 100, 5},
+	[ZEBRA_ROUTE_SHARP] = {ZEBRA_ROUTE_SHARP, 150, 7},
+	[ZEBRA_ROUTE_PBR] = {ZEBRA_ROUTE_PBR, 200, 7},
+	[ZEBRA_ROUTE_BFD] = {ZEBRA_ROUTE_BFD, 255, 7},
+	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 5},
+	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 7},
+	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 7},
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
 };
+
+/* EVPN/VXLAN subqueue is number 1 */
+#define META_QUEUE_EVPN 1
 
 /* Wrapper struct for nhg workqueue items; a 'ctx' is an incoming update
  * from the OS, and an 'nhe' is a nhe update.
@@ -131,6 +135,29 @@ struct wq_nhg_wrapper {
 
 #define WQ_NHG_WRAPPER_TYPE_CTX  0x01
 #define WQ_NHG_WRAPPER_TYPE_NHG  0x02
+
+/* Wrapper structs for evpn/vxlan workqueue items. */
+struct wq_evpn_wrapper {
+	int type;
+	bool add_p;
+	vrf_id_t vrf_id;
+	bool esr_rxed;
+	uint8_t df_alg;
+	uint16_t df_pref;
+	uint32_t flags;
+	uint32_t seq;
+	esi_t esi;
+	vni_t vni;
+	struct ipaddr ip;
+	struct ethaddr macaddr;
+	struct prefix prefix;
+	struct in_addr vtep_ip;
+};
+
+#define WQ_EVPN_WRAPPER_TYPE_VRFROUTE     0x01
+#define WQ_EVPN_WRAPPER_TYPE_REM_ES       0x02
+#define WQ_EVPN_WRAPPER_TYPE_REM_MACIP    0x03
+#define WQ_EVPN_WRAPPER_TYPE_REM_VTEP     0x04
 
 /* %pRN is already a printer for route_nodes that just prints the prefix */
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
@@ -578,12 +605,9 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 		break;
 	case ZEBRA_DPLANE_REQUEST_FAILURE:
 	{
-		char str[SRCDEST2STR_BUFFER];
-
-		srcdest_rnode2str(rn, str, sizeof(str));
 		flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
-			 "%u:%u:%s: Failed to enqueue dataplane install",
-			 re->vrf_id, re->table, str);
+			 "%u:%u:%pRN: Failed to enqueue dataplane install",
+			 re->vrf_id, re->table, rn);
 		break;
 	}
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
@@ -621,15 +645,10 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 			zvrf->removals_queued++;
 		break;
 	case ZEBRA_DPLANE_REQUEST_FAILURE:
-	{
-		char str[SRCDEST2STR_BUFFER];
-
-		srcdest_rnode2str(rn, str, sizeof(str));
 		flog_err(EC_ZEBRA_DP_INSTALL_FAIL,
-			 "%u:%s: Failed to enqueue dataplane uninstall",
-			 re->vrf_id, str);
+			 "%u:%pRN: Failed to enqueue dataplane uninstall",
+			 re->vrf_id, rn);
 		break;
-	}
 	case ZEBRA_DPLANE_REQUEST_SUCCESS:
 		if (zvrf)
 			zvrf->removals++;
@@ -637,46 +656,6 @@ void rib_uninstall_kernel(struct route_node *rn, struct route_entry *re)
 	}
 
 	return;
-}
-
-/* Uninstall the route from kernel. */
-static void rib_uninstall(struct route_node *rn, struct route_entry *re)
-{
-	struct rib_table_info *info = srcdest_rnode_table_info(rn);
-	rib_dest_t *dest = rib_dest_from_rnode(rn);
-	struct nexthop *nexthop;
-
-	if (dest && dest->selected_fib == re) {
-		if (info->safi == SAFI_UNICAST)
-			hook_call(rib_update, rn, "rib_uninstall");
-
-		/* If labeled-unicast route, uninstall transit LSP. */
-		if (zebra_rib_labeled_unicast(re))
-			zebra_mpls_lsp_uninstall(info->zvrf, rn, re);
-
-		rib_uninstall_kernel(rn, re);
-
-		dest->selected_fib = NULL;
-
-		/* Free FIB nexthop group, if present */
-		if (re->fib_ng.nexthop) {
-			nexthops_free(re->fib_ng.nexthop);
-			re->fib_ng.nexthop = NULL;
-		}
-		UNSET_FLAG(re->status, ROUTE_ENTRY_USE_FIB_NHG);
-
-		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
-	}
-
-	if (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)) {
-		const struct prefix *p, *src_p;
-
-		srcdest_rnode_prefixes(rn, &p, &src_p);
-
-		redistribute_delete(p, src_p, re, NULL);
-		UNSET_FLAG(re->flags, ZEBRA_FLAG_SELECTED);
-	}
 }
 
 /*
@@ -726,15 +705,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 	 * would match a more specific route
 	 */
 	while (rn) {
-		if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-			char buf[PREFIX_STRLEN];
-
+		if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 			zlog_debug(
-				"%s: %s Being examined for Nexthop Tracking Count: %zd",
-				__func__,
-				srcdest_rnode2str(rn, buf, sizeof(buf)),
+				"%s: %pRN Being examined for Nexthop Tracking Count: %zd",
+				__func__, rn,
 				dest ? rnh_list_count(&dest->nht) : 0);
-		}
+
 		if (!dest) {
 			rn = rn->parent;
 			if (rn)
@@ -752,17 +728,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 				zebra_vrf_lookup_by_id(rnh->vrf_id);
 			struct prefix *p = &rnh->node->p;
 
-			if (IS_ZEBRA_DEBUG_NHT_DETAILED) {
-				char buf1[PREFIX_STRLEN];
-
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"%s(%u):%s has Nexthop(%pFX) Type: %s depending on it, evaluating %u:%u",
+					"%s(%u):%pRN has Nexthop(%pFX) Type: %s depending on it, evaluating %u:%u",
 					zvrf_name(zvrf), zvrf_id(zvrf),
-					srcdest_rnode2str(rn, buf1,
-							  sizeof(buf1)),
-					p, rnh_type2str(rnh->type), seq,
+					rn, p, rnh_type2str(rnh->type), seq,
 					rnh->seqno);
-			}
 
 			/*
 			 * If we have evaluated this node on this pass
@@ -863,13 +834,10 @@ static void rib_process_add_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 		return;
 	}
 
-	if (IS_ZEBRA_DEBUG_RIB) {
-		char buf[SRCDEST2STR_BUFFER];
-		srcdest_rnode2str(rn, buf, sizeof(buf));
-		zlog_debug("%s(%u:%u):%s: Adding route rn %p, re %p (%s)",
-			   zvrf_name(zvrf), zvrf_id(zvrf), new->table, buf, rn,
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s(%u:%u):%pRN: Adding route rn %p, re %p (%s)",
+			   zvrf_name(zvrf), zvrf_id(zvrf), new->table, rn, rn,
 			   new, zebra_route_string(new->type));
-	}
 
 	/* If labeled-unicast route, install transit LSP. */
 	if (zebra_rib_labeled_unicast(new))
@@ -886,13 +854,10 @@ static void rib_process_del_fib(struct zebra_vrf *zvrf, struct route_node *rn,
 	hook_call(rib_update, rn, "removing existing route");
 
 	/* Uninstall from kernel. */
-	if (IS_ZEBRA_DEBUG_RIB) {
-		char buf[SRCDEST2STR_BUFFER];
-		srcdest_rnode2str(rn, buf, sizeof(buf));
-		zlog_debug("%s(%u:%u):%s: Deleting route rn %p, re %p (%s)",
-			   zvrf_name(zvrf), zvrf_id(zvrf), old->table, buf, rn,
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s(%u:%u):%pRN: Deleting route rn %p, re %p (%s)",
+			   zvrf_name(zvrf), zvrf_id(zvrf), old->table, rn, rn,
 			   old, zebra_route_string(old->type));
-	}
 
 	/* If labeled-unicast route, uninstall transit LSP. */
 	if (zebra_rib_labeled_unicast(old))
@@ -938,22 +903,19 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 */
 		if (nh_active) {
 			if (IS_ZEBRA_DEBUG_RIB) {
-				char buf[SRCDEST2STR_BUFFER];
-
-				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
-						"%s(%u:%u):%s: Updating route rn %p, re %p (%s) old %p (%s)",
+						"%s(%u:%u):%pRN: Updating route rn %p, re %p (%s) old %p (%s)",
 						zvrf_name(zvrf), zvrf_id(zvrf),
-						new->table, buf, rn, new,
+						new->table, rn, rn, new,
 						zebra_route_string(new->type),
 						old,
 						zebra_route_string(old->type));
 				else
 					zlog_debug(
-						"%s(%u:%u):%s: Updating route rn %p, re %p (%s)",
+						"%s(%u:%u):%pRN: Updating route rn %p, re %p (%s)",
 						zvrf_name(zvrf), zvrf_id(zvrf),
-						new->table, buf, rn, new,
+						new->table, rn, rn, new,
 						zebra_route_string(new->type));
 			}
 
@@ -979,21 +941,19 @@ static void rib_process_update_fib(struct zebra_vrf *zvrf,
 		 */
 		if (!nh_active) {
 			if (IS_ZEBRA_DEBUG_RIB) {
-				char buf[SRCDEST2STR_BUFFER];
-				srcdest_rnode2str(rn, buf, sizeof(buf));
 				if (new != old)
 					zlog_debug(
-						"%s(%u:%u):%s: Deleting route rn %p, re %p (%s) old %p (%s) - nexthop inactive",
+						"%s(%u:%u):%pRN: Deleting route rn %p, re %p (%s) old %p (%s) - nexthop inactive",
 						zvrf_name(zvrf), zvrf_id(zvrf),
-						new->table, buf, rn, new,
+						new->table, rn, rn, new,
 						zebra_route_string(new->type),
 						old,
 						zebra_route_string(old->type));
 				else
 					zlog_debug(
-						"%s(%u:%u):%s: Deleting route rn %p, re %p (%s) - nexthop inactive",
+						"%s(%u:%u):%pRN: Deleting route rn %p, re %p (%s) - nexthop inactive",
 						zvrf_name(zvrf), zvrf_id(zvrf),
-						new->table, buf, rn, new,
+						new->table, rn, rn, new,
 						zebra_route_string(new->type));
 			}
 
@@ -1110,7 +1070,6 @@ static void rib_process(struct route_node *rn)
 	struct route_entry *old_fib = NULL;
 	struct route_entry *new_fib = NULL;
 	struct route_entry *best = NULL;
-	char buf[SRCDEST2STR_BUFFER];
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
@@ -1122,15 +1081,17 @@ static void rib_process(struct route_node *rn)
 	assert(rn);
 
 	dest = rib_dest_from_rnode(rn);
-	if (dest) {
-		zvrf = rib_dest_vrf(dest);
-		vrf_id = zvrf_id(zvrf);
-	}
+	/*
+	 * We have an enqueued node with nothing to process here
+	 * let's just finish up and return;
+	 */
+	if (!dest)
+		return;
+
+	zvrf = rib_dest_vrf(dest);
+	vrf_id = zvrf_id(zvrf);
 
 	vrf = vrf_lookup_by_id(vrf_id);
-
-	if (IS_ZEBRA_DEBUG_RIB)
-		srcdest_rnode2str(rn, buf, sizeof(buf));
 
 	/*
 	 * we can have rn's that have a NULL info pointer
@@ -1138,17 +1099,15 @@ static void rib_process(struct route_node *rn)
 	 * additionally we know RNODE_FOREACH_RE_SAFE
 	 * will not iterate so we are ok.
 	 */
-	if (dest) {
-		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
-			struct route_entry *re = re_list_first(&dest->routes);
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		struct route_entry *re = re_list_first(&dest->routes);
 
-			zlog_debug("%s(%u:%u):%s: Processing rn %p",
-				   VRF_LOGNAME(vrf), vrf_id, re->table, buf,
-				   rn);
-		}
-
-		old_fib = dest->selected_fib;
+		zlog_debug("%s(%u:%u):%pRN: Processing rn %p",
+			   VRF_LOGNAME(vrf), vrf_id, re->table, rn,
+			   rn);
 	}
+
+	old_fib = dest->selected_fib;
 
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
@@ -1156,8 +1115,8 @@ static void rib_process(struct route_node *rn)
 			char status_buf[128];
 
 			zlog_debug(
-				"%s(%u:%u):%s: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
-				VRF_LOGNAME(vrf), vrf_id, re->table, buf, re,
+				"%s(%u:%u):%pRN: Examine re %p (%s) status: %sflags: %sdist %d metric %d",
+				VRF_LOGNAME(vrf), vrf_id, re->table, rn, re,
 				zebra_route_string(re->type),
 				_dump_re_status(re, status_buf,
 						sizeof(status_buf)),
@@ -1207,11 +1166,11 @@ static void rib_process(struct route_node *rn)
 					if (re != old_selected) {
 						if (IS_ZEBRA_DEBUG_RIB)
 							zlog_debug(
-								"%s: %s(%u):%s: imported via import-table but denied by the ip protocol table route-map",
+								"%s: %s(%u):%pRN: imported via import-table but denied by the ip protocol table route-map",
 								__func__,
 								VRF_LOGNAME(
 									vrf),
-								vrf_id, buf);
+								vrf_id, rn);
 						rib_unlink(rn, re);
 					} else
 						SET_FLAG(re->status,
@@ -1286,8 +1245,8 @@ static void rib_process(struct route_node *rn)
 						    : new_fib ? new_fib : NULL;
 
 		zlog_debug(
-			"%s(%u:%u):%s: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
-			VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, buf,
+			"%s(%u:%u):%pRN: After processing: old_selected %p new_selected %p old_fib %p new_fib %p",
+			VRF_LOGNAME(vrf), vrf_id, entry ? entry->table : 0, rn,
 			(void *)old_selected, (void *)new_selected,
 			(void *)old_fib, (void *)new_fib);
 	}
@@ -2316,6 +2275,62 @@ done:
 }
 
 /*
+ * Process a node from the EVPN/VXLAN subqueue.
+ */
+static void process_subq_evpn(struct listnode *lnode)
+{
+	struct wq_evpn_wrapper *w;
+
+	/* In general, the list node points to a wrapper object
+	 * holding the info necessary to make some update.
+	 */
+	w = listgetdata(lnode);
+	if (!w)
+		return;
+
+	if (w->type == WQ_EVPN_WRAPPER_TYPE_VRFROUTE) {
+		if (w->add_p)
+			zebra_vxlan_evpn_vrf_route_add(w->vrf_id, &w->macaddr,
+						       &w->ip, &w->prefix);
+		else
+			zebra_vxlan_evpn_vrf_route_del(w->vrf_id, &w->ip,
+						       &w->prefix);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_ES) {
+		if (w->add_p)
+			zebra_evpn_remote_es_add(&w->esi, w->ip.ipaddr_v4,
+						 w->esr_rxed, w->df_alg,
+						 w->df_pref);
+		else
+			zebra_evpn_remote_es_del(&w->esi, w->ip.ipaddr_v4);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_MACIP) {
+		uint16_t ipa_len = 0;
+
+		if (w->ip.ipa_type == IPADDR_V4)
+			ipa_len = IPV4_MAX_BYTELEN;
+		else if (w->ip.ipa_type == IPADDR_V6)
+			ipa_len = IPV6_MAX_BYTELEN;
+
+		if (w->add_p)
+			zebra_evpn_rem_macip_add(w->vni, &w->macaddr, ipa_len,
+						 &w->ip, w->flags, w->seq,
+						 w->vtep_ip, &w->esi);
+		else
+			zebra_evpn_rem_macip_del(w->vni, &w->macaddr, ipa_len,
+						 &w->ip, w->vtep_ip);
+	} else if (w->type == WQ_EVPN_WRAPPER_TYPE_REM_VTEP) {
+		if (w->add_p)
+			zebra_vxlan_remote_vtep_add(w->vrf_id, w->vni,
+						    w->vtep_ip, w->flags);
+		else
+			zebra_vxlan_remote_vtep_del(w->vrf_id, w->vni,
+						    w->vtep_ip);
+	}
+
+
+	XFREE(MTYPE_WQ_WRAPPER, w);
+}
+
+/*
  * Process the nexthop-group workqueue subqueue
  */
 static void process_subq_nhg(struct listnode *lnode)
@@ -2355,8 +2370,7 @@ static void process_subq_nhg(struct listnode *lnode)
 		/* Process incoming nhg update, probably from a proto daemon */
 		newnhe = zebra_nhg_proto_add(nhe->id, nhe->type,
 					     nhe->zapi_instance,
-					     nhe->zapi_session,
-					     &nhe->nhg, 0);
+					     nhe->zapi_session, &nhe->nhg, 0);
 
 		/* Report error to daemon via ZAPI */
 		if (newnhe == NULL)
@@ -2368,7 +2382,7 @@ static void process_subq_nhg(struct listnode *lnode)
 		zebra_nhg_free(nhe);
 	}
 
-	XFREE(MTYPE_WQ_NHG_WRAPPER, w);
+	XFREE(MTYPE_WQ_WRAPPER, w);
 }
 
 static void process_subq_route(struct listnode *lnode, uint8_t qindex)
@@ -2387,7 +2401,6 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
 		struct route_entry *re = NULL;
-		char buf[SRCDEST2STR_BUFFER];
 
 		/*
 		 * rib_process may have freed the dest
@@ -2398,10 +2411,9 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 		if (dest)
 			re = re_list_first(&dest->routes);
 
-		srcdest_rnode2str(rnode, buf, sizeof(buf));
-		zlog_debug("%s(%u:%u):%s: rn %p dequeued from sub-queue %u",
+		zlog_debug("%s(%u:%u):%pRN rn %p dequeued from sub-queue %u",
 			   zvrf_name(zvrf), zvrf_id(zvrf), re ? re->table : 0,
-			   buf, rnode, qindex);
+			   rnode, rnode, qindex);
 	}
 
 	if (rnode->info)
@@ -2411,9 +2423,9 @@ static void process_subq_route(struct listnode *lnode, uint8_t qindex)
 	route_unlock_node(rnode);
 }
 
-/* Take a list of route_node structs and return 1, if there was a record
- * picked from it and processed by rib_process(). Don't process more,
- * than one RN record; operate only in the specified sub-queue.
+/*
+ * Examine the specified subqueue; process one entry and return 1 if
+ * there is a node, return 0 otherwise.
  */
 static unsigned int process_subq(struct list *subq, uint8_t qindex)
 {
@@ -2422,7 +2434,9 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 	if (!lnode)
 		return 0;
 
-	if (qindex == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
+	if (qindex == META_QUEUE_EVPN)
+		process_subq_evpn(lnode);
+	else if (qindex == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
 		process_subq_nhg(lnode);
 	else
 		process_subq_route(lnode, qindex);
@@ -2432,7 +2446,7 @@ static unsigned int process_subq(struct list *subq, uint8_t qindex)
 	return 1;
 }
 
-/* Dispatch the meta queue by picking, processing and unlocking the next RN from
+/* Dispatch the meta queue by picking and processing the next node from
  * a non-empty sub-queue with lowest priority. wq is equal to zebra->ribq and
  * data is pointed to the meta queue structure.
  */
@@ -2538,7 +2552,7 @@ static int rib_meta_queue_nhg_ctx_add(struct meta_queue *mq, void *data)
 	if (!ctx)
 		return -1;
 
-	w = XCALLOC(MTYPE_WQ_NHG_WRAPPER, sizeof(struct wq_nhg_wrapper));
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_nhg_wrapper));
 
 	w->type = WQ_NHG_WRAPPER_TYPE_CTX;
 	w->u.ctx = ctx;
@@ -2564,7 +2578,7 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 	if (!nhe)
 		return -1;
 
-	w = XCALLOC(MTYPE_WQ_NHG_WRAPPER, sizeof(struct wq_nhg_wrapper));
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_nhg_wrapper));
 
 	w->type = WQ_NHG_WRAPPER_TYPE_NHG;
 	w->u.nhe = nhe;
@@ -2575,6 +2589,14 @@ static int rib_meta_queue_nhg_add(struct meta_queue *mq, void *data)
 	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug("NHG id=%u queued into sub-queue %u",
 			   nhe->id, qindex);
+
+	return 0;
+}
+
+static int rib_meta_queue_evpn_add(struct meta_queue *mq, void *data)
+{
+	listnode_add(mq->subq[META_QUEUE_EVPN], data);
+	mq->size++;
 
 	return 0;
 }
@@ -2640,6 +2662,225 @@ int rib_queue_nhe_add(struct nhg_hash_entry *nhe)
 	return mq_add_handler(nhe, rib_meta_queue_nhg_add);
 }
 
+/*
+ * Enqueue evpn route for processing
+ */
+int zebra_rib_queue_evpn_route_add(vrf_id_t vrf_id, const struct ethaddr *rmac,
+				   const struct ipaddr *vtep_ip,
+				   const struct prefix *host_prefix)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_VRFROUTE;
+	w->add_p = true;
+	w->vrf_id = vrf_id;
+	w->macaddr = *rmac;
+	w->ip = *vtep_ip;
+	w->prefix = *host_prefix;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: (%u)%pIA, host prefix %pFX enqueued", __func__,
+			   vrf_id, vtep_ip, host_prefix);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+int zebra_rib_queue_evpn_route_del(vrf_id_t vrf_id,
+				   const struct ipaddr *vtep_ip,
+				   const struct prefix *host_prefix)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_VRFROUTE;
+	w->add_p = false;
+	w->vrf_id = vrf_id;
+	w->ip = *vtep_ip;
+	w->prefix = *host_prefix;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: (%u)%pIA, host prefix %pFX enqueued", __func__,
+			   vrf_id, vtep_ip, host_prefix);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/* Enqueue EVPN remote ES for processing */
+int zebra_rib_queue_evpn_rem_es_add(const esi_t *esi,
+				    const struct in_addr *vtep_ip,
+				    bool esr_rxed, uint8_t df_alg,
+				    uint16_t df_pref)
+{
+	struct wq_evpn_wrapper *w;
+	char buf[ESI_STR_LEN];
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_ES;
+	w->add_p = true;
+	w->esi = *esi;
+	w->ip.ipa_type = IPADDR_V4;
+	w->ip.ipaddr_v4 = *vtep_ip;
+	w->esr_rxed = esr_rxed;
+	w->df_alg = df_alg;
+	w->df_pref = df_pref;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: vtep %pI4, esi %s enqueued", __func__, vtep_ip,
+			   esi_to_str(esi, buf, sizeof(buf)));
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+int zebra_rib_queue_evpn_rem_es_del(const esi_t *esi,
+				    const struct in_addr *vtep_ip)
+{
+	struct wq_evpn_wrapper *w;
+	char buf[ESI_STR_LEN];
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_ES;
+	w->add_p = false;
+	w->esi = *esi;
+	w->ip.ipa_type = IPADDR_V4;
+	w->ip.ipaddr_v4 = *vtep_ip;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		if (memcmp(esi, zero_esi, sizeof(esi_t)) != 0)
+			esi_to_str(esi, buf, sizeof(buf));
+		else
+			strlcpy(buf, "-", sizeof(buf));
+
+		zlog_debug("%s: vtep %pI4, esi %s enqueued", __func__, vtep_ip,
+			   buf);
+	}
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/*
+ * Enqueue EVPN remote macip update for processing
+ */
+int zebra_rib_queue_evpn_rem_macip_add(vni_t vni, const struct ethaddr *macaddr,
+				       const struct ipaddr *ipaddr,
+				       uint8_t flags, uint32_t seq,
+				       struct in_addr vtep_ip, const esi_t *esi)
+{
+	struct wq_evpn_wrapper *w;
+	char buf[ESI_STR_LEN];
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
+	w->add_p = true;
+	w->vni = vni;
+	w->macaddr = *macaddr;
+	w->ip = *ipaddr;
+	w->flags = flags;
+	w->seq = seq;
+	w->vtep_ip = vtep_ip;
+	w->esi = *esi;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED) {
+		if (memcmp(esi, zero_esi, sizeof(esi_t)) != 0)
+			esi_to_str(esi, buf, sizeof(buf));
+		else
+			strlcpy(buf, "-", sizeof(buf));
+
+		zlog_debug("%s: mac %pEA, vtep %pI4, esi %s enqueued", __func__,
+			   macaddr, &vtep_ip, buf);
+	}
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+int zebra_rib_queue_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
+				       const struct ipaddr *ip,
+				       struct in_addr vtep_ip)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_MACIP;
+	w->add_p = false;
+	w->vni = vni;
+	w->macaddr = *macaddr;
+	w->ip = *ip;
+	w->vtep_ip = vtep_ip;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: mac %pEA, vtep %pI4 enqueued", __func__,
+			   macaddr, &vtep_ip);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/*
+ * Enqueue remote VTEP address for processing
+ */
+int zebra_rib_queue_evpn_rem_vtep_add(vrf_id_t vrf_id, vni_t vni,
+				      struct in_addr vtep_ip, int flood_control)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_VTEP;
+	w->add_p = true;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->vtep_ip = vtep_ip;
+	w->flags = flood_control;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: vrf %u, vtep %pI4 enqueued", __func__, vrf_id,
+			   &vtep_ip);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
+				      struct in_addr vtep_ip)
+{
+	struct wq_evpn_wrapper *w;
+
+	w = XCALLOC(MTYPE_WQ_WRAPPER, sizeof(struct wq_evpn_wrapper));
+
+	w->type = WQ_EVPN_WRAPPER_TYPE_REM_VTEP;
+	w->add_p = false;
+	w->vrf_id = vrf_id;
+	w->vni = vni;
+	w->vtep_ip = vtep_ip;
+
+	if (IS_ZEBRA_DEBUG_RIB_DETAILED)
+		zlog_debug("%s: vrf %u, vtep %pI4 enqueued", __func__, vrf_id,
+			   &vtep_ip);
+
+	return mq_add_handler(w, rib_meta_queue_evpn_add);
+}
+
+/* Clean up the EVPN meta-queue list */
+static void evpn_meta_queue_free(struct list *l)
+{
+	struct listnode *node;
+	struct wq_evpn_wrapper *w;
+
+	/* Free the node wrapper object, and the struct it wraps */
+	while ((node = listhead(l)) != NULL) {
+		w = node->data;
+		node->data = NULL;
+
+		XFREE(MTYPE_WQ_WRAPPER, w);
+
+		list_delete_node(l, node);
+	}
+}
+
 /* Clean up the nhg meta-queue list */
 static void nhg_meta_queue_free(struct list *l)
 {
@@ -2656,7 +2897,7 @@ static void nhg_meta_queue_free(struct list *l)
 		else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG)
 			zebra_nhg_free(w->u.nhe);
 
-		XFREE(MTYPE_WQ_NHG_WRAPPER, w);
+		XFREE(MTYPE_WQ_WRAPPER, w);
 
 		list_delete_node(l, node);
 	}
@@ -2688,6 +2929,8 @@ void meta_queue_free(struct meta_queue *mq)
 		/* Some subqueues may need cleanup - nhgs for example */
 		if (i == route_info[ZEBRA_ROUTE_NHG].meta_q_map)
 			nhg_meta_queue_free(mq->subq[i]);
+		else if (i == META_QUEUE_EVPN)
+			evpn_meta_queue_free(mq->subq[i]);
 
 		list_delete(&mq->subq[i]);
 	}
@@ -2763,7 +3006,7 @@ rib_dest_t *zebra_rib_create_dest(struct route_node *rn)
  * dest is created on-demand by rib_link() and is kept around at least
  * as long as there are ribs hanging off it (@see rib_gc_dest()).
  *
- * Refcounting (aka "locking" throughout the GNU Zebra and Quagga code):
+ * Refcounting (aka "locking" throughout the Zebra and FRR code):
  *
  * - route_nodes: refcounted by:
  *   - dest attached to route_node:
@@ -2877,13 +3120,10 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 
 		zebra_del_import_table_entry(zvrf, rn, re);
 		/* Just clean up if non main table */
-		if (IS_ZEBRA_DEBUG_RIB) {
-			char buf[SRCDEST2STR_BUFFER];
-			srcdest_rnode2str(rn, buf, sizeof(buf));
-			zlog_debug("%s(%u):%s: Freeing route rn %p, re %p (%s)",
-				   vrf_id_to_name(re->vrf_id), re->vrf_id, buf,
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%s(%u):%pRN: Freeing route rn %p, re %p (%s)",
+				   vrf_id_to_name(re->vrf_id), re->vrf_id, rn,
 				   rn, re, zebra_route_string(re->type));
-		}
 
 		rib_unlink(rn, re);
 	} else {
@@ -3034,112 +3274,15 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 }
 
 /*
- * This is an exported helper to rtm_read() to dump the strange
- * RE entry found by rib_lookup_ipv4_route()
- */
-void rib_lookup_and_dump(struct prefix_ipv4 *p, vrf_id_t vrf_id)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	struct route_entry *re;
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-
-	/* Lookup table.  */
-	table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id);
-	if (!table) {
-		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
-			 "%s:%s(%u) zebra_vrf_table() returned NULL", __func__,
-			 VRF_LOGNAME(vrf), vrf_id);
-		return;
-	}
-
-	/* Scan the RIB table for exactly matching RE entry. */
-	rn = route_node_lookup(table, (struct prefix *)p);
-
-	/* No route for this prefix. */
-	if (!rn) {
-		zlog_debug("%s:%s(%u) lookup failed for %pFX", __func__,
-			   VRF_LOGNAME(vrf), vrf_id, (struct prefix *)p);
-		return;
-	}
-
-	/* Unlock node. */
-	route_unlock_node(rn);
-
-	/* let's go */
-	RNODE_FOREACH_RE (rn, re) {
-		zlog_debug("%s:%s(%u) rn %p, re %p: %s, %s", __func__,
-			   VRF_LOGNAME(vrf), vrf_id, (void *)rn, (void *)re,
-			   (CHECK_FLAG(re->status, ROUTE_ENTRY_REMOVED)
-				    ? "removed"
-				    : "NOT removed"),
-			   (CHECK_FLAG(re->flags, ZEBRA_FLAG_SELECTED)
-				    ? "selected"
-				    : "NOT selected"));
-		route_entry_dump(p, NULL, re);
-	}
-}
-
-/* Check if requested address assignment will fail due to another
- * route being installed by zebra in FIB already. Take necessary
- * actions, if needed: remove such a route from FIB and deSELECT
- * corresponding RE entry. Then put affected RN into RIBQ head.
- */
-void rib_lookup_and_pushup(struct prefix_ipv4 *p, vrf_id_t vrf_id)
-{
-	struct route_table *table;
-	struct route_node *rn;
-	rib_dest_t *dest;
-
-	if (NULL == (table = zebra_vrf_table(AFI_IP, SAFI_UNICAST, vrf_id))) {
-		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-
-		flog_err(EC_ZEBRA_TABLE_LOOKUP_FAILED,
-			 "%s:%s(%u) zebra_vrf_table() returned NULL", __func__,
-			 VRF_LOGNAME(vrf), vrf_id);
-		return;
-	}
-
-	/* No matches would be the simplest case. */
-	if (NULL == (rn = route_node_lookup(table, (struct prefix *)p)))
-		return;
-
-	/* Unlock node. */
-	route_unlock_node(rn);
-
-	dest = rib_dest_from_rnode(rn);
-	/* Check all RE entries. In case any changes have to be done, requeue
-	 * the RN into RIBQ head. If the routing message about the new connected
-	 * route (generated by the IP address we are going to assign very soon)
-	 * comes before the RIBQ is processed, the new RE entry will join
-	 * RIBQ record already on head. This is necessary for proper
-	 * revalidation
-	 * of the rest of the RE.
-	 */
-	if (dest->selected_fib) {
-		if (IS_ZEBRA_DEBUG_RIB) {
-			struct vrf *vrf =
-				vrf_lookup_by_id(dest->selected_fib->vrf_id);
-
-			zlog_debug(
-				"%s(%u):%pFX: freeing way for connected prefix",
-				VRF_LOGNAME(vrf), dest->selected_fib->vrf_id,
-				&rn->p);
-			route_entry_dump(&rn->p, NULL, dest->selected_fib);
-		}
-		rib_uninstall(rn, dest->selected_fib);
-		rib_queue_add(rn);
-	}
-}
-
-/*
  * Internal route-add implementation; there are a couple of different public
  * signatures. Callers in this path are responsible for the memory they
  * allocate: if they allocate a nexthop_group or backup nexthop info, they
  * must free those objects. If this returns < 0, an error has occurred and the
  * route_entry 're' has not been captured; the caller should free that also.
+ *
+ * -1 -> error
+ *  0 -> Add
+ *  1 -> update
  */
 int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 			  struct prefix_ipv6 *src_p, struct route_entry *re,
@@ -3254,11 +3397,12 @@ int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 
 	SET_FLAG(re->status, ROUTE_ENTRY_CHANGED);
 	rib_addnode(rn, re, 1);
-	ret = 1;
 
 	/* Free implicit route.*/
-	if (same)
+	if (same) {
+		ret = 1;
 		rib_delnode(rn, same);
+	}
 
 	/* See if we can remove some RE entries that are queued for
 	 * removal, but won't be considered in rib processing.
@@ -3518,7 +3662,7 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 					       &(tmp_nh->gate.ipv6),
 					       sizeof(struct in6_addr));
 				}
-				zebra_vxlan_evpn_vrf_route_del(re->vrf_id,
+				zebra_rib_queue_evpn_route_del(re->vrf_id,
 							       &vtep_ip, p);
 			}
 		}
@@ -4063,6 +4207,11 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_IPSET_ENTRY_ADD:
 			case DPLANE_OP_IPSET_ENTRY_DELETE:
 				zebra_pbr_dplane_result(ctx);
+				break;
+
+			case DPLANE_OP_INTF_ADDR_ADD:
+			case DPLANE_OP_INTF_ADDR_DEL:
+				zebra_if_addr_update_ctx(ctx);
 				break;
 
 			/* Some op codes not handled here */

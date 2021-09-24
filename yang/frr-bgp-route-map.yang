@@ -36,6 +36,12 @@ module frr-bgp-route-map {
       "Initial revision";
   }
 
+  identity match-alias {
+    base frr-route-map:rmap-match-type;
+    description
+      "Match BGP community alias name";
+  }
+
   identity match-local-preference {
     base frr-route-map:rmap-match-type;
     description
@@ -160,6 +166,12 @@ module frr-bgp-route-map {
     base frr-route-map:rmap-set-type;
     description
       "Set BGP administrative distance to use";
+  }
+
+  identity set-extcommunity-none {
+    base frr-route-map:rmap-set-type;
+    description
+      "Set BGP extended community attribute";
   }
 
   identity set-extcommunity-rt {
@@ -352,7 +364,14 @@ module frr-bgp-route-map {
       }
     }
 
-    case script { 
+    case alias {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-alias')";
+      leaf alias {
+        type string;
+      }
+    }
+
+    case script {
       when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:match-condition/frr-route-map:condition, 'frr-bgp-route-map:match-script')";
       leaf script {
         type string;
@@ -569,6 +588,16 @@ module frr-bgp-route-map {
         type uint8 {
           range "0..255";
         }
+      }
+    }
+
+    case extcommunity-none {
+      when "derived-from-or-self(/frr-route-map:lib/frr-route-map:route-map/frr-route-map:entry/frr-route-map:set-action/frr-route-map:action, 'frr-bgp-route-map:set-extcommunity-none')";
+      description
+        "Value of the BGP extended community attribute";
+      leaf extcommunity-none {
+        type boolean;
+        description "No extended community attribute";
       }
     }
 

@@ -72,14 +72,6 @@
 #include "pimd/pim_cmd_clippy.c"
 #endif
 
-static struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = pim_interface_config_write,
-};
-
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -497,6 +489,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	struct interface *ifp;
 	time_t now;
 	char buf[PREFIX_STRLEN];
+	char quer_buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -506,7 +499,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json = json_object_new_object();
 	else
 		vty_out(vty,
-			"Interface         State          Address  V  Querier  Query Timer    Uptime\n");
+			"Interface         State          Address  V  Querier          QuerierIp  Query Timer    Uptime\n");
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
@@ -544,6 +537,10 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 							       "queryTimer",
 							       query_hhmmss);
 				}
+				json_object_string_add(
+					json_row, "querierIp",
+					inet_ntop(AF_INET, &igmp->querier_addr,
+						  quer_buf, sizeof(quer_buf)));
 
 				json_object_object_add(json, ifp->name,
 						       json_row);
@@ -554,18 +551,19 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				}
 			} else {
 				vty_out(vty,
-					"%-16s  %5s  %15s  %d  %7s  %11s  %8s\n",
+					"%-16s  %5s  %15s  %d  %7s  %17pI4  %11s  %8s\n",
 					ifp->name,
 					if_is_up(ifp)
-					? (igmp->mtrace_only ? "mtrc"
-					   : "up")
-					: "down",
-					inet_ntop(AF_INET, &igmp->ifaddr,
-						  buf, sizeof(buf)),
+						? (igmp->mtrace_only ? "mtrc"
+								     : "up")
+						: "down",
+					inet_ntop(AF_INET, &igmp->ifaddr, buf,
+						  sizeof(buf)),
 					pim_ifp->igmp_version,
 					igmp->t_igmp_query_timer ? "local"
-					: "other",
-					query_hhmmss, uptime);
+								 : "other",
+					&igmp->querier_addr, query_hhmmss,
+					uptime);
 			}
 		}
 	}
@@ -586,6 +584,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	struct listnode *sock_node;
 	struct pim_interface *pim_ifp;
 	char uptime[10];
+	char quer_buf[PREFIX_STRLEN];
 	char query_hhmmss[10];
 	char other_hhmmss[10];
 	int found_ifname = 0;
@@ -670,6 +669,10 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 						       igmp->t_igmp_query_timer
 						       ? "local"
 						       : "other");
+				json_object_string_add(
+					json_row, "querierIp",
+					inet_ntop(AF_INET, &igmp->querier_addr,
+						  quer_buf, sizeof(quer_buf)));
 				json_object_int_add(json_row, "queryStartCount",
 						    igmp->startup_query_count);
 				json_object_string_add(json_row,
@@ -739,6 +742,14 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "Querier     : %s\n",
 					igmp->t_igmp_query_timer ? "local"
 					: "other");
+				vty_out(vty, "QuerierIp   : %pI4",
+					&igmp->querier_addr);
+				if (pim_ifp->primary_address.s_addr
+				    == igmp->querier_addr.s_addr)
+					vty_out(vty, " (this router)\n");
+				else
+					vty_out(vty, "\n");
+
 				vty_out(vty, "Start Count : %d\n",
 					igmp->startup_query_count);
 				vty_out(vty, "Query Timer : %s\n",
@@ -1135,6 +1146,12 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			json_object_int_add(
 				json_row, "overrideIntervalHighest",
 				pim_ifp->pim_neighbors_highest_override_interval_msec);
+			if (pim_ifp->bsm_enable)
+				json_object_boolean_true_add(json_row,
+							     "bsmEnabled");
+			if (pim_ifp->ucast_bsm_accept)
+				json_object_boolean_true_add(json_row,
+							     "ucastBsmEnabled");
 			json_object_object_add(json, ifp->name, json_row);
 
 		} else {
@@ -1287,6 +1304,15 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 				pim_ifp->pim_override_interval_msec);
 			vty_out(vty, "Override Interval (Highest) : %d msec\n",
 				pim_ifp->pim_neighbors_highest_override_interval_msec);
+			vty_out(vty, "\n");
+			vty_out(vty, "\n");
+
+			vty_out(vty, "BSM Status\n");
+			vty_out(vty, "----------\n");
+			vty_out(vty, "Bsm Enabled          : %s\n",
+				pim_ifp->bsm_enable ? "yes" : "no");
+			vty_out(vty, "Unicast Bsm Enabled  : %s\n",
+				pim_ifp->ucast_bsm_accept ? "yes" : "no");
 			vty_out(vty, "\n");
 			vty_out(vty, "\n");
 		}
@@ -3404,112 +3430,87 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 			pim->igmp_watermark_limit ? "Set" : "Not Set",
 			pim->igmp_watermark_limit);
 		vty_out(vty,
-			"Interface        Address         Group           Mode Timer    Srcs V Uptime  \n");
+			"Interface        Group           Mode Timer    Srcs V Uptime  \n");
 	}
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct listnode *grpnode;
+		struct igmp_group *grp;
 
 		if (!pim_ifp)
 			continue;
 
-		/* scan igmp sockets */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					  igmp)) {
-			char ifaddr_str[INET_ADDRSTRLEN];
-			struct listnode *grpnode;
-			struct igmp_group *grp;
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+					  grp)) {
+			char group_str[INET_ADDRSTRLEN];
+			char hhmmss[10];
+			char uptime[10];
 
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<group?>", grp->group_addr, group_str,
+				       sizeof(group_str));
+			pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss),
+						 grp->t_group_timer);
+			pim_time_uptime(uptime, sizeof(uptime),
+					now - grp->group_creation);
 
-			/* scan igmp groups */
-			for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
-						  grpnode, grp)) {
-				char group_str[INET_ADDRSTRLEN];
-				char hhmmss[10];
-				char uptime[10];
+			if (uj) {
+				json_object_object_get_ex(json, ifp->name,
+							  &json_iface);
 
-				pim_inet4_dump("<group?>", grp->group_addr,
-					       group_str, sizeof(group_str));
-				pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss),
-							 grp->t_group_timer);
-				pim_time_uptime(uptime, sizeof(uptime),
-						now - grp->group_creation);
+				if (!json_iface) {
+					json_iface = json_object_new_object();
+					json_object_pim_ifp_add(json_iface,
+								ifp);
+					json_object_object_add(json, ifp->name,
+							       json_iface);
+					json_groups = json_object_new_array();
+					json_object_object_add(json_iface,
+							       "groups",
+							       json_groups);
+				}
 
-				if (uj) {
-					json_object_object_get_ex(
-						json, ifp->name, &json_iface);
+				json_group = json_object_new_object();
+				json_object_string_add(json_group, "group",
+						       group_str);
 
-					if (!json_iface) {
-						json_iface =
-							json_object_new_object();
-						json_object_pim_ifp_add(
-							json_iface, ifp);
-						json_object_object_add(
-							json, ifp->name,
-							json_iface);
-						json_groups =
-							json_object_new_array();
-						json_object_object_add(
-							json_iface,
-							"groups",
-							json_groups);
-					}
-
-					json_group = json_object_new_object();
-					json_object_string_add(json_group,
-							       "source",
-							       ifaddr_str);
-					json_object_string_add(json_group,
-							       "group",
-							       group_str);
-
-					if (grp->igmp_version == 3)
-						json_object_string_add(
-							json_group, "mode",
-							grp->group_filtermode_isexcl
+				if (grp->igmp_version == 3)
+					json_object_string_add(
+						json_group, "mode",
+						grp->group_filtermode_isexcl
 							? "EXCLUDE"
 							: "INCLUDE");
 
-					json_object_string_add(json_group,
-							       "timer", hhmmss);
-					json_object_int_add(
-						json_group, "sourcesCount",
-						grp->group_source_list
-						? listcount(
-							grp->group_source_list)
-						: 0);
-					json_object_int_add(
-						json_group, "version",
-						grp->igmp_version);
-					json_object_string_add(
-						json_group, "uptime", uptime);
-					json_object_array_add(json_groups,
-							      json_group);
-				} else {
-					vty_out(vty,
-						"%-16s %-15s %-15s %4s %8s %4d %d %8s\n",
-						ifp->name, ifaddr_str,
-						group_str,
-						grp->igmp_version == 3
+				json_object_string_add(json_group, "timer",
+						       hhmmss);
+				json_object_int_add(
+					json_group, "sourcesCount",
+					grp->group_source_list ? listcount(
+						grp->group_source_list)
+							       : 0);
+				json_object_int_add(json_group, "version",
+						    grp->igmp_version);
+				json_object_string_add(json_group, "uptime",
+						       uptime);
+				json_object_array_add(json_groups, json_group);
+			} else {
+				vty_out(vty, "%-16s %-15s %4s %8s %4d %d %8s\n",
+					ifp->name, group_str,
+					grp->igmp_version == 3
 						? (grp->group_filtermode_isexcl
-						   ? "EXCL"
-						   : "INCL")
+							   ? "EXCL"
+							   : "INCL")
 						: "----",
-						hhmmss,
-						grp->group_source_list
-						? listcount(
-							grp->group_source_list)
-						: 0,
-						grp->igmp_version, uptime);
-				}
-			} /* scan igmp groups */
-		}	 /* scan igmp sockets */
-	}		  /* scan interfaces */
+					hhmmss,
+					grp->group_source_list ? listcount(
+						grp->group_source_list)
+							       : 0,
+					grp->igmp_version, uptime);
+			}
+		} /* scan igmp groups */
+	}	  /* scan interfaces */
 
 	if (uj) {
 		vty_out(vty, "%s\n", json_object_to_json_string_ext(
@@ -3524,63 +3525,49 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 	struct interface *ifp;
 
 	vty_out(vty,
-		"Interface        Address         Group           RetTimer Counter RetSrcs\n");
+		"Interface        Group           RetTimer Counter RetSrcs\n");
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct listnode *grpnode;
+		struct igmp_group *grp;
 
 		if (!pim_ifp)
 			continue;
 
-		/* scan igmp sockets */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					  igmp)) {
-			char ifaddr_str[INET_ADDRSTRLEN];
-			struct listnode *grpnode;
-			struct igmp_group *grp;
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+					  grp)) {
+			char group_str[INET_ADDRSTRLEN];
+			char grp_retr_mmss[10];
+			struct listnode *src_node;
+			struct igmp_source *src;
+			int grp_retr_sources = 0;
 
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
-
-			/* scan igmp groups */
-			for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
-						  grpnode, grp)) {
-				char group_str[INET_ADDRSTRLEN];
-				char grp_retr_mmss[10];
-				struct listnode *src_node;
-				struct igmp_source *src;
-				int grp_retr_sources = 0;
-
-				pim_inet4_dump("<group?>", grp->group_addr,
-					       group_str, sizeof(group_str));
-				pim_time_timer_to_mmss(
-					grp_retr_mmss, sizeof(grp_retr_mmss),
-					grp->t_group_query_retransmit_timer);
+			pim_inet4_dump("<group?>", grp->group_addr, group_str,
+				       sizeof(group_str));
+			pim_time_timer_to_mmss(
+				grp_retr_mmss, sizeof(grp_retr_mmss),
+				grp->t_group_query_retransmit_timer);
 
 
-				/* count group sources with retransmission state
-				 */
-				for (ALL_LIST_ELEMENTS_RO(
-					     grp->group_source_list, src_node,
-					     src)) {
-					if (src->source_query_retransmit_count
-					    > 0) {
-						++grp_retr_sources;
-					}
+			/* count group sources with retransmission state
+			 */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  src_node, src)) {
+				if (src->source_query_retransmit_count > 0) {
+					++grp_retr_sources;
 				}
+			}
 
-				vty_out(vty, "%-16s %-15s %-15s %-8s %7d %7d\n",
-					ifp->name, ifaddr_str, group_str,
-					grp_retr_mmss,
-					grp->group_specific_query_retransmit_count,
-					grp_retr_sources);
+			vty_out(vty, "%-16s %-15s %-8s %7d %7d\n", ifp->name,
+				group_str, grp_retr_mmss,
+				grp->group_specific_query_retransmit_count,
+				grp_retr_sources);
 
-			} /* scan igmp groups */
-		}	 /* scan igmp sockets */
-	}		  /* scan interfaces */
+		} /* scan igmp groups */
+	}	  /* scan interfaces */
 }
 
 static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
@@ -3607,50 +3594,36 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct listnode *grpnode;
+		struct igmp_group *grp;
 
 		if (!pim_ifp)
 			continue;
 
-		/* scan igmp sockets */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					  igmp)) {
-			char ifaddr_str[INET_ADDRSTRLEN];
-			struct listnode *grpnode;
-			struct igmp_group *grp;
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+					  grp)) {
+			char group_str[INET_ADDRSTRLEN];
+			struct listnode *srcnode;
+			struct igmp_source *src;
 
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<group?>", grp->group_addr, group_str,
+				       sizeof(group_str));
 
-			/* scan igmp groups */
-			for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
-						  grpnode, grp)) {
-				char group_str[INET_ADDRSTRLEN];
-				struct listnode *srcnode;
-				struct igmp_source *src;
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src)) {
+				char source_str[INET_ADDRSTRLEN];
+				char mmss[10];
+				char uptime[10];
 
-				pim_inet4_dump("<group?>", grp->group_addr,
-					       group_str, sizeof(group_str));
+				pim_inet4_dump("<source?>", src->source_addr,
+					       source_str, sizeof(source_str));
 
-				/* scan group sources */
-				for (ALL_LIST_ELEMENTS_RO(
-					     grp->group_source_list, srcnode,
-					     src)) {
-					char source_str[INET_ADDRSTRLEN];
-					char mmss[10];
-					char uptime[10];
+				pim_time_timer_to_mmss(mmss, sizeof(mmss),
+						       src->t_source_timer);
 
-					pim_inet4_dump(
-						"<source?>", src->source_addr,
-						source_str, sizeof(source_str));
-
-					pim_time_timer_to_mmss(
-						mmss, sizeof(mmss),
-						src->t_source_timer);
-
-					pim_time_uptime(
-						uptime, sizeof(uptime),
+				pim_time_uptime(uptime, sizeof(uptime),
 						now - src->source_creation);
 
 					if (uj) {
@@ -3746,6 +3719,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty,
 			json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
+
 }
 
 static void igmp_show_source_retransmission(struct pim_instance *pim,
@@ -3754,57 +3728,42 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 	struct interface *ifp;
 
 	vty_out(vty,
-		"Interface        Address         Group           Source          Counter\n");
+		"Interface        Group           Source          Counter\n");
 
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct listnode *grpnode;
+		struct igmp_group *grp;
 
 		if (!pim_ifp)
 			continue;
 
-		/* scan igmp sockets */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					  igmp)) {
-			char ifaddr_str[INET_ADDRSTRLEN];
-			struct listnode *grpnode;
-			struct igmp_group *grp;
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+					  grp)) {
+			char group_str[INET_ADDRSTRLEN];
+			struct listnode *srcnode;
+			struct igmp_source *src;
 
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<group?>", grp->group_addr, group_str,
+				       sizeof(group_str));
 
-			/* scan igmp groups */
-			for (ALL_LIST_ELEMENTS_RO(igmp->igmp_group_list,
-						  grpnode, grp)) {
-				char group_str[INET_ADDRSTRLEN];
-				struct listnode *srcnode;
-				struct igmp_source *src;
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src)) {
+				char source_str[INET_ADDRSTRLEN];
 
-				pim_inet4_dump("<group?>", grp->group_addr,
-					       group_str, sizeof(group_str));
+				pim_inet4_dump("<source?>", src->source_addr,
+					       source_str, sizeof(source_str));
 
-				/* scan group sources */
-				for (ALL_LIST_ELEMENTS_RO(
-					     grp->group_source_list, srcnode,
-					     src)) {
-					char source_str[INET_ADDRSTRLEN];
+				vty_out(vty, "%-16s %-15s %-15s %7d\n",
+					ifp->name, group_str, source_str,
+					src->source_query_retransmit_count);
 
-					pim_inet4_dump(
-						"<source?>", src->source_addr,
-						source_str, sizeof(source_str));
-
-					vty_out(vty,
-						"%-16s %-15s %-15s %-15s %7d\n",
-						ifp->name, ifaddr_str,
-						group_str, source_str,
-						src->source_query_retransmit_count);
-
-				} /* scan group sources */
-			}	 /* scan igmp groups */
-		}		  /* scan igmp sockets */
-	}			  /* scan interfaces */
+			} /* scan group sources */
+		}	  /* scan igmp groups */
+	}		  /* scan interfaces */
 }
 
 static void pim_show_bsr(struct pim_instance *pim,
@@ -4057,8 +4016,7 @@ static void clear_mroute(struct pim_instance *pim)
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct igmp_group *grp;
 		struct pim_ifchannel *ch;
 
 		if (!pim_ifp)
@@ -4072,20 +4030,12 @@ static void clear_mroute(struct pim_instance *pim)
 		}
 
 		/* clean up all igmp groups */
-		/* scan igmp sockets */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
-					  igmp)) {
 
-			struct igmp_group *grp;
-
-			if (igmp->igmp_group_list) {
-				while (igmp->igmp_group_list->count) {
-					grp = listnode_head(
-						igmp->igmp_group_list);
-					igmp_group_delete(grp);
-				}
+		if (pim_ifp->igmp_group_list) {
+			while (pim_ifp->igmp_group_list->count) {
+				grp = listnode_head(pim_ifp->igmp_group_list);
+				igmp_group_delete(grp);
 			}
-
 		}
 	}
 
@@ -7244,7 +7194,7 @@ DEFPY (pim_register_accept_list,
 
 DEFUN (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval (60-600)",
+       "ip pim join-prune-interval (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
@@ -7258,27 +7208,22 @@ DEFUN (ip_pim_joinprune_time,
 
 DEFUN (no_ip_pim_joinprune_time,
        no_ip_pim_joinprune_time_cmd,
-       "no ip pim join-prune-interval (60-600)",
+       "no ip pim join-prune-interval [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char jp_default_timer[5];
-
-	snprintf(jp_default_timer, sizeof(jp_default_timer), "%d",
-		 PIM_DEFAULT_T_PERIODIC);
-
 	nb_cli_enqueue_change(vty, "/frr-pim:pim/join-prune-interval",
-			      NB_OP_MODIFY, jp_default_timer);
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_register_suppress,
        ip_pim_register_suppress_cmd,
-       "ip pim register-suppress-time (5-60000)",
+       "ip pim register-suppress-time (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
@@ -7292,27 +7237,22 @@ DEFUN (ip_pim_register_suppress,
 
 DEFUN (no_ip_pim_register_suppress,
        no_ip_pim_register_suppress_cmd,
-       "no ip pim register-suppress-time (5-60000)",
+       "no ip pim register-suppress-time [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char rs_default_timer[5];
-
-	snprintf(rs_default_timer, sizeof(rs_default_timer), "%d",
-		 PIM_REGISTER_SUPPRESSION_TIME_DEFAULT);
-
 	nb_cli_enqueue_change(vty, "/frr-pim:pim/register-suppress-time",
-			      NB_OP_MODIFY, rs_default_timer);
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_rp_keep_alive,
        ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer (31-60000)",
+       "ip pim rp keep-alive-timer (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
@@ -7339,20 +7279,26 @@ DEFUN (ip_pim_rp_keep_alive,
 
 DEFUN (no_ip_pim_rp_keep_alive,
        no_ip_pim_rp_keep_alive_cmd,
-       "no ip pim rp keep-alive-timer (31-60000)",
+       "no ip pim rp keep-alive-timer [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
        "Keep alive Timer\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
 	const char *vrfname;
-	char rp_ka_timer[5];
+	char rp_ka_timer[6];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
+	uint v;
 
-	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%d",
-				PIM_RP_KEEPALIVE_PERIOD);
+	/* RFC4601 */
+	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
+				  "/frr-pim:pim/register-suppress-time");
+	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
+	if (v > UINT16_MAX)
+		v = UINT16_MAX;
+	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
@@ -7371,7 +7317,7 @@ DEFUN (no_ip_pim_rp_keep_alive,
 
 DEFUN (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer (31-60000)",
+       "ip pim keep-alive-timer (1-65535)",
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
@@ -7396,18 +7342,15 @@ DEFUN (ip_pim_keep_alive,
 
 DEFUN (no_ip_pim_keep_alive,
        no_ip_pim_keep_alive_cmd,
-       "no ip pim keep-alive-timer (31-60000)",
+       "no ip pim keep-alive-timer [(1-65535)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
-       "Seconds\n")
+       IGNORED_IN_NO_STR)
 {
 	const char *vrfname;
-	char ka_timer[5];
 	char ka_timer_xpath[XPATH_MAXLEN];
-
-	snprintf(ka_timer, sizeof(ka_timer), "%d", PIM_KEEPALIVE_PERIOD);
 
 	vrfname = pim_cli_get_vrf_name(vty);
 	if (vrfname == NULL)
@@ -7417,15 +7360,14 @@ DEFUN (no_ip_pim_keep_alive,
 		 "frr-pim:pimd", "pim", vrfname);
 	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
 
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
-			      ka_timer);
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN (ip_pim_packets,
        ip_pim_packets_cmd,
-       "ip pim packets (1-100)",
+       "ip pim packets (1-255)",
        IP_STR
        "pim multicast routing\n"
        "packets to process at one time per fd\n"
@@ -7439,27 +7381,21 @@ DEFUN (ip_pim_packets,
 
 DEFUN (no_ip_pim_packets,
        no_ip_pim_packets_cmd,
-       "no ip pim packets (1-100)",
+       "no ip pim packets [(1-255)]",
        NO_STR
        IP_STR
        "pim multicast routing\n"
        "packets to process at one time per fd\n"
-       "Number of packets\n")
+       IGNORED_IN_NO_STR)
 {
-	char default_packet[3];
-
-	snprintf(default_packet, sizeof(default_packet), "%d",
-		 PIM_DEFAULT_PACKET_PROCESS);
-
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_MODIFY,
-			      default_packet);
+	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY (igmp_group_watermark,
        igmp_group_watermark_cmd,
-       "ip igmp watermark-warn (10-60000)$limit",
+       "ip igmp watermark-warn (1-65535)$limit",
        IP_STR
        IGMP_STR
        "Configure group limit for watermark warning\n"
@@ -7473,12 +7409,12 @@ DEFPY (igmp_group_watermark,
 
 DEFPY (no_igmp_group_watermark,
        no_igmp_group_watermark_cmd,
-       "no ip igmp watermark-warn [(10-60000)$limit]",
+       "no ip igmp watermark-warn [(1-65535)$limit]",
        NO_STR
        IP_STR
        IGMP_STR
        "Unconfigure group limit for watermark warning\n"
-       "Group count to generate watermark warning\n")
+       IGNORED_IN_NO_STR)
 {
 	PIM_DECLVAR_CONTEXT(vrf, pim);
 	pim->igmp_watermark_limit = 0;
@@ -8211,7 +8147,7 @@ DEFUN (interface_no_ip_igmp_join,
 
 DEFUN (interface_ip_igmp_query_interval,
        interface_ip_igmp_query_interval_cmd,
-       "ip igmp query-interval (1-1800)",
+       "ip igmp query-interval (1-65535)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_INTERVAL_STR
@@ -8239,19 +8175,14 @@ DEFUN (interface_ip_igmp_query_interval,
 
 DEFUN (interface_no_ip_igmp_query_interval,
        interface_no_ip_igmp_query_interval_cmd,
-       "no ip igmp query-interval",
+       "no ip igmp query-interval [(1-65535)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
-       IFACE_IGMP_QUERY_INTERVAL_STR)
+       IFACE_IGMP_QUERY_INTERVAL_STR
+       IGNORED_IN_NO_STR)
 {
-	char default_query_interval[5];
-
-	snprintf(default_query_interval, sizeof(default_query_interval), "%d",
-		 IGMP_GENERAL_QUERY_INTERVAL);
-
-	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
-			      default_query_interval);
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
@@ -8287,7 +8218,7 @@ DEFUN (interface_no_ip_igmp_version,
 
 DEFUN (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
-       "ip igmp query-max-response-time (10-250)",
+       "ip igmp query-max-response-time (1-65535)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
@@ -8316,27 +8247,21 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
        interface_no_ip_igmp_query_max_response_time_cmd,
-       "no ip igmp query-max-response-time (10-250)",
+       "no ip igmp query-max-response-time [(1-65535)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
-       "Time for response in deci-seconds\n")
+       IGNORED_IN_NO_STR)
 {
-	char default_query_max_response_time[4];
-
-	snprintf(default_query_max_response_time,
-		 sizeof(default_query_max_response_time),
-		 "%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
-			      default_query_max_response_time);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
+			      NULL);
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 	      interface_ip_igmp_query_max_response_time_dsec_cmd,
-	      "ip igmp query-max-response-time-dsec (10-250)",
+	      "ip igmp query-max-response-time-dsec (1-65535)",
 	      IP_STR
 	      IFACE_IGMP_STR
 	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
@@ -8364,27 +8289,22 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 
 DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	      interface_no_ip_igmp_query_max_response_time_dsec_cmd,
-	      "no ip igmp query-max-response-time-dsec",
+	      "no ip igmp query-max-response-time-dsec [(1-65535)]",
 	      NO_STR
 	      IP_STR
 	      IFACE_IGMP_STR
-	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR)
+	      IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_DSEC_STR
+	      IGNORED_IN_NO_STR)
 {
-	char default_query_max_response_time[4];
-
-	snprintf(default_query_max_response_time,
-		 sizeof(default_query_max_response_time),
-		 "%d", IGMP_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
-			      default_query_max_response_time);
+	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_count,
        interface_ip_igmp_last_member_query_count_cmd,
-       "ip igmp last-member-query-count (1-7)",
+       "ip igmp last-member-query-count (1-255)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
@@ -8412,26 +8332,22 @@ DEFUN (interface_ip_igmp_last_member_query_count,
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
        interface_no_ip_igmp_last_member_query_count_cmd,
-       "no ip igmp last-member-query-count",
+       "no ip igmp last-member-query-count [(1-255)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
-       IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR)
+       IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
+       IGNORED_IN_NO_STR)
 {
-	char default_robustness[2];
-
-	snprintf(default_robustness, sizeof(default_robustness), "%d",
-		 IGMP_DEFAULT_ROBUSTNESS_VARIABLE);
-
-	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
-			      default_robustness);
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
+			      NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
        interface_ip_igmp_last_member_query_interval_cmd,
-       "ip igmp last-member-query-interval (1-255)",
+       "ip igmp last-member-query-interval (1-65535)",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
@@ -8459,20 +8375,15 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
        interface_no_ip_igmp_last_member_query_interval_cmd,
-       "no ip igmp last-member-query-interval",
+       "no ip igmp last-member-query-interval [(1-65535)]",
        NO_STR
        IP_STR
        IFACE_IGMP_STR
-       IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR)
+       IFACE_IGMP_LAST_MEMBER_QUERY_INTERVAL_STR
+       IGNORED_IN_NO_STR)
 {
-	char default_last_member_query_count[4];
-
-	snprintf(default_last_member_query_count,
-		 sizeof(default_last_member_query_count),
-		 "%d", IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC);
-
-	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
-			      default_last_member_query_count);
+	nb_cli_enqueue_change(vty, "./last-member-query-interval",
+			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
 }
@@ -8502,13 +8413,7 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-	char default_priority[10];
-
-	snprintf(default_priority, sizeof(default_priority), "%d",
-		 PIM_DEFAULT_DR_PRIORITY);
-
-	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
-			      default_priority);
+	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
 }
@@ -8843,7 +8748,7 @@ DEFUN (interface_no_ip_mroute,
 
 DEFUN (interface_ip_pim_hello,
        interface_ip_pim_hello_cmd,
-       "ip pim hello (1-180) [(1-180)]",
+       "ip pim hello (1-65535) [(1-65535)]",
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
@@ -8878,21 +8783,15 @@ DEFUN (interface_ip_pim_hello,
 
 DEFUN (interface_no_ip_pim_hello,
        interface_no_ip_pim_hello_cmd,
-       "no ip pim hello [(1-180) [(1-180)]]",
+       "no ip pim hello [(1-65535) [(1-65535)]]",
        NO_STR
        IP_STR
        PIM_STR
        IFACE_PIM_HELLO_STR
-       IFACE_PIM_HELLO_TIME_STR
-       IFACE_PIM_HELLO_HOLD_STR)
+       IGNORED_IN_NO_STR
+       IGNORED_IN_NO_STR)
 {
-	char hello_default_timer[3];
-
-	snprintf(hello_default_timer, sizeof(hello_default_timer), "%d",
-		 PIM_DEFAULT_HELLO_PERIOD);
-
-	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
-			      hello_default_timer);
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, "./frr-pim:pim");
@@ -9699,10 +9598,10 @@ DEFUN (no_ip_pim_ucast_bsm,
 }
 
 #if HAVE_BFDD > 0
-DEFUN_HIDDEN(
+DEFUN_HIDDEN (
 	ip_pim_bfd_param,
 	ip_pim_bfd_param_cmd,
-	"ip pim bfd (2-255) (50-60000) (50-60000)",
+	"ip pim bfd (2-255) (1-65535) (1-65535)",
 	IP_STR
 	PIM_STR
 	"Enables BFD support\n"
@@ -9713,7 +9612,7 @@ DEFUN_HIDDEN(
 	DEFUN(
 		ip_pim_bfd_param,
 		ip_pim_bfd_param_cmd,
-		"ip pim bfd (2-255) (50-60000) (50-60000)",
+		"ip pim bfd (2-255) (1-65535) (1-65535)",
 		IP_STR
 		PIM_STR
 		"Enables BFD support\n"
@@ -9752,7 +9651,10 @@ DEFUN_HIDDEN(
 
 #if HAVE_BFDD == 0
 ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
-      "no ip pim bfd (2-255) (50-60000) (50-60000)", NO_STR IP_STR PIM_STR
+      "no ip pim bfd (2-255) (1-65535) (1-65535)",
+      NO_STR
+      IP_STR
+      PIM_STR
       "Enables BFD support\n"
       "Detect Multiplier\n"
       "Required min receive interval\n"
@@ -9791,7 +9693,7 @@ DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
 }
 
 DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
-      "ip msdp timers (2-600)$keepalive (3-600)$holdtime [(1-600)$connretry]",
+      "ip msdp timers (1-65535)$keepalive (1-65535)$holdtime [(1-65535)$connretry]",
       IP_STR
       CFG_MSDP_STR
       "MSDP timers configuration\n"
@@ -9816,6 +9718,35 @@ DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
 	else
 		nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY,
 				      NULL);
+
+	nb_cli_apply_changes(vty, xpath);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ip_msdp_timers, no_ip_msdp_timers_cmd,
+      "no ip msdp timers [(1-65535) (1-65535) [(1-65535)]]",
+      NO_STR
+      IP_STR
+      CFG_MSDP_STR
+      "MSDP timers configuration\n"
+      IGNORED_IN_NO_STR
+      IGNORED_IN_NO_STR
+      IGNORED_IN_NO_STR)
+{
+	const char *vrfname;
+	char xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_MSDP_XPATH, "frr-pim:pimd",
+		 "pim", vrfname, "frr-routing:ipv4");
+
+	nb_cli_enqueue_change(vty, "./hold-time", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./keep-alive", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./connection-retry", NB_OP_DESTROY, NULL);
 
 	nb_cli_apply_changes(vty, xpath);
 
@@ -11161,8 +11092,7 @@ DEFUN_HIDDEN (ip_pim_mlag,
 
 void pim_cmd_init(void)
 {
-	install_node(&interface_node); /* INTERFACE_NODE */
-	if_cmd_init();
+	if_cmd_init(pim_interface_config_write);
 
 	install_node(&debug_node);
 
@@ -11447,6 +11377,8 @@ void pim_cmd_init(void)
 
 	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
 	install_element(VRF_NODE, &ip_msdp_timers_cmd);
+	install_element(CONFIG_NODE, &no_ip_msdp_timers_cmd);
+	install_element(VRF_NODE, &no_ip_msdp_timers_cmd);
 	install_element(CONFIG_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(VRF_NODE, &ip_msdp_mesh_group_member_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_mesh_group_member_cmd);

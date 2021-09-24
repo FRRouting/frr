@@ -88,22 +88,45 @@ FRR employs a ``<MAJOR>.<MINOR>.<BUGFIX>`` versioning scheme.
 ``BUGFIX``
    Fixes for actual bugs and/or security issues.  Fully compatible.
 
-We will pull a new development branch for the next release every 4 months.  The
-current schedule is Feb/June/October 1. The decision for a ``MAJOR/MINOR``
-release is made at the time of branch pull based on what has been received the
-previous 4 months. The branch name will be ``dev/MAJOR.MINOR``. At this point
-in time the master branch and this new branch, :file:`configure.ac`,
-documentation and packaging systems will be updated to reflect the next
-possible release name to allow for easy distinguishing.
+Releases are scheduled in a 4-month cycle on the first Tuesday each
+March/July/November.  Walking backwards from this date:
 
-After one month the development branch will be renamed to
-``stable/MAJOR.MINOR``.  The branch is a stable branch. This process is not
-held up unless a crash or security issue has been found and needs to
-be addressed. Issues being fixed will not cause a delay.
+ - 6 weeks earlier, ``master`` is frozen for new features, and feature PRs
+   are considered lowest priority (regardless of when they were opened.)
 
-Bugfix releases are made as needed at 1 month intervals until the next
-``MAJOR.MINOR`` release branch is pulled. Depending on the severity of the bugs,
-bugfix releases may occur sooner.
+ - 4 weeks earlier, the stable branch separates from master (named
+   ``dev/MAJOR.MINOR`` at this point) and a ``rc1`` release candidate is
+   tagged.  Master is unfrozen and new features may again proceed.
+
+ - 2 weeks earlier, a ``rc2`` release candidate is tagged.
+
+ - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
+
+The 2 week window between each of these events should be used to run any and
+all testing possible for the release in progress.  However, the current
+intention is to stick to the schedule even if known issues remain.  This would
+hopefully occur only after all avenues of fixing issues are exhausted, but to
+achieve this, an as exhaustive as possible list of issues needs to be available
+as early as possible, i.e. the first 2-week window.
+
+For reference, the expected release schedule according to the above is:
+
++------------+------------+------------+------------+------------+------------+
+| Release    | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
++------------+------------+------------+------------+------------+------------+
+| rc2        | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
++------------+------------+------------+------------+------------+------------+
+| rc1/branch | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
++------------+------------+------------+------------+------------+------------+
+| freeze     | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
++------------+------------+------------+------------+------------+------------+
+
+Each release is managed by one or more volunteer release managers from the FRR
+community.  To spread and distribute this workload, this should be rotated for
+subsequent releases.  The release managers are currently assumed/expected to
+run a release management meeting during the weeks listed above.  Barring other
+constraints, this would be scheduled before the regular weekly FRR community
+call such that important items can be carried over into that call.
 
 Bugfixes are applied to the two most recent releases. However, backporting of bug
 fixes to older than the two most recent releases will not be prevented, if acked
@@ -613,6 +636,39 @@ Other than these specific rules, coding practices from the Linux kernel as
 well as CERT or MISRA C guidelines may provide useful input on safe C code.
 However, these rules are not applied as-is;  some of them expressly collide
 with established practice.
+
+
+Container implementations
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+In particular to gain defensive coding benefits from better compiler type
+checks, there is a set of replacement container data structures to be found
+in :file:`lib/typesafe.h`.  They're documented under :ref:`lists`.
+
+Unfortunately, the FRR codebase is quite large, and migrating existing code to
+use these new structures is a tedious and far-reaching process (even if it
+can be automated with coccinelle, the patches would touch whole swaths of code
+and create tons of merge conflicts for ongoing work.)  Therefore, little
+existing code has been migrated.
+
+However, both **new code and refactors of existing code should use the new
+containers**.  If there are any reasons this can't be done, please work to
+remove these reasons (e.g. by adding necessary features to the new containers)
+rather than falling back to the old code.
+
+In order of likelyhood of removal, these are the old containers:
+
+- :file:`nhrpd/list.*`, ``hlist_*`` ⇒ ``DECLARE_LIST``
+- :file:`nhrpd/list.*`, ``list_*`` ⇒ ``DECLARE_DLIST``
+- :file:`lib/skiplist.*`, ``skiplist_*`` ⇒ ``DECLARE_SKIPLIST``
+- :file:`lib/*_queue.h` (BSD), ``SLIST_*`` ⇒ ``DECLARE_LIST``
+- :file:`lib/*_queue.h` (BSD), ``LIST_*`` ⇒ ``DECLARE_DLIST``
+- :file:`lib/*_queue.h` (BSD), ``STAILQ_*`` ⇒ ``DECLARE_LIST``
+- :file:`lib/*_queue.h` (BSD), ``TAILQ_*`` ⇒ ``DECLARE_DLIST``
+- :file:`lib/hash.*`, ``hash_*`` ⇒ ``DECLARE_HASH``
+- :file:`lib/linklist.*`, ``list_*`` ⇒ ``DECLARE_DLIST``
+- open-coded linked lists ⇒ ``DECLARE_LIST``/``DECLARE_DLIST``
+
 
 Code Formatting
 ---------------
@@ -1193,6 +1249,20 @@ callers about the limits to side-effects from your apis, and it makes
 it possible to use your apis in paths that involve ``const``
 objects. If you encounter existing apis that *could* be ``const``,
 consider including changes in your own pull-request.
+
+Help with specific warnings
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+FRR's configure script enables a whole batch of extra warnings, some of which
+may not be obvious in how to fix.  Here are some notes on specific warnings:
+
+* ``-Wstrict-prototypes``:  you probably just forgot the ``void`` in a function
+  declaration with no parameters, i.e. ``static void foo() {...}`` rather than
+  ``static void foo(void) {...}``.
+
+  Without the ``void``, in C, it's a function with *unspecified* parameters
+  (and varargs calling convention.)  This is a notable difference to C++, where
+  the ``void`` is optional and an empty parameter list means no parameters.
 
 
 .. _documentation:

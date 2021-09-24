@@ -110,9 +110,9 @@ int bgp_peer_reg_with_nht(struct peer *peer)
 	    && !CHECK_FLAG(peer->bgp->flags, BGP_FLAG_DISABLE_NH_CONNECTED_CHK))
 		connected = 1;
 
-	return bgp_find_or_add_nexthop(peer->bgp, peer->bgp,
-				       family2afi(peer->su.sa.sa_family),
-				       SAFI_UNICAST, NULL, peer, connected);
+	return bgp_find_or_add_nexthop(
+		peer->bgp, peer->bgp, family2afi(peer->su.sa.sa_family),
+		SAFI_UNICAST, NULL, peer, connected, NULL);
 }
 
 static void peer_xfer_stats(struct peer *peer_dst, struct peer *peer_src)
@@ -358,8 +358,7 @@ void bgp_timer_set(struct peer *peer)
 		   status start timer is on unless peer is shutdown or peer is
 		   inactive.  All other timer must be turned off */
 		if (BGP_PEER_START_SUPPRESSED(peer) || !peer_active(peer)
-		    || (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
-			peer->bgp->vrf_id == VRF_UNKNOWN)) {
+		    || peer->bgp->vrf_id == VRF_UNKNOWN) {
 			BGP_TIMER_OFF(peer->t_start);
 		} else {
 			BGP_TIMER_ON(peer->t_start, bgp_start_timer,
@@ -640,7 +639,8 @@ const char *const peer_down_str[] = {"",
 			       "No AFI/SAFI activated for peer",
 			       "AS Set config change",
 			       "Waiting for peer OPEN",
-			       "Reached received prefix count"};
+			       "Reached received prefix count",
+			       "Socket Error"};
 
 static int bgp_graceful_restart_timer_expire(struct thread *thread)
 {
@@ -1378,6 +1378,9 @@ int bgp_stop(struct peer *peer)
 		peer->fd = -1;
 	}
 
+	/* Reset capabilities. */
+	peer->cap = 0;
+
 	FOREACH_AFI_SAFI (afi, safi) {
 		/* Reset all negotiated variables */
 		peer->afc_nego[afi][safi] = 0;
@@ -1691,8 +1694,7 @@ int bgp_start(struct peer *peer)
 		return 0;
 	}
 
-	if (peer->bgp->inst_type != BGP_INSTANCE_TYPE_VIEW &&
-	    peer->bgp->vrf_id == VRF_UNKNOWN) {
+	if (peer->bgp->vrf_id == VRF_UNKNOWN) {
 		if (bgp_debug_neighbor_events(peer))
 			flog_err(
 				EC_BGP_FSM,
@@ -2193,7 +2195,8 @@ void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops)
 	case OpenConfirm:
 	case Established:
 		if (!has_valid_nexthops
-		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED))
+		    && (peer->gtsm_hops == BGP_GTSM_HOPS_CONNECTED
+			|| peer->bgp->fast_convergence))
 			BGP_EVENT_ADD(peer, TCP_fatal_error);
 	case Clearing:
 	case Deleted:

@@ -16,23 +16,28 @@
 # ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE
 # OF THIS SOFTWARE.
 
-import sys
+import datetime
 import os
 import re
-import datetime
+import sys
 import traceback
-import pytest
-from time import sleep
 from copy import deepcopy
-from lib.topolog import logger
+from time import sleep
+
 
 # Import common_config to use commomnly used APIs
 from lib.common_config import (
+    create_common_configurations,
+    HostApplicationHelper,
+    InvalidCLIError,
     create_common_configuration,
     InvalidCLIError,
     retry,
     run_frr_cmd,
 )
+from lib.micronet import get_exec_path
+from lib.topolog import logger
+from lib.topotest import frr_unicode
 
 ####
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -55,7 +60,7 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
     input_dict = {
         "r1": {
             "pim": {
-                "disable" : ["l1-i1-eth1"],
+                "join-prune-interval": "5",
                 "rp": [{
                     "rp_addr" : "1.0.3.17".
                     "keep-alive-timer": "100"
@@ -79,30 +84,38 @@ def create_pim_config(tgen, topo, input_dict=None, build=False, load_config=True
     else:
         topo = topo["routers"]
         input_dict = deepcopy(input_dict)
+
+    config_data_dict = {}
+
     for router in input_dict.keys():
-        result = _enable_disable_pim(tgen, topo, input_dict, router, build)
+        config_data = _enable_disable_pim_config(tgen, topo, input_dict, router, build)
 
+        if config_data:
+            config_data_dict[router] = config_data
+
+    # Now add RP config to all routers
+    for router in input_dict.keys():
         if "pim" not in input_dict[router]:
-            logger.debug("Router %s: 'pim' is not present in " "input_dict", router)
             continue
+        if "rp" not in input_dict[router]["pim"]:
+            continue
+        _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict)
 
-        if result is True:
-            if "rp" not in input_dict[router]["pim"]:
-                continue
-
-            result = _create_pim_config(
-                tgen, topo, input_dict, router, build, load_config
-            )
-            if result is not True:
-                return False
+    try:
+        result = create_common_configurations(
+            tgen, config_data_dict, "pim", build, load_config
+        )
+    except InvalidCLIError:
+        logger.error("create_pim_config", exc_info=True)
+        result = False
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
-def _create_pim_config(tgen, topo, input_dict, router, build=False, load_config=False):
+def _add_pim_rp_config(tgen, topo, input_dict, router, build, config_data_dict):
     """
-    Helper API to create pim configuration.
+    Helper API to create pim RP configurations.
 
     Parameters
     ----------
@@ -111,107 +124,88 @@ def _create_pim_config(tgen, topo, input_dict, router, build=False, load_config=
     * `input_dict` : Input dict data, required when configuring from testcase
     * `router` : router id to be configured.
     * `build` : Only for initial setup phase this is set as True.
-
+    * `config_data_dict` : OUT: adds `router` config to dictinary
     Returns
     -------
-    True or False
+    None
     """
 
-    result = False
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-    try:
 
-        pim_data = input_dict[router]["pim"]
+    pim_data = input_dict[router]["pim"]
+    rp_data = pim_data["rp"]
 
-        for dut in tgen.routers():
-            if "pim" not in input_dict[router]:
-                continue
+    # Configure this RP on every router.
+    for dut in tgen.routers():
+        # At least one interface must be enabled for PIM on the router
+        pim_if_enabled = False
+        for destLink, data in topo[dut]["links"].items():
+            if "pim" in data:
+                pim_if_enabled = True
+        if not pim_if_enabled:
+            continue
 
-            for destLink, data in topo[dut]["links"].items():
-                if "pim" not in data:
-                    continue
+        config_data = []
 
-                if "rp" in pim_data:
-                    config_data = []
-                    rp_data = pim_data["rp"]
+        for rp_dict in deepcopy(rp_data):
+            # ip address of RP
+            if "rp_addr" not in rp_dict and build:
+                logger.error(
+                    "Router %s: 'ip address of RP' not " "present in input_dict/JSON",
+                    router,
+                )
 
-                for rp_dict in deepcopy(rp_data):
-                    # ip address of RP
-                    if "rp_addr" not in rp_dict and build:
-                        logger.error(
-                            "Router %s: 'ip address of RP' not "
-                            "present in input_dict/JSON",
-                            router,
-                        )
+                return False
+            rp_addr = rp_dict.setdefault("rp_addr", None)
 
-                        return False
-                    rp_addr = rp_dict.setdefault("rp_addr", None)
+            # Keep alive Timer
+            keep_alive_timer = rp_dict.setdefault("keep_alive_timer", None)
 
-                    # Keep alive Timer
-                    keep_alive_timer = rp_dict.setdefault("keep_alive_timer", None)
+            # Group Address range to cover
+            if "group_addr_range" not in rp_dict and build:
+                logger.error(
+                    "Router %s:'Group Address range to cover'"
+                    " not present in input_dict/JSON",
+                    router,
+                )
 
-                    # Group Address range to cover
-                    if "group_addr_range" not in rp_dict and build:
-                        logger.error(
-                            "Router %s:'Group Address range to cover'"
-                            " not present in input_dict/JSON",
-                            router,
-                        )
+                return False
+            group_addr_range = rp_dict.setdefault("group_addr_range", None)
 
-                        return False
-                    group_addr_range = rp_dict.setdefault("group_addr_range", None)
+            # Group prefix-list filter
+            prefix_list = rp_dict.setdefault("prefix_list", None)
 
-                    # Group prefix-list filter
-                    prefix_list = rp_dict.setdefault("prefix_list", None)
+            # Delete rp config
+            del_action = rp_dict.setdefault("delete", False)
 
-                    # Delete rp config
-                    del_action = rp_dict.setdefault("delete", False)
+            if keep_alive_timer:
+                cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
+                if del_action:
+                    cmd = "no {}".format(cmd)
+                config_data.append(cmd)
 
-                    if keep_alive_timer:
-                        cmd = "ip pim rp keep-alive-timer {}".format(keep_alive_timer)
-                        config_data.append(cmd)
+            if rp_addr:
+                if group_addr_range:
+                    if type(group_addr_range) is not list:
+                        group_addr_range = [group_addr_range]
 
+                    for grp_addr in group_addr_range:
+                        cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
                         if del_action:
                             cmd = "no {}".format(cmd)
-                            config_data.append(cmd)
+                        config_data.append(cmd)
 
-                    if rp_addr:
-                        if group_addr_range:
-                            if type(group_addr_range) is not list:
-                                group_addr_range = [group_addr_range]
+                if prefix_list:
+                    cmd = "ip pim rp {} prefix-list {}".format(rp_addr, prefix_list)
+                    if del_action:
+                        cmd = "no {}".format(cmd)
+                    config_data.append(cmd)
 
-                            for grp_addr in group_addr_range:
-                                cmd = "ip pim rp {} {}".format(rp_addr, grp_addr)
-                                config_data.append(cmd)
-
-                                if del_action:
-                                    cmd = "no {}".format(cmd)
-                                    config_data.append(cmd)
-
-                        if prefix_list:
-                            cmd = "ip pim rp {} prefix-list {}".format(
-                                rp_addr, prefix_list
-                            )
-                            config_data.append(cmd)
-
-                            if del_action:
-                                cmd = "no {}".format(cmd)
-                                config_data.append(cmd)
-
-            result = create_common_configuration(
-                tgen, dut, config_data, "pim", build, load_config
-            )
-            if result is not True:
-                return False
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return result
+            if config_data:
+                if dut not in config_data_dict:
+                    config_data_dict[dut] = config_data
+                else:
+                    config_data_dict[dut].extend(config_data)
 
 
 def create_igmp_config(tgen, topo, input_dict=None, build=False):
@@ -258,6 +252,9 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
     else:
         topo = topo["routers"]
         input_dict = deepcopy(input_dict)
+
+    config_data_dict = {}
+
     for router in input_dict.keys():
         if "igmp" not in input_dict[router]:
             logger.debug("Router %s: 'igmp' is not present in " "input_dict", router)
@@ -303,21 +300,22 @@ def create_igmp_config(tgen, topo, input_dict=None, build=False):
                                     cmd = "no {}".format(cmd)
 
                             config_data.append(cmd)
-        try:
+        if config_data:
+            config_data_dict[router] = config_data
 
-            result = create_common_configuration(
-                tgen, router, config_data, "interface_config", build=build
-            )
-        except InvalidCLIError:
-            errormsg = traceback.format_exc()
-            logger.error(errormsg)
-            return errormsg
+    try:
+        result = create_common_configurations(
+            tgen, config_data_dict, "interface_config", build=build
+        )
+    except InvalidCLIError:
+        logger.error("create_igmp_config", exc_info=True)
+        result = False
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
 
 
-def _enable_disable_pim(tgen, topo, input_dict, router, build=False):
+def _enable_disable_pim_config(tgen, topo, input_dict, router, build=False):
     """
     Helper API to enable or disable pim on interfaces
 
@@ -331,57 +329,40 @@ def _enable_disable_pim(tgen, topo, input_dict, router, build=False):
 
     Returns
     -------
-    True or False
+    list of config
     """
-    result = False
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-    try:
-        config_data = []
 
-        enable_flag = True
-        # Disable pim on interface
-        if "pim" in input_dict[router]:
-            if "disable" in input_dict[router]["pim"]:
-                enable_flag = False
-                interfaces = input_dict[router]["pim"]["disable"]
+    config_data = []
 
-                if type(interfaces) is not list:
-                    interfaces = [interfaces]
+    # Enable pim on interfaces
+    for destRouterLink, data in sorted(topo[router]["links"].items()):
+        if "pim" in data and data["pim"] == "enable":
+            # Loopback interfaces
+            if "type" in data and data["type"] == "loopback":
+                interface_name = destRouterLink
+            else:
+                interface_name = data["interface"]
 
-                for interface in interfaces:
-                    cmd = "interface {}".format(interface)
-                    config_data.append(cmd)
-                    config_data.append("no ip pim")
+            cmd = "interface {}".format(interface_name)
+            config_data.append(cmd)
+            config_data.append("ip pim")
 
-        # Enable pim on interface
-        if enable_flag:
-            for destRouterLink, data in sorted(topo[router]["links"].items()):
-                if "pim" in data and data["pim"] == "enable":
+    # pim global config
+    if "pim" in input_dict[router]:
+        pim_data = input_dict[router]["pim"]
+        del_action = pim_data.setdefault("delete", False)
+        for t in [
+            "join-prune-interval",
+            "keep-alive-timer",
+            "register-suppress-time",
+        ]:
+            if t in pim_data:
+                cmd = "ip pim {} {}".format(t, pim_data[t])
+                if del_action:
+                    cmd = "no {}".format(cmd)
+                config_data.append(cmd)
 
-                    # Loopback interfaces
-                    if "type" in data and data["type"] == "loopback":
-                        interface_name = destRouterLink
-                    else:
-                        interface_name = data["interface"]
-
-                    cmd = "interface {}".format(interface_name)
-                    config_data.append(cmd)
-                    config_data.append("ip pim")
-
-        result = create_common_configuration(
-            tgen, router, config_data, "interface_config", build=build
-        )
-        if result is not True:
-            return False
-
-    except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return result
+    return config_data
 
 
 def find_rp_details(tgen, topo):
@@ -454,7 +435,9 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
 
     result = False
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
     try:
+        config_data_dict = {}
 
         for dut in input_dict.keys():
             if "pim" not in input_dict[dut]:
@@ -462,8 +445,8 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
 
             pim_data = input_dict[dut]["pim"]
 
+            config_data = []
             if "force_expire" in pim_data:
-                config_data = []
                 force_expire_data = pim_data["force_expire"]
 
                 for source, groups in force_expire_data.items():
@@ -476,17 +459,15 @@ def configure_pim_force_expire(tgen, topo, input_dict, build=False):
                         )
                         config_data.append(cmd)
 
-                    result = create_common_configuration(
-                        tgen, dut, config_data, "pim", build=build
-                    )
-                    if result is not True:
-                        return False
+            if config_data:
+                config_data_dict[dut] = config_data
 
+        result = create_common_configurations(
+            tgen, config_data_dict, "pim", build=build
+        )
     except InvalidCLIError:
-        # Traceback
-        errormsg = traceback.format_exc()
-        logger.error(errormsg)
-        return errormsg
+        logger.error("configure_pim_force_expire", exc_info=True)
+        result = False
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return result
@@ -695,7 +676,14 @@ def verify_igmp_groups(tgen, dut, interface, group_addresses, expected=True):
 
 @retry(retry_timeout=60)
 def verify_upstream_iif(
-    tgen, dut, iif, src_address, group_addresses, joinState=None, refCount=1, expected=True
+    tgen,
+    dut,
+    iif,
+    src_address,
+    group_addresses,
+    joinState=None,
+    refCount=1,
+    expected=True,
 ):
     """
     Verify upstream inbound interface  is updated correctly
@@ -848,7 +836,9 @@ def verify_upstream_iif(
 
 
 @retry(retry_timeout=12)
-def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, expected=True):
+def verify_join_state_and_timer(
+    tgen, dut, iif, src_address, group_addresses, expected=True
+):
     """
     Verify  join state is updated correctly and join timer is
     running with the help of "show ip pim upstream" cli
@@ -940,7 +930,8 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, ex
             error = (
                 "[DUT %s]: Verifying join timer for"
                 " (%s,%s) [FAILED]!! "
-                " Expected: %s, Found: %s",
+                " Expected: %s, Found: %s"
+            ) % (
                 dut,
                 src_address,
                 grp_addr,
@@ -966,9 +957,17 @@ def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses, ex
     return True
 
 
-@retry(retry_timeout=80)
+@retry(retry_timeout=120)
 def verify_ip_mroutes(
-    tgen, dut, src_address, group_addresses, iif, oil, return_uptime=False, mwait=0, expected=True
+    tgen,
+    dut,
+    src_address,
+    group_addresses,
+    iif,
+    oil,
+    return_uptime=False,
+    mwait=0,
+    expected=True,
 ):
     """
     Verify ip mroutes and make sure (*, G)/(S, G) is present in mroutes
@@ -1165,7 +1164,15 @@ def verify_ip_mroutes(
 
 @retry(retry_timeout=60)
 def verify_pim_rp_info(
-    tgen, topo, dut, group_addresses, oif=None, rp=None, source=None, iamrp=None, expected=True
+    tgen,
+    topo,
+    dut,
+    group_addresses,
+    oif=None,
+    rp=None,
+    source=None,
+    iamrp=None,
+    expected=True,
 ):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
@@ -1322,7 +1329,14 @@ def verify_pim_rp_info(
 
 @retry(retry_timeout=60)
 def verify_pim_state(
-    tgen, dut, iif, oil, group_addresses, src_address=None, installed_fl=None, expected=True
+    tgen,
+    dut,
+    iif,
+    oil,
+    group_addresses,
+    src_address=None,
+    installed_fl=None,
+    expected=True,
 ):
     """
     Verify pim state by running "show ip pim state" cli
@@ -1491,7 +1505,9 @@ def verify_pim_interface_traffic(tgen, input_dict):
 
 
 @retry(retry_timeout=40)
-def verify_pim_interface(tgen, topo, dut, interface=None, interface_ip=None, expected=True):
+def verify_pim_interface(
+    tgen, topo, dut, interface=None, interface_ip=None, expected=True
+):
     """
     Verify all PIM interface are up and running, config is verified
     using "show ip pim interface" cli
@@ -2029,6 +2045,7 @@ def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
                 config_data.append("ip address {}".format(_rp))
                 config_data.append("ip pim")
 
+            # Why not config just once, why per group?
             result = create_common_configuration(
                 tgen, rp, config_data, "interface_config"
             )
@@ -2045,9 +2062,7 @@ def add_rp_interfaces_and_pim_config(tgen, topo, interface, rp, rp_mapping):
     return result
 
 
-def scapy_send_bsr_raw_packet(
-    tgen, topo, senderRouter, receiverRouter, packet=None, interval=1, count=1
-):
+def scapy_send_bsr_raw_packet(tgen, topo, senderRouter, receiverRouter, packet=None):
     """
     Using scapy Raw() method to send BSR raw packet from one FRR
     to other
@@ -2059,8 +2074,6 @@ def scapy_send_bsr_raw_packet(
     * `senderRouter` : Sender router
     * `receiverRouter` : Receiver router
     * `packet` : BSR packet in raw format
-    * `interval` : Interval between the packets
-    * `count` : Number of packets to be sent
 
     returns:
     --------
@@ -2071,7 +2084,9 @@ def scapy_send_bsr_raw_packet(
     result = ""
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    rnode = tgen.routers()[senderRouter]
+    python3_path = tgen.net.get_exec_path(["python3", "python"])
+    script_path = os.path.join(CWD, "send_bsr_packet.py")
+    node = tgen.net[senderRouter]
 
     for destLink, data in topo["routers"][senderRouter]["links"].items():
         if "type" in data and data["type"] == "loopback":
@@ -2082,26 +2097,16 @@ def scapy_send_bsr_raw_packet(
 
         packet = topo["routers"][senderRouter]["bsm"]["bsr_packets"][packet]["data"]
 
-        if interval > 1 or count > 1:
-            cmd = (
-                "nohup /usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
-                "--interval={} --count={} &".format(
-                    CWD, packet, sender_interface, interval, count
-                )
-            )
-        else:
-            cmd = (
-                "/usr/bin/python {}/send_bsr_packet.py '{}' '{}' "
-                "--interval={} --count={}".format(
-                    CWD, packet, sender_interface, interval, count
-                )
-            )
-
+        cmd = [
+            python3_path,
+            script_path,
+            packet,
+            sender_interface,
+            "--interval=1",
+            "--count=1",
+        ]
         logger.info("Scapy cmd: \n %s", cmd)
-        result = rnode.run(cmd)
-
-        if result == "":
-            return result
+        node.cmd_raises(cmd)
 
     logger.debug("Exiting lib API: scapy_send_bsr_raw_packet")
     return True
@@ -2174,7 +2179,9 @@ def find_rp_from_bsrp_info(tgen, dut, bsr, grp=None):
 
 
 @retry(retry_timeout=12)
-def verify_pim_grp_rp_source(tgen, topo, dut, grp_addr, rp_source, rpadd=None, expected=True):
+def verify_pim_grp_rp_source(
+    tgen, topo, dut, grp_addr, rp_source, rpadd=None, expected=True
+):
     """
     Verify pim rp info by running "show ip pim rp-info" cli
 
@@ -2333,7 +2340,9 @@ def verify_pim_bsr(tgen, topo, dut, bsr_ip, expected=True):
 
 
 @retry(retry_timeout=60)
-def verify_ip_pim_upstream_rpf(tgen, topo, dut, interface, group_addresses, rp=None, expected=True):
+def verify_ip_pim_upstream_rpf(
+    tgen, topo, dut, interface, group_addresses, rp=None, expected=True
+):
     """
     Verify IP PIM upstream rpf, config is verified
     using "show ip pim neighbor" cli
@@ -2531,7 +2540,9 @@ def enable_disable_pim_bsm(tgen, router, intf, enable=True):
 
 
 @retry(retry_timeout=60)
-def verify_ip_pim_join(tgen, topo, dut, interface, group_addresses, src_address=None, expected=True):
+def verify_ip_pim_join(
+    tgen, topo, dut, interface, group_addresses, src_address=None, expected=True
+):
     """
     Verify ip pim join by running "show ip pim join" cli
 
@@ -3281,7 +3292,9 @@ def get_refCount_for_mroute(tgen, dut, iif, src_address, group_addresses):
 
 
 @retry(retry_timeout=40)
-def verify_multicast_flag_state(tgen, dut, src_address, group_addresses, flag, expected=True):
+def verify_multicast_flag_state(
+    tgen, dut, src_address, group_addresses, flag, expected=True
+):
     """
     Verify flag state for mroutes and make sure (*, G)/(S, G) are having
     coorect flags by running "show ip mroute" cli
@@ -3439,3 +3452,116 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=Tr
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+
+class McastTesterHelper(HostApplicationHelper):
+    def __init__(self, tgen=None):
+        self.script_path = os.path.join(CWD, "mcast-tester.py")
+        self.host_conn = {}
+        self.listen_sock = None
+
+        # # Get a temporary file for socket path
+        # (fd, sock_path) = tempfile.mkstemp("-mct.sock", "tmp" + str(os.getpid()))
+        # os.close(fd)
+        # os.remove(sock_path)
+        # self.app_sock_path = sock_path
+
+        # # Listen on unix socket
+        # logger.debug("%s: listening on socket %s", self, self.app_sock_path)
+        # self.listen_sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM, 0)
+        # self.listen_sock.settimeout(10)
+        # self.listen_sock.bind(self.app_sock_path)
+        # self.listen_sock.listen(10)
+
+        python3_path = get_exec_path(["python3", "python"])
+        super(McastTesterHelper, self).__init__(
+            tgen,
+            # [python3_path, self.script_path, self.app_sock_path]
+            [python3_path, self.script_path],
+        )
+
+    def __str__(self):
+        return "McastTesterHelper({})".format(self.script_path)
+
+    def run_join(self, host, join_addrs, join_towards=None, join_intf=None):
+        """
+        Join a UDP multicast group.
+
+        One of join_towards or join_intf MUST be set.
+
+        Parameters:
+        -----------
+        * `host`: host from where IGMP join would be sent
+        * `join_addrs`: multicast address (or addresses) to join to
+        * `join_intf`: the interface to bind the join[s] to
+        * `join_towards`: router whos interface to bind the join[s] to
+        """
+        if not isinstance(join_addrs, list) and not isinstance(join_addrs, tuple):
+            join_addrs = [join_addrs]
+
+        if join_towards:
+            join_intf = frr_unicode(
+                self.tgen.json_topo["routers"][host]["links"][join_towards]["interface"]
+            )
+        else:
+            assert join_intf
+
+        for join in join_addrs:
+            self.run(host, [join, join_intf])
+
+        return True
+
+    def run_traffic(self, host, send_to_addrs, bind_towards=None, bind_intf=None):
+        """
+        Send UDP multicast traffic.
+
+        One of bind_towards or bind_intf MUST be set.
+
+        Parameters:
+        -----------
+        * `host`: host to send traffic from
+        * `send_to_addrs`: multicast address (or addresses) to send traffic to
+        * `bind_towards`: Router who's interface the source ip address is got from
+        """
+        if bind_towards:
+            bind_intf = frr_unicode(
+                self.tgen.json_topo["routers"][host]["links"][bind_towards]["interface"]
+            )
+        else:
+            assert bind_intf
+
+        if not isinstance(send_to_addrs, list) and not isinstance(send_to_addrs, tuple):
+            send_to_addrs = [send_to_addrs]
+
+        for send_to in send_to_addrs:
+            self.run(host, ["--send=0.7", send_to, bind_intf])
+
+        return True
+
+    # def cleanup(self):
+    #     super(McastTesterHelper, self).cleanup()
+
+    #     if not self.listen_sock:
+    #         return
+
+    #     logger.debug("%s: closing listen socket %s", self, self.app_sock_path)
+    #     self.listen_sock.close()
+    #     self.listen_sock = None
+
+    #     if os.path.exists(self.app_sock_path):
+    #         os.remove(self.app_sock_path)
+
+    # def started_proc(self, host, p):
+    #     logger.debug("%s: %s: accepting on socket %s", self, host, self.app_sock_path)
+    #     try:
+    #         conn = self.listen_sock.accept()
+    #         return conn
+    #     except Exception as error:
+    #         logger.error("%s: %s: accept on socket failed: %s", self, host, error)
+    #         if p.poll() is not None:
+    #             logger.error("%s: %s: helper app quit: %s", self, host, comm_error(p))
+    #         raise
+
+    # def stopping_proc(self, host, p, conn):
+    #     logger.debug("%s: %s: closing socket %s", self, host, conn)
+    #     conn[0].close()

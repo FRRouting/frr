@@ -701,7 +701,7 @@ void isis_vrf_init(void)
 	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
 		 isis_vrf_delete, isis_vrf_enable);
 
-	vrf_cmd_init(NULL, &isisd_privs);
+	vrf_cmd_init(NULL);
 }
 
 void isis_terminate()
@@ -3011,6 +3011,8 @@ static int isis_config_write(struct vty *vty)
 
 			write += area_write_mt_settings(area, vty);
 			write += fabricd_write_settings(area, vty);
+
+			vty_out(vty, "exit\n");
 		}
 	}
 

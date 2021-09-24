@@ -46,7 +46,7 @@
 
 #include "ospf6_flood.h"
 #include "ospf6d.h"
-
+#include "ospf6_gr.h"
 #include <netinet/ip6.h>
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_MESSAGE, "OSPF6 message");
@@ -84,7 +84,9 @@ const uint16_t ospf6_lsa_minlen[OSPF6_LSTYPE_SIZE] = {
 	/* 0x2006 */ 0,
 	/* 0x2007 */ OSPF6_AS_EXTERNAL_LSA_MIN_SIZE,
 	/* 0x0008 */ OSPF6_LINK_LSA_MIN_SIZE,
-	/* 0x2009 */ OSPF6_INTRA_PREFIX_LSA_MIN_SIZE};
+	/* 0x2009 */ OSPF6_INTRA_PREFIX_LSA_MIN_SIZE,
+	/* 0x200a */ 0,
+	/* 0x000b */ OSPF6_GRACE_LSA_MIN_SIZE};
 
 /* print functions */
 
@@ -512,8 +514,59 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	thread_execute(master, hello_received, on, 0);
 	if (twoway)
 		thread_execute(master, twoway_received, on, 0);
-	else
-		thread_execute(master, oneway_received, on, 0);
+	else {
+		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s, Received oneway hello from RESTARTER so ignore here.",
+					__PRETTY_FUNCTION__);
+		} else {
+			/* If the router is DR_OTHER, RESTARTER will not wait
+			 * until it receives the hello from it if it receives
+			 * from DR and BDR.
+			 * So, helper might receives ONE_WAY hello from
+			 * RESTARTER. So not allowing to change the state if it
+			 * receives one_way hellow when it acts as HELPER for
+			 * that specific neighbor.
+			 */
+			thread_execute(master, oneway_received, on, 0);
+		}
+	}
+
+	if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+		/* As per the GR Conformance Test Case 7.2. Section 3
+		 * "Also, if X was the Designated Router on network segment S
+		 * when the helping relationship began, Y maintains X as the
+		 * Designated Router until the helping relationship is
+		 * terminated."
+		 * When it is a helper for this neighbor, It should not trigger
+		 * the ISM Events. Also Intentionally not setting the priority
+		 * and other fields so that when the neighbor exits the Grace
+		 * period, it can handle if there is any change before GR and
+		 * after GR.
+		 */
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"%s, Neighbor is under GR Restart, hence ignoring the ISM Events",
+				__PRETTY_FUNCTION__);
+
+		return;
+	}
+
+	/*
+	 * RFC 3623 - Section 2:
+	 * "If the restarting router determines that it was the Designated
+	 * Router on a given segment prior to the restart, it elects
+	 * itself as the Designated Router again.  The restarting router
+	 * knows that it was the Designated Router if, while the
+	 * associated interface is in Waiting state, a Hello packet is
+	 * received from a neighbor listing the router as the Designated
+	 * Router".
+	 */
+	if (oi->area->ospf6->gr_info.restart_in_progress
+	    && oi->state == OSPF6_INTERFACE_WAITING
+	    && hello->drouter == oi->area->ospf6->router_id)
+		oi->drouter = hello->drouter;
 
 	/* Schedule interface events */
 	if (backupseen)
@@ -1260,7 +1313,15 @@ static unsigned ospf6_lsa_examin(struct ospf6_lsa_header *lsah,
 			lsalen - OSPF6_LSA_HEADER_SIZE
 				- OSPF6_INTRA_PREFIX_LSA_MIN_SIZE,
 			ntohs(intra_prefix_lsa->prefix_num) /* 16 bits */
-			);
+		);
+	case OSPF6_LSTYPE_GRACE_LSA:
+		if (lsalen < OSPF6_LSA_HEADER_SIZE + GRACE_PERIOD_TLV_SIZE
+				     + GRACE_RESTART_REASON_TLV_SIZE) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug("%s: Undersized GraceLSA.",
+					   __func__);
+			return MSG_NG;
+		}
 	}
 	/* No additional validation is possible for unknown LSA types, which are
 	   themselves valid in OPSFv3, hence the default decision is to accept.
@@ -1817,11 +1878,13 @@ static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
 
 	oh->version = (uint8_t)OSPFV3_VERSION;
 	oh->type = type;
-
+	oh->length = 0;
 	oh->router_id = oi->area->ospf6->router_id;
 	oh->area_id = oi->area->area_id;
+	oh->checksum = 0;
 	oh->instance_id = oi->instance_id;
 	oh->reserved = 0;
+
 	stream_forward_endp(s, OSPF6_HEADER_SIZE);
 }
 
@@ -1977,7 +2040,6 @@ static int ospf6_write(struct thread *thread)
 					  __func__, latency);
 			oi->last_hello = timestamp;
 			oi->hello_out++;
-			ospf6_hello_print(oh, OSPF6_ACTION_SEND);
 			break;
 		case OSPF6_MESSAGE_TYPE_DBDESC:
 			oi->db_desc_out++;

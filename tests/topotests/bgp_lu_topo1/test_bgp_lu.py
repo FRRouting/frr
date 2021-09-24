@@ -29,7 +29,6 @@ import os
 import sys
 import json
 from functools import partial
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -40,10 +39,8 @@ sys.path.append(os.path.join(CWD, "../"))
 # Import topogen and topotest helpers
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -62,37 +59,33 @@ pytestmark = [pytest.mark.bgpd]
 # +-----+                +-----+                 +-----+
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # This function only purpose is to define allocation and relationship
+    # between routers, switches and hosts.
+    #
+    #
+    # Create routers
+    tgen.add_router("R1")
+    tgen.add_router("R2")
+    tgen.add_router("R3")
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        #
-        # Create routers
-        tgen.add_router("R1")
-        tgen.add_router("R2")
-        tgen.add_router("R3")
+    # R1-R2
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["R1"])
+    switch.add_link(tgen.gears["R2"])
 
-        # R1-R2
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["R1"])
-        switch.add_link(tgen.gears["R2"])
-
-        # R2-R3
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["R2"])
-        switch.add_link(tgen.gears["R3"])
+    # R2-R3
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["R2"])
+    switch.add_link(tgen.gears["R3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 

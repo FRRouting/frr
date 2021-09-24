@@ -43,69 +43,42 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-from mininet.topo import Topo
-
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd, pytest.mark.ospfd]
-
-
-class BFDTopo(Topo):
-    "Test topology builder"
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # Create 4 routers.
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BFDTopo, mod.__name__)
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r2", "r3"),
+        "s3": ("r2", "r4"),
+    }
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        router.load_config(
-            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
-        )
-        router.load_config(
-            TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospf6d.conf".format(rname))
-        )
+        daemon_file = "{}/{}/zebra.conf".format(CWD, rname)
+        router.load_config(TopoRouter.RD_ZEBRA, daemon_file)
+
+        daemon_file = "{}/{}/bfdd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BFD, daemon_file)
+
+        daemon_file = "{}/{}/bgpd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_BGP, daemon_file)
+
+        daemon_file = "{}/{}/ospfd.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_OSPF, daemon_file)
+
+        daemon_file = "{}/{}/ospf6d.conf".format(CWD, rname)
+        if os.path.isfile(daemon_file):
+            router.load_config(TopoRouter.RD_OSPF6, daemon_file)
 
     # Initialize all routers.
     tgen.start_router()
-
-    # Verify that we are using the proper version and that the BFD
-    # daemon exists.
-    for router in router_list.values():
-        # Check for Version
-        if router.has_version("<", "5.1"):
-            tgen.set_error("Unsupported FRR version")
-            break
 
 
 def teardown_module(_mod):
@@ -135,7 +108,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ip route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
@@ -151,7 +124,7 @@ def test_protocols_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show ipv6 route json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=160, wait=0.5)
+        _, result = topotest.run_and_expect(test_func, None, count=40, wait=2)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 

@@ -34,6 +34,8 @@
 extern "C" {
 #endif
 
+DECLARE_MTYPE(SCRIPT_RES);
+
 /*
  * gcc-10 is complaining about the wrapper function
  * not being compatible with lua_pushstring returning
@@ -162,9 +164,11 @@ void lua_decode_stringp(lua_State *L, int idx, char *str);
 void *lua_tostringp(lua_State *L, int idx);
 
 /*
- * No-op decocder
+ * No-op decoders
  */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr);
+
+void lua_decode_integer_noop(lua_State *L, int idx, int i);
 
 /*
  * Retrieve an integer from table on the top of the stack.

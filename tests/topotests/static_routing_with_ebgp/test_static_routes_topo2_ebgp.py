@@ -38,7 +38,6 @@
     -Verify 8 static route functionality with 8 ECMP next hop
 """
 import sys
-import json
 import time
 import os
 import pytest
@@ -52,7 +51,6 @@ sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
@@ -71,17 +69,10 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, verify_bgp_rib
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/static_routes_topo2_ebgp.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 # Global variables
 BGP_CONVERGENCE = False
 ADDR_TYPES = check_address_types()
@@ -123,21 +114,6 @@ topo_diag = """
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test CreateTopo - topology 1.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
 
@@ -145,7 +121,6 @@ def setup_module(mod):
 
     * `mod`: module name
     """
-    global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -153,7 +128,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/static_routes_topo2_ebgp.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

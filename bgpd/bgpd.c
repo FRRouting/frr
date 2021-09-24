@@ -469,6 +469,10 @@ int bgp_cluster_id_set(struct bgp *bgp, struct in_addr *cluster_id)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
+	if (bgp_config_check(bgp, BGP_CONFIG_CLUSTER_ID)
+	    && IPV4_ADDR_SAME(&bgp->cluster_id, cluster_id))
+		return 0;
+
 	IPV4_ADDR_COPY(&bgp->cluster_id, cluster_id);
 	bgp_config_set(bgp, BGP_CONFIG_CLUSTER_ID);
 
@@ -656,14 +660,9 @@ int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	if (bgp_confederation_peers_check(bgp, as))
 		return -1;
 
-	if (bgp->confed_peers)
-		bgp->confed_peers =
-			XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
-				 (bgp->confed_peers_cnt + 1) * sizeof(as_t));
-	else
-		bgp->confed_peers =
-			XMALLOC(MTYPE_BGP_CONFED_LIST,
-				(bgp->confed_peers_cnt + 1) * sizeof(as_t));
+	bgp->confed_peers =
+		XREALLOC(MTYPE_BGP_CONFED_LIST, bgp->confed_peers,
+			 (bgp->confed_peers_cnt + 1) * sizeof(as_t));
 
 	bgp->confed_peers[bgp->confed_peers_cnt] = as;
 	bgp->confed_peers_cnt++;
@@ -1454,7 +1453,6 @@ void peer_xfer_config(struct peer *peer_dst, struct peer *peer_src)
 
 	/* peer flags apply */
 	peer_dst->flags = peer_src->flags;
-	peer_dst->cap = peer_src->cap;
 
 	peer_dst->peer_gr_present_state = peer_src->peer_gr_present_state;
 	peer_dst->peer_gr_new_status_flag = peer_src->peer_gr_new_status_flag;
@@ -2414,14 +2412,6 @@ int peer_delete(struct peer *peer)
 	if (peer->bfd_config)
 		bgp_peer_remove_bfd_config(peer);
 
-	/* Delete peer route flap dampening configuration. This needs to happen
-	 * before removing the peer from peer groups.
-	 */
-	FOREACH_AFI_SAFI (afi, safi)
-		if (peer_af_flag_check(peer, afi, safi,
-				       PEER_FLAG_CONFIG_DAMPENING))
-			bgp_peer_damp_disable(peer, afi, safi);
-
 	/* If this peer belongs to peer group, clear up the
 	   relationship.  */
 	if (peer->group) {
@@ -3164,6 +3154,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
 	bgp_timers_unset(bgp);
+	bgp->default_min_holdtime = 0;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
 	bgp->stalepath_time = BGP_DEFAULT_STALEPATH_TIME;
 	bgp->select_defer_time = BGP_DEFAULT_SELECT_DEFERRAL_TIME;
@@ -3175,7 +3166,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->reject_as_sets = false;
 	bgp->condition_check_period = DEFAULT_CONDITIONAL_ROUTES_POLL_TIME;
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
-
+	bgp->fast_convergence = false;
 	bgp->as = *as;
 
 #ifdef ENABLE_BGP_VNC
@@ -3418,8 +3409,21 @@ int bgp_get(struct bgp **bgp_val, as_t *as, const char *name,
 		return ret;
 
 	bgp = bgp_create(as, name, inst_type);
-	if (bgp_option_check(BGP_OPT_NO_ZEBRA) && name)
-		bgp->vrf_id = vrf_generate_id();
+
+	/*
+	 * view instances will never work inside of a vrf
+	 * as such they must always be in the VRF_DEFAULT
+	 * Also we must set this to something useful because
+	 * of the vrf socket code needing an actual useful
+	 * default value to send to the underlying OS.
+	 *
+	 * This code is currently ignoring vrf based
+	 * code using the -Z option( and that is probably
+	 * best addressed elsewhere in the code )
+	 */
+	if (inst_type == BGP_INSTANCE_TYPE_VIEW)
+		bgp->vrf_id = VRF_DEFAULT;
+
 	bgp_router_id_set(bgp, &bgp->router_id_zebra, true);
 	bgp_address_init(bgp);
 	bgp_tip_hash_init(bgp);
@@ -3603,11 +3607,6 @@ int bgp_delete(struct bgp *bgp)
 			XFREE(MTYPE_TMP, info);
 		}
 		BGP_TIMER_OFF(gr_info->t_route_select);
-	}
-
-	/* Delete route flap dampening configuration */
-	FOREACH_AFI_SAFI (afi, safi) {
-		bgp_damp_disable(bgp, afi, safi);
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA)) {
@@ -4179,6 +4178,7 @@ static const struct peer_flag_action peer_flag_action_list[] = {
 	{PEER_FLAG_LOCAL_AS_NO_PREPEND, 0, peer_change_none},
 	{PEER_FLAG_LOCAL_AS_REPLACE_AS, 0, peer_change_none},
 	{PEER_FLAG_UPDATE_SOURCE, 0, peer_change_none},
+	{PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE, 0, peer_change_none},
 	{0, 0, 0}};
 
 static const struct peer_flag_action peer_af_flag_action_list[] = {
@@ -4208,6 +4208,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_AS_OVERRIDE, 1, peer_change_reset_out},
 	{PEER_FLAG_REMOVE_PRIVATE_AS_ALL_REPLACE, 1, peer_change_reset_out},
 	{PEER_FLAG_WEIGHT, 0, peer_change_reset_in},
+	{PEER_FLAG_DISABLE_ADDPATH_RX, 0, peer_change_reset},
 	{0, 0, 0}};
 
 /* Proper action set. */

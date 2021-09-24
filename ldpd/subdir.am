@@ -65,5 +65,5 @@ ldpd_ldpd_LDADD = ldpd/libldp.a lib/libfrr.la $(LIBCAP)
 
 ldpd_ldpd_snmp_la_SOURCES = ldpd/ldp_snmp.c
 ldpd_ldpd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
-ldpd_ldpd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ldpd_ldpd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ldpd_ldpd_snmp_la_LIBADD = lib/libfrrsnmp.la

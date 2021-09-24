@@ -30,6 +30,7 @@
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
+#include "pim_instance.h"
 #include "bfd.h"
 
 #define PIM_IF_MASK_PIM                             (1 << 0)
@@ -102,6 +103,8 @@ struct pim_interface {
 	int igmp_last_member_query_count; /* IGMP last member query count */
 	struct list *igmp_socket_list; /* list of struct igmp_sock */
 	struct list *igmp_join_list;   /* list of struct igmp_join */
+	struct list *igmp_group_list;  /* list of struct igmp_group */
+	struct hash *igmp_group_hash;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct thread *t_pim_sock_read; /* thread for reading PIM socket */

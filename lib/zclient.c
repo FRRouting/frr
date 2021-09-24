@@ -1105,6 +1105,33 @@ stream_failure:
 	return -1;
 }
 
+int zapi_srv6_locator_encode(struct stream *s, const struct srv6_locator *l)
+{
+	stream_putw(s, strlen(l->name));
+	stream_put(s, l->name, strlen(l->name));
+	stream_putw(s, l->prefix.prefixlen);
+	stream_put(s, &l->prefix.prefix, sizeof(l->prefix.prefix));
+	return 0;
+}
+
+int zapi_srv6_locator_decode(struct stream *s, struct srv6_locator *l)
+{
+	uint16_t len = 0;
+
+	STREAM_GETW(s, len);
+	if (len > SRV6_LOCNAME_SIZE)
+		goto stream_failure;
+
+	STREAM_GET(l->name, s, len);
+	STREAM_GETW(s, l->prefix.prefixlen);
+	STREAM_GET(&l->prefix.prefix, s, sizeof(l->prefix.prefix));
+	l->prefix.family = AF_INET6;
+	return 0;
+
+stream_failure:
+	return -1;
+}
+
 static int zapi_nhg_encode(struct stream *s, int cmd, struct zapi_nhg *api_nhg)
 {
 	int i;
@@ -1299,7 +1326,13 @@ int zapi_route_encode(uint8_t cmd, struct stream *s, struct zapi_route *api)
 		stream_putl(s, api->tableid);
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
-		assert(api->opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		if (api->opaque.length > ZAPI_MESSAGE_OPAQUE_LENGTH) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: opaque length %u is greater than allowed value",
+				__func__, api->opaque.length);
+			return -1;
+		}
 
 		stream_putw(s, api->opaque.length);
 		stream_write(s, api->opaque.data, api->opaque.length);
@@ -1537,7 +1570,13 @@ int zapi_route_decode(struct stream *s, struct zapi_route *api)
 
 	if (CHECK_FLAG(api->message, ZAPI_MESSAGE_OPAQUE)) {
 		STREAM_GETW(s, api->opaque.length);
-		assert(api->opaque.length <= ZAPI_MESSAGE_OPAQUE_LENGTH);
+		if (api->opaque.length > ZAPI_MESSAGE_OPAQUE_LENGTH) {
+			flog_err(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: opaque length %u is greater than allowed value",
+				__func__, api->opaque.length);
+			return -1;
+		}
 
 		STREAM_GET(api->opaque.data, s, api->opaque.length);
 	}
@@ -3430,6 +3469,14 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 
 		if (zapi_nexthop_decode(s, znh, 0, 0) < 0)
 			return -1;
+
+		if (znh->type == NEXTHOP_TYPE_BLACKHOLE) {
+			flog_warn(
+				EC_LIB_ZAPI_ENCODE,
+				"%s: Prefix %pFX has a blackhole nexthop which we cannot use for a label",
+				__func__, &zl->route.prefix);
+			return -1;
+		}
 	}
 
 	if (CHECK_FLAG(zl->message, ZAPI_LABELS_HAS_BACKUPS)) {
@@ -3451,6 +3498,14 @@ int zapi_labels_decode(struct stream *s, struct zapi_labels *zl)
 
 			if (zapi_nexthop_decode(s, znh, 0, 0) < 0)
 				return -1;
+
+			if (znh->type == NEXTHOP_TYPE_BLACKHOLE) {
+				flog_warn(
+					EC_LIB_ZAPI_ENCODE,
+					"%s: Prefix %pFX has a backup blackhole nexthop which we cannot use for a label",
+					__func__, &zl->route.prefix);
+				return -1;
+			}
 		}
 	}
 
@@ -4459,11 +4514,9 @@ static int zclient_neigh_ip_read_entry(struct stream *s, struct ipaddr *add)
 	return -1;
 }
 
-int zclient_neigh_ip_encode(struct stream *s,
-			    uint16_t cmd,
-			    union sockunion *in,
-			    union sockunion *out,
-			    struct interface *ifp)
+int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
+			    union sockunion *out, struct interface *ifp,
+			    int ndm_state)
 {
 	int ret = 0;
 
@@ -4478,7 +4531,7 @@ int zclient_neigh_ip_encode(struct stream *s,
 		stream_putc(s, AF_UNSPEC);
 	stream_putl(s, ifp->ifindex);
 	if (out)
-		stream_putl(s, ZEBRA_NEIGH_STATE_REACHABLE);
+		stream_putl(s, ndm_state);
 	else
 		stream_putl(s, ZEBRA_NEIGH_STATE_FAILED);
 	return ret;

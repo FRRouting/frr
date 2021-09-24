@@ -286,7 +286,7 @@ DEFPY (ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, use “clear ip ospf process” command\n");
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -319,7 +319,7 @@ DEFUN_HIDDEN (ospf_router_id_old,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, use “clear ip ospf process” command\n");
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -352,7 +352,7 @@ DEFPY (no_ospf_router_id,
 	for (ALL_LIST_ELEMENTS_RO(ospf->areas, node, area))
 		if (area->full_nbrs) {
 			vty_out(vty,
-				"For this router-id change to take effect, use “clear ip ospf process” command\n");
+				"For this router-id change to take effect, use \"clear ip ospf process\" command\n");
 			return CMD_SUCCESS;
 		}
 
@@ -375,9 +375,26 @@ static void ospf_passive_interface_default_update(struct ospf *ospf,
 		ospf_if_set_multicast(oi);
 }
 
-static void ospf_passive_interface_update(struct interface *ifp)
+static void ospf_passive_interface_update(struct interface *ifp,
+					  struct ospf_if_params *params,
+					  struct in_addr addr, uint8_t newval)
 {
 	struct route_node *rn;
+
+	if (OSPF_IF_PARAM_CONFIGURED(params, passive_interface)) {
+		if (params->passive_interface == newval)
+			return;
+
+		params->passive_interface = newval;
+		UNSET_IF_PARAM(params, passive_interface);
+		if (params != IF_DEF_PARAMS(ifp)) {
+			ospf_free_if_params(ifp, addr);
+			ospf_if_update_params(ifp, addr);
+		}
+	} else {
+		params->passive_interface = newval;
+		SET_IF_PARAM(params, passive_interface);
+	}
 
 	/*
 	 * XXX We should call ospf_if_set_multicast on exactly those
@@ -457,10 +474,7 @@ DEFUN_HIDDEN (ospf_passive_interface_addr,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_PASSIVE;
-	SET_IF_PARAM(params, passive_interface);
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_PASSIVE);
 
 	return CMD_SUCCESS;
 }
@@ -521,14 +535,7 @@ DEFUN_HIDDEN (no_ospf_passive_interface,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_ACTIVE;
-	UNSET_IF_PARAM(params, passive_interface);
-	if (params != IF_DEF_PARAMS(ifp)) {
-		ospf_free_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	}
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
 
 	return CMD_SUCCESS;
 }
@@ -4675,7 +4682,6 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 			json_vrf = json_object_new_object();
 		else
 			json_vrf = json;
-		json_neighbor_sub = json_object_new_object();
 	}
 
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
@@ -4701,6 +4707,8 @@ static int show_ip_ospf_neighbor_all_common(struct vty *vty, struct ospf *ospf,
 			if (nbr_nbma->nbr == NULL
 			    || nbr_nbma->nbr->state == NSM_Down) {
 				if (use_json) {
+					json_neighbor_sub =
+						json_object_new_object();
 					json_object_int_add(json_neighbor_sub,
 							    "nbrNbmaPriority",
 							    nbr_nbma->priority);
@@ -8305,10 +8313,12 @@ DEFUN (ip_ospf_hello_interval,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = 0L};
 	struct ospf_if_params *params;
 	params = IF_DEF_PARAMS(ifp);
 	uint32_t seconds = 0;
+	bool is_addr = false;
+	uint32_t old_interval = 0;
 
 	argv_find(argv, argc, "(1-65535)", &idx);
 	seconds = strtol(argv[idx]->arg, NULL, 10);
@@ -8322,7 +8332,14 @@ DEFUN (ip_ospf_hello_interval,
 
 		params = ospf_get_if_params(ifp, addr);
 		ospf_if_update_params(ifp, addr);
+		is_addr = true;
 	}
+
+	old_interval = params->v_hello;
+
+	/* Return, if same interval is configured. */
+	if (old_interval == seconds)
+		return CMD_SUCCESS;
 
 	SET_IF_PARAM(params, v_hello);
 	params->v_hello = seconds;
@@ -8337,6 +8354,8 @@ DEFUN (ip_ospf_hello_interval,
 		 */
 		params->v_wait	= 4 * seconds;
 	}
+
+	ospf_reset_hello_timer(ifp, addr, is_addr);
 
 	return CMD_SUCCESS;
 }
@@ -8364,7 +8383,7 @@ DEFUN (no_ip_ospf_hello_interval,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx = 0;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = 0L};
 	struct ospf_if_params *params;
 	struct route_node *rn;
 
@@ -9082,7 +9101,7 @@ DEFUN (ip_ospf_passive,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 3;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = INADDR_ANY};
 	struct ospf_if_params *params;
 	int ret;
 
@@ -9099,10 +9118,7 @@ DEFUN (ip_ospf_passive,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_PASSIVE;
-	SET_IF_PARAM(params, passive_interface);
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_PASSIVE);
 
 	return CMD_SUCCESS;
 }
@@ -9118,7 +9134,7 @@ DEFUN (no_ip_ospf_passive,
 {
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int idx_ipv4 = 4;
-	struct in_addr addr;
+	struct in_addr addr = {.s_addr = INADDR_ANY};
 	struct ospf_if_params *params;
 	int ret;
 
@@ -9136,14 +9152,7 @@ DEFUN (no_ip_ospf_passive,
 		params = IF_DEF_PARAMS(ifp);
 	}
 
-	params->passive_interface = OSPF_IF_ACTIVE;
-	UNSET_IF_PARAM(params, passive_interface);
-	if (params != IF_DEF_PARAMS(ifp)) {
-		ospf_free_if_params(ifp, addr);
-		ospf_if_update_params(ifp, addr);
-	}
-
-	ospf_passive_interface_update(ifp);
+	ospf_passive_interface_update(ifp, params, addr, OSPF_IF_ACTIVE);
 
 	return CMD_SUCCESS;
 }
@@ -9885,6 +9894,52 @@ DEFUN (no_ospf_proactive_arp,
 
 /* Graceful Restart HELPER Commands */
 DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
+      "graceful-restart helper enable [A.B.C.D$address]",
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Enable Helper support\n"
+      "Advertising Router-ID\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (address_str) {
+		ospf_gr_helper_support_set_per_routerid(ospf, &address,
+							OSPF_GR_TRUE);
+		return CMD_SUCCESS;
+	}
+
+	ospf_gr_helper_support_set(ospf, OSPF_GR_TRUE);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_ospf_gr_helper_enable,
+      no_ospf_gr_helper_enable_cmd,
+      "no graceful-restart helper enable [A.B.C.D$address]",
+      NO_STR
+      "OSPF Graceful Restart\n"
+      "OSPF GR Helper\n"
+      "Enable Helper support\n"
+      "Advertising Router-ID\n")
+{
+	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
+
+	if (address_str) {
+		ospf_gr_helper_support_set_per_routerid(ospf, &address,
+							OSPF_GR_FALSE);
+		return CMD_SUCCESS;
+	}
+
+	ospf_gr_helper_support_set(ospf, OSPF_GR_FALSE);
+	return CMD_SUCCESS;
+}
+
+#if CONFDATE > 20220921
+CPP_NOTICE(
+	"Time to remove the deprecated \"[no] graceful-restart helper-only\" commands")
+#endif
+
+DEFPY_HIDDEN(ospf_gr_helper_only, ospf_gr_helper_only_cmd,
       "graceful-restart helper-only [A.B.C.D]",
       "OSPF Graceful Restart\n"
       "Enable Helper support\n"
@@ -9893,6 +9948,9 @@ DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	struct in_addr addr;
 	int ret;
+
+	vty_out(vty,
+		"%% This command is deprecated. Please, use `graceful-restart helper enable` instead.\n");
 
 	if (argc == 3) {
 		ret = inet_aton(argv[2]->arg, &addr);
@@ -9911,34 +9969,13 @@ DEFPY(ospf_gr_helper_enable, ospf_gr_helper_enable_cmd,
 	return CMD_SUCCESS;
 }
 
-DEFPY(no_ospf_gr_helper_enable,
-      no_ospf_gr_helper_enable_cmd,
+ALIAS_HIDDEN(no_ospf_gr_helper_enable,
+      no_ospf_gr_helper_only_cmd,
       "no graceful-restart helper-only [A.B.C.D]",
       NO_STR
       "OSPF Graceful Restart\n"
       "Disable Helper support\n"
       "Advertising router id\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	struct in_addr addr;
-	int ret;
-
-	if (argc == 4) {
-		ret = inet_aton(argv[3]->arg, &addr);
-		if (!ret) {
-			vty_out(vty,
-				"Please specify the valid routerid address.\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-
-		ospf_gr_helper_support_set_per_routerid(ospf, &addr,
-							OSPF_GR_FALSE);
-		return CMD_SUCCESS;
-	}
-
-	ospf_gr_helper_support_set(ospf, OSPF_GR_FALSE);
-	return CMD_SUCCESS;
-}
 
 DEFPY(ospf_gr_helper_enable_lsacheck,
       ospf_gr_helper_enable_lsacheck_cmd,
@@ -10598,11 +10635,9 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 
 		prefix2str(&rn->p, buf1, sizeof(buf1));
 
-		json_route = json_object_new_object();
 		if (json) {
+			json_route = json_object_new_object();
 			json_object_object_add(json, buf1, json_route);
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_NOSLASHESCAPE);
 		}
 
 		switch (or->path_type) {
@@ -10724,8 +10759,6 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				}
 			}
 		}
-		if (!json)
-			json_object_free(json_route);
 	}
 	if (!json)
 		vty_out(vty, "\n");
@@ -10753,8 +10786,8 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 			continue;
 		int flag = 0;
 
-		json_route = json_object_new_object();
 		if (json) {
+			json_route = json_object_new_object();
 			json_object_object_add(
 				json, inet_ntop(AF_INET, &rn->p.u.prefix4,
 						buf, sizeof(buf)),
@@ -10869,8 +10902,6 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 				}
 			}
 		}
-		if (!json)
-			json_object_free(json_route);
 	}
 	if (!json)
 		vty_out(vty, "\n");
@@ -10899,11 +10930,9 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 		char buf1[19];
 
 		snprintfrr(buf1, sizeof(buf1), "%pFX", &rn->p);
-		json_route = json_object_new_object();
 		if (json) {
+			json_route = json_object_new_object();
 			json_object_object_add(json, buf1, json_route);
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_NOSLASHESCAPE);
 		}
 
 		switch (er->path_type) {
@@ -11001,8 +11030,6 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 				}
 			}
 		}
-		if (!json)
-			json_object_free(json_route);
 	}
 	if (!json)
 		vty_out(vty, "\n");
@@ -11215,7 +11242,9 @@ DEFUN (show_ip_ospf_route,
 			if (uj) {
 				/* Keep Non-pretty format */
 				vty_out(vty, "%s\n",
-					json_object_to_json_string(json));
+					json_object_to_json_string_ext(
+						json,
+						JSON_C_TO_STRING_NOSLASHESCAPE));
 				json_object_free(json);
 			} else if (!ospf_output)
 				vty_out(vty, "%% OSPF instance not found\n");
@@ -11227,7 +11256,9 @@ DEFUN (show_ip_ospf_route,
 			if (uj) {
 				vty_out(vty, "%s\n",
 					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
+						json,
+						JSON_C_TO_STRING_PRETTY
+							| JSON_C_TO_STRING_NOSLASHESCAPE));
 				json_object_free(json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
@@ -11241,7 +11272,9 @@ DEFUN (show_ip_ospf_route,
 			if (uj) {
 				vty_out(vty, "%s\n",
 					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
+						json,
+						JSON_C_TO_STRING_PRETTY
+							| JSON_C_TO_STRING_NOSLASHESCAPE));
 				json_object_free(json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
@@ -11254,7 +11287,9 @@ DEFUN (show_ip_ospf_route,
 		ret = show_ip_ospf_route_common(vty, ospf, json, use_vrf);
 		/* Keep Non-pretty format */
 		if (uj)
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
+			vty_out(vty, "%s\n",
+				json_object_to_json_string_ext(
+					json, JSON_C_TO_STRING_NOSLASHESCAPE));
 	}
 
 	if (uj)
@@ -11388,6 +11423,11 @@ DEFPY (clear_ip_ospf_neighbor,
 	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
 		if (!ospf->oi_running)
 			continue;
+
+		if (nbr_id_str && IPV4_ADDR_SAME(&ospf->router_id, &nbr_id)) {
+			vty_out(vty, "Self router-id is not allowed.\r\n ");
+			return CMD_SUCCESS;
+		}
 
 		ospf_neighbor_reset(ospf, nbr_id, nbr_id_str);
 	}
@@ -11832,9 +11872,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			/* Router Dead Interval print. */
 			if (OSPF_IF_PARAM_CONFIGURED(params, v_wait)
-			    && params->is_v_wait_set
-			    && params->v_wait
-				       != OSPF_ROUTER_DEAD_INTERVAL_DEFAULT) {
+			    && params->is_v_wait_set) {
 				vty_out(vty, " ip ospf dead-interval ");
 
 				/* fast hello ? */
@@ -11927,7 +11965,11 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 			if (OSPF_IF_PARAM_CONFIGURED(params,
 						     passive_interface)) {
-				vty_out(vty, " ip ospf passive");
+				vty_out(vty, " %sip ospf passive",
+					params->passive_interface
+							== OSPF_IF_ACTIVE
+						? "no "
+						: "");
 				if (params != IF_DEF_PARAMS(ifp) && rn)
 					vty_out(vty, " %pI4", &rn->p.u.prefix4);
 				vty_out(vty, "\n");
@@ -11953,7 +11995,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 		ospf_opaque_config_write_if(vty, ifp);
 
-		vty_endframe(vty, NULL);
+		vty_endframe(vty, "exit\n!\n");
 	}
 
 	return write;
@@ -12245,7 +12287,7 @@ static int ospf_cfg_write_helper_dis_rtr_walkcb(struct hash_bucket *bucket,
 	struct advRtr *rtr = bucket->data;
 	struct vty *vty = (struct vty *)arg;
 
-	vty_out(vty, " graceful-restart helper-only %pI4\n",
+	vty_out(vty, " graceful-restart helper enable %pI4\n",
 		&rtr->advRtrAddr);
 	return HASHWALK_CONTINUE;
 }
@@ -12265,7 +12307,7 @@ static void config_write_ospf_gr(struct vty *vty, struct ospf *ospf)
 static int config_write_ospf_gr_helper(struct vty *vty, struct ospf *ospf)
 {
 	if (ospf->is_helper_supported)
-		vty_out(vty, " graceful-restart helper-only\n");
+		vty_out(vty, " graceful-restart helper enable\n");
 
 	if (!ospf->strict_lsa_check)
 		vty_out(vty,
@@ -12529,6 +12571,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	/* LDP-Sync print */
 	ospf_ldp_sync_write_config(vty, ospf);
 
+	vty_out(vty, "exit\n");
+
 	write++;
 	return write;
 }
@@ -12617,22 +12661,11 @@ void ospf_vty_show_init(void)
 	install_element(VIEW_NODE, &show_ip_ospf_external_aggregator_cmd);
 }
 
-static int config_write_interface(struct vty *vty);
-/* ospfd's interface node. */
-static struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = config_write_interface,
-};
-
 /* Initialization of OSPF interface. */
 static void ospf_vty_if_init(void)
 {
 	/* Install interface node. */
-	install_node(&interface_node);
-	if_cmd_init();
+	if_cmd_init(config_write_interface);
 
 	/* "ip ospf authentication" commands. */
 	install_element(INTERFACE_NODE, &ip_ospf_authentication_args_addr_cmd);
@@ -12737,6 +12770,8 @@ static void ospf_vty_zebra_init(void)
 	/*Ospf garcefull restart helper configurations */
 	install_element(OSPF_NODE, &ospf_gr_helper_enable_cmd);
 	install_element(OSPF_NODE, &no_ospf_gr_helper_enable_cmd);
+	install_element(OSPF_NODE, &ospf_gr_helper_only_cmd);
+	install_element(OSPF_NODE, &no_ospf_gr_helper_only_cmd);
 	install_element(OSPF_NODE, &ospf_gr_helper_enable_lsacheck_cmd);
 	install_element(OSPF_NODE, &no_ospf_gr_helper_enable_lsacheck_cmd);
 	install_element(OSPF_NODE, &ospf_gr_helper_supported_grace_time_cmd);
@@ -12978,7 +13013,7 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_max_multipath_cmd);
 	install_element(OSPF_NODE, &no_ospf_max_multipath_cmd);
 
-	vrf_cmd_init(NULL, &ospfd_privs);
+	vrf_cmd_init(NULL);
 
 	/* Init interface related vty commands. */
 	ospf_vty_if_init();

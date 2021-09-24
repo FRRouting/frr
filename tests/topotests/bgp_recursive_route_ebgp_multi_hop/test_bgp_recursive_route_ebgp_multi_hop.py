@@ -40,10 +40,8 @@ multi-hop functionality:
 import os
 import sys
 import time
-import json
 import pytest
 from time import sleep
-from copy import deepcopy
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -51,8 +49,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
@@ -69,33 +65,22 @@ from lib.common_config import (
     create_route_maps,
     create_interface_in_kernel,
     shutdown_bringup_interface,
-    addKernelRoute,
-    delete_route_maps,
 )
 from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_bgp_rib,
     verify_bgp_convergence_from_running_config,
     modify_as_number,
     verify_bgp_attributes,
     clear_bgp,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/bgp_recursive_route_ebgp_multi_hop.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    logger.info("Could not read file:", jsonFile)
 
 # Global variables
 BGP_CONVERGENCE = False
@@ -124,21 +109,6 @@ Loopabck_IP = {
 }
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -153,7 +123,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_recursive_route_ebgp_multi_hop.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -1103,7 +1076,7 @@ def test_next_hop_with_recursive_lookup_p1(request):
             tc_name, result
         )
 
-    step("Toggle the interface on R3(ifconfig 192.34).")
+    step("Toggle the interface on R3.")
 
     intf_r3_r4 = topo["routers"]["r3"]["links"]["r4"]["interface"]
     shutdown_bringup_interface(tgen, "r3", intf_r3_r4)
@@ -1161,7 +1134,7 @@ def test_next_hop_with_recursive_lookup_p1(request):
             tc_name, result
         )
 
-    step("Toggle the interface on R4(ifconfig 192.34).")
+    step("Toggle the interface on R4.")
 
     intf_r4_r3 = topo["routers"]["r4"]["links"]["r3"]["interface"]
     shutdown_bringup_interface(tgen, "r4", intf_r4_r3)

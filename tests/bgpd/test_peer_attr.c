@@ -30,9 +30,6 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_zebra.h"
 #include "bgpd/bgp_network.h"
-#include "lib/routing_nb.h"
-#include "lib/northbound_cli.h"
-#include "bgpd/bgp_nb.h"
 
 #ifdef ENABLE_BGP_VNC
 #include "bgpd/rfapi/rfapi_backend.h"
@@ -777,10 +774,6 @@ static void test_execute(struct test *test, const char *fmt, ...)
 
 	/* Execute command (non-strict). */
 	ret = cmd_execute_command(vline, test->vty, NULL, 0);
-	if (ret == CMD_SUCCESS) {
-		/* Commit any pending changes, irnore error */
-		ret = nb_cli_pending_commit_check(test->vty);
-	}
 	if (ret != CMD_SUCCESS) {
 		test->state = TEST_COMMAND_ERROR;
 		test->error = str_printf(
@@ -939,7 +932,7 @@ static struct test *test_new(const char *desc, bool use_ibgp,
 
 	test->vty = vty_new();
 	test->vty->type = VTY_TERM;
-	vty_config_enter(test->vty, true, false);
+	test->vty->node = CONFIG_NODE;
 
 	test_initialize(test);
 
@@ -1385,15 +1378,6 @@ static void test_peer_attr(struct test *test, struct test_peer_attr *pa)
 	test_process(test, pa, p, g->conf, true, false);
 }
 
-static const struct frr_yang_module_info *const bgpd_yang_modules[] = {
-       &frr_bgp_info,
-       &frr_filter_info,
-       &frr_interface_info,
-       &frr_route_map_info,
-       &frr_routing_info,
-       &frr_vrf_info,
-};
-
 static void bgp_startup(void)
 {
 	cmd_init(1);
@@ -1402,7 +1386,7 @@ static void bgp_startup(void)
 	zprivs_init(&bgpd_privs);
 
 	master = thread_master_create(NULL);
-	nb_init(master, bgpd_yang_modules, array_size(bgpd_yang_modules), false);
+	nb_init(master, NULL, 0, false);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	vrf_init(NULL, NULL, NULL, NULL, NULL);

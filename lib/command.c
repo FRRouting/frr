@@ -74,6 +74,7 @@ const struct message tokennames[] = {
 	item(JOIN_TKN),
 	item(START_TKN),
 	item(END_TKN),
+	item(NEG_ONLY_TKN),
 	{0},
 };
 /* clang-format on */
@@ -158,6 +159,9 @@ static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
 		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
 		|| node == BGP_IPV6L_NODE || node == BGP_FLOWSPECV4_NODE
 		|| node == BGP_FLOWSPECV6_NODE))
+		return false;
+
+	if (target_node == INTERFACE_NODE && node == LINK_PARAMS_NODE)
 		return false;
 
 	return true;
@@ -849,96 +853,13 @@ char **cmd_complete_command(vector vline, struct vty *vty, int *status)
 /* MUST eventually converge on CONFIG_NODE */
 enum node_type node_parent(enum node_type node)
 {
-	enum node_type ret;
+	struct cmd_node *cnode;
 
 	assert(node > CONFIG_NODE);
 
-	switch (node) {
-	case BGP_VPNV4_NODE:
-	case BGP_VPNV6_NODE:
-	case BGP_FLOWSPECV4_NODE:
-	case BGP_FLOWSPECV6_NODE:
-	case BGP_VRF_POLICY_NODE:
-	case BGP_VNC_DEFAULTS_NODE:
-	case BGP_VNC_NVE_GROUP_NODE:
-	case BGP_VNC_L2_GROUP_NODE:
-	case BGP_IPV4_NODE:
-	case BGP_IPV4M_NODE:
-	case BGP_IPV4L_NODE:
-	case BGP_IPV6_NODE:
-	case BGP_IPV6M_NODE:
-	case BGP_EVPN_NODE:
-	case BGP_IPV6L_NODE:
-	case BMP_NODE:
-		ret = BGP_NODE;
-		break;
-	case BGP_EVPN_VNI_NODE:
-		ret = BGP_EVPN_NODE;
-		break;
-	case KEYCHAIN_KEY_NODE:
-		ret = KEYCHAIN_NODE;
-		break;
-	case LINK_PARAMS_NODE:
-		ret = INTERFACE_NODE;
-		break;
-	case LDP_IPV4_NODE:
-	case LDP_IPV6_NODE:
-		ret = LDP_NODE;
-		break;
-	case LDP_IPV4_IFACE_NODE:
-		ret = LDP_IPV4_NODE;
-		break;
-	case LDP_IPV6_IFACE_NODE:
-		ret = LDP_IPV6_NODE;
-		break;
-	case LDP_PSEUDOWIRE_NODE:
-		ret = LDP_L2VPN_NODE;
-		break;
-	case BFD_PEER_NODE:
-		ret = BFD_NODE;
-		break;
-	case BFD_PROFILE_NODE:
-		ret = BFD_NODE;
-		break;
-	case SR_TRAFFIC_ENG_NODE:
-		ret = SEGMENT_ROUTING_NODE;
-		break;
-	case SR_SEGMENT_LIST_NODE:
-		ret = SR_TRAFFIC_ENG_NODE;
-		break;
-	case SR_POLICY_NODE:
-		ret = SR_TRAFFIC_ENG_NODE;
-		break;
-	case SR_CANDIDATE_DYN_NODE:
-		ret = SR_POLICY_NODE;
-		break;
-	case PCEP_NODE:
-		ret = SR_TRAFFIC_ENG_NODE;
-		break;
-	case PCEP_PCE_CONFIG_NODE:
-		ret = PCEP_NODE;
-		break;
-	case PCEP_PCE_NODE:
-		ret = PCEP_NODE;
-		break;
-	case PCEP_PCC_NODE:
-		ret = PCEP_NODE;
-		break;
-	case SRV6_NODE:
-		ret = SEGMENT_ROUTING_NODE;
-		break;
-	case SRV6_LOCS_NODE:
-		ret = SRV6_NODE;
-		break;
-	case SRV6_LOC_NODE:
-		ret = SRV6_LOCS_NODE;
-		break;
-	default:
-		ret = CONFIG_NODE;
-		break;
-	}
+	cnode = vector_lookup(cmdvec, node);
 
-	return ret;
+	return cnode->parent_node;
 }
 
 /* Execute command by argument vline vector. */
@@ -2419,27 +2340,29 @@ DEFUN(find,
 }
 
 #if defined(DEV_BUILD) && defined(HAVE_SCRIPTING)
-DEFUN(script,
-      script_cmd,
-      "script SCRIPT",
-      "Test command - execute a script\n"
-      "Script name (same as filename in /etc/frr/scripts/\n")
+DEFUN(script, script_cmd, "script SCRIPT FUNCTION",
+      "Test command - execute a function in a script\n"
+      "Script name (same as filename in /etc/frr/scripts/)\n"
+      "Function name (in the script)\n")
 {
 	struct prefix p;
 
 	(void)str2prefix("1.2.3.4/24", &p);
-	struct frrscript *fs = frrscript_load(argv[1]->arg, NULL);
+	struct frrscript *fs = frrscript_new(argv[1]->arg);
 
-	if (fs == NULL) {
-		vty_out(vty, "Script '/etc/frr/scripts/%s.lua' not found\n",
-			argv[1]->arg);
-	} else {
-		int ret = frrscript_call(fs, ("p", &p));
-		char buf[40];
-		prefix2str(&p, buf, sizeof(buf));
-		vty_out(vty, "p: %s\n", buf);
-		vty_out(vty, "Script result: %d\n", ret);
+	if (frrscript_load(fs, argv[2]->arg, NULL)) {
+		vty_out(vty,
+			"/etc/frr/scripts/%s.lua or function '%s' not found\n",
+			argv[1]->arg, argv[2]->arg);
 	}
+
+	int ret = frrscript_call(fs, argv[2]->arg, ("p", &p));
+	char buf[40];
+	prefix2str(&p, buf, sizeof(buf));
+	vty_out(vty, "p: %s\n", buf);
+	vty_out(vty, "Script result: %d\n", ret);
+
+	frrscript_delete(fs);
 
 	return CMD_SUCCESS;
 }

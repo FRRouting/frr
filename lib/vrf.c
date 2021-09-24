@@ -58,7 +58,6 @@ struct vrf_name_head vrfs_by_name = RB_INITIALIZER(&vrfs_by_name);
 
 static int vrf_backend;
 static int vrf_backend_configured;
-static struct zebra_privs_t *vrf_daemon_privs;
 static char vrf_default_name[VRF_NAMSIZ] = VRF_DEFAULT_NAME_INTERNAL;
 
 /*
@@ -287,6 +286,7 @@ void vrf_delete(struct vrf *vrf)
 			RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
 			vrf->vrf_id = VRF_UNKNOWN;
 		}
+		vrf->ns_ctxt = NULL;
 		return;
 	}
 
@@ -382,21 +382,6 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 
 	vrf = vrf_lookup_by_id(vrf_id);
 	return VRF_LOGNAME(vrf);
-}
-
-vrf_id_t vrf_name_to_id(const char *name)
-{
-	struct vrf *vrf;
-	vrf_id_t vrf_id = VRF_DEFAULT; // Pending: need a way to return invalid
-				       // id/ routine not used.
-
-	if (!name)
-		return vrf_id;
-	vrf = vrf_lookup_by_name(name);
-	if (vrf)
-		vrf_id = vrf->vrf_id;
-
-	return vrf_id;
 }
 
 /* Get the data pointer of the specified VRF. If not found, create one. */
@@ -855,62 +840,6 @@ static struct cmd_node vrf_node = {
 	.prompt = "%s(config-vrf)# ",
 };
 
-DEFUN_NOSH (vrf_netns,
-       vrf_netns_cmd,
-       "netns NAME",
-       "Attach VRF to a Namespace\n"
-       "The file name in " NS_RUN_DIR ", or a full pathname\n")
-{
-	int idx_name = 1, ret;
-	char *pathname = ns_netns_pathname(vty, argv[idx_name]->arg);
-
-	VTY_DECLVAR_CONTEXT(vrf, vrf);
-
-	if (!pathname)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	frr_with_privs(vrf_daemon_privs) {
-		ret = vrf_netns_handler_create(vty, vrf, pathname,
-					       NS_UNKNOWN,
-					       NS_UNKNOWN,
-					       NS_UNKNOWN);
-	}
-	return ret;
-}
-
-DEFUN_NOSH (no_vrf_netns,
-	no_vrf_netns_cmd,
-	"no netns [NAME]",
-	NO_STR
-	"Detach VRF from a Namespace\n"
-	"The file name in " NS_RUN_DIR ", or a full pathname\n")
-{
-	struct ns *ns = NULL;
-
-	VTY_DECLVAR_CONTEXT(vrf, vrf);
-
-	if (!vrf_is_backend_netns()) {
-		vty_out(vty, "VRF backend is not Netns. Aborting\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (!vrf->ns_ctxt) {
-		vty_out(vty, "VRF %s(%u) is not configured with NetNS\n",
-			vrf->name, vrf->vrf_id);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	ns = (struct ns *)vrf->ns_ctxt;
-
-	ns->vrf_ctxt = NULL;
-	vrf_disable(vrf);
-	/* vrf ID from VRF is necessary for Zebra
-	 * so that propagate to other clients is done
-	 */
-	ns_delete(ns);
-	vrf->ns_ctxt = NULL;
-	return CMD_SUCCESS;
-}
-
 /*
  * Debug CLI for vrf's
  */
@@ -963,8 +892,7 @@ void vrf_install_commands(void)
 	install_element(ENABLE_NODE, &no_vrf_debug_cmd);
 }
 
-void vrf_cmd_init(int (*writefunc)(struct vty *vty),
-		  struct zebra_privs_t *daemon_privs)
+void vrf_cmd_init(int (*writefunc)(struct vty *vty))
 {
 	install_element(CONFIG_NODE, &vrf_cmd);
 	install_element(CONFIG_NODE, &no_vrf_cmd);
@@ -972,12 +900,6 @@ void vrf_cmd_init(int (*writefunc)(struct vty *vty),
 	install_node(&vrf_node);
 	install_default(VRF_NODE);
 	install_element(VRF_NODE, &vrf_exit_cmd);
-	if (vrf_is_backend_netns() && ns_have_netns()) {
-		/* Install NS commands. */
-		vrf_daemon_privs = daemon_privs;
-		install_element(VRF_NODE, &vrf_netns_cmd);
-		install_element(VRF_NODE, &no_vrf_netns_cmd);
-	}
 }
 
 void vrf_set_default_name(const char *default_name, bool force)
@@ -1129,13 +1051,6 @@ int vrf_sockunion_socket(const union sockunion *su, vrf_id_t vrf_id,
 		ret = ret2;
 	}
 	return ret;
-}
-
-vrf_id_t vrf_generate_id(void)
-{
-	static int vrf_id_local;
-
-	return ++vrf_id_local;
 }
 
 /* ------- Northbound callbacks ------- */

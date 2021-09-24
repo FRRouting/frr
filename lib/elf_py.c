@@ -860,6 +860,7 @@ static PyObject *elffile_find_note(PyObject *self, PyObject *args)
 	Py_RETURN_NONE;
 }
 
+#ifdef HAVE_ELF_GETDATA_RAWCHUNK
 static bool elffile_virt2file(struct elffile *w, GElf_Addr virt,
 			      GElf_Addr *offs)
 {
@@ -884,6 +885,7 @@ static bool elffile_virt2file(struct elffile *w, GElf_Addr virt,
 
 	return false;
 }
+#endif /* HAVE_ELF_GETDATA_RAWCHUNK */
 
 static PyObject *elffile_subscript(PyObject *self, PyObject *key)
 {
@@ -1016,6 +1018,7 @@ static PyTypeObject typeobj_elffile = {
 	.tp_methods = methods_elffile,
 };
 
+#ifdef HAVE_ELF_GETDATA_RAWCHUNK
 static char *elfdata_strptr(Elf_Data *data, size_t offset)
 {
 	char *p;
@@ -1124,6 +1127,7 @@ static void elffile_add_dynreloc(struct elffile *w, Elf_Data *reldata,
 	}
 
 }
+#endif /* HAVE_ELF_GETDATA_RAWCHUNK */
 
 /* primary (only, really) entry point to anything in this module */
 static PyObject *elffile_load(PyTypeObject *type, PyObject *args,

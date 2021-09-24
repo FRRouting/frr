@@ -35,8 +35,10 @@ if OSPFD
 TESTS_OSPFD = \
 	tests/ospfd/test_ospf_spf \
 	# end
+IGNORE_OSPFD =
 else
 TESTS_OSPFD =
+IGNORE_OSPFD = --ignore=ospfd/
 endif
 
 if OSPF6D
@@ -87,6 +89,7 @@ check_PROGRAMS = \
 	tests/lib/test_nexthop_iter \
 	tests/lib/test_nexthop \
 	tests/lib/test_ntop \
+	tests/lib/test_plist \
 	tests/lib/test_prefix2str \
 	tests/lib/test_printfrr \
 	tests/lib/test_privs \
@@ -95,6 +98,7 @@ check_PROGRAMS = \
 	tests/lib/test_segv \
 	tests/lib/test_seqlock \
 	tests/lib/test_sig \
+	tests/lib/test_skiplist \
 	tests/lib/test_stream \
 	tests/lib/test_table \
 	tests/lib/test_timer_correctness \
@@ -180,7 +184,7 @@ TESTS_CXXFLAGS = \
 # note no -Werror
 
 ALL_TESTS_LDADD = lib/libfrr.la $(LIBCAP)
-BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) -lm
+BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) $(UST_LIBS) -lm
 ISISD_TEST_LDADD = isisd/libisis.a $(ALL_TESTS_LDADD)
 if GRPC
 GRPC_TESTS_LDADD = staticd/libstatic.a grpc/libfrrgrpc_pb.la -lgrpc++ -lprotobuf $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) -lm
@@ -221,19 +225,6 @@ tests_bgpd_test_peer_attr_CFLAGS = $(TESTS_CFLAGS)
 tests_bgpd_test_peer_attr_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_bgpd_test_peer_attr_LDADD = $(BGP_TEST_LDADD)
 tests_bgpd_test_peer_attr_SOURCES = tests/bgpd/test_peer_attr.c
-nodist_tests_bgpd_test_peer_attr_SOURCES = \
-    yang/frr-bgp-types.yang.c \
-    yang/frr-bgp.yang.c \
-    yang/frr-bgp-common-structure.yang.c \
-    yang/frr-bgp-common.yang.c \
-    yang/frr-bgp-common-multiprotocol.yang.c \
-    yang/frr-bgp-neighbor.yang.c \
-    yang/frr-bgp-peer-group.yang.c \
-    yang/frr-bgp-bmp.yang.c \
-    yang/frr-bgp-rpki.yang.c \
-    yang/frr-deviations-bgp-datacenter.yang.c \
-    # end
-
 
 tests_isisd_test_fuzz_isis_tlv_CFLAGS = $(TESTS_CFLAGS) -I$(top_builddir)/tests/isisd
 tests_isisd_test_fuzz_isis_tlv_CPPFLAGS = $(TESTS_CPPFLAGS) -I$(top_builddir)/tests/isisd
@@ -344,6 +335,10 @@ tests_lib_test_ntop_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_ntop_CPPFLAGS = $(CPPFLAGS_BASE) # no assert override
 tests_lib_test_ntop_LDADD = # none
 tests_lib_test_ntop_SOURCES = tests/lib/test_ntop.c tests/helpers/c/prng.c
+tests_lib_test_plist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_plist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_plist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_plist_SOURCES = tests/lib/test_plist.c tests/lib/cli/common_cli.c
 tests_lib_test_prefix2str_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_prefix2str_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_prefix2str_LDADD = $(ALL_TESTS_LDADD)
@@ -372,6 +367,10 @@ tests_lib_test_sig_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_sig_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_sig_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_sig_SOURCES = tests/lib/test_sig.c
+tests_lib_test_skiplist_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_skiplist_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_skiplist_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_test_skiplist_SOURCES = tests/lib/test_skiplist.c
 tests_lib_test_srcdest_table_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_srcdest_table_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_srcdest_table_LDADD = $(ALL_TESTS_LDADD)
@@ -494,7 +493,7 @@ endif
 
 .PHONY: tests/tests.xml
 tests/tests.xml: $(check_PROGRAMS)
-	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests $(IGNORE_BGPD) $(IGNORE_ISISD) $(IGNORE_OSPF6D); )
+	( cd tests; $(PYTHON) ../$(srcdir)/tests/runtests.py --junitxml=tests.xml -v ../$(srcdir)/tests $(IGNORE_BGPD) $(IGNORE_ISISD) $(IGNORE_OSPFD) $(IGNORE_OSPF6D); )
 check: tests/tests.xml
 
 clean-local: clean-tests

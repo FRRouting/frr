@@ -244,6 +244,7 @@ DEFUN (debug_zebra_kernel,
 	return CMD_SUCCESS;
 }
 
+#if defined(HAVE_NETLINK)
 DEFUN (debug_zebra_kernel_msgdump,
        debug_zebra_kernel_msgdump_cmd,
        "debug zebra kernel msgdump [<recv|send>]",
@@ -267,6 +268,7 @@ DEFUN (debug_zebra_kernel_msgdump,
 
 	return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (debug_zebra_rib,
        debug_zebra_rib_cmd,
@@ -465,6 +467,7 @@ DEFUN (no_debug_zebra_kernel,
 	return CMD_SUCCESS;
 }
 
+#if defined(HAVE_NETLINK)
 DEFUN (no_debug_zebra_kernel_msgdump,
        no_debug_zebra_kernel_msgdump_cmd,
        "no debug zebra kernel msgdump [<recv|send>]",
@@ -489,6 +492,7 @@ DEFUN (no_debug_zebra_kernel_msgdump,
 
 	return CMD_SUCCESS;
 }
+#endif
 
 DEFUN (no_debug_zebra_rib,
        no_debug_zebra_rib_cmd,
@@ -721,7 +725,9 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_pw_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_packet_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(ENABLE_NODE, &debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(ENABLE_NODE, &debug_zebra_rib_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_dplane_cmd);
@@ -734,7 +740,9 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &no_debug_zebra_vxlan_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_packet_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(ENABLE_NODE, &no_debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(ENABLE_NODE, &no_debug_zebra_rib_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_fpm_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_dplane_cmd);
@@ -748,7 +756,9 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_pw_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_packet_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(CONFIG_NODE, &debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(CONFIG_NODE, &debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_dplane_cmd);
@@ -761,7 +771,9 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &no_debug_zebra_vxlan_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_packet_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_kernel_cmd);
+#if defined(HAVE_NETLINK)
 	install_element(CONFIG_NODE, &no_debug_zebra_kernel_msgdump_cmd);
+#endif
 	install_element(CONFIG_NODE, &no_debug_zebra_rib_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_fpm_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_dplane_cmd);

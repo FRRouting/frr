@@ -23,15 +23,15 @@ static void test_lsp_build_list_nonzero_ht(void)
 	struct lspdb_head _lspdb, *lspdb = &_lspdb;
 	lsp_db_init(&_lspdb);
 
-	struct isis_lsp *lsp1 = lsp_new(area, lsp_id1, 6000, 0, 0, 0, NULL,
-					ISIS_LEVEL2);
+	struct isis_lsp *lsp1 =
+		lsp_new(area, lsp_id1, 6000, 1, 0, 0, NULL, ISIS_LEVEL2);
 
-	lsp_insert(lspdb, lsp1);
+	lspdb_add(lspdb, lsp1);
 
-	struct isis_lsp *lsp2 = lsp_new(area, lsp_id2, 6000, 0, 0, 0, NULL,
-					ISIS_LEVEL2);
+	struct isis_lsp *lsp2 =
+		lsp_new(area, lsp_id2, 6000, 1, 0, 0, NULL, ISIS_LEVEL2);
 
-	lsp_insert(lspdb, lsp2);
+	lspdb_add(lspdb, lsp2);
 
 	struct list *list = list_new();
 

@@ -1291,6 +1291,11 @@ static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+static void cli_show_interface_end(struct vty *vty, struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
+}
+
 /*
  * XPath: /frr-interface:lib/interface/description
  */
@@ -1349,9 +1354,19 @@ static const struct cmd_variable_handler if_var_handlers[] = {
 	{.tokenname = "INTERFACE", .completions = if_autocomplete},
 	{.completions = NULL}};
 
-void if_cmd_init(void)
+static struct cmd_node interface_node = {
+	.name = "interface",
+	.node = INTERFACE_NODE,
+	.parent_node = CONFIG_NODE,
+	.prompt = "%s(config-if)# ",
+};
+
+void if_cmd_init(int (*config_write)(struct vty *))
 {
 	cmd_variable_handler_register(if_var_handlers);
+
+	interface_node.config_write = config_write;
+	install_node(&interface_node);
 
 	install_element(CONFIG_NODE, &interface_cmd);
 	install_element(CONFIG_NODE, &no_interface_cmd);
@@ -1642,6 +1657,7 @@ const struct frr_yang_module_info frr_interface_info = {
 				.create = lib_interface_create,
 				.destroy = lib_interface_destroy,
 				.cli_show = cli_show_interface,
+				.cli_show_end = cli_show_interface_end,
 				.get_next = lib_interface_get_next,
 				.get_keys = lib_interface_get_keys,
 				.lookup_entry = lib_interface_lookup_entry,

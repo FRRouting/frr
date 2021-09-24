@@ -272,16 +272,11 @@ void vtysh_config_parse_line(void *arg, const char *line)
 					   strlen(" ip igmp query-interval")) == 0) {
 				config_add_line_uniq_end(config->line, line);
 			} else if (config->index == LINK_PARAMS_NODE
-				   && strncmp(line, "  exit-link-params",
-					      strlen("  exit"))
+				   && strncmp(line, " exit-link-params",
+					      strlen(" exit"))
 					      == 0) {
 				config_add_line(config->line, line);
 				config->index = INTERFACE_NODE;
-			} else if (config->index == VRF_NODE
-				   && strncmp(line, " exit-vrf",
-					      strlen(" exit-vrf"))
-					      == 0) {
-				config_add_line_uniq_end(config->line, line);
 			} else if (!strncmp(line, " vrrp", strlen(" vrrp"))
 				   || !strncmp(line, " no vrrp",
 					       strlen(" no vrrp"))) {
@@ -291,7 +286,6 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			} else if (config->index == RMAP_NODE
 				   || config->index == INTERFACE_NODE
 				   || config->index == VTY_NODE
-				   || config->index == VRF_NODE
 				   || config->index == NH_GROUP_NODE)
 				config_add_line_uniq(config->line, line);
 			else
@@ -300,7 +294,10 @@ void vtysh_config_parse_line(void *arg, const char *line)
 			config_add_line(config_top, line);
 		break;
 	default:
-		if (strncmp(line, "interface", strlen("interface")) == 0)
+		if (strncmp(line, "exit", strlen("exit")) == 0) {
+			if (config)
+				config_add_line_uniq_end(config->line, line);
+		} else if (strncmp(line, "interface", strlen("interface")) == 0)
 			config = config_get(INTERFACE_NODE, line);
 		else if (strncmp(line, "pseudowire", strlen("pseudowire")) == 0)
 			config = config_get(PW_NODE, line);
@@ -496,7 +493,9 @@ void vtysh_config_dump(void)
 				 * are not under the VRF node.
 				 */
 				if (config->index == INTERFACE_NODE
-				    && list_isempty(config->line)) {
+				    && (listcount(config->line) == 1)
+				    && (line = listnode_head(config->line))
+				    && strmatch(line, "exit")) {
 					config_del(config);
 					continue;
 				}

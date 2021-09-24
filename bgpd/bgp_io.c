@@ -111,6 +111,7 @@ void bgp_reads_off(struct peer *peer)
 
 	thread_cancel_async(fpt->master, &peer->t_read, NULL);
 	THREAD_OFF(peer->t_process_packet);
+	THREAD_OFF(peer->t_process_packet_error);
 
 	UNSET_FLAG(peer->thread_flags, PEER_THREAD_READS_ON);
 }
@@ -208,7 +209,7 @@ static int bgp_process_reads(struct thread *thread)
 		 * specific state change from 'bgp_read'.
 		 */
 		thread_add_event(bm->master, bgp_packet_process_error,
-				 peer, code, NULL);
+				 peer, code, &peer->t_process_packet_error);
 	}
 
 	while (more) {

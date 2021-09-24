@@ -51,7 +51,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
@@ -71,7 +70,6 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_bgp_rib,
 )
 from lib.topojson import build_topo_from_json, build_config_from_json
@@ -94,19 +92,11 @@ NETWORK = {"ipv4": "2.2.2.2/32", "ipv6": "22:22::2/128"}
 NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 
 
-class BGPALLOWASIN(Topo):
-    """
-    Test BGPALLOWASIN - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -128,7 +118,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(BGPALLOWASIN, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -251,9 +241,11 @@ def test_bgp_allowas_in_p0(request):
             protocol=protocol,
             expected=False,
         )
-        assert result is not True, "Testcase {} : Failed \n"
-        "Expected behavior: routes should not present in rib \n"
-        "Error: {}".format(tc_name, result)
+        assert result is not True, (
+            "Testcase {} : Failed \n".format(tc_name)
+            + "Expected behavior: routes should not present in rib \n"
+            + "Error: {}".format(result)
+        )
 
         step("Configure allowas-in on R3 for R2.")
         step("We should see the prefix advertised from R1 in R3's BGP table.")
@@ -396,9 +388,11 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
     result = verify_rib(
         tgen, "ipv6", dut, static_route_ipv6, protocol=protocol, expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n"
-    "Expected behavior: routes are should not be present in ipv6 rib\n"
-    " Error: {}".format(tc_name, result)
+    assert result is not True, (
+        "Testcase {} : Failed \n".format(tc_name)
+        + "Expected behavior: routes are should not be present in ipv6 rib\n"
+        + " Error: {}".format(result)
+    )
 
     step("Repeat the same test for IPv6 AFI.")
     step("Configure allowas-in on R3 for R2 under IPv6 addr-family only")
@@ -444,9 +438,11 @@ def test_bgp_allowas_in_per_addr_family_p0(request):
     result = verify_rib(
         tgen, "ipv4", dut, static_route_ipv4, protocol=protocol, expected=False
     )
-    assert result is not True, "Testcase {} : Failed \n"
-    "Expected behavior: routes should not be present in ipv4 rib\n"
-    " Error: {}".format(tc_name, result)
+    assert result is not True, (
+        "Testcase {} : Failed \n".format(tc_name)
+        + "Expected behavior: routes should not be present in ipv4 rib\n"
+        + " Error: {}".format(result)
+    )
     result = verify_rib(tgen, "ipv6", dut, static_route_ipv6, protocol=protocol)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
@@ -598,9 +594,11 @@ def test_bgp_allowas_in_no_of_occurrences_p0(request):
         result = verify_rib(
             tgen, addr_type, dut, static_routes, protocol=protocol, expected=False
         )
-        assert result is not True, "Testcase {} : Failed \n "
-        "Expected behavior: routes are should not be present in rib\n"
-        "Error: {}".format(tc_name, result)
+        assert result is not True, (
+            "Testcase {} : Failed \n ".format(tc_name)
+            + "Expected behavior: routes are should not be present in rib\n"
+            + "Error: {}".format(result)
+        )
 
     for addr_type in ADDR_TYPES:
         step('Configure "allowas-in 5" on R3 for R2.')

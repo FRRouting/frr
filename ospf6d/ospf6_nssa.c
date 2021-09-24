@@ -1130,18 +1130,17 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 	uint16_t type;
 	struct ospf6_lsa *lsa = NULL, *type5 = NULL;
 	struct ospf6 *ospf6 = area->ospf6;
-	const struct route_node *rt = NULL;
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("%s: area %s", __func__, area->name);
 
 	/* Flush the NSSA LSA */
 	type = htons(OSPF6_LSTYPE_TYPE_7);
-	rt = ospf6_lsdb_head(area->lsdb_self, 0, type, ospf6->router_id, &lsa);
-	while (lsa) {
+	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, lsa)) {
 		lsa->header->age = htons(OSPF_LSA_MAXAGE);
 		SET_FLAG(lsa->flag, OSPF6_LSA_FLUSH);
 		ospf6_flood(NULL, lsa);
+
 		/* Flush the translated LSA */
 		if (ospf6_check_and_set_router_abr(ospf6)) {
 			type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
@@ -1155,17 +1154,54 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 				ospf6_flood(NULL, type5);
 			}
 		}
-		lsa = ospf6_lsdb_next(rt, lsa);
 	}
 }
 
-static void ospf6_area_nssa_update(struct ospf6_area *area)
+static void ospf6_check_and_originate_type7_lsa(struct ospf6_area *area)
 {
 	struct ospf6_route *route;
+	struct route_node *rn = NULL;
+	struct ospf6_external_aggr_rt *aggr;
 
+	/* Loop through the external_table to find the LSAs originated
+	 * without aggregation and originate type-7 LSAs for them.
+	 */
+	for (route = ospf6_route_head(
+		     area->ospf6->external_table);
+	     route; route = ospf6_route_next(route)) {
+		/* This means the Type-5 LSA was originated for this route */
+		if (route->path.origin.id != 0)
+			ospf6_nssa_lsa_originate(route, area);
+
+	}
+
+	/* Loop through the aggregation table to originate type-7 LSAs
+	 * for the aggregated type-5 LSAs
+	 */
+	for (rn = route_top(area->ospf6->rt_aggr_tbl); rn;
+	     rn = route_next(rn)) {
+		if (!rn->info)
+			continue;
+
+		aggr = rn->info;
+
+		if (CHECK_FLAG(aggr->aggrflags,
+		    OSPF6_EXTERNAL_AGGRT_ORIGINATED)) {
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug(
+					"Originating Type-7 LSAs for area %s",
+					area->name);
+
+			ospf6_nssa_lsa_originate(aggr->route, area);
+		}
+	}
+
+}
+
+void ospf6_area_nssa_update(struct ospf6_area *area)
+{
 	if (IS_AREA_NSSA(area)) {
-		if (!ospf6_check_and_set_router_abr(area->ospf6))
-			OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
+		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA++;
 		OSPF6_OPT_SET(area->options, OSPF6_OPT_N);
 		area->NSSATranslatorRole = OSPF6_NSSA_ROLE_CANDIDATE;
@@ -1173,8 +1209,7 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 		if (IS_OSPF6_DEBUG_ORIGINATE(ROUTER))
 			zlog_debug("Normal area for if %s", area->name);
 		OSPF6_OPT_CLEAR(area->options, OSPF6_OPT_N);
-		if (ospf6_check_and_set_router_abr(area->ospf6))
-			OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
+		OSPF6_OPT_SET(area->options, OSPF6_OPT_E);
 		area->ospf6->anyNSSA--;
 		area->NSSATranslatorState = OSPF6_NSSA_TRANSLATE_DISABLED;
 	}
@@ -1182,6 +1217,9 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 	/* Refresh router LSA */
 	if (IS_AREA_NSSA(area)) {
 		OSPF6_ROUTER_LSA_SCHEDULE(area);
+
+		/* Flush external LSAs. */
+		ospf6_asbr_remove_externals_from_area(area);
 
 		/* Check if router is ABR */
 		if (ospf6_check_and_set_router_abr(area->ospf6)) {
@@ -1194,18 +1232,13 @@ static void ospf6_area_nssa_update(struct ospf6_area *area)
 				zlog_debug("NSSA area %s", area->name);
 
 			/* Originate NSSA LSA */
-			for (route = ospf6_route_head(
-				     area->ospf6->external_table);
-			     route; route = ospf6_route_next(route))
-				ospf6_nssa_lsa_originate(route, area);
+			ospf6_check_and_originate_type7_lsa(area);
 		}
 	} else {
 		/* Disable NSSA */
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("Normal area %s", area->name);
 		ospf6_nssa_flush_area(area);
-		ospf6_area_disable(area);
-		ospf6_area_delete(area);
 	}
 }
 
@@ -1213,6 +1246,9 @@ int ospf6_area_nssa_set(struct ospf6 *ospf6, struct ospf6_area *area)
 {
 
 	if (!IS_AREA_NSSA(area)) {
+		/* Disable stub first. */
+		ospf6_area_stub_unset(ospf6, area);
+
 		SET_FLAG(area->flag, OSPF6_AREA_NSSA);
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("area %s nssa set", area->name);
@@ -1259,13 +1295,10 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	struct in6_addr *fwd_addr;
 
 	struct ospf6_as_external_lsa *as_external_lsa;
-	char buf[PREFIX2STR_BUFFER];
 	caddr_t p;
 
-	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL)) {
-		prefix2str(&route->prefix, buf, sizeof(buf));
-		zlog_debug("Originate AS-External-LSA for %s", buf);
-	}
+	if (IS_OSPF6_DEBUG_ASBR || IS_OSPF6_DEBUG_ORIGINATE(AS_EXTERNAL))
+		zlog_debug("Originate NSSA-LSA for %pFX", &route->prefix);
 
 	/* prepare buffer */
 	memset(buffer, 0, sizeof(buffer));
@@ -1296,7 +1329,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	as_external_lsa->prefix.prefix_length = route->prefix.prefixlen;
 
 	/* PrefixOptions */
-	as_external_lsa->prefix.prefix_options = route->path.prefix_options;
+	as_external_lsa->prefix.prefix_options = route->prefix_options;
 
 	/* Set the P bit */
 	as_external_lsa->prefix.prefix_options |= OSPF6_PREFIX_OPTION_P;
@@ -1334,7 +1367,7 @@ void ospf6_nssa_lsa_originate(struct ospf6_route *route,
 	lsa_header->adv_router = area->ospf6->router_id;
 	lsa_header->seqnum =
 		ospf6_new_ls_seqnum(lsa_header->type, lsa_header->id,
-				    lsa_header->adv_router, area->ospf6->lsdb);
+				    lsa_header->adv_router, area->lsdb);
 	lsa_header->length = htons((caddr_t)p - (caddr_t)lsa_header);
 
 	/* LSA checksum */

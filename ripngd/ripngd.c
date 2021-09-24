@@ -2270,6 +2270,8 @@ static int ripng_config_write(struct vty *vty)
 		config_write_distribute(vty, ripng->distribute_ctx);
 		config_write_if_rmap(vty, ripng->if_rmap_ctx);
 
+		vty_out(vty, "exit\n");
+
 		write = 1;
 	}
 
@@ -2692,7 +2694,7 @@ void ripng_vrf_init(void)
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
 		 ripng_vrf_delete, ripng_vrf_enable);
 
-	vrf_cmd_init(NULL, &ripngd_privs);
+	vrf_cmd_init(NULL);
 }
 
 void ripng_vrf_terminate(void)

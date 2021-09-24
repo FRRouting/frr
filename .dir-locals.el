@@ -4,5 +4,5 @@
 
 ((c-mode . ((indent-tabs-mode . t)
             (show-trailing-whitespace . t)
-            (c-basic-offset . 8)
-            )))
+            (c-basic-offset . 8)))
+ (json-mode . ((js-indent-level 4))))

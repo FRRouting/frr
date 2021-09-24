@@ -44,7 +44,6 @@
 #include "bgp_labelpool.h"
 #include "bgp_addpath_types.h"
 #include "bgp_nexthop.h"
-#include "bgp_damp.h"
 #include "bgp_io.h"
 
 #include "lib/bfd.h"
@@ -242,6 +241,7 @@ struct vpn_policy {
 	 */
 	uint32_t tovpn_sid_index; /* unset => set to 0 */
 	struct in6_addr *tovpn_sid;
+	uint32_t tovpn_sid_transpose_label;
 	struct in6_addr *tovpn_zebra_vrf_sid_last_sent;
 };
 
@@ -603,6 +603,9 @@ struct bgp {
 	uint32_t default_connect_retry;
 	uint32_t default_delayopen;
 
+	/* BGP minimum holdtime.  */
+	uint16_t default_min_holdtime;
+
 	/* BGP graceful restart */
 	uint32_t restart_time;
 	uint32_t stalepath_time;
@@ -747,13 +750,12 @@ struct bgp {
 	/* Process Queue for handling routes */
 	struct work_queue *process_queue;
 
+	bool fast_convergence;
+
 	/* BGP Conditional advertisement */
 	uint32_t condition_check_period;
 	uint32_t condition_filter_count;
 	struct thread *t_condition_check;
-
-	/* BGP route flap dampening configuration */
-	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
 	/* BGP VPN SRv6 backend */
 	bool srv6_enabled;
@@ -1287,6 +1289,10 @@ struct peer {
 #define PEER_FLAG_RTT_SHUTDOWN (1U << 26) /* shutdown rtt */
 #define PEER_FLAG_TIMER_DELAYOPEN (1U << 27) /* delayopen timer */
 #define PEER_FLAG_TCP_MSS (1U << 28)	 /* tcp-mss */
+/* Disable IEEE floating-point link bandwidth encoding in
+ * extended communities.
+ */
+#define PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE (1U << 29)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1313,9 +1319,6 @@ struct peer {
 	time_t eor_stime[AFI_MAX][SAFI_MAX];
 	/* Last update packet sent time */
 	time_t pkt_stime[AFI_MAX][SAFI_MAX];
-
-	/* Peer / peer group route flap dampening configuration */
-	struct bgp_damp_config damp[AFI_MAX][SAFI_MAX];
 
 	/* Peer Per AF flags */
 	/*
@@ -1354,8 +1357,7 @@ struct peer {
 #define PEER_FLAG_SEND_LARGE_COMMUNITY      (1U << 26) /* Send large Communities */
 #define PEER_FLAG_MAX_PREFIX_OUT            (1U << 27) /* outgoing maximum prefix */
 #define PEER_FLAG_MAX_PREFIX_FORCE          (1U << 28) /* maximum-prefix <num> force */
-#define PEER_FLAG_CONFIG_DAMPENING (1U << 29) /* route flap dampening */
-
+#define PEER_FLAG_DISABLE_ADDPATH_RX        (1U << 29) /* disable-addpath-rx */
 
 	enum bgp_addpath_strat addpath_type[AFI_MAX][SAFI_MAX];
 
@@ -1424,6 +1426,7 @@ struct peer {
 	struct thread *t_gr_stale;
 	struct thread *t_generate_updgrp_packets;
 	struct thread *t_process_packet;
+	struct thread *t_process_packet_error;
 	struct thread *t_refresh_stalepath;
 
 	/* Thread flags. */
@@ -1592,6 +1595,7 @@ struct peer {
 #define PEER_DOWN_AS_SETS_REJECT        31U /* Reject routes with AS_SET */
 #define PEER_DOWN_WAITING_OPEN          32U /* Waiting for open to succeed */
 #define PEER_DOWN_PFX_COUNT             33U /* Reached received prefix count */
+#define PEER_DOWN_SOCKET_ERROR          34U /* Some socket error happened */
 	/*
 	 * Remember to update peer_down_str in bgp_fsm.c when you add
 	 * a new value to the last_reset reason

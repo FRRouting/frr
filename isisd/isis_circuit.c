@@ -1290,7 +1290,7 @@ static int isis_interface_config_write(struct vty *vty)
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
 		}
-		vty_endframe(vty, "!\n");
+		vty_endframe(vty, "exit\n!\n");
 	}
 
 	return write;
@@ -1430,14 +1430,6 @@ ferr_r isis_circuit_passwd_hmac_md5_set(struct isis_circuit *circuit,
 				       passwd);
 }
 
-struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = isis_interface_config_write,
-};
-
 void isis_circuit_circ_type_set(struct isis_circuit *circuit, int circ_type)
 {
 	if (circuit->circ_type == circ_type)
@@ -1537,8 +1529,7 @@ void isis_circuit_init(void)
 	hook_register_prio(if_del, 0, isis_if_delete_hook);
 
 	/* Install interface node */
-	install_node(&interface_node);
-	if_cmd_init();
+	if_cmd_init(isis_interface_config_write);
 	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
 			  isis_ifp_down, isis_ifp_destroy);
 }

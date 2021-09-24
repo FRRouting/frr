@@ -350,8 +350,8 @@ pim_neighbor_new(struct interface *ifp, struct in_addr source_addr,
 			   __func__, src_str, ifp->name);
 	}
 
-	zlog_info("PIM NEIGHBOR UP: neighbor %s on interface %s", src_str,
-		  ifp->name);
+	zlog_notice("PIM NEIGHBOR UP: neighbor %s on interface %s", src_str,
+		    ifp->name);
 
 	if (neigh->propagation_delay_msec
 	    > pim_ifp->pim_neighbors_highest_propagation_delay_msec) {
@@ -616,8 +616,8 @@ void pim_neighbor_delete(struct interface *ifp, struct pim_neighbor *neigh,
 	assert(pim_ifp);
 
 	pim_inet4_dump("<src?>", neigh->source_addr, src_str, sizeof(src_str));
-	zlog_info("PIM NEIGHBOR DOWN: neighbor %s on interface %s: %s", src_str,
-		  ifp->name, delete_message);
+	zlog_notice("PIM NEIGHBOR DOWN: neighbor %s on interface %s: %s",
+		    src_str, ifp->name, delete_message);
 
 	THREAD_OFF(neigh->t_expire_timer);
 

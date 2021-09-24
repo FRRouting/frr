@@ -166,10 +166,8 @@ uint32_t zebra_pbr_rules_hash_key(const void *arg)
 			   rule->rule.action.table,
 			   prefix_hash_key(&rule->rule.filter.src_ip));
 
-	if (rule->rule.filter.fwmark)
-		key = jhash_2words(rule->rule.filter.fwmark, rule->vrf_id, key);
-	else
-		key = jhash_1word(rule->vrf_id, key);
+	key = jhash_3words(rule->rule.filter.fwmark, rule->vrf_id,
+			   rule->rule.filter.ip_proto, key);
 
 	key = jhash(rule->ifname, strlen(rule->ifname), key);
 
@@ -205,6 +203,9 @@ bool zebra_pbr_rules_hash_equal(const void *arg1, const void *arg2)
 		return false;
 
 	if (r1->rule.filter.fwmark != r2->rule.filter.fwmark)
+		return false;
+
+	if (r1->rule.filter.ip_proto != r2->rule.filter.ip_proto)
 		return false;
 
 	if (!prefix_same(&r1->rule.filter.src_ip, &r2->rule.filter.src_ip))

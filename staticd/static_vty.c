@@ -56,7 +56,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	int ret;
 	struct prefix p, src;
 	struct in_addr mask;
-	uint8_t type;
+	enum static_nh_type type;
 	const char *bh_type;
 	char xpath_prefix[XPATH_MAXLEN];
 	char xpath_nexthop[XPATH_MAXLEN];
@@ -325,7 +325,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
-			/* Silently return */
+			vty_out(vty,
+				"%% Refusing to remove a non-existent route\n");
 			return CMD_SUCCESS;
 		}
 
@@ -354,129 +355,6 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 dest_str, mask_str, src_str, gate_str, ifname,
 				 flag_str, tag_str, distance_str, label_str,
 				 table_str, false, NULL);
-}
-
-/* Write static route configuration. */
-int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
-		  safi_t safi, const char *cmd)
-{
-	char spacing[100];
-	struct route_node *rn;
-	struct static_nexthop *nh;
-	struct static_path *pn;
-	struct route_table *stable;
-	struct static_route_info *si;
-	char buf[SRCDEST2STR_BUFFER];
-	int write = 0;
-	struct stable_info *info;
-
-	stable = svrf->stable[afi][safi];
-	if (stable == NULL)
-		return write;
-
-	snprintf(spacing, sizeof(spacing), "%s%s",
-		 (svrf->vrf->vrf_id == VRF_DEFAULT) ? "" : " ", cmd);
-
-	for (rn = route_top(stable); rn; rn = srcdest_route_next(rn)) {
-		si = static_route_info_from_rnode(rn);
-		if (!si)
-			continue;
-		info = static_get_stable_info(rn);
-		frr_each(static_path_list, &si->path_list, pn) {
-			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
-				vty_out(vty, "%s %s", spacing,
-					srcdest_rnode2str(rn, buf,
-							  sizeof(buf)));
-
-				switch (nh->type) {
-				case STATIC_IPV4_GATEWAY:
-					vty_out(vty, " %pI4", &nh->addr.ipv4);
-					break;
-				case STATIC_IPV6_GATEWAY:
-					vty_out(vty, " %s",
-						inet_ntop(AF_INET6,
-							  &nh->addr.ipv6, buf,
-							  sizeof(buf)));
-					break;
-				case STATIC_IFNAME:
-					vty_out(vty, " %s", nh->ifname);
-					break;
-				case STATIC_BLACKHOLE:
-					switch (nh->bh_type) {
-					case STATIC_BLACKHOLE_DROP:
-						vty_out(vty, " blackhole");
-						break;
-					case STATIC_BLACKHOLE_NULL:
-						vty_out(vty, " Null0");
-						break;
-					case STATIC_BLACKHOLE_REJECT:
-						vty_out(vty, " reject");
-						break;
-					}
-					break;
-				case STATIC_IPV4_GATEWAY_IFNAME:
-					vty_out(vty, " %s %s",
-						inet_ntop(AF_INET,
-							  &nh->addr.ipv4, buf,
-							  sizeof(buf)),
-						nh->ifname);
-					break;
-				case STATIC_IPV6_GATEWAY_IFNAME:
-					vty_out(vty, " %s %s",
-						inet_ntop(AF_INET6,
-							  &nh->addr.ipv6, buf,
-							  sizeof(buf)),
-						nh->ifname);
-					break;
-				}
-
-				if (pn->tag)
-					vty_out(vty, " tag %" ROUTE_TAG_PRI,
-						pn->tag);
-
-				if (pn->distance
-				    != ZEBRA_STATIC_DISTANCE_DEFAULT)
-					vty_out(vty, " %u", pn->distance);
-
-				/* Label information */
-				if (nh->snh_label.num_labels)
-					vty_out(vty, " label %s",
-						mpls_label2str(
-							nh->snh_label
-								.num_labels,
-							nh->snh_label.label,
-							buf, sizeof(buf), 0));
-
-				if (!strmatch(nh->nh_vrfname,
-					      info->svrf->vrf->name))
-					vty_out(vty, " nexthop-vrf %s",
-						nh->nh_vrfname);
-
-				/*
-				 * table ID from VRF overrides
-				 * configured
-				 */
-				if (pn->table_id
-				    && svrf->vrf->data.l.table_id
-					       == RT_TABLE_MAIN)
-					vty_out(vty, " table %u", pn->table_id);
-
-				if (nh->onlink)
-					vty_out(vty, " onlink");
-
-				/*
-				 * SR-TE color
-				 */
-				if (nh->color != 0)
-					vty_out(vty, " color %u", nh->color);
-
-				vty_out(vty, "\n");
-
-				write = 1;
-			}
-		}
-	}
-	return write;
 }
 
 /* Static unicast routes for multicast RPF lookup. */
@@ -1123,6 +1001,278 @@ DEFPY_YANG(ipv6_route_vrf,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str);
 }
+
+void static_cli_show(struct vty *vty, struct lyd_node *dnode,
+		     bool show_defaults)
+{
+	const char *vrf;
+
+	vrf = yang_dnode_get_string(dnode, "../vrf");
+	if (strcmp(vrf, VRF_DEFAULT_NAME))
+		vty_out(vty, "vrf %s\n", vrf);
+}
+
+void static_cli_show_end(struct vty *vty, struct lyd_node *dnode)
+{
+	const char *vrf;
+
+	vrf = yang_dnode_get_string(dnode, "../vrf");
+	if (strcmp(vrf, VRF_DEFAULT_NAME))
+		vty_out(vty, "exit-vrf\n");
+}
+
+struct mpls_label_iter {
+	struct vty *vty;
+	bool first;
+};
+
+static int mpls_label_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct mpls_label_iter *iter = arg;
+
+	if (yang_dnode_exists(dnode, "./label")) {
+		if (iter->first)
+			vty_out(iter->vty, " label %s",
+				yang_dnode_get_string(dnode, "./label"));
+		else
+			vty_out(iter->vty, "/%s",
+				yang_dnode_get_string(dnode, "./label"));
+		iter->first = false;
+	}
+
+	return YANG_ITER_CONTINUE;
+}
+
+static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
+			     const struct lyd_node *src,
+			     const struct lyd_node *path,
+			     const struct lyd_node *nexthop, bool show_defaults)
+{
+	const char *vrf;
+	const char *afi_safi;
+	afi_t afi;
+	safi_t safi;
+	enum static_nh_type nh_type;
+	enum static_blackhole_type bh_type;
+	uint32_t tag;
+	uint8_t distance;
+	struct mpls_label_iter iter;
+	const char *nexthop_vrf;
+	uint32_t table_id;
+	bool onlink;
+
+	vrf = yang_dnode_get_string(route, "../../vrf");
+
+	afi_safi = yang_dnode_get_string(route, "./afi-safi");
+	yang_afi_safi_identity2value(afi_safi, &afi, &safi);
+
+	if (afi == AFI_IP)
+		vty_out(vty, "%sip",
+			strmatch(vrf, VRF_DEFAULT_NAME) ? "" : " ");
+	else
+		vty_out(vty, "%sipv6",
+			strmatch(vrf, VRF_DEFAULT_NAME) ? "" : " ");
+
+	if (safi == SAFI_UNICAST)
+		vty_out(vty, " route");
+	else
+		vty_out(vty, " mroute");
+
+	vty_out(vty, " %s", yang_dnode_get_string(route, "./prefix"));
+
+	if (src)
+		vty_out(vty, " from %s",
+			yang_dnode_get_string(src, "./src-prefix"));
+
+	nh_type = yang_dnode_get_enum(nexthop, "./nh-type");
+	switch (nh_type) {
+	case STATIC_IFNAME:
+		vty_out(vty, " %s",
+			yang_dnode_get_string(nexthop, "./interface"));
+		break;
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+		vty_out(vty, " %s",
+			yang_dnode_get_string(nexthop, "./gateway"));
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		vty_out(vty, " %s",
+			yang_dnode_get_string(nexthop, "./gateway"));
+		vty_out(vty, " %s",
+			yang_dnode_get_string(nexthop, "./interface"));
+		break;
+	case STATIC_BLACKHOLE:
+		bh_type = yang_dnode_get_enum(nexthop, "./bh-type");
+		switch (bh_type) {
+		case STATIC_BLACKHOLE_DROP:
+			vty_out(vty, " blackhole");
+			break;
+		case STATIC_BLACKHOLE_NULL:
+			vty_out(vty, " Null0");
+			break;
+		case STATIC_BLACKHOLE_REJECT:
+			vty_out(vty, " reject");
+			break;
+		}
+		break;
+	}
+
+	if (yang_dnode_exists(path, "./tag")) {
+		tag = yang_dnode_get_uint32(path, "./tag");
+		if (tag != 0 || show_defaults)
+			vty_out(vty, " tag %" PRIu32, tag);
+	}
+
+	distance = yang_dnode_get_uint8(path, "./distance");
+	if (distance != ZEBRA_STATIC_DISTANCE_DEFAULT || show_defaults)
+		vty_out(vty, " %" PRIu8, distance);
+
+	iter.vty = vty;
+	iter.first = true;
+	yang_dnode_iterate(mpls_label_iter_cb, &iter, nexthop,
+			   "./mpls-label-stack/entry");
+
+	nexthop_vrf = yang_dnode_get_string(nexthop, "./vrf");
+	if (strcmp(vrf, nexthop_vrf))
+		vty_out(vty, " nexthop-vrf %s", nexthop_vrf);
+
+	table_id = yang_dnode_get_uint32(path, "./table-id");
+	if (table_id || show_defaults)
+		vty_out(vty, " table %" PRIu32, table_id);
+
+	if (yang_dnode_exists(nexthop, "./onlink")) {
+		onlink = yang_dnode_get_bool(nexthop, "./onlink");
+		if (onlink)
+			vty_out(vty, " onlink");
+	}
+
+	if (yang_dnode_exists(nexthop, "./srte-color"))
+		vty_out(vty, " color %s",
+			yang_dnode_get_string(nexthop, "./srte-color"));
+
+	vty_out(vty, "\n");
+}
+
+void static_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
+			     bool show_defaults)
+{
+	const struct lyd_node *path = yang_dnode_get_parent(dnode, "path-list");
+	const struct lyd_node *route =
+		yang_dnode_get_parent(path, "route-list");
+
+	nexthop_cli_show(vty, route, NULL, path, dnode, show_defaults);
+}
+
+void static_src_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
+				 bool show_defaults)
+{
+	const struct lyd_node *path = yang_dnode_get_parent(dnode, "path-list");
+	const struct lyd_node *src = yang_dnode_get_parent(path, "src-list");
+	const struct lyd_node *route = yang_dnode_get_parent(src, "route-list");
+
+	nexthop_cli_show(vty, route, src, path, dnode, show_defaults);
+}
+
+int static_nexthop_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+{
+	enum static_nh_type nh_type1, nh_type2;
+	struct prefix prefix1, prefix2;
+	int ret = 0;
+
+	nh_type1 = yang_dnode_get_enum(dnode1, "./nh-type");
+	nh_type2 = yang_dnode_get_enum(dnode2, "./nh-type");
+
+	if (nh_type1 != nh_type2)
+		return (int)nh_type1 - (int)nh_type2;
+
+	switch (nh_type1) {
+	case STATIC_IFNAME:
+		ret = if_cmp_name_func(
+			yang_dnode_get_string(dnode1, "./interface"),
+			yang_dnode_get_string(dnode2, "./interface"));
+		break;
+	case STATIC_IPV4_GATEWAY:
+	case STATIC_IPV6_GATEWAY:
+		yang_dnode_get_prefix(&prefix1, dnode1, "./gateway");
+		yang_dnode_get_prefix(&prefix2, dnode2, "./gateway");
+		ret = prefix_cmp(&prefix1, &prefix2);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		yang_dnode_get_prefix(&prefix1, dnode1, "./gateway");
+		yang_dnode_get_prefix(&prefix2, dnode2, "./gateway");
+		ret = prefix_cmp(&prefix1, &prefix2);
+		if (!ret)
+			ret = if_cmp_name_func(
+				yang_dnode_get_string(dnode1, "./interface"),
+				yang_dnode_get_string(dnode2, "./interface"));
+		break;
+	case STATIC_BLACKHOLE:
+		/* There's only one blackhole nexthop per route */
+		ret = 0;
+		break;
+	}
+
+	if (ret)
+		return ret;
+
+	return if_cmp_name_func(yang_dnode_get_string(dnode1, "./vrf"),
+				yang_dnode_get_string(dnode2, "./vrf"));
+}
+
+int static_route_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+{
+	const char *afi_safi1, *afi_safi2;
+	afi_t afi1, afi2;
+	safi_t safi1, safi2;
+	struct prefix prefix1, prefix2;
+
+	afi_safi1 = yang_dnode_get_string(dnode1, "./afi-safi");
+	yang_afi_safi_identity2value(afi_safi1, &afi1, &safi1);
+
+	afi_safi2 = yang_dnode_get_string(dnode2, "./afi-safi");
+	yang_afi_safi_identity2value(afi_safi2, &afi2, &safi2);
+
+	if (afi1 != afi2)
+		return (int)afi1 - (int)afi2;
+
+	if (safi1 != safi2)
+		return (int)safi1 - (int)safi2;
+
+	yang_dnode_get_prefix(&prefix1, dnode1, "./prefix");
+	yang_dnode_get_prefix(&prefix2, dnode2, "./prefix");
+
+	return prefix_cmp(&prefix1, &prefix2);
+}
+
+int static_src_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+{
+	struct prefix prefix1, prefix2;
+
+	yang_dnode_get_prefix(&prefix1, dnode1, "./src-prefix");
+	yang_dnode_get_prefix(&prefix2, dnode2, "./src-prefix");
+
+	return prefix_cmp(&prefix1, &prefix2);
+}
+
+int static_path_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+{
+	uint32_t table_id1, table_id2;
+	uint8_t distance1, distance2;
+
+	table_id1 = yang_dnode_get_uint32(dnode1, "./table-id");
+	table_id2 = yang_dnode_get_uint32(dnode2, "./table-id");
+
+	if (table_id1 != table_id2)
+		return (int)table_id1 - (int)table_id2;
+
+	distance1 = yang_dnode_get_uint8(dnode1, "./distance");
+	distance2 = yang_dnode_get_uint8(dnode2, "./distance");
+
+	return (int)distance1 - (int)distance2;
+}
+
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "[no] debug static [{events$events|route$route}]",
 	   NO_STR DEBUG_STR STATICD_STR

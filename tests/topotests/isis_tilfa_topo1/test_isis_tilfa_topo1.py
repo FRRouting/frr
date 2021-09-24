@@ -67,9 +67,7 @@ import os
 import sys
 import pytest
 import json
-import re
 import tempfile
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -83,7 +81,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.isisd]
 
@@ -91,98 +88,94 @@ pytestmark = [pytest.mark.isisd]
 outputs = {}
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define FRR Routers
+    #
+    for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        tgen.add_router(router)
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
-            tgen.add_router(router)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["rt1"], nodeif="eth-sw1")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-sw1")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-sw1")
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["rt1"], nodeif="eth-sw1")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-sw1")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-sw1")
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-1")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-1")
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-1")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-1")
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-2")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-2")
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["rt2"], nodeif="eth-rt4-2")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt2-2")
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-1")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3-1")
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-1")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3-1")
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-2")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3-2")
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["rt3"], nodeif="eth-rt5-2")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt3-2")
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt5")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt4")
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["rt4"], nodeif="eth-rt6")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-rt4")
 
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["rt4"], nodeif="eth-rt6")
-        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt4")
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["rt5"], nodeif="eth-rt6")
+    switch.add_link(tgen.gears["rt6"], nodeif="eth-rt5")
 
-        switch = tgen.add_switch("s8")
-        switch.add_link(tgen.gears["rt5"], nodeif="eth-rt6")
-        switch.add_link(tgen.gears["rt6"], nodeif="eth-rt5")
+    #
+    # Populate multi-dimensional dictionary containing all expected outputs
+    #
+    files = [
+        "show_ip_route.ref",
+        "show_ipv6_route.ref",
+        "show_mpls_table.ref",
+        "show_yang_interface_isis_adjacencies.ref",
+    ]
+    for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
+        outputs[rname] = {}
+        for step in range(1, 9 + 1):
+            outputs[rname][step] = {}
+            for file in files:
+                if step == 1:
+                    # Get snapshots relative to the expected initial network convergence
+                    filename = "{}/{}/step{}/{}".format(CWD, rname, step, file)
+                    outputs[rname][step][file] = open(filename).read()
+                else:
+                    if file == "show_yang_interface_isis_adjacencies.ref":
+                        continue
 
-        #
-        # Populate multi-dimensional dictionary containing all expected outputs
-        #
-        files = [
-            "show_ip_route.ref",
-            "show_ipv6_route.ref",
-            "show_mpls_table.ref",
-            "show_yang_interface_isis_adjacencies.ref",
-        ]
-        for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6"]:
-            outputs[rname] = {}
-            for step in range(1, 9 + 1):
-                outputs[rname][step] = {}
-                for file in files:
-                    if step == 1:
-                        # Get snapshots relative to the expected initial network convergence
-                        filename = "{}/{}/step{}/{}".format(CWD, rname, step, file)
-                        outputs[rname][step][file] = open(filename).read()
-                    else:
-                        if file == "show_yang_interface_isis_adjacencies.ref":
-                            continue
+                    # Get diff relative to the previous step
+                    filename = "{}/{}/step{}/{}.diff".format(CWD, rname, step, file)
 
-                        # Get diff relative to the previous step
-                        filename = "{}/{}/step{}/{}.diff".format(CWD, rname, step, file)
+                    # Create temporary files in order to apply the diff
+                    f_in = tempfile.NamedTemporaryFile(mode="w")
+                    f_in.write(outputs[rname][step - 1][file])
+                    f_in.flush()
+                    f_out = tempfile.NamedTemporaryFile(mode="r")
+                    os.system(
+                        "patch -s -o %s %s %s" % (f_out.name, f_in.name, filename)
+                    )
 
-                        # Create temporary files in order to apply the diff
-                        f_in = tempfile.NamedTemporaryFile()
-                        f_in.write(outputs[rname][step - 1][file])
-                        f_in.flush()
-                        f_out = tempfile.NamedTemporaryFile()
-                        os.system(
-                            "patch -s -o %s %s %s" % (f_out.name, f_in.name, filename)
-                        )
-
-                        # Store the updated snapshot and remove the temporary files
-                        outputs[rname][step][file] = open(f_out.name).read()
-                        f_in.close()
-                        f_out.close()
+                    # Store the updated snapshot and remove the temporary files
+                    outputs[rname][step][file] = open(f_out.name).read()
+                    f_in.close()
+                    f_out.close()
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

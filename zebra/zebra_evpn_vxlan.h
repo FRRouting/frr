@@ -47,7 +47,7 @@ zebra_get_vrr_intf_for_svi(struct interface *ifp)
 }
 
 /* EVPN<=>vxlan_zif association */
-static inline void zevpn_vxlan_if_set(zebra_evpn_t *zevpn,
+static inline void zevpn_vxlan_if_set(struct zebra_evpn *zevpn,
 				      struct interface *ifp, bool set)
 {
 	struct zebra_if *zif;

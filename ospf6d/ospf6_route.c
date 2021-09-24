@@ -37,6 +37,9 @@
 #include "ospf6_interface.h"
 #include "ospf6d.h"
 #include "ospf6_zebra.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_route_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE,   "OSPF6 route");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_ROUTE_TABLE, "OSPF6 route table");
@@ -284,12 +287,21 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 	struct ospf6_nexthop nh_match;
 
 	if (nh_list) {
-		nh_match.ifindex = ifindex;
-		if (addr != NULL)
+		if (addr) {
+			if (ifindex)
+				nh_match.type = NEXTHOP_TYPE_IPV6_IFINDEX;
+			else
+				nh_match.type = NEXTHOP_TYPE_IPV6;
+
 			memcpy(&nh_match.address, addr,
 			       sizeof(struct in6_addr));
-		else
+		} else {
+			nh_match.type = NEXTHOP_TYPE_IFINDEX;
+
 			memset(&nh_match.address, 0, sizeof(struct in6_addr));
+		}
+
+		nh_match.ifindex = ifindex;
 
 		if (!ospf6_route_find_nexthop(nh_list, &nh_match)) {
 			nh = ospf6_nexthop_create();
@@ -299,36 +311,76 @@ void ospf6_add_nexthop(struct list *nh_list, int ifindex, struct in6_addr *addr)
 	}
 }
 
+void ospf6_add_route_nexthop_blackhole(struct ospf6_route *route)
+{
+	struct ospf6_nexthop *nh;
+	struct ospf6_nexthop nh_match = {};
+
+	/* List not allocated. */
+	if (route->nh_list == NULL)
+		return;
+
+	/* Entry already exists. */
+	nh_match.type = NEXTHOP_TYPE_BLACKHOLE;
+	if (ospf6_route_find_nexthop(route->nh_list, &nh_match))
+		return;
+
+	nh = ospf6_nexthop_create();
+	ospf6_nexthop_copy(nh, &nh_match);
+	listnode_add(route->nh_list, nh);
+}
+
 void ospf6_route_zebra_copy_nexthops(struct ospf6_route *route,
 				     struct zapi_nexthop nexthops[],
 				     int entries, vrf_id_t vrf_id)
 {
 	struct ospf6_nexthop *nh;
 	struct listnode *node;
-	char buf[64];
 	int i;
 
 	if (route) {
 		i = 0;
 		for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
 			if (IS_OSPF6_DEBUG_ZEBRA(SEND)) {
-				const char *ifname;
-				inet_ntop(AF_INET6, &nh->address, buf,
-					  sizeof(buf));
-				ifname = ifindex2ifname(nh->ifindex, vrf_id);
-				zlog_debug("  nexthop: %s%%%.*s(%d)", buf,
-					   IFNAMSIZ, ifname, nh->ifindex);
+				zlog_debug("  nexthop: %s %pI6%%%.*s(%d)",
+					   nexthop_type_to_str(nh->type),
+					   &nh->address, IFNAMSIZ,
+					   ifindex2ifname(nh->ifindex, vrf_id),
+					   nh->ifindex);
 			}
+
 			if (i >= entries)
 				return;
 
 			nexthops[i].vrf_id = vrf_id;
-			nexthops[i].ifindex = nh->ifindex;
-			if (!IN6_IS_ADDR_UNSPECIFIED(&nh->address)) {
+			nexthops[i].type = nh->type;
+
+			switch (nh->type) {
+			case NEXTHOP_TYPE_BLACKHOLE:
+				/* NOTHING */
+				break;
+
+			case NEXTHOP_TYPE_IFINDEX:
+				nexthops[i].ifindex = nh->ifindex;
+				break;
+
+			case NEXTHOP_TYPE_IPV4_IFINDEX:
+			case NEXTHOP_TYPE_IPV4:
+				/*
+				 * OSPFv3 with IPv4 routes is not supported
+				 * yet. Skip this next hop.
+				 */
+				if (IS_OSPF6_DEBUG_ZEBRA(SEND))
+					zlog_debug("  Skipping IPv4 next hop");
+				continue;
+
+			case NEXTHOP_TYPE_IPV6_IFINDEX:
+				nexthops[i].ifindex = nh->ifindex;
+				/* FALLTHROUGH */
+			case NEXTHOP_TYPE_IPV6:
 				nexthops[i].gate.ipv6 = nh->address;
-				nexthops[i].type = NEXTHOP_TYPE_IPV6_IFINDEX;
-			} else
-				nexthops[i].type = NEXTHOP_TYPE_IFINDEX;
+				break;
+			}
 			i++;
 		}
 	}
@@ -404,7 +456,7 @@ void ospf6_copy_paths(struct list *dst, struct list *src)
 	}
 }
 
-struct ospf6_route *ospf6_route_create(void)
+struct ospf6_route *ospf6_route_create(struct ospf6 *ospf6)
 {
 	struct ospf6_route *route;
 
@@ -415,6 +467,8 @@ struct ospf6_route *ospf6_route_create(void)
 	route->paths = list_new();
 	route->paths->cmp = (int (*)(void *, void *))ospf6_path_cmp;
 	route->paths->del = (void (*)(void *))ospf6_path_free;
+	route->ospf6 = ospf6;
+
 	return route;
 }
 
@@ -433,9 +487,10 @@ struct ospf6_route *ospf6_route_copy(struct ospf6_route *route)
 {
 	struct ospf6_route *new;
 
-	new = ospf6_route_create();
+	new = ospf6_route_create(route->ospf6);
 	new->type = route->type;
 	memcpy(&new->prefix, &route->prefix, sizeof(struct prefix));
+	new->prefix_options = route->prefix_options;
 	new->installed = route->installed;
 	new->changed = route->changed;
 	new->flag = route->flag;
@@ -615,6 +670,9 @@ struct ospf6_route *ospf6_route_add(struct ospf6_route *route,
 
 	if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
 		ospf6_linkstate_prefix2str(&route->prefix, buf, sizeof(buf));
+	else if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+			  sizeof(buf));
 	else
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
@@ -847,6 +905,9 @@ void ospf6_route_remove(struct ospf6_route *route,
 
 	if (route->type == OSPF6_DEST_TYPE_LINKSTATE)
 		ospf6_linkstate_prefix2str(&route->prefix, buf, sizeof(buf));
+	else if (route->type == OSPF6_DEST_TYPE_ROUTER)
+		inet_ntop(AF_INET, &ADV_ROUTER_IN_PREFIX(&route->prefix), buf,
+			  sizeof(buf));
 	else
 		prefix2str(&route->prefix, buf, sizeof(buf));
 
@@ -1059,11 +1120,6 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 	json_object *json_array_next_hops = NULL;
 	json_object *json_next_hop;
 
-	if (om6->ospf6 == NULL) {
-		vty_out(vty, "OSPFv3 is not running\n");
-		return;
-	}
-
 	monotime(&now);
 	timersub(&now, &route->changed, &res);
 	timerstring(&res, duration, sizeof(duration));
@@ -1137,6 +1193,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 {
 	char destination[PREFIX2STR_BUFFER], nexthop[64];
 	char area_id[16], id[16], adv_router[16], capa[16], options[16];
+	char pfx_options[16];
 	struct timeval now, res;
 	char duration[64];
 	struct listnode *node;
@@ -1145,11 +1202,6 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 	json_object *json_route = NULL;
 	json_object *json_array_next_hops = NULL;
 	json_object *json_next_hop;
-
-	if (om6->ospf6 == NULL) {
-		vty_out(vty, "OSPFv3 is not running\n");
-		return;
-	}
 
 	monotime(&now);
 
@@ -1264,10 +1316,13 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 		vty_out(vty, "Router Bits: %s\n", capa);
 
 	/* Prefix Options */
+	ospf6_prefix_options_printbuf(route->prefix_options, pfx_options,
+				      sizeof(pfx_options));
 	if (use_json)
-		json_object_string_add(json_route, "prefixOptions", "xxx");
+		json_object_string_add(json_route, "prefixOptions",
+				       pfx_options);
 	else
-		vty_out(vty, "Prefix Options: xxx\n");
+		vty_out(vty, "Prefix Options: %s\n", pfx_options);
 
 	/* Metrics */
 	if (use_json) {
@@ -1775,22 +1830,27 @@ void ospf6_brouter_show(struct vty *vty, struct ospf6_route *route)
 		OSPF6_PATH_TYPE_NAME(route->path.type), area);
 }
 
-DEFUN (debug_ospf6_route,
-       debug_ospf6_route_cmd,
-       "debug ospf6 route <table|intra-area|inter-area|memory>",
-       DEBUG_STR
-       OSPF6_STR
-       "Debug routes\n"
-       "Debug route table calculation\n"
-       "Debug intra-area route calculation\n"
-       "Debug inter-area route calculation\n"
-       "Debug route memory use\n"
-       )
+DEFPY(debug_ospf6_route,
+      debug_ospf6_route_cmd,
+      "[no$no] debug ospf6 route <all|table|intra-area|inter-area|memory>",
+      NO_STR
+      DEBUG_STR
+      OSPF6_STR
+      "Debug routes\n"
+      "Debug for all types of route calculation\n"
+      "Debug route table calculation\n"
+      "Debug intra-area route calculation\n"
+      "Debug inter-area route calculation\n"
+      "Debug route memory use\n")
 {
-	int idx_type = 3;
+	int idx_type;
 	unsigned char level = 0;
 
-	if (!strcmp(argv[idx_type]->text, "table"))
+	idx_type = ((no) ? 4 : 3);
+
+	if (!strcmp(argv[idx_type]->text, "all"))
+		level = OSPF6_DEBUG_ROUTE_ALL;
+	else if (!strcmp(argv[idx_type]->text, "table"))
 		level = OSPF6_DEBUG_ROUTE_TABLE;
 	else if (!strcmp(argv[idx_type]->text, "intra-area"))
 		level = OSPF6_DEBUG_ROUTE_INTRA;
@@ -1798,39 +1858,20 @@ DEFUN (debug_ospf6_route,
 		level = OSPF6_DEBUG_ROUTE_INTER;
 	else if (!strcmp(argv[idx_type]->text, "memory"))
 		level = OSPF6_DEBUG_ROUTE_MEMORY;
-	OSPF6_DEBUG_ROUTE_ON(level);
-	return CMD_SUCCESS;
-}
 
-DEFUN (no_debug_ospf6_route,
-       no_debug_ospf6_route_cmd,
-       "no debug ospf6 route <table|intra-area|inter-area|memory>",
-       NO_STR
-       DEBUG_STR
-       OSPF6_STR
-       "Debug routes\n"
-       "Debug route table calculation\n"
-       "Debug intra-area route calculation\n"
-       "Debug inter-area route calculation\n"
-       "Debug route memory use\n")
-{
-	int idx_type = 4;
-	unsigned char level = 0;
-
-	if (!strcmp(argv[idx_type]->text, "table"))
-		level = OSPF6_DEBUG_ROUTE_TABLE;
-	else if (!strcmp(argv[idx_type]->text, "intra-area"))
-		level = OSPF6_DEBUG_ROUTE_INTRA;
-	else if (!strcmp(argv[idx_type]->text, "inter-area"))
-		level = OSPF6_DEBUG_ROUTE_INTER;
-	else if (!strcmp(argv[idx_type]->text, "memory"))
-		level = OSPF6_DEBUG_ROUTE_MEMORY;
-	OSPF6_DEBUG_ROUTE_OFF(level);
+	if (no)
+		OSPF6_DEBUG_ROUTE_OFF(level);
+	else
+		OSPF6_DEBUG_ROUTE_ON(level);
 	return CMD_SUCCESS;
 }
 
 int config_write_ospf6_debug_route(struct vty *vty)
 {
+	if (IS_OSPF6_DEBUG_ROUTE(ALL) == OSPF6_DEBUG_ROUTE_ALL) {
+		vty_out(vty, "debug ospf6 route all\n");
+		return 0;
+	}
 	if (IS_OSPF6_DEBUG_ROUTE(TABLE))
 		vty_out(vty, "debug ospf6 route table\n");
 	if (IS_OSPF6_DEBUG_ROUTE(INTRA))
@@ -1846,7 +1887,5 @@ int config_write_ospf6_debug_route(struct vty *vty)
 void install_element_ospf6_debug_route(void)
 {
 	install_element(ENABLE_NODE, &debug_ospf6_route_cmd);
-	install_element(ENABLE_NODE, &no_debug_ospf6_route_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_route_cmd);
-	install_element(CONFIG_NODE, &no_debug_ospf6_route_cmd);
 }

@@ -292,6 +292,9 @@ static void zfpm_start_connect_timer(const char *reason);
 static void zfpm_start_stats_timer(void);
 static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac);
 
+static const char ipv4_ll_buf[16] = "169.254.0.1";
+union g_addr ipv4ll_gateway;
+
 /*
  * zfpm_thread_should_yield
  */
@@ -1002,7 +1005,6 @@ static int zfpm_build_route_updates(void)
 			data_len = zfpm_encode_route(dest, re, (char *)data,
 						     buf_end - data, &msg_type);
 
-			assert(data_len);
 			if (data_len) {
 				hdr->msg_type = msg_type;
 				msg_len = fpm_data_len_to_msg_len(data_len);
@@ -1013,6 +1015,9 @@ static int zfpm_build_route_updates(void)
 					zfpm_g->stats.route_adds++;
 				else
 					zfpm_g->stats.route_dels++;
+			} else {
+				zlog_err("%s: Encoding Prefix: %pRN No valid nexthops",
+					 __func__, dest->rnode);
 			}
 		}
 
@@ -1551,8 +1556,9 @@ static void zfpm_mac_info_del(struct fpm_mac_info_t *fpm_mac)
  * This function checks if we already have enqueued an update for this RMAC,
  * If yes, update the same fpm_mac_info_t. Else, create and enqueue an update.
  */
-static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
-					bool delete, const char *reason)
+static int zfpm_trigger_rmac_update(struct zebra_mac *rmac,
+				    struct zebra_l3vni *zl3vni, bool delete,
+				    const char *reason)
 {
 	struct fpm_mac_info_t *fpm_mac, key;
 	struct interface *vxlan_if, *svi_if;
@@ -1635,8 +1641,8 @@ static int zfpm_trigger_rmac_update(zebra_mac_t *rmac, zebra_l3vni_t *zl3vni,
 static void zfpm_trigger_rmac_update_wrapper(struct hash_bucket *bucket,
 					     void *args)
 {
-	zebra_mac_t *zrmac = (zebra_mac_t *)bucket->data;
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)args;
+	struct zebra_mac *zrmac = (struct zebra_mac *)bucket->data;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)args;
 
 	zfpm_trigger_rmac_update(zrmac, zl3vni, false, "RMAC added");
 }
@@ -1648,7 +1654,7 @@ static void zfpm_trigger_rmac_update_wrapper(struct hash_bucket *bucket,
  */
 static void zfpm_iterate_rmac_table(struct hash_bucket *bucket, void *args)
 {
-	zebra_l3vni_t *zl3vni = (zebra_l3vni_t *)bucket->data;
+	struct zebra_l3vni *zl3vni = (struct zebra_l3vni *)bucket->data;
 
 	hash_iterate(zl3vni->rmac_table, zfpm_trigger_rmac_update_wrapper,
 		     (void *)zl3vni);
@@ -1989,6 +1995,10 @@ static int zfpm_init(struct thread_master *master)
 	zfpm_stats_init(&zfpm_g->stats);
 	zfpm_stats_init(&zfpm_g->last_ivl_stats);
 	zfpm_stats_init(&zfpm_g->cumulative_stats);
+
+	memset(&ipv4ll_gateway, 0, sizeof(ipv4ll_gateway));
+	if (inet_pton(AF_INET, ipv4_ll_buf, &ipv4ll_gateway.ipv4) != 1)
+		zlog_warn("inet_pton failed for %s", ipv4_ll_buf);
 
 	install_node(&zebra_node);
 	install_element(ENABLE_NODE, &show_zebra_fpm_stats_cmd);

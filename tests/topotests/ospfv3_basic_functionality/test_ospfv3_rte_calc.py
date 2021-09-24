@@ -25,10 +25,6 @@ import os
 import sys
 import time
 import pytest
-import json
-from copy import deepcopy
-from ipaddress import IPv4Address
-from lib.topotest import frr_unicode
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,10 +33,8 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 import ipaddress
-from lib.bgp import verify_bgp_convergence, create_router_bgp
 
 # Import topoJson from lib, to create topology and initial configuration
 from lib.common_config import (
@@ -49,9 +43,7 @@ from lib.common_config import (
     write_test_footer,
     reset_config_on_routers,
     verify_rib,
-    create_static_routes,
     step,
-    create_route_maps,
     shutdown_bringup_interface,
     create_interfaces_cfg,
     topo_daemons,
@@ -59,31 +51,22 @@ from lib.common_config import (
 )
 
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf6_neighbor,
-    config_ospf_interface,
-    clear_ospf,
     verify_ospf6_rib,
     create_router_ospf,
     verify_ospf6_interface,
-    verify_ospf6_database,
     config_ospf6_interface,
 )
 
-from ipaddress import IPv6Address
+
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+
 
 # Global variables
 topo = None
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/ospfv3_rte_calc.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 NETWORK = {
     "ipv6": [
@@ -116,28 +99,12 @@ TESTCASES = """
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
 
     * `mod`: module name
     """
-    global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -145,7 +112,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ospfv3_rte_calc.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -281,6 +251,233 @@ def red_connected(dut, config=True):
 # ##################################
 # Test cases start here.
 # ##################################
+def test_ospfv3_redistribution_tc5_p0(request):
+    """Test OSPF intra area route calculations."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+
+    step("Verify that OSPF neighbors are FULL.")
+    ospf_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step("verify intra area route is calculated for r0-r3 interface ip in R1")
+    ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
+    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+
+    llip = get_llip("r0", "r1")
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
+
+    nh = llip
+    input_dict = {
+        "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
+    }
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Delete the ip address on newly configured loopback of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                    "delete": True,
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    step("Add back the deleted ip address on newly configured interface of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Shut no shut interface on R0")
+    dut = "r0"
+    intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    step("un shut the OSPF interface on R0")
+    dut = "r0"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
+def test_ospfv3_redistribution_tc6_p0(request):
+    """Test OSPF inter area route calculations."""
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config.")
+    reset_config_on_routers(tgen)
+
+    step("Verify that OSPF neighbors are FULL.")
+    ospf_covergence = verify_ospf6_neighbor(tgen, topo)
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    step("verify intra area route is calculated for r0-r3 interface ip in R1")
+    ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
+    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
+    llip = get_llip("r0", "r1")
+    assert llip is not None, "Testcase {} : Failed \n Error: {}".format(tc_name, llip)
+    nh = llip
+    input_dict = {
+        "r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1, "routeType": "N"}]}
+    }
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Delete the ip address on newly configured loopback of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                    "delete": True,
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Route present in RIB. Error: {}".format(tc_name, result)
+
+    step("Add back the deleted ip address on newly configured interface of R0")
+    topo1 = {
+        "r0": {
+            "links": {
+                "r3": {
+                    "ipv6": topo["routers"]["r0"]["links"]["r3"]["ipv6"],
+                    "interface": topo["routers"]["r0"]["links"]["r3"]["interface"],
+                }
+            }
+        }
+    }
+
+    result = create_interfaces_cfg(tgen, topo1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Shut no shut interface on R0")
+    dut = "r0"
+    intf = topo["routers"]["r0"]["links"]["r3"]["interface"]
+    shutdown_bringup_interface(tgen, dut, intf, False)
+
+    step("Verify that intraroute calculated for R1 intf on R0 is deleted.")
+    dut = "r1"
+
+    step("un shut the OSPF interface on R0")
+    dut = "r0"
+    shutdown_bringup_interface(tgen, dut, intf, True)
+
+    dut = "r1"
+    result = verify_ospf6_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol, next_hop=nh)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    write_test_footer(tc_name)
+
+
 def test_ospfv3_cost_tc52_p0(request):
     """OSPF Cost - verifying ospf interface cost functionality"""
     tc_name = request.node.name
@@ -366,7 +563,6 @@ def test_ospfv3_cost_tc52_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
-
 
 
 if __name__ == "__main__":

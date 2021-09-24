@@ -23,6 +23,9 @@
 
 #include "hook.h"
 
+/* Forward declaration(s). */
+struct ospf6_area;
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_neighbor;
 #define OSPF6_DEBUG_NEIGHBOR_STATE   0x01
@@ -31,6 +34,38 @@ extern unsigned char conf_debug_ospf6_neighbor;
 #define OSPF6_DEBUG_NEIGHBOR_OFF(level) (conf_debug_ospf6_neighbor &= ~(level))
 #define IS_OSPF6_DEBUG_NEIGHBOR(level)                                         \
 	(conf_debug_ospf6_neighbor & OSPF6_DEBUG_NEIGHBOR_##level)
+
+struct ospf6_helper_info {
+
+	/* Grace interval received from
+	 * Restarting Router.
+	 */
+	uint32_t recvd_grace_period;
+
+	/* Grace interval used for grace
+	 * gracetimer.
+	 */
+	uint32_t actual_grace_period;
+
+	/* Grace timer,This Router acts as
+	 * helper until this timer until
+	 * this timer expires.
+	 */
+	struct thread *t_grace_timer;
+
+	/* Helper status */
+	uint32_t gr_helper_status;
+
+	/* Helper exit reason*/
+	uint32_t helper_exit_reason;
+
+	/* Planned/Unplanned restart*/
+	uint32_t gr_restart_reason;
+
+
+	/* Helper rejected reason */
+	uint32_t rejected_reason;
+};
 
 /* Neighbor structure */
 struct ospf6_neighbor {
@@ -104,6 +139,9 @@ struct ospf6_neighbor {
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
+
+	/* ospf6 graceful restart HELPER info */
+	struct ospf6_helper_info gr_helper_info;
 };
 
 /* Neighbor state */
@@ -148,24 +186,26 @@ extern const char *const ospf6_neighbor_state_str[];
 int ospf6_neighbor_cmp(void *va, void *vb);
 void ospf6_neighbor_dbex_init(struct ospf6_neighbor *on);
 
-struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t,
-					     struct ospf6_interface *);
-struct ospf6_neighbor *ospf6_neighbor_create(uint32_t,
-					     struct ospf6_interface *);
-void ospf6_neighbor_delete(struct ospf6_neighbor *);
+struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,
+					     struct ospf6_interface *oi);
+struct ospf6_neighbor *ospf6_area_neighbor_lookup(struct ospf6_area *area,
+						  uint32_t router_id);
+struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
+					     struct ospf6_interface *oi);
+void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
 /* Neighbor event */
-extern int hello_received(struct thread *);
-extern int twoway_received(struct thread *);
-extern int negotiation_done(struct thread *);
-extern int exchange_done(struct thread *);
-extern int loading_done(struct thread *);
-extern int adj_ok(struct thread *);
-extern int seqnumber_mismatch(struct thread *);
-extern int bad_lsreq(struct thread *);
-extern int oneway_received(struct thread *);
-extern int inactivity_timer(struct thread *);
-extern void ospf6_check_nbr_loading(struct ospf6_neighbor *);
+extern int hello_received(struct thread *thread);
+extern int twoway_received(struct thread *thread);
+extern int negotiation_done(struct thread *thread);
+extern int exchange_done(struct thread *thread);
+extern int loading_done(struct thread *thread);
+extern int adj_ok(struct thread *thread);
+extern int seqnumber_mismatch(struct thread *thread);
+extern int bad_lsreq(struct thread *thread);
+extern int oneway_received(struct thread *thread);
+extern int inactivity_timer(struct thread *thread);
+extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
 
 extern void ospf6_neighbor_init(void);
 extern int config_write_ospf6_debug_neighbor(struct vty *vty);

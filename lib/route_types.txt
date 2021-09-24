@@ -1,4 +1,4 @@
-# Canonical Zserv route types information registry for Quagga.
+# Canonical Zserv route types information registry for FRR.
 #
 # Used to construct route_types.c and route_types.h
 #
@@ -60,7 +60,7 @@ ZEBRA_ROUTE_PIM,	pim,	   pimd,   'P', 0, 0, 0,     "PIM",           pimd
 ZEBRA_ROUTE_EIGRP,      eigrp,     eigrpd, 'E', 1, 0, 1,     "EIGRP",         eigrpd
 ZEBRA_ROUTE_NHRP,       nhrp,      nhrpd,  'N', 1, 1, 1,     "NHRP",          nhrpd
 # HSLS and OLSR both are AFI independent (so: 1, 1), however
-# we want to disable for them for general Quagga distribution.
+# we want to disable for them for general FRR distribution.
 # This at least makes it trivial for users of these protocols
 # to 'switch on' redist support (direct numeric entry remaining
 # possible).

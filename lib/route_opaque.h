@@ -21,12 +21,15 @@
 #ifndef FRR_ROUTE_OPAQUE_H
 #define FRR_ROUTE_OPAQUE_H
 
+#include "assert.h"
+#include "zclient.h"
+
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_lcommunity.h"
 
 struct bgp_zebra_opaque {
-	char aspath[ASPATH_STR_DEFAULT_LEN];
+	char aspath[256];
 
 	/* Show at least 10 communities AA:BB */
 	char community[COMMUNITY_SIZE * 20];
@@ -34,5 +37,8 @@ struct bgp_zebra_opaque {
 	/* Show at least 10 large-communities AA:BB:CC */
 	char lcommunity[LCOMMUNITY_SIZE * 30];
 };
+
+static_assert(sizeof(struct bgp_zebra_opaque) <= ZAPI_MESSAGE_OPAQUE_LENGTH,
+              "BGP opaque data shouldn't be larger than zebra's buffer");
 
 #endif /* FRR_ROUTE_OPAQUE_H */

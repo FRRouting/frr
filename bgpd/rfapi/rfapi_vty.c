@@ -435,8 +435,16 @@ void rfapi_vty_out_vncinfo(struct vty *vty, const struct prefix *p,
 			char buf[BUFSIZ];
 
 			vty_out(vty, " sid=%s",
-				inet_ntop(AF_INET6, &bpi->extra->sid[0], buf,
-					  sizeof(buf)));
+				inet_ntop(AF_INET6, &bpi->extra->sid[0].sid,
+					  buf, sizeof(buf)));
+
+			if (bpi->extra->sid[0].loc_block_len != 0) {
+				vty_out(vty, " sid_structure=[%d,%d,%d,%d]",
+					bpi->extra->sid[0].loc_block_len,
+					bpi->extra->sid[0].loc_node_len,
+					bpi->extra->sid[0].func_len,
+					bpi->extra->sid[0].arg_len);
+			}
 		}
 	}
 

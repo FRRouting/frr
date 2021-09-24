@@ -229,6 +229,7 @@ struct cmd_node {
 #define CMD_WARNING_CONFIG_FAILED 13
 #define CMD_NOT_MY_INSTANCE	14
 #define CMD_NO_LEVEL_UP 15
+#define CMD_ERR_NO_DAEMON 16
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
@@ -389,6 +390,7 @@ struct cmd_node {
 #define SRTE_STR "SR-TE information\n"
 #define SRTE_COLOR_STR "SR-TE Color information\n"
 #define NO_STR "Negate a command or set its defaults\n"
+#define IGNORED_IN_NO_STR "Ignored value in no form\n"
 #define REDIST_STR "Redistribute information from another routing protocol\n"
 #define CLEAR_STR "Reset functions\n"
 #define RIP_STR "RIP information\n"

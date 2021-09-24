@@ -23,6 +23,8 @@
 #include <zebra.h>
 #include "if.h"
 
+#include "pim_igmp.h"
+
 #define IGMP_V3_CHECKSUM_OFFSET            (2)
 #define IGMP_V3_REPORT_NUMGROUPS_OFFSET    (6)
 #define IGMP_V3_REPORT_GROUPPRECORD_OFFSET (8)
@@ -52,7 +54,7 @@
 #define PIM_IGMP_OHPI_DSEC(qrv,qqi,qri_dsec) ((qrv) * (10 * (qqi)) + (qri_dsec))
 
 void igmp_group_reset_gmi(struct igmp_group *group);
-void igmp_source_reset_gmi(struct igmp_sock *igmp, struct igmp_group *group,
+void igmp_source_reset_gmi(struct igmp_group *group,
 			   struct igmp_source *source);
 
 void igmp_source_free(struct igmp_source *source);

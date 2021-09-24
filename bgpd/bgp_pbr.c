@@ -2292,6 +2292,7 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	struct bgp_pbr_rule *bpr;
 	bool bpr_found = false;
 	bool bpme_found = false;
+	struct vrf *vrf = NULL;
 
 	if (!bpf)
 		return;
@@ -2313,6 +2314,8 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 	bpa = hash_get(bgp->pbr_action_hash, &temp3,
 		       bgp_pbr_action_alloc_intern);
 
+	if (nh)
+		vrf = vrf_lookup_by_id(nh->vrf_id);
 	if (bpa->fwmark == 0) {
 		/* drop is handled by iptable */
 		if (nh && nh->type == NEXTHOP_TYPE_BLACKHOLE) {
@@ -2320,7 +2323,14 @@ static void bgp_pbr_policyroute_add_to_zebra_unit(struct bgp *bgp,
 			bpa->installed = true;
 		} else {
 			bpa->fwmark = bgp_zebra_tm_get_id();
-			bpa->table_id = bpa->fwmark;
+			/* if action is redirect-vrf, then
+			 * use directly table_id of vrf
+			 */
+			if (nh && vrf && !vrf_is_backend_netns()
+			    && bpf->vrf_id != vrf->vrf_id)
+				bpa->table_id = vrf->data.l.table_id;
+			else
+				bpa->table_id = bpa->fwmark;
 			bpa->installed = false;
 		}
 		bpa->bgp = bgp;

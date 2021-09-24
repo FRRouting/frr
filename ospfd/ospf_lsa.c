@@ -2954,6 +2954,32 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 	return 0;
 }
 
+/* This function checks whether an LSA with initial sequence number should be
+ *  originated after a wrap in sequence number
+ */
+void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
+				     struct ospf_lsa *recv_lsa)
+{
+	struct ospf_lsa *lsa = NULL;
+	struct ospf *ospf = oi->ospf;
+
+	lsa = ospf_lsa_lookup_by_header(oi->area, recv_lsa->data);
+
+	if ((lsa == NULL) || (!CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE))
+	    || (lsa->retransmit_counter != 0)) {
+		if (IS_DEBUG_OSPF(lsa, LSA))
+			zlog_debug(
+				"Do not generate LSA with initial seqence number.");
+		return;
+	}
+
+	ospf_lsa_maxage_delete(ospf, lsa);
+
+	lsa->data->ls_seqnum = lsa_seqnum_increment(lsa);
+
+	ospf_lsa_refresh(ospf, lsa);
+}
+
 void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct route_node *rn;
@@ -3631,6 +3657,8 @@ struct ospf_lsa *ospf_lsa_refresh(struct ospf *ospf, struct ospf_lsa *lsa)
 
 				ospf_external_lsa_refresh(ospf, lsa, &ei_aggr,
 						  LSA_REFRESH_FORCE, true);
+				SET_FLAG(aggr->flags,
+					 OSPF_EXTERNAL_AGGRT_ORIGINATED);
 			} else
 				ospf_lsa_flush_as(ospf, lsa);
 		}

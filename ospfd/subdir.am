@@ -119,7 +119,7 @@ ospfd_ospfd_SOURCES = ospfd/ospf_main.c
 
 ospfd_ospfd_snmp_la_SOURCES = ospfd/ospf_snmp.c
 ospfd_ospfd_snmp_la_CFLAGS = $(AM_CFLAGS) $(SNMP_CFLAGS) -std=gnu11
-ospfd_ospfd_snmp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+ospfd_ospfd_snmp_la_LDFLAGS = $(MODULE_LDFLAGS)
 ospfd_ospfd_snmp_la_LIBADD = lib/libfrrsnmp.la
 
 EXTRA_DIST += \

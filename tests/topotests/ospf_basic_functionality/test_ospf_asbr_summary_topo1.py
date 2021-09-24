@@ -26,7 +26,6 @@ import os
 import sys
 import time
 import pytest
-import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -35,7 +34,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 import ipaddress
 from time import sleep
@@ -61,7 +59,7 @@ from lib.common_config import (
     create_interfaces_cfg,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.ospf import (
     verify_ospf_neighbor,
     clear_ospf,
@@ -70,15 +68,11 @@ from lib.ospf import (
     verify_ospf_summary,
 )
 
+pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
+
+
 # Global variables
 topo = None
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/ospf_asbr_summary_topo1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 NETWORK = {
     "ipv4": [
@@ -129,28 +123,12 @@ TESTCASES =
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
 
     * `mod`: module name
     """
-    global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -158,7 +136,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ospf_asbr_summary_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -1381,7 +1362,7 @@ def test_ospf_type5_summary_tc45_p0(request):
 
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
+    result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(

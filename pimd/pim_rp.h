@@ -24,8 +24,9 @@
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"
-#include "pim_iface.h"
 #include "pim_rpf.h"
+
+struct pim_interface;
 
 enum rp_source {
 	RP_SRC_NONE = 0,

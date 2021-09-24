@@ -43,7 +43,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 
 pytestmark = [pytest.mark.bgpd]
@@ -58,32 +57,26 @@ total_ebgp_peers = 20
 #####################################################
 
 
-class BGPECMPTopo1(Topo):
-    "BGP ECMP Topology 1"
+def build_topo(tgen):
+    router = tgen.add_router("r1")
 
-    def build(self, **_opts):
-        tgen = get_topogen(self)
+    # Setup Switches - 1 switch per 5 peering routers
+    for swNum in range(1, (total_ebgp_peers + 4) // 5 + 1):
+        switch = tgen.add_switch("s{}".format(swNum))
+        switch.add_link(router)
 
-        # Create the BGP router
-        router = tgen.add_router("r1")
+    # Add 'total_ebgp_peers' number of eBGP ExaBGP neighbors
+    for peerNum in range(1, total_ebgp_peers + 1):
+        swNum = (peerNum - 1) // 5 + 1
 
-        # Setup Switches - 1 switch per 5 peering routers
-        for swNum in range(1, (total_ebgp_peers + 4) / 5 + 1):
-            switch = tgen.add_switch("s{}".format(swNum))
-            switch.add_link(router)
+        peer_ip = "10.0.{}.{}".format(swNum, peerNum + 100)
+        peer_route = "via 10.0.{}.1".format(swNum)
+        peer = tgen.add_exabgp_peer(
+            "peer{}".format(peerNum), ip=peer_ip, defaultRoute=peer_route
+        )
 
-        # Add 'total_ebgp_peers' number of eBGP ExaBGP neighbors
-        for peerNum in range(1, total_ebgp_peers + 1):
-            swNum = (peerNum - 1) / 5 + 1
-
-            peer_ip = "10.0.{}.{}".format(swNum, peerNum + 100)
-            peer_route = "via 10.0.{}.1".format(swNum)
-            peer = tgen.add_exabgp_peer(
-                "peer{}".format(peerNum), ip=peer_ip, defaultRoute=peer_route
-            )
-
-            switch = tgen.gears["s{}".format(swNum)]
-            switch.add_link(peer)
+        switch = tgen.gears["s{}".format(swNum)]
+        switch.add_link(peer)
 
 
 #####################################################
@@ -94,7 +87,7 @@ class BGPECMPTopo1(Topo):
 
 
 def setup_module(module):
-    tgen = Topogen(BGPECMPTopo1, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     # Starting Routers
@@ -119,6 +112,7 @@ def setup_module(module):
 
 
 def teardown_module(module):
+    del module
     tgen = get_topogen()
     tgen.stop_topology()
 

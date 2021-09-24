@@ -27,6 +27,7 @@
 #include "prefix.h"
 
 #include "pim_tlv.h"
+#include "pim_iface.h"
 
 struct pim_neighbor {
 	int64_t creation; /* timestamp of creation */

@@ -222,7 +222,7 @@ Link Parameters Commands
    Bandwidth for each 0-7 priority and Admin Group (ISIS) or Resource
    Class/Color (OSPF).
 
-   Note that BANDIWDTH is specified in IEEE floating point format and express
+   Note that BANDWIDTH is specified in IEEE floating point format and express
    in Bytes/second.
 
 .. clicmd:: delay (0-16777215) [min (0-16777215) | max (0-16777215)]
@@ -908,10 +908,11 @@ IPv6 example for OSPFv3.
 
 .. note::
 
-   For both IPv4 and IPv6, the IP address has to exist at the point the
-   route-map is created.  Be wary of race conditions if the interface is
-   not created at startup.  On Debian, FRR might start before ifupdown
-   completes. Consider a reboot test.
+   For both IPv4 and IPv6, the IP address has to exist on some interface when
+   the route is getting installed into the system. Otherwise, kernel rejects
+   the route. To solve the problem of disappearing IPv6 addresses when the
+   interface goes down, use ``net.ipv6.conf.all.keep_addr_on_down``
+   :ref:`sysctl option <zebra-sysctl>`.
 
 .. clicmd:: zebra route-map delay-timer (0-600)
 
@@ -1139,6 +1140,10 @@ zebra Terminal Mode Commands
    Display detailed information about a route. If [nexthop-group] is
    included, it will display the nexthop group ID the route is using as well.
 
+.. clicmd:: show interface [NAME] [{vrf VRF|brief}] [json]
+
+.. clicmd:: show interface [NAME] [{vrf all|brief}] [json]
+
 .. clicmd:: show interface [NAME] [{vrf VRF|brief}] [nexthop-group]
 
 .. clicmd:: show interface [NAME] [{vrf all|brief}] [nexthop-group]
@@ -1147,6 +1152,8 @@ zebra Terminal Mode Commands
    dump information on all interfaces. If [NAME] is specified, it will display
    detailed information about that single interface. If [nexthop-group] is
    specified, it will display nexthop groups pointing out that interface.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show ip prefix-list [NAME]
 
@@ -1232,35 +1239,104 @@ For protocols requiring an IPv6 router-id, the following commands are available:
 
    Display the user configured IPv6 router-id.
 
-Expected sysctl settings
-========================
+.. _zebra-sysctl:
+
+sysctl settings
+===============
 
 The linux kernel has a variety of sysctl's that affect it's operation as a router.  This
 section is meant to act as a starting point for those sysctl's that must be used in
 order to provide FRR with smooth operation as a router.  This section is not meant
 as the full documentation for sysctl's.  The operator must use the sysctl documentation
-with the linux kernel for that.
+with the linux kernel for that. The following link has helpful references to many relevant
+sysctl values:  https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+
+Expected sysctl settings
+------------------------
 
 .. option:: net.ipv4.ip_forward = 1
 
-   This option allows the linux kernel to forward ipv4 packets incoming from one interface
-   to an outgoing interface.  Without this no forwarding will take place from off box packets.
+   This global option allows the linux kernel to forward (route) ipv4 packets incoming from one
+   interface to an outgoing interface. If this is set to 0, the system will not route transit
+   ipv4 packets, i.e. packets that are not sent to/from a process running on the local system.
 
-.. option:: net.ipv6.conf.all_forwarding=1
+.. option:: net.ipv4.conf.{all,default,<interface>}.forwarding = 1
 
-   This option allows the linux kernel to forward ipv6 packets incoming from one interface
-   to an outgoing interface.  Without this no forwarding will take place from off box packets.
+   The linux kernel can selectively enable forwarding (routing) of ipv4 packets on a per
+   interface basis. The forwarding check in the kernel dataplane occurs against the ingress
+   Layer 3 interface, i.e. if the ingress L3 interface has forwarding set to 0, packets will not
+   be routed.
 
-.. option:: net.ipv6.conf.all.keep_addr_on_down=1
+.. option:: net.ipv6.conf.{all,default,<interface>}.forwarding = 1
+
+   This per interface option allows the linux kernel to forward (route) transit ipv6 packets
+   i.e. incoming from one Layer 3 interface to an outgoing Layer 3 interface.
+   The forwarding check in the kernel dataplane occurs against the ingress Layer 3 interface,
+   i.e. if the ingress L3 interface has forwarding set to 0, packets will not be routed.
+
+.. option:: net.ipv6.conf.all.keep_addr_on_down = 1
 
    When an interface is taken down, do not remove the v6 addresses associated with the interface.
    This option is recommended because this is the default behavior for v4 as well.
 
-.. option:: net.ipv6.route.skip_notify_on_dev_down=1
+.. option:: net.ipv6.route.skip_notify_on_dev_down = 1
 
    When an interface is taken down, the linux kernel will not notify, via netlink, about routes
    that used that interface being removed from the FIB.  This option is recommended because this
    is the default behavior for v4 as well.
+
+Optional sysctl settings
+------------------------
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.bc_forwarding = 0
+
+   This per interface option allows the linux kernel to optionally allow Directed Broadcast
+   (i.e. Routed Broadcast or Subnet Broadcast) packets to be routed onto the connected network
+   segment where the subnet exists.
+   If the local router receives a routed packet destined for a broadcast address of a connected
+   subnet, setting bc_forwarding to 1 on the interface with the target subnet assigned to it will
+   allow non locally-generated packets to be routed via the broadcast route.
+   If bc_forwarding is set to 0, routed packets destined for a broadcast route will be dropped.
+   e.g.
+   Host1 (SIP:192.0.2.10, DIP:10.0.0.255) -> (eth0:192.0.2.1/24) Router1 (eth1:10.0.0.1/24) -> BC
+   If net.ipv4.conf.{all,default,<interface>}.bc_forwarding=1, then Router1 will forward each
+   packet destined to 10.0.0.255 onto the eth1 interface with a broadcast DMAC (ff:ff:ff:ff:ff:ff).
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.arp_accept = 1
+
+   This per interface option allows the linux kernel to optionally skip the creation of ARP
+   entries upon the receipt of a Gratuitous ARP (GARP) frame carrying an IP that is not already
+   present in the ARP cache. Setting arp_accept to 0 on an interface will ensure NEW ARP entries
+   are not created due to the arrival of a GARP frame.
+   Note: This does not impact how the kernel reacts to GARP frames that carry a "known" IP
+   (that is already in the ARP cache) -- an existing ARP entry will always be updated
+   when a GARP for that IP is received.
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.arp_ignore = 0
+
+   This per interface option allows the linux kernel to control what conditions must be met in
+   order for an ARP reply to be sent in response to an ARP request targeting a local IP address.
+   When arp_ignore is set to 0, the kernel will send ARP replies in response to any ARP Request
+   with a Target-IP matching a local address.
+   When arp_ignore is set to 1, the kernel will send ARP replies if the Target-IP in the ARP
+   Request matches an IP address on the interface the Request arrived at.
+   When arp_ignore is set to 2, the kernel will send ARP replies only if the Target-IP matches an
+   IP address on the interface where the Request arrived AND the Sender-IP falls within the subnet
+   assigned to the local IP/interface.
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.arp_notify = 1
+
+   This per interface option allows the linux kernel to decide whether to send a Gratuitious ARP
+   (GARP) frame when the Layer 3 interface comes UP.
+   When arp_notify is set to 0, no GARP is sent.
+   When arp_notify is set to 1, a GARP is sent when the interface comes UP.
+
+.. option:: net.ipv6.conf.{all,default,<interface>}.ndisc_notify = 1
+
+   This per interface option allows the linux kernel to decide whether to send an Unsolicited
+   Neighbor Advertisement (U-NA) frame when the Layer 3 interface comes UP.
+   When ndisc_notify is set to 0, no U-NA is sent.
+   When ndisc_notify is set to 1, a U-NA is sent when the interface comes UP.
 
 Debugging
 =========

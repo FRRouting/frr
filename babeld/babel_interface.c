@@ -59,15 +59,6 @@ static void babel_interface_free (babel_interface_nfo *bi);
 
 
 static vector babel_enable_if;                 /* enable interfaces (by cmd). */
-static int interface_config_write(struct vty *vty);
-static struct cmd_node babel_interface_node = {
-    .name = "interface",
-    .node = INTERFACE_NODE,
-    .parent_node = CONFIG_NODE,
-    .prompt = "%s(config-if)# ",
-    .config_write = interface_config_write,
-};
-
 
 int
 babel_interface_up (ZAPI_CALLBACK_ARGS)
@@ -1257,8 +1248,7 @@ babel_if_init(void)
     babel_enable_if = vector_init (1);
 
     /* install interface node and commands */
-    install_node(&babel_interface_node);
-    if_cmd_init();
+    if_cmd_init(interface_config_write);
 
     install_element(BABEL_NODE, &babel_network_cmd);
     install_element(BABEL_NODE, &no_babel_network_cmd);
@@ -1372,7 +1362,7 @@ interface_config_write (struct vty *vty)
                 write++;
             }
         }
-        vty_endframe (vty, "!\n");
+        vty_endframe (vty, "exit\n!\n");
         write++;
     }
     return write;

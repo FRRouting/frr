@@ -250,7 +250,7 @@ struct pcep_object_tlv_header *(*const tlv_decoders[MAX_TLV_ENCODER_INDEX])(
 	[PCEP_OBJ_TLV_TYPE_OBJECTIVE_FUNCTION_LIST] = pcep_decode_tlv_of_list,
 };
 
-static void initialize_tlv_coders()
+static void initialize_tlv_coders(void)
 {
 	static bool initialized = false;
 

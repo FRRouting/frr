@@ -18,54 +18,42 @@
 # OF THIS SOFTWARE.
 #
 
-from collections import OrderedDict
-from datetime import datetime, timedelta
-from time import sleep
-from copy import deepcopy
-from subprocess import call
-from subprocess import STDOUT as SUB_STDOUT
-from subprocess import PIPE as SUB_PIPE
-from subprocess import Popen
-from functools import wraps
-from re import search as re_search
-from tempfile import mkdtemp
-
+import ipaddress
+import json
 import os
+import platform
+import socket
+import subprocess
 import sys
 import traceback
-import socket
-import ipaddress
-import platform
+from collections import OrderedDict
+from copy import deepcopy
+from datetime import datetime, timedelta
+from functools import wraps
+from re import search as re_search
+from time import sleep
 
 try:
     # Imports from python2
-    from StringIO import StringIO
     import ConfigParser as configparser
 except ImportError:
     # Imports from python3
-    from io import StringIO
     import configparser
 
-from lib.topolog import logger, logger_config
+from lib.micronet import comm_error
 from lib.topogen import TopoRouter, get_topogen
-from lib.topotest import interface_set_status, version_cmp, frr_unicode
+from lib.topolog import get_logger, logger
+from lib.topotest import frr_unicode, interface_set_status, version_cmp
+from lib import topotest
 
 FRRCFG_FILE = "frr_json.conf"
 FRRCFG_BKUP_FILE = "frr_json_initial.conf"
 
 ERROR_LIST = ["Malformed", "Failure", "Unknown", "Incomplete"]
-ROUTER_LIST = []
 
 ####
 CD = os.path.dirname(os.path.realpath(__file__))
 PYTESTINI_PATH = os.path.join(CD, "../pytest.ini")
-
-# Creating tmp dir with testsuite name to avoid conflict condition when
-# multiple testsuites run together. All temporary files would be created
-# in this dir and this dir would be removed once testsuite run is
-# completed
-LOGDIR = "/tmp/topotests/"
-TMPDIR = None
 
 # NOTE: to save execution logs to log file frrtest_log_dir must be configured
 # in `pytest.ini`.
@@ -138,17 +126,22 @@ DEBUG_LOGS = {
     ],
 }
 
+g_iperf_client_procs = {}
+g_iperf_server_procs = {}
+
+
 def is_string(value):
     try:
         return isinstance(value, basestring)
     except NameError:
         return isinstance(value, str)
 
+
 if config.has_option("topogen", "verbosity"):
     loglevel = config.get("topogen", "verbosity")
-    loglevel = loglevel.upper()
+    loglevel = loglevel.lower()
 else:
-    loglevel = "INFO"
+    loglevel = "info"
 
 if config.has_option("topogen", "frrtest_log_dir"):
     frrtest_log_dir = config.get("topogen", "frrtest_log_dir")
@@ -157,8 +150,8 @@ if config.has_option("topogen", "frrtest_log_dir"):
     frrtest_log_file = frrtest_log_dir + logfile_name + str(time_stamp)
     print("frrtest_log_file..", frrtest_log_file)
 
-    logger = logger_config.get_logger(
-        name="test_execution_logs", log_level=loglevel, target=frrtest_log_file
+    logger = get_logger(
+        "test_execution_logs", log_level=loglevel, target=frrtest_log_file
     )
     print("Logs will be sent to logfile: {}".format(frrtest_log_file))
 
@@ -218,8 +211,6 @@ def set_seq_id(obj_type, router, id, obj_name):
 class InvalidCLIError(Exception):
     """Raise when the CLI command is wrong"""
 
-    pass
-
 
 def run_frr_cmd(rnode, cmd, isjson=False):
     """
@@ -235,14 +226,12 @@ def run_frr_cmd(rnode, cmd, isjson=False):
 
         if True:
             if isjson:
-                logger.debug(ret_data)
-                print_data = rnode.vtysh_cmd(cmd.rstrip("json"), isjson=False)
+                print_data = json.dumps(ret_data)
             else:
                 print_data = ret_data
-
             logger.info(
-                "Output for command [ %s] on router %s:\n%s",
-                cmd.rstrip("json"),
+                "Output for command [%s] on router %s:\n%s",
+                cmd,
                 rnode.name,
                 print_data,
             )
@@ -278,25 +267,27 @@ def apply_raw_config(tgen, input_dict):
     True or errormsg
     """
 
-    result = True
+    rlist = []
+
     for router_name in input_dict.keys():
         config_cmd = input_dict[router_name]["raw_config"]
 
         if not isinstance(config_cmd, list):
             config_cmd = [config_cmd]
 
-        frr_cfg_file = "{}/{}/{}".format(TMPDIR, router_name, FRRCFG_FILE)
+        frr_cfg_file = "{}/{}/{}".format(tgen.logdir, router_name, FRRCFG_FILE)
         with open(frr_cfg_file, "w") as cfg:
             for cmd in config_cmd:
                 cfg.write("{}\n".format(cmd))
 
-        result = load_config_to_router(tgen, router_name)
+        rlist.append(router_name)
 
-    return result
+    # Load config on all routers
+    return load_config_to_routers(tgen, rlist)
 
 
-def create_common_configuration(
-    tgen, router, data, config_type=None, build=False, load_config=True
+def create_common_configurations(
+    tgen, config_dict, config_type=None, build=False, load_config=True
 ):
     """
     API to create object of class FRRConfig and also create frr_json.conf
@@ -305,8 +296,8 @@ def create_common_configuration(
     Parameters
     ----------
     * `tgen`: tgen object
-    * `data`: Configuration data saved in a list.
-    * `router` : router id to be configured.
+    * `config_dict`: Configuration data saved in a dict of { router: config-list }
+    * `routers` : list of router id to be configured.
     * `config_type` : Syntactic information while writing configuration. Should
                       be one of the value as mentioned in the config_map below.
     * `build` : Only for initial setup phase this is set as True
@@ -314,9 +305,6 @@ def create_common_configuration(
     -------
     True or False
     """
-    TMPDIR = os.path.join(LOGDIR, tgen.modname)
-
-    fname = "{}/{}/{}".format(TMPDIR, router, FRRCFG_FILE)
 
     config_map = OrderedDict(
         {
@@ -342,27 +330,53 @@ def create_common_configuration(
     else:
         mode = "w"
 
-    try:
-        frr_cfg_fd = open(fname, mode)
-        if config_type:
-            frr_cfg_fd.write(config_map[config_type])
-        for line in data:
-            frr_cfg_fd.write("{} \n".format(str(line)))
-        frr_cfg_fd.write("\n")
+    routers = config_dict.keys()
+    for router in routers:
+        fname = "{}/{}/{}".format(tgen.logdir, router, FRRCFG_FILE)
+        try:
+            frr_cfg_fd = open(fname, mode)
+            if config_type:
+                frr_cfg_fd.write(config_map[config_type])
+            for line in config_dict[router]:
+                frr_cfg_fd.write("{} \n".format(str(line)))
+            frr_cfg_fd.write("\n")
 
-    except IOError as err:
-        logger.error(
-            "Unable to open FRR Config File. error(%s): %s" % (err.errno, err.strerror)
-        )
-        return False
-    finally:
-        frr_cfg_fd.close()
+        except IOError as err:
+            logger.error("Unable to open FRR Config '%s': %s" % (fname, str(err)))
+            return False
+        finally:
+            frr_cfg_fd.close()
 
     # If configuration applied from build, it will done at last
+    result = True
     if not build and load_config:
-        load_config_to_router(tgen, router)
+        result = load_config_to_routers(tgen, routers)
 
-    return True
+    return result
+
+
+def create_common_configuration(
+    tgen, router, data, config_type=None, build=False, load_config=True
+):
+    """
+    API to create object of class FRRConfig and also create frr_json.conf
+    file. It will create interface and common configurations and save it to
+    frr_json.conf and load to router
+    Parameters
+    ----------
+    * `tgen`: tgen object
+    * `data`: Configuration data saved in a list.
+    * `router` : router id to be configured.
+    * `config_type` : Syntactic information while writing configuration. Should
+                      be one of the value as mentioned in the config_map below.
+    * `build` : Only for initial setup phase this is set as True
+    Returns
+    -------
+    True or False
+    """
+    return create_common_configurations(
+        tgen, {router: data}, config_type, build, load_config
+    )
 
 
 def kill_router_daemons(tgen, router, daemons, save_config=True):
@@ -457,6 +471,40 @@ def check_router_status(tgen):
     return True
 
 
+def save_initial_config_on_routers(tgen):
+    """Save current configuration on routers to FRRCFG_BKUP_FILE.
+
+    FRRCFG_BKUP_FILE is the file that will be restored when `reset_config_on_routers()`
+    is called.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    """
+    router_list = tgen.routers()
+    target_cfg_fmt = tgen.logdir + "/{}/frr_json_initial.conf"
+
+    # Get all running configs in parallel
+    procs = {}
+    for rname in router_list:
+        logger.info("Fetching running config for router %s", rname)
+        procs[rname] = router_list[rname].popen(
+            ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+            stdin=None,
+            stdout=open(target_cfg_fmt.format(rname), "w"),
+            stderr=subprocess.PIPE,
+        )
+    for rname, p in procs.items():
+        _, error = p.communicate()
+        if p.returncode:
+            logger.error(
+                "Get running config for %s failed %d: %s", rname, p.returncode, error
+            )
+            raise InvalidCLIError(
+                "vtysh show running error on {}: {}".format(rname, error)
+            )
+
+
 def reset_config_on_routers(tgen, routerName=None):
     """
     Resets configuration on routers to the snapshot created using input JSON
@@ -470,114 +518,308 @@ def reset_config_on_routers(tgen, routerName=None):
 
     logger.debug("Entering API: reset_config_on_routers")
 
+    tgen.cfg_gen += 1
+    gen = tgen.cfg_gen
+
+    # Trim the router list if needed
     router_list = tgen.routers()
-    for rname in ROUTER_LIST:
-        if routerName and routerName != rname:
-            continue
+    if routerName:
+        if routerName not in router_list:
+            logger.warning(
+                "Exiting API: reset_config_on_routers: no router %s",
+                routerName,
+                exc_info=True,
+            )
+            return True
+        router_list = {routerName: router_list[routerName]}
 
-        router = router_list[rname]
-        logger.info("Configuring router %s to initial test configuration", rname)
+    delta_fmt = tgen.logdir + "/{}/delta-{}.conf"
+    # FRRCFG_BKUP_FILE
+    target_cfg_fmt = tgen.logdir + "/{}/frr_json_initial.conf"
+    run_cfg_fmt = tgen.logdir + "/{}/frr-{}.sav"
 
-        cfg = router.run("vtysh -c 'show running'")
-        fname = "{}/{}/frr.sav".format(TMPDIR, rname)
-        dname = "{}/{}/delta.conf".format(TMPDIR, rname)
-        f = open(fname, "w")
-        for line in cfg.split("\n"):
-            line = line.strip()
-
-            if (
-                line == "Building configuration..."
-                or line == "Current configuration:"
-                or not line
-            ):
-                continue
-            f.write(line)
-            f.write("\n")
-
-        f.close()
-        run_cfg_file = "{}/{}/frr.sav".format(TMPDIR, rname)
-        init_cfg_file = "{}/{}/frr_json_initial.conf".format(TMPDIR, rname)
-        command = "/usr/lib/frr/frr-reload.py  --input {} --test {} > {}".format(
-            run_cfg_file, init_cfg_file, dname
+    #
+    # Get all running configs in parallel
+    #
+    procs = {}
+    for rname in router_list:
+        logger.info("Fetching running config for router %s", rname)
+        procs[rname] = router_list[rname].popen(
+            ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+            stdin=None,
+            stdout=open(run_cfg_fmt.format(rname, gen), "w"),
+            stderr=subprocess.PIPE,
         )
-        result = call(command, shell=True, stderr=SUB_STDOUT, stdout=SUB_PIPE)
+    for rname, p in procs.items():
+        _, error = p.communicate()
+        if p.returncode:
+            logger.error(
+                "Get running config for %s failed %d: %s", rname, p.returncode, error
+            )
+            raise InvalidCLIError(
+                "vtysh show running error on {}: {}".format(rname, error)
+            )
 
-        # Assert if command fail
-        if result > 0:
-            logger.error("Delta file creation failed. Command executed %s", command)
-            with open(run_cfg_file, "r") as fd:
-                logger.info(
-                    "Running configuration saved in %s is:\n%s", run_cfg_file, fd.read()
+    #
+    # Get all delta's in parallel
+    #
+    procs = {}
+    for rname in router_list:
+        logger.info(
+            "Generating delta for router %s to new configuration (gen %d)", rname, gen
+        )
+        procs[rname] = tgen.net.popen(
+            [
+                "/usr/lib/frr/frr-reload.py",
+                "--test-reset",
+                "--input",
+                run_cfg_fmt.format(rname, gen),
+                "--test",
+                target_cfg_fmt.format(rname),
+            ],
+            stdin=None,
+            stdout=open(delta_fmt.format(rname, gen), "w"),
+            stderr=subprocess.PIPE,
+        )
+    for rname, p in procs.items():
+        _, error = p.communicate()
+        if p.returncode:
+            logger.error(
+                "Delta file creation for %s failed %d: %s", rname, p.returncode, error
+            )
+            raise InvalidCLIError("frr-reload error for {}: {}".format(rname, error))
+
+    #
+    # Apply all the deltas in parallel
+    #
+    procs = {}
+    for rname in router_list:
+        logger.info("Applying delta config on router %s", rname)
+
+        procs[rname] = router_list[rname].popen(
+            ["/usr/bin/env", "vtysh", "-f", delta_fmt.format(rname, gen)],
+            stdin=None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+    for rname, p in procs.items():
+        output, _ = p.communicate()
+        vtysh_command = "vtysh -f {}".format(delta_fmt.format(rname, gen))
+        if not p.returncode:
+            router_list[rname].logger.info(
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
                 )
-            with open(init_cfg_file, "r") as fd:
-                logger.info(
-                    "Test configuration saved in %s is:\n%s", init_cfg_file, fd.read()
+            )
+        else:
+            router_list[rname].logger.warning(
+                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
                 )
+            )
+            logger.error(
+                "Delta file apply for %s failed %d: %s", rname, p.returncode, output
+            )
 
-            err_cmd = ["/usr/bin/vtysh", "-m", "-f", run_cfg_file]
-            result = Popen(err_cmd, stdout=SUB_PIPE, stderr=SUB_PIPE)
-            output = result.communicate()
-            for out_data in output:
-                temp_data = out_data.decode("utf-8").lower()
-                for out_err in ERROR_LIST:
-                    if out_err.lower() in temp_data:
-                        logger.error(
-                            "Found errors while validating data in" " %s", run_cfg_file
-                        )
-                        raise InvalidCLIError(out_data)
-            raise InvalidCLIError("Unknown error in %s", output)
+            # We really need to enable this failure; however, currently frr-reload.py
+            # producing invalid "no" commands as it just preprends "no", but some of the
+            # command forms lack matching values (e.g., final values). Until frr-reload
+            # is fixed to handle this (or all the CLI no forms are adjusted) we can't
+            # fail tests.
+            # raise InvalidCLIError("frr-reload error for {}: {}".format(rname, output))
 
-        f = open(dname, "r")
-        delta = StringIO()
-        delta.write("configure terminal\n")
-        t_delta = f.read()
-
-        # Don't disable debugs
-        check_debug = True
-
-        for line in t_delta.split("\n"):
-            line = line.strip()
-            if line == "Lines To Delete" or line == "===============" or not line:
-                continue
-
-            if line == "Lines To Add":
-                check_debug = False
-                continue
-
-            if line == "============" or not line:
-                continue
-
-            # Leave debugs and log output alone
-            if check_debug:
-                if "debug" in line or "log file" in line:
-                    continue
-
-            delta.write(line)
-            delta.write("\n")
-
-        f.close()
-
-        delta.write("end\n")
-
-        output = router.vtysh_multicmd(delta.getvalue(), pretty_output=False)
-
-        delta.close()
-        delta = StringIO()
-        cfg = router.run("vtysh -c 'show running'")
-        for line in cfg.split("\n"):
-            line = line.strip()
-            delta.write(line)
-            delta.write("\n")
-
-        # Router current configuration to log file or console if
-        # "show_router_config" is defined in "pytest.ini"
-        if show_router_config:
-            logger.info("Configuration on router {} after reset:".format(rname))
-            logger.info(delta.getvalue())
-        delta.close()
+    #
+    # Optionally log all new running config if "show_router_config" is defined in
+    # "pytest.ini"
+    #
+    if show_router_config:
+        procs = {}
+        for rname in router_list:
+            logger.info("Fetching running config for router %s", rname)
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        for rname, p in procs.items():
+            output, _ = p.communicate()
+            if p.returncode:
+                logger.warning(
+                    "Get running config for %s failed %d: %s",
+                    rname,
+                    p.returncode,
+                    output,
+                )
+            else:
+                logger.info(
+                    "Configuration on router %s after reset:\n%s", rname, output
+                )
 
     logger.debug("Exiting API: reset_config_on_routers")
     return True
+
+
+def prep_load_config_to_routers(tgen, *config_name_list):
+    """Create common config for `load_config_to_routers`.
+
+    The common config file is constructed from the list of sub-config files passed as
+    position arguments to this function. Each entry in `config_name_list` is looked for
+    under the router sub-directory in the test directory and those files are
+    concatenated together to create the common config. e.g.,
+
+      # Routers are "r1" and "r2", test file is `example/test_example_foo.py`
+      prepare_load_config_to_routers(tgen, "bgpd.conf", "ospfd.conf")
+
+    When the above call is made the files in
+
+      example/r1/bgpd.conf
+      example/r1/ospfd.conf
+
+    Are concat'd together into a single config file that will be loaded on r1, and
+
+      example/r2/bgpd.conf
+      example/r2/ospfd.conf
+
+    Are concat'd together into a single config file that will be loaded on r2 when
+    the call to `load_config_to_routers` is made.
+    """
+
+    routers = tgen.routers()
+    for rname, router in routers.items():
+        destname = "{}/{}/{}".format(tgen.logdir, rname, FRRCFG_FILE)
+        wmode = "w"
+        for cfbase in config_name_list:
+            script_dir = os.environ["PYTEST_TOPOTEST_SCRIPTDIR"]
+            confname = os.path.join(script_dir, "{}/{}".format(rname, cfbase))
+            with open(confname, "r") as cf:
+                with open(destname, wmode) as df:
+                    df.write(cf.read())
+            wmode = "a"
+
+
+def load_config_to_routers(tgen, routers, save_bkup=False):
+    """
+    Loads configuration on routers from the file FRRCFG_FILE.
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `routers` : routers for which configuration is to be loaded
+    * `save_bkup` : If True, Saves snapshot of FRRCFG_FILE to FRRCFG_BKUP_FILE
+    Returns
+    -------
+    True or False
+    """
+
+    logger.debug("Entering API: load_config_to_routers")
+
+    tgen.cfg_gen += 1
+    gen = tgen.cfg_gen
+
+    base_router_list = tgen.routers()
+    router_list = {}
+    for router in routers:
+        if router not in base_router_list:
+            continue
+        router_list[router] = base_router_list[router]
+
+    frr_cfg_file_fmt = tgen.logdir + "/{}/" + FRRCFG_FILE
+    frr_cfg_save_file_fmt = tgen.logdir + "/{}/{}-" + FRRCFG_FILE
+    frr_cfg_bkup_fmt = tgen.logdir + "/{}/" + FRRCFG_BKUP_FILE
+
+    procs = {}
+    for rname in router_list:
+        router = router_list[rname]
+        try:
+            frr_cfg_file = frr_cfg_file_fmt.format(rname)
+            frr_cfg_save_file = frr_cfg_save_file_fmt.format(rname, gen)
+            frr_cfg_bkup = frr_cfg_bkup_fmt.format(rname)
+            with open(frr_cfg_file, "r+") as cfg:
+                data = cfg.read()
+                logger.info(
+                    "Applying following configuration on router %s (gen: %d):\n%s",
+                    rname,
+                    gen,
+                    data,
+                )
+                # Always save a copy of what we just did
+                with open(frr_cfg_save_file, "w") as bkup:
+                    bkup.write(data)
+                if save_bkup:
+                    with open(frr_cfg_bkup, "w") as bkup:
+                        bkup.write(data)
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-f", frr_cfg_file],
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        except IOError as err:
+            logger.error(
+                "Unable to open config File. error(%s): %s", err.errno, err.strerror
+            )
+            return False
+        except Exception as error:
+            logger.error("Unable to apply config on %s: %s", rname, str(error))
+            return False
+
+    errors = []
+    for rname, p in procs.items():
+        output, _ = p.communicate()
+        frr_cfg_file = frr_cfg_file_fmt.format(rname)
+        vtysh_command = "vtysh -f " + frr_cfg_file
+        if not p.returncode:
+            router_list[rname].logger.info(
+                '\nvtysh config apply => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
+                )
+            )
+        else:
+            router_list[rname].logger.error(
+                '\nvtysh config apply failed => "{}"\nvtysh output <= "{}"'.format(
+                    vtysh_command, output
+                )
+            )
+            logger.error(
+                "Config apply for %s failed %d: %s", rname, p.returncode, output
+            )
+            # We can't thorw an exception here as we won't clear the config file.
+            errors.append(
+                InvalidCLIError(
+                    "load_config_to_routers error for {}: {}".format(rname, output)
+                )
+            )
+
+        # Empty the config file or we append to it next time through.
+        with open(frr_cfg_file, "r+") as cfg:
+            cfg.truncate(0)
+
+    # Router current configuration to log file or console if
+    # "show_router_config" is defined in "pytest.ini"
+    if show_router_config:
+        procs = {}
+        for rname in router_list:
+            procs[rname] = router_list[rname].popen(
+                ["/usr/bin/env", "vtysh", "-c", "show running-config no-header"],
+                stdin=None,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        for rname, p in procs.items():
+            output, _ = p.communicate()
+            if p.returncode:
+                logger.warning(
+                    "Get running config for %s failed %d: %s",
+                    rname,
+                    p.returncode,
+                    output,
+                )
+            else:
+                logger.info("New configuration for router %s:\n%s", rname, output)
+
+    logger.debug("Exiting API: load_config_to_routers")
+    return not errors
 
 
 def load_config_to_router(tgen, routerName, save_bkup=False):
@@ -590,51 +832,22 @@ def load_config_to_router(tgen, routerName, save_bkup=False):
     * `routerName` : router for which configuration to be loaded
     * `save_bkup` : If True, Saves snapshot of FRRCFG_FILE to FRRCFG_BKUP_FILE
     """
+    return load_config_to_routers(tgen, [routerName], save_bkup)
 
-    logger.debug("Entering API: load_config_to_router")
 
-    router_list = tgen.routers()
-    for rname in ROUTER_LIST:
-        if routerName and rname != routerName:
-            continue
+def reset_with_new_configs(tgen, *cflist):
+    """Reset the router to initial config, then load new configs.
 
-        router = router_list[rname]
-        try:
-            frr_cfg_file = "{}/{}/{}".format(TMPDIR, rname, FRRCFG_FILE)
-            frr_cfg_bkup = "{}/{}/{}".format(TMPDIR, rname, FRRCFG_BKUP_FILE)
-            with open(frr_cfg_file, "r+") as cfg:
-                data = cfg.read()
-                logger.info(
-                    "Applying following configuration on router"
-                    " {}:\n{}".format(rname, data)
-                )
-                if save_bkup:
-                    with open(frr_cfg_bkup, "w") as bkup:
-                        bkup.write(data)
+    Resets routers to the initial config state (see `save_initial_config_on_routers()
+    and `reset_config_on_routers()` `), then concat list of router sub-configs together
+    and load onto the routers (see `prep_load_config_to_routers()` and
+    `load_config_to_routers()`)
+    """
+    routers = tgen.routers()
 
-                output = router.vtysh_multicmd(data, pretty_output=False)
-                for out_err in ERROR_LIST:
-                    if out_err.lower() in output.lower():
-                        raise InvalidCLIError("%s" % output)
-
-                cfg.truncate(0)
-
-        except IOError as err:
-            errormsg = (
-                "Unable to open config File. error(%s):" "  %s",
-                (err.errno, err.strerror),
-            )
-            return errormsg
-
-        # Router current configuration to log file or console if
-        # "show_router_config" is defined in "pytest.ini"
-        if show_router_config:
-            logger.info("New configuration for router {}:".format(rname))
-            new_config = router.run("vtysh -c 'show running'")
-            logger.info(new_config)
-
-    logger.debug("Exiting API: load_config_to_router")
-    return True
+    reset_config_on_routers(tgen)
+    prep_load_config_to_routers(tgen, *cflist)
+    load_config_to_routers(tgen, tgen.routers(), save_bkup=False)
 
 
 def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
@@ -669,38 +882,49 @@ def get_frr_ipv6_linklocal(tgen, router, intf=None, vrf=None):
         else:
             cmd = "show interface"
 
-        ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
+        linklocal = []
+        if vrf:
+            cmd = "show interface vrf {}".format(vrf)
+        else:
+            cmd = "show interface"
+        for chk_ll in range(0, 60):
+            sleep(1 / 4)
+            ifaces = router_list[router].run('vtysh -c "{}"'.format(cmd))
+            # Fix newlines (make them all the same)
+            ifaces = ("\n".join(ifaces.splitlines()) + "\n").splitlines()
 
-        # Fix newlines (make them all the same)
-        ifaces = ("\n".join(ifaces.splitlines()) + "\n").splitlines()
+            interface = None
+            ll_per_if_count = 0
+            for line in ifaces:
+                # Interface name
+                m = re_search("Interface ([a-zA-Z0-9-]+) is", line)
+                if m:
+                    interface = m.group(1).split(" ")[0]
+                    ll_per_if_count = 0
 
-        interface = None
-        ll_per_if_count = 0
-        for line in ifaces:
-            # Interface name
-            m = re_search("Interface ([a-zA-Z0-9-]+) is", line)
-            if m:
-                interface = m.group(1).split(" ")[0]
-                ll_per_if_count = 0
+                # Interface ip
+                m1 = re_search("inet6 (fe80[:a-fA-F0-9]+/[0-9]+)", line)
+                if m1:
+                    local = m1.group(1)
+                    ll_per_if_count += 1
+                    if ll_per_if_count > 1:
+                        linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
+                    else:
+                        linklocal += [[interface, local]]
 
-            # Interface ip
-            m1 = re_search("inet6 (fe80[:a-fA-F0-9]+[/0-9]+)", line)
-            if m1:
-                local = m1.group(1)
-                ll_per_if_count += 1
-                if ll_per_if_count > 1:
-                    linklocal += [["%s-%s" % (interface, ll_per_if_count), local]]
-                else:
-                    linklocal += [[interface, local]]
+            try:
+                if linklocal:
+                    if intf:
+                        return [
+                            _linklocal[1]
+                            for _linklocal in linklocal
+                            if _linklocal[0] == intf
+                        ][0].split("/")[0]
+                    return linklocal
+            except IndexError:
+                continue
 
-    if linklocal:
-        if intf:
-            return [_linklocal[1] for _linklocal in linklocal if _linklocal[0] == intf][
-                0
-            ].split("/")[0]
-        return linklocal
-    else:
-        errormsg = "Link local ip missing on router {}"
+        errormsg = "Link local ip missing on router {}".format(router)
         return errormsg
 
 
@@ -713,28 +937,23 @@ def generate_support_bundle():
 
     tgen = get_topogen()
     router_list = tgen.routers()
-    test_name = os.environ.get('PYTEST_CURRENT_TEST').split(':')[-1].split(' ')[0]
-
-    TMPDIR = os.path.join(LOGDIR, tgen.modname)
+    test_name = os.environ.get("PYTEST_CURRENT_TEST").split(":")[-1].split(" ")[0]
 
     bundle_procs = {}
     for rname, rnode in router_list.items():
         logger.info("Spawn collection of support bundle for %s", rname)
-        rnode.run("mkdir -p /var/log/frr")
-        bundle_procs[rname] = tgen.net[rname].popen(
+        dst_bundle = "{}/{}/support_bundles/{}".format(tgen.logdir, rname, test_name)
+        rnode.run("mkdir -p " + dst_bundle)
+
+        gen_sup_cmd = [
             "/usr/lib/frr/generate_support_bundle.py",
-            stdin=None,
-            stdout=SUB_PIPE,
-            stderr=SUB_PIPE,
-        )
+            "--log-dir=" + dst_bundle,
+        ]
+        bundle_procs[rname] = tgen.net[rname].popen(gen_sup_cmd, stdin=None)
 
     for rname, rnode in router_list.items():
-        dst_bundle = "{}/{}/support_bundles/{}".format(TMPDIR, rname, test_name)
-        src_bundle = "/var/log/frr"
-
+        logger.info("Waiting on support bundle for %s", rname)
         output, error = bundle_procs[rname].communicate()
-
-        logger.info("Saving support bundle for %s", rname)
         if output:
             logger.info(
                 "Output from collecting support bundle for %s:\n%s", rname, output
@@ -743,9 +962,6 @@ def generate_support_bundle():
             logger.warning(
                 "Error from collecting support bundle for %s:\n%s", rname, error
             )
-        rnode.run("rm -rf {}".format(dst_bundle))
-        rnode.run("mkdir -p {}".format(dst_bundle))
-        rnode.run("mv -f {}/* {}".format(src_bundle, dst_bundle))
 
     return True
 
@@ -757,21 +973,19 @@ def start_topology(tgen, daemon=None):
     * `tgen`  : topogen object
     """
 
-    global TMPDIR, ROUTER_LIST
     # Starting topology
     tgen.start_topology()
 
     # Starting daemons
 
     router_list = tgen.routers()
-    ROUTER_LIST = sorted(
+    routers_sorted = sorted(
         router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
-    TMPDIR = os.path.join(LOGDIR, tgen.modname)
 
     linux_ver = ""
     router_list = tgen.routers()
-    for rname in ROUTER_LIST:
+    for rname in routers_sorted:
         router = router_list[rname]
 
         # It will help in debugging the failures, will give more details on which
@@ -781,49 +995,51 @@ def start_topology(tgen, daemon=None):
             logger.info("Logging platform related details: \n %s \n", linux_ver)
 
         try:
-            os.chdir(TMPDIR)
+            os.chdir(tgen.logdir)
 
-            # Creating router named dir and empty zebra.conf bgpd.conf files
-            # inside the current directory
-            if os.path.isdir("{}".format(rname)):
-                os.system("rm -rf {}".format(rname))
-                os.mkdir("{}".format(rname))
-                os.system("chmod -R go+rw {}".format(rname))
-                os.chdir("{}/{}".format(TMPDIR, rname))
-                os.system("touch zebra.conf bgpd.conf")
-            else:
-                os.mkdir("{}".format(rname))
-                os.system("chmod -R go+rw {}".format(rname))
-                os.chdir("{}/{}".format(TMPDIR, rname))
-                os.system("touch zebra.conf bgpd.conf")
+            # # Creating router named dir and empty zebra.conf bgpd.conf files
+            # # inside the current directory
+            # if os.path.isdir("{}".format(rname)):
+            #     os.system("rm -rf {}".format(rname))
+            #     os.mkdir("{}".format(rname))
+            #     os.system("chmod -R go+rw {}".format(rname))
+            #     os.chdir("{}/{}".format(tgen.logdir, rname))
+            #     os.system("touch zebra.conf bgpd.conf")
+            # else:
+            #     os.mkdir("{}".format(rname))
+            #     os.system("chmod -R go+rw {}".format(rname))
+            #     os.chdir("{}/{}".format(tgen.logdir, rname))
+            #     os.system("touch zebra.conf bgpd.conf")
 
         except IOError as err:
             logger.error("I/O error({0}): {1}".format(err.errno, err.strerror))
 
         # Loading empty zebra.conf file to router, to start the zebra daemon
         router.load_config(
-            TopoRouter.RD_ZEBRA, "{}/{}/zebra.conf".format(TMPDIR, rname)
+            TopoRouter.RD_ZEBRA, "{}/{}/zebra.conf".format(tgen.logdir, rname)
         )
 
         # Loading empty bgpd.conf file to router, to start the bgp daemon
-        router.load_config(TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(TMPDIR, rname))
+        router.load_config(
+            TopoRouter.RD_BGP, "{}/{}/bgpd.conf".format(tgen.logdir, rname)
+        )
 
         if daemon and "ospfd" in daemon:
             # Loading empty ospf.conf file to router, to start the bgp daemon
             router.load_config(
-                TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(TMPDIR, rname)
+                TopoRouter.RD_OSPF, "{}/{}/ospfd.conf".format(tgen.logdir, rname)
             )
 
         if daemon and "ospf6d" in daemon:
             # Loading empty ospf.conf file to router, to start the bgp daemon
             router.load_config(
-                TopoRouter.RD_OSPF6, "{}/{}/ospf6d.conf".format(TMPDIR, rname)
+                TopoRouter.RD_OSPF6, "{}/{}/ospf6d.conf".format(tgen.logdir, rname)
             )
 
         if daemon and "pimd" in daemon:
             # Loading empty pimd.conf file to router, to start the pim deamon
             router.load_config(
-                TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(TMPDIR, rname)
+                TopoRouter.RD_PIM, "{}/{}/pimd.conf".format(tgen.logdir, rname)
             )
 
     # Starting routers
@@ -898,18 +1114,21 @@ def number_to_column(routerName):
     return ord(routerName[0]) - 97
 
 
-def topo_daemons(tgen, topo):
+def topo_daemons(tgen, topo=None):
     """
     Returns daemon list required for the suite based on topojson.
     """
     daemon_list = []
 
+    if topo is None:
+        topo = tgen.json_topo
+
     router_list = tgen.routers()
-    ROUTER_LIST = sorted(
+    routers_sorted = sorted(
         router_list.keys(), key=lambda x: int(re_search("[0-9]+", x).group(0))
     )
 
-    for rtr in ROUTER_LIST:
+    for rtr in routers_sorted:
         if "ospf" in topo["routers"][rtr] and "ospfd" not in daemon_list:
             daemon_list.append("ospfd")
 
@@ -954,29 +1173,35 @@ def add_interfaces_to_vlan(tgen, input_dict):
 
     router_list = tgen.routers()
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = router_list[dut]
 
         if "vlan" in input_dict[dut]:
             for vlan, interfaces in input_dict[dut]["vlan"].items():
                 for intf_dict in interfaces:
                     for interface, data in intf_dict.items():
                         # Adding interface to VLAN
-                        cmd = "vconfig add {} {}".format(interface, vlan)
+                        vlan_intf = "{}.{}".format(interface, vlan)
+                        cmd = "ip link add link {} name {} type vlan id {}".format(
+                            interface, vlan_intf, vlan
+                        )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
-                        vlan_intf = "{}.{}".format(interface, vlan)
-
-                        ip = data["ip"]
-                        subnet = data["subnet"]
-
                         # Bringing interface up
-                        cmd = "ip link set up {}".format(vlan_intf)
+                        cmd = "ip link set {} up".format(vlan_intf)
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
                         # Assigning IP address
-                        cmd = "ifconfig {} {} netmask {}".format(vlan_intf, ip, subnet)
+                        ifaddr = ipaddress.ip_interface(
+                            u"{}/{}".format(
+                                frr_unicode(data["ip"]), frr_unicode(data["subnet"])
+                            )
+                        )
+
+                        cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
+                            ifaddr.version, vlan_intf, ifaddr
+                        )
                         logger.info("[DUT: %s]: Running command: %s", dut, cmd)
                         rnode.run(cmd)
 
@@ -1021,7 +1246,7 @@ def tcpdump_capture_start(
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    rnode = tgen.routers()[router]
+    rnode = tgen.gears[router]
 
     if timeout > 0:
         cmd = "timeout {}".format(timeout)
@@ -1038,7 +1263,7 @@ def tcpdump_capture_start(
         cmdargs += " -s 0 {}".format(str(options))
 
     if cap_file:
-        file_name = os.path.join(LOGDIR, tgen.modname, router, cap_file)
+        file_name = os.path.join(tgen.logdir, router, cap_file)
         cmdargs += " -w {}".format(str(file_name))
         # Remove existing capture file
         rnode.run("rm -rf {}".format(file_name))
@@ -1050,7 +1275,9 @@ def tcpdump_capture_start(
     if not background:
         rnode.run(cmdargs)
     else:
-        rnode.run("nohup {} & /dev/null 2>&1".format(cmdargs))
+        # XXX this & is bogus doesn't work
+        # rnode.run("nohup {} & /dev/null 2>&1".format(cmdargs))
+        rnode.run("nohup {} > /dev/null 2>&1".format(cmdargs))
 
     # Check if tcpdump process is running
     if background:
@@ -1097,7 +1324,7 @@ def tcpdump_capture_stop(tgen, router):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
-    rnode = tgen.routers()[router]
+    rnode = tgen.gears[router]
 
     # Check if tcpdump process is running
     result = rnode.run("ps -ef | grep tcpdump")
@@ -1107,6 +1334,7 @@ def tcpdump_capture_stop(tgen, router):
         errormsg = "tcpdump is not running {}".format("tcpdump")
         return errormsg
     else:
+        # XXX this doesn't work with micronet
         ppid = tgen.net.nameToNode[rnode.name].pid
         rnode.run("set +m; pkill -P %s tcpdump &> /dev/null" % ppid)
         logger.info("Stopped tcpdump capture")
@@ -1154,6 +1382,8 @@ def create_debug_log_config(tgen, input_dict, build=False):
 
     result = False
     try:
+        debug_config_dict = {}
+
         for router in input_dict.keys():
             debug_config = []
             if "debug" in input_dict[router]:
@@ -1164,7 +1394,7 @@ def create_debug_log_config(tgen, input_dict, build=False):
                 log_file = debug_dict.setdefault("log_file", None)
 
                 if log_file:
-                    _log_file = os.path.join(LOGDIR, tgen.modname, log_file)
+                    _log_file = os.path.join(tgen.logdir, log_file)
                     debug_config.append("log file {} \n".format(_log_file))
 
                 if type(enable_logs) is list:
@@ -1184,10 +1414,12 @@ def create_debug_log_config(tgen, input_dict, build=False):
                     for daemon, debug_logs in disable_logs.items():
                         for debug_log in debug_logs:
                             debug_config.append("no {}".format(debug_log))
+            if debug_config:
+                debug_config_dict[router] = debug_config
 
-                result = create_common_configuration(
-                    tgen, router, debug_config, "debug_log_config", build=build
-                )
+        result = create_common_configurations(
+            tgen, debug_config_dict, "debug_log_config", build=build
+        )
     except InvalidCLIError:
         # Traceback
         errormsg = traceback.format_exc()
@@ -1265,11 +1497,13 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
         input_dict = deepcopy(input_dict)
 
     try:
+        config_data_dict = {}
+
         for c_router, c_data in input_dict.items():
-            rnode = tgen.routers()[c_router]
+            rnode = tgen.gears[c_router]
+            config_data = []
             if "vrfs" in c_data:
                 for vrf in c_data["vrfs"]:
-                    config_data = []
                     del_action = vrf.setdefault("delete", False)
                     name = vrf.setdefault("name", None)
                     table_id = vrf.setdefault("id", None)
@@ -1346,9 +1580,12 @@ def create_vrf_cfg(tgen, topo, input_dict=None, build=False):
                             cmd = "no vni {}".format(del_vni)
                             config_data.append(cmd)
 
-                        result = create_common_configuration(
-                            tgen, c_router, config_data, "vrf", build=build
-                        )
+            if config_data:
+                config_data_dict[c_router] = config_data
+
+        result = create_common_configurations(
+            tgen, config_data_dict, "vrf", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -1378,18 +1615,22 @@ def create_interface_in_kernel(
                 to create
     """
 
-    rnode = tgen.routers()[dut]
+    rnode = tgen.gears[dut]
 
     if create:
-        cmd = "sudo ip link add name {} type dummy".format(name)
+        cmd = "ip link show {0} >/dev/null || ip link add {0} type dummy".format(name)
         rnode.run(cmd)
 
-    addr_type = validate_ip_address(ip_addr)
-    if addr_type == "ipv4":
-        cmd = "ifconfig {} {} netmask {}".format(name, ip_addr, netmask)
+    if not netmask:
+        ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
     else:
-        cmd = "ifconfig {} inet6 add {}/{}".format(name, ip_addr, netmask)
-
+        ifaddr = ipaddress.ip_interface(
+            u"{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
+        )
+    cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
+        ifaddr.version, name, ifaddr
+    )
+    logger.info("[DUT: %s]: Running command: %s", dut, cmd)
     rnode.run(cmd)
 
     if vrf:
@@ -1411,7 +1652,7 @@ def shutdown_bringup_interface_in_kernel(tgen, dut, intf_name, ifaceaction=False
                       ineterface
     """
 
-    rnode = tgen.routers()[dut]
+    rnode = tgen.gears[dut]
 
     cmd = "ip link set dev"
     if ifaceaction:
@@ -1577,7 +1818,7 @@ def find_interface_with_greater_ip(topo, router, loopback=True, interface=True):
 
 
 def write_test_header(tc_name):
-    """ Display message at beginning of test case"""
+    """Display message at beginning of test case"""
     count = 20
     logger.info("*" * (len(tc_name) + count))
     step("START -> Testcase : %s" % tc_name, reset=True)
@@ -1585,7 +1826,7 @@ def write_test_header(tc_name):
 
 
 def write_test_footer(tc_name):
-    """ Display message at end of test case"""
+    """Display message at end of test case"""
     count = 21
     logger.info("=" * (len(tc_name) + count))
     logger.info("Testcase : %s -> PASSED", tc_name)
@@ -1613,17 +1854,20 @@ def interface_status(tgen, topo, input_dict):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     try:
-        global frr_cfg
+        rlist = []
+
         for router in input_dict.keys():
 
             interface_list = input_dict[router]["interface_list"]
             status = input_dict[router].setdefault("status", "up")
             for intf in interface_list:
-                rnode = tgen.routers()[router]
+                rnode = tgen.gears[router]
                 interface_set_status(rnode, intf, status)
 
-            # Load config to router
-            load_config_to_router(tgen, router)
+            rlist.append(router)
+
+        # Load config to routers
+        load_config_to_routers(tgen, rlist)
 
     except Exception as e:
         errormsg = traceback.format_exc()
@@ -1666,7 +1910,9 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
             _diag_pct = kwargs.pop("diag_pct", diag_pct)
 
             start_time = datetime.now()
-            retry_until = datetime.now() + timedelta(seconds=_retry_timeout + _initial_wait)
+            retry_until = datetime.now() + timedelta(
+                seconds=_retry_timeout + _initial_wait
+            )
 
             if initial_wait > 0:
                 logger.info("Waiting for [%s]s as initial delay", initial_wait)
@@ -1687,10 +1933,13 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
 
                         # Positive result, but happened after timeout failure, very important to
                         # note for fixing tests.
-                        logger.warning("RETRY DIAGNOSTIC: SUCCEED after FAILED with requested timeout of %.1fs; however, succeeded in %.1fs, investigate timeout timing",
-                                       _retry_timeout, (datetime.now() - start_time).total_seconds())
+                        logger.warning(
+                            "RETRY DIAGNOSTIC: SUCCEED after FAILED with requested timeout of %.1fs; however, succeeded in %.1fs, investigate timeout timing",
+                            _retry_timeout,
+                            (datetime.now() - start_time).total_seconds(),
+                        )
                         if isinstance(saved_failure, Exception):
-                            raise saved_failure             # pylint: disable=E0702
+                            raise saved_failure  # pylint: disable=E0702
                         return saved_failure
 
                 except Exception as error:
@@ -1698,16 +1947,20 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                     ret = error
 
                 if seconds_left < 0 and saved_failure:
-                    logger.info("RETRY DIAGNOSTIC: Retry timeout reached, still failing")
+                    logger.info(
+                        "RETRY DIAGNOSTIC: Retry timeout reached, still failing"
+                    )
                     if isinstance(saved_failure, Exception):
-                        raise saved_failure                 # pylint: disable=E0702
+                        raise saved_failure  # pylint: disable=E0702
                     return saved_failure
 
                 if seconds_left < 0:
                     logger.info("Retry timeout of %ds reached", _retry_timeout)
 
                     saved_failure = ret
-                    retry_extra_delta = timedelta(seconds=seconds_left + _retry_timeout * _diag_pct)
+                    retry_extra_delta = timedelta(
+                        seconds=seconds_left + _retry_timeout * _diag_pct
+                    )
                     retry_until = datetime.now() + retry_extra_delta
                     seconds_left = retry_extra_delta.total_seconds()
 
@@ -1721,11 +1974,17 @@ def retry(retry_timeout, initial_wait=0, expected=True, diag_pct=0.75):
                         return saved_failure
 
                 if saved_failure:
-                    logger.info("RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
-                                retry_sleep, seconds_left)
+                    logger.info(
+                        "RETRY DIAG: [failure] Sleeping %ds until next retry with %.1f retry time left - too see if timeout was too short",
+                        retry_sleep,
+                        seconds_left,
+                    )
                 else:
-                    logger.info("Sleeping %ds until next retry with %.1f retry time left",
-                                retry_sleep, seconds_left)
+                    logger.info(
+                        "Sleeping %ds until next retry with %.1f retry time left",
+                        retry_sleep,
+                        seconds_left,
+                    )
                 sleep(retry_sleep)
 
         func_retry._original = func
@@ -1812,6 +2071,8 @@ def create_interfaces_cfg(tgen, topo, build=False):
     topo = deepcopy(topo)
 
     try:
+        interface_data_dict = {}
+
         for c_router, c_data in topo.items():
             interface_data = []
             for destRouterLink, data in sorted(c_data["links"].items()):
@@ -1846,6 +2107,15 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     else:
                         interface_data.append("ipv6 address {}".format(intf_addr))
 
+                # Wait for vrf interfaces to get link local address once they are up
+                if (
+                    not destRouterLink == "lo"
+                    and "vrf" in topo[c_router]["links"][destRouterLink]
+                ):
+                    vrf = topo[c_router]["links"][destRouterLink]["vrf"]
+                    intf = topo[c_router]["links"][destRouterLink]["interface"]
+                    ll = get_frr_ipv6_linklocal(tgen, c_router, intf=intf, vrf=vrf)
+
                 if "ipv6-link-local" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv6-link-local"]
 
@@ -1860,7 +2130,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     "network",
                     "priority",
                     "cost",
-                    "mtu_ignore"
+                    "mtu_ignore",
                 ]
                 if "ospf" in data:
                     interface_data += _create_interfaces_ospf_cfg(
@@ -1868,12 +2138,14 @@ def create_interfaces_cfg(tgen, topo, build=False):
                     )
                 if "ospf6" in data:
                     interface_data += _create_interfaces_ospf_cfg(
-                        "ospf6", c_data, data, ospf_keywords
+                        "ospf6", c_data, data, ospf_keywords + ["area"]
                     )
+            if interface_data:
+                interface_data_dict[c_router] = interface_data
 
-            result = create_common_configuration(
-                tgen, c_router, interface_data, "interface_config", build=build
-            )
+        result = create_common_configurations(
+            tgen, interface_data_dict, "interface_config", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -1932,6 +2204,8 @@ def create_static_routes(tgen, input_dict, build=False):
     input_dict = deepcopy(input_dict)
 
     try:
+        static_routes_list_dict = {}
+
         for router in input_dict.keys():
             if "static_routes" not in input_dict[router]:
                 errormsg = "static_routes not present in input_dict"
@@ -1987,9 +2261,12 @@ def create_static_routes(tgen, input_dict, build=False):
 
                     static_routes_list.append(cmd)
 
-            result = create_common_configuration(
-                tgen, router, static_routes_list, "static_route", build=build
-            )
+            if static_routes_list:
+                static_routes_list_dict[router] = static_routes_list
+
+        result = create_common_configurations(
+            tgen, static_routes_list_dict, "static_route", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2046,6 +2323,8 @@ def create_prefix_lists(tgen, input_dict, build=False):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
     try:
+        config_data_dict = {}
+
         for router in input_dict.keys():
             if "prefix_lists" not in input_dict[router]:
                 errormsg = "prefix_lists not present in input_dict"
@@ -2092,9 +2371,12 @@ def create_prefix_lists(tgen, input_dict, build=False):
                             cmd = "no {}".format(cmd)
 
                         config_data.append(cmd)
-            result = create_common_configuration(
-                tgen, router, config_data, "prefix_list", build=build
-            )
+            if config_data:
+                config_data_dict[router] = config_data
+
+        result = create_common_configurations(
+            tgen, config_data_dict, "prefix_list", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2190,6 +2472,8 @@ def create_route_maps(tgen, input_dict, build=False):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
+        rmap_data_dict = {}
+
         for router in input_dict.keys():
             if "route_maps" not in input_dict[router]:
                 logger.debug("route_maps not present in input_dict")
@@ -2467,9 +2751,12 @@ def create_route_maps(tgen, input_dict, build=False):
                             cmd = "match metric {}".format(metric)
                             rmap_data.append(cmd)
 
-            result = create_common_configuration(
-                tgen, router, rmap_data, "route_maps", build=build
-            )
+            if rmap_data:
+                rmap_data_dict[router] = rmap_data
+
+        result = create_common_configurations(
+            tgen, rmap_data_dict, "route_maps", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2544,6 +2831,8 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     input_dict = deepcopy(input_dict)
     try:
+        config_data_dict = {}
+
         for router in input_dict.keys():
             if "bgp_community_lists" not in input_dict[router]:
                 errormsg = "bgp_community_lists not present in input_dict"
@@ -2580,9 +2869,12 @@ def create_bgp_community_lists(tgen, input_dict, build=False):
 
                 config_data.append(cmd)
 
-            result = create_common_configuration(
-                tgen, router, config_data, "bgp_community_list", build=build
-            )
+            if config_data:
+                config_data_dict[router] = config_data
+
+        result = create_common_configurations(
+            tgen, config_data_dict, "bgp_community_list", build=build
+        )
 
     except InvalidCLIError:
         # Traceback
@@ -2645,7 +2937,7 @@ def addKernelRoute(
 
     logger.debug("Entering lib API: addKernelRoute()")
 
-    rnode = tgen.routers()[router]
+    rnode = tgen.gears[router]
 
     if type(group_addr_range) is not list:
         group_addr_range = [group_addr_range]
@@ -2680,6 +2972,8 @@ def addKernelRoute(
             ip, mask = grp_addr.split("/")
             if mask == "32" or mask == "128":
                 grp_addr = ip
+        else:
+            mask = "32" if addr_type == "ipv4" else "128"
 
         if not re_search(r"{}".format(grp_addr), result) and mask != "0":
             errormsg = (
@@ -2727,7 +3021,7 @@ def configure_vxlan(tgen, input_dict):
 
     router_list = tgen.routers()
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = router_list[dut]
 
         if "vxlan" in input_dict[dut]:
             for vxlan_dict in input_dict[dut]["vxlan"]:
@@ -2826,7 +3120,7 @@ def configure_brctl(tgen, topo, input_dict):
 
     router_list = tgen.routers()
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = router_list[dut]
 
         if "brctl" in input_dict[dut]:
             for brctl_dict in input_dict[dut]["brctl"]:
@@ -2912,10 +3206,10 @@ def configure_interface_mac(tgen, input_dict):
 
     router_list = tgen.routers()
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = router_list[dut]
 
         for intf, mac in input_dict[dut].items():
-            cmd = "ifconfig {} hw ether {}".format(intf, mac)
+            cmd = "ip link set {} address {}".format(intf, mac)
             logger.info("[DUT: %s]: Running command: %s", dut, cmd)
 
             try:
@@ -3383,7 +3677,11 @@ def verify_fib_routes(tgen, addr_type, dut, input_dict, next_hop=None):
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
     router_list = tgen.routers()
+    if dut not in router_list:
+        return
+
     for routerInput in input_dict.keys():
+        # XXX replace with router = dut; rnode = router_list[dut]
         for router, rnode in router_list.items():
             if router != dut:
                 continue
@@ -3628,11 +3926,11 @@ def verify_admin_distance_for_static_routes(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
+    router_list = tgen.routers()
     for router in input_dict.keys():
-        if router not in tgen.routers():
+        if router not in router_list:
             continue
-
-        rnode = tgen.routers()[router]
+        rnode = router_list[router]
 
         for static_route in input_dict[router]["static_routes"]:
             addr_type = validate_ip_address(static_route["network"])
@@ -3710,11 +4008,12 @@ def verify_prefix_lists(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
+    router_list = tgen.routers()
     for router in input_dict.keys():
-        if router not in tgen.routers():
+        if router not in router_list:
             continue
 
-        rnode = tgen.routers()[router]
+        rnode = router_list[router]
 
         # Show ip prefix list
         show_prefix_list = run_frr_cmd(rnode, "show ip prefix-list")
@@ -3773,11 +4072,12 @@ def verify_route_maps(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
+    router_list = tgen.routers()
     for router in input_dict.keys():
-        if router not in tgen.routers():
+        if router not in router_list:
             continue
 
-        rnode = tgen.routers()[router]
+        rnode = router_list[router]
         # Show ip route-map
         show_route_maps = rnode.vtysh_cmd("show route-map")
 
@@ -3826,10 +4126,11 @@ def verify_bgp_community(tgen, addr_type, router, network, input_dict=None):
     """
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-    if router not in tgen.routers():
+    router_list = tgen.routers()
+    if router not in router_list:
         return False
 
-    rnode = tgen.routers()[router]
+    rnode = router_list[router]
 
     logger.debug(
         "Verifying BGP community attributes on dut %s: for %s " "network %s",
@@ -3956,11 +4257,12 @@ def verify_create_community_list(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
 
+    router_list = tgen.routers()
     for router in input_dict.keys():
-        if router not in tgen.routers():
+        if router not in router_list:
             continue
 
-        rnode = tgen.routers()[router]
+        rnode = router_list[router]
 
         logger.info("Verifying large-community is created for dut %s:", router)
 
@@ -4011,7 +4313,7 @@ def verify_cli_json(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = tgen.gears[dut]
 
         for cli in input_dict[dut]["cli"]:
             logger.info(
@@ -4073,7 +4375,7 @@ def verify_evpn_vni(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = tgen.gears[dut]
 
         logger.info("[DUT: %s]: Verifying evpn vni details :", dut)
 
@@ -4191,7 +4493,7 @@ def verify_vrf_vni(tgen, input_dict):
 
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     for dut in input_dict.keys():
-        rnode = tgen.routers()[dut]
+        rnode = tgen.gears[dut]
 
         logger.info("[DUT: %s]: Verifying vrf vni details :", dut)
 
@@ -4295,216 +4597,275 @@ def required_linux_kernel_version(required_version):
     return True
 
 
-def iperfSendIGMPJoin(
-    tgen, server, bindToAddress, l4Type="UDP", join_interval=1, inc_step=0, repeat=0
-):
-    """
-    Run iperf to send IGMP join and traffic
+class HostApplicationHelper(object):
+    """Helper to track and cleanup per-host based test processes."""
 
-    Parameters:
-    -----------
-    * `tgen`  : Topogen object
-    * `l4Type`: string, one of [ TCP, UDP ]
-    * `server`: iperf server, from where IGMP join would be sent
-    * `bindToAddress`: bind to <host>, an interface or multicast
-                       address
-    * `join_interval`: seconds between periodic bandwidth reports
-    * `inc_step`: increamental steps, by default 0
-    * `repeat`: Repetition of group, by default 0
+    def __init__(self, tgen=None, base_cmd=None):
+        self.base_cmd_str = ""
+        self.host_procs = {}
+        self.tgen = None
+        self.set_base_cmd(base_cmd if base_cmd else [])
+        if tgen is not None:
+            self.init(tgen)
 
-    returns:
-    --------
-    errormsg or True
-    """
+    def __enter__(self):
+        self.init()
+        return self
 
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    def __exit__(self, type, value, traceback):
+        self.cleanup()
 
-    rnode = tgen.routers()[server]
+    def __str__(self):
+        return "HostApplicationHelper({})".format(self.base_cmd_str)
 
-    iperfArgs = "iperf -s "
-
-    # UDP/TCP
-    if l4Type == "UDP":
-        iperfArgs += "-u "
-
-    iperfCmd = iperfArgs
-    # Group address range to cover
-    if bindToAddress:
-        if type(bindToAddress) is not list:
-            Address = []
-            start = ipaddress.IPv4Address(frr_unicode(bindToAddress))
-
-            Address = [start]
-            next_ip = start
-
-            count = 1
-            while count < repeat:
-                next_ip += inc_step
-                Address.append(next_ip)
-                count += 1
-            bindToAddress = Address
-
-    for bindTo in bindToAddress:
-        iperfArgs = iperfCmd
-        iperfArgs += "-B %s " % bindTo
-
-        # Join interval
-        if join_interval:
-            iperfArgs += "-i %d " % join_interval
-
-        iperfArgs += " &>/dev/null &"
-        # Run iperf command to send IGMP join
-        logger.debug("[DUT: {}]: Running command: [{}]".format(server, iperfArgs))
-        output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
-
-        # Check if iperf process is running
-        if output:
-            pid = output.split()[1]
-            rnode.run("touch /var/run/frr/iperf_server.pid")
-            rnode.run("echo %s >> /var/run/frr/iperf_server.pid" % pid)
+    def set_base_cmd(self, base_cmd):
+        assert isinstance(base_cmd, list) or isinstance(base_cmd, tuple)
+        self.base_cmd = base_cmd
+        if base_cmd:
+            self.base_cmd_str = " ".join(base_cmd)
         else:
-            errormsg = "IGMP join is not sent for {}. Error: {}".format(bindTo, output)
-            logger.error(output)
-            return errormsg
+            self.base_cmd_str = ""
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return True
+    def init(self, tgen=None):
+        """Initialize the helper with tgen if needed.
 
-
-def iperfSendTraffic(
-    tgen,
-    client,
-    bindToAddress,
-    ttl,
-    time=0,
-    l4Type="UDP",
-    inc_step=0,
-    repeat=0,
-    mappedAddress=None,
-):
-    """
-    Run iperf to send IGMP join and traffic
-
-    Parameters:
-    -----------
-    * `tgen`  : Topogen object
-    * `l4Type`: string, one of [ TCP, UDP ]
-    * `client`: iperf client, from where iperf traffic would be sent
-    * `bindToAddress`: bind to <host>, an interface or multicast
-                       address
-    * `ttl`: time to live
-    * `time`: time in seconds to transmit for
-    * `inc_step`: increamental steps, by default 0
-    * `repeat`: Repetition of group, by default 0
-    * `mappedAddress`: Mapped Interface ip address
-
-    returns:
-    --------
-    errormsg or True
-    """
-
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    rnode = tgen.routers()[client]
-
-    iperfArgs = "iperf -c "
-
-    iperfCmd = iperfArgs
-    # Group address range to cover
-    if bindToAddress:
-        if type(bindToAddress) is not list:
-            Address = []
-            start = ipaddress.IPv4Address(frr_unicode(bindToAddress))
-
-            Address = [start]
-            next_ip = start
-
-            count = 1
-            while count < repeat:
-                next_ip += inc_step
-                Address.append(next_ip)
-                count += 1
-            bindToAddress = Address
-
-    for bindTo in bindToAddress:
-        iperfArgs = iperfCmd
-        iperfArgs += "%s " % bindTo
-
-        # Mapped Interface IP
-        if mappedAddress:
-            iperfArgs += "-B %s " % mappedAddress
-
-        # UDP/TCP
-        if l4Type == "UDP":
-            iperfArgs += "-u -b 0.012m "
-
-        # TTL
-        if ttl:
-            iperfArgs += "-T %d " % ttl
-
-        # Time
-        if time:
-            iperfArgs += "-t %d " % time
-
-        iperfArgs += " &>/dev/null &"
-
-        # Run iperf command to send multicast traffic
-        logger.debug("[DUT: {}]: Running command: [{}]".format(client, iperfArgs))
-        output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
-
-        # Check if iperf process is running
-        if output:
-            pid = output.split()[1]
-            rnode.run("touch /var/run/frr/iperf_client.pid")
-            rnode.run("echo %s >> /var/run/frr/iperf_client.pid" % pid)
+        If overridden, need to handle multiple entries but one init. Will be called on
+        object creation if tgen is supplied. Will be called again on __enter__ so should
+        not re-init if already inited.
+        """
+        if self.tgen:
+            assert tgen is None or self.tgen == tgen
         else:
-            errormsg = "Multicast traffic is not sent for {}. Error {}".format(
-                bindTo, output
-            )
-            logger.error(output)
-            return errormsg
+            self.tgen = tgen
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return True
+    def started_proc(self, host, p):
+        """Called after process started on host.
+
+        Return value is passed to `stopping_proc` method."""
+        logger.debug("%s: Doing nothing after starting process", self)
+        return False
+
+    def stopping_proc(self, host, p, info):
+        """Called after process started on host."""
+        logger.debug("%s: Doing nothing before stopping process", self)
+
+    def _add_host_proc(self, host, p):
+        v = self.started_proc(host, p)
+
+        if host not in self.host_procs:
+            self.host_procs[host] = []
+        logger.debug("%s: %s: tracking process %s", self, host, p)
+        self.host_procs[host].append((p, v))
+
+    def stop_host(self, host):
+        """Stop the process on the host.
+
+        Override to do additional cleanup."""
+        if host in self.host_procs:
+            hlogger = self.tgen.net[host].logger
+            for p, v in self.host_procs[host]:
+                self.stopping_proc(host, p, v)
+                logger.debug("%s: %s: terminating process %s", self, host, p.pid)
+                hlogger.debug("%s: %s: terminating process %s", self, host, p.pid)
+                rc = p.poll()
+                if rc is not None:
+                    logger.error(
+                        "%s: %s: process early exit %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
+                    hlogger.error(
+                        "%s: %s: process early exit %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
+                else:
+                    p.terminate()
+                    p.wait()
+                    logger.debug(
+                        "%s: %s: terminated process %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
+                    hlogger.debug(
+                        "%s: %s: terminated process %s: %s",
+                        self,
+                        host,
+                        p.pid,
+                        comm_error(p),
+                    )
+
+            del self.host_procs[host]
+
+    def stop_all_hosts(self):
+        hosts = set(self.host_procs)
+        for host in hosts:
+            self.stop_host(host)
+
+    def cleanup(self):
+        self.stop_all_hosts()
+
+    def run(self, host, cmd_args, **kwargs):
+        cmd = list(self.base_cmd)
+        cmd.extend(cmd_args)
+        p = self.tgen.gears[host].popen(cmd, **kwargs)
+        assert p.poll() is None
+        self._add_host_proc(host, p)
+        return p
+
+    def check_procs(self):
+        """Check that all current processes are running, log errors if not.
+
+        Returns: List of stopped processes."""
+        procs = []
+
+        logger.debug("%s: checking procs on hosts %s", self, self.host_procs.keys())
+
+        for host in self.host_procs:
+            hlogger = self.tgen.net[host].logger
+            for p, _ in self.host_procs[host]:
+                logger.debug("%s: checking %s proc %s", self, host, p)
+                rc = p.poll()
+                if rc is None:
+                    continue
+                logger.error(
+                    "%s: %s proc exited: %s", self, host, comm_error(p), exc_info=True
+                )
+                hlogger.error(
+                    "%s: %s proc exited: %s", self, host, comm_error(p), exc_info=True
+                )
+                procs.append(p)
+        return procs
 
 
-def kill_iperf(tgen, dut=None, action=None):
-    """
-    Killing iperf process if running for any router in topology
-    Parameters:
-    -----------
-    * `tgen`  : Topogen object
-    * `dut`   : Any iperf hostname to send igmp prune
-    * `action`: to kill igmp join iperf action is remove_join
-                to kill traffic iperf action is remove_traffic
+class IPerfHelper(HostApplicationHelper):
+    def __str__(self):
+        return "IPerfHelper()"
 
-    Usage
-    ----
-    kill_iperf(tgen, dut ="i6", action="remove_join")
+    def run_join(
+        self,
+        host,
+        join_addr,
+        l4Type="UDP",
+        join_interval=1,
+        join_intf=None,
+        join_towards=None,
+    ):
+        """
+        Use iperf to send IGMP join and listen to traffic
 
-    """
+        Parameters:
+        -----------
+        * `host`: iperf host from where IGMP join would be sent
+        * `l4Type`: string, one of [ TCP, UDP ]
+        * `join_addr`: multicast address (or addresses) to join to
+        * `join_interval`: seconds between periodic bandwidth reports
+        * `join_intf`: the interface to bind the join to
+        * `join_towards`: router whos interface to bind the join to
 
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+        returns: Success (bool)
+        """
 
-    router_list = tgen.routers()
-    for router, rnode in router_list.items():
-        # Run iperf command to send IGMP join
-        pid_client = rnode.run("cat /var/run/frr/iperf_client.pid")
-        pid_server = rnode.run("cat /var/run/frr/iperf_server.pid")
-        if action == "remove_join":
-            pids = pid_server
-        elif action == "remove_traffic":
-            pids = pid_client
-        else:
-            pids = "\n".join([pid_client, pid_server])
-        for pid in pids.split("\n"):
-            pid = pid.strip()
-            if pid.isdigit():
-                cmd = "set +m; kill -9 %s &> /dev/null" % pid
-                logger.debug("[DUT: {}]: Running command: [{}]".format(router, cmd))
-                rnode.run(cmd)
+        iperf_path = self.tgen.net.get_exec_path("iperf")
 
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+        assert join_addr
+        if not isinstance(join_addr, list) and not isinstance(join_addr, tuple):
+            join_addr = [ipaddress.IPv4Address(frr_unicode(join_addr))]
+
+        for bindTo in join_addr:
+            iperf_args = [iperf_path, "-s"]
+
+            if l4Type == "UDP":
+                iperf_args.append("-u")
+
+            iperf_args.append("-B")
+            if join_towards:
+                to_intf = frr_unicode(
+                    self.tgen.json_topo["routers"][host]["links"][join_towards][
+                        "interface"
+                    ]
+                )
+                iperf_args.append("{}%{}".format(str(bindTo), to_intf))
+            elif join_intf:
+                iperf_args.append("{}%{}".format(str(bindTo), join_intf))
+            else:
+                iperf_args.append(str(bindTo))
+
+            if join_interval:
+                iperf_args.append("-i")
+                iperf_args.append(str(join_interval))
+
+            p = self.run(host, iperf_args)
+            if p.poll() is not None:
+                logger.error("IGMP join failed on %s: %s", bindTo, comm_error(p))
+                return False
+        return True
+
+    def run_traffic(
+        self, host, sentToAddress, ttl, time=0, l4Type="UDP", bind_towards=None
+    ):
+        """
+        Run iperf to send IGMP join and traffic
+
+        Parameters:
+        -----------
+        * `host`: iperf host to send traffic from
+        * `l4Type`: string, one of [ TCP, UDP ]
+        * `sentToAddress`: multicast address to send traffic to
+        * `ttl`: time to live
+        * `time`: time in seconds to transmit for
+        * `bind_towards`: Router who's interface the source ip address is got from
+
+        returns: Success (bool)
+        """
+
+        iperf_path = self.tgen.net.get_exec_path("iperf")
+
+        if sentToAddress and not isinstance(sentToAddress, list):
+            sentToAddress = [ipaddress.IPv4Address(frr_unicode(sentToAddress))]
+
+        for sendTo in sentToAddress:
+            iperf_args = [iperf_path, "-c", sendTo]
+
+            # Bind to Interface IP
+            if bind_towards:
+                ifaddr = frr_unicode(
+                    self.tgen.json_topo["routers"][host]["links"][bind_towards]["ipv4"]
+                )
+                ipaddr = ipaddress.IPv4Interface(ifaddr).ip
+                iperf_args.append("-B")
+                iperf_args.append(str(ipaddr))
+
+            # UDP/TCP
+            if l4Type == "UDP":
+                iperf_args.append("-u")
+                iperf_args.append("-b")
+                iperf_args.append("0.012m")
+
+            # TTL
+            if ttl:
+                iperf_args.append("-T")
+                iperf_args.append(str(ttl))
+
+            # Time
+            if time:
+                iperf_args.append("-t")
+                iperf_args.append(str(time))
+
+            p = self.run(host, iperf_args)
+            if p.poll() is not None:
+                logger.error(
+                    "mcast traffic send failed for %s: %s", sendTo, comm_error(p)
+                )
+                return False
+
+        return True
 
 
 def verify_ip_nht(tgen, input_dict):
@@ -4537,14 +4898,15 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Entering lib API: verify_ip_nht()")
 
+    router_list = tgen.routers()
     for router in input_dict.keys():
-        if router not in tgen.routers():
+        if router not in router_list:
             continue
 
-        rnode = tgen.routers()[router]
+        rnode = router_list[router]
         nh_list = input_dict[router]
 
-        if validate_ip_address(nh_list.keys()[0]) is "ipv6":
+        if validate_ip_address(next(iter(nh_list))) == "ipv6":
             show_ip_nht = run_frr_cmd(rnode, "show ipv6 nht")
         else:
             show_ip_nht = run_frr_cmd(rnode, "show ip nht")
@@ -4559,3 +4921,51 @@ def verify_ip_nht(tgen, input_dict):
 
     logger.debug("Exiting lib API: verify_ip_nht()")
     return False
+
+
+def scapy_send_raw_packet(tgen, topo, senderRouter, intf, packet=None):
+    """
+    Using scapy Raw() method to send BSR raw packet from one FRR
+    to other
+
+    Parameters:
+    -----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+    * `senderRouter` : Sender router
+    * `packet` : packet in raw format
+
+    returns:
+    --------
+    errormsg or True
+    """
+
+    global CD
+    result = ""
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    sender_interface = intf
+    rnode = tgen.routers()[senderRouter]
+
+    for destLink, data in topo["routers"][senderRouter]["links"].items():
+        if "type" in data and data["type"] == "loopback":
+            continue
+
+        if not packet:
+            packet = topo["routers"][senderRouter]["pkt"]["test_packets"][packet][
+                "data"
+            ]
+
+        python3_path = tgen.net.get_exec_path(["python3", "python"])
+        script_path = os.path.join(CD, "send_bsr_packet.py")
+        cmd = "{} {} '{}' '{}' --interval=1 --count=1".format(
+            python3_path, script_path, packet, sender_interface
+        )
+
+        logger.info("Scapy cmd: \n %s", cmd)
+        result = rnode.run(cmd)
+
+        if result == "":
+            return result
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True

@@ -182,7 +182,8 @@ struct nexthop *nexthop_from_ipv6(const struct in6_addr *ipv6,
 				  vrf_id_t vrf_id);
 struct nexthop *nexthop_from_ipv6_ifindex(const struct in6_addr *ipv6,
 					  ifindex_t ifindex, vrf_id_t vrf_id);
-struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type);
+struct nexthop *nexthop_from_blackhole(enum blackhole_type bh_type,
+				       vrf_id_t nh_vrf_id);
 
 /*
  * Hash a nexthop. Suitable for use with hash tables.

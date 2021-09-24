@@ -60,11 +60,7 @@ void community_free(struct community **com)
 void community_add_val(struct community *com, uint32_t val)
 {
 	com->size++;
-	if (com->val)
-		com->val = XREALLOC(MTYPE_COMMUNITY_VAL, com->val,
-				    com_length(com));
-	else
-		com->val = XMALLOC(MTYPE_COMMUNITY_VAL, com_length(com));
+	com->val = XREALLOC(MTYPE_COMMUNITY_VAL, com->val, com_length(com));
 
 	val = htonl(val);
 	memcpy(com_lastval(com), &val, sizeof(uint32_t));
@@ -548,7 +544,7 @@ struct community *community_dup(struct community *com)
 	return new;
 }
 
-/* Retrun string representation of communities attribute. */
+/* Return string representation of communities attribute. */
 char *community_str(struct community *com, bool make_json)
 {
 	if (!com)
@@ -598,8 +594,6 @@ bool community_match(const struct community *com1, const struct community *com2)
 		return false;
 }
 
-/* If two aspath have same value then return 1 else return 0. This
-   function is used by hash package. */
 bool community_cmp(const struct community *com1, const struct community *com2)
 {
 	if (com1 == NULL && com2 == NULL)
@@ -618,13 +612,8 @@ bool community_cmp(const struct community *com1, const struct community *com2)
 struct community *community_merge(struct community *com1,
 				  struct community *com2)
 {
-	if (com1->val)
-		com1->val =
-			XREALLOC(MTYPE_COMMUNITY_VAL, com1->val,
-				 (com1->size + com2->size) * COMMUNITY_SIZE);
-	else
-		com1->val = XMALLOC(MTYPE_COMMUNITY_VAL,
-				    (com1->size + com2->size) * COMMUNITY_SIZE);
+	com1->val = XREALLOC(MTYPE_COMMUNITY_VAL, com1->val,
+			     (com1->size + com2->size) * COMMUNITY_SIZE);
 
 	memcpy(com1->val + com1->size, com2->val, com2->size * COMMUNITY_SIZE);
 	com1->size += com2->size;

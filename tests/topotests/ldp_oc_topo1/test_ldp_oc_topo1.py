@@ -62,7 +62,6 @@ import os
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -76,44 +75,39 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define FRR Routers
+    #
+    for router in ["r1", "r2", "r3", "r4"]:
+        tgen.add_router(router)
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["r1", "r2", "r3", "r4"]:
-            tgen.add_router(router)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s0")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s0")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
-
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

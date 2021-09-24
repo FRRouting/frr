@@ -2385,6 +2385,7 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
 		memcpy(&pi->extra->label, &parent_pi->extra->label,
 		       sizeof(pi->extra->label));
 		pi->extra->num_labels = parent_pi->extra->num_labels;
+		pi->extra->igpmetric = parent_pi->extra->igpmetric;
 	}
 	bgp_path_info_add(dest, pi);
 
@@ -2520,7 +2521,7 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 	/* Gateway IP nexthop should be resolved */
 	if (attr.evpn_overlay.type == OVERLAY_INDEX_GATEWAY_IP) {
 		if (bgp_find_or_add_nexthop(bgp_vrf, bgp_vrf, afi, safi, pi,
-					    NULL, 0))
+					    NULL, 0, NULL))
 			bgp_path_info_set_flag(dest, pi, BGP_PATH_VALID);
 		else {
 			if (BGP_DEBUG(nht, NHT)) {
@@ -6047,10 +6048,12 @@ bool bgp_evpn_is_prefix_nht_supported(const struct prefix *pfx)
 	 * type-5 routes. It may be tweaked later on for other routes, or
 	 * even removed completely when all routes are handled.
 	 */
-	if (pfx && pfx->family == AF_EVPN &&
-	    (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE ||
-	     evp->prefix.route_type == BGP_EVPN_IMET_ROUTE ||
-	     evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
+	if (pfx && pfx->family == AF_EVPN
+	    && (evp->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_AD_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_ES_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_IMET_ROUTE
+		|| evp->prefix.route_type == BGP_EVPN_IP_PREFIX_ROUTE))
 		return true;
 
 	return false;

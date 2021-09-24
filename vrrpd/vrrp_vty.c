@@ -744,14 +744,6 @@ static int vrrp_config_write_interface(struct vty *vty)
 	return write;
 }
 
-static struct cmd_node interface_node = {
-	.name = "interface",
-	.node = INTERFACE_NODE,
-	.parent_node = CONFIG_NODE,
-	.prompt = "%s(config-if)# ",
-	.config_write = vrrp_config_write_interface,
-};
-
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -769,10 +761,9 @@ static struct cmd_node vrrp_node = {
 void vrrp_vty_init(void)
 {
 	install_node(&debug_node);
-	install_node(&interface_node);
 	install_node(&vrrp_node);
-	vrf_cmd_init(NULL, &vrrp_privs);
-	if_cmd_init();
+	vrf_cmd_init(NULL);
+	if_cmd_init(vrrp_config_write_interface);
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);

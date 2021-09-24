@@ -42,7 +42,8 @@ extern void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id);
 extern int bgp_find_or_add_nexthop(struct bgp *bgp_route,
 				   struct bgp *bgp_nexthop, afi_t a,
 				   safi_t safi, struct bgp_path_info *p,
-				   struct peer *peer, int connected);
+				   struct peer *peer, int connected,
+				   const struct prefix *orig_prefix);
 
 /**
  * bgp_unlink_nexthop() - Unlink the nexthop object from the path structure.

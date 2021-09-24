@@ -29,6 +29,8 @@
 #include "log.h"
 #include "buffer.h"
 
+DEFINE_MTYPE(LIB, SCRIPT_RES, "Scripting results");
+
 /* Lua stuff */
 
 /*
@@ -81,7 +83,7 @@ void lua_decode_prefix(lua_State *L, int idx, struct prefix *prefix)
 
 void *lua_toprefix(lua_State *L, int idx)
 {
-	struct prefix *p = XCALLOC(MTYPE_TMP, sizeof(struct prefix));
+	struct prefix *p = XCALLOC(MTYPE_SCRIPT_RES, sizeof(struct prefix));
 	lua_decode_prefix(L, idx, p);
 	return p;
 }
@@ -153,7 +155,8 @@ void lua_decode_interface(lua_State *L, int idx, struct interface *ifp)
 }
 void *lua_tointerface(lua_State *L, int idx)
 {
-	struct interface *ifp = XCALLOC(MTYPE_TMP, sizeof(struct interface));
+	struct interface *ifp =
+		XCALLOC(MTYPE_SCRIPT_RES, sizeof(struct interface));
 
 	lua_decode_interface(L, idx, ifp);
 	return ifp;
@@ -183,7 +186,8 @@ void lua_decode_inaddr(lua_State *L, int idx, struct in_addr *inaddr)
 
 void *lua_toinaddr(lua_State *L, int idx)
 {
-	struct in_addr *inaddr = XCALLOC(MTYPE_TMP, sizeof(struct in_addr));
+	struct in_addr *inaddr =
+		XCALLOC(MTYPE_SCRIPT_RES, sizeof(struct in_addr));
 	lua_decode_inaddr(L, idx, inaddr);
 	return inaddr;
 }
@@ -213,7 +217,8 @@ void lua_decode_in6addr(lua_State *L, int idx, struct in6_addr *in6addr)
 
 void *lua_toin6addr(lua_State *L, int idx)
 {
-	struct in6_addr *in6addr = XCALLOC(MTYPE_TMP, sizeof(struct in6_addr));
+	struct in6_addr *in6addr =
+		XCALLOC(MTYPE_SCRIPT_RES, sizeof(struct in6_addr));
 	lua_decode_in6addr(L, idx, in6addr);
 	return in6addr;
 }
@@ -235,7 +240,9 @@ void lua_pushsockunion(lua_State *L, const union sockunion *su)
 void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su)
 {
 	lua_getfield(L, idx, "string");
-	str2sockunion(lua_tostring(L, -1), su);
+	if (str2sockunion(lua_tostring(L, -1), su) < 0)
+		zlog_err("Lua hook call: Failed to decode sockunion");
+
 	lua_pop(L, 1);
 	/* pop the table */
 	lua_pop(L, 1);
@@ -243,7 +250,8 @@ void lua_decode_sockunion(lua_State *L, int idx, union sockunion *su)
 
 void *lua_tosockunion(lua_State *L, int idx)
 {
-	union sockunion *su = XCALLOC(MTYPE_TMP, sizeof(union sockunion));
+	union sockunion *su =
+		XCALLOC(MTYPE_SCRIPT_RES, sizeof(union sockunion));
 
 	lua_decode_sockunion(L, idx, su);
 	return su;
@@ -262,7 +270,7 @@ void lua_decode_timet(lua_State *L, int idx, time_t *t)
 
 void *lua_totimet(lua_State *L, int idx)
 {
-	time_t *t = XCALLOC(MTYPE_TMP, sizeof(time_t));
+	time_t *t = XCALLOC(MTYPE_SCRIPT_RES, sizeof(time_t));
 
 	lua_decode_timet(L, idx, t);
 	return t;
@@ -283,7 +291,7 @@ void lua_decode_integerp(lua_State *L, int idx, long long *num)
 
 void *lua_tointegerp(lua_State *L, int idx)
 {
-	long long *num = XCALLOC(MTYPE_TMP, sizeof(long long));
+	long long *num = XCALLOC(MTYPE_SCRIPT_RES, sizeof(long long));
 
 	lua_decode_integerp(L, idx, num);
 	return num;
@@ -297,7 +305,7 @@ void lua_decode_stringp(lua_State *L, int idx, char *str)
 
 void *lua_tostringp(lua_State *L, int idx)
 {
-	char *string = XSTRDUP(MTYPE_TMP, lua_tostring(L, idx));
+	char *string = XSTRDUP(MTYPE_SCRIPT_RES, lua_tostring(L, idx));
 
 	return string;
 }
@@ -306,6 +314,14 @@ void *lua_tostringp(lua_State *L, int idx)
  * Decoder for const values, since we cannot modify them.
  */
 void lua_decode_noop(lua_State *L, int idx, const void *ptr)
+{
+}
+
+
+/*
+ * Noop decoder for int.
+ */
+void lua_decode_integer_noop(lua_State *L, int idx, int i)
 {
 }
 

@@ -190,7 +190,7 @@ int ospf_sock_init(struct ospf *ospf)
 			flog_err(EC_LIB_SOCKET,
 				 "ospf_read_sock_init: socket: %s",
 				 safe_strerror(errno));
-			exit(1);
+			return -1;
 		}
 
 #ifdef IP_HDRINCL

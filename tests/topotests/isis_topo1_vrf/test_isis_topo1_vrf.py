@@ -24,14 +24,12 @@
 test_isis_topo1_vrf.py: Test ISIS vrf topology.
 """
 
-import collections
 import functools
 import json
 import os
 import re
 import sys
 import pytest
-import platform
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
@@ -43,7 +41,6 @@ from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import required_linux_kernel_version
 
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.isisd]
 
@@ -62,48 +59,44 @@ VERTEX_TYPE_LIST = [
 ]
 
 
-class ISISTopo1(Topo):
-    "Simple two layer ISIS vrf topology"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Add ISIS routers:
+    # r1      r2
+    #  | sw1  | sw2
+    # r3     r4
+    #  |      |
+    # sw3    sw4
+    #   \    /
+    #     r5
+    for routern in range(1, 6):
+        tgen.add_router("r{}".format(routern))
 
-        # Add ISIS routers:
-        # r1      r2
-        #  | sw1  | sw2
-        # r3     r4
-        #  |      |
-        # sw3    sw4
-        #   \    /
-        #     r5
-        for routern in range(1, 6):
-            tgen.add_router("r{}".format(routern))
+    # r1 <- sw1 -> r3
+    sw = tgen.add_switch("sw1")
+    sw.add_link(tgen.gears["r1"])
+    sw.add_link(tgen.gears["r3"])
 
-        # r1 <- sw1 -> r3
-        sw = tgen.add_switch("sw1")
-        sw.add_link(tgen.gears["r1"])
-        sw.add_link(tgen.gears["r3"])
+    # r2 <- sw2 -> r4
+    sw = tgen.add_switch("sw2")
+    sw.add_link(tgen.gears["r2"])
+    sw.add_link(tgen.gears["r4"])
 
-        # r2 <- sw2 -> r4
-        sw = tgen.add_switch("sw2")
-        sw.add_link(tgen.gears["r2"])
-        sw.add_link(tgen.gears["r4"])
+    # r3 <- sw3 -> r5
+    sw = tgen.add_switch("sw3")
+    sw.add_link(tgen.gears["r3"])
+    sw.add_link(tgen.gears["r5"])
 
-        # r3 <- sw3 -> r5
-        sw = tgen.add_switch("sw3")
-        sw.add_link(tgen.gears["r3"])
-        sw.add_link(tgen.gears["r5"])
-
-        # r4 <- sw4 -> r5
-        sw = tgen.add_switch("sw4")
-        sw.add_link(tgen.gears["r4"])
-        sw.add_link(tgen.gears["r5"])
+    # r4 <- sw4 -> r5
+    sw = tgen.add_switch("sw4")
+    sw.add_link(tgen.gears["r4"])
+    sw.add_link(tgen.gears["r5"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(ISISTopo1, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     logger.info("Testing with VRF Lite support")
@@ -288,11 +281,7 @@ def dict_merge(dct, merge_dct):
     https://gist.github.com/angstwad/bf22d1822c38a92ec0a9
     """
     for k, v in merge_dct.items():
-        if (
-            k in dct
-            and isinstance(dct[k], dict)
-            and isinstance(merge_dct[k], collections.Mapping)
-        ):
+        if k in dct and isinstance(dct[k], dict) and topotest.is_mapping(merge_dct[k]):
             dict_merge(dct[k], merge_dct[k])
         else:
             dct[k] = merge_dct[k]

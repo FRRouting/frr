@@ -4,7 +4,7 @@ endif
 
 qpb_libfrr_pb_la_CPPFLAGS = $(AM_CPPFLAGS) $(PROTOBUF_C_CFLAGS)
 qpb_libfrr_pb_la_LIBADD = $(PROTOBUF_C_LIBS)
-qpb_libfrr_pb_la_LDFLAGS = -version-info 0:0:0
+qpb_libfrr_pb_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0
 
 qpb_libfrr_pb_la_SOURCES = \
 	qpb/qpb.c \

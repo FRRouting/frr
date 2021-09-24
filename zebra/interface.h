@@ -253,7 +253,7 @@ struct rtadv_dnssl {
 #endif /* HAVE_RTADV */
 
 /* Zebra interface type - ones of interest. */
-typedef enum {
+enum zebra_iftype {
 	ZEBRA_IF_OTHER = 0, /* Anything else */
 	ZEBRA_IF_VXLAN,     /* VxLAN interface */
 	ZEBRA_IF_VRF,       /* VRF device */
@@ -264,16 +264,16 @@ typedef enum {
 	ZEBRA_IF_BOND,	    /* Bond */
 	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
-} zebra_iftype_t;
+};
 
 /* Zebra "slave" interface type */
-typedef enum {
+enum zebra_slave_iftype {
 	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
 	ZEBRA_IF_SLAVE_VRF,    /* Member of a VRF */
 	ZEBRA_IF_SLAVE_BRIDGE, /* Member of a bridge */
 	ZEBRA_IF_SLAVE_BOND,   /* Bond member */
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
-} zebra_slave_iftype_t;
+};
 
 struct irdp_interface;
 
@@ -367,8 +367,8 @@ struct zebra_if {
 	uint8_t ptm_enable;
 
 	/* Zebra interface and "slave" interface type */
-	zebra_iftype_t zif_type;
-	zebra_slave_iftype_t zif_slave_type;
+	enum zebra_iftype zif_type;
+	enum zebra_slave_iftype zif_slave_type;
 
 	/* Additional L2 info, depends on zif_type */
 	union zebra_l2if_info l2info;
@@ -513,6 +513,7 @@ extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);
 extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
 extern const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
 					  char *pd_buf, uint32_t pd_buf_len);
+void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc(void);

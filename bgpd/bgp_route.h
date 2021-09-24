@@ -145,6 +145,14 @@ struct bgp_path_mh_info {
 	struct bgp_path_evpn_nh_info *nh_info;
 };
 
+struct bgp_sid_info {
+	struct in6_addr sid;
+	uint8_t loc_block_len;
+	uint8_t loc_node_len;
+	uint8_t func_len;
+	uint8_t arg_len;
+};
+
 /* Ancillary information to struct bgp_path_info,
  * used for uncommonly used data (aggregation, MPLS, etc.)
  * and lazily allocated to save memory.
@@ -168,7 +176,7 @@ struct bgp_path_info_extra {
 #define BGP_EVPN_MACIP_TYPE_SVI_IP (1 << 0)
 
 	/* SRv6 SID(s) for SRv6-VPN */
-	struct in6_addr sid[BGP_MAX_SIDS];
+	struct bgp_sid_info sid[BGP_MAX_SIDS];
 	uint32_t num_sids;
 
 #ifdef ENABLE_BGP_VNC
@@ -641,7 +649,8 @@ extern bool bgp_maximum_prefix_overflow(struct peer *, afi_t, safi_t, int);
 
 extern void bgp_redistribute_add(struct bgp *bgp, struct prefix *p,
 				 const union g_addr *nexthop, ifindex_t ifindex,
-				 enum nexthop_types_t nhtype, uint32_t metric,
+				 enum nexthop_types_t nhtype, uint8_t distance,
+				 enum blackhole_type bhtype, uint32_t metric,
 				 uint8_t type, unsigned short instance,
 				 route_tag_t tag);
 extern void bgp_redistribute_delete(struct bgp *, struct prefix *, uint8_t,
@@ -792,32 +801,5 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 					    struct bgp *bgp,
 					    const struct prefix *p, afi_t afi,
 					    safi_t safi, bool suppress);
-extern int bgp_static_set(struct bgp *bgp, const char *negate,
-			  struct prefix *pfx, afi_t afi, safi_t safi,
-			  const char *rmap, int backdoor, uint32_t label_index,
-			  char *errmsg, size_t errmsg_len);
-
-extern int bgp_aggregate_set(struct bgp *bgp, struct prefix *prefix, afi_t afi,
-			     safi_t safi, const char *rmap,
-			     uint8_t summary_only, uint8_t as_set,
-			     uint8_t origin, bool match_med,
-			     const char *suppress_map, char *errmsg,
-			     size_t errmsg_len);
-
-extern int bgp_aggregate_unset(struct bgp *bgp, struct prefix *prefix,
-			       afi_t afi, safi_t safi, char *errmsg,
-			       size_t errmsg_len);
-
-extern void bgp_announce_routes_distance_update(struct bgp *bgp,
-						afi_t update_afi,
-						safi_t update_safi);
-
-extern int bgp_distance_set(uint8_t distance, const char *ip_str,
-			    const char *access_list_str, afi_t afi, safi_t safi,
-			    char *errmsg, size_t errmsg_len);
-
-extern int bgp_distance_unset(uint8_t distance, const char *ip_str,
-			      const char *access_list_str, afi_t afi,
-			      safi_t safi, char *errmsg, size_t errmsg_len);
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 #endif /* _QUAGGA_BGP_ROUTE_H */

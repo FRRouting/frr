@@ -22,6 +22,7 @@
 
 #include "linklist.h"
 #include "memory.h"
+#include "command.h"
 #include "vector.h"
 #include "prefix.h"
 #include "vty.h"
@@ -32,6 +33,7 @@
 #include "libfrr.h"
 #include "lib_errors.h"
 #include "table.h"
+#include "json.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
@@ -840,50 +842,140 @@ static const char *route_map_result_str(route_map_result_t res)
 }
 
 /* show route-map */
-static void vty_show_route_map_entry(struct vty *vty, struct route_map *map)
+static void vty_show_route_map_entry(struct vty *vty, struct route_map *map,
+				     json_object *json)
 {
 	struct route_map_index *index;
 	struct route_map_rule *rule;
+	json_object *json_rmap = NULL;
+	json_object *json_rules = NULL;
 
-	vty_out(vty, "route-map: %s Invoked: %" PRIu64 " Optimization: %s Processed Change: %s\n",
-		map->name, map->applied - map->applied_clear,
-		map->optimization_disabled ? "disabled" : "enabled",
-		map->to_be_processed ? "true" : "false");
+	if (json) {
+		json_rmap = json_object_new_object();
+		json_object_object_add(json, map->name, json_rmap);
+
+		json_rules = json_object_new_array();
+		json_object_int_add(json_rmap, "invoked",
+				    map->applied - map->applied_clear);
+		json_object_boolean_add(json_rmap, "disabledOptimization",
+					map->optimization_disabled);
+		json_object_boolean_add(json_rmap, "processedChange",
+					map->to_be_processed);
+		json_object_object_add(json_rmap, "rules", json_rules);
+	} else {
+		vty_out(vty,
+			"route-map: %s Invoked: %" PRIu64
+			" Optimization: %s Processed Change: %s\n",
+			map->name, map->applied - map->applied_clear,
+			map->optimization_disabled ? "disabled" : "enabled",
+			map->to_be_processed ? "true" : "false");
+	}
 
 	for (index = map->head; index; index = index->next) {
-		vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
-			route_map_type_str(index->type), index->pref,
-			index->applied - index->applied_clear);
+		if (json) {
+			json_object *json_rule;
+			json_object *json_matches;
+			json_object *json_sets;
+			char action[BUFSIZ] = {};
 
-		/* Description */
-		if (index->description)
-			vty_out(vty, "  Description:\n    %s\n",
-				index->description);
+			json_rule = json_object_new_object();
+			json_object_array_add(json_rules, json_rule);
 
-		/* Match clauses */
-		vty_out(vty, "  Match clauses:\n");
-		for (rule = index->match_list.head; rule; rule = rule->next)
-			vty_out(vty, "    %s %s\n", rule->cmd->str,
-				rule->rule_str);
+			json_object_int_add(json_rule, "sequenceNumber",
+					    index->pref);
+			json_object_string_add(json_rule, "type",
+					       route_map_type_str(index->type));
+			json_object_int_add(json_rule, "invoked",
+					    index->applied
+						    - index->applied_clear);
 
-		vty_out(vty, "  Set clauses:\n");
-		for (rule = index->set_list.head; rule; rule = rule->next)
-			vty_out(vty, "    %s %s\n", rule->cmd->str,
-				rule->rule_str);
+			/* Description */
+			if (index->description)
+				json_object_string_add(json_rule, "description",
+						       index->description);
 
-		/* Call clause */
-		vty_out(vty, "  Call clause:\n");
-		if (index->nextrm)
-			vty_out(vty, "    Call %s\n", index->nextrm);
+			/* Match clauses */
+			json_matches = json_object_new_array();
+			json_object_object_add(json_rule, "matchClauses",
+					       json_matches);
+			for (rule = index->match_list.head; rule;
+			     rule = rule->next) {
+				char buf[BUFSIZ];
 
-		/* Exit Policy */
-		vty_out(vty, "  Action:\n");
-		if (index->exitpolicy == RMAP_GOTO)
-			vty_out(vty, "    Goto %d\n", index->nextpref);
-		else if (index->exitpolicy == RMAP_NEXT)
-			vty_out(vty, "    Continue to next entry\n");
-		else if (index->exitpolicy == RMAP_EXIT)
-			vty_out(vty, "    Exit routemap\n");
+				snprintf(buf, sizeof(buf), "%s %s",
+					 rule->cmd->str, rule->rule_str);
+				json_array_string_add(json_matches, buf);
+			}
+
+			/* Set clauses */
+			json_sets = json_object_new_array();
+			json_object_object_add(json_rule, "setClauses",
+					       json_sets);
+			for (rule = index->set_list.head; rule;
+			     rule = rule->next) {
+				char buf[BUFSIZ];
+
+				snprintf(buf, sizeof(buf), "%s %s",
+					 rule->cmd->str, rule->rule_str);
+				json_array_string_add(json_sets, buf);
+			}
+
+			/* Call clause */
+			if (index->nextrm)
+				json_object_string_add(json_rule, "callClause",
+						       index->nextrm);
+
+			/* Exit Policy */
+			if (index->exitpolicy == RMAP_GOTO)
+				snprintf(action, sizeof(action), "Goto %d",
+					 index->nextpref);
+			else if (index->exitpolicy == RMAP_NEXT)
+				snprintf(action, sizeof(action),
+					 "Continue to next entry");
+			else if (index->exitpolicy == RMAP_EXIT)
+				snprintf(action, sizeof(action),
+					 "Exit routemap");
+			if (action[0] != '\0')
+				json_object_string_add(json_rule, "action",
+						       action);
+		} else {
+			vty_out(vty, " %s, sequence %d Invoked %" PRIu64 "\n",
+				route_map_type_str(index->type), index->pref,
+				index->applied - index->applied_clear);
+
+			/* Description */
+			if (index->description)
+				vty_out(vty, "  Description:\n    %s\n",
+					index->description);
+
+			/* Match clauses */
+			vty_out(vty, "  Match clauses:\n");
+			for (rule = index->match_list.head; rule;
+			     rule = rule->next)
+				vty_out(vty, "    %s %s\n", rule->cmd->str,
+					rule->rule_str);
+
+			/* Set clauses */
+			vty_out(vty, "  Set clauses:\n");
+			for (rule = index->set_list.head; rule;
+			     rule = rule->next)
+				vty_out(vty, "    %s %s\n", rule->cmd->str,
+					rule->rule_str);
+
+			/* Call clause */
+			vty_out(vty, "  Call clause:\n");
+			if (index->nextrm)
+				vty_out(vty, "    Call %s\n", index->nextrm);
+
+			/* Exit Policy */
+			vty_out(vty, "  Action:\n");
+			if (index->exitpolicy == RMAP_GOTO)
+				vty_out(vty, "    Goto %d\n", index->nextpref);
+			else if (index->exitpolicy == RMAP_NEXT)
+				vty_out(vty, "    Continue to next entry\n");
+			else if (index->exitpolicy == RMAP_EXIT)
+				vty_out(vty, "    Exit routemap\n");
+		}
 	}
 }
 
@@ -895,22 +987,28 @@ static int sort_route_map(const void **map1, const void **map2)
 	return strcmp(m1->name, m2->name);
 }
 
-static int vty_show_route_map(struct vty *vty, const char *name)
+static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 {
 	struct route_map *map;
+	json_object *json = NULL;
+	json_object *json_proto = NULL;
 
-	vty_out(vty, "%s:\n", frr_protonameinst);
+	if (use_json) {
+		json = json_object_new_object();
+		json_proto = json_object_new_object();
+		json_object_object_add(json, frr_protonameinst, json_proto);
+	} else
+		vty_out(vty, "%s:\n", frr_protonameinst);
 
 	if (name) {
 		map = route_map_lookup_by_name(name);
 
 		if (map) {
-			vty_show_route_map_entry(vty, map);
+			vty_show_route_map_entry(vty, map, json_proto);
 			return CMD_SUCCESS;
-		} else {
+		} else if (!use_json) {
 			vty_out(vty, "%s: 'route-map %s' not found\n",
 				frr_protonameinst, name);
-			return CMD_SUCCESS;
 		}
 	} else {
 
@@ -923,10 +1021,18 @@ static int vty_show_route_map(struct vty *vty, const char *name)
 		list_sort(maplist, sort_route_map);
 
 		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
-			vty_show_route_map_entry(vty, map);
+			vty_show_route_map_entry(vty, map, json_proto);
 
 		list_delete(&maplist);
 	}
+
+	if (use_json) {
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -950,7 +1056,7 @@ static int vty_show_unused_route_map(struct vty *vty)
 		list_sort(maplist, sort_route_map);
 
 		for (ALL_LIST_ELEMENTS_RO(maplist, ln, map))
-			vty_show_route_map_entry(vty, map);
+			vty_show_route_map_entry(vty, map, NULL);
 	} else {
 		vty_out(vty, "\n%s: None\n", frr_protonameinst);
 	}
@@ -1325,7 +1431,7 @@ enum rmap_compile_rets route_map_add_match(struct route_map_index *index,
 			 * the same as the existing configuration then,
 			 * ignore the duplicate configuration.
 			 */
-			if (strcmp(match_arg, rule->rule_str) == 0) {
+			if (rulecmp(match_arg, rule->rule_str) == 0) {
 				if (cmd->func_free)
 					(*cmd->func_free)(compile);
 
@@ -2382,8 +2488,9 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 
    We need to make sure our route-map processing matches the above
 */
-route_map_result_t route_map_apply(struct route_map *map,
-				   const struct prefix *prefix, void *object)
+route_map_result_t route_map_apply_ext(struct route_map *map,
+				       const struct prefix *prefix,
+				       void *match_object, void *set_object)
 {
 	static int recursion = 0;
 	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
@@ -2410,7 +2517,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 	if ((!map->optimization_disabled)
 	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
-		index = route_map_get_index(map, prefix, object,
+		index = route_map_get_index(map, prefix, match_object,
 					    (uint8_t *)&match_ret);
 		if (index) {
 			index->applied++;
@@ -2445,7 +2552,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 			index->applied++;
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
-							  prefix, object);
+							  prefix, match_object);
 			if (rmap_debug) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
@@ -2504,7 +2611,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 					 * return code.
 					 */
 					(void)(*set->cmd->func_apply)(
-						set->value, prefix, object);
+						set->value, prefix, set_object);
 
 				/* Call another route-map if available */
 				if (index->nextrm) {
@@ -2516,8 +2623,10 @@ route_map_result_t route_map_apply(struct route_map *map,
 						       jump to it */
 					{
 						recursion++;
-						ret = route_map_apply(
-							nextrm, prefix, object);
+						ret = route_map_apply_ext(
+							nextrm, prefix,
+							match_object,
+							set_object);
 						recursion--;
 					}
 
@@ -2957,14 +3066,20 @@ DEFUN (rmap_clear_counters,
 
 DEFUN (rmap_show_name,
        rmap_show_name_cmd,
-       "show route-map [WORD]",
+       "show route-map [WORD] [json]",
        SHOW_STR
        "route-map information\n"
-       "route-map name\n")
+       "route-map name\n"
+       JSON_STR)
 {
-	int idx_word = 2;
-	const char *name = (argc == 3) ? argv[idx_word]->arg : NULL;
-	return vty_show_route_map(vty, name);
+	bool uj = use_json(argc, argv);
+	int idx = 0;
+	const char *name = NULL;
+
+	if (argv_find(argv, argc, "WORD", &idx))
+		name = argv[idx]->arg;
+
+	return vty_show_route_map(vty, name, uj);
 }
 
 DEFUN (rmap_show_unused,

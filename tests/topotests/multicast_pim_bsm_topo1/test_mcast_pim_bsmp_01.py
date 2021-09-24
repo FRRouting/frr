@@ -52,7 +52,6 @@ Tests covered in this suite
 
 import os
 import sys
-import json
 import time
 import pytest
 
@@ -66,7 +65,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
@@ -75,7 +73,6 @@ from lib.common_config import (
     step,
     addKernelRoute,
     create_static_routes,
-    iperfSendIGMPJoin,
     stop_router,
     start_router,
     shutdown_bringup_interface,
@@ -84,7 +81,6 @@ from lib.common_config import (
     reset_config_on_routers,
     do_countdown,
     apply_raw_config,
-    kill_iperf,
     run_frr_cmd,
     required_linux_kernel_version,
     topo_daemons,
@@ -109,17 +105,13 @@ from lib.pim import (
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
     verify_pim_interface_traffic,
+    McastTesterHelper,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/mcast_pim_bsmp_01.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
+
+pytestmark = [pytest.mark.pimd, pytest.mark.staticd]
 
 TOPOLOGY = """
 
@@ -148,21 +140,6 @@ BSR1_ADDR = "1.1.2.7/32"
 BSR2_ADDR = "10.2.1.1/32"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -183,7 +160,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/mcast_pim_bsmp_01.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -200,6 +180,10 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
+    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -209,6 +193,8 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -320,12 +306,6 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         result = create_static_routes(tgen, input_dict)
         assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    # Add kernal route for source
-    group = topo["routers"][bsr]["bsm"]["bsr_packets"][packet]["pkt_dst"]
-    bsr_interface = topo["routers"][bsr]["links"][fhr]["interface"]
-    result = addKernelRoute(tgen, bsr, bsr_interface, group)
-    assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
-
     # RP Mapping
     rp_mapping = topo["routers"][bsr]["bsm"]["bsr_packets"][packet]["rp_mapping"]
 
@@ -338,16 +318,6 @@ def pre_config_to_bsm(tgen, topo, tc_name, bsr, sender, receiver, fhr, rp, lhr, 
         mask = group.split("/")[1]
         if int(mask) == 32:
             group = group.split("/")[0]
-
-        # Add kernal routes for sender
-        s_interface = topo["routers"][sender]["links"][fhr]["interface"]
-        result = addKernelRoute(tgen, sender, s_interface, group)
-        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
-
-        # Add kernal routes for receiver
-        r_interface = topo["routers"][receiver]["links"][lhr]["interface"]
-        result = addKernelRoute(tgen, receiver, r_interface, group)
-        assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
         # Add static routes for RPs in FHR and LHR
         next_hop_fhr = topo["routers"][rp]["links"][fhr]["ipv4"].split("/")[0]
@@ -398,14 +368,14 @@ def test_BSR_higher_prefer_ip_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
@@ -479,7 +449,7 @@ def test_BSR_higher_prefer_ip_p0(request):
     result = scapy_send_bsr_raw_packet(tgen, topo, "b1", "f1", "packet9")
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
     do_countdown(5)
 
@@ -604,14 +574,14 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
     step("pre-configure BSM packet")
@@ -681,8 +651,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     state_before = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Sending BSR after Configure black hole address for BSR and candidate RP")
     step("Send BSR packet from b1 to FHR")
@@ -705,8 +676,9 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     state_after = verify_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     result = verify_state_incremented(state_before, state_after)
     assert result is not True, "Testcase{} : Failed Error: {}".format(tc_name, result)
@@ -779,14 +751,14 @@ def test_new_router_fwd_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
 
@@ -809,7 +781,7 @@ def test_new_router_fwd_p0(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -862,7 +834,7 @@ def test_new_router_fwd_p0(request):
     stop_router(tgen, "i1")
     start_router(tgen, "i1")
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify again if BSR is installed from bsm forwarded by f1
@@ -916,14 +888,14 @@ def test_int_bsm_config_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
 
@@ -942,7 +914,7 @@ def test_int_bsm_config_p1(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Use scapy to send pre-defined packet from senser to receiver
@@ -1077,14 +1049,14 @@ def test_static_rp_override_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
 
@@ -1106,7 +1078,7 @@ def test_static_rp_override_p1(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -1228,14 +1200,14 @@ def test_bsmp_stress_add_del_restart_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
 
@@ -1259,7 +1231,7 @@ def test_bsmp_stress_add_del_restart_p2(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -1323,8 +1295,7 @@ def test_bsmp_stress_add_del_restart_p2(request):
         assert (
             rp_add1 == rp2[group]
         ), "Testcase {} :Failed \n Error : rp expected {} rp received {}".format(
-            tc_name,
-            rp_add1,
+            tc_name, rp_add1, rp2[group]
         )
 
         # Verify if that rp is installed
@@ -1354,7 +1325,7 @@ def test_bsmp_stress_add_del_restart_p2(request):
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Send IGMP join to LHR
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     do_countdown(5)
@@ -1397,14 +1368,14 @@ def test_BSM_timeout_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     result = pre_config_to_bsm(
         tgen, topo, tc_name, "b1", "s1", "r1", "f1", "i1", "l1", "packet1"
@@ -1426,7 +1397,7 @@ def test_BSM_timeout_p0(request):
     assert result is True, "Testcase {} :Failed \n Error {}".format(tc_name, result)
 
     # Send IGMP join for group 225.1.1.1 from receiver
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR
@@ -1554,14 +1525,14 @@ def test_iif_join_state_p0(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
-    kill_iperf(tgen)
-    clear_ip_mroute(tgen)
-    reset_config_on_routers(tgen)
-    clear_ip_pim_interface_traffic(tgen, topo)
-
     # Don"t run this test if we have any failure.
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
+
+    app_helper.stop_all_hosts()
+    clear_ip_mroute(tgen)
+    reset_config_on_routers(tgen)
+    clear_ip_pim_interface_traffic(tgen, topo)
 
     reset_config_on_routers(tgen)
 
@@ -1584,7 +1555,7 @@ def test_iif_join_state_p0(request):
     bsr_ip = topo["routers"]["b1"]["bsm"]["bsr_packets"]["packet1"]["bsr"].split("/")[0]
     time.sleep(1)
 
-    result = iperfSendIGMPJoin(tgen, "r1", GROUP_ADDRESS, join_interval=1)
+    result = app_helper.run_join("r1", GROUP_ADDRESS, "l1")
     assert result is True, "Testcase {}:Failed \n Error: {}".format(tc_name, result)
 
     # Verify bsr state in FHR

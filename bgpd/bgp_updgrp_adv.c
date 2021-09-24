@@ -798,6 +798,9 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 	bgp_attr_default_set(&attr, BGP_ORIGIN_IGP);
 
+	/* make coverity happy */
+	assert(attr.aspath);
+
 	attr.local_pref = bgp->default_local_pref;
 
 	if ((afi == AFI_IP6) || peer_cap_enhe(peer, afi, safi)) {
@@ -812,6 +815,10 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 	}
 
 	if (peer->default_rmap[afi][safi].name) {
+		struct bgp_path_info tmp_pi = {0};
+
+		tmp_pi.peer = bgp->peer_self;
+
 		SET_FLAG(bgp->peer_self->rmap_type, PEER_RMAP_TYPE_DEFAULT);
 
 		/* Iterate over the RIB to see if we can announce
@@ -825,24 +832,16 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 
 			for (pi = bgp_dest_get_bgp_path_info(dest); pi;
 			     pi = pi->next) {
-				struct attr tmp_attr;
-				struct bgp_path_info tmp_pi;
-				struct bgp_path_info_extra tmp_pie;
+				struct attr tmp_attr = attr;
 
-				tmp_attr = *pi->attr;
-				tmp_attr.aspath = attr.aspath;
+				tmp_pi.attr = &tmp_attr;
 
-				prep_for_rmap_apply(&tmp_pi, &tmp_pie, dest, pi,
-						    pi->peer, &tmp_attr);
-
-				ret = route_map_apply(
+				ret = route_map_apply_ext(
 					peer->default_rmap[afi][safi].map,
-					bgp_dest_get_prefix(dest), &tmp_pi);
+					bgp_dest_get_prefix(dest), pi, &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
-					/* The aspath belongs to 'attr' */
-					tmp_attr.aspath = NULL;
-					bgp_attr_flush(&tmp_attr);
+					bgp_attr_undup(&tmp_attr, &attr);
 					continue;
 				} else {
 					new_attr = bgp_attr_intern(&tmp_attr);
@@ -939,6 +938,8 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 			subgroup_default_update_packet(subgrp, new_attr, from);
 		}
 	}
+
+	aspath_unintern(&attr.aspath);
 }
 
 /*

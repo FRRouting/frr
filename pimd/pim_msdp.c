@@ -720,7 +720,7 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 /* XXX: this can use a bit of refining and extensions */
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 {
-	struct pim_nexthop nexthop;
+	struct pim_nexthop nexthop = {0};
 
 	if (mp->peer.s_addr == rp.s_addr) {
 		return true;
@@ -1217,6 +1217,7 @@ void pim_msdp_mg_free(struct pim_instance *pim, struct pim_msdp_mg **mgp)
 	if ((*mgp)->mbr_list)
 		list_delete(&(*mgp)->mbr_list);
 
+	SLIST_REMOVE(&pim->msdp.mglist, (*mgp), pim_msdp_mg, mg_entry);
 	XFREE(MTYPE_PIM_MSDP_MG, (*mgp));
 }
 

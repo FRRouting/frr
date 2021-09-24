@@ -33,6 +33,7 @@
 #include "bgpd/bgp_community.h"
 #include "bgpd/bgp_ecommunity.h"
 #include "bgpd/bgp_lcommunity.h"
+#include "bgpd/bgp_community_alias.h"
 #include "bgpd/bgp_aspath.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_clist.h"
@@ -548,6 +549,8 @@ static bool community_regexp_include(regex_t *reg, struct community *com, int i)
 static bool community_regexp_match(struct community *com, regex_t *reg)
 {
 	const char *str;
+	char *regstr;
+	int rv;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
@@ -556,12 +559,14 @@ static bool community_regexp_match(struct community *com, regex_t *reg)
 	else
 		str = community_str(com, false);
 
-	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return true;
+	regstr = bgp_alias2community_str(str);
 
-	/* No match.  */
-	return false;
+	/* Regular expression match.  */
+	rv = regexec(reg, regstr, 0, NULL, 0);
+
+	XFREE(MTYPE_TMP, regstr);
+
+	return rv == 0;
 }
 
 static char *lcommunity_str_get(struct lcommunity *lcom, int i)
@@ -618,6 +623,8 @@ static bool lcommunity_regexp_include(regex_t *reg, struct lcommunity *lcom,
 static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 {
 	const char *str;
+	char *regstr;
+	int rv;
 
 	/* When there is no communities attribute it is treated as empty
 	   string.  */
@@ -626,12 +633,14 @@ static bool lcommunity_regexp_match(struct lcommunity *com, regex_t *reg)
 	else
 		str = lcommunity_str(com, false);
 
-	/* Regular expression match.  */
-	if (regexec(reg, str, 0, NULL, 0) == 0)
-		return true;
+	regstr = bgp_alias2community_str(str);
 
-	/* No match.  */
-	return false;
+	/* Regular expression match.  */
+	rv = regexec(reg, regstr, 0, NULL, 0);
+
+	XFREE(MTYPE_TMP, regstr);
+
+	return rv == 0;
 }
 
 
@@ -1371,4 +1380,68 @@ void community_list_terminate(struct community_list_handler *ch)
 	hash_free(cm->hash);
 
 	XFREE(MTYPE_COMMUNITY_LIST_HANDLER, ch);
+}
+
+static int bgp_community_list_vector_walker(struct hash_bucket *bucket,
+					    void *data)
+{
+	vector *comps = data;
+	struct community_list *list = bucket->data;
+
+	vector_set(*comps, XSTRDUP(MTYPE_COMPLETION, list->name));
+
+	return 1;
+}
+
+static void bgp_community_list_cmd_completion(vector comps,
+					      struct cmd_token *token)
+{
+	struct community_list_master *cm;
+
+	cm = community_list_master_lookup(bgp_clist, COMMUNITY_LIST_MASTER);
+
+	hash_walk(cm->hash, bgp_community_list_vector_walker, &comps);
+}
+
+static void bgp_lcommunity_list_cmd_completion(vector comps,
+					       struct cmd_token *token)
+{
+	struct community_list_master *cm;
+
+	cm = community_list_master_lookup(bgp_clist,
+					  LARGE_COMMUNITY_LIST_MASTER);
+
+	hash_walk(cm->hash, bgp_community_list_vector_walker, &comps);
+}
+
+static void bgp_extcommunity_list_cmd_completion(vector comps,
+						 struct cmd_token *token)
+{
+	struct community_list_master *cm;
+
+	cm = community_list_master_lookup(bgp_clist, EXTCOMMUNITY_LIST_MASTER);
+
+	hash_walk(cm->hash, bgp_community_list_vector_walker, &comps);
+}
+
+static const struct cmd_variable_handler community_list_handlers[] = {
+	{.tokenname = "COMMUNITY_LIST_NAME",
+	 .completions = bgp_community_list_cmd_completion},
+	{.completions = NULL}};
+
+static const struct cmd_variable_handler lcommunity_list_handlers[] = {
+	{.tokenname = "LCOMMUNITY_LIST_NAME",
+	 .completions = bgp_lcommunity_list_cmd_completion},
+	{.completions = NULL}};
+
+static const struct cmd_variable_handler extcommunity_list_handlers[] = {
+	{.tokenname = "EXTCOMMUNITY_LIST_NAME",
+	 .completions = bgp_extcommunity_list_cmd_completion},
+	{.completions = NULL}};
+
+void bgp_community_list_command_completion_setup(void)
+{
+	cmd_variable_handler_register(community_list_handlers);
+	cmd_variable_handler_register(lcommunity_list_handlers);
+	cmd_variable_handler_register(extcommunity_list_handlers);
 }

@@ -82,4 +82,4 @@ endif
 
 
 #pathd_pathd_pcep_la_CFLAGS = $(AM_CFLAGS)
-pathd_pathd_pcep_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+pathd_pathd_pcep_la_LDFLAGS = $(MODULE_LDFLAGS)

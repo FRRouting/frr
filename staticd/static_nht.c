@@ -30,10 +30,9 @@
 #include "static_zebra.h"
 #include "static_nht.h"
 
-static void static_nht_update_path(struct route_node *rn,
-				   struct static_path *pn, struct prefix *nhp,
+static void static_nht_update_path(struct static_path *pn, struct prefix *nhp,
 				   uint32_t nh_num, vrf_id_t nh_vrf_id,
-				   struct vrf *vrf, safi_t safi)
+				   struct vrf *vrf)
 {
 	struct static_nexthop *nh;
 
@@ -57,7 +56,7 @@ static void static_nht_update_path(struct route_node *rn,
 			nh->nh_valid = !!nh_num;
 
 		if (nh->state == STATIC_START)
-			static_zebra_route_add(rn, pn, safi, true);
+			static_zebra_route_add(pn, true);
 	}
 }
 
@@ -84,8 +83,8 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 		if (rn && rn->info) {
 			si = static_route_info_from_rnode(rn);
 			frr_each(static_path_list, &si->path_list, pn) {
-				static_nht_update_path(rn, pn, nhp, nh_num,
-						       nh_vrf_id, vrf, safi);
+				static_nht_update_path(pn, nhp, nh_num,
+						       nh_vrf_id, vrf);
 			}
 			route_unlock_node(rn);
 		}
@@ -97,8 +96,7 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 		if (!si)
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
-			static_nht_update_path(rn, pn, nhp, nh_num, nh_vrf_id,
-					       vrf, safi);
+			static_nht_update_path(pn, nhp, nh_num, nh_vrf_id, vrf);
 		}
 	}
 }

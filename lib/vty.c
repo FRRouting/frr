@@ -3040,7 +3040,7 @@ DEFPY (log_commands,
 /* Display current configuration. */
 static int vty_config_write(struct vty *vty)
 {
-	vty_out(vty, "line vty\n");
+	vty_frame(vty, "line vty\n");
 
 	if (vty_accesslist_name)
 		vty_out(vty, " access-class %s\n", vty_accesslist_name);
@@ -3057,6 +3057,8 @@ static int vty_config_write(struct vty *vty)
 	/* login */
 	if (no_password_check)
 		vty_out(vty, " no login\n");
+
+	vty_endframe(vty, "exit\n");
 
 	if (do_log_commands)
 		vty_out(vty, "log commands\n");

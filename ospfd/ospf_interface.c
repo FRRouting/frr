@@ -1447,6 +1447,59 @@ static int ospf_ifp_destroy(struct interface *ifp)
 	return 0;
 }
 
+/* Resetting ospf hello timer */
+void ospf_reset_hello_timer(struct interface *ifp, struct in_addr addr,
+			    bool is_addr)
+{
+	struct route_node *rn;
+
+	if (is_addr) {
+		struct prefix p;
+		struct ospf_interface *oi = NULL;
+
+		p.u.prefix4 = addr;
+		p.family = AF_INET;
+		p.prefixlen = IPV4_MAX_BITLEN;
+
+		oi = ospf_if_table_lookup(ifp, &p);
+
+		if (oi) {
+			/* Send hello before restart the hello timer
+			 * to avoid session flaps in case of bigger
+			 * hello interval configurations.
+			 */
+			ospf_hello_send(oi);
+
+			/* Restart hello timer for this interface */
+			OSPF_ISM_TIMER_OFF(oi->t_hello);
+			OSPF_HELLO_TIMER_ON(oi);
+		}
+
+		return;
+	}
+
+	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
+		struct ospf_interface *oi = rn->info;
+
+		if (!oi)
+			continue;
+
+		/* If hello interval configured on this oi, don't restart. */
+		if (OSPF_IF_PARAM_CONFIGURED(oi->params, v_hello))
+			continue;
+
+		/* Send hello before restart the hello timer
+		 * to avoid session flaps in case of bigger
+		 * hello interval configurations.
+		 */
+		ospf_hello_send(oi);
+
+		/* Restart the hello timer. */
+		OSPF_ISM_TIMER_OFF(oi->t_hello);
+		OSPF_HELLO_TIMER_ON(oi);
+	}
+}
+
 void ospf_if_init(void)
 {
 	if_zapi_callbacks(ospf_ifp_create, ospf_ifp_up,

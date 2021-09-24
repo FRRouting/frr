@@ -40,6 +40,7 @@
 #include "ospf6_zebra.h"
 #include "ospf6d.h"
 #include "ospf6_area.h"
+#include "ospf6_gr.h"
 #include "lib/json.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_DISTANCE, "OSPF6 distance");
@@ -101,7 +102,7 @@ static int ospf6_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 
 	o->router_id_zebra = router_id.u.prefix4.s_addr;
 
-	ospf6_router_id_update(o);
+	ospf6_router_id_update(o, false);
 
 	return 0;
 }
@@ -131,37 +132,16 @@ void ospf6_zebra_no_redistribute(int type, vrf_id_t vrf_id)
 static int ospf6_zebra_if_address_update_add(ZAPI_CALLBACK_ARGS)
 {
 	struct connected *c;
-	struct ospf6_interface *oi;
-	int ipv6_count = 0;
 
 	c = zebra_interface_address_read(ZEBRA_INTERFACE_ADDRESS_ADD,
 					 zclient->ibuf, vrf_id);
 	if (c == NULL)
 		return 0;
 
-	oi = (struct ospf6_interface *)c->ifp->info;
-	if (oi == NULL)
-		oi = ospf6_interface_create(c->ifp);
-	assert(oi);
-
 	if (IS_OSPF6_DEBUG_ZEBRA(RECV))
 		zlog_debug("Zebra Interface address add: %s %5s %pFX",
 			   c->ifp->name, prefix_family_str(c->address),
 			   c->address);
-
-	ipv6_count = connected_count_by_family(c->ifp, AF_INET6);
-	if (oi->ifmtu == OSPF6_DEFAULT_MTU && ipv6_count > OSPF6_MAX_IF_ADDRS) {
-		zlog_warn(
-			"Zebra Interface : %s has too many interface addresses %d only support %d, increase MTU",
-			c->ifp->name, ipv6_count, OSPF6_MAX_IF_ADDRS);
-		return 0;
-	} else if (oi->ifmtu >= OSPF6_JUMBO_MTU
-		   && ipv6_count > OSPF6_MAX_IF_ADDRS_JUMBO) {
-		zlog_warn(
-			"Zebra Interface : %s has too many interface addresses %d only support %d",
-			c->ifp->name, ipv6_count, OSPF6_MAX_IF_ADDRS_JUMBO);
-		return 0;
-	}
 
 	if (c->address->family == AF_INET6) {
 		ospf6_interface_state_update(c->ifp);
@@ -192,6 +172,36 @@ static int ospf6_zebra_if_address_update_delete(ZAPI_CALLBACK_ARGS)
 	connected_free(&c);
 
 	return 0;
+}
+
+static int ospf6_zebra_gr_update(struct ospf6 *ospf6, int command,
+				 uint32_t stale_time)
+{
+	struct zapi_cap api;
+
+	if (!zclient || zclient->sock < 0 || !ospf6)
+		return 1;
+
+	memset(&api, 0, sizeof(struct zapi_cap));
+	api.cap = command;
+	api.stale_removal_time = stale_time;
+	api.vrf_id = ospf6->vrf_id;
+
+	(void)zclient_capabilities_send(ZEBRA_CLIENT_CAPABILITIES, zclient,
+					&api);
+
+	return 0;
+}
+
+int ospf6_zebra_gr_enable(struct ospf6 *ospf6, uint32_t stale_time)
+{
+	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_CAPABILITIES,
+				     stale_time);
+}
+
+int ospf6_zebra_gr_disable(struct ospf6 *ospf6)
+{
+	return ospf6_zebra_gr_update(ospf6, ZEBRA_CLIENT_GR_DISABLE, 0);
 }
 
 static int ospf6_zebra_read_route(ZAPI_CALLBACK_ARGS)
@@ -405,12 +415,30 @@ static void ospf6_zebra_route_update(int type, struct ospf6_route *request,
 void ospf6_zebra_route_update_add(struct ospf6_route *request,
 				  struct ospf6 *ospf6)
 {
+	if (ospf6->gr_info.restart_in_progress
+	    || ospf6->gr_info.prepare_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not installing %pFX",
+				&request->prefix);
+		return;
+	}
+
 	ospf6_zebra_route_update(ADD, request, ospf6);
 }
 
 void ospf6_zebra_route_update_remove(struct ospf6_route *request,
 				     struct ospf6 *ospf6)
 {
+	if (ospf6->gr_info.restart_in_progress
+	    || ospf6->gr_info.prepare_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not uninstalling %pFX",
+				&request->prefix);
+		return;
+	}
+
 	ospf6_zebra_route_update(REM, request, ospf6);
 }
 
@@ -418,6 +446,15 @@ void ospf6_zebra_add_discard(struct ospf6_route *request, struct ospf6 *ospf6)
 {
 	struct zapi_route api;
 	struct prefix *dest = &request->prefix;
+
+	if (ospf6->gr_info.restart_in_progress
+	    || ospf6->gr_info.prepare_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not installing %pFX",
+				&request->prefix);
+		return;
+	}
 
 	if (!CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
 		memset(&api, 0, sizeof(api));
@@ -446,6 +483,15 @@ void ospf6_zebra_delete_discard(struct ospf6_route *request,
 {
 	struct zapi_route api;
 	struct prefix *dest = &request->prefix;
+
+	if (ospf6->gr_info.restart_in_progress
+	    || ospf6->gr_info.prepare_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"Zebra: Graceful Restart in progress -- not uninstalling %pFX",
+				&request->prefix);
+		return;
+	}
 
 	if (CHECK_FLAG(request->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
 		memset(&api, 0, sizeof(api));

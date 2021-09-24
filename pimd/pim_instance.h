@@ -96,9 +96,9 @@ struct pim_router {
 	int t_periodic;
 	struct pim_assert_metric infinite_assert_metric;
 	long rpf_cache_refresh_delay_msec;
-	int32_t register_suppress_time;
+	uint32_t register_suppress_time;
 	int packet_process;
-	int32_t register_probe_time;
+	uint32_t register_probe_time;
 
 	/*
 	 * What is the default vrf that we work in
@@ -209,6 +209,8 @@ struct pim_instance {
 
 void pim_vrf_init(void);
 void pim_vrf_terminate(void);
+
+extern struct pim_router *router;
 
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 
