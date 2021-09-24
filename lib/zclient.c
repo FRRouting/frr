@@ -765,7 +765,8 @@ static int zclient_connect(struct thread *t)
 
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 					  const struct prefix *p,
-					  bool exact_match, vrf_id_t vrf_id)
+					  bool exact_match,
+					  bool resolve_via_def, vrf_id_t vrf_id)
 {
 	struct stream *s;
 
@@ -773,7 +774,7 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	stream_reset(s);
 	zclient_create_header(s, command, vrf_id);
 	stream_putc(s, (exact_match) ? 1 : 0);
-
+	stream_putc(s, (resolve_via_def) ? 1 : 0);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
 	switch (PREFIX_FAMILY(p)) {
