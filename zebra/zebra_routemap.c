@@ -319,7 +319,7 @@ static int ip_nht_rm_add(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 	route_map_counter_increment(NHT_RM_MAP(zvrf, afi, rtype));
 
 	if (NHT_RM_MAP(zvrf, afi, rtype))
-		zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE, NULL);
+		zebra_evaluate_rnh(zvrf, AFI_IP, 1, NULL);
 
 	return CMD_SUCCESS;
 }
@@ -340,8 +340,7 @@ static int ip_nht_rm_del(struct zebra_vrf *zvrf, const char *rmap, int rtype,
 					zvrf->vrf->vrf_id, rtype);
 			NHT_RM_MAP(zvrf, afi, rtype) = NULL;
 
-			zebra_evaluate_rnh(zvrf, AFI_IP, 1, RNH_NEXTHOP_TYPE,
-					   NULL);
+			zebra_evaluate_rnh(zvrf, AFI_IP, 1, NULL);
 		}
 		XFREE(MTYPE_ROUTE_MAP_NAME, NHT_RM_NAME(zvrf, afi, rtype));
 	}
@@ -1588,9 +1587,8 @@ static void zebra_nht_rm_update(const char *rmap)
 
 						afi_ip = 1;
 
-						zebra_evaluate_rnh(
-							zvrf, AFI_IP, 1,
-							RNH_NEXTHOP_TYPE, NULL);
+						zebra_evaluate_rnh(zvrf, AFI_IP,
+								   1, NULL);
 					}
 				}
 			}
@@ -1619,9 +1617,8 @@ static void zebra_nht_rm_update(const char *rmap)
 
 						afi_ipv6 = 1;
 
-						zebra_evaluate_rnh(
-							zvrf, AFI_IP, 1,
-							RNH_NEXTHOP_TYPE, NULL);
+						zebra_evaluate_rnh(zvrf, AFI_IP,
+								   1, NULL);
 					}
 				}
 			}

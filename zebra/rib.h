@@ -46,8 +46,6 @@ DECLARE_MGROUP(ZEBRA);
 
 DECLARE_MTYPE(RE);
 
-enum rnh_type { RNH_NEXTHOP_TYPE };
-
 PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
@@ -63,8 +61,6 @@ struct rnh {
 	vrf_id_t vrf_id;
 
 	afi_t afi;
-
-	enum rnh_type type;
 
 	uint32_t seqno;
 

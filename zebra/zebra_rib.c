@@ -730,10 +730,9 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"%s(%u):%pRN has Nexthop(%pFX) Type: %s depending on it, evaluating %u:%u",
-					zvrf_name(zvrf), zvrf_id(zvrf),
-					rn, p, rnh_type2str(rnh->type), seq,
-					rnh->seqno);
+					"%s(%u):%pRN has Nexthop(%pFX) depending on it, evaluating %u:%u",
+					zvrf_name(zvrf), zvrf_id(zvrf), rn, p,
+					seq, rnh->seqno);
 
 			/*
 			 * If we have evaluated this node on this pass
@@ -755,8 +754,7 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 			}
 
 			rnh->seqno = seq;
-			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0,
-					   rnh->type, p);
+			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0, p);
 		}
 
 		rn = rn->parent;
