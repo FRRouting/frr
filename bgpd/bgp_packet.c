@@ -2708,7 +2708,7 @@ int bgp_packet_process_error(struct thread *thread)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] BGP error %d on fd %d",
-			   peer->host, peer->fd, code);
+			   peer->host, code, peer->fd);
 
 	/* Closed connection or error on the socket */
 	if (peer->status == Established) {
