@@ -80,6 +80,8 @@ static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
 	if (zvrf) {
 		if (safi == SAFI_UNICAST)
 			t = zvrf->rnh_table[afi];
+		else if (safi == SAFI_MULTICAST)
+			t = zvrf->rnh_table_multicast[afi];
 	}
 
 	return t;
@@ -88,7 +90,7 @@ static inline struct route_table *get_rnh_table(vrf_id_t vrfid, afi_t afi,
 static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	struct route_table *table = zvrf->table[rnh->afi][SAFI_UNICAST];
+	struct route_table *table = zvrf->table[rnh->afi][rnh->safi];
 	struct route_node *rn;
 	rib_dest_t *dest;
 
@@ -112,7 +114,7 @@ static void zebra_rnh_remove_from_routing_table(struct rnh *rnh)
 static void zebra_rnh_store_in_routing_table(struct rnh *rnh)
 {
 	struct zebra_vrf *zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	struct route_table *table = zvrf->table[rnh->afi][SAFI_UNICAST];
+	struct route_table *table = zvrf->table[rnh->afi][rnh->safi];
 	struct route_node *rn;
 	rib_dest_t *dest;
 
@@ -223,7 +225,7 @@ void zebra_free_rnh(struct rnh *rnh)
 	list_delete(&rnh->zebra_pseudowire_list);
 
 	zvrf = zebra_vrf_lookup_by_id(rnh->vrf_id);
-	table = zvrf->table[family2afi(rnh->resolved_route.family)][SAFI_UNICAST];
+	table = zvrf->table[family2afi(rnh->resolved_route.family)][rnh->safi];
 
 	if (table) {
 		struct route_node *rern;
@@ -563,7 +565,7 @@ zebra_rnh_resolve_nexthop_entry(struct zebra_vrf *zvrf, afi_t afi,
 
 	*prn = NULL;
 
-	route_table = zvrf->table[afi][SAFI_UNICAST];
+	route_table = zvrf->table[afi][rnh->safi];
 	if (!route_table)
 		return NULL;
 
