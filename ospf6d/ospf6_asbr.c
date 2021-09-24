@@ -49,6 +49,7 @@
 #include "ospf6_abr.h"
 #include "ospf6_intra.h"
 #include "ospf6_flood.h"
+#include "ospf6_nssa.h"
 #include "ospf6d.h"
 #include "ospf6_spf.h"
 #include "ospf6_nssa.h"
@@ -85,7 +86,7 @@ static struct ospf6_lsa *ospf6_originate_type5_type7_lsas(
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
 		if (IS_AREA_NSSA(oa))
-			ospf6_nssa_lsa_originate(route, oa);
+			ospf6_nssa_lsa_originate(route, oa, true);
 	}
 
 	return lsa;
@@ -1433,7 +1434,10 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	memset(&tinfo, 0, sizeof(tinfo));
 
 	if (IS_OSPF6_DEBUG_ASBR)
-		zlog_debug("Redistribute %pFX (%s)", prefix, ZROUTE_NAME(type));
+		zlog_debug("Redistribute %pFX (%s)", prefix,
+			   type == DEFAULT_ROUTE
+				   ? "default-information-originate"
+				   : ZROUTE_NAME(type));
 
 	/* if route-map was specified but not found, do not advertise */
 	if (ROUTEMAP_NAME(red)) {
@@ -1787,7 +1791,7 @@ int ospf6_redistribute_config_write(struct vty *vty, struct ospf6 *ospf6)
 		vty_out(vty, " redistribute %s", ZROUTE_NAME(type));
 		if (red->dmetric.value >= 0)
 			vty_out(vty, " metric %d", red->dmetric.value);
-		if (red->dmetric.type != DEFAULT_METRIC_TYPE)
+		if (red->dmetric.type == 1)
 			vty_out(vty, " metric-type 1");
 		if (ROUTEMAP_NAME(red))
 			vty_out(vty, " route-map %s", ROUTEMAP_NAME(red));

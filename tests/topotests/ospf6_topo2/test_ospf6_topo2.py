@@ -217,8 +217,8 @@ def test_ospfv3_expected_route_types():
         {
             "numberOfIntraAreaRoutes": 1,
             "numberOfInterAreaRoutes": 2,
-            "numberOfExternal1Routes": 4,
-            "numberOfExternal2Routes": 0,
+            "numberOfExternal1Routes": 0,
+            "numberOfExternal2Routes": 3,
         },
     )
 
@@ -330,7 +330,7 @@ def test_nssa_lsa_type7():
     ]
     route = {
         "2001:db8:100::/64": {
-            "pathType": "E1",
+            "pathType": "E2",
             "nextHops": [{"nextHop": "::", "interfaceName": "r4-eth0"}],
         }
     }
@@ -428,6 +428,50 @@ def test_nssa_no_summary():
     test_func = partial(dont_expect_route, "r4", "::/0", type="inter-area")
     _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
     assertmsg = "{}'s inter-area default route still exists".format("r4")
+    assert result is None, assertmsg
+
+
+def test_nssa_default_originate():
+    """
+    Test the following:
+    * A type-7 default route should be originated into the NSSA area
+      when the default-information-originate option is configured;
+    * Once the default-information-originate option is unconfigured, the
+      previously originated Type-7 default route should be removed.
+    """
+    tgen = get_topogen()
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    #
+    # Configure r2 to announce a Type-7 default route.
+    #
+    config = """
+    configure terminal
+    router ospf6
+    no default-information originate
+    area 2 nssa default-information-originate
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting Type-7 default-route to be added")
+    routes = {"::/0": {}}
+    expect_ospfv3_routes("r4", routes, wait=30, type="external-2")
+
+    #
+    # Configure r2 to stop announcing a Type-7 default route.
+    #
+    config = """
+    configure terminal
+    router ospf6
+    area 2 nssa
+    """
+    tgen.gears["r2"].vtysh_cmd(config)
+
+    logger.info("Expecting Type-7 default route to be removed")
+    test_func = partial(dont_expect_route, "r4", "::/0", type="external-2")
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    assertmsg = "r4's Type-7 default route still exists"
     assert result is None, assertmsg
 
 

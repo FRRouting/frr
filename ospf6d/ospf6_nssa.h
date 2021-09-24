@@ -64,8 +64,9 @@ extern void ospf6_schedule_abr_task(struct ospf6 *ospf6);
 extern void ospf6_area_nssa_update(struct ospf6_area *area);
 void ospf6_asbr_prefix_readvertise(struct ospf6 *ospf6);
 extern void ospf6_nssa_lsa_originate(struct ospf6_route *route,
-				     struct ospf6_area *area);
+				     struct ospf6_area *area, bool p_bit);
 extern void install_element_ospf6_debug_nssa(void);
+extern void ospf6_abr_nssa_type_7_defaults(struct ospf6 *osof6);
 int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
 			     int type);
 extern int ospf6_abr_translate_nssa(struct ospf6_area *area,

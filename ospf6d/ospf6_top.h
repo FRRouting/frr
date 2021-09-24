@@ -143,6 +143,18 @@ struct ospf6 {
 	/* OSPF6 redistribute configuration */
 	struct list *redist[ZEBRA_ROUTE_MAX + 1];
 
+	/* NSSA default-information-originate */
+	struct {
+		/* # of NSSA areas requesting default information */
+		uint16_t refcnt;
+
+		/*
+		 * Whether a default route known through non-OSPF protocol is
+		 * present in the RIB.
+		 */
+		bool status;
+	} nssa_default_import_check;
+
 	uint8_t flag;
 #define OSPF6_FLAG_ABR          0x04
 #define OSPF6_FLAG_ASBR         0x08
