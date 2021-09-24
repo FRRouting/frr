@@ -664,7 +664,7 @@ void bgp_nht_interface_events(struct peer *peer)
 void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
-	struct bgp_nexthop_cache *bnc;
+	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
 	struct bgp *bgp;
 	struct zapi_route nhr;
 	afi_t afi;
@@ -685,21 +685,37 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	}
 
 	afi = family2afi(nhr.prefix.family);
-	if (command == ZEBRA_NEXTHOP_UPDATE)
-		tree = &bgp->nexthop_cache_table[afi];
-	else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
-		tree = &bgp->import_check_table[afi];
+	tree = &bgp->nexthop_cache_table[afi];
 
-	bnc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
-	if (!bnc) {
+	bnc_nhc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
+	if (!bnc_nhc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
-				"parse nexthop update(%pFX(%u)(%s)): bnc info not found",
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
+				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+	} else
+		bgp_process_nexthop_update(bnc_nhc, &nhr);
+
+	tree = &bgp->import_check_table[afi];
+
+	bnc_import = bnc_find(tree, &nhr.prefix, nhr.srte_color);
+	if (!bnc_import) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug(
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 		return;
+	} else {
+		if (nhr.type == ZEBRA_ROUTE_BGP
+		    || !prefix_same(&bnc_import->prefix, &nhr.prefix)) {
+			if (BGP_DEBUG(nht, NHT))
+				zlog_debug(
+					"%s: Import Check does not resolve to the same prefix for %pFX received %pFX",
+					__func__, &bnc_import->prefix, &nhr.prefix);
+			return;
+		}
+		bgp_process_nexthop_update(bnc_import, &nhr);
 	}
-
-	bgp_process_nexthop_update(bnc, &nhr);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -712,12 +728,12 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	 * which should provide a better infrastructure to solve this issue in
 	 * a more efficient and elegant way.
 	 */
-	if (nhr.srte_color == 0) {
+	if (nhr.srte_color == 0 && bnc_nhc) {
 		struct bgp_nexthop_cache *bnc_iter;
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
-			if (!prefix_same(&bnc->prefix, &bnc_iter->prefix)
+			if (!prefix_same(&bnc_import->prefix, &bnc_iter->prefix)
 			    || bnc_iter->srte_color == 0
 			    || CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
