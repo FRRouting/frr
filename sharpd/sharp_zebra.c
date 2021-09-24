@@ -626,17 +626,10 @@ void sharp_zebra_nexthop_watch(struct prefix *p, vrf_id_t vrf_id, bool import,
 {
 	int command;
 
-	if (!import) {
-		command = ZEBRA_NEXTHOP_REGISTER;
+	command = ZEBRA_NEXTHOP_REGISTER;
 
-		if (!watch)
-			command = ZEBRA_NEXTHOP_UNREGISTER;
-	} else {
-		command = ZEBRA_IMPORT_ROUTE_REGISTER;
-
-		if (!watch)
-			command = ZEBRA_IMPORT_ROUTE_UNREGISTER;
-	}
+	if (!watch)
+		command = ZEBRA_NEXTHOP_UNREGISTER;
 
 	if (zclient_send_rnh(zclient, command, p, connected, false, vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
@@ -984,7 +977,6 @@ void sharp_zebra_init(void)
 	zclient->interface_address_delete = interface_address_delete;
 	zclient->route_notify_owner = route_notify_owner;
 	zclient->nexthop_update = sharp_nexthop_update;
-	zclient->import_check_update = sharp_nexthop_update;
 	zclient->nhg_notify_owner = nhg_notify_owner;
 	zclient->zebra_buffer_write_ready = sharp_zclient_buffer_ready;
 	zclient->redistribute_route_add = sharp_redistribute_route;

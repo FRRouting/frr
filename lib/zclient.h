@@ -126,9 +126,6 @@ typedef enum {
 	ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
 	ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
 	ZEBRA_INTERFACE_BFD_DEST_UPDATE,
-	ZEBRA_IMPORT_ROUTE_REGISTER,
-	ZEBRA_IMPORT_ROUTE_UNREGISTER,
-	ZEBRA_IMPORT_CHECK_UPDATE,
 	ZEBRA_BFD_DEST_REGISTER,
 	ZEBRA_BFD_DEST_DEREGISTER,
 	ZEBRA_BFD_DEST_UPDATE,
@@ -362,7 +359,6 @@ struct zclient {
 	int (*interface_nbr_address_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_vrf_update)(ZAPI_CALLBACK_ARGS);
 	int (*nexthop_update)(ZAPI_CALLBACK_ARGS);
-	int (*import_check_update)(ZAPI_CALLBACK_ARGS);
 	int (*bfd_dest_replay)(ZAPI_CALLBACK_ARGS);
 	int (*redistribute_route_add)(ZAPI_CALLBACK_ARGS);
 	int (*redistribute_route_del)(ZAPI_CALLBACK_ARGS);

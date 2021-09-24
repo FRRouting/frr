@@ -1167,8 +1167,6 @@ int zsend_zebra_srv6_locator_delete(struct zserv *client,
 const int cmd2type[] = {
 	[ZEBRA_NEXTHOP_REGISTER] = RNH_NEXTHOP_TYPE,
 	[ZEBRA_NEXTHOP_UNREGISTER] = RNH_NEXTHOP_TYPE,
-	[ZEBRA_IMPORT_ROUTE_REGISTER] = RNH_IMPORT_CHECK_TYPE,
-	[ZEBRA_IMPORT_ROUTE_UNREGISTER] = RNH_IMPORT_CHECK_TYPE,
 };
 
 /* Nexthop register */
@@ -3690,8 +3688,6 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_HELLO] = zread_hello,
 	[ZEBRA_NEXTHOP_REGISTER] = zread_rnh_register,
 	[ZEBRA_NEXTHOP_UNREGISTER] = zread_rnh_unregister,
-	[ZEBRA_IMPORT_ROUTE_REGISTER] = zread_rnh_register,
-	[ZEBRA_IMPORT_ROUTE_UNREGISTER] = zread_rnh_unregister,
 	[ZEBRA_BFD_DEST_UPDATE] = zebra_ptm_bfd_dst_register,
 	[ZEBRA_BFD_DEST_REGISTER] = zebra_ptm_bfd_dst_register,
 	[ZEBRA_BFD_DEST_DEREGISTER] = zebra_ptm_bfd_dst_deregister,

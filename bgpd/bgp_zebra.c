@@ -112,12 +112,6 @@ static int bgp_read_nexthop_update(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int bgp_read_import_check_update(ZAPI_CALLBACK_ARGS)
-{
-	bgp_parse_nexthop_update(cmd, vrf_id);
-	return 0;
-}
-
 /* Set or clear interface on which unnumbered neighbor is configured. This
  * would in turn cause BGP to initiate or turn off IPv6 RAs on this
  * interface.
@@ -3185,7 +3179,6 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 	zclient->redistribute_route_add = zebra_read_route;
 	zclient->redistribute_route_del = zebra_read_route;
 	zclient->nexthop_update = bgp_read_nexthop_update;
-	zclient->import_check_update = bgp_read_import_check_update;
 	zclient->fec_update = bgp_read_fec_update;
 	zclient->local_es_add = bgp_zebra_process_local_es_add;
 	zclient->local_es_del = bgp_zebra_process_local_es_del;
