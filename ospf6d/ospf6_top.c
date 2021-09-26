@@ -651,7 +651,7 @@ bool ospf6_router_id_update(struct ospf6 *ospf6, bool init)
 		for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 			if (oa->full_nbrs) {
 				zlog_err(
-					"%s: cannot update router-id. Run the \"clear ipv6 ospf6 process\" command\n",
+					"%s: cannot update router-id. Run the \"clear ipv6 ospf6 process\" command",
 					__func__);
 				return false;
 			}
