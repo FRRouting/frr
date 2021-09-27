@@ -375,7 +375,6 @@ static int zebra_vxlan_if_add_vni(struct interface *ifp,
 	struct zebra_l2info_vxlan *vxl = NULL;
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
-	struct zebra_vxlan_vni *vnip;
 	struct interface *br_if = NULL;
 
 	/* Check if EVPN is enabled. */
@@ -802,8 +801,8 @@ int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 {
 	vni_t vni;
 	struct zebra_if *zif = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
-	zebra_evpn_t *zevpn;
+	struct zebra_l3vni *zl3vni = NULL;
+	struct zebra_evpn *zevpn;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())
@@ -886,8 +885,8 @@ int zebra_vxlan_if_vni_up(struct interface *ifp, struct zebra_vxlan_vni *vnip)
 {
 	vni_t vni;
 	struct zebra_if *zif = NULL;
-	zebra_evpn_t *zevpn = NULL;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_evpn *zevpn = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 
 	/* Check if EVPN is enabled. */
 	if (!is_evpn_enabled())

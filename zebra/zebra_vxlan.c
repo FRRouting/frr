@@ -107,8 +107,6 @@ static int zl3vni_rmac_uninstall(struct zebra_l3vni *zl3vni,
 static void *zl3vni_alloc(void *p);
 static struct zebra_l3vni *zl3vni_add(vni_t vni, vrf_id_t vrf_id);
 static int zl3vni_del(struct zebra_l3vni *zl3vni);
-static void zebra_vxlan_process_l3vni_oper_up(struct zebra_l3vni *zl3vni);
-static void zebra_vxlan_process_l3vni_oper_down(struct zebra_l3vni *zl3vni);
 
 static void zevpn_build_hash_table(void);
 static unsigned int zebra_vxlan_sg_hash_key_make(const void *p);
@@ -118,10 +116,6 @@ static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 static struct zebra_vxlan_sg *zebra_vxlan_sg_do_ref(struct zebra_vrf *vrf,
 						    struct in_addr sip,
 						    struct in_addr mcast_grp);
-static void zebra_vxlan_sg_deref(struct in_addr local_vtep_ip,
-				struct in_addr mcast_grp);
-static void zebra_vxlan_sg_ref(struct in_addr local_vtep_ip,
-				struct in_addr mcast_grp);
 static void zebra_vxlan_cleanup_sg_table(struct zebra_vrf *zvrf);
 
 bool zebra_evpn_do_dup_addr_detect(struct zebra_vrf *zvrf)
@@ -895,7 +889,7 @@ struct interface *zvni_map_to_svi(vlanid_t vid, struct interface *br_if)
 	return tmp_if;
 }
 
-static int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn)
+int zebra_evpn_vxlan_del(struct zebra_evpn *zevpn)
 {
 	zevpn->vid = 0;
 	zevpn_vxlan_if_set(zevpn, zevpn->vxlan_if, false /* set */);
@@ -1849,7 +1843,7 @@ static int zl3vni_from_svi_ns(struct ns *ns, void *_in_param, void **_p_zl3vni)
 	br_zif = in_param->br_if->info;
 	assert(br_zif);
 
-	if (in_param.bridge_vlan_aware) {
+	if (in_param->bridge_vlan_aware) {
 		vni_id = zebra_l2_bridge_if_vni_find(br_zif, in_param->vid);
 		if (vni_id)
 			found = 1;

@@ -71,7 +71,7 @@ static inline void zevpn_vxlan_if_set(struct zebra_evpn *zevpn,
 }
 
 /* EVPN<=>Bridge interface association */
-static inline void zevpn_bridge_if_set(zebra_evpn_t *zevpn,
+static inline void zevpn_bridge_if_set(struct zebra_evpn *zevpn,
 				       struct interface *ifp, bool set)
 {
 	if (set) {
@@ -86,7 +86,7 @@ static inline void zevpn_bridge_if_set(zebra_evpn_t *zevpn,
 }
 
 /* EVPN<=>Bridge interface association */
-static inline void zl3vni_bridge_if_set(zebra_l3vni_t *zl3vni,
+static inline void zl3vni_bridge_if_set(struct zebra_l3vni *zl3vni,
 					struct interface *ifp, bool set)
 {
 	if (set) {

@@ -811,7 +811,7 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
 void zebra_evpn_access_bd_bridge_cleanup(vlanid_t vid, struct interface *br_if,
 					 struct zebra_evpn_access_bd *acc_bd)
 {
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("access bd vlan %d bridge %s cleanup", acc_bd->vid,
