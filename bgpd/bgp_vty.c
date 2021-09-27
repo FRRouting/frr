@@ -912,13 +912,19 @@ static int bgp_peer_clear(struct peer *peer, afi_t afi, safi_t safi,
 	if ((afi == AFI_UNSPEC) && (safi == SAFI_UNSPEC)) {
 		afi_t tmp_afi;
 		safi_t tmp_safi;
+		enum bgp_af_index index;
 
-		FOREACH_AFI_SAFI (tmp_afi, tmp_safi) {
-			paf = peer_af_find(peer, tmp_afi, tmp_safi);
+		for (index = BGP_AF_START; index < BGP_AF_MAX; index++) {
+			paf = peer->peer_af_array[index];
+			if (!paf)
+				continue;
+
 			if (paf && paf->subgroup)
 				SET_FLAG(paf->subgroup->sflags,
 					 SUBGRP_STATUS_FORCE_UPDATES);
 
+			tmp_afi = paf->afi;
+			tmp_safi = paf->safi;
 			if (!peer->afc[tmp_afi][tmp_safi])
 				continue;
 
