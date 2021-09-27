@@ -4146,9 +4146,8 @@ static void clear_pim_bsr_db(struct pim_instance *pim)
 			rpnode->info = NULL;
 			route_unlock_node(rpnode);
 			route_unlock_node(rpnode);
+			XFREE(MTYPE_PIM_RP, rp_info);
 		}
-
-		XFREE(MTYPE_PIM_RP, rp_info);
 
 		pim_free_bsgrp_node(bsgrp->scope->bsrp_table, &bsgrp->group);
 		pim_free_bsgrp_data(bsgrp);
