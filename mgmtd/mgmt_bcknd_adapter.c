@@ -985,8 +985,8 @@ mgmt_bcknd_client_adapter_t *mgmt_bcknd_create_adapter(
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(adptr->conn_fd);
-	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_SEND_BUF_SIZE);
-	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_RECV_BUF_SIZE);
+	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_BCKND_SEND_BUF_SIZE);
+	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_BCKND_RECV_BUF_SIZE);
 
 	/* Trigger resync of config with the new adapter */
 	mgmt_bcknd_adptr_register_event(adptr, MGMTD_BCKND_CONN_INIT);

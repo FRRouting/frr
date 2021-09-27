@@ -1622,8 +1622,8 @@ mgmt_frntnd_client_adapter_t *mgmt_frntnd_create_adapter(
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(adptr->conn_fd);
-	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_SEND_BUF_SIZE);
-	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_RECV_BUF_SIZE);
+	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_FRNTND_SEND_BUF_SIZE);
+	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_FRNTND_RECV_BUF_SIZE);
 	return adptr;
 }
 

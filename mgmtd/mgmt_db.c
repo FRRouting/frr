@@ -370,6 +370,29 @@ static bool mgmt_db_dump_cmt_record_index(void)
 	}
 }
 
+static int mgmt_db_reset(mgmt_db_ctxt_t *db_ctxt)
+{
+	struct lyd_node *dnode;
+
+	if (!db_ctxt)
+		return -1;
+
+	dnode = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode :
+			db_ctxt->root.dnode_root;
+
+	if (dnode)
+		yang_dnode_free(dnode);
+
+	dnode = yang_dnode_new(ly_native_ctx, true);
+
+	if (db_ctxt->config_db)
+		db_ctxt->root.cfg_root->dnode = dnode;
+	else
+		db_ctxt->root.dnode_root = dnode;
+
+	return 0;
+}
+
 static int mgmt_db_rollback_to_cmt(struct vty *vty,
 	struct mgmt_cmt_info_t *cmt_info, bool skip_file_load)
 {
@@ -998,31 +1021,6 @@ int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str)
 	return 0;
 }
 
-static int mgmt_db_reset(mgmt_db_hndl_t db_hndl)
-{
-	mgmt_db_ctxt_t *db_ctxt;
-	struct lyd_node *dnode;
-
-	db_ctxt = (mgmt_db_ctxt_t *)db_hndl;
-	if (!db_ctxt)
-		return -1;
-
-	dnode = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode :
-			db_ctxt->root.dnode_root;
-
-	if (dnode)
-		yang_dnode_free(dnode);
-
-	dnode = yang_dnode_new(ly_native_ctx, true);
-
-	if (db_ctxt->config_db)
-		db_ctxt->root.cfg_root->dnode = dnode;
-	else
-		db_ctxt->root.dnode_root = dnode;
-
-	return 0;
-}
-
 int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 {
 	int ret = 0;
@@ -1040,7 +1038,7 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 		return -1;
 	}
 
-	if (cmts == 1 || cmts == num_cmts) {
+	if ((int) cmts == 1 || (int) cmts == num_cmts) {
 		vty_out(vty, "Number of commits found (%d), Rollback of last commit is not supported\n",
 			(int) cmts);
 		return -1;
@@ -1059,7 +1057,7 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 	}
 
 	if (!mgmt_cmt_info_dlist_count(&mm->cmt_dlist)) {
-		ret = mgmt_db_reset(mm->candidate_db);
+		ret = mgmt_db_reset((mgmt_db_ctxt_t *) mm->candidate_db);
 		if (ret < 0)
 			return ret;
 		ret = mgmt_db_rollback_to_cmt(vty, cmt_info, true);
