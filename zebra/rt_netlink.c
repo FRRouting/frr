@@ -3683,7 +3683,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	bool local_inactive;
 	uint32_t ext_flags = 0;
 	bool dp_static = false;
-	int l2_len = 0;
+	uint32_t l2_len = 0;
 	int cmd;
 
 	ndm = NLMSG_DATA(h);
@@ -3744,6 +3744,13 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (tb[NDA_LLADDR]) {
 		/* copy LLADDR information */
 		l2_len = RTA_PAYLOAD(tb[NDA_LLADDR]);
+		if (l2_len != sizeof(mac)) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"   Neighbor Entry received has a NDA_LLADDR of length %u but was expecting %lu, ignoring",
+					l2_len, sizeof(mac));
+			return 0;
+		}
 		memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), l2_len);
 	}
 	if (l2_len == IPV4_MAX_BYTELEN || l2_len == 0) {
