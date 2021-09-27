@@ -1316,6 +1316,7 @@ static int mgmt_frntnd_adapter_proc_msgbufs(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->proc_msg_ev = NULL;
 
 	MGMTD_FRNTND_ADPTR_DBG("Have %d ibufs for client '%s' to process",
 		(int) stream_fifo_count_safe(adptr->ibuf_fifo), adptr->name);
@@ -1357,6 +1358,7 @@ static int mgmt_frntnd_adapter_read(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(adptr->ibuf_work) - 
@@ -1451,6 +1453,7 @@ static int mgmt_frntnd_adapter_write(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (adptr->obuf_work) {
@@ -1503,6 +1506,7 @@ static int mgmt_frntnd_adapter_resume_writes(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_writes_on = NULL;
 
 	mgmt_frntnd_adapter_writes_on(adptr);
 
@@ -1564,6 +1568,10 @@ extern void mgmt_frntnd_adapter_unlock(mgmt_frntnd_client_adapter_t **adptr)
 		stream_fifo_free((*adptr)->obuf_fifo);
 		stream_free((*adptr)->obuf_work);
 
+		THREAD_OFF((*adptr)->conn_read_ev);
+		THREAD_OFF((*adptr)->conn_write_ev);
+		THREAD_OFF((*adptr)->proc_msg_ev);
+		THREAD_OFF((*adptr)->conn_writes_on);
 		XFREE(MTYPE_MGMTD_FRNTND_ADPATER, *adptr);
 	}
 
@@ -1614,8 +1622,8 @@ mgmt_frntnd_client_adapter_t *mgmt_frntnd_create_adapter(
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(adptr->conn_fd);
-	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_BUF_SIZE);
-	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_BUF_SIZE);
+	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_SEND_BUF_SIZE);
+	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_RECV_BUF_SIZE);
 	return adptr;
 }
 

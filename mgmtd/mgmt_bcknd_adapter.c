@@ -612,6 +612,7 @@ static int mgmt_bcknd_adapter_proc_msgbufs(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr);
+	adptr->proc_msg_ev = NULL;
 
 	if (adptr->conn_fd == 0)
 		return 0;
@@ -653,6 +654,7 @@ static int mgmt_bcknd_adapter_read(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(adptr->ibuf_work) - 
@@ -746,6 +748,7 @@ static int mgmt_bcknd_adapter_write(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (adptr->obuf_work) {
@@ -798,6 +801,7 @@ static int mgmt_bcknd_adapter_resume_writes(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_writes_on = NULL;
 
 	mgmt_bcknd_adapter_writes_on(adptr);
 
@@ -839,6 +843,7 @@ static int mgmt_bcknd_adapter_conn_init(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
+	adptr->conn_init_ev = NULL;
 
 	/*
 	 * Check first if the current session can run a CONFIG
@@ -926,6 +931,10 @@ extern void mgmt_bcknd_adapter_unlock(mgmt_bcknd_client_adapter_t **adptr)
 		stream_free((*adptr)->obuf_work);
 
 		THREAD_OFF((*adptr)->conn_init_ev);
+		THREAD_OFF((*adptr)->conn_read_ev);
+		THREAD_OFF((*adptr)->conn_write_ev);
+		THREAD_OFF((*adptr)->conn_writes_on);
+		THREAD_OFF((*adptr)->proc_msg_ev);
 		XFREE(MTYPE_MGMTD_BCKND_ADPATER, *adptr);
 	}
 
@@ -976,8 +985,8 @@ mgmt_bcknd_client_adapter_t *mgmt_bcknd_create_adapter(
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(adptr->conn_fd);
-	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_BUF_SIZE);
-	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_BUF_SIZE);
+	setsockopt_so_sendbuf(adptr->conn_fd, MGMTD_SOCKET_SEND_BUF_SIZE);
+	setsockopt_so_recvbuf(adptr->conn_fd, MGMTD_SOCKET_RECV_BUF_SIZE);
 
 	/* Trigger resync of config with the new adapter */
 	mgmt_bcknd_adptr_register_event(adptr, MGMTD_BCKND_CONN_INIT);

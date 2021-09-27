@@ -27,6 +27,7 @@
 #include "lib/network.h"
 #include "lib/stream.h"
 #include "lib/memory.h"
+#include "sockopt.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define MGMTD_BCKND_CLNT_DBG(fmt, ...)					\
@@ -95,9 +96,6 @@ typedef struct mgmt_bcknd_trxn_ctxt_ {
 
 	mgmt_bcknd_client_trxn_ctxt_t client_data;
 	struct mgmt_bcknd_client_ctxt_ *clnt_ctxt;
-
-	struct thread *prepare_cfg_ev;
-	struct thread *apply_cfg_ev;
 
 	/* List of batches belonging to this transaction */
 	struct mgmt_bcknd_batch_list_head cfg_batches;
@@ -992,6 +990,7 @@ static int mgmt_bcknd_client_proc_msgbufs(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt);
+	clnt_ctxt->msg_proc_ev = NULL;
 
 	if (clnt_ctxt->conn_fd == 0)
 		return 0;
@@ -1034,6 +1033,7 @@ static int mgmt_bcknd_client_read(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(clnt_ctxt->ibuf_work) - 
@@ -1189,6 +1189,7 @@ static int mgmt_bcknd_client_write(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (clnt_ctxt->obuf_work) {
@@ -1241,6 +1242,7 @@ static int mgmt_bcknd_client_resume_writes(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->conn_writes_on = NULL;
 
 	mgmt_bcknd_client_writes_on(clnt_ctxt);
 
@@ -1312,6 +1314,8 @@ static int mgmt_bcknd_server_connect(mgmt_bcknd_client_ctxt_t *clnt_ctxt)
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(sock);
+        setsockopt_so_sendbuf(clnt_ctxt->conn_fd, MGMTD_SOCKET_BCKND_SEND_BUF_SIZE);
+        setsockopt_so_recvbuf(clnt_ctxt->conn_fd, MGMTD_SOCKET_BCKND_RECV_BUF_SIZE);
 
 	mgmt_bcknd_client_register_event(clnt_ctxt, MGMTD_BCKND_CONN_READ);
 
@@ -1359,6 +1363,8 @@ static void mgmt_bcknd_client_register_event(
 				clnt_ctxt->conn_fd, NULL);
 		break;
 	case MGMTD_BCKND_CONN_WRITE:
+		if (clnt_ctxt->conn_write_ev)
+			return;
 		clnt_ctxt->conn_write_ev = 
 			thread_add_write(clnt_ctxt->tm,
 				mgmt_bcknd_client_write, clnt_ctxt,
@@ -1527,6 +1533,11 @@ void mgmt_bcknd_client_lib_destroy(mgmt_lib_hndl_t lib_hndl)
 	if (mgmt_bcknd_clntctxt.obuf_work)
 		stream_free(mgmt_bcknd_clntctxt.obuf_work);
 
+	THREAD_OFF(clnt_ctxt->conn_retry_tmr);
+	THREAD_OFF(clnt_ctxt->conn_read_ev);
+	THREAD_OFF(clnt_ctxt->conn_write_ev);
+	THREAD_OFF(clnt_ctxt->conn_writes_on);
+	THREAD_OFF(clnt_ctxt->msg_proc_ev);
 	mgmt_bcknd_cleanup_all_trxns(clnt_ctxt);
 	mgmt_bcknd_trxn_list_fini(&clnt_ctxt->trxn_head);
 }

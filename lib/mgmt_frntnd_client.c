@@ -25,6 +25,7 @@
 #include "lib/mgmt_pb.h"
 #include "lib/network.h"
 #include "lib/stream.h"
+#include "sockopt.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define MGMTD_FRNTND_CLNT_DBG(fmt, ...)					\
@@ -219,6 +220,7 @@ static int mgmt_frntnd_client_write(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (clnt_ctxt->obuf_work) {
@@ -271,6 +273,7 @@ static int mgmt_frntnd_client_resume_writes(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->conn_writes_on = NULL;
 
 	mgmt_frntnd_client_writes_on(clnt_ctxt);
 
@@ -727,6 +730,7 @@ static int mgmt_frntnd_client_proc_msgbufs(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->msg_proc_ev = NULL;
 
 	for ( ; processed < MGMTD_FRNTND_MAX_NUM_MSG_PROC ; ) {
 		work = stream_fifo_pop_safe(clnt_ctxt->ibuf_fifo);
@@ -766,6 +770,7 @@ static int mgmt_frntnd_client_read(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
+	clnt_ctxt->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(clnt_ctxt->ibuf_work) - 
@@ -889,6 +894,8 @@ static int mgmt_frntnd_server_connect(mgmt_frntnd_client_ctxt_t *clnt_ctxt)
 
 	/* Make client socket non-blocking.  */
 	set_nonblocking(sock);
+        setsockopt_so_sendbuf(clnt_ctxt->conn_fd, MGMTD_SOCKET_FRNTND_SEND_BUF_SIZE);
+        setsockopt_so_recvbuf(clnt_ctxt->conn_fd, MGMTD_SOCKET_FRNTND_RECV_BUF_SIZE);
 
 	thread_add_read(clnt_ctxt->tm, mgmt_frntnd_client_read,
 		(void *)&mgmt_frntnd_clntctxt, clnt_ctxt->conn_fd,
@@ -1241,7 +1248,12 @@ void mgmt_frntnd_client_lib_destroy(mgmt_lib_hndl_t lib_hndl)
 
 	assert(mgmt_frntnd_clntctxt.ibuf_fifo &&
 		mgmt_frntnd_clntctxt.obuf_fifo);
-	
+
+	THREAD_OFF(clnt_ctxt->conn_retry_tmr);
+	THREAD_OFF(clnt_ctxt->conn_read_ev);
+	THREAD_OFF(clnt_ctxt->conn_write_ev);
+	THREAD_OFF(clnt_ctxt->conn_writes_on);
+	THREAD_OFF(clnt_ctxt->msg_proc_ev);	
 	stream_fifo_free(mgmt_frntnd_clntctxt.ibuf_fifo);
 	if (mgmt_frntnd_clntctxt.ibuf_work)
 		stream_free(mgmt_frntnd_clntctxt.ibuf_work);

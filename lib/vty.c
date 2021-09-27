@@ -119,14 +119,18 @@ static bool do_log_commands_perm;
 	if (vty->mgmt_req_pending)	\
 		return 0;
 
-static void vty_mgmt_resume_response(struct vty *vty, uint8_t ret)
+static void vty_mgmt_resume_response(struct vty *vty, bool success)
 {
 	uint8_t header[4] = {0, 0, 0, 0};
+	int ret = CMD_SUCCESS;
 
 	if (!vty->mgmt_req_pending) {
 		zlog_err("vty response called without setting mgmt_req_pending");
 		return;
 	}
+
+	if (!success)
+		ret = CMD_WARNING_CONFIG_FAILED;
 
 	vty->mgmt_req_pending = false;
 	header[3] = ret;
@@ -2697,6 +2701,13 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 				nb_config_dup(running_config);
 	}
 
+	if (vty_mgmt_frntnd_enabled()) {
+		if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, true) != 0) {
+			vty_out(vty, "Not able to lock candidate DB\n");
+			return CMD_WARNING;
+		}
+	}
+
 	return CMD_SUCCESS;
 }
 
@@ -2723,6 +2734,13 @@ void vty_config_exit(struct vty *vty)
 int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
+
+	if (vty_mgmt_frntnd_enabled()) {
+		if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, false) != 0) {
+			vty_out(vty, "Not able to unlock candidate DB\n");
+			return CMD_WARNING;
+		}
+	}
 
 	/* Perform any pending commits. */
 	(void)nb_cli_pending_commit_check(vty);
@@ -3262,13 +3280,10 @@ static void vty_mgmt_db_lock_notified(
 	if (!success) {
 		zlog_err("%socking for DB %u failed! Err: '%s'", 
 			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
-		vty_out(vty, "ERROR: %socking for DB %u failed! Err: '%s'", 
+		vty_out(vty, "ERROR: %socking for DB %u failed! Err: '%s'\n", 
 			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
-		return;
 	} else {
 		zlog_err("%socked DB %u successfully!", 
-			lock_db ? "L" : "Unl", db_id);
-		vty_out(vty, "%socked DB %u successfully!\n", 
 			lock_db ? "L" : "Unl", db_id);
 	}
 

@@ -48,6 +48,8 @@
 
 #define MGMTD_VTY_PORT			2622
 #define MGMTD_SOCKET_BUF_SIZE		65535
+#define MGMTD_SOCKET_SEND_BUF_SIZE	65535
+#define MGMTD_SOCKET_RECV_BUF_SIZE	MGMTD_SOCKET_SEND_BUF_SIZE
 #define MGMTD_MAX_COMMIT_LIST		10
 
 #define max(a, b)                                                              \

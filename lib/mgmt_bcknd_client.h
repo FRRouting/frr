@@ -47,6 +47,9 @@ extern "C" {
 
 #define MGMTD_BCKND_MSG_MAX_LEN		        16384
 
+#define MGMTD_SOCKET_BCKND_SEND_BUF_SIZE		65535
+#define MGMTD_SOCKET_BCKND_RECV_BUF_SIZE		MGMTD_SOCKET_BCKND_SEND_BUF_SIZE
+
 /* MGMTD_BCKND_MSG_MAX_LEN must be used 80%
  * since there is overhead of google protobuf
  * that gets added to sent message
