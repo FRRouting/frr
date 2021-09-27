@@ -53,6 +53,8 @@ extern "C" {
 
 #define MGMTD_FRNTND_MSG_MAX_LEN		        	9000
 
+#define MGMTD_SOCKET_FRNTND_SEND_BUF_SIZE		65535
+#define MGMTD_SOCKET_FRNTND_RECV_BUF_SIZE		MGMTD_SOCKET_FRNTND_SEND_BUF_SIZE
 
 /***************************************************************
  * Data-structures

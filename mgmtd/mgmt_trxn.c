@@ -241,11 +241,6 @@ struct mgmt_trxn_ctxt_ {
 
 	struct thread *proc_set_cfg;
 	struct thread *proc_comm_cfg;
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-	struct thread *send_cfg_validate;
-#else /* MGMTD_LOCAL_VALIDATIONS_ENABLED */
-	struct thread *send_cfg_apply;
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 	struct thread *comm_cfg_timeout;
 	struct thread *clnup;
 
@@ -613,6 +608,7 @@ static int mgmt_trxn_process_set_cfg(struct thread *thread)
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
 	cmt_stats = mgmt_frntnd_get_sessn_commit_stats(trxn->session_id);
+	trxn->proc_set_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing %d SET_CONFIG requests for Trxn:%p Session:0x%lx",
 		(int) mgmt_trxn_req_list_count(&trxn->set_cfg_reqs), trxn,
@@ -784,11 +780,6 @@ static int mgmt_trxn_send_commit_cfg_reply(mgmt_trxn_ctxt_t *trxn,
 				trxn->commit_cfg_req->req.commit_cfg.src_db_hndl,
 				false);
 	} else {
-#ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED
-		THREAD_OFF(trxn->send_cfg_validate);
-#else /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
-		THREAD_OFF(trxn->send_cfg_apply);
-#endif /* ifndef MGMTD_LOCAL_VALIDATIONS_ENABLED */
 		/*
 		 * The commit has failied. For implicit commit requests restore
 		 * back the contents of the candidate DB.
@@ -1217,6 +1208,8 @@ static int mgmt_trxn_prepare_config(mgmt_trxn_ctxt_t *trxn)
 	nb_ctxt.user = (void *)trxn;
 	ret = nb_candidate_validate_yang(nb_config, err_buf, sizeof(err_buf)-1);
 	if (ret != NB_OK) {
+		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
+			strcpy(err_buf, "Validation failed");
 		(void) mgmt_trxn_send_commit_cfg_reply(trxn, false, err_buf);
 		ret = -1;
 		goto mgmt_trxn_prepare_config_done;
@@ -1234,6 +1227,8 @@ static int mgmt_trxn_prepare_config(mgmt_trxn_ctxt_t *trxn)
 	ret = nb_candidate_validate_code(&nb_ctxt, nb_config,
 		&changes, err_buf, sizeof(err_buf)-1);
 	if (ret != NB_OK) {
+		if (strncmp(err_buf, " ", strlen(err_buf)) == 0)
+			strcpy(err_buf, "Validation failed");
 		(void) mgmt_trxn_send_commit_cfg_reply(trxn, false, err_buf);
 		ret = -1;
 		goto mgmt_trxn_prepare_config_done;
@@ -1406,6 +1401,7 @@ static int mgmt_trxn_cfg_commit_timedout(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
+	trxn->comm_cfg_timeout = NULL;
 
 	assert(trxn->type == MGMTD_TRXN_TYPE_CONFIG);
 
@@ -1564,6 +1560,7 @@ static int mgmt_trxn_process_commit_cfg(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
+	trxn->proc_comm_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing COMMIT_CONFIG for Trxn:%p Session:0x%lx, Phase(Current:'%s', Next: '%s')",
 		trxn, trxn->session_id, mgmt_trxn_commit_phase_str(trxn, true),
@@ -1871,6 +1868,7 @@ static int mgmt_trxn_process_get_cfg(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
+	trxn->proc_comm_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing %d GET_CONFIG requests for Trxn:%p Session:0x%lx",
 		(int) mgmt_trxn_req_list_count(&trxn->get_cfg_reqs), trxn,
@@ -1938,6 +1936,7 @@ static int mgmt_trxn_process_get_data(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
+	trxn->proc_comm_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing %d GET_DATA requests for Trxn:%p Session:0x%lx",
 		(int) mgmt_trxn_req_list_count(&trxn->get_data_reqs), trxn,
@@ -2117,6 +2116,7 @@ static int mgmt_trxn_cleanup(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
+	trxn->clnup = NULL;
 
 	mgmt_trxn_destroy(&trxn);
 	return 0;

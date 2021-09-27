@@ -371,7 +371,7 @@ static bool mgmt_db_dump_cmt_record_index(void)
 }
 
 static int mgmt_db_rollback_to_cmt(struct vty *vty,
-	struct mgmt_cmt_info_t *cmt_info)
+	struct mgmt_cmt_info_t *cmt_info, bool skip_file_load)
 {
 	mgmt_db_hndl_t src_db_hndl;
 	mgmt_db_hndl_t dst_db_hndl;
@@ -383,41 +383,36 @@ static int mgmt_db_rollback_to_cmt(struct vty *vty,
 		return -1;
 	}
 
-	ret = mgmt_db_write_lock(src_db_hndl);
-	if (ret != 0) {
-		vty_out(vty, "Failed to lock the DB %u for rollback, Reason: %s!",
-			MGMTD_DB_CANDIDATE, strerror(ret));
-		return -1;
-	}
-
+	/*
+	* Note: Write lock on src_db is not required. This is already
+	* taken in 'conf te'.
+	*/
 	dst_db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_RUNNING);
 	if (!dst_db_hndl) {
-		mgmt_db_unlock(src_db_hndl);
 		vty_out(vty, "ERROR: Couldnot access Running database!\n");
 		return -1;
 	}
 
 	ret = mgmt_db_write_lock(dst_db_hndl);
 	if (ret != 0) {
-		mgmt_db_unlock(src_db_hndl);
-		vty_out(vty, "Failed to lock the DB %u for rollback Reason: %s!",
+		vty_out(vty, "Failed to lock the DB %u for rollback Reason: %s!\n",
 			MGMTD_DB_RUNNING, strerror(ret));
 		return -1;
 	}
 
-	ret = mgmt_db_load_config_from_file(src_db_hndl,
-			cmt_info->cmt_json_file, false);
-	if (ret != 0) {
-		mgmt_db_unlock(src_db_hndl);
-		mgmt_db_unlock(dst_db_hndl);
-		vty_out(vty, "Error with parsing the file with error code %d\n", ret);
-		return ret;
+	if (!skip_file_load) {
+		ret = mgmt_db_load_config_from_file(src_db_hndl,
+				cmt_info->cmt_json_file, false);
+		if (ret != 0) {
+			mgmt_db_unlock(dst_db_hndl);
+			vty_out(vty, "Error with parsing the file with error code %d\n", ret);
+			return ret;
+		}
 	}
 
 	//Internally trigger a commit-request.
 	ret = mgmt_trxn_rollback_trigger_cfg_apply(src_db_hndl, dst_db_hndl);
 	if (ret != 0) {
-		mgmt_db_unlock(src_db_hndl);
 		mgmt_db_unlock(dst_db_hndl);
 		vty_out(vty, "Error with creating commit apply trxn with error code %d\n", ret);
 		return ret;
@@ -991,13 +986,39 @@ int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str)
 	FOREACH_CMT_REC(cm, cmt_info) {
 		if (strncmp(cmt_info->cmtid_str, cmtid_str,
 			MGMTD_MD5_HASH_STR_HEX_LEN) == 0) {
-			ret = mgmt_db_rollback_to_cmt(vty, cmt_info);
+			ret = mgmt_db_rollback_to_cmt(vty, cmt_info, false);
 			return ret;
 		}
 
 		mgmt_db_remove_cmt_file(cmt_info->cmt_json_file);
 		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, cmt_info);
+		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
+
+	return 0;
+}
+
+static int mgmt_db_reset(mgmt_db_hndl_t db_hndl)
+{
+	mgmt_db_ctxt_t *db_ctxt;
+	struct lyd_node *dnode;
+
+	db_ctxt = (mgmt_db_ctxt_t *)db_hndl;
+	if (!db_ctxt)
+		return -1;
+
+	dnode = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode :
+			db_ctxt->root.dnode_root;
+
+	if (dnode)
+		yang_dnode_free(dnode);
+
+	dnode = yang_dnode_new(ly_native_ctx, true);
+
+	if (db_ctxt->config_db)
+		db_ctxt->root.cfg_root->dnode = dnode;
+	else
+		db_ctxt->root.dnode_root = dnode;
 
 	return 0;
 }
@@ -1009,6 +1030,9 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 	struct mgmt_cmt_info_t *cmt_info;
 	size_t cmts;
 
+	if (!num_cmts)
+		num_cmts = 1;
+
 	cmts = mgmt_cmt_info_dlist_count(&mm->cmt_dlist);
 	if ((int) cmts < num_cmts) {
 		vty_out(vty, "Number of commits found (%d) less than required to rollback\n",
@@ -1016,18 +1040,32 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 		return -1;
 	}
 
+	if (cmts == 1 || cmts == num_cmts) {
+		vty_out(vty, "Number of commits found (%d), Rollback of last commit is not supported\n",
+			(int) cmts);
+		return -1;
+	}
+
 	FOREACH_CMT_REC(cm, cmt_info) {
 		if (cnt == num_cmts) {
-			ret = mgmt_db_rollback_to_cmt(vty, cmt_info);
+			ret = mgmt_db_rollback_to_cmt(vty, cmt_info, false);
 			return ret;
 		}
 
 		cnt++;
 		mgmt_db_remove_cmt_file(cmt_info->cmt_json_file);
 		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, cmt_info);
+		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
 	}
 
-	return 0;
+	if (!mgmt_cmt_info_dlist_count(&mm->cmt_dlist)) {
+		ret = mgmt_db_reset(mm->candidate_db);
+		if (ret < 0)
+			return ret;
+		ret = mgmt_db_rollback_to_cmt(vty, cmt_info, true);
+	}
+
+	return ret;
 }
 
 void show_mgmt_cmt_history(struct vty *vty)
