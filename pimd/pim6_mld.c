@@ -448,18 +448,23 @@ static void gm_sg_update(struct gm_sg *sg, bool has_expired)
 		    desired == GM_SG_NOPRUNE_EXPIRING) {
 			struct gm_query_timers timers;
 
-			timers.qrv = gm_ifp->cur_qrv;
-			timers.max_resp_ms = gm_ifp->cur_max_resp;
-			timers.qqic_ms = gm_ifp->cur_query_intv_trig;
-			timers.fuzz = gm_ifp->cfg_timing_fuzz;
+			if (!pim_ifp->gmp_immediate_leave) {
+				timers.qrv = gm_ifp->cur_qrv;
+				timers.max_resp_ms = gm_ifp->cur_max_resp;
+				timers.qqic_ms = gm_ifp->cur_query_intv_trig;
+				timers.fuzz = gm_ifp->cfg_timing_fuzz;
 
-			gm_expiry_calc(&timers);
+				gm_expiry_calc(&timers);
+			} else
+				memset(&timers.expire_wait, 0, sizeof(timers.expire_wait));
+
 			gm_sg_timer_start(gm_ifp, sg, timers.expire_wait);
 
 			EVENT_OFF(sg->t_sg_query);
 			sg->query_sbit = false;
 			/* Trigger the specific queries only for querier. */
-			if (IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest)) {
+			if (!pim_ifp->gmp_immediate_leave &&
+			    IPV6_ADDR_SAME(&gm_ifp->querier, &pim_ifp->ll_lowest)) {
 				sg->n_query = gm_ifp->cur_lmqc;
 				gm_trigger_specific(sg);
 			}
@@ -1102,10 +1107,24 @@ static void gm_handle_v1_leave(struct gm_if *gm_ifp,
 	if (grp) {
 		old_grp = gm_packet_sg_find(grp, GM_SUB_POS, subscriber);
 		if (old_grp) {
-			gm_packet_sg_drop(old_grp);
-			gm_sg_update(grp, false);
+			const struct pim_interface *pim_ifp = gm_ifp->ifp->info;
+			struct gm_packet_sg *item;
 
-/* TODO "need S,G PRUNE => NO_INFO transition here" */
+			gm_packet_sg_drop(old_grp);
+
+			/*
+			 * If immediate leave drop others subscribers and proceed
+			 * to expire the MLD join.
+			 */
+			if (pim_ifp->gmp_immediate_leave) {
+				frr_each_safe (gm_packet_sg_subs, grp->subs_positive, item) {
+					gm_packet_sg_drop(item);
+				}
+				gm_sg_update(grp, true);
+			} else
+				gm_sg_update(grp, false);
+
+			/* TODO "need S,G PRUNE => NO_INFO transition here" */
 
 		}
 	}
