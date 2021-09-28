@@ -278,6 +278,13 @@ module frr-pim {
         "Group count threshold for IGMP/MLD watermark warnings.";
     }
 
+    leaf shutdown {
+      type boolean;
+      default "false";
+      description
+        "Disable PIM operation";
+    }
+
     leaf send-v6-secondary {
       when "../frr-pim:address-family = 'frr-rt:ipv4'" {
         description
