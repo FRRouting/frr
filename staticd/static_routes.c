@@ -524,6 +524,11 @@ static void static_fixup_vrf(struct static_vrf *svrf,
 					else
 						continue;
 				}
+				if (nh->bsp) {
+					bfd_sess_set_vrf(nh->bsp,
+							 nh->nh_vrf_id);
+					bfd_sess_install(nh->bsp);
+				}
 
 				static_install_path(pn);
 			}

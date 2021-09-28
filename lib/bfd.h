@@ -179,8 +179,9 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile);
  *
  * \param bsp BFD session parameters.
  * \param vrf_id the VRF identification number.
+ * \returns true if vrf_id changed
  */
-void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
+bool bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
 
 /**
  * Configure the BFD session single/multi hop setting.

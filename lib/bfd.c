@@ -639,15 +639,16 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile)
 	bsp->args.profilelen = strlen(bsp->args.profile);
 }
 
-void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
+bool bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 {
 	if (bsp->args.vrf_id == vrf_id)
-		return;
+		return false;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
 	bsp->args.vrf_id = vrf_id;
+	return true;
 }
 
 void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)

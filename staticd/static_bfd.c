@@ -121,6 +121,9 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	if (sn->bsp == NULL)
 		sn->bsp = bfd_sess_new(static_next_hop_bfd_updatecb, sn);
 
+	if (sn->nh_vrf_id != VRF_DEFAULT)
+		bfd_sess_set_vrf(sn->bsp, sn->nh_vrf_id);
+
 	if (source) {
 		yang_dnode_get_ip(&ia_src, dnode, "../source", NULL);
 		ia_srcp = (struct in6_addr *)&ia_src.ip;
