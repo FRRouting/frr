@@ -28,6 +28,7 @@
 
 #include "staticd/static_routes.h"
 #include "staticd/static_zebra.h"
+#include "staticd/static_debug.h"
 
 #include "lib/openbsd-queue.h"
 
@@ -45,13 +46,15 @@ static void static_next_hop_bfd_change(struct static_nexthop *sn,
 		break;
 	case BSS_DOWN:
 		/* Peer went down, remove this next hop. */
-		zlog_info("%s: next hop is down, remove it from RIB", __func__);
+		DEBUGD(&static_dbg_bfd,
+		       "%s: next hop is down, remove it from RIB", __func__);
 		sn->path_down = true;
 		static_zebra_route_add(sn->pn, true);
 		break;
 	case BSS_UP:
 		/* Peer is back up, add this next hop. */
-		zlog_info("%s: next hop is up, add it to RIB", __func__);
+		DEBUGD(&static_dbg_bfd, "%s: next hop is up, add it to RIB",
+		       __func__);
 		sn->path_down = false;
 		static_zebra_route_add(sn->pn, true);
 		break;

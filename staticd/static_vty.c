@@ -1457,16 +1457,17 @@ int static_path_list_cli_cmp(const struct lyd_node *dnode1,
 }
 
 DEFPY_YANG(debug_staticd, debug_staticd_cmd,
-	   "[no] debug static [{events$events|route$route}]",
+	   "[no] debug static [{events$events|route$route|bfd$bfd}]",
 	   NO_STR DEBUG_STR STATICD_STR
 	   "Debug events\n"
-	   "Debug route\n")
+	   "Debug route\n"
+	   "Debug bfd\n")
 {
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
-		static_debug_set(vty->node, !no, true, true);
+		static_debug_set(vty->node, !no, true, true, true);
 	else
-		static_debug_set(vty->node, !no, !!events, !!route);
+		static_debug_set(vty->node, !no, !!events, !!route, !!bfd);
 
 	return CMD_SUCCESS;
 }
