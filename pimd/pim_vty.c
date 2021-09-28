@@ -471,6 +471,12 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		++writes;
 	}
 
+	/* IF ip/ipv6 igmp/mld immediate-leave */
+	if (pim_ifp->gmp_immediate_leave) {
+		vty_out(vty, " " PIM_AF_NAME " " GM_AF_DBG " immediate-leave\n");
+		++writes;
+	}
+
 	/* IF ip pim drpriority */
 	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
 		vty_out(vty, " " PIM_AF_NAME " pim drpriority %u\n",
