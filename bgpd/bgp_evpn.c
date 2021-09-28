@@ -4335,6 +4335,54 @@ static void update_autort_vni(struct hash_bucket *bucket, struct bgp *bgp)
 }
 
 /*
+ * Handle autort change for L3VNI.
+ */
+static void update_autort_l3vni(struct bgp *bgp)
+{
+	if ((CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD))
+	    && (CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)))
+		return;
+
+	if (!CHECK_FLAG(bgp->vrf_flags, BGP_VRF_IMPORT_RT_CFGD)) {
+		if (is_l3vni_live(bgp))
+			uninstall_routes_for_vrf(bgp);
+
+		/* Cleanup the RT to VRF mapping */
+		bgp_evpn_unmap_vrf_from_its_rts(bgp);
+
+		/* Remove auto generated RT */
+		evpn_auto_rt_import_delete_for_vrf(bgp);
+
+		list_delete_all_node(bgp->vrf_import_rtl);
+
+		/* Map auto derive or configured RTs */
+		evpn_auto_rt_import_add_for_vrf(bgp);
+	}
+
+	if (!CHECK_FLAG(bgp->vrf_flags, BGP_VRF_EXPORT_RT_CFGD)) {
+		list_delete_all_node(bgp->vrf_export_rtl);
+
+		evpn_auto_rt_export_delete_for_vrf(bgp);
+
+		evpn_auto_rt_export_add_for_vrf(bgp);
+
+		if (is_l3vni_live(bgp))
+			bgp_evpn_map_vrf_to_its_rts(bgp);
+	}
+
+	if (!is_l3vni_live(bgp))
+		return;
+
+	/* advertise type-5 routes if needed */
+	update_advertise_vrf_routes(bgp);
+
+	/* install all remote routes belonging to this l3vni
+	 * into corresponding vrf
+	 */
+	install_routes_for_vrf(bgp);
+}
+
+/*
  * Public functions.
  */
 
@@ -4706,6 +4754,8 @@ void bgp_evpn_handle_autort_change(struct bgp *bgp)
 		     (void (*)(struct hash_bucket *,
 			       void*))update_autort_vni,
 		     bgp);
+	if (bgp->l3vni)
+		update_autort_l3vni(bgp);
 }
 
 /*
