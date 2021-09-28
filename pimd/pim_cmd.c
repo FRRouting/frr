@@ -3842,7 +3842,7 @@ static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
 			      xpath_member_value)) {
 		member_dnode = yang_dnode_get(vty->candidate_config->dnode,
 					      xpath_member_value);
-		if (!yang_is_last_list_dnode(member_dnode))
+		if (!member_dnode || !yang_is_last_list_dnode(member_dnode))
 			return;
 	}
 
@@ -9761,7 +9761,7 @@ DEFPY(no_ip_msdp_mesh_group_member,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, xpath_member_value, NB_OP_DESTROY, NULL);
 
 	/*
 	 * If this is the last member, then we must remove the group altogether
@@ -9795,7 +9795,7 @@ DEFPY(ip_msdp_mesh_group_source,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
-	/* Create mesh group member. */
+	/* Create mesh group source. */
 	strlcat(xpath_value, "/source", sizeof(xpath_value));
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, saddr_str);
 
@@ -9826,7 +9826,7 @@ DEFPY(no_ip_msdp_mesh_group_source,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_CREATE, NULL);
 
-	/* Create mesh group member. */
+	/* Create mesh group source. */
 	strlcat(xpath_value, "/source", sizeof(xpath_value));
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
 
