@@ -1354,10 +1354,16 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_mesh_group_source_ip_destroy(
 	struct nb_cb_destroy_args *args)
 {
+<<<<<<< HEAD
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	const char *mesh_group_name;
 	enum pim_msdp_err result;
+=======
+	struct pim_msdp_mg_mbr *mbr;
+	struct pim_msdp_mg *mg;
+	const struct lyd_node *mg_dnode;
+>>>>>>> 468774897 (pimd: fixing command "no ip msdp mesh-group member")
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1365,6 +1371,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+<<<<<<< HEAD
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
 		mesh_group_name = yang_dnode_get_string(args->dnode,
@@ -1377,6 +1384,14 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 		if (result != PIM_MSDP_ERR_NONE)
 			return NB_ERR_INCONSISTENCY;
 
+=======
+		mbr = nb_running_get_entry(args->dnode, NULL, true);
+		mg_dnode =
+			yang_dnode_get_parent(args->dnode, "msdp-mesh-groups");
+		mg = nb_running_get_entry(mg_dnode, NULL, true);
+		pim_msdp_mg_mbr_del(mg, mbr);
+		nb_running_unset_entry(args->dnode);
+>>>>>>> 468774897 (pimd: fixing command "no ip msdp mesh-group member")
 		break;
 	}
 	return NB_OK;

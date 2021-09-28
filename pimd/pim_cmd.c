@@ -3853,6 +3853,57 @@ static const char *pim_cli_get_vrf_name(struct vty *vty)
 	return yang_dnode_get_string(vrf_node, "./name");
 }
 
+<<<<<<< HEAD
+=======
+/**
+ * Compatibility function to keep the legacy mesh group CLI behavior:
+ * Delete group when there are no more configurations in it.
+ *
+ * NOTE:
+ * Don't forget to call `nb_cli_apply_changes` after this.
+ */
+static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
+					       const char *gname)
+{
+	const char *vrfname;
+	char xpath_value[XPATH_MAXLEN];
+	char xpath_member_value[XPATH_MAXLEN];
+	const struct lyd_node *member_dnode;
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return;
+
+	/* Get mesh group base XPath. */
+	snprintf(xpath_value, sizeof(xpath_value),
+		 FRR_PIM_AF_XPATH "/msdp-mesh-groups[name='%s']",
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4", gname);
+	/* Group must exists, otherwise just quit. */
+	if (!yang_dnode_exists(vty->candidate_config->dnode, xpath_value))
+		return;
+
+	/* Group members check: */
+	strlcpy(xpath_member_value, xpath_value, sizeof(xpath_member_value));
+	strlcat(xpath_member_value, "/members", sizeof(xpath_member_value));
+	if (yang_dnode_exists(vty->candidate_config->dnode,
+			      xpath_member_value)) {
+		member_dnode = yang_dnode_get(vty->candidate_config->dnode,
+					      xpath_member_value);
+		if (!member_dnode || !yang_is_last_list_dnode(member_dnode))
+			return;
+	}
+
+	/* Source address check: */
+	strlcpy(xpath_member_value, xpath_value, sizeof(xpath_member_value));
+	strlcat(xpath_member_value, "/source", sizeof(xpath_member_value));
+	if (yang_dnode_exists(vty->candidate_config->dnode, xpath_member_value))
+		return;
+
+	/* No configurations found: delete it. */
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+}
+
+>>>>>>> 468774897 (pimd: fixing command "no ip msdp mesh-group member")
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
        "clear ip interfaces [vrf NAME]",
@@ -9774,6 +9825,7 @@ DEFUN (no_ip_msdp_mesh_group_member,
 		}
 	}
 
+<<<<<<< HEAD
 	if (yang_dnode_exists(vty->candidate_config->dnode,
 			      group_member_xpath)) {
 		if (!yang_dnode_exists(vty->candidate_config->dnode,
@@ -9794,6 +9846,9 @@ DEFUN (no_ip_msdp_mesh_group_member,
 				      NB_OP_DESTROY, argv[6]->arg);
 		return nb_cli_apply_changes(vty, NULL);
 	}
+=======
+	nb_cli_enqueue_change(vty, xpath_member_value, NB_OP_DESTROY, NULL);
+>>>>>>> 468774897 (pimd: fixing command "no ip msdp mesh-group member")
 
 	vty_out(vty, "%% mesh-group member does not exist\n");
 
@@ -9824,6 +9879,7 @@ DEFUN (ip_msdp_mesh_group_source,
 	strlcat(msdp_mesh_group_name_xpath, "/msdp-mesh-group/mesh-group-name",
 		sizeof(msdp_mesh_group_name_xpath));
 
+<<<<<<< HEAD
 	snprintf(msdp_mesh_source_ip_xpath, sizeof(msdp_mesh_source_ip_xpath),
 		 FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
@@ -9834,6 +9890,11 @@ DEFUN (ip_msdp_mesh_group_source,
 			      argv[3]->arg);
 	nb_cli_enqueue_change(vty, msdp_mesh_source_ip_xpath, NB_OP_MODIFY,
 			      argv[5]->arg);
+=======
+	/* Create mesh group source. */
+	strlcat(xpath_value, "/source", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, saddr_str);
+>>>>>>> 468774897 (pimd: fixing command "no ip msdp mesh-group member")
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -9871,12 +9932,18 @@ DEFUN (no_ip_msdp_mesh_group_source,
 	strlcat(source_xpath, "/msdp-mesh-group/source-ip",
 		sizeof(source_xpath));
 
+<<<<<<< HEAD
 	snprintf(group_member_xpath,
 		 sizeof(group_member_xpath),
 		 FRR_PIM_AF_XPATH,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(group_member_xpath, "/msdp-mesh-group/member-ip",
 		sizeof(group_member_xpath));
+=======
+	/* Create mesh group source. */
+	strlcat(xpath_value, "/source", sizeof(xpath_value));
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
+>>>>>>> 468774897 (pimd: fixing command "no ip msdp mesh-group member")
 
 	snprintf(mesh_group_name_xpath, sizeof(mesh_group_name_xpath),
 		 FRR_PIM_AF_XPATH,
