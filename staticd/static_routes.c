@@ -249,6 +249,7 @@ void static_del_path(struct static_path *pn)
 	static_path_list_del(&si->path_list, pn);
 
 	frr_each_safe(static_nexthop_list, &pn->nexthop_list, nh) {
+		static_next_hop_bfd_monitor_disable(nh);
 		static_delete_nexthop(nh);
 	}
 

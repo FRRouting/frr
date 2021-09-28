@@ -209,6 +209,7 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		nh = nb_running_unset_entry(args->dnode);
+		static_next_hop_bfd_monitor_disable(nh);
 		static_delete_nexthop(nh);
 		break;
 	}
