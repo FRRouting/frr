@@ -54,6 +54,7 @@
 #include "bgpd/bgp_mac.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_nht.h"
+#include "bgpd/bgp_trace.h"
 
 /*
  * Definitions and external declarations.
@@ -653,6 +654,9 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 			&p->prefix.macip_addr.mac, &p->prefix.macip_addr.ip,
 			flags, seq, &remote_vtep_ip);
 
+	frrtrace(5, frr_bgp, evpn_mac_ip_zsend, add, vpn, p, remote_vtep_ip,
+		 esi);
+
 	return zclient_send_message(zclient);
 }
 
@@ -702,6 +706,8 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 		zlog_debug("Tx %s Remote VTEP, VNI %u remote VTEP %pI4",
 			   add ? "ADD" : "DEL", vpn->vni,
 			   &p->prefix.imet_addr.ip.ipaddr_v4);
+
+	frrtrace(3, frr_bgp, evpn_bum_vtep_zsend, add, vpn, p);
 
 	return zclient_send_message(zclient);
 }
