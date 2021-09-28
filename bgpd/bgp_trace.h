@@ -35,6 +35,9 @@
 
 #include "bgpd/bgpd.h"
 #include "lib/stream.h"
+#include "bgpd/bgp_evpn_private.h"
+#include "bgpd/bgp_evpn_mh.h"
+
 
 /* clang-format off */
 
@@ -243,6 +246,93 @@ TRACEPOINT_EVENT(
 )
 TRACEPOINT_LOGLEVEL(frr_bgp, bgp_dest_unlock, TRACE_INFO)
 
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mac_ip_zsend,
+	TP_ARGS(int, add, struct bgpevpn *, vpn,
+		const struct prefix_evpn *, pfx,
+		struct in_addr, vtep, esi_t *, esi),
+	TP_FIELDS(
+		ctf_string(action, add ? "add" : "del")
+		ctf_integer(vni_t, vni, vpn->vni)
+		ctf_array(unsigned char, mac, &pfx->prefix.macip_addr.mac,
+			sizeof(struct ethaddr))
+		ctf_array(unsigned char, ip, &pfx->prefix.macip_addr.ip,
+			sizeof(struct ipaddr))
+		ctf_integer_network_hex(unsigned int, vtep, vtep.s_addr)
+		ctf_array(unsigned char, esi, esi, sizeof(esi_t))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mac_ip_zsend, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_bum_vtep_zsend,
+	TP_ARGS(int, add, struct bgpevpn *, vpn,
+		const struct prefix_evpn *, pfx),
+	TP_FIELDS(
+		ctf_string(action, add ? "add" : "del")
+		ctf_integer(vni_t, vni, vpn->vni)
+		ctf_integer_network_hex(unsigned int, vtep,
+			pfx->prefix.imet_addr.ip.ipaddr_v4.s_addr)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_bum_vtep_zsend, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_vtep_zsend,
+	TP_ARGS(bool, add, struct bgp_evpn_es *, es,
+		struct bgp_evpn_es_vtep *, es_vtep),
+	TP_FIELDS(
+		ctf_string(action, add ? "add" : "del")
+		ctf_string(esi, es->esi_str)
+		ctf_string(vtep, es_vtep->vtep_str)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_vtep_zsend, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_nhg_zsend,
+	TP_ARGS(bool, add, bool, type_v4, uint32_t, nhg_id,
+		struct bgp_evpn_es_vrf *, es_vrf),
+	TP_FIELDS(
+		ctf_string(action, add ? "add" : "del")
+		ctf_string(type, type_v4 ? "v4" : "v6")
+		ctf_integer(unsigned int, nhg, nhg_id)
+		ctf_string(esi, es_vrf->es->esi_str)
+		ctf_integer(int, vrf, es_vrf->bgp_vrf->vrf_id)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_nhg_zsend, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_nh_zsend,
+	TP_ARGS(uint32_t, nhg_id, struct bgp_evpn_es_vtep *, vtep,
+		struct bgp_evpn_es_vrf *, es_vrf),
+	TP_FIELDS(
+		ctf_integer(unsigned int, nhg, nhg_id)
+		ctf_string(vtep, vtep->vtep_str)
+		ctf_integer(int, svi, es_vrf->bgp_vrf->l3vni_svi_ifindex)
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_mh_nh_zsend, TRACE_INFO)
+
+TRACEPOINT_EVENT(
+	frr_bgp,
+	evpn_mh_nh_rmac_zsend,
+	TP_ARGS(bool, add, struct bgp_evpn_nh *, nh),
+	TP_FIELDS(
+		ctf_string(action, add ? "add" : "del")
+		ctf_integer(int, vrf, nh->bgp_vrf->vrf_id)
+		ctf_string(nh, nh->nh_str)
+		ctf_array(unsigned char, rmac, &nh->rmac,
+			sizeof(struct ethaddr))
+	)
+)
+TRACEPOINT_LOGLEVEL(frr_bgp, evpn_nh_rmac_zsend, TRACE_INFO)
 /* clang-format on */
 
 #include <lttng/tracepoint-event.h>
