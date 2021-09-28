@@ -1177,6 +1177,7 @@ int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args)
 {
 	struct pim_msdp_mg_mbr *mbr;
 	struct pim_msdp_mg *mg;
+	const struct lyd_node *mg_dnode;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1185,9 +1186,11 @@ int pim_msdp_mesh_group_members_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		mbr = nb_running_get_entry(args->dnode, NULL, true);
-		mg = nb_running_get_entry(args->dnode, "../", true);
-
+		mg_dnode =
+			yang_dnode_get_parent(args->dnode, "msdp-mesh-groups");
+		mg = nb_running_get_entry(mg_dnode, NULL, true);
 		pim_msdp_mg_mbr_del(mg, mbr);
+		nb_running_unset_entry(args->dnode);
 		break;
 	}
 
