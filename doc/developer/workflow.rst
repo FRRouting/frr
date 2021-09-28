@@ -1161,6 +1161,37 @@ but are no longer actively maintained. MemorySanitizer is not available in GCC.
    The different Sanitizers are mostly incompatible with each other.  Please
    refer to GCC/LLVM documentation for details.
 
+frr-format plugin
+   This is a GCC plugin provided with FRR that does extended type checks for
+   ``%pFX``-style printfrr extensions.  To use this plugin,
+
+   1. install GCC plugin development files, e.g.::
+
+         apt-get install gcc-10-plugin-dev
+
+   2. **before** running ``configure``, compile the plugin with::
+
+         make -C tools/gcc-plugins CXX=g++-10
+
+   (Edit the GCC version to what you're using, it should work for GCC 9 or
+   newer.)
+
+   After this, the plugin should be automatically picked up by ``configure``.
+   The plugin does not change very frequently, so you can keep it around across
+   work on different FRR branches.  After a ``git clean -x``, the ``make`` line
+   will need to be run again.  You can also add ``--with-frr-format`` to the
+   ``configure`` line to make sure the plugin is used, otherwise if something
+   is not set up correctly it might be silently ignored.
+
+   .. warning::
+
+      Do **not** enable this plugin for package/release builds.  It is intended
+      for developer/debug builds only.  Since it modifies the compiler, it may
+      cause silent corruption of the executable files.
+
+      Using the plugin also changes the string for ``PRI[udx]64`` from the
+      system value to ``%L[udx]`` (normally ``%ll[udx]`` or ``%l[udx]``.)
+
 Additionally, the FRR codebase is regularly scanned with Coverity.
 Unfortunately Coverity does not have the ability to handle scanning pull
 requests, but after code is merged it will send an email notifying project
@@ -1273,6 +1304,24 @@ may not be obvious in how to fix.  Here are some notes on specific warnings:
   Without the ``void``, in C, it's a function with *unspecified* parameters
   (and varargs calling convention.)  This is a notable difference to C++, where
   the ``void`` is optional and an empty parameter list means no parameters.
+
+* ``"strict match required"`` from the frr-format plugin:  check if you are
+  using a cast in a printf parameter list.  The frr-format plugin cannot
+  access correct full type information for casts like
+  ``printfrr(..., (uint64_t)something, ...)`` and will print incorrect
+  warnings particularly if ``uint64_t``, ``size_t`` or ``ptrdiff_t`` are
+  involved.  The problem is *not* triggered with a variable or function return
+  value of the exact same type (without a cast).
+
+  Since these cases are very rare, community consensus is to just work around
+  the warning even though the code might be correct.  If you are running into
+  this, your options are:
+
+  1. try to avoid the cast altogether, maybe using a different printf format
+     specifier (e.g. ``%lu`` instead of ``%zu`` or ``PRIu64``).
+  2. fix the type(s) of the function/variable/struct member being printed
+  3. create a temporary variable with the value and print that without a cast
+     (this is the last resort and was not necessary anywhere so far.)
 
 
 .. _documentation:
