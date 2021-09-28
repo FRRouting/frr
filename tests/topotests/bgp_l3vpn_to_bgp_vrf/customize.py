@@ -206,7 +206,7 @@ def ltemplatePreRouterStartHook():
         for cmd in cmds:
             cc.doCmd(tgen, rtr, cmd.format(rtr))
         cc.doCmd(tgen, rtr, "ip link set dev {0}-eth0 master {0}-cust2".format(rtr))
-    if cc.getOutput() != 4:
+    if cc.getOutput() != 0:
         InitSuccess = False
         logger.info(
             "Unexpected output seen ({} times, tests will be skipped".format(
@@ -214,6 +214,11 @@ def ltemplatePreRouterStartHook():
             )
         )
     else:
+        rtrs = ["r1", "r3", "r4", "ce4"]
+        for rtr in rtrs:
+            logger.info("{} configured".format(rtr))
+            cc.doCmd(tgen, rtr, "ip -d link show type vrf")
+            cc.doCmd(tgen, rtr, "ip link show")
         InitSuccess = True
         logger.info("VRF config successful!")
     return InitSuccess
