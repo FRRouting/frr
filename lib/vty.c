@@ -2427,8 +2427,12 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 		vty->candidate_config = nb_config_new(NULL);
 	}
 
+	cmd_execute(vty, "XFRR_start_configuration", NULL, 0);
+
 	/* Execute configuration file */
 	ret = config_from_file(vty, confp, &line_num);
+
+	cmd_execute(vty, "XFRR_end_configuration", NULL, 0);
 
 	/* Flush any previous errors before printing messages below */
 	buffer_flush_all(vty->obuf, vty->wfd);
