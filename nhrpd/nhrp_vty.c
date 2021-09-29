@@ -1210,9 +1210,7 @@ static int interface_config_write(struct vty *vty)
 				vty_out(vty, " nbma %s\n", nhs->nbma_fqdn);
 			}
 
-			list_for_each_entry(mcast, &ad->mcastlist_head,
-					    list_entry)
-			{
+			frr_each (nhrp_mcastlist, &ad->mcastlist_head, mcast) {
 				vty_out(vty, " %s nhrp map multicast ", aficmd);
 				if (sockunion_family(&mcast->nbma_addr)
 				   == AF_UNSPEC)

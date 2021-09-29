@@ -219,7 +219,9 @@ void netlink_mcast_set_nflog_group(int nlgroup)
 static int nhrp_multicast_free(struct interface *ifp,
 			       struct nhrp_multicast *mcast)
 {
-	list_del(&mcast->list_entry);
+	struct nhrp_interface *nifp = ifp->info;
+
+	nhrp_mcastlist_del(&nifp->afi[mcast->afi].mcastlist_head, mcast);
 	XFREE(MTYPE_NHRP_MULTICAST, mcast);
 	return 0;
 }
@@ -230,8 +232,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
-	list_for_each_entry(mcast, &nifp->afi[afi].mcastlist_head, list_entry)
-	{
+	frr_each (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
 		if (sockunion_same(&mcast->nbma_addr, nbma_addr))
 			return NHRP_ERR_ENTRY_EXISTS;
 	}
@@ -241,7 +242,7 @@ int nhrp_multicast_add(struct interface *ifp, afi_t afi,
 	*mcast = (struct nhrp_multicast){
 		.afi = afi, .ifp = ifp, .nbma_addr = *nbma_addr,
 	};
-	list_add_tail(&mcast->list_entry, &nifp->afi[afi].mcastlist_head);
+	nhrp_mcastlist_add_tail(&nifp->afi[afi].mcastlist_head, mcast);
 
 	debugf(NHRP_DEBUG_COMMON, "Adding multicast entry (%pSU)", nbma_addr);
 
@@ -252,11 +253,9 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 		       union sockunion *nbma_addr)
 {
 	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_multicast *mcast, *tmp;
+	struct nhrp_multicast *mcast;
 
-	list_for_each_entry_safe(mcast, tmp, &nifp->afi[afi].mcastlist_head,
-				 list_entry)
-	{
+	frr_each_safe (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
 		if (!sockunion_same(&mcast->nbma_addr, nbma_addr))
 			continue;
 
@@ -274,17 +273,15 @@ int nhrp_multicast_del(struct interface *ifp, afi_t afi,
 void nhrp_multicast_interface_del(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
-	struct nhrp_multicast *mcast, *tmp;
+	struct nhrp_multicast *mcast;
 	afi_t afi;
 
 	for (afi = 0; afi < AFI_MAX; afi++) {
-		debugf(NHRP_DEBUG_COMMON,
-		       "Cleaning up multicast entries (%d)",
-		       !list_empty(&nifp->afi[afi].mcastlist_head));
+		debugf(NHRP_DEBUG_COMMON, "Cleaning up multicast entries (%zu)",
+		       nhrp_mcastlist_count(&nifp->afi[afi].mcastlist_head));
 
-		list_for_each_entry_safe(
-			mcast, tmp, &nifp->afi[afi].mcastlist_head, list_entry)
-		{
+		frr_each_safe (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head,
+			       mcast) {
 			nhrp_multicast_free(ifp, mcast);
 		}
 	}
@@ -297,8 +294,7 @@ void nhrp_multicast_foreach(struct interface *ifp, afi_t afi,
 	struct nhrp_interface *nifp = ifp->info;
 	struct nhrp_multicast *mcast;
 
-	list_for_each_entry(mcast, &nifp->afi[afi].mcastlist_head, list_entry)
-	{
+	frr_each (nhrp_mcastlist, &nifp->afi[afi].mcastlist_head, mcast) {
 		cb(mcast, ctx);
 	}
 }
