@@ -80,7 +80,7 @@ static int nhrp_if_new_hook(struct interface *ifp)
 		struct nhrp_afi_data *ad = &nifp->afi[afi];
 		ad->holdtime = NHRPD_DEFAULT_HOLDTIME;
 		nhrp_nhslist_init(&ad->nhslist_head);
-		list_init(&ad->mcastlist_head);
+		nhrp_mcastlist_init(&ad->mcastlist_head);
 	}
 
 	return 0;

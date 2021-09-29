@@ -269,6 +269,7 @@ struct nhrp_shortcut {
 };
 
 PREDECL_DLIST(nhrp_nhslist);
+PREDECL_DLIST(nhrp_mcastlist);
 
 struct nhrp_nhs {
 	struct interface *ifp;
@@ -288,10 +289,12 @@ DECLARE_DLIST(nhrp_nhslist, struct nhrp_nhs, nhslist_entry);
 
 struct nhrp_multicast {
 	struct interface *ifp;
-	struct list_head list_entry;
+	struct nhrp_mcastlist_item mcastlist_entry;
 	afi_t afi;
 	union sockunion nbma_addr; /* IP-address */
 };
+
+DECLARE_DLIST(nhrp_mcastlist, struct nhrp_multicast, mcastlist_entry);
 
 struct nhrp_registration {
 	struct list_head reglist_entry;
@@ -340,7 +343,7 @@ struct nhrp_interface {
 		unsigned short mtu;
 		unsigned int holdtime;
 		struct nhrp_nhslist_head nhslist_head;
-		struct list_head mcastlist_head;
+		struct nhrp_mcastlist_head mcastlist_head;
 	} afi[AFI_MAX];
 };
 
