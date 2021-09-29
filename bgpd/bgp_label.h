@@ -65,7 +65,7 @@ static inline int bgp_is_withdraw_label(mpls_label_t *label)
 	return 0;
 }
 
-static inline int bgp_is_valid_label(mpls_label_t *label)
+static inline int bgp_is_valid_label(const mpls_label_t *label)
 {
 	uint8_t *t = (uint8_t *)label;
 	if (!t)
@@ -99,7 +99,7 @@ static inline void bgp_unregister_for_label(struct bgp_dest *dest)
 }
 
 /* Label stream to value */
-static inline uint32_t label_pton(mpls_label_t *label)
+static inline uint32_t label_pton(const mpls_label_t *label)
 {
 	uint8_t *t = (uint8_t *)label;
 	return ((((unsigned int)t[0]) << 12) | (((unsigned int)t[1]) << 4)
