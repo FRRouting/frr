@@ -1020,10 +1020,10 @@ def verify_ip_mroutes(
     if not isinstance(group_addresses, list):
         group_addresses = [group_addresses]
 
-    if not isinstance(iif, list) and iif is not "none":
+    if not isinstance(iif, list) and iif != "none":
         iif = [iif]
 
-    if not isinstance(oil, list) and oil is not "none":
+    if not isinstance(oil, list) and oil != "none":
         oil = [oil]
 
     for grp_addr in group_addresses:
