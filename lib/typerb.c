@@ -45,6 +45,7 @@
 #include "config.h"
 #endif
 
+#include <string.h>
 #include "typerb.h"
 
 #define RB_BLACK	0
@@ -330,6 +331,7 @@ color:
 		rbe_remove_color(rbt, parent, child);
 
 	rbt->count--;
+	memset(old, 0, sizeof(*old));
 	return (old);
 }
 
