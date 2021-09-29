@@ -1010,6 +1010,14 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* Hardware type and address. */
 	ifp->ll_type = netlink_to_zebra_link_type(ifi->ifi_type);
+
+	/* We want the protocols to treat VRFs as a loopback interface, as it
+	 * is the "lo" of the VRF it defines. */
+	if (IS_ZEBRA_IF_VRF(ifp)) {
+		ifp->flags |= IFF_LOOPBACK;
+		ifp->ll_type = ZEBRA_LLT_LOOPBACK;
+	}
+
 	netlink_interface_update_hw_addr(tb, ifp);
 
 	if_add_update(ifp);
