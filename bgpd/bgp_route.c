@@ -10712,7 +10712,7 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 
 static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
-			  void *output_arg, char *rd, int is_last,
+			  void *output_arg, const char *rd, int is_last,
 			  unsigned long *output_cum, unsigned long *total_cum,
 			  unsigned long *json_header_depth, uint16_t show_flags,
 			  enum rpki_states rpki_target_state)
@@ -11260,7 +11260,8 @@ static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
 
 /* Header of detailed BGP route information */
 void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
-				 struct bgp_dest *dest, struct prefix_rd *prd,
+				 struct bgp_dest *dest,
+				 const struct prefix_rd *prd,
 				 afi_t afi, safi_t safi, json_object *json)
 {
 	struct bgp_path_info *pi;
@@ -11470,7 +11471,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-static void bgp_show_path_info(struct prefix_rd *pfx_rd,
+static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 			       struct bgp_dest *bgp_node, struct vty *vty,
 			       struct bgp *bgp, afi_t afi, safi_t safi,
 			       json_object *json, enum bgp_path_type pathtype,
