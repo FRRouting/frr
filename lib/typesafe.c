@@ -29,18 +29,20 @@ DEFINE_MTYPE_STATIC(LIB, TYPEDHASH_BUCKET, "Typed-hash bucket");
 DEFINE_MTYPE_STATIC(LIB, SKIPLIST_OFLOW, "Skiplist overflow");
 DEFINE_MTYPE_STATIC(LIB, HEAP_ARRAY, "Typed-heap array");
 
+struct slist_item typesafe_slist_sentinel = { NULL };
+
 bool typesafe_list_member(const struct slist_head *head,
 			  const struct slist_item *item)
 {
 	struct slist_item *fromhead = head->first;
 	struct slist_item **fromnext = (struct slist_item **)&item->next;
 
-	while (fromhead) {
+	while (fromhead != _SLIST_LAST) {
 		if (fromhead == item || fromnext == head->last_next)
 			return true;
 
 		fromhead = fromhead->next;
-		if (!*fromnext)
+		if (!*fromnext || *fromnext == _SLIST_LAST)
 			break;
 		fromnext = &(*fromnext)->next;
 	}
