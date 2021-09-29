@@ -101,6 +101,7 @@ DEBUG_LOGS = {
         "debug zebra vxlan",
         "debug zebra nht",
     ],
+    "mgmt": [],
     "ospf": [
         "debug ospf event",
         "debug ospf ism",
@@ -449,6 +450,8 @@ def check_router_status(tgen):
             result = rnode.check_router_running()
             if result != "":
                 daemons = []
+                if "mgmtd" in result:
+                    daemons.append("mgmtd")
                 if "bgpd" in result:
                     daemons.append("bgpd")
                 if "zebra" in result:
@@ -1012,6 +1015,11 @@ def start_topology(tgen, daemon=None):
 
         except IOError as err:
             logger.error("I/O error({0}): {1}".format(err.errno, err.strerror))
+
+        # Loading empty mgmtd.conf file to router, to start the mgmtd daemon
+        router.load_config(
+            TopoRouter.RD_MGMTD, "{}/{}/mgmtd.conf".format(tgen.logdir, rname)
+        )
 
         # Loading empty zebra.conf file to router, to start the zebra daemon
         router.load_config(
