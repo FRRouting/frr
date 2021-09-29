@@ -169,6 +169,7 @@ macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 	*iter = item->field.si.next;                                           \
 	if (!item->field.si.next)                                              \
 		h->sh.last_next = iter;                                        \
+	item->field.si.next = NULL;                                            \
 	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
@@ -180,6 +181,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	h->sh.first = sitem->next;                                             \
 	if (h->sh.first == NULL)                                               \
 		h->sh.last_next = &h->sh.first;                                \
+	sitem->next = NULL;                                                    \
 	return container_of(sitem, type, field.si);                            \
 }                                                                              \
 macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
@@ -321,6 +323,7 @@ macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 	ditem->prev->next = ditem->next;                                       \
 	ditem->next->prev = ditem->prev;                                       \
 	h->dh.count--;                                                         \
+	ditem->prev = ditem->next = NULL;                                      \
 	return container_of(ditem, type, field.di);                            \
 }                                                                              \
 macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
@@ -565,6 +568,7 @@ macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 		return NULL;                                                   \
 	h->sh.count--;                                                         \
 	*iter = item->field.si.next;                                           \
+	item->field.si.next = NULL;                                            \
 	return item;                                                           \
 }                                                                              \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
