@@ -239,6 +239,13 @@ static void concat(test_, TYPE)(void)
 	ts_hash_headx(
 		&head, "swap2b",
 		"a538546a6e6ab0484e925940aa8dd02fd934408bbaed8cb66a0721841584d838");
+
+	while (list_pop(&other))
+		;
+	list_fini(&other);
+	prng_free(prng_swap);
+
+	ts_ref("swap-cleanup");
 #endif /* !IS_ATOMIC */
 
 	k = 0;
@@ -449,6 +456,13 @@ static void concat(test_, TYPE)(void)
 	ts_hash_head(
 		&head, "swap2b",
 		"eabfcf1413936daaf20965abced95762f45110a6619b84aac7d38481bce4ea19");
+
+	while (list_pop(&other))
+		;
+	list_fini(&other);
+	prng_free(prng_swap);
+
+	ts_ref("swap-cleanup");
 #endif
 
 	for (i = 0; i < NITEM / 2; i++) {
@@ -650,6 +664,7 @@ static void concat(test_, TYPE)(void)
 	list_fini(&head);
 	ts_ref("fini");
 	ts_end();
+	prng_free(prng);
 	printfrr("%s end\n", str(TYPE));
 }
 
