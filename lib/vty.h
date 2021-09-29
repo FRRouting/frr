@@ -198,6 +198,7 @@ struct vty {
 	mgmt_session_id_t mgmt_session_id;
 	mgmt_client_req_id_t mgmt_req_id;
 	bool mgmt_req_pending;
+	bool mgmt_locked_candidate_db;
 };
 
 static inline void vty_push_context(struct vty *vty, int node, uint64_t id)
