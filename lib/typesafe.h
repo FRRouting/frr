@@ -258,6 +258,10 @@ macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->sh.count;                                                    \
 }                                                                              \
+macro_pure bool prefix ## _anywhere(const type *item)                          \
+{                                                                              \
+	return item->field.si.next != NULL;                                    \
+}                                                                              \
 macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
 				  const type *item)                            \
 {                                                                              \
@@ -404,6 +408,11 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
 	return h->dh.count;                                                    \
+}                                                                              \
+macro_pure bool prefix ## _anywhere(const type *item)                          \
+{                                                                              \
+	const struct dlist_item *ditem = &item->field.di;                      \
+	return ditem->next && ditem->prev;                                     \
 }                                                                              \
 macro_pure bool prefix ## _member(const struct prefix##_head *h,               \
 				  const type *item)                            \
