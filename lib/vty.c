@@ -77,6 +77,7 @@ struct nb_config *vty_mgmt_candidate_config = NULL;
 	
 static mgmt_lib_hndl_t mgmt_lib_hndl = 0;
 static bool mgmt_frntnd_connected = false;
+static bool mgmt_candidate_db_wr_locked = false;
 
 static void vty_event_serv(enum event event, int sock);
 static void vty_event(enum event, struct vty *);
@@ -2678,6 +2679,23 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		return CMD_WARNING;
 	}
 
+	if (vty_mgmt_frntnd_enabled()) {
+		if (!mgmt_candidate_db_wr_locked) {
+			if (vty_mgmt_send_lockdb_req(vty,
+				MGMTD_DB_CANDIDATE, true) != 0) {
+				vty_out(vty, "Not able to lock candidate DB\n");
+				return CMD_WARNING;
+			}
+		} else {
+			vty_out(vty,
+				"Candidate DB already locked by different session\n");
+			return CMD_WARNING;
+		}
+
+		vty->mgmt_locked_candidate_db = true;
+		mgmt_candidate_db_wr_locked = true;
+	}
+
 	vty->node = CONFIG_NODE;
 	vty->config = true;
 	vty->private_config = private_config;
@@ -2699,13 +2717,6 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
 			vty->candidate_config_base =
 				nb_config_dup(running_config);
-	}
-
-	if (vty_mgmt_frntnd_enabled()) {
-		if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, true) != 0) {
-			vty_out(vty, "Not able to lock candidate DB\n");
-			return CMD_WARNING;
-		}
 	}
 
 	return CMD_SUCCESS;
@@ -2735,11 +2746,15 @@ int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
 
-	if (vty_mgmt_frntnd_enabled()) {
+	if (vty_mgmt_frntnd_enabled() && mgmt_candidate_db_wr_locked &&
+		vty->mgmt_locked_candidate_db) {
 		if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, false) != 0) {
 			vty_out(vty, "Not able to unlock candidate DB\n");
 			return CMD_WARNING;
 		}
+
+		vty->mgmt_locked_candidate_db = false;
+		mgmt_candidate_db_wr_locked = false;
 	}
 
 	/* Perform any pending commits. */
