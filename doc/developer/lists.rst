@@ -106,19 +106,25 @@ Functions provided:
 | _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
+|                                    |      |      |      |         |            |
 | _const_first, _const_next          |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | _swap_all                          | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
+| _anywhere                          | yes  | --   | --   | --      | --         |
++------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _add                               | --   | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _member                            | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _find, _const_find                 | --   | --   | yes  | yes     | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _find_lt, _find_gteq,              | --   | --   | --   | yes     | yes        |
+|                                    |      |      |      |         |            |
 | _const_find_lt, _const_find_gteq   |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
@@ -268,6 +274,16 @@ The following documentation assumes that a list has been defined using
       outdated by the time this function returns and can therefore only be
       used as an estimate.
 
+.. c:function:: bool Z_member(const struct Z_head *, const itemtype *)
+
+   Determines whether some item is a member of the given container.  The
+   item must either be valid on some container, or set to all zeroes.
+
+   On some containers, if no faster way to determine membership is possible,
+   this is simply ``item == Z_find(head, item)``.
+
+   Not currently available for atomic containers.
+
 .. c:function:: const itemtype *Z_const_first(const struct Z_head *)
 .. c:function:: itemtype *Z_first(struct Z_head *)
 
@@ -395,6 +411,17 @@ are several functions exposed to insert data:
 
       maybe flip the order of ``item`` & ``after``?
       ``Z_add_after(head, item, after)``
+
+.. c:function:: bool Z_anywhere(const itemtype *)
+
+   Returns whether an item is a member of *any* container of this type.
+   The item must either be valid on some container, or set to all zeroes.
+
+   Guaranteed to be fast (pointer compare or similar.)
+
+   Not currently available for sorted and atomic containers.  Might be added
+   for sorted containers at some point (when needed.)
+
 
 API for sorted structures
 -------------------------
