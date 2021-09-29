@@ -132,6 +132,10 @@ struct slist_head {
 	size_t count;
 };
 
+/* this replaces NULL as the value for ->next on the last item. */
+extern struct slist_item typesafe_slist_sentinel;
+#define _SLIST_LAST &typesafe_slist_sentinel
+
 static inline void typesafe_list_add(struct slist_head *head,
 		struct slist_item **pos, struct slist_item *item)
 {
@@ -165,6 +169,7 @@ MACRO_REQUIRE_SEMICOLON() /* end */
 macro_inline void prefix ## _init(struct prefix##_head *h)                     \
 {                                                                              \
 	memset(h, 0, sizeof(*h));                                              \
+	h->sh.first = _SLIST_LAST;                                             \
 	h->sh.last_next = &h->sh.first;                                        \
 }                                                                              \
 macro_inline void prefix ## _fini(struct prefix##_head *h)                     \
@@ -190,13 +195,13 @@ macro_inline void prefix ## _add_after(struct prefix##_head *h,                \
 macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 {                                                                              \
 	struct slist_item **iter = &h->sh.first;                               \
-	while (*iter && *iter != &item->field.si)                              \
+	while (*iter != _SLIST_LAST && *iter != &item->field.si)               \
 		iter = &(*iter)->next;                                         \
-	if (!*iter)                                                            \
+	if (*iter == _SLIST_LAST)                                              \
 		return NULL;                                                   \
 	h->sh.count--;                                                         \
 	*iter = item->field.si.next;                                           \
-	if (!item->field.si.next)                                              \
+	if (item->field.si.next == _SLIST_LAST)                                \
 		h->sh.last_next = iter;                                        \
 	item->field.si.next = NULL;                                            \
 	return item;                                                           \
@@ -204,11 +209,11 @@ macro_inline type *prefix ## _del(struct prefix##_head *h, type *item)         \
 macro_inline type *prefix ## _pop(struct prefix##_head *h)                     \
 {                                                                              \
 	struct slist_item *sitem = h->sh.first;                                \
-	if (!sitem)                                                            \
+	if (sitem == _SLIST_LAST)                                              \
 		return NULL;                                                   \
 	h->sh.count--;                                                         \
 	h->sh.first = sitem->next;                                             \
-	if (h->sh.first == NULL)                                               \
+	if (h->sh.first == _SLIST_LAST)                                        \
 		h->sh.last_next = &h->sh.first;                                \
 	sitem->next = NULL;                                                    \
 	return container_of(sitem, type, field.si);                            \
@@ -226,13 +231,17 @@ macro_inline void prefix ## _swap_all(struct prefix##_head *a,                 \
 }                                                                              \
 macro_pure const type *prefix ## _const_first(const struct prefix##_head *h)   \
 {                                                                              \
-	return container_of_null(h->sh.first, type, field.si);                 \
+	if (h->sh.first != _SLIST_LAST)                                        \
+		return container_of(h->sh.first, type, field.si);              \
+	return NULL;                                                           \
 }                                                                              \
 macro_pure const type *prefix ## _const_next(const struct prefix##_head *h,    \
 					     const type *item)                 \
 {                                                                              \
 	const struct slist_item *sitem = &item->field.si;                      \
-	return container_of_null(sitem->next, type, field.si);                 \
+	if (sitem->next != _SLIST_LAST)                                        \
+		return container_of(sitem->next, type, field.si);              \
+	return NULL;                                                           \
 }                                                                              \
 TYPESAFE_FIRST_NEXT(prefix, type)                                              \
 macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
@@ -241,7 +250,9 @@ macro_pure type *prefix ## _next_safe(struct prefix##_head *h, type *item)     \
 	if (!item)                                                             \
 		return NULL;                                                   \
 	sitem = &item->field.si;                                               \
-	return container_of_null(sitem->next, type, field.si);                 \
+	if (sitem->next != _SLIST_LAST)                                        \
+		return container_of(sitem->next, type, field.si);              \
+	return NULL;                                                           \
 }                                                                              \
 macro_pure size_t prefix ## _count(const struct prefix##_head *h)              \
 {                                                                              \
