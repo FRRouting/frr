@@ -308,7 +308,7 @@ extern void static_route_group_bfd_profile(struct static_route_group *srg,
 					   const char *profile);
 extern void static_route_group_bfd_multi_hop(struct static_route_group *srg,
 					     bool mhop);
-extern void static_group_fixup_vrf_ids(struct vrf *vrf);
+extern void static_group_fixup_vrf_ids(struct vrf *vrf, bool enabled);
 
 /** Call this function after zebra client initialization. */
 extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);

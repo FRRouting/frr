@@ -314,9 +314,15 @@ static struct static_route_group *static_route_group_lookup(const char *name)
 	return NULL;
 }
 
-void static_group_fixup_vrf_ids(struct vrf *vrf)
+void static_group_fixup_vrf_ids(struct vrf *vrf, bool vrf_enabled)
 {
 	struct static_route_group *srg;
+	vrf_id_t vrf_id;
+
+	if (vrf_enabled)
+		vrf_id = vrf->vrf_id;
+	else
+		vrf_id = VRF_UNKNOWN;
 
 	TAILQ_FOREACH (srg, &sbglobal.sbg_srglist, srg_entry) {
 		if (srg->vrfname[0] == '\0')
@@ -325,7 +331,8 @@ void static_group_fixup_vrf_ids(struct vrf *vrf)
 			continue;
 		if (strcmp(vrf->name, srg->vrfname))
 			continue;
-		if (bfd_sess_set_vrf(srg->srg_bsp, vrf->vrf_id))
+		if (bfd_sess_set_vrf(srg->srg_bsp, vrf_id)
+		    && vrf_enabled)
 			bfd_sess_install(srg->srg_bsp);
 	}
 }
