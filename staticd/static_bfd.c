@@ -314,6 +314,22 @@ static struct static_route_group *static_route_group_lookup(const char *name)
 	return NULL;
 }
 
+void static_group_fixup_vrf_ids(struct vrf *vrf)
+{
+	struct static_route_group *srg;
+
+	TAILQ_FOREACH (srg, &sbglobal.sbg_srglist, srg_entry) {
+		if (srg->vrfname[0] == '\0')
+			continue;
+		if (!srg->srg_bsp)
+			continue;
+		if (strcmp(vrf->name, srg->vrfname))
+			continue;
+		if (bfd_sess_set_vrf(srg->srg_bsp, vrf->vrf_id))
+			bfd_sess_install(srg->srg_bsp);
+	}
+}
+
 struct static_group_member *
 static_group_member_glookup(struct static_nexthop *sn)
 {
@@ -396,9 +412,13 @@ void static_route_group_bfd_vrf(struct static_route_group *srg,
 	if (srg->srg_bsp == NULL)
 		return;
 
+	if (!vrfname || strcmp(vrfname, VRF_DEFAULT_NAME) == 0)
+		srg->vrfname[0] = '\0';
+	else
+		snprintf(&srg->vrfname[0], sizeof(srg->vrfname), "%s", vrfname);
 	vrf = vrf_lookup_by_name(vrfname);
-	bfd_sess_set_vrf(srg->srg_bsp, vrf ? vrf->vrf_id : VRF_UNKNOWN);
-	bfd_sess_install(srg->srg_bsp);
+	if (bfd_sess_set_vrf(srg->srg_bsp, vrf ? vrf->vrf_id : VRF_UNKNOWN))
+		bfd_sess_install(srg->srg_bsp);
 }
 
 void static_route_group_bfd_addresses(struct static_route_group *srg,
@@ -457,14 +477,20 @@ void static_route_group_bfd_enable(struct static_route_group *srg,
 	bool use_profile = yang_dnode_exists(dnode, "../profile");
 	bool mhop = yang_dnode_get_bool(dnode, "../multi-hop");
 	struct vrf *vrf;
-	char *vrfname;
+	const char *vrfname;
 
 	/* Reconfigure or allocate new memory. */
 	if (srg->srg_bsp == NULL)
 		srg->srg_bsp =
 			bfd_sess_new(static_route_group_bfd_updatecb, srg);
 
-	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
+	vrfname = yang_dnode_get_string(dnode, "../vrf");
+	if (!vrfname || strcmp(vrfname, VRF_DEFAULT_NAME) == 0)
+		srg->vrfname[0] = '\0';
+	else
+		snprintf(&srg->vrfname[0], sizeof(srg->vrfname), "%s", vrfname);
+
+	vrf = vrf_lookup_by_name(vrfname);
 	bfd_sess_set_vrf(srg->srg_bsp, vrf ? vrf->vrf_id : VRF_UNKNOWN);
 
 	static_route_group_bfd_addresses(srg, dnode);

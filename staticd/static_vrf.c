@@ -78,6 +78,7 @@ static int static_vrf_enable(struct vrf *vrf)
 	static_zebra_vrf_register(vrf);
 
 	static_fixup_vrf_ids(vrf->info);
+	static_group_fixup_vrf_ids(vrf);
 
 	return 0;
 }

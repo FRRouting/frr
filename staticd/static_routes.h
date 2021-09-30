@@ -249,6 +249,9 @@ struct static_route_group {
 	/** Group name. */
 	char srg_name[ROUTE_GROUP_NAME_MAX_SIZE];
 
+	/* vrf name */
+	char vrfname[VRF_NAMSIZ + 1];
+
 	/** BFD group monitor settings. */
 	struct bfd_session_params *srg_bsp;
 
@@ -305,6 +308,7 @@ extern void static_route_group_bfd_profile(struct static_route_group *srg,
 					   const char *profile);
 extern void static_route_group_bfd_multi_hop(struct static_route_group *srg,
 					     bool mhop);
+extern void static_group_fixup_vrf_ids(struct vrf *vrf);
 
 /** Call this function after zebra client initialization. */
 extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);
