@@ -456,11 +456,16 @@ void static_route_group_bfd_enable(struct static_route_group *srg,
 	bool use_interface = yang_dnode_exists(dnode, "../interface");
 	bool use_profile = yang_dnode_exists(dnode, "../profile");
 	bool mhop = yang_dnode_get_bool(dnode, "../multi-hop");
+	struct vrf *vrf;
+	char *vrfname;
 
 	/* Reconfigure or allocate new memory. */
 	if (srg->srg_bsp == NULL)
 		srg->srg_bsp =
 			bfd_sess_new(static_route_group_bfd_updatecb, srg);
+
+	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
+	bfd_sess_set_vrf(srg->srg_bsp, vrf ? vrf->vrf_id : VRF_UNKNOWN);
 
 	static_route_group_bfd_addresses(srg, dnode);
 	bfd_sess_set_interface(
