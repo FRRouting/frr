@@ -290,9 +290,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 			 * origin.
 			 */
 			if (o_path->area_id != route->path.area_id
-			    || (memcmp(&(o_path)->origin, &(route)->path.origin,
-				       sizeof(struct ospf6_ls_origin))
-				!= 0))
+			    || (!ospf6_ls_origin_cmp(o_path, route)))
 				continue;
 
 			/* Cost is not same then delete current path */
@@ -411,10 +409,7 @@ void ospf6_asbr_update_route_ecmp_path(struct ospf6_route *old,
 			for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
 						  o_path)) {
 				if (o_path->area_id == route->path.area_id
-				    && (memcmp(&(o_path)->origin,
-					       &(route)->path.origin,
-					       sizeof(struct ospf6_ls_origin))
-					== 0))
+				    && (ospf6_ls_origin_cmp(o_path, route)))
 					break;
 			}
 			/* If path is not found in old_route paths's list,

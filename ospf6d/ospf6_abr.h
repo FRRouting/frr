@@ -89,5 +89,7 @@ extern void ospf6_abr_init(void);
 extern void ospf6_abr_range_update(struct ospf6_route *range,
 				   struct ospf6 *ospf6);
 extern void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6);
+extern int ospf6_ls_origin_cmp(struct ospf6_path *o_path,
+		struct ospf6_route *route);
 
 #endif /*OSPF6_ABR_H*/
