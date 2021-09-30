@@ -143,6 +143,13 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/source",
+			.cbs = {
+				.modify = route_next_hop_bfd_source_modify,
+				.destroy = route_next_hop_bfd_source_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/group",
 			.cbs = {
 				.modify = route_next_hop_bfd_group_modify,

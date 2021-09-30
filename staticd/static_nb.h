@@ -68,6 +68,8 @@ int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_monitor_enable_modify(struct nb_cb_modify_args *args);
 int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args);
 int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args);
+int route_next_hop_bfd_source_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
 int route_next_hop_bfd_group_modify(struct nb_cb_modify_args *args);
 int route_next_hop_bfd_group_destroy(struct nb_cb_destroy_args *args);

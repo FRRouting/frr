@@ -251,6 +251,14 @@ module frr-bfdd {
       default false;
     }
 
+    leaf source {
+      when "../multi-hop = 'true'";
+      mandatory true;
+      type inet:ip-address;
+      description
+        "Source address to use for liveness check.";
+    }
+
     leaf profile {
       description
         "BFD pre configured profile.";
@@ -274,14 +282,6 @@ module frr-bfdd {
       type inet:ip-address;
       description
         "Peer address to use for liveness check.";
-    }
-
-    leaf source {
-      when "../multi-hop = 'true'";
-      mandatory true;
-      type inet:ip-address;
-      description
-        "Source address to use for liveness check.";
     }
 
     leaf interface {

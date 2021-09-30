@@ -435,9 +435,13 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 		return false;
 	}
 
-	/* Multi hop requires local address. */
+	/* Multi hop requires local address.
+	 * - either CP is able to configure local address
+	 * - or profiles can be used
+	 */
 	if (bsp->args.mhop
-	    && memcmp(&i6a_zero, &bsp->args.src, sizeof(i6a_zero)) == 0) {
+	    && memcmp(&i6a_zero, &bsp->args.src, sizeof(i6a_zero)) == 0
+	    && bsp->args.profilelen == 0) {
 		if (bsglobal.debugging)
 			zlog_debug(
 				"%s: multi hop but no local address provided",

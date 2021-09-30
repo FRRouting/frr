@@ -282,6 +282,8 @@ extern void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 extern void static_next_hop_bfd_monitor_disable(struct static_nexthop *sn);
 extern void static_next_hop_bfd_profile(struct static_nexthop *sn,
 					const char *name);
+extern void static_next_hop_bfd_source(struct static_nexthop *sn,
+				       const struct lyd_node *dnode);
 extern void static_next_hop_bfd_multi_hop(struct static_nexthop *sn, bool mhop);
 
 extern void static_group_monitor_enable(const char *name,
