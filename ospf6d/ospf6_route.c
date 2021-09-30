@@ -408,8 +408,6 @@ int ospf6_nexthop_cmp(struct ospf6_nexthop *a, struct ospf6_nexthop *b)
 	else
 		return memcmp(&a->address, &b->address,
 			      sizeof(struct in6_addr));
-
-	return 0;
 }
 
 static int ospf6_path_cmp(struct ospf6_path *a, struct ospf6_path *b)
