@@ -1237,6 +1237,12 @@ DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,
 	   BFD_PROFILE_NAME_STR)
 {
 	if (no) {
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile", NB_OP_DESTROY,
+				      NULL);
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/source", NB_OP_DESTROY,
+				      NULL);
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/interface", NB_OP_DESTROY,
+				      NULL);
 		nb_cli_enqueue_change(vty, "./bfd-monitoring", NB_OP_DESTROY,
 				      NULL);
 		goto apply_changes;
