@@ -1182,22 +1182,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
  */
 int route_group_create(struct nb_cb_create_args *args)
 {
-	/* NOTHING. */
-	return NB_OK;
-}
-
-int route_group_destroy(struct nb_cb_destroy_args *args)
-{
-	/* NOTHING. */
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring
- */
-int route_group_bfd_monitor_create(struct nb_cb_create_args *args)
-{
 	struct static_route_group *srg;
 
 	if (args->event != NB_EV_APPLY)
@@ -1209,7 +1193,7 @@ int route_group_bfd_monitor_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int route_group_bfd_monitor_destroy(struct nb_cb_destroy_args *args)
+int route_group_destroy(struct nb_cb_destroy_args *args)
 {
 	struct static_route_group *srg;
 
@@ -1218,6 +1202,22 @@ int route_group_bfd_monitor_destroy(struct nb_cb_destroy_args *args)
 
 	srg = nb_running_unset_entry(args->dnode);
 	static_route_group_free(&srg);
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring
+ */
+int route_group_bfd_monitor_create(struct nb_cb_create_args *args)
+{
+	/* NOTHING */
+	return NB_OK;
+}
+
+int route_group_bfd_monitor_destroy(struct nb_cb_destroy_args *args)
+{
+	/* NOTHING */
 	return NB_OK;
 }
 
