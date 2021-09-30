@@ -1277,7 +1277,7 @@ void static_route_group_show(struct vty *vty, const struct lyd_node *dnode,
 		return;
 
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
-	if (strcmp(vrfname, VRF_DEFAULT_NAME) == 0)
+	if (strcmp(vrfname, VRF_DEFAULT_NAME))
 		snprintf(vrfstr, sizeof(vrfstr), " vrf %s", vrfname);
 
 	if (yang_dnode_exists(dnode, "./interface"))
