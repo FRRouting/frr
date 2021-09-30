@@ -2476,7 +2476,8 @@ int mgmt_trxn_notify_bcknd_cfgdata_reply(
 	if (!trxn || trxn->type != MGMTD_TRXN_TYPE_CONFIG) 
 		return -1;
 
-	assert(trxn->commit_cfg_req);
+	if (!trxn->commit_cfg_req)
+		return -1;
 	cmtcfg_req = 
 		&trxn->commit_cfg_req->req.commit_cfg;
 

@@ -1019,7 +1019,7 @@ extern int nb_candidate_commit_prepare(struct nb_context *context,
 				       struct nb_config *candidate,
 				       const char *comment,
 				       struct nb_transaction **transaction,
-				       bool skip_validate,
+				       bool skip_validate, bool ignore_zero_change,
 				       char *errmsg, size_t errmsg_len);
 
 /*
