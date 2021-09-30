@@ -298,7 +298,8 @@ extern void static_group_monitor_disable(const char *name,
 extern void static_route_group_bfd_vrf(struct static_route_group *srg,
 				       const char *vrfname);
 extern void static_route_group_bfd_addresses(struct static_route_group *srg,
-					     const struct lyd_node *dnode);
+					     const struct lyd_node *dnode,
+					     bool is_upper_node);
 extern void static_route_group_bfd_interface(struct static_route_group *srg,
 					     const char *ifname);
 extern void static_route_group_bfd_enable(struct static_route_group *srg,

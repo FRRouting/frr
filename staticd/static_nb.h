@@ -65,8 +65,6 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_create(struct nb_cb_create_args *args);
 int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args);
-int route_next_hop_bfd_monitor_enable_modify(struct nb_cb_modify_args *args);
-int route_next_hop_bfd_monitor_enable_destroy(struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args);
 int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_source_modify(struct nb_cb_modify_args *args);
@@ -123,7 +121,6 @@ int route_group_bfd_source_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_source_destroy(struct nb_cb_destroy_args *args);
 int route_group_bfd_interface_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_interface_destroy(struct nb_cb_destroy_args *args);
-int route_group_bfd_enable_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_profile_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int route_group_bfd_multi_hop_modify(struct nb_cb_modify_args *args);

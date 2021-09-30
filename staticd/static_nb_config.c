@@ -724,47 +724,18 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
  */
 int route_next_hop_bfd_create(struct nb_cb_create_args *args)
 {
-	/*
-	 * NOTHING: lets avoid allocating memory if just the presence node
-	 * was created.
-	 */
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_monitor_enable(sn, args->dnode);
+
 	return NB_OK;
 }
 
 int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args)
-{
-	struct static_nexthop *sn;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	sn = nb_running_get_entry(args->dnode, NULL, true);
-	static_next_hop_bfd_monitor_disable(sn);
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/enable
- */
-int route_next_hop_bfd_monitor_enable_modify(struct nb_cb_modify_args *args)
-{
-	struct static_nexthop *sn;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	sn = nb_running_get_entry(args->dnode, NULL, true);
-	if (yang_dnode_get_bool(args->dnode, NULL))
-		static_next_hop_bfd_monitor_enable(sn, args->dnode);
-	else
-		static_next_hop_bfd_monitor_disable(sn);
-
-	return NB_OK;
-}
-
-int route_next_hop_bfd_monitor_enable_destroy(struct nb_cb_destroy_args *args)
 {
 	struct static_nexthop *sn;
 
@@ -1188,7 +1159,7 @@ int route_group_create(struct nb_cb_create_args *args)
 		return NB_OK;
 
 	srg = static_route_group_new(
-		yang_dnode_get_string(args->dnode, "../name"));
+		yang_dnode_get_string(args->dnode, "./name"));
 	nb_running_set_entry(args->dnode, srg);
 	return NB_OK;
 }
@@ -1211,7 +1182,14 @@ int route_group_destroy(struct nb_cb_destroy_args *args)
  */
 int route_group_bfd_monitor_create(struct nb_cb_create_args *args)
 {
-	/* NOTHING */
+	struct static_route_group *srg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	srg = nb_running_get_entry(args->dnode, NULL, true);
+	static_route_group_bfd_enable(srg, args->dnode);
+
 	return NB_OK;
 }
 
@@ -1251,7 +1229,7 @@ int route_group_bfd_peer_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	srg = nb_running_get_entry(args->dnode, NULL, true);
-	static_route_group_bfd_addresses(srg, args->dnode);
+	static_route_group_bfd_addresses(srg, args->dnode, true);
 
 	return NB_OK;
 }
@@ -1268,7 +1246,7 @@ int route_group_bfd_source_modify(struct nb_cb_modify_args *args)
 		return NB_OK;
 
 	srg = nb_running_get_entry(args->dnode, NULL, true);
-	static_route_group_bfd_addresses(srg, args->dnode);
+	static_route_group_bfd_addresses(srg, args->dnode, true);
 
 	return NB_OK;
 }
@@ -1281,7 +1259,7 @@ int route_group_bfd_source_destroy(struct nb_cb_destroy_args *args)
 		return NB_OK;
 
 	srg = nb_running_get_entry(args->dnode, NULL, true);
-	static_route_group_bfd_addresses(srg, args->dnode);
+	static_route_group_bfd_addresses(srg, args->dnode, true);
 
 	return NB_OK;
 }
@@ -1313,26 +1291,6 @@ int route_group_bfd_interface_destroy(struct nb_cb_destroy_args *args)
 
 	srg = nb_running_get_entry(args->dnode, NULL, true);
 	static_route_group_bfd_interface(srg, NULL);
-
-	return NB_OK;
-}
-
-/*
- * XPath:
- * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/enable
- */
-int route_group_bfd_enable_modify(struct nb_cb_modify_args *args)
-{
-	struct static_route_group *srg;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	srg = nb_running_get_entry(args->dnode, NULL, true);
-	if (yang_dnode_get_bool(args->dnode, NULL))
-		static_route_group_bfd_enable(srg, args->dnode);
-	else
-		static_route_group_bfd_disable(srg);
 
 	return NB_OK;
 }

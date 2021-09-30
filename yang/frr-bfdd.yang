@@ -237,13 +237,6 @@ module frr-bfdd {
     description
       "BFD monitoring template for protocol integration.";
 
-    leaf enable {
-      description
-        "Administrative state.";
-      type boolean;
-      default false;
-    }
-
     leaf multi-hop {
       description
         "Use multi hop session instead of single hop.";

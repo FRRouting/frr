@@ -90,11 +90,12 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	struct in6_addr *ia_srcp = NULL;
 
 	use_interface = false;
-	use_profile = yang_dnode_exists(dnode, "../profile");
-	onlink = yang_dnode_exists(dnode, "../../onlink")
-		 && yang_dnode_get_bool(dnode, "../../onlink");
-	mhop = yang_dnode_get_bool(dnode, "../multi-hop");
-	source = yang_dnode_exists(dnode, "../source");
+	use_profile = yang_dnode_exists(dnode, "./profile");
+	onlink = yang_dnode_exists(dnode, "../onlink")
+		 && yang_dnode_get_bool(dnode, "../onlink");
+	mhop = yang_dnode_exists(dnode, "./multi-hop")
+		&& yang_dnode_get_bool(dnode, "./multi-hop");
+	source = yang_dnode_exists(dnode, "./source");
 
 	switch (sn->type) {
 	case STATIC_IPV4_GATEWAY_IFNAME:
@@ -125,7 +126,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 		bfd_sess_set_vrf(sn->bsp, sn->nh_vrf_id);
 
 	if (source) {
-		yang_dnode_get_ip(&ia_src, dnode, "../source", NULL);
+		yang_dnode_get_ip(&ia_src, dnode, "./source", NULL);
 		ia_srcp = (struct in6_addr *)&ia_src.ip;
 	} else
 		ia_srcp = NULL;
@@ -139,7 +140,7 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	bfd_sess_set_interface(sn->bsp, use_interface ? sn->ifname : NULL);
 
 	bfd_sess_set_profile(sn->bsp, use_profile ? yang_dnode_get_string(
-					      dnode, "../profile")
+					      dnode, "./profile")
 						  : NULL);
 
 	if (onlink || mhop == false)
@@ -429,21 +430,29 @@ void static_route_group_bfd_vrf(struct static_route_group *srg,
 }
 
 void static_route_group_bfd_addresses(struct static_route_group *srg,
-				      const struct lyd_node *dnode)
+				      const struct lyd_node *dnode,
+				      bool is_upper_node)
 {
 	struct ipaddr ia_src = {}, ia_dst = {};
 	struct in6_addr *ia_srcp = NULL;
+	char src_str[50], dst_str[50];
 
 	if (srg->srg_bsp == NULL)
 		return;
-
-	if (yang_dnode_exists(dnode, "../source")) {
-		yang_dnode_get_ip(&ia_src, dnode, "../source", NULL);
+	if (is_upper_node) {
+		snprintf(src_str, sizeof(src_str), "../source");
+		snprintf(dst_str, sizeof(dst_str), "../peer");
+	} else {
+		snprintf(src_str, sizeof(src_str), "./source");
+		snprintf(dst_str, sizeof(dst_str), "./peer");
+	}
+	if (yang_dnode_exists(dnode, src_str)) {
+		yang_dnode_get_ip(&ia_src, dnode, src_str, NULL);
 		ia_srcp = (struct in6_addr *)&ia_src.ip;
 	} else
 		ia_srcp = NULL;
 
-	yang_dnode_get_ip(&ia_dst, dnode, "../peer", NULL);
+	yang_dnode_get_ip(&ia_dst, dnode, dst_str, NULL);
 
 	if (ia_dst.ipa_type == IPADDR_V4)
 		bfd_sess_set_ipv4_addrs(srg->srg_bsp, (struct in_addr *)ia_srcp,
@@ -480,9 +489,9 @@ static void static_route_group_bfd_updatecb(
 void static_route_group_bfd_enable(struct static_route_group *srg,
 				   const struct lyd_node *dnode)
 {
-	bool use_interface = yang_dnode_exists(dnode, "../interface");
-	bool use_profile = yang_dnode_exists(dnode, "../profile");
-	bool mhop = yang_dnode_get_bool(dnode, "../multi-hop");
+	bool use_interface = yang_dnode_exists(dnode, "./interface");
+	bool use_profile = yang_dnode_exists(dnode, "./profile");
+	bool mhop = yang_dnode_get_bool(dnode, "./multi-hop");
 	struct vrf *vrf;
 	const char *vrfname;
 
@@ -491,7 +500,7 @@ void static_route_group_bfd_enable(struct static_route_group *srg,
 		srg->srg_bsp =
 			bfd_sess_new(static_route_group_bfd_updatecb, srg);
 
-	vrfname = yang_dnode_get_string(dnode, "../vrf");
+	vrfname = yang_dnode_get_string(dnode, "./vrf");
 	if (!vrfname || strcmp(vrfname, VRF_DEFAULT_NAME) == 0)
 		srg->vrfname[0] = '\0';
 	else
@@ -500,13 +509,13 @@ void static_route_group_bfd_enable(struct static_route_group *srg,
 	vrf = vrf_lookup_by_name(vrfname);
 	bfd_sess_set_vrf(srg->srg_bsp, vrf ? vrf->vrf_id : VRF_UNKNOWN);
 
-	static_route_group_bfd_addresses(srg, dnode);
+	static_route_group_bfd_addresses(srg, dnode, false);
 	bfd_sess_set_interface(
 		srg->srg_bsp,
-		use_interface ? yang_dnode_get_string(dnode, "../interface")
+		use_interface ? yang_dnode_get_string(dnode, "./interface")
 			      : NULL);
 	bfd_sess_set_profile(srg->srg_bsp, use_profile ? yang_dnode_get_string(
-						   dnode, "../profile")
+						   dnode, "./profile")
 						       : NULL);
 
 	bfd_sess_set_hop_count(srg->srg_bsp, mhop ? BFD_MULTI_HOP_MAX_HOP_COUNT

@@ -327,10 +327,9 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		/* BFD integration processing. */
 		if (bfd && !src_str) {
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
-			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring/enable",
+			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring",
 				sizeof(xpath_bfd));
-			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_MODIFY,
-					      "true");
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_CREATE, NULL);
 
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd,
@@ -384,6 +383,11 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		}
 
 		if (route_group && !src_str) {
+			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
+			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring",
+				sizeof(xpath_bfd));
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_CREATE, NULL);
+
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring/group",
 				sizeof(xpath_bfd));
@@ -1248,8 +1252,7 @@ DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,
 		goto apply_changes;
 	}
 
-	nb_cli_enqueue_change(vty, "./bfd-monitoring/enable", NB_OP_CREATE,
-			      "true");
+	nb_cli_enqueue_change(vty, "./bfd-monitoring", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./bfd-monitoring/vrf", NB_OP_MODIFY,
 			      vrfname ? vrfname : VRF_DEFAULT_NAME);
 	nb_cli_enqueue_change(vty, "./bfd-monitoring/peer", NB_OP_MODIFY,
@@ -1277,10 +1280,6 @@ void static_route_group_show(struct vty *vty, const struct lyd_node *dnode,
 {
 	char vrfstr[256] = {}, ifstr[256] = {}, srcstr[256] = {}, profstr[256] = {};
 	const char *vrfname;
-
-	/* Group is disabled, don't show in CLI. */
-	if (!yang_dnode_get_bool(dnode, "./enable"))
-		return;
 
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
 	if (strcmp(vrfname, VRF_DEFAULT_NAME))
