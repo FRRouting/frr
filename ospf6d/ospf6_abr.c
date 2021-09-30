@@ -53,12 +53,11 @@
 
 unsigned char conf_debug_ospf6_abr;
 
-int ospf6_ls_origin_cmp(struct ospf6_path *o_path, struct ospf6_route *route)
+int ospf6_ls_origin_same(struct ospf6_path *o_path, struct ospf6_path *r_path)
 {
-	if (((o_path->origin.type == route->path.origin.type)
-				&& (o_path->origin.id == route->path.origin.id)
-				&& (o_path->origin.adv_router ==
-					route->path.origin.adv_router)))
+	if (((o_path->origin.type == r_path->origin.type)
+	     && (o_path->origin.id == r_path->origin.id)
+	     && (o_path->origin.adv_router == r_path->origin.adv_router)))
 		return 1;
 	else
 		return 0;
@@ -826,8 +825,8 @@ void ospf6_abr_old_path_update(struct ospf6_route *old_route,
 	struct ospf6_nexthop *nh, *rnh;
 
 	for (ALL_LIST_ELEMENTS(old_route->paths, anode, anext, o_path)) {
-		if (o_path->area_id != route->path.area_id ||
-		    (!ospf6_ls_origin_cmp(o_path, route)))
+		if (o_path->area_id != route->path.area_id
+		    || !ospf6_ls_origin_same(o_path, &route->path))
 			continue;
 
 		if ((o_path->cost == route->path.cost) &&
@@ -1242,8 +1241,8 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 
 		for (ALL_LIST_ELEMENTS_RO(old_route->paths, anode,
 						  o_path)) {
-			if (o_path->area_id == route->path.area_id &&
-			    (ospf6_ls_origin_cmp(o_path, route)))
+			if (o_path->area_id == route->path.area_id
+			    && ospf6_ls_origin_same(o_path, &route->path))
 				break;
 		}
 

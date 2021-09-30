@@ -1239,7 +1239,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			ospf6_lsa_delete(new);
 			return;
 		}
-		return;
 	}
 }
 
