@@ -691,13 +691,12 @@ Redistribution
    the 'always' keyword is given then the default is always advertised, even
    when there is no default present in the routing table.
 
-.. clicmd:: distribute-list NAME out (kernel|connected|static|rip|ospf
-
-
 .. _ospf-distribute-list:
 
+.. clicmd:: distribute-list NAME out <kernel|connected|static|rip|isis|bgp|eigrp|nhrp|table|vnc|babel|openfabric>
+
    Apply the access-list filter, NAME, to redistributed routes of the given
-   type before allowing the routes to redistributed into OSPF
+   type before allowing the routes to be redistributed into OSPF
    (:ref:`ospf redistribution <ospf-redistribute>`).
 
 .. clicmd:: default-metric (0-16777214)
