@@ -717,6 +717,7 @@ fi
 %files pythontools
 %{_sbindir}/generate_support_bundle.py
 %{_sbindir}/frr-reload.py
+%{_sbindir}/frr_babeltrace.py
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 %{_sbindir}/__pycache__/*
 %else
@@ -724,6 +725,8 @@ fi
 %{_sbindir}/generate_support_bundle.pyo
 %{_sbindir}/frr-reload.pyc
 %{_sbindir}/frr-reload.pyo
+%{_sbindir}/frr_babeltrace.pyc
+%{_sbindir}/frr_babeltrace.pyo
 %endif
 
 
