@@ -1961,6 +1961,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	struct update_group *updgrp;
 	struct peer *updgrp_peer;
 	uint8_t subtype;
+	bool force_update = false;
 	bgp_size_t msg_length =
 		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
@@ -2222,7 +2223,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		/* Avoid supressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
-		SET_FLAG(paf->subgroup->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+		force_update = true;
 
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
@@ -2354,7 +2355,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* Perform route refreshment to the peer */
-	bgp_announce_route(peer, afi, safi);
+	bgp_announce_route(peer, afi, safi, force_update);
 
 	/* No FSM action necessary */
 	return BGP_PACKET_NOOP;
@@ -2457,7 +2458,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				peer->afc_recv[afi][safi] = 1;
 				if (peer->afc[afi][safi]) {
 					peer->afc_nego[afi][safi] = 1;
-					bgp_announce_route(peer, afi, safi);
+					bgp_announce_route(peer, afi, safi,
+							   false);
 				}
 			} else {
 				peer->afc_recv[afi][safi] = 0;

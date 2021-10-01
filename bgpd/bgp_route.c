@@ -4588,8 +4588,11 @@ static int bgp_announce_route_timer_expired(struct thread *t)
  * bgp_announce_route
  *
  * *Triggers* announcement of routes of a given AFI/SAFI to a peer.
+ *
+ * if force is true we will force an update even if the update
+ * limiting code is attempted to kick in.
  */
-void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi)
+void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi, bool force)
 {
 	struct peer_af *paf;
 	struct update_subgroup *subgrp;
@@ -4605,6 +4608,9 @@ void bgp_announce_route(struct peer *peer, afi_t afi, safi_t safi)
 	 */
 	if (!subgrp || paf->t_announce_route)
 		return;
+
+	if (force)
+		SET_FLAG(subgrp->sflags, SUBGRP_STATUS_FORCE_UPDATES);
 
 	/*
 	 * Start a timer to stagger/delay the announce. This serves
@@ -4634,7 +4640,7 @@ void bgp_announce_route_all(struct peer *peer)
 	safi_t safi;
 
 	FOREACH_AFI_SAFI (afi, safi)
-		bgp_announce_route(peer, afi, safi);
+		bgp_announce_route(peer, afi, safi, false);
 }
 
 /* Flag or unflag bgp_dest to determine whether it should be treated by
@@ -4772,7 +4778,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 						table->soft_reconfig_peers,
 						peer);
 					bgp_announce_route(peer, table->afi,
-							   table->safi);
+							   table->safi, false);
 					if (list_isempty(
 						    table->soft_reconfig_peers)) {
 						list_delete(
@@ -4800,7 +4806,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 	*/
 	for (ALL_LIST_ELEMENTS(table->soft_reconfig_peers, node, nnode, peer)) {
 		listnode_delete(table->soft_reconfig_peers, peer);
-		bgp_announce_route(peer, table->afi, table->safi);
+		bgp_announce_route(peer, table->afi, table->safi, false);
 	}
 
 	list_delete(&table->soft_reconfig_peers);
