@@ -545,7 +545,7 @@ void pim_hello_require(struct interface *ifp)
 
 	assert(pim_ifp);
 
-	if (pim_ifp->pim_ifstat_hello_sent)
+	if (PIM_IF_FLAG_TEST_HELLO_SENT(pim_ifp->flags))
 		return;
 
 	pim_hello_restart_now(ifp); /* Send hello and restart timer */
