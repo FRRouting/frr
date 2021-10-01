@@ -7018,12 +7018,10 @@ DEFUN (no_neighbor_interface,
 
 DEFUN (neighbor_distribute_list,
        neighbor_distribute_list_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list WORD <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Filter updates to/from this neighbor\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
        "IP Access-list name\n"
        "Filter incoming updates\n"
        "Filter outgoing updates\n")
@@ -7051,24 +7049,20 @@ DEFUN (neighbor_distribute_list,
 
 ALIAS_HIDDEN(
 	neighbor_distribute_list, neighbor_distribute_list_hidden_cmd,
-	"neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
+	"neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list WORD <in|out>",
 	NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Filter updates to/from this neighbor\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP Access-list name\n"
 	"Filter incoming updates\n"
 	"Filter outgoing updates\n")
 
 DEFUN (no_neighbor_distribute_list,
        no_neighbor_distribute_list_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list WORD <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Filter updates to/from this neighbor\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
        "IP Access-list name\n"
        "Filter incoming updates\n"
        "Filter outgoing updates\n")
@@ -7094,11 +7088,9 @@ DEFUN (no_neighbor_distribute_list,
 
 ALIAS_HIDDEN(
 	no_neighbor_distribute_list, no_neighbor_distribute_list_hidden_cmd,
-	"no neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list <(1-199)|(1300-2699)|WORD> <in|out>",
+	"no neighbor <A.B.C.D|X:X::X:X|WORD> distribute-list WORD <in|out>",
 	NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	"Filter updates to/from this neighbor\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP Access-list name\n"
 	"Filter incoming updates\n"
 	"Filter outgoing updates\n")

@@ -4576,13 +4576,11 @@ DEFUN_YANG (no_match_probability,
 
 DEFPY_YANG (match_ip_route_source,
        match_ip_route_source_cmd,
-       "match ip route-source <(1-199)|(1300-2699)|WORD>",
+       "match ip route-source WORD",
        MATCH_STR
        IP_STR
        "Match advertising source address of route\n"
-       "IP access-list number\n"
-       "IP access-list number (expanded range)\n"
-       "IP standard access-list name\n")
+       "IP Access-list name\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:ip-route-source']";
@@ -4602,14 +4600,12 @@ DEFPY_YANG (match_ip_route_source,
 
 DEFUN_YANG (no_match_ip_route_source,
 	    no_match_ip_route_source_cmd,
-	    "no match ip route-source [<(1-199)|(1300-2699)|WORD>]",
+	    "no match ip route-source [WORD]",
 	    NO_STR
 	    MATCH_STR
 	    IP_STR
 	    "Match advertising source address of route\n"
-	    "IP access-list number\n"
-	    "IP access-list number (expanded range)\n"
-	    "IP standard access-list name\n")
+	    "IP Access-list name\n")
 {
 	const char *xpath =
 		"./match-condition[condition='frr-bgp-route-map:ip-route-source']";

@@ -191,38 +191,38 @@ execute strict 'no ipv6 nd mtu 1'@11: rv==0, 'no ipv6 nd mtu <1-65535>': '1'
 complete 'no ipv6 nd mtu 1'@11: rv==2
 describe 'no ipv6 nd mtu 1'@11: rv==0
   '<1-65535>' 'MTU in bytes'
-execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@17: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
-execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@17: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
+execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@17: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
+execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@17: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
 complete 'no neighbor 1.2.3.4 distribute-list 1 in'@17: rv==7
   'in'
 describe 'no neighbor 1.2.3.4 distribute-list 1 in'@17: rv==0
   'in' 'Filter incoming updates'
-execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@18: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
-execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@18: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
+execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@18: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
+execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@18: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
 complete 'no neighbor 1.2.3.4 distribute-list 1 in'@18: rv==7
   'in'
 describe 'no neighbor 1.2.3.4 distribute-list 1 in'@18: rv==0
   'in' 'Filter incoming updates'
-execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@19: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
-execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@19: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
+execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@19: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
+execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@19: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
 complete 'no neighbor 1.2.3.4 distribute-list 1 in'@19: rv==7
   'in'
 describe 'no neighbor 1.2.3.4 distribute-list 1 in'@19: rv==0
   'in' 'Filter incoming updates'
-execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@20: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
-execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@20: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
+execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@20: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
+execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@20: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
 complete 'no neighbor 1.2.3.4 distribute-list 1 in'@20: rv==7
   'in'
 describe 'no neighbor 1.2.3.4 distribute-list 1 in'@20: rv==0
   'in' 'Filter incoming updates'
-execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@21: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
-execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@21: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
+execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@21: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
+execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@21: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
 complete 'no neighbor 1.2.3.4 distribute-list 1 in'@21: rv==7
   'in'
 describe 'no neighbor 1.2.3.4 distribute-list 1 in'@21: rv==0
   'in' 'Filter incoming updates'
-execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@22: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
-execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@22: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list (<1-199>|<1300-2699>|WORD) (in|out)': '1.2.3.4', '1', 'in'
+execute relaxed 'no neighbor 1.2.3.4 distribute-list 1 in'@22: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
+execute strict 'no neighbor 1.2.3.4 distribute-list 1 in'@22: rv==0, 'no neighbor (A.B.C.D|X:X::X:X|WORD) distribute-list WORD (in|out)': '1.2.3.4', '1', 'in'
 complete 'no neighbor 1.2.3.4 distribute-list 1 in'@22: rv==7
   'in'
 describe 'no neighbor 1.2.3.4 distribute-list 1 in'@22: rv==0
