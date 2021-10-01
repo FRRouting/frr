@@ -6266,7 +6266,8 @@ static void peer_distribute_update(struct access_list *access)
 
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {
 		if (access->name)
-			update_group_policy_update(bgp, BGP_POLICY_FILTER_LIST,
+			update_group_policy_update(bgp,
+						   BGP_POLICY_DISTRIBUTE_LIST,
 						   access->name, 0, 0);
 		for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 			FOREACH_AFI_SAFI (afi, safi) {
