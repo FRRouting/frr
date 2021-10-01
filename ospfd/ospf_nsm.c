@@ -76,10 +76,13 @@ static int ospf_inactivity_timer(struct thread *thread)
 	 */
 	if (!OSPF_GR_IS_ACTIVE_HELPER(nbr))
 		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_InactivityTimer);
-	else if (IS_DEBUG_OSPF_GR)
+	else if (IS_DEBUG_OSPF_GR) {
 		zlog_debug(
-			"%s, Acting as HELPER for this neighbour, So inactivitytimer event will not be fired.",
+			"%s, Acting as HELPER for this neighbour, So restart the dead timer",
 			__func__);
+		OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
+				  nbr->v_inactivity);
+	}
 
 	return 0;
 }
