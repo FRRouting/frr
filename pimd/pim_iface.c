@@ -290,6 +290,7 @@ static void pim_addr_change(struct interface *ifp)
 	  -- FIXME See TODO T31
 	 */
 	pim_ifp->pim_ifstat_hello_sent = 0; /* reset hello counter */
+	PIM_IF_FLAG_UNSET_HELLO_SENT(pim_ifp->flags);
 	if (pim_ifp->pim_sock_fd < 0)
 		return;
 	pim_hello_restart_now(ifp); /* send hello and restart timer */
@@ -1697,8 +1698,10 @@ int pim_ifp_down(struct interface *ifp)
 		}
 	}
 
-	if (ifp->info)
+	if (ifp->info) {
 		pim_if_del_vif(ifp);
+		pim_ifstat_reset(ifp);
+	}
 
 	return 0;
 }
