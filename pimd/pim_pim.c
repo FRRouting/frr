@@ -454,6 +454,21 @@ void pim_ifstat_reset(struct interface *ifp)
 	pim_ifp->pim_ifstat_hello_sendfail = 0;
 	pim_ifp->pim_ifstat_hello_recv = 0;
 	pim_ifp->pim_ifstat_hello_recvfail = 0;
+	pim_ifp->pim_ifstat_bsm_rx = 0;
+	pim_ifp->pim_ifstat_bsm_tx = 0;
+	pim_ifp->pim_ifstat_join_recv = 0;
+	pim_ifp->pim_ifstat_join_send = 0;
+	pim_ifp->pim_ifstat_prune_recv = 0;
+	pim_ifp->pim_ifstat_prune_send = 0;
+	pim_ifp->pim_ifstat_reg_recv = 0;
+	pim_ifp->pim_ifstat_reg_send = 0;
+	pim_ifp->pim_ifstat_reg_stop_recv = 0;
+	pim_ifp->pim_ifstat_reg_stop_send = 0;
+	pim_ifp->pim_ifstat_assert_recv = 0;
+	pim_ifp->pim_ifstat_assert_send = 0;
+	pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
+	pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
+	pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
 }
 
 void pim_sock_reset(struct interface *ifp)
@@ -706,6 +721,7 @@ int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 	}
 
 	++pim_ifp->pim_ifstat_hello_sent;
+	PIM_IF_FLAG_SET_HELLO_SENT(pim_ifp->flags);
 
 	return 0;
 }
