@@ -11,7 +11,6 @@ RUN apt update && \
       install-info build-essential libsnmp-dev perl \
       libcap-dev python2 libelf-dev \
       sudo gdb curl iputils-ping time \
-      libgrpc++-dev libgrpc-dev protobuf-compiler-grpc \
       lua5.3 liblua5.3-dev \
       net-tools iproute2 && \
       curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output /tmp/get-pip.py && \
@@ -61,7 +60,6 @@ RUN cd ~/frr && \
        --sbindir=/usr/lib/frr \
        --sysconfdir=/etc/frr \
        --enable-vtysh \
-       --enable-grpc \
        --enable-pimd \
        --enable-sharpd \
        --enable-multipath=64 \
