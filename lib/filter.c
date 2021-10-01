@@ -635,15 +635,11 @@ DEFUN (show_ip_access_list,
 
 DEFUN (show_ip_access_list_name,
        show_ip_access_list_name_cmd,
-       "show ip access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> [json]",
+       "show ip access-list WORD [json]",
        SHOW_STR
        IP_STR
        "List IP access lists\n"
-       "IP standard access list\n"
-       "IP extended access list\n"
-       "IP standard access list (expanded range)\n"
-       "IP extended access list (expanded range)\n"
-       "IP zebra access-list\n"
+       "IP access-list name\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
@@ -669,7 +665,7 @@ DEFUN (show_ipv6_access_list_name,
        SHOW_STR
        IPV6_STR
        "List IPv6 access lists\n"
-       "IPv6 zebra access-list\n"
+       "IPv6 access-list name\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
