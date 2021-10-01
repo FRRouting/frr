@@ -723,14 +723,10 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 
 	/* check exit triggered due to successful completion
 	 * of graceful restart.
-	 * If no, bring down the neighbour.
 	 */
 	if (reason != OSPF_GR_HELPER_COMPLETED) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug(
-				"%s, Failed GR exit, so bringing down the neighbour",
-				__func__);
-		OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_KillNbr);
+			zlog_debug("%s, Unsuccessful GR exit", __func__);
 	}
 
 	/*Recalculate the DR for the network segment */
