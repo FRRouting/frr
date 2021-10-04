@@ -954,11 +954,13 @@ def test_PIM_hello_tx_rx_p1(request):
         tc_name, result
     )
 
-    step("verify stats not increamented on c1")
+    step("verify stats incremented on c1")
     result = verify_state_incremented(c1_state_before, c1_state_after)
     assert (
-        result is not True
-    ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
+        result is True
+    ), "Testcase{} : Failed Error: {}" "stats is not incremented".format(
+        tc_name, result
+    )
 
     step("verify before stats on l1")
     l1_state_dict = {
@@ -991,7 +993,7 @@ def test_PIM_hello_tx_rx_p1(request):
         tc_name, result
     )
 
-    step("verify stats not increamented on l1")
+    step("verify stats not incremented on l1")
     result = verify_state_incremented(l1_state_before, l1_state_after)
     assert (
         result is not True
@@ -1041,10 +1043,10 @@ def test_PIM_hello_tx_rx_p1(request):
         tc_name, result
     )
 
-    step("verify stats not increamented on c1")
+    step("verify stats incremented on c1")
     result = verify_state_incremented(c1_state_before, c1_state_after)
     assert (
-        result is not True
+        result is True
     ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
 
     write_test_footer(tc_name)
