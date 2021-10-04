@@ -344,6 +344,10 @@ static struct lyd_node *get_dnode_config(const std::string &path)
 {
 	struct lyd_node *dnode;
 
+	if (!yang_dnode_exists(running_config->dnode,
+			       path.empty() ? NULL : path.c_str()))
+		return NULL;
+
 	dnode = yang_dnode_get(running_config->dnode,
 			       path.empty() ? NULL : path.c_str());
 	if (dnode)
