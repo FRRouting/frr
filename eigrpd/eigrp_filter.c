@@ -203,9 +203,8 @@ void eigrp_distribute_update(struct distribute_ctx *ctx,
 	/* Cancel GR scheduled */
 	thread_cancel(&(ei->t_distribute));
 	/* schedule Graceful restart for interface in 10sec */
-	e->t_distribute = NULL;
 	thread_add_timer(master, eigrp_distribute_timer_interface, ei, 10,
-			 &e->t_distribute);
+			 &ei->t_distribute);
 }
 
 /*
@@ -263,7 +262,6 @@ int eigrp_distribute_timer_process(struct thread *thread)
 	struct eigrp *eigrp;
 
 	eigrp = THREAD_ARG(thread);
-	eigrp->t_distribute = NULL;
 
 	/* execute GR for whole process */
 	eigrp_update_send_process_GR(eigrp, EIGRP_GR_FILTER, NULL);
