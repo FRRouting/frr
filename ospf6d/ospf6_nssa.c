@@ -304,24 +304,16 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
 		type = htons(OSPF6_LSTYPE_INTER_ROUTER);
 		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
 					   lsa)) {
-			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED)) {
-				lsa->header->age = htons(OSPF_LSA_MAXAGE);
-				THREAD_OFF(lsa->refresh);
-				thread_execute(master, ospf6_lsa_expire, lsa,
-					       0);
-			}
+			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED))
+				ospf6_lsa_premature_aging(lsa);
 		}
 
 		/* Inter area prefix LSA */
 		type = htons(OSPF6_LSTYPE_INTER_PREFIX);
 		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
 					   lsa)) {
-			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED)) {
-				lsa->header->age = htons(OSPF_LSA_MAXAGE);
-				THREAD_OFF(lsa->refresh);
-				thread_execute(master, ospf6_lsa_expire, lsa,
-					       0);
-			}
+			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED))
+				ospf6_lsa_premature_aging(lsa);
 		}
 	}
 
