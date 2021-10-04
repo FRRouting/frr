@@ -429,7 +429,6 @@ static int ripng_garbage_collect(struct thread *t)
 	struct agg_node *rp;
 
 	rinfo = THREAD_ARG(t);
-	rinfo->t_garbage_collect = NULL;
 
 	/* Off timeout timer. */
 	RIPNG_TIMER_OFF(rinfo->t_timeout);
@@ -1320,7 +1319,6 @@ static int ripng_read(struct thread *thread)
 	/* Fetch thread data and set read pointer to empty for event
 	   managing.  `sock' sould be same as ripng->sock. */
 	sock = THREAD_FD(thread);
-	ripng->t_read = NULL;
 
 	/* Add myself to the next event. */
 	ripng_event(ripng, RIPNG_READ, sock);
@@ -1418,9 +1416,6 @@ static int ripng_update(struct thread *t)
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	/* Clear update timer thread. */
-	ripng->t_update = NULL;
-
 	/* Logging update event. */
 	if (IS_RIPNG_DEBUG_EVENT)
 		zlog_debug("RIPng update timer expired!");
@@ -1469,8 +1464,6 @@ static int ripng_triggered_interval(struct thread *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 
-	ripng->t_triggered_interval = NULL;
-
 	if (ripng->trigger) {
 		ripng->trigger = 0;
 		ripng_triggered_update(t);
@@ -1485,8 +1478,6 @@ int ripng_triggered_update(struct thread *t)
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int interval;
-
-	ripng->t_triggered_update = NULL;
 
 	/* Cancel interval timer. */
 	thread_cancel(&ripng->t_triggered_interval);
@@ -1525,7 +1516,6 @@ int ripng_triggered_update(struct thread *t)
 	   update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	ripng->t_triggered_interval = NULL;
 	thread_add_timer(master, ripng_triggered_interval, ripng, interval,
 			 &ripng->t_triggered_interval);
 
@@ -1942,7 +1932,6 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 		/* Update timer jitter. */
 		jitter = ripng_update_jitter(ripng->update_time);
 
-		ripng->t_update = NULL;
 		thread_add_timer(master, ripng_update, ripng,
 				 sock ? 2 : ripng->update_time + jitter,
 				 &ripng->t_update);
