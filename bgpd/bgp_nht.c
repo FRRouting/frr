@@ -892,8 +892,9 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   zserv_command_string(command), &bnc->prefix,
 			   bnc->bgp->name_pretty);
 
-	ret = zclient_send_rnh(zclient, command, &bnc->prefix, exact_match,
-			       resolve_via_default, bnc->bgp->vrf_id);
+	ret = zclient_send_rnh(zclient, command, &bnc->prefix, SAFI_UNICAST,
+			       exact_match, resolve_via_default,
+			       bnc->bgp->vrf_id);
 	/* TBD: handle the failure */
 	if (ret == ZCLIENT_SEND_FAILURE)
 		flog_warn(EC_BGP_ZEBRA_SEND,
