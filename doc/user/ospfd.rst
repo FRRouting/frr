@@ -954,8 +954,6 @@ Router Information
 
    Show Router Capabilities PCE parameters.
 
-.. _debugging-ospf:
-
 Segment Routing
 ===============
 
@@ -1041,6 +1039,8 @@ TI-LFA requires a proper Segment Routing configuration.
    Configured on the router level. Activates TI-LFA for all interfaces.
 
    Note that so far only P2P interfaces are supported.
+
+.. _debugging-ospf:
 
 Debugging OSPF
 ==============
