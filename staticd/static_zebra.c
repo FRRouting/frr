@@ -50,7 +50,7 @@ PREDECL_HASH(static_nht_hash);
 struct static_nht_data {
 	struct static_nht_hash_item itm;
 
-	struct prefix *nh;
+	struct prefix nh;
 
 	vrf_id_t nh_vrf_id;
 
@@ -64,14 +64,14 @@ static int static_nht_data_cmp(const struct static_nht_data *nhtd1,
 	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
 		return numcmp(nhtd1->nh_vrf_id, nhtd2->nh_vrf_id);
 
-	return prefix_cmp(nhtd1->nh, nhtd2->nh);
+	return prefix_cmp(&nhtd1->nh, &nhtd2->nh);
 }
 
 static unsigned int static_nht_data_hash(const struct static_nht_data *nhtd)
 {
 	unsigned int key = 0;
 
-	key = prefix_hash_key(nhtd->nh);
+	key = prefix_hash_key(&nhtd->nh);
 	return jhash_1word(nhtd->nh_vrf_id, key);
 }
 
@@ -213,7 +213,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	}
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = &matched;
+	lookup.nh = matched;
 	lookup.nh_vrf_id = vrf_id;
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
@@ -245,8 +245,7 @@ static_nht_hash_getref(const struct static_nht_data *ref)
 	if (!nhtd) {
 		nhtd = XCALLOC(MTYPE_STATIC_NHT_DATA, sizeof(*nhtd));
 
-		nhtd->nh = prefix_new();
-		prefix_copy(nhtd->nh, ref->nh);
+		prefix_copy(&nhtd->nh, &ref->nh);
 		nhtd->nh_vrf_id = ref->nh_vrf_id;
 
 		static_nht_hash_add(static_nht_hash, nhtd);
@@ -262,7 +261,6 @@ static bool static_nht_hash_decref(struct static_nht_data *nhtd)
 		return true;
 
 	static_nht_hash_del(static_nht_hash, nhtd);
-	prefix_free(&nhtd->nh);
 	XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
 	return false;
 }
@@ -271,10 +269,8 @@ static void static_nht_hash_clear(void)
 {
 	struct static_nht_data *nhtd;
 
-	while ((nhtd = static_nht_hash_pop(static_nht_hash))) {
-		prefix_free(&nhtd->nh);
+	while ((nhtd = static_nht_hash_pop(static_nht_hash)))
 		XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
-	}
 }
 
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
@@ -317,7 +313,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	}
 
 	memset(&lookup, 0, sizeof(lookup));
-	lookup.nh = &p;
+	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 
 	nh->nh_registered = reg;
@@ -332,7 +328,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			       "Already registered nexthop(%pFX) for %pRN %d",
 			       &p, rn, nhtd->nh_num);
 			if (nhtd->nh_num)
-				static_nht_update(&rn->p, nhtd->nh,
+				static_nht_update(&rn->p, &nhtd->nh,
 						  nhtd->nh_num, afi,
 						  nh->nh_vrf_id);
 			return;
@@ -389,13 +385,13 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 		break;
 	}
 
-	lookup.nh = &p;
+	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 	if (nhtd && nhtd->nh_num) {
 		nh->state = STATIC_START;
-		static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num, afi,
+		static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
 				  nh->nh_vrf_id);
 		return 1;
 	}
