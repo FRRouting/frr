@@ -64,6 +64,7 @@
 #include "bgpd/bgp_evpn_private.h"
 #include "bgpd/bgp_evpn_mh.h"
 #include "bgpd/bgp_mac.h"
+#include "bgpd/bgp_trace.h"
 
 /* All information about zebra. */
 struct zclient *zclient = NULL;
@@ -2773,6 +2774,9 @@ static int bgp_zebra_process_local_es_add(ZAPI_CALLBACK_ARGS)
 			esi_to_str(&esi, buf, sizeof(buf)), &originator_ip,
 			active, df_pref, bypass ? "bypass" : "");
 
+	frrtrace(5, frr_bgp, evpn_mh_local_es_add_zrecv, &esi, originator_ip,
+		 active, bypass, df_pref);
+
 	bgp_evpn_local_es_add(bgp, &esi, originator_ip, active, df_pref,
 			      !!bypass);
 
@@ -2797,6 +2801,8 @@ static int bgp_zebra_process_local_es_del(ZAPI_CALLBACK_ARGS)
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx del ESI %s",
 				esi_to_str(&esi, buf, sizeof(buf)));
+
+	frrtrace(1, frr_bgp, evpn_mh_local_es_del_zrecv, &esi);
 
 	bgp_evpn_local_es_del(bgp, &esi);
 
@@ -2824,10 +2830,15 @@ static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 				ZEBRA_VNI_ADD ? "add" : "del",
 				esi_to_str(&esi, buf, sizeof(buf)), vni);
 
-	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD)
+	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD) {
+		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &esi, vni);
+
 		bgp_evpn_local_es_evi_add(bgp, &esi, vni);
-	else
+	} else {
+		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_del_zrecv, &esi, vni);
+
 		bgp_evpn_local_es_evi_del(bgp, &esi, vni);
+	}
 
 	return 0;
 }
@@ -2862,6 +2873,10 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 				filter ? "prefix-routes-only" : "none",
 				svi_ifindex);
 
+		frrtrace(8, frr_bgp, evpn_local_l3vni_add_zrecv, l3vni, vrf_id,
+			 &svi_rmac, &vrr_rmac, filter, originator_ip,
+			 svi_ifindex, is_anycast_mac);
+
 		bgp_evpn_local_l3vni_add(l3vni, vrf_id, &svi_rmac, &vrr_rmac,
 					 originator_ip, filter, svi_ifindex,
 					 is_anycast_mac);
@@ -2869,6 +2884,8 @@ static int bgp_zebra_process_local_l3vni(ZAPI_CALLBACK_ARGS)
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug("Rx L3-VNI DEL VRF %s VNI %u",
 				   vrf_id_to_name(vrf_id), l3vni);
+
+		frrtrace(2, frr_bgp, evpn_local_l3vni_del_zrecv, l3vni, vrf_id);
 
 		bgp_evpn_local_l3vni_del(l3vni, vrf_id);
 	}
@@ -2906,13 +2923,19 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
 			vrf_id_to_name(vrf_id), vni,
 			vrf_id_to_name(tenant_vrf_id), svi_ifindex);
 
-	if (cmd == ZEBRA_VNI_ADD)
+	if (cmd == ZEBRA_VNI_ADD) {
+		frrtrace(4, frr_bgp, evpn_local_vni_add_zrecv, vni, vtep_ip,
+			 tenant_vrf_id, mcast_grp);
+
 		return bgp_evpn_local_vni_add(
 			bgp, vni,
 			vtep_ip.s_addr != INADDR_ANY ? vtep_ip : bgp->router_id,
 			tenant_vrf_id, mcast_grp, svi_ifindex);
-	else
+	} else {
+		frrtrace(1, frr_bgp, evpn_local_vni_del_zrecv, vni);
+
 		return bgp_evpn_local_vni_del(bgp, vni);
+	}
 }
 
 static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
@@ -2968,11 +2991,18 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 			&mac, &ip, vni, seqnum, state,
 			esi_to_str(&esi, buf2, sizeof(buf2)));
 
-	if (cmd == ZEBRA_MACIP_ADD)
+	if (cmd == ZEBRA_MACIP_ADD) {
+		frrtrace(6, frr_bgp, evpn_local_macip_add_zrecv, vni, &mac, &ip,
+			 flags, seqnum, &esi);
+
 		return bgp_evpn_local_macip_add(bgp, vni, &mac, &ip,
 						flags, seqnum, &esi);
-	else
+	} else {
+		frrtrace(4, frr_bgp, evpn_local_macip_del_zrecv, vni, &mac, &ip,
+			 state);
+
 		return bgp_evpn_local_macip_del(bgp, vni, &mac, &ip, state);
+	}
 }
 
 static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
