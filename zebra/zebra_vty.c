@@ -965,6 +965,7 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 		json_object_int_add(json_route, "internalNextHopActiveNum",
 				    nexthop_group_active_nexthop_num(
 					    &(re->nhe->nhg)));
+		json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
 
 		json_object_string_add(json_route, "uptime", up_str);
 
