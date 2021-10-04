@@ -265,7 +265,6 @@ static int nhrp_peer_request_timeout(struct thread *t)
 	struct interface *ifp = p->ifp;
 	struct nhrp_interface *nifp = ifp->info;
 
-	p->t_fallback = NULL;
 
 	if (p->online)
 		return 0;

@@ -39,7 +39,6 @@ static int nhrp_shortcut_do_expire(struct thread *t)
 {
 	struct nhrp_shortcut *s = THREAD_ARG(t);
 
-	s->t_timer = NULL;
 	thread_add_timer(master, nhrp_shortcut_do_purge, s, s->holding_time / 3,
 			 &s->t_timer);
 	s->expiring = 1;

@@ -84,7 +84,6 @@ static int evmgr_read(struct thread *t)
 	struct zbuf *ibuf = &evmgr->ibuf;
 	struct zbuf msg;
 
-	evmgr->t_read = NULL;
 	if (zbuf_read(ibuf, evmgr->fd, (size_t)-1) < 0) {
 		evmgr_connection_error(evmgr);
 		return 0;
@@ -103,7 +102,6 @@ static int evmgr_write(struct thread *t)
 	struct event_manager *evmgr = THREAD_ARG(t);
 	int r;
 
-	evmgr->t_write = NULL;
 	r = zbufq_write(&evmgr->obuf, evmgr->fd);
 	if (r > 0) {
 		thread_add_write(master, evmgr_write, evmgr, evmgr->fd,
@@ -193,7 +191,6 @@ static int evmgr_reconnect(struct thread *t)
 	struct event_manager *evmgr = THREAD_ARG(t);
 	int fd;
 
-	evmgr->t_reconnect = NULL;
 	if (evmgr->fd >= 0 || !nhrp_event_socket_path)
 		return 0;
 
