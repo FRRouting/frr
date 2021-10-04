@@ -9,7 +9,7 @@ RUN apt update && \
       pkg-config libpam0g-dev libjson-c-dev bison flex python3-pip \
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl \
-      libcap-dev python2 libelf-dev \
+      libcap-dev python2 libelf-dev kmod\
       sudo gdb curl iputils-ping time \
       libgrpc++-dev libgrpc-dev protobuf-compiler-grpc \
       lua5.3 liblua5.3-dev \

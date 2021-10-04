@@ -24,6 +24,7 @@ jobs:
        - docker exec frr-ubuntu18 bash -c 'ps agxu ; lsmod | grep mpls || true'
        - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
        - docker exec frr-ubuntu18 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
+       - docker exec frr-ubuntu18 cat /tmp/topotests/bgp_l3vpn_to_bgp_vrf.test_bgp_l3vpn_to_bgp_vrf/summary.txt
      name: ubuntu18+minimalCI
    - script:
        - sudo apt install -y linux-modules-extra-$(uname -r)
@@ -36,5 +37,7 @@ jobs:
        - docker exec frr-ubuntu20 bash -c 'ps agxu ; lsmod | grep mpls || true'
        - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/ospf_topo1 ; sudo pytest test_ospf_topo1.py'
        - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
+       - docker exec frr-ubuntu20 bash -c 'cd ~/frr/tests/topotests/bgp_l3vpn_to_bgp_vrf ; sudo pytest test_bgp_l3vpn_to_bgp_vrf.py'
+       - docker exec frr-ubuntu20 cat /tmp/topotests/bgp_l3vpn_to_bgp_vrf.test_bgp_l3vpn_to_bgp_vrf/summary.txt
      name: ubuntu20+minimalCI
 
