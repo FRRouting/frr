@@ -768,9 +768,9 @@ static void zclient_connect(struct thread *t)
 }
 
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
-					  const struct prefix *p,
-					  bool connected,
-					  bool resolve_via_def, vrf_id_t vrf_id)
+					  const struct prefix *p, safi_t safi,
+					  bool connected, bool resolve_via_def,
+					  vrf_id_t vrf_id)
 {
 	struct stream *s;
 
@@ -779,7 +779,7 @@ enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 	zclient_create_header(s, command, vrf_id);
 	stream_putc(s, (connected) ? 1 : 0);
 	stream_putc(s, (resolve_via_def) ? 1 : 0);
-	stream_putw(s, SAFI_UNICAST);
+	stream_putw(s, safi);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
 	switch (PREFIX_FAMILY(p)) {
