@@ -361,7 +361,6 @@ static int restart_kill(struct thread *t_kill)
 		(long)delay.tv_sec, (restart->kills ? SIGKILL : SIGTERM));
 	kill(-restart->pid, (restart->kills ? SIGKILL : SIGTERM));
 	restart->kills++;
-	restart->t_kill = NULL;
 	thread_add_timer(master, restart_kill, restart, gs.restart_timeout,
 			 &restart->t_kill);
 	return 0;
@@ -495,7 +494,6 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 		char cmd[strlen(command) + strlen(restart->name) + 1];
 		snprintf(cmd, sizeof(cmd), command, restart->name);
 		if ((restart->pid = run_background(cmd)) > 0) {
-			restart->t_kill = NULL;
 			thread_add_timer(master, restart_kill, restart,
 					 gs.restart_timeout, &restart->t_kill);
 			restart->what = cmdtype;
@@ -833,10 +831,8 @@ static int try_connect(struct daemon *dmn)
 			zlog_debug("%s: connection in progress", dmn->name);
 		dmn->state = DAEMON_CONNECTING;
 		dmn->fd = sock;
-		dmn->t_write = NULL;
 		thread_add_write(master, check_connect, dmn, dmn->fd,
 				 &dmn->t_write);
-		dmn->t_wakeup = NULL;
 		thread_add_timer(master, wakeup_connect_hanging, dmn,
 				 gs.timeout, &dmn->t_wakeup);
 		SET_READ_HANDLER(dmn);
@@ -1022,7 +1018,6 @@ static int wakeup_send_echo(struct thread *t_wakeup)
 		daemon_down(dmn, why);
 	} else {
 		gettimeofday(&dmn->echo_sent, NULL);
-		dmn->t_wakeup = NULL;
 		thread_add_timer(master, wakeup_no_answer, dmn, gs.timeout,
 				 &dmn->t_wakeup);
 	}
@@ -1269,7 +1264,6 @@ static void watchfrr_init(int argc, char **argv)
 		gs.numdaemons++;
 		gs.numdown++;
 		dmn->fd = -1;
-		dmn->t_wakeup = NULL;
 		thread_add_timer_msec(master, wakeup_init, dmn, 0,
 				      &dmn->t_wakeup);
 		dmn->restart.interval = gs.min_restart_interval;
