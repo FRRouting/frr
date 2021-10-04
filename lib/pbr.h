@@ -1,5 +1,9 @@
 /* Policy Based Routing (PBR) main header
  * Copyright (C) 2018 6WIND
+ * Portions:
+ *     Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *     Approved for Public Release; Distribution Unlimited 21-1402
+ *
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -59,7 +63,7 @@ struct pbr_filter {
 	struct prefix src_ip;
 	struct prefix dst_ip;
 
-	/* Source and Destination higher-layer (TCP/UDP) port numbers. */
+	/* Source and Destination layer 4 (tcp, udp, etc.) port numbers. */
 	uint16_t src_port;
 	uint16_t dst_port;
 
@@ -89,6 +93,17 @@ struct pbr_action {
 	uint16_t vlan_flags;
 
 	uint32_t queue_id;
+
+	/* Source and Destination IP address with masks. */
+	struct prefix src_ip;
+	struct prefix dst_ip;
+
+	/* Source and Destination layer 4 (tcp, udp, etc.) port numbers. */
+	uint32_t src_port;
+	uint32_t dst_port;
+
+	/* Differentiated Services field  */
+	uint8_t dsfield; /* DSCP (6 bits) & ECN (2 bits) */
 
 	uint32_t table;
 };

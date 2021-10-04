@@ -5,9 +5,8 @@ PBR
 ***
 
 :abbr:`PBR` is Policy Based Routing.  This implementation supports a very simple
-interface to allow admins to influence routing on their router.  At this time
-you can only match on destination and source prefixes for an incoming interface.
-At this point in time, this implementation will only work on Linux.
+interface to allow admins to influence routing on their router. At this point 
+in time, this implementation will only work on Linux.
 
 .. _starting-pbr:
 
@@ -153,8 +152,7 @@ end destination.
    Match packets according to the specified explicit congestion notification
    (ECN) field in the IP header; if this value matches then forward the packet
    according to the nexthop(s) specified.
-
-
+   
 .. clicmd:: set queue-id (1-65535)
 
    Set the egress port queue identifier for matched packets. The Linux Kernel
@@ -178,16 +176,54 @@ end destination.
 
    Strip inner vlan tags from matched packets. The Linux Kernel provider does not currently support packet mangling, so this field will be ignored unless another provider is used. It is invalid to specify both a `strip` and `set
    vlan` action.
+.. clicmd:: set src-ip [A.B.C.D/M|X:X::X:X/M]
+
+   Change the source IP address of matched packets, possibly using a mask `M`.
+   Note that this action is not currently supported by the Linux kernel
+   provider, so will be ignored unless other providers are used.
+
+.. clicmd:: set dst-ip [A.B.C.D/M|X:X::X:X/M]
+
+   Change the destination IP address of matched packets, possibly using a mask
+   `M`. Note that this action is not currently supported by the Linux kernel
+   provider, so will be ignored unless other providers are used.
+
+.. clicmd:: set src-port (1-65535)
+
+   Change the source port of matched packets. Note that this action only makes
+   sense with layer 4 protocols that use ports, such as TCP, UDP, and SCTP.
+   This action is not currently supported by the Linux kernel provider, so will 
+   be ignored unless other providers are used.
+
+.. clicmd:: set dst-port (1-65535)
+
+   Change the destination port of matched packets. Note that this action only 
+   makes sense with layer 4 protocols that use ports, such as TCP, UDP, and 
+   SCTP. This action is not currently supported by the Linux kernel provider, 
+   so will be ignored unless other providers are used.
+
+.. clicmd:: set dscp DSCP
+
+   Set the differentiated services code point (DSCP) of matched packets. This
+   action is not currently supported by the Linux kernel provider, so will be
+   ignored unless other providers are used.
+
+.. clicmd:: set ecn (0-3)
+
+   Set the explicit congestion notification (ECN) of matched packets. This
+   action is not currently supported by the Linux kernel provider, so will be
+   ignored unless other providers are used.   
 
 .. clicmd:: set nexthop-group NAME
 
    Use the nexthop-group NAME as the place to forward packets when the match
    commands have matched a packet.
 
-.. clicmd:: set nexthop [A.B.C.D|X:X::X:XX] [interface] [nexthop-vrf NAME]
+.. clicmd:: set nexthop [A.B.C.D|X:X::X:XX|drop] [interface] [nexthop-vrf NAME]
 
    Use this individual nexthop as the place to forward packets when the match
-   commands have matched a packet.
+   commands have matched a packet. If `drop`, packets will be sent to a
+   blackhole route and dropped.
 
 .. clicmd:: set vrf unchanged|NAME
 

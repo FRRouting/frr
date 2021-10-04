@@ -1,6 +1,9 @@
 /*
  * Zebra dataplane layer.
  * Copyright (c) 2018 Volta Networks, Inc.
+ * Portions:
+ *     Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *     Approved for Public Release; Distribution Unlimited 21-1402
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -260,6 +263,8 @@ struct dplane_ctx_rule {
 	uint8_t dsfield;
 	struct prefix src_ip;
 	struct prefix dst_ip;
+	uint32_t src_port;
+	uint32_t dst_port;
 	uint8_t ip_proto;
 
 	uint8_t action_pcp;
@@ -269,6 +274,15 @@ struct dplane_ctx_rule {
 	uint32_t action_queue_id;
 
 	char ifname[INTERFACE_NAMSIZ + 1];
+
+	/* Actions */
+	struct prefix action_src_ip;
+	struct prefix action_dst_ip;
+
+	uint32_t action_src_port;
+	uint32_t action_dst_port;
+
+	uint8_t action_dsfield;
 };
 
 struct dplane_rule_info {
@@ -2053,6 +2067,34 @@ uint32_t dplane_ctx_rule_get_old_fwmark(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.rule.old.fwmark;
 }
 
+uint16_t dplane_ctx_rule_get_src_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.src_port;
+}
+
+uint16_t dplane_ctx_rule_get_old_src_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.src_port;
+}
+
+uint16_t dplane_ctx_rule_get_dst_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.dst_port;
+}
+
+uint16_t dplane_ctx_rule_get_old_dst_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.dst_port;
+}
+
 uint8_t dplane_ctx_rule_get_ipproto(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2771,6 +2813,7 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->priority = rule->rule.priority;
 	dplane_rule->table = rule->rule.action.table;
 
+	/* copy filter clause */
 	dplane_rule->filter_bm = rule->rule.filter.filter_bm;
 	dplane_rule->fwmark = rule->rule.filter.fwmark;
 	dplane_rule->dsfield = rule->rule.filter.dsfield;
@@ -2783,7 +2826,16 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->action_vlan_id = rule->rule.action.vlan_id;
 	dplane_rule->action_queue_id = rule->rule.action.queue_id;
 
+	dplane_rule->src_port = rule->rule.filter.src_port;
+	dplane_rule->dst_port = rule->rule.filter.dst_port;
 	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);
+
+	/* copy action clause */
+	prefix_copy(&(dplane_rule->action_src_ip), &rule->rule.action.src_ip);
+	prefix_copy(&(dplane_rule->action_dst_ip), &rule->rule.action.dst_ip);
+	dplane_rule->action_src_port = rule->rule.action.src_port;
+	dplane_rule->action_dst_port = rule->rule.action.dst_port;
+	dplane_rule->action_dsfield = rule->rule.action.dsfield;
 }
 
 /**
@@ -4939,6 +4991,7 @@ int dplane_provider_work_ready(void)
 	 * enqueue the work, but the event-scheduling machinery may not be
 	 * available.
 	 */
+
 	if (zdplane_info.dg_run) {
 		thread_add_event(zdplane_info.dg_master,
 				 dplane_thread_loop, NULL, 0,

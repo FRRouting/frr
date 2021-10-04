@@ -2,6 +2,10 @@
  * PBR-map Header
  * Copyright (C) 2018 Cumulus Networks, Inc.
  *               Donald Sharp
+ * Portions:
+ *     Copyright (c) 2021 The MITRE Corporation. All Rights Reserved.
+ *     Approved for Public Release; Distribution Unlimited 21-1402
+ *
  *
  * FRR is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -120,6 +124,20 @@ struct pbr_map_sequence {
 	unsigned char family;
 
 	/*
+	 * Actions
+	 */
+	struct prefix *action_src;
+	struct prefix *action_dst;
+
+#define PBR_UNDEFINED_VALUE 0xffffffff
+#define PBR_UNDEFINED_QUEUE_ID 0xff
+
+	uint16_t action_src_port;
+	uint16_t action_dst_port;
+
+	uint8_t action_dsfield;
+
+	/*
 	 * Use interface's vrf.
 	 */
 	bool vrf_unchanged;
@@ -232,7 +250,17 @@ extern void pbr_map_policy_delete(struct pbr_map *pbrm,
 extern void pbr_map_check_vrf_nh_group_change(const char *nh_group,
 					      struct pbr_vrf *pbr_vrf,
 					      uint32_t old_vrf_id);
+
 extern void pbr_map_check_interface_nh_group_change(const char *nh_group,
 						    struct interface *ifp,
 						    ifindex_t oldifindex);
+
+extern void pbr_set_action_clause_for_dscp(struct pbr_map_sequence *pbrms,
+					   uint8_t dscp_value);
+extern void pbr_reset_action_clause_for_dscp(struct pbr_map_sequence *pbrms);
+
+extern void pbr_set_action_clause_for_ecn(struct pbr_map_sequence *pbrms,
+					  uint8_t ecn_value);
+extern void pbr_reset_action_clause_for_ecn(struct pbr_map_sequence *pbrms);
+
 #endif

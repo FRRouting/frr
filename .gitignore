@@ -28,8 +28,10 @@
 /aclocal.m4
 /libtool
 /libtool.orig
-/test-driver
-/test-suite.log
+/changelog-auto
+/m4/ac
+/pathd/
+/pceplib/
 
 /Makefile
 /Makefile.in
@@ -111,7 +113,9 @@ refix
 .vscode
 .kitchen
 .emacs.desktop*
+*.xref
 
+/test-driver
 /test-suite.log
 pceplib/test/*.log
 pceplib/test/*.trs
