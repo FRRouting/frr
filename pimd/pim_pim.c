@@ -415,7 +415,6 @@ static void pim_sock_read_on(struct interface *ifp)
 		zlog_debug("Scheduling READ event on PIM socket fd=%d",
 			   pim_ifp->pim_sock_fd);
 	}
-	pim_ifp->t_pim_sock_read = NULL;
 	thread_add_read(router->master, pim_sock_read, ifp,
 			pim_ifp->pim_sock_fd, &pim_ifp->t_pim_sock_read);
 }
