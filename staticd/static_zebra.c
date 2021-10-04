@@ -330,8 +330,8 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
 	       reg ? "Registering" : "Unregistering", &p, rn);
 
-	if (zclient_send_rnh(zclient, cmd, &p, false, false, nh->nh_vrf_id)
-	    == ZCLIENT_SEND_FAILURE)
+	if (zclient_send_rnh(zclient, cmd, &p, SAFI_UNICAST, false, false,
+			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
 /*
