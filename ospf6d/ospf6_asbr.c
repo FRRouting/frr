@@ -1139,7 +1139,6 @@ void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
 	if (IS_OSPF6_DEBUG_ASBR)
 		zlog_debug("%s: trigger redistribute reset thread", __func__);
 
-	ospf6->t_distribute_update = NULL;
 	thread_add_timer_msec(master, ospf6_asbr_routemap_update_timer, ospf6,
 			      OSPF_MIN_LS_INTERVAL,
 			      &ospf6->t_distribute_update);

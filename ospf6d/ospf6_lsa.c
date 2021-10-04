@@ -891,7 +891,6 @@ int ospf6_lsa_refresh(struct thread *thread)
 
 	new = ospf6_lsa_create(self->header);
 	new->lsdb = old->lsdb;
-	new->refresh = NULL;
 	thread_add_timer(master, ospf6_lsa_refresh, new, OSPF_LS_REFRESH_TIME,
 			 &new->refresh);
 
