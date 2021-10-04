@@ -546,7 +546,6 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		/* reschedule retransmissions to all neighbors */
 		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 			THREAD_OFF(on->thread_send_lsupdate);
-			on->thread_send_lsupdate = NULL;
 			thread_add_event(master, ospf6_lsupdate_send_neighbor,
 					 on, 0, &on->thread_send_lsupdate);
 		}
@@ -1112,7 +1111,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Newer instance of the self-originated LSA");
 				zlog_debug("Schedule reorigination");
 			}
-			new->refresh = NULL;
 			thread_add_event(master, ospf6_lsa_refresh, new, 0,
 					 &new->refresh);
 		}
