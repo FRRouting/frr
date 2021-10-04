@@ -71,7 +71,7 @@ struct mgmt_cmt_info_t {
 
 DECLARE_DLIST(mgmt_cmt_info_dlist, struct mgmt_cmt_info_t, cmt_dlist);
 
-#define FOREACH_CMT_REC(cm, cmt_info)                                  \
+#define FOREACH_CMT_REC(mm, cmt_info)                                  \
         frr_each_safe(mgmt_cmt_info_dlist, &mm->cmt_dlist, cmt_info)
 
 const char *mgmt_db_names[MGMTD_DB_MAX_ID+1] = {
@@ -263,7 +263,7 @@ static struct mgmt_cmt_info_t *mgmt_db_create_cmt_rec(void)
 
 	if (mgmt_cmt_info_dlist_count(&mm->cmt_dlist)
 		== MGMTD_MAX_COMMIT_LIST) {
-		FOREACH_CMT_REC(cm, cmt_info) {
+		FOREACH_CMT_REC(mm, cmt_info) {
 			last_cmt_info = cmt_info;
 		}
 
@@ -280,7 +280,7 @@ static struct mgmt_cmt_info_t *mgmt_db_find_cmt_record(const char *cmtid_str)
 {
 	struct mgmt_cmt_info_t *cmt_info;
 
-	FOREACH_CMT_REC(cm, cmt_info) {
+	FOREACH_CMT_REC(mm, cmt_info) {
 		if (strncmp(cmt_info->cmtid_str, cmtid_str,
 			MGMTD_MD5_HASH_STR_HEX_LEN) == 0)
 			return cmt_info;
@@ -348,7 +348,7 @@ static bool mgmt_db_dump_cmt_record_index(void)
 		return false;
 	}
 
-	FOREACH_CMT_REC(cm, cmt_info) {
+	FOREACH_CMT_REC(mm, cmt_info) {
 		memcpy(&cmt_info_set[cnt], cmt_info,
 			sizeof(struct mgmt_cmt_info_t));
 		cnt++;
@@ -445,7 +445,7 @@ static int mgmt_db_rollback_to_cmt(struct vty *vty,
 	return 0;
 }
 
-int mgmt_db_init(struct mgmt_master *cm)
+int mgmt_db_init(struct mgmt_master *mm)
 {
 	struct lyd_node *root;
 
@@ -676,26 +676,8 @@ static int mgmt_walk_db_nodes(mgmt_db_ctxt_t *db_ctxt,
 		return -1;
 
 	/* If the base_xpath points to leaf node, we can skip the tree walk */
-	if(base_dnode->schema->nodetype & LYD_NODE_TERM) {
-		if (donot_free_alloced) {
-			if (xpaths && xpaths[*num_nodes]) {
-				xpath = xpaths[*num_nodes];
-				(*num_nodes)++;
-			} else {
-				xpath = (char *)calloc(1, MGMTD_MAX_XPATH_LEN);
-			}
-			strncpy(xpath, base_xpath, MGMTD_MAX_XPATH_LEN);
-		} else {
-			xpath = base_xpath;
-		}
-
-		/*
-		 * NOTE: With this a node is iterated if and only if its a leaf-node.
-		 */
-		// (*iter_fn)((mgmt_db_hndl_t) db_ctxt, xpath, base_dnode,
-		// 	base_dnode->schema->priv, ctxt);
+	if(base_dnode->schema->nodetype & LYD_NODE_TERM)
 		return 0;
-	}
 
 	indx = 0;
 	LY_LIST_FOR(lyd_child(base_dnode), dnode) {
@@ -1006,7 +988,7 @@ int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str)
 		return -1;
 	}
 
-	FOREACH_CMT_REC(cm, cmt_info) {
+	FOREACH_CMT_REC(mm, cmt_info) {
 		if (strncmp(cmt_info->cmtid_str, cmtid_str,
 			MGMTD_MD5_HASH_STR_HEX_LEN) == 0) {
 			ret = mgmt_db_rollback_to_cmt(vty, cmt_info, false);
@@ -1044,7 +1026,7 @@ int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
 		return -1;
 	}
 
-	FOREACH_CMT_REC(cm, cmt_info) {
+	FOREACH_CMT_REC(mm, cmt_info) {
 		if (cnt == num_cmts) {
 			ret = mgmt_db_rollback_to_cmt(vty, cmt_info, false);
 			return ret;
@@ -1073,7 +1055,7 @@ void show_mgmt_cmt_history(struct vty *vty)
 
 	vty_out(vty, "Last 10 commit history:\n");
 	vty_out(vty, "  Sl.No\tCommit-ID(HEX)\t\t\t  Commit-Record-Time\n");
-	FOREACH_CMT_REC(cm, cmt_info) {
+	FOREACH_CMT_REC(mm, cmt_info) {
 		vty_out(vty, "  %d\t%s  %s\n", slno, cmt_info->cmtid_str,
 				cmt_info->time_str);
 		slno++;

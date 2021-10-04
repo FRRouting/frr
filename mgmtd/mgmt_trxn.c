@@ -393,9 +393,9 @@ static void mgmt_trxn_cfg_batch_free(
 		mgmt_bcknd_adapter_unlock(&(*cfg_btch)->bcknd_adptr);
 
 	for (indx = 0; indx < (*cfg_btch)->num_cfg_data; indx++) {
-		if ((*cfg_btch)->data->xpath) {
-			free((*cfg_btch)->data->xpath);
-			(*cfg_btch)->data->xpath = NULL;
+		if ((*cfg_btch)->data[indx].xpath) {
+			free((*cfg_btch)->data[indx].xpath);
+			(*cfg_btch)->data[indx].xpath = NULL;
 		}
 	}
 
@@ -1094,7 +1094,7 @@ static int mgmt_trxn_create_config_batches(mgmt_trxn_req_t *trxn_req,
 mgmt_trxn_create_config_batches_failed:
 
 	if (xpath)
-		free (xpath);
+		free(xpath);
 	// if (value)
 	// 	free (value);
 
@@ -2173,7 +2173,7 @@ static void mgmt_trxn_register_event(
 	}
 }
 
-int mgmt_trxn_init(struct mgmt_master *cm, struct thread_master *tm)
+int mgmt_trxn_init(struct mgmt_master *mm, struct thread_master *tm)
 {
 	if (mgmt_trxn_mm || mgmt_trxn_tm)
 		assert(!"Call mgmt_trxn_init() only once");
