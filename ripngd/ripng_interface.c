@@ -618,7 +618,6 @@ static int ripng_interface_wakeup(struct thread *t)
 	ifp = THREAD_ARG(t);
 
 	ri = ifp->info;
-	ri->t_wakeup = NULL;
 
 	/* Join to multicast group. */
 	if (ripng_multicast_join(ifp, ri->ripng->sock) < 0) {
