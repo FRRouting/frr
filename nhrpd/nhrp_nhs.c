@@ -112,7 +112,6 @@ static int nhrp_reg_timeout(struct thread *t)
 	struct nhrp_registration *r = THREAD_ARG(t);
 	struct nhrp_cache *c;
 
-	r->t_register = NULL;
 
 	if (r->timeout >= 16 && sockunion_family(&r->proto_addr) != AF_UNSPEC) {
 		nhrp_reqid_free(&nhrp_packet_reqid, &r->reqid);
@@ -176,7 +175,6 @@ static int nhrp_reg_send_req(struct thread *t)
 	struct nhrp_extension_header *ext;
 	struct nhrp_cie_header *cie;
 
-	r->t_register = NULL;
 	if (!nhrp_peer_check(r->peer, 2)) {
 		debugf(NHRP_DEBUG_COMMON, "NHS: Waiting link for %pSU",
 		       &r->peer->vc->remote.nbma);
@@ -281,7 +279,6 @@ static void nhrp_nhs_resolve_cb(struct resolver_query *q, const char *errstr,
 	struct nhrp_registration *reg, *regn;
 	int i;
 
-	nhs->t_resolve = NULL;
 	if (n < 0) {
 		/* Failed, retry in a moment */
 		thread_add_timer(master, nhrp_nhs_resolve, nhs, 5,

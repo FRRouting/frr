@@ -149,7 +149,6 @@ static int netlink_mcast_log_recv(struct thread *t)
 	struct zbuf payload, zb;
 	struct nlmsghdr *n;
 
-	netlink_mcast_log_thread = NULL;
 
 	zbuf_init(&zb, buf, sizeof(buf), 0);
 	while (zbuf_recv(&zb, fd) > 0) {
