@@ -112,7 +112,6 @@ int irdp_sock_init(void)
 		return ret;
 	};
 
-	t_irdp_raw = NULL;
 	thread_add_read(zrouter.master, irdp_read_raw, NULL, sock, &t_irdp_raw);
 
 	return sock;

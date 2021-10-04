@@ -346,7 +346,6 @@ void zebra_ns_notify_init(void)
 {
 	int fd_monitor;
 
-	zebra_netns_notify_current = NULL;
 	fd_monitor = inotify_init();
 	if (fd_monitor < 0) {
 		flog_err_sys(
