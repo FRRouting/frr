@@ -1099,7 +1099,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
-				 0);
+				 1);
 	if (ret < 0)
 		return ret;
 
