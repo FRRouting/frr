@@ -142,7 +142,6 @@ static int rip_garbage_collect(struct thread *t)
 	struct route_node *rp;
 
 	rinfo = THREAD_ARG(t);
-	rinfo->t_garbage_collect = NULL;
 
 	/* Off timeout timer. */
 	RIP_TIMER_OFF(rinfo->t_timeout);
@@ -1744,7 +1743,6 @@ static int rip_read(struct thread *t)
 
 	/* Fetch socket then register myself. */
 	sock = THREAD_FD(t);
-	rip->t_read = NULL;
 
 	/* Add myself to tne next event */
 	rip_event(rip, RIP_READ, sock);
@@ -2545,9 +2543,6 @@ static int rip_update(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 
-	/* Clear timer pointer. */
-	rip->t_update = NULL;
-
 	if (IS_RIP_DEBUG_EVENT)
 		zlog_debug("update timer fire!");
 
@@ -2588,8 +2583,6 @@ static int rip_triggered_interval(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 
-	rip->t_triggered_interval = NULL;
-
 	if (rip->trigger) {
 		rip->trigger = 0;
 		rip_triggered_update(t);
@@ -2602,9 +2595,6 @@ static int rip_triggered_update(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int interval;
-
-	/* Clear thred pointer. */
-	rip->t_triggered_update = NULL;
 
 	/* Cancel interval timer. */
 	RIP_TIMER_OFF(rip->t_triggered_interval);
@@ -2628,7 +2618,6 @@ static int rip_triggered_update(struct thread *t)
 	 update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	rip->t_triggered_interval = NULL;
 	thread_add_timer(master, rip_triggered_interval, rip, interval,
 			 &rip->t_triggered_interval);
 
@@ -2834,7 +2823,6 @@ void rip_event(struct rip *rip, enum rip_event event, int sock)
 
 	switch (event) {
 	case RIP_READ:
-		rip->t_read = NULL;
 		thread_add_read(master, rip_read, rip, sock, &rip->t_read);
 		break;
 	case RIP_UPDATE_EVENT:
