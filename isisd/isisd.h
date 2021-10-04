@@ -248,7 +248,6 @@ void isis_terminate(void);
 void isis_master_init(struct thread_master *master);
 void isis_vrf_link(struct isis *isis, struct vrf *vrf);
 void isis_vrf_unlink(struct isis *isis, struct vrf *vrf);
-void isis_global_instance_create(const char *vrf_name);
 struct isis *isis_lookup_by_vrfid(vrf_id_t vrf_id);
 struct isis *isis_lookup_by_vrfname(const char *vrfname);
 struct isis *isis_lookup_by_sysid(const uint8_t *sysid);
