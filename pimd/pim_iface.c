@@ -289,7 +289,6 @@ static void pim_addr_change(struct interface *ifp)
 	  HoldTime should be sent immediately.
 	  -- FIXME See TODO T31
 	 */
-	pim_ifp->pim_ifstat_hello_sent = 0; /* reset hello counter */
 	PIM_IF_FLAG_UNSET_HELLO_SENT(pim_ifp->flags);
 	if (pim_ifp->pim_sock_fd < 0)
 		return;
