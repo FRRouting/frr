@@ -167,7 +167,6 @@ int control_accept(struct thread *t)
 
 	control_new(csock);
 
-	bglobal.bg_csockev = NULL;
 	thread_add_read(master, control_accept, NULL, sd, &bglobal.bg_csockev);
 
 	return 0;
