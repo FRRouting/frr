@@ -51,6 +51,7 @@ struct static_nht_data {
 	struct static_nht_hash_item itm;
 
 	struct prefix nh;
+	safi_t safi;
 
 	vrf_id_t nh_vrf_id;
 
@@ -63,6 +64,8 @@ static int static_nht_data_cmp(const struct static_nht_data *nhtd1,
 {
 	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
 		return numcmp(nhtd1->nh_vrf_id, nhtd2->nh_vrf_id);
+	if (nhtd1->safi != nhtd2->safi)
+		return numcmp(nhtd1->safi, nhtd2->safi);
 
 	return prefix_cmp(&nhtd1->nh, &nhtd2->nh);
 }
@@ -72,7 +75,7 @@ static unsigned int static_nht_data_hash(const struct static_nht_data *nhtd)
 	unsigned int key = 0;
 
 	key = prefix_hash_key(&nhtd->nh);
-	return jhash_1word(nhtd->nh_vrf_id, key);
+	return jhash_2words(nhtd->nh_vrf_id, nhtd->safi, key);
 }
 
 DECLARE_HASH(static_nht_hash, struct static_nht_data, itm, static_nht_data_cmp,
@@ -139,31 +142,32 @@ static int route_notify_owner(ZAPI_CALLBACK_ARGS)
 	struct prefix p;
 	enum zapi_route_notify_owner note;
 	uint32_t table_id;
+	safi_t safi;
 
-	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note,
-				      NULL, NULL))
+	if (!zapi_route_notify_decode(zclient->ibuf, &p, &table_id, &note, NULL,
+				      &safi))
 		return -1;
 
 	switch (note) {
 	case ZAPI_ROUTE_FAIL_INSTALL:
-		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn("%s: Route %pFX failed to install for table: %u",
 			  __func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_BETTER_ADMIN_WON:
-		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
 		zlog_warn(
 			"%s: Route %pFX over-ridden by better route for table: %u",
 			__func__, &p, table_id);
 		break;
 	case ZAPI_ROUTE_INSTALLED:
-		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVED:
-		static_nht_mark_state(&p, vrf_id, STATIC_NOT_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_NOT_INSTALLED);
 		break;
 	case ZAPI_ROUTE_REMOVE_FAIL:
-		static_nht_mark_state(&p, vrf_id, STATIC_INSTALLED);
+		static_nht_mark_state(&p, safi, vrf_id, STATIC_INSTALLED);
 		zlog_warn("%s: Route %pFX failure to remove for table: %u",
 			  __func__, &p, table_id);
 		break;
@@ -215,15 +219,17 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.nh = matched;
 	lookup.nh_vrf_id = vrf_id;
+	lookup.safi = nhr.safi;
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 
-		static_nht_reset_start(&matched, afi, nhtd->nh_vrf_id);
+		static_nht_reset_start(&matched, afi, nhr.safi,
+				       nhtd->nh_vrf_id);
 		static_nht_update(NULL, &matched, nhr.nexthop_num, afi,
-				  nhtd->nh_vrf_id);
+				  nhr.safi, nhtd->nh_vrf_id);
 	} else
 		zlog_err("No nhtd?");
 
@@ -247,6 +253,7 @@ static_nht_hash_getref(const struct static_nht_data *ref)
 
 		prefix_copy(&nhtd->nh, &ref->nh);
 		nhtd->nh_vrf_id = ref->nh_vrf_id;
+		nhtd->safi = ref->safi;
 
 		static_nht_hash_add(static_nht_hash, nhtd);
 	}
@@ -277,6 +284,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
+	struct static_route_info *si = static_route_info_from_rnode(rn);
 	struct static_nht_data lookup;
 	uint32_t cmd;
 	struct prefix p;
@@ -315,6 +323,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	memset(&lookup, 0, sizeof(lookup));
 	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
+	lookup.safi = si->safi;
 
 	nh->nh_registered = reg;
 
@@ -329,7 +338,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			       &p, rn, nhtd->nh_num);
 			if (nhtd->nh_num)
 				static_nht_update(&rn->p, &nhtd->nh,
-						  nhtd->nh_num, afi,
+						  nhtd->nh_num, afi, si->safi,
 						  nh->nh_vrf_id);
 			return;
 		}
@@ -346,7 +355,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
 	       reg ? "Registering" : "Unregistering", &p, rn);
 
-	if (zclient_send_rnh(zclient, cmd, &p, SAFI_UNICAST, false, false,
+	if (zclient_send_rnh(zclient, cmd, &p, si->safi, false, false,
 			     nh->nh_vrf_id) == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
@@ -358,6 +367,7 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
+	struct static_route_info *si = static_route_info_from_rnode(rn);
 	struct static_nht_data *nhtd, lookup = {};
 	struct prefix p = {};
 	afi_t afi = AFI_IP;
@@ -387,12 +397,13 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 
 	lookup.nh = p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
+	lookup.safi = si->safi;
 
 	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 	if (nhtd && nhtd->nh_num) {
 		nh->state = STATIC_START;
 		static_nht_update(&rn->p, &nhtd->nh, nhtd->nh_num, afi,
-				  nh->nh_vrf_id);
+				  si->safi, nh->nh_vrf_id);
 		return 1;
 	}
 	return 0;
