@@ -44,9 +44,44 @@
 #include "static_vty.h"
 #include "static_debug.h"
 
+DEFINE_MTYPE_STATIC(STATIC, STATIC_NHT_DATA, "Static Nexthop tracking data");
+PREDECL_HASH(static_nht_hash);
+
+struct static_nht_data {
+	struct static_nht_hash_item itm;
+
+	struct prefix *nh;
+
+	vrf_id_t nh_vrf_id;
+
+	uint32_t refcount;
+	uint8_t nh_num;
+};
+
+static int static_nht_data_cmp(const struct static_nht_data *nhtd1,
+			       const struct static_nht_data *nhtd2)
+{
+	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
+		return numcmp(nhtd1->nh_vrf_id, nhtd2->nh_vrf_id);
+
+	return prefix_cmp(nhtd1->nh, nhtd2->nh);
+}
+
+static unsigned int static_nht_data_hash(const struct static_nht_data *nhtd)
+{
+	unsigned int key = 0;
+
+	key = prefix_hash_key(nhtd->nh);
+	return jhash_1word(nhtd->nh_vrf_id, key);
+}
+
+DECLARE_HASH(static_nht_hash, struct static_nht_data, itm, static_nht_data_cmp,
+	     static_nht_data_hash);
+
+static struct static_nht_hash_head static_nht_hash[1];
+
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
-static struct hash *static_nht_hash;
 uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 /* Inteface addition message from zebra. */
@@ -141,15 +176,6 @@ static void zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
-struct static_nht_data {
-	struct prefix *nh;
-
-	vrf_id_t nh_vrf_id;
-
-	uint32_t refcount;
-	uint8_t nh_num;
-};
-
 /* API to check whether the configured nexthop address is
  * one of its local connected address or not.
  */
@@ -190,7 +216,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	lookup.nh = &matched;
 	lookup.nh_vrf_id = vrf_id;
 
-	nhtd = hash_lookup(static_nht_hash, &lookup);
+	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
@@ -210,55 +236,52 @@ static void static_zebra_capabilities(struct zclient_capabilities *cap)
 	zebra_ecmp_count = cap->ecmp;
 }
 
-static unsigned int static_nht_hash_key(const void *data)
+static struct static_nht_data *
+static_nht_hash_getref(const struct static_nht_data *ref)
 {
-	const struct static_nht_data *nhtd = data;
-	unsigned int key = 0;
+	struct static_nht_data *nhtd;
 
-	key = prefix_hash_key(nhtd->nh);
-	return jhash_1word(nhtd->nh_vrf_id, key);
+	nhtd = static_nht_hash_find(static_nht_hash, ref);
+	if (!nhtd) {
+		nhtd = XCALLOC(MTYPE_STATIC_NHT_DATA, sizeof(*nhtd));
+
+		nhtd->nh = prefix_new();
+		prefix_copy(nhtd->nh, ref->nh);
+		nhtd->nh_vrf_id = ref->nh_vrf_id;
+
+		static_nht_hash_add(static_nht_hash, nhtd);
+	}
+
+	nhtd->refcount++;
+	return nhtd;
 }
 
-static bool static_nht_hash_cmp(const void *d1, const void *d2)
+static bool static_nht_hash_decref(struct static_nht_data *nhtd)
 {
-	const struct static_nht_data *nhtd1 = d1;
-	const struct static_nht_data *nhtd2 = d2;
+	if (--nhtd->refcount > 0)
+		return true;
 
-	if (nhtd1->nh_vrf_id != nhtd2->nh_vrf_id)
-		return false;
-
-	return prefix_same(nhtd1->nh, nhtd2->nh);
-}
-
-static void *static_nht_hash_alloc(void *data)
-{
-	struct static_nht_data *copy = data;
-	struct static_nht_data *new;
-
-	new = XMALLOC(MTYPE_TMP, sizeof(*new));
-
-	new->nh = prefix_new();
-	prefix_copy(new->nh, copy->nh);
-	new->refcount = 0;
-	new->nh_num = 0;
-	new->nh_vrf_id = copy->nh_vrf_id;
-
-	return new;
-}
-
-static void static_nht_hash_free(void *data)
-{
-	struct static_nht_data *nhtd = data;
-
+	static_nht_hash_del(static_nht_hash, nhtd);
 	prefix_free(&nhtd->nh);
-	XFREE(MTYPE_TMP, nhtd);
+	XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
+	return false;
+}
+
+static void static_nht_hash_clear(void)
+{
+	struct static_nht_data *nhtd;
+
+	while ((nhtd = static_nht_hash_pop(static_nht_hash))) {
+		prefix_free(&nhtd->nh);
+		XFREE(MTYPE_STATIC_NHT_DATA, nhtd);
+	}
 }
 
 void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 {
 	struct static_path *pn = nh->pn;
 	struct route_node *rn = pn->rn;
-	struct static_nht_data *nhtd, lookup;
+	struct static_nht_data lookup;
 	uint32_t cmd;
 	struct prefix p;
 	afi_t afi = AFI_IP;
@@ -300,9 +323,9 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 	nh->nh_registered = reg;
 
 	if (reg) {
-		nhtd = hash_get(static_nht_hash, &lookup,
-				static_nht_hash_alloc);
-		nhtd->refcount++;
+		struct static_nht_data *nhtd;
+
+		nhtd = static_nht_hash_getref(&lookup);
 
 		if (nhtd->refcount > 1) {
 			DEBUGD(&static_dbg_route,
@@ -315,16 +338,13 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 			return;
 		}
 	} else {
-		nhtd = hash_lookup(static_nht_hash, &lookup);
+		struct static_nht_data *nhtd;
+
+		nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 		if (!nhtd)
 			return;
-
-		nhtd->refcount--;
-		if (nhtd->refcount >= 1)
+		if (static_nht_hash_decref(nhtd))
 			return;
-
-		hash_release(static_nht_hash, nhtd);
-		static_nht_hash_free(nhtd);
 	}
 
 	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
@@ -372,7 +392,7 @@ int static_zebra_nh_update(struct static_nexthop *nh)
 	lookup.nh = &p;
 	lookup.nh_vrf_id = nh->nh_vrf_id;
 
-	nhtd = hash_lookup(static_nht_hash, &lookup);
+	nhtd = static_nht_hash_find(static_nht_hash, &lookup);
 	if (nhtd && nhtd->nh_num) {
 		nh->state = STATIC_START;
 		static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num, afi,
@@ -531,14 +551,15 @@ void static_zebra_init(void)
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
 
-	static_nht_hash = hash_create(static_nht_hash_key,
-				      static_nht_hash_cmp,
-				      "Static Nexthop Tracking hash");
+	static_nht_hash_init(static_nht_hash);
 }
 
 /* static_zebra_stop used by tests/lib/test_grpc.cpp */
 void static_zebra_stop(void)
 {
+	static_nht_hash_clear();
+	static_nht_hash_fini(static_nht_hash);
+
 	if (!zclient)
 		return;
 	zclient_stop(zclient);
