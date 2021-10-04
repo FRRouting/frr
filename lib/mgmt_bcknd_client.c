@@ -530,7 +530,7 @@ static int mgmt_bcknd_trxn_cfg_prepare(mgmt_bcknd_trxn_ctxt_t *trxn)
 		mgmt_get_realtime(&prep_nb_cfg_start);
 	if (nb_candidate_commit_prepare(&nb_ctxt,
 			clnt_ctxt->candidate_config, "MGMTD Backend Trxn",
-			&trxn->nb_trxn, true, err_buf,
+			&trxn->nb_trxn, true, true, err_buf,
 			sizeof(err_buf)-1) != NB_OK) {
 		err_buf[sizeof(err_buf)-1] = 0;
 		MGMTD_BCKND_CLNT_ERR("Failed to prepare configs for Trxn %lx, %u Batches! Err: '%s'",
@@ -750,7 +750,7 @@ static int mgmt_bcknd_process_cfg_validate(mgmt_bcknd_client_ctxt_t *clnt_ctxt,
 	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
 	if (nb_candidate_commit_prepare(&nb_ctxt,
 		clnt_ctxt->candidate_config, "MGMTD Trxn",
-		&trxn->nb_trxn, false, err_buf,
+		&trxn->nb_trxn, false, false, err_buf,
 		sizeof(err_buf)-1) != NB_OK) {
 		err_buf[sizeof(err_buf)-1] = 0;
 		MGMTD_BCKND_CLNT_ERR("Failed to validate configs for Trxn %lx Batch %lx! Err: '%s'",

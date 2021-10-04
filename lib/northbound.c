@@ -1064,7 +1064,7 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 				struct nb_config *candidate,
 				const char *comment,
 				struct nb_transaction **transaction,
-				bool skip_validate,
+				bool skip_validate, bool ignore_zero_change,
 				char *errmsg, size_t errmsg_len)
 {
 	struct nb_config_cbs changes;
@@ -1080,7 +1080,7 @@ int nb_candidate_commit_prepare(struct nb_context *context,
 
 	RB_INIT(nb_config_cbs, &changes);
 	nb_config_diff(running_config, candidate, &changes);
-	if (RB_EMPTY(nb_config_cbs, &changes)) {
+	if (!ignore_zero_change && RB_EMPTY(nb_config_cbs, &changes)) {
 		snprintf(
 			errmsg, errmsg_len,
 			"No changes to apply were found during preparation phase");
@@ -1154,7 +1154,7 @@ int nb_candidate_commit(struct nb_context *context, struct nb_config *candidate,
 	int ret;
 
 	ret = nb_candidate_commit_prepare(context, candidate, comment,
-					  &transaction, false, errmsg,
+					  &transaction, false, false, errmsg,
 					  errmsg_len);
 	/*
 	 * Apply the changes if the preparation phase succeeded. Otherwise abort
