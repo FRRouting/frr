@@ -101,18 +101,15 @@ static void static_nht_update_safi(struct prefix *sp, struct prefix *nhp,
 	}
 }
 
-void static_nht_update(struct prefix *sp, struct prefix *nhp,
-		       uint32_t nh_num, afi_t afi, vrf_id_t nh_vrf_id)
+void static_nht_update(struct prefix *sp, struct prefix *nhp, uint32_t nh_num,
+		       afi_t afi, safi_t safi, vrf_id_t nh_vrf_id)
 {
 
 	struct vrf *vrf;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		static_nht_update_safi(sp, nhp, nh_num, afi, SAFI_UNICAST,
-				       vrf, nh_vrf_id);
-		static_nht_update_safi(sp, nhp, nh_num, afi, SAFI_MULTICAST,
-				       vrf, nh_vrf_id);
-	}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		static_nht_update_safi(sp, nhp, nh_num, afi, safi, vrf,
+				       nh_vrf_id);
 }
 
 static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
@@ -166,16 +163,13 @@ static void static_nht_reset_start_safi(struct prefix *nhp, afi_t afi,
 	}
 }
 
-void static_nht_reset_start(struct prefix *nhp, afi_t afi, vrf_id_t nh_vrf_id)
+void static_nht_reset_start(struct prefix *nhp, afi_t afi, safi_t safi,
+			    vrf_id_t nh_vrf_id)
 {
 	struct vrf *vrf;
 
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		static_nht_reset_start_safi(nhp, afi, SAFI_UNICAST,
-					    vrf, nh_vrf_id);
-		static_nht_reset_start_safi(nhp, afi, SAFI_MULTICAST,
-					    vrf, nh_vrf_id);
-	}
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		static_nht_reset_start_safi(nhp, afi, safi, vrf, nh_vrf_id);
 }
 
 static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,
@@ -212,7 +206,7 @@ static void static_nht_mark_state_safi(struct prefix *sp, afi_t afi,
 	route_unlock_node(rn);
 }
 
-void static_nht_mark_state(struct prefix *sp, vrf_id_t vrf_id,
+void static_nht_mark_state(struct prefix *sp, safi_t safi, vrf_id_t vrf_id,
 			   enum static_install_states state)
 {
 	struct vrf *vrf;
@@ -226,6 +220,5 @@ void static_nht_mark_state(struct prefix *sp, vrf_id_t vrf_id,
 	if (!vrf || !vrf->info)
 		return;
 
-	static_nht_mark_state_safi(sp, afi, SAFI_UNICAST, vrf, state);
-	static_nht_mark_state_safi(sp, afi, SAFI_MULTICAST, vrf, state);
+	static_nht_mark_state_safi(sp, afi, safi, vrf, state);
 }
