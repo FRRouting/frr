@@ -68,6 +68,7 @@ DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry");
 struct thread_master *master;
 
 static bool watch_only = false;
+const char *pathspace;
 
 typedef enum {
 	PHASE_NONE = 0,
@@ -1513,8 +1514,15 @@ int main(int argc, char **argv)
 	else
 		unsetenv("FRR_PATHSPACE");
 
+	/*
+	 * when watchfrr_di.pathspace is read, if it is not specified
+	 * pathspace is NULL as expected
+	 */
+	pathspace = watchfrr_di.pathspace;
+
 	if (netns_en && !netns)
 		netns = watchfrr_di.pathspace;
+
 	if (netns_en && netns && netns[0])
 		netns_setup(netns);
 
