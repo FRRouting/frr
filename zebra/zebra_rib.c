@@ -305,35 +305,41 @@ static void route_entry_attach_ref(struct route_entry *re,
 {
 	re->nhe = new;
 	re->nhe_id = new->id;
+	re->nhe_installed_id = 0;
 
 	zebra_nhg_increment_ref(new);
 }
 
+/* Replace (if 'new_nhghe') or clear (if that's NULL) an re's nhe. */
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe)
 {
-	struct nhg_hash_entry *old;
 	int ret = 0;
+	struct nhg_hash_entry *old_nhg = NULL;
 
 	if (new_nhghe == NULL) {
-		if (re->nhe)
-			zebra_nhg_decrement_ref(re->nhe);
+		old_nhg = re->nhe;
+
+		re->nhe_id = 0;
+		re->nhe_installed_id = 0;
 		re->nhe = NULL;
 		goto done;
 	}
 
 	if ((re->nhe_id != 0) && re->nhe && (re->nhe != new_nhghe)) {
-		old = re->nhe;
+		/* Capture previous nhg, if any */
+		old_nhg = re->nhe;
 
 		route_entry_attach_ref(re, new_nhghe);
-
-		if (old)
-			zebra_nhg_decrement_ref(old);
 	} else if (!re->nhe)
 		/* This is the first time it's being attached */
 		route_entry_attach_ref(re, new_nhghe);
 
 done:
+	/* Detach / deref previous nhg */
+	if (old_nhg)
+		zebra_nhg_decrement_ref(old_nhg);
+
 	return ret;
 }
 
@@ -3093,7 +3099,8 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	if (re->nhe && re->nhe_id) {
 		assert(re->nhe->id == re->nhe_id);
-		zebra_nhg_decrement_ref(re->nhe);
+
+		route_entry_update_nhe(re, NULL);
 	} else if (re->nhe && re->nhe->nhg.nexthop)
 		nexthops_free(re->nhe->nhg.nexthop);
 
