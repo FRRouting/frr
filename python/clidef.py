@@ -435,6 +435,8 @@ if __name__ == "__main__":
     macros.load(os.path.join(basepath, "bgpd/bgp_vty.h"))
     # sigh :(
     macros["PROTO_REDIST_STR"] = "FRR_REDIST_STR_ISISD"
+    macros["PROTO_IP_REDIST_STR"] = "FRR_IP_REDIST_STR_ISISD"
+    macros["PROTO_IP6_REDIST_STR"] = "FRR_IP6_REDIST_STR_ISISD"
 
     errors = process_file(args.cfile, ofd, dumpfd, args.all_defun, macros)
     if errors != 0:
