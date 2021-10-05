@@ -1330,11 +1330,14 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/redistribute
  */
 DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
-      "[no] redistribute <ipv4|ipv6>$ip " PROTO_REDIST_STR
-      "$proto <level-1|level-2>$level [{metric (0-16777215)|route-map WORD}]",
+      "[no] redistribute <ipv4$ip " PROTO_IP_REDIST_STR "$proto|ipv6$ip "
+      PROTO_IP6_REDIST_STR "$proto> <level-1|level-2>$level"
+      "[{metric (0-16777215)|route-map WORD}]",
       NO_STR REDIST_STR
       "Redistribute IPv4 routes\n"
-      "Redistribute IPv6 routes\n" PROTO_REDIST_HELP
+      PROTO_IP_REDIST_HELP
+      "Redistribute IPv6 routes\n"
+      PROTO_IP6_REDIST_HELP
       "Redistribute into level-1\n"
       "Redistribute into level-2\n"
       "Metric for redistributed routes\n"
