@@ -1017,49 +1017,6 @@ int nb_candidate_validate(struct nb_context *context,
 	return ret;
 }
 
-int nb_candidate_apply(struct nb_context *context, struct nb_config *candidate,
-		       struct nb_transaction *transaction, const char *comment,
-		       bool save_transaction, uint32_t *transaction_id,
-		       char *errmsg, size_t errmsg_len)
-{
-	struct nb_config_cbs changes;
-	int ret;
-
-	ret = nb_candidate_diff_and_validate_yang(context, candidate, &changes,
-			                          errmsg, errmsg_len);
-	if (ret != NB_OK)
-		return ret;
-
-	if (!transaction)
-		transaction = nb_transaction_new(context, candidate, &changes,
-						  comment, errmsg, errmsg_len);
-	if (transaction == NULL) {
-		flog_warn(EC_LIB_NB_TRANSACTION_CREATION_FAILED,
-			  "%s: failed to create transaction: %s", __func__,
-			  errmsg);
-		nb_config_diff_del_changes(&changes);
-		return NB_ERR_LOCKED;
-	}
-
-	(void)nb_transaction_process(NB_EV_APPLY, transaction, errmsg,
-				     errmsg_len);
-	nb_transaction_apply_finish(transaction, errmsg, errmsg_len);
-
-	/* Replace running by candidate. */
-	transaction->config->version++;
-	nb_config_replace(running_config, transaction->config, true);
-
-	/* Record transaction. */
-	if (save_transaction && nb_db_enabled
-	    && nb_db_transaction_save(transaction, transaction_id) != NB_OK)
-		flog_warn(EC_LIB_NB_TRANSACTION_RECORD_FAILED,
-			  "%s: failed to record transaction", __func__);
-
-	nb_transaction_free(transaction);
-
-	return ret;
-}
-
 int nb_candidate_commit_prepare(struct nb_context *context,
 				struct nb_config *candidate,
 				const char *comment,

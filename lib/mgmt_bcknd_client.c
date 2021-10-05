@@ -800,7 +800,6 @@ static int mgmt_bcknd_send_apply_reply(mgmt_bcknd_client_ctxt_t *clnt_ctxt,
 static int mgmt_bcknd_trxn_proc_cfgapply(mgmt_bcknd_trxn_ctxt_t *trxn)
 {
 	mgmt_bcknd_client_ctxt_t *clnt_ctxt;
-	struct nb_context nb_ctxt = { 0 };
 	struct timeval apply_nb_cfg_start;
 	struct timeval apply_nb_cfg_end;
 	unsigned long apply_nb_cfg_tm;
@@ -820,13 +819,8 @@ static int mgmt_bcknd_trxn_proc_cfgapply(mgmt_bcknd_trxn_ctxt_t *trxn)
 	/*
 	 * Now apply all the batches we have applied in one go.
 	 */
-	nb_ctxt.client = NB_CLIENT_CLI;
-	nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-	if (mgmt_debug_bcknd_clnt)
-		mgmt_get_realtime(&apply_nb_cfg_start);
-	(void) nb_candidate_apply(&nb_ctxt, clnt_ctxt->candidate_config,
-			trxn->nb_trxn, "MGMTD Backend Trxn",
-			true, &trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
+	(void) nb_candidate_commit_apply(trxn->nb_trxn, true,
+			&trxn->nb_trxn_id, err_buf, sizeof(err_buf)-1);
 	if (mgmt_debug_bcknd_clnt) {
 		mgmt_get_realtime(&apply_nb_cfg_end);
 		apply_nb_cfg_tm =
@@ -840,10 +834,10 @@ static int mgmt_bcknd_trxn_proc_cfgapply(mgmt_bcknd_trxn_ctxt_t *trxn)
 	clnt_ctxt->num_apply_nb_cfg++;
 	trxn->nb_trxn = NULL;
 
+	/*
+	 * Send back CFG_APPLY_REPLY for all batches applied.
+	 */
 	FOREACH_BCKND_APPLY_BATCH_IN_LIST(trxn, batch) {
-		nb_ctxt.client = NB_CLIENT_CLI;
-		nb_ctxt.user = (void *)clnt_ctxt->client_params.user_data;
-
 		/*
 		 * No need to delete the batch yet. Will be deleted during transaction
 		 * cleanup on receiving TRXN_DELETE_REQ.
