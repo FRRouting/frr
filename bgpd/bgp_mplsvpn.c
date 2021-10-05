@@ -855,14 +855,24 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 					new_attr->srv6_l3vpn->arg_len;
 
 				if (new_attr->srv6_l3vpn->transposition_len
-				    != 0)
+				    != 0) {
+					if (num_labels != 1) {
+						if (debug)
+							zlog_debug(
+								"%s: ->%s: sid try to be transposed, but label not found",
+								__func__,
+								bgp->name_pretty);
+						bgp_attr_unintern(&new_attr);
+						return NULL;
+					}
 					transpose_sid(
 						&extra->sid[0].sid,
-						decode_label(label),
+						decode_label(&extra->label[0]),
 						new_attr->srv6_l3vpn
 							->transposition_offset,
 						new_attr->srv6_l3vpn
 							->transposition_len);
+				}
 			} else if (new_attr->srv6_vpn)
 				setsids(bpi, &new_attr->srv6_vpn->sid,
 					num_sids);
@@ -942,6 +952,9 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 
 	bgp_path_info_extra_get(new);
 
+	if (num_labels)
+		setlabels(new, label, num_labels);
+
 	/*
 	 * rewrite sid
 	 */
@@ -958,20 +971,28 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			extra->sid[0].func_len = new_attr->srv6_l3vpn->func_len;
 			extra->sid[0].arg_len = new_attr->srv6_l3vpn->arg_len;
 
-			if (new_attr->srv6_l3vpn->transposition_len != 0)
+			if (new_attr->srv6_l3vpn->transposition_len != 0) {
+				if (num_labels != 1) {
+					if (debug)
+						zlog_debug(
+							"%s: ->%s: sid try to be transposed, but label not found",
+							__func__,
+							bgp->name_pretty);
+					bgp_attr_unintern(&new_attr);
+					return NULL;
+				}
+
 				transpose_sid(&extra->sid[0].sid,
-					      decode_label(label),
+					      decode_label(&extra->label[0]),
 					      new_attr->srv6_l3vpn
 						      ->transposition_offset,
 					      new_attr->srv6_l3vpn
 						      ->transposition_len);
+			}
 		} else if (new_attr->srv6_vpn)
 			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
 	} else
 		unsetsids(new);
-
-	if (num_labels)
-		setlabels(new, label, num_labels);
 
 	new->extra->parent = bgp_path_info_lock(parent);
 	bgp_dest_lock_node(
