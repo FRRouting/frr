@@ -688,6 +688,7 @@ void pim_neighbor_delete_all(struct interface *ifp, const char *delete_message)
 	for (ALL_LIST_ELEMENTS(pim_ifp->pim_neighbor_list, neigh_node,
 			       neigh_nextnode, neigh)) {
 		pim_neighbor_delete(ifp, neigh, delete_message);
+		list_delete_node(neigh_node);
 	}
 }
 
