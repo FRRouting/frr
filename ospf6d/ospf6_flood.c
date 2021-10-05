@@ -929,6 +929,7 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		if (old)
 			ospf6_flood_clear(old);
 
+<<<<<<< HEAD
 		/* (b) immediately flood and (c) remove from all retrans-list */
 		/* Prevent self-originated LSA to be flooded. this is to make
 		reoriginated instance of the LSA not to be rejected by other
@@ -938,6 +939,63 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		    != from->ospf6_if->area->ospf6->router_id)
 			ospf6_flood(from, new);
 
+=======
+		self_originated = (new->header->adv_router
+				   == from->ospf6_if->area->ospf6->router_id);
+
+		/* Received non-self-originated Grace LSA. */
+		if (IS_GRACE_LSA(new) && !self_originated) {
+			struct ospf6 *ospf6;
+
+			ospf6 = ospf6_get_by_lsdb(new);
+
+			assert(ospf6);
+
+			if (OSPF6_LSA_IS_MAXAGE(new)) {
+
+				if (IS_DEBUG_OSPF6_GR)
+					zlog_debug(
+						"%s, Received a maxage GraceLSA from router %pI4",
+						__func__,
+						&new->header->adv_router);
+				if (old) {
+					ospf6_process_maxage_grace_lsa(
+						ospf6, new, from);
+				} else {
+					if (IS_DEBUG_OSPF6_GR)
+						zlog_debug(
+							"%s, GraceLSA doesn't exist in lsdb, so discarding GraceLSA",
+							__func__);
+					return;
+				}
+			} else {
+
+				if (IS_DEBUG_OSPF6_GR)
+					zlog_debug(
+						"%s, Received a GraceLSA from router %pI4",
+						__func__,
+						&new->header->adv_router);
+
+				if (ospf6_process_grace_lsa(ospf6, new, from)
+				    == OSPF6_GR_NOT_HELPER) {
+					if (IS_DEBUG_OSPF6_GR)
+						zlog_debug(
+							"%s, Not moving to HELPER role, So dicarding GraceLSA",
+							__func__);
+					return;
+				}
+			}
+		}
+
+		/* (b) immediately flood and (c) remove from all retrans-list */
+		/* Prevent self-originated LSA to be flooded. this is to make
+		 * reoriginated instance of the LSA not to be rejected by other
+		 * routers due to MinLSArrival.
+		 */
+		if (!self_originated)
+			ospf6_flood(from, new);
+
+>>>>>>> a60eab9e1 (ospf6d: ospf6d is crashing upon receiving duplicated Grace LSA.)
 		/* (d), installing lsdb, which may cause routing
 			table calculation (replacing database copy) */
 		ospf6_install_lsa(new);
