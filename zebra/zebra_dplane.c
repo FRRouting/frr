@@ -261,6 +261,13 @@ struct dplane_ctx_rule {
 	struct prefix src_ip;
 	struct prefix dst_ip;
 	uint8_t ip_proto;
+
+	uint8_t action_pcp;
+	uint16_t action_vlan_id;
+	uint16_t action_vlan_flags;
+
+	uint32_t action_queue_id;
+
 	char ifname[INTERFACE_NAMSIZ + 1];
 };
 
@@ -2770,6 +2777,12 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
+
+	dplane_rule->action_pcp = rule->rule.action.pcp;
+	dplane_rule->action_vlan_flags = rule->rule.action.vlan_flags;
+	dplane_rule->action_vlan_id = rule->rule.action.vlan_id;
+	dplane_rule->action_queue_id = rule->rule.action.queue_id;
+
 	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);
 }
 
