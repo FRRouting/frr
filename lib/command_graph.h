@@ -79,11 +79,11 @@ enum { CMD_ATTR_NORMAL,
        CMD_ATTR_YANG,
 };
 
-/* Comamand token struct. */
+/* Command token struct. */
 struct cmd_token {
 	enum cmd_token_type type; // token type
 	uint8_t attr;		  // token attributes
-	bool allowrepeat;	 // matcher allowed to match token repetively?
+	bool allowrepeat; // matcher allowed to match token repetitively?
 	uint32_t refcnt;
 
 	char *text;	 // token text
