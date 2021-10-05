@@ -540,8 +540,14 @@ static void vty_show_ip_route_detail(struct vty *vty, struct route_node *rn,
 
 		vty_out(vty, "  Last update %s ago\n", buf);
 
-		if (show_ng)
+		if (show_ng) {
 			vty_out(vty, "  Nexthop Group ID: %u\n", re->nhe_id);
+			if (re->nhe_installed_id != 0
+			    && re->nhe_id != re->nhe_installed_id)
+				vty_out(vty,
+					"  Installed Nexthop Group ID: %u\n",
+					re->nhe_installed_id);
+		}
 
 		for (ALL_NEXTHOPS(re->nhe->nhg, nexthop)) {
 			/* Use helper to format each nexthop */
@@ -976,6 +982,11 @@ static void vty_show_ip_route(struct vty *vty, struct route_node *rn,
 				    nexthop_group_active_nexthop_num(
 					    &(re->nhe->nhg)));
 		json_object_int_add(json_route, "nexthopGroupId", re->nhe_id);
+
+		if (re->nhe_installed_id != 0)
+			json_object_int_add(json_route,
+					    "installedNexthopGroupId",
+					    re->nhe_installed_id);
 
 		json_object_string_add(json_route, "uptime", up_str);
 
