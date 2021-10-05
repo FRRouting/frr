@@ -244,6 +244,10 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	p = bgp_dest_get_prefix(dest);
 
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: %pFX: %s ", __func__, p,
+			   (reg ? "reg" : "dereg"));
+
 	if (reg) {
 		assert(pi);
 		/*

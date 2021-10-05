@@ -2712,6 +2712,28 @@ static void bgp_process_evpn_route_injection(struct bgp *bgp, afi_t afi,
 }
 
 /*
+ * Utility to determine whether a particular path_info should use
+ * the IMPLICIT_NULL label. This is pretty specialized: it's only called
+ * in a path where we basically _know_ this is a BGP-LU route.
+ */
+static bool bgp_lu_need_imp_null(const struct bgp_path_info *new_select)
+{
+	/* Certain types get imp null; so do paths where the nexthop is
+	 * not labeled.
+	 */
+	if (new_select->sub_type == BGP_ROUTE_STATIC
+	    || new_select->sub_type == BGP_ROUTE_AGGREGATE
+	    || new_select->sub_type == BGP_ROUTE_REDISTRIBUTE)
+		return true;
+	else if (new_select->extra == NULL ||
+		 !bgp_is_valid_label(&new_select->extra->label[0]))
+		/* TODO -- should be configurable? */
+		return true;
+	else
+		return false;
+}
+
+/*
  * old_select = The old best path
  * new_select = the new best path
  *
@@ -2802,11 +2824,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				 * implicit-null for local routes, aggregate
 				 * and redistributed routes
 				 */
-				if (new_select->sub_type == BGP_ROUTE_STATIC
-				    || new_select->sub_type
-						== BGP_ROUTE_AGGREGATE
-				    || new_select->sub_type
-						== BGP_ROUTE_REDISTRIBUTE) {
+				if (bgp_lu_need_imp_null(new_select)) {
 					if (CHECK_FLAG(
 						    dest->flags,
 						    BGP_NODE_REGISTERED_FOR_LABEL)
