@@ -341,7 +341,7 @@ static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
 	return RB_FIND(if_index_head, &vrf->ifaces_by_index, &if_tmp);
 }
 
-/* Interface existance check by index. */
+/* Interface existence check by index. */
 struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 {
 	switch (vrf_get_backend()) {
@@ -354,7 +354,7 @@ struct interface *if_lookup_by_index(ifindex_t ifindex, vrf_id_t vrf_id)
 	return NULL;
 }
 
-/* Interface existance check by index. */
+/* Interface existence check by index. */
 struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 					      vrf_id_t vrf_id)
 {
@@ -406,7 +406,7 @@ ifindex_t ifname2ifindex(const char *name, vrf_id_t vrf_id)
 		       : IFINDEX_INTERNAL;
 }
 
-/* Interface existance check by interface name. */
+/* Interface existence check by interface name. */
 struct interface *if_lookup_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);

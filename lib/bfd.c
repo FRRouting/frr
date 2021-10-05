@@ -203,7 +203,7 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
 	struct tm tm;
 	struct timeval tv;
 
-	/* If no BFD satatus update has ever been received, print `never'. */
+	/* If no BFD status update has ever been received, print `never'. */
 	if (last_update == 0) {
 		snprintf(buf, len, "never");
 		return;
