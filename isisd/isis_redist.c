@@ -543,12 +543,13 @@ void isis_redist_area_finish(struct isis_area *area)
 #ifdef FABRICD
 DEFUN (isis_redistribute,
        isis_redistribute_cmd,
-       "redistribute <ipv4|ipv6> " PROTO_REDIST_STR
+       "redistribute <ipv4 " PROTO_IP_REDIST_STR "|ipv6 " PROTO_IP6_REDIST_STR ">"
        " [{metric (0-16777215)|route-map WORD}]",
        REDIST_STR
        "Redistribute IPv4 routes\n"
+       PROTO_IP_REDIST_HELP
        "Redistribute IPv6 routes\n"
-       PROTO_REDIST_HELP
+       PROTO_IP6_REDIST_HELP
        "Metric for redistributed routes\n"
        "ISIS default metric\n"
        "Route map reference\n"
@@ -599,12 +600,13 @@ DEFUN (isis_redistribute,
 
 DEFUN (no_isis_redistribute,
        no_isis_redistribute_cmd,
-       "no redistribute <ipv4|ipv6> " PROTO_REDIST_STR,
+       "no redistribute <ipv4 " PROTO_IP_REDIST_STR "|ipv6 " PROTO_IP6_REDIST_STR ">",
        NO_STR
        REDIST_STR
        "Redistribute IPv4 routes\n"
+       PROTO_IP_REDIST_HELP
        "Redistribute IPv6 routes\n"
-       PROTO_REDIST_HELP)
+       PROTO_IP6_REDIST_HELP)
 {
 	int idx_afi = 2;
 	int idx_protocol = 3;
