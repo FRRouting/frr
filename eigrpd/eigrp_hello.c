@@ -86,7 +86,6 @@ int eigrp_hello_timer(struct thread *thread)
 	struct eigrp_interface *ei;
 
 	ei = THREAD_ARG(thread);
-	ei->t_hello = NULL;
 
 	if (IS_DEBUG_EIGRP(0, TIMERS))
 		zlog_debug("Start Hello Timer (%s) Expire [%u]", IF_NAME(ei),
@@ -96,7 +95,6 @@ int eigrp_hello_timer(struct thread *thread)
 	eigrp_hello_send(ei, EIGRP_HELLO_NORMAL, NULL);
 
 	/* Hello timer set. */
-	ei->t_hello = NULL;
 	thread_add_timer(master, eigrp_hello_timer, ei, ei->params.v_hello,
 			 &ei->t_hello);
 

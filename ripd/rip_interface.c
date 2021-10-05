@@ -805,7 +805,6 @@ static int rip_interface_wakeup(struct thread *t)
 	ifp = THREAD_ARG(t);
 
 	ri = ifp->info;
-	ri->t_wakeup = NULL;
 
 	/* Join to multicast group. */
 	if (rip_multicast_join(ifp, ri->rip->sock) < 0) {
