@@ -195,8 +195,8 @@ def test_bfd_ospf_interface_failure_rt2_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
-    # TODO: add check for array size
-    sleep(2)
+    topotest.sleep(2, 'Wait for BFD down notification')
+
     router_compare_json_output(
         "rt1", "show ip route ospf json", "step3/show_ip_route_rt2_down.ref", 1, 0
     )
@@ -234,8 +234,7 @@ def test_bfd_ospf_interface_failure_rt3_step3():
 
     # By default BFD provides a recovery time of 900ms plus jitter, so let's wait
     # initial 2 seconds to let the CI not suffer.
-    # TODO: add check for array size
-    sleep(2)
+    topotest.sleep(2, 'Wait for BFD down notification')
     router_compare_json_output(
         "rt1", "show ip route ospf json", "step3/show_ip_route_rt3_down.ref", 1, 0
     )
