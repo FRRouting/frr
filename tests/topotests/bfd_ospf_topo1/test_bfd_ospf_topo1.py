@@ -132,7 +132,7 @@ def print_cmd_result(rname, command):
     print(get_topogen().gears[rname].vtysh_cmd(command, isjson=False))
 
 
-def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
+def router_compare_json_output(rname, command, reference, count=40, wait=2):
     "Compare router JSON output"
 
     logger.info('Comparing router "%s" "%s" output', rname, command)
@@ -141,7 +141,7 @@ def router_compare_json_output(rname, command, reference, count=120, wait=0.5):
     filename = "{}/{}/{}".format(CWD, rname, reference)
     expected = json.loads(open(filename).read())
 
-    # Run test function until we get an result. Wait at most 60 seconds.
+    # Run test function until we get an result. Wait at most 80 seconds.
     test_func = partial(topotest.router_json_cmp, tgen.gears[rname], command, expected)
     _, diff = topotest.run_and_expect(test_func, None, count=count, wait=wait)
     assertmsg = '"{}" JSON output mismatches the expected result'.format(rname)
