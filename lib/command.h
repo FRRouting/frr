@@ -234,7 +234,7 @@ struct cmd_node {
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
-/* Turn off these macros when uisng cpp with extract.pl */
+/* Turn off these macros when using cpp with extract.pl */
 #ifndef VTYSH_EXTRACT_PL
 
 /* helper defines for end-user DEFUN* macros */

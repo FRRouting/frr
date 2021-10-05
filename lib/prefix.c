@@ -113,7 +113,7 @@ const char *family2str(int family)
 	return "?";
 }
 
-/* Address Famiy Identifier to Address Family converter. */
+/* Address Family Identifier to Address Family converter. */
 int afi2family(afi_t afi)
 {
 	if (afi == AFI_IP)

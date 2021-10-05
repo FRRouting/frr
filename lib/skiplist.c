@@ -21,7 +21,7 @@
  */
 
 /*
- * Skip List impementation based on code from William Pugh.
+ * Skip List implementation based on code from William Pugh.
  * ftp://ftp.cs.umd.edu/pub/skipLists/
  *
  * Skip Lists are a probabilistic alternative to balanced trees, as

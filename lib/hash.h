@@ -161,7 +161,7 @@ hash_create_size(unsigned int size, unsigned int (*hash_key)(const void *),
  * an element from its key, you must provide the data item itself, with the
  * portions used in the hash function set to the same values as the data item
  * to retrieve. To insert a data element, either provide the key as just
- * described and provide alloc_func as descrbied below to allocate the full
+ * described and provide alloc_func as described below to allocate the full
  * data element, or provide the full data element and pass 'hash_alloc_intern'
  * to alloc_func.
  *

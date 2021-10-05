@@ -35,7 +35,7 @@ extern "C" {
  * without any information about the previous parsing steps, is usually not very
  * helpful.
  * Using sbuf, the parser can log the whole parsing process into a buffer using
- * a printf like API. When an error ocurrs, all the information about previous
+ * a printf like API. When an error occurs, all the information about previous
  * parsing steps is there in the log, without any need for backtracking, and can
  * be used to give a detailed and useful error description.
  * When parsing completes successfully without any error, the log can just be

@@ -192,7 +192,7 @@ void access_list_delete(struct access_list *access)
 	access_list_free(access);
 }
 
-/* Insert new access list to list of access_list.  Each acceess_list
+/* Insert new access list to list of access_list.  Each access_list
    is sorted by the name. */
 static struct access_list *access_list_insert(afi_t afi, const char *name)
 {
@@ -387,7 +387,7 @@ void access_list_filter_add(struct access_list *access,
 	struct filter *replace;
 	struct filter *point;
 
-	/* Automatic asignment of seq no. */
+	/* Automatic assignment of seq no. */
 	if (filter->seq == -1)
 		filter->seq = filter_new_seq_get(access);
 
