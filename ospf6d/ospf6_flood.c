@@ -288,7 +288,6 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 
 	monotime(&now);
 	if (!OSPF6_LSA_IS_MAXAGE(lsa)) {
-		lsa->expire = NULL;
 		thread_add_timer(master, ospf6_lsa_expire, lsa,
 				 OSPF_LSA_MAXAGE + lsa->birth.tv_sec
 					 - now.tv_sec,
