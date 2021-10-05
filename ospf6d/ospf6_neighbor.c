@@ -273,7 +273,6 @@ int hello_received(struct thread *thread)
 
 	/* reset Inactivity Timer */
 	THREAD_OFF(on->inactivity_timer);
-	on->inactivity_timer = NULL;
 	thread_add_timer(master, inactivity_timer, on,
 			 on->ospf6_if->dead_interval, &on->inactivity_timer);
 
@@ -312,7 +311,6 @@ int twoway_received(struct thread *thread)
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
 	THREAD_OFF(on->thread_send_dbdesc);
-	on->thread_send_dbdesc = NULL;
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
 
@@ -438,7 +436,6 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 		else if (on->last_ls_req == NULL) {
 			if (on->thread_send_lsreq != NULL)
 				THREAD_OFF(on->thread_send_lsreq);
-			on->thread_send_lsreq = NULL;
 			thread_add_event(master, ospf6_lsreq_send, on, 0,
 					 &on->thread_send_lsreq);
 		}
@@ -620,7 +617,6 @@ int inactivity_timer(struct thread *thread)
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *InactivityTimer*", on->name);
 
-	on->inactivity_timer = NULL;
 	on->drouter = on->prev_drouter = 0;
 	on->bdrouter = on->prev_bdrouter = 0;
 

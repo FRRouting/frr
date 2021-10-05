@@ -671,7 +671,6 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 			ifaddr_str, query_interval,
 			startup_mode ? "startup" : "non-startup", igmp->fd);
 	}
-	igmp->t_igmp_query_timer = NULL;
 	thread_add_timer(router->master, pim_igmp_general_query, igmp,
 			 query_interval, &igmp->t_igmp_query_timer);
 }
@@ -1052,7 +1051,6 @@ static void igmp_read_on(struct igmp_sock *igmp)
 		zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 			   igmp->fd);
 	}
-	igmp->t_igmp_read = NULL;
 	thread_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
 			&igmp->t_igmp_read);
 }

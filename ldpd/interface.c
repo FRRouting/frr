@@ -471,7 +471,6 @@ static void
 if_start_hello_timer(struct iface_af *ia)
 {
 	thread_cancel(&ia->hello_timer);
-	ia->hello_timer = NULL;
 	thread_add_timer(master, if_hello_timer, ia, if_get_hello_interval(ia),
 			 &ia->hello_timer);
 }
