@@ -419,7 +419,7 @@ static int kernel_read(struct thread *thread)
 	zebra_dplane_info_from_zns(&dp_info, zns, false);
 
 	netlink_parse_info(netlink_information_fetch, &zns->netlink, &dp_info,
-			   5, 0);
+			   5, false);
 
 	thread_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 			&zns->t_netlink);
@@ -433,7 +433,7 @@ static int kernel_read(struct thread *thread)
 int kernel_dplane_read(struct zebra_dplane_info *info)
 {
 	netlink_parse_info(dplane_netlink_information_fetch, &info->nls, info,
-			   5, 0);
+			   5, false);
 
 	return 0;
 }
@@ -933,7 +933,7 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
 int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		       const struct nlsock *nl,
 		       const struct zebra_dplane_info *zns,
-		       int count, int startup)
+		       int count, bool startup)
 {
 	int status;
 	int ret = 0;
@@ -1036,7 +1036,7 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 static int
 netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		  struct nlmsghdr *n, const struct zebra_dplane_info *dp_info,
-		  int startup)
+		  bool startup)
 {
 	const struct nlsock *nl;
 
@@ -1067,7 +1067,7 @@ netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
  */
 int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 		 struct nlmsghdr *n, struct nlsock *nl, struct zebra_ns *zns,
-		 int startup)
+		 bool startup)
 {
 	struct zebra_dplane_info dp_info;
 
