@@ -105,7 +105,10 @@ DEFUN(config_write_integrated,
 
 	/* don't allow the user to pass parameters, we're root here!
 	 * should probably harden vtysh at some point too... */
-	execl(VTYSH_BIN_PATH, "vtysh", "-w", NULL);
+	if (pathspace)
+		execl(VTYSH_BIN_PATH, "vtysh", "-N", pathspace, "-w", NULL);
+	else
+		execl(VTYSH_BIN_PATH, "vtysh", "-w", NULL);
 
 	/* unbuffered write; we just messed with stdout... */
 	char msg[512];
