@@ -246,6 +246,18 @@ Showing OSPF6 information
    JSON object, with each router having "cost", "isLeafNode" and "children" as
    arguments.
 
+.. _ospf6-debugging:
+
+OSPFv3 Debugging
+================
+
+The following debug commands are supported:
+
+.. clicmd:: debug ospf6 border-routers {router-id [A.B.C.D] | area-id [A.B.C.D]}
+
+   Toggle OSPFv3 border router debugging messages. This can be specified for a
+   router with specific Router-ID/Area-ID.
+
 
 Sample configuration
 ====================
