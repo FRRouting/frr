@@ -53,14 +53,14 @@ static int resolver_cb_socket_readable(struct thread *t)
 {
 	struct resolver_state *r = THREAD_ARG(t);
 	int fd = THREAD_FD(t);
+	struct thread **t_ptr;
 
 	vector_set_index(r->read_threads, fd, THREAD_RUNNING);
 	ares_process_fd(r->channel, fd, ARES_SOCKET_BAD);
 	if (vector_lookup(r->read_threads, fd) == THREAD_RUNNING) {
-		t = NULL;
+		t_ptr = (struct thread **)vector_get_index(r->read_threads, fd);
 		thread_add_read(r->master, resolver_cb_socket_readable, r, fd,
-				&t);
-		vector_set_index(r->read_threads, fd, t);
+				t_ptr);
 	}
 	resolver_update_timeouts(r);
 
@@ -71,14 +71,14 @@ static int resolver_cb_socket_writable(struct thread *t)
 {
 	struct resolver_state *r = THREAD_ARG(t);
 	int fd = THREAD_FD(t);
+	struct thread **t_ptr;
 
 	vector_set_index(r->write_threads, fd, THREAD_RUNNING);
 	ares_process_fd(r->channel, ARES_SOCKET_BAD, fd);
 	if (vector_lookup(r->write_threads, fd) == THREAD_RUNNING) {
-		t = NULL;
+		t_ptr = (struct thread **)vector_get_index(r->write_threads, fd);
 		thread_add_write(r->master, resolver_cb_socket_writable, r, fd,
-				 &t);
-		vector_set_index(r->write_threads, fd, t);
+				 t_ptr);
 	}
 	resolver_update_timeouts(r);
 
@@ -105,14 +105,15 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 			   int writable)
 {
 	struct resolver_state *r = (struct resolver_state *)data;
-	struct thread *t;
+	struct thread *t, **t_ptr;
 
 	if (readable) {
-		t = vector_lookup_ensure(r->read_threads, fd);
+		t = vector_lookup(r->read_threads, fd);
 		if (!t) {
+			t_ptr = (struct thread **)vector_get_index(
+				r->read_threads, fd);
 			thread_add_read(r->master, resolver_cb_socket_readable,
-					r, fd, &t);
-			vector_set_index(r->read_threads, fd, t);
+					r, fd, t_ptr);
 		}
 	} else {
 		t = vector_lookup(r->read_threads, fd);
@@ -125,11 +126,12 @@ static void ares_socket_cb(void *data, ares_socket_t fd, int readable,
 	}
 
 	if (writable) {
-		t = vector_lookup_ensure(r->write_threads, fd);
+		t = vector_lookup(r->write_threads, fd);
 		if (!t) {
+			t_ptr = (struct thread **)vector_get_index(
+				r->write_threads, fd);
 			thread_add_read(r->master, resolver_cb_socket_writable,
-					r, fd, &t);
-			vector_set_index(r->write_threads, fd, t);
+					r, fd, t_ptr);
 		}
 	} else {
 		t = vector_lookup(r->write_threads, fd);
