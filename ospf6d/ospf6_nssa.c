@@ -1249,10 +1249,14 @@ static struct in6_addr *ospf6_get_nssa_fwd_addr(struct ospf6_area *oa)
 	struct ospf6_interface *oi;
 
 	for (ALL_LIST_ELEMENTS(oa->if_list, node, nnode, oi)) {
-		if (if_is_operative(oi->interface))
-			if (oi->area && IS_AREA_NSSA(oi->area))
-				return ospf6_interface_get_global_address(
-					oi->interface);
+		struct in6_addr *addr;
+
+		if (!if_is_operative(oi->interface))
+			continue;
+
+		addr = ospf6_interface_get_global_address(oi->interface);
+		if (addr)
+			return addr;
 	}
 	return NULL;
 }
