@@ -394,10 +394,6 @@ Known limitations:
    clear the Node flag that is set by default for Prefix-SIDs associated to
    loopback addresses. This option is necessary to configure Anycast-SIDs.
 
-.. clicmd:: show isis segment-routing prefix-sids
-
-   Show detailed information about all learned Segment Routing Prefix-SIDs.
-
 .. clicmd:: show isis segment-routing nodes
 
    Show detailed information about all learned Segment Routing Nodes.
