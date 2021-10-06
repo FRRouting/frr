@@ -98,6 +98,16 @@ March/July/November.  Walking backwards from this date:
    ``dev/MAJOR.MINOR`` at this point) and a ``rc1`` release candidate is
    tagged.  Master is unfrozen and new features may again proceed.
 
+   Part of unfreezing master is editing the ``AC_INIT`` statement in
+   :file:`configure.ac` to reflect the new development version that master
+   now refers to.  This is accompanied by a ``frr-X.Y-dev`` tag on master,
+   which should always be on the first commit on master *after* the stable
+   branch was forked (even if that is not the edit to ``AC_INIT``; it's more
+   important to have it on the very first commit on master after the fork.)
+
+   (The :file:`configure.ac` edit and tag push are considered git housekeeping
+   and are pushed directly to ``master``, not through a PR.)
+
  - 2 weeks earlier, a ``rc2`` release candidate is tagged.
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
