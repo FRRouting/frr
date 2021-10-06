@@ -527,7 +527,6 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 						struct ospf6_lsa *type5)
 {
 	struct ospf6_lsa *new = NULL;
-	struct ospf6_as_external_lsa *ext_lsa;
 	struct prefix prefix;
 	struct ospf6 *ospf6 = area->ospf6;
 
@@ -539,27 +538,27 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 
 	/* Find the AS external LSA */
 	if (type5 == NULL) {
+		struct ospf6_as_external_lsa *ext_lsa;
+		struct ospf6_route *match;
+
+		/* Find the AS external LSA from Type-7 LSA */
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug(
-				"%s: No translated Type-5 found for Type-7 with Id %pI4",
-				__func__, &type7->header->id);
+				"%s: try to find translated Type-5 LSA for %s",
+				__func__, type7->name);
 
-		/* find the translated Type-5 for this Type-7 */
 		ext_lsa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 			type7->header);
-
 		prefix.family = AF_INET6;
 		prefix.prefixlen = ext_lsa->prefix.prefix_length;
 		ospf6_prefix_in6_addr(&prefix.u.prefix6, ext_lsa,
 				      &ext_lsa->prefix);
 
-		/* Find the AS external LSA from Type-7 LSA */
-		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: try to find external LSA id %d",
-				   __func__, type7->external_lsa_id);
-		type5 = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
-					  type7->external_lsa_id,
-					  ospf6->router_id, ospf6->lsdb);
+		match = ospf6_route_lookup(&prefix, ospf6->external_table);
+		if (match)
+			type5 = ospf6_lsdb_lookup(
+				OSPF6_LSTYPE_AS_EXTERNAL, match->path.origin.id,
+				ospf6->router_id, ospf6->lsdb);
 	}
 
 	if (type5) {
@@ -650,13 +649,6 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 	if (match) {
 		old = ospf6_lsdb_lookup(OSPF6_LSTYPE_AS_EXTERNAL,
 					match->path.origin.id, ospf6->router_id,
-					ospf6->lsdb);
-	}
-
-	/* Check Type 5 LSA using the matching external ID */
-	if (old == NULL) {
-		old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
-					lsa->external_lsa_id, ospf6->router_id,
 					ospf6->lsdb);
 	}
 
