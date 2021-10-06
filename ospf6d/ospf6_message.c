@@ -726,7 +726,6 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (ntohs(his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
@@ -947,7 +946,6 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (OSPF6_LSA_SCOPE(his->header->type) == OSPF6_SCOPE_AS
@@ -1082,7 +1080,6 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug("Ignoring LSA of reserved scope");
 			continue;
-			break;
 		}
 
 		/* Find database copy */
@@ -1634,7 +1631,6 @@ static void ospf6_lsack_recv(struct in6_addr *src, struct in6_addr *dst,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
