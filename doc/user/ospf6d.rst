@@ -204,6 +204,21 @@ OSPF6 area
    existence of a default route in the RIB that wasn't learned via the OSPF
    protocol.
 
+.. clicmd:: area A.B.C.D nssa range X:X::X:X/M [<not-advertise|cost (0-16777215)>]
+
+.. clicmd:: area (0-4294967295) nssa range X:X::X:X/M [<not-advertise|cost (0-16777215)>]
+
+    Summarize a group of external subnets into a single Type-7 LSA, which is
+    then translated to a Type-5 LSA and avertised to the backbone.
+    This command can only be used at the area boundary (NSSA ABR router).
+
+    By default, the metric of the summary route is calculated as the highest
+    metric among the summarized routes. The `cost` option, however, can be used
+    to set an explicit metric.
+
+    The `not-advertise` option, when present, prevents the summary route from
+    being advertised, effectively filtering the summarized routes.
+
 .. clicmd:: area A.B.C.D export-list NAME
 
 .. clicmd:: area (0-4294967295) export-list NAME

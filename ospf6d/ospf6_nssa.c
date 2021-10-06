@@ -49,6 +49,9 @@
 #include "ospf6_asbr.h"
 #include "ospf6d.h"
 #include "ospf6_nssa.h"
+#ifndef VTYSH_EXTRACT_PL
+#include "ospf6d/ospf6_nssa_clippy.c"
+#endif
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_LSA,         "OSPF6 LSA");
 unsigned char config_debug_ospf6_nssa = 0;
@@ -412,6 +415,7 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	struct ospf6 *ospf6 = area->ospf6;
 	ptrdiff_t tag_offset = 0;
 	route_tag_t network_order;
+	struct ospf6_route *range;
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("%s : Start", __func__);
@@ -420,6 +424,25 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("%s: Translation disabled for area %s",
 				   __func__, area->name);
+		return NULL;
+	}
+
+	/* find the translated Type-5 for this Type-7 */
+	nssa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
+		type7->header);
+	prefix.family = AF_INET6;
+	prefix.prefixlen = nssa->prefix.prefix_length;
+	ospf6_prefix_in6_addr(&prefix.u.prefix6, nssa, &nssa->prefix);
+
+	/* Check if the Type-7 LSA should be suppressed by aggregation. */
+	range = ospf6_route_lookup_bestmatch(&prefix, area->nssa_range_table);
+	if (range && !prefix_same(&prefix, &range->prefix)
+	    && !CHECK_FLAG(range->flag, OSPF6_ROUTE_REMOVE)) {
+		if (IS_OSPF6_DEBUG_NSSA)
+			zlog_debug(
+				"%s: LSA %s suppressed by range %pFX of area %s",
+				__func__, type7->name, &range->prefix,
+				area->name);
 		return NULL;
 	}
 
@@ -438,14 +461,6 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 			    + sizeof(struct ospf6_as_external_lsa));
 
 	memcpy(extnew, ext, sizeof(struct ospf6_as_external_lsa));
-
-	/* find the translated Type-5 for this Type-7 */
-	nssa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
-		type7->header);
-
-	prefix.family = AF_INET6;
-	prefix.prefixlen = nssa->prefix.prefix_length;
-	ospf6_prefix_in6_addr(&prefix.u.prefix6, nssa, &nssa->prefix);
 
 	/* set Prefix */
 	memcpy(new_ptr, old_ptr, OSPF6_PREFIX_SPACE(ext->prefix.prefix_length));
@@ -600,7 +615,6 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 	/* Incoming Type-7 or later aggregated Type-7
 	 *
 	 * LSA is skipped if P-bit is off.
-	 * LSA is aggregated if within range.
 	 *
 	 * The Type-7 is translated, Installed/Approved as a Type-5 into
 	 * global LSDB, then Flooded through AS
@@ -732,6 +746,32 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
 		zlog_debug("%s : Stop", __func__);
 }
 
+static void ospf6_abr_send_nssa_aggregates(struct ospf6 *ospf6)
+{
+	struct listnode *node;
+	struct ospf6_area *area;
+	struct ospf6_route *range;
+
+	if (IS_OSPF6_DEBUG_NSSA)
+		zlog_debug("%s: Start", __func__);
+
+	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
+		if (area->NSSATranslatorState == OSPF6_NSSA_TRANSLATE_DISABLED)
+			continue;
+
+		if (IS_OSPF6_DEBUG_NSSA)
+			zlog_debug("%s: looking at area %pI4", __func__,
+				   &area->area_id);
+
+		for (range = ospf6_route_head(area->nssa_range_table); range;
+		     range = ospf6_route_next(range))
+			ospf6_abr_range_update(range, ospf6);
+	}
+
+	if (IS_OSPF6_DEBUG_NSSA)
+		zlog_debug("%s: Stop", __func__);
+}
+
 static void ospf6_abr_remove_unapproved_translates(struct ospf6 *ospf6)
 {
 	struct ospf6_lsa *lsa;
@@ -861,6 +901,11 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 		zlog_debug("ospf6_abr_nssa_task(): unapprove translates");
 
 	ospf6_abr_unapprove_translates(ospf6);
+
+	/* Originate Type-7 aggregates */
+	if (IS_OSPF6_DEBUG_NSSA)
+		zlog_debug("ospf6_abr_nssa_task(): send NSSA aggregates");
+	ospf6_abr_send_nssa_aggregates(ospf6);
 
 	/* For all NSSAs, Type-7s, translate to 5's, INSTALL/FLOOD, or
 	 *  Aggregate as Type-7
@@ -1097,6 +1142,13 @@ int ospf6_area_nssa_unset(struct ospf6 *ospf6, struct ospf6_area *area)
 		UNSET_FLAG(area->flag, OSPF6_AREA_NSSA);
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug("area %s nssa reset", area->name);
+
+		/* Clear the table of NSSA ranges. */
+		ospf6_route_table_delete(area->nssa_range_table);
+		area->nssa_range_table =
+			OSPF6_ROUTE_TABLE_CREATE(AREA, PREFIX_RANGES);
+		area->nssa_range_table->scope = area;
+
 		ospf6_area_nssa_update(area);
 	}
 
@@ -1240,6 +1292,106 @@ void ospf6_abr_check_translate_nssa(struct ospf6_area *area,
 	}
 }
 
+DEFPY (area_nssa_range,
+       area_nssa_range_cmd,
+       "area <A.B.C.D|(0-4294967295)>$area nssa range X:X::X:X/M$prefix [<not-advertise$not_adv|cost (0-16777215)$cost>]",
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as nssa\n"
+       "Configured address range\n"
+       "Specify IPv6 prefix\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+{
+	struct ospf6_area *oa;
+	struct ospf6_route *range;
+
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+
+	OSPF6_CMD_AREA_GET(area, oa, ospf6);
+
+	if (!IS_AREA_NSSA(oa)) {
+		vty_out(vty, "%% First configure %s as an NSSA area\n", area);
+		return CMD_WARNING;
+	}
+
+	range = ospf6_route_lookup((struct prefix *)prefix,
+				   oa->nssa_range_table);
+	if (range == NULL) {
+		range = ospf6_route_create(ospf6);
+		range->type = OSPF6_DEST_TYPE_RANGE;
+		SET_FLAG(range->flag, OSPF6_ROUTE_NSSA_RANGE);
+		prefix_copy(&range->prefix, prefix);
+		range->path.area_id = oa->area_id;
+		range->path.metric_type = 2;
+		range->path.cost = OSPF_AREA_RANGE_COST_UNSPEC;
+		range->path.origin.type = htons(OSPF6_LSTYPE_TYPE_7);
+		range->path.origin.id = htonl(ospf6->external_id++);
+		range->path.origin.adv_router = ospf6->router_id;
+		ospf6_route_add(range, oa->nssa_range_table);
+	}
+
+	/* process "not-advertise" */
+	if (not_adv)
+		SET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+	else
+		UNSET_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE);
+
+	/* process "cost" */
+	if (!cost_str)
+		cost = OSPF_AREA_RANGE_COST_UNSPEC;
+	range->path.u.cost_config = cost;
+
+	/* Redo summaries if required */
+	if (ospf6_check_and_set_router_abr(ospf6))
+		ospf6_schedule_abr_task(ospf6);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_area_nssa_range,
+       no_area_nssa_range_cmd,
+       "no area <A.B.C.D|(0-4294967295)>$area nssa range X:X::X:X/M$prefix [<not-advertise|cost (0-16777215)>]",
+       NO_STR
+       "OSPF6 area parameters\n"
+       "OSPF6 area ID in IP address format\n"
+       "OSPF6 area ID as a decimal value\n"
+       "Configure OSPF6 area as nssa\n"
+       "Configured address range\n"
+       "Specify IPv6 prefix\n"
+       "Do not advertise\n"
+       "User specified metric for this range\n"
+       "Advertised metric for this range\n")
+{
+	struct ospf6_area *oa;
+	struct ospf6_route *range;
+
+	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
+
+	OSPF6_CMD_AREA_GET(area, oa, ospf6);
+
+	range = ospf6_route_lookup((struct prefix *)prefix,
+				   oa->nssa_range_table);
+	if (range == NULL) {
+		vty_out(vty, "%% range %s does not exists.\n", prefix_str);
+		return CMD_SUCCESS;
+	}
+
+	if (ospf6_check_and_set_router_abr(oa->ospf6)) {
+		/* Blow away the aggregated LSA and route */
+		SET_FLAG(range->flag, OSPF6_ROUTE_REMOVE);
+
+		/* Redo summaries if required */
+		thread_execute(master, ospf6_abr_task_timer, ospf6, 0);
+	}
+
+	ospf6_route_remove(range, oa->nssa_range_table);
+
+	return CMD_SUCCESS;
+}
+
 DEFUN(debug_ospf6_nssa, debug_ospf6_nssa_cmd,
       "debug ospf6 nssa",
       DEBUG_STR
@@ -1269,6 +1421,9 @@ void config_write_ospf6_debug_nssa(struct vty *vty)
 
 void install_element_ospf6_debug_nssa(void)
 {
+	install_element(OSPF6_NODE, &area_nssa_range_cmd);
+	install_element(OSPF6_NODE, &no_area_nssa_range_cmd);
+
 	install_element(ENABLE_NODE, &debug_ospf6_nssa_cmd);
 	install_element(ENABLE_NODE, &no_debug_ospf6_nssa_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_nssa_cmd);

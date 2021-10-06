@@ -593,10 +593,14 @@ void ospf6_abr_range_reset_cost(struct ospf6 *ospf6)
 	struct ospf6_area *oa;
 	struct ospf6_route *range;
 
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa)) {
 		for (range = ospf6_route_head(oa->range_table); range;
 		     range = ospf6_route_next(range))
 			OSPF6_ABR_RANGE_CLEAR_COST(range);
+		for (range = ospf6_route_head(oa->nssa_range_table); range;
+		     range = ospf6_route_next(range))
+			OSPF6_ABR_RANGE_CLEAR_COST(range);
+	}
 }
 
 static inline uint32_t ospf6_abr_range_compute_cost(struct ospf6_route *range,
@@ -607,10 +611,19 @@ static inline uint32_t ospf6_abr_range_compute_cost(struct ospf6_route *range,
 
 	for (ro = ospf6_route_match_head(&range->prefix, o->route_table); ro;
 	     ro = ospf6_route_match_next(&range->prefix, ro)) {
-		if (ro->path.area_id == range->path.area_id
-		    && (ro->path.type == OSPF6_PATH_TYPE_INTRA)
-		    && !CHECK_FLAG(ro->flag, OSPF6_ROUTE_REMOVE))
-			cost = MAX(cost, ro->path.cost);
+		if (CHECK_FLAG(ro->flag, OSPF6_ROUTE_REMOVE))
+			continue;
+		if (ro->path.area_id != range->path.area_id)
+			continue;
+		if (CHECK_FLAG(range->flag, OSPF6_ROUTE_NSSA_RANGE)
+		    && ro->path.type != OSPF6_PATH_TYPE_EXTERNAL1
+		    && ro->path.type != OSPF6_PATH_TYPE_EXTERNAL2)
+			continue;
+		if (!CHECK_FLAG(range->flag, OSPF6_ROUTE_NSSA_RANGE)
+		    && ro->path.type != OSPF6_PATH_TYPE_INTRA)
+			continue;
+
+		cost = MAX(cost, ro->path.cost);
 	}
 
 	return cost;
@@ -659,6 +672,8 @@ void ospf6_abr_range_update(struct ospf6_route *range, struct ospf6 *ospf6)
 	int summary_orig = 0;
 
 	assert(range->type == OSPF6_DEST_TYPE_RANGE);
+	oa = ospf6_area_lookup(range->path.area_id, ospf6);
+	assert(oa);
 
 	/* update range's cost and active flag */
 	cost = ospf6_abr_range_compute_cost(range, ospf6);
@@ -687,8 +702,26 @@ void ospf6_abr_range_update(struct ospf6_route *range, struct ospf6 *ospf6)
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("%s: range %pFX update", __func__, &range->prefix);
 
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
-		summary_orig += ospf6_abr_originate_summary_to_area(range, oa);
+	if (CHECK_FLAG(range->flag, OSPF6_ROUTE_NSSA_RANGE)) {
+		if (CHECK_FLAG(range->flag, OSPF6_ROUTE_ACTIVE_SUMMARY)
+		    && !CHECK_FLAG(range->flag, OSPF6_ROUTE_DO_NOT_ADVERTISE)) {
+			ospf6_nssa_lsa_originate(range, oa, true);
+			summary_orig = 1;
+		} else {
+			struct ospf6_lsa *lsa;
+
+			lsa = ospf6_lsdb_lookup(range->path.origin.type,
+						range->path.origin.id,
+						ospf6->router_id, oa->lsdb);
+			if (lsa)
+				ospf6_lsa_premature_aging(lsa);
+		}
+	} else {
+		for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa)) {
+			summary_orig +=
+				ospf6_abr_originate_summary_to_area(range, oa);
+		}
+	}
 
 	if (CHECK_FLAG(range->flag, OSPF6_ROUTE_ACTIVE_SUMMARY)
 	    && summary_orig) {
