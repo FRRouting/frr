@@ -1241,7 +1241,6 @@ struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 {
 	struct listnode *n;
 	struct connected *c;
-	struct in6_addr *l = (struct in6_addr *)NULL;
 
 	/* for each connected address */
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
@@ -1250,9 +1249,10 @@ struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 			continue;
 
 		if (!IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
-			l = &c->address->u.prefix6;
+			return &c->address->u.prefix6;
 	}
-	return l;
+
+	return NULL;
 }
 
 
