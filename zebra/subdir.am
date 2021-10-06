@@ -50,7 +50,7 @@ man8 += $(MANBUILD)/frr-zebra.8
 ## endif ZEBRA
 endif
 
-zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP)
+zebra_zebra_LDADD = lib/libfrr.la $(LIBCAP) $(UST_LIBS)
 if HAVE_PROTOBUF3
 zebra_zebra_LDADD += mlag/libmlag_pb.la $(PROTOBUF_C_LIBS)
 zebra/zebra_mlag.$(OBJEXT): mlag/mlag.pb-c.h
@@ -120,6 +120,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_routemap_nb_config.c \
 	zebra/zebra_script.c \
 	zebra/zebra_srte.c \
+	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
 	zebra/zebra_vxlan.c \
@@ -191,6 +192,7 @@ noinst_HEADERS += \
 	zebra/zebra_router.h \
 	zebra/zebra_script.h \
 	zebra/zebra_srte.h \
+	zebra/zebra_trace.h \
 	zebra/zebra_vrf.h \
 	zebra/zebra_vxlan.h \
 	zebra/zebra_vxlan_private.h \
