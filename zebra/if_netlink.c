@@ -1379,6 +1379,8 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	uint32_t metric = METRIC_MAX;
 	uint32_t kernel_flags = 0;
 
+	frrtrace(3, frr_zebra, netlink_interface_addr, h, ns_id, startup);
+
 	zns = zebra_ns_lookup(ns_id);
 	ifa = NLMSG_DATA(h);
 
