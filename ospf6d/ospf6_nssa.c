@@ -379,22 +379,18 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 {
 	struct ospf6_lsa *lsa;
 	uint16_t type;
-	struct ospf6_area *oa;
-	struct listnode *node;
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("ospf6_abr_unapprove_translates(): Start");
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
-		for (ALL_LSDB_TYPED(oa->lsdb, type, lsa)) {
-			if (CHECK_FLAG(lsa->flag, OSPF6_LSA_LOCAL_XLT)) {
-				SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
-				if (IS_OSPF6_DEBUG_NSSA)
-					zlog_debug(
-						"%s : approved unset on link id %pI4",
-						__func__, &lsa->header->id);
-			}
+	for (ALL_LSDB_TYPED(ospf6->lsdb, type, lsa)) {
+		if (CHECK_FLAG(lsa->flag, OSPF6_LSA_LOCAL_XLT)) {
+			SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
+			if (IS_OSPF6_DEBUG_NSSA)
+				zlog_debug(
+					"%s : approved unset on link id %pI4",
+					__func__, &lsa->header->id);
 		}
 	}
 
@@ -600,6 +596,7 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 					__func__, &type7->header->id);
 			return NULL;
 		}
+		UNSET_FLAG(new->flag, OSPF6_LSA_UNAPPROVED);
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
@@ -692,16 +689,13 @@ int ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *lsa)
 					ospf6->lsdb);
 	}
 
-	if (old) {
-		/* Do not continue if type 5 LSA not approved */
-		if (CHECK_FLAG(old->flag, OSPF6_LSA_UNAPPROVED)) {
-			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug(
-					"%s : LSA Id %pI4 type 5 is not approved",
-					__func__, &old->header->id);
-			return 1;
-		}
+	if (OSPF6_LSA_IS_MAXAGE(lsa)) {
+		if (old)
+			ospf6_lsa_premature_aging(old);
+		return;
+	}
 
+	if (old) {
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug(
 				"%s : found old translated LSA Id %pI4, refreshing",
