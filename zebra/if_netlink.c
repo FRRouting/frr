@@ -75,6 +75,7 @@
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_l2.h"
 #include "zebra/netconf_netlink.h"
+#include "zebra/zebra_trace.h"
 
 extern struct zebra_privs_t zserv_privs;
 uint8_t frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
@@ -964,6 +965,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	struct zebra_if *zif;
 	ns_id_t link_nsid = ns_id;
 	uint8_t bypass = 0;
+
+	frrtrace(3, frr_zebra, netlink_interface, h, ns_id, startup);
 
 	zns = zebra_ns_lookup(ns_id);
 	ifi = NLMSG_DATA(h);
