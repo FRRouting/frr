@@ -266,9 +266,13 @@ void ospf6_decrement_retrans_count(struct ospf6_lsa *lsa)
 /* RFC2328 section 13.2 Installing LSAs in the database */
 void ospf6_install_lsa(struct ospf6_lsa *lsa)
 {
+	struct ospf6 *ospf6;
 	struct timeval now;
 	struct ospf6_lsa *old;
 	struct ospf6_area *area = NULL;
+
+	ospf6 = ospf6_get_by_lsdb(lsa);
+	assert(ospf6);
 
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
@@ -330,20 +334,14 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)) {
 
 		/* check if it is new lsa ? or existing lsa got modified ?*/
-		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa)) {
-			struct ospf6 *ospf6;
-
-			ospf6 = ospf6_get_by_lsdb(lsa);
-
-			assert(ospf6);
-
+		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa))
 			ospf6_helper_handle_topo_chg(ospf6, lsa);
-		}
 	}
 
 	ospf6_lsdb_add(lsa, lsa->lsdb);
 
-	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+	    && lsa->header->adv_router != ospf6->router_id) {
 		area = OSPF6_AREA(lsa->lsdb->data);
 		ospf6_translated_nssa_refresh(area, lsa, NULL);
 		ospf6_schedule_abr_task(area->ospf6);
