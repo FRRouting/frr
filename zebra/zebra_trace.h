@@ -67,6 +67,20 @@ TRACEPOINT_EVENT(
 		)
 	)
 
+TRACEPOINT_EVENT(
+	frr_zebra,
+	netlink_nexthop_change,
+	TP_ARGS(
+		struct nlmsghdr *, h,
+		ns_id_t, ns_id,
+		int, startup),
+	TP_FIELDS(
+		ctf_integer_hex(intptr_t, h, h)
+		ctf_integer(uint32_t, ns_id, ns_id)
+		ctf_integer(uint32_t, startup, startup)
+		)
+	)
+
 #include <lttng/tracepoint-event.h>
 
 #endif /* HAVE_LTTNG */
