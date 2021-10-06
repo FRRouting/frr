@@ -54,6 +54,7 @@ extern void vector_ensure(vector v, unsigned int num);
 extern int vector_empty_slot(vector v);
 extern int vector_set(vector v, void *val);
 extern int vector_set_index(vector v, unsigned int i, void *val);
+extern void **vector_get_index(vector v, unsigned int i);
 extern void vector_unset(vector v, unsigned int i);
 extern void vector_unset_value(vector v, void *val);
 extern void vector_remove(vector v, unsigned int ix);

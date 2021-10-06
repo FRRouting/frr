@@ -123,6 +123,17 @@ int vector_set_index(vector v, unsigned int i, void *val)
 	return i;
 }
 
+/* Make a specified index slot active and return its address. */
+void **vector_get_index(vector v, unsigned int i)
+{
+	vector_ensure(v, i);
+
+	if (v->active <= i)
+		v->active = i + 1;
+
+	return &v->index[i];
+}
+
 /* Look up vector.  */
 void *vector_lookup(vector v, unsigned int i)
 {
