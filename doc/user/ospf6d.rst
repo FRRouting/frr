@@ -176,7 +176,7 @@ OSPF6 area
     The `not-advertise` option, when present, prevents the summary route from
     being advertised, effectively filtering the summarized routes.
 
-.. clicmd:: area A.B.C.D nssa [no-summary]
+.. clicmd:: area A.B.C.D nssa [no-summary] [default-information-originate [metric-type (1-2)] [metric (0-16777214)]]
 
 .. clicmd:: area (0-4294967295) nssa [no-summary] [default-information-originate [metric-type (1-2)] [metric (0-16777214)]]
 
