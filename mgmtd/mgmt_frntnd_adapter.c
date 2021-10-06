@@ -600,16 +600,16 @@ static void mgmt_frntnd_session_register_event(
 
 	switch (event) {
 	case MGMTD_FRNTND_SESSN_CFG_TRXN_CLNUP:
-		sessn->proc_cfg_trxn_clnp = 
-			thread_add_timer_tv(mgmt_frntnd_adptr_tm,
-				mgmt_frntnd_session_cfg_trxn_clnup, sessn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_frntnd_adptr_tm,
+			mgmt_frntnd_session_cfg_trxn_clnup, sessn,
+			&tv, &sessn->proc_cfg_trxn_clnp);
+		assert(sessn->proc_cfg_trxn_clnp);
 		break;
 	case MGMTD_FRNTND_SESSN_SHOW_TRXN_CLNUP:
-		sessn->proc_show_trxn_clnp = 
-			thread_add_timer_tv(mgmt_frntnd_adptr_tm,
-				mgmt_frntnd_session_show_trxn_clnup, sessn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_frntnd_adptr_tm,
+			mgmt_frntnd_session_show_trxn_clnup, sessn,
+			&tv, &sessn->proc_show_trxn_clnp);
+		assert(sessn->proc_show_trxn_clnp);
 		break;
 	default:
 		assert(!"mgmt_frntnd_adptr_post_event() called incorrectly");
@@ -1316,7 +1316,6 @@ static int mgmt_frntnd_adapter_proc_msgbufs(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->proc_msg_ev = NULL;
 
 	MGMTD_FRNTND_ADPTR_DBG("Have %d ibufs for client '%s' to process",
 		(int) stream_fifo_count_safe(adptr->ibuf_fifo), adptr->name);
@@ -1358,7 +1357,6 @@ static int mgmt_frntnd_adapter_read(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(adptr->ibuf_work) - 
@@ -1453,7 +1451,6 @@ static int mgmt_frntnd_adapter_write(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (adptr->obuf_work) {
@@ -1506,7 +1503,6 @@ static int mgmt_frntnd_adapter_resume_writes(struct thread *thread)
 
 	adptr = (mgmt_frntnd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_writes_on = NULL;
 
 	mgmt_frntnd_adapter_writes_on(adptr);
 
@@ -1520,29 +1516,32 @@ static void mgmt_frntnd_adptr_register_event(
 
 	switch (event) {
 	case MGMTD_FRNTND_CONN_READ:
-		adptr->conn_read_ev = 
-			thread_add_read(mgmt_frntnd_adptr_tm,
-				mgmt_frntnd_adapter_read, adptr,
-				adptr->conn_fd, NULL);
+		thread_add_read(mgmt_frntnd_adptr_tm,
+			mgmt_frntnd_adapter_read, adptr,
+			adptr->conn_fd,
+			&adptr->conn_read_ev);
+		assert(adptr->conn_read_ev);
 		break;
 	case MGMTD_FRNTND_CONN_WRITE:
-		adptr->conn_write_ev = 
-			thread_add_write(mgmt_frntnd_adptr_tm,
-				mgmt_frntnd_adapter_write, adptr,
-				adptr->conn_fd, NULL);
+		thread_add_write(mgmt_frntnd_adptr_tm,
+			mgmt_frntnd_adapter_write, adptr,
+			adptr->conn_fd,
+			&adptr->conn_write_ev);
+		assert(adptr->conn_write_ev);
 		break;
 	case MGMTD_FRNTND_PROC_MSG:
 		tv.tv_usec = MGMTD_FRNTND_MSG_PROC_DELAY_USEC;
-		adptr->proc_msg_ev = 
-			thread_add_timer_tv(mgmt_frntnd_adptr_tm,
-				mgmt_frntnd_adapter_proc_msgbufs, adptr,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_frntnd_adptr_tm,
+			mgmt_frntnd_adapter_proc_msgbufs, adptr,
+			&tv, &adptr->proc_msg_ev);
+		assert(adptr->proc_msg_ev);
 		break;
 	case MGMTD_FRNTND_CONN_WRITES_ON:
-		adptr->conn_writes_on =
-			thread_add_timer_msec(mgmt_frntnd_adptr_tm,
-				mgmt_frntnd_adapter_resume_writes, adptr,
-				MGMTD_FRNTND_MSG_WRITE_DELAY_MSEC, NULL);
+		thread_add_timer_msec(mgmt_frntnd_adptr_tm,
+			mgmt_frntnd_adapter_resume_writes, adptr,
+			MGMTD_FRNTND_MSG_WRITE_DELAY_MSEC,
+			&adptr->conn_writes_on);
+		assert(adptr->conn_writes_on);
 		break;
 	default:
 		assert(!"mgmt_frntnd_adptr_post_event() called incorrectly");

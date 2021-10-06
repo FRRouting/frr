@@ -612,7 +612,6 @@ static int mgmt_bcknd_adapter_proc_msgbufs(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr);
-	adptr->proc_msg_ev = NULL;
 
 	if (adptr->conn_fd == 0)
 		return 0;
@@ -654,7 +653,6 @@ static int mgmt_bcknd_adapter_read(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(adptr->ibuf_work) - 
@@ -748,7 +746,6 @@ static int mgmt_bcknd_adapter_write(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (adptr->obuf_work) {
@@ -801,7 +798,6 @@ static int mgmt_bcknd_adapter_resume_writes(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_writes_on = NULL;
 
 	mgmt_bcknd_adapter_writes_on(adptr);
 
@@ -844,7 +840,6 @@ static int mgmt_bcknd_adapter_conn_init(struct thread *thread)
 
 	adptr = (mgmt_bcknd_client_adapter_t *)THREAD_ARG(thread);
 	assert(adptr && adptr->conn_fd);
-	adptr->conn_init_ev = NULL;
 
 	/*
 	 * Check first if the current session can run a CONFIG
@@ -878,35 +873,39 @@ static void mgmt_bcknd_adptr_register_event(
 
 	switch (event) {
 	case MGMTD_BCKND_CONN_INIT:
-		adptr->conn_init_ev =
-			thread_add_timer_msec(mgmt_bcknd_adptr_tm,
-				mgmt_bcknd_adapter_conn_init, adptr,
-				MGMTD_BCKND_CONN_INIT_DELAY_MSEC, NULL);
+		thread_add_timer_msec(mgmt_bcknd_adptr_tm,
+			mgmt_bcknd_adapter_conn_init, adptr,
+			MGMTD_BCKND_CONN_INIT_DELAY_MSEC,
+			&adptr->conn_init_ev);
+		assert(adptr->conn_init_ev);
 		break;
 	case MGMTD_BCKND_CONN_READ:
-		adptr->conn_read_ev = 
-			thread_add_read(mgmt_bcknd_adptr_tm,
-				mgmt_bcknd_adapter_read, adptr,
-				adptr->conn_fd, NULL);
+		thread_add_read(mgmt_bcknd_adptr_tm,
+			mgmt_bcknd_adapter_read, adptr,
+			adptr->conn_fd,
+			&adptr->conn_read_ev);
+		assert(adptr->conn_read_ev);
 		break;
 	case MGMTD_BCKND_CONN_WRITE:
-		adptr->conn_write_ev = 
-			thread_add_write(mgmt_bcknd_adptr_tm,
-				mgmt_bcknd_adapter_write, adptr,
-				adptr->conn_fd, NULL);
+		thread_add_write(mgmt_bcknd_adptr_tm,
+			mgmt_bcknd_adapter_write, adptr,
+			adptr->conn_fd,
+			&adptr->conn_write_ev);
+		assert(adptr->conn_write_ev);
 		break;
 	case MGMTD_BCKND_PROC_MSG:
 		tv.tv_usec = MGMTD_BCKND_MSG_PROC_DELAY_USEC;
-		adptr->proc_msg_ev = 
-			thread_add_timer_tv(mgmt_bcknd_adptr_tm,
-				mgmt_bcknd_adapter_proc_msgbufs, adptr,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_bcknd_adptr_tm,
+			mgmt_bcknd_adapter_proc_msgbufs, adptr,
+			&tv, &adptr->proc_msg_ev);
+		assert(adptr->proc_msg_ev);
 		break;
 	case MGMTD_BCKND_CONN_WRITES_ON:
-		adptr->conn_writes_on =
-			thread_add_timer_msec(mgmt_bcknd_adptr_tm,
-				mgmt_bcknd_adapter_resume_writes, adptr,
-				MGMTD_BCKND_MSG_WRITE_DELAY_MSEC, NULL);
+		thread_add_timer_msec(mgmt_bcknd_adptr_tm,
+			mgmt_bcknd_adapter_resume_writes, adptr,
+			MGMTD_BCKND_MSG_WRITE_DELAY_MSEC,
+			&adptr->conn_writes_on);
+		assert(adptr->conn_writes_on);
 		break;
 	default:
 		assert(!"mgmt_bcknd_adptr_post_event() called incorrectly");

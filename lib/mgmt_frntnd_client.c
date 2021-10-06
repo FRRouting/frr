@@ -86,6 +86,7 @@ typedef struct mgmt_frntnd_client_ctxt_ {
 		(sessn) = mgmt_session_list_next(&(clntctxt)->client_sessions, (sessn)))
 
 static bool mgmt_debug_frntnd_clnt = false;
+// static bool mgmt_debug_frntnd_clnt = true;
 
 static mgmt_frntnd_client_ctxt_t mgmt_frntnd_clntctxt = { 0 };
 
@@ -220,7 +221,6 @@ static int mgmt_frntnd_client_write(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (clnt_ctxt->obuf_work) {
@@ -273,7 +273,6 @@ static int mgmt_frntnd_client_resume_writes(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->conn_writes_on = NULL;
 
 	mgmt_frntnd_client_writes_on(clnt_ctxt);
 
@@ -730,7 +729,6 @@ static int mgmt_frntnd_client_proc_msgbufs(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->msg_proc_ev = NULL;
 
 	for ( ; processed < MGMTD_FRNTND_MAX_NUM_MSG_PROC ; ) {
 		work = stream_fifo_pop_safe(clnt_ctxt->ibuf_fifo);
@@ -770,7 +768,6 @@ static int mgmt_frntnd_client_read(struct thread *thread)
 
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(clnt_ctxt->ibuf_work) - 
@@ -900,6 +897,7 @@ static int mgmt_frntnd_server_connect(mgmt_frntnd_client_ctxt_t *clnt_ctxt)
 	thread_add_read(clnt_ctxt->tm, mgmt_frntnd_client_read,
 		(void *)&mgmt_frntnd_clntctxt, clnt_ctxt->conn_fd,
 		&clnt_ctxt->conn_read_ev);
+	assert(clnt_ctxt->conn_read_ev);
 
 	/* Send REGISTER_REQ message */
 	if (mgmt_frntnd_send_register_req(clnt_ctxt) != 0)
@@ -928,7 +926,6 @@ static int mgmt_frntnd_client_conn_timeout(struct thread *thread)
 	clnt_ctxt = (mgmt_frntnd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt);
 
-	clnt_ctxt->conn_retry_tmr = NULL;
 	return mgmt_frntnd_server_connect(clnt_ctxt);
 }
 
@@ -939,29 +936,32 @@ static void mgmt_frntnd_client_register_event(
 
 	switch (event) {
 	case MGMTD_FRNTND_CONN_READ:
-		clnt_ctxt->conn_read_ev = 
-			thread_add_read(clnt_ctxt->tm,
-				mgmt_frntnd_client_read, clnt_ctxt,
-				clnt_ctxt->conn_fd, NULL);
+		thread_add_read(clnt_ctxt->tm,
+			mgmt_frntnd_client_read, clnt_ctxt,
+			clnt_ctxt->conn_fd,
+			&clnt_ctxt->conn_read_ev);
+		assert(clnt_ctxt->conn_read_ev);
 		break;
 	case MGMTD_FRNTND_CONN_WRITE:
-		clnt_ctxt->conn_write_ev = 
-			thread_add_write(clnt_ctxt->tm,
-				mgmt_frntnd_client_write, clnt_ctxt,
-				clnt_ctxt->conn_fd, NULL);
+		thread_add_write(clnt_ctxt->tm,
+			mgmt_frntnd_client_write, clnt_ctxt,
+			clnt_ctxt->conn_fd,
+			&clnt_ctxt->conn_write_ev);
+		assert(clnt_ctxt->conn_write_ev);
 		break;
 	case MGMTD_FRNTND_PROC_MSG:
 		tv.tv_usec = MGMTD_FRNTND_MSG_PROC_DELAY_USEC;
-		clnt_ctxt->msg_proc_ev = 
-			thread_add_timer_tv(clnt_ctxt->tm,
-				mgmt_frntnd_client_proc_msgbufs, clnt_ctxt,
-				&tv, NULL);
+		thread_add_timer_tv(clnt_ctxt->tm,
+			mgmt_frntnd_client_proc_msgbufs, clnt_ctxt,
+			&tv, &clnt_ctxt->msg_proc_ev);
+		assert(clnt_ctxt->msg_proc_ev);
 		break;
 	case MGMTD_FRNTND_CONN_WRITES_ON:
-		clnt_ctxt->conn_writes_on =
-			thread_add_timer_msec(clnt_ctxt->tm,
-				mgmt_frntnd_client_resume_writes, clnt_ctxt,
-				MGMTD_FRNTND_MSG_WRITE_DELAY_MSEC, NULL);
+		thread_add_timer_msec(clnt_ctxt->tm,
+			mgmt_frntnd_client_resume_writes, clnt_ctxt,
+			MGMTD_FRNTND_MSG_WRITE_DELAY_MSEC,
+			&clnt_ctxt->conn_writes_on);
+		assert(clnt_ctxt->conn_writes_on);
 		break;
 	default:
 		assert(!"mgmt_frntnd_clnt_ctxt_post_event() called incorrectly");
@@ -973,9 +973,10 @@ static void mgmt_frntnd_client_schedule_conn_retry(
 {
 	MGMTD_FRNTND_CLNT_DBG("Scheduling MGMTD Frontend server connection retry after %lu seconds",
 		intvl_secs);
-	clnt_ctxt->conn_retry_tmr = thread_add_timer(
+	thread_add_timer(
 		clnt_ctxt->tm, mgmt_frntnd_client_conn_timeout,
-		(void *)clnt_ctxt, intvl_secs, NULL);
+		(void *)clnt_ctxt, intvl_secs,
+		&clnt_ctxt->conn_retry_tmr);
 }
 
 /*
