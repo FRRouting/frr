@@ -1089,7 +1089,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
-				 1);
+				 true);
 	if (ret < 0)
 		return ret;
 
@@ -1099,7 +1099,7 @@ int interface_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface, netlink_cmd, &dp_info, 0,
-				 0);
+				 true);
 	if (ret < 0)
 		return ret;
 
@@ -1128,7 +1128,7 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd, &dp_info,
-				 0, 1);
+				 0, true);
 	if (ret < 0)
 		return ret;
 
@@ -1137,7 +1137,7 @@ static int interface_addr_lookup_netlink(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_interface_addr, netlink_cmd, &dp_info,
-				 0, 1);
+				 0, true);
 	if (ret < 0)
 		return ret;
 
@@ -1168,7 +1168,7 @@ int kernel_interface_set_master(struct interface *master,
 	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, slave->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+			    false);
 }
 
 /* Interface address modification. */
@@ -2054,7 +2054,7 @@ int netlink_protodown(struct interface *ifp, bool down)
 	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+			    false);
 }
 
 /* Interface information read by netlink. */

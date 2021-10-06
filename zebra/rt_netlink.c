@@ -1171,7 +1171,7 @@ int netlink_route_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, &dp_info, 0, 1);
+				 &zns->netlink_cmd, &dp_info, 0, true);
 	if (ret < 0)
 		return ret;
 
@@ -1180,7 +1180,7 @@ int netlink_route_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_route_change_read_unicast,
-				 &zns->netlink_cmd, &dp_info, 0, 1);
+				 &zns->netlink_cmd, &dp_info, 0, true);
 	if (ret < 0)
 		return ret;
 
@@ -1810,7 +1810,7 @@ static int netlink_neigh_update(int cmd, int ifindex, void *addr, char *lla,
 		nl_attr_put(&req.n, sizeof(req), NDA_LLADDR, lla, llalen);
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+			    false);
 }
 
 static bool nexthop_set_src(const struct nexthop *nexthop, int family,
@@ -2268,7 +2268,7 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 	nl_attr_put32(&req.n, sizeof(req), RTA_TABLE, actual_table);
 
 	suc = netlink_talk(netlink_route_change_read_multicast, &req.n,
-			   &zns->netlink_cmd, zns, 0);
+			   &zns->netlink_cmd, zns, false);
 
 	mroute = NULL;
 	return suc;
@@ -3019,7 +3019,7 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_nexthop_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 
 	if (!ret)
 		/* If we succesfully read in nexthop objects,
@@ -3427,7 +3427,7 @@ int netlink_macfdb_read(struct zebra_ns *zns)
 	/* We are reading entire table. */
 	filter_vlan = 0;
 	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 
 	return ret;
 }
@@ -3461,7 +3461,7 @@ int netlink_macfdb_read_for_bridge(struct zebra_ns *zns, struct interface *ifp,
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
-				 &dp_info, 0, 0);
+				 &dp_info, 0, false);
 
 	/* Reset VLAN filter. */
 	filter_vlan = 0;
@@ -3526,7 +3526,7 @@ int netlink_macfdb_read_specific_mac(struct zebra_ns *zns,
 		return ret;
 
 	ret = netlink_parse_info(netlink_macfdb_table, &zns->netlink_cmd,
-				 &dp_info, 1, 0);
+				 &dp_info, 1, false);
 
 	return ret;
 }
@@ -3930,7 +3930,7 @@ int netlink_neigh_read(struct zebra_ns *zns)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 
 	return ret;
 }
@@ -3951,7 +3951,7 @@ int netlink_neigh_read_for_vlan(struct zebra_ns *zns, struct interface *vlan_if)
 	if (ret < 0)
 		return ret;
 	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 0, 0);
+				 &dp_info, 0, false);
 
 	return ret;
 }
@@ -4022,7 +4022,7 @@ int netlink_neigh_read_specific_ip(const struct ipaddr *ip,
 		return ret;
 
 	ret = netlink_parse_info(netlink_neigh_table, &zns->netlink_cmd,
-				 &dp_info, 1, 0);
+				 &dp_info, 1, false);
 
 	return ret;
 }
@@ -4442,7 +4442,7 @@ static int netlink_fdb_nh_update(uint32_t nh_id, struct in_addr vtep_ip)
 	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+			    false);
 }
 
 static int netlink_fdb_nh_del(uint32_t nh_id)
@@ -4477,7 +4477,7 @@ static int netlink_fdb_nh_del(uint32_t nh_id)
 	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+			    false);
 }
 
 static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
@@ -4537,7 +4537,7 @@ static int netlink_fdb_nhg_update(uint32_t nhg_id, uint32_t nh_cnt,
 	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    0);
+			    false);
 }
 
 static int netlink_fdb_nhg_del(uint32_t nhg_id)
