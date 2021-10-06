@@ -10576,6 +10576,53 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 #if CONFDATE > 20230131
 CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
 #endif
+static void show_ip_ospf_route_nexthop(struct vty *vty, struct ospf *ospf,
+				       struct ospf_path *path,
+				       json_object *json_nexthop)
+{
+	if (!if_lookup_by_index(path->ifindex, ospf->vrf_id))
+		return;
+
+	if (path->nexthop.s_addr == 0) {
+		if (json_nexthop) {
+			json_object_string_add(json_nexthop, "ip", " ");
+			json_object_string_add(
+				json_nexthop, "interface",
+				ifindex2ifname(path->ifindex, ospf->vrf_id));
+			/* To Be Removed */
+			json_object_string_add(
+				json_nexthop, "directly attached to",
+				ifindex2ifname(path->ifindex, ospf->vrf_id));
+			json_object_boolean_true_add(json_nexthop,
+						     "directlyAttachedTo");
+		} else {
+			vty_out(vty, "%24s   directly attached to %s\n", "",
+				ifindex2ifname(path->ifindex, ospf->vrf_id));
+		}
+	} else {
+		if (json_nexthop) {
+			json_object_string_addf(json_nexthop, "ip", "%pI4",
+						&path->nexthop);
+			json_object_string_add(
+				json_nexthop, "via",
+				ifindex2ifname(path->ifindex, ospf->vrf_id));
+
+			/* To Be Removed */
+			json_object_string_add(
+				json_nexthop, "directly attached to",
+				ifindex2ifname(path->ifindex, ospf->vrf_id));
+			json_object_boolean_false_add(json_nexthop,
+						      "directlyAttachedTo");
+		} else {
+			vty_out(vty, "%s via %pI4, %s\n", "", &path->nexthop,
+				ifindex2ifname(path->ifindex, ospf->vrf_id));
+		}
+	}
+}
+
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
+#endif
 static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				       struct route_table *rt,
 				       json_object *json)
@@ -10668,58 +10715,9 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 						json_nexthop_array,
 						json_nexthop);
 				}
-				if (if_lookup_by_index(path->ifindex,
-						       ospf->vrf_id)) {
-
-					if (path->nexthop.s_addr
-					    == INADDR_ANY) {
-						if (json) {
-							json_object_string_add(
-								json_nexthop,
-								"ip", " ");
-							json_object_string_add(
-								json_nexthop,
-								"directly attached to",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-							json_object_string_add(
-								json_nexthop,
-								"directlyAttachedTo",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						} else {
-							vty_out(vty,
-								"%24s   directly attached to %s\n",
-								"",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						}
-					} else {
-						if (json) {
-							json_object_string_addf(
-								json_nexthop,
-								"ip", "%pI4",
-								&path->nexthop);
-							json_object_string_add(
-								json_nexthop,
-								"via",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						} else {
-							vty_out(vty,
-								"%24s   via %pI4, %s\n",
-								"",
-								&path->nexthop,
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						}
-					}
-				}
+				/* Display nexthop information */
+				show_ip_ospf_route_nexthop(vty, ospf, path,
+							   json_nexthop);
 			}
 		}
 	}
@@ -10818,57 +10816,9 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 						json_nexthop_array,
 						json_nexthop);
 				}
-				if (if_lookup_by_index(path->ifindex,
-						       ospf->vrf_id)) {
-					if (path->nexthop.s_addr
-					    == INADDR_ANY) {
-						if (json) {
-							json_object_string_add(
-								json_nexthop,
-								"ip", " ");
-							json_object_string_add(
-								json_nexthop,
-								"directly attached to",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-							json_object_string_add(
-								json_nexthop,
-								"directlyAttachedTo",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						} else {
-							vty_out(vty,
-								"%24s   directly attached to %s\n",
-								"",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						}
-					} else {
-						if (json) {
-							json_object_string_addf(
-								json_nexthop,
-								"ip", "%pI4",
-								&path->nexthop);
-							json_object_string_add(
-								json_nexthop,
-								"via",
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						} else {
-							vty_out(vty,
-								"%24s   via %pI4, %s\n",
-								"",
-								&path->nexthop,
-								ifindex2ifname(
-									path->ifindex,
-									ospf->vrf_id));
-						}
-					}
-				}
+				/* Display Nexhop information */
+				show_ip_ospf_route_nexthop(vty, ospf, path,
+							   json_nexthop);
 			}
 		}
 	}
@@ -10951,54 +10901,9 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 				json_object_array_add(json_nexthop_array,
 						      json_nexthop);
 			}
-
-			if (if_lookup_by_index(path->ifindex, ospf->vrf_id)) {
-				if (path->nexthop.s_addr == INADDR_ANY) {
-					if (json) {
-						json_object_string_add(
-							json_nexthop, "ip",
-							" ");
-						json_object_string_add(
-							json_nexthop,
-							"directly attached to",
-							ifindex2ifname(
-								path->ifindex,
-								ospf->vrf_id));
-						json_object_string_add(
-							json_nexthop,
-							"directlyAttachedTo",
-							ifindex2ifname(
-								path->ifindex,
-								ospf->vrf_id));
-					} else {
-						vty_out(vty,
-							"%24s   directly attached to %s\n",
-							"",
-							ifindex2ifname(
-								path->ifindex,
-								ospf->vrf_id));
-					}
-				} else {
-					if (json) {
-						json_object_string_addf(
-							json_nexthop, "ip",
-							"%pI4", &path->nexthop);
-						json_object_string_add(
-							json_nexthop, "via",
-							ifindex2ifname(
-								path->ifindex,
-								ospf->vrf_id));
-					} else {
-						vty_out(vty,
-							"%24s   via %pI4, %s\n",
-							"",
-							&path->nexthop,
-							ifindex2ifname(
-								path->ifindex,
-								ospf->vrf_id));
-					}
-				}
-			}
+			/* Display Nexthop information */
+			show_ip_ospf_route_nexthop(vty, ospf, path,
+						   json_nexthop);
 		}
 	}
 	if (!json)
@@ -11230,6 +11135,7 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 				     json_object *json, uint8_t use_vrf)
 {
 	json_object *json_vrf = NULL;
+	json_object *json_routes = NULL;
 
 	if (ospf->instance)
 		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
@@ -11246,14 +11152,21 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	if (ospf->new_table == NULL) {
 		vty_out(vty, "No OSPF routing information exist\n");
+
+		if (use_vrf)
+			json_object_free(json_vrf);
+
 		return CMD_SUCCESS;
 	}
 
+	if (json)
+		json_routes = json_object_new_object();
+
 	/* Show Network routes. */
-	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_vrf);
+	show_ip_ospf_route_network(vty, ospf, ospf->new_table, json_routes);
 
 	/* Show Router routes. */
-	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
+	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_routes);
 
 	/* Show Router routes. */
 	if (ospf->all_rtrs)
@@ -11261,14 +11174,17 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	/* Show AS External routes. */
 	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
-				    json_vrf);
+				    json_routes);
 
 	if (json) {
+		json_object_object_add(json_vrf, "routes", json_routes);
 		if (use_vrf) {
-			// json_object_object_add(json_vrf, "areas",
-			// json_areas);
-			json_object_object_add(json, ospf_get_name(ospf),
-					       json_vrf);
+			if (ospf->vrf_id == VRF_DEFAULT)
+				json_object_object_add(json, "default",
+						       json_vrf);
+			else
+				json_object_object_add(json, ospf->name,
+						       json_vrf);
 		}
 	} else {
 		vty_out(vty, "\n");
