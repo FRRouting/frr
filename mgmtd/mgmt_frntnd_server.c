@@ -53,7 +53,7 @@ static int mgmt_frntnd_conn_accept(struct thread *thread)
 	// unsigned int on;
 	// struct prefix p;
 
-	if (!mgmt_frntnd_listen_fd || !mgmt_frntnd_listen_ev)
+	if (!mgmt_frntnd_listen_fd)
 		return -1;
 
 	/* We continue hearing server listen socket. */
@@ -82,10 +82,11 @@ static void mgmt_frntnd_server_register_event(mgmt_event_t event)
 {
 	switch (event) {
 	case MGMTD_FRNTND_SERVER:
-		mgmt_frntnd_listen_ev = 
-			thread_add_read(mgmt_frntnd_listen_tm,
-				mgmt_frntnd_conn_accept, NULL, 
-				mgmt_frntnd_listen_fd, NULL);
+		thread_add_read(mgmt_frntnd_listen_tm,
+			mgmt_frntnd_conn_accept, NULL, 
+			mgmt_frntnd_listen_fd,
+			&mgmt_frntnd_listen_ev);
+		assert(mgmt_frntnd_listen_ev);
 		// vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
 		break;
 	default:

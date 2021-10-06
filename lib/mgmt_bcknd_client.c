@@ -990,7 +990,6 @@ static int mgmt_bcknd_client_proc_msgbufs(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt);
-	clnt_ctxt->msg_proc_ev = NULL;
 
 	if (clnt_ctxt->conn_fd == 0)
 		return 0;
@@ -1033,7 +1032,6 @@ static int mgmt_bcknd_client_read(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->conn_read_ev = NULL;
 
 	total_bytes = 0;
 	bytes_left = STREAM_SIZE(clnt_ctxt->ibuf_work) - 
@@ -1189,7 +1187,6 @@ static int mgmt_bcknd_client_write(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->conn_write_ev = NULL;
 
 	/* Ensure pushing any pending write buffer to FIFO */
 	if (clnt_ctxt->obuf_work) {
@@ -1242,7 +1239,6 @@ static int mgmt_bcknd_client_resume_writes(struct thread *thread)
 
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt && clnt_ctxt->conn_fd);
-	clnt_ctxt->conn_writes_on = NULL;
 
 	mgmt_bcknd_client_writes_on(clnt_ctxt);
 
@@ -1346,7 +1342,6 @@ static int mgmt_bcknd_client_conn_timeout(struct thread *thread)
 	clnt_ctxt = (mgmt_bcknd_client_ctxt_t *)THREAD_ARG(thread);
 	assert(clnt_ctxt);
 
-	clnt_ctxt->conn_retry_tmr = NULL;
 	return mgmt_bcknd_server_connect(clnt_ctxt);
 }
 
@@ -1357,25 +1352,25 @@ static void mgmt_bcknd_client_register_event(
 
 	switch (event) {
 	case MGMTD_BCKND_CONN_READ:
-		clnt_ctxt->conn_read_ev = 
-			thread_add_read(clnt_ctxt->tm,
-				mgmt_bcknd_client_read, clnt_ctxt,
-				clnt_ctxt->conn_fd, NULL);
+		thread_add_read(clnt_ctxt->tm,
+			mgmt_bcknd_client_read, clnt_ctxt,
+			clnt_ctxt->conn_fd,
+			&clnt_ctxt->conn_read_ev);
+		assert(clnt_ctxt->conn_read_ev);
 		break;
 	case MGMTD_BCKND_CONN_WRITE:
-		if (clnt_ctxt->conn_write_ev)
-			return;
-		clnt_ctxt->conn_write_ev = 
-			thread_add_write(clnt_ctxt->tm,
-				mgmt_bcknd_client_write, clnt_ctxt,
-				clnt_ctxt->conn_fd, NULL);
+		thread_add_write(clnt_ctxt->tm,
+			mgmt_bcknd_client_write, clnt_ctxt,
+			clnt_ctxt->conn_fd,
+			&clnt_ctxt->conn_write_ev);
+		assert(clnt_ctxt->conn_write_ev);
 		break;
 	case MGMTD_BCKND_PROC_MSG:
 		tv.tv_usec = MGMTD_BCKND_MSG_PROC_DELAY_USEC;
-		clnt_ctxt->msg_proc_ev = 
-			thread_add_timer_tv(clnt_ctxt->tm,
-				mgmt_bcknd_client_proc_msgbufs, clnt_ctxt,
-				&tv, NULL);
+		thread_add_timer_tv(clnt_ctxt->tm,
+			mgmt_bcknd_client_proc_msgbufs, clnt_ctxt,
+			&tv, &clnt_ctxt->msg_proc_ev);
+		assert(clnt_ctxt->msg_proc_ev);
 		break;
 	// case MGMTD_BCKND_SCHED_CFG_APPLY:
 	// 	tv.tv_usec = MGMTD_BCKND_CFGAPPLY_SCHED_DELAY_USEC;
@@ -1385,10 +1380,11 @@ static void mgmt_bcknd_client_register_event(
 	// 			&tv, NULL);
 	// 	break;
 	case MGMTD_BCKND_CONN_WRITES_ON:
-		clnt_ctxt->conn_writes_on =
-			thread_add_timer_msec(clnt_ctxt->tm,
-				mgmt_bcknd_client_resume_writes, clnt_ctxt,
-				MGMTD_BCKND_MSG_WRITE_DELAY_MSEC, NULL);
+		thread_add_timer_msec(clnt_ctxt->tm,
+			mgmt_bcknd_client_resume_writes, clnt_ctxt,
+			MGMTD_BCKND_MSG_WRITE_DELAY_MSEC,
+			&clnt_ctxt->conn_writes_on);
+		assert(clnt_ctxt->conn_writes_on);
 		break;
 	default:
 		assert(!"mgmt_bcknd_client_post_event() called incorrectly");
@@ -1400,9 +1396,10 @@ static void mgmt_bcknd_client_schedule_conn_retry(
 {
 	MGMTD_BCKND_CLNT_DBG("Scheduling MGMTD Backend server connection retry after %lu seconds",
 		intvl_secs);
-	clnt_ctxt->conn_retry_tmr = thread_add_timer(
+	thread_add_timer(
 		clnt_ctxt->tm, mgmt_bcknd_client_conn_timeout,
-		(void *)clnt_ctxt, intvl_secs, NULL);
+		(void *)clnt_ctxt, intvl_secs,
+		&clnt_ctxt->conn_retry_tmr);
 }
 
 extern struct nb_config *running_config;

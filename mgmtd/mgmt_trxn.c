@@ -608,7 +608,6 @@ static int mgmt_trxn_process_set_cfg(struct thread *thread)
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
 	cmt_stats = mgmt_frntnd_get_sessn_commit_stats(trxn->session_id);
-	trxn->proc_set_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing %d SET_CONFIG requests for Trxn:%p Session:0x%lx",
 		(int) mgmt_trxn_req_list_count(&trxn->set_cfg_reqs), trxn,
@@ -1401,7 +1400,6 @@ static int mgmt_trxn_cfg_commit_timedout(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
-	trxn->comm_cfg_timeout = NULL;
 
 	assert(trxn->type == MGMTD_TRXN_TYPE_CONFIG);
 
@@ -1560,7 +1558,6 @@ static int mgmt_trxn_process_commit_cfg(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
-	trxn->proc_comm_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing COMMIT_CONFIG for Trxn:%p Session:0x%lx, Phase(Current:'%s', Next: '%s')",
 		trxn, trxn->session_id, mgmt_trxn_commit_phase_str(trxn, true),
@@ -1868,7 +1865,6 @@ static int mgmt_trxn_process_get_cfg(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
-	trxn->proc_comm_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing %d GET_CONFIG requests for Trxn:%p Session:0x%lx",
 		(int) mgmt_trxn_req_list_count(&trxn->get_cfg_reqs), trxn,
@@ -1936,7 +1932,6 @@ static int mgmt_trxn_process_get_data(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
-	trxn->proc_comm_cfg = NULL;
 
 	MGMTD_TRXN_DBG("Processing %d GET_DATA requests for Trxn:%p Session:0x%lx",
 		(int) mgmt_trxn_req_list_count(&trxn->get_data_reqs), trxn,
@@ -2116,7 +2111,6 @@ static int mgmt_trxn_cleanup(struct thread *thread)
 
 	trxn = (mgmt_trxn_ctxt_t *)THREAD_ARG(thread);
 	assert(trxn);
-	trxn->clnup = NULL;
 
 	mgmt_trxn_destroy(&trxn);
 	return 0;
@@ -2132,41 +2126,42 @@ static void mgmt_trxn_register_event(
 
 	switch (event) {
 	case MGMTD_TRXN_PROC_SETCFG:
-		trxn->proc_set_cfg = 
-			thread_add_timer_tv(mgmt_trxn_tm,
-				mgmt_trxn_process_set_cfg, trxn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_trxn_tm,
+			mgmt_trxn_process_set_cfg, trxn,
+			&tv, &trxn->proc_set_cfg);
+		assert(trxn->proc_set_cfg);
 		break;
 	case MGMTD_TRXN_PROC_COMMITCFG:
-		trxn->proc_comm_cfg = 
-			thread_add_timer_tv(mgmt_trxn_tm,
-				mgmt_trxn_process_commit_cfg, trxn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_trxn_tm,
+			mgmt_trxn_process_commit_cfg, trxn,
+			&tv, &trxn->proc_comm_cfg);
+		assert(trxn->proc_comm_cfg);
 		break;
 	case MGMTD_TRXN_PROC_GETCFG:
-		trxn->proc_comm_cfg = 
-			thread_add_timer_tv(mgmt_trxn_tm,
-				mgmt_trxn_process_get_cfg, trxn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_trxn_tm,
+			mgmt_trxn_process_get_cfg, trxn,
+			&tv, &trxn->proc_comm_cfg);
+		assert(trxn->proc_comm_cfg);
 		break;
 	case MGMTD_TRXN_PROC_GETDATA:
-		trxn->proc_comm_cfg = 
-			thread_add_timer_tv(mgmt_trxn_tm,
-				mgmt_trxn_process_get_data, trxn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_trxn_tm,
+			mgmt_trxn_process_get_data, trxn,
+			&tv, &trxn->proc_comm_cfg);
+		assert(trxn->proc_comm_cfg);
 		break;
 	case MGMTD_TRXN_COMMITCFG_TIMEOUT:
-		trxn->comm_cfg_timeout = 
-			thread_add_timer_msec(mgmt_trxn_tm,
-				mgmt_trxn_cfg_commit_timedout, trxn,
-				MGMTD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC, NULL);
+		thread_add_timer_msec(mgmt_trxn_tm,
+			mgmt_trxn_cfg_commit_timedout, trxn,
+			MGMTD_TRXN_CFG_COMMIT_MAX_DELAY_MSEC,
+			&trxn->comm_cfg_timeout);
+		assert(trxn->comm_cfg_timeout);
 		break;
 	case MGMTD_TRXN_CLEANUP:
 		tv.tv_usec = MGMTD_TRXN_CLEANUP_DELAY_USEC;
-		trxn->clnup = 
-			thread_add_timer_tv(mgmt_trxn_tm,
-				mgmt_trxn_cleanup, trxn,
-				&tv, NULL);
+		thread_add_timer_tv(mgmt_trxn_tm,
+			mgmt_trxn_cleanup, trxn,
+			&tv, &trxn->clnup);
+		assert(trxn->clnup);
 		break;
 	default:
 		assert(!"mgmt_trxn_register_event() called incorrectly");
