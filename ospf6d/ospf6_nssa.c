@@ -409,7 +409,6 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	caddr_t old_ptr, new_ptr;
 	struct ospf6_as_external_lsa *nssa;
 	struct prefix prefix;
-	struct ospf6_route *match;
 	struct ospf6 *ospf6 = area->ospf6;
 	ptrdiff_t tag_offset = 0;
 	route_tag_t network_order;
@@ -447,15 +446,6 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	prefix.family = AF_INET6;
 	prefix.prefixlen = nssa->prefix.prefix_length;
 	ospf6_prefix_in6_addr(&prefix.u.prefix6, nssa, &nssa->prefix);
-
-	/* Find the LSA from the external route */
-	match = ospf6_route_lookup(&prefix, area->route_table);
-	if (match == NULL) {
-		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s : no matching route %pFX", __func__,
-				   &prefix);
-		return NULL;
-	}
 
 	/* set Prefix */
 	memcpy(new_ptr, old_ptr, OSPF6_PREFIX_SPACE(ext->prefix.prefix_length));
