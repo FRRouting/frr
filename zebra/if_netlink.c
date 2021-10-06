@@ -1122,6 +1122,9 @@ static int netlink_request_intf_addr(struct nlsock *netlink_cmd, int family,
 		char buf[256];
 	} req;
 
+	frrtrace(4, frr_zebra, netlink_request_intf_addr, netlink_cmd, family,
+		 type, filter_mask);
+
 	/* Form the request, specifying filter (rtattr) if needed. */
 	memset(&req, 0, sizeof(req));
 	req.n.nlmsg_type = type;
