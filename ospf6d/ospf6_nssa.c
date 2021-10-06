@@ -776,59 +776,6 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
 		zlog_debug("%s : Stop", __func__);
 }
 
-/* Generate translated type-5 LSA from the configured area ranges*/
-static void ospf6_abr_translate_nssa_range(struct ospf6 *ospf6)
-{
-	struct listnode *node, *nnode;
-	struct ospf6_area *oa;
-	struct ospf6_route *range;
-	struct ospf6_lsa *lsa;
-
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa)) {
-		for (range = ospf6_route_head(oa->range_table); range;
-		     range = ospf6_route_next(range)) {
-			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug(
-					"Translating range %pFX of area %pI4",
-					&range->prefix, &oa->area_id);
-			if (CHECK_FLAG(range->flag,
-				       OSPF6_ROUTE_DO_NOT_ADVERTISE))
-				continue;
-
-			/* Find the NSSA LSA from the route */
-			/* Generate and flood external LSA */
-			lsa = ospf6_lsdb_lookup(OSPF6_LSTYPE_TYPE_7,
-						range->path.origin.id,
-						ospf6->router_id, oa->lsdb);
-			if (lsa)
-				ospf6_abr_translate_nssa(oa, lsa);
-		}
-	}
-}
-
-static void ospf6_abr_send_nssa_aggregates(struct ospf6 *ospf6)
-{
-	struct listnode *node;
-	struct ospf6_area *area;
-
-	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : Start", __func__);
-
-	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
-		if (area->NSSATranslatorState == OSPF6_NSSA_TRANSLATE_DISABLED)
-			continue;
-
-		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s : looking at area %pI4", __func__,
-				   &area->area_id);
-
-		ospf6_abr_translate_nssa_range(ospf6);
-	}
-
-	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : Stop", __func__);
-}
-
 /*Flood max age LSA's for the unapproved LSA's */
 static int ospf6_abr_remove_unapproved_translates_apply(struct ospf6_lsa *lsa)
 {
@@ -940,11 +887,6 @@ void ospf6_abr_nssa_type_7_defaults(struct ospf6 *ospf6)
 
 static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 {
-	/* called only if any_nssa */
-	struct ospf6_route *range;
-	struct ospf6_area *area;
-	struct listnode *node, *nnode;
-
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("Check for NSSA-ABR Tasks():");
 
@@ -970,11 +912,6 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 
 	ospf6_abr_unapprove_translates(ospf6);
 
-	/* RESET all Ranges in every Area, same as summaries */
-	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): NSSA initialize aggregates");
-	ospf6_abr_range_reset_cost(ospf6);
-
 	/* For all NSSAs, Type-7s, translate to 5's, INSTALL/FLOOD, or
 	 *  Aggregate as Type-7
 	 * Install or Approve in Type-5 Global LSDB
@@ -983,31 +920,11 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 		zlog_debug("ospf6_abr_nssa_task(): process translates");
 	ospf6_abr_process_nssa_translates(ospf6);
 
-	/* Translate/Send any "ranged" aggregates, and also 5-Install and
-	 *  Approve
-	 * Scan Type-7's for aggregates, translate to Type-5's,
-	 *  Install/Flood/Approve
-	 */
-	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): send NSSA aggregates");
-	ospf6_abr_send_nssa_aggregates(ospf6); /*TURNED OFF FOR NOW */
-
 	/* Flush any unapproved previous translates from Global Data Base */
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug(
 			"ospf6_abr_nssa_task(): remove unapproved translates");
 	ospf6_abr_remove_unapproved_translates(ospf6);
-
-	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
-		for (range = ospf6_route_head(area->range_table); range;
-		     range = ospf6_route_next(range)) {
-			if (CHECK_FLAG(range->flag,
-				       OSPF6_ROUTE_DO_NOT_ADVERTISE))
-				ospf6_zebra_delete_discard(range, ospf6);
-			else
-				ospf6_zebra_add_discard(range, ospf6);
-		}
-	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug("ospf6_abr_nssa_task(): Stop");
