@@ -145,8 +145,6 @@ struct bgp_evpn_es_vtep {
 	struct bgp_evpn_es *es; /* parent ES */
 	struct in_addr vtep_ip;
 
-	char vtep_str[INET6_ADDRSTRLEN];
-
 	uint32_t flags;
 	/* Rxed a Type4 route from this PE */
 #define BGP_EVPNES_VTEP_ESR	   (1 << 0)
