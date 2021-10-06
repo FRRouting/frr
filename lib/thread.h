@@ -219,26 +219,30 @@ void thread_master_set_name(struct thread_master *master, const char *name);
 extern void thread_master_free(struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern struct thread *_thread_add_read_write(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, int fd, struct thread **tref);
+extern void _thread_add_read_write(const struct xref_threadsched *xref,
+				   struct thread_master *master,
+				   int (*fn)(struct thread *), void *arg,
+				   int fd, struct thread **tref);
 
-extern struct thread *_thread_add_timer(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, long t, struct thread **tref);
+extern void _thread_add_timer(const struct xref_threadsched *xref,
+			      struct thread_master *master,
+			      int (*fn)(struct thread *), void *arg, long t,
+			      struct thread **tref);
 
-extern struct thread *_thread_add_timer_msec(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, long t, struct thread **tref);
+extern void _thread_add_timer_msec(const struct xref_threadsched *xref,
+				   struct thread_master *master,
+				   int (*fn)(struct thread *), void *arg,
+				   long t, struct thread **tref);
 
-extern struct thread *_thread_add_timer_tv(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, struct timeval *tv,
-	struct thread **tref);
+extern void _thread_add_timer_tv(const struct xref_threadsched *xref,
+				 struct thread_master *master,
+				 int (*fn)(struct thread *), void *arg,
+				 struct timeval *tv, struct thread **tref);
 
-extern struct thread *_thread_add_event(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, int val, struct thread **tref);
+extern void _thread_add_event(const struct xref_threadsched *xref,
+			      struct thread_master *master,
+			      int (*fn)(struct thread *), void *arg, int val,
+			      struct thread **tref);
 
 extern void _thread_execute(const struct xref_threadsched *xref,
 			    struct thread_master *master,

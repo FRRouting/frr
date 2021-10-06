@@ -2480,10 +2480,6 @@ ospf_router_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
 	return new;
 }
 
-#define OSPF_INTERFACE_TIMER_ON(T, F, V)                                       \
-	if (!(T))                                                              \
-	(T) = thread_add_timer(master, (F), oi, (V))
-
 /* Install network-LSA to an area. */
 static struct ospf_lsa *ospf_network_lsa_install(struct ospf *ospf,
 						 struct ospf_interface *oi,

@@ -249,8 +249,8 @@ static int zebra_ns_notify_read(struct thread *t)
 	char buf[BUFSIZ];
 	ssize_t len;
 
-	zebra_netns_notify_current = thread_add_read(
-		zrouter.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
+	thread_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
+			&zebra_netns_notify_current);
 	len = read(fd_monitor, buf, sizeof(buf));
 	if (len < 0) {
 		flog_err_sys(EC_ZEBRA_NS_NOTIFY_READ,
@@ -359,8 +359,8 @@ void zebra_ns_notify_init(void)
 			     "NS notify watch: failed to add watch (%s)",
 			     safe_strerror(errno));
 	}
-	zebra_netns_notify_current = thread_add_read(
-		zrouter.master, zebra_ns_notify_read, NULL, fd_monitor, NULL);
+	thread_add_read(zrouter.master, zebra_ns_notify_read, NULL, fd_monitor,
+			&zebra_netns_notify_current);
 }
 
 void zebra_ns_notify_close(void)
