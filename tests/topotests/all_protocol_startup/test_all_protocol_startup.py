@@ -115,7 +115,7 @@ def setup_module(module):
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def teardown_module(module):
@@ -127,7 +127,8 @@ def teardown_module(module):
 
 def test_router_running():
     global fatal_error
-    net = get_topogen().net
+    tgen = get_topogen()
+    net = tgen.net
 
     # Skip if previous fatal error condition is raised
     if fatal_error != "":
@@ -143,7 +144,7 @@ def test_router_running():
         assert fatal_error == "", fatal_error
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def test_error_messages_vtysh():
@@ -197,9 +198,6 @@ def test_error_messages_vtysh():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_error_messages_daemons():
@@ -289,9 +287,6 @@ def test_error_messages_daemons():
 
     assert error_logs == "", "Daemons report errors to StdErr"
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_converge_protocols():
     global fatal_error
@@ -325,7 +320,7 @@ def test_converge_protocols():
         actual = (
             net["r%s" % i]
             .cmd(
-                "vtysh -c \"show ip route\" | sed -e '/^Codes: /,/^\s*$/d' | sort 2> /dev/null"
+                "vtysh -c \"show ip route\" | sed -e '/^Codes: /,/^\\s*$/d' | sort 2> /dev/null"
             )
             .rstrip()
         )
@@ -358,7 +353,7 @@ def test_converge_protocols():
         actual = (
             net["r%s" % i]
             .cmd(
-                "vtysh -c \"show ipv6 route\" | sed -e '/^Codes: /,/^\s*$/d' | sort 2> /dev/null"
+                "vtysh -c \"show ipv6 route\" | sed -e '/^Codes: /,/^\\s*$/d' | sort 2> /dev/null"
             )
             .rstrip()
         )
@@ -378,9 +373,6 @@ def test_converge_protocols():
             print("r%s ok" % i)
 
         assert failures == 0, "IPv6 Routing table failed for r%s\n%s" % (i, diff)
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    ## CLI(net)
 
 
 def route_get_nhg_id(route_str):
@@ -567,8 +559,6 @@ def test_nexthop_groups():
         % nhg_id
     )
 
-    ##CLI(net)
-
     ## Remove all NHG routes
 
     net["r1"].cmd('vtysh -c "sharp remove routes 2.2.2.1 1"')
@@ -638,9 +628,6 @@ def test_rip_status():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_ripng_status():
     global fatal_error
@@ -704,9 +691,6 @@ def test_ripng_status():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_ospfv2_interfaces():
@@ -790,9 +774,6 @@ def test_ospfv2_interfaces():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_isis_interfaces():
     global fatal_error
@@ -855,9 +836,6 @@ def test_isis_interfaces():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_bgp_summary():
@@ -1037,9 +1015,6 @@ def test_bgp_summary():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_bgp_ipv6_summary():
     global fatal_error
@@ -1138,12 +1113,15 @@ def test_bgp_ipv6_summary():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_nht():
+    global fatal_error
     net = get_topogen().net
+
+    # Skip if previous fatal error condition is raised
+    if fatal_error != "":
+        pytest.skip(fatal_error)
+
     print("\n\n**** Test that nexthop tracking is at least nominally working ****\n")
 
     thisDir = os.path.dirname(os.path.realpath(__file__))
@@ -1256,9 +1234,6 @@ def test_bgp_ipv4():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_bgp_ipv6():
     global fatal_error
@@ -1324,9 +1299,6 @@ def test_bgp_ipv6():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_route_map():
@@ -1566,9 +1538,6 @@ def test_mpls_interfaces():
     for i in range(1, 2):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_shutdown_check_stderr():
