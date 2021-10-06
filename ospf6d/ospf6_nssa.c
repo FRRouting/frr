@@ -402,7 +402,7 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 						       struct ospf6_lsa *type7)
 {
-	char *buffer;
+	char buffer[OSPF6_MAX_LSASIZE];
 	struct ospf6_lsa *lsa;
 	struct ospf6_as_external_lsa *ext, *extnew;
 	struct ospf6_lsa_header *lsa_header;
@@ -424,7 +424,8 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 		return NULL;
 	}
 
-	buffer = XCALLOC(MTYPE_OSPF6_LSA, OSPF6_MAX_LSASIZE);
+	/* prepare buffer */
+	memset(buffer, 0, sizeof(buffer));
 	lsa_header = (struct ospf6_lsa_header *)buffer;
 	extnew = (struct ospf6_as_external_lsa
 			  *)((caddr_t)lsa_header
