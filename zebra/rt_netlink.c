@@ -79,6 +79,7 @@
 #include "zebra/zebra_vxlan.h"
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_trace.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -2905,6 +2906,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* Count of nexthops in group array */
 	uint8_t grp_count = 0;
 	struct rtattr *tb[NHA_MAX + 1] = {};
+
+	frrtrace(3, frr_zebra, netlink_nexthop_change, h, ns_id, startup);
 
 	nhm = NLMSG_DATA(h);
 
