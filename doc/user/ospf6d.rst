@@ -476,9 +476,10 @@ The following debug commands are supported:
 
    Toggle OSPFv3 ASBR debugging messages.
 
-.. clicmd:: debug ospf6 border-routers
+.. clicmd:: debug ospf6 border-routers {router-id [A.B.C.D] | area-id [A.B.C.D]}
 
-   Toggle OSPFv3 border router debugging messages.
+   Toggle OSPFv3 border router debugging messages. This can be specified for a
+   router with specific Router-ID/Area-ID.
 
 .. clicmd:: debug ospf6 flooding
 

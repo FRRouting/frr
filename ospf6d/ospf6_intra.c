@@ -2476,12 +2476,13 @@ DEFUN (debug_ospf6_brouter_router,
 
 DEFUN (no_debug_ospf6_brouter_router,
        no_debug_ospf6_brouter_router_cmd,
-       "no debug ospf6 border-routers router-id",
+       "no debug ospf6 border-routers router-id [A.B.C.D]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Debug border router\n"
        "Debug specific border router\n"
+       "Specify border-router's router-id\n"
       )
 {
 	OSPF6_DEBUG_BROUTER_SPECIFIC_ROUTER_OFF();
@@ -2507,12 +2508,13 @@ DEFUN (debug_ospf6_brouter_area,
 
 DEFUN (no_debug_ospf6_brouter_area,
        no_debug_ospf6_brouter_area_cmd,
-       "no debug ospf6 border-routers area-id",
+       "no debug ospf6 border-routers area-id [A.B.C.D]",
        NO_STR
        DEBUG_STR
        OSPF6_STR
        "Debug border router\n"
        "Debug border routers in specific Area\n"
+       "Specify Area-ID\n"
       )
 {
 	OSPF6_DEBUG_BROUTER_SPECIFIC_AREA_OFF();
