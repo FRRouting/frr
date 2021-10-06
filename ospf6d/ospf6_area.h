@@ -46,6 +46,7 @@ struct ospf6_area {
 	/* Summary routes to be originated (includes Configured Address Ranges)
 	 */
 	struct ospf6_route_table *range_table;
+	struct ospf6_route_table *nssa_range_table;
 	struct ospf6_route_table *summary_prefix;
 	struct ospf6_route_table *summary_router;
 
