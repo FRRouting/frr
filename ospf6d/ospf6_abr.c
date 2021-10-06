@@ -681,34 +681,31 @@ void ospf6_abr_range_update(struct ospf6_route *range, struct ospf6 *ospf6)
 	 * if there
 	 * were active ranges.
 	 */
+	if (!ospf6_abr_range_summary_needs_update(range, cost))
+		return;
 
-	if (ospf6_abr_range_summary_needs_update(range, cost)) {
-		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s: range %pFX update", __func__,
-				   &range->prefix);
-		for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
-			summary_orig +=
-				ospf6_abr_originate_summary_to_area(range, oa);
+	if (IS_OSPF6_DEBUG_ABR)
+		zlog_debug("%s: range %pFX update", __func__, &range->prefix);
 
-		if (CHECK_FLAG(range->flag, OSPF6_ROUTE_ACTIVE_SUMMARY)
-		    && summary_orig) {
-			if (!CHECK_FLAG(range->flag,
-					OSPF6_ROUTE_BLACKHOLE_ADDED)) {
-				if (IS_OSPF6_DEBUG_ABR)
-					zlog_debug("Add discard route");
+	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, oa))
+		summary_orig += ospf6_abr_originate_summary_to_area(range, oa);
 
-				ospf6_zebra_add_discard(range, ospf6);
-			}
-		} else {
-			/* Summary removed or no summary generated as no
-			 * specifics exist */
-			if (CHECK_FLAG(range->flag,
-				       OSPF6_ROUTE_BLACKHOLE_ADDED)) {
-				if (IS_OSPF6_DEBUG_ABR)
-					zlog_debug("Delete discard route");
+	if (CHECK_FLAG(range->flag, OSPF6_ROUTE_ACTIVE_SUMMARY)
+	    && summary_orig) {
+		if (!CHECK_FLAG(range->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
+			if (IS_OSPF6_DEBUG_ABR)
+				zlog_debug("Add discard route");
 
-				ospf6_zebra_delete_discard(range, ospf6);
-			}
+			ospf6_zebra_add_discard(range, ospf6);
+		}
+	} else {
+		/* Summary removed or no summary generated as no
+		 * specifics exist */
+		if (CHECK_FLAG(range->flag, OSPF6_ROUTE_BLACKHOLE_ADDED)) {
+			if (IS_OSPF6_DEBUG_ABR)
+				zlog_debug("Delete discard route");
+
+			ospf6_zebra_delete_discard(range, ospf6);
 		}
 	}
 }
