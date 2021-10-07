@@ -153,7 +153,6 @@ int main(int argc, char **argv)
 
 		XFREE(MTYPE_TMP, timers[index]->arg);
 		thread_cancel(&timers[index]);
-		timers[index] = NULL;
 		timers_pending--;
 	}
 
