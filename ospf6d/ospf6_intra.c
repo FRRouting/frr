@@ -248,7 +248,6 @@ int ospf6_router_lsa_originate(struct thread *thread)
 	int count;
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
-	oa->thread_router_lsa = NULL;
 
 	if (oa->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -533,7 +532,6 @@ int ospf6_network_lsa_originate(struct thread *thread)
 	uint16_t type;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_network_lsa = NULL;
 
 	/* The interface must be enabled until here. A Network-LSA of a
 	   disabled interface (but was once enabled) should be flushed
@@ -784,7 +782,6 @@ int ospf6_link_lsa_originate(struct thread *thread)
 	struct ospf6_prefix *op;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_link_lsa = NULL;
 
 	assert(oi->area);
 
@@ -1030,7 +1027,6 @@ int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread)
 	int ls_id = 0;
 
 	oa = (struct ospf6_area *)THREAD_ARG(thread);
-	oa->thread_intra_prefix_lsa = NULL;
 
 	if (oa->ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
@@ -1269,7 +1265,6 @@ int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread)
 	uint16_t type;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_intra_prefix_lsa = NULL;
 
 	assert(oi->area);
 
