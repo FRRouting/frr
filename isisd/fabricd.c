@@ -258,7 +258,6 @@ static int fabricd_initial_sync_timeout(struct thread *thread)
 		  f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_PENDING;
 	f->initial_sync_circuit = NULL;
-	f->initial_sync_timeout = NULL;
 	return 0;
 }
 
@@ -403,7 +402,6 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 static int fabricd_tier_set_timer(struct thread *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
-	f->tier_set_timer = NULL;
 
 	fabricd_set_tier(f, f->tier_pending);
 	return 0;
