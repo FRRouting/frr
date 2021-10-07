@@ -1168,8 +1168,6 @@ static int ospf6_abr_task_timer(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 
-	ospf6->t_abr_task = NULL;
-
 	if (IS_OSPF6_DEBUG_ABR)
 		zlog_debug("Running ABR task on timer");
 

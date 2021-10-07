@@ -432,7 +432,6 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o->rt_aggr_tbl = route_table_init();
 	o->aggr_delay_interval = OSPF6_EXTL_AGGR_DEFAULT_DELAY;
-	o->t_external_aggr = NULL;
 	o->aggr_action = OSPF6_ROUTE_AGGR_NONE;
 
 	o->fd = -1;

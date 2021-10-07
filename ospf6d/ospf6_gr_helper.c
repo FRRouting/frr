@@ -202,8 +202,6 @@ static int ospf6_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
 
-	nbr->gr_helper_info.t_grace_timer = NULL;
-
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
 	return OSPF6_SUCCESS;
 }
