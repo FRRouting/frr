@@ -578,7 +578,6 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 	oipt->lsa_type = new->data->type;
 	oipt->opaque_type = GET_OPAQUE_TYPE(ntohl(new->data->id.s_addr));
 	oipt->status = PROC_NORMAL;
-	oipt->t_opaque_lsa_self = NULL;
 	oipt->functab = functab;
 	functab->oipt = oipt;
 	oipt->id_list = list_new();
@@ -703,7 +702,6 @@ register_opaque_info_per_id(struct opaque_info_per_type *oipt,
 		       sizeof(struct opaque_info_per_id));
 
 	oipi->opaque_id = GET_OPAQUE_ID(ntohl(new->data->id.s_addr));
-	oipi->t_opaque_lsa_self = NULL;
 	oipi->opqctl_type = oipt;
 	oipi->lsa = ospf_lsa_lock(new);
 
@@ -1845,7 +1843,6 @@ static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 	int rc = -1;
 
 	oipt = THREAD_ARG(t);
-	oipt->t_opaque_lsa_self = NULL;
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -1897,7 +1894,6 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 	int n, rc = -1;
 
 	oipt = THREAD_ARG(t);
-	oipt->t_opaque_lsa_self = NULL;
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -1951,7 +1947,6 @@ static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
 	int rc = -1;
 
 	oipt = THREAD_ARG(t);
-	oipt->t_opaque_lsa_self = NULL;
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -2067,7 +2062,6 @@ static int ospf_opaque_lsa_refresh_timer(struct thread *t)
 		zlog_debug("Timer[Opaque-LSA]: (Opaque-LSA Refresh expire)");
 
 	oipi = THREAD_ARG(t);
-	oipi->t_opaque_lsa_self = NULL;
 
 	if ((lsa = oipi->lsa) != NULL)
 		if ((functab = oipi->opqctl_type->functab) != NULL)
