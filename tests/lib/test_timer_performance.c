@@ -77,7 +77,6 @@ int main(int argc, char **argv)
 
 		index = prng_rand(prng) % SCHEDULE_TIMERS;
 		thread_cancel(&timers[index]);
-		timers[index] = NULL;
 	}
 
 	monotime(&tv_stop);
