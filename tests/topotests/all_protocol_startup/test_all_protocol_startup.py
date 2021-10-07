@@ -939,10 +939,56 @@ def test_bgp_summary():
             actual = re.sub(r"Unknown Summary:", "", actual)
             actual = re.sub(r"No Unknown neighbor is configured", "", actual)
 
+<<<<<<< HEAD
             actual = re.sub(r"IPv4 labeled-unicast Summary:", "", actual)
             actual = re.sub(
                 r"No IPv4 labeled-unicast neighbor is configured", "", actual
             )
+=======
+                expected = expected_original
+                # apply argumentss on expected output
+                if "internal" in arguments or "remote-as 100" in arguments:
+                    expected = re.sub(r".+\s+200\s+.+", "", expected)
+                elif "external" in arguments:
+                    expected = re.sub(r".+\s+100\s+.+Active.+", "", expected)
+                elif "remote-as 123" in arguments:
+                    expected = re.sub(
+                        r"(192.168.7.(1|2)0|fc00:0:0:8::(1|2)000).+Active.+",
+                        "",
+                        expected,
+                    )
+                    expected = re.sub(r"\nNeighbor.+Desc", "", expected)
+                    expected = expected + "% No matching neighbor\n"
+                elif "192.168.7.10" in arguments:
+                    expected = re.sub(
+                        r"(192.168.7.20|fc00:0:0:8::(1|2)000).+Active.+", "", expected
+                    )
+                elif "fc00:0:0:8::1000" in arguments:
+                    expected = re.sub(
+                        r"(192.168.7.(1|2)0|fc00:0:0:8::2000).+Active.+", "", expected
+                    )
+                elif "10.0.0.1" in arguments:
+                    expected = "No such neighbor in this view/vrf"
+
+                if "terse" in arguments:
+                    expected = re.sub(r"BGP table version .+", "", expected)
+                    expected = re.sub(r"RIB entries .+", "", expected)
+                    expected = re.sub(r"Peers [0-9]+, using .+", "", expected)
+
+                # Strip empty lines
+                actual = actual.lstrip().rstrip()
+                expected = expected.lstrip().rstrip()
+                actual = re.sub(r"\n+", "\n", actual)
+                expected = re.sub(r"\n+", "\n", expected)
+
+                # reapply initial formatting
+                if "terse" in arguments:
+                    actual = re.sub(r" vrf-id 0\n", " vrf-id 0\n\n", actual)
+                    expected = re.sub(r" vrf-id 0\n", " vrf-id 0\n\n", expected)
+                else:
+                    actual = re.sub(r"KiB of memory\n", "KiB of memory\n\n", actual)
+                    expected = re.sub(r"KiB of memory\n", "KiB of memory\n\n", expected)
+>>>>>>> 1c49e8138 (bgpd: fix crash when using "show bgp vrf all")
 
             # Strip empty lines
             actual = actual.lstrip()
