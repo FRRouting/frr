@@ -966,7 +966,7 @@ def test_bgp_summary():
                         r"(192.168.7.(1|2)0|fc00:0:0:8::2000).+Active.+", "", expected
                     )
                 elif "10.0.0.1" in arguments:
-                    expected = "No such neighbor in VRF default"
+                    expected = "No such neighbor in this view/vrf"
 
                 if "terse" in arguments:
                     expected = re.sub(r"BGP table version .+", "", expected)
