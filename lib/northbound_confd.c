@@ -425,8 +425,7 @@ static int frr_confd_cdb_read_cb(struct thread *thread)
 	int *subp = NULL;
 	int reslen = 0;
 
-	thread = NULL;
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &thread);
+	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &t_cdb_sub);
 
 	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
 	    != CONFD_OK) {
@@ -1164,14 +1163,9 @@ exit:
 }
 
 
-static int frr_confd_dp_read(struct thread *thread)
+static int frr_confd_dp_read(struct confd_daemon_ctx *dctx, int fd)
 {
-	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
 	int ret;
-
-	thread = NULL;
-	thread_add_read(master, frr_confd_dp_read, dctx, fd, &thread);
 
 	ret = confd_fd_ready(dctx, fd);
 	if (ret == CONFD_EOF) {
@@ -1185,6 +1179,26 @@ static int frr_confd_dp_read(struct thread *thread)
 	}
 
 	return 0;
+}
+
+static int frr_confd_dp_ctl_read(struct thread *thread)
+{
+	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
+	int fd = THREAD_FD(thread);
+
+	thread_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
+
+	frr_confd_dp_read(dctx, fd);
+}
+
+static int frr_confd_dp_worker_read(struct thread *thread)
+{
+	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
+	int fd = THREAD_FD(thread);
+
+	thread_add_read(master, frr_confd_dp_worker_read, dctx, fd, &t_dp_worker);
+
+	frr_confd_dp_read(dctx, fd);
 }
 
 static int frr_confd_subscribe_state(const struct lysc_node *snode, void *arg)
@@ -1314,9 +1328,9 @@ static int frr_confd_init_dp(const char *program_name)
 		goto error;
 	}
 
-	thread_add_read(master, frr_confd_dp_read, dctx, dp_ctl_sock,
+	thread_add_read(master, frr_confd_dp_ctl_read, dctx, dp_ctl_sock,
 			&t_dp_ctl);
-	thread_add_read(master, frr_confd_dp_read, dctx, dp_worker_sock,
+	thread_add_read(master, frr_confd_dp_worker_read, dctx, dp_worker_sock,
 			&t_dp_worker);
 
 	return 0;

@@ -528,19 +528,18 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 
 static int frr_sr_read_cb(struct thread *thread)
 {
-	sr_subscription_ctx_t *sr_subscription = THREAD_ARG(thread);
+	struct yang_module *module = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
 	int ret;
 
-	ret = sr_process_events(sr_subscription, session, NULL);
+	ret = sr_process_events(module->sr_subscription, session, NULL);
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO, "%s: sr_fd_event_process(): %s",
 			 __func__, sr_strerror(ret));
 		return -1;
 	}
 
-	thread = NULL;
-	thread_add_read(master, frr_sr_read_cb, sr_subscription, fd, &thread);
+	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
 
 	return 0;
 }
@@ -703,7 +702,7 @@ static int frr_sr_init(void)
 				 sr_strerror(ret));
 			goto cleanup;
 		}
-		thread_add_read(master, frr_sr_read_cb, module->sr_subscription,
+		thread_add_read(master, frr_sr_read_cb, module,
 				event_pipe, &module->sr_thread);
 	}
 

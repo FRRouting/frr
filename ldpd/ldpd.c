@@ -243,7 +243,6 @@ main(int argc, char *argv[])
 	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
-	struct thread           *thread = NULL;
 	bool                    ctl_sock_used = false;
 
 	snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
@@ -393,7 +392,7 @@ main(int argc, char *argv[])
 	frr_config_fork();
 
 	/* apply configuration */
-	thread_add_event(master, ldp_config_fork_apply, NULL, 0, &thread);
+	thread_add_event(master, ldp_config_fork_apply, NULL, 0, NULL);
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
