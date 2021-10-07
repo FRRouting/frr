@@ -1035,6 +1035,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 	char *argstr;
 	const char *condition;
 	route_map_event_t event;
+	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
@@ -1072,8 +1073,14 @@ lib_route_map_entry_match_condition_rmap_match_condition_comm_list_finish(
 		rhc->rhc_event = RMAP_EVENT_ECLIST_DELETED;
 	}
 
-	bgp_route_match_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, event,
-			    args->errmsg, args->errmsg_len);
+	ret = bgp_route_match_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, event,
+				  args->errmsg, args->errmsg_len);
+	/*
+	 * At this point if this is not a successful operation
+	 * bgpd is about to crash.  Let's just cut to the
+	 * chase and do it.
+	 */
+	assert(ret == RMAP_COMPILE_SUCCESS);
 
 	if (argstr != value)
 		XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
@@ -2440,6 +2447,7 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 	const char *asn;
 	const char *addr;
 	char *argstr;
+	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
@@ -2456,8 +2464,15 @@ void lib_route_map_entry_set_action_rmap_set_action_aggregator_finish(
 	rhc->rhc_rule = "aggregator as";
 	rhc->rhc_event = RMAP_EVENT_SET_DELETED;
 
-	generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, argstr,
-			args->errmsg, args->errmsg_len);
+	ret = generic_set_add(rhc->rhc_rmi, rhc->rhc_rule, argstr, args->errmsg,
+			      args->errmsg_len);
+	/*
+	 * At this point if this is not a successful operation
+	 * bgpd is about to crash.  Let's just cut to the
+	 * chase and do it.
+	 */
+	assert(ret == CMD_SUCCESS);
+
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, argstr);
 }
 /*
@@ -2604,6 +2619,7 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	enum ecommunity_lb_type lb_type;
 	char str[VTY_BUFSIZ];
 	uint16_t bandwidth;
+	int ret;
 
 	/* Add configuration. */
 	rhc = nb_running_get_entry(args->dnode, NULL, true);
@@ -2629,9 +2645,14 @@ lib_route_map_entry_set_action_rmap_set_action_extcommunity_lb_finish(
 	if (yang_dnode_get_bool(args->dnode, "./two-octet-as-specific"))
 		strlcat(str, " non-transitive", sizeof(str));
 
-	generic_set_add(rhc->rhc_rmi,
-			"extcommunity bandwidth", str,
-			args->errmsg, args->errmsg_len);
+	ret = generic_set_add(rhc->rhc_rmi, "extcommunity bandwidth", str,
+			      args->errmsg, args->errmsg_len);
+	/*
+	 * At this point if this is not a successful operation
+	 * bgpd is about to crash.  Let's just cut to the
+	 * chase and do it.
+	 */
+	assert(ret == CMD_SUCCESS);
 }
 
 /*
