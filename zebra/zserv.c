@@ -1134,7 +1134,8 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 		vty_out(vty, "Capabilities : ");
 		switch (info->capabilities) {
 		case ZEBRA_CLIENT_GR_CAPABILITIES:
-			vty_out(vty, "Graceful Restart\n");
+			vty_out(vty, "Graceful Restart(%u seconds)\n",
+				info->stale_removal_time);
 			break;
 		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
 		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
