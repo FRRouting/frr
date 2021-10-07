@@ -13961,10 +13961,11 @@ DEFPY (show_ip_bgp_instance_neighbor_advertised_route,
 
 DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
        show_ip_bgp_neighbor_received_prefix_filter_cmd,
-       "show [ip] bgp [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
+       "show [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6> [unicast]] neighbors <A.B.C.D|X:X::X:X|WORD> received prefix-filter [json]",
        SHOW_STR
        IP_STR
        BGP_STR
+       BGP_INSTANCE_HELP_STR
        "Address Family\n"
        "Address Family\n"
        "Address Family modifier\n"
@@ -13979,50 +13980,28 @@ DEFUN (show_ip_bgp_neighbor_received_prefix_filter,
 	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	char *peerstr = NULL;
-
 	char name[BUFSIZ];
-	union sockunion su;
 	struct peer *peer;
-	int count, ret;
-
+	int count;
 	int idx = 0;
+	struct bgp *bgp = NULL;
+	bool uj = use_json(argc, argv);
 
-	/* show [ip] bgp */
-	if (argv_find(argv, argc, "ip", &idx))
-		afi = AFI_IP;
-	/* [<ipv4|ipv6> [unicast]] */
-	if (argv_find(argv, argc, "ipv4", &idx))
-		afi = AFI_IP;
-	if (argv_find(argv, argc, "ipv6", &idx))
-		afi = AFI_IP6;
+	if (uj)
+		argc--;
+
+	bgp_vty_find_and_parse_afi_safi_bgp(vty, argv, argc, &idx, &afi, &safi,
+					    &bgp, uj);
+	if (!idx)
+		return CMD_WARNING;
+
 	/* neighbors <A.B.C.D|X:X::X:X|WORD> */
 	argv_find(argv, argc, "neighbors", &idx);
 	peerstr = argv[++idx]->arg;
 
-	bool uj = use_json(argc, argv);
-
-	ret = str2sockunion(peerstr, &su);
-	if (ret < 0) {
-		peer = peer_lookup_by_conf_if(NULL, peerstr);
-		if (!peer) {
-			if (uj)
-				vty_out(vty, "{}\n");
-			else
-				vty_out(vty,
-					"%% Malformed address or name: %s\n",
-					peerstr);
-			return CMD_WARNING;
-		}
-	} else {
-		peer = peer_lookup(NULL, &su);
-		if (!peer) {
-			if (uj)
-				vty_out(vty, "{}\n");
-			else
-				vty_out(vty, "No peer\n");
-			return CMD_WARNING;
-		}
-	}
+	peer = peer_lookup_in_view(vty, bgp, peerstr, uj);
+	if (!peer)
+		return CMD_WARNING;
 
 	snprintf(name, sizeof(name), "%s.%d.%d", peer->host, afi, safi);
 	count = prefix_bgp_show_prefix_list(NULL, afi, name, uj);

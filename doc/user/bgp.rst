@@ -3540,6 +3540,10 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
    The ``received-routes`` keyword displays all routes belonging to this
    address-family (prior to inbound policy) that were received by this peer.
 
+.. clicmd:: show bgp [<view|vrf> VIEWVRFNAME] [afi] [safi] neighbors PEER received prefix-filter [json]
+
+   Display Address Prefix ORFs received from this peer.
+
 .. clicmd:: show bgp [afi] [safi] [all] dampening dampened-paths [wide|json]
 
    Display paths suppressed due to dampening of the selected afi and safi
