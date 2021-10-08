@@ -4335,9 +4335,9 @@ DEFUN (show_ip_ospf_interface_traffic,
 
 static void show_ip_ospf_neighbour_header(struct vty *vty)
 {
-	vty_out(vty, "\n%-15s %3s %-15s %9s %-15s %-32s %5s %5s %5s\n",
-		"Neighbor ID", "Pri", "State", "Dead Time", "Address",
-		"Interface", "RXmtL", "RqstL", "DBsmL");
+	vty_out(vty, "\n%-15s %-3s %-15s %-15s %-9s %-15s %-32s %5s %5s %5s\n",
+		"Neighbor ID", "Pri", "State", "Up Time", "Dead Time",
+		"Address", "Interface", "RXmtL", "RqstL", "DBsmL");
 }
 
 static void show_ip_ospf_neighbor_sub(struct vty *vty,
@@ -4350,6 +4350,9 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 	char buf[PREFIX_STRLEN];
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_neighbor = NULL, *json_neigh_array = NULL;
+	struct timeval res;
+	long time_val = 0;
+	char uptime[OSPF_TIME_DUMP_SIZE];
 
 	for (rn = route_top(oi->nbrs); rn; rn = route_next(rn)) {
 		if ((nbr = rn->info)) {
@@ -4359,6 +4362,13 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 			/* Down state is not shown. */
 			if (nbr->state == NSM_Down)
 				continue;
+
+			if (nbr->ts_last_progress.tv_sec
+			    || nbr->ts_last_progress.tv_usec)
+				time_val = monotime_since(
+						   &nbr->ts_last_progress, &res)
+					   / 1000LL;
+
 			if (use_json) {
 				char neigh_str[INET_ADDRSTRLEN];
 
@@ -4416,8 +4426,22 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 							     NULL)
 						     / 1000LL;
 					json_object_int_add(json_neighbor,
+							    "upTimeInMsec",
+							    time_val);
+					json_object_int_add(json_neighbor,
 							    "deadTimeMsecs",
 							    time_store);
+					json_object_string_add(
+						json_neighbor, "upTime",
+						ospf_timeval_dump(
+							&res, uptime,
+							sizeof(uptime)));
+					json_object_string_add(
+						json_neighbor, "deadTime",
+						ospf_timer_dump(
+							nbr->t_inactivity,
+							timebuf,
+							sizeof(timebuf)));
 				} else {
 					json_object_string_add(json_neighbor,
 							       "deadTimeMsecs",
@@ -4451,8 +4475,12 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 						nbr->priority, msgbuf);
 				else
 					vty_out(vty, "%-15pI4 %3d %-15s ",
-						&nbr->router_id,
-						nbr->priority, msgbuf);
+						&nbr->router_id, nbr->priority,
+						msgbuf);
+
+				vty_out(vty, "%-15s ",
+					ospf_timeval_dump(&res, uptime,
+							  sizeof(uptime)));
 
 				vty_out(vty, "%9s ",
 					ospf_timer_dump(nbr->t_inactivity,
