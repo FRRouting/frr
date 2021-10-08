@@ -127,7 +127,9 @@ const char *ospf_area_desc_string(struct ospf_area *area)
 	return buf;
 }
 
-#define OSPF_IF_STRING_MAXLEN  40
+#define OSPF_IF_STRING_MAXLEN 40
+
+/* Display both nbr and ism state of the ospf neighbor.*/
 const char *ospf_if_name_string(struct ospf_interface *oi)
 {
 	static char buf[OSPF_IF_STRING_MAXLEN] = "";
@@ -146,6 +148,13 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 	return buf;
 }
 
+/* Display only the nbr state.*/
+void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
+{
+	snprintf(buf, size, "%s",
+		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+}
+
 int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
 {
 	int state;
@@ -161,9 +170,23 @@ int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
 	return state;
 }
 
-void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
+void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
+				size_t size)
 {
-	int state = ospf_nbr_ism_state(nbr);
+	int state;
+	struct ospf_interface *oi = nbr->oi;
+
+	if (!oi)
+		return;
+
+	/* network type is point-to-point */
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+		snprintf(buf, size, "%s/-",
+			 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+		return;
+	}
+
+	state = ospf_nbr_ism_state(nbr);
 
 	snprintf(buf, size, "%s/%s",
 		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),

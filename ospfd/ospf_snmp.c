@@ -2432,7 +2432,7 @@ static void ospfTrapNbrStateChange(struct ospf_neighbor *on)
 	oid index[sizeof(oid) * (IN_ADDR_SIZE + 1)];
 	char msgbuf[16];
 
-	ospf_nbr_state_message(on, msgbuf, sizeof(msgbuf));
+	ospf_nbr_ism_state_message(on, msgbuf, sizeof(msgbuf));
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_info("%s: trap sent: %pI4 now %s", __func__,
 			  &on->address.u.prefix4, msgbuf);
