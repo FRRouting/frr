@@ -88,7 +88,7 @@ struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest)
 const char *bgp_dest_get_prefix_str(struct bgp_dest *dest)
 {
 	const struct prefix *p = NULL;
-	char str[PREFIX_STRLEN] = {0};
+	static char str[PREFIX_STRLEN] = {0};
 
 	p = bgp_dest_get_prefix(dest);
 	if (p)
