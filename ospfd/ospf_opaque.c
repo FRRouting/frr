@@ -1182,6 +1182,16 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 				VALID_OPAQUE_INFO_LEN(lsah)
 					? ""
 					: "(Invalid length?)");
+		} else {
+			json_object_string_add(
+				json, "opaqueType",
+				ospf_opaque_type_name(opaque_type));
+			json_object_int_add(json, "opaqueId", opaque_id);
+			json_object_int_add(json, "opaqueDataLength",
+					    ntohs(lsah->length)
+						    - OSPF_LSA_HEADER_SIZE);
+			json_object_boolean_add(json, "opaqueDataLengthValid",
+						VALID_OPAQUE_INFO_LEN(lsah));
 		}
 	} else {
 		zlog_debug("    Opaque-Type %u (%s)", opaque_type,
