@@ -80,7 +80,8 @@ static struct ospf_ext_lp OspfEXT;
  */
 
 /* Extended Prefix Opaque LSA related callback functions */
-static void ospf_ext_pref_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa);
 static int ospf_ext_pref_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_ext_pref_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_ext_pref_lsa_schedule(struct ext_itf *exti,
@@ -90,7 +91,8 @@ static int ospf_ext_link_new_if(struct interface *ifp);
 static int ospf_ext_link_del_if(struct interface *ifp);
 static void ospf_ext_ism_change(struct ospf_interface *oi, int old_status);
 static void ospf_ext_link_nsm_change(struct ospf_neighbor *nbr, int old_status);
-static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa);
 static int ospf_ext_link_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_ext_link_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_ext_link_lsa_schedule(struct ext_itf *exti,
@@ -1846,11 +1848,15 @@ static uint16_t show_vty_link_info(struct vty *vty, struct tlv_header *ext,
 }
 
 /* Extended Link TLVs */
-static void ospf_ext_link_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_ext_link_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;
@@ -1932,11 +1938,15 @@ static uint16_t show_vty_pref_info(struct vty *vty, struct tlv_header *ext,
 }
 
 /* Extended Prefix TLVs */
-static void ospf_ext_pref_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_ext_pref_show_info(struct vty *vty, struct json_object *json,
+				    struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;

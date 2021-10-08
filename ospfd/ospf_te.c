@@ -87,7 +87,8 @@ static int ospf_mpls_te_del_if(struct interface *ifp);
 static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_status);
 static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_status);
 static void ospf_mpls_te_config_write_router(struct vty *vty);
-static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
+				   struct ospf_lsa *lsa);
 static int ospf_mpls_te_lsa_originate_area(void *arg);
 static int ospf_mpls_te_lsa_inter_as_as(void *arg);
 static int ospf_mpls_te_lsa_inter_as_area(void *arg);
@@ -3783,13 +3784,17 @@ static uint16_t ospf_mpls_te_show_link_subtlv(struct vty *vty,
 	return sum;
 }
 
-static void ospf_mpls_te_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_mpls_te_show_info(struct vty *vty, struct json_object *json,
+				   struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh, *next;
 	uint16_t sum, total;
 	uint16_t (*subfunc)(struct vty * vty, struct tlv_header * tlvh,
 			    uint16_t subtotal, uint16_t total) = NULL;
+
+	if (json)
+		return;
 
 	sum = 0;
 	total = lsa->size - OSPF_LSA_HEADER_SIZE;

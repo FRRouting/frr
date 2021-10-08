@@ -274,7 +274,8 @@ struct ospf_opaque_functab {
 	void (*config_write_router)(struct vty *vty);
 	void (*config_write_if)(struct vty *vty, struct interface *ifp);
 	void (*config_write_debug)(struct vty *vty);
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa);
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa);
 	int (*lsa_originator)(void *arg);
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa);
 	int (*new_lsa_hook)(struct ospf_lsa *lsa);
@@ -373,7 +374,8 @@ int ospf_register_opaque_functab(
 	void (*config_write_router)(struct vty *vty),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa),
 	int (*lsa_originator)(void *arg),
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa),
 	int (*new_lsa_hook)(struct ospf_lsa *lsa),
@@ -1207,7 +1209,7 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	/* Call individual output functions. */
 	if ((functab = ospf_opaque_functab_lookup(lsa)) != NULL)
 		if (functab->show_opaque_info != NULL)
-			(*functab->show_opaque_info)(vty, lsa);
+			(*functab->show_opaque_info)(vty, json, lsa);
 
 	return;
 }

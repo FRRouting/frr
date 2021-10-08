@@ -75,7 +75,8 @@ static const char * const ospf_rejected_reason_desc[] = {
 	"Router is in the process of graceful restart",
 };
 
-static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa);
+static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
+				     struct ospf_lsa *lsa);
 static bool ospf_check_change_in_rxmt_list(struct ospf_neighbor *nbr);
 
 static unsigned int ospf_enable_rtr_hash_key(const void *data)
@@ -1012,7 +1013,8 @@ void ospf_gr_helper_set_supported_planned_only_restart(struct ospf *ospf,
  * Returns:
  *    Nothing.
  */
-static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
+static void show_ospf_grace_lsa_info(struct vty *vty, struct json_object *json,
+				     struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = NULL;
 	struct tlv_header *tlvh = NULL;
@@ -1021,6 +1023,9 @@ static void show_ospf_grace_lsa_info(struct vty *vty, struct ospf_lsa *lsa)
 	struct grace_tlv_restart_addr *restartAddr;
 	uint16_t length = 0;
 	int sum = 0;
+
+	if (json)
+		return;
 
 	lsah = (struct lsa_header *)lsa->data;
 

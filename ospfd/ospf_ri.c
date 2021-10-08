@@ -73,7 +73,9 @@ static struct ospf_router_info OspfRI;
 static void ospf_router_info_ism_change(struct ospf_interface *oi,
 					int old_status);
 static void ospf_router_info_config_write_router(struct vty *vty);
-static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa);
+static void ospf_router_info_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa);
 static int ospf_router_info_lsa_originate(void *arg);
 static struct ospf_lsa *ospf_router_info_lsa_refresh(struct ospf_lsa *lsa);
 static void ospf_router_info_lsa_schedule(struct ospf_ri_area_info *ai,
@@ -1552,11 +1554,16 @@ static uint16_t show_vty_sr_msd(struct vty *vty, struct tlv_header *tlvh)
 	return TLV_SIZE(tlvh);
 }
 
-static void ospf_router_info_show_info(struct vty *vty, struct ospf_lsa *lsa)
+static void ospf_router_info_show_info(struct vty *vty,
+				       struct json_object *json,
+				       struct ospf_lsa *lsa)
 {
 	struct lsa_header *lsah = lsa->data;
 	struct tlv_header *tlvh;
 	uint16_t length = 0, sum = 0;
+
+	if (json)
+		return;
 
 	/* Initialize TLV browsing */
 	length = lsa->size - OSPF_LSA_HEADER_SIZE;

@@ -2059,7 +2059,8 @@ void ospf_apiserver_nsm_change(struct ospf_neighbor *nbr, int old_status)
 	}
 }
 
-void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa)
+void ospf_apiserver_show_info(struct vty *vty, struct json_object *json,
+			      struct ospf_lsa *lsa)
 {
 	struct opaque_lsa {
 		struct lsa_header header;
@@ -2069,6 +2070,9 @@ void ospf_apiserver_show_info(struct vty *vty, struct ospf_lsa *lsa)
 	};
 	struct opaque_lsa *olsa;
 	int opaquelen;
+
+	if (json)
+		return;
 
 	olsa = (struct opaque_lsa *)lsa->data;
 
