@@ -1031,7 +1031,7 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	old_state = nbr->state;
 
 	/* Add event to thread. */
-	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_PacketReceived);
+	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_HelloReceived);
 
 	/*  RFC2328  Section 9.5.1
 	    If the router is not eligible to become Designated Router,
@@ -1375,9 +1375,6 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 		UNSET_FLAG(dd->options, OSPF_OPTION_O);
 	}
 
-	/* Add event to thread. */
-	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_PacketReceived);
-
 	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 		zlog_info(
 			"%s:Packet[DD]: Neighbor %pI4 state is %s, seq_num:0x%x, local:0x%x",
@@ -1619,9 +1616,6 @@ static void ospf_ls_req(struct ip *iph, struct ospf_header *ospfh,
 			  &ospfh->router_id);
 		return;
 	}
-
-	/* Add event to thread. */
-	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_PacketReceived);
 
 	/* Neighbor State should be Exchange or later. */
 	if (nbr->state != NSM_Exchange && nbr->state != NSM_Loading
@@ -1866,9 +1860,6 @@ static void ospf_ls_upd(struct ospf *ospf, struct ip *iph,
 			  &ospfh->router_id, IF_NAME(oi));
 		return;
 	}
-
-	/* Add event to thread. */
-	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_PacketReceived);
 
 	/* Check neighbor state. */
 	if (nbr->state < NSM_Exchange) {
@@ -2255,9 +2246,6 @@ static void ospf_ls_ack(struct ip *iph, struct ospf_header *ospfh,
 			  &ospfh->router_id);
 		return;
 	}
-
-	/* Add event to thread. */
-	OSPF_NSM_EVENT_SCHEDULE(nbr, NSM_PacketReceived);
 
 	if (nbr->state < NSM_Exchange) {
 		if (IS_DEBUG_OSPF(nsm, NSM_EVENTS))
