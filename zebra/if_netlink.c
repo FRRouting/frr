@@ -1625,6 +1625,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, ns_id);
 
+			ifp->ll_type =
+				netlink_to_zebra_link_type(ifi->ifi_type);
 			netlink_interface_update_hw_addr(tb, ifp);
 
 			/* Inform clients, install any configured addresses. */
@@ -1691,6 +1693,8 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			/* Update link. */
 			zebra_if_update_link(ifp, link_ifindex, ns_id);
 
+			ifp->ll_type =
+				netlink_to_zebra_link_type(ifi->ifi_type);
 			netlink_interface_update_hw_addr(tb, ifp);
 
 			if (if_is_no_ptm_operative(ifp)) {
