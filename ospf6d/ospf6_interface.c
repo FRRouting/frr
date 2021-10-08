@@ -2739,27 +2739,39 @@ void ospf6_interface_clear(struct interface *ifp)
 /* Clear interface */
 DEFUN (clear_ipv6_ospf6_interface,
        clear_ipv6_ospf6_interface_cmd,
-       "clear ipv6 ospf6 interface [IFNAME]",
+       "clear ipv6 ospf6 [vrf NAME] interface [IFNAME]",
        CLEAR_STR
        IP6_STR
        OSPF6_STR
+       VRF_CMD_HELP_STR
        INTERFACE_STR
        IFNAME_STR
        )
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
+	int idx_vrf = 3;
 	int idx_ifname = 4;
 	struct interface *ifp;
+	const char *vrf_name;
 
-	if (argc == 4) /* Clear all the ospfv3 interfaces. */
-	{
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "%% VRF %s not found\n", vrf_name);
+		return CMD_WARNING;
+	}
+
+	if (!argv_find(argv, argc, "IFNAME", &idx_ifname)) {
+		/* Clear all the ospfv3 interfaces. */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf6_interface_clear(ifp);
-	} else /* Interface name is specified. */
-	{
-		if ((ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-					     VRF_DEFAULT))
-		    == NULL) {
+	} else {
+		/* Interface name is specified. */
+		ifp = if_lookup_by_name_vrf(argv[idx_ifname]->arg, vrf);
+		if (!ifp) {
 			vty_out(vty, "No such Interface: %s\n",
 				argv[idx_ifname]->arg);
 			return CMD_WARNING;
