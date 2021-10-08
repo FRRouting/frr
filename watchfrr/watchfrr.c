@@ -60,6 +60,7 @@
 #define DEFAULT_STOP_CMD	WATCHFRR_SH_PATH " stop %s"
 
 #define PING_TOKEN	"PING"
+#define RESTART_ALL false
 
 DEFINE_MGROUP(WATCHFRR, "watchfrr");
 DEFINE_MTYPE_STATIC(WATCHFRR, WATCHFRR_DAEMON, "watchfrr daemon entry");
@@ -122,6 +123,7 @@ static struct global_state {
 	int numdaemons;
 	int numpids;
 	int numdown; /* # of daemons that are not UP or UNRESPONSIVE */
+	bool restart_all;
 } gs = {
 	.phase = PHASE_INIT,
 	.vtydir = frr_vtydir,
@@ -134,6 +136,7 @@ static struct global_state {
 	.restart_command = DEFAULT_RESTART_CMD,
 	.start_command = DEFAULT_START_CMD,
 	.stop_command = DEFAULT_STOP_CMD,
+	.restart_all = RESTART_ALL,
 };
 
 typedef enum {
@@ -186,6 +189,7 @@ static const struct option longopts[] = {
 	{"timeout", required_argument, NULL, 't'},
 	{"restart-timeout", required_argument, NULL, 'T'},
 	{"restart", required_argument, NULL, 'r'},
+	{"restart-all", no_argument, NULL, 'R'},
 	{"start-command", required_argument, NULL, 's'},
 	{"kill-command", required_argument, NULL, 'k'},
 	{"dry", no_argument, NULL, OPTION_DRY},
@@ -274,7 +278,12 @@ Otherwise, the interval is doubled (but capped at the -M value).\n\n",
 -r, --restart	Supply a Bourne shell command to use to restart a single\n\
 		daemon.  The command string should include '%%s' where the\n\
 		name of the daemon should be substituted.\n\
+		Note that -r and -R are incompatible.\n\
 		(default: '%s')\n\
+-R, --restart-all\n\
+		When one or more daemons is down, try to restart everything\n\
+		using the Bourne shell command supplied as the argument.\n\
+		Note that -r and -R are incompatible.\n\
 -s, --start-command\n\
 		Supply a Bourne shell to command to use to start a single\n\
 		daemon.  The command string should include '%%s' where the\n\
@@ -935,6 +944,13 @@ static void try_restart(struct daemon *dmn)
 	if (watch_only)
 		return;
 
+	/* Restarts all the daemons if -R option is specified in
+	 * watchfrr_options. */
+	if (gs.restart_all) {
+		run_job(&gs.restart, "restart", gs.restart_command, 1, 0);
+		return;
+	}
+
 	if (dmn != gs.special) {
 		if ((gs.special->state == DAEMON_UP)
 		    && (gs.phase == PHASE_NONE))
@@ -1330,7 +1346,7 @@ FRR_DAEMON_INFO(watchfrr, WATCHFRR,
 		.privs = &watchfrr_privs,
 );
 
-#define DEPRECATED_OPTIONS "aAezR:"
+#define DEPRECATED_OPTIONS "aAez:"
 
 int main(int argc, char **argv)
 {
@@ -1342,7 +1358,8 @@ int main(int argc, char **argv)
 	frr_preinit(&watchfrr_di, argc, argv);
 	progname = watchfrr_di.progname;
 
-	frr_opt_add("b:di:k:l:N:p:r:S:s:t:T:" DEPRECATED_OPTIONS, longopts, "");
+	frr_opt_add("b:di:k:l:N:p:Rr:S:s:t:T:" DEPRECATED_OPTIONS, longopts,
+		    "");
 
 	gs.restart.name = "all";
 	while ((opt = frr_getopt(argc, argv, NULL)) != EOF) {
@@ -1440,6 +1457,9 @@ int main(int argc, char **argv)
 				frr_help_exit(1);
 			}
 			gs.restart_command = optarg;
+			break;
+		case 'R':
+			gs.restart_all = true;
 			break;
 		case 's':
 			if (!valid_command(optarg)) {
