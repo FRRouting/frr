@@ -80,7 +80,8 @@ extern int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
 extern int zebra_vxlan_if_vni_update(struct interface *ifp,
 				     struct zebra_vxlan_vni *vni,
 				     uint16_t chgflags);
-extern int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags);
+extern int zebra_vxlan_if_update(struct interface *ifp,
+				 struct zebra_vxlan_if_update_ctx *ctx);
 extern int zebra_vxlan_if_vni_add(struct interface *ifp,
 				  struct zebra_vxlan_vni *vni);
 extern int zebra_vxlan_if_add(struct interface *ifp);

@@ -175,9 +175,11 @@ static int zebra_vxlan_if_del_vni(struct interface *ifp,
 
 static int zebra_vxlan_if_update_vni(struct interface *ifp,
 				     struct zebra_vxlan_vni *vnip,
-				     uint16_t chgflags)
+				     struct zebra_vxlan_if_update_ctx *ctx)
 {
 	vni_t vni;
+	uint16_t chgflags;
+	vlanid_t access_vlan;
 	struct zebra_if *zif;
 	struct zebra_l2info_vxlan *vxl;
 	struct zebra_evpn *zevpn;
@@ -193,6 +195,7 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 	assert(zif);
 	vxl = &zif->l2info.vxl;
 	vni = vnip->vni;
+	chgflags = ctx->chgflags;
 
 	zl3vni = zl3vni_lookup(vni);
 	if (zl3vni) {
@@ -299,8 +302,12 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 			/* Remove all existing local neigh and MACs for this VNI
 			 * (including from BGP)
 			 */
+			access_vlan = vnip->access_vlan;
+			vnip->access_vlan = ctx->old_vni.access_vlan;
 			zebra_evpn_neigh_del_all(zevpn, 0, 1, DEL_LOCAL_MAC);
 			zebra_evpn_mac_del_all(zevpn, 0, 1, DEL_LOCAL_MAC);
+			zebra_evpn_rem_mac_uninstall_all(zevpn);
+			vnip->access_vlan = access_vlan;
 		}
 
 		if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
@@ -347,15 +354,11 @@ static int zebra_vxlan_if_update_vni(struct interface *ifp,
 		if (chgflags & ZEBRA_VXLIF_MASTER_CHANGE)
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 		else if (chgflags & ZEBRA_VXLIF_VLAN_CHANGE) {
-			struct mac_walk_ctx m_wctx;
 			struct neigh_walk_ctx n_wctx;
 
 			zebra_evpn_read_mac_neigh(zevpn, ifp);
 
-			memset(&m_wctx, 0, sizeof(m_wctx));
-			m_wctx.zevpn = zevpn;
-			hash_iterate(zevpn->mac_table,
-				     zebra_evpn_install_mac_hash, &m_wctx);
+			zebra_evpn_rem_mac_install_all(zevpn);
 
 			memset(&n_wctx, 0, sizeof(n_wctx));
 			n_wctx.zevpn = zevpn;
@@ -493,15 +496,15 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 					 struct zebra_vxlan_vni *vni,
 					 void *ctxt)
 {
-	struct hash *old_vni_table;
 	struct zebra_vxlan_vni vni_tmp;
+	struct zebra_vxlan_if_update_ctx *ctx;
 	struct zebra_vxlan_vni *old_vni = NULL;
 
-	old_vni_table = (struct hash *)ctxt;
+	ctx = (struct zebra_vxlan_if_update_ctx *)ctxt;
 	memcpy(&vni_tmp, vni, sizeof(*vni));
 
-	old_vni = hash_release(old_vni_table, &vni_tmp);
-	if (!old_vni) {
+	if ((hashcount(ctx->old_vni_table) == 0) ||
+	    !(old_vni = hash_release(ctx->old_vni_table, &vni_tmp))) {
 		if (IS_ZEBRA_DEBUG_VXLAN)
 			zlog_debug("vxlan %s adding vni(%d, %d)",
 				   zif->ifp->name, vni->vni, vni->access_vlan);
@@ -509,6 +512,9 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 		zebra_vxlan_if_vni_entry_add(zif, &vni_tmp);
 		return 0;
 	}
+
+	ctx->old_vni = *old_vni;
+	ctx->chgflags = ZEBRA_VXLIF_VLAN_CHANGE;
 
 	/* copy mcast group from old_vni as thats not being changed here */
 	vni->mcast_grp = old_vni->mcast_grp;
@@ -524,8 +530,7 @@ static int zebra_vxlan_if_add_update_vni(struct zebra_if *zif,
 		zebra_evpn_vl_vxl_deref(old_vni->access_vlan, old_vni->vni,
 					zif);
 		zebra_evpn_vl_vxl_ref(vni->access_vlan, vni->vni, zif);
-		zebra_vxlan_if_update_vni(zif->ifp, vni,
-					  ZEBRA_VXLIF_VLAN_CHANGE);
+		zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
 		zebra_vxlan_vni_free(old_vni);
 	}
 
@@ -536,10 +541,10 @@ static int zebra_vxlan_if_vni_entry_update_callback(struct zebra_if *zif,
 						    struct zebra_vxlan_vni *vni,
 						    void *ctxt)
 {
-	uint16_t *chgflags;
+	struct zebra_vxlan_if_update_ctx *ctx;
 
-	chgflags = (uint16_t *)ctxt;
-	return zebra_vxlan_if_update_vni(zif->ifp, vni, *chgflags);
+	ctx = (struct zebra_vxlan_if_update_ctx *)ctxt;
+	return zebra_vxlan_if_update_vni(zif->ifp, vni, ctx);
 }
 
 static int zebra_vxlan_if_vni_entry_del_callback(struct zebra_if *zif,
@@ -770,31 +775,32 @@ int zebra_vxlan_if_vni_table_add_update(struct interface *ifp,
 					struct hash *vni_table)
 {
 	struct zebra_if *zif;
-	struct hash *old_vni_table = NULL;
 	struct zebra_vxlan_vni_info *vni_info;
+	struct zebra_vxlan_if_update_ctx ctx;
 
 	zif = (struct zebra_if *)ifp->info;
 
 	vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
 
-	old_vni_table = vni_info->vni_table;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.old_vni_table = vni_info->vni_table;
 	vni_info->vni_table = vni_table;
 
-	zebra_vxlan_if_vni_iterate(zif, zebra_vxlan_if_add_update_vni,
-				   old_vni_table);
+	zebra_vxlan_if_vni_iterate(zif, zebra_vxlan_if_add_update_vni, &ctx);
 
 	/* release kernel deleted vnis */
-	if (old_vni_table) {
-		if (hashcount(old_vni_table)) {
+	if (ctx.old_vni_table) {
+		if (hashcount(ctx.old_vni_table)) {
 			/* UGLY HACK: Put back the old table so that delete of
 			 * MACs goes through and then flip back.
 			 */
-			vni_info->vni_table = old_vni_table;
-			hash_iterate(old_vni_table, zebra_vxlan_if_vni_clean,
-				     zif);
+			vni_info->vni_table = ctx.old_vni_table;
+			hash_iterate(ctx.old_vni_table,
+				     zebra_vxlan_if_vni_clean, zif);
 			vni_info->vni_table = vni_table;
 		}
-		zebra_vxlan_vni_table_destroy(old_vni_table);
+		zebra_vxlan_vni_table_destroy(ctx.old_vni_table);
+		ctx.old_vni_table = NULL;
 	}
 
 	return 0;
@@ -805,6 +811,7 @@ int zebra_vxlan_if_vni_mcast_group_update(struct interface *ifp, vni_t vni_id,
 {
 	struct zebra_if *zif;
 	struct zebra_vxlan_vni *vni;
+	struct zebra_vxlan_if_update_ctx ctx;
 
 	zif = (struct zebra_if *)ifp->info;
 
@@ -815,13 +822,16 @@ int zebra_vxlan_if_vni_mcast_group_update(struct interface *ifp, vni_t vni_id,
 	if (!vni)
 		return 0;
 
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.old_vni.mcast_grp = vni->mcast_grp;
+	ctx.chgflags = ZEBRA_VXLIF_MCAST_GRP_CHANGE;
+
 	if (mcast_group)
 		vni->mcast_grp = *mcast_group;
 	else
 		memset(&vni->mcast_grp, 0, sizeof(vni->mcast_grp));
 
-	return zebra_vxlan_if_update_vni(ifp, vni,
-					 ZEBRA_VXLIF_MCAST_GRP_CHANGE);
+	return zebra_vxlan_if_update_vni(ifp, vni, &ctx);
 }
 
 int zebra_vxlan_if_vni_down(struct interface *ifp, struct zebra_vxlan_vni *vnip)
@@ -1061,7 +1071,8 @@ int zebra_vxlan_if_del(struct interface *ifp)
 /*
  * Handle VxLAN interface update - change to tunnel IP, master or VLAN.
  */
-int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
+int zebra_vxlan_if_update(struct interface *ifp,
+			  struct zebra_vxlan_if_update_ctx *ctx)
 {
 	struct zebra_if *zif;
 	struct zebra_vxlan_vni_info *vni_info;
@@ -1071,11 +1082,11 @@ int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags)
 
 	if (IS_ZEBRA_VXLAN_IF_VNI(zif)) {
 		vni_info = VNI_INFO_FROM_ZEBRA_IF(zif);
-		return zebra_vxlan_if_update_vni(ifp, &vni_info->vni, chgflags);
+		return zebra_vxlan_if_update_vni(ifp, &vni_info->vni, ctx);
 	}
 
 	zebra_vxlan_if_vni_iterate(
-		zif, zebra_vxlan_if_vni_entry_update_callback, &chgflags);
+		zif, zebra_vxlan_if_vni_entry_update_callback, ctx);
 
 	return 0;
 }

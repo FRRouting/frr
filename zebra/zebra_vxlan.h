@@ -191,7 +191,8 @@ extern int zebra_vxlan_check_readd_vtep(struct interface *ifp, vni_t vni,
 extern int zebra_vxlan_if_up(struct interface *ifp);
 extern int zebra_vxlan_if_down(struct interface *ifp);
 extern int zebra_vxlan_if_add(struct interface *ifp);
-extern int zebra_vxlan_if_update(struct interface *ifp, uint16_t chgflags);
+extern int zebra_vxlan_if_update(struct interface *ifp,
+				 struct zebra_vxlan_if_update_ctx *ctx);
 extern int zebra_vxlan_if_del(struct interface *ifp);
 extern int zebra_vxlan_process_vrf_vni_cmd(struct zebra_vrf *zvrf, vni_t vni,
 					   char *err, int err_str_sz,

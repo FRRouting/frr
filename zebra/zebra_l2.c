@@ -347,8 +347,8 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 				 struct zebra_l2info_vxlan *vxlan_info, int add)
 {
 	struct zebra_if *zif;
-	struct in_addr old_vtep_ip;
 	uint16_t chgflags = 0;
+	struct zebra_vxlan_if_update_ctx ctx;
 
 	zif = ifp->info;
 	assert(zif);
@@ -359,14 +359,16 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 		return;
 	}
 
-	old_vtep_ip = zif->l2info.vxl.vtep_ip;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.old_vtep_ip = zif->l2info.vxl.vtep_ip;
 
-	if (!IPV4_ADDR_SAME(&old_vtep_ip, &vxlan_info->vtep_ip)) {
+	if (!IPV4_ADDR_SAME(&ctx.old_vtep_ip, &vxlan_info->vtep_ip)) {
 		chgflags |= ZEBRA_VXLIF_LOCAL_IP_CHANGE;
 		zif->l2info.vxl.vtep_ip = vxlan_info->vtep_ip;
 	}
 
 	if (IS_ZEBRA_VXLAN_IF_VNI(zif)) {
+		ctx.old_vni = vxlan_info->vni_info.vni;
 		if (!IPV4_ADDR_SAME(&zif->l2info.vxl.vni_info.vni.mcast_grp,
 				    &vxlan_info->vni_info.vni.mcast_grp)) {
 			chgflags |= ZEBRA_VXLIF_MCAST_GRP_CHANGE;
@@ -375,8 +377,10 @@ void zebra_l2_vxlanif_add_update(struct interface *ifp,
 		}
 	}
 
-	if (chgflags)
-		zebra_vxlan_if_update(ifp, chgflags);
+	if (chgflags) {
+		ctx.chgflags = chgflags;
+		zebra_vxlan_if_update(ifp, &ctx);
+	}
 }
 
 /*
@@ -388,6 +392,7 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 	struct zebra_if *zif;
 	vlanid_t old_access_vlan;
 	struct zebra_vxlan_vni *vni;
+	struct zebra_vxlan_if_update_ctx ctx;
 
 
 	zif = ifp->info;
@@ -401,12 +406,15 @@ void zebra_l2_vxlanif_update_access_vlan(struct interface *ifp,
 	if (old_access_vlan == access_vlan)
 		return;
 
+	memset(&ctx, 0, sizeof(ctx));
 	vni = zebra_vxlan_if_vni_find(zif, 0);
+	ctx.old_vni = *vni;
+	ctx.chgflags = ZEBRA_VXLIF_VLAN_CHANGE;
 	vni->access_vlan = access_vlan;
 
 	zebra_evpn_vl_vxl_deref(old_access_vlan, vni->vni, zif);
 	zebra_evpn_vl_vxl_ref(access_vlan, vni->vni, zif);
-	zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_VLAN_CHANGE);
+	zebra_vxlan_if_update(ifp, &ctx);
 }
 
 /*
@@ -435,6 +443,9 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	ifindex_t old_bridge_ifindex;
 	ns_id_t old_ns_id;
 	struct zebra_vrf *zvrf;
+	struct zebra_vxlan_if_update_ctx ctx;
+
+	memset(&ctx, 0, sizeof(ctx));
 
 	zif = ifp->info;
 	assert(zif);
@@ -445,17 +456,23 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 	if (zif->zif_type == ZEBRA_IF_VXLAN
 	    && chgflags != ZEBRA_BRIDGE_NO_ACTION) {
-		if (chgflags & ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
-			zebra_vxlan_if_update(ifp,
-					      ZEBRA_VXLIF_MASTER_MAC_CHANGE);
-		if (chgflags & ZEBRA_BRIDGE_MASTER_UP)
-			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
+		if (chgflags & ZEBRA_BRIDGE_MASTER_MAC_CHANGE) {
+			ctx.chgflags = ZEBRA_VXLIF_MASTER_MAC_CHANGE;
+			zebra_vxlan_if_update(ifp, &ctx);
+		}
+		if (chgflags & ZEBRA_BRIDGE_MASTER_UP) {
+			ctx.chgflags = ZEBRA_VXLIF_MASTER_CHANGE;
+			zebra_vxlan_if_update(ifp, &ctx);
+		}
 	}
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
 	old_ns_id = zif->brslave_info.ns_id;
 	if (old_bridge_ifindex == bridge_ifindex &&
 	    old_ns_id == zif->brslave_info.ns_id)
 		return;
+
+	ctx.chgflags = ZEBRA_VXLIF_MASTER_CHANGE;
+
 
 	zif->brslave_info.ns_id = ns_id;
 	zif->brslave_info.bridge_ifindex = bridge_ifindex;
@@ -464,7 +481,7 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 		zebra_l2_map_slave_to_bridge(&zif->brslave_info, zvrf->zns);
 		/* In the case of VxLAN, invoke the handler for EVPN. */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
-			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
+			zebra_vxlan_if_update(ifp, &ctx);
 		if (zif->es_info.es)
 			zebra_evpn_es_local_br_port_update(zif);
 	} else if (old_bridge_ifindex != IFINDEX_INTERNAL) {
@@ -474,7 +491,7 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 		 * to unmapping the interface from the bridge.
 		 */
 		if (zif->zif_type == ZEBRA_IF_VXLAN)
-			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
+			zebra_vxlan_if_update(ifp, &ctx);
 		if (zif->es_info.es)
 			zebra_evpn_es_local_br_port_update(zif);
 		zebra_l2_unmap_slave_from_bridge(&zif->brslave_info);

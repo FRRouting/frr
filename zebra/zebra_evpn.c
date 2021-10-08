@@ -944,9 +944,24 @@ struct interface *zebra_evpn_map_to_macvlan(struct interface *br_if,
 }
 
 /*
+ * Uninstall MAC hash entry - called upon access VLAN change.
+ */
+static void zebra_evpn_uninstall_mac_hash(struct hash_bucket *bucket,
+					  void *ctxt)
+{
+	struct zebra_mac *mac;
+	struct mac_walk_ctx *wctx = ctxt;
+
+	mac = (struct zebra_mac *)bucket->data;
+
+	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
+		zebra_evpn_rem_mac_uninstall(wctx->zevpn, mac, false);
+}
+
+/*
  * Install MAC hash entry - called upon access VLAN change.
  */
-void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
+static void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 {
 	struct zebra_mac *mac;
 	struct mac_walk_ctx *wctx = ctxt;
@@ -955,6 +970,44 @@ void zebra_evpn_install_mac_hash(struct hash_bucket *bucket, void *ctxt)
 
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE))
 		zebra_evpn_rem_mac_install(wctx->zevpn, mac, false);
+}
+
+/*
+ * Uninstall remote MAC entries for this EVPN.
+ */
+void zebra_evpn_rem_mac_uninstall_all(struct zebra_evpn *zevpn)
+{
+	struct mac_walk_ctx wctx;
+
+	if (!zevpn->mac_table)
+		return;
+
+	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	wctx.zevpn = zevpn;
+	wctx.uninstall = 1;
+	wctx.upd_client = 0;
+	wctx.flags = ZEBRA_MAC_REMOTE;
+
+	hash_iterate(zevpn->mac_table, zebra_evpn_uninstall_mac_hash, &wctx);
+}
+
+/*
+ * Install remote MAC entries for this EVPN.
+ */
+void zebra_evpn_rem_mac_install_all(struct zebra_evpn *zevpn)
+{
+	struct mac_walk_ctx wctx;
+
+	if (!zevpn->mac_table)
+		return;
+
+	memset(&wctx, 0, sizeof(struct mac_walk_ctx));
+	wctx.zevpn = zevpn;
+	wctx.uninstall = 0;
+	wctx.upd_client = 0;
+	wctx.flags = ZEBRA_MAC_REMOTE;
+
+	hash_iterate(zevpn->mac_table, zebra_evpn_install_mac_hash, &wctx);
 }
 
 /*

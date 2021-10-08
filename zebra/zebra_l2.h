@@ -108,6 +108,13 @@ struct zebra_vxlan_if_vlan_ctx {
 	struct zebra_vxlan_vni *vni;
 };
 
+struct zebra_vxlan_if_update_ctx {
+	uint16_t chgflags;
+	struct in_addr old_vtep_ip;
+	struct zebra_vxlan_vni old_vni;
+	struct hash *old_vni_table;
+};
+
 struct zebra_vxlan_if_ctx {
 	/* input */
 	struct zebra_if *zif;
