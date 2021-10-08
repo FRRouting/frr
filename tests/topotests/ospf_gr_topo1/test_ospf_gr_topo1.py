@@ -180,6 +180,41 @@ def router_compare_json_output(rname, command, reference, tries):
     assert diff is None, assertmsg
 
 
+def expect_grace_lsa(restarting, area, helper):
+    """
+    Check if the given helper neighbor has already received a Grace-LSA from
+    the router performing a graceful restart.
+    """
+    tgen = get_topogen()
+
+    logger.info(
+        "'{}': checking if a Grace-LSA was received from '{}'".format(
+            helper, restarting
+        )
+    )
+    test_func = partial(
+        topotest.router_json_cmp,
+        tgen.gears[helper],
+        "show ip ospf database opaque-link json",
+        {
+            "linkLocalOpaqueLsa": {
+                "areas": {
+                    area: [
+                        {
+                            "advertisingRouter": restarting,
+                            "opaqueType": "Grace-LSA",
+                        }
+                    ]
+                }
+            }
+        },
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=1)
+    assertmsg = '"{}" didn\'t receive a Grace-LSA from "{}"'.format(helper, restarting)
+
+    assert result is None, assertmsg
+
+
 def check_routers(initial_convergence=False, exiting=None, restarting=None):
     for rname in ["rt1", "rt2", "rt3", "rt4", "rt5", "rt6", "rt7"]:
         # Check the RIB first, which should be preserved across restarts in
@@ -272,6 +307,7 @@ def test_gr_rt1():
         pytest.skip(tgen.errors)
 
     tgen.net["rt1"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="1.1.1.1", area="0.0.0.1", helper="rt2")
     ensure_gr_is_in_zebra("rt1")
     kill_router_daemons(tgen, "rt1", ["ospfd"], save_config=False)
     check_routers(exiting="rt1")
@@ -292,6 +328,8 @@ def test_gr_rt2():
         pytest.skip(tgen.errors)
 
     tgen.net["rt2"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="2.2.2.2", area="0.0.0.1", helper="rt1")
+    expect_grace_lsa(restarting="2.2.2.2", area="0.0.0.0", helper="rt3")
     ensure_gr_is_in_zebra("rt2")
     kill_router_daemons(tgen, "rt2", ["ospfd"], save_config=False)
     check_routers(exiting="rt2")
@@ -312,6 +350,9 @@ def test_gr_rt3():
         pytest.skip(tgen.errors)
 
     tgen.net["rt3"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt2")
+    expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt4")
+    expect_grace_lsa(restarting="3.3.3.3", area="0.0.0.0", helper="rt6")
     ensure_gr_is_in_zebra("rt3")
     kill_router_daemons(tgen, "rt3", ["ospfd"], save_config=False)
     check_routers(exiting="rt3")
@@ -332,6 +373,8 @@ def test_gr_rt4():
         pytest.skip(tgen.errors)
 
     tgen.net["rt4"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="4.4.4.4", area="0.0.0.0", helper="rt3")
+    expect_grace_lsa(restarting="4.4.4.4", area="0.0.0.2", helper="rt5")
     ensure_gr_is_in_zebra("rt4")
     kill_router_daemons(tgen, "rt4", ["ospfd"], save_config=False)
     check_routers(exiting="rt4")
@@ -352,6 +395,7 @@ def test_gr_rt5():
         pytest.skip(tgen.errors)
 
     tgen.net["rt5"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="5.5.5.5", area="0.0.0.2", helper="rt4")
     ensure_gr_is_in_zebra("rt5")
     kill_router_daemons(tgen, "rt5", ["ospfd"], save_config=False)
     check_routers(exiting="rt5")
@@ -372,6 +416,8 @@ def test_gr_rt6():
         pytest.skip(tgen.errors)
 
     tgen.net["rt6"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="6.6.6.6", area="0.0.0.0", helper="rt3")
+    expect_grace_lsa(restarting="6.6.6.6", area="0.0.0.3", helper="rt7")
     ensure_gr_is_in_zebra("rt6")
     kill_router_daemons(tgen, "rt6", ["ospfd"], save_config=False)
     check_routers(exiting="rt6")
@@ -392,6 +438,7 @@ def test_gr_rt7():
         pytest.skip(tgen.errors)
 
     tgen.net["rt7"].cmd('vtysh -c "graceful-restart prepare ip ospf"')
+    expect_grace_lsa(restarting="7.7.7.7", area="0.0.0.3", helper="rt6")
     ensure_gr_is_in_zebra("rt7")
     kill_router_daemons(tgen, "rt7", ["ospfd"], save_config=False)
     check_routers(exiting="rt7")
