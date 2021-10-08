@@ -228,13 +228,13 @@ def test_ospf_gr_helper_tc3_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -322,13 +322,13 @@ def test_ospf_gr_helper_tc4_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)

@@ -853,14 +853,14 @@ Opaque LSA
 .. clicmd:: capability opaque
 
 
+   *ospfd* supports Opaque LSA (:rfc:`2370`), which is a pre-requisite for
+   Graceful Restart, Segment Routing, MPLS Traffic Engineering, and others.
 
-   *ospfd* supports Opaque LSA (:rfc:`2370`) as partial support for
-   MPLS Traffic Engineering LSAs. The opaque-lsa capability must be
-   enabled in the configuration. An alternate command could be
-   "mpls-te on" (:ref:`ospf-traffic-engineering`). Note that FRR
-   offers only partial support for some of the routing protocol
-   extensions that are used with MPLS-TE; it does not support a
-   complete RSVP-TE solution.
+   The opaque-lsa capability is enabled by default.
+
+   Note that FRR offers only partial support for some of the routing
+   protocol extensions that are used with MPLS-TE; it does not support
+   a complete RSVP-TE solution.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] database (opaque-link|opaque-area|opaque-external)
 

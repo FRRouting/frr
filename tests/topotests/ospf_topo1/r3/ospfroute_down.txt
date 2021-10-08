@@ -10,4 +10,8 @@ N    172.16.1.0/24         [20] area: 0.0.0.1
 R    10.0.255.4            [10] area: 0.0.0.1, ASBR
                            via 172.16.0.1, r3-eth2
 
+============ OSPF reachable routers table =============
+R    10.0.255.4            [10] area: 0.0.0.1, ASBR
+                           via 172.16.0.1, r3-eth2
+
 ============ OSPF external routing table ===========

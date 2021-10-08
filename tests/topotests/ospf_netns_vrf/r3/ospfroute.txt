@@ -15,4 +15,10 @@ R    10.0.255.1            [10] area: 0.0.0.0, ASBR
 R    10.0.255.2            [10] area: 0.0.0.0, ASBR
                            via 10.0.3.3, r3-eth0
 
+============ OSPF reachable routers table =============
+R    10.0.255.1            [10] area: 0.0.0.0, ASBR
+                           via 10.0.3.2, r3-eth0
+R    10.0.255.2            [10] area: 0.0.0.0, ASBR
+                           via 10.0.3.3, r3-eth0
+
 ============ OSPF external routing table ===========

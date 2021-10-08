@@ -211,7 +211,7 @@ def test_ospf_gr_helper_tc1_p0(request):
 
     step("Configure graceful restart in the DUT")
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -228,7 +228,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -254,7 +254,6 @@ def test_ospf_gr_helper_tc1_p0(request):
             "ospf": {
                 "graceful-restart": {
                     "helper enable": [],
-                    "opaque": True,
                     "delete": True,
                 }
             }
@@ -271,7 +270,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     step("Configure gr helper using the router id")
     ospf_gr_r0 = {
         "r0": {
-            "ospf": {"graceful-restart": {"helper enable": ["1.1.1.1"], "opaque": True}}
+            "ospf": {"graceful-restart": {"helper enable": ["1.1.1.1"]}}
         }
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
@@ -297,7 +296,6 @@ def test_ospf_gr_helper_tc1_p0(request):
             "ospf": {
                 "graceful-restart": {
                     "helper enable": ["1.1.1.1"],
-                    "opaque": True,
                     "delete": True,
                 }
             }
@@ -345,13 +343,13 @@ def test_ospf_gr_helper_tc2_p0(request):
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": []}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)

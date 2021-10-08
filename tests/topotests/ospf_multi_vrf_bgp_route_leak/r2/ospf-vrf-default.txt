@@ -11,6 +11,10 @@ N    10.0.20.0/24          [10] area: 0.0.0.0
 R    10.0.255.1            [10] area: 0.0.0.0, ASBR
                            via 10.0.20.1, r2-eth1
 
+============ OSPF reachable routers table =============
+R    10.0.255.1            [10] area: 0.0.0.0, ASBR
+                           via 10.0.20.1, r2-eth1
+
 ============ OSPF external routing table ===========
 N E2 10.0.3.0/24           [10/20] tag: 0
                            via 10.0.20.1, r2-eth1

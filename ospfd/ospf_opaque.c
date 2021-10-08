@@ -1089,8 +1089,8 @@ void ospf_opaque_config_write_router(struct vty *vty, struct ospf *ospf)
 {
 	struct list *funclist;
 
-	if (CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE))
-		vty_out(vty, " capability opaque\n");
+	if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE))
+		vty_out(vty, " no capability opaque\n");
 
 	funclist = ospf_opaque_wildcard_funclist;
 	opaque_lsa_config_write_router_callback(funclist, vty);
