@@ -4400,7 +4400,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 
 				json_neighbor = json_object_new_object();
 
-				ospf_nbr_state_message(nbr, msgbuf, 16);
+				ospf_nbr_ism_state_message(nbr, msgbuf, 16);
 
 				json_object_int_add(json_neighbor, "priority",
 						    nbr->priority);
@@ -4467,7 +4467,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				json_object_array_add(json_neigh_array,
 						      json_neighbor);
 			} else {
-				ospf_nbr_state_message(nbr, msgbuf, 16);
+				ospf_nbr_ism_state_message(nbr, msgbuf, 16);
 
 				if (nbr->state == NSM_Attempt
 				    && nbr->router_id.s_addr == INADDR_ANY)
