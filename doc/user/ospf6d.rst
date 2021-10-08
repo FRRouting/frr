@@ -85,6 +85,11 @@ OSPF6 router
    change to take effect, user can use this cli instead of restarting the
    ospf6d daemon.
 
+.. clicmd:: clear ipv6 ospf6 [vrf NAME] interface [IFNAME]
+
+   This command restarts the interface state machine for all interfaces in the
+   VRF or only for the specific interface if ``IFNAME`` is specified.
+
 ASBR Summarisation Support in OSPFv3
 ====================================
 
