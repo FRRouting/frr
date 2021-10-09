@@ -1393,8 +1393,7 @@ static void ospf_db_desc(struct ip *iph, struct ospf_header *ospfh,
 	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 		zlog_info(
 			"%s:Packet[DD]: Neighbor %pI4 state is %s, seq_num:0x%x, local:0x%x",
-			(oi->ospf->name) ? oi->ospf->name : VRF_DEFAULT_NAME,
-			&nbr->router_id,
+			ospf_get_name(oi->ospf), &nbr->router_id,
 			lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
 			ntohl(dd->dd_seqnum), nbr->dd_seqnum);
 
@@ -3894,9 +3893,8 @@ void ospf_db_desc_send(struct ospf_neighbor *nbr)
 	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 		zlog_info(
 			"%s:Packet[DD]: %pI4 DB Desc send with seqnum:%x , flags:%x",
-			(oi->ospf->name) ? oi->ospf->name : VRF_DEFAULT_NAME,
-			&nbr->router_id, nbr->dd_seqnum,
-			nbr->dd_flags);
+			ospf_get_name(oi->ospf), &nbr->router_id,
+			nbr->dd_seqnum, nbr->dd_flags);
 }
 
 /* Re-send Database Description. */
@@ -3914,9 +3912,8 @@ void ospf_db_desc_resend(struct ospf_neighbor *nbr)
 	if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 		zlog_info(
 			"%s:Packet[DD]: %pI4 DB Desc resend with seqnum:%x , flags:%x",
-			(oi->ospf->name) ? oi->ospf->name : VRF_DEFAULT_NAME,
-			&nbr->router_id, nbr->dd_seqnum,
-			nbr->dd_flags);
+			ospf_get_name(oi->ospf), &nbr->router_id,
+			nbr->dd_seqnum, nbr->dd_flags);
 }
 
 /* Send Link State Request. */

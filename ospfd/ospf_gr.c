@@ -584,7 +584,7 @@ static void ospf_gr_nvm_update(struct ospf *ospf)
 	json_object *json_instance;
 
 	filepath = ospf_gr_nvm_filepath(ospf);
-	inst_name = ospf->name ? ospf->name : VRF_DEFAULT_NAME;
+	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
@@ -630,7 +630,7 @@ static void ospf_gr_nvm_delete(struct ospf *ospf)
 	json_object *json_instances;
 
 	filepath = ospf_gr_nvm_filepath(ospf);
-	inst_name = ospf->name ? ospf->name : VRF_DEFAULT_NAME;
+	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
@@ -663,7 +663,7 @@ void ospf_gr_nvm_read(struct ospf *ospf)
 	time_t timestamp = 0;
 
 	filepath = ospf_gr_nvm_filepath(ospf);
-	inst_name = ospf->name ? ospf->name : VRF_DEFAULT_NAME;
+	inst_name = ospf_get_name(ospf);
 
 	json = json_object_from_file(filepath);
 	if (json == NULL)
