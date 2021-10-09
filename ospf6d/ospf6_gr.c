@@ -58,7 +58,7 @@ static int ospf6_gr_lsa_originate(struct ospf6_interface *oi)
 	char buffer[OSPF6_MAX_LSASIZE];
 
 	if (IS_OSPF6_DEBUG_ORIGINATE(LINK))
-		zlog_debug("Originate Link-LSA for Interface %s",
+		zlog_debug("Originate Grace-LSA for Interface %s",
 			   oi->interface->name);
 
 	/* prepare buffer */
