@@ -734,6 +734,18 @@ DEFPY(graceful_restart_prepare, graceful_restart_prepare_cmd,
       IP_STR
       "Prepare to restart the OSPF process")
 {
+	struct ospf *ospf;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+		if (!CHECK_FLAG(ospf->config, OSPF_OPAQUE_CAPABLE)) {
+			vty_out(vty,
+				"%% Can't start graceful restart: opaque capability not enabled (VRF %s)\n\n",
+				ospf_get_name(ospf));
+			return CMD_WARNING;
+		}
+	}
+
 	ospf_gr_prepare();
 
 	return CMD_SUCCESS;
