@@ -51,6 +51,8 @@ struct pm_info {
 	uint8_t status;
 };
 
+extern int pm_debug;
+
 extern struct pm_info *pm_info_create(void);
 
 extern void pm_info_free(struct pm_info **pm_info);

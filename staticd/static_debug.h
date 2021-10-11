@@ -20,6 +20,7 @@ extern "C" {
 extern struct debug static_dbg_events;
 extern struct debug static_dbg_route;
 extern struct debug static_dbg_bfd;
+extern struct debug static_dbg_pm;
 
 /*
  * Initialize staticd debugging.
@@ -58,7 +59,7 @@ int static_debug_status_write(struct vty *vty);
  *
  */
 void static_debug_set(int vtynode, bool onoff, bool events, bool route,
-		      bool bfd);
+	      bool bfd, bool pm);
 
 #ifdef __cplusplus
 }

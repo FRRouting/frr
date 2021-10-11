@@ -10,6 +10,7 @@
 #include "lib/command.h"
 #include "lib/debug.h"
 #include "lib/bfd.h"
+#include "lib/pm_lib.h"
 
 #include "static_debug.h"
 
@@ -22,17 +23,20 @@
 struct debug static_dbg_events = {0, "Staticd events"};
 struct debug static_dbg_route = {0, "Staticd route"};
 struct debug static_dbg_bfd = {0, "Staticd bfd"};
+struct debug static_dbg_pm = {0, "Staticd pm"};
 
 struct debug *static_debug_arr[] =  {
 	&static_dbg_events,
 	&static_dbg_route,
-	&static_dbg_bfd
+	&static_dbg_bfd,
+	&static_dbg_pm
 };
 
 const char *static_debugs_conflines[] = {
 	"debug static events",
 	"debug static route",
-	"debug static bfd"
+	"debug static bfd",
+	"debug static pm"
 };
 /* clang-format on */
 
@@ -95,7 +99,7 @@ int static_debug_status_write(struct vty *vty)
  *
  */
 void static_debug_set(int vtynode, bool onoff, bool events, bool route,
-		      bool bfd)
+		      bool bfd, bool pm)
 {
 	uint32_t mode = DEBUG_NODE2MODE(vtynode);
 
@@ -106,6 +110,13 @@ void static_debug_set(int vtynode, bool onoff, bool events, bool route,
 	if (bfd) {
 		DEBUG_MODE_SET(&static_dbg_bfd, mode, onoff);
 		bfd_protocol_integration_set_debug(onoff);
+	}
+	if (pm) {
+		DEBUG_MODE_SET(&static_dbg_pm, mode, onoff);
+		if (onoff)
+			pm_debug = 1;
+		else
+			pm_debug = 0;
 	}
 }
 
