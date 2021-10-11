@@ -105,14 +105,20 @@ def setup_module(mod):
         "ip link add {0}-cust1 type vrf table 1001",
         "ip link add loop1 type dummy",
         "ip link set {0}-eth0 master {0}-cust1",
-        "ip link set {0}-eth1 master {0}-cust1",
     ]
+
+    eth1_cmds = ["ip link set {0}-eth1 master {0}-cust1"]
 
     # For all registered routers, load the zebra configuration file
     for rname, router in tgen.routers().items():
         # create VRF rx-cust1 and link rx-eth0 to rx-cust1
         for cmd in cmds:
             output = tgen.net[rname].cmd(cmd.format(rname))
+
+        # If router has an rX-eth1, link that to vrf also
+        if "{}-eth1".format(rname) in router.links.keys():
+            for cmd in eth1_cmds:
+                output = output + tgen.net[rname].cmd(cmd.format(rname))
 
     for rname, router in tgen.routers().items():
         router.load_config(
