@@ -667,6 +667,7 @@ fi
 %{_sbindir}/ospfd
 %{_sbindir}/ripd
 %{_sbindir}/bgpd
+%{_sbindir}/mgmtd
 %exclude %{_sbindir}/ssd
 %if %{with_watchfrr}
     %{_sbindir}/watchfrr
@@ -716,6 +717,9 @@ fi
 %{_libdir}/frr/modules/dplane_fpm_nl.so
 %{_libdir}/frr/modules/zebra_irdp.so
 %{_libdir}/frr/modules/bgpd_bmp.so
+%{_libdir}/libfrr_pb.so*
+%{_libdir}/libfrrfpm_pb.so*
+%{_libdir}/libmgmt_be_nb.so*
 %{_bindir}/*
 %config(noreplace) %{configdir}/[!v]*.conf*
 %config(noreplace) %attr(750,%{frr_user},%{frr_user}) %{configdir}/daemons
@@ -775,6 +779,8 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %{_libdir}/lib*.so
 %dir %{_includedir}/%{name}
 %{_includedir}/%{name}/*.h
+%dir %{_includedir}/%{name}/mgmtd
+%{_includedir}/%{name}/mgmtd/*.h
 %dir %{_includedir}/%{name}/ospfd
 %{_includedir}/%{name}/ospfd/*.h
 %if %{with_bfdd}
