@@ -126,6 +126,7 @@ static void vtysh_pager_envdef(bool fallback)
 /* --- */
 
 struct vtysh_client vtysh_client[] = {
+	{.fd = -1, .name = "mgmtd", .flag = VTYSH_MGMTD, .next = NULL},
 	{.fd = -1, .name = "zebra", .flag = VTYSH_ZEBRA, .next = NULL},
 	{.fd = -1, .name = "ripd", .flag = VTYSH_RIPD, .next = NULL},
 	{.fd = -1, .name = "ripngd", .flag = VTYSH_RIPNGD, .next = NULL},
