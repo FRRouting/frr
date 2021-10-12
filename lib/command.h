@@ -429,6 +429,11 @@ struct cmd_node {
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
+#define MGMTD_STR "Management Daemon (MGMTD) information\n"
+#define MGMTD_BE_ADAPTER_STR "MGMTD Backend Adapter information\n"
+#define MGMTD_FE_ADAPTER_STR "MGMTD Frontend Adapter information\n"
+#define MGMTD_TXN_STR "MGMTD Transaction information\n"
+#define MGMTD_DB_STR "MGMTD Database information\n"
 
 #define CMD_VNI_RANGE "(1-16777215)"
 #define CONF_BACKUP_EXT ".sav"
