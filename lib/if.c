@@ -1130,7 +1130,7 @@ void if_terminate(struct vrf *vrf)
 	while (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name)) {
 		ifp = RB_ROOT(if_name_head, &vrf->ifaces_by_name);
 
-		if (delete) {
+		if (delete || ifp->vrf_id == VRF_UNKNOWN) {
 			if (ifp->node) {
 				ifp->node->info = NULL;
 				route_unlock_node(ifp->node);
@@ -1509,7 +1509,8 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-
+	const char *vrfname;
+	struct vrf *vrf;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1524,10 +1525,15 @@ static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+		vrfname = yang_dnode_get_string(args->dnode, "./vrf");
+		if (vrfname)
+			vrf = vrf_lookup_by_name(vrfname);
+		else
+			vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		assert(vrf);
 		ifp = nb_running_unset_entry(args->dnode);
-
 		ifp->configured = false;
-		if_delete(&ifp);
+		if_delete_vrf(&ifp, vrf);
 		break;
 	}
 
