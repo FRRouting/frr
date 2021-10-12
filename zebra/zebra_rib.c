@@ -3890,14 +3890,16 @@ void rib_update(enum rib_update_event event)
 {
 	struct rib_update_ctx *ctx;
 
-	ctx = rib_update_ctx_init(0, event);
+	if (thread_is_scheduled(t_rib_update_threads[event]))
+		return;
 
+	ctx = rib_update_ctx_init(0, event);
 	ctx->vrf_all = true;
 
-	if (!thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
-			      &t_rib_update_threads[event]))
-		rib_update_ctx_fini(&ctx); /* Already scheduled */
-	else if (IS_ZEBRA_DEBUG_EVENT)
+	thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
+			 &t_rib_update_threads[event]);
+
+	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%s: Scheduled VRF (ALL), event %s", __func__,
 			   rib_update_event2str(event));
 }
