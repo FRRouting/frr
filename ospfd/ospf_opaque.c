@@ -274,7 +274,8 @@ struct ospf_opaque_functab {
 	void (*config_write_router)(struct vty *vty);
 	void (*config_write_if)(struct vty *vty, struct interface *ifp);
 	void (*config_write_debug)(struct vty *vty);
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa);
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa);
 	int (*lsa_originator)(void *arg);
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa);
 	int (*new_lsa_hook)(struct ospf_lsa *lsa);
@@ -373,7 +374,8 @@ int ospf_register_opaque_functab(
 	void (*config_write_router)(struct vty *vty),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa),
 	int (*lsa_originator)(void *arg),
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa),
 	int (*new_lsa_hook)(struct ospf_lsa *lsa),
@@ -1182,6 +1184,16 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 				VALID_OPAQUE_INFO_LEN(lsah)
 					? ""
 					: "(Invalid length?)");
+		} else {
+			json_object_string_add(
+				json, "opaqueType",
+				ospf_opaque_type_name(opaque_type));
+			json_object_int_add(json, "opaqueId", opaque_id);
+			json_object_int_add(json, "opaqueDataLength",
+					    ntohs(lsah->length)
+						    - OSPF_LSA_HEADER_SIZE);
+			json_object_boolean_add(json, "opaqueDataLengthValid",
+						VALID_OPAQUE_INFO_LEN(lsah));
 		}
 	} else {
 		zlog_debug("    Opaque-Type %u (%s)", opaque_type,
@@ -1197,7 +1209,7 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	/* Call individual output functions. */
 	if ((functab = ospf_opaque_functab_lookup(lsa)) != NULL)
 		if (functab->show_opaque_info != NULL)
-			(*functab->show_opaque_info)(vty, lsa);
+			(*functab->show_opaque_info)(vty, json, lsa);
 
 	return;
 }
