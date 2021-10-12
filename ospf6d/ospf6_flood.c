@@ -1027,15 +1027,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		if (old)
 			ospf6_flood_clear(old);
 
-		/* (b) immediately flood and (c) remove from all retrans-list */
-		/* Prevent self-originated LSA to be flooded. this is to make
-		reoriginated instance of the LSA not to be rejected by other
-		routers
-		due to MinLSArrival. */
 		self_originated = (new->header->adv_router
 				   == from->ospf6_if->area->ospf6->router_id);
-		if (!self_originated)
-			ospf6_flood(from, new);
 
 		/* Received non-self-originated Grace LSA. */
 		if (IS_GRACE_LSA(new) && !self_originated) {
@@ -1080,6 +1073,14 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 				}
 			}
 		}
+
+		/* (b) immediately flood and (c) remove from all retrans-list */
+		/* Prevent self-originated LSA to be flooded. this is to make
+		 * reoriginated instance of the LSA not to be rejected by other
+		 * routers due to MinLSArrival.
+		 */
+		if (!self_originated)
+			ospf6_flood(from, new);
 
 		/* (d), installing lsdb, which may cause routing
 			table calculation (replacing database copy) */
