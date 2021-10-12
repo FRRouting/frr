@@ -491,6 +491,47 @@ static void *thread_cdb_trigger_subscriptions(void *data)
 	return NULL;
 }
 
+static int frr_confd_subscribe(const struct lysc_node *snode, void *arg)
+{
+	struct yang_module *module = arg;
+	struct nb_node *nb_node;
+	int *spoint;
+	int ret;
+
+	switch (snode->nodetype) {
+	case LYS_CONTAINER:
+	case LYS_LEAF:
+	case LYS_LEAFLIST:
+	case LYS_LIST:
+		break;
+	default:
+		return YANG_ITER_CONTINUE;
+	}
+
+	if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+		return YANG_ITER_CONTINUE;
+
+	nb_node = snode->priv;
+	if (!nb_node)
+		return YANG_ITER_CONTINUE;
+
+	DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'", __func__,
+	       nb_node->xpath);
+
+	spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
+	ret = cdb_subscribe2(cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
+			     CDB_SUB_WANT_ABORT_ON_ABORT, 3, spoint,
+			     module->confd_hash, nb_node->xpath);
+	if (ret != CONFD_OK) {
+		flog_err_confd("cdb_subscribe2");
+		XFREE(MTYPE_CONFD, spoint);
+		return YANG_ITER_CONTINUE;
+	}
+
+	listnode_add(confd_spoints, spoint);
+	return YANG_ITER_CONTINUE;
+}
+
 static int frr_confd_init_cdb(void)
 {
 	struct yang_module *module;
@@ -514,8 +555,6 @@ static int frr_confd_init_cdb(void)
 	/* Subscribe to all loaded YANG data modules. */
 	confd_spoints = list_new();
 	RB_FOREACH (module, yang_modules, &yang_modules) {
-		struct lysc_node *snode;
-
 		module->confd_hash = confd_str2hash(module->info->ns);
 		if (module->confd_hash == 0) {
 			flog_err(
@@ -530,42 +569,8 @@ static int frr_confd_init_cdb(void)
 		 * entire YANG module. So we have to find the top level
 		 * nodes ourselves and subscribe to their paths.
 		 */
-		LY_LIST_FOR (module->info->data, snode) {
-			struct nb_node *nb_node;
-			int *spoint;
-			int ret;
-
-			switch (snode->nodetype) {
-			case LYS_CONTAINER:
-			case LYS_LEAF:
-			case LYS_LEAFLIST:
-			case LYS_LIST:
-				break;
-			default:
-				continue;
-			}
-
-			if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
-				continue;
-
-			nb_node = snode->priv;
-			if (!nb_node)
-				continue;
-
-			DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'",
-			       __func__, nb_node->xpath);
-
-			spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
-			ret = cdb_subscribe2(
-				cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
-				CDB_SUB_WANT_ABORT_ON_ABORT, 3, spoint,
-				module->confd_hash, nb_node->xpath);
-			if (ret != CONFD_OK) {
-				flog_err_confd("cdb_subscribe2");
-				XFREE(MTYPE_CONFD, spoint);
-			}
-			listnode_add(confd_spoints, spoint);
-		}
+		yang_snodes_iterate(module->info, frr_confd_subscribe, 0,
+				    module);
 	}
 
 	if (cdb_subscribe_done(cdb_sub_sock) != CONFD_OK) {
@@ -868,7 +873,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	memset(objects, 0, sizeof(objects));
 	for (int j = 0; j < CONFD_OBJECTS_PER_TIME; j++) {
 		struct confd_next_object *object;
-		struct lysc_node *child;
+		const struct lysc_node *child;
 		struct yang_data *data;
 		size_t nvalues = 0;
 
