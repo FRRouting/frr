@@ -1209,8 +1209,15 @@ void isis_sr_area_init(struct isis_area *area)
 	memset(srdb, 0, sizeof(*srdb));
 	srdb->adj_sids = list_new();
 
-	/* Pull defaults from the YANG module. */
+#ifdef FUZZING
+	srdb->config.enabled = false;
+	srdb->config.srgb_lower_bound = SRGB_LOWER_BOUND;
+	srdb->config.srgb_upper_bound = SRGB_UPPER_BOUND;
+	srdb->config.srlb_lower_bound = SRLB_LOWER_BOUND;
+	srdb->config.srlb_upper_bound = SRLB_UPPER_BOUND;
+#else
 #ifndef FABRICD
+	/* Pull defaults from the YANG module. */
 	srdb->config.enabled = yang_get_default_bool("%s/enabled", ISIS_SR);
 	srdb->config.srgb_lower_bound = yang_get_default_uint32(
 		"%s/label-blocks/srgb/lower-bound", ISIS_SR);
@@ -1227,6 +1234,7 @@ void isis_sr_area_init(struct isis_area *area)
 	srdb->config.srlb_lower_bound = SRLB_LOWER_BOUND;
 	srdb->config.srlb_upper_bound = SRLB_UPPER_BOUND;
 #endif
+#endif /* FUZZING */
 	srdb->config.msd = 0;
 	srdb_prefix_cfg_init(&srdb->config.prefix_sids);
 }

@@ -278,8 +278,10 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
+#ifndef FUZZING
 	vrf = vrf_lookup_by_name(vrf_name);
 	isis = isis_lookup_by_vrfname(vrf_name);
+#endif /* FUZZING */
 
 	if (isis == NULL)
 		isis = isis_new(vrf_name);
@@ -287,6 +289,9 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	listnode_add(isis->area_list, area);
 	area->isis = isis;
 
+#ifdef FUZZING
+	area->is_type = IS_LEVEL_1_AND_2;
+#else
 	/*
 	 * Fabricd runs only as level-2.
 	 * For IS-IS, the default is level-1-2
@@ -296,6 +301,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	else
 		area->is_type = yang_get_default_enum(
 			"/frr-isisd:isis/instance/is-type");
+#endif /* FUZZING */
 
 	/*
 	 * intialize the databases
@@ -319,6 +325,25 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	/*
 	 * Default values
 	 */
+#ifdef FUZZING
+	area->max_lsp_lifetime[0] = DEFAULT_LSP_LIFETIME;    /* 1200 */
+	area->max_lsp_lifetime[1] = DEFAULT_LSP_LIFETIME;    /* 1200 */
+	area->lsp_refresh[0] = DEFAULT_MAX_LSP_GEN_INTERVAL; /* 900 */
+	area->lsp_refresh[1] = DEFAULT_MAX_LSP_GEN_INTERVAL; /* 900 */
+	area->lsp_gen_interval[0] = DEFAULT_MIN_LSP_GEN_INTERVAL;
+	area->lsp_gen_interval[1] = DEFAULT_MIN_LSP_GEN_INTERVAL;
+	area->min_spf_interval[0] = MINIMUM_SPF_INTERVAL;
+	area->min_spf_interval[1] = MINIMUM_SPF_INTERVAL;
+	area->dynhostname = 1;
+	area->oldmetric = 0;
+	area->newmetric = 1;
+	area->lsp_frag_threshold = 90;
+	area->lsp_mtu = DEFAULT_LSP_MTU;
+	area->lfa_load_sharing[0] = true;
+	area->lfa_load_sharing[1] = true;
+	area->attached_bit_send = true;
+	area->attached_bit_rcv_ignore = false;
+#else
 #ifndef FABRICD
 	enum isis_metric_style default_style;
 
@@ -375,6 +400,7 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->attached_bit_send = true;
 	area->attached_bit_rcv_ignore = false;
 #endif /* ifndef FABRICD */
+#endif /* ifdef FUZZING */
 	area->lfa_priority_limit[0] = SPF_PREFIX_PRIO_LOW;
 	area->lfa_priority_limit[1] = SPF_PREFIX_PRIO_LOW;
 	isis_lfa_tiebreakers_init(area, ISIS_LEVEL1);

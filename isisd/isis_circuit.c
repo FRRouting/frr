@@ -115,6 +115,22 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	/*
 	 * Default values
 	 */
+#ifdef FUZZING
+	circuit->is_type = IS_LEVEL_1_AND_2;
+	circuit->flags = 0;
+	circuit->pad_hellos = 1;
+	for (i = 0; i < 2; i++) {
+		circuit->hello_interval[i] = DEFAULT_HELLO_INTERVAL;
+		circuit->hello_multiplier[i] = DEFAULT_HELLO_MULTIPLIER;
+		circuit->csnp_interval[i] = DEFAULT_CSNP_INTERVAL;
+		circuit->psnp_interval[i] = DEFAULT_PSNP_INTERVAL;
+		circuit->priority[i] = DEFAULT_PRIORITY;
+		circuit->metric[i] = DEFAULT_CIRCUIT_METRIC;
+		circuit->te_metric[i] = DEFAULT_CIRCUIT_METRIC;
+		circuit->level_arg[i].level = i + 1;
+		circuit->level_arg[i].circuit = circuit;
+	}
+#else
 #ifndef FABRICD
 	circuit->is_type = yang_get_default_enum(
 		"/frr-interface:lib/interface/frr-isisd:isis/circuit-type");
@@ -171,6 +187,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #endif /* ifndef FABRICD */
+#endif /* ifdef FUZZING */
 
 	circuit_mt_init(circuit);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);

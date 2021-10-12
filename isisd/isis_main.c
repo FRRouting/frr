@@ -196,6 +196,106 @@ FRR_DAEMON_INFO(isisd, ISIS, .vty_port = ISISD_VTY_PORT,
 		.n_yang_modules = array_size(isisd_yang_modules),
 );
 
+#ifdef FUZZING
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size);
+
+static bool FuzzingInit(void)
+{
+	const char *name[] = {"isisd"};
+
+#ifdef FABRICD
+	frr_preinit(&fabricd_di, 1, (char **)name);
+#else
+	frr_preinit(&isisd_di, 1, (char **)name);
+#endif
+
+	/* INIT */
+	isis_master_init(frr_init_fast());
+
+	isis_error_init();
+	access_list_init();
+	access_list_add_hook(isis_filter_update);
+	access_list_delete_hook(isis_filter_update);
+	isis_vrf_init();
+	prefix_list_init();
+	prefix_list_add_hook(isis_prefix_list_update);
+	prefix_list_delete_hook(isis_prefix_list_update);
+	isis_init();
+	isis_circuit_init();
+	isis_spf_init();
+	isis_route_map_init();
+	isis_mpls_te_init();
+	isis_sr_init();
+	lsp_init();
+	isis_zebra_init(master, 1);
+	isis_bfd_init(master);
+
+	return true;
+}
+
+static struct isis_circuit *FuzzingCreateIsis(void)
+{
+	struct prefix p;
+	struct interface *ifp = NULL;
+	struct connected *conn = NULL;
+	struct isis_area *area = NULL;
+	struct isis_circuit *c = NULL;
+
+	ifp = if_create_ifindex(69, 0);
+	ifp->mtu = 68;
+	str2prefix("11.0.2.2/24", &p);
+
+	conn = connected_add_by_prefix(ifp, &p, NULL);
+
+	c = isis_circuit_new(ifp, "fuzz-tag");
+
+	area = isis_area_create("FUZZ_AREA", NULL);
+	isis_area_add_circuit(area, c);
+
+	return c;
+}
+
+static struct isis_circuit *FuzzingIsis;
+static bool FuzzingInitialized;
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+	struct isis_circuit *c;
+	/* Set source MAC address for the input packet.
+	 * Any value can go here, this one is from the IANA documentation range
+	 * reserved in RFC7042.
+	 */
+	static uint8_t ssnpa[6] = {0x00, 0x00, 0x5e, 0x00, 0x53, 0x01};
+
+	if (!FuzzingInitialized) {
+		FuzzingInit();
+		FuzzingInitialized = true;
+		FuzzingIsis = FuzzingCreateIsis();
+	}
+
+	c = FuzzingIsis;
+
+	/* Simulate the read process done by isis_receive().
+	 * circuit->rx is a callback that handles incoming layer 2 packets.
+	 * We skip calling the callback and pass the data directly to
+	 * isis_handle_pdu() which processes IS-IS PDUs,
+	 * since the PDU data is provided by the fuzzer.
+	 */
+
+	c->rcv_stream = stream_new(MAX(1, size));
+
+	stream_put(c->rcv_stream, data, size);
+
+	isis_handle_pdu(c, ssnpa);
+
+	stream_free(c->rcv_stream);
+
+	return 0;
+}
+#endif /* FUZZING */
+
+#ifndef FUZZING_LIBFUZZER
 /*
  * Main routine of isisd. Parse arguments and handle IS-IS state machine.
  */
@@ -203,6 +303,26 @@ int main(int argc, char **argv, char **envp)
 {
 	int opt;
 	int instance = 1;
+
+#ifdef FUZZING
+	FuzzingInitialized = FuzzingInit();
+	FuzzingIsis = FuzzingCreateIsis();
+
+#ifdef __AFL_HAVE_MANUAL_CONTROL
+	__AFL_INIT();
+#endif
+	uint8_t *input;
+	int r = frrfuzz_read_input(&input);
+
+	if (r < 0 || !input)
+		goto done;
+
+	LLVMFuzzerTestOneInput(input, r);
+
+	free(input);
+done:
+	return 0;
+#endif
 
 #ifdef FABRICD
 	frr_preinit(&fabricd_di, argc, argv);
@@ -276,3 +396,4 @@ int main(int argc, char **argv, char **envp)
 	/* Not reached. */
 	exit(0);
 }
+#endif /* FUZZING_LIBFUZZER*/

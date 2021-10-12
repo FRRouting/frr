@@ -322,6 +322,7 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 	else
 		newseq = seqno + 1;
 
+#ifndef FUZZING
 #ifndef FABRICD
 	/* check for overflow */
 	if (newseq < lsp->hdr.seqno) {
@@ -330,6 +331,7 @@ void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno)
 		isis_notif_lsp_exceed_max(lsp->area, lsp->hdr.lsp_id);
 	}
 #endif /* ifndef FABRICD */
+#endif /* ifndef FUZZING */
 
 	lsp->hdr.seqno = newseq;
 
@@ -1341,11 +1343,13 @@ int lsp_generate(struct isis_area *area, int level)
 		"ISIS (%s): Built L%d LSP. Set triggered regenerate to non-pending.",
 		area->area_tag, level);
 
+#ifndef FUZZING
 #ifndef FABRICD
 	/* send northbound notification */
 	isis_notif_lsp_gen(area, newlsp->hdr.lsp_id, newlsp->hdr.seqno,
 			   newlsp->last_generated);
 #endif /* ifndef FABRICD */
+#endif /* ifndef FUZZING */
 
 	return ISIS_OK;
 }
