@@ -1134,6 +1134,21 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 	nbr->priority = hello->priority;
 	nbr->d_router = hello->d_router;
 	nbr->bd_router = hello->bd_router;
+
+	/*
+	 * RFC 3623 - Section 2:
+	 * "If the restarting router determines that it was the Designated
+	 * Router on a given segment prior to the restart, it elects
+	 * itself as the Designated Router again.  The restarting router
+	 * knows that it was the Designated Router if, while the
+	 * associated interface is in Waiting state, a Hello packet is
+	 * received from a neighbor listing the router as the Designated
+	 * Router".
+	 */
+	if (oi->area->ospf->gr_info.restart_in_progress
+	    && oi->state == ISM_Waiting
+	    && IPV4_ADDR_SAME(&hello->d_router, &oi->address->u.prefix4))
+		DR(oi) = hello->d_router;
 }
 
 /* Save DD flags/options/Seqnum received. */
