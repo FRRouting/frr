@@ -710,7 +710,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 			confd_data_reply_next_key(tctx, v, keys.num,
 						  (long)nb_next);
 		} else {
-			char pointer_str[16];
+			char pointer_str[32];
 
 			/*
 			 * ConfD 6.6 user guide, chapter 6.11 (Operational data
@@ -848,7 +848,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	const void *nb_next;
 #define CONFD_OBJECTS_PER_TIME 100
 	struct confd_next_object objects[CONFD_OBJECTS_PER_TIME + 1];
-	char pseudo_keys[CONFD_OBJECTS_PER_TIME][16];
+	char pseudo_keys[CONFD_OBJECTS_PER_TIME][32];
 	int nobjects = 0;
 
 	frr_confd_get_xpath(kp, xpath, sizeof(xpath));
