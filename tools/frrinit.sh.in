@@ -74,6 +74,8 @@ reload)
 		exit 1
 	fi
 
+	daemon_list daemons
+
 	# systemd doesn't set WATCHDOG_USEC for reload commands.
 	watchfrr_pidfile="$V_PATH/watchfrr.pid"
 	watchfrr_pid="`cat \"$watchfrr_pidfile\"`"
@@ -82,11 +84,20 @@ reload)
 		wdt="${wdt#WATCHDOG_USEC=}"
 		[ -n "$wdt" ] && : ${WATCHDOG_USEC:=$wdt}
 		[ -n "$WATCHDOG_USEC" ] && export WATCHDOG_USEC
+
+		all_daemon_list all_daemons
+		# Kill any currently monitored daemons that are no longer enabled.
+		# Traverse command line args in reverse order, bailing out when we hit
+		# an argument that is not a daemon. Otherwise, if it's not in the
+		# new daemon list, stop it.
+		for i in `tr '\0' '\n' < /proc/$watchfrr_pid/cmdline | tac`; do
+			in_list $i $all_daemons || break
+			in_list $i $daemons || daemon_stop $i
+		done
 	fi
 
 	# restart watchfrr to pick up added daemons.
 	# NB: This will NOT cause the other daemons to be restarted.
-	daemon_list daemons
 	watchfrr_options="$watchfrr_options $daemons"
 	daemon_stop watchfrr && \
 		daemon_start watchfrr
