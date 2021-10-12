@@ -2059,3 +2059,11 @@ void debug_signals(const sigset_t *sigs)
 
 	zlog_debug("%s: %s", __func__, buf);
 }
+
+bool thread_is_scheduled(struct thread *thread)
+{
+	if (thread == NULL)
+		return false;
+
+	return true;
+}
