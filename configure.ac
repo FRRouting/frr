@@ -616,6 +616,8 @@ AC_ARG_ENABLE([zebra],
   AS_HELP_STRING([--disable-zebra], [do not build zebra daemon]))
 AC_ARG_ENABLE([bgpd],
   AS_HELP_STRING([--disable-bgpd], [do not build bgpd]))
+AC_ARG_ENABLE([mgmtd],
+  AS_HELP_STRING([--disable-mgmtd], [do not build mgmtd]))
 AC_ARG_ENABLE([ripd],
   AS_HELP_STRING([--disable-ripd], [do not build ripd]))
 AC_ARG_ENABLE([ripngd],
@@ -889,10 +891,6 @@ AC_SUBST([PYSPHINX])
 if test "$enable_oldvpn_commands" = "yes"; then
    AC_DEFINE([KEEP_OLD_VPN_COMMANDS], [1], [Define for compiling with old vpn commands])
 fi
-
-#
-# End of logic for protobuf support.
-#
 
 AC_MSG_CHECKING([if zebra should be configurable to send Route Advertisements])
 if test "$enable_rtadv" != "no"; then
@@ -1338,21 +1336,21 @@ dnl ##########################################################################
 # Logic for protobuf support.
 #
 PROTO3=false
-if test "$enable_protobuf" = "yes"; then
-  # Check for protoc & protoc-c
+# Enable Protobuf by default at all times.
+# Check for protoc & protoc-c
+# protoc is not required, it's only for a "be nice" helper target
+AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
 
-  # protoc is not required, it's only for a "be nice" helper target
-  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+if test "$PROTOC_C" = "/bin/false"; then
+  AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
+fi
 
-  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
-  if test "$PROTOC_C" = "/bin/false"; then
-    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
-  fi
+PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 1.1.0],, [
+  AC_MSG_FAILURE([minimum version of libprotobuf-c not found.  Install minimum required version of protobuf-c.])
+])
 
-  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 0.14],, [
-    AC_MSG_FAILURE([protobuf requested but libprotobuf-c not found.  Install protobuf-c.])
-  ])
-
+if test "$enable_protobuf3" = "yes"; then
   PROTO3=true
   AC_CHECK_HEADER([google/protobuf-c/protobuf-c.h],
                   [AC_CHECK_DECLS(PROTOBUF_C_LABEL_NONE,
@@ -1360,10 +1358,13 @@ if test "$enable_protobuf" = "yes"; then
                                             [1], [Have Protobuf version 3]),
                                   [PROTO3=false],
                                   [#include <google/protobuf-c/protobuf-c.h>])],
-                  [PROTO3=false && AC_MSG_FAILURE([protobuf requested but protobuf-c.h not found.  Install protobuf-c.])])
-
-  AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+                  [PROTO3=false && AC_MSG_FAILURE([protobuf3 requested but protobuf-c.h not found.  Install protobuf-c.])])
 fi
+
+AC_DEFINE([HAVE_PROTOBUF], [1], [protobuf])
+#
+# End of logic for protobuf support.
+#
 
 
 dnl ---------------------
@@ -1726,6 +1727,24 @@ dnl --------------------
 
 AS_IF([test "$enable_bgpd" != "no"], [
   AC_DEFINE([HAVE_BGPD], [1], [bgpd])
+])
+
+AS_IF([test "$enable_mgmtd" != "no"], [
+  # Check for protoc & protoc-c
+
+  # protoc is not required, it's only for a "be nice" helper target
+  AC_CHECK_PROGS([PROTOC], [protoc], [/bin/false])
+
+  AC_CHECK_PROGS([PROTOC_C], [protoc-c], [/bin/false])
+  if test "$PROTOC_C" = "/bin/false"; then
+    AC_MSG_FAILURE([protobuf requested but protoc-c not found.  Install protobuf-c.])
+  fi
+
+  PKG_CHECK_MODULES([PROTOBUF_C], [libprotobuf-c >= 1.1.0],, [
+    AC_MSG_FAILURE([minimum version of libprotobuf-c not found.  Install minimum required version of protobuf-c.])
+  ])
+
+  AC_DEFINE([HAVE_MGMTD], [1], [mgmtd])
 ])
 
 AS_IF([test "$enable_ripd" != "no"], [
@@ -2658,6 +2677,8 @@ AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control
 AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
 AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
 AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
+AC_DEFINE_UNQUOTED([MGMTD_FE_SERVER_PATH], ["$frr_statedir/mgmtd_fe.sock"], [mgmtd frontend server socket])
+AC_DEFINE_UNQUOTED([MGMTD_BE_SERVER_PATH], ["$frr_statedir/mgmtd_be.sock"], [mgmtd backend server socket])
 AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$frr_statedir/ospf6d-gr.json"], [ospf6d GR state information])
 AC_DEFINE_UNQUOTED([ISISD_RESTART], ["$frr_statedir%s/isid-restart.json"], [isisd restart information])
 AC_DEFINE_UNQUOTED([OSPF6_AUTH_SEQ_NUM_FILE], ["$frr_statedir/ospf6d-at-seq-no.dat"], [ospf6d AT Sequence number information])
@@ -2716,7 +2737,7 @@ AM_CONDITIONAL([RPKI], [test "$RPKI" = "true"])
 AM_CONDITIONAL([SNMP], [test "$SNMP_METHOD" = "agentx"])
 AM_CONDITIONAL([IRDP], [$IRDP])
 AM_CONDITIONAL([FPM], [test "$enable_fpm" = "yes"])
-AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" = "yes"])
+AM_CONDITIONAL([HAVE_PROTOBUF], [test "$enable_protobuf" != "no"])
 AM_CONDITIONAL([HAVE_PROTOBUF3], [$PROTO3])
 
 dnl PCEP plugin
@@ -2733,6 +2754,7 @@ dnl daemons
 AM_CONDITIONAL([VTYSH], [test "$VTYSH" = "vtysh"])
 AM_CONDITIONAL([ZEBRA], [test "$enable_zebra" != "no"])
 AM_CONDITIONAL([BGPD], [test "$enable_bgpd" != "no"])
+AM_CONDITIONAL([MGMTD], [test "$enable_mgmtd" != "no"])
 AM_CONDITIONAL([RIPD], [test "$enable_ripd" != "no"])
 AM_CONDITIONAL([OSPFD], [test "$enable_ospfd" != "no"])
 AM_CONDITIONAL([LDPD], [test "$enable_ldpd" != "no"])
@@ -2770,7 +2792,7 @@ AC_CONFIG_FILES([
 	  alpine/APKBUILD
 	  snapcraft/snapcraft.yaml
 	  lib/version.h
-	  tests/lib/cli/test_cli.refout
+	  tests/lib/cli/test_cli.refout pkgsrc/mgmtd.sh
 	  pkgsrc/bgpd.sh pkgsrc/ospf6d.sh pkgsrc/ospfd.sh
 	  pkgsrc/ripd.sh pkgsrc/ripngd.sh pkgsrc/zebra.sh
 	  pkgsrc/eigrpd.sh])
