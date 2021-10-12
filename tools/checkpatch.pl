@@ -1028,9 +1028,9 @@ sub top_of_kernel_tree {
 	my ($root) = @_;
 
 	my @tree_check = (
-		"COPYING", "CREDITS", "Kbuild", "MAINTAINERS", "Makefile",
-		"README", "Documentation", "arch", "include", "drivers",
-		"fs", "init", "ipc", "kernel", "lib", "scripts",
+		"COPYING", "configure.ac", "Makefile.am",
+		"README.md", "doc", "lib", "vtysh", "watchfrr", "tests",
+		"zebra", "bgpd", "ospfd", "ospf6d", "isisd", "staticd",
 	);
 
 	foreach my $check (@tree_check) {
@@ -2674,8 +2674,8 @@ sub process {
 		      (defined($1) || defined($2))))) {
 			$is_patch = 1;
 			$reported_maintainer_file = 1;
-			WARN("FILE_PATH_CHANGES",
-			     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
+			#WARN("FILE_PATH_CHANGES",
+			#     "added, moved or deleted file(s), does MAINTAINERS need updating?\n" . $herecurr);
 		}
 
 # Check for wrappage within a valid hunk of the file
