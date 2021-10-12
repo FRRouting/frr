@@ -508,6 +508,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 	struct nexthop *nh_node = NULL;
 	ifindex_t first_ifindex;
 	struct interface *ifp = NULL;
+	struct pim_interface *pim_ifp = NULL;
 	uint32_t hash_val = 0, mod_val = 0;
 	uint8_t nh_iter = 0, found = 0;
 	uint32_t i, num_nbrs = 0;
@@ -650,19 +651,32 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			continue;
 		}
 
-		if (neighbor_needed
-		    && !pim_if_connected_to_source(ifp, src->u.prefix4)) {
-			nbr = nbrs[nh_iter];
-			if (!nbr && !if_is_loopback(ifp)) {
-				if (PIM_DEBUG_PIM_NHT)
+		if (neighbor_needed) {
+			if (pnc->nexthop->type == NEXTHOP_TYPE_IFINDEX) {
+				pim_ifp = ifp->info;
+				if (pim_ifp->pim_neighbor_list->count == 0)
 					zlog_debug(
-						"%s: pim nbr not found on input interface %s(%s)",
+						"%s: pim neighbor not found on input interface %s(%s)",
 						__func__, ifp->name,
 						pim->vrf->name);
-				if (nh_iter == mod_val)
-					mod_val++; // Select nexthpath
-				nh_iter++;
-				continue;
+			} else {
+				if (!pim_if_connected_to_source(
+					    ifp, src->u.prefix4)) {
+					nbr = nbrs[nh_iter];
+					if (!nbr && !if_is_loopback(ifp)) {
+						if (PIM_DEBUG_PIM_NHT)
+							zlog_debug(
+								"%s: pim nbr not found on input interface %s(%s)",
+								__func__,
+								ifp->name,
+								pim->vrf->name);
+						if (nh_iter == mod_val)
+							// Select nexthpath
+							mod_val++;
+						nh_iter++;
+						continue;
+					}
+				}
 			}
 		}
 
@@ -769,7 +783,6 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 				 * RPF address from nexthop cache (i.e.
 				 * destination) as PIM nexthop.
 				 */
-				nexthop->type = NEXTHOP_TYPE_IPV4_IFINDEX;
 				nexthop->gate.ipv4 =
 					pnc->rpf.rpf_addr.u.prefix4;
 				break;
