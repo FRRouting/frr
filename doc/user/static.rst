@@ -33,25 +33,51 @@ Static Route Commands
 =====================
 
 Static routing is a very fundamental feature of routing technology. It defines
-a static prefix and gateway.
+a static prefix and gateway, with several possible forms.
 
-.. clicmd:: ip route NETWORK GATEWAY table TABLENO nexthop-vrf VRFNAME DISTANCE vrf VRFNAME
+.. clicmd:: ip route NETWORK GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
-.. clicmd:: ipv6 route NETWORK from SRCPREFIX GATEWAY table TABLENO nexthop-vrf VRFNAME DISTANCE vrf VRFNAME
+.. clicmd:: ip route NETWORK IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+
+.. clicmd:: ip route NETWORK GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+
+.. clicmd:: ip route NETWORK (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] IFNAME [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] GATEWAY IFNAME [DISTANCE] [onlink] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
+
+.. clicmd:: ipv6 route NETWORK [from SRCPREFIX] (Null0|blackhole|reject) [DISTANCE] [table TABLENO] [nexthop-vrf VRFNAME] [vrf VRFNAME]
 
    NETWORK is destination prefix with a valid v4 or v6 network based upon
-   initial form of the command.  GATEWAY is gateway for the prefix it currently
-   must match the v4 or v6 route type specified at the start of the command.
-   GATEWAY can also be treated as an interface name. If the interface name
-   is ``null0`` then zebra installs a blackhole route.  TABLENO
-   is an optional parameter for namespaces that allows you to create the
-   route in a specified table associated with the vrf namespace. table will
-   be rejected if you are not using namespace based vrfs.  ``nexthop-vrf``
-   allows you to create a leaked route with a nexthop in the specified VRFNAME
-   vrf VRFNAME allows you to create the route in a specified vrf.
-   ``nexthop-vrf`` cannot be currently used with namespace based vrfs
-   currently as well.
-   The v6 variant allows the installation of a static source-specific route
+   initial form of the command.
+   
+   GATEWAY is the IP address to use as next-hop for the prefix. Currently, it must match
+   the v4 or v6 route type specified at the start of the command.
+
+   IFNAME is the name of the interface to use as next-hop. If only IFNAME is specified
+   (without GATEWAY), a connected route will be created.
+
+   When both IFNAME and GATEWAY are specified together, it binds the route to the specified
+   interface. In this case, it is also possible to specify ``onlink`` to force the kernel
+   to consider the next-hop as "on link" on the given interface.
+
+   Alternatively, the gateway can be specified as ``Null0`` or ``blackhole`` to create a blackhole
+   route that drops all traffic. It can also be specified as ``reject`` to create an unreachable
+   route that rejects traffic with ICMP "Destination Unreachable" messages.
+
+   TABLENO is an optional parameter for namespaces that allows you to create the
+   route in a specified table associated with the vrf namespace. ``table`` will
+   be rejected if you are not using namespace based vrfs.
+   
+   ``vrf`` VRFNAME allows you to create the route in a specified vrf.
+
+   ``nexthop-vrf`` VRFNAME allows you to create a leaked route with a nexthop in the
+   specified VRFNAME. ``nexthop-vrf`` cannot be currently used with namespace based vrfs.
+   
+   The IPv6 variant allows the installation of a static source-specific route
    with the SRCPREFIX sub command.  These routes are currently supported
    on Linux operating systems only, and perform AND matching on packet's
    destination and source addresses in the kernel's forwarding path. Note
