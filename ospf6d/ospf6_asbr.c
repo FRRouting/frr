@@ -204,7 +204,6 @@ int ospf6_orig_as_external_lsa(struct thread *thread)
 	uint32_t type, adv_router;
 
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
-	oi->thread_as_extern_lsa = NULL;
 
 	if (oi->state == OSPF6_INTERFACE_DOWN)
 		return 0;
@@ -1090,8 +1089,6 @@ static int ospf6_asbr_routemap_update_timer(struct thread *thread)
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_redist *red;
 	int type;
-
-	ospf6->t_distribute_update = NULL;
 
 	for (type = 0; type < ZEBRA_ROUTE_MAX; type++) {
 		red = ospf6_redist_lookup(ospf6, type, 0);
@@ -3372,7 +3369,6 @@ static int ospf6_asbr_summary_process(struct thread *thread)
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	int operation = 0;
 
-	ospf6->t_external_aggr = NULL;
 	operation = ospf6->aggr_action;
 
 	if (IS_OSPF6_DEBUG_AGGR)
