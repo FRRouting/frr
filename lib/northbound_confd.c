@@ -1194,6 +1194,8 @@ static int frr_confd_dp_ctl_read(struct thread *thread)
 	thread_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
 
 	frr_confd_dp_read(dctx, fd);
+
+	return 0;
 }
 
 static int frr_confd_dp_worker_read(struct thread *thread)
@@ -1204,6 +1206,8 @@ static int frr_confd_dp_worker_read(struct thread *thread)
 	thread_add_read(master, frr_confd_dp_worker_read, dctx, fd, &t_dp_worker);
 
 	frr_confd_dp_read(dctx, fd);
+
+	return 0;
 }
 
 static int frr_confd_subscribe_state(const struct lysc_node *snode, void *arg)
