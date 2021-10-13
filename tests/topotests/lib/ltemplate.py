@@ -291,7 +291,7 @@ def ltemplateVersionCheck(
             # collect/log info on iproute2
             cc = ltemplateRtrCmd()
             found = cc.doCmd(
-                tgen, rname, "apt-cache policy iproute2", "Installed: ([\d\.]*)"
+                tgen, rname, "apt-cache policy iproute2", r"Installed: ([\d\.]*)"
             )
             if found != None:
                 iproute2Ver = found.group(1)
