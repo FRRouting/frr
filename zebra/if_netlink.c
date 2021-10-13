@@ -972,16 +972,8 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		link_nsid = ns_id_get_absolute(ns_id, link_nsid);
 	}
 
-	/* Add interface.
-	 * We add by index first because in some cases such as the master
-	 * interface, we have the index before we have the name. Fixing
-	 * back references on the slave interfaces is painful if not done
-	 * this way, i.e. by creating by ifindex.
-	 */
-	ifp = if_get_by_ifindex(ifi->ifi_index, vrf_id);
+	ifp = if_get_by_name(name, vrf_id, NULL);
 	set_ifindex(ifp, ifi->ifi_index, zns); /* add it to ns struct */
-
-	if_set_name(ifp, name);
 
 	ifp->flags = ifi->ifi_flags & 0x0000fffff;
 	ifp->mtu6 = ifp->mtu = *(uint32_t *)RTA_DATA(tb[IFLA_MTU]);
@@ -1814,7 +1806,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 			if (ifp == NULL) {
 				/* unknown interface */
-				ifp = if_get_by_name(name, vrf_id);
+				ifp = if_get_by_name(name, vrf_id, NULL);
 			} else {
 				/* pre-configured interface, learnt now */
 				if (ifp->vrf_id != vrf_id)
