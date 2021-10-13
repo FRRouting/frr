@@ -1277,8 +1277,8 @@ DEFPY_YANG (no_interface,
 		ifname, vrf_name);
 }
 
-static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
-			bool show_defaults)
+static void cli_show_interface(struct vty *vty, const struct lyd_node *dnode,
+			       bool show_defaults)
 {
 	const char *vrf;
 
@@ -1291,7 +1291,8 @@ static void cli_show_interface(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-static void cli_show_interface_end(struct vty *vty, struct lyd_node *dnode)
+static void cli_show_interface_end(struct vty *vty,
+				   const struct lyd_node *dnode)
 {
 	vty_out(vty, "exit\n");
 }
@@ -1327,8 +1328,9 @@ DEFPY_YANG  (no_interface_desc,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-static void cli_show_interface_desc(struct vty *vty, struct lyd_node *dnode,
-			     bool show_defaults)
+static void cli_show_interface_desc(struct vty *vty,
+				    const struct lyd_node *dnode,
+				    bool show_defaults)
 {
 	vty_out(vty, " description %s\n", yang_dnode_get_string(dnode, NULL));
 }

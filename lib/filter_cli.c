@@ -1015,7 +1015,8 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int access_list_cmp(const struct lyd_node *dnode1,
+		    const struct lyd_node *dnode2)
 {
 	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
 	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
@@ -1023,7 +1024,7 @@ int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void access_list_show(struct vty *vty, struct lyd_node *dnode,
+void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1137,7 +1138,7 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+void access_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1658,7 +1659,8 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int prefix_list_cmp(const struct lyd_node *dnode1,
+		    const struct lyd_node *dnode2)
 {
 	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
 	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
@@ -1666,7 +1668,7 @@ int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
+void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1725,7 +1727,7 @@ void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+void prefix_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");

@@ -550,14 +550,16 @@ void nb_cli_show_config_prepare(struct nb_config *config, bool with_defaults)
 				       LYD_VALIDATE_NO_STATE, NULL);
 }
 
-static int lyd_node_cmp(struct lyd_node **dnode1, struct lyd_node **dnode2)
+static int lyd_node_cmp(const struct lyd_node **dnode1,
+			const struct lyd_node **dnode2)
 {
 	struct nb_node *nb_node = (*dnode1)->schema->priv;
 
 	return nb_node->cbs.cli_cmp(*dnode1, *dnode2);
 }
 
-static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
+static void show_dnode_children_cmds(struct vty *vty,
+				     const struct lyd_node *root,
 				     bool with_defaults)
 {
 	struct nb_node *nb_node, *sort_node = NULL;
@@ -616,7 +618,7 @@ static void show_dnode_children_cmds(struct vty *vty, struct lyd_node *root,
 	}
 }
 
-void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *root,
+void nb_cli_show_dnode_cmds(struct vty *vty, const struct lyd_node *root,
 			    bool with_defaults)
 {
 	struct nb_node *nb_node;

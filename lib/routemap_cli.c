@@ -103,7 +103,8 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-int route_map_instance_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int route_map_instance_cmp(const struct lyd_node *dnode1,
+			   const struct lyd_node *dnode2)
 {
 	uint16_t seq1 = yang_dnode_get_uint16(dnode1, "./sequence");
 	uint16_t seq2 = yang_dnode_get_uint16(dnode2, "./sequence");
@@ -111,7 +112,7 @@ int route_map_instance_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
+void route_map_instance_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	const char *name = yang_dnode_get_string(dnode, "../name");
@@ -122,7 +123,7 @@ void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
 
 }
 
-void route_map_instance_show_end(struct vty *vty, struct lyd_node *dnode)
+void route_map_instance_show_end(struct vty *vty, const struct lyd_node *dnode)
 {
 	vty_out(vty, "exit\n");
 	vty_out(vty, "!\n");
@@ -546,11 +547,11 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
+void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *condition = yang_dnode_get_string(dnode, "./condition");
-	struct lyd_node *ln;
+	const struct lyd_node *ln;
 	const char *acl;
 
 	if (IS_MATCH_INTERFACE(condition)) {
@@ -1021,11 +1022,11 @@ DEFUN_YANG (no_set_srte_color,
 }
 
 
-void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
+void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	const char *action = yang_dnode_get_string(dnode, "./action");
-	struct lyd_node *ln;
+	const struct lyd_node *ln;
 	const char *acl;
 
 	if (IS_SET_IPv4_NH(action)) {
@@ -1363,7 +1364,7 @@ ALIAS_YANG(
 	"Continue on a different entry within the route-map\n"
 	"Route-map entry sequence number\n")
 
-void route_map_exit_policy_show(struct vty *vty, struct lyd_node *dnode,
+void route_map_exit_policy_show(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	int exit_policy = yang_dnode_get_enum(dnode, NULL);
@@ -1405,7 +1406,7 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void route_map_call_show(struct vty *vty, struct lyd_node *dnode,
+void route_map_call_show(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults)
 {
 	vty_out(vty, " call %s\n", yang_dnode_get_string(dnode, NULL));
@@ -1439,7 +1440,7 @@ DEFUN_YANG (no_rmap_description,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void route_map_description_show(struct vty *vty, struct lyd_node *dnode,
+void route_map_description_show(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " description %s\n", yang_dnode_get_string(dnode, NULL));
@@ -1468,7 +1469,7 @@ DEFPY_YANG(
 }
 
 void route_map_optimization_disabled_show(struct vty *vty,
-					  struct lyd_node *dnode,
+					  const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	const char *name = yang_dnode_get_string(dnode, "../name");
@@ -1515,7 +1516,7 @@ DEFPY_HIDDEN(
 
 static int route_map_config_write(struct vty *vty)
 {
-	struct lyd_node *dnode;
+	const struct lyd_node *dnode;
 	int written = 0;
 
 	dnode = yang_dnode_get(running_config->dnode,

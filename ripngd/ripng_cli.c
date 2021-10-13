@@ -83,8 +83,8 @@ DEFPY_YANG (no_router_ripng,
 	return nb_cli_apply_changes_clear_pending(vty, NULL);
 }
 
-void cli_show_router_ripng(struct vty *vty, struct lyd_node *dnode,
-			 bool show_defaults)
+void cli_show_router_ripng(struct vty *vty, const struct lyd_node *dnode,
+			   bool show_defaults)
 {
 	const char *vrf_name;
 
@@ -112,7 +112,7 @@ DEFPY_YANG (ripng_allow_ecmp,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -138,7 +138,7 @@ DEFPY_YANG (ripng_default_information_originate,
 }
 
 void cli_show_ripng_default_information_originate(struct vty *vty,
-						  struct lyd_node *dnode,
+						  const struct lyd_node *dnode,
 						  bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -174,7 +174,8 @@ DEFPY_YANG (no_ripng_default_metric,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_default_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_default_metric(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	vty_out(vty, " default-metric %s\n",
@@ -197,7 +198,8 @@ DEFPY_YANG (ripng_network_prefix,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_network_prefix(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_network_prefix(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
@@ -219,7 +221,8 @@ DEFPY_YANG (ripng_network_if,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_network_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_network_interface(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	vty_out(vty, " network %s\n", yang_dnode_get_string(dnode, NULL));
@@ -252,7 +255,7 @@ DEFPY_YANG (ripng_offset_list,
 		ifname ? ifname : "*", direction);
 }
 
-void cli_show_ripng_offset_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_offset_list(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	const char *interface;
@@ -284,7 +287,8 @@ DEFPY_YANG (ripng_passive_interface,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_passive_interface(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	vty_out(vty, " passive-interface %s\n",
@@ -320,7 +324,7 @@ DEFPY_YANG (ripng_redistribute,
 				    protocol);
 }
 
-void cli_show_ripng_redistribute(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_redistribute(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, " redistribute %s",
@@ -350,7 +354,7 @@ DEFPY_YANG (ripng_route,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_route(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_route(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, " route %s\n", yang_dnode_get_string(dnode, NULL));
@@ -373,7 +377,8 @@ DEFPY_YANG (ripng_aggregate_address,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ripng_aggregate_address(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_aggregate_address(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	vty_out(vty, " aggregate-address %s\n",
@@ -419,7 +424,7 @@ DEFPY_YANG (no_ripng_timers,
 	return nb_cli_apply_changes(vty, "./timers");
 }
 
-void cli_show_ripng_timers(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ripng_timers(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, " timers basic %s %s %s\n",
@@ -454,7 +459,8 @@ DEFPY_YANG (ipv6_ripng_split_horizon,
 	return nb_cli_apply_changes(vty, "./frr-ripngd:ripng");
 }
 
-void cli_show_ipv6_ripng_split_horizon(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ipv6_ripng_split_horizon(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults)
 {
 	int value;
