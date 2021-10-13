@@ -77,6 +77,10 @@
 
 extern struct zebra_privs_t zserv_privs;
 
+#ifndef ARPHRD_IP6GRE
+#define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
+#endif
+
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
 static void set_ifindex(struct interface *ifp, ifindex_t ifi_index,
