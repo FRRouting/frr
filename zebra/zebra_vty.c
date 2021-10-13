@@ -1332,12 +1332,6 @@ DEFPY (show_ip_nht,
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct prefix prefix, *p = NULL;
-	enum rnh_type rtype;
-
-	if (strcmp(type, "nht") == 0)
-		rtype = RNH_NEXTHOP_TYPE;
-	else
-		rtype = RNH_IMPORT_CHECK_TYPE;
 
 	if (vrf_all) {
 		struct vrf *vrf;
@@ -1347,7 +1341,7 @@ DEFPY (show_ip_nht,
 			if ((zvrf = vrf->info) != NULL) {
 				vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
 				zebra_print_rnh_table(zvrf_id(zvrf), afi, vty,
-						      rtype, NULL);
+						      NULL);
 			}
 		return CMD_SUCCESS;
 	}
@@ -1361,7 +1355,7 @@ DEFPY (show_ip_nht,
 			return CMD_WARNING;
 	}
 
-	zebra_print_rnh_table(vrf_id, afi, vty, rtype, p);
+	zebra_print_rnh_table(vrf_id, afi, vty, p);
 	return CMD_SUCCESS;
 }
 
@@ -1380,9 +1374,9 @@ DEFUN (ip_nht_default_route,
 	if (zvrf->zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ip_default_route = 1;
+	zvrf->zebra_rnh_ip_default_route = true;
 
-	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, NULL, SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
 
@@ -1719,8 +1713,8 @@ DEFUN (no_ip_nht_default_route,
 	if (!zvrf->zebra_rnh_ip_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ip_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AFI_IP, 0, RNH_NEXTHOP_TYPE, NULL);
+	zvrf->zebra_rnh_ip_default_route = false;
+	zebra_evaluate_rnh(zvrf, AFI_IP, 0, NULL, SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
 
@@ -1739,8 +1733,8 @@ DEFUN (ipv6_nht_default_route,
 	if (zvrf->zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ipv6_default_route = 1;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
+	zvrf->zebra_rnh_ipv6_default_route = true;
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
 
@@ -1760,8 +1754,8 @@ DEFUN (no_ipv6_nht_default_route,
 	if (!zvrf->zebra_rnh_ipv6_default_route)
 		return CMD_SUCCESS;
 
-	zvrf->zebra_rnh_ipv6_default_route = 0;
-	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, RNH_NEXTHOP_TYPE, NULL);
+	zvrf->zebra_rnh_ipv6_default_route = false;
+	zebra_evaluate_rnh(zvrf, AFI_IP6, 0, NULL, SAFI_UNICAST);
 	return CMD_SUCCESS;
 }
 

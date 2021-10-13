@@ -765,15 +765,17 @@ static int zclient_connect(struct thread *t)
 
 enum zclient_send_status zclient_send_rnh(struct zclient *zclient, int command,
 					  const struct prefix *p,
-					  bool exact_match, vrf_id_t vrf_id)
+					  bool connected,
+					  bool resolve_via_def, vrf_id_t vrf_id)
 {
 	struct stream *s;
 
 	s = zclient->obuf;
 	stream_reset(s);
 	zclient_create_header(s, command, vrf_id);
-	stream_putc(s, (exact_match) ? 1 : 0);
-
+	stream_putc(s, (connected) ? 1 : 0);
+	stream_putc(s, (resolve_via_def) ? 1 : 0);
+	stream_putw(s, SAFI_UNICAST);
 	stream_putw(s, PREFIX_FAMILY(p));
 	stream_putc(s, p->prefixlen);
 	switch (PREFIX_FAMILY(p)) {
@@ -1925,6 +1927,7 @@ bool zapi_nexthop_update_decode(struct stream *s, struct zapi_route *nhr)
 	memset(nhr, 0, sizeof(*nhr));
 
 	STREAM_GETL(s, nhr->message);
+	STREAM_GETW(s, nhr->safi);
 	STREAM_GETW(s, nhr->prefix.family);
 	STREAM_GETC(s, nhr->prefix.prefixlen);
 	switch (nhr->prefix.family) {
@@ -4015,13 +4018,6 @@ static int zclient_read(struct thread *thread)
 		if (zclient->nexthop_update)
 			(*zclient->nexthop_update)(command, zclient, length,
 						   vrf_id);
-		break;
-	case ZEBRA_IMPORT_CHECK_UPDATE:
-		if (zclient_debug)
-			zlog_debug("zclient rcvd import check update");
-		if (zclient->import_check_update)
-			(*zclient->import_check_update)(command, zclient,
-							length, vrf_id);
 		break;
 	case ZEBRA_BFD_DEST_REPLAY:
 		if (zclient->bfd_dest_replay)

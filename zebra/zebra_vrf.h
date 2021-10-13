@@ -78,9 +78,7 @@ struct zebra_vrf {
 
 	/* Recursive Nexthop table */
 	struct route_table *rnh_table[AFI_MAX];
-
-	/* Import check table (used mostly by BGP */
-	struct route_table *import_check_table[AFI_MAX];
+	struct route_table *rnh_table_multicast[AFI_MAX];
 
 	struct otable_head other_tables;
 
@@ -183,8 +181,8 @@ struct zebra_vrf {
 	struct rtadv rtadv;
 #endif /* HAVE_RTADV */
 
-	int zebra_rnh_ip_default_route;
-	int zebra_rnh_ipv6_default_route;
+	bool zebra_rnh_ip_default_route;
+	bool zebra_rnh_ipv6_default_route;
 };
 #define PROTO_RM_NAME(zvrf, afi, rtype) zvrf->proto_rm[afi][rtype].name
 #define NHT_RM_NAME(zvrf, afi, rtype) zvrf->nht_rm[afi][rtype].name

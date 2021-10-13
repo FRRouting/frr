@@ -126,9 +126,6 @@ typedef enum {
 	ZEBRA_INTERFACE_NBR_ADDRESS_ADD,
 	ZEBRA_INTERFACE_NBR_ADDRESS_DELETE,
 	ZEBRA_INTERFACE_BFD_DEST_UPDATE,
-	ZEBRA_IMPORT_ROUTE_REGISTER,
-	ZEBRA_IMPORT_ROUTE_UNREGISTER,
-	ZEBRA_IMPORT_CHECK_UPDATE,
 	ZEBRA_BFD_DEST_REGISTER,
 	ZEBRA_BFD_DEST_DEREGISTER,
 	ZEBRA_BFD_DEST_UPDATE,
@@ -362,7 +359,6 @@ struct zclient {
 	int (*interface_nbr_address_delete)(ZAPI_CALLBACK_ARGS);
 	int (*interface_vrf_update)(ZAPI_CALLBACK_ARGS);
 	int (*nexthop_update)(ZAPI_CALLBACK_ARGS);
-	int (*import_check_update)(ZAPI_CALLBACK_ARGS);
 	int (*bfd_dest_replay)(ZAPI_CALLBACK_ARGS);
 	int (*redistribute_route_add)(ZAPI_CALLBACK_ARGS);
 	int (*redistribute_route_del)(ZAPI_CALLBACK_ARGS);
@@ -1107,7 +1103,7 @@ extern enum zclient_send_status zclient_route_send(uint8_t, struct zclient *,
 						   struct zapi_route *);
 extern enum zclient_send_status
 zclient_send_rnh(struct zclient *zclient, int command, const struct prefix *p,
-		 bool exact_match, vrf_id_t vrf_id);
+		 bool connected, bool resolve_via_default, vrf_id_t vrf_id);
 int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 			uint32_t api_flags, uint32_t api_message);
 extern int zapi_route_encode(uint8_t, struct stream *, struct zapi_route *);

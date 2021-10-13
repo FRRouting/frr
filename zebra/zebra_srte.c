@@ -116,6 +116,7 @@ static int zebra_sr_policy_notify_update_client(struct zebra_sr_policy *policy,
 	SET_FLAG(message, ZAPI_MESSAGE_SRTE);
 	stream_putl(s, message);
 
+	stream_putw(s, SAFI_UNICAST);
 	switch (policy->endpoint.ipa_type) {
 	case IPADDR_V4:
 		stream_putw(s, AF_INET);
@@ -196,7 +197,7 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 		exit(1);
 	}
 
-	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), RNH_NEXTHOP_TYPE);
+	rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), SAFI_UNICAST);
 	if (!rnh)
 		return;
 
@@ -205,8 +206,8 @@ static void zebra_sr_policy_notify_update(struct zebra_sr_policy *policy)
 			zebra_sr_policy_notify_update_client(policy, client);
 		else
 			/* Fallback to the IGP shortest path. */
-			zebra_send_rnh_update(rnh, client, RNH_NEXTHOP_TYPE,
-					      zvrf_id(zvrf), policy->color);
+			zebra_send_rnh_update(rnh, client, zvrf_id(zvrf),
+					      policy->color);
 	}
 }
 

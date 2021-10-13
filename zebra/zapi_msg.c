@@ -1164,13 +1164,6 @@ int zsend_zebra_srv6_locator_delete(struct zserv *client,
 
 /* Inbound message handling ------------------------------------------------ */
 
-const int cmd2type[] = {
-	[ZEBRA_NEXTHOP_REGISTER] = RNH_NEXTHOP_TYPE,
-	[ZEBRA_NEXTHOP_UNREGISTER] = RNH_NEXTHOP_TYPE,
-	[ZEBRA_IMPORT_ROUTE_REGISTER] = RNH_IMPORT_CHECK_TYPE,
-	[ZEBRA_IMPORT_ROUTE_UNREGISTER] = RNH_IMPORT_CHECK_TYPE,
-};
-
 /* Nexthop register */
 static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 {
@@ -1178,17 +1171,17 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct prefix p;
 	unsigned short l = 0;
-	uint8_t flags = 0;
-	uint16_t type = cmd2type[hdr->command];
+	uint8_t connected = 0;
+	uint8_t resolve_via_default;
 	bool exist;
 	bool flag_changed = false;
 	uint8_t orig_flags;
+	safi_t safi;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
-			"rnh_register msg from client %s: hdr->length=%d, type=%s vrf=%u",
+			"rnh_register msg from client %s: hdr->length=%d vrf=%u",
 			zebra_route_string(client->proto), hdr->length,
-			(type == RNH_NEXTHOP_TYPE) ? "nexthop" : "route",
 			zvrf->vrf->vrf_id);
 
 	s = msg;
@@ -1197,10 +1190,12 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 		client->nh_reg_time = monotime(NULL);
 
 	while (l < hdr->length) {
-		STREAM_GETC(s, flags);
+		STREAM_GETC(s, connected);
+		STREAM_GETC(s, resolve_via_default);
+		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
 		STREAM_GETC(s, p.prefixlen);
-		l += 4;
+		l += 7;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_add_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
@@ -1228,37 +1223,29 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), type, &exist);
+		rnh = zebra_add_rnh(&p, zvrf_id(zvrf), &exist);
 		if (!rnh)
 			return;
 
 		orig_flags = rnh->flags;
-		if (type == RNH_NEXTHOP_TYPE) {
-			if (flags
-			    && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
-				SET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
-			else if (!flags
-				 && CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
-				UNSET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
-		} else if (type == RNH_IMPORT_CHECK_TYPE) {
-			if (flags
-			    && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH))
-				SET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
-			else if (!flags
-				 && CHECK_FLAG(rnh->flags,
-					       ZEBRA_NHT_EXACT_MATCH))
-				UNSET_FLAG(rnh->flags, ZEBRA_NHT_EXACT_MATCH);
-		}
+		if (connected && !CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+			SET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
+		else if (!connected
+			 && CHECK_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED))
+			UNSET_FLAG(rnh->flags, ZEBRA_NHT_CONNECTED);
+
+		if (resolve_via_default)
+			SET_FLAG(rnh->flags, ZEBRA_NHT_RESOLVE_VIA_DEFAULT);
 
 		if (orig_flags != rnh->flags)
 			flag_changed = true;
 
 		/* Anything not AF_INET/INET6 has been filtered out above */
 		if (!exist || flag_changed)
-			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, type,
-					   &p);
+			zebra_evaluate_rnh(zvrf, family2afi(p.family), 1, &p,
+					   safi);
 
-		zebra_add_rnh_client(rnh, client, type, zvrf_id(zvrf));
+		zebra_add_rnh_client(rnh, client, zvrf_id(zvrf));
 	}
 
 stream_failure:
@@ -1272,7 +1259,7 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	struct stream *s;
 	struct prefix p;
 	unsigned short l = 0;
-	uint16_t type = cmd2type[hdr->command];
+	safi_t safi;
 
 	if (IS_ZEBRA_DEBUG_NHT)
 		zlog_debug(
@@ -1283,15 +1270,19 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 	s = msg;
 
 	while (l < hdr->length) {
-		uint8_t flags;
+		uint8_t ignore;
 
-		STREAM_GETC(s, flags);
-		if (flags != 0)
+		STREAM_GETC(s, ignore);
+		if (ignore != 0)
+			goto stream_failure;
+		STREAM_GETC(s, ignore);
+		if (ignore != 0)
 			goto stream_failure;
 
+		STREAM_GETW(s, safi);
 		STREAM_GETW(s, p.family);
 		STREAM_GETC(s, p.prefixlen);
-		l += 4;
+		l += 7;
 		if (p.family == AF_INET) {
 			client->v4_nh_watch_rem_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
@@ -1319,10 +1310,10 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 				p.family);
 			return;
 		}
-		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), type);
+		rnh = zebra_lookup_rnh(&p, zvrf_id(zvrf), safi);
 		if (rnh) {
 			client->nh_dereg_time = monotime(NULL);
-			zebra_remove_rnh_client(rnh, client, type);
+			zebra_remove_rnh_client(rnh, client);
 		}
 	}
 stream_failure:
@@ -3683,8 +3674,6 @@ void (*const zserv_handlers[])(ZAPI_HANDLER_ARGS) = {
 	[ZEBRA_HELLO] = zread_hello,
 	[ZEBRA_NEXTHOP_REGISTER] = zread_rnh_register,
 	[ZEBRA_NEXTHOP_UNREGISTER] = zread_rnh_unregister,
-	[ZEBRA_IMPORT_ROUTE_REGISTER] = zread_rnh_register,
-	[ZEBRA_IMPORT_ROUTE_UNREGISTER] = zread_rnh_unregister,
 	[ZEBRA_BFD_DEST_UPDATE] = zebra_ptm_bfd_dst_register,
 	[ZEBRA_BFD_DEST_REGISTER] = zebra_ptm_bfd_dst_register,
 	[ZEBRA_BFD_DEST_DEREGISTER] = zebra_ptm_bfd_dst_deregister,

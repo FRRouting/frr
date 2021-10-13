@@ -145,16 +145,17 @@ void ospf6_zebra_import_default_route(struct ospf6 *ospf6, bool unreg)
 	prefix.prefixlen = 0;
 
 	if (unreg)
-		command = ZEBRA_IMPORT_ROUTE_UNREGISTER;
+		command = ZEBRA_NEXTHOP_UNREGISTER;
 	else
-		command = ZEBRA_IMPORT_ROUTE_REGISTER;
+		command = ZEBRA_NEXTHOP_REGISTER;
 
 	if (IS_OSPF6_DEBUG_ZEBRA(SEND))
 		zlog_debug("%s: sending cmd %s for %pFX (vrf %u)", __func__,
 			   zserv_command_string(command), &prefix,
 			   ospf6->vrf_id);
 
-	if (zclient_send_rnh(zclient, command, &prefix, true, ospf6->vrf_id)
+	if (zclient_send_rnh(zclient, command, &prefix, false, true,
+			     ospf6->vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_send_rnh() failed",
 			 __func__);
@@ -720,7 +721,7 @@ void ospf6_zebra_init(struct thread_master *master)
 		ospf6_zebra_if_address_update_delete;
 	zclient->redistribute_route_add = ospf6_zebra_read_route;
 	zclient->redistribute_route_del = ospf6_zebra_read_route;
-	zclient->import_check_update = ospf6_zebra_import_check_update;
+	zclient->nexthop_update = ospf6_zebra_import_check_update;
 
 	/* Install command element for zebra node. */
 	install_element(VIEW_NODE, &show_ospf6_zebra_cmd);
