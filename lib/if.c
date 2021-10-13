@@ -1108,6 +1108,8 @@ const char *if_link_type_str(enum zebra_link_type llt)
 		llts(ZEBRA_LLT_CSLIP, "Compressed SLIP");
 		llts(ZEBRA_LLT_SLIP6, "SLIPv6");
 		llts(ZEBRA_LLT_CSLIP6, "Compressed SLIPv6");
+		llts(ZEBRA_LLT_RSRVD, "Reserved");
+		llts(ZEBRA_LLT_ADAPT, "Adapt");
 		llts(ZEBRA_LLT_ROSE, "ROSE packet radio");
 		llts(ZEBRA_LLT_X25, "CCITT X.25");
 		llts(ZEBRA_LLT_PPP, "PPP");
@@ -1124,8 +1126,10 @@ const char *if_link_type_str(enum zebra_link_type llt)
 		llts(ZEBRA_LLT_SIT, "IPv6-in-IPv4 SIT");
 		llts(ZEBRA_LLT_IPDDP, "IP-in-DDP tunnel");
 		llts(ZEBRA_LLT_IPGRE, "GRE over IP");
+		llts(ZEBRA_LLT_IP6GRE, "GRE over IPv6");
 		llts(ZEBRA_LLT_PIMREG, "PIMSM registration");
 		llts(ZEBRA_LLT_HIPPI, "HiPPI");
+		llts(ZEBRA_LLT_ECONET, "Acorn Econet");
 		llts(ZEBRA_LLT_IRDA, "IrDA");
 		llts(ZEBRA_LLT_FCPP, "Fibre-Channel PtP");
 		llts(ZEBRA_LLT_FCAL, "Fibre-Channel Arbitrated Loop");
@@ -1136,9 +1140,6 @@ const char *if_link_type_str(enum zebra_link_type llt)
 		llts(ZEBRA_LLT_IEEE80211_RADIOTAP, "IEEE 802.11 Radiotap");
 		llts(ZEBRA_LLT_IEEE802154, "IEEE 802.15.4");
 		llts(ZEBRA_LLT_IEEE802154_PHY, "IEEE 802.15.4 Phy");
-	default:
-		flog_err(EC_LIB_DEVELOPMENT, "Unknown value %d", llt);
-		return "Unknown type!";
 #undef llts
 	}
 	return NULL;
