@@ -21,7 +21,7 @@ for rtr in rtrs:
     ret = luCommand(
         rtr,
         'vtysh -c "show memory"',
-        "zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
+        r"zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
         "none",
         "collect bgpd memory stats",
     )
@@ -188,7 +188,7 @@ else:
         ret = luCommand(
             rtr,
             'vtysh -c "show memory"',
-            "zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
+            r"zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
             "none",
             "collect bgpd memory stats",
         )
