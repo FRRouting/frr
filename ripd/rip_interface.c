@@ -1103,33 +1103,6 @@ void rip_passive_nondefault_clean(struct rip *rip)
 	rip_passive_interface_apply_all(rip);
 }
 
-/* Write rip configuration of each interface. */
-static int rip_interface_config_write(struct vty *vty)
-{
-	struct vrf *vrf;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write = 1;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-
-	return write;
-}
-
 int rip_show_network_config(struct vty *vty, struct rip *rip)
 {
 	unsigned int i;
@@ -1194,7 +1167,7 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
-	if_cmd_init(rip_interface_config_write);
+	if_cmd_init_default();
 	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
 			  rip_ifp_down, rip_ifp_destroy);
 }

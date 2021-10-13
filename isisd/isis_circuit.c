@@ -1295,30 +1295,6 @@ static int isis_interface_config_write(struct vty *vty)
 
 	return write;
 }
-#else
-static int isis_interface_config_write(struct vty *vty)
-{
-	struct vrf *vrf = NULL;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write++;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-	return write;
-}
 #endif /* ifdef FABRICD */
 
 void isis_circuit_af_set(struct isis_circuit *circuit, bool ip_router,
@@ -1529,7 +1505,11 @@ void isis_circuit_init(void)
 	hook_register_prio(if_del, 0, isis_if_delete_hook);
 
 	/* Install interface node */
+#ifdef FABRICD
 	if_cmd_init(isis_interface_config_write);
+#else
+	if_cmd_init_default();
+#endif
 	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
 			  isis_ifp_down, isis_ifp_destroy);
 }

@@ -594,6 +594,7 @@ void if_link_params_free(struct interface *);
 /* Northbound. */
 struct vty;
 extern void if_cmd_init(int (*config_write)(struct vty *));
+extern void if_cmd_init_default(void);
 extern void if_zapi_callbacks(int (*create)(struct interface *ifp),
 			      int (*up)(struct interface *ifp),
 			      int (*down)(struct interface *ifp),

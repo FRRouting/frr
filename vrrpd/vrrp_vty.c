@@ -715,35 +715,6 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 /* clang-format on */
 
-/*
- * Write per interface VRRP config.
- */
-static int vrrp_config_write_interface(struct vty *vty)
-{
-	struct vrf *vrf;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			const struct lyd_node *dnode;
-
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write = 1;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-
-	return write;
-}
-
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -763,7 +734,7 @@ void vrrp_vty_init(void)
 	install_node(&debug_node);
 	install_node(&vrrp_node);
 	vrf_cmd_init(NULL);
-	if_cmd_init(vrrp_config_write_interface);
+	if_cmd_init_default();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);
