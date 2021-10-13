@@ -825,13 +825,38 @@ static int zebra_nhrp_6wind_connection(bool on, uint16_t port)
 	return 0;
 }
 
+/* returns fast path vrid where zebra process is hosted
+ */
+static int zebra_nhrp_get_vrid(struct vrf *vrf)
+{
+	/* vrid from fast-path is derived from the namespace where interface sits */
+	int vrfid = -1;
+	char buf[BUFSIZ], buf_vrf[BUFSIZ];
+
+	if (!vrf)
+		return -1;
+	if (vrf->vrf_id == VRF_DEFAULT)
+		return 0;
+	snprintf(buf, sizeof(buf), "/usr/bin/vrfctl list vrfname %s",
+		 vrf->name);
+	memset(buf_vrf, 0, sizeof(buf_vrf));
+	zebra_nhrp_call_only(buf, vrf->vrf_id, buf_vrf, sizeof(buf_vrf));
+	if (memcmp(buf_vrf, "vrf", 3) == 0)
+		vrfid = atoi(&buf_vrf[3]);
+	else {
+		zlog_err("%s(): could not retrieve id from vrf %s (%s)",
+			 __func__, vrf->name, buf_vrf);
+		return -1;
+	}
+	return vrfid;
+}
+
 static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 				bool on, struct interface *ifp,
 				int nflog_group, uint32_t *vrid)
 {
 	char buf[500], buf2[100], buf3[110], buf4_ipv4[100], buf4_ipv6[100], buf5_vrf[55];
 	struct vrf *vrf = NULL;
-	char buf_vrf[1000];
 	char retstr[100];
 	int ret;
 
@@ -868,23 +893,14 @@ static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 			 nflog_group,
 			 buf2, buf3, is_ipv4 ? buf4_ipv4 : buf4_ipv6);
 	} else {
-		uint32_t vrid_fastpath = 0;
+		int vrid_fastpath = 0;
 
-		if (vrf->vrf_id != VRF_DEFAULT) {
-			snprintf(buf, sizeof(buf), "/usr/bin/vrfctl list vrfname %s",
-				 vrf->name);
-			memset(buf_vrf, 0, sizeof(buf_vrf));
-			zebra_nhrp_call_only(buf, ifp->vrf_id, buf_vrf, sizeof(buf_vrf));
-			if (memcmp(buf_vrf, "vrf", 3) == 0)
-				vrid_fastpath = atoi(&buf_vrf[3]);
-			else {
-				zlog_err("%s(): could not retrieve id from vrf %s (%s)",
-					 __func__, vrf->name, buf_vrf);
-				return -1;
-			}
-			if (vrid)
-				*vrid = vrid_fastpath;
-		}
+		if (vrf->vrf_id != VRF_DEFAULT)
+			vrid_fastpath = zebra_nhrp_get_vrid(vrf);
+		if (vrid_fastpath < 0)
+			return -1;
+		if (vrid)
+			*vrid = (uint32_t)vrid_fastpath;
 		snprintf(buf, sizeof(buf), "/usr/bin/fp-cli nhrp-iface-set %s %s %s %u 2>&1",
 			 ifp->name,
 			 is_ipv4 ? "ipv4" : "ipv6",
