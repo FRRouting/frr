@@ -2,7 +2,7 @@
   "neighbors":{
     "6.6.6.6":[
       {
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"10.0.6.6",
         "ifaceName":"eth-rt6:10.0.6.7"
       }
