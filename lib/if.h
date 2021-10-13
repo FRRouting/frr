@@ -251,8 +251,8 @@ struct interface {
 	/* Interface MTU. */
 	unsigned int mtu; /* IPv4 MTU */
 	unsigned int
-		mtu6; /* IPv6 MTU - probably, but not neccessarily same as mtu
-			 */
+		mtu6; /* IPv6 MTU - probably, but not necessarily same as mtu
+		       */
 
 	/* Link-layer information and hardware address */
 	enum zebra_link_type ll_type;

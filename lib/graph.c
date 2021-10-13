@@ -69,7 +69,7 @@ static void graph_vector_remove(vector v, unsigned int ix)
 	 * and v->active is > ix. */
 	v->active--;
 	/* if ix == v->active--, we set the item to itself, then to NULL...
-	 * still correct, no check neccessary. */
+	 * still correct, no check necessary. */
 	v->index[ix] = v->index[v->active];
 	v->index[v->active] = NULL;
 }

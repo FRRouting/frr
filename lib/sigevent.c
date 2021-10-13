@@ -96,7 +96,7 @@ int quagga_sigevent_process(void)
 	struct quagga_signal_t *sig;
 	int i;
 #ifdef SIGEVENT_BLOCK_SIGNALS
-	/* shouldnt need to block signals, but potentially may be needed */
+	/* shouldn't need to block signals, but potentially may be needed */
 	sigset_t newmask, oldmask;
 
 	/*
@@ -142,7 +142,7 @@ int quagga_sigevent_process(void)
 }
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
-/* timer thread to check signals. Shouldnt be needed */
+/* timer thread to check signals. shouldn't be needed */
 int quagga_signal_timer(struct thread *t)
 {
 	struct quagga_sigevent_master_t *sigm;

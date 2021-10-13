@@ -338,7 +338,7 @@ selector: '{' selector_seq_seq '}' varname_token
    * 1) this allows "at least 1 of" semantics, which are otherwise impossible
    * 2) this would add a start->end->start loop in the graph that the current
    *    loop-avoidal fails to handle
-   * just use [{a|b}] if neccessary, that will work perfectly fine, and reason
+   * just use [{a|b}] if necessary, that will work perfectly fine, and reason
    * #1 is good enough to keep it this way. */
 
   loopcheck(ctx, &$$);

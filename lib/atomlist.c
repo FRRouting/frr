@@ -121,7 +121,7 @@ static void atomlist_del_core(struct atomlist_head *h,
 					memory_order_consume);
 
 			/* track the beginning of a chain of deleted items
-			 * this is neccessary to make this lock-free; we can
+			 * this is necessary to make this lock-free; we can
 			 * complete deletions started by other threads.
 			 */
 			if (!atomptr_l(prevval)) {

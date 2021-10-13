@@ -2480,7 +2480,7 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 			do whatever the exit policy (EXIT, NEXT or GOTO) tells.
      on-match next    - If this clause is matched, then the set statements
 			are executed and then we drop through to the next clause
-     on-match goto n  - If this clause is matched, then the set statments
+     on-match goto n  - If this clause is matched, then the set statements
 			are executed and then we goto the nth clause, or the
 			first clause greater than this. In order to ensure
 			route-maps *always* exit, you cannot jump backwards.

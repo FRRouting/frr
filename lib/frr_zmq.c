@@ -19,7 +19,7 @@
 
 /*
  * IF YOU MODIFY THIS FILE PLEASE RUN `make check` and ensure that
- * the test_zmq.c unit test is still working.  There are dependancies
+ * the test_zmq.c unit test is still working.  There are dependencies
  * between the two that are extremely fragile.  My understanding
  * is that there is specialized ownership of the cb pointer based
  * upon what is happening.  Those assumptions are supposed to be
