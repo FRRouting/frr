@@ -2697,24 +2697,24 @@ static struct thread_master *vty_master;
 
 static void vty_event_serv(enum event event, int sock)
 {
-	struct thread *vty_serv_thread = NULL;
+	int (*func)(struct thread *);
 
 	switch (event) {
 	case VTY_SERV:
-		vty_serv_thread = thread_add_read(vty_master, vty_accept,
-						  NULL, sock, NULL);
-		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
+		func = vty_accept;
 		break;
 #ifdef VTYSH
 	case VTYSH_SERV:
-		vty_serv_thread = thread_add_read(vty_master, vtysh_accept,
-						  NULL, sock, NULL);
-		vector_set_index(Vvty_serv_thread, sock, vty_serv_thread);
+		func = vtysh_accept;
 		break;
 #endif /* VTYSH */
 	default:
 		assert(!"vty_event_serv() called incorrectly");
 	}
+
+	thread_add_read(
+		vty_master, func, NULL, sock,
+		(struct thread **)vector_get_index(Vvty_serv_thread, sock));
 }
 
 static void vty_event(enum event event, struct vty *vty)
