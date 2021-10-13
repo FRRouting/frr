@@ -5,7 +5,7 @@
       "192.168.0.12":[
         {
           "priority":10,
-          "state":"Full\/Backup",
+          "converged":"Full",
           "address":"192.168.101.12",
           "ifaceName":"r1-eth3:192.168.101.1"
         }

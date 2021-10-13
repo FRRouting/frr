@@ -2,14 +2,14 @@
   "neighbors":{
     "1.1.1.1":[
       {
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"10.0.1.1",
         "ifaceName":"eth-rt1:10.0.1.2"
       }
     ],
     "3.3.3.3":[
       {
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"10.0.2.3",
         "ifaceName":"eth-rt3:10.0.2.2"
       }

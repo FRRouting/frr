@@ -5,7 +5,7 @@
         "dbSummaryCounter": 0,
         "retransmitCounter": 0,
         "priority": 2,
-        "state": "Full\/DR",
+        "converged": "Full",
         "address": "10.0.1.2",
         "ifaceName": "r1-eth1:10.0.1.1",
         "requestCounter": 0
@@ -16,7 +16,7 @@
         "dbSummaryCounter": 0,
         "retransmitCounter": 0,
         "priority": 2,
-        "state": "Full\/DR",
+        "converged": "Full",
         "address": "10.0.2.3",
         "ifaceName": "r1-eth2:10.0.2.1",
         "requestCounter": 0

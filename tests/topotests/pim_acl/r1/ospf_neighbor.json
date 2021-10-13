@@ -3,7 +3,7 @@
     "192.168.0.11":[
       {
         "priority":10,
-        "state":"Full\/Backup",
+        "converged":"Full",
         "address":"192.168.101.11",
         "ifaceName":"r1-eth1:192.168.101.1",
         "retransmitCounter":0,
@@ -14,7 +14,7 @@
     "192.168.0.12":[
       {
         "priority":0,
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"192.168.101.12",
         "ifaceName":"r1-eth1:192.168.101.1",
         "retransmitCounter":0,
@@ -25,7 +25,7 @@
     "192.168.0.13":[
       {
         "priority":0,
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"192.168.101.13",
         "ifaceName":"r1-eth1:192.168.101.1",
         "retransmitCounter":0,
@@ -36,7 +36,7 @@
     "192.168.0.14":[
       {
         "priority":0,
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"192.168.101.14",
         "ifaceName":"r1-eth1:192.168.101.1",
         "retransmitCounter":0,
@@ -47,7 +47,7 @@
     "192.168.0.15":[
       {
         "priority":0,
-        "state":"Full\/DROther",
+        "converged":"Full",
         "address":"192.168.101.15",
         "ifaceName":"r1-eth1:192.168.101.1",
         "retransmitCounter":0,
