@@ -176,12 +176,12 @@ def test_static_timing():
 
         # Another set of same number of prefixes
         do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][1]
+            prefix_count, prefix_count, bad_indices, base_delta, 3, True, ipv6, prefix_base[ipv6][1]
         )
 
         # Duplicate config
         do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0]
+            prefix_count, prefix_count, bad_indices, base_delta, 3, True, ipv6, prefix_base[ipv6][0]
         )
 
         # Remove 1/2 of duplicate
@@ -190,7 +190,7 @@ def test_static_timing():
             prefix_count // 2,
             bad_indices,
             base_delta,
-            2,
+            3,
             False,
             ipv6,
             prefix_base[ipv6][0],
@@ -198,15 +198,15 @@ def test_static_timing():
 
         # Add all back in so 1/2 replicate 1/2 new
         do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 2, True, ipv6, prefix_base[ipv6][0]
+            prefix_count, prefix_count, bad_indices, base_delta, 3, True, ipv6, prefix_base[ipv6][0]
         )
 
         # remove all
         delta = do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][0]
+            prefix_count, prefix_count, bad_indices, base_delta, 3, False, ipv6, prefix_base[ipv6][0]
         )
         delta += do_config(
-            prefix_count, prefix_count, bad_indices, base_delta, 2, False, ipv6, prefix_base[ipv6][1]
+            prefix_count, prefix_count, bad_indices, base_delta, 3, False, ipv6, prefix_base[ipv6][1]
         )
 
 
