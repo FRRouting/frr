@@ -908,25 +908,28 @@ void routemap_hook_context_free(struct routemap_hook_context *rhc);
 extern const struct frr_yang_module_info frr_route_map_info;
 
 /* routemap_cli.c */
-extern int route_map_instance_cmp(struct lyd_node *dnode1,
-				  struct lyd_node *dnode2);
-extern void route_map_instance_show(struct vty *vty, struct lyd_node *dnode,
+extern int route_map_instance_cmp(const struct lyd_node *dnode1,
+				  const struct lyd_node *dnode2);
+extern void route_map_instance_show(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
 extern void route_map_instance_show_end(struct vty *vty,
-					struct lyd_node *dnode);
-extern void route_map_condition_show(struct vty *vty, struct lyd_node *dnode,
+					const struct lyd_node *dnode);
+extern void route_map_condition_show(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults);
-extern void route_map_action_show(struct vty *vty, struct lyd_node *dnode,
+extern void route_map_action_show(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-extern void route_map_exit_policy_show(struct vty *vty, struct lyd_node *dnode,
+extern void route_map_exit_policy_show(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults);
-extern void route_map_call_show(struct vty *vty, struct lyd_node *dnode,
+extern void route_map_call_show(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
 extern void route_map_description_show(struct vty *vty,
-				       struct lyd_node *dnode,
+				       const struct lyd_node *dnode,
 				       bool show_defaults);
 extern void route_map_optimization_disabled_show(struct vty *vty,
-						 struct lyd_node *dnode,
+						 const struct lyd_node *dnode,
 						 bool show_defaults);
 extern void route_map_cli_init(void);
 

@@ -1002,7 +1002,7 @@ DEFPY_YANG(ipv6_route_vrf,
 				 table_str, false, color_str);
 }
 
-void static_cli_show(struct vty *vty, struct lyd_node *dnode,
+void static_cli_show(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults)
 {
 	const char *vrf;
@@ -1012,7 +1012,7 @@ void static_cli_show(struct vty *vty, struct lyd_node *dnode,
 		vty_out(vty, "vrf %s\n", vrf);
 }
 
-void static_cli_show_end(struct vty *vty, struct lyd_node *dnode)
+void static_cli_show_end(struct vty *vty, const struct lyd_node *dnode)
 {
 	const char *vrf;
 
@@ -1154,7 +1154,7 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	vty_out(vty, "\n");
 }
 
-void static_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
+void static_nexthop_cli_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	const struct lyd_node *path = yang_dnode_get_parent(dnode, "path-list");
@@ -1164,7 +1164,7 @@ void static_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
 	nexthop_cli_show(vty, route, NULL, path, dnode, show_defaults);
 }
 
-void static_src_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
+void static_src_nexthop_cli_show(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	const struct lyd_node *path = yang_dnode_get_parent(dnode, "path-list");
@@ -1174,7 +1174,8 @@ void static_src_nexthop_cli_show(struct vty *vty, struct lyd_node *dnode,
 	nexthop_cli_show(vty, route, src, path, dnode, show_defaults);
 }
 
-int static_nexthop_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int static_nexthop_cli_cmp(const struct lyd_node *dnode1,
+			   const struct lyd_node *dnode2)
 {
 	enum static_nh_type nh_type1, nh_type2;
 	struct prefix prefix1, prefix2;
@@ -1221,7 +1222,8 @@ int static_nexthop_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 				yang_dnode_get_string(dnode2, "./vrf"));
 }
 
-int static_route_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int static_route_list_cli_cmp(const struct lyd_node *dnode1,
+			      const struct lyd_node *dnode2)
 {
 	const char *afi_safi1, *afi_safi2;
 	afi_t afi1, afi2;
@@ -1246,7 +1248,8 @@ int static_route_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return prefix_cmp(&prefix1, &prefix2);
 }
 
-int static_src_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int static_src_list_cli_cmp(const struct lyd_node *dnode1,
+			    const struct lyd_node *dnode2)
 {
 	struct prefix prefix1, prefix2;
 
@@ -1256,7 +1259,8 @@ int static_src_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return prefix_cmp(&prefix1, &prefix2);
 }
 
-int static_path_list_cli_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int static_path_list_cli_cmp(const struct lyd_node *dnode1,
+			     const struct lyd_node *dnode2)
 {
 	uint32_t table_id1, table_id2;
 	uint8_t distance1, distance2;
