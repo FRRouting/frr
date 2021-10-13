@@ -759,10 +759,8 @@ static void nsm_change_state(struct ospf_neighbor *nbr, int state)
 		if (CHECK_FLAG(oi->ospf->config, OSPF_LOG_ADJACENCY_DETAIL))
 			zlog_info(
 				"%s: Initializing [DD]: %pI4 with seqnum:%x , flags:%x",
-				(oi->ospf->name) ? oi->ospf->name
-						 : VRF_DEFAULT_NAME,
-				&nbr->router_id, nbr->dd_seqnum,
-				nbr->dd_flags);
+				ospf_get_name(oi->ospf), &nbr->router_id,
+				nbr->dd_seqnum, nbr->dd_flags);
 		ospf_db_desc_send(nbr);
 	}
 
