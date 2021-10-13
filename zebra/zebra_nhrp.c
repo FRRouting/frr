@@ -59,6 +59,8 @@
 #include "zebra/zebra_nhrp_clippy.c"
 #endif
 
+#include <libvrf.h>
+
 /* control socket */
 struct zebra_nhrp_header {
 	uint32_t iface_idx;
@@ -828,8 +830,10 @@ static int zebra_nhrp_configure(bool nhrp_6wind, bool is_ipv4,
 	} else {
 		int vrid_fastpath = 0;
 
-		if (vrf->vrf_id != VRF_DEFAULT)
+		if (vrf_get_backend() == VRF_BACKEND_NETNS)
 			vrid_fastpath = zebra_nhrp_get_vrid(vrf);
+		else
+			vrid_fastpath = libvrf_get_current_vrfid();
 		if (vrid_fastpath < 0)
 			return -1;
 		if (vrid)
