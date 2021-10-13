@@ -60,6 +60,7 @@
 #include "zebra/zebra_nb.h"
 #include "zebra/kernel_netlink.h"
 #include "zebra/table_manager.h"
+#include "zebra/zebra_script.h"
 
 extern int allow_delete;
 
@@ -4317,6 +4318,30 @@ DEFUN(ip_table_range, ip_table_range_cmd,
 	return table_manager_range(vty, true, zvrf, argv[3]->arg, argv[4]->arg);
 }
 
+#ifdef HAVE_SCRIPTING
+
+DEFUN(zebra_on_rib_process_script, zebra_on_rib_process_script_cmd,
+      "zebra on-rib-process script SCRIPT",
+      ZEBRA_STR
+      "on_rib_process_dplane_results hook call\n"
+      "Set a script\n"
+      "Script name (same as filename in /etc/frr/scripts/, without .lua)\n")
+{
+
+	if (frrscript_names_set_script_name(ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					    argv[3]->arg)
+	    == 0) {
+		vty_out(vty, "Successfully added script %s for hook call %s\n",
+			argv[3]->arg, ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
+	} else {
+		vty_out(vty, "Failed to add script %s for hook call %s\n",
+			argv[3]->arg, ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
+	}
+	return CMD_SUCCESS;
+}
+
+#endif /* HAVE_SCRIPTING */
+
 /* IP node for static routes. */
 static int zebra_ip_config(struct vty *vty);
 static struct cmd_node ip_node = {
@@ -4472,6 +4497,10 @@ void zebra_vty_init(void)
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);
 	install_element(CONFIG_NODE, &no_zebra_kernel_netlink_batch_tx_buf_cmd);
 #endif /* HAVE_NETLINK */
+
+#ifdef HAVE_SCRIPTING
+	install_element(CONFIG_NODE, &zebra_on_rib_process_script_cmd);
+#endif /* HAVE_SCRIPTING */
 
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
 }
