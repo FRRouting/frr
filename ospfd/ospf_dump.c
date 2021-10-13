@@ -146,8 +146,7 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 	return buf;
 }
 
-
-void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
+int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
 {
 	int state;
 	struct ospf_interface *oi = nbr->oi;
@@ -158,6 +157,13 @@ void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
 		state = ISM_Backup;
 	else
 		state = ISM_DROther;
+
+	return state;
+}
+
+void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
+{
+	int state = ospf_nbr_ism_state(nbr);
 
 	snprintf(buf, size, "%s/%s",
 		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
