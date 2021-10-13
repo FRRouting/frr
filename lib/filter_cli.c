@@ -36,10 +36,7 @@
 #endif /* VTYSH_EXTRACT_PL */
 
 #define ACCESS_LIST_STR "Access list entry\n"
-#define ACCESS_LIST_LEG_STR "IP standard access list\n"
-#define ACCESS_LIST_ELEG_STR "IP extended access list\n"
-#define ACCESS_LIST_ELEG_EXT_STR "IP extended access list (expanded range)\n"
-#define ACCESS_LIST_ZEBRA_STR "Access list entry\n"
+#define ACCESS_LIST_ZEBRA_STR "Access list name\n"
 #define ACCESS_LIST_SEQ_STR                                                    \
 	"Sequence number of an entry\n"                                        \
 	"Sequence number\n"
@@ -137,7 +134,7 @@ DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
-	ACCESS_LIST_LEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -214,7 +211,7 @@ DEFPY_YANG(
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
-	ACCESS_LIST_LEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -258,7 +255,7 @@ DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
-	ACCESS_LIST_ELEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"IPv4 address\n"
@@ -377,7 +374,7 @@ DEFPY_YANG(
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
-	ACCESS_LIST_ELEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"Any Internet Protocol\n"

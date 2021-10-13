@@ -165,12 +165,10 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	match_ip_address, match_ip_address_cmd,
-	"match ip address <(1-199)|(1300-2699)|WORD>$name",
+	"match ip address WORD$name",
 	MATCH_STR
 	IP_STR
 	"Match address of route\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP Access-list name\n")
 {
 	const char *xpath =
@@ -187,13 +185,11 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_match_ip_address, no_match_ip_address_cmd,
-	"no match ip address [<(1-199)|(1300-2699)|WORD>]",
+	"no match ip address [WORD]",
 	NO_STR
 	MATCH_STR
 	IP_STR
 	"Match address of route\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP Access-list name\n")
 {
 	const char *xpath =
@@ -246,12 +242,10 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	match_ip_next_hop, match_ip_next_hop_cmd,
-	"match ip next-hop <(1-199)|(1300-2699)|WORD>$name",
+	"match ip next-hop WORD$name",
 	MATCH_STR
 	IP_STR
 	"Match next-hop address of route\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP Access-list name\n")
 {
 	const char *xpath =
@@ -268,13 +262,11 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_match_ip_next_hop, no_match_ip_next_hop_cmd,
-	"no match ip next-hop [<(1-199)|(1300-2699)|WORD>]",
+	"no match ip next-hop [WORD]",
 	NO_STR
 	MATCH_STR
 	IP_STR
 	"Match address of route\n"
-	"IP access-list number\n"
-	"IP access-list number (expanded range)\n"
 	"IP Access-list name\n")
 {
 	const char *xpath =
