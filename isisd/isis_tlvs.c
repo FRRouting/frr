@@ -3007,28 +3007,55 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 
 		type = stream_getc(s);
 		length = stream_getc(s);
+
+		if (length > STREAM_READABLE(s) || length > subtlv_len - 2) {
+			sbuf_push(
+				log, indent,
+				"WARNING: Router Capability subTLV length too large compared to expected size\n");
+			stream_forward_getp(s, STREAM_READABLE(s));
+
+			return 0;
+		}
+
 		switch (type) {
 		case ISIS_SUBTLV_SID_LABEL_RANGE:
 			/* Check that SRGB is correctly formated */
 			if (length < SUBTLV_RANGE_LABEL_SIZE
 			    || length > SUBTLV_RANGE_INDEX_SIZE) {
 				stream_forward_getp(s, length);
-				continue;
+				break;
 			}
 			/* Only one SRGB is supported. Skip subsequent one */
 			if (rcap->srgb.range_size != 0) {
 				stream_forward_getp(s, length);
-				continue;
+				break;
 			}
 			rcap->srgb.flags = stream_getc(s);
 			rcap->srgb.range_size = stream_get3(s);
 			/* Skip Type and get Length of SID Label */
 			stream_getc(s);
 			size = stream_getc(s);
-			if (size == ISIS_SUBTLV_SID_LABEL_SIZE)
+
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE
+			    && length != SUBTLV_RANGE_LABEL_SIZE) {
+				stream_forward_getp(s, length - 6);
+				break;
+			}
+
+			if (size == ISIS_SUBTLV_SID_INDEX_SIZE
+			    && length != SUBTLV_RANGE_INDEX_SIZE) {
+				stream_forward_getp(s, length - 6);
+				break;
+			}
+
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE) {
 				rcap->srgb.lower_bound = stream_get3(s);
-			else
+			} else if (size == ISIS_SUBTLV_SID_INDEX_SIZE) {
 				rcap->srgb.lower_bound = stream_getl(s);
+			} else {
+				stream_forward_getp(s, length - 6);
+				break;
+			}
 
 			/* SRGB sanity checks. */
 			if (rcap->srgb.range_size == 0
@@ -3042,9 +3069,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			/* Only one range is supported. Skip subsequent one */
 			size = length - (size + SUBTLV_SR_BLOCK_SIZE);
 			if (size > 0)
-				stream_forward_getp(s, length);
+				stream_forward_getp(s, size);
+
 			break;
 		case ISIS_SUBTLV_ALGORITHM:
+			if (length == 0)
+				break;
 			/* Only 2 algorithms are supported: SPF & Strict SPF */
 			stream_get(&rcap->algo, s,
 				   length > SR_ALGORITHM_COUNT
@@ -3059,12 +3089,12 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			if (length < SUBTLV_RANGE_LABEL_SIZE
 			    || length > SUBTLV_RANGE_INDEX_SIZE) {
 				stream_forward_getp(s, length);
-				continue;
+				break;
 			}
 			/* RFC 8667 section #3.3: Only one SRLB is authorized */
 			if (rcap->srlb.range_size != 0) {
 				stream_forward_getp(s, length);
-				continue;
+				break;
 			}
 			/* Ignore Flags which are not defined */
 			stream_getc(s);
@@ -3072,10 +3102,27 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			/* Skip Type and get Length of SID Label */
 			stream_getc(s);
 			size = stream_getc(s);
-			if (size == ISIS_SUBTLV_SID_LABEL_SIZE)
+
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE
+			    && length != SUBTLV_RANGE_LABEL_SIZE) {
+				stream_forward_getp(s, length - 6);
+				break;
+			}
+
+			if (size == ISIS_SUBTLV_SID_INDEX_SIZE
+			    && length != SUBTLV_RANGE_INDEX_SIZE) {
+				stream_forward_getp(s, length - 6);
+				break;
+			}
+
+			if (size == ISIS_SUBTLV_SID_LABEL_SIZE) {
 				rcap->srlb.lower_bound = stream_get3(s);
-			else
+			} else if (size == ISIS_SUBTLV_SID_INDEX_SIZE) {
 				rcap->srlb.lower_bound = stream_getl(s);
+			} else {
+				stream_forward_getp(s, length - 6);
+				break;
+			}
 
 			/* SRLB sanity checks. */
 			if (rcap->srlb.range_size == 0
@@ -3089,13 +3136,14 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			/* Only one range is supported. Skip subsequent one */
 			size = length - (size + SUBTLV_SR_BLOCK_SIZE);
 			if (size > 0)
-				stream_forward_getp(s, length);
+				stream_forward_getp(s, size);
+
 			break;
 		case ISIS_SUBTLV_NODE_MSD:
 			/* Check that MSD is correctly formated */
 			if (length < MSD_TLV_SIZE) {
 				stream_forward_getp(s, length);
-				continue;
+				break;
 			}
 			msd_type = stream_getc(s);
 			rcap->msd = stream_getc(s);
