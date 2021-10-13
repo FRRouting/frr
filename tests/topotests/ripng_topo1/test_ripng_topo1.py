@@ -104,7 +104,7 @@ def setup_module(module):
         tgen.gears["r%s" % i].start()
 
     # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
+    # tgen.mininet_cli()
 
 
 def teardown_module(module):
@@ -130,9 +130,6 @@ def test_router_running():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_converge_protocols():
     global fatal_error
@@ -154,9 +151,6 @@ def test_converge_protocols():
     for i in range(1, 4):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_ripng_status():
@@ -223,9 +217,6 @@ def test_ripng_status():
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
 
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
-
 
 def test_ripng_routes():
     global fatal_error
@@ -289,9 +280,6 @@ def test_ripng_routes():
     for i in range(1, 4):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_zebra_ipv6_routingTable():
@@ -357,9 +345,6 @@ def test_zebra_ipv6_routingTable():
     for i in range(1, 4):
         fatal_error = net["r%s" % i].checkRouterRunning()
         assert fatal_error == "", fatal_error
-
-    # For debugging after starting FRR daemons, uncomment the next line
-    # CLI(net)
 
 
 def test_shutdown_check_stderr():
