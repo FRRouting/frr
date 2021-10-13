@@ -1136,6 +1136,7 @@ const char *if_link_type_str(enum zebra_link_type llt)
 		llts(ZEBRA_LLT_IEEE80211_RADIOTAP, "IEEE 802.11 Radiotap");
 		llts(ZEBRA_LLT_IEEE802154, "IEEE 802.15.4");
 		llts(ZEBRA_LLT_IEEE802154_PHY, "IEEE 802.15.4 Phy");
+		llts(ZEBRA_LLT_IP6GRE, "GRE over IPv6");
 	default:
 		flog_err(EC_LIB_DEVELOPMENT, "Unknown value %d", llt);
 		return "Unknown type!";
