@@ -262,5 +262,6 @@ endif
 if ZEBRA_NHRP
 zebra_zebra_nhrp_la_SOURCES = zebra/zebra_nhrp.c zebra/zebra_nhrp_netlink.c
 zebra_zebra_nhrp_la_LDFLAGS = -avoid-version -module -shared -export-dynamic
+zebra_zebra_nhrp_la_LIBADD  = -lvrf
 endif
 
