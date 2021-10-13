@@ -66,6 +66,10 @@
 
 extern struct zebra_privs_t zserv_privs;
 
+#ifndef ARPHRD_IP6GRE
+#define ARPHRD_IP6GRE	823		/* GRE over IPv6		*/
+#endif
+
 /* Utility function to parse hardware link-layer address and update ifp */
 static void netlink_interface_update_hw_addr(struct rtattr **tb,
 					     struct zebra_dplane_ctx *ctx)
