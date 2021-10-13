@@ -107,7 +107,7 @@ extern int zsend_sr_policy_notify_status(uint32_t color,
 					 int status);
 extern void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 				       struct ipaddr *ipaddr, int ndm_state,
-				       union sockunion *link_layer_ipv4);
+				       void *l2_data, int l2_len);
 
 extern int zsend_client_close_notify(struct zserv *client,
 				     struct zserv *closed_client);

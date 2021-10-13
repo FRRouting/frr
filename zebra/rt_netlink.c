@@ -3667,6 +3667,21 @@ static int netlink_nbr_entry_state_to_zclient(int nbr_state)
 	 */
 	return nbr_state;
 }
+
+static int netlink_nbr_cmd_to_zclient(int nlmsg_type)
+{
+	switch (nlmsg_type) {
+	case RTM_NEWNEIGH:
+		return ZEBRA_NHRP_NEIGH_ADDED;
+	case RTM_DELNEIGH:
+		return ZEBRA_NHRP_NEIGH_REMOVED;
+	case RTM_GETNEIGH:
+		return ZEBRA_NHRP_NEIGH_GET;
+	}
+
+	return -1;
+}
+
 static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
@@ -3684,7 +3699,7 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	uint32_t ext_flags = 0;
 	bool dp_static = false;
 	int l2_len = 0;
-	int cmd;
+	void *l2_data;
 
 	ndm = NLMSG_DATA(h);
 
@@ -3724,44 +3739,6 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID))
 		netlink_handle_5549(ndm, zif, ifp, &ip, true);
 
-	/* we send link layer information to client:
-	 * - nlmsg_type = RTM_DELNEIGH|NEWNEIGH|GETNEIGH
-	 * - struct ipaddr ( for DEL and GET)
-	 * - struct ethaddr mac; (for NEW)
-	 */
-	if (h->nlmsg_type == RTM_NEWNEIGH)
-		cmd = ZEBRA_NHRP_NEIGH_ADDED;
-	else if (h->nlmsg_type == RTM_GETNEIGH)
-		cmd = ZEBRA_NHRP_NEIGH_GET;
-	else if (h->nlmsg_type == RTM_DELNEIGH)
-		cmd = ZEBRA_NHRP_NEIGH_REMOVED;
-	else {
-		zlog_debug("%s(): unknown nlmsg type %u", __func__,
-			   h->nlmsg_type);
-		return 0;
-	}
-	if (tb[NDA_LLADDR]) {
-		/* copy LLADDR information */
-		l2_len = RTA_PAYLOAD(tb[NDA_LLADDR]);
-	}
-	if (l2_len == IPV4_MAX_BYTELEN || l2_len == 0) {
-		union sockunion link_layer_ipv4;
-
-		if (l2_len) {
-			sockunion_family(&link_layer_ipv4) = AF_INET;
-			memcpy((void *)sockunion_get_addr(&link_layer_ipv4),
-			       RTA_DATA(tb[NDA_LLADDR]), l2_len);
-		} else
-			sockunion_family(&link_layer_ipv4) = AF_UNSPEC;
-		zsend_nhrp_neighbor_notify(
-			cmd, ifp, &ip,
-			netlink_nbr_entry_state_to_zclient(ndm->ndm_state),
-			&link_layer_ipv4);
-	}
-
-	if (h->nlmsg_type == RTM_GETNEIGH)
-		return 0;
-
 	/* The neighbor is present on an SVI. From this, we locate the
 	 * underlying
 	 * bridge because we're only interested in neighbors on a VxLAN bridge.
@@ -3773,24 +3750,40 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	 * inteface
 	 * itself
 	 */
-	if (IS_ZEBRA_IF_VLAN(ifp)) {
+	if (IS_ZEBRA_IF_VLAN(ifp))
 		link_if = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
 						    zif->link_ifindex);
-		if (!link_if)
-			return 0;
-	} else if (IS_ZEBRA_IF_BRIDGE(ifp))
+	else if (IS_ZEBRA_IF_BRIDGE(ifp))
 		link_if = ifp;
-	else {
+	else
+		link_if = NULL;
+
+	if (tb[NDA_LLADDR]) {
+		l2_len = RTA_PAYLOAD(tb[NDA_LLADDR]);
+		l2_data = RTA_DATA(tb[NDA_LLADDR]);
+	} else {
+		l2_len = 0;
+		l2_data = NULL;
+	}
+
+	zsend_nhrp_neighbor_notify(
+		netlink_nbr_cmd_to_zclient(h->nlmsg_type), ifp, &ip,
+		netlink_nbr_entry_state_to_zclient(ndm->ndm_state), l2_data,
+		l2_len);
+
+	if (h->nlmsg_type == RTM_GETNEIGH)
+		return 0;
+
+	if (!link_if) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"    Neighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
 		return 0;
 	}
 
-	memset(&mac, 0, sizeof(struct ethaddr));
 	if (h->nlmsg_type == RTM_NEWNEIGH) {
-		if (tb[NDA_LLADDR]) {
-			if (RTA_PAYLOAD(tb[NDA_LLADDR]) != ETH_ALEN) {
+		if (l2_len) {
+			if (l2_len != ETH_ALEN) {
 				if (IS_ZEBRA_DEBUG_KERNEL)
 					zlog_debug(
 						"%s family %s IF %s(%u) vrf %s(%u) - LLADDR is not MAC, len %lu",
@@ -3801,13 +3794,14 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 						ifp->name, ndm->ndm_ifindex,
 						ifp->vrf->name,
 						ifp->vrf->vrf_id,
-						(unsigned long)RTA_PAYLOAD(
-							tb[NDA_LLADDR]));
+						(unsigned long)l2_len);
 				return 0;
 			}
 
 			mac_present = 1;
-			memcpy(&mac, RTA_DATA(tb[NDA_LLADDR]), ETH_ALEN);
+			memcpy(&mac, l2_data, l2_len);
+		} else {
+			memset(&mac, 0, sizeof(struct ethaddr));
 		}
 
 		is_ext = !!(ndm->ndm_flags & NTF_EXT_LEARNED);
