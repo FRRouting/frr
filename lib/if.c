@@ -440,7 +440,7 @@ struct interface *if_lookup_by_name_all_vrf(const char *name)
 		return NULL;
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-		ifp = if_lookup_by_name(name, vrf->vrf_id);
+		ifp = if_lookup_by_name_vrf(name, vrf);
 		if (ifp)
 			return ifp;
 	}
