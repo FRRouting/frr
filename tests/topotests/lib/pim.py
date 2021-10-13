@@ -3510,6 +3510,31 @@ class McastTesterHelper(HostApplicationHelper):
             self.run(host, [join, join_intf])
 
         return True
+    def run_ssm_join(self, host, join_addrs, join_towards=None, join_intf=None):
+        """
+        Join a UDP multicast group.
+
+        One of join_towards or join_intf MUST be set.
+
+        Parameters:
+        -----------
+        * `host`: host from where IGMP join would be sent
+        * `join_addrs`: multicast address (or addresses) to join to
+        * `join_intf`: the interface to bind the join[s] to
+        * `join_towards`: router whos interface to bind the join[s] to
+        """
+        if not isinstance(join_addrs, list) and not isinstance(join_addrs, tuple):
+            join_addrs = [join_addrs]
+
+        if join_towards:
+            join_intf = frr_unicode(
+                self.tgen.json_topo["routers"][host]["links"][join_towards]["interface"]
+            )
+        else:
+            assert join_intf
+        for bindTo in join_addrs:
+            self.run(host, [bindTo, join_intf])
+        return True
 
     def run_traffic(self, host, send_to_addrs, bind_towards=None, bind_intf=None):
         """
@@ -3565,3 +3590,474 @@ class McastTesterHelper(HostApplicationHelper):
     # def stopping_proc(self, host, p, conn):
     #     logger.debug("%s: %s: closing socket %s", self, host, conn)
     #     conn[0].close()
+
+
+
+
+def create_default_and_attached_pim_config(tgen, topo, input_dict=None, build=False):
+    """
+    API to configure backplan_interfaces, default-forwarding,
+    and attached netwroks on routers
+
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+    * `input_dict` : Input dict data, required when configuring from
+                     testcase
+    * `build` : Only for initial setup phase this is set as True.
+
+    Usage
+    -----
+    1- For adding attached network
+    input_dict ={
+        "r1": {
+                "pim": {
+                    "backplan_interfaces": intf_r1_i1,
+                    "default-forwarding": {
+                            intf_r1_i2:{
+                             "attached_networks": ["100.1.1.1/24","100.1.2.1/24","100.1.3.1/2]
+                            }
+                    }
+                }
+       }
+    }
+
+    2- For deleting attached netwrok
+    input_dict ={
+        "r1": {
+                "pim": {
+                    "backplan_interfaces": intf_r1_i1,
+                    "default-forwarding": {
+                            intf_r1_i2:{
+                             "attached_networks": ["100.1.1.1/24"],
+                             "delete":True
+                            }
+                    }
+                }
+       }
+    }
+    Returns
+    -------
+    True or False
+    """
+    logger.debug("Entering lib API: create_default_and_attached_pim_config()")
+    result = False
+    if not input_dict:
+        input_dict = deepcopy(topo)
+    else:
+        topo = topo["routers"]
+        input_dict = deepcopy(input_dict)
+    config_data = []
+
+    for router in input_dict.keys():
+        if "pim" not in input_dict[router]:
+            logger.debug("Router %s: 'pim' is not present in "
+                         "input_dict", router)
+            continue
+
+        pim_data = input_dict[router]["pim"]
+
+        if "backplan_interfaces" in pim_data:
+            intf_data = pim_data["backplan_interfaces"]
+            cmd = "ip multicast default-forwarding %s" %intf_data
+            config_data.append(cmd)
+
+        if "default-forwarding" in pim_data:
+            for intf_name, intf_data in pim_data["default-forwarding"].items():
+                config_data.append("interface {}".format(intf_name))
+                cmd = "ip pim enable-default-forwarding"
+                del_attr = intf_data.setdefault("delete_attr", False)
+                config_data.append(cmd)
+                if del_attr:
+                    cmd = "no {}".format(cmd)
+                    config_data.append(cmd)
+
+                if  "attached_networks" in intf_data:
+                    del_action = intf_data.setdefault("delete", False)
+                    for attach_network in intf_data["attached_networks"]:
+                        cmd = "ip pim attach-network {}".format(attach_network)
+                        config_data.append(cmd)
+                        if del_action:
+                            cmd = "no {}".format(cmd)
+                            config_data.append(cmd)
+        try:
+
+            result = create_common_configuration(tgen, router, config_data,
+                                             "interface_config",
+                                             build=build)
+        except  InvalidCLIError:
+            errormsg = traceback.format_exc()
+            logger.error(errormsg)
+            return errormsg
+
+    logger.debug("Exiting lib API: create_default_and_attached_pim_config()")
+    return result
+
+def create_ssm_config(tgen, topo, input_dict=None , build=False, load_config=True):
+    """
+    SSM config
+    Parameters
+    ----------
+    * `tgen` : Topogen object
+    * `topo` : json file data
+    * `input_dict` : Input dict data, required when configuring from testcase
+    * `build` : Only for initial setup phase this is set as True
+    * `load_config` : Load configuration on router
+
+    Returns
+    -------
+    True or False
+    """
+    logger.debug("Entering lib API: create_default_and_attached_pim_config()")
+
+    result = False
+    if not input_dict:
+        input_dict = deepcopy(topo)
+    else:
+        topo = topo["routers"]
+        input_dict = deepcopy(input_dict)
+    for router in input_dict.keys():
+        config_data = []
+        if "ssm" not in input_dict[router]:
+            continue
+        ssm_data = input_dict[router]["ssm"]
+        if type(ssm_data) is not dict:
+            if ssm_data == "enable":
+                cmd = "ip pim ssm {}".format(ssm_data)
+                config_data.append(cmd)
+            elif ssm_data == "disable":
+                cmd = "no ip pim ssm enable"
+                config_data.append(cmd)
+        else:
+            del_action = ssm_data.setdefault("delete", False)
+            pf_list = ssm_data.setdefault("prefix-list", None)
+            if pf_list:
+                cmd = "ip pim ssm enable"
+                config_data.append(cmd)
+                cmd = "ip pim ssm prefix-list {}".format(pf_list)
+                if del_action:
+                    config_data.append("no ip pim ssm enable")
+                    cmd = "no {}".format(cmd)
+                    config_data.append(cmd)
+                else:
+                    config_data.append(cmd)
+        try:
+            result = create_common_configuration(tgen, router,
+                                                config_data,
+                                                "ssm",
+                                                build, load_config)
+            if result is not True:
+                return False
+        except  InvalidCLIError:
+            errormsg = traceback.format_exc()
+            logger.error(errormsg)
+            return errormsg
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+
+    return result
+
+@retry(retry_timeout=21)
+def verify_igmp_source(tgen, dut, interface_name, groups, sources,expected=True):
+    """
+    Verify IGMP groups and source by running "show ip igmp source" command
+
+    Parameters
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface_name`: Name of interface where grps received
+    * `groups`:  IGMP group list
+    * `sources`: IGMP source list
+
+    Usage
+    -----
+    dut = "r1"
+    result = verify_igmp_source(tgen, dut, ens224,[225.1.1.1,225.1.1.2], [10.1.1.1, 10.1.1.2])
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    result = False
+    if dut not in tgen.routers():
+        return False
+    rnode = tgen.routers()[dut]
+
+    if not isinstance(groups, list):
+        groups = [groups]
+
+    if not isinstance(sources, list):
+        sources = [sources]
+
+    logger.info("[DUT: %s]: Verifying IGMP groups and source:", dut)
+    show_ip_igmp_source_json = run_frr_cmd(rnode, "show ip igmp source json"
+                                                   , isjson=True)
+    if  interface_name not in show_ip_igmp_source_json:
+        errormsg = ("[DUT %s]: Verifying interface not present"
+                   " on  [FAILED]!! " % (dut))
+        return errormsg
+
+    igmp_intf_json = show_ip_igmp_source_json[interface_name]
+
+    for grp in groups :
+        for keys, values in igmp_intf_json.items():
+            if keys == "name":
+                continue
+
+            if grp not in values:
+                errormsg = ("[DUT %s]: Verifying grp %s not present"
+                   " on  [FAILED]!! " % (dut, grp))
+                return errormsg
+
+            if values [grp]["group"] == grp :
+                for src in sources:
+                    if values [grp]["sources"][0]["source"] == src :
+                        d1 = datetime.datetime.strptime(values [grp]["sources"][0]["timer"], '%M:%S')
+                        d2 = datetime.datetime.strptime("00:00", '%M:%S')
+                        if d1 > d2:
+                            logger.info("[DUT %s]: Verifying group %s and source %s is found "
+                                            "from interface %s [PASSED]!! ",
+                                        dut, grp,src, interface_name)
+    result = True
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return result
+
+@retry(retry_timeout=46)
+def verify_join_state_and_timer(tgen, dut, iif, src_address, group_addresses,expected=True):
+    """
+    Verify  join state is updated correctly and join timer is
+    running with the help of "show ip pim upstream" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `iif`: inbound interface
+    * `src_address`: source address
+    * `group_addresses`: IGMP group address
+
+    Usage
+    -----
+    dut = "r1"
+    iif = "r1-r0-eth0"
+    group_address = "225.1.1.1"
+    result = verify_join_state_and_timer(tgen, dut, iif, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: verify_join_state_and_timer()")
+    errormsg = ""
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying Join state and Join Timer"
+                " for IGMP groups received:", dut)
+    show_ip_pim_upstream_json = run_frr_cmd(rnode, "show ip pim upstream json",
+                                            isjson=True)
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    for grp_addr in group_addresses:
+        # Verify group address
+        if grp_addr not in show_ip_pim_upstream_json:
+            errormsg = ("[DUT %s]: Verifying upstream"
+                      " for group %s [FAILED]!!" % (
+                      dut, grp_addr))
+            return errormsg
+
+        group_addr_json = show_ip_pim_upstream_json[grp_addr]
+
+        # Verify source address
+        if src_address not in group_addr_json:
+            errormsg = ("[DUT %s]: Verifying upstream"
+                      " for (%s,%s) [FAILED]!!" % (
+                      dut, src_address, grp_addr))
+            return errormsg
+
+        # Verify join state
+        joinState = group_addr_json[src_address]["joinState"]
+        if joinState != "Joined":
+            error = ("[DUT %s]: Verifying join state for"
+                     " (%s,%s) [FAILED]!! "
+                     " Expected: %s, Found: %s" % (dut, src_address,
+                      grp_addr, "Joined", joinState))
+            errormsg = errormsg + "\n" + str(error)
+        else:
+            logger.info("[DUT %s]: Verifying join state for"
+                        " (%s,%s) [PASSED]!! "
+                        " Found Expected: %s", dut, src_address, grp_addr,
+                        joinState)
+
+        # Verify join timer
+        joinTimer = group_addr_json[src_address]["joinTimer"]
+        if not re.match(r"(\d{2}):(\d{2}):(\d{2})", joinTimer):
+            error = ("[DUT %s]: Verifying join timer for"
+                     " (%s,%s) [FAILED]!! "
+                     " Expected: %s, Found: %s",
+                     dut, src_address, grp_addr, "join timer should be running",
+                     joinTimer)
+            errormsg = errormsg + "\n" + str(error)
+        else:
+            logger.info("[DUT %s]: Verifying join timer is running"
+                        " for (%s,%s) [PASSED]!! "
+                        " Found Expected: %s",
+                        dut, src_address, grp_addr, joinTimer)
+
+        if errormsg != "":
+            return errormsg
+
+    logger.debug("Exiting lib API: verify_join_state_and_timer()")
+    return True
+
+@retry(retry_timeout=46)
+def verify_ssm_traffic(tgen, dut, groups, src,expected=True):
+    """
+    Verify multicast traffic by running
+    "show ip mroute count json" cli
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `groups`: groups where traffic needs to be verified
+
+    Usage
+    -----
+    result = verify_ssm_traffic(tgen, igmp_groups)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    result = False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying multicast "
+        "SSM traffic", dut)
+
+    cmd = "show ip mroute count json"
+
+    show_mroute_ssm_traffic_json = \
+        run_frr_cmd(rnode, cmd, isjson=True)
+
+    logger.info("Waiting for 10sec traffic to increament")
+    sleep(10)
+
+    for grp in groups :
+        if grp not in show_mroute_ssm_traffic_json:
+            errormsg = ("[DUT %s]: Verifying (%s, %s) mroute,"
+                        "[FAILED]!! " %(dut, src, grp))
+
+        count_before =  show_mroute_ssm_traffic_json[grp][src]["Packets"]
+        show_mroute_ssm_traffic_json = \
+        run_frr_cmd(rnode, cmd, isjson=True)
+
+        count_after =    show_mroute_ssm_traffic_json[grp][src]["Packets"]
+        if  count_before > count_after:
+            errormsg = ("[DUT %s]: Verifying igmp group %s source %s not increamenting traffic"
+                " [FAILED]!! " % (dut, grp, src))
+            return errormsg
+        else:
+            logger.info ("[DUT %s]:igmp group %s source %s receiving traffic"
+                " [PASSED]!! " % (dut, grp,src))
+            result =True
+
+    return result
+
+
+@retry(retry_timeout=46)
+def verify_ssm_group_type(tgen, dut, grp_list):
+
+    """
+    Verify SSM prefix list using "show ip pim group-type json" command
+
+    Parameters
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `grp_list`: grp list name
+
+    Usage
+    -----
+    dut = "r1"
+    result = verify_ssm_group_type(tgen, dut, pf1)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying SSM prefix list is applied :", dut)
+    show_ssm_json = run_frr_cmd(rnode, "do show ip pim group-type json",
+                                    isjson=True)
+    if show_ssm_json["ssmGroups"] != grp_list:
+        errormsg = ("[DUT %s]: Verifying SSM list is not found",dut)
+        return errormsg
+    else:
+        logger.info("[DUT %s]: Verifying SSM list is found", dut)
+        return True
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return False
+
+
+def config_to_send_igmp_join_and_traffic(tgen, topo, tc_name, iperf,
+                                         iperf_intf, GROUP_RANGE,
+                                         join=False, traffic=False):
+    """
+    API to do pre-configuration to send IGMP join and multicast
+    traffic
+
+    parameters:
+    -----------
+    * `tgen`: topogen object
+    * `topo`: input json data
+    * `tc_name`: caller test case name
+    * `iperf`: router running iperf
+    * `iperf_intf`: interface name router running iperf
+    * `GROUP_RANGE`: group range
+    * `join`: IGMP join, default False
+    * `traffic`: multicast traffic, default False
+    """
+
+    if join:
+        # Add route to kernal
+        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
+        assert result is True, "Testcase {}: Failed Error: {}".\
+            format(tc_name, result)
+
+    if traffic:
+        # Add route to kernal
+        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
+        if result is not True:
+            return result
+
+        router_list = tgen.routers()
+        for router in router_list.keys():
+            if router == iperf:
+                continue
+
+            rnode = router_list[router]
+            rnode.run('echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter')
+
+    return True
+
+

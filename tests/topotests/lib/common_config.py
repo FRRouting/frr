@@ -740,7 +740,7 @@ def load_config_to_routers(tgen, routers, save_bkup=False):
                 logger.info(
                     "Applying following configuration on router %s (gen: %d):\n%s",
                     rname,
-                    gen,
+                   gen,
                     data,
                 )
                 # Always save a copy of what we just did
@@ -4866,6 +4866,72 @@ class IPerfHelper(HostApplicationHelper):
                 return False
 
         return True
+    def run_ssm_join(
+        self,
+        host,
+        join_addr,
+        l4Type="UDP",
+        join_interval=1,
+        join_intf=None,
+        join_towards=None,
+    ):
+        """
+        Use iperf to send IGMP join and listen to traffic
+
+        Parameters:
+        -----------
+        * `host`: iperf host from where IGMP join would be sent
+        * `l4Type`: string, one of [ TCP, UDP ]
+        * `join_addr`: multicast address (or addresses) to join to
+        * `join_interval`: seconds between periodic bandwidth reports
+        * `join_intf`: the interface to bind the join to
+        * `join_towards`: router whos interface to bind the join to
+
+        returns: Success (bool)
+        """
+
+        iperf_path = self.tgen.net.get_exec_path("iperf")
+
+        assert join_addr
+        if not isinstance(join_addr, list) and not isinstance(join_addr, tuple):
+            join_addr = [ipaddress.IPv4Address(frr_unicode(join_addr))]
+        for bindTo in join_addr:
+            iperf_args = [iperf_path, "-s"]
+            iperfArgs += '-B %s ' % bindTo
+
+            if l4Type == "UDP":
+                iperf_args.append("-u")
+
+            iperf_args.append("-B")
+            if host :
+                iperfArgs +='--source %s' % host
+
+            if join_intf:
+                iperfArgs +=' -X  %s' % join_intf
+
+            iperfArgs += ' &>/dev/null &'
+
+            if join_towards:
+                to_intf = frr_unicode(
+                    self.tgen.json_topo["routers"][host]["links"][join_towards][
+                        "interface"
+                    ]
+                )
+                iperf_args.append("{}%{}".format(str(bindTo), to_intf))
+            elif join_intf:
+                iperf_args.append("{}%{}".format(str(bindTo), join_intf))
+            else:
+                iperf_args.append(str(bindTo))
+
+            if join_interval:
+                iperf_args.append("-i")
+                iperf_args.append(str(join_interval))
+            args = "set +m; {} sleep 0.5".format(iperfArgs)
+            p = self.run(host,cmd_args=args)
+            if p.poll() is not None:
+                logger.error("IGMP join failed on %s: %s", bindTo, comm_error(p))
+                return False
+        return True
 
 
 def verify_ip_nht(tgen, input_dict):
@@ -4969,3 +5035,87 @@ def scapy_send_raw_packet(tgen, topo, senderRouter, intf, packet=None):
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
+
+# def iperfSendSSMJoin(tgen, server, bindToAddress, source, interface_name, l4Type='UDP',
+#                       join_interval=1, inc_step=0, repeat=0):
+#     """
+#     Run iperf to send IGMP join and traffic
+
+#     Parameters:
+#     -----------
+#     * `tgen`  : Topogen object
+#     * `l4Type`: string, one of [ TCP, UDP ]
+#     * `server`: iperf server, from where IGMP join would be sent
+#     * `source`: IGMP join sent with SSM source
+#     * `interface_name` : interface where igmp joins are sent
+#     * `bindToAddress`: bind to <host>, an interface or multicast
+#                        address
+#     * `join_interval`: seconds between periodic bandwidth reports
+#     * `inc_step`: increamental steps, by default 0
+#     * `repeat`: Repetition of group, by default 0
+
+#     returns:
+#     --------
+#     errormsg or True
+#     """
+
+#     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+#     rnode = tgen.routers()[server]
+
+#     iperfArgs = 'iperf -s '
+
+#     # UDP/TCP
+#     if l4Type == 'UDP':
+#         iperfArgs += '-u '
+
+#     iperfCmd = iperfArgs
+#     # Group address range to cover
+#     if bindToAddress:
+#         if type(bindToAddress) is not list:
+#             Address = []
+#             start = ipaddress.IPv4Address(bindToAddress)
+
+#             Address = [start]
+#             next_ip = start
+
+#             count = 1
+#             while count < repeat:
+#                 next_ip += inc_step
+#                 Address.append(next_ip)
+#                 count += 1
+#             bindToAddress = Address
+
+#     for bindTo in bindToAddress:
+#         iperfArgs = iperfCmd
+#         iperfArgs += '-B %s ' % bindTo
+
+#         # Join interval
+#         if join_interval:
+#             iperfArgs += '-i %d ' % join_interval
+
+#         if source :
+#              iperfArgs +='--source %s' % source
+
+#         if interface_name:
+#               iperfArgs +=' -X  %s' % interface_name
+
+#         iperfArgs += ' &>/dev/null &'
+#         # Run iperf command to send IGMP join
+#         logger.debug("[DUT: {}]: Running command: [{}]".
+#                      format(server, iperfArgs))
+#         output = rnode.run("set +m; {} sleep 0.5".format(iperfArgs))
+
+#         # Check if iperf process is running
+#         if output:
+#             pid = output.split()[1]
+#             rnode.run("touch /var/run/frr/iperf_server.pid")
+#             rnode.run("echo %s >> /var/run/frr/iperf_server.pid" % pid)
+#         else:
+#             errormsg = "IGMP join is not sent for {}. Error: {}". \
+#                 format(bindTo, output)
+#             logger.error(output)
+#             return errormsg
+
+#     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+#     return True
