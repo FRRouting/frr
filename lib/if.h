@@ -515,7 +515,6 @@ extern void if_update_to_new_vrf(struct interface *, vrf_id_t vrf_id);
 extern struct interface *if_lookup_by_index(ifindex_t, vrf_id_t vrf_id);
 extern struct interface *if_vrf_lookup_by_index_next(ifindex_t ifindex,
 						     vrf_id_t vrf_id);
-extern struct interface *if_lookup_by_index_all_vrf(ifindex_t);
 extern struct interface *if_lookup_exact_address(const void *matchaddr,
 						 int family, vrf_id_t vrf_id);
 extern struct connected *if_lookup_address(const void *matchaddr, int family,
