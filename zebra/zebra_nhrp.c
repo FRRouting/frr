@@ -55,9 +55,8 @@
 #include "zebra/zebra_nhrp.h"
 #ifndef VTYSH_EXTRACT_PL
 #include "zebra/zebra_nhrp_clippy.c"
-#endif
-
 #include <libvrf.h>
+#endif
 
 /* control socket */
 struct zebra_nhrp_header {
