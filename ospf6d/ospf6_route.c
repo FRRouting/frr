@@ -1114,6 +1114,7 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 	json_object *json_route = NULL;
 	json_object *json_array_next_hops = NULL;
 	json_object *json_next_hop;
+	vrf_id_t vrf_id = route->ospf6->vrf_id;
 
 	monotime(&now);
 	timersub(&now, &route->changed, &res);
@@ -1147,16 +1148,15 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 	else
 		i = 0;
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
-		struct interface *ifp;
 		/* nexthop */
 		inet_ntop(AF_INET6, &nh->address, nexthop, sizeof(nexthop));
-		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
 		if (use_json) {
 			json_next_hop = json_object_new_object();
 			json_object_string_add(json_next_hop, "nextHop",
 					       nexthop);
-			json_object_string_add(json_next_hop, "interfaceName",
-					       ifp->name);
+			json_object_string_add(
+				json_next_hop, "interfaceName",
+				ifindex2ifname(nh->ifindex, vrf_id));
 			json_object_array_add(json_array_next_hops,
 					      json_next_hop);
 		} else {
@@ -1168,12 +1168,14 @@ void ospf6_route_show(struct vty *vty, struct ospf6_route *route,
 					OSPF6_PATH_TYPE_SUBSTR(
 						route->path.type),
 					destination, nexthop, IFNAMSIZ,
-					ifp->name, duration);
+					ifindex2ifname(nh->ifindex, vrf_id),
+					duration);
 				i++;
 			} else
 				vty_out(vty, "%c%1s %2s %-30s %-25s %6.*s %s\n",
 					' ', "", "", "", nexthop, IFNAMSIZ,
-					ifp->name, "");
+					ifindex2ifname(nh->ifindex, vrf_id),
+					"");
 		}
 	}
 	if (use_json) {
@@ -1197,6 +1199,7 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 	json_object *json_route = NULL;
 	json_object *json_array_next_hops = NULL;
 	json_object *json_next_hop;
+	vrf_id_t vrf_id = route->ospf6->vrf_id;
 
 	monotime(&now);
 
@@ -1347,8 +1350,6 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 		vty_out(vty, "Nexthop:\n");
 
 	for (ALL_LIST_ELEMENTS_RO(route->nh_list, node, nh)) {
-		struct interface *ifp;
-		ifp = if_lookup_by_index_all_vrf(nh->ifindex);
 		/* nexthop */
 		if (use_json) {
 			inet_ntop(AF_INET6, &nh->address, nexthop,
@@ -1356,13 +1357,14 @@ void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 			json_next_hop = json_object_new_object();
 			json_object_string_add(json_next_hop, "nextHop",
 					       nexthop);
-			json_object_string_add(json_next_hop, "interfaceName",
-					       ifp->name);
+			json_object_string_add(
+				json_next_hop, "interfaceName",
+				ifindex2ifname(nh->ifindex, vrf_id));
 			json_object_array_add(json_array_next_hops,
 					      json_next_hop);
 		} else
 			vty_out(vty, "  %pI6 %.*s\n", &nh->address, IFNAMSIZ,
-				ifp->name);
+				ifindex2ifname(nh->ifindex, vrf_id));
 	}
 	if (use_json) {
 		json_object_object_add(json_route, "nextHops",
