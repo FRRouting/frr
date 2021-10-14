@@ -182,7 +182,7 @@ Common iteration macros
 
 The following iteration macros work across all data structures:
 
-.. c:function:: frr_each(Z, &head, item)
+.. c:macro:: frr_each(Z, head, item)
 
    Equivalent to:
 
@@ -193,7 +193,7 @@ The following iteration macros work across all data structures:
    Note that this will fail if the list is modified while being iterated
    over.
 
-.. c:function:: frr_each_safe(Z, &head, item)
+.. c:macro:: frr_each_safe(Z, head, item)
 
    Same as the previous, but the next element is pre-loaded into a "hidden"
    variable (named ``Z_safe``.)  Equivalent to:
@@ -212,7 +212,7 @@ The following iteration macros work across all data structures:
       tables is resized while iterating.  This will cause items to be
       skipped or iterated over twice.
 
-.. c:function:: frr_each_from(Z, &head, item, from)
+.. c:macro:: frr_each_from(Z, head, item, from)
 
    Iterates over the list, starting at item ``from``.  This variant is "safe"
    as in the previous macro.  Equivalent to:
@@ -346,7 +346,7 @@ are several functions exposed to insert data:
 
    ``item`` must not be ``NULL`` for any of the following functions.
 
-.. c:function:: DECLARE_XXX(Z, type, field)
+.. c:macro:: DECLARE_XXX(Z, type, field)
 
    :param listtype XXX: ``LIST``, ``DLIST`` or ``ATOMLIST`` to select a data
       structure implementation.
@@ -403,7 +403,7 @@ Sorted data structures do not need to have an insertion position specified,
 therefore the insertion calls are different from unsorted lists.  Also,
 sorted lists can be searched for a value.
 
-.. c:function:: DECLARE_XXX_UNIQ(Z, type, field, compare_func)
+.. c:macro:: DECLARE_XXX_UNIQ(Z, type, field, compare_func)
 
    :param listtype XXX: One of the following:
        ``SORTLIST`` (single-linked sorted list), ``SKIPLIST`` (skiplist),
@@ -423,7 +423,7 @@ sorted lists can be searched for a value.
       ``int function(const itemtype *, const itemtype*)``.  This function
       may be static if the list is only used in one file.
 
-.. c:function:: DECLARE_XXX_NONUNIQ(Z, type, field, compare_func)
+.. c:macro:: DECLARE_XXX_NONUNIQ(Z, type, field, compare_func)
 
    Same as above, but allow adding multiple items to the list that compare
    as equal in ``compare_func``.  Ordering between these items is undefined
@@ -477,9 +477,9 @@ sorted lists can be searched for a value.
 API for hash tables
 -------------------
 
-.. c:function:: DECLARE_XXX(Z, type, field, compare_func, hash_func)
+.. c:macro:: DECLARE_HASH(Z, type, field, compare_func, hash_func)
 
-   :param listtype XXX: Only ``HASH`` is currently available.
+   :param listtype HASH: Only ``HASH`` is currently available.
    :param token Z: Gives the name prefix that is used for the functions
       created for this instantiation.  ``DECLARE_XXX(foo, ...)``
       gives ``struct foo_item``, ``foo_add()``, ``foo_count()``, etc.  Note
