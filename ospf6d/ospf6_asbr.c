@@ -1522,7 +1522,6 @@ void ospf6_asbr_redistribute_add(int type, ifindex_t ifindex,
 	route = ospf6_route_create(ospf6);
 	route->type = OSPF6_DEST_TYPE_NETWORK;
 	prefix_copy(&route->prefix, prefix);
-	route->ospf6 = ospf6;
 
 	info = (struct ospf6_external_info *)XCALLOC(
 		MTYPE_OSPF6_EXTERNAL_INFO, sizeof(struct ospf6_external_info));
