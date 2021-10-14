@@ -157,8 +157,8 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 	case ECHO_REPLY:
 	case ECHO_REQUEST:
 		zlog_debug("  [dp_time=%" PRIu64 " bfdd_time=%" PRIu64 "]",
-			   (uint64_t)be64toh(msg->data.echo.dp_time),
-			   (uint64_t)be64toh(msg->data.echo.bfdd_time));
+			   be64toh(msg->data.echo.dp_time),
+			   be64toh(msg->data.echo.bfdd_time));
 		break;
 
 	case DP_ADD_SESSION:
@@ -245,21 +245,18 @@ static void bfd_dplane_debug_message(const struct bfddp_message *msg)
 			" packets), "
 			"out %" PRIu64 " bytes (%" PRIu64 " packets)}]",
 			ntohl(msg->data.session_counters.lid),
-			(uint64_t)be64toh(
-				msg->data.session_counters.control_input_bytes),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .control_input_packets),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .control_output_bytes),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .control_output_packets),
-			(uint64_t)be64toh(msg->data.session_counters.echo_input_bytes),
-			(uint64_t)be64toh(
-				msg->data.session_counters.echo_input_packets),
-			(uint64_t)be64toh(
-				msg->data.session_counters.echo_output_bytes),
-			(uint64_t)be64toh(msg->data.session_counters
-					   .echo_output_packets));
+			be64toh(msg->data.session_counters.control_input_bytes),
+			be64toh(msg->data.session_counters
+				.control_input_packets),
+			be64toh(msg->data.session_counters
+				.control_output_bytes),
+			be64toh(msg->data.session_counters
+				.control_output_packets),
+			be64toh(msg->data.session_counters.echo_input_bytes),
+			be64toh(msg->data.session_counters.echo_input_packets),
+			be64toh(msg->data.session_counters.echo_output_bytes),
+			be64toh(msg->data.session_counters
+				.echo_output_packets));
 		break;
 	}
 }
