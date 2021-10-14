@@ -162,7 +162,7 @@ void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf_id)
 	struct zebra_if *bond_zif;
 	struct zebra_l2info_bondslave *bond_slave = &zif->bondslave_info;
 
-	bond_if = if_lookup_by_index_all_vrf(bond_slave->bond_ifindex);
+	bond_if = if_lookup_by_index(bond_slave->bond_ifindex, vrf_id);
 	if (bond_if == bond_slave->bond_if)
 		return;
 
