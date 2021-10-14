@@ -485,12 +485,35 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	nhop.vrf_id = vrf->vrf_id;
 
 	if (intf) {
-		struct interface *ifp;
+		struct interface *ifp = NULL;
+		struct interface *ifptmp;
+		struct vrf *vrftmp;
+		int count = 0;
 
-		ifp = if_lookup_by_name_all_vrf(intf);
+		if (vrf_is_backend_netns() && vrf_name) {
+			ifp = if_lookup_by_name_vrf(intf, vrf);
+		} else {
+			RB_FOREACH (vrftmp, vrf_name_head, &vrfs_by_name) {
+				ifptmp = if_lookup_by_name_vrf(intf, vrftmp);
+				if (ifptmp) {
+					ifp = ifptmp;
+					count++;
+					if (!vrf_is_backend_netns())
+						break;
+				}
+			}
+		}
+
 		if (!ifp) {
 			vty_out(vty, "Specified Intf %s does not exist\n",
 				intf);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (count > 1) {
+			vty_out(vty,
+				"Specified Intf %s exists in multiple VRFs\n",
+				intf);
+			vty_out(vty, "You must specify the nexthop-vrf\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
 		if (ifp->vrf_id != vrf->vrf_id) {
