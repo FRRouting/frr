@@ -1688,10 +1688,10 @@ route_match_interface(void *rule, const struct prefix *prefix, void *object)
 
 	path = object;
 
-	if (!path)
+	if (!path || !path->peer || !path->peer->bgp)
 		return RMAP_NOMATCH;
 
-	ifp = if_lookup_by_name_all_vrf((char *)rule);
+	ifp = if_lookup_by_name((char *)rule, path->peer->bgp->vrf_id);
 
 	if (ifp == NULL || ifp->ifindex != path->attr->nh_ifindex)
 		return RMAP_NOMATCH;
