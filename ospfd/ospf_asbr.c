@@ -72,12 +72,13 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 }
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_new(uint8_t type,
+struct external_info *ospf_external_info_new(struct ospf *ospf, uint8_t type,
 					     unsigned short instance)
 {
 	struct external_info *new;
 
 	new = XCALLOC(MTYPE_OSPF_EXTERNAL_INFO, sizeof(struct external_info));
+	new->ospf = ospf;
 	new->type = type;
 	new->instance = instance;
 	new->to_be_processed = 0;
@@ -138,7 +139,7 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	}
 
 	/* Create new External info instance. */
-	new = ospf_external_info_new(type, instance);
+	new = ospf_external_info_new(ospf, type, instance);
 	new->p = p;
 	new->ifindex = ifindex;
 	new->nexthop = nexthop;
