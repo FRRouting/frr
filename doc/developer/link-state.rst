@@ -53,15 +53,15 @@ Data structures
 
 3 types of Link State structure have been defined:
 
-.. c:type:: struct ls_node
+.. c:struct:: ls_node
 
    that groups all information related to a node
 
-.. c:type:: struct ls_attributes
+.. c:struct:: ls_attributes
 
    that groups all information related to a link
 
-.. c:type:: struct ls_prefix
+.. c:struct:: ls_prefix
 
    that groups all information related to a prefix
 
@@ -73,7 +73,7 @@ identifier which advertises the Link State and a bit mask as flags to
 indicates which parameters are valid i.e. for which the value is valid and
 corresponds to a Link State information conveyed by the routing protocol.
 
-.. c:type:: struct ls_node_id
+.. c:struct:: ls_node_id
 
    defines the Node identifier as router ID IPv4 address plus the area ID for
    OSPF or the ISO System ID plus the IS-IS level for IS-IS.
@@ -159,10 +159,11 @@ A unique Key is used to identify both Vertices and Edges within the Graph.
 
 4 data structures have been defined to implement the Graph model:
 
-.. c:type:: struct ls_vertex
-.. c:type:: struct ls_edge
-.. c:type:: struct ls_prefix
-.. c:type:: struct ls_ted
+.. c:struct:: ls_vertex
+.. c:struct:: ls_edge
+.. c:struct:: ls_ted
+
+ - :c:struct:`ls_prefix`
 
 TED stores Vertex, Edge and Subnet elements with a RB Tree structure.
 The Vertex key corresponds to the Router ID for OSPF and ISO System ID for
@@ -412,7 +413,7 @@ Data Structures
 The Link State Message is defined to convey Link State parameters from
 the routing protocol (OSPF or IS-IS) to other daemons e.g. BGP.
 
-.. c:type:: struct ls_message
+.. c:struct:: ls_message
 
 The structure is composed of:
 

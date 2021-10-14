@@ -489,7 +489,7 @@ calls to :c:func:`zlog_tls_buffer_flush()` in appropriate places:
    buffer.  This function is safe to call regardless of the per-thread log
    buffer being set up / in use or not.
 
-When working with threads that do not use the :c:type:`struct thread_master`
+When working with threads that do not use the :c:struct:`thread_master`
 event loop, per-thread buffers can be managed with:
 
 .. c:function:: void zlog_tls_buffer_init(void)
@@ -531,7 +531,7 @@ that they use.
 Basic internals
 ^^^^^^^^^^^^^^^
 
-.. c:type:: struct zlog_target
+.. c:struct:: zlog_target
 
    This struct needs to be filled in by any log target and then passed to
    :c:func:`zlog_target_replace()`.  After it has been registered,
@@ -570,7 +570,7 @@ Basic internals
 
    Allocates a logging target struct.  Note that the ``oldzt`` argument may be
    ``NULL`` to allocate a "from scratch".  If ``oldzt`` is not ``NULL``, the
-   generic bits in :c:type:`struct zlog_target` are copied.  **Target specific
+   generic bits in :c:struct:`zlog_target` are copied.  **Target specific
    bits are not copied.**
 
 .. c:function:: struct zlog_target *zlog_target_replace(struct zlog_target *oldzt, struct zlog_target *newzt)
