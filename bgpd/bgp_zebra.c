@@ -3506,7 +3506,7 @@ void bgp_zebra_announce_default(struct bgp *bgp, struct nexthop *nh,
 		/* create default route with interface <VRF>
 		 * with nexthop-vrf <VRF>
 		 */
-		ifp = if_lookup_by_name_all_vrf(vrf->name);
+		ifp = if_lookup_by_name_vrf(vrf->name, vrf);
 		if (!ifp)
 			return;
 		api_nh->vrf_id = nh->vrf_id;
