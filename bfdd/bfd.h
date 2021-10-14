@@ -600,7 +600,8 @@ void ptm_bfd_start_xmt_timer(struct bfd_session *bfd, bool is_echo);
 struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 				      struct sockaddr_any *peer,
 				      struct sockaddr_any *local,
-				      ifindex_t ifindex, vrf_id_t vrfid,
+				      struct interface *ifp,
+				      vrf_id_t vrfid,
 				      bool is_mhop);
 
 struct bfd_session *bs_peer_find(struct bfd_peer_cfg *bpc);
