@@ -297,7 +297,7 @@ The following documentation assumes that a list has been defined using
       affected by the "modification while iterating" problem.  To remove
       all items from a hash table, use the loop demonstrated above.
 
-.. c:function:: const itemtype *Z_next(const struct Z_head *, const itemtype *prev)
+.. c:function:: const itemtype *Z_const_next(const struct Z_head *, const itemtype *prev)
 .. c:function:: itemtype *Z_next(struct Z_head *, itemtype *prev)
 
    Return the item that follows after ``prev``, or ``NULL`` if ``prev`` is
@@ -439,7 +439,7 @@ sorted lists can be searched for a value.
    For ``_NONUNIQ`` lists, this function always returns NULL since ``item``
    can always be successfully added to the list.
 
-.. c:function:: const itemtype *Z_find(const struct Z_head *, const itemtype *ref)
+.. c:function:: const itemtype *Z_const_find(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares equal to ``ref``.  If no equal
@@ -461,13 +461,13 @@ sorted lists can be searched for a value.
       containing non-unique items, more than one item may compare as equal to
       the item that is searched for.
 
-.. c:function:: const itemtype *Z_find_gteq(const struct Z_head *, const itemtype *ref)
+.. c:function:: const itemtype *Z_const_find_gteq(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_gteq(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares greater or equal to
    ``ref``.  See :c:func:`Z_find()` above.
 
-.. c:function:: const itemtype *Z_find_lt(const struct Z_head *, const itemtype *ref)
+.. c:function:: const itemtype *Z_const_find_lt(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_lt(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares less than
