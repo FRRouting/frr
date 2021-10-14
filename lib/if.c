@@ -431,7 +431,7 @@ struct interface *if_lookup_by_name_vrf(const char *name, struct vrf *vrf)
 	return RB_FIND(if_name_head, &vrf->ifaces_by_name, &if_tmp);
 }
 
-struct interface *if_lookup_by_name_all_vrf(const char *name)
+static struct interface *if_lookup_by_name_all_vrf(const char *name)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
