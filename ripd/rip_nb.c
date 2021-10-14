@@ -240,6 +240,14 @@ const struct frr_yang_module_info frr_ripd_info = {
 			},
 		},
 		{
+			.xpath = "/frr-ripd:ripd/instance/default-bfd-profile",
+			.cbs = {
+				.modify = ripd_instance_default_bfd_profile_modify,
+				.destroy = ripd_instance_default_bfd_profile_destroy,
+				.cli_show = cli_show_ripd_instance_default_bfd_profile,
+			},
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/split-horizon",
 			.cbs = {
 				.cli_show = cli_show_ip_rip_split_horizon,
@@ -300,6 +308,28 @@ const struct frr_yang_module_info frr_ripd_info = {
 				.cli_show = cli_show_ip_rip_authentication_key_chain,
 				.destroy = lib_interface_rip_authentication_key_chain_destroy,
 				.modify = lib_interface_rip_authentication_key_chain_modify,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring",
+			.cbs = {
+				.create = lib_interface_rip_bfd_create,
+				.destroy = lib_interface_rip_bfd_destroy,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/enable",
+			.cbs = {
+				.cli_show = cli_show_ip_rip_bfd_enable,
+				.modify = lib_interface_rip_bfd_enable_modify,
+			},
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-ripd:rip/bfd-monitoring/profile",
+			.cbs = {
+				.cli_show = cli_show_ip_rip_bfd_profile,
+				.modify = lib_interface_rip_bfd_profile_modify,
+				.destroy = lib_interface_rip_bfd_profile_destroy,
 			},
 		},
 		{
