@@ -2481,17 +2481,40 @@ DEFPY (show_interface_name_vrf_all,
        VRF_ALL_CMD_HELP_STR
        JSON_STR)
 {
-	struct interface *ifp;
+	struct interface *ifp = NULL;
+	struct interface *ifptmp;
+	struct vrf *vrf;
 	json_object *json = NULL;
+	int count = 0;
 
 	interface_update_stats();
 
-	ifp = if_lookup_by_name_all_vrf(ifname);
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifptmp = if_lookup_by_name_vrf(ifname, vrf);
+		if (ifptmp) {
+			ifp = ifptmp;
+			count++;
+			if (!vrf_is_backend_netns())
+				break;
+		}
+	}
+
 	if (ifp == NULL) {
 		if (uj)
 			vty_out(vty, "{}\n");
 		else
 			vty_out(vty, "%% Can't find interface %s\n", ifname);
+		return CMD_WARNING;
+	}
+	if (count > 1) {
+		if (uj) {
+			vty_out(vty, "{}\n");
+		} else {
+			vty_out(vty,
+				"%% There are multiple interfaces with name %s\n",
+				ifname);
+			vty_out(vty, "%% You must specify the VRF name\n");
+		}
 		return CMD_WARNING;
 	}
 
