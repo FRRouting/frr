@@ -29,6 +29,8 @@ struct route_map_set_values {
 
 /* Redistributed external information. */
 struct external_info {
+	struct ospf *ospf;
+
 	/* Type of source protocol. */
 	uint8_t type;
 
@@ -107,7 +109,8 @@ struct ospf_external_aggr_rt {
 #define OSPF_ASBR_NSSA_REDIST_UPDATE_DELAY 9
 
 extern void ospf_external_route_remove(struct ospf *, struct prefix_ipv4 *);
-extern struct external_info *ospf_external_info_new(uint8_t, unsigned short);
+extern struct external_info *ospf_external_info_new(struct ospf *, uint8_t,
+						    unsigned short);
 extern void ospf_reset_route_map_set_values(struct route_map_set_values *);
 extern int ospf_route_map_set_compare(struct route_map_set_values *,
 				      struct route_map_set_values *);
