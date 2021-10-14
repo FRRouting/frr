@@ -797,6 +797,7 @@ fi
 #
 
 AS_IF([test "$host" = "$build"], [
+  AM_PATH_PYTHON([3])
   AC_CHECK_HEADER([gelf.h], [], [
     AC_MSG_ERROR([libelf headers are required for building clippy.  (Host only when cross-compiling.)])
   ])
