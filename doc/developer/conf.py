@@ -138,6 +138,7 @@ exclude_patterns = [
     "_build",
     "building-libyang.rst",
     "topotests-snippets.rst",
+    "topotests-markers.rst",
     "include-compile.rst",
 ]
 

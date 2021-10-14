@@ -137,14 +137,14 @@ Topotests must be run as root. Normally this will be accomplished through the
 use of the ``sudo`` command. In order for topotests to be able to open new
 windows (either XTerm or byobu/screen/tmux windows) certain environment
 variables must be passed through the sudo command. One way to do this is to
-specify the :option:`-E` flag to ``sudo``. This will carry over most if not all
+specify the ``-E`` flag to ``sudo``. This will carry over most if not all
 your environment variables include ``PATH``. For example:
 
 .. code:: shell
 
    sudo -E python3 -m pytest -s -v
 
-If you do not wish to use :option:`-E` (e.g., to avoid ``sudo`` inheriting
+If you do not wish to use ``-E`` (e.g., to avoid ``sudo`` inheriting
 ``PATH``) you can modify your `/etc/sudoers` config file to specifically pass
 the environment variables required by topotests. Add the following commands to
 your ``/etc/sudoers`` config file.
@@ -197,7 +197,7 @@ the run.
 
 Here we see that 4 tests have failed. We an dig deeper by displaying the
 captured logs and errors. First let's redisplay the results enumerated by adding
-the :option:`-E` flag
+the ``-E`` flag
 
 .. code:: shell
 
@@ -385,7 +385,7 @@ to launch the given programs.
 
 NOTE: you must run the topotest (pytest) such that your DISPLAY, STY or TMUX
 environment variables are carried over. You can do this by passing the
-:option:`-E` flag to ``sudo`` or you can modify your ``/etc/sudoers`` config to
+``-E`` flag to ``sudo`` or you can modify your ``/etc/sudoers`` config to
 automatically pass that environment variable through to the ``sudo``
 environment.
 
@@ -903,6 +903,7 @@ Interface), from here you can call your router ``vtysh`` or even bash.
 Here's the help text:
 
 .. code:: shell
+
     unet> help
 
     Commands:
@@ -911,8 +912,6 @@ Here's the help text:
       term [hosts]               :: open shell terminals for hosts
       vtysh [hosts]              :: open vtysh terminals for hosts
       [hosts] <vtysh-command>    :: execute vtysh-command on hosts
-
-.. code:: shell
 
 Here are some commands example:
 
