@@ -499,7 +499,7 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 			actual = vrf_lookup_by_id(ifp->vrf_id);
 			vty_out(vty,
 				"Specified Intf %s is not in vrf %s but is in vrf %s, using actual vrf\n",
-				ifp->name, vrf->name, actual->name);
+				ifp->name, vrf->name, VRF_LOGNAME(actual));
 		}
 		nhop.ifindex = ifp->ifindex;
 		nhop.vrf_id = ifp->vrf_id;
