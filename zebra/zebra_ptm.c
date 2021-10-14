@@ -609,11 +609,27 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	}
 
 	if (strcmp(ZEBRA_PTM_INVALID_PORT_NAME, port_str)) {
-		ifp = if_lookup_by_name_all_vrf(port_str);
+		struct vrf *vrf;
+		int count = 0;
+
+		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
+			ifp = if_lookup_by_name_vrf(ifname, vrf);
+			if (ifp) {
+				count++;
+				if (!vrf_is_backend_netns())
+					break;
+			}
+		}
 
 		if (!ifp) {
 			flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
 				  "%s: %s not found in interface list",
+				  __func__, port_str);
+			return -1;
+		}
+		if (count > 1) {
+			flog_warn(EC_ZEBRA_UNKNOWN_INTERFACE,
+				  "%s: multiple interface with name %s",
 				  __func__, port_str);
 			return -1;
 		}
