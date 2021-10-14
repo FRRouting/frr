@@ -135,7 +135,7 @@ def test_wait_protocol_convergence():
             )
             if (
                 topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"state": "Full/DR"}]}}
+                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
                 )
                 is None
             ):
@@ -143,14 +143,14 @@ def test_wait_protocol_convergence():
 
             if (
                 topotest.json_cmp(
-                    result, {"neighbors": {neighbor: [{"state": "Full/DROther"}]}}
+                    result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
                 )
                 is None
             ):
                 return None
 
             return topotest.json_cmp(
-                result, {"neighbors": {neighbor: [{"state": "Full/Backup"}]}}
+                result, {"neighbors": {neighbor: [{"converged": "Full"}]}}
             )
 
         _, result = topotest.run_and_expect(

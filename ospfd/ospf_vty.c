@@ -4397,6 +4397,16 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 				json_object_string_add(json_neighbor, "state",
 						       msgbuf);
 
+				json_object_string_add(
+					json_neighbor, "converged",
+					lookup_msg(ospf_nsm_state_msg,
+						   nbr->state, NULL));
+				json_object_string_add(
+					json_neighbor, "role",
+					lookup_msg(ospf_ism_state_msg,
+						   ospf_nbr_ism_state(nbr),
+						   NULL));
+
 				if (nbr->t_inactivity) {
 					long time_store;
 
