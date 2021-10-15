@@ -166,7 +166,7 @@ resize_route_table(int new_slots)
 static struct babel_route *
 insert_route(struct babel_route *route)
 {
-    int i, n;
+    int i, n = 0;
 
     assert(!route->installed);
 
