@@ -2552,12 +2552,17 @@ def create_route_maps(tgen, input_dict, build=False):
                         nexthop = set_data.setdefault("nexthop", None)
                         origin = set_data.setdefault("origin", None)
                         ext_comm_list = set_data.setdefault("extcommunity", {})
+                        metrictype = set_data.setdefault("metric-type", {})
 
                         # Local Preference
                         if local_preference:
                             rmap_data.append(
                                 "set local-preference {}".format(local_preference)
                             )
+
+                        # Metric-Type
+                        if metrictype:
+                            rmap_data.append("set metric-type {}\n".format(metrictype))
 
                         # Metric
                         if metric:
