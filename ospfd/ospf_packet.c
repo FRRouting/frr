@@ -1096,39 +1096,41 @@ static void ospf_hello(struct ip *iph, struct ospf_header *ospfh,
 			zlog_debug(
 				"%s, Neighbor is under GR Restart, hence ignoring the ISM Events",
 				__PRETTY_FUNCTION__);
+	} else {
+		/* If neighbor itself declares DR and no BDR exists,
+		   cause event BackupSeen */
+		if (IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router))
+			if (hello->bd_router.s_addr == INADDR_ANY
+			    && oi->state == ISM_Waiting)
+				OSPF_ISM_EVENT_SCHEDULE(oi, ISM_BackupSeen);
 
-		return;
-	}
-
-	/* If neighbor itself declares DR and no BDR exists,
-	   cause event BackupSeen */
-	if (IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router))
-		if (hello->bd_router.s_addr == INADDR_ANY
-		    && oi->state == ISM_Waiting)
+		/* neighbor itself declares BDR. */
+		if (oi->state == ISM_Waiting
+		    && IPV4_ADDR_SAME(&nbr->address.u.prefix4,
+				      &hello->bd_router))
 			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_BackupSeen);
 
-	/* neighbor itself declares BDR. */
-	if (oi->state == ISM_Waiting
-	    && IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->bd_router))
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_BackupSeen);
+		/* had not previously. */
+		if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router)
+		     && IPV4_ADDR_CMP(&nbr->address.u.prefix4, &nbr->d_router))
+		    || (IPV4_ADDR_CMP(&nbr->address.u.prefix4, &hello->d_router)
+			&& IPV4_ADDR_SAME(&nbr->address.u.prefix4,
+					  &nbr->d_router)))
+			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
 
-	/* had not previously. */
-	if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->d_router)
-	     && IPV4_ADDR_CMP(&nbr->address.u.prefix4, &nbr->d_router))
-	    || (IPV4_ADDR_CMP(&nbr->address.u.prefix4, &hello->d_router)
-		&& IPV4_ADDR_SAME(&nbr->address.u.prefix4, &nbr->d_router)))
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+		/* had not previously. */
+		if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->bd_router)
+		     && IPV4_ADDR_CMP(&nbr->address.u.prefix4, &nbr->bd_router))
+		    || (IPV4_ADDR_CMP(&nbr->address.u.prefix4,
+				      &hello->bd_router)
+			&& IPV4_ADDR_SAME(&nbr->address.u.prefix4,
+					  &nbr->bd_router)))
+			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
 
-	/* had not previously. */
-	if ((IPV4_ADDR_SAME(&nbr->address.u.prefix4, &hello->bd_router)
-	     && IPV4_ADDR_CMP(&nbr->address.u.prefix4, &nbr->bd_router))
-	    || (IPV4_ADDR_CMP(&nbr->address.u.prefix4, &hello->bd_router)
-		&& IPV4_ADDR_SAME(&nbr->address.u.prefix4, &nbr->bd_router)))
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
-
-	/* Neighbor priority check. */
-	if (nbr->priority >= 0 && nbr->priority != hello->priority)
-		OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+		/* Neighbor priority check. */
+		if (nbr->priority >= 0 && nbr->priority != hello->priority)
+			OSPF_ISM_EVENT_SCHEDULE(oi, ISM_NeighborChange);
+	}
 
 	/* Set neighbor information. */
 	nbr->priority = hello->priority;
