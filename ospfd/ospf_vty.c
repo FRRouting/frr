@@ -2896,7 +2896,7 @@ static void show_ip_ospf_area(struct vty *vty, struct ospf_area *area,
 			}
 		} else {
 			vty_out(vty,
-				"   Originating stub / maximum-distance Router-LSA\n");
+				"   Originating stub / maximum-distance Router-LSA and Summary-LSA\n");
 			if (CHECK_FLAG(area->stub_router_state,
 				       OSPF_AREA_ADMIN_STUB_ROUTED))
 				vty_out(vty,
@@ -9721,7 +9721,7 @@ DEFUN (ospf_max_metric_router_lsa_admin,
        ospf_max_metric_router_lsa_admin_cmd,
        "max-metric router-lsa administrative",
        "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router)\n"
        "Administratively applied, for an indefinite period\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -9747,7 +9747,7 @@ DEFUN (no_ospf_max_metric_router_lsa_admin,
        "no max-metric router-lsa administrative",
        NO_STR
        "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router)\n"
        "Administratively applied, for an indefinite period\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -9775,8 +9775,8 @@ DEFUN (ospf_max_metric_router_lsa_startup,
        ospf_max_metric_router_lsa_startup_cmd,
        "max-metric router-lsa on-startup (5-86400)",
        "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
-       "Automatically advertise stub Router-LSA on startup of OSPF\n"
+       "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router)\n"
+       "Automatically advertise stub Router-LSA and Summary-LSA on startup of OSPF\n"
        "Time (seconds) to advertise self as stub-router\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -9800,8 +9800,8 @@ DEFUN (no_ospf_max_metric_router_lsa_startup,
        "no max-metric router-lsa on-startup [(5-86400)]",
        NO_STR
        "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
-       "Automatically advertise stub Router-LSA on startup of OSPF\n"
+       "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router)\n"
+       "Automatically advertise stub Router-LSA and Summary-LSA on startup of OSPF\n"
        "Time (seconds) to advertise self as stub-router\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -9831,7 +9831,7 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
        ospf_max_metric_router_lsa_shutdown_cmd,
        "max-metric router-lsa on-shutdown (5-100)",
        "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router)\n"
        "Advertise stub-router prior to full shutdown of OSPF\n"
        "Time (seconds) to wait till full shutdown\n")
 {
@@ -9856,7 +9856,7 @@ DEFUN (no_ospf_max_metric_router_lsa_shutdown,
        "no max-metric router-lsa on-shutdown [(5-100)]",
        NO_STR
        "OSPF maximum / infinite-distance metric\n"
-       "Advertise own Router-LSA with infinite distance (stub router)\n"
+       "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router)\n"
        "Advertise stub-router prior to full shutdown of OSPF\n"
        "Time (seconds) to wait till full shutdown\n")
 {

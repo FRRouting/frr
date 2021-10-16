@@ -523,7 +523,7 @@ module frr-ospfd {
     container max-metric {
       container router-lsa {
         description
-          "Advertise own Router-LSA with infinite distance (stub router).";
+          "Advertise own Router-LSA and Summary-LSA with infinite distance (stub router).";
         leaf administrative {
           type boolean;
           description
@@ -543,7 +543,7 @@ module frr-ospfd {
             range "5..86400";
           }
           description
-            "Automatically advertise stub Router-LSA on startup of OSPF.";
+            "Automatically advertise stub Router-LSA and Summary-LSA on startup of OSPF.";
         }
       }
     }
