@@ -38,10 +38,27 @@ enum filter_type { FILTER_DENY, FILTER_PERMIT, FILTER_DYNAMIC };
 struct filter_cisco {
 	/* Cisco access-list */
 	int extended;
-	struct in_addr addr;
-	struct in_addr addr_mask;
-	struct in_addr mask;
-	struct in_addr mask_mask;
+	union {
+		/* basic */
+		struct {
+			struct in_addr addr;
+			struct in_addr addr_mask;
+		};
+		/* "pseudo-prefix-list-mode", aka WTF mode */
+		struct {
+			struct in_addr addr;
+			struct in_addr addr_mask;
+			struct in_addr mask;
+			struct in_addr mask_mask;
+		} wtf;
+		/* source / destination address matching */
+		struct {
+			struct in_addr src;
+			struct in_addr src_mask;
+			struct in_addr dst;
+			struct in_addr dst_mask;
+		} sadr;
+	};
 };
 
 struct filter_zebra {
@@ -121,6 +138,8 @@ extern void access_list_delete_hook(void (*func)(struct access_list *));
 extern struct access_list *access_list_lookup(afi_t afi, const char *name);
 extern enum filter_type access_list_apply(struct access_list *access,
 					  const void *object);
+extern enum filter_type access_list_apply_sadr(struct access_list *access, union prefixconstptr src,
+					       union prefixconstptr dst, struct filter **match);
 
 struct access_list *access_list_get(afi_t afi, const char *name);
 void access_list_delete(struct access_list *access);
