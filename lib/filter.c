@@ -92,13 +92,10 @@ static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 
 	if (filter->extended) {
 		masklen2ip(p->prefixlen, &mask);
-		check_mask = mask.s_addr & ~filter->mask_mask.s_addr;
+		check_mask = mask.s_addr & ~filter->wtf.mask_mask.s_addr;
 
-		if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN)
-			    == 0
-		    && memcmp(&check_mask, &filter->mask.s_addr,
-			      IPV4_MAX_BYTELEN)
-			       == 0)
+		if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN) == 0 &&
+		    memcmp(&check_mask, &filter->wtf.mask.s_addr, IPV4_MAX_BYTELEN) == 0)
 			return 1;
 	} else if (memcmp(&check_addr, &filter->addr.s_addr, IPV4_MAX_BYTELEN)
 		   == 0)
@@ -111,6 +108,57 @@ static int filter_match_cisco(struct filter *mfilter, const struct prefix *p)
 static int filter_match_zebra(struct filter *mfilter, const struct prefix *p)
 {
 	struct filter_zebra *filter = NULL;
+
+	filter = &mfilter->u.zfilter;
+
+	if (filter->prefix.family == p->family) {
+		if (filter->exact) {
+			if (filter->prefix.prefixlen == p->prefixlen)
+				return prefix_match(&filter->prefix, p);
+			else
+				return 0;
+		} else
+			return prefix_match(&filter->prefix, p);
+	} else
+		return 0;
+}
+
+/* If filter match to the prefix then return 1. */
+static int filter_match_cisco_sadr(struct filter *mfilter,
+				   const struct prefix *src,
+				   const struct prefix *dst)
+{
+	struct filter_cisco *filter;
+
+	filter = &mfilter->u.cfilter;
+
+	if (filter->extended) {
+		in_addr_t src_m = src->u.prefix4.s_addr;
+		in_addr_t dst_m = dst->u.prefix4.s_addr;
+
+		src_m &= ~filter->sadr.src_mask.s_addr;
+		dst_m &= ~filter->sadr.dst_mask.s_addr;
+
+		if (src_m == filter->sadr.src.s_addr && dst_m == filter->sadr.dst.s_addr)
+			return 1;
+	} else {
+		in_addr_t check_addr;
+
+		check_addr = dst->u.prefix4.s_addr & ~filter->addr_mask.s_addr;
+		if (check_addr == filter->addr.s_addr)
+			return 1;
+	}
+
+	return 0;
+}
+
+/* If filter match to the prefix then return 1. */
+static int filter_match_zebra_sadr(struct filter *mfilter, const struct prefix *src,
+				   const struct prefix *dst)
+{
+	struct filter_zebra *filter = NULL;
+	/* src ignored here */
+	const struct prefix *p = dst;
 
 	filter = &mfilter->u.zfilter;
 
@@ -285,6 +333,35 @@ enum filter_type access_list_apply(struct access_list *access,
 		} else {
 			if (filter_match_zebra(filter, p))
 				return filter->type;
+		}
+	}
+
+	return FILTER_DENY;
+}
+
+enum filter_type access_list_apply_sadr(struct access_list *access, union prefixconstptr src,
+					union prefixconstptr dst, struct filter **match)
+{
+	struct filter *filter;
+
+	if (access == NULL)
+		return FILTER_DENY;
+
+	for (filter = access->head; filter; filter = filter->next) {
+		if (filter->cisco) {
+			if (filter_match_cisco_sadr(filter, src.p, dst.p)) {
+				if (match)
+					*match = filter;
+
+				return filter->type;
+			}
+		} else {
+			if (filter_match_zebra_sadr(filter, src.p, dst.p)) {
+				if (match)
+					*match = filter;
+
+				return filter->type;
+			}
 		}
 	}
 
@@ -656,27 +733,27 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter,
 		json_object_string_addf(json, "sourceMask", "%pI4",
 					&filter->addr_mask);
 		json_object_string_addf(json, "destinationAddress", "%pI4",
-					&filter->mask);
+					&filter->wtf.mask);
 		json_object_string_addf(json, "destinationMask", "%pI4",
-					&filter->mask_mask);
+					&filter->wtf.mask_mask);
 	} else {
 		vty_out(vty, " ip");
-		if (filter->addr_mask.s_addr == 0xffffffff)
+		if (filter->wtf.addr_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
-		else if (filter->addr_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %pI4", &filter->addr);
+		else if (filter->wtf.addr_mask.s_addr == INADDR_ANY)
+			vty_out(vty, " host %pI4", &filter->wtf.addr);
 		else {
-			vty_out(vty, " %pI4", &filter->addr);
-			vty_out(vty, " %pI4", &filter->addr_mask);
+			vty_out(vty, " %pI4", &filter->wtf.addr);
+			vty_out(vty, " %pI4", &filter->wtf.addr_mask);
 		}
 
-		if (filter->mask_mask.s_addr == 0xffffffff)
+		if (filter->wtf.mask_mask.s_addr == 0xffffffff)
 			vty_out(vty, " any");
-		else if (filter->mask_mask.s_addr == INADDR_ANY)
-			vty_out(vty, " host %pI4", &filter->mask);
+		else if (filter->wtf.mask_mask.s_addr == INADDR_ANY)
+			vty_out(vty, " host %pI4", &filter->wtf.mask);
 		else {
-			vty_out(vty, " %pI4", &filter->mask);
-			vty_out(vty, " %pI4", &filter->mask_mask);
+			vty_out(vty, " %pI4", &filter->wtf.mask);
+			vty_out(vty, " %pI4", &filter->wtf.mask_mask);
 		}
 		vty_out(vty, "\n");
 	}
