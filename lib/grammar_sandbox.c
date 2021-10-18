@@ -395,6 +395,7 @@ DEFUN (grammar_findambig,
 				vector_slot(cmdvec, scannode++);
 			if (!cnode)
 				continue;
+			cmd_finalize_node(cnode);
 			nodegraph = cnode->cmdgraph;
 			if (!nodegraph)
 				continue;
@@ -466,6 +467,7 @@ DEFUN (grammar_access,
 	}
 
 	vty_out(vty, "node %d\n", (int)cnode->node);
+	cmd_finalize_node(cnode);
 	nodegraph = cnode->cmdgraph;
 	return CMD_SUCCESS;
 }

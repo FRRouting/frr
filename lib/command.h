@@ -210,6 +210,9 @@ struct cmd_node {
 
 	/* Hashed index of command node list, for de-dupping primarily */
 	struct hash *cmd_hash;
+
+	/* set as soon as any command is in cmdgraph */
+	bool graph_built;
 };
 
 /* Return value of the commands. */
@@ -525,6 +528,12 @@ extern void _install_element(enum node_type, const struct cmd_element *);
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
 extern void uninstall_element(enum node_type, const struct cmd_element *);
+
+/* construct CLI tree only when entering nodes */
+extern void cmd_defer_tree(bool val);
+
+/* finish CLI tree for node when above is true (noop otherwise) */
+extern void cmd_finalize_node(struct cmd_node *node);
 
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using

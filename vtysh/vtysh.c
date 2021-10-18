@@ -3923,6 +3923,8 @@ void vtysh_uninit(void)
 
 void vtysh_init_vty(void)
 {
+	cmd_defer_tree(true);
+
 	/* Make vty structure. */
 	vty = vty_new();
 	vty->type = VTY_SHELL;
