@@ -398,8 +398,12 @@ static void zl3vni_print_nh(struct zebra_neigh *n, struct vty *vty,
 static void zl3vni_print_rmac(struct zebra_mac *zrmac, struct vty *vty,
 			      json_object *json)
 {
+	char buf[INET6_ADDRSTRLEN];
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[PREFIX_STRLEN];
+	struct listnode *node = NULL;
+	struct ipaddr *vtep = NULL;
+	json_object *json_nhs = NULL;
 	json_object *json_hosts = NULL;
 	struct host_rb_entry *hle;
 
@@ -414,11 +418,18 @@ static void zl3vni_print_rmac(struct zebra_mac *zrmac, struct vty *vty,
 			vty_out(vty, "    %pFX\n", &hle->p);
 	} else {
 		json_hosts = json_object_new_array();
+		json_nhs = json_object_new_array();
 		json_object_string_add(
 			json, "routerMac",
 			prefix_mac2str(&zrmac->macaddr, buf1, sizeof(buf1)));
 		json_object_string_addf(json, "vtepIp", "%pI4",
 					&zrmac->fwd_info.r_vtep_ip);
+		for (ALL_LIST_ELEMENTS_RO(zrmac->nh_list, node, vtep)) {
+			json_object_array_add(json_nhs,
+					      json_object_new_string(ipaddr2str(
+						      vtep, buf, sizeof(buf))));
+		}
+		json_object_object_add(json, "nexthops", json_nhs);
 		json_object_int_add(json, "refCount",
 				    rb_host_count(&zrmac->host_rb));
 		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
