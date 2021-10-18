@@ -1969,6 +1969,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct in_addr local_ipv4;
 	struct in_addr *ipv4;
 	afi_t afi = AFI_IP;
+	int ret;
 
 	/* Reset some nexthop attributes that we'll recompute if necessary */
 	if ((nexthop->type == NEXTHOP_TYPE_IPV4)
@@ -2193,6 +2194,22 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			continue;
 		}
 
+		/* Turn on MPLS over interface */
+		if (match->nhe->nhg.nexthop
+			    && match->nhe->nhg.nexthop->ifindex != IFINDEX_INTERNAL
+			    && nexthop->type != NEXTHOP_TYPE_BLACKHOLE
+			    && nexthop->nh_label && nexthop->nh_label->num_labels) {
+			ifp = if_lookup_by_index(match->nhe->nhg.nexthop->ifindex, nexthop->vrf_id);
+
+			if (ifp && !is_mpls_interface_on(ifp)) {
+				frr_with_privs(&zserv_privs) {
+					vrf_switch_to_netns(ifp->vrf_id);
+					ret = mpls_interface_set(ifp->name, true);
+					mpls_update_interface_val(ifp, ret);
+					vrf_switchback_to_initial();
+				}
+			}
+		}
 		if (match->type == ZEBRA_ROUTE_CONNECT) {
 			/* Directly point connected route. */
 			newhop = match->nhe->nhg.nexthop;
@@ -2211,23 +2228,6 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 					 * doesn't match what we found.
 					 */
 					return 0;
-				}
-				/* Turn on MPLS over interface */
-				if (nexthop->nh_label && nexthop->nh_label->num_labels
-				    && nexthop->ifindex != IFINDEX_INTERNAL) {
-					struct interface *ifp =
-						if_lookup_by_index(nexthop->ifindex,
-								   nexthop->vrf_id);
-					int ret;
-
-					if (ifp && !is_mpls_interface_on(ifp)) {
-						frr_with_privs(&zserv_privs) {
-							vrf_switch_to_netns(ifp->vrf_id);
-							ret = mpls_interface_set(ifp->name, true);
-							mpls_update_interface_val(ifp, ret);
-							vrf_switchback_to_initial();
-						}
-					}
 				}
 			}
 
