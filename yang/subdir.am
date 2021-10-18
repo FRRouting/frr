@@ -88,6 +88,10 @@ dist_yangmodels_DATA += yang/frr-bgp-types.yang
 dist_yangmodels_DATA += yang/frr-bgp.yang
 endif
 
+if OSPFD
+dist_yangmodels_DATA += yang/frr-ospfd.yang
+endif
+
 if PATHD
 dist_yangmodels_DATA += yang/frr-pathd.yang
 endif
