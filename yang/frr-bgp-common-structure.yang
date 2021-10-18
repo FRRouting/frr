@@ -25,6 +25,8 @@ submodule frr-bgp-common-structure {
     prefix frr-bt;
   }
 
+  include "frr-bgp-common";
+
   organization
     "FRRouting";
   contact
