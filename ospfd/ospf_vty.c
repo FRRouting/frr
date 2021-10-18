@@ -892,6 +892,12 @@ ospf_find_vl_data(struct ospf *ospf, struct ospf_vl_config_data *vl_config)
 		vl_data = ospf_vl_data_new(area, vl_config->vl_peer);
 		if (vl_data->vl_oi == NULL) {
 			vl_data->vl_oi = ospf_vl_new(ospf, vl_data);
+			if (!vl_data->vl_oi) {
+				ospf_vl_data_free(vl_data);
+				vty_out(vty,
+					"Can't create VL, check logs for more information\n");
+				return NULL;
+			}
 			ospf_vl_add(ospf, vl_data);
 			ospf_spf_calculate_schedule(ospf,
 						    SPF_FLAG_CONFIG_CHANGE);
