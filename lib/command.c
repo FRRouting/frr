@@ -86,6 +86,9 @@ vector cmdvec = NULL;
 /* Host information structure. */
 struct host host;
 
+/* for vtysh, put together CLI trees only when switching into node */
+static bool defer_cli_tree;
+
 /*
  * Returns host.name if any, otherwise
  * it returns the system hostname.
@@ -285,6 +288,11 @@ const char *cmd_prompt(enum node_type node)
 	return cnode->prompt;
 }
 
+void cmd_defer_tree(bool val)
+{
+	defer_cli_tree = val;
+}
+
 /* Install a command into a node. */
 void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 {
@@ -319,20 +327,50 @@ void _install_element(enum node_type ntype, const struct cmd_element *cmd)
 
 	assert(hash_get(cnode->cmd_hash, (void *)cmd, hash_alloc_intern));
 
+	if (cnode->graph_built || !defer_cli_tree) {
+		struct graph *graph = graph_new();
+		struct cmd_token *token =
+			cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+		graph_new_node(graph, token,
+			       (void (*)(void *)) & cmd_token_del);
+
+		cmd_graph_parse(graph, cmd);
+		cmd_graph_names(graph);
+		cmd_graph_merge(cnode->cmdgraph, graph, +1);
+		graph_delete_graph(graph);
+
+		cnode->graph_built = true;
+	}
+
+	vector_set(cnode->cmd_vector, (void *)cmd);
+
+	if (ntype == VIEW_NODE)
+		_install_element(ENABLE_NODE, cmd);
+}
+
+static void cmd_finalize_iter(struct hash_bucket *hb, void *arg)
+{
+	struct cmd_node *cnode = arg;
+	const struct cmd_element *cmd = hb->data;
 	struct graph *graph = graph_new();
 	struct cmd_token *token =
 		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+
 	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
 
 	cmd_graph_parse(graph, cmd);
 	cmd_graph_names(graph);
 	cmd_graph_merge(cnode->cmdgraph, graph, +1);
 	graph_delete_graph(graph);
+}
 
-	vector_set(cnode->cmd_vector, (void *)cmd);
+void cmd_finalize_node(struct cmd_node *cnode)
+{
+	if (cnode->graph_built)
+		return;
 
-	if (ntype == VIEW_NODE)
-		_install_element(ENABLE_NODE, cmd);
+	hash_iterate(cnode->cmd_hash, cmd_finalize_iter, cnode);
+	cnode->graph_built = true;
 }
 
 void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
@@ -368,15 +406,18 @@ void uninstall_element(enum node_type ntype, const struct cmd_element *cmd)
 
 	vector_unset_value(cnode->cmd_vector, (void *)cmd);
 
-	struct graph *graph = graph_new();
-	struct cmd_token *token =
-		cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
-	graph_new_node(graph, token, (void (*)(void *)) & cmd_token_del);
+	if (cnode->graph_built) {
+		struct graph *graph = graph_new();
+		struct cmd_token *token =
+			cmd_token_new(START_TKN, CMD_ATTR_NORMAL, NULL, NULL);
+		graph_new_node(graph, token,
+			       (void (*)(void *)) & cmd_token_del);
 
-	cmd_graph_parse(graph, cmd);
-	cmd_graph_names(graph);
-	cmd_graph_merge(cnode->cmdgraph, graph, -1);
-	graph_delete_graph(graph);
+		cmd_graph_parse(graph, cmd);
+		cmd_graph_names(graph);
+		cmd_graph_merge(cnode->cmdgraph, graph, -1);
+		graph_delete_graph(graph);
+	}
 
 	if (ntype == VIEW_NODE)
 		uninstall_element(ENABLE_NODE, cmd);
@@ -503,6 +544,8 @@ static int config_write_host(struct vty *vty)
 static struct graph *cmd_node_graph(vector v, enum node_type ntype)
 {
 	struct cmd_node *cnode = vector_slot(v, ntype);
+
+	cmd_finalize_node(cnode);
 	return cnode->cmdgraph;
 }
 
@@ -1506,9 +1549,10 @@ int cmd_list_cmds(struct vty *vty, int do_permute)
 {
 	struct cmd_node *node = vector_slot(cmdvec, vty->node);
 
-	if (do_permute)
+	if (do_permute) {
+		cmd_finalize_node(node);
 		permute(vector_slot(node->cmdgraph->nodes, 0), vty);
-	else {
+	} else {
 		/* loop over all commands at this node */
 		const struct cmd_element *element = NULL;
 		for (unsigned int i = 0; i < vector_active(node->cmd_vector);
@@ -1551,7 +1595,10 @@ DEFUN_HIDDEN(show_cli_graph,
              "Dump current command space as DOT graph\n")
 {
 	struct cmd_node *cn = vector_slot(cmdvec, vty->node);
-	char *dot = cmd_graph_dump_dot(cn->cmdgraph);
+	char *dot;
+
+	cmd_finalize_node(cn);
+	dot = cmd_graph_dump_dot(cn->cmdgraph);
 
 	vty_out(vty, "%s\n", dot);
 	XFREE(MTYPE_TMP, dot);
