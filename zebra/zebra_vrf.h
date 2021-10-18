@@ -260,6 +260,14 @@ extern struct zebra_vrf *zebra_vrf_lookup_by_name(const char *);
 extern struct zebra_vrf *zebra_vrf_alloc(struct vrf *vrf);
 extern struct route_table *zebra_vrf_table(afi_t, safi_t, vrf_id_t);
 
+/*
+ * API to associate a VRF with a NETNS.
+ * Called either from vty or through discovery.
+ */
+extern int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
+					  char *pathname, ns_id_t ext_ns_id,
+					  ns_id_t ns_id, ns_id_t rel_def_ns_id);
+
 extern void zebra_vrf_init(void);
 
 extern void zebra_rtable_node_cleanup(struct route_table *table,

@@ -301,21 +301,6 @@ extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
 
-
-/* API to create a VRF. either from vty
- * or through discovery
- */
-extern int vrf_handler_create(struct vty *vty, const char *name,
-			      struct vrf **vrf);
-
-/* API to associate a VRF with a NETNS.
- * called either from vty or through discovery
- * should be called from zebra only
- */
-extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
-				    char *pathname, ns_id_t ext_ns_id,
-				    ns_id_t ns_id, ns_id_t rel_def_ns_id);
-
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF
  */
