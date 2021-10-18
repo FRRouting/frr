@@ -213,7 +213,19 @@ struct interface *if_create_name(const char *name, vrf_id_t vrf_id)
 
 	ifp = if_new(vrf_id);
 
-	if_set_name(ifp, name);
+	if_set_name(ifp, name, NULL);
+
+	hook_call(if_add, ifp);
+	return ifp;
+}
+
+static struct interface *if_create_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp;
+
+	ifp = if_new(vrf->vrf_id);
+
+	if_set_name(ifp, name, vrf);
 
 	hook_call(if_add, ifp);
 	return ifp;
@@ -285,7 +297,6 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 		vty_update_xpath(oldpath, newpath);
 	}
 }
-
 
 /* Delete interface structure. */
 void if_delete_retain(struct interface *ifp)
@@ -582,6 +593,18 @@ size_t if_lookup_by_hwaddr(const uint8_t *hw_addr, size_t addrsz,
 
 /* Get interface by name if given name interface doesn't exist create
    one. */
+struct interface *if_get_by_name_vrf(const char *name, struct vrf *vrf)
+{
+	struct interface *ifp = NULL;
+
+	ifp = if_lookup_by_name_vrf(name, vrf);
+	if (ifp)
+		return ifp;
+	return if_create_name_vrf(name, vrf);
+}
+
+/* Get interface by name if given name interface doesn't exist create
+   one. */
 struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id)
 {
 	struct interface *ifp;
@@ -673,11 +696,14 @@ int if_set_index(struct interface *ifp, ifindex_t ifindex)
 	return 0;
 }
 
-void if_set_name(struct interface *ifp, const char *name)
+void if_set_name(struct interface *ifp, const char *name, struct vrf *vrf_param)
 {
 	struct vrf *vrf;
 
-	vrf = vrf_get(ifp->vrf_id, NULL);
+	if (vrf_param)
+		vrf = vrf_param;
+	else
+		vrf = vrf_get(ifp->vrf_id, NULL);
 	assert(vrf);
 
 	if (if_cmp_name_func(ifp->name, name) == 0)
@@ -1197,8 +1223,8 @@ DEFPY_YANG_NOSH (interface,
        VRF_CMD_HELP_STR)
 {
 	char xpath_list[XPATH_MAXLEN];
-	vrf_id_t vrf_id;
-	struct interface *ifp;
+	struct interface *ifp = NULL;
+	struct vrf *vrf = NULL;
 	int ret;
 
 	if (!vrf_name)
@@ -1211,16 +1237,17 @@ DEFPY_YANG_NOSH (interface,
 	 * interface is found, then a new one should be created on the default
 	 * VRF.
 	 */
-	VRF_GET_ID(vrf_id, vrf_name, false);
-	ifp = if_lookup_by_name_all_vrf(ifname);
-	if (ifp && ifp->vrf_id != vrf_id) {
-		struct vrf *vrf;
-
+	vrf = vrf_get(VRF_UNKNOWN, vrf_name);
+	if (vrf->vrf_id == VRF_UNKNOWN)
+		ifp = if_get_by_name_vrf(ifname, vrf);
+	else
+		ifp = if_lookup_by_name_all_vrf(ifname);
+	if (ifp && ifp->vrf_id != vrf->vrf_id) {
 		/*
 		 * Special case 1: a VRF name was specified, but the found
 		 * interface is associated to different VRF. Reject the command.
 		 */
-		if (vrf_id != VRF_DEFAULT) {
+		if (vrf->vrf_id != VRF_DEFAULT) {
 			vty_out(vty, "%% interface %s not in %s vrf\n", ifname,
 				vrf_name);
 			return CMD_WARNING_CONFIG_FAILED;
@@ -1233,7 +1260,6 @@ DEFPY_YANG_NOSH (interface,
 		 */
 		vrf = vrf_lookup_by_id(ifp->vrf_id);
 		assert(vrf);
-		vrf_id = ifp->vrf_id;
 		vrf_name = vrf->name;
 	}
 
@@ -1252,7 +1278,7 @@ DEFPY_YANG_NOSH (interface,
 		 * all interface-level commands are converted to the new
 		 * northbound model.
 		 */
-		ifp = if_lookup_by_name(ifname, vrf_id);
+		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
 		if (ifp)
 			VTY_PUSH_CONTEXT(INTERFACE_NODE, ifp);
 	}
