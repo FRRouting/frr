@@ -1883,6 +1883,7 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    if test "$CONFD" = "/bin/false"; then
       AC_MSG_ERROR([confd was not found on your system.])]
    fi
+   AC_CHECK_PROG([CONFDC], [confdc], [confdc], [/bin/false], "${enable_confd}/bin")
    CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
    AC_SUBST([CONFD_CFLAGS])
    CONFD_LIBS="-lconfd"
