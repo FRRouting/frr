@@ -77,16 +77,17 @@ struct cmd_token *cmd_token_dup(struct cmd_token *token)
 	return copy;
 }
 
-void cmd_token_varname_set(struct cmd_token *token, const char *varname)
+static void cmd_token_varname_do(struct cmd_token *token, const char *varname,
+				 uint8_t varname_src)
 {
-	XFREE(MTYPE_CMD_VAR, token->varname);
-	if (!varname) {
-		token->varname = NULL;
+	if (token->varname_src >= varname_src)
 		return;
-	}
+
+	XFREE(MTYPE_CMD_VAR, token->varname);
 
 	size_t len = strlen(varname), i;
 	token->varname = XMALLOC(MTYPE_CMD_VAR, len + 1);
+	token->varname_src = varname_src;
 
 	for (i = 0; i < len; i++)
 		switch (varname[i]) {
@@ -100,6 +101,80 @@ void cmd_token_varname_set(struct cmd_token *token, const char *varname)
 			token->varname[i] = tolower((unsigned char)varname[i]);
 		}
 	token->varname[len] = '\0';
+}
+
+void cmd_token_varname_set(struct cmd_token *token, const char *varname)
+{
+	if (varname) {
+		cmd_token_varname_do(token, varname, VARNAME_EXPLICIT);
+		return;
+	}
+	if (token->type == VARIABLE_TKN) {
+		if (strcmp(token->text, "WORD") && strcmp(token->text, "NAME"))
+			cmd_token_varname_do(token, token->text, VARNAME_TEXT);
+	}
+}
+
+static void cmd_token_varname_fork(struct graph_node *node,
+				   struct cmd_token *prevtoken)
+{
+	for (size_t i = 0; i < vector_active(node->to); i++) {
+		struct graph_node *next = vector_slot(node->to, i);
+		struct cmd_token *nexttoken = next->data;
+
+		if (nexttoken->type == FORK_TKN) {
+			cmd_token_varname_fork(next, prevtoken);
+			continue;
+		}
+		if (nexttoken->varname)
+			continue;
+		if (!IS_VARYING_TOKEN(nexttoken->type))
+			continue;
+
+		cmd_token_varname_do(nexttoken, prevtoken->text, VARNAME_TEXT);
+	}
+}
+
+void cmd_token_varname_join(struct graph_node *join, const char *varname)
+{
+	if (!varname)
+		return;
+
+	for (size_t i = 0; i < vector_active(join->from); i++) {
+		struct graph_node *prev = vector_slot(join->from, i);
+		struct cmd_token *token = prev->data;
+
+		if (token->type == JOIN_TKN)
+			cmd_token_varname_join(prev, varname);
+		else if (token->type < SPECIAL_TKN)
+			cmd_token_varname_do(token, varname, VARNAME_EXPLICIT);
+	}
+}
+
+void cmd_token_varname_seqappend(struct graph_node *node)
+{
+	struct graph_node *prevnode = node;
+	struct cmd_token *token = node->data;
+	struct cmd_token *prevtoken;
+
+	if (token->type == WORD_TKN)
+		return;
+
+	do {
+		if (vector_active(prevnode->from) != 1)
+			return;
+
+		prevnode = vector_slot(prevnode->from, 0);
+		prevtoken = prevnode->data;
+	} while (prevtoken->type == FORK_TKN);
+
+	if (prevtoken->type != WORD_TKN)
+		return;
+
+	if (token->type == FORK_TKN)
+		cmd_token_varname_fork(node, prevtoken);
+	else
+		cmd_token_varname_do(token, prevtoken->text, VARNAME_TEXT);
 }
 
 static bool cmd_nodes_link(struct graph_node *from, struct graph_node *to)
@@ -357,72 +432,6 @@ void cmd_graph_merge(struct graph *old, struct graph *new, int direction)
 			vector_slot(new->nodes, 0), direction);
 }
 
-static void cmd_node_names(struct graph_node *gn, struct graph_node *join,
-			   const char *prevname)
-{
-	size_t i;
-	struct cmd_token *tok = gn->data, *jointok;
-	struct graph_node *stop = cmd_loopstop(gn);
-
-	switch (tok->type) {
-	case WORD_TKN:
-		prevname = tok->text;
-		break;
-
-	case VARIABLE_TKN:
-		if (!tok->varname && strcmp(tok->text, "WORD")
-		    && strcmp(tok->text, "NAME"))
-			cmd_token_varname_set(tok, tok->text);
-	/* fallthrough */
-	case RANGE_TKN:
-	case IPV4_TKN:
-	case IPV4_PREFIX_TKN:
-	case IPV6_TKN:
-	case IPV6_PREFIX_TKN:
-	case MAC_TKN:
-	case MAC_PREFIX_TKN:
-		if (!tok->varname && prevname)
-			cmd_token_varname_set(tok, prevname);
-		prevname = NULL;
-		break;
-
-	case START_TKN:
-	case JOIN_TKN:
-	case NEG_ONLY_TKN:
-		/* "<foo|bar> WORD" -> word is not "bar" or "foo" */
-		prevname = NULL;
-		break;
-
-	case FORK_TKN:
-		/* apply "<A.B.C.D|X:X::X:X>$name" */
-		jointok = tok->forkjoin->data;
-		if (!jointok->varname)
-			break;
-		for (i = 0; i < vector_active(tok->forkjoin->from); i++) {
-			struct graph_node *tail =
-				vector_slot(tok->forkjoin->from, i);
-			struct cmd_token *tailtok = tail->data;
-			if (tail == gn || tailtok->varname)
-				continue;
-			cmd_token_varname_set(tailtok, jointok->varname);
-		}
-		break;
-
-	case END_TKN:
-		return;
-	}
-
-	for (i = 0; i < vector_active(gn->to); i++) {
-		struct graph_node *next = vector_slot(gn->to, i);
-		if (next == stop || next == join)
-			continue;
-		cmd_node_names(next, join, prevname);
-	}
-
-	if (tok->type == FORK_TKN && tok->forkjoin != join)
-		cmd_node_names(tok->forkjoin, join, NULL);
-}
-
 void cmd_graph_names(struct graph *graph)
 {
 	struct graph_node *start;
@@ -451,12 +460,10 @@ void cmd_graph_names(struct graph *graph)
 		struct cmd_token *tok1 = next1->data;
 		/* the other one needs to be "no" (only one will match here) */
 		if ((tok0->type == WORD_TKN && !strcmp(tok0->text, "no")))
-			cmd_token_varname_set(tok0, "no");
+			cmd_token_varname_do(tok0, "no", VARNAME_AUTO);
 		if ((tok1->type == WORD_TKN && !strcmp(tok1->text, "no")))
-			cmd_token_varname_set(tok1, "no");
+			cmd_token_varname_do(tok1, "no", VARNAME_AUTO);
 	} while (0);
-
-	cmd_node_names(start, NULL, NULL);
 }
 
 #ifndef BUILDING_CLIPPY
