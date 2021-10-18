@@ -40,6 +40,36 @@ extern void lua_pushzebra_dplane_ctx(lua_State *L,
 extern void lua_decode_zebra_dplane_ctx(lua_State *L, int idx,
 					struct zebra_dplane_ctx *ctx);
 
+/*
+ * Script name hash
+ */
+PREDECL_HASH(frrscript_names);
+
+struct frrscript_names_entry {
+	/* Name of a Lua hook call */
+	char function_name[MAXPATHLEN];
+
+	/* Lua script in which to look for it */
+	char script_name[MAXPATHLEN];
+
+	struct frrscript_names_item item;
+};
+
+extern struct frrscript_names_head frrscript_names_hash;
+
+int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
+			     const struct frrscript_names_entry *snhe2);
+uint32_t frrscript_names_hash_key(const struct frrscript_names_entry *snhe);
+
+DECLARE_HASH(frrscript_names, struct frrscript_names_entry, item,
+	     frrscript_names_hash_cmp, frrscript_names_hash_key);
+
+int frrscript_names_add_function_name(const char *function_name);
+void frrscript_names_destroy(void);
+int frrscript_names_set_script_name(const char *function_name,
+				    const char *script_name);
+char *frrscript_names_get_script_name(const char *function_name);
+
 typedef void (*encoder_func)(lua_State *, const void *);
 typedef void *(*decoder_func)(lua_State *, int);
 
