@@ -66,6 +66,18 @@ static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 				  int stop_retry);
 static int zebra_ns_notify_read(struct thread *t);
 
+static struct vrf *vrf_handler_create(struct vty *vty, const char *vrfname)
+{
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		flog_warn(EC_LIB_VRF_LENGTH,
+			  "%% VRF name %s invalid: length exceeds %d bytes",
+			  vrfname, VRF_NAMSIZ);
+		return NULL;
+	}
+
+	return vrf_get(VRF_UNKNOWN, vrfname);
+}
+
 static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 {
 	char *netnspath = ns_netns_pathname(NULL, name);
@@ -91,7 +103,8 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 			vrf->name, netnspath);
 		return;
 	}
-	if (vrf_handler_create(NULL, name, &vrf) != CMD_SUCCESS) {
+	vrf = vrf_handler_create(NULL, name);
+	if (!vrf) {
 		flog_warn(EC_ZEBRA_NS_VRF_CREATION_FAILED,
 			  "NS notify : failed to create VRF %s", name);
 		ns_map_nsid_with_external(ns_id, false);
@@ -108,10 +121,9 @@ static void zebra_ns_notify_create_context_from_entry_name(const char *name)
 	}
 
 	frr_with_privs(&zserv_privs) {
-		ret = vrf_netns_handler_create(NULL, vrf, netnspath,
-					       ns_id_external,
-					       ns_id,
-					       ns_id_relative);
+		ret = zebra_vrf_netns_handler_create(NULL, vrf, netnspath,
+						     ns_id_external, ns_id,
+						     ns_id_relative);
 	}
 	if (ret != CMD_SUCCESS) {
 		flog_warn(EC_ZEBRA_NS_VRF_CREATION_FAILED,

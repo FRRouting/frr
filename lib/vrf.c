@@ -21,9 +21,6 @@
 
 #include <zebra.h>
 
-/* for basename */
-#include <libgen.h>
-
 #include "if.h"
 #include "vrf.h"
 #include "vrf_int.h"
@@ -95,28 +92,6 @@ static __inline int vrf_id_compare(const struct vrf *a, const struct vrf *b)
 static int vrf_name_compare(const struct vrf *a, const struct vrf *b)
 {
 	return strcmp(a->name, b->name);
-}
-
-/* if ns_id is different and not VRF_UNKNOWN,
- * then update vrf identifier, and enable VRF
- */
-static void vrf_update_vrf_id(ns_id_t ns_id, void *opaqueptr)
-{
-	ns_id_t vrf_id = (vrf_id_t)ns_id;
-	vrf_id_t old_vrf_id;
-	struct vrf *vrf = (struct vrf *)opaqueptr;
-
-	if (!vrf)
-		return;
-	old_vrf_id = vrf->vrf_id;
-	if (vrf_id == vrf->vrf_id)
-		return;
-	if (vrf->vrf_id != VRF_UNKNOWN)
-		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
-	vrf->vrf_id = vrf_id;
-	RB_INSERT(vrf_id_head, &vrfs_by_id, vrf);
-	if (old_vrf_id == VRF_UNKNOWN)
-		vrf_enable(vrf);
 }
 
 int vrf_switch_to_netns(vrf_id_t vrf_id)
@@ -659,115 +634,6 @@ int vrf_configure_backend(enum vrf_backend_type backend)
 	return 0;
 }
 
-int vrf_handler_create(struct vty *vty, const char *vrfname,
-		       struct vrf **vrf)
-{
-	struct vrf *vrfp;
-	char xpath_list[XPATH_MAXLEN];
-	int ret;
-
-	if (strlen(vrfname) > VRF_NAMSIZ) {
-		if (vty)
-			vty_out(vty,
-				"%% VRF name %s invalid: length exceeds %d bytes\n",
-				vrfname, VRF_NAMSIZ);
-		else
-			flog_warn(
-				EC_LIB_VRF_LENGTH,
-				"%% VRF name %s invalid: length exceeds %d bytes",
-				vrfname, VRF_NAMSIZ);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (vty) {
-		snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH,
-			 vrfname);
-
-		nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
-		ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
-		if (ret == CMD_SUCCESS) {
-			VTY_PUSH_XPATH(VRF_NODE, xpath_list);
-			vrfp = vrf_lookup_by_name(vrfname);
-			if (vrfp)
-				VTY_PUSH_CONTEXT(VRF_NODE, vrfp);
-		}
-	} else {
-		vrfp = vrf_get(VRF_UNKNOWN, vrfname);
-
-		if (vrf)
-			*vrf = vrfp;
-	}
-	return CMD_SUCCESS;
-}
-
-int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf, char *pathname,
-			     ns_id_t ns_id, ns_id_t internal_ns_id,
-			     ns_id_t rel_def_ns_id)
-{
-	struct ns *ns = NULL;
-
-	if (!vrf)
-		return CMD_WARNING_CONFIG_FAILED;
-	if (vrf->vrf_id != VRF_UNKNOWN && vrf->ns_ctxt == NULL) {
-		if (vty)
-			vty_out(vty,
-				"VRF %u is already configured with VRF %s\n",
-				vrf->vrf_id, vrf->name);
-		else
-			zlog_info("VRF %u is already configured with VRF %s",
-				  vrf->vrf_id, vrf->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	if (vrf->ns_ctxt != NULL) {
-		ns = (struct ns *)vrf->ns_ctxt;
-		if (!strcmp(ns->name, pathname)) {
-			if (vty)
-				vty_out(vty,
-					"VRF %u already configured with NETNS %s\n",
-					vrf->vrf_id, ns->name);
-			else
-				zlog_info(
-					"VRF %u already configured with NETNS %s",
-					vrf->vrf_id, ns->name);
-			return CMD_WARNING_CONFIG_FAILED;
-		}
-	}
-	ns = ns_lookup_name(pathname);
-	if (ns && ns->vrf_ctxt) {
-		struct vrf *vrf2 = (struct vrf *)ns->vrf_ctxt;
-
-		if (vrf2 == vrf)
-			return CMD_SUCCESS;
-		if (vty)
-			vty_out(vty,
-				"NS %s is already configured with VRF %u(%s)\n",
-				ns->name, vrf2->vrf_id, vrf2->name);
-		else
-			zlog_info("NS %s is already configured with VRF %u(%s)",
-				  ns->name, vrf2->vrf_id, vrf2->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-	ns = ns_get_created(ns, pathname, ns_id);
-	ns->internal_ns_id = internal_ns_id;
-	ns->relative_default_ns = rel_def_ns_id;
-	ns->vrf_ctxt = (void *)vrf;
-	vrf->ns_ctxt = (void *)ns;
-	/* update VRF netns NAME */
-	strlcpy(vrf->data.l.netns_name, basename(pathname), NS_NAMSIZ);
-
-	if (!ns_enable(ns, vrf_update_vrf_id)) {
-		if (vty)
-			vty_out(vty, "Can not associate NS %u with NETNS %s\n",
-				ns->ns_id, ns->name);
-		else
-			zlog_info("Can not associate NS %u with NETNS %s",
-				  ns->ns_id, ns->name);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	return CMD_SUCCESS;
-}
-
 /* vrf CLI commands */
 DEFUN_NOSH(vrf_exit,
            vrf_exit_cmd,
@@ -786,8 +652,29 @@ DEFUN_YANG_NOSH (vrf,
 {
 	int idx_name = 1;
 	const char *vrfname = argv[idx_name]->arg;
+	char xpath_list[XPATH_MAXLEN];
+	struct vrf *vrf;
+	int ret;
 
-	return vrf_handler_create(vty, vrfname, NULL);
+	if (strlen(vrfname) > VRF_NAMSIZ) {
+		vty_out(vty,
+			"%% VRF name %s invalid: length exceeds %d bytes\n",
+			vrfname, VRF_NAMSIZ);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	snprintf(xpath_list, sizeof(xpath_list), FRR_VRF_KEY_XPATH, vrfname);
+
+	nb_cli_enqueue_change(vty, xpath_list, NB_OP_CREATE, NULL);
+	ret = nb_cli_apply_changes_clear_pending(vty, xpath_list);
+	if (ret == CMD_SUCCESS) {
+		VTY_PUSH_XPATH(VRF_NODE, xpath_list);
+		vrf = vrf_lookup_by_name(vrfname);
+		if (vrf)
+			VTY_PUSH_CONTEXT(VRF_NODE, vrf);
+	}
+
+	return ret;
 }
 
 DEFUN_YANG (no_vrf,
