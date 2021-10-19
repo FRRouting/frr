@@ -48,7 +48,7 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
-DEFINE_MTYPE(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
 
 DEFINE_HOOK(ospf6_neighbor_change,
 	    (struct ospf6_neighbor * on, int state, int next_state),

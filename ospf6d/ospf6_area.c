@@ -306,7 +306,8 @@ struct ospf6_area *ospf6_area_create(uint32_t area_id, struct ospf6 *o, int df)
 
 	oa->range_table = OSPF6_ROUTE_TABLE_CREATE(AREA, PREFIX_RANGES);
 	oa->range_table->scope = oa;
-	bf_init(oa->range_table->idspace, 32);
+	oa->nssa_range_table = OSPF6_ROUTE_TABLE_CREATE(AREA, PREFIX_RANGES);
+	oa->nssa_range_table->scope = oa;
 	oa->summary_prefix = OSPF6_ROUTE_TABLE_CREATE(AREA, SUMMARY_PREFIXES);
 	oa->summary_prefix->scope = oa;
 	oa->summary_router = OSPF6_ROUTE_TABLE_CREATE(AREA, SUMMARY_ROUTERS);
@@ -361,6 +362,7 @@ void ospf6_area_delete(struct ospf6_area *oa)
 	ospf6_route_table_delete(oa->route_table);
 
 	ospf6_route_table_delete(oa->range_table);
+	ospf6_route_table_delete(oa->nssa_range_table);
 	ospf6_route_table_delete(oa->summary_prefix);
 	ospf6_route_table_delete(oa->summary_router);
 
@@ -576,8 +578,6 @@ DEFUN (area_range,
 
 	range->path.u.cost_config = cost;
 
-	zlog_debug("%s: for prefix %s, flag = %x", __func__,
-		   argv[idx_ipv6_prefixlen]->arg, range->flag);
 	if (range->rnode == NULL) {
 		ospf6_route_add(range, oa->range_table);
 	}
@@ -692,6 +692,22 @@ void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6)
 			}
 			if (oa->no_summary)
 				vty_out(vty, " no-summary");
+			vty_out(vty, "\n");
+		}
+		for (range = ospf6_route_head(oa->nssa_range_table); range;
+		     range = ospf6_route_next(range)) {
+			vty_out(vty, " area %s nssa range %pFX", oa->name,
+				&range->prefix);
+
+			if (CHECK_FLAG(range->flag,
+				       OSPF6_ROUTE_DO_NOT_ADVERTISE)) {
+				vty_out(vty, " not-advertise");
+			} else {
+				if (range->path.u.cost_config
+				    != OSPF_AREA_RANGE_COST_UNSPEC)
+					vty_out(vty, " cost %u",
+						range->path.u.cost_config);
+			}
 			vty_out(vty, "\n");
 		}
 		if (PREFIX_NAME_IN(oa))

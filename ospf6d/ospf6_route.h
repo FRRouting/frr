@@ -186,7 +186,7 @@ struct ospf6_route {
 	struct timeval changed;
 
 	/* flag */
-	uint8_t flag;
+	uint16_t flag;
 
 	/* Prefix Options */
 	uint8_t prefix_options;
@@ -221,14 +221,15 @@ struct ospf6_route {
 #define OSPF6_DEST_TYPE_RANGE      5
 #define OSPF6_DEST_TYPE_MAX        6
 
-#define OSPF6_ROUTE_CHANGE           0x01
-#define OSPF6_ROUTE_ADD              0x02
-#define OSPF6_ROUTE_REMOVE           0x04
-#define OSPF6_ROUTE_BEST             0x08
-#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x10
-#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x20
-#define OSPF6_ROUTE_WAS_REMOVED      0x40
-#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x80
+#define OSPF6_ROUTE_CHANGE           0x0001
+#define OSPF6_ROUTE_ADD              0x0002
+#define OSPF6_ROUTE_REMOVE           0x0004
+#define OSPF6_ROUTE_BEST             0x0008
+#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x0010
+#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x0020
+#define OSPF6_ROUTE_WAS_REMOVED      0x0040
+#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x0080
+#define OSPF6_ROUTE_NSSA_RANGE       0x0100
 struct ospf6;
 
 struct ospf6_route_table {
@@ -240,8 +241,6 @@ struct ospf6_route_table {
 	struct route_table *table;
 
 	uint32_t count;
-
-	bitfield_t idspace;
 
 	/* hooks */
 	void (*hook_add)(struct ospf6_route *);
