@@ -4927,7 +4927,7 @@ DEFUN_YANG (no_match_ecommunity,
 
 DEFUN_YANG (match_aspath,
 	    match_aspath_cmd,
-	    "match as-path WORD",
+	    "match as-path AS_PATH_FILTER_NAME",
 	    MATCH_STR
 	    "Match BGP AS path list\n"
 	    "AS path access-list name\n")
@@ -4950,7 +4950,7 @@ DEFUN_YANG (match_aspath,
 
 DEFUN_YANG (no_match_aspath,
 	    no_match_aspath_cmd,
-	    "no match as-path [WORD]",
+	    "no match as-path [AS_PATH_FILTER_NAME]",
 	    NO_STR
 	    MATCH_STR
 	    "Match BGP AS path list\n"
