@@ -1616,7 +1616,6 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 	struct listnode *node;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
-	struct vrf *vrf;
 	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
 
 	zebra_if = ifp->info;
@@ -1644,8 +1643,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	zebra_ptm_show_status(vty, NULL, ifp);
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	vty_out(vty, "  vrf: %s\n", vrf->name);
+	vty_out(vty, "  vrf: %s\n", ifp->vrf->name);
 
 	if (ifp->desc)
 		vty_out(vty, "  Description: %s\n", ifp->desc);
@@ -1941,7 +1939,6 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	struct listnode *node;
 	struct route_node *rn;
 	struct zebra_if *zebra_if;
-	struct vrf *vrf;
 	char pd_buf[ZEBRA_PROTODOWN_RC_STR_LEN];
 	char buf[BUFSIZ];
 	json_object *json_if;
@@ -1979,8 +1976,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 	zebra_ptm_show_status(vty, json, ifp);
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	json_object_string_add(json_if, "vrfName", vrf->name);
+	json_object_string_add(json_if, "vrfName", ifp->vrf->name);
 
 	if (ifp->desc)
 		json_object_string_add(json_if, "description", ifp->desc);
@@ -4206,21 +4202,19 @@ static int link_params_config_write(struct vty *vty, struct interface *ifp)
 
 static int if_config_write(struct vty *vty)
 {
-	struct vrf *vrf0;
+	struct vrf *vrf;
 	struct interface *ifp;
 
 	zebra_ptm_write(vty);
 
-	RB_FOREACH (vrf0, vrf_name_head, &vrfs_by_name)
-		FOR_ALL_INTERFACES (vrf0, ifp) {
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
+		FOR_ALL_INTERFACES (vrf, ifp) {
 			struct zebra_if *if_data;
 			struct listnode *addrnode;
 			struct connected *ifc;
 			struct prefix *p;
-			struct vrf *vrf;
 
 			if_data = ifp->info;
-			vrf = vrf_lookup_by_id(ifp->vrf_id);
 
 			if (ifp->vrf_id == VRF_DEFAULT)
 				vty_frame(vty, "interface %s\n", ifp->name);

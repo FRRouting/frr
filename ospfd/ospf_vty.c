@@ -445,7 +445,7 @@ DEFUN_HIDDEN (ospf_passive_interface_addr,
 		"Please, use \"ip ospf passive\" on an interface instead.\n");
 
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id);
+		ifp = if_get_by_name(argv[1]->arg, ospf->vrf_id, ospf->name);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n", (char *)argv[1]->arg);
@@ -506,7 +506,7 @@ DEFUN_HIDDEN (no_ospf_passive_interface,
 		"Please, use \"no ip ospf passive\" on an interface instead.\n");
 
 	if (ospf->vrf_id != VRF_UNKNOWN)
-		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id);
+		ifp = if_get_by_name(argv[2]->arg, ospf->vrf_id, ospf->name);
 
 	if (ifp == NULL) {
 		vty_out(vty, "interface %s not found.\n", (char *)argv[2]->arg);

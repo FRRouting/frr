@@ -272,32 +272,29 @@ void vrf_delete(struct vrf *vrf)
 	if (vrf_is_enabled(vrf))
 		vrf_disable(vrf);
 
+	if (vrf->vrf_id != VRF_UNKNOWN) {
+		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
+		vrf->vrf_id = VRF_UNKNOWN;
+	}
+
 	/* If the VRF is user configured, it'll stick around, just remove
 	 * the ID mapping. Interfaces assigned to this VRF should've been
 	 * removed already as part of the VRF going down.
 	 */
 	if (vrf_is_user_cfged(vrf)) {
-		if (vrf->vrf_id != VRF_UNKNOWN) {
-			/* Delete any VRF interfaces - should be only
-			 * the VRF itself, other interfaces should've
-			 * been moved out of the VRF.
-			 */
-			if_terminate(vrf);
-			RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
-			vrf->vrf_id = VRF_UNKNOWN;
-		}
 		vrf->ns_ctxt = NULL;
 		return;
 	}
+
+	/* Do not delete the VRF if it has interfaces configured in it. */
+	if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name))
+		return;
 
 	if (vrf_master.vrf_delete_hook)
 		(*vrf_master.vrf_delete_hook)(vrf);
 
 	QOBJ_UNREG(vrf);
-	if_terminate(vrf);
 
-	if (vrf->vrf_id != VRF_UNKNOWN)
-		RB_REMOVE(vrf_id_head, &vrfs_by_id, vrf);
 	if (vrf->name[0] != '\0')
 		RB_REMOVE(vrf_name_head, &vrfs_by_name, vrf);
 
@@ -571,6 +568,7 @@ static void vrf_terminate_single(struct vrf *vrf)
 {
 	/* Clear configured flag and invoke delete. */
 	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
+	if_terminate(vrf);
 	vrf_delete(vrf);
 }
 

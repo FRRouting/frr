@@ -1482,7 +1482,8 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
 				 pim->vrf->data.l.table_id);
 
-		pim->regiface = if_create_name(pimreg_name, pim->vrf->vrf_id);
+		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
+					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
 		pim_if_new(pim->regiface, false, false, true,
