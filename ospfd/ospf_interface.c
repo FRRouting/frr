@@ -909,6 +909,13 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 		return NULL;
 	}
 
+	if (ospf->vrf_id == VRF_UNKNOWN) {
+		if (IS_DEBUG_OSPF_EVENT)
+			zlog_debug(
+				"ospf_vl_new(): Alarm: cannot create pseudo interface in unknown VRF");
+		return NULL;
+	}
+
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
 			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
