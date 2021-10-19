@@ -64,9 +64,12 @@ extern void zebra_vxlan_if_vni_walk(struct zebra_if *zif,
 				    void *arg);
 extern vni_t zebra_vxlan_if_access_vlan_vni_find(struct zebra_if *zif,
 						 struct interface *br_if);
-extern int zebra_vxlan_if_vni_mcast_group_update(struct interface *ifp,
-						 vni_t vni_id,
-						 struct in_addr *mcast_group);
+extern int
+zebra_vxlan_if_vni_mcast_group_add_update(struct interface *ifp, vni_t vni_id,
+					  struct in_addr *mcast_group);
+extern int zebra_vxlan_if_vni_mcast_group_del(struct interface *ifp,
+					      vni_t vni_id,
+					      struct in_addr *mcast_group);
 extern int zebra_vxlan_if_vni_down(struct interface *ifp,
 				   struct zebra_vxlan_vni *vni);
 extern int zebra_vxlan_if_down(struct interface *ifp);

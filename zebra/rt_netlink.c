@@ -3715,7 +3715,7 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				return 0;
 
 			if (vni_mcast_grp)
-				return zebra_vxlan_if_vni_mcast_group_update(
+				return zebra_vxlan_if_vni_mcast_group_add_update(
 					ifp, vni, &vtep_ip);
 
 			return zebra_vxlan_dp_network_mac_add(
@@ -3742,8 +3742,8 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 
 	if (dst_present) {
 		if (vni_mcast_grp)
-			return zebra_vxlan_if_vni_mcast_group_update(ifp, vni,
-								     NULL);
+			return zebra_vxlan_if_vni_mcast_group_del(ifp, vni,
+								  &vtep_ip);
 
 		if (is_zero_mac(&mac) && vni)
 			return zebra_vxlan_check_readd_vtep(ifp, vni, vtep_ip);
