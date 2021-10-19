@@ -7242,7 +7242,7 @@ static int peer_aslist_unset_vty(struct vty *vty, const char *ip_str, afi_t afi,
 
 DEFUN (neighbor_filter_list,
        neighbor_filter_list_cmd,
-       "neighbor <A.B.C.D|X:X::X:X|WORD> filter-list WORD <in|out>",
+       "neighbor <A.B.C.D|X:X::X:X|WORD> filter-list AS_PATH_FILTER_NAME <in|out>",
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
        "Establish BGP filters\n"
@@ -7259,7 +7259,7 @@ DEFUN (neighbor_filter_list,
 }
 
 ALIAS_HIDDEN(neighbor_filter_list, neighbor_filter_list_hidden_cmd,
-	     "neighbor <A.B.C.D|X:X::X:X|WORD> filter-list WORD <in|out>",
+	     "neighbor <A.B.C.D|X:X::X:X|WORD> filter-list AS_PATH_FILTER_NAME <in|out>",
 	     NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Establish BGP filters\n"
 	     "AS path access-list name\n"
@@ -7268,7 +7268,7 @@ ALIAS_HIDDEN(neighbor_filter_list, neighbor_filter_list_hidden_cmd,
 
 DEFUN (no_neighbor_filter_list,
        no_neighbor_filter_list_cmd,
-       "no neighbor <A.B.C.D|X:X::X:X|WORD> filter-list WORD <in|out>",
+       "no neighbor <A.B.C.D|X:X::X:X|WORD> filter-list AS_PATH_FILTER_NAME <in|out>",
        NO_STR
        NEIGHBOR_STR
        NEIGHBOR_ADDR_STR2
@@ -7285,7 +7285,7 @@ DEFUN (no_neighbor_filter_list,
 }
 
 ALIAS_HIDDEN(no_neighbor_filter_list, no_neighbor_filter_list_hidden_cmd,
-	     "no neighbor <A.B.C.D|X:X::X:X|WORD> filter-list WORD <in|out>",
+	     "no neighbor <A.B.C.D|X:X::X:X|WORD> filter-list AS_PATH_FILTER_NAME <in|out>",
 	     NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
 	     "Establish BGP filters\n"
 	     "AS path access-list name\n"

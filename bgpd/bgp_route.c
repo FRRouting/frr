@@ -12007,7 +12007,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
           <[all$all] dampening <parameters>\
            |route-map WORD\
            |prefix-list WORD\
-           |filter-list WORD\
+           |filter-list AS_PATH_FILTER_NAME\
            |community-list <(1-500)|COMMUNITY_LIST_NAME> [exact-match]\
            |A.B.C.D/M longer-prefixes\
            |X:X::X:X/M longer-prefixes\
