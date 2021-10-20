@@ -791,8 +791,10 @@ static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 	pim_mlag_up_peer_del(&msg);
 }
 
-int pim_zebra_mlag_handle_msg(struct stream *s, int len)
+int pim_zebra_mlag_handle_msg(int cmd, struct zclient *zclient,
+			      uint16_t zapi_length, vrf_id_t vrf_id)
 {
+	struct stream *s = zclient->ibuf;
 	struct mlag_msg mlag_msg;
 	char buf[80];
 	int rc = 0;
@@ -880,7 +882,7 @@ int pim_zebra_mlag_handle_msg(struct stream *s, int len)
 
 /****************End of PIM Mesasge processing handler********************/
 
-int pim_zebra_mlag_process_up(void)
+int pim_zebra_mlag_process_up(ZAPI_CALLBACK_ARGS)
 {
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Received Process-Up from Mlag", __func__);
@@ -908,7 +910,7 @@ static void pim_mlag_param_reset(void)
 	router->peerlink_rif[0] = '\0';
 }
 
-int pim_zebra_mlag_process_down(void)
+int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 {
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Received Process-Down from Mlag", __func__);

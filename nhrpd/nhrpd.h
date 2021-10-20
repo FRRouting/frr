@@ -363,8 +363,8 @@ int nhrp_interface_up(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_down(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
-void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
-void nhrp_gre_update(ZAPI_CALLBACK_ARGS);
+int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
+int nhrp_gre_update(ZAPI_CALLBACK_ARGS);
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn);

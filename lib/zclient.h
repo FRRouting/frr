@@ -21,6 +21,8 @@
 #ifndef _ZEBRA_ZCLIENT_H
 #define _ZEBRA_ZCLIENT_H
 
+struct zclient;
+
 /* For struct zapi_route. */
 #include "prefix.h"
 #include "ipaddr.h"
@@ -284,6 +286,14 @@ struct zapi_cap {
 	vrf_id_t vrf_id;
 };
 
+/* clang-format off */
+#define ZAPI_CALLBACK_ARGS                                                     \
+	int cmd, struct zclient *zclient, uint16_t length, vrf_id_t vrf_id
+
+/* function-type typedef (pointer not included) */
+typedef int (zclient_handler)(ZAPI_CALLBACK_ARGS);
+/* clang-format on */
+
 /* Structure for the zebra client. */
 struct zclient {
 	/* The thread master we schedule ourselves on */
@@ -297,6 +307,9 @@ struct zclient {
 
 	/* Is this a synchronous client? */
 	bool synchronous;
+
+	/* BFD enabled with bfd_protocol_integration_init() */
+	bool bfd_integration;
 
 	/* Session id (optional) to support clients with multiple sessions */
 	uint32_t session_id;
@@ -332,12 +345,11 @@ struct zclient {
 	/* Redistribute defauilt. */
 	vrf_bitmap_t default_information[AFI_MAX];
 
-#define ZAPI_CALLBACK_ARGS                                                     \
-	int cmd, struct zclient *zclient, uint16_t length, vrf_id_t vrf_id
-
 	/* Pointer to the callback functions. */
 	void (*zebra_connected)(struct zclient *);
 	void (*zebra_capabilities)(struct zclient_capabilities *cap);
+
+	int (*handle_error)(enum zebra_error_types error);
 
 	/*
 	 * When the zclient attempts to write the stream data to
@@ -350,60 +362,14 @@ struct zclient {
 	 * more data.
 	 */
 	void (*zebra_buffer_write_ready)(void);
-	int (*router_id_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_address_add)(ZAPI_CALLBACK_ARGS);
-	int (*interface_address_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_link_params)(ZAPI_CALLBACK_ARGS);
-	int (*interface_bfd_dest_update)(ZAPI_CALLBACK_ARGS);
-	int (*interface_nbr_address_add)(ZAPI_CALLBACK_ARGS);
-	int (*interface_nbr_address_delete)(ZAPI_CALLBACK_ARGS);
-	int (*interface_vrf_update)(ZAPI_CALLBACK_ARGS);
-	int (*nexthop_update)(ZAPI_CALLBACK_ARGS);
-	int (*bfd_dest_replay)(ZAPI_CALLBACK_ARGS);
-	int (*redistribute_route_add)(ZAPI_CALLBACK_ARGS);
-	int (*redistribute_route_del)(ZAPI_CALLBACK_ARGS);
-	int (*fec_update)(int, struct zclient *, uint16_t);
-	int (*local_es_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_es_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_es_evi_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_es_evi_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_vni_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_vni_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_l3vni_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_l3vni_del)(ZAPI_CALLBACK_ARGS);
-	void (*local_ip_prefix_add)(ZAPI_CALLBACK_ARGS);
-	void (*local_ip_prefix_del)(ZAPI_CALLBACK_ARGS);
-	int (*local_macip_add)(ZAPI_CALLBACK_ARGS);
-	int (*local_macip_del)(ZAPI_CALLBACK_ARGS);
-	int (*pw_status_update)(ZAPI_CALLBACK_ARGS);
-	int (*route_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*rule_notify_owner)(ZAPI_CALLBACK_ARGS);
-	void (*label_chunk)(ZAPI_CALLBACK_ARGS);
-	int (*ipset_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*ipset_entry_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*iptable_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*vxlan_sg_add)(ZAPI_CALLBACK_ARGS);
-	int (*vxlan_sg_del)(ZAPI_CALLBACK_ARGS);
-	int (*mlag_process_up)(void);
-	int (*mlag_process_down)(void);
-	int (*mlag_handle_msg)(struct stream *msg, int len);
-	int (*nhg_notify_owner)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_locator_add)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_locator_delete)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_function_add)(ZAPI_CALLBACK_ARGS);
-	int (*srv6_function_delete)(ZAPI_CALLBACK_ARGS);
-	void (*process_srv6_locator_chunk)(ZAPI_CALLBACK_ARGS);
-	int (*handle_error)(enum zebra_error_types error);
-	int (*opaque_msg_handler)(ZAPI_CALLBACK_ARGS);
-	int (*opaque_register_handler)(ZAPI_CALLBACK_ARGS);
-	int (*opaque_unregister_handler)(ZAPI_CALLBACK_ARGS);
-	int (*sr_policy_notify_status)(ZAPI_CALLBACK_ARGS);
-	int (*zebra_client_close_notify)(ZAPI_CALLBACK_ARGS);
-	void (*neighbor_added)(ZAPI_CALLBACK_ARGS);
-	void (*neighbor_removed)(ZAPI_CALLBACK_ARGS);
-	void (*neighbor_get)(ZAPI_CALLBACK_ARGS);
-	void (*gre_update)(ZAPI_CALLBACK_ARGS);
+
+	zclient_handler *const *handlers;
+	size_t n_handlers;
 };
+
+/* lib handlers added in bfd.c */
+extern int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS);
+extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 
 /* Zebra API message flag. */
 #define ZAPI_MESSAGE_NEXTHOP  0x01
@@ -893,7 +859,9 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 extern uint32_t zclient_get_nhg_start(uint32_t proto);
 
 extern struct zclient *zclient_new(struct thread_master *m,
-				   struct zclient_options *opt);
+				   struct zclient_options *opt,
+				   zclient_handler *const *handlers,
+				   size_t n_handlers);
 
 extern void zclient_init(struct zclient *, int, unsigned short,
 			 struct zebra_privs_t *privs);

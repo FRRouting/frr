@@ -188,18 +188,22 @@ void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 	zclient_send_interface_protodown(zclient, ifp->vrf_id, ifp, down);
 }
 
+static zclient_handler *const vrrp_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = vrrp_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = vrrp_zebra_if_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = vrrp_zebra_if_address_del,
+};
+
 void vrrp_zebra_init(void)
 {
 	if_zapi_callbacks(vrrp_ifp_create, vrrp_ifp_up,
 			  vrrp_ifp_down, vrrp_ifp_destroy);
 
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, vrrp_handlers,
+			      array_size(vrrp_handlers));
 
 	zclient->zebra_connected = vrrp_zebra_connected;
-	zclient->router_id_update = vrrp_router_id_update_zebra;
-	zclient->interface_address_add = vrrp_zebra_if_address_add;
-	zclient->interface_address_delete = vrrp_zebra_if_address_del;
 
 	zclient_init(zclient, ZEBRA_ROUTE_VRRP, 0, &vrrp_privs);
 
