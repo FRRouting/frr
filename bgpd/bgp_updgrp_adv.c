@@ -481,13 +481,18 @@ void bgp_adj_out_set_subgroup(struct bgp_dest *dest,
 		dest, subgrp,
 		bgp_addpath_id_for_peer(peer, afi, safi, &path->tx_addpath));
 
-	if (!adj) {
+	if (adj) {
+		if (CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING))
+			subgrp->pscount++;
+	} else {
 		adj = bgp_adj_out_alloc(
 			subgrp, dest,
 			bgp_addpath_id_for_peer(peer, afi, safi,
 						&path->tx_addpath));
 		if (!adj)
 			return;
+
+		subgrp->pscount++;
 	}
 
 	/* Check if we are sending the same route. This is needed to
@@ -606,6 +611,8 @@ void bgp_adj_out_unset_subgroup(struct bgp_dest *dest,
 			/* Free allocated information.  */
 			adj_free(adj);
 		}
+		if (!CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING))
+			subgrp->pscount--;
 	}
 
 	subgrp->version = max(subgrp->version, dest->version);
@@ -668,6 +675,9 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 			  PEER_FLAG_DEFAULT_ORIGINATE))
 		subgroup_default_originate(subgrp, 0);
 
+	subgrp->pscount = 0;
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
+
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 
@@ -711,6 +721,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 				}
 			}
 	}
+	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
 	/*
 	 * We walked through the whole table -- make sure our version number
