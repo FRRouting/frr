@@ -431,10 +431,10 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 
 	if (zif->zif_type == ZEBRA_IF_VXLAN
 	    && chgflags != ZEBRA_BRIDGE_NO_ACTION) {
-		if (ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
+		if (chgflags & ZEBRA_BRIDGE_MASTER_MAC_CHANGE)
 			zebra_vxlan_if_update(ifp,
 					      ZEBRA_VXLIF_MASTER_MAC_CHANGE);
-		if (ZEBRA_BRIDGE_MASTER_UP)
+		if (chgflags & ZEBRA_BRIDGE_MASTER_UP)
 			zebra_vxlan_if_update(ifp, ZEBRA_VXLIF_MASTER_CHANGE);
 	}
 	old_bridge_ifindex = zif->brslave_info.bridge_ifindex;
