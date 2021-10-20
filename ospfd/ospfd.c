@@ -582,6 +582,7 @@ static void ospf_deferred_shutdown_finish(struct ospf *ospf)
 	/* ospfd being shut-down? If so, was this the last ospf instance? */
 	if (CHECK_FLAG(om->options, OSPF_MASTER_SHUTDOWN)
 	    && (listcount(om->ospf) == 0)) {
+		frr_fini();
 		exit(0);
 	}
 
