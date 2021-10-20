@@ -22,6 +22,7 @@
 #include "log.h"
 #include "lib_errors.h"
 #include "network.h"
+#include "libfrr.h"
 
 #include "pathd/pathd.h"
 #include "pathd/path_zebra.h"
@@ -1223,6 +1224,7 @@ void pathd_shutdown(void)
 {
 	path_ted_teardown();
 	srte_clean_zebra();
+	frr_fini();
 }
 
 void trigger_pathd_candidate_created(struct srte_candidate *candidate)
