@@ -821,9 +821,12 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  *
  * Use this as `zclient` `bfd_dest_replay` callback.
  */
-static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp;
+
+	if (!zclient->bfd_integration)
+		return 0;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
@@ -855,7 +858,7 @@ static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp, *bspn;
 	size_t sessions_updated = 0;
@@ -867,6 +870,9 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	char ifstr[128], cbitstr[32];
+
+	if (!zclient->bfd_integration)
+		return 0;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
@@ -969,9 +975,8 @@ void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 	bsglobal.zc = zc;
 	bsglobal.tm = tm;
 
-	/* Install our callbacks. */
-	zc->interface_bfd_dest_update = zclient_bfd_session_update;
-	zc->bfd_dest_replay = zclient_bfd_session_reply;
+	/* Enable BFD callbacks. */
+	zc->bfd_integration = true;
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zc, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);

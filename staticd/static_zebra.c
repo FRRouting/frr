@@ -508,6 +508,13 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			   zclient, &api);
 }
 
+static zclient_handler *const static_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_NEXTHOP_UPDATE] = static_zebra_nexthop_update,
+};
+
 void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
@@ -515,15 +522,12 @@ void static_zebra_init(void)
 	if_zapi_callbacks(static_ifp_create, static_ifp_up,
 			  static_ifp_down, static_ifp_destroy);
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, static_handlers,
+			      array_size(static_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_address_add = interface_address_add;
-	zclient->interface_address_delete = interface_address_delete;
-	zclient->route_notify_owner = route_notify_owner;
-	zclient->nexthop_update = static_zebra_nexthop_update;
 
 	static_nht_hash = hash_create(static_nht_hash_key,
 				      static_nht_hash_cmp,
