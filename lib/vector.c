@@ -37,6 +37,7 @@ vector vector_init(unsigned int size)
 
 	v->alloced = size;
 	v->active = 0;
+	v->count = 0;
 	v->index = XCALLOC(MTYPE_VECTOR_INDEX, sizeof(void *) * size);
 	return v;
 }
@@ -54,6 +55,7 @@ vector vector_copy(vector v)
 
 	new->active = v->active;
 	new->alloced = v->alloced;
+	new->count = v->count;
 
 	size = sizeof(void *) * (v->alloced);
 	new->index = XCALLOC(MTYPE_VECTOR_INDEX, size);
@@ -84,6 +86,9 @@ int vector_empty_slot(vector v)
 {
 	unsigned int i;
 
+	if (v->active == v->count)
+		return v->active;
+
 	if (v->active == 0)
 		return 0;
 
@@ -102,6 +107,10 @@ int vector_set(vector v, void *val)
 	i = vector_empty_slot(v);
 	vector_ensure(v, i);
 
+	if (v->index[i])
+		v->count--;
+	if (val)
+		v->count++;
 	v->index[i] = val;
 
 	if (v->active <= i)
@@ -115,6 +124,10 @@ int vector_set_index(vector v, unsigned int i, void *val)
 {
 	vector_ensure(v, i);
 
+	if (v->index[i])
+		v->count--;
+	if (val)
+		v->count++;
 	v->index[i] = val;
 
 	if (v->active <= i)
@@ -155,6 +168,9 @@ void vector_unset(vector v, unsigned int i)
 	if (i >= v->alloced)
 		return;
 
+	if (v->index[i])
+		v->count--;
+
 	v->index[i] = NULL;
 
 	if (i + 1 == v->active) {
@@ -168,6 +184,9 @@ void vector_remove(vector v, unsigned int ix)
 {
 	if (ix >= v->active)
 		return;
+
+	if (v->index[ix])
+		v->count--;
 
 	int n = (--v->active) - ix;
 
@@ -192,6 +211,7 @@ void vector_unset_value(vector v, void *val)
 	for (i = 0; i < v->active; i++)
 		if (v->index[i] == val) {
 			v->index[i] = NULL;
+			v->count--;
 			break;
 		}
 
@@ -199,19 +219,6 @@ void vector_unset_value(vector v, void *val)
 		do
 			v->active--;
 		while (i && v->index[--i] == NULL);
-}
-
-/* Count the number of not emplty slot. */
-unsigned int vector_count(vector v)
-{
-	unsigned int i;
-	unsigned count = 0;
-
-	for (i = 0; i < v->active; i++)
-		if (v->index[i] != NULL)
-			count++;
-
-	return count;
 }
 
 void vector_to_array(vector v, void ***dest, int *argc)
