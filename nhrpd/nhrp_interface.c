@@ -79,8 +79,8 @@ static int nhrp_if_new_hook(struct interface *ifp)
 	for (afi = 0; afi < AFI_MAX; afi++) {
 		struct nhrp_afi_data *ad = &nifp->afi[afi];
 		ad->holdtime = NHRPD_DEFAULT_HOLDTIME;
-		list_init(&ad->nhslist_head);
-		list_init(&ad->mcastlist_head);
+		nhrp_nhslist_init(&ad->nhslist_head);
+		nhrp_mcastlist_init(&ad->mcastlist_head);
 	}
 
 	return 0;
@@ -224,8 +224,12 @@ void nhrp_interface_update_nbma(struct interface *ifp,
 		nbmanifp = nbmaifp->info;
 
 	if (nbmaifp != nifp->nbmaifp) {
-		if (nifp->nbmaifp)
-			notifier_del(&nifp->nbmanifp_notifier);
+		if (nifp->nbmaifp) {
+			struct nhrp_interface *prev_nifp = nifp->nbmaifp->info;
+
+			notifier_del(&nifp->nbmanifp_notifier,
+				     &prev_nifp->notifier_list);
+		}
 		nifp->nbmaifp = nbmaifp;
 		if (nbmaifp) {
 			notifier_add(&nifp->nbmanifp_notifier,
@@ -509,12 +513,15 @@ void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn)
 {
 	struct nhrp_interface *nifp = ifp->info;
+
 	notifier_add(n, &nifp->notifier_list, fn);
 }
 
 void nhrp_interface_notify_del(struct interface *ifp, struct notifier_block *n)
 {
-	notifier_del(n);
+	struct nhrp_interface *nifp = ifp->info;
+
+	notifier_del(n, &nifp->notifier_list);
 }
 
 void nhrp_interface_set_protection(struct interface *ifp, const char *profile,

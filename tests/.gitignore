@@ -28,6 +28,7 @@
 /lib/test_frrscript
 /lib/test_frrlua
 /lib/test_graph
+/lib/test_grpc
 /lib/test_heavy
 /lib/test_heavy_thread
 /lib/test_heavy_wq
@@ -44,6 +45,7 @@
 /lib/test_segv
 /lib/test_seqlock
 /lib/test_sig
+/lib/test_skiplist
 /lib/test_srcdest_table
 /lib/test_stream
 /lib/test_table

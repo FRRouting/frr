@@ -164,35 +164,33 @@ void *zbuf_may_pull_until(struct zbuf *zb, const char *sep, struct zbuf *msg)
 void zbufq_init(struct zbuf_queue *zbq)
 {
 	*zbq = (struct zbuf_queue){
-		.queue_head = LIST_INITIALIZER(zbq->queue_head),
+		.queue_head = INIT_DLIST(zbq->queue_head),
 	};
 }
 
 void zbufq_reset(struct zbuf_queue *zbq)
 {
-	struct zbuf *buf, *bufn;
+	struct zbuf *buf;
 
-	list_for_each_entry_safe(buf, bufn, &zbq->queue_head, queue_list)
-	{
-		list_del(&buf->queue_list);
+	frr_each_safe (zbuf_queue, &zbq->queue_head, buf) {
+		zbuf_queue_del(&zbq->queue_head, buf);
 		zbuf_free(buf);
 	}
 }
 
 void zbufq_queue(struct zbuf_queue *zbq, struct zbuf *zb)
 {
-	list_add_tail(&zb->queue_list, &zbq->queue_head);
+	zbuf_queue_add_tail(&zbq->queue_head, zb);
 }
 
 int zbufq_write(struct zbuf_queue *zbq, int fd)
 {
 	struct iovec iov[16];
-	struct zbuf *zb, *zbn;
+	struct zbuf *zb;
 	ssize_t r;
 	size_t iovcnt = 0;
 
-	list_for_each_entry_safe(zb, zbn, &zbq->queue_head, queue_list)
-	{
+	frr_each_safe (zbuf_queue, &zbq->queue_head, zb) {
 		iov[iovcnt++] = (struct iovec){
 			.iov_base = zb->head, .iov_len = zbuf_used(zb),
 		};
@@ -204,15 +202,14 @@ int zbufq_write(struct zbuf_queue *zbq, int fd)
 	if (r < 0)
 		return r;
 
-	list_for_each_entry_safe(zb, zbn, &zbq->queue_head, queue_list)
-	{
+	frr_each_safe (zbuf_queue, &zbq->queue_head, zb) {
 		if (r < (ssize_t)zbuf_used(zb)) {
 			zb->head += r;
 			return 1;
 		}
 
 		r -= zbuf_used(zb);
-		list_del(&zb->queue_list);
+		zbuf_queue_del(&zbq->queue_head, zb);
 		zbuf_free(zb);
 	}
 
