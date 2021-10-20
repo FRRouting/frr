@@ -306,6 +306,7 @@ static void *updgrp_hash_alloc(void *p)
  *       14. encoding both global and link-local nexthop?
  *       15. If peer is configured to be a lonesoul, peer ip address
  *       16. Local-as should match, if configured.
+ *       17. maximum-prefix-out
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -340,6 +341,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
 	key = jhash_1word(peer->max_packet_size, key);
+	key = jhash_1word(peer->pmax_out[afi][safi], key);
 
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
@@ -451,6 +453,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 
 	/* If there is 'local-as' configured, it should match. */
 	if (pe1->change_local_as != pe2->change_local_as)
+		return false;
+
+	if (pe1->pmax_out[afi][safi] != pe2->pmax_out[afi][safi])
 		return false;
 
 	/* flags like route reflector client */
