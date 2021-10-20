@@ -1866,6 +1866,17 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	piattr = bgp_path_info_mpath_count(pi) ? bgp_path_info_mpath_attr(pi)
 					       : pi->attr;
 
+	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT) &&
+	    peer->pmax_out[afi][safi] != 0 &&
+	    subgrp->pscount >= peer->pmax_out[afi][safi]) {
+		if (BGP_DEBUG(update, UPDATE_OUT) ||
+		    BGP_DEBUG(update, UPDATE_PREFIX)) {
+			zlog_debug("%s reached maximum prefix to be send (%u)",
+				   peer->host, peer->pmax_out[afi][safi]);
+		}
+		return false;
+	}
+
 #ifdef ENABLE_BGP_VNC
 	if (((afi == AFI_IP) || (afi == AFI_IP6)) && (safi == SAFI_MPLS_VPN)
 	    && ((pi->type == ZEBRA_ROUTE_BGP_DIRECT)
