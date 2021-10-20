@@ -366,21 +366,25 @@ static void nhrp_zebra_connected(struct zclient *zclient)
 	nhrp_zebra_register_neigh(VRF_DEFAULT, AFI_IP6, true);
 }
 
+static zclient_handler *const nhrp_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = nhrp_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = nhrp_interface_address_delete,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = nhrp_route_read,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = nhrp_route_read,
+	[ZEBRA_NHRP_NEIGH_ADDED] = nhrp_neighbor_operation,
+	[ZEBRA_NHRP_NEIGH_REMOVED] = nhrp_neighbor_operation,
+	[ZEBRA_NHRP_NEIGH_GET] = nhrp_neighbor_operation,
+	[ZEBRA_GRE_UPDATE] = nhrp_gre_update,
+};
+
 void nhrp_zebra_init(void)
 {
 	zebra_rib[AFI_IP] = route_table_init();
 	zebra_rib[AFI_IP6] = route_table_init();
 
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, nhrp_handlers,
+			      array_size(nhrp_handlers));
 	zclient->zebra_connected = nhrp_zebra_connected;
-	zclient->interface_address_add = nhrp_interface_address_add;
-	zclient->interface_address_delete = nhrp_interface_address_delete;
-	zclient->redistribute_route_add = nhrp_route_read;
-	zclient->redistribute_route_del = nhrp_route_read;
-	zclient->neighbor_added = nhrp_neighbor_operation;
-	zclient->neighbor_removed = nhrp_neighbor_operation;
-	zclient->neighbor_get = nhrp_neighbor_operation;
-	zclient->gre_update = nhrp_gre_update;
 	zclient_init(zclient, ZEBRA_ROUTE_NHRP, 0, &nhrpd_privs);
 }
 
@@ -476,7 +480,7 @@ void nhrp_zebra_terminate(void)
 	route_table_finish(zebra_rib[AFI_IP6]);
 }
 
-void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
+int nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct nhrp_gre_info gre_info, *val;
@@ -485,7 +489,7 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	/* result */
 	s = zclient->ibuf;
 	if (vrf_id != VRF_DEFAULT)
-		return;
+		return 0;
 
 	/* read GRE information */
 	STREAM_GETL(s, gre_info.ifindex);
@@ -516,7 +520,9 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	       ifp ? ifp->name : "<none>", gre_info.ifindex, vrf_id);
 	if (ifp)
 		nhrp_interface_update_nbma(ifp, val);
-	return;
+	return 0;
+
 stream_failure:
 	zlog_err("%s(): error reading response ..", __func__);
+	return -1;
 }

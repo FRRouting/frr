@@ -136,8 +136,7 @@ static void bgp_update_interface_nbrs(struct bgp *bgp, struct interface *ifp,
 	}
 }
 
-static int bgp_read_fec_update(int command, struct zclient *zclient,
-			       zebra_size_t length)
+static int bgp_read_fec_update(ZAPI_CALLBACK_ARGS)
 {
 	bgp_parse_fec_update();
 	return 0;
@@ -3010,7 +3009,7 @@ static int bgp_zebra_process_local_macip(ZAPI_CALLBACK_ARGS)
 	}
 }
 
-static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
+static int bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	struct bgp *bgp_vrf = NULL;
@@ -3022,7 +3021,7 @@ static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 
 	bgp_vrf = bgp_lookup_by_vrf_id(vrf_id);
 	if (!bgp_vrf)
-		return;
+		return 0;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Recv prefix %pFX %s on vrf %s", &p,
@@ -3046,9 +3045,10 @@ static void bgp_zebra_process_local_ip_prefix(ZAPI_CALLBACK_ARGS)
 			bgp_evpn_withdraw_type5_route(bgp_vrf, &p, AFI_IP6,
 						      SAFI_UNICAST);
 	}
+	return 0;
 }
 
-static void bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
+static int bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	uint8_t response_keep;
@@ -3067,12 +3067,12 @@ static void bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
 	if (zclient->redist_default != proto) {
 		flog_err(EC_BGP_LM_ERROR, "Got LM msg with wrong proto %u",
 			 proto);
-		return;
+		return 0;
 	}
 	if (zclient->instance != instance) {
 		flog_err(EC_BGP_LM_ERROR, "Got LM msg with wrong instance %u",
 			 proto);
-		return;
+		return 0;
 	}
 
 	if (first > last ||
@@ -3081,7 +3081,7 @@ static void bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
 
 		flog_err(EC_BGP_LM_ERROR, "%s: Invalid Label chunk: %u - %u",
 			 __func__, first, last);
-		return;
+		return 0;
 	}
 	if (BGP_DEBUG(zebra, ZEBRA)) {
 		zlog_debug("Label Chunk assign: %u - %u (%u) ",
@@ -3090,8 +3090,10 @@ static void bgp_zebra_process_label_chunk(ZAPI_CALLBACK_ARGS)
 
 	bgp_lp_event_chunk(response_keep, first, last);
 
+	return 0;
+
 stream_failure:		/* for STREAM_GETX */
-	return;
+	return -1;
 }
 
 extern struct zebra_privs_t bgpd_privs;
@@ -3114,7 +3116,7 @@ static int bgp_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-static void bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
+static int bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s = NULL;
 	struct bgp *bgp = bgp_get_default();
@@ -3129,18 +3131,19 @@ static void bgp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	if (strcmp(bgp->srv6_locator_name, s6c.locator_name) != 0) {
 		zlog_err("%s: Locator name unmatch %s:%s", __func__,
 			 bgp->srv6_locator_name, s6c.locator_name);
-		return;
+		return 0;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, c)) {
 		if (!prefix_cmp(c, &s6c.prefix))
-			return;
+			return 0;
 	}
 
 	chunk = prefix_ipv6_new();
 	*chunk = s6c.prefix;
 	listnode_add(bgp->srv6_locator_chunks, chunk);
 	vpn_leak_postchange_all();
+	return 0;
 }
 
 static int bgp_zebra_process_srv6_locator_add(ZAPI_CALLBACK_ARGS)
@@ -3225,6 +3228,41 @@ static int bgp_zebra_process_srv6_locator_delete(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+static zclient_handler *const bgp_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = bgp_router_id_update,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = bgp_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = bgp_interface_address_delete,
+	[ZEBRA_INTERFACE_NBR_ADDRESS_ADD] = bgp_interface_nbr_address_add,
+	[ZEBRA_INTERFACE_NBR_ADDRESS_DELETE] = bgp_interface_nbr_address_delete,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = bgp_interface_vrf_update,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = zebra_read_route,
+	[ZEBRA_NEXTHOP_UPDATE] = bgp_read_nexthop_update,
+	[ZEBRA_FEC_UPDATE] = bgp_read_fec_update,
+	[ZEBRA_LOCAL_ES_ADD] = bgp_zebra_process_local_es_add,
+	[ZEBRA_LOCAL_ES_DEL] = bgp_zebra_process_local_es_del,
+	[ZEBRA_VNI_ADD] = bgp_zebra_process_local_vni,
+	[ZEBRA_LOCAL_ES_EVI_ADD] = bgp_zebra_process_local_es_evi,
+	[ZEBRA_LOCAL_ES_EVI_DEL] = bgp_zebra_process_local_es_evi,
+	[ZEBRA_VNI_DEL] = bgp_zebra_process_local_vni,
+	[ZEBRA_MACIP_ADD] = bgp_zebra_process_local_macip,
+	[ZEBRA_MACIP_DEL] = bgp_zebra_process_local_macip,
+	[ZEBRA_L3VNI_ADD] = bgp_zebra_process_local_l3vni,
+	[ZEBRA_L3VNI_DEL] = bgp_zebra_process_local_l3vni,
+	[ZEBRA_IP_PREFIX_ROUTE_ADD] = bgp_zebra_process_local_ip_prefix,
+	[ZEBRA_IP_PREFIX_ROUTE_DEL] = bgp_zebra_process_local_ip_prefix,
+	[ZEBRA_GET_LABEL_CHUNK] = bgp_zebra_process_label_chunk,
+	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
+	[ZEBRA_IPSET_NOTIFY_OWNER] = ipset_notify_owner,
+	[ZEBRA_IPSET_ENTRY_NOTIFY_OWNER] = ipset_entry_notify_owner,
+	[ZEBRA_IPTABLE_NOTIFY_OWNER] = iptable_notify_owner,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = bgp_zebra_route_notify_owner,
+	[ZEBRA_SRV6_LOCATOR_ADD] = bgp_zebra_process_srv6_locator_add,
+	[ZEBRA_SRV6_LOCATOR_DELETE] = bgp_zebra_process_srv6_locator_delete,
+	[ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK] =
+		bgp_zebra_process_srv6_locator_chunk,
+};
+
 void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	zclient_num_connects = 0;
@@ -3233,43 +3271,11 @@ void bgp_zebra_init(struct thread_master *master, unsigned short instance)
 			  bgp_ifp_down, bgp_ifp_destroy);
 
 	/* Set default values. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, bgp_handlers,
+			      array_size(bgp_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_BGP, 0, &bgpd_privs);
 	zclient->zebra_connected = bgp_zebra_connected;
-	zclient->router_id_update = bgp_router_id_update;
-	zclient->interface_address_add = bgp_interface_address_add;
-	zclient->interface_address_delete = bgp_interface_address_delete;
-	zclient->interface_nbr_address_add = bgp_interface_nbr_address_add;
-	zclient->interface_nbr_address_delete =
-		bgp_interface_nbr_address_delete;
-	zclient->interface_vrf_update = bgp_interface_vrf_update;
-	zclient->redistribute_route_add = zebra_read_route;
-	zclient->redistribute_route_del = zebra_read_route;
-	zclient->nexthop_update = bgp_read_nexthop_update;
-	zclient->fec_update = bgp_read_fec_update;
-	zclient->local_es_add = bgp_zebra_process_local_es_add;
-	zclient->local_es_del = bgp_zebra_process_local_es_del;
-	zclient->local_vni_add = bgp_zebra_process_local_vni;
-	zclient->local_es_evi_add = bgp_zebra_process_local_es_evi;
-	zclient->local_es_evi_del = bgp_zebra_process_local_es_evi;
-	zclient->local_vni_del = bgp_zebra_process_local_vni;
-	zclient->local_macip_add = bgp_zebra_process_local_macip;
-	zclient->local_macip_del = bgp_zebra_process_local_macip;
-	zclient->local_l3vni_add = bgp_zebra_process_local_l3vni;
-	zclient->local_l3vni_del = bgp_zebra_process_local_l3vni;
-	zclient->local_ip_prefix_add = bgp_zebra_process_local_ip_prefix;
-	zclient->local_ip_prefix_del = bgp_zebra_process_local_ip_prefix;
-	zclient->label_chunk = bgp_zebra_process_label_chunk;
-	zclient->rule_notify_owner = rule_notify_owner;
-	zclient->ipset_notify_owner = ipset_notify_owner;
-	zclient->ipset_entry_notify_owner = ipset_entry_notify_owner;
-	zclient->iptable_notify_owner = iptable_notify_owner;
-	zclient->route_notify_owner = bgp_zebra_route_notify_owner;
 	zclient->instance = instance;
-	zclient->srv6_locator_add = bgp_zebra_process_srv6_locator_add;
-	zclient->srv6_locator_delete = bgp_zebra_process_srv6_locator_delete;
-	zclient->process_srv6_locator_chunk =
-		bgp_zebra_process_srv6_locator_chunk;
 }
 
 void bgp_zebra_destroy(void)

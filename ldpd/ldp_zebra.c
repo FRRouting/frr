@@ -694,6 +694,16 @@ ldp_zebra_filter_update(struct access_list *access)
 
 extern struct zebra_privs_t ldpd_privs;
 
+static zclient_handler *const ldp_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = ldp_router_id_update,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = ldp_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ldp_interface_address_delete,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ldp_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ldp_zebra_read_route,
+	[ZEBRA_PW_STATUS_UPDATE] = ldp_zebra_read_pw_status_update,
+	[ZEBRA_OPAQUE_MESSAGE] = ldp_zebra_opaque_msg_handler,
+};
+
 void
 ldp_zebra_init(struct thread_master *master)
 {
@@ -701,18 +711,12 @@ ldp_zebra_init(struct thread_master *master)
 			  ldp_ifp_down, ldp_ifp_destroy);
 
 	/* Set default values. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, ldp_handlers,
+			      array_size(ldp_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_LDP, 0, &ldpd_privs);
 
 	/* set callbacks */
 	zclient->zebra_connected = ldp_zebra_connected;
-	zclient->router_id_update = ldp_router_id_update;
-	zclient->interface_address_add = ldp_interface_address_add;
-	zclient->interface_address_delete = ldp_interface_address_delete;
-	zclient->redistribute_route_add = ldp_zebra_read_route;
-	zclient->redistribute_route_del = ldp_zebra_read_route;
-	zclient->pw_status_update = ldp_zebra_read_pw_status_update;
-	zclient->opaque_msg_handler = ldp_zebra_opaque_msg_handler;
 
 	/* Access list initialize. */
 	access_list_add_hook(ldp_zebra_filter_update);

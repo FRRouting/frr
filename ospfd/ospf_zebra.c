@@ -2102,25 +2102,33 @@ static int ospf_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+static zclient_handler *const ospf_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = ospf_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = ospf_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = ospf_interface_address_delete,
+	[ZEBRA_INTERFACE_LINK_PARAMS] = ospf_interface_link_params,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = ospf_interface_vrf_update,
+
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = ospf_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = ospf_zebra_read_route,
+
+	[ZEBRA_OPAQUE_MESSAGE] = ospf_opaque_msg_handler,
+
+	[ZEBRA_CLIENT_CLOSE_NOTIFY] = ospf_zebra_client_close_notify,
+};
+
 void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 {
 	/* Allocate zebra structure. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, ospf_handlers,
+			      array_size(ospf_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_OSPF, instance, &ospfd_privs);
 	zclient->zebra_connected = ospf_zebra_connected;
-	zclient->router_id_update = ospf_router_id_update_zebra;
-	zclient->interface_address_add = ospf_interface_address_add;
-	zclient->interface_address_delete = ospf_interface_address_delete;
-	zclient->interface_link_params = ospf_interface_link_params;
-	zclient->interface_vrf_update = ospf_interface_vrf_update;
-
-	zclient->redistribute_route_add = ospf_zebra_read_route;
-	zclient->redistribute_route_del = ospf_zebra_read_route;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_OSPF;
 	zclient_sync->instance = instance;
@@ -2135,10 +2143,6 @@ void ospf_zebra_init(struct thread_master *master, unsigned short instance)
 	access_list_delete_hook(ospf_filter_update);
 	prefix_list_add_hook(ospf_prefix_list_update);
 	prefix_list_delete_hook(ospf_prefix_list_update);
-
-	zclient->opaque_msg_handler = ospf_opaque_msg_handler;
-
-	zclient->zebra_client_close_notify = ospf_zebra_client_close_notify;
 }
 
 void ospf_zebra_send_arp(const struct interface *ifp, const struct prefix *p)

@@ -844,29 +844,32 @@ static int bfd_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
-{
-	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
-	zclient = zclient_new(master, &zclient_options_default);
-	assert(zclient != NULL);
-	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
-
+static zclient_handler *const bfd_handlers[] = {
 	/*
 	 * We'll receive all messages through replay, however it will
 	 * contain a special field with the real command inside so we
 	 * avoid having to create too many handlers.
 	 */
-	zclient->bfd_dest_replay = bfdd_replay;
+	[ZEBRA_BFD_DEST_REPLAY] = bfdd_replay,
+
+	/* Learn about interface VRF. */
+	[ZEBRA_INTERFACE_VRF_UPDATE] = bfdd_interface_vrf_update,
+
+	/* Learn about new addresses being registered. */
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = bfdd_interface_address_update,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = bfdd_interface_address_update,
+};
+
+void bfdd_zclient_init(struct zebra_privs_t *bfdd_priv)
+{
+	if_zapi_callbacks(bfd_ifp_create, NULL, NULL, bfd_ifp_destroy);
+	zclient = zclient_new(master, &zclient_options_default, bfd_handlers,
+			      array_size(bfd_handlers));
+	assert(zclient != NULL);
+	zclient_init(zclient, ZEBRA_ROUTE_BFD, 0, bfdd_priv);
 
 	/* Send replay request on zebra connect. */
 	zclient->zebra_connected = bfdd_zebra_connected;
-
-	/* Learn about interface VRF. */
-	zclient->interface_vrf_update = bfdd_interface_vrf_update;
-
-	/* Learn about new addresses being registered. */
-	zclient->interface_address_add = bfdd_interface_address_update;
-	zclient->interface_address_delete = bfdd_interface_address_update;
 }
 
 void bfdd_zclient_register(vrf_id_t vrf_id)

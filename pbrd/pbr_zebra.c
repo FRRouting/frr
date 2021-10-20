@@ -429,20 +429,24 @@ static int pbr_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 
 extern struct zebra_privs_t pbr_privs;
 
+static zclient_handler *const pbr_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = interface_vrf_update,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_RULE_NOTIFY_OWNER] = rule_notify_owner,
+	[ZEBRA_NEXTHOP_UPDATE] = pbr_zebra_nexthop_update,
+};
+
 void pbr_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, pbr_handlers,
+			      array_size(pbr_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_PBR, 0, &pbr_privs);
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_address_add = interface_address_add;
-	zclient->interface_address_delete = interface_address_delete;
-	zclient->interface_vrf_update = interface_vrf_update;
-	zclient->route_notify_owner = route_notify_owner;
-	zclient->rule_notify_owner = rule_notify_owner;
-	zclient->nexthop_update = pbr_zebra_nexthop_update;
 }
 
 void pbr_send_rnh(struct nexthop *nhop, bool reg)

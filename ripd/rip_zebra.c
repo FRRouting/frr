@@ -230,17 +230,21 @@ static void rip_zebra_connected(struct zclient *zclient)
 	zclient_send_reg_requests(zclient, VRF_DEFAULT);
 }
 
+zclient_handler *const rip_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = rip_interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = rip_interface_address_delete,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = rip_interface_vrf_update,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = rip_zebra_read_route,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = rip_zebra_read_route,
+};
+
 void rip_zclient_init(struct thread_master *master)
 {
 	/* Set default value to the zebra client structure. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, rip_handlers,
+			      array_size(rip_handlers));
 	zclient_init(zclient, ZEBRA_ROUTE_RIP, 0, &ripd_privs);
 	zclient->zebra_connected = rip_zebra_connected;
-	zclient->interface_address_add = rip_interface_address_add;
-	zclient->interface_address_delete = rip_interface_address_delete;
-	zclient->interface_vrf_update = rip_interface_vrf_update;
-	zclient->redistribute_route_add = rip_zebra_read_route;
-	zclient->redistribute_route_del = rip_zebra_read_route;
 }
 
 void rip_zclient_stop(void)

@@ -2192,7 +2192,7 @@ static void zclient_sync_init(void)
 	options.synchronous = true;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->session_id = 1; /* Distinguish from main session */

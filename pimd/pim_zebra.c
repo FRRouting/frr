@@ -439,23 +439,29 @@ static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 	router->mlag_role = cap->role;
 }
 
+static zclient_handler *const pim_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
+	[ZEBRA_INTERFACE_VRF_UPDATE] = pim_zebra_interface_vrf_update,
+	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
+
+	[ZEBRA_VXLAN_SG_ADD] = pim_zebra_vxlan_sg_proc,
+	[ZEBRA_VXLAN_SG_DEL] = pim_zebra_vxlan_sg_proc,
+
+	[ZEBRA_MLAG_PROCESS_UP] = pim_zebra_mlag_process_up,
+	[ZEBRA_MLAG_PROCESS_DOWN] = pim_zebra_mlag_process_down,
+	[ZEBRA_MLAG_FORWARD_MSG] = pim_zebra_mlag_handle_msg,
+};
+
 void pim_zebra_init(void)
 {
 	/* Socket for receiving updates from Zebra daemon */
-	zclient = zclient_new(router->master, &zclient_options_default);
+	zclient = zclient_new(router->master, &zclient_options_default,
+			      pim_handlers, array_size(pim_handlers));
 
 	zclient->zebra_capabilities = pim_zebra_capabilities;
 	zclient->zebra_connected = pim_zebra_connected;
-	zclient->router_id_update = pim_router_id_update_zebra;
-	zclient->interface_address_add = pim_zebra_if_address_add;
-	zclient->interface_address_delete = pim_zebra_if_address_del;
-	zclient->interface_vrf_update = pim_zebra_interface_vrf_update;
-	zclient->nexthop_update = pim_parse_nexthop_update;
-	zclient->vxlan_sg_add = pim_zebra_vxlan_sg_proc;
-	zclient->vxlan_sg_del = pim_zebra_vxlan_sg_proc;
-	zclient->mlag_process_up = pim_zebra_mlag_process_up;
-	zclient->mlag_process_down = pim_zebra_mlag_process_down;
-	zclient->mlag_handle_msg = pim_zebra_mlag_handle_msg;
 
 	zclient_init(zclient, ZEBRA_ROUTE_PIM, 0, &pimd_privs);
 	if (PIM_DEBUG_PIM_TRACE) {
