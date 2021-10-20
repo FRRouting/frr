@@ -4761,7 +4761,7 @@ DEFUN_YANG(no_match_alias, no_match_alias_cmd, "no match alias [ALIAS_NAME]",
 
 DEFPY_YANG (match_community,
        match_community_cmd,
-       "match community <(1-99)|(100-500)|WORD> [exact-match]",
+       "match community <(1-99)|(100-500)|COMMUNITY_LIST_NAME> [exact-match]",
        MATCH_STR
        "Match BGP community list\n"
        "Community-list number (standard)\n"
@@ -4804,7 +4804,7 @@ DEFPY_YANG (match_community,
 
 DEFUN_YANG (no_match_community,
 	    no_match_community_cmd,
-	    "no match community [<(1-99)|(100-500)|WORD> [exact-match]]",
+	    "no match community [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> [exact-match]]",
 	    NO_STR
 	    MATCH_STR
 	    "Match BGP community list\n"
@@ -4822,7 +4822,7 @@ DEFUN_YANG (no_match_community,
 
 DEFPY_YANG (match_lcommunity,
 	    match_lcommunity_cmd,
-	    "match large-community <(1-99)|(100-500)|WORD> [exact-match]",
+	    "match large-community <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [exact-match]",
 	    MATCH_STR
 	    "Match BGP large community list\n"
 	    "Large Community-list number (standard)\n"
@@ -4865,7 +4865,7 @@ DEFPY_YANG (match_lcommunity,
 
 DEFUN_YANG (no_match_lcommunity,
 	    no_match_lcommunity_cmd,
-	    "no match large-community [<(1-99)|(100-500)|WORD> [exact-match]]",
+	    "no match large-community [<(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [exact-match]]",
 	    NO_STR
 	    MATCH_STR
 	    "Match BGP large community list\n"
@@ -4883,7 +4883,7 @@ DEFUN_YANG (no_match_lcommunity,
 
 DEFPY_YANG (match_ecommunity,
 	    match_ecommunity_cmd,
-            "match extcommunity <(1-99)|(100-500)|WORD>",
+            "match extcommunity <(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>",
 	    MATCH_STR
 	    "Match BGP/VPN extended community list\n"
 	    "Extended community-list number (standard)\n"
@@ -4909,7 +4909,7 @@ DEFPY_YANG (match_ecommunity,
 
 DEFUN_YANG (no_match_ecommunity,
 	    no_match_ecommunity_cmd,
-	    "no match extcommunity [<(1-99)|(100-500)|WORD>]",
+	    "no match extcommunity [<(1-99)|(100-500)|EXTCOMMUNITY_LIST_NAME>]",
 	    NO_STR
 	    MATCH_STR
 	    "Match BGP/VPN extended community list\n"
@@ -5522,7 +5522,7 @@ ALIAS_YANG (no_set_community,
 
 DEFPY_YANG (set_community_delete,
        set_community_delete_cmd,
-       "set comm-list <(1-99)|(100-500)|WORD> delete",
+       "set comm-list <(1-99)|(100-500)|COMMUNITY_LIST_NAME> delete",
        SET_STR
        "set BGP community list (for deletion)\n"
        "Community-list number (standard)\n"
@@ -5549,7 +5549,7 @@ DEFPY_YANG (set_community_delete,
 
 DEFUN_YANG (no_set_community_delete,
 	    no_set_community_delete_cmd,
-	    "no set comm-list [<(1-99)|(100-500)|WORD> delete]",
+	    "no set comm-list [<(1-99)|(100-500)|COMMUNITY_LIST_NAME> delete]",
 	    NO_STR
 	    SET_STR
 	    "set BGP community list (for deletion)\n"
@@ -5649,7 +5649,7 @@ ALIAS_YANG (no_set_lcommunity1,
 
 DEFPY_YANG (set_lcommunity_delete,
        set_lcommunity_delete_cmd,
-       "set large-comm-list <(1-99)|(100-500)|WORD> delete",
+       "set large-comm-list <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> delete",
        SET_STR
        "set BGP large community list (for deletion)\n"
        "Large Community-list number (standard)\n"
@@ -5675,7 +5675,7 @@ DEFPY_YANG (set_lcommunity_delete,
 
 DEFUN_YANG (no_set_lcommunity_delete,
 	    no_set_lcommunity_delete_cmd,
-	    "no set large-comm-list <(1-99)|(100-500)|WORD> [delete]",
+	    "no set large-comm-list <(1-99)|(100-500)|LCOMMUNITY_LIST_NAME> [delete]",
 	    NO_STR
 	    SET_STR
 	    "set BGP large community list (for deletion)\n"
