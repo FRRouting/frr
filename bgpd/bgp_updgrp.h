@@ -204,6 +204,9 @@ struct update_subgroup {
 	/* send prefix count */
 	uint32_t scount;
 
+	/* send prefix count prior to packet update */
+	uint32_t pscount;
+
 	/* announcement attribute hash */
 	struct hash *hash;
 
@@ -248,6 +251,7 @@ struct update_subgroup {
 	uint16_t sflags;
 #define SUBGRP_STATUS_DEFAULT_ORIGINATE (1 << 0)
 #define SUBGRP_STATUS_FORCE_UPDATES (1 << 1)
+#define SUBGRP_STATUS_TABLE_REPARSING (1 << 2)
 
 	uint16_t flags;
 #define SUBGRP_FLAG_NEEDS_REFRESH (1 << 0)

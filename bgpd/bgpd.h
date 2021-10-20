@@ -2207,6 +2207,9 @@ extern int peer_maximum_prefix_set(struct peer *, afi_t, safi_t, uint32_t,
 				   uint8_t, int, uint16_t, bool force);
 extern int peer_maximum_prefix_unset(struct peer *, afi_t, safi_t);
 
+extern void peer_maximum_prefix_out_refresh_routes(struct peer *peer, afi_t afi,
+						   safi_t safi);
+
 extern int peer_clear(struct peer *, struct listnode **);
 extern int peer_clear_soft(struct peer *, afi_t, safi_t, enum bgp_clear_type);
 

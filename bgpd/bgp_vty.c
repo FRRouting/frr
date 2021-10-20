@@ -7701,6 +7701,7 @@ DEFUN(neighbor_maximum_prefix_out,
 	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
 	peer->pmax_out[afi][safi] = max;
 
+	peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
 	return CMD_SUCCESS;
 }
 
@@ -7724,6 +7725,7 @@ DEFUN(no_neighbor_maximum_prefix_out,
 	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
 	peer->pmax_out[afi][safi] = 0;
 
+	peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
 	return CMD_SUCCESS;
 }
 
