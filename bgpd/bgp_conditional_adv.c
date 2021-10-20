@@ -95,6 +95,9 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 	if (!subgrp)
 		return;
 
+	subgrp->pscount = 0;
+	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
+
 	if (BGP_DEBUG(update, UPDATE_OUT))
 		zlog_debug("%s: %s routes to/from %s for %s", __func__,
 			   update_type == ADVERTISE ? "Advertise" : "Withdraw",
@@ -162,6 +165,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			}
 		}
 	}
+	UNSET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 }
 
 /* Handler of conditional advertisement timer event.
