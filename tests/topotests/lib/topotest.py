@@ -1445,7 +1445,7 @@ class Router(Node):
 
         running = self.listDaemons()
         if running:
-            for _ in range(0, 5):
+            for _ in range(0, 30):
                 sleep(
                     0.5,
                     "{}: waiting for daemons stopping: {}".format(
