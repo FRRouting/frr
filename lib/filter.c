@@ -612,7 +612,7 @@ DEFUN (show_mac_access_list,
 
 DEFUN (show_mac_access_list_name,
        show_mac_access_list_name_cmd,
-       "show mac access-list WORD",
+       "show mac access-list ACCESSLIST_MAC_NAME",
        SHOW_STR
        "mac access lists\n"
        "List mac access lists\n"
@@ -635,7 +635,7 @@ DEFUN (show_ip_access_list,
 
 DEFUN (show_ip_access_list_name,
        show_ip_access_list_name_cmd,
-       "show ip access-list WORD [json]",
+       "show ip access-list ACCESSLIST4_NAME [json]",
        SHOW_STR
        IP_STR
        "List IP access lists\n"
@@ -661,7 +661,7 @@ DEFUN (show_ipv6_access_list,
 
 DEFUN (show_ipv6_access_list_name,
        show_ipv6_access_list_name_cmd,
-       "show ipv6 access-list WORD [json]",
+       "show ipv6 access-list ACCESSLIST6_NAME [json]",
        SHOW_STR
        IPV6_STR
        "List IPv6 access lists\n"
@@ -839,11 +839,61 @@ static void access_list_init_ipv4(void)
 	install_element(ENABLE_NODE, &show_ip_access_list_name_cmd);
 }
 
+static void access_list_autocomplete_afi(afi_t afi, vector comps,
+					 struct cmd_token *token)
+{
+	struct access_list *access;
+	struct access_list *next;
+	struct access_master *master;
+
+	master = access_master_get(afi);
+	if (master == NULL)
+		return;
+
+	for (access = master->str.head; access; access = next) {
+		next = access->next;
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, access->name));
+	}
+}
+
 static struct cmd_node access_ipv6_node = {
 	.name = "ipv6 access list",
 	.node = ACCESS_IPV6_NODE,
 	.prompt = "",
 };
+
+static void access_list_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_IP, comps, token);
+	access_list_autocomplete_afi(AFI_IP6, comps, token);
+	access_list_autocomplete_afi(AFI_L2VPN, comps, token);
+}
+
+static void access_list4_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_IP, comps, token);
+}
+
+static void access_list6_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_IP6, comps, token);
+}
+
+static void access_list_mac_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_L2VPN, comps, token);
+}
+
+static const struct cmd_variable_handler access_list_handlers[] = {
+	{.tokenname = "ACCESSLIST_NAME",
+	 .completions = access_list_autocomplete},
+	{.tokenname = "ACCESSLIST4_NAME",
+	 .completions = access_list4_autocomplete},
+	{.tokenname = "ACCESSLIST6_NAME",
+	 .completions = access_list6_autocomplete},
+	{.tokenname = "ACCESSLIST_MAC_NAME",
+	 .completions = access_list_mac_autocomplete},
+	{.completions = NULL}};
 
 static void access_list_reset_ipv6(void)
 {
@@ -874,6 +924,8 @@ static void access_list_init_ipv6(void)
 
 void access_list_init(void)
 {
+	cmd_variable_handler_register(access_list_handlers);
+
 	access_list_init_ipv4();
 	access_list_init_ipv6();
 	access_list_init_mac();
