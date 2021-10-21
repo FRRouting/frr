@@ -365,6 +365,8 @@ int main(int argc, char **argv, char **env)
 	const char *pathspace_arg = NULL;
 	char pathspace[MAXPATHLEN] = "";
 	const char *histfile = NULL;
+	char my_client[64];
+	int my_client_type;
 
 	/* SUID: drop down to calling user & go back up when needed */
 	elevuid = geteuid();
@@ -761,6 +763,7 @@ int main(int argc, char **argv, char **env)
 				/* Store name of client this fork will handle */
 				strlcpy(my_client, vtysh_client[i].name,
 					sizeof(my_client));
+				my_client_type = vtysh_client[i].flag;
 				fork_pid = fork();
 
 				/* If child, break */
@@ -783,15 +786,21 @@ int main(int argc, char **argv, char **env)
 			 */
 			for (unsigned int i = 0; i < array_size(vtysh_client);
 			     i++) {
-				if (strcmp(my_client, vtysh_client[i].name)) {
+				if (my_client_type != vtysh_client[i].flag) {
+					struct vtysh_client *cl;
+
 					/*
 					 * If this is a client we aren't
 					 * responsible for, disconnect
 					 */
-					if (vtysh_client[i].fd >= 0)
-						close(vtysh_client[i].fd);
-					vtysh_client[i].fd = -1;
-				} else if (vtysh_client[i].fd == -1) {
+					for (cl = &vtysh_client[i]; cl;
+					     cl = cl->next) {
+						if (cl->fd >= 0)
+							close(cl->fd);
+						cl->fd = -1;
+					}
+				} else if (vtysh_client[i].fd == -1
+					   && vtysh_client[i].next == NULL) {
 					/*
 					 * If this is the client we are
 					 * responsible for, but we aren't
