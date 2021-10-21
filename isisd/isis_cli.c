@@ -1011,7 +1011,7 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty,
  * XPath: /frr-isisd:isis/instance/spf/prefix-priorities/medium/access-list-name
  */
 DEFPY_YANG(spf_prefix_priority, spf_prefix_priority_cmd,
-      "spf prefix-priority <critical|high|medium>$priority WORD$acl_name",
+      "spf prefix-priority <critical|high|medium>$priority ACCESSLIST_NAME$acl_name",
       "SPF configuration\n"
       "Configure a prefix priority list\n"
       "Specify critical priority prefixes\n"
@@ -1029,7 +1029,7 @@ DEFPY_YANG(spf_prefix_priority, spf_prefix_priority_cmd,
 }
 
 DEFPY_YANG(no_spf_prefix_priority, no_spf_prefix_priority_cmd,
-      "no spf prefix-priority <critical|high|medium>$priority [WORD]",
+      "no spf prefix-priority <critical|high|medium>$priority [ACCESSLIST_NAME]",
       NO_STR
       "SPF configuration\n"
       "Configure a prefix priority list\n"

@@ -4004,7 +4004,7 @@ static void bgp_route_map_event(const char *rmap_name)
 
 DEFUN_YANG (match_mac_address,
 	    match_mac_address_cmd,
-	    "match mac address WORD",
+	    "match mac address ACCESSLIST_MAC_NAME",
 	    MATCH_STR
 	    "mac address\n"
 	    "Match address of route\n"
@@ -4024,7 +4024,7 @@ DEFUN_YANG (match_mac_address,
 
 DEFUN_YANG (no_match_mac_address,
 	    no_match_mac_address_cmd,
-	    "no match mac address WORD",
+	    "no match mac address ACCESSLIST_MAC_NAME",
 	    NO_STR
 	    MATCH_STR
 	    "mac\n"
@@ -4576,7 +4576,7 @@ DEFUN_YANG (no_match_probability,
 
 DEFPY_YANG (match_ip_route_source,
        match_ip_route_source_cmd,
-       "match ip route-source WORD",
+       "match ip route-source ACCESSLIST4_NAME",
        MATCH_STR
        IP_STR
        "Match advertising source address of route\n"
@@ -4600,7 +4600,7 @@ DEFPY_YANG (match_ip_route_source,
 
 DEFUN_YANG (no_match_ip_route_source,
 	    no_match_ip_route_source_cmd,
-	    "no match ip route-source [WORD]",
+	    "no match ip route-source [ACCESSLIST4_NAME]",
 	    NO_STR
 	    MATCH_STR
 	    IP_STR

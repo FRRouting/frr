@@ -253,7 +253,7 @@ DEFPY  (ldp_allow_broken_lsps,
 
 DEFPY  (ldp_discovery_targeted_hello_accept,
 	ldp_discovery_targeted_hello_accept_cmd,
-	"[no] discovery targeted-hello accept [from WORD$from_acl]",
+	"[no] discovery targeted-hello accept [from ACCESSLIST_NAME$from_acl]",
 	NO_STR
 	"Configure discovery parameters\n"
 	"LDP Targeted Hellos\n"
@@ -288,7 +288,7 @@ DEFPY  (ldp_discovery_transport_address_ipv6,
 
 DEFPY  (ldp_label_local_advertise,
 	ldp_label_local_advertise_cmd,
-	"[no] label local advertise [{to WORD$to_acl|for WORD$for_acl}]",
+	"[no] label local advertise [{to ACCESSLIST_NAME$to_acl|for ACCESSLIST_NAME$for_acl}]",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
@@ -303,7 +303,7 @@ DEFPY  (ldp_label_local_advertise,
 
 DEFPY  (ldp_label_local_advertise_explicit_null,
 	ldp_label_local_advertise_explicit_null_cmd,
-	"[no] label local advertise explicit-null [for WORD$for_acl]",
+	"[no] label local advertise explicit-null [for ACCESSLIST_NAME$for_acl]",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
@@ -317,7 +317,7 @@ DEFPY  (ldp_label_local_advertise_explicit_null,
 
 DEFPY  (ldp_label_local_allocate,
 	ldp_label_local_allocate_cmd,
-	"[no] label local allocate <host-routes$host_routes|for WORD$for_acl>",
+	"[no] label local allocate <host-routes$host_routes|for ACCESSLIST_NAME$for_acl>",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure local label control and policies\n"
@@ -331,7 +331,7 @@ DEFPY  (ldp_label_local_allocate,
 
 DEFPY  (ldp_label_remote_accept,
 	ldp_label_remote_accept_cmd,
-	"[no] label remote accept {from WORD$from_acl|for WORD$for_acl}",
+	"[no] label remote accept {from ACCESSLIST_NAME$from_acl|for ACCESSLIST_NAME$for_acl}",
 	NO_STR
 	"Configure label control and policies\n"
 	"Configure remote/peer label control and policies\n"

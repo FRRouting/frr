@@ -233,7 +233,7 @@ void cli_show_ripng_network_interface(struct vty *vty,
  */
 DEFPY_YANG (ripng_offset_list,
        ripng_offset_list_cmd,
-       "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
+       "[no] offset-list ACCESSLIST6_NAME$acl <in|out>$direction (0-16)$metric [IFNAME]",
        NO_STR
        "Modify RIPng metric\n"
        "Access-list name\n"
@@ -511,7 +511,7 @@ DEFPY_YANG (clear_ipv6_rip,
 
 DEFUN (ripng_ipv6_distribute_list,
        ripng_ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -532,7 +532,7 @@ DEFUN (ripng_ipv6_distribute_list,
 
 DEFUN (ripng_no_ipv6_distribute_list,
        ripng_no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "no ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"

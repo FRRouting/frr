@@ -858,7 +858,7 @@ ALIAS(no_match_interface, no_match_interface_val_cmd, "no match interface WORD",
 
 DEFUN (match_ip_next_hop,
        match_ip_next_hop_cmd,
-       "match ip next-hop WORD",
+       "match ip next-hop ACCESSLIST4_NAME",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
@@ -884,7 +884,7 @@ DEFUN (no_match_ip_next_hop,
 }
 
 ALIAS(no_match_ip_next_hop, no_match_ip_next_hop_val_cmd,
-      "no match ip next-hop WORD", NO_STR MATCH_STR IP_STR
+      "no match ip next-hop ACCESSLIST4_NAME", NO_STR MATCH_STR IP_STR
       "Match next-hop address of route\n"
       "IP Access-list name\n")
 
@@ -927,7 +927,7 @@ ALIAS(no_match_ip_next_hop_prefix_list,
 
 DEFUN (match_ip_address,
        match_ip_address_cmd,
-       "match ip address WORD",
+       "match ip address ACCESSLIST4_NAME",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -952,7 +952,7 @@ DEFUN (no_match_ip_address,
 }
 
 ALIAS(no_match_ip_address, no_match_ip_address_val_cmd,
-      "no match ip address WORD", NO_STR MATCH_STR IP_STR
+      "no match ip address ACCESSLIST4_NAME", NO_STR MATCH_STR IP_STR
       "Match address of route\n"
       "IP Access-list name\n")
 
@@ -1124,7 +1124,7 @@ ALIAS(no_set_tag, no_set_tag_val_cmd, "no set tag (0-65535)", NO_STR SET_STR
 
 DEFUN (eigrp_distribute_list,
        eigrp_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -1144,7 +1144,7 @@ DEFUN (eigrp_distribute_list,
 
 DEFUN (eigrp_no_distribute_list,
        eigrp_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
