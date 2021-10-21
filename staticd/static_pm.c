@@ -217,6 +217,7 @@ static void static_pm_sendmsg(struct static_nexthop *nh, int cmd)
 		pkt_size = static_next_hop_pkt_size_from_next_hop(nh);
 		pm_set_param((struct pm_info **)&(nh->pm_info), PM_DEF_INTERVAL, PM_DEF_TIMEOUT,
 			     pkt_size, PM_DEF_TOS_VAL, &command);
+		assert(command);
 	}
 	pm_info = nh->pm_info;
 
@@ -259,14 +260,17 @@ static void static_pm_deregister(struct static_nexthop *nh)
 {
 	struct pm_info *pm_info;
 
-	if (!nh->pm_info)
+	if (!nh->pm_info) {
+		zlog_err("%s(): PM context not available", __func__);
 		return;
+	}
 	pm_info = (struct pm_info *)nh->pm_info;
 
 	/* Check if PM is eanbled and peer has not been registered */
-	if (!CHECK_FLAG(pm_info->flags, PM_FLAG_PM_REG))
+	if (!CHECK_FLAG(pm_info->flags, PM_FLAG_PM_REG)) {
+		zlog_err("%s(): PM context not registered", __func__);
 		return;
-
+	}
 	pm_info->status = PM_STATUS_UNKNOWN;
 	pm_info->last_update = static_clock();
 
@@ -468,12 +472,12 @@ int static_pm_dest_update(ZAPI_CALLBACK_ARGS)
 
 	if (ifp)
 		zlog_debug(
-			   "Zebra: vrf %u interface %s pm destination %pFX %s",
+			   "STATIC-PM: vrf %u interface %s pm destination %pFX %s",
 			   vrf_id, ifp->name, &dp,
 			   pm_get_status_str(status));
 	else
 		zlog_debug(
-			   "Zebra: vrf %u source %pFX pm destination %pFX %s",
+			   "STATIC-PM: vrf %u source %pFX pm destination %pFX %s",
 			   vrf_id, &sp, &dp,
 			   pm_get_status_str(status));
 
