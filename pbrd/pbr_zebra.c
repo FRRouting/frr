@@ -513,7 +513,7 @@ pbr_encode_pbr_map_sequence_vrf(struct stream *s,
 	struct pbr_vrf *pbr_vrf;
 
 	if (pbrms->vrf_unchanged)
-		pbr_vrf = pbr_vrf_lookup_by_id(ifp->vrf_id);
+		pbr_vrf = ifp->vrf->info;
 	else
 		pbr_vrf = pbr_vrf_lookup_by_name(pbrms->vrf_name);
 

@@ -143,7 +143,7 @@ void ospf6_bfd_info_nbr_create(struct ospf6_interface *oi,
 	bfd_sess_set_ipv6_addrs(on->bfd_session, on->ospf6_if->linklocal_addr,
 				&on->linklocal_addr);
 	bfd_sess_set_interface(on->bfd_session, oi->interface->name);
-	bfd_sess_set_vrf(on->bfd_session, oi->interface->vrf_id);
+	bfd_sess_set_vrf(on->bfd_session, oi->interface->vrf->vrf_id);
 	bfd_sess_set_profile(on->bfd_session, oi->bfd_config.profile);
 }
 

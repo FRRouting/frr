@@ -3569,9 +3569,9 @@ dplane_br_port_update(const struct interface *ifp, bool non_df,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	ctx->zd_ifindex = ifp->ifindex;
@@ -3646,16 +3646,16 @@ static enum zebra_dplane_result intf_addr_update_internal(
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init intf ctx %s: idx %d, addr %u:%pFX",
-			   dplane_op2str(op), ifp->ifindex, ifp->vrf_id,
+			   dplane_op2str(op), ifp->ifindex, ifp->vrf->vrf_id,
 			   ifc->address);
 
 	ctx = dplane_ctx_alloc();
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	/* Init the interface-addr-specific area */
@@ -3853,9 +3853,9 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 	struct zebra_ns *zns;
 
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
@@ -4078,9 +4078,9 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
@@ -4152,10 +4152,10 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 	dplane_ctx_set_type(ctx, protocol);
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
@@ -4403,13 +4403,13 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	if (!zns)
 		return result;
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	dplane_ctx_set_ifname(ctx, ifp->name);
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 	ctx->zd_ifindex = ifp->ifindex;
 	if (ifp_link)
 		ctx->u.gre.link_ifindex = ifp_link->ifindex;

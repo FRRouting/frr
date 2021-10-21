@@ -58,7 +58,7 @@ static void map_slaves_to_bridge(struct interface *br_if, int link,
 	struct zebra_vrf *zvrf;
 	struct zebra_ns *zns;
 
-	zvrf = zebra_vrf_lookup_by_id(br_if->vrf_id);
+	zvrf = br_if->vrf->info;
 	assert(zvrf);
 	zns = zvrf->zns;
 	assert(zns);
@@ -425,7 +425,7 @@ void zebra_l2if_update_bridge_slave(struct interface *ifp,
 	zif = ifp->info;
 	assert(zif);
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf)
 		return;
 
@@ -505,7 +505,7 @@ void zebra_l2if_update_bond_slave(struct interface *ifp, ifindex_t bond_ifindex,
 
 	/* Set up or remove link with master */
 	if (bond_ifindex != IFINDEX_INTERNAL)
-		zebra_l2_map_slave_to_bond(zif, ifp->vrf_id);
+		zebra_l2_map_slave_to_bond(zif, ifp->vrf->vrf_id);
 	else if (old_bond_ifindex != IFINDEX_INTERNAL)
 		zebra_l2_unmap_slave_from_bond(zif);
 }

@@ -417,10 +417,10 @@ int zebra_evpn_advertise_subnet(struct zebra_evpn *zevpn, struct interface *ifp,
 
 		apply_mask(&p);
 		if (advertise)
-			ip_prefix_send_to_client(ifp->vrf_id, &p,
+			ip_prefix_send_to_client(ifp->vrf->vrf_id, &p,
 						 ZEBRA_IP_PREFIX_ROUTE_ADD);
 		else
-			ip_prefix_send_to_client(ifp->vrf_id, &p,
+			ip_prefix_send_to_client(ifp->vrf->vrf_id, &p,
 						 ZEBRA_IP_PREFIX_ROUTE_DEL);
 	}
 	return 0;
@@ -481,7 +481,7 @@ int zebra_evpn_gw_macip_del(struct interface *ifp, struct zebra_evpn *zevpn,
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
 			"%u:SVI %s(%u) VNI %u, sending GW MAC %pEA IP %pIA del to BGP",
-			ifp->vrf_id, ifp->name, ifp->ifindex, zevpn->vni,
+			ifp->vrf->vrf_id, ifp->name, ifp->ifindex, zevpn->vni,
 			&n->emac, ip);
 
 	/* Remove neighbor from BGP. */
@@ -1531,7 +1531,7 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	if (!mac && !n)
 		return;
 
-	zvrf = vrf_info_lookup(zevpn->vxlan_if->vrf_id);
+	zvrf = zevpn->vxlan_if->vrf->info;
 
 	/* Ignore the delete if this mac is a gateway mac-ip */
 	if (CHECK_FLAG(mac->flags, ZEBRA_MAC_LOCAL)

@@ -432,13 +432,13 @@ static void static_ifindex_update_nh(struct interface *ifp, bool up,
 	if (up) {
 		if (strcmp(nh->ifname, ifp->name))
 			return;
-		if (nh->nh_vrf_id != ifp->vrf_id)
+		if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 			return;
 		nh->ifindex = ifp->ifindex;
 	} else {
 		if (nh->ifindex != ifp->ifindex)
 			return;
-		if (nh->nh_vrf_id != ifp->vrf_id)
+		if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 			return;
 		nh->ifindex = IFINDEX_INTERNAL;
 	}
@@ -723,7 +723,7 @@ static void static_fixup_intf_nh(struct route_table *stable,
 			continue;
 		frr_each(static_path_list, &si->path_list, pn) {
 			frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
-				if (nh->nh_vrf_id != ifp->vrf_id)
+				if (nh->nh_vrf_id != ifp->vrf->vrf_id)
 					continue;
 
 				if (nh->ifindex != ifp->ifindex)
@@ -750,7 +750,7 @@ void static_install_intf_nh(struct interface *ifp)
 		struct static_vrf *svrf = vrf->info;
 
 		/* Not needed if same vrf since happens naturally */
-		if (vrf->vrf_id == ifp->vrf_id)
+		if (vrf->vrf_id == ifp->vrf->vrf_id)
 			continue;
 
 		/* Install any static routes configured for this interface. */

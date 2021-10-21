@@ -354,13 +354,6 @@ const char *vrf_id_to_name(vrf_id_t vrf_id)
 	return VRF_LOGNAME(vrf);
 }
 
-/* Get the data pointer of the specified VRF. If not found, create one. */
-void *vrf_info_get(vrf_id_t vrf_id)
-{
-	struct vrf *vrf = vrf_get(vrf_id, NULL);
-	return vrf->info;
-}
-
 /* Look up the data pointer of the specified VRF. */
 void *vrf_info_lookup(vrf_id_t vrf_id)
 {

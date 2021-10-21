@@ -34,15 +34,15 @@
 
 static struct zclient *zclient;
 
-static void vrrp_zebra_debug_if_state(struct interface *ifp, vrf_id_t vrf_id,
-				      const char *func)
+static void vrrp_zebra_debug_if_state(struct interface *ifp, const char *func)
 {
 	DEBUGD(&vrrp_dbg_zebra,
-	       "%s: %s index %d(%u) parent %d mac %02x:%02x:%02x:%02x:%02x:%02x flags %ld metric %d mtu %d operative %d",
-	       func, ifp->name, vrf_id, ifp->link_ifindex, ifp->ifindex,
-	       ifp->hw_addr[0], ifp->hw_addr[1], ifp->hw_addr[2],
-	       ifp->hw_addr[3], ifp->hw_addr[4], ifp->hw_addr[5],
-	       (long)ifp->flags, ifp->metric, ifp->mtu, if_is_operative(ifp));
+	       "%s: %s index %d vrf %s(%u) parent %d mac %02x:%02x:%02x:%02x:%02x:%02x flags %ld metric %d mtu %d operative %d",
+	       func, ifp->name, ifp->ifindex, ifp->vrf->name, ifp->vrf->vrf_id,
+	       ifp->link_ifindex, ifp->hw_addr[0], ifp->hw_addr[1],
+	       ifp->hw_addr[2], ifp->hw_addr[3], ifp->hw_addr[4],
+	       ifp->hw_addr[5], (long)ifp->flags, ifp->metric, ifp->mtu,
+	       if_is_operative(ifp));
 }
 
 static void vrrp_zebra_debug_if_dump_address(struct interface *ifp,
@@ -82,7 +82,7 @@ static int vrrp_router_id_update_zebra(int command, struct zclient *zclient,
 
 int vrrp_ifp_create(struct interface *ifp)
 {
-	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, __func__);
 
 	vrrp_if_add(ifp);
 
@@ -91,7 +91,7 @@ int vrrp_ifp_create(struct interface *ifp)
 
 int vrrp_ifp_destroy(struct interface *ifp)
 {
-	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, __func__);
 
 	vrrp_if_del(ifp);
 
@@ -100,7 +100,7 @@ int vrrp_ifp_destroy(struct interface *ifp)
 
 int vrrp_ifp_up(struct interface *ifp)
 {
-	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, __func__);
 
 	vrrp_if_up(ifp);
 
@@ -109,7 +109,7 @@ int vrrp_ifp_up(struct interface *ifp)
 
 int vrrp_ifp_down(struct interface *ifp)
 {
-	vrrp_zebra_debug_if_state(ifp, ifp->vrf_id, __func__);
+	vrrp_zebra_debug_if_state(ifp, __func__);
 
 	vrrp_if_down(ifp);
 
@@ -134,7 +134,7 @@ static int vrrp_zebra_if_address_add(int command, struct zclient *zclient,
 	if (!c)
 		return 0;
 
-	vrrp_zebra_debug_if_state(c->ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(c->ifp, __func__);
 	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
 
 	vrrp_if_address_add(c->ifp);
@@ -160,7 +160,7 @@ static int vrrp_zebra_if_address_del(int command, struct zclient *client,
 	if (!c)
 		return 0;
 
-	vrrp_zebra_debug_if_state(c->ifp, vrf_id, __func__);
+	vrrp_zebra_debug_if_state(c->ifp, __func__);
 	vrrp_zebra_debug_if_dump_address(c->ifp, __func__);
 
 	vrrp_if_address_del(c->ifp);
@@ -175,8 +175,8 @@ void vrrp_zebra_radv_set(struct vrrp_router *r, bool enable)
 	       "Requesting Zebra to turn router advertisements %s for %s",
 	       r->vr->vrid, enable ? "on" : "off", r->mvl_ifp->name);
 
-	zclient_send_interface_radv_req(zclient, r->mvl_ifp->vrf_id, r->mvl_ifp,
-					enable, VRRP_RADV_INT);
+	zclient_send_interface_radv_req(zclient, r->mvl_ifp->vrf->vrf_id,
+					r->mvl_ifp, enable, VRRP_RADV_INT);
 }
 
 void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
@@ -185,7 +185,7 @@ void vrrp_zclient_send_interface_protodown(struct interface *ifp, bool down)
 	       VRRP_LOGPFX "Requesting Zebra to set %s protodown %s", ifp->name,
 	       down ? "on" : "off");
 
-	zclient_send_interface_protodown(zclient, ifp->vrf_id, ifp, down);
+	zclient_send_interface_protodown(zclient, ifp->vrf->vrf_id, ifp, down);
 }
 
 static zclient_handler *const vrrp_handlers[] = {

@@ -39,7 +39,6 @@ struct stable_info {
 #define GET_STABLE_VRF_ID(info) info->svrf->vrf->vrf_id
 
 struct static_vrf *static_vrf_lookup_by_name(const char *vrf_name);
-struct static_vrf *static_vrf_lookup_by_id(vrf_id_t vrf_id);
 
 void static_vrf_init(void);
 

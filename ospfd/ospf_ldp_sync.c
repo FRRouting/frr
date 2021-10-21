@@ -129,8 +129,9 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 	 *  if LDP-IGP Sync is configured globally set state
 	 *  if ptop interface inform LDP LDP-SYNC is enabled
 	 */
-	if (if_is_loopback(ifp) || (ifp->vrf_id != VRF_DEFAULT) ||
-	    !(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)))
+	if (if_is_loopback(ifp) || (ifp->vrf->vrf_id != VRF_DEFAULT)
+	    || !(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags,
+			    LDP_SYNC_FLAG_ENABLE)))
 		return;
 
 	ols_debug("ldp_sync: init if %s",ifp->name);
@@ -856,7 +857,7 @@ DEFPY (mpls_ldp_sync,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -897,7 +898,7 @@ DEFPY (no_mpls_ldp_sync,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -940,7 +941,7 @@ DEFPY (mpls_ldp_sync_holddown,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -978,7 +979,7 @@ DEFPY (no_mpls_ldp_sync_holddown,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}

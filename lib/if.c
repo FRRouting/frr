@@ -167,7 +167,6 @@ static struct interface *if_new(struct vrf *vrf)
 	ifp->name[0] = '\0';
 
 	ifp->vrf = vrf;
-	ifp->vrf_id = vrf->vrf_id;
 
 	ifp->connected = list_new();
 	ifp->connected->del = ifp_connected_free;
@@ -238,8 +237,7 @@ void if_update_to_new_vrf(struct interface *ifp, vrf_id_t vrf_id)
 	if (ifp->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_REMOVE(old_vrf, ifp);
 
-	ifp->vrf_id = vrf_id;
-	vrf = vrf_get(ifp->vrf_id, NULL);
+	vrf = vrf_get(vrf_id, NULL);
 	ifp->vrf = vrf;
 
 	if (ifp->name[0] != '\0')
@@ -604,7 +602,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 			/* If it came from the kernel or by way of zclient,
 			 * believe it and update the ifp accordingly.
 			 */
-			if (ifp->vrf_id != vrf_id && vrf_id != VRF_UNKNOWN)
+			if (ifp->vrf->vrf_id != vrf_id && vrf_id != VRF_UNKNOWN)
 				if_update_to_new_vrf(ifp, vrf_id);
 
 			return ifp;
@@ -617,7 +615,7 @@ struct interface *if_get_by_name(const char *name, vrf_id_t vrf_id,
 			/* If it came from the kernel or by way of zclient,
 			 * believe it and update the ifp accordingly.
 			 */
-			if (ifp->vrf_id != vrf_id && vrf_id != VRF_UNKNOWN)
+			if (ifp->vrf->vrf_id != vrf_id && vrf_id != VRF_UNKNOWN)
 				if_update_to_new_vrf(ifp, vrf_id);
 
 			return ifp;
@@ -643,7 +641,7 @@ int if_set_index(struct interface *ifp, ifindex_t ifindex)
 	 * If there is already an interface with this ifindex, we will collide
 	 * on insertion, so don't even try.
 	 */
-	if (if_lookup_by_ifindex(ifindex, ifp->vrf_id))
+	if (if_lookup_by_ifindex(ifindex, ifp->vrf->vrf_id))
 		return -1;
 
 	if (ifp->ifindex != IFINDEX_INTERNAL)
@@ -807,8 +805,8 @@ static void if_dump(const struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, c))
 		zlog_info(
 			"Interface %s vrf %s(%u) index %d metric %d mtu %d mtu6 %d %s",
-			ifp->name, ifp->vrf->name, ifp->vrf_id, ifp->ifindex,
-			ifp->metric, ifp->mtu, ifp->mtu6,
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, ifp->metric, ifp->mtu, ifp->mtu6,
 			if_flag_dump(ifp->flags));
 }
 
@@ -885,7 +883,7 @@ connected_log(struct connected *connected, char *str)
 	p = connected->address;
 
 	snprintf(logbuf, sizeof(logbuf), "%s interface %s vrf %s(%u) %s %pFX ",
-		 str, ifp->name, ifp->vrf->name, ifp->vrf_id,
+		 str, ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
 		 prefix_family_str(p), p);
 
 	p = connected->destination;

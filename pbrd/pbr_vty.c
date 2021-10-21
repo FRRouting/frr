@@ -592,16 +592,12 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 			vty_out(vty, "You must specify the nexthop-vrf\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (ifp->vrf_id != vrf->vrf_id) {
-			struct vrf *actual;
-
-			actual = vrf_lookup_by_id(ifp->vrf_id);
+		if (ifp->vrf->vrf_id != vrf->vrf_id)
 			vty_out(vty,
 				"Specified Intf %s is not in vrf %s but is in vrf %s, using actual vrf\n",
-				ifp->name, vrf->name, VRF_LOGNAME(actual));
-		}
+				ifp->name, vrf->name, ifp->vrf->name);
 		nhop.ifindex = ifp->ifindex;
-		nhop.vrf_id = ifp->vrf_id;
+		nhop.vrf_id = ifp->vrf->vrf_id;
 	}
 
 	if (addr) {

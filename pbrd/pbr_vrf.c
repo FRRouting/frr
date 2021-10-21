@@ -92,17 +92,6 @@ static int pbr_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-struct pbr_vrf *pbr_vrf_lookup_by_id(vrf_id_t vrf_id)
-{
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (vrf)
-		return ((struct pbr_vrf *)vrf->info);
-
-	return NULL;
-}
-
 struct pbr_vrf *pbr_vrf_lookup_by_name(const char *name)
 {
 	struct vrf *vrf;

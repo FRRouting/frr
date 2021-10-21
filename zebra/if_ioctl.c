@@ -152,7 +152,7 @@ static int if_get_hwaddr(struct interface *ifp)
 	ifreq.ifr_addr.sa_family = AF_INET;
 
 	/* Fetch Hardware address if available. */
-	ret = vrf_if_ioctl(SIOCGIFHWADDR, (caddr_t)&ifreq, ifp->vrf_id);
+	ret = vrf_if_ioctl(SIOCGIFHWADDR, (caddr_t)&ifreq, ifp->vrf->vrf_id);
 	if (ret < 0)
 		ifp->hw_addr_len = 0;
 	else {

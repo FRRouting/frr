@@ -215,7 +215,7 @@ void eigrp_distribute_update_interface(struct interface *ifp)
 	struct distribute *dist;
 	struct eigrp *eigrp;
 
-	eigrp = eigrp_lookup(ifp->vrf_id);
+	eigrp = eigrp_lookup(ifp->vrf->vrf_id);
 	if (!eigrp)
 		return;
 	dist = distribute_lookup(eigrp->distribute_ctx, ifp->name);

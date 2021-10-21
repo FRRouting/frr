@@ -34,7 +34,6 @@ static inline vrf_id_t pbr_vrf_id(const struct pbr_vrf *pbr_vrf)
 	return pbr_vrf->vrf->vrf_id;
 }
 
-extern struct pbr_vrf *pbr_vrf_lookup_by_id(vrf_id_t vrf_id);
 extern struct pbr_vrf *pbr_vrf_lookup_by_name(const char *name);
 extern bool pbr_vrf_is_valid(const struct pbr_vrf *pbr_vrf);
 extern bool pbr_vrf_is_enabled(const struct pbr_vrf *pbr_vrf);

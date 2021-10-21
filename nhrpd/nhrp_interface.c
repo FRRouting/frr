@@ -143,13 +143,13 @@ static void nhrp_interface_update_source(struct interface *ifp)
 {
 	struct nhrp_interface *nifp = ifp->info;
 
-	if (!nifp->source || !nifp->nbmaifp ||
-	    ((ifindex_t)nifp->link_idx == nifp->nbmaifp->ifindex &&
-	     (nifp->link_vrf_id == nifp->nbmaifp->vrf_id)))
+	if (!nifp->source || !nifp->nbmaifp
+	    || ((ifindex_t)nifp->link_idx == nifp->nbmaifp->ifindex
+		&& (nifp->link_vrf_id == nifp->nbmaifp->vrf->vrf_id)))
 		return;
 
 	nifp->link_idx = nifp->nbmaifp->ifindex;
-	nifp->link_vrf_id = nifp->nbmaifp->vrf_id;
+	nifp->link_vrf_id = nifp->nbmaifp->vrf->vrf_id;
 	debugf(NHRP_DEBUG_IF, "%s: bound device index changed to %d, vr %u",
 	       ifp->name, nifp->link_idx, nifp->link_vrf_id);
 	nhrp_send_zebra_gre_source_set(ifp, nifp->link_idx, nifp->link_vrf_id);
@@ -414,7 +414,7 @@ static void interface_config_update_nhrp_map(struct nhrp_cache_config *cc,
 		return;
 
 	/* gre layer not ready */
-	if (ifp->vrf_id == VRF_UNKNOWN)
+	if (ifp->vrf->vrf_id == VRF_UNKNOWN)
 		return;
 
 	c = nhrp_cache_get(ifp, &cc->remote_addr, ctx->enabled ? 1 : 0);

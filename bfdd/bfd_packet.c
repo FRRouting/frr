@@ -583,7 +583,7 @@ int bfd_recv_cb(struct thread *t)
 	if (ifindex) {
 		ifp = if_lookup_by_index(ifindex, vrfid);
 		if (ifp)
-			vrfid = ifp->vrf_id;
+			vrfid = ifp->vrf->vrf_id;
 	}
 
 	/* Implement RFC 5880 6.8.6 */

@@ -8074,7 +8074,7 @@ static int ospf_vty_dead_interval_set(struct vty *vty, const char *interval_str,
 	if (nbr_str) {
 		struct ospf *ospf = NULL;
 
-		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+		ospf = ifp->vrf->info;
 		if (ospf) {
 			oi = ospf_if_lookup_by_local_addr(ospf, ifp, addr);
 			if (oi)
@@ -8192,7 +8192,7 @@ DEFUN (no_ip_ospf_dead_interval,
 	if (argc == 1) {
 		struct ospf *ospf = NULL;
 
-		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+		ospf = ifp->vrf->info;
 		if (ospf) {
 			oi = ospf_if_lookup_by_local_addr(ospf, ifp, addr);
 			if (oi)
@@ -8844,7 +8844,7 @@ DEFUN (ip_ospf_area,
 	areaid = argv[idx + 1]->arg;
 
 	if (!instance)
-		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+		ospf = ifp->vrf->info;
 	else
 		ospf = ospf_lookup_instance(instance);
 
@@ -8875,7 +8875,7 @@ DEFUN (ip_ospf_area,
 			}
 
 		if (count > 0) {
-			ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+			ospf = ifp->vrf->info;
 			if (ospf)
 				ospf_interface_area_unset(ospf, ifp);
 		}
@@ -8968,7 +8968,7 @@ DEFUN (no_ip_ospf_area,
 		instance = strtol(argv[idx]->arg, NULL, 10);
 
 	if (!instance)
-		ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+		ospf = ifp->vrf->info;
 	else
 		ospf = ospf_lookup_instance(instance);
 
@@ -11161,7 +11161,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 			continue;
 
 		vty_frame(vty, "!\n");
-		if (ifp->vrf_id == VRF_DEFAULT)
+		if (ifp->vrf->vrf_id == VRF_DEFAULT)
 			vty_frame(vty, "interface %s\n", ifp->name);
 		else
 			vty_frame(vty, "interface %s vrf %s\n", ifp->name,

@@ -1877,7 +1877,7 @@ static bool zebra_evpn_local_mac_update_fwd_info(struct zebra_mac *mac,
 	struct zebra_vrf *zvrf;
 	struct zebra_evpn_es *es;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (zvrf && zvrf->zns)
 		local_ns_id = zvrf->zns->ns_id;
 
@@ -2481,7 +2481,7 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 	ns_id_t local_ns_id = NS_DEFAULT;
 	struct zebra_vrf *zvrf;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (zvrf && zvrf->zns)
 		local_ns_id = zvrf->zns->ns_id;
 

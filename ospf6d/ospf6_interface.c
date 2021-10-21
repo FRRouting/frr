@@ -150,7 +150,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 					      : OSPF6_INTERFACE_BANDWIDTH;
 	}
 
-	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+	ospf6 = oi->interface->vrf->info;
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
 	/* A specifed ip ospf cost overrides a calculated one. */
@@ -1361,11 +1361,6 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	struct ospf6_interface *oi = NULL;
 	json_object *json_interface;
 
-	if (intf_ifp)
-		vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
-	else
-		vrf = vrf_lookup_by_id(vrf_id);
-
 	if (!display_once && !use_json) {
 		vty_out(vty, "\n");
 		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n", "Interface",
@@ -1379,6 +1374,7 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	}
 
 	if (intf_ifp == NULL) {
+		vrf = vrf_lookup_by_id(vrf_id);
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (ifp->info)
 				oi = (struct ospf6_interface *)ifp->info;
@@ -1685,7 +1681,7 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	if (oi->area)
 		return;
 
-	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+	ospf6 = oi->interface->vrf->info;
 	if (!ospf6)
 		return;
 

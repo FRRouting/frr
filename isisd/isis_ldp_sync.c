@@ -218,7 +218,7 @@ static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 	struct isis_area *area = circuit->area;
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)
-	    || circuit->interface->vrf_id != VRF_DEFAULT
+	    || circuit->interface->vrf->vrf_id != VRF_DEFAULT
 	    || if_is_loopback(circuit->interface))
 		return 0;
 

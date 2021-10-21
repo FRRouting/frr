@@ -409,9 +409,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
 		zlog_warn(
 			"VRF %s: I/F %s HelloInterval mismatch: (my %d, rcvd %d)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->hello_interval,
-			ntohs(hello->hello_interval));
+			oi->interface->vrf->name, oi->interface->name,
+			oi->hello_interval, ntohs(hello->hello_interval));
 		return;
 	}
 
@@ -419,9 +418,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohs(hello->dead_interval) != oi->dead_interval) {
 		zlog_warn(
 			"VRF %s: I/F %s DeadInterval mismatch: (my %d, rcvd %d)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->dead_interval,
-			ntohs(hello->dead_interval));
+			oi->interface->vrf->name, oi->interface->name,
+			oi->dead_interval, ntohs(hello->dead_interval));
 		return;
 	}
 
@@ -429,8 +427,7 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_E)
 	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_E)) {
 		zlog_warn("VRF %s: IF %s E-bit mismatch",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name);
+			  oi->interface->vrf->name, oi->interface->name);
 		return;
 	}
 
@@ -622,10 +619,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			zlog_warn(
-				"VRF %s: Nbr %s: Negotiation failed",
-				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
-				on->name);
+			zlog_warn("VRF %s: Nbr %s: Negotiation failed",
+				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
 	/* fall through to exchange */
@@ -838,10 +833,8 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			zlog_warn(
-				"VRF %s: Nbr %s Negotiation failed",
-				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
-				on->name);
+			zlog_warn("VRF %s: Nbr %s Negotiation failed",
+				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
 		break;
@@ -1008,8 +1001,8 @@ static void ospf6_dbdesc_recv(struct in6_addr *src, struct in6_addr *dst,
 	/* Interface MTU check */
 	if (!oi->mtu_ignore && ntohs(dbdesc->ifmtu) != oi->ifmtu) {
 		zlog_warn("VRF %s: I/F %s MTU mismatch (my %d rcvd %d)",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name, oi->ifmtu, ntohs(dbdesc->ifmtu));
+			  oi->interface->vrf->name, oi->interface->name,
+			  oi->ifmtu, ntohs(dbdesc->ifmtu));
 		return;
 	}
 
@@ -1515,14 +1508,12 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 		if (oh->area_id == OSPF_AREA_BACKBONE)
 			zlog_warn(
 				"VRF %s: I/F %s Message may be via Virtual Link: not supported",
-				vrf_id_to_name(oi->interface->vrf_id),
-				oi->interface->name);
+				oi->interface->vrf->name, oi->interface->name);
 		else
 			zlog_warn(
 				"VRF %s: I/F %s Area-ID mismatch (my %pI4, rcvd %pI4)",
-				vrf_id_to_name(oi->interface->vrf_id),
-				oi->interface->name, &oi->area->area_id,
-				&oh->area_id);
+				oi->interface->vrf->name, oi->interface->name,
+				&oi->area->area_id, &oh->area_id);
 		return MSG_NG;
 	}
 
@@ -1530,16 +1521,16 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 	if (oh->instance_id != oi->instance_id) {
 		zlog_warn(
 			"VRF %s: I/F %s Instance-ID mismatch (my %u, rcvd %u)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->instance_id, oh->instance_id);
+			oi->interface->vrf->name, oi->interface->name,
+			oi->instance_id, oh->instance_id);
 		return MSG_NG;
 	}
 
 	/* Router-ID check */
 	if (oh->router_id == oi->area->ospf6->router_id) {
 		zlog_warn("VRF %s: I/F %s Duplicate Router-ID (%pI4)",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name, &oh->router_id);
+			  oi->interface->vrf->name, oi->interface->name,
+			  &oh->router_id);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -1769,7 +1760,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	 * Drop packet destined to another VRF.
 	 * This happens when raw_l3mdev_accept is set to 1.
 	 */
-	if (ospf6->vrf_id != oi->interface->vrf_id)
+	if (ospf6->vrf_id != oi->interface->vrf->vrf_id)
 		return OSPF6_READ_CONTINUE;
 
 	oh = (struct ospf6_header *)recvbuf;

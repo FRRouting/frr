@@ -1030,9 +1030,9 @@ static int zevpn_build_hash_table_zns(struct ns *ns,
 					zif->brslave_info.br_if);
 				if (vlan_if) {
 					zevpn->svi_if = vlan_if;
-					zevpn->vrf_id = vlan_if->vrf_id;
+					zevpn->vrf_id = vlan_if->vrf->vrf_id;
 					zl3vni = zl3vni_from_vrf(
-							vlan_if->vrf_id);
+						vlan_if->vrf->vrf_id);
 					if (zl3vni)
 						listnode_add_sort(
 							zl3vni->l2vnis, zevpn);
@@ -2136,7 +2136,7 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
 					  zif->brslave_info.br_if);
 		if (vlan_if)
-			zevpn->vrf_id = vlan_if->vrf_id;
+			zevpn->vrf_id = vlan_if->vrf->vrf_id;
 
 		zevpn->vxlan_if = ifp;
 		zevpn->local_vtep_ip = vxl->vtep_ip;
@@ -3975,7 +3975,7 @@ int zebra_vxlan_check_readd_vtep(struct interface *ifp,
 		return 0;
 
 	/* Locate VRF corresponding to interface. */
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf)
 		return -1;
 
@@ -4697,11 +4697,11 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 			zlog_debug(
 				"SVI %s(%u) VNI %u VRF %s is UP, installing neighbors",
 				ifp->name, ifp->ifindex, zevpn->vni,
-				vrf_id_to_name(ifp->vrf_id));
+				ifp->vrf->name);
 
 		/* update the vrf information for l2-vni and inform bgp */
 		zevpn->svi_if = ifp;
-		zevpn->vrf_id = ifp->vrf_id;
+		zevpn->vrf_id = ifp->vrf->vrf_id;
 
 		zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
 		if (zl3vni)
@@ -4743,7 +4743,8 @@ void zebra_vxlan_macvlan_down(struct interface *ifp)
 			zlog_debug(
 				"macvlan parent link is not found. Parent index %d ifp %s",
 				zif->link_ifindex,
-				ifindex2ifname(zif->link_ifindex, ifp->vrf_id));
+				ifindex2ifname(zif->link_ifindex,
+					       ifp->vrf->vrf_id));
 		return;
 	}
 	link_zif = link_ifp->info;
@@ -4914,8 +4915,8 @@ int zebra_vxlan_if_up(struct interface *ifp)
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
 			zevpn->svi_if = vlan_if;
-			zevpn->vrf_id = vlan_if->vrf_id;
-			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
+			zevpn->vrf_id = vlan_if->vrf->vrf_id;
+			zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
 			if (zl3vni)
 				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 		}
@@ -5268,8 +5269,8 @@ int zebra_vxlan_if_add(struct interface *ifp)
 					  zif->brslave_info.br_if);
 		if (vlan_if) {
 			zevpn->svi_if = vlan_if;
-			zevpn->vrf_id = vlan_if->vrf_id;
-			zl3vni = zl3vni_from_vrf(vlan_if->vrf_id);
+			zevpn->vrf_id = vlan_if->vrf->vrf_id;
+			zl3vni = zl3vni_from_vrf(vlan_if->vrf->vrf_id);
 			if (zl3vni)
 				listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 		}
@@ -5278,8 +5279,7 @@ int zebra_vxlan_if_add(struct interface *ifp)
 			zlog_debug(
 				"Add L2-VNI %u VRF %s intf %s(%u) VLAN %u local IP %pI4 mcast_grp %pI4 master %u",
 				vni,
-				vlan_if ? vrf_id_to_name(vlan_if->vrf_id)
-					: VRF_DEFAULT_NAME,
+				vlan_if ? vlan_if->vrf->name : VRF_DEFAULT_NAME,
 				ifp->name, ifp->ifindex, vxl->access_vlan,
 				&vxl->vtep_ip, &vxl->mcast_grp,
 				zif->brslave_info.bridge_ifindex);
