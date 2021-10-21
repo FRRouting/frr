@@ -879,12 +879,12 @@ void ospf6_plist_update(struct prefix_list *plist)
 
 DEFUN (area_import_list,
        area_import_list_cmd,
-       "area <A.B.C.D|(0-4294967295)> import-list NAME",
+       "area <A.B.C.D|(0-4294967295)> import-list ACCESSLIST6_NAME",
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
        "Set the filter for networks from other areas announced to the specified one\n"
-       "Name of the acess-list\n")
+       "Name of the access-list\n")
 {
 	int idx_ipv4 = 1;
 	int idx_name = 3;
@@ -911,7 +911,7 @@ DEFUN (area_import_list,
 
 DEFUN (no_area_import_list,
        no_area_import_list_cmd,
-       "no area <A.B.C.D|(0-4294967295)> import-list NAME",
+       "no area <A.B.C.D|(0-4294967295)> import-list ACCESSLIST6_NAME",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
@@ -940,12 +940,12 @@ DEFUN (no_area_import_list,
 
 DEFUN (area_export_list,
        area_export_list_cmd,
-       "area <A.B.C.D|(0-4294967295)> export-list NAME",
+       "area <A.B.C.D|(0-4294967295)> export-list ACCESSLIST6_NAME",
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
        "Set the filter for networks announced to other areas\n"
-       "Name of the acess-list\n")
+       "Name of the access-list\n")
 {
 	int idx_ipv4 = 1;
 	int idx_name = 3;
@@ -974,7 +974,7 @@ DEFUN (area_export_list,
 
 DEFUN (no_area_export_list,
        no_area_export_list_cmd,
-       "no area <A.B.C.D|(0-4294967295)> export-list NAME",
+       "no area <A.B.C.D|(0-4294967295)> export-list ACCESSLIST6_NAME",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"

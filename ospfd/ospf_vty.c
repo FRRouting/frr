@@ -1775,7 +1775,7 @@ DEFUN (no_ospf_area_default_cost,
 
 DEFUN (ospf_area_export_list,
        ospf_area_export_list_cmd,
-       "area <A.B.C.D|(0-4294967295)> export-list NAME",
+       "area <A.B.C.D|(0-4294967295)> export-list ACCESSLIST4_NAME",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1799,7 +1799,7 @@ DEFUN (ospf_area_export_list,
 
 DEFUN (no_ospf_area_export_list,
        no_ospf_area_export_list_cmd,
-       "no area <A.B.C.D|(0-4294967295)> export-list NAME",
+       "no area <A.B.C.D|(0-4294967295)> export-list ACCESSLIST4_NAME",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -1827,7 +1827,7 @@ DEFUN (no_ospf_area_export_list,
 
 DEFUN (ospf_area_import_list,
        ospf_area_import_list_cmd,
-       "area <A.B.C.D|(0-4294967295)> import-list NAME",
+       "area <A.B.C.D|(0-4294967295)> import-list ACCESSLIST4_NAME",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
@@ -1851,7 +1851,7 @@ DEFUN (ospf_area_import_list,
 
 DEFUN (no_ospf_area_import_list,
        no_ospf_area_import_list_cmd,
-       "no area <A.B.C.D|(0-4294967295)> import-list NAME",
+       "no area <A.B.C.D|(0-4294967295)> import-list ACCESSLIST4_NAME",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -9319,7 +9319,7 @@ DEFUN (no_ospf_redistribute_instance_source,
 
 DEFUN (ospf_distribute_list_out,
        ospf_distribute_list_out_cmd,
-       "distribute-list WORD out " FRR_REDIST_STR_OSPFD,
+       "distribute-list ACCESSLIST4_NAME out " FRR_REDIST_STR_OSPFD,
        "Filter networks in routing updates\n"
        "Access-list name\n"
        OUT_STR
@@ -9341,7 +9341,7 @@ DEFUN (ospf_distribute_list_out,
 
 DEFUN (no_ospf_distribute_list_out,
        no_ospf_distribute_list_out_cmd,
-       "no distribute-list WORD out " FRR_REDIST_STR_OSPFD,
+       "no distribute-list ACCESSLIST4_NAME out " FRR_REDIST_STR_OSPFD,
        NO_STR
        "Filter networks in routing updates\n"
        "Access-list name\n"

@@ -327,7 +327,7 @@ void cli_show_rip_network_interface(struct vty *vty,
  */
 DEFPY_YANG (rip_offset_list,
        rip_offset_list_cmd,
-       "[no] offset-list WORD$acl <in|out>$direction (0-16)$metric [IFNAME]",
+       "[no] offset-list ACCESSLIST4_NAME$acl <in|out>$direction (0-16)$metric [IFNAME]",
        NO_STR
        "Modify RIP metric\n"
        "Access-list name\n"
@@ -1026,7 +1026,7 @@ DEFPY_YANG (clear_ip_rip,
 
 DEFUN (rip_distribute_list,
        rip_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -1046,7 +1046,7 @@ DEFUN (rip_distribute_list,
 
 DEFUN (rip_no_distribute_list,
        rip_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
