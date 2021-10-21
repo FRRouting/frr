@@ -201,14 +201,12 @@ static int ripng_if_down(struct interface *ifp)
 /* Inteface link up message processing. */
 static int ripng_ifp_up(struct interface *ifp)
 {
-	if (IS_RIPNG_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface up %s vrf %s(%u) index %d flags %llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6);
 
 	ripng_interface_sync(ifp);
 
@@ -230,14 +228,12 @@ static int ripng_ifp_down(struct interface *ifp)
 	ripng_interface_sync(ifp);
 	ripng_if_down(ifp);
 
-	if (IS_RIPNG_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface down %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6);
 
 	return 0;
 }
@@ -247,14 +243,12 @@ static int ripng_ifp_create(struct interface *ifp)
 {
 	ripng_interface_sync(ifp);
 
-	if (IS_RIPNG_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
 			"RIPng interface add %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6);
 
 	/* Check is this interface is RIP enabled or not.*/
 	ripng_enable_apply(ifp);
@@ -270,8 +264,6 @@ static int ripng_ifp_create(struct interface *ifp)
 
 static int ripng_ifp_destroy(struct interface *ifp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 	ripng_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		ripng_if_down(ifp);
@@ -280,8 +272,9 @@ static int ripng_ifp_destroy(struct interface *ifp)
 	if (IS_RIPNG_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu6);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu6);
 
 	return 0;
 }
@@ -298,12 +291,11 @@ int ripng_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
 
 		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
-			   ifp->name, VRF_LOGNAME(vrf), vrf_id,
-			   VRF_LOGNAME(nvrf), new_vrf_id);
+			   ifp->name, ifp->vrf->name, vrf_id, VRF_LOGNAME(nvrf),
+			   new_vrf_id);
 	}
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
@@ -896,16 +888,11 @@ static struct ripng_interface *ri_new(void)
 
 void ripng_interface_sync(struct interface *ifp)
 {
-	struct vrf *vrf;
+	struct ripng_interface *ri;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (vrf) {
-		struct ripng_interface *ri;
-
-		ri = ifp->info;
-		if (ri)
-			ri->ripng = vrf->info;
-	}
+	ri = ifp->info;
+	if (ri)
+		ri->ripng = ifp->vrf->info;
 }
 
 static int ripng_if_new_hook(struct interface *ifp)

@@ -360,9 +360,8 @@ void ospf_if_free(struct ospf_interface *oi)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
-			   __func__, oi->ifp->name,
-			   ospf_vrf_id_to_name(oi->ifp->vrf_id),
-			   oi->ifp->vrf_id);
+			   __func__, oi->ifp->name, oi->ifp->vrf->name,
+			   oi->ifp->vrf->vrf_id);
 
 	ospf_delete_from_if(oi->ifp, oi);
 
@@ -1331,10 +1330,9 @@ static int ospf_ifp_create(struct interface *ifp)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface add %s vrf %s[%u] index %d flags %llx metric %d mtu %d speed %u",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu,
-			ifp->speed);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu, ifp->speed);
 
 	assert(ifp->info);
 
@@ -1347,7 +1345,7 @@ static int ospf_ifp_create(struct interface *ifp)
 		IF_DEF_PARAMS(ifp)->type = ospf_default_iftype(ifp);
 	}
 
-	ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+	ospf = ifp->vrf->info;
 	if (!ospf)
 		return 0;
 
@@ -1431,13 +1429,13 @@ static int ospf_ifp_destroy(struct interface *ifp)
 	if (IS_DEBUG_OSPF(zebra, ZEBRA_INTERFACE))
 		zlog_debug(
 			"Zebra: interface delete %s vrf %s[%u] index %d flags %llx metric %d mtu %d",
-			ifp->name, ospf_vrf_id_to_name(ifp->vrf_id),
-			ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	hook_call(ospf_if_delete, ifp);
 
-	ospf = ospf_lookup_by_vrf_id(ifp->vrf_id);
+	ospf = ifp->vrf->info;
 	if (ospf) {
 		if (ospf_if_count_area_params(ifp) > 0)
 			ospf_interface_area_unset(ospf, ifp);

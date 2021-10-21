@@ -201,7 +201,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = ifp->vrf_id,
+		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
@@ -210,12 +210,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct listnode *cnode;
 	struct connected *c;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Up for interface but no associated zvrf: %d",
-			__func__, ifp->vrf_id);
+			"%s: Received Up for interface but no associated zvrf: %s(%d)",
+			__func__, ifp->vrf->name, ifp->vrf->vrf_id);
 		return;
 	}
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -381,19 +381,19 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = ifp->vrf_id,
+		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t count = 0;
 	struct listnode *cnode;
 	struct connected *c;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Down for interface but no associated zvrf: %d",
-			__func__, ifp->vrf_id);
+			"%s: Received Down for interface but no associated zvrf: %s(%d)",
+			__func__, ifp->vrf->name, ifp->vrf->vrf_id);
 		return;
 	}
 
@@ -491,12 +491,12 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 	connected_withdraw(ifc);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
 				"%u: IF %s IP %pFX address delete, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name, p);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), p);
+				ifp->vrf->vrf_id, ifp->name, p);
+		mpls_mark_lsps_for_processing(ifp->vrf->info, p);
 	}
 }
 
