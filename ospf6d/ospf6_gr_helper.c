@@ -157,8 +157,18 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len against overall LSA */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s: Malformed packet: Invalid TLV len:%d",
+					__func__, TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
@@ -1235,8 +1245,20 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (vty)
+				vty_out(vty, "%% Invalid TLV length: %d\n",
+					TLV_SIZE(tlvh));
+			else if (IS_DEBUG_OSPF6_GR)
+				zlog_debug("%% Invalid TLV length: %d",
+					   TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
