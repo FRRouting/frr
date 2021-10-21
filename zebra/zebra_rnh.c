@@ -1337,7 +1337,7 @@ static void print_rnh(struct route_node *rn, struct vty *vty)
 	vty_out(vty, "\n");
 }
 
-static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
+static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi, safi_t safi,
 				    struct zserv *client)
 {
 	struct route_table *ntable;
@@ -1352,7 +1352,7 @@ static int zebra_cleanup_rnh_client(vrf_id_t vrf_id, afi_t afi,
 			   zebra_route_string(client->proto), afi2str(afi));
 	}
 
-	ntable = get_rnh_table(vrf_id, afi, SAFI_UNICAST);
+	ntable = get_rnh_table(vrf_id, afi, safi);
 	if (!ntable) {
 		zlog_debug("cleanup_rnh_client: rnh table not found");
 		return -1;
@@ -1377,9 +1377,14 @@ static int zebra_client_cleanup_rnh(struct zserv *client)
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
 		zvrf = vrf->info;
 		if (zvrf) {
-			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP, client);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP,
+						 SAFI_UNICAST, client);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP,
+						 SAFI_MULTICAST, client);
 			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6,
-						 client);
+						 SAFI_UNICAST, client);
+			zebra_cleanup_rnh_client(zvrf_id(zvrf), AFI_IP6,
+						 SAFI_MULTICAST, client);
 		}
 	}
 
