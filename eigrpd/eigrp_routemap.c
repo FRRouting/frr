@@ -890,7 +890,7 @@ ALIAS(no_match_ip_next_hop, no_match_ip_next_hop_val_cmd,
 
 DEFUN (match_ip_next_hop_prefix_list,
        match_ip_next_hop_prefix_list_cmd,
-       "match ip next-hop prefix-list WORD",
+       "match ip next-hop prefix-list PREFIXLIST_NAME",
        MATCH_STR
        IP_STR
        "Match next-hop address of route\n"
@@ -920,7 +920,7 @@ DEFUN (no_match_ip_next_hop_prefix_list,
 
 ALIAS(no_match_ip_next_hop_prefix_list,
       no_match_ip_next_hop_prefix_list_val_cmd,
-      "no match ip next-hop prefix-list WORD", NO_STR MATCH_STR IP_STR
+      "no match ip next-hop prefix-list PREFIXLIST_NAME", NO_STR MATCH_STR IP_STR
       "Match next-hop address of route\n"
       "Match entries of prefix-lists\n"
       "IP prefix-list name\n")
@@ -958,7 +958,7 @@ ALIAS(no_match_ip_address, no_match_ip_address_val_cmd,
 
 DEFUN (match_ip_address_prefix_list,
        match_ip_address_prefix_list_cmd,
-       "match ip address prefix-list WORD",
+       "match ip address prefix-list PREFIXLIST_NAME",
        MATCH_STR
        IP_STR
        "Match address of route\n"
@@ -987,7 +987,7 @@ DEFUN (no_match_ip_address_prefix_list,
 }
 
 ALIAS(no_match_ip_address_prefix_list, no_match_ip_address_prefix_list_val_cmd,
-      "no match ip address prefix-list WORD", NO_STR MATCH_STR IP_STR
+      "no match ip address prefix-list PREFIXLIST_NAME", NO_STR MATCH_STR IP_STR
       "Match address of route\n"
       "Match entries of prefix-lists\n"
       "IP prefix-list name\n")
