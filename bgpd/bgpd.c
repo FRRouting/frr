@@ -7333,7 +7333,7 @@ void peer_maximum_prefix_out_refresh_routes(struct peer *peer, afi_t afi,
 	update_group_adjust_peer(peer_af_find(peer, afi, safi));
 
 	if (peer_established(peer))
-		bgp_announce_route(peer, afi, safi, false);
+		bgp_announce_route(peer, afi, safi);
 }
 
 int is_ebgp_multihop_configured(struct peer *peer)
