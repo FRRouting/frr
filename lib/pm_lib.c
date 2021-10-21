@@ -202,6 +202,18 @@ void pm_peer_sendmsg(struct zclient *zclient, struct pm_info *pm_info,
 				"pm_peer_sendmsg: zclient_send_message() failed");
 		return;
 	}
+	if (pm_debug) {
+		char src_str[BUFSIZ], dst_str[BUFSIZ];
+
+		zlog_debug("PM-LIB: %s%s%s to %s",
+			   zserv_command_string(command),
+			   src_ip ? " from " : "",
+			   src_ip ? inet_ntop(family, src_ip,
+					      src_str, sizeof(src_str))
+			   : "", dst_ip ? inet_ntop(family, dst_ip,
+						    dst_str, sizeof(dst_str))
+			   : "<unknown>");
+	}
 
 	if (set_flag) {
 		if (command == ZEBRA_PM_DEST_REGISTER)
