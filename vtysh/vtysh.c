@@ -135,8 +135,6 @@ struct vtysh_client vtysh_client[] = {
 	{.name = "pim6d", .flag = VTYSH_PIM6D},
 };
 
-char my_client[64];
-
 /* Searches for client by name, returns index */
 static int vtysh_client_lookup(const char *name)
 {
