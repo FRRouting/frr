@@ -4072,11 +4072,12 @@ enum zclient_send_status zclient_interface_set_master(struct zclient *client,
 	s = client->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER, master->vrf_id);
+	zclient_create_header(s, ZEBRA_INTERFACE_SET_MASTER,
+			      master->vrf->vrf_id);
 
-	stream_putl(s, master->vrf_id);
+	stream_putl(s, master->vrf->vrf_id);
 	stream_putl(s, master->ifindex);
-	stream_putl(s, slave->vrf_id);
+	stream_putl(s, slave->vrf->vrf_id);
 	stream_putl(s, slave->ifindex);
 
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -4163,7 +4164,7 @@ zclient_send_neigh_discovery_req(struct zclient *zclient,
 	s = zclient->obuf;
 	stream_reset(s);
 
-	zclient_create_header(s, ZEBRA_NEIGH_DISCOVER, ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_NEIGH_DISCOVER, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 
 	stream_putc(s, p->family);
@@ -4253,7 +4254,7 @@ int zclient_neigh_ip_encode(struct stream *s, uint16_t cmd, union sockunion *in,
 {
 	int ret = 0;
 
-	zclient_create_header(s, cmd, ifp->vrf_id);
+	zclient_create_header(s, cmd, ifp->vrf->vrf_id);
 	stream_putc(s, sockunion_family(in));
 	stream_write(s, sockunion_get_addr(in), sockunion_get_addrlen(in));
 	if (out && sockunion_family(out) != AF_UNSPEC) {
@@ -4297,9 +4298,7 @@ int zclient_send_zebra_gre_request(struct zclient *client,
 	}
 	s = client->obuf;
 	stream_reset(s);
-	zclient_create_header(s,
-			      ZEBRA_GRE_GET,
-			      ifp->vrf_id);
+	zclient_create_header(s, ZEBRA_GRE_GET, ifp->vrf->vrf_id);
 	stream_putl(s, ifp->ifindex);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	zclient_send_message(client);

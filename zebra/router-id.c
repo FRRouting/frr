@@ -159,7 +159,7 @@ void router_id_add_address(struct connected *ifc)
 	struct prefix before;
 	struct prefix after;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
 	struct list *rid_all;
@@ -206,7 +206,7 @@ void router_id_del_address(struct connected *ifc)
 	struct prefix before;
 	struct listnode *node;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
 	struct list *rid_all;
@@ -521,7 +521,7 @@ DEFUN (show_ip_router_id,
 		vrf_name = argv[idx]->arg;
 	}
 
-	zvrf = vrf_info_get(vrf_id);
+	zvrf = vrf_info_lookup(vrf_id);
 
 	if (zvrf != NULL) {
 		if (is_ipv6) {

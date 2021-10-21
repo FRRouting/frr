@@ -1443,8 +1443,8 @@ void ospf_if_update(struct ospf *ospf, struct interface *ifp)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: interface %s ifp->vrf_id %u ospf vrf %s vrf_id %u router_id %pI4",
-			__func__, ifp->name, ifp->vrf_id,
+			"%s: interface %s vrf %s(%u) ospf vrf %s vrf_id %u router_id %pI4",
+			__func__, ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
 			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
 			&ospf->router_id);
 

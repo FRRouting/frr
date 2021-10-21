@@ -121,7 +121,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
 	pim_ifp->options = 0;
-	pim_ifp->pim = pim_get_pim_instance(ifp->vrf_id);
+	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
@@ -785,12 +785,11 @@ void pim_if_addr_del_all(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 	struct pim_instance *pim;
 
-	if (!vrf)
+	pim = ifp->vrf->info;
+	if (!pim)
 		return;
-	pim = vrf->info;
 
 	/* PIM/IGMP enabled ? */
 	if (!ifp->info)
@@ -857,10 +856,6 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
-	if (!vrf)
-		return addr;
 
 	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
 		return pim_ifp->update_source;
@@ -899,10 +894,11 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		struct interface *lo_ifp;
 
 		// DBS - Come back and check here
-		if (ifp->vrf_id == VRF_DEFAULT)
-			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
+		if (ifp->vrf->vrf_id == VRF_DEFAULT)
+			lo_ifp = if_lookup_by_name("lo", ifp->vrf->vrf_id);
 		else
-			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
+			lo_ifp = if_lookup_by_name(ifp->vrf->name,
+						   ifp->vrf->vrf_id);
 
 		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
@@ -1550,13 +1546,13 @@ int pim_ifp_create(struct interface *ifp)
 {
 	struct pim_instance *pim;
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (if_is_operative(ifp)) {
@@ -1622,13 +1618,13 @@ int pim_ifp_up(struct interface *ifp)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 
 	pim_ifp = ifp->info;
 	/*
@@ -1653,7 +1649,7 @@ int pim_ifp_up(struct interface *ifp)
 		struct vrf *vrf;
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf_id != vrf->vrf_id)) {
+			    && (ifp->vrf->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
 					vrf->name, vrf->vrf_id);
 
@@ -1674,10 +1670,10 @@ int pim_ifp_down(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (!if_is_operative(ifp)) {
@@ -1712,16 +1708,16 @@ int pim_ifp_destroy(struct interface *ifp)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 	if (pim && pim->vxlan.term_if == ifp)
 		pim_vxlan_del_term_dev(pim);
 

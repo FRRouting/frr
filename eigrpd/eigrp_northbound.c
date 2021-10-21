@@ -1135,7 +1135,7 @@ static int lib_interface_eigrp_instance_create(struct nb_cb_create_args *args)
 		}
 
 		eigrp = eigrp_get(yang_dnode_get_uint16(args->dnode, "./asn"),
-				  ifp->vrf_id);
+				  ifp->vrf->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;
@@ -1147,7 +1147,7 @@ static int lib_interface_eigrp_instance_create(struct nb_cb_create_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		eigrp = eigrp_get(yang_dnode_get_uint16(args->dnode, "./asn"),
-				  ifp->vrf_id);
+				  ifp->vrf->vrf_id);
 		eif = eigrp_interface_lookup(eigrp, ifp->name);
 		if (eif == NULL)
 			return NB_ERR_INCONSISTENCY;

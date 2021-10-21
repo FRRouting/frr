@@ -206,10 +206,11 @@ static int bgp_ifp_destroy(struct interface *ifp)
 {
 	struct bgp *bgp;
 
-	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+	bgp = ifp->vrf->info;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf del VRF %u IF %s", ifp->vrf_id, ifp->name);
+		zlog_debug("Rx Intf del VRF %u IF %s", ifp->vrf->vrf_id,
+			   ifp->name);
 
 	if (bgp) {
 		bgp_update_interface_nbrs(bgp, ifp, NULL);
@@ -228,12 +229,13 @@ static int bgp_ifp_up(struct interface *ifp)
 	struct listnode *node, *nnode;
 	struct bgp *bgp;
 
-	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+	bgp = ifp->vrf->info;
 
 	bgp_mac_add_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf up VRF %u IF %s", ifp->vrf_id, ifp->name);
+		zlog_debug("Rx Intf up VRF %u IF %s", ifp->vrf->vrf_id,
+			   ifp->name);
 
 	if (!bgp)
 		return 0;
@@ -258,12 +260,13 @@ static int bgp_ifp_down(struct interface *ifp)
 	struct bgp *bgp;
 	struct peer *peer;
 
-	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+	bgp = ifp->vrf->info;
 
 	bgp_mac_del_mac_entry(ifp);
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf down VRF %u IF %s", ifp->vrf_id, ifp->name);
+		zlog_debug("Rx Intf down VRF %u IF %s", ifp->vrf->vrf_id,
+			   ifp->name);
 
 	if (!bgp)
 		return 0;
@@ -3099,9 +3102,10 @@ static int bgp_ifp_create(struct interface *ifp)
 	struct bgp *bgp;
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("Rx Intf add VRF %u IF %s", ifp->vrf_id, ifp->name);
+		zlog_debug("Rx Intf add VRF %u IF %s", ifp->vrf->vrf_id,
+			   ifp->name);
 
-	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+	bgp = ifp->vrf->info;
 	if (!bgp)
 		return 0;
 
