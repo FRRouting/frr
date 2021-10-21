@@ -80,22 +80,77 @@ def test_bgp_maximum_prefix_out():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r2"]
+    router1 = tgen.gears["r1"]
+    router2 = tgen.gears["r2"]
 
-    def _bgp_converge(router):
+    # format (router to configure, command, expected received prefixes on r2)
+    tests = [
+        # test of the initial config
+        (None, 2),
+        # modifying the max-prefix-out value
+        (
+            "router bgp\n address-family ipv4\n neighbor 192.168.255.1 maximum-prefix-out 4",
+            4,
+        ),
+        # removing the max-prefix-out value
+        (
+            "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out",
+            6,
+        ),
+        # setting a max-prefix-out value
+        (
+            "router bgp\n address-family ipv4\n neighbor 192.168.255.1 maximum-prefix-out 3",
+            3,
+        ),
+        # setting a max-prefix-out value - higher than the total number of prefix
+        (
+            "router bgp\n address-family ipv4\n neighbor 192.168.255.1 maximum-prefix-out 8",
+            6,
+        ),
+        # adding a new prefix
+        ("router bgp\n int lo\n ip address 172.16.255.249/32", 7),
+        # setting a max-prefix-out value - lower than the total number of prefix
+        (
+            "router bgp\n address-family ipv4\n neighbor 192.168.255.1 maximum-prefix-out 1",
+            1,
+        ),
+        # adding a new prefix
+        ("router bgp\n int lo\n ip address 172.16.255.248/32", 1),
+        # removing the max-prefix-out value
+        (
+            "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out",
+            8,
+        ),
+    ]
+
+    def _bgp_converge(router, nb_prefixes):
         output = json.loads(router.vtysh_cmd("show ip bgp neighbor 192.168.255.2 json"))
         expected = {
             "192.168.255.2": {
                 "bgpState": "Established",
-                "addressFamilyInfo": {"ipv4Unicast": {"acceptedPrefixCounter": 2}},
+                "addressFamilyInfo": {
+                    "ipv4Unicast": {"acceptedPrefixCounter": nb_prefixes}
+                },
             }
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, router)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    for test in tests:
+        cfg, exp_prfxs = test
+        if cfg:
+            cmd = (
+                """
+              configure terminal
+               %s
+            """
+                % cfg
+            )
+            router1.vtysh_cmd(cmd)
 
-    assert result is None, 'Failed bgp convergence in "{}"'.format(router)
+        test_func = functools.partial(_bgp_converge, router2, exp_prfxs)
+        success, result = topotest.run_and_expect(test_func, None, count=30, wait=0.5)
+
+        assert result is None, 'Failed bgp convergence in "{}"'.format(router2)
 
 
 if __name__ == "__main__":
