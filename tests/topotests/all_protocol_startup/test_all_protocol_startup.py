@@ -34,7 +34,6 @@ import pytest
 import glob
 from time import sleep
 
-
 pytestmark = [
     pytest.mark.babeld,
     pytest.mark.bgpd,
@@ -389,34 +388,71 @@ def route_get_nhg_id(route_str):
 
 def verify_nexthop_group(nhg_id, recursive=False, ecmp=0):
     net = get_topogen().net
-    # Verify NHG is valid/installed
-    output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+    count = 0
+    valid = None
+    ecmpcount = None
+    depends = None
+    resolved_id = None
+    installed = None
+    found = False
 
-    match = re.search(r"Valid", output)
-    assert match is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
+    while not found and count < 10:
+        count += 1
+        # Verify NHG is valid/installed
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+        valid = re.search(r"Valid", output)
+        if valid is None:
+            found = False
+            sleep(1)
+            continue
 
+        if ecmp or recursive:
+            ecmpcount = re.search(r"Depends:.*\n", output)
+            if ecmpcount is None:
+                found = False
+                sleep(1)
+                continue
+
+            # list of IDs in group
+            depends = re.findall(r"\((\d+)\)", ecmpcount.group(0))
+
+            if ecmp:
+                if len(depends) != ecmp:
+                    found = False
+                    sleep(1)
+                    continue
+            else:
+                # If recursive, we need to look at its resolved group
+                if len(depends) != 1:
+                    found = False
+                    sleep(1)
+                    continue
+
+                resolved_id = int(depends[0])
+                verify_nexthop_group(resolved_id, False)
+        else:
+            installed = re.search(r"Installed", output)
+            if installed is None:
+                found = False
+                sleep(1)
+                continue
+        found = True
+
+    assert valid is not None, "Nexthop Group ID=%d not marked Valid" % nhg_id
     if ecmp or recursive:
-        match = re.search(r"Depends:.*\n", output)
-        assert match is not None, "Nexthop Group ID=%d has no depends" % nhg_id
-
-        # list of IDs in group
-        depends = re.findall(r"\((\d+)\)", match.group(0))
-
+        assert ecmpcount is not None, "Nexthop Group ID=%d has no depends" % nhg_id
         if ecmp:
             assert len(depends) == ecmp, (
                 "Nexthop Group ID=%d doesn't match ecmp size" % nhg_id
             )
         else:
-            # If recursive, we need to look at its resolved group
             assert len(depends) == 1, (
                 "Nexthop Group ID=%d should only have one recursive depend" % nhg_id
             )
-            resolved_id = int(depends[0])
-            verify_nexthop_group(resolved_id, False)
-
     else:
-        match = re.search(r"Installed", output)
-        assert match is not None, "Nexthop Group ID=%d not marked Installed" % nhg_id
+        assert installed is not None, (
+            "Nexthop Group ID=%d not marked Installed" % nhg_id
+        )
 
 
 def verify_route_nexthop_group(route_str, recursive=False, ecmp=0):
@@ -447,7 +483,6 @@ def test_nexthop_groups():
 
     # Create with sharpd using nexthop-group
     net["r1"].cmd('vtysh -c "sharp install routes 2.2.2.1 nexthop-group basic 1"')
-
     verify_route_nexthop_group("2.2.2.1/32")
 
     ## Connected
@@ -457,7 +492,6 @@ def test_nexthop_groups():
     )
 
     net["r1"].cmd('vtysh -c "sharp install routes 2.2.2.2 nexthop-group connected 1"')
-
     verify_route_nexthop_group("2.2.2.2/32")
 
     ## Recursive
@@ -548,10 +582,16 @@ def test_nexthop_groups():
     )
 
     # Get routes and test if has too many (duplicate) nexthops
+    count = 0
+    dups = []
     nhg_id = route_get_nhg_id("6.6.6.1/32")
-    output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
+    while (len(dups) != 3) and count < 10:
+        output = net["r1"].cmd('vtysh -c "show nexthop-group rib %d"' % nhg_id)
 
-    dups = re.findall(r"(via 1\.1\.1\.1)", output)
+        dups = re.findall(r"(via 1\.1\.1\.1)", output)
+        if len(dups) != 3:
+            count += 1
+            sleep(1)
 
     # Should find 3, itself is inactive
     assert len(dups) == 3, (
