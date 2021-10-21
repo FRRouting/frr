@@ -49,6 +49,9 @@ struct pm_info {
 	uint8_t tos_val;
 	time_t last_update;
 	uint8_t status;
+	/* session key elements */
+	char ifname[INTERFACE_NAMSIZ];
+	struct in6_addr src_ip;
 };
 
 extern int pm_debug;

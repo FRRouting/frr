@@ -161,18 +161,27 @@ void pm_peer_sendmsg(struct zclient *zclient, struct pm_info *pm_info,
 	}
 	if (src_ip) {
 		stream_putw(s, family);
-		if (family == AF_INET6)
+		if (family == AF_INET6) {
 			stream_put(s, src_ip, 16);
-		else
+			memcpy(&pm_info->src_ip, src_ip, 16);
+		} else {
 			stream_put_in_addr(s, (struct in_addr *)src_ip);
-	} else
+			memcpy(&pm_info->src_ip, src_ip, sizeof(struct in_addr));
+		}
+	} else {
 		stream_putw(s, 0);
+		memset(&pm_info->src_ip, 0, sizeof(pm_info->src_ip));
+	}
+
 	if (if_name) {
 		len = strlen(if_name);
 		stream_putc(s, len);
 		stream_put(s, if_name, len);
-	} else
+		snprintf((char *)&pm_info->ifname, sizeof(pm_info->ifname), if_name, len);
+	} else {
 		stream_putc(s, 0);
+		pm_info->ifname[0] = '\0';
+	}
 
 	if (nh) {
 		stream_putw(s, family);

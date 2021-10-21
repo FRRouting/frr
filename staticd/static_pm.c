@@ -162,8 +162,9 @@ static void static_pm_sendmsg(struct static_nexthop *nh, int cmd)
 	struct pm_info *pm_info;
 	void *dst_ip, *src_ip = NULL;
 	struct interface *ifp = NULL;
-	bool keep_iface = false;
 	uint16_t pkt_size;
+	char *ifname = NULL;
+	const struct prefix *dst_p, *src_p;
 
 	nh->pm = true;
 
@@ -181,24 +182,33 @@ static void static_pm_sendmsg(struct static_nexthop *nh, int cmd)
 	} else
 		return;
 
-	/* interface validity */
-	if ((nh->type == STATIC_IPV4_GATEWAY_IFNAME
-	     || nh->type == STATIC_IPV6_GATEWAY_IFNAME)) {
-		ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
-		keep_iface = true;
+	if (cmd == ZEBRA_PM_DEST_DEREGISTER) {
+		if (!nh->pm_info)
+			return;
+		pm_info = nh->pm_info;
+		if (pm_info->ifname[0] != '\0')
+			ifname = (char *)&pm_info->ifname;
+		if (memcmp(&zero_addr, &pm_info->src_ip, sizeof(pm_info->src_ip)))
+			src_ip = &pm_info->src_ip;
+		else
+			src_ip = NULL;
 	} else {
-		const struct prefix *dst_p, *src_p;
-
-		srcdest_rnode_prefixes(nh->rn, &dst_p, &src_p);
-		ifp = static_zebra_get_interface(dst_p, nh->nh_vrf_id);
+		/* interface validity */
+		if ((nh->type == STATIC_IPV4_GATEWAY_IFNAME
+		     || nh->type == STATIC_IPV6_GATEWAY_IFNAME)) {
+			ifp = if_lookup_by_name(nh->ifname, nh->nh_vrf_id);
+			if (ifp)
+				ifname = ifp->name;
+		} else {
+			srcdest_rnode_prefixes(nh->rn, &dst_p, &src_p);
+			ifp = static_zebra_get_interface(dst_p, nh->nh_vrf_id);
+		}
+		if (!ifp || ifp->ifindex == IFINDEX_INTERNAL)
+			return;
+		src_ip = static_pm_choose_src_ip(ifp, family, &nh->addr);
+		if (!src_ip)
+			return;
 	}
-	if (!ifp|| ifp->ifindex == IFINDEX_INTERNAL)
-		return;
-
-	/* choose src ip validation */
-	src_ip = static_pm_choose_src_ip(ifp, family, &nh->addr);
-	if (!src_ip)
-		return;
 
 	if (nh->pm_info) {
 		command = cmd;
@@ -214,14 +224,9 @@ static void static_pm_sendmsg(struct static_nexthop *nh, int cmd)
 	else
 		dst_ip =  &nh->addr.ipv6;
 
-	if (keep_iface)
-		pm_peer_sendmsg(zclient, pm_info, family,
-				dst_ip, src_ip, NULL, ifp->name,
-				 command, 1, nh->nh_vrf_id);
-	else
-		pm_peer_sendmsg(zclient, pm_info, family,
-				dst_ip, src_ip, NULL, NULL,
-				command, 1, nh->nh_vrf_id);
+	pm_peer_sendmsg(zclient, pm_info, family,
+			dst_ip, src_ip, NULL, ifname,
+			command, 1, nh->nh_vrf_id);
 }
 
 /*
@@ -340,7 +345,6 @@ static void static_pm_update_from_idx(struct static_nexthop *nh, int family,
 				      ifindex_t oif_idx, vrf_id_t vrf_id)
 {
 	struct interface *ifp = NULL;
-	union g_addr  src_ip = {};
 	void *src = NULL;
 	void *dst;
 	int command = ZEBRA_PM_DEST_REGISTER;
@@ -353,8 +357,6 @@ static void static_pm_update_from_idx(struct static_nexthop *nh, int family,
 	src = static_pm_choose_src_ip(ifp, family, &nh->addr);
 	if (!src)
 		return;
-	memcpy(&src_ip, src, sizeof(union g_addr));
-	src = &src_ip;
 
 	if (family == AF_INET)
 		dst = &nh->addr.ipv4;
