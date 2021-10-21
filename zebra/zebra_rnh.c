@@ -802,13 +802,13 @@ void zebra_evaluate_rnh(struct zebra_vrf *zvrf, afi_t afi, int force,
 	}
 }
 
-void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, struct vty *vty,
-			   struct prefix *p)
+void zebra_print_rnh_table(vrf_id_t vrfid, afi_t afi, safi_t safi,
+			   struct vty *vty, struct prefix *p)
 {
 	struct route_table *table;
 	struct route_node *rn;
 
-	table = get_rnh_table(vrfid, afi, SAFI_UNICAST);
+	table = get_rnh_table(vrfid, afi, safi);
 	if (!table) {
 		if (IS_ZEBRA_DEBUG_NHT)
 			zlog_debug("print_rnhs: rnh table not found");

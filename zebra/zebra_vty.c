@@ -1361,7 +1361,7 @@ static int do_show_ip_route(struct vty *vty, const char *vrf_name, afi_t afi,
 
 DEFPY (show_ip_nht,
        show_ip_nht_cmd,
-       "show <ip$ipv4|ipv6$ipv6> <nht|import-check>$type [<A.B.C.D|X:X::X:X>$addr|vrf NAME$vrf_name [<A.B.C.D|X:X::X:X>$addr]|vrf all$vrf_all]",
+       "show <ip$ipv4|ipv6$ipv6> <nht|import-check>$type [<A.B.C.D|X:X::X:X>$addr|vrf NAME$vrf_name [<A.B.C.D|X:X::X:X>$addr]|vrf all$vrf_all] [mrib$mrib]",
        SHOW_STR
        IP_STR
        IP6_STR
@@ -1372,11 +1372,13 @@ DEFPY (show_ip_nht,
        VRF_CMD_HELP_STR
        "IPv4 Address\n"
        "IPv6 Address\n"
-       VRF_ALL_CMD_HELP_STR)
+       VRF_ALL_CMD_HELP_STR
+       "Show Multicast (MRIB) NHT state\n")
 {
 	afi_t afi = ipv4 ? AFI_IP : AFI_IP6;
 	vrf_id_t vrf_id = VRF_DEFAULT;
 	struct prefix prefix, *p = NULL;
+	safi_t safi = mrib ? SAFI_MULTICAST : SAFI_UNICAST;
 
 	if (vrf_all) {
 		struct vrf *vrf;
@@ -1385,8 +1387,8 @@ DEFPY (show_ip_nht,
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name)
 			if ((zvrf = vrf->info) != NULL) {
 				vty_out(vty, "\nVRF %s:\n", zvrf_name(zvrf));
-				zebra_print_rnh_table(zvrf_id(zvrf), afi, vty,
-						      NULL);
+				zebra_print_rnh_table(zvrf_id(zvrf), afi, safi,
+						      vty, NULL);
 			}
 		return CMD_SUCCESS;
 	}
@@ -1400,7 +1402,7 @@ DEFPY (show_ip_nht,
 			return CMD_WARNING;
 	}
 
-	zebra_print_rnh_table(vrf_id, afi, vty, p);
+	zebra_print_rnh_table(vrf_id, afi, safi, vty, p);
 	return CMD_SUCCESS;
 }
 
