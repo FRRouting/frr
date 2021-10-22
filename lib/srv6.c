@@ -152,6 +152,19 @@ void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk)
 	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, *chunk);
 }
 
+bool srv6_locator_chunks_exhausted(const struct srv6_locator *loc)
+{
+	struct listnode *node;
+	struct srv6_locator_chunk *chunk;
+
+	for (ALL_LIST_ELEMENTS_RO(loc->chunks, node, chunk))
+		if (chunk->proto == 0 && chunk->instance == 0 &&
+		    chunk->session_id == 0 && chunk->keep == 0)
+			return false;
+
+	return true;
+}
+
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
 {
 	json_object *jo_root = NULL;

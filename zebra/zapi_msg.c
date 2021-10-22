@@ -2685,26 +2685,13 @@ int zsend_client_close_notify(struct zserv *client, struct zserv *closed_client)
 	return zserv_send_message(client, s);
 }
 
-int zsend_srv6_manager_get_locator_chunk_response(struct zserv *client,
-						  vrf_id_t vrf_id,
-						  struct srv6_locator *loc)
+int zsend_srv6_manager_get_locator_chunk_response(
+	struct zserv *client, vrf_id_t vrf_id, struct srv6_locator_chunk *chunk)
 {
-	struct srv6_locator_chunk chunk = {};
 	struct stream *s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
-	strlcpy(chunk.locator_name, loc->name, sizeof(chunk.locator_name));
-	chunk.prefix = loc->prefix;
-	chunk.block_bits_length = loc->block_bits_length;
-	chunk.node_bits_length = loc->node_bits_length;
-	chunk.function_bits_length = loc->function_bits_length;
-	chunk.argument_bits_length = loc->argument_bits_length;
-	chunk.keep = 0;
-	chunk.proto = client->proto;
-	chunk.instance = client->instance;
-	chunk.flags = loc->flags;
-
 	zclient_create_header(s, ZEBRA_SRV6_MANAGER_GET_LOCATOR_CHUNK, vrf_id);
-	zapi_srv6_locator_chunk_encode(s, &chunk);
+	zapi_srv6_locator_chunk_encode(s, chunk);
 	stream_putw_at(s, 0, stream_get_endp(s));
 	return zserv_send_message(client, s);
 }

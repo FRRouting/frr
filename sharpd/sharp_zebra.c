@@ -965,23 +965,16 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	zapi_srv6_locator_chunk_decode(s, &s6c);
 
 	for (ALL_LIST_ELEMENTS(sg.srv6_locators, node, nnode, loc)) {
-		struct prefix_ipv6 *chunk = NULL;
-		struct listnode *chunk_node;
-		struct prefix_ipv6 *c;
-
+		struct prefix_ipv6 *chunk_prefix = NULL;
 		if (strcmp(loc->name, s6c.locator_name) != 0) {
 			zlog_err("%s: Locator name unmatch %s:%s", __func__,
 				 loc->name, s6c.locator_name);
 			continue;
 		}
 
-		for (ALL_LIST_ELEMENTS_RO(loc->chunks, chunk_node, c))
-			if (!prefix_cmp(c, &s6c.prefix))
-				return 0;
-
-		chunk = prefix_ipv6_new();
-		*chunk = s6c.prefix;
-		listnode_add(loc->chunks, chunk);
+		chunk_prefix = prefix_ipv6_new();
+		*chunk_prefix = s6c.prefix;
+		listnode_add(loc->chunks, chunk_prefix);
 		return 0;
 	}
 

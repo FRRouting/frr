@@ -241,10 +241,8 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
  * @return Pointer to the assigned srv6-locator chunk,
  *         or NULL if the request could not be satisfied
  */
-static struct srv6_locator *
-assign_srv6_locator_chunk(uint8_t proto,
-			  uint16_t instance,
-			  uint32_t session_id,
+static struct srv6_locator_chunk *
+assign_srv6_locator_chunk(uint8_t proto, uint16_t instance, uint32_t session_id,
 			  const char *locator_name)
 {
 	bool chunk_found = false;
@@ -257,6 +255,29 @@ assign_srv6_locator_chunk(uint8_t proto,
 		zlog_info("%s: locator %s was not found",
 			  __func__, locator_name);
 		return NULL;
+	}
+
+	if (srv6_locator_chunks_exhausted(loc)) {
+		zlog_info("DRUMATO: chunk exhaustion");
+		for (size_t i = listcount(loc->chunks);
+		     2 * listcount(loc->chunks) + 1; i++) {
+			chunk = srv6_locator_chunk_alloc();
+			chunk->block_bits_length = loc->block_bits_length;
+			chunk->node_bits_length = loc->node_bits_length;
+			chunk->function_bits_length = loc->function_bits_length;
+			chunk->argument_bits_length = loc->argument_bits_length;
+			chunk->prefix = loc->prefix;
+			chunk->prefix.prefixlen += loc->chunk_bits_length;
+			chunk->flags = loc->flags;
+			strlcpy(chunk->locator_name, loc->name,
+				sizeof(chunk->locator_name));
+
+			// TODO: (drumato)
+			// Now the chunk bits are fixed to 16 but its not
+			// enough to use.
+			chunk->prefix.prefix.__in6_u.__u6_addr16[5] = i;
+			listnode_add(loc->chunks, chunk);
+		}
 	}
 
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
@@ -274,31 +295,32 @@ assign_srv6_locator_chunk(uint8_t proto,
 	chunk->proto = proto;
 	chunk->instance = instance;
 	chunk->session_id = session_id;
-	return loc;
+	return chunk;
 }
 
-static int zebra_srv6_manager_get_locator_chunk(struct srv6_locator **loc,
-						struct zserv *client,
-						const char *locator_name,
-						vrf_id_t vrf_id)
+static int
+zebra_srv6_manager_get_locator_chunk(struct srv6_locator_chunk **chunk,
+				     struct zserv *client,
+				     const char *locator_name, vrf_id_t vrf_id)
 {
 	int ret = 0;
 
-	*loc = assign_srv6_locator_chunk(client->proto, client->instance,
-					 client->session_id, locator_name);
+	*chunk = assign_srv6_locator_chunk(client->proto, client->instance,
+					   client->session_id, locator_name);
 
-	if (!*loc)
+	if (!*chunk) {
 		zlog_err("Unable to assign locator chunk to %s instance %u",
 			 zebra_route_string(client->proto), client->instance);
-	else if (IS_ZEBRA_DEBUG_PACKET)
+		return ret;
+	}
+
+	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_info("Assigned locator chunk %s to %s instance %u",
-			  (*loc)->name, zebra_route_string(client->proto),
+			  locator_name, zebra_route_string(client->proto),
 			  client->instance);
 
-	if (*loc && (*loc)->status_up)
-		ret = zsend_srv6_manager_get_locator_chunk_response(client,
-								    vrf_id,
-								    *loc);
+	ret = zsend_srv6_manager_get_locator_chunk_response(client, vrf_id,
+							    *chunk);
 	return ret;
 }
 

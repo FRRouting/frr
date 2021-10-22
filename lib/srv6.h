@@ -78,6 +78,7 @@ struct srv6_locator {
 	uint64_t current;
 	bool status_up;
 	struct list *chunks;
+	uint8_t chunk_bits_length;
 
 	uint8_t flags;
 #define SRV6_LOCATOR_USID (1 << 0) /* The SRv6 Locator is a uSID Locator */
@@ -195,6 +196,7 @@ extern struct srv6_locator *srv6_locator_alloc(const char *name);
 extern struct srv6_locator_chunk *srv6_locator_chunk_alloc(void);
 extern void srv6_locator_free(struct srv6_locator *locator);
 extern void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk);
+extern bool srv6_locator_chunks_exhausted(const struct srv6_locator *loc);
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk);
 json_object *srv6_locator_json(const struct srv6_locator *loc);
 json_object *srv6_locator_detailed_json(const struct srv6_locator *loc);
