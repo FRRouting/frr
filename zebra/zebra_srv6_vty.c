@@ -299,10 +299,14 @@ DEFPY (locator_prefix,
 	locator->function_bits_length = func_bit_len;
 	locator->argument_bits_length = 0;
 
+	locator->perchunk_bits_length = 16;
+
 	if (list_isempty(locator->chunks)) {
 		chunk = srv6_locator_chunk_alloc();
-		chunk->prefix = *prefix;
-		chunk->proto = 0;
+		strlcpy(chunk->locator_name, locator->name,
+			sizeof(chunk->locator_name));
+		chunk->prefix = locator->prefix;
+		chunk->prefix.prefixlen += locator->perchunk_bits_length;
 		listnode_add(locator->chunks, chunk);
 	} else {
 		for (ALL_LIST_ELEMENTS_RO(locator->chunks, node, chunk)) {
@@ -312,7 +316,6 @@ DEFPY (locator_prefix,
 				struct zserv *client;
 				struct listnode *client_node;
 
-				chunk->prefix = *prefix;
 				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list,
 							  client_node,
 							  client)) {
