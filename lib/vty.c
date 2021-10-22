@@ -266,63 +266,6 @@ done:
 	return len;
 }
 
-static int vty_log_out(struct vty *vty, const char *level,
-		       const char *proto_str, const char *msg,
-		       struct timestamp_control *ctl)
-{
-	int ret;
-	int len;
-	char buf[1024];
-
-	if (!ctl->already_rendered) {
-		ctl->len = quagga_timestamp(ctl->precision, ctl->buf,
-					    sizeof(ctl->buf));
-		ctl->already_rendered = 1;
-	}
-	if (ctl->len + 1 >= sizeof(buf))
-		return -1;
-	memcpy(buf, ctl->buf, len = ctl->len);
-	buf[len++] = ' ';
-	buf[len] = '\0';
-
-	if (level)
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: %s: ", level,
-			       proto_str);
-	else
-		ret = snprintf(buf + len, sizeof(buf) - len, "%s: ", proto_str);
-	if ((ret < 0) || ((size_t)(len += ret) >= sizeof(buf)))
-		return -1;
-
-	if (((ret = snprintf(buf + len, sizeof(buf) - len, "%s", msg)) < 0)
-	    || ((size_t)((len += ret) + 2) > sizeof(buf)))
-		return -1;
-
-	buf[len++] = '\r';
-	buf[len++] = '\n';
-
-	if (write(vty->wfd, buf, len) < 0) {
-		if (ERRNO_IO_RETRY(errno))
-			/* Kernel buffer is full, probably too much debugging
-			   output, so just
-			   drop the data and ignore. */
-			return -1;
-		/* Fatal I/O error. */
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
-		flog_err(EC_LIB_SOCKET,
-			 "%s: write failed to vty client fd %d, closing: %s",
-			 __func__, vty->fd, safe_strerror(errno));
-		buffer_reset(vty->obuf);
-		buffer_reset(vty->lbuf);
-		/* cannot call vty_close, because a parent routine may still try
-		   to access the vty struct */
-		vty->status = VTY_CLOSE;
-		shutdown(vty->fd, SHUT_RDWR);
-		return -1;
-	}
-	return 0;
-}
-
 /* Output current time to the vty. */
 void vty_time_print(struct vty *vty, int cr)
 {
@@ -2531,52 +2474,6 @@ tmp_free_and_out:
 	XFREE(MTYPE_TMP, tmp);
 
 	return read_success;
-}
-
-/* Small utility function which output log to the VTY. */
-void vty_log(const char *level, const char *proto_str, const char *msg,
-	     struct timestamp_control *ctl)
-{
-	unsigned int i;
-	struct vty *vty;
-
-	if (!vtyvec)
-		return;
-
-	for (i = 0; i < vector_active(vtyvec); i++)
-		if ((vty = vector_slot(vtyvec, i)) != NULL)
-			if (vty->monitor)
-				vty_log_out(vty, level, proto_str, msg, ctl);
-}
-
-/* Async-signal-safe version of vty_log for fixed strings. */
-void vty_log_fixed(char *buf, size_t len)
-{
-	unsigned int i;
-	struct iovec iov[2];
-	char crlf[4] = "\r\n";
-
-	/* vty may not have been initialised */
-	if (!vtyvec)
-		return;
-
-	iov[0].iov_base = buf;
-	iov[0].iov_len = len;
-	iov[1].iov_base = crlf;
-	iov[1].iov_len = 2;
-
-	for (i = 0; i < vector_active(vtyvec); i++) {
-		struct vty *vty;
-		if (((vty = vector_slot(vtyvec, i)) != NULL) && vty->monitor)
-			/* N.B. We don't care about the return code, since
-			   process is
-			   most likely just about to die anyway. */
-			if (writev(vty->wfd, iov, 2) == -1) {
-				fprintf(stderr, "Failure to writev: %d\n",
-					errno);
-				exit(-1);
-			}
-	}
 }
 
 static void update_xpath(struct vty *vty, const char *oldpath,
