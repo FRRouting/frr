@@ -2099,7 +2099,7 @@ stream_failure:
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Harware Address Length                                       |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- * |  Hardware Address      if HW lenght different from 0          |
+ * |  Hardware Address      if HW length different from 0          |
  * |   ...                  max INTERFACE_HWADDR_MAX               |
  * +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  * |  Link_params? |  Whether a link-params follows: 1 or 0.
@@ -2440,7 +2440,7 @@ size_t zebra_interface_link_params_write(struct stream *s,
 }
 
 /*
- * format of message for address additon is:
+ * format of message for address addition is:
  *    0
  *  0 1 2 3 4 5 6 7
  * +-+-+-+-+-+-+-+-+
@@ -2705,9 +2705,9 @@ static int zclient_read_sync_response(struct zclient *zclient,
 	return 0;
 }
 /**
- * Connect to label manager in a syncronous way
+ * Connect to label manager in a synchronous way
  *
- * It first writes the request to zcient output buffer and then
+ * It first writes the request to zclient output buffer and then
  * immediately reads the answer from the input buffer.
  *
  * @param zclient Zclient used to connect to label manager (zebra)
@@ -2800,7 +2800,7 @@ stream_failure:
 }
 
 /**
- * Function to request a srv6-locator chunk in an Asyncronous way
+ * Function to request a srv6-locator chunk in an asynchronous way
  *
  * @param zclient Zclient used to connect to table manager (zebra)
  * @param locator_name Name of SRv6-locator
@@ -2910,9 +2910,9 @@ enum zclient_send_status zclient_send_get_label_chunk(struct zclient *zclient,
 }
 
 /**
- * Function to request a label chunk in a syncronous way
+ * Function to request a label chunk in a synchronous way
  *
- * It first writes the request to zlcient output buffer and then
+ * It first writes the request to zclient output buffer and then
  * immediately reads the answer from the input buffer.
  *
  * @param zclient Zclient used to connect to label manager (zebra)
@@ -3087,9 +3087,9 @@ int lm_release_label_chunk(struct zclient *zclient, uint32_t start,
 }
 
 /**
- * Connect to table manager in a syncronous way
+ * Connect to table manager in a synchronous way
  *
- * It first writes the request to zcient output buffer and then
+ * It first writes the request to zclient output buffer and then
  * immediately reads the answer from the input buffer.
  *
  * @param zclient Zclient used to connect to table manager (zebra)
@@ -3146,7 +3146,7 @@ stream_failure:
 }
 
 /**
- * Function to request a table chunk in a syncronous way
+ * Function to request a table chunk in a synchronous way
  *
  * It first writes the request to zclient output buffer and then
  * immediately reads the answer from the input buffer.

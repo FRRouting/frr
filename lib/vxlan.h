@@ -26,7 +26,7 @@
 extern "C" {
 #endif
 
-/* EVPN MH DF election alogorithm */
+/* EVPN MH DF election algorithm */
 #define EVPN_MH_DF_ALG_SERVICE_CARVING 0
 #define EVPN_MH_DF_ALG_HRW 1
 #define EVPN_MH_DF_ALG_PREF 2

@@ -289,7 +289,7 @@ struct zclient {
 	/* The thread master we schedule ourselves on */
 	struct thread_master *master;
 
-	/* Priviledges to change socket values */
+	/* Privileges to change socket values */
 	struct zebra_privs_t *privs;
 
 	/* Do we care about failure events for route install? */
@@ -329,7 +329,7 @@ struct zclient {
 	struct redist_proto mi_redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 	vrf_bitmap_t redist[AFI_MAX][ZEBRA_ROUTE_MAX];
 
-	/* Redistribute defauilt. */
+	/* Redistribute default. */
 	vrf_bitmap_t default_information[AFI_MAX];
 
 #define ZAPI_CALLBACK_ARGS                                                     \

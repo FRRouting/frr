@@ -776,7 +776,7 @@ static void vty_end_config(struct vty *vty)
 	vty->cp = 0;
 }
 
-/* Delete a charcter at the current point. */
+/* Delete a character at the current point. */
 static void vty_delete_char(struct vty *vty)
 {
 	int i;
@@ -2282,7 +2282,7 @@ static void vty_read_file(struct nb_config *config, FILE *confp)
 
 	vty = vty_new();
 	/* vty_close won't close stderr;  if some config command prints
-	 * something it'll end up there.  (not ideal; it'd be beter if output
+	 * something it'll end up there.  (not ideal; it'd be better if output
 	 * from a file-load went to logging instead.  Also note that if this
 	 * function is called after daemonizing, stderr will be /dev/null.)
 	 *
@@ -3165,7 +3165,7 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 
 	atexit(vty_stdio_atexit);
 
-	/* Initilize server thread vector. */
+	/* Initialize server thread vector. */
 	Vvty_serv_thread = vector_init(VECTOR_MIN_SIZE);
 
 	/* Install bgp top node. */
