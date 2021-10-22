@@ -1308,7 +1308,8 @@ static void ospf6_asbr_redistribute_set(struct ospf6 *ospf6, int type)
 {
 	ospf6_zebra_redistribute(type, ospf6->vrf_id);
 
-	ospf6_asbr_status_update(ospf6, ++ospf6->redist_count);
+	++ospf6->redist_count;
+	ospf6_asbr_status_update(ospf6, ospf6->redist_count);
 }
 
 static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
@@ -1330,7 +1331,8 @@ static void ospf6_asbr_redistribute_unset(struct ospf6 *ospf6,
 	}
 
 	ospf6_asbr_routemap_unset(red);
-	ospf6_asbr_status_update(ospf6, --ospf6->redist_count);
+	--ospf6->redist_count;
+	ospf6_asbr_status_update(ospf6, ospf6->redist_count);
 }
 
 /* When an area is unstubified, flood all the external LSAs in the area */
