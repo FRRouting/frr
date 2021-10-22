@@ -393,7 +393,7 @@ void route_node_delete(struct route_node *node)
 		route_node_delete(parent);
 }
 
-/* Get fist node and lock it.  This function is useful when one want
+/* Get first node and lock it.  This function is useful when one wants
    to lookup all the node exist in the routing table. */
 struct route_node *route_top(struct route_table *table)
 {
