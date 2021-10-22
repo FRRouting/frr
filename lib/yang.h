@@ -183,7 +183,7 @@ extern int yang_snodes_iterate_subtree(const struct lysc_node *snode,
 				       void *arg);
 
 /*
- * Iterate over all libyang schema nodes from all loeaded modules of from the
+ * Iterate over all libyang schema nodes from all loaded modules of the
  * given YANG module.
  *
  * module
