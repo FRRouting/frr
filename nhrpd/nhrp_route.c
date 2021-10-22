@@ -497,11 +497,17 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	struct stream *s;
 	struct nhrp_gre_info gre_info, *val;
 	struct interface *ifp;
+	struct nhrp_vrf *nhrp_vrf;
 
 	/* result */
 	s = zclient->ibuf;
-	if (vrf_id != VRF_DEFAULT)
+
+	nhrp_vrf = find_nhrp_vrf_id(vrf_id);
+	if (!nhrp_vrf) {
+		zlog_err("%s() : nhrp vrf not found for vrf %u",
+			 __func__, vrf_id);
 		return;
+	}
 
 	/* read GRE information */
 	STREAM_GETL(s, gre_info.ifindex);
@@ -514,7 +520,7 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 	if (gre_info.ifindex == IFINDEX_INTERNAL)
 		val = NULL;
 	else
-		val = hash_lookup(nhrp_gre_list, &gre_info);
+		val = hash_lookup(nhrp_vrf->nhrp_gre_list, &gre_info);
 	if (val) {
 		if (gre_info.vtep_ip.s_addr != val->vtep_ip.s_addr ||
 		    gre_info.vrfid_link != val->vrfid_link ||
@@ -525,7 +531,7 @@ void nhrp_gre_update(ZAPI_CALLBACK_ARGS)
 			memcpy(val, &gre_info, sizeof(struct nhrp_gre_info));
 		}
 	} else {
-		val = nhrp_gre_info_alloc(&gre_info);
+		val = nhrp_gre_info_alloc(&gre_info, nhrp_vrf);
 	}
 	ifp = if_lookup_by_index(gre_info.ifindex, vrf_id);
 	debugf(NHRP_DEBUG_EVENT, "%s: gre interface %d vr %d obtained from system",

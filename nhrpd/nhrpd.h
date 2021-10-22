@@ -87,8 +87,6 @@ static inline int notifier_active(struct notifier_list *l)
 	return !list_empty(&l->notifier_head);
 }
 
-extern struct hash *nhrp_gre_list;
-
 struct nhrp_vrf {
 	char *vrfname;
 	vrf_id_t vrf_id;
@@ -110,6 +108,7 @@ struct nhrp_vrf {
 	struct vici_conn *vici_connection;
 	struct hash *nhrp_vc_hash;
 	struct list_head childlist_head[512];
+	struct hash *nhrp_gre_list;
 	int nhrp_socket_fd;
 
 	QOBJ_FIELDS;
@@ -128,7 +127,8 @@ void nhrp_send_zebra_gre_source_set(struct interface *ifp,
 				    vrf_id_t link_vrf_id);
 
 extern int nhrp_send_zebra_gre_request(struct interface *ifp);
-extern struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p);
+extern struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p,
+						 struct nhrp_vrf *nhrp_vrf);
 
 struct zbuf;
 struct nhrp_vc;
@@ -388,6 +388,7 @@ extern struct zebra_privs_t nhrpd_privs;
 int sock_open_unix(const char *path, vrf_id_t vrf_id);
 
 void nhrp_interface_init(void);
+void nhrp_interface_init_vrf(struct nhrp_vrf *nhrp_vrf);
 void nhrp_interface_update(struct interface *ifp);
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
 void nhrp_interface_update_nbma(struct interface *ifp,

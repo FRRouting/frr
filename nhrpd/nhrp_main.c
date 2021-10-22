@@ -262,6 +262,7 @@ int main(int argc, char **argv)
 	nhrpd_privs.change(ZPRIVS_RAISE);
 
 	nhrp_vrf = nhrp_get_context(NULL);
+	nhrp_interface_init_vrf(nhrp_vrf);
 	evmgr_init(nhrp_vrf);
 	nhrp_vc_init(nhrp_vrf);
 	nhrp_packet_init(nhrp_vrf);

@@ -24,8 +24,6 @@
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF, "NHRP interface");
 DEFINE_MTYPE_STATIC(NHRPD, NHRP_IF_GRE, "NHRP GRE interface");
 
-struct hash *nhrp_gre_list;
-
 static void nhrp_interface_update_cache_config(struct interface *ifp,
 					       bool available,
 					       uint8_t family);
@@ -56,11 +54,12 @@ static void *nhrp_interface_gre_alloc(void *data)
 	return a;
 }
 
-struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p)
+struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p,
+					  struct nhrp_vrf *nhrp_vrf)
 {
 	struct nhrp_gre_info *a;
 
-	a = (struct nhrp_gre_info *)hash_get(nhrp_gre_list, p,
+	a = (struct nhrp_gre_info *)hash_get(nhrp_vrf->nhrp_gre_list, p,
 					     nhrp_interface_gre_alloc);
 	return a;
 }
@@ -114,9 +113,13 @@ void nhrp_interface_init(void)
 {
 	hook_register_prio(if_add, 0, nhrp_if_new_hook);
 	hook_register_prio(if_del, 0, nhrp_if_delete_hook);
+}
 
-	nhrp_gre_list = hash_create(nhrp_gre_info_key, nhrp_gre_info_cmp,
-				    "NHRP GRE list Hash");
+void nhrp_interface_init_vrf(struct nhrp_vrf *nhrp_vrf)
+{
+	nhrp_vrf->nhrp_gre_list = hash_create(nhrp_gre_info_key,
+					      nhrp_gre_info_cmp,
+					      "NHRP GRE list Hash");
 }
 
 void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi)
