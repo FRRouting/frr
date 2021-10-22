@@ -185,12 +185,15 @@ void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 		 * when they are not translating.
 		 */
 		if (old_state != area->NSSATranslatorState) {
-			if (old_state == OSPF6_NSSA_TRANSLATE_DISABLED)
+			if (old_state == OSPF6_NSSA_TRANSLATE_DISABLED) {
+				++ospf6->redist_count;
 				ospf6_asbr_status_update(ospf6,
-							 ++ospf6->redist_count);
-			else
+							 ospf6->redist_count);
+			} else {
+				--ospf6->redist_count;
 				ospf6_asbr_status_update(ospf6,
-							 --ospf6->redist_count);
+							 ospf6->redist_count);
+			}
 		}
 	}
 }
