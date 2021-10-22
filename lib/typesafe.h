@@ -20,7 +20,6 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <stdbool.h>
-#include <assert.h>
 #include "compiler.h"
 
 #ifdef __cplusplus
