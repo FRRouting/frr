@@ -29,6 +29,7 @@ import os
 import sys
 import time
 import pytest
+import re
 from time import sleep
 
 # Save the Current Working Directory to find configuration files.
@@ -221,6 +222,9 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
     shutdown_bringup_interface(tgen, "r2", intf1, True)
     shutdown_bringup_interface(tgen, "r2", intf2, True)
 
+    logger.info("Ensure that the links are still up")
+    result = verify_bgp_convergence(tgen, topo)
+
     logger.info("Enable bgp fast-convergence cli")
     raw_config = {
         "r2": {
@@ -232,6 +236,13 @@ def test_ecmp_fast_convergence(request, test_type, tgen, topo):
     }
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
+
+    logger.info("Ensure BGP has processed the cli")
+    r2 = tgen.gears["r2"]
+    output = r2.vtysh_cmd("show run")
+    verify = re.search(r"fast-convergence", output )
+    assert verify is not None, (
+        "r2 does not have the fast convergence command yet")
 
     logger.info("Shutdown one link b/w r2 and r3")
     shutdown_bringup_interface(tgen, "r2", intf1, False)
