@@ -1577,7 +1577,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -1610,7 +1610,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
