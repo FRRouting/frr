@@ -494,7 +494,8 @@ static int rtadv_timer(struct thread *thread)
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (if_is_loopback_or_vrf(ifp)
-			    || !if_is_operative(ifp))
+			    || !if_is_operative(ifp)
+			    || ifp->vrf_id != zvrf->vrf->vrf_id)
 				continue;
 
 			zif = ifp->info;
