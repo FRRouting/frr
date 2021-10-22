@@ -64,6 +64,7 @@ import re
 import sys
 import pytest
 from time import sleep
+from lib.topolog import logger
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from lib import topotest
@@ -225,6 +226,13 @@ def test_mpls_ldp_neighbor_establish():
     if fatal_error != "":
         pytest.skip(fatal_error)
 
+    neighbors_operational = {
+        1: 1,
+        2: 3,
+        3: 2,
+        4: 2,
+    }
+
     # Wait for MPLS LDP neighbors to establish.
     print("\n\n** Verify MPLS LDP neighbors to establish")
     print("******************************************\n")
@@ -254,9 +262,14 @@ def test_mpls_ldp_neighbor_establish():
                     established = ""  # Empty string shows NOT established
                 if re.search(operational, lines[j]):
                     found_operational += 1
+
+            logger.info("Found operational %d" % found_operational)
             if found_operational < 1:
                 # Need at least one operational neighbor
                 established = ""  # Empty string shows NOT established
+            else:
+                if found_operational != neighbors_operational[i]:
+                    established = ""
             if not established:
                 print("Waiting for r%s" % i)
                 sys.stdout.flush()
