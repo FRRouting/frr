@@ -60,6 +60,8 @@ DEFINE_MTYPE_STATIC(LIB, VTY, "VTY");
 DEFINE_MTYPE_STATIC(LIB, VTY_OUT_BUF, "VTY output buffer");
 DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history");
 
+DECLARE_DLIST(vtys, struct vty, itm);
+
 /* Vty events */
 enum event {
 	VTY_SERV,
@@ -79,11 +81,9 @@ static void vty_event(enum event, struct vty *);
 /* Extern host structure from command.c */
 extern struct host host;
 
-/* Vector which store each vty structure. */
-static vector vtyvec;
-
-/* Vector for vtysh connections. */
-static vector vtyshvec;
+/* active connections */
+static struct vtys_head vty_sessions[1] = {INIT_DLIST(vty_sessions[0])};
+static struct vtys_head vtysh_sessions[1] = {INIT_DLIST(vtysh_sessions[0])};
 
 /* Vty timeout value. */
 static unsigned long vty_timeout_val = VTY_TIMEOUT_DEFAULT;
@@ -423,19 +423,12 @@ static int vty_command(struct vty *vty, char *buf)
 			cp++;
 	}
 	if (cp != NULL && *cp != '\0') {
-		unsigned i;
 		char vty_str[VTY_BUFSIZ];
 		char prompt_str[VTY_BUFSIZ];
 
 		/* format the base vty info */
-		snprintf(vty_str, sizeof(vty_str), "vty[??]@%s", vty->address);
-
-		for (i = 0; i < vector_active(vtyvec); i++)
-			if (vty == vector_slot(vtyvec, i)) {
-				snprintf(vty_str, sizeof(vty_str), "vty[%d]@%s",
-					 i, vty->address);
-				break;
-			}
+		snprintf(vty_str, sizeof(vty_str), "vty[%d]@%s", vty->fd,
+			 vty->address);
 
 		/* format the prompt */
 		snprintf(prompt_str, sizeof(prompt_str), cmd_prompt(vty->node),
@@ -1567,12 +1560,13 @@ static struct vty *vty_new_init(int vty_sock)
 	memset(vty->xpath, 0, sizeof(vty->xpath));
 	vty->private_config = false;
 	vty->candidate_config = vty_shared_candidate_config;
-	vector_set_index(vtyvec, vty_sock, vty);
 	vty->status = VTY_NORMAL;
 	vty->lines = -1;
 	vty->iac = 0;
 	vty->iac_sb_in_progress = 0;
 	vty->sb_len = 0;
+
+	vtys_add_tail(vty_sessions, vty);
 
 	return vty;
 }
@@ -1984,7 +1978,7 @@ static int vtysh_accept(struct thread *thread)
 	vty->wfd = sock;
 	vty->type = VTY_SHELL_SERV;
 	vty->node = VIEW_NODE;
-	vector_set_index(vtyshvec, sock, vty);
+	vtys_add_tail(vtysh_sessions, vty);
 
 	vty_event(VTYSH_READ, vty);
 
@@ -2160,9 +2154,9 @@ void vty_close(struct vty *vty)
 	/* Unset vector. */
 	if (vty->fd != -1) {
 		if (vty->type == VTY_SHELL_SERV)
-			vector_unset(vtyshvec, vty->fd);
+			vtys_del(vtysh_sessions, vty);
 		else
-			vector_unset(vtyvec, vty->fd);
+			vtys_del(vty_sessions, vty);
 	}
 
 	if (vty->wfd > 0 && vty->type == VTY_FILE)
@@ -2494,21 +2488,11 @@ static void update_xpath(struct vty *vty, const char *oldpath,
 void vty_update_xpath(const char *oldpath, const char *newpath)
 {
 	struct vty *vty;
-	unsigned int i;
 
-	for (i = 0; i < vector_active(vtyshvec); i++) {
-		if ((vty = vector_slot(vtyshvec, i)) == NULL)
-			continue;
-
+	frr_each (vtys, vtysh_sessions, vty)
 		update_xpath(vty, oldpath, newpath);
-	}
-
-	for (i = 0; i < vector_active(vtyvec); i++) {
-		if ((vty = vector_slot(vtyvec, i)) == NULL)
-			continue;
-
+	frr_each (vtys, vty_sessions, vty)
 		update_xpath(vty, oldpath, newpath);
-	}
 }
 
 int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
@@ -2660,13 +2644,11 @@ DEFUN_NOSH (config_who,
        "who",
        "Display who is on vty\n")
 {
-	unsigned int i;
 	struct vty *v;
 
-	for (i = 0; i < vector_active(vtyvec); i++)
-		if ((v = vector_slot(vtyvec, i)) != NULL)
-			vty_out(vty, "%svty[%d] connected from %s.\n",
-				v->config ? "*" : " ", i, v->address);
+	frr_each (vtys, vty_sessions, v)
+		vty_out(vty, "%svty[%d] connected from %s.\n",
+			v->config ? "*" : " ", v->fd, v->address);
 	return CMD_SUCCESS;
 }
 
@@ -2983,13 +2965,12 @@ void vty_reset(void)
 	struct vty *vty;
 	struct thread *vty_serv_thread;
 
-	for (i = 0; i < vector_active(vtyvec); i++)
-		if ((vty = vector_slot(vtyvec, i)) != NULL) {
-			buffer_reset(vty->lbuf);
-			buffer_reset(vty->obuf);
-			vty->status = VTY_CLOSE;
-			vty_close(vty);
-		}
+	frr_each_safe (vtys, vty_sessions, vty) {
+		buffer_reset(vty->lbuf);
+		buffer_reset(vty->obuf);
+		vty->status = VTY_CLOSE;
+		vty_close(vty);
+	}
 
 	for (i = 0; i < vector_active(Vvty_serv_thread); i++)
 		if ((vty_serv_thread = vector_slot(Vvty_serv_thread, i))
@@ -3048,7 +3029,7 @@ int vty_shell_serv(struct vty *vty)
 
 void vty_init_vtysh(void)
 {
-	vtyvec = vector_init(VECTOR_MIN_SIZE);
+	/* currently nothing to do, but likely to have future use */
 }
 
 /* Install vty's own commands like `who' command. */
@@ -3056,9 +3037,6 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 {
 	/* For further configuration read, preserve current directory. */
 	vty_save_cwd();
-
-	vtyvec = vector_init(VECTOR_MIN_SIZE);
-	vtyshvec = vector_init(VECTOR_MIN_SIZE);
 
 	vty_master = master_thread;
 
@@ -3101,17 +3079,29 @@ void vty_init(struct thread_master *master_thread, bool do_command_logging)
 
 void vty_terminate(void)
 {
+	struct vty *vty;
+
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
 
-	if (vtyvec && Vvty_serv_thread) {
-		vty_reset();
-		vector_free(vtyvec);
-		vector_free(Vvty_serv_thread);
-		vtyvec = NULL;
-		Vvty_serv_thread = NULL;
+	vty_reset();
+
+	/* default state of vty_sessions is initialized & empty. */
+	vtys_fini(vty_sessions);
+	vtys_init(vty_sessions);
+
+	/* vty_reset() doesn't close vtysh sessions */
+	frr_each_safe (vtys, vtysh_sessions, vty) {
+		buffer_reset(vty->lbuf);
+		buffer_reset(vty->obuf);
+		vty->status = VTY_CLOSE;
+		vty_close(vty);
 	}
-	if (vtyshvec) {
-		vector_free(vtyshvec);
-		vtyshvec = NULL;
+
+	vtys_fini(vtysh_sessions);
+	vtys_init(vtysh_sessions);
+
+	if (Vvty_serv_thread) {
+		vector_free(Vvty_serv_thread);
+		Vvty_serv_thread = NULL;
 	}
 }

@@ -56,8 +56,12 @@ struct vty_cfg_change {
 	const char *value;
 };
 
+PREDECL_DLIST(vtys);
+
 /* VTY struct. */
 struct vty {
+	struct vtys_item itm;
+
 	/* File descripter of this vty. */
 	int fd;
 
