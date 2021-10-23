@@ -542,6 +542,12 @@ static void pbr_encode_pbr_map_sequence(struct stream *s,
 	stream_putc(s, pbrms->dsfield);
 	stream_putl(s, pbrms->mark);
 
+	stream_putl(s, pbrms->action_queue_id);
+
+	stream_putw(s, pbrms->action_vlan_id);
+	stream_putw(s, pbrms->action_vlan_flags);
+	stream_putw(s, pbrms->action_pcp);
+
 	if (pbrms->vrf_unchanged || pbrms->vrf_lookup)
 		pbr_encode_pbr_map_sequence_vrf(s, pbrms, ifp);
 	else if (pbrms->nhgrp_name)

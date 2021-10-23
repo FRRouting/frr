@@ -407,6 +407,82 @@ static void pbrms_clear_set_config(struct pbr_map_sequence *pbrms)
 	pbrms->nhs_installed = false;
 }
 
+
+DEFPY(pbr_map_action_queue_id, pbr_map_action_queue_id_cmd,
+      "[no] set queue-id <(1-65535)$queue_id>",
+      NO_STR
+      "Set the rest of the command\n"
+      "Set based on egress port queue id\n"
+      "A valid value in range 1..65535 \n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_queue_id = queue_id;
+	else if ((uint32_t)queue_id == pbrms->action_queue_id)
+		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_pcp, pbr_map_action_pcp_cmd, "[no] set pcp <(0-7)$pcp>",
+      NO_STR
+      "Set the rest of the command\n"
+      "Set based on 802.1p Priority Code Point (PCP) value\n"
+      "A valid value in range 0..7\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_pcp = pcp;
+	else if (pcp == pbrms->action_pcp)
+		pbrms->action_pcp = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_vlan_id, pbr_map_action_vlan_id_cmd,
+      "[no] set vlan <(1-4094)$vlan_id>",
+      NO_STR
+      "Set the rest of the command\n"
+      "Set action for VLAN tagging\n"
+      "A valid value in range 1..4094\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_vlan_id = vlan_id;
+	else if (pbrms->action_vlan_id == vlan_id)
+		pbrms->action_vlan_id = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_strip_vlan, pbr_map_action_strip_vlan_cmd,
+      "[no] strip vlan",
+      NO_STR
+      "Strip the vlan tags from frame\n"
+      "Strip any inner vlan tag \n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_vlan_flags = PBR_MAP_STRIP_INNER_ANY;
+	else
+		pbrms->action_vlan_flags = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
       "set nexthop-group NHGNAME$name",
       "Set for the PBR-MAP\n"
@@ -763,6 +839,18 @@ static void vty_show_pbrms(struct vty *vty,
 			pbrms->dsfield & PBR_DSFIELD_ECN);
 	if (pbrms->mark)
 		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
+
+	if (pbrms->action_queue_id != PBR_MAP_UNDEFINED_QUEUE_ID)
+		vty_out(vty, "        Set Queue ID %u\n",
+			pbrms->action_queue_id);
+
+	if (pbrms->action_vlan_id != 0)
+		vty_out(vty, "        Set VLAN ID %u\n", pbrms->action_vlan_id);
+	if (pbrms->action_vlan_flags == PBR_MAP_STRIP_INNER_ANY)
+		vty_out(vty, "        Strip VLAN ID\n");
+	if (pbrms->action_pcp)
+		vty_out(vty, "        Set PCP %u\n", pbrms->action_pcp);
+
 
 	if (pbrms->nhgrp_name) {
 		vty_out(vty, "        Nexthop-Group: %s\n", pbrms->nhgrp_name);
@@ -1170,6 +1258,19 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	if (pbrms->mark)
 		vty_out(vty, " match mark %u\n", pbrms->mark);
 
+
+	if (pbrms->action_queue_id != PBR_MAP_UNDEFINED_QUEUE_ID)
+		vty_out(vty, " set queue-id %d\n", pbrms->action_queue_id);
+
+	if (pbrms->action_pcp)
+		vty_out(vty, " set pcp %d\n", pbrms->action_pcp);
+
+	if (pbrms->action_vlan_id)
+		vty_out(vty, " set vlan %u\n", pbrms->action_vlan_id);
+
+	if (pbrms->action_vlan_flags == PBR_MAP_STRIP_INNER_ANY)
+		vty_out(vty, " strip vlan any\n");
+
 	if (pbrms->vrf_unchanged)
 		vty_out(vty, " set vrf unchanged\n");
 
@@ -1257,6 +1358,10 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_match_dscp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_ecn_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_queue_id_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &no_pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);
