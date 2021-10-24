@@ -653,8 +653,8 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 
 static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
 {
-	pim_forward_stop(ch);
 	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
+	pim_forward_stop(ch);
 
 	if (ch->upstream)
 		PIM_UPSTREAM_FLAG_UNSET_SRC_PIM(ch->upstream->flags);
