@@ -966,6 +966,7 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 
 	for (ALL_LIST_ELEMENTS(sg.srv6_locators, node, nnode, loc)) {
 		struct prefix_ipv6 *chunk_prefix = NULL;
+
 		if (strcmp(loc->name, s6c.locator_name) != 0) {
 			zlog_err("%s: Locator name unmatch %s:%s", __func__,
 				 loc->name, s6c.locator_name);

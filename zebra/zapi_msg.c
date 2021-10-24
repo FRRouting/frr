@@ -2919,8 +2919,9 @@ static void zread_srv6_manager_get_locator_chunk(struct zserv *client,
 	STREAM_GET(locator_name, s, len);
 
 	/* call hook to get a chunk using wrapper */
-	struct srv6_locator *loc = NULL;
-	srv6_manager_get_locator_chunk_call(&loc, client, locator_name, vrf_id);
+	struct srv6_locator_chunk *chunk = NULL;
+	srv6_manager_get_locator_chunk_call(&chunk, client, locator_name,
+					    vrf_id);
 
 stream_failure:
 	return;

@@ -241,6 +241,7 @@ DEFUN_NOSH (srv6_locator,
 
 	VTY_PUSH_CONTEXT(SRV6_LOC_NODE, locator);
 	vty->node = SRV6_LOC_NODE;
+	zebra_srv6_locator_add(locator);
 	return CMD_SUCCESS;
 }
 
@@ -324,16 +325,11 @@ DEFPY (locator_prefix,
 	locator->function_bits_length = func_bit_len;
 	locator->argument_bits_length = 0;
 
-	locator->chunk_bits_length = 16;
+	// currently srv6 manager supports the chunk_length to only 4 bits.
+	// the feature enables us to manipulate at most 16 chunks.
+	locator->chunk_bits_length = DEFAULT_SRV6_LOCATOR_PERCHUNK_LEN;
 
-	if (list_isempty(locator->chunks)) {
-		chunk = srv6_locator_chunk_alloc();
-		strlcpy(chunk->locator_name, locator->name,
-			sizeof(chunk->locator_name));
-		chunk->prefix = locator->prefix;
-		chunk->prefix.prefixlen += locator->chunk_bits_length;
-		listnode_add(locator->chunks, chunk);
-	} else {
+	if (!list_isempty(locator->chunks)) {
 		for (ALL_LIST_ELEMENTS_RO(locator->chunks, node, chunk)) {
 			uint8_t zero[16] = {0};
 
@@ -344,7 +340,7 @@ DEFPY (locator_prefix,
 				for (ALL_LIST_ELEMENTS_RO(zrouter.client_list,
 							  client_node,
 							  client)) {
-					struct srv6_locator *tmp;
+					struct srv6_locator_chunk *tmp;
 
 					if (client->proto != chunk->proto)
 						continue;
@@ -358,7 +354,6 @@ DEFPY (locator_prefix,
 		}
 	}
 
-	zebra_srv6_locator_add(locator);
 	return CMD_SUCCESS;
 }
 

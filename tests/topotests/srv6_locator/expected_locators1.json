@@ -5,10 +5,6 @@
 			"prefix": "2001:db8:1:1::/64",
 			"statusUp": true,
 			"chunks": [
-				{
-					"prefix": "2001:db8:1:1::/80",
-					"proto": "system"
-				}
 			]
 		},
 		{
@@ -16,10 +12,6 @@
 			"prefix": "2001:db8:2:2::/64",
 			"statusUp": true,
 			"chunks": [
-				{
-					"prefix": "2001:db8:2:2::/80",
-					"proto": "system"
-				}
 			]
 		}
 	]
