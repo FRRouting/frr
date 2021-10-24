@@ -4757,6 +4757,7 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 {
 	struct peer_group *group;
 	struct listnode *node, *nnode;
+	int ttl;
 
 	if (peer->sort == BGP_PEER_IBGP)
 		return 0;
@@ -4765,9 +4766,14 @@ int peer_ebgp_multihop_unset(struct peer *peer)
 		return BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK;
 
 	if (peer_group_active(peer))
-		peer->ttl = peer->group->conf->ttl;
+		ttl = peer->group->conf->ttl;
 	else
-		peer->ttl = BGP_DEFAULT_TTL;
+		ttl = BGP_DEFAULT_TTL;
+
+	if (ttl == peer->ttl)
+		return 0;
+
+	peer->ttl = ttl;
 
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status))
