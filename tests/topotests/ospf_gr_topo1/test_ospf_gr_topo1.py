@@ -231,7 +231,7 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
             tries = 240
         else:
             if restarting != None:
-                tries = 40
+                tries = 60
             else:
                 tries = 1
         router_compare_json_output(
