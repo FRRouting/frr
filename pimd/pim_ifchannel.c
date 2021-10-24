@@ -651,9 +651,9 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
 	return ch;
 }
 
-static void ifjoin_to_noinfo(struct pim_ifchannel *ch, bool ch_del)
+static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
 {
-	pim_forward_stop(ch, !ch_del);
+	pim_forward_stop(ch);
 	pim_ifchannel_ifjoin_switch(__func__, ch, PIM_IFJOIN_NOINFO);
 
 	if (ch->upstream)
@@ -661,8 +661,7 @@ static void ifjoin_to_noinfo(struct pim_ifchannel *ch, bool ch_del)
 
 	PIM_IF_FLAG_UNSET_PROTO_PIM(ch->flags);
 
-	if (ch_del)
-		delete_on_noinfo(ch);
+	delete_on_noinfo(ch);
 }
 
 static int on_ifjoin_expiry_timer(struct thread *t)
@@ -675,7 +674,7 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 		zlog_debug("%s: ifchannel %s expiry timer", __func__,
 			   ch->sg_str);
 
-	ifjoin_to_noinfo(ch, true);
+	ifjoin_to_noinfo(ch);
 	/* ch may have been deleted */
 
 	return 0;
@@ -714,7 +713,7 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 					&rpf, ch->upstream, 0);
 			}
 
-			ifjoin_to_noinfo(ch, true);
+			ifjoin_to_noinfo(ch);
 		} else {
 			/* If SGRpt flag is set on ifchannel, Trigger SGRpt
 			 *  message on RP path upon prune timer expiry.

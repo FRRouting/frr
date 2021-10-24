@@ -845,14 +845,14 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			mask, __func__);
 }
 
-void pim_forward_stop(struct pim_ifchannel *ch, bool install_it)
+void pim_forward_stop(struct pim_ifchannel *ch)
 {
 	struct pim_upstream *up = ch->upstream;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: (S,G)=%s oif=%s install_it: %d installed: %d",
+		zlog_debug("%s: (S,G)=%s oif=%s installed: %d",
 			   __func__, ch->sg_str, ch->interface->name,
-			   install_it, up->channel_oil->installed);
+			   up->channel_oil->installed);
 	}
 
 	/*
@@ -865,9 +865,6 @@ void pim_forward_stop(struct pim_ifchannel *ch, bool install_it)
 	else
 		pim_channel_del_oif(up->channel_oil, ch->interface,
 				    PIM_OIF_FLAG_PROTO_PIM, __func__);
-
-	if (install_it && !up->channel_oil->installed)
-		pim_upstream_mroute_add(up->channel_oil, __func__);
 }
 
 void pim_zebra_zclient_update(struct vty *vty)
