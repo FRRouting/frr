@@ -1425,15 +1425,6 @@ Configuring Peers
 
    Set description of the peer.
 
-.. clicmd:: neighbor PEER version VERSION
-
-   Set up the neighbor's BGP version. `version` can be `4`, `4+` or `4-`. BGP
-   version `4` is the default value used for BGP peering. BGP version `4+`
-   means that the neighbor supports Multiprotocol Extensions for BGP-4. BGP
-   version `4-` is similar but the neighbor speaks the old Internet-Draft
-   revision 00's Multiprotocol Extensions for BGP-4. Some routing software is
-   still using this version.
-
 .. clicmd:: neighbor PEER interface IFNAME
 
    When you connect to a BGP peer over an IPv6 link-local address, you have to
