@@ -7666,6 +7666,7 @@ DEFUN(neighbor_maximum_prefix_out,
       "Maximum number of prefixes to be sent to this peer\n"
       "Maximum no. of prefix limit\n")
 {
+	int ret;
 	int idx_peer = 1;
 	int idx_number = 3;
 	struct peer *peer;
@@ -7679,11 +7680,9 @@ DEFUN(neighbor_maximum_prefix_out,
 
 	max = strtoul(argv[idx_number]->arg, NULL, 10);
 
-	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-	peer->pmax_out[afi][safi] = max;
+	ret = peer_maximum_prefix_out_set(peer, afi, safi, max);
 
-	peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
-	return CMD_SUCCESS;
+	return bgp_vty_return(vty, ret);
 }
 
 DEFUN(no_neighbor_maximum_prefix_out,
@@ -7695,6 +7694,7 @@ DEFUN(no_neighbor_maximum_prefix_out,
       "Maximum number of prefixes to be sent to this peer\n"
       "Maximum no. of prefix limit\n")
 {
+	int ret;
 	int idx_peer = 2;
 	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
@@ -7704,11 +7704,9 @@ DEFUN(no_neighbor_maximum_prefix_out,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-	peer->pmax_out[afi][safi] = 0;
+	ret = peer_maximum_prefix_out_unset(peer, afi, safi);
 
-	peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
-	return CMD_SUCCESS;
+	return bgp_vty_return(vty, ret);
 }
 
 /* Maximum number of prefix configuration. Prefix count is different
