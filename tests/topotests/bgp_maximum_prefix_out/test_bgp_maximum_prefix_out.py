@@ -118,7 +118,7 @@ def test_bgp_maximum_prefix_out():
         ("router bgp\n int lo\n ip address 172.16.255.248/32", 1),
         # removing the max-prefix-out value
         (
-            "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out",
+            "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out 1",
             8,
         ),
     ]
