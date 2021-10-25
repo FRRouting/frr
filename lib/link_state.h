@@ -94,6 +94,16 @@ struct ls_node_id {
 	} id __attribute__((aligned(8)));
 };
 
+/**
+ * Check if two Link State Node IDs are equal. Note that this routine has the
+ * same return value sense as '==' (which is different from a comparison).
+ *
+ * @param i1	First Link State Node Identifier
+ * @param i2	Second Link State Node Identifier
+ * @return	1 if equal, 0 otherwise
+ */
+extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
+
 /* Link State flags to indicate which Node parameters are valid */
 #define LS_NODE_UNSET		0x0000
 #define LS_NODE_NAME		0x0001
