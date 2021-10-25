@@ -50,6 +50,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_DYNAMIC        67 /* Dynamic Capability */
 #define CAPABILITY_CODE_ADDPATH        69 /* Addpath Capability */
 #define CAPABILITY_CODE_ENHANCED_RR    70 /* Enhanced Route Refresh capability */
+#define CAPABILITY_CODE_LLGR           71 /* Long-lived Graceful Restart */
 #define CAPABILITY_CODE_FQDN           73 /* Advertise hostname capability */
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
@@ -66,6 +67,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ENHE_LEN        6 /* NRLI AFI = 2, SAFI = 2, Nexthop AFI = 2 */
 #define CAPABILITY_CODE_MIN_FQDN_LEN    2
 #define CAPABILITY_CODE_ENHANCED_LEN    0
+#define CAPABILITY_CODE_LLGR_LEN        0
 #define CAPABILITY_CODE_ORF_LEN         5
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 
@@ -87,6 +89,9 @@ struct graceful_restart_af {
 /* Graceful Restart */
 #define RESTART_R_BIT              0x8000
 #define RESTART_F_BIT              0x80
+
+/* Long-lived Graceful Restart */
+#define LLGR_F_BIT 0x80
 
 extern int bgp_open_option_parse(struct peer *, uint8_t, int *);
 extern void bgp_open_capability(struct stream *, struct peer *);

@@ -3168,6 +3168,36 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
 	return CMD_SUCCESS;
 }
 
+DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
+      "bgp long-lived-graceful-restart stale-time (0-4294967295)", BGP_STR
+      "Enable Long-lived Graceful Restart\n"
+      "Specifies maximum time to wait before purging long-lived stale routes\n"
+      "Stale time value (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	uint32_t llgr_stale_time;
+
+	llgr_stale_time = strtoul(argv[3]->arg, NULL, 10);
+	bgp->llgr_stale_time = llgr_stale_time;
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
+      "no bgp long-lived-graceful-restart stale-time [(0-4294967295)]",
+      NO_STR BGP_STR
+      "Enable Long-lived Graceful Restart\n"
+      "Specifies maximum time to wait before purging long-lived stale routes\n"
+      "Stale time value (seconds)\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
+
+	return CMD_SUCCESS;
+}
+
 static inline void bgp_initiate_graceful_shut_unshut(struct vty *vty,
 						     struct bgp *bgp)
 {
@@ -12838,6 +12868,61 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 					}
 				}
 
+				/* Long-lived Graceful Restart */
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV)
+				    || CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV)) {
+					json_object *json_llgr = NULL;
+					const char *afi_safi_str;
+
+					if (CHECK_FLAG(p->cap,
+						       PEER_CAP_LLGR_ADV)
+					    && CHECK_FLAG(p->cap,
+							  PEER_CAP_LLGR_RCV))
+						json_object_string_add(
+							json_cap,
+							"longLivedGracefulRestart",
+							"advertisedAndReceived");
+					else if (CHECK_FLAG(p->cap,
+							    PEER_CAP_LLGR_ADV))
+						json_object_string_add(
+							json_cap,
+							"longLivedGracefulRestart",
+							"advertised");
+					else if (CHECK_FLAG(p->cap,
+							    PEER_CAP_LLGR_RCV))
+						json_object_string_add(
+							json_cap,
+							"longLivedGracefulRestart",
+							"received");
+
+					if (CHECK_FLAG(p->cap,
+						       PEER_CAP_LLGR_RCV)) {
+						json_llgr =
+							json_object_new_object();
+
+						FOREACH_AFI_SAFI (afi, safi) {
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_ENHE_AF_RCV)) {
+								afi_safi_str = get_afi_safi_str(
+									afi,
+									safi,
+									true);
+								json_object_string_add(
+									json_llgr,
+									afi_safi_str,
+									"received");
+							}
+						}
+						json_object_object_add(
+							json_cap,
+							"longLivedGracefulRestartByPeer",
+							json_llgr);
+					}
+				}
+
 				/* Route Refresh */
 				if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV)
 				    || CHECK_FLAG(p->cap,
@@ -13273,6 +13358,43 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 									"           %s\n",
 									get_afi_safi_str(
 										AFI_IP,
+										safi,
+										false));
+					}
+				}
+
+				/* Long-lived Graceful Restart */
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV)
+				    || CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV)) {
+					vty_out(vty,
+						"    Long-lived Graceful Restart:");
+					if (CHECK_FLAG(p->cap,
+						       PEER_CAP_LLGR_ADV))
+						vty_out(vty, " advertised");
+					if (CHECK_FLAG(p->cap,
+						       PEER_CAP_LLGR_RCV))
+						vty_out(vty, " %sreceived",
+							CHECK_FLAG(
+								p->cap,
+								PEER_CAP_LLGR_ADV)
+								? "and "
+								: "");
+					vty_out(vty, "\n");
+
+					if (CHECK_FLAG(p->cap,
+						       PEER_CAP_LLGR_RCV)) {
+						vty_out(vty,
+							"      Address families by peer:\n");
+						FOREACH_AFI_SAFI (afi, safi)
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_LLGR_AF_RCV))
+								vty_out(vty,
+									"           %s\n",
+									get_afi_safi_str(
+										afi,
 										safi,
 										false));
 					}
@@ -17253,6 +17375,12 @@ int bgp_config_write(struct vty *vty)
 			if (CHECK_FLAG(bgp->flags, BGP_FLAG_GRACEFUL_SHUTDOWN))
 				vty_out(vty, " bgp graceful-shutdown\n");
 
+		/* Long-lived Graceful Restart */
+		if (bgp->llgr_stale_time != BGP_DEFAULT_LLGR_STALE_TIME)
+			vty_out(vty,
+				" bgp long-lived-graceful-restart stale-time %u\n",
+				bgp->llgr_stale_time);
+
 		/* BGP graceful-restart. */
 		if (bgp->stalepath_time != BGP_DEFAULT_STALEPATH_TIME)
 			vty_out(vty,
@@ -17829,6 +17957,10 @@ void bgp_vty_init(void)
 	/* "bgp graceful-shutdown" commands */
 	install_element(BGP_NODE, &bgp_graceful_shutdown_cmd);
 	install_element(BGP_NODE, &no_bgp_graceful_shutdown_cmd);
+
+	/* "bgp long-lived-graceful-restart" commands */
+	install_element(BGP_NODE, &bgp_llgr_stalepath_time_cmd);
+	install_element(BGP_NODE, &no_bgp_llgr_stalepath_time_cmd);
 
 	/* "bgp fast-external-failover" commands */
 	install_element(BGP_NODE, &bgp_fast_external_failover_cmd);

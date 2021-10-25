@@ -572,6 +572,46 @@ static int bgp_capability_restart(struct peer *peer,
 	return 0;
 }
 
+static int bgp_capability_llgr(struct peer *peer,
+			       struct capability_header *caphdr)
+{
+	struct stream *s = BGP_INPUT(peer);
+	size_t end = stream_get_getp(s) + caphdr->length;
+
+	SET_FLAG(peer->cap, PEER_CAP_LLGR_RCV);
+
+	while (stream_get_getp(s) + 4 <= end) {
+		afi_t afi;
+		safi_t safi;
+		iana_afi_t pkt_afi = stream_getw(s);
+		iana_safi_t pkt_safi = stream_getc(s);
+		uint8_t flags = stream_getc(s);
+		uint32_t stale_time = stream_get3(s);
+
+		if (bgp_map_afi_safi_iana2int(pkt_afi, pkt_safi, &afi, &safi)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s Addr-family %s/%s(afi/safi) not supported. Ignore the Long-lived Graceful Restart capability for this AFI/SAFI",
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
+		} else if (!peer->afc[afi][safi]
+			   || !CHECK_FLAG(peer->af_cap[afi][safi],
+					  PEER_CAP_RESTART_AF_RCV)) {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s Addr-family %s/%s(afi/safi) not enabled. Ignore the Long-lived Graceful Restart capability",
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi));
+		} else {
+			peer->llgr[afi][safi].flags = flags;
+			peer->llgr[afi][safi].stale_time = stale_time;
+			SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_LLGR_AF_RCV);
+		}
+	}
+
+	return 0;
+}
+
 /* Unlike other capability parsing routines, this one returns 0 on error */
 static as_t bgp_capability_as4(struct peer *peer, struct capability_header *hdr)
 {
@@ -953,6 +993,9 @@ static int bgp_capability_parse(struct peer *peer, size_t length,
 			break;
 		case CAPABILITY_CODE_RESTART:
 			ret = bgp_capability_restart(peer, &caphdr);
+			break;
+		case CAPABILITY_CODE_LLGR:
+			ret = bgp_capability_llgr(peer, &caphdr);
 			break;
 		case CAPABILITY_CODE_DYNAMIC:
 		case CAPABILITY_CODE_DYNAMIC_OLD:
@@ -1404,6 +1447,53 @@ static void bgp_peer_send_gr_capability(struct stream *s, struct peer *peer,
 	stream_putc_at(s, capp, len);
 }
 
+static void bgp_peer_send_llgr_capability(struct stream *s, struct peer *peer,
+					  unsigned long cp)
+{
+	int len;
+	iana_afi_t pkt_afi;
+	afi_t afi;
+	safi_t safi;
+	iana_safi_t pkt_safi;
+	unsigned long capp = 0;
+	unsigned long rcapp = 0;
+
+	if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV))
+		return;
+
+	SET_FLAG(peer->cap, PEER_CAP_LLGR_ADV);
+
+	stream_putc(s, BGP_OPEN_OPT_CAP);
+	capp = stream_get_endp(s); /* Set Capability Len Pointer */
+	stream_putc(s, 0);	 /* Capability Length */
+	stream_putc(s, CAPABILITY_CODE_LLGR);
+
+	rcapp = stream_get_endp(s);
+	stream_putc(s, 0);
+
+	FOREACH_AFI_SAFI (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
+
+		bgp_map_afi_safi_int2iana(afi, safi, &pkt_afi, &pkt_safi);
+
+		stream_putw(s, pkt_afi);
+		stream_putc(s, pkt_safi);
+		stream_putc(s, LLGR_F_BIT);
+		stream_put3(s, peer->bgp->llgr_stale_time);
+
+		SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_LLGR_AF_ADV);
+	}
+
+	/* Total Long-lived Graceful Restart capability Len. */
+	len = stream_get_endp(s) - rcapp - 1;
+	stream_putc_at(s, rcapp, len);
+
+	/* Total Capability Len. */
+	len = stream_get_endp(s) - capp - 1;
+	stream_putc_at(s, capp, len);
+}
+
 /* Fill in capability open option to the packet. */
 void bgp_open_capability(struct stream *s, struct peer *peer)
 {
@@ -1632,6 +1722,7 @@ void bgp_open_capability(struct stream *s, struct peer *peer)
 	}
 
 	bgp_peer_send_gr_capability(s, peer, cp);
+	bgp_peer_send_llgr_capability(s, peer, cp);
 
 	/* Total Opt Parm Len. */
 	len = stream_get_endp(s) - cp - 1;

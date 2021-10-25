@@ -3169,6 +3169,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp_addpath_init_bgp_data(&bgp->tx_addpath);
 	bgp->fast_convergence = false;
 	bgp->as = *as;
+	bgp->llgr_stale_time = BGP_DEFAULT_LLGR_STALE_TIME;
 
 #ifdef ENABLE_BGP_VNC
 	if (inst_type != BGP_INSTANCE_TYPE_VRF) {
