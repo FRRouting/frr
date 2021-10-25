@@ -193,7 +193,7 @@ def test_bfd_isis_interface_failure_rt2_step3():
     # initial 2 seconds to let the CI not suffer.
     # TODO: add check for array size
     router_compare_json_output(
-        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 20, 10
+        "rt1", "show ip route isis json", "step3/show_ip_route_rt2_down.ref", 20, 1
     )
     router_compare_json_output(
         "rt1", "show ipv6 route isis json", "step3/show_ipv6_route_rt2_down.ref", 20, 1
