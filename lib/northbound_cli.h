@@ -127,7 +127,8 @@ extern int nb_cli_rpc(struct vty *vty, const char *xpath, struct list *input,
  * show_defaults
  *    Specify whether to display default configuration values or not.
  */
-extern void nb_cli_show_dnode_cmds(struct vty *vty, struct lyd_node *dnode,
+extern void nb_cli_show_dnode_cmds(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
 
 /*
