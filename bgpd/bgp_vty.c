@@ -7707,11 +7707,12 @@ DEFUN(neighbor_maximum_prefix_out,
 
 DEFUN(no_neighbor_maximum_prefix_out,
       no_neighbor_maximum_prefix_out_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out",
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out [(1-4294967295)]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
-      "Maximum number of prefixes to be sent to this peer\n")
+      "Maximum number of prefixes to be sent to this peer\n"
+      "Maximum no. of prefix limit\n")
 {
 	int idx_peer = 2;
 	struct peer *peer;
