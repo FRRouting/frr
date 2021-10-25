@@ -29,6 +29,7 @@
 #include <stdint.h>
 
 #include "zebra/rt_netlink.h"
+#include "zebra/kernel_netlink.h"
 
 const char *nlmsg_type2str(uint16_t type)
 {
