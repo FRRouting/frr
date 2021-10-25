@@ -2012,6 +2012,10 @@ static void peer_group2peer_config_copy_af(struct peer_group *group,
 		PEER_ATTR_INHERIT(peer, group, pmax_restart[afi][safi]);
 	}
 
+	/* maximum-prefix-out */
+	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_MAX_PREFIX_OUT))
+		PEER_ATTR_INHERIT(peer, group, pmax_out[afi][safi]);
+
 	/* allowas-in */
 	if (!CHECK_FLAG(pflags_ovrd, PEER_FLAG_ALLOWAS_IN))
 		PEER_ATTR_INHERIT(peer, group, allowas_in[afi][safi]);
@@ -4220,6 +4224,7 @@ static const struct peer_flag_action peer_af_flag_action_list[] = {
 	{PEER_FLAG_MAX_PREFIX, 0, peer_change_none},
 	{PEER_FLAG_MAX_PREFIX_WARNING, 0, peer_change_none},
 	{PEER_FLAG_MAX_PREFIX_FORCE, 0, peer_change_none},
+	{PEER_FLAG_MAX_PREFIX_OUT, 0, peer_change_none},
 	{PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED, 0, peer_change_reset_out},
 	{PEER_FLAG_FORCE_NEXTHOP_SELF, 1, peer_change_reset_out},
 	{PEER_FLAG_REMOVE_PRIVATE_AS_ALL, 1, peer_change_reset_out},
@@ -7326,6 +7331,87 @@ void peer_maximum_prefix_out_refresh_routes(struct peer *peer, afi_t afi,
 
 	if (peer_established(peer))
 		bgp_announce_route(peer, afi, safi, false);
+}
+
+int peer_maximum_prefix_out_set(struct peer *peer, afi_t afi, safi_t safi,
+				uint32_t max)
+{
+	struct peer *member;
+	struct listnode *node, *nnode;
+
+	/* Set flag on peer and peer-group member if any */
+	peer_af_flag_set(peer, afi, safi, PEER_FLAG_MAX_PREFIX_OUT);
+	/* Set configuration on peer. */
+	peer->pmax_out[afi][safi] = max;
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Skip peer-group mechanics for regular peers. */
+		peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
+		return 0;
+	}
+
+	/*
+	 * Set flag and configuration on all peer-group members, unless they
+	 * are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS(peer->group->peer, node, nnode, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->af_flags_override[afi][safi],
+			       PEER_FLAG_MAX_PREFIX_OUT))
+			continue;
+
+		/* Set configuration on peer-group member. */
+		member->pmax_out[afi][safi] = max;
+
+		peer_maximum_prefix_out_refresh_routes(member, afi, safi);
+	}
+	return 0;
+}
+
+int peer_maximum_prefix_out_unset(struct peer *peer, afi_t afi, safi_t safi)
+{
+	struct peer *member;
+	struct listnode *node;
+	/* Inherit configuration from peer-group if peer is member. */
+	if (peer_group_active(peer)) {
+		peer_af_flag_inherit(peer, afi, safi, PEER_FLAG_MAX_PREFIX_OUT);
+		PEER_ATTR_INHERIT(peer, peer->group, pmax_out[afi][safi]);
+
+		peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
+		return 0;
+	}
+
+	/* Remove flag and configuration from peer. */
+	peer_af_flag_unset(peer, afi, safi, PEER_FLAG_MAX_PREFIX_OUT);
+	peer->pmax_out[afi][safi] = 0;
+
+	/* Check if handling a regular peer. */
+	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
+		/* Skip peer-group mechanics for regular peers. */
+		peer_maximum_prefix_out_refresh_routes(peer, afi, safi);
+		return 0;
+	}
+
+	/*
+	 * Remove flag and configuration from all peer-group members, unless
+	 * they are explicitely overriding peer-group configuration.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(peer->group->peer, node, member)) {
+		/* Skip peers with overridden configuration. */
+		if (CHECK_FLAG(member->af_flags_override[afi][safi],
+			       PEER_FLAG_MAX_PREFIX_OUT))
+			continue;
+
+		/* Remove flag and configuration on peer-group member.
+		 */
+		UNSET_FLAG(member->af_flags[afi][safi],
+			   PEER_FLAG_MAX_PREFIX_OUT);
+		member->pmax_out[afi][safi] = 0;
+
+		peer_maximum_prefix_out_refresh_routes(member, afi, safi);
+	}
+	return 0;
 }
 
 int is_ebgp_multihop_configured(struct peer *peer)
