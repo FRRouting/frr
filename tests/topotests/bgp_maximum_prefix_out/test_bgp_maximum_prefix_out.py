@@ -121,6 +121,48 @@ def test_bgp_maximum_prefix_out():
             "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out 1",
             8,
         ),
+        # test setting the existing neighbor into a peer-group with a max-prefix-out value
+        (
+            """
+                router bgp
+                 neighbor test peer-group
+                 neighbor test remote-as 65002
+                 neighbor test timers 3 10
+                 address-family ipv4
+                  neighbor test maximum-prefix-out 3
+                 !
+                 neighbor 192.168.255.1 peer-group test
+            """,
+            3,
+        ),
+        # max-prefix-out value of the neighbor must take the precedence
+        (
+            "router bgp\n address-family ipv4\n neighbor 192.168.255.1 maximum-prefix-out 4",
+            4,
+        ),
+        (
+            "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out",
+            3,
+        ),
+        (
+            """
+                router bgp
+                 no neighbor 192.168.255.1 peer-group test
+                 neighbor 192.168.255.1 remote-as 65002
+                 neighbor 192.168.255.1 timers 3 10
+            """,
+            8,
+        ),
+        (
+            "router bgp\n address-family ipv4\n neighbor 192.168.255.1 maximum-prefix-out 5",
+            5,
+        ),
+        # test setting the existing neighbor with a max-pref-out value into a peer-group with a max-pref-out value
+        ("router bgp\n neighbor 192.168.255.1 peer-group test", 5),
+        (
+            "router bgp\n address-family ipv4\n no neighbor 192.168.255.1 maximum-prefix-out 5",
+            3,
+        ),
     ]
 
     def _bgp_converge(router, nb_prefixes):
