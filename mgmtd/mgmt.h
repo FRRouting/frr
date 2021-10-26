@@ -36,6 +36,7 @@
 #include "linklist.h"
 #include "defaults.h"
 #include "bitfield.h"
+#include "stream.h"
 
 #include "mgmt_memory.h"
 #include "mgmt_db.h"
@@ -78,6 +79,13 @@ struct mgmt_master {
 extern struct mgmt_master *mm;
 
 /* Inline functions */
+
+static inline unsigned long timeval_elapsed(struct timeval a, struct timeval b)
+{
+	return (((a.tv_sec - b.tv_sec) * TIMER_SECOND_MICRO)
+		+ (a.tv_usec - b.tv_usec));
+}
+
 static inline void mgmt_remove_trailing_separator(char *str, char sep)
 {
 	size_t len;

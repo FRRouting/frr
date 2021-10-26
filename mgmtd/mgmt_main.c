@@ -135,26 +135,6 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-static struct quagga_signal_t mgmt_signals[] = {
-	{
-		.signal = SIGHUP,
-		.handler = &sighup,
-	},
-	{
-		.signal = SIGUSR1,
-		.handler = &sigusr1,
-	},
-	{
-		.signal = SIGINT,
-		.handler = &sigint,
-	},
-	{
-		.signal = SIGTERM,
-		.handler = &sigint,
-	},
-};
-
-
 /*
  * Try to free up allocations we know about so that diagnostic tools such as
  * valgrind are able to better illuminate leaks.
@@ -177,6 +157,25 @@ static __attribute__((__noreturn__)) void mgmt_exit(int status)
 	frr_fini();
 	exit(status);
 }
+
+static struct quagga_signal_t mgmt_signals[] = {
+	{
+		.signal = SIGHUP,
+		.handler = &sighup,
+	},
+	{
+		.signal = SIGUSR1,
+		.handler = &sigusr1,
+	},
+	{
+		.signal = SIGINT,
+		.handler = &sigint,
+	},
+	{
+		.signal = SIGTERM,
+		.handler = &sigint,
+	},
+};
 
 static int mgmt_vrf_new(struct vrf *vrf)
 {

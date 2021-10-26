@@ -50,7 +50,7 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 struct mgmt_db_ctxt {
-	enum mgmt_database_id db_id;
+	Mgmtd__DatabaseId db_id;
 	pthread_rwlock_t rw_lock;
 
 	bool config_db;
@@ -230,11 +230,9 @@ void mgmt_db_destroy(void)
 	/*
 	 * TODO: Free the databases.
 	 */
-
 }
 
-uint64_t mgmt_db_get_hndl_by_id(struct mgmt_master *cm,
-				enum mgmt_database_id db_id)
+uint64_t mgmt_db_get_hndl_by_id(struct mgmt_master *cm, Mgmtd__DatabaseId db_id)
 {
 	switch (db_id) {
 	case MGMTD_DB_CANDIDATE:
