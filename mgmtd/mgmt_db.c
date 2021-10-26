@@ -41,7 +41,7 @@
 #endif /* REDIRECT_DEBUG_TO_STDERR */
 
 struct mgmt_db_ctx {
-	enum mgmt_database_id db_id;
+	Mgmtd__DatabaseId db_id;
 	pthread_rwlock_t rw_lock;
 
 	bool config_db;
@@ -224,11 +224,10 @@ void mgmt_db_destroy(void)
 	/*
 	 * TODO: Free the databases.
 	 */
-
 }
 
 struct mgmt_db_ctx *mgmt_db_get_ctx_by_id(struct mgmt_master *mm,
-				enum mgmt_database_id db_id)
+					    Mgmtd__DatabaseId db_id)
 {
 	switch (db_id) {
 	case MGMTD_DB_CANDIDATE:
@@ -237,7 +236,9 @@ struct mgmt_db_ctx *mgmt_db_get_ctx_by_id(struct mgmt_master *mm,
 		return (mm->running_db);
 	case MGMTD_DB_OPERATIONAL:
 		return (mm->oper_db);
-	default:
+	case MGMTD_DB_NONE:
+	case MGMTD__DATABASE_ID__STARTUP_DB:
+	case _MGMTD__DATABASE_ID_IS_INT_SIZE:
 		return 0;
 	}
 

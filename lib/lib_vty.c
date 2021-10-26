@@ -260,6 +260,9 @@ DEFUN_HIDDEN (end_config,
 
 	zlog_info("Configuration Read in Took: %s", readin_time_str);
 
+	if (vty_mgmt_fe_enabled())
+		vty_mgmt_send_commit_config(vty, false, false);
+
 	if (callback.end_config)
 		(*callback.end_config)();
 
