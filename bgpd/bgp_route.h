@@ -218,7 +218,10 @@ struct bgp_path_info_extra {
 	 * For imported routes into a VNI (or VRF)
 	 */
 	void *parent;	    /* parent from global table */
-	struct ethaddr mac; /* MAC set here for VNI table */
+	union {
+		struct ethaddr mac; /* MAC set here for VNI IP table */
+		struct ipaddr ip;   /* IP set here for VNI MAC table */
+	} vni_info;
 
 	/*
 	 * Some tunnelish parameters follow. Maybe consolidate into an
