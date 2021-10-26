@@ -1,4 +1,5 @@
-/* MGMTD public defines.
+/*
+ * MGMTD Frontend Server
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
@@ -17,35 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_MGMTD_DEFINES_H
-#define _FRR_MGMTD_DEFINES_H
+#ifndef _FRR_MGMTD_FE_SERVER_H_
+#define _FRR_MGMTD_FE_SERVER_H_
 
-#include "lib/mgmt_pb.h"
+#define MGMTD_FE_MAX_CONN 32
 
-#define MGMTD_CLIENT_NAME_MAX_LEN 32
+/* Initialise frontend server */
+extern int mgmt_fe_server_init(struct thread_master *master);
 
-#define MGMTD_MAX_XPATH_LEN XPATH_MAXLEN
+/* Destroy frontend server */
+extern void mgmt_fe_server_destroy(void);
 
-#define MGMTD_MAX_YANG_VALUE_LEN YANG_VALUE_MAXLEN
-
-enum mgmt_result {
-	MGMTD_SUCCESS = 0,
-	MGMTD_INVALID_PARAM,
-	MGMTD_INTERNAL_ERROR,
-	MGMTD_NO_CFG_CHANGES,
-	MGMTD_DB_LOCK_FAILED,
-	MGMTD_DB_UNLOCK_FAILED,
-	MGMTD_UNKNOWN_FAILURE
-};
-
-enum mgmt_fe_event {
-	MGMTD_FE_SERVER = 1,
-	MGMTD_FE_CONN_READ,
-	MGMTD_FE_CONN_WRITE,
-	MGMTD_FE_CONN_WRITES_ON,
-	MGMTD_FE_PROC_MSG
-};
-
-#define MGMTD_TXN_ID_NONE 0
-
-#endif /* _FRR_MGMTD_DEFINES_H */
+#endif /* _FRR_MGMTD_FE_SERVER_H_ */

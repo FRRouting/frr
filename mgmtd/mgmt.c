@@ -20,6 +20,8 @@
 #include <zebra.h>
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_vty.h"
+#include "mgmtd/mgmt_fe_server.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_db.h"
 #include "mgmtd/mgmt_memory.h"
 
@@ -48,8 +50,20 @@ void mgmt_master_init(struct thread_master *master, const int buffer_size)
 void mgmt_init(void)
 {
 
+	/*
+	 * Allocates some vital data structures used by peer commands in
+	 * vty_init
+	 */
+	vty_init_mgmt_fe();
+
 	/* Initialize databases */
 	mgmt_db_init(mm);
+
+	/* Initialize the MGMTD Frontend Adapter Module */
+	mgmt_fe_adapter_init(mm->master, mm);
+
+	/* Start the MGMTD Frontend Server for clients to connect */
+	mgmt_fe_server_init(mm->master);
 
 	/* MGMTD VTY commands installation.  */
 	mgmt_vty_init();
@@ -57,5 +71,7 @@ void mgmt_init(void)
 
 void mgmt_terminate(void)
 {
+	mgmt_fe_server_destroy();
+	mgmt_fe_adapter_destroy();
 	mgmt_db_destroy();
 }

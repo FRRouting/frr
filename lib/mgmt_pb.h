@@ -1,4 +1,5 @@
-/* MGMTD public defines.
+/*
+ * MGMTD protobuf main header file
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
@@ -17,35 +18,21 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_MGMTD_DEFINES_H
-#define _FRR_MGMTD_DEFINES_H
+#ifndef _FRR_MGMTD_PB_H_
+#define _FRR_MGMTD_PB_H_
 
-#include "lib/mgmt_pb.h"
+#include "lib/mgmt.pb-c.h"
 
-#define MGMTD_CLIENT_NAME_MAX_LEN 32
+#define mgmt_yang_data_xpath_init(ptr) mgmtd__yang_data_xpath__init(ptr)
 
-#define MGMTD_MAX_XPATH_LEN XPATH_MAXLEN
+#define mgmt_yang_data_value_init(ptr) mgmtd__yang_data_value__init(ptr)
 
-#define MGMTD_MAX_YANG_VALUE_LEN YANG_VALUE_MAXLEN
+#define mgmt_yang_data_init(ptr) mgmtd__yang_data__init(ptr)
 
-enum mgmt_result {
-	MGMTD_SUCCESS = 0,
-	MGMTD_INVALID_PARAM,
-	MGMTD_INTERNAL_ERROR,
-	MGMTD_NO_CFG_CHANGES,
-	MGMTD_DB_LOCK_FAILED,
-	MGMTD_DB_UNLOCK_FAILED,
-	MGMTD_UNKNOWN_FAILURE
-};
+#define mgmt_yang_data_reply_init(ptr) mgmtd__yang_data_reply__init(ptr)
 
-enum mgmt_fe_event {
-	MGMTD_FE_SERVER = 1,
-	MGMTD_FE_CONN_READ,
-	MGMTD_FE_CONN_WRITE,
-	MGMTD_FE_CONN_WRITES_ON,
-	MGMTD_FE_PROC_MSG
-};
+#define mgmt_yang_cfg_data_req_init(ptr) mgmtd__yang_cfg_data_req__init(ptr)
 
-#define MGMTD_TXN_ID_NONE 0
+#define mgmt_yang_get_data_req_init(ptr) mgmtd__yang_get_data_req__init(ptr)
 
-#endif /* _FRR_MGMTD_DEFINES_H */
+#endif /* _FRR_MGMTD_PB_H_ */
