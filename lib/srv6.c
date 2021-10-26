@@ -171,6 +171,47 @@ json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
 	return jo_root;
 }
 
+json_object *
+srv6_locator_chunk_detailed_json(const struct srv6_locator_chunk *chunk)
+{
+	json_object *jo_root = NULL;
+
+	jo_root = json_object_new_object();
+
+	/* set prefix */
+	json_object_string_addf(jo_root, "prefix", "%pFX", &chunk->prefix);
+
+	/* set block_bits_length */
+	json_object_int_add(jo_root, "blockBitsLength",
+			    chunk->block_bits_length);
+
+	/* set node_bits_length */
+	json_object_int_add(jo_root, "nodeBitsLength", chunk->node_bits_length);
+
+	/* set function_bits_length */
+	json_object_int_add(jo_root, "functionBitsLength",
+			    chunk->function_bits_length);
+
+	/* set argument_bits_length */
+	json_object_int_add(jo_root, "argumentBitsLength",
+			    chunk->argument_bits_length);
+
+	/* set keep */
+	json_object_int_add(jo_root, "keep", chunk->keep);
+
+	/* set proto */
+	json_object_string_add(jo_root, "proto",
+			       zebra_route_string(chunk->proto));
+
+	/* set instance */
+	json_object_int_add(jo_root, "instance", chunk->instance);
+
+	/* set session_id */
+	json_object_int_add(jo_root, "sessionId", chunk->session_id);
+
+	return jo_root;
+}
+
 json_object *srv6_locator_json(const struct srv6_locator *loc)
 {
 	struct listnode *node;
@@ -200,6 +241,53 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	json_object_object_add(jo_root, "chunks", jo_chunks);
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
 		jo_chunk = srv6_locator_chunk_json(chunk);
+		json_object_array_add(jo_chunks, jo_chunk);
+	}
+
+	return jo_root;
+}
+
+json_object *srv6_locator_detailed_json(const struct srv6_locator *loc)
+{
+	struct listnode *node;
+	struct srv6_locator_chunk *chunk;
+	json_object *jo_root = NULL;
+	json_object *jo_chunk = NULL;
+	json_object *jo_chunks = NULL;
+
+	jo_root = json_object_new_object();
+
+	/* set name */
+	json_object_string_add(jo_root, "name", loc->name);
+
+	/* set prefix */
+	json_object_string_addf(jo_root, "prefix", "%pFX", &loc->prefix);
+
+	/* set block_bits_length */
+	json_object_int_add(jo_root, "blockBitsLength", loc->block_bits_length);
+
+	/* set node_bits_length */
+	json_object_int_add(jo_root, "nodeBitsLength", loc->node_bits_length);
+
+	/* set function_bits_length */
+	json_object_int_add(jo_root, "functionBitsLength",
+			    loc->function_bits_length);
+
+	/* set argument_bits_length */
+	json_object_int_add(jo_root, "argumentBitsLength",
+			    loc->argument_bits_length);
+
+	/* set algonum */
+	json_object_int_add(jo_root, "algoNum", loc->algonum);
+
+	/* set status_up */
+	json_object_boolean_add(jo_root, "statusUp", loc->status_up);
+
+	/* set chunks */
+	jo_chunks = json_object_new_array();
+	json_object_object_add(jo_root, "chunks", jo_chunks);
+	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {
+		jo_chunk = srv6_locator_chunk_detailed_json(chunk);
 		json_object_array_add(jo_chunks, jo_chunk);
 	}
 
