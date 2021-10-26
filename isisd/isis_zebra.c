@@ -800,23 +800,31 @@ static int isis_zebra_client_close_notify(ZAPI_CALLBACK_ARGS)
 	return ret;
 }
 
+static zclient_handler *const isis_handlers[] = {
+	[ZEBRA_ROUTER_ID_UPDATE] = isis_router_id_update_zebra,
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = isis_zebra_if_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = isis_zebra_if_address_del,
+	[ZEBRA_INTERFACE_LINK_PARAMS] = isis_zebra_link_params,
+	[ZEBRA_REDISTRIBUTE_ROUTE_ADD] = isis_zebra_read,
+	[ZEBRA_REDISTRIBUTE_ROUTE_DEL] = isis_zebra_read,
+
+	[ZEBRA_OPAQUE_MESSAGE] = isis_opaque_msg_handler,
+
+	[ZEBRA_CLIENT_CLOSE_NOTIFY] = isis_zebra_client_close_notify,
+};
+
 void isis_zebra_init(struct thread_master *master, int instance)
 {
 	/* Initialize asynchronous zclient. */
-	zclient = zclient_new(master, &zclient_options_default);
+	zclient = zclient_new(master, &zclient_options_default, isis_handlers,
+			      array_size(isis_handlers));
 	zclient_init(zclient, PROTO_TYPE, 0, &isisd_privs);
 	zclient->zebra_connected = isis_zebra_connected;
-	zclient->router_id_update = isis_router_id_update_zebra;
-	zclient->interface_address_add = isis_zebra_if_address_add;
-	zclient->interface_address_delete = isis_zebra_if_address_del;
-	zclient->interface_link_params = isis_zebra_link_params;
-	zclient->redistribute_route_add = isis_zebra_read;
-	zclient->redistribute_route_del = isis_zebra_read;
 
 	/* Initialize special zclient for synchronous message exchanges. */
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_ISIS;
 	zclient_sync->instance = instance;
@@ -826,10 +834,6 @@ void isis_zebra_init(struct thread_master *master, int instance)
 	 */
 	zclient_sync->session_id = 1;
 	zclient_sync->privs = &isisd_privs;
-
-	zclient->opaque_msg_handler = isis_opaque_msg_handler;
-
-	zclient->zebra_client_close_notify = isis_zebra_client_close_notify;
 }
 
 void isis_zebra_stop(void)
