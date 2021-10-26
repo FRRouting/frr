@@ -471,7 +471,7 @@ static int bgp_evpn_mh_route_delete(struct bgp *bgp, struct bgp_evpn_es *es,
 	struct prefix_rd *prd;
 
 	if (vpn) {
-		rt_table = vpn->route_table;
+		rt_table = vpn->ip_table;
 		prd = &vpn->prd;
 	} else {
 		rt_table = es->route_table;
@@ -960,7 +960,7 @@ static int bgp_evpn_type1_route_update(struct bgp *bgp, struct bgp_evpn_es *es,
 		bgp_evpn_type1_evi_route_extcomm_build(es, vpn, &attr);
 
 		/* First, create (or fetch) route node within the VNI. */
-		dest = bgp_node_get(vpn->route_table, (struct prefix *)p);
+		dest = bgp_node_get(vpn->ip_table, (struct prefix *)p);
 
 		/* Create or update route entry. */
 		ret = bgp_evpn_mh_route_update(bgp, es, vpn, afi, safi, dest,
