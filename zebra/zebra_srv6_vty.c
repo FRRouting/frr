@@ -147,10 +147,16 @@ DEFUN (show_srv6_locator_detail,
 	struct listnode *node;
 	char str[256];
 	const char *locator_name = argv[4]->arg;
+	json_object *json_locator = NULL;
 
 	if (uj) {
-		vty_out(vty, "JSON format isn't supported\n");
-		return CMD_WARNING;
+		locator = zebra_srv6_locator_lookup(locator_name);
+		if (!locator)
+			return CMD_WARNING;
+
+		json_locator = srv6_locator_detailed_json(locator);
+		vty_json(vty, json_locator);
+		return CMD_SUCCESS;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(srv6->locators, node, locator)) {
