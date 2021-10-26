@@ -52,18 +52,6 @@ struct mgmt_master;
 
 extern struct nb_config *running_config;
 
-/*
- * Database-Id: For now defined here. Eventually will be
- * defined as part of MGMTD Front-End interface.
- */
-enum mgmt_database_id {
-	MGMTD_DB_NONE = 0,
-	MGMTD_DB_RUNNING,
-	MGMTD_DB_CANDIDATE,
-	MGMTD_DB_OPERATIONAL,
-	MGMTD_DB_MAX_ID
-};
-
 typedef void (*mgmt_db_node_iter_fn)(uint64_t db_hndl, char *xpath,
 				     struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctxt);
@@ -74,16 +62,16 @@ typedef void (*mgmt_db_node_iter_fn)(uint64_t db_hndl, char *xpath,
 
 extern const char *mgmt_db_names[MGMTD_DB_MAX_ID + 1];
 
-static inline const char *mgmt_db_id2name(enum mgmt_database_id id)
+static inline const char *mgmt_db_id2name(Mgmtd__DatabaseId id)
 {
 	if (id > MGMTD_DB_MAX_ID)
 		id = MGMTD_DB_MAX_ID;
 	return mgmt_db_names[id];
 }
 
-static inline enum mgmt_database_id mgmt_db_name2id(const char *name)
+static inline Mgmtd__DatabaseId mgmt_db_name2id(const char *name)
 {
-	enum mgmt_database_id id;
+	Mgmtd__DatabaseId id;
 
 	FOREACH_MGMTD_DB_ID(id)
 	{
@@ -94,7 +82,7 @@ static inline enum mgmt_database_id mgmt_db_name2id(const char *name)
 	return MGMTD_DB_NONE;
 }
 
-static inline enum mgmt_database_id mgmt_get_db_id_by_name(const char *db_name)
+static inline Mgmtd__DatabaseId mgmt_get_db_id_by_name(const char *db_name)
 {
 	if (!strncmp(db_name, "candidate", sizeof("candidate")))
 		return MGMTD_DB_CANDIDATE;
@@ -148,7 +136,7 @@ extern int mgmt_db_init(struct mgmt_master *cm);
 extern void mgmt_db_destroy(void);
 
 extern uint64_t mgmt_db_get_hndl_by_id(struct mgmt_master *cm,
-				       enum mgmt_database_id db_id);
+				       Mgmtd__DatabaseId db_id);
 
 extern bool mgmt_db_is_config(uint64_t db_hndl);
 
