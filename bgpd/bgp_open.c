@@ -466,8 +466,6 @@ static int bgp_capability_restart(struct peer *peer,
 	peer->v_gr_restart = restart_flag_time;
 
 	if (bgp_debug_neighbor_events(peer)) {
-		zlog_debug("%s OPEN has Graceful Restart capability",
-			   peer->host);
 		zlog_debug("%s Peer has%srestarted. Restart Time : %d",
 			   peer->host,
 			   CHECK_FLAG(peer->cap, PEER_CAP_RESTART_BIT_RCV)
