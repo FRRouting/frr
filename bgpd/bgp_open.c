@@ -42,6 +42,63 @@
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_memory.h"
 
+static const struct message capcode_str[] = {
+	{CAPABILITY_CODE_MP, "MultiProtocol Extensions"},
+	{CAPABILITY_CODE_REFRESH, "Route Refresh"},
+	{CAPABILITY_CODE_ORF, "Cooperative Route Filtering"},
+	{CAPABILITY_CODE_RESTART, "Graceful Restart"},
+	{CAPABILITY_CODE_AS4, "4-octet AS number"},
+	{CAPABILITY_CODE_ADDPATH, "AddPath"},
+	{CAPABILITY_CODE_DYNAMIC, "Dynamic"},
+	{CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding"},
+	{CAPABILITY_CODE_DYNAMIC_OLD, "Dynamic (Old)"},
+	{CAPABILITY_CODE_REFRESH_OLD, "Route Refresh (Old)"},
+	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
+	{CAPABILITY_CODE_FQDN, "FQDN"},
+	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
+	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
+	{0}};
+
+/* Minimum sizes for length field of each cap (so not inc. the header) */
+static const size_t cap_minsizes[] = {
+		[CAPABILITY_CODE_MP] = CAPABILITY_CODE_MP_LEN,
+		[CAPABILITY_CODE_REFRESH] = CAPABILITY_CODE_REFRESH_LEN,
+		[CAPABILITY_CODE_ORF] = CAPABILITY_CODE_ORF_LEN,
+		[CAPABILITY_CODE_RESTART] = CAPABILITY_CODE_RESTART_LEN,
+		[CAPABILITY_CODE_AS4] = CAPABILITY_CODE_AS4_LEN,
+		[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
+		[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
+		[CAPABILITY_CODE_DYNAMIC_OLD] = CAPABILITY_CODE_DYNAMIC_LEN,
+		[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
+		[CAPABILITY_CODE_REFRESH_OLD] = CAPABILITY_CODE_REFRESH_LEN,
+		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
+		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
+		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
+		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
+};
+
+/* value the capability must be a multiple of.
+ * 0-data capabilities won't be checked against this.
+ * Other capabilities whose data doesn't fall on convenient boundaries for this
+ * table should be set to 1.
+ */
+static const size_t cap_modsizes[] = {
+		[CAPABILITY_CODE_MP] = 4,
+		[CAPABILITY_CODE_REFRESH] = 1,
+		[CAPABILITY_CODE_ORF] = 1,
+		[CAPABILITY_CODE_RESTART] = 1,
+		[CAPABILITY_CODE_AS4] = 4,
+		[CAPABILITY_CODE_ADDPATH] = 4,
+		[CAPABILITY_CODE_DYNAMIC] = 1,
+		[CAPABILITY_CODE_DYNAMIC_OLD] = 1,
+		[CAPABILITY_CODE_ENHE] = 6,
+		[CAPABILITY_CODE_REFRESH_OLD] = 1,
+		[CAPABILITY_CODE_ORF_OLD] = 1,
+		[CAPABILITY_CODE_FQDN] = 1,
+		[CAPABILITY_CODE_ENHANCED_RR] = 1,
+		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
+};
+
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
    negotiate remote peer supports extentions or not. But if
    remote-peer doesn't supports negotiation process itself.  We would
@@ -264,9 +321,9 @@ static int bgp_capability_mp(struct peer *peer, struct capability_header *hdr)
 	bgp_capability_mp_data(s, &mpc);
 
 	if (bgp_debug_neighbor_events(peer))
-		zlog_debug("%s OPEN has MP_EXT CAP for afi/safi: %s/%s",
-			   peer->host, iana_afi2str(mpc.afi),
-			   iana_safi2str(mpc.safi));
+		zlog_debug("%s OPEN has %s capability for afi/safi: %s/%s",
+			   peer->host, lookup_msg(capcode_str, hdr->code, NULL),
+			   iana_afi2str(mpc.afi), iana_safi2str(mpc.safi));
 
 	/* Convert AFI, SAFI to internal values, check. */
 	if (bgp_map_afi_safi_iana2int(mpc.afi, mpc.safi, &afi, &safi))
@@ -760,63 +817,6 @@ static int bgp_capability_hostname(struct peer *peer,
 
 	return 0;
 }
-
-static const struct message capcode_str[] = {
-	{CAPABILITY_CODE_MP, "MultiProtocol Extensions"},
-	{CAPABILITY_CODE_REFRESH, "Route Refresh"},
-	{CAPABILITY_CODE_ORF, "Cooperative Route Filtering"},
-	{CAPABILITY_CODE_RESTART, "Graceful Restart"},
-	{CAPABILITY_CODE_AS4, "4-octet AS number"},
-	{CAPABILITY_CODE_ADDPATH, "AddPath"},
-	{CAPABILITY_CODE_DYNAMIC, "Dynamic"},
-	{CAPABILITY_CODE_ENHE, "Extended Next Hop Encoding"},
-	{CAPABILITY_CODE_DYNAMIC_OLD, "Dynamic (Old)"},
-	{CAPABILITY_CODE_REFRESH_OLD, "Route Refresh (Old)"},
-	{CAPABILITY_CODE_ORF_OLD, "ORF (Old)"},
-	{CAPABILITY_CODE_FQDN, "FQDN"},
-	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
-	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
-	{0}};
-
-/* Minimum sizes for length field of each cap (so not inc. the header) */
-static const size_t cap_minsizes[] = {
-		[CAPABILITY_CODE_MP] = CAPABILITY_CODE_MP_LEN,
-		[CAPABILITY_CODE_REFRESH] = CAPABILITY_CODE_REFRESH_LEN,
-		[CAPABILITY_CODE_ORF] = CAPABILITY_CODE_ORF_LEN,
-		[CAPABILITY_CODE_RESTART] = CAPABILITY_CODE_RESTART_LEN,
-		[CAPABILITY_CODE_AS4] = CAPABILITY_CODE_AS4_LEN,
-		[CAPABILITY_CODE_ADDPATH] = CAPABILITY_CODE_ADDPATH_LEN,
-		[CAPABILITY_CODE_DYNAMIC] = CAPABILITY_CODE_DYNAMIC_LEN,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = CAPABILITY_CODE_DYNAMIC_LEN,
-		[CAPABILITY_CODE_ENHE] = CAPABILITY_CODE_ENHE_LEN,
-		[CAPABILITY_CODE_REFRESH_OLD] = CAPABILITY_CODE_REFRESH_LEN,
-		[CAPABILITY_CODE_ORF_OLD] = CAPABILITY_CODE_ORF_LEN,
-		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
-		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
-		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
-};
-
-/* value the capability must be a multiple of.
- * 0-data capabilities won't be checked against this.
- * Other capabilities whose data doesn't fall on convenient boundaries for this
- * table should be set to 1.
- */
-static const size_t cap_modsizes[] = {
-		[CAPABILITY_CODE_MP] = 4,
-		[CAPABILITY_CODE_REFRESH] = 1,
-		[CAPABILITY_CODE_ORF] = 1,
-		[CAPABILITY_CODE_RESTART] = 1,
-		[CAPABILITY_CODE_AS4] = 4,
-		[CAPABILITY_CODE_ADDPATH] = 4,
-		[CAPABILITY_CODE_DYNAMIC] = 1,
-		[CAPABILITY_CODE_DYNAMIC_OLD] = 1,
-		[CAPABILITY_CODE_ENHE] = 6,
-		[CAPABILITY_CODE_REFRESH_OLD] = 1,
-		[CAPABILITY_CODE_ORF_OLD] = 1,
-		[CAPABILITY_CODE_FQDN] = 1,
-		[CAPABILITY_CODE_ENHANCED_RR] = 1,
-		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
-};
 
 /**
  * Parse given capability.
