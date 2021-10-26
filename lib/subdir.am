@@ -76,6 +76,7 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+	lib/mgmt_fe_client.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
 	lib/pid_output.c \
@@ -146,6 +147,23 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/frr-module-translator.yang.c \
 	# end
 
+# Add logic to build mgmt.proto
+lib_libfrr_la_LIBADD += $(PROTOBUF_C_LIBS)
+
+BUILT_SOURCES += \
+	lib/mgmt.pb-c.c \
+	lib/mgmt.pb-c.h \
+	# end
+
+CLEANFILES += \
+	lib/mgmt.pb-c.h \
+	lib/mgmt.pb-c.c \
+	# end
+
+lib_libfrr_la_SOURCES += \
+	lib/mgmt.pb-c.c \
+	#end
+
 if SQLITE3
 lib_libfrr_la_LIBADD += $(SQLITE3_LIBS)
 lib_libfrr_la_SOURCES += lib/db.c
@@ -178,6 +196,9 @@ pkginclude_HEADERS += \
 	lib/buffer.h \
 	lib/checksum.h \
 	lib/mlag.h \
+	lib/mgmt_fe_client.h \
+	lib/mgmt.pb-c.h \
+	lib/mgmt_pb.h \
 	lib/command.h \
 	lib/command_graph.h \
 	lib/command_match.h \
