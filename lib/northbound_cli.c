@@ -120,7 +120,7 @@ static int nb_cli_schedule_command(struct vty *vty)
 void nb_cli_enqueue_change(struct vty *vty, const char *xpath,
 			   enum nb_operation operation, const char *value)
 {
-	struct vty_cfg_change *change;
+	struct nb_cfg_change *change;
 
 	if (vty->num_cfg_changes == VTY_MAXCFGCHANGES) {
 		/* Not expected to happen. */
@@ -149,7 +149,7 @@ static int nb_cli_apply_changes_internal(struct vty *vty,
 
 	/* Edit candidate configuration. */
 	for (size_t i = 0; i < vty->num_cfg_changes; i++) {
-		struct vty_cfg_change *change = &vty->cfg_changes[i];
+		struct nb_cfg_change *change = &vty->cfg_changes[i];
 		struct nb_node *nb_node;
 		char xpath[XPATH_MAXLEN];
 		struct yang_data *data;

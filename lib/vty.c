@@ -65,6 +65,14 @@ enum vty_event {
 #endif /* VTYSH */
 };
 
+struct nb_config *vty_mgmt_candidate_config;
+
+static uintptr_t mgmt_lib_hndl;
+static bool mgmt_fe_connected;
+static bool mgmt_candidate_db_wr_locked;
+static uint64_t mgmt_client_id_next;
+static uint64_t mgmt_last_req_id = UINT64_MAX;
+
 PREDECL_DLIST(vtyservs);
 
 struct vty_serv {
@@ -80,6 +88,7 @@ DECLARE_DLIST(vtyservs, struct vty_serv, itm);
 
 static void vty_event_serv(enum vty_event event, struct vty_serv *);
 static void vty_event(enum vty_event, struct vty *);
+static int vtysh_flush(struct vty *vty);
 
 /* Extern host structure from command.c */
 extern struct host host;
@@ -111,6 +120,36 @@ static char integrate_default[] = SYSCONFDIR INTEGRATE_DEFAULT_CONFIG;
 
 static bool do_log_commands;
 static bool do_log_commands_perm;
+
+static void vty_mgmt_resume_response(struct vty *vty, bool success)
+{
+	uint8_t header[4] = {0, 0, 0, 0};
+	int ret = CMD_SUCCESS;
+
+	if (!vty->mgmt_req_pending) {
+		zlog_err(
+			"vty response called without setting mgmt_req_pending");
+		return;
+	}
+
+	if (!success)
+		ret = CMD_WARNING_CONFIG_FAILED;
+
+	vty->mgmt_req_pending = false;
+	header[3] = ret;
+	buffer_put(vty->obuf, header, 4);
+
+	if (!vty->t_write && (vtysh_flush(vty) < 0))
+		/* Try to flush results; exit if a write
+		 * error occurs.
+		 */
+		return;
+
+	if (vty->status == VTY_CLOSE)
+		vty_close(vty);
+	else
+		vty_event(VTYSH_READ, vty);
+}
 
 void vty_frame(struct vty *vty, const char *format, ...)
 {
@@ -1586,6 +1625,17 @@ struct vty *vty_new(void)
 	new->max = VTY_BUFSIZ;
 	new->pass_fd = -1;
 
+	if (mgmt_lib_hndl) {
+		new->mgmt_client_id = mgmt_client_id_next++;
+		if (mgmt_fe_create_client_session(mgmt_lib_hndl,
+						      new->mgmt_client_id,
+						      (uintptr_t)new)
+		    != MGMTD_SUCCESS)
+			zlog_err(
+				"Failed to open a MGMTD Frontend session for VTY session %p!!",
+				new);
+	}
+
 	return new;
 }
 
@@ -2201,6 +2251,12 @@ static void vtysh_read(struct thread *thread)
 				if (ret == CMD_SUSPEND)
 					break;
 
+				/* with new infra we need to stop response till
+				 * we get response through callback.
+				 */
+				if (vty->mgmt_req_pending)
+					return;
+
 				/* warning: watchfrr hardcodes this result write
 				 */
 				header[3] = ret;
@@ -2256,6 +2312,12 @@ void vty_close(struct vty *vty)
 {
 	int i;
 	bool was_stdio = false;
+
+	if (mgmt_lib_hndl) {
+		mgmt_fe_destroy_client_session(mgmt_lib_hndl,
+						   vty->mgmt_session_id);
+		vty->mgmt_session_id = 0;
+	}
 
 	/* Drop out of configure / transaction if needed. */
 	vty_config_exit(vty);
@@ -2632,6 +2694,24 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		return CMD_WARNING;
 	}
 
+	if (vty_mgmt_fe_enabled()) {
+		if (!mgmt_candidate_db_wr_locked) {
+			if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE,
+						     true)
+			    != 0) {
+				vty_out(vty, "Not able to lock candidate DB\n");
+				return CMD_WARNING;
+			}
+		} else {
+			vty_out(vty,
+				"Candidate DB already locked by different session\n");
+			return CMD_WARNING;
+		}
+
+		vty->mgmt_locked_candidate_db = true;
+		mgmt_candidate_db_wr_locked = true;
+	}
+
 	vty->node = CONFIG_NODE;
 	vty->config = true;
 	vty->private_config = private_config;
@@ -2643,7 +2723,14 @@ int vty_config_enter(struct vty *vty, bool private_config, bool exclusive)
 		vty_out(vty,
 			"Warning: uncommitted changes will be discarded on exit.\n\n");
 	} else {
-		vty->candidate_config = vty_shared_candidate_config;
+		/*
+		 * NOTE: On the MGMTD daemon we point the VTY candidate DB to
+		 * the global MGMTD candidate DB. Else we point to the VTY
+		 * Shared Candidate Config.
+		 */
+		vty->candidate_config = vty_mgmt_candidate_config
+						? vty_mgmt_candidate_config
+						: vty_shared_candidate_config;
 		if (frr_get_cli_mode() == FRR_CLI_TRANSACTIONAL)
 			vty->candidate_config_base =
 				nb_config_dup(running_config);
@@ -2675,6 +2762,18 @@ void vty_config_exit(struct vty *vty)
 int vty_config_node_exit(struct vty *vty)
 {
 	vty->xpath_index = 0;
+
+	if (vty_mgmt_fe_enabled() && mgmt_candidate_db_wr_locked
+	    && vty->mgmt_locked_candidate_db) {
+		if (vty_mgmt_send_lockdb_req(vty, MGMTD_DB_CANDIDATE, false)
+		    != 0) {
+			vty_out(vty, "Not able to unlock candidate DB\n");
+			return CMD_WARNING;
+		}
+
+		vty->mgmt_locked_candidate_db = false;
+		mgmt_candidate_db_wr_locked = false;
+	}
 
 	/* Perform any pending commits. */
 	(void)nb_cli_pending_commit_check(vty);
@@ -3173,6 +3272,398 @@ void vty_init_vtysh(void)
 	/* currently nothing to do, but likely to have future use */
 }
 
+static void vty_mgmt_server_connected(uintptr_t lib_hndl, uintptr_t usr_data,
+				      bool connected)
+{
+	zlog_err("%sGot %sconnected %s MGMTD Frontend Server",
+		 !connected ? "ERROR: " : "", !connected ? "dis: " : "",
+		 !connected ? "from" : "to");
+
+	mgmt_fe_connected = connected;
+
+	/*
+	 * TODO: Setup or teardown front-end sessions for existing
+	 * VTY connections.
+	 */
+}
+
+static void vty_mgmt_session_created(uintptr_t lib_hndl, uintptr_t usr_data,
+				     uint64_t client_id, bool create,
+				     bool success, uintptr_t session_id,
+				     uintptr_t session_ctx)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)session_ctx;
+
+	if (!success) {
+		zlog_err("%s session for client %llu failed!",
+			 create ? "Creating" : "Destroying",
+			 (unsigned long long)client_id);
+		return;
+	}
+
+	zlog_err("%s session for client %llu successfully!",
+		 create ? "Created" : "Destroyed",
+		 (unsigned long long)client_id);
+	if (create)
+		vty->mgmt_session_id = session_id;
+}
+
+static void vty_mgmt_db_lock_notified(uintptr_t lib_hndl, uintptr_t usr_data,
+				      uint64_t client_id, uintptr_t session_id,
+				      uintptr_t session_ctx, uint64_t req_id,
+				      bool lock_db, bool success,
+				      Mgmtd__DatabaseId db_id,
+				      char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)session_ctx;
+
+	if (!success) {
+		zlog_err("%socking for DB %u failed! Err: '%s'",
+			 lock_db ? "L" : "Unl", db_id, errmsg_if_any);
+		vty_out(vty, "ERROR: %socking for DB %u failed! Err: '%s'\n",
+			lock_db ? "L" : "Unl", db_id, errmsg_if_any);
+	} else {
+		zlog_err("%socked DB %u successfully!", lock_db ? "L" : "Unl",
+			 db_id);
+	}
+
+	vty_mgmt_resume_response(vty, success);
+}
+
+static void vty_mgmt_set_config_result_notified(
+	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
+	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
+	bool success, Mgmtd__DatabaseId db_id, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)session_ctx;
+
+	if (!success) {
+		zlog_err(
+			"SET_CONFIG request for client 0x%llx failed! Error: '%s'",
+			(unsigned long long)client_id,
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: SET_CONFIG request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+	} else {
+		zlog_err(
+			"SET_CONFIG request for client 0x%llx req-id %llu was successfull!",
+			(unsigned long long)client_id,
+			(unsigned long long)req_id);
+	}
+
+	vty_mgmt_resume_response(vty, success);
+}
+
+static void vty_mgmt_commit_config_result_notified(
+	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
+	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
+	bool success, Mgmtd__DatabaseId src_db_id, Mgmtd__DatabaseId dst_db_id,
+	bool validate_only, char *errmsg_if_any)
+{
+	struct vty *vty;
+
+	vty = (struct vty *)session_ctx;
+
+	if (!success) {
+		zlog_err(
+			"COMMIT_CONFIG request for client 0x%llx failed! Error: '%s'",
+			(unsigned long long)client_id,
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: COMMIT_CONFIG request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+	} else {
+		zlog_err(
+			"COMMIT_CONFIG request for client 0x%llx req-id %llu was successfull!",
+			(unsigned long long)client_id,
+			(unsigned long long)req_id);
+		if (errmsg_if_any)
+			vty_out(vty, "MGMTD: %s\n", errmsg_if_any);
+	}
+
+	vty_mgmt_resume_response(vty, success);
+}
+
+static enum mgmt_result vty_mgmt_get_data_result_notified(
+	uintptr_t lib_hndl, uintptr_t usr_data, uint64_t client_id,
+	uintptr_t session_id, uintptr_t session_ctx, uint64_t req_id,
+	bool success, Mgmtd__DatabaseId db_id, Mgmtd__YangData **yang_data,
+	size_t num_data, int next_key, char *errmsg_if_any)
+{
+	struct vty *vty;
+	size_t indx;
+
+	vty = (struct vty *)session_ctx;
+
+	if (!success) {
+		zlog_err(
+			"GET_DATA request for client 0x%llx failed! Error: '%s'",
+			(unsigned long long)client_id,
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_out(vty, "ERROR: GET_DATA request failed! Error: %s\n",
+			errmsg_if_any ? errmsg_if_any : "Unknown");
+		vty_mgmt_resume_response(vty, success);
+		return MGMTD_INTERNAL_ERROR;
+	}
+
+	zlog_debug(
+		"GET_DATA request for client 0x%llx req-id %llu was successfull!",
+		(unsigned long long)client_id, (unsigned long long)req_id);
+
+	if (req_id != mgmt_last_req_id) {
+		mgmt_last_req_id = req_id;
+		vty_out(vty, "[\n");
+	}
+
+	for (indx = 0; indx < num_data; indx++) {
+		vty_out(vty, "  \"%s\": \"%s\"\n", yang_data[indx]->xpath,
+			yang_data[indx]->value->encoded_str_val);
+	}
+	if (next_key < 0) {
+		vty_out(vty, "]\n");
+		vty_mgmt_resume_response(vty, success);
+	}
+
+	return MGMTD_SUCCESS;
+}
+
+static struct mgmt_fe_client_params client_params = {
+	.client_connect_notify = vty_mgmt_server_connected,
+	.client_session_notify = vty_mgmt_session_created,
+	.lock_db_notify = vty_mgmt_db_lock_notified,
+	.set_config_notify =
+		vty_mgmt_set_config_result_notified,
+	.commit_config_notify =
+		vty_mgmt_commit_config_result_notified,
+	.get_data_notify = vty_mgmt_get_data_result_notified,
+};
+
+void vty_init_mgmt_fe(void)
+{
+	if (!vty_master) {
+		zlog_err(
+			"Always call vty_mgmt_init_fe() after vty_init()!!");
+		return;
+	}
+
+	assert(!mgmt_lib_hndl);
+	snprintf(client_params.name, sizeof(client_params.name), "%s-%lld",
+		 frr_get_progname(), (long long)getpid());
+	mgmt_lib_hndl = mgmt_fe_client_lib_init(&client_params, vty_master);
+	assert(mgmt_lib_hndl);
+}
+
+bool vty_mgmt_fe_enabled(void)
+{
+	return mgmt_lib_hndl && mgmt_fe_connected ? true : false;
+}
+
+int vty_mgmt_send_lockdb_req(struct vty *vty, Mgmtd__DatabaseId db_id,
+			     bool lock)
+{
+	enum mgmt_result ret;
+
+	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+		vty->mgmt_req_id++;
+		ret = mgmt_fe_lock_db(mgmt_lib_hndl, vty->mgmt_session_id,
+					  vty->mgmt_req_id, db_id, lock);
+		if (ret != MGMTD_SUCCESS) {
+			zlog_err(
+				"Failed to send %sLOCK-DB-REQ to MGMTD for req-id %llu.",
+				lock ? "" : "UN",
+				(unsigned long long)vty->mgmt_req_id);
+			vty_out(vty, "Failed to send %sLOCK-DB-REQ to MGMTD!",
+				lock ? "" : "UN");
+			return -1;
+		}
+
+		vty->mgmt_req_pending = true;
+	}
+
+	return 0;
+}
+
+int vty_mgmt_send_config_data(struct vty *vty)
+{
+	Mgmtd__YangDataValue value[VTY_MAXCFGCHANGES];
+	Mgmtd__YangData cfg_data[VTY_MAXCFGCHANGES];
+	Mgmtd__YangCfgDataReq cfg_req[VTY_MAXCFGCHANGES];
+	Mgmtd__YangCfgDataReq * cfgreq[VTY_MAXCFGCHANGES] = {0};
+	size_t indx;
+	int cnt;
+
+	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+		cnt = 0;
+		for (indx = 0; indx < vty->num_cfg_changes; indx++) {
+			mgmt_yang_data_init(&cfg_data[cnt]);
+
+			if (vty->cfg_changes[indx].value) {
+				mgmt_yang_data_value_init(&value[cnt]);
+				value[cnt].encoded_str_val =
+					(char *)vty->cfg_changes[indx].value;
+				value[cnt].value_case =
+				MGMTD__YANG_DATA_VALUE__VALUE_ENCODED_STR_VAL;
+				cfg_data[cnt].value = &value[cnt];
+			}
+
+			cfg_data[cnt].xpath = vty->cfg_changes[indx].xpath;
+
+			mgmt_yang_cfg_data_req_init(&cfg_req[cnt]);
+			cfg_req[cnt].data = &cfg_data[cnt];
+			switch (vty->cfg_changes[indx].operation) {
+			case NB_OP_DESTROY:
+				cfg_req[cnt].req_type =
+					MGMTD__CFG_DATA_REQ_TYPE__DELETE_DATA;
+				break;
+
+			case NB_OP_CREATE:
+			case NB_OP_MODIFY:
+			case NB_OP_MOVE:
+			case NB_OP_PRE_VALIDATE:
+			case NB_OP_APPLY_FINISH:
+				cfg_req[cnt].req_type =
+					MGMTD__CFG_DATA_REQ_TYPE__SET_DATA;
+				break;
+			case NB_OP_GET_ELEM:
+			case NB_OP_GET_NEXT:
+			case NB_OP_GET_KEYS:
+			case NB_OP_LOOKUP_ENTRY:
+			case NB_OP_RPC:
+				assert(!"Invalid type of operation");
+				break;
+			default:
+				assert(!"non-enum value, invalid");
+			}
+
+			cfgreq[cnt] = &cfg_req[cnt];
+			cnt++;
+		}
+
+		vty->mgmt_req_id++;
+		if (cnt
+		    && mgmt_fe_set_config_data(
+			       mgmt_lib_hndl, vty->mgmt_session_id,
+			       vty->mgmt_req_id, MGMTD_DB_CANDIDATE, cfgreq,
+			       cnt,
+			       frr_get_cli_mode() == FRR_CLI_CLASSIC
+				       ? ((vty->pending_allowed
+					   || vty->no_implicit_commit)
+						  ? false
+						  : true)
+				       : false,
+			       MGMTD_DB_RUNNING)
+			       != MGMTD_SUCCESS) {
+			zlog_err("Failed to send %d Config Xpaths to MGMTD!!",
+				 (int)indx);
+			return -1;
+		}
+
+		vty->mgmt_req_pending = true;
+	}
+
+	return 0;
+}
+
+int vty_mgmt_send_commit_config(struct vty *vty, bool validate_only, bool abort)
+{
+	enum mgmt_result ret;
+
+	if (mgmt_lib_hndl && vty->mgmt_session_id) {
+		vty->mgmt_req_id++;
+		ret = mgmt_fe_commit_config_data(
+			mgmt_lib_hndl, vty->mgmt_session_id, vty->mgmt_req_id,
+			MGMTD_DB_CANDIDATE, MGMTD_DB_RUNNING, validate_only,
+			abort);
+		if (ret != MGMTD_SUCCESS) {
+			zlog_err(
+				"Failed to send COMMIT-REQ to MGMTD for req-id %llu.",
+				(unsigned long long)vty->mgmt_req_id);
+			vty_out(vty, "Failed to send COMMIT-REQ to MGMTD!");
+			return -1;
+		}
+
+		vty->mgmt_req_pending = true;
+	}
+
+	return 0;
+}
+
+int vty_mgmt_send_get_config(struct vty *vty, Mgmtd__DatabaseId database,
+			     const char **xpath_list, int num_req)
+{
+	enum mgmt_result ret;
+	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
+	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
+	Mgmtd__YangGetDataReq * getreq[VTY_MAXCFGCHANGES];
+	int i;
+
+	vty->mgmt_req_id++;
+
+	for (i = 0; i < num_req; i++) {
+		mgmt_yang_get_data_req_init(&get_req[i]);
+		mgmt_yang_data_init(&yang_data[i]);
+
+		yang_data->xpath = (char *)xpath_list[i];
+
+		get_req[i].data = &yang_data[i];
+		getreq[i] = &get_req[i];
+	}
+	ret = mgmt_fe_get_config_data(mgmt_lib_hndl, vty->mgmt_session_id,
+					  vty->mgmt_req_id, database, getreq,
+					  num_req);
+
+	if (ret != MGMTD_SUCCESS) {
+		zlog_err("Failed to send GET-CONFIG to MGMTD for req-id %llu.",
+			 (unsigned long long)vty->mgmt_req_id);
+		vty_out(vty, "Failed to send GET-CONFIG to MGMTD!");
+		return -1;
+	}
+
+	vty->mgmt_req_pending = true;
+
+	return 0;
+}
+
+int vty_mgmt_send_get_data(struct vty *vty, Mgmtd__DatabaseId database,
+			   const char **xpath_list, int num_req)
+{
+	enum mgmt_result ret;
+	Mgmtd__YangData yang_data[VTY_MAXCFGCHANGES];
+	Mgmtd__YangGetDataReq get_req[VTY_MAXCFGCHANGES];
+	Mgmtd__YangGetDataReq * getreq[VTY_MAXCFGCHANGES];
+	int i;
+
+	vty->mgmt_req_id++;
+
+	for (i = 0; i < num_req; i++) {
+		mgmt_yang_get_data_req_init(&get_req[i]);
+		mgmt_yang_data_init(&yang_data[i]);
+
+		yang_data->xpath = (char *)xpath_list[i];
+
+		get_req[i].data = &yang_data[i];
+		getreq[i] = &get_req[i];
+	}
+	ret = mgmt_fe_get_data(mgmt_lib_hndl, vty->mgmt_session_id,
+				   vty->mgmt_req_id, database, getreq, num_req);
+
+	if (ret != MGMTD_SUCCESS) {
+		zlog_err("Failed to send GET-DATA to MGMTD for req-id %llu.",
+			 (unsigned long long)vty->mgmt_req_id);
+		vty_out(vty, "Failed to send GET-DATA to MGMTD!");
+		return -1;
+	}
+
+	vty->mgmt_req_pending = true;
+
+	return 0;
+}
+
 /* Install vty's own commands like `who' command. */
 void vty_init(struct thread_master *master_thread, bool do_command_logging)
 {
@@ -3219,6 +3710,11 @@ void vty_terminate(void)
 {
 	struct vty *vty;
 	struct vty_serv *vtyserv;
+
+	if (mgmt_lib_hndl) {
+		mgmt_fe_client_lib_destroy(mgmt_lib_hndl);
+		mgmt_lib_hndl = 0;
+	}
 
 	memset(vty_cwd, 0x00, sizeof(vty_cwd));
 

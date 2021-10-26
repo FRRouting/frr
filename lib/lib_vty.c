@@ -243,6 +243,9 @@ DEFUN_NOSH(end_config, end_config_cmd, "XFRR_end_configuration",
 
 	zlog_info("Configuration Read in Took: %s", readin_time_str);
 
+	if (vty_mgmt_fe_enabled())
+		vty_mgmt_send_commit_config(vty, false, false);
+
 	if (callback.end_config)
 		(*callback.end_config)();
 

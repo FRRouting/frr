@@ -68,6 +68,12 @@ enum nb_operation {
 	NB_OP_RPC,
 };
 
+struct nb_cfg_change {
+	char xpath[XPATH_MAXLEN];
+	enum nb_operation operation;
+	const char *value;
+};
+
 union nb_resource {
 	int fd;
 	void *ptr;

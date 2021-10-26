@@ -24,11 +24,31 @@
 #include "json.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_vty.h"
+#include "mgmtd/mgmt_fe_server.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_db.h"
 
-#ifndef VTYSH_EXTRACT_PL
 #include "mgmtd/mgmt_vty_clippy.c"
-#endif
+
+DEFPY(show_mgmt_fe_adapter, show_mgmt_fe_adapter_cmd,
+      "show mgmt frontend-adapter all",
+      SHOW_STR MGMTD_STR MGMTD_FE_ADAPTER_STR "Display all Frontend Adapters\n")
+{
+	mgmt_fe_adapter_status_write(vty, false);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_fe_adapter_detail, show_mgmt_fe_adapter_detail_cmd,
+      "show mgmt frontend-adapter all detail",
+      SHOW_STR MGMTD_STR MGMTD_FE_ADAPTER_STR
+      "Display all Frontend Adapters\n"
+      "Details of commit stats\n")
+{
+	mgmt_fe_adapter_status_write(vty, true);
+
+	return CMD_SUCCESS;
+}
 
 DEFPY(show_mgmt_db_all,
       show_mgmt_db_all_cmd,
@@ -106,6 +126,127 @@ DEFPY(show_mgmt_db_oper,
 	return CMD_SUCCESS;
 }
 
+DEFPY(mgmt_commit_apply, mgmt_commit_apply_cmd, "mgmt commit-apply",
+      MGMTD_STR "Validate and apply the set of config commands\n")
+{
+	if (vty_mgmt_send_commit_config(vty, false, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_commit_check, mgmt_commit_check_cmd, "mgmt commit-check",
+      MGMTD_STR "Validate the set of config commands only\n")
+{
+	if (vty_mgmt_send_commit_config(vty, true, false) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_commit_abort, mgmt_commit_abort_cmd, "mgmt commit-abort",
+      MGMTD_STR "Abort and drop the set of config commands recently added\n")
+{
+	if (vty_mgmt_send_commit_config(vty, false, true) != 0)
+		return CMD_WARNING_CONFIG_FAILED;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_set_config_data, mgmt_set_config_data_cmd,
+      "mgmt set-config xpath WORD$path value WORD$val",
+      MGMTD_STR
+      "Set configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n"
+      "Value of the data to set to\n"
+      "<value of the data>\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = val;
+	vty->cfg_changes[0].operation = NB_OP_CREATE;
+	vty->num_cfg_changes = 1;
+
+	vty->no_implicit_commit = true;
+	vty_mgmt_send_config_data(vty);
+	vty->no_implicit_commit = false;
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_delete_config_data, mgmt_delete_config_data_cmd,
+      "mgmt delete-config xpath WORD$path",
+      MGMTD_STR
+      "Delete configuration data\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n")
+{
+
+	strlcpy(vty->cfg_changes[0].xpath, path,
+		sizeof(vty->cfg_changes[0].xpath));
+	vty->cfg_changes[0].value = NULL;
+	vty->cfg_changes[0].operation = NB_OP_DESTROY;
+	vty->num_cfg_changes = 1;
+
+	vty->no_implicit_commit = true;
+	vty_mgmt_send_config_data(vty);
+	vty->no_implicit_commit = false;
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_get_config, show_mgmt_get_config_cmd,
+      "show mgmt get-config [db-name WORD$dbname] xpath WORD$path",
+      SHOW_STR MGMTD_STR
+      "Get configuration data from a specific configuration database\n"
+      "DB name\n"
+      "<candidate running operational>\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	Mgmtd__DatabaseId database = MGMTD_DB_CANDIDATE;
+
+	if (dbname)
+		database = mgmt_db_name2id(dbname);
+
+	if (database == MGMTD_DB_NONE) {
+		vty_out(vty,
+			"DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	xpath_list[0] = path;
+	vty_mgmt_send_get_config(vty, database, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
+      "show mgmt get-data [db-name WORD$dbname] xpath WORD$path",
+      SHOW_STR MGMTD_STR
+      "Get data from a specific database\n"
+      "DB name\n"
+      "<candidate running operational>\n"
+      "XPath expression specifying the YANG data path\n"
+      "XPath string\n")
+{
+	const char *xpath_list[VTY_MAXCFGCHANGES] = {0};
+	Mgmtd__DatabaseId database = MGMTD_DB_CANDIDATE;
+
+	if (dbname)
+		database = mgmt_db_name2id(dbname);
+
+	if (database == MGMTD_DB_NONE) {
+		vty_out(vty,
+			"DB Name %s does not matches any existing database\n",
+			dbname);
+		return CMD_SUCCESS;
+	}
+
+	xpath_list[0] = path;
+	vty_mgmt_send_get_data(vty, database, xpath_list, 1);
+	return CMD_SUCCESS;
+}
+
+
 DEFPY(show_mgmt_dump_data,
       show_mgmt_dump_data_cmd,
       "show mgmt database-contents db-name WORD$dbname [xpath WORD$path] [file WORD$filepath] format WORD$format_str",
@@ -121,7 +262,7 @@ DEFPY(show_mgmt_dump_data,
       "Format of the output\n"
       "json|xml\n")
 {
-	enum mgmt_database_id database = MGMTD_DB_CANDIDATE;
+	Mgmtd__DatabaseId database = MGMTD_DB_CANDIDATE;
 	struct mgmt_db_ctx *db_ctx;
 	LYD_FORMAT format = LYD_UNKNOWN;
 	FILE *f = NULL;
@@ -222,7 +363,7 @@ DEFPY(mgmt_save_config,
       "Full path of the file\n")
 {
 	struct mgmt_db_ctx *db_ctx;
-	enum mgmt_database_id database;
+	Mgmtd__DatabaseId database;
 	FILE *f;
 
 	database = mgmt_db_name2id(dbname);
@@ -381,12 +522,21 @@ void mgmt_vty_init(void)
 {
 	install_node(&debug_node);
 
+	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
+	install_element(VIEW_NODE, &show_mgmt_fe_adapter_detail_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_all_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_runn_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_cand_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_oper_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
+	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 
+	install_element(CONFIG_NODE, &mgmt_commit_apply_cmd);
+	install_element(CONFIG_NODE, &mgmt_commit_abort_cmd);
+	install_element(CONFIG_NODE, &mgmt_commit_check_cmd);
+	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
+	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
 
