@@ -501,20 +501,33 @@ bool zebra_evpn_neigh_is_bgp_seq_ok(struct zebra_evpn *zevpn,
 {
 	uint32_t tmp_seq;
 	const char *n_type;
+	bool is_local = false;
 
 	if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_LOCAL)) {
 		tmp_seq = n->loc_seq;
 		n_type = "local";
+		is_local = true;
 	} else {
 		tmp_seq = n->rem_seq;
 		n_type = "remote";
 	}
 
 	if (seq < tmp_seq) {
+		if (is_local && !zebra_evpn_neigh_is_ready_for_bgp(n)) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH ||
+			    IS_ZEBRA_DEBUG_VXLAN)
+				zlog_debug(
+					"%s-macip not ready vni %u %s mac %pEA IP %pIA lower seq %u f 0x%x",
+					sync ? "sync" : "remote", zevpn->vni,
+					n_type, macaddr, &n->ip, tmp_seq,
+					n->flags);
+			return true;
+		}
+
 		/* if the neigh was never advertised to bgp we must accept
 		 * whatever sequence number bgp sends
 		 */
-		if (zebra_vxlan_accept_bgp_seq()) {
+		if (!is_local && zebra_vxlan_accept_bgp_seq()) {
 			if (IS_ZEBRA_DEBUG_EVPN_MH_NEIGH
 			    || IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
