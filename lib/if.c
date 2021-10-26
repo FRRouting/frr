@@ -1341,6 +1341,20 @@ static struct cmd_node interface_node = {
 	.prompt = "%s(config-if)# ",
 };
 
+static int if_config_write_single(const struct lyd_node *dnode, void *arg)
+{
+	nb_cli_show_dnode_cmds(arg, dnode, false);
+
+	return YANG_ITER_CONTINUE;
+}
+
+static int if_nb_config_write(struct vty *vty)
+{
+	yang_dnode_iterate(if_config_write_single, vty, running_config->dnode,
+			   "/frr-interface:lib/interface");
+	return 1;
+}
+
 void if_cmd_init(int (*config_write)(struct vty *))
 {
 	cmd_variable_handler_register(if_var_handlers);
@@ -1354,6 +1368,11 @@ void if_cmd_init(int (*config_write)(struct vty *))
 	install_default(INTERFACE_NODE);
 	install_element(INTERFACE_NODE, &interface_desc_cmd);
 	install_element(INTERFACE_NODE, &no_interface_desc_cmd);
+}
+
+void if_cmd_init_default(void)
+{
+	if_cmd_init(if_nb_config_write);
 }
 
 void if_zapi_callbacks(int (*create)(struct interface *ifp),
