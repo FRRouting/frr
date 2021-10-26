@@ -1,4 +1,5 @@
-/* mgmt memory type declarations
+/*
+ * MGMTD Frontend Server
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
@@ -17,13 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_MGMTD_MEMORY_H
-#define _FRR_MGMTD_MEMORY_H
+#ifndef _FRR_MGMTD_FRNTND_SERVER_H_
+#define _FRR_MGMTD_FRNTND_SERVER_H_
 
-#include "memory.h"
+#define MGMTD_FRNTND_MAX_CONN 32
 
-DECLARE_MGROUP(MGMTD);
-DECLARE_MTYPE(MGMTD);
-DECLARE_MTYPE(MGMTD_FRNTND_ADPATER);
-DECLARE_MTYPE(MGMTD_FRNTND_SESSN);
-#endif /* _FRR_MGMTD_MEMORY_H */
+/* Initialise frontend server */
+extern int mgmt_frntnd_server_init(struct thread_master *master);
+
+/* Destroy frontend server */
+extern void mgmt_frntnd_server_destroy(void);
+
+#endif /* _FRR_MGMTD_FRNTND_SERVER_H_ */
