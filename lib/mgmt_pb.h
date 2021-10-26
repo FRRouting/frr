@@ -1,4 +1,5 @@
-/* mgmt memory type declarations
+/*
+ * MGMTD protobuf main header file
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar <spushpasis@vmware.com>
  *
@@ -17,13 +18,21 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_MGMTD_MEMORY_H
-#define _FRR_MGMTD_MEMORY_H
+#ifndef _FRR_MGMTD_PB_H_
+#define _FRR_MGMTD_PB_H_
 
-#include "memory.h"
+#include "mgmt.pb-c.h"
 
-DECLARE_MGROUP(MGMTD);
-DECLARE_MTYPE(MGMTD);
-DECLARE_MTYPE(MGMTD_FRNTND_ADPATER);
-DECLARE_MTYPE(MGMTD_FRNTND_SESSN);
-#endif /* _FRR_MGMTD_MEMORY_H */
+#define mgmt_yang_data_xpath_init(ptr) mgmtd__yang_data_xpath__init(ptr)
+
+#define mgmt_yang_data_value_init(ptr) mgmtd__yang_data_value__init(ptr)
+
+#define mgmt_yang_data_init(ptr) mgmtd__yang_data__init(ptr)
+
+#define mgmt_yang_data_reply_init(ptr) mgmtd__yang_data_reply__init(ptr)
+
+#define mgmt_yang_cfg_data_req_init(ptr) mgmtd__yang_cfg_data_req__init(ptr)
+
+#define mgmt_yang_get_data_req_init(ptr) mgmtd__yang_get_data_req__init(ptr)
+
+#endif /* _FRR_MGMTD_PB_H_ */
