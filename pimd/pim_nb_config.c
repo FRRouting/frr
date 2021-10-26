@@ -646,9 +646,8 @@ int routing_control_plane_protocols_control_plane_protocol_pim_keep_alive_timer_
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
-		vrf = nb_running_get_entry(args->dnode, NULL, true);
-		pim = vrf->info;
-		pim->keep_alive_time = yang_dnode_get_uint16(args->dnode, NULL);
+		router->register_suppress_time =
+			yang_dnode_get_uint16(args->dnode, NULL);
 		break;
 	}
 
