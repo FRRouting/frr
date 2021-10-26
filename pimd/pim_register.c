@@ -323,6 +323,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	int i_am_rp = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
+	char buf[PREFIX_STRLEN];
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
 	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
@@ -379,6 +380,17 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_debug("Received Register message%s from %s on %s, rp: %d",
 			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
+	}
+
+	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
+		if (sg.src.s_addr == INADDR_ANY) {
+			zlog_warn(
+				"%s: Received Register message for Group(%s) is now in SSM, dropping the packet",
+				__func__,
+				inet_ntop(AF_INET, &sg.grp, buf, sizeof(buf)));
+			/* Drop Packet Silently */
+			return 0;
+		}
 	}
 
 	if (i_am_rp

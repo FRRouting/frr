@@ -39,6 +39,7 @@
 #include "pim_rp.h"
 #include "pim_jp_agg.h"
 #include "pim_util.h"
+#include "pim_ssm.h"
 
 static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr src)
@@ -55,6 +56,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		      struct prefix_sg *sg, uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
+	char buf[PREFIX_STRLEN];
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char up_str[INET_ADDRSTRLEN];
@@ -102,6 +104,14 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 			zlog_warn(
 				"%s: Specified RP(%s) in join is different than our configured RP(%s)",
 				__func__, received_rp, local_rp);
+			return;
+		}
+
+		if (pim_is_grp_ssm(pim_ifp->pim, sg->grp)) {
+			zlog_warn(
+				"%s: Specified Group(%s) in join is now in SSM, not allowed to create PIM state",
+				__func__,
+				inet_ntop(AF_INET, &sg->grp, buf, sizeof(buf)));
 			return;
 		}
 
