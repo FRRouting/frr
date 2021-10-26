@@ -635,9 +635,10 @@ static int bgp_capability_addpath(struct peer *peer,
 
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug(
-				"%s OPEN has AddPath CAP for afi/safi: %s/%s%s%s",
-				peer->host, iana_afi2str(pkt_afi),
-				iana_safi2str(pkt_safi),
+				"%s OPEN has %s capability for afi/safi: %s/%s%s%s",
+				peer->host,
+				lookup_msg(capcode_str, hdr->code, NULL),
+				iana_afi2str(pkt_afi), iana_safi2str(pkt_safi),
 				(send_receive & BGP_ADDPATH_RX) ? ", receive"
 								: "",
 				(send_receive & BGP_ADDPATH_TX) ? ", transmit"
