@@ -542,6 +542,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
 		struct igmp_group *grp;
+		struct pim_ifchannel *ch, *ch_temp;
 
 		if (!pim_ifp)
 			continue;
@@ -556,9 +557,17 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
 						  srcnode, src)) {
 				igmp_source_forward_reevaluate_one(pim, src);
-			}	  /* scan group sources */
-		}		  /* scan igmp groups */
-	}			  /* scan interfaces */
+			} /* scan group sources */
+		}	 /* scan igmp groups */
+
+		RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb,
+				 ch_temp) {
+			if (pim_is_grp_ssm(pim, ch->sg.grp)) {
+				if (ch->sg.src.s_addr == INADDR_ANY)
+					pim_ifchannel_delete(ch);
+			}
+		}
+	} /* scan interfaces */
 }
 
 void igmp_source_forward_start(struct pim_instance *pim,
