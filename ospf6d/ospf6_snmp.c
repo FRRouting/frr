@@ -1039,7 +1039,6 @@ static uint8_t *ospfv3WwLsdbEntry(struct variable *v, oid *name, size_t *length,
 		return SNMP_INTEGER(OSPF6_LSA_IS_KNOWN(lsa->header->type)
 					    ? SNMP_TRUE
 					    : SNMP_FALSE);
-		break;
 	}
 	return NULL;
 }
