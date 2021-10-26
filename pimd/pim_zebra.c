@@ -263,10 +263,8 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 		 * We have detected a case where we might need
 		 * to rescan the inherited o_list so do it.
 		 */
-		if (up->channel_oil->oil_inherited_rescan) {
-			pim_upstream_inherited_olist_decide(pim, up);
-			up->channel_oil->oil_inherited_rescan = 0;
-		}
+		pim_upstream_inherited_olist_decide(pim, up);
+		up->channel_oil->oil_inherited_rescan = 0;
 
 		if (up->join_state == PIM_UPSTREAM_JOINED) {
 			/*
