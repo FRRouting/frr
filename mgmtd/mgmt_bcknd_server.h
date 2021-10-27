@@ -1,5 +1,5 @@
 /*
- * MGMTD VTY interface.
+ * MGMTD Backend Server
  * Copyright (C) 2021  Vmware, Inc.
  *		       Pushpasis Sarkar
  *
@@ -18,27 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _MGMTD_VTY_H
-#define _MGMTD_VTY_H
+#ifndef _FRR_MGMTD_BCKND_SERVER_H_
+#define _FRR_MGMTD_BCKND_SERVER_H_
 
-#include "lib/command.h"
-#include "northbound_cli.h"
+#define MGMTD_BCKND_MAX_CONN 32
 
-extern void mgmt_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
-					enum nb_operation operation,
-					const char *value);
-extern int mgmt_apply_vty_nb_commands(struct vty *vty,
-				      const char *xpath_base_fmt, ...);
+/* Initialise backend server */
+extern int mgmt_bcknd_server_init(struct thread_master *master);
 
-static inline LYD_FORMAT mgmt_str2format(const char *format_str)
-{
-	if (!strncmp("json", format_str, sizeof("json")))
-		return LYD_JSON;
-	else if (!strncmp("xml", format_str, sizeof("xml")))
-		return LYD_XML;
-	return LYD_UNKNOWN;
-}
+/* Destroy backend server */
+extern void mgmt_bcknd_server_destroy(void);
 
-extern void mgmt_vty_init(void);
-
-#endif /* _MGMTD_VTY_H */
+#endif /* _FRR_MGMTD_BCKND_SERVER_H_ */

@@ -20,6 +20,8 @@
 #include <zebra.h>
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_vty.h"
+#include "mgmtd/mgmt_bcknd_server.h"
+#include "mgmtd/mgmt_bcknd_adapter.h"
 #include "mgmtd/mgmt_frntnd_server.h"
 #include "mgmtd/mgmt_frntnd_adapter.h"
 #include "mgmtd/mgmt_db.h"
@@ -59,8 +61,14 @@ void mgmt_init(void)
 	/* Initialize databases */
 	mgmt_db_init(mm);
 
+	/* Initialize the MGMTD Backend Adapter Module */
+	mgmt_bcknd_adapter_init(mm->master);
+
 	/* Initialize the MGMTD Frontend Adapter Module */
 	mgmt_frntnd_adapter_init(mm->master, mm);
+
+	/* Start the MGMTD Backend Server for clients to connect */
+	mgmt_bcknd_server_init(mm->master);
 
 	/* Start the MGMTD Frontend Server for clients to connect */
 	mgmt_frntnd_server_init(mm->master);
@@ -73,5 +81,7 @@ void mgmt_terminate(void)
 {
 	mgmt_frntnd_server_destroy();
 	mgmt_frntnd_adapter_destroy();
+	mgmt_bcknd_server_destroy();
+	mgmt_bcknd_adapter_destroy();
 	mgmt_db_destroy();
 }
