@@ -461,6 +461,10 @@ void ospf6_spf_reason_string(uint32_t reason, char *buf, int size)
 	if (!buf)
 		return;
 
+	if (!reason) {
+		buf[0] = '\0';
+		return;
+	}
 	for (bit = 0; bit < array_size(ospf6_spf_reason_str); bit++) {
 		if ((reason & (1 << bit)) && (len < size)) {
 			len += snprintf((buf + len), (size - len), "%s%s",
