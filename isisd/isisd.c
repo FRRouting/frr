@@ -646,7 +646,52 @@ static int isis_vrf_enable(struct vrf *vrf)
 			   vrf->vrf_id);
 
 	isis = isis_lookup_by_vrfname(vrf->name);
-	if (isis) {
+	if (!isis) {
+		char *old_vrf_name = NULL;
+
+		isis = (struct isis *)vrf->info;
+		if (!isis)
+			return 0;
+		/* update vrf name */
+		if (isis->name)
+			old_vrf_name = isis->name;
+		isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf->name);
+		/*
+		 * HACK: Change the ISIS VRF in the running configuration
+		 * directly, bypassing the northbound layer. This is necessary
+		 * to avoid deleting the ISIS and readding it in the new VRF,
+		 * which would have several implications.
+		 */
+		if (yang_module_find("frr-isisd") && old_vrf_name) {
+			struct lyd_node *isis_dnode;
+			struct isis_area *area;
+			char oldpath[XPATH_MAXLEN];
+			char newpath[XPATH_MAXLEN];
+			struct listnode *node, *nnode;
+
+			for (ALL_LIST_ELEMENTS(isis->area_list, node, nnode,
+					       area)) {
+				isis_dnode = yang_dnode_getf(
+					running_config->dnode,
+					"/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']/vrf",
+					area->area_tag, old_vrf_name);
+				if (isis_dnode) {
+					yang_dnode_get_path(
+						lyd_parent(isis_dnode), oldpath,
+						sizeof(oldpath));
+					yang_dnode_change_leaf(isis_dnode,
+							       vrf->name);
+					yang_dnode_get_path(
+						lyd_parent(isis_dnode), newpath,
+						sizeof(newpath));
+					nb_running_move_tree(oldpath, newpath);
+					running_config->version++;
+				}
+			}
+		}
+		XFREE(MTYPE_ISIS_NAME, old_vrf_name);
+	}
+	if (isis && isis->vrf_id != vrf->vrf_id) {
 		old_vrf_id = isis->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		isis_vrf_link(isis, vrf);
@@ -654,12 +699,10 @@ static int isis_vrf_enable(struct vrf *vrf)
 			zlog_debug(
 				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
 				__func__, vrf->name, isis->vrf_id, old_vrf_id);
-		if (old_vrf_id != isis->vrf_id) {
-			/* start zebra redist to us for new vrf */
-			isis_set_redist_vrf_bitmaps(isis, true);
+		/* start zebra redist to us for new vrf */
+		isis_set_redist_vrf_bitmaps(isis, true);
 
-			isis_zebra_vrf_register(isis);
-		}
+		isis_zebra_vrf_register(isis);
 	}
 
 	return 0;
