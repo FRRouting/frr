@@ -95,6 +95,7 @@
 
 DEFINE_MTYPE_STATIC(BGPD, PEER_TX_SHUTDOWN_MSG, "Peer shutdown message (TX)");
 DEFINE_MTYPE_STATIC(BGPD, BGP_EVPN_INFO, "BGP EVPN instance information");
+DEFINE_MTYPE_STATIC(BGPD, PEER_IBUF_SCRATCH, "BGP reception buffer per peer");
 DEFINE_QOBJ_TYPE(bgp_master);
 DEFINE_QOBJ_TYPE(bgp);
 DEFINE_QOBJ_TYPE(peer);
@@ -1408,6 +1409,8 @@ struct peer *peer_new(struct bgp *bgp)
 		ringbuf_new(BGP_MAX_PACKET_SIZE * peer->rpkt_quanta);
 
 	peer->scratch = stream_new(BGP_MAX_PACKET_SIZE);
+	peer->ibuf_scratch_size = BGP_EXTENDED_MESSAGE_MAX_PACKET_SIZE * peer->rpkt_quanta;
+	peer->ibuf_scratch = XCALLOC(MTYPE_PEER_IBUF_SCRATCH, peer->ibuf_scratch_size);
 
 	bgp_sync_init(peer);
 
@@ -2484,6 +2487,10 @@ int peer_delete(struct peer *peer)
 		stream_free(peer->scratch);
 		peer->scratch = NULL;
 	}
+
+	XFREE(MTYPE_PEER_IBUF_SCRATCH, peer->ibuf_scratch);
+	peer->ibuf_scratch = NULL;
+	peer->ibuf_scratch_size = 0;
 
 	/* Local and remote addresses. */
 	if (peer->su_local) {
