@@ -24,6 +24,8 @@
 #include "json.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_vty.h"
+#include "mgmtd/mgmt_be_server.h"
+#include "mgmtd/mgmt_be_adapter.h"
 #include "mgmtd/mgmt_fe_server.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_db.h"
@@ -31,6 +33,31 @@
 #ifndef VTYSH_EXTRACT_PL
 #include "mgmtd/mgmt_vty_clippy.c"
 #endif
+
+DEFPY(show_mgmt_be_adapter,
+      show_mgmt_be_adapter_cmd,
+      "show mgmt backend-adapter all",
+      SHOW_STR
+      MGMTD_STR
+      MGMTD_BE_ADAPTER_STR
+      "Display all Backend Adapters\n")
+{
+	mgmt_be_adapter_status_write(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_be_xpath_reg,
+      show_mgmt_be_xpath_reg_cmd,
+      "show mgmt backend-yang-xpath-registry",
+      SHOW_STR
+      MGMTD_STR
+      "Backend Adapter YANG Xpath Registry\n")
+{
+	mgmt_be_xpath_register_write(vty);
+
+	return CMD_SUCCESS;
+}
 
 DEFPY(show_mgmt_fe_adapter,
       show_mgmt_fe_adapter_cmd,
@@ -332,6 +359,18 @@ DEFPY(show_mgmt_dump_data,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_mgmt_map_xpath,
+      show_mgmt_map_xpath_cmd,
+      "show mgmt yang-xpath-subscription WORD$path",
+      SHOW_STR
+      MGMTD_STR
+      "Get YANG Backend Subscription\n"
+      "XPath expression specifying the YANG data path\n")
+{
+	mgmt_be_xpath_subscr_info_write(vty, path);
+	return CMD_SUCCESS;
+}
+
 DEFPY(mgmt_load_config,
       mgmt_load_config_cmd,
       "mgmt load-config file WORD$filepath <merge|replace>",
@@ -547,6 +586,8 @@ void mgmt_vty_init(void)
 {
 	install_node(&debug_node);
 
+	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
+	install_element(VIEW_NODE, &show_mgmt_be_xpath_reg_cmd);
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_detail_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_all_cmd);
@@ -556,6 +597,7 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
+	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
 
 	install_element(CONFIG_NODE, &mgmt_commit_apply_cmd);
 	install_element(CONFIG_NODE, &mgmt_commit_abort_cmd);
