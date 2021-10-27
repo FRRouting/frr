@@ -884,7 +884,7 @@ void HandleUnaryCommit(
 		grpc_debug("`-> Performing PREPARE");
 		ret = nb_candidate_commit_prepare(
 			&context, candidate->config, comment.c_str(),
-			&candidate->transaction, errmsg, sizeof(errmsg));
+			&candidate->transaction, false, false, errmsg, sizeof(errmsg));
 		break;
 	case frr::CommitRequest::ABORT:
 		grpc_debug("`-> Performing ABORT");
