@@ -803,9 +803,8 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		if (pim_upstream_is_sg_rpt(up) && up->parent &&
 				!I_am_RP(pim, up->sg.grp))
 			send_xg_jp = true;
-		else
-			pim_jp_agg_single_upstream_send(&up->rpf, up,
-							0 /* prune */);
+
+		pim_jp_agg_single_upstream_send(&up->rpf, up, 0 /* prune */);
 
 		if (send_xg_jp) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
