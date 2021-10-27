@@ -2041,10 +2041,12 @@ ospf6_routemap_rule_match_interface(void *rule, const struct prefix *prefix,
 				    void *object)
 {
 	struct interface *ifp;
+	struct ospf6_route *route;
 	struct ospf6_external_info *ei;
 
-	ei = ((struct ospf6_route *)object)->route_option;
-	ifp = if_lookup_by_name_all_vrf((char *)rule);
+	route = object;
+	ei = route->route_option;
+	ifp = if_lookup_by_name((char *)rule, route->ospf6->vrf_id);
 
 	if (ifp != NULL && ei->ifindex == ifp->ifindex)
 		return RMAP_MATCH;
