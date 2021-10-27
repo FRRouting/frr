@@ -30,6 +30,7 @@
 #include "zebra_mlag.h"
 #include "zebra_nhg.h"
 #include "debug.h"
+#include "zebra_script.h"
 
 DEFINE_MTYPE_STATIC(ZEBRA, RIB_TABLE_INFO, "RIB table info");
 DEFINE_MTYPE_STATIC(ZEBRA, ZEBRA_RT_TABLE, "Zebra VRF table");

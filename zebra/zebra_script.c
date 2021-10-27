@@ -256,7 +256,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		lua_setfield(L, -2, "rule");
 		break;
 	case DPLANE_OP_IPTABLE_ADD:
-	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPTABLE_DELETE: {
 		struct zebra_pbr_iptable iptable;
 
 		dplane_ctx_get_pbr_iptable(ctx, &iptable);
@@ -300,10 +300,11 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		}
 		lua_setfield(L, -2, "iptable");
 		break;
+	}
 	case DPLANE_OP_IPSET_ADD:
 	case DPLANE_OP_IPSET_DELETE:
 	case DPLANE_OP_IPSET_ENTRY_ADD:
-	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_DELETE: {
 		struct zebra_pbr_ipset ipset;
 
 		dplane_ctx_get_pbr_ipset(ctx, &ipset);
@@ -325,8 +326,11 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		}
 		lua_setfield(L, -2, "ipset");
 		break;
+	}
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		break;
 	case DPLANE_OP_NEIGH_INSTALL:
 	case DPLANE_OP_NEIGH_UPDATE:
@@ -409,6 +413,7 @@ void lua_pushzebra_dplane_ctx(lua_State *L, const struct zebra_dplane_ctx *ctx)
 		}
 		lua_setfield(L, -2, "gre");
 	case DPLANE_OP_NONE:
+		break;
 	} /* Dispatch by op code */
 }
 
