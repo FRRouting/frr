@@ -76,6 +76,7 @@ lib_libfrr_la_SOURCES = \
 	lib/northbound.c \
 	lib/northbound_cli.c \
 	lib/northbound_db.c \
+	lib/mgmt_be_client.c \
 	lib/mgmt_fe_client.c \
 	lib/ntop.c \
 	lib/openbsd-tree.c \
@@ -196,6 +197,7 @@ pkginclude_HEADERS += \
 	lib/buffer.h \
 	lib/checksum.h \
 	lib/mlag.h \
+	lib/mgmt_be_client.h \
 	lib/mgmt_fe_client.h \
 	lib/mgmt.pb-c.h \
 	lib/mgmt_pb.h \
