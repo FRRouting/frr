@@ -257,6 +257,8 @@ struct dplane_ctx_rule {
 	/* Filter criteria */
 	uint32_t filter_bm;
 	uint32_t fwmark;
+	uint16_t filter_src_port;
+	uint16_t filter_dst_port;
 	uint8_t dsfield;
 	struct prefix src_ip;
 	struct prefix dst_ip;
@@ -2113,6 +2115,77 @@ dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx)
 	return &(ctx->u.rule.old.dst_ip);
 }
 
+/*
+ * PBR Rule filter get L4 ports
+ */
+
+uint16_t dplane_ctx_rule_get_src_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.filter_src_port;
+}
+
+uint16_t dplane_ctx_rule_get_old_src_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.filter_src_port;
+}
+
+uint16_t dplane_ctx_rule_get_dst_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.new.filter_dst_port;
+}
+
+uint16_t dplane_ctx_rule_get_old_dst_port(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.rule.old.filter_dst_port;
+}
+
+/*
+ * PBR Rule filter set L4 ports
+ */
+
+void dplane_ctx_rule_set_src_port(struct zebra_dplane_ctx *ctx, uint16_t port)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.new.filter_src_port = port;
+}
+
+void dplane_ctx_rule_set_old_src_port(struct zebra_dplane_ctx *ctx,
+				      uint16_t port)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.old.filter_src_port = port;
+}
+
+void dplane_ctx_rule_set_dst_port(struct zebra_dplane_ctx *ctx, uint16_t port)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.new.filter_dst_port = port;
+}
+
+void dplane_ctx_rule_set_old_dst_port(struct zebra_dplane_ctx *ctx,
+				      uint16_t port)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.rule.old.filter_dst_port = port;
+}
+
+
+/*
+ * END PBR Rule L4 ports
+ */
+
 uint32_t dplane_ctx_get_br_port_flags(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -2775,6 +2848,10 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->fwmark = rule->rule.filter.fwmark;
 	dplane_rule->dsfield = rule->rule.filter.dsfield;
 	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
+
+	dplane_rule->filter_src_port = rule->rule.filter.src_port;
+	dplane_rule->filter_dst_port = rule->rule.filter.dst_port;
+
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
 

@@ -524,6 +524,19 @@ const struct prefix *
 dplane_ctx_rule_get_dst_ip(const struct zebra_dplane_ctx *ctx);
 const struct prefix *
 dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx);
+
+uint16_t dplane_ctx_rule_get_src_port(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_old_src_port(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_dst_port(const struct zebra_dplane_ctx *ctx);
+uint16_t dplane_ctx_rule_get_old_dst_port(const struct zebra_dplane_ctx *ctx);
+
+void dplane_ctx_rule_set_src_port(struct zebra_dplane_ctx *ctx, uint16_t port);
+void dplane_ctx_rule_set_old_src_port(struct zebra_dplane_ctx *ctx,
+				      uint16_t port);
+void dplane_ctx_rule_set_dst_port(struct zebra_dplane_ctx *ctx, uint16_t port);
+void dplane_ctx_rule_set_old_dst_port(struct zebra_dplane_ctx *ctx,
+				      uint16_t port);
+
 /* Accessors for policy based routing iptable information */
 struct zebra_pbr_iptable;
 bool
