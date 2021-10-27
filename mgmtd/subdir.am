@@ -23,6 +23,8 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_memory.c \
 	mgmtd/mgmt_db.c \
 	mgmtd/mgmt_vty.c \
+	mgmtd/mgmt_be_server.c \
+	mgmtd/mgmt_be_adapter.c \
 	mgmtd/mgmt_fe_server.c \
 	mgmtd/mgmt_fe_adapter.c \
 	# end
@@ -35,6 +37,8 @@ mgmtdheader_HEADERS = \
 noinst_HEADERS += \
 	mgmtd/mgmt.h \
 	mgmtd/mgmt_memory.h \
+	mgmtd/mgmt_be_adapter.h \
+	mgmtd/mgmt_be_server.h \
 	mgmtd/mgmt_db.h \
 	mgmtd/mgmt_vty.h \
 	mgmtd/mgmt_fe_adapter.h \
