@@ -780,6 +780,7 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 		nl_buf_len += (size_t)rv;
 		break;
 
+	/* Un-handled by FPM at this time. */
 	case DPLANE_OP_PW_INSTALL:
 	case DPLANE_OP_PW_UNINSTALL:
 	case DPLANE_OP_ADDR_INSTALL:
@@ -793,15 +794,26 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_SYS_ROUTE_DELETE:
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
+	case DPLANE_OP_RULE_ADD:
+	case DPLANE_OP_RULE_DELETE:
+	case DPLANE_OP_RULE_UPDATE:
+	case DPLANE_OP_NEIGH_DISCOVER:
+	case DPLANE_OP_BR_PORT_UPDATE:
+	case DPLANE_OP_IPTABLE_ADD:
+	case DPLANE_OP_IPTABLE_DELETE:
+	case DPLANE_OP_IPSET_ADD:
+	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_IPSET_ENTRY_ADD:
+	case DPLANE_OP_IPSET_ENTRY_DELETE:
+	case DPLANE_OP_NEIGH_IP_INSTALL:
+	case DPLANE_OP_NEIGH_IP_DELETE:
+	case DPLANE_OP_NEIGH_TABLE_UPDATE:
+	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 	case DPLANE_OP_NONE:
 		break;
 
-	default:
-		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: unhandled data plane message (%d) %s",
-				   __func__, dplane_ctx_get_op(ctx),
-				   dplane_op2str(dplane_ctx_get_op(ctx)));
-		break;
 	}
 
 	/* Skip empty enqueues. */
