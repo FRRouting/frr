@@ -972,7 +972,7 @@ DEFUN(show_ipv6_ospf6_spf_tree, show_ipv6_ospf6_spf_tree_cmd,
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ipv6_ospf6_spf_tree_common(vty, ospf6, uj);
 			if (!all_vrf)
 				break;
@@ -1039,7 +1039,7 @@ DEFUN(show_ipv6_ospf6_area_spf_tree, show_ipv6_ospf6_area_spf_tree_cmd,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			show_ospf6_area_spf_tree_common(vty, argv, ospf6,
 							area_id, idx_ipv4);
 			if (!all_vrf)
@@ -1127,7 +1127,7 @@ DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			show_ospf6_simulate_spf_tree_commen(
 				vty, argv, ospf6, router_id, area_id, prefix,
 				idx_ipv4, idx_ipv4_2);
