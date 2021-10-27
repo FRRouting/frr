@@ -2537,10 +2537,7 @@ DEFUN(show_ipv6_ospf6_redistribute, show_ipv6_ospf6_redistribute_cmd,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf
-		    || ((ospf6->name == NULL && vrf_name == NULL)
-			|| (ospf6->name && vrf_name
-			    && strcmp(ospf6->name, vrf_name) == 0))) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_redistribute_show_config(
 				vty, ospf6, json_array_redistribute, json, uj);
 

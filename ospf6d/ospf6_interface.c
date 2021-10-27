@@ -1337,7 +1337,7 @@ DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			show_ospf6_interface_common(vty, ospf6->vrf_id, argc,
 						    argv, idx_ifname, intf_idx,
 						    json_idx);
@@ -1548,7 +1548,7 @@ DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_interface_show_traffic_common(vty, argc, argv,
 							    ospf6->vrf_id);
 
@@ -1594,7 +1594,7 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ifp = if_lookup_by_name(argv[idx_ifname]->arg,
 						ospf6->vrf_id);
 			if (ifp == NULL) {
@@ -1652,7 +1652,7 @@ DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
 		idx_prefix += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			vrf = vrf_lookup_by_id(ospf6->vrf_id);
 			FOR_ALL_INTERFACES (vrf, ifp) {
 				oi = (struct ospf6_interface *)ifp->info;

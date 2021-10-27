@@ -99,8 +99,12 @@ extern struct thread_master *master;
 		vrf_name = argv[idx_vrf + 1]->arg;                             \
 		all_vrf = strmatch(vrf_name, "all");                           \
 	} else {                                                               \
-		vrf_name = VRF_DEFAULT_NAME;                                   \
+		vrf_name = NULL;                                               \
 	}
+
+#define OSPF6_LOOKUP_VALID(O, A, V)                                            \
+	((A) || ((V) == NULL && (O)->name == NULL)                             \
+	 || ((V) && (O)->name && strcmp((O)->name, (V)) == 0))
 
 #define OSPF6_FALSE false
 #define OSPF6_TRUE true

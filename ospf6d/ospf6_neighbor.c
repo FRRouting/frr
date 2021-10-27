@@ -1101,7 +1101,7 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 		drchoice = true;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_neighbor_show_detail_common(vty, ospf6, uj,
 							  detail, drchoice);
 			if (!all_vrf)
@@ -1172,7 +1172,7 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 		idx_ipv4 += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_neighbor_show_common(vty, argc, argv, ospf6,
 						   idx_ipv4);
 

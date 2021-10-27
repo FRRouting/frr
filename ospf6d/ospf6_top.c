@@ -123,8 +123,7 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 	struct listnode *node, *nnode;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, o)) {
-		if (((o->name == NULL && name == NULL)
-		     || (o->name && name && strcmp(o->name, name) == 0)))
+		if (OSPF6_LOOKUP_VALID(o, false, name))
 			return o;
 	}
 	return NULL;
@@ -366,14 +365,18 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	o = XCALLOC(MTYPE_OSPF6_TOP, sizeof(struct ospf6));
 
-	vrf = vrf_lookup_by_name(name);
+	if (!name)
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	else
+		vrf = vrf_lookup_by_name(name);
 	if (vrf) {
 		o->vrf_id = vrf->vrf_id;
 	} else
 		o->vrf_id = VRF_UNKNOWN;
 
 	/* Freed in ospf6_delete */
-	o->name = XSTRDUP(MTYPE_OSPF6_TOP, name);
+	if (name)
+		o->name = XSTRDUP(MTYPE_OSPF6_TOP, name);
 	if (vrf)
 		ospf6_vrf_link(o, vrf);
 
@@ -532,7 +535,8 @@ void ospf6_delete(struct ospf6 *o)
 			ospf6_external_aggregator_free(rn->info);
 	route_table_finish(o->rt_aggr_tbl);
 
-	XFREE(MTYPE_OSPF6_TOP, o->name);
+	if (o->name)
+		XFREE(MTYPE_OSPF6_TOP, o->name);
 	XFREE(MTYPE_OSPF6_TOP, o);
 }
 
@@ -665,7 +669,7 @@ DEFUN_NOSH(router_ospf6, router_ospf6_cmd, "router ospf6 [vrf NAME]",
 	   ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	struct ospf6 *ospf6;
-	const char *vrf_name = VRF_DEFAULT_NAME;
+	const char *vrf_name = NULL;
 	int idx_vrf = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
@@ -687,7 +691,7 @@ DEFUN(no_router_ospf6, no_router_ospf6_cmd, "no router ospf6 [vrf NAME]",
       NO_STR ROUTER_STR OSPF6_STR VRF_CMD_HELP_STR)
 {
 	struct ospf6 *ospf6;
-	const char *vrf_name = VRF_DEFAULT_NAME;
+	const char *vrf_name = NULL;
 	int idx_vrf = 0;
 
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
@@ -1529,7 +1533,7 @@ DEFUN(show_ipv6_ospf6, show_ipv6_ospf6_cmd,
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			if (uj)
 				json = json_object_new_object();
 			ospf6_show(vty, ospf6, json, uj);
@@ -1571,7 +1575,7 @@ DEFUN(show_ipv6_ospf6_route, show_ipv6_ospf6_route_cmd,
 		idx_arg_start += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_route_table_show(vty, idx_arg_start, argc, argv,
 					       ospf6->route_table, uj);
 
@@ -1604,7 +1608,7 @@ DEFUN(show_ipv6_ospf6_route_match, show_ipv6_ospf6_route_match_cmd,
 		idx_start_arg += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_route_table_show(vty, idx_start_arg, argc, argv,
 					       ospf6->route_table, uj);
 
@@ -1638,7 +1642,7 @@ DEFUN(show_ipv6_ospf6_route_match_detail,
 		idx_start_arg += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_route_table_show(vty, idx_start_arg, argc, argv,
 					       ospf6->route_table, uj);
 
@@ -1673,7 +1677,7 @@ DEFUN(show_ipv6_ospf6_route_type_detail, show_ipv6_ospf6_route_type_detail_cmd,
 		idx_start_arg += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_route_table_show(vty, idx_start_arg, argc, argv,
 					       ospf6->route_table, uj);
 
@@ -2083,8 +2087,7 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
-
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_show_summary_address(vty, ospf6, json, uj,
 						   detail);
 
@@ -2190,7 +2193,7 @@ static int config_write_ospf6(struct vty *vty)
 		return CMD_SUCCESS;
 
 	for (ALL_LIST_ELEMENTS(om6->ospf6, node, nnode, ospf6)) {
-		if (ospf6->name && strcmp(ospf6->name, VRF_DEFAULT_NAME))
+		if (ospf6->name)
 			vty_out(vty, "router ospf6 vrf %s\n", ospf6->name);
 		else
 			vty_out(vty, "router ospf6\n");

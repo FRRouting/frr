@@ -419,7 +419,7 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 
 	level = parse_show_level(idx_level, argc, argv);
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_show_wrapper(vty, level, NULL, NULL, NULL,
 						uj, ospf6);
 			if (!all_vrf)
@@ -469,7 +469,7 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, NULL,
 						     NULL, uj, ospf6);
 			if (!all_vrf)
@@ -510,7 +510,7 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_show_wrapper(vty, level, NULL, &id, NULL, uj,
 						ospf6);
 			if (!all_vrf)
@@ -555,7 +555,7 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_show_wrapper(vty, level, NULL, NULL,
 						&adv_router, uj, ospf6);
 			if (!all_vrf)
@@ -622,7 +622,7 @@ DEFUN_HIDDEN(
 	inet_pton(AF_INET, argv[idx_ipv4]->arg, &adv_router);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ipv6_ospf6_database_aggr_router_common(vty, adv_router,
 							       ospf6);
 
@@ -679,7 +679,7 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, &id,
 						     NULL, uj, ospf6);
 			if (!all_vrf)
@@ -737,7 +737,7 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, NULL,
 						     &adv_router, uj, ospf6);
 
@@ -787,7 +787,7 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_show_wrapper(vty, level, NULL, &id,
 						&adv_router, uj, ospf6);
 			if (!all_vrf)
@@ -836,7 +836,7 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_show_wrapper(vty, level, NULL, &id,
 						&adv_router, uj, ospf6);
 			if (!all_vrf)
@@ -896,7 +896,7 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, &id,
 						     &adv_router, uj, ospf6);
 
@@ -964,7 +964,7 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, &id,
 						     &adv_router, uj, ospf6);
 
@@ -1005,7 +1005,7 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		adv_router = ospf6->router_id;
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			ospf6_lsdb_show_wrapper(vty, level, NULL, NULL,
 						&adv_router, uj, ospf6);
 
@@ -1061,7 +1061,7 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			adv_router = ospf6->router_id;
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, NULL,
 						     &adv_router, uj, ospf6);
@@ -1123,7 +1123,7 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			adv_router = ospf6->router_id;
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, &id,
 						     &adv_router, uj, ospf6);
@@ -1183,7 +1183,7 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 	level = parse_show_level(idx_level, argc, argv);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			adv_router = ospf6->router_id;
 			ospf6_lsdb_type_show_wrapper(vty, level, &type, &id,
 						     &adv_router, uj, ospf6);
@@ -1260,7 +1260,7 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			show_ospf6_border_routers_common(vty, argc, argv, ospf6,
 							 idx_ipv4, idx_argc);
 
@@ -1297,7 +1297,7 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 		idx_ipv4 += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, nnode, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 				vty_out(vty,
 					"\n        SPF Result in Area %s\n\n",
@@ -1336,7 +1336,7 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 		idx_detail += 2;
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
-		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
+		if (OSPF6_LOOKUP_VALID(ospf6, all_vrf, vrf_name)) {
 			for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 				vty_out(vty,
 					"\n        SPF Result in Area %s\n\n",
