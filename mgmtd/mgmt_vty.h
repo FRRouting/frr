@@ -29,8 +29,6 @@ extern void mgmt_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
 					const char *value);
 extern int mgmt_apply_vty_nb_commands(struct vty *vty,
 				      const char *xpath_base_fmt, ...);
-extern int mgmt_hndl_be_cmd(const struct cmd_element *cmd, struct vty *vty,
-			      int argc, struct cmd_token *argv[]);
 
 static inline LYD_FORMAT mgmt_str2format(const char *format_str)
 {
