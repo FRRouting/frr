@@ -1,6 +1,7 @@
-/* mgmt memory type declarations
+/*
+ * MGMTD Backend Server
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ *		       Pushpasis Sarkar
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,14 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifndef _FRR_MGMTD_MEMORY_H
-#define _FRR_MGMTD_MEMORY_H
+#ifndef _FRR_MGMTD_BE_SERVER_H_
+#define _FRR_MGMTD_BE_SERVER_H_
 
-#include "memory.h"
+#define MGMTD_BE_MAX_CONN 32
 
-DECLARE_MGROUP(MGMTD);
-DECLARE_MTYPE(MGMTD);
-DECLARE_MTYPE(MGMTD_BE_ADPATER);
-DECLARE_MTYPE(MGMTD_FE_ADPATER);
-DECLARE_MTYPE(MGMTD_FE_SESSION);
-#endif /* _FRR_MGMTD_MEMORY_H */
+/* Initialise backend server */
+extern int mgmt_be_server_init(struct thread_master *master);
+
+/* Destroy backend server */
+extern void mgmt_be_server_destroy(void);
+
+#endif /* _FRR_MGMTD_BE_SERVER_H_ */
