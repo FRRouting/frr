@@ -1,6 +1,7 @@
-/* mgmt memory type definitions
+/*
+ * MGMTD Backend Server
  * Copyright (C) 2021  Vmware, Inc.
- *		       Pushpasis Sarkar <spushpasis@vmware.com>
+ *		       Pushpasis Sarkar
  *
  * This program is free software; you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the Free
@@ -17,18 +18,15 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+#ifndef _FRR_MGMTD_BCKND_SERVER_H_
+#define _FRR_MGMTD_BCKND_SERVER_H_
 
-#include "mgmt_memory.h"
+#include "lib/mgmt_bcknd_client.h"
 
-/* this file is temporary in nature;  definitions should be moved to the
- * files they're used in
- */
+#define MGMTD_BCKND_MAX_CONN 32
 
-DEFINE_MGROUP(MGMTD, "mgmt");
-DEFINE_MTYPE(MGMTD, MGMTD, "MGMTD instance");
-DEFINE_MTYPE(MGMTD, MGMTD_BCKND_ADPATER, "MGMTD backend adapter");
-DEFINE_MTYPE(MGMTD, MGMTD_FRNTND_ADPATER, "MGMTD Frontend adapter");
-DEFINE_MTYPE(MGMTD, MGMTD_FRNTND_SESSN, "MGMTD Frontend Client Session");
+extern int mgmt_bcknd_server_init(struct thread_master *master);
+
+extern void mgmt_bcknd_server_destroy(void);
+
+#endif /* _FRR_MGMTD_BCKND_SERVER_H_ */
