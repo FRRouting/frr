@@ -13427,16 +13427,6 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 	bgp = peer->bgp;
 
-	if (!bgp) {
-		if (use_json) {
-			json_object_string_add(json, "alert", "no BGP");
-			vty_out(vty, "%s\n", json_object_to_json_string(json));
-			json_object_free(json);
-		} else
-			vty_out(vty, "%% No bgp\n");
-		return;
-	}
-
 	subgrp = peer_subgroup(peer, afi, safi);
 
 	if (type == bgp_show_adj_route_advertised && subgrp
@@ -13677,6 +13667,9 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				"No such neighbor or address family");
 			vty_out(vty, "%s\n", json_object_to_json_string(json));
 			json_object_free(json);
+			json_object_free(json_ar);
+			json_object_free(json_scode);
+			json_object_free(json_ocode);
 		} else
 			vty_out(vty, "%% No such neighbor or address family\n");
 
@@ -13693,6 +13686,9 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 				"Inbound soft reconfiguration not enabled");
 			vty_out(vty, "%s\n", json_object_to_json_string(json));
 			json_object_free(json);
+			json_object_free(json_ar);
+			json_object_free(json_scode);
+			json_object_free(json_ocode);
 		} else
 			vty_out(vty,
 				"%% Inbound soft reconfiguration not enabled\n");
@@ -13761,14 +13757,17 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			json_object_to_json_string_ext(
 				json, JSON_C_TO_STRING_PRETTY));
 
-		if (!output_count && !filtered_count) {
+		/*
+		 * These fields only give up ownership to `json` when `header1`
+		 * is used (set to zero). See code in `show_adj_route` and
+		 * `show_adj_route_header`.
+		 */
+		if (header1 == 1) {
 			json_object_free(json_scode);
 			json_object_free(json_ocode);
 		}
 
-		if (json)
-			json_object_free(json);
-
+		json_object_free(json);
 	} else if (output_count > 0) {
 		if (filtered_count > 0)
 			vty_out(vty,
