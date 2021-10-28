@@ -2892,7 +2892,8 @@ int netlink_nexthop_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		return -1;
 	}
 
-	netlink_parse_rtattr(tb, NHA_MAX, RTM_NHA(nhm), len);
+	netlink_parse_rtattr_flags(tb, NHA_MAX, RTM_NHA(nhm), len,
+				   NLA_F_NESTED);
 
 
 	if (!tb[NHA_ID]) {
