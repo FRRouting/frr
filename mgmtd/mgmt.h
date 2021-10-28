@@ -39,10 +39,13 @@
 #include "stream.h"
 
 #include "mgmt_memory.h"
+#include "mgmtd/mgmt_defines.h"
+#include "mgmtd/mgmt_trxn.h"
 #include "mgmt_db.h"
 
 #define MGMTD_VTY_PORT 2622
 #define MGMTD_SOCKET_BUF_SIZE 65535
+#define MGMTD_MAX_COMMIT_LIST 10
 
 #define max(a, b)                                                              \
 	({                                                                     \
@@ -57,6 +60,8 @@ extern bool mgmt_debug_frntnd;
 extern bool mgmt_debug_db;
 extern bool mgmt_debug_trxn;
 
+struct mgmt_trxn_ctxt;
+
 /* MGMTD master for system wide configurations and variables.  */
 struct mgmt_master {
 	struct thread_master *master;
@@ -67,6 +72,12 @@ struct mgmt_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
+	/* List of all transactions currently underway */
+	struct mgmt_trxn_list_head mgmt_trxns;
+
+	/* The single instance of config transaction allowed at any time */
+	struct mgmt_trxn_ctxt *cfg_trxn;
+
 	/* Databases */
 	uint64_t running_db;
 	uint64_t candidate_db;
@@ -74,6 +85,10 @@ struct mgmt_master {
 
 	bool terminating;   /* global flag that sigint terminate seen */
 	bool perf_stats_en; /* to enable performance stats measurement */
+
+	/* List of commit infos */
+	struct mgmt_cmt_info_dlist_head
+		cmt_dlist; /* List of last 10 commits executed. */
 };
 
 extern struct mgmt_master *mm;
