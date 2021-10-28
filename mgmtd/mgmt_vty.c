@@ -55,6 +55,16 @@
 #endif
 
 /*
+ * Declare prototypes for command initialization routines defined by
+ * backend components that have been moved to new MGMTD infra here
+ * one by one. These are supposed to be compiled into
+ * mgmt/ibmgmt_bcknd_nb.la first and then called from mgmt_vty_init()
+ * below to load all backend client command handlers on MGMTd
+ * process context.
+ */
+extern void static_vty_init(void);
+
+/*
  * mgmt_enqueue_nb_command
  *
  * Add a config command from VTYSH for further processing.
@@ -733,6 +743,14 @@ DEFPY(debug_mgmt_all,
 
 void mgmt_vty_init(void)
 {
+	/*
+	 * Initialize command handling from VTYSH connection.
+	 * Call command initialization routines defined by
+	 * backend components that are moved to new MGMTD infra
+	 * here one by one.
+	 */
+	static_vty_init();
+
 	install_node(&debug_node);
 
 	install_element(VIEW_NODE, &show_mgmt_bcknd_adapter_cmd);
