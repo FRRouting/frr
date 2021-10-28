@@ -22,6 +22,8 @@
 #define _FRR_MGMTD_DB_H_
 
 #include "mgmtd/mgmt_defines.h"
+#include "mgmtd/mgmt_be_adapter.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 
 #define MGMTD_MAX_NUM_DBNODES_PER_BATCH 128
 
@@ -45,15 +47,11 @@
 #define MGMTD_COMMIT_INDEX_FILE_NAME "/etc/frr/commit-index.dat"
 #define MGMTD_COMMIT_TIME_STR_LEN 100
 
-struct mgmt_master;
-
 extern struct nb_config *running_config;
 
 struct mgmt_db_ctx;
 
-typedef void (*mgmt_db_node_iter_fn)(uint64_t db_hndl, char *xpath,
-				     struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx);
+PREDECL_DLIST(mgmt_cmt_info_dlist);
 
 /***************************************************************
  * Global data exported
@@ -388,6 +386,34 @@ extern int mgmt_db_dump_db_to_file(char *file_name,
 				   struct mgmt_db_ctx *db_ctx);
 
 /*
+ * Rollback specific commit from commit history.
+ *
+ * vty
+ *    VTY context.
+ *
+ * cmtid_str
+ *    Specific commit id from commit history.
+ *
+ * Returns:
+ *    0 on success, -1 on failure.
+ */
+extern int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str);
+
+/*
+ * Rollback n commits from commit history.
+ *
+ * vty
+ *    VTY context.
+ *
+ * num_cmts
+ *    Number of commits to be rolled back.
+ *
+ * Returns:
+ *    0 on success, -1 on failure.
+ */
+extern int mgmt_db_rollback_commits(struct vty *vty, int num_cmts);
+
+/*
  * Dump information about specific database.
  */
 extern void mgmt_db_status_write_one(struct vty *vty,
@@ -397,5 +423,10 @@ extern void mgmt_db_status_write_one(struct vty *vty,
  * Dump information about all the databases.
  */
 extern void mgmt_db_status_write(struct vty *vty);
+
+/*
+ * Show mgmt commit history.
+ */
+extern void show_mgmt_cmt_history(struct vty *vty);
 
 #endif /* _FRR_MGMTD_DB_H_ */
