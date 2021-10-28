@@ -13,6 +13,8 @@
 #include "northbound.h"
 
 #include "mgmtd/mgmt_defines.h"
+#include "mgmtd/mgmt_be_adapter.h"
+#include "mgmtd/mgmt_fe_adapter.h"
 
 #define MGMTD_MAX_NUM_DSNODES_PER_BATCH 128
 
@@ -35,15 +37,9 @@
 #define MGMTD_COMMIT_INDEX_FILE_NAME DAEMON_DB_DIR "/commit-index.dat"
 #define MGMTD_COMMIT_TIME_STR_LEN 100
 
-struct mgmt_master;
-
 extern struct nb_config *running_config;
 
 struct mgmt_ds_ctx;
-
-typedef void (*mgmt_ds_node_iter_fn)(uint64_t ds_hndl, char *xpath,
-				     struct lyd_node *node,
-				     struct nb_node *nb_node, void *ctx);
 
 /***************************************************************
  * Global data exported
@@ -201,25 +197,6 @@ extern int mgmt_ds_write_lock(struct mgmt_ds_ctx *ds_ctx);
  * Remove a lock from ds given a ds_handle
  */
 extern int mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx);
-
-/*
- * Merge two datastores.
- *
- * src_ds
- *    Source datastore handle.
- *
- * dst_ds
- *    Destination datastore handle.
- *
- * update_cmd_rec
- *    TRUE if need to update commit record, FALSE otherwise.
- *
- * Returns:
- *    0 on success, -1 on failure.
- */
-extern int mgmt_ds_merge_dss(struct mgmt_ds_ctx *src_ds_ctx,
-			     struct mgmt_ds_ctx *dst_ds_ctx,
-			     bool update_cmt_rec);
 
 /*
  * Copy from source to destination datastore.
@@ -387,5 +364,11 @@ extern void mgmt_ds_status_write_one(struct vty *vty,
  * Dump information about all the datastores.
  */
 extern void mgmt_ds_status_write(struct vty *vty);
+
+
+/*
+ * Reset the candidate DS to empty state
+ */
+void mgmt_ds_reset_candidate(void);
 
 #endif /* _FRR_MGMTD_DS_H_ */
