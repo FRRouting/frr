@@ -28,6 +28,7 @@
 #include "lib/memory.h"
 #include "lib/queue.h"
 #include "lib/zebra.h"
+#include "zebra/netconf_netlink.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_vxlan_private.h"
@@ -430,6 +431,9 @@ PREDECL_DLIST(zns_info_list);
 struct dplane_zns_info {
 	struct zebra_dplane_info info;
 
+	/* Request data from the OS */
+	struct thread *t_request;
+
 	/* Read event */
 	struct thread *t_read;
 
@@ -554,8 +558,6 @@ DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
 
 /* Prototypes */
 static void dplane_thread_loop(struct thread *event);
-static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
-				 struct zebra_ns *zns);
 static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
@@ -2385,13 +2387,29 @@ uint32_t dplane_get_in_queue_len(void)
 }
 
 /*
+ * Internal helper that copies information from a zebra ns object; this is
+ * called in the zebra main pthread context as part of dplane ctx init.
+ */
+static void ctx_info_from_zns(struct zebra_dplane_info *ns_info,
+			      struct zebra_ns *zns)
+{
+	ns_info->ns_id = zns->ns_id;
+
+#if defined(HAVE_NETLINK)
+	ns_info->is_cmd = true;
+	ns_info->sock = zns->netlink_dplane_out.sock;
+	ns_info->seq = zns->netlink_dplane_out.seq;
+#endif /* NETLINK */
+}
+
+/*
  * Common dataplane context init with zebra namespace info.
  */
 static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 			      struct zebra_ns *zns,
 			      bool is_update)
 {
-	dplane_info_from_zns(&(ctx->zd_ns_info), zns);
+	ctx_info_from_zns(&(ctx->zd_ns_info), zns); /*  */
 
 	ctx->zd_is_update = is_update;
 
@@ -4923,21 +4941,6 @@ bool dplane_provider_is_threaded(const struct zebra_dplane_provider *prov)
 	return (prov->dp_flags & DPLANE_PROV_FLAG_THREADED);
 }
 
-/*
- * Internal helper that copies information from a zebra ns object; this is
- * called in the zebra main pthread context as part of dplane ctx init.
- */
-static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
-				 struct zebra_ns *zns)
-{
-	ns_info->ns_id = zns->ns_id;
-
-#if defined(HAVE_NETLINK)
-	ns_info->is_cmd = true;
-	ns_info->sock = zns->netlink_dplane_out.sock;
-#endif /* NETLINK */
-}
-
 #ifdef HAVE_NETLINK
 /*
  * Callback when an OS (netlink) incoming event read is ready. This runs
@@ -4953,6 +4956,40 @@ static void dplane_incoming_read(struct thread *event)
 	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
 			zi->info.sock, &zi->t_read);
 }
+
+/*
+ * Callback in the dataplane pthread that requests info from the OS and
+ * initiates netlink reads.
+ */
+static void dplane_incoming_request(struct thread *event)
+{
+	struct dplane_zns_info *zi = THREAD_ARG(event);
+
+	/* Start read task */
+	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
+			zi->info.sock, &zi->t_read);
+
+	/* Send requests */
+	netlink_request_netconf(zi->info.sock);
+}
+
+/*
+ * Initiate requests for existing info from the OS. This is called by the
+ * main pthread, but we want all activity on the dplane netlink socket to
+ * take place on the dplane pthread, so we schedule an event to accomplish
+ * that.
+ */
+static void dplane_kernel_info_request(struct dplane_zns_info *zi)
+{
+	/* If we happen to encounter an enabled zns before the dplane
+	 * pthread is running, we'll initiate this later on.
+	 */
+	if (zdplane_info.dg_master)
+		thread_add_event(zdplane_info.dg_master,
+				 dplane_incoming_request, zi, 0,
+				 &zi->t_request);
+}
+
 #endif /* HAVE_NETLINK */
 
 /*
@@ -4996,11 +5033,10 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 		zi->info.is_cmd = false;
 		zi->info.sock = zns->netlink_dplane_in.sock;
 
-		/* Start read task for the dplane pthread. */
-		if (zdplane_info.dg_master)
-			thread_add_read(zdplane_info.dg_master,
-					dplane_incoming_read, zi, zi->info.sock,
-					&zi->t_read);
+		/* Initiate requests for existing info from the OS, and
+		 * begin reading from the netlink socket.
+		 */
+		dplane_kernel_info_request(zi);
 #endif
 	} else if (zi) {
 		if (IS_ZEBRA_DEBUG_DPLANE)
@@ -5010,9 +5046,14 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 		/* Stop reading, free memory */
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
-		if (zdplane_info.dg_master)
+		/* Stop any outstanding tasks */
+		if (zdplane_info.dg_master) {
+			thread_cancel_async(zdplane_info.dg_master,
+					    &zi->t_request, NULL);
+
 			thread_cancel_async(zdplane_info.dg_master, &zi->t_read,
 					    NULL);
+		}
 
 		XFREE(MTYPE_DP_NS, zi);
 	}
@@ -5692,8 +5733,10 @@ static void dplane_check_shutdown_status(struct thread *event)
 	frr_each_safe (zns_info_list, &zdplane_info.dg_zns_list, zi) {
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
 
-		if (zdplane_info.dg_master)
+		if (zdplane_info.dg_master) {
 			thread_cancel(&zi->t_read);
+			thread_cancel(&zi->t_request);
+		}
 
 		XFREE(MTYPE_DP_NS, zi);
 	}
@@ -6023,11 +6066,12 @@ void zebra_dplane_start(void)
 	thread_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,
 			 &zdplane_info.dg_t_update);
 
-	/* Enqueue reads if necessary */
+	/* Enqueue requests and reads if necessary */
 	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
 #if defined(HAVE_NETLINK)
 		thread_add_read(zdplane_info.dg_master, dplane_incoming_read,
 				zi, zi->info.sock, &zi->t_read);
+		dplane_kernel_info_request(zi);
 #endif
 	}
 

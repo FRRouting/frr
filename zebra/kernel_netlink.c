@@ -372,13 +372,11 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELNEXTHOP:
 		return netlink_nexthop_change(h, ns_id, startup);
 
-	case RTM_NEWNETCONF:
-	case RTM_DELNETCONF:
-		return netlink_netconf_change(h, ns_id, startup);
-
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
+	case RTM_NEWNETCONF:
+	case RTM_DELNETCONF:
 		return 0;
 
 	default:
@@ -1616,13 +1614,15 @@ void kernel_init(struct zebra_ns *zns)
 		RTMGRP_NEIGH                   |
 		((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
 		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
-		((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1)) |
-		((uint32_t) 1 << (RTNLGRP_IPV4_NETCONF - 1)) |
-		((uint32_t) 1 << (RTNLGRP_MPLS_NETCONF - 1));
+		((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1));
 
 	dplane_groups = (RTMGRP_LINK            |
 			 RTMGRP_IPV4_IFADDR     |
-			 RTMGRP_IPV6_IFADDR);
+			 RTMGRP_IPV6_IFADDR     |
+			 ((uint32_t) 1 << (RTNLGRP_IPV4_NETCONF - 1)) |
+			 ((uint32_t) 1 << (RTNLGRP_IPV6_NETCONF - 1)) |
+			 ((uint32_t) 1 << (RTNLGRP_MPLS_NETCONF - 1)));
+
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
