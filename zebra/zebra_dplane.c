@@ -2171,15 +2171,14 @@ void dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
 		memcpy(ipset, &ctx->u.ipset, sizeof(struct zebra_pbr_ipset));
 }
 
-bool dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
+void dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
 				    struct zebra_pbr_ipset_entry *entry)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (!entry)
-		return false;
+	assert(entry);
+
 	memcpy(entry, &ctx->u.ipset_entry.entry, sizeof(struct zebra_pbr_ipset_entry));
-	return true;
 }
 
 /*
@@ -5075,12 +5074,12 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPSET_ENTRY_DELETE: {
 		struct zebra_pbr_ipset_entry ipent;
 
-		if (dplane_ctx_get_pbr_ipset_entry(ctx, &ipent))
-			zlog_debug("Dplane ipset entry update op %s, unique(%u), ctx %p",
-				   dplane_op2str(dplane_ctx_get_op(ctx)),
-				   ipent.unique, ctx);
+		dplane_ctx_get_pbr_ipset_entry(ctx, &ipent);
+		zlog_debug(
+			"Dplane ipset entry update op %s, unique(%u), ctx %p",
+			dplane_op2str(dplane_ctx_get_op(ctx)), ipent.unique,
+			ctx);
 	} break;
-
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		zlog_debug("Dplane neigh table op %s, ifp %s, family %s",
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
