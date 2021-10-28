@@ -192,6 +192,12 @@ int nb_cli_apply_changes(struct vty *vty, const char *xpath_base_fmt, ...)
 		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
 		va_end(ap);
 	}
+
+	if (vty_mgmt_fe_enabled()) {
+		VTY_CHECK_XPATH;
+		return vty_mgmt_send_config_data(vty);
+	}
+
 	return nb_cli_apply_changes_internal(vty, xpath_base, false);
 }
 
@@ -208,6 +214,12 @@ int nb_cli_apply_changes_clear_pending(struct vty *vty,
 		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
 		va_end(ap);
 	}
+
+	if (vty_mgmt_fe_enabled()) {
+		VTY_CHECK_XPATH;
+		return vty_mgmt_send_config_data(vty);
+	}
+
 	return nb_cli_apply_changes_internal(vty, xpath_base, true);
 }
 

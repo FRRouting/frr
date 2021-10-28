@@ -32,6 +32,65 @@
 
 #include "mgmtd/mgmt_vty_clippy.c"
 
+/*
+ * mgmt_enqueue_nb_command
+ *
+ * Add a config command from VTYSH for further processing.
+ *
+ * NOTE: This function is ALWAYS called from one of the
+ * command handlers installed on MGMTD daemon that is invoked
+ * by lib/vty.c on receiving a command from VTYSH.
+ */
+void mgmt_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
+				 enum nb_operation operation, const char *value)
+{
+	switch (operation) {
+	case NB_OP_CREATE:
+	case NB_OP_MODIFY:
+	case NB_OP_DESTROY:
+	case NB_OP_MOVE:
+	case NB_OP_PRE_VALIDATE:
+		/* Process on MGMTD daemon itself */
+		nb_cli_enqueue_change(vty, xpath, operation, value);
+		break;
+	case NB_OP_APPLY_FINISH:
+	case NB_OP_GET_ELEM:
+	case NB_OP_GET_NEXT:
+	case NB_OP_GET_KEYS:
+	case NB_OP_LOOKUP_ENTRY:
+	case NB_OP_RPC:
+		/* To be sent to backend for processing */
+		break;
+	}
+}
+
+/*
+ * mgmt_apply_nb_commands
+ *
+ * Apply all config command enqueued from VTYSH so far for further
+ * processing.
+ *
+ * NOTE: This function is ALWAYS called from one of the
+ * command handlers installed on MGMTD daemon that is invoked
+ * by lib/vty.c on receiving a command from VTYSH.
+ */
+int mgmt_apply_vty_nb_commands(struct vty *vty, const char *xpath_base_fmt, ...)
+{
+	char xpath_base[XPATH_MAXLEN] = {};
+
+	/* Parse the base XPath format string. */
+	if (xpath_base_fmt) {
+		va_list ap;
+
+		va_start(ap, xpath_base_fmt);
+		vsnprintf(xpath_base, sizeof(xpath_base), xpath_base_fmt, ap);
+		va_end(ap);
+	}
+
+	vty_mgmt_send_config_data(vty);
+	return 0;
+}
+
 DEFPY(show_mgmt_be_adapter,
       show_mgmt_be_adapter_cmd,
       "show mgmt backend-adapter all",
@@ -74,6 +133,45 @@ DEFPY(show_mgmt_fe_adapter_detail, show_mgmt_fe_adapter_detail_cmd,
       "Details of commit stats\n")
 {
 	mgmt_fe_adapter_status_write(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(mgmt_performance_measurement,
+	     mgmt_performance_measurement_cmd,
+	     "[no] mgmt performance-measurement",
+	     NO_STR
+	     MGMTD_STR
+	     "Enable performance measurement\n")
+{
+	if (no)
+		mgmt_fe_adapter_perf_measurement(vty, false);
+	else
+		mgmt_fe_adapter_perf_measurement(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_reset_performance_stats,
+      mgmt_reset_performance_stats_cmd,
+      "mgmt reset-statistics",
+      MGMTD_STR
+      "Reset the Performance measurement statistics\n")
+{
+	mgmt_fe_adapter_reset_perf_stats(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_txn,
+      show_mgmt_txn_cmd,
+      "show mgmt transaction all",
+      SHOW_STR
+      MGMTD_STR
+      MGMTD_TXN_STR
+      "Display all Transactions\n")
+{
+	mgmt_txn_status_write(vty);
 
 	return CMD_SUCCESS;
 }
@@ -274,7 +372,6 @@ DEFPY(show_mgmt_get_data, show_mgmt_get_data_cmd,
 	return CMD_SUCCESS;
 }
 
-
 DEFPY(show_mgmt_dump_data,
       show_mgmt_dump_data_cmd,
       "show mgmt database-contents db-name WORD$dbname [xpath WORD$path] [file WORD$filepath] format WORD$format_str",
@@ -447,6 +544,43 @@ DEFPY(mgmt_save_config,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_mgmt_cmt_hist,
+      show_mgmt_cmt_hist_cmd,
+      "show mgmt commit-history",
+      SHOW_STR
+      MGMTD_STR
+      "Show commit history\n")
+{
+	show_mgmt_cmt_history(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_rollback,
+      mgmt_rollback_cmd,
+      "mgmt rollback <commit-id WORD$commit | last [(1-10)]$last>",
+      MGMTD_STR
+      "Rollback commits\n"
+      "Rollback to commit ID\n"
+      "Commit-ID\n"
+      "Rollbak n commits\n"
+      "Number of commits\n")
+{
+	if (commit)
+		mgmt_db_rollback_by_cmtid(vty, commit);
+	else
+		mgmt_db_rollback_commits(vty, last);
+
+	return CMD_SUCCESS;
+}
+
+static int config_write_mgmt_debug(struct vty *vty);
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_mgmt_debug,
+};
+
 static int config_write_mgmt_debug(struct vty *vty)
 {
 	if (mgmt_debug_be && mgmt_debug_fe && mgmt_debug_db
@@ -465,12 +599,6 @@ static int config_write_mgmt_debug(struct vty *vty)
 
 	return 0;
 }
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = config_write_mgmt_debug,
-};
 
 DEFPY(debug_mgmt_be,
       debug_mgmt_be_cmd,
@@ -566,6 +694,7 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_be_xpath_reg_cmd);
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_detail_cmd);
+	install_element(VIEW_NODE, &show_mgmt_txn_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_all_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_runn_cmd);
 	install_element(VIEW_NODE, &show_mgmt_db_cand_cmd);
@@ -574,6 +703,7 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
+	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);
 
 	install_element(CONFIG_NODE, &mgmt_commit_apply_cmd);
 	install_element(CONFIG_NODE, &mgmt_commit_abort_cmd);
@@ -582,6 +712,7 @@ void mgmt_vty_init(void)
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
+	install_element(CONFIG_NODE, &mgmt_rollback_cmd);
 
 	install_element(VIEW_NODE, &debug_mgmt_be_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_be_cmd);
@@ -594,7 +725,11 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &debug_mgmt_all_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_all_cmd);
 
+	/* Enable view */
+	install_element(ENABLE_NODE, &mgmt_performance_measurement_cmd);
+	install_element(ENABLE_NODE, &mgmt_reset_performance_stats_cmd);
+
 	/*
-	 * TODO: Register and handlers for auto-completion here (if any).
+	 * TODO: Register and handlers for auto-completion here.
 	 */
 }

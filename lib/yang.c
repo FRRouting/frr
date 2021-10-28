@@ -395,7 +395,12 @@ struct lyd_node *yang_dnode_get(const struct lyd_node *dnode, const char *xpath)
 		xpath += 2;
 
 	if (lyd_find_xpath(dnode, xpath, &set)) {
-		assert(0); /* XXX replicates old libyang1 base code */
+		/*
+		 * Commenting out the below assert failure as it crashes mgmtd
+		 * when bad xpath is passed.
+		 *
+		 * assert(0);  XXX replicates old libyang1 base code
+		 */
 		goto exit;
 	}
 	if (set->count == 0)
