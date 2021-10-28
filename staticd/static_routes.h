@@ -159,6 +159,31 @@ static_route_info_from_rnode(struct route_node *rn)
 	return (struct static_route_info *)(rn->info);
 }
 
+static inline void static_get_nh_type(enum static_nh_type stype, char *type,
+				      size_t size)
+{
+	switch (stype) {
+	case STATIC_IFNAME:
+		strlcpy(type, "ifindex", size);
+		break;
+	case STATIC_IPV4_GATEWAY:
+		strlcpy(type, "ip4", size);
+		break;
+	case STATIC_IPV4_GATEWAY_IFNAME:
+		strlcpy(type, "ip4-ifindex", size);
+		break;
+	case STATIC_BLACKHOLE:
+		strlcpy(type, "blackhole", size);
+		break;
+	case STATIC_IPV6_GATEWAY:
+		strlcpy(type, "ip6", size);
+		break;
+	case STATIC_IPV6_GATEWAY_IFNAME:
+		strlcpy(type, "ip6-ifindex", size);
+		break;
+	};
+}
+
 extern bool mpls_enabled;
 extern uint32_t zebra_ecmp_count;
 
@@ -192,8 +217,6 @@ extern struct static_path *static_add_path(struct route_node *rn,
 					   uint32_t table_id, uint8_t distance);
 extern void static_del_path(struct static_path *pn);
 
-extern void static_get_nh_type(enum static_nh_type stype, char *type,
-			       size_t size);
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,
 					enum static_nh_type type,
 					struct ipaddr *ipaddr);
