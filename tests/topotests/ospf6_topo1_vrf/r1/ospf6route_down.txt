@@ -1,0 +1,4 @@
+*N IA 10::1:0/112 :: r1-eth0 XX:XX:XX
+*N IA 10::2:0/112 fe80::XXXX:XXXX:XXXX:XXXX r1-eth1 XX:XX:XX
+*N IA 10::3:0/112 :: r1-eth1 XX:XX:XX
+

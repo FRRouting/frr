@@ -1,0 +1,7 @@
+VRF r2-cust1:
+O>* 10::1:0/112 [110/10] via fe80::XXXX:XXXX:XXXX:XXXX, r2-eth1, weight 1, XX:XX:XX
+O   10::2:0/112 [110/5] is directly connected, r2-eth0, weight 1, XX:XX:XX
+C>* 10::2:0/112 is directly connected, r2-eth0, XX:XX:XX
+O   10::3:0/112 [110/5] is directly connected, r2-eth1, weight 1, XX:XX:XX
+C>* 10::3:0/112 is directly connected, r2-eth1, XX:XX:XX
+

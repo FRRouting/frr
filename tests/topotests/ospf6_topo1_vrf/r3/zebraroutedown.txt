@@ -1,0 +1,5 @@
+VRF r3-cust1:
+O 10::10:0/112 [110/5] is directly connected, r3-eth1, weight 1, XX:XX:XX
+C>* 10::10:0/112 is directly connected, r3-eth1, XX:XX:XX
+
+
