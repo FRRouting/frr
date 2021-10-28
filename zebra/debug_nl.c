@@ -1045,7 +1045,7 @@ next_rta:
 	plen = RTA_PAYLOAD(rta);
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
 		   plen, rta->rta_type, nhm_rta2str(rta->rta_type));
-	switch (rta->rta_type) {
+	switch (rta->rta_type & ~NLA_F_NESTED) {
 	case NHA_ID:
 		u32v = *(uint32_t *)RTA_DATA(rta);
 		zlog_debug("      %u", u32v);
