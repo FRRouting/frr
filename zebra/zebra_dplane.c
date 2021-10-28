@@ -341,7 +341,7 @@ struct zebra_dplane_ctx {
 		struct dplane_rule_info rule;
 		struct zebra_pbr_iptable iptable;
 		struct zebra_pbr_ipset ipset;
-		union {
+		struct {
 			struct zebra_pbr_ipset_entry entry;
 			struct zebra_pbr_ipset_info info;
 		} ipset_entry;
