@@ -552,13 +552,12 @@ void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx)
 	else
 		mode = 0;
 
-	if (dplane_ctx_get_pbr_iptable(ctx, &ipt)) {
-		ret = hook_call(zebra_pbr_iptable_update, mode, &ipt);
-		if (ret)
-			dplane_ctx_set_status(ctx,
-					      ZEBRA_DPLANE_REQUEST_SUCCESS);
-	}
-	if (!ret)
+	dplane_ctx_get_pbr_iptable(ctx, &ipt);
+
+	ret = hook_call(zebra_pbr_iptable_update, mode, &ipt);
+	if (ret)
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+	else
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
