@@ -19,14 +19,17 @@
 #include "static_routes.h"
 #include "static_nb.h"
 
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 static int static_path_list_create(struct nb_cb_create_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct route_node *rn;
 	struct static_path *pn;
+	uint8_t distance;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 	const struct lyd_node *vrf_dnode;
 	const char *vrf;
-	uint8_t distance;
 	uint32_t table_id;
 
 	switch (args->event) {
@@ -54,11 +57,14 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		distance = yang_dnode_get_uint8(args->dnode, "./distance");
 		table_id = yang_dnode_get_uint32(args->dnode, "./table-id");
 		pn = static_add_path(rn, table_id, distance);
 		nb_running_set_entry(args->dnode, pn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
+		break;
 	}
 
 	return NB_OK;
@@ -66,7 +72,9 @@ static int static_path_list_create(struct nb_cb_create_args *args)
 
 static int static_path_list_destroy(struct nb_cb_destroy_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_path *pn;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -74,8 +82,10 @@ static int static_path_list_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		pn = nb_running_unset_entry(args->dnode);
 		static_del_path(pn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -84,7 +94,9 @@ static int static_path_list_destroy(struct nb_cb_destroy_args *args)
 
 static int static_path_list_tag_modify(struct nb_cb_modify_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_path *pn;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -92,9 +104,11 @@ static int static_path_list_tag_modify(struct nb_cb_modify_args *args)
 	case NB_EV_PREPARE:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		pn = nb_running_get_entry(args->dnode, NULL, true);
 		pn->tag = yang_dnode_get_uint32(args->dnode, NULL);
 		static_install_path(pn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -125,12 +139,14 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 {
 	const struct lyd_node *pn_dnode;
 	struct nexthop_iter iter;
+	const char *ifname;
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_path *pn;
 	struct ipaddr ipaddr;
 	struct static_nexthop *nh;
 	enum static_nh_type nh_type;
-	const char *ifname;
 	const char *nh_vrf;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -169,6 +185,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		yang_dnode_get_ip(&ipaddr, args->dnode, "./gateway");
 		nh_type = yang_dnode_get_enum(args->dnode, "./nh-type");
 		ifname = yang_dnode_get_string(args->dnode, "./interface");
@@ -184,6 +201,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 		nh = static_add_nexthop(pn, nh_type, &ipaddr, ifname, nh_vrf,
 					0);
 		nb_running_set_entry(args->dnode, nh);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -192,7 +210,9 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 
 static bool static_nexthop_destroy(struct nb_cb_destroy_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_nexthop *nh;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -200,8 +220,10 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		nh = nb_running_unset_entry(args->dnode);
 		static_delete_nexthop(nh);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -210,23 +232,28 @@ static bool static_nexthop_destroy(struct nb_cb_destroy_args *args)
 
 static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_nexthop *nh;
 	uint32_t pos;
 	uint8_t index;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (!mpls_enabled) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"%% MPLS not turned on in kernel ignoring static route");
 			return NB_ERR_VALIDATION;
 		}
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		nh = nb_running_get_entry(args->dnode, NULL, true);
 		pos = yang_get_list_pos(args->dnode);
 		if (!pos) {
@@ -238,6 +265,7 @@ static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 		index = pos - 1;
 		nh->snh_label.label[index] = 0;
 		nh->snh_label.num_labels++;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -247,10 +275,12 @@ static int nexthop_mpls_label_stack_entry_create(struct nb_cb_create_args *args)
 static int
 nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_nexthop *nh;
 	uint32_t pos;
 	uint8_t index;
 	uint old_num_labels;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -258,6 +288,7 @@ nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		nh = nb_running_get_entry(args->dnode, NULL, true);
 		pos = yang_get_list_pos(args->dnode);
 		if (!pos) {
@@ -272,12 +303,14 @@ nexthop_mpls_label_stack_entry_destroy(struct nb_cb_destroy_args *args)
 
 		if (old_num_labels != nh->snh_label.num_labels)
 			nh->state = STATIC_START;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
 	return NB_OK;
 }
 
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
@@ -303,10 +336,13 @@ static int static_nexthop_mpls_label_modify(struct nb_cb_modify_args *args)
 
 	return NB_OK;
 }
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_nexthop *nh;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 	enum static_nh_type nh_type;
 	bool old_onlink;
 
@@ -325,18 +361,21 @@ static int static_nexthop_onlink_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		nh = nb_running_get_entry(args->dnode, NULL, true);
 		old_onlink = nh->onlink;
 		nh->onlink = yang_dnode_get_bool(args->dnode, NULL);
 
 		if (old_onlink != nh->onlink)
 			nh->state = STATIC_START;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
 	return NB_OK;
 }
 
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 static int static_nexthop_color_modify(struct nb_cb_modify_args *args)
 {
 	struct static_nexthop *nh;
@@ -366,10 +405,13 @@ static int static_nexthop_color_destroy(struct nb_cb_destroy_args *args)
 
 	return NB_OK;
 }
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_nexthop *nh;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 	enum static_nh_type nh_type;
 
 	switch (args->event) {
@@ -385,14 +427,17 @@ static int static_nexthop_bh_type_modify(struct nb_cb_modify_args *args)
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		nh = nb_running_get_entry(args->dnode, NULL, true);
 		nh->bh_type = yang_dnode_get_enum(args->dnode, NULL);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
 	return NB_OK;
 }
 
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_apply_finish(
 	struct nb_cb_apply_finish_args *args)
 {
@@ -412,6 +457,7 @@ void routing_control_plane_protocols_control_plane_protocol_staticd_route_list_s
 
 	static_install_nexthop(nh);
 }
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_path_list_frr_nexthops_nexthop_pre_validate(
 	struct nb_cb_pre_validate_args *args)
@@ -451,10 +497,12 @@ int routing_control_plane_protocols_name_validate(
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_create(
 	struct nb_cb_create_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+	const struct lyd_node *vrf_dnode;
 	struct vrf *vrf;
 	struct static_vrf *s_vrf;
 	struct route_node *rn;
-	const struct lyd_node *vrf_dnode;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 	struct prefix prefix;
 	const char *afi_safi;
 	afi_t prefix_afi;
@@ -479,6 +527,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		vrf_dnode = yang_dnode_get_parent(args->dnode,
 						  "control-plane-protocol");
 		vrf = nb_running_get_entry(vrf_dnode, NULL, true);
@@ -495,6 +544,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 				"Static Route to %s not installed currently because dependent config not fully available",
 				yang_dnode_get_string(args->dnode, "./prefix"));
 		nb_running_set_entry(args->dnode, rn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -503,7 +553,9 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_cr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct route_node *rn;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -511,8 +563,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_de
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		rn = nb_running_unset_entry(args->dnode);
 		static_del_route(rn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -593,9 +647,11 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (static_nexthop_color_modify(args) != NB_OK)
 			return NB_ERR;
 
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -610,8 +666,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (static_nexthop_color_destroy(args) != NB_OK)
 			return NB_ERR;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -646,8 +704,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (static_nexthop_mpls_label_modify(args) != NB_OK)
 			return NB_ERR;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -665,7 +725,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -682,7 +748,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -696,7 +768,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -714,7 +792,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -728,7 +812,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_pa
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -849,6 +939,7 @@ int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
 	struct nb_cb_create_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct static_vrf *s_vrf;
 	struct route_node *rn;
 	struct route_node *src_rn;
@@ -856,6 +947,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	struct stable_info *info;
 	afi_t afi;
 	safi_t safi = SAFI_UNICAST;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -863,6 +955,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		rn = nb_running_get_entry(args->dnode, NULL, true);
 		info = route_table_get_info(rn->table);
 		s_vrf = info->svrf;
@@ -871,6 +964,7 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 		src_rn =
 			static_add_route(afi, safi, &rn->p, &src_prefix, s_vrf);
 		nb_running_set_entry(args->dnode, src_rn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -879,7 +973,9 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(
 	struct nb_cb_destroy_args *args)
 {
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 	struct route_node *src_rn;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -887,8 +983,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		src_rn = nb_running_unset_entry(args->dnode);
 		static_del_route(src_rn);
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -970,9 +1068,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (static_nexthop_color_modify(args) != NB_OK)
 			return NB_ERR;
-
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -988,8 +1087,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (static_nexthop_color_destroy(args) != NB_OK)
 			return NB_ERR;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -1024,8 +1125,10 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
 		if (static_nexthop_mpls_label_modify(args) != NB_OK)
 			return NB_ERR;
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -1043,7 +1146,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 	return NB_OK;
@@ -1060,7 +1169,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -1074,7 +1189,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -1092,7 +1213,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 
@@ -1106,7 +1233,13 @@ int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_sr
 	case NB_EV_VALIDATE:
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
+		break;
 	case NB_EV_APPLY:
+#ifndef INCLUDE_MGMTD_VALIDATE_ONLY
+		/*
+		 * TODO: Add Backend-specific processing code here.
+		 */
+#endif /* ifndef INCLUDE_MGMTD_VALIDATE_ONLY */
 		break;
 	}
 

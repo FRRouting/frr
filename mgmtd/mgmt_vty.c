@@ -32,6 +32,8 @@
 
 #include "mgmtd/mgmt_vty_clippy.c"
 
+#define INCLUDE_MGMTD_CMDDEFS_ONLY
+
 /*
  * mgmt_enqueue_nb_command
  *
@@ -688,6 +690,14 @@ DEFPY(debug_mgmt_all,
 
 void mgmt_vty_init(void)
 {
+	/*
+	 * Initialize command handling from VTYSH connection.
+	 * Call command initialization routines defined by
+	 * backend components that are moved to new MGMTD infra
+	 * here one by one.
+	 */
+	static_vty_init();
+
 	install_node(&debug_node);
 
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);

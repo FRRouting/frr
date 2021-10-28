@@ -11,6 +11,11 @@
 extern "C" {
 #endif
 
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
+void static_mgmt_init(struct thread_master *master);
+void static_mgmt_destroy(void);
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
+
 void static_cli_show(struct vty *vty, const struct lyd_node *dnode,
 		     bool show_defaults);
 void static_cli_show_end(struct vty *vty, const struct lyd_node *dnode);
