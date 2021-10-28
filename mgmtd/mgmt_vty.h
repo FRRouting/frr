@@ -21,8 +21,17 @@
 #ifndef _MGMTD_VTY_H
 #define _MGMTD_VTY_H
 
-#include "lib/command.h"
 #include "northbound_cli.h"
+
+/*
+ * Declare prototypes for command initialization routines defined by
+ * backend components that have been moved to new MGMTD infra here
+ * one by one. These are supposed to be compiled into
+ * mgmt/ibmgmt_be_nb.la first and then called from mgmt_vty_init()
+ * below to load all backend client command handlers on MGMTd
+ * process context.
+ */
+extern void static_vty_init(void);
 
 extern void mgmt_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
 					enum nb_operation operation,

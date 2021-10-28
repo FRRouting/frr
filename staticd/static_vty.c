@@ -41,6 +41,8 @@
 #endif
 #include "static_nb.h"
 
+#include "mgmt_be_client.h"
+
 #define STATICD_STR "Static route daemon\n"
 
 static int static_route_leak(struct vty *vty, const char *svrf,
@@ -56,7 +58,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	int ret;
 	struct prefix p, src;
 	struct in_addr mask;
-	enum static_nh_type type;
+	uint8_t type;
 	const char *bh_type;
 	char xpath_prefix[XPATH_MAXLEN];
 	char xpath_nexthop[XPATH_MAXLEN];
@@ -153,7 +155,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	if (!negate) {
 		if (src_str)
 			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
+				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NODIST_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
@@ -161,7 +163,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				 buf_gate_str, ifname);
 		else
 			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
+				 FRR_DEL_S_ROUTE_NH_KEY_NO_DIST_XPATH,
 				 "frr-staticd:staticd", "staticd", svrf,
 				 buf_prefix,
 				 yang_afi_safi_value2identity(afi, safi),
@@ -257,8 +259,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				nb_cli_enqueue_change(vty, ab_xpath,
 						      NB_OP_MODIFY, "false");
 		}
-		if (type == STATIC_IPV4_GATEWAY
-		    || type == STATIC_IPV6_GATEWAY
+		if (type == STATIC_IPV4_GATEWAY || type == STATIC_IPV6_GATEWAY
 		    || type == STATIC_IPV4_GATEWAY_IFNAME
 		    || type == STATIC_IPV6_GATEWAY_IFNAME) {
 			strlcpy(ab_xpath, xpath_nexthop, sizeof(ab_xpath));
@@ -304,22 +305,46 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 		}
 		ret = nb_cli_apply_changes(vty, xpath_prefix);
 	} else {
-		if (src_str)
-			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH,
-				 "frr-staticd:staticd", "staticd", svrf,
-				 buf_prefix,
-				 yang_afi_safi_value2identity(afi, safi),
-				 buf_src_prefix, table_id, buf_nh_type, nh_svrf,
-				 buf_gate_str, ifname);
-		else
-			snprintf(ab_xpath, sizeof(ab_xpath),
-				 FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH,
-				 "frr-staticd:staticd", "staticd", svrf,
-				 buf_prefix,
-				 yang_afi_safi_value2identity(afi, safi),
-				 table_id, buf_nh_type, nh_svrf, buf_gate_str,
-				 ifname);
+		if (src_str) {
+			if (distance_str)
+				snprintf(
+					ab_xpath, sizeof(ab_xpath),
+					FRR_DEL_S_ROUTE_SRC_NH_KEY_XPATH,
+					"frr-staticd:staticd", "staticd", svrf,
+					buf_prefix,
+					yang_afi_safi_value2identity(afi, safi),
+					buf_src_prefix, table_id, distance,
+					buf_nh_type, nh_svrf, buf_gate_str,
+					ifname);
+			else
+				snprintf(
+					ab_xpath, sizeof(ab_xpath),
+					FRR_DEL_S_ROUTE_SRC_NH_KEY_NODIST_XPATH,
+					"frr-staticd:staticd", "staticd", svrf,
+					buf_prefix,
+					yang_afi_safi_value2identity(afi, safi),
+					buf_src_prefix, table_id, buf_nh_type,
+					nh_svrf, buf_gate_str, ifname);
+		} else {
+			if (distance_str)
+				snprintf(
+					ab_xpath, sizeof(ab_xpath),
+					FRR_DEL_S_ROUTE_NH_KEY_XPATH,
+					"frr-staticd:staticd", "staticd", svrf,
+					buf_prefix,
+					yang_afi_safi_value2identity(afi, safi),
+					table_id, distance, buf_nh_type,
+					nh_svrf, buf_gate_str, ifname);
+			else
+				snprintf(
+					ab_xpath, sizeof(ab_xpath),
+					FRR_DEL_S_ROUTE_NH_KEY_NO_DIST_XPATH,
+					"frr-staticd:staticd", "staticd", svrf,
+					buf_prefix,
+					yang_afi_safi_value2identity(afi, safi),
+					table_id, buf_nh_type, nh_svrf,
+					buf_gate_str, ifname);
+		}
 
 		dnode = yang_dnode_get(vty->candidate_config->dnode, ab_xpath);
 		if (!dnode) {
@@ -338,6 +363,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 
 	return ret;
 }
+
 static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 			const char *negate, const char *dest_str,
 			const char *mask_str, const char *src_str,
@@ -1281,15 +1307,18 @@ DEFPY_YANG(debug_staticd, debug_staticd_cmd,
 	   "Debug events\n"
 	   "Debug route\n")
 {
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	/* If no specific category, change all */
 	if (strmatch(argv[argc - 1]->text, "static"))
 		static_debug_set(vty->node, !no, true, true);
 	else
 		static_debug_set(vty->node, !no, !!events, !!route);
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 	return CMD_SUCCESS;
 }
 
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 DEFUN_NOSH (show_debugging_static,
 	    show_debugging_static_cmd,
 	    "show debugging [static]",
@@ -1311,9 +1340,75 @@ static struct cmd_node debug_node = {
 	.config_write = static_config_write_debug,
 };
 
+/*
+ * The following set of functions will take care of initializing the
+ * MGMT Backend lib within the context of the staticd process.
+ */
+
+uintptr_t mgmt_lib_hndl;
+
+static void static_mgmt_be_client_connect(uintptr_t lib_hndl,
+					     uintptr_t usr_data, bool connected)
+{
+	(void)usr_data;
+
+	assert(lib_hndl == mgmt_lib_hndl);
+
+	zlog_debug("Got %s %s MGMTD Backend Client Server",
+		   connected ? "connected" : "disconnected",
+		   connected ? "to" : "from");
+
+	if (connected)
+		(void)mgmt_be_subscribe_yang_data(mgmt_lib_hndl, NULL, 0);
+}
+
+static void
+static_mgmt_txn_notify(uintptr_t lib_hndl, uintptr_t usr_data,
+			struct mgmt_be_client_txn_ctx *txn_ctx,
+			bool destroyed)
+{
+	zlog_debug("Got Txn %s Notify from MGMTD server",
+		   destroyed ? "DESTROY" : "CREATE");
+
+	if (!destroyed) {
+		/*
+		 * TODO: Allocate and install a private scratchpad for this
+		 * transaction if required
+		 */
+	} else {
+		/*
+		 * TODO: Uninstall and deallocate the private scratchpad for
+		 * this transaction if installed earlier.
+		 */
+	}
+}
+
+static struct mgmt_be_client_params mgmt_params = {
+	.name = MGMTD_BE_CLIENT_STATICD,
+	.conn_retry_intvl_sec = 3,
+	.client_connect_notify = static_mgmt_be_client_connect,
+	.txn_notify = static_mgmt_txn_notify};
+
+void static_mgmt_init(struct thread_master *master)
+{
+	mgmt_lib_hndl = mgmt_be_client_lib_init(&mgmt_params, master);
+	if (!mgmt_lib_hndl) {
+		zlog_err("Failed to initialize MGMTD Backend Client library!");
+		exit(-1);
+	}
+}
+
+void static_mgmt_destroy(void)
+{
+	mgmt_be_client_lib_destroy(mgmt_lib_hndl);
+}
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
+
 void static_vty_init(void)
 {
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	install_node(&debug_node);
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 
 	install_element(CONFIG_NODE, &ip_mroute_dist_cmd);
 
@@ -1331,7 +1426,9 @@ void static_vty_init(void)
 	install_element(CONFIG_NODE, &ipv6_route_cmd);
 	install_element(VRF_NODE, &ipv6_route_vrf_cmd);
 
+#ifndef INCLUDE_MGMTD_CMDDEFS_ONLY
 	install_element(ENABLE_NODE, &show_debugging_static_cmd);
+#endif /* ifndef INCLUDE_MGMTD_CMDDEFS_ONLY */
 	install_element(ENABLE_NODE, &debug_staticd_cmd);
 	install_element(CONFIG_NODE, &debug_staticd_cmd);
 }
