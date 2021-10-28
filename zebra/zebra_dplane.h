@@ -185,6 +185,9 @@ enum dplane_op_e {
 	/* Incoming interface address events */
 	DPLANE_OP_INTF_ADDR_ADD,
 	DPLANE_OP_INTF_ADDR_DEL,
+
+	/* Incoming interface config events */
+	DPLANE_OP_INTF_NETCONFIG,
 };
 
 /*
@@ -221,6 +224,22 @@ enum dplane_op_e {
 #define DPLANE_NEIGH_NO_EXTENSION (1 << 4)
 
 #define DPLANE_BR_PORT_NON_DF (1 << 0)
+
+/* Definitions for the dplane 'netconf' apis, corresponding to the netlink
+ * NETCONF api.
+ * Sadly, netlink sends incremental updates, so its messages may contain
+ * just a single changed attribute, and not necessarily
+ * a complete snapshot of the attributes.
+ */
+enum dplane_netconf_status_e {
+	DPLANE_NETCONF_STATUS_UNKNOWN = 0,
+	DPLANE_NETCONF_STATUS_ENABLED,
+	DPLANE_NETCONF_STATUS_DISABLED
+};
+
+/* Some special ifindex values that may be part of the dplane netconf api. */
+#define DPLANE_NETCONF_IFINDEX_ALL     -1
+#define DPLANE_NETCONF_IFINDEX_DEFAULT -2
 
 /* Enable system route notifications */
 void dplane_enable_sys_route_notifs(void);
@@ -563,6 +582,21 @@ unsigned int
 dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
 const struct zebra_l2info_gre *
 dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
+
+/* Interface netconf info */
+ifindex_t dplane_ctx_get_netconf_ifindex(const struct zebra_dplane_ctx *ctx);
+ns_id_t dplane_ctx_get_netconf_ns_id(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_netconf_ifindex(struct zebra_dplane_ctx *ctx,
+				    ifindex_t ifindex);
+void dplane_ctx_set_netconf_ns_id(struct zebra_dplane_ctx *ctx, ns_id_t ns_id);
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_mpls(const struct zebra_dplane_ctx *ctx);
+enum dplane_netconf_status_e
+dplane_ctx_get_netconf_mcast(const struct zebra_dplane_ctx *ctx);
+void dplane_ctx_set_netconf_mpls(struct zebra_dplane_ctx *ctx,
+				 enum dplane_netconf_status_e val);
+void dplane_ctx_set_netconf_mcast(struct zebra_dplane_ctx *ctx,
+				  enum dplane_netconf_status_e val);
 
 /* Namespace fd info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
