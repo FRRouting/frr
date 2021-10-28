@@ -1318,6 +1318,56 @@ done:
 	dplane_ctx_fini(&ctx);
 }
 
+/*
+ * Handle netconf change from a dplane context object; runs in the main
+ * pthread so it can update zebra data structs.
+ */
+int zebra_if_netconf_update_ctx(struct zebra_dplane_ctx *ctx)
+{
+	struct zebra_ns *zns;
+	struct interface *ifp;
+	struct zebra_if *zif;
+	enum dplane_netconf_status_e mpls;
+	int ret = 0;
+
+	zns = zebra_ns_lookup(dplane_ctx_get_netconf_ns_id(ctx));
+	if (zns == NULL) {
+		ret = -1;
+		goto done;
+	}
+
+	ifp = if_lookup_by_index_per_ns(zns,
+					dplane_ctx_get_netconf_ifindex(ctx));
+	if (ifp == NULL) {
+		ret = -1;
+		goto done;
+	}
+
+	zif = ifp->info;
+	if (zif == NULL) {
+		ret = -1;
+		goto done;
+	}
+
+	mpls = dplane_ctx_get_netconf_mpls(ctx);
+
+	if (mpls == DPLANE_NETCONF_STATUS_ENABLED)
+		zif->mpls = true;
+	else if (mpls == DPLANE_NETCONF_STATUS_DISABLED)
+		zif->mpls = false;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: if %s, ifindex %d, mpls %s",
+			   __func__, ifp->name, ifp->ifindex,
+			   (zif->mpls ? "ON" : "OFF"));
+
+done:
+	/* Free the context */
+	dplane_ctx_fini(&ctx);
+
+	return ret;
+}
+
 /* Dump if address information to vty. */
 static void connected_dump_vty(struct vty *vty, json_object *json,
 			       struct connected *connected)

@@ -2080,10 +2080,6 @@ void interface_list(struct zebra_ns *zns)
 	netlink_nexthop_read(zns);
 
 	interface_addr_lookup_netlink(zns);
-
-	/* Read some other properties via the 'netconf' apis */
-	netconf_lookup_netlink(zns);
-
 }
 
 #endif /* GNU_LINUX */
