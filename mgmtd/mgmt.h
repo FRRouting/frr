@@ -21,20 +21,24 @@
 #define _FRR_MGMTD_H
 
 #include "vrf.h"
-
 #include "defaults.h"
 #include "stream.h"
 
 #include "mgmtd/mgmt_memory.h"
+#include "mgmtd/mgmt_defines.h"
+#include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_db.h"
 
 #define MGMTD_VTY_PORT 2622
 #define MGMTD_SOCKET_BUF_SIZE 65535
+#define MGMTD_MAX_COMMIT_LIST 10
 
 extern bool mgmt_debug_be;
 extern bool mgmt_debug_fe;
 extern bool mgmt_debug_db;
 extern bool mgmt_debug_txn;
+
+struct mgmt_txn_ctx;
 
 /*
  * MGMTD master for system wide configurations and variables.
@@ -45,6 +49,16 @@ struct mgmt_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
+	/* The single instance of config transaction allowed at any time */
+	struct mgmt_txn_list_head txn_list;
+
+	/* Map of Transactions and its ID */
+	struct hash *txn_hash;
+	uint64_t next_txn_id;
+
+	/* The single instance of config transaction allowed at any time */
+	struct mgmt_txn_ctx *cfg_txn;
+
 	/* Databases */
 	struct mgmt_db_ctx *running_db;
 	struct mgmt_db_ctx *candidate_db;
@@ -52,6 +66,10 @@ struct mgmt_master {
 
 	bool terminating;   /* global flag that sigint terminate seen */
 	bool perf_stats_en; /* to enable performance stats measurement */
+
+	/* List of commit infos */
+	struct mgmt_cmt_info_dlist_head
+		cmt_dlist; /* List of last 10 commits executed. */
 };
 
 extern struct mgmt_master *mm;
