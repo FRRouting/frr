@@ -578,8 +578,7 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
 			     struct in6_addr *src, struct in6_addr *dst)
 {
-	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
-				      (struct in6_addr *)dst))
+	if (!bfd_sess_address_changed(bsp, AF_INET6, src, dst))
 		return;
 
 	/* If already installed, remove the old setting. */
