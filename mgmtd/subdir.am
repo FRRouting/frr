@@ -27,6 +27,7 @@ mgmtd_libmgmtd_a_SOURCES = \
 	mgmtd/mgmt_be_adapter.c \
 	mgmtd/mgmt_fe_server.c \
 	mgmtd/mgmt_fe_adapter.c \
+	mgmtd/mgmt_txn.c \
 	# end
 
 mgmtdheaderdir = $(pkgincludedir)/mgmtd
@@ -43,6 +44,7 @@ noinst_HEADERS += \
 	mgmtd/mgmt_vty.h \
 	mgmtd/mgmt_fe_adapter.h \
 	mgmtd/mgmt_fe_server.h \
+	mgmtd/mgmt_txn.h \
 	# end
 
 sbin_PROGRAMS += mgmtd/mgmtd
