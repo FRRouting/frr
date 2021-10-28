@@ -33,3 +33,15 @@ DEFINE_MTYPE(MGMTD, MGMTD, "MGMTD instance");
 DEFINE_MTYPE(MGMTD, MGMTD_BCKND_ADPATER, "MGMTD backend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FRNTND_ADPATER, "MGMTD Frontend adapter");
 DEFINE_MTYPE(MGMTD, MGMTD_FRNTND_SESSN, "MGMTD Frontend Client Session");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN, "MGMTD Transaction");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN_REQ, "MGMTD Transaction Requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN_SETCFG_REQ,
+	     "MGMTD Transaction Set-Config Requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN_COMMCFG_REQ,
+	     "MGMTD Transaction Commit-Config Requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN_GETDATA_REQ,
+	     "MGMTD Transaction Get-Data Requests");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN_GETDATA_REPLY,
+	     "MGMTD Transaction Get-Data Replies");
+DEFINE_MTYPE(MGMTD, MGMTD_TRXN_CFG_BATCH, "MGMTD Transaction Gonfig Batches");
+DEFINE_MTYPE(MGMTD, MGMTD_CMT_INFO, "MGMTD commit info for tracking commits");
