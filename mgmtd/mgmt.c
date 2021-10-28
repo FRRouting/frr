@@ -61,6 +61,9 @@ void mgmt_init(void)
 	/* Initialize databases */
 	mgmt_db_init(mm);
 
+	/* Initialize MGMTD Transaction module */
+	mgmt_trxn_init(mm, mm->master);
+
 	/* Initialize the MGMTD Backend Adapter Module */
 	mgmt_bcknd_adapter_init(mm->master);
 
@@ -73,7 +76,7 @@ void mgmt_init(void)
 	/* Start the MGMTD Frontend Server for clients to connect */
 	mgmt_frntnd_server_init(mm->master);
 
-	/* MGMTD VTY commands installation.  */
+	/* MGMTD VTY commands installation. */
 	mgmt_vty_init();
 }
 
@@ -83,5 +86,6 @@ void mgmt_terminate(void)
 	mgmt_frntnd_adapter_destroy();
 	mgmt_bcknd_server_destroy();
 	mgmt_bcknd_adapter_destroy();
+	mgmt_trxn_destroy();
 	mgmt_db_destroy();
 }
