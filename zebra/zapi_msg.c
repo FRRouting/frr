@@ -940,8 +940,7 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct zebra_pbr_ipset ipset;
 	uint16_t cmd = ZEBRA_IPSET_ENTRY_NOTIFY_OWNER;
 
-	if (!dplane_ctx_get_pbr_ipset_entry(ctx, &ipent))
-		return;
+	dplane_ctx_get_pbr_ipset_entry(ctx, &ipent);
 	dplane_ctx_get_pbr_ipset(ctx, &ipset);
 
 	if (IS_ZEBRA_DEBUG_PACKET)

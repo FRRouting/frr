@@ -591,8 +591,7 @@ void zebra_pbr_process_ipset_entry(struct zebra_dplane_ctx *ctx)
 	else
 		mode = 0;
 
-	if (!dplane_ctx_get_pbr_ipset_entry(ctx, &ipset_entry))
-		return;
+	dplane_ctx_get_pbr_ipset_entry(ctx, &ipset_entry);
 	dplane_ctx_get_pbr_ipset(ctx, &ipset);
 
 	ipset_entry.backpointer = &ipset;
