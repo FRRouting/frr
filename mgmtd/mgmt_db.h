@@ -23,7 +23,11 @@
 
 #include "lib/typesafe.h"
 #include "mgmtd/mgmt_defines.h"
+#include "lib/mgmt_pb.h"
 #include "libyang/tree_data.h"
+#include "mgmtd/mgmt_bcknd_adapter.h"
+#include "mgmtd/mgmt_frntnd_adapter.h"
+#include "lib/mgmt_frntnd_client.h"
 #include "mgmtd/mgmt.h"
 
 #define MGMTD_MAX_NUM_DBNODES_PER_BATCH 128
@@ -48,13 +52,13 @@
 #define MGMTD_COMMIT_INDEX_FILE_NAME "/etc/frr/commit-index.dat"
 #define MGMTD_COMMIT_TIME_STR_LEN 30
 
-struct mgmt_master;
-
 extern struct nb_config *running_config;
 
 typedef void (*mgmt_db_node_iter_fn)(uint64_t db_hndl, char *xpath,
 				     struct lyd_node *node,
 				     struct nb_node *nb_node, void *ctxt);
+
+PREDECL_DLIST(mgmt_cmt_info_dlist);
 
 /***************************************************************
  * Global data exported
@@ -176,8 +180,14 @@ extern void mgmt_db_dump_tree(struct vty *vty, uint64_t db_hndl,
 
 extern int mgmt_db_dump_db_to_file(char *file_name, uint64_t db);
 
+extern int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str);
+
+extern int mgmt_db_rollback_commits(struct vty *vty, int num_cmts);
+
 extern void mgmt_db_status_write_one(struct vty *vty, uint64_t db_hndl);
 
 extern void mgmt_db_status_write(struct vty *vty);
+
+extern void show_mgmt_cmt_history(struct vty *vty);
 
 #endif /* _FRR_MGMTD_DB_H_ */

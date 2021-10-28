@@ -33,6 +33,14 @@ extern void mgmt_enqueue_vty_nb_command(struct vty *vty, const char *xpath,
 extern int mgmt_apply_vty_nb_commands(struct vty *vty,
 				      const char *xpath_base_fmt, ...);
 
+#define DEF_MGMTD_CMD(dmn, cmdname, cmdstr, helpstr)                           \
+	DEFUN_CMD_ELEMENT(mgmt_hndl_bknd_cmd, cmdname, cmdstr, helpstr,        \
+			  CMD_ATTR_YANG, 0)
+
+#define DEF_MGMTD_HIDDEN_CMD(dmn, cmdname, cmdstr, helpstr)                    \
+	DEFUN_CMD_ELEMENT(mgmt_hndl_bknd_cmd, cmdname, cmdstr, helpstr,        \
+			  CMD_ATTR_YANG | CMD_ATTR_HIDDEN, 0)
+
 static inline LYD_FORMAT mgmt_str2format(const char *format_str)
 {
 	if (!strncmp("json", format_str, sizeof("json")))

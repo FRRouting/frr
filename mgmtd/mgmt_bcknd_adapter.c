@@ -272,9 +272,9 @@ mgmt_bcknd_adapter_disconnect(struct mgmt_bcknd_client_adapter *adptr)
 	}
 
 	/*
-	 * TODO: Notify about client disconnect for appropriate cleanup
-	 * mgmt_trxn_notify_bcknd_adapter_conn(adptr, false);
+	 * Notify about client disconnect for appropriate cleanup
 	 */
+	mgmt_trxn_notify_bcknd_adapter_conn(adptr, false);
 
 	if (adptr->id < MGMTD_BCKND_CLIENT_ID_MAX) {
 		mgmt_bcknd_adptrs_by_id[adptr->id] = NULL;
@@ -346,12 +346,12 @@ mgmt_bcknd_adapter_handle_msg(struct mgmt_bcknd_client_adapter *adptr,
 			bcknd_msg->trxn_reply->trxn_id, adptr->name,
 			bcknd_msg->trxn_reply->success ? "success" : "failure");
 		/*
-		 * TODO: Forward the TRXN_REPLY to trxn module.
-		 * mgmt_trxn_notify_bcknd_trxn_reply(
-		 *	bcknd_msg->trxn_reply->trxn_id,
-		 *	bcknd_msg->trxn_reply->create,
-		 *	bcknd_msg->trxn_reply->success, adptr);
+		 * Forward the TRXN_REPLY to trxn module.
 		 */
+		mgmt_trxn_notify_bcknd_trxn_reply(
+			bcknd_msg->trxn_reply->trxn_id,
+			bcknd_msg->trxn_reply->create,
+			bcknd_msg->trxn_reply->success, adptr);
 		break;
 	case MGMTD__BCKND_MESSAGE__TYPE__CFGDATA_CREATE_REPLY:
 		assert(bcknd_msg->message_case
@@ -364,13 +364,13 @@ mgmt_bcknd_adapter_handle_msg(struct mgmt_bcknd_client_adapter *adptr,
 				? bcknd_msg->cfg_data_reply->error_if_any
 				: "None");
 		/*
-		 * TODO: Forward the CGFData-create reply to trxn module.
-		 * mgmt_trxn_notify_bcknd_cfgdata_reply(
-		 *	bcknd_msg->cfg_data_reply->trxn_id,
-		 *	bcknd_msg->cfg_data_reply->batch_id,
-		 *	bcknd_msg->cfg_data_reply->success,
-		 *	bcknd_msg->cfg_data_reply->error_if_any, adptr);
+		 * Forward the CGFData-create reply to trxn module.
 		 */
+		mgmt_trxn_notify_bcknd_cfgdata_reply(
+			bcknd_msg->cfg_data_reply->trxn_id,
+			bcknd_msg->cfg_data_reply->batch_id,
+			bcknd_msg->cfg_data_reply->success,
+			bcknd_msg->cfg_data_reply->error_if_any, adptr);
 		break;
 	case MGMTD__BCKND_MESSAGE__TYPE__CFGDATA_VALIDATE_REPLY:
 		assert(bcknd_msg->message_case
@@ -389,14 +389,14 @@ mgmt_bcknd_adapter_handle_msg(struct mgmt_bcknd_client_adapter *adptr,
 				? bcknd_msg->cfg_validate_reply->error_if_any
 				: "None");
 		/*
-		 * TODO: Forward the CGFData-validate reply to trxn module.
-		 * mgmt_trxn_notify_bcknd_cfg_validate_reply(
-		 *	bcknd_msg->cfg_validate_reply->trxn_id,
-		 *	bcknd_msg->cfg_validate_reply->success,
-		 *	(uint64_t *)bcknd_msg->cfg_validate_reply->batch_ids,
-		 *	bcknd_msg->cfg_validate_reply->n_batch_ids,
-		 *	bcknd_msg->cfg_validate_reply->error_if_any, adptr);
+		 * Forward the CGFData-validate reply to trxn module.
 		 */
+		mgmt_trxn_notify_bcknd_cfg_validate_reply(
+			bcknd_msg->cfg_validate_reply->trxn_id,
+			bcknd_msg->cfg_validate_reply->success,
+			(uint64_t *)bcknd_msg->cfg_validate_reply->batch_ids,
+			bcknd_msg->cfg_validate_reply->n_batch_ids,
+			bcknd_msg->cfg_validate_reply->error_if_any, adptr);
 		break;
 	case MGMTD__BCKND_MESSAGE__TYPE__CFGDATA_APPLY_REPLY:
 		assert(bcknd_msg->message_case
@@ -413,14 +413,15 @@ mgmt_bcknd_adapter_handle_msg(struct mgmt_bcknd_client_adapter *adptr,
 			bcknd_msg->cfg_apply_reply->error_if_any
 				? bcknd_msg->cfg_apply_reply->error_if_any
 				: "None");
-		/* TODO: Forward the CGFData-apply reply to trxn module.
-		 * mgmt_trxn_notify_bcknd_cfg_apply_reply(
-		 *	bcknd_msg->cfg_apply_reply->trxn_id,
-		 *	bcknd_msg->cfg_apply_reply->success,
-		 *	(uint64_t *)bcknd_msg->cfg_apply_reply->batch_ids,
-		 *	bcknd_msg->cfg_apply_reply->n_batch_ids,
-		 *	bcknd_msg->cfg_apply_reply->error_if_any, adptr);
+		/*
+		 * Forward the CGFData-apply reply to trxn module.
 		 */
+		mgmt_trxn_notify_bcknd_cfg_apply_reply(
+			bcknd_msg->cfg_apply_reply->trxn_id,
+			bcknd_msg->cfg_apply_reply->success,
+			(uint64_t *)bcknd_msg->cfg_apply_reply->batch_ids,
+			bcknd_msg->cfg_apply_reply->n_batch_ids,
+			bcknd_msg->cfg_apply_reply->error_if_any, adptr);
 		break;
 	default:
 		break;
@@ -880,27 +881,26 @@ static int mgmt_bcknd_adapter_conn_init(struct thread *thread)
 	assert(adptr && adptr->conn_fd);
 
 	/*
-	 * TODO: Check first if the current session can run a CONFIG
+	 * Check first if the current session can run a CONFIG
 	 * transaction or not. Reschedule if a CONFIG transaction
 	 * from another session is already in progress.
+	 */
 	if (mgmt_config_trxn_in_progress() != MGMTD_SESSION_ID_NONE) {
 		mgmt_bcknd_adptr_register_event(adptr, MGMTD_BCKND_CONN_INIT);
 		return 0;
 	}
-	 */
 
     /*
-     * TODO: Notify TRXN module to create a CONFIG transaction and
+     * Notify TRXN module to create a CONFIG transaction and
      * download the CONFIGs identified for this new client.
      * If the TRXN module fails to initiate the CONFIG transaction
      * disconnect from the client forcing a reconnect later.
      * That should also take care of destroying the adapter.
-     *
+     */
 	if (mgmt_trxn_notify_bcknd_adapter_conn(adptr, true) != 0) {
 		mgmt_bcknd_adapter_disconnect(adptr);
 		adptr = NULL;
 	}
-     */
 
 	return 0;
 }

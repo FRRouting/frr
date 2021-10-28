@@ -30,9 +30,11 @@
 #include "lib/thread.h"
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_memory.h"
+#include "lib/mgmt_pb.h"
 #include "lib/vty.h"
 #include "mgmtd/mgmt_db.h"
 #include "libyang/libyang.h"
+#include "mgmtd/mgmt_trxn.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
 #define MGMTD_DB_DBG(fmt, ...)                                                 \
@@ -43,7 +45,7 @@
 #define MGMTD_DB_DBG(fmt, ...)                                                 \
 	do {                                                                   \
 		if (mgmt_debug_db)                                             \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
+			zlog_err("%s: " fmt, __func__, ##__VA_ARGS__);         \
 	} while (0)
 #define MGMTD_DB_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
@@ -60,6 +62,19 @@ struct mgmt_db_ctxt {
 		struct lyd_node *dnode_root;
 	} root;
 };
+
+struct mgmt_cmt_info_t {
+	struct mgmt_cmt_info_dlist_item cmt_dlist;
+
+	char cmtid_str[MGMTD_MD5_HASH_STR_HEX_LEN];
+	char time_str[MGMTD_COMMIT_TIME_STR_LEN];
+	char cmt_json_file[MGMTD_MAX_COMMIT_FILE_PATH_LEN];
+};
+
+DECLARE_DLIST(mgmt_cmt_info_dlist, struct mgmt_cmt_info_t, cmt_dlist);
+
+#define FOREACH_CMT_REC(mm, cmt_info)                                          \
+	frr_each_safe(mgmt_cmt_info_dlist, &mm->cmt_dlist, cmt_info)
 
 const char *mgmt_db_names[MGMTD_DB_MAX_ID + 1] = {
 	MGMTD_DB_NAME_NONE,	/* MGMTD_DB_NONE */
@@ -125,6 +140,14 @@ static int mgmt_db_replace_dst_with_src_db(struct mgmt_db_ctxt *src,
 	else
 		dst->root.dnode_root = dst_dnode;
 
+	if (src->db_id == MGMTD_DB_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		MGMTD_DB_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
 	if (dst->db_id == MGMTD_DB_RUNNING) {
 		if (ly_out_new_filepath(MGMTD_STARTUP_DB_FILE_PATH, &out)
 		    == LY_SUCCESS)
@@ -159,6 +182,14 @@ static int mgmt_db_merge_src_with_dst_db(struct mgmt_db_ctxt *src,
 		return ret;
 	}
 
+	if (src->db_id == MGMTD_DB_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		MGMTD_DB_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
 	if (dst->db_id == MGMTD_DB_RUNNING) {
 		if (ly_out_new_filepath(MGMTD_STARTUP_DB_FILE_PATH, &out)
 		    == LY_SUCCESS)
@@ -187,6 +218,245 @@ static int mgmt_db_load_cfg_from_file(const char *filepath,
 	return 0;
 }
 
+static bool mgmt_db_cmt_rec_exists(char *file_path)
+{
+	int exist;
+
+	exist = access(file_path, F_OK);
+	if (exist == 0)
+		return true;
+	else
+		return false;
+}
+
+static void mgmt_db_remove_cmt_file(char *name)
+{
+	if (remove(name) == 0)
+		zlog_debug("Old commit info deletion succeeded");
+	else
+		zlog_err("Old commit info deletion failed");
+}
+
+static void mgmt_db_compute_cmt_hash(const char *input_str, char *hash)
+{
+	int i;
+	unsigned char digest[MGMTD_MD5_HASH_LEN];
+	MD5_CTX ctx;
+
+	memset(&ctx, 0, sizeof(ctx));
+	MD5Init(&ctx);
+	MD5Update(&ctx, input_str, strlen(input_str));
+	MD5Final(digest, &ctx);
+
+	for (i = 0; i < MGMTD_MD5_HASH_LEN; i++)
+		sprintf(&hash[i * 2], "%02x", (unsigned int)digest[i]);
+}
+
+static struct mgmt_cmt_info_t *mgmt_db_create_cmt_rec(void)
+{
+	struct mgmt_cmt_info_t *new;
+	struct mgmt_cmt_info_t *cmt_info;
+	struct mgmt_cmt_info_t *last_cmt_info = NULL;
+	struct timeval cmt_recd_tv;
+
+	new = XCALLOC(MTYPE_MGMTD_CMT_INFO, sizeof(struct mgmt_cmt_info_t));
+	mgmt_get_realtime(&cmt_recd_tv);
+	mgmt_realtime_to_string(&cmt_recd_tv, new->time_str,
+				sizeof(new->time_str));
+	mgmt_db_compute_cmt_hash(new->time_str, new->cmtid_str);
+	snprintf(new->cmt_json_file, MGMTD_MAX_COMMIT_FILE_PATH_LEN,
+		 MGMTD_COMMIT_FILE_PATH, new->cmtid_str);
+
+	if (mgmt_cmt_info_dlist_count(&mm->cmt_dlist)
+	    == MGMTD_MAX_COMMIT_LIST) {
+		FOREACH_CMT_REC(mm, cmt_info)
+		{
+			last_cmt_info = cmt_info;
+		}
+
+		mgmt_db_remove_cmt_file(last_cmt_info->cmt_json_file);
+		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, last_cmt_info);
+		XFREE(MTYPE_MGMTD_CMT_INFO, last_cmt_info);
+	}
+
+	mgmt_cmt_info_dlist_add_head(&mm->cmt_dlist, new);
+	return new;
+}
+
+static struct mgmt_cmt_info_t *mgmt_db_find_cmt_record(const char *cmtid_str)
+{
+	struct mgmt_cmt_info_t *cmt_info;
+
+	FOREACH_CMT_REC(mm, cmt_info)
+	{
+		if (strncmp(cmt_info->cmtid_str, cmtid_str,
+			    MGMTD_MD5_HASH_STR_HEX_LEN)
+		    == 0)
+			return cmt_info;
+	}
+
+	return NULL;
+}
+
+static bool mgmt_db_read_cmt_record_index(void)
+{
+	FILE *fp;
+	struct mgmt_cmt_info_t cmt_info;
+	struct mgmt_cmt_info_t *new;
+	int cnt = 0;
+
+	fp = fopen(MGMTD_COMMIT_INDEX_FILE_NAME, "rb");
+	if (!fp) {
+		zlog_err("Failed to open file %s rb mode",
+			 MGMTD_COMMIT_INDEX_FILE_NAME);
+		return false;
+	}
+
+	while ((fread(&cmt_info, sizeof(cmt_info), 1, fp)) > 0) {
+		if (cnt < MGMTD_MAX_COMMIT_LIST) {
+			if (!mgmt_db_cmt_rec_exists(cmt_info.cmt_json_file)) {
+				zlog_err(
+					"Commit record present in index_file, but commit filei %s missing",
+					cmt_info.cmt_json_file);
+				continue;
+			}
+
+			new = XCALLOC(MTYPE_MGMTD_CMT_INFO,
+				      sizeof(struct mgmt_cmt_info_t));
+			memcpy(new, &cmt_info, sizeof(struct mgmt_cmt_info_t));
+			mgmt_cmt_info_dlist_add_tail(&mm->cmt_dlist, new);
+		} else {
+			zlog_err("More records found in index file %s",
+				 MGMTD_COMMIT_INDEX_FILE_NAME);
+			return false;
+		}
+
+		cnt++;
+	}
+
+	fclose(fp);
+	return true;
+}
+
+static bool mgmt_db_dump_cmt_record_index(void)
+{
+	FILE *fp;
+	int ret = 0;
+	struct mgmt_cmt_info_t *cmt_info;
+	struct mgmt_cmt_info_t cmt_info_set[10];
+	int cnt = 0;
+
+	mgmt_db_remove_cmt_file((char *)MGMTD_COMMIT_INDEX_FILE_NAME);
+	fp = fopen(MGMTD_COMMIT_INDEX_FILE_NAME, "ab");
+	if (!fp) {
+		zlog_err("Failed to open file %s ab mode",
+			 MGMTD_COMMIT_INDEX_FILE_NAME);
+		return false;
+	}
+
+	FOREACH_CMT_REC(mm, cmt_info)
+	{
+		memcpy(&cmt_info_set[cnt], cmt_info,
+		       sizeof(struct mgmt_cmt_info_t));
+		cnt++;
+	}
+
+	if (!cnt) {
+		fclose(fp);
+		return false;
+	}
+
+	ret = fwrite(&cmt_info_set, sizeof(struct mgmt_cmt_info_t), cnt, fp);
+	fclose(fp);
+	if (ret != cnt) {
+		zlog_err("Write record failed");
+		return false;
+	} else {
+		return true;
+	}
+}
+
+static int mgmt_db_reset(struct mgmt_db_ctxt *db_ctxt)
+{
+	struct lyd_node *dnode;
+
+	if (!db_ctxt)
+		return -1;
+
+	dnode = db_ctxt->config_db ? db_ctxt->root.cfg_root->dnode
+				   : db_ctxt->root.dnode_root;
+
+	if (dnode)
+		yang_dnode_free(dnode);
+
+	dnode = yang_dnode_new(ly_native_ctx, true);
+
+	if (db_ctxt->config_db)
+		db_ctxt->root.cfg_root->dnode = dnode;
+	else
+		db_ctxt->root.dnode_root = dnode;
+
+	return 0;
+}
+
+static int mgmt_db_rollback_to_cmt(struct vty *vty,
+				   struct mgmt_cmt_info_t *cmt_info,
+				   bool skip_file_load)
+{
+	uint64_t src_db_hndl;
+	uint64_t dst_db_hndl;
+	int ret = 0;
+
+	src_db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_CANDIDATE);
+	if (!src_db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access Candidate database!\n");
+		return -1;
+	}
+
+	/*
+	 * Note: Write lock on src_db is not required. This is already
+	 * taken in 'conf te'.
+	 */
+	dst_db_hndl = mgmt_db_get_hndl_by_id(mm, MGMTD_DB_RUNNING);
+	if (!dst_db_hndl) {
+		vty_out(vty, "ERROR: Couldnot access Running database!\n");
+		return -1;
+	}
+
+	ret = mgmt_db_write_lock(dst_db_hndl);
+	if (ret != 0) {
+		vty_out(vty,
+			"Failed to lock the DB %u for rollback Reason: %s!\n",
+			MGMTD_DB_RUNNING, strerror(ret));
+		return -1;
+	}
+
+	if (!skip_file_load) {
+		ret = mgmt_db_load_config_from_file(
+			src_db_hndl, cmt_info->cmt_json_file, false);
+		if (ret != 0) {
+			mgmt_db_unlock(dst_db_hndl);
+			vty_out(vty,
+				"Error with parsing the file with error code %d\n",
+				ret);
+			return ret;
+		}
+	}
+
+	/* Internally trigger a commit-request. */
+	ret = mgmt_trxn_rollback_trigger_cfg_apply(src_db_hndl, dst_db_hndl);
+	if (ret != 0) {
+		mgmt_db_unlock(dst_db_hndl);
+		vty_out(vty,
+			"Error with creating commit apply trxn with error code %d\n",
+			ret);
+		return ret;
+	}
+
+	mgmt_db_dump_cmt_record_index();
+	return 0;
+}
+
 int mgmt_db_init(struct mgmt_master *mm)
 {
 	struct lyd_node *root;
@@ -212,6 +482,12 @@ int mgmt_db_init(struct mgmt_master *mm)
 	candidate.config_db = true;
 	candidate.db_id = MGMTD_DB_CANDIDATE;
 
+	/*
+	 * Redirect lib/vty candidate-config database to the global candidate
+	 * config Db on the MGMTD process.
+	 */
+	vty_mgmt_candidate_config = candidate.root.cfg_root;
+
 	oper.root.dnode_root = yang_dnode_new(ly_native_ctx, true);
 	oper.config_db = false;
 	oper.db_id = MGMTD_DB_OPERATIONAL;
@@ -221,15 +497,28 @@ int mgmt_db_init(struct mgmt_master *mm)
 	mm->oper_db = (uint64_t)&oper;
 	mgmt_db_mm = mm;
 
+	/* Create commit record for previously stored commit-apply */
+	mgmt_cmt_info_dlist_init(&mgmt_db_mm->cmt_dlist);
+	mgmt_db_read_cmt_record_index();
+
 	return 0;
 }
 
 void mgmt_db_destroy(void)
 {
+	struct mgmt_cmt_info_t *cmt_info;
 
 	/*
 	 * TODO: Free the databases.
 	 */
+
+	FOREACH_CMT_REC(mgmt_db_mm, cmt_info)
+	{
+		mgmt_cmt_info_dlist_del(&mgmt_db_mm->cmt_dlist, cmt_info);
+		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
+	}
+
+	mgmt_cmt_info_dlist_fini(&mgmt_db_mm->cmt_dlist);
 }
 
 uint64_t mgmt_db_get_hndl_by_id(struct mgmt_master *cm, Mgmtd__DatabaseId db_id)
@@ -301,6 +590,7 @@ int mgmt_db_unlock(uint64_t db_hndl)
 int mgmt_db_merge_dbs(uint64_t src_db, uint64_t dst_db, bool updt_cmt_rec)
 {
 	struct mgmt_db_ctxt *src, *dst;
+	struct mgmt_cmt_info_t *cmt_info;
 
 	src = (struct mgmt_db_ctxt *)src_db;
 	dst = (struct mgmt_db_ctxt *)dst_db;
@@ -308,18 +598,31 @@ int mgmt_db_merge_dbs(uint64_t src_db, uint64_t dst_db, bool updt_cmt_rec)
 	if (mgmt_db_merge_src_with_dst_db(src, dst) != 0)
 		return -1;
 
+	if (updt_cmt_rec && dst->db_id == MGMTD_DB_RUNNING) {
+		cmt_info = mgmt_db_create_cmt_rec();
+		mgmt_db_dump_db_to_file(cmt_info->cmt_json_file, dst_db);
+		mgmt_db_dump_cmt_record_index();
+	}
+
 	return 0;
 }
 
 int mgmt_db_copy_dbs(uint64_t src_db, uint64_t dst_db, bool updt_cmt_rec)
 {
 	struct mgmt_db_ctxt *src, *dst;
+	struct mgmt_cmt_info_t *cmt_info;
 
 	src = (struct mgmt_db_ctxt *)src_db;
 	dst = (struct mgmt_db_ctxt *)dst_db;
 
 	if (mgmt_db_replace_dst_with_src_db(src, dst) != 0)
 		return -1;
+
+	if (updt_cmt_rec && dst->db_id == MGMTD_DB_RUNNING) {
+		cmt_info = mgmt_db_create_cmt_rec();
+		mgmt_db_dump_db_to_file(cmt_info->cmt_json_file, dst_db);
+		mgmt_db_dump_cmt_record_index();
+	}
 
 	return 0;
 }
@@ -609,7 +912,6 @@ int mgmt_db_iter_data(uint64_t db_hndl, char *base_xpath,
 		while (base_dnode->prev->next)
 			base_dnode = base_dnode->prev;
 
-
 		LY_LIST_FOR (base_dnode, node) {
 			ret = mgmt_walk_db_nodes(db_ctxt, xpath, node, iter_fn,
 						 ctxt, NULL, NULL, true,
@@ -679,4 +981,95 @@ void mgmt_db_status_write(struct vty *vty)
 	mgmt_db_status_write_one(vty, mgmt_db_mm->candidate_db);
 
 	mgmt_db_status_write_one(vty, mgmt_db_mm->oper_db);
+}
+
+int mgmt_db_rollback_by_cmtid(struct vty *vty, const char *cmtid_str)
+{
+	int ret = 0;
+	struct mgmt_cmt_info_t *cmt_info;
+
+	if (!mgmt_cmt_info_dlist_count(&mm->cmt_dlist)
+	    || !mgmt_db_find_cmt_record(cmtid_str)) {
+		vty_out(vty, "Invalid commit Id\n");
+		return -1;
+	}
+
+	FOREACH_CMT_REC(mm, cmt_info)
+	{
+		if (strncmp(cmt_info->cmtid_str, cmtid_str,
+			    MGMTD_MD5_HASH_STR_HEX_LEN)
+		    == 0) {
+			ret = mgmt_db_rollback_to_cmt(vty, cmt_info, false);
+			return ret;
+		}
+
+		mgmt_db_remove_cmt_file(cmt_info->cmt_json_file);
+		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, cmt_info);
+		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
+	}
+
+	return 0;
+}
+
+int mgmt_db_rollback_commits(struct vty *vty, int num_cmts)
+{
+	int ret = 0;
+	int cnt = 0;
+	struct mgmt_cmt_info_t *cmt_info;
+	size_t cmts;
+
+	if (!num_cmts)
+		num_cmts = 1;
+
+	cmts = mgmt_cmt_info_dlist_count(&mm->cmt_dlist);
+	if ((int)cmts < num_cmts) {
+		vty_out(vty,
+			"Number of commits found (%d) less than required to rollback\n",
+			(int)cmts);
+		return -1;
+	}
+
+	if ((int)cmts == 1 || (int)cmts == num_cmts) {
+		vty_out(vty,
+			"Number of commits found (%d), Rollback of last commit is not supported\n",
+			(int)cmts);
+		return -1;
+	}
+
+	FOREACH_CMT_REC(mm, cmt_info)
+	{
+		if (cnt == num_cmts) {
+			ret = mgmt_db_rollback_to_cmt(vty, cmt_info, false);
+			return ret;
+		}
+
+		cnt++;
+		mgmt_db_remove_cmt_file(cmt_info->cmt_json_file);
+		mgmt_cmt_info_dlist_del(&mm->cmt_dlist, cmt_info);
+		XFREE(MTYPE_MGMTD_CMT_INFO, cmt_info);
+	}
+
+	if (!mgmt_cmt_info_dlist_count(&mm->cmt_dlist)) {
+		ret = mgmt_db_reset((struct mgmt_db_ctxt *)mm->candidate_db);
+		if (ret < 0)
+			return ret;
+		ret = mgmt_db_rollback_to_cmt(vty, cmt_info, true);
+	}
+
+	return ret;
+}
+
+void show_mgmt_cmt_history(struct vty *vty)
+{
+	struct mgmt_cmt_info_t *cmt_info;
+	int slno = 0;
+
+	vty_out(vty, "Last 10 commit history:\n");
+	vty_out(vty, "  Sl.No\tCommit-ID(HEX)\t\t\t  Commit-Record-Time\n");
+	FOREACH_CMT_REC(mm, cmt_info)
+	{
+		vty_out(vty, "  %d\t%s  %s\n", slno, cmt_info->cmtid_str,
+			cmt_info->time_str);
+		slno++;
+	}
 }
