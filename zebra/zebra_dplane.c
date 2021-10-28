@@ -2155,13 +2155,13 @@ dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
 	return true;
 }
 
-bool dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
+void dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
 			      struct zebra_pbr_ipset *ipset)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (!ipset)
-		return false;
+	assert(ipset);
+
 	if (ctx->zd_op == DPLANE_OP_IPSET_ENTRY_ADD ||
 	    ctx->zd_op == DPLANE_OP_IPSET_ENTRY_DELETE) {
 		memset(ipset, 0, sizeof(struct zebra_pbr_ipset));
@@ -2171,7 +2171,6 @@ bool dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
 		       ZEBRA_IPSET_NAME_SIZE);
 	} else
 		memcpy(ipset, &ctx->u.ipset, sizeof(struct zebra_pbr_ipset));
-	return true;
 }
 
 bool dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
@@ -5068,10 +5067,10 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPSET_DELETE: {
 		struct zebra_pbr_ipset ipset;
 
-		if (dplane_ctx_get_pbr_ipset(ctx, &ipset))
-			zlog_debug("Dplane ipset update op %s, unique(%u), ctx %p",
-				   dplane_op2str(dplane_ctx_get_op(ctx)),
-				   ipset.unique, ctx);
+		dplane_ctx_get_pbr_ipset(ctx, &ipset);
+		zlog_debug("Dplane ipset update op %s, unique(%u), ctx %p",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ipset.unique,
+			   ctx);
 	} break;
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE: {
