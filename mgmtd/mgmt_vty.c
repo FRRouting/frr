@@ -16,6 +16,7 @@
 #include "mgmtd/mgmt_fe_server.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_history.h"
 
 #include "mgmtd/mgmt_vty_clippy.c"
 
@@ -53,6 +54,45 @@ DEFPY(show_mgmt_fe_adapter, show_mgmt_fe_adapter_cmd,
       "Display more details\n")
 {
 	mgmt_fe_adapter_status_write(vty, !!detail);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY_HIDDEN(mgmt_performance_measurement,
+	     mgmt_performance_measurement_cmd,
+	     "[no] mgmt performance-measurement",
+	     NO_STR
+	     MGMTD_STR
+	     "Enable performance measurement\n")
+{
+	if (no)
+		mgmt_fe_adapter_perf_measurement(vty, false);
+	else
+		mgmt_fe_adapter_perf_measurement(vty, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_reset_performance_stats,
+      mgmt_reset_performance_stats_cmd,
+      "mgmt reset-statistics",
+      MGMTD_STR
+      "Reset the Performance measurement statistics\n")
+{
+	mgmt_fe_adapter_reset_perf_stats(vty);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(show_mgmt_txn,
+      show_mgmt_txn_cmd,
+      "show mgmt transaction all",
+      SHOW_STR
+      MGMTD_STR
+      MGMTD_TXN_STR
+      "Display all Transactions\n")
+{
+	mgmt_txn_status_write(vty);
 
 	return CMD_SUCCESS;
 }
@@ -309,6 +349,43 @@ DEFPY(mgmt_save_config,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_mgmt_cmt_hist,
+      show_mgmt_cmt_hist_cmd,
+      "show mgmt commit-history",
+      SHOW_STR
+      MGMTD_STR
+      "Show commit history\n")
+{
+	show_mgmt_cmt_history(vty);
+	return CMD_SUCCESS;
+}
+
+DEFPY(mgmt_rollback,
+      mgmt_rollback_cmd,
+      "mgmt rollback <commit-id WORD$commit | last [(1-10)]$last>",
+      MGMTD_STR
+      "Rollback commits\n"
+      "Rollback to commit ID\n"
+      "Commit-ID\n"
+      "Rollbak n commits\n"
+      "Number of commits\n")
+{
+	if (commit)
+		mgmt_history_rollback_by_id(vty, commit);
+	else
+		mgmt_history_rollback_n(vty, last);
+
+	return CMD_SUCCESS;
+}
+
+static int config_write_mgmt_debug(struct vty *vty);
+static struct cmd_node debug_node = {
+	.name = "debug",
+	.node = DEBUG_NODE,
+	.prompt = "",
+	.config_write = config_write_mgmt_debug,
+};
+
 static int config_write_mgmt_debug(struct vty *vty)
 {
 	int n = mgmt_debug_be + mgmt_debug_fe + mgmt_debug_ds + mgmt_debug_txn;
@@ -333,12 +410,6 @@ static int config_write_mgmt_debug(struct vty *vty)
 
 	return 0;
 }
-static struct cmd_node debug_node = {
-	.name = "debug",
-	.node = DEBUG_NODE,
-	.prompt = "",
-	.config_write = config_write_mgmt_debug,
-};
 
 DEFPY(debug_mgmt,
       debug_mgmt_cmd,
@@ -388,22 +459,29 @@ void mgmt_vty_init(void)
 	install_element(VIEW_NODE, &show_mgmt_be_adapter_cmd);
 	install_element(VIEW_NODE, &show_mgmt_be_xpath_reg_cmd);
 	install_element(VIEW_NODE, &show_mgmt_fe_adapter_cmd);
+	install_element(VIEW_NODE, &show_mgmt_txn_cmd);
 	install_element(VIEW_NODE, &show_mgmt_ds_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_config_cmd);
 	install_element(VIEW_NODE, &show_mgmt_get_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_dump_data_cmd);
 	install_element(VIEW_NODE, &show_mgmt_map_xpath_cmd);
+	install_element(VIEW_NODE, &show_mgmt_cmt_hist_cmd);
 
 	install_element(CONFIG_NODE, &mgmt_commit_cmd);
 	install_element(CONFIG_NODE, &mgmt_set_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_delete_config_data_cmd);
 	install_element(CONFIG_NODE, &mgmt_load_config_cmd);
 	install_element(CONFIG_NODE, &mgmt_save_config_cmd);
+	install_element(CONFIG_NODE, &mgmt_rollback_cmd);
 
 	install_element(VIEW_NODE, &debug_mgmt_cmd);
 	install_element(CONFIG_NODE, &debug_mgmt_cmd);
 
+	/* Enable view */
+	install_element(ENABLE_NODE, &mgmt_performance_measurement_cmd);
+	install_element(ENABLE_NODE, &mgmt_reset_performance_stats_cmd);
+
 	/*
-	 * TODO: Register and handlers for auto-completion here (if any).
+	 * TODO: Register and handlers for auto-completion here.
 	 */
 }

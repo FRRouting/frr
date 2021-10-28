@@ -875,6 +875,19 @@ extern int nb_candidate_edit(struct nb_config *candidate,
 			     const struct yang_data *previous,
 			     const struct yang_data *data);
 
+/*
+ * Create diff for configuration.
+ *
+ * dnode
+ *    Pointer to a libyang data node containing the configuration data. If NULL
+ *    is given, an empty configuration will be created.
+ *
+ * seq
+ *    Returns sequence number assigned to the specific change.
+ *
+ * changes
+ *    Northbound config callback head.
+ */
 extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
 				   struct nb_config_cbs *changes);
 
@@ -889,25 +902,134 @@ extern void nb_config_diff_created(const struct lyd_node *dnode, uint32_t *seq,
  */
 extern bool nb_candidate_needs_update(const struct nb_config *candidate);
 
+/*
+ * Edit candidate configuration changes.
+ *
+ * candidate_config
+ *    Candidate configuration to edit.
+ *
+ * cfg_changes
+ *    Northbound config changes.
+ *
+ * num_cfg_changes
+ *    Number of config changes.
+ *
+ * xpath_base
+ *    Base xpath for config.
+ *
+ * curr_xpath
+ *    Current xpath for config.
+ *
+ * xpath_index
+ *    Index of xpath being processed.
+ *
+ * err_buf
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * err_bufsize
+ *    Size of err_buf.
+ *
+ * error
+ *    TRUE on error, FALSE on success
+ */
 extern void nb_candidate_edit_config_changes(
 	struct nb_config *candidate_config, struct nb_cfg_change cfg_changes[],
 	size_t num_cfg_changes, const char *xpath_base, const char *curr_xpath,
 	int xpath_index, char *err_buf, int err_bufsize, bool *error);
 
+/*
+ * Delete candidate configuration changes.
+ *
+ * changes
+ *    Northbound config changes.
+ */
 extern void nb_config_diff_del_changes(struct nb_config_cbs *changes);
 
+/*
+ * Create candidate diff and validate on yang tree
+ *
+ * context
+ *    Context of the northbound transaction.
+ *
+ * candidate
+ *    Candidate DB configuration.
+ *
+ * changes
+ *    Northbound config changes.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR_VALIDATION otherwise
+ */
 extern int nb_candidate_diff_and_validate_yang(struct nb_context *context,
 					       struct nb_config *candidate,
 					       struct nb_config_cbs *changes,
 					       char *errmsg, size_t errmsg_len);
 
+/*
+ * Calculate the delta between two different configurations.
+ *
+ * reference
+ *    Running DB config changes to be compared against.
+ *
+ * incremental
+ *    Candidate DB config changes that will be compared against reference.
+ *
+ * changes
+ *    Will hold the final diff generated.
+ *
+ */
 extern void nb_config_diff(const struct nb_config *reference,
 			   const struct nb_config *incremental,
 			   struct nb_config_cbs *changes);
 
-extern int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
-				      size_t errmsg_len);
+/*
+ * Perform YANG syntactic and semantic validation.
+ *
+ * WARNING: lyd_validate() can change the configuration as part of the
+ * validation process.
+ *
+ * candidate
+ *    Candidate DB configuration.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR_VALIDATION otherwise
+ */
+extern int nb_candidate_validate_yang(struct nb_config *candidate, bool no_state,
+				      char *errmsg, size_t errmsg_len);
 
+/*
+ * Perform code-level validation using the northbound callbacks.
+ *
+ * context
+ *    Context of the northbound transaction.
+ *
+ * candidate
+ *    Candidate DB configuration.
+ *
+ * changes
+ *    Northbound config changes.
+ *
+ * errmsg
+ *    Buffer to store human-readable error message in case of error.
+ *
+ * errmsg_len
+ *    Size of errmsg.
+ *
+ * Returns:
+ *    NB_OK on success, NB_ERR_VALIDATION otherwise
+ */
 extern int nb_candidate_validate_code(struct nb_context *context,
 				      struct nb_config *candidate,
 				      struct nb_config_cbs *changes,
@@ -971,6 +1093,12 @@ extern int nb_candidate_validate(struct nb_context *context,
  *    successfully. In this case, it must be either aborted using
  *    nb_candidate_commit_abort() or committed using
  *    nb_candidate_commit_apply().
+ *
+ * skip_validate
+ *    TRUE to skip commit validation, FALSE otherwise.
+ *
+ * ignore_zero_change
+ *    TRUE to ignore if zero changes, FALSE otherwise.
  *
  * errmsg
  *    Buffer to store human-readable error message in case of error.

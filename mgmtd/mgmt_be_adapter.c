@@ -332,9 +332,9 @@ static void mgmt_be_adapter_disconnect(struct mgmt_be_client_adapter *adapter)
 	}
 
 	/*
-	 * TODO: Notify about client disconnect for appropriate cleanup
-	 * mgmt_txn_notify_be_adapter_conn(adapter, false);
+	 * Notify about client disconnect for appropriate cleanup
 	 */
+	mgmt_txn_notify_be_adapter_conn(adapter, false);
 
 	if (adapter->id < MGMTD_BE_CLIENT_ID_MAX) {
 		mgmt_be_adapters_by_id[adapter->id] = NULL;
@@ -402,12 +402,12 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			adapter->name,
 			be_msg->txn_reply->success ? "success" : "failure");
 		/*
-		 * TODO: Forward the TXN_REPLY to txn module.
-		 * mgmt_txn_notify_be_txn_reply(
-		 *	be_msg->txn_reply->txn_id,
-		 *	be_msg->txn_reply->create,
-		 *	be_msg->txn_reply->success, adapter);
+		 * Forward the TXN_REPLY to txn module.
 		 */
+		mgmt_txn_notify_be_txn_reply(
+			be_msg->txn_reply->txn_id,
+			be_msg->txn_reply->create,
+			be_msg->txn_reply->success, adapter);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_DATA_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
@@ -419,13 +419,13 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 				? be_msg->cfg_data_reply->error_if_any
 				: "None");
 		/*
-		 * TODO: Forward the CGFData-create reply to txn module.
-		 * mgmt_txn_notify_be_cfgdata_reply(
-		 *	be_msg->cfg_data_reply->txn_id,
-		 *	be_msg->cfg_data_reply->batch_id,
-		 *	be_msg->cfg_data_reply->success,
-		 *	be_msg->cfg_data_reply->error_if_any, adapter);
+		 * Forward the CGFData-create reply to txn module.
 		 */
+		mgmt_txn_notify_be_cfgdata_reply(
+			be_msg->cfg_data_reply->txn_id,
+			be_msg->cfg_data_reply->batch_id,
+			be_msg->cfg_data_reply->success,
+			be_msg->cfg_data_reply->error_if_any, adapter);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_APPLY_REPLY:
 		MGMTD_BE_ADAPTER_DBG(
@@ -445,14 +445,15 @@ mgmt_be_adapter_handle_msg(struct mgmt_be_client_adapter *adapter,
 			be_msg->cfg_apply_reply->error_if_any
 				? be_msg->cfg_apply_reply->error_if_any
 				: "None");
-		/* TODO: Forward the CGFData-apply reply to txn module.
-		 * mgmt_txn_notify_be_cfg_apply_reply(
-		 *	be_msg->cfg_apply_reply->txn_id,
-		 *	be_msg->cfg_apply_reply->success,
-		 *	(uint64_t *)be_msg->cfg_apply_reply->batch_ids,
-		 *	be_msg->cfg_apply_reply->n_batch_ids,
-		 *	be_msg->cfg_apply_reply->error_if_any, adapter);
+		/*
+		 * Forward the CGFData-apply reply to txn module.
 		 */
+		mgmt_txn_notify_be_cfg_apply_reply(
+			be_msg->cfg_apply_reply->txn_id,
+			be_msg->cfg_apply_reply->success,
+			(uint64_t *)be_msg->cfg_apply_reply->batch_ids,
+			be_msg->cfg_apply_reply->n_batch_ids,
+			be_msg->cfg_apply_reply->error_if_any, adapter);
 		break;
 	case MGMTD__BE_MESSAGE__MESSAGE_GET_REPLY:
 	case MGMTD__BE_MESSAGE__MESSAGE_CFG_CMD_REPLY:
@@ -899,27 +900,26 @@ static void mgmt_be_adapter_conn_init(struct thread *thread)
 	assert(adapter && adapter->conn_fd >= 0);
 
 	/*
-	 * TODO: Check first if the current session can run a CONFIG
+	 * Check first if the current session can run a CONFIG
 	 * transaction or not. Reschedule if a CONFIG transaction
 	 * from another session is already in progress.
+	 */
 	if (mgmt_config_txn_in_progress() != MGMTD_SESSION_ID_NONE) {
 		mgmt_be_adapter_register_event(adapter, MGMTD_BE_CONN_INIT);
-		return 0;
+		return;
 	}
-	 */
 
-    /*
-     * TODO: Notify TXN module to create a CONFIG transaction and
-     * download the CONFIGs identified for this new client.
-     * If the TXN module fails to initiate the CONFIG transaction
-     * disconnect from the client forcing a reconnect later.
-     * That should also take care of destroying the adapter.
-     *
+	/*
+	 * Notify TXN module to create a CONFIG transaction and
+	 * download the CONFIGs identified for this new client.
+	 * If the TXN module fails to initiate the CONFIG transaction
+	 * disconnect from the client forcing a reconnect later.
+	 * That should also take care of destroying the adapter.
+	 */
 	if (mgmt_txn_notify_be_adapter_conn(adapter, true) != 0) {
 		mgmt_be_adapter_disconnect(adapter);
 		adapter = NULL;
 	}
-     */
 }
 
 static void

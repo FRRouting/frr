@@ -13,6 +13,7 @@
 #include "mgmtd/mgmt_fe_server.h"
 #include "mgmtd/mgmt_fe_adapter.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_history.h"
 #include "mgmtd/mgmt_memory.h"
 
 bool mgmt_debug_be;
@@ -49,6 +50,12 @@ void mgmt_init(void)
 	/* Initialize datastores */
 	mgmt_ds_init(mm);
 
+	/* Initialize history */
+	mgmt_history_init();
+
+	/* Initialize MGMTD Transaction module */
+	mgmt_txn_init(mm, mm->master);
+
 	/* Initialize the MGMTD Backend Adapter Module */
 	mgmt_be_adapter_init(mm->master);
 
@@ -61,7 +68,7 @@ void mgmt_init(void)
 	/* Start the MGMTD Frontend Server for clients to connect */
 	mgmt_fe_server_init(mm->master);
 
-	/* MGMTD VTY commands installation.  */
+	/* MGMTD VTY commands installation. */
 	mgmt_vty_init();
 }
 
@@ -71,5 +78,7 @@ void mgmt_terminate(void)
 	mgmt_fe_adapter_destroy();
 	mgmt_be_server_destroy();
 	mgmt_be_adapter_destroy();
+	mgmt_txn_destroy();
+	mgmt_history_destroy();
 	mgmt_ds_destroy();
 }

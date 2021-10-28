@@ -10,20 +10,25 @@
 #define _FRR_MGMTD_H
 
 #include "vrf.h"
-
 #include "defaults.h"
 #include "stream.h"
 
 #include "mgmtd/mgmt_memory.h"
+#include "mgmtd/mgmt_defines.h"
+#include "mgmtd/mgmt_history.h"
+#include "mgmtd/mgmt_txn.h"
 #include "mgmtd/mgmt_ds.h"
 
 #define MGMTD_VTY_PORT 2622
 #define MGMTD_SOCKET_BUF_SIZE 65535
+#define MGMTD_MAX_COMMIT_LIST 10
 
 extern bool mgmt_debug_be;
 extern bool mgmt_debug_fe;
 extern bool mgmt_debug_ds;
 extern bool mgmt_debug_txn;
+
+struct mgmt_txn_ctx;
 
 /*
  * MGMTD master for system wide configurations and variables.
@@ -34,6 +39,16 @@ struct mgmt_master {
 	/* How big should we set the socket buffer size */
 	uint32_t socket_buffer;
 
+	/* The single instance of config transaction allowed at any time */
+	struct mgmt_txns_head txn_list;
+
+	/* Map of Transactions and its ID */
+	struct hash *txn_hash;
+	uint64_t next_txn_id;
+
+	/* The single instance of config transaction allowed at any time */
+	struct mgmt_txn_ctx *cfg_txn;
+
 	/* Datastores */
 	struct mgmt_ds_ctx *running_ds;
 	struct mgmt_ds_ctx *candidate_ds;
@@ -41,6 +56,9 @@ struct mgmt_master {
 
 	bool terminating;   /* global flag that sigint terminate seen */
 	bool perf_stats_en; /* to enable performance stats measurement */
+
+	/* List of commit infos */
+	struct mgmt_cmt_infos_head cmts; /* List of last 10 commits executed. */
 };
 
 extern struct mgmt_master *mm;
@@ -86,16 +104,12 @@ extern void mgmt_vty_init(void);
 static inline char *mgmt_realtime_to_string(struct timeval *tv, char *buf,
 					    size_t sz)
 {
-	char tmp[50];
-	struct tm *lm;
+	struct tm tm;
+	size_t n;
 
-	lm = localtime((const time_t *)&tv->tv_sec);
-	if (lm) {
-		strftime(tmp, sizeof(tmp), "%Y-%m-%d %H:%M:%S", lm);
-		snprintf(buf, sz, "%s.%06lu", tmp,
-			 (unsigned long int)tv->tv_usec);
-	}
-
+	localtime_r((const time_t *)&tv->tv_sec, &tm);
+	n = strftime(buf, sz, "%Y-%m-%dT%H:%M:%S", &tm);
+	snprintf(&buf[n], sz - n, ",%06u000", (unsigned int)tv->tv_usec);
 	return buf;
 }
 

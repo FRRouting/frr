@@ -11,6 +11,8 @@
 #include "mgmtd/mgmt.h"
 #include "mgmtd/mgmt_memory.h"
 #include "mgmtd/mgmt_ds.h"
+#include "mgmtd/mgmt_history.h"
+#include "mgmtd/mgmt_txn.h"
 #include "libyang/libyang.h"
 
 #ifdef REDIRECT_DEBUG_TO_STDERR
@@ -22,7 +24,7 @@
 #define MGMTD_DS_DBG(fmt, ...)                                                 \
 	do {                                                                   \
 		if (mgmt_debug_ds)                                             \
-			zlog_debug("%s: " fmt, __func__, ##__VA_ARGS__);       \
+			zlog_err("%s: " fmt, __func__, ##__VA_ARGS__);         \
 	} while (0)
 #define MGMTD_DS_ERR(fmt, ...)                                                 \
 	zlog_err("%s: ERROR: " fmt, __func__, ##__VA_ARGS__)
@@ -107,6 +109,14 @@ static int mgmt_ds_replace_dst_with_src_ds(struct mgmt_ds_ctx *src,
 	else
 		dst->root.dnode_root = dst_dnode;
 
+	if (src->ds_id == MGMTD_DS_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
 	if (dst->ds_id == MGMTD_DS_RUNNING) {
 		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out)
 		    == LY_SUCCESS)
@@ -141,6 +151,14 @@ static int mgmt_ds_merge_src_with_dst_ds(struct mgmt_ds_ctx *src,
 		return ret;
 	}
 
+	if (src->ds_id == MGMTD_DS_CANDIDATE) {
+		/*
+		 * Drop the changes in scratch-buffer.
+		 */
+		MGMTD_DS_DBG("Emptying Candidate Scratch buffer!");
+		nb_config_diff_del_changes(&src->root.cfg_root->cfg_chgs);
+	}
+
 	if (dst->ds_id == MGMTD_DS_RUNNING) {
 		if (ly_out_new_filepath(MGMTD_STARTUP_DS_FILE_PATH, &out)
 		    == LY_SUCCESS)
@@ -169,6 +187,17 @@ static int mgmt_ds_load_cfg_from_file(const char *filepath,
 	return 0;
 }
 
+void mgmt_ds_reset_candidate(void)
+{
+	struct lyd_node *dnode = mm->candidate_ds->root.cfg_root->dnode;
+	if (dnode)
+		yang_dnode_free(dnode);
+
+	dnode = yang_dnode_new(ly_native_ctx, true);
+	mm->candidate_ds->root.cfg_root->dnode = dnode;
+}
+
+
 int mgmt_ds_init(struct mgmt_master *mm)
 {
 	struct lyd_node *root;
@@ -194,6 +223,12 @@ int mgmt_ds_init(struct mgmt_master *mm)
 	candidate.config_ds = true;
 	candidate.ds_id = MGMTD_DS_CANDIDATE;
 
+	/*
+	 * Redirect lib/vty candidate-config datastore to the global candidate
+	 * config Ds on the MGMTD process.
+	 */
+	vty_mgmt_candidate_config = candidate.root.cfg_root;
+
 	oper.root.dnode_root = yang_dnode_new(ly_native_ctx, true);
 	oper.config_ds = false;
 	oper.ds_id = MGMTD_DS_OPERATIONAL;
@@ -208,7 +243,6 @@ int mgmt_ds_init(struct mgmt_master *mm)
 
 void mgmt_ds_destroy(void)
 {
-
 	/*
 	 * TODO: Free the datastores.
 	 */
@@ -277,20 +311,14 @@ int mgmt_ds_unlock(struct mgmt_ds_ctx *ds_ctx)
 	return 0;
 }
 
-int mgmt_ds_merge_dss(struct mgmt_ds_ctx *src_ds_ctx,
-		      struct mgmt_ds_ctx *dst_ds_ctx, bool updt_cmt_rec)
-{
-	if (mgmt_ds_merge_src_with_dst_ds(src_ds_ctx, dst_ds_ctx) != 0)
-		return -1;
-
-	return 0;
-}
-
 int mgmt_ds_copy_dss(struct mgmt_ds_ctx *src_ds_ctx,
 		     struct mgmt_ds_ctx *dst_ds_ctx, bool updt_cmt_rec)
 {
 	if (mgmt_ds_replace_dst_with_src_ds(src_ds_ctx, dst_ds_ctx) != 0)
 		return -1;
+
+	if (updt_cmt_rec && dst_ds_ctx->ds_id == MGMTD_DS_RUNNING)
+		mgmt_history_new_record(dst_ds_ctx);
 
 	return 0;
 }
@@ -377,14 +405,16 @@ static int mgmt_walk_ds_nodes(
 		num_left--;
 	}
 
-	/* If the base_xpath points to leaf node, we can skip the tree walk */
-	if (base_dnode->schema->nodetype & LYD_NODE_TERM)
+	/*
+	 * If the base_xpath points to a leaf node, or we don't need to
+	 * visit any children we can skip the tree walk.
+	 */
+	if (!childs_as_well || base_dnode->schema->nodetype & LYD_NODE_TERM)
 		return 0;
 
 	indx = 0;
 	LY_LIST_FOR (lyd_child(base_dnode), dnode) {
 		assert(dnode->schema && dnode->schema->priv);
-		nbnode = (struct nb_node *)dnode->schema->priv;
 
 		xpath = NULL;
 		if (xpaths) {
@@ -406,9 +436,6 @@ static int mgmt_walk_ds_nodes(
 
 		assert(xpath);
 		MGMTD_DS_DBG(" -- XPATH: %s", xpath);
-
-		if (!childs_as_well)
-			continue;
 
 		if (num_nodes)
 			num_found = num_left;

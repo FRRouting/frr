@@ -943,11 +943,12 @@ int nb_candidate_update(struct nb_config *candidate)
  * WARNING: lyd_validate() can change the configuration as part of the
  * validation process.
  */
-int nb_candidate_validate_yang(struct nb_config *candidate, char *errmsg,
-			       size_t errmsg_len)
+int nb_candidate_validate_yang(struct nb_config *candidate, bool no_state,
+			       char *errmsg, size_t errmsg_len)
 {
 	if (lyd_validate_all(&candidate->dnode, ly_native_ctx,
-			     LYD_VALIDATE_NO_STATE, NULL)
+			     no_state ? LYD_VALIDATE_NO_STATE :
+			     LYD_VALIDATE_PRESENT, NULL)
 	    != 0) {
 		yang_print_errors(ly_native_ctx, errmsg, errmsg_len);
 		return NB_ERR_VALIDATION;
@@ -1003,7 +1004,8 @@ int nb_candidate_diff_and_validate_yang(struct nb_context *context,
 					struct nb_config_cbs *changes,
 					char *errmsg, size_t errmsg_len)
 {
-	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
+	if (nb_candidate_validate_yang(candidate, true, errmsg,
+				       sizeof(errmsg_len))
 	    != NB_OK)
 		return NB_ERR_VALIDATION;
 
@@ -1042,7 +1044,7 @@ int nb_candidate_commit_prepare(struct nb_context context,
 	struct nb_config_cbs changes;
 
 	if (!skip_validate
-	    && nb_candidate_validate_yang(candidate, errmsg, errmsg_len)
+	    && nb_candidate_validate_yang(candidate, true, errmsg, errmsg_len)
 		       != NB_OK) {
 		flog_warn(EC_LIB_NB_CANDIDATE_INVALID,
 			  "%s: failed to validate candidate configuration",
