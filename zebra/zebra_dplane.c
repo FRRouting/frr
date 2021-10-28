@@ -2145,14 +2145,12 @@ dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx)
 }
 
 /* Accessors for PBR iptable information */
-bool
-dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
-			   struct zebra_pbr_iptable *table)
+void dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+				struct zebra_pbr_iptable *table)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	memcpy(table, &ctx->u.iptable, sizeof(struct zebra_pbr_iptable));
-	return true;
 }
 
 void dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
@@ -5059,9 +5057,10 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPTABLE_DELETE: {
 		struct zebra_pbr_iptable ipt;
 
-		if (dplane_ctx_get_pbr_iptable(ctx, &ipt))
-			zlog_debug("Dplane iptable update op %s, unique(%u), ctx %p",
-				   dplane_op2str(dplane_ctx_get_op(ctx)), ipt.unique, ctx);
+		dplane_ctx_get_pbr_iptable(ctx, &ipt);
+		zlog_debug("Dplane iptable update op %s, unique(%u), ctx %p",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ipt.unique,
+			   ctx);
 	} break;
 	case DPLANE_OP_IPSET_ADD:
 	case DPLANE_OP_IPSET_DELETE: {

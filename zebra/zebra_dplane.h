@@ -526,9 +526,8 @@ const struct prefix *
 dplane_ctx_rule_get_old_dst_ip(const struct zebra_dplane_ctx *ctx);
 /* Accessors for policy based routing iptable information */
 struct zebra_pbr_iptable;
-bool
-dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
-			   struct zebra_pbr_iptable *table);
+void dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+				struct zebra_pbr_iptable *table);
 struct zebra_pbr_ipset;
 void dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
 			      struct zebra_pbr_ipset *ipset);
