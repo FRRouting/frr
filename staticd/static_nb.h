@@ -171,7 +171,7 @@ int routing_control_plane_protocols_name_validate(
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
 /* route-list/frr-nexthops */
-#define FRR_DEL_S_ROUTE_NH_KEY_NO_DISTANCE_XPATH                               \
+#define FRR_DEL_S_ROUTE_NH_KEY_NO_DIST_XPATH                                   \
 	FRR_STATIC_ROUTE_INFO_KEY_NO_DISTANCE_XPATH                            \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
@@ -181,7 +181,7 @@ int routing_control_plane_protocols_name_validate(
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
 /* route-list/src/src-list/frr-nexthops*/
-#define FRR_DEL_S_ROUTE_SRC_NH_KEY_NO_DISTANCE_XPATH                           \
+#define FRR_DEL_S_ROUTE_SRC_NH_KEY_NODIST_XPATH                                \
 	FRR_S_ROUTE_SRC_INFO_KEY_NO_DISTANCE_XPATH                             \
 	FRR_STATIC_ROUTE_NH_KEY_XPATH
 
