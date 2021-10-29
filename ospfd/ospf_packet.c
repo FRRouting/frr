@@ -99,18 +99,18 @@ static const uint16_t ospf_packet_minlen[] = {
 /* Minimum (besides OSPF_LSA_HEADER_SIZE) lengths for LSAs of particular
    types, offset is the "LSA type" field. */
 static const uint16_t ospf_lsa_minlen[] = {
-	0,
-	OSPF_ROUTER_LSA_MIN_SIZE,
-	OSPF_NETWORK_LSA_MIN_SIZE,
-	OSPF_SUMMARY_LSA_MIN_SIZE,
-	OSPF_SUMMARY_LSA_MIN_SIZE,
-	OSPF_AS_EXTERNAL_LSA_MIN_SIZE,
-	0,
-	OSPF_AS_EXTERNAL_LSA_MIN_SIZE,
-	0,
-	0,
-	0,
-	0,
+	0,                             /* OSPF_UNKNOWN_LSA */
+	OSPF_ROUTER_LSA_MIN_SIZE,      /* OSPF_ROUTER_LSA */
+	OSPF_NETWORK_LSA_MIN_SIZE,     /* OSPF_NETWORK_LSA */
+	OSPF_SUMMARY_LSA_MIN_SIZE,     /* OSPF_SUMMARY_LSA */
+	OSPF_SUMMARY_LSA_MIN_SIZE,     /* OSPF_ASBR_SUMMARY_LSA */
+	OSPF_AS_EXTERNAL_LSA_MIN_SIZE, /* OSPF_AS_EXTERNAL_LSA */
+	0,                             /* Unsupported, OSPF_GROUP_MEMBER_LSA */
+	OSPF_AS_EXTERNAL_LSA_MIN_SIZE, /* OSPF_AS_NSSA_LSA */
+	0,                             /* Unsupported, OSPF_EXTERNAL_ATTRIBURES_LSA */
+	OSPF_OPAQUE_LSA_MIN_SIZE,      /* OSPF_OPAQUE_LINK_LSA */
+	OSPF_OPAQUE_LSA_MIN_SIZE,      /* OSPF_OPAQUE_AREA_LSA */
+	OSPF_OPAQUE_LSA_MIN_SIZE,      /* OSPF_OPAQUE_AS_LSA */
 };
 
 /* for ospf_check_auth() */

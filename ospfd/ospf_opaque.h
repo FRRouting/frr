@@ -77,6 +77,8 @@
 
 #define OPAQUE_TYPE_RANGE_RESERVED(type) (127 < (type) && (type) <= 255)
 
+#define OSPF_OPAQUE_LSA_MIN_SIZE 4U
+
 #define VALID_OPAQUE_INFO_LEN(lsahdr)                                          \
 	((ntohs((lsahdr)->length) >= sizeof(struct lsa_header))                \
 	 && ((ntohs((lsahdr)->length) < OSPF_MAX_LSA_SIZE))                    \
