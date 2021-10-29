@@ -1371,6 +1371,7 @@ class Router(Node):
             "pbrd": 0,
             "pathd": 0,
             "snmpd": 0,
+            "mgmtd": 0,
         }
         self.daemons_options = {"zebra": ""}
         self.reportCores = True
@@ -1398,6 +1399,10 @@ class Router(Node):
         if not os.path.isfile(zebra_path):
             raise Exception("FRR zebra binary doesn't exist at {}".format(zebra_path))
 
+        mgmtd_path = os.path.join(self.daemondir, "mgmtd")
+        if not os.path.isfile(mgmtd_path):
+            raise Exception("FRR MGMTD binary doesn't exist at {}".format(mgmtd_path))
+
     # pylint: disable=W0221
     # Some params are only meaningful for the parent class.
     def config(self, **params):
@@ -1415,6 +1420,10 @@ class Router(Node):
             zpath = os.path.join(self.daemondir, "zebra")
             if not os.path.isfile(zpath):
                 raise Exception("No zebra binary found in {}".format(zpath))
+
+            cpath = os.path.join(self.daemondir, "mgmtd")
+            if not os.path.isfile(zpath):
+                raise Exception("No MGMTD binary found in {}".format(cpath))
             # Allow user to specify routertype when the path was specified.
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
@@ -1567,6 +1576,10 @@ class Router(Node):
                     self.cmd_raises("rm -f " + conf_file)
                     self.cmd_raises("touch " + conf_file)
             else:
+                # copy zebra.conf to mgmtd folder, which can be used during startup
+                if daemon == 'zebra':
+                    conf_file_mgmt = "/etc/{}/{}.conf".format(self.routertype, 'mgmtd')
+                    self.cmd_raises("cp {} {}".format(source, conf_file_mgmt))
                 self.cmd_raises("cp {} {}".format(source, conf_file))
 
             if not self.unified_config or daemon == "frr":
@@ -1577,6 +1590,17 @@ class Router(Node):
                 # /etc/snmp is private mount now
                 self.cmd('echo "agentXSocket /etc/frr/agentx" >> /etc/snmp/frr.conf')
                 self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
+
+            if (daemon == "zebra") and (self.daemons["mgmtd"] == 0):
+                # Add mgmtd with zebra - if it exists
+                try:
+                    mgmtd_path = os.path.join(self.daemondir, "mgmtd")
+                except:
+                    pdb.set_trace()
+                if os.path.isfile(mgmtd_path):
+                    self.daemons["mgmtd"] = 1
+                    self.daemons_options["mgmtd"] = ""
+                    # Auto-Started mgmtd has no config, so it will read from zebra config
 
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
@@ -1589,6 +1613,7 @@ class Router(Node):
                     self.daemons["staticd"] = 1
                     self.daemons_options["staticd"] = ""
                     # Auto-Started staticd has no config, so it will read from zebra config
+
         else:
             logger.info("No daemon {} known".format(daemon))
         # print "Daemons after:", self.daemons
@@ -1834,7 +1859,13 @@ class Router(Node):
                 else:
                     logger.info("%s: %s %s started", self, self.routertype, daemon)
 
-        # Start Zebra first
+        # Start mgmtd first
+        if "mgmtd" in daemons_list:
+            start_daemon("mgmtd")
+            while "mgmtd" in daemons_list:
+                daemons_list.remove("mgmtd")
+
+        # Start Zebra after mgmtd
         if "zebra" in daemons_list:
             start_daemon("zebra", "-s 90000000")
             while "zebra" in daemons_list:
