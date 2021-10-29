@@ -19,8 +19,7 @@
         "remote-transmit-interval": 600,
         "status": "up",
         "transmit-interval": 600,
-        "uptime": "*",
-        "vrf": "default"
+        "uptime": "*"
     },
     {
         "detect-multiplier": 3,
@@ -42,7 +41,6 @@
         "remote-transmit-interval": 2000,
         "status": "up",
         "transmit-interval": 2000,
-        "uptime": "*",
-        "vrf": "default"
+        "uptime": "*"
     }
 ]

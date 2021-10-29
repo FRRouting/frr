@@ -4,8 +4,7 @@
         "ipv4-unicast": [
             {
                 "installed": true,
-                "prefix": "10.254.254.4/32",
-                "vrf": "default"
+                "prefix": "10.254.254.4/32"
             }
         ],
         "ipv6-unicast": []
@@ -19,12 +18,10 @@
             "routes": [
                 {
                     "installed": false,
-                    "prefix": "2001:db8:4::2/128",
-                    "vrf": "default"
+                    "prefix": "2001:db8:4::2/128"
                 }
             ],
-            "source": "2001:db8:4::3",
-            "vrf": "default"
+            "source": "2001:db8:4::3"
         }
     ]
 }
