@@ -105,6 +105,8 @@ struct nhg_hash_entry {
 	 */
 	struct nhg_connected_tree_head nhg_depends, nhg_dependents;
 
+	struct thread *timer;
+
 /*
  * Is this nexthop group valid, ie all nexthops are fully resolved.
  * What is fully resolved?  It's a nexthop that is either self contained
@@ -144,6 +146,15 @@ struct nhg_hash_entry {
  *
  */
 #define NEXTHOP_GROUP_PROTO_RELEASED (1 << 5)
+
+/*
+ * When deleting a NHG notice that it is still installed
+ * and if it is, slightly delay the actual removal to
+ * the future.  So that upper level protocols might
+ * be able to take advantage of some NHG's that
+ * are there
+ */
+#define NEXTHOP_GROUP_KEEP_AROUND (1 << 6)
 
 /*
  * Track FPM installation status..
