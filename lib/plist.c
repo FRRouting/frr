@@ -1668,6 +1668,8 @@ static const struct cmd_variable_handler plist_var_handlers[] = {
 	{/* "prefix-list WORD" */
 	 .varname = "prefix_list",
 	 .completions = plist_autocomplete},
+	{.tokenname = "PREFIXLIST_NAME",
+	 .completions = plist_autocomplete},
 	{.completions = NULL}};
 
 
