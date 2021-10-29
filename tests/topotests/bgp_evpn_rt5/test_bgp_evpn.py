@@ -152,7 +152,7 @@ def setup_module(mod):
             router.load_config(
                 TopoRouter.RD_ZEBRA,
                 os.path.join(CWD, "{}/zebra.conf".format(rname)),
-                "--vrfwnetns -o vrf0",
+                "--vrfwnetns",
             )
         else:
             router.load_config(
