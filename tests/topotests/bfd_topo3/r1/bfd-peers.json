@@ -18,9 +18,8 @@
         "remote-receive-interval": 2000,
         "remote-transmit-interval": 2000,
         "status": "up",
-        "transmit-interval": 2000,
         "uptime": "*",
-        "vrf": "default"
+        "transmit-interval": 2000
     },
     {
         "detect-multiplier": 3,
@@ -41,9 +40,8 @@
         "remote-receive-interval": 600,
         "remote-transmit-interval": 600,
         "status": "up",
-        "transmit-interval": 600,
         "uptime": "*",
-        "vrf": "default"
+        "transmit-interval": 600
     },
     {
         "detect-multiplier": 3,
@@ -64,8 +62,7 @@
         "remote-receive-interval": 2000,
         "remote-transmit-interval": 2000,
         "status": "up",
-        "transmit-interval": 2000,
         "uptime": "*",
-        "vrf": "default"
+        "transmit-interval": 2000
     }
 ]
