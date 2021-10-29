@@ -1338,8 +1338,9 @@ class Router(Node):
             "pbrd": 0,
             "pathd": 0,
             "snmpd": 0,
+            "mgmtd": 0,
         }
-        self.daemons_options = {"zebra": ""}
+        self.daemons_options = {"zebra": "", "mgmtd": ""}
         self.reportCores = True
         self.version = None
 
@@ -1365,6 +1366,10 @@ class Router(Node):
         if not os.path.isfile(zebra_path):
             raise Exception("FRR zebra binary doesn't exist at {}".format(zebra_path))
 
+        mgmtd_path = os.path.join(self.daemondir, "mgmtd")
+        if not os.path.isfile(mgmtd_path):
+            raise Exception("FRR MGMTD binary doesn't exist at {}".format(mgmtd_path))
+
     # pylint: disable=W0221
     # Some params are only meaningful for the parent class.
     def config(self, **params):
@@ -1382,6 +1387,10 @@ class Router(Node):
             zpath = os.path.join(self.daemondir, "zebra")
             if not os.path.isfile(zpath):
                 raise Exception("No zebra binary found in {}".format(zpath))
+
+            cpath = os.path.join(self.daemondir, "mgmtd")
+            if not os.path.isfile(zpath):
+                raise Exception("No MGMTD binary found in {}".format(cpath))
             # Allow user to specify routertype when the path was specified.
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
@@ -1539,7 +1548,7 @@ class Router(Node):
                 self.cmd('echo "agentXSocket /etc/frr/agentx" > /etc/snmp/frr.conf')
                 self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
 
-            if (daemon == "zebra") and (self.daemons["staticd"] == 0):
+            if (daemon == "zebra" or daemon == "mgmtd") and (self.daemons["staticd"] == 0):
                 # Add staticd with zebra - if it exists
                 try:
                     staticd_path = os.path.join(self.daemondir, "staticd")
@@ -1725,7 +1734,7 @@ class Router(Node):
                     )
                     if valgrind_extra:
                         cmdenv += (
-                            "--gen-suppressions=all --expensive-definedness-checks=yes"
+                            " --gen-suppressions=all --expensive-definedness-checks=yes"
                         )
                 elif daemon in strace_daemons or "all" in strace_daemons:
                     cmdenv = "strace -f -D -o {1}/{2}.strace.{0} ".format(
@@ -1785,7 +1794,13 @@ class Router(Node):
                 else:
                     logger.info("%s: %s %s started", self, self.routertype, daemon)
 
-        # Start Zebra first
+        # Start mgmtd first
+        if "mgmtd" in daemons_list:
+            start_daemon("mgmtd")
+            while "mgmtd" in daemons_list:
+                daemons_list.remove("mgmtd")
+
+        # Start Zebra after mgmtd
         if "zebra" in daemons_list:
             start_daemon("zebra", "-s 90000000")
             while "zebra" in daemons_list:
