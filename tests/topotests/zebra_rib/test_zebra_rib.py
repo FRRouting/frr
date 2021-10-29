@@ -58,6 +58,9 @@ def setup_module(mod):
     router_list = tgen.routers()
     for rname, router in router_list.items():
         router.load_config(
+            TopoRouter.RD_MGMTD, os.path.join(CWD, "{}/mgmtd.conf".format(rname))
+        )
+        router.load_config(
             TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
