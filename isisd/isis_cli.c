@@ -131,7 +131,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	const struct lyd_node *if_dnode, *inst_dnode;
 	const char *circ_type = NULL;
 	const char *vrf_name;
-	struct interface *ifp;
 
 	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
 	if (!if_dnode) {
@@ -161,12 +160,6 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 				      NB_OP_MODIFY, circ_type);
 
-	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback_or_vrf(ifp))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-				      NB_OP_MODIFY, "true");
-
 	return nb_cli_apply_changes(vty, NULL);
 }
 
@@ -188,7 +181,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	const struct lyd_node *if_dnode, *inst_dnode;
 	const char *circ_type = NULL;
 	const char *vrf_name;
-	struct interface *ifp;
 
 	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
 	if (!if_dnode) {
@@ -217,12 +209,6 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	if (circ_type)
 		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
 				      NB_OP_MODIFY, circ_type);
-
-	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback_or_vrf(ifp))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-				      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }

@@ -2979,23 +2979,7 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
 	bool passive = yang_dnode_get_bool(args->dnode, NULL);
-
-	/* validation only applies if we are setting passive to false */
-	if (!passive && args->event == NB_EV_VALIDATE) {
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (!circuit)
-			return NB_OK;
-		ifp = circuit->interface;
-		if (!ifp)
-			return NB_OK;
-		if (if_is_loopback_or_vrf(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Loopback is always passive");
-			return NB_ERR_VALIDATION;
-		}
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
