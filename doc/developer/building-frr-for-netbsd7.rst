@@ -14,7 +14,8 @@ Install required packages
 ::
 
     sudo pkgin install git autoconf automake libtool gmake openssl \
-       pkg-config json-c python36 py36-test py36-sphinx
+       pkg-config json-c python36 py36-test py36-sphinx \
+       protobuf-c
 
 Install SSL Root Certificates (for git https access):
 
