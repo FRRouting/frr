@@ -103,6 +103,10 @@ char *frrscript_names_get_script_name(const char *function_name)
 		frrscript_names_find(&frrscript_names_hash, &lookup);
 	if (!snhe)
 		return NULL;
+
+	if (snhe->script_name[0] == '\0')
+		return NULL;
+
 	return snhe->script_name;
 }
 
