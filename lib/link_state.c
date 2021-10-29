@@ -46,6 +46,28 @@ DEFINE_MTYPE_STATIC(LIB, LS_DB, "Link State Database");
 /**
  *  Link State Node management functions
  */
+int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2)
+{
+	if (i1.origin != i2.origin)
+		return 0;
+
+	if (i1.origin == UNKNOWN)
+		return 1;
+
+	if (i1.origin == ISIS_L1 || i1.origin == ISIS_L2) {
+		if (memcmp(i1.id.iso.sys_id, i2.id.iso.sys_id, ISO_SYS_ID_LEN)
+			    != 0
+		    || (i1.id.iso.level != i2.id.iso.level))
+			return 0;
+	} else {
+		if (!IPV4_ADDR_SAME(&i1.id.ip.addr, &i2.id.ip.addr)
+		    || !IPV4_ADDR_SAME(&i1.id.ip.area_id, &i2.id.ip.area_id))
+			return 1;
+	}
+
+	return 1;
+}
+
 struct ls_node *ls_node_new(struct ls_node_id adv, struct in_addr rid,
 			    struct in6_addr rid6)
 {
@@ -83,29 +105,56 @@ void ls_node_del(struct ls_node *node)
 
 int ls_node_same(struct ls_node *n1, struct ls_node *n2)
 {
+	/* First, check pointer */
 	if ((n1 && !n2) || (!n1 && n2))
 		return 0;
 
 	if (n1 == n2)
 		return 1;
 
+	/* Then, verify Flags and Origin */
 	if (n1->flags != n2->flags)
 		return 0;
 
-	if (n1->adv.origin != n2->adv.origin)
+	if (!ls_node_id_same(n1->adv, n2->adv))
 		return 0;
 
-	if (!memcmp(&n1->adv.id, &n2->adv.id, sizeof(struct ls_node_id)))
+	/* Finally, check each individual parameters that are valid */
+	if (CHECK_FLAG(n1->flags, LS_NODE_NAME)
+	    && (strncmp(n1->name, n2->name, MAX_NAME_LENGTH) != 0))
 		return 0;
+	if (CHECK_FLAG(n1->flags, LS_NODE_ROUTER_ID)
+	    && !IPV4_ADDR_SAME(&n1->router_id, &n2->router_id))
+		return 0;
+	if (CHECK_FLAG(n1->flags, LS_NODE_ROUTER_ID6)
+	    && !IPV6_ADDR_SAME(&n1->router6_id, &n2->router6_id))
+		return 0;
+	if (CHECK_FLAG(n1->flags, LS_NODE_FLAG)
+	    && (n1->node_flag != n2->node_flag))
+		return 0;
+	if (CHECK_FLAG(n1->flags, LS_NODE_TYPE) && (n1->type != n2->type))
+		return 0;
+	if (CHECK_FLAG(n1->flags, LS_NODE_AS_NUMBER)
+	    && (n1->as_number != n2->as_number))
+		return 0;
+	if (CHECK_FLAG(n1->flags, LS_NODE_SR)) {
+		if (n1->srgb.flag != n2->srgb.flag
+		    || n1->srgb.lower_bound != n2->srgb.lower_bound
+		    || n1->srgb.range_size != n2->srgb.range_size)
+			return 0;
+		if ((n1->algo[0] != n2->algo[0])
+		    || (n1->algo[1] != n2->algo[1]))
+			return 0;
+		if (CHECK_FLAG(n1->flags, LS_NODE_SRLB)
+		    && ((n1->srlb.lower_bound != n2->srlb.lower_bound
+			 || n1->srlb.range_size != n2->srlb.range_size)))
+			return 0;
+		if (CHECK_FLAG(n1->flags, LS_NODE_MSD) && (n1->msd != n2->msd))
+			return 0;
+	}
 
-	/* Do we need to test individually each field, instead performing a
-	 * global memcmp? There is a risk that an old value that is bit masked
-	 * i.e. corresponding flag = 0, will result into a false negative
-	 */
-	if (!memcmp(n1, n2, sizeof(struct ls_node)))
-		return 0;
-	else
-		return 1;
+	/* OK, n1 & n2 are equal */
+	return 1;
 }
 
 /**
@@ -171,29 +220,133 @@ void ls_attributes_del(struct ls_attributes *attr)
 
 int ls_attributes_same(struct ls_attributes *l1, struct ls_attributes *l2)
 {
+	/* First, check pointer */
 	if ((l1 && !l2) || (!l1 && l2))
 		return 0;
 
 	if (l1 == l2)
 		return 1;
 
+	/* Then, verify Flags and Origin */
 	if (l1->flags != l2->flags)
 		return 0;
 
-	if (l1->adv.origin != l2->adv.origin)
+	if (!ls_node_id_same(l1->adv, l2->adv))
 		return 0;
 
-	if (!memcmp(&l1->adv.id, &l2->adv.id, sizeof(struct ls_node_id)))
+	/* Finally, check each individual parameters that are valid */
+	if (CHECK_FLAG(l1->flags, LS_ATTR_NAME)
+	    && strncmp(l1->name, l2->name, MAX_NAME_LENGTH) != 0)
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_METRIC) && (l1->metric != l2->metric))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_TE_METRIC)
+	    && (l1->standard.te_metric != l2->standard.te_metric))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_ADM_GRP)
+	    && (l1->standard.admin_group != l2->standard.admin_group))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_LOCAL_ADDR)
+	    && !IPV4_ADDR_SAME(&l1->standard.local, &l2->standard.local))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_NEIGH_ADDR)
+	    && !IPV4_ADDR_SAME(&l1->standard.remote, &l2->standard.remote))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_LOCAL_ADDR6)
+	    && !IPV6_ADDR_SAME(&l1->standard.local6, &l2->standard.local6))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_NEIGH_ADDR6)
+	    && !IPV6_ADDR_SAME(&l1->standard.remote6, &l2->standard.remote6))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_LOCAL_ID)
+	    && (l1->standard.local_id != l2->standard.local_id))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_NEIGH_ID)
+	    && (l1->standard.remote_id != l2->standard.remote_id))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_MAX_BW)
+	    && (l1->standard.max_bw != l2->standard.max_bw))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_MAX_RSV_BW)
+	    && (l1->standard.max_rsv_bw != l2->standard.max_rsv_bw))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_UNRSV_BW)
+	    && memcmp(&l1->standard.unrsv_bw, &l2->standard.unrsv_bw, 32) != 0)
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_REMOTE_AS)
+	    && (l1->standard.remote_as != l2->standard.remote_as))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_REMOTE_ADDR)
+	    && !IPV4_ADDR_SAME(&l1->standard.remote_addr,
+			       &l2->standard.remote_addr))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_REMOTE_ADDR6)
+	    && !IPV6_ADDR_SAME(&l1->standard.remote_addr6,
+			       &l2->standard.remote_addr6))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_DELAY)
+	    && (l1->extended.delay != l2->extended.delay))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_MIN_MAX_DELAY)
+	    && ((l1->extended.min_delay != l2->extended.min_delay)
+		|| (l1->extended.max_delay != l2->extended.max_delay)))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_JITTER)
+	    && (l1->extended.jitter != l2->extended.jitter))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_PACKET_LOSS)
+	    && (l1->extended.pkt_loss != l2->extended.pkt_loss))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_AVA_BW)
+	    && (l1->extended.ava_bw != l2->extended.ava_bw))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_RSV_BW)
+	    && (l1->extended.rsv_bw != l2->extended.rsv_bw))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_USE_BW)
+	    && (l1->extended.used_bw != l2->extended.used_bw))
+		return 0;
+	if (CHECK_FLAG(l1->flags, LS_ATTR_ADJ_SID)) {
+		if ((l1->adj_sid[0].sid != l2->adj_sid[0].sid)
+		    || (l1->adj_sid[0].flags != l2->adj_sid[0].flags)
+		    || (l1->adj_sid[0].weight != l2->adj_sid[0].weight))
+			return 0;
+		if (((l1->adv.origin == ISIS_L1) || (l1->adv.origin == ISIS_L2))
+		    && (memcmp(&l1->adj_sid[0].neighbor.sysid,
+			       &l2->adj_sid[0].neighbor.sysid, ISO_SYS_ID_LEN)
+			!= 0))
+			return 0;
+		if (((l1->adv.origin == OSPFv2) || (l1->adv.origin == STATIC)
+		     || (l1->adv.origin == DIRECT))
+		    && (!IPV4_ADDR_SAME(&l1->adj_sid[0].neighbor.addr,
+					&l2->adj_sid[0].neighbor.addr)))
+			return 0;
+	}
+	if (CHECK_FLAG(l1->flags, LS_ATTR_BCK_ADJ_SID)) {
+		if ((l1->adj_sid[1].sid != l2->adj_sid[1].sid)
+		    || (l1->adj_sid[1].flags != l2->adj_sid[1].flags)
+		    || (l1->adj_sid[1].weight != l2->adj_sid[1].weight))
+			return 0;
+		if (((l1->adv.origin == ISIS_L1) || (l1->adv.origin == ISIS_L2))
+		    && (memcmp(&l1->adj_sid[1].neighbor.sysid,
+			       &l2->adj_sid[1].neighbor.sysid, ISO_SYS_ID_LEN)
+			!= 0))
+			return 0;
+		if (((l1->adv.origin == OSPFv2) || (l1->adv.origin == STATIC)
+		     || (l1->adv.origin == DIRECT))
+		    && (!IPV4_ADDR_SAME(&l1->adj_sid[1].neighbor.addr,
+					&l2->adj_sid[1].neighbor.addr)))
+			return 0;
+	}
+	if (CHECK_FLAG(l1->flags, LS_ATTR_SRLG)
+	    && ((l1->srlg_len != l2->srlg_len)
+		|| memcmp(l1->srlgs, l2->srlgs,
+			  l1->srlg_len * sizeof(uint32_t))
+			   != 0))
 		return 0;
 
-	/* Do we need to test individually each field, instead performing a
-	 * global memcmp? There is a risk that an old value that is bit masked
-	 * i.e. corresponding flag = 0, will result into a false negative
-	 */
-	if (!memcmp(l1, l2, sizeof(struct ls_attributes)))
-		return 0;
-	else
-		return 1;
+	/* OK, l1 & l2 are equal */
+	return 1;
 }
 
 /**
@@ -223,29 +376,42 @@ void ls_prefix_del(struct ls_prefix *pref)
 
 int ls_prefix_same(struct ls_prefix *p1, struct ls_prefix *p2)
 {
+	/* First, check pointer */
 	if ((p1 && !p2) || (!p1 && p2))
 		return 0;
 
 	if (p1 == p2)
 		return 1;
 
+	/* Then, verify Flags and Origin */
 	if (p1->flags != p2->flags)
 		return 0;
 
-	if (p1->adv.origin != p2->adv.origin)
+	if (!ls_node_id_same(p1->adv, p2->adv))
 		return 0;
 
-	if (!memcmp(&p1->adv.id, &p2->adv.id, sizeof(struct ls_node_id)))
+	/* Finally, check each individual parameters that are valid */
+	if (prefix_same(&p1->pref, &p2->pref) == 0)
 		return 0;
+	if (CHECK_FLAG(p1->flags, LS_PREF_IGP_FLAG)
+	    && (p1->igp_flag != p2->igp_flag))
+		return 0;
+	if (CHECK_FLAG(p1->flags, LS_PREF_ROUTE_TAG)
+	    && (p1->route_tag != p2->route_tag))
+		return 0;
+	if (CHECK_FLAG(p1->flags, LS_PREF_EXTENDED_TAG)
+	    && (p1->extended_tag != p2->extended_tag))
+		return 0;
+	if (CHECK_FLAG(p1->flags, LS_PREF_METRIC) && (p1->metric != p2->metric))
+		return 0;
+	if (CHECK_FLAG(p1->flags, LS_PREF_SR)) {
+		if ((p1->sr.algo != p2->sr.algo) || (p1->sr.sid != p2->sr.sid)
+		    || (p1->sr.sid_flag != p2->sr.sid_flag))
+			return 0;
+	}
 
-	/* Do we need to test individually each field, instead performing a
-	 * global memcmp? There is a risk that an old value that is bit masked
-	 * i.e. corresponding flag = 0, will result into a false negative
-	 */
-	if (!memcmp(p1, p2, sizeof(struct ls_prefix)))
-		return 0;
-	else
-		return 1;
+	/* OK, p1 & p2 are equal */
+	return 1;
 }
 
 /**
