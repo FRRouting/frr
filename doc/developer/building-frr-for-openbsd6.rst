@@ -16,7 +16,7 @@ Add packages:
 
     pkg_add clang libcares python3
     pkg_add git autoconf-2.69p2 automake-1.15.1 libtool bison
-    pkg_add gmake json-c py-test py-sphinx libexecinfo
+    pkg_add gmake json-c py-test py-sphinx libexecinfo protobuf-c
 
 Select Python2.7 as default (required for pytest)
 
