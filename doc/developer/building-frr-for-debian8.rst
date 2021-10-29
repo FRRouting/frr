@@ -18,7 +18,7 @@ Add packages:
    sudo apt-get install git autoconf automake libtool make \
       libreadline-dev texinfo libjson-c-dev pkg-config bison flex python3-pip \
       libc-ares-dev python3-dev python3-sphinx build-essential \
-      libsnmp-dev libcap-dev libelf-dev
+      libsnmp-dev libcap-dev libelf-dev libprotobuf-c-dev protobuf-c-compiler
 
 Install newer pytest (>3.0) from pip
 
