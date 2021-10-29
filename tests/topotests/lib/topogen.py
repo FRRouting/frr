@@ -485,7 +485,7 @@ class Topogen(object):
         memleak_file = os.environ.get("TOPOTESTS_CHECK_MEMLEAK") or self.config.get(
             self.CONFIG_SECTION, "memleak_path"
         )
-        if memleak_file == "" or memleak_file == None:
+        if memleak_file == "" or memleak_file is None:
             return False
         return True
 
@@ -713,6 +713,7 @@ class TopoRouter(TopoGear):
     RD_PATH = 17
     RD_SNMP = 18
     RD_PIM6 = 19
+    RD_MGMTD = 20
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -734,6 +735,7 @@ class TopoRouter(TopoGear):
         RD_PBRD: "pbrd",
         RD_PATH: "pathd",
         RD_SNMP: "snmpd",
+        RD_MGMTD: "mgmtd",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -810,7 +812,7 @@ class TopoRouter(TopoGear):
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
         TopoRouter.RD_PIM, TopoRouter.RD_PIM6, TopoRouter.RD_PBR,
-        TopoRouter.RD_SNMP.
+        TopoRouter.RD_SNMP, TopoRouter.RD_MGMTD.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -1017,7 +1019,7 @@ class TopoRouter(TopoGear):
         memleak_file = (
             os.environ.get("TOPOTESTS_CHECK_MEMLEAK") or self.params["memleak_path"]
         )
-        if memleak_file == "" or memleak_file == None:
+        if memleak_file == "" or memleak_file is None:
             return
 
         self.stop()
@@ -1174,7 +1176,7 @@ class TopoExaBGP(TopoHost):
         self.run("chown -R exabgp:exabgp /etc/exabgp")
 
         output = self.run(exacmd + " -e /etc/exabgp/exabgp.env /etc/exabgp/exabgp.cfg")
-        if output == None or len(output) == 0:
+        if output is None or len(output) == 0:
             output = "<none>"
 
         logger.info("{} exabgp started, output={}".format(self.name, output))
@@ -1269,6 +1271,7 @@ def diagnose_env_linux(rundir):
             "pim6d",
             "ldpd",
             "pbrd",
+            "mgmtd",
         ]:
             path = os.path.join(frrdir, fname)
             if not os.path.isfile(path):
@@ -1283,9 +1286,10 @@ def diagnose_env_linux(rundir):
                 logger.error("could not find {} in {}".format(fname, frrdir))
                 ret = False
             else:
-                if fname != "zebra":
+                if fname != "zebra" or fname != "mgmtd":
                     continue
 
+                os.system("{} -v 2>&1 >{}/frr_mgmtd.txt".format(path, rundir))
                 os.system("{} -v 2>&1 >{}/frr_zebra.txt".format(path, rundir))
 
     # Test MPLS availability
