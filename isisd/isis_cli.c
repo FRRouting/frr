@@ -70,43 +70,12 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 	return ret;
 }
 
-struct if_iter {
-	struct vty *vty;
-	const char *tag;
-};
-
-static int if_iter_cb(const struct lyd_node *dnode, void *arg)
-{
-	struct if_iter *iter = arg;
-	const char *tag;
-
-	if (!yang_dnode_exists(dnode, "frr-isisd:isis/area-tag"))
-		return YANG_ITER_CONTINUE;
-
-	tag = yang_dnode_get_string(dnode, "frr-isisd:isis/area-tag");
-	if (strmatch(tag, iter->tag)) {
-		char xpath[XPATH_MAXLEN];
-		const char *name = yang_dnode_get_string(dnode, "name");
-		const char *vrf = yang_dnode_get_string(dnode, "vrf");
-
-		snprintf(
-			xpath, XPATH_MAXLEN,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
-			name, vrf);
-		nb_cli_enqueue_change(iter->vty, xpath, NB_OP_DESTROY, NULL);
-	}
-
-	return YANG_ITER_CONTINUE;
-}
-
 DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 	   "no router isis WORD$tag [vrf NAME$vrf_name]",
 	   NO_STR ROUTER_STR
 	   "ISO IS-IS\n"
 	   "ISO Routing area tag\n" VRF_CMD_HELP_STR)
 {
-	struct if_iter iter;
-
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
@@ -117,12 +86,6 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 		vty_out(vty, "ISIS area %s not found.\n", tag);
 		return CMD_ERR_NOTHING_TODO;
 	}
-
-	iter.vty = vty;
-	iter.tag = tag;
-
-	yang_dnode_iterate(if_iter_cb, &iter, vty->candidate_config->dnode,
-			   "/frr-interface:lib/interface[vrf='%s']", vrf_name);
 
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
