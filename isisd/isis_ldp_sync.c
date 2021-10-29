@@ -486,6 +486,9 @@ void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
 	if (if_is_loopback(circuit->interface))
 		return;
 
+	if (circuit->interface->vrf->vrf_id != VRF_DEFAULT)
+		return;
+
 	ils_debug("ldp_sync: enable if %s", circuit->interface->name);
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE))
