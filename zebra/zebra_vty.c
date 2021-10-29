@@ -1433,13 +1433,21 @@ static void show_nexthop_group_out(struct vty *vty, struct nhg_hash_entry *nhe)
 	struct nhg_connected *rb_node_dep = NULL;
 	struct nexthop_group *backup_nhg;
 	char up_str[MONOTIME_STRLEN];
+	char time_left[MONOTIME_STRLEN];
 
 	uptime2str(nhe->uptime, up_str, sizeof(up_str));
 
 	vty_out(vty, "ID: %u (%s)\n", nhe->id, zebra_route_string(nhe->type));
-	vty_out(vty, "     RefCnt: %u\n", nhe->refcnt);
+	vty_out(vty, "     RefCnt: %u", nhe->refcnt);
+	if (thread_is_scheduled(nhe->timer))
+		vty_out(vty, " Time to Deletion: %s",
+			thread_timer_to_hhmmss(time_left, sizeof(time_left),
+					       nhe->timer));
+	vty_out(vty, "\n");
+
 	vty_out(vty, "     Uptime: %s\n", up_str);
 	vty_out(vty, "     VRF: %s\n", vrf_id_to_name(nhe->vrf_id));
+
 
 	if (CHECK_FLAG(nhe->flags, NEXTHOP_GROUP_VALID)) {
 		vty_out(vty, "     Valid");
