@@ -725,6 +725,7 @@ class TopoRouter(TopoGear):
     RD_PBRD = 16
     RD_PATH = 17
     RD_SNMP = 18
+    RD_MGMTD = 19
     RD = {
         RD_FRR: "frr",
         RD_ZEBRA: "zebra",
@@ -745,6 +746,7 @@ class TopoRouter(TopoGear):
         RD_PBRD: "pbrd",
         RD_PATH: "pathd",
         RD_SNMP: "snmpd",
+        RD_MGMTD: "mgmtd",
     }
 
     def __init__(self, tgen, cls, name, **params):
@@ -820,7 +822,8 @@ class TopoRouter(TopoGear):
         Possible daemon values are: TopoRouter.RD_ZEBRA, TopoRouter.RD_RIP,
         TopoRouter.RD_RIPNG, TopoRouter.RD_OSPF, TopoRouter.RD_OSPF6,
         TopoRouter.RD_ISIS, TopoRouter.RD_BGP, TopoRouter.RD_LDP,
-        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP.
+        TopoRouter.RD_PIM, TopoRouter.RD_PBR, TopoRouter.RD_SNMP,
+        TopoRouter.RD_MGMTD.
 
         Possible `source` values are `None` for an empty config file, a path name which is
         used directly, or a file name with no path components which is first looked for
@@ -1278,6 +1281,7 @@ def diagnose_env_linux(rundir):
             "pimd",
             "ldpd",
             "pbrd",
+            "mgmtd",
         ]:
             path = os.path.join(frrdir, fname)
             if not os.path.isfile(path):
@@ -1292,9 +1296,10 @@ def diagnose_env_linux(rundir):
                 logger.warning("could not find {} in {}".format(fname, frrdir))
                 ret = False
             else:
-                if fname != "zebra":
+                if fname != "zebra" or fname != "mgmtd":
                     continue
 
+                os.system("{} -v 2>&1 >{}/frr_mgmtd.txt".format(path, rundir))
                 os.system("{} -v 2>&1 >{}/frr_zebra.txt".format(path, rundir))
 
     # Test MPLS availability
