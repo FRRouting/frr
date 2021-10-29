@@ -30,6 +30,7 @@ import socket
 import sys
 
 import babeltrace
+import datetime
 
 ########################### common parsers - start ############################
 def print_ip_addr(field_val):
@@ -91,7 +92,9 @@ def parse_event(event, field_parsers):
             field_info[field] = field_parser(event.get(field))
         else:
             field_info[field] = event.get(field)
-    print(event.name, field_info)
+    dt = datetime.datetime.fromtimestamp(event.timestamp/1000000000)
+    dt_format = dt.strftime('%Y/%m/%d %H:%M:%S')
+    print(dt_format, event.name, field_info)
 ############################ common parsers - end #############################
 
 ############################ evpn parsers - start #############################
