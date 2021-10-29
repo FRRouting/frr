@@ -33,6 +33,7 @@ RUN source /src/alpine/APKBUILD.in \
 		$makedepends \
 		gzip \
 		py-pip \
+		protobuf-c-dev \
 	&& pip install pytest
 
 RUN mkdir -p /pkgs/apk

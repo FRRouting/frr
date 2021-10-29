@@ -5,6 +5,7 @@ RUN dnf install --enablerepo=powertools -y rpm-build git autoconf pcre-devel \
         automake libtool make readline-devel texinfo net-snmp-devel pkgconfig \
         groff pkgconfig json-c-devel pam-devel bison flex python3-pytest \
         c-ares-devel python3-devel python3-sphinx libcap-devel platform-python-devel \
+        protobuf-c-devel \
         https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/CentOS-8-x86_64-Packages/libyang2-2.0.0.10.g2eb910e4-1.el8.x86_64.rpm \
         https://ci1.netdef.org/artifact/LIBYANG-LIBYANGV2/shared/build-2/CentOS-8-x86_64-Packages/libyang2-devel-2.0.0.10.g2eb910e4-1.el8.x86_64.rpm \
         https://ci1.netdef.org/artifact/RPKI-RTRLIB/shared/build-110/CentOS-7-x86_64-Packages/librtr-0.7.0-1.el7.centos.x86_64.rpm \
