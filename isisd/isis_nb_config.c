@@ -2526,31 +2526,12 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *area_tag, *ifname, *vrfname;
 
 	if (args->event == NB_EV_VALIDATE) {
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-
-		if (!ifp)
-			return NB_OK;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		area_tag = yang_dnode_get_string(args->dnode, NULL);
-		if (circuit && circuit->area && circuit->area->area_tag
-		    && strcmp(circuit->area->area_tag, area_tag)) {
+		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL, false);
+		if (circuit) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "ISIS circuit is already defined on %s",
-				 circuit->area->area_tag);
+				 "Changing area tag is not allowed");
 			return NB_ERR_VALIDATION;
 		}
 	}
