@@ -64,6 +64,7 @@ Protocols
    vrrp
    bmp
    watchfrr
+   mgmtd
 
 ########
 Appendix

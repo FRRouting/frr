@@ -18,6 +18,13 @@ Installing Dependencies
 
 .. include:: building-libyang.rst
 
+Protobuf
+^^^^^^^^
+
+.. code-block:: console
+
+   sudo apt-get install protobuf-c-compiler libprotobuf-c-dev
+
 Building & Installing FRR
 -------------------------
 

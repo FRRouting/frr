@@ -14,7 +14,7 @@ Installing Dependencies
      readline-devel texinfo net-snmp-devel groff pkgconfig libjson-c-devel\
      pam-devel python3-pytest bison flex c-ares-devel python3-devel\
      python3-Sphinx perl patch libcap-devel libyang-devel \
-     libelf-devel libunwind-devel
+     libelf-devel libunwind-devel protobuf-c
 
 .. include:: building-libunwind-note.rst
 
