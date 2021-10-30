@@ -2546,39 +2546,15 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 {
 	int circ_type = yang_dnode_get_enum(args->dnode, NULL);
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *ifname, *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-		if (!ifp)
-			break;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->state == C_STATE_UP
-		    && circuit->area->is_type != IS_LEVEL_1_AND_2
-		    && circuit->area->is_type != circ_type) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid circuit level for area %s",
-				 circuit->area->area_tag);
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit->is_type_config = circ_type;
 		isis_circuit_is_type_set(circuit, circ_type);
 		break;
 	}

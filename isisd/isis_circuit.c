@@ -116,7 +116,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	 * Default values
 	 */
 #ifndef FABRICD
-	circuit->is_type = yang_get_default_enum(
+	circuit->is_type_config = yang_get_default_enum(
 		"/frr-interface:lib/interface/frr-isisd:isis/circuit-type");
 	circuit->flags = 0;
 
@@ -156,7 +156,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #else
-	circuit->is_type = IS_LEVEL_1_AND_2;
+	circuit->is_type_config = IS_LEVEL_1_AND_2;
 	circuit->flags = 0;
 	circuit->pad_hellos = 1;
 	for (i = 0; i < 2; i++) {
@@ -171,6 +171,8 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #endif /* ifndef FABRICD */
+
+	circuit->is_type = circuit->is_type_config;
 
 	circuit_mt_init(circuit);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
@@ -253,6 +255,10 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	/* Free the index of SRM and SSN flags */
 	flags_free_index(&area->flags, circuit->idx);
 	circuit->idx = 0;
+
+	/* Reset IS type to configured */
+	circuit->is_type = circuit->is_type_config;
+
 	/* Remove circuit from area */
 	assert(circuit->area == area);
 	listnode_delete(area->circuit_list, circuit);
