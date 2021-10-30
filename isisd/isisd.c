@@ -2656,10 +2656,16 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 
 	area->is_type = is_type;
 
-	/* override circuit's is_type */
+	/*
+	 * If area's IS type is strict Level-1 or Level-2, override circuit's
+	 * IS type. Otherwise use circuit's configured IS type.
+	 */
 	if (area->is_type != IS_LEVEL_1_AND_2) {
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
 			isis_circuit_is_type_set(circuit, is_type);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			isis_circuit_is_type_set(circuit, circuit->is_type_config);
 	}
 
 	spftree_area_init(area);

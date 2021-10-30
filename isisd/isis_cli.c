@@ -127,38 +127,11 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n")
 {
-	char inst_xpath[XPATH_MAXLEN];
-	const struct lyd_node *if_dnode, *inst_dnode;
-	const char *circ_type = NULL;
-	const char *vrf_name;
-
-	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (!if_dnode) {
-		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
-
-	snprintf(inst_xpath, XPATH_MAXLEN,
-		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-		 vrf_name);
-
-	/* if instance exists then inherit its type, create it otherwise */
-	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
-	if (inst_dnode)
-		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
-	else
-		nb_cli_enqueue_change(vty, inst_xpath, NB_OP_CREATE, NULL);
-
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
 			      tag);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
 			      NB_OP_MODIFY, "true");
-	if (circ_type)
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-				      NB_OP_MODIFY, circ_type);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -177,38 +150,11 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n")
 {
-	char inst_xpath[XPATH_MAXLEN];
-	const struct lyd_node *if_dnode, *inst_dnode;
-	const char *circ_type = NULL;
-	const char *vrf_name;
-
-	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (!if_dnode) {
-		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
-
-	snprintf(inst_xpath, XPATH_MAXLEN,
-		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-		 vrf_name);
-
-	/* if instance exists then inherit its type, create it otherwise */
-	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
-	if (inst_dnode)
-		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
-	else
-		nb_cli_enqueue_change(vty, inst_xpath, NB_OP_CREATE, NULL);
-
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
 			      tag);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
 			      NB_OP_MODIFY, "true");
-	if (circ_type)
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-				      NB_OP_MODIFY, circ_type);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -2494,41 +2440,8 @@ DEFPY_YANG(no_isis_circuit_type, no_isis_circuit_type_cmd,
       "Level-1-2 adjacencies are formed\n"
       "Level-2 only adjacencies are formed\n")
 {
-	char inst_xpath[XPATH_MAXLEN];
-	const struct lyd_node *if_dnode, *inst_dnode;
-	const char *vrf_name;
-	const char *tag;
-	const char *circ_type = NULL;
-
-	/*
-	 * Default value depends on whether the circuit is part of an area,
-	 * and the is-type of the area if there is one. So we need to do this
-	 * here.
-	 */
-	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (!if_dnode) {
-		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!yang_dnode_exists(if_dnode, "frr-isisd:isis/area-tag")) {
-		vty_out(vty, "%% ISIS is not configured on the interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
-	tag = yang_dnode_get_string(if_dnode, "frr-isisd:isis/area-tag");
-
-	snprintf(inst_xpath, XPATH_MAXLEN,
-		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-		 vrf_name);
-
-	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
-	if (inst_dnode)
-		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
-
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-			      NB_OP_MODIFY, circ_type);
+			      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
