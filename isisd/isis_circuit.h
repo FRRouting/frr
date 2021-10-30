@@ -122,6 +122,7 @@ struct isis_circuit {
 	 */
 	char *tag;		       /* area tag */
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
+	int is_type_config;	       /* configured circuit is type */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
 	uint32_t hello_interval[ISIS_LEVELS];   /* hello-interval in seconds */
