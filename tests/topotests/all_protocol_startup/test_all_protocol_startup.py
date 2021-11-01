@@ -568,14 +568,17 @@ def test_nexthop_groups():
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.4 nexthop-group infinite-recursive 1"'
     )
+    sleep(5)
 
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.3 nexthop-group infinite-recursive 1"'
     )
+    sleep(5)
 
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.2 nexthop-group infinite-recursive 1"'
     )
+    sleep(5)
 
     net["r1"].cmd(
         'vtysh -c "sharp install routes 6.6.6.1 nexthop-group infinite-recursive 1"'
