@@ -161,9 +161,16 @@ def test_isis_route_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd("show ip route json", isjson=True)
+
+        def compare_isis_installed_routes(router, expected):
+            "Helper function to test ISIS routes installed in rib."
+            actual = router.vtysh_cmd("show ip route json", isjson=True)
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(compare_isis_installed_routes, router, expected)
+        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result, assertmsg
 
 
 def test_isis_linux_route_installation():
@@ -197,9 +204,18 @@ def test_isis_route6_installation():
     for rname, router in tgen.routers().items():
         filename = "{0}/{1}/{1}_route6.json".format(CWD, rname)
         expected = json.loads(open(filename, "r").read())
-        actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
+
+        def compare_isis_v6_installed_routes(router, expected):
+            "Helper function to test ISIS v6 routes installed in rib."
+            actual = router.vtysh_cmd("show ipv6 route json", isjson=True)
+            return topotest.json_cmp(actual, expected)
+
+        test_func = functools.partial(
+            compare_isis_v6_installed_routes, router, expected
+        )
+        (result, diff) = topotest.run_and_expect(test_func, None, wait=1, count=10)
         assertmsg = "Router '{}' routes mismatch".format(rname)
-        assert topotest.json_cmp(actual, expected) is None, assertmsg
+        assert result, assertmsg
 
 
 def test_isis_linux_route6_installation():
