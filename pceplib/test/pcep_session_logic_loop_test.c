@@ -191,6 +191,7 @@ void test_session_logic_msg_ready_handler()
 	destroy_pcep_versioning(versioning);
 	pceplib_free(PCEPLIB_INFRA, socket_event);
 	close(fd);
+	unlink(tmpfile);
 }
 
 

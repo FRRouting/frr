@@ -35,6 +35,8 @@
 
 #include <CUnit/CUnit.h>
 
+#include <zebra.h>
+
 #include "pcep_msg_encoding.h"
 #include "pcep_msg_messages.h"
 #include "pcep_msg_tools.h"
@@ -143,7 +145,7 @@ const char *pcep_initiate_cisco_pcc_hexbyte_strs[] = {
 struct pcep_message *create_message(uint8_t msg_type, uint8_t obj1_class,
 				    uint8_t obj2_class, uint8_t obj3_class,
 				    uint8_t obj4_class);
-int convert_hexstrs_to_binary(const char *hexbyte_strs[],
+int convert_hexstrs_to_binary(char *filename, const char *hexbyte_strs[],
 			      uint16_t hexbyte_strs_length);
 
 int pcep_tools_test_suite_setup(void)
@@ -167,18 +169,24 @@ void pcep_tools_test_teardown(void)
 {
 }
 
+static const char BASE_TMPFILE[] = "/tmp/pceplib_XXXXXX";
+static int BASE_TMPFILE_SIZE = sizeof(BASE_TMPFILE);
+
 /* Reads an array of hexbyte strs, and writes them to a temporary file.
  * The caller should close the returned file. */
-int convert_hexstrs_to_binary(const char *hexbyte_strs[],
+int convert_hexstrs_to_binary(char *filename,
+			      const char *hexbyte_strs[],
 			      uint16_t hexbyte_strs_length)
 {
 	mode_t oldumask;
 	oldumask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
 	/* Set umask before anything for security */
 	umask(0027);
-	char tmpfile[] = "/tmp/pceplib_XXXXXX";
-	int fd = mkstemp(tmpfile);
+
+	strlcpy(filename, BASE_TMPFILE, BASE_TMPFILE_SIZE);
+	int fd = mkstemp(filename);
 	umask(oldumask);
+
 	if (fd == -1)
 		return -1;
 
@@ -206,7 +214,10 @@ static bool pcep_obj_has_tlv(struct pcep_object_header *obj_hdr)
 
 void test_pcep_msg_read_pcep_initiate()
 {
-	int fd = convert_hexstrs_to_binary(pcep_initiate_hexbyte_strs,
+	char filename[BASE_TMPFILE_SIZE];
+
+	int fd = convert_hexstrs_to_binary(filename,
+					   pcep_initiate_hexbyte_strs,
 					   pcep_initiate_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -302,12 +313,16 @@ void test_pcep_msg_read_pcep_initiate()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 
 void test_pcep_msg_read_pcep_initiate2()
 {
-	int fd = convert_hexstrs_to_binary(pcep_initiate2_hexbyte_strs,
+	char filename[BASE_TMPFILE_SIZE];
+
+	int fd = convert_hexstrs_to_binary(filename,
+					   pcep_initiate2_hexbyte_strs,
 					   pcep_initiate2_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -392,11 +407,15 @@ void test_pcep_msg_read_pcep_initiate2()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_open()
 {
-	int fd = convert_hexstrs_to_binary(pcep_open_odl_hexbyte_strs,
+	char filename[BASE_TMPFILE_SIZE];
+
+	int fd = convert_hexstrs_to_binary(filename,
+					   pcep_open_odl_hexbyte_strs,
 					   pcep_open_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -437,11 +456,15 @@ void test_pcep_msg_read_pcep_open()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_update()
 {
-	int fd = convert_hexstrs_to_binary(pcep_update_hexbyte_strs,
+	char filename[BASE_TMPFILE_SIZE];
+
+	int fd = convert_hexstrs_to_binary(filename,
+					   pcep_update_hexbyte_strs,
 					   pcep_update_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -520,12 +543,15 @@ void test_pcep_msg_read_pcep_update()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_open_initiate()
 {
+	char filename[BASE_TMPFILE_SIZE];
+
 	int fd = convert_hexstrs_to_binary(
-		pcep_open_initiate_odl_hexbyte_strs,
+		filename, pcep_open_initiate_odl_hexbyte_strs,
 		pcep_open_initiate_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -550,12 +576,15 @@ void test_pcep_msg_read_pcep_open_initiate()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_open_cisco_pce()
 {
+	char filename[BASE_TMPFILE_SIZE];
+
 	int fd = convert_hexstrs_to_binary(
-		pcep_open_cisco_pce_hexbyte_strs,
+		filename, pcep_open_cisco_pce_hexbyte_strs,
 		pcep_open_cisco_pce_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -614,12 +643,15 @@ void test_pcep_msg_read_pcep_open_cisco_pce()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_update_cisco_pce()
 {
+	char filename[BASE_TMPFILE_SIZE];
+
 	int fd = convert_hexstrs_to_binary(
-		pcep_update_cisco_pce_hexbyte_strs,
+		filename, pcep_update_cisco_pce_hexbyte_strs,
 		pcep_update_cisco_pce_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -759,12 +791,15 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_report_cisco_pcc()
 {
+	char filename[BASE_TMPFILE_SIZE];
+
 	int fd = convert_hexstrs_to_binary(
-		pcep_report_cisco_pcc_hexbyte_strs,
+		filename, pcep_report_cisco_pcc_hexbyte_strs,
 		pcep_report_cisco_pcc_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -921,12 +956,15 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 {
+	char filename[BASE_TMPFILE_SIZE];
+
 	int fd = convert_hexstrs_to_binary(
-		pcep_initiate_cisco_pcc_hexbyte_strs,
+		filename, pcep_initiate_cisco_pcc_hexbyte_strs,
 		pcep_initiate_cisco_pcc_hexbyte_strs_length);
 	if(fd == -1){
 		CU_ASSERT_TRUE(fd>=0);
@@ -1030,6 +1068,7 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 
 	pcep_msg_free_message_list(msg_list);
 	close(fd);
+	unlink(filename);
 }
 
 void test_validate_message_header()
