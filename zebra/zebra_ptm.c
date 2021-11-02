@@ -613,7 +613,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 		int count = 0;
 
 		RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id) {
-			ifp = if_lookup_by_name_vrf(ifname, vrf);
+			ifp = if_lookup_by_name_vrf(port_str, vrf);
 			if (ifp) {
 				count++;
 				if (!vrf_is_backend_netns())
