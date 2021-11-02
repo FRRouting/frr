@@ -152,6 +152,12 @@ void srv6_locator_chunk_free(struct srv6_locator_chunk **chunk)
 	XFREE(MTYPE_SRV6_LOCATOR_CHUNK, *chunk);
 }
 
+/**
+ * check all chunk in the locator are used by clients
+ *
+ * @param loc SRv6 locator
+ * @return true if all chunks are used.
+ */
 bool srv6_locator_chunks_exhausted(const struct srv6_locator *loc)
 {
 	struct listnode *node;
