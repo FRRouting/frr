@@ -1304,7 +1304,6 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	struct pim_msdp_mg *mg;
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	char mbr_str[INET_ADDRSTRLEN];
 	char src_str[INET_ADDRSTRLEN];
 	int count = 0;
 
@@ -1321,10 +1320,8 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
-			pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str,
-				       sizeof(mbr_str));
-			vty_out(vty, "%sip msdp mesh-group %s member %s\n",
-				spaces, mg->mesh_group_name, mbr_str);
+			vty_out(vty, "%sip msdp mesh-group %s member %pI4\n",
+				spaces, mg->mesh_group_name, &mbr->mbr_ip);
 			++count;
 		}
 	}
