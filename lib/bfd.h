@@ -177,6 +177,11 @@ void bfd_sess_set_profile(struct bfd_session_params *bsp, const char *profile);
  */
 void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
 
+/* For single-hop session, TTL value in forged packets has to be 1 */
+#define BFD_SINGLE_HOP_CONFIGURED_TTL 1
+/* For single-hop session, max TTL value in forged packets is 255 */
+#define BFD_MULTI_HOP_CONFIGURED_MAX_TTL 255
+
 /**
  * Configure the BFD session single/multi hop setting.
  *
