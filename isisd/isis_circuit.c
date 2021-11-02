@@ -268,24 +268,6 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	return;
 }
 
-struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
-					   struct list *list)
-{
-	struct isis_circuit *circuit = NULL;
-	struct listnode *node;
-
-	if (!list)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(list, node, circuit))
-		if (circuit->interface == ifp) {
-			assert(ifp->info == circuit);
-			return circuit;
-		}
-
-	return NULL;
-}
-
 struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
 {
 	return (struct isis_circuit *)ifp->info;
@@ -1073,17 +1055,9 @@ static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
-	struct listnode *node;
 	struct interface *ifp;
-	struct isis_area *area;
 	struct isis_circuit *circuit;
 	int i;
-	struct isis *isis = NULL;
-
-	isis = isis_lookup_by_vrfid(vrf->vrf_id);
-
-	if (isis == NULL)
-		return 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
@@ -1095,14 +1069,13 @@ static int isis_interface_config_write(struct vty *vty)
 			write++;
 		}
 		/* ISIS Circuit */
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			circuit =
-				circuit_lookup_by_ifp(ifp, area->circuit_list);
+		do {
+			circuit = circuit_scan_by_ifp(ifp);
 			if (circuit == NULL)
-				continue;
+				break;
 			if (circuit->ip_router) {
 				vty_out(vty, " ip router " PROTO_NAME " %s\n",
-					area->area_tag);
+					circuit->tag);
 				write++;
 			}
 			if (circuit->is_passive) {
@@ -1115,7 +1088,7 @@ static int isis_interface_config_write(struct vty *vty)
 			}
 			if (circuit->ipv6_router) {
 				vty_out(vty, " ipv6 router " PROTO_NAME " %s\n",
-					area->area_tag);
+					circuit->tag);
 				write++;
 			}
 
@@ -1295,7 +1268,7 @@ static int isis_interface_config_write(struct vty *vty)
 			}
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
-		}
+		} while (0);
 		vty_endframe(vty, "exit\n!\n");
 	}
 
