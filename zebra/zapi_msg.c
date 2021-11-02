@@ -893,7 +893,7 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
-	stream_put(s, &note, sizeof(note));
+	stream_putw(s, note);
 	stream_putl(s, ipt.unique);
 	stream_put(s, ipt.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -928,7 +928,7 @@ void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
-	stream_put(s, &note, sizeof(note));
+	stream_putw(s, note);
 	stream_putl(s, ipset.unique);
 	stream_put(s, ipset.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -966,7 +966,7 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
-	stream_put(s, &note, sizeof(note));
+	stream_putw(s, note);
 	stream_putl(s, ipent.unique);
 	stream_put(s, ipset.ipset_name, ZEBRA_IPSET_NAME_SIZE);
 	stream_putw_at(s, 0, stream_get_endp(s));
