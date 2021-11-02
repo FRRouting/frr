@@ -539,10 +539,13 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 
 static void vrf_terminate_single(struct vrf *vrf)
 {
+	int enabled = vrf_is_enabled(vrf);
+
 	/* Clear configured flag and invoke delete. */
 	UNSET_FLAG(vrf->status, VRF_CONFIGURED);
 	if_terminate(vrf);
-	vrf_delete(vrf);
+	if (enabled)
+		vrf_delete(vrf);
 }
 
 /* Terminate VRF module. */
