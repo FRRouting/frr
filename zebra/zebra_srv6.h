@@ -45,8 +45,7 @@ DECLARE_HOOK(srv6_manager_client_connect,
 DECLARE_HOOK(srv6_manager_client_disconnect,
 	     (struct zserv *client), (client));
 DECLARE_HOOK(srv6_manager_get_chunk,
-	     (struct srv6_locator_chunk **chunk,
-		 struct zserv *client,
+	     (struct srv6_locator_chunk * *chunk, struct zserv *client,
 	      const char *locator_name, vrf_id_t vrf_id),
 	     (mc, client, keep, size, base, vrf_id));
 DECLARE_HOOK(srv6_manager_release_chunk,
@@ -66,11 +65,10 @@ extern bool zebra_srv6_is_enable(void);
 
 extern void srv6_manager_client_connect_call(struct zserv *client,
 					     vrf_id_t vrf_id);
-extern void srv6_manager_get_locator_chunk_call(
-						struct srv6_locator_chunk **chunk,
-						struct zserv *client,
-						const char *locator_name,
-						vrf_id_t vrf_id);
+extern void
+srv6_manager_get_locator_chunk_call(struct srv6_locator_chunk **chunk,
+				    struct zserv *client,
+				    const char *locator_name, vrf_id_t vrf_id);
 extern void srv6_manager_release_locator_chunk_call(struct zserv *client,
 						    const char *locator_name,
 						    vrf_id_t vrf_id);

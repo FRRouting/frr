@@ -56,10 +56,8 @@ DEFINE_HOOK(srv6_manager_client_connect,
 DEFINE_HOOK(srv6_manager_client_disconnect,
 	    (struct zserv *client), (client));
 DEFINE_HOOK(srv6_manager_get_chunk,
-	    (struct srv6_locator_chunk **chunk,
-	     struct zserv *client,
-	     const char *locator_name,
-	     vrf_id_t vrf_id),
+	    (struct srv6_locator_chunk * *chunk, struct zserv *client,
+	     const char *locator_name, vrf_id_t vrf_id),
 	    (chunk, client, locator_name, vrf_id));
 DEFINE_HOOK(srv6_manager_release_chunk,
 	    (struct zserv *client,
@@ -198,14 +196,13 @@ struct zebra_srv6 *zebra_srv6_get_default(void)
  */
 static void
 inherit_attrs_from_locator_to_chunk(struct srv6_locator *loc,
-									struct srv6_locator_chunk *chunk)
+				    struct srv6_locator_chunk *chunk)
 {
 	chunk->block_bits_length = loc->block_bits_length;
 	chunk->node_bits_length = loc->node_bits_length;
 	chunk->function_bits_length = loc->function_bits_length;
 	chunk->argument_bits_length = loc->argument_bits_length;
-	strlcpy(chunk->locator_name, loc->name,
-		sizeof(chunk->locator_name));
+	strlcpy(chunk->locator_name, loc->name, sizeof(chunk->locator_name));
 	return;
 }
 
@@ -220,7 +217,8 @@ inherit_attrs_from_locator_to_chunk(struct srv6_locator *loc,
  * @return the new chunk's prefix or NULL.
  */
 static struct prefix_ipv6
-separate_locator_prefix_into_chunk(struct srv6_locator *loc, uint16_t chunk_index)
+separate_locator_prefix_into_chunk(struct srv6_locator *loc,
+				   uint16_t chunk_index)
 {
 	struct prefix_ipv6 chunk_prefix = loc->prefix;
 	chunk_prefix.prefixlen += loc->perchunk_bits_length;
@@ -259,21 +257,22 @@ assign_srv6_locator_chunk(uint8_t proto, uint16_t instance, uint32_t session_id,
 
 	if (list_isempty(loc->chunks) || srv6_locator_chunks_exhausted(loc)) {
 		uint16_t current_chunks = listcount(loc->chunks);
-		uint16_t expansion_end = current_chunks ? 2 * current_chunks : 1;
+		uint16_t expansion_end =
+			current_chunks ? 2 * current_chunks : 1;
 
-        // currently each locator-chunk only uses /68 prefix.
-        if (expansion_end > DEFAULT_SRV6_LOCATOR_CHUNK_ENTRIES) {
-		    zlog_err("%s: locator %s chunk pool no longer expanded",
-			    __func__, locator_name);
-		    return NULL;
-        }
+		// currently each locator-chunk only uses /68 prefix.
+		if (expansion_end > DEFAULT_SRV6_LOCATOR_CHUNK_ENTRIES) {
+			zlog_err("%s: locator %s chunk pool no longer expanded",
+				 __func__, locator_name);
+			return NULL;
+		}
 
 		for (uint16_t chunk_index = current_chunks;
 		     chunk_index < expansion_end; chunk_index++) {
 			chunk = srv6_locator_chunk_alloc();
 			inherit_attrs_from_locator_to_chunk(loc, chunk);
-			chunk->prefix =
-				separate_locator_prefix_into_chunk(loc, chunk_index);
+			chunk->prefix = separate_locator_prefix_into_chunk(
+				loc, chunk_index);
 			listnode_add(loc->chunks, chunk);
 		}
 	}
