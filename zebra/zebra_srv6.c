@@ -219,7 +219,7 @@ inherit_attrs_from_locator_to_chunk(struct srv6_locator *loc,
  * @param chunk_index Index of locator's chunk pool.
  * @return the new chunk's prefix or NULL.
  */
-static struct prefix_ipv6 
+static struct prefix_ipv6
 separate_locator_prefix_into_chunk(struct srv6_locator *loc, uint16_t chunk_index)
 {
 	struct prefix_ipv6 chunk_prefix = loc->prefix;
@@ -272,7 +272,7 @@ assign_srv6_locator_chunk(uint8_t proto, uint16_t instance, uint32_t session_id,
 		     chunk_index < expansion_end; chunk_index++) {
 			chunk = srv6_locator_chunk_alloc();
 			inherit_attrs_from_locator_to_chunk(loc, chunk);
-			chunk->prefix = 
+			chunk->prefix =
 				separate_locator_prefix_into_chunk(loc, chunk_index);
 			listnode_add(loc->chunks, chunk);
 		}
