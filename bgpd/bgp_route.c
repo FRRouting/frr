@@ -3660,6 +3660,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	uint8_t pi_type = 0;
 	uint8_t pi_sub_type = 0;
 	bool force_evpn_import = false;
+	safi_t orig_safi = safi;
 
 	if (frrtrace_enabled(frr_bgp, process_update)) {
 		char pfxprint[PREFIX2STR_BUFFER];
@@ -3673,6 +3674,10 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	int vnc_implicit_withdraw = 0;
 #endif
 	int same_attr = 0;
+
+	/* Special case for BGP-LU - map LU safi to ordinary unicast safi */
+	if (orig_safi == SAFI_LABELED_UNICAST)
+		safi = SAFI_UNICAST;
 
 	memset(&new_attr, 0, sizeof(struct attr));
 	new_attr.label_index = BGP_INVALID_LABEL_INDEX;
@@ -3761,7 +3766,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	/* Apply incoming filter.  */
-	if (bgp_input_filter(peer, p, attr, afi, safi) == FILTER_DENY) {
+	if (bgp_input_filter(peer, p, attr, afi, orig_safi) == FILTER_DENY) {
 		peer->stat_pfx_filter++;
 		reason = "filter;";
 		goto filtered;
@@ -3804,7 +3809,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	 * commands, so we need bgp_attr_flush in the error paths, until we
 	 * intern
 	 * the attr (which takes over the memory references) */
-	if (bgp_input_modifier(peer, p, &new_attr, afi, safi, NULL, label,
+	if (bgp_input_modifier(peer, p, &new_attr, afi, orig_safi, NULL, label,
 			       num_labels, dest)
 	    == RMAP_DENY) {
 		peer->stat_pfx_filter++;
