@@ -256,10 +256,8 @@ void vrf_delete(struct vrf *vrf)
 	 * the ID mapping. Interfaces assigned to this VRF should've been
 	 * removed already as part of the VRF going down.
 	 */
-	if (vrf_is_user_cfged(vrf)) {
-		vrf->ns_ctxt = NULL;
+	if (vrf_is_user_cfged(vrf))
 		return;
-	}
 
 	/* Do not delete the VRF if it has interfaces configured in it. */
 	if (!RB_EMPTY(if_name_head, &vrf->ifaces_by_name))

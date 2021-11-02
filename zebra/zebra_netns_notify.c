@@ -165,6 +165,7 @@ static int zebra_ns_delete(char *name)
 	/* the deletion order is the same
 	 * as the one used when siging signal is received
 	 */
+	vrf->ns_ctxt = NULL;
 	vrf_delete(vrf);
 	if (ns)
 		ns_delete(ns);
