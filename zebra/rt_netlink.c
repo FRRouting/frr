@@ -2728,7 +2728,7 @@ netlink_put_route_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
 			 */
 			if (RSYSTEM_ROUTE(dplane_ctx_get_type(ctx))
 			    && !RSYSTEM_ROUTE(dplane_ctx_get_old_type(ctx)))
-				netlink_batch_add_msg(
+				return netlink_batch_add_msg(
 					bth, ctx, netlink_delroute_msg_encoder,
 					true);
 		} else {
