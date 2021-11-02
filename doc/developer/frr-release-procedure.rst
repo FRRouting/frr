@@ -9,6 +9,10 @@ FRR Release Procedure
 Stage 1 - Preparation
 ---------------------
 
+#. Prepare changelog for the new release
+
+   Note: use ``tools/release_notes.py`` to help draft release notes changelog
+
 #. Checkout the existing ``dev/<version>`` branch.
 
    .. code-block:: console
