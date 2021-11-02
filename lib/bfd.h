@@ -229,7 +229,10 @@ void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl);
 #define BFD_SINGLE_HOP_TTL 255
 /** To use multi hop the minimum TTL must be set to this or less. */
 #define BFD_MULTI_HOP_MIN_TTL 254
-
+/* For single-hop session, TTL value in forged packets has to be 1 */
+#define BFD_SINGLE_HOP_CONFIGURED_TTL 1
+/* For single-hop session, max TTL value in forged packets is 255 */
+#define BFD_MULTI_HOP_CONFIGURED_MAX_TTL 255
 /**
  * This function is the inverted version of `bfd_sess_set_minimum_ttl`.
  * Instead of receiving the minimum expected TTL, it receives the amount of

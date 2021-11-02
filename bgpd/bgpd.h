@@ -1581,6 +1581,8 @@ struct peer {
 		uint32_t min_tx;
 		/** Profile name. */
 		char profile[BFD_PROFILE_NAME_LEN];
+		/* bfd session ttl to send in bfd packets */
+		uint8_t bfd_ttl_configured;
 		/** Peer BFD session */
 		struct bfd_session_params *session;
 	} * bfd_config;

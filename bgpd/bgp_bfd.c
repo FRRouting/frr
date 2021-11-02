@@ -102,6 +102,10 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 		bfd_sess_set_cbit(p->bfd_config->session, p->bfd_config->cbit);
 		bfd_sess_set_profile(p->bfd_config->session,
 				     p->bfd_config->profile);
+		if (p->bfd_config->bfd_ttl_configured)
+			bfd_sess_set_hop_count(
+				p->bfd_config->session,
+				p->bfd_config->bfd_ttl_configured);
 		bfd_sess_install(p->bfd_config->session);
 		return;
 	}
@@ -143,6 +147,10 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 				    p->bfd_config->detection_multiplier,
 				    p->bfd_config->min_rx,
 				    p->bfd_config->min_tx);
+
+	if (p->bfd_config->bfd_ttl_configured)
+		bfd_sess_set_hop_count(p->bfd_config->session,
+				       p->bfd_config->bfd_ttl_configured);
 
 	bfd_sess_install(p->bfd_config->session);
 }
@@ -205,8 +213,11 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		}
 	}
 
-	/* Update interface. */
-	if (p->nexthop.ifp && bfd_sess_interface(session) == NULL) {
+	/* Update interface unless explicit single hop is configured  */
+	if ((p->nexthop.ifp && bfd_sess_interface(session) == NULL)
+	    && ((!p->bfd_config->bfd_ttl_configured
+		 || p->bfd_config->bfd_ttl_configured
+			    != BFD_SINGLE_HOP_CONFIGURED_TTL))) {
 		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: interface none to %s", __func__,
 				   p->nexthop.ifp->name);
@@ -223,7 +234,8 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	 *   (this happens when `p->shared_network` is set to `true`)
 	 * - eBGP multi hop / TTL security changed.
 	 */
-	if (!PEER_IS_MULTIHOP(p) && bfd_sess_hop_count(session) > 1) {
+	if (!p->bfd_config->bfd_ttl_configured && !PEER_IS_MULTIHOP(p)
+	    && bfd_sess_hop_count(session) > 1) {
 		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: TTL %d to 1", __func__,
 				   bfd_sess_hop_count(session));
@@ -231,7 +243,8 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		bfd_sess_set_hop_count(session, 1);
 		changed = true;
 	}
-	if (PEER_IS_MULTIHOP(p) && p->ttl != bfd_sess_hop_count(session)) {
+	if (!p->bfd_config->bfd_ttl_configured && PEER_IS_MULTIHOP(p)
+	    && p->ttl != bfd_sess_hop_count(session)) {
 		if (BGP_DEBUG(bfd, BFD_LIB))
 			zlog_debug("%s: TTL %d to %d", __func__,
 				   bfd_sess_hop_count(session), p->ttl);
@@ -304,8 +317,9 @@ void bgp_peer_configure_bfd(struct peer *p, bool manual)
 			&p->su.sin6.sin6_addr);
 
 	bfd_sess_set_vrf(p->bfd_config->session, p->bgp->vrf_id);
-	bfd_sess_set_hop_count(p->bfd_config->session,
-			       PEER_IS_MULTIHOP(p) ? p->ttl : 1);
+	if (!p->bfd_config->bfd_ttl_configured)
+		bfd_sess_set_hop_count(p->bfd_config->session,
+				       PEER_IS_MULTIHOP(p) ? p->ttl : 1);
 
 	if (p->nexthop.ifp)
 		bfd_sess_set_interface(p->bfd_config->session,
@@ -410,6 +424,12 @@ void bgp_bfd_peer_config_write(struct vty *vty, const struct peer *peer,
 			peer->bfd_config->min_rx, peer->bfd_config->min_tx);
 #endif /* HAVE_BFDD */
 	}
+	if (peer->bfd_config->bfd_ttl_configured)
+		vty_out(vty, " neighbor %s bfd %s\n", addr,
+			(peer->bfd_config->bfd_ttl_configured
+			 == BFD_SINGLE_HOP_CONFIGURED_TTL)
+				? "singlehop"
+				: "multihop");
 
 	if (peer->bfd_config->profile[0])
 		vty_out(vty, " neighbor %s bfd profile %s\n", addr,
@@ -450,6 +470,45 @@ DEFUN (neighbor_bfd,
 
 	bgp_peer_config_apply(peer, peer->group);
 
+	return CMD_SUCCESS;
+}
+
+DEFUN_HIDDEN (neighbor_bfd_type,
+       neighbor_bfd_type_cmd,
+       "[no] neighbor <A.B.C.D|X:X::X:X|WORD> bfd <multihop|singlehop>",
+       NO_STR
+       NEIGHBOR_STR
+       NEIGHBOR_ADDR_STR2
+       "Enables BFD support\n"
+       "Multihop session\n"
+       "Single hop session\n")
+{
+	int idx_peer = 1;
+	int idx_hop = 3;
+	struct peer *peer;
+	uint8_t ttl_configured;
+
+	if (strmatch(argv[0]->text, "no")) {
+		idx_peer++;
+		ttl_configured = 0;
+	} else if (strmatch(argv[idx_hop]->text, "singlehop"))
+		ttl_configured = BFD_SINGLE_HOP_CONFIGURED_TTL;
+	else if (strmatch(argv[idx_hop]->text, "multihop"))
+		ttl_configured = BFD_MULTI_HOP_CONFIGURED_MAX_TTL;
+	else
+		return CMD_WARNING_CONFIG_FAILED;
+
+	peer = peer_and_group_lookup_vty(vty, argv[idx_peer]->arg);
+	if (!peer)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	if (CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP))
+		bgp_group_configure_bfd(peer);
+	else
+		bgp_peer_configure_bfd(peer, true);
+
+	peer->bfd_config->bfd_ttl_configured = ttl_configured;
+	bgp_peer_config_apply(peer, peer->group);
 	return CMD_SUCCESS;
 }
 
@@ -627,6 +686,7 @@ void bgp_bfd_init(struct thread_master *tm)
 	/* "neighbor bfd" commands. */
 	install_element(BGP_NODE, &neighbor_bfd_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_param_cmd);
+	install_element(BGP_NODE, &neighbor_bfd_type_cmd);
 	install_element(BGP_NODE, &neighbor_bfd_check_controlplane_failure_cmd);
 	install_element(BGP_NODE, &no_neighbor_bfd_cmd);
 
