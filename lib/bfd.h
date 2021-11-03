@@ -124,7 +124,8 @@ void bfd_sess_free(struct bfd_session_params **bsp);
  * \param dst remote address (mandatory).
  */
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
-			     struct in_addr *src, struct in_addr *dst);
+			     const struct in_addr *src,
+			     const struct in_addr *dst);
 
 /**
  * Set the local and peer address of the BFD session.
@@ -138,7 +139,8 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
  * \param dst remote address (mandatory).
  */
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
-			     struct in6_addr *src, struct in6_addr *dst);
+			     const struct in6_addr *src,
+			     const struct in6_addr *dst);
 
 /**
  * Configure the BFD session interface.
