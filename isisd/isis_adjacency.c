@@ -480,8 +480,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, "%-13s", adj_state2string(adj->adj_state));
 		now = time(NULL);
 		if (adj->last_upd) {
-			if (adj->last_upd + adj->hold_time
-			    < (unsigned long long)now)
+			if (adj->last_upd + adj->hold_time < now)
 				vty_out(vty, " Expiring");
 			else
 				vty_out(vty, " %-9llu",
@@ -508,8 +507,7 @@ void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 		vty_out(vty, ", State: %s", adj_state2string(adj->adj_state));
 		now = time(NULL);
 		if (adj->last_upd) {
-			if (adj->last_upd + adj->hold_time
-			    < (unsigned long long)now)
+			if (adj->last_upd + adj->hold_time < now)
 				vty_out(vty, " Expiring");
 			else
 				vty_out(vty, ", Expires in %s",
