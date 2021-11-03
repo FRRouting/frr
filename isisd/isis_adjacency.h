@@ -96,8 +96,8 @@ struct isis_adjacency {
 	int level;			/* level (1 or 2) */
 	enum isis_system_type sys_type; /* neighbourSystemType */
 	uint16_t hold_time;		/* entryRemainingTime */
-	uint32_t last_upd;
-	uint32_t last_flap; /* last time the adj flapped */
+	time_t last_upd;
+	time_t last_flap; /* last time the adj flapped */
 	enum isis_threeway_state threeway_state;
 	uint32_t ext_circuit_id;
 	int flaps;		      /* number of adjacency flaps  */
