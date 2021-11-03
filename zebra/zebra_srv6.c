@@ -261,7 +261,7 @@ separate_locator_prefix_into_chunk(struct srv6_locator *loc,
 {
 	struct prefix_ipv6 chunk_prefix = loc->prefix;
 	chunk_prefix.prefixlen += loc->chunk_bits_length;
-	chunk_prefix.prefix.__in6_u.__u6_addr16[4] = htons(chunk_index);
+	chunk_prefix.prefix.s6_addr16[4] = htons(chunk_index);
 	return chunk_prefix;
 }
 
