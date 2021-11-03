@@ -9245,11 +9245,12 @@ DEFPY (no_bgp_srv6_locator,
 
 DEFPY (show_bgp_srv6,
        show_bgp_srv6_cmd,
-       "show bgp segment-routing srv6",
+       "show bgp segment-routing srv6 [json]",
        SHOW_STR
        BGP_STR
        "BGP Segment Routing\n"
-       "BGP Segment Routing SRv6\n")
+       "BGP Segment Routing SRv6\n"
+	   JSON_STR)
 {
 	struct bgp *bgp;
 	struct listnode *node;
@@ -9260,43 +9261,113 @@ DEFPY (show_bgp_srv6,
 	char buf[256];
 	char buf_tovpn4_sid[256];
 	char buf_tovpn6_sid[256];
+	json_object *json = NULL;
+	json_object *json_chunks = NULL;
+	json_object *json_function = NULL;
+	json_object *json_functions = NULL;
+	json_object *json_bgp = NULL;
+	json_object *json_bgps = NULL;
+	json_object *json_vpn_policy = NULL;
+	json_object *json_vpn_policy_ip = NULL;
+	json_object *json_vpn_policy_ip6 = NULL;
+	bool uj = use_json(argc, argv);
 
 	bgp = bgp_get_default();
 	if (!bgp)
 		return CMD_SUCCESS;
 
-	vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
-	vty_out(vty, "locator_chunks:\n");
-	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
-		prefix2str(chunk, buf, sizeof(buf));
-		vty_out(vty, "- %s\n", buf);
-	}
+	if (uj) {
+		json = json_object_new_object();
+		json_chunks = json_object_new_array();
+		json_functions = json_object_new_array();
+		json_bgps = json_object_new_array();
+		json_object_string_add(json, "locatorName", bgp->srv6_locator_name);
+		json_object_object_add(json, "locatorChunks", json_chunks);
+		json_object_object_add(json, "functions", json_functions);
+		json_object_object_add(json, "bgps", json_bgps);
 
-	vty_out(vty, "functions:\n");
-	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
-		inet_ntop(AF_INET6, &func->sid, buf, sizeof(buf));
-		vty_out(vty, "- sid: %s\n", buf);
-		vty_out(vty, "  locator: %s\n", func->locator_name);
-	}
+		/* collect all chunk to json array*/
+		for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+			prefix2str(chunk, buf, sizeof(buf));
+			json_array_string_add(json_chunks, buf);
+		}
 
-	vty_out(vty, "bgps:\n");
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
-		vty_out(vty, "- name: %s\n",
-			bgp->name ? bgp->name : "default");
+		/* collect all function to json array*/
+		for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
+			json_function = json_object_new_object();
+			json_object_array_add(json_functions, json_function);
+			inet_ntop(AF_INET6, &func->sid, buf, sizeof(buf));
+			json_object_string_add(json_function, "Sid", buf);
+			json_object_string_add(json_function, "locator", 
+									func->locator_name);
+		}
 
-		tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
-		tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
-		if (tovpn4_sid)
-			inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
-				  sizeof(buf_tovpn4_sid));
-		if (tovpn6_sid)
-			inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
-				  sizeof(buf_tovpn6_sid));
+		/* collect all bgp instance to json array*/
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+			json_bgp = json_object_new_object();
+			json_object_array_add(json_bgps, json_bgp);
+			json_object_string_add(json_bgp, "name",
+								   bgp->name ? bgp->name : "default");
 
-		vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %s\n",
-			tovpn4_sid ? buf_tovpn4_sid : "none");
-		vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
-			tovpn6_sid ? buf_tovpn6_sid : "none");
+			json_vpn_policy = json_object_new_object();
+			json_vpn_policy_ip = json_object_new_object();
+			json_vpn_policy_ip6 = json_object_new_object();
+			json_object_object_add(json_bgp, "vpnPolicy", json_vpn_policy);
+			json_object_object_add(json_vpn_policy, "ip", json_vpn_policy_ip);
+			json_object_object_add(json_vpn_policy, "ip6", json_vpn_policy_ip6);
+
+			tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
+			tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
+			if (tovpn4_sid)
+				inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
+					  sizeof(buf_tovpn4_sid));
+			if (tovpn6_sid)
+				inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
+					  sizeof(buf_tovpn6_sid));
+			
+			json_object_string_add(json_vpn_policy_ip, "toVpnSid",
+								   tovpn4_sid ? buf_tovpn4_sid : "none");
+			json_object_string_add(json_vpn_policy_ip6, "toVpnSid",
+								   tovpn6_sid ? buf_tovpn6_sid : "none");
+		}
+
+		vty_out(vty, "%s\n", json_object_to_json_string_ext(
+			json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	} else {
+		vty_out(vty, "locator_name: %s\n", bgp->srv6_locator_name);
+		vty_out(vty, "locator_chunks:\n");
+		for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
+			prefix2str(chunk, buf, sizeof(buf));
+			vty_out(vty, "- %s\n", buf);
+		}
+
+		vty_out(vty, "functions:\n");
+		for (ALL_LIST_ELEMENTS_RO(bgp->srv6_functions, node, func)) {
+			inet_ntop(AF_INET6, &func->sid, buf, sizeof(buf));
+			vty_out(vty, "- sid: %s\n", buf);
+			vty_out(vty, "  locator: %s\n", func->locator_name);
+		}
+
+		vty_out(vty, "bgps:\n");
+		for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
+			vty_out(vty, "- name: %s\n",
+				bgp->name ? bgp->name : "default");
+
+			tovpn4_sid = bgp->vpn_policy[AFI_IP].tovpn_sid;
+			tovpn6_sid = bgp->vpn_policy[AFI_IP6].tovpn_sid;
+			if (tovpn4_sid)
+				inet_ntop(AF_INET6, tovpn4_sid, buf_tovpn4_sid,
+					  sizeof(buf_tovpn4_sid));
+			if (tovpn6_sid)
+				inet_ntop(AF_INET6, tovpn6_sid, buf_tovpn6_sid,
+					  sizeof(buf_tovpn6_sid));
+
+			vty_out(vty, "  vpn_policy[AFI_IP].tovpn_sid: %s\n",
+				tovpn4_sid ? buf_tovpn4_sid : "none");
+			vty_out(vty, "  vpn_policy[AFI_IP6].tovpn_sid: %s\n",
+				tovpn6_sid ? buf_tovpn6_sid : "none");
+		}
 	}
 
 	return CMD_SUCCESS;

@@ -121,17 +121,11 @@ def test_srv6():
         expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
         return topotest.json_cmp(output, expected)
 
-    """
-    TODO(drumato):
-      Currently bgpd doesn't support the json output
-      with `show bgp segment-routing srv6`.
-
     def _check_bgpd_chunk(router, expected_chunk_file):
         logger.info("checking bgpd locator chunk status")
-        output = json.loads(router.vtysh_cmd("show bgp segment-routing srv6"))
+        output = json.loads(router.vtysh_cmd("show bgp segment-routing srv6 json"))
         expected = open_json_file("{}/{}".format(CWD, expected_chunk_file))
         return topotest.json_cmp(output, expected)
-    """
 
     def check_srv6_locator(router, expected_file):
         func = functools.partial(_check_srv6_locator, router, expected_file)
@@ -143,12 +137,10 @@ def test_srv6():
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
         assert result is None, "Failed"
 
-    """
     def check_bgpd_chunk(router, expected_file):
         func = functools.partial(_check_bgpd_chunk, router, expected_file)
         success, result = topotest.run_and_expect(func, None, count=5, wait=0.5)
         assert result is None, "Failed"
-    """
 
     # FOR DEVELOPER:
     # If you want to stop some specific line and start interactive shell,
@@ -157,38 +149,38 @@ def test_srv6():
     logger.info("Test STEP1: locator configuration")
     check_srv6_locator(router, "step1/expected_locators.json")
     check_sharpd_chunk(router, "step1/expected_sharpd_chunks.json")
-    # check_bgpd_chunk(router, "step1/expected_bgpd_chunks.json")
+    check_bgpd_chunk(router, "step1/expected_bgpd_chunks.json")
 
     logger.info("Test STEP2: get locator chunk for locator loc1 from sharpd")
     get_locator_chunk_from_sharpd(router, "loc1")
     check_srv6_locator(router, "step2/expected_locators.json")
     check_sharpd_chunk(router, "step2/expected_sharpd_chunks.json")
-    # check_bgpd_chunk(router, "step2/expected_bgpd_chunks.json")
+    check_bgpd_chunk(router, "step2/expected_bgpd_chunks.json")
 
     logger.info("Test STEP3: get locator chunk for locator loc1 from bgpd")
     get_locator_chunk_from_bgpd(router, "loc1")
     check_srv6_locator(router, "step3/expected_locators.json")
     check_sharpd_chunk(router, "step3/expected_sharpd_chunks.json")
-    # check_bgpd_chunk(router, "step3/expected_bgpd_chunks.json")
+    check_bgpd_chunk(router, "step3/expected_bgpd_chunks.json")
 
     logger.info("Test STEP4: release locator chunk loc1 by sharpd")
     release_locator_chunk_from_sharpd(router, "loc1")
     check_srv6_locator(router, "step4/expected_locators.json")
     check_sharpd_chunk(router, "step4/expected_sharpd_chunks.json")
-    # check_bgpd_chunk(router, "step4/expected_bgpd_chunks.json")
+    check_bgpd_chunk(router, "step4/expected_bgpd_chunks.json")
 
     logger.info("Test STEP5: release locator chunk loc1 by bgpd")
     get_locator_chunk_from_sharpd(router, "loc1")
     release_locator_chunk_from_bgpd(router, "loc1")
     check_srv6_locator(router, "step5/expected_locators.json")
     check_sharpd_chunk(router, "step5/expected_sharpd_chunks.json")
-    # check_bgpd_chunk(router, "step5/expected_bgpd_chunks.json")
+    check_bgpd_chunk(router, "step5/expected_bgpd_chunks.json")
 
     logger.info("Test STEP6: release all chunk")
     release_locator_chunk_from_sharpd(router, "loc1")
     check_srv6_locator(router, "step6/expected_locators.json")
     check_sharpd_chunk(router, "step6/expected_sharpd_chunks.json")
-    # check_bgpd_chunk(router, "step6/expected_bgpd_chunks.json")
+    check_bgpd_chunk(router, "step6/expected_bgpd_chunks.json")
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
