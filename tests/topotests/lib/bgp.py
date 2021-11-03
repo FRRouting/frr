@@ -4428,3 +4428,56 @@ def verify_evpn_routes(
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
 
     return False
+def verify_tcp_mss(tgen, dut, neighbour, configured_tcp_mss, vrf=None):
+    """
+    This api is used to verify the tcp-mss value  assigned to a neigbour of DUT
+
+    Parameters
+    ----------
+    * `tgen` : topogen object
+    * `dut`: device under test
+    * `neighbour`:neigbout IP address
+    * `configured_tcp_mss`:The TCP-MSS value to be verified
+    * `vrf`:vrf
+
+    Usage
+    -----
+    result = verify_tcp_mss(tgen, dut,neighbour,configured_tcp_mss)
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    rnode = tgen.routers()[dut]
+    if vrf:
+        cmd = "show bgp vrf {} neighbors {} json".format(vrf, neighbour)
+    else:
+        cmd = "show bgp neighbors {} json".format(neighbour)
+
+    # Execute the command
+    show_vrf_stats = run_frr_cmd(rnode, cmd, isjson=True)
+
+    # Verify TCP-MSS  on router
+    logger.info("Verify that no core is observed")
+    if tgen.routers_have_failure():
+        errormsg = "Core observed while running CLI: %s" % (cmd)
+        return errormsg
+    else:
+        if configured_tcp_mss == show_vrf_stats.get(neighbour).get(
+            "bgpTcpMssConfigured"
+        ):
+            logger.debug(
+                "Configured TCP - MSS Found: {}".format(sys._getframe().f_code.co_name)
+            )
+            return True
+        else:
+            logger.debug(
+                "TCP-MSS Mismatch ,configured {} expecting {}".format(
+                    show_vrf_stats.get(neighbour).get("bgpTcpMssConfigured"),
+                    configured_tcp_mss,
+                )
+            )
+            return "TCP-MSS Mismatch"
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return False
