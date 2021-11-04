@@ -646,32 +646,16 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 	bsp->args.vrf_id = vrf_id;
 }
 
-void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)
 {
-	assert(min_ttl != 0);
-
-	if (bsp->args.ttl == ((BFD_SINGLE_HOP_TTL + 1) - min_ttl))
+	if (bsp->args.ttl == hops)
 		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
-	/* Invert TTL value: protocol expects number of hops. */
-	min_ttl = (BFD_SINGLE_HOP_TTL + 1) - min_ttl;
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
-}
-
-void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl)
-{
-	if (bsp->args.ttl == min_ttl)
-		return;
-
-	/* If already installed, remove the old setting. */
-	_bfd_sess_remove(bsp);
-
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
+	bsp->args.ttl = hops;
+	bsp->args.mhop = (hops > 1);
 }
 
 
@@ -704,11 +688,6 @@ void bfd_sess_uninstall(struct bfd_session_params *bsp)
 enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
 {
 	return bsp->bss.state;
-}
-
-uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp)
-{
-	return ((BFD_SINGLE_HOP_TTL + 1) - bsp->args.ttl);
 }
 
 uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
