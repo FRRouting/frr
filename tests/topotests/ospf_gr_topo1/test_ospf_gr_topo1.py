@@ -252,7 +252,7 @@ def check_routers(initial_convergence=False, exiting=None, restarting=None):
             if initial_convergence == True or restarting == rname:
                 tries = 240
             else:
-                tries = 1
+                tries = 60
             router_compare_json_output(
                 rname, "show ip ospf database json", "show_ip_ospf_database.json", tries
             )
