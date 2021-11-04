@@ -100,6 +100,9 @@ static int static_vrf_delete(struct vrf *vrf)
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
 		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
 			table = svrf->stable[afi][safi];
+			if (!table)
+				continue;
+
 			info = route_table_get_info(table);
 			route_table_finish(table);
 			XFREE(MTYPE_STATIC_RTABLE_INFO, info);
