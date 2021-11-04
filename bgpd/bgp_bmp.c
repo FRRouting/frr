@@ -50,6 +50,7 @@
 #include "bgpd/bgp_updgrp.h"
 #include "bgpd/bgp_vty.h"
 #include "bgpd/bgp_trace.h"
+#include "bgpd/bgp_debug.h"
 
 static void bmp_close(struct bmp *bmp);
 static struct bmp_bgp *bmp_bgp_find(struct bgp *bgp);
@@ -698,9 +699,19 @@ static int bmp_peer_status_changed(struct peer *peer)
 	if (!bmpbgp)
 		return 0;
 
+	if (BGP_DEBUG(bmp, BMP))
+		zlog_debug(
+			"%s [BGP_BMP] peer %s(%p): peerid %llu, status %s, doppelganger(%p)",
+			__func__, peer->host, peer, peer->qobj_node.nid,
+			peer->status, peer->doppelganger);
+
 	if (peer->status == Deleted) {
 		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
 		if (bbpeer) {
+			if (BGP_DEBUG(bmp, BMP))
+				zlog_debug("%s [BGP_BMP] free bbpeer %p",
+					   __func__, bbpeer);
+
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 			bmp_peerh_del(&bmp_peerh, bbpeer);
@@ -717,6 +728,12 @@ static int bmp_peer_status_changed(struct peer *peer)
 		bbpeer = bmp_bgp_peer_get(peer);
 		bbdopp = bmp_bgp_peer_find(peer->doppelganger->qobj_node.nid);
 		if (bbdopp) {
+			if (BGP_DEBUG(bmp, BMP))
+				zlog_debug(
+					"%s [BGP_BMP] bbpeer transfer %p(peerid %llu) -> %p(peerid %llu)",
+					__func__, bbdopp, bbdopp->peerid,
+					bbpeer, bbpeer->peerid);
+
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
 			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
 
