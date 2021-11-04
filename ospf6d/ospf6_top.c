@@ -896,7 +896,7 @@ DEFUN_HIDDEN (ospf6_interface_area,
 	struct ospf6_area *oa;
 	struct ospf6_interface *oi;
 	struct interface *ifp;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct vrf *vrf;
 	int ipv6_count = 0;
 	uint32_t area_id;
 	int format;
@@ -906,11 +906,14 @@ DEFUN_HIDDEN (ospf6_interface_area,
 	vty_out(vty,
 		"Please, use \"ipv6 ospf6 area\" on an interface instead.\n");
 
-	if (ospf6->vrf_id != VRF_UNKNOWN)
-		vrf_id = ospf6->vrf_id;
-
+	if (ospf6->name)
+		vrf = vrf_lookup_by_name(ospf6->name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 	/* find/create ospf6 interface */
-	ifp = if_get_by_name(argv[idx_ifname]->arg, vrf_id);
+	ifp = if_get_by_name_vrf(argv[idx_ifname]->arg, vrf);
 	oi = (struct ospf6_interface *)ifp->info;
 	if (oi == NULL)
 		oi = ospf6_interface_create(ifp);
@@ -987,18 +990,22 @@ DEFUN_HIDDEN (no_ospf6_interface_area,
 	struct ospf6_area *oa;
 	struct interface *ifp;
 	uint32_t area_id;
-	vrf_id_t vrf_id = VRF_DEFAULT;
+	struct vrf *vrf;
 
 	vty_out(vty,
 		"This command is deprecated, because it is not VRF-aware.\n");
 	vty_out(vty,
 		"Please, use \"no ipv6 ospf6 area\" on an interface instead.\n");
 
-	if (ospf6->vrf_id != VRF_UNKNOWN)
-		vrf_id = ospf6->vrf_id;
+	if (ospf6->name)
+		vrf = vrf_lookup_by_name(ospf6->name);
+	else
+		vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	if (!vrf)
+		return CMD_WARNING_CONFIG_FAILED;
 
 	/* find/create ospf6 interface */
-	ifp = if_get_by_name(argv[idx_ifname]->arg, vrf_id);
+	ifp = if_get_by_name_vrf(argv[idx_ifname]->arg, vrf);
 
 	if (ifp == NULL) {
 		vty_out(vty, "No such interface %s\n", argv[idx_ifname]->arg);
