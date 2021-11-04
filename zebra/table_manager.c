@@ -253,7 +253,7 @@ int release_daemon_table_chunks(struct zserv *client)
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 		zvrf = vrf->info;
 
-		if (!zvrf)
+		if (!zvrf || !zvrf->tbl_mgr)
 			continue;
 		if (!vrf_is_backend_netns() && vrf->vrf_id != VRF_DEFAULT)
 			continue;
