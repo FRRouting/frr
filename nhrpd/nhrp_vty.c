@@ -1073,7 +1073,7 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 	struct info_ctx ctx = {
 		.vty = vty, .json = NULL
 	};
-	struct json_object *json_path = NULL;
+	struct json_object *json_path = NULL, *json_all_path = NULL;
 	struct json_object *json_vrf = NULL, *json_vrf_path = NULL;
 	int ret = CMD_SUCCESS;
 	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
@@ -1091,6 +1091,8 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 	} else if (!vrf_all)
 		nhrp_vrf = find_nhrp_vrf(NULL);
 
+	if (uj)
+		json_all_path = json_object_new_object();
 	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf2)) {
 		if (nhrp_vrf && nhrp_vrf != nhrp_vrf2)
 			continue;
@@ -1100,6 +1102,7 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 		if (uj) {
 			json_vrf = json_object_new_object();
 			json_vrf_path = json_object_new_object();
+			json_object_string_add(json_vrf, "vrf", vrf->name);
 			json_path = json_object_new_array();
 			ctx.json = json_path;
 		} else {
@@ -1137,11 +1140,14 @@ DEFPY(show_ip_nhrp, show_ip_nhrp_cmd,
 		if (uj) {
 			json_object_object_add(json_vrf_path, "attr", json_vrf);
 			json_object_object_add(json_vrf_path, "table", ctx.json);
-			vty_out(vty, "%s",
-				json_object_to_json_string_ext(
-							       json_vrf_path, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json_vrf_path);
+			json_object_object_add(json_all_path, vrf->name, json_vrf_path);
 		}
+	}
+	if (uj) {
+		vty_out(vty, "%s",
+			json_object_to_json_string_ext(
+			       json_all_path, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json_all_path);
 	}
 	return ret;
 }
@@ -1195,6 +1201,8 @@ DEFPY(show_dmvpn, show_dmvpn_cmd,
 	struct json_object *json_path = NULL;
 	struct nhrp_vrf *nhrp_vrf = NULL, *nhrp_vrf2;
 	struct listnode *nhrp_vrf_node;
+	struct json_object *json_vrf = NULL;
+	struct vrf *vrf;
 
 	if (vrf_name) {
 		nhrp_vrf = find_nhrp_vrf(vrf_name);
@@ -1202,9 +1210,13 @@ DEFPY(show_dmvpn, show_dmvpn_cmd,
 			return CMD_SUCCESS;
 	} else if (!vrf_all)
 		nhrp_vrf = find_nhrp_vrf(NULL);
-
+	if (uj)
+		json_vrf = json_object_new_object();
 	for (ALL_LIST_ELEMENTS_RO(nhrp_vrf_list, nhrp_vrf_node, nhrp_vrf2)) {
 		if (nhrp_vrf && nhrp_vrf != nhrp_vrf2)
+			continue;
+		vrf = vrf_lookup_by_id(nhrp_vrf2->vrf_id);
+		if (!vrf)
 			continue;
 		ctxt.vty = vty;
 		if (!uj) {
@@ -1213,23 +1225,25 @@ DEFPY(show_dmvpn, show_dmvpn_cmd,
 				vty_out(vty, "\n\n");
 			lf = true;
 			if (vrf_all && nhrp_vrf2->vrf_id != VRF_DEFAULT)
-				vty_out(vty, "VRF %s:\n", nhrp_vrf2->vrfname);
+				vty_out(vty, "VRF %s:\n", vrf->name);
 			if (nhrp_vc_count(nhrp_vrf2))
 				vty_out(vty, "%-24s %-24s %-6s %-4s %-24s\n",
 					"Src", "Dst", "Flags", "SAs", "Identity");
 			else
-				vty_out(vty, "%% VRF %s: No entries\n", nhrp_vrf2->vrfname);
+				vty_out(vty, "%% VRF %s: No entries\n", vrf->name);
 		} else {
 			json_path = json_object_new_array();
 			ctxt.json = json_path;
 		}
 		nhrp_vc_foreach(show_dmvpn_entry, &ctxt, nhrp_vrf);
-		if (uj) {
-			vty_out(vty, "%s",
-				json_object_to_json_string_ext(
-					json_path, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json_path);
-		}
+		if (uj)
+			json_object_object_add(json_vrf, vrf->name, ctxt.json);
+	}
+	if (uj) {
+		vty_out(vty, "%s",
+			json_object_to_json_string_ext(
+			       json_vrf, JSON_C_TO_STRING_PRETTY));
+			json_object_free(json_vrf);
 	}
 	return CMD_SUCCESS;
 }
