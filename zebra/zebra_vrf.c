@@ -184,8 +184,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		zlog_debug("VRF %s id %u is now inactive", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
 
-	table_manager_disable(zvrf);
-
 	/* Stop any VxLAN-EVPN processing. */
 	zebra_vxlan_vrf_disable(zvrf);
 
@@ -273,6 +271,8 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("VRF %s id %u deleted", zvrf_name(zvrf),
 			   zvrf_id(zvrf));
+
+	table_manager_disable(zvrf);
 
 	/* clean-up work queues */
 	for (i = 0; i < MQ_SIZE; i++) {
