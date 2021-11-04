@@ -131,11 +131,6 @@ DEFPY_YANG_NOSH(
 				"%% local-address is required when using multihop\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (ifname) {
-			vty_out(vty,
-				"%% interface is prohibited when using multihop\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
 			 local_address_str);
 	} else
@@ -148,7 +143,7 @@ DEFPY_YANG_NOSH(
 	if (ifname)
 		slen += snprintf(xpath + slen, sizeof(xpath) - slen,
 				 "[interface='%s']", ifname);
-	else if (!multihop)
+	else
 		slen += snprintf(xpath + slen, sizeof(xpath) - slen,
 				 "[interface='*']");
 	if (vrf)
@@ -199,11 +194,6 @@ DEFPY_YANG(
 				"%% local-address is required when using multihop\n");
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (ifname) {
-			vty_out(vty,
-				"%% interface is prohibited when using multihop\n");
-			return CMD_WARNING_CONFIG_FAILED;
-		}
 		snprintf(source_str, sizeof(source_str), "[source-addr='%s']",
 			 local_address_str);
 	} else
@@ -216,7 +206,7 @@ DEFPY_YANG(
 	if (ifname)
 		slen += snprintf(xpath + slen, sizeof(xpath) - slen,
 				 "[interface='%s']", ifname);
-	else if (!multihop)
+	else
 		slen += snprintf(xpath + slen, sizeof(xpath) - slen,
 				 "[interface='*']");
 	if (vrf)
@@ -236,6 +226,8 @@ static void _bfd_cli_show_peer(struct vty *vty, const struct lyd_node *dnode,
 			       bool mhop)
 {
 	const char *vrf = yang_dnode_get_string(dnode, "./vrf");
+	const char *ifname =
+		yang_dnode_get_string(dnode, "./interface");
 
 	vty_out(vty, " peer %s",
 		yang_dnode_get_string(dnode, "./dest-addr"));
@@ -250,12 +242,8 @@ static void _bfd_cli_show_peer(struct vty *vty, const struct lyd_node *dnode,
 	if (strcmp(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", vrf);
 
-	if (!mhop) {
-		const char *ifname =
-			yang_dnode_get_string(dnode, "./interface");
-		if (strcmp(ifname, "*"))
-			vty_out(vty, " interface %s", ifname);
-	}
+	if (strcmp(ifname, "*"))
+		vty_out(vty, " interface %s", ifname);
 
 	vty_out(vty, "\n");
 }

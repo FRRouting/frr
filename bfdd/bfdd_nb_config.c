@@ -47,11 +47,9 @@ static void bfd_session_get_key(bool mhop, const struct lyd_node *dnode,
 
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
 
-	if (!mhop) {
-		ifname = yang_dnode_get_string(dnode, "./interface");
-		if (strcmp(ifname, "*") == 0)
-			ifname = NULL;
-	}
+	ifname = yang_dnode_get_string(dnode, "./interface");
+	if (strcmp(ifname, "*") == 0)
+		ifname = NULL;
 
 	/* Generate the corresponding key. */
 	gen_bfd_key(bk, &psa, &lsa, mhop, ifname, vrfname);
