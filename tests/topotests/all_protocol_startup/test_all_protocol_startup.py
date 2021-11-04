@@ -1503,6 +1503,14 @@ def test_nexthop_group_replace():
         'vtysh -c "c t" -c "nexthop-group replace" -c "nexthop 1.1.1.1 r1-eth1 onlink" -c "nexthop 1.1.1.2 r1-eth2 onlink"'
     )
 
+    # At the moment there is absolutely no real easy way to query sharpd
+    # for the nexthop group actually installed.  If it is not installed
+    # sharpd will just transmit the nexthops down instead of the nexthop
+    # group id.  Leading to a situation where the replace is not actually
+    # being tested.  So let's just wait some time here because this
+    # is hard and this test fails all the time
+    sleep(5)
+
     # Create with sharpd using nexthop-group
     net["r1"].cmd('vtysh -c "sharp install routes 3.3.3.1 nexthop-group replace 1"')
 
