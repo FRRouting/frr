@@ -302,9 +302,6 @@ void if_delete(struct interface **ifp)
 	if (ptr->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_REMOVE(vrf, ptr);
 
-	if (!vrf_is_enabled(vrf))
-		vrf_delete(vrf);
-
 	if_delete_retain(ptr);
 
 	list_delete(&ptr->connected);
