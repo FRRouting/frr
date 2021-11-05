@@ -611,7 +611,8 @@ void bgp_nht_ifp_down(struct interface *ifp)
 static int bgp_nht_ifp_initial(struct thread *thread)
 {
 	ifindex_t ifindex = THREAD_VAL(thread);
-	struct interface *ifp = if_lookup_by_index_all_vrf(ifindex);
+	struct bgp *bgp = THREAD_ARG(thread);
+	struct interface *ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
 
 	if (!ifp)
 		return 0;
@@ -657,7 +658,7 @@ void bgp_nht_interface_events(struct peer *peer)
 		return;
 
 	if (bnc->ifindex)
-		thread_add_event(bm->master, bgp_nht_ifp_initial, NULL,
+		thread_add_event(bm->master, bgp_nht_ifp_initial, bnc->bgp,
 				 bnc->ifindex, NULL);
 }
 

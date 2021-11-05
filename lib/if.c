@@ -48,6 +48,7 @@ DEFINE_MTYPE_STATIC(LIB, IF_LINK_PARAMS, "Informational Link Parameters");
 static void if_set_name(struct interface *ifp, const char *name);
 static struct interface *if_lookup_by_ifindex(ifindex_t ifindex,
 					      vrf_id_t vrf_id);
+static struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex);
 static int if_cmp_func(const struct interface *, const struct interface *);
 static int if_cmp_index_func(const struct interface *ifp1,
 			     const struct interface *ifp2);
@@ -440,7 +441,7 @@ static struct interface *if_lookup_by_name_all_vrf(const char *name)
 	return NULL;
 }
 
-struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
+static struct interface *if_lookup_by_index_all_vrf(ifindex_t ifindex)
 {
 	struct vrf *vrf;
 	struct interface *ifp;
