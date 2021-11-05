@@ -613,6 +613,9 @@ struct bgp {
 	struct graceful_restart_info gr_info[AFI_MAX][SAFI_MAX];
 	uint32_t rib_stale_time;
 
+	/* BGP Long-lived Graceful Restart */
+	uint32_t llgr_stale_time;
+
 #define BGP_ROUTE_SELECT_DELAY 1
 #define BGP_MAX_BEST_ROUTE_SELECT 10000
 	/* Maximum-paths configuration */
@@ -1052,6 +1055,11 @@ enum bgp_fsm_status {
 
 #define PEER_HOSTNAME(peer) ((peer)->host ? (peer)->host : "(unknown peer)")
 
+struct llgr_info {
+	uint32_t stale_time;
+	uint8_t flags;
+};
+
 /* BGP neighbor structure. */
 struct peer {
 	/* BGP structure.  */
@@ -1182,6 +1190,8 @@ struct peer {
 #define PEER_CAP_ENHANCED_RR_RCV (1U << 18) /* enhanced rr received */
 #define PEER_CAP_EXTENDED_MESSAGE_ADV (1U << 19)
 #define PEER_CAP_EXTENDED_MESSAGE_RCV (1U << 20)
+#define PEER_CAP_LLGR_ADV (1U << 21)
+#define PEER_CAP_LLGR_RCV (1U << 22)
 
 	/* Capability flags (reset in bgp_stop) */
 	uint32_t af_cap[AFI_MAX][SAFI_MAX];
@@ -1200,6 +1210,8 @@ struct peer {
 #define PEER_CAP_ENHE_AF_ADV                (1U << 12) /* Extended nexthopi afi/safi advertised */
 #define PEER_CAP_ENHE_AF_RCV                (1U << 13) /* Extended nexthop afi/safi received */
 #define PEER_CAP_ENHE_AF_NEGO               (1U << 14) /* Extended nexthop afi/safi negotiated */
+#define PEER_CAP_LLGR_AF_ADV                (1U << 15)
+#define PEER_CAP_LLGR_AF_RCV                (1U << 16)
 
 	/* Global configuration flags. */
 	/*
@@ -1657,6 +1669,9 @@ struct peer {
 	/* set TCP max segment size */
 	uint32_t tcp_mss;
 
+	/* Long-lived Graceful Restart */
+	struct llgr_info llgr[AFI_MAX][SAFI_MAX];
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(peer);
@@ -1868,6 +1883,9 @@ struct bgp_nlri {
 #define BGP_DEFAULT_SELECT_DEFERRAL_TIME       360
 #define BGP_DEFAULT_RIB_STALE_TIME             500
 #define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
+
+/* BGP Long-lived Graceful Restart */
+#define BGP_DEFAULT_LLGR_STALE_TIME 360
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
