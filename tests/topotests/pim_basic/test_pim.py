@@ -172,7 +172,11 @@ def test_pim_send_mcast_stream():
         }
     }
 
-    assert topotest.json_cmp(out, expected) is None, "failed to converge pim"
+    test_func = partial(
+        topotest.router_json_cmp, r1, "show ip pim upstream json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=20, wait=1)
+    assert result is None, "failed to converge pim"
     # tgen.mininet_cli()
 
 
