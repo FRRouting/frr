@@ -272,9 +272,15 @@ def test_ldp_pseudowires_after_link_down():
 
     # Shut down r1-r2 link */
     tgen = get_topogen()
-    tgen.gears["r1"].peer_link_enable("r1-eth1", False)
-    topotest.sleep(5, "Waiting for the network to reconverge")
-
+    rname = "r1"
+    tgen.gears[rname].peer_link_enable("r1-eth1", False)
+    router_compare_json_output(
+        rname,
+        "show ip route json",
+        "show_ip_route_after_link_down.ref",
+        count=160,
+        wait=1,
+    )
     # check if the pseudowire is still up (using an alternate path
     # for nexthop resolution). Give some extra wait time.
     for rname in ["r1", "r2", "r3"]:
