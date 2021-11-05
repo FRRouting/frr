@@ -675,7 +675,8 @@ uint8_t dr_election(struct ospf6_interface *oi)
 			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
 				continue;
 			/* Schedule AdjOK. */
-			thread_add_event(master, adj_ok, on, 0, NULL);
+			thread_add_event(master, adj_ok, on, 0,
+					 &on->thread_adj_ok);
 		}
 	}
 
