@@ -4312,7 +4312,7 @@ DEFUN(ip_table_range, ip_table_range_cmd,
 	if (!zvrf)
 		return CMD_WARNING;
 
-	if (zvrf_id(zvrf) != VRF_DEFAULT && !vrf_is_backend_netns()) {
+	if (!vrf_is_backend_netns()) {
 		vty_out(vty,
 			"VRF subcommand does not make any sense in l3mdev based vrf's\n");
 		return CMD_WARNING;
