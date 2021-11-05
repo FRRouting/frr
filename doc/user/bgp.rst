@@ -1407,9 +1407,6 @@ Configuring Peers
    IPv4 session addresses, see the ``neighbor PEER update-source`` command
    below.
 
-   This command is deprecated and may be removed in a future release. Its use
-   should be avoided.
-
 .. clicmd:: neighbor PEER interface remote-as <internal|external|ASN>
 
    Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
