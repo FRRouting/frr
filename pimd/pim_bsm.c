@@ -35,6 +35,7 @@
 #include "pim_nht.h"
 #include "pim_bsm.h"
 #include "pim_time.h"
+#include "pim_zebra.h"
 
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
@@ -579,6 +580,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 	struct rp_info *rp_all;
 	struct pim_upstream *up;
 	struct rp_info *rp_info;
+	bool upstream_updated = false;
 
 	if (pim->global_scope.current_bsr.s_addr)
 		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
@@ -681,8 +683,12 @@ void pim_bsm_clear(struct pim_instance *pim)
 		} else {
 			/* RP found for the group grp */
 			pim_upstream_update(pim, up);
+			upstream_updated = true;
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 }
 
 static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,

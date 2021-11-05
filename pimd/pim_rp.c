@@ -413,7 +413,6 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 			 old_rpf.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
 
-	pim_zebra_update_all_interfaces(pim);
 }
 
 int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
@@ -431,6 +430,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct prefix nht_p;
 	struct route_node *rn;
 	struct pim_upstream *up;
+	bool upstream_updated = false;
 
 	if (rp_addr.s_addr == INADDR_ANY ||
 	    rp_addr.s_addr == INADDR_NONE)
@@ -547,10 +547,14 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 					grp.u.prefix4 = up->sg.grp;
 					trp_info = pim_rp_find_match_group(
 						pim, &grp);
-					if (trp_info == rp_all)
+					if (trp_info == rp_all) {
 						pim_upstream_update(pim, up);
+						upstream_updated = true;
+					}
 				}
 			}
+			if (upstream_updated)
+				pim_zebra_update_all_interfaces(pim);
 
 			pim_rp_check_interfaces(pim, rp_all);
 			pim_rp_refresh_group_to_rp_mapping(pim);
@@ -634,10 +638,15 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			grp.u.prefix4 = up->sg.grp;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
-			if (trp_info == rp_info)
+			if (trp_info == rp_info) {
 				pim_upstream_update(pim, up);
+				upstream_updated = true;
+			}
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 
 	pim_rp_check_interfaces(pim, rp_info);
 	pim_rp_refresh_group_to_rp_mapping(pim);
@@ -695,6 +704,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	struct bsgrp_node *bsgrp = NULL;
 	struct bsm_rpinfo *bsrp = NULL;
 	char rp_str[INET_ADDRSTRLEN];
+	bool upstream_updated = false;
 
 	if (!inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str)))
 		snprintf(rp_str, sizeof(rp_str), "<rp?>");
@@ -837,10 +847,15 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			}
 
 			/* RP found for the group grp */
-			else
+			else {
 				pim_upstream_update(pim, up);
+				upstream_updated = true;
+			}
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 
 	XFREE(MTYPE_PIM_RP, rp_info);
 	return PIM_SUCCESS;
@@ -854,6 +869,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	int result = 0;
 	struct rp_info *rp_info = NULL;
 	struct pim_upstream *up;
+	bool upstream_updated = false;
 
 	rn = route_node_lookup(pim->rp_table, &group);
 	if (!rn) {
@@ -908,10 +924,15 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 			grp.u.prefix4 = up->sg.grp;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
-			if (trp_info == rp_info)
+			if (trp_info == rp_info) {
 				pim_upstream_update(pim, up);
+				upstream_updated = true;
+			}
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 
 	/* Register new RP addr with Zebra NHT */
 	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
