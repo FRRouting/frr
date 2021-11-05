@@ -1385,11 +1385,21 @@ Configuring Peers
    IPv4 session addresses, see the ``neighbor PEER update-source`` command
    below.
 
+<<<<<<< HEAD
    This command is deprecated and may be removed in a future release. Its use
    should be avoided.
 
 .. index:: [no] neighbor PEER next-hop-self [all]
 .. clicmd:: [no] neighbor PEER next-hop-self [all]
+=======
+.. clicmd:: neighbor PEER interface remote-as <internal|external|ASN>
+
+   Configure an unnumbered BGP peer. ``PEER`` should be an interface name. The
+   session will be established via IPv6 link locals. Use ``internal`` for iBGP
+   and ``external`` for eBGP sessions, or specify an ASN if you wish.
+
+.. clicmd:: neighbor PEER next-hop-self [force]
+>>>>>>> a13e0374f (doc: Drop misleading explanation about `neighbor X interface IFNAME`)
 
    This command specifies an announced route's nexthop as being equivalent to
    the address of the bgp router if it is learned via eBGP.  If the optional
