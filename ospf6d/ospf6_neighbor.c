@@ -168,6 +168,9 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	THREAD_OFF(on->thread_send_lsreq);
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
+	THREAD_OFF(on->thread_exchange_done);
+	THREAD_OFF(on->thread_adj_ok);
+
 	THREAD_OFF(on->gr_helper_info.t_grace_timer);
 
 	bfd_sess_free(&on->bfd_session);
@@ -603,6 +606,8 @@ int oneway_received(struct thread *thread)
 	THREAD_OFF(on->thread_send_lsreq);
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
+	THREAD_OFF(on->thread_exchange_done);
+	THREAD_OFF(on->thread_adj_ok);
 
 	return 0;
 }

@@ -136,6 +136,8 @@ struct ospf6_neighbor {
 	struct thread *thread_send_lsreq;
 	struct thread *thread_send_lsupdate;
 	struct thread *thread_send_lsack;
+	struct thread *thread_exchange_done;
+	struct thread *thread_adj_ok;
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;

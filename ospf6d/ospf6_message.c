@@ -772,7 +772,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 	/* More bit check */
 	if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
-		thread_add_event(master, exchange_done, on, 0, NULL);
+		thread_add_event(master, exchange_done, on, 0,
+				 &on->thread_exchange_done);
 	else {
 		thread_add_event(master, ospf6_dbdesc_send_newone, on, 0,
 				 &on->thread_send_dbdesc);
@@ -2261,7 +2262,8 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) && /* Slave */
 	    !CHECK_FLAG(on->dbdesc_last.bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
-		thread_add_event(master, exchange_done, on, 0, NULL);
+		thread_add_event(master, exchange_done, on, 0,
+				 &on->thread_exchange_done);
 
 	thread_execute(master, ospf6_dbdesc_send, on, 0);
 	return 0;
