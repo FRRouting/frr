@@ -54,6 +54,9 @@ In a nutshell, the current implementation provides the following features
 Enabling RPKI
 -------------
 
+You must install ``frr-rpki-rtrlib`` additional package for RPKI support,
+otherwise ``bgpd`` daemon won't startup.
+
 .. clicmd:: rpki
 
    This command enables the RPKI configuration mode. Most commands that start
@@ -66,8 +69,6 @@ Enabling RPKI
    to configure at least one reachable cache server. See section
    :ref:`configuring-rpki-rtr-cache-servers` for configuring a cache server.
 
-
-When first installing FRR with RPKI support from the pre-packaged binaries.
 Remember to add ``-M rpki`` to the variable ``bgpd_options`` in
 :file:`/etc/frr/daemons` , like so::
 
