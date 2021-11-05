@@ -377,7 +377,7 @@ cause great confusion.
 
    Display IGMP group retransmission information.
 
-.. clicmd:: show ip igmp sources
+.. clicmd:: show ip igmp [vrf NAME] sources [json]
 
    Display IGMP sources information.
 
