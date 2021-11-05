@@ -303,9 +303,6 @@ void if_delete(struct interface **ifp)
 	if (ptr->ifindex != IFINDEX_INTERNAL)
 		IFINDEX_RB_REMOVE(vrf, ptr);
 
-	if (!vrf_is_enabled(vrf))
-		vrf_delete(vrf);
-
 	if_delete_retain(ptr);
 
 	list_delete(&ptr->connected);
@@ -1420,7 +1417,7 @@ static int lib_interface_create(struct nb_cb_create_args *args)
 static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-
+	struct vrf *vrf;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -1436,9 +1433,13 @@ static int lib_interface_destroy(struct nb_cb_destroy_args *args)
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_unset_entry(args->dnode);
+		vrf = ifp->vrf;
 
 		ifp->configured = false;
 		if_delete(&ifp);
+
+		if (!vrf_is_enabled(vrf))
+			vrf_delete(vrf);
 		break;
 	}
 
