@@ -230,14 +230,14 @@ static uint16_t neigh_state_to_netlink(uint16_t dplane_state)
 
 static inline bool is_selfroute(int proto)
 {
-	if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF)
-	    || (proto == RTPROT_ZSTATIC) || (proto == RTPROT_ZEBRA)
-	    || (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG)
-	    || (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP)
-	    || (proto == RTPROT_LDP) || (proto == RTPROT_BABEL)
-	    || (proto == RTPROT_RIP) || (proto == RTPROT_SHARP)
-	    || (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC)
-	    || (proto == RTPROT_SRTE)) {
+	if ((proto == RTPROT_BGP) || (proto == RTPROT_OSPF) ||
+	    (proto == RTPROT_ZSTATIC) || (proto == RTPROT_ZEBRA) ||
+	    (proto == RTPROT_ISIS) || (proto == RTPROT_RIPNG) ||
+	    (proto == RTPROT_NHRP) || (proto == RTPROT_EIGRP) ||
+	    (proto == RTPROT_LDP) || (proto == RTPROT_BABEL) ||
+	    (proto == RTPROT_RIP) || (proto == RTPROT_SHARP) ||
+	    (proto == RTPROT_PBR) || (proto == RTPROT_OPENFABRIC) ||
+	    (proto == RTPROT_SRTE) || (proto == RTPROT_FRR)) {
 		return true;
 	}
 
@@ -298,6 +298,9 @@ int zebra2proto(int proto)
 	case ZEBRA_ROUTE_LOCAL:
 	case ZEBRA_ROUTE_KERNEL:
 		proto = RTPROT_KERNEL;
+		break;
+	case ZEBRA_ROUTE_FRR:
+		proto = RTPROT_FRR;
 		break;
 	default:
 		/*
@@ -378,6 +381,9 @@ static inline int proto2zebra(int proto, int family, bool is_nexthop)
 	case RTPROT_KEEPALIVED:
 	case RTPROT_OPENR:
 		proto = ZEBRA_ROUTE_KERNEL;
+		break;
+	case RTPROT_FRR:
+		proto = ZEBRA_ROUTE_FRR;
 		break;
 	case RTPROT_ZEBRA:
 		if (is_nexthop) {
