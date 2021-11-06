@@ -34,6 +34,7 @@
 #include "lib_errors.h"
 #include "table.h"
 #include "json.h"
+#include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
@@ -46,6 +47,27 @@ DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP_DATA, "Route map dependency data");
 
 DEFINE_QOBJ_TYPE(route_map_index);
 DEFINE_QOBJ_TYPE(route_map);
+
+static int rmap_cmd_name_cmp(const struct route_map_rule_cmd_proxy *a,
+			     const struct route_map_rule_cmd_proxy *b)
+{
+	return strcmp(a->cmd->str, b->cmd->str);
+}
+
+static uint32_t rmap_cmd_name_hash(const struct route_map_rule_cmd_proxy *item)
+{
+	return jhash(item->cmd->str, strlen(item->cmd->str), 0xbfd69320);
+}
+
+DECLARE_HASH(rmap_cmd_name, struct route_map_rule_cmd_proxy, itm,
+	     rmap_cmd_name_cmp, rmap_cmd_name_hash);
+
+static struct rmap_cmd_name_head rmap_match_cmds[1] = {
+	INIT_HASH(rmap_match_cmds[0]),
+};
+static struct rmap_cmd_name_head rmap_set_cmds[1] = {
+	INIT_HASH(rmap_set_cmds[0]),
+};
 
 #define IPv4_PREFIX_LIST "ip address prefix-list"
 #define IPv6_PREFIX_LIST "ipv6 address prefix-list"
@@ -60,12 +82,6 @@ struct route_map_pentry_dep {
 	const char *plist_name;
 	route_map_event_t event;
 };
-
-/* Vector for route match rules. */
-static vector route_match_vec;
-
-/* Vector for route set rules. */
-static vector route_set_vec;
 
 static void route_map_pfx_tbl_update(route_map_event_t event,
 				     struct route_map_index *index, afi_t afi,
@@ -1231,40 +1247,40 @@ static struct route_map_rule *route_map_rule_new(void)
 }
 
 /* Install rule command to the match list. */
-void route_map_install_match(const struct route_map_rule_cmd *cmd)
+void _route_map_install_match(struct route_map_rule_cmd_proxy *proxy)
 {
-	vector_set(route_match_vec, (void *)cmd);
+	rmap_cmd_name_add(rmap_match_cmds, proxy);
 }
 
 /* Install rule command to the set list. */
-void route_map_install_set(const struct route_map_rule_cmd *cmd)
+void _route_map_install_set(struct route_map_rule_cmd_proxy *proxy)
 {
-	vector_set(route_set_vec, (void *)cmd);
+	rmap_cmd_name_add(rmap_set_cmds, proxy);
 }
 
 /* Lookup rule command from match list. */
 static const struct route_map_rule_cmd *route_map_lookup_match(const char *name)
 {
-	unsigned int i;
-	const struct route_map_rule_cmd *rule;
+	struct route_map_rule_cmd refcmd = {.str = name};
+	struct route_map_rule_cmd_proxy ref = {.cmd = &refcmd};
+	struct route_map_rule_cmd_proxy *res;
 
-	for (i = 0; i < vector_active(route_match_vec); i++)
-		if ((rule = vector_slot(route_match_vec, i)) != NULL)
-			if (strcmp(rule->str, name) == 0)
-				return rule;
+	res = rmap_cmd_name_find(rmap_match_cmds, &ref);
+	if (res)
+		return res->cmd;
 	return NULL;
 }
 
 /* Lookup rule command from set list. */
 static const struct route_map_rule_cmd *route_map_lookup_set(const char *name)
 {
-	unsigned int i;
-	const struct route_map_rule_cmd *rule;
+	struct route_map_rule_cmd refcmd = {.str = name};
+	struct route_map_rule_cmd_proxy ref = {.cmd = &refcmd};
+	struct route_map_rule_cmd_proxy *res;
 
-	for (i = 0; i < vector_active(route_set_vec); i++)
-		if ((rule = vector_slot(route_set_vec, i)) != NULL)
-			if (strcmp(rule->str, name) == 0)
-				return rule;
+	res = rmap_cmd_name_find(rmap_set_cmds, &ref);
+	if (res)
+		return res->cmd;
 	return NULL;
 }
 
@@ -3161,11 +3177,21 @@ void route_map_rule_tag_free(void *rule)
 void route_map_finish(void)
 {
 	int i;
+	struct route_map_rule_cmd_proxy *proxy;
 
-	vector_free(route_match_vec);
-	route_match_vec = NULL;
-	vector_free(route_set_vec);
-	route_set_vec = NULL;
+	/* these 2 hash tables have INIT_HASH initializers, so the "default"
+	 * state is "initialized & empty" => fini() followed by init() to
+	 * return to that same state
+	 */
+	while ((proxy = rmap_cmd_name_pop(rmap_match_cmds)))
+		(void)proxy;
+	rmap_cmd_name_fini(rmap_match_cmds);
+	rmap_cmd_name_init(rmap_match_cmds);
+
+	while ((proxy = rmap_cmd_name_pop(rmap_set_cmds)))
+		(void)proxy;
+	rmap_cmd_name_fini(rmap_set_cmds);
+	rmap_cmd_name_init(rmap_set_cmds);
 
 	/*
 	 * All protocols are setting these to NULL
@@ -3309,9 +3335,6 @@ void route_map_init(void)
 {
 	int i;
 
-	/* Make vector for match and set. */
-	route_match_vec = vector_init(1);
-	route_set_vec = vector_init(1);
 	route_map_master_hash =
 		hash_create_size(8, route_map_hash_key_make, route_map_hash_cmp,
 				 "Route Map Master Hash");
