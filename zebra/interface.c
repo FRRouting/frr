@@ -2905,6 +2905,7 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
+	.no_xpath = true,
 };
 
 static void link_param_cmd_set_uint32(struct interface *ifp, uint32_t *field,
