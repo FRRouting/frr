@@ -1254,7 +1254,6 @@ DEFUN (no_debug_ospf6,
        OSPF6_STR)
 {
 	unsigned int i;
-	struct ospf6_lsa_handler *handler = NULL;
 
 	OSPF6_DEBUG_ABR_OFF();
 	OSPF6_DEBUG_ASBR_OFF();
@@ -1264,13 +1263,7 @@ DEFUN (no_debug_ospf6,
 	OSPF6_DEBUG_FLOODING_OFF();
 	OSPF6_DEBUG_INTERFACE_OFF();
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
-
-		if (handler != NULL) {
-			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG);
-		}
-	}
+	ospf6_lsa_debug_set_all(false);
 
 	for (i = 0; i < 6; i++)
 		OSPF6_DEBUG_MESSAGE_OFF(i,
