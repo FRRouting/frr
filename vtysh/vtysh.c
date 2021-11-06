@@ -1279,6 +1279,7 @@ static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_vpnv6_node = {
@@ -1286,6 +1287,7 @@ static struct cmd_node bgp_vpnv6_node = {
 	.node = BGP_VPNV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
@@ -1293,6 +1295,7 @@ static struct cmd_node bgp_flowspecv4_node = {
 	.node = BGP_FLOWSPECV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
@@ -1300,6 +1303,7 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4_node = {
@@ -1307,6 +1311,7 @@ static struct cmd_node bgp_ipv4_node = {
 	.node = BGP_IPV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4m_node = {
@@ -1314,6 +1319,7 @@ static struct cmd_node bgp_ipv4m_node = {
 	.node = BGP_IPV4M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4l_node = {
@@ -1321,6 +1327,7 @@ static struct cmd_node bgp_ipv4l_node = {
 	.node = BGP_IPV4L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6_node = {
@@ -1328,6 +1335,7 @@ static struct cmd_node bgp_ipv6_node = {
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6m_node = {
@@ -1335,6 +1343,7 @@ static struct cmd_node bgp_ipv6m_node = {
 	.node = BGP_IPV6M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_node = {
@@ -1342,6 +1351,7 @@ static struct cmd_node bgp_evpn_node = {
 	.node = BGP_EVPN_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
@@ -1356,6 +1366,7 @@ static struct cmd_node bgp_ipv6l_node = {
 	.node = BGP_IPV6L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 #ifdef ENABLE_BGP_VNC
@@ -1516,6 +1527,7 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
+	.no_xpath = true,
 };
 
 #ifdef HAVE_BGPD
