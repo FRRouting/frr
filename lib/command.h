@@ -213,6 +213,9 @@ struct cmd_node {
 
 	/* set as soon as any command is in cmdgraph */
 	bool graph_built;
+
+	/* don't decrement vty->xpath_index on leaving this node */
+	bool no_xpath;
 };
 
 /* Return value of the commands. */

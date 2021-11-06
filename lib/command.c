@@ -145,31 +145,6 @@ static struct cmd_node config_node = {
 	.node_exit = vty_config_node_exit,
 };
 
-static bool vty_check_node_for_xpath_decrement(enum node_type target_node,
-					       enum node_type node)
-{
-	/* bgp afi-safi (`address-family <afi> <safi>`) node
-	 * does not increment xpath_index.
-	 * In order to use (`router bgp`) BGP_NODE's xpath as a base,
-	 * retain xpath_index as 1 upon exiting from
-	 * afi-safi node.
-	 */
-
-	if (target_node == BGP_NODE
-	    && (node == BGP_IPV4_NODE || node == BGP_IPV6_NODE
-		|| node == BGP_IPV4M_NODE || node == BGP_IPV6M_NODE
-		|| node == BGP_VPNV4_NODE || node == BGP_VPNV6_NODE
-		|| node == BGP_EVPN_NODE || node == BGP_IPV4L_NODE
-		|| node == BGP_IPV6L_NODE || node == BGP_FLOWSPECV4_NODE
-		|| node == BGP_FLOWSPECV6_NODE))
-		return false;
-
-	if (target_node == INTERFACE_NODE && node == LINK_PARAMS_NODE)
-		return false;
-
-	return true;
-}
-
 /* This is called from main when a daemon is invoked with -v or --version. */
 void print_version(const char *progname)
 {
@@ -922,13 +897,15 @@ static int cmd_execute_command_real(vector vline, enum cmd_filter_type filter,
 	 * a match before calling node_exit handlers below
 	 */
 	for (i = 0; i < up_level; i++) {
+		struct cmd_node *cnode;
+
 		if (node <= CONFIG_NODE)
 			return CMD_NO_LEVEL_UP;
 
+		cnode = vector_slot(cmdvec, node);
 		node = node_parent(node);
 
-		if (xpath_index > 0
-		    && vty_check_node_for_xpath_decrement(node, vty->node))
+		if (xpath_index > 0 && !cnode->no_xpath)
 			xpath_index--;
 	}
 
@@ -1062,12 +1039,13 @@ int cmd_execute_command(vector vline, struct vty *vty,
 		/* This assumes all nodes above CONFIG_NODE are childs of
 		 * CONFIG_NODE */
 		while (vty->node > CONFIG_NODE) {
+			struct cmd_node *cnode = vector_slot(cmdvec, try_node);
+
 			try_node = node_parent(try_node);
 			vty->node = try_node;
-			if (vty->xpath_index > 0
-			    && vty_check_node_for_xpath_decrement(try_node,
-								  onode))
+			if (vty->xpath_index > 0 && !cnode->no_xpath)
 				vty->xpath_index--;
+
 			ret = cmd_execute_command_real(vline, FILTER_RELAXED,
 						       vty, cmd, 0);
 			if (ret == CMD_SUCCESS || ret == CMD_WARNING
@@ -1386,8 +1364,7 @@ void cmd_exit(struct vty *vty)
 	}
 	if (cnode->parent_node)
 		vty->node = cnode->parent_node;
-	if (vty->xpath_index > 0
-	    && vty_check_node_for_xpath_decrement(vty->node, cnode->node))
+	if (vty->xpath_index > 0 && !cnode->no_xpath)
 		vty->xpath_index--;
 }
 
