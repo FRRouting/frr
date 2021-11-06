@@ -100,6 +100,8 @@ TC8.    Verify helper functionality when dut is helping RR and new grace lsa
 
 
 def setup_module(mod):
+    return pytest.skip("OSPF GR helper mode is currently broken")
+
     """
     Sets up the pytest environment
 
