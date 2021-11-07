@@ -56,8 +56,12 @@ struct vty_cfg_change {
 	const char *value;
 };
 
+PREDECL_DLIST(vtys);
+
 /* VTY struct. */
 struct vty {
+	struct vtys_item itm;
+
 	/* File descripter of this vty. */
 	int fd;
 
@@ -325,8 +329,6 @@ extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
-extern void vty_log(const char *level, const char *proto, const char *msg,
-		    struct timestamp_control *);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive);
@@ -340,10 +342,6 @@ extern void vty_hello(struct vty *);
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
-
-/* Send a fixed-size message to all vty terminal monitors; this should be
-   an async-signal-safe function. */
-extern void vty_log_fixed(char *buf, size_t len);
 
 #ifdef __cplusplus
 }
