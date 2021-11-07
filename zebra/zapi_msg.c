@@ -603,8 +603,6 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			api_nh->bh_type = nexthop->bh_type;
 			break;
 		case NEXTHOP_TYPE_IPV4:
-			api_nh->gate.ipv4 = nexthop->gate.ipv4;
-			break;
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			api_nh->gate.ipv4 = nexthop->gate.ipv4;
 			api_nh->ifindex = nexthop->ifindex;
@@ -613,8 +611,6 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 			api_nh->ifindex = nexthop->ifindex;
 			break;
 		case NEXTHOP_TYPE_IPV6:
-			api_nh->gate.ipv6 = nexthop->gate.ipv6;
-			break;
 		case NEXTHOP_TYPE_IPV6_IFINDEX:
 			api_nh->gate.ipv6 = nexthop->gate.ipv6;
 			api_nh->ifindex = nexthop->ifindex;
