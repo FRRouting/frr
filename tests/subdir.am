@@ -132,6 +132,12 @@ check_PROGRAMS += \
 	# end
 endif
 
+if CARES
+check_PROGRAMS += \
+	tests/lib/test_resolver \
+	# end
+endif
+
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 	mkdir -p tests/lib/cli
 	sed \
@@ -351,6 +357,10 @@ tests_lib_test_privs_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_privs_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_privs_LDADD = $(ALL_TESTS_LDADD)
 tests_lib_test_privs_SOURCES = tests/lib/test_privs.c
+tests_lib_test_resolver_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_test_resolver_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_test_resolver_LDADD = $(ALL_TESTS_LDADD) lib/libfrrcares.la
+tests_lib_test_resolver_SOURCES = tests/lib/test_resolver.c tests/lib/cli/common_cli.c
 tests_lib_test_ringbuf_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_test_ringbuf_CPPFLAGS = $(TESTS_CPPFLAGS)
 tests_lib_test_ringbuf_LDADD = $(ALL_TESTS_LDADD)

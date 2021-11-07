@@ -41,6 +41,7 @@
 /lib/test_prefix2str
 /lib/test_printfrr
 /lib/test_privs
+/lib/test_resolver
 /lib/test_ringbuf
 /lib/test_segv
 /lib/test_seqlock
