@@ -37,6 +37,8 @@ extern void test_init(int argc, char **argv);
  */
 extern struct thread_master *master;
 
+extern int test_log_prio;
+
 extern int dump_args(struct vty *vty, const char *descr, int argc,
 		     struct cmd_token *argv[]);
 

@@ -60,6 +60,7 @@ static void vty_do_exit(int isexit)
 }
 
 const struct frr_yang_module_info *const *test_yang_modules = NULL;
+int test_log_prio = ZLOG_DISABLED;
 
 /* main routine. */
 int main(int argc, char **argv)
@@ -73,7 +74,7 @@ int main(int argc, char **argv)
 	/* master init. */
 	master = thread_master_create(NULL);
 
-	zlog_aux_init("NONE: ", ZLOG_DISABLED);
+	zlog_aux_init("NONE: ", test_log_prio);
 
 	/* Library inits. */
 	cmd_init(1);
