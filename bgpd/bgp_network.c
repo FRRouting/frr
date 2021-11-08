@@ -207,6 +207,25 @@ int bgp_md5_set(struct peer *peer)
 	return bgp_md5_set_password(peer, peer->password);
 }
 
+static void bgp_update_setsockopt_tcp_keepalive(struct bgp *bgp, int fd)
+{
+	if (!bgp)
+		return;
+	if (bgp->tcp_keepalive_idle != 0) {
+		int ret;
+
+		ret = setsockopt_tcp_keepalive(fd, bgp->tcp_keepalive_idle,
+					       bgp->tcp_keepalive_intvl,
+					       bgp->tcp_keepalive_probes);
+		if (ret < 0)
+			zlog_err(
+				"Can't set TCP keepalive on socket %d, idle %u intvl %u probes %u",
+				fd, bgp->tcp_keepalive_idle,
+				bgp->tcp_keepalive_intvl,
+				bgp->tcp_keepalive_probes);
+	}
+}
+
 int bgp_md5_unset(struct peer *peer)
 {
 	/* Unset the password from listen socket. */
@@ -414,6 +433,9 @@ static void bgp_accept(struct thread *thread)
 	}
 
 	bgp_socket_set_buffer_size(bgp_sock);
+
+	/* Set TCP keepalive when TCP keepalive is enabled */
+	bgp_update_setsockopt_tcp_keepalive(bgp, bgp_sock);
 
 	/* Check remote IP address */
 	peer1 = peer_lookup(bgp, &su);
@@ -718,12 +740,16 @@ int bgp_connect(struct peer *peer)
 
 	bgp_socket_set_buffer_size(peer->fd);
 
+	/* Set TCP keepalive when TCP keepalive is enabled */
+	bgp_update_setsockopt_tcp_keepalive(peer->bgp, peer->fd);
+
 	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
 		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		if (bgp_debug_neighbor_events(peer))
 			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
 				   __func__, peer->host, safe_strerror(errno),
 				   errno);
+
 		return -1;
 	}
 
