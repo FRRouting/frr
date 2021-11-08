@@ -2526,31 +2526,12 @@ int lib_interface_isis_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *area_tag, *ifname, *vrfname;
 
 	if (args->event == NB_EV_VALIDATE) {
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-
-		if (!ifp)
-			return NB_OK;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		area_tag = yang_dnode_get_string(args->dnode, NULL);
-		if (circuit && circuit->area && circuit->area->area_tag
-		    && strcmp(circuit->area->area_tag, area_tag)) {
+		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL, false);
+		if (circuit) {
 			snprintf(args->errmsg, args->errmsg_len,
-				 "ISIS circuit is already defined on %s",
-				 circuit->area->area_tag);
+				 "Changing area tag is not allowed");
 			return NB_ERR_VALIDATION;
 		}
 	}
@@ -2565,39 +2546,15 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 {
 	int circ_type = yang_dnode_get_enum(args->dnode, NULL);
 	struct isis_circuit *circuit;
-	struct interface *ifp;
-	struct vrf *vrf;
-	const char *ifname, *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		/* libyang doesn't like relative paths across module boundaries
-		 */
-		ifname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./name");
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(args->dnode)), "./vrf");
-		vrf = vrf_lookup_by_name(vrfname);
-		assert(vrf);
-		ifp = if_lookup_by_name(ifname, vrf->vrf_id);
-		if (!ifp)
-			break;
-
-		circuit = circuit_scan_by_ifp(ifp);
-		if (circuit && circuit->state == C_STATE_UP
-		    && circuit->area->is_type != IS_LEVEL_1_AND_2
-		    && circuit->area->is_type != circ_type) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Invalid circuit level for area %s",
-				 circuit->area->area_tag);
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
 	case NB_EV_APPLY:
 		circuit = nb_running_get_entry(args->dnode, NULL, true);
+		circuit->is_type_config = circ_type;
 		isis_circuit_is_type_set(circuit, circ_type);
 		break;
 	}
@@ -2979,23 +2936,7 @@ int lib_interface_isis_network_type_modify(struct nb_cb_modify_args *args)
 int lib_interface_isis_passive_modify(struct nb_cb_modify_args *args)
 {
 	struct isis_circuit *circuit;
-	struct interface *ifp;
 	bool passive = yang_dnode_get_bool(args->dnode, NULL);
-
-	/* validation only applies if we are setting passive to false */
-	if (!passive && args->event == NB_EV_VALIDATE) {
-		circuit = nb_running_get_entry(args->dnode, NULL, false);
-		if (!circuit)
-			return NB_OK;
-		ifp = circuit->interface;
-		if (!ifp)
-			return NB_OK;
-		if (if_is_loopback_or_vrf(ifp)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "Loopback is always passive");
-			return NB_ERR_VALIDATION;
-		}
-	}
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
@@ -3204,19 +3145,9 @@ int lib_interface_isis_mpls_ldp_sync_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	bool ldp_sync_enable;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3248,19 +3179,9 @@ int lib_interface_isis_mpls_holddown_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
 	uint16_t holddown;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
@@ -3281,19 +3202,9 @@ int lib_interface_isis_mpls_holddown_destroy(struct nb_cb_destroy_args *args)
 {
 	struct isis_circuit *circuit;
 	struct ldp_sync_info *ldp_sync_info;
-	const char *vrfname;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		vrfname = yang_dnode_get_string(
-			lyd_parent(lyd_parent(lyd_parent(args->dnode))),
-			"./vrf");
-		if (strcmp(vrfname, VRF_DEFAULT_NAME)) {
-			snprintf(args->errmsg, args->errmsg_len,
-				 "LDP-Sync only runs on Default VRF");
-			return NB_ERR_VALIDATION;
-		}
-		break;
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 		break;
