@@ -6,7 +6,7 @@ FRR Release Procedure
 ``<version>`` - version to be released, e.g. 7.3
 ``origin`` - FRR upstream repository
 
-1. Checkout ``dev/<version>``.
+1. Checkout the existing ``dev/<version>`` branch.
 
    .. code-block:: console
 
@@ -80,30 +80,39 @@ FRR Release Procedure
          .
            * Your Changes Here
 
-6. Change main version number:
+6. Commit the changes, adding the changelog to the commit message. Follow all
+   existing commit guidelines. The commit message should be akin to::
 
-    - Edit :file:`configure.ac` and change version in the ``AC_INIT`` command
-      to ``<version>``
+      debian, redhat: updating changelog for new release
 
-7. Commit the changes, adding the changelog to the commit message. Follow all
-   existing commit guidelines.
+7. Create a new branch based on ``master``, cherry-pick the commit made in step
+   6, and use it to create a PR against ``master``. This way ``master`` has the
+   latest changelog for the next cycle.
 
-8. Create and submit a GitHub pull request, with the ``HEAD`` set to
-   ``stable/<version>`` and the base set to the upstream ``master`` branch.
-   Allow NetDef CI to complete its run and verify that all package builds were
-   successful.
+8. Change main version number:
 
-9. Create a git tag for the version:
+   - Edit :file:`configure.ac` and change version in the ``AC_INIT`` command
+     to ``<version>``
+
+   Add and commit this change. This commit should be separate from the commit
+   containing the changelog. The commit message should be::
+
+      FRR release <version>
+
+   The version field should be complete; i.e. for ``8.0.0``, the version should
+   be ``8.0.0`` and not ``8.0`` or ``8``.
+
+9. Create a new branch off of ``stable/<version>``. Add a dummy commit to it
+   and create a GitHub pull request from it with the target branch set to
+   ``stable/<version>``.  This will trigger the various CI systems, which serve
+   as a sanity check on the release branch. Verify that all tests pass and that
+   all package builds are successful.
+
+10. Create and push a git tag for the version:
 
    .. code-block:: console
 
       git tag -a frr-<version> -m "FRRouting Release <version>"
-
-10. Push the commit and new tag.
-
-   .. code-block:: console
-
-      git push origin stable/<version>:refs/head/stable/<version>
       git push origin frr-<version>
 
 11. Kick off the Release build plan on the CI system for the correct release.
