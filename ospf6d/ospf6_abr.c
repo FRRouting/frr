@@ -394,7 +394,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		return 0;
 	}
 
-	if ((route->type == OSPF6_DEST_TYPE_ROUTER) && IS_AREA_STUB(area)) {
+	if ((route->type == OSPF6_DEST_TYPE_ROUTER)
+	    && (IS_AREA_STUB(area) || IS_AREA_NSSA(area))) {
 		if (is_debug)
 			zlog_debug(
 				"Area has been stubbed, purge Inter-Router LSA");
