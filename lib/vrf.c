@@ -690,15 +690,10 @@ DEFUN_YANG (no_vrf,
 
 	if (vrf_get_backend() == VRF_BACKEND_VRF_LITE) {
 		/*
-		 * Remove the VRF interface config. Currently, we allow to
-		 * remove only inactive VRFs, so we use VRF_DEFAULT_NAME here,
-		 * because when the VRF is removed from kernel, the interface
-		 * is moved to the default VRF. If we ever allow removing
-		 * active VRFs, this code have to be updated accordingly.
+		 * Remove the VRF interface config when removing the VRF.
 		 */
 		snprintf(xpath_list, sizeof(xpath_list),
-			 "/frr-interface:lib/interface[name='%s'][vrf='%s']",
-			 vrfname, VRF_DEFAULT_NAME);
+			 "/frr-interface:lib/interface[name='%s']", vrfname);
 		nb_cli_enqueue_change(vty, xpath_list, NB_OP_DESTROY, NULL);
 	}
 

@@ -288,13 +288,11 @@ module frr-interface {
 
   container lib {
     list interface {
-      key "name vrf";
+      key "name";
       description
         "Interface.";
       leaf name {
-        type string {
-          length "1..16";
-        }
+        type string;
         description
           "Interface name.";
       }
@@ -303,6 +301,7 @@ module frr-interface {
         type frr-vrf:vrf-ref;
         description
           "VRF this interface is associated with.";
+        config false;
       }
 
       leaf description {
