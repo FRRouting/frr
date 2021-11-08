@@ -431,6 +431,14 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 		return;
 	}
 
+	/* N-bit check */
+	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_N)
+	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_N)) {
+		zlog_warn("VRF %s: IF %s N-bit mismatch",
+			  oi->interface->vrf->name, oi->interface->name);
+		return;
+	}
+
 	/* Find neighbor, create if not exist */
 	on = ospf6_neighbor_lookup(oh->router_id, oi);
 	if (on == NULL) {
