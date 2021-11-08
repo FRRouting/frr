@@ -132,6 +132,7 @@ struct bgp_master {
 
 	/* Various BGP global configuration.  */
 	uint8_t options;
+
 #define BGP_OPT_NO_FIB                   (1 << 0)
 #define BGP_OPT_NO_LISTEN                (1 << 1)
 #define BGP_OPT_NO_ZEBRA                 (1 << 2)
@@ -768,6 +769,10 @@ struct bgp {
 	char srv6_locator_name[SRV6_LOCNAME_SIZE];
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
+	/* TCP keepalive parameters for BGP connection */
+	uint16_t tcp_keepalive_idle;
+	uint16_t tcp_keepalive_intvl;
+	uint16_t tcp_keepalive_probes;
 
 	struct timeval ebgprequirespolicywarning;
 #define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
@@ -2201,6 +2206,9 @@ extern int peer_default_originate_set(struct peer *peer, afi_t afi, safi_t safi,
 				      const char *rmap,
 				      struct route_map *route_map);
 extern int peer_default_originate_unset(struct peer *, afi_t, safi_t);
+extern void bgp_tcp_keepalive_set(struct bgp *bgp, uint16_t idle,
+				  uint16_t interval, uint16_t probes);
+extern void bgp_tcp_keepalive_unset(struct bgp *bgp);
 
 extern void peer_port_set(struct peer *, uint16_t);
 extern void peer_port_unset(struct peer *);

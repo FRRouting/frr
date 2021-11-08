@@ -2335,6 +2335,15 @@ void bgp_config_write_coalesce_time(struct vty *vty, struct bgp *bgp)
 		vty_out(vty, " coalesce-time %u\n", bgp->coalesce_time);
 }
 
+/* BGP TCP keepalive */
+static void bgp_config_tcp_keepalive(struct vty *vty, struct bgp *bgp)
+{
+	if (bgp->tcp_keepalive_idle) {
+		vty_out(vty, " bgp tcp-keepalive %u %u %u\n",
+			bgp->tcp_keepalive_idle, bgp->tcp_keepalive_intvl,
+			bgp->tcp_keepalive_probes);
+	}
+}
 
 DEFUN (bgp_coalesce_time,
        bgp_coalesce_time_cmd,
@@ -2554,6 +2563,38 @@ DEFUN(no_bgp_minimum_holdtime, no_bgp_minimum_holdtime_cmd,
 	VTY_DECLVAR_CONTEXT(bgp, bgp);
 
 	bgp->default_min_holdtime = 0;
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(bgp_tcp_keepalive, bgp_tcp_keepalive_cmd,
+      "bgp tcp-keepalive (1-65535)$idle (1-65535)$intvl (1-30)$probes",
+      BGP_STR
+      "TCP keepalive parameters\n"
+      "TCP keepalive idle time (seconds)\n"
+      "TCP keepalive interval (seconds)\n"
+      "TCP keepalive maximum probes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_tcp_keepalive_set(bgp, (uint16_t)idle, (uint16_t)intvl,
+			      (uint16_t)probes);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(no_bgp_tcp_keepalive, no_bgp_tcp_keepalive_cmd,
+      "no bgp tcp-keepalive [(1-65535) (1-65535) (1-30)]",
+      NO_STR
+      BGP_STR
+      "TCP keepalive parameters\n"
+      "TCP keepalive idle time (seconds)\n"
+      "TCP keepalive interval (seconds)\n"
+      "TCP keepalive maximum probes\n")
+{
+	VTY_DECLVAR_CONTEXT(bgp, bgp);
+
+	bgp_tcp_keepalive_unset(bgp);
 
 	return CMD_SUCCESS;
 }
@@ -17633,6 +17674,9 @@ int bgp_config_write(struct vty *vty)
 			vty_out(vty,
 				" bgp graceful-restart preserve-fw-state\n");
 
+		/* BGP TCP keepalive */
+		bgp_config_tcp_keepalive(vty, bgp);
+
 		/* Stale timer for RIB */
 		if (bgp->rib_stale_time != BGP_DEFAULT_RIB_STALE_TIME)
 			vty_out(vty,
@@ -19413,6 +19457,10 @@ void bgp_vty_init(void)
 	/* ttl_security commands */
 	install_element(BGP_NODE, &neighbor_ttl_security_cmd);
 	install_element(BGP_NODE, &no_neighbor_ttl_security_cmd);
+
+	/* "bgp tcp-keepalive" commands */
+	install_element(BGP_NODE, &bgp_tcp_keepalive_cmd);
+	install_element(BGP_NODE, &no_bgp_tcp_keepalive_cmd);
 
 	/* "show [ip] bgp memory" commands. */
 	install_element(VIEW_NODE, &show_bgp_memory_cmd);

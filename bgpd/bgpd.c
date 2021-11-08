@@ -564,6 +564,21 @@ void bgp_timers_unset(struct bgp *bgp)
 	bgp->default_delayopen = BGP_DEFAULT_DELAYOPEN;
 }
 
+void bgp_tcp_keepalive_set(struct bgp *bgp, uint16_t keepalive_idle,
+			   uint16_t keepalive_intvl, uint16_t keepalive_probes)
+{
+	bgp->tcp_keepalive_idle = keepalive_idle;
+	bgp->tcp_keepalive_intvl = keepalive_intvl;
+	bgp->tcp_keepalive_probes = keepalive_probes;
+}
+
+void bgp_tcp_keepalive_unset(struct bgp *bgp)
+{
+	bgp->tcp_keepalive_idle = 0;
+	bgp->tcp_keepalive_intvl = 0;
+	bgp->tcp_keepalive_probes = 0;
+}
+
 /* BGP confederation configuration.  */
 void bgp_confederation_id_set(struct bgp *bgp, as_t as)
 {
@@ -3202,6 +3217,7 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 	bgp->default_local_pref = BGP_DEFAULT_LOCAL_PREF;
 	bgp->default_subgroup_pkt_queue_max =
 		BGP_DEFAULT_SUBGROUP_PKT_QUEUE_MAX;
+	bgp_tcp_keepalive_unset(bgp);
 	bgp_timers_unset(bgp);
 	bgp->default_min_holdtime = 0;
 	bgp->restart_time = BGP_DEFAULT_RESTART_TIME;
