@@ -447,6 +447,18 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			return 0;
 		}
 
+		/* Do not generate if area is NSSA */
+		route_area =
+			ospf6_area_lookup(route->path.area_id, area->ospf6);
+		if (IS_AREA_NSSA(route_area)) {
+			if (is_debug)
+				zlog_debug(
+					"%s: The route comes from NSSA area, skip",
+					__func__);
+			ospf6_abr_delete_route(summary, summary_table, old);
+			return 0;
+		}
+
 		/* Do not generate if the area is stub */
 		/* XXX */
 	}
