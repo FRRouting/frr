@@ -6,6 +6,9 @@ FRR Release Procedure
 ``<version>`` - version to be released, e.g. 7.3
 ``origin`` - FRR upstream repository
 
+Stage 1 - Preparation
+---------------------
+
 #. Checkout the existing ``dev/<version>`` branch.
 
    .. code-block:: console
@@ -18,7 +21,6 @@ FRR Release Procedure
    .. code-block:: console
 
       git checkout -b stable/<version>
-      git push origin stable/<version>:refs/heads/stable/<version>
 
 #. Remove the development branch called ``dev/<version>``
 
@@ -85,10 +87,6 @@ FRR Release Procedure
 
       debian, redhat: updating changelog for new release
 
-#. Create a new branch based on ``master``, cherry-pick the commit made in step
-   6, and use it to create a PR against ``master``. This way ``master`` has the
-   latest changelog for the next cycle.
-
 #. Change main version number:
 
    - Edit :file:`configure.ac` and change version in the ``AC_INIT`` command
@@ -102,13 +100,29 @@ FRR Release Procedure
    The version field should be complete; i.e. for ``8.0.0``, the version should
    be ``8.0.0`` and not ``8.0`` or ``8``.
 
+
+Stage 2 - Staging
+-----------------
+
 #. Push the stable branch to a new remote branch prefixed with ``rc``::
 
       git push origin stable/<version>:rc/version
 
    This will trigger the NetDEF CI, which serve as a sanity check on the
    release branch. Verify that all tests pass and that all package builds are
-   successful.
+   successful. To do this, go to the NetDEF CI located here:
+
+   https://ci1.netdef.org/browse/FRR-FRR
+
+   In the top left, look for ``rc-<version>`` in the "Plan branch" dropdown.
+   Select this version. Note that it may take a few minutes for the CI to kick
+   in on this new branch and appear in the list.
+
+#. Push the stable branch:
+
+   .. code-block:: console
+
+      git push origin stable/<version>:refs/heads/stable/<version>
 
 #. Create and push a git tag for the version:
 
@@ -117,34 +131,35 @@ FRR Release Procedure
       git tag -a frr-<version> -m "FRRouting Release <version>"
       git push origin frr-<version>
 
-#. Kick off the Release build plan on the CI system for the correct release.
+#. Create a new branch based on ``master``, cherry-pick the commit made earlier
+   that added the changelogs, and use it to create a PR against ``master``.
+   This way ``master`` has the latest changelog for the next cycle.
+
+#. Kick off the "Release" build plan on the CI system for the correct release.
    Contact Martin Winter for this step. Ensure all release packages build
    successfully.
 
 #. Kick off the Snapcraft build plan for the release.
 
-#. Acquire the release RPM binary packages from Martin Winter.
 
-#. On GitHub, go to the <https://github.com/FRRouting/frr/releases>_ and click
-   "Draft a new release". Write a release announcement. The release
-   announcement should follow the template in
-   ``release-announcement-template.md``, located next to this document. Check
-   for spelling errors, and optionally (but preferably) have other maintainers
-   proofread the announcement text.
+Stage 3 - Publish
+-----------------
 
-   Attach **only** the binary RPM packages to the GitHub release using
-   GitHub's attachment functionality. Do not attach Debian packages. Do not
-   attach source tarballs - these will be generated and attached by GitHub
-   automatically. Do not publish the release yet.
+#. Upload both the Debian and RPM packages to their respective repositories.
 
-#. Contact the current Debian maintainer for FRR to get new Debian packages
-   built and published on our APT repository at https://deb.frrouting.net/.
-   Ensure the webpage text is updated. Verify that new packages install
-   successfully on a vanilla Debian installation using the instructions on the
-   webpage.
+#. Coordinate with the maintainer of FRR's RPM repository to publish the RPM
+   packages on that repository. Update the repository webpage. Verify that the
+   instructions on the webpage work and that FRR is installable from the
+   repository on a Red Hat system.
 
-#. Deploy Snapcraft release (after CI system finishes the tests for snapcraft
-   testplan).
+   Current maintainer: *Martin Winter*
+
+#. Coordinate with the maintainer of FRR Debian package to publish the Debian
+   packages on that repository. Update the repository webpage. Verify that the
+   instructions on the webpage work and that FRR is installable from the
+   repository on a Debian system.
+
+   Current maintainer: *Jafar Al-Gharaibeh*
 
 #. Log in to the Read The Docs instance. in the "FRRouting" project, navigate
    to the "Overview" tab. Ensure there is a ``stable-<version>`` version listed
@@ -155,7 +170,25 @@ FRR Release Procedure
    This step must be performed by someone with administrative access to the
    Read the Docs instance.
 
-#. Publish the GitHub release.
+#. On GitHub, go to the <https://github.com/FRRouting/frr/releases>_ and click
+   "Draft a new release". Write a release announcement. The release
+   announcement should follow the template in
+   ``release-announcement-template.md``, located next to this document. Check
+   for spelling errors, and optionally (but preferably) have other maintainers
+   proofread the announcement text.
+
+   Do not attach any packages or source tarballs to the GitHub release.
+
+   Publish the release once it is reviewed.
+
+#. Deploy Snapcraft release. Remember that this will automatically upgrade Snap
+   users.
+
+   Current maintainer: *Martin Winter*
+
+#. Build and publish the Docker containers.
+
+   Current maintainer: *Quentin Young*
 
 #. Clone the ``frr-www`` repository:
 
@@ -192,10 +225,5 @@ FRR Release Procedure
    that the announcement text is visible.
 
 #. Send an email to ``announce@lists.frrouting.org``. The text of this email
-   should include the text from the GitHub release.
-
-#. Update masters version of the changelog-auto.in
-
-   Take the change data and cut-n-paste the changes into the master version
-   below the @VERSION@-0 lines.  So we have the history of the previous
-   release.
+   should include text as appropriate from the GitHub release and a link to the
+   GitHub release, Debian repository, and RPM repository.
