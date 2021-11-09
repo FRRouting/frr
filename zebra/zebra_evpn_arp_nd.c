@@ -582,21 +582,26 @@ void zebra_evpn_arp_nd_udp_sock_create(void)
 
 	if (zmh_info->es_originator_ip.s_addr) {
 		struct sockaddr_in sin;
+		int reuse = 1;
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ARP_ND_EVT)
 			zlog_debug("Create UDP sock for arp_nd redirect from %pI4",
 				   &zmh_info->es_originator_ip);
-		if (zevpn_arp_nd_info.udp_fd <= 0)
-			zevpn_arp_nd_info.udp_fd = socket(AF_INET, SOCK_DGRAM,
-							  IPPROTO_UDP);
-
 		if (zevpn_arp_nd_info.udp_fd <= 0) {
-			flog_err(EC_LIB_SOCKET,
-				 "evpn arp_nd UDP sock fd %d bind to %pI4 errno %s",
-				 zevpn_arp_nd_info.udp_fd,
-				 &zmh_info->es_originator_ip,
-				 safe_strerror(errno));
-			return;
+			zevpn_arp_nd_info.udp_fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+
+			if (zevpn_arp_nd_info.udp_fd <= 0) {
+				flog_err(EC_LIB_SOCKET,
+					 "evpn arp_nd UDP sock fd %d bind to %pI4 errno %s",
+					 zevpn_arp_nd_info.udp_fd, &zmh_info->es_originator_ip,
+					 safe_strerror(errno));
+				return;
+			}
+			if (setsockopt(zevpn_arp_nd_info.udp_fd, SOL_SOCKET, SO_REUSEADDR,
+				       (void *)&reuse, sizeof(reuse)))
+				flog_err(EC_LIB_SOCKET,
+					 "evpn arp_nd sock SO_REUSEADDR set: fd %d errno %s",
+					 zevpn_arp_nd_info.udp_fd, safe_strerror(errno));
 		}
 
 		memset(&sin, 0, sizeof(sin));
