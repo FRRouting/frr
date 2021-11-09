@@ -87,7 +87,7 @@ struct rnh {
 
 PREDECL_LIST(re_list);
 
-struct opaque {
+struct re_opaque {
 	uint16_t length;
 	uint8_t data[];
 };
@@ -169,7 +169,7 @@ struct route_entry {
 	/* Distance. */
 	uint8_t distance;
 
-	struct opaque *opaque;
+	struct re_opaque *opaque;
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
