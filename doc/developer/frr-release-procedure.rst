@@ -102,11 +102,13 @@ FRR Release Procedure
    The version field should be complete; i.e. for ``8.0.0``, the version should
    be ``8.0.0`` and not ``8.0`` or ``8``.
 
-#. Create a new branch off of ``stable/<version>``. Add a dummy commit to it
-   and create a GitHub pull request from it with the target branch set to
-   ``stable/<version>``.  This will trigger the various CI systems, which serve
-   as a sanity check on the release branch. Verify that all tests pass and that
-   all package builds are successful.
+#. Push the stable branch to a new remote branch prefixed with ``rc``::
+
+      git push origin stable/<version>:rc/version
+
+   This will trigger the NetDEF CI, which serve as a sanity check on the
+   release branch. Verify that all tests pass and that all package builds are
+   successful.
 
 #. Create and push a git tag for the version:
 
