@@ -24,6 +24,7 @@
 #include "pim_igmp.h"
 #include "pim_igmpv2.h"
 #include "pim_igmpv3.h"
+#include "pim_ssm.h"
 #include "pim_str.h"
 #include "pim_time.h"
 #include "pim_util.h"
@@ -107,9 +108,12 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 {
 	struct interface *ifp = igmp->interface;
 	struct in_addr group_addr;
+	struct pim_interface *pim_ifp;
 	char group_str[INET_ADDRSTRLEN];
 
 	on_trace(__func__, igmp->interface, from);
+
+	pim_ifp = ifp->info;
 
 	if (igmp->mtrace_only)
 		return 0;
@@ -140,6 +144,23 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 		zlog_debug("Recv IGMPv2 REPORT from %s on %s for %s", from_str,
 			   ifp->name, group_str);
 	}
+
+	/*
+	 * RFC 4604
+	 * section 2.2.1
+	 * EXCLUDE mode does not apply to SSM addresses, and an SSM-aware router
+	 * will ignore MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE requests in
+	 * the SSM range.
+	 */
+	if (pim_is_grp_ssm(pim_ifp->pim, group_addr)) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug(
+				"Ignoring IGMPv2 group record %pI4 from %s on %s exclude mode in SSM range",
+				&group_addr.s_addr, from_str, ifp->name);
+		}
+		return -1;
+	}
+
 
 	/*
 	 * RFC 3376
