@@ -144,8 +144,14 @@ FRR Release Procedure
 #. Deploy Snapcraft release (after CI system finishes the tests for snapcraft
    testplan).
 
-#. Update the Read The Docs instance to begin publishing documentation built
-   off the ``stable/<version>`` branch. Contact Quentin Young for this step.
+#. Log in to the Read The Docs instance. in the "FRRouting" project, navigate
+   to the "Overview" tab. Ensure there is a ``stable-<version>`` version listed
+   and that it is enabled. Go to "Admin" and then "Advanced Settings". Change
+   "Default version" to the new version. This ensures that the documentation
+   shown to visitors is that of the latest release by default.
+
+   This step must be performed by someone with administrative access to the
+   Read the Docs instance.
 
 #. Publish the GitHub release.
 
