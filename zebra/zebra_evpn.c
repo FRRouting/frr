@@ -1528,7 +1528,7 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 
 	if (n && !mac) {
 		zlog_warn(
-			"Failed to locate MAC %pEA for neigh %pIA VNI %u upon remote MACIP DEL",
+			"Failed to locate MAC %pEA for Neigh %pIA VNI %u upon remote MACIP DEL",
 			macaddr, ipaddr, vni);
 		return;
 	}
@@ -1536,8 +1536,13 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 	/* If the remote mac or neighbor doesn't exist there is nothing
 	 * more to do. Otherwise, uninstall the entry and then remove it.
 	 */
-	if (!mac && !n)
+	if (!mac && !n) {
+		if (IS_ZEBRA_DEBUG_VXLAN)
+			zlog_debug(
+				"Failed to locate MAC %pEA & Neigh %pIA VNI %u upon remote MACIP DEL",
+				macaddr, ipaddr, vni);
 		return;
+	}
 
 	zvrf = zevpn->vxlan_if->vrf->info;
 
