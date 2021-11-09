@@ -62,7 +62,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
+DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
@@ -2079,8 +2079,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		re->mtu = api.mtu;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
-		re->opaque = XMALLOC(MTYPE_OPAQUE,
-				     sizeof(struct opaque) + api.opaque.length);
+		re->opaque =
+			XMALLOC(MTYPE_RE_OPAQUE,
+				sizeof(struct re_opaque) + api.opaque.length);
 		re->opaque->length = api.opaque.length;
 		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
 	}
@@ -2092,7 +2093,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_OPAQUE, re->opaque);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2105,7 +2106,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_OPAQUE, re->opaque);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2134,7 +2135,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
-		XFREE(MTYPE_OPAQUE, re->opaque);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 	}
 
@@ -2163,9 +2164,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	}
 }
 
-void zapi_opaque_free(struct opaque *opaque)
+void zapi_re_opaque_free(struct re_opaque *opaque)
 {
-	XFREE(MTYPE_OPAQUE, opaque);
+	XFREE(MTYPE_RE_OPAQUE, opaque);
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)
