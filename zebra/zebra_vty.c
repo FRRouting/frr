@@ -443,6 +443,7 @@ static void zebra_show_ip_route_opaque(struct vty *vty, struct route_entry *re,
 			vty_out(vty, "    Opaque Data: %s",
 				(char *)re->opaque->data);
 		break;
+
 	case ZEBRA_ROUTE_BGP:
 		memcpy(&bzo, re->opaque->data, re->opaque->length);
 
