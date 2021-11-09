@@ -90,7 +90,7 @@ struct srv6_locator {
 	uint64_t current;
 	bool status_up;
 	struct list *chunks;
-	uint8_t perchunk_bits_length;
+	uint8_t chunk_bits_length;
 
 	QOBJ_FIELDS;
 };

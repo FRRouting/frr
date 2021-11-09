@@ -302,7 +302,7 @@ DEFPY (locator_prefix,
 
 	// currently srv6 manager supports the chunk_length to only 4 bits.
 	// the feature enables us to manipulate at most 16 chunks.
-	locator->perchunk_bits_length = DEFAULT_SRV6_LOCATOR_PERCHUNK_LEN;
+	locator->chunk_bits_length = DEFAULT_SRV6_LOCATOR_PERCHUNK_LEN;
 
 	if (!list_isempty(locator->chunks)) {
 		for (ALL_LIST_ELEMENTS_RO(locator->chunks, node, chunk)) {

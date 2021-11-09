@@ -73,6 +73,7 @@ def teardown_module(mod):
     tgen = get_topogen()
     tgen.stop_topology()
 
+
 def get_locator_chunk_from_bgpd(router, locator):
     router.vtysh_cmd(
         """
@@ -83,10 +84,12 @@ def get_locator_chunk_from_bgpd(router, locator):
         """.format(locator)
     )
 
+
 def get_locator_chunk_from_sharpd(router, locator):
     router.vtysh_cmd(
         "sharp srv6-manager get-locator-chunk {}".format(locator)
     )
+
 
 def release_locator_chunk_from_bgpd(router, locator):
     router.vtysh_cmd(
@@ -98,10 +101,12 @@ def release_locator_chunk_from_bgpd(router, locator):
         """.format(locator)
     )
 
+
 def release_locator_chunk_from_sharpd(router, locator):
     router.vtysh_cmd(
         "sharp srv6-manager release-locator-chunk {}".format(locator)
     )
+
 
 def test_srv6():
     tgen = get_topogen()
@@ -181,6 +186,7 @@ def test_srv6():
     check_srv6_locator(router, "step6/expected_locators.json")
     check_sharpd_chunk(router, "step6/expected_sharpd_chunks.json")
     check_bgpd_chunk(router, "step6/expected_bgpd_chunks.json")
+
 
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
