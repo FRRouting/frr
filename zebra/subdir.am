@@ -82,8 +82,6 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_mpls_openbsd.c \
 	zebra/zebra_mpls_null.c \
 	zebra/zebra_mpls_vty.c \
-	zebra/zebra_srv6.c \
-	zebra/zebra_srv6_vty.c \
 	zebra/zebra_mroute.c \
 	zebra/zebra_nb.c \
 	zebra/zebra_nb_config.c \
@@ -91,6 +89,7 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_nb_state.c \
 	zebra/zebra_netns_id.c \
 	zebra/zebra_netns_notify.c \
+	zebra/zebra_neigh_throttle.c \
 	zebra/zebra_nhg.c \
 	zebra/zebra_ns.c \
 	zebra/zebra_opaque.c \
@@ -107,6 +106,8 @@ zebra_zebra_SOURCES = \
 	zebra/zebra_script.c \
 	zebra/zebra_srte.c \
 	zebra/zebra_tc.c \
+	zebra/zebra_srv6.c \
+	zebra/zebra_srv6_vty.c \
 	zebra/zebra_trace.c \
 	zebra/zebra_vrf.c \
 	zebra/zebra_vty.c \
@@ -171,6 +172,7 @@ nobase_pkginclude_HEADERS += \
 	zebra/zebra_srv6_vty.h \
 	zebra/zebra_mroute.h \
 	zebra/zebra_nb.h \
+	zebra/zebra_neigh_throttle.h \
 	zebra/zebra_netns_id.h \
 	zebra/zebra_netns_notify.h \
 	zebra/zebra_nhg.h \
