@@ -5241,14 +5241,15 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
  */
 DEFPY(show_bgp_vni_all,
       show_bgp_vni_all_cmd,
-      "show bgp vni all [vtep A.B.C.D$addr] [detail$detail]",
+      "show bgp vni all [vtep A.B.C.D$addr] [detail$detail] [json$uj]",
       SHOW_STR
       BGP_STR
       VNI_HELP_STR
       VNI_ALL_HELP_STR
       VTEP_HELP_STR
       VTEP_IP_HELP_STR
-      DETAIL_HELP_STR)
+      DETAIL_HELP_STR
+      JSON_STR)
 {
 	struct bgp *bgp;
 	json_object *json = NULL;
@@ -5258,21 +5259,17 @@ DEFPY(show_bgp_vni_all,
 		return CMD_WARNING;
 
 	/* check if we need json output */
-	/*
 	if (uj)
 		json = json_object_new_object();
-	*/
 
 	evpn_show_routes_vni_all_type_all(vty, bgp, addr, json, !!detail);
 
-	/*
 	if (uj) {
 		vty_out(vty, "%s\n",
 			json_object_to_json_string_ext(
 				json, JSON_C_TO_STRING_PRETTY));
 		json_object_free(json);
 	}
-	*/
 
 	return CMD_SUCCESS;
 }
@@ -5452,23 +5449,43 @@ DEFPY(show_bgp_vni_all_imet,
  */
 DEFPY(show_bgp_vni,
       show_bgp_vni_cmd,
-      "show bgp vni "CMD_VNI_RANGE"$vni [vtep A.B.C.D$addr]",
+      "show bgp vni "CMD_VNI_RANGE"$vni [vtep A.B.C.D$addr] [json$uj]",
       SHOW_STR
       BGP_STR
       VNI_HELP_STR
       VNI_NUM_HELP_STR
       VTEP_HELP_STR
-      VTEP_IP_HELP_STR)
+      VTEP_IP_HELP_STR
+      JSON_STR)
 {
 	struct bgp *bgp;
+	json_object *json = NULL;
+	json_object *json_mac = NULL;
 
 	bgp = bgp_get_evpn();
 	if (!bgp)
 		return CMD_WARNING;
 
-	evpn_show_routes_vni(vty, bgp, vni, 0, false, addr, NULL);
-	vty_out(vty, "\n\nMAC Table:\n\n");
-	evpn_show_routes_vni(vty, bgp, vni, 0, true, addr, NULL);
+	/* check if we need json output */
+	if (uj) {
+		json = json_object_new_object();
+		json_mac = json_object_new_object();
+	}
+
+	evpn_show_routes_vni(vty, bgp, vni, 0, false, addr, json);
+
+	if (!uj)
+		vty_out(vty, "\n\nMAC Table:\n\n");
+
+	evpn_show_routes_vni(vty, bgp, vni, 0, true, addr, json_mac);
+
+	if (uj) {
+		json_object_object_add(json, "macTable", json_mac);
+		vty_out(vty, "%s\n",
+			json_object_to_json_string_ext(
+				json, JSON_C_TO_STRING_PRETTY));
+		json_object_free(json);
+	}
 
 	return CMD_SUCCESS;
 }
