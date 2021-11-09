@@ -32,6 +32,7 @@
 #include "pim_time.h"
 #include "pim_zebra.h"
 #include "pim_oil.h"
+#include "pim_ssm.h"
 
 static void group_retransmit_timer_on(struct gm_group *group);
 static long igmp_group_timer_remain_msec(struct gm_group *group);
@@ -1826,6 +1827,64 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 	} /* s_flag is clear: timer updates */
 }
 
+static bool igmp_pkt_grp_addr_ok(struct interface *ifp, const char *from_str,
+				 struct in_addr grp, int rec_type)
+{
+	struct pim_interface *pim_ifp;
+	struct in_addr grp_addr;
+
+	pim_ifp = ifp->info;
+
+	/* determine filtering status for group */
+	if (pim_is_group_filtered(pim_ifp, &grp)) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug(
+				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
+				&grp.s_addr, from_str, ifp->name,
+				pim_ifp->boundary_oil_plist);
+		}
+		return false;
+	}
+
+	/*
+	 * If we receive a igmp report with the group in 224.0.0.0/24
+	 * then we should ignore it
+	 */
+
+	grp_addr.s_addr = ntohl(grp.s_addr);
+
+	if (pim_is_group_224_0_0_0_24(grp_addr)) {
+		if (PIM_DEBUG_IGMP_PACKETS) {
+			zlog_debug(
+				"Ignoring IGMPv3 group record %pI4 from %s on %s group range falls in 224.0.0.0/24",
+				&grp.s_addr, from_str, ifp->name);
+		}
+		return false;
+	}
+
+	/*
+	 * RFC 4604
+	 * section 2.2.1
+	 * EXCLUDE mode does not apply to SSM addresses, and an SSM-aware router
+	 * will ignore MODE_IS_EXCLUDE and CHANGE_TO_EXCLUDE_MODE requests in
+	 * the SSM range.
+	 */
+	if (pim_is_grp_ssm(pim_ifp->pim, grp)) {
+		switch (rec_type) {
+		case IGMP_GRP_REC_TYPE_MODE_IS_EXCLUDE:
+		case IGMP_GRP_REC_TYPE_CHANGE_TO_EXCLUDE_MODE:
+			if (PIM_DEBUG_IGMP_PACKETS) {
+				zlog_debug(
+					"Ignoring IGMPv3 group record %pI4 from %s on %s exclude mode in SSM range",
+					&grp.s_addr, from_str, ifp->name);
+			}
+			return false;
+		}
+	}
+
+	return true;
+}
+
 int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
@@ -1834,13 +1893,9 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 	uint8_t *report_pastend = (uint8_t *)igmp_msg + igmp_msg_len;
 	struct interface *ifp = igmp->interface;
 	int i;
-	int local_ncb = 0;
-	struct pim_interface *pim_ifp;
 
 	if (igmp->mtrace_only)
 		return 0;
-
-	pim_ifp = igmp->interface->info;
 
 	if (igmp_msg_len < IGMP_V3_MSG_MIN_SIZE) {
 		zlog_warn(
@@ -1886,9 +1941,6 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		int rec_auxdatalen;
 		int rec_num_sources;
 		int j;
-		struct prefix lncb;
-		struct prefix g;
-		bool filtered = false;
 
 		if ((group_record + IGMP_V3_GROUP_RECORD_MIN_SIZE)
 		    > report_pastend) {
@@ -1946,31 +1998,7 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 		} /* for (sources) */
 
 
-		lncb.family = AF_INET;
-		lncb.u.prefix4.s_addr = 0x000000E0;
-		lncb.prefixlen = 24;
-
-		g.family = AF_INET;
-		g.u.prefix4 = rec_group;
-		g.prefixlen = IPV4_MAX_BITLEN;
-
-		/* determine filtering status for group */
-		filtered = pim_is_group_filtered(ifp->info, &rec_group);
-
-		if (PIM_DEBUG_IGMP_PACKETS && filtered)
-			zlog_debug(
-				"Filtering IGMPv3 group record %pI4 from %s on %s per prefix-list %s",
-				&rec_group, from_str, ifp->name,
-				pim_ifp->boundary_oil_plist);
-
-		/*
-		 * If we receive a igmp report with the group in 224.0.0.0/24
-		 * then we should ignore it
-		 */
-		if (prefix_match(&lncb, &g))
-			local_ncb = 1;
-
-		if (!local_ncb && !filtered)
+		if (igmp_pkt_grp_addr_ok(ifp, from_str, rec_group, rec_type))
 			switch (rec_type) {
 			case IGMP_GRP_REC_TYPE_MODE_IS_INCLUDE:
 				igmpv3_report_isin(igmp, from, rec_group,
@@ -2010,7 +2038,6 @@ int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 
 		group_record +=
 			8 + (rec_num_sources << 2) + (rec_auxdatalen << 2);
-		local_ncb = 0;
 
 	} /* for (group records) */
 
