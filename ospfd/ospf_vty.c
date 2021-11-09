@@ -4350,7 +4350,7 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 	char buf[PREFIX_STRLEN];
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_neighbor = NULL, *json_neigh_array = NULL;
-	struct timeval res;
+	struct timeval res = {.tv_sec = 0, .tv_usec = 0};
 	long time_val = 0;
 	char uptime[OSPF_TIME_DUMP_SIZE];
 
