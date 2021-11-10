@@ -9243,8 +9243,7 @@ DEFPY (no_bgp_srv6_locator,
 	return CMD_SUCCESS;
 }
 
-DEFPY(show_bgp_srv6, show_bgp_srv6_cmd,
-      "show bgp segment-routing srv6 [json]",
+DEFPY(show_bgp_srv6, show_bgp_srv6_cmd, "show bgp segment-routing srv6 [json]",
       SHOW_STR BGP_STR
       "BGP Segment Routing\n"
       "BGP Segment Routing SRv6\n" JSON_STR)

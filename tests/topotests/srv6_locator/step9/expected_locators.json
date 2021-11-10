@@ -1,0 +1,16 @@
+{
+  "locators": [
+    {
+      "name": "loc2",
+      "prefix": "2001:db8:2:2::/64",
+      "statusUp": true,
+      "chunks": []
+    },
+    {
+      "name": "loc3",
+      "prefix": "2001:db8:3:3::/64",
+      "statusUp": true,
+      "chunks": []
+    }
+  ]
+}
