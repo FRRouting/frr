@@ -754,6 +754,10 @@ def check_for_exit_vrf(lines_to_add, lines_to_del):
                 add_exit_vrf = False
         index += 1
 
+    if add_exit_vrf == True:
+        insert_key = ((prior_ctx_key),)
+            lines_to_add.append((insert_key, "exit-vrf"))
+
     for (ctx_keys, line) in lines_to_del:
         if line == "exit-vrf":
             if line_exist(lines_to_add, ctx_keys, line):
