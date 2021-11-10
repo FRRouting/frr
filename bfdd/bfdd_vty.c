@@ -579,7 +579,7 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		pl = pl_find(label);
 		if (pl)
 			bs = pl->pl_bs;
-	} else {
+	} else if (peer_str) {
 		strtosa(peer_str, &psa);
 		if (local_str) {
 			strtosa(local_str, &lsa);
@@ -599,6 +599,9 @@ _find_peer_or_error(struct vty *vty, int argc, struct cmd_token **argv,
 		}
 
 		bs = bs_peer_find(&bpc);
+	} else {
+		vty_out(vty, "%% Invalid arguments\n");
+		return NULL;
 	}
 
 	/* Find peer data. */
