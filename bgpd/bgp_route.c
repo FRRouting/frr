@@ -102,6 +102,10 @@ DEFINE_HOOK(bgp_rpki_prefix_status,
 	     const struct prefix *prefix),
 	    (peer, attr, prefix));
 
+/* Render dest to prefix_rd based on safi */
+static const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
+						safi_t safi);
+
 /* Extern from bgp_dump.c */
 extern const char *bgp_origin_str[];
 extern const char *bgp_origin_long_str[];
@@ -10712,14 +10716,15 @@ static int bgp_show_community(struct vty *vty, struct bgp *bgp,
 
 static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			  struct bgp_table *table, enum bgp_show_type type,
-			  void *output_arg, char *rd, int is_last,
+			  void *output_arg, const char *rd, int is_last,
 			  unsigned long *output_cum, unsigned long *total_cum,
 			  unsigned long *json_header_depth, uint16_t show_flags,
 			  enum rpki_states rpki_target_state)
 {
 	struct bgp_path_info *pi;
 	struct bgp_dest *dest;
-	int header = 1;
+	bool header = true;
+	bool json_detail_header = false;
 	int display;
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
@@ -10731,7 +10736,7 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 	bool all = CHECK_FLAG(show_flags, BGP_SHOW_OPT_AFI_ALL);
 
 	if (output_cum && *output_cum != 0)
-		header = 0;
+		header = false;
 
 	if (use_json && !*json_header_depth) {
 		if (all)
@@ -10761,10 +10766,19 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 		vty_out(vty, " \"%s\" : { ", rd);
 	}
 
+	/* Check for 'json detail', where we need header output once per dest */
+	if (use_json && CHECK_FLAG(show_flags, BGP_SHOW_OPT_DETAIL) &&
+	    type != bgp_show_type_dampend_paths &&
+	    type != bgp_show_type_damp_neighbor &&
+	    type != bgp_show_type_flap_statistics &&
+	    type != bgp_show_type_flap_neighbor)
+		json_detail_header = true;
+
 	/* Start processing of routes. */
 	for (dest = bgp_table_top(table); dest; dest = bgp_route_next(dest)) {
 		const struct prefix *dest_p = bgp_dest_get_prefix(dest);
 		enum rpki_states rpki_curr_state = RPKI_NOT_BEING_USED;
+		bool json_detail = json_detail_header;
 
 		pi = bgp_dest_get_bgp_path_info(dest);
 		if (pi == NULL)
@@ -11016,8 +11030,28 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				else
 					vty_out(vty, (wide ? BGP_SHOW_HEADER_WIDE
 							   : BGP_SHOW_HEADER));
-				header = 0;
+				header = false;
+
+			} else if (json_detail && json_paths != NULL) {
+				const struct prefix_rd *prd;
+				json_object *jtemp;
+
+				/* Use common detail header, for most types;
+				 * need a json 'object'.
+				 */
+
+				jtemp = json_object_new_object();
+				prd = bgp_rd_from_dest(dest, safi);
+
+				route_vty_out_detail_header(
+					vty, bgp, dest, prd, table->afi,
+					safi, jtemp);
+
+				json_object_array_add(json_paths, jtemp);
+
+				json_detail = false;
 			}
+
 			if (rd != NULL && !display && !output_count) {
 				if (!use_json)
 					vty_out(vty,
@@ -11176,6 +11210,7 @@ int bgp_show_table_rd(struct vty *vty, struct bgp *bgp, safi_t safi,
 	}
 	return CMD_SUCCESS;
 }
+
 static int bgp_show(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t safi,
 		    enum bgp_show_type type, void *output_arg,
 		    uint16_t show_flags, enum rpki_states rpki_target_state)
@@ -11260,7 +11295,8 @@ static void bgp_show_all_instances_routes_vty(struct vty *vty, afi_t afi,
 
 /* Header of detailed BGP route information */
 void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
-				 struct bgp_dest *dest, struct prefix_rd *prd,
+				 struct bgp_dest *dest,
+				 const struct prefix_rd *prd,
 				 afi_t afi, safi_t safi, json_object *json)
 {
 	struct bgp_path_info *pi;
@@ -11470,7 +11506,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	}
 }
 
-static void bgp_show_path_info(struct prefix_rd *pfx_rd,
+static void bgp_show_path_info(const struct prefix_rd *pfx_rd,
 			       struct bgp_dest *bgp_node, struct vty *vty,
 			       struct bgp *bgp, afi_t afi, safi_t safi,
 			       json_object *json, enum bgp_path_type pathtype,
@@ -11527,6 +11563,23 @@ static void bgp_show_path_info(struct prefix_rd *pfx_rd,
 
 		if (pfx_rd)
 			json_object_object_add(json, rdbuf, json_header);
+	}
+}
+
+/*
+ * Return rd based on safi
+ */
+static const struct prefix_rd *bgp_rd_from_dest(const struct bgp_dest *dest,
+						safi_t safi)
+{
+	switch (safi) {
+	case SAFI_MPLS_VPN:
+	case SAFI_ENCAP:
+	case SAFI_EVPN:
+		return (struct prefix_rd *)(bgp_dest_get_prefix(dest));
+	default:
+		return NULL;
+
 	}
 }
 

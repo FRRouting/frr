@@ -784,7 +784,7 @@ extern bool bgp_zebra_has_route_changed(struct bgp_path_info *selected);
 
 extern void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 					struct bgp_dest *dest,
-					struct prefix_rd *prd, afi_t afi,
+					const struct prefix_rd *prd, afi_t afi,
 					safi_t safi, json_object *json);
 extern void route_vty_out_detail(struct vty *vty, struct bgp *bgp,
 				 struct bgp_dest *bn,

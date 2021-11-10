@@ -122,7 +122,7 @@ class BgpRib:
         luResult(target, True, title, logstr)
 
     def RequireUnicastRoutes(self, target, afi, vrf, title, wantroutes, debug=0):
-        logstr = "RequireVpnRoutes %s" % str(wantroutes)
+        logstr = "RequireUnicastRoutes %s" % str(wantroutes)
         vrfstr = ""
         if vrf != "":
             vrfstr = "vrf %s" % (vrf)
