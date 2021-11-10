@@ -2296,6 +2296,8 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 {
 	dplane_info_from_zns(&(ctx->zd_ns_info), zns);
 
+	ctx->zd_is_update = is_update;
+
 #if defined(HAVE_NETLINK)
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
@@ -2514,7 +2516,6 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	 * it probably won't require two messages
 	 */
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
-	ctx->zd_is_update = (op == DPLANE_OP_NH_UPDATE);
 
 	ret = AOK;
 
@@ -2537,7 +2538,6 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	/* Capture namespace info */
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
 			   (op == DPLANE_OP_LSP_UPDATE));
-	ctx->zd_is_update = (op == DPLANE_OP_LSP_UPDATE);
 
 	memset(&ctx->u.lsp, 0, sizeof(ctx->u.lsp));
 
@@ -2813,7 +2813,6 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
 			   op == DPLANE_OP_RULE_UPDATE);
-	ctx->zd_is_update = (op == DPLANE_OP_RULE_UPDATE);
 
 	ctx->zd_vrf_id = new_rule->vrf_id;
 	strlcpy(ctx->zd_ifname, new_rule->ifname, sizeof(ctx->zd_ifname));
@@ -2859,7 +2858,6 @@ static int dplane_ctx_iptable_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = iptable->vrf_id;
 	memcpy(&ctx->u.iptable, iptable, sizeof(struct zebra_pbr_iptable));
@@ -2899,7 +2897,6 @@ static int dplane_ctx_ipset_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = ipset->vrf_id;
 
@@ -2934,7 +2931,6 @@ dplane_ctx_ipset_entry_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = ipset->vrf_id;
 
@@ -3015,7 +3011,6 @@ dplane_route_update_internal(struct route_node *rn,
 		 */
 		if ((op == DPLANE_OP_ROUTE_UPDATE) &&
 		    old_re && (old_re != re)) {
-			ctx->zd_is_update = true;
 
 			old_re->dplane_sequence =
 				zebra_router_get_next_sequence();
