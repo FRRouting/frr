@@ -200,7 +200,7 @@ Stage 3 - Publish
 
    .. code-block:: console
 
-      cp <old-version>-launch.md <version>-launch.md
+      cp <old-version>.md <version>.md
 
    Paste the GitHub release announcement text into this document, and **remove
    line breaks**. In other words, this::
