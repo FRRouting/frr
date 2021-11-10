@@ -12461,7 +12461,7 @@ DEFPY (show_ip_bgp_instance_all,
        JSON_STR
       "Increase table width for longer prefixes\n")
 {
-	afi_t afi = AFI_IP;
+	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0;
@@ -14084,7 +14084,7 @@ DEFUN (show_ip_bgp_flowspec_routes_detailed,
        "Detailed information on flowspec entries\n"
        JSON_STR)
 {
-	afi_t afi = AFI_IP;
+	afi_t afi = AFI_IP6;
 	safi_t safi = SAFI_UNICAST;
 	struct bgp *bgp = NULL;
 	int idx = 0;
