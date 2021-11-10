@@ -833,6 +833,13 @@ void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
 	}
 }
 
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q)
+{
+	struct zebra_dplane_ctx *ctx = TAILQ_FIRST(q);
+
+	return ctx;
+}
+
 /* Dequeue a context block from the head of a list */
 struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q)
 {

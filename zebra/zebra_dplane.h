@@ -274,6 +274,7 @@ void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
 
 /* Dequeue a context block from the head of caller's tailq */
 struct zebra_dplane_ctx *dplane_ctx_dequeue(struct dplane_ctx_q *q);
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q);
 
 /*
  * Accessors for information from the context object
