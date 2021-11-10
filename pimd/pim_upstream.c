@@ -1720,8 +1720,6 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	case PIM_REG_PRUNE:
 		strlcpy(state_str, "RegPrune", state_str_len);
 		break;
-	default:
-		strlcpy(state_str, "RegUnknown", state_str_len);
 	}
 	return state_str;
 }
@@ -1785,7 +1783,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		}
 		pim_null_register_send(up);
 		break;
-	default:
+	case PIM_REG_NOINFO:
 		break;
 	}
 
