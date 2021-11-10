@@ -770,7 +770,7 @@ DEFPY(graceful_restart, graceful_restart_cmd,
 }
 
 DEFPY(no_graceful_restart, no_graceful_restart_cmd,
-      "no graceful-restart [period (1-1800)]",
+      "no graceful-restart [grace-period (1-1800)]",
       NO_STR OSPF_GR_STR
       "Maximum length of the 'grace period'\n"
       "Maximum length of the 'grace period' in seconds\n")
