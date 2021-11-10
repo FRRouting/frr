@@ -636,6 +636,9 @@ static Elf_Scn *elf_find_addr(struct elffile *ef, uint64_t addr, size_t *idx)
 		Elf_Scn *scn = elf_getscn(ef->elf, i);
 		GElf_Shdr _shdr, *shdr = gelf_getshdr(scn, &_shdr);
 
+		/* virtual address is kinda meaningless for TLS sections */
+		if (shdr->sh_flags & SHF_TLS)
+			continue;
 		if (addr < shdr->sh_addr ||
 		    addr >= shdr->sh_addr + shdr->sh_size)
 			continue;
