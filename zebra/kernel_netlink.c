@@ -1125,8 +1125,25 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	while (true) {
 		status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
 					  sizeof(nl_batch_rx_buf));
-		if (status == -1 || status == 0)
+		/*
+		 * status == -1 is a full on failure somewhere
+		 * since we don't know where the problem happened
+		 * we must mark all as failed
+		 *
+		 * Else we mark everything as worked
+		 *
+		 */
+		if (status == -1 || status == 0) {
+			while ((ctx = dplane_ctx_dequeue(&(bth->ctx_list))) !=
+			       NULL) {
+				if (status == -1)
+					dplane_ctx_set_status(
+						ctx,
+						ZEBRA_DPLANE_REQUEST_FAILURE);
+				dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
+			}
 			return status;
+		}
 
 		h = (struct nlmsghdr *)nl_batch_rx_buf;
 		ignore_msg = false;
