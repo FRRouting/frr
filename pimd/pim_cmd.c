@@ -2446,8 +2446,6 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 	case PIM_REG_PRUNE:
 		strlcpy(state_str, "RegP", state_str_len);
 		break;
-	default:
-		strlcpy(state_str, "Unk", state_str_len);
 	}
 	return state_str;
 }
