@@ -1695,7 +1695,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 	do {
 		/* Handle signals if any */
 		if (m->handle_signals)
-			quagga_sigevent_process();
+			frr_sigevent_process();
 
 		pthread_mutex_lock(&m->mtx);
 

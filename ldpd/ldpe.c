@@ -82,7 +82,7 @@ sigint(void)
 	ldpe_shutdown();
 }
 
-static struct quagga_signal_t ldpe_signals[] =
+static struct frr_signal_t ldpe_signals[] =
 {
 	{
 		.signal = SIGHUP,
