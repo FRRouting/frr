@@ -166,7 +166,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	match_ip_address, match_ip_address_cmd,
-	"match ip address WORD$name",
+	"match ip address ACCESSLIST4_NAME$name",
 	MATCH_STR
 	IP_STR
 	"Match address of route\n"
@@ -186,7 +186,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_match_ip_address, no_match_ip_address_cmd,
-	"no match ip address [WORD]",
+	"no match ip address [ACCESSLIST4_NAME]",
 	NO_STR
 	MATCH_STR
 	IP_STR
@@ -243,7 +243,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	match_ip_next_hop, match_ip_next_hop_cmd,
-	"match ip next-hop WORD$name",
+	"match ip next-hop ACCESSLIST4_NAME$name",
 	MATCH_STR
 	IP_STR
 	"Match next-hop address of route\n"
@@ -263,7 +263,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_match_ip_next_hop, no_match_ip_next_hop_cmd,
-	"no match ip next-hop [WORD]",
+	"no match ip next-hop [ACCESSLIST4_NAME]",
 	NO_STR
 	MATCH_STR
 	IP_STR
@@ -358,7 +358,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	match_ipv6_address, match_ipv6_address_cmd,
-	"match ipv6 address WORD$name",
+	"match ipv6 address ACCESSLIST6_NAME$name",
 	MATCH_STR
 	IPV6_STR
 	"Match IPv6 address of route\n"
@@ -378,7 +378,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_match_ipv6_address, no_match_ipv6_address_cmd,
-	"no match ipv6 address [WORD]",
+	"no match ipv6 address [ACCESSLIST6_NAME]",
 	NO_STR
 	MATCH_STR
 	IPV6_STR
