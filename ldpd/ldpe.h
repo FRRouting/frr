@@ -30,9 +30,6 @@
 #include "ldpd.h"
 #include "lib/ldp_sync.h"
 
-#define min(x,y) ((x) <= (y) ? (x) : (y))
-#define max(x,y) ((x) > (y) ? (x) : (y))
-
 /* forward declarations */
 TAILQ_HEAD(mapping_head, mapping_entry);
 

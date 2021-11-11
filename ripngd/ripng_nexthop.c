@@ -43,8 +43,6 @@ DEFINE_MTYPE_STATIC(RIPNGD, RIPNG_RTE_DATA, "RIPng rte data");
 
 #define DEBUG 1
 
-#define min(a, b) ((a) < (b) ? (a) : (b))
-
 struct ripng_rte_data {
 	struct prefix_ipv6 *p;
 	struct ripng_info *rinfo;
@@ -151,7 +149,7 @@ void ripng_rte_send(struct list *ripng_rte_list, struct interface *ifp,
 	if (mtu < 0)
 		mtu = IFMINMTU;
 
-	rtemax = (min(mtu, RIPNG_MAX_PACKET_SIZE) - IPV6_HDRLEN
+	rtemax = (MIN(mtu, RIPNG_MAX_PACKET_SIZE) - IPV6_HDRLEN
 		  - sizeof(struct udphdr) - sizeof(struct ripng_packet)
 		  + sizeof(struct rte))
 		 / sizeof(struct rte);
