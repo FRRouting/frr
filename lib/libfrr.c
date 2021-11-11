@@ -121,7 +121,6 @@ static const struct option lo_always[] = {
 	{"scriptdir", required_argument, NULL, OPTION_SCRIPTDIR},
 	{"log", required_argument, NULL, OPTION_LOG},
 	{"log-level", required_argument, NULL, OPTION_LOGLEVEL},
-	{"tcli", no_argument, NULL, OPTION_TCLI},
 	{"command-log-always", no_argument, NULL, OPTION_LOGGING},
 	{"limit-fds", required_argument, NULL, OPTION_LIMIT_FDS},
 	{NULL}};
@@ -138,31 +137,43 @@ static const struct optspec os_always = {
 	"      --scriptdir    Override scripts directory\n"
 	"      --log          Set Logging to stdout, syslog, or file:<name>\n"
 	"      --log-level    Set Logging Level to use, debug, info, warn, etc\n"
-	"      --tcli         Use transaction-based CLI\n"
 	"      --limit-fds    Limit number of fds supported\n",
 	lo_always};
 
 
-static const struct option lo_cfg_pid_dry[] = {
-	{"pid_file", required_argument, NULL, 'i'},
+static const struct option lo_cfg[] = {
 	{"config_file", required_argument, NULL, 'f'},
+	{"dryrun", no_argument, NULL, 'C'},
+	{NULL}};
+static const struct optspec os_cfg = {
+	"f:C",
+	"  -f, --config_file  Set configuration file name\n"
+	"  -C, --dryrun       Check configuration for validity and exit\n",
+	lo_cfg};
+
+
+static const struct option lo_fullcli[] = {
+	{"terminal", no_argument, NULL, 't'},
+	{"tcli", no_argument, NULL, OPTION_TCLI},
 #ifdef HAVE_SQLITE3
 	{"db_file", required_argument, NULL, OPTION_DB_FILE},
 #endif
-	{"dryrun", no_argument, NULL, 'C'},
-	{"terminal", no_argument, NULL, 't'},
 	{NULL}};
-static const struct optspec os_cfg_pid_dry = {
-	"f:i:Ct",
-	"  -f, --config_file  Set configuration file name\n"
-	"  -i, --pid_file     Set process identifier file name\n"
-#ifdef HAVE_SQLITE3
-	"      --db_file      Set database file name\n"
-#endif
-	"  -C, --dryrun       Check configuration for validity and exit\n"
+static const struct optspec os_fullcli = {
+	"t",
+	"      --tcli         Use transaction-based CLI\n"
 	"  -t, --terminal     Open terminal session on stdio\n"
 	"  -d -t              Daemonize after terminal session ends\n",
-	lo_cfg_pid_dry};
+	lo_fullcli};
+
+
+static const struct option lo_pid[] = {
+	{"pid_file", required_argument, NULL, 'i'},
+	{NULL}};
+static const struct optspec os_pid = {
+	"i:",
+	"  -i, --pid_file     Set process identifier file name\n",
+	lo_pid};
 
 
 static const struct option lo_zclient[] = {
@@ -320,8 +331,12 @@ void frr_preinit(struct frr_daemon_info *daemon, int argc, char **argv)
 	umask(0027);
 
 	opt_extend(&os_always);
-	if (!(di->flags & FRR_NO_CFG_PID_DRY))
-		opt_extend(&os_cfg_pid_dry);
+	if (!(di->flags & FRR_NO_SPLIT_CONFIG))
+		opt_extend(&os_cfg);
+	if (!(di->flags & FRR_LIMITED_CLI))
+		opt_extend(&os_fullcli);
+	if (!(di->flags & FRR_NO_PID))
+		opt_extend(&os_pid);
 	if (!(di->flags & FRR_NO_PRIVSEP))
 		opt_extend(&os_user);
 	if (!(di->flags & FRR_NO_ZCLIENT))
@@ -459,12 +474,12 @@ static int frr_opt(int opt)
 		frr_defaults_profile_set(optarg);
 		break;
 	case 'i':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_PID)
 			return 1;
 		di->pid_file = optarg;
 		break;
 	case 'f':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
 		di->config_file = optarg;
 		break;
@@ -497,18 +512,18 @@ static int frr_opt(int opt)
 		break;
 #ifdef HAVE_SQLITE3
 	case OPTION_DB_FILE:
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_PID)
 			return 1;
 		di->db_file = optarg;
 		break;
 #endif
 	case 'C':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_NO_SPLIT_CONFIG)
 			return 1;
 		di->dryrun = true;
 		break;
 	case 't':
-		if (di->flags & FRR_NO_CFG_PID_DRY)
+		if (di->flags & FRR_LIMITED_CLI)
 			return 1;
 		di->terminal = true;
 		break;
@@ -986,7 +1001,7 @@ void frr_config_fork(void)
 {
 	hook_call(frr_late_init, master);
 
-	if (!(di->flags & FRR_NO_CFG_PID_DRY)) {
+	if (!(di->flags & FRR_NO_SPLIT_CONFIG)) {
 		/* Don't start execution if we are in dry-run mode */
 		if (di->dryrun) {
 			frr_config_read_in(NULL);
