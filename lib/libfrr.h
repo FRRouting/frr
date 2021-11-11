@@ -40,15 +40,17 @@ extern "C" {
 #define FRR_NO_PRIVSEP		(1 << 0)
 #define FRR_NO_TCPVTY		(1 << 1)
 #define FRR_LIMITED_CLI		(1 << 2)
-#define FRR_NO_CFG_PID_DRY	(1 << 3)
-#define FRR_NO_ZCLIENT		(1 << 4)
+#define FRR_NO_SPLIT_CONFIG	(1 << 3)
+#define FRR_NO_PID		(1 << 4)
+#define FRR_NO_CFG_PID_DRY	(FRR_NO_PID | FRR_NO_SPLIT_CONFIG)
+#define FRR_NO_ZCLIENT		(1 << 5)
 /* If FRR_DETACH_LATER is used, the daemon will keep its parent running
  * until frr_detach() is called.  Normally "somedaemon -d" returns once the
  * main event loop is reached in the daemon;  use this for extra startup bits.
  *
  * Does nothing if -d isn't used.
  */
-#define FRR_DETACH_LATER	(1 << 5)
+#define FRR_DETACH_LATER	(1 << 6)
 
 enum frr_cli_mode {
 	FRR_CLI_CLASSIC = 0,
