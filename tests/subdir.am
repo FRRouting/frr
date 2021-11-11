@@ -139,8 +139,8 @@ check_PROGRAMS += \
 endif
 
 tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
-	mkdir -p tests/lib/cli
-	sed \
+	@mkdir -p tests/lib/cli
+	$(AM_V_GEN)sed \
 		-e 's%"vtysh/vtysh\.h"%"tests/helpers/c/tests.h"%' \
 		-e 's/vtysh_init_cmd/test_init_cmd/' \
 		-e 's/VTYSH_[A-Z][A-Z_0-9]*/0/g' \
@@ -149,8 +149,8 @@ tests/lib/cli/test_commands_defun.c: vtysh/vtysh_cmd.c
 CLEANFILES += tests/lib/cli/test_commands_defun.c
 
 tests/isisd/test_fuzz_isis_tlv_tests.h: $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz
-	mkdir -p tests/isisd
-	gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
+	@mkdir -p tests/isisd
+	$(AM_V_GEN)gzip -d < $(top_srcdir)/tests/isisd/test_fuzz_isis_tlv_tests.h.gz > "$@"
 CLEANFILES += tests/isisd/test_fuzz_isis_tlv_tests.h
 
 tests/isisd/tests_isisd_test_fuzz_isis_tlv-test_fuzz_isis_tlv.$(OBJEXT): \
