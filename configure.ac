@@ -1590,8 +1590,17 @@ if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
 
-AC_CHECK_LIB([crypt], [crypt], [],
-		    [AC_CHECK_LIB([crypto], [DES_crypt])])
+LIBS_save="$LIBS"
+AC_CHECK_LIB([crypt], [crypt], [], [
+  AC_CHECK_LIB([crypto], [DES_crypt])
+])
+LIBCRYPT="$LIBS"
+LIBCRYPT="${LIBCRYPT%$LIBS_save}"
+LIBCRYPT="${LIBCRYPT#$LIBS_save}"
+AC_SUBST([LIBCRYPT])
+LIBS="$LIBS_save"
+unset LIBS_save
+
 AC_CHECK_LIB([resolv], [res_init])
 
 dnl ---------------------------
@@ -2045,6 +2054,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
 dnl ---------------
 dnl dlopen & dlinfo
 dnl ---------------
+LIBS_save="$LIBS"
 AC_SEARCH_LIBS([dlopen], [dl dld], [], [
   AC_MSG_ERROR([unable to find the dlopen()])
 ])
@@ -2090,6 +2100,13 @@ AC_CACHE_CHECK([for dlinfo(RTLD_DI_LINKMAP)], [frr_cv_rtld_di_linkmap], [
 if test "$frr_cv_rtld_di_linkmap" = "yes"; then
   AC_DEFINE([HAVE_DLINFO_LINKMAP], [1], [Have dlinfo RTLD_DI_LINKMAP])
 fi
+
+LIBDL="$LIBS"
+LIBDL="${LIBDL%$LIBS_save}"
+LIBDL="${LIBDL#$LIBS_save}"
+AC_SUBST([LIBDL])
+LIBS="$LIBS_save"
+unset LIBS_save
 
 dnl ##########################################################################
 dnl test "$enable_clippy_only" != "yes"
