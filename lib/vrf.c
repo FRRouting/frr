@@ -562,7 +562,8 @@ void vrf_terminate(void)
 
 	/* Finally terminate default VRF */
 	vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	vrf_terminate_single(vrf);
+	if (vrf)
+		vrf_terminate_single(vrf);
 }
 
 int vrf_socket(int domain, int type, int protocol, vrf_id_t vrf_id,
