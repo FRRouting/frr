@@ -1026,7 +1026,7 @@ void if_up(struct interface *ifp)
 
 	zif = ifp->info;
 	zif->up_count++;
-	quagga_timestamp(2, zif->up_last, sizeof(zif->up_last));
+	frr_timestamp(2, zif->up_last, sizeof(zif->up_last));
 
 	/* Notify the protocol daemons. */
 	if (ifp->ptm_enable && (ifp->ptm_status == ZEBRA_PTM_STATUS_DOWN)) {
@@ -1090,7 +1090,7 @@ void if_down(struct interface *ifp)
 
 	zif = ifp->info;
 	zif->down_count++;
-	quagga_timestamp(2, zif->down_last, sizeof(zif->down_last));
+	frr_timestamp(2, zif->down_last, sizeof(zif->down_last));
 
 	if_down_nhg_dependents(ifp);
 

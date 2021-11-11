@@ -756,8 +756,8 @@ void bgp_update_delay_end(struct bgp *bgp)
 	bgp->implicit_eors = 0;
 	bgp->explicit_eors = 0;
 
-	quagga_timestamp(3, bgp->update_delay_end_time,
-			 sizeof(bgp->update_delay_end_time));
+	frr_timestamp(3, bgp->update_delay_end_time,
+		      sizeof(bgp->update_delay_end_time));
 
 	/*
 	 * Add an end-of-initial-update marker to the main process queues so
@@ -804,8 +804,8 @@ void bgp_start_routeadv(struct bgp *bgp)
 	if (bgp->main_peers_update_hold)
 		return;
 
-	quagga_timestamp(3, bgp->update_delay_peers_resume_time,
-			 sizeof(bgp->update_delay_peers_resume_time));
+	frr_timestamp(3, bgp->update_delay_peers_resume_time,
+		      sizeof(bgp->update_delay_peers_resume_time));
 
 	for (ALL_LIST_ELEMENTS(bgp->peer, node, nnode, peer)) {
 		if (!peer_established(peer))
@@ -1057,8 +1057,8 @@ static void bgp_update_delay_begin(struct bgp *bgp)
 		thread_add_timer(bm->master, bgp_establish_wait_timer, bgp,
 				 bgp->v_establish_wait, &bgp->t_establish_wait);
 
-	quagga_timestamp(3, bgp->update_delay_begin_time,
-			 sizeof(bgp->update_delay_begin_time));
+	frr_timestamp(3, bgp->update_delay_begin_time,
+		      sizeof(bgp->update_delay_begin_time));
 }
 
 static void bgp_update_delay_process_status_change(struct peer *peer)

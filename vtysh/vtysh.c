@@ -484,7 +484,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	if (vtysh_add_timestamp && strncmp(line, "exit", 4)) {
 		char ts[48];
 
-		(void)quagga_timestamp(3, ts, sizeof(ts));
+		(void)frr_timestamp(3, ts, sizeof(ts));
 		vty_out(vty, "%% %s\n\n", ts);
 	}
 

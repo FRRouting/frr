@@ -64,7 +64,7 @@ const char *lookup_msg(const struct message *mz, int kz, const char *nf)
 }
 
 /* For time string format. */
-size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
+size_t frr_timestamp(int timestamp_precision, char *buf, size_t buflen)
 {
 	static struct {
 		time_t last;

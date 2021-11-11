@@ -340,9 +340,9 @@ struct zebra_if {
 
 	/* Information about up/down changes */
 	unsigned int up_count;
-	char up_last[QUAGGA_TIMESTAMP_LEN];
+	char up_last[FRR_TIMESTAMP_LEN];
 	unsigned int down_count;
-	char down_last[QUAGGA_TIMESTAMP_LEN];
+	char down_last[FRR_TIMESTAMP_LEN];
 
 #if defined(HAVE_RTADV)
 	struct rtadvconf rtadv;
