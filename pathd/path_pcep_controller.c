@@ -38,14 +38,6 @@
 
 #define MAX_RECONNECT_DELAY 120
 
-#define min(a, b)                                                              \
-	({                                                                     \
-		__typeof__(a) _a = (a);                                        \
-		__typeof__(b) _b = (b);                                        \
-		_a <= _b ? _a : _b;                                            \
-	})
-
-
 /* Event handling data structures */
 enum pcep_ctrl_event_type {
 	EV_UPDATE_PCC_OPTS = 1,
@@ -1078,7 +1070,7 @@ void remove_pcc_state(struct ctrl_state *ctrl_state,
 
 uint32_t backoff_delay(uint32_t max, uint32_t base, uint32_t retry_count)
 {
-	uint32_t a = min(max, base * (1 << retry_count));
+	uint32_t a = MIN(max, base * (1 << retry_count));
 	uint64_t r = frr_weak_random(), m = RAND_MAX;
 	uint32_t b = (a / 2) + (r * (a / 2)) / m;
 	return b;

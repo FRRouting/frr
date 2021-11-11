@@ -1002,8 +1002,6 @@ uint8_t *aspath_snmp_pathseg(struct aspath *as, size_t *varlen)
 	return stream_pnt(snmp_stream);
 }
 
-#define min(A,B) ((A) < (B) ? (A) : (B))
-
 static struct assegment *aspath_aggregate_as_set_add(struct aspath *aspath,
 						     struct assegment *asset,
 						     as_t as)
@@ -1060,7 +1058,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 			break;
 
 		/* Minimum segment length. */
-		minlen = min(seg1->length, seg2->length);
+		minlen = MIN(seg1->length, seg2->length);
 
 		for (match = 0; match < minlen; match++)
 			if (seg1->as[match] != seg2->as[match])

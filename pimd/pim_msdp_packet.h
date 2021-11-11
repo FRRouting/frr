@@ -58,7 +58,8 @@
  * fragmentation */
 #define PIM_MSDP_SA_MAX_ENTRY_CNT 120
 
-#define PIM_MSDP_MAX_PACKET_SIZE max(PIM_MSDP_SA_TLV_MAX_SIZE, PIM_MSDP_KA_TLV_MAX_SIZE)
+#define PIM_MSDP_MAX_PACKET_SIZE                                               \
+	MAX(PIM_MSDP_SA_TLV_MAX_SIZE, PIM_MSDP_KA_TLV_MAX_SIZE)
 
 #define PIM_MSDP_PKT_TYPE_STRLEN 16
 

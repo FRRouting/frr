@@ -81,13 +81,6 @@ typedef uint32_t as_t;
 typedef uint16_t as16_t; /* we may still encounter 16 Bit asnums */
 typedef uint16_t bgp_size_t;
 
-#define max(a, b)                                                              \
-	({                                                                     \
-		__typeof__(a) _a = (a);                                        \
-		__typeof__(b) _b = (b);                                        \
-		_a > _b ? _a : _b;                                             \
-	})
-
 enum bgp_af_index {
 	BGP_AF_START,
 	BGP_AF_IPV4_UNICAST = BGP_AF_START,

@@ -25,13 +25,11 @@
 
 #include "smux.h"
 
-#define min(A,B) ((A) < (B) ? (A) : (B))
-
 int oid_compare(const oid *o1, int o1_len, const oid *o2, int o2_len)
 {
 	int i;
 
-	for (i = 0; i < min(o1_len, o2_len); i++) {
+	for (i = 0; i < MIN(o1_len, o2_len); i++) {
 		if (o1[i] < o2[i])
 			return -1;
 		else if (o1[i] > o2[i])
