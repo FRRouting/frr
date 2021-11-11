@@ -94,7 +94,7 @@ struct frr_daemon_info {
 	const char *copyright;
 	char startinfo[128];
 
-	struct quagga_signal_t *signals;
+	struct frr_signal_t *signals;
 	size_t n_signals;
 
 	struct zebra_privs_t *privs;

@@ -101,7 +101,7 @@ static void nhrp_request_stop(void)
 	exit(0);
 }
 
-static struct quagga_signal_t sighandlers[] = {
+static struct frr_signal_t sighandlers[] = {
 	{
 		.signal = SIGUSR1,
 		.handler = &nhrp_sigusr1,

@@ -90,7 +90,7 @@ void sigusr1(void);
 static void bgp_exit(int);
 static void bgp_vrf_terminate(void);
 
-static struct quagga_signal_t bgp_signals[] = {
+static struct frr_signal_t bgp_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,

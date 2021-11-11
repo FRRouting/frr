@@ -36,18 +36,18 @@ static void sigusr2(void)
 	printf("processed usr2\n");
 }
 
-struct quagga_signal_t sigs[] = {{
-					 .signal = SIGHUP,
-					 .handler = &sighup,
-				 },
-				 {
-					 .signal = SIGUSR1,
-					 .handler = &sigusr1,
-				 },
-				 {
-					 .signal = SIGUSR2,
-					 .handler = &sigusr2,
-				 }};
+struct frr_signal_t sigs[] = {{
+				      .signal = SIGHUP,
+				      .handler = &sighup,
+			      },
+			      {
+				      .signal = SIGUSR1,
+				      .handler = &sigusr1,
+			      },
+			      {
+				      .signal = SIGUSR2,
+				      .handler = &sigusr2,
+			      }};
 
 struct thread_master *master;
 struct thread t;

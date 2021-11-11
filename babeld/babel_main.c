@@ -115,7 +115,7 @@ babel_sigusr1 (void)
     zlog_rotate ();
 }
 
-static struct quagga_signal_t babel_signals[] =
+static struct frr_signal_t babel_signals[] =
   {
     {
       .signal = SIGUSR1,

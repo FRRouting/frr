@@ -1301,7 +1301,7 @@ struct zebra_privs_t watchfrr_privs = {
 #endif
 };
 
-static struct quagga_signal_t watchfrr_signals[] = {
+static struct frr_signal_t watchfrr_signals[] = {
 	{
 		.signal = SIGINT,
 		.handler = sigint,
