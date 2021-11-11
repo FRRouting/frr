@@ -3006,8 +3006,8 @@ following zebra command -
 
 .. clicmd:: evpn mh startup-delay (0-3600)
 
-+Support with VRF network namespace backend
-+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Support with VRF network namespace backend
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 It is possible to separate overlay networks contained in VXLAN interfaces from
 underlay networks by using VRFs. VRF-lite and VRF-netns backends can be used for
 that. In the latter case, it is necessary to set both bridge and vxlan interface
