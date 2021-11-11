@@ -137,6 +137,7 @@ def check_rib(name, cmd, expected_file):
     success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
     assert result is None, "Failed"
 
+
 def test_rib():
     check_rib("r1", "show bgp ipv4 vpn json", "r1/vpnv4_rib.json")
     check_rib("r2", "show bgp ipv4 vpn json", "r2/vpnv4_rib.json")
