@@ -705,11 +705,11 @@ static int ospf_if_delete_hook(struct interface *ifp)
 	 */
 	ospf_del_if_params(ifp, IF_DEF_PARAMS(ifp));
 
-	route_table_finish(IF_OIFS(ifp));
-
 	for (rn = route_top(IF_OIFS_PARAMS(ifp)); rn; rn = route_next(rn))
 		if (rn->info)
 			ospf_del_if_params(ifp, rn->info);
+
+	route_table_finish(IF_OIFS(ifp));
 	route_table_finish(IF_OIFS_PARAMS(ifp));
 
 	XFREE(MTYPE_OSPF_IF_INFO, ifp->info);
