@@ -66,6 +66,9 @@ pimd_pimd_SOURCES = \
 	pimd/pim_vxlan.c \
 	pimd/pim_zpthread.c \
 	pimd/pimd.c \
+	# end
+
+nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
 	yang/frr-igmp.yang.c \
@@ -129,12 +132,6 @@ noinst_HEADERS += \
 
 clippy_scan += \
 	pimd/pim_cmd.c \
-	# end
-
-nodist_pimd_pimd_SOURCES = \
-	yang/frr-igmp.yang.c \
-	yang/frr-pim.yang.c \
-	yang/frr-pim-rp.yang.c \
 	# end
 
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
