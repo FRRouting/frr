@@ -1,0 +1,21 @@
+if !OSPFD
+PYTEST_IGNORE += --ignore=ospfd/
+endif
+OSPFD_TEST_LDADD = ospfd/libfrrospf.a $(ALL_TESTS_LDADD)
+noinst_HEADERS += \
+	tests/ospfd/common.h \
+	# end
+
+
+if OSPFD
+check_PROGRAMS += tests/ospfd/test_ospf_spf
+endif
+tests_ospfd_test_ospf_spf_CFLAGS = $(TESTS_CFLAGS)
+tests_ospfd_test_ospf_spf_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospfd_test_ospf_spf_LDADD = $(OSPFD_TEST_LDADD)
+tests_ospfd_test_ospf_spf_SOURCES = tests/ospfd/test_ospf_spf.c tests/ospfd/common.c tests/ospfd/topologies.c
+EXTRA_DIST += \
+	tests/ospfd/test_ospf_spf.py \
+	tests/ospfd/test_ospf_spf.in \
+	tests/ospfd/test_ospf_spf.refout \
+	# end

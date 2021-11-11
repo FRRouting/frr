@@ -1,0 +1,82 @@
+if !BGPD
+PYTEST_IGNORE += --ignore=bgpd/
+endif
+BGP_TEST_LDADD = bgpd/libbgp.a $(RFPLDADD) $(ALL_TESTS_LDADD) $(LIBYANG_LIBS) $(UST_LIBS) -lm
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_aspath
+endif
+tests_bgpd_test_aspath_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_aspath_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_aspath_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_aspath_SOURCES = tests/bgpd/test_aspath.c
+EXTRA_DIST += tests/bgpd/test_aspath.py
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_bgp_table
+endif
+tests_bgpd_test_bgp_table_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_bgp_table_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_bgp_table_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_bgp_table_SOURCES = tests/bgpd/test_bgp_table.c
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_capability
+endif
+tests_bgpd_test_capability_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_capability_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_capability_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_capability_SOURCES = tests/bgpd/test_capability.c
+EXTRA_DIST += tests/bgpd/test_capability.py
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_ecommunity
+endif
+tests_bgpd_test_ecommunity_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_ecommunity_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_ecommunity_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_ecommunity_SOURCES = tests/bgpd/test_ecommunity.c
+EXTRA_DIST += tests/bgpd/test_ecommunity.py
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_mp_attr
+endif
+tests_bgpd_test_mp_attr_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_mp_attr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_mp_attr_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_mp_attr_SOURCES = tests/bgpd/test_mp_attr.c
+EXTRA_DIST += tests/bgpd/test_mp_attr.py
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_mpath
+endif
+tests_bgpd_test_mpath_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_mpath_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_mpath_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_mpath_SOURCES = tests/bgpd/test_mpath.c
+EXTRA_DIST += tests/bgpd/test_mpath.py
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_packet
+endif
+tests_bgpd_test_packet_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_packet_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_packet_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_packet_SOURCES = tests/bgpd/test_packet.c
+
+
+if BGPD
+check_PROGRAMS += tests/bgpd/test_peer_attr
+endif
+tests_bgpd_test_peer_attr_CFLAGS = $(TESTS_CFLAGS)
+tests_bgpd_test_peer_attr_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_bgpd_test_peer_attr_LDADD = $(BGP_TEST_LDADD)
+tests_bgpd_test_peer_attr_SOURCES = tests/bgpd/test_peer_attr.c
+EXTRA_DIST += tests/bgpd/test_peer_attr.py
