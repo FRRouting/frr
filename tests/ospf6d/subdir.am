@@ -1,0 +1,19 @@
+if !OSPF6D
+PYTEST_IGNORE += --ignore=ospf6d/
+endif
+OSPF6_TEST_LDADD = ospf6d/libospf6.a $(ALL_TESTS_LDADD)
+
+
+if OSPF6D
+check_PROGRAMS += tests/ospf6d/test_lsdb
+endif
+tests_ospf6d_test_lsdb_CFLAGS = $(TESTS_CFLAGS)
+tests_ospf6d_test_lsdb_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_ospf6d_test_lsdb_LDADD = $(OSPF6_TEST_LDADD)
+tests_ospf6d_test_lsdb_SOURCES = tests/ospf6d/test_lsdb.c tests/lib/cli/common_cli.c
+clippy_scan += tests/ospf6d/test_lsdb.c
+EXTRA_DIST += \
+	tests/ospf6d/test_lsdb.py \
+	tests/ospf6d/test_lsdb.in \
+	tests/ospf6d/test_lsdb.refout \
+	# end
