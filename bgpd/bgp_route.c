@@ -2775,8 +2775,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 	}
 	/* Is it end of initial update? (after startup) */
 	if (!dest) {
-		quagga_timestamp(3, bgp->update_delay_zebra_resume_time,
-				 sizeof(bgp->update_delay_zebra_resume_time));
+		frr_timestamp(3, bgp->update_delay_zebra_resume_time,
+			      sizeof(bgp->update_delay_zebra_resume_time));
 
 		bgp->main_zebra_update_hold = 0;
 		FOREACH_AFI_SAFI (afi, safi) {
