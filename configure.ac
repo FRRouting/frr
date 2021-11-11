@@ -820,6 +820,8 @@ AS_IF([test "$host" = "$build"], [
   AC_CHECK_HEADER([gelf.h], [], [
     AC_MSG_ERROR([libelf headers are required for building clippy.  (Host only when cross-compiling.)])
   ])
+
+  LIBS_save="$LIBS"
   AC_CHECK_LIB([elf], [elf_memory], [], [
     AC_MSG_ERROR([libelf is required for building clippy.  (Host only when cross-compiling.)])
   ])
@@ -830,6 +832,8 @@ AS_IF([test "$host" = "$build"], [
   AC_CHECK_LIB([elf], [gelf_getnote], [
     AC_DEFINE([HAVE_GELF_GETNOTE], [1], [Have gelf_getnote()])
   ])
+  LIBS="$LIBS_save"
+  unset LIBS_save
 
   FRR_PYTHON_DEV
 ], [
