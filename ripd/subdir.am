@@ -3,7 +3,6 @@
 #
 
 if RIPD
-noinst_LIBRARIES += ripd/librip.a
 sbin_PROGRAMS += ripd/ripd
 vtysh_scan += \
 	ripd/rip_cli.c \
@@ -18,12 +17,13 @@ endif
 man8 += $(MANBUILD)/frr-ripd.8
 endif
 
-ripd_librip_a_SOURCES = \
+ripd_ripd_SOURCES = \
 	ripd/rip_cli.c \
 	ripd/rip_debug.c \
 	ripd/rip_errors.c \
 	ripd/rip_interface.c \
 	ripd/rip_offset.c \
+	ripd/rip_main.c \
 	ripd/rip_nb.c \
 	ripd/rip_nb_config.c \
 	ripd/rip_nb_rpcs.c \
@@ -47,10 +47,7 @@ noinst_HEADERS += \
 	ripd/ripd.h \
 	# end
 
-ripd_ripd_LDADD = ripd/librip.a lib/libfrr.la $(LIBCAP)
-ripd_ripd_SOURCES = \
-	ripd/rip_main.c \
-	# end
+ripd_ripd_LDADD = lib/libfrr.la $(LIBCAP)
 nodist_ripd_ripd_SOURCES = \
 	yang/frr-ripd.yang.c \
 	# end

@@ -3,7 +3,6 @@
 #
 
 if RIPNGD
-noinst_LIBRARIES += ripngd/libripng.a
 sbin_PROGRAMS += ripngd/ripngd
 vtysh_scan += \
 	ripngd/ripng_cli.c \
@@ -14,12 +13,13 @@ vtysh_daemons += ripngd
 man8 += $(MANBUILD)/frr-ripngd.8
 endif
 
-ripngd_libripng_a_SOURCES = \
+ripngd_ripngd_SOURCES = \
 	ripngd/ripng_cli.c \
 	ripngd/ripng_debug.c \
 	ripngd/ripng_interface.c \
 	ripngd/ripng_nexthop.c \
 	ripngd/ripng_offset.c \
+	ripngd/ripng_main.c \
 	ripngd/ripng_nb.c \
 	ripngd/ripng_nb_config.c \
 	ripngd/ripng_nb_rpcs.c \
@@ -43,10 +43,7 @@ noinst_HEADERS += \
 	ripngd/ripngd.h \
 	# end
 
-ripngd_ripngd_LDADD = ripngd/libripng.a lib/libfrr.la $(LIBCAP)
-ripngd_ripngd_SOURCES = \
-	ripngd/ripng_main.c \
-	# end
+ripngd_ripngd_LDADD = lib/libfrr.la $(LIBCAP)
 nodist_ripngd_ripngd_SOURCES = \
 	yang/frr-ripngd.yang.c \
 	# end
