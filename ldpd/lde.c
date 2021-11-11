@@ -107,7 +107,7 @@ sigint(void)
 	lde_shutdown();
 }
 
-static struct quagga_signal_t lde_signals[] =
+static struct frr_signal_t lde_signals[] =
 {
 	{
 		.signal = SIGHUP,
