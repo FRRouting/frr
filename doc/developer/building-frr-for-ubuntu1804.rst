@@ -15,7 +15,9 @@ Installing Dependencies
       pkg-config libpam0g-dev libjson-c-dev bison flex \
       libc-ares-dev python3-dev python3-sphinx \
       install-info build-essential libsnmp-dev perl libcap-dev \
-      libelf-dev
+      libelf-dev libunwind-dev
+
+.. include:: building-libunwind-note.rst
 
 .. include:: building-libyang.rst
 

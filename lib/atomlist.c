@@ -18,6 +18,8 @@
 #include "config.h"
 #endif
 
+#include <assert.h>
+
 #include "atomlist.h"
 
 void atomlist_add_head(struct atomlist_head *h, struct atomlist_item *item)
