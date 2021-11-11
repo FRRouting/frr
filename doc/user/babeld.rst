@@ -268,6 +268,6 @@ Babel sample configuration file
    ! babel hello-interval 12000
    ! babel update-interval 36000
 
-   ! log file /var/log/quagga/babeld.log
+   ! log file /var/log/frr/babeld.log
    log stdout
 

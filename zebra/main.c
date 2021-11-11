@@ -71,7 +71,7 @@ struct thread_master *master;
 /* Route retain mode flag. */
 int retain_mode = 0;
 
-/* Allow non-quagga entities to delete quagga routes */
+/* Allow non-frr entities to delete frr routes */
 int allow_delete = 0;
 
 int graceful_restart;

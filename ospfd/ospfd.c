@@ -192,7 +192,7 @@ void ospf_process_refresh_data(struct ospf *ospf, bool reset)
 		   hit
 		   asserts in ospf_refresher_unregister_lsa(). This step is
 		   needed
-		   because the current quagga code does look-up for
+		   because the current frr code does look-up for
 		   self-originated LSAs
 		   based on the self router-id alone but expects OSPF_LSA_SELF
 		   to be

@@ -399,16 +399,12 @@ struct connected {
 	/*
 	   The ZEBRA_IFC_REAL flag should be set if and only if this address
 	   exists in the kernel and is actually usable. (A case where it exists
-	   but
-	   is not yet usable would be IPv6 with DAD)
+	   but is not yet usable would be IPv6 with DAD)
 	   The ZEBRA_IFC_CONFIGURED flag should be set if and only if this
-	   address
-	   was configured by the user from inside quagga.
+	   address was configured by the user from inside frr.
 	   The ZEBRA_IFC_QUEUED flag should be set if and only if the address
-	   exists
-	   in the kernel. It may and should be set although the address might
-	   not be
-	   usable yet. (compare with ZEBRA_IFC_REAL)
+	   exists in the kernel. It may and should be set although the
+	   address might not be usable yet. (compare with ZEBRA_IFC_REAL)
 	   The ZEBRA_IFC_DOWN flag is used to record that an address is
 	   present, but down/unavailable.
 	 */
