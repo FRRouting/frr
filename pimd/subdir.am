@@ -12,7 +12,7 @@ man8 += $(MANBUILD)/frr-pimd.8
 man8 += $(MANBUILD)/mtracebis.8
 endif
 
-pimd_pimd_SOURCES = \
+pim_common = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
@@ -32,7 +32,6 @@ pimd_pimd_SOURCES = \
 	pimd/pim_join.c \
 	pimd/pim_jp_agg.c \
 	pimd/pim_macro.c \
-	pimd/pim_main.c \
 	pimd/pim_memory.c \
 	pimd/pim_mlag.c \
 	pimd/pim_mroute.c \
@@ -50,7 +49,6 @@ pimd_pimd_SOURCES = \
 	pimd/pim_routemap.c \
 	pimd/pim_rp.c \
 	pimd/pim_rpf.c \
-	pimd/pim_signals.c \
 	pimd/pim_sock.c \
 	pimd/pim_ssm.c \
 	pimd/pim_ssmpingd.c \
@@ -68,10 +66,24 @@ pimd_pimd_SOURCES = \
 	pimd/pimd.c \
 	# end
 
+pimd_pimd_SOURCES = \
+	$(pim_common) \
+	pimd/pim_main.c \
+	pimd/pim_signals.c \
+	# end
+
 nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim.yang.c \
 	yang/frr-pim-rp.yang.c \
 	yang/frr-igmp.yang.c \
+	# end
+
+pimd_pim6d_SOURCES = \
+	$(pim_common) \
+	pimd/pim6_main.c \
+	# end
+
+nodist_pimd_pim6d_SOURCES = \
 	# end
 
 noinst_HEADERS += \
@@ -134,12 +146,26 @@ clippy_scan += \
 	pimd/pim_cmd.c \
 	# end
 
+pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
+
+if PIMD
+if DEV_BUILD
+#
+# pim6d is only enabled for --enable-dev-build, and NOT installed currently
+# (change noinst_ to sbin_ below to install it.)
+#
+noinst_PROGRAMS += pimd/pim6d
+pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
+pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
+endif
+endif
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c
 
 pimd_mtracebis_LDADD =  lib/libfrr.la
+pimd_mtracebis_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
 pimd_mtracebis_SOURCES = pimd/mtracebis.c \
 			 pimd/mtracebis_netlink.c \
 			 pimd/mtracebis_routeget.c \
