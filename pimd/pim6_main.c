@@ -133,6 +133,7 @@ FRR_DAEMON_INFO(pim6d, PIM6,
 );
 /* clang-format on */
 
+extern void gm_cli_init(void);
 
 int main(int argc, char **argv, char **envp)
 {
@@ -183,6 +184,8 @@ int main(int argc, char **argv, char **envp)
 	 * Initialize zclient "update" and "lookup" sockets
 	 */
 	pim_iface_init();
+
+	gm_cli_init();
 
 	pim_zebra_init();
 #if 0
