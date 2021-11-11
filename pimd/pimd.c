@@ -115,7 +115,6 @@ void pim_router_init(void)
 
 void pim_router_terminate(void)
 {
-	pim_mlag_terminate();
 	XFREE(MTYPE_ROUTER, router);
 }
 
@@ -155,6 +154,7 @@ void pim_terminate(void)
 	}
 
 	pim_free();
+	pim_mlag_terminate();
 	pim_router_terminate();
 
 	frr_fini();
