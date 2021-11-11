@@ -398,7 +398,7 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 	/* We do this here so when we dup a packet, we don't have to
 	   waste CPU rewriting other headers.
 
-	   Note that quagga_time /deliberately/ is not used here */
+	   Note that frr_time /deliberately/ is not used here */
 	t = (time(NULL) & 0xFFFFFFFF);
 	if (t > oi->crypt_seqnum)
 		oi->crypt_seqnum = t;

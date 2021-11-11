@@ -61,7 +61,7 @@ extern struct zebra_privs_t zserv_privs;
  * Alignment of zero-sized sockaddrs is nonsensical, but historically
  * BSD defines RT_ROUNDUP(0) to be the alignment interval (rather than
  * 0).  We follow this practice without questioning it, but it is a
- * bug if quagga calls ROUNDUP with 0.
+ * bug if frr calls ROUNDUP with 0.
  */
 #ifdef __APPLE__
 #define ROUNDUP_TYPE	int

@@ -2090,7 +2090,7 @@ static struct ospf_neighbor *ospfNbrLookup(struct variable *v, oid *name,
 	return NULL;
 }
 
-/* map internal quagga neighbor states to official MIB values:
+/* map internal frr neighbor states to official MIB values:
 
 ospfNbrState OBJECT-TYPE
 	SYNTAX   INTEGER    {
