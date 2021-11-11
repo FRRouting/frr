@@ -517,6 +517,15 @@ AC_SUBST([AC_LDFLAGS])
 AC_SUBST([AC_LDFLAGS_EXEC])
 AM_CONDITIONAL([STATIC_BIN], [test "$enable_static_bin" = "yes"])
 
+dnl libtool, the repository of all knowledge related linkers, is too stupid to
+dnl correctly tell the linker how to build modules.
+if test -z "$module_cmds"; then
+  module_cmds="`echo \"$archive_cmds\" | sed -e 's%$wl-soname $wl$soname%%'`"
+fi
+if test -z "$module_expsym_cmds"; then
+  module_expsym_cmds="`echo \"$archive_expsym_cmds\" | sed -e 's%$wl-soname $wl$soname%%'`"
+fi
+
 AC_ARG_ENABLE([rpath],
   [AS_HELP_STRING([--enable-rpath], [set hardcoded rpaths in the executable @<:@default=yes@:>@])],
   [],
