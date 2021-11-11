@@ -3,7 +3,6 @@
 #
 
 if PIMD
-noinst_LIBRARIES += pimd/libpim.a
 sbin_PROGRAMS += pimd/pimd
 bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
@@ -13,7 +12,7 @@ man8 += $(MANBUILD)/frr-pimd.8
 man8 += $(MANBUILD)/mtracebis.8
 endif
 
-pimd_libpim_a_SOURCES = \
+pimd_pimd_SOURCES = \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
@@ -33,6 +32,7 @@ pimd_libpim_a_SOURCES = \
 	pimd/pim_join.c \
 	pimd/pim_jp_agg.c \
 	pimd/pim_macro.c \
+	pimd/pim_main.c \
 	pimd/pim_memory.c \
 	pimd/pim_mlag.c \
 	pimd/pim_mroute.c \
@@ -137,8 +137,7 @@ nodist_pimd_pimd_SOURCES = \
 	yang/frr-pim-rp.yang.c \
 	# end
 
-pimd_pimd_LDADD = pimd/libpim.a lib/libfrr.la $(LIBCAP)
-pimd_pimd_SOURCES = pimd/pim_main.c
+pimd_pimd_LDADD = lib/libfrr.la $(LIBCAP)
 
 pimd_test_igmpv3_join_LDADD = lib/libfrr.la
 pimd_test_igmpv3_join_SOURCES = pimd/test_igmpv3_join.c

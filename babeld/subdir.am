@@ -3,7 +3,6 @@
 #
 
 if BABELD
-noinst_LIBRARIES += babeld/libbabel.a
 sbin_PROGRAMS += babeld/babeld
 vtysh_scan += \
 	babeld/babel_interface.c \
@@ -13,10 +12,11 @@ vtysh_scan += \
 vtysh_daemons += babeld
 endif
 
-babeld_libbabel_a_SOURCES = \
+babeld_babeld_SOURCES = \
 	babeld/babel_errors.c \
 	babeld/babel_filter.c \
 	babeld/babel_interface.c \
+	babeld/babel_main.c \
 	babeld/babel_zebra.c \
 	babeld/babeld.c \
 	babeld/kernel.c \
@@ -48,5 +48,4 @@ noinst_HEADERS += \
 	babeld/xroute.h \
 	# end
 
-babeld_babeld_SOURCES = babeld/babel_main.c
-babeld_babeld_LDADD = babeld/libbabel.a lib/libfrr.la $(LIBCAP)
+babeld_babeld_LDADD = lib/libfrr.la $(LIBCAP)
