@@ -1298,12 +1298,11 @@ static void bgp_l3nhg_zebra_init(void)
 }
 
 
-#define min(A, B) ((A) < (B) ? (A) : (B))
 void bgp_l3nhg_init(void)
 {
 	uint32_t id_max;
 
-	id_max = min(ZEBRA_NHG_PROTO_SPACING - 1, 16 * 1024);
+	id_max = MIN(ZEBRA_NHG_PROTO_SPACING - 1, 16 * 1024);
 	bf_init(bgp_nh_id_bitmap, id_max);
 	bf_assign_zero_index(bgp_nh_id_bitmap);
 
