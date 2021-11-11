@@ -2235,7 +2235,16 @@ dnl --------------------------------------
 dnl checking for flex and bison
 dnl --------------------------------------
 
-AM_PROG_LEX
+dnl autoconf 2.69 AC_PROG_LEX has no parameters
+dnl autoconf 2.70 AC_PROG_LEX prints a deprecation warning without params
+m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.70]), [-1], [dnl
+  dnl autoconf < 2.70
+  AC_PROG_LEX
+], [
+  dnl autoconf >= 2.70
+  AC_PROG_LEX([noyywrap])
+])
+
 AC_MSG_CHECKING([version of flex])
 frr_ac_flex_version="$(eval $LEX -V | grep flex | head -n 1)"
 frr_ac_flex_version="${frr_ac_flex_version##* }"
