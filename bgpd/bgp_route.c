@@ -605,17 +605,17 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	if (exist == NULL) {
 		*reason = bgp_path_selection_first;
 		if (debug)
-			zlog_debug("%s: %s is the initial bestpath", pfx_buf,
-				   new_buf);
+			zlog_debug("%s(%s): %s is the initial bestpath",
+				   pfx_buf, bgp->name_pretty, new_buf);
 		return 1;
 	}
 
 	if (debug) {
 		bgp_path_info_path_with_addpath_rx_str(exist, exist_buf,
 						       sizeof(exist_buf));
-		zlog_debug("%s: Comparing %s flags 0x%x with %s flags 0x%x",
-			   pfx_buf, new_buf, new->flags, exist_buf,
-			   exist->flags);
+		zlog_debug("%s(%s): Comparing %s flags 0x%x with %s flags 0x%x",
+			   pfx_buf, bgp->name_pretty, new_buf, new->flags,
+			   exist_buf, exist->flags);
 	}
 
 	newattr = new->attr;
@@ -2404,8 +2404,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_path_with_addpath_rx_str(
 					new_select, path_buf, sizeof(path_buf));
 				zlog_debug(
-					"%pBD: %s is the bestpath from AS %u",
-					dest, path_buf,
+					"%pBD(%s): %s is the bestpath from AS %u",
+					dest, bgp->name_pretty, path_buf,
 					aspath_get_first_as(
 						new_select->attr->aspath));
 			}
@@ -2481,8 +2481,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		else
 			snprintf(path_buf, sizeof(path_buf), "NONE");
 		zlog_debug(
-			"%pBD: After path selection, newbest is %s oldbest was %s",
-			dest, path_buf,
+			"%pBD(%s): After path selection, newbest is %s oldbest was %s",
+			dest, bgp->name_pretty, path_buf,
 			old_select ? old_select->peer->host : "NONE");
 	}
 
@@ -2497,8 +2497,9 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 			if (pi == new_select) {
 				if (debug)
 					zlog_debug(
-						"%pBD: %s is the bestpath, add to the multipath list",
-						dest, path_buf);
+						"%pBD(%s): %s is the bestpath, add to the multipath list",
+						dest, bgp->name_pretty,
+						path_buf);
 				bgp_mp_list_add(&mp_list, pi);
 				continue;
 			}
@@ -2534,7 +2535,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		}
 	}
 
-	bgp_path_info_mpath_update(dest, new_select, old_select, &mp_list,
+	bgp_path_info_mpath_update(bgp, dest, new_select, old_select, &mp_list,
 				   mpath_cfg);
 	bgp_path_info_mpath_aggregate_update(new_select, old_select);
 	bgp_mp_list_clear(&mp_list);
@@ -2793,8 +2794,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
-		zlog_debug("%s: p=%pBD afi=%s, safi=%s start", __func__, dest,
-			   afi2str(afi), safi2str(safi));
+		zlog_debug("%s: p=%pBDi(%s) afi=%s, safi=%s start", __func__,
+			   dest, bgp->name_pretty, afi2str(afi),
+			   safi2str(safi));
 
 	/* The best path calculation for the route is deferred if
 	 * BGP_NODE_SELECT_DEFER is set
@@ -2856,9 +2858,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (debug)
 		zlog_debug(
-			"%s: p=%pBD afi=%s, safi=%s, old_select=%p, new_select=%p",
-			__func__, dest, afi2str(afi), safi2str(safi),
-			old_select, new_select);
+			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
+			__func__, dest, bgp->name_pretty, afi2str(afi),
+			safi2str(safi), old_select, new_select);
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
