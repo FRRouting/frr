@@ -4645,10 +4645,10 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
 		zevpn = zebra_evpn_from_svi(ifp, link_if);
 
 		if (zevpn) {
-                       /* remove from l3-vni list */
-                       zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
-                       if (zl3vni)
-                               listnode_delete(zl3vni->l2vnis, zevpn);
+			/* remove from l3-vni list */
+			zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
+			if (zl3vni)
+				listnode_delete(zl3vni->l2vnis, zevpn);
 
 			zevpn->svi_if = NULL;
 			zevpn->vrf_id = VRF_DEFAULT;
@@ -4709,9 +4709,9 @@ int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
 		zevpn->svi_if = ifp;
 		zevpn->vrf_id = ifp->vrf_id;
 
-               zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
-               if (zl3vni)
-                       listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
+		zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
+		if (zl3vni)
+			listnode_add_sort_nodup(zl3vni->l2vnis, zevpn);
 
 		if (if_is_operative(zevpn->vxlan_if))
 			zebra_evpn_send_add_to_client(zevpn);
