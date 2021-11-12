@@ -163,7 +163,7 @@ void bgp_peer_bfd_update_source(struct peer *p)
 		return;
 
 	/* Figure out the correct source to use. */
-	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE))
+	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE) && p->update_source)
 		source = p->update_source;
 	else
 		source = p->su_local;
