@@ -1201,6 +1201,12 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		zvrf = zebra_vrf_lookup_by_name(vrf->name);
+		if (!zvrf) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "zebra vrf info not found for vrf:%s.",
+				 vrf->name);
+			return NB_ERR;
+		}
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 		/* Note: This covers lib_vrf_zebra_prefix_only_modify() config
 		 * along with l3vni config
@@ -1240,6 +1246,12 @@ int lib_vrf_zebra_l3vni_id_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		zvrf = zebra_vrf_lookup_by_name(vrf->name);
+		if (!zvrf) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "zebra vrf info not found for vrf:%s.",
+				 vrf->name);
+			return NB_ERR;
+		}
 		vni = yang_dnode_get_uint32(args->dnode, NULL);
 
 		if (!zl3vni_lookup(vni))
