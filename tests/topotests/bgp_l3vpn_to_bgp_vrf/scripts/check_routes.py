@@ -281,10 +281,29 @@ bgpribRequireVpnRoutes(
 
 
 # r1 vtysh -c "show bgp vrf r1-cust1 ipv4"
-
 ########################################################################
 # PE routers: VRFs contain routes from remote customer nets
 ########################################################################
+# First let's spot check and ensure that some of the routes
+# have showed up and been best path'd
+# After the first two are good.  It's probably ok
+# to look at the rest of the routes in the vrf
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up",
+    10
+    )
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.0.0 shows up",
+    10
+    )
 want_r1_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "3.3.3.3", "bp": False},
     {"p": "5.1.0.0/24", "n": "99.0.0.1", "bp": True},
@@ -313,7 +332,22 @@ bgpribRequireUnicastRoutes(
     want_r1_remote_cust1_routes,
     debug=False,
 )
-
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up",
+    10
+    )
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.0.0 shows up",
+    10
+    )
 want_r3_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "5.1.0.0/24", "n": "99.0.0.2", "bp": False},
@@ -342,6 +376,30 @@ bgpribRequireUnicastRoutes(
     debug=False,
 )
 
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up",
+    10
+    )
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.0.0 shows up",
+    10
+    )
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.2/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.2 shows up",
+    10
+    )
 want_r4_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "5.1.0.0/24", "n": "3.3.3.3", "bp": False},
