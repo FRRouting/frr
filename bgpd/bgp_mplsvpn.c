@@ -754,6 +754,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *new;
 	struct bgp_path_info_extra *extra;
 	uint32_t num_sids = 0;
+	struct bgp_table *table;
 
 	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
 		num_sids = 1;
@@ -784,6 +785,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	     bpi_ultimate = bpi_ultimate->extra->parent)
 		;
 
+	table = bgp_dest_table(bpi_ultimate->net);
 	/*
 	 * match parent
 	 */
@@ -885,7 +887,23 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
 		    is_pi_family_evpn(bpi_ultimate))
 			nh_valid = 1;
-		else
+		else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP
+			 && bpi_ultimate->sub_type == BGP_ROUTE_STATIC
+			 && bgp_orig
+			 && !CHECK_FLAG(bgp_orig->flags, BGP_FLAG_IMPORT_CHECK)
+			 && table
+			 && (table->safi == SAFI_UNICAST
+			     || table->safi == SAFI_LABELED_UNICAST)) {
+			/* Delete the NHT structure if any, if we're
+			 * toggling between
+			 * enabling/disabling import check. We
+			 * deregister the route
+			 * from NHT to avoid overloading NHT and the
+			 * process interaction
+			 */
+			bgp_unlink_nexthop(bpi);
+			nh_valid = 1;
+		} else
 			/*
 			 * TBD do we need to do anything about the
 			 * 'connected' parameter?
@@ -911,7 +929,10 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 
 		if (nh_valid)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_VALID);
-
+		else {
+			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
+			bgp_unlink_nexthop(bpi);
+		}
 		/* Process change. */
 		bgp_aggregate_increment(bgp, p, bpi, afi, safi);
 		bgp_process(bgp, bn, afi, safi);
@@ -1000,7 +1021,21 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	if (bpi_ultimate->sub_type == BGP_ROUTE_REDISTRIBUTE ||
 	    is_pi_family_evpn(bpi_ultimate))
 		nh_valid = 1;
-	else
+	else if (bpi_ultimate->type == ZEBRA_ROUTE_BGP
+		 && bpi_ultimate->sub_type == BGP_ROUTE_STATIC && bgp_orig
+		 && !CHECK_FLAG(bgp_orig->flags, BGP_FLAG_IMPORT_CHECK) && table
+		 && (table->safi == SAFI_UNICAST
+		     || table->safi == SAFI_LABELED_UNICAST)) {
+		/* Delete the NHT structure if any, if we're
+		 * toggling between
+		 * enabling/disabling import check. We
+		 * deregister the route
+		 * from NHT to avoid overloading NHT and the
+		 * process interaction
+		 */
+		bgp_unlink_nexthop(new);
+		nh_valid = 1;
+	} else
 		/*
 		 * TBD do we need to do anything about the
 		 * 'connected' parameter?
