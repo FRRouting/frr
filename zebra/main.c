@@ -182,8 +182,6 @@ static void sigint(void)
 				SET_FLAG(zvrf->flags, ZEBRA_VRF_RETAIN);
 		}
 	}
-	if (zrouter.lsp_process_q)
-		work_queue_free_and_null(&zrouter.lsp_process_q);
 
 	vrf_terminate();
 
