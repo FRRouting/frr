@@ -3,34 +3,38 @@
 Process Architecture
 ====================
 
-FRR inherited its overall design architecture from Quagga. The chosen model for
-Quagga is that of a suite of independent daemons that do IPC via Unix domain
-sockets. Within each daemon, the architecture follows the event-driven model.
-FRR has inherited this model as well. As FRR is deployed at larger scales and
-gains ever more features, each adding to the overall processing workload, we
-are approaching the saturation point for a single thread per daemon. In light
-of this, there are ongoing efforts to introduce multithreading to various
-components of FRR. This document aims to describe the current design choices
-and overall model for integrating the event-driven and multithreaded
-architectures into a cohesive whole.
+FRR is a suite of daemons that serve different functions. This document
+describes internal architecture of daemons, focusing their general design
+patterns, and especially how threads are used in the daemons that use them.
+
+Overview
+--------
+The fundamental pattern used in FRR daemons is an `event loop
+<https://en.wikipedia.org/wiki/Event_loop>`_. Some daemons use `kernel threads
+<https://en.wikipedia.org/wiki/Thread_(computing)#Kernel_threads>`_. In these
+daemons, each kernel thread runs its own event loop. The event loop
+implementation is constructed to be thread safe and to allow threads other than
+its owning thread to schedule events on it. The rest of this document describes
+these two designs in detail.
 
 Terminology
 -----------
-Because this document describes the architecture for true kernel threads as
-well as the event system, a digression on terminology is in order here.
+Because this document describes the architecture for kernel threads as well as
+the event system, a digression on terminology is in order here.
 
-Historically Quagga's event system was viewed as an implementation of userspace
+Historically Quagga's loop system was viewed as an implementation of userspace
 threading. Because of this design choice, the names for various datastructures
 within the event system are variations on the term "thread". The primary
-context datastructure in this system is called a "threadmaster". What would
-today be called an 'event' or 'task' in systems such as libevent are called
-"threads" and the datastructure for them is ``struct thread``. To add to the
-confusion, these "threads" have various types, one of which is "event". To
-hopefully avoid some of this confusion, this document refers to these "threads"
-as a 'task' except where the datastructures are explicitly named. When they are
-explicitly named, they will be formatted ``like this`` to differentiate from
-the conceptual names. When speaking of kernel threads, the term used will be
-"pthread" since FRR's kernel threading implementation is POSIX threads.
+datastructure that holds the state of an event loop in this system is called a
+"threadmaster". Events scheduled on the event loop - what would today be called
+an 'event' or 'task' in systems such as libevent - are called "threads" and the
+datastructure for them is ``struct thread``. To add to the confusion, these
+"threads" have various types, one of which is "event". To hopefully avoid some
+of this confusion, this document refers to these "threads" as a 'task' except
+where the datastructures are explicitly named. When they are explicitly named,
+they will be formatted ``like this`` to differentiate from the conceptual
+names. When speaking of kernel threads, the term used will be "pthread" since
+FRR's kernel threading implementation uses the POSIX threads API.
 
 .. This should be broken into its document under :ref:`libfrr`
 .. _event-architecture:
