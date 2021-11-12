@@ -1329,19 +1329,22 @@ def ignore_unconfigurable_lines(lines_to_add, lines_to_del):
 
     for (ctx_keys, line) in lines_to_del:
 
-        if (
-            ctx_keys[0].startswith("frr version")
-            or ctx_keys[0].startswith("frr defaults")
-            or ctx_keys[0].startswith("username")
-            or ctx_keys[0].startswith("password")
-            or ctx_keys[0].startswith("line vty")
-            or
-            # This is technically "no"able but if we did so frr-reload would
-            # stop working so do not let the user shoot themselves in the foot
-            # by removing this.
-            ctx_keys[0].startswith("service integrated-vtysh-config")
+        # The integrated-vtysh-config one is technically "no"able but if we did
+        # so frr-reload would stop working so do not let the user shoot
+        # themselves in the foot by removing this.
+        if any(
+            [
+                ctx_keys[0].startswith(x)
+                for x in [
+                    "frr version",
+                    "frr defaults",
+                    "username",
+                    "password",
+                    "line vty",
+                    "service integrated-vtysh-config",
+                ]
+            ]
         ):
-
             log.info('"%s" cannot be removed' % (ctx_keys[-1],))
             lines_to_del_to_del.append((ctx_keys, line))
 
