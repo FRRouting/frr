@@ -644,7 +644,7 @@ module ietf-routing-types {
 
   typedef mpls-label-general-use {
     type uint32 {
-      range "16..1048575";
+      range "0..1048575";
     }
     description
       "The 20-bit label value in an MPLS label stack as specified
