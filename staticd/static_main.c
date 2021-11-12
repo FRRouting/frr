@@ -180,6 +180,9 @@ int main(int argc, char **argv, char **envp)
 	 */
 	host_config_set(config_default);
 
+	/* set this to true for handling MPLS configs loaded at startup */
+	mpls_enabled = true;
+
 	frr_config_fork();
 	frr_run(master);
 
