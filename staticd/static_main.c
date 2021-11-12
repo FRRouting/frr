@@ -170,6 +170,9 @@ int main(int argc, char **argv, char **envp)
 		 "%s/zebra.conf", frr_sysconfdir);
 	staticd_di.backup_config_file = backup_config_file;
 
+	/* set this to true for handling MPLS configs loaded at startup */
+	mpls_enabled = true;
+
 	frr_config_fork();
 	frr_run(master);
 
