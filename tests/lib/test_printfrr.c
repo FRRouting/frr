@@ -259,8 +259,8 @@ int main(int argc, char **argv)
 	 *
 	 * gateway addresses only for now: interfaces require more setup
 	 */
-	printchk("(null)", "%pNHcg", NULL);
-	printchk("(null)", "%pNHci", NULL);
+	printchk("(null)", "%pNHcg", (struct nexthop *)NULL);
+	printchk("(null)", "%pNHci", (struct nexthop *)NULL);
 
 	struct nexthop nh;
 

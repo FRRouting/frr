@@ -3,7 +3,6 @@
 #
 
 if EIGRPD
-noinst_LIBRARIES += eigrpd/libeigrp.a
 sbin_PROGRAMS += eigrpd/eigrpd
 vtysh_scan += \
 	eigrpd/eigrp_cli.c \
@@ -15,7 +14,7 @@ vtysh_daemons += eigrpd
 man8 += $(MANBUILD)/frr-eigrpd.8
 endif
 
-eigrpd_libeigrp_a_SOURCES = \
+eigrpd_eigrpd_SOURCES = \
 	eigrpd/eigrp_cli.c \
 	eigrpd/eigrp_dump.c \
 	eigrpd/eigrp_errors.c \
@@ -23,6 +22,7 @@ eigrpd_libeigrp_a_SOURCES = \
 	eigrpd/eigrp_fsm.c \
 	eigrpd/eigrp_hello.c \
 	eigrpd/eigrp_interface.c \
+	eigrpd/eigrp_main.c \
 	eigrpd/eigrp_metric.c \
 	eigrpd/eigrp_neighbor.c \
 	eigrpd/eigrp_network.c \
@@ -78,5 +78,4 @@ nodist_eigrpd_eigrpd_SOURCES = \
 	yang/frr-eigrpd.yang.c \
 	# end
 
-eigrpd_eigrpd_SOURCES = eigrpd/eigrp_main.c
-eigrpd_eigrpd_LDADD = eigrpd/libeigrp.a lib/libfrr.la $(LIBCAP)
+eigrpd_eigrpd_LDADD = lib/libfrr.la $(LIBCAP)
