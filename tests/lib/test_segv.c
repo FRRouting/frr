@@ -28,7 +28,7 @@
 #include "lib/log.h"
 #include "lib/memory.h"
 
-struct quagga_signal_t sigs[] = {};
+struct frr_signal_t sigs[] = {};
 
 struct thread_master *master;
 

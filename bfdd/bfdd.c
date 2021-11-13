@@ -103,7 +103,7 @@ static void sighup_handler(void)
 	vty_read_config(NULL, bfdd_di.config_file, config_default);
 }
 
-static struct quagga_signal_t bfd_signals[] = {
+static struct frr_signal_t bfd_signals[] = {
 	{
 		.signal = SIGUSR1,
 		.handler = &sigusr1_handler,

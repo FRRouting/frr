@@ -283,10 +283,10 @@ done:
 /* Output current time to the vty. */
 void vty_time_print(struct vty *vty, int cr)
 {
-	char buf[QUAGGA_TIMESTAMP_LEN];
+	char buf[FRR_TIMESTAMP_LEN];
 
-	if (quagga_timestamp(0, buf, sizeof(buf)) == 0) {
-		zlog_info("quagga_timestamp error");
+	if (frr_timestamp(0, buf, sizeof(buf)) == 0) {
+		zlog_info("frr_timestamp error");
 		return;
 	}
 	if (cr)

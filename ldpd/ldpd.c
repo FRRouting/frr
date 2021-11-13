@@ -180,7 +180,7 @@ sigusr1(void)
 	zlog_rotate();
 }
 
-static struct quagga_signal_t ldp_signals[] =
+static struct frr_signal_t ldp_signals[] =
 {
 	{
 		.signal = SIGHUP,
