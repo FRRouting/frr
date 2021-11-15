@@ -78,3 +78,11 @@
    ...
    fun:yang_module_load
 }
+{
+   <libyang2 lys_compile_type_range>
+   Memcheck:Leak
+   ...
+   fun:lys_compile_type_range
+   ...
+   fun:yang_module_load
+}
