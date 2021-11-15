@@ -191,9 +191,9 @@ int LLVMFuzzerTestOneInput(uint8_t *data, size_t size)
 	vr = FuzzingVr;
 #endif
 
-#define FUZZING_ZAPI 1
+#define FUZZING_ZAPI 0
 
-#ifndef FUZZING_ZAPI
+#if !FUZZING_ZAPI
 	/* set input size */
 	vr->v4->fuzzing_input_size = size;
 	/* some info to fake msghdr with */
