@@ -3862,7 +3862,7 @@ static zclient_handler *const lib_handlers[] = {
 	[ZEBRA_INTERFACE_DOWN] = zclient_interface_down,
 
 	/* BFD */
-	[ZEBRA_BFD_DEST_REPLAY] = zclient_bfd_session_reply,
+	[ZEBRA_BFD_DEST_REPLAY] = zclient_bfd_session_replay,
 	[ZEBRA_INTERFACE_BFD_DEST_UPDATE] = zclient_bfd_session_update,
 };
 
