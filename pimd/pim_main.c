@@ -56,6 +56,8 @@
 #include "fuzz.h"
 #include "pim_pim.h"
 #include "pim_mroute.h"
+#include "pim_tlv.h"
+#include "pim_neighbor.h"
 #endif
 
 extern struct host host;
@@ -147,7 +149,7 @@ static bool FuzzingInit(void)
 	str2prefix("27.0.0.9/24", &p);
 
 	/* Create system interface */
-	FuzzingIfp = if_create_name("fuzziface", VRF_DEFAULT);
+	FuzzingIfp = if_get_by_name("fuzziface", VRF_DEFAULT, "default");
 	if_set_index(FuzzingIfp, 69);
 
 	connected_add_by_prefix(FuzzingIfp, &p, NULL);

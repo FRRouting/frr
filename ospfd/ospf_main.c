@@ -187,7 +187,7 @@ static bool FuzzingInit(void)
 static struct ospf *FuzzingCreateOspf(void)
 {
 	struct prefix p;
-	struct interface *ifp = if_create_ifindex(69, 0);
+	struct interface *ifp = if_get_by_name("fuzziface", 0, "default");
 	ifp->mtu = 68;
 	str2prefix("11.0.2.0/24", &p);
 
@@ -272,7 +272,7 @@ int main(int argc, char **argv)
 #ifdef __AFL_HAVE_MANUAL_CONTROL
 	__AFL_INIT();
 #endif
-	uint8_t *input;
+	uint8_t *input = NULL;
 	int r = frrfuzz_read_input(&input);
 
 	if (r < 0 || !input)

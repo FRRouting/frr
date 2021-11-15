@@ -391,14 +391,13 @@ int main(int argc, char **argv)
 
 #ifdef FUZZING
 	FuzzingInit();
-	FuzzingInitialized = true;
 	FuzzingZc = zserv_client_create(69);
 
 #ifdef __AFL_HAVE_MANUAL_CONTROL
 	__AFL_INIT();
 #endif /* __AFL_HAVE_MANUAL_CONTROL */
 
-	uint8_t *input;
+	uint8_t *input = NULL;
 	int r = frrfuzz_read_input(&input);
 
 	int ret = LLVMFuzzerTestOneInput(input, r);
