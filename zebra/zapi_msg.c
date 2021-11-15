@@ -1757,7 +1757,6 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 		/* MPLS labels for BGP-LU or Segment Routing */
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_LABEL)
-		    && api_nh->type != NEXTHOP_TYPE_IFINDEX
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE
 		    && api_nh->label_num > 0) {
 
