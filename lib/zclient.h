@@ -368,7 +368,7 @@ struct zclient {
 };
 
 /* lib handlers added in bfd.c */
-extern int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS);
+extern int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS);
 extern int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS);
 
 /* Zebra API message flag. */

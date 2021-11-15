@@ -801,7 +801,7 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  *
  * Use this as `zclient` `bfd_dest_replay` callback.
  */
-int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp;
 
