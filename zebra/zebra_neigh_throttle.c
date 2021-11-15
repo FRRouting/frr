@@ -186,23 +186,36 @@ static void clear_all_entries(bool uninstall_p)
 static void nt_handle_timer(struct event *event)
 {
 	struct nt_entry *entry;
-	time_t now;
-
-	/* Reschedule */
-	if (nt_globals.timeout_secs)
-		event_add_timer(zrouter.master, nt_handle_timer,
-				NULL, nt_globals.timeout_secs,
-				&nt_globals.t_periodic_timer);
+	time_t now, resched = 0;
 
 	now = time(NULL);
+
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: called at %u", __func__, (uint32_t)now);
 
 	/* Process expired entries */
 	frr_each_safe (nt_entry_list, &nt_globals.entry_list, entry) {
 		if (entry->expiration <= now) {
 			clear_one_entry(entry, true);
 		} else {
+			/* Capture next timer expiration */
+			resched = entry->expiration;
 			break;
 		}
+	}
+
+	/* Compute remaining timeout */
+	if (resched > 0)
+		resched -= (now - 1);
+
+	/* Reschedule */
+	if (resched > 0) {
+		if (IS_ZEBRA_DEBUG_RIB)
+			zlog_debug("%s: rescheduling for %u secs", __func__,
+				   (uint32_t)resched);
+
+		event_add_timer(zrouter.master, nt_handle_timer,
+				NULL, resched, &nt_globals.t_periodic_timer);
 	}
 }
 
@@ -217,8 +230,21 @@ int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr)
 	if (!nt_globals.enabled_p)
 		return 0;
 
+	/* Apply limit */
+	if (nt_globals.max_entries > 0 &&
+	    (nt_entry_list_count(&nt_globals.entry_list) >=
+	     nt_globals.max_entries))
+		return 0;
+
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug("%s: %u: %pIA", __func__, vrfid, addr);
+
+	/* Start timer, if this is the first entry */
+	if (nt_entry_list_const_first(&nt_globals.entry_list) == NULL &&
+	    nt_globals.timeout_secs > 0)
+		event_add_timer(zrouter.master, nt_handle_timer,
+				NULL, nt_globals.timeout_secs,
+				&nt_globals.t_periodic_timer);
 
 	/* TODO -- brute-force search for now */
 	frr_each(nt_entry_list, &nt_globals.entry_list, entry) {
@@ -279,7 +305,43 @@ int zebra_neigh_throttle_delete(vrf_id_t vrfid, const struct ipaddr *addr)
 		}
 	}
 
+	/* If no entries, stop the timer */
+	if (nt_entry_list_const_first(&nt_globals.entry_list) == NULL)
+		event_cancel(&nt_globals.t_periodic_timer);
+
 	return 0;
+}
+
+/*
+ * Set limit on number of blackhole entries permitted; if 'reset', reset to
+ * default.
+ */
+void zebra_neigh_throttle_set_limit(uint32_t limit, bool reset)
+{
+	if (reset)
+		nt_globals.max_entries = ZEBRA_NEIGH_THROTTLE_DEFAULT_MAX;
+	else
+		nt_globals.max_entries = limit;
+
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: max_entries set to %u", __func__,
+			   nt_globals.max_entries);
+}
+
+/*
+ * Set timeout for blackhole entries (in seconds); if 'reset', reset to
+ * default.
+ */
+void zebra_neigh_throttle_set_timeout(int timeout, bool reset)
+{
+	if (reset)
+		nt_globals.timeout_secs = ZEBRA_NEIGH_THROTTLE_DEFAULT_TIMEOUT;
+	else
+		nt_globals.timeout_secs = timeout;
+
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: timeout set to %u secs", __func__,
+			   (uint32_t)nt_globals.timeout_secs);
 }
 
 /*
@@ -298,14 +360,7 @@ void zebra_neigh_throttle_enable(bool enable)
 
 		nt_globals.enabled_p = true;
 
-		/* Start timer */
-		if (nt_globals.timeout_secs)
-			event_add_timer(zrouter.master, nt_handle_timer,
-					NULL, nt_globals.timeout_secs,
-					&nt_globals.t_periodic_timer);
-
 	} else if (nt_globals.enabled_p) {
-
 		zlog_info("Neighbor throttling feature disabled.");
 
 		/* Cancel timer */
@@ -316,6 +371,14 @@ void zebra_neigh_throttle_enable(bool enable)
 
 		nt_globals.enabled_p = false;
 	}
+}
+
+/*
+ * Is the feature enabled?
+ */
+bool zebra_neigh_throttle_is_enabled(void)
+{
+	return nt_globals.enabled_p;
 }
 
 /*
@@ -361,15 +424,53 @@ void zebra_neigh_throttle_init(void)
 int zebra_neigh_throttle_show(struct vty *vty, bool detail)
 {
 	const struct nt_entry *entry;
+	time_t now;
 
-	vty_out(vty, "Throttled neighbor entries:\n");
-	vty_out(vty, "Count: %zu\n",
-		nt_entry_list_count(&nt_globals.entry_list));
+	/* TODO -- json? detail? */
 
-	frr_each(nt_entry_list_const, &nt_globals.entry_list, entry) {
-		vty_out(vty, "  %pIA: exp %u\n",
-			&entry->addr, (uint32_t)entry->expiration);
+	vty_out(vty, "Throttled neighbor entries: %s\n",
+		nt_globals.enabled_p ? "enabled" : "disabled");
+	if (nt_globals.enabled_p) {
+		uint32_t expires;
+
+		now = time(NULL);
+
+		vty_out(vty, "Timeout: %u secs, limit: %u\n",
+			(uint32_t)nt_globals.timeout_secs,
+			nt_globals.max_entries);
+		vty_out(vty, "Entries: (%zu)\n",
+			nt_entry_list_count(&nt_globals.entry_list));
+
+		frr_each(nt_entry_list_const, &nt_globals.entry_list, entry) {
+			/* Compute remaining timeout */
+			if (entry->expiration >= now)
+				expires = entry->expiration - now;
+			else
+				expires = 0;
+
+			vty_out(vty, "  %pIA, expires in %u secs\n",
+				&entry->addr, expires);
+		}
 	}
+
+	return CMD_SUCCESS;
+}
+
+/*
+ * Emit config output
+ */
+int zebra_neigh_throttle_config_write(struct vty *vty)
+{
+	if (nt_globals.enabled_p)
+		vty_out(vty, ZEBRA_NEIGH_THROTTLE_STR "\n");
+
+	if (nt_globals.max_entries != ZEBRA_NEIGH_THROTTLE_DEFAULT_MAX)
+		vty_out(vty, ZEBRA_NEIGH_THROTTLE_STR " limit %u\n",
+			nt_globals.max_entries);
+
+	if (nt_globals.timeout_secs != ZEBRA_NEIGH_THROTTLE_DEFAULT_TIMEOUT)
+		vty_out(vty, ZEBRA_NEIGH_THROTTLE_STR " timeout %u\n",
+			(uint32_t)nt_globals.timeout_secs);
 
 	return CMD_SUCCESS;
 }

@@ -471,6 +471,7 @@ struct cmd_node {
 #define NO_MPLS_LDP_SYNC_HOLDDOWN_STR "holddown timer disable\n"
 #define BGP_AF_STR "Address Family\n"
 #define BGP_AF_MODIFIER_STR "Address Family modifier\n"
+#define ZEBRA_NEIGH_THROTTLE_STR "neighbor throttle"
 
 /* Command warnings. */
 #define NO_PASSWD_CMD_WARNING                                                  \
