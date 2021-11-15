@@ -299,12 +299,6 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 	 && memcmp(&(ra)->path.origin, &(rb)->path.origin,                     \
 		   sizeof(struct ospf6_ls_origin))                             \
 		    == 0)
-#define ospf6_route_is_identical(ra, rb)                                       \
-	((ra)->type == (rb)->type                                              \
-	 && memcmp(&(ra)->prefix, &(rb)->prefix, sizeof(struct prefix)) == 0   \
-	 && memcmp(&(ra)->path, &(rb)->path, sizeof(struct ospf6_path)) == 0   \
-	 && listcount(ra->paths) == listcount(rb->paths)		       \
-	 && ospf6_route_cmp_nexthops(ra, rb) == 0)
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
