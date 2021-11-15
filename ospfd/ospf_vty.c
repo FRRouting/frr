@@ -6416,7 +6416,7 @@ static int show_network_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 	}
 
 	if (json)
-		json_object_object_add(json, "attchedRouters",
+		json_object_object_add(json, "attachedRouters",
 				       json_attached_rt);
 
 	return 0;
