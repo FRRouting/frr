@@ -875,7 +875,7 @@ bool bgp_zebra_nexthop_set(union sockunion *local, union sockunion *remote,
 			 * It's fine to not have a v6 LL when using
 			 * update-source loopback/vrf
 			 */
-			if (!v6_ll_avail && if_is_loopback_or_vrf(ifp))
+			if (!v6_ll_avail && if_is_loopback(ifp))
 				v6_ll_avail = true;
 		} else
 		/* Link-local address. */

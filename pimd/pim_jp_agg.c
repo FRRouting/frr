@@ -368,7 +368,7 @@ void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 	if (!up || !rpf->source_nexthop.interface ||
 		pim_if_connected_to_source(rpf->source_nexthop.interface,
 			up->sg.src) ||
-		if_is_loopback_or_vrf(rpf->source_nexthop.interface))
+		if_is_loopback(rpf->source_nexthop.interface))
 		return;
 
 	memset(&groups, 0, sizeof(groups));

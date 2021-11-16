@@ -692,7 +692,7 @@ int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		return 0;
 
 	if (hello_send(ifp, holdtime)) {
@@ -794,7 +794,7 @@ void pim_hello_restart_triggered(struct interface *ifp)
 	/*
 	 * No need to ever start loopback or vrf device hello's
 	 */
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		return;
 
 	/*

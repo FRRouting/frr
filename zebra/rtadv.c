@@ -493,7 +493,7 @@ static int rtadv_timer(struct thread *thread)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (if_is_loopback_or_vrf(ifp) || !if_is_operative(ifp)
+			if (if_is_loopback(ifp) || !if_is_operative(ifp)
 				|| (vrf_is_backend_netns() && ifp->vrf_id != zvrf->vrf->vrf_id))
 				continue;
 
@@ -726,7 +726,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 			   VRF_LOGNAME(vrf), ifp->ifindex, len, addr_str);
 	}
 
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		return;
 
 	/* Check interface configuration. */
@@ -1462,7 +1462,7 @@ DEFUN (ipv6_nd_ra_fast_retrans,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this  interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1484,7 +1484,7 @@ DEFUN (no_ipv6_nd_ra_fast_retrans,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this  interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1506,7 +1506,7 @@ DEFPY (ipv6_nd_ra_hop_limit,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1529,7 +1529,7 @@ DEFPY (no_ipv6_nd_ra_hop_limit,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1551,7 +1551,7 @@ DEFPY (ipv6_nd_ra_retrans_interval,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on loopback interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1574,7 +1574,7 @@ DEFPY (no_ipv6_nd_ra_retrans_interval,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot remove IPv6 Router Advertisements on loopback interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1595,7 +1595,7 @@ DEFUN (ipv6_nd_suppress_ra,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this  interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1619,7 +1619,7 @@ DEFUN (no_ipv6_nd_suppress_ra,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2608,7 +2608,7 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 
 	zif = ifp->info;
 
-	if (!if_is_loopback_or_vrf(ifp)) {
+	if (!if_is_loopback(ifp)) {
 		if (zif->rtadv.AdvSendAdvertisements
 		    && CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
 			vty_out(vty, " no ipv6 nd suppress-ra\n");

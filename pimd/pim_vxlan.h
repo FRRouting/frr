@@ -116,7 +116,7 @@ static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
 {
 	return (up->sg.src.s_addr != INADDR_ANY) &&
 		up->rpf.source_nexthop.interface &&
-		if_is_loopback_or_vrf(up->rpf.source_nexthop.interface);
+		if_is_loopback(up->rpf.source_nexthop.interface);
 }
 
 static inline bool pim_vxlan_is_term_dev_cfg(struct pim_instance *pim,
