@@ -1,0 +1,76 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph bgp_vrf_netns_eBGP_topo1 {
+	label="bgp vrf netns topo1 - eBGP with different AS numbers";
+    labelloc="t";
+
+	# Routers
+	r1-vrf-cust1 [
+		label="r1\nrtr-id 1.1.1.1/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+        r1-vrf-cust2 [
+		label="r1\nrtr-id 2.2.2.2/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# 1 Switch for BGP Peers
+	s1 [
+		label="s1\n1.1.1.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+        # 1 Switch for BGP Peers
+	s2 [
+		label="s1\n2.2.2.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# 1 ExaBGP Peers AS 100
+	peer1 [
+		label="eBGP peer1\nAS100\nrtr-id 1.1.1.2/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+
+	# 1 ExaBGP Peers AS 100
+	peer1 [
+		label="eBGP peer2\nAS100\nrtr-id 2.2.2.3/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+
+        # Connections
+	r1-vrf-cust1 -- s1 [label="eth0\n.1"];
+	r1-vrf-cust2 -- s2 [label="eth1\n.1"];
+
+	peer1 -- s1 [label="eth0\n.101"];
+	peer2 -- s2 [label="eth1\n.101"];
+
+	# Arrange network to make cleaner diagram
+	{ rank=same peer1 } -- s1 -- { rank=same r1-vrf-cust1 } [style=invis]
+	{ rank=same peer2 } -- s2 -- { rank=same r1-vrf-cust2 } [style=invis]
+}
