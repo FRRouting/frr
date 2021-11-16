@@ -698,7 +698,7 @@ int if_is_no_ptm_operative(const struct interface *ifp)
 }
 
 /* Is this loopback interface ? */
-int if_is_loopback(const struct interface *ifp)
+int if_is_loopback_exact(const struct interface *ifp)
 {
 	/* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
 	 * but Y on platform N?
@@ -712,9 +712,10 @@ int if_is_vrf(const struct interface *ifp)
 	return CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
 }
 
-bool if_is_loopback_or_vrf(const struct interface *ifp)
+/* Should this interface be treated as a loopback? */
+bool if_is_loopback(const struct interface *ifp)
 {
-	if (if_is_loopback(ifp) || if_is_vrf(ifp))
+	if (if_is_loopback_exact(ifp) || if_is_vrf(ifp))
 		return true;
 
 	return false;
