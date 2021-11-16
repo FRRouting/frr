@@ -1093,7 +1093,7 @@ void pim_vxlan_add_vif(struct interface *ifp)
 	if (pim->vrf->vrf_id != VRF_DEFAULT)
 		return;
 
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		pim_vxlan_set_default_iif(pim, ifp);
 
 	if (vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED &&

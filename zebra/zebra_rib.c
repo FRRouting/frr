@@ -1026,7 +1026,7 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 			struct interface *ifp = if_lookup_by_index(
 				nexthop->ifindex, alternate->vrf_id);
 
-			if (ifp && if_is_loopback_or_vrf(ifp))
+			if (ifp && if_is_loopback(ifp))
 				return alternate;
 		}
 
@@ -1034,7 +1034,7 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 			struct interface *ifp = if_lookup_by_index(
 				nexthop->ifindex, current->vrf_id);
 
-			if (ifp && if_is_loopback_or_vrf(ifp))
+			if (ifp && if_is_loopback(ifp))
 				return current;
 		}
 
