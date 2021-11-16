@@ -1,0 +1,50 @@
+## Color coding:
+#########################
+##  Main FRR: #f08080  red
+##  Switches: #d0e0d0  gray
+##  RIP:      #19e3d9  Cyan
+##  RIPng:    #fcb314  dark yellow
+##  OSPFv2:   #32b835  Green
+##  OSPFv3:   #19e3d9  Cyan
+##  ISIS IPv4 #fcb314  dark yellow
+##  ISIS IPv6 #9a81ec  purple
+##  BGP IPv4  #eee3d3  beige
+##  BGP IPv6  #fdff00  yellow
+##### Colors (see http://www.color-hex.com/)
+
+graph bgp_vrf_netns_eBGP_topo1 {
+	label="bgp vrf netns topo1 - eBGP with different AS numbers";
+    labelloc="t";
+
+	# Routers
+	r1 [
+		label="r1\nrtr-id 10.0.255.1/32",
+		shape=doubleoctagon,
+		fillcolor="#f08080",
+		style=filled,
+	];
+
+	# 1 Switch for eBGP Peers
+	s1 [
+		label="s1\n10.0.1.0/24",
+		shape=oval,
+		fillcolor="#d0e0d0",
+		style=filled,
+	];
+
+	# 1 ExaBGP Peers AS 101
+	peer1 [
+		label="eBGP peer1\nAS101\nrtr-id 10.0.1.101/32",
+		shape=rectangle,
+		fillcolor="#eee3d3",
+		style=filled,
+	];
+
+	# Connections
+	r1 -- s1 [label="eth0\n.1"];
+
+	peer1 -- s1 [label="eth0\n.101"];
+
+	# Arrange network to make cleaner diagram
+	{ rank=same peer1 } -- s1 -- { rank=same r1 } [style=invis]
+}
