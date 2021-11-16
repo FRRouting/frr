@@ -1289,6 +1289,7 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	int i;
 	int j;
 	int public = 0;
+	int peer = 0;
 
 	new = XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
 
@@ -1297,14 +1298,17 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	last_new_seg = NULL;
 	seg = aspath->segments;
 	while (seg) {
-	      public
-		= 0;
+		public = 0;
+		peer = 0;
 		for (i = 0; i < seg->length; i++) {
 			// ASN is public
-			if (!BGP_AS_IS_PRIVATE(seg->as[i])) {
-			      public
-				++;
-			}
+			if (!BGP_AS_IS_PRIVATE(seg->as[i]))
+				public++;
+			/* ASN matches peer's.
+			 * Don't double-count if peer_asn is public.
+			 */
+			else if (seg->as[i] == peer_asn)
+				peer++;
 		}
 
 		// The entire segment is public so copy it
@@ -1316,7 +1320,10 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 		// there are public ASNs then come back and fill in only the
 		// public ASNs.
 		else {
-			new_seg = assegment_new(seg->type, public);
+			/* length needs to account for all retained ASNs
+			 * (public or peer_asn), not just public
+			 */
+			new_seg = assegment_new(seg->type, (public + peer));
 			j = 0;
 			for (i = 0; i < seg->length; i++) {
 				// keep ASN if public or matches peer's ASN
