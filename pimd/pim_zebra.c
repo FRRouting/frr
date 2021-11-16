@@ -164,7 +164,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (if_is_loopback(c->ifp)) {
-		struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 		struct interface *ifp;
 
 		FOR_ALL_INTERFACES (vrf, ifp) {
