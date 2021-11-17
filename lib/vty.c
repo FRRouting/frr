@@ -2998,7 +2998,7 @@ static void vty_save_cwd(void)
 		 * the whole world is coming down around us
 		 * Hence not worrying about it too much.
 		 */
-		if (!chdir(SYSCONFDIR)) {
+		if (chdir(SYSCONFDIR)) {
 			flog_err_sys(EC_LIB_SYSTEM_CALL,
 				     "Failure to chdir to %s, errno: %d",
 				     SYSCONFDIR, errno);
