@@ -1127,14 +1127,7 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 					      master, dtype, seqnum);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,

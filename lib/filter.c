@@ -589,14 +589,7 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 		}
 	}
 
-	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 /* show MAC access list - this only has MAC filters for now*/
