@@ -199,14 +199,14 @@ bool static_add_nexthop_validate(const char *nh_vrf_name,
 	switch (type) {
 	case STATIC_IPV4_GATEWAY:
 	case STATIC_IPV4_GATEWAY_IFNAME:
-		if (if_lookup_exact_address(&ipaddr->ipaddr_v4, AF_INET,
-					    vrf->vrf_id))
+		if (if_address_is_local(&ipaddr->ipaddr_v4, AF_INET,
+					vrf->vrf_id))
 			return false;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
-		if (if_lookup_exact_address(&ipaddr->ipaddr_v6, AF_INET6,
-					    vrf->vrf_id))
+		if (if_address_is_local(&ipaddr->ipaddr_v6, AF_INET6,
+					vrf->vrf_id))
 			return false;
 		break;
 	default:
