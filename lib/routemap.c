@@ -1042,14 +1042,7 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 		list_delete(&maplist);
 	}
 
-	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 /* Unused route map details */
