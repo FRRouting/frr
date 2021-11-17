@@ -321,7 +321,7 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
 extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
-bool vty_set_include(struct vty *vty, const char *regexp);
+extern bool vty_set_include(struct vty *vty, const char *regexp);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
