@@ -639,14 +639,6 @@ int bfd_recvtimer_cb(struct thread *t)
 	case PTM_BFD_INIT:
 	case PTM_BFD_UP:
 		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
-		bfd_recvtimer_update(bs);
-		break;
-
-	default:
-		/* Second detect time expiration, zero remote discr (section
-		 * 6.5.1)
-		 */
-		bs->discrs.remote_discr = 0;
 		break;
 	}
 
