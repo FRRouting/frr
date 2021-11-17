@@ -39,6 +39,8 @@
 extern "C" {
 #endif
 
+struct json_object;
+
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
@@ -322,6 +324,10 @@ extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
 extern bool vty_set_include(struct vty *vty, const char *regexp);
+/* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
+ * NULL check and json_object_free() is included.
+ */
+extern int vty_json(struct vty *vty, struct json_object *json);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
