@@ -4104,9 +4104,6 @@ void vtysh_init_vty(void)
 
 	install_node(&bgp_evpn_node);
 	install_element(BGP_NODE, &address_family_evpn_cmd);
-#if defined(HAVE_CUMULUS)
-	install_element(BGP_NODE, &address_family_evpn2_cmd);
-#endif
 	install_element(BGP_EVPN_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_end_all_cmd);
