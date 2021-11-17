@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 import time
+import resource
 
 import pytest
 import lib.fixtures
@@ -221,6 +222,9 @@ def pytest_configure(config):
         is_xdist = True
         is_worker = True
 
+    resource.setrlimit(
+        resource.RLIMIT_CORE, (resource.RLIM_INFINITY, resource.RLIM_INFINITY)
+    )
     # -----------------------------------------------------
     # Set some defaults for the pytest.ini [pytest] section
     # ---------------------------------------------------
@@ -505,5 +509,6 @@ def pytest_runtest_makereport(item, call):
 #
 # Add common fixtures available to all tests as parameters
 #
+
 tgen = pytest.fixture(lib.fixtures.tgen)
 topo = pytest.fixture(lib.fixtures.topo)
