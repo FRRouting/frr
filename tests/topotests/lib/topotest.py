@@ -1386,7 +1386,6 @@ class Router(Node):
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
 
-        self.cmd("ulimit -c unlimited")
         # Set ownership of config files
         self.cmd("chown {0}:{0}vty /etc/{0}".format(self.routertype))
 
