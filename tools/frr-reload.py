@@ -491,17 +491,6 @@ class Config(object):
          exit-address-family
         !
         end
-         address-family evpn
-          neighbor LEAF activate
-          advertise-all-vni
-          vni 10100
-           rd 65000:10100
-           route-target import 10.1.1.1:10100
-           route-target export 10.1.1.1:10100
-          exit-vni
-         exit-address-family
-        !
-        end
         router ospf
          ospf router-id 10.0.0.1
          log-adjacency-changes detail
