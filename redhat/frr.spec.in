@@ -564,7 +564,7 @@ zebra_spec_add_service fabricd	2618/tcp "Fabricd vty"
 /sbin/install-info %{_infodir}/frr.info.gz %{_infodir}/dir
 
 # Create dummy config file if they don't exist so basic functions can be used.
-if [ ! -e %{configdir}/zebra.conf ]; then
+if [ ! -e %{configdir}/frr.conf ]; then
     # per daemon configs exist
     mv %{configdir}/frr.conf.template %{configdir}/frr.conf
 %if 0%{?frr_user:1}
