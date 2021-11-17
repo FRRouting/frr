@@ -562,6 +562,8 @@ static void ospf6_disable(struct ospf6 *o)
 		THREAD_OFF(o->t_ospf6_receive);
 		THREAD_OFF(o->t_external_aggr);
 		THREAD_OFF(o->gr_info.t_grace_period);
+		THREAD_OFF(o->t_write);
+		THREAD_OFF(o->t_abr_task);
 	}
 }
 
@@ -582,8 +584,6 @@ static int ospf6_maxage_remover(struct thread *thread)
 	struct ospf6_neighbor *on;
 	struct listnode *i, *j, *k;
 	int reschedule = 0;
-
-	o->maxage_remover = (struct thread *)NULL;
 
 	for (ALL_LIST_ELEMENTS_RO(o->area_list, i, oa)) {
 		for (ALL_LIST_ELEMENTS_RO(oa->if_list, j, oi)) {
