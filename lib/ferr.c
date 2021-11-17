@@ -157,13 +157,7 @@ void log_ref_display(struct vty *vty, uint32_t code, bool json)
 		}
 	}
 
-	if (json) {
-		const char *str = json_object_to_json_string_ext(
-			top, JSON_C_TO_STRING_PRETTY);
-		vty_out(vty, "%s\n", str);
-		json_object_free(top);
-	}
-
+	vty_json(vty, top);
 	list_delete(&errlist);
 }
 
