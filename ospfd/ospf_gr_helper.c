@@ -624,9 +624,6 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 	struct listnode *node;
 	struct ospf_interface *oi;
 
-	if (!ospf->active_restarter_cnt)
-		return;
-
 	/* Topo change not required to be handled if strict
 	 * LSA check is disabled for this router.
 	 */
