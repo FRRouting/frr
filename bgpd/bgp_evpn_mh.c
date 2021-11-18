@@ -2195,9 +2195,8 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 
 	json_vtep_entry = json_object_new_object();
 
-	json_object_string_add(
-		json_vtep_entry, "vtep_ip",
-		inet_ntop(AF_INET, &es_vtep->vtep_ip, ip_buf, sizeof(ip_buf)));
+	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
+				&es_vtep->vtep_ip);
 	if (es_vtep->flags & (BGP_EVPNES_VTEP_ESR |
 			 BGP_EVPNES_VTEP_ACTIVE)) {
 		json_flags = json_object_new_array();
@@ -2338,9 +2337,8 @@ static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 				json_array_string_add(json_flags, "bypass");
 			json_object_object_add(json, "flags", json_flags);
 		}
-		json_object_string_add(json, "originator_ip",
-				       inet_ntop(AF_INET, &es->originator_ip,
-						 ip_buf, sizeof(ip_buf)));
+		json_object_string_addf(json, "originator_ip", "%pI4",
+					&es->originator_ip);
 		json_object_int_add(json, "remoteVniCount",
 				es->remote_es_evi_cnt);
 		json_object_int_add(json, "vrfCount",
@@ -3718,9 +3716,8 @@ static void bgp_evpn_es_evi_json_vtep_fill(json_object *json_vteps,
 
 	json_vtep_entry = json_object_new_object();
 
-	json_object_string_add(
-		json_vtep_entry, "vtep_ip",
-		inet_ntop(AF_INET, &evi_vtep->vtep_ip, ip_buf, sizeof(ip_buf)));
+	json_object_string_addf(json_vtep_entry, "vtep_ip", "%pI4",
+				&evi_vtep->vtep_ip);
 	if (evi_vtep->flags & (BGP_EVPN_EVI_VTEP_EAD_PER_ES |
 			 BGP_EVPN_EVI_VTEP_EAD_PER_EVI)) {
 		json_flags = json_object_new_array();

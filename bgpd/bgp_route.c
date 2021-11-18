@@ -8737,10 +8737,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 			json_nexthop_global = json_object_new_object();
 
-			json_object_string_add(json_nexthop_global, "ip",
-					       inet_ntop(AF_INET,
-							 &attr->nexthop, buf,
-							 sizeof(buf)));
+			json_object_string_addf(json_nexthop_global, "ip",
+						"%pI4", &attr->nexthop);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -8774,10 +8772,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 				json_object_string_add(json_nexthop_global,
 						       "afi", "ipv4");
-				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntop(AF_INET, &attr->nexthop, buf,
-						  sizeof(buf)));
+				json_object_string_addf(json_nexthop_global,
+							"ip", "%pI4",
+							&attr->nexthop);
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -8811,10 +8808,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 			json_nexthop_global = json_object_new_object();
 
-			json_object_string_add(json_nexthop_global, "ip",
-					       inet_ntop(AF_INET,
-							 &attr->nexthop, buf,
-							 sizeof(buf)));
+			json_object_string_addf(json_nexthop_global, "ip",
+						"%pI4", &attr->nexthop);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -8847,10 +8842,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
-			json_object_string_add(
-				json_nexthop_global, "ip",
-				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
-					  buf, BUFSIZ));
+			json_object_string_addf(json_nexthop_global, "ip",
+						"%pI6",
+						&attr->mp_nexthop_global);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -8868,11 +8862,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			     == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL)
 			    || (path->peer->conf_if)) {
 				json_nexthop_ll = json_object_new_object();
-				json_object_string_add(
-					json_nexthop_ll, "ip",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_local, buf,
-						  BUFSIZ));
+				json_object_string_addf(
+					json_nexthop_ll, "ip", "%pI6",
+					&attr->mp_nexthop_local);
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -9131,36 +9123,27 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 			    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 				|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
 				if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)
-					json_object_string_add(
-						json_net, "nextHop",
-						inet_ntop(
-							AF_INET,
-							&attr->mp_nexthop_global_in,
-							buf, sizeof(buf)));
+					json_object_string_addf(
+						json_net, "nextHop", "%pI4",
+						&attr->mp_nexthop_global_in);
 				else
-					json_object_string_add(
-						json_net, "nextHop",
-						inet_ntop(AF_INET,
-							  &attr->nexthop, buf,
-							  sizeof(buf)));
+					json_object_string_addf(
+						json_net, "nextHop", "%pI4",
+						&attr->nexthop);
 			} else if (p->family == AF_INET6
 				   || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 				char buf[BUFSIZ];
 
-				json_object_string_add(
-					json_net, "nextHopGlobal",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global, buf,
-						  BUFSIZ));
+				json_object_string_addf(
+					json_net, "nextHopGlobal", "%pI6",
+					&attr->mp_nexthop_global);
 			} else if (p->family == AF_EVPN
 				   && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 				char buf[BUFSIZ] = {0};
 
-				json_object_string_add(
-					json_net, "nextHop",
-					inet_ntop(AF_INET,
-						  &attr->mp_nexthop_global_in,
-						  buf, sizeof(buf)));
+				json_object_string_addf(
+					json_net, "nextHop", "%pI4",
+					&attr->mp_nexthop_global_in);
 			}
 
 			if (attr->flag
@@ -9284,20 +9267,16 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json)
-				json_object_string_add(
-					json_out, "mpNexthopGlobalIn",
-					inet_ntop(AF_INET,
-						  &attr->mp_nexthop_global_in,
-						  buf, sizeof(buf)));
+				json_object_string_addf(
+					json_out, "mpNexthopGlobalIn", "%pI4",
+					&attr->mp_nexthop_global_in);
 			else
 				vty_out(vty, "%-16pI4",
 					&attr->mp_nexthop_global_in);
 		} else {
 			if (json)
-				json_object_string_add(
-					json_out, "nexthop",
-					inet_ntop(AF_INET, &attr->nexthop, buf,
-						  sizeof(buf)));
+				json_object_string_addf(json_out, "nexthop",
+							"%pI4", &attr->nexthop);
 			else
 				vty_out(vty, "%-16pI4", &attr->nexthop);
 		}
@@ -9309,11 +9288,9 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 
 		if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL) {
 			if (json)
-				json_object_string_add(
-					json_out, "mpNexthopGlobalIn",
-					inet_ntop(AF_INET6,
-						  &attr->mp_nexthop_global,
-						  buf_a, sizeof(buf_a)));
+				json_object_string_addf(
+					json_out, "mpNexthopGlobalIn", "%pI6",
+					&attr->mp_nexthop_global);
 			else
 				vty_out(vty, "%s",
 					inet_ntop(AF_INET6,
@@ -9891,10 +9868,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 			json_object_int_add(json_path, "aggregatorAs",
 					    attr->aggregator_as);
-			json_object_string_add(json_path, "aggregatorId",
-					       inet_ntop(AF_INET,
-							 &attr->aggregator_addr,
-							 buf, sizeof(buf)));
+			json_object_string_addf(json_path, "aggregatorId",
+						"%pI4", &attr->aggregator_addr);
 		} else {
 			vty_out(vty, ", (aggregated by %u %pI4)",
 				attr->aggregator_as, &attr->aggregator_addr);
@@ -9949,11 +9924,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json_paths) {
-				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntop(AF_INET,
-						  &attr->mp_nexthop_global_in,
-						  buf, sizeof(buf)));
+				json_object_string_addf(
+					json_nexthop_global, "ip", "%pI4",
+					&attr->mp_nexthop_global_in);
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -9970,10 +9943,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			}
 		} else {
 			if (json_paths) {
-				json_object_string_add(
-					json_nexthop_global, "ip",
-					inet_ntop(AF_INET, &attr->nexthop, buf,
-						  sizeof(buf)));
+				json_object_string_addf(json_nexthop_global,
+							"ip", "%pI4",
+							&attr->nexthop);
 
 				if (path->peer->hostname)
 					json_object_string_add(
@@ -9995,10 +9967,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					       "ipv4");
 	} else {
 		if (json_paths) {
-			json_object_string_add(
-				json_nexthop_global, "ip",
-				inet_ntop(AF_INET6, &attr->mp_nexthop_global,
-					  buf, INET6_ADDRSTRLEN));
+			json_object_string_addf(json_nexthop_global, "ip",
+						"%pI6",
+						&attr->mp_nexthop_global);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_global,
@@ -10073,10 +10044,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 		if (json_paths) {
 			char buf[BUFSIZ] = {0};
 
-			json_object_string_add(json_peer, "routerId",
-					       inet_ntop(AF_INET,
-							 &bgp->router_id, buf,
-							 sizeof(buf)));
+			json_object_string_addf(json_peer, "routerId", "%pI4",
+						&bgp->router_id);
 		} else {
 			vty_out(vty, "(%pI4)", &bgp->router_id);
 		}
@@ -10090,10 +10059,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 					       sockunion2str(&path->peer->su,
 							     buf,
 							     SU_ADDRSTRLEN));
-			json_object_string_add(json_peer, "routerId",
-					       inet_ntop(AF_INET,
-							 &path->peer->remote_id,
-							 buf1, sizeof(buf1)));
+			json_object_string_addf(json_peer, "routerId", "%pI4",
+						&path->peer->remote_id);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_peer, "hostname",
@@ -10193,10 +10160,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	if (attr->mp_nexthop_len == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
 		if (json_paths) {
 			json_nexthop_ll = json_object_new_object();
-			json_object_string_add(
-				json_nexthop_ll, "ip",
-				inet_ntop(AF_INET6, &attr->mp_nexthop_local,
-					  buf, INET6_ADDRSTRLEN));
+			json_object_string_addf(json_nexthop_ll, "ip", "%pI6",
+						&attr->mp_nexthop_local);
 
 			if (path->peer->hostname)
 				json_object_string_add(json_nexthop_ll,
@@ -10459,10 +10424,9 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 		if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID)) {
 			if (json_paths)
-				json_object_string_add(
-					json_path, "originatorId",
-					inet_ntop(AF_INET, &attr->originator_id,
-						  buf, sizeof(buf)));
+				json_object_string_addf(json_path,
+							"originatorId", "%pI4",
+							&attr->originator_id);
 			else
 				vty_out(vty, "      Originator: %pI4",
 					&attr->originator_id);
@@ -13440,10 +13404,8 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 	if (*header1) {
 		if (json) {
 			json_object_int_add(json, "bgpTableVersion", version);
-			json_object_string_add(json, "bgpLocalRouterId",
-					       inet_ntop(AF_INET,
-							 &bgp->router_id, buf,
-							 sizeof(buf)));
+			json_object_string_addf(json, "bgpLocalRouterId",
+						"%pI4", &bgp->router_id);
 			json_object_int_add(json, "defaultLocPrf",
 					    bgp->default_local_pref);
 			json_object_int_add(json, "localAS", bgp->as);
@@ -13514,10 +13476,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 		if (use_json) {
 			json_object_int_add(json, "bgpTableVersion",
 					    table->version);
-			json_object_string_add(json, "bgpLocalRouterId",
-					       inet_ntop(AF_INET,
-							 &bgp->router_id, buf,
-							 sizeof(buf)));
+			json_object_string_addf(json, "bgpLocalRouterId",
+						"%pI4", &bgp->router_id);
 			json_object_int_add(json, "defaultLocPrf",
 						bgp->default_local_pref);
 			json_object_int_add(json, "localAS", bgp->as);
