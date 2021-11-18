@@ -2062,18 +2062,14 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		vxlan_info = &zebra_if->l2info.vxl;
 		json_object_int_add(json_if, "vxlanId", vxlan_info->vni);
 		if (vxlan_info->vtep_ip.s_addr != INADDR_ANY)
-			json_object_string_add(json_if, "vtepIp",
-					       inet_ntop(AF_INET,
-							 &vxlan_info->vtep_ip,
-							 buf, sizeof(buf)));
+			json_object_string_addf(json_if, "vtepIp", "%pI4",
+						&vxlan_info->vtep_ip);
 		if (vxlan_info->access_vlan)
 			json_object_int_add(json_if, "accessVlanId",
 					    vxlan_info->access_vlan);
 		if (vxlan_info->mcast_grp.s_addr != INADDR_ANY)
-			json_object_string_add(json_if, "mcastGroup",
-					       inet_ntop(AF_INET,
-							 &vxlan_info->mcast_grp,
-							 buf, sizeof(buf)));
+			json_object_string_addf(json_if, "mcastGroup", "%pI4",
+						&vxlan_info->mcast_grp);
 		if (vxlan_info->ifindex_link
 		    && (vxlan_info->link_nsid != NS_UNKNOWN)) {
 			struct interface *ifp;
@@ -2090,16 +2086,12 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 
 		gre_info = &zebra_if->l2info.gre;
 		if (gre_info->vtep_ip.s_addr != INADDR_ANY) {
-			json_object_string_add(json_if, "vtepIp",
-					       inet_ntop(AF_INET,
-							 &gre_info->vtep_ip,
-							 buf, sizeof(buf)));
+			json_object_string_addf(json_if, "vtepIp", "%pI4",
+						&gre_info->vtep_ip);
 			if (gre_info->vtep_ip_remote.s_addr != INADDR_ANY)
-				json_object_string_add(
-					json_if, "vtepRemoteIp",
-					inet_ntop(AF_INET,
-						  &gre_info->vtep_ip_remote,
-						  buf, sizeof(buf)));
+				json_object_string_addf(
+					json_if, "vtepRemoteIp", "%pI4",
+					&gre_info->vtep_ip_remote);
 		}
 		if (gre_info->ifindex_link
 		    && (gre_info->link_nsid != NS_UNKNOWN)) {
@@ -2233,9 +2225,8 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 			json_object_double_add(json_te, "utilizedBandwidth",
 					       iflp->use_bw);
 		if (IS_PARAM_SET(iflp, LP_RMT_AS))
-			json_object_string_add(json_te, "neighborAsbrIp",
-					       inet_ntop(AF_INET, &iflp->rmt_ip,
-							 buf, sizeof(buf)));
+			json_object_string_addf(json_te, "neighborAsbrIp",
+						"%pI4", &iflp->rmt_ip);
 		json_object_int_add(json_te, "neighborAsbrAs", iflp->rmt_as);
 	}
 

@@ -1541,15 +1541,13 @@ static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_add(json_nhlfe, "nexthop",
-				       inet_ntop(AF_INET, &nexthop->gate.ipv4,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_nhlfe, "nexthop", "%pI4",
+					&nexthop->gate.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		json_object_string_add(
-			json_nhlfe, "nexthop",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6, buf, BUFSIZ));
+		json_object_string_addf(json_nhlfe, "nexthop", "%pI6",
+					&nexthop->gate.ipv6);
 
 		if (nexthop->ifindex)
 			json_object_string_add(json_nhlfe, "interface",
