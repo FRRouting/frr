@@ -308,7 +308,6 @@ static void json_object_pim_ifp_add(struct json_object *json,
 				    struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	char buf[PREFIX_STRLEN];
 
 	pim_ifp = ifp->info;
 	json_object_string_add(json, "name", ifp->name);
@@ -488,7 +487,6 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	struct interface *ifp;
 	time_t now;
 	char buf[PREFIX_STRLEN];
-	char quer_buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -582,7 +580,6 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	struct listnode *sock_node;
 	struct pim_interface *pim_ifp;
 	char uptime[10];
-	char quer_buf[PREFIX_STRLEN];
 	char query_hhmmss[10];
 	char other_hhmmss[10];
 	int found_ifname = 0;
@@ -925,7 +922,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	int mloop = 0;
 	int found_ifname = 0;
 	int print_header;
-	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_pim_neighbor = NULL;
@@ -1402,7 +1398,6 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	int fhr = 0;
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
-	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_tmp;

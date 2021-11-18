@@ -2191,7 +2191,6 @@ static void bgp_evpn_es_json_vtep_fill(json_object *json_vteps,
 {
 	json_object *json_vtep_entry;
 	json_object *json_flags;
-	char ip_buf[INET6_ADDRSTRLEN];
 
 	json_vtep_entry = json_object_new_object();
 
@@ -2313,8 +2312,6 @@ static void bgp_evpn_es_show_entry(struct vty *vty,
 static void bgp_evpn_es_show_entry_detail(struct vty *vty,
 		struct bgp_evpn_es *es, json_object *json)
 {
-	char ip_buf[INET6_ADDRSTRLEN];
-
 	if (json) {
 		json_object *json_flags;
 		json_object *json_incons;
@@ -3712,7 +3709,6 @@ static void bgp_evpn_es_evi_json_vtep_fill(json_object *json_vteps,
 {
 	json_object *json_vtep_entry;
 	json_object *json_flags;
-	char ip_buf[INET6_ADDRSTRLEN];
 
 	json_vtep_entry = json_object_new_object();
 

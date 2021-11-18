@@ -1504,7 +1504,6 @@ static int mpls_static_lsp_uninstall_all(struct zebra_vrf *zvrf,
 
 static json_object *nhlfe_json(struct zebra_nhlfe *nhlfe)
 {
-	char buf[BUFSIZ];
 	json_object *json_nhlfe = NULL;
 	json_object *json_backups = NULL;
 	json_object *json_label_stack;

@@ -3043,7 +3043,6 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 	struct ospf_area *area;
 	struct timeval result;
 	char timebuf[OSPF_TIME_DUMP_SIZE];
-	char buf[PREFIX_STRLEN];
 	json_object *json_vrf = NULL;
 	json_object *json_areas = NULL;
 
@@ -3532,7 +3531,6 @@ static void show_ip_ospf_interface_sub(struct vty *vty, struct ospf *ospf,
 	int is_up;
 	struct ospf_neighbor *nbr;
 	struct route_node *rn;
-	char buf[PREFIX_STRLEN];
 	uint32_t bandwidth = ifp->bandwidth ? ifp->bandwidth : ifp->speed;
 
 	/* Is interface up? */
@@ -4329,7 +4327,6 @@ static void show_ip_ospf_neighbor_sub(struct vty *vty,
 	struct route_node *rn;
 	struct ospf_neighbor *nbr, *prev_nbr = NULL;
 	char msgbuf[16];
-	char buf[PREFIX_STRLEN];
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_neighbor = NULL, *json_neigh_array = NULL;
 	struct timeval res = {.tv_sec = 0, .tv_usec = 0};
@@ -5009,7 +5006,6 @@ static void show_ip_ospf_nbr_nbma_detail_sub(struct vty *vty,
 					     bool use_json, json_object *json)
 {
 	char timebuf[OSPF_TIME_DUMP_SIZE];
-	char buf[PREFIX_STRLEN];
 	json_object *json_sub = NULL;
 
 	if (use_json)
@@ -5093,7 +5089,6 @@ static void show_ip_ospf_neighbor_detail_sub(struct vty *vty,
 	char timebuf[OSPF_TIME_DUMP_SIZE];
 	json_object *json_neigh = NULL, *json_neigh_array = NULL;
 	char neigh_str[INET_ADDRSTRLEN] = {0};
-	char buf[PREFIX_STRLEN];
 
 	if (use_json) {
 		if (prev_nbr &&
@@ -6134,7 +6129,6 @@ static const char *const show_database_header[] = {
 static void show_ip_ospf_database_header(struct vty *vty, struct ospf_lsa *lsa,
 					 json_object *json)
 {
-	char buf[PREFIX_STRLEN];
 	struct router_lsa *rlsa = (struct router_lsa *)lsa->data;
 
 	if (!json) {
@@ -6447,7 +6441,6 @@ static int show_summary_asbr_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 static int show_as_external_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 				       json_object *json)
 {
-	char buf[PREFIX_STRLEN];
 	int tos = 0;
 
 	if (lsa != NULL) {
@@ -6497,7 +6490,6 @@ static int show_as_external_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 static int show_as_nssa_lsa_detail(struct vty *vty, struct ospf_lsa *lsa,
 				   json_object *json)
 {
-	char buf[PREFIX_STRLEN];
 	int tos = 0;
 
 	if (lsa != NULL) {
@@ -6972,7 +6964,6 @@ static int show_ip_ospf_database_common(struct vty *vty, struct ospf *ospf,
 	int idx_type = 4;
 	int type, ret;
 	struct in_addr id, adv_router;
-	char buf[PREFIX_STRLEN];
 	json_object *json_vrf = NULL;
 
 	if (uj) {
@@ -7245,7 +7236,6 @@ static int show_ip_ospf_database_type_adv_router_common(struct vty *vty,
 	int idx_type = 4;
 	int type, ret;
 	struct in_addr adv_router;
-	char buf[PREFIX_STRLEN];
 	json_object *json_vrf = NULL;
 
 	if (uj) {
@@ -10041,7 +10031,6 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 	struct ospf_route * or ;
 	struct listnode *pnode, *pnnode;
 	struct ospf_path *path;
-	char buf[PREFIX_STRLEN];
 	json_object *json_route = NULL, *json_nexthop_array = NULL,
 		    *json_nexthop = NULL;
 
@@ -10326,7 +10315,6 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 	struct ospf_route *er;
 	struct listnode *pnode, *pnnode;
 	struct ospf_path *path;
-	char buf[PREFIX_STRLEN];
 	json_object *json_route = NULL, *json_nexthop_array = NULL,
 		    *json_nexthop = NULL;
 
@@ -10741,7 +10729,6 @@ DEFUN (show_ip_ospf_vrfs,
 	struct ospf *ospf = NULL;
 	struct listnode *node = NULL;
 	int count = 0;
-	char buf[PREFIX_STRLEN];
 	static const char header[] = "Name                       Id     RouterId  ";
 
 	if (uj) {

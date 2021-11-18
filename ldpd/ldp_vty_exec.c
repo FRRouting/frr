@@ -447,7 +447,6 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_adj		*adj;
-	char 			buf[PREFIX_STRLEN];
 	json_object		*json_array;
 	json_object		*json_adj;
 
@@ -497,7 +496,6 @@ show_discovery_msg_json(struct imsg *imsg, struct show_params *params,
 static void
 show_discovery_detail_adj_json(json_object *json, struct ctl_adj *adj)
 {
-	char buf[PREFIX_STRLEN];
 	json_object *json_adj;
 	json_object *json_array;
 
@@ -530,7 +528,6 @@ show_discovery_detail_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_disc_tnbr	*tnbr;
 	struct in_addr		 rtr_id;
 	union ldpd_addr		*trans_addr;
-	char buf[PREFIX_STRLEN];
 	json_object		*json_interface;
 	json_object		*json_target;
 	static json_object	*json_interfaces;
@@ -745,7 +742,6 @@ show_nbr_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_nbr		*nbr;
-	char buf[PREFIX_STRLEN];
 	json_object		*json_array;
 	json_object		*json_nbr;
 
@@ -1228,7 +1224,6 @@ show_lib_msg_json(struct imsg *imsg, struct show_params *params,
 	json_object	*json_array;
 	json_object	*json_lib_entry;
 	char		 dstnet[BUFSIZ];
-	char buf[PREFIX_STRLEN];
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_LIB_BEGIN:
@@ -1276,7 +1271,6 @@ show_lib_detail_msg_json(struct imsg *imsg, struct show_params *params,
 {
 	struct ctl_rt		*rt = NULL;
 	char			 dstnet[BUFSIZ];
-	char buf[PREFIX_STRLEN];
 	static json_object	*json_lib_entry;
 	static json_object	*json_adv_labels;
 	json_object		*json_adv_label;
@@ -1384,7 +1378,6 @@ show_l2vpn_binding_msg_json(struct imsg *imsg, struct show_params *params,
 	struct ctl_pw	*pw;
 	json_object	*json_pw;
 	char 		 key_name[64];
-	char buf[PREFIX_STRLEN];
 
 	switch (imsg->hdr.type) {
 	case IMSG_CTL_SHOW_L2VPN_BINDING:
@@ -1470,7 +1463,6 @@ show_l2vpn_pw_msg_json(struct imsg *imsg, struct show_params *params,
     json_object *json)
 {
 	struct ctl_pw	*pw;
-	char buf[PREFIX_STRLEN];
 	json_object	*json_pw;
 
 	switch (imsg->hdr.type) {
