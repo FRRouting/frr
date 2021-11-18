@@ -9690,10 +9690,8 @@ DEFUN (show_bgp_vrfs,
 
 			json_object_string_add(json_vrf, "type", type);
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
-			json_object_string_add(json_vrf, "routerId",
-					       inet_ntop(AF_INET,
-							 &bgp->router_id, buf,
-							 sizeof(buf)));
+			json_object_string_addf(json_vrf, "routerId", "%pI4",
+						&bgp->router_id);
 			json_object_int_add(json_vrf, "numConfiguredPeers",
 					    peers_cfg);
 			json_object_int_add(json_vrf, "numEstablishedPeers",
@@ -10292,10 +10290,9 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			if (use_json) {
 				char buf[BUFSIZ] = {0};
 
-				json_object_string_add(
-					json, "routerId",
-					inet_ntop(AF_INET, &bgp->router_id, buf,
-						  sizeof(buf)));
+				json_object_string_addf(json, "routerId",
+							"%pI4",
+							&bgp->router_id);
 				json_object_int_add(json, "as", bgp->as);
 				json_object_int_add(json, "vrfId", vrf_id_ui);
 				json_object_string_add(
@@ -12404,13 +12401,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 
 		/* BGP Version. */
 		json_object_int_add(json_neigh, "bgpVersion", 4);
-		json_object_string_add(
-			json_neigh, "remoteRouterId",
-			inet_ntop(AF_INET, &p->remote_id, buf1, sizeof(buf1)));
-		json_object_string_add(
-			json_neigh, "localRouterId",
-			inet_ntop(AF_INET, &bgp->router_id, buf1,
-					sizeof(buf1)));
+		json_object_string_addf(json_neigh, "remoteRouterId", "%pI4",
+					&p->remote_id);
+		json_object_string_addf(json_neigh, "localRouterId", "%pI4",
+					&bgp->router_id);
 
 		/* Confederation */
 		if (CHECK_FLAG(bgp->config, BGP_CONFIG_CONFEDERATION)
@@ -13999,18 +13993,12 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 	/* Nexthop display. */
 	if (p->su_local) {
 		if (use_json) {
-			json_object_string_add(json_neigh, "nexthop",
-					       inet_ntop(AF_INET,
-							 &p->nexthop.v4, buf1,
-							 sizeof(buf1)));
-			json_object_string_add(json_neigh, "nexthopGlobal",
-					       inet_ntop(AF_INET6,
-							 &p->nexthop.v6_global,
-							 buf1, sizeof(buf1)));
-			json_object_string_add(json_neigh, "nexthopLocal",
-					       inet_ntop(AF_INET6,
-							 &p->nexthop.v6_local,
-							 buf1, sizeof(buf1)));
+			json_object_string_addf(json_neigh, "nexthop", "%pI4",
+						&p->nexthop.v4);
+			json_object_string_addf(json_neigh, "nexthopGlobal",
+						"%pI6", &p->nexthop.v6_global);
+			json_object_string_addf(json_neigh, "nexthopLocal",
+						"%pI6", &p->nexthop.v6_local);
 			if (p->shared_network)
 				json_object_string_add(json_neigh,
 						       "bgpConnection",

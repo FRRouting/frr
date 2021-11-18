@@ -390,19 +390,15 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 		json_object_string_add(
 			json, "rd",
 			prefix_rd2str(&bgp_vrf->vrf_prd, buf1, RD_ADDRSTRLEN));
-		json_object_string_add(
-			json, "originatorIp",
-			inet_ntop(AF_INET, &bgp_vrf->originator_ip,
-				  originator_ip, sizeof(originator_ip)));
+		json_object_string_addf(json, "originatorIp", "%pI4",
+					&bgp_vrf->originator_ip);
 		json_object_string_add(json, "advertiseGatewayMacip", "n/a");
 		json_object_string_add(json, "advertiseSviMacIp", "n/a");
 		json_object_string_add(json, "advertisePip",
 				       bgp_vrf->evpn_info->advertise_pip ?
 				       "Enabled" : "Disabled");
-		json_object_string_add(json, "sysIP",
-				       inet_ntop(AF_INET,
-					&bgp_vrf->evpn_info->pip_ip,
-					buf1, INET_ADDRSTRLEN));
+		json_object_string_addf(json, "sysIP", "%pI4",
+					&bgp_vrf->evpn_info->pip_ip);
 		json_object_string_add(json, "sysMac",
 				prefix_mac2str(&bgp_vrf->evpn_info->pip_rmac,
 					       buf2, sizeof(buf2)));
@@ -497,12 +493,10 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 		json_object_string_add(
 			json, "rd",
 			prefix_rd2str(&vpn->prd, buf1, sizeof(buf1)));
-		json_object_string_add(json, "originatorIp",
-				       inet_ntop(AF_INET, &vpn->originator_ip,
-						 buf, sizeof(buf)));
-		json_object_string_add(
-			json, "mcastGroup",
-			inet_ntop(AF_INET, &vpn->mcast_grp, buf, sizeof(buf)));
+		json_object_string_addf(json, "originatorIp", "%pI4",
+					&vpn->originator_ip);
+		json_object_string_addf(json, "mcastGroup", "%pI4",
+					&vpn->mcast_grp);
 		/* per vni knob is enabled -- Enabled
 		 * Global knob is enabled  -- Active
 		 * default  -- Disabled
@@ -956,9 +950,8 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		json_object_int_add(json_vni, "vni", bgp->l3vni);
 		json_object_string_add(json_vni, "type", "L3");
 		json_object_string_add(json_vni, "inKernel", "True");
-		json_object_string_add(json_vni, "originatorIp",
-				       inet_ntop(AF_INET, &bgp->originator_ip,
-						 buf3, sizeof(buf3)));
+		json_object_string_addf(json_vni, "originatorIp", "%pI4",
+					&bgp->originator_ip);
 		json_object_string_add(
 			json_vni, "rd",
 			prefix_rd2str(&bgp->vrf_prd, buf2, RD_ADDRSTRLEN));
@@ -968,10 +961,8 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 		json_object_string_add(
 			json_vni, "advertisePip",
 			bgp->evpn_info->advertise_pip ? "Enabled" : "Disabled");
-		json_object_string_add(json_vni, "sysIP",
-				       inet_ntop(AF_INET,
-						 &bgp->evpn_info->pip_ip, buf3,
-						 sizeof(buf3)));
+		json_object_string_addf(json_vni, "sysIP", "%pI4",
+					&bgp->evpn_info->pip_ip);
 		json_object_string_add(json_vni, "sysMAC",
 				       prefix_mac2str(&bgp->evpn_info->pip_rmac,
 						      buf2, sizeof(buf2)));
@@ -1090,12 +1081,10 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 		json_object_string_add(
 			json_vni, "rd",
 			prefix_rd2str(&vpn->prd, buf2, sizeof(buf2)));
-		json_object_string_add(json_vni, "originatorIp",
-				       inet_ntop(AF_INET, &vpn->originator_ip,
-						 buf3, sizeof(buf3)));
-		json_object_string_add(json_vni, "mcastGroup",
-				       inet_ntop(AF_INET, &vpn->mcast_grp, buf3,
-						 sizeof(buf3)));
+		json_object_string_addf(json_vni, "originatorIp", "%pI4",
+					&vpn->originator_ip);
+		json_object_string_addf(json_vni, "mcastGroup", "%pI4",
+					&vpn->mcast_grp);
 		/* per vni knob is enabled -- Enabled
 		 * Global knob is enabled  -- Active
 		 * default  -- Disabled
@@ -1296,14 +1285,11 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						json_object_int_add(
 							json, "bgpTableVersion",
 							tbl_ver);
-						json_object_string_add(
+						json_object_string_addf(
 							json,
 							"bgpLocalRouterId",
-							inet_ntop(
-								AF_INET,
-								&bgp->router_id,
-								router_id,
-								sizeof(router_id)));
+							"%pI4",
+							&bgp->router_id);
 						json_object_int_add(
 							json,
 							"defaultLocPrf",
@@ -5845,10 +5831,8 @@ DEFUN (show_bgp_vrf_l3vni_info,
 			prefix_rd2str(&bgp->vrf_prd, buf1, RD_ADDRSTRLEN));
 	} else {
 		json_object_string_add(json, "vrf", name);
-		json_object_string_add(json, "local-ip",
-				       inet_ntop(AF_INET, &bgp->originator_ip,
-						 originator_ip,
-						 sizeof(originator_ip)));
+		json_object_string_addf(json, "local-ip", "%pI4",
+					&bgp->originator_ip);
 		json_object_int_add(json, "l3vni", bgp->l3vni);
 		json_object_string_add(
 			json, "rmac",
