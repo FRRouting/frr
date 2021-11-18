@@ -1018,11 +1018,11 @@ void ls_ted_del_all(struct ls_ted *ted)
 		return;
 
 	/* First remove Vertices, Edges and Subnets and associated Link State */
-	frr_each (vertices, &ted->vertices, vertex)
+	frr_each_safe (vertices, &ted->vertices, vertex)
 		ls_vertex_del_all(ted, vertex);
-	frr_each (edges, &ted->edges, edge)
+	frr_each_safe (edges, &ted->edges, edge)
 		ls_edge_del_all(ted, edge);
-	frr_each (subnets, &ted->subnets, subnet)
+	frr_each_safe (subnets, &ted->subnets, subnet)
 		ls_subnet_del_all(ted, subnet);
 
 	/* then remove TED itself */
@@ -1039,17 +1039,17 @@ void ls_ted_clean(struct ls_ted *ted)
 		return;
 
 	/* First, start with Vertices */
-	frr_each (vertices, &ted->vertices, vertex)
+	frr_each_safe (vertices, &ted->vertices, vertex)
 		if (vertex->status == ORPHAN)
 			ls_vertex_del_all(ted, vertex);
 
 	/* Then Edges */
-	frr_each (edges, &ted->edges, edge)
+	frr_each_safe (edges, &ted->edges, edge)
 		if (edge->status == ORPHAN)
 			ls_edge_del_all(ted, edge);
 
 	/* and Subnets */
-	frr_each (subnets, &ted->subnets, subnet)
+	frr_each_safe (subnets, &ted->subnets, subnet)
 		if (subnet->status == ORPHAN)
 			ls_subnet_del_all(ted, subnet);
 
