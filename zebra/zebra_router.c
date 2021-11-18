@@ -235,9 +235,6 @@ void zebra_router_terminate(void)
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
 
-	if (zrouter.lsp_process_q)
-		work_queue_free_and_null(&zrouter.lsp_process_q);
-
 	work_queue_free_and_null(&zrouter.ribq);
 	meta_queue_free(zrouter.mq);
 
