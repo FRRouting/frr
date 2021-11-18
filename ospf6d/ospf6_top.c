@@ -1482,9 +1482,8 @@ DEFUN(show_ipv6_ospf6_vrfs, show_ipv6_ospf6_vrfs_cmd,
 
 		if (uj) {
 			json_object_int_add(json_vrf, "vrfId", vrf_id_ui);
-			json_object_string_add(json_vrf, "routerId",
-					       inet_ntop(AF_INET, &router_id,
-							 buf, sizeof(buf)));
+			json_object_string_addf(json_vrf, "routerId", "%pI4",
+						&router_id);
 			json_object_object_add(json_vrfs, name, json_vrf);
 
 		} else {
