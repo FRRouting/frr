@@ -84,13 +84,6 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 static int static_ifp_up(struct interface *ifp)
 {
-	if (if_is_vrf(ifp)) {
-		struct static_vrf *svrf = ifp->vrf->info;
-
-		if (svrf)
-			static_fixup_vrf_ids(svrf);
-	}
-
 	/* Install any static reliant on this interface coming up */
 	static_install_intf_nh(ifp);
 	static_ifindex_update(ifp, true);
