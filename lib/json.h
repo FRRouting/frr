@@ -26,6 +26,7 @@ extern "C" {
 #endif
 
 #include "command.h"
+#include "printfrr.h"
 #include <json-c/json.h>
 
 /*
@@ -58,6 +59,53 @@ extern void json_object_boolean_true_add(struct json_object *obj,
 extern struct json_object *json_object_lock(struct json_object *obj);
 extern void json_object_free(struct json_object *obj);
 extern void json_array_string_add(json_object *json, const char *str);
+
+/* printfrr => json helpers */
+
+PRINTFRR(3, 0)
+extern void json_object_string_addv(struct json_object *obj, const char *key,
+				    const char *fmt, va_list args);
+PRINTFRR(3, 4)
+static inline void json_object_string_addf(struct json_object *obj,
+					   const char *key, const char *fmt,
+					   ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	json_object_string_addv(obj, key, fmt, args);
+	va_end(args);
+}
+
+PRINTFRR(2, 0)
+extern void json_array_string_addv(json_object *json, const char *fmt,
+				   va_list args);
+PRINTFRR(2, 3)
+static inline void json_array_string_addf(struct json_object *obj,
+					  const char *fmt, ...)
+{
+	va_list args;
+
+	va_start(args, fmt);
+	json_array_string_addv(obj, fmt, args);
+	va_end(args);
+}
+
+PRINTFRR(1, 0)
+extern struct json_object *json_object_new_stringv(const char *fmt,
+						   va_list args);
+PRINTFRR(1, 2)
+static inline struct json_object *json_object_new_stringf(const char *fmt, ...)
+{
+	struct json_object *ret;
+	va_list args;
+
+	va_start(args, fmt);
+	ret = json_object_new_stringv(fmt, args);
+	va_end(args);
+
+	return ret;
+}
 
 #define JSON_STR "JavaScript Object Notation\n"
 
