@@ -28,6 +28,7 @@ test_bfd_vrf_topo1.py: Test the FRR BFD daemon.
 """
 
 import os
+import platform
 import sys
 import json
 from functools import partial
@@ -43,64 +44,53 @@ from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
-# Required to instantiate the topology builder class.
-
 pytestmark = [pytest.mark.bfdd, pytest.mark.bgpd]
-
-
-def build_topo(tgen):
-    # Create 4 routers
-    for routern in range(1, 5):
-        tgen.add_router("r{}".format(routern))
-
-    switch = tgen.add_switch("s1")
-    switch.add_link(tgen.gears["r1"])
-    switch.add_link(tgen.gears["r2"])
-
-    switch = tgen.add_switch("s2")
-    switch.add_link(tgen.gears["r2"])
-    switch.add_link(tgen.gears["r3"])
-
-    switch = tgen.add_switch("s3")
-    switch.add_link(tgen.gears["r2"])
-    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(build_topo, mod.__name__)
+    topodef = {
+        "s1": ("r1", "r2"),
+        "s2": ("r2", "r3"),
+        "s3": ("r2", "r4"),
+    }
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
-
-    # check for zebra capability
-    for rname, router in router_list.items():
-        if router.check_capability(TopoRouter.RD_ZEBRA, "--vrfwnetns") == False:
-            return pytest.skip(
-                "Skipping BFD Topo1 VRF NETNS feature. VRF NETNS backend not available on FRR"
+    krel = platform.release()
+    if topotest.version_cmp(krel, "4.15") < 0:
+        logger.info(
+            "For BFD, kernel version should be minimum 4.15. Kernel present {}".format(
+                krel
             )
-
-    if os.system("ip netns list") != 0:
-        return pytest.skip(
-            "Skipping BFD Topo1 VRF NETNS Test. NETNS not available on System"
         )
+        return
+    l3mdev_accept = 0
+    if topotest.version_cmp(krel, '4.15') >= 0 and \
+       topotest.version_cmp(krel, '4.18') <= 0:
+        l3mdev_accept = 1
 
-    logger.info("Testing with VRF Namespace support")
+    if topotest.version_cmp(krel, '5.0') >= 0:
+        l3mdev_accept = 1
+        
+    cmds = ['sysctl -w net.ipv4.udp_l3mdev_accept={}'.format(l3mdev_accept),
+            'ip link add {0}-cust1 type vrf table 10',
+            'ip link set dev {0}-cust1 up',
+            'ip link set dev {0}-eth0 master {0}-cust1']
+    cmds2 = ['ip link set dev {0}-eth1 master {0}-cust1',
+             'ip link set dev {0}-eth2 master {0}-cust1']
 
     for rname, router in router_list.items():
-        # create VRF rx-bfd-cust1 and link rx-eth0 to rx-bfd-cust1
-        ns = "{}-bfd-cust1".format(rname)
-        router.net.add_netns(ns)
-        router.net.set_intf_netns(rname + "-eth0", ns, up=True)
+        for cmd in cmds:
+            output = tgen.net[rname].cmd(cmd.format(rname))
         if rname == "r2":
-            router.net.set_intf_netns(rname + "-eth1", ns, up=True)
-            router.net.set_intf_netns(rname + "-eth2", ns, up=True)
+            for cmd in cmds2:
+                output = tgen.net[rname].cmd(cmd.format(rname))
 
     for rname, router in router_list.items():
         router.load_config(
-            TopoRouter.RD_ZEBRA,
-            os.path.join(CWD, "{}/zebra.conf".format(rname)),
-            "--vrfwnetns",
+            TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format(rname))
         )
         router.load_config(
             TopoRouter.RD_BFD, os.path.join(CWD, "{}/bfdd.conf".format(rname))
@@ -112,19 +102,31 @@ def setup_module(mod):
     # Initialize all routers.
     tgen.start_router()
 
+    # Verify that we are using the proper version and that the BFD
+    # daemon exists.
+    for router in router_list.values():
+        # Check for Version
+        if router.has_version("<", "5.1"):
+            tgen.set_error("Unsupported FRR version")
+            break
+
 
 def teardown_module(_mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
-    # Move interfaces out of vrf namespace and delete the namespace
+    cmds = ['ip link set dev {0}-eth0 nomaster',
+            'ip link delete {0}-cust1']
+    cmds2 = ['ip link set {0}-eth1 nomaster',
+             'ip link set {0}-eth2 nomaster']
+
     router_list = tgen.routers()
     for rname, router in router_list.items():
         if rname == "r2":
-            router.net.reset_intf_netns(rname + "-eth2")
-            router.net.reset_intf_netns(rname + "-eth1")
-        router.net.reset_intf_netns(rname + "-eth0")
-        router.net.delete_netns("{}-bfd-cust1".format(rname))
+            for cmd in cmds2:
+                tgen.net[rname].cmd(cmd.format(rname))
+        for cmd in cmds:
+            tgen.net[rname].cmd(cmd.format(rname))
     tgen.stop_topology()
 
 
@@ -135,6 +137,7 @@ def test_bfd_connection():
         pytest.skip(tgen.errors)
 
     logger.info("waiting for bfd peers to go up")
+
     for router in tgen.routers().values():
         json_file = "{}/{}/peers.json".format(CWD, router.name)
         expected = json.loads(open(json_file).read())
@@ -142,7 +145,7 @@ def test_bfd_connection():
         test_func = partial(
             topotest.router_json_cmp, router, "show bfd peers json", expected
         )
-        _, result = topotest.run_and_expect(test_func, None, count=16, wait=1)
+        _, result = topotest.run_and_expect(test_func, None, count=8, wait=0.5)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert result is None, assertmsg
 
@@ -161,7 +164,7 @@ def test_bgp_convergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip bgp vrf {}-bfd-cust1 summary json".format(router.name),
+            "show ip bgp vrf {}-cust1 summary json".format(router.name),
             expected,
         )
         _, res = topotest.run_and_expect(test_func, None, count=125, wait=1.0)
@@ -183,10 +186,10 @@ def test_bgp_fast_convergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip bgp vrf {}-bfd-cust1 json".format(router.name),
+            "show ip bgp vrf {}-cust1 json".format(router.name),
             expected,
         )
-        _, res = topotest.run_and_expect(test_func, None, count=40, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=40, wait=0.5)
         assertmsg = "{}: bgp did not converge".format(router.name)
         assert res is None, assertmsg
 
@@ -203,7 +206,7 @@ def test_bfd_fast_convergence():
     # Disable r2-eth0 link
     router2 = tgen.gears["r2"]
     topotest.interface_set_status(
-        router2, "r2-eth0", ifaceaction=False, vrf_name="r2-bfd-cust1"
+        router2, "r2-eth0", ifaceaction=False, vrf_name="r2-cust1"
     )
 
     # Wait the minimum time we can before checking that BGP/BFD
@@ -228,7 +231,7 @@ def test_bfd_fast_convergence():
         test_func = partial(
             topotest.router_json_cmp, router, "show bfd peers json", expected
         )
-        _, res = topotest.run_and_expect(test_func, None, count=40, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=20, wait=0.5)
         assertmsg = '"{}" JSON output mismatches'.format(router.name)
         assert res is None, assertmsg
 
@@ -258,10 +261,10 @@ def test_bgp_fast_reconvergence():
         test_func = partial(
             topotest.router_json_cmp,
             router,
-            "show ip bgp vrf {}-bfd-cust1 json".format(router.name),
+            "show ip bgp vrf {}-cust1 json".format(router.name),
             expected,
         )
-        _, res = topotest.run_and_expect(test_func, None, count=16, wait=1)
+        _, res = topotest.run_and_expect(test_func, None, count=3, wait=1)
         assertmsg = "{}: bgp did not converge".format(router.name)
         assert res is None, assertmsg
 

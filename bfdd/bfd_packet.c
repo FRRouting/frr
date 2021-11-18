@@ -52,7 +52,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 		      ifindex_t *ifindex, struct sockaddr_any *local,
 		      struct sockaddr_any *peer);
 int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
-		struct sockaddr *to, socklen_t tolen);
+		struct sockaddr *to, socklen_t tolen, struct vrf *vrf);
 int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
 		   uint8_t *ttl, uint32_t *my_discr);
 
@@ -135,6 +135,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 	struct sockaddr_in sin;
 	struct sockaddr_in6 sin6;
 	struct bfd_vrf_global *bvrf = bfd_vrf_look_by_session(bfd);
+	struct vrf *vrf = bfd->vrf;
 
 	if (!bvrf)
 		return;
@@ -177,7 +178,7 @@ void ptm_bfd_echo_snd(struct bfd_session *bfd)
 		salen = sizeof(sin);
 	}
 	if (bp_udp_send(sd, BFD_TTL_VAL, (uint8_t *)&bep, sizeof(bep), sa,
-			salen)
+			salen, vrf)
 	    == -1)
 		return;
 
@@ -738,6 +739,7 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
 	ifindex_t ifindex = IFINDEX_INTERNAL;
 	vrf_id_t vrfid = VRF_DEFAULT;
 	uint8_t msgbuf[1516];
+	struct bfd_session *bfd;
 
 	if (sd == bvrf->bg_echo)
 		rlen = bfd_recv_ipv4(sd, msgbuf, sizeof(msgbuf), ttl, &ifindex,
@@ -753,15 +755,6 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
 		return -1;
 	}
 
-	/* Test for loopback. */
-	if (*ttl == BFD_TTL_VAL) {
-		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
-			    (struct sockaddr *)&peer,
-			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin)
-						    : sizeof(peer.sa_sin6));
-		return -1;
-	}
-
 	/* Read my discriminator from BFD Echo packet. */
 	bep = (struct bfd_echo_pkt *)msgbuf;
 	*my_discr = ntohl(bep->my_discr);
@@ -770,12 +763,24 @@ int bp_bfd_echo_in(struct bfd_vrf_global *bvrf, int sd,
 			 "invalid echo packet discriminator (zero)");
 		return -1;
 	}
+	bfd = bfd_id_lookup(*my_discr);
+
+	/* Test for loopback. */
+	if (*ttl == BFD_TTL_VAL) {
+		bp_udp_send(sd, *ttl - 1, msgbuf, rlen,
+			    (struct sockaddr *)&peer,
+			    (sd == bvrf->bg_echo) ? sizeof(peer.sa_sin)
+						    : sizeof(peer.sa_sin6),
+			    bfd ? bfd->vrf : NULL);
+		return -1;
+	}
+
 
 	return 0;
 }
 
 int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
-		struct sockaddr *to, socklen_t tolen)
+		struct sockaddr *to, socklen_t tolen, struct vrf *vrf)
 {
 	struct cmsghdr *cmsg;
 	ssize_t wlen;
@@ -822,6 +827,8 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 		}
 		memcpy(CMSG_DATA(cmsg), &ttlval, sizeof(ttlval));
 	}
+	if (vrf && vrf->vrf_id != VRF_DEFAULT)
+		vrf_bind(vrf->vrf_id, sd, vrf->name);
 
 	/* Send echo back. */
 	wlen = sendmsg(sd, &msg, 0);
