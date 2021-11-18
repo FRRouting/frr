@@ -1325,12 +1325,9 @@ static void zebra_evpn_es_l2_nh_show_entry(struct zebra_evpn_l2_nh *nh,
 {
 	if (json_array) {
 		json_object *json = NULL;
-		char ip_buf[INET6_ADDRSTRLEN];
 
 		json = json_object_new_object();
-		json_object_string_add(json, "vtep",
-				       inet_ntop(AF_INET, &nh->vtep_ip, ip_buf,
-						 sizeof(ip_buf)));
+		json_object_string_addf(json, "vtep", "%pI4", &nh->vtep_ip);
 		json_object_int_add(json, "nhId", nh->nh_id);
 		json_object_int_add(json, "refCnt", nh->ref_cnt);
 
@@ -3008,13 +3005,11 @@ static void zebra_evpn_es_json_vtep_fill(struct zebra_evpn_es *es,
 	struct listnode *node;
 	json_object *json_vtep_entry;
 	char alg_buf[EVPN_DF_ALG_STR_LEN];
-	char ip_buf[INET6_ADDRSTRLEN];
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		json_vtep_entry = json_object_new_object();
-		json_object_string_add(json_vtep_entry, "vtep",
-				       inet_ntop(AF_INET, &es_vtep->vtep_ip,
-						 ip_buf, sizeof(ip_buf)));
+		json_object_string_addf(json_vtep_entry, "vtep", "%pI4",
+					&es_vtep->vtep_ip);
 		if (es_vtep->flags & ZEBRA_EVPNES_VTEP_RXED_ESR) {
 			json_object_string_add(
 				json_vtep_entry, "dfAlgorithm",

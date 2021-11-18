@@ -118,15 +118,11 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 
 			if (header) {
 				if (use_json) {
-					char buf[BUFSIZ] = {0};
-
 					json_object_int_add(
 						json, "bgpTableVersion", 0);
-					json_object_string_add(
+					json_object_string_addf(
 						json, "bgpLocalRouterId",
-						inet_ntop(AF_INET,
-							  &bgp->router_id, buf,
-							  sizeof(buf)));
+						"%pI4", &bgp->router_id);
 					json_object_int_add(
 						json,
 						"defaultLocPrf",

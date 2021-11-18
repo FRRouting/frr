@@ -709,10 +709,8 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_add(
-			json_nexthop, "ip",
-			inet_ntop(AF_INET, &nexthop->gate.ipv4,
-				  buf, sizeof(buf)));
+		json_object_string_addf(json_nexthop, "ip", "%pI4",
+					&nexthop->gate.ipv4);
 		json_object_string_add(json_nexthop, "afi",
 				       "ipv4");
 
@@ -729,10 +727,8 @@ static void show_nexthop_json_helper(json_object *json_nexthop,
 		break;
 	case NEXTHOP_TYPE_IPV6:
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		json_object_string_add(
-			json_nexthop, "ip",
-			inet_ntop(AF_INET6, &nexthop->gate.ipv6,
-				  buf, sizeof(buf)));
+		json_object_string_addf(json_nexthop, "ip", "%pI6",
+					&nexthop->gate.ipv6);
 		json_object_string_add(json_nexthop, "afi",
 				       "ipv6");
 

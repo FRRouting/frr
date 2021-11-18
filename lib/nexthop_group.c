@@ -1035,7 +1035,6 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 
 void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 {
-	char buf[100];
 	struct vrf *vrf;
 	json_object *json_backups = NULL;
 	int i;
@@ -1046,26 +1045,18 @@ void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV4:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET, &nh->gate.ipv4, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI4", &nh->gate.ipv4);
 		break;
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET, &nh->gate.ipv4, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI4", &nh->gate.ipv4);
 		json_object_string_add(j, "vrfId",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;
 	case NEXTHOP_TYPE_IPV6:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI6", &nh->gate.ipv6);
 		break;
 	case NEXTHOP_TYPE_IPV6_IFINDEX:
-		json_object_string_add(
-			j, "nexthop",
-			inet_ntop(AF_INET6, &nh->gate.ipv6, buf, sizeof(buf)));
+		json_object_string_addf(j, "nexthop", "%pI6", &nh->gate.ipv6);
 		json_object_string_add(j, "vrfId",
 				       ifindex2ifname(nh->ifindex, nh->vrf_id));
 		break;

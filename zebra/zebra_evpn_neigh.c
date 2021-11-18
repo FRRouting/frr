@@ -1725,7 +1725,6 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	struct vty *vty;
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
-	char addr_buf[PREFIX_STRLEN];
 	const char *type_str;
 	const char *state_str;
 	bool flags_present = false;
@@ -1812,10 +1811,8 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 					n->mac->es->esi_str);
 		} else {
 			if (json)
-				json_object_string_add(
-					json, "remoteVtep",
-					inet_ntop(AF_INET, &n->r_vtep_ip,
-						  addr_buf, sizeof(addr_buf)));
+				json_object_string_addf(json, "remoteVtep",
+							"%pI4", &n->r_vtep_ip);
 			else
 				vty_out(vty, " Remote VTEP: %pI4\n",
 					&n->r_vtep_ip);
@@ -1974,10 +1971,8 @@ void zebra_evpn_print_neigh_hash(struct hash_bucket *bucket, void *ctxt)
 				json_object_string_add(json_row, "remoteEs",
 						       n->mac->es->esi_str);
 			else
-				json_object_string_add(
-					json_row, "remoteVtep",
-					inet_ntop(AF_INET, &n->r_vtep_ip,
-						  addr_buf, sizeof(addr_buf)));
+				json_object_string_addf(json_row, "remoteVtep",
+							"%pI4", &n->r_vtep_ip);
 			if (CHECK_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW))
 				json_object_boolean_true_add(json_row,
 							     "defaultGateway");

@@ -308,14 +308,12 @@ static void json_object_pim_ifp_add(struct json_object *json,
 				    struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	char buf[PREFIX_STRLEN];
 
 	pim_ifp = ifp->info;
 	json_object_string_add(json, "name", ifp->name);
 	json_object_string_add(json, "state", if_is_up(ifp) ? "up" : "down");
-	json_object_string_add(json, "address",
-			       inet_ntop(AF_INET, &pim_ifp->primary_address,
-					 buf, sizeof(buf)));
+	json_object_string_addf(json, "address", "%pI4",
+				&pim_ifp->primary_address);
 	json_object_int_add(json, "index", ifp->ifindex);
 
 	if (if_is_multicast(ifp))
@@ -489,7 +487,6 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	struct interface *ifp;
 	time_t now;
 	char buf[PREFIX_STRLEN];
-	char quer_buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 
@@ -537,10 +534,9 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 							       "queryTimer",
 							       query_hhmmss);
 				}
-				json_object_string_add(
-					json_row, "querierIp",
-					inet_ntop(AF_INET, &igmp->querier_addr,
-						  quer_buf, sizeof(quer_buf)));
+				json_object_string_addf(json_row, "querierIp",
+							"%pI4",
+							&igmp->querier_addr);
 
 				json_object_object_add(json, ifp->name,
 						       json_row);
@@ -584,7 +580,6 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 	struct listnode *sock_node;
 	struct pim_interface *pim_ifp;
 	char uptime[10];
-	char quer_buf[PREFIX_STRLEN];
 	char query_hhmmss[10];
 	char other_hhmmss[10];
 	int found_ifname = 0;
@@ -669,10 +664,9 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 						       igmp->t_igmp_query_timer
 						       ? "local"
 						       : "other");
-				json_object_string_add(
-					json_row, "querierIp",
-					inet_ntop(AF_INET, &igmp->querier_addr,
-						  quer_buf, sizeof(quer_buf)));
+				json_object_string_addf(json_row, "querierIp",
+							"%pI4",
+							&igmp->querier_addr);
 				json_object_int_add(json_row, "queryStartCount",
 						    igmp->startup_query_count);
 				json_object_string_add(json_row,
@@ -928,7 +922,6 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 	int mloop = 0;
 	int found_ifname = 0;
 	int print_header;
-	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_pim_neighbor = NULL;
@@ -979,11 +972,9 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			json_object_pim_ifp_add(json_row, ifp);
 
 			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
-				json_object_string_add(
-					json_row, "useSource",
-					inet_ntop(AF_INET,
-						  &pim_ifp->update_source,
-						  buf, sizeof(buf)));
+				json_object_string_addf(
+					json_row, "useSource", "%pI4",
+					&pim_ifp->update_source);
 			}
 			if (pim_ifp->sec_addr_list) {
 				json_object *sec_list = NULL;
@@ -1407,7 +1398,6 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	int fhr = 0;
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
-	char buf[PREFIX_STRLEN];
 	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_tmp;
@@ -1437,10 +1427,8 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
 		json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
 		json_object_int_add(json_row, "firstHopRouterCount", fhr);
-		json_object_string_add(json_row, "pimDesignatedRouter",
-				       inet_ntop(AF_INET,
-						 &pim_ifp->pim_dr_addr, buf,
-						 sizeof(buf)));
+		json_object_string_addf(json_row, "pimDesignatedRouter", "%pI4",
+					&pim_ifp->pim_dr_addr);
 
 		if (pim_ifp->pim_dr_addr.s_addr
 		    == pim_ifp->primary_address.s_addr)
@@ -5715,10 +5703,8 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			json_object_string_add(json_row, "name", ifp->name);
 			json_object_string_add(json_row, "state",
 					       if_is_up(ifp) ? "up" : "down");
-			json_object_string_add(
-				json_row, "address",
-				inet_ntop(AF_INET, &pim_ifp->primary_address,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_row, "address", "%pI4",
+						&pim_ifp->primary_address);
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
 					    pim_ifp->mroute_vif_index);
