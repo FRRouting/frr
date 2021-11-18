@@ -1979,7 +1979,7 @@ struct route_node *rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 						     dplane_ctx_get_safi(ctx), vrf_id, tableid);
 
 	if (table == NULL) {
-		if (IS_ZEBRA_DEBUG_DPLANE) {
+		if (IS_ZEBRA_DEBUG_DPLANE || IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug("Failed to find route for ctx: no table for afi %d, safi %d, vrf %s(%u) table %u Prefix: %pFX",
 				   dplane_ctx_get_afi(ctx), dplane_ctx_get_safi(ctx),
 				   vrf_id_to_name(vrf_id), vrf_id, tableid,
@@ -2038,7 +2038,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	op = dplane_ctx_get_op(ctx);
 	status = dplane_ctx_get_status(ctx);
 
-	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
+	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL || IS_ZEBRA_DEBUG_RIB_DETAILED)
 		zlog_debug(
 			"%s(%u:%u):%pRN Processing dplane result ctx %p, op %s result %s",
 			VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),

@@ -1144,6 +1144,7 @@ static void nlneigh_dump(struct ndmsg *ndm, size_t msglen)
 	uint8_t *datap;
 	size_t plen, it;
 	uint16_t vid;
+	uint32_t lval;
 	char bytestr[16];
 	char dbuf[128];
 	unsigned short rta_type;
@@ -1200,6 +1201,11 @@ next_rta:
 	case NDA_VLAN:
 		vid = *(uint16_t *)RTA_DATA(rta);
 		zlog_debug("      %d", vid);
+		break;
+
+	case NDA_PROBES:
+		lval = *(uint32_t *)RTA_DATA(rta);
+		zlog_debug("      %u", lval);
 		break;
 
 	default:
@@ -1683,6 +1689,7 @@ next_header:
 
 	case RTM_NEWNEIGH:
 	case RTM_DELNEIGH:
+	case RTM_GETNEIGH:
 		ndm = NLMSG_DATA(nlmsg);
 		zlog_debug(
 			"  ndm [family=%d (%s) ifindex=%d state=0x%04x {%s} flags=0x%04x {%s} type=%d (%s)]",

@@ -232,8 +232,7 @@ int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr)
 
 	/* Apply limit */
 	if (nt_globals.max_entries > 0 &&
-	    (nt_entry_list_count(&nt_globals.entry_list) >=
-	     nt_globals.max_entries))
+	    (nt_entry_list_count(&nt_globals.entry_list) >= nt_globals.max_entries))
 		return 0;
 
 	if (IS_ZEBRA_DEBUG_RIB)
