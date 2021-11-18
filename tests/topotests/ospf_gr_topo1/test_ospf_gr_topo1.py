@@ -139,8 +139,6 @@ def build_topo(tgen):
 
 
 def setup_module(mod):
-    return pytest.skip("OSPF GR helper mode is currently broken")
-
     "Sets up the pytest environment"
     tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
