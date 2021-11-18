@@ -293,7 +293,8 @@ extern struct ospf_lsa *ospf_lsa_lookup_by_id(struct ospf_area *, uint32_t,
 extern struct ospf_lsa *ospf_lsa_lookup_by_header(struct ospf_area *,
 						  struct lsa_header *);
 extern int ospf_lsa_more_recent(struct ospf_lsa *, struct ospf_lsa *);
-extern int ospf_lsa_different(struct ospf_lsa *, struct ospf_lsa *);
+extern int ospf_lsa_different(struct ospf_lsa *, struct ospf_lsa *,
+			      bool ignore_rcvd_flag);
 extern void ospf_flush_self_originated_lsas_now(struct ospf *);
 
 extern int ospf_lsa_is_self_originated(struct ospf *, struct ospf_lsa *);
