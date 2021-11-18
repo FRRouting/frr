@@ -830,8 +830,7 @@ int nb_candidate_validate(struct nb_context *context,
 	struct nb_config_cbs changes;
 	int ret;
 
-	if (nb_candidate_validate_yang(candidate, errmsg, sizeof(errmsg_len))
-	    != NB_OK)
+	if (nb_candidate_validate_yang(candidate, errmsg, errmsg_len) != NB_OK)
 		return NB_ERR_VALIDATION;
 
 	RB_INIT(nb_config_cbs, &changes);
