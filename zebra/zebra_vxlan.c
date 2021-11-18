@@ -385,10 +385,8 @@ static void zl3vni_print_rmac(struct zebra_mac *zrmac, struct vty *vty,
 		json_object_string_add(
 			json, "routerMac",
 			prefix_mac2str(&zrmac->macaddr, buf1, sizeof(buf1)));
-		json_object_string_add(json, "vtepIp",
-				       inet_ntop(AF_INET,
-						 &zrmac->fwd_info.r_vtep_ip,
-						 buf1, sizeof(buf1)));
+		json_object_string_addf(json, "vtepIp", "%pI4",
+					&zrmac->fwd_info.r_vtep_ip);
 		json_object_int_add(json, "refCount",
 				    rb_host_count(&zrmac->host_rb));
 		RB_FOREACH (hle, host_rb_tree_entry, &zrmac->host_rb)
@@ -680,10 +678,8 @@ static void zl3vni_print_rmac_hash(struct hash_bucket *bucket, void *ctx)
 		json_object_string_add(
 			json_rmac, "routerMac",
 			prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)));
-		json_object_string_add(json_rmac, "vtepIp",
-				       inet_ntop(AF_INET,
-						 &zrmac->fwd_info.r_vtep_ip,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_rmac, "vtepIp", "%pI4",
+					&zrmac->fwd_info.r_vtep_ip);
 		json_object_object_add(
 			json, prefix_mac2str(&zrmac->macaddr, buf, sizeof(buf)),
 			json_rmac);
@@ -729,10 +725,8 @@ static void zl3vni_print(struct zebra_l3vni *zl3vni, void **ctx)
 		json_evpn_list = json_object_new_array();
 		json_object_int_add(json, "vni", zl3vni->vni);
 		json_object_string_add(json, "type", "L3");
-		json_object_string_add(
-			json, "localVtepIp",
-			inet_ntop(AF_INET, &zl3vni->local_vtep_ip, buf,
-				  sizeof(buf)));
+		json_object_string_addf(json, "localVtepIp", "%pI4",
+					&zl3vni->local_vtep_ip);
 		json_object_string_add(json, "vxlanIntf",
 				       zl3vni_vxlan_if_name(zl3vni));
 		json_object_string_add(json, "sviIntf",
