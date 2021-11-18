@@ -152,12 +152,10 @@ void zebra_evpn_print(struct zebra_evpn *zevpn, void **ctxt)
 			json_object_int_add(json, "sviIfindex",
 					    zevpn->svi_if->ifindex);
 		}
-		json_object_string_add(json, "vtepIp",
-				       inet_ntop(AF_INET, &zevpn->local_vtep_ip,
-						 buf, sizeof(buf)));
-		json_object_string_add(json, "mcastGroup",
-				       inet_ntop(AF_INET, &zevpn->mcast_grp,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json, "vtepIp", "%pI4",
+					&zevpn->local_vtep_ip);
+		json_object_string_addf(json, "mcastGroup", "%pI4",
+					&zevpn->mcast_grp);
 		json_object_string_add(json, "advertiseGatewayMacip",
 				       zevpn->advertise_gw_macip ? "Yes" : "No");
 		json_object_string_add(json, "advertiseSviMacip",
