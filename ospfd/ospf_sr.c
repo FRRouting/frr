@@ -2759,10 +2759,8 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 					    srp->nhlfe.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &srp->nhlfe.nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&srp->nhlfe.nexthop);
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, 0, "%20s  %9s  %15s\n",
@@ -2797,10 +2795,8 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 					    path->srni.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &path->nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&path->nexthop);
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, indent, "%20s  %9s  %15s\n",
@@ -2840,9 +2836,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 
 	if (json) {
 		json_node = json_object_new_object();
-		json_object_string_add(json_node, "routerID",
-				       inet_ntop(AF_INET, &srn->adv_router,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_node, "routerID", "%pI4",
+					&srn->adv_router);
 		json_object_int_add(json_node, "srgbSize",
 				    srn->srgb.range_size);
 		json_object_int_add(json_node, "srgbLabel",
@@ -2931,10 +2926,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 					    srl->nhlfe[0].label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &srl->nhlfe[0].nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&srl->nhlfe[0].nexthop);
 			json_object_array_add(json_link, json_obj);
 			/* Backup Link */
 			json_obj = json_object_new_object();
@@ -2947,10 +2940,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 					    srl->nhlfe[1].label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &srl->nhlfe[1].nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&srl->nhlfe[1].nexthop);
 			json_object_array_add(json_link, json_obj);
 		} else {
 			sbuf_push(&sbuf, 0, "%18s  %21s  %20s  %9s  %15s\n",
@@ -3022,10 +3013,8 @@ DEFUN (show_ip_opsf_srdb,
 	if (uj) {
 		json = json_object_new_object();
 		json_node_array = json_object_new_array();
-		json_object_string_add(
-			json, "srdbID",
-			inet_ntop(AF_INET, &OspfSR.self->adv_router,
-				  buf, sizeof(buf)));
+		json_object_string_addf(json, "srdbID", "%pI4",
+					&OspfSR.self->adv_router);
 		json_object_object_add(json, "srNodes", json_node_array);
 	} else {
 		vty_out(vty,
