@@ -142,19 +142,15 @@ static int ospf6_router_lsa_show(struct vty *vty, struct ospf6_lsa *lsa,
 			json_object_string_add(json_loop, "type", name);
 			json_object_int_add(json_loop, "metric",
 					    ntohs(lsdesc->metric));
-			json_object_string_add(json_loop, "interfaceId",
-					       inet_ntop(AF_INET,
-							 &lsdesc->interface_id,
-							 buf, sizeof(buf)));
-			json_object_string_add(
-				json_loop, "neighborInterfaceId",
-				inet_ntop(AF_INET,
-					  &lsdesc->neighbor_interface_id, buf,
-					  sizeof(buf)));
-			json_object_string_add(
-				json_loop, "neighborRouterId",
-				inet_ntop(AF_INET, &lsdesc->neighbor_router_id,
-					  buf, sizeof(buf)));
+			json_object_string_addf(
+				json_loop, "interfaceId", "%pI4",
+				(in_addr_t *)&lsdesc->interface_id);
+			json_object_string_addf(
+				json_loop, "neighborInterfaceId", "%pI4",
+				(in_addr_t *)&lsdesc->neighbor_interface_id);
+			json_object_string_addf(json_loop, "neighborRouterId",
+						"%pI4",
+						&lsdesc->neighbor_router_id);
 			json_object_array_add(json_arr, json_loop);
 		} else {
 			vty_out(vty, "    Type: %s Metric: %d\n", name,
