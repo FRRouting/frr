@@ -377,7 +377,6 @@ static void display_l3vni(struct vty *vty, struct bgp *bgp_vrf,
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
 	char buf2[ETHER_ADDR_STRLEN];
-	char originator_ip[BUFSIZ] = {0};
 
 	json_import_rtl = json_export_rtl = 0;
 
@@ -479,7 +478,6 @@ static void display_vni(struct vty *vty, struct bgpevpn *vpn, json_object *json)
 	json_object *json_import_rtl = NULL;
 	json_object *json_export_rtl = NULL;
 	struct bgp *bgp_evpn;
-	char buf[BUFSIZ] = {0};
 
 	bgp_evpn = bgp_get_evpn();
 
@@ -927,7 +925,6 @@ static void show_l3vni_entry(struct vty *vty, struct bgp *bgp,
 	json_object *json_export_rtl = NULL;
 	char buf1[10];
 	char buf2[INET6_ADDRSTRLEN];
-	char buf3[BUFSIZ] = {0};
 	char rt_buf[25];
 	char *ecom_str;
 	struct listnode *node, *nnode;
@@ -1051,7 +1048,6 @@ static void show_vni_entry(struct hash_bucket *bucket, void *args[])
 	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
 	char buf1[10];
 	char buf2[RD_ADDRSTRLEN];
-	char buf3[BUFSIZ] = {0};
 	char rt_buf[25];
 	char *ecom_str;
 	struct listnode *node, *nnode;
@@ -1196,7 +1192,6 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 	char rd_str[RD_ADDRSTRLEN];
 	char buf[BUFSIZ];
 	int no_display;
-	char router_id[BUFSIZ] = {0};
 
 	unsigned long output_count = 0;
 	unsigned long total_count = 0;
@@ -5767,7 +5762,6 @@ DEFUN (show_bgp_vrf_l3vni_info,
 {
 	char buf[ETHER_ADDR_STRLEN];
 	char buf1[INET6_ADDRSTRLEN];
-	char originator_ip[BUFSIZ] = {0};
 	int idx_vrf = 3;
 	const char *name = NULL;
 	struct bgp *bgp = NULL;

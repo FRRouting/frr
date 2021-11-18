@@ -619,7 +619,6 @@ void zebra_evpn_print_mac(struct zebra_mac *mac, void *ctxt, json_object *json)
 	struct listnode *node = NULL;
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
-	char addr_buf[PREFIX_STRLEN];
 	struct zebra_vrf *zvrf;
 	struct timeval detect_start_time = {0, 0};
 	char timebuf[MONOTIME_STRLEN];
@@ -2237,7 +2236,7 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 					zlog_debug(
 						"        Add/Update %sMAC %pEA intf %s(%u) VID %u -> VNI %u%s, "
 						"entry exists and has not changed ",
-						sticky ? "sticky " : "", 
+						sticky ? "sticky " : "",
 						macaddr, ifp->name,
 						ifp->ifindex, vid, zevpn->vni,
 						local_inactive

@@ -1325,7 +1325,6 @@ static void zebra_evpn_es_l2_nh_show_entry(struct zebra_evpn_l2_nh *nh,
 {
 	if (json_array) {
 		json_object *json = NULL;
-		char ip_buf[INET6_ADDRSTRLEN];
 
 		json = json_object_new_object();
 		json_object_string_addf(json, "vtep", "%pI4", &nh->vtep_ip);
@@ -3006,7 +3005,6 @@ static void zebra_evpn_es_json_vtep_fill(struct zebra_evpn_es *es,
 	struct listnode *node;
 	json_object *json_vtep_entry;
 	char alg_buf[EVPN_DF_ALG_STR_LEN];
-	char ip_buf[INET6_ADDRSTRLEN];
 
 	for (ALL_LIST_ELEMENTS_RO(es->es_vtep_list, node, es_vtep)) {
 		json_vtep_entry = json_object_new_object();

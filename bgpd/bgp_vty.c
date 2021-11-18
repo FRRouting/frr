@@ -10288,8 +10288,6 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 
 			/* Usage summary and header */
 			if (use_json) {
-				char buf[BUFSIZ] = {0};
-
 				json_object_string_addf(json, "routerId",
 							"%pI4",
 							&bgp->router_id);

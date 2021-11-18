@@ -1035,7 +1035,6 @@ void nexthop_group_write_nexthop(struct vty *vty, const struct nexthop *nh)
 
 void nexthop_group_json_nexthop(json_object *j, const struct nexthop *nh)
 {
-	char buf[100];
 	struct vrf *vrf;
 	json_object *json_backups = NULL;
 	int i;

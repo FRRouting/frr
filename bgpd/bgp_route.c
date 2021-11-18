@@ -8733,8 +8733,6 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		}
 	} else if (safi == SAFI_EVPN) {
 		if (json_paths) {
-			char buf[BUFSIZ] = {0};
-
 			json_nexthop_global = json_object_new_object();
 
 			json_object_string_addf(json_nexthop_global, "ip",
@@ -8766,8 +8764,6 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	} else if (safi == SAFI_FLOWSPEC) {
 		if (attr->nexthop.s_addr != INADDR_ANY) {
 			if (json_paths) {
-				char buf[BUFSIZ] = {0};
-
 				json_nexthop_global = json_object_new_object();
 
 				json_object_string_add(json_nexthop_global,
@@ -8804,8 +8800,6 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		}
 	} else if (p->family == AF_INET && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
 		if (json_paths) {
-			char buf[BUFSIZ] = {0};
-
 			json_nexthop_global = json_object_new_object();
 
 			json_object_string_addf(json_nexthop_global, "ip",
@@ -8838,8 +8832,6 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 
 	/* IPv6 Next Hop */
 	else if (p->family == AF_INET6 || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
-		char buf[BUFSIZ];
-
 		if (json_paths) {
 			json_nexthop_global = json_object_new_object();
 			json_object_string_addf(json_nexthop_global, "ip",
@@ -9117,8 +9109,6 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 	/* Print attribute */
 	if (attr) {
 		if (use_json) {
-			char buf[BUFSIZ] = {0};
-
 			if (p->family == AF_INET
 			    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 				|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
@@ -9132,15 +9122,11 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 						&attr->nexthop);
 			} else if (p->family == AF_INET6
 				   || BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
-				char buf[BUFSIZ];
-
 				json_object_string_addf(
 					json_net, "nextHopGlobal", "%pI6",
 					&attr->mp_nexthop_global);
 			} else if (p->family == AF_EVPN
 				   && !BGP_ATTR_NEXTHOP_AFI_IP6(attr)) {
-				char buf[BUFSIZ] = {0};
-
 				json_object_string_addf(
 					json_net, "nextHop", "%pI4",
 					&attr->mp_nexthop_global_in);
@@ -9262,8 +9248,6 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 	     && ((safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP)))
 	    || (safi == SAFI_EVPN && !BGP_ATTR_NEXTHOP_AFI_IP6(attr))
 	    || (!BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
-		char buf[BUFSIZ] = {0};
-
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json)
@@ -9864,8 +9848,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR))) {
 		if (json_paths) {
-			char buf[BUFSIZ] = {0};
-
 			json_object_int_add(json_path, "aggregatorAs",
 					    attr->aggregator_as);
 			json_object_string_addf(json_path, "aggregatorId",
@@ -9919,8 +9901,6 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	     || bn_p->family == AF_EVPN)
 	    && (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP || safi == SAFI_EVPN
 		|| !BGP_ATTR_NEXTHOP_AFI_IP6(attr))) {
-		char buf[BUFSIZ] = {0};
-
 		if (safi == SAFI_MPLS_VPN || safi == SAFI_ENCAP
 		    || safi == SAFI_EVPN) {
 			if (json_paths) {
@@ -10041,14 +10021,11 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				vty_out(vty, " from :: ");
 		}
 
-		if (json_paths) {
-			char buf[BUFSIZ] = {0};
-
+		if (json_paths)
 			json_object_string_addf(json_peer, "routerId", "%pI4",
 						&bgp->router_id);
-		} else {
+		else
 			vty_out(vty, "(%pI4)", &bgp->router_id);
-		}
 	}
 
 	/* We RXed this path from one of our peers */
@@ -13399,7 +13376,6 @@ static void show_adj_route_header(struct vty *vty, struct bgp *bgp,
 				  json_object *json_ocode, bool wide)
 {
 	uint64_t version = table ? table->version : 0;
-	char buf[BUFSIZ] = {0};
 
 	if (*header1) {
 		if (json) {
@@ -13471,8 +13447,6 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 	if (type == bgp_show_adj_route_advertised && subgrp
 	    && CHECK_FLAG(subgrp->sflags, SUBGRP_STATUS_DEFAULT_ORIGINATE)) {
-		char buf[BUFSIZ] = {0};
-
 		if (use_json) {
 			json_object_int_add(json, "bgpTableVersion",
 					    table->version);

@@ -118,8 +118,6 @@ int show_adj_route_vpn(struct vty *vty, struct peer *peer,
 
 			if (header) {
 				if (use_json) {
-					char buf[BUFSIZ] = {0};
-
 					json_object_int_add(
 						json, "bgpTableVersion", 0);
 					json_object_string_addf(

@@ -1725,7 +1725,6 @@ void zebra_evpn_print_neigh(struct zebra_neigh *n, void *ctxt,
 	struct vty *vty;
 	char buf1[ETHER_ADDR_STRLEN];
 	char buf2[INET6_ADDRSTRLEN];
-	char addr_buf[PREFIX_STRLEN];
 	const char *type_str;
 	const char *state_str;
 	bool flags_present = false;
