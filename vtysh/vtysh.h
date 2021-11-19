@@ -98,7 +98,7 @@ void config_add_line(struct list *, const char *);
 
 int vtysh_mark_file(const char *filename);
 
-int vtysh_read_config(const char *filename, bool dry_run);
+int vtysh_apply_config(const char *config_file_path, bool dry_run, bool fork);
 int vtysh_write_config_integrated(void);
 
 void vtysh_config_parse_line(void *, const char *);

@@ -4,6 +4,7 @@
  */
 
 #include <zebra.h>
+#include <sys/wait.h>
 
 #include "command.h"
 #include "linklist.h"
@@ -625,18 +626,20 @@ static int vtysh_read_file(FILE *confp, bool dry_run)
 	return (ret);
 }
 
-/* Read up configuration file from config_default_dir. */
-int vtysh_read_config(const char *config_default_dir, bool dry_run)
+/*
+ * Read configuration file and send it to all connected daemons
+ */
+static int vtysh_read_config(const char *config_file_path, bool dry_run)
 {
 	FILE *confp = NULL;
 	bool save;
 	int ret;
 
-	confp = fopen(config_default_dir, "r");
+	confp = fopen(config_file_path, "r");
 	if (confp == NULL) {
 		fprintf(stderr,
 			"%% Can't open configuration file %s due to '%s'.\n",
-			config_default_dir, safe_strerror(errno));
+			config_file_path, safe_strerror(errno));
 		return CMD_ERR_NO_FILE;
 	}
 
@@ -648,7 +651,93 @@ int vtysh_read_config(const char *config_default_dir, bool dry_run)
 
 	vtysh_add_timestamp = save;
 
-	return (ret);
+	return ret;
+}
+
+int vtysh_apply_config(const char *config_file_path, bool dry_run, bool do_fork)
+{
+	/*
+	 * We need to apply the whole config file to all daemons. Instead of
+	 * having one client talk to N daemons, we fork N times and let each
+	 * child handle one daemon.
+	 */
+	pid_t fork_pid = getpid();
+	int status = 0;
+	int ret;
+	int my_client_type;
+	char my_client[64];
+
+	if (do_fork) {
+		for (unsigned int i = 0; i < array_size(vtysh_client); i++) {
+			/* Store name of client this fork will handle */
+			strlcpy(my_client, vtysh_client[i].name,
+				sizeof(my_client));
+			my_client_type = vtysh_client[i].flag;
+			fork_pid = fork();
+
+			/* If child, break */
+			if (fork_pid == 0)
+				break;
+		}
+
+		/* parent, wait for children */
+		if (fork_pid != 0) {
+			fprintf(stdout,
+				"Waiting for children to finish applying config...\n");
+			while (wait(&status) > 0)
+				;
+			return 0;
+		}
+
+		/*
+		 * children, grow up to be cowboys
+		 */
+		for (unsigned int i = 0; i < array_size(vtysh_client); i++) {
+			if (my_client_type != vtysh_client[i].flag) {
+				struct vtysh_client *cl;
+
+				/*
+				 * If this is a client we aren't responsible
+				 * for, disconnect
+				 */
+				for (cl = &vtysh_client[i]; cl; cl = cl->next) {
+					if (cl->fd >= 0)
+						close(cl->fd);
+					cl->fd = -1;
+				}
+			} else if (vtysh_client[i].fd == -1 &&
+				   vtysh_client[i].next == NULL) {
+				/*
+				 * If this is the client we are responsible
+				 * for, but we aren't already connected to that
+				 * client, that means the client isn't up in
+				 * the first place and we can exit early
+				 */
+				exit(0);
+			}
+		}
+
+		fprintf(stdout, "[%d|%s] sending configuration\n", getpid(),
+			my_client);
+	}
+
+	ret = vtysh_read_config(config_file_path, dry_run);
+
+	if (ret) {
+		if (do_fork)
+			fprintf(stderr,
+				"[%d|%s] Configuration file[%s] processing failure: %d\n",
+				getpid(), my_client, frr_config, ret);
+		else
+			fprintf(stderr,
+				"Configuration file[%s] processing failure: %d\n",
+				frr_config, ret);
+	} else if (do_fork) {
+		fprintf(stderr, "[%d|%s] done\n", getpid(), my_client);
+		exit(0);
+	}
+
+	return ret;
 }
 
 /* We don't write vtysh specific into file from vtysh. vtysh.conf should
