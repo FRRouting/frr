@@ -1234,7 +1234,7 @@ lib_route_map_entry_match_condition_rmap_match_condition_ipv6_address_modify(
 
 		/* Set destroy information. */
 		rhc->rhc_mhook = bgp_route_match_delete;
-		rhc->rhc_rule = "ipv6 next-hop";
+		rhc->rhc_rule = "ipv6 next-hop address";
 		rhc->rhc_event = RMAP_EVENT_MATCH_DELETED;
 
 		ret = bgp_route_match_add(rhc->rhc_rmi, rhc->rhc_rule,

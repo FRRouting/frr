@@ -3065,7 +3065,7 @@ static void route_match_ipv6_next_hop_free(void *rule)
 }
 
 static const struct route_map_rule_cmd route_match_ipv6_next_hop_cmd = {
-	"ipv6 next-hop",
+	"ipv6 next-hop address",
 	route_match_ipv6_next_hop,
 	route_match_ipv6_next_hop_compile,
 	route_match_ipv6_next_hop_free
@@ -6047,10 +6047,11 @@ DEFUN_YANG (no_set_aggregator_as,
 
 DEFUN_YANG (match_ipv6_next_hop,
 	    match_ipv6_next_hop_cmd,
-	    "match ipv6 next-hop X:X::X:X",
+	    "match ipv6 next-hop address X:X::X:X",
 	    MATCH_STR
 	    IPV6_STR
 	    "Match IPv6 next-hop address of route\n"
+	    "IPv6 address\n"
 	    "IPv6 address of next hop\n")
 {
 	const char *xpath =
@@ -6061,18 +6062,19 @@ DEFUN_YANG (match_ipv6_next_hop,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:ipv6-address",
 		 xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[3]->arg);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[argc - 1]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFUN_YANG (no_match_ipv6_next_hop,
 	    no_match_ipv6_next_hop_cmd,
-	    "no match ipv6 next-hop X:X::X:X",
+	    "no match ipv6 next-hop address X:X::X:X",
 	    NO_STR
 	    MATCH_STR
 	    IPV6_STR
 	    "Match IPv6 next-hop address of route\n"
+	    "IPv6 address\n"
 	    "IPv6 address of next hop\n")
 {
 	const char *xpath =
@@ -6081,6 +6083,23 @@ DEFUN_YANG (no_match_ipv6_next_hop,
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+ALIAS_HIDDEN (match_ipv6_next_hop,
+	      match_ipv6_next_hop_old_cmd,
+	      "match ipv6 next-hop X:X::X:X",
+	      MATCH_STR
+	      IPV6_STR
+	      "Match IPv6 next-hop address of route\n"
+	      "IPv6 address of next hop\n")
+
+ALIAS_HIDDEN (no_match_ipv6_next_hop,
+	      no_match_ipv6_next_hop_old_cmd,
+	      "no match ipv6 next-hop X:X::X:X",
+	      NO_STR
+	      MATCH_STR
+	      IPV6_STR
+	      "Match IPv6 next-hop address of route\n"
+	      "IPv6 address of next hop\n")
 
 DEFPY_YANG (match_ipv4_next_hop,
        match_ipv4_next_hop_cmd,
@@ -6648,6 +6667,8 @@ void bgp_route_map_init(void)
 
 	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_cmd);
+	install_element(RMAP_NODE, &match_ipv6_next_hop_old_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_next_hop_old_cmd);
 	install_element(RMAP_NODE, &match_ipv4_next_hop_cmd);
 	install_element(RMAP_NODE, &no_match_ipv4_next_hop_cmd);
 	install_element(RMAP_NODE, &set_ipv6_nexthop_global_cmd);

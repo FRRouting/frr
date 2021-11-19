@@ -791,12 +791,12 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 
 		vty_out(vty, " match extcommunity %s\n", acl);
 	} else if (IS_MATCH_IPV4_NH(condition)) {
-		vty_out(vty, " match ip next-hop %s\n",
+		vty_out(vty, " match ip next-hop address %s\n",
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:ipv4-address"));
 	} else if (IS_MATCH_IPV6_NH(condition)) {
-		vty_out(vty, " match ipv6 next-hop %s\n",
+		vty_out(vty, " match ipv6 next-hop address %s\n",
 			yang_dnode_get_string(
 				dnode,
 				"./rmap-match-condition/frr-bgp-route-map:ipv6-address"));
