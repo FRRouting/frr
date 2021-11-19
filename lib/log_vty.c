@@ -269,14 +269,14 @@ DEFUN_HIDDEN (no_config_log_monitor,
 	return CMD_SUCCESS;
 }
 
-DEFPY (debug_uid_backtrace,
-       debug_uid_backtrace_cmd,
-       "[no] debug unique-id UID backtrace",
-       NO_STR
-       DEBUG_STR
-       "Options per individual log message, by unique ID\n"
-       "Log message unique ID (XXXXX-XXXXX)\n"
-       "Add backtrace to log when message is printed\n")
+DEFPY_NOSH (debug_uid_backtrace,
+	    debug_uid_backtrace_cmd,
+	    "[no] debug unique-id UID backtrace",
+	    NO_STR
+	    DEBUG_STR
+	    "Options per individual log message, by unique ID\n"
+	    "Log message unique ID (XXXXX-XXXXX)\n"
+	    "Add backtrace to log when message is printed\n")
 {
 	struct xrefdata search, *xrd;
 	struct xrefdata_logmsg *xrdl;
@@ -285,10 +285,9 @@ DEFPY (debug_uid_backtrace,
 	strlcpy(search.uid, uid, sizeof(search.uid));
 	xrd = xrefdata_uid_find(&xrefdata_uid, &search);
 
-	if (!xrd) {
-		vty_out(vty, "%% no log message with ID \"%s\" found\n", uid);
-		return CMD_WARNING;
-	}
+	if (!xrd)
+		return CMD_ERR_NOTHING_TODO;
+
 	if (xrd->xref->type != XREFT_LOGMSG) {
 		vty_out(vty, "%% ID \"%s\" is not a log message\n", uid);
 		return CMD_WARNING;

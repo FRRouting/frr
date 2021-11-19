@@ -1279,6 +1279,7 @@ static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_vpnv6_node = {
@@ -1286,6 +1287,7 @@ static struct cmd_node bgp_vpnv6_node = {
 	.node = BGP_VPNV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
@@ -1293,6 +1295,7 @@ static struct cmd_node bgp_flowspecv4_node = {
 	.node = BGP_FLOWSPECV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
@@ -1300,6 +1303,7 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4_node = {
@@ -1307,6 +1311,7 @@ static struct cmd_node bgp_ipv4_node = {
 	.node = BGP_IPV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4m_node = {
@@ -1314,6 +1319,7 @@ static struct cmd_node bgp_ipv4m_node = {
 	.node = BGP_IPV4M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4l_node = {
@@ -1321,6 +1327,7 @@ static struct cmd_node bgp_ipv4l_node = {
 	.node = BGP_IPV4L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6_node = {
@@ -1328,6 +1335,7 @@ static struct cmd_node bgp_ipv6_node = {
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6m_node = {
@@ -1335,6 +1343,7 @@ static struct cmd_node bgp_ipv6m_node = {
 	.node = BGP_IPV6M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_node = {
@@ -1342,6 +1351,7 @@ static struct cmd_node bgp_evpn_node = {
 	.node = BGP_EVPN_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
@@ -1356,6 +1366,7 @@ static struct cmd_node bgp_ipv6l_node = {
 	.node = BGP_IPV6L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 #ifdef ENABLE_BGP_VNC
@@ -1516,6 +1527,7 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
+	.no_xpath = true,
 };
 
 #ifdef HAVE_BGPD
@@ -3007,6 +3019,60 @@ DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
 	return CMD_SUCCESS;
 }
 
+DEFUN(vtysh_debug_uid_backtrace,
+      vtysh_debug_uid_backtrace_cmd,
+      "[no] debug unique-id UID backtrace",
+      NO_STR
+      DEBUG_STR
+      "Options per individual log message, by unique ID\n"
+      "Log message unique ID (XXXXX-XXXXX)\n"
+      "Add backtrace to log when message is printed\n")
+{
+	unsigned int i, ok = 0;
+	int err = CMD_SUCCESS, ret;
+	const char *uid;
+	char line[64];
+
+	if (!strcmp(argv[0]->text, "no")) {
+		uid = argv[3]->arg;
+		snprintfrr(line, sizeof(line),
+			   "no debug unique-id %s backtrace", uid);
+	} else {
+		uid = argv[2]->arg;
+		snprintfrr(line, sizeof(line), "debug unique-id %s backtrace",
+			   uid);
+	}
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			switch (ret) {
+			case CMD_SUCCESS:
+				ok++;
+				break;
+			case CMD_ERR_NOTHING_TODO:
+				/* ignore this daemon
+				 *
+				 * note this doesn't need to handle instances
+				 * of the same daemon individually because
+				 * the same daemon will have the same UIDs
+				 */
+				break;
+			default:
+				if (err == CMD_SUCCESS)
+					err = ret;
+				break;
+			}
+		}
+
+	if (err == CMD_SUCCESS && !ok) {
+		vty_out(vty, "%% no running daemon recognizes unique-ID %s\n",
+			uid);
+		err = CMD_WARNING;
+	}
+	return err;
+}
+
 DEFUNSH(VTYSH_ALL, vtysh_service_password_encrypt,
 	vtysh_service_password_encrypt_cmd, "service password-encryption",
 	"Set up miscellaneous service\n"
@@ -4430,6 +4496,8 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
+	install_element(ENABLE_NODE, &vtysh_debug_uid_backtrace_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_uid_backtrace_cmd);
 
 	/* northbound */
 	install_element(ENABLE_NODE, &show_config_running_cmd);
