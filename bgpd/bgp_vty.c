@@ -6308,6 +6308,30 @@ DEFUN(no_neighbor_disable_link_bw_encoding_ieee,
 				   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE);
 }
 
+/* extended-optional-parameters */
+DEFUN(neighbor_extended_optional_parameters,
+      neighbor_extended_optional_parameters_cmd,
+      "neighbor <A.B.C.D|X:X::X:X|WORD> extended-optional-parameters",
+      NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Force the extended optional parameters format for OPEN messages\n")
+{
+	int idx_peer = 1;
+
+	return peer_flag_set_vty(vty, argv[idx_peer]->arg,
+				 PEER_FLAG_EXTENDED_OPT_PARAMS);
+}
+
+DEFUN(no_neighbor_extended_optional_parameters,
+      no_neighbor_extended_optional_parameters_cmd,
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> extended-optional-parameters",
+      NO_STR NEIGHBOR_STR NEIGHBOR_ADDR_STR2
+      "Force the extended optional parameters format for OPEN messages\n")
+{
+	int idx_peer = 2;
+
+	return peer_flag_unset_vty(vty, argv[idx_peer]->arg,
+				   PEER_FLAG_EXTENDED_OPT_PARAMS);
+}
 
 /* enforce-first-as */
 DEFUN (neighbor_enforce_first_as,
@@ -12509,6 +12533,14 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				"bgpTimerConfiguredKeepAliveIntervalMsecs",
 				bgp->default_keepalive);
 		}
+
+		/* Extended Optional Parameters Length for BGP OPEN Message */
+		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(p))
+			json_object_boolean_true_add(
+				json_neigh, "extendedOptionalParametersLength");
+		else
+			json_object_boolean_false_add(
+				json_neigh, "extendedOptionalParametersLength");
 	} else {
 		/* Administrative shutdown. */
 		if (CHECK_FLAG(p->flags, PEER_FLAG_SHUTDOWN)
@@ -12581,6 +12613,11 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 			vty_out(vty, "  Configured tcp-mss is %d", p->tcp_mss);
 			vty_out(vty, ", synced tcp-mss is %d\n", sync_tcp_mss);
 		}
+
+		/* Extended Optional Parameters Length for BGP OPEN Message */
+		if (BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(p))
+			vty_out(vty,
+				"  Extended Optional Parameters Length is enabled\n");
 	}
 	/* Capability. */
 	if (peer_established(p)) {
@@ -16674,6 +16711,11 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 		vty_out(vty, " neighbor %s disable-link-bw-encoding-ieee\n",
 			addr);
 
+	/* extended-optional-parameters */
+	if (peergroup_flag_check(peer, PEER_FLAG_EXTENDED_OPT_PARAMS))
+		vty_out(vty, " neighbor %s extended-optional-parameters\n",
+			addr);
+
 	/* enforce-first-as */
 	if (peergroup_flag_check(peer, PEER_FLAG_ENFORCE_FIRST_AS))
 		vty_out(vty, " neighbor %s enforce-first-as\n", addr);
@@ -18630,6 +18672,11 @@ void bgp_vty_init(void)
 	install_element(BGP_NODE, &neighbor_disable_link_bw_encoding_ieee_cmd);
 	install_element(BGP_NODE,
 			&no_neighbor_disable_link_bw_encoding_ieee_cmd);
+
+	/* "neighbor extended-optional-parameters" commands.  */
+	install_element(BGP_NODE, &neighbor_extended_optional_parameters_cmd);
+	install_element(BGP_NODE,
+			&no_neighbor_extended_optional_parameters_cmd);
 
 	/* "neighbor enforce-first-as" commands. */
 	install_element(BGP_NODE, &neighbor_enforce_first_as_cmd);
