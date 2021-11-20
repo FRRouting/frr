@@ -1298,6 +1298,8 @@ struct peer {
  * extended communities.
  */
 #define PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE (1U << 29)
+/* force the extended format for Optional Parameters in OPEN message */
+#define PEER_FLAG_EXTENDED_OPT_PARAMS (1U << 30)
 
 	/*
 	 *GR-Disabled mode means unset PEER_FLAG_GRACEFUL_RESTART
@@ -1384,6 +1386,8 @@ struct peer {
 #define PEER_STATUS_GROUP             (1U << 4) /* peer-group conf */
 #define PEER_STATUS_NSF_MODE          (1U << 5) /* NSF aware peer */
 #define PEER_STATUS_NSF_WAIT          (1U << 6) /* wait comeback peer */
+/* received extended format encoding for OPEN message */
+#define PEER_STATUS_EXT_OPT_PARAMS_LENGTH (1U << 7)
 
 	/* Peer status af flags (reset in bgp_stop) */
 	uint16_t af_sflags[AFI_MAX][SAFI_MAX];

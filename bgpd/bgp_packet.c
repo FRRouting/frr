@@ -608,8 +608,22 @@ void bgp_open_send(struct peer *peer)
 	stream_putw(s, send_holdtime);		/* Hold Time */
 	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
 
-	/* Set capability code. */
-	bgp_open_capability(s, peer);
+	/* Set capabilities */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+		(void)bgp_open_capability(s, peer, true);
+	} else {
+		struct stream *tmp = stream_new(STREAM_SIZE(s));
+
+		stream_copy(tmp, s);
+		if (bgp_open_capability(tmp, peer, false)
+		    > BGP_OPEN_NON_EXT_OPT_LEN) {
+			stream_free(tmp);
+			(void)bgp_open_capability(s, peer, true);
+		} else {
+			stream_copy(s, tmp);
+			stream_free(tmp);
+		}
+	}
 
 	/* Set BGP packet length. */
 	(void)bgp_packet_set_size(s);
@@ -1136,7 +1150,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 {
 	int ret;
 	uint8_t version;
-	uint8_t optlen;
+	uint16_t optlen;
 	uint16_t holdtime;
 	uint16_t send_holdtime;
 	as_t remote_as;
@@ -1157,19 +1171,40 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	memcpy(notify_data_remote_id, stream_pnt(peer->curr), 4);
 	remote_id.s_addr = stream_get_ipv4(peer->curr);
 
-	/* Receive OPEN message log  */
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug(
-			"%s rcv OPEN, version %d, remote-as (in open) %u, holdtime %d, id %pI4",
-			peer->host, version, remote_as, holdtime, &remote_id);
-
 	/* BEGIN to read the capability here, but dont do it yet */
 	mp_capability = 0;
 	optlen = stream_getc(peer->curr);
 
+	/* Extended Optional Parameters Length for BGP OPEN Message */
+	if (optlen == BGP_OPEN_NON_EXT_OPT_LEN
+	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+		uint8_t opttype;
+
+		opttype = stream_getc(peer->curr);
+		if (opttype == BGP_OPEN_NON_EXT_OPT_TYPE_EXTENDED_LENGTH) {
+			optlen = stream_getw(peer->curr);
+			SET_FLAG(peer->sflags,
+				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
+		}
+	}
+
+	/* Receive OPEN message log  */
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug(
+			"%s rcv OPEN%s, version %d, remote-as (in open) %u, holdtime %d, id %pI4",
+			peer->host,
+			CHECK_FLAG(peer->sflags,
+				   PEER_STATUS_EXT_OPT_PARAMS_LENGTH)
+				? " (Extended)"
+				: "",
+			version, remote_as, holdtime, &remote_id);
+
 	if (optlen != 0) {
 		/* If not enough bytes, it is an error. */
 		if (STREAM_READABLE(peer->curr) < optlen) {
+			flog_err(EC_BGP_PKT_OPEN,
+				 "%s: stream has not enough bytes (%u)",
+				 peer->host, optlen);
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return BGP_Stop;
