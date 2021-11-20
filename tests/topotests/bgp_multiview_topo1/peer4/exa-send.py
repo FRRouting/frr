@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 exa-send.py: Send a few testroutes with ExaBGP
