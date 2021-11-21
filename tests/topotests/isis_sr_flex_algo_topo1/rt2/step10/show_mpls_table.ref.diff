@@ -1,0 +1,74 @@
+--- rt2/step9/show_mpls_table.ref
++++ rt2/step10/show_mpls_table.ref
+@@ -95,8 +95,8 @@
+       }
+     ]
+   },
+-  "20301":{
+-    "inLabel":20301,
++  "20303":{
++    "inLabel":20303,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -107,12 +107,12 @@
+         ],
+         "distance":150,
+         "installed":true,
+-        "nexthop":"10.12.0.1"
++        "nexthop":"10.23.0.3"
+       }
+     ]
+   },
+-  "20303":{
+-    "inLabel":20303,
++  "20311":{
++    "inLabel":20311,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -123,7 +123,7 @@
+         ],
+         "distance":150,
+         "installed":true,
+-        "nexthop":"10.23.0.3"
++        "nexthop":"10.12.0.1"
+       }
+     ]
+   },
+@@ -351,8 +351,8 @@
+       }
+     ]
+   },
+-  "21301":{
+-    "inLabel":21301,
++  "21303":{
++    "inLabel":21303,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -363,12 +363,12 @@
+         ],
+         "distance":150,
+         "installed":true,
+-        "interface":"eth-rt1"
++        "interface":"eth-rt3"
+       }
+     ]
+   },
+-  "21303":{
+-    "inLabel":21303,
++  "21311":{
++    "inLabel":21311,
+     "installed":true,
+     "nexthops":[
+       {
+@@ -379,7 +379,7 @@
+         ],
+         "distance":150,
+         "installed":true,
+-        "interface":"eth-rt3"
++        "interface":"eth-rt1"
+       }
+     ]
+   },

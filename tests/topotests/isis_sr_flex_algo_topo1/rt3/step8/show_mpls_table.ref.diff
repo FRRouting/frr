@@ -1,0 +1,48 @@
+--- rt3/step7/show_mpls_table.ref
++++ rt3/step8/show_mpls_table.ref
+@@ -127,22 +127,6 @@
+       }
+     ]
+   },
+-  "20301":{
+-    "inLabel":20301,
+-    "installed":true,
+-    "nexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":20301,
+-        "outLabelStack":[
+-          20301
+-        ],
+-        "distance":150,
+-        "installed":true,
+-        "nexthop":"10.23.0.2"
+-      }
+-    ]
+-  },
+   "20302":{
+     "inLabel":20302,
+     "installed":true,
+@@ -351,22 +319,6 @@
+       }
+     ]
+   },
+-  "21301":{
+-    "inLabel":21301,
+-    "installed":true,
+-    "nexthops":[
+-      {
+-        "type":"SR (IS-IS)",
+-        "outLabel":21301,
+-        "outLabelStack":[
+-          21301
+-        ],
+-        "distance":150,
+-        "installed":true,
+-        "interface":"eth-rt2"
+-      }
+-    ]
+-  },
+   "21302":{
+     "inLabel":21302,
+     "installed":true,

@@ -1,0 +1,82 @@
+--- rt3/step9/show_mpls_table.ref
++++ rt3/step10/show_mpls_table.ref
+@@ -95,15 +95,15 @@
+       }
+     ]
+   },
+-  "20301":{
+-    "inLabel":20301,
++  "20302":{
++    "inLabel":20302,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":20301,
++        "outLabel":3,
+         "outLabelStack":[
+-          20301
++          3
+         ],
+         "distance":150,
+         "installed":true,
+@@ -111,15 +111,15 @@
+       }
+     ]
+   },
+-  "20302":{
+-    "inLabel":20302,
++  "20311":{
++    "inLabel":20311,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":20311,
+         "outLabelStack":[
+-          3
++          20311
+         ],
+         "distance":150,
+         "installed":true,
+@@ -351,15 +351,15 @@
+       }
+     ]
+   },
+-  "21301":{
+-    "inLabel":21301,
++  "21302":{
++    "inLabel":21302,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":21301,
++        "outLabel":3,
+         "outLabelStack":[
+-          21301
++          3
+         ],
+         "distance":150,
+         "installed":true,
+@@ -367,15 +367,15 @@
+       }
+     ]
+   },
+-  "21302":{
+-    "inLabel":21302,
++  "21311":{
++    "inLabel":21311,
+     "installed":true,
+     "nexthops":[
+       {
+         "type":"SR (IS-IS)",
+-        "outLabel":3,
++        "outLabel":21311,
+         "outLabelStack":[
+-          3
++          21311
+         ],
+         "distance":150,
+         "installed":true,
