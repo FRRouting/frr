@@ -1423,6 +1423,15 @@ Configuring Peers
    value is carried encoded as uint32. To enable backward compatibility we
    need to disable IEEE floating-point encoding option per-peer.
 
+.. clicmd:: neighbor PEER extended-optional-parameters
+
+   Force Extended Optional Parameters Length format to be used for OPEN messages.
+
+   By default, it's disabled. If the standard optional parameters length is
+   higher than one-octet (255), then extended format is enabled automatically.
+
+   For testing purposes, extended format can be enabled with this command.
+
 .. clicmd:: neighbor PEER ebgp-multihop
 
    Specifying ``ebgp-multihop`` allows sessions with eBGP neighbors to
