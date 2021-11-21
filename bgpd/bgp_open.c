@@ -57,6 +57,7 @@ static const struct message capcode_str[] = {
 	{CAPABILITY_CODE_FQDN, "FQDN"},
 	{CAPABILITY_CODE_ENHANCED_RR, "Enhanced Route Refresh"},
 	{CAPABILITY_CODE_EXT_MESSAGE, "BGP Extended Message"},
+	{CAPABILITY_CODE_LLGR, "Long-lived BGP Graceful Restart"},
 	{0}};
 
 /* Minimum sizes for length field of each cap (so not inc. the header) */
@@ -75,6 +76,7 @@ static const size_t cap_minsizes[] = {
 		[CAPABILITY_CODE_FQDN] = CAPABILITY_CODE_MIN_FQDN_LEN,
 		[CAPABILITY_CODE_ENHANCED_RR] = CAPABILITY_CODE_ENHANCED_LEN,
 		[CAPABILITY_CODE_EXT_MESSAGE] = CAPABILITY_CODE_EXT_MESSAGE_LEN,
+		[CAPABILITY_CODE_LLGR] = CAPABILITY_CODE_LLGR_LEN,
 };
 
 /* value the capability must be a multiple of.
@@ -97,6 +99,7 @@ static const size_t cap_modsizes[] = {
 		[CAPABILITY_CODE_FQDN] = 1,
 		[CAPABILITY_CODE_ENHANCED_RR] = 1,
 		[CAPABILITY_CODE_EXT_MESSAGE] = 1,
+		[CAPABILITY_CODE_LLGR] = 1,
 };
 
 /* BGP-4 Multiprotocol Extentions lead us to the complex world. We can
