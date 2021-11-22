@@ -3023,10 +3023,60 @@ static const struct route_map_rule_cmd route_match_ipv6_address_cmd = {
 	route_match_ipv6_address_free
 };
 
+/* `match ipv6 next-hop ACCESSLIST6_NAME' */
+static enum route_map_cmd_result_t
+route_match_ipv6_next_hop(void *rule, const struct prefix *prefix, void *object)
+{
+	struct bgp_path_info *path;
+	struct access_list *alist;
+	struct prefix_ipv6 p;
+
+	if (prefix->family == AF_INET6) {
+		path = object;
+		p.family = AF_INET6;
+		p.prefix = path->attr->mp_nexthop_global;
+		p.prefixlen = IPV6_MAX_BITLEN;
+
+		alist = access_list_lookup(AFI_IP6, (char *)rule);
+		if (!alist)
+			return RMAP_NOMATCH;
+
+		if (access_list_apply(alist, &p) == FILTER_PERMIT)
+			return RMAP_MATCH;
+
+		if (path->attr->mp_nexthop_len
+		    == BGP_ATTR_NHLEN_IPV6_GLOBAL_AND_LL) {
+			p.prefix = path->attr->mp_nexthop_local;
+			if (access_list_apply(alist, &p) == FILTER_PERMIT)
+				return RMAP_MATCH;
+		}
+	}
+
+	return RMAP_NOMATCH;
+}
+
+static void *route_match_ipv6_next_hop_compile(const char *arg)
+{
+	return XSTRDUP(MTYPE_ROUTE_MAP_COMPILED, arg);
+}
+
+static void route_match_ipv6_next_hop_free(void *rule)
+{
+	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
+}
+
+static const struct route_map_rule_cmd route_match_ipv6_next_hop_cmd = {
+	"ipv6 next-hop",
+	route_match_ipv6_next_hop,
+	route_match_ipv6_next_hop_compile,
+	route_match_ipv6_next_hop_free
+};
+
 /* `match ipv6 next-hop IP_ADDRESS' */
 
 static enum route_map_cmd_result_t
-route_match_ipv6_next_hop(void *rule, const struct prefix *prefix, void *object)
+route_match_ipv6_next_hop_address(void *rule, const struct prefix *prefix,
+				  void *object)
 {
 	struct in6_addr *addr = rule;
 	struct bgp_path_info *path;
@@ -3043,7 +3093,7 @@ route_match_ipv6_next_hop(void *rule, const struct prefix *prefix, void *object)
 	return RMAP_NOMATCH;
 }
 
-static void *route_match_ipv6_next_hop_compile(const char *arg)
+static void *route_match_ipv6_next_hop_address_compile(const char *arg)
 {
 	struct in6_addr *address;
 	int ret;
@@ -3059,16 +3109,16 @@ static void *route_match_ipv6_next_hop_compile(const char *arg)
 	return address;
 }
 
-static void route_match_ipv6_next_hop_free(void *rule)
+static void route_match_ipv6_next_hop_address_free(void *rule)
 {
 	XFREE(MTYPE_ROUTE_MAP_COMPILED, rule);
 }
 
-static const struct route_map_rule_cmd route_match_ipv6_next_hop_cmd = {
+static const struct route_map_rule_cmd route_match_ipv6_next_hop_address_cmd = {
 	"ipv6 next-hop address",
-	route_match_ipv6_next_hop,
-	route_match_ipv6_next_hop_compile,
-	route_match_ipv6_next_hop_free
+	route_match_ipv6_next_hop_address,
+	route_match_ipv6_next_hop_address_compile,
+	route_match_ipv6_next_hop_address_free
 };
 
 /* `match ip next-hop IP_ADDRESS' */
@@ -6047,6 +6097,43 @@ DEFUN_YANG (no_set_aggregator_as,
 
 DEFUN_YANG (match_ipv6_next_hop,
 	    match_ipv6_next_hop_cmd,
+	    "match ipv6 next-hop ACCESSLIST6_NAME",
+	    MATCH_STR
+	    IPV6_STR
+	    "Match IPv6 next-hop address of route\n"
+	    "IPv6 access-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
+	char xpath_value[XPATH_MAXLEN];
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+	snprintf(xpath_value, sizeof(xpath_value),
+		 "%s/rmap-match-condition/list-name", xpath);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[argc - 1]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (no_match_ipv6_next_hop,
+	    no_match_ipv6_next_hop_cmd,
+	    "no match ipv6 next-hop [ACCESSLIST6_NAME]",
+	    NO_STR
+	    MATCH_STR
+	    IPV6_STR
+	    "Match IPv6 next-hop address of route\n"
+	    "IPv6 access-list name\n")
+{
+	const char *xpath =
+		"./match-condition[condition='frr-route-map:ipv6-next-hop-list']";
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN_YANG (match_ipv6_next_hop_address,
+	    match_ipv6_next_hop_address_cmd,
 	    "match ipv6 next-hop address X:X::X:X",
 	    MATCH_STR
 	    IPV6_STR
@@ -6062,13 +6149,14 @@ DEFUN_YANG (match_ipv6_next_hop,
 	snprintf(xpath_value, sizeof(xpath_value),
 		 "%s/rmap-match-condition/frr-bgp-route-map:ipv6-address",
 		 xpath);
-	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY, argv[argc - 1]->arg);
+	nb_cli_enqueue_change(vty, xpath_value, NB_OP_MODIFY,
+			      argv[argc - 1]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN_YANG (no_match_ipv6_next_hop,
-	    no_match_ipv6_next_hop_cmd,
+DEFUN_YANG (no_match_ipv6_next_hop_address,
+	    no_match_ipv6_next_hop_address_cmd,
 	    "no match ipv6 next-hop address X:X::X:X",
 	    NO_STR
 	    MATCH_STR
@@ -6084,7 +6172,7 @@ DEFUN_YANG (no_match_ipv6_next_hop,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-ALIAS_HIDDEN (match_ipv6_next_hop,
+ALIAS_HIDDEN (match_ipv6_next_hop_address,
 	      match_ipv6_next_hop_old_cmd,
 	      "match ipv6 next-hop X:X::X:X",
 	      MATCH_STR
@@ -6092,7 +6180,7 @@ ALIAS_HIDDEN (match_ipv6_next_hop,
 	      "Match IPv6 next-hop address of route\n"
 	      "IPv6 address of next hop\n")
 
-ALIAS_HIDDEN (no_match_ipv6_next_hop,
+ALIAS_HIDDEN (no_match_ipv6_next_hop_address,
 	      no_match_ipv6_next_hop_old_cmd,
 	      "no match ipv6 next-hop X:X::X:X",
 	      NO_STR
@@ -6460,6 +6548,9 @@ void bgp_route_map_init(void)
 	route_map_match_ip_next_hop_hook(generic_match_add);
 	route_map_no_match_ip_next_hop_hook(generic_match_delete);
 
+	route_map_match_ipv6_next_hop_hook(generic_match_add);
+	route_map_no_match_ipv6_next_hop_hook(generic_match_delete);
+
 	route_map_match_ip_next_hop_prefix_list_hook(generic_match_add);
 	route_map_no_match_ip_next_hop_prefix_list_hook(generic_match_delete);
 
@@ -6657,6 +6748,7 @@ void bgp_route_map_init(void)
 
 	route_map_install_match(&route_match_ipv6_address_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_cmd);
+	route_map_install_match(&route_match_ipv6_next_hop_address_cmd);
 	route_map_install_match(&route_match_ipv4_next_hop_cmd);
 	route_map_install_match(&route_match_ipv6_address_prefix_list_cmd);
 	route_map_install_match(&route_match_ipv6_next_hop_type_cmd);
@@ -6666,7 +6758,9 @@ void bgp_route_map_init(void)
 	route_map_install_set(&route_set_ipv6_nexthop_peer_cmd);
 
 	install_element(RMAP_NODE, &match_ipv6_next_hop_cmd);
+	install_element(RMAP_NODE, &match_ipv6_next_hop_address_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_cmd);
+	install_element(RMAP_NODE, &no_match_ipv6_next_hop_address_cmd);
 	install_element(RMAP_NODE, &match_ipv6_next_hop_old_cmd);
 	install_element(RMAP_NODE, &no_match_ipv6_next_hop_old_cmd);
 	install_element(RMAP_NODE, &match_ipv4_next_hop_cmd);

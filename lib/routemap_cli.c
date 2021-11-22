@@ -551,6 +551,7 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 			yang_dnode_get_string(
 				dnode, "./rmap-match-condition/interface"));
 	} else if (IS_MATCH_IPv4_ADDRESS_LIST(condition)
+		   || IS_MATCH_IPv6_NEXTHOP_LIST(condition)
 		   || IS_MATCH_IPv4_NEXTHOP_LIST(condition)) {
 		acl = NULL;
 		if ((ln = yang_dnode_get(dnode,
@@ -562,8 +563,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 
 		if (IS_MATCH_IPv4_ADDRESS_LIST(condition))
 			vty_out(vty, " match ip address %s\n", acl);
-		else
+		else if (IS_MATCH_IPv4_NEXTHOP_LIST(condition))
 			vty_out(vty, " match ip next-hop %s\n", acl);
+		else
+			vty_out(vty, " match ipv6 next-hop %s\n", acl);
 	} else if (IS_MATCH_IPv4_PREFIX_LIST(condition)) {
 		vty_out(vty, " match ip address prefix-list %s\n",
 			yang_dnode_get_string(
