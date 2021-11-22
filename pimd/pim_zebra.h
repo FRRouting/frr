@@ -42,7 +42,7 @@ void igmp_source_forward_stop(struct igmp_source *source);
 void igmp_source_forward_reevaluate_all(struct pim_instance *pim);
 
 void pim_forward_start(struct pim_ifchannel *ch);
-void pim_forward_stop(struct pim_ifchannel *ch, bool install_it);
+void pim_forward_stop(struct pim_ifchannel *ch);
 
 void sched_rpf_cache_refresh(struct pim_instance *pim);
 struct zclient *pim_zebra_zclient_get(void);
