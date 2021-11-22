@@ -2058,7 +2058,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		if ((CHECK_FLAG(peer->af_flags[afi][safi],
 				PEER_FLAG_NEXTHOP_LOCAL_UNCHANGED)
 		     && IN6_IS_ADDR_LINKLOCAL(&attr->mp_nexthop_local))
-		    || (!reflect
+		    || (!reflect && !transparent
 			&& IN6_IS_ADDR_LINKLOCAL(&peer->nexthop.v6_local)
 			&& peer->shared_network
 			&& (from == bgp->peer_self
