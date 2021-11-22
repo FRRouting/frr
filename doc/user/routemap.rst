@@ -148,7 +148,7 @@ Route Map Match Command
 
    This is a BGP specific match command. Matches the specified `ipv4_addr`.
 
-.. clicmd:: match ipv6 next-hop IPV6_ADDR
+.. clicmd:: match ipv6 next-hop address IPV6_ADDR
 
    This is a BGP specific match command. Matches the specified `ipv6_addr`.
 
