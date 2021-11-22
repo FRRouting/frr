@@ -1863,6 +1863,8 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					flag = PIM_OIF_FLAG_PROTO_IGMP;
 				if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 					flag |= PIM_OIF_FLAG_PROTO_PIM;
+				if (starch)
+					flag |= PIM_OIF_FLAG_PROTO_STAR;
 			}
 
 			pim_channel_add_oif(up->channel_oil, ifp, flag,
