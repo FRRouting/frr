@@ -782,6 +782,16 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
     }
     result = verify_ospf6_neighbor(tgen, topo, dut, input_dict, lan=True)
 
+    3. To check there are no neighbors.
+    input_dict = {
+        "r0": {
+            "ospf6": {
+                "neighbors": []
+            }
+        }
+    }
+    result = verify_ospf6_neighbor(tgen, topo, dut, input_dict)
+
     Returns
     -------
     True or False (Error Message)
@@ -811,6 +821,19 @@ def verify_ospf6_neighbor(tgen, topo=None, dut=None, input_dict=None, lan=False)
 
             ospf_data_list = input_dict[router]["ospf6"]
             ospf_nbr_list = ospf_data_list["neighbors"]
+
+            # Check if looking for no neighbors
+            if ospf_nbr_list == []:
+                if show_ospf_json["neighbors"] == []:
+                    logger.info("[DUT: {}] OSPF6 no neighbors found".format(router))
+                    return True
+                else:
+                    errormsg = (
+                        "[DUT: {}] OSPF6 active neighbors found, expected None".format(
+                            router
+                        )
+                    )
+                    return errormsg
 
             for ospf_nbr, nbr_data in ospf_nbr_list.items():
 
