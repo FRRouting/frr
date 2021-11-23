@@ -22,8 +22,12 @@
  */
 
 #define ZEBRA_NEIGH_THROTTLE_DEFAULT_MAX      1000
+
+#define ZEBRA_NEIGH_THROTTLE_EXPIRE_MAX       50
+
 #define ZEBRA_NEIGH_THROTTLE_DEFAULT_TIMEOUT  300 /* Seconds */
 #define ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT      1800 /* Seconds */
+
 #define ZEBRA_NEIGH_THROTTLE_MIN              0
 #define ZEBRA_NEIGH_THROTTLE_MAX              0xffff
 
@@ -44,10 +48,15 @@ bool zebra_neigh_throttle_is_enabled(void);
  */
 void zebra_neigh_throttle_set_limit(uint32_t limit, bool reset);
 
+/* Set limit on number of entries permitted to expire per callback;
+ * if 'reset', reset to default.
+ */
+void zebra_neigh_throttle_set_expire_limit(uint32_t limit, bool reset);
+
 /* Set timeout for blackhole entries (in seconds); if 'reset', reset to
  * default.
  */
-void zebra_neigh_throttle_set_timeout(int timeout, bool reset);
+void zebra_neigh_throttle_set_timeout(uint32_t timeout, bool reset);
 
 /* Add a single neighbor address entry. */
 int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr);

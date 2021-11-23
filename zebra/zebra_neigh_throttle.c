@@ -54,14 +54,18 @@ static struct nt_globals {
 	/* Current limit on entries */
 	uint32_t max_entries;
 
-	/*
-	 * List of active entries, sorted by expiration time.
-	 */
+	/* Limit number of expirations per attempt */
+	uint32_t max_expirations;
+
+	/* List of active entries, sorted by expiration time. */
 	struct nt_entry_list_head entry_list;
 
 } nt_globals;
 
 /* TODO -- hash also, or rbtree, for direct lookup? */
+
+/* Prototypes. */
+static void nt_handle_timer(struct event *event);
 
 /*
  * Allocator for an entry object
@@ -77,6 +81,14 @@ static struct nt_entry *nt_entry_alloc(vrf_id_t vrfid, const struct ipaddr *addr
 	p->create_time = time(NULL);
 
 	return p;
+}
+
+/*
+ * Dtor for an entry object (in case we want to manage a pool of them.)
+ */
+static void nt_entry_free(struct nt_entry **entry)
+{
+	XFREE(MTYPE_NTHROTTLE, *entry);
 }
 
 /*
@@ -156,15 +168,17 @@ static void nt_uninstall_route(const struct nt_entry *entry)
 /*
  * Clear one existing entry, and optionally uninstall associated route.
  */
-static void clear_one_entry(struct nt_entry *entry, bool uninstall_p)
+static void clear_one_entry(struct nt_entry **entry, bool uninstall_p)
 {
-	nt_entry_list_del(&nt_globals.entry_list, entry);
+	assert(entry && *entry);
+
+	nt_entry_list_del(&nt_globals.entry_list, *entry);
 
 	/* Uninstall associated route */
 	if (uninstall_p)
-		nt_uninstall_route(entry);
+		nt_uninstall_route(*entry);
 
-	XFREE(MTYPE_NTHROTTLE, entry);
+	nt_entry_free(entry);
 }
 
 /*
@@ -176,8 +190,18 @@ static void clear_all_entries(bool uninstall_p)
 
 	/* Clear all entries */
 	frr_each_safe (nt_entry_list, &nt_globals.entry_list, entry) {
-		clear_one_entry(entry, uninstall_p);
+		clear_one_entry(&entry, uninstall_p);
 	}
+}
+
+/*
+ * Reschedule the timer event.
+ */
+static void nt_resched_timer(uint32_t timeout)
+{
+	if (timeout > 0)
+		event_add_timer(zrouter.master, nt_handle_timer, NULL, timeout,
+				&nt_globals.t_periodic_timer);
 }
 
 /*
@@ -187,6 +211,7 @@ static void nt_handle_timer(struct event *event)
 {
 	struct nt_entry *entry;
 	time_t now, resched = 0;
+	uint32_t counter = 0;
 
 	now = time(NULL);
 
@@ -196,10 +221,23 @@ static void nt_handle_timer(struct event *event)
 	/* Process expired entries */
 	frr_each_safe (nt_entry_list, &nt_globals.entry_list, entry) {
 		if (entry->expiration <= now) {
-			clear_one_entry(entry, true);
+			if (IS_ZEBRA_DEBUG_RIB)
+				zlog_debug("%s: expired entry %u: %pIA",
+					   __func__, entry->vrfid,
+					   &entry->addr);
+
+			clear_one_entry(&entry, true /*uninstall*/);
+			counter++;
 		} else {
 			/* Capture next timer expiration */
 			resched = entry->expiration;
+			break;
+		}
+
+		/* Limit expirations per callback cycle */
+		if (nt_globals.max_expirations > 0 &&
+		    counter >= nt_globals.max_expirations) {
+			resched = now;
 			break;
 		}
 	}
@@ -214,8 +252,7 @@ static void nt_handle_timer(struct event *event)
 			zlog_debug("%s: rescheduling for %u secs", __func__,
 				   (uint32_t)resched);
 
-		event_add_timer(zrouter.master, nt_handle_timer,
-				NULL, resched, &nt_globals.t_periodic_timer);
+		nt_resched_timer(resched);
 	}
 }
 
@@ -239,11 +276,8 @@ int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr)
 		zlog_debug("%s: %u: %pIA", __func__, vrfid, addr);
 
 	/* Start timer, if this is the first entry */
-	if (nt_entry_list_const_first(&nt_globals.entry_list) == NULL &&
-	    nt_globals.timeout_secs > 0)
-		event_add_timer(zrouter.master, nt_handle_timer,
-				NULL, nt_globals.timeout_secs,
-				&nt_globals.t_periodic_timer);
+	if (nt_entry_list_const_first(&nt_globals.entry_list) == NULL)
+		nt_resched_timer(nt_globals.timeout_secs);
 
 	/* TODO -- brute-force search for now */
 	frr_each(nt_entry_list, &nt_globals.entry_list, entry) {
@@ -259,12 +293,13 @@ int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr)
 		entry = nt_entry_alloc(vrfid, addr);
 
 	/* Set expiration time */
-	entry->expiration = time(NULL) + nt_globals.timeout_secs;
+	if (nt_globals.timeout_secs > 0)
+		entry->expiration = time(NULL) + nt_globals.timeout_secs;
 
 	/* Enqueue; try end of the timer list */
 	prev = nt_entry_list_last(&nt_globals.entry_list);
 	while (prev) {
-		if (prev->expiration < entry->expiration) {
+		if (prev->expiration <= entry->expiration) {
 			nt_entry_list_add_after(&nt_globals.entry_list,
 						prev, entry);
 			break;
@@ -299,7 +334,7 @@ int zebra_neigh_throttle_delete(vrf_id_t vrfid, const struct ipaddr *addr)
 	frr_each_safe(nt_entry_list, &nt_globals.entry_list, entry) {
 		if (entry->vrfid == vrfid &&
 		    ipaddr_cmp(&entry->addr, addr) == 0) {
-			clear_one_entry(entry, true /*uninstall*/);
+			clear_one_entry(&entry, true /*uninstall*/);
 			break;
 		}
 	}
@@ -328,15 +363,48 @@ void zebra_neigh_throttle_set_limit(uint32_t limit, bool reset)
 }
 
 /*
+ * Set limit on number of entries permitted to expire per callback;
+ * if 'reset', reset to default.
+ */
+void zebra_neigh_throttle_set_expire_limit(uint32_t limit, bool reset)
+{
+	if (reset)
+		nt_globals.max_expirations = ZEBRA_NEIGH_THROTTLE_EXPIRE_MAX;
+	else
+		nt_globals.max_expirations = limit;
+
+	if (IS_ZEBRA_DEBUG_RIB)
+		zlog_debug("%s: max_expirations set to %u", __func__,
+			   nt_globals.max_expirations);
+}
+
+/*
  * Set timeout for blackhole entries (in seconds); if 'reset', reset to
  * default.
  */
-void zebra_neigh_throttle_set_timeout(int timeout, bool reset)
+void zebra_neigh_throttle_set_timeout(uint32_t timeout, bool reset)
 {
 	if (reset)
 		nt_globals.timeout_secs = ZEBRA_NEIGH_THROTTLE_DEFAULT_TIMEOUT;
 	else
 		nt_globals.timeout_secs = timeout;
+
+	/* TODO -- if timeout changes, should we fix-up existing entries? */
+
+	/* Reset timer event */
+	if (nt_globals.t_periodic_timer) {
+		if ((uint32_t)event_timer_remain_second(
+			    nt_globals.t_periodic_timer) >
+		    (uint32_t)nt_globals.timeout_secs)
+			event_cancel(&nt_globals.t_periodic_timer);
+	}
+
+	/* Start the timer if necessary: not previously running, or shortened
+	 * in the clause above. This won't affect the timer if it's already
+	 * running.
+	 */
+	if (nt_entry_list_const_first(&nt_globals.entry_list) != NULL)
+		nt_resched_timer(nt_globals.timeout_secs);
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug("%s: timeout set to %u secs", __func__,
@@ -413,6 +481,7 @@ void zebra_neigh_throttle_init(void)
 	nt_entry_list_init(&nt_globals.entry_list);
 	nt_globals.timeout_secs = ZEBRA_NEIGH_THROTTLE_DEFAULT_TIMEOUT;
 	nt_globals.max_entries = ZEBRA_NEIGH_THROTTLE_DEFAULT_MAX;
+	nt_globals.max_expirations = ZEBRA_NEIGH_THROTTLE_EXPIRE_MAX;
 
 	nt_globals.init_p = true;
 }
