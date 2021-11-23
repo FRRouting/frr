@@ -28,7 +28,7 @@ zebra_get_vrr_intf_for_svi(struct interface *ifp)
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif = NULL;
 
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	assert(zvrf);
 
 	FOR_ALL_INTERFACES (zvrf->vrf, tmp_if) {

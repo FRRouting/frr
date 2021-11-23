@@ -324,7 +324,7 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return 0;
 	}
 
-	if (if_address_is_local(&from, AF_INET, ifp->vrf_id)) {
+	if (if_address_is_local(&from, AF_INET, ifp->vrf->vrf_id)) {
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug("Recv IGMP query on interface: %s from ourself %s",
 				   ifp->name, from_str);

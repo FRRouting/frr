@@ -176,8 +176,6 @@ static inline uint32_t vrf_interface_count(struct vrf *vrf)
  * Utilities to obtain the user data
  */
 
-/* Get the data pointer of the specified VRF. If not found, create one. */
-extern void *vrf_info_get(vrf_id_t);
 /* Look up the data pointer of the specified VRF. */
 extern void *vrf_info_lookup(vrf_id_t);
 

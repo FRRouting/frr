@@ -588,7 +588,7 @@ static void bgp_nht_ifp_handle(struct interface *ifp, bool up)
 {
 	struct bgp *bgp;
 
-	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+	bgp = ifp->vrf->info;
 	if (!bgp)
 		return;
 

@@ -82,7 +82,7 @@ static void isis_circuit_enable(struct isis_circuit *circuit)
 	struct interface *ifp = circuit->interface;
 
 	if (!area) {
-		area = isis_area_lookup(circuit->tag, ifp->vrf_id);
+		area = isis_area_lookup(circuit->tag, ifp->vrf->vrf_id);
 		if (area)
 			isis_area_add_circuit(area, circuit);
 	}

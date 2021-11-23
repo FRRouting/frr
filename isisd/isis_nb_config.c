@@ -2479,7 +2479,7 @@ int lib_interface_isis_create(struct nb_cb_create_args *args)
 		actual_mtu =
 			if_is_broadcast(ifp) ? ifp->mtu - LLC_LEN : ifp->mtu;
 
-		area = isis_area_lookup(area_tag, ifp->vrf_id);
+		area = isis_area_lookup(area_tag, ifp->vrf->vrf_id);
 		if (area)
 			min_mtu = area->lsp_mtu;
 		else
