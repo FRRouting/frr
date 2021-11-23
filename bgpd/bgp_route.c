@@ -14166,7 +14166,7 @@ DEFUN (show_ip_bgp_flowspec_routes_detailed,
 	struct bgp *bgp = NULL;
 	int idx = 0;
 	bool uj = use_json(argc, argv);
-	uint16_t show_flags = 0;
+	uint16_t show_flags = BGP_SHOW_OPT_DETAIL;
 
 	if (uj) {
 		argc--;
