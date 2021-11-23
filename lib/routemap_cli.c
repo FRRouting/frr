@@ -41,7 +41,7 @@
 
 DEFPY_YANG_NOSH(
 	route_map, route_map_cmd,
-	"route-map WORD$name <deny|permit>$action (1-65535)$sequence",
+	"route-map RMAP_NAME$name <deny|permit>$action (1-65535)$sequence",
 	ROUTE_MAP_CMD_STR
 	ROUTE_MAP_OP_CMD_STR
 	ROUTE_MAP_SEQUENCE_CMD_STR)
@@ -71,7 +71,7 @@ DEFPY_YANG_NOSH(
 
 DEFPY_YANG(
 	no_route_map_all, no_route_map_all_cmd,
-	"no route-map WORD$name",
+	"no route-map RMAP_NAME$name",
 	NO_STR
 	ROUTE_MAP_CMD_STR)
 {
@@ -86,7 +86,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_route_map, no_route_map_cmd,
-	"no route-map WORD$name <deny|permit>$action (1-65535)$sequence",
+	"no route-map RMAP_NAME$name <deny|permit>$action (1-65535)$sequence",
 	NO_STR
 	ROUTE_MAP_CMD_STR
 	ROUTE_MAP_OP_CMD_STR
@@ -1443,7 +1443,7 @@ void route_map_description_show(struct vty *vty, const struct lyd_node *dnode,
 
 DEFPY_YANG(
 	route_map_optimization, route_map_optimization_cmd,
-	"[no] route-map WORD$name optimization",
+	"[no] route-map RMAP_NAME$name optimization",
 	NO_STR
 	ROUTE_MAP_CMD_STR
 	"Configure route-map optimization\n")
