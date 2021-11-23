@@ -1,0 +1,86 @@
+{
+    "address_types": [
+        "ipv6"
+    ],
+    "lo_prefix": {
+        "ipv6": "2001::",
+        "v6mask": 128
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2": {
+                    "ipv6": "12::1/64",
+                    "ospf6": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf6": {
+                "router_id": "1.1.1.1",
+                "neighbors": {
+                    "r2": {}
+                }
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r1": {
+                    "ipv6": "12::2/64",
+                    "ospf6": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3": {
+                    "ipv6": "23::2/64",
+                    "ospf6": {
+                        "area": "1.1.1.1",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf6": {
+                "router_id": "2.2.2.2",
+                "neighbors": {
+                    "r1": {},
+                    "r3": {}
+                }
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+                    "ipv6": "auto",
+                    "type": "loopback"
+                },
+                "r2": {
+                    "ipv6": "23::3/64",
+                    "ospf6": {
+                        "area": "1.1.1.1",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                }
+            },
+            "ospf6": {
+                "router_id": "3.3.3.3",
+                "neighbors": {
+                    "r2": {}
+                }
+            }
+        }
+    }
+}
