@@ -265,35 +265,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
 
-    # area interface information for ospf6d only
-    if ospf == "ospf6":
-        area_iface = ospf_data.setdefault("neighbors", {})
-        if area_iface:
-            for neighbor in area_iface:
-                if "area" in area_iface[neighbor]:
-                    iface = input_dict[router]["links"][neighbor]["interface"]
-                    cmd = "interface {} area {}".format(
-                        iface, area_iface[neighbor]["area"]
-                    )
-                    if area_iface[neighbor].setdefault("delete", False):
-                        cmd = "no {}".format(cmd)
-                    config_data.append(cmd)
-
-                try:
-                    if "area" in input_dict[router]["links"][neighbor]["ospf6"]:
-                        iface = input_dict[router]["links"][neighbor]["interface"]
-                        cmd = "interface {} area {}".format(
-                            iface,
-                            input_dict[router]["links"][neighbor]["ospf6"]["area"],
-                        )
-                        if input_dict[router]["links"][neighbor].setdefault(
-                            "delete", False
-                        ):
-                            cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
-                except KeyError:
-                    pass
-
     # summary information
     summary_data = ospf_data.setdefault("summary-address", {})
     if summary_data:
