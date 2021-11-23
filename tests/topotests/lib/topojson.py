@@ -40,7 +40,7 @@ from lib.common_config import (
     topo_daemons,
     number_to_column,
 )
-from lib.ospf import create_router_ospf, create_router_ospf6
+from lib.ospf import create_router_ospf
 from lib.pim import create_igmp_config, create_pim_config
 from lib.topolog import logger
 
@@ -334,7 +334,6 @@ def build_config_from_json(tgen, topo=None, save_bkup=True):
             ("igmp", create_igmp_config),
             ("bgp", create_router_bgp),
             ("ospf", create_router_ospf),
-            ("ospf6", create_router_ospf6),
         ]
     )
 
