@@ -136,7 +136,6 @@ struct ospf6 {
 	struct ospf6_route_table *brouter_table;
 
 	struct ospf6_route_table *external_table;
-	struct route_table *external_id_table;
 #define OSPF6_EXT_INIT_LS_ID 1
 	uint32_t external_id;
 
