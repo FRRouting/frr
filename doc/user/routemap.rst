@@ -160,6 +160,10 @@ Route Map Match Command
 
    This is a BGP specific match command. Matches the specified `ipv6_addr`.
 
+.. clicmd:: match ipv6 next-hop prefix-list PREFIX_LIST
+
+   Match the next-hop according to the given prefix-list.
+
 .. clicmd:: match as-path AS_PATH
 
    Matches the specified `as_path`.
