@@ -575,6 +575,10 @@ void route_map_condition_show(struct vty *vty, const struct lyd_node *dnode,
 		vty_out(vty, " match ip next-hop prefix-list %s\n",
 			yang_dnode_get_string(
 				dnode, "./rmap-match-condition/list-name"));
+	} else if (IS_MATCH_IPv6_NEXTHOP_PREFIX_LIST(condition)) {
+		vty_out(vty, " match ipv6 next-hop prefix-list %s\n",
+			yang_dnode_get_string(
+				dnode, "./rmap-match-condition/list-name"));
 	} else if (IS_MATCH_IPv6_ADDRESS_LIST(condition)) {
 		vty_out(vty, " match ipv6 address %s\n",
 			yang_dnode_get_string(
