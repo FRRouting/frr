@@ -20,7 +20,7 @@
 
 """
 Test if we can match BGP prefixes by next-hop which is
-specified by an IPv6 Access-list.
+specified by an IPv6 Access-list, prefix-list or just an address.
 """
 
 import os
@@ -101,6 +101,11 @@ def test_bgp_route_map_match_ipv6_next_hop_access_list():
             "2001:db8:4::1/128": [
                 {
                     "communities": "65002:4",
+                }
+            ],
+            "2001:db8:5::1/128": [
+                {
+                    "communities": "65002:5",
                 }
             ],
         }
