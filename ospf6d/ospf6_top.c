@@ -423,7 +423,6 @@ static struct ospf6 *ospf6_create(const char *name)
 	 * 1::1, this happened because of LS ID 0.
 	 */
 	o->external_id = OSPF6_EXT_INIT_LS_ID;
-	o->external_id_table = route_table_init();
 
 	o->write_oi_count = OSPF6_WRITE_INTERFACE_COUNT_DEFAULT;
 	o->ref_bandwidth = OSPF6_REFERENCE_BANDWIDTH;
@@ -515,7 +514,6 @@ void ospf6_delete(struct ospf6 *o)
 	ospf6_route_table_delete(o->brouter_table);
 
 	ospf6_route_table_delete(o->external_table);
-	route_table_finish(o->external_id_table);
 
 	ospf6_distance_reset(o);
 	route_table_finish(o->distance_table);
