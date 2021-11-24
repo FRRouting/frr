@@ -282,6 +282,22 @@ void route_map_no_match_ipv6_next_hop_type_hook(int (*func)(
 	rmap_match_set_hook.no_match_ipv6_next_hop_type = func;
 }
 
+/* match ipv6 next-hop prefix-list */
+void route_map_match_ipv6_next_hop_prefix_list_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.match_ipv6_next_hop_prefix_list = func;
+}
+
+/* no match ipv6 next-hop prefix-list */
+void route_map_no_match_ipv6_next_hop_prefix_list_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.no_match_ipv6_next_hop_prefix_list = func;
+}
+
 /* match metric */
 void route_map_match_metric_hook(int (*func)(
 	struct route_map_index *index, const char *command,
