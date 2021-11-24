@@ -1226,27 +1226,6 @@ void bs_final_handler(struct bfd_session *bs)
 	/* Apply new transmission timer immediately. */
 	ptm_bfd_start_xmt_timer(bs, false);
 
-	/*
-	 * Detection timeout calculation:
-	 * The minimum detection timeout is the remote detection
-	 * multipler (number of packets to be missed) times the agreed
-	 * transmission interval.
-	 *
-	 * RFC 5880, Section 6.8.4.
-	 *
-	 * TODO: support sending/counting more packets inside detection
-	 * timeout.
-	 */
-	if (bs->timers.required_min_rx > bs->remote_timers.desired_min_tx)
-		bs->detect_TO = bs->remote_detect_mult
-				* bs->timers.required_min_rx;
-	else
-		bs->detect_TO = bs->remote_detect_mult
-				* bs->remote_timers.desired_min_tx;
-
-	/* Apply new receive timer immediately. */
-	bfd_recvtimer_update(bs);
-
 	/* Notify watchers about changed timers. */
 	control_notify_config(BCM_NOTIFY_CONFIG_UPDATE, bs);
 }
