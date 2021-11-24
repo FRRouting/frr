@@ -265,35 +265,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 cmd = "no {}".format(cmd)
             config_data.append(cmd)
 
-    # area interface information for ospf6d only
-    if ospf == "ospf6":
-        area_iface = ospf_data.setdefault("neighbors", {})
-        if area_iface:
-            for neighbor in area_iface:
-                if "area" in area_iface[neighbor]:
-                    iface = input_dict[router]["links"][neighbor]["interface"]
-                    cmd = "interface {} area {}".format(
-                        iface, area_iface[neighbor]["area"]
-                    )
-                    if area_iface[neighbor].setdefault("delete", False):
-                        cmd = "no {}".format(cmd)
-                    config_data.append(cmd)
-
-                try:
-                    if "area" in input_dict[router]["links"][neighbor]["ospf6"]:
-                        iface = input_dict[router]["links"][neighbor]["interface"]
-                        cmd = "interface {} area {}".format(
-                            iface,
-                            input_dict[router]["links"][neighbor]["ospf6"]["area"],
-                        )
-                        if input_dict[router]["links"][neighbor].setdefault(
-                            "delete", False
-                        ):
-                            cmd = "no {}".format(cmd)
-                        config_data.append(cmd)
-                except KeyError:
-                    pass
-
     # summary information
     summary_data = ospf_data.setdefault("summary-address", {})
     if summary_data:
@@ -361,69 +332,6 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
     logger.debug("Exiting lib API: create_ospf_global()")
 
     return config_data
-
-
-def create_router_ospf6(
-    tgen, topo=None, input_dict=None, build=False, load_config=True
-):
-    """
-    API to configure ospf on router
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : json file data
-    * `input_dict` : Input dict data, required when configuring from testcase
-    * `build` : Only for initial setup phase this is set as True.
-
-    Usage
-    -----
-    input_dict = {
-        "r1": {
-            "ospf6": {
-                "router_id": "22.22.22.22",
-        }
-    }
-
-    Returns
-    -------
-    True or False
-    """
-    logger.debug("Entering lib API: create_router_ospf6()")
-    result = False
-
-    if topo is None:
-        topo = tgen.json_topo
-
-    if not input_dict:
-        input_dict = deepcopy(topo)
-    else:
-        topo = topo["routers"]
-        input_dict = deepcopy(input_dict)
-
-    config_data_dict = {}
-
-    for router in input_dict.keys():
-        if "ospf6" not in input_dict[router]:
-            logger.debug("Router %s: 'ospf6' not present in input_dict", router)
-            continue
-
-        config_data = __create_ospf_global(
-            tgen, input_dict, router, build, load_config, "ospf6"
-        )
-        if config_data:
-            config_data_dict[router] = config_data
-
-    try:
-        result = create_common_configurations(
-            tgen, config_data_dict, "ospf6", build, load_config
-        )
-    except InvalidCLIError:
-        logger.error("create_router_ospf6", exc_info=True)
-        result = False
-
-    logger.debug("Exiting lib API: create_router_ospf6()")
-    return result
 
 
 def config_ospf_interface(
