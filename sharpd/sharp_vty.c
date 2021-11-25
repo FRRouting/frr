@@ -1071,9 +1071,8 @@ DEFUN (show_sharp_ted,
 		ls_show_ted(sg.ted, vty, json, verbose);
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }

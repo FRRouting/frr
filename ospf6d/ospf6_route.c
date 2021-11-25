@@ -1610,9 +1610,8 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	/* Give summary of this route table */
 	if (summary) {
 		ospf6_route_show_table_summary(vty, table, json, use_json);
-		if (use_json) {
+		if (use_json)
 			vty_json(vty, json);
-		}
 		return CMD_SUCCESS;
 	}
 
@@ -1626,9 +1625,8 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 			ospf6_route_show_table_prefix(vty, &prefix, table, json,
 						      use_json);
 
-		if (use_json) {
+		if (use_json)
 			vty_json(vty, json);
-		}
 		return CMD_SUCCESS;
 	}
 
@@ -1641,9 +1639,8 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	else
 		ospf6_route_show_table(vty, detail, table, json, use_json);
 
-	if (use_json) {
+	if (use_json)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 

@@ -1188,9 +1188,8 @@ DEFPY(show_ipv6_ospf6_gr_helper,
 
 	show_ospf6_gr_helper_details(vty, ospf6, json, uj, detail);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
