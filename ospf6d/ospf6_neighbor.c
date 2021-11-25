@@ -1073,10 +1073,7 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 			json_object_object_add(json, "neighbors", json_array);
 		else
 			json_object_free(json_array);
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -1149,10 +1146,7 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 			}
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;

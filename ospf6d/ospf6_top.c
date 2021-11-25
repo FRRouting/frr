@@ -1496,10 +1496,7 @@ DEFUN(show_ipv6_ospf6_vrfs, show_ipv6_ospf6_vrfs_cmd,
 		json_object_object_add(json, "vrfs", json_vrfs);
 		json_object_int_add(json, "totalVrfs", count);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (count)
 			vty_out(vty, "\nTotal number of OSPF VRFs: %d\n",
@@ -2091,9 +2088,7 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
