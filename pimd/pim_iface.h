@@ -193,7 +193,6 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any);
 void pim_if_addr_add_all(struct interface *ifp);
 void pim_if_addr_del_all(struct interface *ifp);
 void pim_if_addr_del_all_igmp(struct interface *ifp);
-void pim_if_addr_del_all_pim(struct interface *ifp);
 
 int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term);
 int pim_if_del_vif(struct interface *ifp);

@@ -110,7 +110,6 @@ void pim_igmp_if_fini(struct pim_interface *pim_ifp);
 
 struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 					      struct in_addr ifaddr);
-struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd);
 struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				    struct in_addr ifaddr,
 				    struct interface *ifp,

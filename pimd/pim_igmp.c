@@ -141,18 +141,6 @@ struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 	return NULL;
 }
 
-struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	for (ALL_LIST_ELEMENTS_RO(igmp_sock_list, sock_node, igmp))
-		if (fd == igmp->fd)
-			return igmp;
-
-	return NULL;
-}
-
 static int pim_igmp_other_querier_expire(struct thread *t)
 {
 	struct igmp_sock *igmp;
