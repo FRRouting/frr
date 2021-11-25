@@ -5966,7 +5966,6 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self,
 	struct summary_lsa *sl;
 	struct as_external_lsa *asel;
 	struct prefix_ipv4 p;
-	char buf[PREFIX2STR_BUFFER];
 
 	if (lsa != NULL)
 		/* If self option is set, check LSA self flag. */
@@ -6025,10 +6024,9 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self,
 				if (!json_lsa)
 					vty_out(vty, " %pFX", &p);
 				else {
-					prefix2str(&p, buf, sizeof(buf));
-					json_object_string_add(json_lsa,
-							       "summaryAddress",
-							       buf);
+					json_object_string_addf(
+						json_lsa, "summaryAddress",
+						"%pFX", &p);
 				}
 				break;
 			case OSPF_AS_EXTERNAL_LSA:
@@ -6050,15 +6048,14 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self,
 						(unsigned long)ntohl(
 							asel->e[0].route_tag));
 				else {
-					prefix2str(&p, buf, sizeof(buf));
 					json_object_string_add(
 						json_lsa, "metricType",
 						IS_EXTERNAL_METRIC(
 							asel->e[0].tos)
 							? "E2"
 							: "E1");
-					json_object_string_add(json_lsa,
-							       "route", buf);
+					json_object_string_addf(
+						json_lsa, "route", "%pFX", &p);
 					json_object_int_add(
 						json_lsa, "tag",
 						(unsigned long)ntohl(
