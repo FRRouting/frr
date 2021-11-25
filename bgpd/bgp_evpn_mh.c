@@ -2452,9 +2452,7 @@ void bgp_evpn_es_show(struct vty *vty, bool uj, bool detail)
 
 	/* print the array of json-ESs */
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
+		vty_json(vty, json_array);
 	}
 }
 
@@ -2476,9 +2474,7 @@ void bgp_evpn_es_show_esi(struct vty *vty, esi_t *esi, bool uj)
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -3031,10 +3027,7 @@ void bgp_evpn_es_vrf_show(struct vty *vty, bool uj, struct bgp_evpn_es *es)
 
 	/* print the array of json-ESs */
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
+		vty_json(vty, json_array);
 	}
 }
 
@@ -3885,9 +3878,7 @@ void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail)
 				  void *))bgp_evpn_es_evi_show_one_vni_hash_cb,
 				&wctx);
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
+		vty_json(vty, json_array);
 	}
 }
 
@@ -3923,9 +3914,7 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
+		vty_json(vty, json_array);
 	}
 }
 
@@ -4655,10 +4644,7 @@ void bgp_evpn_nh_show(struct vty *vty, bool uj)
 
 	/* print the array of json-ESs */
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
+		vty_json(vty, json_array);
 	}
 }
 

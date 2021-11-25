@@ -673,10 +673,7 @@ DEFUN (show_as_path_access_list,
 		as_list_show(vty, aslist, json);
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -708,10 +705,7 @@ DEFUN (show_as_path_access_list_all,
 	as_list_show_all(vty, json);
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
