@@ -1277,10 +1277,7 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 			if (ifp == NULL) {
 				json_object_string_add(json, "noSuchInterface",
 						       argv[idx_ifname]->arg);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 				json_object_free(json_int);
 				return CMD_WARNING;
 			}
@@ -1294,10 +1291,7 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 						       json_int);
 			}
 		}
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (argc == intf_idx) {
 			ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
@@ -1484,10 +1478,7 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 						       "No Such Interface");
 				json_object_string_add(json, "interface",
 						       intf_name);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 				return CMD_WARNING;
 			}
 			if (ifp->info == NULL) {
@@ -1496,10 +1487,7 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 					"OSPF not enabled on this interface");
 				json_object_string_add(json, "interface",
 						       intf_name);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 				return 0;
 			}
 		} else {
@@ -1520,10 +1508,7 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj, vrf_id);
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;

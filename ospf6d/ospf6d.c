@@ -292,10 +292,7 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 		json_object_array_add(json_array, json_obj);
 		json_object_object_add(json, "asScopedLinkStateDb", json_array);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 }
@@ -387,10 +384,7 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 		break;
 	}
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 }

@@ -2545,10 +2545,7 @@ DEFUN(show_ipv6_ospf6_redistribute, show_ipv6_ospf6_redistribute_cmd,
 			if (uj) {
 				json_object_object_add(json, "routes",
 						       json_array_routes);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 
 			if (!all_vrf)
