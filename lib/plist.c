@@ -1010,7 +1010,6 @@ static void vty_show_prefix_entry(struct vty *vty, json_object *json, afi_t afi,
 
 			if (json) {
 				json_object *json_entry;
-				char buf[BUFSIZ];
 
 				json_entry = json_object_new_object();
 				json_object_array_add(json_entries, json_entry);
