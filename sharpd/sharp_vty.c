@@ -1072,10 +1072,7 @@ DEFUN (show_sharp_ted,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -1143,9 +1140,7 @@ DEFPY (show_sharp_segment_routing_srv6,
 			}
 		}
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				jo_locs, JSON_C_TO_STRING_PRETTY));
-		json_object_free(jo_locs);
+		vty_json(vty, jo_locs);
 	} else {
 		for (ALL_LIST_ELEMENTS_RO(sg.srv6_locators, loc_node, loc)) {
 			vty_out(vty, "Locator %s has %d prefix chunks\n",
