@@ -828,26 +828,6 @@ void pim_if_addr_del_all_igmp(struct interface *ifp)
 	}
 }
 
-void pim_if_addr_del_all_pim(struct interface *ifp)
-{
-	struct connected *ifc;
-	struct listnode *node;
-	struct listnode *nextnode;
-
-	/* PIM/IGMP enabled ? */
-	if (!ifp->info)
-		return;
-
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
-		struct prefix *p = ifc->address;
-
-		if (p->family != AF_INET)
-			continue;
-
-		pim_if_addr_del_pim(ifc);
-	}
-}
-
 struct in_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
