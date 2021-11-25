@@ -1321,9 +1321,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					  buf, sizeof(buf)),
 				json_rp_rows);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
