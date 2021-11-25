@@ -1583,9 +1583,7 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			json_object_object_add(json, "ipv6PrefixList",
 					       json_prefix);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		vty_out(vty, "ip%s prefix-list %s: %d entries\n",
 			afi == AFI_IP ? "" : "v6", plist->name, plist->count);
