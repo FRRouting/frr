@@ -108,9 +108,7 @@ DEFUN (show_srv6_locator,
 
 		}
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
-					JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		vty_out(vty, "Locator:\n");
 		vty_out(vty, "Name                 ID      Prefix                   Status\n");

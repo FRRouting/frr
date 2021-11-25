@@ -363,8 +363,7 @@ DEFUN(fpm_show_counters_json, fpm_show_counters_json_cmd,
 	json_object_int_add(jo, "user-configures",
 			    gfnc->counters.user_configures);
 	json_object_int_add(jo, "user-disables", gfnc->counters.user_disables);
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 
 	return CMD_SUCCESS;
 }
