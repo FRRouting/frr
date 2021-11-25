@@ -420,7 +420,7 @@ static void ospf_aggr_handle_external_info(void *data)
 {
 	struct external_info *ei = (struct external_info *)data;
 	struct ospf_external_aggr_rt *aggr = NULL;
-	struct ospf *ospf = NULL;
+	struct ospf *ospf = ei->ospf;
 	struct ospf_lsa *lsa = NULL;
 
 	ei->aggr_route = NULL;
@@ -430,8 +430,6 @@ static void ospf_aggr_handle_external_info(void *data)
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug("%s: Handle extrenal route(%pI4/%d)", __func__,
 			   &ei->p.prefix, ei->p.prefixlen);
-
-	ospf = ospf_lookup_instance(ei->instance);
 
 	assert(ospf);
 
