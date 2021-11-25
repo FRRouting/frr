@@ -3387,10 +3387,7 @@ DEFUN (show_ip_ospf,
 							  use_vrf);
 			}
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else if (!ospf_output)
 				vty_out(vty, "%% OSPF instance not found\n");
 			return ret;
@@ -3398,10 +3395,7 @@ DEFUN (show_ip_ospf,
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 		if ((ospf == NULL) || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -3412,10 +3406,7 @@ DEFUN (show_ip_ospf,
 		/* Display default ospf (instance 0) info */
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -3467,9 +3458,7 @@ DEFUN (show_ip_ospf_instance,
 	ret = show_ip_ospf_common(vty, ospf, json, 0);
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -4131,10 +4120,7 @@ DEFUN (show_ip_ospf_interface,
 			}
 
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else if (!ospf)
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -4143,10 +4129,7 @@ DEFUN (show_ip_ospf_interface,
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -4160,10 +4143,7 @@ DEFUN (show_ip_ospf_interface,
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -4174,9 +4154,7 @@ DEFUN (show_ip_ospf_interface,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -4219,9 +4197,7 @@ DEFUN (show_ip_ospf_instance_interface,
 	ret = show_ip_ospf_interface_common(vty, ospf, intf_name, 0, json, uj);
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -4274,10 +4250,7 @@ DEFUN (show_ip_ospf_interface_traffic,
 			}
 
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 
 			return ret;
@@ -4304,9 +4277,7 @@ DEFUN (show_ip_ospf_interface_traffic,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -4561,10 +4532,7 @@ DEFUN (show_ip_ospf_neighbor,
 			}
 
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else if (!ospf)
 				vty_out(vty, "OSPF instance not found\n");
 
@@ -4574,10 +4542,7 @@ DEFUN (show_ip_ospf_neighbor,
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -4588,10 +4553,7 @@ DEFUN (show_ip_ospf_neighbor,
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -4648,9 +4610,7 @@ DEFUN (show_ip_ospf_instance_neighbor,
 	ret = show_ip_ospf_neighbor_common(vty, ospf, json, uj, 0);
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -4786,10 +4746,7 @@ DEFUN (show_ip_ospf_neighbor_all,
 			}
 
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 
 			return ret;
@@ -4858,9 +4815,7 @@ DEFUN (show_ip_ospf_instance_neighbor_all,
 	ret = show_ip_ospf_neighbor_all_common(vty, ospf, json, uj, 0);
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -4907,9 +4862,7 @@ static int show_ip_ospf_neighbor_int_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 
@@ -5411,9 +5364,7 @@ static int show_ip_ospf_neighbor_id_common(struct vty *vty, struct ospf *ospf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 
@@ -5566,10 +5517,7 @@ DEFUN (show_ip_ospf_neighbor_detail,
 					vty, ospf, json, uj, use_vrf);
 			}
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 
 			return ret;
@@ -5638,9 +5586,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail,
 	ret = show_ip_ospf_neighbor_detail_common(vty, ospf, json, uj, 0);
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -5755,10 +5701,7 @@ DEFUN (show_ip_ospf_neighbor_detail_all,
 			}
 
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 
 			return ret;
@@ -5828,9 +5771,7 @@ DEFUN (show_ip_ospf_instance_neighbor_detail_all,
 	ret = show_ip_ospf_neighbor_detail_all_common(vty, ospf, json, uj, 0);
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return ret;
@@ -5888,9 +5829,7 @@ static int show_ip_ospf_neighbor_int_detail_common(struct vty *vty,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 
@@ -7198,10 +7137,7 @@ DEFUN (show_ip_ospf_instance_database_max,
 	show_ip_ospf_database_common(vty, ospf, 1, argc, argv, 0, json, uj);
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -7415,10 +7351,7 @@ DEFUN (show_ip_ospf_instance_database_type_adv_router,
 						     0, json, uj);
 
 	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -11132,11 +11065,7 @@ DEFUN (show_ip_ospf_route,
 
 			if (uj) {
 				/* Keep Non-pretty format */
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json,
-						JSON_C_TO_STRING_NOSLASHESCAPE));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else if (!ospf_output)
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -11145,12 +11074,7 @@ DEFUN (show_ip_ospf_route,
 		ospf = ospf_lookup_by_inst_name(inst, vrf_name);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json,
-						JSON_C_TO_STRING_PRETTY
-							| JSON_C_TO_STRING_NOSLASHESCAPE));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -11161,12 +11085,7 @@ DEFUN (show_ip_ospf_route,
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json,
-						JSON_C_TO_STRING_PRETTY
-							| JSON_C_TO_STRING_NOSLASHESCAPE));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -11271,9 +11190,7 @@ DEFUN (show_ip_ospf_vrfs,
 		json_object_object_add(json, "vrfs", json_vrfs);
 		json_object_int_add(json, "totalVrfs", count);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (count)
 			vty_out(vty, "\nTotal number of OSPF VRFs: %d\n",
@@ -11561,10 +11478,7 @@ DEFUN (show_ip_ospf_external_aggregator,
 			}
 
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 
 			return ret;
@@ -11574,10 +11488,7 @@ DEFUN (show_ip_ospf_external_aggregator,
 
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -11590,10 +11501,7 @@ DEFUN (show_ip_ospf_external_aggregator,
 		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 		if (ospf == NULL || !ospf->oi_running) {
 			if (uj) {
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			} else
 				vty_out(vty, "%% OSPF instance not found\n");
 
@@ -11604,9 +11512,7 @@ DEFUN (show_ip_ospf_external_aggregator,
 	}
 
 	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 	return CMD_SUCCESS;
 }
