@@ -917,7 +917,6 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object *jpbrm, *nexthop_group;
 	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
 					   : pbrms->internal_nhg_name;
-	char buf[PREFIX_STRLEN];
 	char rbuf[64];
 
 	jpbrm = json_object_new_object();

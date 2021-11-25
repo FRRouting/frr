@@ -1310,7 +1310,6 @@ static void connected_dump_vty(struct vty *vty, json_object *json,
 {
 	struct prefix *p;
 	json_object *json_addr = NULL;
-	char buf[PREFIX2STR_BUFFER];
 
 	/* Print interface address. */
 	p = connected->address;
