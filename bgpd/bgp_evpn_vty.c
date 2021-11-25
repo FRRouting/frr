@@ -1345,10 +1345,12 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 
 				json_prefix_info = json_object_new_object();
 
-				json_object_string_add(
-					json_prefix_info, "prefix",
-					prefix2str((struct prefix_evpn *)p, buf,
-						   BUFSIZ));
+				prefix2str((struct prefix_evpn *)p, buf,
+					   BUFSIZ);
+
+				json_object_string_addf(
+					json_prefix_info, "prefix", "%pFX",
+					(struct prefix_evpn *)p);
 
 				json_object_int_add(json_prefix_info,
 						    "prefixLen", p->prefixlen);
