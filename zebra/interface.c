@@ -2348,9 +2348,8 @@ DEFPY(show_interface, show_interface_cmd,
 		}
 	}
 
-	if (json) {
+	if (json)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -2392,9 +2391,8 @@ DEFPY (show_interface_vrf_all,
 		}
 	}
 
-	if (json) {
+	if (json)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -2442,9 +2440,8 @@ DEFPY (show_interface_name_vrf,
 	else
 		if_dump_vty(vty, ifp);
 
-	if (json) {
+	if (json)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -2504,9 +2501,8 @@ DEFPY (show_interface_name_vrf_all,
 	else
 		if_dump_vty(vty, ifp);
 
-	if (json) {
+	if (json)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }

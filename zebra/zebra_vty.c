@@ -1237,9 +1237,8 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 		}
 	}
 
-	if (use_json) {
+	if (use_json)
 		vty_json(vty, json);
-	}
 }
 
 static void do_show_ip_route_all(struct vty *vty, struct zebra_vrf *zvrf,

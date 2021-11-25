@@ -418,9 +418,8 @@ void zebra_evpn_es_evi_show(struct vty *vty, bool uj, int detail)
 	hash_iterate(zvrf->evpn_table, zebra_evpn_es_evi_show_one_evpn_hash_cb,
 			&wctx);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
@@ -443,9 +442,8 @@ void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj, vni_t vni, int detail)
 			vty_out(vty, "VNI %d doesn't exist\n", vni);
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 /* Initialize the ES tables maintained per-L2_VNI */
@@ -992,9 +990,8 @@ void zebra_evpn_acc_vl_show(struct vty *vty, bool uj)
 	hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_show_hash,
 			&wctx);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj)
@@ -1012,9 +1009,8 @@ void zebra_evpn_acc_vl_show_detail(struct vty *vty, bool uj)
 	hash_iterate(zmh_info->evpn_vlan_table, zebra_evpn_acc_vl_show_hash,
 			&wctx);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid)
@@ -1033,9 +1029,8 @@ void zebra_evpn_acc_vl_show_vid(struct vty *vty, bool uj, vlanid_t vid)
 			vty_out(vty, "VLAN %u not present\n", vid);
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 }
 
 /* Initialize VLAN member bitmap on an interface. Although VLAN membership
@@ -1348,9 +1343,8 @@ void zebra_evpn_l2_nh_show(struct vty *vty, bool uj)
 
 	hash_iterate(zmh_info->nh_ip_table, zebra_evpn_l2_nh_show_cb, &wctx);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 static struct zebra_evpn_l2_nh *zebra_evpn_l2_nh_find(struct in_addr vtep_ip)
@@ -3199,9 +3193,8 @@ void zebra_evpn_es_show(struct vty *vty, bool uj)
 	RB_FOREACH(es, zebra_es_rb_head, &zmh_info->es_rb_tree)
 		zebra_evpn_es_show_entry(vty, es, json_array);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 void zebra_evpn_es_show_detail(struct vty *vty, bool uj)
@@ -3222,9 +3215,8 @@ void zebra_evpn_es_show_detail(struct vty *vty, bool uj)
 			json_object_array_add(json_array, json);
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json_array);
-	}
 }
 
 void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi)
@@ -3247,9 +3239,8 @@ void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi)
 		}
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 }
 
 int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp)

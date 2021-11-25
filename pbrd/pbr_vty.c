@@ -1037,9 +1037,8 @@ DEFPY (show_pbr_map,
 		vty_show_pbr_map(vty, pbrm, detail);
 	}
 
-	if (j) {
+	if (j)
 		vty_json(vty, j);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -1135,9 +1134,8 @@ DEFPY (show_pbr_interface,
 		}
 	}
 
-	if (j) {
+	if (j)
 		vty_json(vty, j);
-	}
 
 	return CMD_SUCCESS;
 }

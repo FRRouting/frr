@@ -3024,9 +3024,8 @@ DEFUN (show_ip_opsf_srdb,
 	if (argv_find(argv, argc, "self-originate", &idx)) {
 		srn = OspfSR.self;
 		show_sr_node(vty, json_node_array, srn);
-		if (uj) {
+		if (uj)
 			vty_json(vty, json);
-		}
 		return CMD_SUCCESS;
 	}
 
@@ -3040,9 +3039,8 @@ DEFUN (show_ip_opsf_srdb,
 		srn = (struct sr_node *)hash_lookup(OspfSR.neighbors,
 						    (void *)&rid);
 		show_sr_node(vty, json_node_array, srn);
-		if (uj) {
+		if (uj)
 			vty_json(vty, json);
-		}
 		return CMD_SUCCESS;
 	}
 

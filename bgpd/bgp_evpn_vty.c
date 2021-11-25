@@ -4387,9 +4387,8 @@ DEFUN(show_bgp_l2vpn_evpn_vni,
 		evpn_show_vni(vty, bgp_evpn, vni, json);
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -4667,9 +4666,8 @@ DEFUN(show_bgp_l2vpn_evpn_route,
 
 	evpn_show_all_routes(vty, bgp, type, json, detail);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 
@@ -4729,9 +4727,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd,
 	else
 		evpn_show_route_rd(vty, bgp, &prd, type, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -4813,9 +4810,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_rd_macip,
 	else
 		evpn_show_route_rd_macip(vty, bgp, &prd, &mac, &ip, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -4855,9 +4851,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_esi,
 
 	evpn_show_routes_esi(vty, bgp, &esi, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -4923,9 +4918,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni, show_bgp_l2vpn_evpn_route_vni_cmd,
 
 	evpn_show_routes_vni(vty, bgp, vni, type, vtep_ip, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -4991,9 +4985,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_macip,
 
 	evpn_show_route_vni_macip(vty, bgp, vni, &mac, &ip, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5047,9 +5040,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_multicast,
 
 	evpn_show_route_vni_multicast(vty, bgp, vni, orig_ip, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5108,9 +5100,8 @@ DEFUN(show_bgp_l2vpn_evpn_route_vni_all,
 
 	evpn_show_routes_vni_all(vty, bgp, vtep_ip, json, da);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5142,9 +5133,8 @@ DEFPY_HIDDEN(
 	if (uj)
 		json = json_object_new_object();
 	bgp_evpn_show_routes_mac_ip_evi_es(vty, esi_p, json, !!detail);
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5176,9 +5166,8 @@ DEFPY_HIDDEN(
 	if (uj)
 		json = json_object_new_object();
 	bgp_evpn_show_routes_mac_ip_global_es(vty, esi_p, json, !!detail);
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5210,9 +5199,8 @@ DEFUN(show_bgp_l2vpn_evpn_vrf_import_rt,
 
 	evpn_show_vrf_import_rts(vty, bgp_evpn, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5244,9 +5232,8 @@ DEFUN(show_bgp_l2vpn_evpn_import_rt,
 
 	evpn_show_import_rts(vty, bgp, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -5828,9 +5815,8 @@ DEFUN (show_bgp_vrf_l3vni_info,
 			prefix_rd2str(&bgp->vrf_prd, buf1, RD_ADDRSTRLEN));
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 
