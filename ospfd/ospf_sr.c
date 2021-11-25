@@ -3025,10 +3025,7 @@ DEFUN (show_ip_opsf_srdb,
 		srn = OspfSR.self;
 		show_sr_node(vty, json_node_array, srn);
 		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		}
 		return CMD_SUCCESS;
 	}
@@ -3044,10 +3041,7 @@ DEFUN (show_ip_opsf_srdb,
 						    (void *)&rid);
 		show_sr_node(vty, json_node_array, srn);
 		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		}
 		return CMD_SUCCESS;
 	}
@@ -3057,9 +3051,7 @@ DEFUN (show_ip_opsf_srdb,
 		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 							 void *))show_json_srdb,
 			     (void *)json_node_array);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 							 void *))show_vty_srdb,
