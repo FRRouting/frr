@@ -1273,10 +1273,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 							       "prefixList",
 							       rp_info->plist);
 				else
-					json_object_string_add(
-						json_row, "group",
-						prefix2str(&rp_info->group, buf,
-							   48));
+					json_object_string_addf(
+						json_row, "group", "%pFX",
+						&rp_info->group);
 				json_object_string_add(json_row, "source",
 						       source);
 
