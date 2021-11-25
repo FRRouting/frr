@@ -12363,10 +12363,10 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 						p->group, &prefix);
 
 				if (range) {
-					prefix2str(range, buf1, sizeof(buf1));
-					json_object_string_add(
+					json_object_string_addf(
 						json_neigh,
-						"peerSubnetRangeGroup", buf1);
+						"peerSubnetRangeGroup", "%pFX",
+						range);
 				}
 			}
 		} else {
