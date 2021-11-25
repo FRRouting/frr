@@ -282,8 +282,7 @@ static void _display_peer_json(struct vty *vty, struct bfd_session *bs)
 {
 	struct json_object *jo = __display_peer_json(bs);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 struct bfd_vrf_tuple {
@@ -353,8 +352,7 @@ static void _display_all_peers(struct vty *vty, char *vrfname, bool use_json)
 	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _display_peer_counter(struct vty *vty, struct bfd_session *bs)
@@ -407,8 +405,7 @@ static void _display_peer_counters_json(struct vty *vty, struct bfd_session *bs)
 {
 	struct json_object *jo = __display_peer_counters_json(bs);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _display_peer_counter_iter(struct hash_bucket *hb, void *arg)
@@ -472,8 +469,7 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 	bvt.jo = jo;
 	bfd_id_iterate(_display_peer_counter_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static void _clear_peer_counter(struct bfd_session *bs) 
@@ -556,8 +552,7 @@ static void _display_peers_brief(struct vty *vty, const char *vrfname, bool use_
 
 	bfd_id_iterate(_display_peer_json_iter, &bvt);
 
-	vty_out(vty, "%s\n", json_object_to_json_string_ext(jo, 0));
-	json_object_free(jo);
+	vty_json(vty, jo);
 }
 
 static struct bfd_session *
