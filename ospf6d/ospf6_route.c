@@ -1611,10 +1611,7 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 	if (summary) {
 		ospf6_route_show_table_summary(vty, table, json, use_json);
 		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		}
 		return CMD_SUCCESS;
 	}
@@ -1630,10 +1627,7 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 						      use_json);
 
 		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		}
 		return CMD_SUCCESS;
 	}
@@ -1648,10 +1642,7 @@ int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
 		ospf6_route_show_table(vty, detail, table, json, use_json);
 
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 	return CMD_SUCCESS;
 }
