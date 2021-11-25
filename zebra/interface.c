@@ -2349,10 +2349,7 @@ DEFPY(show_interface, show_interface_cmd,
 	}
 
 	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -2396,10 +2393,7 @@ DEFPY (show_interface_vrf_all,
 	}
 
 	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -2449,10 +2443,7 @@ DEFPY (show_interface_name_vrf,
 		if_dump_vty(vty, ifp);
 
 	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -2514,10 +2505,7 @@ DEFPY (show_interface_name_vrf_all,
 		if_dump_vty(vty, ifp);
 
 	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;

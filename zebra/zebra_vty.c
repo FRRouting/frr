@@ -1127,11 +1127,7 @@ static void vty_show_ip_route_detail_json(struct vty *vty,
 
 	prefix2str(&rn->p, buf, sizeof(buf));
 	json_object_object_add(json, buf, json_prefix);
-	vty_out(vty, "%s\n",
-		json_object_to_json_string_ext(
-			json, JSON_C_TO_STRING_PRETTY
-				      | JSON_C_TO_STRING_NOSLASHESCAPE));
-	json_object_free(json);
+	vty_json(vty, json);
 }
 
 static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
@@ -1242,12 +1238,7 @@ static void do_show_route_helper(struct vty *vty, struct zebra_vrf *zvrf,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json,
-				JSON_C_TO_STRING_PRETTY
-					| JSON_C_TO_STRING_NOSLASHESCAPE));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -2480,10 +2471,7 @@ static void vty_show_ip_route_summary(struct vty *vty,
 		json_object_int_add(json_route_summary, "routesTotalFib",
 				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_route_summary, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_route_summary);
+		vty_json(vty, json_route_summary);
 	} else {
 		vty_out(vty, "------\n");
 		vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
@@ -2631,10 +2619,7 @@ static void vty_show_ip_route_summary_prefix(struct vty *vty,
 		json_object_int_add(json_route_summary, "prefixRoutesTotalFib",
 				    fib_cnt[ZEBRA_ROUTE_TOTAL]);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_route_summary, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_route_summary);
+		vty_json(vty, json_route_summary);
 	} else {
 		vty_out(vty, "------\n");
 		vty_out(vty, "%-20s %-20d %-20d \n", "Totals",
@@ -3006,9 +2991,7 @@ DEFUN (show_vrf_vni,
 
 	if (uj) {
 		json_object_object_add(json, "vrfs", json_vrfs);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
