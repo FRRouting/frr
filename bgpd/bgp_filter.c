@@ -672,9 +672,8 @@ DEFUN (show_as_path_access_list,
 	if (aslist)
 		as_list_show(vty, aslist, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }
@@ -704,9 +703,8 @@ DEFUN (show_as_path_access_list_all,
 
 	as_list_show_all(vty, json);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }

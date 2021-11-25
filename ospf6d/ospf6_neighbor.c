@@ -1145,9 +1145,8 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 					(*showfunc)(vty, on, json, uj);
 			}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }

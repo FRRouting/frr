@@ -735,9 +735,8 @@ DEFUN(show_bgp_labelpool_ledger, show_bgp_labelpool_ledger_cmd,
 			break;
 		}
 	}
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 
@@ -827,9 +826,8 @@ DEFUN(show_bgp_labelpool_inuse, show_bgp_labelpool_inuse_cmd,
 			break;
 		}
 	}
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 
@@ -902,9 +900,8 @@ DEFUN(show_bgp_labelpool_requests, show_bgp_labelpool_requests_cmd,
 			break;
 		}
 	}
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 
@@ -950,9 +947,8 @@ DEFUN(show_bgp_labelpool_chunks, show_bgp_labelpool_chunks_cmd,
 			vty_out(vty, "%-10u %-10u\n", chunk->first,
 				chunk->last);
 	}
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 

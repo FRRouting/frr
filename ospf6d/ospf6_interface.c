@@ -1507,9 +1507,8 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 
 	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj, vrf_id);
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }

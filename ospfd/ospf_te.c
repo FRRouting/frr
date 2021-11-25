@@ -4432,9 +4432,8 @@ DEFUN (show_ip_ospf_mpls_te_db,
 		ls_show_ted(OspfMplsTE.ted, vty, json, verbose);
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 

@@ -2096,9 +2096,8 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 
 static void ospf6_stub_router_config_write(struct vty *vty, struct ospf6 *ospf6)
 {
-	if (CHECK_FLAG(ospf6->flag, OSPF6_STUB_ROUTER)) {
+	if (CHECK_FLAG(ospf6->flag, OSPF6_STUB_ROUTER))
 		vty_out(vty, " stub-router administrative\n");
-	}
 	return;
 }
 

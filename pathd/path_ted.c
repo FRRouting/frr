@@ -471,9 +471,8 @@ DEFPY (show_pahtd_ted_db,
 	}
 	/* Show the complete TED */
 	ls_show_ted(ted_state_g.ted, vty, json, !st_json);
-	if (st_json) {
+	if (st_json)
 		vty_json(vty, json);
-	}
 	return CMD_SUCCESS;
 }
 

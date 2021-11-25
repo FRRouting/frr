@@ -1045,9 +1045,8 @@ static int ipv6_ospf6_spf_tree_common(struct vty *vty, struct ospf6 *ospf6,
 		}
 	}
 
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	}
 
 	return CMD_SUCCESS;
 }

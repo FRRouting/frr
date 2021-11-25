@@ -383,9 +383,9 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 		assert(0);
 		break;
 	}
-	if (uj) {
+	if (uj)
 		vty_json(vty, json);
-	} else
+	else
 		vty_out(vty, "\n");
 }
 
