@@ -472,10 +472,7 @@ DEFPY (show_pahtd_ted_db,
 	/* Show the complete TED */
 	ls_show_ted(ted_state_g.ted, vty, json, !st_json);
 	if (st_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 	return CMD_SUCCESS;
 }
