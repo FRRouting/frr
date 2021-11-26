@@ -625,7 +625,7 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 	 *  Later, any Unapproved Translated Type-5's are flushed/discarded
 	 */
 
-	struct ospf6_lsa *old = NULL, *new = NULL;
+	struct ospf6_lsa *old = NULL;
 	struct ospf6_as_external_lsa *nssa_lsa;
 	struct prefix prefix;
 	struct ospf6_route *match;
@@ -662,11 +662,11 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 	}
 
 	/* Find the existing AS-External LSA for this prefix */
-	match = ospf6_route_lookup(&prefix, ospf6->external_table);
+	match = ospf6_route_lookup(&prefix, ospf6->route_table);
 	if (match) {
-		old = ospf6_lsdb_lookup(OSPF6_LSTYPE_AS_EXTERNAL,
-					match->path.origin.id, ospf6->router_id,
-					ospf6->lsdb);
+		old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
+				lsa->external_lsa_id, ospf6->router_id,
+				ospf6->lsdb);
 	}
 
 	if (OSPF6_LSA_IS_MAXAGE(lsa)) {
@@ -675,20 +675,15 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 		return;
 	}
 
-	if (old) {
+	if (old && !OSPF6_LSA_IS_MAXAGE(old)) {
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug(
-				"%s : found old translated LSA Id %pI4, refreshing",
+				"%s : found old translated LSA Id %pI4, skip",
 				__func__, &old->header->id);
 
-		/* refresh */
-		new = ospf6_translated_nssa_refresh(area, lsa, old);
-		if (!new) {
-			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug(
-					"%s : could not refresh translated LSA Id %pI4",
-					__func__, &old->header->id);
-		}
+		UNSET_FLAG(old->flag, OSPF6_LSA_UNAPPROVED);
+		return;
+
 	} else {
 		/* no existing external route for this LSA Id
 		 * originate translated LSA
