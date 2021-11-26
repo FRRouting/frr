@@ -917,7 +917,6 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object *jpbrm, *nexthop_group;
 	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
 					   : pbrms->internal_nhg_name;
-	char buf[PREFIX_STRLEN];
 	char rbuf[64];
 
 	jpbrm = json_object_new_object();
@@ -953,13 +952,9 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 		json_object_string_add(jpbrm, "vrfName", pbrms->vrf_name);
 
 	if (pbrms->src)
-		json_object_string_add(
-			jpbrm, "matchSrc",
-			prefix2str(pbrms->src, buf, sizeof(buf)));
+		json_object_string_addf(jpbrm, "matchSrc", "%pFX", pbrms->src);
 	if (pbrms->dst)
-		json_object_string_add(
-			jpbrm, "matchDst",
-			prefix2str(pbrms->dst, buf, sizeof(buf)));
+		json_object_string_addf(jpbrm, "matchDst", "%pFX", pbrms->dst);
 	if (pbrms->mark)
 		json_object_int_add(jpbrm, "matchMark", pbrms->mark);
 	if (pbrms->dsfield & PBR_DSFIELD_DSCP)

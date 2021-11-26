@@ -8384,7 +8384,6 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 {
 	int len = 0;
 	char buf[BUFSIZ];
-	char buf2[BUFSIZ];
 
 	if (p->family == AF_INET) {
 		if (!json) {
@@ -8395,8 +8394,7 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 							 &p->u.prefix, buf,
 							 BUFSIZ));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
-			prefix2str(p, buf2, PREFIX_STRLEN);
-			json_object_string_add(json, "network", buf2);
+			json_object_string_addf(json, "network", "%pFX", p);
 			json_object_int_add(json, "version", dest->version);
 		}
 	} else if (p->family == AF_ETHERNET) {
@@ -8420,8 +8418,7 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 							&p->u.prefix, buf,
 							BUFSIZ));
 			json_object_int_add(json, "prefixLen", p->prefixlen);
-			prefix2str(p, buf2, PREFIX_STRLEN);
-			json_object_string_add(json, "network", buf2);
+			json_object_string_addf(json, "network", "%pFX", p);
 			json_object_int_add(json, "version", dest->version);
 		}
 	}
@@ -9100,8 +9097,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp_dest *dest,
 				BUFSIZ));
 			json_object_int_add(json_net, "prefixLen",
 				p->prefixlen);
-			prefix2str(p, buff, PREFIX_STRLEN);
-			json_object_string_add(json_net, "network", buff);
+			json_object_string_addf(json_net, "network", "%pFX", p);
 		}
 	} else
 		route_vty_out_route(dest, p, vty, NULL, wide);
@@ -11247,7 +11243,6 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 	struct peer *peer;
 	struct listnode *node, *nnode;
 	char buf1[RD_ADDRSTRLEN];
-	char prefix_str[BUFSIZ];
 	int count = 0;
 	int best = 0;
 	int suppress = 0;
@@ -11301,8 +11296,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 				dest->version);
 
 		} else {
-			json_object_string_add(json, "prefix",
-				prefix2str(p, prefix_str, sizeof(prefix_str)));
+			json_object_string_addf(json, "prefix", "%pFX", p);
 			json_object_int_add(json, "version", dest->version);
 
 		}

@@ -1010,7 +1010,6 @@ static void vty_show_prefix_entry(struct vty *vty, json_object *json, afi_t afi,
 
 			if (json) {
 				json_object *json_entry;
-				char buf[BUFSIZ];
 
 				json_entry = json_object_new_object();
 				json_object_array_add(json_entries, json_entry);
@@ -1021,10 +1020,9 @@ static void vty_show_prefix_entry(struct vty *vty, json_object *json, afi_t afi,
 				json_object_string_add(
 					json_entry, "type",
 					prefix_list_type_str(pentry));
-				json_object_string_add(
-					json_entry, "prefix",
-					prefix2str(&pentry->prefix, buf,
-						   sizeof(buf)));
+				json_object_string_addf(json_entry, "prefix",
+							"%pFX",
+							&pentry->prefix);
 
 				if (pentry->ge)
 					json_object_int_add(

@@ -1310,7 +1310,6 @@ static void connected_dump_vty(struct vty *vty, json_object *json,
 {
 	struct prefix *p;
 	json_object *json_addr = NULL;
-	char buf[PREFIX2STR_BUFFER];
 
 	/* Print interface address. */
 	p = connected->address;
@@ -1318,8 +1317,7 @@ static void connected_dump_vty(struct vty *vty, json_object *json,
 	if (json) {
 		json_addr = json_object_new_object();
 		json_object_array_add(json, json_addr);
-		json_object_string_add(json_addr, "address",
-				       prefix2str(p, buf, sizeof(buf)));
+		json_object_string_addf(json_addr, "address", "%pFX", p);
 	} else {
 		vty_out(vty, "  %s %pFX", prefix_family_str(p), p);
 	}
@@ -1327,10 +1325,8 @@ static void connected_dump_vty(struct vty *vty, json_object *json,
 	/* If there is destination address, print it. */
 	if (CONNECTED_PEER(connected) && connected->destination) {
 		if (json) {
-			json_object_string_add(
-				json_addr, "peer",
-				prefix2str(connected->destination, buf,
-					   sizeof(buf)));
+			json_object_string_addf(json_addr, "peer", "%pFX",
+						connected->destination);
 		} else {
 			vty_out(vty, " peer %pFX", connected->destination);
 		}

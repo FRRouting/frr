@@ -161,12 +161,10 @@ void srv6_locator_chunk_free(struct srv6_locator_chunk *chunk)
 
 json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
 {
-	char str[256];
 	json_object *jo_root = NULL;
 
 	jo_root = json_object_new_object();
-	prefix2str(&chunk->prefix, str, sizeof(str));
-	json_object_string_add(jo_root, "prefix", str);
+	json_object_string_addf(jo_root, "prefix", "%pFX", &chunk->prefix);
 	json_object_string_add(jo_root, "proto",
 			       zebra_route_string(chunk->proto));
 
@@ -175,7 +173,6 @@ json_object *srv6_locator_chunk_json(const struct srv6_locator_chunk *chunk)
 
 json_object *srv6_locator_json(const struct srv6_locator *loc)
 {
-	char str[256];
 	struct listnode *node;
 	struct srv6_locator_chunk *chunk;
 	json_object *jo_root = NULL;
@@ -188,8 +185,7 @@ json_object *srv6_locator_json(const struct srv6_locator *loc)
 	json_object_string_add(jo_root, "name", loc->name);
 
 	/* set prefix */
-	prefix2str(&loc->prefix, str, sizeof(str));
-	json_object_string_add(jo_root, "prefix", str);
+	json_object_string_addf(jo_root, "prefix", "%pFX", &loc->prefix);
 
 	/* set function_bits_length */
 	json_object_int_add(jo_root, "functionBitsLength",
