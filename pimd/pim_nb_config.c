@@ -371,14 +371,6 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 	struct pim_interface *pim_ifp;
 
 	assert(igmp);
-
-	/* other querier present? */
-
-	if (igmp->t_other_querier_timer)
-		return;
-
-	/* this is the querier */
-
 	assert(igmp->interface);
 	assert(igmp->interface->info);
 
