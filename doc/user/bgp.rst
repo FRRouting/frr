@@ -3553,6 +3553,13 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 
    Display flap statistics of routes of the selected afi and safi selected.
 
+.. clicmd:: show bgp [afi] [safi] [all] dampening parameters [json]
+
+   Display details of configured dampening parameters of the selected afi and
+   safi.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
 .. clicmd:: show bgp [afi] [safi] [all] version (1-4294967295) [wide|json]
 
    Display prefixes with matching version numbers. The version number and
@@ -3584,6 +3591,42 @@ structure is extended with :clicmd:`show bgp [afi] [safi]`.
 .. clicmd:: show [ip] bgp [afi] [safi] [all] cidr-only [wide|json]
 
    Display routes with non-natural netmasks.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] prefix-list WORD [wide|json]
+
+   Display routes that match the specified prefix-list.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] filter-list WORD [wide|json]
+
+   Display routes that match the specified AS-Path filter-list.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] route-map WORD [wide|json]
+
+   Display routes that match the specified route-map.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
+
+.. clicmd:: show [ip] bgp [afi] [safi] [all] <A.B.C.D/M|X:X::X:X/M> longer-prefixes [wide|json]
+
+   Displays the specified route and all more specific routes.
+
+   If ``wide`` option is specified, then the prefix table's width is increased
+   to fully display the prefix and the nexthop.
+
+   If the ``json`` option is specified, output is displayed in JSON format.
 
 .. clicmd:: show [ip] bgp [afi] [safi] [all] neighbors A.B.C.D [advertised-routes|received-routes|filtered-routes] [json|wide]
 
@@ -3623,9 +3666,9 @@ attribute.
    community are displayed. When `exact-match` is specified, it display only
    routes that have an exact match.
 
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD
+.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD [json]
 
-.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD exact-match
+.. clicmd:: show [ip] bgp <ipv4|ipv6> community-list WORD exact-match [json]
 
    These commands display BGP routes for the address family specified that
    match the specified community list. When `exact-match` is specified, it
