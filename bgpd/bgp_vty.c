@@ -645,10 +645,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 					json_object_string_add(
 					  json, "warning",
 					  "View/Vrf is unknown");
-					vty_out(vty, "%s\n",
-						json_object_to_json_string_ext(json,
-							JSON_C_TO_STRING_PRETTY));
-					json_object_free(json);
+					vty_json(vty, json);
 				}
 				else
 					vty_out(vty, "View/Vrf %s is unknown\n",
@@ -666,10 +663,7 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 				json_object_string_add(
 					json, "warning",
 					"Default BGP instance not found");
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(json,
-						JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 			}
 			else
 				vty_out(vty,
@@ -9724,9 +9718,7 @@ DEFUN (show_bgp_vrfs,
 
 		json_object_int_add(json, "totalVrfs", count);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (count)
 			vty_out(vty,
@@ -10258,9 +10250,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 			json_object_int_add(json, "dynamicPeers", dn_count);
 			json_object_int_add(json, "totalPeers", count);
 
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		} else {
 			vty_out(vty, "%% No failed BGP neighbors found\n");
 		}
@@ -10829,9 +10819,7 @@ static int bgp_show_summary(struct vty *vty, struct bgp *bgp, int afi, int safi,
 		if (!show_failed)
 			bgp_show_bestpath_json(bgp, json);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (count) {
 			if (filtered_count == count)
@@ -14178,13 +14166,9 @@ static int bgp_show_neighbor_graceful_restart(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "%% No such neighbor\n");
 	}
 	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-
 		if (json_neighbor)
 			json_object_free(json_neighbor);
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		vty_out(vty, "\n");
 	}
@@ -14424,11 +14408,7 @@ static int bgp_show_neighbor_vty(struct vty *vty, const char *name,
 			if (!bgp) {
 				if (use_json) {
 					json = json_object_new_object();
-					vty_out(vty, "%s\n",
-						json_object_to_json_string_ext(
-							json,
-							JSON_C_TO_STRING_PRETTY));
-					json_object_free(json);
+					vty_json(vty, json);
 				} else
 					vty_out(vty,
 						"%% BGP instance not found\n");
@@ -14737,11 +14717,7 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 		bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
 
 		if (!bgp) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json,
-					JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 
 			return CMD_WARNING;
 		}
@@ -14813,10 +14789,7 @@ static int bgp_show_route_leak_vty(struct vty *vty, const char *name,
 		}
 
 		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(json,
-						      JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		}
 	} else {
 		bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
@@ -14928,9 +14901,7 @@ static int bgp_show_all_instance_route_leak_vty(struct vty *vty, afi_t afi,
 
 	if (use_json) {
 		json_object_object_add(json, "vrfs", json_vrfs);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(json,
-						JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 	return CMD_SUCCESS;
@@ -14975,9 +14946,8 @@ DEFUN (show_ip_bgp_route_leak,
 			vrf = NULL;
 	}
 	/* ["BGP_AFI_CMD_STR" ["BGP_SAFI_CMD_STR"]] */
-	if (argv_find_and_parse_afi(argv, argc, &idx, &afi)) {
+	if (argv_find_and_parse_afi(argv, argc, &idx, &afi))
 		argv_find_and_parse_safi(argv, argc, &idx, &safi);
-	}
 
 	if (!((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_UNICAST)) {
 		vty_out(vty,
@@ -15409,14 +15379,10 @@ static int bgp_show_peer_group_vty(struct vty *vty, const char *name,
 	bgp = name ? bgp_lookup_by_name(name) : bgp_get_default();
 
 	if (!bgp) {
-		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else {
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "%% BGP instance not found\n");
-		}
 
 		return CMD_WARNING;
 	}
@@ -15436,12 +15402,8 @@ static int bgp_show_peer_group_vty(struct vty *vty, const char *name,
 	if (group_name && !found && !uj)
 		vty_out(vty, "%% No such peer-group\n");
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }

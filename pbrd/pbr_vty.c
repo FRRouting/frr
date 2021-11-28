@@ -1032,12 +1032,8 @@ DEFPY (show_pbr_map,
 		vty_show_pbr_map(vty, pbrm, detail);
 	}
 
-	if (j) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-		json_object_free(j);
-	}
+	if (j)
+		vty_json(vty, j);
 
 	return CMD_SUCCESS;
 }
@@ -1059,11 +1055,7 @@ DEFPY(show_pbr_nexthop_group,
 	if (j) {
 		pbr_nht_json_nexthop_group(j, word);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-
-		json_object_free(j);
+		vty_json(vty, j);
 	} else
 		pbr_nht_show_nexthop_group(vty, word);
 
@@ -1137,12 +1129,8 @@ DEFPY (show_pbr_interface,
 		}
 	}
 
-	if (j) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-		json_object_free(j);
-	}
+	if (j)
+		vty_json(vty, j);
 
 	return CMD_SUCCESS;
 }

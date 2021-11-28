@@ -2451,11 +2451,8 @@ void bgp_evpn_es_show(struct vty *vty, bool uj, bool detail)
 	}
 
 	/* print the array of json-ESs */
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
-	}
+	if (uj)
+		vty_json(vty, json_array);
 }
 
 /* Display specific ES */
@@ -2475,11 +2472,8 @@ void bgp_evpn_es_show_esi(struct vty *vty, esi_t *esi, bool uj)
 			vty_out(vty, "ESI not found\n");
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 }
 
 /*****************************************************************************/
@@ -3030,12 +3024,8 @@ void bgp_evpn_es_vrf_show(struct vty *vty, bool uj, struct bgp_evpn_es *es)
 	}
 
 	/* print the array of json-ESs */
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
-	}
+	if (uj)
+		vty_json(vty, json_array);
 }
 
 /* Display specific ES VRF */
@@ -3884,11 +3874,8 @@ void bgp_evpn_es_evi_show(struct vty *vty, bool uj, bool detail)
 				(void (*)(struct hash_bucket *,
 				  void *))bgp_evpn_es_evi_show_one_vni_hash_cb,
 				&wctx);
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
-	}
+	if (uj)
+		vty_json(vty, json_array);
 }
 
 /* Display specific ES EVI */
@@ -3922,11 +3909,8 @@ void bgp_evpn_es_evi_show_vni(struct vty *vty, vni_t vni,
 			vty_out(vty, "VNI not found\n");
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
-	}
+	if (uj)
+		vty_json(vty, json_array);
 }
 
 /*****************************************************************************
@@ -4654,12 +4638,8 @@ void bgp_evpn_nh_show(struct vty *vty, bool uj)
 	}
 
 	/* print the array of json-ESs */
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
-	}
+	if (uj)
+		vty_json(vty, json_array);
 }
 
 /*****************************************************************************/

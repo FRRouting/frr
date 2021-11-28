@@ -11653,10 +11653,7 @@ static int bgp_show_route_in_table(struct vty *vty, struct bgp *bgp,
 	}
 
 	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY |
-					     JSON_C_TO_STRING_NOSLASHESCAPE));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (!display) {
 			vty_out(vty, "%% Network not in table\n");
@@ -13121,9 +13118,7 @@ static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,
 				json, "recommended",
 				"Please report this bug, with the above command output");
 		}
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 
 		if (peer->hostname
@@ -13683,10 +13678,6 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 		json_object_int_add(json, "filteredPrefixCounter",
 				    filtered_count);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-
 		/*
 		 * These fields only give up ownership to `json` when `header1`
 		 * is used (set to zero). See code in `show_adj_route` and
@@ -13697,7 +13688,7 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			json_object_free(json_ocode);
 		}
 
-		json_object_free(json);
+		vty_json(vty, json);
 	} else if (output_count > 0) {
 		if (filtered_count > 0)
 			vty_out(vty,

@@ -2315,11 +2315,8 @@ void zebra_vxlan_print_specific_rmac_l3vni(struct vty *vty, vni_t l3vni,
 
 	zl3vni_print_rmac(zrmac, vty, json);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
@@ -2359,11 +2356,8 @@ void zebra_vxlan_print_rmacs_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 
 	hash_iterate(zl3vni->rmac_table, zl3vni_print_rmac_hash, &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
@@ -2387,11 +2381,8 @@ void zebra_vxlan_print_rmacs_all_l3vni(struct vty *vty, bool use_json)
 			       void *))zl3vni_print_rmac_hash_all_vni,
 		     args);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
@@ -2432,11 +2423,8 @@ void zebra_vxlan_print_specific_nh_l3vni(struct vty *vty, vni_t l3vni,
 
 	zl3vni_print_nh(n, vty, json);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
@@ -2476,11 +2464,8 @@ void zebra_vxlan_print_nh_l3vni(struct vty *vty, vni_t l3vni, bool use_json)
 
 	hash_iterate(zl3vni->nh_table, zl3vni_print_nh_hash, &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
@@ -2504,11 +2489,8 @@ void zebra_vxlan_print_nh_all_l3vni(struct vty *vty, bool use_json)
 			       void *))zl3vni_print_nh_hash_all_vni,
 		     args);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2542,11 +2524,8 @@ void zebra_vxlan_print_l3vni(struct vty *vty, vni_t vni, bool use_json)
 	args[1] = json;
 	zl3vni_print(zl3vni, (void *)args);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_print_vrf_vni(struct vty *vty, struct zebra_vrf *zvrf,
@@ -2633,11 +2612,8 @@ void zebra_vxlan_print_neigh_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json_object_int_add(json, "numArpNd", num_neigh);
 
 	hash_iterate(zevpn->neigh_table, zebra_evpn_print_neigh_hash, &wctx);
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2663,11 +2639,8 @@ void zebra_vxlan_print_neigh_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		     (void (*)(struct hash_bucket *,
 			       void *))zevpn_print_neigh_hash_all_evpn,
 		     args);
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2694,11 +2667,8 @@ void zebra_vxlan_print_neigh_all_vni_detail(struct vty *vty,
 		     (void (*)(struct hash_bucket *,
 			       void *))zevpn_print_neigh_hash_all_evpn_detail,
 		     args);
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2735,11 +2705,8 @@ void zebra_vxlan_print_specific_neigh_vni(struct vty *vty,
 
 	zebra_evpn_print_neigh(n, vty, json);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2783,11 +2750,8 @@ void zebra_vxlan_print_neigh_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 		     &wctx);
 	hash_iterate(zevpn->neigh_table, zebra_evpn_print_neigh_hash, &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2849,11 +2813,8 @@ void zebra_vxlan_print_neigh_vni_dad(struct vty *vty,
 	hash_iterate(zevpn->neigh_table, zebra_evpn_print_dad_neigh_hash,
 		     &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2907,9 +2868,7 @@ void zebra_vxlan_print_macs_vni(struct vty *vty, struct zebra_vrf *zvrf,
 
 	if (use_json) {
 		json_object_object_add(json, "macs", json_mac);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -2936,11 +2895,8 @@ void zebra_vxlan_print_macs_all_vni(struct vty *vty, struct zebra_vrf *zvrf,
 	wctx.print_dup = print_dup;
 	hash_iterate(zvrf->evpn_table, zevpn_print_mac_hash_all_evpn, &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2968,11 +2924,8 @@ void zebra_vxlan_print_macs_all_vni_detail(struct vty *vty,
 	hash_iterate(zvrf->evpn_table, zevpn_print_mac_hash_all_evpn_detail,
 		     &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -2998,11 +2951,8 @@ void zebra_vxlan_print_macs_all_vni_vtep(struct vty *vty,
 	wctx.json = json;
 	hash_iterate(zvrf->evpn_table, zevpn_print_mac_hash_all_evpn, &wctx);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /*
@@ -3042,11 +2992,8 @@ void zebra_vxlan_print_specific_mac_vni(struct vty *vty, struct zebra_vrf *zvrf,
 		json = json_object_new_object();
 
 	zebra_evpn_print_mac(mac, vty, json);
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 /* Print Duplicate MACs per VNI */
@@ -3100,9 +3047,7 @@ void zebra_vxlan_print_macs_vni_dad(struct vty *vty,
 
 	if (use_json) {
 		json_object_object_add(json, "macs", json_mac);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 
 }
@@ -3442,9 +3387,7 @@ void zebra_vxlan_print_macs_vni_vtep(struct vty *vty, struct zebra_vrf *zvrf,
 		json_object_int_add(json, "numMacs", wctx.count);
 		if (wctx.count)
 			json_object_object_add(json, "macs", json_mac);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -3493,11 +3436,8 @@ void zebra_vxlan_print_vni(struct vty *vty, struct zebra_vrf *zvrf, vni_t vni,
 		 */
 		if (json_array)
 			json_object_array_add(json_array, json);
-		else {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		}
+		else
+			vty_json(vty, json);
 	}
 }
 
@@ -3564,11 +3504,8 @@ void zebra_vxlan_print_evpn(struct vty *vty, bool uj)
 		zebra_evpn_mh_print(vty);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 }
 
 /*
@@ -3604,11 +3541,8 @@ void zebra_vxlan_print_vnis(struct vty *vty, struct zebra_vrf *zvrf,
 		     (void (*)(struct hash_bucket *, void *))zl3vni_print_hash,
 		     args);
 
-	if (use_json) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (use_json)
+		vty_json(vty, json);
 }
 
 void zebra_vxlan_dup_addr_detection(ZAPI_HANDLER_ARGS)
@@ -3693,12 +3627,8 @@ void zebra_vxlan_print_vnis_detail(struct vty *vty, struct zebra_vrf *zvrf,
 			       void *))zl3vni_print_hash_detail,
 		     &zes);
 
-	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json_array, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_array);
-	}
+	if (use_json)
+		vty_json(vty, json_array);
 }
 
 /*

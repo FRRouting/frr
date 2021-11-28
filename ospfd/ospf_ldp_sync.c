@@ -1031,32 +1031,25 @@ DEFPY (show_ip_ospf_mpls_ldp_interface,
 	/* Display default ospf (instance 0) info */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running) {
-		if (uj) {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "%% OSPF instance not found\n");
 		return CMD_SUCCESS;
 	}
 
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		if (uj) {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "LDP-sync is disabled\n");
 		return CMD_SUCCESS;
 	}
 
 	ret = show_ip_ospf_mpls_ldp_interface_common(vty, ospf, intf_name,
 						     json, uj);
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-			json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return ret;
 }

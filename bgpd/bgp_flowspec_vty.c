@@ -449,11 +449,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 					       pi, display, json_paths);
 		}
 		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-						json_paths,
-						JSON_C_TO_STRING_PRETTY));
-			json_object_free(json_paths);
+			vty_json(vty, json_paths);
 			json_paths = NULL;
 		}
 	}
