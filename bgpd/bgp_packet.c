@@ -106,17 +106,14 @@ int bgp_packet_set_marker(struct stream *s, uint8_t type)
  * Size field is set to the size of the stream passed.
  *
  * @param s the stream containing the packet
- * @return the size of the stream
  */
-int bgp_packet_set_size(struct stream *s)
+void bgp_packet_set_size(struct stream *s)
 {
 	int cp;
 
 	/* Preserve current pointer. */
 	cp = stream_get_endp(s);
 	stream_putw_at(s, BGP_MARKER_SIZE, cp);
-
-	return cp;
 }
 
 /*
@@ -561,7 +558,7 @@ void bgp_keepalive_send(struct peer *peer)
 	bgp_packet_set_marker(s, BGP_MSG_KEEPALIVE);
 
 	/* Set packet size. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
@@ -626,7 +623,7 @@ void bgp_open_send(struct peer *peer)
 	}
 
 	/* Set BGP packet length. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -953,7 +950,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 		}
 
 	/* Set packet size. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!orf_refresh)
@@ -1011,7 +1008,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	}
 
 	/* Set packet size. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
