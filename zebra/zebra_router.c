@@ -232,6 +232,8 @@ void zebra_router_terminate(void)
 {
 	struct zebra_router_table *zrt, *tmp;
 
+	THREAD_OFF(zrouter.sweeper);
+
 	RB_FOREACH_SAFE (zrt, zebra_router_table_head, &zrouter.tables, tmp)
 		zebra_router_free_table(zrt);
 
