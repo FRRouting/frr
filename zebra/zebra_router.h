@@ -196,6 +196,7 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
+	struct thread *sweeper;
 
 	/*
 	 * The hash of nexthop groups associated with this router
