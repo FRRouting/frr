@@ -77,7 +77,7 @@ extern void bgp_update_implicit_eors(struct peer *);
 extern void bgp_check_update_delay(struct bgp *);
 
 extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
-extern int bgp_packet_set_size(struct stream *s);
+extern void bgp_packet_set_size(struct stream *s);
 
 extern int bgp_generate_updgrp_packets(struct thread *);
 extern int bgp_process_packet(struct thread *);
