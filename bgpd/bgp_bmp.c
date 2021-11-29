@@ -2050,7 +2050,7 @@ DEFPY(bmp_connect,
 
 DEFPY(bmp_acl,
       bmp_acl_cmd,
-      "[no] <ip|ipv6>$af access-list WORD",
+      "[no] <ip|ipv6>$af access-list ACCESSLIST_NAME$access_list",
       NO_STR
       IP_STR
       IPV6_STR
