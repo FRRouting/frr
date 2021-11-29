@@ -127,12 +127,18 @@ struct ospf6 *ospf6_lookup_by_vrf_name(const char *name)
 /* This is hook function for vrf create called as part of vrf_init */
 static int ospf6_vrf_new(struct vrf *vrf)
 {
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("%s: VRF Created: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
 	return 0;
 }
 
 /* This is hook function for vrf delete call as part of vrf_init */
 static int ospf6_vrf_delete(struct vrf *vrf)
 {
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("%s: VRF Deletion: %s(%u)", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
 	return 0;
 }
 
@@ -176,6 +182,10 @@ static int ospf6_vrf_disable(struct vrf *vrf)
 	if (vrf->vrf_id == VRF_DEFAULT)
 		return 0;
 
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s id %u disable", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
+
 	ospf6 = ospf6_lookup_by_vrf_name(vrf->name);
 	if (ospf6) {
 		ospf6_zebra_vrf_deregister(ospf6);
@@ -201,6 +211,10 @@ static int ospf6_vrf_enable(struct vrf *vrf)
 	struct ospf6 *ospf6 = NULL;
 	vrf_id_t old_vrf_id;
 	int ret = 0;
+
+	if (IS_OSPF6_DEBUG_EVENT)
+		zlog_debug("%s: VRF %s id %u enabled", __PRETTY_FUNCTION__,
+			   vrf->name, vrf->vrf_id);
 
 	ospf6 = ospf6_lookup_by_vrf_name(vrf->name);
 	if (ospf6) {
