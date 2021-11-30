@@ -456,6 +456,12 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 	/* Prevent single protocol from subscribing same interface to
 	   channel (S,G) multiple times */
 	if (channel_oil->oif_flags[pim_ifp->mroute_vif_index] & proto_mask) {
+
+		if (channel_oil->oif_flags[pim_ifp->mroute_vif_index]
+		    != proto_mask)
+			channel_oil->oif_flags[pim_ifp->mroute_vif_index] |=
+				proto_mask;
+
 		if (PIM_DEBUG_MROUTE) {
 			char group_str[INET_ADDRSTRLEN];
 			char source_str[INET_ADDRSTRLEN];

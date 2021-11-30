@@ -1283,6 +1283,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 {
 	struct pim_ifchannel *starch, *ch, *orig;
 	struct pim_interface *pim_ifp;
+	struct pim_instance *pim;
 
 	/* PIM enabled on interface? */
 	pim_ifp = ifp->info;
@@ -1291,10 +1292,16 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 	if (!PIM_IF_TEST_PIM(pim_ifp->options))
 		return;
 
+	pim = pim_ifp->pim;
+
 	orig = ch = pim_ifchannel_find(ifp, sg);
 	if (!ch)
 		return;
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
+
+	if (orig->upstream)
+		pim_channel_del_oif(orig->upstream->channel_oil, ch->interface,
+				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
 
 	if (sg->src.s_addr == INADDR_ANY) {
 		struct pim_upstream *up = pim_upstream_find(pim_ifp->pim, sg);
@@ -1333,6 +1340,9 @@ void pim_ifchannel_local_membership_del(struct interface *ifp,
 			/* Child node removal/ref count-- will happen as part of
 			 * parent' delete_no_info */
 		}
+
+		pim_channel_del_oif(up->channel_oil, pim->regiface,
+				    PIM_OIF_FLAG_PROTO_IGMP, __func__);
 	}
 
 	/* Resettng the IGMP flags here */
