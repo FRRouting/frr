@@ -1859,7 +1859,7 @@ class Router(Node):
                             self.cmd("kill -9 %s" % daemonpid)
                             if pid_exists(int(daemonpid)):
                                 numRunning += 1
-                        if wait and numRunning > 0:
+                        while wait and numRunning > 0:
                             sleep(
                                 2,
                                 "{}: waiting for {} daemon to be stopped".format(
@@ -1883,7 +1883,11 @@ class Router(Node):
                                             )
                                         )
                                         self.cmd("kill -9 %s" % daemonpid)
-                                    self.cmd("rm -- {}".format(d.rstrip()))
+                                    if daemonpid.isdigit() and not pid_exists(
+                                        int(daemonpid)
+                                    ):
+                                        numRunning -= 1
+                        self.cmd("rm -- {}".format(d.rstrip()))
                     if wait:
                         errors = self.checkRouterCores(reportOnce=True)
                         if self.checkRouterVersion("<", minErrorVersion):
