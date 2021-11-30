@@ -136,7 +136,8 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 				 */
 				if (child->rpf.source_nexthop.interface &&
 					!pim_rpf_is_same(&up->rpf,
-						&child->rpf)) {
+						&child->rpf) &&
+					(child->t_ka_timer)) {
 					size += sizeof(
 						struct pim_encoded_source_ipv4);
 					PIM_UPSTREAM_FLAG_SET_SEND_SG_RPT_PRUNE(
