@@ -1252,6 +1252,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	uint8_t distance;
 	struct peer *peer;
 	struct bgp_path_info *mpinfo;
+	struct bgp *bgp_orig;
 	uint32_t metric;
 	struct attr local_attr;
 	struct bgp_path_info local_info;
@@ -1415,13 +1416,13 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			}
 		}
 
+		BGP_ORIGINAL_UPDATE(bgp_orig, mpinfo, bgp);
+
 		if (nh_family == AF_INET) {
 			nh_updated = update_ipv4nh_for_route_install(
-					nh_othervrf,
-					nh_othervrf ?
-					info->extra->bgp_orig : bgp,
-					&mpinfo_cp->attr->nexthop,
-					mpinfo_cp->attr, is_evpn, api_nh);
+				nh_othervrf, bgp_orig,
+				&mpinfo_cp->attr->nexthop, mpinfo_cp->attr,
+				is_evpn, api_nh);
 		} else {
 			ifindex_t ifindex = IFINDEX_INTERNAL;
 			struct in6_addr *nexthop;
@@ -1431,18 +1432,13 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 			if (!nexthop)
 				nh_updated = update_ipv4nh_for_route_install(
-					nh_othervrf,
-					nh_othervrf ? info->extra->bgp_orig
-						    : bgp,
+					nh_othervrf, bgp_orig,
 					&mpinfo_cp->attr->nexthop,
 					mpinfo_cp->attr, is_evpn, api_nh);
 			else
 				nh_updated = update_ipv6nh_for_route_install(
-					nh_othervrf,
-					nh_othervrf ? info->extra->bgp_orig
-						    : bgp,
-					nexthop, ifindex, mpinfo, info, is_evpn,
-					api_nh);
+					nh_othervrf, bgp_orig, nexthop, ifindex,
+					mpinfo, info, is_evpn, api_nh);
 		}
 
 		/* Did we get proper nexthop info to update zebra? */

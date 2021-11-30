@@ -23,6 +23,13 @@
 
 #include "vxlan.h"
 
+/* Macro to update bgp_original based on bpg_path_info */
+#define BGP_ORIGINAL_UPDATE(_bgp_orig, _mpinfo, _bgp)                          \
+	((_mpinfo->extra && _mpinfo->extra->bgp_orig                           \
+	  && _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                          \
+		 ? (_bgp_orig = _mpinfo->extra->bgp_orig)                      \
+		 : (_bgp_orig = _bgp))
+
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 

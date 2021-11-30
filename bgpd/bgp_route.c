@@ -548,6 +548,25 @@ void bgp_path_info_path_with_addpath_rx_str(struct bgp_path_info *pi, char *buf,
 		snprintf(buf, buf_len, "path %s", pi->peer->host);
 }
 
+
+/*
+ * Get the ultimate path info.
+ */
+struct bgp_path_info *bgp_get_imported_bpi_ultimate(struct bgp_path_info *info)
+{
+	struct bgp_path_info *bpi_ultimate;
+
+	if (info->sub_type != BGP_ROUTE_IMPORTED)
+		return info;
+
+	for (bpi_ultimate = info;
+	     bpi_ultimate->extra && bpi_ultimate->extra->parent;
+	     bpi_ultimate = bpi_ultimate->extra->parent)
+		;
+
+	return bpi_ultimate;
+}
+
 /* Compare two bgp route entity.  If 'new' is preferable over 'exist' return 1.
  */
 static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
@@ -587,6 +606,7 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	bool old_proxy;
 	bool new_proxy;
 	bool new_origin, exist_origin;
+	struct bgp_path_info *bpi_ultimate;
 
 	*paths_eq = 0;
 
@@ -598,9 +618,11 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	if (debug)
-		bgp_path_info_path_with_addpath_rx_str(new, new_buf,
+	if (debug) {
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(new);
+		bgp_path_info_path_with_addpath_rx_str(bpi_ultimate, new_buf,
 						       sizeof(new_buf));
+	}
 
 	if (exist == NULL) {
 		*reason = bgp_path_selection_first;
@@ -611,7 +633,8 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	}
 
 	if (debug) {
-		bgp_path_info_path_with_addpath_rx_str(exist, exist_buf,
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(exist);
+		bgp_path_info_path_with_addpath_rx_str(bpi_ultimate, exist_buf,
 						       sizeof(exist_buf));
 		zlog_debug("%s(%s): Comparing %s flags 0x%x with %s flags 0x%x",
 			   pfx_buf, bgp->name_pretty, new_buf, new->flags,
@@ -858,6 +881,14 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 				pfx_buf, new_buf, exist_buf);
 		return 0;
 	}
+
+	/* Here if these are imported routes then get ultimate pi for
+	 * path compare.
+	 */
+	new = bgp_get_imported_bpi_ultimate(new);
+	exist = bgp_get_imported_bpi_ultimate(exist);
+	newattr = new->attr;
+	existattr = exist->attr;
 
 	/* 4. AS path length check. */
 	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_ASPATH_IGNORE)) {
