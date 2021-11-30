@@ -26,6 +26,7 @@ import socket
 import subprocess
 import sys
 import traceback
+import functools
 from collections import OrderedDict
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -2970,23 +2971,33 @@ def addKernelRoute(
         logger.info("[DUT: {}]: Running command: [{}]".format(router, cmd))
         output = rnode.run(cmd)
 
-        # Verifying if ip route added to kernal
-        result = rnode.run(verify_cmd)
-        logger.debug("{}\n{}".format(verify_cmd, result))
-        if "/" in grp_addr:
-            ip, mask = grp_addr.split("/")
-            if mask == "32" or mask == "128":
-                grp_addr = ip
-        else:
-            mask = "32" if addr_type == "ipv4" else "128"
+        def check_in_kernel(rnode, verify_cmd, grp_addr, router):
+            # Verifying if ip route added to kernal
+            errormsg = None
+            result = rnode.run(verify_cmd)
+            logger.debug("{}\n{}".format(verify_cmd, result))
+            if "/" in grp_addr:
+                ip, mask = grp_addr.split("/")
+                if mask == "32" or mask == "128":
+                    grp_addr = ip
+                else:
+                    mask = "32" if addr_type == "ipv4" else "128"
 
-        if not re_search(r"{}".format(grp_addr), result) and mask != "0":
-            errormsg = (
-                "[DUT: {}]: Kernal route is not added for group"
-                " address {} Config output: {}".format(router, grp_addr, output)
-            )
+                    if not re_search(r"{}".format(grp_addr), result) and mask != "0":
+                        errormsg = (
+                            "[DUT: {}]: Kernal route is not added for group"
+                            " address {} Config output: {}".format(
+                                router, grp_addr, output
+                            )
+                        )
 
             return errormsg
+
+        test_func = functools.partial(
+            check_in_kernel, rnode, verify_cmd, grp_addr, router
+        )
+        (result, out) = topotest.run_and_expect(test_func, None, count=20, wait=1)
+        assert result, out
 
     logger.debug("Exiting lib API: addKernelRoute()")
     return True
