@@ -1341,16 +1341,26 @@ int zebra_evpn_mac_send_add_to_client(vni_t vni, const struct ethaddr *macaddr,
 int zebra_evpn_mac_send_del_to_client(vni_t vni, const struct ethaddr *macaddr,
 				      uint32_t flags, bool force)
 {
+	int state = ZEBRA_NEIGH_ACTIVE;
+
 	if (!force) {
 		if (CHECK_FLAG(flags, ZEBRA_MAC_LOCAL_INACTIVE)
 		    && !CHECK_FLAG(flags, ZEBRA_MAC_ES_PEER_ACTIVE))
 			/* the host was not advertised - nothing  to delete */
 			return 0;
+
+		/* MAC is LOCAL and DUP_DETECTED, this local mobility event
+		 * is not known to bgpd. Upon receiving local delete
+		 * ask bgp to reinstall the best route (remote entry).
+		 */
+		if (CHECK_FLAG(flags, ZEBRA_MAC_LOCAL) &&
+		    CHECK_FLAG(flags, ZEBRA_MAC_DUPLICATE))
+			state = ZEBRA_NEIGH_INACTIVE;
 	}
 
 	return zebra_evpn_macip_send_msg_to_client(
-		vni, macaddr, NULL, 0 /* flags */, 0 /* seq */,
-		ZEBRA_NEIGH_ACTIVE, NULL, ZEBRA_MACIP_DEL);
+		vni, macaddr, NULL, 0 /* flags */, 0 /* seq */, state, NULL,
+		ZEBRA_MACIP_DEL);
 }
 
 /*
