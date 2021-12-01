@@ -444,8 +444,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
-				   SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, &label, 1, 0, NULL);
+				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+				   NULL, &label, 1, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,
