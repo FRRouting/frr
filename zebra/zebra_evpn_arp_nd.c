@@ -578,6 +578,9 @@ void zebra_evpn_arp_nd_if_update(struct zebra_if *zif, bool enable)
  */
 void zebra_evpn_arp_nd_udp_sock_create(void)
 {
+	if (!(zevpn_arp_nd_info.flags & ZEBRA_EVPN_ARP_ND_FAILOVER))
+		return;
+
 	if (zmh_info->es_originator_ip.s_addr) {
 		struct sockaddr_in sin;
 
