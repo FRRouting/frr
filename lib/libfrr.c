@@ -681,6 +681,11 @@ static void _err_print(const void *cookie, const char *errstr)
 	fprintf(stderr, "%s: %s\n", prefix, errstr);
 }
 
+static int crash_me(struct thread *thread)
+{
+	assert(0);
+}
+
 static struct thread_master *master;
 struct thread_master *frr_init(void)
 {
@@ -780,6 +785,11 @@ struct thread_master *frr_init(void)
 			  "%s: failed to initialize northbound database",
 			  __func__);
 
+	if (frr_weak_random() % 100 == 0) {
+		zlog_debug("Introducing a random crash");
+		thread_add_timer(master, crash_me, NULL, frr_weak_random() % 60,
+				 NULL);
+	}
 	debug_init_cli();
 
 	return master;
