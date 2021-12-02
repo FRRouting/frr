@@ -8639,6 +8639,31 @@ DEFUN (no_debug_pim_nht,
 	return CMD_SUCCESS;
 }
 
+DEFUN (debug_pim_nht_det,
+       debug_pim_nht_det_cmd,
+       "debug pim nht detail",
+       DEBUG_STR
+       DEBUG_PIM_STR
+       "Nexthop Tracking\n"
+       "Detailed Information\n")
+{
+	PIM_DO_DEBUG_PIM_NHT_DETAIL;
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_pim_nht_det,
+       no_debug_pim_nht_det_cmd,
+       "no debug pim nht detail",
+       NO_STR
+       DEBUG_STR
+       DEBUG_PIM_STR
+       "Nexthop Tracking\n"
+       "Detailed Information\n")
+{
+	PIM_DONT_DEBUG_PIM_NHT_DETAIL;
+	return CMD_SUCCESS;
+}
+
 DEFUN (debug_pim_nht_rp,
        debug_pim_nht_rp_cmd,
        "debug pim nht rp",
@@ -10905,6 +10930,8 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_pim_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_nht_cmd);
+	install_element(ENABLE_NODE, &debug_pim_nht_det_cmd);
+	install_element(ENABLE_NODE, &no_debug_pim_nht_det_cmd);
 	install_element(ENABLE_NODE, &debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(ENABLE_NODE, &debug_pim_events_cmd);
@@ -10956,6 +10983,8 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_pim_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_nht_cmd);
+	install_element(CONFIG_NODE, &debug_pim_nht_det_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_nht_det_cmd);
 	install_element(CONFIG_NODE, &debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_nht_rp_cmd);
 	install_element(CONFIG_NODE, &debug_pim_events_cmd);

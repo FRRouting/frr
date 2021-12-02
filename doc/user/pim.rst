@@ -609,6 +609,11 @@ the config was written out.
    This turns on debugging for PIM nexthop tracking. It will display
    information about RPF lookups and information about when a nexthop changes.
 
+.. clicmd:: debug pim nht detail
+
+   This turns on debugging for PIM nexthop in detail. This is not enabled
+   by default.
+
 .. clicmd:: debug pim packet-dump
 
    This turns on an extraordinary amount of data. Each pim packet sent and
