@@ -61,6 +61,20 @@
 #define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
+/* Macros for interface flags */
+
+/*
+ * PIM needs to know if hello is required to send before other PIM messages
+ * like Join, prune, assert would go out
+ */
+#define PIM_IF_FLAG_HELLO_SENT (1 << 0)
+
+#define PIM_IF_FLAG_TEST_HELLO_SENT(flags) ((flags)&PIM_IF_FLAG_HELLO_SENT)
+
+#define PIM_IF_FLAG_SET_HELLO_SENT(flags) ((flags) |= PIM_IF_FLAG_HELLO_SENT)
+
+#define PIM_IF_FLAG_UNSET_HELLO_SENT(flags) ((flags) &= ~PIM_IF_FLAG_HELLO_SENT)
+
 struct pim_iface_upstream_switch {
 	struct in_addr address;
 	struct list *us;
@@ -161,6 +175,7 @@ struct pim_interface {
 	uint32_t pim_ifstat_bsm_cfg_miss;
 	uint32_t pim_ifstat_ucast_bsm_cfg_miss;
 	uint32_t pim_ifstat_bsm_invalid_sz;
+	uint8_t flags;
 	bool bsm_enable; /* bsm processing enable */
 	bool ucast_bsm_accept; /* ucast bsm processing */
 
