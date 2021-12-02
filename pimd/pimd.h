@@ -182,8 +182,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DEBUG_MSDP_PACKETS (router->debugs & PIM_MASK_MSDP_PACKETS)
 #define PIM_DEBUG_MSDP_INTERNAL (router->debugs & PIM_MASK_MSDP_INTERNAL)
 #define PIM_DEBUG_PIM_NHT (router->debugs & PIM_MASK_PIM_NHT)
-#define PIM_DEBUG_PIM_NHT_DETAIL                                               \
-	(router->debugs & (PIM_MASK_PIM_NHT_DETAIL | PIM_MASK_PIM_NHT))
+#define PIM_DEBUG_PIM_NHT_DETAIL (router->debugs & PIM_MASK_PIM_NHT_DETAIL)
 #define PIM_DEBUG_PIM_NHT_RP (router->debugs & PIM_MASK_PIM_NHT_RP)
 #define PIM_DEBUG_MTRACE (router->debugs & PIM_MASK_MTRACE)
 #define PIM_DEBUG_VXLAN (router->debugs & PIM_MASK_VXLAN)
@@ -228,6 +227,7 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DO_DEBUG_MSDP_PACKETS (router->debugs |= PIM_MASK_MSDP_PACKETS)
 #define PIM_DO_DEBUG_MSDP_INTERNAL (router->debugs |= PIM_MASK_MSDP_INTERNAL)
 #define PIM_DO_DEBUG_PIM_NHT (router->debugs |= PIM_MASK_PIM_NHT)
+#define PIM_DO_DEBUG_PIM_NHT_DETAIL (router->debugs |= PIM_MASK_PIM_NHT_DETAIL)
 #define PIM_DO_DEBUG_PIM_NHT_RP (router->debugs |= PIM_MASK_PIM_NHT_RP)
 #define PIM_DO_DEBUG_MTRACE (router->debugs |= PIM_MASK_MTRACE)
 #define PIM_DO_DEBUG_VXLAN (router->debugs |= PIM_MASK_VXLAN)
@@ -259,6 +259,8 @@ extern uint8_t qpim_ecmp_rebalance_enable;
 #define PIM_DONT_DEBUG_MSDP_PACKETS (router->debugs &= ~PIM_MASK_MSDP_PACKETS)
 #define PIM_DONT_DEBUG_MSDP_INTERNAL (router->debugs &= ~PIM_MASK_MSDP_INTERNAL)
 #define PIM_DONT_DEBUG_PIM_NHT (router->debugs &= ~PIM_MASK_PIM_NHT)
+#define PIM_DONT_DEBUG_PIM_NHT_DETAIL                                          \
+	(router->debugs &= ~PIM_MASK_PIM_NHT_DETAIL)
 #define PIM_DONT_DEBUG_PIM_NHT_RP (router->debugs &= ~PIM_MASK_PIM_NHT_RP)
 #define PIM_DONT_DEBUG_MTRACE (router->debugs &= ~PIM_MASK_MTRACE)
 #define PIM_DONT_DEBUG_VXLAN (router->debugs &= ~PIM_MASK_VXLAN)

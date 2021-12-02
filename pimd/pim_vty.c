@@ -166,6 +166,11 @@ int pim_debug_config_write(struct vty *vty)
 		++writes;
 	}
 
+	if (PIM_DEBUG_PIM_NHT_DETAIL) {
+		vty_out(vty, "debug pim nht detail\n");
+		++writes;
+	}
+
 	return writes;
 }
 
