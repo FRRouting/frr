@@ -1930,7 +1930,7 @@ if __name__ == "__main__":
         lines_to_configure = []
 
         # We will not be able to do anything, go ahead and exit(1)
-        if not vtysh.is_config_available():
+        if not vtysh.is_config_available() or not reload_ok:
             sys.exit(1)
 
         log.debug("New Frr Config\n%s", newconf.get_lines())
