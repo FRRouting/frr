@@ -121,7 +121,7 @@ static struct pim_nexthop_cache *pim_nht_get(struct pim_instance *pim,
 		pnc = pim_nexthop_cache_add(pim, &rpf);
 		pim_sendmsg_zebra_rnh(pim, zclient, pnc,
 				      ZEBRA_NEXTHOP_REGISTER);
-		if (PIM_DEBUG_PIM_NHT)
+		if (PIM_DEBUG_PIM_NHT_DETAIL)
 			zlog_debug(
 				"%s: NHT cache and zebra notification added for %pFX(%s)",
 				__func__, addr, pim->vrf->name);
@@ -893,7 +893,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	uint32_t num_nbrs = 0;
 	pim_addr src_addr = pim_addr_from_prefix(src);
 
-	if (PIM_DEBUG_PIM_NHT)
+	if (PIM_DEBUG_PIM_NHT_DETAIL)
 		zlog_debug("%s: Looking up: %pPA(%s), last lookup time: %lld",
 			   __func__, &src_addr, pim->vrf->name,
 			   nexthop->last_lookup_time);
@@ -1046,7 +1046,7 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 	ifindex_t ifindex;
 	pim_addr src_addr;
 
-	if (PIM_DEBUG_PIM_NHT) {
+	if (PIM_DEBUG_PIM_NHT_DETAIL) {
 		src_addr = pim_addr_from_prefix(src);
 	}
 

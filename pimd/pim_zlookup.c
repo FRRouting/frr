@@ -412,7 +412,7 @@ int zclient_lookup_nexthop(struct pim_instance *pim,
 		num_ifindex = zclient_lookup_nexthop_once(pim, nexthop_tab,
 							  tab_size, addr);
 		if (num_ifindex < 1) {
-			if (PIM_DEBUG_PIM_NHT)
+			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug(
 					"%s: lookup=%d/%d: could not find nexthop ifindex for address %pPA(%s)",
 					__func__, lookup, max_lookup, &addr,
