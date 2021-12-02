@@ -85,6 +85,15 @@ def test_bgp_route_server_client():
     r2 = tgen.gears["r2"]
 
     def _bgp_converge(router):
+        output = json.loads(router.vtysh_cmd("show bgp ipv6 unicast summary json"))
+        expected = {"peers": {"2001:db8:1::1": {"state": "Established", "pfxRcd": 2}}}
+        return topotest.json_cmp(output, expected)
+
+    test_func = functools.partial(_bgp_converge, r1)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, "Cannot see BGP sessions to be up"
+
+    def _bgp_prefix_received(router):
         output = json.loads(router.vtysh_cmd("show bgp 2001:db8:f::3/128 json"))
         expected = {
             "prefix": "2001:db8:f::3/128",
@@ -92,7 +101,7 @@ def test_bgp_route_server_client():
         }
         return topotest.json_cmp(output, expected)
 
-    test_func = functools.partial(_bgp_converge, r1)
+    test_func = functools.partial(_bgp_prefix_received, r1)
     _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Cannot see BGP GUA next hop from r3 in r1"
 
