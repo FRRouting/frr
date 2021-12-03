@@ -554,8 +554,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
-					  grp)) {
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 			struct listnode *srcnode;
 			struct igmp_source *src;
 

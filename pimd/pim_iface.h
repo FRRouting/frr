@@ -100,13 +100,13 @@ struct pim_interface {
 	struct in_addr update_source;   /* user can statically set the primary
 					 * address of the interface */
 
-	int igmp_version;		       /* IGMP version */
-	int igmp_default_robustness_variable;  /* IGMPv3 QRV */
-	int igmp_default_query_interval;       /* IGMPv3 secs between general
+	int version;			  /* IGMP or MLD version */
+	int default_robustness_variable;  /* IGMP or MLD QRV */
+	int default_query_interval;       /* IGMP or MLD secs between general
 						  queries */
-	int igmp_query_max_response_time_dsec; /* IGMPv3 Max Response Time in
+	int query_max_response_time_dsec; /* IGMP or MLD Max Response Time in
 						  dsecs for general queries */
-	int igmp_specific_query_max_response_time_dsec; /* IGMPv3 Max Response
+	int specific_query_max_response_time_dsec; /* IGMP or MLD Max Response
 							   Time in dsecs called
 							   as last member query
 							   interval, defines the
@@ -114,11 +114,11 @@ struct pim_interface {
 							   advertised in IGMP
 							   group-specific
 							   queries */
-	int igmp_last_member_query_count; /* IGMP last member query count */
-	struct list *igmp_socket_list; /* list of struct igmp_sock */
-	struct list *igmp_join_list;   /* list of struct igmp_join */
-	struct list *igmp_group_list;  /* list of struct igmp_group */
-	struct hash *igmp_group_hash;
+	int last_member_query_count; /* IGMP or MLD last member query count */
+	struct list *socket_list;    /* list of struct IGMP or MLD sock */
+	struct list *join_list;      /* list of struct IGMP or MLD join */
+	struct list *group_list;     /* list of struct IGMP or MLD group */
+	struct hash *group_hash;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct thread *t_pim_sock_read; /* thread for reading PIM socket */

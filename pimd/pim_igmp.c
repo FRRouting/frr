@@ -226,7 +226,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 	*/
 	other_querier_present_interval_msec = PIM_IGMP_OQPI_MSEC(
 		igmp->querier_robustness_variable, igmp->querier_query_interval,
-		pim_ifp->igmp_query_max_response_time_dsec);
+		pim_ifp->query_max_response_time_dsec);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
@@ -351,11 +351,10 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	 * For now we will simplify things and inform the user that they need to
 	 * configure all PIM routers to use the same version of IGMP.
 	 */
-	if (query_version != pim_ifp->igmp_version) {
+	if (query_version != pim_ifp->version) {
 		zlog_warn(
 			"Recv IGMP query v%d from %s on %s but we are using v%d, please configure all PIM routers on this subnet to use the same IGMP version",
-			query_version, from_str, ifp->name,
-			pim_ifp->igmp_version);
+			query_version, from_str, ifp->name, pim_ifp->version);
 		return 0;
 	}
 
@@ -636,14 +635,14 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 		 * newly configured igmp interface send it out in 1 second
 		 * just to give the entire world a tiny bit of time to settle
 		 * else the query interval is:
-		 * query_interval = pim_ifp->igmp_default_query_interval >> 2;
+		 * query_interval = pim_ifp->default_query_interval >> 2;
 		 */
 		if (igmp->startup_query_count
 		    == igmp->querier_robustness_variable)
 			query_interval = 1;
 		else
-			query_interval = PIM_IGMP_SQI(
-				pim_ifp->igmp_default_query_interval);
+			query_interval =
+				PIM_IGMP_SQI(pim_ifp->default_query_interval);
 
 		--igmp->startup_query_count;
 	} else {
@@ -696,7 +695,7 @@ static int pim_igmp_general_query(struct thread *t)
 
 	pim_ifp = igmp->interface->info;
 
-	if (pim_ifp->igmp_version == 3) {
+	if (pim_ifp->version == 3) {
 		query_buf_size = PIM_IGMP_BUFSIZE_WRITE;
 	} else {
 		query_buf_size = IGMP_V12_MSG_SIZE;
@@ -726,10 +725,10 @@ static int pim_igmp_general_query(struct thread *t)
 			   querier_str, dst_str, igmp->interface->name);
 	}
 
-	igmp_send_query(pim_ifp->igmp_version, 0 /* igmp_group */, igmp->fd,
+	igmp_send_query(pim_ifp->version, 0 /* igmp_group */, igmp->fd,
 			igmp->interface->name, query_buf, sizeof(query_buf),
 			0 /* num_sources */, dst_addr, group_addr,
-			pim_ifp->igmp_query_max_response_time_dsec,
+			pim_ifp->query_max_response_time_dsec,
 			1 /* s_flag: always set for general queries */,
 			igmp->querier_robustness_variable,
 			igmp->querier_query_interval);
@@ -787,7 +786,7 @@ void igmp_startup_mode_on(struct igmp_sock *igmp)
 	/*
 	  Since we're (re)starting, reset QQI to default Query Interval
 	*/
-	igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
+	igmp->querier_query_interval = pim_ifp->default_query_interval;
 }
 
 static void igmp_group_free(struct igmp_group *group)
@@ -844,8 +843,8 @@ void igmp_group_delete(struct igmp_group *group)
 
 	group_timer_off(group);
 	igmp_group_count_decr(pim_ifp);
-	listnode_delete(pim_ifp->igmp_group_list, group);
-	hash_release(pim_ifp->igmp_group_hash, group);
+	listnode_delete(pim_ifp->group_list, group);
+	hash_release(pim_ifp->group_hash, group);
 
 	igmp_group_free(group);
 }
@@ -875,11 +874,11 @@ void igmp_sock_delete(struct igmp_sock *igmp)
 
 	pim_ifp = igmp->interface->info;
 
-	listnode_delete(pim_ifp->igmp_socket_list, igmp);
+	listnode_delete(pim_ifp->socket_list, igmp);
 
 	igmp_sock_free(igmp);
 
-	if (!listcount(pim_ifp->igmp_socket_list))
+	if (!listcount(pim_ifp->socket_list))
 		pim_igmp_if_reset(pim_ifp);
 }
 
@@ -891,8 +890,8 @@ void igmp_sock_delete_all(struct interface *ifp)
 
 	pim_ifp = ifp->info;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_socket_list, igmp_node,
-			       igmp_nextnode, igmp)) {
+	for (ALL_LIST_ELEMENTS(pim_ifp->socket_list, igmp_node, igmp_nextnode,
+			       igmp)) {
 		igmp_sock_delete(igmp);
 	}
 }
@@ -919,15 +918,15 @@ void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
 {
 	char hash_name[64];
 
-	pim_ifp->igmp_socket_list = list_new();
-	pim_ifp->igmp_socket_list->del = (void (*)(void *))igmp_sock_free;
+	pim_ifp->socket_list = list_new();
+	pim_ifp->socket_list->del = (void (*)(void *))igmp_sock_free;
 
-	pim_ifp->igmp_group_list = list_new();
-	pim_ifp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
+	pim_ifp->group_list = list_new();
+	pim_ifp->group_list->del = (void (*)(void *))igmp_group_free;
 
 	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
-	pim_ifp->igmp_group_hash = hash_create(
-		igmp_group_hash_key, igmp_group_hash_equal, hash_name);
+	pim_ifp->group_hash = hash_create(igmp_group_hash_key,
+					  igmp_group_hash_equal, hash_name);
 }
 
 void pim_igmp_if_reset(struct pim_interface *pim_ifp)
@@ -935,7 +934,7 @@ void pim_igmp_if_reset(struct pim_interface *pim_ifp)
 	struct listnode *grp_node, *grp_nextnode;
 	struct igmp_group *grp;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_group_list, grp_node, grp_nextnode,
+	for (ALL_LIST_ELEMENTS(pim_ifp->group_list, grp_node, grp_nextnode,
 			       grp)) {
 		igmp_group_delete(grp);
 	}
@@ -945,13 +944,13 @@ void pim_igmp_if_fini(struct pim_interface *pim_ifp)
 {
 	pim_igmp_if_reset(pim_ifp);
 
-	assert(pim_ifp->igmp_group_list);
-	assert(!listcount(pim_ifp->igmp_group_list));
+	assert(pim_ifp->group_list);
+	assert(!listcount(pim_ifp->group_list));
 
-	list_delete(&pim_ifp->igmp_group_list);
-	hash_free(pim_ifp->igmp_group_hash);
+	list_delete(&pim_ifp->group_list);
+	hash_free(pim_ifp->group_hash);
 
-	list_delete(&pim_ifp->igmp_socket_list);
+	list_delete(&pim_ifp->socket_list);
 }
 
 static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
@@ -978,7 +977,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->t_igmp_query_timer = NULL;
 	igmp->t_other_querier_timer = NULL; /* no other querier present */
 	igmp->querier_robustness_variable =
-		pim_ifp->igmp_default_robustness_variable;
+		pim_ifp->default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
 
 	igmp_stats_init(&igmp->rx_stats);
@@ -993,7 +992,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	/*
 	  igmp_startup_mode_on() will reset QQI:
 
-	  igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
+	  igmp->querier_query_interval = pim_ifp->default_query_interval;
 	*/
 	igmp_startup_mode_on(igmp);
 	pim_igmp_general_query_on(igmp);
@@ -1189,7 +1188,7 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 
 	lookup.group_addr.s_addr = group_addr.s_addr;
 
-	return hash_lookup(pim_ifp->igmp_group_hash, &lookup);
+	return hash_lookup(pim_ifp->group_hash, &lookup);
 }
 
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
@@ -1247,8 +1246,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	/* initialize new group as INCLUDE {empty} */
 	group->group_filtermode_isexcl = 0; /* 0=INCLUDE, 1=EXCLUDE */
 
-	listnode_add(pim_ifp->igmp_group_list, group);
-	group = hash_get(pim_ifp->igmp_group_hash, group, hash_alloc_intern);
+	listnode_add(pim_ifp->group_list, group);
+	group = hash_get(pim_ifp->group_hash, group, hash_alloc_intern);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1321,7 +1320,7 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 		zlog_debug("Issuing general query on request on %s",
 				ifp->name);
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->socket_list, sock_node, igmp)) {
 
 		char query_buf[query_buf_size];
 
@@ -1329,7 +1328,7 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 				igmp->interface->name, query_buf,
 				sizeof(query_buf), 0 /* num_sources */,
 				dst_addr, group_addr,
-				pim_ifp->igmp_query_max_response_time_dsec,
+				pim_ifp->query_max_response_time_dsec,
 				1 /* s_flag: always set for general queries */,
 				igmp->querier_robustness_variable,
 				igmp->querier_query_interval);
