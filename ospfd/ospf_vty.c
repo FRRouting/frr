@@ -157,7 +157,7 @@ static int ospf_router_cmd_parse(struct vty *vty, struct cmd_token *argv[],
 		*instance = strtoul(argv[idx_inst]->arg, NULL, 10);
 	}
 
-	*vrf_name = NULL;
+	*vrf_name = VRF_DEFAULT_NAME;
 	if (argv_find(argv, argc, "vrf", &idx_vrf)) {
 		if (ospf_instance != 0) {
 			vty_out(vty,
@@ -166,8 +166,6 @@ static int ospf_router_cmd_parse(struct vty *vty, struct cmd_token *argv[],
 		}
 
 		*vrf_name = argv[idx_vrf + 1]->arg;
-		if (*vrf_name && strmatch(*vrf_name, VRF_DEFAULT_NAME))
-			*vrf_name = NULL;
 	}
 
 	return CMD_SUCCESS;
@@ -12207,12 +12205,12 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 	int write = 0;
 
 	/* `router ospf' print. */
-	if (ospf->instance && ospf->name) {
+	if (ospf->instance && strcmp(ospf->name, VRF_DEFAULT_NAME)) {
 		vty_out(vty, "router ospf %d vrf %s\n", ospf->instance,
 			ospf->name);
 	} else if (ospf->instance) {
 		vty_out(vty, "router ospf %d\n", ospf->instance);
-	} else if (ospf->name) {
+	} else if (strcmp(ospf->name, VRF_DEFAULT_NAME)) {
 		vty_out(vty, "router ospf vrf %s\n", ospf->name);
 	} else
 		vty_out(vty, "router ospf\n");

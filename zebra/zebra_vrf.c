@@ -337,18 +337,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-static int zebra_vrf_update(struct vrf *vrf)
-{
-	struct zebra_vrf *zvrf = vrf->info;
-
-	assert(zvrf);
-	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("VRF %s id %u, name updated", vrf->name,
-			   zvrf_id(zvrf));
-	zebra_vrf_add_update(zvrf);
-	return 0;
-}
-
 /* Lookup the routing table in a VRF based on both VRF-Id and table-id.
  * NOTE: Table-id is relevant on two modes:
  * - case VRF backend is default : on default VRF only
@@ -703,7 +691,7 @@ int zebra_vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
 void zebra_vrf_init(void)
 {
 	vrf_init(zebra_vrf_new, zebra_vrf_enable, zebra_vrf_disable,
-		 zebra_vrf_delete, zebra_vrf_update);
+		 zebra_vrf_delete);
 
 	hook_register(zserv_client_close, release_daemon_table_chunks);
 

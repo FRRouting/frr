@@ -647,51 +647,6 @@ static int isis_vrf_enable(struct vrf *vrf)
 			   vrf->vrf_id);
 
 	isis = isis_lookup_by_vrfname(vrf->name);
-	if (!isis) {
-		char *old_vrf_name = NULL;
-
-		isis = (struct isis *)vrf->info;
-		if (!isis)
-			return 0;
-		/* update vrf name */
-		if (isis->name)
-			old_vrf_name = isis->name;
-		isis->name = XSTRDUP(MTYPE_ISIS_NAME, vrf->name);
-		/*
-		 * HACK: Change the ISIS VRF in the running configuration
-		 * directly, bypassing the northbound layer. This is necessary
-		 * to avoid deleting the ISIS and readding it in the new VRF,
-		 * which would have several implications.
-		 */
-		if (yang_module_find("frr-isisd") && old_vrf_name) {
-			struct lyd_node *isis_dnode;
-			struct isis_area *area;
-			char oldpath[XPATH_MAXLEN];
-			char newpath[XPATH_MAXLEN];
-			struct listnode *node, *nnode;
-
-			for (ALL_LIST_ELEMENTS(isis->area_list, node, nnode,
-					       area)) {
-				isis_dnode = yang_dnode_getf(
-					running_config->dnode,
-					"/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']/vrf",
-					area->area_tag, old_vrf_name);
-				if (isis_dnode) {
-					yang_dnode_get_path(
-						lyd_parent(isis_dnode), oldpath,
-						sizeof(oldpath));
-					yang_dnode_change_leaf(isis_dnode,
-							       vrf->name);
-					yang_dnode_get_path(
-						lyd_parent(isis_dnode), newpath,
-						sizeof(newpath));
-					nb_running_move_tree(oldpath, newpath);
-					running_config->version++;
-				}
-			}
-		}
-		XFREE(MTYPE_ISIS_NAME, old_vrf_name);
-	}
 	if (isis && isis->vrf_id != vrf->vrf_id) {
 		old_vrf_id = isis->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
@@ -743,7 +698,7 @@ static int isis_vrf_disable(struct vrf *vrf)
 void isis_vrf_init(void)
 {
 	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
-		 isis_vrf_delete, isis_vrf_enable);
+		 isis_vrf_delete);
 
 	vrf_cmd_init(NULL);
 }

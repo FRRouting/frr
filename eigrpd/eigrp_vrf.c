@@ -45,6 +45,6 @@ static int eigrp_vrf_delete(struct vrf *vrf)
 
 void eigrp_vrf_init(void)
 {
-	vrf_init(eigrp_vrf_new, eigrp_vrf_enable,
-		 eigrp_vrf_disable, eigrp_vrf_delete, NULL);
+	vrf_init(eigrp_vrf_new, eigrp_vrf_enable, eigrp_vrf_disable,
+		 eigrp_vrf_delete);
 }

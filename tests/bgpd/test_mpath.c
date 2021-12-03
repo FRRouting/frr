@@ -394,7 +394,7 @@ static int global_test_init(void)
 	master = thread_master_create(NULL);
 	zclient = zclient_new(master, &zclient_options_default, NULL, 0);
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 
 	if (fileno(stdout) >= 0)

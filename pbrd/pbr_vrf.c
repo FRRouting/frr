@@ -124,8 +124,7 @@ bool pbr_vrf_is_valid(const struct pbr_vrf *pbr_vrf)
 
 void pbr_vrf_init(void)
 {
-	vrf_init(pbr_vrf_new, pbr_vrf_enable, pbr_vrf_disable, pbr_vrf_delete,
-		 NULL);
+	vrf_init(pbr_vrf_new, pbr_vrf_enable, pbr_vrf_disable, pbr_vrf_delete);
 }
 
 void pbr_vrf_terminate(void)

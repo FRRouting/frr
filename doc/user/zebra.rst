@@ -51,13 +51,6 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    .. seealso:: :ref:`zebra-vrf`
 
-.. option:: -o, --vrfdefaultname
-
-   When *Zebra* starts with this option, the default VRF name is changed to the
-   parameter.
-
-   .. seealso:: :ref:`zebra-vrf`
-
 .. option:: -z <path_to_socket>, --socket <path_to_socket>
 
    If this option is supplied on the cli, the path to the zebra
@@ -363,7 +356,13 @@ separate for each set of VRF, and routing daemons can have their own context
 for each VRF.
 
 This conceptual view introduces the *Default VRF* case. If the user does not
-configure any specific VRF, then by default, FRR uses the *Default VRF*.
+configure any specific VRF, then by default, FRR uses the *Default VRF*. The
+name "default" is used to refer to this VRF in various CLI commands and YANG
+models. It is possible to change that name by passing the ``-o`` option to all
+daemons, for example, one can use ``-o vrf0`` to change the name to "vrf0".
+The easiest way to pass the same option to all daemons is to use the
+``frr_global_options`` variable in the
+:ref:`Daemons Configuration File <daemons-configuration-file>`.
 
 Configuring VRF networking contexts can be done in various ways on FRR. The VRF
 interfaces can be configured by entering in interface configuration mode
@@ -439,39 +438,6 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    combination.  If neither VRF or TABLENO is specified FRR defaults to
    the default vrf and default table.  If prefix is specified dump the
    number of prefix routes.
-
-By using the :option:`-n` option, the *Linux network namespace* will be mapped
-over the *Zebra* VRF. One nice feature that is possible by handling *Linux
-network namespace* is the ability to name default VRF. At startup, *Zebra*
-discovers the available *Linux network namespace* by parsing folder
-``/var/run/netns``. Each file stands for a *Linux network namespace*, but not all
-*Linux network namespaces* are available under that folder. This is the case for
-default VRF. It is possible to name the default VRF, by creating a file, by
-executing following commands.
-
-.. code-block:: shell
-
-   touch /var/run/netns/vrf0
-   mount --bind /proc/self/ns/net /var/run/netns/vrf0
-
-Above command illustrates what happens when the default VRF is visible under
-``/var/run/netns``. Here, the default VRF file is ``vrf0``.
-At startup, FRR detects the presence of that file. It detects that the file
-statistics information matches the same file statistics information as
-``/proc/self/ns/net`` ( through stat() function). As statistics information
-matches, then ``vrf0`` stands for the new default namespace name.
-Consequently, the VRF naming ``Default`` will be overridden by the new discovered
-namespace name ``vrf0``.
-
-For those who don't use VRF backend with *Linux network namespace*, it is
-possible to statically configure and recompile FRR. It is possible to choose an
-alternate name for default VRF. Then, the default VRF naming will automatically
-be updated with the new name. To illustrate, if you want to recompile with
-``global`` value, use the following command:
-
-.. code-block:: shell
-
-   ./configure --with-defaultvrfname=global
 
 .. _zebra-table-allocation:
 

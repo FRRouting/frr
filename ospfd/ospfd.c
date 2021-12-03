@@ -314,22 +314,19 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 	new->instance = instance;
 	new->router_id.s_addr = htonl(0);
 	new->router_id_static.s_addr = htonl(0);
-	if (name) {
-		vrf = vrf_lookup_by_name(name);
-		if (vrf)
-			new->vrf_id = vrf->vrf_id;
-		else
-			new->vrf_id = VRF_UNKNOWN;
-		/* Freed in ospf_finish_final */
-		new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
-		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"%s: Create new ospf instance with vrf_name %s vrf_id %u",
-				__func__, name, new->vrf_id);
-	} else {
-		new->vrf_id = VRF_DEFAULT;
-		vrf = vrf_lookup_by_id(VRF_DEFAULT);
-	}
+
+	vrf = vrf_lookup_by_name(name);
+	if (vrf)
+		new->vrf_id = vrf->vrf_id;
+	else
+		new->vrf_id = VRF_UNKNOWN;
+
+	/* Freed in ospf_finish_final */
+	new->name = XSTRDUP(MTYPE_OSPF_TOP, name);
+	if (IS_DEBUG_OSPF_EVENT)
+		zlog_debug(
+			"%s: Create new ospf instance with vrf_name %s vrf_id %u",
+			__func__, name, new->vrf_id);
 
 	if (vrf)
 		ospf_vrf_link(new, vrf);
@@ -478,9 +475,6 @@ struct ospf *ospf_lookup_by_inst_name(unsigned short instance, const char *name)
 {
 	struct ospf *ospf = NULL;
 	struct listnode *node, *nnode;
-
-	if (name == NULL || strmatch(name, VRF_DEFAULT_NAME))
-		return ospf_lookup_by_vrf_id(VRF_DEFAULT);
 
 	for (ALL_LIST_ELEMENTS(om->ospf, node, nnode, ospf)) {
 		if ((ospf->instance == instance)
@@ -911,8 +905,7 @@ static void ospf_finish_final(struct ospf *ospf)
 	if (vrf)
 		ospf_vrf_unlink(ospf, vrf);
 
-	if (ospf->name)
-		XFREE(MTYPE_OSPF_TOP, ospf->name);
+	XFREE(MTYPE_OSPF_TOP, ospf->name);
 	XFREE(MTYPE_OSPF_TOP, ospf);
 }
 
@@ -2211,10 +2204,6 @@ static int ospf_vrf_enable(struct vrf *vrf)
 
 	ospf = ospf_lookup_by_name(vrf->name);
 	if (ospf) {
-		if (ospf->name && strmatch(vrf->name, VRF_DEFAULT_NAME)) {
-			XFREE(MTYPE_OSPF_TOP, ospf->name);
-			ospf->name = NULL;
-		}
 		old_vrf_id = ospf->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		ospf_vrf_link(ospf, vrf);
@@ -2283,7 +2272,7 @@ static int ospf_vrf_disable(struct vrf *vrf)
 void ospf_vrf_init(void)
 {
 	vrf_init(ospf_vrf_new, ospf_vrf_enable, ospf_vrf_disable,
-		 ospf_vrf_delete, ospf_vrf_enable);
+		 ospf_vrf_delete);
 }
 
 void ospf_vrf_terminate(void)
