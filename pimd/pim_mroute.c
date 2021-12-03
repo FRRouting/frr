@@ -593,7 +593,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	const struct ip *ip_hdr;
 	const struct igmpmsg *msg;
 	struct in_addr ifaddr;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	const struct prefix *connected_src;
 
 	if (buf_size < (int)sizeof(struct ip))

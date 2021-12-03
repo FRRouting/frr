@@ -501,7 +501,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		pim_ifp = ifp->info;
 
@@ -575,7 +575,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					struct vty *vty, const char *ifname,
 					bool uj)
 {
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct interface *ifp;
 	struct listnode *sock_node;
 	struct pim_interface *pim_ifp;
@@ -1327,7 +1327,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		pim_ifp = ifp->info;
 
