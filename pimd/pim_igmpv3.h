@@ -60,22 +60,22 @@ void igmp_source_free(struct gm_source *source);
 void igmp_source_delete(struct gm_source *source);
 void igmp_source_delete_expired(struct list *source_list);
 
-void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_isin(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources);
-void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources, int from_igmp_v2_report);
-void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_toin(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources);
-void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources);
-void igmpv3_report_allow(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_allow(struct gm_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources);
-void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_block(struct gm_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources);
 
@@ -92,10 +92,10 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 			uint8_t querier_robustness_variable,
 			uint16_t querier_query_interval);
 
-void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
+void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 			char *igmp_msg);
 
-int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
+int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len);
 
 #endif /* PIM_IGMPV3_H */

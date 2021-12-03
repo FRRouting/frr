@@ -60,7 +60,7 @@ static void on_trace(const char *label, struct interface *ifp,
 static inline long igmp_gmi_msec(struct gm_group *group)
 {
 	struct pim_interface *pim_ifp = group->interface->info;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct listnode *sock_node;
 
 	long qrv = 0, qqi = 0;
@@ -481,7 +481,7 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 	return src;
 }
 
-static void allow(struct igmp_sock *igmp, struct in_addr from,
+static void allow(struct gm_sock *igmp, struct in_addr from,
 		  struct in_addr group_addr, int num_sources,
 		  struct in_addr *sources)
 {
@@ -548,7 +548,7 @@ static void allow(struct igmp_sock *igmp, struct in_addr from,
 	} /* scan received sources */
 }
 
-void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_isin(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
@@ -658,7 +658,7 @@ static void isex_incl(struct gm_group *group, int num_sources,
 	group_exclude_fwd_anysrc_ifempty(group);
 }
 
-void igmpv3_report_isex(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_isex(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources, int from_igmp_v2_report)
 {
@@ -775,7 +775,7 @@ static void toin_excl(struct gm_group *group, int num_sources,
 	group_query_send(group);
 }
 
-void igmpv3_report_toin(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_toin(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
@@ -936,7 +936,7 @@ static void toex_excl(struct gm_group *group, int num_sources,
 	}
 }
 
-void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_toex(struct gm_sock *igmp, struct in_addr from,
 			struct in_addr group_addr, int num_sources,
 			struct in_addr *sources)
 {
@@ -965,7 +965,7 @@ void igmpv3_report_toex(struct igmp_sock *igmp, struct in_addr from,
 	igmp_group_reset_gmi(group);
 }
 
-void igmpv3_report_allow(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_allow(struct gm_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources)
 {
@@ -981,7 +981,7 @@ static void igmp_send_query_group(struct gm_group *group, char *query_buf,
 {
 	struct interface *ifp = group->interface;
 	struct pim_interface *pim_ifp = ifp->info;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct listnode *sock_node;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->socket_list, sock_node, igmp)) {
@@ -1460,7 +1460,7 @@ static void block_incl(struct gm_group *group, int num_sources,
 	}
 }
 
-void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
+void igmpv3_report_block(struct gm_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources)
 {
@@ -1689,7 +1689,7 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 	}
 }
 
-void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
+void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 			char *igmp_msg)
 {
 	struct interface *ifp;
@@ -1825,7 +1825,7 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 	} /* s_flag is clear: timer updates */
 }
 
-int igmp_v3_recv_report(struct igmp_sock *igmp, struct in_addr from,
+int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len)
 {
 	int num_groups;

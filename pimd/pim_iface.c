@@ -158,7 +158,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->upstream_switch_list = NULL;
 	pim_ifp->pim_generation_id = 0;
 
-	/* list of struct igmp_sock */
+	/* list of struct gm_sock */
 	pim_igmp_if_init(pim_ifp, ifp);
 
 	/* list of struct pim_neighbor */
@@ -530,7 +530,7 @@ void pim_if_addr_add(struct connected *ifc)
 	//  return;
 
 	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
 		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->socket_list,
@@ -581,7 +581,7 @@ void pim_if_addr_add(struct connected *ifc)
 		}
 	} /* igmp */
 	else {
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
 		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->socket_list,
@@ -646,7 +646,7 @@ void pim_if_addr_add(struct connected *ifc)
 static void pim_if_addr_del_igmp(struct connected *ifc)
 {
 	struct pim_interface *pim_ifp = ifc->ifp->info;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct in_addr ifaddr;
 
 	if (ifc->address->family != AF_INET) {
