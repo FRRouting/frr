@@ -2000,7 +2000,7 @@ DEFPY_YANG (isis_frr_lfa_load_sharing,
 void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, struct lyd_node *dnode,
 					bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	if (yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
 
 	vty_out(vty, " fast-reroute load-sharing disable %s\n",
