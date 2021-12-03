@@ -822,7 +822,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *join_node;
-		struct igmp_join *ij;
+		struct gm_join *ij;
 		struct in_addr pri_addr;
 		char pri_addr_str[INET_ADDRSTRLEN];
 
