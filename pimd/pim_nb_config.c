@@ -62,7 +62,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *grpnode;
-	struct igmp_group *grp;
+	struct gm_group *grp;
 
 
 	pim_ifp = ifp->info;
@@ -444,7 +444,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	struct listnode *sock_node;
 	struct igmp_sock *igmp;
 	struct listnode *grp_node;
-	struct igmp_group *grp;
+	struct gm_group *grp;
 
 	if (pim_ifp->query_max_response_time_dsec
 	    == query_max_response_time_dsec)

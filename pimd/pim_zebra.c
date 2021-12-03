@@ -472,7 +472,7 @@ void pim_zebra_init(void)
 }
 
 void igmp_anysource_forward_start(struct pim_instance *pim,
-				  struct igmp_group *group)
+				  struct gm_group *group)
 {
 	struct gm_source *source;
 	struct in_addr src_addr = {.s_addr = 0};
@@ -489,7 +489,7 @@ void igmp_anysource_forward_start(struct pim_instance *pim,
 	igmp_source_forward_start(pim, source);
 }
 
-void igmp_anysource_forward_stop(struct igmp_group *group)
+void igmp_anysource_forward_stop(struct gm_group *group)
 {
 	struct gm_source *source;
 	struct in_addr star = {.s_addr = 0};
@@ -503,7 +503,7 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 					       struct gm_source *source)
 {
 	struct prefix_sg sg;
-	struct igmp_group *group = source->source_group;
+	struct gm_group *group = source->source_group;
 	struct pim_ifchannel *ch;
 
 	if ((source->source_addr.s_addr != INADDR_ANY)
@@ -547,7 +547,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 		struct pim_ifchannel *ch, *ch_temp;
 
 		if (!pim_ifp)
@@ -579,7 +579,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			       struct gm_source *source)
 {
 	struct pim_interface *pim_oif;
-	struct igmp_group *group;
+	struct gm_group *group;
 	struct prefix_sg sg;
 	int result;
 	int input_iface_vif_index = 0;
@@ -759,7 +759,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
  */
 void igmp_source_forward_stop(struct gm_source *source)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
 	struct prefix_sg sg;
 	int result;
 

@@ -53,9 +53,8 @@
 /* OHPI: Older Host Present Interval */
 #define PIM_IGMP_OHPI_DSEC(qrv,qqi,qri_dsec) ((qrv) * (10 * (qqi)) + (qri_dsec))
 
-void igmp_group_reset_gmi(struct igmp_group *group);
-void igmp_source_reset_gmi(struct igmp_group *group,
-			   struct gm_source *source);
+void igmp_group_reset_gmi(struct gm_group *group);
+void igmp_source_reset_gmi(struct gm_group *group, struct gm_source *source);
 
 void igmp_source_free(struct gm_source *source);
 void igmp_source_delete(struct gm_source *source);
@@ -80,13 +79,13 @@ void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
 			 struct in_addr group_addr, int num_sources,
 			 struct in_addr *sources);
 
-void igmp_group_timer_lower_to_lmqt(struct igmp_group *group);
+void igmp_group_timer_lower_to_lmqt(struct gm_group *group);
 void igmp_source_timer_lower_to_lmqt(struct gm_source *source);
 
-struct gm_source *igmp_find_source_by_addr(struct igmp_group *group,
-					     struct in_addr src_addr);
+struct gm_source *igmp_find_source_by_addr(struct gm_group *group,
+					   struct in_addr src_addr);
 
-void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,
+void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 			char *query_buf, int query_buf_size, int num_sources,
 			struct in_addr dst_addr, struct in_addr group_addr,
 			int query_max_response_time_dsec, uint8_t s_flag,

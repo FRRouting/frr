@@ -21,7 +21,7 @@
 #ifndef PIM_IGMPV2_H
 #define PIM_IGMPV2_H
 
-void igmp_v2_send_query(struct igmp_group *group, int fd, const char *ifname,
+void igmp_v2_send_query(struct gm_group *group, int fd, const char *ifname,
 			char *query_buf, struct in_addr dst_addr,
 			struct in_addr group_addr,
 			int query_max_response_time_dsec);
