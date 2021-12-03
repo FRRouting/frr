@@ -39,7 +39,7 @@
 #include "pim_time.h"
 #include "pim_zebra.h"
 
-static void group_timer_off(struct igmp_group *group);
+static void group_timer_off(struct gm_group *group);
 static int pim_igmp_general_query(struct thread *t);
 
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
@@ -415,7 +415,7 @@ static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
 			       int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
-	struct igmp_group *group;
+	struct gm_group *group;
 	struct in_addr group_addr;
 
 	on_trace(__func__, igmp->interface, from);
@@ -789,7 +789,7 @@ void igmp_startup_mode_on(struct igmp_sock *igmp)
 	igmp->querier_query_interval = pim_ifp->default_query_interval;
 }
 
-static void igmp_group_free(struct igmp_group *group)
+static void igmp_group_free(struct gm_group *group)
 {
 	list_delete(&group->group_source_list);
 
@@ -819,7 +819,7 @@ static void igmp_group_count_decr(struct pim_interface *pim_ifp)
 	--pim_ifp->pim->igmp_group_count;
 }
 
-void igmp_group_delete(struct igmp_group *group)
+void igmp_group_delete(struct gm_group *group)
 {
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
@@ -849,7 +849,7 @@ void igmp_group_delete(struct igmp_group *group)
 	igmp_group_free(group);
 }
 
-void igmp_group_delete_empty_include(struct igmp_group *group)
+void igmp_group_delete_empty_include(struct gm_group *group)
 {
 	assert(!group->group_filtermode_isexcl);
 	assert(!listcount(group->group_source_list));
@@ -898,15 +898,15 @@ void igmp_sock_delete_all(struct interface *ifp)
 
 static unsigned int igmp_group_hash_key(const void *arg)
 {
-	const struct igmp_group *group = arg;
+	const struct gm_group *group = arg;
 
 	return jhash_1word(group->group_addr.s_addr, 0);
 }
 
 static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 {
-	const struct igmp_group *g1 = (const struct igmp_group *)arg1;
-	const struct igmp_group *g2 = (const struct igmp_group *)arg2;
+	const struct gm_group *g1 = (const struct gm_group *)arg1;
+	const struct gm_group *g2 = (const struct gm_group *)arg2;
 
 	if (g1->group_addr.s_addr == g2->group_addr.s_addr)
 		return true;
@@ -932,7 +932,7 @@ void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
 void pim_igmp_if_reset(struct pim_interface *pim_ifp)
 {
 	struct listnode *grp_node, *grp_nextnode;
-	struct igmp_group *grp;
+	struct gm_group *grp;
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->group_list, grp_node, grp_nextnode,
 			       grp)) {
@@ -1101,7 +1101,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
  */
 static int igmp_group_timer(struct thread *t)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
 
 	group = THREAD_ARG(t);
 
@@ -1137,7 +1137,7 @@ static int igmp_group_timer(struct thread *t)
 	return 0;
 }
 
-static void group_timer_off(struct igmp_group *group)
+static void group_timer_off(struct gm_group *group)
 {
 	if (!group->t_group_timer)
 		return;
@@ -1152,7 +1152,7 @@ static void group_timer_off(struct igmp_group *group)
 	THREAD_OFF(group->t_group_timer);
 }
 
-void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
+void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 			 const char *ifname)
 {
 	group_timer_off(group);
@@ -1180,10 +1180,10 @@ void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 			      interval_msec, &group->t_group_timer);
 }
 
-struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
-				      struct in_addr group_addr)
+struct gm_group *find_group_by_addr(struct igmp_sock *igmp,
+				    struct in_addr group_addr)
 {
-	struct igmp_group lookup;
+	struct gm_group lookup;
 	struct pim_interface *pim_ifp = igmp->interface->info;
 
 	lookup.group_addr.s_addr = group_addr.s_addr;
@@ -1191,10 +1191,10 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 	return hash_lookup(pim_ifp->group_hash, &lookup);
 }
 
-struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
-					  struct in_addr group_addr)
+struct gm_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
+					struct in_addr group_addr)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
 	struct pim_interface *pim_ifp = igmp->interface->info;
 
 	group = find_group_by_addr(igmp, group_addr);
@@ -1276,7 +1276,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	return group;
 }
 
-void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
+void igmp_send_query(int igmp_version, struct gm_group *group, int fd,
 		     const char *ifname, char *query_buf, int query_buf_size,
 		     int num_sources, struct in_addr dst_addr,
 		     struct in_addr group_addr,

@@ -3420,7 +3420,7 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3513,7 +3513,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3565,7 +3565,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3620,7 +3620,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3901,7 +3901,7 @@ static void clear_mroute(struct pim_instance *pim)
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 		struct pim_ifchannel *ch;
 
 		if (!pim_ifp)
