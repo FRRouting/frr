@@ -406,7 +406,9 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		pim_vxlan_update_sg_reg_state(pim, up, true);
 		break;
 
-	default:;
+	case PIM_REG_JOIN_PENDING:
+	case PIM_REG_PRUNE:
+		break;
 	}
 
 	/* update the inherited OIL */
