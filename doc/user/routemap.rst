@@ -152,6 +152,10 @@ Route Map Match Command
 
    This is a BGP specific match command. Matches the specified `ipv4_addr`.
 
+.. clicmd:: match ip next-hop prefix-list PREFIX_LIST
+
+   Match the next-hop according to the given prefix-list.
+
 .. clicmd:: match ipv6 next-hop ACCESS_LIST
 
    Match the next-hop according to the given access-list.
