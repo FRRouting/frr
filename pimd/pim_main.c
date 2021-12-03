@@ -84,6 +84,7 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_igmp_info,
 };
 
+#ifndef PIM_AF_IPV6
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 
 		.proghelp = "Implementation of the PIM routing protocol.",
@@ -94,11 +95,23 @@ FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,
 		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
 		.n_yang_modules = array_size(pimd_yang_modules),
 );
-
+#else
+FRR_DAEMON_INFO(pim6d, PIM6, .vty_port = PIM6D_VTY_PORT,
+		.proghelp = "Implementation of the PIM6 routing protocol.",
+		.signals = pimd_signals,
+		.n_signals = 4 /* XXX array_size(pimd_signals) XXX*/,
+		.privs = &pimd_privs, .yang_modules = pimd_yang_modules,
+		.n_yang_modules = array_size(pimd_yang_modules), );
+#endif
 
 int main(int argc, char **argv, char **envp)
 {
+
+#ifndef PIM_AF_IPV6
 	frr_preinit(&pimd_di, argc, argv);
+#else
+	frr_preinit(&pim6d_di, argc, argv);
+#endif
 	frr_opt_add("", longopts, "");
 
 	/* this while just reads the options */

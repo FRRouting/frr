@@ -36,6 +36,10 @@
 #define PIMD_DEFAULT_CONFIG "pimd.conf"
 #define PIMD_VTY_PORT       2611
 
+#ifdef PIM_AF_IPV6
+#define PIM6D_VTY_PORT 2622
+#endif
+
 #define PIM_IP_PROTO_IGMP             (2)
 #define PIM_IP_PROTO_PIM              (103)
 #define PIM_IGMP_MIN_LEN              (8)

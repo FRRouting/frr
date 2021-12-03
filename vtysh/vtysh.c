@@ -135,6 +135,7 @@ struct vtysh_client vtysh_client[] = {
 	{.fd = -1, .name = "bgpd", .flag = VTYSH_BGPD, .next = NULL},
 	{.fd = -1, .name = "isisd", .flag = VTYSH_ISISD, .next = NULL},
 	{.fd = -1, .name = "pimd", .flag = VTYSH_PIMD, .next = NULL},
+	{.fd = -1, .name = "pim6d", .flag = VTYSH_PIM6D, .next = NULL},
 	{.fd = -1, .name = "nhrpd", .flag = VTYSH_NHRPD, .next = NULL},
 	{.fd = -1, .name = "eigrpd", .flag = VTYSH_EIGRPD, .next = NULL},
 	{.fd = -1, .name = "babeld", .flag = VTYSH_BABELD, .next = NULL},
