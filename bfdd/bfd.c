@@ -1946,19 +1946,6 @@ static int bfd_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-static int bfd_vrf_update(struct vrf *vrf)
-{
-	if (!vrf_is_enabled(vrf))
-		return 0;
-
-	if (bglobal.debug_zebra)
-		zlog_debug("VRF update: %s(%u)", vrf->name, vrf->vrf_id);
-
-	/* a different name is given; update bfd list */
-	bfdd_sessions_enable_vrf(vrf);
-	return 0;
-}
-
 static int bfd_vrf_enable(struct vrf *vrf)
 {
 	struct bfd_vrf_global *bvrf;
@@ -2070,8 +2057,7 @@ static int bfd_vrf_disable(struct vrf *vrf)
 
 void bfd_vrf_init(void)
 {
-	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable,
-		 bfd_vrf_delete, bfd_vrf_update);
+	vrf_init(bfd_vrf_new, bfd_vrf_enable, bfd_vrf_disable, bfd_vrf_delete);
 }
 
 void bfd_vrf_terminate(void)
@@ -2094,63 +2080,6 @@ struct bfd_vrf_global *bfd_vrf_look_by_session(struct bfd_session *bfd)
 	if (!bfd->vrf)
 		return NULL;
 	return bfd->vrf->info;
-}
-
-void bfd_session_update_vrf_name(struct bfd_session *bs, struct vrf *vrf)
-{
-	if (!vrf || !bs)
-		return;
-	/* update key */
-	hash_release(bfd_key_hash, bs);
-	/*
-	 * HACK: Change the BFD VRF in the running configuration directly,
-	 * bypassing the northbound layer. This is necessary to avoid deleting
-	 * the BFD and readding it in the new VRF, which would have
-	 * several implications.
-	 */
-	if (yang_module_find("frr-bfdd") && bs->key.vrfname[0]) {
-		struct lyd_node *bfd_dnode;
-		char xpath[XPATH_MAXLEN], xpath_srcaddr[XPATH_MAXLEN + 32];
-		char oldpath[XPATH_MAXLEN], newpath[XPATH_MAXLEN];
-		char addr_buf[INET6_ADDRSTRLEN];
-		int slen;
-
-		/* build xpath */
-		if (bs->key.mhop) {
-			inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-			snprintf(xpath_srcaddr, sizeof(xpath_srcaddr), "[source-addr='%s']",
-				 addr_buf);
-		} else
-			xpath_srcaddr[0] = 0;
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		slen = snprintf(xpath, sizeof(xpath),
-				"/frr-bfdd:bfdd/bfd/sessions/%s%s[dest-addr='%s']",
-				bs->key.mhop ? "multi-hop" : "single-hop", xpath_srcaddr,
-				addr_buf);
-		if (bs->key.ifname[0])
-			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-					 "[interface='%s']", bs->key.ifname);
-		else
-			slen += snprintf(xpath + slen, sizeof(xpath) - slen,
-					 "[interface='*']");
-		snprintf(xpath + slen, sizeof(xpath) - slen, "[vrf='%s']/vrf",
-			 bs->key.vrfname);
-
-		bfd_dnode = yang_dnode_getf(running_config->dnode, xpath,
-					    bs->key.vrfname);
-		if (bfd_dnode) {
-			yang_dnode_get_path(lyd_parent(bfd_dnode), oldpath,
-					    sizeof(oldpath));
-			yang_dnode_change_leaf(bfd_dnode, vrf->name);
-			yang_dnode_get_path(lyd_parent(bfd_dnode), newpath,
-					    sizeof(newpath));
-			nb_running_move_tree(oldpath, newpath);
-			running_config->version++;
-		}
-	}
-	memset(bs->key.vrfname, 0, sizeof(bs->key.vrfname));
-	strlcpy(bs->key.vrfname, vrf->name, sizeof(bs->key.vrfname));
-	hash_get(bfd_key_hash, bs, hash_alloc_intern);
 }
 
 unsigned long bfd_get_session_count(void)

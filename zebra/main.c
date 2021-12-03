@@ -93,7 +93,6 @@ const struct option longopts[] = {
 	{"socket", required_argument, NULL, 'z'},
 	{"ecmp", required_argument, NULL, 'e'},
 	{"retain", no_argument, NULL, 'r'},
-	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"graceful_restart", required_argument, NULL, 'K'},
 	{"asic-offload", optional_argument, NULL, OPTION_ASIC_OFFLOAD},
 #ifdef HAVE_NETLINK
@@ -284,7 +283,6 @@ int main(int argc, char **argv)
 {
 	// int batch_mode = 0;
 	char *zserv_path = NULL;
-	char *vrf_default_name_configured = NULL;
 	struct sockaddr_storage dummy;
 	socklen_t dummylen;
 	bool asic_offload = false;
@@ -296,7 +294,7 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"baz:e:o:rK:"
+		"baz:e:rK:"
 #ifdef HAVE_NETLINK
 		"s:n"
 #endif
@@ -307,7 +305,6 @@ int main(int argc, char **argv)
 		"  -z, --socket             Set path of zebra socket\n"
 		"  -e, --ecmp               Specify ECMP to use.\n"
 		"  -r, --retain             When program terminates, retain added route by zebra.\n"
-		"  -o, --vrfdefaultname     Set default VRF name.\n"
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
 		"  -A, --asic-offload       FRR is interacting with an asic underneath the linux kernel\n"
 #ifdef HAVE_NETLINK
@@ -347,9 +344,6 @@ int main(int argc, char **argv)
 			zrouter.multipath_num = parsed_multipath;
 			break;
 		}
-		case 'o':
-			vrf_default_name_configured = optarg;
-			break;
 		case 'z':
 			zserv_path = optarg;
 			if (!frr_zclient_addr(&dummy, &dummylen, optarg)) {
@@ -400,7 +394,7 @@ int main(int argc, char **argv)
 	/*
 	 * Initialize NS( and implicitly the VRF module), and make kernel
 	 * routing socket. */
-	zebra_ns_init((const char *)vrf_default_name_configured);
+	zebra_ns_init();
 	router_id_cmd_init();
 	zebra_vty_init();
 	access_list_init();
