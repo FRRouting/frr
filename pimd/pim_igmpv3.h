@@ -55,10 +55,10 @@
 
 void igmp_group_reset_gmi(struct igmp_group *group);
 void igmp_source_reset_gmi(struct igmp_group *group,
-			   struct igmp_source *source);
+			   struct gm_source *source);
 
-void igmp_source_free(struct igmp_source *source);
-void igmp_source_delete(struct igmp_source *source);
+void igmp_source_free(struct gm_source *source);
+void igmp_source_delete(struct gm_source *source);
 void igmp_source_delete_expired(struct list *source_list);
 
 void igmpv3_report_isin(struct igmp_sock *igmp, struct in_addr from,
@@ -81,9 +81,9 @@ void igmpv3_report_block(struct igmp_sock *igmp, struct in_addr from,
 			 struct in_addr *sources);
 
 void igmp_group_timer_lower_to_lmqt(struct igmp_group *group);
-void igmp_source_timer_lower_to_lmqt(struct igmp_source *source);
+void igmp_source_timer_lower_to_lmqt(struct gm_source *source);
 
-struct igmp_source *igmp_find_source_by_addr(struct igmp_group *group,
+struct gm_source *igmp_find_source_by_addr(struct igmp_group *group,
 					     struct in_addr src_addr);
 
 void igmp_v3_send_query(struct igmp_group *group, int fd, const char *ifname,

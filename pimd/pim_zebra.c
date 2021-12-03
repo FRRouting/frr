@@ -474,7 +474,7 @@ void pim_zebra_init(void)
 void igmp_anysource_forward_start(struct pim_instance *pim,
 				  struct igmp_group *group)
 {
-	struct igmp_source *source;
+	struct gm_source *source;
 	struct in_addr src_addr = {.s_addr = 0};
 	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
 	assert(group->group_filtermode_isexcl);
@@ -491,7 +491,7 @@ void igmp_anysource_forward_start(struct pim_instance *pim,
 
 void igmp_anysource_forward_stop(struct igmp_group *group)
 {
-	struct igmp_source *source;
+	struct gm_source *source;
 	struct in_addr star = {.s_addr = 0};
 
 	source = igmp_find_source_by_addr(group, star);
@@ -500,7 +500,7 @@ void igmp_anysource_forward_stop(struct igmp_group *group)
 }
 
 static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
-					       struct igmp_source *source)
+					       struct gm_source *source)
 {
 	struct prefix_sg sg;
 	struct igmp_group *group = source->source_group;
@@ -556,7 +556,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 		/* scan igmp groups */
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 			struct listnode *srcnode;
-			struct igmp_source *src;
+			struct gm_source *src;
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
@@ -576,7 +576,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 }
 
 void igmp_source_forward_start(struct pim_instance *pim,
-			       struct igmp_source *source)
+			       struct gm_source *source)
 {
 	struct pim_interface *pim_oif;
 	struct igmp_group *group;
@@ -757,7 +757,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
   igmp_source_forward_stop: stop fowarding, but keep the source
   igmp_source_delete:       stop fowarding, and delete the source
  */
-void igmp_source_forward_stop(struct igmp_source *source)
+void igmp_source_forward_stop(struct gm_source *source)
 {
 	struct igmp_group *group;
 	struct prefix_sg sg;
