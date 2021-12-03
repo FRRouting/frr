@@ -400,26 +400,26 @@ static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 	if (igmp->mtrace_only)
 		return;
 
-	if (igmp->t_igmp_query_timer) {
+	if (igmp->t_query_timer) {
 		/* other querier present */
-		assert(igmp->t_igmp_query_timer);
+		assert(igmp->t_query_timer);
 		assert(!igmp->t_other_querier_timer);
 
 		pim_igmp_general_query_off(igmp);
 		pim_igmp_general_query_on(igmp);
 
-		assert(igmp->t_igmp_query_timer);
+		assert(igmp->t_query_timer);
 		assert(!igmp->t_other_querier_timer);
 	} else {
 		/* this is the querier */
 
-		assert(!igmp->t_igmp_query_timer);
+		assert(!igmp->t_query_timer);
 		assert(igmp->t_other_querier_timer);
 
 		pim_igmp_other_querier_timer_off(igmp);
 		pim_igmp_other_querier_timer_on(igmp);
 
-		assert(!igmp->t_igmp_query_timer);
+		assert(!igmp->t_query_timer);
 		assert(igmp->t_other_querier_timer);
 	}
 }

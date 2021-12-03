@@ -147,7 +147,7 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 
 	igmp = THREAD_ARG(t);
 
-	assert(!igmp->t_igmp_query_timer);
+	assert(!igmp->t_query_timer);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
@@ -199,7 +199,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 	} else {
 		/*
 		  We are the current querier, then stop sending general queries:
-		  igmp->t_igmp_query_timer = NULL;
+		  igmp->t_query_timer = NULL;
 		*/
 		pim_igmp_general_query_off(igmp);
 	}
@@ -208,7 +208,7 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 	  Since this socket is starting the other-querier-present timer,
 	  there should not be periodic query timer for this socket.
 	 */
-	assert(!igmp->t_igmp_query_timer);
+	assert(!igmp->t_query_timer);
 
 	/*
 	  RFC 3376: 8.5. Other Querier Present Interval
@@ -660,7 +660,7 @@ void pim_igmp_general_query_on(struct gm_sock *igmp)
 			startup_mode ? "startup" : "non-startup", igmp->fd);
 	}
 	thread_add_timer(router->master, pim_igmp_general_query, igmp,
-			 query_interval, &igmp->t_igmp_query_timer);
+			 query_interval, &igmp->t_query_timer);
 }
 
 void pim_igmp_general_query_off(struct gm_sock *igmp)
@@ -668,7 +668,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 	assert(igmp);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
-		if (igmp->t_igmp_query_timer) {
+		if (igmp->t_query_timer) {
 			char ifaddr_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
 				       sizeof(ifaddr_str));
@@ -677,7 +677,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 				ifaddr_str, igmp->fd, igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_igmp_query_timer);
+	THREAD_OFF(igmp->t_query_timer);
 }
 
 /* Issue IGMP general query */
@@ -745,14 +745,14 @@ static void sock_close(struct gm_sock *igmp)
 	pim_igmp_general_query_off(igmp);
 
 	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
-		if (igmp->t_igmp_read) {
+		if (igmp->t_gm_read) {
 			zlog_debug(
 				"Cancelling READ event on IGMP socket %pI4 fd=%d on interface %s",
 				&igmp->ifaddr, igmp->fd,
 				igmp->interface->name);
 		}
 	}
-	THREAD_OFF(igmp->t_igmp_read);
+	THREAD_OFF(igmp->t_gm_read);
 
 	if (close(igmp->fd)) {
 		flog_err(
@@ -859,8 +859,8 @@ void igmp_group_delete_empty_include(struct gm_group *group)
 
 void igmp_sock_free(struct gm_sock *igmp)
 {
-	assert(!igmp->t_igmp_read);
-	assert(!igmp->t_igmp_query_timer);
+	assert(!igmp->t_gm_read);
+	assert(!igmp->t_query_timer);
 	assert(!igmp->t_other_querier_timer);
 
 	XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);
@@ -973,8 +973,8 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->interface = ifp;
 	igmp->ifaddr = ifaddr;
 	igmp->querier_addr = ifaddr;
-	igmp->t_igmp_read = NULL;
-	igmp->t_igmp_query_timer = NULL;
+	igmp->t_gm_read = NULL;
+	igmp->t_query_timer = NULL;
 	igmp->t_other_querier_timer = NULL; /* no other querier present */
 	igmp->querier_robustness_variable =
 		pim_ifp->igmp_default_robustness_variable;
@@ -1039,7 +1039,7 @@ static void igmp_read_on(struct gm_sock *igmp)
 			   igmp->fd);
 	}
 	thread_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
-			&igmp->t_igmp_read);
+			&igmp->t_gm_read);
 }
 
 struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,

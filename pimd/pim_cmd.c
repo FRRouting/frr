@@ -517,7 +517,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 					now - igmp->sock_creation);
 			pim_time_timer_to_hhmmss(query_hhmmss,
 						 sizeof(query_hhmmss),
-						 igmp->t_igmp_query_timer);
+						 igmp->t_query_timer);
 
 			if (uj) {
 				json_row = json_object_new_object();
@@ -527,7 +527,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 				json_object_int_add(json_row, "version",
 						    pim_ifp->igmp_version);
 
-				if (igmp->t_igmp_query_timer) {
+				if (igmp->t_query_timer) {
 					json_object_boolean_true_add(json_row,
 								     "querier");
 					json_object_string_add(json_row,
@@ -556,8 +556,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 					inet_ntop(AF_INET, &igmp->ifaddr, buf,
 						  sizeof(buf)),
 					pim_ifp->igmp_version,
-					igmp->t_igmp_query_timer ? "local"
-								 : "other",
+					igmp->t_query_timer ? "local" : "other",
 					&igmp->querier_addr, query_hhmmss,
 					uptime);
 			}
@@ -617,7 +616,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					now - igmp->sock_creation);
 			pim_time_timer_to_hhmmss(query_hhmmss,
 						 sizeof(query_hhmmss),
-						 igmp->t_igmp_query_timer);
+						 igmp->t_query_timer);
 			pim_time_timer_to_hhmmss(other_hhmmss,
 						 sizeof(other_hhmmss),
 						 igmp->t_other_querier_timer);
@@ -661,9 +660,9 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				json_object_string_add(json_row, "upTime",
 						       uptime);
 				json_object_string_add(json_row, "querier",
-						       igmp->t_igmp_query_timer
-						       ? "local"
-						       : "other");
+						       igmp->t_query_timer
+							       ? "local"
+							       : "other");
 				json_object_string_addf(json_row, "querierIp",
 							"%pI4",
 							&igmp->querier_addr);
@@ -734,8 +733,8 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "Querier\n");
 				vty_out(vty, "-------\n");
 				vty_out(vty, "Querier     : %s\n",
-					igmp->t_igmp_query_timer ? "local"
-					: "other");
+					igmp->t_query_timer ? "local"
+							    : "other");
 				vty_out(vty, "QuerierIp   : %pI4",
 					&igmp->querier_addr);
 				if (pim_ifp->primary_address.s_addr
@@ -3490,9 +3489,10 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 							   : "INCL")
 						: "----",
 					hhmmss,
-					grp->group_source_list ? listcount(
-						grp->group_source_list)
-							       : 0,
+					grp->group_source_list
+						? listcount(
+							  grp->group_source_list)
+						: 0,
 					grp->igmp_version, uptime);
 			}
 		} /* scan igmp groups */

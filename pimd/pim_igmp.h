@@ -88,9 +88,9 @@ struct gm_sock {
 	struct in_addr ifaddr;
 	time_t sock_creation;
 
-	struct thread *t_igmp_read; /* read: IGMP sockets */
+	struct thread *t_gm_read; /* read: IGMP or MLD sockets */
 	struct thread
-		*t_igmp_query_timer; /* timer: issue IGMP general queries */
+		*t_query_timer; /* timer: issue IGMP or MLD general queries */
 	struct thread *t_other_querier_timer; /* timer: other querier present */
 	struct in_addr querier_addr;	  /* IP address of the querier */
 	int querier_query_interval;	   /* QQI */
