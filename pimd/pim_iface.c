@@ -124,16 +124,14 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
-	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
-	pim_ifp->igmp_default_robustness_variable =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
-	pim_ifp->igmp_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
-	pim_ifp->igmp_query_max_response_time_dsec =
+	pim_ifp->version = IGMP_DEFAULT_VERSION;
+	pim_ifp->default_robustness_variable = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
+	pim_ifp->query_max_response_time_dsec =
 		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->igmp_specific_query_max_response_time_dsec =
+	pim_ifp->specific_query_max_response_time_dsec =
 		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->igmp_last_member_query_count =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->last_member_query_count = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
@@ -145,8 +143,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	  The number of seconds represented by the [Query Response Interval]
 	  must be less than the [Query Interval].
 	 */
-	assert(pim_ifp->igmp_query_max_response_time_dsec
-	       < pim_ifp->igmp_default_query_interval);
+	assert(pim_ifp->query_max_response_time_dsec
+	       < pim_ifp->default_query_interval);
 
 	if (pim)
 		PIM_IF_DO_PIM(pim_ifp->options);
@@ -155,7 +153,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
 
-	pim_ifp->igmp_join_list = NULL;
+	pim_ifp->join_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
 	pim_ifp->upstream_switch_list = NULL;
 	pim_ifp->pim_generation_id = 0;
@@ -200,7 +198,7 @@ void pim_if_delete(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (pim_ifp->igmp_join_list) {
+	if (pim_ifp->join_list) {
 		pim_if_igmp_join_del_all(ifp);
 	}
 
@@ -535,27 +533,27 @@ void pim_if_addr_add(struct connected *ifc)
 		struct igmp_sock *igmp;
 
 		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->socket_list,
 						   ifaddr);
 		if (!igmp) {
 			/* if addr new, add IGMP socket */
 			if (ifc->address->family == AF_INET)
-				pim_igmp_sock_add(pim_ifp->igmp_socket_list,
-						  ifaddr, ifp, false);
+				pim_igmp_sock_add(pim_ifp->socket_list, ifaddr,
+						  ifp, false);
 		} else if (igmp->mtrace_only) {
 			igmp_sock_delete(igmp);
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp, false);
+			pim_igmp_sock_add(pim_ifp->socket_list, ifaddr, ifp,
+					  false);
 		}
 
 		/* Replay Static IGMP groups */
-		if (pim_ifp->igmp_join_list) {
+		if (pim_ifp->join_list) {
 			struct listnode *node;
 			struct listnode *nextnode;
 			struct igmp_join *ij;
 			int join_fd;
 
-			for (ALL_LIST_ELEMENTS(pim_ifp->igmp_join_list, node,
+			for (ALL_LIST_ELEMENTS(pim_ifp->join_list, node,
 					       nextnode, ij)) {
 				/* Close socket and reopen with Source and Group
 				 */
@@ -586,14 +584,14 @@ void pim_if_addr_add(struct connected *ifc)
 		struct igmp_sock *igmp;
 
 		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->socket_list,
 						   ifaddr);
 		if (ifc->address->family == AF_INET) {
 			if (igmp)
 				igmp_sock_delete(igmp);
 			/* if addr new, add IGMP socket */
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp, true);
+			pim_igmp_sock_add(pim_ifp->socket_list, ifaddr, ifp,
+					  true);
 		}
 	} /* igmp mtrace only */
 
@@ -664,7 +662,7 @@ static void pim_if_addr_del_igmp(struct connected *ifc)
 	ifaddr = ifc->address->u.prefix4;
 
 	/* lookup IGMP socket */
-	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
+	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->socket_list, ifaddr);
 	if (igmp) {
 		/* if addr found, del IGMP socket */
 		igmp_sock_delete(igmp);
@@ -1245,7 +1243,7 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	ij->source_addr = source_addr;
 	ij->sock_creation = pim_time_monotonic_sec();
 
-	listnode_add(pim_ifp->igmp_join_list, ij);
+	listnode_add(pim_ifp->join_list, ij);
 
 	return ij;
 }
@@ -1262,12 +1260,12 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 					ifp->name);
 	}
 
-	if (!pim_ifp->igmp_join_list) {
-		pim_ifp->igmp_join_list = list_new();
-		pim_ifp->igmp_join_list->del = (void (*)(void *))igmp_join_free;
+	if (!pim_ifp->join_list) {
+		pim_ifp->join_list = list_new();
+		pim_ifp->join_list->del = (void (*)(void *))igmp_join_free;
 	}
 
-	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+	ij = igmp_join_find(pim_ifp->join_list, group_addr, source_addr);
 
 	/* This interface has already been configured to join this IGMP group
 	 */
@@ -1306,13 +1304,13 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 		return -1;
 	}
 
-	if (!pim_ifp->igmp_join_list) {
+	if (!pim_ifp->join_list) {
 		zlog_warn("%s: no IGMP join on interface %s", __func__,
 			  ifp->name);
 		return -2;
 	}
 
-	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+	ij = igmp_join_find(pim_ifp->join_list, group_addr, source_addr);
 	if (!ij) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
@@ -1339,11 +1337,11 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			errno, safe_strerror(errno));
 		/* warning only */
 	}
-	listnode_delete(pim_ifp->igmp_join_list, ij);
+	listnode_delete(pim_ifp->join_list, ij);
 	igmp_join_free(ij);
-	if (listcount(pim_ifp->igmp_join_list) < 1) {
-		list_delete(&pim_ifp->igmp_join_list);
-		pim_ifp->igmp_join_list = 0;
+	if (listcount(pim_ifp->join_list) < 1) {
+		list_delete(&pim_ifp->join_list);
+		pim_ifp->join_list = 0;
 	}
 
 	return 0;
@@ -1363,10 +1361,10 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 		return;
 	}
 
-	if (!pim_ifp->igmp_join_list)
+	if (!pim_ifp->join_list)
 		return;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_join_list, node, nextnode, ij))
+	for (ALL_LIST_ELEMENTS(pim_ifp->join_list, node, nextnode, ij))
 		pim_if_igmp_join_del(ifp, ij->group_addr, ij->source_addr);
 }
 
