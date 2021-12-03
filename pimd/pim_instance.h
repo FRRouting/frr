@@ -178,8 +178,9 @@ struct pim_instance {
 	struct list *ssmpingd_list;
 	struct in_addr ssmpingd_group_addr;
 
-	unsigned int igmp_group_count;
-	unsigned int igmp_watermark_limit;
+	/*IGMP or MLD Group count*/
+	unsigned int gm_group_count;
+	unsigned int gm_watermark_limit;
 	unsigned int keep_alive_time;
 	unsigned int rp_keep_alive_time;
 
