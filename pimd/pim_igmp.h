@@ -139,7 +139,7 @@ int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 #define IGMP_SOURCE_DONT_DELETE(flags)     ((flags) &= ~IGMP_SOURCE_MASK_DELETE)
 #define IGMP_SOURCE_DONT_SEND(flags)       ((flags) &= ~IGMP_SOURCE_MASK_SEND)
 
-struct igmp_source {
+struct gm_source {
 	struct in_addr source_addr;
 	struct thread *t_source_timer;
 	struct igmp_group *source_group; /* back pointer */
@@ -178,7 +178,7 @@ struct igmp_group {
 
 	struct in_addr group_addr;
 	int group_filtermode_isexcl;    /* 0=INCLUDE, 1=EXCLUDE */
-	struct list *group_source_list; /* list of struct igmp_source */
+	struct list *group_source_list; /* list of struct gm_source */
 	time_t group_creation;
 	struct interface *interface;
 	int64_t last_igmp_v1_report_dsec;
@@ -190,7 +190,7 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 					  struct in_addr group_addr);
 
-struct igmp_source *igmp_get_source_by_addr(struct igmp_group *group,
+struct gm_source *igmp_get_source_by_addr(struct igmp_group *group,
 					    struct in_addr src_addr,
 					    bool *created);
 
