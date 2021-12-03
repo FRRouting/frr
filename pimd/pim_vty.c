@@ -403,7 +403,7 @@ int pim_interface_config_write(struct vty *vty)
 				/* IF ip igmp join */
 				if (pim_ifp->join_list) {
 					struct listnode *node;
-					struct igmp_join *ij;
+					struct gm_join *ij;
 					for (ALL_LIST_ELEMENTS_RO(
 						     pim_ifp->join_list, node,
 						     ij)) {
