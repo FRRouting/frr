@@ -75,7 +75,7 @@
 		output |= *((ptr) + 1);                                        \
 	} while (0)
 
-struct igmp_join {
+struct gm_join {
 	struct in_addr group_addr;
 	struct in_addr source_addr;
 	int sock_fd;

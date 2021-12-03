@@ -550,7 +550,7 @@ void pim_if_addr_add(struct connected *ifc)
 		if (pim_ifp->join_list) {
 			struct listnode *node;
 			struct listnode *nextnode;
-			struct igmp_join *ij;
+			struct gm_join *ij;
 			int join_fd;
 
 			for (ALL_LIST_ELEMENTS(pim_ifp->join_list, node,
@@ -1157,17 +1157,17 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	return t_suppressed_msec;
 }
 
-static void igmp_join_free(struct igmp_join *ij)
+static void igmp_join_free(struct gm_join *ij)
 {
 	XFREE(MTYPE_PIM_IGMP_JOIN, ij);
 }
 
-static struct igmp_join *igmp_join_find(struct list *join_list,
-					struct in_addr group_addr,
-					struct in_addr source_addr)
+static struct gm_join *igmp_join_find(struct list *join_list,
+				      struct in_addr group_addr,
+				      struct in_addr source_addr)
 {
 	struct listnode *node;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	assert(join_list);
 
@@ -1209,12 +1209,12 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 	return join_fd;
 }
 
-static struct igmp_join *igmp_join_new(struct interface *ifp,
-				       struct in_addr group_addr,
-				       struct in_addr source_addr)
+static struct gm_join *igmp_join_new(struct interface *ifp,
+				     struct in_addr group_addr,
+				     struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 	int join_fd;
 
 	pim_ifp = ifp->info;
@@ -1252,7 +1252,7 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			    struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1295,7 +1295,7 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1352,7 +1352,7 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
