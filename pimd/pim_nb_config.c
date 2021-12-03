@@ -88,7 +88,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	/* scan igmp groups */
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 		struct listnode *srcnode;
-		struct igmp_source *src;
+		struct gm_source *src;
 
 		/* scan group sources */
 		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode,
@@ -467,7 +467,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	/* scan socket groups */
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grp_node, grp)) {
 		struct listnode *src_node;
-		struct igmp_source *src;
+		struct gm_source *src;
 
 		/* reset group timers for groups in EXCLUDE mode */
 		if (grp->group_filtermode_isexcl)

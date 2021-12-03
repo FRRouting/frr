@@ -3523,7 +3523,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 			char group_str[INET_ADDRSTRLEN];
 			char grp_retr_mmss[10];
 			struct listnode *src_node;
-			struct igmp_source *src;
+			struct gm_source *src;
 			int grp_retr_sources = 0;
 
 			pim_inet4_dump("<group?>", grp->group_addr, group_str,
@@ -3574,7 +3574,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			struct listnode *srcnode;
-			struct igmp_source *src;
+			struct gm_source *src;
 
 			pim_inet4_dump("<group?>", grp->group_addr, group_str,
 				       sizeof(group_str));
@@ -3629,7 +3629,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			struct listnode *srcnode;
-			struct igmp_source *src;
+			struct gm_source *src;
 
 			pim_inet4_dump("<group?>", grp->group_addr, group_str,
 				       sizeof(group_str));
