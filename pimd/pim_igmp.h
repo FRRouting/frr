@@ -82,7 +82,7 @@ struct gm_join {
 	time_t sock_creation;
 };
 
-struct igmp_sock {
+struct gm_sock {
 	int fd;
 	struct interface *interface;
 	struct in_addr ifaddr;
@@ -108,21 +108,20 @@ void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp);
 void pim_igmp_if_reset(struct pim_interface *pim_ifp);
 void pim_igmp_if_fini(struct pim_interface *pim_ifp);
 
-struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
-					      struct in_addr ifaddr);
-struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
-				    struct in_addr ifaddr,
-				    struct interface *ifp,
-				    bool mtrace_only);
-void igmp_sock_delete(struct igmp_sock *igmp);
-void igmp_sock_free(struct igmp_sock *igmp);
+struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
+					    struct in_addr ifaddr);
+struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
+				  struct in_addr ifaddr, struct interface *ifp,
+				  bool mtrace_only);
+void igmp_sock_delete(struct gm_sock *igmp);
+void igmp_sock_free(struct gm_sock *igmp);
 void igmp_sock_delete_all(struct interface *ifp);
-int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len);
+int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len);
 bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *ip_hlen);
-void pim_igmp_general_query_on(struct igmp_sock *igmp);
-void pim_igmp_general_query_off(struct igmp_sock *igmp);
-void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp);
-void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp);
+void pim_igmp_general_query_on(struct gm_sock *igmp);
+void pim_igmp_general_query_off(struct gm_sock *igmp);
+void pim_igmp_other_querier_timer_on(struct gm_sock *igmp);
+void pim_igmp_other_querier_timer_off(struct gm_sock *igmp);
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 
@@ -185,9 +184,9 @@ struct gm_group {
 	int64_t last_igmp_v2_report_dsec;
 };
 
-struct gm_group *find_group_by_addr(struct igmp_sock *igmp,
+struct gm_group *find_group_by_addr(struct gm_sock *igmp,
 				    struct in_addr group_addr);
-struct gm_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
+struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 					struct in_addr group_addr);
 
 struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
@@ -196,7 +195,7 @@ struct gm_source *igmp_get_source_by_addr(struct gm_group *group,
 
 void igmp_group_delete_empty_include(struct gm_group *group);
 
-void igmp_startup_mode_on(struct igmp_sock *igmp);
+void igmp_startup_mode_on(struct gm_sock *igmp);
 
 void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 			 const char *ifname);
