@@ -2604,45 +2604,7 @@ static int ripng_vrf_enable(struct vrf *vrf)
 	int socket;
 
 	ripng = ripng_lookup_by_vrf_name(vrf->name);
-	if (!ripng) {
-		char *old_vrf_name = NULL;
-
-		ripng = (struct ripng *)vrf->info;
-		if (!ripng)
-			return 0;
-		/* update vrf name */
-		if (ripng->vrf_name)
-			old_vrf_name = ripng->vrf_name;
-		ripng->vrf_name = XSTRDUP(MTYPE_RIPNG_VRF_NAME, vrf->name);
-		/*
-		 * HACK: Change the RIPng VRF in the running configuration directly,
-		 * bypassing the northbound layer. This is necessary to avoid deleting
-		 * the RIPng and readding it in the new VRF, which would have
-		 * several implications.
-		 */
-		if (yang_module_find("frr-ripngd") && old_vrf_name) {
-			struct lyd_node *ripng_dnode;
-			char oldpath[XPATH_MAXLEN];
-			char newpath[XPATH_MAXLEN];
-
-			ripng_dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
-				old_vrf_name);
-			if (ripng_dnode) {
-				yang_dnode_get_path(lyd_parent(ripng_dnode),
-						    oldpath, sizeof(oldpath));
-				yang_dnode_change_leaf(ripng_dnode, vrf->name);
-				yang_dnode_get_path(lyd_parent(ripng_dnode),
-						    newpath, sizeof(newpath));
-				nb_running_move_tree(oldpath, newpath);
-				running_config->version++;
-			}
-		}
-		XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
-	}
-
-	if (ripng->enabled)
+	if (!ripng || ripng->enabled)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_EVENT)
@@ -2681,7 +2643,7 @@ static int ripng_vrf_disable(struct vrf *vrf)
 void ripng_vrf_init(void)
 {
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
-		 ripng_vrf_delete, ripng_vrf_enable);
+		 ripng_vrf_delete);
 
 	vrf_cmd_init(NULL);
 }

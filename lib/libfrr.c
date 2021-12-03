@@ -116,6 +116,7 @@ static const struct option lo_always[] = {
 	{"module", no_argument, NULL, 'M'},
 	{"profile", required_argument, NULL, 'F'},
 	{"pathspace", required_argument, NULL, 'N'},
+	{"vrfdefaultname", required_argument, NULL, 'o'},
 	{"vty_socket", required_argument, NULL, OPTION_VTYSOCK},
 	{"moduledir", required_argument, NULL, OPTION_MODULEDIR},
 	{"scriptdir", required_argument, NULL, OPTION_SCRIPTDIR},
@@ -125,13 +126,14 @@ static const struct option lo_always[] = {
 	{"limit-fds", required_argument, NULL, OPTION_LIMIT_FDS},
 	{NULL}};
 static const struct optspec os_always = {
-	"hvdM:F:N:",
+	"hvdM:F:N:o:",
 	"  -h, --help         Display this help and exit\n"
 	"  -v, --version      Print program version\n"
 	"  -d, --daemon       Runs in daemon mode\n"
 	"  -M, --module       Load specified module\n"
 	"  -F, --profile      Use specified configuration profile\n"
 	"  -N, --pathspace    Insert prefix into config & socket paths\n"
+	"  -o, --vrfdefaultname     Set default VRF name.\n"
 	"      --vty_socket   Override vty socket path\n"
 	"      --moduledir    Override modules directory\n"
 	"      --scriptdir    Override scripts directory\n"
@@ -509,6 +511,9 @@ static int frr_opt(int opt)
 			 di->pathspace);
 		snprintf(pidfile_default, sizeof(pidfile_default), "%s/%s.pid",
 			 frr_vtydir, di->name);
+		break;
+	case 'o':
+		vrf_set_default_name(optarg);
 		break;
 #ifdef HAVE_SQLITE3
 	case OPTION_DB_FILE:

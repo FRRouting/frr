@@ -180,7 +180,7 @@ int zebra_ns_final_shutdown(struct ns *ns,
 	return NS_WALK_CONTINUE;
 }
 
-int zebra_ns_init(const char *optional_default_name)
+int zebra_ns_init(void)
 {
 	struct ns *default_ns;
 	ns_id_t ns_id;
@@ -212,10 +212,6 @@ int zebra_ns_init(const char *optional_default_name)
 
 	/* Default NS is activated */
 	zebra_ns_enable(ns_id_external, (void **)&dzns);
-
-	if (optional_default_name)
-		vrf_set_default_name(optional_default_name,
-				     true);
 
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);

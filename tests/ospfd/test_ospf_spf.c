@@ -34,7 +34,7 @@ static struct ospf *test_init(struct ospf_test_node *root)
 	struct in_addr area_id;
 	struct in_addr router_id;
 
-	ospf = ospf_new_alloc(0, NULL);
+	ospf = ospf_new_alloc(0, VRF_DEFAULT_NAME);
 
 	area_id.s_addr = OSPF_AREA_BACKBONE;
 	area = ospf_area_new(ospf, area_id);
