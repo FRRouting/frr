@@ -390,9 +390,25 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	pim_upstream_keep_alive_timer_start(up, vxlan_sg->pim->keep_alive_time);
 
 	/* register the source with the RP */
-	if (up->reg_state == PIM_REG_NOINFO) {
+	switch (up->reg_state) {
+
+	case PIM_REG_NOINFO:
 		pim_register_join(up);
 		pim_null_register_send(up);
+		break;
+
+	case PIM_REG_JOIN:
+		/* if the pim upstream entry is already in reg-join state
+		 * send null_register right away and add to the register
+		 * worklist
+		 */
+		pim_null_register_send(up);
+		pim_vxlan_update_sg_reg_state(pim, up, true);
+		break;
+
+	case PIM_REG_JOIN_PENDING:
+	case PIM_REG_PRUNE:
+		break;
 	}
 
 	/* update the inherited OIL */
