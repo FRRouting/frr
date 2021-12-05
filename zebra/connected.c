@@ -76,10 +76,18 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 
 	if (!if_is_loopback(ifp) && ifc->address->family == AF_INET &&
 	    !IS_ZEBRA_IF_VRF(ifp)) {
-		if (ifc->address->prefixlen == 32)
-			SET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
-		else
-			UNSET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
+			if (CONNECTED_PEER(ifc)) {
+				if(ifc->destination->prefixlen == 32)
+					SET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
+				else
+					UNSET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
+				
+			} else {
+				if(ifc->address->prefixlen == 32)
+					SET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
+				else
+					UNSET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
+			}
 	}
 
 	listnode_add(ifp->connected, ifc);
