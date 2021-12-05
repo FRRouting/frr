@@ -554,7 +554,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
 					  grp)) {
 			struct listnode *srcnode;
 			struct igmp_source *src;
@@ -564,7 +564,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 						  srcnode, src)) {
 				igmp_source_forward_reevaluate_one(pim, src);
 			} /* scan group sources */
-		}	 /* scan igmp groups */
+		}	  /* scan igmp groups */
 
 		RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb,
 				 ch_temp) {
