@@ -15,7 +15,7 @@ AllowAllParametersOfDeclarationOnNextLine: false
 AlignAfterOpenBracket: true
 SpaceAfterCStyleCast: false
 MaxEmptyLinesToKeep: 2
-BreakBeforeBinaryOperators: NonAssignment
+BreakBeforeBinaryOperators: None
 BreakStringLiterals: false
 SortIncludes:    false
 IncludeCategories:
