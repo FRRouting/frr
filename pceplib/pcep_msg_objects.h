@@ -367,7 +367,7 @@ enum pcep_lsp_operational_status {
 };
 
 #define MAX_PLSP_ID 0x000fffff /* The plsp_id is only 20 bits */
-#define MAX_LSP_STATUS 0x0007 /* The status is only 3 bits */
+#define MAX_LSP_STATUS 0x0007  /* The status is only 3 bits */
 #define OBJECT_LSP_FLAG_D 0x01
 #define OBJECT_LSP_FLAG_S 0x02
 #define OBJECT_LSP_FLAG_R 0x04
