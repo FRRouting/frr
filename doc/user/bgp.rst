@@ -1488,11 +1488,29 @@ Configuring Peers
        neighbor bar update-source lo0
 
 
-.. clicmd:: neighbor PEER default-originate
+.. clicmd:: neighbor PEER default-originate [route-map WORD]
 
    *bgpd*'s default is to not announce the default route (0.0.0.0/0) even if it
    is in routing table. When you want to announce default routes to the peer,
    use this command.
+
+   If ``route-map`` keyword is specified, then the default route will be
+   originated only if route-map conditions are met. For example, announce
+   the default route only if ``10.10.10.10/32`` route exists and set an
+   arbitrary community for a default route.
+
+   .. code-block:: frr
+
+      router bgp 64555
+       address-family ipv4 unicast
+        neighbor 192.168.255.1 default-originate route-map default
+      !
+      ip prefix-list p1 seq 5 permit 10.10.10.10/32
+      !
+      route-map default permit 10
+       match ip address prefix-list p1
+       set community 123:123
+      !
 
 .. clicmd:: neighbor PEER port PORT
 
