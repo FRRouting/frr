@@ -6963,7 +6963,12 @@ DEFUN (ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/join-prune-interval",
+	char jp_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(jp_timer_xpath, sizeof(jp_timer_xpath),
+		 "/frr-pim:pim/address-family[address-family='%s']/join-prune-interval",
+		 "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, jp_timer_xpath,
 			      NB_OP_MODIFY, argv[3]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -6978,7 +6983,12 @@ DEFUN (no_ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        IGNORED_IN_NO_STR)
 {
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/join-prune-interval",
+	char jp_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(jp_timer_xpath, sizeof(jp_timer_xpath),
+                 "/frr-pim:pim/address-family[address-family='%s']/join-prune-interval",
+                 "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, jp_timer_xpath,
 			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -6992,7 +7002,12 @@ DEFUN (ip_pim_register_suppress,
        "Register Suppress Timer\n"
        "Seconds\n")
 {
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/register-suppress-time",
+	char rs_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
+		 "/frr-pim:pim/address-family[address-family='%s']/register-suppress-time",
+		 "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, rs_timer_xpath,
 			      NB_OP_MODIFY, argv[3]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -7007,7 +7022,12 @@ DEFUN (no_ip_pim_register_suppress,
        "Register Suppress Timer\n"
        IGNORED_IN_NO_STR)
 {
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/register-suppress-time",
+	char rs_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
+		 "/frr-pim:pim/address-family[address-family='%s']/register-suppress-time",
+		 "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, rs_timer_xpath,
 			      NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -7030,7 +7050,8 @@ DEFUN (ip_pim_rp_keep_alive,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
 	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
 		sizeof(rp_ka_timer_xpath));
 
@@ -7054,10 +7075,15 @@ DEFUN (no_ip_pim_rp_keep_alive,
 	char rp_ka_timer[6];
 	char rp_ka_timer_xpath[XPATH_MAXLEN];
 	uint v;
+	char rs_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
+		 "/frr-pim:pim/address-family[address-family='%s']/register-suppress-time",
+		 "frr-routing:ipv4");
 
 	/* RFC4601 */
 	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
-				  "/frr-pim:pim/register-suppress-time");
+				  rs_timer_xpath);
 	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
 	if (v > UINT16_MAX)
 		v = UINT16_MAX;
@@ -7068,7 +7094,8 @@ DEFUN (no_ip_pim_rp_keep_alive,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_XPATH, "frr-pim:pimd", "pim", vrfname);
+		 FRR_PIM_AF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 "frr-routing:ipv4");
 	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
 		sizeof(rp_ka_timer_xpath));
 
@@ -7093,8 +7120,8 @@ DEFUN (ip_pim_keep_alive,
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
 
 	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
@@ -7119,8 +7146,8 @@ DEFUN (no_ip_pim_keep_alive,
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
 
 	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
@@ -7136,7 +7163,12 @@ DEFUN (ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_MODIFY,
+	char packet_xpath[XPATH_MAXLEN];
+
+	snprintf(packet_xpath, sizeof(packet_xpath),
+		 "/frr-pim:pim/address-family[address-family='%s']/packets",
+		 "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, packet_xpath, NB_OP_MODIFY,
 			      argv[3]->arg);
 
 	return nb_cli_apply_changes(vty, NULL);
@@ -7151,7 +7183,12 @@ DEFUN (no_ip_pim_packets,
        "packets to process at one time per fd\n"
        IGNORED_IN_NO_STR)
 {
-	nb_cli_enqueue_change(vty, "/frr-pim:pim/packets", NB_OP_DESTROY, NULL);
+	char packet_xpath[XPATH_MAXLEN];
+
+	snprintf(packet_xpath, sizeof(packet_xpath),
+		 "/frr-pim:pim/address-family[address-family='%s']/packets",
+		 "frr-routing:ipv4");
+	nb_cli_enqueue_change(vty, packet_xpath, NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -7709,8 +7746,8 @@ DEFUN (ip_pim_ecmp,
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
 
 	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "true");
@@ -7732,8 +7769,8 @@ DEFUN (no_ip_pim_ecmp,
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
 
 	nb_cli_enqueue_change(vty, ecmp_xpath, NB_OP_MODIFY, "false");
@@ -7757,12 +7794,12 @@ DEFUN (ip_pim_ecmp_rebalance,
 	if (vrfname == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+	snprintf(ecmp_xpath, sizeof(ecmp_xpath), FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ecmp_xpath, "/ecmp", sizeof(ecmp_xpath));
 	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
-		 FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
 		sizeof(ecmp_rebalance_xpath));
 
@@ -7789,8 +7826,8 @@ DEFUN (no_ip_pim_ecmp_rebalance,
 		return CMD_WARNING_CONFIG_FAILED;
 
 	snprintf(ecmp_rebalance_xpath, sizeof(ecmp_rebalance_xpath),
-		 FRR_PIM_XPATH,
-		 "frr-pim:pimd", "pim", vrfname);
+		 FRR_PIM_AF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
 	strlcat(ecmp_rebalance_xpath, "/ecmp-rebalance",
 		sizeof(ecmp_rebalance_xpath));
 
@@ -7805,9 +7842,11 @@ DEFUN (interface_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+		"./frr-mgmd:mgmd/address-family[address-family='%s']",
+		"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp,
@@ -7821,7 +7860,8 @@ DEFUN (interface_no_ip_igmp,
 	char pim_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
-		 "%s/frr-pim:pim", VTY_CURR_XPATH);
+		 "%s/frr-pim:pim/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
 
 	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   "%s/pim-enable", pim_if_xpath);
@@ -7834,11 +7874,13 @@ DEFUN (interface_no_ip_igmp,
 					      NULL);
 			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 		} else
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "false");
 	}
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_join,
@@ -7866,7 +7908,7 @@ DEFUN (interface_ip_igmp_join,
 	} else
 		source_str = "0.0.0.0";
 
-	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+	snprintf(xpath, sizeof(xpath), FRR_MGMD_JOIN_XPATH,
 		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -7900,7 +7942,7 @@ DEFUN (interface_no_ip_igmp_join,
 	} else
 		source_str = "0.0.0.0";
 
-	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+	snprintf(xpath, sizeof(xpath), FRR_MGMD_JOIN_XPATH,
 		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
@@ -7920,20 +7962,23 @@ DEFUN (interface_ip_igmp_query_interval,
 
 	pim_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
+				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_query_interval,
@@ -7947,7 +7992,9 @@ DEFUN (interface_no_ip_igmp_query_interval,
 {
 	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_version,
@@ -7958,11 +8005,13 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 			      "true");
 	nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_version,
@@ -7976,7 +8025,9 @@ DEFUN (interface_no_ip_igmp_version,
 {
 	nb_cli_enqueue_change(vty, "./version", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_query_max_response_time,
@@ -7991,21 +8042,24 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 
 	pim_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
+				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
@@ -8019,7 +8073,9 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 {
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
 			      NULL);
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
@@ -8034,20 +8090,23 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 
 	pim_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
+				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
@@ -8062,7 +8121,9 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
 			      NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_count,
@@ -8077,20 +8138,23 @@ DEFUN (interface_ip_igmp_last_member_query_count,
 
 	pim_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
+				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
@@ -8105,7 +8169,9 @@ DEFUN (interface_no_ip_igmp_last_member_query_count,
 	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
 			      NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
@@ -8120,20 +8186,23 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
 
 	pim_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-pim:pim/pim-enable", VTY_CURR_XPATH);
+				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
@@ -8148,7 +8217,9 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
 	nb_cli_enqueue_change(vty, "./last-member-query-interval",
 			      NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty,
+			"./frr-mgmd:mgmd/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_pim_drprio,
@@ -8164,7 +8235,8 @@ DEFUN (interface_ip_pim_drprio,
 	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
 			      argv[idx_number]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_pim_drprio,
@@ -8178,7 +8250,8 @@ DEFUN (interface_no_ip_pim_drprio,
 {
 	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']",
+				   "frr-routing:ipv4");
 }
 
 DEFPY_HIDDEN (interface_ip_igmp_query_generate,
@@ -8276,7 +8349,9 @@ DEFPY (interface_ip_pim_activeactive,
 				      "true");
 	}
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN_HIDDEN (interface_ip_pim_ssm,
@@ -8290,7 +8365,9 @@ DEFUN_HIDDEN (interface_ip_pim_ssm,
 
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
-	ret = nb_cli_apply_changes(vty, "./frr-pim:pim");
+	ret = nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 
 	if (ret != NB_OK)
 		return ret;
@@ -8310,7 +8387,9 @@ DEFUN_HIDDEN (interface_ip_pim_sm,
 {
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_pim,
@@ -8321,7 +8400,10 @@ DEFUN (interface_ip_pim,
 {
 	nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
+
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_ssm,
@@ -8336,9 +8418,10 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+		 "%s/frr-mgmd:mgmd/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
 	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    "%s/igmp-enable", igmp_if_xpath);
+					    "%s/enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8353,7 +8436,8 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 					      "false");
 	}
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty, "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN_HIDDEN (interface_no_ip_pim_sm,
@@ -8368,9 +8452,10 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+		 "%s/frr-mgmd:mgmd/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
 	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    "%s/igmp-enable", igmp_if_xpath);
+					    "%s/enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8385,7 +8470,9 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 					      "false");
 	}
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_pim,
@@ -8399,9 +8486,10 @@ DEFUN (interface_no_ip_pim,
 	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+		 "%s/frr-mgmd:mgmd/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
 	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    "%s/igmp-enable", igmp_if_xpath);
+					    "%s/enable", igmp_if_xpath);
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8416,7 +8504,9 @@ DEFUN (interface_no_ip_pim,
 					      "false");
 	}
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 /* boundaries */
@@ -8524,7 +8614,8 @@ DEFUN (interface_ip_pim_hello,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				"%s/frr-mgmd:mgmd/address-family[address-family='%s']/enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -8541,7 +8632,9 @@ DEFUN (interface_ip_pim_hello,
 		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
 				      argv[idx_hold]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_pim_hello,
@@ -8557,7 +8650,9 @@ DEFUN (interface_no_ip_pim_hello,
 	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
 	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFUN (debug_igmp,
@@ -9238,7 +9333,8 @@ DEFPY (ip_pim_bfd,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				"%s/frr-mgmd:mgmd/address-family[address-family='%s']/enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9252,7 +9348,9 @@ DEFPY (ip_pim_bfd,
 	if (prof)
 		nb_cli_enqueue_change(vty, "./bfd/profile", NB_OP_MODIFY, prof);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+				    "./frr-pim:pim/address-family[address-family='%s']",
+				    "frr-routing:ipv4");
 }
 
 DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
@@ -9266,7 +9364,9 @@ DEFPY(no_ip_pim_bfd_profile, no_ip_pim_bfd_profile_cmd,
 {
 	nb_cli_enqueue_change(vty, "./bfd/profile", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_bfd,
@@ -9279,7 +9379,9 @@ DEFUN (no_ip_pim_bfd,
 {
 	nb_cli_enqueue_change(vty, "./bfd", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_bsm,
@@ -9293,7 +9395,8 @@ DEFUN (ip_pim_bsm,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				"%s/frr-mgmd:mgmd/address-family[address-family='%s']/enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9305,7 +9408,9 @@ DEFUN (ip_pim_bsm,
 
 	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (no_ip_pim_bsm,
@@ -9318,7 +9423,9 @@ DEFUN (no_ip_pim_bsm,
 {
 	nb_cli_enqueue_change(vty, "./bsm", NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFUN (ip_pim_ucast_bsm,
@@ -9332,7 +9439,8 @@ DEFUN (ip_pim_ucast_bsm,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				"%s/frr-mgmd:mgmd/address-family[address-family='%s']/enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9344,7 +9452,10 @@ DEFUN (ip_pim_ucast_bsm,
 
 	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
+
 }
 
 DEFUN (no_ip_pim_ucast_bsm,
@@ -9357,7 +9468,9 @@ DEFUN (no_ip_pim_ucast_bsm,
 {
 	nb_cli_enqueue_change(vty, "./unicast-bsm", NB_OP_MODIFY, "false");
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 #if HAVE_BFDD > 0
@@ -9391,7 +9504,8 @@ DEFUN_HIDDEN (
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				"%s/frr-mgmd:mgmd/address-family[address-family='%s']/enable",
+				VTY_CURR_XPATH, "frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9409,7 +9523,9 @@ DEFUN_HIDDEN (
 	nb_cli_enqueue_change(vty, "./bfd/detect_mult", NB_OP_MODIFY,
 			      argv[idx_number]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-pim:pim");
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 #if HAVE_BFDD == 0
@@ -9452,7 +9568,9 @@ DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
 	nb_cli_enqueue_change(vty, msdp_peer_source_xpath, NB_OP_MODIFY,
 			      source_str);
 
-	return nb_cli_apply_changes(vty, NULL);
+	return nb_cli_apply_changes(vty,
+			"./frr-pim:pim/address-family[address-family='%s']",
+			"frr-routing:ipv4");
 }
 
 DEFPY(ip_msdp_timers, ip_msdp_timers_cmd,
@@ -11179,4 +11297,11 @@ void pim_cmd_init(void)
 #if HAVE_BFDD == 0
 	install_element(INTERFACE_NODE, &no_ip_pim_bfd_param_cmd);
 #endif /* !HAVE_BFDD */
+}
+
+void pim6_cmd_init(void)
+{
+        if_cmd_init(pim_interface_config_write);
+
+        install_node(&debug_node);
 }

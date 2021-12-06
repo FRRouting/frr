@@ -72,7 +72,7 @@
 
 
 void pim_cmd_init(void);
-
+void pim6_cmd_init(void);
 /*
  * Special Macro to allow us to get the correct pim_instance;
  */
