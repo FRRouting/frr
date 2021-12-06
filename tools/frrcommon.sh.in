@@ -73,12 +73,16 @@ chownfrr() {
 
 vtysh_b () {
 	[ "$1" = "watchfrr" ] && return 0
-	[ -r "$C_PATH/frr.conf" ] || return 0
-	if [ -n "$1" ]; then
-		"$VTYSH" `echo $nsopt` -b -d "$1"
-	else
-		"$VTYSH" `echo $nsopt` -b
+	if [ -r "$C_PATH/frr.conf" ]; then
+		log_warning_msg "$C_PATH/frr.conf does not exist; skipping config apply"
+		return 0
 	fi
+
+	cmd="$VTYSH `echo $nsopt` -b"
+	[ -n "$1" ] && cmd+=" -d $1"
+
+	log_success_msg "Sending config with '$cmd'"
+	eval "$cmd"
 }
 
 daemon_inst() {
@@ -176,7 +180,9 @@ daemon_start() {
 	instopt="${inst:+-n $inst}"
 	eval args="\$${daemon}_options"
 
-	if eval "$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"; then
+	cmd="$all_wrap $wrap $bin $nsopt -d $frr_global_options $instopt $args"
+	log_success_msg "Starting $daemon with command: '$cmd'"
+	if eval "$cmd"; then
 		log_success_msg "Started $dmninst"
 		if $all; then
 			debug "Skipping startup of vtysh until all have started"
