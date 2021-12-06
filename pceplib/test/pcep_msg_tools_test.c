@@ -174,12 +174,11 @@ static int BASE_TMPFILE_SIZE = sizeof(BASE_TMPFILE);
 
 /* Reads an array of hexbyte strs, and writes them to a temporary file.
  * The caller should close the returned file. */
-int convert_hexstrs_to_binary(char *filename,
-			      const char *hexbyte_strs[],
+int convert_hexstrs_to_binary(char *filename, const char *hexbyte_strs[],
 			      uint16_t hexbyte_strs_length)
 {
 	mode_t oldumask;
-	oldumask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
+	oldumask = umask(S_IXUSR | S_IXGRP | S_IWOTH | S_IROTH | S_IXOTH);
 	/* Set umask before anything for security */
 	umask(0027);
 
@@ -216,11 +215,10 @@ void test_pcep_msg_read_pcep_initiate()
 {
 	char filename[BASE_TMPFILE_SIZE];
 
-	int fd = convert_hexstrs_to_binary(filename,
-					   pcep_initiate_hexbyte_strs,
+	int fd = convert_hexstrs_to_binary(filename, pcep_initiate_hexbyte_strs,
 					   pcep_initiate_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -321,11 +319,11 @@ void test_pcep_msg_read_pcep_initiate2()
 {
 	char filename[BASE_TMPFILE_SIZE];
 
-	int fd = convert_hexstrs_to_binary(filename,
-					   pcep_initiate2_hexbyte_strs,
-					   pcep_initiate2_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	int fd =
+		convert_hexstrs_to_binary(filename, pcep_initiate2_hexbyte_strs,
+					  pcep_initiate2_hexbyte_strs_length);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -414,11 +412,10 @@ void test_pcep_msg_read_pcep_open()
 {
 	char filename[BASE_TMPFILE_SIZE];
 
-	int fd = convert_hexstrs_to_binary(filename,
-					   pcep_open_odl_hexbyte_strs,
+	int fd = convert_hexstrs_to_binary(filename, pcep_open_odl_hexbyte_strs,
 					   pcep_open_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -463,11 +460,10 @@ void test_pcep_msg_read_pcep_update()
 {
 	char filename[BASE_TMPFILE_SIZE];
 
-	int fd = convert_hexstrs_to_binary(filename,
-					   pcep_update_hexbyte_strs,
+	int fd = convert_hexstrs_to_binary(filename, pcep_update_hexbyte_strs,
 					   pcep_update_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -553,8 +549,8 @@ void test_pcep_msg_read_pcep_open_initiate()
 	int fd = convert_hexstrs_to_binary(
 		filename, pcep_open_initiate_odl_hexbyte_strs,
 		pcep_open_initiate_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -586,8 +582,8 @@ void test_pcep_msg_read_pcep_open_cisco_pce()
 	int fd = convert_hexstrs_to_binary(
 		filename, pcep_open_cisco_pce_hexbyte_strs,
 		pcep_open_cisco_pce_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -653,8 +649,8 @@ void test_pcep_msg_read_pcep_update_cisco_pce()
 	int fd = convert_hexstrs_to_binary(
 		filename, pcep_update_cisco_pce_hexbyte_strs,
 		pcep_update_cisco_pce_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -801,8 +797,8 @@ void test_pcep_msg_read_pcep_report_cisco_pcc()
 	int fd = convert_hexstrs_to_binary(
 		filename, pcep_report_cisco_pcc_hexbyte_strs,
 		pcep_report_cisco_pcc_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
@@ -966,8 +962,8 @@ void test_pcep_msg_read_pcep_initiate_cisco_pcc()
 	int fd = convert_hexstrs_to_binary(
 		filename, pcep_initiate_cisco_pcc_hexbyte_strs,
 		pcep_initiate_cisco_pcc_hexbyte_strs_length);
-	if(fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	double_linked_list *msg_list = pcep_msg_read(fd);
