@@ -324,7 +324,7 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 	struct listnode *node;
 	struct pim_secondary_addr *sec_addr;
 
-	if (pim_ifp->primary_address.s_addr
+	if (pim_ifp->primary_address.ipaddr_v4.s_addr
 	    == rp_info->rp.rpf_addr.u.prefix4.s_addr)
 		return 1;
 

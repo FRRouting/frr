@@ -108,7 +108,7 @@ static void pim_show_assert_helper(struct vty *vty,
 	char timer[10];
 	char buf[PREFIX_STRLEN];
 
-	ifaddr = pim_ifp->primary_address;
+	ifaddr = pim_ifp->primary_address.ipaddr_v4;
 
 	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
 		       sizeof(ch_src_str));
@@ -159,7 +159,7 @@ static void pim_show_assert_internal_helper(struct vty *vty,
 	struct in_addr ifaddr;
 	char buf[PREFIX_STRLEN];
 
-	ifaddr = pim_ifp->primary_address;
+	ifaddr = pim_ifp->primary_address.ipaddr_v4;
 
 	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
 		       sizeof(ch_src_str));
@@ -212,10 +212,10 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 	struct in_addr ifaddr;
 	char buf[PREFIX_STRLEN];
 
-	ifaddr = pim_ifp->primary_address;
+	ifaddr = pim_ifp->primary_address.ipaddr_v4;
 
 	am = pim_macro_spt_assert_metric(&ch->upstream->rpf,
-					 pim_ifp->primary_address);
+					 pim_ifp->primary_address.ipaddr_v4);
 
 	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
 		       sizeof(ch_src_str));
@@ -263,7 +263,7 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 	char metr_str[16];
 	char buf[PREFIX_STRLEN];
 
-	ifaddr = pim_ifp->primary_address;
+	ifaddr = pim_ifp->primary_address.ipaddr_v4;
 
 	am = &ch->ifassert_winner_metric;
 
@@ -321,7 +321,7 @@ static void json_object_pim_ifp_add(struct json_object *json,
 	json_object_string_add(json, "name", ifp->name);
 	json_object_string_add(json, "state", if_is_up(ifp) ? "up" : "down");
 	json_object_string_addf(json, "address", "%pI4",
-				&pim_ifp->primary_address);
+				&pim_ifp->primary_address.ipaddr_v4);
 	json_object_int_add(json, "index", ifp->ifindex);
 
 	if (if_is_multicast(ifp))
@@ -727,12 +727,12 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 			} else {
 				vty_out(vty, "Interface : %s\n", ifp->name);
 				vty_out(vty, "State     : %s\n",
-					if_is_up(ifp) ? (igmp->mtrace_only ?
-							 "mtrace"
-							 : "up")
-					: "down");
+					if_is_up(ifp)
+						? (igmp->mtrace_only ? "mtrace"
+								     : "up")
+						: "down");
 				vty_out(vty, "Address   : %pI4\n",
-					&pim_ifp->primary_address);
+					&pim_ifp->primary_address.ipaddr_v4);
 				vty_out(vty, "Uptime    : %s\n", uptime);
 				vty_out(vty, "Version   : %d\n",
 					pim_ifp->version);
@@ -743,10 +743,10 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 				vty_out(vty, "-------\n");
 				vty_out(vty, "Querier     : %s\n",
 					igmp->t_igmp_query_timer ? "local"
-					: "other");
+								 : "other");
 				vty_out(vty, "QuerierIp   : %pI4",
 					&igmp->querier_addr);
-				if (pim_ifp->primary_address.s_addr
+				if (pim_ifp->primary_address.ipaddr_v4.s_addr
 				    == igmp->querier_addr.s_addr)
 					vty_out(vty, " (this router)\n");
 				else
@@ -957,8 +957,8 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			continue;
 
 		found_ifname = 1;
-		ifaddr = pim_ifp->primary_address;
-		pim_inet4_dump("<dr?>", pim_ifp->pim_dr_addr, dr_str,
+		ifaddr = pim_ifp->primary_address.ipaddr_v4;
+		pim_inet4_dump("<dr?>", pim_ifp->pim_dr_addr.ipaddr_v4, dr_str,
 			       sizeof(dr_str));
 		pim_time_uptime_begin(dr_uptime, sizeof(dr_uptime), now,
 				      pim_ifp->pim_dr_election_last);
@@ -978,10 +978,11 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			json_row = json_object_new_object();
 			json_object_pim_ifp_add(json_row, ifp);
 
-			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
+			if (pim_ifp->update_source.ipaddr_v4.s_addr
+			    != INADDR_ANY) {
 				json_object_string_addf(
 					json_row, "useSource", "%pI4",
-					&pim_ifp->update_source);
+					&pim_ifp->update_source.ipaddr_v4);
 			}
 			if (pim_ifp->sec_addr_list) {
 				json_object *sec_list = NULL;
@@ -1156,9 +1157,10 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "Interface  : %s\n", ifp->name);
 			vty_out(vty, "State      : %s\n",
 				if_is_up(ifp) ? "up" : "down");
-			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
+			if (pim_ifp->update_source.ipaddr_v4.s_addr
+			    != INADDR_ANY) {
 				vty_out(vty, "Use Source : %pI4\n",
-					&pim_ifp->update_source);
+					&pim_ifp->update_source.ipaddr_v4);
 			}
 			if (pim_ifp->sec_addr_list) {
 				vty_out(vty, "Address    : %pI4 (primary)\n",
@@ -1435,10 +1437,10 @@ static void pim_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
 		json_object_int_add(json_row, "firstHopRouterCount", fhr);
 		json_object_string_addf(json_row, "pimDesignatedRouter", "%pI4",
-					&pim_ifp->pim_dr_addr);
+					&pim_ifp->pim_dr_addr.ipaddr_v4);
 
-		if (pim_ifp->pim_dr_addr.s_addr
-		    == pim_ifp->primary_address.s_addr)
+		if (pim_ifp->pim_dr_addr.ipaddr_v4.s_addr
+		    == pim_ifp->primary_address.ipaddr_v4.s_addr)
 			json_object_boolean_true_add(
 				json_row, "pimDesignatedRouterLocal");
 
@@ -1692,7 +1694,7 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 	char prune[10];
 	char buf[PREFIX_STRLEN];
 
-	ifaddr = pim_ifp->primary_address;
+	ifaddr = pim_ifp->primary_address.ipaddr_v4;
 
 	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
 		       sizeof(ch_src_str));
@@ -2328,7 +2330,7 @@ static void pim_show_neighbors_secondary(struct pim_instance *pim,
 		if (pim_ifp->pim_sock_fd < 0)
 			continue;
 
-		ifaddr = pim_ifp->primary_address;
+		ifaddr = pim_ifp->primary_address.ipaddr_v4;
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 					  neigh)) {
@@ -5722,14 +5724,15 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				safe_strerror(errno));
 		}
 
-		ifaddr = pim_ifp->primary_address;
+		ifaddr = pim_ifp->primary_address.ipaddr_v4;
 		if (uj) {
 			json_row = json_object_new_object();
 			json_object_string_add(json_row, "name", ifp->name);
 			json_object_string_add(json_row, "state",
 					       if_is_up(ifp) ? "up" : "down");
-			json_object_string_addf(json_row, "address", "%pI4",
-						&pim_ifp->primary_address);
+			json_object_string_addf(
+				json_row, "address", "%pI4",
+				&pim_ifp->primary_address.ipaddr_v4);
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
 					    pim_ifp->mroute_vif_index);

@@ -39,7 +39,7 @@ static struct in_addr mtrace_primary_address(struct interface *ifp)
 
 	if (ifp->info) {
 		pim_ifp = ifp->info;
-		return pim_ifp->primary_address;
+		return pim_ifp->primary_address.ipaddr_v4;
 	}
 
 	any.s_addr = INADDR_ANY;
@@ -214,8 +214,8 @@ static void mtrace_debug(struct pim_interface *pim_ifp,
 
 	zlog_debug(
 		"Rx mtrace packet incoming on %pI4: hops=%d type=%d size=%d, grp=%pI4, src=%pI4, dst=%pI4 rsp=%pI4 ttl=%d qid=%ud",
-		&pim_ifp->primary_address, mtracep->hops, mtracep->type,
-		mtrace_len, &ga, &sa, &da, &ra, mtracep->rsp_ttl,
+		&pim_ifp->primary_address.ipaddr_v4, mtracep->hops,
+		mtracep->type, mtrace_len, &ga, &sa, &da, &ra, mtracep->rsp_ttl,
 		ntohl(mtracep->qry_id));
 	if (mtrace_len > (int)sizeof(struct igmp_mtrace)) {
 
@@ -724,7 +724,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 
 	/* ...and fill in Query Arrival Time... */
 	rspp->arrival = htonl(query_arrival_time());
-	rspp->outgoing = pim_ifp->primary_address;
+	rspp->outgoing = pim_ifp->primary_address.ipaddr_v4;
 	rspp->out_count = htonl(MTRACE_UNKNOWN_COUNT);
 	rspp->fwd_ttl = 1;
 

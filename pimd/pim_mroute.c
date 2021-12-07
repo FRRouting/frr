@@ -332,7 +332,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 		pim_register_send((uint8_t *)buf + sizeof(struct ip),
 				  ntohs(ip_hdr->ip_len) - sizeof(struct ip),
-				  pim_ifp->primary_address, rpg, 0, up);
+				  pim_ifp->primary_address.ipaddr_v4, rpg, 0,
+				  up);
 	}
 	return 0;
 }
@@ -525,7 +526,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 				       up->upstream_register.ipaddr_v4, 0)) {
 				pim_register_stop_send(
 					source.interface, &sg,
-					pim_ifp->primary_address,
+					pim_ifp->primary_address.ipaddr_v4,
 					up->upstream_register.ipaddr_v4);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
@@ -541,8 +542,10 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 					    up->upstream_register.ipaddr_v4, 0))
 					pim_register_stop_send(
 						source.interface, &sg,
-						pim_ifp->primary_address,
-						up->upstream_register.ipaddr_v4);
+						pim_ifp->primary_address
+							.ipaddr_v4,
+						up->upstream_register
+							.ipaddr_v4);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
 			pim_upstream_keep_alive_timer_start(

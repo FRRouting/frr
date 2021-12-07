@@ -254,7 +254,7 @@ void pim_null_register_send(struct pim_upstream *up)
 	ip_hdr.ip_len = htons(20);
 
 	/* checksum is broken */
-	src = pim_ifp->primary_address;
+	src = pim_ifp->primary_address.ipaddr_v4;
 	if (PIM_UPSTREAM_FLAG_TEST_SRC_VXLAN_ORIG(up->flags)) {
 		if (!pim_vxlan_get_register_src(pim_ifp->pim, up, &src)) {
 			if (PIM_DEBUG_PIM_TRACE)

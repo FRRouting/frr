@@ -306,15 +306,16 @@ static int detect_primary_address_change(struct interface *ifp,
 	else
 		new_prim_addr = pim_find_primary_addr(ifp);
 
-	changed = new_prim_addr.s_addr != pim_ifp->primary_address.s_addr;
+	changed = new_prim_addr.s_addr
+		  != pim_ifp->primary_address.ipaddr_v4.s_addr;
 
 	if (PIM_DEBUG_ZEBRA) {
 		char new_prim_str[INET_ADDRSTRLEN];
 		char old_prim_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<new?>", new_prim_addr, new_prim_str,
 			       sizeof(new_prim_str));
-		pim_inet4_dump("<old?>", pim_ifp->primary_address, old_prim_str,
-			       sizeof(old_prim_str));
+		pim_inet4_dump("<old?>", pim_ifp->primary_address.ipaddr_v4,
+			       old_prim_str, sizeof(old_prim_str));
 		zlog_debug("%s: old=%s new=%s on interface %s: %s", __func__,
 			   old_prim_str, new_prim_str, ifp->name,
 			   changed ? "changed" : "unchanged");
@@ -325,7 +326,7 @@ static int detect_primary_address_change(struct interface *ifp,
 		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 			pim_hello_send(ifp, 0 /* zero-sec holdtime */);
 		}
-		pim_ifp->primary_address = new_prim_addr;
+		pim_ifp->primary_address.ipaddr_v4 = new_prim_addr;
 	}
 
 	return changed;
@@ -406,7 +407,8 @@ static int pim_sec_addr_update(struct interface *ifp)
 			continue;
 		}
 
-		if (pim_ifp->primary_address.s_addr == p->u.prefix4.s_addr) {
+		if (pim_ifp->primary_address.ipaddr_v4.s_addr
+		    == p->u.prefix4.s_addr) {
 			/* don't add the primary address into the secondary
 			 * address list */
 			continue;
@@ -487,11 +489,11 @@ int pim_update_source_set(struct interface *ifp, struct in_addr source)
 		return PIM_IFACE_NOT_FOUND;
 	}
 
-	if (pim_ifp->update_source.s_addr == source.s_addr) {
+	if (pim_ifp->update_source.ipaddr_v4.s_addr == source.s_addr) {
 		return PIM_UPDATE_SOURCE_DUP;
 	}
 
-	pim_ifp->update_source = source;
+	pim_ifp->update_source.ipaddr_v4 = source;
 	detect_address_change(ifp, 0 /* force_prim_as_any */, __func__);
 
 	return PIM_SUCCESS;
@@ -600,7 +602,7 @@ void pim_if_addr_add(struct connected *ifc)
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
-		if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+		if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address.ipaddr_v4)) {
 
 			/* Interface has a valid socket ? */
 			if (pim_ifp->pim_sock_fd < 0) {
@@ -686,7 +688,7 @@ static void pim_if_addr_del_pim(struct connected *ifc)
 		return;
 	}
 
-	if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+	if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address.ipaddr_v4)) {
 		/* Interface keeps a valid primary address */
 		return;
 	}
@@ -754,7 +756,8 @@ void pim_if_addr_add_all(struct interface *ifp)
 		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
 			/* Interface has a valid primary address ? */
-			if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+			if (PIM_INADDR_ISNOT_ANY(
+				    pim_ifp->primary_address.ipaddr_v4)) {
 
 				/* Interface has a valid socket ? */
 				if (pim_ifp->pim_sock_fd < 0) {
@@ -838,8 +841,9 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source))
-		return pim_ifp->update_source;
+	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source.ipaddr_v4)) {
+		return pim_ifp->update_source.ipaddr_v4;
+	}
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;
@@ -935,7 +939,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		return -2;
 	}
 
-	ifaddr = pim_ifp->primary_address;
+	ifaddr = pim_ifp->primary_address.ipaddr_v4;
 	if (!ispimreg && !is_vxlan_term && PIM_INADDR_IS_ANY(ifaddr)) {
 		zlog_warn(
 			"%s: could not get address for interface %s ifindex=%d",

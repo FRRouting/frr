@@ -424,13 +424,13 @@ static int pim_sock_open(struct interface *ifp)
 	int fd;
 	struct pim_interface *pim_ifp = ifp->info;
 
-	fd = pim_socket_mcast(IPPROTO_PIM, pim_ifp->primary_address, ifp,
-			      0 /* loop=false */);
+	fd = pim_socket_mcast(IPPROTO_PIM, pim_ifp->primary_address.ipaddr_v4,
+			      ifp, 0 /* loop=false */);
 	if (fd < 0)
 		return -1;
 
 	if (pim_socket_join(fd, qpim_all_pim_routers_addr,
-			    pim_ifp->primary_address, ifp->ifindex)) {
+			    pim_ifp->primary_address.ipaddr_v4, ifp->ifindex)) {
 		close(fd);
 		return -2;
 	}
@@ -480,7 +480,7 @@ void pim_sock_reset(struct interface *ifp)
 
 	pim_ifp = ifp->info;
 
-	pim_ifp->primary_address = pim_find_primary_addr(ifp);
+	pim_ifp->primary_address.ipaddr_v4 = pim_find_primary_addr(ifp);
 
 	pim_ifp->pim_sock_fd = -1;
 	pim_ifp->pim_sock_creation = 0;
@@ -513,7 +513,7 @@ void pim_sock_reset(struct interface *ifp)
 	pim_ifp->pim_dr_election_changes = 0;
 	pim_ifp->pim_dr_num_nondrpri_neighbors =
 		0; /* neighbors without dr_pri */
-	pim_ifp->pim_dr_addr = pim_ifp->primary_address;
+	pim_ifp->pim_dr_addr.ipaddr_v4 = pim_ifp->primary_address.ipaddr_v4;
 	pim_ifp->am_i_dr = true;
 
 	pim_ifstat_reset(ifp);
@@ -689,7 +689,8 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 
 	pim_msg_build_header(pim_msg, pim_msg_size, PIM_MSG_TYPE_HELLO, false);
 
-	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
+	if (pim_msg_send(pim_ifp->pim_sock_fd,
+			 pim_ifp->primary_address.ipaddr_v4,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
 			 ifp->name)) {
 		if (PIM_DEBUG_PIM_HELLO) {

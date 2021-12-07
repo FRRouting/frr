@@ -471,7 +471,8 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 	}
 	++pim_ifp->pim_ifstat_assert_send;
 
-	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
+	if (pim_msg_send(pim_ifp->pim_sock_fd,
+			 pim_ifp->primary_address.ipaddr_v4,
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
 			 ifp->name)) {
 		zlog_warn("%s: could not send PIM message on interface %s",
@@ -594,10 +595,11 @@ int assert_action_a1(struct pim_ifchannel *ch)
 	}
 
 	/* Switch to I_AM_WINNER before performing action_a3 below */
-	pim_ifassert_winner_set(
-		ch, PIM_IFASSERT_I_AM_WINNER, pim_ifp->primary_address,
-		pim_macro_spt_assert_metric(&ch->upstream->rpf,
-					    pim_ifp->primary_address));
+	pim_ifassert_winner_set(ch, PIM_IFASSERT_I_AM_WINNER,
+				pim_ifp->primary_address.ipaddr_v4,
+				pim_macro_spt_assert_metric(
+					&ch->upstream->rpf,
+					pim_ifp->primary_address.ipaddr_v4));
 
 	if (assert_action_a3(ch)) {
 		zlog_warn(

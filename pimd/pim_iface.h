@@ -58,7 +58,9 @@
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
 	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
-#define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
+#define PIM_I_am_DR(pim_ifp)                                                   \
+	(pim_ifp)->pim_dr_addr.ipaddr_v4.s_addr                                \
+		== (pim_ifp)->primary_address.ipaddr_v4.s_addr
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
 /* Macros for interface flags */
@@ -95,10 +97,10 @@ struct pim_interface {
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
 
-	struct in_addr primary_address; /* remember addr to detect change */
-	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
-	struct in_addr update_source;   /* user can statically set the primary
-					 * address of the interface */
+	struct ipaddr primary_address; /* remember addr to detect change */
+	struct list *sec_addr_list;    /* list of struct pim_secondary_addr */
+	struct ipaddr update_source;   /* user can statically set the primary
+					* address of the interface */
 
 	int version;			  /* IGMP or MLD version */
 	int default_robustness_variable;  /* IGMP or MLD QRV */
@@ -144,7 +146,7 @@ struct pim_interface {
 	int64_t pim_dr_election_last; /* timestamp */
 	int pim_dr_election_count;
 	int pim_dr_election_changes;
-	struct in_addr pim_dr_addr;
+	struct ipaddr pim_dr_addr;
 	uint32_t pim_dr_priority;	  /* config */
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 

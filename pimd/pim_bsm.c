@@ -713,8 +713,9 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 		return false;
 	}
 
-	if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
-			 dst_addr, buf, len, ifp->name)) {
+	if (pim_msg_send(pim_ifp->pim_sock_fd,
+			 pim_ifp->primary_address.ipaddr_v4, dst_addr, buf, len,
+			 ifp->name)) {
 		zlog_warn("%s: Could not send BSM message on interface: %s",
 			  __func__, ifp->name);
 		return false;
@@ -964,7 +965,8 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	pim_ifp = ifp->info;
 
 	/* DR only forwards BSM packet */
-	if (pim_ifp->pim_dr_addr.s_addr == pim_ifp->primary_address.s_addr) {
+	if (pim_ifp->pim_dr_addr.ipaddr_v4.s_addr
+	    == pim_ifp->primary_address.ipaddr_v4.s_addr) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
 				"%s: It is not DR, so don't forward BSM packet",

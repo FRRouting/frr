@@ -51,7 +51,7 @@ static void dr_election_by_addr(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	pim_ifp->pim_dr_addr = pim_ifp->primary_address;
+	pim_ifp->pim_dr_addr.ipaddr_v4 = pim_ifp->primary_address.ipaddr_v4;
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug("%s: on interface %s", __func__, ifp->name);
@@ -59,8 +59,8 @@ static void dr_election_by_addr(struct interface *ifp)
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, node, neigh)) {
 		if (ntohl(neigh->source_addr.s_addr)
-		    > ntohl(pim_ifp->pim_dr_addr.s_addr)) {
-			pim_ifp->pim_dr_addr = neigh->source_addr;
+		    > ntohl(pim_ifp->pim_dr_addr.ipaddr_v4.s_addr)) {
+			pim_ifp->pim_dr_addr.ipaddr_v4 = neigh->source_addr;
 		}
 	}
 }
@@ -75,7 +75,7 @@ static void dr_election_by_pri(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	pim_ifp->pim_dr_addr = pim_ifp->primary_address;
+	pim_ifp->pim_dr_addr.ipaddr_v4 = pim_ifp->primary_address.ipaddr_v4;
 	dr_pri = pim_ifp->pim_dr_priority;
 
 	if (PIM_DEBUG_PIM_TRACE) {
@@ -88,13 +88,13 @@ static void dr_election_by_pri(struct interface *ifp)
 			zlog_info("%s: neigh pri %u addr %x if dr addr %x",
 				  __func__, neigh->dr_priority,
 				  ntohl(neigh->source_addr.s_addr),
-				  ntohl(pim_ifp->pim_dr_addr.s_addr));
+				  ntohl(pim_ifp->pim_dr_addr.ipaddr_v4.s_addr));
 		}
 		if ((neigh->dr_priority > dr_pri)
 		    || ((neigh->dr_priority == dr_pri)
 			&& (ntohl(neigh->source_addr.s_addr)
-			    > ntohl(pim_ifp->pim_dr_addr.s_addr)))) {
-			pim_ifp->pim_dr_addr = neigh->source_addr;
+			    > ntohl(pim_ifp->pim_dr_addr.ipaddr_v4.s_addr)))) {
+			pim_ifp->pim_dr_addr.ipaddr_v4 = neigh->source_addr;
 			dr_pri = neigh->dr_priority;
 		}
 	}
@@ -114,7 +114,7 @@ int pim_if_dr_election(struct interface *ifp)
 
 	++pim_ifp->pim_dr_election_count;
 
-	old_dr_addr = pim_ifp->pim_dr_addr;
+	old_dr_addr = pim_ifp->pim_dr_addr.ipaddr_v4;
 
 	if (pim_ifp->pim_dr_num_nondrpri_neighbors) {
 		dr_election_by_addr(ifp);
@@ -123,14 +123,15 @@ int pim_if_dr_election(struct interface *ifp)
 	}
 
 	/* DR changed ? */
-	if (old_dr_addr.s_addr != pim_ifp->pim_dr_addr.s_addr) {
+	if (old_dr_addr.s_addr != pim_ifp->pim_dr_addr.ipaddr_v4.s_addr) {
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			char dr_old_str[INET_ADDRSTRLEN];
 			char dr_new_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<old_dr?>", old_dr_addr, dr_old_str,
 				       sizeof(dr_old_str));
-			pim_inet4_dump("<new_dr?>", pim_ifp->pim_dr_addr,
+			pim_inet4_dump("<new_dr?>",
+				       pim_ifp->pim_dr_addr.ipaddr_v4,
 				       dr_new_str, sizeof(dr_new_str));
 			zlog_debug("%s: DR was %s now is %s on interface %s",
 				   __func__, dr_old_str, dr_new_str, ifp->name);

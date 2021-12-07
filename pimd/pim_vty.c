@@ -340,10 +340,11 @@ int pim_interface_config_write(struct vty *vty)
 
 				/* update source */
 				if (PIM_INADDR_ISNOT_ANY(
-					    pim_ifp->update_source)) {
+					    pim_ifp->update_source.ipaddr_v4)) {
 					char src_str[INET_ADDRSTRLEN];
 					pim_inet4_dump("<src?>",
-						       pim_ifp->update_source,
+						       pim_ifp->update_source
+							       .ipaddr_v4,
 						       src_str,
 						       sizeof(src_str));
 					vty_out(vty, " ip pim use-source %s\n",

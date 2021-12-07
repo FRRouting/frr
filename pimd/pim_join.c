@@ -553,7 +553,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			pim_msg_build_header(pim_msg, packet_size,
 					     PIM_MSG_TYPE_JOIN_PRUNE, false);
 			if (pim_msg_send(pim_ifp->pim_sock_fd,
-					 pim_ifp->primary_address,
+					 pim_ifp->primary_address.ipaddr_v4,
 					 qpim_all_pim_routers_addr, pim_msg,
 					 packet_size,
 					 rpf->source_nexthop.interface->name)) {
@@ -609,7 +609,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			pim_msg_build_header(pim_msg, packet_size,
 					     PIM_MSG_TYPE_JOIN_PRUNE, false);
 			if (pim_msg_send(pim_ifp->pim_sock_fd,
-					 pim_ifp->primary_address,
+					 pim_ifp->primary_address.ipaddr_v4,
 					 qpim_all_pim_routers_addr, pim_msg,
 					 packet_size,
 					 rpf->source_nexthop.interface->name)) {
@@ -628,7 +628,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		// msg->num_groups = htons (msg->num_groups);
 		pim_msg_build_header(pim_msg, packet_size,
 				     PIM_MSG_TYPE_JOIN_PRUNE, false);
-		if (pim_msg_send(pim_ifp->pim_sock_fd, pim_ifp->primary_address,
+		if (pim_msg_send(pim_ifp->pim_sock_fd,
+				 pim_ifp->primary_address.ipaddr_v4,
 				 qpim_all_pim_routers_addr, pim_msg,
 				 packet_size,
 				 rpf->source_nexthop.interface->name)) {
