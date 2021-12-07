@@ -74,8 +74,8 @@ static void pim_msdp_pkt_sa_dump_one(struct stream *s)
 	stream_getc(s);
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.grp.s_addr = stream_get_ipv4(s);
-	sg.src.s_addr = stream_get_ipv4(s);
+	sg.grp.ipaddr_v4.s_addr = stream_get_ipv4(s);
+	sg.src.ipaddr_v4.s_addr = stream_get_ipv4(s);
 
 	zlog_debug("  sg %s", pim_str_sg_dump(&sg));
 }
@@ -371,8 +371,8 @@ static void pim_msdp_pkt_sa_fill_one(struct pim_msdp_sa *sa)
 {
 	stream_put3(sa->pim->msdp.work_obuf, 0 /* reserved */);
 	stream_putc(sa->pim->msdp.work_obuf, 32 /* sprefix len */);
-	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.grp.s_addr);
-	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.src.s_addr);
+	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.grp.ipaddr_v4.s_addr);
+	stream_put_ipv4(sa->pim->msdp.work_obuf, sa->sg.src.ipaddr_v4.s_addr);
 }
 
 static void pim_msdp_pkt_sa_gen(struct pim_instance *pim,
@@ -502,8 +502,8 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	prefix_len = stream_getc(mp->ibuf);
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.grp.s_addr = stream_get_ipv4(mp->ibuf);
-	sg.src.s_addr = stream_get_ipv4(mp->ibuf);
+	sg.grp.ipaddr_v4.s_addr = stream_get_ipv4(mp->ibuf);
+	sg.src.ipaddr_v4.s_addr = stream_get_ipv4(mp->ibuf);
 
 	if (prefix_len != IPV4_MAX_BITLEN) {
 		/* ignore SA update if the prefix length is not 32 */

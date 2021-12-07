@@ -835,9 +835,8 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
+	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source))
 		return pim_ifp->update_source;
-	}
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;

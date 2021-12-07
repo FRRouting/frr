@@ -1093,8 +1093,12 @@ const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 	char src_str[INET_ADDRSTRLEN];
 	char grp_str[INET_ADDRSTRLEN];
 
-	prefix_mcast_inet4_dump("<src?>", sg->src, src_str, sizeof(src_str));
-	prefix_mcast_inet4_dump("<grp?>", sg->grp, grp_str, sizeof(grp_str));
+	if (sg->family == AF_INET) {
+		prefix_mcast_inet4_dump("<src?>", sg->src.ipaddr_v4, src_str,
+					sizeof(src_str));
+		prefix_mcast_inet4_dump("<grp?>", sg->grp.ipaddr_v4, grp_str,
+					sizeof(grp_str));
+	}
 	snprintf(sg_str, PREFIX_SG_STR_LEN, "(%s,%s)", src_str, grp_str);
 
 	return sg_str;
@@ -1431,15 +1435,15 @@ static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 	if (!sg)
 		return bputs(buf, "(null)");
 
-	if (sg->src.s_addr == INADDR_ANY)
+	if (sg->src.ipaddr_v4.s_addr == INADDR_ANY)
 		ret += bputs(buf, "(*,");
 	else
-		ret += bprintfrr(buf, "(%pI4,", &sg->src);
+		ret += bprintfrr(buf, "(%pI4,", &sg->src.ipaddr_v4);
 
-	if (sg->grp.s_addr == INADDR_ANY)
+	if (sg->grp.ipaddr_v4.s_addr == INADDR_ANY)
 		ret += bputs(buf, "*)");
 	else
-		ret += bprintfrr(buf, "%pI4)", &sg->grp);
+		ret += bprintfrr(buf, "%pI4)", &sg->grp.ipaddr_v4);
 
 	return ret;
 }

@@ -98,8 +98,8 @@ static void pim_if_membership_refresh(struct interface *ifp)
 				struct prefix_sg sg;
 
 				memset(&sg, 0, sizeof(struct prefix_sg));
-				sg.src = src->source_addr;
-				sg.grp = grp->group_addr;
+				sg.src.ipaddr_v4 = src->source_addr;
+				sg.grp.ipaddr_v4 = grp->group_addr;
 				pim_ifchannel_local_membership_add(
 					ifp, &sg, false /*is_vxlan*/);
 			}
@@ -2817,8 +2817,8 @@ int lib_interface_igmp_address_family_static_group_destroy(
 		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
 		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
 
-		result = pim_if_igmp_join_del(ifp, group_addr.ip._v4_addr,
-				source_addr.ip._v4_addr);
+		result = pim_if_igmp_join_del(ifp, group_addr.ipaddr_v4,
+					      source_addr.ipaddr_v4);
 
 		if (result) {
 			char src_str[INET_ADDRSTRLEN];

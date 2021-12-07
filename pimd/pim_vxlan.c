@@ -720,8 +720,8 @@ static unsigned int pim_vxlan_sg_hash_key_make(const void *p)
 {
 	const struct pim_vxlan_sg *vxlan_sg = p;
 
-	return (jhash_2words(vxlan_sg->sg.src.s_addr,
-				vxlan_sg->sg.grp.s_addr, 0));
+	return (jhash_2words(vxlan_sg->sg.src.ipaddr_v4.s_addr,
+			     vxlan_sg->sg.grp.ipaddr_v4.s_addr, 0));
 }
 
 static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
@@ -729,8 +729,9 @@ static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
 	const struct pim_vxlan_sg *sg1 = p1;
 	const struct pim_vxlan_sg *sg2 = p2;
 
-	return ((sg1->sg.src.s_addr == sg2->sg.src.s_addr)
-			&& (sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
+	return ((sg1->sg.src.ipaddr_v4.s_addr == sg2->sg.src.ipaddr_v4.s_addr)
+		&& (sg1->sg.grp.ipaddr_v4.s_addr
+		    == sg2->sg.grp.ipaddr_v4.s_addr));
 }
 
 static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,

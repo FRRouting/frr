@@ -51,7 +51,7 @@ void pim_register_join(struct pim_upstream *up)
 {
 	struct pim_instance *pim = up->channel_oil->pim;
 
-	if (pim_is_grp_ssm(pim, up->sg.grp)) {
+	if (pim_is_grp_ssm(pim, up->sg.grp.ipaddr_v4)) {
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_debug("%s register setup skipped as group is SSM",
 				   up->sg_str);
@@ -83,12 +83,12 @@ void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
 	memset(buffer, 0, 10000);
 	b1 = (uint8_t *)buffer + PIM_MSG_REGISTER_STOP_LEN;
 
-	length = pim_encode_addr_group(b1, AFI_IP, 0, 0, sg->grp);
+	length = pim_encode_addr_group(b1, AFI_IP, 0, 0, sg->grp.ipaddr_v4);
 	b1length += length;
 	b1 += length;
 
 	p.family = AF_INET;
-	p.u.prefix4 = sg->src;
+	p.u.prefix4 = sg->src.ipaddr_v4;
 	p.prefixlen = IPV4_MAX_BITLEN;
 	length = pim_encode_addr_ucast(b1, &p);
 	b1length += length;
@@ -129,7 +129,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	buf += l;
 	buf_size -= l;
 	pim_parse_addr_ucast(&source, buf, buf_size);
-	sg.src = source.u.prefix4;
+	sg.src.ipaddr_v4 = source.u.prefix4;
 
 	upstream = pim_upstream_find(pim, &sg);
 	if (!upstream) {
@@ -236,7 +236,7 @@ void pim_null_register_send(struct pim_upstream *up)
 		return;
 	}
 
-	rpg = RP(pim_ifp->pim, up->sg.grp);
+	rpg = RP(pim_ifp->pim, up->sg.grp.ipaddr_v4);
 	if (!rpg) {
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
@@ -249,8 +249,8 @@ void pim_null_register_send(struct pim_upstream *up)
 	ip_hdr.ip_p = PIM_IP_PROTO_PIM;
 	ip_hdr.ip_hl = 5;
 	ip_hdr.ip_v = 4;
-	ip_hdr.ip_src = up->sg.src;
-	ip_hdr.ip_dst = up->sg.grp;
+	ip_hdr.ip_src = up->sg.src.ipaddr_v4;
+	ip_hdr.ip_dst = up->sg.grp.ipaddr_v4;
 	ip_hdr.ip_len = htons(20);
 
 	/* checksum is broken */
@@ -368,10 +368,10 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	 * start of the actual Encapsulated data.
 	 */
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = ip_hdr->ip_src;
-	sg.grp = ip_hdr->ip_dst;
+	sg.src.ipaddr_v4 = ip_hdr->ip_src;
+	sg.grp.ipaddr_v4 = ip_hdr->ip_dst;
 
-	i_am_rp = I_am_RP(pim, sg.grp);
+	i_am_rp = I_am_RP(pim, sg.grp.ipaddr_v4);
 
 	if (PIM_DEBUG_PIM_REG) {
 		char src_str[INET_ADDRSTRLEN];
@@ -381,11 +381,11 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
 	}
 
-	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
-		if (sg.src.s_addr == INADDR_ANY) {
+	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp.ipaddr_v4)) {
+		if (sg.src.ipaddr_v4.s_addr == INADDR_ANY) {
 			zlog_warn(
 				"%s: Received Register message for Group(%pI4) is now in SSM, dropping the packet",
-				__func__, &sg.grp);
+				__func__, &sg.grp.ipaddr_v4);
 			/* Drop Packet Silently */
 			return 0;
 		}
@@ -393,7 +393,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 
 	if (i_am_rp
 	    && (dest_addr.s_addr
-		== ((RP(pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+		== ((RP(pim, sg.grp.ipaddr_v4))->rpf_addr.u.prefix4.s_addr))) {
 		sentRegisterStop = 0;
 
 		if (pim->register_plist) {
@@ -404,7 +404,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 
 			src.family = AF_INET;
 			src.prefixlen = IPV4_MAX_BITLEN;
-			src.u.prefix4 = sg.src;
+			src.u.prefix4 = sg.src.ipaddr_v4;
 
 			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
 				pim_register_stop_send(ifp, &sg, dest_addr,

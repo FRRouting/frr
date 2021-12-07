@@ -234,12 +234,12 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 			struct prefix grp;
 			struct rp_info *trp_info;
 
-			if (upstream->sg.src.s_addr != INADDR_ANY)
+			if (upstream->sg.src.ipaddr_v4.s_addr != INADDR_ANY)
 				continue;
 
 			grp.family = AF_INET;
 			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = upstream->sg.grp;
+			grp.u.prefix4 = upstream->sg.grp.ipaddr_v4;
 
 			trp_info = pim_rp_find_match_group(pim, &grp);
 			if (trp_info == rp)

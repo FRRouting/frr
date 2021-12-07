@@ -174,8 +174,8 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 	/* If DF role changed on a (*,G) termination mroute update the
 	 * associated DF role on the inherited (S,G) entries
 	 */
-	if ((up->sg.src.s_addr == INADDR_ANY) &&
-			PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
+	if ((up->sg.src.ipaddr_v4.s_addr == INADDR_ANY)
+	    && PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
 		pim_vxlan_inherit_mlag_flags(pim, up, true /* inherit */);
 
 	return true;
@@ -258,8 +258,8 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 	char sg_str[PIM_SG_LEN];
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src.s_addr = htonl(msg->source_ip);
-	sg.grp.s_addr = htonl(msg->group_ip);
+	sg.src.ipaddr_v4.s_addr = htonl(msg->source_ip);
+	sg.grp.ipaddr_v4.s_addr = htonl(msg->group_ip);
 	if (PIM_DEBUG_MLAG)
 		pim_str_sg_set(&sg, sg_str);
 
@@ -332,8 +332,8 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	char sg_str[PIM_SG_LEN];
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src.s_addr = htonl(msg->source_ip);
-	sg.grp.s_addr = htonl(msg->group_ip);
+	sg.src.ipaddr_v4.s_addr = htonl(msg->source_ip);
+	sg.grp.ipaddr_v4.s_addr = htonl(msg->group_ip);
 	if (PIM_DEBUG_MLAG)
 		pim_str_sg_set(&sg, sg_str);
 
@@ -439,8 +439,8 @@ static void pim_mlag_up_local_add_send(struct pim_instance *pim,
 
 	stream_putl(s, MLAG_MROUTE_ADD);
 	stream_put(s, vrf->name, VRF_NAMSIZ);
-	stream_putl(s, ntohl(up->sg.src.s_addr));
-	stream_putl(s, ntohl(up->sg.grp.s_addr));
+	stream_putl(s, ntohl(up->sg.src.ipaddr_v4.s_addr));
+	stream_putl(s, ntohl(up->sg.grp.ipaddr_v4.s_addr));
 
 	stream_putl(s, pim_up_mlag_local_cost(up));
 	/* XXX - who is addding*/
@@ -477,8 +477,8 @@ static void pim_mlag_up_local_del_send(struct pim_instance *pim,
 
 	stream_putl(s, MLAG_MROUTE_DEL);
 	stream_put(s, vrf->name, VRF_NAMSIZ);
-	stream_putl(s, ntohl(up->sg.src.s_addr));
-	stream_putl(s, ntohl(up->sg.grp.s_addr));
+	stream_putl(s, ntohl(up->sg.src.ipaddr_v4.s_addr));
+	stream_putl(s, ntohl(up->sg.grp.ipaddr_v4.s_addr));
 	/* XXX - who is adding */
 	stream_putl(s, MLAG_OWNER_VXLAN);
 	stream_putl(s, vrf->vrf_id);
@@ -739,8 +739,8 @@ static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 	if (PIM_DEBUG_MLAG) {
 		struct prefix_sg sg;
 
-		sg.grp.s_addr = ntohl(msg.group_ip);
-		sg.src.s_addr = ntohl(msg.source_ip);
+		sg.grp.ipaddr_v4.s_addr = ntohl(msg.group_ip);
+		sg.src.ipaddr_v4.s_addr = ntohl(msg.source_ip);
 
 		zlog_debug(
 			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pSG4) cost: %u",
@@ -769,8 +769,8 @@ static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 	if (PIM_DEBUG_MLAG) {
 		struct prefix_sg sg;
 
-		sg.grp.s_addr = ntohl(msg.group_ip);
-		sg.src.s_addr = ntohl(msg.source_ip);
+		sg.grp.ipaddr_v4.s_addr = ntohl(msg.group_ip);
+		sg.src.ipaddr_v4.s_addr = ntohl(msg.source_ip);
 		zlog_debug(
 			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pSG4)",
 			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,

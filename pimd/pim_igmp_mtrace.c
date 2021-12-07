@@ -113,13 +113,13 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	uint32_t total;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = mtracep->src_addr;
-	sg.grp = mtracep->grp_addr;
+	sg.src.ipaddr_v4 = mtracep->src_addr;
+	sg.grp.ipaddr_v4 = mtracep->grp_addr;
 
 	up = pim_upstream_find(pim, &sg);
 
 	if (!up) {
-		sg.src.s_addr = INADDR_ANY;
+		sg.src.ipaddr_v4.s_addr = INADDR_ANY;
 		up = pim_upstream_find(pim, &sg);
 	}
 
@@ -154,7 +154,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 
 	/* 6.2.2. 4. Fill in ... S, and Src Mask */
-	if (sg.src.s_addr != INADDR_ANY) {
+	if (sg.src.ipaddr_v4.s_addr != INADDR_ANY) {
 		rspp->s = 1;
 		rspp->src_mask = MTRACE_SRC_MASK_SOURCE;
 	} else {
@@ -434,7 +434,7 @@ static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 	int ret = -1;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.grp = ip_hdr->ip_dst;
+	sg.grp.ipaddr_v4 = ip_hdr->ip_dst;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
 
@@ -485,7 +485,7 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 	int ret = -1;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.grp = mtracep->rsp_addr;
+	sg.grp.ipaddr_v4 = mtracep->rsp_addr;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
 

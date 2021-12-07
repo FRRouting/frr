@@ -146,7 +146,7 @@ static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
 		return false;
 	}
 	/* check if we are RP */
-	if (!I_am_RP(sa->pim, sa->sg.grp)) {
+	if (!I_am_RP(sa->pim, sa->sg.grp.ipaddr_v4)) {
 		return false;
 	}
 
@@ -155,7 +155,7 @@ static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
 		struct prefix_sg sg;
 
 		memset(&sg, 0, sizeof(sg));
-		sg.grp = sa->sg.grp;
+		sg.grp.ipaddr_v4 = sa->sg.grp.ipaddr_v4;
 
 		xg_up = pim_upstream_find(sa->pim, &sg);
 	}
@@ -452,7 +452,7 @@ static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 		/* stream is not active */
 		return false;
 
-	if (!I_am_RP(pim, up->sg.grp)) {
+	if (!I_am_RP(pim, up->sg.grp.ipaddr_v4)) {
 		/* we are not RP for the group */
 		return false;
 	}
@@ -628,15 +628,16 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((xg_up->sg.src.s_addr != INADDR_ANY)
-	    || (xg_up->sg.grp.s_addr == INADDR_ANY)) {
+	if ((xg_up->sg.src.ipaddr_v4.s_addr != INADDR_ANY)
+	    || (xg_up->sg.grp.ipaddr_v4.s_addr == INADDR_ANY)) {
 		return;
 	}
 
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != xg_up->sg.grp.s_addr) {
+		if (sa->sg.grp.ipaddr_v4.s_addr
+		    != xg_up->sg.grp.ipaddr_v4.s_addr) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, xg_up, "up-jp-change");
@@ -653,14 +654,15 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, struct prefix_sg *sg)
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((sg->src.s_addr != INADDR_ANY) || (sg->grp.s_addr == INADDR_ANY)) {
+	if ((sg->src.ipaddr_v4.s_addr != INADDR_ANY)
+	    || (sg->grp.ipaddr_v4.s_addr == INADDR_ANY)) {
 		return;
 	}
 
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != sg->grp.s_addr) {
+		if (sa->sg.grp.ipaddr_v4.s_addr != sg->grp.ipaddr_v4.s_addr) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, NULL /* xg */, "up-jp-change");
@@ -672,7 +674,7 @@ void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg)
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP up %s del", pim_str_sg_dump(sg));
 	}
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (sg->src.ipaddr_v4.s_addr == INADDR_ANY) {
 		pim_msdp_up_xg_del(pim, sg);
 	} else {
 		pim_msdp_sa_local_del_on_up_del(pim, sg);
@@ -684,7 +686,8 @@ static unsigned int pim_msdp_sa_hash_key_make(const void *p)
 {
 	const struct pim_msdp_sa *sa = p;
 
-	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
+	return (jhash_2words(sa->sg.src.ipaddr_v4.s_addr,
+			     sa->sg.grp.ipaddr_v4.s_addr, 0));
 }
 
 static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
@@ -692,8 +695,9 @@ static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	return ((sa1->sg.src.s_addr == sa2->sg.src.s_addr)
-		&& (sa1->sg.grp.s_addr == sa2->sg.grp.s_addr));
+	return ((sa1->sg.src.ipaddr_v4.s_addr == sa2->sg.src.ipaddr_v4.s_addr)
+		&& (sa1->sg.grp.ipaddr_v4.s_addr
+		    == sa2->sg.grp.ipaddr_v4.s_addr));
 }
 
 static int pim_msdp_sa_comp(const void *p1, const void *p2)
@@ -701,16 +705,20 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	if (ntohl(sa1->sg.grp.s_addr) < ntohl(sa2->sg.grp.s_addr))
+	if (ntohl(sa1->sg.grp.ipaddr_v4.s_addr)
+	    < ntohl(sa2->sg.grp.ipaddr_v4.s_addr))
 		return -1;
 
-	if (ntohl(sa1->sg.grp.s_addr) > ntohl(sa2->sg.grp.s_addr))
+	if (ntohl(sa1->sg.grp.ipaddr_v4.s_addr)
+	    > ntohl(sa2->sg.grp.ipaddr_v4.s_addr))
 		return 1;
 
-	if (ntohl(sa1->sg.src.s_addr) < ntohl(sa2->sg.src.s_addr))
+	if (ntohl(sa1->sg.src.ipaddr_v4.s_addr)
+	    < ntohl(sa2->sg.src.ipaddr_v4.s_addr))
 		return -1;
 
-	if (ntohl(sa1->sg.src.s_addr) > ntohl(sa2->sg.src.s_addr))
+	if (ntohl(sa1->sg.src.ipaddr_v4.s_addr)
+	    > ntohl(sa2->sg.src.ipaddr_v4.s_addr))
 		return 1;
 
 	return 0;

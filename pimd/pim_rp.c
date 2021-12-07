@@ -368,8 +368,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	struct prefix nht_p;
 
 	old_upstream_addr = up->upstream_addr;
-	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src,
-				 up->sg.grp);
+	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src.ipaddr_v4,
+				 up->sg.grp.ipaddr_v4);
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug("%s: pim upstream update for  old upstream %pI4",
@@ -538,13 +538,14 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 				 * configured yet
 				 */
 				if ((up->upstream_addr.s_addr == INADDR_ANY)
-				    && (up->sg.src.s_addr == INADDR_ANY)) {
+				    && (up->sg.src.ipaddr_v4.s_addr
+					== INADDR_ANY)) {
 					struct prefix grp;
 					struct rp_info *trp_info;
 
 					grp.family = AF_INET;
 					grp.prefixlen = IPV4_MAX_BITLEN;
-					grp.u.prefix4 = up->sg.grp;
+					grp.u.prefix4 = up->sg.grp.ipaddr_v4;
 					trp_info = pim_rp_find_match_group(
 						pim, &grp);
 					if (trp_info == rp_all) {
@@ -629,13 +630,13 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			   route_node_get_lock_count(rn));
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (up->sg.src.ipaddr_v4.s_addr == INADDR_ANY) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
 			grp.family = AF_INET;
 			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = up->sg.grp;
+			grp.u.prefix4 = up->sg.grp.ipaddr_v4;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			if (trp_info == rp_info) {
@@ -781,11 +782,11 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			 */
 			if ((up->upstream_addr.s_addr
 			     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-			    && (up->sg.src.s_addr == INADDR_ANY)) {
+			    && (up->sg.src.ipaddr_v4.s_addr == INADDR_ANY)) {
 				struct prefix grp;
 				grp.family = AF_INET;
 				grp.prefixlen = IPV4_MAX_BITLEN;
-				grp.u.prefix4 = up->sg.grp;
+				grp.u.prefix4 = up->sg.grp.ipaddr_v4;
 				trp_info = pim_rp_find_match_group(pim, &grp);
 				if (trp_info == rp_all) {
 					pim_upstream_rpf_clear(pim, up);
@@ -829,21 +830,22 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		 */
 		if ((up->upstream_addr.s_addr
 		     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-		    && (up->sg.src.s_addr == INADDR_ANY)) {
+		    && (up->sg.src.ipaddr_v4.s_addr == INADDR_ANY)) {
 			struct prefix grp;
 
 			grp.family = AF_INET;
 			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = up->sg.grp;
+			grp.u.prefix4 = up->sg.grp.ipaddr_v4;
 
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			/* RP not found for the group grp */
 			if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
 				pim_upstream_rpf_clear(pim, up);
-				pim_rp_set_upstream_addr(
-					pim, &up->upstream_addr, up->sg.src,
-					up->sg.grp);
+				pim_rp_set_upstream_addr(pim,
+							 &up->upstream_addr,
+							 up->sg.src.ipaddr_v4,
+							 up->sg.grp.ipaddr_v4);
 			}
 
 			/* RP found for the group grp */
@@ -915,13 +917,13 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	listnode_add_sort(pim->rp_list, rp_info);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (up->sg.src.ipaddr_v4.s_addr == INADDR_ANY) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
 			grp.family = AF_INET;
 			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = up->sg.grp;
+			grp.u.prefix4 = up->sg.grp.ipaddr_v4;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			if (trp_info == rp_info) {

@@ -145,8 +145,8 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 	struct prefix_sg sg;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = source_addr;
-	sg.grp = group_addr;
+	sg.src.ipaddr_v4 = source_addr;
+	sg.grp.ipaddr_v4 = group_addr;
 	ch = pim_ifchannel_add(ifp, &sg, 0, 0);
 
 	switch (ch->ifassert_state) {
@@ -293,7 +293,8 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 			       sizeof(neigh_str));
 		pim_inet4_dump("<src?>", msg_source_addr.u.prefix4, source_str,
 			       sizeof(source_str));
-		pim_inet4_dump("<grp?>", sg.grp, group_str, sizeof(group_str));
+		pim_inet4_dump("<grp?>", sg.grp.ipaddr_v4, group_str,
+			       sizeof(group_str));
 		zlog_debug(
 			"%s: from %s on %s: (S,G)=(%s,%s) pref=%u metric=%u rpt_bit=%u",
 			__func__, neigh_str, ifp->name, source_str, group_str,
@@ -307,7 +308,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	assert(pim_ifp);
 	++pim_ifp->pim_ifstat_assert_recv;
 
-	return dispatch_assert(ifp, msg_source_addr.u.prefix4, sg.grp,
+	return dispatch_assert(ifp, msg_source_addr.u.prefix4, sg.grp.ipaddr_v4,
 			       msg_metric);
 }
 
@@ -439,10 +440,10 @@ static int pim_assert_do(struct pim_ifchannel *ch,
 		return -1;
 	}
 
-	pim_msg_size =
-		pim_assert_build_msg(pim_msg, sizeof(pim_msg), ifp, ch->sg.grp,
-				     ch->sg.src, metric.metric_preference,
-				     metric.route_metric, metric.rpt_bit_flag);
+	pim_msg_size = pim_assert_build_msg(
+		pim_msg, sizeof(pim_msg), ifp, ch->sg.grp.ipaddr_v4,
+		ch->sg.src.ipaddr_v4, metric.metric_preference,
+		metric.route_metric, metric.rpt_bit_flag);
 	if (pim_msg_size < 1) {
 		zlog_warn(
 			"%s: failure building PIM assert message: msg_size=%d",
@@ -498,7 +499,7 @@ static int pim_assert_cancel(struct pim_ifchannel *ch)
 	metric.rpt_bit_flag = 0;
 	metric.metric_preference = PIM_ASSERT_METRIC_PREFERENCE_MAX;
 	metric.route_metric = PIM_ASSERT_ROUTE_METRIC_MAX;
-	metric.ip_address = ch->sg.src;
+	metric.ip_address = ch->sg.src.ipaddr_v4;
 
 	return pim_assert_do(ch, metric);
 }

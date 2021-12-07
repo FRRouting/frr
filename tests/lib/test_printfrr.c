@@ -204,17 +204,17 @@ int main(int argc, char **argv)
 	XFREE(MTYPE_TMP, p);
 
 	struct prefix_sg sg;
-	sg.src.s_addr = INADDR_ANY;
-	sg.grp.s_addr = INADDR_ANY;
+	sg.src.ipaddr_v4.s_addr = INADDR_ANY;
+	sg.grp.ipaddr_v4.s_addr = INADDR_ANY;
 	printchk("(*,*)", "%pSG4", &sg);
 
-	inet_aton("192.168.1.2", &sg.src);
+	inet_aton("192.168.1.2", &sg.src.ipaddr_v4);
 	printchk("(192.168.1.2,*)", "%pSG4", &sg);
 
-	inet_aton("224.1.2.3", &sg.grp);
+	inet_aton("224.1.2.3", &sg.grp.ipaddr_v4);
 	printchk("(192.168.1.2,224.1.2.3)", "%pSG4", &sg);
 
-	sg.src.s_addr = INADDR_ANY;
+	sg.src.ipaddr_v4.s_addr = INADDR_ANY;
 	printchk("(*,224.1.2.3)", "%pSG4", &sg);
 
 	uint8_t randhex[] = { 0x12, 0x34, 0x00, 0xca, 0xfe, 0x00, 0xaa, 0x55 };

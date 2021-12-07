@@ -533,8 +533,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	if (PIM_DEBUG_ZEBRA) {
 		struct prefix_sg more;
 
-		more.src = c_oil->oil.mfcc_origin;
-		more.grp = c_oil->oil.mfcc_mcastgrp;
+		more.src.ipaddr_v4 = c_oil->oil.mfcc_origin;
+		more.grp.ipaddr_v4 = c_oil->oil.mfcc_mcastgrp;
 		zlog_debug(
 			"Sending Request for New Channel Oil Information%s VIIF %d(%s)",
 			pim_str_sg_dump(&more), c_oil->oil.mfcc_parent,
@@ -582,15 +582,15 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 		}
 	}
 
-	sg.src.s_addr = stream_get_ipv4(s);
-	sg.grp.s_addr = stream_get_ipv4(s);
-	if (sg.src.s_addr != c_oil->oil.mfcc_origin.s_addr
-	    || sg.grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr) {
+	sg.src.ipaddr_v4.s_addr = stream_get_ipv4(s);
+	sg.grp.ipaddr_v4.s_addr = stream_get_ipv4(s);
+	if (sg.src.ipaddr_v4.s_addr != c_oil->oil.mfcc_origin.s_addr
+	    || sg.grp.ipaddr_v4.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr) {
 		if (PIM_DEBUG_ZEBRA) {
 			struct prefix_sg more;
 
-			more.src = c_oil->oil.mfcc_origin;
-			more.grp = c_oil->oil.mfcc_mcastgrp;
+			more.src.ipaddr_v4 = c_oil->oil.mfcc_origin;
+			more.grp.ipaddr_v4 = c_oil->oil.mfcc_mcastgrp;
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
 				"%s: Received wrong %s(%s) information requested",

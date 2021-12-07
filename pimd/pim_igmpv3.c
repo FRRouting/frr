@@ -1036,8 +1036,8 @@ static void group_retransmit_group(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"retransmit_group_specific_query: group %s on %s: s_flag=%d count=%d",
 			group_str, group->interface->name, s_flag,

@@ -132,7 +132,8 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 		return 0; /* false */
 
 	/* AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (ch->ifassert_winner.s_addr
+	    == pim_ifp->primary_address.s_addr)
 		return 0; /* false */
 
 	spt_assert_metric = pim_macro_spt_assert_metric(
@@ -170,7 +171,8 @@ int pim_macro_chisin_pim_include(const struct pim_ifchannel *ch)
 		return 0; /* false */
 
 	/* OR AssertWinner(S,G,I) == me ? */
-	if (ch->ifassert_winner.s_addr == pim_ifp->primary_address.s_addr)
+	if (ch->ifassert_winner.s_addr
+	    == pim_ifp->primary_address.s_addr)
 		return 1; /* true */
 
 	/*

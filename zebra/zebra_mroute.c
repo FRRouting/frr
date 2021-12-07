@@ -39,16 +39,18 @@ void zebra_ipmr_route_stats(ZAPI_HANDLER_ARGS)
 	int suc = -1;
 
 	memset(&mroute, 0, sizeof(mroute));
-	STREAM_GET(&mroute.sg.src, msg, 4);
-	STREAM_GET(&mroute.sg.grp, msg, 4);
+	STREAM_GET(&mroute.sg.src.ipaddr_v4, msg, 4);
+	STREAM_GET(&mroute.sg.grp.ipaddr_v4, msg, 4);
 	STREAM_GETL(msg, mroute.ifindex);
 
 	if (IS_ZEBRA_DEBUG_KERNEL) {
 		char sbuf[40];
 		char gbuf[40];
 
-		inet_ntop(AF_INET, &mroute.sg.src, sbuf, sizeof(sbuf));
-		inet_ntop(AF_INET, &mroute.sg.grp, gbuf, sizeof(gbuf));
+		inet_ntop(AF_INET, &mroute.sg.src.ipaddr_v4, sbuf,
+			  sizeof(sbuf));
+		inet_ntop(AF_INET, &mroute.sg.grp.ipaddr_v4, gbuf,
+			  sizeof(gbuf));
 
 		zlog_debug("Asking for (%s,%s)[%s(%u)] mroute information",
 			   sbuf, gbuf, zvrf->vrf->name, zvrf->vrf->vrf_id);
@@ -62,8 +64,8 @@ stream_failure:
 	stream_reset(s);
 
 	zclient_create_header(s, ZEBRA_IPMR_ROUTE_STATS, zvrf_id(zvrf));
-	stream_put_in_addr(s, &mroute.sg.src);
-	stream_put_in_addr(s, &mroute.sg.grp);
+	stream_put_in_addr(s, &mroute.sg.src.ipaddr_v4);
+	stream_put_in_addr(s, &mroute.sg.grp.ipaddr_v4);
 	stream_put(s, &mroute.lastused, sizeof(mroute.lastused));
 	stream_putl(s, (uint32_t)suc);
 

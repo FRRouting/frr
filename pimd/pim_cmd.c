@@ -110,10 +110,12 @@ static void pim_show_assert_helper(struct vty *vty,
 
 	ifaddr = pim_ifp->primary_address;
 
-	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
-	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
-	pim_inet4_dump("<assrt_win?>", ch->ifassert_winner, winner_str,
-		       sizeof(winner_str));
+	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
+		       sizeof(ch_grp_str));
+	pim_inet4_dump("<assrt_win?>", ch->ifassert_winner,
+		       winner_str, sizeof(winner_str));
 
 	pim_time_uptime(uptime, sizeof(uptime), now - ch->ifassert_creation);
 	pim_time_timer_to_mmss(timer, sizeof(timer), ch->t_ifassert_timer);
@@ -159,16 +161,18 @@ static void pim_show_assert_internal_helper(struct vty *vty,
 
 	ifaddr = pim_ifp->primary_address;
 
-	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
-	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
+	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
+		       sizeof(ch_grp_str));
 	vty_out(vty, "%-16s %-15s %-15s %-15s %-3s %-3s %-3s %-4s\n",
 		ch->interface->name,
-		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
-		ch_src_str, ch_grp_str,
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), ch_src_str,
+		ch_grp_str,
 		PIM_IF_FLAG_TEST_COULD_ASSERT(ch->flags) ? "yes" : "no",
 		pim_macro_ch_could_assert_eval(ch) ? "yes" : "no",
 		PIM_IF_FLAG_TEST_ASSERT_TRACKING_DESIRED(ch->flags) ? "yes"
-		: "no",
+								    : "no",
 		pim_macro_assert_tracking_desired_eval(ch) ? "yes" : "no");
 }
 
@@ -213,14 +217,16 @@ static void pim_show_assert_metric_helper(struct vty *vty,
 	am = pim_macro_spt_assert_metric(&ch->upstream->rpf,
 					 pim_ifp->primary_address);
 
-	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
-	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
+	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
+		       sizeof(ch_grp_str));
 	pim_inet4_dump("<addr?>", am.ip_address, addr_str, sizeof(addr_str));
 
 	vty_out(vty, "%-16s %-15s %-15s %-15s %-3s %4u %6u %-15s\n",
 		ch->interface->name,
-		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
-		ch_src_str, ch_grp_str,	am.rpt_bit_flag ? "yes" : "no",
+		inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)), ch_src_str,
+		ch_grp_str, am.rpt_bit_flag ? "yes" : "no",
 		am.metric_preference, am.route_metric, addr_str);
 }
 
@@ -261,8 +267,10 @@ static void pim_show_assert_winner_metric_helper(struct vty *vty,
 
 	am = &ch->ifassert_winner_metric;
 
-	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
-	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
+	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
+		       sizeof(ch_grp_str));
 	pim_inet4_dump("<addr?>", am->ip_address, addr_str, sizeof(addr_str));
 
 	if (am->metric_preference == PIM_ASSERT_METRIC_PREFERENCE_MAX)
@@ -345,8 +353,10 @@ static void pim_show_membership_helper(struct vty *vty,
 	json_object *json_iface = NULL;
 	json_object *json_row = NULL;
 
-	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
-	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
+	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
+		       sizeof(ch_grp_str));
 
 	json_object_object_get_ex(json, ch->interface->name, &json_iface);
 	if (!json_iface) {
@@ -1053,10 +1063,10 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					json_fhr_sources =
 						json_object_new_object();
 
-				pim_inet4_dump("<src?>", up->sg.src, src_str,
-					       sizeof(src_str));
-				pim_inet4_dump("<grp?>", up->sg.grp, grp_str,
-					       sizeof(grp_str));
+				pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4,
+					       src_str, sizeof(src_str));
+				pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4,
+					       grp_str, sizeof(grp_str));
 				pim_time_uptime(uptime, sizeof(uptime),
 						now - up->state_transition);
 
@@ -1230,10 +1240,10 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					print_header = 0;
 				}
 
-				pim_inet4_dump("<src?>", up->sg.src, src_str,
-					       sizeof(src_str));
-				pim_inet4_dump("<grp?>", up->sg.grp, grp_str,
-					       sizeof(grp_str));
+				pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4,
+					       src_str, sizeof(src_str));
+				pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4,
+					       grp_str, sizeof(grp_str));
 				pim_time_uptime(uptime, sizeof(uptime),
 						now - up->state_transition);
 				vty_out(vty,
@@ -1684,8 +1694,10 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 
 	ifaddr = pim_ifp->primary_address;
 
-	pim_inet4_dump("<ch_src?>", ch->sg.src, ch_src_str, sizeof(ch_src_str));
-	pim_inet4_dump("<ch_grp?>", ch->sg.grp, ch_grp_str, sizeof(ch_grp_str));
+	pim_inet4_dump("<ch_src?>", ch->sg.src.ipaddr_v4, ch_src_str,
+		       sizeof(ch_src_str));
+	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
+		       sizeof(ch_grp_str));
 
 	pim_time_uptime_begin(uptime, sizeof(uptime), now, ch->ifjoin_creation);
 	pim_time_timer_to_mmss(expire, sizeof(expire),
@@ -1760,11 +1772,13 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
-			if (sg->grp.s_addr != INADDR_ANY
-			    && sg->grp.s_addr != ch->sg.grp.s_addr)
+			if (sg->grp.ipaddr_v4.s_addr != INADDR_ANY
+			    && sg->grp.ipaddr_v4.s_addr
+				       != ch->sg.grp.ipaddr_v4.s_addr)
 				continue;
-			if (sg->src.s_addr != INADDR_ANY
-			    && sg->src.s_addr != ch->sg.src.s_addr)
+			if (sg->src.ipaddr_v4.s_addr != INADDR_ANY
+			    && sg->src.ipaddr_v4.s_addr
+				       != ch->sg.src.ipaddr_v4.s_addr)
 				continue;
 			pim_show_join_helper(vty, pim_ifp, ch, json, now, uj);
 		} /* scan interface channels */
@@ -2462,15 +2476,17 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		char msdp_reg_timer[10];
 		char state_str[PIM_REG_STATE_STR_LEN];
 
-		if (sg->grp.s_addr != INADDR_ANY
-		    && sg->grp.s_addr != up->sg.grp.s_addr)
+		if (sg->grp.ipaddr_v4.s_addr != INADDR_ANY
+		    && sg->grp.ipaddr_v4.s_addr != up->sg.grp.ipaddr_v4.s_addr)
 			continue;
-		if (sg->src.s_addr != INADDR_ANY
-		    && sg->src.s_addr != up->sg.src.s_addr)
+		if (sg->src.ipaddr_v4.s_addr != INADDR_ANY
+		    && sg->src.ipaddr_v4.s_addr != up->sg.src.ipaddr_v4.s_addr)
 			continue;
 
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		pim_time_uptime(uptime, sizeof(uptime),
 				now - up->state_transition);
 		pim_time_timer_to_hhmmss(join_timer, sizeof(join_timer),
@@ -2535,11 +2551,11 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			 * the RP as the rpfAddress
 			 */
 			if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR
-			    || up->sg.src.s_addr == INADDR_ANY) {
+			    || up->sg.src.ipaddr_v4.s_addr == INADDR_ANY) {
 				char rpf[PREFIX_STRLEN];
 				struct pim_rpf *rpg;
 
-				rpg = RP(pim, up->sg.grp);
+				rpg = RP(pim, up->sg.grp.ipaddr_v4);
 				pim_inet4_dump("<rpf?>",
 					       rpg->rpf_addr.u.prefix4, rpf,
 					       sizeof(rpf));
@@ -2602,8 +2618,10 @@ static void pim_show_channel_helper(struct pim_instance *pim,
 	char grp_str[INET_ADDRSTRLEN];
 	json_object *json_row = NULL;
 
-	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+	pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+		       sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+		       sizeof(grp_str));
 
 	if (uj) {
 		json_object_object_get_ex(json, grp_str, &json_group);
@@ -2695,8 +2713,10 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 	char grp_str[INET_ADDRSTRLEN];
 	json_object *json_row = NULL;
 
-	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+	pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+		       sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+		       sizeof(grp_str));
 
 	if (uj) {
 		json_object_object_get_ex(json, grp_str, &json_group);
@@ -2775,8 +2795,10 @@ static void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty,
 
 		rpf = &up->rpf;
 
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		pim_addr_dump("<nexthop?>",
 			      &rpf->source_nexthop.mrib_nexthop_addr,
 			      rpf_nexthop_str, sizeof(rpf_nexthop_str));
@@ -2910,8 +2932,10 @@ static void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 		const char *rpf_ifname;
 		struct pim_rpf *rpf = &up->rpf;
 
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		pim_addr_dump("<rpf?>", &rpf->rpf_addr, rpf_addr_str,
 			      sizeof(rpf_addr_str));
 		pim_addr_dump("<nexthop?>",
@@ -3526,8 +3550,8 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 			struct igmp_source *src;
 			int grp_retr_sources = 0;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
+			pim_inet4_dump("<group?>", grp->group_addr,
+				       group_str, sizeof(group_str));
 			pim_time_timer_to_mmss(
 				grp_retr_mmss, sizeof(grp_retr_mmss),
 				grp->t_group_query_retransmit_timer);
@@ -3631,8 +3655,8 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 			struct listnode *srcnode;
 			struct igmp_source *src;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
+			pim_inet4_dump("<group?>", grp->group_addr,
+				       group_str, sizeof(group_str));
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
@@ -4616,10 +4640,10 @@ DEFPY (show_ip_pim_join,
 
 	if (s_or_g.s_addr != INADDR_ANY) {
 		if (g.s_addr != INADDR_ANY) {
-			sg.src = s_or_g;
-			sg.grp = g;
+			sg.src.ipaddr_v4 = s_or_g;
+			sg.grp.ipaddr_v4 = g;
 		} else
-			sg.grp = s_or_g;
+			sg.grp.ipaddr_v4 = s_or_g;
 	}
 
 	pim_show_join(pim, vty, &sg, uj);
@@ -4670,8 +4694,10 @@ static void pim_show_jp_agg_helper(struct vty *vty,
 	char grp_str[INET_ADDRSTRLEN];
 	char rpf_str[INET_ADDRSTRLEN];
 
-	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+	pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+		       sizeof(src_str));
+	pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+		       sizeof(grp_str));
 	/* pius->address.s_addr */
 	pim_inet4_dump("<rpf?>", neigh->source_addr, rpf_str, sizeof(rpf_str));
 
@@ -4853,8 +4879,10 @@ static void pim_show_mlag_up_detail(struct vrf *vrf,
 		    && !pim_up_mlag_is_local(up))
 			continue;
 
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		/* XXX: strcmps are clearly inefficient. we should do uint comps
 		 * here instead.
 		 */
@@ -4900,8 +4928,10 @@ static void pim_show_mlag_up_vrf(struct vrf *vrf, struct vty *vty, bool uj)
 		    && !(up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_INTERFACE)
 		    && !pim_up_mlag_is_local(up))
 			continue;
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", up->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		if (uj) {
 			json_object *own_list = NULL;
 
@@ -5236,10 +5266,10 @@ DEFPY (show_ip_pim_upstream,
 
 	if (s_or_g.s_addr != INADDR_ANY) {
 		if (g.s_addr != INADDR_ANY) {
-			sg.src = s_or_g;
-			sg.grp = g;
+			sg.src.ipaddr_v4 = s_or_g;
+			sg.grp.ipaddr_v4 = g;
 		} else
-			sg.grp = s_or_g;
+			sg.grp.ipaddr_v4 = s_or_g;
 	}
 	pim_show_upstream(pim, vty, &sg, uj);
 
@@ -5924,11 +5954,13 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		if (!c_oil->installed)
 			continue;
 
-		if (sg->grp.s_addr != INADDR_ANY
-		    && sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
+		if (sg->grp.ipaddr_v4.s_addr != INADDR_ANY
+		    && sg->grp.ipaddr_v4.s_addr
+			       != c_oil->oil.mfcc_mcastgrp.s_addr)
 			continue;
-		if (sg->src.s_addr != INADDR_ANY
-		    && sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
+		if (sg->src.ipaddr_v4.s_addr != INADDR_ANY
+		    && sg->src.ipaddr_v4.s_addr
+			       != c_oil->oil.mfcc_origin.s_addr)
 			continue;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
@@ -6285,10 +6317,10 @@ DEFPY (show_ip_mroute,
 
 	if (s_or_g.s_addr != INADDR_ANY) {
 		if (g.s_addr != INADDR_ANY) {
-			sg.src = s_or_g;
-			sg.grp = g;
+			sg.src.ipaddr_v4 = s_or_g;
+			sg.grp.ipaddr_v4 = g;
 		} else
-			sg.grp = s_or_g;
+			sg.grp.ipaddr_v4 = s_or_g;
 	}
 	show_mroute(pim, vty, &sg, !!fill, !!json);
 	return CMD_SUCCESS;
@@ -8214,8 +8246,8 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 	struct pim_instance *pim;
 	struct prefix_sg sg;
 
-	sg.src = source;
-	sg.grp = group;
+	sg.src.ipaddr_v4 = source;
+	sg.grp.ipaddr_v4 = group;
 
 	if (!name)
 		pim = pim_get_pim_instance(VRF_DEFAULT);
@@ -10119,8 +10151,10 @@ static void ip_msdp_show_sa(struct pim_instance *pim, struct vty *vty, bool uj)
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(timebuf, sizeof(timebuf), now - sa->uptime);
-		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", sa->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", sa->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		if (sa->flags & PIM_MSDP_SAF_PEER) {
 			pim_inet4_dump("<rp?>", sa->rp, rp_str, sizeof(rp_str));
 			if (sa->up) {
@@ -10248,8 +10282,10 @@ static void ip_msdp_show_sa_detail(struct pim_instance *pim, struct vty *vty,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", sa->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", sa->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty, uj,
 					     json);
 	}
@@ -10331,8 +10367,10 @@ static void ip_msdp_show_sa_addr(struct pim_instance *pim, struct vty *vty,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", sa->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", sa->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		if (!strcmp(addr, src_str) || !strcmp(addr, grp_str)) {
 			ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty,
 						     uj, json);
@@ -10360,8 +10398,10 @@ static void ip_msdp_show_sa_sg(struct pim_instance *pim, struct vty *vty,
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		pim_inet4_dump("<src?>", sa->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", sa->sg.grp, grp_str, sizeof(grp_str));
+		pim_inet4_dump("<src?>", sa->sg.src.ipaddr_v4, src_str,
+			       sizeof(src_str));
+		pim_inet4_dump("<grp?>", sa->sg.grp.ipaddr_v4, grp_str,
+			       sizeof(grp_str));
 		if (!strcmp(src, src_str) && !strcmp(grp, grp_str)) {
 			ip_msdp_show_sa_entry_detail(sa, src_str, grp_str, vty,
 						     uj, json);
@@ -10484,12 +10524,15 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 	else
 		oif_name = vxlan_sg->term_oif?vxlan_sg->term_oif->name:"";
 
-	if (cwd->addr_match && (vxlan_sg->sg.src.s_addr != cwd->addr.s_addr) &&
-	    (vxlan_sg->sg.grp.s_addr != cwd->addr.s_addr)) {
+	if (cwd->addr_match
+	    && (vxlan_sg->sg.src.ipaddr_v4.s_addr != cwd->addr.s_addr)
+	    && (vxlan_sg->sg.grp.ipaddr_v4.s_addr != cwd->addr.s_addr)) {
 		return;
 	}
-	pim_inet4_dump("<src?>", vxlan_sg->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", vxlan_sg->sg.grp, grp_str, sizeof(grp_str));
+	pim_inet4_dump("<src?>", vxlan_sg->sg.src.ipaddr_v4, src_str,
+		       sizeof(src_str));
+	pim_inet4_dump("<grp?>", vxlan_sg->sg.grp.ipaddr_v4, grp_str,
+		       sizeof(grp_str));
 	if (json) {
 		json_object_object_get_ex(json, grp_str, &cwd->json_group);
 
@@ -10596,13 +10639,13 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 	bool installed;
 	const char *oif_name;
 
-	result = inet_pton(AF_INET, src_str, &sg.src);
+	result = inet_pton(AF_INET, src_str, &sg.src.ipaddr_v4);
 	if (result <= 0) {
 		vty_out(vty, "Bad src address %s: errno=%d: %s\n", src_str,
 			errno, safe_strerror(errno));
 		return;
 	}
-	result = inet_pton(AF_INET, grp_str, &sg.grp);
+	result = inet_pton(AF_INET, grp_str, &sg.grp.ipaddr_v4);
 	if (result <= 0) {
 		vty_out(vty, "Bad grp address %s: errno=%d: %s\n", grp_str,
 			errno, safe_strerror(errno));

@@ -5905,8 +5905,8 @@ static int zebra_vxlan_sg_send(struct zebra_vrf *zvrf,
 
 	zclient_create_header(s, cmd, VRF_DEFAULT);
 	stream_putl(s, IPV4_MAX_BYTELEN);
-	stream_put(s, &sg->src.s_addr, IPV4_MAX_BYTELEN);
-	stream_put(s, &sg->grp.s_addr, IPV4_MAX_BYTELEN);
+	stream_put(s, &sg->src.ipaddr_v4.s_addr, IPV4_MAX_BYTELEN);
+	stream_put(s, &sg->grp.ipaddr_v4.s_addr, IPV4_MAX_BYTELEN);
 
 	/* Write packet size. */
 	stream_putw_at(s, 0, stream_get_endp(s));
@@ -5929,8 +5929,8 @@ static unsigned int zebra_vxlan_sg_hash_key_make(const void *p)
 {
 	const struct zebra_vxlan_sg *vxlan_sg = p;
 
-	return (jhash_2words(vxlan_sg->sg.src.s_addr,
-				vxlan_sg->sg.grp.s_addr, 0));
+	return (jhash_2words(vxlan_sg->sg.src.ipaddr_v4.s_addr,
+			     vxlan_sg->sg.grp.ipaddr_v4.s_addr, 0));
 }
 
 static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2)
@@ -5938,8 +5938,9 @@ static bool zebra_vxlan_sg_hash_eq(const void *p1, const void *p2)
 	const struct zebra_vxlan_sg *sg1 = p1;
 	const struct zebra_vxlan_sg *sg2 = p2;
 
-	return ((sg1->sg.src.s_addr == sg2->sg.src.s_addr)
-		&& (sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
+	return ((sg1->sg.src.ipaddr_v4.s_addr == sg2->sg.src.ipaddr_v4.s_addr)
+		&& (sg1->sg.grp.ipaddr_v4.s_addr
+		    == sg2->sg.grp.ipaddr_v4.s_addr));
 }
 
 static struct zebra_vxlan_sg *zebra_vxlan_sg_new(struct zebra_vrf *zvrf,
@@ -5986,9 +5987,9 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 	 * 2. the XG entry is used by pimd to setup the
 	 * vxlan-termination-mroute
 	 */
-	if (sg->src.s_addr != INADDR_ANY) {
+	if (sg->src.ipaddr_v4.s_addr != INADDR_ANY) {
 		memset(&sip, 0, sizeof(sip));
-		parent = zebra_vxlan_sg_do_ref(zvrf, sip, sg->grp);
+		parent = zebra_vxlan_sg_do_ref(zvrf, sip, sg->grp.ipaddr_v4);
 		if (!parent)
 			return NULL;
 	}
@@ -5996,7 +5997,7 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_add(struct zebra_vrf *zvrf,
 	vxlan_sg = zebra_vxlan_sg_new(zvrf, sg);
 	if (!vxlan_sg) {
 		if (parent)
-			zebra_vxlan_sg_do_deref(zvrf, sip, sg->grp);
+			zebra_vxlan_sg_do_deref(zvrf, sip, sg->grp.ipaddr_v4);
 		return vxlan_sg;
 	}
 
@@ -6018,9 +6019,9 @@ static void zebra_vxlan_sg_del(struct zebra_vxlan_sg *vxlan_sg)
 	/* On SG entry deletion remove the reference to its parent XG
 	 * entry
 	 */
-	if (vxlan_sg->sg.src.s_addr != INADDR_ANY) {
+	if (vxlan_sg->sg.src.ipaddr_v4.s_addr != INADDR_ANY) {
 		memset(&sip, 0, sizeof(sip));
-		zebra_vxlan_sg_do_deref(zvrf, sip, vxlan_sg->sg.grp);
+		zebra_vxlan_sg_do_deref(zvrf, sip, vxlan_sg->sg.grp.ipaddr_v4);
 	}
 
 	zebra_vxlan_sg_send(zvrf, &vxlan_sg->sg,
@@ -6042,8 +6043,8 @@ static void zebra_vxlan_sg_do_deref(struct zebra_vrf *zvrf,
 
 	sg.family = AF_INET;
 	sg.prefixlen = IPV4_MAX_BYTELEN;
-	sg.src = sip;
-	sg.grp = mcast_grp;
+	sg.src.ipaddr_v4 = sip;
+	sg.grp.ipaddr_v4 = mcast_grp;
 	vxlan_sg = zebra_vxlan_sg_find(zvrf, &sg);
 	if (!vxlan_sg)
 		return;
@@ -6064,8 +6065,8 @@ static struct zebra_vxlan_sg *zebra_vxlan_sg_do_ref(struct zebra_vrf *zvrf,
 
 	sg.family = AF_INET;
 	sg.prefixlen = IPV4_MAX_BYTELEN;
-	sg.src = sip;
-	sg.grp = mcast_grp;
+	sg.src.ipaddr_v4 = sip;
+	sg.grp.ipaddr_v4 = mcast_grp;
 	vxlan_sg = zebra_vxlan_sg_add(zvrf, &sg);
 	if (vxlan_sg)
 		++vxlan_sg->ref_cnt;
@@ -6111,7 +6112,7 @@ static void zebra_vxlan_xg_pre_cleanup(struct hash_bucket *bucket, void *arg)
 	/* increment the ref count against (*,G) to prevent them from being
 	 * deleted
 	 */
-	if (vxlan_sg->sg.src.s_addr == INADDR_ANY)
+	if (vxlan_sg->sg.src.ipaddr_v4.s_addr == INADDR_ANY)
 		++vxlan_sg->ref_cnt;
 }
 
@@ -6120,7 +6121,7 @@ static void zebra_vxlan_xg_post_cleanup(struct hash_bucket *bucket, void *arg)
 	struct zebra_vxlan_sg *vxlan_sg = (struct zebra_vxlan_sg *)bucket->data;
 
 	/* decrement the dummy ref count against (*,G) to delete them */
-	if (vxlan_sg->sg.src.s_addr == INADDR_ANY) {
+	if (vxlan_sg->sg.src.ipaddr_v4.s_addr == INADDR_ANY) {
 		if (vxlan_sg->ref_cnt)
 			--vxlan_sg->ref_cnt;
 		if (!vxlan_sg->ref_cnt)

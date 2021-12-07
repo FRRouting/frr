@@ -553,7 +553,7 @@ int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf, int buf_size)
 			return -3;
 		}
 
-		memcpy(&sg->grp.s_addr, addr, sizeof(struct in_addr));
+		memcpy(&sg->grp.ipaddr_v4.s_addr, addr, sizeof(struct in_addr));
 
 		addr += sizeof(struct in_addr);
 
@@ -612,7 +612,7 @@ int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
 			return -3;
 		}
 
-		memcpy(&sg->src, addr, sizeof(struct in_addr));
+		memcpy(&sg->src.ipaddr_v4, addr, sizeof(struct in_addr));
 
 		/*
 		   RFC 4601: 4.9.1  Encoded Source and Group Address Formats

@@ -42,8 +42,8 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 	struct prefix_sg sg;
 	int i;
 
-	sg.src = c_oil->oil.mfcc_origin;
-	sg.grp = c_oil->oil.mfcc_mcastgrp;
+	sg.src.ipaddr_v4 = c_oil->oil.mfcc_origin;
+	sg.grp.ipaddr_v4 = c_oil->oil.mfcc_mcastgrp;
 	ifp = pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
 	snprintf(buf, size, "%s IIF: %s, OIFS: ", pim_str_sg_dump(&sg),
 		 ifp ? ifp->name : "(?)");
@@ -109,8 +109,8 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 	struct channel_oil *c_oil = NULL;
 	struct channel_oil lookup;
 
-	lookup.oil.mfcc_mcastgrp = sg->grp;
-	lookup.oil.mfcc_origin = sg->src;
+	lookup.oil.mfcc_mcastgrp = sg->grp.ipaddr_v4;
+	lookup.oil.mfcc_origin = sg->src.ipaddr_v4;
 
 	c_oil = rb_pim_oil_find(&pim->channel_oil_head, &lookup);
 
@@ -152,8 +152,8 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 
 	c_oil = XCALLOC(MTYPE_PIM_CHANNEL_OIL, sizeof(*c_oil));
 
-	c_oil->oil.mfcc_mcastgrp = sg->grp;
-	c_oil->oil.mfcc_origin = sg->src;
+	c_oil->oil.mfcc_mcastgrp = sg->grp.ipaddr_v4;
+	c_oil->oil.mfcc_origin = sg->src.ipaddr_v4;
 
 	c_oil->oil.mfcc_parent = MAXVIFS;
 	c_oil->oil_ref_count = 1;
@@ -174,8 +174,9 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name)
 {
 	if (PIM_DEBUG_MROUTE) {
-		struct prefix_sg sg = {.src = c_oil->oil.mfcc_mcastgrp,
-				       .grp = c_oil->oil.mfcc_origin};
+		struct prefix_sg sg = {.src.ipaddr_v4 =
+					       c_oil->oil.mfcc_mcastgrp,
+				       .grp.ipaddr_v4 = c_oil->oil.mfcc_origin};
 
 		zlog_debug(
 			"%s(%s): Del oil for %pSG4, Ref Count: %d (Predecrement)",
@@ -328,8 +329,8 @@ void pim_channel_del_inherited_oif(struct channel_oil *c_oil,
 	/* if an inherited OIF is being removed join-desired can change
 	 * if the inherited OIL is now empty and KAT is running
 	 */
-	if (up && up->sg.src.s_addr != INADDR_ANY &&
-			pim_upstream_empty_inherited_olist(up))
+	if (up && up->sg.src.ipaddr_v4.s_addr != INADDR_ANY
+	    && pim_upstream_empty_inherited_olist(up))
 		pim_upstream_update_join_desired(up->pim, up);
 }
 

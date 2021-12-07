@@ -337,8 +337,8 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 
 	sg.family = AF_INET;
 	sg.prefixlen = stream_getl(s);
-	stream_get(&sg.src.s_addr, s, sg.prefixlen);
-	stream_get(&sg.grp.s_addr, s, sg.prefixlen);
+	stream_get(&sg.src.ipaddr_v4.s_addr, s, sg.prefixlen);
+	stream_get(&sg.grp.ipaddr_v4.s_addr, s, sg.prefixlen);
 
 	if (PIM_DEBUG_ZEBRA) {
 		char sg_str[PIM_SG_LEN];
@@ -511,8 +511,8 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 		return;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = source->source_addr;
-	sg.grp = group->group_addr;
+	sg.src.ipaddr_v4 = source->source_addr;
+	sg.grp.ipaddr_v4 = group->group_addr;
 
 	ch = pim_ifchannel_find(group->interface, &sg);
 	if (pim_is_grp_ssm(pim, group->group_addr)) {
@@ -567,8 +567,8 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 
 		RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb,
 				 ch_temp) {
-			if (pim_is_grp_ssm(pim, ch->sg.grp)) {
-				if (ch->sg.src.s_addr == INADDR_ANY)
+			if (pim_is_grp_ssm(pim, ch->sg.grp.ipaddr_v4)) {
+				if (ch->sg.src.ipaddr_v4.s_addr == INADDR_ANY)
 					pim_ifchannel_delete(ch);
 			}
 		}
@@ -585,8 +585,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	int input_iface_vif_index = 0;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = source->source_addr;
-	sg.grp = source->source_group->group_addr;
+	sg.src.ipaddr_v4 = source->source_addr;
+	sg.grp.ipaddr_v4 = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
@@ -619,7 +619,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		struct pim_upstream *up = NULL;
 
 		if (!pim_rp_set_upstream_addr(pim, &vif_source,
-					      source->source_addr, sg.grp)) {
+					      source->source_addr, sg.grp.ipaddr_v4)) {
 			/*Create a dummy channel oil */
 			source->source_channel_oil =
 				pim_channel_oil_add(pim, &sg, __func__);
@@ -631,7 +631,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			src.u.prefix4 = vif_source; // RP or Src address
 			grp.family = AF_INET;
 			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = sg.grp;
+			grp.u.prefix4 = sg.grp.ipaddr_v4;
 
 			up = pim_upstream_find(pim, &sg);
 			if (up) {
@@ -764,8 +764,8 @@ void igmp_source_forward_stop(struct igmp_source *source)
 	int result;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = source->source_addr;
-	sg.grp = source->source_group->group_addr;
+	sg.src.ipaddr_v4 = source->source_addr;
+	sg.grp.ipaddr_v4 = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
@@ -823,9 +823,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 		char group_str[INET_ADDRSTRLEN];
 		char upstream_str[INET_ADDRSTRLEN];
 
-		pim_inet4_dump("<source?>", ch->sg.src, source_str,
+		pim_inet4_dump("<source?>", ch->sg.src.ipaddr_v4, source_str,
 			       sizeof(source_str));
-		pim_inet4_dump("<group?>", ch->sg.grp, group_str,
+		pim_inet4_dump("<group?>", ch->sg.grp.ipaddr_v4, group_str,
 			       sizeof(group_str));
 		pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str,
 			       sizeof(upstream_str));

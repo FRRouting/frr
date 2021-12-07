@@ -115,7 +115,8 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 	size += sizeof(struct pim_encoded_source_ipv4) * sources->count;
 
 	js = listgetdata(listhead(sources));
-	if (js && js->up->sg.src.s_addr == INADDR_ANY && js->is_join) {
+	if (js && js->up->sg.src.ipaddr_v4.s_addr == INADDR_ANY
+	    && js->is_join) {
 		struct pim_upstream *child, *up;
 		struct listnode *up_node;
 
@@ -193,9 +194,10 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 		else
 			grp->prunes++;
 
-		if (source->up->sg.src.s_addr == INADDR_ANY) {
+		if (source->up->sg.src.ipaddr_v4.s_addr == INADDR_ANY) {
 			struct pim_instance *pim = source->up->channel_oil->pim;
-			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
+			struct pim_rpf *rpf =
+				pim_rp_g(pim, source->up->sg.grp.ipaddr_v4);
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT
 			       | PIM_ENCODE_RPT_BIT;
 			stosend = rpf->rpf_addr.u.prefix4;
@@ -204,7 +206,7 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 				up = source->up;
 		} else {
 			bits = PIM_ENCODE_SPARSE_BIT;
-			stosend = source->up->sg.src;
+			stosend = source->up->sg.src.ipaddr_v4;
 		}
 
 		pim_msg_addr_encode_ipv4_source((uint8_t *)&grp->s[tgroups],
@@ -220,7 +222,7 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 				    child->flags)) {
 				pim_msg_addr_encode_ipv4_source(
 					(uint8_t *)&grp->s[tgroups],
-					child->sg.src,
+					child->sg.src.ipaddr_v4,
 					PIM_ENCODE_SPARSE_BIT
 						| PIM_ENCODE_RPT_BIT);
 				tgroups++;

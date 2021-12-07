@@ -663,7 +663,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the RP
 		 */
-		if (up->sg.src.s_addr != INADDR_ANY)
+		if (up->sg.src.ipaddr_v4.s_addr != INADDR_ANY)
 			continue;
 
 		struct prefix grp;
@@ -671,7 +671,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 
 		grp.family = AF_INET;
 		grp.prefixlen = IPV4_MAX_BITLEN;
-		grp.u.prefix4 = up->sg.grp;
+		grp.u.prefix4 = up->sg.grp.ipaddr_v4;
 
 		trp_info = pim_rp_find_match_group(pim, &grp);
 
@@ -679,7 +679,8 @@ void pim_bsm_clear(struct pim_instance *pim)
 		if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
 			pim_upstream_rpf_clear(pim, up);
 			pim_rp_set_upstream_addr(pim, &up->upstream_addr,
-						 up->sg.src, up->sg.grp);
+						 up->sg.src.ipaddr_v4,
+						 up->sg.grp.ipaddr_v4);
 		} else {
 			/* RP found for the group grp */
 			pim_upstream_update(pim, up);

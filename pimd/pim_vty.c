@@ -415,18 +415,21 @@ int pim_interface_config_write(struct vty *vty)
 							ij->group_addr,
 							group_str,
 							sizeof(group_str));
-						if (ij->source_addr.s_addr == INADDR_ANY) {
+						if (ij->source_addr.s_addr
+						    == INADDR_ANY) {
 							vty_out(vty,
 								" ip igmp join %s\n",
 								group_str);
 						} else {
-							inet_ntop(AF_INET,
-								  &ij->source_addr,
-								  source_str,
-								  sizeof(source_str));
+							inet_ntop(
+								AF_INET,
+								&ij->source_addr,
+								source_str,
+								sizeof(source_str));
 							vty_out(vty,
 								" ip igmp join %s %s\n",
-								group_str, source_str);
+								group_str,
+								source_str);
 						}
 						++writes;
 					}

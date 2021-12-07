@@ -184,8 +184,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	}
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = msg->im_src;
-	sg.grp = msg->im_dst;
+	sg.src.ipaddr_v4 = msg->im_src;
+	sg.grp.ipaddr_v4 = msg->im_dst;
 
 	if (!(PIM_I_am_DR(pim_ifp))) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
@@ -252,13 +252,13 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	ip_hdr = (const struct ip *)buf;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = ip_hdr->ip_src;
-	sg.grp = ip_hdr->ip_dst;
+	sg.src.ipaddr_v4 = ip_hdr->ip_src;
+	sg.grp.ipaddr_v4 = ip_hdr->ip_dst;
 
 	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (!up) {
 		struct prefix_sg star = sg;
-		star.src.s_addr = INADDR_ANY;
+		star.src.ipaddr_v4.s_addr = INADDR_ANY;
 
 		up = pim_upstream_find(pim_ifp->pim, &star);
 
@@ -300,7 +300,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 	pim_ifp = up->rpf.source_nexthop.interface->info;
 
-	rpg = pim_ifp ? RP(pim_ifp->pim, sg.grp) : NULL;
+	rpg = pim_ifp ? RP(pim_ifp->pim, sg.grp.ipaddr_v4) : NULL;
 
 	if ((pim_rpf_addr_is_inaddr_none(rpg)) || (!pim_ifp)
 	    || (!(PIM_I_am_DR(pim_ifp)))) {
@@ -314,7 +314,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	 * If we've received a register suppress
 	 */
 	if (!up->t_rs_timer) {
-		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
+		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp.ipaddr_v4)) {
 			if (PIM_DEBUG_PIM_REG)
 				zlog_debug(
 					"%s register forward skipped as group is SSM",
@@ -345,8 +345,8 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 	struct prefix_sg sg;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = msg->im_src;
-	sg.grp = msg->im_dst;
+	sg.src.ipaddr_v4 = msg->im_src;
+	sg.grp.ipaddr_v4 = msg->im_dst;
 
 	/*
 	  Send Assert(S,G) on iif as response to WRONGVIF kernel upcall.
@@ -384,7 +384,7 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 				"%s: WRONGVIF (S,G)=%s could not find channel on interface %s",
 				__func__, pim_str_sg_dump(&sg), ifp->name);
 
-		star_g.src.s_addr = INADDR_ANY;
+		star_g.src.ipaddr_v4.s_addr = INADDR_ANY;
 		ch = pim_ifchannel_find(ifp, &star_g);
 		if (!ch) {
 			if (PIM_DEBUG_MROUTE)
@@ -454,8 +454,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	pim_ifp = ifp->info;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src = ip_hdr->ip_src;
-	sg.grp = ip_hdr->ip_dst;
+	sg.src.ipaddr_v4 = ip_hdr->ip_src;
+	sg.grp.ipaddr_v4 = ip_hdr->ip_dst;
 
 	ch = pim_ifchannel_find(ifp, &sg);
 	if (ch) {
@@ -467,7 +467,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	}
 
 	star_g = sg;
-	star_g.src.s_addr = INADDR_ANY;
+	star_g.src.ipaddr_v4.s_addr = INADDR_ANY;
 
 	pim = pim_ifp->pim;
 	/*
@@ -485,7 +485,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	if (up) {
 		struct pim_upstream *parent;
 		struct pim_nexthop source;
-		struct pim_rpf *rpf = RP(pim_ifp->pim, sg.grp);
+		struct pim_rpf *rpf = RP(pim_ifp->pim, sg.grp.ipaddr_v4);
 
 		/* No RPF or No RPF interface or No mcast on RPF interface */
 		if (!rpf || !rpf->source_nexthop.interface
@@ -533,7 +533,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 				pim_upstream_mroute_add(up->channel_oil,
 							__func__);
 		} else {
-			if (I_am_RP(pim_ifp->pim, up->sg.grp)) {
+			if (I_am_RP(pim_ifp->pim, up->sg.grp.ipaddr_v4)) {
 				if (pim_nexthop_lookup(pim_ifp->pim, &source,
 						       up->upstream_register,
 						       0))
@@ -552,7 +552,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	}
 
 	pim_ifp = ifp->info;
-	if (pim_if_connected_to_source(ifp, sg.src)) {
+	if (pim_if_connected_to_source(ifp, sg.src.ipaddr_v4)) {
 		up = pim_upstream_add(pim_ifp->pim, &sg, ifp,
 				      PIM_UPSTREAM_FLAG_MASK_FHR, __func__,
 				      NULL);
@@ -1216,8 +1216,8 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 		if (PIM_DEBUG_MROUTE) {
 			struct prefix_sg sg;
 
-			sg.src = c_oil->oil.mfcc_origin;
-			sg.grp = c_oil->oil.mfcc_mcastgrp;
+			sg.src.ipaddr_v4 = c_oil->oil.mfcc_origin;
+			sg.grp.ipaddr_v4 = c_oil->oil.mfcc_mcastgrp;
 			zlog_debug(
 				"Channel%s is not installed no need to collect data from kernel",
 				pim_str_sg_dump(&sg));
@@ -1233,12 +1233,13 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	if (ioctl(pim->mroute_socket, SIOCGETSGCNT, &sgreq)) {
 		struct prefix_sg sg;
 
-		sg.src = c_oil->oil.mfcc_origin;
-		sg.grp = c_oil->oil.mfcc_mcastgrp;
+		sg.src.ipaddr_v4 = c_oil->oil.mfcc_origin;
+		sg.grp.ipaddr_v4 = c_oil->oil.mfcc_mcastgrp;
 
-		zlog_warn("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%s: errno=%d: %s",
-			  (unsigned long)SIOCGETSGCNT, pim_str_sg_dump(&sg),
-			  errno, safe_strerror(errno));
+		zlog_warn(
+			"ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%s: errno=%d: %s",
+			(unsigned long)SIOCGETSGCNT, pim_str_sg_dump(&sg),
+			errno, safe_strerror(errno));
 		return;
 	}
 

@@ -1038,10 +1038,10 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 		iif = *(int *)RTA_DATA(tb[RTA_IIF]);
 
 	if (tb[RTA_SRC])
-		m->sg.src = *(struct in_addr *)RTA_DATA(tb[RTA_SRC]);
+		m->sg.src.ipaddr_v4 = *(struct in_addr *)RTA_DATA(tb[RTA_SRC]);
 
 	if (tb[RTA_DST])
-		m->sg.grp = *(struct in_addr *)RTA_DATA(tb[RTA_DST]);
+		m->sg.grp.ipaddr_v4 = *(struct in_addr *)RTA_DATA(tb[RTA_DST]);
 
 	if (tb[RTA_EXPIRES])
 		m->lastused = *(unsigned long long *)RTA_DATA(tb[RTA_EXPIRES]);
@@ -1083,8 +1083,8 @@ static int netlink_route_change_read_multicast(struct nlmsghdr *h,
 		zlog_debug(
 			"MCAST VRF: %s(%d) %s (%pI4,%pI4) IIF: %s(%d) OIF: %s jiffies: %lld",
 			zvrf_name(zvrf), vrf, nl_msg_type_to_str(h->nlmsg_type),
-			&m->sg.src, &m->sg.grp, ifp ? ifp->name : "Unknown",
-			iif, oif_list,
+			&m->sg.src.ipaddr_v4, &m->sg.grp.ipaddr_v4,
+			ifp ? ifp->name : "Unknown", iif, oif_list,
 			m->lastused);
 	}
 	return 0;
@@ -2247,8 +2247,10 @@ int kernel_get_ipmr_sg_stats(struct zebra_vrf *zvrf, void *in)
 
 	nl_attr_put32(&req.n, sizeof(req), RTA_IIF, mroute->ifindex);
 	nl_attr_put32(&req.n, sizeof(req), RTA_OIF, mroute->ifindex);
-	nl_attr_put32(&req.n, sizeof(req), RTA_SRC, mroute->sg.src.s_addr);
-	nl_attr_put32(&req.n, sizeof(req), RTA_DST, mroute->sg.grp.s_addr);
+	nl_attr_put32(&req.n, sizeof(req), RTA_SRC,
+		      mroute->sg.src.ipaddr_v4.s_addr);
+	nl_attr_put32(&req.n, sizeof(req), RTA_DST,
+		      mroute->sg.grp.ipaddr_v4.s_addr);
 	/*
 	 * What?
 	 *
@@ -3640,7 +3642,7 @@ static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
 	if (!zif->v6_2_v4_ll_neigh_entry)
 		return;
 
-	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
+	if (ipv4_ll.s_addr != ip->ipaddr_v4.s_addr)
 		return;
 
 	if (handle_failed && ndm->ndm_state & NUD_FAILED) {

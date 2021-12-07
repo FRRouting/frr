@@ -43,8 +43,9 @@ struct in_addr pim_br_get_pmbr(struct prefix_sg *sg)
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_br_list, node, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (sg->src.ipaddr_v4.s_addr == pim_br->sg.src.ipaddr_v4.s_addr
+		    && sg->grp.ipaddr_v4.s_addr
+			       == pim_br->sg.grp.ipaddr_v4.s_addr)
 			return pim_br->pmbr;
 	}
 
@@ -57,8 +58,9 @@ void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS(pim_br_list, node, next, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (sg->src.ipaddr_v4.s_addr == pim_br->sg.src.ipaddr_v4.s_addr
+		    && sg->grp.ipaddr_v4.s_addr
+			       == pim_br->sg.grp.ipaddr_v4.s_addr)
 			break;
 	}
 
@@ -81,8 +83,9 @@ void pim_br_clear_pmbr(struct prefix_sg *sg)
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS(pim_br_list, node, next, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (sg->src.ipaddr_v4.s_addr == pim_br->sg.src.ipaddr_v4.s_addr
+		    && sg->grp.ipaddr_v4.s_addr
+			       == pim_br->sg.grp.ipaddr_v4.s_addr)
 			break;
 	}
 
