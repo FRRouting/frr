@@ -484,9 +484,8 @@ DEFUN (babel_set_rtt_min,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->rtt_min =
-	    rtt
-	    * 1000; // value entered in milliseconds and stored as microseconds
+    /* The value is entered in milliseconds but stored as microseconds. */
+    babel_ifp->rtt_min = rtt * 1000;
     return CMD_SUCCESS;
 }
 
@@ -506,9 +505,8 @@ DEFUN (babel_set_rtt_max,
     babel_ifp = babel_get_if_nfo(ifp);
     assert (babel_ifp != NULL);
 
-    babel_ifp->rtt_max =
-	    rtt
-	    * 1000; // value entered in milliseconds and stored as microseconds
+    /* The value is entered in milliseconds but stored as microseconds. */
+    babel_ifp->rtt_max = rtt * 1000;
     return CMD_SUCCESS;
 }
 
