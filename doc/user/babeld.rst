@@ -144,7 +144,7 @@ Babel configuration
 .. clicmd:: babel max-rtt-penalty (0-65535)
 
    This specifies the maximum cost added to a neighbour because of RTT, i.e.
-   when the RTT is higher or equal than rtt-max. The default is 150. Setting it,
+   when the RTT is higher or equal than rtt-max. The default is 150. Setting it
    to 0 effectively disables the use of a RTT-based cost.
 
 
