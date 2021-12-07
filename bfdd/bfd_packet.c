@@ -697,10 +697,25 @@ int bfd_recv_cb(struct thread *t)
 
 		/* Handle poll finalization. */
 		bs_final_handler(bfd);
-	} else {
-		/* Received a packet, lets update the receive timer. */
-		bfd_recvtimer_update(bfd);
 	}
+
+	/*
+	 * Detection timeout calculation:
+	 * The minimum detection timeout is the remote detection
+	 * multipler (number of packets to be missed) times the agreed
+	 * transmission interval.
+	 *
+	 * RFC 5880, Section 6.8.4.
+	 */
+	if (bfd->cur_timers.required_min_rx > bfd->remote_timers.desired_min_tx)
+		bfd->detect_TO = bfd->remote_detect_mult
+				 * bfd->cur_timers.required_min_rx;
+	else
+		bfd->detect_TO = bfd->remote_detect_mult
+				 * bfd->remote_timers.desired_min_tx;
+
+	/* Apply new receive timer immediately. */
+	bfd_recvtimer_update(bfd);
 
 	/* Handle echo timers changes. */
 	bs_echo_timer_handler(bfd);
