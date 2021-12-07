@@ -380,8 +380,8 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
 
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				sizeof(ifaddr_str));
+		pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4, ifaddr_str,
+			       sizeof(ifaddr_str));
 		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
 			   __func__, ifaddr_str, ifp->name,
 			   pim_ifp->default_query_interval);

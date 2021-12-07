@@ -118,7 +118,7 @@ static void igmp_sock_dump(array_t *igmp_sock_array)
 		struct igmp_sock *igmp = array_get(igmp_sock_array, i);
 
 		zlog_debug("%s %s: [%d/%d] igmp_addr=%pI4 fd=%d", __FILE__,
-			   __func__, i, size, &igmp->ifaddr,
+			   __func__, i, size, &igmp->ifaddr.ipaddr_v4,
 			   igmp->fd);
 	}
 }
@@ -135,7 +135,7 @@ struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 #endif
 
 	for (ALL_LIST_ELEMENTS_RO(igmp_sock_list, sock_node, igmp))
-		if (ifaddr.s_addr == igmp->ifaddr.s_addr)
+		if (ifaddr.s_addr == igmp->ifaddr.ipaddr_v4.s_addr)
 			return igmp;
 
 	return NULL;
@@ -151,12 +151,12 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
+		pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4, ifaddr_str,
 			       sizeof(ifaddr_str));
 		zlog_debug("%s: Querier %s resuming", __func__, ifaddr_str);
 	}
 	/* Mark the interface address as querier address */
-	igmp->querier_addr = igmp->ifaddr;
+	igmp->querier_addr.ipaddr_v4 = igmp->ifaddr.ipaddr_v4;
 
 	/*
 	  We are the current querier, then
@@ -189,8 +189,8 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 
 		if (PIM_DEBUG_IGMP_TRACE) {
 			char ifaddr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4,
+				       ifaddr_str, sizeof(ifaddr_str));
 			zlog_debug(
 				"Querier %s resetting TIMER event for Other-Querier-Present",
 				ifaddr_str);
@@ -230,7 +230,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
+		pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4, ifaddr_str,
 			       sizeof(ifaddr_str));
 		zlog_debug(
 			"Querier %s scheduling %ld.%03ld sec TIMER event for Other-Querier-Present",
@@ -250,8 +250,8 @@ void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		if (igmp->t_other_querier_timer) {
 			char ifaddr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4,
+				       ifaddr_str, sizeof(ifaddr_str));
 			zlog_debug(
 				"IGMP querier %s fd=%d cancelling other-querier-present TIMER event on %s",
 				ifaddr_str, igmp->fd, igmp->interface->name);
@@ -374,20 +374,21 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 	  and ceases to send queries on the network if it was the previously
 	  elected querier.
 	 */
-	if (ntohl(from.s_addr) < ntohl(igmp->ifaddr.s_addr)) {
+	if (ntohl(from.s_addr) < ntohl(igmp->ifaddr.ipaddr_v4.s_addr)) {
 
 		if (PIM_DEBUG_IGMP_TRACE) {
 			char ifaddr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4,
+				       ifaddr_str, sizeof(ifaddr_str));
 			zlog_debug(
 				"%s: local address %s (%u) lost querier election to %s (%u)",
 				ifp->name, ifaddr_str,
-				ntohl(igmp->ifaddr.s_addr), from_str,
+				ntohl(igmp->ifaddr.ipaddr_v4.s_addr), from_str,
 				ntohl(from.s_addr));
 		}
-		if (ntohl(from.s_addr) < ntohl(igmp->querier_addr.s_addr))
-			igmp->querier_addr.s_addr = from.s_addr;
+		if (ntohl(from.s_addr)
+		    < ntohl(igmp->querier_addr.ipaddr_v4.s_addr))
+			igmp->querier_addr.ipaddr_v4.s_addr = from.s_addr;
 
 		pim_igmp_other_querier_timer_on(igmp);
 	}
@@ -651,7 +652,7 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
+		pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4, ifaddr_str,
 			       sizeof(ifaddr_str));
 		zlog_debug(
 			"Querier %s scheduling %d-second (%s) TIMER event for IGMP query on fd=%d",
@@ -669,8 +670,8 @@ void pim_igmp_general_query_off(struct igmp_sock *igmp)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		if (igmp->t_igmp_query_timer) {
 			char ifaddr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4,
+				       ifaddr_str, sizeof(ifaddr_str));
 			zlog_debug(
 				"IGMP querier %s fd=%d cancelling query TIMER event on %s",
 				ifaddr_str, igmp->fd, igmp->interface->name);
@@ -718,8 +719,8 @@ static int pim_igmp_general_query(struct thread *t)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char querier_str[INET_ADDRSTRLEN];
 		char dst_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<querier?>", igmp->ifaddr, querier_str,
-			       sizeof(querier_str));
+		pim_inet4_dump("<querier?>", igmp->ifaddr.ipaddr_v4,
+			       querier_str, sizeof(querier_str));
 		pim_inet4_dump("<dst?>", dst_addr, dst_str, sizeof(dst_str));
 		zlog_debug("Querier %s issuing IGMP general query to %s on %s",
 			   querier_str, dst_str, igmp->interface->name);
@@ -747,7 +748,7 @@ static void sock_close(struct igmp_sock *igmp)
 		if (igmp->t_igmp_read) {
 			zlog_debug(
 				"Cancelling READ event on IGMP socket %pI4 fd=%d on interface %s",
-				&igmp->ifaddr, igmp->fd,
+				&igmp->ifaddr.ipaddr_v4, igmp->fd,
 				igmp->interface->name);
 		}
 	}
@@ -757,13 +758,13 @@ static void sock_close(struct igmp_sock *igmp)
 		flog_err(
 			EC_LIB_SOCKET,
 			"Failure closing IGMP socket %pI4 fd=%d on interface %s: errno=%d: %s",
-			&igmp->ifaddr, igmp->fd,
+			&igmp->ifaddr.ipaddr_v4, igmp->fd,
 			igmp->interface->name, errno, safe_strerror(errno));
 	}
 
 	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
 		zlog_debug("Deleted IGMP socket %pI4 fd=%d on interface %s",
-			   &igmp->ifaddr, igmp->fd,
+			   &igmp->ifaddr.ipaddr_v4, igmp->fd,
 			   igmp->interface->name);
 	}
 }
@@ -971,8 +972,8 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 	igmp->fd = fd;
 	igmp->interface = ifp;
-	igmp->ifaddr = ifaddr;
-	igmp->querier_addr = ifaddr;
+	igmp->ifaddr.ipaddr_v4 = ifaddr;
+	igmp->querier_addr.ipaddr_v4 = ifaddr;
 	igmp->t_igmp_read = NULL;
 	igmp->t_igmp_query_timer = NULL;
 	igmp->t_other_querier_timer = NULL; /* no other querier present */

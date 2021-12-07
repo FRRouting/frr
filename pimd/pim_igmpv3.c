@@ -1740,8 +1740,8 @@ void igmp_v3_recv_query(struct igmp_sock *igmp, const char *from_str,
 
 		if (PIM_DEBUG_IGMP_TRACE) {
 			char ifaddr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-				       sizeof(ifaddr_str));
+			pim_inet4_dump("<ifaddr?>", igmp->ifaddr.ipaddr_v4,
+				       ifaddr_str, sizeof(ifaddr_str));
 			zlog_debug(
 				"Querier %s new query interval is %s QQI=%u sec (recv QQIC=%02x from %s)",
 				ifaddr_str,

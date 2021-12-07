@@ -85,16 +85,16 @@ struct igmp_join {
 struct igmp_sock {
 	int fd;
 	struct interface *interface;
-	struct in_addr ifaddr;
+	struct ipaddr ifaddr;
 	time_t sock_creation;
 
 	struct thread *t_igmp_read; /* read: IGMP sockets */
 	struct thread
 		*t_igmp_query_timer; /* timer: issue IGMP general queries */
 	struct thread *t_other_querier_timer; /* timer: other querier present */
-	struct in_addr querier_addr;	  /* IP address of the querier */
+	struct ipaddr querier_addr;	   /* IP address of the querier */
 	int querier_query_interval;	   /* QQI */
-	int querier_robustness_variable; /* QRV */
+	int querier_robustness_variable;   /* QRV */
 	int startup_query_count;
 
 	bool mtrace_only;
