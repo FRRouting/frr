@@ -828,8 +828,8 @@ void igmp_group_delete(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug("Deleting IGMP group %s from interface %s",
 			   group_str, group->interface->name);
 	}
@@ -900,7 +900,7 @@ static unsigned int igmp_group_hash_key(const void *arg)
 {
 	const struct igmp_group *group = arg;
 
-	return jhash_1word(group->group_addr.s_addr, 0);
+	return jhash_1word(group->group_addr.ipaddr_v4.s_addr, 0);
 }
 
 static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
@@ -908,7 +908,7 @@ static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 	const struct igmp_group *g1 = (const struct igmp_group *)arg1;
 	const struct igmp_group *g2 = (const struct igmp_group *)arg2;
 
-	if (g1->group_addr.s_addr == g2->group_addr.s_addr)
+	if (g1->group_addr.ipaddr_v4.s_addr == g2->group_addr.ipaddr_v4.s_addr)
 		return true;
 
 	return false;
@@ -1107,8 +1107,8 @@ static int igmp_group_timer(struct thread *t)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug("%s: Timer for group %s on interface %s", __func__,
 			   group_str, group->interface->name);
 	}
@@ -1144,8 +1144,8 @@ static void group_timer_off(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug("Cancelling TIMER event for group %s on %s",
 			   group_str, group->interface->name);
 	}
@@ -1159,8 +1159,8 @@ void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 
 	if (PIM_DEBUG_IGMP_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"Scheduling %ld.%03ld sec TIMER event for group %s on %s",
 			interval_msec / 1000, interval_msec % 1000, group_str,
@@ -1186,7 +1186,7 @@ struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
 	struct igmp_group lookup;
 	struct pim_interface *pim_ifp = igmp->interface->info;
 
-	lookup.group_addr.s_addr = group_addr.s_addr;
+	lookup.group_addr.ipaddr_v4.s_addr = group_addr.s_addr;
 
 	return hash_lookup(pim_ifp->group_hash, &lookup);
 }
@@ -1236,7 +1236,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	group->t_group_timer = NULL;
 	group->t_group_query_retransmit_timer = NULL;
 	group->group_specific_query_retransmit_count = 0;
-	group->group_addr = group_addr;
+	group->group_addr.ipaddr_v4 = group_addr;
 	group->interface = igmp->interface;
 	group->last_igmp_v1_report_dsec = -1;
 	group->last_igmp_v2_report_dsec = -1;
@@ -1251,8 +1251,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"Creating new IGMP group %s on socket %d interface %s",
 			group_str, igmp->fd, igmp->interface->name);

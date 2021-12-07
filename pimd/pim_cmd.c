@@ -3455,8 +3455,8 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 			char hhmmss[10];
 			char uptime[10];
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
+			pim_inet4_dump("<group?>", grp->group_addr.ipaddr_v4,
+				       group_str, sizeof(group_str));
 			pim_time_timer_to_hhmmss(hhmmss, sizeof(hhmmss),
 						 grp->t_group_timer);
 			pim_time_uptime(uptime, sizeof(uptime),
@@ -3550,7 +3550,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 			struct igmp_source *src;
 			int grp_retr_sources = 0;
 
-			pim_inet4_dump("<group?>", grp->group_addr,
+			pim_inet4_dump("<group?>", grp->group_addr.ipaddr_v4,
 				       group_str, sizeof(group_str));
 			pim_time_timer_to_mmss(
 				grp_retr_mmss, sizeof(grp_retr_mmss),
@@ -3600,8 +3600,8 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 			struct listnode *srcnode;
 			struct igmp_source *src;
 
-			pim_inet4_dump("<group?>", grp->group_addr, group_str,
-				       sizeof(group_str));
+			pim_inet4_dump("<group?>", grp->group_addr.ipaddr_v4,
+				       group_str, sizeof(group_str));
 
 			/* scan group sources */
 			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
@@ -3656,7 +3656,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 			struct listnode *srcnode;
 			struct igmp_source *src;
 
-			pim_inet4_dump("<group?>", grp->group_addr,
+			pim_inet4_dump("<group?>", grp->group_addr.ipaddr_v4,
 				       group_str, sizeof(group_str));
 
 			/* scan group sources */

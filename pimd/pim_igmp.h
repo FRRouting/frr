@@ -176,7 +176,7 @@ struct igmp_group {
 	/* compatibility mode - igmp v1, v2 or v3 */
 	int igmp_version;
 
-	struct in_addr group_addr;
+	struct ipaddr group_addr;
 	int group_filtermode_isexcl;    /* 0=INCLUDE, 1=EXCLUDE */
 	struct list *group_source_list; /* list of struct igmp_source */
 	time_t group_creation;

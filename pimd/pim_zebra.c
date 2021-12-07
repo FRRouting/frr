@@ -512,10 +512,10 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src.ipaddr_v4 = source->source_addr.ipaddr_v4;
-	sg.grp.ipaddr_v4 = group->group_addr;
+	sg.grp.ipaddr_v4 = group->group_addr.ipaddr_v4;
 
 	ch = pim_ifchannel_find(group->interface, &sg);
-	if (pim_is_grp_ssm(pim, group->group_addr)) {
+	if (pim_is_grp_ssm(pim, group->group_addr.ipaddr_v4)) {
 		/* If SSM group withdraw local membership */
 		if (ch
 		    && (ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE)) {
@@ -586,7 +586,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src.ipaddr_v4 = source->source_addr.ipaddr_v4;
-	sg.grp.ipaddr_v4 = source->source_group->group_addr;
+	sg.grp.ipaddr_v4 = source->source_group->group_addr.ipaddr_v4;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
@@ -767,7 +767,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
 	sg.src.ipaddr_v4 = source->source_addr.ipaddr_v4;
-	sg.grp.ipaddr_v4 = source->source_group->group_addr;
+	sg.grp.ipaddr_v4 = source->source_group->group_addr.ipaddr_v4;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,

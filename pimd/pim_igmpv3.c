@@ -98,8 +98,8 @@ void igmp_group_reset_gmi(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"Resetting group %s timer to GMI=%ld.%03ld sec on %s",
 			group_str, group_membership_interval_msec / 1000,
@@ -130,8 +130,8 @@ static int igmp_source_timer(struct thread *t)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 		zlog_debug(
@@ -192,8 +192,8 @@ static void source_timer_off(struct igmp_group *group,
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 		zlog_debug(
@@ -213,8 +213,8 @@ static void igmp_source_timer_on(struct igmp_group *group,
 	if (PIM_DEBUG_IGMP_EVENTS) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 		zlog_debug(
@@ -247,8 +247,8 @@ void igmp_source_reset_gmi(struct igmp_group *group, struct igmp_source *source)
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
 
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 
@@ -355,8 +355,8 @@ void igmp_source_delete(struct igmp_source *source)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 		zlog_debug(
@@ -374,8 +374,8 @@ void igmp_source_delete(struct igmp_source *source)
 	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 		zlog_warn(
@@ -456,8 +456,8 @@ struct igmp_source *igmp_get_source_by_addr(struct igmp_group *group,
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", src_addr, source_str,
 			       sizeof(source_str));
 		zlog_debug(
@@ -988,7 +988,8 @@ static void igmp_send_query_group(struct igmp_group *group, char *query_buf,
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->socket_list, sock_node, igmp)) {
 		igmp_send_query(pim_ifp->version, group, igmp->fd, ifp->name,
 				query_buf, query_buf_size, num_sources,
-				group->group_addr, group->group_addr,
+				group->group_addr.ipaddr_v4,
+				group->group_addr.ipaddr_v4,
 				pim_ifp->specific_query_max_response_time_dsec,
 				s_flag, igmp->querier_robustness_variable,
 				igmp->querier_query_interval);
@@ -1036,7 +1037,7 @@ static void group_retransmit_group(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr,
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
 			       group_str, sizeof(group_str));
 		zlog_debug(
 			"retransmit_group_specific_query: group %s on %s: s_flag=%d count=%d",
@@ -1125,8 +1126,8 @@ static int group_retransmit_sources(struct igmp_group *group,
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"retransmit_grp&src_specific_query: group %s on %s: srcs_with_sflag=%d srcs_wo_sflag=%d will_send_sflag=%d retransmit_src_left=%d",
 			group_str, group->interface->name, num_sources_tosend1,
@@ -1147,7 +1148,8 @@ static int group_retransmit_sources(struct igmp_group *group,
 				>> 2;
 			if (num_sources_tosend1 > query_buf1_max_sources) {
 				char group_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<group?>", group->group_addr,
+				pim_inet4_dump("<group?>",
+					       group->group_addr.ipaddr_v4,
 					       group_str, sizeof(group_str));
 				zlog_warn(
 					"%s: group %s on %s: s_flag=1 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
@@ -1185,8 +1187,8 @@ static int group_retransmit_sources(struct igmp_group *group,
 			(sizeof(query_buf2) - IGMP_V3_SOURCES_OFFSET) >> 2;
 		if (num_sources_tosend2 > query_buf2_max_sources) {
 			char group_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<group?>", group->group_addr, group_str,
-				       sizeof(group_str));
+			pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+				       group_str, sizeof(group_str));
 			zlog_warn(
 				"%s: group %s on %s: s_flag=0 unable to fit %d sources into buf_size=%zu (max_sources=%d)",
 				__func__, group_str, group->interface->name,
@@ -1222,8 +1224,8 @@ static int igmp_group_retransmit(struct thread *t)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug("group_retransmit_timer: group %s on %s", group_str,
 			   group->interface->name);
 	}
@@ -1287,8 +1289,8 @@ static void group_retransmit_timer_on(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"Scheduling %ld.%03ld sec retransmit timer for group %s on %s",
 			lmqi_msec / 1000, lmqi_msec % 1000, group_str,
@@ -1516,8 +1518,8 @@ void igmp_group_timer_lower_to_lmqt(struct igmp_group *group)
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		zlog_debug(
 			"%s: group %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
 			__func__, group_str, ifname, lmqc, lmqi_dsec,
@@ -1552,8 +1554,8 @@ void igmp_source_timer_lower_to_lmqt(struct igmp_source *source)
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<group?>", group->group_addr, group_str,
-			       sizeof(group_str));
+		pim_inet4_dump("<group?>", group->group_addr.ipaddr_v4,
+			       group_str, sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr.ipaddr_v4,
 			       source_str, sizeof(source_str));
 		zlog_debug(

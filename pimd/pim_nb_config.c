@@ -99,7 +99,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 
 				memset(&sg, 0, sizeof(struct prefix_sg));
 				sg.src.ipaddr_v4 = src->source_addr.ipaddr_v4;
-				sg.grp.ipaddr_v4 = grp->group_addr;
+				sg.grp.ipaddr_v4 = grp->group_addr.ipaddr_v4;
 				pim_ifchannel_local_membership_add(
 					ifp, &sg, false /*is_vxlan*/);
 			}
