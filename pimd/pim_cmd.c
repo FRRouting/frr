@@ -3610,7 +3610,8 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 				char mmss[10];
 				char uptime[10];
 
-				pim_inet4_dump("<source?>", src->source_addr,
+				pim_inet4_dump("<source?>",
+					       src->source_addr.ipaddr_v4,
 					       source_str, sizeof(source_str));
 
 				pim_time_timer_to_mmss(mmss, sizeof(mmss),
@@ -3663,7 +3664,8 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 						  srcnode, src)) {
 				char source_str[INET_ADDRSTRLEN];
 
-				pim_inet4_dump("<source?>", src->source_addr,
+				pim_inet4_dump("<source?>",
+					       src->source_addr.ipaddr_v4,
 					       source_str, sizeof(source_str));
 
 				vty_out(vty, "%-16s %-15s %-15s %7d\n",

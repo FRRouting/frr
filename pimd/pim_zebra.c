@@ -506,12 +506,12 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 	struct igmp_group *group = source->source_group;
 	struct pim_ifchannel *ch;
 
-	if ((source->source_addr.s_addr != INADDR_ANY)
+	if ((source->source_addr.ipaddr_v4.s_addr != INADDR_ANY)
 	    || !IGMP_SOURCE_TEST_FORWARDING(source->source_flags))
 		return;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src.ipaddr_v4 = source->source_addr;
+	sg.src.ipaddr_v4 = source->source_addr.ipaddr_v4;
 	sg.grp.ipaddr_v4 = group->group_addr;
 
 	ch = pim_ifchannel_find(group->interface, &sg);
@@ -585,7 +585,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	int input_iface_vif_index = 0;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src.ipaddr_v4 = source->source_addr;
+	sg.src.ipaddr_v4 = source->source_addr.ipaddr_v4;
 	sg.grp.ipaddr_v4 = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
@@ -619,7 +619,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		struct pim_upstream *up = NULL;
 
 		if (!pim_rp_set_upstream_addr(pim, &vif_source,
-					      source->source_addr, sg.grp.ipaddr_v4)) {
+					      source->source_addr.ipaddr_v4,
+					      sg.grp.ipaddr_v4)) {
 			/*Create a dummy channel oil */
 			source->source_channel_oil =
 				pim_channel_oil_add(pim, &sg, __func__);
@@ -663,8 +664,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 			if (input_iface_vif_index < 1) {
 				if (PIM_DEBUG_IGMP_TRACE) {
 					char source_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<source?>",
-						source->source_addr,
+					pim_inet4_dump(
+						"<source?>",
+						source->source_addr.ipaddr_v4,
 						source_str, sizeof(source_str));
 					zlog_debug(
 						"%s %s: could not find input interface for source %s",
@@ -764,7 +766,7 @@ void igmp_source_forward_stop(struct igmp_source *source)
 	int result;
 
 	memset(&sg, 0, sizeof(struct prefix_sg));
-	sg.src.ipaddr_v4 = source->source_addr;
+	sg.src.ipaddr_v4 = source->source_addr.ipaddr_v4;
 	sg.grp.ipaddr_v4 = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
