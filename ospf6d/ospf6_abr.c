@@ -394,7 +394,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		return 0;
 	}
 
-	if ((route->type == OSPF6_DEST_TYPE_ROUTER) && IS_AREA_STUB(area)) {
+	if ((route->type == OSPF6_DEST_TYPE_ROUTER)
+	    && (IS_AREA_STUB(area) || IS_AREA_NSSA(area))) {
 		if (is_debug)
 			zlog_debug(
 				"Area has been stubbed, purge Inter-Router LSA");
@@ -443,6 +444,18 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 			if (is_debug)
 				zlog_debug(
 					"This is the secondary path to the ASBR, ignore");
+			ospf6_abr_delete_route(summary, summary_table, old);
+			return 0;
+		}
+
+		/* Do not generate if area is NSSA */
+		route_area =
+			ospf6_area_lookup(route->path.area_id, area->ospf6);
+		if (IS_AREA_NSSA(route_area)) {
+			if (is_debug)
+				zlog_debug(
+					"%s: The route comes from NSSA area, skip",
+					__func__);
 			ospf6_abr_delete_route(summary, summary_table, old);
 			return 0;
 		}
