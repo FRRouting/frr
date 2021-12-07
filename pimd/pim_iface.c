@@ -559,16 +559,19 @@ void pim_if_addr_add(struct connected *ifc)
 				 */
 				close(ij->sock_fd);
 				join_fd = igmp_join_sock(
-					ifp->name, ifp->ifindex, ij->group_addr,
-					ij->source_addr);
+					ifp->name, ifp->ifindex,
+					ij->group_addr.ipaddr_v4,
+					ij->source_addr.ipaddr_v4);
 				if (join_fd < 0) {
 					char group_str[INET_ADDRSTRLEN];
 					char source_str[INET_ADDRSTRLEN];
-					pim_inet4_dump("<grp?>", ij->group_addr,
+					pim_inet4_dump("<grp?>",
+						       ij->group_addr.ipaddr_v4,
 						       group_str,
 						       sizeof(group_str));
 					pim_inet4_dump(
-						"<src?>", ij->source_addr,
+						"<src?>",
+						ij->source_addr.ipaddr_v4,
 						source_str, sizeof(source_str));
 					zlog_warn(
 						"%s: igmp_join_sock() failure for IGMP group %s source %s on interface %s",
@@ -1171,8 +1174,8 @@ static struct igmp_join *igmp_join_find(struct list *join_list,
 	assert(join_list);
 
 	for (ALL_LIST_ELEMENTS_RO(join_list, node, ij)) {
-		if ((group_addr.s_addr == ij->group_addr.s_addr)
-		    && (source_addr.s_addr == ij->source_addr.s_addr))
+		if ((group_addr.s_addr == ij->group_addr.ipaddr_v4.s_addr)
+		    && (source_addr.s_addr == ij->source_addr.ipaddr_v4.s_addr))
 			return ij;
 	}
 
@@ -1238,8 +1241,8 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	ij = XCALLOC(MTYPE_PIM_IGMP_JOIN, sizeof(*ij));
 
 	ij->sock_fd = join_fd;
-	ij->group_addr = group_addr;
-	ij->source_addr = source_addr;
+	ij->group_addr.ipaddr_v4 = group_addr;
+	ij->source_addr.ipaddr_v4 = source_addr;
 	ij->sock_creation = pim_time_monotonic_sec();
 
 	listnode_add(pim_ifp->join_list, ij);
@@ -1364,7 +1367,8 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 		return;
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->join_list, node, nextnode, ij))
-		pim_if_igmp_join_del(ifp, ij->group_addr, ij->source_addr);
+		pim_if_igmp_join_del(ifp, ij->group_addr.ipaddr_v4,
+				     ij->source_addr.ipaddr_v4);
 }
 
 /*

@@ -855,10 +855,10 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 
 			pim_time_uptime(uptime, sizeof(uptime),
 					now - ij->sock_creation);
-			pim_inet4_dump("<grp?>", ij->group_addr, group_str,
-				       sizeof(group_str));
-			pim_inet4_dump("<src?>", ij->source_addr, source_str,
-				       sizeof(source_str));
+			pim_inet4_dump("<grp?>", ij->group_addr.ipaddr_v4,
+				       group_str, sizeof(group_str));
+			pim_inet4_dump("<src?>", ij->source_addr.ipaddr_v4,
+				       source_str, sizeof(source_str));
 
 			if (uj) {
 				json_object_object_get_ex(json, ifp->name,

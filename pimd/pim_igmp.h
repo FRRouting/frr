@@ -76,8 +76,8 @@
 	} while (0)
 
 struct igmp_join {
-	struct in_addr group_addr;
-	struct in_addr source_addr;
+	struct ipaddr group_addr;
+	struct ipaddr source_addr;
 	int sock_fd;
 	time_t sock_creation;
 };

@@ -412,10 +412,12 @@ int pim_interface_config_write(struct vty *vty)
 							[INET_ADDRSTRLEN];
 						pim_inet4_dump(
 							"<grp?>",
-							ij->group_addr,
+							ij->group_addr
+								.ipaddr_v4,
 							group_str,
 							sizeof(group_str));
-						if (ij->source_addr.s_addr
+						if (ij->source_addr.ipaddr_v4
+							    .s_addr
 						    == INADDR_ANY) {
 							vty_out(vty,
 								" ip igmp join %s\n",
@@ -423,7 +425,8 @@ int pim_interface_config_write(struct vty *vty)
 						} else {
 							inet_ntop(
 								AF_INET,
-								&ij->source_addr,
+								&ij->source_addr
+									 .ipaddr_v4,
 								source_str,
 								sizeof(source_str));
 							vty_out(vty,
