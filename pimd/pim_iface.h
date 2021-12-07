@@ -76,7 +76,7 @@
 #define PIM_IF_FLAG_UNSET_HELLO_SENT(flags) ((flags) &= ~PIM_IF_FLAG_HELLO_SENT)
 
 struct pim_iface_upstream_switch {
-	struct in_addr address;
+	struct ipaddr address;
 	struct list *us;
 };
 
