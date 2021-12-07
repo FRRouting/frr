@@ -519,12 +519,14 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 			 * bow out of doing a nexthop lookup and
 			 * setting the SPTBIT to true
 			 */
-			if (up->upstream_register.s_addr != INADDR_ANY &&
-			    pim_nexthop_lookup(pim_ifp->pim, &source,
-					       up->upstream_register, 0)) {
-				pim_register_stop_send(source.interface, &sg,
-						       pim_ifp->primary_address,
-						       up->upstream_register);
+			if (up->upstream_register.ipaddr_v4.s_addr != INADDR_ANY
+			    && pim_nexthop_lookup(
+				       pim_ifp->pim, &source,
+				       up->upstream_register.ipaddr_v4, 0)) {
+				pim_register_stop_send(
+					source.interface, &sg,
+					pim_ifp->primary_address,
+					up->upstream_register.ipaddr_v4);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
 
@@ -534,13 +536,13 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 							__func__);
 		} else {
 			if (I_am_RP(pim_ifp->pim, up->sg.grp.ipaddr_v4)) {
-				if (pim_nexthop_lookup(pim_ifp->pim, &source,
-						       up->upstream_register,
-						       0))
+				if (pim_nexthop_lookup(
+					    pim_ifp->pim, &source,
+					    up->upstream_register.ipaddr_v4, 0))
 					pim_register_stop_send(
 						source.interface, &sg,
 						pim_ifp->primary_address,
-						up->upstream_register);
+						up->upstream_register.ipaddr_v4);
 				up->sptbit = PIM_UPSTREAM_SPTBIT_TRUE;
 			}
 			pim_upstream_keep_alive_timer_start(

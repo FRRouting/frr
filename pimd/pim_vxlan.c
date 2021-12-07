@@ -356,7 +356,7 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
 			nht_p.family = AF_INET;
 			nht_p.prefixlen = IPV4_MAX_BITLEN;
-			nht_p.u.prefix4 = up->upstream_addr;
+			nht_p.u.prefix4 = up->upstream_addr.ipaddr_v4;
 			pim_delete_tracked_nexthop(vxlan_sg->pim, &nht_p, up,
 						   NULL);
 		}

@@ -367,7 +367,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	struct in_addr new_upstream_addr;
 	struct prefix nht_p;
 
-	old_upstream_addr = up->upstream_addr;
+	old_upstream_addr = up->upstream_addr.ipaddr_v4;
 	pim_rp_set_upstream_addr(pim, &new_upstream_addr, up->sg.src.ipaddr_v4,
 				 up->sg.grp.ipaddr_v4);
 
@@ -396,7 +396,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	}
 
 	/* Update the upstream address */
-	up->upstream_addr = new_upstream_addr;
+	up->upstream_addr.ipaddr_v4 = new_upstream_addr;
 
 	old_rpf.source_nexthop.interface = up->rpf.source_nexthop.interface;
 
@@ -537,7 +537,8 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
-				if ((up->upstream_addr.s_addr == INADDR_ANY)
+				if ((up->upstream_addr.ipaddr_v4.s_addr
+				     == INADDR_ANY)
 				    && (up->sg.src.ipaddr_v4.s_addr
 					== INADDR_ANY)) {
 					struct prefix grp;
@@ -780,7 +781,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			/* Find the upstream (*, G) whose upstream address is
 			 * same as the deleted RP
 			 */
-			if ((up->upstream_addr.s_addr
+			if ((up->upstream_addr.ipaddr_v4.s_addr
 			     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
 			    && (up->sg.src.ipaddr_v4.s_addr == INADDR_ANY)) {
 				struct prefix grp;
@@ -790,7 +791,8 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 				trp_info = pim_rp_find_match_group(pim, &grp);
 				if (trp_info == rp_all) {
 					pim_upstream_rpf_clear(pim, up);
-					up->upstream_addr.s_addr = INADDR_ANY;
+					up->upstream_addr.ipaddr_v4.s_addr =
+						INADDR_ANY;
 				}
 			}
 		}
@@ -828,7 +830,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the deleted RP
 		 */
-		if ((up->upstream_addr.s_addr
+		if ((up->upstream_addr.ipaddr_v4.s_addr
 		     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
 		    && (up->sg.src.ipaddr_v4.s_addr == INADDR_ANY)) {
 			struct prefix grp;
@@ -842,10 +844,10 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			/* RP not found for the group grp */
 			if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
 				pim_upstream_rpf_clear(pim, up);
-				pim_rp_set_upstream_addr(pim,
-							 &up->upstream_addr,
-							 up->sg.src.ipaddr_v4,
-							 up->sg.grp.ipaddr_v4);
+				pim_rp_set_upstream_addr(
+					pim, &up->upstream_addr.ipaddr_v4,
+					up->sg.src.ipaddr_v4,
+					up->sg.grp.ipaddr_v4);
 			}
 
 			/* RP found for the group grp */

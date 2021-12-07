@@ -829,11 +829,11 @@ void pim_forward_start(struct pim_ifchannel *ch)
 			       sizeof(source_str));
 		pim_inet4_dump("<group?>", ch->sg.grp.ipaddr_v4, group_str,
 			       sizeof(group_str));
-		pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str,
-			       sizeof(upstream_str));
+		pim_inet4_dump("<upstream?>", up->upstream_addr.ipaddr_v4,
+			       upstream_str, sizeof(upstream_str));
 		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%pI4)", __func__,
 			   source_str, group_str, ch->interface->name,
-			   &up->upstream_addr);
+			   &up->upstream_addr.ipaddr_v4);
 	}
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))

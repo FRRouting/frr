@@ -458,7 +458,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 				return 1;
 			}
 
-			upstream->upstream_register = src_addr;
+			upstream->upstream_register.ipaddr_v4 = src_addr;
 		} else {
 			/*
 			 * If the FHR has set a very very fast register timer
