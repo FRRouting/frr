@@ -1124,7 +1124,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 				  neigh)) {
 
 		/* primary address ? */
-		if (neigh->source_addr.s_addr == addr.s_addr)
+		if (neigh->source_addr.ipaddr_v4.s_addr == addr.s_addr)
 			return neigh;
 
 		/* secondary address ? */

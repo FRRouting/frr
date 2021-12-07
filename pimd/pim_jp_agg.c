@@ -175,13 +175,10 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 		if (PIM_DEBUG_TRACE) {
 			char src_str[INET_ADDRSTRLEN];
 
-			pim_inet4_dump("<src?>", nbr->source_addr, src_str,
-					sizeof(src_str));
-			zlog_debug(
-				"up %s remove from nbr %s/%s jp-agg-list",
-				up->sg_str,
-				nbr->interface->name,
-				src_str);
+			pim_inet4_dump("<src?>", nbr->source_addr.ipaddr_v4,
+				       src_str, sizeof(src_str));
+			zlog_debug("up %s remove from nbr %s/%s jp-agg-list",
+				   up->sg_str, nbr->interface->name, src_str);
 		}
 	}
 
@@ -302,13 +299,12 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 		if (PIM_DEBUG_TRACE) {
 			char src_str[INET_ADDRSTRLEN];
 
-			pim_inet4_dump("<src?>", nbr->source_addr, src_str,
-					sizeof(src_str));
-			zlog_debug(
-				"up %s add to nbr %s/%s jp-agg-list",
-				up->sg_str,
-				up->rpf.source_nexthop.interface->name,
-				src_str);
+			pim_inet4_dump("<src?>", nbr->source_addr.ipaddr_v4,
+				       src_str, sizeof(src_str));
+			zlog_debug("up %s add to nbr %s/%s jp-agg-list",
+				   up->sg_str,
+				   up->rpf.source_nexthop.interface->name,
+				   src_str);
 		}
 	}
 

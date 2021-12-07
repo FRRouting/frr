@@ -781,7 +781,8 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 					nbr = pim_neighbor_find_if(ifp1);
 				/* Overwrite with Nbr address as NH addr */
 				if (nbr)
-					nexthop->gate.ipv4 = nbr->source_addr;
+					nexthop->gate.ipv4 =
+						nbr->source_addr.ipaddr_v4;
 				else {
 					// Mark nexthop address to 0 until PIM
 					// Nbr is resolved.

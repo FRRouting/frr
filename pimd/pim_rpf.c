@@ -403,7 +403,7 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 		up->rpf.source_nexthop.interface,
 		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4);
 	if (neigh)
-		rpf_addr = neigh->source_addr;
+		rpf_addr = neigh->source_addr.ipaddr_v4;
 	else
 		rpf_addr.s_addr = PIM_NET_INADDR_ANY;
 

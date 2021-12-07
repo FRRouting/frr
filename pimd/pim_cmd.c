@@ -1013,10 +1013,11 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					     neighnode, neigh)) {
 					json_pim_neighbor =
 						json_object_new_object();
-					pim_inet4_dump("<src?>",
-						       neigh->source_addr,
-						       neigh_src_str,
-						       sizeof(neigh_src_str));
+					pim_inet4_dump(
+						"<src?>",
+						neigh->source_addr.ipaddr_v4,
+						neigh_src_str,
+						sizeof(neigh_src_str));
 					pim_time_uptime(uptime, sizeof(uptime),
 							now - neigh->creation);
 					pim_time_timer_to_hhmmss(
@@ -1188,9 +1189,9 @@ static void pim_show_interfaces_single(struct pim_instance *pim,
 					print_header = 0;
 				}
 
-				pim_inet4_dump("<src?>", neigh->source_addr,
-					       neigh_src_str,
-					       sizeof(neigh_src_str));
+				pim_inet4_dump(
+					"<src?>", neigh->source_addr.ipaddr_v4,
+					neigh_src_str, sizeof(neigh_src_str));
 				pim_time_uptime(uptime, sizeof(uptime),
 						now - neigh->creation);
 				pim_time_timer_to_hhmmss(expire, sizeof(expire),
@@ -1832,7 +1833,7 @@ static void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 					  neigh)) {
-			pim_inet4_dump("<src?>", neigh->source_addr,
+			pim_inet4_dump("<src?>", neigh->source_addr.ipaddr_v4,
 				       neigh_src_str, sizeof(neigh_src_str));
 
 			/*
@@ -2263,7 +2264,7 @@ static void pim_show_neighbors(struct pim_instance *pim, struct vty *vty,
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 					  neigh)) {
-			pim_inet4_dump("<src?>", neigh->source_addr,
+			pim_inet4_dump("<src?>", neigh->source_addr.ipaddr_v4,
 				       neigh_src_str, sizeof(neigh_src_str));
 			pim_time_uptime(uptime, sizeof(uptime),
 					now - neigh->creation);
@@ -2341,7 +2342,7 @@ static void pim_show_neighbors_secondary(struct pim_instance *pim,
 			if (!neigh->prefix_list)
 				continue;
 
-			pim_inet4_dump("<src?>", neigh->source_addr,
+			pim_inet4_dump("<src?>", neigh->source_addr.ipaddr_v4,
 				       neigh_src_str, sizeof(neigh_src_str));
 
 			for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list,
@@ -4703,11 +4704,11 @@ static void pim_show_jp_agg_helper(struct vty *vty,
 	pim_inet4_dump("<grp?>", up->sg.grp.ipaddr_v4, grp_str,
 		       sizeof(grp_str));
 	/* pius->address.s_addr */
-	pim_inet4_dump("<rpf?>", neigh->source_addr, rpf_str, sizeof(rpf_str));
+	pim_inet4_dump("<rpf?>", neigh->source_addr.ipaddr_v4, rpf_str,
+		       sizeof(rpf_str));
 
-	vty_out(vty, "%-16s %-15s %-15s %-15s %5s\n",
-		ifp->name, rpf_str, src_str,
-		grp_str, is_join?"J":"P");
+	vty_out(vty, "%-16s %-15s %-15s %-15s %5s\n", ifp->name, rpf_str,
+		src_str, grp_str, is_join ? "J" : "P");
 }
 
 static void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty)

@@ -302,7 +302,7 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 					AF_INET;
 				nexthop_tab[num_ifindex]
 					.nexthop_addr.u.prefix4 =
-					nbr->source_addr;
+					nbr->source_addr.ipaddr_v4;
 			}
 			++num_ifindex;
 			break;

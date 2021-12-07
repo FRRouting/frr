@@ -31,7 +31,7 @@
 
 struct pim_neighbor {
 	int64_t creation; /* timestamp of creation */
-	struct in_addr source_addr;
+	struct ipaddr source_addr;
 	pim_hello_options hello_options;
 	uint16_t holdtime;
 	uint16_t propagation_delay_msec;

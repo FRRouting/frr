@@ -1358,12 +1358,13 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 			if (nbr->interface != ifp1)
 				continue;
 
-			nh_node->gate.ipv4 = nbr->source_addr;
+			nh_node->gate.ipv4 = nbr->source_addr.ipaddr_v4;
 			if (PIM_DEBUG_PIM_NHT_RP) {
 				char str[PREFIX_STRLEN];
 				char str1[INET_ADDRSTRLEN];
-				pim_inet4_dump("<nht_nbr?>", nbr->source_addr,
-					       str1, sizeof(str1));
+				pim_inet4_dump("<nht_nbr?>",
+					       nbr->source_addr.ipaddr_v4, str1,
+					       sizeof(str1));
 				pim_addr_dump("<nht_addr?>", &nht_p, str,
 					      sizeof(str));
 				zlog_debug(

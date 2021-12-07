@@ -956,8 +956,8 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	bool ret = false;
 
 	if (PIM_DEBUG_BSM) {
-		pim_inet4_dump("<src?>", neigh->source_addr, neigh_src_str,
-			       sizeof(neigh_src_str));
+		pim_inet4_dump("<src?>", neigh->source_addr.ipaddr_v4,
+			       neigh_src_str, sizeof(neigh_src_str));
 		zlog_debug("%s: New neighbor %s seen on %s", __func__,
 			   neigh_src_str, ifp->name);
 	}
@@ -995,7 +995,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 			zlog_debug("%s: Sending BSM mcast to %s", __func__,
 				   neigh_src_str);
 	} else {
-		dst_addr = neigh->source_addr;
+		dst_addr = neigh->source_addr.ipaddr_v4;
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: Sending BSM ucast to %s", __func__,
 				   neigh_src_str);
