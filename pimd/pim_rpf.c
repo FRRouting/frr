@@ -69,7 +69,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	if (addr.s_addr == INADDR_NONE)
 		return false;
 
-	if ((nexthop->last_lookup.s_addr == addr.s_addr)
+	if ((nexthop->last_lookup.ipaddr_v4.s_addr == addr.s_addr)
 	    && (nexthop->last_lookup_time > pim->last_route_change_time)) {
 		if (PIM_DEBUG_PIM_NHT) {
 			char addr_str[INET_ADDRSTRLEN];
@@ -176,7 +176,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		nexthop->mrib_metric_preference =
 			nexthop_tab[i].protocol_distance;
 		nexthop->mrib_route_metric = nexthop_tab[i].route_metric;
-		nexthop->last_lookup = addr;
+		nexthop->last_lookup.ipaddr_v4 = addr;
 		nexthop->last_lookup_time = pim_time_monotonic_usec();
 		nexthop->nbr = nbr;
 		return true;

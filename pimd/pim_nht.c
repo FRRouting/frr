@@ -672,7 +672,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 				nh_node->gate.ipv4;
 			nexthop->mrib_metric_preference = pnc->distance;
 			nexthop->mrib_route_metric = pnc->metric;
-			nexthop->last_lookup = src->u.prefix4;
+			nexthop->last_lookup.ipaddr_v4 = src->u.prefix4;
 			nexthop->last_lookup_time = pim_time_monotonic_usec();
 			nexthop->nbr = nbr;
 			found = 1;
@@ -1037,7 +1037,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				nexthop_tab[i].protocol_distance;
 			nexthop->mrib_route_metric =
 				nexthop_tab[i].route_metric;
-			nexthop->last_lookup = src->u.prefix4;
+			nexthop->last_lookup.ipaddr_v4 = src->u.prefix4;
 			nexthop->last_lookup_time = pim_time_monotonic_usec();
 			nexthop->nbr = nbr;
 			found = 1;

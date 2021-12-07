@@ -35,7 +35,7 @@
     units applicable to the unicast routing protocol used.
 */
 struct pim_nexthop {
-	struct in_addr last_lookup;
+	struct ipaddr last_lookup;
 	long long last_lookup_time;
 	struct interface *interface;     /* RPF_interface(S) */
 	struct prefix mrib_nexthop_addr; /* MRIB.next_hop(S) */
