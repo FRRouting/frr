@@ -1395,7 +1395,7 @@ void pim_if_assert_on_neighbor_down(struct interface *ifp,
 		if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER)
 			continue;
 		/* Dead neighbor was winner ? */
-		if (ch->ifassert_winner.s_addr != neigh_addr.s_addr)
+		if (ch->ifassert_winner.ipaddr_v4.s_addr != neigh_addr.s_addr)
 			continue;
 
 		assert_action_a5(ch);

@@ -48,7 +48,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
-	int winner_changed = (ch->ifassert_winner.s_addr != winner.s_addr);
+	int winner_changed =
+		(ch->ifassert_winner.ipaddr_v4.s_addr != winner.s_addr);
 	int metric_changed = !pim_assert_metric_match(
 		&ch->ifassert_winner_metric, &winner_metric);
 
@@ -65,8 +66,8 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 		if (winner_changed) {
 			char was_str[INET_ADDRSTRLEN];
 			char winner_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<was?>", ch->ifassert_winner, was_str,
-				       sizeof(was_str));
+			pim_inet4_dump("<was?>", ch->ifassert_winner.ipaddr_v4,
+				       was_str, sizeof(was_str));
 			pim_inet4_dump("<winner?>", winner, winner_str,
 				       sizeof(winner_str));
 			zlog_debug(
@@ -77,7 +78,7 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 	} /* PIM_DEBUG_PIM_EVENTS */
 
 	ch->ifassert_state = new_state;
-	ch->ifassert_winner = winner;
+	ch->ifassert_winner.ipaddr_v4 = winner;
 	ch->ifassert_winner_metric = winner_metric;
 	ch->ifassert_creation = pim_time_monotonic_sec();
 
@@ -180,7 +181,7 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 		break;
 	case PIM_IFASSERT_I_AM_LOSER:
 		if (recv_metric.ip_address.s_addr
-		    == ch->ifassert_winner.s_addr) {
+		    == ch->ifassert_winner.ipaddr_v4.s_addr) {
 			/* Assert from current winner */
 
 			if (cancel_assert(&recv_metric)) {

@@ -114,7 +114,7 @@ static void pim_show_assert_helper(struct vty *vty,
 		       sizeof(ch_src_str));
 	pim_inet4_dump("<ch_grp?>", ch->sg.grp.ipaddr_v4, ch_grp_str,
 		       sizeof(ch_grp_str));
-	pim_inet4_dump("<assrt_win?>", ch->ifassert_winner,
+	pim_inet4_dump("<assrt_win?>", ch->ifassert_winner.ipaddr_v4,
 		       winner_str, sizeof(winner_str));
 
 	pim_time_uptime(uptime, sizeof(uptime), now - ch->ifassert_creation);
