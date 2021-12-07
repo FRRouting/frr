@@ -540,8 +540,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			char grp_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,
 				       dst_str, sizeof(dst_str));
-			pim_inet4_dump("<grp?>", group->group, grp_str,
-				       sizeof(grp_str));
+			pim_inet4_dump("<grp?>", group->group.ipaddr_v4,
+				       grp_str, sizeof(grp_str));
 			zlog_debug(
 				"%s: sending (G)=%s to upstream=%s on interface %s",
 				__func__, grp_str, dst_str,

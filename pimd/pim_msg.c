@@ -185,7 +185,8 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 	uint8_t tgroups = 0;
 
 	memset(grp, 0, size);
-	pim_msg_addr_encode_ipv4_group((uint8_t *)&grp->g, sgs->group);
+	pim_msg_addr_encode_ipv4_group((uint8_t *)&grp->g,
+				       sgs->group.ipaddr_v4);
 
 	for (ALL_LIST_ELEMENTS(sgs->sources, node, nnode, source)) {
 		/* number of joined/pruned sources */

@@ -60,10 +60,10 @@ int pim_jp_agg_group_list_cmp(void *arg1, void *arg2)
 	const struct pim_jp_agg_group *jag2 =
 		(const struct pim_jp_agg_group *)arg2;
 
-	if (jag1->group.s_addr < jag2->group.s_addr)
+	if (jag1->group.ipaddr_v4.s_addr < jag2->group.ipaddr_v4.s_addr)
 		return -1;
 
-	if (jag1->group.s_addr > jag2->group.s_addr)
+	if (jag1->group.ipaddr_v4.s_addr > jag2->group.ipaddr_v4.s_addr)
 		return 1;
 
 	return 0;
@@ -159,7 +159,7 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.ipaddr_v4.s_addr)
+		if (jag->group.ipaddr_v4.s_addr == up->sg.grp.ipaddr_v4.s_addr)
 			break;
 	}
 
@@ -202,7 +202,7 @@ int pim_jp_agg_is_in_list(struct list *group, struct pim_upstream *up)
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.ipaddr_v4.s_addr)
+		if (jag->group.ipaddr_v4.s_addr == up->sg.grp.ipaddr_v4.s_addr)
 			break;
 	}
 
@@ -276,14 +276,14 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.ipaddr_v4.s_addr)
+		if (jag->group.ipaddr_v4.s_addr == up->sg.grp.ipaddr_v4.s_addr)
 			break;
 	}
 
 	if (!jag) {
 		jag = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			      sizeof(struct pim_jp_agg_group));
-		jag->group.s_addr = up->sg.grp.ipaddr_v4.s_addr;
+		jag->group.ipaddr_v4.s_addr = up->sg.grp.ipaddr_v4.s_addr;
 		jag->sources = list_new();
 		jag->sources->cmp = pim_jp_agg_src_cmp;
 		jag->sources->del = (void (*)(void *))pim_jp_agg_src_free;
@@ -377,7 +377,7 @@ void pim_jp_agg_single_upstream_send(struct pim_rpf *rpf,
 	listnode_add(&groups, &jag);
 	listnode_add(jag.sources, &js);
 
-	jag.group.s_addr = up->sg.grp.ipaddr_v4.s_addr;
+	jag.group.ipaddr_v4.s_addr = up->sg.grp.ipaddr_v4.s_addr;
 	js.up = up;
 	js.is_join = is_join;
 
