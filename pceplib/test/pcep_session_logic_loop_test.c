@@ -140,14 +140,14 @@ void test_session_logic_msg_ready_handler()
 	/* Read from an empty file should return 0, thus
 	 * session_logic_msg_ready_handler returns -1 */
 	mode_t oldumask;
-	oldumask = umask(S_IXUSR|S_IXGRP|S_IWOTH|S_IROTH|S_IXOTH);
+	oldumask = umask(S_IXUSR | S_IXGRP | S_IWOTH | S_IROTH | S_IXOTH);
 	/* Set umask before anything for security */
 	umask(0027);
 	char tmpfile[] = "/tmp/pceplib_XXXXXX";
 	int fd = mkstemp(tmpfile);
 	umask(oldumask);
-	if (fd == -1){
-		CU_ASSERT_TRUE(fd>=0);
+	if (fd == -1) {
+		CU_ASSERT_TRUE(fd >= 0);
 		return;
 	}
 	pcep_session session;

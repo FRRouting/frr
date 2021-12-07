@@ -590,12 +590,14 @@ struct pcep_message *create_pcep_open(pcep_session *session)
 				/* I flag */
 				session->pcc_config
 					.support_pce_lsp_instantiation,
-			/* T flag */
-			session->pcc_config.support_lsp_triggered_resync,
-			/* D flag */
-			session->pcc_config.support_lsp_delta_sync,
-			/* F flag */
-			session->pcc_config.support_pce_triggered_initial_sync));
+				/* T flag */
+				session->pcc_config
+					.support_lsp_triggered_resync,
+				/* D flag */
+				session->pcc_config.support_lsp_delta_sync,
+				/* F flag */
+				session->pcc_config
+					.support_pce_triggered_initial_sync));
 	}
 
 	if (session->pcc_config.support_include_db_version) {
