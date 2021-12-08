@@ -361,13 +361,19 @@ union prefixconstptr {
 #define PREFIX_STRLEN 80
 
 /*
- * Longest possible length of a (S,G) string is 36 bytes
+ * Longest possible length of an IPv4 (S,G) string is 34 bytes
  * 123.123.123.123 = 15 * 2
  * (,) = 3
  * NULL Character at end = 1
  * (123.123.123.123,123.123.123.123)
+ * Longest possible length of an IPV6 (S,G) string is as follow
+ * (dead:beef:dead:beef:dead:beef:dead:beef,
+ *  dead:beef:dead:beef:dead:beef:dead:beef)
+ *  Excluding the Null character from both (S,G)
+ * ((INET6_ADDRSTRLEN -1) * 2) [S,G] + 3 [for (,)] + 1 [null char]
+ * Using this for both IPv4 and IPv6.
  */
-#define PREFIX_SG_STR_LEN 34
+#define PREFIX_SG_STR_LEN (((INET6_ADDRSTRLEN - 1) * 2) + 4)
 
 /* Max bit/byte length of IPv4 address. */
 #define IPV4_MAX_BYTELEN    4
@@ -446,7 +452,9 @@ extern int str2prefix(const char *, struct prefix *);
 #define PREFIX2STR_BUFFER  PREFIX_STRLEN
 
 extern void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
-				char *buf, int buf_size);
+				    char *buf, int buf_size);
+extern void prefix_mcast_inet6_dump(const char *onfail, struct in6_addr addr,
+				    char *buf, int buf_size);
 extern const char *prefix_sg2str(const struct prefix_sg *sg, char *str);
 extern const char *prefix2str(union prefixconstptr, char *, int);
 extern int evpn_type5_prefix_match(const struct prefix *evpn_pfx,

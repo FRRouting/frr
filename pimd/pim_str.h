@@ -35,6 +35,7 @@
  */
 #define PIM_SG_LEN PREFIX_SG_STR_LEN
 #define pim_inet4_dump prefix_mcast_inet4_dump
+#define pim_inet6_dump prefix_mcast_inet6_dump
 #define pim_str_sg_set prefix_sg2str
 
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
