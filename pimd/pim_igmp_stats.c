@@ -23,12 +23,12 @@
 
 #include "pim_igmp_stats.h"
 
-void igmp_stats_init(struct igmp_stats *stats)
+void igmp_stats_init(struct gm_stats *stats)
 {
-	memset(stats, 0, sizeof(struct igmp_stats));
+	memset(stats, 0, sizeof(struct gm_stats));
 }
 
-void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b)
+void igmp_stats_add(struct gm_stats *a, struct gm_stats *b)
 {
 	if (!a || !b)
 		return;
