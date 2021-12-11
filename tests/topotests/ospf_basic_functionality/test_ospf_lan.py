@@ -413,6 +413,7 @@ def test_ospf_lan_tc1_p0(request):
 
     build_config_from_json(tgen, topo_modify_change_ip, save_bkup=False)
 
+    clear_ospf(tgen, "r0")
     step(
         "Verify that OSPF is in FULL state with other routers with "
         "newly configured IP."
