@@ -339,11 +339,10 @@ static void isis_spf_adj_free(void *arg)
 	XFREE(MTYPE_ISIS_SPF_ADJ, sadj);
 }
 
-struct isis_spftree *isis_spftree_new(struct isis_area *area,
-				      struct lspdb_head *lspdb,
-				      const uint8_t *sysid, int level,
-				      enum spf_tree_id tree_id,
-				      enum spf_type type, uint8_t flags)
+struct isis_spftree *
+isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
+		 const uint8_t *sysid, int level, enum spf_tree_id tree_id,
+		 enum spf_type type, uint8_t flags, uint8_t algorithm)
 {
 	struct isis_spftree *tree;
 
@@ -378,6 +377,7 @@ struct isis_spftree *isis_spftree_new(struct isis_area *area,
 		isis_spf_node_list_init(&tree->lfa.p_space);
 		isis_spf_node_list_init(&tree->lfa.q_space);
 	}
+	tree->algorithm = algorithm;
 
 	return tree;
 }
@@ -428,10 +428,10 @@ void spftree_area_init(struct isis_area *area)
 			if (area->spftree[tree][level - 1])
 				continue;
 
-			area->spftree[tree][level - 1] =
-				isis_spftree_new(area, &area->lspdb[level - 1],
-						 area->isis->sysid, level, tree,
-						 SPF_TYPE_FORWARD, 0);
+			area->spftree[tree][level - 1] = isis_spftree_new(
+				area, &area->lspdb[level - 1],
+				area->isis->sysid, level, tree,
+				SPF_TYPE_FORWARD, 0, SR_ALGORITHM_SPF);
 		}
 	}
 }
@@ -1710,10 +1710,10 @@ struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 					   struct isis_spftree *spftree)
 {
 	if (!spftree)
-		spftree = isis_spftree_new(area, &area->lspdb[IS_LEVEL_2 - 1],
-					   sysid, ISIS_LEVEL2, SPFTREE_IPV4,
-					   SPF_TYPE_FORWARD,
-					   F_SPFTREE_HOPCOUNT_METRIC);
+		spftree = isis_spftree_new(
+			area, &area->lspdb[IS_LEVEL_2 - 1], sysid, ISIS_LEVEL2,
+			SPFTREE_IPV4, SPF_TYPE_FORWARD,
+			F_SPFTREE_HOPCOUNT_METRIC, SR_ALGORITHM_SPF);
 
 	init_spt(spftree, ISIS_MT_IPV4_UNICAST);
 	if (!memcmp(sysid, area->isis->sysid, ISIS_SYS_ID_LEN)) {

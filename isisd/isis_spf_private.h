@@ -362,6 +362,7 @@ struct isis_spftree {
 			uint32_t total[SPF_PREFIX_PRIO_MAX];
 		} protection_counters;
 	} lfa;
+	uint8_t algorithm;
 	uint8_t flags;
 };
 #define F_SPFTREE_HOPCOUNT_METRIC 0x01

@@ -62,7 +62,8 @@ static void test_run_spf(struct vty *vty, const struct isis_topology *topology,
 	/* Run SPF. */
 	spf_type = reverse ? SPF_TYPE_REVERSE : SPF_TYPE_FORWARD;
 	spftree = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-				   spf_type, F_SPFTREE_NO_ADJACENCIES);
+				   spf_type, F_SPFTREE_NO_ADJACENCIES,
+				   SR_ALGORITHM_SPF);
 	isis_run_spf(spftree);
 
 	/* Print the SPT and the corresponding routing table. */
@@ -84,8 +85,9 @@ static void test_run_lfa(struct vty *vty, const struct isis_topology *topology,
 
 	/* Run forward SPF in the root node. */
 	flags = F_SPFTREE_NO_ADJACENCIES;
-	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-					SPF_TYPE_FORWARD, flags);
+	spftree_self =
+		isis_spftree_new(area, lspdb, root->sysid, level, tree,
+				 SPF_TYPE_FORWARD, flags, SR_ALGORITHM_SPF);
 	isis_run_spf(spftree_self);
 
 	/* Run forward SPF on all adjacent routers. */
@@ -120,8 +122,9 @@ static void test_run_rlfa(struct vty *vty, const struct isis_topology *topology,
 
 	/* Run forward SPF in the root node. */
 	flags = F_SPFTREE_NO_ADJACENCIES;
-	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-					SPF_TYPE_FORWARD, flags);
+	spftree_self =
+		isis_spftree_new(area, lspdb, root->sysid, level, tree,
+				 SPF_TYPE_FORWARD, flags, SR_ALGORITHM_SPF);
 	isis_run_spf(spftree_self);
 
 	/* Run reverse SPF in the root node. */
@@ -200,8 +203,9 @@ static void test_run_ti_lfa(struct vty *vty,
 
 	/* Run forward SPF in the root node. */
 	flags = F_SPFTREE_NO_ADJACENCIES;
-	spftree_self = isis_spftree_new(area, lspdb, root->sysid, level, tree,
-					SPF_TYPE_FORWARD, flags);
+	spftree_self =
+		isis_spftree_new(area, lspdb, root->sysid, level, tree,
+				 SPF_TYPE_FORWARD, flags, SR_ALGORITHM_SPF);
 	isis_run_spf(spftree_self);
 
 	/* Run reverse SPF in the root node. */
