@@ -585,6 +585,8 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 			vertex->N.ip.sr.sid = *psid;
 			vertex->N.ip.sr.label =
 				sr_prefix_in_label(area, psid, local);
+			vertex->N.ip.sr.algorithm = psid->algorithm;
+
 			if (vertex->N.ip.sr.label != MPLS_INVALID_LABEL)
 				vertex->N.ip.sr.present = true;
 
@@ -965,7 +967,8 @@ lspfragloop:
 					struct isis_prefix_sid *psid =
 						(struct isis_prefix_sid *)i;
 
-					if (psid->algorithm != SR_ALGORITHM_SPF)
+					if (psid->algorithm !=
+					    spftree->algorithm)
 						continue;
 
 					has_valid_psid = true;
@@ -1033,7 +1036,8 @@ lspfragloop:
 					struct isis_prefix_sid *psid =
 						(struct isis_prefix_sid *)i;
 
-					if (psid->algorithm != SR_ALGORITHM_SPF)
+					if (psid->algorithm !=
+					    spftree->algorithm)
 						continue;
 
 					has_valid_psid = true;
@@ -1157,7 +1161,7 @@ static int isis_spf_preload_tent_ip_reach_cb(const struct prefix *prefix,
 			struct isis_prefix_sid *psid =
 				(struct isis_prefix_sid *)i;
 
-			if (psid->algorithm != SR_ALGORITHM_SPF)
+			if (psid->algorithm != spftree->algorithm)
 				continue;
 
 			has_valid_psid = true;
