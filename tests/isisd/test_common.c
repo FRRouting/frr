@@ -111,7 +111,7 @@ static void lsp_add_ip_reach(struct isis_lsp *lsp,
 {
 	struct prefix prefix;
 	struct sr_prefix_cfg pcfg = {};
-	struct sr_prefix_cfg *pcfg_p = NULL;
+	struct sr_prefix_cfg *pcfg_p[SR_ALGORITHM_COUNT] = {NULL};
 
 	if (str2prefix(prefix_str, &prefix) != 1) {
 		zlog_debug("%s: invalid network: %s", __func__, prefix_str);
@@ -119,7 +119,7 @@ static void lsp_add_ip_reach(struct isis_lsp *lsp,
 	}
 
 	if (CHECK_FLAG(tnode->flags, F_ISIS_TEST_NODE_SR)) {
-		pcfg_p = &pcfg;
+		pcfg_p[SR_ALGORITHM_SPF] = &pcfg;
 
 		pcfg.sid = *next_sid_index;
 		*next_sid_index = *next_sid_index + 1;

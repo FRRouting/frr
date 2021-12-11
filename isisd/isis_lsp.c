@@ -902,14 +902,16 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 			isis_tlvs_add_oldstyle_ip_reach(lsp->tlvs, ipv4,
 							metric);
 		if (area->newmetric) {
-			struct sr_prefix_cfg *pcfg = NULL;
+			struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {
+				NULL};
 
 			if (area->srdb.enabled)
-				pcfg = isis_sr_cfg_prefix_find(
-					area, ipv4, SR_ALGORITHM_SPF);
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+					pcfgs[i] = isis_sr_cfg_prefix_find(
+						area, ipv4, i);
 
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric,
-							true, pcfg);
+							true, pcfgs);
 		}
 	}
 }
@@ -937,15 +939,17 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 			metric = MAX_WIDE_PATH_METRIC;
 
 		if (!src_p || !src_p->prefixlen) {
-			struct sr_prefix_cfg *pcfg = NULL;
+			struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {
+				NULL};
 
 			if (area->srdb.enabled)
-				pcfg = isis_sr_cfg_prefix_find(
-					area, p, SR_ALGORITHM_SPF);
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+					pcfgs[i] = isis_sr_cfg_prefix_find(
+						area, p, i);
 
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
-						 p, metric, true, pcfg);
+						 p, metric, true, pcfgs);
 		} else if (isis_area_ipv6_dstsrc_enabled(area)) {
 			isis_tlvs_add_ipv6_dstsrc_reach(lsp->tlvs,
 							ISIS_MT_IPV6_DSTSRC,
@@ -1190,20 +1194,27 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 				}
 
 				if (area->newmetric) {
-					struct sr_prefix_cfg *pcfg = NULL;
+					struct sr_prefix_cfg
+						*pcfgs[SR_ALGORITHM_COUNT] = {
+							NULL};
 
 					lsp_debug(
 						"ISIS (%s): Adding te-style IP reachability for %pFX",
 						area->area_tag, ipv4);
 
 					if (area->srdb.enabled)
-						pcfg = isis_sr_cfg_prefix_find(
-							area, ipv4,
-							SR_ALGORITHM_SPF);
+						for (int i = 0;
+						     i < SR_ALGORITHM_COUNT;
+						     i++)
+							pcfgs[i] =
+								isis_sr_cfg_prefix_find(
+									area,
+									ipv4,
+									i);
 
 					isis_tlvs_add_extended_ip_reach(
 						lsp->tlvs, ipv4, metric, false,
-						pcfg);
+						pcfgs);
 				}
 			}
 		}
@@ -1214,20 +1225,24 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 			for (ALL_LIST_ELEMENTS_RO(circuit->ipv6_non_link,
 						  ipnode, ipv6)) {
-				struct sr_prefix_cfg *pcfg = NULL;
+				struct sr_prefix_cfg
+					*pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 
 				lsp_debug(
 					"ISIS (%s): Adding IPv6 reachability for %pFX",
 					area->area_tag, ipv6);
 
 				if (area->srdb.enabled)
-					pcfg = isis_sr_cfg_prefix_find(area,
-								       ipv6, 0);
+					for (int i = 0; i < SR_ALGORITHM_COUNT;
+					     i++)
+						pcfgs[i] =
+							isis_sr_cfg_prefix_find(
+								area, ipv6, i);
 
 				isis_tlvs_add_ipv6_reach(
 					lsp->tlvs,
 					isis_area_ipv6_topology(area), ipv6,
-					metric, false, pcfg);
+					metric, false, pcfgs);
 			}
 		}
 
