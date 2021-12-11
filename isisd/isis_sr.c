@@ -70,7 +70,17 @@ static void sr_adj_sid_del(struct sr_adjacency *sra);
 static inline int sr_prefix_sid_cfg_compare(const struct sr_prefix_cfg *a,
 					    const struct sr_prefix_cfg *b)
 {
-	return prefix_cmp(&a->prefix, &b->prefix);
+	int ret;
+
+	ret = prefix_cmp(&a->prefix, &b->prefix);
+	if (ret != 0)
+		return ret;
+
+	ret = a->algorithm - b->algorithm;
+	if (ret != 0)
+		return ret;
+
+	return 0;
 }
 DECLARE_RBTREE_UNIQ(srdb_prefix_cfg, struct sr_prefix_cfg, entry,
 		    sr_prefix_sid_cfg_compare);
@@ -344,7 +354,8 @@ int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
  * @return	  Newly added Prefix-SID configuration structure
  */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
-					     const struct prefix *prefix)
+					     const struct prefix *prefix,
+					     uint8_t algorithm)
 {
 	struct sr_prefix_cfg *pcfg;
 	struct interface *ifp;
@@ -354,6 +365,7 @@ struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
 	pcfg = XCALLOC(MTYPE_ISIS_SR_INFO, sizeof(*pcfg));
 	pcfg->prefix = *prefix;
 	pcfg->area = area;
+	pcfg->algorithm = algorithm;
 
 	/* Pull defaults from the YANG module. */
 	pcfg->sid_type = yang_get_default_enum(
@@ -399,11 +411,13 @@ void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg)
  * @return	  Configured Prefix-SID structure if found, NULL otherwise
  */
 struct sr_prefix_cfg *isis_sr_cfg_prefix_find(struct isis_area *area,
-					      union prefixconstptr prefix)
+					      union prefixconstptr prefix,
+					      uint8_t algorithm)
 {
 	struct sr_prefix_cfg pcfg = {};
 
 	prefix_copy(&pcfg.prefix, prefix.p);
+	pcfg.algorithm = algorithm;
 	return srdb_prefix_cfg_find(&area->srdb.config.prefix_sids, &pcfg);
 }
 
@@ -418,7 +432,7 @@ void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg, bool external,
 			       struct isis_prefix_sid *psid)
 {
 	/* Set SID algorithm. */
-	psid->algorithm = SR_ALGORITHM_SPF;
+	psid->algorithm = pcfg->algorithm;
 
 	/* Set SID flags. */
 	psid->flags = 0;
@@ -952,7 +966,8 @@ static int sr_if_new_hook(struct interface *ifp)
 	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
 		struct sr_prefix_cfg *pcfg;
 
-		pcfg = isis_sr_cfg_prefix_find(area, connected->address);
+		pcfg = isis_sr_cfg_prefix_find(area, connected->address,
+					       SR_ALGORITHM_SPF);
 		if (!pcfg)
 			continue;
 

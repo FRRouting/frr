@@ -160,6 +160,9 @@ struct sr_prefix_cfg {
 
 	/* Backpointer to IS-IS area. */
 	struct isis_area *area;
+
+	/* SR Algorithm number */
+	uint8_t algorithm;
 };
 
 /* Per-area IS-IS Segment Routing Data Base (SRDB). */
@@ -211,11 +214,13 @@ extern int isis_sr_cfg_srgb_update(struct isis_area *area, uint32_t lower_bound,
 				   uint32_t upper_bound);
 extern int isis_sr_cfg_srlb_update(struct isis_area *area, uint32_t lower_bound,
 				   uint32_t upper_bound);
-extern struct sr_prefix_cfg *
-isis_sr_cfg_prefix_add(struct isis_area *area, const struct prefix *prefix);
+extern struct sr_prefix_cfg *isis_sr_cfg_prefix_add(struct isis_area *area,
+						    const struct prefix *prefix,
+						    uint8_t algorithm);
 extern void isis_sr_cfg_prefix_del(struct sr_prefix_cfg *pcfg);
 extern struct sr_prefix_cfg *
-isis_sr_cfg_prefix_find(struct isis_area *area, union prefixconstptr prefix);
+isis_sr_cfg_prefix_find(struct isis_area *area, union prefixconstptr prefix,
+			uint8_t algorithm);
 extern void isis_sr_prefix_cfg2subtlv(const struct sr_prefix_cfg *pcfg,
 				      bool external,
 				      struct isis_prefix_sid *psid);
