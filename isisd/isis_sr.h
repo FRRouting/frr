@@ -74,6 +74,8 @@ struct isis_sr_psid_info {
 
 	/* Indicates whether the Prefix-SID is present or not. */
 	bool present;
+
+	uint8_t algorithm;
 };
 
 /* Segment Routing Local Block allocation */

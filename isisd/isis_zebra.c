@@ -346,8 +346,8 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	struct zapi_labels zl;
 	int count = 0;
 
-	sr_debug("ISIS-Sr (%s): update label %u for prefix %pFX",
-		 area->area_tag, psid->label, prefix);
+	sr_debug("ISIS-Sr (%s): update label %u for prefix %pFX algorithm %u",
+		 area->area_tag, psid->label, prefix, psid->algorithm);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));
@@ -413,8 +413,8 @@ void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 {
 	struct zapi_labels zl;
 
-	sr_debug("ISIS-Sr (%s): delete label %u for prefix %pFX",
-		 area->area_tag, psid->label, prefix);
+	sr_debug("ISIS-Sr (%s): delete label %u for prefix %pFX algorithm %u",
+		 area->area_tag, psid->label, prefix, psid->algorithm);
 
 	/* Prepare message. */
 	memset(&zl, 0, sizeof(zl));

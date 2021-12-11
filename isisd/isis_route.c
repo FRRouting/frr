@@ -279,6 +279,9 @@ static bool isis_sr_psid_info_same(struct isis_sr_psid_info *new,
 	    || new->sid.value != old->sid.value)
 		return false;
 
+	if (new->sid.algorithm != old->sid.algorithm)
+		return false;
+
 	return true;
 }
 
