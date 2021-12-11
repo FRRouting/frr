@@ -279,6 +279,9 @@ static bool isis_sr_psid_info_same(struct isis_sr_psid_info *new,
 	    || new->sid.value != old->sid.value)
 		return false;
 
+	if (new->sid.algorithm != old->sid.algorithm)
+		return false;
+
 	return true;
 }
 
@@ -484,8 +487,13 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 					   route_info);
 		/* Install/reinstall Prefix-SID label. */
 		if (route_info->sr.present)
-			isis_zebra_prefix_sid_install(area, prefix, route_info,
-						      &route_info->sr);
+			isis_zebra_prefix_sid_install(
+				area, prefix, route_info->nexthops,
+				route_info->backup
+					? route_info->backup->nexthops
+					: NULL,
+				&route_info->sr);
+
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
