@@ -855,7 +855,7 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 			struct sr_prefix_cfg *pcfg = NULL;
 
 			if (area->srdb.enabled)
-				pcfg = isis_sr_cfg_prefix_find(area, ipv4);
+				pcfg = isis_sr_cfg_prefix_find(area, ipv4, 0);
 
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric,
 							true, pcfg);
@@ -889,7 +889,7 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 			struct sr_prefix_cfg *pcfg = NULL;
 
 			if (area->srdb.enabled)
-				pcfg = isis_sr_cfg_prefix_find(area, p);
+				pcfg = isis_sr_cfg_prefix_find(area, p, 0);
 
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
@@ -1147,7 +1147,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 					if (area->srdb.enabled)
 						pcfg = isis_sr_cfg_prefix_find(
-							area, ipv4);
+							area, ipv4, 0);
 
 					isis_tlvs_add_extended_ip_reach(
 						lsp->tlvs, ipv4, metric, false,
@@ -1171,7 +1171,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 				if (area->srdb.enabled)
 					pcfg = isis_sr_cfg_prefix_find(area,
-								       ipv6);
+								       ipv6,
+								       0);
 
 				isis_tlvs_add_ipv6_reach(
 					lsp->tlvs,

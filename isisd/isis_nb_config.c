@@ -2281,7 +2281,7 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_create(
 	area = nb_running_get_entry(args->dnode, NULL, true);
 	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
 
-	pcfg = isis_sr_cfg_prefix_add(area, &prefix);
+	pcfg = isis_sr_cfg_prefix_add(area, &prefix, 0);
 	nb_running_set_entry(args->dnode, pcfg);
 
 	return NB_OK;
