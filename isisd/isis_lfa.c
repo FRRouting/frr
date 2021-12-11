@@ -1111,7 +1111,7 @@ struct isis_spftree *isis_spf_reverse_run(const struct isis_spftree *spftree)
 	spftree_reverse = isis_spftree_new(
 		spftree->area, spftree->lspdb, spftree->sysid, spftree->level,
 		spftree->tree_id, SPF_TYPE_REVERSE,
-		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES);
+		F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES, 0);
 	isis_run_spf(spftree_reverse);
 
 	return spftree_reverse;
@@ -1207,7 +1207,7 @@ struct isis_spftree *isis_tilfa_compute(struct isis_area *area,
 	/* Create post-convergence SPF tree. */
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
-				      SPF_TYPE_TI_LFA, spftree->flags);
+				      SPF_TYPE_TI_LFA, spftree->flags, 0);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.protected_resource = *resource;
@@ -1255,7 +1255,7 @@ int isis_spf_run_neighbors(struct isis_spftree *spftree)
 		adj_node->lfa.spftree = isis_spftree_new(
 			spftree->area, spftree->lspdb, adj_node->sysid,
 			spftree->level, spftree->tree_id, SPF_TYPE_FORWARD,
-			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES);
+			F_SPFTREE_NO_ADJACENCIES | F_SPFTREE_NO_ROUTES, 0);
 		isis_run_spf(adj_node->lfa.spftree);
 	}
 
@@ -1732,7 +1732,7 @@ struct isis_spftree *isis_rlfa_compute(struct isis_area *area,
 	/* Create post-convergence SPF tree. */
 	spftree_pc = isis_spftree_new(area, spftree->lspdb, spftree->sysid,
 				      spftree->level, spftree->tree_id,
-				      SPF_TYPE_RLFA, spftree->flags);
+				      SPF_TYPE_RLFA, spftree->flags, 0);
 	spftree_pc->lfa.old.spftree = spftree;
 	spftree_pc->lfa.old.spftree_reverse = spftree_reverse;
 	spftree_pc->lfa.remote.max_metric = max_metric;

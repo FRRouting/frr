@@ -223,7 +223,8 @@ struct fabricd *fabricd_new(struct isis_area *area)
 	rv->spftree =
 		isis_spftree_new(area, &area->lspdb[IS_LEVEL_2 - 1],
 				 area->isis->sysid, ISIS_LEVEL2, SPFTREE_IPV4,
-				 SPF_TYPE_FORWARD, F_SPFTREE_HOPCOUNT_METRIC);
+				 SPF_TYPE_FORWARD, F_SPFTREE_HOPCOUNT_METRIC,
+				 0);
 	rv->neighbors = skiplist_new(0, neighbor_entry_list_cmp,
 				     neighbor_entry_del_void);
 	rv->neighbors_neighbors = hash_create(neighbor_entry_hash_key,
