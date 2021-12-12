@@ -352,7 +352,9 @@ isis_spftree_new(struct isis_area *area, struct lspdb_head *lspdb,
 	isis_vertex_queue_init(&tree->paths, "IS-IS SPF paths", false);
 	tree->route_table = srcdest_table_init();
 	tree->route_table->cleanup = isis_route_node_cleanup;
+	tree->route_table->info = isis_route_table_info_alloc(algorithm);
 	tree->route_table_backup = srcdest_table_init();
+	tree->route_table_backup->info = isis_route_table_info_alloc(algorithm);
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 	tree->area = area;
 	tree->lspdb = lspdb;
@@ -398,6 +400,7 @@ void isis_spftree_del(struct isis_spftree *spftree)
 	list_delete(&spftree->sadj_list);
 	isis_vertex_queue_free(&spftree->tents);
 	isis_vertex_queue_free(&spftree->paths);
+	isis_route_table_info_free(spftree->route_table->info);
 	route_table_finish(spftree->route_table);
 	route_table_finish(spftree->route_table_backup);
 	spftree->route_table = NULL;
@@ -1847,11 +1850,18 @@ void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees)
 
 void isis_spf_invalidate_routes(struct isis_spftree *tree)
 {
+	struct isis_route_table_info *backup_info;
+
 	isis_route_invalidate_table(tree->area, tree->route_table);
 
 	/* Delete backup routes. */
+
+	backup_info = tree->route_table_backup->info;
 	route_table_finish(tree->route_table_backup);
+	isis_route_table_info_free(backup_info);
 	tree->route_table_backup = srcdest_table_init();
+	tree->route_table_backup->info =
+		isis_route_table_info_alloc(tree->algorithm);
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 }
 
@@ -2232,8 +2242,10 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			if (nexthop->sr.present) {
 				snprintf(buf_sid, sizeof(buf_sid), "%u",
 					 nexthop->sr.sid.value);
-				sr_op2str(buf_lblop, sizeof(buf_lblop),
-					  rinfo->sr.label, nexthop->sr.label);
+				sr_op2str(
+					buf_lblop, sizeof(buf_lblop),
+					rinfo->sr_algo[SR_ALGORITHM_SPF].label,
+					nexthop->sr.label);
 			} else {
 				strlcpy(buf_sid, "-", sizeof(buf_sid));
 				strlcpy(buf_lblop, "-", sizeof(buf_lblop));
@@ -2287,12 +2299,14 @@ static void isis_print_route(struct ttable *tt, const struct prefix *prefix,
 			char buf_sid[BUFSIZ] = {};
 			char buf_lblop[BUFSIZ] = {};
 
-			if (rinfo->sr.present) {
+			if (rinfo->sr_algo[SR_ALGORITHM_SPF].present) {
 				snprintf(buf_sid, sizeof(buf_sid), "%u",
-					 rinfo->sr.sid.value);
-				sr_op2str(buf_lblop, sizeof(buf_lblop),
-					  rinfo->sr.label,
-					  MPLS_LABEL_IMPLICIT_NULL);
+					 rinfo->sr_algo[SR_ALGORITHM_SPF]
+						 .sid.value);
+				sr_op2str(
+					buf_lblop, sizeof(buf_lblop),
+					rinfo->sr_algo[SR_ALGORITHM_SPF].label,
+					MPLS_LABEL_IMPLICIT_NULL);
 			} else {
 				strlcpy(buf_sid, "-", sizeof(buf_sid));
 				strlcpy(buf_lblop, "-", sizeof(buf_lblop));

@@ -43,10 +43,14 @@ struct isis_route_info {
 	uint8_t flag;
 	uint32_t cost;
 	uint32_t depth;
-	struct isis_sr_psid_info sr;
-	struct isis_sr_psid_info sr_previous;
+	struct isis_sr_psid_info sr_algo[SR_ALGORITHM_COUNT];
+	struct isis_sr_psid_info sr_algo_previous[SR_ALGORITHM_COUNT];
 	struct list *nexthops;
 	struct isis_route_info *backup;
+};
+
+struct isis_route_table_info {
+	uint8_t algorithm;
 };
 
 DECLARE_HOOK(isis_route_update_hook,
@@ -85,5 +89,9 @@ void isis_route_invalidate_table(struct isis_area *area,
 /* Cleanup route node when freeing routing table. */
 void isis_route_node_cleanup(struct route_table *table,
 			     struct route_node *node);
+
+struct isis_route_table_info *isis_route_table_info_alloc(uint8_t algorithm);
+void isis_route_table_info_free(void *info);
+uint8_t isis_route_table_algorithm(const struct route_table *table);
 
 #endif /* _ZEBRA_ISIS_ROUTE_H */
