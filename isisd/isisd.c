@@ -40,6 +40,7 @@
 #include "zclient.h"
 #include "vrf.h"
 #include "spf_backoff.h"
+#include "flex_algo.h"
 #include "lib/northbound_cli.h"
 #include "bfd.h"
 
@@ -62,6 +63,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
@@ -306,6 +308,11 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	if (area->is_type & IS_LEVEL_2)
 		lsp_db_init(&area->lspdb[1]);
 
+	/* Flex-Algo */
+	area->affinity_maps = affinity_maps_alloc();
+	area->flex_algos = flex_algos_alloc(isis_flex_algo_data_alloc,
+					    isis_flex_algo_data_free);
+
 	spftree_area_init(area);
 
 	area->circuit_list = list_new();
@@ -508,6 +515,7 @@ void isis_area_destroy(struct isis_area *area)
 	isis_area_verify_routes(area);
 
 	isis_sr_area_term(area);
+	affinity_maps_free(area->affinity_maps);
 
 	spftree_area_del(area);
 
