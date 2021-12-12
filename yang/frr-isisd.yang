@@ -1622,6 +1622,87 @@ module frr-isisd {
             }
           }
         }
+        container algorithm-prefix-sids {
+          description
+            "Algorithm SID Table";
+          list algorithm-prefix-sid {
+            key "prefix algo";
+            description
+              "Assign prefix SID for algorithm to an
+               interface, ISISPHPFlag will be rejected
+               if set to disable, ISISEXPLICITNULLFlag
+               will override the value of ISISPHPFlag";
+            leaf algo {
+              type uint32 {
+                range "128..255";
+              }
+              description
+                "Algorithm";
+            }
+            leaf prefix {
+              type inet:ip-prefix;
+              mandatory true;
+              description
+                "Connected prefix sid.";
+            }
+            leaf sid-value-type {
+              type enumeration {
+                enum "index" {
+                  value 0;
+                  description
+                    "The value will be interpreted as an index.";
+                }
+                enum "absolute" {
+                  value 1;
+                  description
+                    "The value will become interpreted as an absolute
+                     value.";
+                }
+              }
+              default "index";
+              description
+                "This leaf defines how value must be interpreted.";
+            }
+            leaf sid-value {
+              type uint32 {
+                range "0..1048575";
+              }
+              mandatory true;
+              description
+                "Value associated with prefix. The value must be
+                 interpreted in the context of sid-value-type.";
+            }
+            leaf last-hop-behavior {
+              type enumeration {
+                enum "explicit-null" {
+                  value 0;
+                  description
+                    "Use explicit-null for the SID.";
+                }
+                enum "no-php" {
+                  value 1;
+                  description
+                    "Do not use Penultimate Hop Popping (PHP)
+                     for the SID.";
+                }
+                enum "php" {
+                  value 2;
+                  description
+                    "Use PHP for the SID.";
+                }
+              }
+              default "php";
+              description
+                "Configure last hop behavior.";
+            }
+            leaf n-flag-clear {
+              type boolean;
+              default "false";
+              description
+                "Not a node SID";
+            }
+          }
+        }
       }
 
       container mpls {

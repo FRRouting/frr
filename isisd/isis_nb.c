@@ -674,6 +674,40 @@ const struct frr_yang_module_info frr_isisd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid",
+			.cbs = {
+				.create = isis_instance_segment_routing_algorithm_prefix_sid_create,
+				.destroy = isis_instance_segment_routing_algorithm_prefix_sid_destroy,
+				.pre_validate = isis_instance_segment_routing_algorithm_prefix_sid_pre_validate,
+				.apply_finish = isis_instance_segment_routing_algorithm_prefix_sid_apply_finish,
+				.cli_show = cli_show_isis_prefix_sid_algorithm,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value-type",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/last-hop-behavior",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify,
+			},
+		},
+		{
+			.xpath = "/frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/n-flag-clear",
+			.cbs = {
+				.modify = isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify,
+			},
+		},
+		{
 			.xpath = "/frr-isisd:isis/instance/mpls/ldp-sync",
 			.cbs = {
 				.cli_show = cli_show_isis_mpls_ldp_sync,
