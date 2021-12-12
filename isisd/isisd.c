@@ -27,6 +27,7 @@
 #include "zclient.h"
 #include "vrf.h"
 #include "spf_backoff.h"
+#include "flex_algo.h"
 #include "lib/northbound_cli.h"
 #include "bfd.h"
 
@@ -49,6 +50,7 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_mt.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
 #include "isisd/fabricd.h"
 #include "isisd/isis_nb.h"
 
@@ -316,6 +318,12 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 		lsp_db_init(&area->lspdb[0]);
 	if (area->is_type & IS_LEVEL_2)
 		lsp_db_init(&area->lspdb[1]);
+
+#ifndef FABRICD
+	/* Flex-Algo */
+	area->flex_algos = flex_algos_alloc(isis_flex_algo_data_alloc,
+					    isis_flex_algo_data_free);
+#endif /* ifndef FABRICD */
 
 	spftree_area_init(area);
 

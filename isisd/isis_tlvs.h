@@ -12,6 +12,7 @@
 #include "segment_routing.h"
 #include "openbsd-tree.h"
 #include "prefix.h"
+#include "flex_algo.h"
 
 DECLARE_MTYPE(ISIS_SUBTLV);
 
@@ -181,6 +182,15 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+#ifndef FABRICD
+struct isis_router_cap_fad;
+struct isis_router_cap_fad {
+	uint8_t sysid[ISIS_SYS_ID_LEN + 2];
+
+	struct flex_algo fad;
+};
+#endif /* ifndef FABRICD */
+
 struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
@@ -191,6 +201,11 @@ struct isis_router_cap {
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 	uint8_t msd;
+
+#ifndef FABRICD
+	/* RFC9350 Flex-Algorithm */
+	struct isis_router_cap_fad *fads[SR_ALGORITHM_COUNT];
+#endif /* ifndef FABRICD */
 };
 
 struct isis_item {
