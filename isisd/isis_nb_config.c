@@ -2406,6 +2406,214 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 }
 
 /*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_create(
+	struct nb_cb_create_args *args)
+{
+	struct isis_area *area;
+	struct prefix prefix;
+	struct sr_prefix_cfg *pcfg;
+	uint32_t algorithm;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+	algorithm = yang_dnode_get_uint32(args->dnode, "./algo");
+
+	pcfg = isis_sr_cfg_prefix_add(area, &prefix, algorithm);
+	pcfg->algorithm = algorithm;
+	nb_running_set_entry(args->dnode, pcfg);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_algorithm_prefix_sid_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+	struct isis_area *area;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_unset_entry(args->dnode);
+	area = pcfg->area;
+	isis_sr_cfg_prefix_del(pcfg);
+	lsp_regenerate_schedule(area, area->is_type, 0);
+
+	return NB_OK;
+}
+
+int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
+	struct nb_cb_pre_validate_args *args)
+{
+	const struct lyd_node *area_dnode;
+	struct isis_area *area;
+	struct prefix prefix;
+	uint32_t srgb_lbound;
+	uint32_t srgb_ubound;
+	uint32_t srgb_range;
+	uint32_t sid;
+	enum sr_sid_value_type sid_type;
+	struct isis_prefix_sid psid = {};
+
+	yang_dnode_get_prefix(&prefix, args->dnode, "./prefix");
+	srgb_lbound = yang_dnode_get_uint32(
+		args->dnode, "../../label-blocks/srgb/lower-bound");
+	srgb_ubound = yang_dnode_get_uint32(
+		args->dnode, "../../label-blocks/srgb/upper-bound");
+	sid = yang_dnode_get_uint32(args->dnode, "./sid-value");
+	sid_type = yang_dnode_get_enum(args->dnode, "./sid-value-type");
+
+	/* Check for invalid indexes/labels. */
+	srgb_range = srgb_ubound - srgb_lbound + 1;
+	psid.value = sid;
+	switch (sid_type) {
+	case SR_SID_VALUE_TYPE_INDEX:
+		if (sid >= srgb_range) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "SID index %u falls outside local SRGB range",
+				 sid);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case SR_SID_VALUE_TYPE_ABSOLUTE:
+		if (!IS_MPLS_UNRESERVED_LABEL(sid)) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "Invalid absolute SID %u", sid);
+			return NB_ERR_VALIDATION;
+		}
+		SET_FLAG(psid.flags, ISIS_PREFIX_SID_VALUE);
+		SET_FLAG(psid.flags, ISIS_PREFIX_SID_LOCAL);
+		break;
+	}
+
+	/* Check for Prefix-SID collisions. */
+	area_dnode = yang_dnode_get_parent(args->dnode, "instance");
+	area = nb_running_get_entry(area_dnode, NULL, false);
+	if (!area)
+		return NB_OK;
+
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+			struct isis_spftree *spftree;
+			struct isis_vertex *vertex_psid;
+
+			if (!(area->is_type & level))
+				continue;
+			spftree = area->spftree[tree][level - 1];
+			if (!spftree)
+				continue;
+
+			vertex_psid =
+				isis_spf_prefix_sid_lookup(spftree, &psid);
+			if (vertex_psid &&
+			    !prefix_same(&vertex_psid->N.ip.p.dest, &prefix)) {
+				snprintfrr(
+					args->errmsg, args->errmsg_len,
+					"Prefix-SID collision detected, SID %s %u is already in use by prefix %pFX (L%u)",
+					CHECK_FLAG(psid.flags,
+						   ISIS_PREFIX_SID_VALUE)
+						? "label"
+						: "index",
+					psid.value, &vertex_psid->N.ip.p.dest,
+					level);
+				return NB_ERR_VALIDATION;
+			}
+		}
+	}
+
+	return NB_OK;
+}
+
+void isis_instance_segment_routing_algorithm_prefix_sid_apply_finish(
+	struct nb_cb_apply_finish_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+	struct isis_area *area;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	area = pcfg->area;
+	lsp_regenerate_schedule(area, area->is_type, 0);
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value-type
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->sid_type = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/sid-value
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->sid = yang_dnode_get_uint32(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sid-map/algorithm-prefix-sid/last-hop-behavior
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->last_hop_behavior = yang_dnode_get_enum(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid/n-flag-clear
+ */
+int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
+	struct nb_cb_modify_args *args)
+{
+	struct sr_prefix_cfg *pcfg;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	pcfg = nb_running_get_entry(args->dnode, NULL, true);
+	pcfg->n_flag_clear = yang_dnode_get_bool(args->dnode, NULL);
+
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)

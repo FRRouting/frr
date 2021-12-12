@@ -1702,6 +1702,44 @@ void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid
+ */
+void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults)
+{
+	const char *prefix;
+	const char *lh_behavior;
+	const char *sid_value_type;
+	const char *sid_value;
+	bool n_flag_clear;
+	uint32_t algorithm;
+
+	prefix = yang_dnode_get_string(dnode, "./prefix");
+	sid_value_type = yang_dnode_get_string(dnode, "./sid-value-type");
+	sid_value = yang_dnode_get_string(dnode, "./sid-value");
+	algorithm = yang_dnode_get_uint32(dnode, "./algo");
+	lh_behavior = yang_dnode_get_string(dnode, "./last-hop-behavior");
+	n_flag_clear = yang_dnode_get_bool(dnode, "./n-flag-clear");
+
+	vty_out(vty, " segment-routing prefix %s", prefix);
+	vty_out(vty, " algorithm %u", algorithm);
+	if (strmatch(sid_value_type, "absolute"))
+		vty_out(vty, " absolute");
+	else
+		vty_out(vty, " index");
+	vty_out(vty, " %s", sid_value);
+
+	if (strmatch(lh_behavior, "no-php"))
+		vty_out(vty, " no-php-flag");
+	else if (strmatch(lh_behavior, "explicit-null"))
+		vty_out(vty, " explicit-null");
+	if (n_flag_clear)
+		vty_out(vty, " n-flag-clear");
+	vty_out(vty, "\n");
+}
 
 /*
  * XPath: /frr-isisd:isis/instance/fast-reroute/level-{1,2}/lfa/priority-limit

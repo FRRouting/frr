@@ -258,6 +258,22 @@ int isis_instance_segment_routing_prefix_sid_map_prefix_sid_last_hop_behavior_mo
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_prefix_sid_map_prefix_sid_n_flag_clear_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_create(
+	struct nb_cb_create_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_pre_validate(
+	struct nb_cb_pre_validate_args *args);
+void isis_instance_segment_routing_algorithm_prefix_sid_apply_finish(
+	struct nb_cb_apply_finish_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_type_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_sid_value_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
+	struct nb_cb_modify_args *args);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
@@ -508,6 +524,9 @@ void cli_show_isis_node_msd(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults);
 void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
+void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
+					const struct lyd_node *dnode,
+					bool show_defaults);
 void cli_show_isis_frr_lfa_priority_limit(struct vty *vty,
 					  const struct lyd_node *dnode,
 					  bool show_defaults);
