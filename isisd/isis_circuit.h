@@ -179,6 +179,14 @@ struct isis_circuit {
 				    */
 	struct list *snmp_adj_list; /* List in id order */
 
+	/*
+	 * ASLA for Flex-Algo
+	 * It records affinity color names as "const char *" used by the
+	 * circuit. The resulting bitmap of interface admin group is
+	 * generated on-demand when the lsp_build with affinity maps.
+	 */
+	struct list *affinity_flex_algo;
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(isis_circuit);

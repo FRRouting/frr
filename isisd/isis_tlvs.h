@@ -28,6 +28,7 @@
 #include "segment_routing.h"
 #include "openbsd-tree.h"
 #include "prefix.h"
+#include "flex_algo.h"
 
 DECLARE_MTYPE(ISIS_SUBTLV);
 
@@ -197,6 +198,13 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+struct isis_router_cap_fad;
+struct isis_router_cap_fad {
+	uint8_t sysid[ISIS_SYS_ID_LEN + 2];
+
+	struct flex_algo fad;
+};
+
 struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
@@ -207,6 +215,9 @@ struct isis_router_cap {
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 	uint8_t msd;
+
+	/* draft-ietf-lsr-flex-algo */
+	struct isis_router_cap_fad *fads[SR_ALGORITHM_COUNT];
 };
 
 struct isis_item {
@@ -508,6 +519,15 @@ struct isis_ext_subtlvs {
 	/* Segment Routing Adjacency & LAN Adjacency Segment ID */
 	struct isis_item_list adj_sid;
 	struct isis_item_list lan_sid;
+
+	/* Application Specific Link Attribute - RFC 8919 */
+	bool asla_legacy;
+	uint8_t asla_standard_apps_length;
+	uint8_t asla_user_def_apps_length;
+	uint8_t asla_standard_apps;
+	uint8_t asla_user_def_apps;
+	uint32_t asla_admin_group;
+	struct admin_group asla_ext_admin_group;
 };
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
