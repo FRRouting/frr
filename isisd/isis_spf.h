@@ -33,6 +33,7 @@ enum spf_type {
 	SPF_TYPE_REVERSE,
 	SPF_TYPE_RLFA,
 	SPF_TYPE_TI_LFA,
+	SPF_TYPE_FLEX_ALGO,
 };
 
 struct isis_spf_adj {

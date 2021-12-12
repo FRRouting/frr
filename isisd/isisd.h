@@ -221,6 +221,9 @@ struct isis_area {
 	size_t tilfa_protected_links[ISIS_LEVELS];
 	/* MPLS LDP-IGP Sync */
 	struct ldp_sync_info_cmd ldp_sync_cmd;
+	/* Flex-Algo */
+	struct affinity_maps *affinity_maps;
+	struct flex_algos *flex_algos;
 	/* Counters */
 	uint32_t circuit_state_changes;
 	struct isis_redist redist_settings[REDIST_PROTOCOL_COUNT]

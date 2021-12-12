@@ -177,6 +177,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	circuit_mt_init(circuit);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL2);
+	circuit->affinity_flex_algo = list_new();
 
 	circuit->ldp_sync_info = ldp_sync_info_create();
 	circuit->ldp_sync_info->enabled = LDP_IGP_SYNC_ENABLED;
@@ -212,6 +213,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
 	circuit_mt_finish(circuit);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL1);
 	isis_lfa_excluded_ifaces_clear(circuit, ISIS_LEVEL2);
+	list_delete(&circuit->affinity_flex_algo);
 
 	list_delete(&circuit->ip_addrs);
 	list_delete(&circuit->ipv6_link);
