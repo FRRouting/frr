@@ -1706,6 +1706,82 @@ void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
  * XPath:
  * /frr-isisd:isis/instance/segment-routing/algorithm-prefix-sids/algorithm-prefix-sid
  */
+DEFPY_YANG(
+	isis_sr_prefix_sid_algorithm, isis_sr_prefix_sid_algorithm_cmd,
+	"segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
+              algorithm (128-255)$algorithm\
+              <absolute$sid_type (16-1048575)$sid_value|index$sid_type (0-65535)$sid_value>\
+              [<no-php-flag|explicit-null>$lh_behavior] [n-flag-clear$n_flag_clear]",
+	SR_STR
+	"Prefix SID\n"
+	"IPv4 Prefix\n"
+	"IPv6 Prefix\n"
+	"Algorithm Specific Prefix SID Configuration\n"
+	"Algorithm number\n"
+	"Specify the absolute value of Prefix Segment ID\n"
+	"The Prefix Segment ID value\n"
+	"Specify the index of Prefix Segment ID\n"
+	"The Prefix Segment ID index\n"
+	"Don't request Penultimate Hop Popping (PHP)\n"
+	"Upstream neighbor must replace prefix-sid with explicit null label\n"
+	"Not a node SID\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+	nb_cli_enqueue_change(vty, "./sid-value-type", NB_OP_MODIFY, sid_type);
+	nb_cli_enqueue_change(vty, "./sid-value", NB_OP_MODIFY, sid_value_str);
+	if (lh_behavior) {
+		const char *value;
+
+		if (strmatch(lh_behavior, "no-php-flag"))
+			value = "no-php";
+		else if (strmatch(lh_behavior, "explicit-null"))
+			value = "explicit-null";
+		else
+			value = "php";
+
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      value);
+	} else
+		nb_cli_enqueue_change(vty, "./last-hop-behavior", NB_OP_MODIFY,
+				      NULL);
+	nb_cli_enqueue_change(vty, "./n-flag-clear", NB_OP_MODIFY,
+			      n_flag_clear ? "true" : "false");
+
+	return nb_cli_apply_changes(
+		vty,
+		"./segment-routing/algorithm-prefix-sids/algorithm-prefix-sid[prefix='%s'][algo='%s']",
+		prefix_str, algorithm_str);
+}
+
+DEFPY_YANG(
+	no_isis_sr_prefix_algorithm_sid, no_isis_sr_prefix_sid_algorithm_cmd,
+	"no segment-routing prefix <A.B.C.D/M|X:X::X:X/M>$prefix\
+              algorithm (128-255)$algorithm\
+              [<absolute$sid_type (16-1048575)|index (0-65535)> [<no-php-flag|explicit-null>]]\
+              [n-flag-clear]",
+	NO_STR SR_STR
+	"Prefix SID\n"
+	"IPv4 Prefix\n"
+	"IPv6 Prefix\n"
+	"Algorithm Specific Prefix SID Configuration\n"
+	"Algorithm number\n"
+	"Specify the absolute value of Prefix Segment ID\n"
+	"The Prefix Segment ID value\n"
+	"Specify the index of Prefix Segment ID\n"
+	"The Prefix Segment ID index\n"
+	"Don't request Penultimate Hop Popping (PHP)\n"
+	"Upstream neighbor must replace prefix-sid with explicit null label\n"
+	"Not a node SID\n")
+{
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(
+		vty,
+		"./segment-routing/algorithm-prefix-sids/algorithm-prefix-sid[prefix='%s'][algo='%s']",
+		prefix_str, algorithm_str);
+	return CMD_SUCCESS;
+}
+
 void cli_show_isis_prefix_sid_algorithm(struct vty *vty,
 					const struct lyd_node *dnode,
 					bool show_defaults)
@@ -3198,6 +3274,8 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &isis_sr_prefix_sid_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_prefix_sid_cmd);
+	install_element(ISIS_NODE, &isis_sr_prefix_sid_algorithm_cmd);
+	install_element(ISIS_NODE, &no_isis_sr_prefix_sid_algorithm_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_priority_limit_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_tiebreaker_cmd);
 	install_element(ISIS_NODE, &isis_frr_lfa_load_sharing_cmd);
