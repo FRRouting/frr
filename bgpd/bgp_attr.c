@@ -1073,7 +1073,9 @@ struct attr *bgp_attr_aggregate_intern(
 		new = bgp_attr_intern(&attr);
 	}
 
-	aspath_unintern(&new->aspath);
+	/* Always release the 'intern()'ed AS Path. */
+	aspath_unintern(&attr.aspath);
+
 	return new;
 }
 
