@@ -26,6 +26,12 @@
 
 #include <prefix.h>
 
+#define PIM_ADDR in_addr
+#define PIM_SG_PFX(sg) (sg).src.ipaddr_v4
+#define PIM_IPADDR_PFX(ip) (ip).ipaddr_v4
+#define PIM_UN_PFX(p) (p).u.prefix4
+#define pim_inet_dump prefix_mcast_inet4_dump
+
 /*
  * Longest possible length of a (S,G) string is 36 bytes
  * 123.123.123.123 = 16 * 2
