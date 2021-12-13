@@ -32,6 +32,7 @@
 #include "pim_upstream.h"
 #include "pim_instance.h"
 #include "bfd.h"
+#include "pim_str.h"
 
 #define PIM_IF_MASK_PIM                             (1 << 0)
 #define PIM_IF_MASK_IGMP                            (1 << 1)
@@ -76,7 +77,7 @@
 #define PIM_IF_FLAG_UNSET_HELLO_SENT(flags) ((flags) &= ~PIM_IF_FLAG_HELLO_SENT)
 
 struct pim_iface_upstream_switch {
-	struct in_addr address;
+	pim_addr address;
 	struct list *us;
 };
 
