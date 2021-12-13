@@ -405,76 +405,6 @@ def find_rp_details(tgen, topo):
     return rp_details
 
 
-def configure_pim_force_expire(tgen, topo, input_dict, build=False):
-    """
-    Helper API to create pim configuration.
-
-    Parameters
-    ----------
-    * `tgen` : Topogen object
-    * `topo` : json file data
-    * `input_dict` : Input dict data, required when configuring from testcase
-    * `build` : Only for initial setup phase this is set as True.
-
-    Usage
-    -----
-    input_dict ={
-        "l1": {
-            "pim": {
-                "force_expire":{
-                    "10.0.10.1": ["255.1.1.1"]
-                }
-            }
-        }
-    }
-
-    result = create_pim_config(tgen, topo, input_dict)
-
-    Returns
-    -------
-    True or False
-    """
-
-    result = False
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
-
-    try:
-        config_data_dict = {}
-
-        for dut in input_dict.keys():
-            if "pim" not in input_dict[dut]:
-                continue
-
-            pim_data = input_dict[dut]["pim"]
-
-            config_data = []
-            if "force_expire" in pim_data:
-                force_expire_data = pim_data["force_expire"]
-
-                for source, groups in force_expire_data.items():
-                    if type(groups) is not list:
-                        groups = [groups]
-
-                    for group in groups:
-                        cmd = "ip pim force-expire source {} group {}".format(
-                            source, group
-                        )
-                        config_data.append(cmd)
-
-            if config_data:
-                config_data_dict[dut] = config_data
-
-        result = create_common_configurations(
-            tgen, config_data_dict, "pim", build=build
-        )
-    except InvalidCLIError:
-        logger.error("configure_pim_force_expire", exc_info=True)
-        result = False
-
-    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
-    return result
-
-
 #############################################
 # Verification APIs
 #############################################
@@ -1587,6 +1517,17 @@ def verify_pim_interface(
 
                     if pim_interface in show_ip_pim_interface_json:
                         pim_intf_json = show_ip_pim_interface_json[pim_interface]
+                    else:
+                        errormsg = (
+                            "[DUT %s]: PIM interface: %s "
+                            "PIM interface ip: %s, not Found"
+                            % (
+                                dut,
+                                pim_interface,
+                                pim_intf_ip
+                            )
+                        )
+                        return errormsg
 
                     # Verifying PIM interface
                     if (
@@ -3461,6 +3402,73 @@ def verify_igmp_interface(tgen, topo, dut, igmp_iface, interface_ip, expected=Tr
                 % (dut, igmp_iface, interface_ip)
             )
             return errormsg
+
+    logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
+    return True
+
+
+
+@retry(retry_timeout=62)
+def verify_local_igmp_groups(tgen, dut, interface, group_addresses):
+    """
+    Verify local IGMP groups are received from an intended interface
+    by running "show ip igmp join json" command
+
+    Parameters
+    ----------
+    * `tgen`: topogen object
+    * `dut`: device under test
+    * `interface`: interface, from which IGMP groups are configured
+    * `group_addresses`: IGMP group address
+
+    Usage
+    -----
+    dut = "r1"
+    interface = "r1-r0-eth0"
+    group_address = "225.1.1.1"
+    result = verify_local_igmp_groups(tgen, dut, interface, group_address)
+
+    Returns
+    -------
+    errormsg(str) or True
+    """
+
+    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+
+    if dut not in tgen.routers():
+        return False
+
+    rnode = tgen.routers()[dut]
+
+    logger.info("[DUT: %s]: Verifying local IGMP groups received:", dut)
+    show_ip_local_igmp_json = run_frr_cmd(rnode, "show ip igmp join json",
+                                    isjson=True)
+
+    if type(group_addresses) is not list:
+        group_addresses = [group_addresses]
+
+    if interface not in show_ip_local_igmp_json :
+
+        errormsg = ("[DUT %s]: Verifying local IGMP group received"
+                    " from interface %s [FAILED]!! "
+                    % (dut, interface))
+        return errormsg
+
+    for grp_addr in group_addresses:
+        found = False
+        for index in show_ip_local_igmp_json[interface]["groups"]:
+            if index['group'] == grp_addr:
+                found = True
+                break
+        if not found:
+            errormsg = ("[DUT %s]: Verifying local IGMP group received"
+                        " from interface %s [FAILED]!! "
+                        " Expected: %s " % (dut, interface, grp_addr))
+            return errormsg
+
+        logger.info("[DUT %s]: Verifying local IGMP group %s received "
+                    "from interface %s [PASSED]!! ",
+                    dut, grp_addr, interface)
 
     logger.debug("Exiting lib API: {}".format(sys._getframe().f_code.co_name))
     return True
