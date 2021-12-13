@@ -14,3 +14,6 @@
 #define PIM_UN_PFX(p) (p).u.prefix6
 #define pim_inet_dump prefix_mcast_inet6_dump
 
+void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
+		    int buf_size);
+

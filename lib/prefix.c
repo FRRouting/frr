@@ -1088,6 +1088,23 @@ void prefix_mcast_inet4_dump(const char *onfail, struct in_addr addr,
 	errno = save_errno;
 }
 
+void prefix_mcast_inet6_dump(const char *onfail, struct in6_addr addr,
+                char *buf, int buf_size)
+{
+	int save_errno = errno;
+
+	if (memcmp(&addr, &in6addr_any, sizeof(struct in6_addr)) == 0)
+		strlcpy(buf, "*", buf_size);
+	else {
+		if (!inet_ntop(AF6_INET, &addr, buf, buf_size)) {
+			if (onfail)
+				snprintf(buf, buf_size, "%s", onfail);
+		}
+	}
+
+	errno = save_errno;
+}
+
 const char *prefix_sg2str(const struct prefix_sg *sg, char *sg_str)
 {
 	char src_str[INET_ADDRSTRLEN];
