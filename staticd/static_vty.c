@@ -132,12 +132,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 	}
 
 	if (route_group && bfd) {
-		vty_out(vty, "%% BFD Route monitoring can't be configured with route group\n");
+		vty_out(vty,
+			"%% BFD Route monitoring can't be configured with route group\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
-	if(onlink && bfd_mhop) {
-		vty_out(vty, "%% BFD Route monitoring multihop can't be configured with onlink parameter\n");
+	if (onlink && bfd_mhop) {
+		vty_out(vty,
+			"%% BFD Route monitoring multihop can't be configured with onlink parameter\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 	if (gate_str == NULL && ifname == NULL)
@@ -329,7 +331,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring",
 				sizeof(xpath_bfd));
-			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_CREATE, NULL);
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_CREATE,
+					      NULL);
 
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd,
@@ -386,7 +389,8 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring",
 				sizeof(xpath_bfd));
-			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_CREATE, NULL);
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_CREATE,
+					      NULL);
 
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring/group",
@@ -1241,12 +1245,12 @@ DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,
 	   BFD_PROFILE_NAME_STR)
 {
 	if (no) {
-		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile", NB_OP_DESTROY,
-				      NULL);
-		nb_cli_enqueue_change(vty, "./bfd-monitoring/source", NB_OP_DESTROY,
-				      NULL);
-		nb_cli_enqueue_change(vty, "./bfd-monitoring/interface", NB_OP_DESTROY,
-				      NULL);
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile",
+				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/source",
+				      NB_OP_DESTROY, NULL);
+		nb_cli_enqueue_change(vty, "./bfd-monitoring/interface",
+				      NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, "./bfd-monitoring", NB_OP_DESTROY,
 				      NULL);
 		goto apply_changes;
@@ -1278,7 +1282,8 @@ apply_changes:
 void static_route_group_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_def)
 {
-	char vrfstr[256] = {}, ifstr[256] = {}, srcstr[256] = {}, profstr[256] = {};
+	char vrfstr[256] = {}, ifstr[256] = {}, srcstr[256] = {},
+	     profstr[256] = {};
 	const char *vrfname;
 
 	vrfname = yang_dnode_get_string(dnode, "./vrf");
@@ -1454,19 +1459,29 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 	if (yang_dnode_exists(nexthop, "./bfd-monitoring")) {
 		if (!yang_dnode_exists(nexthop, "./bfd-monitoring/group")) {
 			vty_out(vty, " bfd");
-			if (yang_dnode_exists(nexthop, "./bfd-monitoring/multi-hop")) {
-				if (yang_dnode_get_bool(nexthop, "./bfd-monitoring/multi-hop"))
+			if (yang_dnode_exists(nexthop,
+					      "./bfd-monitoring/multi-hop")) {
+				if (yang_dnode_get_bool(
+					    nexthop,
+					    "./bfd-monitoring/multi-hop"))
 					vty_out(vty, " multi-hop");
 			}
-			if (yang_dnode_exists(nexthop, "./bfd-monitoring/source"))
+			if (yang_dnode_exists(nexthop,
+					      "./bfd-monitoring/source"))
 				vty_out(vty, " source %s",
-					yang_dnode_get_string(nexthop, "./bfd-monitoring/source"));
-			if (yang_dnode_exists(nexthop, "./bfd-monitoring/profile"))
+					yang_dnode_get_string(
+						nexthop,
+						"./bfd-monitoring/source"));
+			if (yang_dnode_exists(nexthop,
+					      "./bfd-monitoring/profile"))
 				vty_out(vty, " profile %s",
-					yang_dnode_get_string(nexthop, "./bfd-monitoring/profile"));
+					yang_dnode_get_string(
+						nexthop,
+						"./bfd-monitoring/profile"));
 		} else
 			vty_out(vty, " group %s",
-				yang_dnode_get_string(nexthop, "./bfd-monitoring/group"));
+				yang_dnode_get_string(
+					nexthop, "./bfd-monitoring/group"));
 	}
 	vty_out(vty, "\n");
 }
