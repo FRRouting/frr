@@ -44,7 +44,7 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 
 void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 			     enum pim_ifassert_state new_state,
-			     struct in_addr winner,
+			     struct PIM_ADDR winner,
 			     struct pim_assert_metric winner_metric)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
