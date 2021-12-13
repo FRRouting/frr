@@ -175,8 +175,11 @@ struct igmp_group {
 
 	/* compatibility mode - igmp v1, v2 or v3 */
 	int igmp_version;
-
+#ifdef PIM_AF_IPV6
+	struct in6_addr group_addr;
+#else
 	struct in_addr group_addr;
+#endif
 	int group_filtermode_isexcl;    /* 0=INCLUDE, 1=EXCLUDE */
 	struct list *group_source_list; /* list of struct igmp_source */
 	time_t group_creation;
