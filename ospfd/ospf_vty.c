@@ -264,7 +264,7 @@ DEFUN (no_router_ospf,
 DEFPY (ospf_router_id,
        ospf_router_id_cmd,
        "ospf router-id A.B.C.D",
-       "OSPF specific commands\n"
+       "Open Shortest Path First (OSPF) Specific commands\n"
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
 {
@@ -324,7 +324,7 @@ DEFPY (no_ospf_router_id,
        no_ospf_router_id_cmd,
        "no ospf router-id [A.B.C.D]",
        NO_STR
-       "OSPF specific commands\n"
+       "Open Shortest Path First (OSPF) Specific commands\n"
        "router-id for the OSPF process\n"
        "OSPF router-id in IP address format\n")
 {
@@ -2062,7 +2062,7 @@ DEFUN (no_ospf_area_authentication,
 DEFUN (ospf_abr_type,
        ospf_abr_type_cmd,
        "ospf abr-type <cisco|ibm|shortcut|standard>",
-       "OSPF specific commands\n"
+       "Open Shortest Path First (OSPF) Specific commands\n"
        "Set OSPF ABR type\n"
        "Alternative ABR, cisco implementation\n"
        "Alternative ABR, IBM implementation\n"
@@ -2097,7 +2097,7 @@ DEFUN (no_ospf_abr_type,
        no_ospf_abr_type_cmd,
        "no ospf abr-type <cisco|ibm|shortcut|standard>",
        NO_STR
-       "OSPF specific commands\n"
+       "Open Shortest Path First (OSPF) Specific commands\n"
        "Set OSPF ABR type\n"
        "Alternative ABR, cisco implementation\n"
        "Alternative ABR, IBM implementation\n"
@@ -2212,12 +2212,12 @@ DEFUN (no_ospf_compatible_rfc1583,
 
 ALIAS(ospf_compatible_rfc1583, ospf_rfc1583_flag_cmd,
       "ospf rfc1583compatibility",
-      "OSPF specific commands\n"
+      "Open Shortest Path First (OSPF) Specific commands\n"
       "Enable the RFC1583Compatibility flag\n")
 
 ALIAS(no_ospf_compatible_rfc1583, no_ospf_rfc1583_flag_cmd,
       "no ospf rfc1583compatibility", NO_STR
-      "OSPF specific commands\n"
+      "Open Shortest Path First (OSPF) Specific commands\n"
       "Disable the RFC1583Compatibility flag\n")
 
 static int ospf_timers_spf_set(struct vty *vty, unsigned int delay,
@@ -2587,7 +2587,7 @@ DEFUN (no_ospf_auto_cost_reference_bandwidth,
 DEFUN (ospf_write_multiplier,
        ospf_write_multiplier_cmd,
        "ospf write-multiplier (1-100)",
-       "OSPF specific commands\n"
+       "Open Shortest Path First (OSPF) Specific commands\n"
        "Write multiplier\n"
        "Maximum number of interface serviced per write\n")
 {
@@ -2618,7 +2618,7 @@ DEFUN (no_ospf_write_multiplier,
        no_ospf_write_multiplier_cmd,
        "no ospf write-multiplier (1-100)",
        NO_STR
-       "OSPF specific commands\n"
+       "Open Shortest Path First (OSPF) Specific commands\n"
        "Write multiplier\n"
        "Maximum number of interface serviced per write\n")
 {
