@@ -1913,7 +1913,7 @@ DEFUNSH(VTYSH_RIPNGD, router_ripng, router_ripng_cmd, "router ripng [vrf NAME]",
 DEFUNSH(VTYSH_OSPFD, router_ospf, router_ospf_cmd,
 	"router ospf [(1-65535)] [vrf NAME]",
 	"Enable a routing process\n"
-	"Start OSPF configuration\n"
+	"Open Shortest Path First (OSPF) configuration\n"
 	"Instance ID\n"
 	VRF_CMD_HELP_STR)
 {
