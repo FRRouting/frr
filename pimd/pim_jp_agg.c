@@ -133,14 +133,22 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode,
 			       pius)) {
-		if (pius->address.s_addr == rpf->rpf_addr.u.prefix4.s_addr)
-			break;
+#ifdef PIM_AF_IPV6
+		if (IPV6_ADDR_SAME(pius->address, rpf->rpf_addr.u.prefix4))
+#else
+		if (IPV4_ADDR_SAME(pius->address, rpf->rpf_addr.u.prefix6))
+#endif
+		break;
 	}
 
 	if (!pius) {
 		pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			       sizeof(struct pim_iface_upstream_switch));
-		pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
+#ifdef PIM_AF_IPV6
+		IPV6_ADDR_COPY(pius->address, rpf->rpf_addr.u.prefix6);
+#else
+		IPV4_ADDR_COPY(pius->address, rpf->rpf_addr.u.prefix4);
+#endif
 		pius->us = list_new();
 		listnode_add_sort(pim_ifp->upstream_switch_list, pius);
 	}

@@ -240,7 +240,11 @@ void pim_zebra_update_all_interfaces(struct pim_instance *pim)
 			struct pim_rpf rpf;
 
 			rpf.source_nexthop.interface = ifp;
-			rpf.rpf_addr.u.prefix4 = us->address;
+#ifdef PIM_AF_IPV6
+			IPV6_ADDR_COPY(rpf.rpf_addr.u.prefix6, us->address);
+#else
+			IPV4_ADDR_COPY(rpf.rpf_addr.u.prefix4, us->address);
+#endif
 			pim_joinprune_send(&rpf, us->us);
 			pim_jp_agg_clear_group(us->us);
 		}
