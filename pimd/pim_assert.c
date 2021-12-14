@@ -65,9 +65,9 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 			char was_str[INET_ADDRSTRLEN];
 			char winner_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<was?>", ch->ifassert_winner, was_str,
-				      sizeof(was_str));
+				       sizeof(was_str));
 			pim_inet4_dump("<winner?>", winner, winner_str,
-				      sizeof(winner_str));
+				       sizeof(winner_str));
 			zlog_debug(
 				"%s: (S,G)=%s assert winner changed from %s to %s on interface %s",
 				__func__, ch->sg_str, was_str, winner_str,
@@ -339,7 +339,7 @@ int pim_assert_metric_better(const struct pim_assert_metric *m1,
 	if (m1->route_metric > m2->route_metric)
 		return 0;
 
-	return ntohl(m1->ip_address.s_addr) > ntohl(m2->ip_address.s_addr);
+	return pim_addr_cmp(m1->ip_address, m2->ip_address) > 0;
 }
 
 int pim_assert_metric_match(const struct pim_assert_metric *m1,
@@ -352,7 +352,7 @@ int pim_assert_metric_match(const struct pim_assert_metric *m1,
 	if (m1->route_metric != m2->route_metric)
 		return 0;
 
-	return m1->ip_address.s_addr == m2->ip_address.s_addr;
+	return !pim_addr_cmp(m1->ip_address, m2->ip_address);
 }
 
 int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
