@@ -106,7 +106,7 @@ struct pim_ifchannel {
 	/* Per-interface (S,G) Assert State (Section 4.6.1 of RFC4601) */
 	enum pim_ifassert_state ifassert_state;
 	struct thread *t_ifassert_timer;
-	struct in_addr ifassert_winner;
+	pim_addr ifassert_winner;
 	struct pim_assert_metric ifassert_winner_metric;
 	int64_t ifassert_creation; /* Record uptime of ifassert state */
 	struct pim_assert_metric ifassert_my_metric;
