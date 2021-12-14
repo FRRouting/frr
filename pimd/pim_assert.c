@@ -43,12 +43,11 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric);
 
 void pim_ifassert_winner_set(struct pim_ifchannel *ch,
-			     enum pim_ifassert_state new_state,
-			     struct in_addr winner,
+			     enum pim_ifassert_state new_state, pim_addr winner,
 			     struct pim_assert_metric winner_metric)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
-	int winner_changed = (ch->ifassert_winner.s_addr != winner.s_addr);
+	int winner_changed = !!pim_addr_cmp(ch->ifassert_winner, winner);
 	int metric_changed = !pim_assert_metric_match(
 		&ch->ifassert_winner_metric, &winner_metric);
 
@@ -66,9 +65,9 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 			char was_str[INET_ADDRSTRLEN];
 			char winner_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<was?>", ch->ifassert_winner, was_str,
-				       sizeof(was_str));
+				      sizeof(was_str));
 			pim_inet4_dump("<winner?>", winner, winner_str,
-				       sizeof(winner_str));
+				      sizeof(winner_str));
 			zlog_debug(
 				"%s: (S,G)=%s assert winner changed from %s to %s on interface %s",
 				__func__, ch->sg_str, was_str, winner_str,
@@ -179,8 +178,8 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 		}
 		break;
 	case PIM_IFASSERT_I_AM_LOSER:
-		if (recv_metric.ip_address.s_addr
-		    == ch->ifassert_winner.s_addr) {
+		if (!pim_addr_cmp(recv_metric.ip_address,
+				  ch->ifassert_winner)) {
 			/* Assert from current winner */
 
 			if (cancel_assert(&recv_metric)) {
