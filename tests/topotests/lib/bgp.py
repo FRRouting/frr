@@ -3061,7 +3061,12 @@ def verify_graceful_restart(
         if router != dut:
             continue
 
-        bgp_addr_type = topo["routers"][dut]["bgp"]["address_family"]
+        try:
+            bgp_addr_type = topo["routers"][dut]["bgp"]["address_family"]
+        except TypeError:
+            bgp_addr_type = topo["routers"][dut]["bgp"][0]["address_family"]
+
+        # bgp_addr_type = topo["routers"][dut]["bgp"]["address_family"]
 
         if addr_type in bgp_addr_type:
             if not check_address_types(addr_type):
