@@ -21,6 +21,7 @@
 #define PIM_RPF_H
 
 #include <zebra.h>
+#include "pim_str.h"
 
 /*
   RFC 4601:
@@ -35,7 +36,7 @@
     units applicable to the unicast routing protocol used.
 */
 struct pim_nexthop {
-	struct in_addr last_lookup;
+	pim_addr last_lookup;
 	long long last_lookup_time;
 	struct interface *interface;     /* RPF_interface(S) */
 	struct prefix mrib_nexthop_addr; /* MRIB.next_hop(S) */
