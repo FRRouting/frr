@@ -37,7 +37,7 @@ struct pim_assert_metric {
 	uint32_t rpt_bit_flag;
 	uint32_t metric_preference;
 	uint32_t route_metric;
-	struct in_addr ip_address; /* neighbor router that sourced the Assert
+	pim_addr ip_address; /* neighbor router that sourced the Assert
 				      message */
 };
 
