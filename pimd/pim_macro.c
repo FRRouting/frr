@@ -261,7 +261,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
     }
 */
 struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr)
+						     pim_addr ifaddr)
 {
 	struct pim_assert_metric metric;
 

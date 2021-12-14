@@ -94,16 +94,14 @@ struct pim_interface {
 	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
-
-	struct in_addr primary_address; /* remember addr to detect change */
+	pim_addr primary_address;       /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
-	struct in_addr update_source;   /* user can statically set the primary
+	pim_addr update_source;		/* user can statically set the primary
 					 * address of the interface */
-
-	int igmp_version;		       /* IGMP version */
-	int igmp_default_robustness_variable;  /* IGMPv3 QRV */
-	int igmp_default_query_interval;       /* IGMPv3 secs between general
-						  queries */
+	int igmp_version;		/* IGMP or MLD version */
+	int igmp_default_robustness_variable; /* IGMP or MLD QRV */
+	int igmp_default_query_interval; /* IGMP or MLD secs between general
+					    queries */
 	int igmp_query_max_response_time_dsec; /* IGMPv3 Max Response Time in
 						  dsecs for general queries */
 	int igmp_specific_query_max_response_time_dsec; /* IGMPv3 Max Response
@@ -144,7 +142,7 @@ struct pim_interface {
 	int64_t pim_dr_election_last; /* timestamp */
 	int pim_dr_election_count;
 	int pim_dr_election_changes;
-	struct in_addr pim_dr_addr;
+	pim_addr pim_dr_addr;
 	uint32_t pim_dr_priority;	  /* config */
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
