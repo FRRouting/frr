@@ -570,8 +570,8 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 	return 0;
 }
 
-int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
-		 uint8_t *pim_msg, int pim_msg_size, const char *ifname)
+int pim_msg_send(int fd, pim_addr src, struct in_addr dst, uint8_t *pim_msg,
+		 int pim_msg_size, const char *ifname)
 {
 	struct sockaddr_in to;
 	socklen_t tolen;
