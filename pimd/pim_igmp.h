@@ -86,14 +86,14 @@ struct gm_join {
 struct gm_sock {
 	int fd;
 	struct interface *interface;
-	struct in_addr ifaddr;
+	pim_addr ifaddr;
 	time_t sock_creation;
 
 	struct thread *t_igmp_read; /* read: IGMP sockets */
 	struct thread
 		*t_igmp_query_timer; /* timer: issue IGMP general queries */
 	struct thread *t_other_querier_timer; /* timer: other querier present */
-	pim_addr querier_addr;	 /* IP address of the querier */
+	pim_addr querier_addr;		      /* IP address of the querier */
 	int querier_query_interval;	   /* QQI */
 	int querier_robustness_variable; /* QRV */
 	int startup_query_count;
