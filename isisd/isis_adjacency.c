@@ -327,15 +327,18 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 				adj->flaps++;
 			} else if (old_state == ISIS_ADJ_UP) {
 				circuit->adj_state_changes++;
-				listnode_delete(circuit->u.bc.adjdb[level - 1],
-						adj);
 
 				circuit->upadjcount[level - 1]--;
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				if (new_state == ISIS_ADJ_DOWN)
+				if (new_state == ISIS_ADJ_DOWN) {
+					listnode_delete(
+						circuit->u.bc.adjdb[level - 1],
+						adj);
+
 					del = true;
+				}
 			}
 
 			if (circuit->u.bc.lan_neighs[level - 1]) {
@@ -374,14 +377,17 @@ void isis_adj_state_change(struct isis_adjacency **padj,
 							 &circuit->t_send_csnp[1]);
 				}
 			} else if (old_state == ISIS_ADJ_UP) {
-				if (adj->circuit->u.p2p.neighbor == adj)
-					adj->circuit->u.p2p.neighbor = NULL;
 				circuit->upadjcount[level - 1]--;
 				if (circuit->upadjcount[level - 1] == 0)
 					isis_tx_queue_clean(circuit->tx_queue);
 
-				if (new_state == ISIS_ADJ_DOWN)
+				if (new_state == ISIS_ADJ_DOWN) {
+					if (adj->circuit->u.p2p.neighbor == adj)
+						adj->circuit->u.p2p.neighbor =
+							NULL;
+
 					del = true;
+				}
 			}
 		}
 	}
