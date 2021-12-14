@@ -86,7 +86,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	 */
 
 	/* scan igmp groups */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode, grp)) {
 		struct listnode *srcnode;
 		struct gm_source *src;
 
@@ -105,7 +105,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 			}
 
 		} /* scan group sources */
-	}	 /* scan igmp groups */
+	}	  /* scan igmp groups */
 
 	/*
 	 * Finally delete every PIM (S,G) entry lacking all state info
@@ -383,14 +383,14 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
 				sizeof(ifaddr_str));
 		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
-			   __func__, ifaddr_str, ifp->name,
-			   pim_ifp->default_query_interval);
+				__func__, ifaddr_str, ifp->name,
+				pim_ifp->igmp_default_query_interval);
 	}
 
 	/*
 	 * igmp_startup_mode_on() will reset QQI:
 
-	 * igmp->querier_query_interval = pim_ifp->default_query_interval;
+	 * igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
 	 */
 	igmp_startup_mode_on(igmp);
 }
@@ -430,9 +430,9 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 	struct listnode *sock_node;
 	struct gm_sock *igmp;
 
-	pim_ifp->default_query_interval = query_interval;
+	pim_ifp->igmp_default_query_interval = query_interval;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
 		igmp_sock_query_interval_reconfig(igmp);
 		igmp_sock_query_reschedule(igmp);
 	}
@@ -446,11 +446,12 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	struct listnode *grp_node;
 	struct gm_group *grp;
 
-	if (pim_ifp->query_max_response_time_dsec
+	if (pim_ifp->igmp_query_max_response_time_dsec
 	    == query_max_response_time_dsec)
 		return;
 
-	pim_ifp->query_max_response_time_dsec = query_max_response_time_dsec;
+	pim_ifp->igmp_query_max_response_time_dsec =
+		query_max_response_time_dsec;
 
 	/*
 	 * Below we modify socket/group/source timers in order to quickly
@@ -459,13 +460,13 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	 */
 
 	/* scan all sockets */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
 		/* reschedule socket general query */
 		igmp_sock_query_reschedule(igmp);
 	}
 
 	/* scan socket groups */
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grp_node, grp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grp_node, grp)) {
 		struct listnode *src_node;
 		struct gm_source *src;
 
@@ -2586,8 +2587,8 @@ int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
 			return NB_ERR_INCONSISTENCY;
 
 		igmp_version = yang_dnode_get_uint8(args->dnode, NULL);
-		old_version = pim_ifp->version;
-		pim_ifp->version = igmp_version;
+		old_version = pim_ifp->igmp_version;
+		pim_ifp->igmp_version = igmp_version;
 
 		/* Current and new version is different refresh existing
 		 * membership. Going from 3 -> 2 or 2 -> 3.
@@ -2614,7 +2615,7 @@ int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
-		pim_ifp->version = IGMP_DEFAULT_VERSION;
+		pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 		break;
 	}
 
@@ -2688,7 +2689,7 @@ int lib_interface_igmp_last_member_query_interval_modify(
 		pim_ifp = ifp->info;
 		last_member_query_interval =
 			yang_dnode_get_uint16(args->dnode, NULL);
-		pim_ifp->specific_query_max_response_time_dsec =
+		pim_ifp->igmp_specific_query_max_response_time_dsec =
 			last_member_query_interval;
 
 		break;
@@ -2717,7 +2718,7 @@ int lib_interface_igmp_robustness_variable_modify(
 		pim_ifp = ifp->info;
 		last_member_query_count = yang_dnode_get_uint8(args->dnode,
 				NULL);
-		pim_ifp->last_member_query_count = last_member_query_count;
+		pim_ifp->igmp_last_member_query_count = last_member_query_count;
 
 		break;
 	}
