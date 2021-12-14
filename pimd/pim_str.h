@@ -43,6 +43,22 @@
 #define pim_inet4_dump prefix_mcast_inet4_dump
 #define pim_str_sg_set prefix_sg2str
 
+static inline int pim_addr_ntoh_and_compare(struct PIM_ADDR addr1,
+					    struct PIM_ADDR addr2)
+{
+	return ntohl(addr1.s_addr) > ntohl(addr2.s_addr);
+}
+
+static inline int pim_addr_compare(struct PIM_ADDR addr1, struct PIM_ADDR addr2)
+{
+	return IPV4_ADDR_CMP(&addr1, &addr2);
+}
+
+static inline int pim_addr_is_same(struct PIM_ADDR addr1, struct PIM_ADDR addr2)
+{
+	return (addr1.s_addr == addr2.s_addr);
+}
+
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
