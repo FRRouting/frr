@@ -1480,9 +1480,9 @@ int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 	struct prefix_list_entry *pentry;
 
 	/* ge and le value check */
-	if (orfp->ge && orfp->ge <= orfp->p.prefixlen)
+	if (orfp->ge && orfp->ge < orfp->p.prefixlen)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (orfp->le && orfp->le <= orfp->p.prefixlen)
+	if (orfp->le && orfp->le < orfp->p.prefixlen)
 		return CMD_WARNING_CONFIG_FAILED;
 	if (orfp->le && orfp->ge > orfp->le)
 		return CMD_WARNING_CONFIG_FAILED;
