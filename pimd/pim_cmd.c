@@ -501,7 +501,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		pim_ifp = ifp->info;
 
@@ -575,7 +575,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 					struct vty *vty, const char *ifname,
 					bool uj)
 {
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct interface *ifp;
 	struct listnode *sock_node;
 	struct pim_interface *pim_ifp;
@@ -1327,7 +1327,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
 		struct listnode *sock_node;
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		pim_ifp = ifp->info;
 
@@ -3420,7 +3420,7 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3513,7 +3513,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3523,7 +3523,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 			char group_str[INET_ADDRSTRLEN];
 			char grp_retr_mmss[10];
 			struct listnode *src_node;
-			struct igmp_source *src;
+			struct gm_source *src;
 			int grp_retr_sources = 0;
 
 			pim_inet4_dump("<group?>", grp->group_addr, group_str,
@@ -3565,7 +3565,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3574,7 +3574,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			struct listnode *srcnode;
-			struct igmp_source *src;
+			struct gm_source *src;
 
 			pim_inet4_dump("<group?>", grp->group_addr, group_str,
 				       sizeof(group_str));
@@ -3620,7 +3620,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
 		struct listnode *grpnode;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 
 		if (!pim_ifp)
 			continue;
@@ -3629,7 +3629,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			struct listnode *srcnode;
-			struct igmp_source *src;
+			struct gm_source *src;
 
 			pim_inet4_dump("<group?>", grp->group_addr, group_str,
 				       sizeof(group_str));
@@ -3901,7 +3901,7 @@ static void clear_mroute(struct pim_instance *pim)
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct igmp_group *grp;
+		struct gm_group *grp;
 		struct pim_ifchannel *ch;
 
 		if (!pim_ifp)

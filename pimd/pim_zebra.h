@@ -33,12 +33,12 @@ void pim_scan_individual_oil(struct channel_oil *c_oil, int in_vif_index);
 void pim_scan_oil(struct pim_instance *pim_matcher);
 
 void igmp_anysource_forward_start(struct pim_instance *pim,
-				  struct igmp_group *group);
-void igmp_anysource_forward_stop(struct igmp_group *group);
+				  struct gm_group *group);
+void igmp_anysource_forward_stop(struct gm_group *group);
 
 void igmp_source_forward_start(struct pim_instance *pim,
-			       struct igmp_source *source);
-void igmp_source_forward_stop(struct igmp_source *source);
+			       struct gm_source *source);
+void igmp_source_forward_stop(struct gm_source *source);
 void igmp_source_forward_reevaluate_all(struct pim_instance *pim);
 
 void pim_forward_start(struct pim_ifchannel *ch);

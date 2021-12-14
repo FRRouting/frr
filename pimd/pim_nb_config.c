@@ -62,7 +62,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *grpnode;
-	struct igmp_group *grp;
+	struct gm_group *grp;
 
 
 	pim_ifp = ifp->info;
@@ -88,7 +88,7 @@ static void pim_if_membership_refresh(struct interface *ifp)
 	/* scan igmp groups */
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grpnode, grp)) {
 		struct listnode *srcnode;
-		struct igmp_source *src;
+		struct gm_source *src;
 
 		/* scan group sources */
 		for (ALL_LIST_ELEMENTS_RO(grp->group_source_list, srcnode,
@@ -365,7 +365,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
  * This function propagates the reconfiguration to every active socket
  * for that interface.
  */
-static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
+static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -395,7 +395,7 @@ static void igmp_sock_query_interval_reconfig(struct igmp_sock *igmp)
 	igmp_startup_mode_on(igmp);
 }
 
-static void igmp_sock_query_reschedule(struct igmp_sock *igmp)
+static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 {
 	if (igmp->mtrace_only)
 		return;
@@ -428,7 +428,7 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 		int query_interval)
 {
 	struct listnode *sock_node;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 
 	pim_ifp->default_query_interval = query_interval;
 
@@ -442,9 +442,9 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 		int query_max_response_time_dsec)
 {
 	struct listnode *sock_node;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct listnode *grp_node;
-	struct igmp_group *grp;
+	struct gm_group *grp;
 
 	if (pim_ifp->query_max_response_time_dsec
 	    == query_max_response_time_dsec)
@@ -467,7 +467,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 	/* scan socket groups */
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->group_list, grp_node, grp)) {
 		struct listnode *src_node;
-		struct igmp_source *src;
+		struct gm_source *src;
 
 		/* reset group timers for groups in EXCLUDE mode */
 		if (grp->group_filtermode_isexcl)
