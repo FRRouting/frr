@@ -340,7 +340,7 @@ int pim_assert_metric_better(const struct pim_assert_metric *m1,
 	if (m1->route_metric > m2->route_metric)
 		return 0;
 
-	return ntohl(m1->ip_address.s_addr) > ntohl(m2->ip_address.s_addr);
+	return pim_addr_ntoh_and_compare(m1->ip_address, m2->ip_address);
 }
 
 int pim_assert_metric_match(const struct pim_assert_metric *m1,
@@ -353,7 +353,7 @@ int pim_assert_metric_match(const struct pim_assert_metric *m1,
 	if (m1->route_metric != m2->route_metric)
 		return 0;
 
-	return m1->ip_address.s_addr == m2->ip_address.s_addr;
+	return pim_addr_is_same(m1->ip_address, m2->ip_address);
 }
 
 int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
