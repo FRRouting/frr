@@ -81,6 +81,8 @@ nodist_pimd_pimd_SOURCES = \
 pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim_main.c \
+	pim6_cmd.c \
+	pim6_str.h \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \
