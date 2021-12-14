@@ -140,7 +140,7 @@ int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 #define IGMP_SOURCE_DONT_SEND(flags)       ((flags) &= ~IGMP_SOURCE_MASK_SEND)
 
 struct gm_source {
-	struct in_addr source_addr;
+	pim_addr source_addr;
 	struct thread *t_source_timer;
 	struct gm_group *source_group; /* back pointer */
 	time_t source_creation;
