@@ -26,6 +26,7 @@
 #include "vty.h"
 #include "linklist.h"
 #include "pim_igmp_stats.h"
+#include "pim_str.h"
 
 /*
   The following sizes are likely to support
@@ -76,8 +77,8 @@
 	} while (0)
 
 struct gm_join {
-	struct in_addr group_addr;
-	struct in_addr source_addr;
+	pim_addr group_addr;
+	pim_addr source_addr;
 	int sock_fd;
 	time_t sock_creation;
 };
