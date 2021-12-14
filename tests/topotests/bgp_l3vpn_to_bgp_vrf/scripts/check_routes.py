@@ -290,18 +290,98 @@ bgpribRequireVpnRoutes(
 # to look at the rest of the routes in the vrf
 luCommand(
     "r1",
-    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.4/32"',
-    "1 available, best",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
     "wait",
-    "Ensure 99.0.0.4 shows up",
+    "Ensure 5.1.0.0 shows up on r1",
     10,
 )
 luCommand(
     "r1",
-    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.0.0/24"',
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.1.0/24"',
     "2 available, best",
     "wait",
-    "Ensure 5.1.0.0 shows up",
+    "Ensure 5.1.1.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.2.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.3.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.4.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.2.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.4.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 6.0.1.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.1.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 6.0.2.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.2.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.1/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.1 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.2/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.2 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.3/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.3 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up on r1",
     10,
 )
 want_r1_remote_cust1_routes = [
@@ -332,20 +412,102 @@ bgpribRequireUnicastRoutes(
     want_r1_remote_cust1_routes,
     debug=False,
 )
-luCommand(
-    "r3",
-    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.4/32"',
-    "1 available, best",
-    "wait",
-    "Ensure 99.0.0.4 shows up",
-    10,
-)
+
+
 luCommand(
     "r3",
     'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.0.0/24"',
     "2 available, best",
     "wait",
-    "Ensure 5.1.0.0 shows up",
+    "Ensure 5.1.0.0 shows up r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.1.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.1.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.2.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.4.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.4.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.4.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 6.0.1.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.1.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 6.0.2.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.2.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.1/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.1 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.3/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.3 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up on r3",
     10,
 )
 want_r3_remote_cust1_routes = [
@@ -378,18 +540,42 @@ bgpribRequireUnicastRoutes(
 
 luCommand(
     "r4",
-    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.4/32"',
-    "1 available, best",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
     "wait",
-    "Ensure 99.0.0.4 shows up",
+    "Ensure 5.1.0.0 shows up on r4",
     10,
 )
 luCommand(
     "r4",
-    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 5.1.0.0/24"',
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 5.1.1.0/24"',
     "2 available, best",
     "wait",
-    "Ensure 5.1.0.0 shows up",
+    "Ensure 5.1.1.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 6.0.1.0/24"',
+    "4 available, best",
+    "wait",
+    "Ensure 6.0.1.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 6.0.2.0/24"',
+    "4 available, best",
+    "wait",
+    "Ensure 6.0.2.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.1/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.1 shows up on r4",
     10,
 )
 luCommand(
@@ -397,7 +583,23 @@ luCommand(
     'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.2/32"',
     "1 available, best",
     "wait",
-    "Ensure 99.0.0.2 shows up",
+    "Ensure 99.0.0.2 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.3/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.3 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up on r4",
     10,
 )
 want_r4_remote_cust1_routes = [
