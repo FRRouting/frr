@@ -95,10 +95,10 @@ struct pim_interface {
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
 
-	struct in_addr primary_address; /* remember addr to detect change */
-	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
-	struct in_addr update_source;   /* user can statically set the primary
-					 * address of the interface */
+	struct PIM_ADDR primary_address; /* remember addr to detect change */
+	struct list *sec_addr_list;      /* list of struct pim_secondary_addr */
+	struct in_addr update_source;    /* user can statically set the primary
+					  * address of the interface */
 
 	int version;			  /* IGMP or MLD version */
 	int default_robustness_variable;  /* IGMP or MLD QRV */
