@@ -26,7 +26,7 @@ struct pim_jp_sources {
 };
 
 struct pim_jp_agg_group {
-	struct in_addr group;
+	pim_addr group;
 	struct list *sources;
 };
 
