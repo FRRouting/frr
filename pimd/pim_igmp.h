@@ -99,7 +99,7 @@ struct gm_sock {
 
 	bool mtrace_only;
 
-	struct igmp_stats rx_stats;
+	struct gm_stats rx_stats;
 };
 
 struct pim_interface;

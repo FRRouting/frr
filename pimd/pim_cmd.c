@@ -1322,7 +1322,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 				 const char *ifname, bool uj)
 {
 	struct interface *ifp;
-	struct igmp_stats rx_stats;
+	struct gm_stats rx_stats;
 
 	igmp_stats_init(&rx_stats);
 

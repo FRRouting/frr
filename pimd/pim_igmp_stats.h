@@ -22,20 +22,20 @@
 
 #include <zebra.h>
 
-struct igmp_stats {
-	uint32_t	query_v1;
-	uint32_t	query_v2;
-	uint32_t	query_v3;
+struct gm_stats {
+	uint32_t query_v1;
+	uint32_t query_v2;
+	uint32_t query_v3;
 	uint32_t	report_v1;
 	uint32_t	report_v2;
 	uint32_t	report_v3;
 	uint32_t	leave_v2;
 	uint32_t	mtrace_rsp;
 	uint32_t	mtrace_req;
-	uint32_t	unsupported;
+	uint32_t unsupported;
 };
 
-void igmp_stats_init(struct igmp_stats *stats);
-void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b);
+void igmp_stats_init(struct gm_stats *stats);
+void igmp_stats_add(struct gm_stats *a, struct gm_stats *b);
 
 #endif /* PIM_IGMP_STATS_H */
