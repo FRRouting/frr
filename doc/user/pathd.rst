@@ -87,7 +87,7 @@ configuration provided to corresponding MPLS labels.
 	running and configure to export TED information.
 
 .. note::
-	It would be the same for isis (:ref:`traffic-engineering`) but in the
+	It would be the same for isis (:ref:`isis-traffic-engineering`) but in the
 	moment of writting it's not fully tested.
 
 Dynamic Segment Lists
