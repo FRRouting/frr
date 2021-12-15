@@ -32,6 +32,7 @@
 #include "pim_iface.h"
 #include "pim_time.h"
 #include "pim_vxlan.h"
+#include "pim_ssm.h"
 
 static void pim_channel_update_mute(struct channel_oil *c_oil);
 
@@ -550,8 +551,14 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 		return -4;
 	}
 
-	channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] =
-		PIM_MROUTE_MIN_TTL;
+	/* This section is to avoid installation of iif in oif LIST
+	 * in case of SSM, "none" should be installed when iif=oif.
+	 */
+	if (!(pim_ifp->mroute_vif_index == channel_oil->oil.mfcc_parent
+	      && channel_oil->up
+	      && pim_is_grp_ssm(pim_ifp->pim, channel_oil->up->sg.grp)))
+		channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] =
+			PIM_MROUTE_MIN_TTL;
 
 	/* Some OIFs are held in a muted state i.e. the PIM state machine
 	 * decided to include the OIF but additional status check such as
