@@ -2321,7 +2321,7 @@ DEFUN (ospf_timers_lsa_min_arrival,
        ospf_timers_lsa_min_arrival_cmd,
        "timers lsa min-arrival (0-600000)",
        "Adjust routing timers\n"
-       "OSPF LSA timers\n"
+       "OSPF Link State Advertisements(LSA) Timers\n"
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
@@ -2335,7 +2335,7 @@ DEFUN (no_ospf_timers_lsa_min_arrival,
        "no timers lsa min-arrival [(0-600000)]",
        NO_STR
        "Adjust routing timers\n"
-       "OSPF LSA timers\n"
+      "OSPF Link State Advertisements(LSA) Timers\n"
        "Minimum delay in receiving new version of a LSA\n"
        "Delay in milliseconds\n")
 {
