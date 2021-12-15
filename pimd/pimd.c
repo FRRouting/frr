@@ -33,7 +33,7 @@
 
 #include "pimd.h"
 #include "pim_cmd.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_oil.h"
 #include "pim_pim.h"
 #include "pim_ssmpingd.h"

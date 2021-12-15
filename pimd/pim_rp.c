@@ -35,10 +35,9 @@
 
 #include "pimd.h"
 #include "pim_vty.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
-#include "pim_str.h"
 #include "pim_rpf.h"
 #include "pim_sock.h"
 #include "pim_memory.h"

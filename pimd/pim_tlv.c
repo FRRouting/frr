@@ -26,7 +26,7 @@
 #include "pimd.h"
 #include "pim_int.h"
 #include "pim_tlv.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_msg.h"
 
 uint8_t *pim_tlv_append_uint16(uint8_t *buf, const uint8_t *buf_pastend,

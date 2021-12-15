@@ -24,7 +24,7 @@
 
 #include "pimd.h"
 #include "pim_pim.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_tlv.h"
 #include "pim_util.h"
 #include "pim_hello.h"

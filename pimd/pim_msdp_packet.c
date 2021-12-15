@@ -26,7 +26,7 @@
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_errors.h"
 
 #include "pim_msdp.h"

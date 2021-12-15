@@ -30,7 +30,7 @@
 #include "pimd.h"
 #include "pim_neighbor.h"
 #include "pim_time.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_iface.h"
 #include "pim_pim.h"
 #include "pim_upstream.h"

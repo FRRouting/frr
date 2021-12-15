@@ -27,7 +27,7 @@
 #include "pim_iface.h"
 #include "pim_igmp.h"
 #include "pim_igmpv3.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_util.h"
 #include "pim_time.h"
 #include "pim_zebra.h"

@@ -32,7 +32,7 @@
 #include "pim_iface.h"
 #include "pim_msg.h"
 #include "pim_pim.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_rp.h"
 #include "pim_register.h"
 #include "pim_upstream.h"

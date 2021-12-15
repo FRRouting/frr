@@ -36,7 +36,7 @@
 #include "pim_iface.h"
 #include "pim_vty.h"
 #include "pim_mroute.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_igmp.h"
 #include "pim_igmpv3.h"
 #include "pim_sock.h"

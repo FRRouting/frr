@@ -38,7 +38,7 @@
 #include "pimd.h"
 #include "pim_mroute.h"
 #include "pim_sock.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 
 /* GLOBAL VARS */
 

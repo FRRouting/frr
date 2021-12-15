@@ -29,7 +29,7 @@
 #include "pim_oil.h"
 #include "pim_static.h"
 #include "pim_time.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_iface.h"
 
 void pim_static_route_free(struct static_route *s_route)

@@ -32,7 +32,7 @@
 #include "pim_memory.h"
 #include "pim_oil.h"
 #include "pim_register.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_upstream.h"
 #include "pim_ifchannel.h"
 #include "pim_nht.h"

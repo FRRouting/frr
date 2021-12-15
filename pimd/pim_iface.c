@@ -37,7 +37,7 @@
 #include "pim_igmp.h"
 #include "pim_mroute.h"
 #include "pim_oil.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_pim.h"
 #include "pim_neighbor.h"
 #include "pim_ifchannel.h"

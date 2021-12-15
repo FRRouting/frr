@@ -34,7 +34,7 @@
 #include "pim_iface.h"
 #include "pim_sock.h"
 #include "pim_mroute.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_util.h"
 #include "pim_time.h"
 #include "pim_zebra.h"

@@ -35,7 +35,7 @@
 #include "pim_memory.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_time.h"
 #include "pim_upstream.h"
 #include "pim_oil.h"

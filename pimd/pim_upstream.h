@@ -25,10 +25,10 @@
 #include "plist.h"
 
 #include "pim_rpf.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_ifchannel.h"
 
-#define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED         (1 << 0)
+#define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED (1 << 0)
 #define PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED (1 << 1)
 #define PIM_UPSTREAM_FLAG_MASK_FHR                     (1 << 2)
 #define PIM_UPSTREAM_FLAG_MASK_SRC_IGMP                (1 << 3)

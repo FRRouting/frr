@@ -28,7 +28,7 @@
 
 #include "pimd.h"
 #include "pim_oil.h"
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 #include "pim_iface.h"
 #include "pim_time.h"
 #include "pim_vxlan.h"

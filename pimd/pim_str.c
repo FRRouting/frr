@@ -25,7 +25,7 @@
 
 #include "log.h"
 
-#include "pim_str.h"
+#include "pim_hdr_incl.h"
 
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size)
