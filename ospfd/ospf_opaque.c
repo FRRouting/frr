@@ -784,7 +784,7 @@ DEFUN (capability_opaque,
 DEFUN (ospf_opaque,
        ospf_opaque_cmd,
        "ospf opaque-lsa",
-       "Open Shortest Path First (OSPF) Specific commands\n"
+       "OSPF specific commands\n"
        "Enable the Opaque-LSA capability (rfc2370)\n")
 {
 	return capability_opaque(self, vty, argc, argv);
@@ -814,7 +814,7 @@ DEFUN (no_ospf_opaque,
        no_ospf_opaque_cmd,
        "no ospf opaque-lsa",
        NO_STR
-       "Open Shortest Path First (OSPF) Specific commands\n"
+       "OSPF specific commands\n"
        "Enable the Opaque-LSA capability (rfc2370)\n")
 {
 	return no_capability_opaque(self, vty, argc, argv);
