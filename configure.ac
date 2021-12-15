@@ -693,8 +693,6 @@ AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
-AC_ARG_ENABLE([pcep],
-  AS_HELP_STRING([--enable-pcep], [enable PCEP support for pathd]))
 AC_ARG_ENABLE([werror],
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE([cumulus],
@@ -1747,7 +1745,6 @@ fi
 
 AS_IF([test "$enable_pathd" != "no"], [
   AC_DEFINE([HAVE_PATHD], [1], [pathd])
-  AC_DEFINE([HAVE_PATHD_PCEP], [1], [pathd-pcep])
 ])
 
 

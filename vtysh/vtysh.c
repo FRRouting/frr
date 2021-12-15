@@ -1184,7 +1184,6 @@ static struct cmd_node srte_candidate_dyn_node = {
 	.prompt = "%s(config-sr-te-candidate)# ",
 };
 
-#if defined(HAVE_PATHD_PCEP)
 static struct cmd_node pcep_node = {
 	.name = "srte pcep",
 	.node = PCEP_NODE,
@@ -1212,7 +1211,6 @@ static struct cmd_node pcep_pce_config_node = {
 	.parent_node = PCEP_NODE,
 	.prompt = "%s(pcep-sr-te-pcep-pce-config)# ",
 };
-#endif /* HAVE_PATHD_PCEP */
 #endif /* HAVE_PATHD */
 
 static struct cmd_node vrf_node = {
@@ -2105,8 +2103,6 @@ DEFUNSH(VTYSH_PATHD, srte_policy_candidate_dyn_path,
 	return CMD_SUCCESS;
 }
 
-#if defined(HAVE_PATHD_PCEP)
-
 DEFUNSH(VTYSH_PATHD, pcep, pcep_cmd,
 	"pcep",
 	"Configure SR pcep\n")
@@ -2140,8 +2136,6 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
 	vty->node = PCEP_PCE_CONFIG_NODE;
 	return CMD_SUCCESS;
 }
-
-#endif /* HAVE_PATHD_PCEP */
 
 #endif /* HAVE_PATHD */
 
@@ -4317,7 +4311,6 @@ void vtysh_init_vty(void)
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
 
-#if defined(HAVE_PATHD_PCEP)
 	install_node(&pcep_node);
 	install_node(&pcep_pcc_node);
 	install_node(&pcep_pce_node);
@@ -4341,7 +4334,6 @@ void vtysh_init_vty(void)
 	install_element(PCEP_NODE, &pcep_cli_pcc_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pce_cmd);
-#endif /* HAVE_PATHD_PCEP */
 
 #endif /* HAVE_PATHD */
 
