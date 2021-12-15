@@ -65,7 +65,7 @@ int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr);
 int zebra_neigh_throttle_delete(vrf_id_t vrfid, const struct ipaddr *addr);
 
 /* Show output */
-int zebra_neigh_throttle_show(struct vty *vty, bool detail);
+int zebra_neigh_throttle_show(struct vty *vty, bool detail, bool use_json);
 
 /* Emit config output */
 int zebra_neigh_throttle_config_write(struct vty *vty);

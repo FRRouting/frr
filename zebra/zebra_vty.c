@@ -2957,15 +2957,14 @@ DEFPY(show_evpn_l2_nh,
 
 DEFPY (show_neigh_throttle,
        show_neigh_throttle_cmd,
-       "show " ZEBRA_NEIGH_THROTTLE_STR " [detail]",
+       "show " ZEBRA_NEIGH_THROTTLE_STR " [{detail$detail | json$json}]",
        SHOW_STR
        "Neighbor data\n"
        "Neighbor throttling data\n"
-       "Detailed output\n")
+       "Detailed output\n"
+       "JSON output\n")
 {
-	bool detail_p = (argc > 3);
-
-	return zebra_neigh_throttle_show(vty, detail_p);
+	return zebra_neigh_throttle_show(vty, !!detail, !!json);
 }
 
 DEFPY (enable_neigh_throttle,
