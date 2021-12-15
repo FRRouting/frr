@@ -9728,7 +9728,7 @@ DEFUN (no_ospf_proactive_arp,
 	return CMD_SUCCESS;
 }
 
-#if CONFDATE > 20211209
+#if CONFDATE > 20220209
 CPP_NOTICE("Time to remove broken OSPF GR helper")
 #endif
 
