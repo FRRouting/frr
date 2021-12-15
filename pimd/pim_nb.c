@@ -29,52 +29,59 @@ const struct frr_yang_module_info frr_pim_info = {
 	.name = "frr-pim",
 	.nodes = {
 		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/ecmp",
-			.cbs = {
-				.modify = routing_control_plane_protocols_control_plane_protocol_pim_ecmp_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/ecmp-rebalance",
-			.cbs = {
-				.modify = routing_control_plane_protocols_control_plane_protocol_pim_ecmp_rebalance_modify,
-			}
-		},
-		{
-			.xpath = "/frr-pim:pim/join-prune-interval",
-			.cbs = {
-				.modify = pim_join_prune_interval_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/keep-alive-timer",
-			.cbs = {
-				.modify = routing_control_plane_protocols_control_plane_protocol_pim_keep_alive_timer_modify,
-			}
-		},
-		{
-			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/rp-keep-alive-timer",
-			.cbs = {
-				.modify = routing_control_plane_protocols_control_plane_protocol_pim_rp_keep_alive_timer_modify,
-			}
-		},
-		{
-			.xpath = "/frr-pim:pim/packets",
-			.cbs = {
-				.modify = pim_packets_modify,
-			}
-		},
-		{
-			.xpath = "/frr-pim:pim/register-suppress-time",
-			.cbs = {
-				.modify = pim_register_suppress_time_modify,
-			}
-		},
-		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family",
 			.cbs = {
 				.create = routing_control_plane_protocols_control_plane_protocol_pim_address_family_create,
 				.destroy = routing_control_plane_protocols_control_plane_protocol_pim_address_family_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/ecmp",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_ecmp_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/ecmp-rebalance",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_ecmp_rebalance_modify,
+			}
+		},
+		{
+			.xpath = "/frr-pim:pim/address-family/join-prune-interval",
+			.cbs = {
+				.modify = pim_address_family_join_prune_interval_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/keep-alive-timer",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_keep_alive_timer_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/rp-keep-alive-timer",
+			.cbs = {
+				.modify = routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_keep_alive_timer_modify,
+			}
+		},
+		{
+			.xpath = "/frr-pim:pim/address-family",
+			.cbs = {
+				.create = pim_address_family_create,
+				.destroy = pim_address_family_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-pim:pim/address-family/packets",
+			.cbs = {
+				.modify = pim_address_family_packets_modify,
+			}
+		},
+		{
+			.xpath = "/frr-pim:pim/address-family/register-suppress-time",
+			.cbs = {
+				.modify = pim_address_family_register_suppress_time_modify,
 			}
 		},
 		{
@@ -211,93 +218,86 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim",
-			.cbs = {
-				.create = lib_interface_pim_create,
-				.destroy = lib_interface_pim_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/pim-enable",
-			.cbs = {
-				.modify = lib_interface_pim_pim_enable_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/dr-priority",
-			.cbs = {
-				.modify = lib_interface_pim_dr_priority_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/hello-interval",
-			.cbs = {
-				.modify = lib_interface_pim_hello_interval_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/hello-holdtime",
-			.cbs = {
-				.modify = lib_interface_pim_hello_holdtime_modify,
-				.destroy = lib_interface_pim_hello_holdtime_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bfd",
-			.cbs = {
-				.create = lib_interface_pim_bfd_create,
-				.destroy = lib_interface_pim_bfd_destroy,
-				.apply_finish = lib_interface_pim_bfd_apply_finish,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bfd/min-rx-interval",
-			.cbs = {
-				.modify = lib_interface_pim_bfd_min_rx_interval_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bfd/min-tx-interval",
-			.cbs = {
-				.modify = lib_interface_pim_bfd_min_tx_interval_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bfd/detect_mult",
-			.cbs = {
-				.modify = lib_interface_pim_bfd_detect_mult_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bfd/profile",
-			.cbs = {
-				.modify = lib_interface_pim_bfd_profile_modify,
-				.destroy = lib_interface_pim_bfd_profile_destroy,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/bsm",
-			.cbs = {
-				.modify = lib_interface_pim_bsm_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/unicast-bsm",
-			.cbs = {
-				.modify = lib_interface_pim_unicast_bsm_modify,
-			}
-		},
-		{
-			.xpath = "/frr-interface:lib/interface/frr-pim:pim/active-active",
-			.cbs = {
-				.modify = lib_interface_pim_active_active_modify,
-			}
-		},
-		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family",
 			.cbs = {
 				.create = lib_interface_pim_address_family_create,
 				.destroy = lib_interface_pim_address_family_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/pim-enable",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_pim_enable_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/dr-priority",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_dr_priority_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/hello-interval",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_hello_interval_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/hello-holdtime",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_hello_holdtime_modify,
+				.destroy = lib_interface_pim_address_family_hello_holdtime_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd",
+			.cbs = {
+				.create = lib_interface_pim_address_family_bfd_create,
+				.destroy = lib_interface_pim_address_family_bfd_destroy,
+				.apply_finish = lib_interface_pim_address_family_bfd_apply_finish,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd/min-rx-interval",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_bfd_min_rx_interval_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd/min-tx-interval",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_bfd_min_tx_interval_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd/detect_mult",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_bfd_detect_mult_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd/profile",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_bfd_profile_modify,
+				.destroy = lib_interface_pim_address_family_bfd_profile_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bsm",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_bsm_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/unicast-bsm",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_unicast_bsm_modify,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/active-active",
+			.cbs = {
+				.modify = lib_interface_pim_address_family_active_active_modify,
 			}
 		},
 		{
