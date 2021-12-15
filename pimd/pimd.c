@@ -57,7 +57,7 @@ CPP_NOTICE("Work needs to be done to make this work properly via the pim mroute 
 const char *const PIM_ALL_SYSTEMS = MCAST_ALL_SYSTEMS;
 const char *const PIM_ALL_ROUTERS = MCAST_ALL_ROUTERS;
 const char *const PIM_ALL_PIM_ROUTERS = MCAST_ALL_PIM_ROUTERS;
-const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMP_ROUTERS;
+const char *const PIM_ALL_IGMP_ROUTERS = MCAST_ALL_IGMPV3_ROUTERS;
 #else
 const char *const PIM_ALL_SYSTEMS = "ff02::1";
 const char *const PIM_ALL_ROUTERS = "ff02::2";

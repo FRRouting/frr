@@ -235,13 +235,14 @@ int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 	return fd;
 }
 
-int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
-		    struct pim_interface *pim_ifp)
+int pim_socket_join_or_leave(int fd, struct in_addr group,
+			     struct in_addr ifaddr, ifindex_t ifindex,
+			     struct pim_interface *pim_ifp, int membershipType)
 {
 	int ret;
 
 #if PIM_IPV == 4
-	ret = setsockopt_ipv4_multicast(fd, IP_ADD_MEMBERSHIP, ifaddr,
+	ret = setsockopt_ipv4_multicast(fd, membershipType, ifaddr,
 					group.s_addr, ifindex);
 #else
 	struct ipv6_mreq opt;
@@ -256,16 +257,17 @@ int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
 	if (ret) {
 		flog_err(
 			EC_LIB_SOCKET,
-			"Failure socket joining fd=%d group %pPAs on interface address %pPAs: %m",
-			fd, &group, &ifaddr);
-		pim_ifp->igmp_ifstat_joins_failed++;
+			"Failure in setting socket option membershipType=%d fd=%d group %pPAs on interface address %pPAs: errno=%d: %s",
+			fd, membershipType, &group, &ifaddr, errno,
+			safe_strerror(errno));
+			pim_ifp->igmp_ifstat_joins_failed++;
 		return ret;
 	}
 
 	if (PIM_DEBUG_TRACE)
 		zlog_debug(
-			"Socket fd=%d joined group %pPAs on interface address %pPAs",
-			fd, &group, &ifaddr);
+			"Socket fd=%d membership type=%d group %pPAs on interface address %pPAs",
+			fd, membershipType, &group,  &ifaddr);
 	return ret;
 }
 

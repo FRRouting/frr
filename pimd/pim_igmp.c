@@ -256,11 +256,13 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp)
 		return -1;
 
 	if (inet_aton(PIM_ALL_ROUTERS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex, pim_ifp))
+		if (!pim_socket_join_or_leave(fd, group, ifaddr,
+							ifp->ifindex, pim_ifp,
+							IP_ADD_MEMBERSHIP))
 			++join;
 	} else {
 		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
+			"%s %s: IGMP socket fd=%d interface %pI4: could not join %s to group address: errno=%d: %s",
 			__FILE__, __func__, fd, &ifaddr, PIM_ALL_ROUTERS, errno,
 			safe_strerror(errno));
 	}
@@ -271,25 +273,29 @@ static int igmp_sock_open(struct in_addr ifaddr, struct interface *ifp)
 	  IGMP routers must receive general queries for querier election.
 	*/
 	if (inet_aton(PIM_ALL_SYSTEMS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex, pim_ifp))
+		if (!pim_socket_join_or_leave(fd, group, ifaddr, ifp->ifindex,
+					      pim_ifp, IP_ADD_MEMBERSHIP))
 			++join;
 	} else {
 		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, &ifaddr,
-			PIM_ALL_SYSTEMS, errno, safe_strerror(errno));
+			"%s %s: IGMP socket fd=%d interface %pI4: could not join %s to group address: errno=%d: %s",
+			__FILE__, __func__, fd, &ifaddr, PIM_ALL_SYSTEMS, errno,
+			safe_strerror(errno));
 	}
 
-	if (inet_aton(PIM_ALL_IGMP_ROUTERS, &group)) {
-		if (!pim_socket_join(fd, group, ifaddr, ifp->ifindex,
-				     pim_ifp)) {
+	/* ADD_MEMBERSHIP only if the igmp version is 3 */
+	if (pim_ifp->igmp_version == 3) {
+		if ((inet_aton(PIM_ALL_IGMP_ROUTERS, &group)) &&
+		    (!pim_socket_join_or_leave(fd, group, ifaddr, ifp->ifindex,
+					       pim_ifp, IP_ADD_MEMBERSHIP))) {
 			++join;
+		} else {
+			zlog_warn(
+				"%s %s: IGMP socket fd=%d interface %pI4: could not join %s to group address: errno=%d: %s",
+				__FILE__, __func__, fd, &ifaddr,
+				PIM_ALL_IGMP_ROUTERS, errno,
+				safe_strerror(errno));
 		}
-	} else {
-		zlog_warn(
-			"%s %s: IGMP socket fd=%d interface %pI4: could not solve %s to group address: errno=%d: %s",
-			__FILE__, __func__, fd, &ifaddr,
-			PIM_ALL_IGMP_ROUTERS, errno, safe_strerror(errno));
 	}
 
 	if (!join) {

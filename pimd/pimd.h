@@ -77,7 +77,7 @@
 #define MCAST_ALL_SYSTEMS      "224.0.0.1"
 #define MCAST_ALL_ROUTERS      "224.0.0.2"
 #define MCAST_ALL_PIM_ROUTERS  "224.0.0.13"
-#define MCAST_ALL_IGMP_ROUTERS "224.0.0.22"
+#define MCAST_ALL_IGMPV3_ROUTERS "224.0.0.22"
 
 #define PIM_FORCE_BOOLEAN(expr) ((expr) != 0)
 

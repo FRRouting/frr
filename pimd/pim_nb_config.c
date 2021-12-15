@@ -22,6 +22,7 @@
 #include "pimd.h"
 #include "pim_nb.h"
 #include "lib/northbound_cli.h"
+#include "pim_igmp.h"
 #include "pim_igmpv3.h"
 #include "pim_neighbor.h"
 #include "pim_pim.h"
@@ -2640,8 +2641,9 @@ int lib_interface_gmp_address_family_igmp_version_modify(
 		/* Current and new version is different refresh existing
 		 * membership. Going from 3 -> 2 or 2 -> 3.
 		 */
-		if (old_version != igmp_version)
+		if (old_version != igmp_version) {
 			pim_if_membership_refresh(ifp);
+		}
 
 		break;
 	}

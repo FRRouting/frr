@@ -457,8 +457,9 @@ static int pim_sock_open(struct interface *ifp)
 	if (fd < 0)
 		return -1;
 
-	if (pim_socket_join(fd, qpim_all_pim_routers_addr,
-			    pim_ifp->primary_address, ifp->ifindex, pim_ifp)) {
+	if (pim_socket_join_or_leave(fd, qpim_all_pim_routers_addr,
+				     pim_ifp->primary_address, ifp->ifindex,
+				     pim_ifp, IP_ADD_MEMBERSHIP)) {
 		close(fd);
 		return -2;
 	}

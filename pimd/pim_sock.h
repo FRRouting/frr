@@ -42,8 +42,9 @@ void pim_socket_ip_hdr(int fd);
 int pim_socket_raw(int protocol);
 int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 		     uint8_t loop);
-int pim_socket_join(int fd, pim_addr group, pim_addr ifaddr, ifindex_t ifindex,
-		    struct pim_interface *pim_ifp);
+int pim_socket_join_or_leave(int fd, struct in_addr group,
+			     struct in_addr ifaddr, ifindex_t ifindex,
+			     struct pim_interface *pim_ifp, int membershipType);
 int pim_socket_recvfromto(int fd, uint8_t *buf, size_t len,
 			  struct sockaddr_storage *from, socklen_t *fromlen,
 			  struct sockaddr_storage *to, socklen_t *tolen,
