@@ -29,7 +29,7 @@ import tempfile
 def open_with_backup(path):
     if os.path.exists(path):
         print("Making backup of " + path)
-        subprocess.check_call("mv {0} {0}.prev".format(path))
+        subprocess.check_call("mv {0} {0}.prev".format(path), shell=True)
     return open(path, "w")
 
 def main():
