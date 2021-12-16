@@ -834,10 +834,6 @@ static void *bgp_attr_hash_alloc(void *p)
 	if (vnc_subtlvs)
 		bgp_attr_set_vnc_subtlvs(val, NULL);
 #endif
-	if (val->srv6_l3vpn)
-		val->srv6_l3vpn = NULL;
-	if (val->srv6_vpn)
-		val->srv6_vpn = NULL;
 
 	attr->refcnt = 0;
 	return attr;
