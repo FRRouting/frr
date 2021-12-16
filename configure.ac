@@ -1806,7 +1806,7 @@ if test "$enable_bgp_vnc" != "no";then
 fi
 
 bgpd_bmp=false
-case "${enable_bmp}" in
+case "${enable_bgp_bmp}" in
   no)
     ;;
   yes)
