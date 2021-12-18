@@ -944,10 +944,12 @@ static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
  */
 static int sr_if_new_hook(struct interface *ifp)
 {
+	struct sr_prefix_cfg *pcfgs[SR_ALGORITHM_COUNT] = {NULL};
 	struct isis_circuit *circuit;
 	struct isis_area *area;
 	struct connected *connected;
 	struct listnode *node;
+	bool need_lsp_regenerate = false;
 
 	/* Get corresponding circuit */
 	circuit = circuit_scan_by_ifp(ifp);
@@ -964,18 +966,23 @@ static int sr_if_new_hook(struct interface *ifp)
 	 * configuration before receiving interface information from zebra.
 	 */
 	FOR_ALL_INTERFACES_ADDRESSES (ifp, connected, node) {
-		struct sr_prefix_cfg *pcfg;
 
-		pcfg = isis_sr_cfg_prefix_find(area, connected->address,
-					       SR_ALGORITHM_SPF);
-		if (!pcfg)
-			continue;
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+			pcfgs[i] = isis_sr_cfg_prefix_find(
+				area, connected->address, i);
 
-		if (sr_prefix_is_node_sid(ifp, &pcfg->prefix)) {
-			pcfg->node_sid = true;
-			lsp_regenerate_schedule(area, area->is_type, 0);
+			if (!pcfgs[i])
+				continue;
+
+			if (sr_prefix_is_node_sid(ifp, &pcfgs[i]->prefix)) {
+				pcfgs[i]->node_sid = true;
+				need_lsp_regenerate = true;
+			}
 		}
 	}
+
+	if (need_lsp_regenerate)
+		lsp_regenerate_schedule(area, area->is_type, 0);
 
 	return 0;
 }

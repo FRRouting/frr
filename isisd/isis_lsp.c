@@ -1064,6 +1064,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	if (area->isis->router_id != 0) {
 		struct isis_router_cap cap = {};
 
+		/* init SR algo list content to the default value */
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			cap.algo[i] = SR_ALGORITHM_UNSET;
+
 		cap.router_id.s_addr = area->isis->router_id;
 
 		/* Add SR Sub-TLVs if SR is enabled. */
@@ -1089,10 +1093,6 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srlb.lower_bound = srdb->config.srlb_lower_bound;
 			/* And finally MSD */
 			cap.msd = srdb->config.msd;
-		} else {
-			/* Disable SR Algorithm */
-			cap.algo[0] = SR_ALGORITHM_UNSET;
-			cap.algo[1] = SR_ALGORITHM_UNSET;
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);

@@ -3552,15 +3552,15 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		stream_putc(s, ISIS_SUBTLV_SID_LABEL_SIZE);
 		stream_put3(s, router_cap->srgb.lower_bound);
 
+
 		/* Then SR Algorithm if set as per RFC8667 section #3.2 */
-		for (nb_algo = 0; nb_algo < SR_ALGORITHM_COUNT; nb_algo++)
-			if (router_cap->algo[nb_algo] == SR_ALGORITHM_UNSET)
-				break;
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
 		if (nb_algo > 0) {
 			stream_putc(s, ISIS_SUBTLV_ALGORITHM);
 			stream_putc(s, nb_algo);
-			for (int i = 0; i < nb_algo; i++)
-				stream_putc(s, router_cap->algo[i]);
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
+					stream_putc(s, router_cap->algo[i]);
 		}
 
 		/* Local Block if defined as per RFC8667 section #3.3 */
@@ -3702,14 +3702,15 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		case ISIS_SUBTLV_ALGORITHM:
 			if (length == 0)
 				break;
-			/* Only 2 algorithms are supported: SPF & Strict SPF */
-			stream_get(&rcap->algo, s,
-				   length > SR_ALGORITHM_COUNT
-					   ? SR_ALGORITHM_COUNT
-					   : length);
-			if (length > SR_ALGORITHM_COUNT)
-				stream_forward_getp(
-					s, length - SR_ALGORITHM_COUNT);
+
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				rcap->algo[i] = SR_ALGORITHM_UNSET;
+
+			for (int i = 0; i < length; i++) {
+				uint8_t algo;
+				algo = stream_getc(s);
+				rcap->algo[algo] = algo;
+			}
 			break;
 		case ISIS_SUBTLV_SRLB:
 			/* Check that SRLB is correctly formated */
@@ -5742,6 +5743,16 @@ void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
 
 	tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->router_cap));
 	*tlvs->router_cap = *cap;
+}
+
+int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap)
+{
+	int count = 0;
+
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+		if (cap->algo[i] != SR_ALGORITHM_UNSET)
+			count++;
+	return count;
 }
 
 void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,

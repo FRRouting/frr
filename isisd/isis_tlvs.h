@@ -198,7 +198,7 @@ struct isis_lan_adj_sid {
  *  - 0: SPF
  *  - 1: Strict SPF
  */
-#define SR_ALGORITHM_COUNT	2
+#define SR_ALGORITHM_COUNT 256
 #define SR_ALGORITHM_SPF	0
 #define SR_ALGORITHM_STRICT_SPF	1
 #define SR_ALGORITHM_UNSET	255
@@ -580,6 +580,9 @@ void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
 				    const char *hostname);
 void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
                      const struct isis_router_cap *cap);
+
+int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap);
+
 void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
 				const struct in_addr *id);
 void isis_tlvs_set_te_router_id_ipv6(struct isis_tlvs *tlvs,
