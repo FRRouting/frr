@@ -32,6 +32,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zserv.h"
 #include "zebra/debug.h"
+#include "zebra/zebra_neigh.h"
 
 /* definitions */
 DEFINE_MTYPE_STATIC(ZEBRA, PBR_IPTABLE_IFNAME, "PBR interface list");
@@ -123,6 +124,12 @@ static const struct message fragment_value_str[] = {
 	{0}
 };
 
+struct zebra_pbr_env_display {
+	struct zebra_ns *zns;
+	struct vty *vty;
+	char *name;
+};
+
 /* static function declarations */
 DEFINE_HOOK(zebra_pbr_ipset_entry_get_stat,
 	    (struct zebra_pbr_ipset_entry *ipset, uint64_t *pkts,
@@ -142,6 +149,9 @@ DEFINE_HOOK(zebra_pbr_ipset_entry_update,
 
 DEFINE_HOOK(zebra_pbr_ipset_update,
 	    (int cmd, struct zebra_pbr_ipset *ipset), (cmd, ipset));
+
+/* resolve nexthop for dataplane (dpdk) programming */
+static bool zebra_pbr_expand_action;
 
 /* Private functions */
 
@@ -475,24 +485,181 @@ static void *pbr_rule_alloc_intern(void *arg)
 	return new;
 }
 
-static int pbr_rule_release(struct zebra_pbr_rule *rule)
+static struct zebra_pbr_rule *pbr_rule_free(struct zebra_pbr_rule *hash_data,
+					    bool free_data)
+{
+	if (hash_data->action.neigh)
+		zebra_neigh_deref(hash_data);
+	hash_release(zrouter.rules_hash, hash_data);
+	if (free_data) {
+		XFREE(MTYPE_TMP, hash_data);
+		return NULL;
+	}
+
+	return hash_data;
+}
+
+static struct zebra_pbr_rule *pbr_rule_release(struct zebra_pbr_rule *rule,
+					       bool free_data)
 {
 	struct zebra_pbr_rule *lookup;
 
 	lookup = hash_lookup(zrouter.rules_hash, rule);
 
 	if (!lookup)
-		return -ENOENT;
+		return NULL;
 
-	hash_release(zrouter.rules_hash, lookup);
-	XFREE(MTYPE_TMP, lookup);
+	return pbr_rule_free(lookup, free_data);
+}
 
-	return 0;
+void zebra_pbr_show_rule_unit(struct zebra_pbr_rule *rule, struct vty *vty)
+{
+	struct pbr_rule *prule = &rule->rule;
+	struct zebra_pbr_action *zaction = &rule->action;
+
+	vty_out(vty, "Rules if %s\n", rule->ifname);
+	vty_out(vty, "  Seq %u pri %u\n", prule->seq, prule->priority);
+	if (prule->filter.filter_bm & PBR_FILTER_SRC_IP)
+		vty_out(vty, "  SRC IP Match: %pFX\n", &prule->filter.src_ip);
+	if (prule->filter.filter_bm & PBR_FILTER_DST_IP)
+		vty_out(vty, "  DST IP Match: %pFX\n", &prule->filter.dst_ip);
+	if (prule->filter.filter_bm & PBR_FILTER_IP_PROTOCOL)
+		vty_out(vty, "  IP protocol Match: %u\n",
+			prule->filter.ip_proto);
+	if (prule->filter.filter_bm & PBR_FILTER_SRC_PORT)
+		vty_out(vty, "  SRC Port Match: %u\n", prule->filter.src_port);
+	if (prule->filter.filter_bm & PBR_FILTER_DST_PORT)
+		vty_out(vty, "  DST Port Match: %u\n", prule->filter.dst_port);
+
+	if (prule->filter.filter_bm & PBR_FILTER_DSFIELD) {
+		vty_out(vty, "  DSCP Match: %u\n",
+			(prule->filter.dsfield & PBR_DSFIELD_DSCP) >> 2);
+		vty_out(vty, "  ECN Match: %u\n",
+			prule->filter.dsfield & PBR_DSFIELD_ECN);
+	}
+
+	if (prule->filter.filter_bm & PBR_FILTER_FWMARK)
+		vty_out(vty, "  MARK Match: %u\n", prule->filter.fwmark);
+
+	vty_out(vty, "  Tableid: %u\n", prule->action.table);
+	if (zaction->afi == AFI_IP)
+		vty_out(vty, "  Action: nh: %pI4 intf: %s\n",
+			&zaction->gate.ipv4,
+			ifindex2ifname(zaction->ifindex, rule->vrf_id));
+	if (zaction->afi == AFI_IP6)
+		vty_out(vty, "  Action: nh: %pI6 intf: %s\n",
+			&zaction->gate.ipv6,
+			ifindex2ifname(zaction->ifindex, rule->vrf_id));
+	if (zaction->neigh && (zaction->neigh->flags & ZEBRA_NEIGH_ENT_ACTIVE))
+		vty_out(vty, "  Action: mac: %pEA\n", &zaction->neigh->mac);
+}
+
+static int zebra_pbr_show_rules_walkcb(struct hash_bucket *bucket, void *arg)
+{
+	struct zebra_pbr_rule *rule = (struct zebra_pbr_rule *)bucket->data;
+	struct zebra_pbr_env_display *env = (struct zebra_pbr_env_display *)arg;
+	struct vty *vty = env->vty;
+
+	zebra_pbr_show_rule_unit(rule, vty);
+
+	return HASHWALK_CONTINUE;
+}
+
+void zebra_pbr_show_rule(struct vty *vty)
+{
+	struct zebra_pbr_env_display env;
+
+	env.vty = vty;
+	hash_walk(zrouter.rules_hash, zebra_pbr_show_rules_walkcb, &env);
+}
+
+void zebra_pbr_config_write(struct vty *vty)
+{
+	if (zebra_pbr_expand_action)
+		vty_out(vty, "pbr nexthop-resolve\n");
+}
+
+void zebra_pbr_expand_action_update(bool enable)
+{
+	zebra_pbr_expand_action = enable;
+}
+
+static void zebra_pbr_expand_rule(struct zebra_pbr_rule *rule)
+{
+	struct prefix p;
+	struct route_table *table;
+	struct route_node *rn;
+	rib_dest_t *dest;
+	struct route_entry *re;
+	const struct nexthop_group *nhg;
+	const struct nexthop *nexthop;
+	struct zebra_pbr_action *action = &rule->action;
+	struct ipaddr ip;
+
+	if (!zebra_pbr_expand_action)
+		return;
+
+	table = zebra_vrf_get_table_with_table_id(
+		AFI_IP, SAFI_UNICAST, VRF_DEFAULT, rule->rule.action.table);
+	if (!table)
+		return;
+
+	memset(&p, 0, sizeof(p));
+	p.family = AF_INET;
+
+	rn = route_node_lookup(table, &p);
+	if (!rn)
+		return;
+
+	dest = rib_dest_from_rnode(rn);
+	re = dest->selected_fib;
+	if (!re) {
+		route_unlock_node(rn);
+		return;
+	}
+
+	nhg = rib_get_fib_nhg(re);
+	if (!nhg) {
+		route_unlock_node(rn);
+		return;
+	}
+
+	nexthop = nhg->nexthop;
+	if (nexthop) {
+		switch (nexthop->type) {
+		case NEXTHOP_TYPE_IPV4:
+		case NEXTHOP_TYPE_IPV4_IFINDEX:
+			action->afi = AFI_IP;
+			action->gate.ipv4 = nexthop->gate.ipv4;
+			action->ifindex = nexthop->ifindex;
+			ip.ipa_type = AF_INET;
+			ip.ipaddr_v4 = action->gate.ipv4;
+			zebra_neigh_ref(action->ifindex, &ip, rule);
+			break;
+
+		case NEXTHOP_TYPE_IPV6:
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			action->afi = AFI_IP6;
+			action->gate.ipv6 = nexthop->gate.ipv6;
+			action->ifindex = nexthop->ifindex;
+			ip.ipa_type = AF_INET6;
+			ip.ipaddr_v6 = action->gate.ipv6;
+			zebra_neigh_ref(action->ifindex, &ip, rule);
+			break;
+
+		default:
+			action->afi = AFI_UNSPEC;
+		}
+	}
+
+	route_unlock_node(rn);
 }
 
 void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 {
 	struct zebra_pbr_rule *found;
+	struct zebra_pbr_rule *old;
+	struct zebra_pbr_rule *new;
 
 	/**
 	 * Check if we already have it (this checks via a unique ID, walking
@@ -508,13 +675,20 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 				__func__, rule->rule.seq, rule->rule.priority,
 				rule->rule.unique, rule->rule.ifname);
 
-		(void)dplane_pbr_rule_update(found, rule);
+		/* remove the old entry from the hash but don't free the hash
+		 * data yet as we need it for the dplane update
+		 */
+		old = pbr_rule_release(found, false);
 
-		if (pbr_rule_release(found))
-			zlog_debug(
-				"%s: Rule being updated we know nothing about",
-				__func__);
-
+		/* insert new entry into hash */
+		new = hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
+		/* expand the action if needed */
+		zebra_pbr_expand_rule(new);
+		/* update dataplane */
+		(void)dplane_pbr_rule_update(found, new);
+		/* release the old hash data */
+		if (old)
+			XFREE(MTYPE_TMP, old);
 	} else {
 		if (IS_ZEBRA_DEBUG_PBR)
 			zlog_debug(
@@ -522,10 +696,13 @@ void zebra_pbr_add_rule(struct zebra_pbr_rule *rule)
 				__func__, rule->rule.seq, rule->rule.priority,
 				rule->rule.unique, rule->rule.ifname);
 
-		(void)dplane_pbr_rule_add(rule);
+		/* insert new entry into hash */
+		new = hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
+		/* expand the action if needed */
+		zebra_pbr_expand_rule(new);
+		(void)dplane_pbr_rule_add(new);
 	}
 
-	(void)hash_get(zrouter.rules_hash, rule, pbr_rule_alloc_intern);
 }
 
 void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
@@ -537,7 +714,7 @@ void zebra_pbr_del_rule(struct zebra_pbr_rule *rule)
 
 	(void)dplane_pbr_rule_delete(rule);
 
-	if (pbr_rule_release(rule))
+	if (pbr_rule_release(rule, true))
 		zlog_debug("%s: Rule being deleted we know nothing about",
 			   __func__);
 }
@@ -610,12 +787,7 @@ static void zebra_pbr_cleanup_rules(struct hash_bucket *b, void *data)
 
 	if (rule->sock == *sock) {
 		(void)dplane_pbr_rule_delete(rule);
-		if (hash_release(zrouter.rules_hash, rule))
-			XFREE(MTYPE_TMP, rule);
-		else
-			zlog_debug(
-				"%s: Rule seq: %u is being cleaned but we can't find it in our tables",
-				__func__, rule->rule.seq);
+		pbr_rule_free(rule, true);
 	}
 }
 
@@ -915,11 +1087,6 @@ struct zebra_pbr_ipset_entry_unique_display {
 	struct zebra_ns *zns;
 };
 
-struct zebra_pbr_env_display {
-	struct zebra_ns *zns;
-	struct vty *vty;
-	char *name;
-};
 
 static const char *zebra_pbr_prefix2str(union prefixconstptr pu,
 					char *str, int size)
