@@ -159,6 +159,8 @@ struct zebra_router {
 	/* Tables and other global info maintained for EVPN multihoming */
 	struct zebra_evpn_mh_info *mh_info;
 
+	struct zebra_neigh_info *neigh_info;
+
 	/* EVPN MH broadcast domains indexed by the VID */
 	struct hash *evpn_vlan_table;
 

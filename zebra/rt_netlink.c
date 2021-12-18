@@ -80,6 +80,7 @@
 #include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
+#include "zebra/zebra_neigh.h"
 
 #ifndef AF_MPLS
 #define AF_MPLS 28
@@ -3882,10 +3883,10 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	} else if (IS_ZEBRA_IF_BRIDGE(ifp))
 		link_if = ifp;
 	else {
+		link_if = NULL;
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"    Neighbor Entry received is not on a VLAN or a BRIDGE, ignoring");
-		return 0;
 	}
 
 	memset(&mac, 0, sizeof(mac));
@@ -3949,12 +3950,25 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 				 */
 				local_inactive = false;
 
-			return zebra_vxlan_handle_kernel_neigh_update(
-				ifp, link_if, &ip, &mac, ndm->ndm_state, is_ext,
-				is_router, local_inactive, dp_static);
+			/* Add local neighbors to the l3 interface database */
+			if (is_ext)
+				zebra_neigh_del(ifp, &ip);
+			else
+				zebra_neigh_add(ifp, &ip, &mac);
+
+			if (link_if)
+				zebra_vxlan_handle_kernel_neigh_update(
+					ifp, link_if, &ip, &mac, ndm->ndm_state,
+					is_ext, is_router, local_inactive,
+					dp_static);
+			return 0;
 		}
 
-		return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+
+		zebra_neigh_del(ifp, &ip);
+		if (link_if)
+			zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+		return 0;
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -3967,7 +3981,11 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	/* Process the delete - it may result in re-adding the neighbor if it is
 	 * a valid "remote" neighbor.
 	 */
-	return zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+	zebra_neigh_del(ifp, &ip);
+	if (link_if)
+		zebra_vxlan_handle_kernel_neigh_del(ifp, link_if, &ip);
+
+	return 0;
 }
 
 static int netlink_neigh_table(struct nlmsghdr *h, ns_id_t ns_id, int startup)

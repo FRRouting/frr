@@ -42,6 +42,7 @@ unsigned long zebra_debug_mlag;
 unsigned long zebra_debug_nexthop;
 unsigned long zebra_debug_evpn_mh;
 unsigned long zebra_debug_pbr;
+unsigned long zebra_debug_neigh;
 
 DEFINE_HOOK(zebra_debug_show_debugging, (struct vty *vty), (vty));
 
@@ -324,6 +325,22 @@ DEFUN (debug_zebra_pbr,
        "Debug zebra pbr events\n")
 {
 	SET_FLAG(zebra_debug_pbr, ZEBRA_DEBUG_PBR);
+	return CMD_SUCCESS;
+}
+
+DEFPY (debug_zebra_neigh,
+       debug_zebra_neigh_cmd,
+       "[no$no] debug zebra neigh",
+       NO_STR
+       DEBUG_STR
+       "Zebra configuration\n"
+       "Debug zebra neigh events\n")
+{
+	if (no)
+		UNSET_FLAG(zebra_debug_neigh, ZEBRA_DEBUG_NEIGH);
+	else
+		SET_FLAG(zebra_debug_neigh, ZEBRA_DEBUG_NEIGH);
+
 	return CMD_SUCCESS;
 }
 
@@ -694,6 +711,11 @@ static int config_write_debug(struct vty *vty)
 		write++;
 	}
 
+	if (IS_ZEBRA_DEBUG_NEIGH) {
+		vty_out(vty, "debug zebra neigh\n");
+		write++;
+	}
+
 	return write;
 }
 
@@ -713,6 +735,7 @@ void zebra_debug_init(void)
 	zebra_debug_nht = 0;
 	zebra_debug_nexthop = 0;
 	zebra_debug_pbr = 0;
+	zebra_debug_neigh = 0;
 
 	install_node(&debug_node);
 
@@ -734,6 +757,7 @@ void zebra_debug_init(void)
 	install_element(ENABLE_NODE, &debug_zebra_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_nexthop_cmd);
 	install_element(ENABLE_NODE, &debug_zebra_pbr_cmd);
+	install_element(ENABLE_NODE, &debug_zebra_neigh_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_nht_cmd);
 	install_element(ENABLE_NODE, &no_debug_zebra_mpls_cmd);
@@ -764,6 +788,7 @@ void zebra_debug_init(void)
 	install_element(CONFIG_NODE, &debug_zebra_dplane_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_nexthop_cmd);
 	install_element(CONFIG_NODE, &debug_zebra_pbr_cmd);
+	install_element(CONFIG_NODE, &debug_zebra_neigh_cmd);
 
 	install_element(CONFIG_NODE, &no_debug_zebra_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_zebra_nht_cmd);

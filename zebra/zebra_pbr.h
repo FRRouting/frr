@@ -36,12 +36,29 @@
 extern "C" {
 #endif
 
+struct zebra_pbr_action {
+	afi_t afi;
+
+	/* currently only one nexthop is supported */
+	union g_addr gate;
+
+	/* dest-interface */
+	ifindex_t ifindex;
+
+	/* neigh */
+	struct zebra_neigh_ent *neigh;
+	/* zebr_pbr_rule is linked to neigh via neigh_listnode */
+	struct listnode neigh_listnode;
+};
+
 struct zebra_pbr_rule {
 	int sock;
 
 	struct pbr_rule rule;
 
 	char ifname[INTERFACE_NAMSIZ];
+
+	struct zebra_pbr_action action;
 
 	vrf_id_t vrf_id;
 };
