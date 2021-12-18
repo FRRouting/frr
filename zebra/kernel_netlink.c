@@ -813,7 +813,7 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 
 	if (status == 0) {
 		flog_err_sys(EC_LIB_SOCKET, "%s EOF", nl->name);
-		return -1;
+		return 0;
 	}
 
 	if (msg.msg_namelen != sizeof(struct sockaddr_nl)) {
