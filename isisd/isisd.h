@@ -163,6 +163,10 @@ struct isis_area {
 	/* do we support new style metrics?  */
 	char newmetric;
 	char oldmetric;
+	/* Allow sending the default admin-group value of 0x00000000. */
+	bool admin_group_send_zero;
+	/* Set the legacy flag (aka. L-FLAG) in the ASLA Sub-TLV */
+	bool asla_legacy_flag;
 	/* identifies the routing instance   */
 	char *area_tag;
 	/* area addresses for this area      */
