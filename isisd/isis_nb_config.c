@@ -52,9 +52,15 @@
 #include "isisd/isis_redist.h"
 #include "isisd/isis_ldp_sync.h"
 #include "isisd/isis_dr.h"
+#include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
 #include "isisd/isis_zebra.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
+
+#define AFFINITY_INCLUDE_ANY 0
+#define AFFINITY_INCLUDE_ALL 1
+#define AFFINITY_EXCLUDE_ANY 2
 
 /*
  * XPath: /frr-isisd:isis/instance
@@ -2618,11 +2624,54 @@ int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
  */
 int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
 {
+	struct isis_area *area;
+	struct flex_algo *fa;
+	bool advertise;
+	uint32_t algorithm;
+	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
+	struct isis_flex_algo_alloc_arg arg;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./flex-algo");
+	advertise = yang_dnode_exists(args->dnode, "./advertise-definition");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		arg.algorithm = algorithm;
+		arg.area = area;
+		fa = flex_algo_alloc(area->flex_algos, algorithm, &arg);
+		fa->priority = priority;
+		fa->advertise_definition = advertise;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 {
+	struct isis_area *area;
+	uint32_t algorithm;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		flex_algo_delete(area->flex_algos, algorithm);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -2632,12 +2681,189 @@ int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
 int isis_instance_flex_algo_advertise_definition_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct isis_area *area;
+	struct flex_algo *fa;
+	bool advertise;
+	uint32_t algorithm;
+
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	advertise = yang_dnode_exists(args->dnode, "./../advertise-definition");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		area = nb_running_get_entry(args->dnode, NULL, true);
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->advertise_definition = advertise;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int isis_instance_flex_algo_advertise_definition_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct isis_area *area;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area = nb_running_get_entry(args->dnode, NULL, true);
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->advertise_definition = false;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int isis_instance_flex_algo_affinity_set(struct nb_cb_create_args *args,
+						int type)
+{
+	struct affinity_map *map;
+	struct isis_area *area;
+	struct admin_group *ag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	const char *val;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, ".");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(area->affinity_maps, val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(area->affinity_maps, val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_RESOURCE;
+		}
+		if (type == AFFINITY_INCLUDE_ANY)
+			ag = &fa->admin_group_include_any;
+		else if (type == AFFINITY_INCLUDE_ALL)
+			ag = &fa->admin_group_include_all;
+		else if (type == AFFINITY_EXCLUDE_ANY)
+			ag = &fa->admin_group_exclude_any;
+		else
+			break;
+
+		admin_group_set(ag, map->bit_position);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	}
+
+	return NB_OK;
+}
+
+static int
+isis_instance_flex_algo_affinity_unset(struct nb_cb_destroy_args *args,
+				       int type)
+{
+	struct affinity_map *map;
+	struct isis_area *area;
+	struct admin_group *ag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	const char *val;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "../../flex-algo");
+	area = nb_running_get_entry(args->dnode, NULL, true);
+	val = yang_dnode_get_string(args->dnode, ".");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(area->affinity_maps, val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		map = affinity_map_get(area->affinity_maps, val);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found", val);
+			return NB_ERR_RESOURCE;
+		}
+		if (type == AFFINITY_INCLUDE_ANY)
+			ag = &fa->admin_group_include_any;
+		else if (type == AFFINITY_INCLUDE_ALL)
+			ag = &fa->admin_group_include_all;
+		else if (type == AFFINITY_EXCLUDE_ANY)
+			ag = &fa->admin_group_exclude_any;
+		else
+			break;
+
+		admin_group_unset(ag, map->bit_position);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -2648,13 +2874,14 @@ int isis_instance_flex_algo_advertise_definition_destroy(
 int isis_instance_flex_algo_affinity_include_any_create(
 	struct nb_cb_create_args *args)
 {
-	return NB_OK;
+	return isis_instance_flex_algo_affinity_set(args, AFFINITY_INCLUDE_ANY);
 }
 
 int isis_instance_flex_algo_affinity_include_any_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	return NB_OK;
+	return isis_instance_flex_algo_affinity_unset(args,
+						      AFFINITY_INCLUDE_ANY);
 }
 
 /*
@@ -2664,13 +2891,14 @@ int isis_instance_flex_algo_affinity_include_any_destroy(
 int isis_instance_flex_algo_affinity_include_all_create(
 	struct nb_cb_create_args *args)
 {
-	return NB_OK;
+	return isis_instance_flex_algo_affinity_set(args, AFFINITY_INCLUDE_ALL);
 }
 
 int isis_instance_flex_algo_affinity_include_all_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	return NB_OK;
+	return isis_instance_flex_algo_affinity_unset(args,
+						      AFFINITY_INCLUDE_ALL);
 }
 
 /*
@@ -2680,14 +2908,14 @@ int isis_instance_flex_algo_affinity_include_all_destroy(
 int isis_instance_flex_algo_affinity_exclude_any_create(
 	struct nb_cb_create_args *args)
 {
-	return NB_OK;
+	return isis_instance_flex_algo_affinity_set(args, AFFINITY_EXCLUDE_ANY);
 }
 
 int isis_instance_flex_algo_affinity_exclude_any_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	/* TODO: implement me. */
-	return NB_OK;
+	return isis_instance_flex_algo_affinity_unset(args,
+						      AFFINITY_EXCLUDE_ANY);
 }
 
 /*
@@ -2696,14 +2924,70 @@ int isis_instance_flex_algo_affinity_exclude_any_destroy(
 
 int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->m_flag = true;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int isis_instance_flex_algo_prefix_metric_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->m_flag = false;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -2713,6 +2997,36 @@ int isis_instance_flex_algo_prefix_metric_destroy(
 
 int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 {
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	enum flex_algo_metric_type metric_type;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	metric_type = yang_dnode_get_enum(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->metric_type = metric_type;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
 
 	return NB_OK;
 }
@@ -2723,13 +3037,73 @@ int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
 
 int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t priority;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	priority = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->priority = priority;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
 int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
 {
-	/* TODO: implement me. */
+	struct isis_area *area;
+	const char *area_tag;
+	struct flex_algo *fa;
+	uint32_t algorithm;
+	uint32_t priority = FLEX_ALGO_PRIO_DEFAULT;
+
+	area_tag = yang_dnode_get_string(args->dnode, "../../../area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_RESOURCE;
+
+	algorithm = yang_dnode_get_uint32(args->dnode, "./../flex-algo");
+	priority = yang_dnode_get_uint32(args->dnode, NULL);
+
+	switch (args->event) {
+	case NB_EV_APPLY:
+		fa = flex_algo_lookup(area->flex_algos, algorithm);
+		if (!fa) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "flex-algo object not found");
+			return NB_ERR_RESOURCE;
+		}
+		fa->priority = priority;
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -2746,6 +3120,71 @@ int isis_instance_flex_algo_affinity_mapping_create(
 int isis_instance_flex_algo_affinity_mapping_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct listnode *node, *nnode;
+	struct isis_circuit *circuit;
+	const char *area_tag, *name;
+	struct affinity_map *map;
+	struct isis_area *area;
+	struct flex_algo *fa;
+	char *name_circuit;
+	size_t pos;
+
+	area_tag = yang_dnode_get_string(
+		(const struct lyd_node *)args->dnode->parent->parent,
+		"./area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_VALIDATION;
+
+	name = yang_dnode_get_string((const struct lyd_node *)args->dnode,
+				     "./affinity-name");
+
+	map = affinity_map_get(area->affinity_maps, name);
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity-map not found.");
+			return NB_ERR_VALIDATION;
+		}
+
+		pos = map->bit_position;
+
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			if (admin_group_get(&fa->admin_group_exclude_any,
+					    pos) ||
+			    admin_group_get(&fa->admin_group_include_any,
+					    pos) ||
+			    admin_group_get(&fa->admin_group_include_all,
+					    pos)) {
+				snprintf(args->errmsg, args->errmsg_len,
+					 "affinity-map in use.");
+				return NB_ERR_VALIDATION;
+			}
+		}
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit)) {
+			for (ALL_LIST_ELEMENTS_RO(circuit->affinity_flex_algo,
+						  nnode, name_circuit)) {
+				if (strncmp(name_circuit, name,
+					    AFFINITY_NAME_SIZE) != 0)
+					continue;
+				snprintf(args->errmsg, args->errmsg_len,
+					 "affinity-map in use.");
+				return NB_ERR_VALIDATION;
+			}
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		affinity_map_unset(area->affinity_maps, name);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	}
+
 	return NB_OK;
 }
 
@@ -2756,13 +3195,52 @@ int isis_instance_flex_algo_affinity_mapping_destroy(
 int isis_instance_flex_algo_affinity_mapping_value_modify(
 	struct nb_cb_modify_args *args)
 {
+	struct isis_area *area;
+	const char *area_tag;
+	const char *name;
+	char *map_name;
+	uint32_t pos;
+
+	area_tag = yang_dnode_get_string(
+		(const struct lyd_node *)args->dnode->parent->parent->parent,
+		"./area-tag");
+	area = isis_area_lookup(area_tag, VRF_DEFAULT);
+	if (!area)
+		return NB_ERR_VALIDATION;
+
+	name = yang_dnode_get_string(
+		(const struct lyd_node *)args->dnode->parent,
+		"./affinity-name");
+
+	pos = yang_dnode_get_uint32(
+		(const struct lyd_node *)args->dnode->parent, "./value");
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		map_name = affinity_map_name_get(area->affinity_maps, pos);
+		if (!map_name)
+			return NB_OK;
+		if (strncmp(map_name, name, AFFINITY_NAME_SIZE) == 0)
+			return NB_ERR_NO_CHANGES;
+		snprintf(args->errmsg, args->errmsg_len,
+			 "bit-position is used by %s.", map_name);
+		return NB_ERR_VALIDATION;
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		affinity_map_set(area->affinity_maps, name, pos);
+		lsp_regenerate_schedule(area, area->is_type, 0);
+		break;
+	}
+
 	return NB_OK;
 }
 
 int isis_instance_flex_algo_affinity_mapping_value_destroy(
 	struct nb_cb_destroy_args *args)
 {
-	/* TODO: implement me. */
 	return NB_OK;
 }
 
@@ -2888,7 +3366,8 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args)
 	struct isis_circuit *circuit;
 
 	if (args->event == NB_EV_VALIDATE) {
-		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode), NULL, false);
+		circuit = nb_running_get_entry_non_rec(lyd_parent(args->dnode),
+						       NULL, false);
 		if (circuit) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Changing area tag is not allowed");
@@ -2928,12 +3407,85 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
  */
 int lib_interface_isis_affinity_flex_algo_create(struct nb_cb_create_args *args)
 {
+	struct isis_circuit *circuit;
+	struct listnode *node;
+	const char *name_dnode;
+	char *name_circuit;
+
+	name_dnode = yang_dnode_get_string(args->dnode, ".");
+	circuit = nb_running_get_entry(args->dnode, "../", true);
+	if (!circuit)
+		return NB_ERR_RESOURCE;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		for (ALL_LIST_ELEMENTS_RO(circuit->affinity_flex_algo, node,
+					  name_circuit)) {
+			if (strncmp(name_circuit, name_dnode,
+				    AFFINITY_NAME_SIZE) != 0)
+				continue;
+			return NB_OK;
+		}
+
+		name_circuit = XCALLOC(MTYPE_TMP, AFFINITY_NAME_SIZE);
+		snprintf(name_circuit, AFFINITY_NAME_SIZE, "%s", name_dnode);
+		listnode_add(circuit->affinity_flex_algo, name_circuit);
+		lsp_regenerate_schedule(circuit->area, circuit->is_type, 0);
+		break;
+	}
 	return NB_OK;
 }
 
 int lib_interface_isis_affinity_flex_algo_destroy(
 	struct nb_cb_destroy_args *args)
 {
+	struct listnode *node, *nnode;
+	struct isis_circuit *circuit;
+	struct affinity_map *map;
+	const char *name_dnode;
+	char *name_circuit;
+
+	name_dnode = yang_dnode_get_string(args->dnode, ".");
+	circuit = nb_running_get_entry(args->dnode, "../", true);
+	if (!circuit)
+		return NB_ERR_RESOURCE;
+
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+		/* check that the affinity-map exists */
+		if (!circuit->area)
+			/* circuit not initialized yet. Not able to validate */
+			return NB_OK;
+		map = affinity_map_get(circuit->area->affinity_maps,
+				       name_dnode);
+		if (!map) {
+			snprintf(args->errmsg, args->errmsg_len,
+				 "affinity map %s isn't found.", name_dnode);
+			return NB_ERR_VALIDATION;
+		}
+		break;
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+		break;
+	case NB_EV_APPLY:
+		for (ALL_LIST_ELEMENTS(circuit->affinity_flex_algo, node, nnode,
+				       name_circuit)) {
+			if (strncmp(name_circuit, name_dnode,
+				    AFFINITY_NAME_SIZE) != 0)
+				continue;
+			listnode_delete(circuit->affinity_flex_algo,
+					name_circuit);
+			XFREE(MTYPE_TMP, name_circuit);
+			lsp_regenerate_schedule(circuit->area, circuit->is_type,
+						0);
+			return NB_OK;
+		}
+		break;
+	}
 	return NB_OK;
 }
 
