@@ -3595,10 +3595,18 @@ struct cmd_node router_node = {
 };
 #endif /* ifdef FABRICD */
 
+struct cmd_node isis_flex_algo_node = {
+	.name = "isis-flex-algo",
+	.node = ISIS_FLEX_ALGO_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-flex-algo)# ",
+};
+
 void isis_init(void)
 {
 	/* Install IS-IS top node */
 	install_node(&router_node);
+	install_node(&isis_flex_algo_node);
 
 	install_element(VIEW_NODE, &show_isis_summary_cmd);
 
@@ -3688,6 +3696,7 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_ldp_sync_cmd);
 
 	install_default(ROUTER_NODE);
+	install_default(ISIS_FLEX_ALGO_NODE);
 
 #ifdef FABRICD
 	install_element(CONFIG_NODE, &router_openfabric_cmd);

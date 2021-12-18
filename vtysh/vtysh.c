@@ -1198,6 +1198,13 @@ static struct cmd_node isis_node = {
 	.parent_node = CONFIG_NODE,
 	.prompt = "%s(config-router)# ",
 };
+
+static struct cmd_node isis_flex_algo_node = {
+	.name = "isis-flex-algo",
+	.node = ISIS_FLEX_ALGO_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-flex-algo)# ",
+};
 #endif /* HAVE_ISISD */
 
 #ifdef HAVE_FABRICD
@@ -2114,6 +2121,14 @@ DEFUNSH(VTYSH_ISISD, router_isis, router_isis_cmd,
 	vty->node = ISIS_NODE;
 	return CMD_SUCCESS;
 }
+
+DEFUNSH(VTYSH_ISISD, isis_flex_algo, isis_flex_algo_cmd, "flex-algo (128-255)",
+	"Flexible Algorithm\n"
+	"Flexible Algorithm Number\n")
+{
+	vty->node = ISIS_FLEX_ALGO_NODE;
+	return CMD_SUCCESS;
+}
 #endif /* HAVE_ISISD */
 
 #ifdef HAVE_FABRICD
@@ -2571,6 +2586,18 @@ DEFUNSH(VTYSH_ISISD, vtysh_exit_isisd, vtysh_exit_isisd_cmd, "exit",
 
 DEFUNSH(VTYSH_ISISD, vtysh_quit_isisd, vtysh_quit_isisd_cmd, "quit",
 	"Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit_isisd(self, vty, argc, argv);
+}
+
+DEFUNSH(VTYSH_ISISD, vtysh_exit_isis_flex_algo, vtysh_exit_isis_flex_algo_cmd,
+	"exit", "Exit current mode and down to previous mode\n")
+{
+	return vtysh_exit(vty);
+}
+
+DEFUNSH(VTYSH_ISISD, vtysh_quit_isis_flex_algo, vtysh_quit_isis_flex_algo_cmd,
+	"quit", "Exit current mode and down to previous mode\n")
 {
 	return vtysh_exit_isisd(self, vty, argc, argv);
 }
@@ -4651,6 +4678,12 @@ void vtysh_init_vty(void)
 	install_element(ISIS_NODE, &vtysh_exit_isisd_cmd);
 	install_element(ISIS_NODE, &vtysh_quit_isisd_cmd);
 	install_element(ISIS_NODE, &vtysh_end_all_cmd);
+
+	install_node(&isis_flex_algo_node);
+	install_element(ISIS_NODE, &isis_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_exit_isis_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_quit_isis_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &vtysh_end_all_cmd);
 #endif /* HAVE_ISISD */
 
 	/* fabricd */

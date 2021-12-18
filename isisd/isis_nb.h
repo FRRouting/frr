@@ -222,6 +222,10 @@ int lib_interface_isis_area_tag_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv4_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_ipv6_routing_modify(struct nb_cb_modify_args *args);
 int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args);
+int lib_interface_isis_affinity_flex_algo_create(
+	struct nb_cb_create_args *args);
+int lib_interface_isis_affinity_flex_algo_destroy(
+	struct nb_cb_destroy_args *args);
 void lib_interface_isis_bfd_monitoring_apply_finish(
 	struct nb_cb_apply_finish_args *args);
 int lib_interface_isis_bfd_monitoring_enabled_modify(
@@ -274,6 +278,42 @@ int isis_instance_segment_routing_algorithm_prefix_sid_last_hop_behavior_modify(
 	struct nb_cb_modify_args *args);
 int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
 	struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_create(struct nb_cb_create_args *args);
+int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_advertise_definition_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_advertise_definition_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_include_any_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_include_any_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_include_all_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_include_all_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_exclude_any_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_exclude_any_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_prefix_metric_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_prefix_metric_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_frr_disable_modify(struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_frr_disable_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_mapping_create(
+	struct nb_cb_create_args *args);
+int isis_instance_flex_algo_affinity_mapping_destroy(
+	struct nb_cb_destroy_args *args);
+int isis_instance_flex_algo_affinity_mapping_value_modify(
+	struct nb_cb_modify_args *args);
+int isis_instance_flex_algo_affinity_mapping_value_destroy(
+	struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_destroy(struct nb_cb_destroy_args *args);
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args);
 int isis_instance_mpls_ldp_sync_holddown_modify(struct nb_cb_modify_args *args);
@@ -592,6 +632,10 @@ void cli_show_frr_remote_lfa_max_metric(struct vty *vty,
 					bool show_defaults);
 void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults);
+void cli_show_affinity_flex_algos(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults);
+void cli_show_affinity_mapping(struct vty *vty, const struct lyd_node *dnode,
+			       bool show_defaults);
 void cli_show_ip_isis_network_type(struct vty *vty,
 				   const struct lyd_node *dnode,
 				   bool show_defaults);
@@ -610,6 +654,9 @@ void cli_show_isis_mpls_if_ldp_sync(struct vty *vty,
 void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
 					     const struct lyd_node *dnode,
 					     bool show_defaults);
+void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
+			     bool show_defaults);
+void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode);
 
 /* Notifications. */
 void isis_notif_db_overload(const struct isis_area *area, bool overload);

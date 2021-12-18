@@ -2614,6 +2614,159 @@ int isis_instance_segment_routing_algorithm_prefix_sid_n_flag_clear_modify(
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo
+ */
+int isis_instance_flex_algo_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_destroy(struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/advertise-definition
+ */
+int isis_instance_flex_algo_advertise_definition_modify(
+	struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_advertise_definition_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-anies/affinity-include-any
+ */
+int isis_instance_flex_algo_affinity_include_any_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_affinity_include_any_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-include-alls/affinity-include-all
+ */
+int isis_instance_flex_algo_affinity_include_all_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_affinity_include_all_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-isisd:isis/instance/flex-algos/flex-algo/affinity-exclude-anies/affinity-exclude-any
+ */
+int isis_instance_flex_algo_affinity_exclude_any_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_affinity_exclude_any_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/prefix-metric
+ */
+
+int isis_instance_flex_algo_prefix_metric_create(struct nb_cb_create_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_prefix_metric_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/metric-type
+ */
+
+int isis_instance_flex_algo_metric_type_modify(struct nb_cb_modify_args *args)
+{
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/flex-algos/flex-algo/priority
+ */
+
+int isis_instance_flex_algo_priority_modify(struct nb_cb_modify_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_priority_destroy(struct nb_cb_destroy_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/affinity-mappings/affinity-mapping
+ */
+
+int isis_instance_flex_algo_affinity_mapping_create(
+	struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_affinity_mapping_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/affinity-mappings/affinity-mapping/value
+ */
+
+int isis_instance_flex_algo_affinity_mapping_value_modify(
+	struct nb_cb_modify_args *args)
+{
+	return NB_OK;
+}
+
+int isis_instance_flex_algo_affinity_mapping_value_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	/* TODO: implement me. */
+	return NB_OK;
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls/ldp-sync
  */
 int isis_instance_mpls_ldp_sync_create(struct nb_cb_create_args *args)
@@ -2766,6 +2919,21 @@ int lib_interface_isis_circuit_type_modify(struct nb_cb_modify_args *args)
 		break;
 	}
 
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-interface:lib/interface/frr-isisd:isis/affinity-flex-algos/flex-algo
+ */
+int lib_interface_isis_affinity_flex_algo_create(struct nb_cb_create_args *args)
+{
+	return NB_OK;
+}
+
+int lib_interface_isis_affinity_flex_algo_destroy(
+	struct nb_cb_destroy_args *args)
+{
 	return NB_OK;
 }
 

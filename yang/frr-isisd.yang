@@ -538,6 +538,17 @@ module frr-isisd {
         "IS-type of this circuit.";
     }
 
+    container affinity-flex-algos {
+      description
+        "Set the interface affinities used by Flex-Algo";
+      leaf-list flex-algo {
+        type string;
+        max-elements "256";
+        description
+          "Array of Attribute Names";
+      }
+    }
+
     container bfd-monitoring {
       leaf enabled {
         type boolean;
@@ -1491,6 +1502,116 @@ module frr-isisd {
           default "false";
           description
             "Export Link State informatin.";
+        }
+      }
+
+      container affinity-mappings {
+        description
+          "Affinity Mapping Table";
+        list affinity-mapping {
+          key "affinity-name";
+          description
+            "Affinity Mapping configuration";
+          leaf affinity-name {
+            type string {
+              length "1..32";
+            }
+            description
+              "Affinity Name";
+          }
+          leaf value {
+            type uint32 {
+              range "0..255";
+            }
+            description
+              "Bit position";
+          }
+        }
+      }
+
+      container flex-algos {
+        description
+          "Flex-Algo Table";
+        list flex-algo {
+          key "flex-algo";
+          description
+            "Configuration for an IS-IS Flex-Algo";
+          leaf advertise-definition {
+            type boolean;
+            description
+              "If TRUE, Flex-Algo definition is advertised";
+          }
+          container affinity-include-alls {
+            description
+              "Set the include-all affinity";
+            leaf-list affinity-include-all {
+              type string;
+              max-elements "256";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          container affinity-include-anies {
+            description
+              "Set the include-any affinity";
+            leaf-list affinity-include-any {
+              type string;
+              max-elements "256";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          container affinity-exclude-anies {
+            description
+              "Set the exclude-any affinity";
+            leaf-list affinity-exclude-any {
+              type string;
+              max-elements "256";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          leaf prefix-metric {
+            type empty;
+            description
+              "Use Flex-algo Prefix Metric";
+          }
+          leaf metric-type {
+            default "igp";
+            description
+              "Set the Flex-Algo metric-type";
+		    type enumeration {
+		      enum "igp" {
+		        value 0;
+			description
+			  "IGP Metric";
+		      }
+		      enum "min-uni-link-delay" {
+		        value 1;
+			description
+			  "RFC 8570 Sec 4.2 Min Unidirectional Link Delay";
+		      }
+		      enum "te-default" {
+		        value 2;
+			description
+			  "RFC 5305 Sec 3.7 Traffic Engineering Default Metric";
+		      }
+		    }
+          }
+          leaf priority {
+            type uint32 {
+              range "0..255";
+            }
+            description
+              "Set the Flex-Algo priority";
+          }
+          leaf flex-algo {
+            type uint32 {
+              range "128..255";
+            }
+            description
+              "Flex-Algo";
+          }
         }
       }
 
