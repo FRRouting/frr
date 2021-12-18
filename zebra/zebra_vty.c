@@ -61,6 +61,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/table_manager.h"
 #include "zebra/zebra_script.h"
+#include "zebra/zebra_neigh.h"
 
 extern int allow_delete;
 
@@ -3028,6 +3029,15 @@ DEFUN (show_evpn_global,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_neigh, show_neigh_cmd, "show ip neigh",
+      SHOW_STR IP_STR "neighbors\n")
+
+{
+	zebra_neigh_show(vty);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY(show_evpn_l2_nh,
       show_evpn_l2_nh_cmd,
       "show evpn l2-nh [json$json]",
@@ -4474,6 +4484,8 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
+
+	install_element(VIEW_NODE, &show_neigh_cmd);
 
 	install_element(VIEW_NODE, &show_pbr_ipset_cmd);
 	install_element(VIEW_NODE, &show_pbr_iptable_cmd);
