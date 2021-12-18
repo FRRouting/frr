@@ -36,6 +36,7 @@
 #include "isisd/isis_misc.h"
 #include "isisd/isis_circuit.h"
 #include "isisd/isis_csm.h"
+#include "isisd/isis_flex_algo.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "isisd/isis_cli_clippy.c"
@@ -2595,6 +2596,16 @@ void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 	}
 }
 
+static int ag_change(struct vty *vty, int argc, struct cmd_token **argv,
+		     const char *xpath, bool no, int start_idx)
+{
+	for (int i = start_idx; i < argc; i++)
+		nb_cli_enqueue_change(vty, xpath,
+				      no ? NB_OP_DESTROY : NB_OP_CREATE,
+				      argv[i]->arg);
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/affinity-flex-algo
  */
@@ -2606,12 +2617,30 @@ DEFPY_YANG(isis_affinity_flex_algo, isis_affinity_flex_algo_cmd,
 	   "Affinities for Flexible Algorithm application\n"
 	   "Affinity names\n")
 {
-	return CMD_SUCCESS;
+	const char *xpath = "./frr-isisd:isis/affinity-flex-algos/flex-algo";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 4 : 3);
+}
+
+static int ag_iter_cb(const struct lyd_node *dnode, void *arg)
+{
+	struct vty *vty = (struct vty *)arg;
+
+	vty_out(vty, " %s", yang_dnode_get_string(dnode, "."));
+	return YANG_ITER_CONTINUE;
 }
 
 void cli_show_affinity_flex_algos(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
+	const char *xpath = "./flex-algo";
+
+	if (!yang_dnode_exists(dnode, xpath))
+		return;
+
+	vty_out(vty, " isis affinity flex-algo");
+	yang_dnode_iterate(ag_iter_cb, vty, dnode, xpath);
+	vty_out(vty, "\n");
 }
 
 /*
@@ -3222,7 +3251,23 @@ DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
 		"Flexible Algorithm\n"
 		"Flexible Algorithm Number\n")
 {
-	return CMD_SUCCESS;
+	int ret;
+	char xpatha[XPATH_MAXLEN + 37];
+	char xpathr[XPATH_MAXLEN];
+
+	snprintf(xpatha, sizeof(xpatha),
+		 "%s/flex-algos/flex-algo[flex-algo='%ld']", VTY_CURR_XPATH,
+		 algorithm);
+	snprintf(xpathr, sizeof(xpathr),
+		 "./flex-algos/flex-algo[flex-algo='%ld']", algorithm);
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_CREATE, NULL);
+
+	ret = nb_cli_apply_changes(vty, xpathr);
+	if (ret == CMD_SUCCESS)
+		VTY_PUSH_XPATH(ISIS_FLEX_ALGO_NODE, xpatha);
+
+	return ret;
 }
 
 DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
@@ -3230,14 +3275,32 @@ DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
 	   "Flexible Algorithm\n"
 	   "Flexible Algorithm Number\n")
 {
-	return CMD_SUCCESS;
+	char xpatha[XPATH_MAXLEN + 37];
+	char xpathr[XPATH_MAXLEN];
+
+	snprintf(xpatha, sizeof(xpatha),
+		 "%s/flex-algos/flex-algo[flex-algo='%ld']", VTY_CURR_XPATH,
+		 algorithm);
+	snprintf(xpathr, sizeof(xpathr),
+		 "./flex-algos/flex-algo[flex-algo='%ld']", algorithm);
+
+	if (!yang_dnode_exists(vty->candidate_config->dnode, xpatha)) {
+		vty_out(vty, "ISIS flex-algo %ld isn't exsit.\n", algorithm);
+		return CMD_ERR_NO_MATCH;
+	}
+
+	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes_clear_pending(vty, xpathr);
 }
 
 DEFPY_YANG(advertise_definition, advertise_definition_cmd,
 	   "[no] advertise-definition",
 	   NO_STR "Advertise Local Flexible Algorithm\n")
 {
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./advertise-definition",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE,
+			      no ? NULL : "true");
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(affinity_include_any, affinity_include_any_cmd,
@@ -3247,7 +3310,9 @@ DEFPY_YANG(affinity_include_any, affinity_include_any_cmd,
 	   "Any Include with\n"
 	   "Include NAME list\n")
 {
-	return CMD_SUCCESS;
+	const char *xpath = "./affinity-include-anies/affinity-include-any";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
 }
 
 DEFPY_YANG(affinity_include_all, affinity_include_all_cmd,
@@ -3257,7 +3322,9 @@ DEFPY_YANG(affinity_include_all, affinity_include_all_cmd,
 	   "All Include with\n"
 	   "Include NAME list\n")
 {
-	return CMD_SUCCESS;
+	const char *xpath = "./affinity-include-alls/affinity-include-all";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
 }
 
 DEFPY_YANG(affinity_exclude_any, affinity_exclude_any_cmd,
@@ -3267,13 +3334,17 @@ DEFPY_YANG(affinity_exclude_any, affinity_exclude_any_cmd,
 	   "Any Exclude with\n"
 	   "Exclude NAME list\n")
 {
-	return CMD_SUCCESS;
+	const char *xpath = "./affinity-exclude-anies/affinity-exclude-any";
+
+	return ag_change(vty, argc, argv, xpath, no, no ? 3 : 2);
 }
 
 DEFPY_YANG(prefix_metric, prefix_metric_cmd, "[no] prefix-metric",
 	   NO_STR "Use Flex-Algo Prefix Metric\n")
 {
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./prefix-metric",
+			      no ? NB_OP_DESTROY : NB_OP_CREATE, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(metric_type, metric_type_cmd,
@@ -3284,7 +3355,23 @@ DEFPY_YANG(metric_type, metric_type_cmd,
 	   "Use Delay as metric\n"
 	   "Use Traffic Engineering metric\n")
 {
-	return CMD_SUCCESS;
+	const char *type = NULL;
+
+	if (igp) {
+		type = "igp";
+	} else if (te) {
+		type = "te-default";
+	} else if (delay) {
+		type = "min-uni-link-delay";
+	} else {
+		vty_out(vty, "Error: unknown metric type\n");
+		return CMD_SUCCESS;
+	}
+
+	nb_cli_enqueue_change(vty, "./metric-type",
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY,
+			      no ? NULL : type);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(priority, priority_cmd, "[no] priority (0-255)$priority",
@@ -3292,25 +3379,75 @@ DEFPY_YANG(priority, priority_cmd, "[no] priority (0-255)$priority",
 	   "Flex-Algo definition priority\n"
 	   "Priority value\n")
 {
-	return CMD_SUCCESS;
-}
-
-DEFPY_YANG(fastreroute_disable, fastreroute_disable_cmd,
-	   "[no] fast-reroute disable",
-	   NO_STR
-	   "Configure Fast ReRoute\n"
-	   "Disable Fast ReRoute for Flex-Algo\n")
-{
-	return CMD_SUCCESS;
+	nb_cli_enqueue_change(vty, "./priority",
+			      no ? NB_OP_DESTROY : NB_OP_MODIFY,
+			      no ? NULL : priority_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
+	uint32_t algorithm;
+	enum flex_algo_metric_type metric_type;
+	uint32_t priority;
+	char type_str[10];
+
+	algorithm = yang_dnode_get_uint32(dnode, "./flex-algo");
+	vty_out(vty, " flex-algo %u\n", algorithm);
+
+	if (yang_dnode_exists(dnode, "./advertise-definition"))
+		vty_out(vty, "  advertise-definition\n");
+
+	if (yang_dnode_exists(dnode, "./prefix-metric"))
+		vty_out(vty, "  prefix-metric\n");
+
+	if (yang_dnode_exists(dnode, "./metric-type")) {
+		metric_type = yang_dnode_get_enum(dnode, "./metric-type");
+		if (metric_type != MT_IGP) {
+			flex_algo_metric_type_print(type_str, sizeof(type_str),
+						    metric_type);
+			vty_out(vty, "  metric-type %s\n", type_str);
+		}
+	}
+
+	if (yang_dnode_exists(dnode, "./priority")) {
+		priority = yang_dnode_get_uint32(dnode, "./priority");
+		if (priority != FLEX_ALGO_PRIO_DEFAULT)
+			vty_out(vty, "  priority %u\n", priority);
+	}
+
+	if (yang_dnode_exists(dnode,
+			      "./affinity-include-alls/affinity-include-all")) {
+		vty_out(vty, "  affinity include-all");
+		yang_dnode_iterate(
+			ag_iter_cb, vty, dnode,
+			"./affinity-include-alls/affinity-include-all");
+		vty_out(vty, "\n");
+	}
+
+	if (yang_dnode_exists(
+		    dnode, "./affinity-include-anies/affinity-include-any")) {
+		vty_out(vty, "  affinity include-any");
+		yang_dnode_iterate(
+			ag_iter_cb, vty, dnode,
+			"./affinity-include-anies/affinity-include-any");
+		vty_out(vty, "\n");
+	}
+
+	if (yang_dnode_exists(
+		    dnode, "./affinity-exclude-anies/affinity-exclude-any")) {
+		vty_out(vty, "  affinity exclude-any");
+		yang_dnode_iterate(
+			ag_iter_cb, vty, dnode,
+			"./affinity-exclude-anies/affinity-exclude-any");
+		vty_out(vty, "\n");
+	}
 }
 
 void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode)
 {
+	vty_out(vty, " !\n");
 }
 
 DEFPY_YANG(affinity_map, affinity_map_cmd,
@@ -3320,7 +3457,13 @@ DEFPY_YANG(affinity_map, affinity_map_cmd,
 	   "Bit position for affinity attribute value\n"
 	   "Bit position\n")
 {
-	return CMD_SUCCESS;
+	char xpathr[XPATH_MAXLEN];
+	snprintf(
+		xpathr, sizeof(xpathr),
+		"./affinity-mappings/affinity-mapping[affinity-name='%s']/value",
+		name);
+	nb_cli_enqueue_change(vty, xpathr, NB_OP_MODIFY, position_str);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 DEFPY_YANG(no_affinity_map, no_affinity_map_cmd,
@@ -3331,12 +3474,20 @@ DEFPY_YANG(no_affinity_map, no_affinity_map_cmd,
 	   "Bit position for affinity attribute value\n"
 	   "Bit position\n")
 {
-	return CMD_SUCCESS;
+	char xpathr[XPATH_MAXLEN];
+	snprintf(xpathr, sizeof(xpathr),
+		 "./affinity-mappings/affinity-mapping[affinity-name='%s']",
+		 name);
+	nb_cli_enqueue_change(vty, xpathr, NB_OP_DESTROY, NULL);
+	return nb_cli_apply_changes(vty, NULL);
 }
 
 void cli_show_affinity_mapping(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
+	vty_out(vty, " affinity-map %s bit-position %u\n",
+		yang_dnode_get_string(dnode, "./affinity-name"),
+		yang_dnode_get_uint32(dnode, "./value"));
 }
 
 void isis_cli_init(void)
@@ -3484,7 +3635,6 @@ void isis_cli_init(void)
 	install_element(ISIS_FLEX_ALGO_NODE, &prefix_metric_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &metric_type_cmd);
 	install_element(ISIS_FLEX_ALGO_NODE, &priority_cmd);
-	install_element(ISIS_FLEX_ALGO_NODE, &fastreroute_disable_cmd);
 }
 
 #endif /* ifndef FABRICD */
