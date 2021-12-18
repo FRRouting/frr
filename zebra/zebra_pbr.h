@@ -45,6 +45,9 @@ struct zebra_pbr_action {
 	/* dest-interface */
 	ifindex_t ifindex;
 
+	/* dataplane info */
+	intptr_t dp_flow_ptr;
+
 	/* neigh */
 	struct zebra_neigh_ent *neigh;
 	/* zebra_pbr_rule is linked to neigh via neigh_listnode */
