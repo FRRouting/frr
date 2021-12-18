@@ -396,6 +396,12 @@ struct isis_area *isis_area_create(const char *area_tag, const char *vrf_name)
 	area->bfd_signalled_down = false;
 	area->bfd_force_spf_refresh = false;
 
+	/* Segment Routing */
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+		area->sr_algorithm[i] = SR_ALGORITHM_UNSET;
+	area->sr_algorithm[SR_ALGORITHM_SPF] = SR_ALGORITHM_SPF;
+	area->sr_algorithm[SR_ALGORITHM_STRICT_SPF] = SR_ALGORITHM_STRICT_SPF;
+
 	QOBJ_REG(area, isis_area);
 
 	if (vrf) {

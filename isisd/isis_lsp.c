@@ -1016,6 +1016,9 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	if (area->isis->router_id != 0) {
 		struct isis_router_cap cap = {};
 
+		lsp_debug("ISIS (%s): Adding Router Capabilities information",
+			  area->area_tag);
+
 		cap.router_id.s_addr = area->isis->router_id;
 
 		/* Add SR Sub-TLVs if SR is enabled. */
@@ -1031,8 +1034,15 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			cap.srgb.range_size = range_size;
 			cap.srgb.lower_bound = srdb->config.srgb_lower_bound;
 			/* Then Algorithm */
-			cap.algo[0] = SR_ALGORITHM_SPF;
-			cap.algo[1] = SR_ALGORITHM_UNSET;
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+				if (area->sr_algorithm[i] != SR_ALGORITHM_UNSET)
+					lsp_debug(
+						"ISIS (%s):   SR Algorithm %u",
+						area->area_tag,
+						area->sr_algorithm[i]);
+				cap.algo[i] = area->sr_algorithm[i];
+			}
+
 			/* SRLB */
 			cap.srlb.flags = 0;
 			range_size = srdb->config.srlb_upper_bound
@@ -1048,8 +1058,6 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
-		lsp_debug("ISIS (%s): Adding Router Capabilities information",
-			  area->area_tag);
 	}
 
 	/* IPv4 address and TE router ID TLVs.

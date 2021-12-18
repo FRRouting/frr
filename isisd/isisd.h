@@ -203,6 +203,7 @@ struct isis_area {
 	struct mpls_te_area *mta;
 	/* Segment Routing information */
 	struct isis_sr_db srdb;
+	uint8_t sr_algorithm[SR_ALGORITHM_COUNT];
 	int ipv6_circuits;
 	bool purge_originator;
 	/* SPF prefix priorities. */
