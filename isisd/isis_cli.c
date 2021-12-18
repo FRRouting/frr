@@ -1127,6 +1127,52 @@ void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
+ * XPath: /frr-isisd:isis/instance/admin-group-send-zero
+ */
+DEFPY_YANG(isis_admin_group_send_zero, isis_admin_group_send_zero_cmd,
+	   "[no] admin-group-send-zero",
+	   NO_STR
+	   "Allow sending the default admin-group value of 0x00000000.\n")
+{
+	nb_cli_enqueue_change(vty, "./admin-group-send-zero", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_admin_group_send_zero(struct vty *vty,
+					 const struct lyd_node *dnode,
+					 bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " admin-group-send-zero\n");
+}
+
+
+/*
+ * XPath: /frr-isisd:isis/instance/asla-legacy-flag
+ */
+DEFPY_HIDDEN(isis_asla_legacy_flag, isis_asla_legacy_flag_cmd,
+	     "[no] asla-legacy-flag",
+	     NO_STR "Set the legacy flag (aka. L-FLAG) in the ASLA Sub-TLV.\n")
+{
+	nb_cli_enqueue_change(vty, "./asla-legacy-flag", NB_OP_MODIFY,
+			      no ? "false" : "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_asla_legacy_flag(struct vty *vty,
+				    const struct lyd_node *dnode,
+				    bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+	vty_out(vty, " asla-legacy-flag\n");
+}
+
+/*
  * XPath: /frr-isisd:isis/instance/mpls-te
  */
 DEFPY_YANG(isis_mpls_te_on, isis_mpls_te_on_cmd, "mpls-te on",
@@ -3298,6 +3344,92 @@ void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
 		yang_dnode_get_string(dnode, NULL));
 }
 
+DEFPY_YANG_NOSH(flex_algo, flex_algo_cmd, "flex-algo (128-255)$algorithm",
+		"Flexible Algorithm\n"
+		"Flexible Algorithm Number\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(no_flex_algo, no_flex_algo_cmd, "no flex-algo (128-255)$algorithm",
+	   NO_STR
+	   "Flexible Algorithm\n"
+	   "Flexible Algorithm Number\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(advertise_definition, advertise_definition_cmd,
+	   "[no] advertise-definition",
+	   NO_STR "Advertise Local Flexible Algorithm\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(affinity_include_any, affinity_include_any_cmd,
+	   "[no] affinity include-any NAME...",
+	   NO_STR
+	   "Affinity configuration\n"
+	   "Any Include with\n"
+	   "Include NAME list\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(affinity_include_all, affinity_include_all_cmd,
+	   "[no] affinity include-all NAME...",
+	   NO_STR
+	   "Affinity configuration\n"
+	   "All Include with\n"
+	   "Include NAME list\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(affinity_exclude_any, affinity_exclude_any_cmd,
+	   "[no] affinity exclude-any NAME...",
+	   NO_STR
+	   "Affinity configuration\n"
+	   "Any Exclude with\n"
+	   "Exclude NAME list\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(prefix_metric, prefix_metric_cmd, "[no] prefix-metric",
+	   NO_STR "Use Flex-Algo Prefix Metric\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(metric_type, metric_type_cmd,
+	   "[no] metric-type [igp$igp|te$te|delay$delay]",
+	   NO_STR
+	   "Metric-type used by flex-algo calculation\n"
+	   "Use IGP metric (default)\n"
+	   "Use Delay as metric\n"
+	   "Use Traffic Engineering metric\n")
+{
+	return CMD_SUCCESS;
+}
+
+DEFPY_YANG(priority, priority_cmd, "[no] priority (0-255)$priority",
+	   NO_STR
+	   "Flex-Algo definition priority\n"
+	   "Priority value\n")
+{
+	return CMD_SUCCESS;
+}
+
+void cli_show_isis_flex_algo(struct vty *vty, const struct lyd_node *dnode,
+			     bool show_defaults)
+{
+}
+
+void cli_show_isis_flex_algo_end(struct vty *vty, const struct lyd_node *dnode)
+{
+}
+
 void isis_cli_init(void)
 {
 	install_element(CONFIG_NODE, &router_isis_cmd);
@@ -3355,6 +3487,9 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_spf_delay_ietf_cmd);
 
 	install_element(ISIS_NODE, &area_purge_originator_cmd);
+
+	install_element(ISIS_NODE, &isis_admin_group_send_zero_cmd);
+	install_element(ISIS_NODE, &isis_asla_legacy_flag_cmd);
 
 	install_element(ISIS_NODE, &isis_mpls_te_on_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
@@ -3439,6 +3574,16 @@ void isis_cli_init(void)
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_cmd);
 	install_element(INTERFACE_NODE, &isis_mpls_if_ldp_sync_holddown_cmd);
 	install_element(INTERFACE_NODE, &no_isis_mpls_if_ldp_sync_holddown_cmd);
+
+	install_element(ISIS_NODE, &flex_algo_cmd);
+	install_element(ISIS_NODE, &no_flex_algo_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &advertise_definition_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_any_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &affinity_include_all_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &affinity_exclude_any_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &prefix_metric_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &metric_type_cmd);
+	install_element(ISIS_FLEX_ALGO_NODE, &priority_cmd);
 }
 
 #endif /* ifndef FABRICD */

@@ -3771,6 +3771,13 @@ struct cmd_node router_node = {
 	.prompt = "%s(config-router)# ",
 	.config_write = isis_config_write,
 };
+
+struct cmd_node isis_flex_algo_node = {
+	.name = "isis-flex-algo",
+	.node = ISIS_FLEX_ALGO_NODE,
+	.parent_node = ISIS_NODE,
+	.prompt = "%s(config-router-flex-algo)# ",
+};
 #endif /* ifdef FABRICD */
 
 void isis_init(void)
@@ -3880,6 +3887,10 @@ void isis_init(void)
 	install_element(ROUTER_NODE, &log_adj_changes_cmd);
 	install_element(ROUTER_NODE, &no_log_adj_changes_cmd);
 #endif /* ifdef FABRICD */
+#ifndef FABRICD
+	install_node(&isis_flex_algo_node);
+	install_default(ISIS_FLEX_ALGO_NODE);
+#endif /* ifdnef FABRICD */
 
 	spf_backoff_cmd_init();
 }
