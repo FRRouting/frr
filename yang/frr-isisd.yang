@@ -538,6 +538,17 @@ module frr-isisd {
         "IS-type of this circuit.";
     }
 
+    container affinity-flex-algos {
+      description
+        "Set the interface affinities used by Flex-Algo";
+      leaf-list flex-algo {
+        type string;
+        max-elements "32";
+        description
+          "Array of Attribute Names";
+      }
+    }
+
     container bfd-monitoring {
       leaf enabled {
         type boolean;
@@ -1491,6 +1502,113 @@ module frr-isisd {
           default "false";
           description
             "Export Link State informatin.";
+        }
+      }
+
+      container flex-algos {
+        description
+          "Flex-Algo Table";
+        list flex-algo {
+          key "flex-algo";
+          description
+            "Configuration for an IS-IS Flex-Algo";
+          leaf advertise-definition {
+            type boolean;
+            description
+              "If TRUE, Flex-Algo definition is advertised";
+          }
+          container affinity-include-alls {
+            description
+              "Set the include-all affinity";
+            leaf-list affinity-include-all {
+              type string;
+              max-elements "32";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          container affinity-include-anies {
+            description
+              "Set the include-any affinity";
+            leaf-list affinity-include-any {
+              type string;
+              max-elements "32";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          container affinity-exclude-anies {
+            description
+              "Set the exclude-any affinity";
+            leaf-list affinity-exclude-any {
+              type string;
+              max-elements "32";
+              description
+                "Array of Attribute Names";
+            }
+          }
+          leaf prefix-metric {
+            type empty;
+            description
+              "Use Flex-algo Prefix Metric";
+          }
+          leaf running {
+            type empty;
+            description
+              "This object must be set before any other configuration is
+               supplied for an interface, and must be the last per-interface
+               configuration object to be removed.";
+          }
+          leaf metric-type {
+            type uint32 {
+              range "1..2";
+            }
+            description
+              "Set the Flex-Algo metric-type";
+          }
+          leaf priority {
+            type uint32 {
+              range "0..255";
+            }
+            description
+              "Set the Flex-Algo priority";
+          }
+          leaf frr-disable {
+            type boolean;
+            description
+              "If TRUE, FRR protectinn is disabled for the Flex-Algo.";
+          }
+          leaf flex-algo {
+            type uint32 {
+              range "128..255";
+            }
+            description
+              "Flex-Algo";
+          }
+        }
+      }
+
+      container affinity-mappings {
+        description
+          "Affinity Mapping Table";
+        list affinity-mapping {
+          key "affinity-name";
+          description
+            "Affinity Mapping configuration";
+          leaf affinity-name {
+            type string {
+              length "1..32";
+            }
+            description
+              "Affinity Name";
+          }
+          leaf value {
+            type uint32 {
+              range "0..255";
+            }
+            description
+              "Bit position";
+          }
         }
       }
 
