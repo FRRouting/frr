@@ -157,7 +157,7 @@ static int bgp_process_writes(struct thread *thread)
 	if (reschedule) {
 		thread_add_write(fpt->master, bgp_process_writes, peer,
 				 peer->fd, &peer->t_write);
-	} else if (!fatal) {
+	} else if (!fatal && !peer->t_routeadv) {
 		BGP_UPDATE_GROUP_TIMER_ON(&peer->t_generate_updgrp_packets,
 					  bgp_generate_updgrp_packets);
 	}
