@@ -447,7 +447,7 @@ DEFUN (no_path_ted_import,
 }
 
 /* clang-format off */
-DEFPY (show_pahtd_ted_db,
+DEFPY (show_pathd_ted_db,
        show_pathd_ted_db_cmd,
        "show pathd ted database <verbose|json>$ver_json ",
        "show command\n"
