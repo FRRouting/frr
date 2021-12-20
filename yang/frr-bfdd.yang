@@ -233,6 +233,15 @@ module frr-bfdd {
     }
   }
 
+  typedef bfd-source-address {
+    type union {
+      type inet:ip-address;
+      type enumeration {
+        enum "auto";
+      }
+    }
+  }
+
   grouping bfd-monitoring {
     description
       "BFD monitoring template for protocol integration.";
@@ -247,7 +256,7 @@ module frr-bfdd {
     leaf source {
       when "../multi-hop = 'true'";
       mandatory true;
-      type inet:ip-address;
+      type bfd-source-address;
       description
         "Source address to use for liveness check.";
     }

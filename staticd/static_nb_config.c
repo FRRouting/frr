@@ -837,6 +837,12 @@ int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args)
 {
 	struct static_nexthop *sn;
 
+	if (args->event == NB_EV_VALIDATE) {
+		if (yang_dnode_exists(args->dnode, "./multi-hop") &&
+		    yang_dnode_get_bool(args->dnode, "./multi-hop"))
+			return NB_ERR_VALIDATION;
+	}
+
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 

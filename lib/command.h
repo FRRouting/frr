@@ -455,6 +455,7 @@ struct cmd_node {
 #define BFD_INT_SOURCE_STR "BFD local address\n"
 #define BFD_INT_SOURCE_ADDRV4_STR "BFD IPv4 local address\n"
 #define BFD_INT_SOURCE_ADDRV6_STR "BFD IPv6 local address\n"
+#define BFD_INT_SOURCE_AUTO_STR "BFD IP source address automatic\n"
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"

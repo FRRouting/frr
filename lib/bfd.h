@@ -133,6 +133,19 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 			     const struct in_addr *dst);
 
 /**
+ * Set the source address as automatic
+ *
+ * NOTE:
+ * The next-hop tracking has to be called and update the source
+ * address in the daemon code, if the auto flag is set
+ *
+ * \param bsp BFD session parameters.
+ * \param enable turn on or off the src automatically
+ */
+void bfd_sess_set_src_addr_auto(struct bfd_session_params *bsp, bool enable);
+
+
+/**
  * Set the local and peer address of the BFD session.
  *
  * NOTE:
@@ -286,6 +299,17 @@ const char *bfd_sess_profile(const struct bfd_session_params *bsp);
  */
 void bfd_sess_addresses(const struct bfd_session_params *bsp, int *family,
 			struct in6_addr *src, struct in6_addr *dst);
+
+/**
+ * Check if BFD source IP address is chosen automatically or not.
+ *
+
+ * \param bsp BFD session parameters.
+ *
+ * \returns true if session is in automatic mode, false otherwise
+ */
+bool bfd_sess_src_auto(const struct bfd_session_params *bsp);
+
 /**
  * Get BFD session interface name.
  *

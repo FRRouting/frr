@@ -364,7 +364,7 @@ and when the session is down it is removed.
 
 The following commands are available inside the configuration node:
 
-.. clicmd:: [no] ip route A.B.C.D/M A.B.C.D {bfd [multi-hop source A.B.C.D] [profile BFDPROF}]|group STRGRP}
+.. clicmd:: [no] ip route A.B.C.D/M A.B.C.D {bfd [multi-hop source <A.B.C.D|auto>] [profile BFDPROF}]|group STRGRP}
 
    Configure a static route for ``A.B.C.D/M`` using gateway ``A.B.C.D`` and use
    the gateway address as BFD peer destination address.
@@ -372,7 +372,7 @@ The following commands are available inside the configuration node:
    If ``group`` is specified then instead of the gateway address the specified
    route group configuration will be used.
 
-.. clicmd:: [no] ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X {bfd [multi-hop source X:X::X:X] [profile BFDPROF]|group STRGRP}
+.. clicmd:: [no] ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X {bfd [multi-hop source <X:X::X:X|auto>] [profile BFDPROF]|group STRGRP}
 
    Configure a static route for ``X:X::X:X/M`` using gateway
    ``X:X::X:X`` and use the gateway address as BFD peer destination

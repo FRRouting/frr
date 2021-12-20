@@ -322,6 +322,9 @@ extern void static_group_fixup_vrf_ids(struct vrf *vrf, bool enabled);
 /** Call this function after zebra client initialization. */
 extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);
 
+/* call this function on nexthop tracking for src auto mode */
+void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp,
+			      vrf_id_t vrf_id);
 extern void static_bfd_show(struct vty *vty, bool isjson);
 
 #ifdef __cplusplus
