@@ -606,8 +606,15 @@ static int bgp_capability_llgr(struct peer *peer,
 					peer->host, iana_afi2str(pkt_afi),
 					iana_safi2str(pkt_safi));
 		} else {
+			if (bgp_debug_neighbor_events(peer))
+				zlog_debug(
+					"%s Addr-family %s/%s(afi/safi) Long-lived Graceful Restart capability stale time %u sec",
+					peer->host, iana_afi2str(pkt_afi),
+					iana_safi2str(pkt_safi), stale_time);
+
 			peer->llgr[afi][safi].flags = flags;
-			peer->llgr[afi][safi].stale_time = stale_time;
+			peer->llgr[afi][safi].stale_time =
+				MIN(stale_time, peer->bgp->llgr_stale_time);
 			SET_FLAG(peer->af_cap[afi][safi], PEER_CAP_LLGR_AF_RCV);
 		}
 	}
