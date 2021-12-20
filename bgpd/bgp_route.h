@@ -802,6 +802,7 @@ extern int bgp_path_info_cmp_compatible(struct bgp *bgp,
 					struct bgp_path_info *exist,
 					char *pfx_buf, afi_t afi, safi_t safi,
 					enum bgp_path_selection_reason *reason);
+extern void bgp_attr_add_llgr_community(struct attr *attr);
 extern void bgp_attr_add_gshut_community(struct attr *attr);
 
 extern void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,

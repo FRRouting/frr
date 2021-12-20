@@ -1402,6 +1402,8 @@ struct peer {
 #define PEER_STATUS_BORR_RECEIVED (1U << 8) /* BoRR received from peer */
 #define PEER_STATUS_EORR_SEND (1U << 9) /* EoRR send to peer */
 #define PEER_STATUS_EORR_RECEIVED (1U << 10) /* EoRR received from peer */
+/* LLGR aware peer */
+#define PEER_STATUS_LLGR_WAIT (1U << 11)
 
 	/* Configured timer values. */
 	_Atomic uint32_t holdtime;
@@ -1433,6 +1435,7 @@ struct peer {
 	struct thread *t_pmax_restart;
 	struct thread *t_gr_restart;
 	struct thread *t_gr_stale;
+	struct thread *t_llgr_stale[AFI_MAX][SAFI_MAX];
 	struct thread *t_generate_updgrp_packets;
 	struct thread *t_process_packet;
 	struct thread *t_process_packet_error;
@@ -2473,4 +2476,7 @@ void peer_nsf_stop(struct peer *peer);
 
 void peer_tcp_mss_set(struct peer *peer, uint32_t tcp_mss);
 void peer_tcp_mss_unset(struct peer *peer);
+
+extern void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
+					       safi_t safi);
 #endif /* _QUAGGA_BGPD_H */

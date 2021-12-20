@@ -1656,8 +1656,7 @@ void bgp_peer_conf_if_to_su_update(struct peer *peer)
 	hash_get(peer->bgp->peerhash, peer, hash_alloc_intern);
 }
 
-static void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi,
-					       safi_t safi)
+void bgp_recalculate_afi_safi_bestpaths(struct bgp *bgp, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest, *ndest;
 	struct bgp_table *table;
