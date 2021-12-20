@@ -1869,11 +1869,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			if (peer->nsf[afi][safi])
 				bgp_clear_stale_route(peer, afi, safi);
 
-                        zlog_info(
-                            "%s: rcvd End-of-RIB for %s from %s in vrf %s",
-                            __func__, get_afi_safi_str(afi, safi, false),
-                            peer->host, vrf ? vrf->name : VRF_DEFAULT_NAME);
-                }
+			zlog_info(
+				"%s: rcvd End-of-RIB for %s from %s in vrf %s",
+				__func__, get_afi_safi_str(afi, safi, false),
+				peer->host, vrf ? vrf->name : VRF_DEFAULT_NAME);
+		}
 	}
 
 	/* Everything is done.  We unintern temporary structures which
