@@ -106,12 +106,16 @@ void ospf_route_delete(struct ospf *ospf, struct route_table *rt)
 
 	for (rn = route_top(rt); rn; rn = route_next(rn))
 		if ((or = rn->info) != NULL) {
-			if (or->type == OSPF_DESTINATION_NETWORK)
+			if (or->type == OSPF_DESTINATION_NETWORK){
+				zlog_debug("Zebra: Route delete %pFX",(struct prefix_ipv4 *)&rn->p);
 				ospf_zebra_delete(
 					ospf, (struct prefix_ipv4 *)&rn->p, or);
-			else if (or->type == OSPF_DESTINATION_DISCARD)
+			}
+			else if (or->type == OSPF_DESTINATION_DISCARD){
+				zlog_debug("Zebra: Route delete %pFX",(struct prefix_ipv4 *)&rn->p);
 				ospf_zebra_delete_discard(
 					ospf, (struct prefix_ipv4 *)&rn->p);
+			}
 		}
 }
 
