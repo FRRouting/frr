@@ -60,7 +60,8 @@ struct bfd_session_params {
 	bsp_status_update updatecb;
 	/** Protocol implementation custom data pointer. */
 	void *arg;
-
+	/* For multi-hop source auto */
+	bool src_auto;
 	/**
 	 * Next event.
 	 *
@@ -555,6 +556,11 @@ static bool bfd_sess_address_changed(const struct bfd_session_params *bsp,
 	return false;
 }
 
+void bfd_sess_set_src_addr_auto(struct bfd_session_params *bsp, bool enable)
+{
+	bsp->src_auto = enable;
+}
+
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 			     const struct in_addr *src,
 			     const struct in_addr *dst)
@@ -724,6 +730,11 @@ uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
 const char *bfd_sess_profile(const struct bfd_session_params *bsp)
 {
 	return bsp->args.profilelen ? bsp->args.profile : NULL;
+}
+
+bool bfd_sess_src_auto(const struct bfd_session_params *bsp)
+{
+	return bsp->src_auto;
 }
 
 void bfd_sess_addresses(const struct bfd_session_params *bsp, int *family,

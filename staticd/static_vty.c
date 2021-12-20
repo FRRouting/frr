@@ -583,7 +583,7 @@ DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
        "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
        "(1-255)$distance"
-       "|bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local>] [profile BFDPROF$bfd_profile]"
+       "|bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile]"
        "|group STRGRP$route_group"
        "}]",
        NO_STR
@@ -597,15 +597,18 @@ DEFPY_YANG (ip_mroute_dist,
        BFD_MULTI_HOP_STR
        BFD_INT_SOURCE_STR
        BFD_INT_SOURCE_ADDRV4_STR
+       BFD_INT_SOURCE_AUTO_STR
        BFD_PROFILE_STR
        BFD_PROFILE_NAME_STR
        STATIC_ROUTE_GROUP_STR
        STATIC_ROUTE_GROUP_NAME_STR)
 {
+	const char *src_str = local_str ? local_str : automatic;
+
 	return static_route(vty, AFI_IP, SAFI_MULTICAST, no, prefix_str, NULL,
 			    NULL, gate_str, ifname, NULL, NULL, distance_str,
 			    NULL, NULL, NULL, !!bfd, !!bfd_mhop, bfd_profile,
-			    route_group, local_str);
+			    route_group, src_str);
 }
 
 /* Static route configuration.  */
@@ -709,7 +712,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
       NO_STR IP_STR
@@ -735,6 +738,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -742,6 +746,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
+	const char *src_str = local_str ? local_str : automatic;
 
 	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
 		flag = "Null0";
@@ -759,7 +764,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, local_str);
+				 bfd_profile, route_group, src_str);
 }
 
 DEFPY_YANG(ip_route_address_interface_vrf,
@@ -776,7 +781,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
 	  }]",
       NO_STR IP_STR
@@ -801,6 +806,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -810,6 +816,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	const char *flag = NULL;
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
+	const char *src_str = local_str ? local_str : automatic;
 
 	vrf_dnode =
 		yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -832,7 +839,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, local_str);
+				 bfd_profile, route_group, src_str);
 }
 
 DEFPY_YANG(ip_route,
@@ -848,7 +855,7 @@ DEFPY_YANG(ip_route,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
       NO_STR IP_STR
@@ -873,6 +880,7 @@ DEFPY_YANG(ip_route,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -880,6 +888,7 @@ DEFPY_YANG(ip_route,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
+	const char *src_str = local_str ? local_str : automatic;
 
 	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
 		flag = "Null0";
@@ -898,7 +907,7 @@ DEFPY_YANG(ip_route,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str, false,
 				 color_str, !!bfd, !!bfd_mhop, bfd_profile,
-				 route_group, local_str);
+				 route_group, src_str);
 }
 
 DEFPY_YANG(ip_route_vrf,
@@ -913,7 +922,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
       NO_STR IP_STR
@@ -937,6 +946,7 @@ DEFPY_YANG(ip_route_vrf,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -946,6 +956,7 @@ DEFPY_YANG(ip_route_vrf,
 	const char *flag = NULL;
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
+	const char *src_str = local_str ? local_str : automatic;
 
 	vrf_dnode =
 		yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -969,7 +980,7 @@ DEFPY_YANG(ip_route_vrf,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str, false,
 				 color_str, !!bfd, !!bfd_mhop, bfd_profile,
-				 route_group, local_str);
+				 route_group, src_str);
 }
 
 DEFPY_YANG(ipv6_route_blackhole,
@@ -1074,7 +1085,7 @@ DEFPY_YANG(ipv6_route_address_interface,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1101,6 +1112,7 @@ DEFPY_YANG(ipv6_route_address_interface,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1108,6 +1120,7 @@ DEFPY_YANG(ipv6_route_address_interface,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
+	const char *src_str = local_str ? local_str : automatic;
 
 	if (ifname && !strncasecmp(ifname, "Null0", 5)) {
 		flag = "Null0";
@@ -1126,7 +1139,7 @@ DEFPY_YANG(ipv6_route_address_interface,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, local_str);
+				 bfd_profile, route_group, src_str);
 }
 
 DEFPY_YANG(ipv6_route_address_interface_vrf,
@@ -1142,7 +1155,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1168,6 +1181,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1177,6 +1191,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	const char *flag = NULL;
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
+	const char *src_str = local_str ? local_str : automatic;
 
 	vrf_dnode =
 		yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -1199,7 +1214,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 		NULL, from_str, gate_str, ifname, flag, tag_str, distance_str,
 		label, table_str, !!onlink, color_str, !!bfd, !!bfd_mhop,
-		bfd_profile, route_group, local_str);
+		bfd_profile, route_group, src_str);
 }
 
 DEFPY_YANG(ipv6_route,
@@ -1214,7 +1229,7 @@ DEFPY_YANG(ipv6_route,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
             |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1240,6 +1255,7 @@ DEFPY_YANG(ipv6_route,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1247,6 +1263,7 @@ DEFPY_YANG(ipv6_route,
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
+	const char *src_str = local_str ? local_str : automatic;
 
 	if (!vrf)
 		vrf = VRF_DEFAULT_NAME;
@@ -1264,7 +1281,7 @@ DEFPY_YANG(ipv6_route,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
 				 false, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, local_str);
+				 bfd_profile, route_group, src_str);
 }
 
 DEFPY_YANG(ipv6_route_vrf,
@@ -1278,7 +1295,7 @@ DEFPY_YANG(ipv6_route_vrf,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
 	    |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1303,6 +1320,7 @@ DEFPY_YANG(ipv6_route_vrf,
       BFD_MULTI_HOP_STR
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
+      BFD_INT_SOURCE_AUTO_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1312,6 +1330,7 @@ DEFPY_YANG(ipv6_route_vrf,
 	const char *flag = NULL;
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
+	const char *src_str = local_str ? local_str : automatic;
 
 	vrf_dnode =
 		yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
@@ -1334,7 +1353,7 @@ DEFPY_YANG(ipv6_route_vrf,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, local_str);
+				 bfd_profile, route_group, src_str);
 }
 
 DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,

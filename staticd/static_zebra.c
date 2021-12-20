@@ -153,6 +153,8 @@ struct static_nht_data {
 
 	uint32_t refcount;
 	uint8_t nh_num;
+	/* first index available */
+	ifindex_t oif_idx;
 };
 
 /* API to check whether the configured nexthop address is
@@ -174,11 +176,43 @@ static_nexthop_is_local(vrf_id_t vrfid, struct prefix *addr, int family)
 	}
 	return false;
 }
+
+static ifindex_t static_zebra_get_ifindex(struct zapi_route *nhr)
+{
+	int i;
+	ifindex_t idx = IFINDEX_INTERNAL;
+
+	for (i = 0; i < nhr->nexthop_num; i++) {
+		idx = nhr->nexthops[i].ifindex;
+		if (idx)
+			break;
+	}
+	return idx;
+}
+
+struct interface *static_zebra_get_interface(const struct prefix *p,
+					     vrf_id_t vrf_id)
+{
+	struct static_nht_data *nhtd, lookup = {};
+	struct connected *ifc;
+
+	lookup.nh = (struct prefix *)p;
+	lookup.nh_vrf_id = vrf_id;
+	nhtd = hash_lookup(static_nht_hash, &lookup);
+	if (nhtd)
+		return if_lookup_by_index(nhtd->oif_idx, vrf_id);
+	ifc = if_lookup_address((const void *)&p->u.prefix, p->family, vrf_id);
+	if (ifc)
+		return ifc->ifp;
+	return NULL;
+}
+
 static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct static_nht_data *nhtd, lookup;
 	struct zapi_route nhr;
 	afi_t afi = AFI_IP;
+	ifindex_t oif_idx;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
 		zlog_err("Failure to decode nexthop update message");
@@ -202,8 +236,13 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
-
+		oif_idx = static_zebra_get_ifindex(&nhr);
 		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
+		if (oif_idx != nhtd->oif_idx) {
+			nhtd->oif_idx = oif_idx;
+			static_bfd_source_update(nhtd->oif_idx, &nhr.prefix,
+						 nhtd->nh_vrf_id);
+		}
 		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
 	} else
@@ -249,6 +288,7 @@ static void *static_nht_hash_alloc(void *data)
 	new->refcount = 0;
 	new->nh_num = 0;
 	new->nh_vrf_id = copy->nh_vrf_id;
+	new->oif_idx = IFINDEX_INTERNAL;
 
 	return new;
 }
@@ -268,6 +308,7 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 	uint32_t cmd;
 	struct prefix p;
 	afi_t afi = AFI_IP;
+	ifindex_t idx = IFINDEX_INTERNAL;
 
 	cmd = (reg) ?
 		ZEBRA_NEXTHOP_REGISTER : ZEBRA_NEXTHOP_UNREGISTER;
@@ -289,6 +330,7 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 		p.prefixlen = IPV4_MAX_BITLEN;
 		p.u.prefix4 = nh->addr.ipv4;
 		afi = AFI_IP;
+		idx = nh->ifindex;
 		break;
 	case STATIC_IPV6_GATEWAY:
 	case STATIC_IPV6_GATEWAY_IFNAME:
@@ -296,6 +338,7 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 		p.prefixlen = IPV6_MAX_BITLEN;
 		p.u.prefix6 = nh->addr.ipv6;
 		afi = AFI_IP6;
+		idx = nh->ifindex;
 		break;
 	}
 
@@ -309,7 +352,7 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 		nhtd = hash_get(static_nht_hash, &lookup,
 				static_nht_hash_alloc);
 		nhtd->refcount++;
-
+		nhtd->oif_idx = idx;
 		DEBUGD(&static_dbg_route,
 		       "Registered nexthop(%pFX) for %pRN %d", &p, rn,
 		       nhtd->nh_num);
