@@ -601,8 +601,7 @@ vector completions_to_vec(struct list *completions)
  * @param status pointer to matcher status code
  * @return vector of struct cmd_token * with possible completions
  */
-static vector cmd_complete_command_real(vector vline, struct vty *vty,
-					int *status)
+vector cmd_complete_command_real(vector vline, struct vty *vty, int *status)
 {
 	struct list *completions;
 	struct graph *cmdgraph = cmd_node_graph(cmdvec, vty->node);

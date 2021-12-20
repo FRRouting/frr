@@ -468,7 +468,7 @@ static void vtysh_client_config(struct vtysh_client *head_client, char *line)
 /* Command execution over the vty interface. */
 static int vtysh_execute_func(const char *line, int pager)
 {
-	int ret, cmd_stat;
+	int ret, cmd_stat, matched = CMD_ERR_NO_MATCH;
 	unsigned int i;
 	vector vline;
 	const struct cmd_element *cmd;
@@ -496,13 +496,15 @@ static int vtysh_execute_func(const char *line, int pager)
 	 * tree. Changing vty->node is enough to try it just out without actual
 	 * walkup in the vtysh.
 	 */
-	while (ret != CMD_SUCCESS && ret != CMD_SUCCESS_DAEMON
-	       && ret != CMD_WARNING && ret != CMD_WARNING_CONFIG_FAILED
-	       && ret != CMD_ERR_AMBIGUOUS && ret != CMD_ERR_INCOMPLETE
-	       && vty->node > CONFIG_NODE) {
-		vty->node = node_parent(vty->node);
-		ret = cmd_execute(vty, line, &cmd, 1);
-		tried++;
+	if (ret == CMD_ERR_NO_MATCH) {
+		while ((matched != CMD_COMPLETE_FULL_MATCH
+			|| matched != CMD_COMPLETE_LIST_MATCH
+			|| matched != CMD_COMPLETE_MATCH)
+		       && vty->node > CONFIG_NODE) {
+			vty->node = node_parent(vty->node);
+			cmd_complete_command_real(vline, vty, &matched);
+			tried++;
+		}
 	}
 
 	vty->node = saved_node;
@@ -511,10 +513,12 @@ static int vtysh_execute_func(const char *line, int pager)
 	 * If command succeeded in any other node than current (tried > 0) we
 	 * have to move into node in the vtysh where it succeeded.
 	 */
-	if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
-	    || ret == CMD_WARNING) {
+	if (matched == CMD_COMPLETE_FULL_MATCH
+	    || matched == CMD_COMPLETE_LIST_MATCH
+	    || matched == CMD_COMPLETE_MATCH) {
 		while (tried-- > 0)
 			vtysh_execute("exit");
+		ret = cmd_execute(vty, line, &cmd, 1);
 	}
 	/*
 	 * If command didn't succeed in any node, continue with return value
