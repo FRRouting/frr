@@ -632,6 +632,33 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	newattr = new->attr;
 	existattr = exist->attr;
 
+	/* A BGP speaker that has advertised the "Long-lived Graceful Restart
+	 * Capability" to a neighbor MUST perform the following upon receiving
+	 * a route from that neighbor with the "LLGR_STALE" community, or upon
+	 * attaching the "LLGR_STALE" community itself per Section 4.2:
+	 *
+	 * Treat the route as the least-preferred in route selection (see
+	 * below). See the Risks of Depreferencing Routes section (Section 5.2)
+	 * for a discussion of potential risks inherent in doing this.
+	 */
+	if (newattr->community &&
+	    community_include(newattr->community, COMMUNITY_LLGR_STALE)) {
+		if (debug)
+			zlog_debug(
+				"%s: %s wins over %s due to LLGR_STALE community",
+				pfx_buf, new_buf, exist_buf);
+		return 0;
+	}
+
+	if (existattr->community &&
+	    community_include(existattr->community, COMMUNITY_LLGR_STALE)) {
+		if (debug)
+			zlog_debug(
+				"%s: %s loses to %s due to LLGR_STALE community",
+				pfx_buf, new_buf, exist_buf);
+		return 1;
+	}
+
 	new_p = bgp_dest_get_prefix(new->net);
 
 	/* For EVPN routes, we cannot just go by local vs remote, we have to
@@ -1708,6 +1735,36 @@ static void bgp_peer_as_override(struct bgp *bgp, afi_t afi, safi_t safi,
 	}
 }
 
+void bgp_attr_add_llgr_community(struct attr *attr)
+{
+	struct community *old;
+	struct community *new;
+	struct community *merge;
+	struct community *llgr;
+
+	old = attr->community;
+	llgr = community_str2com("llgr-stale");
+
+	assert(llgr);
+
+	if (old) {
+		merge = community_merge(community_dup(old), llgr);
+
+		if (old->refcnt == 0)
+			community_free(&old);
+
+		new = community_uniq_sort(merge);
+		community_free(&merge);
+	} else {
+		new = community_dup(llgr);
+	}
+
+	community_free(&llgr);
+
+	attr->community = new;
+	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
+}
+
 void bgp_attr_add_gshut_community(struct attr *attr)
 {
 	struct community *old;
@@ -2182,6 +2239,20 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			bgp_attr_add_gshut_community(attr);
 		}
 	}
+
+	/* A BGP speaker that has advertised the "Long-lived Graceful Restart
+	 * Capability" to a neighbor MUST perform the following upon receiving
+	 * a route from that neighbor with the "LLGR_STALE" community, or upon
+	 * attaching the "LLGR_STALE" community itself per Section 4.2:
+	 *
+	 * The route SHOULD NOT be advertised to any neighbor from which the
+	 * Long-lived Graceful Restart Capability has not been received.
+	 */
+	if (attr->community &&
+	    community_include(attr->community, COMMUNITY_LLGR_STALE) &&
+	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV) &&
+	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_ADV))
+		return false;
 
 	/* After route-map has been applied, we check to see if the nexthop to
 	 * be carried in the attribute (that is used for the announcement) can
@@ -5269,6 +5340,11 @@ void bgp_clear_adj_in(struct peer *peer, afi_t afi, safi_t safi)
 	}
 }
 
+/* If any of the routes from the peer have been marked with the NO_LLGR
+ * community, either as sent by the peer, or as the result of a configured
+ * policy, they MUST NOT be retained, but MUST be removed as per the normal
+ * operation of [RFC4271].
+ */
 void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 {
 	struct bgp_dest *dest;
@@ -5291,6 +5367,14 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 				     pi = pi->next) {
 					if (pi->peer != peer)
 						continue;
+					if (CHECK_FLAG(
+						    peer->af_sflags[afi][safi],
+						    PEER_STATUS_LLGR_WAIT) &&
+					    pi->attr->community &&
+					    !community_include(
+						    pi->attr->community,
+						    COMMUNITY_NO_LLGR))
+						break;
 					if (!CHECK_FLAG(pi->flags,
 							BGP_PATH_STALE))
 						break;
@@ -5306,6 +5390,12 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 			     pi = pi->next) {
 				if (pi->peer != peer)
 					continue;
+				if (CHECK_FLAG(peer->af_sflags[afi][safi],
+					       PEER_STATUS_LLGR_WAIT) &&
+				    pi->attr->community &&
+				    !community_include(pi->attr->community,
+						       COMMUNITY_NO_LLGR))
+					break;
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_STALE))
 					break;
 				bgp_rib_remove(dest, pi, peer, afi, safi);
@@ -11412,7 +11502,7 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			", attach RT as-is for VPNv6 route filtering");
 		else if (llgr_stale)
 			vty_out(vty,
-			", mark routes to be retained for a longer time. Requeres support for Long-lived BGP Graceful Restart");
+				", mark routes to be retained for a longer time. Requires support for Long-lived BGP Graceful Restart");
 		else if (no_llgr)
 			vty_out(vty,
 			", mark routes to not be treated according to Long-lived BGP Graceful Restart operations");
