@@ -4590,7 +4590,7 @@ int zebra_vxlan_svi_down(struct interface *ifp, struct interface *link_if)
  * SVI can be associated to L3-VNI (l3vni vxlan interface) or L2-VNI (l2-vni
  * vxlan intf).
  * For L2-VNI: we need to install any remote neighbors entried (used for
- * apr-suppression)
+ * arp-suppression)
  * For L3-VNI: SVI will be used to get the rmac to be used with L3-VNI
  */
 int zebra_vxlan_svi_up(struct interface *ifp, struct interface *link_if)
