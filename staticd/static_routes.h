@@ -324,7 +324,7 @@ extern void static_bfd_initialize(struct zclient *zc, struct thread_master *tm);
 
 /* call this function on nexthop tracking for src auto mode */
 void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp,
-			      vrf_id_t vrf_id);
+			      vrf_id_t vrf_id, bool connected);
 extern void static_bfd_show(struct vty *vty, bool isjson);
 
 #endif

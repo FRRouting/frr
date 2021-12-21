@@ -176,6 +176,9 @@ void static_next_hop_bfd_monitor_destroy(struct static_nexthop *sn)
 void static_next_hop_bfd_hop(struct static_nexthop *sn,
 		const struct lyd_node *dnode, bool upper_node)
 {
+	struct prefix src_p = {};
+	bool connected;
+	bool autohop;
 	bool onlink;
 	bool mhop;
 
@@ -187,16 +190,32 @@ void static_next_hop_bfd_hop(struct static_nexthop *sn,
 			 && yang_dnode_get_bool(dnode, "../../onlink");
 		mhop = yang_dnode_exists(dnode, "../multi-hop")
 			&& yang_dnode_get_bool(dnode, "../multi-hop");
+		autohop = yang_dnode_exists(dnode, "../auto-hop")
+			&& yang_dnode_get_bool(dnode, "../auto-hop");
 
 	} else {
 		onlink = yang_dnode_exists(dnode, "../onlink")
 			 && yang_dnode_get_bool(dnode, "../onlink");
 		mhop = yang_dnode_exists(dnode, "./multi-hop")
 			&& yang_dnode_get_bool(dnode, "./multi-hop");
+		autohop = yang_dnode_exists(dnode, "./auto-hop")
+			&& yang_dnode_get_bool(dnode, "./auto-hop");
 	}
 
-	bfd_sess_set_hop_count(sn->bsp, (!onlink && mhop) ?
-			BFD_MULTI_HOP_MAX_HOP_COUNT : BFD_SINGLE_HOP_COUNT);
+	bfd_sess_set_bfd_autohop(sn->bsp, autohop);
+
+	if (autohop) {
+		if (static_bfd_build_prefix_from_sn(sn, &src_p) < 0)
+			return;
+		connected = static_zebra_prefix_is_connected((const struct prefix *)&src_p,
+							     sn->nh_vrf_id);
+		bfd_sess_set_hop_count(sn->bsp,
+					 connected ? BFD_SINGLE_HOP_COUNT
+					 : BFD_MULTI_HOP_MAX_HOP_COUNT);
+	} else {
+		bfd_sess_set_hop_count(sn->bsp, (!onlink && mhop) ?
+				BFD_MULTI_HOP_MAX_HOP_COUNT : BFD_SINGLE_HOP_COUNT);
+	}
 	if (upper_node)
 		bfd_sess_install(sn->bsp);
 }
@@ -237,6 +256,7 @@ void static_next_hop_bfd_source(struct static_nexthop *sn,
 	struct interface *ifp;
 	bool auto_src;
 	bool source;
+	uint8_t ttl;
 
 	if (sn->bsp == NULL)
 		return;
@@ -251,10 +271,11 @@ void static_next_hop_bfd_source(struct static_nexthop *sn,
 
 	auto_src = source &&
 			strcmp(yang_dnode_get_string(dnode, src_str), "auto") == 0;
+	ttl = bfd_sess_hop_count(sn->bsp);
 
 	bfd_sess_set_src_addr_auto(sn->bsp, auto_src);
 
-	if (auto_src) {
+	if (auto_src || (!source && ttl > BFD_SINGLE_HOP_COUNT)) {
 		if (static_bfd_build_prefix_from_sn(sn, &p_dst) < 0)
 			return;
 		/* XXX vrf route leak case */
@@ -967,7 +988,8 @@ static void static_bfd_source_update_from_ifindex(struct static_nexthop *nh, int
 	bfd_sess_install(nh->bsp);
 }
 
-void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp, vrf_id_t vrf_id)
+void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp,
+		       vrf_id_t vrf_id, bool connected)
 {
 	struct route_table *stable;
 	struct static_route_info *si;
@@ -1007,7 +1029,8 @@ void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp, vrf_id_t vrf
 				if (!nh->bsp)
 					continue;
 
-				if (!bfd_sess_src_auto(nh->bsp))
+				if (!bfd_sess_src_auto(nh->bsp)
+				    && !bfd_sess_bfd_autohop(nh->bsp))
 					continue;
 
 				if (nh->nh_vrf_id != vrf_id)
@@ -1040,6 +1063,10 @@ void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp, vrf_id_t vrf
 				if (oif_idx == IFINDEX_INTERNAL)
 					continue;
 
+				if (bfd_sess_bfd_autohop(nh->bsp))
+					bfd_sess_set_hop_count(nh->bsp,
+								 connected ? BFD_SINGLE_HOP_COUNT
+								 : BFD_MULTI_HOP_MAX_HOP_COUNT);
 				static_bfd_source_update_from_ifindex(nh, dp->family, oif_idx, vrf_id);
 			}
 		}

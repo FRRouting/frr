@@ -120,6 +120,7 @@ int route_group_bfd_interface_destroy(struct nb_cb_destroy_args *args);
 int route_group_bfd_profile_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int route_group_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
+int route_group_bfd_auto_hop_modify(struct nb_cb_modify_args *args);
 
 void static_route_group_show(struct vty *vty, struct lyd_node *dnode,
 			     bool show_def);

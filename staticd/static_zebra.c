@@ -155,6 +155,7 @@ struct static_nht_data {
 	uint8_t nh_num;
 	/* first index available */
 	ifindex_t oif_idx;
+	bool connected;
 };
 
 /* API to check whether the configured nexthop address is
@@ -190,15 +191,23 @@ static ifindex_t static_zebra_get_ifindex(struct zapi_route *nhr)
 	return idx;
 }
 
-struct interface *static_zebra_get_interface(const struct prefix *p,
-					     vrf_id_t vrf_id)
+static struct static_nht_data *static_zebra_get_nht_data(const struct prefix *p,
+							 vrf_id_t vrf_id)
 {
-	struct static_nht_data *nhtd, lookup = {};
-	struct connected *ifc;
+	struct static_nht_data lookup = {};
 
 	lookup.nh = (struct prefix *)p;
 	lookup.nh_vrf_id = vrf_id;
-	nhtd = hash_lookup(static_nht_hash, &lookup);
+	return hash_lookup(static_nht_hash, &lookup);
+}
+
+struct interface *static_zebra_get_interface(const struct prefix *p,
+					     vrf_id_t vrf_id)
+{
+	struct static_nht_data *nhtd;
+	struct connected *ifc;
+
+	nhtd = static_zebra_get_nht_data(p, vrf_id);
 	if (nhtd)
 		return if_lookup_by_index(nhtd->oif_idx, vrf_id);
 	ifc = if_lookup_address((const void *)&p->u.prefix, p->family, vrf_id);
@@ -207,12 +216,32 @@ struct interface *static_zebra_get_interface(const struct prefix *p,
 	return NULL;
 }
 
+/* API to know if a prefix is directly connected or not
+ * return true if prefix is found if nht entries and is connected
+ * or in interface connected addresses
+ * return false in other cases
+ */
+bool static_zebra_prefix_is_connected(const struct prefix *p, vrf_id_t vrf_id)
+{
+	struct static_nht_data *nhtd;
+	struct connected *ifc;
+
+	nhtd = static_zebra_get_nht_data(p, vrf_id);
+	if (nhtd)
+		return nhtd->connected;
+	ifc = if_lookup_address((const void *)&p->u.prefix, p->family, vrf_id);
+	if (ifc)
+		return true;
+	return false;
+}
+
 static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 {
 	struct static_nht_data *nhtd, lookup;
 	struct zapi_route nhr;
 	afi_t afi = AFI_IP;
 	ifindex_t oif_idx;
+	bool connected = false;
 
 	if (!zapi_nexthop_update_decode(zclient->ibuf, &nhr)) {
 		zlog_err("Failure to decode nexthop update message");
@@ -237,11 +266,16 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 	if (nhtd) {
 		nhtd->nh_num = nhr.nexthop_num;
 		oif_idx = static_zebra_get_ifindex(&nhr);
+		if (oif_idx != IFINDEX_INTERNAL
+		    && nhr.type == ZEBRA_ROUTE_CONNECT)
+			connected = true;
+
 		static_nht_reset_start(&nhr.prefix, afi, nhtd->nh_vrf_id);
 		if (oif_idx != nhtd->oif_idx) {
 			nhtd->oif_idx = oif_idx;
+			nhtd->connected = connected;
 			static_bfd_source_update(nhtd->oif_idx, &nhr.prefix,
-						 nhtd->nh_vrf_id);
+						 nhtd->nh_vrf_id, connected);
 		}
 		static_nht_update(NULL, &nhr.prefix, nhr.nexthop_num, afi,
 				  nhtd->nh_vrf_id);
@@ -289,6 +323,7 @@ static void *static_nht_hash_alloc(void *data)
 	new->nh_num = 0;
 	new->nh_vrf_id = copy->nh_vrf_id;
 	new->oif_idx = IFINDEX_INTERNAL;
+	new->connected = true;
 
 	return new;
 }
@@ -353,6 +388,7 @@ void static_zebra_nht_register(struct route_node *rn, struct static_nexthop *nh,
 				static_nht_hash_alloc);
 		nhtd->refcount++;
 		nhtd->oif_idx = idx;
+		nhtd->connected = true;
 		DEBUGD(&static_dbg_route,
 		       "Registered nexthop(%pFX) for %pRN %d", &p, rn,
 		       nhtd->nh_num);

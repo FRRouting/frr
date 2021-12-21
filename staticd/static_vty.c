@@ -53,7 +53,7 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 			     const char *table_str, bool onlink,
 			     const char *color_str, bool bfd, bool bfd_mhop,
 			     const char *bfd_profile, const char *route_group,
-			     const char *bfd_local_address)
+			     const char *bfd_local_address, bool bfd_autohop)
 {
 	int ret;
 	struct prefix p, src;
@@ -354,6 +354,14 @@ static int static_route_leak(struct vty *vty, const char *svrf,
 				bfd_local_address ? NB_OP_MODIFY
 						  : NB_OP_DESTROY,
 				bfd_local_address ? bfd_local_address : NULL);
+
+			/* bfd auto-mode */
+			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
+			strlcat(xpath_bfd,
+				"/frr-staticd:bfd-monitoring/auto-hop",
+				sizeof(xpath_bfd));
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_MODIFY,
+					      bfd_autohop ? "true" : "false");
 		} else if (!src_str) {
 			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
 			strlcat(xpath_bfd, "/frr-staticd:bfd-monitoring",
@@ -425,7 +433,8 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 			const char *distance_str, const char *vrf_name,
 			const char *label_str, const char *table_str, bool bfd,
 			bool bfd_mhop, const char *bfd_profile,
-			const char *route_group, const char *local_address)
+			const char *route_group, const char *local_address,
+			bool bfd_autohop)
 {
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
@@ -434,7 +443,7 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 				 dest_str, mask_str, src_str, gate_str, ifname,
 				 flag_str, tag_str, distance_str, label_str,
 				 table_str, false, NULL, bfd, bfd_mhop,
-				 bfd_profile, route_group, local_address);
+				 bfd_profile, route_group, local_address, bfd_autohop);
 }
 
 /* Write static route configuration. */
@@ -554,10 +563,11 @@ int static_config(struct vty *vty, struct static_vrf *svrf, afi_t afi,
 
 				if (nh->bsp) {
 					vty_out(vty, " bfd");
-					if (bfd_sess_minimum_ttl(
-						    nh->bsp)
-					    != BFD_SINGLE_HOP_TTL)
+					if (!bfd_sess_bfd_autohop(nh->bsp) &&
+							bfd_sess_minimum_ttl(nh->bsp) != BFD_SINGLE_HOP_TTL)
 						vty_out(vty, " multi-hop");
+					if (bfd_sess_bfd_autohop(nh->bsp))
+						vty_out(vty, " auto-hop");
 					if (bfd_sess_profile(nh->bsp))
 						vty_out(vty, " profile %s",
 							bfd_sess_profile(
@@ -583,7 +593,7 @@ DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
        "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
        "(1-255)$distance"
-       "|bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile]"
+       "|bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile]"
        "|group STRGRP$route_group"
        "}]",
        NO_STR
@@ -598,6 +608,7 @@ DEFPY_YANG (ip_mroute_dist,
        BFD_INT_SOURCE_STR
        BFD_INT_SOURCE_ADDRV4_STR
        BFD_INT_SOURCE_AUTO_STR
+	   BFD_AUTOHOP_MODE_STR
        BFD_PROFILE_STR
        BFD_PROFILE_NAME_STR
        STATIC_ROUTE_GROUP_STR
@@ -608,7 +619,7 @@ DEFPY_YANG (ip_mroute_dist,
 	return static_route(vty, AFI_IP, SAFI_MULTICAST, no, prefix_str, NULL,
 			    NULL, gate_str, ifname, NULL, NULL, distance_str,
 			    NULL, NULL, NULL, !!bfd, !!bfd_mhop, bfd_profile,
-			    route_group, src_str);
+			    route_group, src_str, !!bfdauto);
 }
 
 /* Static route configuration.  */
@@ -645,7 +656,7 @@ DEFPY_YANG(ip_route_blackhole,
 	return static_route(vty, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 			    NULL, NULL, NULL, flag, tag_str, distance_str, vrf,
 			    label, table_str, false, false, NULL, route_group,
-			    NULL);
+			    NULL, false);
 }
 
 DEFPY_YANG(ip_route_blackhole_vrf,
@@ -695,7 +706,7 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	return static_route_leak(vty, vrfname, vrfname, AFI_IP, SAFI_UNICAST,
 				 no, prefix, mask_str, NULL, NULL, NULL, flag,
 				 tag_str, distance_str, label, table_str, false,
-				 NULL, false, false, NULL, route_group, NULL);
+				 NULL, false, false, NULL, route_group, NULL, false);
 }
 
 DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
@@ -712,7 +723,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
       NO_STR IP_STR
@@ -739,6 +750,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -764,7 +776,7 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str);
+				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ip_route_address_interface_vrf,
@@ -781,7 +793,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
 	  }]",
       NO_STR IP_STR
@@ -807,6 +819,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -839,7 +852,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str);
+				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ip_route,
@@ -855,7 +868,7 @@ DEFPY_YANG(ip_route,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
       NO_STR IP_STR
@@ -881,6 +894,7 @@ DEFPY_YANG(ip_route,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -907,7 +921,7 @@ DEFPY_YANG(ip_route,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str, false,
 				 color_str, !!bfd, !!bfd_mhop, bfd_profile,
-				 route_group, src_str);
+				 route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ip_route_vrf,
@@ -922,7 +936,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
-          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+          |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
       NO_STR IP_STR
@@ -947,6 +961,7 @@ DEFPY_YANG(ip_route_vrf,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV4_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -980,7 +995,7 @@ DEFPY_YANG(ip_route_vrf,
 				 prefix, mask_str, NULL, gate_str, ifname, flag,
 				 tag_str, distance_str, label, table_str, false,
 				 color_str, !!bfd, !!bfd_mhop, bfd_profile,
-				 route_group, src_str);
+				 route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route_blackhole,
@@ -1016,7 +1031,7 @@ DEFPY_YANG(ipv6_route_blackhole,
 	return static_route(vty, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 			    from_str, NULL, NULL, flag, tag_str, distance_str,
 			    vrf, label, table_str, false, false, NULL,
-			    route_group, NULL);
+			    route_group, NULL, false);
 }
 
 DEFPY_YANG(ipv6_route_blackhole_vrf,
@@ -1068,7 +1083,8 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	return static_route_leak(
 		vty, vrfname, vrfname, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 		NULL, from_str, NULL, NULL, flag, tag_str, distance_str, label,
-		table_str, false, NULL, false, false, NULL, route_group, NULL);
+		table_str, false, NULL, false, false, NULL, route_group, NULL,
+		false);
 }
 
 DEFPY_YANG(ipv6_route_address_interface,
@@ -1085,7 +1101,7 @@ DEFPY_YANG(ipv6_route_address_interface,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1113,6 +1129,7 @@ DEFPY_YANG(ipv6_route_address_interface,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1139,7 +1156,7 @@ DEFPY_YANG(ipv6_route_address_interface,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
 				 !!onlink, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str);
+				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route_address_interface_vrf,
@@ -1155,7 +1172,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1182,6 +1199,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1214,7 +1232,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		vty, vrfname, nh_vrf, AFI_IP6, SAFI_UNICAST, no, prefix_str,
 		NULL, from_str, gate_str, ifname, flag, tag_str, distance_str,
 		label, table_str, !!onlink, color_str, !!bfd, !!bfd_mhop,
-		bfd_profile, route_group, src_str);
+		bfd_profile, route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route,
@@ -1229,7 +1247,7 @@ DEFPY_YANG(ipv6_route,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
             |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1256,6 +1274,7 @@ DEFPY_YANG(ipv6_route,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1281,7 +1300,7 @@ DEFPY_YANG(ipv6_route,
 				 prefix_str, NULL, from_str, gate_str, ifname,
 				 flag, tag_str, distance_str, label, table_str,
 				 false, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str);
+				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(ipv6_route_vrf,
@@ -1295,7 +1314,7 @@ DEFPY_YANG(ipv6_route_vrf,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
 	    |color (1-4294967295)                          \
-            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>] [profile BFDPROF$bfd_profile] \
+            |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
       NO_STR
@@ -1321,6 +1340,7 @@ DEFPY_YANG(ipv6_route_vrf,
       BFD_INT_SOURCE_STR
       BFD_INT_SOURCE_ADDRV6_STR
       BFD_INT_SOURCE_AUTO_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       STATIC_ROUTE_GROUP_STR
@@ -1353,7 +1373,7 @@ DEFPY_YANG(ipv6_route_vrf,
 				 no, prefix_str, NULL, from_str, gate_str,
 				 ifname, flag, tag_str, distance_str, label,
 				 table_str, false, color_str, !!bfd, !!bfd_mhop,
-				 bfd_profile, route_group, src_str);
+				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
 DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,

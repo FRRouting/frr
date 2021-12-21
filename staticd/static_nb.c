@@ -134,6 +134,13 @@ const struct frr_yang_module_info frr_staticd_info = {
 			}
 		},
 		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/auto-hop",
+			.cbs = {
+				.modify = route_next_hop_bfd_hop_modify,
+				.destroy = route_next_hop_bfd_hop_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/group",
 			.cbs = {
 				.modify = route_next_hop_bfd_group_modify,
@@ -261,6 +268,12 @@ const struct frr_yang_module_info frr_staticd_info = {
 			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/multi-hop",
 			.cbs = {
 				.modify = route_group_bfd_multi_hop_modify,
+			}
+		},
+		{
+			.xpath = "/frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/auto-hop",
+			.cbs = {
+				.modify = route_group_bfd_auto_hop_modify,
 			}
 		},
 		{

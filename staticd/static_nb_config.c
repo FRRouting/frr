@@ -888,6 +888,7 @@ int route_next_hop_bfd_destroy(struct nb_cb_destroy_args *args)
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/multi-hop
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/auto-hop
  */
 int route_next_hop_bfd_hop_modify(struct nb_cb_modify_args *args)
 {
@@ -1555,6 +1556,16 @@ int route_group_bfd_multi_hop_modify(struct nb_cb_modify_args *args)
 	static_route_group_bfd_multi_hop(
 		srg, yang_dnode_get_bool(args->dnode, NULL));
 
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-group/bfd-monitoring/auto-hop
+ */
+int route_group_bfd_auto_hop_modify(struct nb_cb_modify_args *args)
+{
+	/* XXX */
 	return NB_OK;
 }
 
