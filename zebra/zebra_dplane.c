@@ -2448,6 +2448,8 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			ret = ENOENT;
 			goto done;
 		}
+
+		re->nhe_installed_id = nhe->id;
 	}
 #endif /* HAVE_NETLINK */
 
