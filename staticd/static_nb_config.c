@@ -1048,9 +1048,43 @@ int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args)
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
+	if (yang_dnode_exists(args->dnode, "../auto-hop") &&
+	    yang_dnode_get_bool(args->dnode, "../auto-hop") &&
+	    yang_dnode_get_bool(args->dnode, NULL))
+		/* both params can not be used at the same time */
+		return NB_ERR;
+
 	sn = nb_running_get_entry(args->dnode, NULL, true);
 	static_next_hop_bfd_multi_hop(sn,
 				      yang_dnode_get_bool(args->dnode, NULL));
+
+	return NB_OK;
+}
+
+/*
+ * XPath:
+ * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-staticd:staticd/route-list/path-list/frr-nexthops/nexthop/bfd-monitoring/auto-hop
+ */
+int route_next_hop_bfd_auto_hop_modify(struct nb_cb_modify_args *args)
+{
+	struct static_nexthop *sn;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	if (yang_dnode_exists(args->dnode, "../multi-hop") &&
+	    yang_dnode_get_bool(args->dnode, "../multi-hop") &&
+	    yang_dnode_get_bool(args->dnode, NULL))
+		/* both params can not be used at the same time */
+		return NB_ERR;
+
+	sn = nb_running_get_entry(args->dnode, NULL, true);
+	static_next_hop_bfd_auto_hop(sn,
+				     yang_dnode_get_bool(args->dnode, NULL),
+				     yang_dnode_exists(args->dnode, "../onlink") &&
+				     yang_dnode_get_bool(args->dnode, "../onlink"),
+				     yang_dnode_exists(args->dnode, "../multi-hop") &&
+				     yang_dnode_get_bool(args->dnode, "../multi-hop"));
 
 	return NB_OK;
 }

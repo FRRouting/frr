@@ -262,9 +262,15 @@ extern void static_next_hop_bfd_monitor_disable(struct static_nexthop *sn);
 extern void static_next_hop_bfd_profile(struct static_nexthop *sn,
 					const char *name);
 extern void static_next_hop_bfd_multi_hop(struct static_nexthop *sn, bool mhop);
+extern void static_next_hop_bfd_auto_hop(struct static_nexthop *sn, bool autohop,
+					 bool onlink, bool mhop);
 
 /** Call this function after zebra client initialization. */
 extern void static_bfd_initialize(struct zclient *zc, struct event_loop *tm);
+
+/* call this function on nexthop tracking for src auto mode */
+void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp,
+			      vrf_id_t vrf_id, bool connected);
 
 extern void static_bfd_show(struct vty *vty, bool isjson);
 

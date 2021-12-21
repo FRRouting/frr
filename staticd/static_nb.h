@@ -74,6 +74,7 @@ int route_next_hop_bfd_source_destroy(struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_profile_modify(struct nb_cb_modify_args *args);
 int route_next_hop_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int route_next_hop_bfd_multi_hop_modify(struct nb_cb_modify_args *args);
+int route_next_hop_bfd_auto_hop_modify(struct nb_cb_modify_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_create(
 	struct nb_cb_create_args *args);
 int routing_control_plane_protocols_control_plane_protocol_staticd_route_list_src_list_destroy(

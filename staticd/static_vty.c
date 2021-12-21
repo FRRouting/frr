@@ -61,6 +61,7 @@ struct static_route_args {
 	const char *bfd_source;
 	const char *bfd_profile;
 
+	bool bfd_auto_hop;
 	bool pm;
 };
 
@@ -108,6 +109,12 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 	}
 	if (args->nexthop_vrf == NULL)
 		args->nexthop_vrf = args->vrf;
+
+	if (args->bfd_multi_hop && args->bfd_auto_hop) {
+		if (vty)
+			vty_out(vty, "%% multi-hop and auto-hop options can not be used together\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (args->interface_name &&
 	    !strcasecmp(args->interface_name, "Null0")) {
@@ -411,6 +418,14 @@ static int static_route_nb_run(struct vty *vty, struct static_route_args *args)
 					      args->bfd_multi_hop ? "true"
 								  : "false");
 
+			/* bfd auto-mode */
+			strlcpy(xpath_bfd, xpath_nexthop, sizeof(xpath_bfd));
+			strlcat(xpath_bfd,
+				"/frr-staticd:bfd-monitoring/auto-hop",
+				sizeof(xpath_bfd));
+			nb_cli_enqueue_change(vty, xpath_bfd, NB_OP_MODIFY,
+					      args->bfd_auto_hop ? "true" : "false");
+
 			if (args->bfd_profile) {
 				strlcpy(xpath_bfd, xpath_nexthop,
 					sizeof(xpath_bfd));
@@ -499,7 +514,7 @@ DEFPY_YANG (ip_mroute_dist,
        ip_mroute_dist_cmd,
        "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
        "(1-255)$distance"
-       "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}]"
+       "|bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}]"
        "}]",
        NO_STR
        IP_STR
@@ -512,6 +527,7 @@ DEFPY_YANG (ip_mroute_dist,
        BFD_INTEGRATION_MULTI_HOP_STR
        BFD_INTEGRATION_SOURCE_STR
        BFD_INTEGRATION_SOURCEV4_STR
+       BFD_AUTOHOP_MODE_STR
        BFD_PROFILE_STR
        BFD_PROFILE_NAME_STR)
 {
@@ -525,6 +541,7 @@ DEFPY_YANG (ip_mroute_dist,
 		.distance = distance_str,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 	};
@@ -641,7 +658,7 @@ DEFPY_YANG(ip_route_address_interface,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
-	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
@@ -667,6 +684,7 @@ DEFPY_YANG(ip_route_address_interface,
       BFD_INTEGRATION_MULTI_HOP_STR
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n")
@@ -689,6 +707,7 @@ DEFPY_YANG(ip_route_address_interface,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
@@ -711,7 +730,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 	  |nexthop-vrf NAME                            \
 	  |onlink$onlink                               \
 	  |color (1-4294967295)                        \
-	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
 	  }]",
       NO_STR IP_STR
@@ -736,6 +755,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
       BFD_INTEGRATION_MULTI_HOP_STR
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n")
@@ -759,6 +779,7 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
 		.bfd_source = bfd_source_str,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
 	};
@@ -779,7 +800,7 @@ DEFPY_YANG(ip_route,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
-	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
@@ -804,6 +825,7 @@ DEFPY_YANG(ip_route,
       BFD_INTEGRATION_MULTI_HOP_STR
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n")
@@ -825,6 +847,7 @@ DEFPY_YANG(ip_route,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
@@ -845,7 +868,7 @@ DEFPY_YANG(ip_route_vrf,
 	  |table (1-4294967295)                        \
 	  |nexthop-vrf NAME                            \
 	  |color (1-4294967295)                        \
-	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|profile BFDPROF$bfd_profile}] \
+	  |bfd$bfd [{multi-hop$bfd_multi_hop|source A.B.C.D$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	  |pm$pm                                       \
           }]",
       NO_STR IP_STR
@@ -869,6 +892,7 @@ DEFPY_YANG(ip_route_vrf,
       BFD_INTEGRATION_MULTI_HOP_STR
       BFD_INTEGRATION_SOURCE_STR
       BFD_INTEGRATION_SOURCEV4_STR
+      BFD_AUTOHOP_MODE_STR
       BFD_PROFILE_STR
       BFD_PROFILE_NAME_STR
       "Enables Path Monitoring support\n")
@@ -890,6 +914,7 @@ DEFPY_YANG(ip_route_vrf,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.pm = !!pm,
@@ -1004,7 +1029,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	    |pm$pm                                         \
 		|segments WORD 								   \
           }]",
@@ -1025,8 +1050,8 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 	   "SR-TE color\n"
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_AUTOHOP_MODE_STR
+				   BFD_PROFILE_STR BFD_PROFILE_NAME_STR
 	   "Enables Path Monitoring support\n"
 	   "Value of segs\n"
 	   "Segs (SIDs)\n")
@@ -1049,6 +1074,7 @@ DEFPY_YANG(ipv6_route_address_interface, ipv6_route_address_interface_cmd,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
@@ -1071,7 +1097,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
             |nexthop-vrf NAME                              \
 	    |onlink$onlink                                 \
 	    |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	    |pm$pm                                         \
 		|segments WORD 								   \
           }]",
@@ -1092,8 +1118,8 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 	   "SR-TE color\n"
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_AUTOHOP_MODE_STR
+				   BFD_PROFILE_STR BFD_PROFILE_NAME_STR
 	   "Enables Path Monitoring support\n"
 	   "Value of segs\n"
 	   "Segs (SIDs)\n")
@@ -1116,6 +1142,7 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
@@ -1136,7 +1163,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
             |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	    |pm$pm                                         \
 			|segments WORD 								   \
           }]",
@@ -1155,8 +1182,8 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 	   "The table number to configure\n" VRF_CMD_HELP_STR "SR-TE color\n"
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_AUTOHOP_MODE_STR
+				   BFD_PROFILE_STR BFD_PROFILE_NAME_STR
 	   "Enables Path Monitoring support\n"
 	   "Value of segs\n"
 	   "Segs (SIDs)\n")
@@ -1178,6 +1205,7 @@ DEFPY_YANG(ipv6_route, ipv6_route_cmd,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
@@ -1197,7 +1225,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	    |table (1-4294967295)                          \
             |nexthop-vrf NAME                              \
 	    |color (1-4294967295)                          \
-	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|profile BFDPROF$bfd_profile}] \
+	    |bfd$bfd [{multi-hop$bfd_multi_hop|source X:X::X:X$bfd_source|auto-hop$bfdauto|profile BFDPROF$bfd_profile}] \
 	    |pm$pm                                         \
 		|segments WORD 								   \
           }]",
@@ -1216,8 +1244,8 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 	   "The table number to configure\n" VRF_CMD_HELP_STR "SR-TE color\n"
 	   "The SR-TE color to configure\n" BFD_INTEGRATION_STR
 		   BFD_INTEGRATION_MULTI_HOP_STR BFD_INTEGRATION_SOURCE_STR
-			   BFD_INTEGRATION_SOURCEV4_STR BFD_PROFILE_STR
-				   BFD_PROFILE_NAME_STR
+			   BFD_INTEGRATION_SOURCEV4_STR BFD_AUTOHOP_MODE_STR
+				   BFD_PROFILE_STR BFD_PROFILE_NAME_STR
 	   "Enables Path Monitoring support\n"
 	   "Value of segs\n"
 	   "Segs (SIDs)\n")
@@ -1239,6 +1267,7 @@ DEFPY_YANG(ipv6_route_vrf, ipv6_route_vrf_cmd,
 		.nexthop_vrf = nexthop_vrf,
 		.bfd = !!bfd,
 		.bfd_multi_hop = !!bfd_multi_hop,
+		.bfd_auto_hop = !!bfdauto,
 		.bfd_source = bfd_source_str,
 		.bfd_profile = bfd_profile,
 		.segs = segments,
@@ -1453,7 +1482,9 @@ static void nexthop_cli_show(struct vty *vty, const struct lyd_node *route,
 				vty_out(vty, " source %s",
 					yang_dnode_get_string(bfd_dnode,
 							      "./source"));
-		} else
+		} else if (yang_dnode_get_bool(bfd_dnode, "./auto-hop"))
+			vty_out(vty, " bfd auto-hop");
+		else
 			vty_out(vty, " bfd");
 
 		if (yang_dnode_exists(bfd_dnode, "profile"))

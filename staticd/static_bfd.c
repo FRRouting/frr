@@ -78,14 +78,68 @@ static_next_hop_type_to_family(const struct static_nexthop *sn)
 	return AF_UNSPEC;
 }
 
+static int static_bfd_choose_src_ip(struct interface *ifp, int family,
+				    struct in6_addr *src_ip)
+{
+	struct connected *ifc;
+	struct in_addr *src_v4 = (struct in_addr *)src_ip;
+
+	frr_each (if_connected, ifp->connected, ifc) {
+		if (!ifc->address)
+			continue;
+		if (family != ifc->address->family)
+			continue;
+		if (family == AF_INET6
+		    && IN6_IS_ADDR_LINKLOCAL(&ifc->address->u.prefix6))
+			continue;
+		if (family == AF_INET)
+			*src_v4 = ifc->address->u.prefix4;
+		else
+			memcpy(src_ip, &ifc->address->u.prefix6,
+			       sizeof(struct in6_addr));
+		return 0;
+	}
+
+	return -1;
+}
+
+static int static_bfd_family_from_sn(struct static_nexthop *sn)
+{
+        if (sn->type == STATIC_IPV4_GATEWAY
+            || sn->type == STATIC_IPV4_GATEWAY_IFNAME)
+                return AF_INET;
+        if (sn->type == STATIC_IPV6_GATEWAY
+            || sn->type == STATIC_IPV6_GATEWAY_IFNAME)
+                return AF_INET6;
+        return AF_UNSPEC;
+}
+
+static int static_bfd_build_prefix_from_sn(struct static_nexthop *sn, struct prefix *p)
+{
+	p->family = static_bfd_family_from_sn(sn);
+	if (p->family == AF_INET) {
+		p->prefixlen = IPV4_MAX_BITLEN;
+		p->u.prefix4 = (struct in_addr)sn->addr.ipv4;
+	} else if (p->family == AF_INET6){
+		p->prefixlen = IPV6_MAX_BITLEN;
+		memcpy(&p->u.prefix6, &sn->addr.ipv6, sizeof(struct in6_addr));
+	} else
+		return -1;
+
+	return 0;
+}
+
 void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 					const struct lyd_node *dnode)
 {
+	struct prefix src_p = {};
 	bool use_interface;
 	bool use_profile;
 	bool use_source;
 	bool onlink;
 	bool mhop;
+	bool connected;
+	bool autohop;
 	int family;
 	struct ipaddr source;
 	struct vrf *vrf = NULL;
@@ -95,8 +149,11 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	use_profile = yang_dnode_exists(dnode, "profile");
 	onlink = yang_dnode_exists(dnode, "../onlink") &&
 		 yang_dnode_get_bool(dnode, "../onlink");
-	mhop = yang_dnode_get_bool(dnode, "multi-hop");
+	mhop = yang_dnode_exists(dnode, "multi-hop") &&
+	       yang_dnode_get_bool(dnode, "multi-hop");
 	vrf = vrf_lookup_by_name(yang_dnode_get_string(dnode, "../vrf"));
+	autohop = yang_dnode_exists(dnode, "auto-hop") &&
+		  yang_dnode_get_bool(dnode, "auto-hop");
 
 	family = static_next_hop_type_to_family(sn);
 	if (family == AF_UNSPEC)
@@ -113,11 +170,6 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	/* Configure the session. */
 	if (use_source)
 		yang_dnode_get_ip(&source, dnode, "source");
-
-	if (onlink || mhop == false)
-		bfd_sess_set_auto_source(sn->bsp, false);
-	else
-		bfd_sess_set_auto_source(sn->bsp, !use_source);
 
 	/* Configure the session.*/
 	if (family == AF_INET)
@@ -137,7 +189,23 @@ void static_next_hop_bfd_monitor_enable(struct static_nexthop *sn,
 	if (vrf && vrf->vrf_id != VRF_UNKNOWN)
 		bfd_sess_set_vrf(sn->bsp, vrf->vrf_id);
 
-	bfd_sess_set_hop_count(sn->bsp, (onlink || mhop == false) ? 1 : 254);
+	bfd_sess_set_bfd_autohop(sn->bsp, autohop);
+
+	if (autohop) {
+		if (static_bfd_build_prefix_from_sn(sn, &src_p) < 0)
+			return;
+		connected = static_zebra_prefix_is_connected((const struct prefix *)&src_p,
+							     sn->nh_vrf_id);
+		bfd_sess_set_hop_count(sn->bsp,
+				       connected ? 1 : 254);
+
+	} else
+		bfd_sess_set_hop_count(sn->bsp, (onlink || mhop == false) ? 1 : 254);
+
+	if (onlink || (autohop && connected) || (mhop == false && !autohop))
+		bfd_sess_set_auto_source(sn->bsp, false);
+	else
+		bfd_sess_set_auto_source(sn->bsp, !use_source);
 
 	/* Install or update the session. */
 	bfd_sess_install(sn->bsp);
@@ -158,6 +226,10 @@ void static_next_hop_bfd_source(struct static_nexthop *sn,
 				const struct ipaddr *source)
 {
 	int family;
+	uint8_t ttl;
+	struct prefix p_dst = {};
+	struct interface *ifp;
+	struct in6_addr ia_srcp = {};
 
 	if (sn->bsp == NULL)
 		return;
@@ -167,12 +239,29 @@ void static_next_hop_bfd_source(struct static_nexthop *sn,
 		return;
 
 	bfd_sess_set_auto_source(sn->bsp, false);
+	ttl = bfd_sess_hop_count(sn->bsp);
+	if (!source && ttl > 1) {
+		if (static_bfd_build_prefix_from_sn(sn, &p_dst) < 0)
+			return;
+		/* XXX vrf route leak case */
+		ifp = static_zebra_get_interface(&p_dst, sn->nh_vrf_id);
+		if (!ifp)
+			return;
+
+		if (static_bfd_choose_src_ip(ifp, family, &ia_srcp) < 0)
+			return;
+	} else if (source) {
+		memcpy(&ia_srcp, &(source->ip), sizeof(struct in6_addr));
+	}
+
 	if (family == AF_INET)
-		bfd_sess_set_ipv4_addrs(sn->bsp, &source->ip._v4_addr,
-					&sn->addr.ipv4);
+		bfd_sess_set_ipv4_addrs(sn->bsp,
+				source ? (struct in_addr *)&ia_srcp : NULL, &sn->addr.ipv4);
 	else if (family == AF_INET6)
-		bfd_sess_set_ipv6_addrs(sn->bsp, &source->ip._v6_addr,
-					&sn->addr.ipv6);
+		bfd_sess_set_ipv6_addrs(sn->bsp,
+				source ? &ia_srcp : NULL, &sn->addr.ipv6);
+	else
+		return;
 
 	bfd_sess_install(sn->bsp);
 }
@@ -192,6 +281,30 @@ void static_next_hop_bfd_multi_hop(struct static_nexthop *sn, bool mhop)
 		return;
 
 	bfd_sess_set_hop_count(sn->bsp, mhop ? 254 : 1);
+	bfd_sess_install(sn->bsp);
+}
+
+void static_next_hop_bfd_auto_hop(struct static_nexthop *sn, bool autohop,
+				  bool onlink, bool mhop)
+{
+	struct prefix src_p = {};
+	bool connected;
+
+	if (sn->bsp == NULL)
+		return;
+
+	bfd_sess_set_bfd_autohop(sn->bsp, autohop);
+
+	if (autohop) {
+		if (static_bfd_build_prefix_from_sn(sn, &src_p) < 0)
+			return;
+		connected = static_zebra_prefix_is_connected((const struct prefix *)&src_p,
+							     sn->nh_vrf_id);
+		bfd_sess_set_hop_count(sn->bsp, connected ? 1 : 254);
+
+	} else
+		bfd_sess_set_hop_count(sn->bsp, (!onlink && mhop) ? 254 : 1);
+
 	bfd_sess_install(sn->bsp);
 }
 
@@ -374,4 +487,110 @@ void static_bfd_show(struct vty *vty, bool json)
 	}
 
 	vty_out(vty, "\n");
+}
+static void static_bfd_source_update_from_ifindex(struct static_nexthop *nh,
+						  int family, ifindex_t oif_idx,
+						  vrf_id_t vrf_id)
+{
+	struct interface *ifp;
+	struct in6_addr src_ip = {};
+
+	/* update addresses */
+	ifp = if_lookup_by_index(oif_idx, vrf_id);
+	if (!ifp)
+		return;
+	static_bfd_choose_src_ip(ifp, family, &src_ip);
+	if (family == AF_INET)
+		bfd_sess_set_ipv4_addrs(nh->bsp, (struct in_addr *)&src_ip,
+					&nh->addr.ipv4);
+	else
+		bfd_sess_set_ipv6_addrs(nh->bsp, &src_ip, &nh->addr.ipv6);
+	bfd_sess_install(nh->bsp);
+}
+
+void static_bfd_source_update(ifindex_t oif_idx, struct prefix *dp,
+			      vrf_id_t vrf_id, bool connected)
+{
+	struct route_table *stable;
+	struct static_route_info *si;
+	struct vrf *vrf;
+	struct static_vrf *svrf;
+	struct route_node *rn;
+	struct static_nexthop *nh;
+	struct static_path *pn;
+	char buf[PREFIX2STR_BUFFER];
+	afi_t afi;
+
+	/* get vrf where prefix is */
+	prefix2str(dp, buf, sizeof(buf));
+
+	/* XXX vrf route leaks are not looked up */
+	vrf = vrf_lookup_by_id(vrf_id);
+	assert(vrf);
+	svrf = vrf->info;
+
+	if (dp->family == AF_INET)
+		afi = AFI_IP;
+	else if (dp->family == AF_INET6)
+		afi = AFI_IP6;
+	else
+		assert(0);
+
+	/* walk nexthops and parse BFD configured sessions to update source interface index */
+	stable = static_vrf_static_table(afi, SAFI_UNICAST, svrf);
+	if (!stable)
+		return;
+	for (rn = route_top(stable); rn; rn = route_next(rn)) {
+		si = rn->info;
+		if (!si)
+			continue;
+		frr_each (static_path_list, &si->path_list, pn) {
+			frr_each (static_nexthop_list, &pn->nexthop_list, nh) {
+				if (!nh->bsp)
+					continue;
+
+				if (!bfd_sess_bfd_autohop(nh->bsp))
+					continue;
+
+				if (nh->nh_vrf_id != vrf_id)
+					continue;
+
+				if (nh->type != STATIC_IPV4_GATEWAY &&
+				    nh->type != STATIC_IPV4_GATEWAY_IFNAME &&
+				    nh->type != STATIC_IPV6_GATEWAY &&
+				    nh->type != STATIC_IPV6_GATEWAY_IFNAME)
+					continue;
+
+				if (dp->family == AF_INET &&
+				    (nh->type == STATIC_IPV6_GATEWAY ||
+				     nh->type == STATIC_IPV6_GATEWAY_IFNAME))
+					continue;
+
+				if (dp->family == AF_INET6 &&
+				    (nh->type == STATIC_IPV4_GATEWAY ||
+				     nh->type == STATIC_IPV4_GATEWAY_IFNAME))
+					continue;
+
+				if (dp->family == AF_INET &&
+				    !IPV4_ADDR_SAME(&dp->u.prefix4,
+						    &nh->addr.ipv4))
+					continue;
+
+				if (dp->family == AF_INET6 &&
+				    !IPV6_ADDR_SAME(&dp->u.prefix6,
+						    &nh->addr.ipv6))
+					continue;
+
+				if (oif_idx == IFINDEX_INTERNAL)
+					continue;
+
+				bfd_sess_set_hop_count(nh->bsp,
+						       connected ? 1 : 254);
+				static_bfd_source_update_from_ifindex(nh,
+								      dp->family,
+								      oif_idx,
+								      vrf_id);
+			}
+		}
+	}
 }

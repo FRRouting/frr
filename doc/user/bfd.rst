@@ -386,12 +386,12 @@ to RIB, but when the BFD session is down it is removed from the RIB.
 
 The following commands are available inside the configuration node:
 
-.. clicmd:: ip route A.B.C.D/M A.B.C.D bfd [{multi-hop|source A.B.C.D|profile BFDPROF}]
+.. clicmd:: ip route A.B.C.D/M A.B.C.D bfd [{multi-hop|source A.B.C.D|auto-hop|profile BFDPROF}]
 
    Configure a static route for ``A.B.C.D/M`` using gateway ``A.B.C.D`` and use
    the gateway address as BFD peer destination address.
 
-.. clicmd:: ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X bfd [{multi-hop|source X:X::X:X|profile BFDPROF}]
+.. clicmd:: ipv6 route X:X::X:X/M [from X:X::X:X/M] X:X::X:X bfd [{multi-hop|source X:X::X:X|auto-hop|profile BFDPROF}]
 
    Configure a static route for ``X:X::X:X/M`` using gateway
    ``X:X::X:X`` and use the gateway address as BFD peer destination

@@ -452,6 +452,7 @@ struct cmd_node {
 #define FILTER_LOG_STR "Filter Logs\n"
 #define BFD_PROFILE_STR "BFD profile.\n"
 #define BFD_PROFILE_NAME_STR "BFD profile name.\n"
+#define BFD_AUTOHOP_MODE_STR "Select automatically single-hop or multi-hop\n"
 #define SHARP_STR "Sharp Routing Protocol\n"
 #define OSPF_GR_STR                                                            \
 	"OSPF non-stop forwarding (NSF) also known as OSPF Graceful Restart\n"
