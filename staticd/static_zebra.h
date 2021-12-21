@@ -36,6 +36,8 @@ extern void static_zebra_vrf_unregister(struct vrf *vrf);
 extern int static_zebra_nh_update(struct static_nexthop *nh);
 extern struct interface *static_zebra_get_interface(const struct prefix *p,
 						    vrf_id_t vrf_id);
+extern bool static_zebra_prefix_is_connected(const struct prefix *p,
+					     vrf_id_t vrf_id);
 
 #ifdef __cplusplus
 }

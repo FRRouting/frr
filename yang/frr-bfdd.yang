@@ -266,6 +266,13 @@ module frr-bfdd {
         "BFD pre configured profile.";
       type frr-bfdd:profile-ref;
     }
+
+    leaf auto-hop {
+      description
+        "Select automatically single hop or multi hop.";
+      type boolean;
+      default false;
+    }
   }
 
   grouping bfd-session-configuration {

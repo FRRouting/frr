@@ -447,6 +447,7 @@ struct cmd_node {
 #define STATIC_ROUTE_GROUP_NAME_STR "Static route group name\n"
 #define BFD_INTEGRATION_STR "BFD monitoring\n"
 #define BFD_MULTI_HOP_STR "Use BFD multi hop session\n"
+#define BFD_AUTOHOP_MODE_STR "Select automatically single-hop or multi-hop\n"
 #define BFD_PROFILE_STR "BFD profile\n"
 #define BFD_PROFILE_NAME_STR "BFD profile name\n"
 #define BFD_INT_PEER_STR "BFD peer address\n"

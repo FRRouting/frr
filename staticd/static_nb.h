@@ -124,7 +124,7 @@ int route_group_bfd_profile_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_profile_destroy(struct nb_cb_destroy_args *args);
 int route_group_bfd_hop_modify(struct nb_cb_modify_args *args);
 int route_group_bfd_hop_destroy(struct nb_cb_destroy_args *args);
-
+int route_group_bfd_auto_hop_modify(struct nb_cb_modify_args *args);
 
 /* Optional 'apply_finish' callbacks. */
 
