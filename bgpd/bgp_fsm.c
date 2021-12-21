@@ -509,8 +509,7 @@ static int bgp_connect_timer(struct thread *thread)
 	peer = THREAD_ARG(thread);
 
 	/* stop the DelayOpenTimer if it is running */
-	if (peer->t_delayopen)
-		BGP_TIMER_OFF(peer->t_delayopen);
+	BGP_TIMER_OFF(peer->t_delayopen);
 
 	assert(!peer->t_write);
 	assert(!peer->t_read);
@@ -830,8 +829,7 @@ void bgp_adjust_routeadv(struct peer *peer)
 		 * different
 		 * duration and schedule write thread immediately.
 		 */
-		if (peer->t_routeadv)
-			BGP_TIMER_OFF(peer->t_routeadv);
+		BGP_TIMER_OFF(peer->t_routeadv);
 
 		peer->synctime = bgp_clock();
 		/* If suppress fib pending is enabled, route is advertised to
