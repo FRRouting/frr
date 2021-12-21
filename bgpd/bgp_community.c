@@ -921,7 +921,7 @@ static struct community *bgp_aggr_community_lookup(
 	return hash_lookup(aggregate->community_hash, community);
 }
 
-static void *bgp_aggr_communty_hash_alloc(void *p)
+static void *bgp_aggr_community_hash_alloc(void *p)
 {
 	struct community *ref = (struct community *)p;
 	struct community *community = NULL;
@@ -978,7 +978,7 @@ void bgp_compute_aggregate_community_hash(struct bgp_aggregate *aggregate,
 		/* Insert community into hash.
 		 */
 		aggr_community = hash_get(aggregate->community_hash, community,
-					  bgp_aggr_communty_hash_alloc);
+					  bgp_aggr_community_hash_alloc);
 	}
 
 	/* Increment reference counter.
