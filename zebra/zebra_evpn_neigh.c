@@ -1286,12 +1286,6 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 				   macaddr, ip, zevpn->vni);
 
 		zmac = zebra_evpn_mac_add(zevpn, macaddr);
-		if (!zmac) {
-			zlog_debug("Failed to add MAC %pEA VNI %u", macaddr,
-				   zevpn->vni);
-			return -1;
-		}
-
 		zebra_evpn_mac_clear_fwd_info(zmac);
 		memset(&zmac->flags, 0, sizeof(uint32_t));
 		SET_FLAG(zmac->flags, ZEBRA_MAC_AUTO);
