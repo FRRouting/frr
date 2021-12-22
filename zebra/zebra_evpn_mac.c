@@ -2034,13 +2034,6 @@ int zebra_evpn_mac_remote_macip_add(
 	if (update_mac) {
 		if (!mac) {
 			mac = zebra_evpn_mac_add(zevpn, macaddr);
-			if (!mac) {
-				zlog_warn(
-					"Failed to add MAC %pEA VNI %u Remote VTEP %pI4",
-					macaddr, zevpn->vni, &vtep_ip);
-				return -1;
-			}
-
 			zebra_evpn_es_mac_ref(mac, esi);
 
 			/* Is this MAC created for a MACIP? */
@@ -2182,14 +2175,6 @@ int zebra_evpn_add_update_local_mac(struct zebra_vrf *zvrf,
 				local_inactive ? " local-inactive" : "");
 
 		mac = zebra_evpn_mac_add(zevpn, macaddr);
-		if (!mac) {
-			flog_err(
-				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add MAC %pEA intf %s(%u) VID %u VNI %u",
-				macaddr, ifp->name, ifp->ifindex, vid,
-				zevpn->vni);
-			return -1;
-		}
 		SET_FLAG(mac->flags, ZEBRA_MAC_LOCAL);
 		es_change = zebra_evpn_local_mac_update_fwd_info(mac, ifp, vid);
 		if (sticky)
@@ -2486,15 +2471,8 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 		local_ns_id = zvrf->zns->ns_id;
 
 	mac = zebra_evpn_mac_lookup(zevpn, macaddr);
-	if (!mac) {
+	if (!mac)
 		mac = zebra_evpn_mac_add(zevpn, macaddr);
-		if (!mac) {
-			flog_err(EC_ZEBRA_MAC_ADD_FAILED,
-				 "Failed to add MAC %pEA intf %s(%u) VID %u",
-				 macaddr, ifp->name, ifp->ifindex, vlan_id);
-			return -1;
-		}
-	}
 
 	/* Set "local" forwarding info. */
 	zebra_evpn_mac_clear_fwd_info(mac);
