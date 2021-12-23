@@ -307,21 +307,9 @@ struct bgp_path_info *bgp_path_info_unlock(struct bgp_path_info *path)
 	path->lock--;
 
 	if (path->lock == 0) {
-#if 0
-      zlog_debug ("%s: unlocked and freeing", __func__);
-      zlog_backtrace (LOG_DEBUG);
-#endif
 		bgp_path_info_free(path);
 		return NULL;
 	}
-
-#if 0
-  if (path->lock == 1)
-    {
-      zlog_debug ("%s: unlocked to 1", __func__);
-      zlog_backtrace (LOG_DEBUG);
-    }
-#endif
 
 	return path;
 }

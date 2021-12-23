@@ -1185,10 +1185,6 @@ struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
 {
 	assert(peer && (peer->lock >= 0));
 
-#if 0
-    zlog_debug("%s peer_lock %p %d", name, peer, peer->lock);
-#endif
-
 	peer->lock++;
 
 	return peer;
@@ -1200,10 +1196,6 @@ struct peer *peer_lock_with_caller(const char *name, struct peer *peer)
 struct peer *peer_unlock_with_caller(const char *name, struct peer *peer)
 {
 	assert(peer && (peer->lock > 0));
-
-#if 0
-  zlog_debug("%s peer_unlock %p %d", name, peer, peer->lock);
-#endif
 
 	peer->lock--;
 
