@@ -451,6 +451,8 @@ int ospf6_abr_originate_summary_to_area(struct ospf6_route *route,
 		/* Do not generate if area is NSSA */
 		route_area =
 			ospf6_area_lookup(route->path.area_id, area->ospf6);
+		assert(route_area);
+
 		if (IS_AREA_NSSA(route_area)) {
 			if (is_debug)
 				zlog_debug(
