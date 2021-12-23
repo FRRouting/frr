@@ -995,11 +995,13 @@ Long-lived Graceful Restart
 Currently, only restarter mode is supported. This capability is advertised only
 if graceful restart capability is negotiated.
 
-.. clicmd:: bgp long-lived-graceful-restart stale-time (0-4294967295)
+.. clicmd:: bgp long-lived-graceful-restart stale-time (1-4294967295)
 
    Specifies the maximum time to wait before purging long-lived stale routes for
    helper routers.
 
+   Default is 0, which means the feature is off by default. Only graceful
+   restart takes into account.
 
 .. _bgp-shutdown:
 

@@ -3163,7 +3163,8 @@ DEFUN (no_bgp_graceful_restart_rib_stale_time,
 }
 
 DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
-      "bgp long-lived-graceful-restart stale-time (0-4294967295)", BGP_STR
+      "bgp long-lived-graceful-restart stale-time (1-4294967295)",
+      BGP_STR
       "Enable Long-lived Graceful Restart\n"
       "Specifies maximum time to wait before purging long-lived stale routes\n"
       "Stale time value (seconds)\n")
@@ -3179,7 +3180,7 @@ DEFUN(bgp_llgr_stalepath_time, bgp_llgr_stalepath_time_cmd,
 }
 
 DEFUN(no_bgp_llgr_stalepath_time, no_bgp_llgr_stalepath_time_cmd,
-      "no bgp long-lived-graceful-restart stale-time [(0-4294967295)]",
+      "no bgp long-lived-graceful-restart stale-time [(1-4294967295)]",
       NO_STR BGP_STR
       "Enable Long-lived Graceful Restart\n"
       "Specifies maximum time to wait before purging long-lived stale routes\n"

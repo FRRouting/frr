@@ -1885,7 +1885,7 @@ struct bgp_nlri {
 #define BGP_DEFAULT_UPDATE_ADVERTISEMENT_TIME  1
 
 /* BGP Long-lived Graceful Restart */
-#define BGP_DEFAULT_LLGR_STALE_TIME 360
+#define BGP_DEFAULT_LLGR_STALE_TIME 0
 
 /* BGP uptime string length.  */
 #define BGP_UPTIME_LEN 25
