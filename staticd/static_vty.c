@@ -448,30 +448,23 @@ static int static_route(struct vty *vty, afi_t afi, safi_t safi,
 }
 
 /* Static unicast routes for multicast RPF lookup. */
-DEFPY_YANG (ip_mroute_dist,
-       ip_mroute_dist_cmd,
-       "[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
-       "(1-255)$distance"
-       "|bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile]"
-       "|group STRGRP$route_group"
-       "}]",
-       NO_STR
-       IP_STR
-       "Configure static unicast route into MRIB for multicast RPF lookup\n"
-       "IP destination prefix (e.g. 10.0.0.0/8)\n"
-       "Nexthop address\n"
-       "Nexthop interface name\n"
-       "Distance\n"
-       BFD_INTEGRATION_STR
-       BFD_MULTI_HOP_STR
-       BFD_INT_SOURCE_STR
-       BFD_INT_SOURCE_ADDRV4_STR
-       BFD_INT_SOURCE_AUTO_STR
-	   BFD_AUTOHOP_MODE_STR
-       BFD_PROFILE_STR
-       BFD_PROFILE_NAME_STR
-       STATIC_ROUTE_GROUP_STR
-       STATIC_ROUTE_GROUP_NAME_STR)
+DEFPY_YANG(
+	ip_mroute_dist, ip_mroute_dist_cmd,
+	"[no] ip mroute A.B.C.D/M$prefix <A.B.C.D$gate|INTERFACE$ifname> [{"
+	"(1-255)$distance"
+	"|bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile]"
+	"|group STRGRP$route_group"
+	"}]",
+	NO_STR IP_STR
+	"Configure static unicast route into MRIB for multicast RPF lookup\n"
+	"IP destination prefix (e.g. 10.0.0.0/8)\n"
+	"Nexthop address\n"
+	"Nexthop interface name\n"
+	"Distance\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR BFD_INT_SOURCE_STR
+		BFD_INT_SOURCE_ADDRV4_STR BFD_INT_SOURCE_AUTO_STR
+			BFD_AUTOHOP_MODE_STR BFD_PROFILE_STR
+				BFD_PROFILE_NAME_STR STATIC_ROUTE_GROUP_STR
+					STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *src_str = local_str ? local_str : automatic;
 
@@ -482,9 +475,8 @@ DEFPY_YANG (ip_mroute_dist,
 }
 
 /* Static route configuration.  */
-DEFPY_YANG(ip_route_blackhole,
-      ip_route_blackhole_cmd,
-      "[no] ip route\
+DEFPY_YANG(ip_route_blackhole, ip_route_blackhole_cmd,
+	   "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
 	<reject|blackhole>$flag                                               \
 	[{                                                                    \
@@ -495,22 +487,19 @@ DEFPY_YANG(ip_route_blackhole,
           |table (1-4294967295)                                               \
           |group STRGRP$route_group                                            \
           }]",
-      NO_STR IP_STR
-      "Establish static routes\n"
-      "IP destination prefix (e.g. 10.0.0.0/8)\n"
-      "IP destination prefix\n"
-      "IP destination prefix mask\n"
-      "Emit an ICMP unreachable when matched\n"
-      "Silently discard pkts when matched\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this route\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	   NO_STR IP_STR
+	   "Establish static routes\n"
+	   "IP destination prefix (e.g. 10.0.0.0/8)\n"
+	   "IP destination prefix\n"
+	   "IP destination prefix mask\n"
+	   "Emit an ICMP unreachable when matched\n"
+	   "Silently discard pkts when matched\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this route\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" STATIC_ROUTE_GROUP_STR
+		   STATIC_ROUTE_GROUP_NAME_STR)
 {
 	return static_route(vty, AFI_IP, SAFI_UNICAST, no, prefix, mask_str,
 			    NULL, NULL, NULL, flag, tag_str, distance_str, vrf,
@@ -518,9 +507,8 @@ DEFPY_YANG(ip_route_blackhole,
 			    NULL, false);
 }
 
-DEFPY_YANG(ip_route_blackhole_vrf,
-      ip_route_blackhole_vrf_cmd,
-      "[no] ip route\
+DEFPY_YANG(ip_route_blackhole_vrf, ip_route_blackhole_vrf_cmd,
+	   "[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask>                        \
 	<reject|blackhole>$flag                                               \
 	[{                                                                    \
@@ -530,21 +518,19 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	  |table (1-4294967295)                                               \
           |group STRGRP$route_group                                            \
           }]",
-      NO_STR IP_STR
-      "Establish static routes\n"
-      "IP destination prefix (e.g. 10.0.0.0/8)\n"
-      "IP destination prefix\n"
-      "IP destination prefix mask\n"
-      "Emit an ICMP unreachable when matched\n"
-      "Silently discard pkts when matched\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this route\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	   NO_STR IP_STR
+	   "Establish static routes\n"
+	   "IP destination prefix (e.g. 10.0.0.0/8)\n"
+	   "IP destination prefix\n"
+	   "IP destination prefix mask\n"
+	   "Emit an ICMP unreachable when matched\n"
+	   "Silently discard pkts when matched\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this route\n" MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" STATIC_ROUTE_GROUP_STR
+		   STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
@@ -565,11 +551,13 @@ DEFPY_YANG(ip_route_blackhole_vrf,
 	return static_route_leak(vty, vrfname, vrfname, AFI_IP, SAFI_UNICAST,
 				 no, prefix, mask_str, NULL, NULL, NULL, flag,
 				 tag_str, distance_str, label, table_str, false,
-				 NULL, false, false, NULL, route_group, NULL, false);
+				 NULL, false, false, NULL, route_group, NULL,
+				 false);
 }
 
-DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
-	   "[no] ip route\
+DEFPY_YANG(
+	ip_route_address_interface, ip_route_address_interface_cmd,
+	"[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	A.B.C.D$gate                                   \
 	<INTERFACE|Null0>$ifname                       \
@@ -585,35 +573,27 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
-      NO_STR IP_STR
-      "Establish static routes\n"
-      "IP destination prefix (e.g. 10.0.0.0/8)\n"
-      "IP destination prefix\n"
-      "IP destination prefix mask\n"
-      "IP gateway address\n"
-      "IP gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this route\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface\n"
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV4_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IP_STR
+	"Establish static routes\n"
+	"IP destination prefix (e.g. 10.0.0.0/8)\n"
+	"IP destination prefix\n"
+	"IP destination prefix mask\n"
+	"IP gateway address\n"
+	"IP gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this route\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"Treat the nexthop as directly attached to the interface\n"
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV4_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -638,9 +618,9 @@ DEFPY_YANG(ip_route_address_interface, ip_route_address_interface_cmd,
 				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ip_route_address_interface_vrf,
-      ip_route_address_interface_vrf_cmd,
-      "[no] ip route\
+DEFPY_YANG(
+	ip_route_address_interface_vrf, ip_route_address_interface_vrf_cmd,
+	"[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	A.B.C.D$gate                                   \
 	<INTERFACE|Null0>$ifname                       \
@@ -655,34 +635,27 @@ DEFPY_YANG(ip_route_address_interface_vrf,
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
 	  }]",
-      NO_STR IP_STR
-      "Establish static routes\n"
-      "IP destination prefix (e.g. 10.0.0.0/8)\n"
-      "IP destination prefix\n"
-      "IP destination prefix mask\n"
-      "IP gateway address\n"
-      "IP gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this route\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface\n"
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV4_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IP_STR
+	"Establish static routes\n"
+	"IP destination prefix (e.g. 10.0.0.0/8)\n"
+	"IP destination prefix\n"
+	"IP destination prefix mask\n"
+	"IP gateway address\n"
+	"IP gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this route\n" MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"Treat the nexthop as directly attached to the interface\n"
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV4_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -714,9 +687,9 @@ DEFPY_YANG(ip_route_address_interface_vrf,
 				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ip_route,
-      ip_route_cmd,
-      "[no] ip route\
+DEFPY_YANG(
+	ip_route, ip_route_cmd,
+	"[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
 	[{                                             \
@@ -730,34 +703,26 @@ DEFPY_YANG(ip_route,
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
-      NO_STR IP_STR
-      "Establish static routes\n"
-      "IP destination prefix (e.g. 10.0.0.0/8)\n"
-      "IP destination prefix\n"
-      "IP destination prefix mask\n"
-      "IP gateway address\n"
-      "IP gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this route\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV4_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IP_STR
+	"Establish static routes\n"
+	"IP destination prefix (e.g. 10.0.0.0/8)\n"
+	"IP destination prefix\n"
+	"IP destination prefix mask\n"
+	"IP gateway address\n"
+	"IP gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this route\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV4_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -783,9 +748,9 @@ DEFPY_YANG(ip_route,
 				 route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ip_route_vrf,
-      ip_route_vrf_cmd,
-      "[no] ip route\
+DEFPY_YANG(
+	ip_route_vrf, ip_route_vrf_cmd,
+	"[no] ip route\
 	<A.B.C.D/M$prefix|A.B.C.D$prefix A.B.C.D$mask> \
 	<A.B.C.D$gate|<INTERFACE|Null0>$ifname>        \
 	[{                                             \
@@ -798,33 +763,26 @@ DEFPY_YANG(ip_route_vrf,
           |bfd$bfd [multi-hop$bfd_mhop source <A.B.C.D$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
           |group STRGRP$route_group				      \
           }]",
-      NO_STR IP_STR
-      "Establish static routes\n"
-      "IP destination prefix (e.g. 10.0.0.0/8)\n"
-      "IP destination prefix\n"
-      "IP destination prefix mask\n"
-      "IP gateway address\n"
-      "IP gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this route\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV4_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IP_STR
+	"Establish static routes\n"
+	"IP destination prefix (e.g. 10.0.0.0/8)\n"
+	"IP destination prefix\n"
+	"IP destination prefix mask\n"
+	"IP gateway address\n"
+	"IP gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this route\n" MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV4_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -857,9 +815,9 @@ DEFPY_YANG(ip_route_vrf,
 				 route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ipv6_route_blackhole,
-      ipv6_route_blackhole_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(
+	ipv6_route_blackhole, ipv6_route_blackhole_cmd,
+	"[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <reject|blackhole>$flag                          \
           [{                                               \
             tag (1-4294967295)                             \
@@ -869,23 +827,19 @@ DEFPY_YANG(ipv6_route_blackhole,
             |table (1-4294967295)                          \
             |group STRGRP$route_group			   \
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "Emit an ICMP unreachable when matched\n"
-      "Silently discard pkts when matched\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IPV6_STR
+	"Establish static routes\n"
+	"IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	"IPv6 source-dest route\n"
+	"IPv6 source prefix\n"
+	"Emit an ICMP unreachable when matched\n"
+	"Silently discard pkts when matched\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" STATIC_ROUTE_GROUP_STR
+		STATIC_ROUTE_GROUP_NAME_STR)
 {
 	return static_route(vty, AFI_IP6, SAFI_UNICAST, no, prefix_str, NULL,
 			    from_str, NULL, NULL, flag, tag_str, distance_str,
@@ -893,9 +847,8 @@ DEFPY_YANG(ipv6_route_blackhole,
 			    route_group, NULL, false);
 }
 
-DEFPY_YANG(ipv6_route_blackhole_vrf,
-      ipv6_route_blackhole_vrf_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(ipv6_route_blackhole_vrf, ipv6_route_blackhole_vrf_cmd,
+	   "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <reject|blackhole>$flag                          \
           [{                                               \
             tag (1-4294967295)                             \
@@ -904,22 +857,19 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
             |table (1-4294967295)                          \
             |group STRGRP$route_group			   \
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "Emit an ICMP unreachable when matched\n"
-      "Silently discard pkts when matched\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	   NO_STR IPV6_STR
+	   "Establish static routes\n"
+	   "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	   "IPv6 source-dest route\n"
+	   "IPv6 source prefix\n"
+	   "Emit an ICMP unreachable when matched\n"
+	   "Silently discard pkts when matched\n"
+	   "Set tag for this route\n"
+	   "Tag value\n"
+	   "Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	   "Table to configure\n"
+	   "The table number to configure\n" STATIC_ROUTE_GROUP_STR
+		   STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const struct lyd_node *vrf_dnode;
 	const char *vrfname;
@@ -939,16 +889,16 @@ DEFPY_YANG(ipv6_route_blackhole_vrf,
 	 */
 	assert(prefix);
 
-	return static_route_leak(
-		vty, vrfname, vrfname, AFI_IP6, SAFI_UNICAST, no, prefix_str,
-		NULL, from_str, NULL, NULL, flag, tag_str, distance_str, label,
-		table_str, false, NULL, false, false, NULL, route_group, NULL,
-		false);
+	return static_route_leak(vty, vrfname, vrfname, AFI_IP6, SAFI_UNICAST,
+				 no, prefix_str, NULL, from_str, NULL, NULL,
+				 flag, tag_str, distance_str, label, table_str,
+				 false, NULL, false, false, NULL, route_group,
+				 NULL, false);
 }
 
-DEFPY_YANG(ipv6_route_address_interface,
-      ipv6_route_address_interface_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(
+	ipv6_route_address_interface, ipv6_route_address_interface_cmd,
+	"[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
           <INTERFACE|Null0>$ifname                         \
           [{                                               \
@@ -963,36 +913,27 @@ DEFPY_YANG(ipv6_route_address_interface,
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface\n"
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV6_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IPV6_STR
+	"Establish static routes\n"
+	"IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	"IPv6 source-dest route\n"
+	"IPv6 source prefix\n"
+	"IPv6 gateway address\n"
+	"IPv6 gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"Treat the nexthop as directly attached to the interface\n"
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV6_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1018,9 +959,9 @@ DEFPY_YANG(ipv6_route_address_interface,
 				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ipv6_route_address_interface_vrf,
-      ipv6_route_address_interface_vrf_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(
+	ipv6_route_address_interface_vrf, ipv6_route_address_interface_vrf_cmd,
+	"[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           X:X::X:X$gate                                    \
           <INTERFACE|Null0>$ifname                         \
           [{                                               \
@@ -1034,35 +975,27 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "Treat the nexthop as directly attached to the interface\n"
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV6_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IPV6_STR
+	"Establish static routes\n"
+	"IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	"IPv6 source-dest route\n"
+	"IPv6 source prefix\n"
+	"IPv6 gateway address\n"
+	"IPv6 gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"Treat the nexthop as directly attached to the interface\n"
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV6_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1094,9 +1027,9 @@ DEFPY_YANG(ipv6_route_address_interface_vrf,
 		bfd_profile, route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ipv6_route,
-      ipv6_route_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(
+	ipv6_route, ipv6_route_cmd,
+	"[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <X:X::X:X$gate|<INTERFACE|Null0>$ifname>         \
           [{                                               \
             tag (1-4294967295)                             \
@@ -1109,35 +1042,26 @@ DEFPY_YANG(ipv6_route,
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      VRF_CMD_HELP_STR
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV6_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IPV6_STR
+	"Establish static routes\n"
+	"IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	"IPv6 source-dest route\n"
+	"IPv6 source prefix\n"
+	"IPv6 gateway address\n"
+	"IPv6 gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this prefix\n" VRF_CMD_HELP_STR MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV6_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1162,9 +1086,9 @@ DEFPY_YANG(ipv6_route,
 				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(ipv6_route_vrf,
-      ipv6_route_vrf_cmd,
-      "[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
+DEFPY_YANG(
+	ipv6_route_vrf, ipv6_route_vrf_cmd,
+	"[no] ipv6 route X:X::X:X/M$prefix [from X:X::X:X/M] \
           <X:X::X:X$gate|<INTERFACE|Null0>$ifname>                 \
           [{                                               \
             tag (1-4294967295)                             \
@@ -1176,34 +1100,26 @@ DEFPY_YANG(ipv6_route_vrf,
             |bfd$bfd [multi-hop$bfd_mhop source <X:X::X:X$local|auto$automatic>|auto-hop$bfdauto] [profile BFDPROF$bfd_profile] \
             |group STRGRP$route_group					\
           }]",
-      NO_STR
-      IPV6_STR
-      "Establish static routes\n"
-      "IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
-      "IPv6 source-dest route\n"
-      "IPv6 source prefix\n"
-      "IPv6 gateway address\n"
-      "IPv6 gateway interface name\n"
-      "Null interface\n"
-      "Set tag for this route\n"
-      "Tag value\n"
-      "Distance value for this prefix\n"
-      MPLS_LABEL_HELPSTR
-      "Table to configure\n"
-      "The table number to configure\n"
-      VRF_CMD_HELP_STR
-      "SR-TE color\n"
-      "The SR-TE color to configure\n"
-      BFD_INTEGRATION_STR
-      BFD_MULTI_HOP_STR
-      BFD_INT_SOURCE_STR
-      BFD_INT_SOURCE_ADDRV6_STR
-      BFD_INT_SOURCE_AUTO_STR
-      BFD_AUTOHOP_MODE_STR
-      BFD_PROFILE_STR
-      BFD_PROFILE_NAME_STR
-      STATIC_ROUTE_GROUP_STR
-      STATIC_ROUTE_GROUP_NAME_STR)
+	NO_STR IPV6_STR
+	"Establish static routes\n"
+	"IPv6 destination prefix (e.g. 3ffe:506::/32)\n"
+	"IPv6 source-dest route\n"
+	"IPv6 source prefix\n"
+	"IPv6 gateway address\n"
+	"IPv6 gateway interface name\n"
+	"Null interface\n"
+	"Set tag for this route\n"
+	"Tag value\n"
+	"Distance value for this prefix\n" MPLS_LABEL_HELPSTR
+	"Table to configure\n"
+	"The table number to configure\n" VRF_CMD_HELP_STR
+	"SR-TE color\n"
+	"The SR-TE color to configure\n" BFD_INTEGRATION_STR BFD_MULTI_HOP_STR
+		BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV6_STR
+			BFD_INT_SOURCE_AUTO_STR BFD_AUTOHOP_MODE_STR
+				BFD_PROFILE_STR BFD_PROFILE_NAME_STR
+					STATIC_ROUTE_GROUP_STR
+						STATIC_ROUTE_GROUP_NAME_STR)
 {
 	const char *nh_vrf;
 	const char *flag = NULL;
@@ -1235,31 +1151,22 @@ DEFPY_YANG(ipv6_route_vrf,
 				 bfd_profile, route_group, src_str, !!bfdauto);
 }
 
-DEFPY_YANG(staticd_route_group_bfd, staticd_route_group_bfd_cmd,
-	   "[no] route group STRGRP$route_group bfd"
-	   " [vrf VRFNAME$vrfname] [interface IFNAME$ifname]"
-	   " peer <A.B.C.D|X:X::X:X>$peeraddr"
-	   " [multi-hop source <A.B.C.D|X:X::X:X|auto>$srcaddr_str|auto-hop$bfdauto]"
-	   " [profile BFDPROF$bfd_prof]",
-	   NO_STR
-	   "Establish static routes\n"
-	   STATIC_ROUTE_GROUP_STR
-	   STATIC_ROUTE_GROUP_NAME_STR
-	   BFD_INTEGRATION_STR
-	   VRF_CMD_HELP_STR
-	   INTERFACE_STR
-	   IFNAME_STR
-	   BFD_INT_PEER_STR
-	   BFD_INT_PEER_ADDRV4_STR
-	   BFD_INT_PEER_ADDRV6_STR
-       BFD_INT_SOURCE_AUTO_STR
-	   BFD_MULTI_HOP_STR
-	   BFD_INT_SOURCE_STR
-	   BFD_INT_SOURCE_ADDRV4_STR
-	   BFD_INT_SOURCE_ADDRV6_STR
-	   BFD_AUTOHOP_MODE_STR
-	   BFD_PROFILE_STR
-	   BFD_PROFILE_NAME_STR)
+DEFPY_YANG(
+	staticd_route_group_bfd, staticd_route_group_bfd_cmd,
+	"[no] route group STRGRP$route_group bfd"
+	" [vrf VRFNAME$vrfname] [interface IFNAME$ifname]"
+	" peer <A.B.C.D|X:X::X:X>$peeraddr"
+	" [multi-hop source <A.B.C.D|X:X::X:X|auto>$srcaddr_str|auto-hop$bfdauto]"
+	" [profile BFDPROF$bfd_prof]",
+	NO_STR
+	"Establish static routes\n" STATIC_ROUTE_GROUP_STR STATIC_ROUTE_GROUP_NAME_STR
+		BFD_INTEGRATION_STR VRF_CMD_HELP_STR INTERFACE_STR IFNAME_STR
+			BFD_INT_PEER_STR BFD_INT_PEER_ADDRV4_STR BFD_INT_PEER_ADDRV6_STR
+				BFD_INT_SOURCE_AUTO_STR BFD_MULTI_HOP_STR
+					BFD_INT_SOURCE_STR BFD_INT_SOURCE_ADDRV4_STR
+						BFD_INT_SOURCE_ADDRV6_STR
+							BFD_AUTOHOP_MODE_STR BFD_PROFILE_STR
+								BFD_PROFILE_NAME_STR)
 {
 	if (no) {
 		nb_cli_enqueue_change(vty, "./bfd-monitoring/profile",
