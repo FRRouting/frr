@@ -466,6 +466,9 @@ install -d -m750 %{buildroot}%{rundir}
 # avoid `ERROR: ambiguous python shebang in` errors
 pathfix.py -pni "%{__python3} %{py3_shbang_opts}" %{buildroot}/usr/lib/frr/*.py
 %py_byte_compile %{__python3} %{buildroot}/usr/lib/frr/*.py
+%else
+# remove ospfclient.py (if present) as it requires > python36
+rm -f %{buildroot}%{_sbindir}/ospfclient.py
 %endif
 
 %pre
@@ -719,11 +722,13 @@ fi
 %files contrib
 %doc tools
 
-
 %files pythontools
 %{_sbindir}/generate_support_bundle.py
 %{_sbindir}/frr-reload.py
 %{_sbindir}/frr_babeltrace.py
+%if %{with_ospfclient} && (0%{?rhel} > 7 || 0%{?fedora} > 29)
+%{_sbindir}/ospfclient.py
+%endif
 %if 0%{?rhel} > 7 || 0%{?fedora} > 29
 %{_sbindir}/__pycache__/*
 %else
@@ -774,6 +779,10 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 
 
 %changelog
+* Sun May 29 2022 Christian Hopps <chopps@labn.net> - %{version}
+- ospfclient:
+-     Add OSPF API python client ospfclient.py
+
 * Tue Mar  1 2022 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
 * Tue Mar  1 2022 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.2
