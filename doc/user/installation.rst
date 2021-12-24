@@ -212,7 +212,8 @@ options from the list below.
 
 .. option:: --disable-ospfclient
 
-   Disable building of the example OSPF-API client.
+   Disable installation of the python ospfclient and building of the example
+   OSPF-API client.
 
 .. option:: --disable-isisd
 
