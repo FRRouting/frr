@@ -7561,15 +7561,14 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 			if (pi->sub_type == BGP_ROUTE_AGGREGATE)
 				continue;
 
-			if (aggregate->summary_only && pi->extra
-			    && AGGREGATE_MED_VALID(aggregate)) {
-				if (aggr_unsuppress_path(aggregate, pi))
-					match++;
-			}
-
-			if (aggregate->suppress_map_name
-			    && AGGREGATE_MED_VALID(aggregate)
-			    && aggr_suppress_map_test(bgp, aggregate, pi)) {
+			/*
+			 * This route is suppressed: attempt to unsuppress it.
+			 *
+			 * `aggr_unsuppress_path` will fail if this particular
+			 * aggregate route was not the suppressor.
+			 */
+			if (pi->extra && pi->extra->aggr_suppressors &&
+			    listcount(pi->extra->aggr_suppressors)) {
 				if (aggr_unsuppress_path(aggregate, pi))
 					match++;
 			}
