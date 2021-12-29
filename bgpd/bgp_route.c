@@ -3171,7 +3171,8 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 
 	/* Process the route list */
 	for (dest = bgp_table_top(bgp->rib[afi][safi]);
-	     dest && bgp->gr_info[afi][safi].gr_deferred != 0;
+	     dest && bgp->gr_info[afi][safi].gr_deferred != 0 &&
+	     cnt < BGP_MAX_BEST_ROUTE_SELECT;
 	     dest = bgp_route_next(dest)) {
 		if (!CHECK_FLAG(dest->flags, BGP_NODE_SELECT_DEFER))
 			continue;
@@ -3180,10 +3181,13 @@ int bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 		bgp->gr_info[afi][safi].gr_deferred--;
 		bgp_process_main_one(bgp, dest, afi, safi);
 		cnt++;
-		if (cnt >= BGP_MAX_BEST_ROUTE_SELECT) {
-			bgp_dest_unlock_node(dest);
-			break;
-		}
+	}
+	/* If iteration stopped before the entire table was traversed then the
+	 * node needs to be unlocked.
+	 */
+	if (dest) {
+		bgp_dest_unlock_node(dest);
+		dest = NULL;
 	}
 
 	/* Send EOR message when all routes are processed */
