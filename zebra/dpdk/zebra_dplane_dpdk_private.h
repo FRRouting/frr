@@ -24,6 +24,8 @@
 
 #include <zebra.h>
 
+#include <rte_ethdev.h>
+
 #include "zebra_dplane_dpdk.h"
 
 

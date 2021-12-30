@@ -35,6 +35,8 @@
 
 static const char *plugin_name = "zebra_dplane_dpdk";
 
+extern struct zebra_privs_t zserv_privs;
+
 static struct zd_dpdk_ctx dpdk_ctx_buf, *dpdk_ctx = &dpdk_ctx_buf;
 #define dpdk_stat (&dpdk_ctx->stats)
 
@@ -159,19 +161,37 @@ static int zd_dpdk_process(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
+static int zd_dpdk_init(void)
+{
+	int rc;
+	char *argv[] = {(char *)"/usr/lib/frr/zebra", (char *)"--"};
+
+	zd_dpdk_vty_init();
+
+	frr_with_privs (&zserv_privs) {
+		rc = rte_eal_init(sizeof(argv) / sizeof(argv[0]), argv);
+	}
+	if (rc < 0) {
+		zlog_warn("EAL init failed %s", rte_strerror(rte_errno));
+		return -1;
+	}
+
+	return 0;
+}
 
 static int zd_dpdk_start(struct zebra_dplane_provider *prov)
 {
 	if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
 		zlog_debug("%s start", dplane_provider_get_name(prov));
 
-	/* XXX - place holder */
-	return 0;
+	return zd_dpdk_init();
 }
 
 
 static int zd_dpdk_finish(struct zebra_dplane_provider *prov, bool early)
 {
+	int rc;
+
 	if (early) {
 		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
 			zlog_debug("%s early finish",
@@ -184,7 +204,12 @@ static int zd_dpdk_finish(struct zebra_dplane_provider *prov, bool early)
 		zlog_debug("%s finish", dplane_provider_get_name(prov));
 
 
-	/* XXX - place holder */
+	frr_with_privs (&zserv_privs) {
+		rc = rte_eal_cleanup();
+	}
+	if (rc < 0)
+		zlog_warn("EAL cleanup failed %s", rte_strerror(rte_errno));
+
 	return 0;
 }
 
