@@ -1998,6 +1998,18 @@ if test "$enable_grpc" = "yes"; then
   AC_LANG_POP([C++])
 fi
 
+dnl ---------
+dnl DPDK
+dnl ---------
+if test "$enable_dp_dpdk" = "yes"; then
+  PKG_CHECK_MODULES([DPDK], [libdpdk], [
+    AC_DEFINE([HAVE_DPDK], [1], [Enable DPDK backend])
+    DPDK=true
+  ], [
+    AC_MSG_ERROR([configuration specifies --enable-dp-dpdk but DPDK libs were not found])
+  ])
+fi
+
 dnl -----
 dnl LTTng
 dnl -----
