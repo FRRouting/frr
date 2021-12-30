@@ -28,6 +28,13 @@
 
 #include "zebra_dplane_dpdk.h"
 
+/* match on eth, sip, dip, udp */
+#define ZD_PBR_PATTERN_MAX 6
+/* dec_ttl, set_smac, set_dmac, * phy_port, count
+ */
+#define ZD_PBR_ACTION_MAX 6
+
+#define ZD_ETH_TYPE_IP 0x800
 
 struct zd_dpdk_port {
 	uint16_t port_id;		  /* dpdk port_id */
