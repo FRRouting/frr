@@ -271,6 +271,16 @@ the default route.
    Allow IPv6 nexthop tracking to resolve via the default route. This parameter
    is configured per-VRF, so the command is also available in the VRF subnode.
 
+PBR dataplane programming
+=========================
+
+Some dataplanes require the PBR nexthop to be resolved into a SMAC, DMAC and
+outgoing interface
+
+.. clicmd:: pbr nexthop-resolve
+
+   Resolve PBR nexthop via ip neigh tracking
+
 Administrative Distance
 =======================
 
@@ -1185,6 +1195,14 @@ zebra Terminal Mode Commands
 .. clicmd:: show ipv6 forward
 
    Display whether the host's IP v6 forwarding is enabled or not.
+
+.. clicmd:: show ip neigh
+
+   Display the ip neighbor table
+
+.. clicmd:: show pbr rule
+
+   Display the pbr rule table with resolved nexthops
 
 .. clicmd:: show zebra
 
