@@ -72,7 +72,8 @@ DECLARE_MTYPE(BITFIELD);
 	do {                                                                   \
 		(v).n = 0;                                                     \
 		(v).m = ((N) / WORD_SIZE + 1);                                 \
-		(v).data = XCALLOC(MTYPE_BITFIELD, ((v).m * sizeof(word_t)));  \
+		(v).data = (word_t *)XCALLOC(MTYPE_BITFIELD,                   \
+					     ((v).m * sizeof(word_t)));        \
 	} while (0)
 
 /**
@@ -267,6 +268,19 @@ static inline unsigned int bf_find_next_set_bit(bitfield_t v,
 		XFREE(MTYPE_BITFIELD, (v).data);                               \
 		(v).data = NULL;                                               \
 	} while (0)
+
+static inline bitfield_t bf_copy(bitfield_t src)
+{
+	bitfield_t dst;
+
+	assert(bf_is_inited(src));
+	bf_init(dst, WORD_SIZE * (src.m - 1));
+	for (size_t i = 0; i < src.m; i++)
+		dst.data[i] = src.data[i];
+	dst.n = src.n;
+	return dst;
+}
+
 
 #ifdef __cplusplus
 }
