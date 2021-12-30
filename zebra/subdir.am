@@ -268,3 +268,5 @@ endif
 
 zebra_zebra_dplane_dpdk_la_SOURCES = zebra/dpdk/zebra_dplane_dpdk.c zebra/dpdk/zebra_dplane_dpdk_vty.c
 zebra_zebra_dplane_dpdk_la_LDFLAGS = -avoid-version -module -shared -export-dynamic -L/usr/local/lib -v
+zebra_zebra_dplane_dpdk_la_CFLAGS = $(DPDK_CFLAGS)
+zebra_zebra_dplane_dpdk_la_LIBADD  = $(DPDK_LIBS)
