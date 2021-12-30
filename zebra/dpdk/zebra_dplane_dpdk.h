@@ -27,6 +27,7 @@
 
 #define ZD_DPDK_INVALID_PORT 0xffff
 
+extern void zd_dpdk_pbr_flows_show(struct vty *vty);
 extern void zd_dpdk_port_show(struct vty *vty, uint16_t port_id, bool uj,
 			      int detail);
 extern void zd_dpdk_stat_show(struct vty *vty);

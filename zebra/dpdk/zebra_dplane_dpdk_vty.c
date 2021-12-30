@@ -62,8 +62,24 @@ DEFPY (zd_dpdk_show_ports,
 }
 
 
+DEFPY (zd_dpdk_show_pbr_flows,
+       zd_dpdk_show_pbr_flows_cmd,
+       "show dplane dpdk pbr flows",
+       SHOW_STR
+       ZD_STR
+       ZD_DPDK_STR
+       "show pbr info\n"
+       "DPDK flows\n")
+{
+	zd_dpdk_pbr_flows_show(vty);
+
+	return CMD_SUCCESS;
+}
+
+
 void zd_dpdk_vty_init(void)
 {
 	install_element(VIEW_NODE, &zd_dpdk_show_counters_cmd);
 	install_element(VIEW_NODE, &zd_dpdk_show_ports_cmd);
+	install_element(VIEW_NODE, &zd_dpdk_show_pbr_flows_cmd);
 }
