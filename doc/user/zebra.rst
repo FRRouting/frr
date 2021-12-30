@@ -299,6 +299,15 @@ the default route.
    table.  An alternative form of the command is ``show ip import-check`` and this
    form of the command is deprecated at this point in time.
 
+PBR dataplane programming
+=========================
+
+Some dataplanes require the PBR nexthop to be resolved into a SMAC, DMAC and
+outgoing interface
+
+.. clicmd:: pbr nexthop-resolve
+
+   Resolve PBR nexthop via ip neigh tracking
 
 Administrative Distance
 =======================
@@ -1187,6 +1196,14 @@ zebra Terminal Mode Commands
 .. clicmd:: show ipv6 forward
 
    Display whether the host's IP v6 forwarding is enabled or not.
+
+.. clicmd:: show ip neigh
+
+   Display the ip neighbor table
+
+.. clicmd:: show pbr rule
+
+   Display the pbr rule table with resolved nexthops
 
 .. clicmd:: show zebra
 
