@@ -661,6 +661,8 @@ AC_ARG_ENABLE([ospfclient],
                           (this is the default if --disable-ospfapi is set)]))
 AC_ARG_ENABLE([multipath],
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
+AC_ARG_WITH([service_timeout],
+  AS_HELP_STRING([--with-service-timeout=ARG], [set service timeout value (2 minutes by default), ARG must be digit]))
 AC_ARG_ENABLE([user],
   AS_HELP_STRING([--enable-user=USER], [user to run FRR suite as (default frr)]))
 AC_ARG_ENABLE([group],
@@ -931,6 +933,20 @@ esac
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
 
 AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
+
+
+TIMEOUT_MIN=2
+case "${with_service_timeout}" in
+  [[1-9]|[1-9][0-9]|[1-9][0-9][0-9]])
+    TIMEOUT_MIN="${with_service_timeout}"
+    ;;
+  0|"")
+    ;;
+  *)
+    AC_MSG_FAILURE([Please specify digit for timeout ARG])
+    ;;
+esac
+AC_SUBST([TIMEOUT_MIN])
 
 dnl --------------------
 dnl Enable code coverage
