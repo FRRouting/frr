@@ -29,6 +29,14 @@
 #include "zebra_dplane_dpdk.h"
 
 
+struct zd_dpdk_port {
+	uint16_t port_id;		  /* dpdk port_id */
+	struct rte_eth_dev_info dev_info; /* PCI info + driver name */
+	uint32_t flags;
+#define ZD_DPDK_PORT_FLAG_PROBED (1 << 0)
+#define ZD_DPDK_PORT_FLAG_INITED (1 << 1)
+};
+
 struct zd_dpdk_stat {
 	_Atomic uint32_t ignored_updates;
 
@@ -39,6 +47,7 @@ struct zd_dpdk_stat {
 struct zd_dpdk_ctx {
 	/* Stats */
 	struct zd_dpdk_stat stats;
+	struct zd_dpdk_port *dpdk_ports;
 	int dpdk_logtype;
 };
 
