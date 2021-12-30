@@ -39,7 +39,31 @@ DEFPY(zd_dpdk_show_counters, zd_dpdk_show_counters_cmd,
 	return CMD_SUCCESS;
 }
 
+
+DEFPY (zd_dpdk_show_ports,
+       zd_dpdk_show_ports_cmd,
+       "show dplane dpdk port [(1-32)$port_id] [detail$detail] [json$json]",
+       SHOW_STR
+       ZD_STR
+       ZD_DPDK_STR
+       "show port info\n"
+       "DPDK port identifier\n"
+       "Detailed information\n"
+       JSON_STR)
+{
+	bool uj = !!json;
+	bool ud = !!detail;
+
+	if (!port_id)
+		port_id = ZD_DPDK_INVALID_PORT;
+	zd_dpdk_port_show(vty, port_id, uj, ud);
+
+	return CMD_SUCCESS;
+}
+
+
 void zd_dpdk_vty_init(void)
 {
 	install_element(VIEW_NODE, &zd_dpdk_show_counters_cmd);
+	install_element(VIEW_NODE, &zd_dpdk_show_ports_cmd);
 }
