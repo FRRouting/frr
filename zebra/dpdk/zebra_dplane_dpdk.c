@@ -40,6 +40,9 @@ extern struct zebra_privs_t zserv_privs;
 static struct zd_dpdk_ctx dpdk_ctx_buf, *dpdk_ctx = &dpdk_ctx_buf;
 #define dpdk_stat (&dpdk_ctx->stats)
 
+static struct zd_dpdk_port *zd_dpdk_port_find_by_index(int ifindex);
+
+DEFINE_MTYPE_STATIC(ZEBRA, DPDK_PORTS, "ZD DPDK port database");
 
 void zd_dpdk_stat_show(struct vty *vty)
 {
@@ -161,6 +164,147 @@ static int zd_dpdk_process(struct zebra_dplane_provider *prov)
 	return 0;
 }
 
+static void zd_dpdk_port_show_entry(struct zd_dpdk_port *dport, struct vty *vty,
+				    int detail)
+{
+	struct rte_eth_dev_info *dev_info;
+
+	dev_info = &dport->dev_info;
+	if (detail) {
+		vty_out(vty, "DPDK port: %u\n", dport->port_id);
+		vty_out(vty, " Device: %s\n",
+			dev_info->device ? dev_info->device->name : "-");
+		vty_out(vty, " Driver: %s\n",
+			dev_info->driver_name ? dev_info->driver_name : "-");
+		vty_out(vty, " Interface: %s (%d)\n",
+			ifindex2ifname(dev_info->if_index, VRF_DEFAULT),
+			dev_info->if_index);
+		vty_out(vty, " Switch: %s Domain: %u Port: %u\n",
+			dev_info->switch_info.name,
+			dev_info->switch_info.domain_id,
+			dev_info->switch_info.port_id);
+		vty_out(vty, "\n");
+	} else {
+		vty_out(vty, "%-4u %-16s %-16s %-16d %s,%u,%u\n",
+			dport->port_id,
+			dev_info->device ? dev_info->device->name : "-",
+			ifindex2ifname(dev_info->if_index, VRF_DEFAULT),
+			dev_info->if_index, dev_info->switch_info.name,
+			dev_info->switch_info.domain_id,
+			dev_info->switch_info.port_id);
+	}
+}
+
+
+static struct zd_dpdk_port *zd_dpdk_port_find_by_index(int ifindex)
+{
+	int count;
+	struct zd_dpdk_port *dport;
+	struct rte_eth_dev_info *dev_info;
+
+	for (count = 0; count < RTE_MAX_ETHPORTS; ++count) {
+		dport = &dpdk_ctx->dpdk_ports[count];
+		if (!(dport->flags & ZD_DPDK_PORT_FLAG_INITED))
+			continue;
+		dev_info = &dport->dev_info;
+		if (dev_info->if_index == (uint32_t)ifindex)
+			return dport;
+	}
+
+	return NULL;
+}
+
+
+void zd_dpdk_port_show(struct vty *vty, uint16_t port_id, bool uj, int detail)
+{
+	int count;
+	struct zd_dpdk_port *dport;
+
+	/* XXX - support for json is yet to be added */
+	if (uj)
+		return;
+
+	if (!detail) {
+		vty_out(vty, "%-4s %-16s %-16s %-16s %s\n", "Port", "Device",
+			"IfName", "IfIndex", "sw,domain,port");
+	}
+
+	for (count = 0; count < RTE_MAX_ETHPORTS; ++count) {
+		dport = &dpdk_ctx->dpdk_ports[count];
+		if (dport->flags & ZD_DPDK_PORT_FLAG_INITED)
+			zd_dpdk_port_show_entry(dport, vty, detail);
+	}
+}
+
+
+static void zd_dpdk_port_init(void)
+{
+	struct zd_dpdk_port *dport;
+	uint16_t port_id;
+	struct rte_eth_dev_info *dev_info;
+	int count;
+	int rc;
+	struct rte_flow_error error;
+
+	/* allocate a list of ports */
+	dpdk_ctx->dpdk_ports =
+		XCALLOC(MTYPE_DPDK_PORTS,
+			sizeof(struct zd_dpdk_port) * RTE_MAX_ETHPORTS);
+
+	if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+		zlog_debug("dpdk port init");
+	count = 0;
+	RTE_ETH_FOREACH_DEV(port_id)
+	{
+		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+			zlog_debug("dpdk port init %d", port_id);
+		dport = &dpdk_ctx->dpdk_ports[count];
+		count++;
+		dport->port_id = port_id;
+		dport->flags |= ZD_DPDK_PORT_FLAG_PROBED;
+		dev_info = &dport->dev_info;
+		if (rte_eth_dev_info_get(port_id, dev_info) < 0) {
+			zlog_warn("failed to get dev info for %u, %s", port_id,
+				  rte_strerror(rte_errno));
+			continue;
+		}
+		dport->flags |= ZD_DPDK_PORT_FLAG_INITED;
+		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+			zlog_debug(
+				"port %u, dev %s, ifI %d, sw_name %s, sw_domain %u, sw_port %u",
+				port_id,
+				dev_info->device ? dev_info->device->name : "-",
+				dev_info->if_index, dev_info->switch_info.name,
+				dev_info->switch_info.domain_id,
+				dev_info->switch_info.port_id);
+		if (rte_flow_isolate(port_id, 1, &error)) {
+			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+				zlog_debug(
+					"Flow isolate on port %u failed %d\n",
+					port_id, error.type);
+		} else {
+			if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+				zlog_debug("Flow isolate on port %u\n",
+					   port_id);
+		}
+		rc = rte_eth_dev_start(port_id);
+		if (rc) {
+			zlog_warn("DPDK port %d start error: %s", port_id,
+				  rte_strerror(-rc));
+			continue;
+		}
+		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+			zlog_debug("DPDK port %d started in promiscuous mode ",
+				   port_id);
+	}
+
+	if (!count) {
+		if (IS_ZEBRA_DEBUG_DPLANE_DPDK)
+			zlog_debug("no probed ethernet devices");
+	}
+}
+
+
 static int zd_dpdk_init(void)
 {
 	int rc;
@@ -176,8 +320,12 @@ static int zd_dpdk_init(void)
 		return -1;
 	}
 
+	frr_with_privs (&zserv_privs) {
+		zd_dpdk_port_init();
+	}
 	return 0;
 }
+
 
 static int zd_dpdk_start(struct zebra_dplane_provider *prov)
 {
