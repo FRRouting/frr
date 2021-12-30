@@ -199,6 +199,17 @@ static inline unsigned int bf_find_next_set_bit(bitfield_t v,
 		(v).data = NULL;                                               \
 	} while (0)
 
+static inline bitfield_t bf_copy(bitfield_t src)
+{
+	assert(bf_is_inited(src));
+	bitfield_t dst;
+	bf_init(dst, 32 * src.m);
+	for (size_t i = 0; i < src.m; i++)
+		dst.data[i] = src.data[i];
+	return dst;
+}
+
+
 #ifdef __cplusplus
 }
 #endif
