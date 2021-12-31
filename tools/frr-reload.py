@@ -433,16 +433,12 @@ class Config(object):
         ):
             key[0] = re.sub(r"\s+null0(\s*$)", " Null0", key[0])
 
-        # Similar to above, but when the static is in a vrf, it turns into a
-        # blackhole nexthop for both null0 and Null0.  Fix it accordingly
         if lines and key[0].startswith("vrf "):
             newlines = []
             for line in lines:
                 if line.startswith("ip route ") or line.startswith("ipv6 route "):
                     if "null0" in line:
-                        line = re.sub(r"\s+null0(\s*$)", " blackhole", line)
-                    elif "Null0" in line:
-                        line = re.sub(r"\s+Null0(\s*$)", " blackhole", line)
+                        line = re.sub(r"\s+null0(\s*$)", " Null0", line)
                     newlines.append(line)
                 else:
                     newlines.append(line)
