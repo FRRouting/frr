@@ -1380,7 +1380,7 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	}
 
 	/*
-	 * The message type will be BFD_DEST_REPLY so we can use only
+	 * The message type will be ZEBRA_BFD_DEST_REPLAY so we can use only
 	 * one callback at the `bfdd` side, however the real command
 	 * number will be included right after the zebra header.
 	 */
