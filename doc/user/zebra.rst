@@ -1140,6 +1140,59 @@ order to off-load work from the main zebra pthread.
    waiting to be processed by the dataplane pthread.
 
 
+DPDK dataplane
+==============
+
+The zebra DPDK subsystem programs the dataplane via rte_XXX APIs.
+This module needs be compiled in via "--enable-dp-dpdk=yes"
+and enabled at start up time via the zebra daemon option "-M dplane_dpdk".
+
+To program the PBR rules as rte_flows you additionally need to configure
+"pbr nexthop-resolve". This is used to expland the PBR actions into the
+{SMAC, DMAC, outgoing port} needed by rte_flow.
+
+
+.. clicmd:: show dplane dpdk port [detail]
+
+   Displays the mapping table between zebra interfaces and DPDK port-ids.
+   Sample output:
+
+   ::
+   Port Device           IfName           IfIndex          sw,domain,port
+
+   0    0000:03:00.0     p0               4                0000:03:00.0,0,65535
+   1    0000:03:00.0     pf0hpf           6                0000:03:00.0,0,4095
+   2    0000:03:00.0     pf0vf0           15               0000:03:00.0,0,4096
+   3    0000:03:00.0     pf0vf1           16               0000:03:00.0,0,4097
+   4    0000:03:00.1     p1               5                0000:03:00.1,1,65535
+   5    0000:03:00.1     pf1hpf           7                0000:03:00.1,1,20479
+
+.. clicmd:: show dplane dpdk pbr flows
+   Displays the DPDK stats per-PBR entry.
+   Sample output:
+
+   ::
+   Rules if pf0vf0
+   Seq 1 pri 300
+   SRC Match 77.0.0.8/32
+   DST Match 88.0.0.8/32
+   Tableid: 10000
+   Action: nh: 45.0.0.250 intf: p0
+   Action: mac: 00:00:5e:00:01:fa
+   DPDK flow: installed 0x40
+   DPDK flow stats: packets 13 bytes 1586
+
+.. clicmd:: show dplane dpdk counters
+ Displays the ZAPI message handler counters
+
+   Sample output:
+
+   ::
+             Ignored updates: 0
+               PBR rule adds: 1
+               PBR rule dels: 0
+
+
 zebra Terminal Mode Commands
 ============================
 
