@@ -66,6 +66,7 @@ extern struct thread_master *master;
 /* Daemons who can process nexthop-group configs */
 #define VTYSH_NH_GROUP    VTYSH_PBRD|VTYSH_SHARPD
 #define VTYSH_SR          VTYSH_ZEBRA|VTYSH_PATHD
+#define VTYSH_DPDK VTYSH_ZEBRA
 
 enum vtysh_write_integrated {
 	WRITE_INTEGRATED_UNSPECIFIED,

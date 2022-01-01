@@ -58,6 +58,9 @@ extern "C" {
 #define ZEBRA_DEBUG_DPLANE           0x01
 #define ZEBRA_DEBUG_DPLANE_DETAILED  0x02
 
+#define ZEBRA_DEBUG_DPLANE_DPDK 0x01
+#define ZEBRA_DEBUG_DPLANE_DPDK_DETAIL 0x02
+
 #define ZEBRA_DEBUG_MLAG    0x01
 
 #define ZEBRA_DEBUG_NHG             0x01
@@ -105,6 +108,11 @@ extern "C" {
 #define IS_ZEBRA_DEBUG_DPLANE_DETAIL \
 	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DETAILED)
 
+#define IS_ZEBRA_DEBUG_DPLANE_DPDK                                             \
+	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DPDK)
+#define IS_ZEBRA_DEBUG_DPLANE_DPDK_DETAIL                                      \
+	(zebra_debug_dplane & ZEBRA_DEBUG_DPLANE_DPDK_DETAIL)
+
 #define IS_ZEBRA_DEBUG_MLAG (zebra_debug_mlag & ZEBRA_DEBUG_MLAG)
 
 #define IS_ZEBRA_DEBUG_NHG (zebra_debug_nexthop & ZEBRA_DEBUG_NHG)
@@ -135,6 +143,7 @@ extern unsigned long zebra_debug_mpls;
 extern unsigned long zebra_debug_vxlan;
 extern unsigned long zebra_debug_pw;
 extern unsigned long zebra_debug_dplane;
+extern unsigned long zebra_debug_dplane_dpdk;
 extern unsigned long zebra_debug_mlag;
 extern unsigned long zebra_debug_nexthop;
 extern unsigned long zebra_debug_evpn_mh;
