@@ -45,6 +45,7 @@ typedef enum {
 	ZCAP_READ_SEARCH,
 	ZCAP_FOWNER,
 	ZCAP_IPC_LOCK,
+	ZCAP_SYS_RAWIO,
 	ZCAP_MAX
 } zebra_capabilities_t;
 
