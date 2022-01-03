@@ -103,7 +103,7 @@ struct isis_spine_leaf {
 enum isis_threeway_state {
 	ISIS_THREEWAY_DOWN = 2,
 	ISIS_THREEWAY_INITIALIZING = 1,
-	ISIS_THREEWAY_UP = 0
+	ISIS_THREEWAY_UP = 0,
 };
 
 struct isis_threeway_adj {
@@ -300,7 +300,7 @@ enum isis_tlv_context {
 	ISIS_CONTEXT_SUBTLV_NE_REACH,
 	ISIS_CONTEXT_SUBTLV_IP_REACH,
 	ISIS_CONTEXT_SUBTLV_IPV6_REACH,
-	ISIS_CONTEXT_MAX
+	ISIS_CONTEXT_MAX,
 };
 
 struct isis_subtlvs {
@@ -385,7 +385,7 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
-	ISIS_SUBTLV_MAX = 40
+	ISIS_SUBTLV_MAX = 40,
 };
 
 /* subTLVs size for TE and SR */
@@ -419,7 +419,7 @@ enum ext_subtlv_size {
 	/* RFC 7308 */
 	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
 
-	ISIS_SUBTLV_MAX_SIZE = 180
+	ISIS_SUBTLV_MAX_SIZE = 180,
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */
