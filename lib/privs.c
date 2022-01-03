@@ -163,6 +163,10 @@ static struct {
 			{
 				1, (pvalue_t[]){CAP_IPC_LOCK},
 			},
+		[ZCAP_SYS_RAWIO] =
+			{
+				1, (pvalue_t[]){CAP_SYS_RAWIO},
+			},
 #endif /* HAVE_LCAPS */
 };
 
