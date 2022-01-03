@@ -105,9 +105,9 @@ const struct option longopts[] = {
 #endif /* HAVE_NETLINK */
 	{0}};
 
-zebra_capabilities_t _caps_p[] = {
-	ZCAP_NET_ADMIN, ZCAP_SYS_ADMIN, ZCAP_NET_RAW,
-};
+zebra_capabilities_t _caps_p[] = {ZCAP_NET_ADMIN,   ZCAP_SYS_ADMIN,
+				  ZCAP_NET_RAW,     ZCAP_IPC_LOCK,
+				  ZCAP_READ_SEARCH, ZCAP_SYS_RAWIO};
 
 /* zebra privileges to run with */
 struct zebra_privs_t zserv_privs = {
