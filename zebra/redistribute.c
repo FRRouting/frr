@@ -122,12 +122,12 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
-					"%s: client %s %pFX(%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
+					"%s: client %s %pFX(%u:%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
 					zebra_route_string(client->proto),
-					dst_p, vrf_id,
-					CHECK_FLAG(newre->flags,
-						   ZEBRA_FLAG_SELECTED),
+					dst_p, vrf_id, newre->instance,
+					!!CHECK_FLAG(newre->flags,
+						     ZEBRA_FLAG_SELECTED),
 					newre->type, newre->distance,
 					newre->metric, zebra_check_addr(dst_p));
 
@@ -200,8 +200,8 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
-			"(%u:%u):%pFX: Redist update re %p (%s), old %p (%s)",
-			re->vrf_id, re->table, p, re,
+			"(%u:%u):%pFX(%u): Redist update re %p (%s), old %p (%s)",
+			re->vrf_id, re->table, p, re->instance, re,
 			zebra_route_string(re->type), prev_re,
 			prev_re ? zebra_route_string(prev_re->type) : "None");
 
