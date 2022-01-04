@@ -340,7 +340,6 @@ void isis_zebra_route_del_route(struct isis *isis,
  */
 void isis_zebra_prefix_sid_install(struct isis_area *area,
 				   struct prefix *prefix,
-				   struct isis_route_info *rinfo,
 				   struct isis_sr_psid_info *psid)
 {
 	struct zapi_labels zl;
@@ -355,7 +354,7 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 	zl.local_label = psid->label;
 
 	/* Local routes don't have any nexthop and require special handling. */
-	if (list_isempty(rinfo->nexthops)) {
+	if (list_isempty(psid->nexthops)) {
 		struct zapi_nexthop *znh;
 		struct interface *ifp;
 
@@ -374,9 +373,9 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 		znh->labels[0] = MPLS_LABEL_IMPLICIT_NULL;
 	} else {
 		/* Add backup nexthops first. */
-		if (rinfo->backup) {
+		if (psid->nexthops_backup) {
 			count = isis_zebra_add_nexthops(
-				area->isis, rinfo->backup->nexthops,
+				area->isis, psid->nexthops_backup,
 				zl.backup_nexthops, ISIS_NEXTHOP_BACKUP, true,
 				0);
 			if (count > 0) {
@@ -386,7 +385,7 @@ void isis_zebra_prefix_sid_install(struct isis_area *area,
 		}
 
 		/* Add primary nexthops. */
-		count = isis_zebra_add_nexthops(area->isis, rinfo->nexthops,
+		count = isis_zebra_add_nexthops(area->isis, psid->nexthops,
 						zl.nexthops, ISIS_NEXTHOP_MAIN,
 						true, count);
 		if (!count)

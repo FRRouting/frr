@@ -49,7 +49,6 @@ void isis_zebra_route_del_route(struct isis *isis,
 				struct isis_route_info *route_info);
 void isis_zebra_prefix_sid_install(struct isis_area *area,
 				   struct prefix *prefix,
-				   struct isis_route_info *rinfo,
 				   struct isis_sr_psid_info *psid);
 void isis_zebra_prefix_sid_uninstall(struct isis_area *area,
 				     struct prefix *prefix,
