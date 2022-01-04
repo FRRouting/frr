@@ -340,12 +340,12 @@ void isis_zebra_route_del_route(struct isis *isis,
  */
 void isis_zebra_prefix_sid_install(struct isis_area *area,
 				   struct prefix *prefix,
-				   struct list *nexthops,
-				   struct list *nexthops_backup,
 				   struct isis_sr_psid_info *psid)
 {
 	struct zapi_labels zl;
 	int count = 0;
+	struct list *nexthops = psid->nexthops;
+	struct list *nexthops_backup = psid->nexthops_backup;
 
 	sr_debug("ISIS-Sr (%s): update label %u for prefix %pwFX algorithm %u",
 		 area->area_tag, psid->label, prefix, psid->algorithm);
