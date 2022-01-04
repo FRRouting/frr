@@ -106,13 +106,13 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 			    struct igmp_mtrace_rsp *rspp,
 			    struct interface **ifpp)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct pim_upstream *up;
 	struct interface *ifp_in;
 	struct in_addr nh_addr;
 	uint32_t total;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = mtracep->src_addr;
 	sg.grp = mtracep->grp_addr;
 
@@ -426,14 +426,14 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 
 static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct channel_oil *c_oil;
 	struct listnode *chnode;
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp = ip_hdr->ip_dst;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
@@ -477,14 +477,14 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 				   struct igmp_mtrace *mtracep,
 				   size_t mtrace_len)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct channel_oil *c_oil;
 	struct listnode *chnode;
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp = mtracep->rsp_addr;
 
 	c_oil = pim_find_channel_oil(pim, &sg);

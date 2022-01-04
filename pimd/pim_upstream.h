@@ -231,7 +231,7 @@ struct pim_upstream {
 	struct pim_upstream *parent;
 	pim_addr upstream_addr;		  /* Who we are talking to */
 	pim_addr upstream_register;       /*Who we received a register from*/
-	struct prefix_sg sg;		  /* (S,G) group key */
+	pim_sgaddr sg;			  /* (S,G) group key */
 	char sg_str[PIM_SG_LEN];
 	uint32_t flags;
 	struct channel_oil *channel_oil;
@@ -291,12 +291,11 @@ static inline bool pim_up_mlag_is_local(struct pim_upstream *up)
 }
 
 struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
-				       struct prefix_sg *sg);
-struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
+				       pim_sgaddr *sg);
+struct pim_upstream *pim_upstream_find_or_add(pim_sgaddr *sg,
 					      struct interface *ifp, int flags,
 					      const char *name);
-struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
-				      struct prefix_sg *sg,
+struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
 				      struct interface *ifp, int flags,
 				      const char *name,
 				      struct pim_ifchannel *ch);
@@ -338,7 +337,7 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up,
 					 uint32_t time);
 
 int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
-				       struct prefix_sg *sg);
+					     pim_sgaddr *sg);
 #define SwitchToSptDesiredOnRp(pim, sg) pim_upstream_switch_to_spt_desired_on_rp (pim, sg)
 int pim_upstream_is_sg_rpt(struct pim_upstream *up);
 

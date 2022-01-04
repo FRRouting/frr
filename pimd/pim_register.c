@@ -64,7 +64,7 @@ void pim_register_join(struct pim_upstream *up)
 	pim_vxlan_update_sg_reg_state(pim, up, true /*reg_join*/);
 }
 
-void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
+void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 			    struct in_addr src, struct in_addr originator)
 {
 	struct pim_interface *pinfo;
@@ -119,12 +119,12 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	struct pim_instance *pim = pim_ifp->pim;
 	struct pim_upstream *upstream = NULL;
 	struct prefix source;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	int l;
 
 	++pim_ifp->pim_ifstat_reg_stop_recv;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	l = pim_parse_addr_group(&sg, buf, buf_size);
 	buf += l;
 	buf_size -= l;
@@ -318,7 +318,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 {
 	int sentRegisterStop = 0;
 	struct ip *ip_hdr;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	uint32_t *bits;
 	int i_am_rp = 0;
 	struct pim_interface *pim_ifp = ifp->info;
@@ -367,7 +367,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	 * Line above.  So we need to add 4 bytes to get to the
 	 * start of the actual Encapsulated data.
 	 */
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
 
@@ -416,7 +416,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 						       src_str,
 						       sizeof(src_str));
 					zlog_debug(
-						"%s: Sending register-stop to %s for %pPSG4 due to prefix-list denial, dropping packet",
+						"%s: Sending register-stop to %s for %pSG due to prefix-list denial, dropping packet",
 						__func__, src_str, &sg);
 				}
 

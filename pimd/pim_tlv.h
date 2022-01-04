@@ -111,9 +111,8 @@ int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
 			  struct in_addr group);
 
 int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size);
-int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf,
-			 int buf_size);
-int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
-			  const uint8_t *buf, int buf_size);
+int pim_parse_addr_group(pim_sgaddr *sg, const uint8_t *buf, int buf_size);
+int pim_parse_addr_source(pim_sgaddr *sg, uint8_t *flags, const uint8_t *buf,
+			  int buf_size);
 
 #endif /* PIM_TLV_H */

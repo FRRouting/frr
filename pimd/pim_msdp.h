@@ -78,7 +78,7 @@ enum pim_msdp_sa_flags {
 struct pim_msdp_sa {
 	struct pim_instance *pim;
 
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	char sg_str[PIM_SG_LEN];
 	struct in_addr rp;   /* Last RP address associated with this SA */
 	struct in_addr peer; /* last peer from who we heard this SA */
@@ -246,14 +246,14 @@ bool pim_msdp_peer_config_write(struct vty *vty, struct pim_instance *pim,
 				const char *spaces);
 void pim_msdp_peer_pkt_txed(struct pim_msdp_peer *mp);
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
-		     struct prefix_sg *sg, struct in_addr rp);
+		     pim_sgaddr *sg, struct in_addr rp);
 void pim_msdp_sa_local_update(struct pim_upstream *up);
-void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg);
+void pim_msdp_sa_local_del(struct pim_instance *pim, pim_sgaddr *sg);
 void pim_msdp_i_am_rp_changed(struct pim_instance *pim);
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp);
 void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 				    struct pim_upstream *xg_up);
-void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg);
+void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg);
 enum pim_msdp_err pim_msdp_mg_del(struct pim_instance *pim,
 				  const char *mesh_group_name);
 
