@@ -22,7 +22,7 @@
 
 extern const struct frr_yang_module_info frr_pim_info;
 extern const struct frr_yang_module_info frr_pim_rp_info;
-extern const struct frr_yang_module_info frr_igmp_info;
+extern const struct frr_yang_module_info frr_gmp_info;
 
 /* frr-pim prototypes*/
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ecmp_modify(
@@ -163,25 +163,33 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp_static_rp_rp_list_prefix_list_destroy(
 	struct nb_cb_destroy_args *args);
 
-/* frr-igmp prototypes*/
-int lib_interface_igmp_create(struct nb_cb_create_args *args);
-int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args);
-int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args);
-int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args);
-int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args);
-int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args);
-int lib_interface_igmp_query_max_response_time_modify(
-	struct nb_cb_modify_args *args);
-int lib_interface_igmp_last_member_query_interval_modify(
-	struct nb_cb_modify_args *args);
-int lib_interface_igmp_robustness_variable_modify(
-	struct nb_cb_modify_args *args);
-int lib_interface_igmp_address_family_create(struct nb_cb_create_args *args);
-int lib_interface_igmp_address_family_destroy(struct nb_cb_destroy_args *args);
-int lib_interface_igmp_address_family_static_group_create(
+/* frr-gmp prototypes*/
+int lib_interface_gmp_address_family_create(
 	struct nb_cb_create_args *args);
-int lib_interface_igmp_address_family_static_group_destroy(
+int lib_interface_gmp_address_family_destroy(
 	struct nb_cb_destroy_args *args);
+int lib_interface_gmp_address_family_enable_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_igmp_version_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_igmp_version_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_gmp_address_family_mld_version_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_mld_version_destroy(
+	struct nb_cb_destroy_args *args);
+int lib_interface_gmp_address_family_query_interval_modify(
+	struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_query_max_response_time_modify(
+		struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_last_member_query_interval_modify(
+		struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_robustness_variable_modify(
+		struct nb_cb_modify_args *args);
+int lib_interface_gmp_address_family_static_group_create(
+		struct nb_cb_create_args *args);
+int lib_interface_gmp_address_family_static_group_destroy(
+		struct nb_cb_destroy_args *args);
 
 /*
  * Callback registered with routing_nb lib to validate only
@@ -208,8 +216,12 @@ int routing_control_plane_protocols_name_validate(
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
 	"frr-pim:pim/address-family[address-family='%s']/"              \
 	"frr-pim-rp:rp/static-rp/rp-list[rp-address='%s']"
-#define FRR_IGMP_JOIN_XPATH                                             \
-	"./frr-igmp:igmp/address-family[address-family='%s']/"          \
+#define FRR_GMP_INTERFACE_XPATH                                         \
+	"./frr-gmp:gmp/address-family[address-family='%s']"
+#define FRR_GMP_ENABLE_XPATH                                            \
+	"%s/frr-gmp:gmp/address-family[address-family='%s']/enable"
+#define FRR_GMP_JOIN_XPATH                                              \
+	"./frr-gmp:gmp/address-family[address-family='%s']/"            \
 	"static-group[group-addr='%s'][source-addr='%s']"
 #define FRR_PIM_MSDP_XPATH FRR_PIM_VRF_XPATH "/msdp"
 
