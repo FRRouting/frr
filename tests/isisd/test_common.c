@@ -163,31 +163,32 @@ static void lsp_add_reach(struct isis_lsp *lsp,
 static void lsp_add_router_capability(struct isis_lsp *lsp,
 				      const struct isis_test_node *tnode)
 {
-	struct isis_router_cap cap = {};
+	struct isis_router_cap *cap;
 
 	if (!tnode->router_id)
 		return;
 
-	if (inet_pton(AF_INET, tnode->router_id, &cap.router_id) != 1) {
+	cap = isis_tlvs_init_router_capability(lsp->tlvs);
+
+	if (inet_pton(AF_INET, tnode->router_id, &cap->router_id) != 1) {
 		zlog_debug("%s: invalid router-id: %s", __func__,
 			   tnode->router_id);
 		return;
 	}
 
 	if (CHECK_FLAG(tnode->flags, F_ISIS_TEST_NODE_SR)) {
-		cap.srgb.flags =
+		cap->srgb.flags =
 			ISIS_SUBTLV_SRGB_FLAG_I | ISIS_SUBTLV_SRGB_FLAG_V;
-		cap.srgb.lower_bound = tnode->srgb.lower_bound
-					       ? tnode->srgb.lower_bound
-					       : SRGB_DFTL_LOWER_BOUND;
-		cap.srgb.range_size = tnode->srgb.range_size
-					      ? tnode->srgb.range_size
-					      : SRGB_DFTL_RANGE_SIZE;
-		cap.algo[0] = SR_ALGORITHM_SPF;
-		cap.algo[1] = SR_ALGORITHM_UNSET;
+		cap->srgb.lower_bound = tnode->srgb.lower_bound
+						? tnode->srgb.lower_bound
+						: SRGB_DFTL_LOWER_BOUND;
+		cap->srgb.range_size = tnode->srgb.range_size
+					       ? tnode->srgb.range_size
+					       : SRGB_DFTL_RANGE_SIZE;
+		cap->algo[0] = SR_ALGORITHM_SPF;
+		cap->algo[1] = SR_ALGORITHM_UNSET;
 	}
 
-	isis_tlvs_set_router_capability(lsp->tlvs, &cap);
 }
 
 static void lsp_add_mt_router_info(struct isis_lsp *lsp,
