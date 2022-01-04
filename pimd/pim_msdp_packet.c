@@ -66,14 +66,14 @@ static char *pim_msdp_pkt_type_dump(enum pim_msdp_tlv type, char *buf,
 
 static void pim_msdp_pkt_sa_dump_one(struct stream *s)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 
 	/* just throw away the three reserved bytes */
 	stream_get3(s);
 	/* throw away the prefix length also */
 	stream_getc(s);
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp.s_addr = stream_get_ipv4(s);
 	sg.src.s_addr = stream_get_ipv4(s);
 
@@ -458,7 +458,7 @@ void pim_msdp_pkt_sa_tx_to_one_peer(struct pim_msdp_peer *mp)
 }
 
 void pim_msdp_pkt_sa_tx_one_to_one_peer(struct pim_msdp_peer *mp,
-					struct in_addr rp, struct prefix_sg sg)
+					struct in_addr rp, pim_sgaddr sg)
 {
 	struct pim_msdp_sa sa;
 
@@ -493,7 +493,7 @@ static void pim_msdp_pkt_ka_rx(struct pim_msdp_peer *mp, int len)
 static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 {
 	int prefix_len;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct listnode *peer_node;
 	struct pim_msdp_peer *peer;
 
@@ -501,7 +501,7 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 	stream_get3(mp->ibuf);
 	prefix_len = stream_getc(mp->ibuf);
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp.s_addr = stream_get_ipv4(mp->ibuf);
 	sg.src.s_addr = stream_get_ipv4(mp->ibuf);
 

@@ -131,7 +131,7 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 						     struct pim_upstream *child)
 {
-	struct prefix_sg any = child->sg;
+	pim_sgaddr any = child->sg;
 	struct pim_upstream *up = NULL;
 
 	// (S,G)
@@ -860,7 +860,7 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 }
 
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
-					     struct prefix_sg *sg,
+					     pim_sgaddr *sg,
 					     struct interface *incoming,
 					     int flags,
 					     struct pim_ifchannel *ch)
@@ -1012,8 +1012,7 @@ uint32_t pim_up_mlag_peer_cost(struct pim_upstream *up)
 	return up->mlag.peer_mrib_metric;
 }
 
-struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
-				       struct prefix_sg *sg)
+struct pim_upstream *pim_upstream_find(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_upstream lookup;
 	struct pim_upstream *up = NULL;
@@ -1023,9 +1022,9 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 	return up;
 }
 
-struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
-		struct interface *incoming,
-		int flags, const char *name)
+struct pim_upstream *pim_upstream_find_or_add(pim_sgaddr *sg,
+					      struct interface *incoming,
+					      int flags, const char *name)
 {
 	struct pim_interface *pim_ifp = incoming->info;
 
@@ -1069,8 +1068,7 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 			   __func__, name, up->sg_str, up->ref_count);
 }
 
-struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
-				      struct prefix_sg *sg,
+struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
 				      struct interface *incoming, int flags,
 				      const char *name,
 				      struct pim_ifchannel *ch)
@@ -1584,7 +1582,7 @@ void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
  *  received for the source and group.
  */
 int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
-				       struct prefix_sg *sg)
+					     pim_sgaddr *sg)
 {
 	if (I_am_RP(pim, sg->grp))
 		return 1;

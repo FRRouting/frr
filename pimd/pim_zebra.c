@@ -327,7 +327,8 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
 	struct pim_instance *pim;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
+	size_t prefixlen;
 
 	pim = pim_get_pim_instance(vrf_id);
 	if (!pim)
@@ -335,10 +336,9 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 
 	s = zclient->ibuf;
 
-	sg.family = AF_INET;
-	sg.prefixlen = stream_getl(s);
-	stream_get(&sg.src.s_addr, s, sg.prefixlen);
-	stream_get(&sg.grp.s_addr, s, sg.prefixlen);
+	prefixlen = stream_getl(s);
+	stream_get(&sg.src.s_addr, s, prefixlen);
+	stream_get(&sg.grp.s_addr, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA) {
 		char sg_str[PIM_SG_LEN];
@@ -502,7 +502,7 @@ void igmp_anysource_forward_stop(struct gm_group *group)
 static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 					       struct gm_source *source)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct gm_group *group = source->source_group;
 	struct pim_ifchannel *ch;
 
@@ -510,7 +510,7 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 	    || !IGMP_SOURCE_TEST_FORWARDING(source->source_flags))
 		return;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = source->source_addr;
 	sg.grp = group->group_addr;
 
@@ -581,11 +581,11 @@ void igmp_source_forward_start(struct pim_instance *pim,
 {
 	struct pim_interface *pim_oif;
 	struct gm_group *group;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	int result;
 	int input_iface_vif_index = 0;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = source->source_addr;
 	sg.grp = source->source_group->group_addr;
 
@@ -761,10 +761,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 void igmp_source_forward_stop(struct gm_source *source)
 {
 	struct gm_group *group;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	int result;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = source->source_addr;
 	sg.grp = source->source_group->group_addr;
 

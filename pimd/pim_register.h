@@ -39,7 +39,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up);
-void pim_register_stop_send(struct interface *ifp, struct prefix_sg *sg,
+void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 			    struct in_addr src, struct in_addr originator);
 void pim_register_join(struct pim_upstream *up);
 void pim_null_register_send(struct pim_upstream *up);
