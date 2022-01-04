@@ -65,12 +65,12 @@ static inline long igmp_gmi_msec(struct gm_group *group)
 
 	long qrv = 0, qqi = 0;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 		qrv = MAX(qrv, igmp->querier_robustness_variable);
 		qqi = MAX(qqi, igmp->querier_query_interval);
 	}
 	return PIM_IGMP_GMI_MSEC(qrv, qqi,
-				 pim_ifp->igmp_query_max_response_time_dsec);
+				 pim_ifp->gm_query_max_response_time_dsec);
 }
 
 void igmp_group_reset_gmi(struct gm_group *group)
@@ -984,12 +984,12 @@ static void igmp_send_query_group(struct gm_group *group, char *query_buf,
 	struct gm_sock *igmp;
 	struct listnode *sock_node;
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 		igmp_send_query(
 			pim_ifp->igmp_version, group, igmp->fd, ifp->name,
 			query_buf, query_buf_size, num_sources,
 			group->group_addr, group->group_addr,
-			pim_ifp->igmp_specific_query_max_response_time_dsec,
+			pim_ifp->gm_specific_query_max_response_time_dsec,
 			s_flag, igmp->querier_robustness_variable,
 			igmp->querier_query_interval);
 	}
@@ -1021,8 +1021,8 @@ static void group_retransmit_group(struct gm_group *group)
 
 	char query_buf[query_buf_size];
 
-	lmqc = pim_ifp->igmp_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1091,8 +1091,8 @@ static int group_retransmit_sources(struct gm_group *group,
 
 	pim_ifp = group->interface->info;
 
-	lmqc = pim_ifp->igmp_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/* Scan all group sources */
@@ -1283,7 +1283,7 @@ static void group_retransmit_timer_on(struct gm_group *group)
 
 	pim_ifp = group->interface->info;
 
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1319,7 +1319,7 @@ static void group_query_send(struct gm_group *group)
 	long lmqc; /* Last Member Query Count */
 
 	pim_ifp = group->interface->info;
-	lmqc = pim_ifp->igmp_last_member_query_count;
+	lmqc = pim_ifp->gm_last_member_query_count;
 
 	/* lower group timer to lmqt */
 	igmp_group_timer_lower_to_lmqt(group);
@@ -1352,8 +1352,8 @@ static void source_query_send_by_flag(struct gm_group *group,
 
 	pim_ifp = group->interface->info;
 
-	lmqc = pim_ifp->igmp_last_member_query_count;
-	lmqi_msec = 100 * pim_ifp->igmp_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
+	lmqi_msec = 100 * pim_ifp->gm_specific_query_max_response_time_dsec;
 	lmqt_msec = lmqc * lmqi_msec;
 
 	/*
@@ -1509,8 +1509,8 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->igmp_specific_query_max_response_time_dsec;
-	lmqc = pim_ifp->igmp_last_member_query_count;
+	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
@@ -1544,8 +1544,8 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 	pim_ifp = ifp->info;
 	ifname = ifp->name;
 
-	lmqi_dsec = pim_ifp->igmp_specific_query_max_response_time_dsec;
-	lmqc = pim_ifp->igmp_last_member_query_count;
+	lmqi_dsec = pim_ifp->gm_specific_query_max_response_time_dsec;
+	lmqc = pim_ifp->gm_last_member_query_count;
 	lmqt_msec = PIM_IGMP_LMQT_MSEC(
 		lmqi_dsec, lmqc); /* lmqt_msec = (100 * lmqi_dsec) * lmqc */
 
@@ -1717,7 +1717,7 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 	resv_s_qrv = igmp_msg[8];
 	qrv = 7 & resv_s_qrv;
 	igmp->querier_robustness_variable =
-		qrv ? qrv : pim_ifp->igmp_default_robustness_variable;
+		qrv ? qrv : pim_ifp->gm_default_robustness_variable;
 
 	/*
 	 * RFC 3376: 4.1.7. QQIC (Querier's Query Interval Code)
@@ -1734,7 +1734,7 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 		qqic = igmp_msg[9];
 		qqi = igmp_msg_decode8to16(qqic);
 		igmp->querier_query_interval =
-			qqi ? qqi : pim_ifp->igmp_default_query_interval;
+			qqi ? qqi : pim_ifp->gm_default_query_interval;
 
 		if (PIM_DEBUG_IGMP_TRACE) {
 			char ifaddr_str[INET_ADDRSTRLEN];
