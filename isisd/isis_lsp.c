@@ -46,6 +46,7 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
+#include "isisd/isis_flex_algo.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
@@ -900,9 +901,15 @@ static void lsp_build_internal_reach_ipv4(struct isis_lsp *lsp,
 			  area->area_tag, ipv4);
 
 		if (area->srdb.enabled)
-			for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+#ifndef FABRICD
+				if (flex_algo_id_valid(i) &&
+				    !isis_flex_algo_elected_supported(i, area))
+					continue;
+#endif /* ifndef FABRICD */
 				pcfgs[i] =
 					isis_sr_cfg_prefix_find(area, ipv4, i);
+			}
 
 		isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric, false,
 						pcfgs);
@@ -920,8 +927,14 @@ static void lsp_build_internal_reach_ipv6(struct isis_lsp *lsp,
 		  area->area_tag, ipv6);
 
 	if (area->srdb.enabled)
-		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+#ifndef FABRICD
+			if (flex_algo_id_valid(i) &&
+			    !isis_flex_algo_elected_supported(i, area))
+				continue;
+#endif /* ifndef FABRICD */
 			pcfgs[i] = isis_sr_cfg_prefix_find(area, ipv6, i);
+		}
 
 	isis_tlvs_add_ipv6_reach(lsp->tlvs, isis_area_ipv6_topology(area), ipv6,
 				 metric, false, pcfgs);
@@ -957,9 +970,16 @@ static void lsp_build_ext_reach_ipv4(struct isis_lsp *lsp,
 				NULL};
 
 			if (area->srdb.enabled)
-				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+#ifndef FABRICD
+					if (flex_algo_id_valid(i) &&
+					    !isis_flex_algo_elected_supported(
+						    i, area))
+						continue;
+#endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
 						area, ipv4, i);
+				}
 
 			isis_tlvs_add_extended_ip_reach(lsp->tlvs, ipv4, metric,
 							true, pcfgs);
@@ -994,9 +1014,16 @@ static void lsp_build_ext_reach_ipv6(struct isis_lsp *lsp,
 				NULL};
 
 			if (area->srdb.enabled)
-				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+#ifndef FABRICD
+					if (flex_algo_id_valid(i) &&
+					    !isis_flex_algo_elected_supported(
+						    i, area))
+						continue;
+#endif /* ifndef FABRICD */
 					pcfgs[i] = isis_sr_cfg_prefix_find(
 						area, p, i);
+				}
 
 			isis_tlvs_add_ipv6_reach(lsp->tlvs,
 						 isis_area_ipv6_topology(area),
@@ -1117,13 +1144,30 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 
 	/* Add Router Capability TLV. */
 	if (area->isis->router_id != 0) {
-		struct isis_router_cap cap = {};
+		struct isis_router_cap *rcap;
+#ifndef FABRICD
+		struct isis_router_cap_fad *rcap_fad;
+		struct listnode *node;
+		struct flex_algo *fa;
+#endif /* ifndef FABRICD */
 
-		/* init SR algo list content to the default value */
-		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-			cap.algo[i] = SR_ALGORITHM_UNSET;
+		rcap = isis_tlvs_init_router_capability(lsp->tlvs);
 
-		cap.router_id.s_addr = area->isis->router_id;
+		rcap->router_id.s_addr = area->isis->router_id;
+
+#ifndef FABRICD
+		/* Set flex-algo definitions */
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			if (!fa->advertise_definition)
+				continue;
+			lsp_debug("ISIS (%s):   Flex-Algo Definition %u",
+				  area->area_tag, fa->algorithm);
+			isis_tlvs_set_router_capability_fad(lsp->tlvs, fa,
+							    fa->algorithm,
+							    area->isis->sysid);
+		}
+#endif /* ifndef FABRICD */
 
 		/* Add SR Sub-TLVs if SR is enabled. */
 		if (area->srdb.enabled) {
@@ -1133,26 +1177,38 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 			/* SRGB first */
 			range_size = srdb->config.srgb_upper_bound
 				     - srdb->config.srgb_lower_bound + 1;
-			cap.srgb.flags = ISIS_SUBTLV_SRGB_FLAG_I
-					 | ISIS_SUBTLV_SRGB_FLAG_V;
-			cap.srgb.range_size = range_size;
-			cap.srgb.lower_bound = srdb->config.srgb_lower_bound;
+			rcap->srgb.flags = ISIS_SUBTLV_SRGB_FLAG_I |
+					   ISIS_SUBTLV_SRGB_FLAG_V;
+			rcap->srgb.range_size = range_size;
+			rcap->srgb.lower_bound = srdb->config.srgb_lower_bound;
 			/* Then Algorithm */
-			cap.algo[0] = SR_ALGORITHM_SPF;
-			cap.algo[1] = SR_ALGORITHM_UNSET;
+			rcap->algo[0] = SR_ALGORITHM_SPF;
+			rcap->algo[1] = SR_ALGORITHM_UNSET;
+#ifndef FABRICD
+			for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos,
+						  node, fa)) {
+				if (fa->advertise_definition)
+					rcap_fad = rcap->fads[fa->algorithm];
+				else
+					rcap_fad = NULL;
+
+				if (!isis_flex_algo_elected_supported_local_fad(
+					    fa->algorithm, area, &rcap_fad))
+					continue;
+				lsp_debug("ISIS (%s):   SR Algorithm %u",
+					  area->area_tag, fa->algorithm);
+				rcap->algo[fa->algorithm] = fa->algorithm;
+			}
+#endif /* ifndef FABRICD */
 			/* SRLB */
-			cap.srlb.flags = 0;
+			rcap->srlb.flags = 0;
 			range_size = srdb->config.srlb_upper_bound
 				     - srdb->config.srlb_lower_bound + 1;
-			cap.srlb.range_size = range_size;
-			cap.srlb.lower_bound = srdb->config.srlb_lower_bound;
+			rcap->srlb.range_size = range_size;
+			rcap->srlb.lower_bound = srdb->config.srlb_lower_bound;
 			/* And finally MSD */
-			cap.msd = srdb->config.msd;
+			rcap->msd = srdb->config.msd;
 		}
-
-		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
-		lsp_debug("ISIS (%s): Adding Router Capabilities information",
-			  area->area_tag);
 	}
 
 	/* IPv4 address and TE router ID TLVs.

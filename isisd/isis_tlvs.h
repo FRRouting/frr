@@ -13,6 +13,8 @@
 #include "openbsd-tree.h"
 #include "prefix.h"
 #include "flex_algo.h"
+#include "affinitymap.h"
+
 
 DECLARE_MTYPE(ISIS_SUBTLV);
 
@@ -400,10 +402,22 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
+	/* RFC 7308 */
+	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
+
 	/* RFC 8919 */
 	ISIS_SUBTLV_ASLA = 16,
 
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBTLV_SID_END = 5,
+	ISIS_SUBTLV_SID_END_X = 43,
+
 	ISIS_SUBTLV_MAX = 40,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBSUBTLV_SID_STRUCTURE = 1,
+
+	ISIS_SUBSUBTLV_MAX = 256,
 };
 
 /* subTLVs size for TE and SR */
@@ -431,15 +445,31 @@ enum ext_subtlv_size {
 	/* RFC 7810 */
 	ISIS_SUBTLV_MM_DELAY_SIZE = 8,
 
+	/* draft-ietf-lsr-flex-algo */
+	ISIS_SUBTLV_FAD = 26,
+	ISIS_SUBTLV_FAD_MIN_SIZE = 4,
+
 	ISIS_SUBTLV_HDR_SIZE = 2,
 	ISIS_SUBTLV_DEF_SIZE = 4,
 
-	/* RFC 7308 */
-	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
+	ISIS_SUBTLV_MAX_SIZE = 180,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBSUBTLV_SID_STRUCTURE_SIZE = 4,
 
 	ISIS_SUBSUBTLV_HDR_SIZE = 2,
+	ISIS_SUBSUBTLV_MAX_SIZE = 180,
 
-	ISIS_SUBTLV_MAX_SIZE = 180,
+	/* draft-ietf-lsr-flex-algo */
+	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE = 1,
+};
+
+enum ext_subsubtlv_types {
+	ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG = 1,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG = 2,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG = 3,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS = 4,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG = 5,
 };
 
 /* Macros to manage the optional presence of EXT subTLVs */
@@ -625,8 +655,16 @@ void isis_tlvs_add_csnp_entries(struct isis_tlvs *tlvs, uint8_t *start_id,
 				struct isis_lsp **last_lsp);
 void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
 				    const char *hostname);
-void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
-                     const struct isis_router_cap *cap);
+struct isis_router_cap *
+isis_tlvs_init_router_capability(struct isis_tlvs *tlvs);
+
+struct isis_area;
+struct isis_flex_algo;
+void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs,
+					 struct flex_algo *fa, int algorithm,
+					 uint8_t *sysid);
+
+struct isis_area;
 
 int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap);
 

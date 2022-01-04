@@ -29,6 +29,7 @@
 #include "isisd/isis_lsp.h"
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
+#include "isisd/isis_flex_algo.h"
 
 #define TLV_SIZE_MISMATCH(log, indent, target)                                 \
 	sbuf_push(log, indent,                                                 \
@@ -36,6 +37,7 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
 DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
+DEFINE_MTYPE_STATIC(ISISD, ISIS_SUBSUBTLV, "ISIS Sub-Sub-TLVs");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists");
 
 typedef int (*unpack_tlv_func)(enum isis_tlv_context context, uint8_t tlv_type,
@@ -381,7 +383,7 @@ static void format_item_ext_subtlvs(struct isis_ext_subtlvs *exts,
 				   exts->adm_group);
 			json_object_string_add(json, "adm-group", aux_buf);
 		} else {
-			sbuf_push(buf, indent, "Administrative Group: 0x%x\n",
+			sbuf_push(buf, indent, "Admin Group: 0x%08x\n",
 				  exts->adm_group);
 			sbuf_push(buf, indent + 2, "Bit positions: %s\n",
 				  admin_group_standard_print(
@@ -3908,6 +3910,39 @@ static struct isis_router_cap *copy_tlv_router_cap(
 
 	memcpy(rv, router_cap, sizeof(*rv));
 
+#ifndef FABRICD
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		struct isis_router_cap_fad *sc_fad;
+		struct isis_router_cap_fad *rv_fad;
+
+		sc_fad = router_cap->fads[i];
+		if (!sc_fad)
+			continue;
+		rv_fad = XMALLOC(MTYPE_ISIS_TLV,
+				 sizeof(struct isis_router_cap_fad));
+		*rv_fad = *sc_fad;
+		rv_fad->fad.admin_group_exclude_any.bitmap.data = NULL;
+		rv_fad->fad.admin_group_include_any.bitmap.data = NULL;
+		rv_fad->fad.admin_group_include_all.bitmap.data = NULL;
+
+		assert(bf_is_inited(
+			sc_fad->fad.admin_group_exclude_any.bitmap));
+		assert(bf_is_inited(
+			sc_fad->fad.admin_group_include_any.bitmap));
+		assert(bf_is_inited(
+			sc_fad->fad.admin_group_include_all.bitmap));
+
+		admin_group_copy(&rv_fad->fad.admin_group_exclude_any,
+				 &sc_fad->fad.admin_group_exclude_any);
+		admin_group_copy(&rv_fad->fad.admin_group_include_any,
+				 &sc_fad->fad.admin_group_include_any);
+		admin_group_copy(&rv_fad->fad.admin_group_include_all,
+				 &sc_fad->fad.admin_group_include_all);
+
+		rv->fads[i] = rv_fad;
+	}
+#endif /* ifndef FABRICD */
+
 	return rv;
 }
 
@@ -4027,37 +4062,178 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 	if (router_cap->msd != 0)
 		sbuf_push(buf, indent, "  Node Maximum SID Depth: %u\n",
 			  router_cap->msd);
+
+#ifndef FABRICD
+	/* Flex-Algo */
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		char admin_group_buf[ADMIN_GROUP_PRINT_MAX_SIZE];
+		int indent2;
+		struct admin_group *admin_group;
+		struct isis_router_cap_fad *fad;
+
+		fad = router_cap->fads[i];
+		if (!fad)
+			continue;
+
+		sbuf_push(buf, indent, "  Flex-Algo Definition: %d\n",
+			  fad->fad.algorithm);
+		sbuf_push(buf, indent, "    Metric-Type: %d\n",
+			  fad->fad.metric_type);
+		sbuf_push(buf, indent, "    Calc-Type: %d\n",
+			  fad->fad.calc_type);
+		sbuf_push(buf, indent, "    Priority: %d\n", fad->fad.priority);
+
+		indent2 = indent + strlen("    Exclude-Any: ");
+		admin_group = &fad->fad.admin_group_exclude_any;
+		sbuf_push(buf, indent, "    Exclude-Any: ");
+		sbuf_push(buf, 0, "%s\n",
+			  admin_group_string(admin_group_buf,
+					     ADMIN_GROUP_PRINT_MAX_SIZE,
+					     indent2, admin_group));
+
+		indent2 = indent + strlen("    Include-Any: ");
+		admin_group = &fad->fad.admin_group_include_any;
+		sbuf_push(buf, indent, "    Include-Any: ");
+		sbuf_push(buf, 0, "%s\n",
+			  admin_group_string(admin_group_buf,
+					     ADMIN_GROUP_PRINT_MAX_SIZE,
+					     indent2, admin_group));
+
+		indent2 = indent + strlen("    Include-All: ");
+		admin_group = &fad->fad.admin_group_include_all;
+		sbuf_push(buf, indent, "    Include-All: ");
+		sbuf_push(buf, 0, "%s\n",
+			  admin_group_string(admin_group_buf,
+					     ADMIN_GROUP_PRINT_MAX_SIZE,
+					     indent2, admin_group));
+
+		sbuf_push(buf, indent, "    M-Flag: %c\n",
+			  CHECK_FLAG(fad->fad.flags, FAD_FLAG_M) ? '1' : '0');
+
+		if (fad->fad.flags != 0 && fad->fad.flags != FAD_FLAG_M)
+			sbuf_push(buf, indent, "    Flags: 0x%x\n",
+				  fad->fad.flags);
+		if (fad->fad.exclude_srlg)
+			sbuf_push(buf, indent, "    Exclude SRLG: Enabled\n");
+		if (fad->fad.unsupported_subtlv)
+			sbuf_push(buf, indent,
+				  "    Got an unsupported sub-TLV: Yes\n");
+	}
+#endif /* ifndef FABRICD */
 }
 
 static void free_tlv_router_cap(struct isis_router_cap *router_cap)
 {
+	if (!router_cap)
+		return;
+
+#ifndef FABRICD
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		struct isis_router_cap_fad *fad;
+
+		fad = router_cap->fads[i];
+		if (!fad)
+			continue;
+		admin_group_term(&fad->fad.admin_group_exclude_any);
+		admin_group_term(&fad->fad.admin_group_include_any);
+		admin_group_term(&fad->fad.admin_group_include_all);
+		XFREE(MTYPE_ISIS_TLV, fad);
+	}
+#endif /* ifndef FABRICD */
+
 	XFREE(MTYPE_ISIS_TLV, router_cap);
+}
+
+#ifndef FABRICD
+static size_t
+isis_router_cap_fad_sub_tlv_len(const struct isis_router_cap_fad *fad)
+{
+	size_t sz = ISIS_SUBTLV_FAD_MIN_SIZE;
+	uint32_t admin_group_length;
+
+	admin_group_length =
+		admin_group_nb_words(&fad->fad.admin_group_exclude_any);
+	if (admin_group_length)
+		sz += sizeof(uint32_t) * admin_group_length + 2;
+
+	admin_group_length =
+		admin_group_nb_words(&fad->fad.admin_group_include_any);
+	if (admin_group_length)
+		sz += sizeof(uint32_t) * admin_group_length + 2;
+
+	admin_group_length =
+		admin_group_nb_words(&fad->fad.admin_group_include_all);
+	if (admin_group_length)
+		sz += sizeof(uint32_t) * admin_group_length + 2;
+
+	if (fad->fad.flags != 0)
+		sz += ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE + 2;
+
+	/* TODO: add exclude SRLG sub-sub-TLV length when supported */
+
+	return sz;
+}
+#endif /* ifndef FABRICD */
+
+static size_t isis_router_cap_tlv_size(const struct isis_router_cap *router_cap)
+{
+	size_t sz = 2 + ISIS_ROUTER_CAP_SIZE;
+#ifndef FABRICD
+	size_t fad_sz;
+#endif /* ifndef FABRICD */
+	int nb_algo;
+
+	if ((router_cap->srgb.range_size != 0) &&
+	    (router_cap->srgb.lower_bound != 0)) {
+		sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+		sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+
+		nb_algo = isis_tlvs_sr_algo_count(router_cap);
+		if (nb_algo != 0)
+			sz += 2 + nb_algo;
+
+		if ((router_cap->srlb.range_size != 0) &&
+		    (router_cap->srlb.lower_bound != 0)) {
+			sz += 2 + ISIS_SUBTLV_SID_LABEL_RANGE_SIZE;
+			sz += 2 + ISIS_SUBTLV_SID_LABEL_SIZE;
+		}
+
+		if (router_cap->msd != 0)
+			sz += 2 + ISIS_SUBTLV_NODE_MSD_SIZE;
+	}
+
+#ifndef FABRICD
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		if (!router_cap->fads[i])
+			continue;
+		fad_sz = 2 +
+			 isis_router_cap_fad_sub_tlv_len(router_cap->fads[i]);
+		if (((sz + fad_sz) % 256) < (sz % 256))
+			sz += 2 + ISIS_ROUTER_CAP_SIZE + fad_sz;
+		else
+			sz += fad_sz;
+	}
+#endif /* ifndef FABRICD */
+
+	return sz;
 }
 
 static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 			       struct stream *s)
 {
-	size_t tlv_len = ISIS_ROUTER_CAP_SIZE;
-	size_t len_pos;
+	size_t tlv_len, len_pos;
 	uint8_t nb_algo;
 
 	if (!router_cap)
 		return 0;
 
-	/* Compute Maximum TLV size */
-	tlv_len += ISIS_SUBTLV_SID_LABEL_RANGE_SIZE
-		+ ISIS_SUBTLV_HDR_SIZE
-		+ ISIS_SUBTLV_ALGORITHM_SIZE
-		+ ISIS_SUBTLV_NODE_MSD_SIZE;
-
-	if (STREAM_WRITEABLE(s) < (unsigned int)(2 + tlv_len))
+	if (STREAM_WRITEABLE(s) < isis_router_cap_tlv_size(router_cap))
 		return 1;
 
 	/* Add Router Capability TLV 242 with Router ID and Flags */
 	stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
-	/* Real length will be adjusted later */
 	len_pos = stream_get_endp(s);
-	stream_putc(s, tlv_len);
+	stream_putc(s, 0); /* Real length will be adjusted later */
 	stream_put_ipv4(s, router_cap->router_id.s_addr);
 	stream_putc(s, router_cap->flags);
 
@@ -4104,6 +4280,80 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 		}
 	}
 
+#ifndef FABRICD
+	/* Flex Algo Definitions */
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++) {
+		struct isis_router_cap_fad *fad;
+		size_t subtlv_len;
+		struct admin_group *ag;
+		uint32_t admin_group_length;
+
+		fad = router_cap->fads[i];
+		if (!fad)
+			continue;
+
+		subtlv_len = isis_router_cap_fad_sub_tlv_len(fad);
+
+		if ((stream_get_endp(s) - len_pos - 1) > 250) {
+			/* Adjust TLV length which depends on subTLVs presence
+			 */
+			tlv_len = stream_get_endp(s) - len_pos - 1;
+			stream_putc_at(s, len_pos, tlv_len);
+
+			/* Add Router Capability TLV 242 with Router ID and
+			 * Flags
+			 */
+			stream_putc(s, ISIS_TLV_ROUTER_CAPABILITY);
+			/* Real length will be adjusted later */
+			len_pos = stream_get_endp(s);
+			stream_putc(s, 0);
+			stream_put_ipv4(s, router_cap->router_id.s_addr);
+			stream_putc(s, router_cap->flags);
+		}
+
+		stream_putc(s, ISIS_SUBTLV_FAD);
+		stream_putc(s, subtlv_len); /* length will be filled later */
+
+		stream_putc(s, fad->fad.algorithm);
+		stream_putc(s, fad->fad.metric_type);
+		stream_putc(s, fad->fad.calc_type);
+		stream_putc(s, fad->fad.priority);
+
+		ag = &fad->fad.admin_group_exclude_any;
+		admin_group_length = admin_group_nb_words(ag);
+		if (admin_group_length) {
+			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG);
+			stream_putc(s, sizeof(uint32_t) * admin_group_length);
+			for (size_t i = 0; i < admin_group_length; i++)
+				stream_putl(s, admin_group_get_offset(ag, i));
+		}
+
+		ag = &fad->fad.admin_group_include_any;
+		admin_group_length = admin_group_nb_words(ag);
+		if (admin_group_length) {
+			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG);
+			stream_putc(s, sizeof(uint32_t) * admin_group_length);
+			for (size_t i = 0; i < admin_group_length; i++)
+				stream_putl(s, admin_group_get_offset(ag, i));
+		}
+
+		ag = &fad->fad.admin_group_include_all;
+		admin_group_length = admin_group_nb_words(ag);
+		if (admin_group_length) {
+			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG);
+			stream_putc(s, sizeof(uint32_t) * admin_group_length);
+			for (size_t i = 0; i < admin_group_length; i++)
+				stream_putl(s, admin_group_get_offset(ag, i));
+		}
+
+		if (fad->fad.flags != 0) {
+			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS);
+			stream_putc(s, ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS_SIZE);
+			stream_putc(s, fad->fad.flags);
+		}
+	}
+#endif /* ifndef FABRICD */
+
 	/* Adjust TLV length which depends on subTLVs presence */
 	tlv_len = stream_get_endp(s) - len_pos - 1;
 	stream_putc_at(s, len_pos, tlv_len);
@@ -4130,17 +4380,15 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 		return 0;
 	}
 
-	if (tlvs->router_cap) {
-		sbuf_push(log, indent,
-			  "WARNING: Router Capability TLV present multiple times.\n");
-		stream_forward_getp(s, tlv_len);
-		return 0;
+	if (tlvs->router_cap)
+		/* Multiple Router Capability found */
+		rcap = tlvs->router_cap;
+	else {
+		/* Allocate router cap structure and initialize SR Algorithms */
+		rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
+		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+			rcap->algo[i] = SR_ALGORITHM_UNSET;
 	}
-
-	/* Allocate router cap structure and initialize SR Algorithms */
-	rcap = XCALLOC(MTYPE_ISIS_TLV, sizeof(struct isis_router_cap));
-	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
-		rcap->algo[i] = SR_ALGORITHM_UNSET;
 
 	/* Get Router ID and Flags */
 	rcap->router_id.s_addr = stream_get_ipv4(s);
@@ -4149,6 +4397,10 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 	/* Parse remaining part of the TLV if present */
 	subtlv_len = tlv_len - ISIS_ROUTER_CAP_SIZE;
 	while (subtlv_len > 2) {
+#ifndef FABRICD
+		struct isis_router_cap_fad *fad;
+		uint8_t subsubtlvs_len;
+#endif /* ifndef FABRICD */
 		uint8_t msd_type;
 
 		type = stream_getc(s);
@@ -4302,6 +4554,80 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			if (length > MSD_TLV_SIZE)
 				stream_forward_getp(s, length - MSD_TLV_SIZE);
 			break;
+#ifndef FABRICD
+		case ISIS_SUBTLV_FAD:
+			fad = XCALLOC(MTYPE_ISIS_TLV,
+				      sizeof(struct isis_router_cap_fad));
+			fad->fad.algorithm = stream_getc(s);
+			fad->fad.metric_type = stream_getc(s);
+			fad->fad.calc_type = stream_getc(s);
+			fad->fad.priority = stream_getc(s);
+			rcap->fads[fad->fad.algorithm] = fad;
+			admin_group_init(&fad->fad.admin_group_exclude_any);
+			admin_group_init(&fad->fad.admin_group_include_any);
+			admin_group_init(&fad->fad.admin_group_include_all);
+
+			subsubtlvs_len = length - 4;
+			while (subsubtlvs_len > 2) {
+				struct admin_group *ag;
+				uint8_t subsubtlv_type;
+				uint8_t subsubtlv_len;
+				uint32_t v;
+				int n_ag, i;
+
+				subsubtlv_type = stream_getc(s);
+				subsubtlv_len = stream_getc(s);
+
+				switch (subsubtlv_type) {
+				case ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG:
+					ag = &fad->fad.admin_group_exclude_any;
+					n_ag = subsubtlv_len / sizeof(uint32_t);
+					for (i = 0; i < n_ag; i++) {
+						v = stream_getl(s);
+						admin_group_bulk_set(ag, v, i);
+					}
+					break;
+				case ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG:
+					ag = &fad->fad.admin_group_include_any;
+					n_ag = subsubtlv_len / sizeof(uint32_t);
+					for (i = 0; i < n_ag; i++) {
+						v = stream_getl(s);
+						admin_group_bulk_set(ag, v, i);
+					}
+					break;
+				case ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG:
+					ag = &fad->fad.admin_group_include_all;
+					n_ag = subsubtlv_len / sizeof(uint32_t);
+					for (i = 0; i < n_ag; i++) {
+						v = stream_getl(s);
+						admin_group_bulk_set(ag, v, i);
+					}
+					break;
+				case ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS:
+					if (subsubtlv_len == 0)
+						break;
+
+					fad->fad.flags = stream_getc(s);
+					for (i = subsubtlv_len - 1; i > 0; --i)
+						stream_getc(s);
+					break;
+				case ISIS_SUBTLV_FAD_SUBSUBTLV_ESRLG:
+					fad->fad.exclude_srlg = true;
+					stream_forward_getp(s, subsubtlv_len);
+					break;
+				default:
+					sbuf_push(
+						log, indent,
+						"Received an unsupported Flex-Algo sub-TLV type %u\n",
+						subsubtlv_type);
+					fad->fad.unsupported_subtlv = true;
+					stream_forward_getp(s, subsubtlv_len);
+					break;
+				}
+				subsubtlvs_len -= 2 + subsubtlv_len;
+			}
+			break;
+#endif /* ifndef FABRICD */
 		default:
 			stream_forward_getp(s, length);
 			break;
@@ -6253,17 +6579,52 @@ void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
 		tlvs->hostname = XSTRDUP(MTYPE_ISIS_TLV, hostname);
 }
 
-/* Set Router Capability TLV parameters */
-void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
-				     const struct isis_router_cap *cap)
+/* Init Router Capability TLV parameters */
+struct isis_router_cap *isis_tlvs_init_router_capability(struct isis_tlvs *tlvs)
 {
-	XFREE(MTYPE_ISIS_TLV, tlvs->router_cap);
-	if (!cap)
-		return;
-
 	tlvs->router_cap = XCALLOC(MTYPE_ISIS_TLV, sizeof(*tlvs->router_cap));
-	*tlvs->router_cap = *cap;
+
+	/* init SR algo list content to the default value */
+	for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+		tlvs->router_cap->algo[i] = SR_ALGORITHM_UNSET;
+
+	return tlvs->router_cap;
 }
+
+#ifndef FABRICD
+void isis_tlvs_set_router_capability_fad(struct isis_tlvs *tlvs,
+					 struct flex_algo *fa, int algorithm,
+					 uint8_t *sysid)
+{
+	struct isis_router_cap_fad *rcap_fad;
+
+	assert(tlvs->router_cap);
+
+	rcap_fad = tlvs->router_cap->fads[algorithm];
+
+	if (!rcap_fad)
+		rcap_fad = XCALLOC(MTYPE_ISIS_TLV,
+				   sizeof(struct isis_router_cap_fad));
+
+	memset(rcap_fad->sysid, 0, ISIS_SYS_ID_LEN + 2);
+	memcpy(rcap_fad->sysid, sysid, ISIS_SYS_ID_LEN);
+
+	memcpy(&rcap_fad->fad, fa, sizeof(struct flex_algo));
+
+	rcap_fad->fad.admin_group_exclude_any.bitmap.data = NULL;
+	rcap_fad->fad.admin_group_include_any.bitmap.data = NULL;
+	rcap_fad->fad.admin_group_include_all.bitmap.data = NULL;
+
+	admin_group_copy(&rcap_fad->fad.admin_group_exclude_any,
+			 &fa->admin_group_exclude_any);
+	admin_group_copy(&rcap_fad->fad.admin_group_include_any,
+			 &fa->admin_group_include_any);
+	admin_group_copy(&rcap_fad->fad.admin_group_include_all,
+			 &fa->admin_group_include_all);
+
+	tlvs->router_cap->fads[algorithm] = rcap_fad;
+}
+#endif /* ifndef FABRICD */
 
 int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap)
 {
