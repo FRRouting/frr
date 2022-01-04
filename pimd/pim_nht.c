@@ -234,7 +234,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 			struct prefix grp;
 			struct rp_info *trp_info;
 
-			if (upstream->sg.src.s_addr != INADDR_ANY)
+			if (!pim_addr_is_any(upstream->sg.src))
 				continue;
 
 			grp.family = AF_INET;

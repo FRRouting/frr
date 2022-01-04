@@ -315,7 +315,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				  msg_upstream_addr.u.prefix4, &sg,
 				  msg_source_flags);
 
-			if (sg.src.s_addr == INADDR_ANY) {
+			if (pim_addr_is_any(sg.src)) {
 				starg_ch = pim_ifchannel_find(ifp, &sg);
 				if (starg_ch)
 					pim_ifchannel_set_star_g_join_state(

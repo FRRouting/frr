@@ -536,8 +536,8 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
-				if ((up->upstream_addr.s_addr == INADDR_ANY)
-				    && (up->sg.src.s_addr == INADDR_ANY)) {
+				if ((up->upstream_addr.s_addr == INADDR_ANY) &&
+				    pim_addr_is_any(up->sg.src)) {
 					struct prefix grp;
 					struct rp_info *trp_info;
 
@@ -628,7 +628,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			   route_node_get_lock_count(rn));
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
@@ -778,9 +778,9 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			/* Find the upstream (*, G) whose upstream address is
 			 * same as the deleted RP
 			 */
-			if ((up->upstream_addr.s_addr
-			     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-			    && (up->sg.src.s_addr == INADDR_ANY)) {
+			if ((up->upstream_addr.s_addr ==
+			     rp_info->rp.rpf_addr.u.prefix4.s_addr) &&
+			    pim_addr_is_any(up->sg.src)) {
 				struct prefix grp;
 				grp.family = AF_INET;
 				grp.prefixlen = IPV4_MAX_BITLEN;
@@ -826,9 +826,9 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the deleted RP
 		 */
-		if ((up->upstream_addr.s_addr
-		     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-		    && (up->sg.src.s_addr == INADDR_ANY)) {
+		if ((up->upstream_addr.s_addr ==
+		     rp_info->rp.rpf_addr.u.prefix4.s_addr) &&
+		    pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 
 			grp.family = AF_INET;
@@ -914,7 +914,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	listnode_add_sort(pim->rp_list, rp_info);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 

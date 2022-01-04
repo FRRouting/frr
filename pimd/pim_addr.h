@@ -34,6 +34,13 @@ typedef struct in6_addr pim_addr;
 #define PIM_ADDRSTRLEN INET6_ADDRSTRLEN
 #endif
 
+static inline bool pim_addr_is_any(pim_addr addr)
+{
+	pim_addr zero = {};
+
+	return memcmp(&addr, &zero, sizeof(zero)) == 0;
+}
+
 /* don't use this struct directly, use the pim_sgaddr typedef */
 struct _pim_sgaddr {
 	pim_addr grp;

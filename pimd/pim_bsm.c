@@ -663,7 +663,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the RP
 		 */
-		if (up->sg.src.s_addr != INADDR_ANY)
+		if (!pim_addr_is_any(up->sg.src))
 			continue;
 
 		struct prefix grp;

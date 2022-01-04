@@ -625,8 +625,7 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((xg_up->sg.src.s_addr != INADDR_ANY)
-	    || (xg_up->sg.grp.s_addr == INADDR_ANY)) {
+	if (!pim_addr_is_any(xg_up->sg.src) || pim_addr_is_any(xg_up->sg.grp)) {
 		return;
 	}
 
@@ -650,7 +649,7 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((sg->src.s_addr != INADDR_ANY) || (sg->grp.s_addr == INADDR_ANY)) {
+	if (!pim_addr_is_any(sg->src) || pim_addr_is_any(sg->grp)) {
 		return;
 	}
 
@@ -669,7 +668,7 @@ void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP up %pSG del", sg);
 	}
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(sg->src)) {
 		pim_msdp_up_xg_del(pim, sg);
 	} else {
 		pim_msdp_sa_local_del_on_up_del(pim, sg);
