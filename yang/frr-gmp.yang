@@ -1,8 +1,8 @@
-module frr-igmp {
+module frr-gmp {
   yang-version "1.1";
-  namespace "http://frrouting.org/yang/igmp";
+  namespace "http://frrouting.org/yang/gmp";
 
-  prefix frr-igmp;
+  prefix frr-gmp;
 
   import frr-routing {
     prefix "frr-rt";
@@ -55,31 +55,49 @@ module frr-igmp {
      (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
      OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.";
 
-  revision 2019-11-06 {
+  revision 2021-11-22 {
     description
       "Initial revision.";
     reference
       "RFC 2236: IGMP v2.
-       RFC 3376: IGMP v3.";
+       RFC 3376: IGMP v3.
+       RFC 2710: MLD.
+       RFC 3810: MLD v2.";
   }
 
   grouping interface-config-attributes {
     description
-      "Configuration attributes applied to the interface level.";
+      "Configuration IGMP/MLD attributes applied to the interface level.";
 
-    leaf igmp-enable {
+    leaf enable {
       type boolean;
       default "false";
       description
-        "Enable IGMP flag on the interface.";
+        "Enable IGMP/MLD flag on the interface.";
     }
 
-    leaf version {
+    leaf igmp-version {
+      when "../frr-gmp:address-family = 'frr-rt:ipv4'" {
+        description
+          "Only applicable to IPv4 address family.";
+      }
       type uint8 {
         range "2..3";
       }
       description
         "IGMP version.";
+    }
+
+    leaf mld-version {
+      when "../frr-gmp:address-family = 'frr-rt:ipv6'" {
+        description
+          "Only applicable to IPv6 address family.";
+      }
+      type uint8 {
+        range "1..2";
+      }
+      description
+        "MLD version.";
     }
 
     leaf query-interval {
@@ -126,11 +144,6 @@ module frr-igmp {
         "Querier's Robustness Variable allows tuning for the
          expected packet loss on a network.";
     }
-  }
-
-  grouping per-af-interface-config-attributes {
-    description
-      "Configuration attributes applied to the interface level per address family.";
 
     list static-group {
       key "group-addr source-addr";
@@ -149,25 +162,20 @@ module frr-igmp {
           "Multicast source address.";
       }
     }
-
-  } // per-af-interface-config-attributes
+  } // interface-config-attributes
 
   /*
    * Per-interface configuration data
    */
   augment "/frr-interface:lib/frr-interface:interface" {
-    container igmp {
-      presence
-        "Configure IGMP on an interface.";
-      uses interface-config-attributes;
+    container gmp {
       list address-family {
         key "address-family";
         description
           "Each list entry for one address family.";
         uses frr-rt:address-family;
-        uses per-af-interface-config-attributes;
-
-        } //address-family
+        uses interface-config-attributes;
+      } //address-family
     }
   }
 }

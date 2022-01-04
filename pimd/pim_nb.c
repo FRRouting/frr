@@ -366,65 +366,65 @@ const struct frr_yang_module_info frr_pim_rp_info = {
 };
 
 /* clang-format off */
-const struct frr_yang_module_info frr_igmp_info = {
-	.name = "frr-igmp",
+const struct frr_yang_module_info frr_gmp_info = {
+	.name = "frr-gmp",
 	.nodes = {
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family",
 			.cbs = {
-				.create = lib_interface_igmp_create,
-				.destroy = lib_interface_igmp_destroy,
+				.create = lib_interface_gmp_address_family_create,
+				.destroy = lib_interface_gmp_address_family_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/igmp-enable",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/enable",
 			.cbs = {
-				.modify = lib_interface_igmp_igmp_enable_modify,
+				.modify = lib_interface_gmp_address_family_enable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/version",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/igmp-version",
 			.cbs = {
-				.modify = lib_interface_igmp_version_modify,
-				.destroy = lib_interface_igmp_version_destroy,
+				.modify = lib_interface_gmp_address_family_igmp_version_modify,
+				.destroy = lib_interface_gmp_address_family_igmp_version_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/query-interval",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/mld-version",
 			.cbs = {
-				.modify = lib_interface_igmp_query_interval_modify,
+				.modify = lib_interface_gmp_address_family_mld_version_modify,
+				.destroy = lib_interface_gmp_address_family_mld_version_destroy,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/query-max-response-time",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/query-interval",
 			.cbs = {
-				.modify = lib_interface_igmp_query_max_response_time_modify,
+				.modify = lib_interface_gmp_address_family_query_interval_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/last-member-query-interval",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/query-max-response-time",
 			.cbs = {
-				.modify = lib_interface_igmp_last_member_query_interval_modify,
+				.modify = lib_interface_gmp_address_family_query_max_response_time_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/robustness-variable",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/last-member-query-interval",
 			.cbs = {
-				.modify = lib_interface_igmp_robustness_variable_modify,
+				.modify = lib_interface_gmp_address_family_last_member_query_interval_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/address-family",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/robustness-variable",
 			.cbs = {
-				.create = lib_interface_igmp_address_family_create,
-				.destroy = lib_interface_igmp_address_family_destroy,
+				.modify = lib_interface_gmp_address_family_robustness_variable_modify,
 			}
 		},
 		{
-			.xpath = "/frr-interface:lib/interface/frr-igmp:igmp/address-family/static-group",
+			.xpath = "/frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group",
 			.cbs = {
-				.create = lib_interface_igmp_address_family_static_group_create,
-				.destroy = lib_interface_igmp_address_family_static_group_destroy,
+				.create = lib_interface_gmp_address_family_static_group_create,
+				.destroy = lib_interface_gmp_address_family_static_group_destroy,
 			}
 		},
 		{
@@ -432,3 +432,4 @@ const struct frr_yang_module_info frr_igmp_info = {
 		},
 	}
 };
+

@@ -7845,9 +7845,10 @@ DEFUN (interface_ip_igmp,
        IP_STR
        IFACE_IGMP_STR)
 {
-	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY, "true");
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp,
@@ -7876,11 +7877,12 @@ DEFUN (interface_no_ip_igmp,
 					      NULL);
 			nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 		} else
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "false");
 	}
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_join,
@@ -7908,7 +7910,7 @@ DEFUN (interface_ip_igmp_join,
 	} else
 		source_str = "0.0.0.0";
 
-	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH,
 		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
@@ -7942,7 +7944,7 @@ DEFUN (interface_no_ip_igmp_join,
 	} else
 		source_str = "0.0.0.0";
 
-	snprintf(xpath, sizeof(xpath), FRR_IGMP_JOIN_XPATH,
+	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH,
 		 "frr-routing:ipv4", argv[idx_group]->arg, source_str);
 
 	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
@@ -7969,14 +7971,15 @@ DEFUN (interface_ip_igmp_query_interval,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_query_interval,
@@ -7990,7 +7993,8 @@ DEFUN (interface_no_ip_igmp_query_interval,
 {
 	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_version,
@@ -8001,11 +8005,13 @@ DEFUN (interface_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+	nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 			      "true");
-	nb_cli_enqueue_change(vty, "./version", NB_OP_MODIFY, argv[3]->arg);
+	nb_cli_enqueue_change(vty, "./igmp-version", NB_OP_MODIFY,
+			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_version,
@@ -8017,9 +8023,10 @@ DEFUN (interface_no_ip_igmp_version,
        "IGMP version\n"
        "IGMP version number\n")
 {
-	nb_cli_enqueue_change(vty, "./version", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./igmp-version", NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_query_max_response_time,
@@ -8038,18 +8045,19 @@ DEFUN (interface_ip_igmp_query_max_response_time,
 				"frr-routing:ipv4");
 
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
@@ -8063,7 +8071,8 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
 {
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
 			      NULL);
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
@@ -8081,18 +8090,19 @@ DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
 				FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
 				"frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
@@ -8107,7 +8117,8 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
 			      NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_count,
@@ -8125,18 +8136,19 @@ DEFUN (interface_ip_igmp_last_member_query_count,
 				FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
 				"frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
@@ -8151,7 +8163,8 @@ DEFUN (interface_no_ip_igmp_last_member_query_count,
 	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
 			      NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
@@ -8169,18 +8182,19 @@ DEFUN (interface_ip_igmp_last_member_query_interval,
 				FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
 				"frr-routing:ipv4");
 	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./igmp-enable", NB_OP_MODIFY,
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
 				      "true");
 	} else {
 		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./igmp-enable",
+			nb_cli_enqueue_change(vty, "./enable",
 					      NB_OP_MODIFY, "true");
 	}
 
 	nb_cli_enqueue_change(vty, "./last-member-query-interval", NB_OP_MODIFY,
 			      argv[3]->arg);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_interval,
@@ -8195,7 +8209,8 @@ DEFUN (interface_no_ip_igmp_last_member_query_interval,
 	nb_cli_enqueue_change(vty, "./last-member-query-interval",
 			      NB_OP_DESTROY, NULL);
 
-	return nb_cli_apply_changes(vty, "./frr-igmp:igmp");
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv4");
 }
 
 DEFUN (interface_ip_pim_drprio,
@@ -8397,10 +8412,12 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
+		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
 	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    "%s/igmp-enable", igmp_if_xpath);
-
+					    FRR_GMP_ENABLE_XPATH,
+					    VTY_CURR_XPATH,
+					    "frr-routing:ipv4");
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
 		nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
@@ -8430,9 +8447,12 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
-	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    "%s/igmp-enable", igmp_if_xpath);
+		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8463,9 +8483,12 @@ DEFUN (interface_no_ip_pim,
 	char igmp_if_xpath[XPATH_MAXLEN + 20];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-igmp:igmp", VTY_CURR_XPATH);
-	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
-					    "%s/igmp-enable", igmp_if_xpath);
+		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+		 VTY_CURR_XPATH, "frr-routing:ipv4");
+	igmp_enable_dnode =
+		yang_dnode_getf(vty->candidate_config->dnode,
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, igmp_if_xpath, NB_OP_DESTROY, NULL);
@@ -8590,7 +8613,8 @@ DEFUN (interface_ip_pim_hello,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 	if (!igmp_enable_dnode) {
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9308,7 +9332,8 @@ DEFPY (ip_pim_bfd,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9369,7 +9394,8 @@ DEFUN (ip_pim_bsm,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9410,7 +9436,8 @@ DEFUN (ip_pim_ucast_bsm,
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");
@@ -9472,7 +9499,8 @@ DEFUN_HIDDEN (
 
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
-				"%s/frr-igmp:igmp/igmp-enable", VTY_CURR_XPATH);
+				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+				"frr-routing:ipv4");
 	if (!igmp_enable_dnode)
 		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
 				      "true");

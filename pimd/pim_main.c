@@ -81,7 +81,7 @@ static const struct frr_yang_module_info *const pimd_yang_modules[] = {
 	&frr_routing_info,
 	&frr_pim_info,
 	&frr_pim_rp_info,
-	&frr_igmp_info,
+	&frr_gmp_info,
 };
 
 FRR_DAEMON_INFO(pimd, PIM, .vty_port = PIMD_VTY_PORT,

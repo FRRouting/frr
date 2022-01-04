@@ -337,8 +337,9 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 		yang_dnode_getf(dnode,
 				"%s/frr-pim:pim/address-family[address-family='%s']/pim-enable",
 				if_xpath, "frr-routing:ipv4");
-	igmp_enable_dnode = yang_dnode_getf(
-		dnode, "%s/frr-igmp:igmp/igmp-enable", if_xpath);
+	igmp_enable_dnode = yang_dnode_getf(dnode,
+			"%s/frr-gmp:gmp/address-family[address-family='%s']/enable",
+			if_xpath, "frr-routing:ipv4");
 
 	if (((pim_enable_dnode) &&
 	     (yang_dnode_get_bool(pim_enable_dnode, "."))) ||
@@ -2511,9 +2512,9 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family
  */
-int lib_interface_igmp_create(struct nb_cb_create_args *args)
+int lib_interface_gmp_address_family_create(struct nb_cb_create_args *args)
 {
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -2526,7 +2527,7 @@ int lib_interface_igmp_create(struct nb_cb_create_args *args)
 	return NB_OK;
 }
 
-int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2557,9 +2558,10 @@ int lib_interface_igmp_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/igmp-enable
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/enable
  */
-int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
+int lib_interface_gmp_address_family_enable_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	bool igmp_enable;
@@ -2613,9 +2615,10 @@ int lib_interface_igmp_igmp_enable_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/version
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/igmp-version
  */
-int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
+int lib_interface_gmp_address_family_igmp_version_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2649,7 +2652,8 @@ int lib_interface_igmp_version_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
-int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
+int lib_interface_gmp_address_family_igmp_version_destroy(
+	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -2670,9 +2674,41 @@ int lib_interface_igmp_version_destroy(struct nb_cb_destroy_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/query-interval
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/mld-version
  */
-int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
+int lib_interface_gmp_address_family_mld_version_modify(
+	struct nb_cb_modify_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+int lib_interface_gmp_address_family_mld_version_destroy(
+	struct nb_cb_destroy_args *args)
+{
+	switch (args->event) {
+	case NB_EV_VALIDATE:
+	case NB_EV_PREPARE:
+	case NB_EV_ABORT:
+	case NB_EV_APPLY:
+		break;
+	}
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/query-interval
+ */
+int lib_interface_gmp_address_family_query_interval_modify(
+	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
 	int query_interval;
@@ -2692,9 +2728,9 @@ int lib_interface_igmp_query_interval_modify(struct nb_cb_modify_args *args)
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/query-max-response-time
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/query-max-response-time
  */
-int lib_interface_igmp_query_max_response_time_modify(
+int lib_interface_gmp_address_family_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
@@ -2717,9 +2753,9 @@ int lib_interface_igmp_query_max_response_time_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/last-member-query-interval
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/last-member-query-interval
  */
-int lib_interface_igmp_last_member_query_interval_modify(
+int lib_interface_gmp_address_family_last_member_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
@@ -2746,9 +2782,9 @@ int lib_interface_igmp_last_member_query_interval_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/robustness-variable
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/robustness-variable
  */
-int lib_interface_igmp_robustness_variable_modify(
+int lib_interface_gmp_address_family_robustness_variable_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
@@ -2774,38 +2810,9 @@ int lib_interface_igmp_robustness_variable_modify(
 }
 
 /*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/address-family
+ * XPath: /frr-interface:lib/interface/frr-gmp:gmp/address-family/static-group
  */
-int lib_interface_igmp_address_family_create(struct nb_cb_create_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-int lib_interface_igmp_address_family_destroy(struct nb_cb_destroy_args *args)
-{
-	switch (args->event) {
-	case NB_EV_VALIDATE:
-	case NB_EV_PREPARE:
-	case NB_EV_ABORT:
-	case NB_EV_APPLY:
-		break;
-	}
-
-	return NB_OK;
-}
-
-/*
- * XPath: /frr-interface:lib/interface/frr-igmp:igmp/address-family/static-group
- */
-int lib_interface_igmp_address_family_static_group_create(
+int lib_interface_gmp_address_family_static_group_create(
 	struct nb_cb_create_args *args)
 {
 	struct interface *ifp;
@@ -2846,7 +2853,7 @@ int lib_interface_igmp_address_family_static_group_create(
 	return NB_OK;
 }
 
-int lib_interface_igmp_address_family_static_group_destroy(
+int lib_interface_gmp_address_family_static_group_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
