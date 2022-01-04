@@ -676,6 +676,8 @@ AC_ARG_ENABLE([time-check],
   AS_HELP_STRING([--disable-time-check], [disable slow thread warning messages]))
 AC_ARG_ENABLE([cpu-time],
   AS_HELP_STRING([--disable-cpu-time], [disable cpu usage data gathering]))
+AC_ARG_ENABLE([xref-note],
+  AS_HELP_STRING([--disable-xref-note], [disable xref notes]))
 AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
@@ -778,6 +780,10 @@ if test "$enable_time_check" != "no" ; then
   else
     AC_DEFINE_UNQUOTED([CONSUMED_TIME_CHECK], [$enable_time_check], [Consumed Time Check])
   fi
+fi
+
+if test "$enable_xref_note" = "no" ; then
+  AC_DEFINE([FRR_XREF_NO_NOTE], [1], [Disable XREF notes])
 fi
 
 case "${enable_cpu_time}" in
