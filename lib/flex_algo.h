@@ -31,6 +31,13 @@
 
 # define CALC_TYPE_SPF 0
 
+/* flex-algo definition flags */
+
+/* M-flag (aka. prefix-metric)
+ * Flex-Algorithm specific prefix and ASBR metric MUST be used
+ */
+#define FAD_FLAG_M 0x80
+
 /*
  * Metric Type values from draft-ietf-lsr-flex-algo-19
  */
