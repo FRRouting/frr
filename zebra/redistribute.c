@@ -176,10 +176,13 @@ static bool zebra_redistribute_check(const struct route_entry *re,
 	 * If multi-instance then check for route
 	 * redistribution for given instance.
 	 */
-	if (re->instance
-	    && redist_check_instance(&client->mi_redist[afi][re->type],
-				     re->instance))
-		return true;
+	if (re->instance) {
+		if (redist_check_instance(&client->mi_redist[afi][re->type],
+					  re->instance))
+			return true;
+		else
+			return false;
+	}
 
 	/* If redistribution is enabled for give route type. */
 	if (vrf_bitmap_check(client->redist[afi][re->type], re->vrf_id))
