@@ -75,9 +75,8 @@ void pim_register_stop_send(struct interface *ifp, pim_sgaddr *sg,
 	struct prefix p;
 
 	if (PIM_DEBUG_PIM_REG) {
-		zlog_debug("Sending Register stop for %s to %pI4 on %s",
-			   pim_str_sg_dump(sg), &originator,
-			   ifp->name);
+		zlog_debug("Sending Register stop for %pSG to %pI4 on %s", sg,
+			   &originator, ifp->name);
 	}
 
 	memset(buffer, 0, 10000);
@@ -377,8 +376,8 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		char src_str[INET_ADDRSTRLEN];
 
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_debug("Received Register message%s from %s on %s, rp: %d",
-			   pim_str_sg_dump(&sg), src_str, ifp->name, i_am_rp);
+		zlog_debug("Received Register message%pSG from %s on %s, rp: %d",
+			   &sg, src_str, ifp->name, i_am_rp);
 	}
 
 	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
@@ -515,13 +514,11 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	} else {
 		if (PIM_DEBUG_PIM_REG) {
 			if (!i_am_rp)
-				zlog_debug(
-					"Received Register packet for %s, Rejecting packet because I am not the RP configured for group",
-					pim_str_sg_dump(&sg));
+				zlog_debug("Received Register packet for %pSG, Rejecting packet because I am not the RP configured for group",
+					   &sg);
 			else
-				zlog_debug(
-					"Received Register packet for %s, Rejecting packet because the dst ip address is not the actual RP",
-					pim_str_sg_dump(&sg));
+				zlog_debug("Received Register packet for %pSG, Rejecting packet because the dst ip address is not the actual RP",
+					   &sg);
 		}
 		pim_register_stop_send(ifp, &sg, dest_addr, src_addr);
 	}

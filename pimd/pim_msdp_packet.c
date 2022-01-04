@@ -77,7 +77,7 @@ static void pim_msdp_pkt_sa_dump_one(struct stream *s)
 	sg.grp.s_addr = stream_get_ipv4(s);
 	sg.src.s_addr = stream_get_ipv4(s);
 
-	zlog_debug("  sg %s", pim_str_sg_dump(&sg));
+	zlog_debug("  sg %pSG", &sg);
 }
 
 static void pim_msdp_pkt_sa_dump(struct stream *s)
@@ -513,7 +513,7 @@ static void pim_msdp_pkt_sa_rx_one(struct pim_msdp_peer *mp, struct in_addr rp)
 		return;
 	}
 	if (PIM_DEBUG_MSDP_PACKETS) {
-		zlog_debug("  sg %s", pim_str_sg_dump(&sg));
+		zlog_debug("  sg %pSG", &sg);
 	}
 	pim_msdp_sa_ref(mp->pim, mp, &sg, rp);
 

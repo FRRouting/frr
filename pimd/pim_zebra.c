@@ -515,9 +515,8 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 		if (ch
 		    && (ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE)) {
 			if (PIM_DEBUG_PIM_EVENTS)
-				zlog_debug(
-					"local membership del for %s as G is now SSM",
-					pim_str_sg_dump(&sg));
+				zlog_debug("local membership del for %pSG as G is now SSM",
+					   &sg);
 			pim_ifchannel_local_membership_del(group->interface,
 							   &sg);
 		}
@@ -526,9 +525,8 @@ static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
 		if (!ch
 		    || (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO)) {
 			if (PIM_DEBUG_PIM_EVENTS)
-				zlog_debug(
-					"local membership add for %s as G is now ASM",
-					pim_str_sg_dump(&sg));
+				zlog_debug("local membership add for %pSG as G is now ASM",
+					   &sg);
 			pim_ifchannel_local_membership_add(
 				group->interface, &sg, false /*is_vxlan*/);
 		}
@@ -585,8 +583,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
-		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
-			   pim_str_sg_dump(&sg),
+		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
 			   source->source_group->interface->name,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
@@ -650,10 +647,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 
 				pim_inet4_dump("<source?>", vif_source, buf2,
 					       sizeof(buf2));
-				zlog_debug(
-					"%s: NHT %s vif_source %s vif_index:%d ",
-					__func__, pim_str_sg_dump(&sg), buf2,
-					input_iface_vif_index);
+				zlog_debug("%s: NHT %pSG vif_source %s vif_index:%d ",
+					   __func__, &sg, buf2,
+					   input_iface_vif_index);
 			}
 
 			if (input_iface_vif_index < 1) {
@@ -684,13 +680,12 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					/* ignore request for looped MFC entry
 					 */
 					if (PIM_DEBUG_IGMP_TRACE) {
-						zlog_debug(
-							"%s: ignoring request for looped MFC entry (S,G)=%s: oif=%s vif_index=%d",
-							__func__,
-							pim_str_sg_dump(&sg),
-							source->source_group
-								->interface->name,
-							input_iface_vif_index);
+						zlog_debug("%s: ignoring request for looped MFC entry (S,G)=%pSG: oif=%s vif_index=%d",
+							   __func__,
+							   &sg,
+							   source->source_group
+							   ->interface->name,
+							   input_iface_vif_index);
 					}
 					return;
 				}
@@ -699,10 +694,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					pim_channel_oil_add(pim, &sg, __func__);
 				if (!source->source_channel_oil) {
 					if (PIM_DEBUG_IGMP_TRACE) {
-						zlog_debug(
-							"%s %s: could not create OIL for channel (S,G)=%s",
-							__FILE__, __func__,
-							pim_str_sg_dump(&sg));
+						zlog_debug("%s %s: could not create OIL for channel (S,G)=%pSG",
+							   __FILE__, __func__,
+							   &sg);
 					}
 					return;
 				}
@@ -723,10 +717,9 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 	} else {
 		if (PIM_DEBUG_IGMP_TRACE)
-			zlog_debug(
-				"%s: %s was received on %s interface but we are not DR for that interface",
-				__func__, pim_str_sg_dump(&sg),
-				group->interface->name);
+			zlog_debug("%s: %pSG was received on %s interface but we are not DR for that interface",
+				   __func__, &sg,
+				   group->interface->name);
 
 		return;
 	}
@@ -737,8 +730,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	if (!pim_ifchannel_local_membership_add(group->interface, &sg,
 						false /*is_vxlan*/)) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_warn("%s: Failure to add local membership for %s",
-				  __func__, pim_str_sg_dump(&sg));
+			zlog_warn("%s: Failure to add local membership for %pSG",
+				  __func__, &sg);
 
 		pim_channel_del_oif(source->source_channel_oil,
 				    group->interface, PIM_OIF_FLAG_PROTO_IGMP,
@@ -764,8 +757,7 @@ void igmp_source_forward_stop(struct gm_source *source)
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
-		zlog_debug("%s: (S,G)=%s oif=%s fwd=%d", __func__,
-			   pim_str_sg_dump(&sg),
+		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
 			   source->source_group->interface->name,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
