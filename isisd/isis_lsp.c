@@ -59,6 +59,7 @@
 #include "isisd/fabricd.h"
 #include "isisd/isis_tx_queue.h"
 #include "isisd/isis_nb.h"
+#include "isisd/isis_flex_algo.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
@@ -1015,6 +1016,8 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	/* Add Router Capability TLV. */
 	if (area->isis->router_id != 0) {
 		struct isis_router_cap cap = {};
+		struct listnode *node;
+		struct flex_algo *fa;
 
 		lsp_debug("ISIS (%s): Adding Router Capabilities information",
 			  area->area_tag);
@@ -1058,6 +1061,16 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 		}
 
 		isis_tlvs_set_router_capability(lsp->tlvs, &cap);
+
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			if (!fa->advertise_definition)
+				continue;
+			lsp_debug("ISIS (%s):   Flex-Algo Definition %u",
+				  area->area_tag, fa->algorithm);
+			isis_tlvs_set_router_capability_fad(area, lsp->tlvs,
+							    fa);
+		}
 	}
 
 	/* IPv4 address and TE router ID TLVs.
@@ -1200,6 +1213,10 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 					metric, false, pcfgs);
 			}
 		}
+
+		/* ASLA for Flex-Algo */
+		if (!list_isempty(circuit->affinity_flex_algo))
+			isis_tlvs_add_asla_admin_group(circuit);
 
 		switch (circuit->circ_type) {
 		case CIRCUIT_T_BROADCAST:

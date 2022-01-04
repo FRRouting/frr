@@ -28,6 +28,7 @@
 #include "sr.h"
 #include "openbsd-tree.h"
 #include "prefix.h"
+#include "flex_algo.h"
 
 DECLARE_MTYPE(ISIS_SUBTLV);
 
@@ -211,6 +212,14 @@ struct isis_lan_adj_sid {
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2
 
+struct isis_router_cap_fad;
+struct isis_router_cap_fad {
+	uint8_t sysid[ISIS_SYS_ID_LEN + 2];
+
+	struct flex_algo fad;
+	bool m_flag;
+};
+
 struct isis_router_cap {
 	struct in_addr router_id;
 	uint8_t flags;
@@ -221,6 +230,9 @@ struct isis_router_cap {
 	uint8_t algo[SR_ALGORITHM_COUNT];
 	/* RFC 8491 */
 	uint8_t msd;
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	struct isis_router_cap_fad *fads[SR_ALGORITHM_COUNT];
 };
 
 struct isis_item;
@@ -422,7 +434,22 @@ enum isis_tlv_type {
 	ISIS_SUBTLV_AVA_BW = 38,
 	ISIS_SUBTLV_USE_BW = 39,
 
+	/* RFC 7308 */
+	ISIS_SUBTLV_EXT_ADMIN_GRP = 14,
+
+	/* RFC 8919 */
+	ISIS_SUBTLV_ASLA = 16,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBTLV_SID_END = 5,
+	ISIS_SUBTLV_SID_END_X = 43,
+
 	ISIS_SUBTLV_MAX = 40,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBSUBTLV_SID_STRUCTURE = 1,
+
+	ISIS_SUBSUBTLV_MAX = 256,
 };
 
 /* subTLVs size for TE and SR */
@@ -449,16 +476,40 @@ enum ext_subtlv_size {
 	/* RFC 7810 */
 	ISIS_SUBTLV_MM_DELAY_SIZE = 8,
 
+	/* draft-ietf-lsr-flex-algo */
+	ISIS_SUBTLV_FAD = 26,
+	ISIS_SUBTLV_FAPM = 6,
+
 	ISIS_SUBTLV_HDR_SIZE = 2,
 	ISIS_SUBTLV_DEF_SIZE = 4,
 
 	ISIS_SUBTLV_MAX_SIZE = 180,
+
+	/* draft-ietf-lsr-isis-srv6-extensions */
+	ISIS_SUBSUBTLV_SID_STRUCTURE_SIZE = 4,
+
+	ISIS_SUBSUBTLV_HDR_SIZE = 2,
+	ISIS_SUBSUBTLV_MAX_SIZE = 180,
 };
+
+enum ext_subsubtlv_types {
+	ISIS_SUBTLV_FAD_SUBSUBTLV_EXCAG = 1,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_INCANYAG = 2,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_INCALLAG = 3,
+	ISIS_SUBTLV_FAD_SUBSUBTLV_FLAGS = 4,
+};
+
+#define ISIS_SUBTLV_FAD_SUBSUBTLV_FLAG_M 0x1
 
 /* Macros to manage the optional presence of EXT subTLVs */
 #define SET_SUBTLV(s, t) ((s->status) |= (t))
 #define UNSET_SUBTLV(s, t) ((s->status) &= ~(t))
 #define IS_SUBTLV(s, t) (s->status & t)
+
+/* Macros to manage the optional presence of subsubTLVs */
+#define SET_SUBSUBTLV(s, t) ((s->status) |= (t))
+#define UNSET_SUBSUBTLV(s, t) ((s->status) &= ~(t))
+#define IS_SUBSUBTLV(s, t) (s->status & t)
 
 #define EXT_DISABLE		0x000000
 #define EXT_ADM_GRP		0x000001
@@ -482,6 +533,7 @@ enum ext_subtlv_size {
 #define EXT_RES_BW		0x040000
 #define EXT_AVA_BW		0x080000
 #define EXT_USE_BW		0x100000
+#define EXT_ASLA_X		0x200000
 
 /*
  * This structure groups all Extended IS Reachability subTLVs.
@@ -496,6 +548,8 @@ enum ext_subtlv_size {
  * normal (0) or anomalous (1).
  */
 #define IS_ANORMAL(v) (v & 0x80000000)
+
+#define ASLA_APP_IDENTIFIER_BIT_LENGTH 1
 
 struct isis_ext_subtlvs {
 
@@ -528,6 +582,15 @@ struct isis_ext_subtlvs {
 	/* Segment Routing Adjacency & LAN Adjacency Segment ID */
 	struct isis_item_list adj_sid;
 	struct isis_item_list lan_sid;
+
+	/* Application Specific Link Attribute - RFC 8919 */
+	bool asla_legacy;
+	uint8_t asla_standard_apps_length;
+	uint8_t asla_user_def_apps_length;
+	uint8_t asla_standard_apps;
+	uint8_t asla_user_def_apps;
+	uint32_t asla_admin_group;
+	struct admin_group asla_ext_admin_group;
 };
 
 #define IS_COMPAT_MT_TLV(tlv_type)                                             \
@@ -557,6 +620,12 @@ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 #define ISIS_MT_OL_MASK        0x8000
 #define ISIS_MT_AT_MASK        0x4000
 #endif
+
+/* RFC 8919 */
+#define ISIS_SABM_FLAG_R	0x80 /* RSVP-TE */
+#define ISIS_SABM_FLAG_S	0x40 /* Segment Routing Policy */
+#define ISIS_SABM_FLAG_L	0x20 /* Loop-Free Alternate */
+#define ISIS_SABM_FLAG_X	0x10 /* Flex-Algo - draft-ietf-lsr-flex-algo-18 */
 
 void isis_tlvs_add_auth(struct isis_tlvs *tlvs, struct isis_passwd *passwd);
 void isis_tlvs_add_area_addresses(struct isis_tlvs *tlvs,
@@ -592,6 +661,16 @@ void isis_tlvs_set_dynamic_hostname(struct isis_tlvs *tlvs,
 void isis_tlvs_set_router_capability(struct isis_tlvs *tlvs,
                      const struct isis_router_cap *cap);
 
+struct isis_area;
+struct isis_flex_algo;
+void isis_tlvs_set_router_capability_fad(struct isis_area *area,
+					 struct isis_tlvs *tlvs,
+					 struct flex_algo *fa);
+
+struct isis_area;
+void isis_tlvs_add_router_capability(struct isis_tlvs *tlvs,
+				     struct isis_area *area);
+
 int isis_tlvs_sr_algo_count(const struct isis_router_cap *cap);
 
 void isis_tlvs_set_te_router_id(struct isis_tlvs *tlvs,
@@ -620,6 +699,8 @@ void isis_tlvs_add_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan);
 void isis_tlvs_del_lan_adj_sid(struct isis_ext_subtlvs *exts,
 			       struct isis_lan_adj_sid *lan);
+struct isis_circuit;
+void isis_tlvs_add_asla_admin_group(struct isis_circuit *circuit);
 
 void isis_tlvs_add_oldstyle_reach(struct isis_tlvs *tlvs, uint8_t *id,
 				  uint8_t metric);
