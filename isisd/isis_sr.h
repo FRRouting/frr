@@ -63,6 +63,9 @@ struct isis_sr_psid_info {
 	bool present;
 
 	uint8_t algorithm;
+
+	struct list *nexthops;
+	struct list *nexthops_backup;
 };
 
 /* Segment Routing Local Block allocation */

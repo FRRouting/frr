@@ -239,6 +239,9 @@ isis_route_info_new(struct prefix *prefix, struct prefix_ipv6 *src_p,
 	rinfo->cost = cost;
 	rinfo->depth = depth;
 	rinfo->sr = *sr;
+	rinfo->sr.nexthops = rinfo->nexthops;
+	rinfo->sr.nexthops_backup =
+		rinfo->backup ? rinfo->backup->nexthops : NULL;
 
 	return rinfo;
 }
@@ -489,8 +492,9 @@ static void isis_route_update(struct isis_area *area, struct prefix *prefix,
 					   route_info);
 		/* Install/reinstall Prefix-SID label. */
 		if (route_info->sr.present)
-			isis_zebra_prefix_sid_install(area, prefix, route_info,
+			isis_zebra_prefix_sid_install(area, prefix,
 						      &route_info->sr);
+
 		hook_call(isis_route_update_hook, area, prefix, route_info);
 
 		SET_FLAG(route_info->flag, ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
@@ -541,10 +545,13 @@ static void _isis_route_verify_table(struct isis_area *area,
 							 src_p);
 			if (rnode_bck) {
 				rinfo->backup = rnode_bck->info;
+				rinfo->sr.nexthops_backup =
+					rinfo->backup->nexthops;
 				UNSET_FLAG(rinfo->flag,
 					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 			} else if (rinfo->backup) {
 				rinfo->backup = NULL;
+				rinfo->sr.nexthops_backup = NULL;
 				UNSET_FLAG(rinfo->flag,
 					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 			}
@@ -658,10 +665,13 @@ void isis_route_verify_merge(struct isis_area *area,
 				tables_backup[level - 1], prefix, src_p);
 			if (rnode_bck) {
 				rinfo->backup = rnode_bck->info;
+				rinfo->sr.nexthops_backup =
+					rinfo->backup->nexthops;
 				UNSET_FLAG(rinfo->flag,
 					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 			} else if (rinfo->backup) {
 				rinfo->backup = NULL;
+				rinfo->sr.nexthops_backup = NULL;
 				UNSET_FLAG(rinfo->flag,
 					   ISIS_ROUTE_FLAG_ZEBRA_SYNCED);
 			}
@@ -720,6 +730,7 @@ void isis_route_invalidate_table(struct isis_area *area,
 
 		if (rinfo->backup) {
 			rinfo->backup = NULL;
+			rinfo->sr.nexthops_backup = NULL;
 			/*
 			 * For now, always force routes that have backup
 			 * nexthops to be reinstalled.
