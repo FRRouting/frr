@@ -1092,8 +1092,8 @@ struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
                    up->rpf.source_nexthop.interface->name : "Unknown" ,
 		   found, up->ref_count);
 		else
-			zlog_debug("%s(%s): (%s) failure to create", __func__,
-				   name, pim_str_sg_dump(sg));
+			zlog_debug("%s(%s): (%pSG) failure to create", __func__,
+				   name, sg);
 	}
 
 	return up;

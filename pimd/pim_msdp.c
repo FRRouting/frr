@@ -646,7 +646,7 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 	struct pim_msdp_sa *sa;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
-		zlog_debug("MSDP %s del", pim_str_sg_dump(sg));
+		zlog_debug("MSDP %pSG del", sg);
 	}
 
 	/* If this is not really an XG entry just move on */
@@ -667,7 +667,7 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	if (PIM_DEBUG_MSDP_INTERNAL) {
-		zlog_debug("MSDP up %s del", pim_str_sg_dump(sg));
+		zlog_debug("MSDP up %pSG del", sg);
 	}
 	if (sg->src.s_addr == INADDR_ANY) {
 		pim_msdp_up_xg_del(pim, sg);

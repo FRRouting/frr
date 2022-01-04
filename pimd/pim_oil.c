@@ -45,8 +45,8 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 	sg.src = c_oil->oil.mfcc_origin;
 	sg.grp = c_oil->oil.mfcc_mcastgrp;
 	ifp = pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
-	snprintf(buf, size, "%s IIF: %s, OIFS: ", pim_str_sg_dump(&sg),
-		 ifp ? ifp->name : "(?)");
+	snprintfrr(buf, size, "%pSG IIF: %s, OIFS: ", &sg,
+		   ifp ? ifp->name : "(?)");
 
 	out = buf + strlen(buf);
 	for (i = 0; i < MAXVIFS; i++) {
@@ -163,8 +163,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 	rb_pim_oil_add(&pim->channel_oil_head, c_oil);
 
 	if (PIM_DEBUG_MROUTE)
-		zlog_debug("%s(%s): c_oil %s add",
-				__func__, name, pim_str_sg_dump(sg));
+		zlog_debug("%s(%s): c_oil %pSG add", __func__, name, sg);
 
 	return c_oil;
 }

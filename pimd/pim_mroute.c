@@ -189,9 +189,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 
 	if (!(PIM_I_am_DR(pim_ifp))) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
-			zlog_debug(
-				"%s: Interface is not the DR blackholing incoming traffic for %s",
-				__func__, pim_str_sg_dump(&sg));
+			zlog_debug("%s: Interface is not the DR blackholing incoming traffic for %pSG",
+				   __func__, &sg);
 
 		/*
 		 * We are not the DR, but we are still receiving packets
@@ -268,9 +267,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 					      __func__, NULL);
 			if (!up) {
 				if (PIM_DEBUG_MROUTE)
-					zlog_debug(
-						"%s: Unable to create upstream information for %s",
-						__func__, pim_str_sg_dump(&sg));
+					zlog_debug("%s: Unable to create upstream information for %pSG",
+						   __func__, &sg);
 				return 0;
 			}
 			pim_upstream_keep_alive_timer_start(
@@ -284,9 +282,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 			return 0;
 		}
 		if (PIM_DEBUG_MROUTE_DETAIL) {
-			zlog_debug(
-				"%s: Unable to find upstream channel WHOLEPKT%s",
-				__func__, pim_str_sg_dump(&sg));
+			zlog_debug("%s: Unable to find upstream channel WHOLEPKT%pSG",
+				   __func__, &sg);
 		}
 		return 0;
 	}
@@ -316,9 +313,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	if (!up->t_rs_timer) {
 		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 			if (PIM_DEBUG_PIM_REG)
-				zlog_debug(
-					"%s register forward skipped as group is SSM",
-					pim_str_sg_dump(&sg));
+				zlog_debug("%pSG register forward skipped as group is SSM",
+					   &sg);
 			return 0;
 		}
 
@@ -361,18 +357,16 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 
 	if (!ifp) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s could not find input interface for input_vif_index=%d",
-				__func__, pim_str_sg_dump(&sg), msg->im_vif);
+			zlog_debug("%s: WRONGVIF (S,G)=%pSG could not find input interface for input_vif_index=%d",
+				   __func__, &sg, msg->im_vif);
 		return -1;
 	}
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s multicast not enabled on interface %s",
-				__func__, pim_str_sg_dump(&sg), ifp->name);
+			zlog_debug("%s: WRONGVIF (S,G)=%pSG multicast not enabled on interface %s",
+				   __func__, &sg, ifp->name);
 		return -2;
 	}
 
@@ -380,18 +374,16 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 	if (!ch) {
 		pim_sgaddr star_g = sg;
 		if (PIM_DEBUG_MROUTE)
-			zlog_debug(
-				"%s: WRONGVIF (S,G)=%s could not find channel on interface %s",
-				__func__, pim_str_sg_dump(&sg), ifp->name);
+			zlog_debug("%s: WRONGVIF (S,G)=%pSG could not find channel on interface %s",
+				   __func__, &sg, ifp->name);
 
 		star_g.src.s_addr = INADDR_ANY;
 		ch = pim_ifchannel_find(ifp, &star_g);
 		if (!ch) {
 			if (PIM_DEBUG_MROUTE)
-				zlog_debug(
-					"%s: WRONGVIF (*,G)=%s could not find channel on interface %s",
-					__func__, pim_str_sg_dump(&star_g),
-					ifp->name);
+				zlog_debug("%s: WRONGVIF (*,G)=%pSG could not find channel on interface %s",
+					   __func__, &star_g,
+					   ifp->name);
 			return -3;
 		}
 	}
@@ -558,9 +550,8 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 				      NULL);
 		if (!up) {
 			if (PIM_DEBUG_MROUTE)
-				zlog_debug(
-					"%s: WRONGVIF%s unable to create upstream on interface",
-					pim_str_sg_dump(&sg), ifp->name);
+				zlog_debug("%pSG: WRONGVIF%s unable to create upstream on interface",
+					   &sg, ifp->name);
 			return -2;
 		}
 		PIM_UPSTREAM_FLAG_SET_SRC_STREAM(up->flags);
@@ -1218,9 +1209,8 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 			sg.src = c_oil->oil.mfcc_origin;
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
-			zlog_debug(
-				"Channel%s is not installed no need to collect data from kernel",
-				pim_str_sg_dump(&sg));
+			zlog_debug("Channel%pSG is not installed no need to collect data from kernel",
+				   &sg);
 		}
 		return;
 	}
@@ -1236,8 +1226,8 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 		sg.src = c_oil->oil.mfcc_origin;
 		sg.grp = c_oil->oil.mfcc_mcastgrp;
 
-		zlog_warn("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%s: errno=%d: %s",
-			  (unsigned long)SIOCGETSGCNT, pim_str_sg_dump(&sg),
+		zlog_warn("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%pSG: errno=%d: %s",
+			  (unsigned long)SIOCGETSGCNT, &sg,
 			  errno, safe_strerror(errno));
 		return;
 	}
