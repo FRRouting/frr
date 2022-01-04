@@ -99,25 +99,28 @@ struct pim_interface {
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
 	pim_addr update_source;		/* user can statically set the primary
 					 * address of the interface */
-	int igmp_version;		/* IGMP or MLD version */
-	int igmp_default_robustness_variable; /* IGMP or MLD QRV */
-	int igmp_default_query_interval; /* IGMP or MLD secs between general
-					    queries */
-	int igmp_query_max_response_time_dsec; /* IGMPv3 Max Response Time in
+
+	int igmp_version;		     /* IGMP version */
+	int gm_default_robustness_variable;  /* IGMP or MLD QRV */
+	int gm_default_query_interval;       /* IGMP or MLD secs between general
+						  queries */
+	int gm_query_max_response_time_dsec; /* IGMP or MLD Max Response Time in
 						  dsecs for general queries */
-	int igmp_specific_query_max_response_time_dsec; /* IGMPv3 Max Response
-							   Time in dsecs called
-							   as last member query
-							   interval, defines the
-							   maximum response time
-							   advertised in IGMP
-							   group-specific
-							   queries */
-	int igmp_last_member_query_count; /* IGMP last member query count */
-	struct list *igmp_socket_list; /* list of struct igmp_sock */
-	struct list *igmp_join_list;   /* list of struct igmp_join */
-	struct list *igmp_group_list;  /* list of struct igmp_group */
-	struct hash *igmp_group_hash;
+	int gm_specific_query_max_response_time_dsec; /* IGMP or MLD Max
+							 Response Time in dsecs
+							 called as last member
+							 query interval, defines
+							 the maximum response
+							 time advertised in IGMP
+							 group-specific
+							 queries */
+	int gm_last_member_query_count;		      /* IGMP or MLD last member
+							 query count
+						       */
+	struct list *gm_socket_list; /* list of struct IGMP or MLD sock */
+	struct list *gm_join_list;   /* list of struct IGMP or MLD join */
+	struct list *gm_group_list;  /* list of struct IGMP or MLD group */
+	struct hash *gm_group_hash;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct thread *t_pim_sock_read; /* thread for reading PIM socket */
@@ -188,8 +191,8 @@ struct pim_interface {
 };
 
 /*
-  if default_holdtime is set (>= 0), use it;
-  otherwise default_holdtime is 3.5 * hello_period
+ * if default_holdtime is set (>= 0), use it;
+ * otherwise default_holdtime is 3.5 * hello_period
  */
 #define PIM_IF_DEFAULT_HOLDTIME(pim_ifp)                                       \
 	(((pim_ifp)->pim_default_holdtime < 0)                                 \

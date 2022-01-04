@@ -626,7 +626,8 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 
 		pim_ifp = ifp->info;
 		ifaddr = connected_src->u.prefix4;
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
+						   ifaddr);
 
 		if (PIM_DEBUG_IGMP_PACKETS) {
 			zlog_debug(
