@@ -13,6 +13,7 @@ man8 += $(MANBUILD)/mtracebis.8
 endif
 
 pim_common = \
+	pimd/pim_addr.c \
 	pimd/pim_assert.c \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
@@ -87,6 +88,7 @@ nodist_pimd_pim6d_SOURCES = \
 	# end
 
 noinst_HEADERS += \
+	pimd/pim_addr.h \
 	pimd/pim_assert.h \
 	pimd/pim_bfd.h \
 	pimd/pim_br.h \
