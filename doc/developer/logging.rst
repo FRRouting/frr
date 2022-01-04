@@ -153,11 +153,11 @@ Networking data types
    - :c:struct:`prefix_ls`
    - :c:struct:`prefix_rd`
    - :c:struct:`prefix_ptr`
-   - :c:struct:`prefix_sg` (use :frrfmt:`%pSG4`)
+   - :c:struct:`prefix_sg` (use :frrfmt:`%pPSG4`)
    - :c:union:`prefixptr` (dereference to get :c:struct:`prefix`)
    - :c:union:`prefixconstptr` (dereference to get :c:struct:`prefix`)
 
-.. frrfmt:: %pSG4 (struct prefix_sg *)
+.. frrfmt:: %pPSG4 (struct prefix_sg *)
 
    :frrfmtout:`(*,1.2.3.4)`
 

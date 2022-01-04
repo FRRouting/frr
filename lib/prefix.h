@@ -602,7 +602,7 @@ static inline int is_default_host_route(const struct prefix *p)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_evpn *)
 #pragma FRR printfrr_ext "%pFX"  (struct prefix_fs *)
 
-#pragma FRR printfrr_ext "%pSG4" (struct prefix_sg *)
+#pragma FRR printfrr_ext "%pPSG4" (struct prefix_sg *)
 #endif
 
 #ifdef __cplusplus

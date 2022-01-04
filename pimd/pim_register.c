@@ -415,8 +415,9 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 					pim_inet4_dump("<src?>", src_addr,
 						       src_str,
 						       sizeof(src_str));
-					zlog_debug("%s: Sending register-stop to %s for %pSG4 due to prefix-list denial, dropping packet",
-						   __func__, src_str, &sg);
+					zlog_debug(
+						"%s: Sending register-stop to %s for %pPSG4 due to prefix-list denial, dropping packet",
+						__func__, src_str, &sg);
 				}
 
 				return 0;
