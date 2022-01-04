@@ -742,7 +742,7 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 
 	vxlan_sg->pim = pim;
 	vxlan_sg->sg = *sg;
-	pim_str_sg_set(sg, vxlan_sg->sg_str);
+	snprintfrr(vxlan_sg->sg_str, sizeof(vxlan_sg->sg_str), "%pSG", sg);
 
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s alloc", vxlan_sg->sg_str);

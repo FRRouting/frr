@@ -340,14 +340,9 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	stream_get(&sg.src.s_addr, s, prefixlen);
 	stream_get(&sg.grp.s_addr, s, prefixlen);
 
-	if (PIM_DEBUG_ZEBRA) {
-		char sg_str[PIM_SG_LEN];
-
-		pim_str_sg_set(&sg, sg_str);
-		zlog_debug("%u:recv SG %s %s", vrf_id,
-			(cmd == ZEBRA_VXLAN_SG_ADD)?"add":"del",
-			sg_str);
-	}
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%u:recv SG %s %pSG", vrf_id,
+			   (cmd == ZEBRA_VXLAN_SG_ADD) ? "add" : "del", &sg);
 
 	if (cmd == ZEBRA_VXLAN_SG_ADD)
 		pim_vxlan_sg_add(pim, &sg);

@@ -46,7 +46,7 @@ char *pim_str_sg_dump(const pim_sgaddr *sg)
 {
 	static char sg_str[PIM_SG_LEN];
 
-	pim_str_sg_set(sg, sg_str);
+	snprintfrr(sg_str, sizeof(sg_str), "%pSG", sg);
 
 	return sg_str;
 }
