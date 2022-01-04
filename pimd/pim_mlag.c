@@ -174,8 +174,8 @@ bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 	/* If DF role changed on a (*,G) termination mroute update the
 	 * associated DF role on the inherited (S,G) entries
 	 */
-	if ((up->sg.src.s_addr == INADDR_ANY) &&
-			PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
+	if (pim_addr_is_any(up->sg.src) &&
+	    PIM_UPSTREAM_FLAG_TEST_MLAG_VXLAN(up->flags))
 		pim_vxlan_inherit_mlag_flags(pim, up, true /* inherit */);
 
 	return true;

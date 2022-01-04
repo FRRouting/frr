@@ -115,7 +115,7 @@ size_t pim_msg_get_jp_group_size(struct list *sources)
 	size += sizeof(struct pim_encoded_source_ipv4) * sources->count;
 
 	js = listgetdata(listhead(sources));
-	if (js && js->up->sg.src.s_addr == INADDR_ANY && js->is_join) {
+	if (js && pim_addr_is_any(js->up->sg.src) && js->is_join) {
 		struct pim_upstream *child, *up;
 		struct listnode *up_node;
 
@@ -193,7 +193,7 @@ size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,
 		else
 			grp->prunes++;
 
-		if (source->up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(source->up->sg.src)) {
 			struct pim_instance *pim = source->up->channel_oil->pim;
 			struct pim_rpf *rpf = pim_rp_g(pim, source->up->sg.grp);
 			bits = PIM_ENCODE_SPARSE_BIT | PIM_ENCODE_WC_BIT

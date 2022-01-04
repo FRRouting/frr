@@ -44,11 +44,6 @@ static inline void pim_addr_copy(pim_addr *dest, pim_addr *source)
 	dest->s_addr = source->s_addr;
 }
 
-static inline int pim_is_addr_any(pim_addr addr)
-{
-	return (addr.s_addr == INADDR_ANY);
-}
-
 static inline int pim_addr_cmp(pim_addr addr1, pim_addr addr2)
 {
 	return IPV4_ADDR_CMP(&addr1, &addr2);

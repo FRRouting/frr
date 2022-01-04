@@ -101,18 +101,16 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 {
 	struct pim_upstream *child;
 
-	if ((up->sg.src.s_addr != INADDR_ANY)
-	    && (up->sg.grp.s_addr != INADDR_ANY))
+	if (!pim_addr_is_any(up->sg.src) && !pim_addr_is_any(up->sg.grp))
 		return;
 
-	if ((up->sg.src.s_addr == INADDR_ANY)
-	    && (up->sg.grp.s_addr == INADDR_ANY))
+	if (pim_addr_is_any(up->sg.src) && pim_addr_is_any(up->sg.grp))
 		return;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, child) {
-		if ((up->sg.grp.s_addr != INADDR_ANY)
-		    && (child->sg.grp.s_addr == up->sg.grp.s_addr)
-		    && (child != up)) {
+		if (!pim_addr_is_any(up->sg.grp) &&
+		    (child->sg.grp.s_addr == up->sg.grp.s_addr) &&
+		    (child != up)) {
 			child->parent = up;
 			listnode_add_sort(up->sources, child);
 			if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags))
@@ -135,8 +133,8 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 	struct pim_upstream *up = NULL;
 
 	// (S,G)
-	if ((child->sg.src.s_addr != INADDR_ANY)
-	    && (child->sg.grp.s_addr != INADDR_ANY)) {
+	if (!pim_addr_is_any(child->sg.src) &&
+	    !pim_addr_is_any(child->sg.grp)) {
 		any.src.s_addr = INADDR_ANY;
 		up = pim_upstream_find(pim, &any);
 
@@ -217,7 +215,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (up->join_state == PIM_UPSTREAM_JOINED) {
 		pim_jp_agg_single_upstream_send(&up->rpf, up, 0);
 
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->sg.src)) {
 			/* if a (*, G) entry in the joined state is being
 			 * deleted we
 			 * need to notify MSDP */
@@ -229,7 +227,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	pim_jp_agg_upstream_verification(up, false);
 	up->rpf.source_nexthop.interface = NULL;
 
-	if (up->sg.src.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(up->sg.src)) {
 		if (pim->upstream_sg_wheel)
 			wheel_remove_item(pim->upstream_sg_wheel, up);
 		notify_msdp = true;
@@ -656,7 +654,7 @@ void pim_upstream_update_use_rpt(struct pim_upstream *up,
 	bool old_use_rpt;
 	bool new_use_rpt;
 
-	if (up->sg.src.s_addr == INADDR_ANY)
+	if (pim_addr_is_any(up->sg.src))
 		return;
 
 	old_use_rpt = !!PIM_UPSTREAM_FLAG_TEST_USE_RPT(up->flags);
@@ -704,7 +702,7 @@ void pim_upstream_reeval_use_rpt(struct pim_instance *pim)
 	struct pim_upstream *up;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY)
+		if (pim_addr_is_any(up->sg.src))
 			continue;
 
 		pim_upstream_update_use_rpt(up, true /*update_mroute*/);
@@ -775,7 +773,7 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		 * RFC 4601 Sec 4.5.7:
 		 * JoinDesired(S,G) -> False, set SPTbit to false.
 		 */
-		if (up->sg.src.s_addr != INADDR_ANY)
+		if (!pim_addr_is_any(up->sg.src))
 			up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 		if (old_state == PIM_UPSTREAM_JOINED)
@@ -889,7 +887,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	}
 
 	up->parent = pim_upstream_find_parent(pim, up);
-	if (up->sg.src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(up->sg.src)) {
 		up->sources = list_new();
 		up->sources->cmp =
 			(int (*)(void *, void *))pim_upstream_compare;
@@ -923,7 +921,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->ifchannels = list_new();
 	up->ifchannels->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
 
-	if (up->sg.src.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(up->sg.src)) {
 		wheel_add_item(pim->upstream_sg_wheel, up);
 
 		/* Inherit the DF role from the parent (*, G) entry for
@@ -1225,7 +1223,7 @@ bool pim_upstream_evaluate_join_desired(struct pim_instance *pim,
 	empty_imm_oil = pim_upstream_empty_immediate_olist(pim, up);
 
 	/* (*,G) */
-	if (up->sg.src.s_addr == INADDR_ANY)
+	if (pim_addr_is_any(up->sg.src))
 		return !empty_imm_oil;
 
 	/* (S,G) */
@@ -2131,7 +2129,7 @@ void pim_upstream_add_lhr_star_pimreg(struct pim_instance *pim)
 	struct pim_upstream *up;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr != INADDR_ANY)
+		if (!pim_addr_is_any(up->sg.src))
 			continue;
 
 		if (!PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags))
@@ -2178,7 +2176,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	g.prefixlen = IPV4_MAX_BITLEN;
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr != INADDR_ANY)
+		if (!pim_addr_is_any(up->sg.src))
 			continue;
 
 		if (!PIM_UPSTREAM_FLAG_TEST_CAN_BE_LHR(up->flags))
