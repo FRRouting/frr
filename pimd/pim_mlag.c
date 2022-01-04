@@ -255,17 +255,14 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 	int flags = 0;
 	pim_sgaddr sg;
 	struct vrf *vrf;
-	char sg_str[PIM_SG_LEN];
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src.s_addr = htonl(msg->source_ip);
 	sg.grp.s_addr = htonl(msg->group_ip);
-	if (PIM_DEBUG_MLAG)
-		pim_str_sg_set(&sg, sg_str);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("peer MLAG mroute add %s:%s cost %d",
-			msg->vrf_name, sg_str, msg->cost_to_rp);
+		zlog_debug("peer MLAG mroute add %s:%pSG cost %d",
+			   msg->vrf_name, &sg, msg->cost_to_rp);
 
 	/* XXX - this is not correct. we MUST cache updates to avoid losing
 	 * an entry because of race conditions with the peer switch.
@@ -273,8 +270,9 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 	vrf = vrf_lookup_by_name(msg->vrf_name);
 	if  (!vrf) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("peer MLAG mroute add failed %s:%s; no vrf",
-					msg->vrf_name, sg_str);
+			zlog_debug(
+				"peer MLAG mroute add failed %s:%pSG; no vrf",
+				msg->vrf_name, &sg);
 		return;
 	}
 	pim = vrf->info;
@@ -294,8 +292,9 @@ static void pim_mlag_up_peer_add(struct mlag_mroute_add *msg)
 
 		if (!up) {
 			if (PIM_DEBUG_MLAG)
-				zlog_debug("peer MLAG mroute add failed %s:%s",
-						vrf->name, sg_str);
+				zlog_debug(
+					"peer MLAG mroute add failed %s:%pSG",
+					vrf->name, &sg);
 			return;
 		}
 	}
@@ -329,23 +328,20 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	struct pim_instance *pim;
 	pim_sgaddr sg;
 	struct vrf *vrf;
-	char sg_str[PIM_SG_LEN];
 
 	memset(&sg, 0, sizeof(sg));
 	sg.src.s_addr = htonl(msg->source_ip);
 	sg.grp.s_addr = htonl(msg->group_ip);
-	if (PIM_DEBUG_MLAG)
-		pim_str_sg_set(&sg, sg_str);
 
 	if (PIM_DEBUG_MLAG)
-		zlog_debug("peer MLAG mroute del %s:%s", msg->vrf_name,
-				sg_str);
+		zlog_debug("peer MLAG mroute del %s:%pSG", msg->vrf_name, &sg);
 
 	vrf = vrf_lookup_by_name(msg->vrf_name);
 	if  (!vrf) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("peer MLAG mroute del skipped %s:%s; no vrf",
-					msg->vrf_name, sg_str);
+			zlog_debug(
+				"peer MLAG mroute del skipped %s:%pSG; no vrf",
+				msg->vrf_name, &sg);
 		return;
 	}
 	pim = vrf->info;
@@ -353,8 +349,9 @@ static void pim_mlag_up_peer_del(struct mlag_mroute_del *msg)
 	up = pim_upstream_find(pim, &sg);
 	if  (!up) {
 		if (PIM_DEBUG_MLAG)
-			zlog_debug("peer MLAG mroute del skipped %s:%s; no up",
-					vrf->name, sg_str);
+			zlog_debug(
+				"peer MLAG mroute del skipped %s:%pSG; no up",
+				vrf->name, &sg);
 		return;
 	}
 

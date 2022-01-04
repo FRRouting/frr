@@ -873,7 +873,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 	up->pim = pim;
 	up->sg = *sg;
-	pim_str_sg_set(sg, up->sg_str);
+	snprintfrr(up->sg_str, sizeof(up->sg_str), "%pSG", sg);
 	if (ch)
 		ch->upstream = up;
 

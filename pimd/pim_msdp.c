@@ -245,7 +245,7 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 
 	sa->pim = pim;
 	sa->sg = *sg;
-	pim_str_sg_set(sg, sa->sg_str);
+	snprintfrr(sa->sg_str, sizeof(sa->sg_str), "%pSG", sg);
 	sa->rp = rp;
 	sa->uptime = pim_time_monotonic_sec();
 
