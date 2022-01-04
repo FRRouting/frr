@@ -1,4 +1,4 @@
-#!/bin/ash
+#!/bin/bash
 
 if [ -r "/lib/lsb/init-functions" ]; then
         . /lib/lsb/init-functions
