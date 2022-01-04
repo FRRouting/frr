@@ -145,7 +145,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s(%s): Existing oil for %pSG4 Ref Count: %d (Post Increment)",
+				"%s(%s): Existing oil for %pPSG4 Ref Count: %d (Post Increment)",
 				__func__, name, sg, c_oil->oil_ref_count);
 		return c_oil;
 	}
@@ -178,7 +178,7 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 				       .grp = c_oil->oil.mfcc_origin};
 
 		zlog_debug(
-			"%s(%s): Del oil for %pSG4, Ref Count: %d (Predecrement)",
+			"%s(%s): Del oil for %pPSG4, Ref Count: %d (Predecrement)",
 			__func__, name, &sg, c_oil->oil_ref_count);
 	}
 	--c_oil->oil_ref_count;

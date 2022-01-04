@@ -743,11 +743,11 @@ static void pim_mlag_process_mroute_add(struct mlag_mroute_add msg)
 		sg.src.s_addr = ntohl(msg.source_ip);
 
 		zlog_debug(
-			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pSG4) cost: %u",
+			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x (%pPSG4) cost: %u",
 			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
 			&sg, msg.cost_to_rp);
 		zlog_debug(
-			"(%pSG4)owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
+			"(%pPSG4)owner_id: %d, DR: %d, Dual active: %d, vrf_id: 0x%x intf_name: %s",
 			&sg, msg.owner_id, msg.am_i_dr, msg.am_i_dual_active,
 			msg.vrf_id, msg.intf_name);
 	}
@@ -772,10 +772,10 @@ static void pim_mlag_process_mroute_del(struct mlag_mroute_del msg)
 		sg.grp.s_addr = ntohl(msg.group_ip);
 		sg.src.s_addr = ntohl(msg.source_ip);
 		zlog_debug(
-			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pSG4)",
+			"%s: msg dump: vrf_name: %s, s.ip: 0x%x, g.ip: 0x%x(%pPSG4)",
 			__func__, msg.vrf_name, msg.source_ip, msg.group_ip,
 			&sg);
-		zlog_debug("(%pSG4)owner_id: %d, vrf_id: 0x%x intf_name: %s",
+		zlog_debug("(%pPSG4)owner_id: %d, vrf_id: 0x%x intf_name: %s",
 			   &sg, msg.owner_id, msg.vrf_id, msg.intf_name);
 	}
 
