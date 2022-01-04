@@ -575,7 +575,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 
 	ch->interface = ifp;
 	ch->sg = *sg;
-	pim_str_sg_set(sg, ch->sg_str);
+	snprintfrr(ch->sg_str, sizeof(ch->sg_str), "%pSG", sg);
 	ch->parent = pim_ifchannel_find_parent(ch);
 	if (ch->sg.src.s_addr == INADDR_ANY) {
 		ch->sources = list_new();

@@ -39,12 +39,6 @@
 #define PIM_SG_LEN PREFIX_SG_STR_LEN
 #define pim_inet4_dump prefix_mcast_inet4_dump
 
-static inline const char *pim_str_sg_set(const pim_sgaddr *sg, char *str)
-{
-	snprintfrr(str, PREFIX_SG_STR_LEN, "%pSG", sg);
-	return str;
-}
-
 static inline void pim_addr_copy(pim_addr *dest, pim_addr *source)
 {
 	dest->s_addr = source->s_addr;
