@@ -58,6 +58,5 @@ void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
 		    int buf_size);
-char *pim_str_sg_dump(const pim_sgaddr *sg);
 
 #endif

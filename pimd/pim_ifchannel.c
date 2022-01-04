@@ -455,8 +455,8 @@ struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg)
 	pim_ifp = ifp->info;
 
 	if (!pim_ifp) {
-		zlog_warn("%s: (S,G)=%s: multicast not enabled on interface %s",
-			  __func__, pim_str_sg_dump(sg), ifp->name);
+		zlog_warn("%s: (S,G)=%pSG: multicast not enabled on interface %s",
+			  __func__, sg, ifp->name);
 		return NULL;
 	}
 
@@ -558,8 +558,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 		if (ch->upstream)
 			ch->upstream->flags |= up_flags;
 		else if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%s No Upstream found", __func__,
-				   pim_str_sg_dump(sg));
+			zlog_debug("%s:%pSG No Upstream found", __func__, sg);
 
 		return ch;
 	}
@@ -688,10 +687,9 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 	ch = THREAD_ARG(t);
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug(
-			"%s: IFCHANNEL%s %s Prune Pending Timer Popped",
-			__func__, pim_str_sg_dump(&ch->sg),
-			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
+		zlog_debug("%s: IFCHANNEL%pSG %s Prune Pending Timer Popped",
+			   __func__, &ch->sg,
+			   pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
 
 	if (ch->ifjoin_state == PIM_IFJOIN_PRUNE_PENDING) {
 		ifp = ch->interface;
@@ -832,9 +830,9 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
 		char up_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-		zlog_warn("%s: recv %s (S,G)=%s to non-local upstream=%s on %s",
+		zlog_warn("%s: recv %s (S,G)=%pSG to non-local upstream=%s on %s",
 			  __func__, is_join ? "join" : "prune",
-			  pim_str_sg_dump(sg), up_str, recv_ifp->name);
+			  sg, up_str, recv_ifp->name);
 	}
 
 	/*
@@ -1049,10 +1047,9 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 	ch = pim_ifchannel_find(ifp, sg);
 	if (!ch && !(source_flags & PIM_ENCODE_RPT_BIT)) {
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: Received prune with no relevant ifchannel %s%s state: %d",
-				__func__, ifp->name, pim_str_sg_dump(sg),
-				source_flags);
+			zlog_debug("%s: Received prune with no relevant ifchannel %s%pSG state: %d",
+				   __func__, ifp->name, sg,
+				   source_flags);
 		return;
 	}
 
@@ -1182,16 +1179,15 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
 		if (PIM_DEBUG_EVENTS)
-			zlog_debug("%s:%s Expected pim interface setup for %s",
-				   __func__, pim_str_sg_dump(sg), ifp->name);
+			zlog_debug("%s:%pSG Expected pim interface setup for %s",
+				   __func__, sg, ifp->name);
 		return 0;
 	}
 
 	if (!PIM_IF_TEST_PIM(pim_ifp->options)) {
 		if (PIM_DEBUG_EVENTS)
-			zlog_debug(
-				"%s:%s PIM is not configured on this interface %s",
-				__func__, pim_str_sg_dump(sg), ifp->name);
+			zlog_debug("%s:%pSG PIM is not configured on this interface %s",
+				   __func__, sg, ifp->name);
 		return 0;
 	}
 
@@ -1201,9 +1197,8 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 	if (sg->src.s_addr == INADDR_ANY) {
 		if (pim_is_grp_ssm(pim, sg->grp)) {
 			if (PIM_DEBUG_PIM_EVENTS)
-				zlog_debug(
-					"%s: local membership (S,G)=%s ignored as group is SSM",
-					__func__, pim_str_sg_dump(sg));
+				zlog_debug("%s: local membership (S,G)=%pSG ignored as group is SSM",
+					   __func__, sg);
 			return 1;
 		}
 	}

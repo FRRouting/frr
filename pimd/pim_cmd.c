@@ -8298,13 +8298,12 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 
 	up = pim_upstream_find(pim, &sg);
 	if (!up) {
-		vty_out(vty, "%% Unable to find %s specified\n",
-			pim_str_sg_dump(&sg));
+		vty_out(vty, "%% Unable to find %pSG specified\n", &sg);
 		return CMD_WARNING;
 	}
 
-	vty_out(vty, "Setting %s to current keep alive time: %d\n",
-		pim_str_sg_dump(&sg), pim->keep_alive_time);
+	vty_out(vty, "Setting %pSG to current keep alive time: %d\n", &sg,
+		pim->keep_alive_time);
 	pim_upstream_keep_alive_timer_start(up, pim->keep_alive_time);
 
 	return CMD_SUCCESS;
