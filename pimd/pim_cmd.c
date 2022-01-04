@@ -508,7 +508,7 @@ static void igmp_show_interfaces(struct pim_instance *pim, struct vty *vty,
 		if (!pim_ifp)
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node,
 					  igmp)) {
 			char uptime[10];
 			char query_hhmmss[10];
@@ -610,7 +610,7 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 		if (strcmp(ifname, "detail") && strcmp(ifname, ifp->name))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node,
 					  igmp)) {
 			found_ifname = 1;
 			pim_time_uptime(uptime, sizeof(uptime),
@@ -625,35 +625,34 @@ static void igmp_show_interfaces_single(struct pim_instance *pim,
 			gmi_msec = PIM_IGMP_GMI_MSEC(
 				igmp->querier_robustness_variable,
 				igmp->querier_query_interval,
-				pim_ifp->igmp_query_max_response_time_dsec);
+				pim_ifp->gm_query_max_response_time_dsec);
 
-			sqi = PIM_IGMP_SQI(
-				pim_ifp->igmp_default_query_interval);
+			sqi = PIM_IGMP_SQI(pim_ifp->gm_default_query_interval);
 
 			oqpi_msec = PIM_IGMP_OQPI_MSEC(
 				igmp->querier_robustness_variable,
 				igmp->querier_query_interval,
-				pim_ifp->igmp_query_max_response_time_dsec);
+				pim_ifp->gm_query_max_response_time_dsec);
 
 			lmqt_msec = PIM_IGMP_LMQT_MSEC(
-				pim_ifp->igmp_specific_query_max_response_time_dsec,
-				pim_ifp->igmp_last_member_query_count);
+				pim_ifp->gm_specific_query_max_response_time_dsec,
+				pim_ifp->gm_last_member_query_count);
 
 			ohpi_msec =
 				PIM_IGMP_OHPI_DSEC(
 					igmp->querier_robustness_variable,
 					igmp->querier_query_interval,
-					pim_ifp->igmp_query_max_response_time_dsec)
-				* 100;
+					pim_ifp->gm_query_max_response_time_dsec) *
+				100;
 
-			qri_msec = pim_ifp->igmp_query_max_response_time_dsec
-				* 100;
+			qri_msec =
+				pim_ifp->gm_query_max_response_time_dsec * 100;
 			if (pim_ifp->pim_sock_fd >= 0)
 				mloop = pim_socket_mcastloop_get(
 					pim_ifp->pim_sock_fd);
 			else
 				mloop = 0;
-			lmqc = pim_ifp->igmp_last_member_query_count;
+			lmqc = pim_ifp->gm_last_member_query_count;
 
 			if (uj) {
 				json_row = json_object_new_object();
@@ -833,14 +832,14 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 		if (!pim_ifp)
 			continue;
 
-		if (!pim_ifp->igmp_join_list)
+		if (!pim_ifp->gm_join_list)
 			continue;
 
 		pri_addr = pim_find_primary_addr(ifp);
 		pim_inet4_dump("<pri?>", pri_addr, pri_addr_str,
 			       sizeof(pri_addr_str));
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_join_list, join_node,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_join_list, join_node,
 					  ij)) {
 			char group_str[INET_ADDRSTRLEN];
 			char source_str[INET_ADDRSTRLEN];
@@ -887,7 +886,7 @@ static void igmp_show_interface_join(struct pim_instance *pim, struct vty *vty,
 					ifp->name, pri_addr_str, source_str,
 					group_str, ij->sock_fd, uptime);
 			}
-		} /* for (pim_ifp->igmp_join_list) */
+		} /* for (pim_ifp->gm_join_list) */
 
 	} /* for (iflist) */
 
@@ -1340,7 +1339,7 @@ static void igmp_show_statistics(struct pim_instance *pim, struct vty *vty,
 		if (ifname && strcmp(ifname, ifp->name))
 			continue;
 
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node,
 					  igmp)) {
 			igmp_stats_add(&rx_stats, &igmp->rx_stats);
 		}
@@ -3429,7 +3428,7 @@ static void igmp_show_groups(struct pim_instance *pim, struct vty *vty, bool uj)
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
 					  grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			char hhmmss[10];
@@ -3523,7 +3522,7 @@ static void igmp_show_group_retransmission(struct pim_instance *pim,
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
 					  grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			char grp_retr_mmss[10];
@@ -3576,7 +3575,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
 					  grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			struct listnode *srcnode;
@@ -3610,7 +3609,7 @@ static void igmp_show_sources(struct pim_instance *pim, struct vty *vty)
 					uptime);
 
 			} /* scan group sources */
-		}	  /* scan igmp groups */
+		}	 /* scan igmp groups */
 	}		  /* scan interfaces */
 }
 
@@ -3632,7 +3631,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 			continue;
 
 		/* scan igmp groups */
-		for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_group_list, grpnode,
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
 					  grp)) {
 			char group_str[INET_ADDRSTRLEN];
 			struct listnode *srcnode;
@@ -3654,7 +3653,7 @@ static void igmp_show_source_retransmission(struct pim_instance *pim,
 					src->source_query_retransmit_count);
 
 			} /* scan group sources */
-		}	  /* scan igmp groups */
+		}	 /* scan igmp groups */
 	}		  /* scan interfaces */
 }
 
@@ -3923,9 +3922,9 @@ static void clear_mroute(struct pim_instance *pim)
 
 		/* clean up all igmp groups */
 
-		if (pim_ifp->igmp_group_list) {
-			while (pim_ifp->igmp_group_list->count) {
-				grp = listnode_head(pim_ifp->igmp_group_list);
+		if (pim_ifp->gm_group_list) {
+			while (pim_ifp->gm_group_list->count) {
+				grp = listnode_head(pim_ifp->gm_group_list);
 				igmp_group_delete(grp);
 			}
 		}

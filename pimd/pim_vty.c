@@ -366,47 +366,47 @@ int pim_interface_config_write(struct vty *vty)
 				}
 
 				/* IF ip igmp query-max-response-time */
-				if (pim_ifp->igmp_query_max_response_time_dsec
-				    != IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
+				if (pim_ifp->gm_query_max_response_time_dsec !=
+				    IGMP_QUERY_MAX_RESPONSE_TIME_DSEC) {
 					vty_out(vty,
 						" ip igmp query-max-response-time %d\n",
-						pim_ifp->igmp_query_max_response_time_dsec);
+						pim_ifp->gm_query_max_response_time_dsec);
 					++writes;
 				}
 
 				/* IF ip igmp query-interval */
-				if (pim_ifp->igmp_default_query_interval
-				    != IGMP_GENERAL_QUERY_INTERVAL) {
+				if (pim_ifp->gm_default_query_interval !=
+				    IGMP_GENERAL_QUERY_INTERVAL) {
 					vty_out(vty,
 						" ip igmp query-interval %d\n",
-						pim_ifp->igmp_default_query_interval);
+						pim_ifp->gm_default_query_interval);
 					++writes;
 				}
 
 				/* IF ip igmp last-member_query-count */
-				if (pim_ifp->igmp_last_member_query_count
-				    != IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
+				if (pim_ifp->gm_last_member_query_count !=
+				    IGMP_DEFAULT_ROBUSTNESS_VARIABLE) {
 					vty_out(vty,
 						" ip igmp last-member-query-count %d\n",
-						pim_ifp->igmp_last_member_query_count);
+						pim_ifp->gm_last_member_query_count);
 					++writes;
 				}
 
 				/* IF ip igmp last-member_query-interval */
-				if (pim_ifp->igmp_specific_query_max_response_time_dsec
-				    != IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
+				if (pim_ifp->gm_specific_query_max_response_time_dsec !=
+				    IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC) {
 					vty_out(vty,
 						" ip igmp last-member-query-interval %d\n",
-						pim_ifp->igmp_specific_query_max_response_time_dsec);
-					  ++writes;
+						pim_ifp->gm_specific_query_max_response_time_dsec);
+					++writes;
 				}
 
 				/* IF ip igmp join */
-				if (pim_ifp->igmp_join_list) {
+				if (pim_ifp->gm_join_list) {
 					struct listnode *node;
 					struct gm_join *ij;
 					for (ALL_LIST_ELEMENTS_RO(
-						     pim_ifp->igmp_join_list,
+						     pim_ifp->gm_join_list,
 						     node, ij)) {
 						char group_str[INET_ADDRSTRLEN];
 						char source_str
