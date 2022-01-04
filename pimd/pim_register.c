@@ -381,7 +381,7 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	}
 
 	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
-		if (sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(sg.src)) {
 			zlog_warn(
 				"%s: Received Register message for Group(%pI4) is now in SSM, dropping the packet",
 				__func__, &sg.grp);

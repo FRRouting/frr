@@ -2536,8 +2536,8 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 			 * we are the FHR, else we just put
 			 * the RP as the rpfAddress
 			 */
-			if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR
-			    || up->sg.src.s_addr == INADDR_ANY) {
+			if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR ||
+			    pim_addr_is_any(up->sg.src)) {
 				char rpf[PREFIX_STRLEN];
 				struct pim_rpf *rpg;
 

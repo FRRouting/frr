@@ -154,7 +154,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 
 	/* 6.2.2. 4. Fill in ... S, and Src Mask */
-	if (sg.src.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(sg.src)) {
 		rspp->s = 1;
 		rspp->src_mask = MTRACE_SRC_MASK_SOURCE;
 	} else {

@@ -259,7 +259,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	grp.prefixlen = IPV4_MAX_BITLEN;
 	grp.u.prefix4 = up->sg.grp;
 
-	if ((up->sg.src.s_addr == INADDR_ANY && I_am_RP(pim, up->sg.grp)) ||
+	if ((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
 		neigh_needed = false;
 	pim_find_or_track_nexthop(pim, &nht_p, up, NULL, NULL);

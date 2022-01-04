@@ -562,7 +562,7 @@ void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
 		RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb,
 				 ch_temp) {
 			if (pim_is_grp_ssm(pim, ch->sg.grp)) {
-				if (ch->sg.src.s_addr == INADDR_ANY)
+				if (pim_addr_is_any(ch->sg.src))
 					pim_ifchannel_delete(ch);
 			}
 		}

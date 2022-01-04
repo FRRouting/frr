@@ -107,18 +107,16 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 	struct pim_ifchannel *child;
 
 	// Basic Sanity that we are not being silly
-	if ((ch->sg.src.s_addr != INADDR_ANY)
-	    && (ch->sg.grp.s_addr != INADDR_ANY))
+	if (!pim_addr_is_any(ch->sg.src) && !pim_addr_is_any(ch->sg.grp))
 		return;
 
-	if ((ch->sg.src.s_addr == INADDR_ANY)
-	    && (ch->sg.grp.s_addr == INADDR_ANY))
+	if (pim_addr_is_any(ch->sg.src) && pim_addr_is_any(ch->sg.grp))
 		return;
 
 	RB_FOREACH (child, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
-		if ((ch->sg.grp.s_addr != INADDR_ANY)
-		    && (child->sg.grp.s_addr == ch->sg.grp.s_addr)
-		    && (child != ch)) {
+		if (!pim_addr_is_any(ch->sg.grp) &&
+		    (child->sg.grp.s_addr == ch->sg.grp.s_addr) &&
+		    (child != ch)) {
 			child->parent = ch;
 			listnode_add_sort(ch->sources, child);
 		}
@@ -162,9 +160,9 @@ void pim_ifchannel_delete(struct pim_ifchannel *ch)
 		 * being inherited.  So let's figure out what
 		 * needs to be done here
 		 */
-		if ((ch->sg.src.s_addr != INADDR_ANY) &&
-				pim_upstream_evaluate_join_desired_interface(
-					ch->upstream, ch, ch->parent))
+		if (!pim_addr_is_any(ch->sg.src) &&
+		    pim_upstream_evaluate_join_desired_interface(
+			    ch->upstream, ch, ch->parent))
 			pim_channel_add_oif(ch->upstream->channel_oil,
 					ch->interface,
 					PIM_OIF_FLAG_PROTO_STAR,
@@ -293,7 +291,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 
 	ch->ifjoin_state = new_state;
 
-	if (ch->sg.src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(ch->sg.src)) {
 		struct pim_upstream *up = ch->upstream;
 		struct pim_upstream *child;
 		struct listnode *up_node;
@@ -527,8 +525,8 @@ static struct pim_ifchannel *pim_ifchannel_find_parent(struct pim_ifchannel *ch)
 	struct pim_ifchannel *parent = NULL;
 
 	// (S,G)
-	if ((parent_sg.src.s_addr != INADDR_ANY)
-	    && (parent_sg.grp.s_addr != INADDR_ANY)) {
+	if (!pim_addr_is_any(parent_sg.src) &&
+	    !pim_addr_is_any(parent_sg.grp)) {
 		parent_sg.src.s_addr = INADDR_ANY;
 		parent = pim_ifchannel_find(ch->interface, &parent_sg);
 
@@ -576,7 +574,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->sg = *sg;
 	snprintfrr(ch->sg_str, sizeof(ch->sg_str), "%pSG", sg);
 	ch->parent = pim_ifchannel_find_parent(ch);
-	if (ch->sg.src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(ch->sg.src)) {
 		ch->sources = list_new();
 		ch->sources->cmp =
 			(int (*)(void *, void *))pim_ifchannel_compare;
@@ -992,8 +990,8 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 		THREAD_OFF(ch->t_ifjoin_prune_pending_timer);
 
 		/* Check if SGRpt join Received */
-		if ((source_flags & PIM_ENCODE_RPT_BIT)
-		    && (sg->src.s_addr != INADDR_ANY)) {
+		if ((source_flags & PIM_ENCODE_RPT_BIT) &&
+		    !pim_addr_is_any(sg->src)) {
 			/*
 			 * Transitions from Prune-Pending State (Rcv SGRpt Join)
 			 * RFC 7761 Sec 4.5.3:
@@ -1194,7 +1192,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 	pim = pim_ifp->pim;
 
 	/* skip (*,G) ch creation if G is of type SSM */
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(sg->src)) {
 		if (pim_is_grp_ssm(pim, sg->grp)) {
 			if (PIM_DEBUG_PIM_EVENTS)
 				zlog_debug("%s: local membership (S,G)=%pSG ignored as group is SSM",
@@ -1212,7 +1210,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_INCLUDE);
 
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(sg->src)) {
 		struct pim_upstream *up = pim_upstream_find(pim, sg);
 		struct pim_upstream *child;
 		struct listnode *up_node;
@@ -1288,7 +1286,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 		return;
 	ifmembership_set(ch, PIM_IFMEMBERSHIP_NOINFO);
 
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(sg->src)) {
 		struct pim_upstream *up = pim_upstream_find(pim_ifp->pim, sg);
 		struct pim_upstream *child;
 		struct listnode *up_node, *up_nnode;
