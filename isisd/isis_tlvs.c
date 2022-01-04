@@ -44,6 +44,13 @@
 #include "isisd/isis_te.h"
 #include "isisd/isis_sr.h"
 
+#define TLV_MISS(log, indent, target)                                          \
+	do {                                                                   \
+		sbuf_push(log, indent,                                         \
+			  "TLV size does not match expected size for " target  \
+			  "!\n");                                              \
+	} while (0)
+
 DEFINE_MTYPE_STATIC(ISISD, ISIS_TLV, "ISIS TLVs");
 DEFINE_MTYPE(ISISD, ISIS_SUBTLV, "ISIS Sub-TLVs");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_MT_ITEM_LIST, "ISIS MT Item Lists");
@@ -558,8 +565,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		/* Standard Metric as defined in RFC5305 */
 		case ISIS_SUBTLV_ADMIN_GRP:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Administrative Group!\n");
+				TLV_MISS(log, indent, "Administrative Group");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->adm_group = stream_getl(s);
@@ -568,8 +574,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_LLRI:
 			if (subtlv_len != ISIS_SUBTLV_LLRI_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Link ID!\n");
+				TLV_MISS(log, indent, "Link ID");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->local_llri = stream_getl(s);
@@ -579,8 +584,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_LOCAL_IPADDR:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Local IP address!\n");
+				TLV_MISS(log, indent, "Local IP address");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				stream_get(&exts->local_addr.s_addr, s, 4);
@@ -589,8 +593,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_RMT_IPADDR:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Remote IP address!\n");
+				TLV_MISS(log, indent, "Remote IP address");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				stream_get(&exts->neigh_addr.s_addr, s, 4);
@@ -599,8 +602,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_LOCAL_IPADDR6:
 			if (subtlv_len != ISIS_SUBTLV_IPV6_ADDR_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Local IPv6 address!\n");
+				TLV_MISS(log, indent, "Local IPv6 address");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				stream_get(&exts->local_addr6, s, 16);
@@ -609,8 +611,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_RMT_IPADDR6:
 			if (subtlv_len != ISIS_SUBTLV_IPV6_ADDR_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Remote IPv6 address!\n");
+				TLV_MISS(log, indent, "Remote IPv6 address");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				stream_get(&exts->neigh_addr6, s, 16);
@@ -619,8 +620,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_MAX_BW:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Maximum Bandwidth!\n");
+				TLV_MISS(log, indent, "Maximum Bandwidth");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->max_bw = stream_getf(s);
@@ -629,8 +629,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_MAX_RSV_BW:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Maximum Reservable Bandwidth!\n");
+				TLV_MISS(log, indent,
+					 "Maximum Reservable Bandwidth");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->max_rsv_bw = stream_getf(s);
@@ -639,8 +639,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_UNRSV_BW:
 			if (subtlv_len != ISIS_SUBTLV_UNRSV_BW_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Unreserved Bandwidth!\n");
+				TLV_MISS(log, indent, "Unreserved Bandwidth");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				for (int i = 0; i < MAX_CLASS_TYPE; i++)
@@ -650,8 +649,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_TE_METRIC:
 			if (subtlv_len != ISIS_SUBTLV_TE_METRIC_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Traffic Engineering Metric!\n");
+				TLV_MISS(log, indent,
+					 "Traffic Engineering Metric");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->te_metric = stream_get3(s);
@@ -660,8 +659,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_RAS:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Remote AS number!\n");
+				TLV_MISS(log, indent, "Remote AS number");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->remote_as = stream_getl(s);
@@ -670,8 +668,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_RIP:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Remote ASBR IP Address!\n");
+				TLV_MISS(log, indent, "Remote ASBR IP Address");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				stream_get(&exts->remote_ip.s_addr, s, 4);
@@ -681,8 +678,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		/* Extended Metrics as defined in RFC 7810 */
 		case ISIS_SUBTLV_AV_DELAY:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Average Link Delay!\n");
+				TLV_MISS(log, indent, "Average Link Delay");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->delay = stream_getl(s);
@@ -691,8 +687,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_MM_DELAY:
 			if (subtlv_len != ISIS_SUBTLV_MM_DELAY_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Min/Max Link Delay!\n");
+				TLV_MISS(log, indent, "Min/Max Link Delay");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->min_delay = stream_getl(s);
@@ -702,8 +697,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_DELAY_VAR:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Delay Variation!\n");
+				TLV_MISS(log, indent, "Delay Variation");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->delay_var = stream_getl(s);
@@ -712,8 +706,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_PKT_LOSS:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Link Packet Loss!\n");
+				TLV_MISS(log, indent, "Link Packet Loss");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->pkt_loss = stream_getl(s);
@@ -722,8 +715,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_RES_BW:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Unidirectional Residual Bandwidth!\n");
+				TLV_MISS(log, indent,
+					 "Unidirectional Residual Bandwidth");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->res_bw = stream_getf(s);
@@ -732,8 +725,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_AVA_BW:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Unidirectional Available Bandwidth!\n");
+				TLV_MISS(log, indent,
+					 "Unidirectional Available Bandwidth");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->ava_bw = stream_getf(s);
@@ -742,8 +735,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 			break;
 		case ISIS_SUBTLV_USE_BW:
 			if (subtlv_len != ISIS_SUBTLV_DEF_SIZE) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Unidirectional Utilized Bandwidth!\n");
+				TLV_MISS(log, indent,
+					 "Unidirectional Utilized Bandwidth");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				exts->use_bw = stream_getf(s);
@@ -754,8 +747,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		case ISIS_SUBTLV_ADJ_SID:
 			if (subtlv_len != ISIS_SUBTLV_ADJ_SID_SIZE
 			    && subtlv_len != ISIS_SUBTLV_ADJ_SID_SIZE + 1) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for Adjacency SID!\n");
+				TLV_MISS(log, indent, "Adjacency SID");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				struct isis_adj_sid *adj;
@@ -766,9 +758,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				adj->weight = stream_getc(s);
 				if (adj->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
 				    && subtlv_len != ISIS_SUBTLV_ADJ_SID_SIZE) {
-					sbuf_push(
-						log, indent,
-						"TLV size does not match expected size for Adjacency SID!\n");
+					TLV_MISS(log, indent, "Adjacency SID");
 					stream_forward_getp(s, subtlv_len - 2);
 					break;
 				}
@@ -777,9 +767,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				    && subtlv_len
 					       != ISIS_SUBTLV_ADJ_SID_SIZE
 							  + 1) {
-					sbuf_push(
-						log, indent,
-						"TLV size does not match expected size for Adjacency SID!\n");
+					TLV_MISS(log, indent, "Adjacency SID");
 					stream_forward_getp(s, subtlv_len - 2);
 					break;
 				}
@@ -803,8 +791,7 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 		case ISIS_SUBTLV_LAN_ADJ_SID:
 			if (subtlv_len != ISIS_SUBTLV_LAN_ADJ_SID_SIZE
 			    && subtlv_len != ISIS_SUBTLV_LAN_ADJ_SID_SIZE + 1) {
-				sbuf_push(log, indent,
-					  "TLV size does not match expected size for LAN-Adjacency SID!\n");
+				TLV_MISS(log, indent, "LAN-Adjacency SID");
 				stream_forward_getp(s, subtlv_len);
 			} else {
 				struct isis_lan_adj_sid *lan;
@@ -819,9 +806,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				if (lan->flags & EXT_SUBTLV_LINK_ADJ_SID_VFLG
 				    && subtlv_len
 					       != ISIS_SUBTLV_LAN_ADJ_SID_SIZE) {
-					sbuf_push(
-						log, indent,
-						"TLV size does not match expected size for LAN-Adjacency SID!\n");
+					TLV_MISS(log, indent,
+						 "LAN-Adjacency SID");
 					stream_forward_getp(
 						s, subtlv_len - 2
 							   - ISIS_SYS_ID_LEN);
@@ -832,9 +818,8 @@ static int unpack_item_ext_subtlvs(uint16_t mtid, uint8_t len, struct stream *s,
 				    && subtlv_len
 					       != ISIS_SUBTLV_LAN_ADJ_SID_SIZE
 							  + 1) {
-					sbuf_push(
-						log, indent,
-						"TLV size does not match expected size for LAN-Adjacency SID!\n");
+					TLV_MISS(log, indent,
+						 "LAN-Adjacency SID");
 					stream_forward_getp(
 						s, subtlv_len - 2
 							   - ISIS_SYS_ID_LEN);
