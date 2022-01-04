@@ -87,8 +87,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
 		if (!rp) {
-			zlog_warn("%s: Lookup of RP failed for %pSG4", __func__,
-				  sg);
+			zlog_warn("%s: Lookup of RP failed for %pPSG4",
+				  __func__, sg);
 			return;
 		}
 		/*
@@ -160,7 +160,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 			pim_inet4_dump("<received?>", sg->src, received_rp,
 				       sizeof(received_rp));
-			zlog_debug("%s: Prune received with RP(%s) for %pSG4",
+			zlog_debug("%s: Prune received with RP(%s) for %pPSG4",
 				   __func__, received_rp, sg);
 		}
 
