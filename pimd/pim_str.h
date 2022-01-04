@@ -26,7 +26,7 @@
 
 #include <prefix.h>
 
-typedef struct in_addr pim_addr;
+#include "pim_addr.h"
 
 /*
  * Longest possible length of a (S,G) string is 36 bytes
