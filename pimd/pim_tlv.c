@@ -510,7 +510,7 @@ int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
 	return addr - buf;
 }
 
-int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf, int buf_size)
+int pim_parse_addr_group(pim_sgaddr *sg, const uint8_t *buf, int buf_size)
 {
 	const int grp_encoding_min_len =
 		4; /* 1 family + 1 type + 1 reserved + 1 addr */
@@ -569,8 +569,8 @@ int pim_parse_addr_group(struct prefix_sg *sg, const uint8_t *buf, int buf_size)
 	return addr - buf;
 }
 
-int pim_parse_addr_source(struct prefix_sg *sg, uint8_t *flags,
-			  const uint8_t *buf, int buf_size)
+int pim_parse_addr_source(pim_sgaddr *sg, uint8_t *flags, const uint8_t *buf,
+			  int buf_size)
 {
 	const int src_encoding_min_len =
 		4; /* 1 family + 1 type + 1 reserved + 1 addr */

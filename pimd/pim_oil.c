@@ -39,7 +39,7 @@ char *pim_channel_oil_dump(struct channel_oil *c_oil, char *buf, size_t size)
 {
 	char *out;
 	struct interface *ifp;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	int i;
 
 	sg.src = c_oil->oil.mfcc_origin;
@@ -104,7 +104,7 @@ void pim_channel_oil_free(struct channel_oil *c_oil)
 }
 
 struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
-					 struct prefix_sg *sg)
+					 pim_sgaddr *sg)
 {
 	struct channel_oil *c_oil = NULL;
 	struct channel_oil lookup;
@@ -118,8 +118,7 @@ struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
 }
 
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
-					struct prefix_sg *sg,
-					const char *name)
+					pim_sgaddr *sg, const char *name)
 {
 	struct channel_oil *c_oil;
 
@@ -145,7 +144,7 @@ struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
 
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s(%s): Existing oil for %pPSG4 Ref Count: %d (Post Increment)",
+				"%s(%s): Existing oil for %pSG Ref Count: %d (Post Increment)",
 				__func__, name, sg, c_oil->oil_ref_count);
 		return c_oil;
 	}
@@ -174,11 +173,11 @@ struct channel_oil *pim_channel_oil_del(struct channel_oil *c_oil,
 					const char *name)
 {
 	if (PIM_DEBUG_MROUTE) {
-		struct prefix_sg sg = {.src = c_oil->oil.mfcc_mcastgrp,
-				       .grp = c_oil->oil.mfcc_origin};
+		pim_sgaddr sg = {.src = c_oil->oil.mfcc_mcastgrp,
+				 .grp = c_oil->oil.mfcc_origin};
 
 		zlog_debug(
-			"%s(%s): Del oil for %pPSG4, Ref Count: %d (Predecrement)",
+			"%s(%s): Del oil for %pSG, Ref Count: %d (Predecrement)",
 			__func__, name, &sg, c_oil->oil_ref_count);
 	}
 	--c_oil->oil_ref_count;

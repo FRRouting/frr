@@ -154,7 +154,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_upstream *up;
 	struct pim_rpf *rpg;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 
 	rpg = pim_ifp ? RP(pim_ifp->pim, msg->im_dst) : NULL;
 	/*
@@ -183,7 +183,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 		return 0;
 	}
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = msg->im_src;
 	sg.grp = msg->im_dst;
 
@@ -242,7 +242,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 				   const char *buf)
 {
 	struct pim_interface *pim_ifp;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct pim_rpf *rpg;
 	const struct ip *ip_hdr;
 	struct pim_upstream *up;
@@ -251,13 +251,13 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 	ip_hdr = (const struct ip *)buf;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
 
 	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (!up) {
-		struct prefix_sg star = sg;
+		pim_sgaddr star = sg;
 		star.src.s_addr = INADDR_ANY;
 
 		up = pim_upstream_find(pim_ifp->pim, &star);
@@ -342,9 +342,9 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 {
 	struct pim_ifchannel *ch;
 	struct pim_interface *pim_ifp;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = msg->im_src;
 	sg.grp = msg->im_dst;
 
@@ -378,7 +378,7 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 
 	ch = pim_ifchannel_find(ifp, &sg);
 	if (!ch) {
-		struct prefix_sg star_g = sg;
+		pim_sgaddr star_g = sg;
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
 				"%s: WRONGVIF (S,G)=%s could not find channel on interface %s",
@@ -448,12 +448,12 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	struct pim_instance *pim;
 	struct pim_ifchannel *ch;
 	struct pim_upstream *up;
-	struct prefix_sg star_g;
-	struct prefix_sg sg;
+	pim_sgaddr star_g;
+	pim_sgaddr sg;
 
 	pim_ifp = ifp->info;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = ip_hdr->ip_src;
 	sg.grp = ip_hdr->ip_dst;
 
@@ -1214,7 +1214,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	if (!c_oil->installed) {
 		c_oil->cc.lastused = 100 * pim->keep_alive_time;
 		if (PIM_DEBUG_MROUTE) {
-			struct prefix_sg sg;
+			pim_sgaddr sg;
 
 			sg.src = c_oil->oil.mfcc_origin;
 			sg.grp = c_oil->oil.mfcc_mcastgrp;
@@ -1231,7 +1231,7 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 
 	pim_zlookup_sg_statistics(c_oil);
 	if (ioctl(pim->mroute_socket, SIOCGETSGCNT, &sgreq)) {
-		struct prefix_sg sg;
+		pim_sgaddr sg;
 
 		sg.src = c_oil->oil.mfcc_origin;
 		sg.grp = c_oil->oil.mfcc_mcastgrp;

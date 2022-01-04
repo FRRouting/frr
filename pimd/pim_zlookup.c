@@ -524,14 +524,14 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	struct stream *s = zlookup->obuf;
 	uint16_t command = 0;
 	unsigned long long lastused;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	int count = 0;
 	int ret;
 	struct interface *ifp =
 		pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
 
 	if (PIM_DEBUG_ZEBRA) {
-		struct prefix_sg more;
+		pim_sgaddr more;
 
 		more.src = c_oil->oil.mfcc_origin;
 		more.grp = c_oil->oil.mfcc_mcastgrp;
@@ -587,7 +587,7 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	if (sg.src.s_addr != c_oil->oil.mfcc_origin.s_addr
 	    || sg.grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr) {
 		if (PIM_DEBUG_ZEBRA) {
-			struct prefix_sg more;
+			pim_sgaddr more;
 
 			more.src = c_oil->oil.mfcc_origin;
 			more.grp = c_oil->oil.mfcc_mcastgrp;

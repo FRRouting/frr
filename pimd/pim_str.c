@@ -42,7 +42,7 @@ void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 	errno = save_errno;
 }
 
-char *pim_str_sg_dump(const struct prefix_sg *sg)
+char *pim_str_sg_dump(const pim_sgaddr *sg)
 {
 	static char sg_str[PIM_SG_LEN];
 

@@ -95,9 +95,9 @@ static void pim_if_membership_refresh(struct interface *ifp)
 					  src)) {
 
 			if (IGMP_SOURCE_TEST_FORWARDING(src->source_flags)) {
-				struct prefix_sg sg;
+				pim_sgaddr sg;
 
-				memset(&sg, 0, sizeof(struct prefix_sg));
+				memset(&sg, 0, sizeof(sg));
 				sg.src = src->source_addr;
 				sg.grp = grp->group_addr;
 				pim_ifchannel_local_membership_add(
