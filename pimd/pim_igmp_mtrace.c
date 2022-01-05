@@ -119,7 +119,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	up = pim_upstream_find(pim, &sg);
 
 	if (!up) {
-		sg.src.s_addr = INADDR_ANY;
+		sg.src = PIMADDR_ANY;
 		up = pim_upstream_find(pim, &sg);
 	}
 

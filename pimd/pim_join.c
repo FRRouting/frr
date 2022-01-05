@@ -114,7 +114,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 			return;
 		}
 
-		sg->src.s_addr = INADDR_ANY;
+		sg->src = PIMADDR_ANY;
 	}
 
 	/* Restart join expiry timer */
@@ -163,7 +163,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 				   __func__, received_rp, sg);
 		}
 
-		sg->src.s_addr = INADDR_ANY;
+		sg->src = PIMADDR_ANY;
 	}
 
 	pim_ifchannel_prune(ifp, upstream, sg, source_flags, holdtime);

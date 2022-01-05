@@ -134,7 +134,7 @@ static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 	// (S,G)
 	if (!pim_addr_is_any(child->sg.src) &&
 	    !pim_addr_is_any(child->sg.grp)) {
-		any.src.s_addr = INADDR_ANY;
+		any.src = PIMADDR_ANY;
 		up = pim_upstream_find(pim, &any);
 
 		if (up)
