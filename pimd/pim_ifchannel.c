@@ -514,7 +514,7 @@ static struct pim_ifchannel *pim_ifchannel_find_parent(struct pim_ifchannel *ch)
 	// (S,G)
 	if (!pim_addr_is_any(parent_sg.src) &&
 	    !pim_addr_is_any(parent_sg.grp)) {
-		parent_sg.src.s_addr = INADDR_ANY;
+		parent_sg.src = PIMADDR_ANY;
 		parent = pim_ifchannel_find(ch->interface, &parent_sg);
 
 		if (parent)
