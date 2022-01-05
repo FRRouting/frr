@@ -1741,7 +1741,7 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 }
 
 static void pim_show_join(struct pim_instance *pim, struct vty *vty,
-			  struct prefix_sg *sg, bool uj)
+			  struct pim_prefix_sg *sg, bool uj)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -2439,7 +2439,7 @@ static const char *pim_reg_state2brief_str(enum pim_reg_state reg_state,
 }
 
 static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
-			      struct prefix_sg *sg, bool uj)
+			      struct pim_prefix_sg *sg, bool uj)
 {
 	struct pim_upstream *up;
 	time_t now;
@@ -4603,7 +4603,7 @@ DEFPY (show_ip_pim_join,
        "The Group\n"
        JSON_STR)
 {
-	struct prefix_sg sg = {0};
+	struct pim_prefix_sg sg = {0};
 	struct vrf *v;
 	bool uj = !!json;
 	struct pim_instance *pim;
@@ -4644,7 +4644,7 @@ DEFUN (show_ip_pim_join_vrf_all,
        "PIM interface join information\n"
        JSON_STR)
 {
-	struct prefix_sg sg = {0};
+	struct pim_prefix_sg sg = {0};
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
 	bool first = true;
@@ -5223,7 +5223,7 @@ DEFPY (show_ip_pim_upstream,
        "The Group\n"
        JSON_STR)
 {
-	struct prefix_sg sg = {0};
+	struct pim_prefix_sg sg = {0};
 	struct vrf *v;
 	bool uj = !!json;
 	struct pim_instance *pim;
@@ -5263,7 +5263,7 @@ DEFUN (show_ip_pim_upstream_vrf_all,
        "PIM upstream information\n"
        JSON_STR)
 {
-	struct prefix_sg sg = {0};
+	struct pim_prefix_sg sg = {0};
 	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
 	bool first = true;
@@ -5888,7 +5888,7 @@ DEFUN(show_ip_multicast_count_vrf_all,
 }
 
 static void show_mroute(struct pim_instance *pim, struct vty *vty,
-			struct prefix_sg *sg, bool fill, bool uj)
+			struct pim_prefix_sg *sg, bool fill, bool uj)
 {
 	struct listnode *node;
 	struct channel_oil *c_oil;
@@ -6273,7 +6273,7 @@ DEFPY (show_ip_mroute,
        "Fill in Assumed data\n"
        JSON_STR)
 {
-	struct prefix_sg sg = {0};
+	struct pim_prefix_sg sg = {0};
 	struct pim_instance *pim;
 	struct vrf *v;
 
@@ -6311,7 +6311,7 @@ DEFUN (show_ip_mroute_vrf_all,
        "Fill in Assumed data\n"
        JSON_STR)
 {
-	struct prefix_sg sg = {0};
+	struct pim_prefix_sg sg = {0};
 	bool uj = use_json(argc, argv);
 	int idx = 4;
 	struct vrf *vrf;
@@ -8219,7 +8219,7 @@ DEFPY_HIDDEN (pim_test_sg_keepalive,
 {
 	struct pim_upstream *up;
 	struct pim_instance *pim;
-	struct prefix_sg sg;
+	struct pim_prefix_sg sg;
 
 	sg.src = source;
 	sg.grp = group;
@@ -10596,7 +10596,7 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 				  bool uj)
 {
 	json_object *json = NULL;
-	struct prefix_sg sg;
+	struct pim_prefix_sg sg;
 	int result = 0;
 	struct pim_vxlan_sg *vxlan_sg;
 	const char *iif_name;
@@ -10616,8 +10616,6 @@ static void pim_show_vxlan_sg_one(struct pim_instance *pim,
 		return;
 	}
 
-	sg.family = AF_INET;
-	sg.prefixlen = IPV4_MAX_BITLEN;
 	if (uj)
 		json = json_object_new_object();
 

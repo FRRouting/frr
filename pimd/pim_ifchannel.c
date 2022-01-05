@@ -447,7 +447,7 @@ void reset_ifassert_state(struct pim_ifchannel *ch)
 }
 
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct prefix_sg *sg)
+					 struct pim_prefix_sg *sg)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -524,7 +524,7 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp)
  */
 static struct pim_ifchannel *pim_ifchannel_find_parent(struct pim_ifchannel *ch)
 {
-	struct prefix_sg parent_sg = ch->sg;
+	struct pim_prefix_sg parent_sg = ch->sg;
 	struct pim_ifchannel *parent = NULL;
 
 	// (S,G)
@@ -542,7 +542,7 @@ static struct pim_ifchannel *pim_ifchannel_find_parent(struct pim_ifchannel *ch)
 }
 
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix_sg *sg,
+					struct pim_prefix_sg *sg,
 					uint8_t source_flags, int up_flags)
 {
 	struct pim_interface *pim_ifp;
@@ -752,7 +752,8 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 }
 
 static void check_recv_upstream(int is_join, struct interface *recv_ifp,
-				struct in_addr upstream, struct prefix_sg *sg,
+				struct in_addr upstream,
+				struct pim_prefix_sg *sg,
 				uint8_t source_flags, int holdtime)
 {
 	struct pim_upstream *up;
@@ -817,7 +818,7 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 }
 
 static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
-			     struct in_addr upstream, struct prefix_sg *sg,
+			     struct in_addr upstream, struct pim_prefix_sg *sg,
 			     uint8_t source_flags, uint16_t holdtime)
 {
 	struct pim_interface *recv_pim_ifp;
@@ -871,7 +872,7 @@ static void pim_ifchannel_ifjoin_handler(struct pim_ifchannel *ch,
 
 
 void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
-			    struct in_addr upstream, struct prefix_sg *sg,
+			    struct in_addr upstream, struct pim_prefix_sg *sg,
 			    uint8_t source_flags, uint16_t holdtime)
 {
 	struct pim_interface *pim_ifp;
@@ -1036,7 +1037,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 }
 
 void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
-			 struct prefix_sg *sg, uint8_t source_flags,
+			 struct pim_prefix_sg *sg, uint8_t source_flags,
 			 uint16_t holdtime)
 {
 	struct pim_ifchannel *ch;
@@ -1173,7 +1174,7 @@ void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
 }
 
 int pim_ifchannel_local_membership_add(struct interface *ifp,
-				       struct prefix_sg *sg, bool is_vxlan)
+				       struct pim_prefix_sg *sg, bool is_vxlan)
 {
 	struct pim_ifchannel *ch, *starch;
 	struct pim_interface *pim_ifp;
@@ -1279,7 +1280,7 @@ int pim_ifchannel_local_membership_add(struct interface *ifp,
 }
 
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct prefix_sg *sg)
+					struct pim_prefix_sg *sg)
 {
 	struct pim_ifchannel *starch, *ch, *orig;
 	struct pim_interface *pim_ifp;

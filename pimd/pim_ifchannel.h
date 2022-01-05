@@ -25,6 +25,7 @@
 #include "if.h"
 #include "prefix.h"
 
+#include "pim_str.h"
 #include "pim_assert.h"
 
 struct pim_ifchannel;
@@ -89,7 +90,7 @@ struct pim_ifchannel {
 
 	struct pim_ifchannel *parent;
 	struct list *sources;
-	struct prefix_sg sg;
+	struct pim_prefix_sg sg;
 	char sg_str[PIM_SG_LEN];
 	struct interface *interface; /* backpointer to interface */
 	uint32_t flags;
@@ -124,20 +125,21 @@ void pim_ifchannel_delete_all(struct interface *ifp);
 void pim_ifchannel_membership_clear(struct interface *ifp);
 void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp,
-					 struct prefix_sg *sg);
+					 struct pim_prefix_sg *sg);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp,
-					struct prefix_sg *sg, uint8_t ch_flags,
+					struct pim_prefix_sg *sg,
+					uint8_t ch_flags,
 					int up_flags);
 void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
-			    struct in_addr upstream, struct prefix_sg *sg,
+			    struct in_addr upstream, struct pim_prefix_sg *sg,
 			    uint8_t source_flags, uint16_t holdtime);
 void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
-			 struct prefix_sg *sg, uint8_t source_flags,
+			 struct pim_prefix_sg *sg, uint8_t source_flags,
 			 uint16_t holdtime);
 int pim_ifchannel_local_membership_add(struct interface *ifp,
-		struct prefix_sg *sg, bool is_vxlan);
+		struct pim_prefix_sg *sg, bool is_vxlan);
 void pim_ifchannel_local_membership_del(struct interface *ifp,
-					struct prefix_sg *sg);
+					struct pim_prefix_sg *sg);
 
 void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 				 enum pim_ifjoin_state new_state);

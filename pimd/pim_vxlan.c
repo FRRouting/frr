@@ -734,7 +734,7 @@ static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
 }
 
 static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
-		struct prefix_sg *sg)
+		struct pim_prefix_sg *sg)
 {
 	struct pim_vxlan_sg *vxlan_sg;
 
@@ -761,7 +761,7 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 }
 
 struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
-		struct prefix_sg *sg)
+		struct pim_prefix_sg *sg)
 {
 	struct pim_vxlan_sg lookup;
 
@@ -770,7 +770,7 @@ struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 }
 
 struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
-		struct prefix_sg *sg)
+		struct pim_prefix_sg *sg)
 {
 	struct pim_vxlan_sg *vxlan_sg;
 
@@ -805,7 +805,7 @@ static void pim_vxlan_sg_del_item(struct pim_vxlan_sg *vxlan_sg)
 	XFREE(MTYPE_PIM_VXLAN_SG, vxlan_sg);
 }
 
-void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
+void pim_vxlan_sg_del(struct pim_instance *pim, struct pim_prefix_sg *sg)
 {
 	struct pim_vxlan_sg *vxlan_sg;
 
