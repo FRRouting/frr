@@ -1374,9 +1374,35 @@ static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 {
 	const struct ipaddr *ipa = ptr;
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ipa)
 		return bputs(buf, "(null)");
+
+	if (use_star) {
+		struct in_addr zero4 = {};
+		struct in6_addr zero6 = {};
+
+		switch (ipa->ipa_type) {
+		case IPADDR_V4:
+			if (!memcmp(&ipa->ip.addr, &zero4, sizeof(zero4)))
+				return bputch(buf, '*');
+			break;
+
+		case IPADDR_V6:
+			if (!memcmp(&ipa->ip.addr, &zero6, sizeof(zero6)))
+				return bputch(buf, '*');
+			break;
+
+		default:
+			break;
+		}
+	}
 
 	ipaddr2str(ipa, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
@@ -1387,9 +1413,19 @@ static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET_ADDRSTRLEN];
+	bool use_star = false;
+	struct in_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
@@ -1400,9 +1436,19 @@ static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+	struct in6_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
