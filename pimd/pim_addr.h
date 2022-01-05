@@ -41,6 +41,11 @@ static inline bool pim_addr_is_any(pim_addr addr)
 	return memcmp(&addr, &zero, sizeof(zero)) == 0;
 }
 
+static inline int pim_addr_cmp(pim_addr a, pim_addr b)
+{
+	return memcmp(&a, &b, sizeof(a));
+}
+
 /* don't use this struct directly, use the pim_sgaddr typedef */
 struct _pim_sgaddr {
 	pim_addr grp;
