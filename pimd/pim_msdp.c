@@ -632,7 +632,7 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != xg_up->sg.grp.s_addr) {
+		if (pim_addr_cmp(sa->sg.grp, xg_up->sg.grp)) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, xg_up, "up-jp-change");
@@ -656,7 +656,7 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != sg->grp.s_addr) {
+		if (pim_addr_cmp(sa->sg.grp, sg->grp)) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, NULL /* xg */, "up-jp-change");

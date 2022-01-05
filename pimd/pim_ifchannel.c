@@ -115,8 +115,7 @@ static void pim_ifchannel_find_new_children(struct pim_ifchannel *ch)
 
 	RB_FOREACH (child, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
 		if (!pim_addr_is_any(ch->sg.grp) &&
-		    (child->sg.grp.s_addr == ch->sg.grp.s_addr) &&
-		    (child != ch)) {
+		    !pim_addr_cmp(child->sg.grp, ch->sg.grp) && (child != ch)) {
 			child->parent = ch;
 			listnode_add_sort(ch->sources, child);
 		}

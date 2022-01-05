@@ -5932,11 +5932,11 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		if (!c_oil->installed)
 			continue;
 
-		if (sg->grp.s_addr != INADDR_ANY
-		    && sg->grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr)
+		if (!pim_addr_is_any(sg->grp) &&
+		    pim_addr_cmp(sg->grp, c_oil->oil.mfcc_mcastgrp))
 			continue;
-		if (sg->src.s_addr != INADDR_ANY
-		    && sg->src.s_addr != c_oil->oil.mfcc_origin.s_addr)
+		if (!pim_addr_is_any(sg->src) &&
+		    pim_addr_cmp(sg->src, c_oil->oil.mfcc_origin))
 			continue;
 
 		pim_inet4_dump("<group?>", c_oil->oil.mfcc_mcastgrp, grp_str,
@@ -10576,8 +10576,8 @@ static void pim_show_vxlan_sg_entry(struct pim_vxlan_sg *vxlan_sg,
 	else
 		oif_name = vxlan_sg->term_oif?vxlan_sg->term_oif->name:"";
 
-	if (cwd->addr_match && (vxlan_sg->sg.src.s_addr != cwd->addr.s_addr) &&
-	    (vxlan_sg->sg.grp.s_addr != cwd->addr.s_addr)) {
+	if (cwd->addr_match && pim_addr_cmp(vxlan_sg->sg.src, cwd->addr) &&
+	    pim_addr_cmp(vxlan_sg->sg.grp, cwd->addr)) {
 		return;
 	}
 	pim_inet4_dump("<src?>", vxlan_sg->sg.src, src_str, sizeof(src_str));

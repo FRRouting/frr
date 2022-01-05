@@ -44,11 +44,6 @@ static inline void pim_addr_copy(pim_addr *dest, pim_addr *source)
 	dest->s_addr = source->s_addr;
 }
 
-static inline int pim_addr_cmp(pim_addr addr1, pim_addr addr2)
-{
-	return IPV4_ADDR_CMP(&addr1, &addr2);
-}
-
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
