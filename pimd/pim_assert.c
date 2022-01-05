@@ -287,15 +287,13 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	if (PIM_DEBUG_PIM_TRACE) {
 		char neigh_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<neigh?>", src_addr, neigh_str,
 			       sizeof(neigh_str));
 		pim_inet4_dump("<src?>", msg_source_addr.u.prefix4, source_str,
 			       sizeof(source_str));
-		pim_inet4_dump("<grp?>", sg.grp, group_str, sizeof(group_str));
 		zlog_debug(
-			"%s: from %s on %s: (S,G)=(%s,%s) pref=%u metric=%u rpt_bit=%u",
-			__func__, neigh_str, ifp->name, source_str, group_str,
+			"%s: from %s on %s: (S,G)=(%s,%pPAs) pref=%u metric=%u rpt_bit=%u",
+			__func__, neigh_str, ifp->name, source_str, &sg.grp,
 			msg_metric.metric_preference, msg_metric.route_metric,
 			PIM_FORCE_BOOLEAN(msg_metric.rpt_bit_flag));
 	}

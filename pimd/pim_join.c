@@ -95,15 +95,12 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		 * our RP for the group, drop the message
 		 */
 		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr) {
-			char received_rp[INET_ADDRSTRLEN];
 			char local_rp[INET_ADDRSTRLEN];
-			pim_inet4_dump("<received?>", sg->src, received_rp,
-				       sizeof(received_rp));
 			pim_inet4_dump("<local?>", rp->rpf_addr.u.prefix4,
 				       local_rp, sizeof(local_rp));
 			zlog_warn(
-				"%s: Specified RP(%s) in join is different than our configured RP(%s)",
-				__func__, received_rp, local_rp);
+				"%s: Specified RP(%pPAs) in join is different than our configured RP(%s)",
+				__func__, &sg->src, local_rp);
 			return;
 		}
 
@@ -154,14 +151,9 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * Received Prune(*,G) messages are processed even if the
 		 * RP in the message does not match RP(G).
 		 */
-		if (PIM_DEBUG_PIM_TRACE) {
-			char received_rp[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<received?>", sg->src, received_rp,
-				       sizeof(received_rp));
-			zlog_debug("%s: Prune received with RP(%s) for %pSG",
-				   __func__, received_rp, sg);
-		}
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
+				   __func__, &sg->src, sg);
 
 		sg->src = PIMADDR_ANY;
 	}
@@ -280,16 +272,13 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		if (PIM_DEBUG_PIM_J_P) {
 			char src_str[INET_ADDRSTRLEN];
 			char upstream_str[INET_ADDRSTRLEN];
-			char group_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<src?>", src_addr, src_str,
 				       sizeof(src_str));
 			pim_inet4_dump("<addr?>", msg_upstream_addr.u.prefix4,
 				       upstream_str, sizeof(upstream_str));
-			pim_inet4_dump("<grp?>", sg.grp, group_str,
-				       sizeof(group_str));
 			zlog_debug(
-				"%s: join/prune upstream=%s group=%s/32 join_src=%d prune_src=%d from %s on %s",
-				__func__, upstream_str, group_str,
+				"%s: join/prune upstream=%s group=%pPA/32 join_src=%d prune_src=%d from %s on %s",
+				__func__, upstream_str, &sg.grp,
 				msg_num_joined_sources, msg_num_pruned_sources,
 				src_str, ifp->name);
 		}
