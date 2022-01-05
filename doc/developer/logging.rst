@@ -123,9 +123,13 @@ Networking data types
 
    :frrfmtout:`1.2.3.4`
 
+   ``%pI4s``: :frrfmtout:`*` — print star instead of ``0.0.0.0`` (for multicast)
+
 .. frrfmt:: %pI6 (struct in6_addr *)
 
    :frrfmtout:`fe80::1234`
+
+   ``%pI6s``: :frrfmtout:`*` — print star instead of ``::`` (for multicast)
 
 .. frrfmt:: %pEA (struct ethaddr *)
 
@@ -134,6 +138,8 @@ Networking data types
 .. frrfmt:: %pIA (struct ipaddr *)
 
    :frrfmtout:`1.2.3.4` / :frrfmtout:`fe80::1234`
+
+   ``%pIAs``: — print star instead of zero address (for multicast)
 
 .. frrfmt:: %pFX (struct prefix *)
 
