@@ -87,14 +87,14 @@ def _populate_iface():
 
     for cmd in cmds_tot_hub:
         input = cmd.format("r2", "2")
-        logger.info("input: " + cmd)
-        output = tgen.net["r2"].cmd(cmd.format("r2", "2"))
+        logger.info("input: " + input)
+        output = tgen.net["r2"].cmd(input)
         logger.info("output: " + output)
 
     for cmd in cmds_tot:
         input = cmd.format("r1", "1")
-        logger.info("input: " + cmd)
-        output = tgen.net["r1"].cmd(cmd.format("r1", "1"))
+        logger.info("input: " + input)
+        output = tgen.net["r1"].cmd(input)
         logger.info("output: " + output)
 
 
