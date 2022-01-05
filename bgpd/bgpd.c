@@ -4272,17 +4272,16 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 				char *msg = peer->tx_shutdown_message;
 				size_t msglen;
+				uint8_t msgbuf[BGP_ADMIN_SHUTDOWN_MSG_LEN + 1];
 
 				if (!msg && peer_group_active(peer))
 					msg = peer->group->conf
 						      ->tx_shutdown_message;
 				msglen = msg ? strlen(msg) : 0;
-				if (msglen > 128)
-					msglen = 128;
+				if (msglen > BGP_ADMIN_SHUTDOWN_MSG_LEN)
+					msglen = BGP_ADMIN_SHUTDOWN_MSG_LEN;
 
 				if (msglen) {
-					uint8_t msgbuf[129];
-
 					msgbuf[0] = msglen;
 					memcpy(msgbuf + 1, msg, msglen);
 
