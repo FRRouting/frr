@@ -336,7 +336,7 @@ BGP
 - :rfc:`4893`
   :t:`BGP Support for Four-octet AS Number Space. Q. Vohra, E. Chen May 2007.`
 - :rfc:`5004`
-  :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007 (Partial support).`
+  :t:`Avoid BGP Best Path Transitions from One External to Another. E. Chen & S. Sangli. September 2007.`
 - :rfc:`5082`
   :t:`The Generalized TTL Security Mechanism (GTSM). V. Gill, J. Heasley, D. Meyer, P. Savola, C. Pingnataro. October 2007.`
 - :rfc:`5575`

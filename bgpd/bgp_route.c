@@ -1227,11 +1227,22 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return peer_sort_ret;
 
 	/* 12. If both paths are external, prefer the path that was received
-	   first (the oldest one).  This step minimizes route-flap, since a
-	   newer path won't displace an older one, even if it was the
-	   preferred route based on the additional decision criteria below.  */
-	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID)
-	    && new_sort == BGP_PEER_EBGP && exist_sort == BGP_PEER_EBGP) {
+	 * first (the oldest one). This step minimizes route-flap, since a
+	 * newer path won't displace an older one, even if it was the
+	 * preferred route based on the additional decision criteria below.
+	 */
+	if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+		new_id.s_addr = newattr->originator_id.s_addr;
+	else
+		new_id.s_addr = new->peer->remote_id.s_addr;
+	if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
+		exist_id.s_addr = existattr->originator_id.s_addr;
+	else
+		exist_id.s_addr = exist->peer->remote_id.s_addr;
+
+	if (!CHECK_FLAG(bgp->flags, BGP_FLAG_COMPARE_ROUTER_ID) &&
+	    !IPV4_ADDR_SAME(&new_id, &exist_id) && new_sort == BGP_PEER_EBGP &&
+	    exist_sort == BGP_PEER_EBGP) {
 		if (CHECK_FLAG(new->flags, BGP_PATH_SELECTED)) {
 			*reason = bgp_path_selection_older;
 			if (debug)
@@ -1256,15 +1267,6 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 * be 0 and would always win over the other path. If originator id is
 	 * used for the comparision, it will decide which path is better.
 	 */
-	if (newattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-		new_id.s_addr = newattr->originator_id.s_addr;
-	else
-		new_id.s_addr = new->peer->remote_id.s_addr;
-	if (existattr->flag & ATTR_FLAG_BIT(BGP_ATTR_ORIGINATOR_ID))
-		exist_id.s_addr = existattr->originator_id.s_addr;
-	else
-		exist_id.s_addr = exist->peer->remote_id.s_addr;
-
 	if (ntohl(new_id.s_addr) < ntohl(exist_id.s_addr)) {
 		*reason = bgp_path_selection_router_id;
 		if (debug)
