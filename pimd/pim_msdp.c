@@ -680,7 +680,7 @@ static unsigned int pim_msdp_sa_hash_key_make(const void *p)
 {
 	const struct pim_msdp_sa *sa = p;
 
-	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
+	return pim_sgaddr_hash(sa->sg, 0);
 }
 
 static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
@@ -688,8 +688,7 @@ static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	return ((sa1->sg.src.s_addr == sa2->sg.src.s_addr)
-		&& (sa1->sg.grp.s_addr == sa2->sg.grp.s_addr));
+	return !pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
 static int pim_msdp_sa_comp(const void *p1, const void *p2)
@@ -697,19 +696,7 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	if (ntohl(sa1->sg.grp.s_addr) < ntohl(sa2->sg.grp.s_addr))
-		return -1;
-
-	if (ntohl(sa1->sg.grp.s_addr) > ntohl(sa2->sg.grp.s_addr))
-		return 1;
-
-	if (ntohl(sa1->sg.src.s_addr) < ntohl(sa2->sg.src.s_addr))
-		return -1;
-
-	if (ntohl(sa1->sg.src.s_addr) > ntohl(sa2->sg.src.s_addr))
-		return 1;
-
-	return 0;
+	return pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
 /* RFC-3618:Sec-10.1.3 - Peer-RPF forwarding */

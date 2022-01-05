@@ -79,6 +79,14 @@ static struct cmd_node debug_node = {
 	.config_write = pim_debug_config_write,
 };
 
+static inline bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
+{
+	return (pim_addr_is_any(match.grp) ||
+		!pim_addr_cmp(match.grp, item.grp)) &&
+	       (pim_addr_is_any(match.src) ||
+		!pim_addr_cmp(match.src, item.src));
+}
+
 static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 				      const int argc, int *idx)
 {
@@ -1762,11 +1770,7 @@ static void pim_show_join(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
-			if (sg->grp.s_addr != INADDR_ANY
-			    && sg->grp.s_addr != ch->sg.grp.s_addr)
-				continue;
-			if (sg->src.s_addr != INADDR_ANY
-			    && sg->src.s_addr != ch->sg.src.s_addr)
+			if (!pim_sgaddr_match(ch->sg, *sg))
 				continue;
 			pim_show_join_helper(vty, pim_ifp, ch, json, now, uj);
 		} /* scan interface channels */
@@ -2464,11 +2468,7 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		char msdp_reg_timer[10];
 		char state_str[PIM_REG_STATE_STR_LEN];
 
-		if (sg->grp.s_addr != INADDR_ANY
-		    && sg->grp.s_addr != up->sg.grp.s_addr)
-			continue;
-		if (sg->src.s_addr != INADDR_ANY
-		    && sg->src.s_addr != up->sg.src.s_addr)
+		if (!pim_sgaddr_match(up->sg, *sg))
 			continue;
 
 		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));

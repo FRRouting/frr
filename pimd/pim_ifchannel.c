@@ -62,19 +62,7 @@ int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
 	if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
 		return 1;
 
-	if (ntohl(ch1->sg.grp.s_addr) < ntohl(ch2->sg.grp.s_addr))
-		return -1;
-
-	if (ntohl(ch1->sg.grp.s_addr) > ntohl(ch2->sg.grp.s_addr))
-		return 1;
-
-	if (ntohl(ch1->sg.src.s_addr) < ntohl(ch2->sg.src.s_addr))
-		return -1;
-
-	if (ntohl(ch1->sg.src.s_addr) > ntohl(ch2->sg.src.s_addr))
-		return 1;
-
-	return 0;
+	return pim_sgaddr_cmp(ch1->sg, ch2->sg);
 }
 
 /*
