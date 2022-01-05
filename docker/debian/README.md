@@ -5,7 +5,7 @@ This is a binary docker container build of Debian 10 (buster) with FRR.
 # Build
 
 ```
-docker build -t frr-debian:latest .
+docker build -t frr-debian:latest  -f docker/debian/Dockerfile .
 ```
 
 # Running
