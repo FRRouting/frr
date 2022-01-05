@@ -34,6 +34,11 @@ typedef struct in6_addr pim_addr;
 #define PIM_ADDRSTRLEN INET6_ADDRSTRLEN
 #endif
 
+/* for assignment/initialization (C99 compound literal)
+ * named PIMADDR_ANY (not PIM_ADDR_ANY) to match INADDR_ANY
+ */
+#define PIMADDR_ANY (pim_addr){ }
+
 static inline bool pim_addr_is_any(pim_addr addr)
 {
 	pim_addr zero = {};

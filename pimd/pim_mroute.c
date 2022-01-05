@@ -257,7 +257,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	up = pim_upstream_find(pim_ifp->pim, &sg);
 	if (!up) {
 		pim_sgaddr star = sg;
-		star.src.s_addr = INADDR_ANY;
+		star.src = PIMADDR_ANY;
 
 		up = pim_upstream_find(pim_ifp->pim, &star);
 
@@ -377,7 +377,7 @@ static int pim_mroute_msg_wrongvif(int fd, struct interface *ifp,
 			zlog_debug("%s: WRONGVIF (S,G)=%pSG could not find channel on interface %s",
 				   __func__, &sg, ifp->name);
 
-		star_g.src.s_addr = INADDR_ANY;
+		star_g.src = PIMADDR_ANY;
 		ch = pim_ifchannel_find(ifp, &star_g);
 		if (!ch) {
 			if (PIM_DEBUG_MROUTE)
@@ -459,7 +459,7 @@ static int pim_mroute_msg_wrvifwhole(int fd, struct interface *ifp,
 	}
 
 	star_g = sg;
-	star_g.src.s_addr = INADDR_ANY;
+	star_g.src = PIMADDR_ANY;
 
 	pim = pim_ifp->pim;
 	/*
