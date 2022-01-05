@@ -80,13 +80,7 @@ static int pim_jp_agg_src_cmp(void *arg1, void *arg2)
 	if (!js1->is_join && js2->is_join)
 		return 1;
 
-	if ((uint32_t)js1->up->sg.src.s_addr < (uint32_t)js2->up->sg.src.s_addr)
-		return -1;
-
-	if ((uint32_t)js1->up->sg.src.s_addr > (uint32_t)js2->up->sg.src.s_addr)
-		return 1;
-
-	return 0;
+	return pim_addr_cmp(js1->up->sg.src, js2->up->sg.src);
 }
 
 /*
@@ -156,7 +150,7 @@ void pim_jp_agg_remove_group(struct list *group, struct pim_upstream *up,
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
@@ -202,7 +196,7 @@ int pim_jp_agg_is_in_list(struct list *group, struct pim_upstream *up)
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 
@@ -276,7 +270,7 @@ void pim_jp_agg_add_group(struct list *group, struct pim_upstream *up,
 	struct pim_jp_sources *js = NULL;
 
 	for (ALL_LIST_ELEMENTS(group, node, nnode, jag)) {
-		if (jag->group.s_addr == up->sg.grp.s_addr)
+		if (!pim_addr_cmp(jag->group, up->sg.grp))
 			break;
 	}
 

@@ -109,8 +109,7 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, child) {
 		if (!pim_addr_is_any(up->sg.grp) &&
-		    (child->sg.grp.s_addr == up->sg.grp.s_addr) &&
-		    (child != up)) {
+		    !pim_addr_cmp(child->sg.grp, up->sg.grp) && (child != up)) {
 			child->parent = up;
 			listnode_add_sort(up->sources, child);
 			if (PIM_UPSTREAM_FLAG_TEST_USE_RPT(child->flags))
