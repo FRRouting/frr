@@ -472,7 +472,7 @@ static void _display_peers_counter(struct vty *vty, char *vrfname, bool use_json
 	vty_json(vty, jo);
 }
 
-static void _clear_peer_counter(struct bfd_session *bs) 
+static void _clear_peer_counter(struct bfd_session *bs)
 {
 	/* Clear only pkt stats, intention is not to loose system
 	   events counters */
@@ -743,7 +743,7 @@ DEFPY(bfd_clear_peer_counters, bfd_clear_peer_counters_cmd,
 				ifname, vrfname);
 	if (bs == NULL)
 		return CMD_WARNING_CONFIG_FAILED;
-    
+
 	_clear_peer_counter(bs);
 
 	return CMD_SUCCESS;
