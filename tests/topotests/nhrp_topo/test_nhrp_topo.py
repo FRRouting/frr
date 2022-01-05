@@ -41,6 +41,7 @@ sys.path.append(os.path.join(CWD, '../'))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
+from lib.common_config import required_linux_kernel_version
 
 # Required to instantiate the topology builder class.
 from mininet.topo import Topo
@@ -97,7 +98,16 @@ def _populate_iface():
 
 def setup_module(mod):
     "Sets up the pytest environment"
+<<<<<<< HEAD
     tgen = Topogen(NHRPTopo, mod.__name__)
+=======
+
+    result = required_linux_kernel_version("5.0")
+    if result is not True:
+        pytest.skip("Kernel requirements are not met")
+
+    tgen = Topogen(build_topo, mod.__name__)
+>>>>>>> fbfdb4f23 (topotests: require Linux 5.0 for NHRP)
     tgen.start_topology()
 
     router_list = tgen.routers()
