@@ -806,21 +806,9 @@ void pim_forward_start(struct pim_ifchannel *ch)
 	struct pim_upstream *up = ch->upstream;
 	uint32_t mask = 0;
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char source_str[INET_ADDRSTRLEN];
-		char group_str[INET_ADDRSTRLEN];
-		char upstream_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<source?>", ch->sg.src, source_str,
-			       sizeof(source_str));
-		pim_inet4_dump("<group?>", ch->sg.grp, group_str,
-			       sizeof(group_str));
-		pim_inet4_dump("<upstream?>", up->upstream_addr, upstream_str,
-			       sizeof(upstream_str));
-		zlog_debug("%s: (S,G)=(%s,%s) oif=%s (%pI4)", __func__,
-			   source_str, group_str, ch->interface->name,
-			   &up->upstream_addr);
-	}
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: (S,G)=%pSG oif=%s (%pI4)", __func__, &ch->sg,
+			   ch->interface->name, &up->upstream_addr);
 
 	if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
 		mask = PIM_OIF_FLAG_PROTO_IGMP;
