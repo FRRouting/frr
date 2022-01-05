@@ -377,6 +377,8 @@ BGP
   :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
 - :rfc:`8654`
   :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
+- :rfc:`9003`
+  :t:`Extended BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder, A. Azimov. January 2021`
 - :rfc:`9072`
   :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021`
 
