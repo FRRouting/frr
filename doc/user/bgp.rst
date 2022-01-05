@@ -515,7 +515,7 @@ Disable checking if nexthop is connected on EBGP sessions
 Route Flap Dampening
 --------------------
 
-.. clicmd:: bgp dampening (1-45) (1-20000) (1-20000) (1-255)
+.. clicmd:: bgp dampening (1-45) (1-20000) (1-50000) (1-255)
 
    This command enables BGP route-flap dampening and specifies dampening parameters.
 

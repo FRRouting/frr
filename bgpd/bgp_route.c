@@ -14607,7 +14607,7 @@ DEFUN (no_ipv6_bgp_distance_source_access_list,
 
 DEFUN (bgp_damp_set,
        bgp_damp_set_cmd,
-       "bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
+       "bgp dampening [(1-45) [(1-20000) (1-50000) (1-255)]]",
        "BGP Specific commands\n"
        "Enable route-flap dampening\n"
        "Half-life time for the penalty\n"
@@ -14653,7 +14653,7 @@ DEFUN (bgp_damp_set,
 
 DEFUN (bgp_damp_unset,
        bgp_damp_unset_cmd,
-       "no bgp dampening [(1-45) [(1-20000) (1-20000) (1-255)]]",
+       "no bgp dampening [(1-45) [(1-20000) (1-50000) (1-255)]]",
        NO_STR
        "BGP Specific commands\n"
        "Enable route-flap dampening\n"
