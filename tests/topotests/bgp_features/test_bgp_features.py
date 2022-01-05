@@ -235,7 +235,7 @@ def test_bgp_shutdown_message():
         logger.info("Checking BGP shutdown received on router r{}".format(rtrNum))
 
         shut_message = tgen.net["r{}".format(rtrNum)].cmd(
-            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administratively Shutdown"'
+            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administrative Shutdown"'
         )
         assertmsg = "BGP shutdown message not received on router R{}".format(rtrNum)
         assert shut_message != "", assertmsg
