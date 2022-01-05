@@ -1763,9 +1763,6 @@ struct bgp_nlri {
 #define BGP_ATTR_COMMUNITIES                     8
 #define BGP_ATTR_ORIGINATOR_ID                   9
 #define BGP_ATTR_CLUSTER_LIST                   10
-#define BGP_ATTR_DPA                            11
-#define BGP_ATTR_ADVERTISER                     12
-#define BGP_ATTR_RCID_PATH                      13
 #define BGP_ATTR_MP_REACH_NLRI                  14
 #define BGP_ATTR_MP_UNREACH_NLRI                15
 #define BGP_ATTR_EXT_COMMUNITIES                16
