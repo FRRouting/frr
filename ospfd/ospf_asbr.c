@@ -223,8 +223,15 @@ struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 	id.s_addr = p->prefix.s_addr | (~mask.s_addr);
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA, id,
 				     ospf->router_id);
-	if (lsa)
+	if (lsa) {
+		if (p->prefixlen == IPV4_MAX_BITLEN) {
+			al = (struct as_external_lsa *)lsa->data;
+
+			if (mask.s_addr != al->mask.s_addr)
+				return NULL;
+		}
 		return lsa;
+	}
 
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
 				     p->prefix, ospf->router_id);
