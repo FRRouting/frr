@@ -824,19 +824,7 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 int pim_upstream_compare(const struct pim_upstream *up1,
 			 const struct pim_upstream *up2)
 {
-	if (ntohl(up1->sg.grp.s_addr) < ntohl(up2->sg.grp.s_addr))
-		return -1;
-
-	if (ntohl(up1->sg.grp.s_addr) > ntohl(up2->sg.grp.s_addr))
-		return 1;
-
-	if (ntohl(up1->sg.src.s_addr) < ntohl(up2->sg.src.s_addr))
-		return -1;
-
-	if (ntohl(up1->sg.src.s_addr) > ntohl(up2->sg.src.s_addr))
-		return 1;
-
-	return 0;
+	return pim_sgaddr_cmp(up1->sg, up2->sg);
 }
 
 void pim_upstream_fill_static_iif(struct pim_upstream *up,
@@ -1958,7 +1946,7 @@ unsigned int pim_upstream_hash_key(const void *arg)
 {
 	const struct pim_upstream *up = arg;
 
-	return jhash_2words(up->sg.src.s_addr, up->sg.grp.s_addr, 0);
+	return pim_sgaddr_hash(up->sg, 0);
 }
 
 void pim_upstream_terminate(struct pim_instance *pim)
@@ -1981,11 +1969,7 @@ bool pim_upstream_equal(const void *arg1, const void *arg2)
 	const struct pim_upstream *up1 = (const struct pim_upstream *)arg1;
 	const struct pim_upstream *up2 = (const struct pim_upstream *)arg2;
 
-	if ((up1->sg.grp.s_addr == up2->sg.grp.s_addr)
-	    && (up1->sg.src.s_addr == up2->sg.src.s_addr))
-		return true;
-
-	return false;
+	return !pim_sgaddr_cmp(up1->sg, up2->sg);
 }
 
 /* rfc4601:section-4.2:"Data Packet Forwarding Rules" defines
