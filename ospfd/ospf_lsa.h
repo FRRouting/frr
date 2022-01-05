@@ -208,6 +208,8 @@ struct as_external_lsa {
 	} e[1];
 };
 
+enum lsid_status { LSID_AVAILABLE = 0, LSID_CHANGE, LSID_NOT_AVAILABLE };
+
 #include "ospfd/ospf_opaque.h"
 
 /* Macros. */
@@ -317,8 +319,10 @@ extern struct ospf_lsa *ospf_external_lsa_refresh(struct ospf *,
 						  struct ospf_lsa *,
 						  struct external_info *, int,
 						  bool aggr);
-extern struct in_addr ospf_lsa_unique_id(struct ospf *, struct ospf_lsdb *,
-					 uint8_t, struct prefix_ipv4 *);
+extern enum lsid_status ospf_lsa_unique_id(struct ospf *ospf,
+					   struct ospf_lsdb *lsdb,
+					   uint8_t type, struct prefix_ipv4 *p,
+					   struct in_addr *addr);
 extern void ospf_schedule_lsa_flood_area(struct ospf_area *, struct ospf_lsa *);
 extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
 
