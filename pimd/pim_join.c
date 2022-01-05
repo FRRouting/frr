@@ -106,7 +106,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 
 		if (pim_is_grp_ssm(pim_ifp->pim, sg->grp)) {
 			zlog_warn(
-				"%s: Specified Group(%pI4) in join is now in SSM, not allowed to create PIM state",
+				"%s: Specified Group(%pPA) in join is now in SSM, not allowed to create PIM state",
 				__func__, &sg->grp);
 			return;
 		}
