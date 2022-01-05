@@ -1731,6 +1731,9 @@ struct bgp_nlri {
 /* Default BGP port number.  */
 #define BGP_PORT_DEFAULT                       179
 
+/* Extended BGP Administrative Shutdown Communication */
+#define BGP_ADMIN_SHUTDOWN_MSG_LEN 255
+
 /* BGP minimum message size.  */
 #define BGP_MSG_OPEN_MIN_SIZE                   (BGP_HEADER_SIZE + 10)
 #define BGP_MSG_UPDATE_MIN_SIZE                 (BGP_HEADER_SIZE + 4)
