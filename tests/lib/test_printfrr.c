@@ -186,6 +186,10 @@ int main(int argc, char **argv)
 
 	test_va("VA [192.168.1.2 1234] --", "%pI4 %u", &ip, 1234);
 
+	inet_aton("0.0.0.0", &ip);
+	printchk("0.0.0.0", "%pI4", &ip);
+	printchk("*", "%pI4s", &ip);
+
 	snprintfrr(buf, sizeof(buf), "test%s", "#1");
 	csnprintfrr(buf, sizeof(buf), "test%s", "#2");
 	assert(strcmp(buf, "test#1test#2") == 0);
