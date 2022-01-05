@@ -353,6 +353,8 @@ BGP
   :t:`Deprecation of BGP Path Attributes: DPA, ADVERTISER, and RCID_PATH / CLUSTER_ID. J. Scudder. May 2013.`
 - :rfc:`7196`
   :t:`Making Route Flap Damping Usable. C. Pelsser, R. Bush, K. Patel, P. Mohapatra, O. Maennel. May 2014.`
+- :rfc:`7300`
+  :t:`Reservation of Last Autonomous System (AS) Numbers. J. Haas, J. Mitchell. July 2014.`
 - :rfc:`7313`
   :t:`Enhanced Route Refresh Capability for BGP-4. K. Patel, E. Chen, B. Venkatachalapathy. July 2014.`
 - :rfc:`7606`
