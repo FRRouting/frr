@@ -613,7 +613,8 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 	return new;
 }
 
-static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *lsa)
+static void ospf6_abr_translate_nssa(struct ospf6_area *area,
+				     struct ospf6_lsa *lsa)
 {
 	/* Incoming Type-7 or aggregated Type-7
 	 *
@@ -661,12 +662,37 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 		return;
 	}
 
+	/* Find the type-5 LSA in the area-range table */
+	match = ospf6_route_lookup_bestmatch(&prefix, area->nssa_range_table);
+	if (match && CHECK_FLAG(match->flag, OSPF6_ROUTE_NSSA_RANGE)) {
+		if (prefix_same(&prefix, &match->prefix)) {
+			/* The prefix range is being removed,
+			 * no need to refresh
+			 */
+			if
+				CHECK_FLAG(match->flag, OSPF6_ROUTE_REMOVE)
+			return;
+		} else {
+			if (!CHECK_FLAG(match->flag, OSPF6_ROUTE_REMOVE)) {
+				if (IS_OSPF6_DEBUG_NSSA)
+					zlog_debug(
+						"%s: LSA Id %pI4 suppressed by range %pFX of area %s",
+						__func__, &lsa->header->id,
+						&match->prefix, area->name);
+				/* LSA will be suppressed by area-range command,
+				 * no need to refresh
+				 */
+				return;
+			}
+		}
+	}
+
 	/* Find the existing AS-External LSA for this prefix */
 	match = ospf6_route_lookup(&prefix, ospf6->route_table);
 	if (match) {
 		old = ospf6_lsdb_lookup(htons(OSPF6_LSTYPE_AS_EXTERNAL),
-				lsa->external_lsa_id, ospf6->router_id,
-				ospf6->lsdb);
+					lsa->external_lsa_id, ospf6->router_id,
+					ospf6->lsdb);
 	}
 
 	if (OSPF6_LSA_IS_MAXAGE(lsa)) {
