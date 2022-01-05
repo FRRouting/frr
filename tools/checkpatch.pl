@@ -5789,7 +5789,7 @@ sub process {
 		}
 
 		# check for vsprintf extension %p<foo> misuses
-		if ($^V && $^V ge 5.10.0 &&
+		if (0 && $^V && $^V ge 5.10.0 &&
 		    defined $stat &&
 		    $stat =~ /^\+(?![^\{]*\{\s*).*\b(\w+)\s*\(.*$String\s*,/s &&
 		    $1 !~ /^_*volatile_*$/) {
