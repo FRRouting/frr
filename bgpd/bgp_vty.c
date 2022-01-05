@@ -1348,6 +1348,10 @@ DEFUN_NOSH (router_bgp,
 	else {
 		as = strtoul(argv[idx_asn]->arg, NULL, 10);
 
+		if (as == BGP_PRIVATE_AS_MAX || as == BGP_AS4_MAX)
+			vty_out(vty, "Reserved AS used (%u|%u); AS is %u\n",
+				BGP_PRIVATE_AS_MAX, BGP_AS4_MAX, as);
+
 		inst_type = BGP_INSTANCE_TYPE_DEFAULT;
 		if (argc > 3) {
 			name = argv[idx_vrf]->arg;
