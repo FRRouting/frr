@@ -509,7 +509,7 @@ const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 		return NULL;
 
 	uint8_t len = data[0];
-	if (len > 128 || len > datalen - 1)
+	if (!len || len > datalen - 1)
 		return NULL;
 
 	return zlog_sanitize(buf, bufsz, data + 1, len);
