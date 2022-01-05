@@ -1331,15 +1331,11 @@ void pim_ifchannel_update_could_assert(struct pim_ifchannel *ch)
 	if (new_couldassert == old_couldassert)
 		return;
 
-	if (PIM_DEBUG_PIM_EVENTS) {
-		char src_str[INET_ADDRSTRLEN];
-		char grp_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
-		zlog_debug("%s: CouldAssert(%s,%s,%s) changed from %d to %d",
-			   __func__, src_str, grp_str, ch->interface->name,
-			   old_couldassert, new_couldassert);
-	}
+	if (PIM_DEBUG_PIM_EVENTS)
+		zlog_debug("%s: CouldAssert(%pPAs,%pPAs,%s) changed from %d to %d",
+			   __func__, &ch->sg.src, &ch->sg.grp,
+			   ch->interface->name, old_couldassert,
+			   new_couldassert);
 
 	if (new_couldassert) {
 		/* CouldAssert(S,G,I) switched from false to true */
@@ -1373,19 +1369,15 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
 		return;
 
 	if (PIM_DEBUG_PIM_EVENTS) {
-		char src_str[INET_ADDRSTRLEN];
-		char grp_str[INET_ADDRSTRLEN];
 		char old_addr_str[INET_ADDRSTRLEN];
 		char new_addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
 		pim_inet4_dump("<old_addr?>", ch->ifassert_my_metric.ip_address,
 			       old_addr_str, sizeof(old_addr_str));
 		pim_inet4_dump("<new_addr?>", my_metric_new.ip_address,
 			       new_addr_str, sizeof(new_addr_str));
 		zlog_debug(
-			"%s: my_assert_metric(%s,%s,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
-			__func__, src_str, grp_str, ch->interface->name,
+			"%s: my_assert_metric(%pPAs,%pPAs,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
+			__func__, &ch->sg.src, &ch->sg.grp, ch->interface->name,
 			ch->ifassert_my_metric.rpt_bit_flag,
 			ch->ifassert_my_metric.metric_preference,
 			ch->ifassert_my_metric.route_metric, old_addr_str,
@@ -1412,16 +1404,11 @@ void pim_ifchannel_update_assert_tracking_desired(struct pim_ifchannel *ch)
 	if (new_atd == old_atd)
 		return;
 
-	if (PIM_DEBUG_PIM_EVENTS) {
-		char src_str[INET_ADDRSTRLEN];
-		char grp_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", ch->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", ch->sg.grp, grp_str, sizeof(grp_str));
+	if (PIM_DEBUG_PIM_EVENTS)
 		zlog_debug(
-			"%s: AssertTrackingDesired(%s,%s,%s) changed from %d to %d",
-			__func__, src_str, grp_str, ch->interface->name,
+			"%s: AssertTrackingDesired(%pPAs,%pPAs,%s) changed from %d to %d",
+			__func__, &ch->sg.src, &ch->sg.grp, ch->interface->name,
 			old_atd, new_atd);
-	}
 
 	if (new_atd) {
 		/* AssertTrackingDesired(S,G,I) switched from false to true */
