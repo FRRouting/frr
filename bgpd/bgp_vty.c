@@ -4234,6 +4234,12 @@ DEFPY(bgp_shutdown_msg, bgp_shutdown_msg_cmd, "bgp shutdown message MSG...",
 	if (argc > 3)
 		msgstr = argv_concat(argv, argc, 3);
 
+	if (msgstr && strlen(msgstr) > BGP_ADMIN_SHUTDOWN_MSG_LEN) {
+		vty_out(vty, "%% Shutdown message size exceeded %d\n",
+			BGP_ADMIN_SHUTDOWN_MSG_LEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	bgp_shutdown_enable(bgp, msgstr);
 	XFREE(MTYPE_TMP, msgstr);
 
