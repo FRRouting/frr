@@ -21,6 +21,8 @@
 #include <zebra.h>
 #include <grpcpp/grpcpp.h>
 #include "grpc/frr-northbound.grpc.pb.h"
+#include "lib/northbound_grpc_call.h"
+#include "lib/northbound_grpc_candidates.h"
 
 #include "log.h"
 #include "libfrr.h"
@@ -55,198 +57,6 @@ static struct frr_pthread *fpt;
 		if (nb_dbg_client_grpc)                                        \
 			zlog_debug(__VA_ARGS__);                               \
 	} while (0)
-
-// ------------------------------------------------------
-//                      New Types
-// ------------------------------------------------------
-
-enum CallState { CREATE, PROCESS, MORE, FINISH, DELETED };
-const char *call_states[] = {"CREATE", "PROCESS", "MORE", "FINISH", "DELETED"};
-
-struct candidate {
-	uint64_t id;
-	struct nb_config *config;
-	struct nb_transaction *transaction;
-};
-
-class Candidates
-{
-      public:
-	~Candidates(void)
-	{
-		// Delete candidates.
-		for (auto it = _cdb.begin(); it != _cdb.end(); it++)
-			delete_candidate(&it->second);
-	}
-
-	struct candidate *create_candidate(void)
-	{
-		uint64_t id = ++_next_id;
-		assert(id); // TODO: implement an algorithm for unique reusable
-			    // IDs.
-		struct candidate *c = &_cdb[id];
-		c->id = id;
-		c->config = nb_config_dup(running_config);
-		c->transaction = NULL;
-
-		return c;
-	}
-
-	void delete_candidate(struct candidate *c)
-	{
-		char errmsg[BUFSIZ] = {0};
-
-		_cdb.erase(c->id);
-		nb_config_free(c->config);
-		if (c->transaction)
-			nb_candidate_commit_abort(c->transaction, errmsg,
-						  sizeof(errmsg));
-	}
-
-	struct candidate *get_candidate(uint32_t id)
-	{
-		return _cdb.count(id) == 0 ? NULL : &_cdb[id];
-	}
-
-      private:
-	uint64_t _next_id = 0;
-	std::map<uint32_t, struct candidate> _cdb;
-};
-
-class RpcStateBase
-{
-      public:
-	virtual CallState doCallback() = 0;
-	virtual void do_request(::frr::Northbound::AsyncService *service,
-				::grpc::ServerCompletionQueue *cq) = 0;
-};
-
-/*
- * The RPC state class is used to track the execution of an RPC.
- */
-template <typename Q, typename S> class NewRpcState : RpcStateBase
-{
-	typedef void (frr::Northbound::AsyncService::*reqfunc_t)(
-		::grpc::ServerContext *, Q *,
-		::grpc::ServerAsyncResponseWriter<S> *,
-		::grpc::CompletionQueue *, ::grpc::ServerCompletionQueue *,
-		void *);
-	typedef void (frr::Northbound::AsyncService::*reqsfunc_t)(
-		::grpc::ServerContext *, Q *, ::grpc::ServerAsyncWriter<S> *,
-		::grpc::CompletionQueue *, ::grpc::ServerCompletionQueue *,
-		void *);
-
-      public:
-	NewRpcState(Candidates *cdb, reqfunc_t rfunc,
-		    void (*cb)(NewRpcState<Q, S> *), const char *name)
-	    : requestf(rfunc), callback(cb), responder(&ctx),
-	      async_responder(&ctx), name(name), cdb(cdb){};
-	NewRpcState(Candidates *cdb, reqsfunc_t rfunc,
-		    void (*cb)(NewRpcState<Q, S> *), const char *name)
-	    : requestsf(rfunc), callback(cb), responder(&ctx),
-	      async_responder(&ctx), name(name), cdb(cdb){};
-
-	CallState doCallback() override
-	{
-		CallState enter_state = this->state;
-		CallState new_state;
-		if (enter_state == FINISH) {
-			grpc_debug("%s RPC FINISH -> DELETED", name);
-			new_state = FINISH;
-		} else {
-			grpc_debug("%s RPC: %s -> PROCESS", name,
-				   call_states[this->state]);
-			new_state = PROCESS;
-		}
-		/*
-		 * We are either in state CREATE, MORE or FINISH. If CREATE or
-		 * MORE move back to PROCESS, otherwise we are cleaning up
-		 * (FINISH) so leave it in that state. Run the callback on the
-		 * main threadmaster/pthread; and wait for expected transition
-		 * from main thread. If transition is to FINISH->DELETED.
-		 * delete us.
-		 *
-		 * We update the state prior to scheduling the callback which
-		 * may then update the state in the master pthread. Then we
-		 * obtain the lock in the condvar-check-loop as the callback
-		 * will be modifying updating the state value.
-		 */
-		this->state = new_state;
-		thread_add_event(main_master, c_callback, (void *)this, 0,
-				 NULL);
-		pthread_mutex_lock(&this->cmux);
-		while (this->state == new_state)
-			pthread_cond_wait(&this->cond, &this->cmux);
-		pthread_mutex_unlock(&this->cmux);
-
-		if (this->state == DELETED) {
-			grpc_debug("%s RPC: -> [DELETED]", name);
-			delete this;
-			return DELETED;
-		}
-		return this->state;
-	}
-
-	void do_request(::frr::Northbound::AsyncService *service,
-			::grpc::ServerCompletionQueue *cq) override
-	{
-		grpc_debug("%s, posting a request for: %s", __func__, name);
-		if (requestf) {
-			NewRpcState<Q, S> *copy =
-				new NewRpcState(cdb, requestf, callback, name);
-			(service->*requestf)(&copy->ctx, &copy->request,
-					     &copy->responder, cq, cq, copy);
-		} else {
-			NewRpcState<Q, S> *copy =
-				new NewRpcState(cdb, requestsf, callback, name);
-			(service->*requestsf)(&copy->ctx, &copy->request,
-					      &copy->async_responder, cq, cq,
-					      copy);
-		}
-	}
-
-
-	static int c_callback(struct thread *thread)
-	{
-		auto _tag = static_cast<NewRpcState<Q, S> *>(thread->arg);
-		/*
-		 * We hold the lock until the callback finishes and has updated
-		 * _tag->state, then we signal done and release.
-		 */
-		pthread_mutex_lock(&_tag->cmux);
-
-		CallState enter_state = _tag->state;
-		grpc_debug("%s RPC running on main thread", _tag->name);
-
-		_tag->callback(_tag);
-
-		grpc_debug("%s RPC: %s -> %s", _tag->name,
-			   call_states[enter_state], call_states[_tag->state]);
-
-		pthread_cond_signal(&_tag->cond);
-		pthread_mutex_unlock(&_tag->cmux);
-		return 0;
-	}
-	NewRpcState<Q, S> *orig;
-
-	const char *name;
-	grpc::ServerContext ctx;
-	Q request;
-	S response;
-	grpc::ServerAsyncResponseWriter<S> responder;
-	grpc::ServerAsyncWriter<S> async_responder;
-
-	Candidates *cdb;
-	void (*callback)(NewRpcState<Q, S> *);
-	reqfunc_t requestf;
-	reqsfunc_t requestsf;
-
-	pthread_mutex_t cmux = PTHREAD_MUTEX_INITIALIZER;
-	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-	void *context;
-
-	CallState state = CREATE;
-};
 
 // ------------------------------------------------------
 //                    Utility Functions
@@ -464,16 +274,10 @@ static grpc::Status get_path(frr::DataTree *dt, const std::string &path,
 //       RPC Callback Functions: run on main thread
 // ------------------------------------------------------
 
-void HandleUnaryGetCapabilities(NewRpcState<frr::GetCapabilitiesRequest,
-					    frr::GetCapabilitiesResponse> *tag)
+void HandleUnaryGetCapabilities(
+	NorthboundCall<frr::GetCapabilitiesRequest,
+		       frr::GetCapabilitiesResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Response: string frr_version = 1;
 	tag->response.set_frr_version(FRR_VERSION);
 
@@ -502,19 +306,12 @@ void HandleUnaryGetCapabilities(NewRpcState<frr::GetCapabilitiesRequest,
 	tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 
 	/* Indicate we are done. */
-	tag->state = FINISH;
+	tag->finish();
 }
 
-void HandleStreamingGet(NewRpcState<frr::GetRequest, frr::GetResponse> *tag)
+void HandleStreamingGet(
+	NorthboundCallAsync<frr::GetRequest, frr::GetResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		delete static_cast<std::list<std::string> *>(tag->context);
-		tag->state = DELETED;
-		return;
-	}
-
 	if (!tag->context) {
 		/* Creating, first time called for this RPC */
 		auto mypaths = new std::list<std::string>();
@@ -535,7 +332,8 @@ void HandleStreamingGet(NewRpcState<frr::GetRequest, frr::GetResponse> *tag)
 	auto mypathps = static_cast<std::list<std::string> *>(tag->context);
 	if (mypathps->empty()) {
 		tag->async_responder.Finish(grpc::Status::OK, tag);
-		tag->state = FINISH;
+		delete static_cast<std::list<std::string> *>(tag->context);
+		tag->finish();
 		return;
 	}
 
@@ -554,7 +352,8 @@ void HandleStreamingGet(NewRpcState<frr::GetRequest, frr::GetResponse> *tag)
 	if (!status.ok()) {
 		tag->async_responder.WriteAndFinish(
 			response, grpc::WriteOptions(), status, tag);
-		tag->state = FINISH;
+		delete static_cast<std::list<std::string> *>(tag->context);
+		tag->finish();
 		return;
 	}
 
@@ -562,23 +361,17 @@ void HandleStreamingGet(NewRpcState<frr::GetRequest, frr::GetResponse> *tag)
 	if (mypathps->empty()) {
 		tag->async_responder.WriteAndFinish(
 			response, grpc::WriteOptions(), grpc::Status::OK, tag);
-		tag->state = FINISH;
+		delete static_cast<std::list<std::string> *>(tag->context);
+		tag->finish();
 	} else {
 		tag->async_responder.Write(response, tag);
-		tag->state = MORE;
 	}
 }
 
-void HandleUnaryCreateCandidate(NewRpcState<frr::CreateCandidateRequest,
-					    frr::CreateCandidateResponse> *tag)
+void HandleUnaryCreateCandidate(
+	NorthboundCall<frr::CreateCandidateRequest,
+		       frr::CreateCandidateResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	struct candidate *candidate = tag->cdb->create_candidate();
 	if (!candidate) {
 		tag->responder.Finish(
@@ -591,19 +384,13 @@ void HandleUnaryCreateCandidate(NewRpcState<frr::CreateCandidateRequest,
 		tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 	}
 
-	tag->state = FINISH;
+	tag->finish();
 }
 
-void HandleUnaryDeleteCandidate(NewRpcState<frr::DeleteCandidateRequest,
-					    frr::DeleteCandidateResponse> *tag)
+void HandleUnaryDeleteCandidate(
+	NorthboundCall<frr::DeleteCandidateRequest,
+		       frr::DeleteCandidateResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Request: uint32 candidate_id = 1;
 	uint32_t candidate_id = tag->request.candidate_id();
 
@@ -620,19 +407,13 @@ void HandleUnaryDeleteCandidate(NewRpcState<frr::DeleteCandidateRequest,
 		tag->cdb->delete_candidate(candidate);
 		tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 	}
-	tag->state = FINISH;
+	tag->finish();
 }
 
-void HandleUnaryUpdateCandidate(NewRpcState<frr::UpdateCandidateRequest,
-					    frr::UpdateCandidateResponse> *tag)
+void HandleUnaryUpdateCandidate(
+	NorthboundCall<frr::UpdateCandidateRequest,
+		       frr::UpdateCandidateResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Request: uint32 candidate_id = 1;
 	uint32_t candidate_id = tag->request.candidate_id();
 
@@ -664,19 +445,12 @@ void HandleUnaryUpdateCandidate(NewRpcState<frr::UpdateCandidateRequest,
 	else
 		tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 
-	tag->state = FINISH;
+	tag->finish();
 }
 
-void HandleUnaryEditCandidate(
-	NewRpcState<frr::EditCandidateRequest, frr::EditCandidateResponse> *tag)
+void HandleUnaryEditCandidate(NorthboundCall<frr::EditCandidateRequest,
+					     frr::EditCandidateResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Request: uint32 candidate_id = 1;
 	uint32_t candidate_id = tag->request.candidate_id();
 
@@ -690,7 +464,7 @@ void HandleUnaryEditCandidate(
 			grpc::Status(grpc::StatusCode::NOT_FOUND,
 				     "candidate configuration not found"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -709,7 +483,7 @@ void HandleUnaryEditCandidate(
 						     + "\""),
 				tag);
 
-			tag->state = FINISH;
+			tag->finish();
 			return;
 		}
 	}
@@ -724,7 +498,7 @@ void HandleUnaryEditCandidate(
 					     "Failed to remove \"" + pv.path()
 						     + "\""),
 				tag);
-			tag->state = FINISH;
+			tag->finish();
 			return;
 		}
 	}
@@ -734,19 +508,13 @@ void HandleUnaryEditCandidate(
 
 	tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 
-	tag->state = FINISH;
+	tag->finish();
 }
 
-void HandleUnaryLoadToCandidate(NewRpcState<frr::LoadToCandidateRequest,
-					    frr::LoadToCandidateResponse> *tag)
+void HandleUnaryLoadToCandidate(
+	NorthboundCall<frr::LoadToCandidateRequest,
+		       frr::LoadToCandidateResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Request: uint32 candidate_id = 1;
 	uint32_t candidate_id = tag->request.candidate_id();
 
@@ -766,7 +534,7 @@ void HandleUnaryLoadToCandidate(NewRpcState<frr::LoadToCandidateRequest,
 			grpc::Status(grpc::StatusCode::NOT_FOUND,
 				     "candidate configuration not found"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -777,7 +545,7 @@ void HandleUnaryLoadToCandidate(NewRpcState<frr::LoadToCandidateRequest,
 			grpc::Status(grpc::StatusCode::INTERNAL,
 				     "Failed to parse the configuration"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -793,24 +561,17 @@ void HandleUnaryLoadToCandidate(NewRpcState<frr::LoadToCandidateRequest,
 				grpc::StatusCode::INTERNAL,
 				"Failed to merge the loaded configuration"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
 	tag->responder.Finish(tag->response, grpc::Status::OK, tag);
-	tag->state = FINISH;
+	tag->finish();
 }
 
 void HandleUnaryCommit(
-	NewRpcState<frr::CommitRequest, frr::CommitResponse> *tag)
+	NorthboundCall<frr::CommitRequest, frr::CommitResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Request: uint32 candidate_id = 1;
 	uint32_t candidate_id = tag->request.candidate_id();
 
@@ -829,7 +590,7 @@ void HandleUnaryCommit(
 			grpc::Status(grpc::StatusCode::NOT_FOUND,
 				     "candidate configuration not found"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -847,7 +608,7 @@ void HandleUnaryCommit(
 					grpc::StatusCode::FAILED_PRECONDITION,
 					"candidate is in the middle of a transaction"),
 				tag);
-			tag->state = FINISH;
+			tag->finish();
 			return;
 		}
 		break;
@@ -860,7 +621,7 @@ void HandleUnaryCommit(
 					grpc::StatusCode::FAILED_PRECONDITION,
 					"no transaction in progress"),
 				tag);
-			tag->state = FINISH;
+			tag->finish();
 			return;
 		}
 		break;
@@ -943,19 +704,12 @@ void HandleUnaryCommit(
 		tag->response.set_error_message(errmsg);
 
 	tag->responder.Finish(tag->response, status, tag);
-	tag->state = FINISH;
+	tag->finish();
 }
 
 void HandleUnaryLockConfig(
-	NewRpcState<frr::LockConfigRequest, frr::LockConfigResponse> *tag)
+	NorthboundCall<frr::LockConfigRequest, frr::LockConfigResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	if (nb_running_lock(NB_CLIENT_GRPC, NULL)) {
 		tag->responder.Finish(
 			tag->response,
@@ -965,19 +719,12 @@ void HandleUnaryLockConfig(
 	} else {
 		tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 	}
-	tag->state = FINISH;
+	tag->finish();
 }
 
-void HandleUnaryUnlockConfig(
-	NewRpcState<frr::UnlockConfigRequest, frr::UnlockConfigResponse> *tag)
+void HandleUnaryUnlockConfig(NorthboundCall<frr::UnlockConfigRequest,
+					    frr::UnlockConfigResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	if (nb_running_unlock(NB_CLIENT_GRPC, NULL)) {
 		tag->responder.Finish(
 			tag->response,
@@ -988,7 +735,7 @@ void HandleUnaryUnlockConfig(
 	} else {
 		tag->responder.Finish(tag->response, grpc::Status::OK, tag);
 	}
-	tag->state = FINISH;
+	tag->finish();
 }
 
 static void list_transactions_cb(void *arg, int transaction_id,
@@ -1003,19 +750,9 @@ static void list_transactions_cb(void *arg, int transaction_id,
 }
 
 void HandleStreamingListTransactions(
-	NewRpcState<frr::ListTransactionsRequest, frr::ListTransactionsResponse>
-		*tag)
+	NorthboundCallAsync<frr::ListTransactionsRequest,
+			    frr::ListTransactionsResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		delete static_cast<std::list<std::tuple<
-			int, std::string, std::string, std::string>> *>(
-			tag->context);
-		tag->state = DELETED;
-		return;
-	}
-
 	if (!tag->context) {
 		/* Creating, first time called for this RPC */
 		auto new_list =
@@ -1039,7 +776,10 @@ void HandleStreamingListTransactions(
 
 	if (list->empty()) {
 		tag->async_responder.Finish(grpc::Status::OK, tag);
-		tag->state = FINISH;
+		delete static_cast<std::list<std::tuple<
+			int, std::string, std::string, std::string>> *>(
+			tag->context);
+		tag->finish();
 		return;
 	}
 
@@ -1063,23 +803,18 @@ void HandleStreamingListTransactions(
 	if (list->empty()) {
 		tag->async_responder.WriteAndFinish(
 			response, grpc::WriteOptions(), grpc::Status::OK, tag);
-		tag->state = FINISH;
+		delete static_cast<std::list<std::tuple<
+			int, std::string, std::string, std::string>> *>(
+			tag->context);
+		tag->finish();
 	} else {
 		tag->async_responder.Write(response, tag);
-		tag->state = MORE;
 	}
 }
 
-void HandleUnaryGetTransaction(NewRpcState<frr::GetTransactionRequest,
-					   frr::GetTransactionResponse> *tag)
+void HandleUnaryGetTransaction(NorthboundCall<frr::GetTransactionRequest,
+					      frr::GetTransactionResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	// Request: uint32 transaction_id = 1;
 	uint32_t transaction_id = tag->request.transaction_id();
 	// Request: Encoding encoding = 2;
@@ -1100,7 +835,7 @@ void HandleUnaryGetTransaction(NewRpcState<frr::GetTransactionRequest,
 			grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				     "Transaction not found"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -1117,26 +852,19 @@ void HandleUnaryGetTransaction(NewRpcState<frr::GetTransactionRequest,
 				      grpc::Status(grpc::StatusCode::INTERNAL,
 						   "Failed to dump data"),
 				      tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
 	nb_config_free(nb_config);
 
 	tag->responder.Finish(tag->response, grpc::Status::OK, tag);
-	tag->state = FINISH;
+	tag->finish();
 }
 
 void HandleUnaryExecute(
-	NewRpcState<frr::ExecuteRequest, frr::ExecuteResponse> *tag)
+	NorthboundCall<frr::ExecuteRequest, frr::ExecuteResponse> *tag)
 {
-	grpc_debug("%s: state: %s", __func__, call_states[tag->state]);
-
-	if (tag->state == FINISH) {
-		tag->state = DELETED;
-		return;
-	}
-
 	struct nb_node *nb_node;
 	struct list *input_list;
 	struct list *output_list;
@@ -1156,7 +884,7 @@ void HandleUnaryExecute(
 			grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				     "Data path is empty"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -1167,7 +895,7 @@ void HandleUnaryExecute(
 			grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
 				     "Unknown data path"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -1195,7 +923,7 @@ void HandleUnaryExecute(
 			tag->response,
 			grpc::Status(grpc::StatusCode::INTERNAL, "RPC failed"),
 			tag);
-		tag->state = FINISH;
+		tag->finish();
 		return;
 	}
 
@@ -1212,111 +940,171 @@ void HandleUnaryExecute(
 	list_delete(&output_list);
 
 	tag->responder.Finish(tag->response, grpc::Status::OK, tag);
-	tag->state = FINISH;
+	tag->finish();
 }
+
+class NorthboundServer
+{
+      public:
+	NorthboundServer() : m_running(false)
+	{
+	}
+
+	void initialize(std::string uri, struct thread_master *main)
+	{
+		m_uri = uri;
+		m_main = main;
+	}
+
+	void shutdown()
+	{
+		void *tag;
+		bool ok;
+
+		// Server was never run, so just quit.
+		if (!m_running)
+			return;
+
+		m_running = false;
+		m_server->Shutdown();
+		m_queue->Shutdown();
+
+		// Empty queue.
+		while (m_queue->Next(&tag, &ok)) {
+			// NOTHING
+		}
+	}
+
+/*
+ * Macros to make it easy on the eyes the handler declarations.
+ *
+ * Parameters:
+ * - frr::Northbound::AsyncService *
+ * - grpc::ServerCompletionQueue *
+ * - struct thread_master *
+ * - Candidates *
+ * - (text/code) Service name
+ */
+#define NORTHBOUND_ASYNC_RESPONDER(service, queue, main, candidate, name)      \
+	new NorthboundCallAsync<frr::name##Request, frr::name##Response>(      \
+		(service), (queue), (main), (candidate),                       \
+		&frr::Northbound::AsyncService::Request##name,                 \
+		&HandleStreaming##name)
+
+#define NORTHBOUND_RESPONDER(service, queue, main, candidate, name)            \
+	new NorthboundCall<frr::name##Request, frr::name##Response>(           \
+		(service), (queue), (main), (candidate),                       \
+		&frr::Northbound::AsyncService::Request##name,                 \
+		&HandleUnary##name)
+
+	/** Server main loop. Don't forget to call `initialize` first. */
+	void run()
+	{
+		void *tag;
+		bool ok;
+		grpc::ServerBuilder server_builder;
+
+		server_builder.AddListeningPort(
+			m_uri, grpc::InsecureServerCredentials());
+		server_builder.RegisterService(&m_service);
+		m_queue = server_builder.AddCompletionQueue();
+		m_server = server_builder.BuildAndStart();
+		m_running = true;
+
+		zlog_notice("gRPC server listening on %s", m_uri.c_str());
+
+		NORTHBOUND_ASYNC_RESPONDER(&m_service, m_queue.get(), m_main,
+					   NULL, Get);
+		NORTHBOUND_ASYNC_RESPONDER(&m_service, m_queue.get(), m_main,
+					   NULL, ListTransactions);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
+				     Execute);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
+				     GetCapabilities);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
+				     &m_candidates, CreateCandidate);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
+				     &m_candidates, DeleteCandidate);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
+				     &m_candidates, UpdateCandidate);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
+				     &m_candidates, EditCandidate);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
+				     &m_candidates, LoadToCandidate);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
+				     &m_candidates, Commit);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
+				     GetTransaction);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
+				     LockConfig);
+		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
+				     UnlockConfig);
+
+		while (m_running) {
+			if (!m_queue->Next(&tag, &ok)) {
+				// We are shutting down.
+				break;
+			}
+
+			// Skip bad call states.
+			if (!ok) {
+				break;
+			}
+
+			// We are not running anymore, let the main thread
+			// handle the queue depletion in the main thread.
+			if (!m_running) {
+				break;
+			}
+
+			static_cast<NorthboundCallInterface *>(tag)->run();
+		}
+	}
+
+      private:
+	frr::Northbound::AsyncService m_service;
+
+	std::unique_ptr<grpc::ServerCompletionQueue> m_queue;
+	std::unique_ptr<grpc::Server> m_server;
+	grpc::ServerContext m_server_context;
+
+	struct thread_master *m_main;
+	Candidates m_candidates;
+	std::string m_uri;
+	bool m_running;
+};
 
 // ------------------------------------------------------
 //        Thread Initialization and Run Functions
 // ------------------------------------------------------
-
-
-#define REQUEST_NEWRPC(NAME, cdb)                                              \
-	do {                                                                   \
-		auto _rpcState = new NewRpcState<frr::NAME##Request,           \
-						 frr::NAME##Response>(         \
-			(cdb), &frr::Northbound::AsyncService::Request##NAME,  \
-			&HandleUnary##NAME, #NAME);                            \
-		_rpcState->do_request(service, s_cq);                          \
-	} while (0)
-
-#define REQUEST_NEWRPC_STREAMING(NAME, cdb)                                    \
-	do {                                                                   \
-		auto _rpcState = new NewRpcState<frr::NAME##Request,           \
-						 frr::NAME##Response>(         \
-			(cdb), &frr::Northbound::AsyncService::Request##NAME,  \
-			&HandleStreaming##NAME, #NAME);                        \
-		_rpcState->do_request(service, s_cq);                          \
-	} while (0)
 
 struct grpc_pthread_attr {
 	struct frr_pthread_attr attr;
 	unsigned long port;
 };
 
-// Capture these objects so we can try to shut down cleanly
-static std::unique_ptr<grpc::Server> s_server;
-static grpc::ServerCompletionQueue *s_cq;
+NorthboundServer northbound_server;
 
 static void *grpc_pthread_start(void *arg)
 {
 	struct frr_pthread *fpt = static_cast<frr_pthread *>(arg);
 	uint port = (uint) reinterpret_cast<intptr_t>(fpt->data);
-
-	Candidates candidates;
-	grpc::ServerBuilder builder;
 	std::stringstream server_address;
-	frr::Northbound::AsyncService *service =
-		new frr::Northbound::AsyncService();
+	sigset_t allsigs;
 
+	/* make sure all signal handling happens on main FRR thread */
+	sigfillset(&allsigs);
+	sigprocmask(SIG_BLOCK, &allsigs, NULL);
 	frr_pthread_set_name(fpt);
 
 	server_address << "0.0.0.0:" << port;
-	builder.AddListeningPort(server_address.str(),
-				 grpc::InsecureServerCredentials());
-	builder.RegisterService(service);
-	auto cq = builder.AddCompletionQueue();
-	s_cq = cq.get();
-	s_server = builder.BuildAndStart();
 
-	/* Schedule all RPC handlers */
-	REQUEST_NEWRPC(GetCapabilities, NULL);
-	REQUEST_NEWRPC(CreateCandidate, &candidates);
-	REQUEST_NEWRPC(DeleteCandidate, &candidates);
-	REQUEST_NEWRPC(UpdateCandidate, &candidates);
-	REQUEST_NEWRPC(EditCandidate, &candidates);
-	REQUEST_NEWRPC(LoadToCandidate, &candidates);
-	REQUEST_NEWRPC(Commit, &candidates);
-	REQUEST_NEWRPC(GetTransaction, NULL);
-	REQUEST_NEWRPC(LockConfig, NULL);
-	REQUEST_NEWRPC(UnlockConfig, NULL);
-	REQUEST_NEWRPC(Execute, NULL);
-	REQUEST_NEWRPC_STREAMING(Get, NULL);
-	REQUEST_NEWRPC_STREAMING(ListTransactions, NULL);
-
-	zlog_notice("gRPC server listening on %s",
-		    server_address.str().c_str());
-
-	/* Process inbound RPCs */
-	while (true) {
-		void *tag;
-		bool ok;
-
-		s_cq->Next(&tag, &ok);
-		if (!ok)
-			break;
-
-		grpc_debug("%s: Got next from CompletionQueue, %p %d", __func__,
-			   tag, ok);
-
-		RpcStateBase *rpc = static_cast<RpcStateBase *>(tag);
-		CallState state = rpc->doCallback();
-		grpc_debug("%s: Callback returned RPC State: %s", __func__,
-			   call_states[state]);
-
-		/*
-		 * Our side is done (FINISH) receive new requests of this type
-		 * We could do this earlier but that would mean we could be
-		 * handling multiple same type requests in parallel. We expect
-		 * to be called back once more in the FINISH state (from the
-		 * user indicating Finish() for cleanup.
-		 */
-		if (state == FINISH)
-			rpc->do_request(service, s_cq);
-	}
+	// Server main loop: only ends on shutdown.
+	northbound_server.initialize(server_address.str(), main_master);
+	northbound_server.run();
 
 	return NULL;
 }
-
 
 static int frr_grpc_init(uint port)
 {
@@ -1340,18 +1128,7 @@ static int frr_grpc_init(uint port)
 
 static int frr_grpc_finish(void)
 {
-	// Shutdown the grpc server
-	if (s_server) {
-		s_server->Shutdown();
-		s_cq->Shutdown();
-
-		// And drain the queue
-		void *ignore;
-		bool ok;
-
-		while (s_cq->Next(&ignore, &ok))
-			;
-	}
+	northbound_server.shutdown();
 
 	if (fpt) {
 		pthread_join(fpt->thread, NULL);
