@@ -8,19 +8,21 @@ Topotests is a suite of topology tests for FRR built on top of micronet.
 Installation and Setup
 ----------------------
 
-Topotests run under python3. Additionally, for ExaBGP (which is used in some of
-the BGP tests) an older python2 version must be installed.
+Topotests run under python3. Additionally, for ExaBGP (which is used
+in some of the BGP tests) an older python2 version (and the python2
+version of ``pip``) must be installed.
 
-Tested with Ubuntu 20.04 and Ubuntu 18.04 and Debian 11.
+Tested with Ubuntu 20.04,Ubuntu 18.04, and Debian 11.
 
-Instructions are the same for all setups (i.e. ExaBGP is only used for BGP
-tests).
+Instructions are the same for all setups (i.e. ExaBGP is only used for
+BGP tests).
 
 Installing Topotest Requirements
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code:: shell
 
+   apt-get install gdb
    apt-get install iproute2
    apt-get install net-tools
    apt-get install python3-pip
@@ -41,7 +43,6 @@ Optional, will give better output.
 
 .. code:: shell
 
-   apt-get install gdb
    disable apport (which move core files)
 
 Set ``enabled=0`` in ``/etc/default/apport``.
