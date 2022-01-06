@@ -285,6 +285,7 @@ options from the list below.
    arguments when reporting the version string in `show version` command.
 
 .. option:: --with-pkg-extra-version=VER
+
    Add extra version field, for packagers/distributions
 
 .. option::  --with-pkg-git-version
