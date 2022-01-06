@@ -924,6 +924,17 @@ However, it MUST defer route selection for an address family until it either.
 
    This is command, will set the time for which stale routes are kept in RIB.
 
+.. clicmd:: bgp graceful-restart restart-time (0-4095)
+
+   Set the time to wait to delete stale routes before a BGP open message
+   is received.
+
+   Using with Long-lived Graceful Restart capability, this is recommended
+   setting this timer to 0 and control stale routes with
+   ``bgp long-lived-graceful-restart stale-time``.
+
+   Default value is 120.
+
 .. clicmd:: bgp graceful-restart stalepath-time (1-4095)
 
    This is command, will set the max time (in seconds) to hold onto
