@@ -240,15 +240,10 @@ def test_bgp_shutdown_message():
         assertmsg = "BGP shutdown message not received on router R{}".format(rtrNum)
         assert shut_message != "", assertmsg
 
-        m = re.search(".*([0-9]+ bytes[ 0-9a-fA-F]+)", shut_message)
-        if m:
-            found = m.group(1)
-        else:
-            found = ""
         assertmsg = "Incorrect BGP shutdown message received on router R{}".format(
             rtrNum
         )
-        assert found == "8 bytes 41 42 43 44 61 62 63 64", assertmsg
+        assert "ABCDabcd" in shut_message, assertmsg
 
     # tgen.mininet_cli()
 
