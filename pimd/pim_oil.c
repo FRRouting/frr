@@ -490,23 +490,21 @@ int pim_channel_add_oif(struct channel_oil *channel_oil, struct interface *oif,
 		/* Check the OIF really exists before returning, and only log
 		   warning otherwise */
 		if (channel_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index] < 1) {
-			{
-				char group_str[INET_ADDRSTRLEN];
-				char source_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<group?>",
-					       channel_oil->oil.mfcc_mcastgrp,
-					       group_str, sizeof(group_str));
-				pim_inet4_dump("<source?>",
-					       channel_oil->oil.mfcc_origin,
-					       source_str, sizeof(source_str));
-				zlog_warn(
-					"%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
-					__FILE__, __func__, proto_mask,
-					oif->name, pim_ifp->mroute_vif_index,
-					channel_oil->oil.mfcc_ttls
-						[pim_ifp->mroute_vif_index],
-					source_str, group_str);
-			}
+			char group_str[INET_ADDRSTRLEN];
+			char source_str[INET_ADDRSTRLEN];
+			pim_inet4_dump("<group?>",
+				       channel_oil->oil.mfcc_mcastgrp,
+				       group_str, sizeof(group_str));
+			pim_inet4_dump("<source?>",
+				       channel_oil->oil.mfcc_origin, source_str,
+				       sizeof(source_str));
+			zlog_warn(
+				"%s %s: new protocol mask %u requested nonexistent OIF %s (vif_index=%d, min_ttl=%d) for channel (S,G)=(%s,%s)",
+				__FILE__, __func__, proto_mask, oif->name,
+				pim_ifp->mroute_vif_index,
+				channel_oil->oil
+					.mfcc_ttls[pim_ifp->mroute_vif_index],
+				source_str, group_str);
 		}
 
 		if (PIM_DEBUG_MROUTE) {
