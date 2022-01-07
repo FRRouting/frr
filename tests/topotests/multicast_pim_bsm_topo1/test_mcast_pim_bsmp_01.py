@@ -104,7 +104,7 @@ from lib.pim import (
     enable_disable_pim_bsm,
     clear_ip_mroute,
     clear_ip_pim_interface_traffic,
-    verify_pim_interface_traffic,
+    get_pim_interface_traffic,
     McastTesterHelper,
 )
 from lib.topolog import logger
@@ -648,7 +648,7 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
     step("Verify bsm transit count is not increamented" "show ip pim interface traffic")
     state_dict = {"f1": {intf_f1_i1: ["bsmTx"]}}
 
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -673,7 +673,7 @@ def test_BSR_CRP_with_blackhole_address_p1(request):
         tc_name, result
     )
 
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
