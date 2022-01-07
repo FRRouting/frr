@@ -1443,16 +1443,16 @@ def verify_pim_state(
     return True
 
 
-def verify_pim_interface_traffic(tgen, input_dict):
+def get_pim_interface_traffic(tgen, input_dict):
     """
-    Verify ip pim interface traffice by running
+    get ip pim interface traffice by running
     "show ip pim interface traffic" cli
 
     Parameters
     ----------
     * `tgen`: topogen object
     * `input_dict(dict)`: defines DUT, what and from which interfaces
-                          traffic needs to be verified
+                          traffic needs to be retrieved
     Usage
     -----
     input_dict = {
@@ -1466,7 +1466,7 @@ def verify_pim_interface_traffic(tgen, input_dict):
         }
     }
 
-    result = verify_pim_interface_traffic(tgen, input_dict)
+    result = get_pim_interface_traffic(tgen, input_dict)
 
     Returns
     -------

@@ -78,7 +78,7 @@ from lib.pim import (
     verify_upstream_iif,
     clear_ip_mroute,
     verify_pim_rp_info,
-    verify_pim_interface_traffic,
+    get_pim_interface_traffic,
     McastTesterHelper,
 )
 from lib.topolog import logger
@@ -930,7 +930,7 @@ def test_PIM_hello_tx_rx_p1(request):
         }
     }
 
-    c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
+    c1_state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -947,7 +947,7 @@ def test_PIM_hello_tx_rx_p1(request):
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, True)
 
     step("verify stats after on c1")
-    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
+    c1_state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_after, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -969,7 +969,7 @@ def test_PIM_hello_tx_rx_p1(request):
         }
     }
 
-    l1_state_before = verify_pim_interface_traffic(tgen, l1_state_dict)
+    l1_state_before = get_pim_interface_traffic(tgen, l1_state_dict)
     assert isinstance(
         l1_state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -986,7 +986,7 @@ def test_PIM_hello_tx_rx_p1(request):
     shutdown_bringup_interface(tgen, "l1", intf_l1_c1, True)
 
     step("verify stats after on l1")
-    l1_state_after = verify_pim_interface_traffic(tgen, l1_state_dict)
+    l1_state_after = get_pim_interface_traffic(tgen, l1_state_dict)
     assert isinstance(
         l1_state_after, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -1012,7 +1012,7 @@ def test_PIM_hello_tx_rx_p1(request):
         }
     }
 
-    c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
+    c1_state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_before, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -1036,7 +1036,7 @@ def test_PIM_hello_tx_rx_p1(request):
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("verify stats after on c1")
-    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
+    c1_state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_after, dict
     ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
