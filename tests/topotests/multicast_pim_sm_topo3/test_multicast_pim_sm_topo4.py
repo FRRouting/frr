@@ -1045,9 +1045,9 @@ def test_PIM_hello_tx_rx_p1(request):
 
     step("verify stats incremented on c1")
     result = verify_state_incremented(c1_state_before, c1_state_after)
-    assert (
-        result is True
-    ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
+    assert result is True, "Testcase{} : Failed Error: {}" "stats incremented".format(
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 
