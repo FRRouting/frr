@@ -83,6 +83,8 @@ from lib.pim import (
 )
 from lib.topolog import logger
 from lib.topojson import build_config_from_json
+from time import sleep
+
 
 TOPOLOGY = """
 
@@ -946,16 +948,25 @@ def test_PIM_hello_tx_rx_p1(request):
     )
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, True)
 
-    step("verify stats after on c1")
-    c1_state_after = get_pim_interface_traffic(tgen, state_dict)
-    assert isinstance(
-        c1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
-        tc_name, result
-    )
+    step("verify stats after on c1 and that they are incremented")
 
-    step("verify stats incremented on c1")
-    result = verify_state_incremented(c1_state_before, c1_state_after)
+    count = 0
+    done = False
+    while not done and count <= 7:
+        c1_state_after = get_pim_interface_traffic(tgen, state_dict)
+        assert isinstance(
+            c1_state_after, dict
+        ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+            tc_name, result
+        )
+
+        result = verify_state_incremented(c1_state_before, c1_state_after)
+        if result is not True:
+            sleep(5)
+            count += 1
+        else:
+            done = True
+
     assert (
         result is True
     ), "Testcase{} : Failed Error: {}" "stats is not incremented".format(
@@ -985,16 +996,24 @@ def test_PIM_hello_tx_rx_p1(request):
     )
     shutdown_bringup_interface(tgen, "l1", intf_l1_c1, True)
 
-    step("verify stats after on l1")
-    l1_state_after = get_pim_interface_traffic(tgen, l1_state_dict)
-    assert isinstance(
-        l1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
-        tc_name, result
-    )
+    step("verify stats after on l1 are incremented")
+    count = 0
+    done = False
+    while not done and count <= 7:
+        l1_state_after = get_pim_interface_traffic(tgen, l1_state_dict)
+        assert isinstance(
+            l1_state_after, dict
+        ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("verify stats not incremented on l1")
-    result = verify_state_incremented(l1_state_before, l1_state_after)
+        result = verify_state_incremented(l1_state_before, l1_state_after)
+        if result is True:
+            sleep(5)
+            count += 1
+        else:
+            done = True
+
     assert (
         result is not True
     ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
@@ -1035,16 +1054,24 @@ def test_PIM_hello_tx_rx_p1(request):
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("verify stats after on c1")
-    c1_state_after = get_pim_interface_traffic(tgen, state_dict)
-    assert isinstance(
-        c1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
-        tc_name, result
-    )
+    step("verify stats after on c1 are incremented")
+    count = 0
+    done = False
+    while not done and count <= 7:
+        c1_state_after = get_pim_interface_traffic(tgen, state_dict)
+        assert isinstance(
+            c1_state_after, dict
+        ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("verify stats incremented on c1")
-    result = verify_state_incremented(c1_state_before, c1_state_after)
+        result = verify_state_incremented(c1_state_before, c1_state_after)
+        if result is not True:
+            sleep(5)
+            count += 1
+        else:
+            done = True
+
     assert result is True, "Testcase{} : Failed Error: {}" "stats incremented".format(
         tc_name, result
     )
