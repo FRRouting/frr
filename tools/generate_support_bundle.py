@@ -26,19 +26,28 @@ import os
 import subprocess
 import tempfile
 
+
 def open_with_backup(path):
     if os.path.exists(path):
         print("Making backup of " + path)
         subprocess.check_call("mv {0} {0}.prev".format(path), shell=True)
     return open(path, "w")
 
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("-c", "--config", default="/etc/frr/support_bundle_commands.conf", help="input config")
-    parser.add_argument("-l", "--log-dir", default="/var/log/frr", help="directory for logfiles")
+    parser.add_argument(
+        "-c",
+        "--config",
+        default="/etc/frr/support_bundle_commands.conf",
+        help="input config",
+    )
+    parser.add_argument(
+        "-l", "--log-dir", default="/var/log/frr", help="directory for logfiles"
+    )
     args = parser.parse_args()
 
-    collecting = False # file format has sentinels (seem superfluous)
+    collecting = False  # file format has sentinels (seem superfluous)
     proc_cmds = {}
     proc = None
     temp = None
@@ -84,6 +93,7 @@ def main():
 
     for p in procs:
         p.wait()
+
 
 if __name__ == "__main__":
     main()
