@@ -82,7 +82,7 @@ from lib.pim import (
     create_igmp_config,
     verify_igmp_groups,
     verify_ip_mroutes,
-    verify_pim_interface_traffic,
+    get_pim_interface_traffic,
     verify_upstream_iif,
     verify_pim_neighbors,
     verify_pim_state,
@@ -731,7 +731,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
 
     step("registerRx and registerStopTx value before traffic sent")
     state_dict = {"c2": {"c2-f1-eth1": ["registerRx", "registerStopTx"]}}
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \nError: {}".format(
@@ -815,7 +815,7 @@ def test_verify_SPT_switchover_when_RPT_and_SPT_path_is_different_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("registerRx and registerStopTx value after traffic sent")
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \nError: {}".format(
