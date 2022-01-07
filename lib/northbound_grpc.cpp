@@ -1007,6 +1007,9 @@ class NorthboundServer
 		server_builder.AddListeningPort(
 			m_uri, grpc::InsecureServerCredentials());
 		server_builder.RegisterService(&m_service);
+		server_builder.AddChannelArgument(
+			GRPC_ARG_HTTP2_MIN_RECV_PING_INTERVAL_WITHOUT_DATA_MS,
+			5000);
 		m_queue = server_builder.AddCompletionQueue();
 		m_server = server_builder.BuildAndStart();
 		m_running = true;
