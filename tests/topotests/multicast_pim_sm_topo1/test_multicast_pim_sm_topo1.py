@@ -84,7 +84,7 @@ from lib.pim import (
     create_igmp_config,
     verify_igmp_groups,
     verify_ip_mroutes,
-    verify_pim_interface_traffic,
+    get_pim_interface_traffic,
     verify_upstream_iif,
     verify_ip_pim_join,
     clear_ip_mroute,
@@ -280,7 +280,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
     step("get joinRx value before join")
     intf_r2_l1 = topo["routers"]["r2"]["links"]["l1"]["interface"]
     state_dict = {"r2": {intf_r2_l1: ["joinRx"]}}
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -352,7 +352,7 @@ def test_multicast_data_traffic_static_RP_send_join_then_traffic_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("joinRx value after join sent")
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -425,7 +425,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
     step("Enable IGMP on FRR1 interface and send IGMP join (225.1.1.1)")
     step("joinRx value before join sent")
     state_dict = {"r2": {"r2-l1-eth2": ["joinRx"]}}
-    state_before = verify_pim_interface_traffic(tgen, state_dict)
+    state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_before, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
@@ -474,7 +474,7 @@ def test_multicast_data_traffic_static_RP_send_traffic_then_join_p0(request):
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     step("joinRx value after join sent")
-    state_after = verify_pim_interface_traffic(tgen, state_dict)
+    state_after = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         state_after, dict
     ), "Testcase {} : Failed \n state_before is not dictionary \n Error: {}".format(
