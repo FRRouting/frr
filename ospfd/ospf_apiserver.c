@@ -2061,9 +2061,6 @@ void ospf_apiserver_show_info(struct vty *vty, struct json_object *json,
 	struct opaque_lsa *olsa;
 	int opaquelen;
 
-	if (json)
-		return;
-
 	olsa = (struct opaque_lsa *)lsa->data;
 
 	if (VALID_OPAQUE_INFO_LEN(lsa->data))
@@ -2072,7 +2069,10 @@ void ospf_apiserver_show_info(struct vty *vty, struct json_object *json,
 		opaquelen = 0;
 
 	/* Output information about opaque LSAs */
-	if (vty != NULL) {
+	if (json)
+		json_object_string_addf(json, "opaqueData", "%*pHXn",
+					(int)opaquelen, olsa->data);
+	else if (vty != NULL) {
 		int i;
 		vty_out(vty,
 			"  Added using OSPF API: %u octets of opaque data %s\n",
