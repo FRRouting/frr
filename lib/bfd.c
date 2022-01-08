@@ -143,8 +143,8 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 		if (ifp == NULL) {
 			if (bsglobal.debugging)
 				zlog_debug(
-					"zebra_interface_bfd_read: Can't find interface by ifindex: %d ",
-					ifindex);
+					"%s: Can't find interface by ifindex: %d ",
+					__func__, ifindex);
 			return NULL;
 		}
 	}
@@ -251,8 +251,8 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		if (bsglobal.debugging)
 			zlog_debug(
-				"bfd_client_sendmsg %ld: zclient_send_message() failed",
-				(long)getpid());
+				"%s:  %ld: zclient_send_message() failed",
+				__func__, (long)getpid());
 		return;
 	}
 
