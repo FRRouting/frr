@@ -174,7 +174,8 @@ extern struct ospf_interface *
 ospf_apiserver_if_lookup_by_addr(struct in_addr address);
 extern struct ospf_interface *
 ospf_apiserver_if_lookup_by_ifp(struct interface *ifp);
-extern int ospf_apiserver_originate1(struct ospf_lsa *lsa);
+extern int ospf_apiserver_originate1(struct ospf_lsa *lsa,
+				     struct ospf_lsa *old);
 extern void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa);
 
 

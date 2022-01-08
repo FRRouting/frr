@@ -173,4 +173,6 @@ extern void ospf_opaque_self_originated_lsa_received(struct ospf_neighbor *nbr,
 						     struct ospf_lsa *lsa);
 extern struct ospf *oi_to_top(struct ospf_interface *oi);
 
+extern int ospf_opaque_is_owned(struct ospf_lsa *lsa);
+
 #endif /* _ZEBRA_OSPF_OPAQUE_H */

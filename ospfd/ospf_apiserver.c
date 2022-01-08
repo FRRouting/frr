@@ -1627,9 +1627,9 @@ int ospf_apiserver_handle_originate_request(struct ospf_apiserver *apiserv,
 	/* Determine if LSA is new or an update for an existing one. */
 	old = ospf_lsdb_lookup(lsdb, new);
 
-	if (!old) {
+	if (!old || !ospf_opaque_is_owned(old)) {
 		/* New LSA install in LSDB. */
-		rc = ospf_apiserver_originate1(new);
+		rc = ospf_apiserver_originate1(new, old);
 	} else {
 		/*
 		 * Keep the new LSA instance in the "waiting place" until the
@@ -1696,17 +1696,33 @@ void ospf_apiserver_flood_opaque_lsa(struct ospf_lsa *lsa)
 	}
 }
 
-int ospf_apiserver_originate1(struct ospf_lsa *lsa)
+int ospf_apiserver_originate1(struct ospf_lsa *lsa, struct ospf_lsa *old)
 {
 	struct ospf *ospf;
 
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	assert(ospf);
 
+	if (old) {
+		/*
+		 * An old LSA exists that we didn't originate it in this
+		 * session. Dump it, but increment past it's seqnum.
+		 */
+		assert(!ospf_opaque_is_owned(old));
+		if (IS_LSA_MAX_SEQ(old)) {
+			flog_warn(
+				EC_OSPF_LSA_INSTALL_FAILURE,
+				"ospf_apiserver_originate1: old LSA at maxseq");
+			return -1;
+		}
+		lsa->data->ls_seqnum = lsa_seqnum_increment(old);
+		ospf_discard_from_db(ospf, old->lsdb, old);
+	}
+
 	/* Install this LSA into LSDB. */
 	if (ospf_lsa_install(ospf, lsa->oi, lsa) == NULL) {
 		flog_warn(EC_OSPF_LSA_INSTALL_FAILURE,
-			  "ospf_apiserver_originate1: ospf_lsa_install failed");
+			  "%s: ospf_lsa_install failed", __func__);
 		return -1;
 	}
 
