@@ -524,7 +524,7 @@ class LinuxNamespace(Commander):
         # -----------------------------------------------
         # Now let's wait until unshare completes it's job
         # -----------------------------------------------
-        timeout = Timeout(30)
+        timeout = Timeout(180)
         while p.poll() is None and not timeout.is_expired():
             for fname in tuple(nslist):
                 ours = os.readlink("/proc/self/ns/{}".format(fname))
