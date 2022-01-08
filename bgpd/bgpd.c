@@ -4272,17 +4272,16 @@ static void peer_flag_modify_action(struct peer *peer, uint32_t flag)
 			if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
 				char *msg = peer->tx_shutdown_message;
 				size_t msglen;
+				uint8_t msgbuf[BGP_ADMIN_SHUTDOWN_MSG_LEN + 1];
 
 				if (!msg && peer_group_active(peer))
 					msg = peer->group->conf
 						      ->tx_shutdown_message;
 				msglen = msg ? strlen(msg) : 0;
-				if (msglen > 128)
-					msglen = 128;
+				if (msglen > BGP_ADMIN_SHUTDOWN_MSG_LEN)
+					msglen = BGP_ADMIN_SHUTDOWN_MSG_LEN;
 
 				if (msglen) {
-					uint8_t msgbuf[129];
-
 					msgbuf[0] = msglen;
 					memcpy(msgbuf + 1, msg, msglen);
 
@@ -4319,6 +4318,12 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 {
 	struct peer *peer;
 	struct listnode *node;
+	/* length(1) + message(N) */
+	uint8_t data[BGP_ADMIN_SHUTDOWN_MSG_LEN + 1];
+	size_t datalen = strlen(msg);
+
+	data[0] = datalen;
+	memcpy(data + 1, msg, datalen);
 
 	/* do nothing if already shut down */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
@@ -4339,8 +4344,8 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 			if (msg)
 				bgp_notify_send_with_data(
 					peer, BGP_NOTIFY_CEASE,
-					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN,
-					(uint8_t *)(msg), strlen(msg));
+					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, data,
+					datalen + 1);
 			else
 				bgp_notify_send(
 					peer, BGP_NOTIFY_CEASE,
