@@ -1151,6 +1151,23 @@ static int frr_grpc_finish(void)
 	return 0;
 }
 
+/**
+ * Calls the protobuf library shutdown function in order to clean up
+ * used memory.
+ *
+ * **NOTE**
+ * This was made into a new function to causing crashes with the existing
+ * zebra FPM protobuf module.
+ */
+static int frr_protobuf_finish(void)
+{
+	// Fix protobuf 'memory leaks' during shutdown.
+	// https://groups.google.com/g/protobuf/c/4y_EmQiCGgs
+	google::protobuf::ShutdownProtobufLibrary();
+
+	return 0;
+}
+
 /*
  * This is done this way because module_init and module_late_init are both
  * called during daemon pre-fork initialization. Because the GRPC library
@@ -1187,6 +1204,7 @@ static int frr_grpc_module_late_init(struct thread_master *tm)
 {
 	main_master = tm;
 	hook_register(frr_early_fini, frr_grpc_finish);
+	hook_register(frr_fini, frr_protobuf_finish);
 	thread_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
 	return 0;
 }
