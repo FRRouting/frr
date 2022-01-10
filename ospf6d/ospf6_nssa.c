@@ -575,8 +575,9 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 		match = ospf6_route_lookup(&prefix, ospf6->external_table);
 		if (match)
 			type5 = ospf6_lsdb_lookup(
-				OSPF6_LSTYPE_AS_EXTERNAL, match->path.origin.id,
-				ospf6->router_id, ospf6->lsdb);
+				htons(OSPF6_LSTYPE_AS_EXTERNAL),
+				match->path.origin.id, ospf6->router_id,
+				ospf6->lsdb);
 	}
 
 	if (type5) {
