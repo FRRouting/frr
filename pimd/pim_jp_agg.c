@@ -133,14 +133,14 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 
 	for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode,
 			       pius)) {
-		if (pius->address.s_addr == rpf->rpf_addr.u.prefix4.s_addr)
+		if (pim_addr_cmp(pius->address, PIM_PREFIX(rpf->rpf_addr)))
 			break;
 	}
 
 	if (!pius) {
 		pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			       sizeof(struct pim_iface_upstream_switch));
-		pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
+		pim_addr_copy(&pius->address, &PIM_PREFIX(rpf->rpf_addr));
 		pius->us = list_new();
 		listnode_add_sort(pim_ifp->upstream_switch_list, pius);
 	}
