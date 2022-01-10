@@ -310,8 +310,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putw(s, args->family);
 	stream_put(s, &args->src, addrlen);
 
-	/* Send the expected TTL. */
-	stream_putc(s, args->ttl);
+	/* Send the expected hops. */
+	stream_putc(s, args->hops);
 
 	/* Send interface name if any. */
 	if (args->mhop) {
@@ -349,8 +349,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		stream_putw(s, args->family);
 		stream_put(s, &args->src, addrlen);
 
-		/* Send the expected TTL. */
-		stream_putc(s, args->ttl);
+		/* Send the expected hops. */
+		stream_putc(s, args->hops);
 	} else {
 		/* Multi hop indicator. */
 		stream_putc(s, 0);
@@ -396,7 +396,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 
 	/* Set defaults. */
 	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
-	bsp->args.ttl = 1;
+	bsp->args.hops = 1;
 	bsp->args.min_rx = BFD_DEF_MIN_RX;
 	bsp->args.min_tx = BFD_DEF_MIN_TX;
 	bsp->args.vrf_id = VRF_DEFAULT;
@@ -648,13 +648,13 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 
 void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)
 {
-	if (bsp->args.ttl == hops)
+	if (bsp->args.hops == hops)
 		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
-	bsp->args.ttl = hops;
+	bsp->args.hops = hops;
 	bsp->args.mhop = (hops > 1);
 }
 
@@ -692,7 +692,7 @@ enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
 
 uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
 {
-	return bsp->args.ttl;
+	return bsp->args.hops;
 }
 
 const char *bfd_sess_profile(const struct bfd_session_params *bsp)
