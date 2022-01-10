@@ -36,9 +36,28 @@ class Candidates
       public:
 	~Candidates(void)
 	{
+		std::map<uint64_t, struct candidate>::iterator iterator;
+
 		// Delete candidates.
-		for (auto candidate : m_cdb)
-			delete_candidate(&candidate.second);
+		//
+		// **NOTE**
+		// Custom iterator instead of `std::for_each` or
+		// `for (auto &foo = m_cdb)`: always delete the first element
+		// of the map until it is empty.
+		//
+		// Why? Due to implementation details the map is not safe to be
+		// iterated while erasing items.
+		//
+		// See: https://www.cplusplus.com/reference/map/map/erase/
+		//
+		// > Data races
+		// > The container is modified.
+		// > The elements removed are modified. Concurrently accessing
+		// > other elements is safe, although iterating ranges in the
+		// > container is not.
+		for (iterator = m_cdb.begin(); iterator != m_cdb.end();
+		     iterator = m_cdb.begin())
+			delete_candidate(&iterator->second);
 	}
 
 	struct candidate *create_candidate(void)
@@ -58,21 +77,24 @@ class Candidates
 	{
 		char errmsg[BUFSIZ] = {0};
 
-		m_cdb.erase(c->id);
 		nb_config_free(c->config);
 		if (c->transaction)
 			nb_candidate_commit_abort(c->transaction, errmsg,
 						  sizeof(errmsg));
+
+		// Erase needs to be last otherwise it causes invalid memory
+		// access with valgrind.
+		m_cdb.erase(c->id);
 	}
 
-	struct candidate *get_candidate(uint32_t id)
+	struct candidate *get_candidate(uint64_t id)
 	{
 		return m_cdb.count(id) == 0 ? NULL : &m_cdb[id];
 	}
 
       private:
 	uint64_t m_next_id = 0;
-	std::map<uint32_t, struct candidate> m_cdb;
+	std::map<uint64_t, struct candidate> m_cdb;
 };
 
 #endif /* NORTHBOUND_GRPC_CANDIDATE_H */

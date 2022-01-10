@@ -946,7 +946,7 @@ void HandleUnaryExecute(
 class NorthboundServer
 {
       public:
-	NorthboundServer() : m_running(false)
+	NorthboundServer() : m_running(false), m_candidates(new Candidates)
 	{
 	}
 
@@ -973,6 +973,9 @@ class NorthboundServer
 		while (m_queue->Next(&tag, &ok)) {
 			// NOTHING
 		}
+
+		// Release all candidates memory after all calls are done.
+		m_candidates.reset();
 	}
 
 /*
@@ -1027,21 +1030,22 @@ class NorthboundServer
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
 				     &m_running, GetCapabilities);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, &m_running,
+				     m_candidates.get(), &m_running,
 				     CreateCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, &m_running,
+				     m_candidates.get(), &m_running,
 				     DeleteCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, &m_running,
+				     m_candidates.get(), &m_running,
 				     UpdateCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, &m_running, EditCandidate);
+				     m_candidates.get(), &m_running,
+				     EditCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, &m_running,
+				     m_candidates.get(), &m_running,
 				     LoadToCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, &m_running, Commit);
+				     m_candidates.get(), &m_running, Commit);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
 				     &m_running, GetTransaction);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
@@ -1077,8 +1081,8 @@ class NorthboundServer
 	std::unique_ptr<grpc::Server> m_server;
 	grpc::ServerContext m_server_context;
 
+	std::unique_ptr<Candidates> m_candidates;
 	struct thread_master *m_main;
-	Candidates m_candidates;
 	std::string m_uri;
 	bool m_running;
 };
