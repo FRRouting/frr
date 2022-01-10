@@ -1016,10 +1016,10 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 
 		/* Flush the translated LSA */
 		if (ospf6_check_and_set_router_abr(ospf6)) {
-			type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 			type5 = ospf6_lsdb_lookup(
-				htons(type), lsa->external_lsa_id,
-				ospf6->router_id, ospf6->lsdb);
+				htons(OSPF6_LSTYPE_AS_EXTERNAL),
+				lsa->external_lsa_id, ospf6->router_id,
+				ospf6->lsdb);
 			if (type5
 			    && CHECK_FLAG(type5->flag, OSPF6_LSA_LOCAL_XLT)) {
 				type5->header->age = htons(OSPF_LSA_MAXAGE);
