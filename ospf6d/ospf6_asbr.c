@@ -207,7 +207,7 @@ int ospf6_orig_as_external_lsa(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_DOWN)
 		return 0;
-	if (IS_AREA_NSSA(oi->area))
+	if (IS_AREA_NSSA(oi->area) || IS_AREA_STUB(oi->area))
 		return 0;
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
