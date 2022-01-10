@@ -604,7 +604,6 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 					__func__, &type7->header->id);
 			return NULL;
 		}
-		UNSET_FLAG(new->flag, OSPF6_LSA_UNAPPROVED);
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
