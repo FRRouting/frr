@@ -271,7 +271,7 @@ static void ospf6_abr_announce_aggregates(struct ospf6 *ospf6)
 	struct listnode *node;
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("ospf6_abr_announce_aggregates(): Start");
+		zlog_debug("%s: Start", __func__);
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
 		if (IS_OSPF6_DEBUG_ABR)
@@ -285,7 +285,7 @@ static void ospf6_abr_announce_aggregates(struct ospf6 *ospf6)
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("ospf6_abr_announce_aggregates(): Stop");
+		zlog_debug("%s: Stop", __func__);
 }
 
 /* Flush the summary LSA's which are not approved.*/
@@ -387,7 +387,7 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 	uint16_t type;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_unapprove_translates(): Start");
+		zlog_debug("%s: Start", __func__);
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	for (ALL_LSDB_TYPED(ospf6->lsdb, type, lsa)) {
@@ -401,7 +401,7 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_unapprove_translates(): Stop");
+		zlog_debug("%s: Stop", __func__);
 }
 
 /* Generate the translated external lsa  from NSSA lsa */
@@ -777,7 +777,7 @@ static void ospf6_abr_remove_unapproved_translates(struct ospf6 *ospf6)
 	/* All AREA PROCESS should have APPROVED necessary LSAs */
 	/* Remove any left over and not APPROVED */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_remove_unapproved_translates(): Start");
+		zlog_debug("%s: Start", __func__);
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	for (ALL_LSDB_TYPED(ospf6->lsdb, type, lsa)) {
@@ -792,7 +792,7 @@ static void ospf6_abr_remove_unapproved_translates(struct ospf6 *ospf6)
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf_abr_remove_unapproved_translates(): Stop");
+		zlog_debug("%s: Stop", __func__);
 }
 
 static void ospf6_abr_nssa_type_7_default_create(struct ospf6 *ospf6,
@@ -891,17 +891,17 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 
 	/* Each area must confirm TranslatorRole */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): Start");
+		zlog_debug("%s: Start", __func__);
 
 	/* For all Global Entries flagged "local-translate", unset APPROVED */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): unapprove translates");
+		zlog_debug("%s: unapprove translates", __func__);
 
 	ospf6_abr_unapprove_translates(ospf6);
 
 	/* Originate Type-7 aggregates */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): send NSSA aggregates");
+		zlog_debug("%s: send NSSA aggregates", __func__);
 	ospf6_abr_send_nssa_aggregates(ospf6);
 
 	/* For all NSSAs, Type-7s, translate to 5's, INSTALL/FLOOD, or
@@ -909,17 +909,16 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 	 * Install or Approve in Type-5 Global LSDB
 	 */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): process translates");
+		zlog_debug("%s: process translates", __func__);
 	ospf6_abr_process_nssa_translates(ospf6);
 
 	/* Flush any unapproved previous translates from Global Data Base */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug(
-			"ospf6_abr_nssa_task(): remove unapproved translates");
+		zlog_debug("%s: remove unapproved translates", __func__);
 	ospf6_abr_remove_unapproved_translates(ospf6);
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("ospf6_abr_nssa_task(): Stop");
+		zlog_debug("%s: Stop", __func__);
 }
 
 int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
