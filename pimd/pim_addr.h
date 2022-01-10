@@ -22,7 +22,11 @@
 
 #include "jhash.h"
 
-#if PIM_IPV == 4
+/* temporarily disable IPv6 types to keep code compiling.
+ * Defining PIM_V6_TEMP_BREAK will show a lot of compile errors - they are
+ * very useful to see TODOs.
+ */
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
 typedef struct in_addr pim_addr;
 #define PIM_ADDRSTRLEN INET_ADDRSTRLEN
 #else

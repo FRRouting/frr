@@ -158,7 +158,7 @@ if DEV_BUILD
 # (change noinst_ to sbin_ below to install it.)
 #
 noinst_PROGRAMS += pimd/pim6d
-pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6
+pimd_pim6d_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=6 $(and $(PIM_V6_TEMP_BREAK),-DPIM_V6_TEMP_BREAK)
 pimd_pim6d_LDADD = lib/libfrr.la $(LIBCAP)
 endif
 endif
