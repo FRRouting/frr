@@ -135,7 +135,7 @@ static void ospf6_flush_translated_lsa(struct ospf6_area *area)
 		zlog_debug("%s: finish area %s", __func__, area->name);
 }
 
-/* Check NSSA status for all nssa areas*/
+/* Check NSSA status for all nssa areas */
 void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 {
 	struct ospf6_area *area;
@@ -404,7 +404,7 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 		zlog_debug("%s: Stop", __func__);
 }
 
-/* Generate the translated external lsa  from NSSA lsa */
+/* Generate the translated external lsa from NSSA lsa */
 static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 						       struct ospf6_lsa *type7)
 {
@@ -536,10 +536,10 @@ static void ospf6_ls_retransmit_delete_nbr_as(struct ospf6 *ospf6,
 		ospf6_flood_clear_area(lsa, area);
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : finish  lsa %s", __func__, lsa->name);
+		zlog_debug("%s : finish lsa %s", __func__, lsa->name);
 }
 
-/* Refresh translated  AS-external-LSA. */
+/* Refresh translated AS-external-LSA. */
 struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 						struct ospf6_lsa *type7,
 						struct ospf6_lsa *type5)
@@ -614,7 +614,7 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 
 static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *lsa)
 {
-	/* Incoming Type-7 or later aggregated Type-7
+	/* Incoming Type-7 or aggregated Type-7
 	 *
 	 * LSA is skipped if P-bit is off.
 	 *
@@ -701,7 +701,7 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area, struct ospf6_lsa *
 static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
 {
 	/* Scan through all NSSA_LSDB records for all areas;
-	 * If P-bit is on, translate all Type-7's to 5's and aggregate or\
+	 * If P-bit is on, translate all Type-7's to 5's and aggregate or
 	 * flood install as approved in Type-5 LSDB with XLATE Flag on
 	 * later, do same for all aggregates...  At end, DISCARD all
 	 * remaining UNAPPROVED Type-5's (Aggregate is for future ) */
@@ -733,7 +733,7 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
 		type = htons(OSPF6_LSTYPE_TYPE_7);
 		for (ALL_LSDB_TYPED(oa->lsdb, type, lsa)) {
 			zlog_debug("%s : lsa %s , id %pI4 , adv router %pI4",
-				   lsa->name, __func__, &lsa->header->id,
+				   __func__, lsa->name, &lsa->header->id,
 				   &lsa->header->adv_router);
 			ospf6_abr_translate_nssa(oa, lsa);
 		}
@@ -1369,7 +1369,7 @@ DEFPY (no_area_nssa_range,
 	range = ospf6_route_lookup((struct prefix *)prefix,
 				   oa->nssa_range_table);
 	if (range == NULL) {
-		vty_out(vty, "%% range %s does not exists.\n", prefix_str);
+		vty_out(vty, "%% range %s does not exist.\n", prefix_str);
 		return CMD_SUCCESS;
 	}
 
