@@ -1176,7 +1176,7 @@ void ospf6_abr_examin_summary(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 		if (lsa->header->adv_router == router_lsa->router_id) {
 			if (is_debug)
 				zlog_debug(
-					"Ignorning Inter-Router LSA for an ABR (%s)",
+					"Ignoring Inter-Router LSA for an ABR (%s)",
 					buf);
 			if (old)
 				ospf6_route_remove(old, table);
