@@ -39,11 +39,6 @@
 #define PIM_SG_LEN PREFIX_SG_STR_LEN
 #define pim_inet4_dump prefix_mcast_inet4_dump
 
-static inline void pim_addr_copy(pim_addr *dest, pim_addr *source)
-{
-	dest->s_addr = source->s_addr;
-}
-
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
