@@ -1264,14 +1264,13 @@ struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 				       int argc, struct cmd_token **argv,
 				       int idx_ifname, int intf_idx,
-				       int json_idx)
+				       int json_idx, bool uj)
 {
 
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 	json_object *json;
 	json_object *json_int;
-	bool uj = use_json(argc, argv);
 
 	if (uj) {
 		json = json_object_new_object();
@@ -1327,6 +1326,7 @@ DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
@@ -1339,12 +1339,14 @@ DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			show_ospf6_interface_common(vty, ospf6->vrf_id, argc,
 						    argv, idx_ifname, intf_idx,
-						    json_idx);
+						    json_idx, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1461,14 +1463,13 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 
 static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 					       struct cmd_token **argv,
-					       vrf_id_t vrf_id)
+					       vrf_id_t vrf_id, bool uj)
 {
 	int idx_ifname = 0;
 	int display_once = 0;
 	char *intf_name = NULL;
 	struct interface *ifp = NULL;
 	json_object *json = NULL;
-	bool uj = use_json(argc, argv);
 
 	if (uj)
 		json = json_object_new_object();
@@ -1529,18 +1530,21 @@ DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			ospf6_interface_show_traffic_common(vty, argc, argv,
-							    ospf6->vrf_id);
+							    ospf6->vrf_id, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1605,6 +1609,8 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1654,6 +1660,8 @@ DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }

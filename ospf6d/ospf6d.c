@@ -421,6 +421,8 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -471,6 +473,8 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -511,6 +515,8 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -556,6 +562,8 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -625,6 +633,8 @@ DEFUN_HIDDEN(
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -680,6 +690,8 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -740,6 +752,8 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -789,6 +803,8 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -837,6 +853,8 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -898,6 +916,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -967,6 +987,8 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1007,6 +1029,8 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1064,6 +1088,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1127,6 +1153,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1186,6 +1214,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1263,6 +1293,8 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1306,6 +1338,8 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1345,6 +1379,8 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }

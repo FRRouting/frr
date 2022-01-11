@@ -2553,6 +2553,8 @@ DEFUN(show_ipv6_ospf6_redistribute, show_ipv6_ospf6_redistribute_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 

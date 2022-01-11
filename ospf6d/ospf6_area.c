@@ -1075,6 +1075,8 @@ DEFUN(show_ipv6_ospf6_spf_tree, show_ipv6_ospf6_spf_tree_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1141,6 +1143,8 @@ DEFUN(show_ipv6_ospf6_area_spf_tree, show_ipv6_ospf6_area_spf_tree_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1229,6 +1233,8 @@ DEFUN(show_ipv6_ospf6_simulate_spf_tree_root,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
