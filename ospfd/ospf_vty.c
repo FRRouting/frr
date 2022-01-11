@@ -9917,7 +9917,7 @@ DEFUN (ospf_external_route_aggregation,
 
 	ret = ospf_asbr_external_aggregator_set(ospf, &p, tag);
 	if (ret == OSPF_INVALID)
-		vty_out(vty, "Inavlid configuration!!\n");
+		vty_out(vty, "Invalid configuration!!\n");
 
 	return CMD_SUCCESS;
 }
@@ -9958,7 +9958,7 @@ DEFUN (no_ospf_external_route_aggregation,
 
 	ret = ospf_asbr_external_aggregator_unset(ospf, &p, tag);
 	if (ret == OSPF_INVALID)
-		vty_out(vty, "Inavlid configuration!!\n");
+		vty_out(vty, "Invalid configuration!!\n");
 
 	return CMD_SUCCESS;
 }
@@ -10243,7 +10243,7 @@ DEFUN (ospf_external_route_aggregation_no_adrvertise,
 
 	ret = ospf_asbr_external_rt_no_advertise(ospf, &p);
 	if (ret == OSPF_INVALID)
-		vty_out(vty, "Inavlid configuration!!\n");
+		vty_out(vty, "Invalid configuration!!\n");
 
 	return CMD_SUCCESS;
 }
@@ -10279,7 +10279,7 @@ DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
 
 	ret = ospf_asbr_external_rt_advertise(ospf, &p);
 	if (ret == OSPF_INVALID)
-		vty_out(vty, "Inavlid configuration!!\n");
+		vty_out(vty, "Invalid configuration!!\n");
 
 	return CMD_SUCCESS;
 }
