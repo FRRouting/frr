@@ -48,6 +48,19 @@ extern int
 zebra_l2_bridge_if_vlan_access_bd_deref(struct zebra_evpn_access_bd *bd);
 extern int
 zebra_l2_bridge_if_vlan_access_bd_ref(struct zebra_evpn_access_bd *bd);
+
+extern int zebra_l2_brvlan_mac_del(struct interface *br_if,
+				   struct zebra_l2_brvlan_mac *bmac);
+extern int zebra_l2_brvlan_mac_update(struct interface *br_if,
+				      struct zebra_l2_brvlan_mac *bmac,
+				      ifindex_t ifidx);
+extern struct zebra_l2_brvlan_mac *
+zebra_l2_brvlan_mac_add(struct interface *br_if, vlanid_t vid,
+			struct ethaddr *mac, ifindex_t ifidx);
+extern struct zebra_l2_brvlan_mac *
+zebra_l2_brvlan_mac_find(struct interface *br_if, vlanid_t vid,
+			 struct ethaddr *mac);
+
 extern int zebra_l2_bridge_if_del(struct interface *ifp);
 extern int zebra_l2_bridge_if_add(struct interface *ifp);
 extern int zebra_l2_bridge_if_cleanup(struct interface *ifp);
