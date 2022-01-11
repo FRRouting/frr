@@ -30,6 +30,12 @@ extern "C" {
 /* Bridge interface change flags of interest. */
 #define ZEBRA_BRIDGEIF_ACCESS_BD_CHANGE (1 << 0)
 
+extern void zebra_l2_brvlan_mac_iterate(struct interface *br_if, vlanid_t vid,
+					int (*func)(struct interface *br_if,
+						    vlanid_t vid,
+						    struct ethaddr *macaddr,
+						    ifindex_t ifidx, void *a),
+					void *arg);
 extern struct zebra_l2_bridge_vlan *
 zebra_l2_bridge_if_vlan_find(const struct zebra_if *zif, vlanid_t vid);
 extern vni_t zebra_l2_bridge_if_vni_find(const struct zebra_if *zif,

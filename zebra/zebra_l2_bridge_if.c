@@ -44,6 +44,19 @@
 #include "zebra/zebra_evpn_vxlan.h"
 #include "zebra/zebra_router.h"
 
+static void zebra_l2_brvlan_mac_iterate_callback(struct hash_bucket *bucket,
+						 void *ctxt)
+{
+	struct zebra_l2_brvlan_mac *bmac;
+	struct zebra_l2_brvlan_mac_ctx *ctx;
+
+	bmac = (struct zebra_l2_brvlan_mac *)bucket->data;
+	ctx = (struct zebra_l2_brvlan_mac_ctx *)ctxt;
+
+	ctx->func(ctx->br_if, ctx->vid, &bmac->macaddr, bmac->ifindex,
+		  ctx->arg);
+}
+
 static void zebra_l2_brvlan_print_mac_hash(struct hash_bucket *bucket,
 					   void *ctxt)
 {
@@ -128,6 +141,30 @@ static struct hash *zebra_l2_brvlan_mac_table_create(void)
 	return hash_create(zebra_l2_brvlan_mac_hash_keymake,
 			   zebra_l2_brvlan_mac_hash_cmp,
 			   "Zebra L2 Bridge MAC Table");
+}
+
+void zebra_l2_brvlan_mac_iterate(struct interface *br_if, vlanid_t vid,
+				 int (*func)(struct interface *br_if,
+					     vlanid_t vid,
+					     struct ethaddr *macaddr,
+					     ifindex_t ifidx, void *a),
+				 void *arg)
+{
+	struct zebra_if *zif;
+	struct zebra_l2_bridge_if *br;
+	struct zebra_l2_brvlan_mac_ctx ctx;
+
+	zif = (struct zebra_if *)br_if->info;
+	br = BRIDGE_FROM_ZEBRA_IF(zif);
+	if (!br || !br->mac_table[vid])
+		return;
+	memset(&ctx, 0, sizeof(ctx));
+	ctx.br_if = br_if;
+	ctx.vid = vid;
+	ctx.func = func;
+	ctx.arg = arg;
+	hash_iterate(br->mac_table[vid], zebra_l2_brvlan_mac_iterate_callback,
+		     &ctx);
 }
 
 void zebra_l2_brvlan_print_macs(struct vty *vty, struct interface *br_if,

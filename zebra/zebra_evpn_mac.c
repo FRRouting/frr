@@ -2448,7 +2448,31 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	return 0;
 }
 
-void zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
+int zebra_evpn_mac_add_local_mac(struct interface *br_if, vlanid_t vid,
+				 struct ethaddr *macaddr, ifindex_t ifidx,
+				 void *arg)
+{
+	struct mac_walk_ctx *m_wctx;
+	struct zebra_evpn *zevpn;
+	struct interface *ifp;
+
+	m_wctx = (struct mac_walk_ctx *)arg;
+	zevpn = m_wctx->zevpn;
+	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifidx);
+	assert(ifp);
+
+	if (IS_ZEBRA_DEBUG_VXLAN)
+		zlog_debug(
+			"VNI %u (bridge %s VID %u) adding local MAC %pEA ifidx %u",
+			zevpn->vni, br_if->name, vid, macaddr, ifidx);
+
+	return zebra_evpn_add_update_local_mac(m_wctx->zvrf, zevpn, ifp,
+					       macaddr, vid, false, false,
+					       false, NULL);
+}
+
+void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
+				 struct zebra_evpn *zevpn,
 				 const struct ipaddr *ip,
 				 struct zebra_mac **macp,
 				 const struct ethaddr *macaddr,

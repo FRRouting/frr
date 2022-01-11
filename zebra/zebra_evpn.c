@@ -930,6 +930,8 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct zebra_if *zif;
+	struct interface *br_if;
+	struct mac_walk_ctx m_wctx;
 	struct interface *vlan_if;
 	struct zebra_vxlan_vni *vni;
 	struct interface *vrr_if;
@@ -940,12 +942,22 @@ void zebra_evpn_read_mac_neigh(struct zebra_evpn *zevpn, struct interface *ifp)
 	if (!zvrf || !zvrf->zns)
 		return;
 	zns = zvrf->zns;
+	br_if = zif->brslave_info.br_if;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
-			"Reading MAC FDB and Neighbors for intf %s(%u) VNI %u master %u",
-			ifp->name, ifp->ifindex, zevpn->vni,
-			zif->brslave_info.bridge_ifindex);
+			"Building EVPN MAC cache for VNI %u - bridge %s(%u) VID %u",
+			zevpn->vni, br_if->name, br_if->ifindex,
+			vni->access_vlan);
+
+	zvrf = zebra_vrf_get_evpn();
+	assert(zvrf);
+
+	memset(&m_wctx, 0, sizeof(struct mac_walk_ctx));
+	m_wctx.zevpn = zevpn;
+	m_wctx.zvrf = zvrf;
+	zebra_l2_brvlan_mac_iterate(br_if, vni->access_vlan,
+				    zebra_evpn_mac_add_local_mac, &m_wctx);
 
 	dplane_fdb_read_for_bridge(zns, ifp, zif->brslave_info.br_if,
 				   vni->access_vlan);
