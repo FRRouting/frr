@@ -1926,13 +1926,13 @@ DEFPY (ospf6_default_route_originate,
 	if (mtype_str == NULL)
 		mtype = -1;
 
-	/* To check ,if user is providing same route map */
-	if ((rtmap == ROUTEMAP_NAME(red))
-	    || (rtmap && ROUTEMAP_NAME(red)
-		&& (strcmp(rtmap, ROUTEMAP_NAME(red)) == 0)))
+	/* To check if user is providing same route map */
+	if ((!rtmap && !ROUTEMAP_NAME(red)) ||
+	    (rtmap && ROUTEMAP_NAME(red) &&
+	     (strcmp(rtmap, ROUTEMAP_NAME(red)) == 0)))
 		sameRtmap = true;
 
-	/* Don't allow if the same lsa is aleardy originated. */
+	/* Don't allow if the same lsa is already originated. */
 	if ((sameRtmap) && (red->dmetric.type == mtype)
 	    && (red->dmetric.value == mval)
 	    && (cur_originate == default_originate))
