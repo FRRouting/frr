@@ -1111,12 +1111,15 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
 static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 				      struct cmd_token **argv,
-				      struct ospf6 *ospf6, int idx_ipv4)
+				      struct ospf6 *ospf6, int idx_ipv4,
+				      bool uj)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
@@ -1126,7 +1129,6 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 			 json_object *json, bool use_json);
 	uint32_t router_id;
 	json_object *json = NULL;
-	bool uj = use_json(argc, argv);
 
 	showfunc = ospf6_neighbor_show_detail;
 	if (uj)
@@ -1164,6 +1166,7 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
@@ -1172,12 +1175,14 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			ospf6_neighbor_show_common(vty, argc, argv, ospf6,
-						   idx_ipv4);
+						   idx_ipv4, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }

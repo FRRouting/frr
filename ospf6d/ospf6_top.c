@@ -1536,6 +1536,8 @@ DEFUN(show_ipv6_ospf6, show_ipv6_ospf6_cmd,
 	if (uj)
 		json_object_free(json);
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1574,6 +1576,8 @@ DEFUN(show_ipv6_ospf6_route, show_ipv6_ospf6_route_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1606,6 +1610,8 @@ DEFUN(show_ipv6_ospf6_route_match, show_ipv6_ospf6_route_match_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1641,6 +1647,8 @@ DEFUN(show_ipv6_ospf6_route_match_detail,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1675,6 +1683,8 @@ DEFUN(show_ipv6_ospf6_route_type_detail, show_ipv6_ospf6_route_type_detail_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -2090,6 +2100,8 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
 	if (uj) {
 		vty_json(vty, json);
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
