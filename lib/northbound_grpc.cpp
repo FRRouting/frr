@@ -983,17 +983,19 @@ class NorthboundServer
  * - grpc::ServerCompletionQueue *
  * - struct thread_master *
  * - Candidates *
+ * - bool *
  * - (text/code) Service name
  */
-#define NORTHBOUND_ASYNC_RESPONDER(service, queue, main, candidate, name)      \
+#define NORTHBOUND_ASYNC_RESPONDER(service, queue, main, candidate, running,   \
+				   name)                                       \
 	new NorthboundCallAsync<frr::name##Request, frr::name##Response>(      \
-		(service), (queue), (main), (candidate),                       \
+		(service), (queue), (main), (candidate), (running),            \
 		&frr::Northbound::AsyncService::Request##name,                 \
 		&HandleStreaming##name)
 
-#define NORTHBOUND_RESPONDER(service, queue, main, candidate, name)            \
+#define NORTHBOUND_RESPONDER(service, queue, main, candidate, running, name)   \
 	new NorthboundCall<frr::name##Request, frr::name##Response>(           \
-		(service), (queue), (main), (candidate),                       \
+		(service), (queue), (main), (candidate), (running),            \
 		&frr::Northbound::AsyncService::Request##name,                 \
 		&HandleUnary##name)
 
@@ -1017,31 +1019,35 @@ class NorthboundServer
 		zlog_notice("gRPC server listening on %s", m_uri.c_str());
 
 		NORTHBOUND_ASYNC_RESPONDER(&m_service, m_queue.get(), m_main,
-					   NULL, Get);
+					   NULL, &m_running, Get);
 		NORTHBOUND_ASYNC_RESPONDER(&m_service, m_queue.get(), m_main,
-					   NULL, ListTransactions);
+					   NULL, &m_running, ListTransactions);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
-				     Execute);
+				     &m_running, Execute);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
-				     GetCapabilities);
+				     &m_running, GetCapabilities);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, CreateCandidate);
+				     &m_candidates, &m_running,
+				     CreateCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, DeleteCandidate);
+				     &m_candidates, &m_running,
+				     DeleteCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, UpdateCandidate);
+				     &m_candidates, &m_running,
+				     UpdateCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, EditCandidate);
+				     &m_candidates, &m_running, EditCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, LoadToCandidate);
+				     &m_candidates, &m_running,
+				     LoadToCandidate);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main,
-				     &m_candidates, Commit);
+				     &m_candidates, &m_running, Commit);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
-				     GetTransaction);
+				     &m_running, GetTransaction);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
-				     LockConfig);
+				     &m_running, LockConfig);
 		NORTHBOUND_RESPONDER(&m_service, m_queue.get(), m_main, NULL,
-				     UnlockConfig);
+				     &m_running, UnlockConfig);
 
 		while (m_running) {
 			if (!m_queue->Next(&tag, &ok)) {
@@ -1176,7 +1182,7 @@ error:
 static int frr_grpc_module_late_init(struct thread_master *tm)
 {
 	main_master = tm;
-	hook_register(frr_fini, frr_grpc_finish);
+	hook_register(frr_early_fini, frr_grpc_finish);
 	thread_add_event(tm, frr_grpc_module_very_late_init, NULL, 0, NULL);
 	return 0;
 }
