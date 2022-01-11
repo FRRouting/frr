@@ -38,6 +38,13 @@ struct zebra_l2_bridge_vlan {
 	struct zebra_evpn_access_bd *access_bd;
 };
 
+struct zebra_l2_brvlan_mac {
+	struct interface *br_if;
+	vlanid_t vid;
+	struct ethaddr macaddr;
+	ifindex_t ifindex;
+};
+
 struct zebra_l2_bridge_if_ctx {
 	/* input */
 	struct zebra_if *zif;
@@ -48,10 +55,22 @@ struct zebra_l2_bridge_if_ctx {
 	void *arg;
 };
 
+struct zebra_l2_brvlan_mac_ctx {
+	/* input */
+	struct interface *br_if;
+	vlanid_t vid;
+	int (*func)(struct interface *br_if, vlanid_t vid,
+		    struct ethaddr *macaddr, ifindex_t ifidx, void *arg);
+
+	/* input-output */
+	void *arg;
+};
+
 struct zebra_l2_bridge_if {
 	uint8_t vlan_aware;
 	struct zebra_if *br_zif;
 	struct hash *vlan_table;
+	struct hash *mac_table[VLANID_MAX];
 };
 
 /* zebra L2 interface information - bridge interface */
