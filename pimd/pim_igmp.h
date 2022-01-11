@@ -26,6 +26,7 @@
 #include "vty.h"
 #include "linklist.h"
 #include "pim_igmp_stats.h"
+#include "pim_str.h"
 
 /*
   The following sizes are likely to support
@@ -76,8 +77,8 @@
 	} while (0)
 
 struct gm_join {
-	struct in_addr group_addr;
-	struct in_addr source_addr;
+	pim_addr group_addr;
+	pim_addr source_addr;
 	int sock_fd;
 	time_t sock_creation;
 };
@@ -85,14 +86,14 @@ struct gm_join {
 struct gm_sock {
 	int fd;
 	struct interface *interface;
-	struct in_addr ifaddr;
+	pim_addr ifaddr;
 	time_t sock_creation;
 
 	struct thread *t_igmp_read; /* read: IGMP sockets */
 	struct thread
 		*t_igmp_query_timer; /* timer: issue IGMP general queries */
 	struct thread *t_other_querier_timer; /* timer: other querier present */
-	struct in_addr querier_addr;	  /* IP address of the querier */
+	pim_addr querier_addr;		      /* IP address of the querier */
 	int querier_query_interval;	   /* QQI */
 	int querier_robustness_variable; /* QRV */
 	int startup_query_count;
@@ -139,7 +140,7 @@ int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
 #define IGMP_SOURCE_DONT_SEND(flags)       ((flags) &= ~IGMP_SOURCE_MASK_SEND)
 
 struct gm_source {
-	struct in_addr source_addr;
+	pim_addr source_addr;
 	struct thread *t_source_timer;
 	struct gm_group *source_group; /* back pointer */
 	time_t source_creation;
@@ -174,8 +175,7 @@ struct gm_group {
 
 	/* compatibility mode - igmp v1, v2 or v3 */
 	int igmp_version;
-
-	struct in_addr group_addr;
+	pim_addr group_addr;
 	int group_filtermode_isexcl;    /* 0=INCLUDE, 1=EXCLUDE */
 	struct list *group_source_list; /* list of struct gm_source */
 	time_t group_creation;

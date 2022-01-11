@@ -37,7 +37,7 @@ struct pim_assert_metric {
 	uint32_t rpt_bit_flag;
 	uint32_t metric_preference;
 	uint32_t route_metric;
-	struct in_addr ip_address; /* neighbor router that sourced the Assert
+	pim_addr ip_address; /* neighbor router that sourced the Assert
 				      message */
 };
 
@@ -55,8 +55,7 @@ struct pim_assert_metric {
 #define PIM_ASSERT_ROUTE_METRIC_MAX      (0xFFFFFFFF)
 
 void pim_ifassert_winner_set(struct pim_ifchannel *ch,
-			     enum pim_ifassert_state new_state,
-			     struct in_addr winner,
+			     enum pim_ifassert_state new_state, pim_addr winner,
 			     struct pim_assert_metric winner_metric);
 
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,

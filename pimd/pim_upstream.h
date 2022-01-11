@@ -229,8 +229,8 @@ struct pim_upstream {
 	struct pim_instance *pim;
 	struct rb_pim_upstream_item upstream_rb;
 	struct pim_upstream *parent;
-	struct in_addr upstream_addr;     /* Who we are talking to */
-	struct in_addr upstream_register; /*Who we received a register from*/
+	pim_addr upstream_addr;		  /* Who we are talking to */
+	pim_addr upstream_register;       /*Who we received a register from*/
 	struct prefix_sg sg;		  /* (S,G) group key */
 	char sg_str[PIM_SG_LEN];
 	uint32_t flags;
