@@ -3514,6 +3514,40 @@ DEFUN (show_evpn_neigh_vni_vtep,
 	return CMD_SUCCESS;
 }
 
+DEFPY(show_evpn_local_mac, show_evpn_local_mac_cmd,
+      "show evpn local-mac IFNAME$if_name (1-4094)$vid [json$json]",
+      SHOW_STR
+      "EVPN\n"
+      "Local MAC addresses\n"
+      "Interface Name\n"
+      "VLAN ID\n" JSON_STR)
+{
+	struct vrf *vrf = NULL;
+	struct interface *ifp = NULL;
+	bool found = false;
+	bool uj = use_json(argc, argv);
+
+	if (!if_name || !vid) {
+		return CMD_WARNING;
+	}
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		ifp = if_lookup_by_name(if_name, vrf->vrf_id);
+		if (ifp) {
+			found = true;
+			break;
+		}
+	}
+
+	if (!found) {
+		vty_out(vty, "%% Can't find interface %s\n", if_name);
+		return CMD_WARNING;
+	}
+
+	zebra_l2_brvlan_print_macs(vty, ifp, vid, uj);
+	return CMD_SUCCESS;
+}
+
 /* policy routing contexts */
 DEFUN (show_pbr_ipset,
        show_pbr_ipset_cmd,
@@ -4448,6 +4482,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_vtep_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_dad_cmd);
 	install_element(VIEW_NODE, &show_evpn_neigh_vni_all_dad_cmd);
+	install_element(VIEW_NODE, &show_evpn_local_mac_cmd);
 	install_element(ENABLE_NODE, &clear_evpn_dup_addr_cmd);
 	install_element(CONFIG_NODE, &evpn_accept_bgp_seq_cmd);
 	install_element(CONFIG_NODE, &no_evpn_accept_bgp_seq_cmd);
