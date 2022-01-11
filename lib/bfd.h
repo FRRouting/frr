@@ -385,8 +385,8 @@ struct bfd_session_arg {
 
 	/** Multi hop indicator. */
 	uint8_t mhop;
-	/** Expected TTL. */
-	uint8_t ttl;
+	/** Expected hops. */
+	uint8_t hops;
 	/** C bit (Control Plane Independent bit) indicator. */
 	uint8_t cbit;
 
