@@ -345,7 +345,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 	else if (safi == SAFI_UNICAST && pi
 		 && pi->sub_type == BGP_ROUTE_IMPORTED && pi->extra
 		 && pi->extra->num_labels && !bnc->is_evpn_gwip_nexthop) {
-		return bgp_isvalid_labeled_nexthop(bnc);
+		return bgp_isvalid_labeled_nexthop(bnc) || bgp_isvalid_nexthop(bnc);
 	} else
 		return (bgp_isvalid_nexthop(bnc));
 }
@@ -1027,7 +1027,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    && (path->attr->evpn_overlay.type
 			!= OVERLAY_INDEX_GATEWAY_IP)) {
 			bnc_is_valid_nexthop =
-				bgp_isvalid_labeled_nexthop(bnc) ? true : false;
+				bgp_isvalid_labeled_nexthop(bnc) || bgp_isvalid_nexthop(bnc);
 		} else {
 			if (bgp_update_martian_nexthop(
 				    bnc->bgp, afi, safi, path->type,
