@@ -4320,10 +4320,6 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 	struct listnode *node;
 	/* length(1) + message(N) */
 	uint8_t data[BGP_ADMIN_SHUTDOWN_MSG_LEN + 1];
-	size_t datalen = strlen(msg);
-
-	data[0] = datalen;
-	memcpy(data + 1, msg, datalen);
 
 	/* do nothing if already shut down */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_SHUTDOWN))
@@ -4341,15 +4337,24 @@ void bgp_shutdown_enable(struct bgp *bgp, const char *msg)
 
 		/* send a RFC 4486 notification message if necessary */
 		if (BGP_IS_VALID_STATE_FOR_NOTIF(peer->status)) {
-			if (msg)
+			if (msg) {
+				size_t datalen = strlen(msg);
+
+				if (datalen > BGP_ADMIN_SHUTDOWN_MSG_LEN)
+					datalen = BGP_ADMIN_SHUTDOWN_MSG_LEN;
+
+				data[0] = datalen;
+				memcpy(data + 1, msg, datalen);
+
 				bgp_notify_send_with_data(
 					peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, data,
 					datalen + 1);
-			else
+			} else {
 				bgp_notify_send(
 					peer, BGP_NOTIFY_CEASE,
 					BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN);
+			}
 		}
 
 		/* reset start timer to initial value */
