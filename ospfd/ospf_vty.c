@@ -5892,7 +5892,7 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self,
 	struct as_external_lsa *asel;
 	struct prefix_ipv4 p;
 
-	if (lsa != NULL)
+	if (lsa != NULL) {
 		/* If self option is set, check LSA self flag. */
 		if (self == 0 || IS_LSA_SELF(lsa)) {
 
@@ -6000,6 +6000,9 @@ static int show_lsa_summary(struct vty *vty, struct ospf_lsa *lsa, int self,
 				vty_out(vty, "\n");
 		}
 
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -6031,6 +6034,21 @@ static const char * const show_database_desc_json[] = {
 	"linkLocalOpaqueLsa",
 	"areaLocalOpaqueLsa",
 	"asExternalOpaqueLsa",
+};
+
+static const char *const show_database_desc_count_json[] = {
+	"unknownCount",
+	"routerLinkStatesCount",
+	"networkLinkStatesCount",
+	"summaryLinkStatesCount",
+	"asbrSummaryLinkStatesCount",
+	"asExternalLinkStatesCount",
+	"groupMembershipLsaCount",
+	"nssaExternalLinkStatesCount",
+	"type8LsaCount",
+	"linkLocalOpaqueLsaCount",
+	"areaLocalOpaqueLsaCount",
+	"asExternalOpaqueLsaCount",
 };
 
 static const char *const show_database_header[] = {
@@ -6705,6 +6723,7 @@ void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
 	json_object *json_lsa = NULL;
 	int type;
 	json_object *json_lsa_array = NULL;
+	uint32_t count;
 
 	if (json)
 		json_areas = json_object_new_object();
@@ -6714,6 +6733,7 @@ void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
 			json_area = json_object_new_object();
 
 		for (type = OSPF_MIN_LSA; type < OSPF_MAX_LSA; type++) {
+			count = 0;
 			switch (type) {
 			case OSPF_AS_EXTERNAL_LSA:
 			case OSPF_OPAQUE_AS_LSA:
@@ -6750,12 +6770,19 @@ void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
 							json_lsa);
 					}
 
-					show_lsa_summary(vty, lsa, self,
-							 json_lsa);
+					count += show_lsa_summary(
+						vty, lsa, self, json_lsa);
 				}
 
 				if (!json)
 					vty_out(vty, "\n");
+				else
+					json_object_int_add(
+						json_area,
+
+						show_database_desc_count_json
+							[type],
+						count);
 			}
 		}
 		if (json)
@@ -6770,6 +6797,7 @@ void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
 		json_object_object_add(json, "areas", json_areas);
 
 	for (type = OSPF_MIN_LSA; type < OSPF_MAX_LSA; type++) {
+		count = 0;
 		switch (type) {
 		case OSPF_AS_EXTERNAL_LSA:
 		case OSPF_OPAQUE_AS_LSA:
@@ -6798,11 +6826,17 @@ void show_ip_ospf_database_summary(struct vty *vty, struct ospf *ospf, int self,
 							      json_lsa);
 				}
 
-				show_lsa_summary(vty, lsa, self, json_lsa);
+				count += show_lsa_summary(vty, lsa, self,
+							  json_lsa);
 			}
 
 			if (!json)
 				vty_out(vty, "\n");
+			else
+				json_object_int_add(
+					json,
+					show_database_desc_count_json[type],
+					count);
 		}
 	}
 
