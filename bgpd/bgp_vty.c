@@ -11322,185 +11322,167 @@ static void bgp_show_neighbor_graceful_restart_capability_per_afi_safi(
 	json_object *json_endofrib_status = NULL;
 	bool eor_flag = false;
 
-	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-			if (!peer->afc[afi][safi])
-				continue;
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (!peer->afc[afi][safi])
+			continue;
 
-			if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)
-			    || !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
-				continue;
+		if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) ||
+		    !CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV))
+			continue;
+
+		if (use_json) {
+			json_afi_safi = json_object_new_object();
+			json_endofrib_status = json_object_new_object();
+			json_timer = json_object_new_object();
+		}
+
+		if (peer->eor_stime[afi][safi] >= peer->pkt_stime[afi][safi])
+			eor_flag = true;
+		else
+			eor_flag = false;
+
+		if (!use_json) {
+			vty_out(vty, "    %s:\n",
+				get_afi_safi_str(afi, safi, false));
+
+			vty_out(vty, "      F bit: ");
+		}
+
+		if (peer->nsf[afi][safi] &&
+		    CHECK_FLAG(peer->af_cap[afi][safi],
+			       PEER_CAP_RESTART_AF_PRESERVE_RCV)) {
 
 			if (use_json) {
-				json_afi_safi = json_object_new_object();
-				json_endofrib_status = json_object_new_object();
-				json_timer = json_object_new_object();
-			}
-
-			if (peer->eor_stime[afi][safi]
-			    >= peer->pkt_stime[afi][safi])
-				eor_flag = true;
+				json_object_boolean_true_add(json_afi_safi,
+							     "fBit");
+			} else
+				vty_out(vty, "True\n");
+		} else {
+			if (use_json)
+				json_object_boolean_false_add(json_afi_safi,
+							      "fBit");
 			else
-				eor_flag = false;
+				vty_out(vty, "False\n");
+		}
 
-			if (!use_json) {
-				vty_out(vty, "    %s:\n",
-					get_afi_safi_str(afi, safi, false));
+		if (!use_json)
+			vty_out(vty, "      End-of-RIB sent: ");
 
-				vty_out(vty, "      F bit: ");
-			}
-
-			if (peer->nsf[afi][safi]
-			    && CHECK_FLAG(peer->af_cap[afi][safi],
-					  PEER_CAP_RESTART_AF_PRESERVE_RCV)) {
-
-				if (use_json) {
-					json_object_boolean_true_add(
-						json_afi_safi, "fBit");
-				} else
-					vty_out(vty, "True\n");
-			} else {
-				if (use_json)
-					json_object_boolean_false_add(
-						json_afi_safi, "fBit");
-				else
-					vty_out(vty, "False\n");
-			}
-
-			if (!use_json)
-				vty_out(vty, "      End-of-RIB sent: ");
-
-			if (CHECK_FLAG(peer->af_sflags[afi][safi],
-				       PEER_STATUS_EOR_SEND)) {
-				if (use_json) {
-					json_object_boolean_true_add(
-						json_endofrib_status,
-						"endOfRibSend");
-
-					PRINT_EOR_JSON(eor_flag);
-				} else {
-					vty_out(vty, "Yes\n");
-					vty_out(vty,
-						"      End-of-RIB sent after update: ");
-
-					PRINT_EOR(eor_flag);
-				}
-			} else {
-				if (use_json) {
-					json_object_boolean_false_add(
-						json_endofrib_status,
-						"endOfRibSend");
-					json_object_boolean_false_add(
-						json_endofrib_status,
-						"endOfRibSentAfterUpdate");
-				} else {
-					vty_out(vty, "No\n");
-					vty_out(vty,
-						"      End-of-RIB sent after update: ");
-					vty_out(vty, "No\n");
-				}
-			}
-
-			if (!use_json)
-				vty_out(vty, "      End-of-RIB received: ");
-
-			if (CHECK_FLAG(peer->af_sflags[afi][safi],
-				       PEER_STATUS_EOR_RECEIVED)) {
-				if (use_json)
-					json_object_boolean_true_add(
-						json_endofrib_status,
-						"endOfRibRecv");
-				else
-					vty_out(vty, "Yes\n");
-			} else {
-				if (use_json)
-					json_object_boolean_false_add(
-						json_endofrib_status,
-						"endOfRibRecv");
-				else
-					vty_out(vty, "No\n");
-			}
-
+		if (CHECK_FLAG(peer->af_sflags[afi][safi],
+			       PEER_STATUS_EOR_SEND)) {
 			if (use_json) {
-				json_object_int_add(json_timer,
-						    "stalePathTimer",
-						    peer->bgp->stalepath_time);
+				json_object_boolean_true_add(
+					json_endofrib_status, "endOfRibSend");
 
-				if (peer->t_gr_stale != NULL) {
-					json_object_int_add(
-						json_timer,
-						"stalePathTimerRemaining",
-						thread_timer_remain_second(
-							peer->t_gr_stale));
-				}
-
-				/* Display Configured Selection
-				 * Deferral only when when
-				 * Gr mode is enabled.
-				 */
-				if (CHECK_FLAG(peer->flags,
-					       PEER_FLAG_GRACEFUL_RESTART)) {
-					json_object_int_add(
-						json_timer,
-						"selectionDeferralTimer",
-						peer->bgp->stalepath_time);
-				}
-
-				if (peer->bgp->gr_info[afi][safi]
-					    .t_select_deferral
-				    != NULL) {
-
-					json_object_int_add(
-						json_timer,
-						"selectionDeferralTimerRemaining",
-						thread_timer_remain_second(
-							peer->bgp
-								->gr_info[afi]
-									 [safi]
-								.t_select_deferral));
-				}
+				PRINT_EOR_JSON(eor_flag);
 			} else {
-				vty_out(vty, "      Timers:\n");
+				vty_out(vty, "Yes\n");
 				vty_out(vty,
-					"        Configured Stale Path Time(sec): %u\n",
-					peer->bgp->stalepath_time);
+					"      End-of-RIB sent after update: ");
 
-				if (peer->t_gr_stale != NULL)
-					vty_out(vty,
-						"      Stale Path Remaining(sec): %ld\n",
-						thread_timer_remain_second(
-							peer->t_gr_stale));
-				/* Display Configured Selection
-				 * Deferral only when when
-				 * Gr mode is enabled.
-				 */
-				if (CHECK_FLAG(peer->flags,
-					       PEER_FLAG_GRACEFUL_RESTART))
-					vty_out(vty,
-						"        Configured Selection Deferral Time(sec): %u\n",
-						peer->bgp->select_defer_time);
-
-				if (peer->bgp->gr_info[afi][safi]
-					    .t_select_deferral
-				    != NULL)
-					vty_out(vty,
-						"        Selection Deferral Time Remaining(sec): %ld\n",
-						thread_timer_remain_second(
-							peer->bgp
-								->gr_info[afi]
-									 [safi]
-								.t_select_deferral));
+				PRINT_EOR(eor_flag);
 			}
+		} else {
 			if (use_json) {
-				json_object_object_add(json_afi_safi,
-						       "endOfRibStatus",
-						       json_endofrib_status);
-				json_object_object_add(json_afi_safi, "timers",
-						       json_timer);
-				json_object_object_add(
-					json, get_afi_safi_str(afi, safi, true),
-					json_afi_safi);
+				json_object_boolean_false_add(
+					json_endofrib_status, "endOfRibSend");
+				json_object_boolean_false_add(
+					json_endofrib_status,
+					"endOfRibSentAfterUpdate");
+			} else {
+				vty_out(vty, "No\n");
+				vty_out(vty,
+					"      End-of-RIB sent after update: ");
+				vty_out(vty, "No\n");
 			}
+		}
+
+		if (!use_json)
+			vty_out(vty, "      End-of-RIB received: ");
+
+		if (CHECK_FLAG(peer->af_sflags[afi][safi],
+			       PEER_STATUS_EOR_RECEIVED)) {
+			if (use_json)
+				json_object_boolean_true_add(
+					json_endofrib_status, "endOfRibRecv");
+			else
+				vty_out(vty, "Yes\n");
+		} else {
+			if (use_json)
+				json_object_boolean_false_add(
+					json_endofrib_status, "endOfRibRecv");
+			else
+				vty_out(vty, "No\n");
+		}
+
+		if (use_json) {
+			json_object_int_add(json_timer, "stalePathTimer",
+					    peer->bgp->stalepath_time);
+
+			if (peer->t_gr_stale != NULL) {
+				json_object_int_add(json_timer,
+						    "stalePathTimerRemaining",
+						    thread_timer_remain_second(
+							    peer->t_gr_stale));
+			}
+
+			/* Display Configured Selection
+			 * Deferral only when when
+			 * Gr mode is enabled.
+			 */
+			if (CHECK_FLAG(peer->flags,
+				       PEER_FLAG_GRACEFUL_RESTART)) {
+				json_object_int_add(json_timer,
+						    "selectionDeferralTimer",
+						    peer->bgp->stalepath_time);
+			}
+
+			if (peer->bgp->gr_info[afi][safi].t_select_deferral !=
+			    NULL) {
+
+				json_object_int_add(
+					json_timer,
+					"selectionDeferralTimerRemaining",
+					thread_timer_remain_second(
+						peer->bgp->gr_info[afi][safi]
+							.t_select_deferral));
+			}
+		} else {
+			vty_out(vty, "      Timers:\n");
+			vty_out(vty,
+				"        Configured Stale Path Time(sec): %u\n",
+				peer->bgp->stalepath_time);
+
+			if (peer->t_gr_stale != NULL)
+				vty_out(vty,
+					"      Stale Path Remaining(sec): %ld\n",
+					thread_timer_remain_second(
+						peer->t_gr_stale));
+			/* Display Configured Selection
+			 * Deferral only when when
+			 * Gr mode is enabled.
+			 */
+			if (CHECK_FLAG(peer->flags, PEER_FLAG_GRACEFUL_RESTART))
+				vty_out(vty,
+					"        Configured Selection Deferral Time(sec): %u\n",
+					peer->bgp->select_defer_time);
+
+			if (peer->bgp->gr_info[afi][safi].t_select_deferral !=
+			    NULL)
+				vty_out(vty,
+					"        Selection Deferral Time Remaining(sec): %ld\n",
+					thread_timer_remain_second(
+						peer->bgp->gr_info[afi][safi]
+							.t_select_deferral));
+		}
+		if (use_json) {
+			json_object_object_add(json_afi_safi, "endOfRibStatus",
+					       json_endofrib_status);
+			json_object_object_add(json_afi_safi, "timers",
+					       json_timer);
+			json_object_object_add(
+				json, get_afi_safi_str(afi, safi, true),
+				json_afi_safi);
 		}
 	}
 }
