@@ -171,6 +171,12 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	return ifp;
 
 stream_failure:
+	/*
+	 * Clean dp and sp because caller
+	 * will immediately check them valid or not
+	 */
+	memset(dp, 0, sizeof(*dp));
+	memset(sp, 0, sizeof(*sp));
 	return NULL;
 }
 
