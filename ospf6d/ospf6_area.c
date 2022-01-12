@@ -453,6 +453,11 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 
 		json_object_int_add(json_area, "numberOfAreaScopedLsa",
 				    oa->lsdb->count);
+		json_object_object_add(
+			json_area, "lsaStatistics",
+			JSON_OBJECT_NEW_ARRAY(json_object_new_int,
+					      oa->lsdb->stats,
+					      OSPF6_LSTYPE_SIZE));
 
 		/* Interfaces Attached */
 		array_interfaces = json_object_new_array();

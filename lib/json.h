@@ -42,6 +42,15 @@ extern "C" {
 	     json_object_iter_equal(&(joi), &(join)) == 0;                     \
 	     json_object_iter_next(&(joi)))
 
+#define JSON_OBJECT_NEW_ARRAY(json_func, fields, n)                            \
+	({                                                                     \
+		struct json_object *_json_array = json_object_new_array();     \
+		for (int _i = 0; _i < (n); _i++)                               \
+			json_object_array_add(_json_array,                     \
+					      (json_func)((fields)[_i]));      \
+		(_json_array);                                                 \
+	})
+
 extern bool use_json(const int argc, struct cmd_token *argv[]);
 extern void json_object_string_add(struct json_object *obj, const char *key,
 				   const char *s);
