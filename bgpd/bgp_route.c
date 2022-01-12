@@ -1803,27 +1803,18 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 /* Notify BGP Conditional advertisement scanner process. */
 void bgp_notify_conditional_adv_scanner(struct update_subgroup *subgrp)
 {
-	struct peer *temp_peer;
 	struct peer *peer = SUBGRP_PEER(subgrp);
-	struct listnode *temp_node, *temp_nnode = NULL;
 	afi_t afi = SUBGRP_AFI(subgrp);
 	safi_t safi = SUBGRP_SAFI(subgrp);
-	struct bgp *bgp = SUBGRP_INST(subgrp);
 	struct bgp_filter *filter = &peer->filter[afi][safi];
 
 	if (!ADVERTISE_MAP_NAME(filter))
 		return;
 
-	for (ALL_LIST_ELEMENTS(bgp->peer, temp_node, temp_nnode, temp_peer)) {
-		if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
-			continue;
+	if (!CHECK_FLAG(peer->flags, PEER_FLAG_CONFIG_NODE))
+		return;
 
-		if (peer != temp_peer)
-			continue;
-
-		temp_peer->advmap_table_change = true;
-		break;
-	}
+	peer->advmap_table_change = true;
 }
 
 
