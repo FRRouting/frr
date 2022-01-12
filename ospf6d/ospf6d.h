@@ -93,14 +93,24 @@ extern struct thread_master *master;
 #define OSPF6_ROUTER_ID_STR "Specify Router-ID\n"
 #define OSPF6_LS_ID_STR     "Specify Link State ID\n"
 
+#define OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6)                                \
+	do {                                                                   \
+		if (uj == false && all_vrf == false && ospf6 == NULL) {        \
+			vty_out(vty, "%% OSPFv3 instance not found\n");        \
+			return CMD_SUCCESS;                                    \
+		}                                                              \
+	} while (0)
+
 #define IS_OSPF6_ASBR(O) ((O)->flag & OSPF6_FLAG_ASBR)
 #define OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)            \
-	if (argv_find(argv, argc, "vrf", &idx_vrf)) {                          \
-		vrf_name = argv[idx_vrf + 1]->arg;                             \
-		all_vrf = strmatch(vrf_name, "all");                           \
-	} else {                                                               \
-		vrf_name = VRF_DEFAULT_NAME;                                   \
-	}
+	do {                                                                   \
+		if (argv_find(argv, argc, "vrf", &idx_vrf)) {                  \
+			vrf_name = argv[idx_vrf + 1]->arg;                     \
+			all_vrf = strmatch(vrf_name, "all");                   \
+		} else {                                                       \
+			vrf_name = VRF_DEFAULT_NAME;                           \
+		}                                                              \
+	} while (0)
 
 #define OSPF6_FALSE false
 #define OSPF6_TRUE true
