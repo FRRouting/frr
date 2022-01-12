@@ -971,6 +971,10 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 	return "UNKNOWN";
 }
 
+#if CONFDATE > 20220709
+CPP_NOTICE("Time to remove ospf6Enabled from JSON output")
+#endif
+
 /* show specified interface structure */
 static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				json_object *json_obj, bool use_json)
