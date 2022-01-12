@@ -672,10 +672,7 @@ static int bgp_print_dampening_parameters(struct bgp *bgp, struct vty *vty,
 			json_object_int_add(json, "maxSuppressPenalty",
 					    bdc->ceiling);
 
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
+			vty_json(vty, json);
 		} else {
 			vty_out(vty, "Half-life time: %lld min\n",
 				(long long)bdc->half_life / 60);
