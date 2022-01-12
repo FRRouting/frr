@@ -848,10 +848,9 @@ static int bgp_graceful_stale_timer_expire(struct thread *thread)
 			   peer->host);
 
 	/* NSF delete stale route */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
-			if (peer->nsf[afi][safi])
-				bgp_clear_stale_route(peer, afi, safi);
+	FOREACH_AFI_SAFI_NSF (afi, safi)
+		if (peer->nsf[afi][safi])
+			bgp_clear_stale_route(peer, afi, safi);
 
 	return 0;
 }
@@ -1441,10 +1440,8 @@ int bgp_stop(struct peer *peer)
 		} else {
 			UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_MODE);
 
-			for (afi = AFI_IP; afi < AFI_MAX; afi++)
-				for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN;
-				     safi++)
-					peer->nsf[afi][safi] = 0;
+			FOREACH_AFI_SAFI_NSF (afi, safi)
+				peer->nsf[afi][safi] = 0;
 		}
 
 		/* Stop route-refresh stalepath timer */
@@ -2125,48 +2122,43 @@ static int bgp_establish(struct peer *peer)
 		else if (BGP_PEER_HELPER_MODE(peer))
 			zlog_debug("peer %s BGP_HELPER_MODE", peer->host);
 	}
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-			if (peer->afc_nego[afi][safi]
-			    && CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV)
-			    && CHECK_FLAG(peer->af_cap[afi][safi],
-					  PEER_CAP_RESTART_AF_RCV)) {
-				if (peer->nsf[afi][safi]
-				    && !CHECK_FLAG(
-					       peer->af_cap[afi][safi],
-					       PEER_CAP_RESTART_AF_PRESERVE_RCV))
-					bgp_clear_stale_route(peer, afi, safi);
 
-				peer->nsf[afi][safi] = 1;
-				nsf_af_count++;
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (peer->afc_nego[afi][safi] &&
+		    CHECK_FLAG(peer->cap, PEER_CAP_RESTART_ADV) &&
+		    CHECK_FLAG(peer->af_cap[afi][safi],
+			       PEER_CAP_RESTART_AF_RCV)) {
+			if (peer->nsf[afi][safi] &&
+			    !CHECK_FLAG(peer->af_cap[afi][safi],
+					PEER_CAP_RESTART_AF_PRESERVE_RCV))
+				bgp_clear_stale_route(peer, afi, safi);
+
+			peer->nsf[afi][safi] = 1;
+			nsf_af_count++;
+		} else {
+			if (peer->nsf[afi][safi])
+				bgp_clear_stale_route(peer, afi, safi);
+			peer->nsf[afi][safi] = 0;
+		}
+		/* Update the graceful restart information */
+		if (peer->afc_nego[afi][safi]) {
+			if (!BGP_SELECT_DEFER_DISABLE(peer->bgp)) {
+				status = bgp_update_gr_info(peer, afi, safi);
+				if (status < 0)
+					zlog_err(
+						"Error in updating graceful restart for %s",
+						get_afi_safi_str(afi, safi,
+								 false));
 			} else {
-				if (peer->nsf[afi][safi])
-					bgp_clear_stale_route(peer, afi, safi);
-				peer->nsf[afi][safi] = 0;
-			}
-			/* Update the graceful restart information */
-			if (peer->afc_nego[afi][safi]) {
-				if (!BGP_SELECT_DEFER_DISABLE(peer->bgp)) {
-					status = bgp_update_gr_info(peer, afi,
-								    safi);
-					if (status < 0)
-						zlog_err(
-							"Error in updating graceful restart for %s",
-							get_afi_safi_str(
-								afi, safi,
-								false));
-				} else {
-					if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(
-						    peer)
-					    && BGP_PEER_RESTARTING_MODE(peer)
-					    && CHECK_FLAG(
-						    peer->bgp->flags,
-						    BGP_FLAG_GR_PRESERVE_FWD))
-						peer->bgp->gr_info[afi][safi]
-							.eor_required++;
-				}
+				if (BGP_PEER_GRACEFUL_RESTART_CAPABLE(peer) &&
+				    BGP_PEER_RESTARTING_MODE(peer) &&
+				    CHECK_FLAG(peer->bgp->flags,
+					       BGP_FLAG_GR_PRESERVE_FWD))
+					peer->bgp->gr_info[afi][safi]
+						.eor_required++;
 			}
 		}
+	}
 
 	if (!CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
 		if ((bgp_peer_gr_mode_get(peer) == PEER_GR)

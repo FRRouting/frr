@@ -649,19 +649,17 @@ static void zebra_gr_process_client_stale_routes(struct zserv *client,
 		return;
 
 	/* Check if route update completed for all AFI, SAFI */
-	for (afi = AFI_IP; afi < AFI_MAX; afi++)
-		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++) {
-			if (info->af_enabled[afi][safi]) {
-				if (!info->route_sync[afi][safi]) {
-					LOG_GR(
-					   "%s: Client %s route update not completed for AFI %d, SAFI %d",
-					   __func__, zebra_route_string(
-							    client->proto),
-					   afi, safi);
-					return;
-				}
+	FOREACH_AFI_SAFI_NSF (afi, safi) {
+		if (info->af_enabled[afi][safi]) {
+			if (!info->route_sync[afi][safi]) {
+				LOG_GR("%s: Client %s route update not completed for AFI %d, SAFI %d",
+				       __func__,
+				       zebra_route_string(client->proto), afi,
+				       safi);
+				return;
 			}
 		}
+	}
 
 	/*
 	 * Route update completed for all AFI, SAFI
