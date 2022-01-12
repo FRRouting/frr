@@ -335,6 +335,28 @@ Time/interval formats
    ``mx``: :frrfmtout:`09:09`, :frrfmtout:`--:--` - this replaces
    :c:func:`pim_time_timer_to_mmss()`.
 
+FRR library helper formats
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. frrfmt:: %pTH (struct thread *)
+
+   Print remaining time on timer thread. Interval-printing flag characters
+   listed above for ``%pTV`` can be added, e.g. ``%pTHtx``.
+
+   ``NULL`` pointers are printed as ``-``.
+
+.. frrfmt:: %pTHD (struct thread *)
+
+   Print debugging information for given thread.  Sample output:
+
+   .. code-block:: none
+
+      {(thread *)NULL}
+      {(thread *)0x55a3b5818910 arg=0x55a3b5827c50 timer  r=7.824      mld_t_query() &mld_ifp->t_query from pimd/pim6_mld.c:1369}
+      {(thread *)0x55a3b5827230 arg=0x55a3b5827c50 read   fd=16        mld_t_recv() &mld_ifp->t_recv from pimd/pim6_mld.c:1186}
+
+   (The output is aligned to some degree.)
+
 General utility formats
 ^^^^^^^^^^^^^^^^^^^^^^^
 
