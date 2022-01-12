@@ -154,3 +154,22 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, struct in_addr *grp)
 	pl = prefix_list_lookup(AFI_IP, pim_ifp->boundary_oil_plist);
 	return pl ? prefix_list_apply(pl, &grp_pfx) == PREFIX_DENY : false;
 }
+
+bool pim_is_rp_allowed(struct pim_interface *pim_ifp, struct in_addr *rp)
+{
+	struct prefix rp_pfx;
+	struct prefix_list *pl;
+
+	/* No reason to call this if you're conforming to the RFC */
+	assert(pim_ifp->allow_rp);
+
+	if (!pim_ifp->allow_rp_plist)
+		return true;
+
+	rp_pfx.family = AF_INET;
+	rp_pfx.prefixlen = 32;
+	rp_pfx.u.prefix4 = *rp;
+
+	pl = prefix_list_lookup(AFI_IP, pim_ifp->allow_rp_plist);
+	return pl ? prefix_list_apply(pl, &rp_pfx) == PREFIX_PERMIT : false;
+}

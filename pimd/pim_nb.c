@@ -294,6 +294,20 @@ const struct frr_yang_module_info frr_pim_info = {
 			}
 		},
 		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/allow-rp",
+			.cbs = {
+				.create = lib_interface_pim_allow_rp_create,
+				.destroy = lib_interface_pim_allow_rp_destroy,
+			}
+		},
+		{
+			.xpath = "/frr-interface:lib/interface/frr-pim:pim/allow-rp/rp-list",
+			.cbs = {
+				.modify = lib_interface_pim_allow_rp_rp_list_modify,
+				.destroy = lib_interface_pim_allow_rp_rp_list_destroy,
+			}
+		},
+		{
 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family",
 			.cbs = {
 				.create = lib_interface_pim_address_family_create,
