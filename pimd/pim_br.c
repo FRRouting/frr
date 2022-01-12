@@ -29,7 +29,7 @@
 #include "linklist.h"
 
 struct pim_br {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct in_addr pmbr;
 };
 
@@ -37,7 +37,7 @@ struct in_addr pim_br_unknown = {.s_addr = 0};
 
 static struct list *pim_br_list = NULL;
 
-struct in_addr pim_br_get_pmbr(struct prefix_sg *sg)
+struct in_addr pim_br_get_pmbr(pim_sgaddr *sg)
 {
 	struct listnode *node;
 	struct pim_br *pim_br;
@@ -51,7 +51,7 @@ struct in_addr pim_br_get_pmbr(struct prefix_sg *sg)
 	return pim_br_unknown;
 }
 
-void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
+void pim_br_set_pmbr(pim_sgaddr *sg, struct in_addr br)
 {
 	struct listnode *node, *next;
 	struct pim_br *pim_br;
@@ -75,7 +75,7 @@ void pim_br_set_pmbr(struct prefix_sg *sg, struct in_addr br)
 /*
  * Remove the (S,G) from the stored values
  */
-void pim_br_clear_pmbr(struct prefix_sg *sg)
+void pim_br_clear_pmbr(pim_sgaddr *sg)
 {
 	struct listnode *node, *next;
 	struct pim_br *pim_br;

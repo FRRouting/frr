@@ -141,9 +141,9 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 			   struct pim_assert_metric recv_metric)
 {
 	struct pim_ifchannel *ch;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = source_addr;
 	sg.grp = group_addr;
 	ch = pim_ifchannel_add(ifp, &sg, 0, 0);
@@ -215,7 +215,7 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		    struct in_addr src_addr, uint8_t *buf, int buf_size)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct prefix msg_source_addr;
 	struct pim_assert_metric msg_metric;
 	int offset;
@@ -231,7 +231,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	/*
 	  Parse assert group addr
 	 */
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	offset = pim_parse_addr_group(&sg, curr, curr_size);
 	if (offset < 1) {
 		char src_str[INET_ADDRSTRLEN];

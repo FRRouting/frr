@@ -1421,7 +1421,7 @@ static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("SG4", printfrr_psg)
+printfrr_ext_autoreg_p("PSG4", printfrr_psg)
 static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
