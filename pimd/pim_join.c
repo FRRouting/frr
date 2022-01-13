@@ -477,7 +477,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		return -1;
 	}
 
-	if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4)) {
+	if (rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY) {
 		if (PIM_DEBUG_PIM_J_P) {
 			char dst_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,

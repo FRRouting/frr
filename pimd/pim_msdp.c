@@ -315,7 +315,7 @@ static void pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa,
 	}
 
 	/* any time the peer ip changes also update the rp address */
-	if (PIM_INADDR_ISNOT_ANY(sa->peer)) {
+	if (sa->peer.s_addr != INADDR_ANY) {
 		old_mp = pim_msdp_peer_find(sa->pim, sa->peer);
 		if (old_mp && old_mp->sa_cnt) {
 			--old_mp->sa_cnt;

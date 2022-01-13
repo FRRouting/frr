@@ -1675,7 +1675,7 @@ void igmp_v3_send_query(struct gm_group *group, int fd, const char *ifname,
 	*/
 	if (!s_flag) {
 		/* general query? */
-		if (PIM_INADDR_IS_ANY(group_addr)) {
+		if (group_addr.s_addr == INADDR_ANY) {
 			char dst_str[INET_ADDRSTRLEN];
 			char group_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<dst?>", dst_addr, dst_str,
@@ -1762,7 +1762,7 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 	if (!s_flag) {
 		/* s_flag is clear */
 
-		if (PIM_INADDR_IS_ANY(group_addr)) {
+		if (group_addr.s_addr == INADDR_ANY) {
 			/* this is a general query */
 			/* log that general query should have the s_flag set */
 			zlog_warn(

@@ -339,8 +339,7 @@ int pim_interface_config_write(struct vty *vty)
 				}
 
 				/* update source */
-				if (PIM_INADDR_ISNOT_ANY(
-					    pim_ifp->update_source)) {
+				if (!pim_addr_is_any(pim_ifp->update_source)) {
 					char src_str[INET_ADDRSTRLEN];
 					pim_inet4_dump("<src?>",
 						       pim_ifp->update_source,

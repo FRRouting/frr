@@ -83,8 +83,6 @@
 #define PIM_FORCE_BOOLEAN(expr) ((expr) != 0)
 
 #define PIM_NET_INADDR_ANY (htonl(INADDR_ANY))
-#define PIM_INADDR_IS_ANY(addr) (addr).s_addr == PIM_NET_INADDR_ANY
-#define PIM_INADDR_ISNOT_ANY(addr) ((addr).s_addr != PIM_NET_INADDR_ANY) /* struct in_addr addr */
 
 #define PIM_MASK_PIM_EVENTS          (1 << 0)
 #define PIM_MASK_PIM_EVENTS_DETAIL   (1 << 1)
