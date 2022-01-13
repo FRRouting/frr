@@ -115,10 +115,11 @@ int igmp_v2_recv_report(struct gm_sock *igmp, struct in_addr from,
 		return 0;
 
 	if (igmp_msg_len != IGMP_V12_MSG_SIZE) {
-		zlog_warn(
-			"Recv IGMPv2 REPORT from %s on %s: size=%d other than correct=%d",
-			from_str, ifp->name, igmp_msg_len, IGMP_V12_MSG_SIZE);
-		return -1;
+		if (PIM_DEBUG_IGMP_PACKETS)
+			zlog_debug(
+				"Recv IGMPv2 REPORT from %s on %s: size=%d other than correct=%d",
+				from_str, ifp->name, igmp_msg_len,
+				IGMP_V12_MSG_SIZE);
 	}
 
 	if (igmp_validate_checksum(igmp_msg, igmp_msg_len) == -1) {
