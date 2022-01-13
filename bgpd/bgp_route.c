@@ -10725,6 +10725,19 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				str, label2vni(&attr->label));
 	}
 
+	if (path->peer->t_llgr_stale[afi][safi] && attr->community &&
+	    community_include(attr->community, COMMUNITY_LLGR_STALE)) {
+		unsigned long llgr_remaining = thread_timer_remain_second(
+			path->peer->t_llgr_stale[afi][safi]);
+		if (json_paths) {
+			json_object_int_add(json_path, "llgrSecondsRemaining",
+					    llgr_remaining);
+		} else
+			vty_out(vty,
+				"      Time until Long-lived stale route deleted: %lu\n",
+				llgr_remaining);
+	}
+
 	/* Output some debug about internal state of the dest flags */
 	if (json_paths) {
 		if (CHECK_FLAG(bn->flags, BGP_NODE_PROCESS_SCHEDULED))
