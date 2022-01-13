@@ -3793,6 +3793,7 @@ static const char *pim_cli_get_vrf_name(struct vty *vty)
 	return yang_dnode_get_string(vrf_node, "./name");
 }
 
+#if PIM_IPV != 6
 /**
  * Compatibility function to keep the legacy mesh group CLI behavior:
  * Delete group when there are no more configurations in it.
@@ -3840,6 +3841,7 @@ static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
 	/* No configurations found: delete it. */
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
 }
+#endif /* PIM_IPV != 6 */
 
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
@@ -9505,6 +9507,7 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
+#if PIM_IPV != 6
 DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
       "ip msdp peer A.B.C.D$peer source A.B.C.D$source",
       IP_STR
@@ -10547,6 +10550,7 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 
 	return CMD_SUCCESS;
 }
+#endif /* PIM_IPV != 6 */
 
 struct pim_sg_cache_walk_data {
 	struct vty *vty;
@@ -10988,10 +10992,12 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_ip_ssmpingd_cmd);
 	install_element(VRF_NODE, &no_ip_ssmpingd_cmd);
+#if PIM_IPV != 6
 	install_element(CONFIG_NODE, &ip_msdp_peer_cmd);
 	install_element(VRF_NODE, &ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
 	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
+#endif /* PIM_IPV != 6 */
 	install_element(CONFIG_NODE, &ip_pim_ecmp_cmd);
 	install_element(VRF_NODE, &ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_cmd);
@@ -11160,12 +11166,14 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_vxlan_cmd);
+#if PIM_IPV != 6
 	install_element(ENABLE_NODE, &debug_msdp_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_cmd);
 	install_element(ENABLE_NODE, &debug_msdp_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_events_cmd);
 	install_element(ENABLE_NODE, &debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
+#endif /* PIM_IPV != 6 */
 	install_element(ENABLE_NODE, &debug_mtrace_cmd);
 	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
 	install_element(ENABLE_NODE, &debug_bsm_cmd);
@@ -11207,17 +11215,20 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &debug_pim_vxlan_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_vxlan_cmd);
+#if PIM_IPV != 6
 	install_element(CONFIG_NODE, &debug_msdp_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_cmd);
 	install_element(CONFIG_NODE, &debug_msdp_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_events_cmd);
 	install_element(CONFIG_NODE, &debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
+#endif /* PIM_IPV != 6 */
 	install_element(CONFIG_NODE, &debug_mtrace_cmd);
 	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
 	install_element(CONFIG_NODE, &debug_bsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 
+#if PIM_IPV != 6
 	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
 	install_element(VRF_NODE, &ip_msdp_timers_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_timers_cmd);
@@ -11240,6 +11251,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_msdp_sa_sg_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_vrf_all_cmd);
+#endif /* PIM_IPV != 6 */
 	install_element(VIEW_NODE, &show_ip_pim_ssm_range_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_group_type_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_cmd);

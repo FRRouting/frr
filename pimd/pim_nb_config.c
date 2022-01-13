@@ -34,6 +34,22 @@
 #include "log.h"
 #include "lib_errors.h"
 
+#if PIM_IPV == 6
+#define pim6_msdp_err(funcname, argtype)                                       \
+int funcname(struct argtype *args)                                             \
+{                                                                              \
+	snprintf(args->errmsg, args->errmsg_len,                               \
+		 "Trying to configure MSDP in pim6d.  "                        \
+		 "MSDP does not exist for IPv6.");                             \
+	return NB_ERR_VALIDATION;                                              \
+}                                                                              \
+MACRO_REQUIRE_SEMICOLON()
+
+#else /* PIM_IPV != 6 */
+#define pim6_msdp_err(funcname, argtype)                                       \
+MACRO_REQUIRE_SEMICOLON()
+#endif /* PIM_IPV != 6 */
+
 static void pim_if_membership_clear(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -1054,6 +1070,20 @@ int pim_msdp_connection_retry_modify(struct nb_cb_modify_args *args)
 	return NB_OK;
 }
 
+pim6_msdp_err(pim_msdp_mesh_group_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_mesh_group_create, nb_cb_create_args);
+pim6_msdp_err(pim_msdp_mesh_group_source_modify, nb_cb_modify_args);
+pim6_msdp_err(pim_msdp_mesh_group_source_destroy, nb_cb_destroy_args);
+pim6_msdp_err(pim_msdp_mesh_group_members_create, nb_cb_create_args);
+pim6_msdp_err(pim_msdp_mesh_group_members_destroy, nb_cb_destroy_args);
+pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_source_ip_modify,
+	      nb_cb_modify_args);
+pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_destroy,
+	      nb_cb_destroy_args);
+pim6_msdp_err(routing_control_plane_protocols_control_plane_protocol_pim_address_family_msdp_peer_create,
+	      nb_cb_create_args);
+
+#if PIM_IPV != 6
 /*
  * XPath:
  * /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/msdp-mesh-groups
@@ -1283,6 +1313,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ms
 
 	return NB_OK;
 }
+#endif /* PIM_IPV != 6 */
 
 /*
  * XPath: /frr-routing:routing/control-plane-protocols/control-plane-protocol/frr-pim:pim/address-family/mlag

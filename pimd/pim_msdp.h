@@ -227,6 +227,7 @@ struct pim_msdp {
 #define PIM_MSDP_PEER_READ_OFF(mp) thread_cancel(&mp->t_read)
 #define PIM_MSDP_PEER_WRITE_OFF(mp) thread_cancel(&mp->t_write)
 
+#if PIM_IPV != 6
 // struct pim_msdp *msdp;
 struct pim_instance;
 void pim_msdp_init(struct pim_instance *pim, struct thread_master *master);
@@ -317,5 +318,51 @@ void pim_msdp_peer_del(struct pim_msdp_peer **mp);
  */
 void pim_msdp_peer_change_source(struct pim_msdp_peer *mp,
 				 const struct in_addr *addr);
+
+#else /* PIM_IPV == 6 */
+static inline void pim_msdp_init(struct pim_instance *pim,
+				 struct thread_master *master)
+{
+}
+
+static inline void pim_msdp_exit(struct pim_instance *pim)
+{
+}
+
+static inline void pim_msdp_i_am_rp_changed(struct pim_instance *pim)
+{
+}
+
+static inline void pim_msdp_up_join_state_changed(struct pim_instance *pim,
+						  struct pim_upstream *xg_up)
+{
+}
+
+static inline void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
+{
+}
+
+static inline void pim_msdp_sa_local_update(struct pim_upstream *up)
+{
+}
+
+static inline void pim_msdp_sa_local_del(struct pim_instance *pim,
+					 pim_sgaddr *sg)
+{
+}
+
+static inline int pim_msdp_config_write(struct pim_instance *pim,
+					struct vty *vty, const char *spaces)
+{
+	return 0;
+}
+
+static inline bool pim_msdp_peer_config_write(struct vty *vty,
+					      struct pim_instance *pim,
+					      const char *spaces)
+{
+	return false;
+}
+#endif /* PIM_IPV == 6 */
 
 #endif
