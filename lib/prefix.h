@@ -341,9 +341,6 @@ union prefixconstptr {
 	prefixtype(prefixconstptr, const struct prefix_rd,   rd)
 } TRANSPARENT_UNION;
 
-#undef prefixtype
-#undef TRANSPARENT_UNION
-
 #ifndef INET_ADDRSTRLEN
 #define INET_ADDRSTRLEN 16
 #endif /* INET_ADDRSTRLEN */
