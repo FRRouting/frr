@@ -59,7 +59,8 @@
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
 	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
-#define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
+#define PIM_I_am_DR(pim_ifp)                                                   \
+	!pim_addr_cmp((pim_ifp)->pim_dr_addr, (pim_ifp)->primary_address)
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
 /* Macros for interface flags */
