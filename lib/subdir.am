@@ -16,6 +16,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_lex.l \
 	lib/command_match.c \
 	lib/command_parse.y \
+	lib/cspf.c \
 	lib/csv.c \
 	lib/debug.c \
 	lib/defaults.c \
@@ -185,6 +186,7 @@ pkginclude_HEADERS += \
 	lib/command_graph.h \
 	lib/command_match.h \
 	lib/compiler.h \
+	lib/cspf.h \
 	lib/csv.h \
 	lib/db.h \
 	lib/debug.h \
