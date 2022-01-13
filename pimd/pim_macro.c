@@ -128,7 +128,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 		return 0; /* false */
 	}
 
-	if (PIM_INADDR_IS_ANY(ch->ifassert_winner))
+	if (pim_addr_is_any(ch->ifassert_winner))
 		return 0; /* false */
 
 	/* AssertWinner(S,G,I) == me ? */

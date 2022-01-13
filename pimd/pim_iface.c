@@ -403,7 +403,7 @@ static int pim_sec_addr_update(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
 		struct prefix *p = ifc->address;
 
-		if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
+		if (p->u.prefix4.s_addr == INADDR_ANY) {
 			continue;
 		}
 
@@ -598,7 +598,7 @@ void pim_if_addr_add(struct connected *ifc)
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
-		if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+		if (!pim_addr_is_any(pim_ifp->primary_address)) {
 
 			/* Interface has a valid socket ? */
 			if (pim_ifp->pim_sock_fd < 0) {
@@ -684,7 +684,7 @@ static void pim_if_addr_del_pim(struct connected *ifc)
 		return;
 	}
 
-	if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+	if (!pim_addr_is_any(pim_ifp->primary_address)) {
 		/* Interface keeps a valid primary address */
 		return;
 	}
@@ -752,7 +752,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 		if (PIM_IF_TEST_PIM(pim_ifp->options)) {
 
 			/* Interface has a valid primary address ? */
-			if (PIM_INADDR_ISNOT_ANY(pim_ifp->primary_address)) {
+			if (!pim_addr_is_any(pim_ifp->primary_address)) {
 
 				/* Interface has a valid socket ? */
 				if (pim_ifp->pim_sock_fd < 0) {
@@ -836,7 +836,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
+	if (pim_ifp && !pim_addr_is_any(pim_ifp->update_source)) {
 		return pim_ifp->update_source;
 	}
 
@@ -848,7 +848,7 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 			continue;
 		}
 
-		if (PIM_INADDR_IS_ANY(p->u.prefix4)) {
+		if (p->u.prefix4.s_addr == INADDR_ANY) {
 			zlog_warn(
 				"%s: null IPv4 address connected to interface %s",
 				__func__, ifp->name);
@@ -916,7 +916,7 @@ static int pim_iface_next_vif_index(struct interface *ifp)
 int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct in_addr ifaddr;
+	pim_addr ifaddr;
 	unsigned char flags = 0;
 
 	assert(pim_ifp);
@@ -935,7 +935,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 	}
 
 	ifaddr = pim_ifp->primary_address;
-	if (!ispimreg && !is_vxlan_term && PIM_INADDR_IS_ANY(ifaddr)) {
+	if (!ispimreg && !is_vxlan_term && pim_addr_is_any(ifaddr)) {
 		zlog_warn(
 			"%s: could not get address for interface %s ifindex=%d",
 			__func__, ifp->name, ifp->ifindex);
