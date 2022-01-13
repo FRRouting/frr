@@ -10741,12 +10741,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 			json_object_boolean_true_add(json_path, "fibInstalled");
 		if (CHECK_FLAG(bn->flags, BGP_NODE_FIB_INSTALL_PENDING))
 			json_object_boolean_true_add(json_path, "fibPending");
-	}
 
-	/* We've constructed the json object for this path, add it to the json
-	 * array of paths
-	 */
-	if (json_paths) {
 		if (json_nexthop_global || json_nexthop_ll) {
 			json_nexthops = json_object_new_array();
 
