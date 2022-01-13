@@ -25,6 +25,9 @@
 extern "C" {
 #endif
 
+struct fbuf;
+struct printfrr_eargs;
+
 #ifndef TIMESPEC_TO_TIMEVAL
 /* should be in sys/time.h on BSD & Linux libcs */
 #define TIMESPEC_TO_TIMEVAL(tv, ts)                                            \
@@ -39,6 +42,31 @@ extern "C" {
 	do {                                                                   \
 		(ts)->tv_sec = (tv)->tv_sec;                                   \
 		(ts)->tv_nsec = (tv)->tv_usec * 1000;                          \
+	} while (0)
+#endif
+
+/* Linux/glibc is sadly missing these timespec helpers */
+#ifndef timespecadd
+#define timespecadd(tsp, usp, vsp)                                             \
+	do {                                                                   \
+		(vsp)->tv_sec = (tsp)->tv_sec + (usp)->tv_sec;                 \
+		(vsp)->tv_nsec = (tsp)->tv_nsec + (usp)->tv_nsec;              \
+		if ((vsp)->tv_nsec >= 1000000000L) {                           \
+			(vsp)->tv_sec++;                                       \
+			(vsp)->tv_nsec -= 1000000000L;                         \
+		}                                                              \
+	} while (0)
+#endif
+
+#ifndef timespecsub
+#define timespecsub(tsp, usp, vsp)                                             \
+	do {                                                                   \
+		(vsp)->tv_sec = (tsp)->tv_sec - (usp)->tv_sec;                 \
+		(vsp)->tv_nsec = (tsp)->tv_nsec - (usp)->tv_nsec;              \
+		if ((vsp)->tv_nsec < 0) {                                      \
+			(vsp)->tv_sec--;                                       \
+			(vsp)->tv_nsec += 1000000000L;                         \
+		}                                                              \
 	} while (0)
 #endif
 
@@ -131,6 +159,53 @@ static inline const char *frrtime_to_interval(time_t t, char *buf,
 			 tm.tm_yday - ((tm.tm_yday / 7) * 7), tm.tm_hour);
 	return buf;
 }
+
+enum {
+	/* n/a - input was seconds precision, don't print any fractional */
+	TIMEFMT_SECONDS = (1 << 0),
+	/* caller is directly invoking printfrr_time and has pre-specified
+	 * I/Iu/Is/M/Mu/Ms/R/Ru/Rs (for printing timers)
+	 */
+	TIMEFMT_PRESELECT = (1 << 1),
+	/* don't print any output - this is needed for invoking printfrr_time
+	 * from another printfrr extensions to skip over flag characters
+	 */
+	TIMEFMT_SKIP = (1 << 2),
+	/* use spaces in appropriate places */
+	TIMEFMT_SPACE = (1 << 3),
+
+	/* input interpretations: */
+	TIMEFMT_REALTIME = (1 << 8),
+	TIMEFMT_MONOTONIC = (1 << 9),
+	TIMEFMT_SINCE = (1 << 10),
+	TIMEFMT_UNTIL = (1 << 11),
+
+	TIMEFMT_ABSOLUTE = TIMEFMT_REALTIME | TIMEFMT_MONOTONIC,
+	TIMEFMT_ANCHORS = TIMEFMT_SINCE | TIMEFMT_UNTIL,
+
+	/* calendaric formats: */
+	TIMEFMT_ISO8601 = (1 << 16),
+
+	/* interval formats: */
+	/* 't' - use [t]raditional 3-block format */
+	TIMEFMT_BASIC = (1 << 24),
+	/* 'm' - select mm:ss */
+	TIMEFMT_MMSS = (1 << 25),
+	/* 'h' - select hh:mm:ss */
+	TIMEFMT_HHMMSS = (1 << 26),
+	/* 'd' - print as decimal number of seconds */
+	TIMEFMT_DECIMAL = (1 << 27),
+	/* 'mx'/'hx' - replace zero value with "--:--" or "--:--:--" */
+	TIMEFMT_DASHES = (1 << 31),
+
+	/* helpers for reference */
+	TIMEFMT_TIMER_DEADLINE =
+		TIMEFMT_PRESELECT | TIMEFMT_MONOTONIC | TIMEFMT_UNTIL,
+	TIMEFMT_TIMER_INTERVAL = TIMEFMT_PRESELECT,
+};
+
+extern ssize_t printfrr_time(struct fbuf *buf, struct printfrr_eargs *ea,
+			     const struct timespec *ts, unsigned int flags);
 
 #ifdef __cplusplus
 }
