@@ -12601,1105 +12601,925 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 				"  Extended Optional Parameters Length is enabled\n");
 	}
 	/* Capability. */
-	if (peer_established(p)) {
-		if (p->cap || p->afc_adv[AFI_IP][SAFI_UNICAST]
-		    || p->afc_recv[AFI_IP][SAFI_UNICAST]
-		    || p->afc_adv[AFI_IP][SAFI_MULTICAST]
-		    || p->afc_recv[AFI_IP][SAFI_MULTICAST]
-		    || p->afc_adv[AFI_IP6][SAFI_UNICAST]
-		    || p->afc_recv[AFI_IP6][SAFI_UNICAST]
-		    || p->afc_adv[AFI_IP6][SAFI_MULTICAST]
-		    || p->afc_recv[AFI_IP6][SAFI_MULTICAST]
-		    || p->afc_adv[AFI_IP6][SAFI_MPLS_VPN]
-		    || p->afc_recv[AFI_IP6][SAFI_MPLS_VPN]
-		    || p->afc_adv[AFI_IP6][SAFI_ENCAP]
-		    || p->afc_recv[AFI_IP6][SAFI_ENCAP]
-		    || p->afc_adv[AFI_IP6][SAFI_FLOWSPEC]
-		    || p->afc_recv[AFI_IP6][SAFI_FLOWSPEC]
-		    || p->afc_adv[AFI_IP][SAFI_ENCAP]
-		    || p->afc_recv[AFI_IP][SAFI_ENCAP]
-		    || p->afc_adv[AFI_IP][SAFI_FLOWSPEC]
-		    || p->afc_recv[AFI_IP][SAFI_FLOWSPEC]
-		    || p->afc_adv[AFI_IP][SAFI_MPLS_VPN]
-		    || p->afc_recv[AFI_IP][SAFI_MPLS_VPN]) {
-			if (use_json) {
-				json_object *json_cap = NULL;
+	if (peer_established(p) &&
+	    (p->cap || peer_afc_advertised(p) || peer_afc_received(p))) {
+		if (use_json) {
+			json_object *json_cap = NULL;
 
-				json_cap = json_object_new_object();
+			json_cap = json_object_new_object();
 
-				/* AS4 */
-				if (CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV)
-				    || CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV)) {
-					if (CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV)
-					    && CHECK_FLAG(p->cap,
-							  PEER_CAP_AS4_RCV))
-						json_object_string_add(
-							json_cap, "4byteAs",
-							"advertisedAndReceived");
-					else if (CHECK_FLAG(p->cap,
-							    PEER_CAP_AS4_ADV))
-						json_object_string_add(
-							json_cap, "4byteAs",
-							"advertised");
-					else if (CHECK_FLAG(p->cap,
-							    PEER_CAP_AS4_RCV))
-						json_object_string_add(
-							json_cap, "4byteAs",
-							"received");
+			/* AS4 */
+			if (CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV)) {
+				if (CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV) &&
+				    CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV))
+					json_object_string_add(
+						json_cap, "4byteAs",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV))
+					json_object_string_add(json_cap,
+							       "4byteAs",
+							       "advertised");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV))
+					json_object_string_add(json_cap,
+							       "4byteAs",
+							       "received");
+			}
+
+			/* Extended Message Support */
+			if (CHECK_FLAG(p->cap, PEER_CAP_EXTENDED_MESSAGE_ADV) &&
+			    CHECK_FLAG(p->cap, PEER_CAP_EXTENDED_MESSAGE_RCV))
+				json_object_string_add(json_cap,
+						       "extendedMessage",
+						       "advertisedAndReceived");
+			else if (CHECK_FLAG(p->cap,
+					    PEER_CAP_EXTENDED_MESSAGE_ADV))
+				json_object_string_add(json_cap,
+						       "extendedMessage",
+						       "advertised");
+			else if (CHECK_FLAG(p->cap,
+					    PEER_CAP_EXTENDED_MESSAGE_RCV))
+				json_object_string_add(json_cap,
+						       "extendedMessage",
+						       "received");
+
+			/* AddPath */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_ADV)) {
+				json_object *json_add = NULL;
+				const char *print_store;
+
+				json_add = json_object_new_object();
+
+				FOREACH_AFI_SAFI (afi, safi) {
+					json_object *json_sub = NULL;
+					json_sub = json_object_new_object();
+					print_store = get_afi_safi_str(
+						afi, safi, true);
+
+					if (CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_TX_ADV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_TX_RCV)) {
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_TX_ADV) &&
+						    CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_TX_RCV))
+							json_object_boolean_true_add(
+								json_sub,
+								"txAdvertisedAndReceived");
+						else if (
+							CHECK_FLAG(
+								p->af_cap[afi]
+									 [safi],
+								PEER_CAP_ADDPATH_AF_TX_ADV))
+							json_object_boolean_true_add(
+								json_sub,
+								"txAdvertised");
+						else if (
+							CHECK_FLAG(
+								p->af_cap[afi]
+									 [safi],
+								PEER_CAP_ADDPATH_AF_TX_RCV))
+							json_object_boolean_true_add(
+								json_sub,
+								"txReceived");
+					}
+
+					if (CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_RX_ADV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_RX_RCV)) {
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_RX_ADV) &&
+						    CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_RX_RCV))
+							json_object_boolean_true_add(
+								json_sub,
+								"rxAdvertisedAndReceived");
+						else if (
+							CHECK_FLAG(
+								p->af_cap[afi]
+									 [safi],
+								PEER_CAP_ADDPATH_AF_RX_ADV))
+							json_object_boolean_true_add(
+								json_sub,
+								"rxAdvertised");
+						else if (
+							CHECK_FLAG(
+								p->af_cap[afi]
+									 [safi],
+								PEER_CAP_ADDPATH_AF_RX_RCV))
+							json_object_boolean_true_add(
+								json_sub,
+								"rxReceived");
+					}
+
+					if (CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_TX_ADV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_TX_RCV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_RX_ADV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_RX_RCV))
+						json_object_object_add(
+							json_add, print_store,
+							json_sub);
+					else
+						json_object_free(json_sub);
 				}
 
-				/* Extended Message Support */
-				if (CHECK_FLAG(p->cap,
-					       PEER_CAP_EXTENDED_MESSAGE_ADV)
-				    && CHECK_FLAG(
-					       p->cap,
-					       PEER_CAP_EXTENDED_MESSAGE_RCV))
+				json_object_object_add(json_cap, "addPath",
+						       json_add);
+			}
+
+			/* Dynamic */
+			if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_ADV)) {
+				if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_ADV) &&
+				    CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV))
 					json_object_string_add(
-						json_cap, "extendedMessage",
+						json_cap, "dynamic",
 						"advertisedAndReceived");
-				else if (CHECK_FLAG(
-						 p->cap,
-						 PEER_CAP_EXTENDED_MESSAGE_ADV))
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_DYNAMIC_ADV))
+					json_object_string_add(json_cap,
+							       "dynamic",
+							       "advertised");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_DYNAMIC_RCV))
+					json_object_string_add(json_cap,
+							       "dynamic",
+							       "received");
+			}
+
+			/* Extended nexthop */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV)) {
+				json_object *json_nxt = NULL;
+				const char *print_store;
+
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV) &&
+				    CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV))
 					json_object_string_add(
-						json_cap, "extendedMessage",
+						json_cap, "extendedNexthop",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV))
+					json_object_string_add(
+						json_cap, "extendedNexthop",
 						"advertised");
-				else if (CHECK_FLAG(
-						 p->cap,
-						 PEER_CAP_EXTENDED_MESSAGE_RCV))
+				else if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV))
 					json_object_string_add(
-						json_cap, "extendedMessage",
+						json_cap, "extendedNexthop",
 						"received");
 
-				/* AddPath */
-				if (CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_ADDPATH_ADV)) {
-					json_object *json_add = NULL;
-					const char *print_store;
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV)) {
+					json_nxt = json_object_new_object();
 
-					json_add = json_object_new_object();
+					for (safi = SAFI_UNICAST;
+					     safi < SAFI_MAX; safi++) {
+						if (CHECK_FLAG(
+							    p->af_cap[AFI_IP]
+								     [safi],
+							    PEER_CAP_ENHE_AF_RCV)) {
+							print_store =
+								get_afi_safi_str(
+									AFI_IP,
+									safi,
+									true);
+							json_object_string_add(
+								json_nxt,
+								print_store,
+								"recieved"); /* misspelled for compatibility */
+						}
+					}
+					json_object_object_add(
+						json_cap,
+						"extendedNexthopFamililesByPeer",
+						json_nxt);
+				}
+			}
+
+			/* Long-lived Graceful Restart */
+			if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV)) {
+				json_object *json_llgr = NULL;
+				const char *afi_safi_str;
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV) &&
+				    CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV))
+					json_object_string_add(
+						json_cap,
+						"longLivedGracefulRestart",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV))
+					json_object_string_add(
+						json_cap,
+						"longLivedGracefulRestart",
+						"advertised");
+				else if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV))
+					json_object_string_add(
+						json_cap,
+						"longLivedGracefulRestart",
+						"received");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV)) {
+					json_llgr = json_object_new_object();
 
 					FOREACH_AFI_SAFI (afi, safi) {
-						json_object *json_sub = NULL;
-						json_sub =
-							json_object_new_object();
-						print_store = get_afi_safi_str(
-							afi, safi, true);
-
 						if (CHECK_FLAG(
 							    p->af_cap[afi]
 								     [safi],
-							    PEER_CAP_ADDPATH_AF_TX_ADV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_TX_RCV)) {
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_TX_ADV)
-							    && CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_TX_RCV))
-								json_object_boolean_true_add(
-									json_sub,
-									"txAdvertisedAndReceived");
-							else if (
-								CHECK_FLAG(
-									p->af_cap
-										[afi]
-										[safi],
-									PEER_CAP_ADDPATH_AF_TX_ADV))
-								json_object_boolean_true_add(
-									json_sub,
-									"txAdvertised");
-							else if (
-								CHECK_FLAG(
-									p->af_cap
-										[afi]
-										[safi],
-									PEER_CAP_ADDPATH_AF_TX_RCV))
-								json_object_boolean_true_add(
-									json_sub,
-									"txReceived");
-						}
-
-						if (CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_ADDPATH_AF_RX_ADV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_RX_RCV)) {
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_RX_ADV)
-							    && CHECK_FLAG(
-								       p->af_cap
-									       [afi]
-									       [safi],
-								       PEER_CAP_ADDPATH_AF_RX_RCV))
-								json_object_boolean_true_add(
-									json_sub,
-									"rxAdvertisedAndReceived");
-							else if (
-								CHECK_FLAG(
-									p->af_cap
-										[afi]
-										[safi],
-									PEER_CAP_ADDPATH_AF_RX_ADV))
-								json_object_boolean_true_add(
-									json_sub,
-									"rxAdvertised");
-							else if (
-								CHECK_FLAG(
-									p->af_cap
-										[afi]
-										[safi],
-									PEER_CAP_ADDPATH_AF_RX_RCV))
-								json_object_boolean_true_add(
-									json_sub,
-									"rxReceived");
-						}
-
-						if (CHECK_FLAG(
-							    p->af_cap[afi]
-								     [safi],
-							    PEER_CAP_ADDPATH_AF_TX_ADV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_TX_RCV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_RX_ADV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_RX_RCV))
-							json_object_object_add(
-								json_add,
-								print_store,
-								json_sub);
-						else
-							json_object_free(
-								json_sub);
-					}
-
-					json_object_object_add(
-						json_cap, "addPath", json_add);
-				}
-
-				/* Dynamic */
-				if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_DYNAMIC_ADV)) {
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_DYNAMIC_ADV)
-					    && CHECK_FLAG(p->cap,
-							  PEER_CAP_DYNAMIC_RCV))
-						json_object_string_add(
-							json_cap, "dynamic",
-							"advertisedAndReceived");
-					else if (CHECK_FLAG(
-							 p->cap,
-							 PEER_CAP_DYNAMIC_ADV))
-						json_object_string_add(
-							json_cap, "dynamic",
-							"advertised");
-					else if (CHECK_FLAG(
-							 p->cap,
-							 PEER_CAP_DYNAMIC_RCV))
-						json_object_string_add(
-							json_cap, "dynamic",
-							"received");
-				}
-
-				/* Extended nexthop */
-				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV)
-				    || CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV)) {
-					json_object *json_nxt = NULL;
-					const char *print_store;
-
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_ENHE_ADV)
-					    && CHECK_FLAG(p->cap,
-							  PEER_CAP_ENHE_RCV))
-						json_object_string_add(
-							json_cap,
-							"extendedNexthop",
-							"advertisedAndReceived");
-					else if (CHECK_FLAG(p->cap,
-							    PEER_CAP_ENHE_ADV))
-						json_object_string_add(
-							json_cap,
-							"extendedNexthop",
-							"advertised");
-					else if (CHECK_FLAG(p->cap,
-							    PEER_CAP_ENHE_RCV))
-						json_object_string_add(
-							json_cap,
-							"extendedNexthop",
-							"received");
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_ENHE_RCV)) {
-						json_nxt =
-							json_object_new_object();
-
-						for (safi = SAFI_UNICAST;
-						     safi < SAFI_MAX; safi++) {
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [AFI_IP]
-									    [safi],
-								    PEER_CAP_ENHE_AF_RCV)) {
-								print_store = get_afi_safi_str(
-									AFI_IP,
-									safi, true);
-								json_object_string_add(
-									json_nxt,
-									print_store,
-									"recieved"); /* misspelled for compatibility */
-							}
-						}
-						json_object_object_add(
-							json_cap,
-							"extendedNexthopFamililesByPeer",
-							json_nxt);
-					}
-				}
-
-				/* Long-lived Graceful Restart */
-				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV)
-				    || CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV)) {
-					json_object *json_llgr = NULL;
-					const char *afi_safi_str;
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_LLGR_ADV)
-					    && CHECK_FLAG(p->cap,
-							  PEER_CAP_LLGR_RCV))
-						json_object_string_add(
-							json_cap,
-							"longLivedGracefulRestart",
-							"advertisedAndReceived");
-					else if (CHECK_FLAG(p->cap,
-							    PEER_CAP_LLGR_ADV))
-						json_object_string_add(
-							json_cap,
-							"longLivedGracefulRestart",
-							"advertised");
-					else if (CHECK_FLAG(p->cap,
-							    PEER_CAP_LLGR_RCV))
-						json_object_string_add(
-							json_cap,
-							"longLivedGracefulRestart",
-							"received");
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_LLGR_RCV)) {
-						json_llgr =
-							json_object_new_object();
-
-						FOREACH_AFI_SAFI (afi, safi) {
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ENHE_AF_RCV)) {
-								afi_safi_str = get_afi_safi_str(
+							    PEER_CAP_ENHE_AF_RCV)) {
+							afi_safi_str =
+								get_afi_safi_str(
 									afi,
 									safi,
 									true);
-								json_object_string_add(
-									json_llgr,
-									afi_safi_str,
-									"received");
-							}
+							json_object_string_add(
+								json_llgr,
+								afi_safi_str,
+								"received");
 						}
-						json_object_object_add(
-							json_cap,
-							"longLivedGracefulRestartByPeer",
-							json_llgr);
 					}
+					json_object_object_add(
+						json_cap,
+						"longLivedGracefulRestartByPeer",
+						json_llgr);
 				}
+			}
 
-				/* Route Refresh */
-				if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_REFRESH_NEW_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_REFRESH_OLD_RCV)) {
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_REFRESH_ADV)
-					    && (CHECK_FLAG(
-							p->cap,
-							PEER_CAP_REFRESH_NEW_RCV)
-						|| CHECK_FLAG(
-							   p->cap,
-							   PEER_CAP_REFRESH_OLD_RCV))) {
+			/* Route Refresh */
+			if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_REFRESH_NEW_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_REFRESH_OLD_RCV)) {
+				if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV) &&
+				    (CHECK_FLAG(p->cap,
+						PEER_CAP_REFRESH_NEW_RCV) ||
+				     CHECK_FLAG(p->cap,
+						PEER_CAP_REFRESH_OLD_RCV))) {
+					if (CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_REFRESH_OLD_RCV) &&
+					    CHECK_FLAG(
+						    p->cap,
+						    PEER_CAP_REFRESH_NEW_RCV))
+						json_object_string_add(
+							json_cap,
+							"routeRefresh",
+							"advertisedAndReceivedOldNew");
+					else {
 						if (CHECK_FLAG(
 							    p->cap,
-							    PEER_CAP_REFRESH_OLD_RCV)
-						    && CHECK_FLAG(
-							       p->cap,
-							       PEER_CAP_REFRESH_NEW_RCV))
+							    PEER_CAP_REFRESH_OLD_RCV))
 							json_object_string_add(
 								json_cap,
 								"routeRefresh",
-								"advertisedAndReceivedOldNew");
-						else {
-							if (CHECK_FLAG(
-								    p->cap,
-								    PEER_CAP_REFRESH_OLD_RCV))
-								json_object_string_add(
-									json_cap,
-									"routeRefresh",
-									"advertisedAndReceivedOld");
-							else
-								json_object_string_add(
-									json_cap,
-									"routeRefresh",
-									"advertisedAndReceivedNew");
-						}
-					} else if (
-						CHECK_FLAG(
-							p->cap,
-							PEER_CAP_REFRESH_ADV))
-						json_object_string_add(
-							json_cap,
-							"routeRefresh",
-							"advertised");
-					else if (
-						CHECK_FLAG(
-							p->cap,
-							PEER_CAP_REFRESH_NEW_RCV)
-						|| CHECK_FLAG(
-							   p->cap,
-							   PEER_CAP_REFRESH_OLD_RCV))
-						json_object_string_add(
-							json_cap,
-							"routeRefresh",
-							"received");
-				}
-
-				/* Enhanced Route Refresh */
-				if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_ENHANCED_RR_RCV)) {
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_ENHANCED_RR_ADV)
-					    && CHECK_FLAG(
-						    p->cap,
-						    PEER_CAP_ENHANCED_RR_RCV))
-						json_object_string_add(
-							json_cap,
-							"enhancedRouteRefresh",
-							"advertisedAndReceived");
-					else if (
-						CHECK_FLAG(
-							p->cap,
-							PEER_CAP_ENHANCED_RR_ADV))
-						json_object_string_add(
-							json_cap,
-							"enhancedRouteRefresh",
-							"advertised");
-					else if (
-						CHECK_FLAG(
-							p->cap,
-							PEER_CAP_ENHANCED_RR_RCV))
-						json_object_string_add(
-							json_cap,
-							"enhancedRouteRefresh",
-							"received");
-				}
-
-				/* Multiprotocol Extensions */
-				json_object *json_multi = NULL;
-				json_multi = json_object_new_object();
-
-				FOREACH_AFI_SAFI (afi, safi) {
-					if (p->afc_adv[afi][safi]
-					    || p->afc_recv[afi][safi]) {
-						json_object *json_exten = NULL;
-						json_exten =
-							json_object_new_object();
-
-						if (p->afc_adv[afi][safi]
-						    && p->afc_recv[afi][safi])
-							json_object_boolean_true_add(
-								json_exten,
-								"advertisedAndReceived");
-						else if (p->afc_adv[afi][safi])
-							json_object_boolean_true_add(
-								json_exten,
-								"advertised");
-						else if (p->afc_recv[afi][safi])
-							json_object_boolean_true_add(
-								json_exten,
-								"received");
-
-						json_object_object_add(
-							json_multi,
-							get_afi_safi_str(afi,
-									 safi,
-									 true),
-							json_exten);
-					}
-				}
-				json_object_object_add(
-					json_cap, "multiprotocolExtensions",
-					json_multi);
-
-				/* Hostname capabilities */
-				json_object *json_hname = NULL;
-
-				json_hname = json_object_new_object();
-
-				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
-					json_object_string_add(
-						json_hname, "advHostName",
-						bgp->peer_self->hostname
-							? bgp->peer_self
-								  ->hostname
-							: "n/a");
-					json_object_string_add(
-						json_hname, "advDomainName",
-						bgp->peer_self->domainname
-							? bgp->peer_self
-								  ->domainname
-							: "n/a");
-				}
-
-
-				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
-					json_object_string_add(
-						json_hname, "rcvHostName",
-						p->hostname ? p->hostname
-							    : "n/a");
-					json_object_string_add(
-						json_hname, "rcvDomainName",
-						p->domainname ? p->domainname
-							      : "n/a");
-				}
-
-				json_object_object_add(json_cap, "hostName",
-						       json_hname);
-
-				/* Gracefull Restart */
-				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_RESTART_ADV)) {
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_RESTART_ADV)
-					    && CHECK_FLAG(p->cap,
-							  PEER_CAP_RESTART_RCV))
-						json_object_string_add(
-							json_cap,
-							"gracefulRestart",
-							"advertisedAndReceived");
-					else if (CHECK_FLAG(
-							 p->cap,
-							 PEER_CAP_RESTART_ADV))
-						json_object_string_add(
-							json_cap,
-							"gracefulRestartCapability",
-							"advertised");
-					else if (CHECK_FLAG(
-							 p->cap,
-							 PEER_CAP_RESTART_RCV))
-						json_object_string_add(
-							json_cap,
-							"gracefulRestartCapability",
-							"received");
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_RESTART_RCV)) {
-						int restart_af_count = 0;
-						json_object *json_restart =
-							NULL;
-						json_restart =
-							json_object_new_object();
-
-						json_object_int_add(
-							json_cap,
-							"gracefulRestartRemoteTimerMsecs",
-							p->v_gr_restart * 1000);
-
-						FOREACH_AFI_SAFI (afi, safi) {
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_RESTART_AF_RCV)) {
-								json_object *
-									json_sub =
-										NULL;
-								json_sub =
-									json_object_new_object();
-
-								if (CHECK_FLAG(
-									    p->af_cap
-										    [afi]
-										    [safi],
-									    PEER_CAP_RESTART_AF_PRESERVE_RCV))
-									json_object_boolean_true_add(
-										json_sub,
-										"preserved");
-								restart_af_count++;
-								json_object_object_add(
-									json_restart,
-									get_afi_safi_str(
-										afi,
-										safi,
-										true),
-									json_sub);
-							}
-						}
-						if (!restart_af_count) {
+								"advertisedAndReceivedOld");
+						else
 							json_object_string_add(
 								json_cap,
-								"addressFamiliesByPeer",
-								"none");
-							json_object_free(
-								json_restart);
-						} else
-							json_object_object_add(
-								json_cap,
-								"addressFamiliesByPeer",
-								json_restart);
+								"routeRefresh",
+								"advertisedAndReceivedNew");
 					}
-				}
-				json_object_object_add(json_neigh,
-						       "neighborCapabilities",
-						       json_cap);
-			} else {
-				vty_out(vty, "  Neighbor capabilities:\n");
+				} else if (CHECK_FLAG(p->cap,
+						      PEER_CAP_REFRESH_ADV))
+					json_object_string_add(json_cap,
+							       "routeRefresh",
+							       "advertised");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_REFRESH_NEW_RCV) ||
+					 CHECK_FLAG(p->cap,
+						    PEER_CAP_REFRESH_OLD_RCV))
+					json_object_string_add(json_cap,
+							       "routeRefresh",
+							       "received");
+			}
 
-				/* AS4 */
-				if (CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV)
-				    || CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV)) {
-					vty_out(vty, "    4 Byte AS:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_AS4_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_AS4_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_AS4_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
-				}
-
-				/* Extended Message Support */
+			/* Enhanced Route Refresh */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_RCV)) {
 				if (CHECK_FLAG(p->cap,
-					       PEER_CAP_EXTENDED_MESSAGE_RCV)
-				    || CHECK_FLAG(
-					       p->cap,
-					       PEER_CAP_EXTENDED_MESSAGE_ADV)) {
-					vty_out(vty, "    Extended Message:");
-					if (CHECK_FLAG(
-						    p->cap,
-						    PEER_CAP_EXTENDED_MESSAGE_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(
-						    p->cap,
-						    PEER_CAP_EXTENDED_MESSAGE_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_EXTENDED_MESSAGE_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
-				}
+					       PEER_CAP_ENHANCED_RR_ADV) &&
+				    CHECK_FLAG(p->cap,
+					       PEER_CAP_ENHANCED_RR_RCV))
+					json_object_string_add(
+						json_cap,
+						"enhancedRouteRefresh",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_ENHANCED_RR_ADV))
+					json_object_string_add(
+						json_cap,
+						"enhancedRouteRefresh",
+						"advertised");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_ENHANCED_RR_RCV))
+					json_object_string_add(
+						json_cap,
+						"enhancedRouteRefresh",
+						"received");
+			}
 
-				/* AddPath */
-				if (CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_ADDPATH_ADV)) {
-					vty_out(vty, "    AddPath:\n");
+			/* Multiprotocol Extensions */
+			json_object *json_multi = NULL;
+
+			json_multi = json_object_new_object();
+
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (p->afc_adv[afi][safi] ||
+				    p->afc_recv[afi][safi]) {
+					json_object *json_exten = NULL;
+					json_exten = json_object_new_object();
+
+					if (p->afc_adv[afi][safi] &&
+					    p->afc_recv[afi][safi])
+						json_object_boolean_true_add(
+							json_exten,
+							"advertisedAndReceived");
+					else if (p->afc_adv[afi][safi])
+						json_object_boolean_true_add(
+							json_exten,
+							"advertised");
+					else if (p->afc_recv[afi][safi])
+						json_object_boolean_true_add(
+							json_exten, "received");
+
+					json_object_object_add(
+						json_multi,
+						get_afi_safi_str(afi, safi,
+								 true),
+						json_exten);
+				}
+			}
+			json_object_object_add(json_cap,
+					       "multiprotocolExtensions",
+					       json_multi);
+
+			/* Hostname capabilities */
+			json_object *json_hname = NULL;
+
+			json_hname = json_object_new_object();
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
+				json_object_string_add(
+					json_hname, "advHostName",
+					bgp->peer_self->hostname
+						? bgp->peer_self->hostname
+						: "n/a");
+				json_object_string_add(
+					json_hname, "advDomainName",
+					bgp->peer_self->domainname
+						? bgp->peer_self->domainname
+						: "n/a");
+			}
+
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
+				json_object_string_add(
+					json_hname, "rcvHostName",
+					p->hostname ? p->hostname : "n/a");
+				json_object_string_add(
+					json_hname, "rcvDomainName",
+					p->domainname ? p->domainname : "n/a");
+			}
+
+			json_object_object_add(json_cap, "hostName",
+					       json_hname);
+
+			/* Gracefull Restart */
+			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
+				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV) &&
+				    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV))
+					json_object_string_add(
+						json_cap, "gracefulRestart",
+						"advertisedAndReceived");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_RESTART_ADV))
+					json_object_string_add(
+						json_cap,
+						"gracefulRestartCapability",
+						"advertised");
+				else if (CHECK_FLAG(p->cap,
+						    PEER_CAP_RESTART_RCV))
+					json_object_string_add(
+						json_cap,
+						"gracefulRestartCapability",
+						"received");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+					int restart_af_count = 0;
+					json_object *json_restart = NULL;
+					json_restart = json_object_new_object();
+
+					json_object_int_add(
+						json_cap,
+						"gracefulRestartRemoteTimerMsecs",
+						p->v_gr_restart * 1000);
 
 					FOREACH_AFI_SAFI (afi, safi) {
 						if (CHECK_FLAG(
 							    p->af_cap[afi]
 								     [safi],
-							    PEER_CAP_ADDPATH_AF_TX_ADV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_TX_RCV)) {
-							vty_out(vty,
-								"      %s: TX ",
+							    PEER_CAP_RESTART_AF_RCV)) {
+							json_object *json_sub =
+								NULL;
+							json_sub =
+								json_object_new_object();
+
+							if (CHECK_FLAG(
+								    p->af_cap
+									    [afi]
+									    [safi],
+								    PEER_CAP_RESTART_AF_PRESERVE_RCV))
+								json_object_boolean_true_add(
+									json_sub,
+									"preserved");
+							restart_af_count++;
+							json_object_object_add(
+								json_restart,
 								get_afi_safi_str(
 									afi,
 									safi,
-									false));
-
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_TX_ADV))
-								vty_out(vty,
-									"advertised");
-
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_TX_RCV))
-								vty_out(vty,
-									"%sreceived",
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_ADDPATH_AF_TX_ADV)
-										? " and "
-										: "");
-
-							vty_out(vty, "\n");
+									true),
+								json_sub);
 						}
+					}
+					if (!restart_af_count) {
+						json_object_string_add(
+							json_cap,
+							"addressFamiliesByPeer",
+							"none");
+						json_object_free(json_restart);
+					} else
+						json_object_object_add(
+							json_cap,
+							"addressFamiliesByPeer",
+							json_restart);
+				}
+			}
+			json_object_object_add(
+				json_neigh, "neighborCapabilities", json_cap);
+		} else {
+			vty_out(vty, "  Neighbor capabilities:\n");
+
+			/* AS4 */
+			if (CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV)) {
+				vty_out(vty, "    4 Byte AS:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_AS4_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap, PEER_CAP_AS4_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_AS4_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+			}
+
+			/* Extended Message Support */
+			if (CHECK_FLAG(p->cap, PEER_CAP_EXTENDED_MESSAGE_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_EXTENDED_MESSAGE_ADV)) {
+				vty_out(vty, "    Extended Message:");
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_EXTENDED_MESSAGE_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_EXTENDED_MESSAGE_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(
+							p->cap,
+							PEER_CAP_EXTENDED_MESSAGE_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+			}
+
+			/* AddPath */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ADDPATH_ADV)) {
+				vty_out(vty, "    AddPath:\n");
+
+				FOREACH_AFI_SAFI (afi, safi) {
+					if (CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_TX_ADV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_TX_RCV)) {
+						vty_out(vty, "      %s: TX ",
+							get_afi_safi_str(
+								afi, safi,
+								false));
 
 						if (CHECK_FLAG(
 							    p->af_cap[afi]
 								     [safi],
-							    PEER_CAP_ADDPATH_AF_RX_ADV)
-						    || CHECK_FLAG(
-							       p->af_cap[afi]
-									[safi],
-							       PEER_CAP_ADDPATH_AF_RX_RCV)) {
+							    PEER_CAP_ADDPATH_AF_TX_ADV))
 							vty_out(vty,
-								"      %s: RX ",
+								"advertised");
+
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_TX_RCV))
+							vty_out(vty,
+								"%sreceived",
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_ADDPATH_AF_TX_ADV)
+									? " and "
+									: "");
+
+						vty_out(vty, "\n");
+					}
+
+					if (CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_RX_ADV) ||
+					    CHECK_FLAG(
+						    p->af_cap[afi][safi],
+						    PEER_CAP_ADDPATH_AF_RX_RCV)) {
+						vty_out(vty, "      %s: RX ",
+							get_afi_safi_str(
+								afi, safi,
+								false));
+
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_RX_ADV))
+							vty_out(vty,
+								"advertised");
+
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_ADDPATH_AF_RX_RCV))
+							vty_out(vty,
+								"%sreceived",
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_ADDPATH_AF_RX_ADV)
+									? " and "
+									: "");
+
+						vty_out(vty, "\n");
+					}
+				}
+			}
+
+			/* Dynamic */
+			if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_ADV)) {
+				vty_out(vty, "    Dynamic:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_DYNAMIC_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+			}
+
+			/* Extended nexthop */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV)) {
+				vty_out(vty, "    Extended nexthop:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_ENHE_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV)) {
+					vty_out(vty,
+						"      Address families by peer:\n        ");
+					for (safi = SAFI_UNICAST;
+					     safi < SAFI_MAX; safi++)
+						if (CHECK_FLAG(
+							    p->af_cap[AFI_IP]
+								     [safi],
+							    PEER_CAP_ENHE_AF_RCV))
+							vty_out(vty,
+								"           %s\n",
+								get_afi_safi_str(
+									AFI_IP,
+									safi,
+									false));
+				}
+			}
+
+			/* Long-lived Graceful Restart */
+			if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV)) {
+				vty_out(vty,
+					"    Long-lived Graceful Restart:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_LLGR_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV)) {
+					vty_out(vty,
+						"      Address families by peer:\n");
+					FOREACH_AFI_SAFI (afi, safi)
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_LLGR_AF_RCV))
+							vty_out(vty,
+								"           %s\n",
 								get_afi_safi_str(
 									afi,
 									safi,
 									false));
-
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_RX_ADV))
-								vty_out(vty,
-									"advertised");
-
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_ADDPATH_AF_RX_RCV))
-								vty_out(vty,
-									"%sreceived",
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_ADDPATH_AF_RX_ADV)
-										? " and "
-										: "");
-
-							vty_out(vty, "\n");
-						}
-					}
 				}
+			}
 
-				/* Dynamic */
-				if (CHECK_FLAG(p->cap, PEER_CAP_DYNAMIC_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_DYNAMIC_ADV)) {
-					vty_out(vty, "    Dynamic:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_DYNAMIC_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_DYNAMIC_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_DYNAMIC_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
-				}
-
-				/* Extended nexthop */
-				if (CHECK_FLAG(p->cap, PEER_CAP_ENHE_RCV)
-				    || CHECK_FLAG(p->cap, PEER_CAP_ENHE_ADV)) {
-					vty_out(vty, "    Extended nexthop:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_ENHE_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_ENHE_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_ENHE_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_ENHE_RCV)) {
-						vty_out(vty,
-							"      Address families by peer:\n        ");
-						for (safi = SAFI_UNICAST;
-						     safi < SAFI_MAX; safi++)
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [AFI_IP]
-									    [safi],
-								    PEER_CAP_ENHE_AF_RCV))
-								vty_out(vty,
-									"           %s\n",
-									get_afi_safi_str(
-										AFI_IP,
-										safi,
-										false));
-					}
-				}
-
-				/* Long-lived Graceful Restart */
-				if (CHECK_FLAG(p->cap, PEER_CAP_LLGR_RCV)
-				    || CHECK_FLAG(p->cap, PEER_CAP_LLGR_ADV)) {
-					vty_out(vty,
-						"    Long-lived Graceful Restart:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_LLGR_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_LLGR_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_LLGR_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
-
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_LLGR_RCV)) {
-						vty_out(vty,
-							"      Address families by peer:\n");
-						FOREACH_AFI_SAFI (afi, safi)
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_LLGR_AF_RCV))
-								vty_out(vty,
-									"           %s\n",
-									get_afi_safi_str(
-										afi,
-										safi,
-										false));
-					}
-				}
-
-				/* Route Refresh */
-				if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_REFRESH_NEW_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_REFRESH_OLD_RCV)) {
-					vty_out(vty, "    Route refresh:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_REFRESH_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_REFRESH_NEW_RCV)
-					    || CHECK_FLAG(
-						       p->cap,
-						       PEER_CAP_REFRESH_OLD_RCV))
-						vty_out(vty, " %sreceived(%s)",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_REFRESH_ADV)
-								? "and "
-								: "",
-							(CHECK_FLAG(
-								 p->cap,
-								 PEER_CAP_REFRESH_OLD_RCV)
-							 && CHECK_FLAG(
-								    p->cap,
-								    PEER_CAP_REFRESH_NEW_RCV))
-								? "old & new"
-								: CHECK_FLAG(
-									  p->cap,
-									  PEER_CAP_REFRESH_OLD_RCV)
-									  ? "old"
-									  : "new");
-
-					vty_out(vty, "\n");
-				}
-
-				/* Enhanced Route Refresh */
-				if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_ENHANCED_RR_RCV)) {
-					vty_out(vty,
-						"    Enhanced Route Refresh:");
-					if (CHECK_FLAG(
-						    p->cap,
-						    PEER_CAP_ENHANCED_RR_ADV))
-						vty_out(vty, " advertised");
-					if (CHECK_FLAG(
-						    p->cap,
-						    PEER_CAP_ENHANCED_RR_RCV))
-						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_REFRESH_ADV)
-								? "and "
-								: "");
-					vty_out(vty, "\n");
-				}
-
-				/* Multiprotocol Extensions */
-				FOREACH_AFI_SAFI (afi, safi)
-					if (p->afc_adv[afi][safi]
-					    || p->afc_recv[afi][safi]) {
-						vty_out(vty,
-							"    Address Family %s:",
-							get_afi_safi_str(
-								   afi,
-								   safi,
-								   false));
-						if (p->afc_adv[afi][safi])
-							vty_out(vty,
-								" advertised");
-						if (p->afc_recv[afi][safi])
-							vty_out(vty,
-								" %sreceived",
-								p->afc_adv[afi]
-									  [safi]
-									? "and "
-									: "");
-						vty_out(vty, "\n");
-					}
-
-				/* Hostname capability */
-				vty_out(vty, "    Hostname Capability:");
-
-				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
-					vty_out(vty,
-						" advertised (name: %s,domain name: %s)",
-						bgp->peer_self->hostname
-							? bgp->peer_self
-								  ->hostname
-							: "n/a",
-						bgp->peer_self->domainname
-							? bgp->peer_self
-								  ->domainname
-							: "n/a");
-				} else {
-					vty_out(vty, " not advertised");
-				}
-
-				if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
-					vty_out(vty,
-						" received (name: %s,domain name: %s)",
-						p->hostname ? p->hostname
-							    : "n/a",
-						p->domainname ? p->domainname
-							      : "n/a");
-				} else {
-					vty_out(vty, " not received");
-				}
+			/* Route Refresh */
+			if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_REFRESH_NEW_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_REFRESH_OLD_RCV)) {
+				vty_out(vty, "    Route refresh:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_REFRESH_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_REFRESH_NEW_RCV) ||
+				    CHECK_FLAG(p->cap,
+					       PEER_CAP_REFRESH_OLD_RCV))
+					vty_out(vty, " %sreceived(%s)",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_REFRESH_ADV)
+							? "and "
+							: "",
+						(CHECK_FLAG(
+							 p->cap,
+							 PEER_CAP_REFRESH_OLD_RCV) &&
+						 CHECK_FLAG(
+							 p->cap,
+							 PEER_CAP_REFRESH_NEW_RCV))
+							? "old & new"
+							: CHECK_FLAG(
+								  p->cap,
+								  PEER_CAP_REFRESH_OLD_RCV)
+								  ? "old"
+								  : "new");
 
 				vty_out(vty, "\n");
+			}
 
-				/* Graceful Restart */
-				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)
-				    || CHECK_FLAG(p->cap,
-						  PEER_CAP_RESTART_ADV)) {
-					vty_out(vty,
-						"    Graceful Restart Capability:");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_RESTART_ADV))
+			/* Enhanced Route Refresh */
+			if (CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_ADV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_ENHANCED_RR_RCV)) {
+				vty_out(vty, "    Enhanced Route Refresh:");
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_ENHANCED_RR_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap,
+					       PEER_CAP_ENHANCED_RR_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_REFRESH_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+			}
+
+			/* Multiprotocol Extensions */
+			FOREACH_AFI_SAFI (afi, safi)
+				if (p->afc_adv[afi][safi] ||
+				    p->afc_recv[afi][safi]) {
+					vty_out(vty, "    Address Family %s:",
+						get_afi_safi_str(afi, safi,
+								 false));
+					if (p->afc_adv[afi][safi])
 						vty_out(vty, " advertised");
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_RESTART_RCV))
+					if (p->afc_recv[afi][safi])
 						vty_out(vty, " %sreceived",
-							CHECK_FLAG(
-								p->cap,
-								PEER_CAP_RESTART_ADV)
+							p->afc_adv[afi][safi]
 								? "and "
 								: "");
 					vty_out(vty, "\n");
+				}
 
-					if (CHECK_FLAG(p->cap,
-						       PEER_CAP_RESTART_RCV)) {
-						int restart_af_count = 0;
+			/* Hostname capability */
+			vty_out(vty, "    Hostname Capability:");
 
-						vty_out(vty,
-							"      Remote Restart timer is %d seconds\n",
-							p->v_gr_restart);
-						vty_out(vty,
-							"      Address families by peer:\n        ");
-
-						FOREACH_AFI_SAFI (afi, safi)
-							if (CHECK_FLAG(
-								    p->af_cap
-									    [afi]
-									    [safi],
-								    PEER_CAP_RESTART_AF_RCV)) {
-								vty_out(vty,
-									"%s%s(%s)",
-									restart_af_count
-										? ", "
-										: "",
-									get_afi_safi_str(
-										afi,
-										safi,
-										false),
-									CHECK_FLAG(
-										p->af_cap
-											[afi]
-											[safi],
-										PEER_CAP_RESTART_AF_PRESERVE_RCV)
-										? "preserved"
-										: "not preserved");
-								restart_af_count++;
-							}
-						if (!restart_af_count)
-							vty_out(vty, "none");
-						vty_out(vty, "\n");
-					}
-				} /* Gracefull Restart */
+			if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_ADV)) {
+				vty_out(vty,
+					" advertised (name: %s,domain name: %s)",
+					bgp->peer_self->hostname
+						? bgp->peer_self->hostname
+						: "n/a",
+					bgp->peer_self->domainname
+						? bgp->peer_self->domainname
+						: "n/a");
+			} else {
+				vty_out(vty, " not advertised");
 			}
+
+			if (CHECK_FLAG(p->cap, PEER_CAP_HOSTNAME_RCV)) {
+				vty_out(vty,
+					" received (name: %s,domain name: %s)",
+					p->hostname ? p->hostname : "n/a",
+					p->domainname ? p->domainname : "n/a");
+			} else {
+				vty_out(vty, " not received");
+			}
+
+			vty_out(vty, "\n");
+
+			/* Graceful Restart */
+			if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV) ||
+			    CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV)) {
+				vty_out(vty,
+					"    Graceful Restart Capability:");
+				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_ADV))
+					vty_out(vty, " advertised");
+				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV))
+					vty_out(vty, " %sreceived",
+						CHECK_FLAG(p->cap,
+							   PEER_CAP_RESTART_ADV)
+							? "and "
+							: "");
+				vty_out(vty, "\n");
+
+				if (CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+					int restart_af_count = 0;
+
+					vty_out(vty,
+						"      Remote Restart timer is %d seconds\n",
+						p->v_gr_restart);
+					vty_out(vty,
+						"      Address families by peer:\n        ");
+
+					FOREACH_AFI_SAFI (afi, safi)
+						if (CHECK_FLAG(
+							    p->af_cap[afi]
+								     [safi],
+							    PEER_CAP_RESTART_AF_RCV)) {
+							vty_out(vty, "%s%s(%s)",
+								restart_af_count
+									? ", "
+									: "",
+								get_afi_safi_str(
+									afi,
+									safi,
+									false),
+								CHECK_FLAG(
+									p->af_cap
+										[afi]
+										[safi],
+									PEER_CAP_RESTART_AF_PRESERVE_RCV)
+									? "preserved"
+									: "not preserved");
+							restart_af_count++;
+						}
+					if (!restart_af_count)
+						vty_out(vty, "none");
+					vty_out(vty, "\n");
+				}
+			} /* Gracefull Restart */
 		}
 	}
 
 	/* graceful restart information */
-		json_object *json_grace = NULL;
-		json_object *json_grace_send = NULL;
-		json_object *json_grace_recv = NULL;
-		int eor_send_af_count = 0;
-		int eor_receive_af_count = 0;
+	json_object *json_grace = NULL;
+	json_object *json_grace_send = NULL;
+	json_object *json_grace_recv = NULL;
+	int eor_send_af_count = 0;
+	int eor_receive_af_count = 0;
 
-		if (use_json) {
-			json_grace = json_object_new_object();
-			json_grace_send = json_object_new_object();
-			json_grace_recv = json_object_new_object();
+	if (use_json) {
+		json_grace = json_object_new_object();
+		json_grace_send = json_object_new_object();
+		json_grace_recv = json_object_new_object();
 
-			if ((peer_established(p))
-			    && CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-				FOREACH_AFI_SAFI (afi, safi) {
-					if (CHECK_FLAG(p->af_sflags[afi][safi],
-						       PEER_STATUS_EOR_SEND)) {
-						json_object_boolean_true_add(
-							json_grace_send,
-							get_afi_safi_str(afi,
-									 safi,
-									 true));
-						eor_send_af_count++;
-					}
-				}
-				FOREACH_AFI_SAFI (afi, safi) {
-					if (CHECK_FLAG(
-						    p->af_sflags[afi][safi],
-						    PEER_STATUS_EOR_RECEIVED)) {
-						json_object_boolean_true_add(
-							json_grace_recv,
-							get_afi_safi_str(afi,
-									 safi,
-									 true));
-						eor_receive_af_count++;
-					}
+		if ((peer_established(p)) &&
+		    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi],
+					       PEER_STATUS_EOR_SEND)) {
+					json_object_boolean_true_add(
+						json_grace_send,
+						get_afi_safi_str(afi, safi,
+								 true));
+					eor_send_af_count++;
 				}
 			}
-			json_object_object_add(json_grace, "endOfRibSend",
-					       json_grace_send);
-			json_object_object_add(json_grace, "endOfRibRecv",
-					       json_grace_recv);
-
-
-			if (p->t_gr_restart)
-				json_object_int_add(json_grace,
-						    "gracefulRestartTimerMsecs",
-						    thread_timer_remain_second(
-							    p->t_gr_restart)
-							    * 1000);
-
-			if (p->t_gr_stale)
-				json_object_int_add(
-					json_grace,
-					"gracefulStalepathTimerMsecs",
-					thread_timer_remain_second(
-						p->t_gr_stale)
-						* 1000);
-			/* more gr info in new format */
-			BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json,
-						    json_grace);
-			json_object_object_add(
-				json_neigh, "gracefulRestartInfo", json_grace);
-		} else {
-			vty_out(vty, "  Graceful restart information:\n");
-			if ((peer_established(p))
-			    && CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
-
-				vty_out(vty, "    End-of-RIB send: ");
-				FOREACH_AFI_SAFI (afi, safi) {
-					if (CHECK_FLAG(p->af_sflags[afi][safi],
-						       PEER_STATUS_EOR_SEND)) {
-						vty_out(vty, "%s%s",
-							eor_send_af_count ? ", "
-									  : "",
-							get_afi_safi_str(
-								afi, safi,
-								false));
-						eor_send_af_count++;
-					}
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi],
+					       PEER_STATUS_EOR_RECEIVED)) {
+					json_object_boolean_true_add(
+						json_grace_recv,
+						get_afi_safi_str(afi, safi,
+								 true));
+					eor_receive_af_count++;
 				}
-				vty_out(vty, "\n");
-				vty_out(vty, "    End-of-RIB received: ");
-				FOREACH_AFI_SAFI (afi, safi) {
-					if (CHECK_FLAG(
-						    p->af_sflags[afi][safi],
-						    PEER_STATUS_EOR_RECEIVED)) {
-						vty_out(vty, "%s%s",
-							eor_receive_af_count
-								? ", "
-								: "",
-							get_afi_safi_str(afi,
-									 safi,
-									 false));
-						eor_receive_af_count++;
-					}
-				}
-				vty_out(vty, "\n");
 			}
-
-			if (p->t_gr_restart)
-				vty_out(vty,
-					"    The remaining time of restart timer is %ld\n",
-					thread_timer_remain_second(
-						p->t_gr_restart));
-
-			if (p->t_gr_stale)
-				vty_out(vty,
-					"    The remaining time of stalepath timer is %ld\n",
-					thread_timer_remain_second(
-						p->t_gr_stale));
-
-			/* more gr info in new format */
-			BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, NULL);
 		}
+		json_object_object_add(json_grace, "endOfRibSend",
+				       json_grace_send);
+		json_object_object_add(json_grace, "endOfRibRecv",
+				       json_grace_recv);
+
+
+		if (p->t_gr_restart)
+			json_object_int_add(
+				json_grace, "gracefulRestartTimerMsecs",
+				thread_timer_remain_second(p->t_gr_restart) *
+					1000);
+
+		if (p->t_gr_stale)
+			json_object_int_add(
+				json_grace, "gracefulStalepathTimerMsecs",
+				thread_timer_remain_second(p->t_gr_stale) *
+					1000);
+		/* more gr info in new format */
+		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, json_grace);
+		json_object_object_add(json_neigh, "gracefulRestartInfo",
+				       json_grace);
+	} else {
+		vty_out(vty, "  Graceful restart information:\n");
+		if ((peer_established(p)) &&
+		    CHECK_FLAG(p->cap, PEER_CAP_RESTART_RCV)) {
+
+			vty_out(vty, "    End-of-RIB send: ");
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi],
+					       PEER_STATUS_EOR_SEND)) {
+					vty_out(vty, "%s%s",
+						eor_send_af_count ? ", " : "",
+						get_afi_safi_str(afi, safi,
+								 false));
+					eor_send_af_count++;
+				}
+			}
+			vty_out(vty, "\n");
+			vty_out(vty, "    End-of-RIB received: ");
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (CHECK_FLAG(p->af_sflags[afi][safi],
+					       PEER_STATUS_EOR_RECEIVED)) {
+					vty_out(vty, "%s%s",
+						eor_receive_af_count ? ", "
+								     : "",
+						get_afi_safi_str(afi, safi,
+								 false));
+					eor_receive_af_count++;
+				}
+			}
+			vty_out(vty, "\n");
+		}
+
+		if (p->t_gr_restart)
+			vty_out(vty,
+				"    The remaining time of restart timer is %ld\n",
+				thread_timer_remain_second(p->t_gr_restart));
+
+		if (p->t_gr_stale)
+			vty_out(vty,
+				"    The remaining time of stalepath timer is %ld\n",
+				thread_timer_remain_second(p->t_gr_stale));
+
+		/* more gr info in new format */
+		BGP_SHOW_PEER_GR_CAPABILITY(vty, p, use_json, NULL);
+	}
 
 	if (use_json) {
 		json_object *json_stat = NULL;

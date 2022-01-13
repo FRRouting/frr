@@ -2021,6 +2021,8 @@ extern bgp_peer_sort_t peer_sort_lookup(struct peer *peer);
 
 extern bool peer_active(struct peer *);
 extern bool peer_active_nego(struct peer *);
+extern bool peer_afc_received(struct peer *peer);
+extern bool peer_afc_advertised(struct peer *peer);
 extern void bgp_recalculate_all_bestpaths(struct bgp *bgp);
 extern struct peer *peer_create(union sockunion *, const char *, struct bgp *,
 				as_t, as_t, int, struct peer_group *);
