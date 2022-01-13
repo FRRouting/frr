@@ -36,9 +36,6 @@ pim_common = \
 	pimd/pim_memory.c \
 	pimd/pim_mlag.c \
 	pimd/pim_mroute.c \
-	pimd/pim_msdp.c \
-	pimd/pim_msdp_packet.c \
-	pimd/pim_msdp_socket.c \
 	pimd/pim_msg.c \
 	pimd/pim_nb.c \
 	pimd/pim_nb_config.c \
@@ -70,6 +67,9 @@ pim_common = \
 pimd_pimd_SOURCES = \
 	$(pim_common) \
 	pimd/pim_main.c \
+	pimd/pim_msdp.c \
+	pimd/pim_msdp_packet.c \
+	pimd/pim_msdp_socket.c \
 	pimd/pim_signals.c \
 	# end
 
