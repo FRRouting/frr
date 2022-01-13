@@ -219,6 +219,122 @@ Networking data types
 
    :frrfmtout:`SOCK_STREAM`
 
+Time/interval formats
+^^^^^^^^^^^^^^^^^^^^^
+
+.. frrfmt:: %pTS (struct timespec *)
+
+.. frrfmt:: %pTV (struct timeval *)
+
+.. frrfmt:: %pTT (time_t *)
+
+   Above 3 options internally result in the same code being called, support
+   the same flags and produce equal output with one exception:  ``%pTT``
+   has no sub-second precision and the formatter will never print a
+   (nonsensical) ``.000``.
+
+   Exactly one of ``I``, ``M`` or ``R`` must immediately follow after
+   ``TS``/``TV``/``TT`` to specify whether the input is an interval, monotonic
+   timestamp or realtime timestamp:
+
+   ``%pTVI``: input is an interval, not a timestamp.  Print interval.
+
+   ``%pTVIs``: input is an interval, convert to wallclock by subtracting it
+   from current time (i.e. interval has passed **s**\ ince.)
+
+   ``%pTVIu``: input is an interval, convert to wallclock by adding it to
+   current time (i.e. **u**\ ntil interval has passed.)
+
+   ``%pTVM`` - input is a timestamp on CLOCK_MONOTONIC, convert to wallclock
+   time (by grabbing current CLOCK_MONOTONIC and CLOCK_REALTIME and doing the
+   math) and print calendaric date.
+
+   ``%pTVMs`` - input is a timestamp on CLOCK_MONOTONIC, print interval
+   **s**\ ince that timestamp (elapsed.)
+
+   ``%pTVMu`` - input is a timestamp on CLOCK_MONOTONIC, print interval
+   **u**\ ntil that timestamp (deadline.)
+
+   ``%pTVR`` - input is a timestamp on CLOCK_REALTIME, print calendaric date.
+
+   ``%pTVRs`` - input is a timestamp on CLOCK_REALTIME, print interval
+   **s**\ ince that timestamp.
+
+   ``%pTVRu`` - input is a timestamp on CLOCK_REALTIME, print interval
+   **u**\ ntil that timestamp.
+
+   ``%pTVA`` - reserved for CLOCK_TAI in case a PTP implementation is
+   interfaced to FRR.  Not currently implemented.
+
+   .. note::
+
+      If ``%pTVRs`` or ``%pTVRu`` are used, this is generally an indication
+      that a CLOCK_MONOTONIC timestamp should be used instead (or added in
+      parallel.) CLOCK_REALTIME might be adjusted by NTP, PTP or similar
+      procedures, causing bogus intervals to be printed.
+
+      ``%pTVM`` on first look might be assumed to have the same problem, but
+      on closer thought the assumption is always that current system time is
+      correct.  And since a CLOCK_MONOTONIC interval is also quite safe to
+      assume to be correct, the (past) absolute timestamp to be printed from
+      this can likely be correct even if it doesn't match what CLOCK_REALTIME
+      would have indicated at that point in the past.  This logic does,
+      however, not quite work for *future* times.
+
+      Generally speaking, almost all use cases in FRR should (and do) use
+      CLOCK_MONOTONIC (through :c:func:`monotime()`.)
+
+   Flags common to printing calendar times and intervals:
+
+   ``p``: include spaces in appropriate places (depends on selected format.)
+
+   ``%p.3TV...``: specify sub-second resolution (use with ``FMT_NSTD`` to
+   suppress gcc warning.)  As noted above, ``%pTT`` will never print sub-second
+   digits since there are none.  Only some formats support printing sub-second
+   digits and the default may vary.
+
+   The following flags are available for printing calendar times/dates:
+
+   (no flag): :frrfmtout:`Sat Jan  1 00:00:00 2022` - print output from
+   ``ctime()``, in local time zone.  Since FRR does not currently use/enable
+   locale support, this is always the C locale.  (Locale support getting added
+   is unlikely for the time being and would likely break other things worse
+   than this.)
+
+   ``i``: :frrfmtout:`2022-01-01T00:00:00.123` - ISO8601 timestamp in local
+   time zone (note there is no ``Z`` or ``+00:00`` suffix.)  Defaults to
+   millisecond precision.
+
+   ``ip``: :frrfmtout:`2022-01-01 00:00:00.123` - use readable form of ISO8601
+   with space instead of ``T`` separator.
+
+   The following flags are available for printing intervals:
+
+   (no flag): :frrfmtout:`9w9d09:09:09.123` - does not match any
+   preexisting format;  added because it does not lose precision (like ``t``)
+   for longer intervals without printing huge numbers (like ``h``/``m``).
+   Defaults to millisecond precision.  The week/day fields are left off if
+   they're zero, ``p`` adds a space after the respective letter.
+
+   ``t``: :frrfmtout:`9w9d09h`, :frrfmtout:`9d09h09m`, :frrfmtout:`09:09:09` -
+   this replaces :c:func:`frrtime_to_interval()`.  ``p`` adds spaces after
+   week/day/hour letters.
+
+   ``d``: print decimal number of seconds.  Defaults to millisecond precision.
+
+   ``x`` / ``tx`` / ``dx``: Like no flag / ``t`` / ``d``, but print
+   :frrfmtout:`-` for zero or negative intervals (for use with unset timers.)
+
+   ``h``: :frrfmtout:`09:09:09`
+
+   ``hx``: :frrfmtout:`09:09:09`, :frrfmtout:`--:--:--` - this replaces
+   :c:func:`pim_time_timer_to_hhmmss()`.
+
+   ``m``: :frrfmtout:`09:09`
+
+   ``mx``: :frrfmtout:`09:09`, :frrfmtout:`--:--` - this replaces
+   :c:func:`pim_time_timer_to_mmss()`.
+
 General utility formats
 ^^^^^^^^^^^^^^^^^^^^^^^
 

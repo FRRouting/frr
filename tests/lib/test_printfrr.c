@@ -278,5 +278,115 @@ int main(int argc, char **argv)
 	inet_pton(AF_INET6, "fe2c::34", &nh.gate.ipv6);
 	printchk("fe2c::34", "%pNHcg", &nh);
 
+	/* time printing */
+
+	/* need a non-UTC timezone for testing */
+	setenv("TZ", "TEST-01:00", 1);
+	tzset();
+
+	struct timespec ts;
+	struct timeval tv;
+	time_t tt;
+
+	ts.tv_sec = tv.tv_sec = tt = 1642015880;
+	ts.tv_nsec = 123456789;
+	tv.tv_usec = 234567;
+
+	printchk("Wed Jan 12 20:31:20 2022", "%pTSR", &ts);
+	printchk("Wed Jan 12 20:31:20 2022", "%pTVR", &tv);
+	printchk("Wed Jan 12 20:31:20 2022", "%pTTR", &tt);
+
+	FMT_NSTD(printchk("Wed Jan 12 20:31:20 2022", "%.3pTSR", &ts));
+
+	printchk("2022-01-12T20:31:20.123", "%pTSRi", &ts);
+	printchk("2022-01-12 20:31:20.123", "%pTSRip", &ts);
+	printchk("2022-01-12 20:31:20.123", "%pTSRpi", &ts);
+	FMT_NSTD(printchk("2022-01-12T20:31:20", "%.0pTSRi", &ts));
+	FMT_NSTD(printchk("2022-01-12T20:31:20.123456789", "%.9pTSRi", &ts));
+	FMT_NSTD(printchk("2022-01-12T20:31:20", "%.3pTTRi", &tt));
+
+	ts.tv_sec = tv.tv_sec = tt = 9 * 86400 + 12345;
+
+	printchk("1w 2d 03:25:45.123", "%pTSIp", &ts);
+	printchk("1w2d03:25:45.123", "%pTSI", &ts);
+	printchk("1w2d03:25:45.234", "%pTVI", &tv);
+	printchk("1w2d03:25:45", "%pTTI", &tt);
+
+	printchk("1w 2d 03h", "%pTVItp", &tv);
+	printchk("1w2d03h", "%pTSIt", &ts);
+
+	printchk("219:25:45", "%pTVIh", &tv);
+	printchk("13165:45", "%pTVIm", &tv);
+
+	ts.tv_sec = tv.tv_sec = tt = 1 * 86400 + 12345;
+
+	printchk("1d 03:25:45.123", "%pTSIp", &ts);
+	printchk("1d03:25:45.234", "%pTVI", &tv);
+
+	printchk("1d 03h 25m", "%pTVItp", &tv);
+	printchk("1d03h25m", "%pTSIt", &ts);
+
+	printchk("98745.234", "%pTVId", &tv);
+
+	printchk("27:25:45", "%pTVIh", &tv);
+	printchk("1645:45", "%pTVIm", &tv);
+
+	ts.tv_sec = tv.tv_sec = tt = 12345;
+
+	printchk("03:25:45.123", "%pTSIp", &ts);
+	printchk("03:25:45.123", "%pTSI", &ts);
+	printchk("03:25:45.234", "%pTVI", &tv);
+	printchk("03:25:45", "%pTTI", &tt);
+
+	printchk("03:25:45", "%pTSItp", &ts);
+	printchk("03:25:45", "%pTVIt", &tv);
+
+	printchk("12345.234", "%pTVId", &tv);
+
+	printchk("03:25:45", "%pTVIh", &tv);
+	printchk("205:45", "%pTVIm", &tv);
+
+	ts.tv_sec = tv.tv_sec = tt = 0;
+
+	printchk("00:00:00.123", "%pTSIp", &ts);
+	printchk("00:00:00.123", "%pTSI", &ts);
+	printchk("00:00:00.234", "%pTVI", &tv);
+	printchk("00:00:00", "%pTTI", &tt);
+
+	printchk("00:00:00", "%pTVItp", &tv);
+	printchk("00:00:00", "%pTSIt", &ts);
+
+	printchk("0.234", "%pTVId", &tv);
+	printchk("0.234", "%pTVIdx", &tv);
+	printchk("-", "%pTTIdx", &tt);
+
+	printchk("00:00:00", "%pTVIhx", &tv);
+	printchk("--:--:--", "%pTTIhx", &tt);
+	printchk("00:00", "%pTVImx", &tv);
+	printchk("--:--", "%pTTImx", &tt);
+
+	ts.tv_sec = tv.tv_sec = tt = -10;
+
+	printchk("-00:00:09.876", "%pTSIp", &ts);
+	printchk("-00:00:09.876", "%pTSI", &ts);
+	printchk("-00:00:09.765", "%pTVI", &tv);
+	printchk("-00:00:10", "%pTTI", &tt);
+
+	printchk("-00:00:09", "%pTSItp", &ts);
+	printchk("-00:00:09", "%pTSIt", &ts);
+	printchk("-00:00:09", "%pTVIt", &tv);
+	printchk("-00:00:10", "%pTTIt", &tt);
+
+	printchk("-9.765", "%pTVId", &tv);
+	printchk("-", "%pTVIdx", &tv);
+
+	printchk("-00:00:09", "%pTSIh", &ts);
+	printchk("--:--:--", "%pTVIhx", &tv);
+	printchk("--:--:--", "%pTTIhx", &tt);
+
+	printchk("-00:09", "%pTSIm", &ts);
+	printchk("--:--", "%pTVImx", &tv);
+	printchk("--:--", "%pTTImx", &tt);
+
 	return !!errors;
 }
