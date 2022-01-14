@@ -2832,9 +2832,8 @@ at the same time.
 
 EVPN Overlay Index Gateway IP
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-Draft https://tools.ietf.org/html/draft-ietf-bess-evpn-prefix-advertisement-11
-explains the use of overlay indexes for recursive route resolution for EVPN
-type-5 route.
+RFC https://datatracker.ietf.org/doc/html/rfc9136 explains the use of overlay
+indexes for recursive route resolution for EVPN type-5 route.
 
 We support gateway IP overlay index.
 A gateway IP, advertised with EVPN prefix route, is used to find an EVPN MAC/IP
