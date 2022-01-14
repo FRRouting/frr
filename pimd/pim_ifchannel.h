@@ -126,10 +126,10 @@ void pim_ifchannel_delete_on_noinfo(struct interface *ifp);
 struct pim_ifchannel *pim_ifchannel_find(struct interface *ifp, pim_sgaddr *sg);
 struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 					uint8_t ch_flags, int up_flags);
-void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
-			    struct in_addr upstream, pim_sgaddr *sg,
+void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
+			    pim_addr upstream, pim_sgaddr *sg,
 			    uint8_t source_flags, uint16_t holdtime);
-void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
+void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 			 pim_sgaddr *sg, uint8_t source_flags,
 			 uint16_t holdtime);
 int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
