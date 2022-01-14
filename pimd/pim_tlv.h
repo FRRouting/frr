@@ -84,24 +84,24 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf, const uint8_t *buf_pastend,
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 				       struct list *ifconnected, int family);
 
-int pim_tlv_parse_holdtime(const char *ifname, struct in_addr src_addr,
+int pim_tlv_parse_holdtime(const char *ifname, pim_addr src_addr,
 			   pim_hello_options *hello_options,
 			   uint16_t *hello_option_holdtime, uint16_t option_len,
 			   const uint8_t *tlv_curr);
-int pim_tlv_parse_lan_prune_delay(const char *ifname, struct in_addr src_addr,
+int pim_tlv_parse_lan_prune_delay(const char *ifname, pim_addr src_addr,
 				  pim_hello_options *hello_options,
 				  uint16_t *hello_option_propagation_delay,
 				  uint16_t *hello_option_override_interval,
 				  uint16_t option_len, const uint8_t *tlv_curr);
-int pim_tlv_parse_dr_priority(const char *ifname, struct in_addr src_addr,
+int pim_tlv_parse_dr_priority(const char *ifname, pim_addr src_addr,
 			      pim_hello_options *hello_options,
 			      uint32_t *hello_option_dr_priority,
 			      uint16_t option_len, const uint8_t *tlv_curr);
-int pim_tlv_parse_generation_id(const char *ifname, struct in_addr src_addr,
+int pim_tlv_parse_generation_id(const char *ifname, pim_addr src_addr,
 				pim_hello_options *hello_options,
 				uint32_t *hello_option_generation_id,
 				uint16_t option_len, const uint8_t *tlv_curr);
-int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
+int pim_tlv_parse_addr_list(const char *ifname, pim_addr src_addr,
 			    pim_hello_options *hello_options,
 			    struct list **hello_option_addr_list,
 			    uint16_t option_len, const uint8_t *tlv_curr);
