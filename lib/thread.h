@@ -128,6 +128,10 @@ struct thread {
 	pthread_mutex_t mtx;   /* mutex for thread.c functions */
 };
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pTH" (struct thread *)
+#endif
+
 struct cpu_thread_history {
 	int (*func)(struct thread *);
 	atomic_size_t total_cpu_warn;

@@ -237,7 +237,7 @@ struct bgp_node *bgp_table_subtree_lookup(const struct bgp_table *table,
 	return matched;
 }
 
-printfrr_ext_autoreg_p("BD", printfrr_bd)
+printfrr_ext_autoreg_p("BD", printfrr_bd);
 static ssize_t printfrr_bd(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
