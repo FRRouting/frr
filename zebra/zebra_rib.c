@@ -1945,8 +1945,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 				/* Redistribute if this is the selected re */
 				if (dest && re == dest->selected_fib)
-					redistribute_update(dest_pfx, src_pfx,
-							    re, old_re);
+					redistribute_update(rn, re, old_re);
 			}
 
 			/*
@@ -2252,7 +2251,7 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 		dplane_route_notif_update(rn, re, DPLANE_OP_ROUTE_UPDATE, ctx);
 
 		/* Redistribute, lsp, and nht update */
-		redistribute_update(dest_pfx, src_pfx, re, NULL);
+		redistribute_update(rn, re, NULL);
 
 	} else if (start_count > 0 && end_count == 0) {
 		if (debug_p)
