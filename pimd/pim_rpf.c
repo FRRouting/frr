@@ -234,7 +234,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
 
-	if (up->upstream_addr.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(up->upstream_addr)) {
 		zlog_debug("%s(%s): RP is not configured yet for %s",
 			__func__, caller, up->sg_str);
 		return PIM_RPF_OK;
@@ -248,13 +248,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		old->rpf_addr = saved.rpf_addr;
 	}
 
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+	pim_addr_to_prefix(&nht_p, up->upstream_addr);
 
-	src.family = AF_INET;
-	src.prefixlen = IPV4_MAX_BITLEN;
-	src.u.prefix4 = up->upstream_addr; // RP or Src address
+	pim_addr_to_prefix(&src, up->upstream_addr); // RP or Src address
 	pim_addr_to_prefix(&grp, up->sg.grp);
 
 	if ((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
