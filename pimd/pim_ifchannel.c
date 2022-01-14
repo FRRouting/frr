@@ -423,11 +423,9 @@ const char *pim_ifchannel_ifassert_name(enum pim_ifassert_state ifassert_state)
 */
 void reset_ifassert_state(struct pim_ifchannel *ch)
 {
-	struct in_addr any = {.s_addr = INADDR_ANY};
-
 	THREAD_OFF(ch->t_ifassert_timer);
 
-	pim_ifassert_winner_set(ch, PIM_IFASSERT_NOINFO, any,
+	pim_ifassert_winner_set(ch, PIM_IFASSERT_NOINFO, PIMADDR_ANY,
 				router->infinite_assert_metric);
 }
 
@@ -587,7 +585,7 @@ struct pim_ifchannel *pim_ifchannel_add(struct interface *ifp, pim_sgaddr *sg,
 	ch->ifassert_my_metric = pim_macro_ch_my_assert_metric_eval(ch);
 	ch->ifassert_winner_metric = pim_macro_ch_my_assert_metric_eval(ch);
 
-	ch->ifassert_winner.s_addr = INADDR_ANY;
+	ch->ifassert_winner = PIMADDR_ANY;
 
 	/* Assert state */
 	ch->t_ifassert_timer = NULL;
@@ -688,8 +686,8 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 				struct pim_rpf rpf;
 
 				rpf.source_nexthop.interface = ifp;
-				rpf.rpf_addr.u.prefix4 =
-					pim_ifp->primary_address;
+				pim_addr_to_prefix(&rpf.rpf_addr,
+						   pim_ifp->primary_address);
 				pim_jp_agg_single_upstream_send(
 					&rpf, ch->upstream, 0);
 			}
@@ -733,11 +731,12 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 }
 
 static void check_recv_upstream(int is_join, struct interface *recv_ifp,
-				struct in_addr upstream, pim_sgaddr *sg,
+				pim_addr upstream, pim_sgaddr *sg,
 				uint8_t source_flags, int holdtime)
 {
 	struct pim_upstream *up;
 	struct pim_interface *pim_ifp = recv_ifp->info;
+	pim_addr rpf_addr;
 
 	/* Upstream (S,G) in Joined state ? */
 	up = pim_upstream_find(pim_ifp->pim, sg);
@@ -755,16 +754,13 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 		return;
 	}
 
+	rpf_addr = pim_addr_from_prefix(&up->rpf.rpf_addr);
+
 	/* upstream directed to RPF'(S,G) ? */
-	if (upstream.s_addr != up->rpf.rpf_addr.u.prefix4.s_addr) {
-		char up_str[INET_ADDRSTRLEN];
-		char rpf_str[PREFIX_STRLEN];
-		pim_inet4_dump("<up?>", upstream, up_str, sizeof(up_str));
-		pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str,
-			      sizeof(rpf_str));
+	if (pim_addr_cmp(upstream, rpf_addr)) {
 		zlog_warn(
-			"%s %s: (S,G)=%s upstream=%s not directed to RPF'(S,G)=%s on interface %s",
-			__FILE__, __func__, up->sg_str, up_str, rpf_str,
+			"%s %s: (S,G)=%s upstream=%pPAs not directed to RPF'(S,G)=%pPAs on interface %s",
+			__FILE__, __func__, up->sg_str, &upstream, &rpf_addr,
 			recv_ifp->name);
 		return;
 	}
@@ -798,7 +794,7 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 }
 
 static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
-			     struct in_addr upstream, pim_sgaddr *sg,
+			     pim_addr upstream, pim_sgaddr *sg,
 			     uint8_t source_flags, uint16_t holdtime)
 {
 	struct pim_interface *recv_pim_ifp;
@@ -807,18 +803,16 @@ static int nonlocal_upstream(int is_join, struct interface *recv_ifp,
 	recv_pim_ifp = recv_ifp->info;
 	assert(recv_pim_ifp);
 
-	is_local = (upstream.s_addr == recv_pim_ifp->primary_address.s_addr);
+	is_local = !pim_addr_cmp(upstream, recv_pim_ifp->primary_address);
 
 	if (is_local)
 		return 0;
 
-	if (PIM_DEBUG_PIM_TRACE_DETAIL) {
-		char up_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-		zlog_warn("%s: recv %s (S,G)=%pSG to non-local upstream=%s on %s",
-			  __func__, is_join ? "join" : "prune",
-			  sg, up_str, recv_ifp->name);
-	}
+	if (PIM_DEBUG_PIM_TRACE_DETAIL)
+		zlog_warn(
+			"%s: recv %s (S,G)=%pSG to non-local upstream=%pPAs on %s",
+			__func__, is_join ? "join" : "prune", sg, &upstream,
+			recv_ifp->name);
 
 	/*
 	 * Since recv upstream addr was not directed to our primary
@@ -851,8 +845,8 @@ static void pim_ifchannel_ifjoin_handler(struct pim_ifchannel *ch,
 }
 
 
-void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
-			    struct in_addr upstream, pim_sgaddr *sg,
+void pim_ifchannel_join_add(struct interface *ifp, pim_addr neigh_addr,
+			    pim_addr upstream, pim_sgaddr *sg,
 			    uint8_t source_flags, uint16_t holdtime)
 {
 	struct pim_interface *pim_ifp;
@@ -1013,7 +1007,7 @@ void pim_ifchannel_join_add(struct interface *ifp, struct in_addr neigh_addr,
 	}
 }
 
-void pim_ifchannel_prune(struct interface *ifp, struct in_addr upstream,
+void pim_ifchannel_prune(struct interface *ifp, pim_addr upstream,
 			 pim_sgaddr *sg, uint8_t source_flags,
 			 uint16_t holdtime)
 {
