@@ -1803,7 +1803,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	bool is_update = false;
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
-	const struct prefix *dest_pfx, *src_pfx;
+	const struct prefix *dest_pfx;
 	uint32_t seq;
 	rib_dest_t *dest;
 	bool fib_changed = false;
@@ -1812,22 +1812,20 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
-	dest_pfx = dplane_ctx_get_dest(ctx);
 
 	/* Locate rn and re(s) from ctx */
 	rn = rib_find_rn_from_ctx(ctx);
 	if (rn == NULL) {
 		if (IS_ZEBRA_DEBUG_DPLANE) {
 			zlog_debug(
-				"Failed to process dplane results: no route for %s(%u):%pFX",
-				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				dest_pfx);
+				"Failed to process dplane results: no route for %s(%u):%pRN",
+				VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx), rn);
 		}
 		goto done;
 	}
 
 	dest = rib_dest_from_rnode(rn);
-	srcdest_rnode_prefixes(rn, &dest_pfx, &src_pfx);
+	srcdest_rnode_prefixes(rn, &dest_pfx, NULL);
 	info = srcdest_rnode_table_info(rn);
 
 	op = dplane_ctx_get_op(ctx);
@@ -1835,10 +1833,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug(
-			"%s(%u:%u):%pFX Processing dplane result ctx %p, op %s result %s",
+			"%s(%u:%u):%pRN Processing dplane result ctx %p, op %s result %s",
 			VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-			dplane_ctx_get_table(ctx), dest_pfx, ctx,
-			dplane_op2str(op), dplane_res2str(status));
+			dplane_ctx_get_table(ctx), rn, ctx, dplane_op2str(op),
+			dplane_res2str(status));
 
 	/*
 	 * Update is a bit of a special case, where we may have both old and new
@@ -1877,9 +1875,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if (re->dplane_sequence != seq) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug(
-					"%s(%u):%pFX Stale dplane result for re %p",
+					"%s(%u):%pRN Stale dplane result for re %p",
 					VRF_LOGNAME(vrf),
-					dplane_ctx_get_vrf(ctx), dest_pfx, re);
+					dplane_ctx_get_vrf(ctx), rn, re);
 		} else {
 			if (!zrouter.asic_offloaded ||
 			    (CHECK_FLAG(re->flags, ZEBRA_FLAG_OFFLOADED) ||
@@ -1892,10 +1890,10 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		if (old_re->dplane_sequence != dplane_ctx_get_old_seq(ctx)) {
 			if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 				zlog_debug(
-					"%s(%u:%u):%pFX Stale dplane result for old_re %p",
+					"%s(%u:%u):%pRN Stale dplane result for old_re %p",
 					VRF_LOGNAME(vrf),
 					dplane_ctx_get_vrf(ctx), old_re->table,
-					dest_pfx, old_re);
+					rn, old_re);
 		} else
 			UNSET_FLAG(old_re->status, ROUTE_ENTRY_QUEUED);
 	}
@@ -1933,12 +1931,12 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 				if (!fib_changed) {
 					if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 						zlog_debug(
-							"%s(%u:%u):%pFX no fib change for re",
+							"%s(%u:%u):%pRN no fib change for re",
 							VRF_LOGNAME(vrf),
 							dplane_ctx_get_vrf(ctx),
 							dplane_ctx_get_table(
 								ctx),
-							dest_pfx);
+							rn);
 				}
 
 				/* Redistribute if this is the selected re */
@@ -1989,9 +1987,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 							 ZAPI_ROUTE_FAIL_INSTALL,
 							 info->afi, info->safi);
 
-			zlog_warn("%s(%u:%u):%pFX: Route install failed",
+			zlog_warn("%s(%u:%u):%pRN: Route install failed",
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				  dplane_ctx_get_table(ctx), dest_pfx);
+				  dplane_ctx_get_table(ctx), rn);
 		}
 		break;
 	case DPLANE_OP_ROUTE_DELETE:
@@ -2018,9 +2016,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			zsend_route_notify_owner_ctx(ctx,
 						     ZAPI_ROUTE_REMOVE_FAIL);
 
-			zlog_warn("%s(%u:%u):%pFX: Route Deletion failure",
+			zlog_warn("%s(%u:%u):%pRN: Route Deletion failure",
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
-				  dplane_ctx_get_table(ctx), dest_pfx);
+				  dplane_ctx_get_table(ctx), rn);
 		}
 
 		/*
