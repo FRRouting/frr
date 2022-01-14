@@ -226,8 +226,7 @@ int pim_if_lan_delay_enabled(struct interface *ifp);
 uint16_t pim_if_effective_propagation_delay_msec(struct interface *ifp);
 uint16_t pim_if_effective_override_interval_msec(struct interface *ifp);
 uint16_t pim_if_jp_override_interval_msec(struct interface *ifp);
-struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
-					  struct in_addr addr);
+struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr);
 
 long pim_if_t_suppressed_msec(struct interface *ifp);
 int pim_if_t_override_msec(struct interface *ifp);
@@ -241,8 +240,7 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 
 void pim_if_update_could_assert(struct interface *ifp);
 
-void pim_if_assert_on_neighbor_down(struct interface *ifp,
-				    struct in_addr neigh_addr);
+void pim_if_assert_on_neighbor_down(struct interface *ifp, pim_addr neigh_addr);
 
 void pim_if_rpf_interface_changed(struct interface *old_rpf_ifp,
 				  struct pim_upstream *up);

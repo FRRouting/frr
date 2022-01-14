@@ -2450,9 +2450,9 @@ static void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
 		if (!up->t_join_timer && up->rpf.source_nexthop.interface) {
 			struct pim_neighbor *nbr;
 
-			nbr = pim_neighbor_find(
+			nbr = pim_neighbor_find_prefix(
 				up->rpf.source_nexthop.interface,
-				up->rpf.rpf_addr.u.prefix4);
+				&up->rpf.rpf_addr);
 			if (nbr)
 				pim_time_timer_to_hhmmss(join_timer,
 							 sizeof(join_timer),

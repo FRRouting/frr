@@ -335,8 +335,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 			if (if_is_loopback(ifp) && if_is_loopback(src_ifp))
 				return true;
 
-			nbr = pim_neighbor_find(ifp,
-						znh->nexthop_addr.u.prefix4);
+			nbr = pim_neighbor_find_prefix(ifp, &znh->nexthop_addr);
 			if (!nbr)
 				continue;
 
@@ -359,9 +358,10 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 	 */
 
 	for (nh = pnc->nexthop; nh; nh = nh->next) {
-		struct in_addr nhaddr;
+		pim_addr nhaddr;
 
 		switch (nh->type) {
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
 		case NEXTHOP_TYPE_IPV4:
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
@@ -370,7 +370,16 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 		case NEXTHOP_TYPE_IPV4_IFINDEX:
 			nhaddr = nh->gate.ipv4;
 			break;
+#else
+		case NEXTHOP_TYPE_IPV6:
+			if (nh->ifindex == IFINDEX_INTERNAL)
+				continue;
 
+			/* fallthru */
+		case NEXTHOP_TYPE_IPV6_IFINDEX:
+			nhaddr = nh->gate.ipv6;
+			break;
+#endif
 		case NEXTHOP_TYPE_IFINDEX:
 			nhaddr = bsr_addr;
 			break;
@@ -547,9 +556,9 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			if (curr_route_valid
 			    && !pim_if_connected_to_source(nexthop->interface,
 							   src->u.prefix4)) {
-				nbr = pim_neighbor_find(
+				nbr = pim_neighbor_find_prefix(
 					nexthop->interface,
-					nexthop->mrib_nexthop_addr.u.prefix4);
+					&nexthop->mrib_nexthop_addr);
 				if (!nbr
 				    && !if_is_loopback(nexthop->interface)) {
 					if (PIM_DEBUG_PIM_NHT)
@@ -596,8 +605,12 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 		ifps[i] =
 			if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
 		if (ifps[i]) {
-			nbrs[i] = pim_neighbor_find(ifps[i],
-						    nh_node->gate.ipv4);
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+			pim_addr nhaddr = nh_node->gate.ipv4;
+#else
+			pim_addr nhaddr = nh_node->gate.ipv6;
+#endif
+			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
 			if (nbrs[i] || pim_if_connected_to_source(ifps[i],
 
 								  src->u.prefix4))
@@ -786,7 +799,11 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 					nbr = pim_neighbor_find_if(ifp1);
 				/* Overwrite with Nbr address as NH addr */
 				if (nbr)
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
 					nexthop->gate.ipv4 = nbr->source_addr;
+#else
+					nexthop->gate.ipv6 = nbr->source_addr;
+#endif
 				else {
 					// Mark nexthop address to 0 until PIM
 					// Nbr is resolved.
@@ -947,8 +964,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 		ifps[i] = if_lookup_by_index(nexthop_tab[i].ifindex,
 					     pim->vrf->vrf_id);
 		if (ifps[i]) {
-			nbrs[i] = pim_neighbor_find(
-				ifps[i], nexthop_tab[i].nexthop_addr.u.prefix4);
+			nbrs[i] = pim_neighbor_find_prefix(
+				ifps[i], &nexthop_tab[i].nexthop_addr);
 			if (nbrs[i]
 			    || pim_if_connected_to_source(ifps[i],
 							  src->u.prefix4))

@@ -61,15 +61,12 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char up_str[INET_ADDRSTRLEN];
-		char neigh_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-		pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str,
-			       sizeof(neigh_str));
-		zlog_debug("%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
-			   __func__, sg,
-			   !!(source_flags & PIM_RPT_BIT_MASK),
-			   !!(source_flags & PIM_WILDCARD_BIT_MASK), up_str,
-			   holdtime, neigh_str, ifp->name);
+		zlog_debug(
+			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %pPA on %s",
+			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
+			!!(source_flags & PIM_WILDCARD_BIT_MASK), up_str,
+			holdtime, &neigh->source_addr, ifp->name);
 	}
 
 	pim_ifp = ifp->info;
@@ -126,16 +123,12 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char up_str[INET_ADDRSTRLEN];
-		char neigh_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
-		pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str,
-			       sizeof(neigh_str));
-		zlog_debug("%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
-			   __func__, sg,
-			   source_flags & PIM_RPT_BIT_MASK,
-			   source_flags & PIM_WILDCARD_BIT_MASK, up_str,
-			   holdtime,
-			   neigh_str, ifp->name);
+		zlog_debug(
+			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %pPA on %s",
+			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
+			source_flags & PIM_WILDCARD_BIT_MASK, up_str, holdtime,
+			&neigh->source_addr, ifp->name);
 	}
 
 	pim_ifp = ifp->info;
