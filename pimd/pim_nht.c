@@ -237,10 +237,7 @@ void pim_delete_tracked_nexthop(struct pim_instance *pim, struct prefix *addr,
 			if (!pim_addr_is_any(upstream->sg.src))
 				continue;
 
-			grp.family = AF_INET;
-			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = upstream->sg.grp;
-
+			pim_addr_to_prefix(&grp, upstream->sg.grp);
 			trp_info = pim_rp_find_match_group(pim, &grp);
 			if (trp_info == rp)
 				hash_release(pnc->upstream_hash, upstream);

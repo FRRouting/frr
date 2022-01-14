@@ -136,8 +136,8 @@ static void if_could_assert_do_a1(const char *caller, struct pim_ifchannel *ch)
 	}
 }
 
-static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
-			   struct in_addr group_addr,
+static int dispatch_assert(struct interface *ifp, pim_addr source_addr,
+			   pim_addr group_addr,
 			   struct pim_assert_metric recv_metric)
 {
 	struct pim_ifchannel *ch;
@@ -353,7 +353,7 @@ int pim_assert_metric_match(const struct pim_assert_metric *m1,
 }
 
 int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
-			 struct in_addr group_addr, struct in_addr source_addr,
+			 pim_addr group_addr, pim_addr source_addr,
 			 uint32_t metric_preference, uint32_t route_metric,
 			 uint32_t rpt_bit_flag)
 {
@@ -367,28 +367,21 @@ int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,
 
 	/* Encode group */
 	remain = buf_pastend - pim_msg_curr;
-	pim_msg_curr = pim_msg_addr_encode_ipv4_group(pim_msg_curr, group_addr);
+	pim_msg_curr = pim_msg_addr_encode_group(pim_msg_curr, group_addr);
 	if (!pim_msg_curr) {
-		char group_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<grp?>", group_addr, group_str,
-			       sizeof(group_str));
 		zlog_warn(
-			"%s: failure encoding group address %s: space left=%d",
-			__func__, group_str, remain);
+			"%s: failure encoding group address %pPA: space left=%d",
+			__func__, &group_addr, remain);
 		return -1;
 	}
 
 	/* Encode source */
 	remain = buf_pastend - pim_msg_curr;
-	pim_msg_curr =
-		pim_msg_addr_encode_ipv4_ucast(pim_msg_curr, source_addr);
+	pim_msg_curr = pim_msg_addr_encode_ucast(pim_msg_curr, source_addr);
 	if (!pim_msg_curr) {
-		char source_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", source_addr, source_str,
-			       sizeof(source_str));
 		zlog_warn(
-			"%s: failure encoding source address %s: space left=%d",
-			__func__, source_str, remain);
+			"%s: failure encoding source address %pPA: space left=%d",
+			__func__, &source_addr, remain);
 		return -2;
 	}
 

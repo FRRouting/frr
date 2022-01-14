@@ -337,8 +337,8 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 
 	prefixlen = stream_getl(s);
-	stream_get(&sg.src.s_addr, s, prefixlen);
-	stream_get(&sg.grp.s_addr, s, prefixlen);
+	stream_get(&sg.src, s, prefixlen);
+	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%u:recv SG %s %pSG", vrf_id,
@@ -606,7 +606,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	}
 
 	if (!source->source_channel_oil) {
-		struct in_addr vif_source;
+		pim_addr vif_source;
 		struct prefix src, grp;
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
@@ -619,12 +619,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 
 		else {
-			src.family = AF_INET;
-			src.prefixlen = IPV4_MAX_BITLEN;
-			src.u.prefix4 = vif_source; // RP or Src address
-			grp.family = AF_INET;
-			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = sg.grp;
+			pim_addr_to_prefix(&src, vif_source); // RP or Src addr
+			pim_addr_to_prefix(&grp, sg.grp);
 
 			up = pim_upstream_find(pim, &sg);
 			if (up) {
@@ -642,15 +638,11 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					pim_ecmp_fib_lookup_if_vif_index(
 						pim, &src, &grp);
 
-			if (PIM_DEBUG_ZEBRA) {
-				char buf2[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<source?>", vif_source, buf2,
-					       sizeof(buf2));
-				zlog_debug("%s: NHT %pSG vif_source %s vif_index:%d ",
-					   __func__, &sg, buf2,
-					   input_iface_vif_index);
-			}
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug(
+					"%s: NHT %pSG vif_source %pPAs vif_index:%d ",
+					__func__, &sg, &vif_source,
+					input_iface_vif_index);
 
 			if (input_iface_vif_index < 1) {
 				if (PIM_DEBUG_IGMP_TRACE) {
