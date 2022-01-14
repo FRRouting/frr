@@ -13821,7 +13821,11 @@ static int peer_adj_routes(struct vty *vty, struct peer *peer, afi_t afi,
 			       &output_count, &filtered_count);
 
 	if (use_json) {
-		json_object_object_add(json, "advertisedRoutes", json_ar);
+		if (type == bgp_show_adj_route_advertised)
+			json_object_object_add(json, "advertisedRoutes",
+					       json_ar);
+		else
+			json_object_object_add(json, "receivedRoutes", json_ar);
 		json_object_int_add(json, "totalPrefixCounter", output_count);
 		json_object_int_add(json, "filteredPrefixCounter",
 				    filtered_count);
