@@ -2406,8 +2406,8 @@ void ospf_apiserver_clients_notify_nsm_change(struct ospf_neighbor *nbr)
 	msg_free(msg);
 }
 
-static void apiserver_clients_lsa_change_notify(uint8_t msgtype,
-						struct ospf_lsa *lsa)
+static int apiserver_clients_lsa_change_notify(uint8_t msgtype,
+					       struct ospf_lsa *lsa)
 {
 	struct msg *msg;
 	struct listnode *node, *nnode;
@@ -2435,7 +2435,7 @@ static void apiserver_clients_lsa_change_notify(uint8_t msgtype,
 	if (!msg) {
 		zlog_warn(
 			"apiserver_clients_lsa_change_notify: msg_new failed");
-		return;
+		return -1;
 	}
 
 	/* Now send message to all clients with a matching filter */
@@ -2486,6 +2486,8 @@ static void apiserver_clients_lsa_change_notify(uint8_t msgtype,
 	}
 	/* Free message since it is not used anymore */
 	msg_free(msg);
+
+	return 0;
 }
 
 
@@ -2495,53 +2497,21 @@ static void apiserver_clients_lsa_change_notify(uint8_t msgtype,
  */
 
 
-static int apiserver_notify_clients_lsa(uint8_t msgtype, struct ospf_lsa *lsa)
+int ospf_apiserver_lsa_update(struct ospf_lsa *lsa)
 {
-	struct msg *msg;
-	/* default area for AS-External and Opaque11 LSAs */
-	struct in_addr area_id = {.s_addr = 0L};
-
-	/* default interface for non Opaque9 LSAs */
-	struct in_addr ifaddr = {.s_addr = 0L};
 
 	/* Only notify this update if the LSA's age is smaller than
 	   MAXAGE. Otherwise clients would see LSA updates with max age just
 	   before they are deleted from the LSDB. LSA delete messages have
 	   MAXAGE too but should not be filtered. */
-	if (IS_LSA_MAXAGE(lsa) && (msgtype == MSG_LSA_UPDATE_NOTIFY)) {
+	if (IS_LSA_MAXAGE(lsa))
 		return 0;
-	}
-
-	if (lsa->area) {
-		area_id = lsa->area->area_id;
-	}
-	if (lsa->data->type == OSPF_OPAQUE_LINK_LSA) {
-		ifaddr = lsa->oi->address->u.prefix4;
-	}
-	msg = new_msg_lsa_change_notify(msgtype, 0L, /* no sequence number */
-					ifaddr, area_id,
-					lsa->flags & OSPF_LSA_SELF, lsa->data);
-	if (!msg) {
-		zlog_warn("notify_clients_lsa: msg_new failed");
-		return -1;
-	}
-	/* Notify all clients that new LSA is added/updated */
-	apiserver_clients_lsa_change_notify(msgtype, lsa);
-
-	/* Clients made their own copies of msg so we can free msg here */
-	msg_free(msg);
-
-	return 0;
-}
-
-int ospf_apiserver_lsa_update(struct ospf_lsa *lsa)
-{
-	return apiserver_notify_clients_lsa(MSG_LSA_UPDATE_NOTIFY, lsa);
+	return apiserver_clients_lsa_change_notify(MSG_LSA_UPDATE_NOTIFY, lsa);
 }
 
 int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa)
 {
-	return apiserver_notify_clients_lsa(MSG_LSA_DELETE_NOTIFY, lsa);
+	return apiserver_clients_lsa_change_notify(MSG_LSA_DELETE_NOTIFY, lsa);
 }
 
 /* -------------------------------------------------------------

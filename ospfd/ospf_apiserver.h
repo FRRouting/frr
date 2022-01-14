@@ -212,7 +212,4 @@ extern void ospf_apiserver_flush_opaque_lsa(struct ospf_apiserver *apiserv,
 extern int ospf_apiserver_lsa_update(struct ospf_lsa *lsa);
 extern int ospf_apiserver_lsa_delete(struct ospf_lsa *lsa);
 
-extern void ospf_apiserver_clients_lsa_change_notify(uint8_t msgtype,
-						     struct ospf_lsa *lsa);
-
 #endif /* _OSPF_APISERVER_H */
