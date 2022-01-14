@@ -948,12 +948,9 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	bool no_fwd = true;
 	bool ret = false;
 
-	if (PIM_DEBUG_BSM) {
-		pim_inet4_dump("<src?>", neigh->source_addr, neigh_src_str,
-			       sizeof(neigh_src_str));
-		zlog_debug("%s: New neighbor %s seen on %s", __func__,
-			   neigh_src_str, ifp->name);
-	}
+	if (PIM_DEBUG_BSM)
+		zlog_debug("%s: New neighbor %pPA seen on %s", __func__,
+			   &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 
