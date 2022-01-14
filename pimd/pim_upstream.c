@@ -259,11 +259,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	 * to INADDR_ANY. This is done in order to avoid de-registering for
 	 * 255.255.255.255 which is maintained for some reason..
 	 */
-	if (up->upstream_addr.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(up->upstream_addr)) {
 		/* Deregister addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = up->upstream_addr;
+		pim_addr_to_prefix(&nht_p, up->upstream_addr);
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
@@ -713,7 +711,7 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 {
 	enum pim_upstream_state old_state = up->join_state;
 
-	if (up->upstream_addr.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(up->upstream_addr)) {
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_debug("%s: RPF not configured for %s", __func__,
 				   up->sg_str);
@@ -937,7 +935,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
-	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
+	} else if (!pim_addr_is_any(up->upstream_addr)) {
 		pim_upstream_update_use_rpt(up,
 				false /*update_mroute*/);
 		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
@@ -1912,7 +1910,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
 	 */
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->upstream_addr.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->upstream_addr)) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: RP not configured for Upstream %s",
