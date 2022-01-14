@@ -4090,6 +4090,32 @@ bool peer_active_nego(struct peer *peer)
 	return false;
 }
 
+/* If peer received at least one address family MP, return true */
+bool peer_afc_received(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		if (peer->afc_recv[afi][safi])
+			return true;
+
+	return false;
+}
+
+/* If peer advertised at least one address family MP, return true */
+bool peer_afc_advertised(struct peer *peer)
+{
+	afi_t afi;
+	safi_t safi;
+
+	FOREACH_AFI_SAFI (afi, safi)
+		if (peer->afc_adv[afi][safi])
+			return true;
+
+	return false;
+}
+
 void peer_change_action(struct peer *peer, afi_t afi, safi_t safi,
 			       enum peer_change_type type)
 {
