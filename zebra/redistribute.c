@@ -94,7 +94,7 @@ static void zebra_redistribute_default(struct zserv *client, vrf_id_t vrf_id)
 			if (CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED))
 				zsend_redistribute_route(
 					ZEBRA_REDISTRIBUTE_ROUTE_ADD, client,
-					&rn->p, NULL, newre);
+					rn, newre);
 		}
 
 		route_unlock_node(rn);
@@ -116,20 +116,17 @@ static void zebra_redistribute(struct zserv *client, int type,
 
 	for (rn = route_top(table); rn; rn = srcdest_route_next(rn))
 		RNODE_FOREACH_RE (rn, newre) {
-			const struct prefix *dst_p, *src_p;
-
-			srcdest_rnode_prefixes(rn, &dst_p, &src_p);
-
 			if (IS_ZEBRA_DEBUG_RIB)
 				zlog_debug(
-					"%s: client %s %pFX(%u:%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
+					"%s: client %s %pRN(%u:%u) checking: selected=%d, type=%d, distance=%d, metric=%d zebra_check_addr=%d",
 					__func__,
-					zebra_route_string(client->proto),
-					dst_p, vrf_id, newre->instance,
+					zebra_route_string(client->proto), rn,
+					vrf_id, newre->instance,
 					!!CHECK_FLAG(newre->flags,
 						     ZEBRA_FLAG_SELECTED),
 					newre->type, newre->distance,
-					newre->metric, zebra_check_addr(dst_p));
+					newre->metric,
+					zebra_check_addr(&rn->p));
 
 			if (!CHECK_FLAG(newre->flags, ZEBRA_FLAG_SELECTED))
 				continue;
@@ -137,11 +134,11 @@ static void zebra_redistribute(struct zserv *client, int type,
 			     && (newre->type != type
 				 || newre->instance != instance)))
 				continue;
-			if (!zebra_check_addr(dst_p))
+			if (!zebra_check_addr(&rn->p))
 				continue;
 
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
-						 client, dst_p, src_p, newre);
+						 client, rn, newre);
 		}
 }
 
@@ -217,9 +214,6 @@ void redistribute_update(const struct route_node *rn,
 
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		const struct prefix *p, *src_p;
-
-		srcdest_rnode_prefixes(rn, &p, &src_p);
 		if (zebra_redistribute_check(rn, re, client)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
@@ -230,10 +224,10 @@ void redistribute_update(const struct route_node *rn,
 					re->distance, re->metric);
 			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
-						 client, p, src_p, re);
+						 client, rn, re);
 		} else if (zebra_redistribute_check(rn, prev_re, client))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
-						 client, p, src_p, prev_re);
+						 client, rn, prev_re);
 	}
 }
 
@@ -290,13 +284,9 @@ void redistribute_delete(const struct route_node *rn,
 			continue;
 
 		/* Send a delete for the 'old' re to any subscribed client. */
-		if (zebra_redistribute_check(rn, old_re, client)) {
-			const struct prefix *p, *src_p;
-
-			srcdest_rnode_prefixes(rn, &p, &src_p);
+		if (zebra_redistribute_check(rn, old_re, client))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
-						 client, p, src_p, old_re);
-		}
+						 client, rn, old_re);
 	}
 }
 
