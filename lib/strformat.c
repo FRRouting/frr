@@ -27,7 +27,7 @@
 #include "printfrr.h"
 #include "monotime.h"
 
-printfrr_ext_autoreg_p("HX", printfrr_hexdump)
+printfrr_ext_autoreg_p("HX", printfrr_hexdump);
 static ssize_t printfrr_hexdump(struct fbuf *buf, struct printfrr_eargs *ea,
 				const void *ptr)
 {
@@ -58,7 +58,7 @@ static ssize_t printfrr_hexdump(struct fbuf *buf, struct printfrr_eargs *ea,
 
 /* string analog for hexdumps / the "this." in ("74 68 69 73 0a  |this.|") */
 
-printfrr_ext_autoreg_p("HS", printfrr_hexdstr)
+printfrr_ext_autoreg_p("HS", printfrr_hexdstr);
 static ssize_t printfrr_hexdstr(struct fbuf *buf, struct printfrr_eargs *ea,
 				const void *ptr)
 {
@@ -201,7 +201,7 @@ static ssize_t bquote(struct fbuf *buf, const uint8_t *pos, size_t len,
 	return ret;
 }
 
-printfrr_ext_autoreg_p("SE", printfrr_escape)
+printfrr_ext_autoreg_p("SE", printfrr_escape);
 static ssize_t printfrr_escape(struct fbuf *buf, struct printfrr_eargs *ea,
 			       const void *vptr)
 {
@@ -226,7 +226,7 @@ static ssize_t printfrr_escape(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bquote(buf, ptr, len, ESC_ALL);
 }
 
-printfrr_ext_autoreg_p("SQ", printfrr_quote)
+printfrr_ext_autoreg_p("SQ", printfrr_quote);
 static ssize_t printfrr_quote(struct fbuf *buf, struct printfrr_eargs *ea,
 			      const void *vptr)
 {
@@ -555,7 +555,7 @@ static ssize_t printfrr_reltime(struct fbuf *buf, struct printfrr_eargs *ea,
 	return ret;
 }
 
-printfrr_ext_autoreg_p("TS", printfrr_ts)
+printfrr_ext_autoreg_p("TS", printfrr_ts);
 static ssize_t printfrr_ts(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *vptr)
 {
@@ -566,7 +566,7 @@ static ssize_t printfrr_ts(struct fbuf *buf, struct printfrr_eargs *ea,
 	return printfrr_time(buf, ea, ts, 0);
 }
 
-printfrr_ext_autoreg_p("TV", printfrr_tv)
+printfrr_ext_autoreg_p("TV", printfrr_tv);
 static ssize_t printfrr_tv(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *vptr)
 {
@@ -581,7 +581,7 @@ static ssize_t printfrr_tv(struct fbuf *buf, struct printfrr_eargs *ea,
 	return printfrr_time(buf, ea, &ts, 0);
 }
 
-printfrr_ext_autoreg_p("TT", printfrr_tt)
+printfrr_ext_autoreg_p("TT", printfrr_tt);
 static ssize_t printfrr_tt(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *vptr)
 {
