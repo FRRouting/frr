@@ -2153,10 +2153,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	struct prefix g;
 	enum prefix_list_type apply_new;
 
-	np = prefix_list_lookup(AFI_IP, nlist);
-
-	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_BITLEN;
+	np = prefix_list_lookup(PIM_AFI, nlist);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (!pim_addr_is_any(up->sg.src))
@@ -2170,7 +2167,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 					PIM_OIF_FLAG_PROTO_IGMP, __func__);
 			continue;
 		}
-		g.u.prefix4 = up->sg.grp;
+		pim_addr_to_prefix(&g, up->sg.grp);
 		apply_new = prefix_list_apply(np, &g);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,

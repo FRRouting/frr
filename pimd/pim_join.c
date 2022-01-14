@@ -84,6 +84,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 	if ((source_flags & PIM_RPT_BIT_MASK)
 	    && (source_flags & PIM_WILDCARD_BIT_MASK)) {
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
+		pim_addr rpf_addr;
 
 		if (!rp) {
 			zlog_warn("%s: Lookup of RP failed for %pSG", __func__,
@@ -94,13 +95,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		 * If the RP sent in the message is not
 		 * our RP for the group, drop the message
 		 */
-		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr) {
-			char local_rp[INET_ADDRSTRLEN];
-			pim_inet4_dump("<local?>", rp->rpf_addr.u.prefix4,
-				       local_rp, sizeof(local_rp));
+		rpf_addr = pim_addr_from_prefix(&rp->rpf_addr);
+		if (pim_addr_cmp(sg->src, rpf_addr)) {
 			zlog_warn(
-				"%s: Specified RP(%pPAs) in join is different than our configured RP(%s)",
-				__func__, &sg->src, local_rp);
+				"%s: Specified RP(%pPAs) in join is different than our configured RP(%pPAs)",
+				__func__, &sg->src, &rpf_addr);
 			return;
 		}
 

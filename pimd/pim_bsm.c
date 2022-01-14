@@ -667,10 +667,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		struct prefix grp;
 		struct rp_info *trp_info;
 
-		grp.family = AF_INET;
-		grp.prefixlen = IPV4_MAX_BITLEN;
-		grp.u.prefix4 = up->sg.grp;
-
+		pim_addr_to_prefix(&grp, up->sg.grp);
 		trp_info = pim_rp_find_match_group(pim, &grp);
 
 		/* RP not found for the group grp */
