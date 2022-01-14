@@ -575,7 +575,7 @@ void rib_install_kernel(struct route_node *rn, struct route_entry *re,
 	 * know that they've lost
 	 */
 	if (old && (old != re) && (old->type != re->type))
-		zsend_route_notify_owner(old, p, ZAPI_ROUTE_BETTER_ADMIN_WON,
+		zsend_route_notify_owner(rn, old, ZAPI_ROUTE_BETTER_ADMIN_WON,
 					 info->afi, info->safi);
 
 	/* Update fib selection */
@@ -1192,9 +1192,9 @@ static void rib_process(struct route_node *rn)
 
 				info = srcdest_rnode_table_info(rn);
 				srcdest_rnode_prefixes(rn, &p, NULL);
-				zsend_route_notify_owner(re, p,
-							 ZAPI_ROUTE_FAIL_INSTALL,
-							 info->afi, info->safi);
+				zsend_route_notify_owner(
+					rn, re, ZAPI_ROUTE_FAIL_INSTALL,
+					info->afi, info->safi);
 				continue;
 			}
 		} else {
@@ -1755,8 +1755,7 @@ done:
  * when processing dplane results, e.g. Note well: the route-node is returned
  * with a ref held - route_unlock_node() must be called eventually.
  */
-static struct route_node *
-rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
+struct route_node *rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx)
 {
 	struct route_table *table = NULL;
 	struct route_node *rn = NULL;
@@ -1803,7 +1802,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	bool is_update = false;
 	enum dplane_op_e op;
 	enum zebra_dplane_result status;
-	const struct prefix *dest_pfx;
 	uint32_t seq;
 	rib_dest_t *dest;
 	bool fib_changed = false;
@@ -1825,7 +1823,6 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	}
 
 	dest = rib_dest_from_rnode(rn);
-	srcdest_rnode_prefixes(rn, &dest_pfx, NULL);
 	info = srcdest_rnode_table_info(rn);
 
 	op = dplane_ctx_get_op(ctx);
@@ -1983,9 +1980,9 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 			} if (old_re)
 				SET_FLAG(old_re->status, ROUTE_ENTRY_FAILED);
 			if (re)
-				zsend_route_notify_owner(re, dest_pfx,
-							 ZAPI_ROUTE_FAIL_INSTALL,
-							 info->afi, info->safi);
+				zsend_route_notify_owner(
+					rn, re, ZAPI_ROUTE_FAIL_INSTALL,
+					info->afi, info->safi);
 
 			zlog_warn("%s(%u:%u):%pRN: Route install failed",
 				  VRF_LOGNAME(vrf), dplane_ctx_get_vrf(ctx),
