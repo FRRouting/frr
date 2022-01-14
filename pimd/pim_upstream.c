@@ -343,8 +343,8 @@ static void join_timer_stop(struct pim_upstream *up)
 	THREAD_OFF(up->t_join_timer);
 
 	if (up->rpf.source_nexthop.interface)
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
@@ -357,8 +357,8 @@ void join_timer_start(struct pim_upstream *up)
 	struct pim_neighbor *nbr = NULL;
 
 	if (up->rpf.source_nexthop.interface) {
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
@@ -449,8 +449,8 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 			pim_time_timer_remain_msec(up->t_join_timer);
 	else {
 		/* Remove it from jp agg from the nbr for suppression */
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 		if (nbr) {
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -504,8 +504,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		/* upstream join tracked with neighbor jp timer */
 		struct pim_neighbor *nbr;
 
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 		if (nbr)
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -1274,15 +1274,13 @@ void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 	 */
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (PIM_DEBUG_PIM_TRACE) {
-			char neigh_str[INET_ADDRSTRLEN];
 			char rpf_addr_str[PREFIX_STRLEN];
-			pim_inet4_dump("<neigh?>", neigh_addr, neigh_str,
-				       sizeof(neigh_str));
 			pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_addr_str,
 				      sizeof(rpf_addr_str));
 			zlog_debug(
-				"%s: matching neigh=%s against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
-				__func__, neigh_str, up->sg_str, pim->vrf->name,
+				"%s: matching neigh=%pI4 against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
+				__func__, &neigh_addr, up->sg_str,
+				pim->vrf->name,
 				up->join_state == PIM_UPSTREAM_JOINED,
 				rpf_addr_str);
 		}

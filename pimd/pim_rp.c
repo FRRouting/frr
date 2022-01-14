@@ -1360,17 +1360,19 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 			if (nbr->interface != ifp1)
 				continue;
 
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
 			nh_node->gate.ipv4 = nbr->source_addr;
+#else
+			nh_node->gate.ipv6 = nbr->source_addr;
+#endif
 			if (PIM_DEBUG_PIM_NHT_RP) {
 				char str[PREFIX_STRLEN];
-				char str1[INET_ADDRSTRLEN];
-				pim_inet4_dump("<nht_nbr?>", nbr->source_addr,
-					       str1, sizeof(str1));
 				pim_addr_dump("<nht_addr?>", &nht_p, str,
 					      sizeof(str));
 				zlog_debug(
-					"%s: addr %s new nexthop addr %s interface %s",
-					__func__, str, str1, ifp1->name);
+					"%s: addr %s new nexthop addr %pPAs interface %s",
+					__func__, str, &nbr->source_addr,
+					ifp1->name);
 			}
 		}
 	}

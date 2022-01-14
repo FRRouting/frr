@@ -1094,8 +1094,7 @@ uint16_t pim_if_jp_override_interval_msec(struct interface *ifp)
   router (Section 4.3.4).  The primary IP address of a neighbor is the
   address that it uses as the source of its PIM Hello messages.
 */
-struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
-					  struct in_addr addr)
+struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr)
 {
 	struct listnode *neighnode;
 	struct pim_neighbor *neigh;
@@ -1111,15 +1110,13 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 		return 0;
 	}
 
-	p.family = AF_INET;
-	p.u.prefix4 = addr;
-	p.prefixlen = IPV4_MAX_BITLEN;
+	pim_addr_to_prefix(&p, addr);
 
 	for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 				  neigh)) {
 
 		/* primary address ? */
-		if (neigh->source_addr.s_addr == addr.s_addr)
+		if (!pim_addr_cmp(neigh->source_addr, addr))
 			return neigh;
 
 		/* secondary address ? */
@@ -1127,13 +1124,10 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
 			return neigh;
 	}
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: neighbor not found for address %s on interface %s",
-			__func__, addr_str, ifp->name);
-	}
+			"%s: neighbor not found for address %pPA on interface %s",
+			__func__, &addr, ifp->name);
 
 	return NULL;
 }
@@ -1383,8 +1377,7 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
   gone down (and may have come back up), and so we must assume it no
   longer knows it was the winner.
  */
-void pim_if_assert_on_neighbor_down(struct interface *ifp,
-				    struct in_addr neigh_addr)
+void pim_if_assert_on_neighbor_down(struct interface *ifp, pim_addr neigh_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_ifchannel *ch;
@@ -1397,7 +1390,7 @@ void pim_if_assert_on_neighbor_down(struct interface *ifp,
 		if (ch->ifassert_state != PIM_IFASSERT_I_AM_LOSER)
 			continue;
 		/* Dead neighbor was winner ? */
-		if (ch->ifassert_winner.s_addr != neigh_addr.s_addr)
+		if (pim_addr_cmp(ch->ifassert_winner, neigh_addr))
 			continue;
 
 		assert_action_a5(ch);

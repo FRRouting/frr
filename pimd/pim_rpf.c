@@ -141,8 +141,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			i++;
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find(
-				ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
+			nbr = pim_neighbor_find_prefix(
+				ifp, &nexthop_tab[i].nexthop_addr);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p",
 					   ifp->name, nbr);
@@ -396,9 +396,11 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 
 	/* return NBR( RPF_interface(S), MRIB.next_hop( S ) ) */
 
-	neigh = pim_if_find_neighbor(
-		up->rpf.source_nexthop.interface,
-		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4);
+	pim_addr nhaddr;
+
+	nhaddr =
+		pim_addr_from_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr);
+	neigh = pim_if_find_neighbor(up->rpf.source_nexthop.interface, nhaddr);
 	if (neigh)
 		rpf_addr = neigh->source_addr;
 	else

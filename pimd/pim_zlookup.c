@@ -300,9 +300,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			if (nbr) {
 				nexthop_tab[num_ifindex].nexthop_addr.family =
 					AF_INET;
-				nexthop_tab[num_ifindex]
-					.nexthop_addr.u.prefix4 =
-					nbr->source_addr;
+				pim_addr_to_prefix(
+					&nexthop_tab[num_ifindex].nexthop_addr,
+					nbr->source_addr);
 			}
 			++num_ifindex;
 			break;
