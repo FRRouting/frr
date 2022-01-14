@@ -65,8 +65,7 @@ extern void nbr_connected_delete_ipv6(struct interface *ifp,
 extern int zsend_interface_update(int cmd, struct zserv *client,
 				  struct interface *ifp);
 extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
-				    const struct prefix *p,
-				    const struct prefix *src_p,
+				    const struct route_node *rn,
 				    const struct route_entry *re);
 
 extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,

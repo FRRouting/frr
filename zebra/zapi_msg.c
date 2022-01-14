@@ -546,18 +546,19 @@ int zsend_interface_update(int cmd, struct zserv *client, struct interface *ifp)
 }
 
 int zsend_redistribute_route(int cmd, struct zserv *client,
-			     const struct prefix *p,
-			     const struct prefix *src_p,
+			     const struct route_node *rn,
 			     const struct route_entry *re)
 {
 	struct zapi_route api;
 	struct zapi_nexthop *api_nh;
 	struct nexthop *nexthop;
+	const struct prefix *p, *src_p;
 	uint8_t count = 0;
 	afi_t afi;
 	size_t stream_size =
 		MAX(ZEBRA_MAX_PACKET_SIZ, sizeof(struct zapi_route));
 
+	srcdest_rnode_prefixes(rn, &p, &src_p);
 	memset(&api, 0, sizeof(api));
 	api.vrf_id = re->vrf_id;
 	api.type = re->type;
