@@ -24,7 +24,7 @@
 #include "prefix.h"
 
 
-printfrr_ext_autoreg_p("PA", printfrr_pimaddr)
+printfrr_ext_autoreg_p("PA", printfrr_pimaddr);
 static ssize_t printfrr_pimaddr(struct fbuf *buf, struct printfrr_eargs *ea,
 				const void *vptr)
 {
@@ -56,7 +56,7 @@ static ssize_t printfrr_pimaddr(struct fbuf *buf, struct printfrr_eargs *ea,
 #endif
 }
 
-printfrr_ext_autoreg_p("SG", printfrr_sgaddr)
+printfrr_ext_autoreg_p("SG", printfrr_sgaddr);
 static ssize_t printfrr_sgaddr(struct fbuf *buf, struct printfrr_eargs *ea,
 			       const void *vptr)
 {

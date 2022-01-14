@@ -209,10 +209,11 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 		.print_ptr = print_fn,                                         \
 	};                                                                     \
 	static void _printreg_##print_fn(void) __attribute__((constructor));   \
-	static void _printreg_##print_fn(void) {                               \
+	static void _printreg_##print_fn(void)                                 \
+	{                                                                      \
 		printfrr_ext_reg(&_printext_##print_fn);                       \
 	}                                                                      \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON()
 
 #define printfrr_ext_autoreg_i(matchs, print_fn)                               \
 	static ssize_t print_fn(struct fbuf *, struct printfrr_eargs *,        \
@@ -222,10 +223,11 @@ void printfrr_ext_reg(const struct printfrr_ext *);
 		.print_int = print_fn,                                         \
 	};                                                                     \
 	static void _printreg_##print_fn(void) __attribute__((constructor));   \
-	static void _printreg_##print_fn(void) {                               \
+	static void _printreg_##print_fn(void)                                 \
+	{                                                                      \
 		printfrr_ext_reg(&_printext_##print_fn);                       \
 	}                                                                      \
-	/* end */
+	MACRO_REQUIRE_SEMICOLON()
 
 /* fbuf helper functions - note all 3 of these return the length that would
  * be written regardless of how much space was available in the buffer, as

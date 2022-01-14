@@ -2099,7 +2099,7 @@ static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
 	return rv;
 }
 
-printfrr_ext_autoreg_p("TH", printfrr_thread)
+printfrr_ext_autoreg_p("TH", printfrr_thread);
 static ssize_t printfrr_thread(struct fbuf *buf, struct printfrr_eargs *ea,
 			       const void *ptr)
 {

@@ -943,7 +943,7 @@ int nexthop_str2backups(const char *str, int *num_backups,
  *		eth0
  *		(0-length if no interface present)
  */
-printfrr_ext_autoreg_p("NH", printfrr_nh)
+printfrr_ext_autoreg_p("NH", printfrr_nh);
 static ssize_t printfrr_nh(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {

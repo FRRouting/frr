@@ -306,7 +306,7 @@ const char *srcdest_rnode2str(const struct route_node *rn, char *str, int size)
 	return srcdest2str(dst_p, (const struct prefix_ipv6 *)src_p, str, size);
 }
 
-printfrr_ext_autoreg_p("RN", printfrr_rn)
+printfrr_ext_autoreg_p("RN", printfrr_rn);
 static ssize_t printfrr_rn(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {

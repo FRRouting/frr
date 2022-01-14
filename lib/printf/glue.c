@@ -256,7 +256,7 @@ ssize_t printfrr_exti(struct fbuf *buf, struct printfrr_eargs *ea,
 	return -1;
 }
 
-printfrr_ext_autoreg_p("FB", printfrr_fb)
+printfrr_ext_autoreg_p("FB", printfrr_fb);
 static ssize_t printfrr_fb(struct fbuf *out, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -278,7 +278,7 @@ static ssize_t printfrr_fb(struct fbuf *out, struct printfrr_eargs *ea,
 	return in->pos - in->buf;
 }
 
-printfrr_ext_autoreg_p("VA", printfrr_va)
+printfrr_ext_autoreg_p("VA", printfrr_va);
 static ssize_t printfrr_va(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
