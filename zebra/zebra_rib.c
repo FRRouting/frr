@@ -1088,9 +1088,7 @@ static void rib_process(struct route_node *rn)
 	rib_dest_t *dest;
 	struct zebra_vrf *zvrf = NULL;
 	struct vrf *vrf;
-	const struct prefix *p, *src_p;
 
-	srcdest_rnode_prefixes(rn, &p, &src_p);
 	vrf_id_t vrf_id = VRF_UNKNOWN;
 
 	assert(rn);
