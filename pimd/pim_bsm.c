@@ -687,7 +687,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 }
 
 static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
-			      struct in_addr dst_addr)
+			      pim_addr dst_addr)
 {
 	struct pim_interface *pim_ifp;
 
@@ -720,8 +720,7 @@ static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
 }
 
 static bool pim_bsm_frag_send(uint8_t *buf, uint32_t len, struct interface *ifp,
-			      uint32_t pim_mtu, struct in_addr dst_addr,
-			      bool no_fwd)
+			      uint32_t pim_mtu, pim_addr dst_addr, bool no_fwd)
 {
 	struct bsmmsg_grpinfo *grpinfo, *curgrp;
 	uint8_t *firstgrp_ptr;
@@ -892,7 +891,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
-	struct in_addr dst_addr;
+	pim_addr dst_addr;
 	uint32_t pim_mtu;
 	bool no_fwd = false;
 	bool ret = false;
@@ -939,7 +938,7 @@ static void pim_bsm_fwd_whole_sz(struct pim_instance *pim, uint8_t *buf,
 
 bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 {
-	struct in_addr dst_addr;
+	pim_addr dst_addr;
 	struct pim_interface *pim_ifp;
 	struct bsm_scope *scope;
 	struct bsm_frag *bsfrag;
