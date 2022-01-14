@@ -29,6 +29,12 @@
 #include "pim_str.h"
 #include "pim_msg.h"
 
+#if PIM_IPV == 4
+#define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV4
+#else
+#define PIM_MSG_ADDRESS_FAMILY PIM_MSG_ADDRESS_FAMILY_IPV6
+#endif
+
 uint8_t *pim_tlv_append_uint16(uint8_t *buf, const uint8_t *buf_pastend,
 			       uint16_t option_type, uint16_t option_value)
 {
@@ -117,7 +123,23 @@ uint8_t *pim_tlv_append_uint32(uint8_t *buf, const uint8_t *buf_pastend,
  *       The unicast address as represented by the given Address Family
  *       and Encoding Type.
  */
-int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
+int pim_encode_addr_ucast(uint8_t *buf, pim_addr addr)
+{
+	uint8_t *start = buf;
+
+#if PIM_IPV == 4
+	*buf++ = PIM_MSG_ADDRESS_FAMILY_IPV4;
+#else
+	*buf++ = PIM_MSG_ADDRESS_FAMILY_IPV6;
+#endif
+	*buf++ = 0;
+	memcpy(buf, &addr, sizeof(addr));
+	buf += sizeof(addr);
+
+	return buf - start;
+}
+
+int pim_encode_addr_ucast_prefix(uint8_t *buf, struct prefix *p)
 {
 	switch (p->family) {
 	case AF_INET:
@@ -188,28 +210,22 @@ int pim_encode_addr_ucast(uint8_t *buf, struct prefix *p)
  *       Contains the group address.
  */
 int pim_encode_addr_group(uint8_t *buf, afi_t afi, int bidir, int scope,
-			  struct in_addr group)
+			  pim_addr group)
 {
+	uint8_t *start = buf;
 	uint8_t flags = 0;
 
 	flags |= bidir << 8;
 	flags |= scope;
 
-	switch (afi) {
-	case AFI_IP:
-		*buf = PIM_MSG_ADDRESS_FAMILY_IPV4;
-		++buf;
-		*buf = 0;
-		++buf;
-		*buf = flags;
-		++buf;
-		*buf = 32;
-		++buf;
-		memcpy(buf, &group, sizeof(struct in_addr));
-		return group_ipv4_encoding_len;
-	default:
-		return 0;
-	}
+	*buf++ = PIM_MSG_ADDRESS_FAMILY;
+	*buf++ = 0;
+	*buf++ = flags;
+	*buf++ = sizeof(group) / 8;
+	memcpy(buf, &group, sizeof(group));
+	buf += sizeof(group);
+
+	return buf - start;
 }
 
 uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
@@ -248,7 +264,7 @@ uint8_t *pim_tlv_append_addrlist_ucast(uint8_t *buf, const uint8_t *buf_pastend,
 		if (p->family != family)
 			continue;
 
-		l_encode = pim_encode_addr_ucast(curr, p);
+		l_encode = pim_encode_addr_ucast_prefix(curr, p);
 		curr += l_encode;
 		option_len += l_encode;
 	}
@@ -441,7 +457,8 @@ int pim_tlv_parse_generation_id(const char *ifname, struct in_addr src_addr,
 	return 0;
 }
 
-int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
+int pim_parse_addr_ucast_prefix(struct prefix *p, const uint8_t *buf,
+				int buf_size)
 {
 	const int ucast_encoding_min_len = 3; /* 1 family + 1 type + 1 addr */
 	const uint8_t *addr;
@@ -510,6 +527,25 @@ int pim_parse_addr_ucast(struct prefix *p, const uint8_t *buf, int buf_size)
 	return addr - buf;
 }
 
+int pim_parse_addr_ucast(pim_addr *out, const uint8_t *buf, int buf_size,
+			 bool *wrong_af)
+{
+	struct prefix p;
+	int ret;
+
+	ret = pim_parse_addr_ucast_prefix(&p, buf, buf_size);
+	if (ret < 0)
+		return ret;
+
+	if (p.family != PIM_AF) {
+		*wrong_af = true;
+		return -5;
+	}
+
+	memcpy(out, &p.u.val, sizeof(*out));
+	return ret;
+}
+
 int pim_parse_addr_group(pim_sgaddr *sg, const uint8_t *buf, int buf_size)
 {
 	const int grp_encoding_min_len =
@@ -532,39 +568,31 @@ int pim_parse_addr_group(pim_sgaddr *sg, const uint8_t *buf, int buf_size)
 
 	family = *addr++;
 	type = *addr++;
-	//++addr;
 	++addr; /* skip b_reserved_z fields */
 	mask_len = *addr++;
 
-	switch (family) {
-	case PIM_MSG_ADDRESS_FAMILY_IPV4:
-		if (type) {
-			zlog_warn(
-				"%s: unknown group address encoding type=%d from",
-				__func__, type);
-			return -2;
-		}
+	if (type) {
+		zlog_warn("%s: unknown group address encoding type=%d from",
+			  __func__, type);
+		return -2;
+	}
 
-		if ((addr + sizeof(struct in_addr)) > pastend) {
-			zlog_warn(
-				"%s: IPv4 group address overflow: left=%td needed=%zu from",
-				__func__, pastend - addr,
-				sizeof(struct in_addr));
-			return -3;
-		}
-
-		memcpy(&sg->grp.s_addr, addr, sizeof(struct in_addr));
-
-		addr += sizeof(struct in_addr);
-
-		break;
-	default: {
+	if (family != PIM_MSG_ADDRESS_FAMILY) {
 		zlog_warn(
 			"%s: unknown group address encoding family=%d mask_len=%d from",
 			__func__, family, mask_len);
 		return -4;
 	}
+
+	if ((addr + sizeof(sg->grp)) > pastend) {
+		zlog_warn(
+			"%s: group address overflow: left=%td needed=%zu from",
+			__func__, pastend - addr, sizeof(sg->grp));
+		return -3;
 	}
+
+	memcpy(&sg->grp, addr, sizeof(sg->grp));
+	addr += sizeof(sg->grp);
 
 	return addr - buf;
 }
@@ -676,7 +704,8 @@ int pim_tlv_parse_addr_list(const char *ifname, struct in_addr src_addr,
 		/*
 		  Parse ucast addr
 		 */
-		addr_offset = pim_parse_addr_ucast(&tmp, addr, pastend - addr);
+		addr_offset =
+			pim_parse_addr_ucast_prefix(&tmp, addr, pastend - addr);
 		if (addr_offset < 1) {
 			char src_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<src?>", src_addr, src_str,
