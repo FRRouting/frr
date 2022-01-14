@@ -83,23 +83,20 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 	return prefix_match(&group_ssm, group);
 }
 
-int pim_is_grp_ssm(struct pim_instance *pim, struct in_addr group_addr)
+int pim_is_grp_ssm(struct pim_instance *pim, pim_addr group_addr)
 {
 	struct pim_ssm *ssm;
 	struct prefix group;
 	struct prefix_list *plist;
 
-	memset(&group, 0, sizeof(group));
-	group.family = AF_INET;
-	group.u.prefix4 = group_addr;
-	group.prefixlen = 32;
+	pim_addr_to_prefix(&group, group_addr);
 
 	ssm = pim->ssm_info;
 	if (!ssm->plist_name) {
 		return pim_is_grp_standard_ssm(&group);
 	}
 
-	plist = prefix_list_lookup(AFI_IP, ssm->plist_name);
+	plist = prefix_list_lookup(PIM_AFI, ssm->plist_name);
 	if (!plist)
 		return 0;
 
