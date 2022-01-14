@@ -322,9 +322,11 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 {
 	struct listnode *node;
 	struct pim_secondary_addr *sec_addr;
+	pim_addr rpf_addr;
 
-	if (pim_ifp->primary_address.s_addr
-	    == rp_info->rp.rpf_addr.u.prefix4.s_addr)
+	rpf_addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+
+	if (!pim_addr_cmp(pim_ifp->primary_address, rpf_addr))
 		return 1;
 
 	if (!pim_ifp->sec_addr_list) {
