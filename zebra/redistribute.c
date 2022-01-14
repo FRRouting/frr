@@ -247,13 +247,12 @@ void redistribute_update(const struct prefix *p, const struct prefix *src_p,
  * may have seen a redist for 'old_re', but will not see
  * the redist for 'new_re'.
  */
-void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
+void redistribute_delete(const struct route_node *rn,
 			 const struct route_entry *old_re,
 			 const struct route_entry *new_re)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
-	int afi;
 	vrf_id_t vrfid;
 
 	if (old_re)
@@ -264,27 +263,19 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 		return;
 
 	if (IS_ZEBRA_DEBUG_RIB) {
-		zlog_debug("%u:%pFX: Redist del: re %p (%s), new re %p (%s)",
-			   vrfid, p, old_re,
+		zlog_debug("%u:%pRN: Redist del: re %p (%s), new re %p (%s)",
+			   vrfid, rn, old_re,
 			   old_re ? zebra_route_string(old_re->type) : "None",
 			   new_re,
 			   new_re ? zebra_route_string(new_re->type) : "None");
 	}
 
-	afi = family2afi(p->family);
-	if (!afi) {
-		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Unknown AFI/SAFI prefix received",
-			  __func__);
-		return;
-	}
-
 	/* Skip invalid (e.g. linklocal) prefix */
-	if (!zebra_check_addr(p)) {
+	if (!zebra_check_addr(&rn->p)) {
 		if (IS_ZEBRA_DEBUG_RIB) {
 			zlog_debug(
-				"%u:%pFX: Redist del old: skipping invalid prefix",
-				vrfid, p);
+				"%u:%pRN: Redist del old: skipping invalid prefix",
+				vrfid, rn);
 		}
 		return;
 	}
@@ -297,13 +288,19 @@ void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
 		 * Skip this client if it will receive an update for the
 		 * 'new' re
 		 */
-		if (zebra_redistribute_check(new_re, client, p, afi))
+		if (zebra_redistribute_check(new_re, client, &rn->p,
+					     family2afi(rn->p.family)))
 			continue;
 
 		/* Send a delete for the 'old' re to any subscribed client. */
-		if (zebra_redistribute_check(old_re, client, p, afi))
+		if (zebra_redistribute_check(old_re, client, &rn->p,
+					     family2afi(rn->p.family))) {
+			const struct prefix *p, *src_p;
+
+			srcdest_rnode_prefixes(rn, &p, &src_p);
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, p, src_p, old_re);
+		}
 	}
 }
 

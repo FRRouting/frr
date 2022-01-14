@@ -52,7 +52,7 @@ extern void redistribute_update(const struct prefix *p,
  * may have seen a redist for 'old_re', but will not see
  * the redist for 'new_re'.
  */
-void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
+void redistribute_delete(const struct route_node *rn,
 			 const struct route_entry *old_re,
 			 const struct route_entry *new_re);
 
