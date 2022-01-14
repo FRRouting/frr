@@ -216,7 +216,8 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		    struct in_addr src_addr, uint8_t *buf, int buf_size)
 {
 	pim_sgaddr sg;
-	struct prefix msg_source_addr;
+	pim_addr msg_source_addr;
+	bool wrong_af = false;
 	struct pim_assert_metric msg_metric;
 	int offset;
 	uint8_t *curr;
@@ -246,8 +247,9 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	/*
 	  Parse assert source addr
 	*/
-	offset = pim_parse_addr_ucast(&msg_source_addr, curr, curr_size);
-	if (offset < 1) {
+	offset = pim_parse_addr_ucast(&msg_source_addr, curr, curr_size,
+				      &wrong_af);
+	if (offset < 1 || wrong_af) {
 		char src_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn("%s: pim_parse_addr_ucast() failure: from %s on %s",
@@ -286,15 +288,13 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char neigh_str[INET_ADDRSTRLEN];
-		char source_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<neigh?>", src_addr, neigh_str,
 			       sizeof(neigh_str));
-		pim_inet4_dump("<src?>", msg_source_addr.u.prefix4, source_str,
-			       sizeof(source_str));
 		zlog_debug(
-			"%s: from %s on %s: (S,G)=(%s,%pPAs) pref=%u metric=%u rpt_bit=%u",
-			__func__, neigh_str, ifp->name, source_str, &sg.grp,
-			msg_metric.metric_preference, msg_metric.route_metric,
+			"%s: from %s on %s: (S,G)=(%pPAs,%pPAs) pref=%u metric=%u rpt_bit=%u",
+			__func__, neigh_str, ifp->name, &msg_source_addr,
+			&sg.grp, msg_metric.metric_preference,
+			msg_metric.route_metric,
 			PIM_FORCE_BOOLEAN(msg_metric.rpt_bit_flag));
 	}
 
@@ -304,8 +304,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	assert(pim_ifp);
 	++pim_ifp->pim_ifstat_assert_recv;
 
-	return dispatch_assert(ifp, msg_source_addr.u.prefix4, sg.grp,
-			       msg_metric);
+	return dispatch_assert(ifp, msg_source_addr, sg.grp, msg_metric);
 }
 
 /*
