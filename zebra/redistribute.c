@@ -149,23 +149,25 @@ static void zebra_redistribute(struct zserv *client, int type,
  * Function to check if prefix is candidate for
  * redistribute.
  */
-static bool zebra_redistribute_check(const struct route_entry *re,
-				     struct zserv *client,
-				     const struct prefix *p, int afi)
+static bool zebra_redistribute_check(const struct route_node *rn,
+				     const struct route_entry *re,
+				     struct zserv *client)
 {
 	struct zebra_vrf *zvrf;
+	afi_t afi;
 
 	/* Process only if there is valid re */
 	if (!re)
 		return false;
 
+	afi = family2afi(rn->p.family);
 	zvrf = vrf_info_lookup(re->vrf_id);
 	if (re->vrf_id == VRF_DEFAULT && zvrf->table_id != re->table)
 		return false;
 
 	/* If default route and redistributed */
-	if (is_default_prefix(p)
-	    && vrf_bitmap_check(client->redist_default[afi], re->vrf_id))
+	if (is_default_prefix(&rn->p) &&
+	    vrf_bitmap_check(client->redist_default[afi], re->vrf_id))
 		return true;
 
 	/* If redistribute in enabled for zebra route all */
@@ -218,8 +220,7 @@ void redistribute_update(const struct route_node *rn,
 		const struct prefix *p, *src_p;
 
 		srcdest_rnode_prefixes(rn, &p, &src_p);
-		if (zebra_redistribute_check(re, client, p,
-					     family2afi(p->family))) {
+		if (zebra_redistribute_check(rn, re, client)) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
 					"%s: client %s %pRN(%u:%u), type=%d, distance=%d, metric=%d",
@@ -230,8 +231,7 @@ void redistribute_update(const struct route_node *rn,
 			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 						 client, p, src_p, re);
-		} else if (zebra_redistribute_check(prev_re, client, p,
-						    family2afi(p->family)))
+		} else if (zebra_redistribute_check(rn, prev_re, client))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, p, src_p, prev_re);
 	}
@@ -286,13 +286,11 @@ void redistribute_delete(const struct route_node *rn,
 		 * Skip this client if it will receive an update for the
 		 * 'new' re
 		 */
-		if (zebra_redistribute_check(new_re, client, &rn->p,
-					     family2afi(rn->p.family)))
+		if (zebra_redistribute_check(rn, new_re, client))
 			continue;
 
 		/* Send a delete for the 'old' re to any subscribed client. */
-		if (zebra_redistribute_check(old_re, client, &rn->p,
-					     family2afi(rn->p.family))) {
+		if (zebra_redistribute_check(rn, old_re, client)) {
 			const struct prefix *p, *src_p;
 
 			srcdest_rnode_prefixes(rn, &p, &src_p);
