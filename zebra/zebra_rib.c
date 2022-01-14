@@ -745,9 +745,9 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
 
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"%s(%u):%pRN has Nexthop(%pFX) depending on it, evaluating %u:%u",
-					zvrf_name(zvrf), zvrf_id(zvrf), rn, p,
-					seq, rnh->seqno);
+					"%s(%u):%pRN has Nexthop(%pRN) depending on it, evaluating %u:%u",
+					zvrf_name(zvrf), zvrf_id(zvrf), rn,
+					rnh->node, seq, rnh->seqno);
 
 			/*
 			 * If we have evaluated this node on this pass
@@ -3511,8 +3511,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 			else
 				src_buf[0] = '\0';
 
-			zlog_debug("%s[%d]:%pFX%s%s doesn't exist in rib",
-				   vrf->name, table_id, p,
+			zlog_debug("%s[%d]:%pRN%s%s doesn't exist in rib",
+				   vrf->name, table_id, rn,
 				   (src_buf[0] != '\0') ? " from " : "",
 				   src_buf);
 		}
