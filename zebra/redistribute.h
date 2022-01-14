@@ -40,8 +40,7 @@ extern void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS);
 extern void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);
 /* ----------------- */
 
-extern void redistribute_update(const struct prefix *p,
-				const struct prefix *src_p,
+extern void redistribute_update(const struct route_node *rn,
 				const struct route_entry *re,
 				const struct route_entry *prev_re);
 /*

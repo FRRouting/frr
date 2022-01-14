@@ -193,47 +193,45 @@ static bool zebra_redistribute_check(const struct route_entry *re,
 
 /* Either advertise a route for redistribution to registered clients or */
 /* withdraw redistribution if add cannot be done for client */
-void redistribute_update(const struct prefix *p, const struct prefix *src_p,
+void redistribute_update(const struct route_node *rn,
 			 const struct route_entry *re,
 			 const struct route_entry *prev_re)
 {
 	struct listnode *node, *nnode;
 	struct zserv *client;
-	int afi;
 
 	if (IS_ZEBRA_DEBUG_RIB)
 		zlog_debug(
-			"(%u:%u):%pFX(%u): Redist update re %p (%s), old %p (%s)",
-			re->vrf_id, re->table, p, re->instance, re,
+			"(%u:%u):%pRN(%u): Redist update re %p (%s), old %p (%s)",
+			re->vrf_id, re->table, rn, re->instance, re,
 			zebra_route_string(re->type), prev_re,
 			prev_re ? zebra_route_string(prev_re->type) : "None");
 
-	afi = family2afi(p->family);
-	if (!afi) {
-		flog_warn(EC_ZEBRA_REDISTRIBUTE_UNKNOWN_AF,
-			  "%s: Unknown AFI/SAFI prefix received", __func__);
-		return;
-	}
-	if (!zebra_check_addr(p)) {
+	if (!zebra_check_addr(&rn->p)) {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("Redist update filter prefix %pFX", p);
+			zlog_debug("Redist update filter prefix %pRN", rn);
 		return;
 	}
 
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
-		if (zebra_redistribute_check(re, client, p, afi)) {
+		const struct prefix *p, *src_p;
+
+		srcdest_rnode_prefixes(rn, &p, &src_p);
+		if (zebra_redistribute_check(re, client, p,
+					     family2afi(p->family))) {
 			if (IS_ZEBRA_DEBUG_RIB) {
 				zlog_debug(
-					"%s: client %s %pFX(%u:%u), type=%d, distance=%d, metric=%d",
+					"%s: client %s %pRN(%u:%u), type=%d, distance=%d, metric=%d",
 					__func__,
-					zebra_route_string(client->proto), p,
+					zebra_route_string(client->proto), rn,
 					re->vrf_id, re->table, re->type,
 					re->distance, re->metric);
 			}
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_ADD,
 						 client, p, src_p, re);
-		} else if (zebra_redistribute_check(prev_re, client, p, afi))
+		} else if (zebra_redistribute_check(prev_re, client, p,
+						    family2afi(p->family)))
 			zsend_redistribute_route(ZEBRA_REDISTRIBUTE_ROUTE_DEL,
 						 client, p, src_p, prev_re);
 	}
