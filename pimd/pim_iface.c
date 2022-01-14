@@ -299,27 +299,20 @@ static int detect_primary_address_change(struct interface *ifp,
 					 const char *caller)
 {
 	struct pim_interface *pim_ifp = ifp->info;
-	struct in_addr new_prim_addr;
+	pim_addr new_prim_addr;
 	int changed;
 
 	if (force_prim_as_any)
-		new_prim_addr.s_addr = INADDR_ANY;
+		new_prim_addr = PIMADDR_ANY;
 	else
 		new_prim_addr = pim_find_primary_addr(ifp);
 
-	changed = new_prim_addr.s_addr != pim_ifp->primary_address.s_addr;
+	changed = pim_addr_cmp(new_prim_addr, pim_ifp->primary_address);
 
-	if (PIM_DEBUG_ZEBRA) {
-		char new_prim_str[INET_ADDRSTRLEN];
-		char old_prim_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<new?>", new_prim_addr, new_prim_str,
-			       sizeof(new_prim_str));
-		pim_inet4_dump("<old?>", pim_ifp->primary_address, old_prim_str,
-			       sizeof(old_prim_str));
-		zlog_debug("%s: old=%s new=%s on interface %s: %s", __func__,
-			   old_prim_str, new_prim_str, ifp->name,
-			   changed ? "changed" : "unchanged");
-	}
+	if (PIM_DEBUG_ZEBRA)
+		zlog_debug("%s: old=%pPA new=%pPA on interface %s: %s",
+			   __func__, &pim_ifp->primary_address, &new_prim_addr,
+			   ifp->name, changed ? "changed" : "unchanged");
 
 	if (changed) {
 		/* Before updating pim_ifp send Hello time with 0 hold time */
@@ -401,19 +394,18 @@ static int pim_sec_addr_update(struct interface *ifp)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		struct prefix *p = ifc->address;
+		pim_addr addr = pim_addr_from_prefix(ifc->address);
 
-		if (p->u.prefix4.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(addr))
 			continue;
-		}
 
-		if (pim_ifp->primary_address.s_addr == p->u.prefix4.s_addr) {
+		if (!pim_addr_cmp(addr, pim_ifp->primary_address)) {
 			/* don't add the primary address into the secondary
 			 * address list */
 			continue;
 		}
 
-		if (pim_sec_addr_add(pim_ifp, p)) {
+		if (pim_sec_addr_add(pim_ifp, ifc->address)) {
 			changed = 1;
 		}
 	}
@@ -480,7 +472,7 @@ static void detect_address_change(struct interface *ifp, int force_prim_as_any,
 	 * address change on all of them when the lo address changes */
 }
 
-int pim_update_source_set(struct interface *ifp, struct in_addr source)
+int pim_update_source_set(struct interface *ifp, pim_addr source)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
@@ -488,7 +480,7 @@ int pim_update_source_set(struct interface *ifp, struct in_addr source)
 		return PIM_IFACE_NOT_FOUND;
 	}
 
-	if (pim_ifp->update_source.s_addr == source.s_addr) {
+	if (!pim_addr_cmp(pim_ifp->update_source, source)) {
 		return PIM_UPDATE_SOURCE_DUP;
 	}
 
@@ -827,11 +819,10 @@ void pim_if_addr_del_all_igmp(struct interface *ifp)
 	}
 }
 
-struct in_addr pim_find_primary_addr(struct interface *ifp)
+pim_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
 	struct listnode *node;
-	struct in_addr addr = {0};
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
@@ -841,28 +832,35 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, node, ifc)) {
-		struct prefix *p = ifc->address;
+		pim_addr addr;
 
-		if (p->family != AF_INET) {
+		switch (ifc->address->family) {
+		case AF_INET:
+			v4_addrs++;
+			break;
+		case AF_INET6:
 			v6_addrs++;
+			break;
+		default:
 			continue;
 		}
-
-		if (p->u.prefix4.s_addr == INADDR_ANY) {
-			zlog_warn(
-				"%s: null IPv4 address connected to interface %s",
-				__func__, ifp->name);
-			continue;
-		}
-
-		v4_addrs++;
 
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY))
 			continue;
 
-		return p->u.prefix4;
+		if (ifc->address->family != PIM_AF)
+			continue;
+
+		addr = pim_addr_from_prefix(ifc->address);
+
+#if PIM_IPV == 6
+		if (!IN6_IS_ADDR_LINKLOCAL(&addr))
+			continue;
+#endif
+		return addr;
 	}
 
+#if PIM_IPV == 4
 	/*
 	 * If we have no v4_addrs and v6 is configured
 	 * We probably are using unnumbered
@@ -882,10 +880,8 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
 	}
-
-	addr.s_addr = PIM_NET_INADDR_ANY;
-
-	return addr;
+#endif
+	return PIMADDR_ANY;
 }
 
 static int pim_iface_next_vif_index(struct interface *ifp)
@@ -1466,7 +1462,7 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 	}
 }
 
-struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src)
+struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src)
 {
 	struct listnode *cnode;
 	struct connected *c;
@@ -1475,12 +1471,10 @@ struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr 
 	if (!ifp)
 		return NULL;
 
-	p.family = AF_INET;
-	p.u.prefix4 = src;
-	p.prefixlen = IPV4_MAX_BITLEN;
+	pim_addr_to_prefix(&p, src);
 
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, cnode, c)) {
-		if (c->address->family != AF_INET)
+		if (c->address->family != PIM_AF)
 			continue;
 		if (prefix_match(c->address, &p))
 			return c->address;

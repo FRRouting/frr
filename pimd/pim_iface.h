@@ -231,7 +231,7 @@ struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr);
 long pim_if_t_suppressed_msec(struct interface *ifp);
 int pim_if_t_override_msec(struct interface *ifp);
 
-struct in_addr pim_find_primary_addr(struct interface *ifp);
+pim_addr pim_find_primary_addr(struct interface *ifp);
 
 ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			    struct in_addr source_addr);
@@ -251,8 +251,8 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(struct pim_instance *pim);
 
-struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
-int pim_update_source_set(struct interface *ifp, struct in_addr source);
+struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src);
+int pim_update_source_set(struct interface *ifp, pim_addr source);
 
 bool pim_if_is_vrf_device(struct interface *ifp);
 

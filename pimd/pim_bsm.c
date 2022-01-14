@@ -955,7 +955,7 @@ bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
 	pim_ifp = ifp->info;
 
 	/* DR only forwards BSM packet */
-	if (pim_ifp->pim_dr_addr.s_addr == pim_ifp->primary_address.s_addr) {
+	if (!pim_addr_cmp(pim_ifp->pim_dr_addr, pim_ifp->primary_address)) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug(
 				"%s: It is not DR, so don't forward BSM packet",
