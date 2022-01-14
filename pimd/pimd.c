@@ -103,7 +103,7 @@ void pim_router_init(void)
 		PIM_ASSERT_METRIC_PREFERENCE_MAX;
 	router->infinite_assert_metric.route_metric =
 		PIM_ASSERT_ROUTE_METRIC_MAX;
-	router->infinite_assert_metric.ip_address.s_addr = INADDR_ANY;
+	router->infinite_assert_metric.ip_address = PIMADDR_ANY;
 	router->rpf_cache_refresh_delay_msec = 50;
 	router->register_suppress_time = PIM_REGISTER_SUPPRESSION_TIME_DEFAULT;
 	router->packet_process = PIM_DEFAULT_PACKET_PROCESS;

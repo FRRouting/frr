@@ -1363,23 +1363,17 @@ void pim_ifchannel_update_my_assert_metric(struct pim_ifchannel *ch)
 	if (pim_assert_metric_match(&my_metric_new, &ch->ifassert_my_metric))
 		return;
 
-	if (PIM_DEBUG_PIM_EVENTS) {
-		char old_addr_str[INET_ADDRSTRLEN];
-		char new_addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<old_addr?>", ch->ifassert_my_metric.ip_address,
-			       old_addr_str, sizeof(old_addr_str));
-		pim_inet4_dump("<new_addr?>", my_metric_new.ip_address,
-			       new_addr_str, sizeof(new_addr_str));
+	if (PIM_DEBUG_PIM_EVENTS)
 		zlog_debug(
-			"%s: my_assert_metric(%pPAs,%pPAs,%s) changed from %u,%u,%u,%s to %u,%u,%u,%s",
+			"%s: my_assert_metric(%pPAs,%pPAs,%s) changed from %u,%u,%u,%pPAs to %u,%u,%u,%pPAs",
 			__func__, &ch->sg.src, &ch->sg.grp, ch->interface->name,
 			ch->ifassert_my_metric.rpt_bit_flag,
 			ch->ifassert_my_metric.metric_preference,
-			ch->ifassert_my_metric.route_metric, old_addr_str,
+			ch->ifassert_my_metric.route_metric,
+			&ch->ifassert_my_metric.ip_address,
 			my_metric_new.rpt_bit_flag,
 			my_metric_new.metric_preference,
-			my_metric_new.route_metric, new_addr_str);
-	}
+			my_metric_new.route_metric, &my_metric_new.ip_address);
 
 	ch->ifassert_my_metric = my_metric_new;
 
