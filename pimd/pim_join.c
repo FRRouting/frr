@@ -54,20 +54,17 @@ static void on_trace(const char *label, struct interface *ifp,
 }
 
 static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
-		      uint16_t holdtime, struct in_addr upstream,
-		      pim_sgaddr *sg, uint8_t source_flags)
+		      uint16_t holdtime, pim_addr upstream, pim_sgaddr *sg,
+		      uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char up_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %pPA on %s",
+			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
 			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
-			!!(source_flags & PIM_WILDCARD_BIT_MASK), up_str,
+			!!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream,
 			holdtime, &neigh->source_addr, ifp->name);
-	}
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
@@ -116,20 +113,17 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 }
 
 static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
-		       uint16_t holdtime, struct in_addr upstream,
-		       pim_sgaddr *sg, uint8_t source_flags)
+		       uint16_t holdtime, pim_addr upstream, pim_sgaddr *sg,
+		       uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char up_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %pPA on %s",
+			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
 			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
-			source_flags & PIM_WILDCARD_BIT_MASK, up_str, holdtime,
-			&neigh->source_addr, ifp->name);
-	}
+			source_flags & PIM_WILDCARD_BIT_MASK, &upstream,
+			holdtime, &neigh->source_addr, ifp->name);
 
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
