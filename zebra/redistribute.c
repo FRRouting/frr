@@ -255,11 +255,26 @@ void redistribute_delete(const struct route_node *rn,
 		return;
 
 	if (IS_ZEBRA_DEBUG_RIB) {
-		zlog_debug("%u:%pRN: Redist del: re %p (%s), new re %p (%s)",
-			   vrfid, rn, old_re,
-			   old_re ? zebra_route_string(old_re->type) : "None",
-			   new_re,
-			   new_re ? zebra_route_string(new_re->type) : "None");
+		uint8_t old_inst, new_inst;
+		uint32_t table = 0;
+
+		old_inst = new_inst = 0;
+
+		if (old_re) {
+			old_inst = old_re->instance;
+			table = old_re->table;
+		}
+		if (new_re) {
+			new_inst = new_re->instance;
+			table = new_re->table;
+		}
+
+		zlog_debug(
+			"%u:%u%pRN: Redist del: re %p (%u:%s), new re %p (%u:%s)",
+			vrfid, table, rn, old_re, old_inst,
+			old_re ? zebra_route_string(old_re->type) : "None",
+			new_re, new_inst,
+			new_re ? zebra_route_string(new_re->type) : "None");
 	}
 
 	/* Skip invalid (e.g. linklocal) prefix */
