@@ -87,14 +87,10 @@ void pim_ifassert_winner_set(struct pim_ifchannel *ch,
 	}
 }
 
-static void on_trace(const char *label, struct interface *ifp,
-		     struct in_addr src)
+static void on_trace(const char *label, struct interface *ifp, pim_addr src)
 {
-	if (PIM_DEBUG_PIM_TRACE) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src, src_str, sizeof(src_str));
-		zlog_debug("%s: from %s on %s", label, src_str, ifp->name);
-	}
+	if (PIM_DEBUG_PIM_TRACE)
+		zlog_debug("%s: from %pPAs on %s", label, &src, ifp->name);
 }
 
 static int preferred_assert(const struct pim_ifchannel *ch,
@@ -213,7 +209,7 @@ static int dispatch_assert(struct interface *ifp, pim_addr source_addr,
 }
 
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
-		    struct in_addr src_addr, uint8_t *buf, int buf_size)
+		    pim_addr src_addr, uint8_t *buf, int buf_size)
 {
 	pim_sgaddr sg;
 	pim_addr msg_source_addr;
@@ -235,10 +231,9 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	memset(&sg, 0, sizeof(sg));
 	offset = pim_parse_addr_group(&sg, curr, curr_size);
 	if (offset < 1) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn("%s: pim_parse_addr_group() failure: from %s on %s",
-			  __func__, src_str, ifp->name);
+		zlog_warn(
+			"%s: pim_parse_addr_group() failure: from %pPAs on %s",
+			__func__, &src_addr, ifp->name);
 		return -1;
 	}
 	curr += offset;
@@ -250,21 +245,18 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	offset = pim_parse_addr_ucast(&msg_source_addr, curr, curr_size,
 				      &wrong_af);
 	if (offset < 1 || wrong_af) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn("%s: pim_parse_addr_ucast() failure: from %s on %s",
-			  __func__, src_str, ifp->name);
+		zlog_warn(
+			"%s: pim_parse_addr_ucast() failure: from %pPAs on %s",
+			__func__, &src_addr, ifp->name);
 		return -2;
 	}
 	curr += offset;
 	curr_size -= offset;
 
 	if (curr_size < 8) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn(
-			"%s: preference/metric size is less than 8 bytes: size=%d from %s on interface %s",
-			__func__, curr_size, src_str, ifp->name);
+			"%s: preference/metric size is less than 8 bytes: size=%d from %pPAs on interface %s",
+			__func__, curr_size, &src_addr, ifp->name);
 		return -3;
 	}
 
@@ -286,17 +278,13 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	msg_metric.route_metric = pim_read_uint32_host(curr);
 
-	if (PIM_DEBUG_PIM_TRACE) {
-		char neigh_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<neigh?>", src_addr, neigh_str,
-			       sizeof(neigh_str));
+	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: from %s on %s: (S,G)=(%pPAs,%pPAs) pref=%u metric=%u rpt_bit=%u",
-			__func__, neigh_str, ifp->name, &msg_source_addr,
+			"%s: from %pPAs on %s: (S,G)=(%pPAs,%pPAs) pref=%u metric=%u rpt_bit=%u",
+			__func__, &src_addr, ifp->name, &msg_source_addr,
 			&sg.grp, msg_metric.metric_preference,
 			msg_metric.route_metric,
 			PIM_FORCE_BOOLEAN(msg_metric.rpt_bit_flag));
-	}
 
 	msg_metric.ip_address = src_addr;
 
