@@ -1353,7 +1353,7 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	return buf;
 }
 
-printfrr_ext_autoreg_p("EA", printfrr_ea)
+printfrr_ext_autoreg_p("EA", printfrr_ea);
 static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1368,7 +1368,7 @@ static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("IA", printfrr_ia)
+printfrr_ext_autoreg_p("IA", printfrr_ia);
 static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1408,7 +1408,7 @@ static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I4", printfrr_i4)
+printfrr_ext_autoreg_p("I4", printfrr_i4);
 static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1431,7 +1431,7 @@ static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I6", printfrr_i6)
+printfrr_ext_autoreg_p("I6", printfrr_i6);
 static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1454,7 +1454,7 @@ static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("FX", printfrr_pfx)
+printfrr_ext_autoreg_p("FX", printfrr_pfx);
 static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
@@ -1467,7 +1467,7 @@ static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("PSG4", printfrr_psg)
+printfrr_ext_autoreg_p("PSG4", printfrr_psg);
 static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {

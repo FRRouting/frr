@@ -662,7 +662,7 @@ void sockunion_init(union sockunion *su)
 	memset(su, 0, sizeof(union sockunion));
 }
 
-printfrr_ext_autoreg_p("SU", printfrr_psu)
+printfrr_ext_autoreg_p("SU", printfrr_psu);
 static ssize_t printfrr_psu(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
@@ -752,7 +752,7 @@ int sockunion_is_null(const union sockunion *su)
 	}
 }
 
-printfrr_ext_autoreg_i("PF", printfrr_pf)
+printfrr_ext_autoreg_i("PF", printfrr_pf);
 static ssize_t printfrr_pf(struct fbuf *buf, struct printfrr_eargs *ea,
 			   uintmax_t val)
 {
@@ -775,7 +775,7 @@ static ssize_t printfrr_pf(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bprintfrr(buf, "AF_(%ju)", val);
 }
 
-printfrr_ext_autoreg_i("SO", printfrr_so)
+printfrr_ext_autoreg_i("SO", printfrr_so);
 static ssize_t printfrr_so(struct fbuf *buf, struct printfrr_eargs *ea,
 			   uintmax_t val)
 {
