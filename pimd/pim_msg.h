@@ -75,6 +75,12 @@ struct pim_encoded_ipv4_unicast {
 	struct in_addr addr;
 } __attribute__((packed));
 
+struct pim_encoded_ipv6_unicast {
+	uint8_t family;
+	uint8_t reserved;
+	struct in6_addr addr;
+} __attribute__((packed));
+
 /*
  *  Encoded Group format. RFC 4601 Sec 4.9.1
  *   0                   1                   2                   3
@@ -103,6 +109,23 @@ struct pim_encoded_group_ipv4 {
 	struct in_addr addr;
 } __attribute__((packed));
 
+struct pim_encoded_group_ipv6 {
+	uint8_t family;
+	uint8_t ne;
+#if (BYTE_ORDER == LITTLE_ENDIAN)
+	uint8_t sz : 1;	      /* scope zone bit */
+	uint8_t reserved : 6; /* Reserved */
+	uint8_t bidir : 1;    /* Bidir bit */
+#elif (BYTE_ORDER == BIG_ENDIAN)
+	uint8_t bidir : 1;	/* Bidir bit */
+	uint8_t reserved : 6;	/* Reserved */
+	uint8_t sz : 1;		/* scope zone bit */
+#else
+#error "Please set byte order"
+#endif
+	uint8_t mask;
+	struct in6_addr addr;
+} __attribute__((packed));
 
 /*
  *  Encoded Source format. RFC 4601 Sec 4.9.1
@@ -122,16 +145,36 @@ struct pim_encoded_source_ipv4 {
 	struct in_addr addr;
 } __attribute__((packed));
 
+struct pim_encoded_source_ipv6 {
+	uint8_t family;
+	uint8_t ne;
+	uint8_t bits;
+	uint8_t mask;
+	struct in6_addr addr;
+} __attribute__((packed));
+
+/* clang-format off */
+#if PIM_IPV == 4
+typedef struct pim_encoded_ipv4_unicast pim_encoded_unicast;
+typedef struct pim_encoded_group_ipv4   pim_encoded_group;
+typedef struct pim_encoded_source_ipv4  pim_encoded_source;
+#else
+typedef struct pim_encoded_ipv6_unicast pim_encoded_unicast;
+typedef struct pim_encoded_group_ipv6   pim_encoded_group;
+typedef struct pim_encoded_source_ipv6  pim_encoded_source;
+#endif
+/* clang-format on */
+
 struct pim_jp_groups {
-	struct pim_encoded_group_ipv4 g;
+	pim_encoded_group g;
 	uint16_t joins;
 	uint16_t prunes;
-	struct pim_encoded_source_ipv4 s[1];
+	pim_encoded_source s[1];
 } __attribute__((packed));
 
 struct pim_jp {
 	struct pim_msg_header header;
-	struct pim_encoded_ipv4_unicast addr;
+	pim_encoded_unicast addr;
 	uint8_t reserved;
 	uint8_t num_groups;
 	uint16_t holdtime;
@@ -149,6 +192,14 @@ uint8_t *pim_msg_addr_encode_ipv4_group(uint8_t *buf, struct in_addr addr);
 uint8_t *pim_msg_addr_encode_ipv4_source(uint8_t *buf, struct in_addr addr,
 					 uint8_t bits);
 
+uint8_t *pim_msg_addr_encode_ipv6_ucast(uint8_t *buf, struct in6_addr addr);
+uint8_t *pim_msg_addr_encode_ipv6_group(uint8_t *buf, struct in6_addr addr);
+uint8_t *pim_msg_addr_encode_ipv6_source(uint8_t *buf, struct in6_addr addr,
+					 uint8_t bits);
+
+uint8_t *pim_msg_addr_encode_ucast(uint8_t *buf, pim_addr addr);
+uint8_t *pim_msg_addr_encode_group(uint8_t *buf, pim_addr addr);
+uint8_t *pim_msg_addr_encode_source(uint8_t *buf, pim_addr addr, uint8_t bits);
 
 size_t pim_msg_get_jp_group_size(struct list *sources);
 size_t pim_msg_build_jp_groups(struct pim_jp_groups *grp,

@@ -516,7 +516,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			grp = &msg->groups[0];
 			curr_ptr = (uint8_t *)grp;
 			packet_size = sizeof(struct pim_msg_header);
-			packet_size += sizeof(struct pim_encoded_ipv4_unicast);
+			packet_size += sizeof(pim_encoded_unicast);
 			packet_size +=
 				4; // reserved (1) + groups (1) + holdtime (2)
 
@@ -564,7 +564,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 			grp = &msg->groups[0];
 			curr_ptr = (uint8_t *)grp;
 			packet_size = sizeof(struct pim_msg_header);
-			packet_size += sizeof(struct pim_encoded_ipv4_unicast);
+			packet_size += sizeof(pim_encoded_unicast);
 			packet_size +=
 				4; // reserved (1) + groups (1) + holdtime (2)
 
