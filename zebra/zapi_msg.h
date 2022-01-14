@@ -75,8 +75,8 @@ extern int zsend_interface_vrf_update(struct zserv *zclient,
 extern int zsend_interface_link_params(struct zserv *zclient,
 				       struct interface *ifp);
 extern int zsend_pw_update(struct zserv *client, struct zebra_pw *pw);
-extern int zsend_route_notify_owner(struct route_entry *re,
-				    const struct prefix *p,
+extern int zsend_route_notify_owner(const struct route_node *rn,
+				    struct route_entry *re,
 				    enum zapi_route_notify_owner note,
 				    afi_t afi, safi_t safi);
 extern int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
