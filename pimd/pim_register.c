@@ -399,11 +399,10 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			struct prefix_list *plist;
 			struct prefix src;
 
-			plist = prefix_list_lookup(AFI_IP, pim->register_plist);
+			plist = prefix_list_lookup(PIM_AFI,
+						   pim->register_plist);
 
-			src.family = AF_INET;
-			src.prefixlen = IPV4_MAX_BITLEN;
-			src.u.prefix4 = sg.src;
+			pim_addr_to_prefix(&src, sg.src);
 
 			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
 				pim_register_stop_send(ifp, &sg, dest_addr,

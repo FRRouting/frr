@@ -255,9 +255,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	src.family = AF_INET;
 	src.prefixlen = IPV4_MAX_BITLEN;
 	src.u.prefix4 = up->upstream_addr; // RP or Src address
-	grp.family = AF_INET;
-	grp.prefixlen = IPV4_MAX_BITLEN;
-	grp.u.prefix4 = up->sg.grp;
+	pim_addr_to_prefix(&grp, up->sg.grp);
 
 	if ((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))

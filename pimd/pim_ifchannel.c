@@ -1235,10 +1235,8 @@ int pim_ifchannel_local_membership_add(struct interface *ifp, pim_sgaddr *sg,
 				struct prefix_list *plist = prefix_list_lookup(
 					AFI_IP, pim->spt.plist);
 				struct prefix g;
-				g.family = AF_INET;
-				g.prefixlen = IPV4_MAX_BITLEN;
-				g.u.prefix4 = up->sg.grp;
 
+				pim_addr_to_prefix(&g, up->sg.grp);
 				if (prefix_list_apply(plist, &g)
 				    == PREFIX_DENY) {
 					pim_channel_add_oif(
