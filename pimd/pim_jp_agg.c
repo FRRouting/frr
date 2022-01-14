@@ -60,13 +60,7 @@ int pim_jp_agg_group_list_cmp(void *arg1, void *arg2)
 	const struct pim_jp_agg_group *jag2 =
 		(const struct pim_jp_agg_group *)arg2;
 
-	if (jag1->group.s_addr < jag2->group.s_addr)
-		return -1;
-
-	if (jag1->group.s_addr > jag2->group.s_addr)
-		return 1;
-
-	return 0;
+	return pim_addr_cmp(jag1->group, jag2->group);
 }
 
 static int pim_jp_agg_src_cmp(void *arg1, void *arg2)
