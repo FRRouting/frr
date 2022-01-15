@@ -2380,9 +2380,15 @@ static inline bool peer_established(struct peer *peer)
 	return peer->status == Established;
 }
 
-static inline int peer_dynamic_neighbor(struct peer *peer)
+static inline bool peer_dynamic_neighbor(struct peer *peer)
 {
-	return (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR)) ? 1 : 0;
+	return CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
+}
+
+static inline bool peer_dynamic_neighbor_no_nsf(struct peer *peer)
+{
+	return (peer_dynamic_neighbor(peer) &&
+		!CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT));
 }
 
 static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)
