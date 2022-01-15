@@ -698,7 +698,8 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 	return 1;
 }
 
-void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
+void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
+				    bool rt_delete)
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct rnh *rnh;
@@ -719,6 +720,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 				__func__, rn,
 				dest ? rnh_list_count(&dest->nht) : 0);
 
+		if (rt_delete && (!dest || !rnh_list_count(&dest->nht))) {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%pRN has no tracking NHTs. Bailing",
+					   rn);
+			break;
+		}
 		if (!dest) {
 			rn = rn->parent;
 			if (rn)
@@ -798,7 +805,8 @@ int rib_gc_dest(struct route_node *rn)
 		rnode_debug(rn, zvrf_id(zvrf), "removing dest from table");
 	}
 
-	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence());
+	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence(),
+				       true);
 
 	dest->rnode = NULL;
 	rnh_list_fini(&dest->nht);
@@ -1803,6 +1811,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	rib_dest_t *dest;
 	bool fib_changed = false;
 	struct rib_table_info *info;
+	bool rt_delete = false;
 
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
@@ -1990,6 +1999,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		}
 		break;
 	case DPLANE_OP_ROUTE_DELETE:
+		rt_delete = true;
 		if (re)
 			SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
 		/*
@@ -2032,7 +2042,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		break;
 	}
 
-	zebra_rib_evaluate_rn_nexthops(rn, seq);
+	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
 	zebra_rib_evaluate_mpls(rn);
 done:
 
@@ -2268,8 +2278,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	}
 
 	/* Make any changes visible for lsp and nexthop-tracking processing */
-	zebra_rib_evaluate_rn_nexthops(
-		rn, zebra_router_get_next_sequence());
+	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence(),
+				       false);
 
 	zebra_rib_evaluate_mpls(rn);
 
