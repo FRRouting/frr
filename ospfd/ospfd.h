@@ -234,6 +234,9 @@ struct ospf {
 	struct route_table *old_table; /* Old routing table. */
 	struct route_table *new_table; /* Current routing table. */
 
+	struct route_table *oall_rtrs; /* Old router RT. */
+	struct route_table *all_rtrs;  /* New routers RT. */
+
 	struct route_table *old_rtrs; /* Old ABR/ASBR RT. */
 	struct route_table *new_rtrs; /* New ABR/ASBR RT. */
 
