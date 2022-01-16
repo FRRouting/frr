@@ -17495,7 +17495,20 @@ static struct cmd_node bgp_srv6_node = {
 
 static void community_list_vty(void);
 
-static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
+static void bgp_ac_peergroup(vector comps, struct cmd_token *token)
+{
+	struct bgp *bgp;
+	struct peer_group *group;
+	struct listnode *lnbgp, *lnpeer;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, lnbgp, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->group, lnpeer, group))
+			vector_set(comps,
+				   XSTRDUP(MTYPE_COMPLETION, group->name));
+	}
+}
+
+static void bgp_ac_peer(vector comps, struct cmd_token *token)
 {
 	struct bgp *bgp;
 	struct peer *peer;
@@ -17525,24 +17538,17 @@ static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
 	}
 }
 
+static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
+{
+	bgp_ac_peer(comps, token);
+	bgp_ac_peergroup(comps, token);
+}
+
 static const struct cmd_variable_handler bgp_var_neighbor[] = {
 	{.varname = "neighbor", .completions = bgp_ac_neighbor},
 	{.varname = "neighbors", .completions = bgp_ac_neighbor},
 	{.varname = "peer", .completions = bgp_ac_neighbor},
 	{.completions = NULL}};
-
-static void bgp_ac_peergroup(vector comps, struct cmd_token *token)
-{
-	struct bgp *bgp;
-	struct peer_group *group;
-	struct listnode *lnbgp, *lnpeer;
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, lnbgp, bgp)) {
-		for (ALL_LIST_ELEMENTS_RO(bgp->group, lnpeer, group))
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION,
-						  group->name));
-	}
-}
 
 static const struct cmd_variable_handler bgp_var_peergroup[] = {
 	{.tokenname = "PGNAME", .completions = bgp_ac_peergroup},
