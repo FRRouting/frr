@@ -1016,10 +1016,11 @@ Summary Route will be originated on-behalf of all matched external LSAs.
 .. clicmd:: aggregation timer (5-1800)
 
    Configure aggregation delay timer interval. Summarisation starts only after
-   this delay timer expiry. By default, delay interval is 5 secs.
+   this delay timer expiry. By default, delay interval is 5 seconds.
 
 
-   Resetting the aggregation delay interval to default value.
+   The no form of the command resets the aggregation delay interval to default
+   value.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
 
