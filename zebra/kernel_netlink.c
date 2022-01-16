@@ -271,9 +271,6 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 			     safe_strerror(errno));
 		return -1;
 	}
-
-	zlog_info("Setting netlink socket receive buffer size: %u -> %u",
-		  oldsize, newsize);
 	return 0;
 }
 
