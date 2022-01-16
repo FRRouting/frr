@@ -908,6 +908,11 @@ size_t zlog_msg_ts_3164(struct zlog_msg *msg, struct fbuf *out, uint32_t flags)
 	return bputs(out, msg->ts_3164_str);
 }
 
+void zlog_msg_tsraw(struct zlog_msg *msg, struct timespec *ts)
+{
+	memcpy(ts, &msg->ts, sizeof(*ts));
+}
+
 void zlog_set_prefix_ec(bool enable)
 {
 	atomic_store_explicit(&zlog_ec, enable, memory_order_relaxed);
