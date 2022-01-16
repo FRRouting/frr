@@ -46,6 +46,7 @@
 #include "frrscript.h"
 #include "systemd.h"
 
+DEFINE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
 DEFINE_HOOK(frr_config_post, (struct thread_master * tm), (tm));
@@ -770,6 +771,7 @@ struct thread_master *frr_init(void)
 
 	master = thread_master_create(NULL);
 	signal_init(master, di->n_signals, di->signals);
+	hook_call(frr_early_init, master);
 
 #ifdef HAVE_SQLITE3
 	if (!di->db_file)
