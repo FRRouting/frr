@@ -144,6 +144,7 @@ extern uint32_t frr_get_fd_limit(void);
 extern bool frr_is_startup_fd(int fd);
 
 /* call order of these hooks is as ordered here */
+DECLARE_HOOK(frr_early_init, (struct thread_master * tm), (tm));
 DECLARE_HOOK(frr_late_init, (struct thread_master * tm), (tm));
 /* fork() happens between late_init and config_pre */
 DECLARE_HOOK(frr_config_pre, (struct thread_master * tm), (tm));
