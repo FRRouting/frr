@@ -4280,6 +4280,7 @@ void vtysh_init_vty(void)
 #endif /* HAVE_BFDD */
 
 	install_node(&segment_routing_node);
+	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
@@ -4305,7 +4306,6 @@ void vtysh_init_vty(void)
 	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
