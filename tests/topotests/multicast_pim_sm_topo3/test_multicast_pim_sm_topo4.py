@@ -197,6 +197,28 @@ def teardown_module():
 #####################################################
 
 
+def reset_stats(stats):
+    """
+    API to reset the stats
+
+    Parameters
+    ----------
+    * `stats` : State dictionary holding helloRx and helloTx values
+    """
+
+    for router, state_data in stats.items():
+        for state, value in state_data.items():
+            stats[router][state] = 0
+            logger.info(
+                "[DUT: %s]: stats %s value has reset" " reset, Current value: %s",
+                router,
+                state,
+                stats[router][state],
+            )
+
+    return True
+
+
 def verify_state_incremented(state_before, state_after):
     """
     API to compare interface traffic state incrementing
@@ -925,7 +947,6 @@ def test_PIM_hello_tx_rx_p1(request):
     intf_l1_c1 = topo["routers"]["l1"]["links"]["c1"]["interface"]
     intf_c1_l1 = topo["routers"]["c1"]["links"]["l1"]["interface"]
 
-    step("verify before stats on C1")
     state_dict = {
         "c1": {
             intf_c1_l1: ["helloTx", "helloRx"],
@@ -942,13 +963,12 @@ def test_PIM_hello_tx_rx_p1(request):
     step("Flap PIM nbr while doing interface c1-l1 interface shut from f1 side")
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, False)
 
-    step(
-        "After shut of local interface from c1 , verify rx/tx hello counters are cleared on c1 side"
-        "verify using 'show ip pim interface traffic'"
-    )
+    """ Resetting the stats here since shutdown resets the stats.
+    """
+    reset_stats(c1_state_before)
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, True)
 
-    step("verify stats after on c1 and that they are incremented")
+    step("verify stats after no shutdown on c1 and that they are incremented")
 
     count = 0
     done = False
