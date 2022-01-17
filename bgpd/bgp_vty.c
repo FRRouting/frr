@@ -54,6 +54,7 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_network.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_route.h"
@@ -683,16 +684,34 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 static bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
 {
 	struct interface *ifp = NULL;
+	struct listnode *node;
+	struct bgp_listener *listener;
+	union sockunion all_su;
 
-	if (su->sa.sa_family == AF_INET)
+	if (su->sa.sa_family == AF_INET) {
+		str2sockunion("0.0.0.0", &all_su);
 		ifp = if_lookup_by_ipv4_exact(&su->sin.sin_addr, bgp->vrf_id);
-	else if (su->sa.sa_family == AF_INET6)
+	} else if (su->sa.sa_family == AF_INET6) {
+		str2sockunion("::", &all_su);
 		ifp = if_lookup_by_ipv6_exact(&su->sin6.sin6_addr,
 					      su->sin6.sin6_scope_id,
 					      bgp->vrf_id);
+	}
 
-	if (ifp)
-		return true;
+	if (ifp) {
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+			if (sockunion_family(su) !=
+			    sockunion_family(&listener->su))
+				continue;
+
+			/* If 0.0.0.0/:: is a listener, then treat as self and
+			 * reject.
+			 */
+			if (!sockunion_cmp(&listener->su, su) ||
+			    !sockunion_cmp(&listener->su, &all_su))
+				return true;
+		}
+	}
 
 	return false;
 }
