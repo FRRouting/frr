@@ -148,8 +148,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 }
 
 int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
-		       struct in_addr src_addr, uint8_t *tlv_buf,
-		       int tlv_buf_size)
+		       pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size)
 {
 	pim_addr msg_upstream_addr;
 	bool wrong_af = false;
@@ -174,10 +173,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	addr_offset = pim_parse_addr_ucast(&msg_upstream_addr, buf,
 					   pastend - buf, &wrong_af);
 	if (addr_offset < 1) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_warn("%s: pim_parse_addr_ucast() failure: from %s on %s",
-			  __func__, src_str, ifp->name);
+		zlog_warn("%s: pim_parse_addr_ucast() failure: from %pPA on %s",
+			  __func__, &src_addr, ifp->name);
 		return -1;
 	}
 	buf += addr_offset;
@@ -186,21 +183,17 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	  Check upstream address family
 	 */
 	if (wrong_af) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn(
-			"%s: ignoring join/prune directed to unexpected addr family from %s on %s",
-			__func__, src_str, ifp->name);
+			"%s: ignoring join/prune directed to unexpected addr family from %pPA on %s",
+			__func__, &src_addr, ifp->name);
 		return -2;
 	}
 
 	remain = pastend - buf;
 	if (remain < 4) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
 		zlog_warn(
-			"%s: short join/prune message buffer for group list: size=%d minimum=%d from %s on %s",
-			__func__, remain, 4, src_str, ifp->name);
+			"%s: short join/prune message buffer for group list: size=%d minimum=%d from %pPA on %s",
+			__func__, remain, 4, &src_addr, ifp->name);
 		return -4;
 	}
 
@@ -211,14 +204,11 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	++buf;
 	++buf;
 
-	if (PIM_DEBUG_PIM_J_P) {
-		char src_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
+	if (PIM_DEBUG_PIM_J_P)
 		zlog_debug(
-			"%s: join/prune upstream=%pPAs groups=%d holdtime=%d from %s on %s",
+			"%s: join/prune upstream=%pPAs groups=%d holdtime=%d from %pPA on %s",
 			__func__, &msg_upstream_addr, msg_num_groups,
-			msg_holdtime, src_str, ifp->name);
-	}
+			msg_holdtime, &src_addr, ifp->name);
 
 	/* Scan groups */
 	for (group = 0; group < msg_num_groups; ++group) {
@@ -239,12 +229,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 		remain = pastend - buf;
 		if (remain < 4) {
-			char src_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<src?>", src_addr, src_str,
-				       sizeof(src_str));
 			zlog_warn(
-				"%s: short join/prune buffer for source list: size=%d minimum=%d from %s on %s",
-				__func__, remain, 4, src_str, ifp->name);
+				"%s: short join/prune buffer for source list: size=%d minimum=%d from %pPA on %s",
+				__func__, remain, 4, &src_addr, ifp->name);
 			return -6;
 		}
 
@@ -253,16 +240,12 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		msg_num_pruned_sources = ntohs(*(const uint16_t *)buf);
 		buf += 2;
 
-		if (PIM_DEBUG_PIM_J_P) {
-			char src_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<src?>", src_addr, src_str,
-				       sizeof(src_str));
+		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug(
-				"%s: join/prune upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %s on %s",
+				"%s: join/prune upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %pPA on %s",
 				__func__, &msg_upstream_addr, &sg.grp,
 				msg_num_joined_sources, msg_num_pruned_sources,
-				src_str, ifp->name);
-		}
+				&src_addr, ifp->name);
 
 		/* boundary check */
 		filtered = pim_is_group_filtered(pim_ifp, &sg.grp);
