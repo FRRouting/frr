@@ -249,23 +249,13 @@ changelog with some better description.
 Submitting Patches and Enhancements
 ===================================
 
-FRR accepts patches from two sources:
-
-- GitHub pull request
-
-Contributors are highly encouraged to use GitHub's fork-and-PR workflow. It is
-easier for us to review it, test it, try it and discuss it on GitHub than it is
-via email, thus your patch will get more attention more quickly on GitHub.
+FRR accepts patches using GitHub pull requests.
 
 The base branch for new contributions and non-critical bug fixes should be
 ``master``. Please ensure your pull request is based on this branch when you
 submit it.
 
-GitHub Pull Requests
---------------------
-
-The preferred method of submitting changes is a GitHub pull request.  Code
-submitted by pull request will be automatically tested by one or more CI
+Code submitted by pull request will be automatically tested by one or more CI
 systems. Once the automated tests succeed, other developers will review your
 code for quality and correctness. After any concerns are resolved, your code
 will be merged into the branch it was submitted against.
