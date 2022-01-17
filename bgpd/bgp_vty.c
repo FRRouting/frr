@@ -17560,7 +17560,9 @@ static void bgp_ac_peer(vector comps, struct cmd_token *token)
 static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
 {
 	bgp_ac_peer(comps, token);
-	bgp_ac_peergroup(comps, token);
+
+	if (token->type == VARIABLE_TKN)
+		bgp_ac_peergroup(comps, token);
 }
 
 static const struct cmd_variable_handler bgp_var_neighbor[] = {
