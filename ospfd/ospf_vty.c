@@ -10741,8 +10741,9 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 		    *json_nexthop = NULL;
 
 	if (!json)
-		vty_out(vty,
-			"============ OSPF router routing table =============\n");
+		vty_out(vty, "============ OSPF %s table =============\n",
+			ospf->all_rtrs == rtrs ? "reachable routers"
+					       : "router routing");
 
 	for (rn = route_top(rtrs); rn; rn = route_next(rn)) {
 		if (rn->info == NULL)
@@ -11004,6 +11005,114 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 		vty_out(vty, "\n");
 }
 
+static int show_ip_ospf_reachable_routers_common(struct vty *vty,
+						 struct ospf *ospf,
+						 uint8_t use_vrf)
+{
+	if (ospf->instance)
+		vty_out(vty, "\nOSPF Instance: %d\n\n", ospf->instance);
+
+	ospf_show_vrf_name(ospf, vty, NULL, use_vrf);
+
+	if (ospf->all_rtrs == NULL) {
+		vty_out(vty, "No OSPF reachable router information exist\n");
+		return CMD_SUCCESS;
+	}
+
+	/* Show Router routes. */
+	show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs, NULL);
+
+	vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (show_ip_ospf_reachable_routers,
+       show_ip_ospf_reachable_routers_cmd,
+       "show ip ospf [vrf <NAME|all>] reachable-routers",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       VRF_CMD_HELP_STR
+       "All VRFs\n"
+       "Show all the reachable OSPF routers\n")
+{
+	struct ospf *ospf = NULL;
+	struct listnode *node = NULL;
+	char *vrf_name = NULL;
+	bool all_vrf = false;
+	int ret = CMD_SUCCESS;
+	int inst = 0;
+	int idx_vrf = 0;
+	uint8_t use_vrf = 0;
+
+	OSPF_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+
+	if (vrf_name) {
+		bool ospf_output = false;
+
+		use_vrf = 1;
+
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(om->ospf, node, ospf)) {
+				if (!ospf->oi_running)
+					continue;
+
+				ospf_output = true;
+				ret = show_ip_ospf_reachable_routers_common(
+					vty, ospf, use_vrf);
+			}
+
+			if (!ospf_output)
+				vty_out(vty, "%% OSPF instance not found\n");
+		} else {
+			ospf = ospf_lookup_by_inst_name(inst, vrf_name);
+			if (ospf == NULL || !ospf->oi_running) {
+				vty_out(vty, "%% OSPF instance not found\n");
+				return CMD_SUCCESS;
+			}
+
+			ret = show_ip_ospf_reachable_routers_common(vty, ospf,
+								    use_vrf);
+		}
+	} else {
+		/* Display default ospf (instance 0) info */
+		ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+		if (ospf == NULL || !ospf->oi_running) {
+			vty_out(vty, "%% OSPF instance not found\n");
+			return CMD_SUCCESS;
+		}
+
+		ret = show_ip_ospf_reachable_routers_common(vty, ospf, use_vrf);
+	}
+
+	return ret;
+}
+
+DEFUN (show_ip_ospf_instance_reachable_routers,
+       show_ip_ospf_instance_reachable_routers_cmd,
+       "show ip ospf (1-65535) reachable-routers",
+       SHOW_STR
+       IP_STR
+       "OSPF information\n"
+       "Instance ID\n"
+       "Show all the reachable OSPF routers\n")
+{
+	int idx_number = 3;
+	struct ospf *ospf;
+	unsigned short instance = 0;
+
+	instance = strtoul(argv[idx_number]->arg, NULL, 10);
+	if (instance != ospf_instance)
+		return CMD_NOT_MY_INSTANCE;
+
+	ospf = ospf_lookup_instance(instance);
+	if (!ospf || !ospf->oi_running)
+		return CMD_SUCCESS;
+
+	return show_ip_ospf_reachable_routers_common(vty, ospf, 0);
+}
+
 static int show_ip_ospf_border_routers_common(struct vty *vty,
 					      struct ospf *ospf,
 					      uint8_t use_vrf)
@@ -11145,6 +11254,10 @@ static int show_ip_ospf_route_common(struct vty *vty, struct ospf *ospf,
 
 	/* Show Router routes. */
 	show_ip_ospf_route_router(vty, ospf, ospf->new_rtrs, json_vrf);
+
+	/* Show Router routes. */
+	if (ospf->all_rtrs)
+		show_ip_ospf_route_router(vty, ospf, ospf->all_rtrs, json_vrf);
 
 	/* Show AS External routes. */
 	show_ip_ospf_route_external(vty, ospf, ospf->old_external_route,
@@ -12603,9 +12716,12 @@ void ospf_vty_show_init(void)
 	/* "show ip ospf route" commands. */
 	install_element(VIEW_NODE, &show_ip_ospf_route_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_border_routers_cmd);
+	install_element(VIEW_NODE, &show_ip_ospf_reachable_routers_cmd);
 
 	install_element(VIEW_NODE, &show_ip_ospf_instance_route_cmd);
 	install_element(VIEW_NODE, &show_ip_ospf_instance_border_routers_cmd);
+	install_element(VIEW_NODE,
+			&show_ip_ospf_instance_reachable_routers_cmd);
 
 	/* "show ip ospf vrfs" commands. */
 	install_element(VIEW_NODE, &show_ip_ospf_vrfs_cmd);

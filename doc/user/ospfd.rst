@@ -867,6 +867,12 @@ Opaque LSA
 
    Show Opaque LSA from the database.
 
+.. clicmd:: show ip ospf (1-65535) reachable-routers
+
+.. clicmd:: show ip ospf [vrf <NAME|all>] reachable-routers
+
+   Show routing table of reachable routers.
+
 .. _ospf-traffic-engineering:
 
 Traffic Engineering
