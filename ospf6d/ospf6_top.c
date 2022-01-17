@@ -236,7 +236,7 @@ static int ospf6_vrf_enable(struct vrf *vrf)
 void ospf6_vrf_init(void)
 {
 	vrf_init(ospf6_vrf_new, ospf6_vrf_enable, ospf6_vrf_disable,
-		 ospf6_vrf_delete, ospf6_vrf_enable);
+		 ospf6_vrf_delete);
 
 	vrf_cmd_init(NULL);
 }

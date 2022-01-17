@@ -2398,7 +2398,7 @@ void vrrp_init(void)
 	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 }
 
 void vrrp_fini(void)

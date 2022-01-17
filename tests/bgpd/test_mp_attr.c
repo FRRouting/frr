@@ -1087,7 +1087,7 @@ int main(void)
 	bgp_vty_init();
 	master = thread_master_create("test mp attr");
 	bgp_master_init(master, BGP_SOCKET_SNDBUF_SIZE, list_new());
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	bgp_option_set(BGP_OPT_NO_LISTEN);
 	bgp_attr_init();
 

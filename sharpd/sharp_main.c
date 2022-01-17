@@ -181,7 +181,7 @@ int main(int argc, char **argv, char **envp)
 	sharp_global_init();
 
 	sharp_nhgroup_init();
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 
 	sharp_zebra_init();
 

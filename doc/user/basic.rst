@@ -712,6 +712,14 @@ These options apply to all |PACKAGE_NAME| daemons.
    be added to all files that use the statedir.  If you have "/var/run/frr"
    as the default statedir then it will become "/var/run/frr/<namespace>".
 
+.. option:: -o, --vrfdefaultname <name>
+
+   Set the name used for the *Default VRF* in CLI commands and YANG models.
+   This option must be the same for all running daemons. By default, the name
+   is "default".
+
+   .. seealso:: :ref:`zebra-vrf`
+
 .. option:: -v, --version
 
    Print program version.
