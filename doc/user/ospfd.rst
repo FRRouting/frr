@@ -1064,6 +1064,10 @@ Debugging OSPF
    library messages and OSPF BFD integration messages that are mostly state
    transitions and validation problems.
 
+.. clicmd:: debug ospf client-api
+
+   Show debug information for the OSPF opaque data client API.
+
 .. clicmd:: debug ospf packet (hello|dd|ls-request|ls-update|ls-ack|all) (send|recv) [detail]
 
 
