@@ -2780,3 +2780,33 @@ int gm_process_no_query_max_response_time_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
 }
+
+int gm_process_last_member_query_count_cmd(struct vty *vty,
+					   const char *lmqc_str)
+{
+	const struct lyd_node *pim_enable_dnode;
+
+	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
+					   FRR_PIM_AF_XPATH_VAL);
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
+			      lmqc_str);
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int gm_process_no_last_member_query_count_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
+			      NULL);
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}

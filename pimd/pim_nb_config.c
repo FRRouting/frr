@@ -2792,6 +2792,7 @@ int lib_interface_gmp_address_family_last_member_query_interval_modify(
 int lib_interface_gmp_address_family_robustness_variable_modify(
 	struct nb_cb_modify_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
 	int last_member_query_count;
@@ -2810,6 +2811,9 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 
 		break;
 	}
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif
 
 	return NB_OK;
 }
