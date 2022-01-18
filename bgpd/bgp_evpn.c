@@ -6146,7 +6146,7 @@ static bool bgp_evpn_remote_ip_hash_cmp(const void *p1, const void *p2)
 	const struct evpn_remote_ip *ip1 = p1;
 	const struct evpn_remote_ip *ip2 = p2;
 
-	return (memcmp(&ip1->addr, &ip2->addr, sizeof(struct ipaddr)) == 0);
+	return !ipaddr_cmp(&ip1->addr, &ip2->addr);
 }
 
 static void bgp_evpn_remote_ip_hash_init(struct bgpevpn *vpn)
