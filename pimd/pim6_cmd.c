@@ -625,6 +625,29 @@ DEFPY (interface_no_ipv6_mld_query_interval,
 				    "frr-routing:ipv6");
 }
 
+DEFPY (interface_ipv6_mld_query_max_response_time,
+       interface_ipv6_mld_query_max_response_time_cmd,
+       "ipv6 mld query-max-response-time (1-65535)$qmrt",
+       IPV6_STR
+       IFACE_MLD_STR
+       IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
+       "Query response value in deci-seconds\n")
+{
+	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
+}
+
+DEFPY (interface_no_ipv6_mld_query_max_response_time,
+       interface_no_ipv6_mld_query_max_response_time_cmd,
+       "no ipv6 mld query-max-response-time [(1-65535)]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       IFACE_MLD_QUERY_MAX_RESPONSE_TIME_STR
+       IGNORED_IN_NO_STR)
+{
+	return gm_process_no_query_max_response_time_cmd(vty);
+}
+
 DEFPY (show_ipv6_pim_rp,
        show_ipv6_pim_rp_cmd,
        "show ipv6 pim [vrf NAME] rp-info [X:X::X:X/M$group] [json$json]",
@@ -1501,6 +1524,11 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_ipv6_mld_query_max_response_time_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ipv6_mld_query_max_response_time_cmd);
+
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_cmd);
