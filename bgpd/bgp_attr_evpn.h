@@ -59,4 +59,7 @@ extern void bgp_attr_evpn_na_flag(struct attr *attr, uint8_t *router_flag,
 		bool *proxy);
 extern uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg);
 
+
+extern bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
+				const struct bgp_route_evpn *e2);
 #endif /* _QUAGGA_BGP_ATTR_EVPN_H */
