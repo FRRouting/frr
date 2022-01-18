@@ -105,6 +105,7 @@ struct gm_sock {
 
 struct pim_interface;
 
+#if PIM_IPV == 4
 void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp);
 void pim_igmp_if_reset(struct pim_interface *pim_ifp);
 void pim_igmp_if_fini(struct pim_interface *pim_ifp);
@@ -125,6 +126,24 @@ void pim_igmp_other_querier_timer_on(struct gm_sock *igmp);
 void pim_igmp_other_querier_timer_off(struct gm_sock *igmp);
 
 int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len);
+
+#else /* PIM_IPV != 4 */
+static inline void pim_igmp_general_query_on(struct gm_sock *igmp)
+{
+}
+
+static inline void pim_igmp_general_query_off(struct gm_sock *igmp)
+{
+}
+
+static inline void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
+{
+}
+
+static inline void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
+{
+}
+#endif /* PIM_IPV == 4 */
 
 #define IGMP_SOURCE_MASK_FORWARDING        (1 << 0)
 #define IGMP_SOURCE_MASK_DELETE            (1 << 1)
@@ -184,6 +203,7 @@ struct gm_group {
 	int64_t last_igmp_v2_report_dsec;
 };
 
+#if PIM_IPV == 4
 struct gm_group *find_group_by_addr(struct gm_sock *igmp,
 				    struct in_addr group_addr);
 struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
@@ -210,4 +230,11 @@ void igmp_send_query(int igmp_version, struct gm_group *group, int fd,
 void igmp_group_delete(struct gm_group *group);
 
 void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver);
+
+#else /* PIM_IPV != 4 */
+static inline void igmp_startup_mode_on(struct gm_sock *igmp)
+{
+}
+#endif /* PIM_IPV != 4 */
+
 #endif /* PIM_IGMP_H */
