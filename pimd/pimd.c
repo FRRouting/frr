@@ -32,7 +32,11 @@
 #include "bfd.h"
 
 #include "pimd.h"
+#if PIM_IPV == 4
 #include "pim_cmd.h"
+#else
+#include "pim6_cmd.h"
+#endif
 #include "pim_str.h"
 #include "pim_oil.h"
 #include "pim_pim.h"

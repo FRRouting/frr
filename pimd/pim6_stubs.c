@@ -133,9 +133,3 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 {
 }
 
-/*
- * CLI
- */
-void pim_cmd_init(void)
-{
-}

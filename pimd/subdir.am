@@ -6,10 +6,10 @@ if PIMD
 sbin_PROGRAMS += pimd/pimd
 bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
-vtysh_scan += pimd/pim_cmd.c
-
-# Add pim6_cmd.c under vtysh_scan, once the file is merged
-
+vtysh_scan += \
+	pimd/pim_cmd.c \
+	pimd/pim6_cmd.c \
+	#end
 vtysh_daemons += pimd
 vtysh_daemons += pim6d
 man8 += $(MANBUILD)/frr-pimd.8
@@ -87,6 +87,7 @@ pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim6_main.c \
 	pimd/pim6_stubs.c \
+	pimd/pim6_cmd.c \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \
@@ -150,10 +151,12 @@ noinst_HEADERS += \
 	pimd/pimd.h \
 	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
+	pimd/pim6_cmd.h \
 	# end
 
 clippy_scan += \
 	pimd/pim_cmd.c \
+	pimd/pim6_cmd.c \
 	# end
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4
