@@ -648,6 +648,29 @@ DEFPY (interface_no_ipv6_mld_query_max_response_time,
 	return gm_process_no_query_max_response_time_cmd(vty);
 }
 
+DEFPY (interface_ipv6_mld_last_member_query_count,
+       interface_ipv6_mld_last_member_query_count_cmd,
+       "ipv6 mld last-member-query-count (1-255)$lmqc",
+       IPV6_STR
+       IFACE_MLD_STR
+       IFACE_MLD_LAST_MEMBER_QUERY_COUNT_STR
+       "Last member query count\n")
+{
+	return gm_process_last_member_query_count_cmd(vty, lmqc_str);
+}
+
+DEFPY (interface_no_ipv6_mld_last_member_query_count,
+       interface_no_ipv6_mld_last_member_query_count_cmd,
+       "no ipv6 mld last-member-query-count [(1-255)]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       IFACE_MLD_LAST_MEMBER_QUERY_COUNT_STR
+       IGNORED_IN_NO_STR)
+{
+	return gm_process_no_last_member_query_count_cmd(vty);
+}
+
 DEFPY (show_ipv6_pim_rp,
        show_ipv6_pim_rp_cmd,
        "show ipv6 pim [vrf NAME] rp-info [X:X::X:X/M$group] [json$json]",
@@ -1528,6 +1551,10 @@ void pim_cmd_init(void)
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_max_response_time_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_ipv6_mld_last_member_query_count_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ipv6_mld_last_member_query_count_cmd);
 
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_rp_vrf_all_cmd);

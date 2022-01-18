@@ -5733,34 +5733,15 @@ DEFUN_HIDDEN (interface_no_ip_igmp_query_max_response_time_dsec,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_ip_igmp_last_member_query_count,
+DEFPY (interface_ip_igmp_last_member_query_count,
        interface_ip_igmp_last_member_query_count_cmd,
-       "ip igmp last-member-query-count (1-255)",
+       "ip igmp last-member-query-count (1-255)$lmqc",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
        "Last member query count\n")
 {
-	const struct lyd_node *pim_enable_dnode;
-
-	pim_enable_dnode =
-		yang_dnode_getf(vty->candidate_config->dnode,
-				FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
-				"frr-routing:ipv4");
-	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
-				      "true");
-	} else {
-		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./enable",
-					      NB_OP_MODIFY, "true");
-	}
-
-	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_MODIFY,
-			      argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return gm_process_last_member_query_count_cmd(vty, lmqc_str);
 }
 
 DEFUN (interface_no_ip_igmp_last_member_query_count,
@@ -5772,11 +5753,7 @@ DEFUN (interface_no_ip_igmp_last_member_query_count,
        IFACE_IGMP_LAST_MEMBER_QUERY_COUNT_STR
        IGNORED_IN_NO_STR)
 {
-	nb_cli_enqueue_change(vty, "./robustness-variable", NB_OP_DESTROY,
-			      NULL);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return gm_process_no_last_member_query_count_cmd(vty);
 }
 
 DEFUN (interface_ip_igmp_last_member_query_interval,
