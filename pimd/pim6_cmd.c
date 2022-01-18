@@ -625,6 +625,33 @@ DEFPY (interface_no_ipv6_mld_query_interval,
 				    "frr-routing:ipv6");
 }
 
+DEFPY (mld_group_watermark,
+       mld_group_watermark_cmd,
+       "ipv6 mld watermark-warn (1-65535)$limit",
+       IPV6_STR
+       MLD_STR
+       "Configure group limit for watermark warning\n"
+       "Group count to generate watermark warning\n")
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	/* TBD Depends on MLD data structure changes */
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_mld_group_watermark,
+       no_mld_group_watermark_cmd,
+       "no ipv6 mld watermark-warn [(1-65535)$limit]",
+       NO_STR
+       IPV6_STR
+       MLD_STR
+       "Unconfigure group limit for watermark warning\n"
+       IGNORED_IN_NO_STR)
+{
+	PIM_DECLVAR_CONTEXT(vrf, pim);
+	/* TBD Depends on MLD data structure changes */
+	return CMD_SUCCESS;
+}
+
 DEFPY (interface_ipv6_mld_query_max_response_time,
        interface_ipv6_mld_query_max_response_time_cmd,
        "ipv6 mld query-max-response-time (1-65535)$qmrt",
@@ -1570,6 +1597,10 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_no_ipv6_mld_query_interval_cmd);
+	install_element(CONFIG_NODE, &mld_group_watermark_cmd);
+	install_element(VRF_NODE, &mld_group_watermark_cmd);
+	install_element(CONFIG_NODE, &no_mld_group_watermark_cmd);
+	install_element(VRF_NODE, &no_mld_group_watermark_cmd);
 	install_element(INTERFACE_NODE,
 			&interface_ipv6_mld_query_max_response_time_cmd);
 	install_element(INTERFACE_NODE,
