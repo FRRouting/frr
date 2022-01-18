@@ -99,6 +99,9 @@ int gm_process_no_query_max_response_time_cmd(struct vty *vty);
 int gm_process_last_member_query_count_cmd(struct vty *vty,
 					   const char *lmqc_str);
 int gm_process_no_last_member_query_count_cmd(struct vty *vty);
+int gm_process_last_member_query_interval_cmd(struct vty *vty,
+					      const char *lmqi_str);
+int gm_process_no_last_member_query_interval_cmd(struct vty *vty);
 /*
  * Special Macro to allow us to get the correct pim_instance
  */
