@@ -579,6 +579,49 @@ DEFPY (interface_no_ipv6_mld_version,
 				    "frr-routing:ipv6");
 }
 
+DEFPY (interface_ipv6_mld_query_interval,
+       interface_ipv6_mld_query_interval_cmd,
+       "ipv6 mld query-interval (1-65535)$q_interval",
+       IPV6_STR
+       IFACE_MLD_STR
+       IFACE_MLD_QUERY_INTERVAL_STR
+       "Query interval in seconds\n")
+{
+	const struct lyd_node *pim_enable_dnode;
+
+	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
+					   "frr-routing:ipv6");
+	if (!pim_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY, "true");
+	} else {
+		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_MODIFY,
+			      q_interval_str);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
+DEFPY (interface_no_ipv6_mld_query_interval,
+      interface_no_ipv6_mld_query_interval_cmd,
+      "no ipv6 mld query-interval [(1-65535)]",
+      NO_STR
+      IPV6_STR
+      IFACE_MLD_STR
+      IFACE_MLD_QUERY_INTERVAL_STR
+      IGNORED_IN_NO_STR)
+{
+	nb_cli_enqueue_change(vty, "./query-interval", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
+				    "frr-routing:ipv6");
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -628,4 +671,7 @@ void pim_cmd_init(void)
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_join_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mld_version_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_version_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_query_interval_cmd);
+	install_element(INTERFACE_NODE,
+			&interface_no_ipv6_mld_query_interval_cmd);
 }

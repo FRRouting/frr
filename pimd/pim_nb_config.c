@@ -384,6 +384,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
  * This function propagates the reconfiguration to every active socket
  * for that interface.
  */
+#if PIM_IPV == 4
 static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 {
 	struct interface *ifp;
@@ -408,6 +409,7 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	 */
 	igmp_startup_mode_on(igmp);
 }
+#endif
 
 static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 {
@@ -438,6 +440,7 @@ static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 	}
 }
 
+#if PIM_IPV == 4
 static void change_query_interval(struct pim_interface *pim_ifp,
 		int query_interval)
 {
@@ -451,6 +454,7 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 		igmp_sock_query_reschedule(igmp);
 	}
 }
+#endif
 
 static void change_query_max_response_time(struct pim_interface *pim_ifp,
 		int query_max_response_time_dsec)
@@ -2706,6 +2710,7 @@ int lib_interface_gmp_address_family_mld_version_destroy(
 int lib_interface_gmp_address_family_query_interval_modify(
 	struct nb_cb_modify_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	int query_interval;
 
@@ -2719,7 +2724,9 @@ int lib_interface_gmp_address_family_query_interval_modify(
 		query_interval = yang_dnode_get_uint16(args->dnode, NULL);
 		change_query_interval(ifp->info, query_interval);
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif
 	return NB_OK;
 }
 
