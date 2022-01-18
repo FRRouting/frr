@@ -45,9 +45,13 @@ int funcname(struct argtype *args)                                             \
 }                                                                              \
 MACRO_REQUIRE_SEMICOLON()
 
+#define yang_dnode_get_pimaddr yang_dnode_get_ipv6
+
 #else /* PIM_IPV != 6 */
 #define pim6_msdp_err(funcname, argtype)                                       \
 MACRO_REQUIRE_SEMICOLON()
+
+#define yang_dnode_get_pimaddr yang_dnode_get_ipv4
 #endif /* PIM_IPV != 6 */
 
 static void pim_if_membership_clear(struct interface *ifp)
@@ -172,8 +176,7 @@ static int pim_cmd_interface_delete(struct interface *ifp)
 }
 
 static int interface_pim_use_src_cmd_worker(struct interface *ifp,
-		struct in_addr source_addr,
-		char *errmsg, size_t errmsg_len)
+		pim_addr source_addr, char *errmsg, size_t errmsg_len)
 {
 	int result;
 	int ret = NB_OK;
@@ -396,15 +399,10 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	ifp = igmp->interface;
 	pim_ifp = ifp->info;
 
-	if (PIM_DEBUG_IGMP_TRACE) {
-		char ifaddr_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str));
-		zlog_debug("%s: Querier %s on %s reconfig query_interval=%d",
-			   __func__, ifaddr_str, ifp->name,
+	if (PIM_DEBUG_IGMP_TRACE)
+		zlog_debug("%s: Querier %pPAs on %s reconfig query_interval=%d",
+			   __func__, &igmp->ifaddr, ifp->name,
 			   pim_ifp->gm_default_query_interval);
-	}
 
 	/*
 	 * igmp_startup_mode_on() will reset QQI:
@@ -2014,7 +2012,7 @@ int lib_interface_pim_address_family_use_source_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct interface *ifp;
-	struct ipaddr source_addr;
+	pim_addr source_addr;
 	int result;
 	const struct lyd_node *if_dnode;
 
@@ -2032,10 +2030,14 @@ int lib_interface_pim_address_family_use_source_modify(
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+		yang_dnode_get_ipv4(&source_addr, args->dnode, NULL);
+#else
+		yang_dnode_get_ipv6(&source_addr, args->dnode, NULL);
+#endif
 
 		result = interface_pim_use_src_cmd_worker(
-				ifp, source_addr.ip._v4_addr,
+				ifp, source_addr,
 				args->errmsg, args->errmsg_len);
 
 		if (result != PIM_SUCCESS)
@@ -2051,7 +2053,6 @@ int lib_interface_pim_address_family_use_source_destroy(
 	struct nb_cb_destroy_args *args)
 {
 	struct interface *ifp;
-	struct in_addr source_addr = {INADDR_ANY};
 	int result;
 	const struct lyd_node *if_dnode;
 
@@ -2070,7 +2071,7 @@ int lib_interface_pim_address_family_use_source_destroy(
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 
-		result = interface_pim_use_src_cmd_worker(ifp, source_addr,
+		result = interface_pim_use_src_cmd_worker(ifp, PIMADDR_ANY,
 				args->errmsg,
 				args->errmsg_len);
 
