@@ -1417,6 +1417,21 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 								   bgp_path,
 								   path);
 			}
+		} else if (safi == SAFI_EVPN &&
+			   CHECK_FLAG(path->flags, BGP_PATH_IGP_CHANGED) &&
+			   bgp_evpn_is_prefix_nht_supported(
+				   bgp_dest_get_prefix(dest))) {
+			if (bnc_is_valid_nexthop)
+				/* import the EVPN routes if the path validity
+				 * changed or update existing routes.
+				 */
+				bgp_evpn_import_route(bgp_path, afi, safi,
+						      bgp_dest_get_prefix(dest),
+						      path);
+			else
+				bgp_evpn_unimport_route(bgp_path, afi, safi,
+							bgp_dest_get_prefix(dest),
+							path);
 		}
 
 		bgp_process(bgp_path, dest, afi, safi);
