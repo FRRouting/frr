@@ -36,6 +36,7 @@
 #include "pim_errors.h"
 #include "pim_iface.h"
 #include "pim_zebra.h"
+#include "pim_nb.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -109,6 +110,9 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_vrf_info,
 	&frr_routing_info,
+	&frr_pim_info,
+	&frr_pim_rp_info,
+	&frr_gmp_info,
 };
 
 /* clang-format off */
