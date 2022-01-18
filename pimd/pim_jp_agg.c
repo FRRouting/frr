@@ -109,6 +109,7 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	struct pim_interface *pim_ifp;
 	struct pim_iface_upstream_switch *pius;
 	struct listnode *node, *nnode;
+	pim_addr rpf_addr;
 
 	if (!ifp)
 		return NULL;
@@ -119,16 +120,18 @@ pim_jp_agg_get_interface_upstream_switch_list(struct pim_rpf *rpf)
 	if (!pim_ifp)
 		return NULL;
 
+	rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
+
 	for (ALL_LIST_ELEMENTS(pim_ifp->upstream_switch_list, node, nnode,
 			       pius)) {
-		if (pius->address.s_addr == rpf->rpf_addr.u.prefix4.s_addr)
+		if (!pim_addr_cmp(pius->address, rpf_addr))
 			break;
 	}
 
 	if (!pius) {
 		pius = XCALLOC(MTYPE_PIM_JP_AGG_GROUP,
 			       sizeof(struct pim_iface_upstream_switch));
-		pius->address.s_addr = rpf->rpf_addr.u.prefix4.s_addr;
+		pius->address = rpf_addr;
 		pius->us = list_new();
 		listnode_add_sort(pim_ifp->upstream_switch_list, pius);
 	}

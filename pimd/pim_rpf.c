@@ -39,7 +39,7 @@
 #include "pim_oil.h"
 #include "pim_mlag.h"
 
-static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
+static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up);
 
 void pim_rpf_set_refresh_time(struct pim_instance *pim)
 {
@@ -51,7 +51,7 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 }
 
 bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-			struct in_addr addr, int neighbor_needed)
+			pim_addr addr, int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbr = NULL;
@@ -61,6 +61,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	int found = 0;
 	int i = 0;
 
+#if PIM_IPV == 4
 	/*
 	 * We should not attempt to lookup a
 	 * 255.255.255.255 address, since
@@ -68,33 +69,27 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	 */
 	if (addr.s_addr == INADDR_NONE)
 		return false;
+#endif
 
-	if ((nexthop->last_lookup.s_addr == addr.s_addr)
+	if (!pim_addr_cmp(nexthop->last_lookup, addr)
 	    && (nexthop->last_lookup_time > pim->last_route_change_time)) {
 		if (PIM_DEBUG_PIM_NHT) {
-			char addr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<addr?>", addr, addr_str,
-				       sizeof(addr_str));
 			char nexthop_str[PREFIX_STRLEN];
 			pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
 				      nexthop_str, sizeof(nexthop_str));
 			zlog_debug(
-				"%s: Using last lookup for %s at %lld, %" PRId64" addr %s",
-				__func__, addr_str, nexthop->last_lookup_time,
+				"%s: Using last lookup for %pPAs at %lld, %" PRId64" addr %s",
+				__func__, &addr, nexthop->last_lookup_time,
 				pim->last_route_change_time, nexthop_str);
 		}
 		pim->nexthop_lookups_avoided++;
 		return true;
 	} else {
-		if (PIM_DEBUG_PIM_NHT) {
-			char addr_str[INET_ADDRSTRLEN];
-			pim_inet4_dump("<addr?>", addr, addr_str,
-				       sizeof(addr_str));
+		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
-				"%s: Looking up: %s, last lookup time: %lld, %" PRId64,
-				__func__, addr_str, nexthop->last_lookup_time,
+				"%s: Looking up: %pPAs, last lookup time: %lld, %" PRId64,
+				__func__, &addr, nexthop->last_lookup_time,
 				pim->last_route_change_time);
-		}
 	}
 
 	memset(nexthop_tab, 0,
@@ -102,11 +97,9 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	num_ifindex = zclient_lookup_nexthop(pim, nexthop_tab, MULTIPATH_NUM,
 					     addr, PIM_NEXTHOP_LOOKUP_MAX);
 	if (num_ifindex < 1) {
-		char addr_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<addr?>", addr, addr_str, sizeof(addr_str));
 		zlog_warn(
-			"%s %s: could not find nexthop ifindex for address %s",
-			__FILE__, __func__, addr_str);
+			"%s %s: could not find nexthop ifindex for address %pPAs",
+			__FILE__, __func__, &addr);
 		return false;
 	}
 
@@ -115,29 +108,21 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 
 		ifp = if_lookup_by_index(first_ifindex, pim->vrf->vrf_id);
 		if (!ifp) {
-			if (PIM_DEBUG_ZEBRA) {
-				char addr_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", addr, addr_str,
-					       sizeof(addr_str));
+			if (PIM_DEBUG_ZEBRA)
 				zlog_debug(
-					"%s %s: could not find interface for ifindex %d (address %s)",
+					"%s %s: could not find interface for ifindex %d (address %pPAs)",
 					__FILE__, __func__, first_ifindex,
-					addr_str);
-			}
+					&addr);
 			i++;
 			continue;
 		}
 
 		if (!ifp->info) {
-			if (PIM_DEBUG_ZEBRA) {
-				char addr_str[INET_ADDRSTRLEN];
-				pim_inet4_dump("<addr?>", addr, addr_str,
-					       sizeof(addr_str));
+			if (PIM_DEBUG_ZEBRA)
 				zlog_debug(
-					"%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %s)",
+					"%s: multicast not enabled on input interface %s (ifindex=%d, RPF for source %pPAs)",
 					__func__, ifp->name, first_ifindex,
-					addr_str);
-			}
+					&addr);
 			i++;
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
@@ -157,15 +142,12 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	if (found) {
 		if (PIM_DEBUG_ZEBRA) {
 			char nexthop_str[PREFIX_STRLEN];
-			char addr_str[INET_ADDRSTRLEN];
 			pim_addr_dump("<nexthop?>",
 				      &nexthop_tab[i].nexthop_addr, nexthop_str,
 				      sizeof(nexthop_str));
-			pim_inet4_dump("<addr?>", addr, addr_str,
-				       sizeof(addr_str));
 			zlog_debug(
-				"%s %s: found nexthop %s for address %s: interface %s ifindex=%d metric=%d pref=%d",
-				__FILE__, __func__, nexthop_str, addr_str,
+				"%s %s: found nexthop %s for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
+				__FILE__, __func__, nexthop_str, &addr,
 				ifp->name, first_ifindex,
 				nexthop_tab[i].route_metric,
 				nexthop_tab[i].protocol_distance);
@@ -230,6 +212,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	struct prefix src, grp;
 	bool neigh_needed = true;
 	uint32_t saved_mrib_route_metric;
+	pim_addr rpf_addr;
 
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
@@ -265,8 +248,9 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		return PIM_RPF_FAILURE;
 	}
 
-	rpf->rpf_addr.family = AF_INET;
-	rpf->rpf_addr.u.prefix4 = pim_rpf_find_rpf_addr(up);
+	rpf_addr = pim_rpf_find_rpf_addr(up);
+	pim_addr_to_prefix(&rpf->rpf_addr, rpf_addr);
+
 	if (pim_rpf_addr_is_inaddr_any(rpf) && PIM_DEBUG_ZEBRA) {
 		/* RPF'(S,G) not found */
 		zlog_debug("%s(%s): RPF'%s not found: won't send join upstream",
@@ -369,18 +353,17 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
   packets should be coming and to which joins should be sent on the RP
   tree and SPT, respectively.
 */
-static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
+static pim_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 {
 	struct pim_ifchannel *rpf_ch;
 	struct pim_neighbor *neigh;
-	struct in_addr rpf_addr;
+	pim_addr rpf_addr;
 
 	if (!up->rpf.source_nexthop.interface) {
 		zlog_warn("%s: missing RPF interface for upstream (S,G)=%s",
 			  __func__, up->sg_str);
 
-		rpf_addr.s_addr = PIM_NET_INADDR_ANY;
-		return rpf_addr;
+		return PIMADDR_ANY;
 	}
 
 	rpf_ch = pim_ifchannel_find(up->rpf.source_nexthop.interface, &up->sg);
@@ -400,7 +383,7 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 	if (neigh)
 		rpf_addr = neigh->source_addr;
 	else
-		rpf_addr.s_addr = PIM_NET_INADDR_ANY;
+		rpf_addr = PIMADDR_ANY;
 
 	return rpf_addr;
 }

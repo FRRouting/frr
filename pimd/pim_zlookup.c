@@ -397,7 +397,7 @@ int zclient_lookup_read_pipe(struct thread *thread)
 
 int zclient_lookup_nexthop(struct pim_instance *pim,
 			   struct pim_zlookup_nexthop nexthop_tab[],
-			   const int tab_size, struct in_addr addr,
+			   const int tab_size, pim_addr addr,
 			   int max_lookup)
 {
 	int lookup;
