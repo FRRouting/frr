@@ -37,6 +37,7 @@
 
 #define PIM_MROUTE_MIN_TTL (1)
 
+#if PIM_IPV == 4
 #if defined(HAVE_LINUX_MROUTE_H)
 #include <linux/mroute.h>
 #else
@@ -157,6 +158,19 @@ struct igmpmsg {
 	struct in_addr im_src, im_dst;
 };
 #endif
+
+#endif /* HAVE_LINUX_MROUTE_H */
+
+typedef struct mfcctl pim_mfcctl;
+
+#else /* PIM_IPV != 4 */
+#if defined(HAVE_LINUX_MROUTE6_H)
+#include <linux/mroute6.h>
+#endif
+
+typedef struct mf6cctl pim_mfcctl;
+
+#define MAXVIFS IF_SETSIZE
 #endif
 
 #ifndef IGMPMSG_WRVIFWHOLE
@@ -172,7 +186,7 @@ struct channel_oil;
 int pim_mroute_socket_enable(struct pim_instance *pim);
 int pim_mroute_socket_disable(struct pim_instance *pim);
 
-int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
+int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 		       unsigned char flags);
 int pim_mroute_del_vif(struct interface *ifp);
 

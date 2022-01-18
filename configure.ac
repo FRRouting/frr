@@ -1526,6 +1526,13 @@ AC_CHECK_HEADERS([linux/mroute.h], [], [],[
 	#include <linux/types.h>
 ])
 
+AC_CHECK_HEADERS([linux/mroute6.h], [], [],[
+	#include <sys/socket.h>
+	#include <netinet/in.h>
+	#define _LINUX_IN_H             /* For Linux <= 2.6.25 */
+	#include <linux/types.h>
+])
+
 m4_define([FRR_INCLUDES],
 FRR_INCLUDES
 [#ifdef HAVE_LINUX_MROUTE_H
