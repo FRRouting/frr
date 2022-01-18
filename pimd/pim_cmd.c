@@ -5664,35 +5664,15 @@ DEFUN (interface_no_ip_igmp_version,
 				    "frr-routing:ipv4");
 }
 
-DEFUN (interface_ip_igmp_query_max_response_time,
+DEFPY (interface_ip_igmp_query_max_response_time,
        interface_ip_igmp_query_max_response_time_cmd,
-       "ip igmp query-max-response-time (1-65535)",
+       "ip igmp query-max-response-time (1-65535)$qmrt",
        IP_STR
        IFACE_IGMP_STR
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        "Query response value in deci-seconds\n")
 {
-	const struct lyd_node *pim_enable_dnode;
-
-	pim_enable_dnode =
-		yang_dnode_getf(vty->candidate_config->dnode,
-				FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
-				"frr-routing:ipv4");
-
-	if (!pim_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./enable", NB_OP_MODIFY,
-				      "true");
-	} else {
-		if (!yang_dnode_get_bool(pim_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./enable",
-					      NB_OP_MODIFY, "true");
-	}
-
-	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_MODIFY,
-			      argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return gm_process_query_max_response_time_cmd(vty, qmrt_str);
 }
 
 DEFUN (interface_no_ip_igmp_query_max_response_time,
@@ -5704,10 +5684,7 @@ DEFUN (interface_no_ip_igmp_query_max_response_time,
        IFACE_IGMP_QUERY_MAX_RESPONSE_TIME_STR
        IGNORED_IN_NO_STR)
 {
-	nb_cli_enqueue_change(vty, "./query-max-response-time", NB_OP_DESTROY,
-			      NULL);
-	return nb_cli_apply_changes(vty, FRR_GMP_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return gm_process_no_query_max_response_time_cmd(vty);
 }
 
 DEFUN_HIDDEN (interface_ip_igmp_query_max_response_time_dsec,
