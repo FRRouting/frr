@@ -37,6 +37,7 @@
 #include "smux.h"
 #include "libfrr.h"
 #include "lib/version.h"
+#include "lib/zclient.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"
