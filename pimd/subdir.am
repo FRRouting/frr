@@ -8,6 +8,7 @@ bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
 vtysh_scan += \
 	pimd/pim_cmd.c \
+	pimd/pim6_cmd.c \
 	#end
 vtysh_daemons += pimd
 vtysh_daemons += pim6d
@@ -21,7 +22,6 @@ pim_common = \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
 	pimd/pim_bsm.c \
-	pimd/pim_cmd.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
 	pimd/pim_iface.c \
@@ -69,6 +69,7 @@ pim_common = \
 
 pimd_pimd_SOURCES = \
 	$(pim_common) \
+	pimd/pim_cmd.c \
 	pimd/pim_main.c \
 	pimd/pim_msdp.c \
 	pimd/pim_msdp_packet.c \
@@ -84,6 +85,7 @@ nodist_pimd_pimd_SOURCES = \
 
 pimd_pim6d_SOURCES = \
 	$(pim_common) \
+	pimd/pim6_cmd.c \
 	pimd/pim6_main.c \
 	# end
 
@@ -148,10 +150,12 @@ noinst_HEADERS += \
 	pimd/pimd.h \
 	pimd/mtracebis_netlink.h \
 	pimd/mtracebis_routeget.h \
+	pimd/pim6_cmd.h \
 	# end
 
 clippy_scan += \
 	pimd/pim_cmd.c \
+	pimd/pim6_cmd.c \
 	# end
 
 pimd_pimd_CFLAGS = $(AM_CFLAGS) -DPIM_IPV=4

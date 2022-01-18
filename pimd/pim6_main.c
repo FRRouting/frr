@@ -37,6 +37,7 @@
 #include "pim_iface.h"
 #include "pim_zebra.h"
 #include "pim_nb.h"
+#include "pim6_cmd.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -177,6 +178,7 @@ int main(int argc, char **argv, char **envp)
 	pim_route_map_init();
 #endif
 //	pim_init();
+	pim_cmd_init();
 
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
