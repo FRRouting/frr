@@ -29,7 +29,6 @@
 
 #include "pim_instance.h"
 #include "pim_neighbor.h"
-#include "pim_cmd.h"
 #include "pim_vty.h"
 #include "pim_iface.h"
 #include "pim_bfd.h"
