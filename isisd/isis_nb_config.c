@@ -2012,12 +2012,12 @@ int isis_instance_mpls_te_export_modify(struct nb_cb_modify_args *args)
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("MPLS-TE: Enabled Link State export");
 		if (isis_zebra_ls_register(true) != 0)
-			zlog_warn("Unable to register Link State\n");
+			zlog_warn("Unable to register Link State");
 	} else {
 		if (IS_DEBUG_EVENTS)
 			zlog_debug("MPLS-TE: Disable Link State export");
 		if (isis_zebra_ls_register(false) != 0)
-			zlog_warn("Unable to register Link State\n");
+			zlog_warn("Unable to register Link State");
 	}
 
 	return NB_OK;
