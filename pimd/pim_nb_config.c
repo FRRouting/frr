@@ -408,7 +408,6 @@ static void igmp_sock_query_interval_reconfig(struct gm_sock *igmp)
 	 */
 	igmp_startup_mode_on(igmp);
 }
-#endif
 
 static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 {
@@ -438,6 +437,7 @@ static void igmp_sock_query_reschedule(struct gm_sock *igmp)
 		assert(igmp->t_other_querier_timer);
 	}
 }
+#endif /* PIM_IPV == 4 */
 
 #if PIM_IPV == 4
 static void change_query_interval(struct pim_interface *pim_ifp,
@@ -455,6 +455,7 @@ static void change_query_interval(struct pim_interface *pim_ifp,
 }
 #endif
 
+#if PIM_IPV == 4
 static void change_query_max_response_time(struct pim_interface *pim_ifp,
 		int query_max_response_time_dsec)
 {
@@ -502,6 +503,7 @@ static void change_query_max_response_time(struct pim_interface *pim_ifp,
 		}
 	}
 }
+#endif
 
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args)
@@ -2731,6 +2733,7 @@ int lib_interface_gmp_address_family_query_interval_modify(
 int lib_interface_gmp_address_family_query_max_response_time_modify(
 	struct nb_cb_modify_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	int query_max_response_time_dsec;
 
@@ -2746,6 +2749,10 @@ int lib_interface_gmp_address_family_query_max_response_time_modify(
 		change_query_max_response_time(ifp->info,
 				query_max_response_time_dsec);
 	}
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif
+
 
 	return NB_OK;
 }
