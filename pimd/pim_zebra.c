@@ -242,7 +242,7 @@ void pim_zebra_update_all_interfaces(struct pim_instance *pim)
 			struct pim_rpf rpf;
 
 			rpf.source_nexthop.interface = ifp;
-			rpf.rpf_addr.u.prefix4 = us->address;
+			pim_addr_to_prefix(&rpf.rpf_addr, us->address);
 			pim_joinprune_send(&rpf, us->us);
 			pim_jp_agg_clear_group(us->us);
 		}
