@@ -274,4 +274,5 @@ extern void pim_route_map_init(void);
 extern void pim_route_map_terminate(void);
 void pim_prefix_list_update(struct prefix_list *plist);
 
+const char *pim_cli_get_vrf_name(struct vty *vty);
 #endif /* PIMD_H */
