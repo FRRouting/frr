@@ -1282,6 +1282,7 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 	return join_fd;
 }
 
+#if PIM_IPV == 4
 static struct gm_join *igmp_join_new(struct interface *ifp,
 				     struct in_addr group_addr,
 				     struct in_addr source_addr)
@@ -1320,7 +1321,9 @@ static struct gm_join *igmp_join_new(struct interface *ifp,
 
 	return ij;
 }
+#endif /* PIM_IPV == 4 */
 
+#if PIM_IPV == 4
 ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			    struct in_addr source_addr)
 {
@@ -1362,7 +1365,7 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 
 	return ferr_ok();
 }
-
+#endif /* PIM_IPV == 4 */
 
 int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr)
