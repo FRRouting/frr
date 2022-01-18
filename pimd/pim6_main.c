@@ -36,6 +36,7 @@
 #include "pim_errors.h"
 #include "pim_iface.h"
 #include "pim_zebra.h"
+#include "pim_nb.h"
 
 zebra_capabilities_t _caps_p[] = {
 	ZCAP_SYS_ADMIN,
@@ -109,11 +110,13 @@ static const struct frr_yang_module_info *const pim6d_yang_modules[] = {
 	&frr_route_map_info,
 	&frr_vrf_info,
 	&frr_routing_info,
+	&frr_pim_info,
+	&frr_pim_rp_info,
 };
 
 /* clang-format off */
 FRR_DAEMON_INFO(pim6d, PIM6,
-	.vty_port = 0,
+	.vty_port = PIM6D_VTY_PORT,
 	.flags = FRR_NO_SPLIT_CONFIG,
 
 	.proghelp = "Protocol Independent Multicast (RFC7761) for IPv6",
@@ -172,8 +175,8 @@ int main(int argc, char **argv, char **envp)
 	prefix_list_delete_hook(pim_prefix_list_update);
 
 	pim_route_map_init();
-	pim_init();
 #endif
+//	pim_init();
 
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
@@ -182,7 +185,6 @@ int main(int argc, char **argv, char **envp)
 			  pim_ifp_down, pim_ifp_destroy);
 
 	/* TODO PIM6: next line is temporary since pim_cmd_init is disabled */
-	if_cmd_init(NULL);
 
 #if 0
 	pim_zebra_init();

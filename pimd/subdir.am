@@ -6,8 +6,11 @@ if PIMD
 sbin_PROGRAMS += pimd/pimd
 bin_PROGRAMS += pimd/mtracebis
 noinst_PROGRAMS += pimd/test_igmpv3_join
-vtysh_scan += pimd/pim_cmd.c
+vtysh_scan += \
+	pimd/pim_cmd.c \
+	#end
 vtysh_daemons += pimd
+vtysh_daemons += pim6d
 man8 += $(MANBUILD)/frr-pimd.8
 man8 += $(MANBUILD)/mtracebis.8
 endif
@@ -85,6 +88,9 @@ pimd_pim6d_SOURCES = \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \
+	yang/frr-pim.yang.c \
+	yang/frr-pim-rp.yang.c \
+	yang/frr-gmp.yang.c \
 	# end
 
 noinst_HEADERS += \
