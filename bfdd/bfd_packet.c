@@ -639,8 +639,6 @@ int bfd_recv_cb(struct thread *t)
 		return 0;
 	}
 
-	bfd->stats.rx_ctrl_pkt++;
-
 	/*
 	 * Multi hop: validate packet TTL.
 	 * Single hop: set local address that received the packet.
@@ -655,6 +653,8 @@ int bfd_recv_cb(struct thread *t)
 	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {
 		bfd->local_address = local;
 	}
+
+	bfd->stats.rx_ctrl_pkt++;
 
 	/*
 	 * If no interface was detected, save the interface where the
