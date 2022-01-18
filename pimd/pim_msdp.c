@@ -31,7 +31,6 @@
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
-#include "pim_cmd.h"
 #include "pim_memory.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
