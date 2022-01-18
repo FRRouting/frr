@@ -7859,7 +7859,7 @@ DEFUN (interface_no_ip_igmp,
        IFACE_IGMP_STR)
 {
 	const struct lyd_node *pim_enable_dnode;
-	char pim_if_xpath[XPATH_MAXLEN + 20];
+	char pim_if_xpath[XPATH_MAXLEN + 128];
 
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
 		 "%s/frr-pim:pim/address-family[address-family='%s']",
@@ -8406,7 +8406,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	      IFACE_PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[XPATH_MAXLEN + 128];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
@@ -8441,7 +8441,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	      IFACE_PIM_SM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[XPATH_MAXLEN + 128];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
@@ -8477,7 +8477,7 @@ DEFUN (interface_no_ip_pim,
        PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[XPATH_MAXLEN + 128];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
