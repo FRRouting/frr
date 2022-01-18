@@ -49,6 +49,11 @@ static LY_ERR yang_module_imp_clb(const char *mod_name, const char *mod_rev,
 {
 	struct yang_module_embed *e;
 
+	if (!strcmp(mod_name, "ietf-inet-types") ||
+	    !strcmp(mod_name, "ietf-yang-types"))
+		/* libyang has these built in, don't try finding them here */
+		return LY_ENOTFOUND;
+
 	for (e = embeds; e; e = e->next) {
 		if (e->sub_mod_name && submod_name) {
 			if (strcmp(e->sub_mod_name, submod_name))
