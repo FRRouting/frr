@@ -348,6 +348,7 @@ static bool is_pim_interface(const struct lyd_node *dnode)
 	return false;
 }
 
+#if PIM_IPV == 4
 static int pim_cmd_igmp_start(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
@@ -376,6 +377,7 @@ static int pim_cmd_igmp_start(struct interface *ifp)
 
 	return NB_OK;
 }
+#endif /* PIM_IPV == 4 */
 
 /*
  * CLI reconfiguration affects the interface level (struct pim_interface).
@@ -2553,6 +2555,7 @@ int lib_interface_gmp_address_family_destroy(struct nb_cb_destroy_args *args)
 int lib_interface_gmp_address_family_enable_modify(
 	struct nb_cb_modify_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	bool igmp_enable;
 	struct pim_interface *pim_ifp;
@@ -2600,7 +2603,9 @@ int lib_interface_gmp_address_family_enable_modify(
 				pim_if_delete(ifp);
 		}
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 
@@ -2674,6 +2679,7 @@ int lib_interface_gmp_address_family_mld_version_modify(
 	case NB_EV_PREPARE:
 	case NB_EV_ABORT:
 	case NB_EV_APPLY:
+		/* TBD depends on MLD data structure changes */
 		break;
 	}
 
