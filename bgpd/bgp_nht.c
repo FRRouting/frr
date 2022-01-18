@@ -1055,30 +1055,35 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		path_valid = !!CHECK_FLAG(path->flags, BGP_PATH_VALID);
 		if (path_valid != bnc_is_valid_nexthop) {
 			if (path_valid) {
-				/* No longer valid, clear flag; also for EVPN
-				 * routes, unimport from VRFs if needed.
-				 */
+				/* No longer valid, clear flag */
 				bgp_aggregate_decrement(bgp_path, p, path, afi,
 							safi);
 				bgp_path_info_unset_flag(dest, path,
 							 BGP_PATH_VALID);
-				if (safi == SAFI_EVPN &&
-				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
-					bgp_evpn_unimport_route(bgp_path,
-						afi, safi, bgp_dest_get_prefix(dest), path);
 			} else {
-				/* Path becomes valid, set flag; also for EVPN
-				 * routes, import from VRFs if needed.
-				 */
+				/* Path becomes valid, set flag */
 				bgp_path_info_set_flag(dest, path,
 						       BGP_PATH_VALID);
 				bgp_aggregate_increment(bgp_path, p, path, afi,
 							safi);
-				if (safi == SAFI_EVPN &&
-				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
-					bgp_evpn_import_route(bgp_path,
-						afi, safi, bgp_dest_get_prefix(dest), path);
 			}
+		}
+		if ((path_valid != bnc_is_valid_nexthop ||
+		     CHECK_FLAG(path->flags, BGP_PATH_IGP_CHANGED)) &&
+		    safi == SAFI_EVPN &&
+		    bgp_evpn_is_prefix_nht_supported(
+			    bgp_dest_get_prefix(dest))) {
+			if (bnc_is_valid_nexthop)
+				/* import the EVPN routes if the path validity
+				 * changed or update existing routes.
+				 */
+				bgp_evpn_import_route(bgp_path, afi, safi,
+						      bgp_dest_get_prefix(dest),
+						      path);
+			else
+				bgp_evpn_unimport_route(
+					bgp_path, afi, safi,
+					bgp_dest_get_prefix(dest), path);
 		}
 
 		bgp_process(bgp_path, dest, afi, safi);

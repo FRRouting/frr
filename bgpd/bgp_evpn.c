@@ -2418,8 +2418,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		pi = bgp_create_evpn_bgp_path_info(parent_pi, dest, &attr);
 		new_pi = true;
 	} else {
-		if (attrhash_cmp(pi->attr, &attr)
-		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
+		if (attrhash_cmp(pi->attr, &attr) &&
+		    !CHECK_FLAG(parent_pi->flags, BGP_PATH_IGP_CHANGED) &&
+		    !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_dest_unlock_node(dest);
 			return 0;
 		}
@@ -2430,6 +2431,9 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 		/* Restore route, if needed. */
 		if (CHECK_FLAG(pi->flags, BGP_PATH_REMOVED))
 			bgp_path_info_restore(dest, pi);
+
+		if (CHECK_FLAG(parent_pi->flags, BGP_PATH_IGP_CHANGED))
+			pi->extra->igpmetric = parent_pi->extra->igpmetric;
 
 		/* Mark if nexthop has changed. */
 		if ((afi == AFI_IP
