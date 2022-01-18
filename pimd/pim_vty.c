@@ -397,6 +397,7 @@ int pim_interface_config_write(struct vty *vty)
 					++writes;
 				}
 
+#if PIM_IPV == 4
 				/* IF ip igmp join */
 				if (pim_ifp->gm_join_list) {
 					struct listnode *node;
@@ -428,6 +429,7 @@ int pim_interface_config_write(struct vty *vty)
 						++writes;
 					}
 				}
+#endif /* PIM_IPV == 4 */
 
 				if (pim_ifp->activeactive)
 					vty_out(vty, " ip pim active-active\n");

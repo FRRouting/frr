@@ -468,6 +468,7 @@ void pim_zebra_init(void)
 	zclient_lookup_new();
 }
 
+#if PIM_IPV == 4
 void igmp_anysource_forward_start(struct pim_instance *pim,
 				  struct gm_group *group)
 {
@@ -794,6 +795,7 @@ void igmp_source_forward_stop(struct gm_source *source)
 
 	IGMP_SOURCE_DONT_FORWARDING(source->source_flags);
 }
+#endif /* PIM_IPV == 4 */
 
 void pim_forward_start(struct pim_ifchannel *ch)
 {

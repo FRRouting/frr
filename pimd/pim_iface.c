@@ -50,10 +50,12 @@
 #include "pim_igmp_join.h"
 #include "pim_vxlan.h"
 
+#if PIM_IPV == 4
 static void pim_if_igmp_join_del_all(struct interface *ifp);
 static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 			  struct in_addr group_addr,
 			  struct in_addr source_addr);
+#endif
 
 void pim_if_init(struct pim_instance *pim)
 {
@@ -1140,6 +1142,7 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	return t_suppressed_msec;
 }
 
+#if PIM_IPV == 4
 static void igmp_join_free(struct gm_join *ij)
 {
 	XFREE(MTYPE_PIM_IGMP_JOIN, ij);
@@ -1350,6 +1353,19 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
 		pim_if_igmp_join_del(ifp, ij->group_addr, ij->source_addr);
 }
+#else /* PIM_IPV != 4 */
+ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
+			    struct in_addr source_addr)
+{
+	return ferr_ok();
+}
+
+int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
+			 struct in_addr source_addr)
+{
+	return 0;
+}
+#endif /* PIM_IPV != 4 */
 
 /*
   RFC 4601
