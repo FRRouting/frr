@@ -414,9 +414,8 @@ static bool overlay_index_same(const struct attr *a1, const struct attr *a2)
 	if (!a1 && !a2)
 		return true;
 
-	return !memcmp(bgp_attr_get_evpn_overlay(a1),
-		       bgp_attr_get_evpn_overlay(a2),
-		       sizeof(struct bgp_route_evpn));
+	return bgp_route_evpn_same(bgp_attr_get_evpn_overlay(a1),
+				   bgp_attr_get_evpn_overlay(a2));
 }
 
 /* Unknown transit attribute. */
