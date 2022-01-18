@@ -33,6 +33,7 @@
 #include "filter.h"
 #include "plist.h"
 #include "log.h"
+#include "route_opaque.h"
 #include "lib/bfd.h"
 #include "nexthop.h"
 
@@ -255,6 +256,38 @@ static void ospf_zebra_add_nexthop(struct ospf *ospf, struct ospf_path *path,
 	api->nexthop_num++;
 }
 
+static void ospf_zebra_append_opaque_attr(struct ospf_route *or,
+					  struct zapi_route *api)
+{
+	struct ospf_zebra_opaque ospf_opaque = {};
+
+	/* OSPF path type */
+	snprintf(ospf_opaque.path_type, sizeof(ospf_opaque.path_type), "%s",
+		 ospf_path_type_name(or->path_type));
+
+	switch (or->path_type) {
+	case OSPF_PATH_INTRA_AREA:
+	case OSPF_PATH_INTER_AREA:
+		/* OSPF area ID */
+		(void)inet_ntop(AF_INET, &or->u.std.area_id,
+				ospf_opaque.area_id,
+				sizeof(ospf_opaque.area_id));
+		break;
+	case OSPF_PATH_TYPE1_EXTERNAL:
+	case OSPF_PATH_TYPE2_EXTERNAL:
+		/* OSPF route tag */
+		snprintf(ospf_opaque.tag, sizeof(ospf_opaque.tag), "%u",
+			 or->u.ext.tag);
+		break;
+	default:
+		break;
+	}
+
+	SET_FLAG(api->message, ZAPI_MESSAGE_OPAQUE);
+	api->opaque.length = sizeof(struct ospf_zebra_opaque);
+	memcpy(api->opaque.data, &ospf_opaque, api->opaque.length);
+}
+
 void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 		    struct ospf_route * or)
 {
@@ -321,6 +354,9 @@ void ospf_zebra_add(struct ospf *ospf, struct prefix_ipv4 *p,
 				ifp ? ifp->name : " ");
 		}
 	}
+
+	if (CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
+		ospf_zebra_append_opaque_attr(or, &api);
 
 	zclient_route_send(ZEBRA_ROUTE_ADD, zclient, &api);
 }
