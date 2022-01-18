@@ -1263,7 +1263,7 @@ void pim_upstream_update_join_desired(struct pim_instance *pim,
   it so that it expires after t_override seconds.
 */
 void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
-				    struct in_addr neigh_addr)
+				    pim_addr neigh_addr)
 {
 	struct pim_upstream *up;
 
@@ -1271,24 +1271,24 @@ void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
 	 */
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (PIM_DEBUG_PIM_TRACE) {
-			char rpf_addr_str[PREFIX_STRLEN];
-			pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_addr_str,
-				      sizeof(rpf_addr_str));
+		pim_addr rpf_addr;
+
+		rpf_addr = pim_addr_from_prefix(&up->rpf.rpf_addr);
+
+		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
-				"%s: matching neigh=%pI4 against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
+				"%s: matching neigh=%pPA against upstream (S,G)=%s[%s] joined=%d rpf_addr=%pPA",
 				__func__, &neigh_addr, up->sg_str,
 				pim->vrf->name,
 				up->join_state == PIM_UPSTREAM_JOINED,
-				rpf_addr_str);
-		}
+				&rpf_addr);
 
 		/* consider only (S,G) upstream in Joined state */
 		if (up->join_state != PIM_UPSTREAM_JOINED)
 			continue;
 
 		/* match RPF'(S,G)=neigh_addr */
-		if (up->rpf.rpf_addr.u.prefix4.s_addr != neigh_addr.s_addr)
+		if (pim_addr_cmp(rpf_addr, neigh_addr))
 			continue;
 
 		pim_upstream_join_timer_decrease_to_t_override(
