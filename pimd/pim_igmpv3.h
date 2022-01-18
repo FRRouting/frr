@@ -53,6 +53,7 @@
 /* OHPI: Older Host Present Interval */
 #define PIM_IGMP_OHPI_DSEC(qrv,qqi,qri_dsec) ((qrv) * (10 * (qqi)) + (qri_dsec))
 
+#if PIM_IPV == 4
 void igmp_group_reset_gmi(struct gm_group *group);
 void igmp_source_reset_gmi(struct gm_group *group, struct gm_source *source);
 
@@ -97,5 +98,17 @@ void igmp_v3_recv_query(struct gm_sock *igmp, const char *from_str,
 
 int igmp_v3_recv_report(struct gm_sock *igmp, struct in_addr from,
 			const char *from_str, char *igmp_msg, int igmp_msg_len);
+
+#else /* PIM_IPV != 4 */
+static inline void igmp_group_reset_gmi(struct gm_group *group)
+{
+}
+
+
+static inline void igmp_source_reset_gmi(struct gm_group *group,
+					 struct gm_source *source)
+{
+}
+#endif
 
 #endif /* PIM_IGMPV3_H */
