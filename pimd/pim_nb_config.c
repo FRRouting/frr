@@ -2181,8 +2181,8 @@ int lib_interface_pim_address_family_mroute_destroy(
 	struct interface *iif;
 	struct interface *oif;
 	const char *oifname;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
@@ -2212,11 +2212,10 @@ int lib_interface_pim_address_family_mroute_destroy(
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		yang_dnode_get_ip(&source_addr, args->dnode, "./source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "./source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "./group-addr");
 
-		if (pim_static_del(pim, iif, oif, group_addr.ip._v4_addr,
-					source_addr.ip._v4_addr)) {
+		if (pim_static_del(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
 					"Failed to remove static mroute");
 			return NB_ERR_INCONSISTENCY;
@@ -2239,8 +2238,8 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 	struct interface *iif;
 	struct interface *oif;
 	const char *oifname;
-	struct ipaddr source_addr;
-	struct ipaddr group_addr;
+	pim_addr source_addr;
+	pim_addr group_addr;
 	const struct lyd_node *if_dnode;
 
 	switch (args->event) {
@@ -2289,11 +2288,10 @@ int lib_interface_pim_address_family_mroute_oif_modify(
 			return NB_ERR_INCONSISTENCY;
 		}
 
-		yang_dnode_get_ip(&source_addr, args->dnode, "../source-addr");
-		yang_dnode_get_ip(&group_addr, args->dnode, "../group-addr");
+		yang_dnode_get_pimaddr(&source_addr, args->dnode, "../source-addr");
+		yang_dnode_get_pimaddr(&group_addr, args->dnode, "../group-addr");
 
-		if (pim_static_add(pim, iif, oif, group_addr.ip._v4_addr,
-				   source_addr.ip._v4_addr)) {
+		if (pim_static_add(pim, iif, oif, group_addr, source_addr)) {
 			snprintf(args->errmsg, args->errmsg_len,
 				 "Failed to add static mroute");
 			return NB_ERR_INCONSISTENCY;
