@@ -2805,6 +2805,7 @@ int lib_interface_gmp_address_family_robustness_variable_modify(
 int lib_interface_gmp_address_family_static_group_create(
 	struct nb_cb_create_args *args)
 {
+#if PIM_IPV == 4
 	struct interface *ifp;
 	struct ipaddr source_addr;
 	struct ipaddr group_addr;
@@ -2847,7 +2848,9 @@ int lib_interface_gmp_address_family_static_group_create(
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
-
+#else
+	/* TBD Depends on MLD data structure changes */
+#endif /* PIM_IPV == 4 */
 	return NB_OK;
 }
 

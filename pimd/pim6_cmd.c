@@ -448,6 +448,61 @@ DEFPY (no_ipv6_pim_rp_prefix_list,
 	return pim_process_no_rp_plist_cmd(vty, rp_str, plist);
 }
 
+DEFPY (interface_ipv6_mld_join,
+       interface_ipv6_mld_join_cmd,
+       "ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
+       IPV6_STR
+       IFACE_MLD_STR
+       "MLD join multicast group\n"
+       "Multicast group address\n"
+       "Source address\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (source_str) {
+		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
+		source_str = "::";
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
+		 group_str, source_str);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_CREATE, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY (interface_no_ipv6_mld_join,
+       interface_no_ipv6_mld_join_cmd,
+       "no ipv6 mld join X:X::X:X$group [X:X::X:X$source]",
+       NO_STR
+       IPV6_STR
+       IFACE_MLD_STR
+       "MLD join multicast group\n"
+       "Multicast group address\n"
+       "Source address\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	if (source_str) {
+		if (IPV6_ADDR_SAME(&source, &in6addr_any)) {
+			vty_out(vty, "Bad source address %s\n", source_str);
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+	} else
+		source_str = "::";
+
+	snprintf(xpath, sizeof(xpath), FRR_GMP_JOIN_XPATH, "frr-routing:ipv6",
+		 group_str, source_str);
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -491,4 +546,6 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ipv6_pim_rp_prefix_list_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
 	install_element(VRF_NODE, &no_ipv6_pim_rp_prefix_list_cmd);
+	install_element(INTERFACE_NODE, &interface_ipv6_mld_join_cmd);
+	install_element(INTERFACE_NODE, &interface_no_ipv6_mld_join_cmd);
 }
