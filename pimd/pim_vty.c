@@ -193,30 +193,30 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->vrf->vrf_id == VRF_DEFAULT) {
 		if (router->register_suppress_time
 		    != PIM_REGISTER_SUPPRESSION_TIME_DEFAULT) {
-			vty_out(vty, "%sip pim register-suppress-time %d\n",
-					spaces, router->register_suppress_time);
+			vty_out(vty, "%s" PIM_AF_NAME " pim register-suppress-time %d\n",
+				spaces, router->register_suppress_time);
 			++writes;
 		}
 		if (router->t_periodic != PIM_DEFAULT_T_PERIODIC) {
-			vty_out(vty, "%sip pim join-prune-interval %d\n",
+			vty_out(vty, "%s" PIM_AF_NAME " pim join-prune-interval %d\n",
 				spaces, router->t_periodic);
 			++writes;
 		}
 
 		if (router->packet_process != PIM_DEFAULT_PACKET_PROCESS) {
-			vty_out(vty, "%sip pim packets %d\n", spaces,
+			vty_out(vty, "%s" PIM_AF_NAME " pim packets %d\n", spaces,
 				router->packet_process);
 			++writes;
 		}
 	}
 	if (pim->keep_alive_time != PIM_KEEPALIVE_PERIOD) {
-		vty_out(vty, "%sip pim keep-alive-timer %d\n", spaces,
-			pim->keep_alive_time);
+		vty_out(vty, "%s" PIM_AF_NAME " pim keep-alive-timer %d\n",
+			spaces, pim->keep_alive_time);
 		++writes;
 	}
 	if (pim->rp_keep_alive_time != (unsigned int)PIM_RP_KEEPALIVE_PERIOD) {
-		vty_out(vty, "%sip pim rp keep-alive-timer %d\n", spaces,
-			pim->rp_keep_alive_time);
+		vty_out(vty, "%s" PIM_AF_NAME " pim rp keep-alive-timer %d\n",
+			spaces, pim->rp_keep_alive_time);
 		++writes;
 	}
 	if (ssm->plist_name) {
@@ -232,11 +232,11 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 	if (pim->spt.switchover == PIM_SPT_INFINITY) {
 		if (pim->spt.plist)
 			vty_out(vty,
-				"%sip pim spt-switchover infinity-and-beyond prefix-list %s\n",
+				"%s" PIM_AF_NAME " pim spt-switchover infinity-and-beyond prefix-list %s\n",
 				spaces, pim->spt.plist);
 		else
 			vty_out(vty,
-				"%sip pim spt-switchover infinity-and-beyond\n",
+				"%s" PIM_AF_NAME " pim spt-switchover infinity-and-beyond\n",
 				spaces);
 		++writes;
 	}
