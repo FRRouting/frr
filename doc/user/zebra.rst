@@ -255,6 +255,17 @@ Link Parameters Commands
    for InterASv2 link in OSPF (RFC5392).  Note that this option is not yet
    supported for ISIS (RFC5316).
 
+Global Commands
+------------------------
+
+.. clicmd:: zebra protodown reason-bit (0-31)
+
+   This command is only supported for linux and a kernel > 5.1.
+   Change reason-bit frr uses for setting protodown. We default to 7, but
+   if another userspace app ever conflicts with this, you can change it here.
+   The descriptor for this bit should exist in :file:`/etc/iproute2/protodown_reasons.d/`
+   to display with :clicmd:`ip -d link show`.
+
 Nexthop Tracking
 ================
 
