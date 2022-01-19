@@ -6885,32 +6885,16 @@ DEFUN (no_ip_pim_register_suppress,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ip_pim_rp_keep_alive,
+DEFPY (ip_pim_rp_keep_alive,
        ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer (1-65535)",
+       "ip pim rp keep-alive-timer (1-65535)$kat",
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const char *vrfname;
-	char rp_ka_timer_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      argv[4]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_rp_kat_cmd(vty, kat_str);
 }
 
 DEFUN (no_ip_pim_rp_keep_alive,
@@ -6923,39 +6907,7 @@ DEFUN (no_ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
-	const char *vrfname;
-	char rp_ka_timer[6];
-	char rp_ka_timer_xpath[XPATH_MAXLEN];
-	uint v;
-	char rs_timer_xpath[XPATH_MAXLEN];
-
-	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
-		 FRR_PIM_ROUTER_XPATH, "frr-routing:ipv4");
-	strlcat(rs_timer_xpath, "/register-suppress-time",
-		sizeof(rs_timer_xpath));
-
-	/* RFC4601 */
-	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
-				  rs_timer_xpath);
-	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
-	if (v > UINT16_MAX)
-		v = UINT16_MAX;
-	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      rp_ka_timer);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_rp_kat_cmd(vty);
 }
 
 DEFPY (ip_pim_keep_alive,
