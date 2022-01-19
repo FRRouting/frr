@@ -116,6 +116,8 @@ extern void msg_fifo_free(struct msg_fifo *fifo);
 #define MSG_ORIGINATE_REQUEST     5
 #define MSG_DELETE_REQUEST        6
 #define MSG_SYNC_REACHABLE        7
+#define MSG_SYNC_ISM              8
+#define MSG_SYNC_NSM              9
 
 /* Messages from OSPF daemon. */
 #define MSG_REPLY                10

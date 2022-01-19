@@ -803,6 +803,12 @@ int ospf_apiserver_handle_msg(struct ospf_apiserver *apiserv, struct msg *msg)
 	case MSG_SYNC_REACHABLE:
 		rc = ospf_apiserver_handle_sync_reachable(apiserv, msg);
 		break;
+	case MSG_SYNC_ISM:
+		rc = ospf_apiserver_handle_sync_ism(apiserv, msg);
+		break;
+	case MSG_SYNC_NSM:
+		rc = ospf_apiserver_handle_sync_nsm(apiserv, msg);
+		break;
 	default:
 		zlog_warn("ospf_apiserver_handle_msg: Unknown message type: %d",
 			  msg->hdr.msgtype);
@@ -1347,8 +1353,9 @@ int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 	return rc;
 }
 
-/* -----------------------------------------------------------
- * Followings are functions for Reachability synchronization.
+/*
+ * -----------------------------------------------------------
+ * Followings are functions for synchronization.
  * -----------------------------------------------------------
  */
 
@@ -1391,13 +1398,84 @@ int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
 	XFREE(MTYPE_OSPF_APISERVER, abuf);
 
 out:
-	zlog_info("ospf_apiserver_handle_sync_reachable: rc %d", rc);
 	/* Send a reply back to client with return code */
 	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
-	zlog_info("ospf_apiserver_handle_sync_reachable: _rc %d", _rc);
 	rc = rc ? rc : _rc;
 	apiserv->reachable_sync = !rc;
 	return rc;
+}
+
+int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
+				   struct msg *msg)
+{
+	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	struct listnode *anode, *inode;
+	struct ospf_area *area;
+	struct ospf_interface *oi;
+	struct msg *m;
+	uint32_t seqnum = msg_get_seq(msg);
+	int _rc, rc = 0;
+
+	/* walk all areas */
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, anode, area)) {
+		/* walk all interfaces */
+		for (ALL_LIST_ELEMENTS_RO(area->oiflist, inode, oi)) {
+			m = new_msg_ism_change(seqnum, oi->address->u.prefix4,
+					       area->area_id, oi->state);
+			rc = ospf_apiserver_send_msg(apiserv, m);
+			msg_free(m);
+			if (rc)
+				break;
+		}
+		if (rc)
+			break;
+	}
+	/* Send a reply back to client with return code */
+	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
+	return rc ? rc : _rc;
+}
+
+
+int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
+				   struct msg *msg)
+{
+	struct ospf *ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
+	struct listnode *anode, *inode;
+	struct ospf_area *area;
+	struct ospf_interface *oi;
+	struct ospf_neighbor *nbr;
+	struct route_node *rn;
+	struct msg *m;
+	uint32_t seqnum = msg_get_seq(msg);
+	int _rc, rc = 0;
+
+	/* walk all areas */
+	for (ALL_LIST_ELEMENTS_RO(ospf->areas, anode, area)) {
+		/* walk all interfaces */
+		for (ALL_LIST_ELEMENTS_RO(area->oiflist, inode, oi)) {
+			/* walk all neighbors */
+			for (rn = route_top(oi->nbrs); rn;
+			     rn = route_next(rn)) {
+				nbr = rn->info;
+				if (!nbr)
+					continue;
+				m = new_msg_nsm_change(
+					seqnum, oi->address->u.prefix4,
+					nbr->src, nbr->router_id, nbr->state);
+				rc = ospf_apiserver_send_msg(apiserv, m);
+				msg_free(m);
+				if (rc)
+					break;
+			}
+			if (rc)
+				break;
+		}
+		if (rc)
+			break;
+	}
+	/* Send a reply back to client with return code */
+	_rc = ospf_apiserver_send_reply(apiserv, seqnum, rc);
+	return rc ? rc : _rc;
 }
 
 
@@ -2088,6 +2166,7 @@ int ospf_apiserver_del_if(struct interface *ifp)
 	if (!oi) {
 		/* This interface is known to Zebra but not to OSPF daemon
 		   anymore. No need to tell clients about it */
+		zlog_warn("ifp name=%s not known to OSPFd", ifp->name);
 		return 0;
 	}
 
