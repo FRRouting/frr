@@ -6922,23 +6922,15 @@ DEFPY (pim_register_accept_list,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ip_pim_joinprune_time,
+DEFPY (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval (1-65535)",
+       "ip pim join-prune-interval (1-65535)$jpi",
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_join_prune_cmd(vty, jpi_str);
 }
 
 DEFUN (no_ip_pim_joinprune_time,
@@ -6950,15 +6942,7 @@ DEFUN (no_ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        IGNORED_IN_NO_STR)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_join_prune_cmd(vty);
 }
 
 DEFUN (ip_pim_register_suppress,
