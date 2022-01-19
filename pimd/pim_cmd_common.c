@@ -88,3 +88,94 @@ int pim_process_no_join_prune_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+int pim_process_spt_switchover_infinity_cmd(struct vty *vty)
+{
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
+		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
+				      NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_INFINITY");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
+					      const char *plist)
+{
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_INFINITY");
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
+			      plist);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_spt_switchover_cmd(struct vty *vty)
+{
+	const char *vrfname;
+	char spt_plist_xpath[XPATH_MAXLEN];
+	char spt_action_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
+		sizeof(spt_plist_xpath));
+
+	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
+		sizeof(spt_action_xpath));
+
+	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
+			      "PIM_SPT_IMMEDIATE");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
