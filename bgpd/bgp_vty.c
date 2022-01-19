@@ -175,7 +175,6 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			/* not expected */
 			return BGP_IPV4_NODE;
 		}
-		break;
 	case AFI_IP6:
 		switch (safi) {
 		case SAFI_UNICAST:
@@ -192,7 +191,6 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			/* not expected */
 			return BGP_IPV4_NODE;
 		}
-		break;
 	case AFI_L2VPN:
 		return BGP_EVPN_NODE;
 	case AFI_UNSPEC:
