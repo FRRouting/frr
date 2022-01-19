@@ -6072,7 +6072,6 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 	mpls_label_t label = 0;
 #endif
 	uint32_t num_labels = 0;
-	union gw_addr add;
 
 	assert(bgp_static);
 
@@ -6095,12 +6094,17 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 		}
 	}
 	if (afi == AFI_L2VPN) {
-		if (bgp_static->gatewayIp.family == AF_INET)
-			add.ipv4.s_addr =
-				bgp_static->gatewayIp.u.prefix4.s_addr;
-		else if (bgp_static->gatewayIp.family == AF_INET6)
-			memcpy(&(add.ipv6), &(bgp_static->gatewayIp.u.prefix6),
-			       sizeof(struct in6_addr));
+		if (bgp_static->gatewayIp.family == AF_INET) {
+			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
+			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
+				&bgp_static->gatewayIp.u.prefix4,
+				IPV4_MAX_BYTELEN);
+		} else if (bgp_static->gatewayIp.family == AF_INET6) {
+			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
+			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
+				&bgp_static->gatewayIp.u.prefix6,
+				IPV6_MAX_BYTELEN);
+		}
 		memcpy(&attr.esi, bgp_static->eth_s_id, sizeof(esi_t));
 		if (bgp_static->encap_tunneltype == BGP_ENCAP_TYPE_VXLAN) {
 			struct bgp_encap_type_vxlan bet;
