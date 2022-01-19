@@ -153,9 +153,14 @@ extern int ospf_apiserver_handle_sync_lsdb(struct ospf_apiserver *apiserv,
 					   struct msg *msg);
 extern int ospf_apiserver_handle_sync_reachable(struct ospf_apiserver *apiserv,
 						struct msg *msg);
+extern int ospf_apiserver_handle_sync_ism(struct ospf_apiserver *apiserv,
+					  struct msg *msg);
+extern int ospf_apiserver_handle_sync_nsm(struct ospf_apiserver *apiserv,
+					  struct msg *msg);
 
 extern void ospf_apiserver_notify_reachable(struct route_table *ort,
 					    struct route_table *nrt);
+
 /* -----------------------------------------------------------
  * Following are functions for LSA origination/deletion
  * -----------------------------------------------------------
