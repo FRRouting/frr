@@ -60,6 +60,7 @@
 #include "northbound_cli.h"
 #include "zebra/zebra_nb.h"
 #include "zebra/kernel_netlink.h"
+#include "zebra/if_netlink.h"
 #include "zebra/table_manager.h"
 #include "zebra/zebra_script.h"
 #include "zebra/rtadv.h"
@@ -4356,6 +4357,31 @@ DEFUN_HIDDEN(no_zebra_kernel_netlink_batch_tx_buf,
 	return CMD_SUCCESS;
 }
 
+DEFPY (zebra_protodown_bit,
+       zebra_protodown_bit_cmd,
+       "zebra protodown reason-bit (0-31)$bit",
+       ZEBRA_STR
+       "Protodown Configuration\n"
+       "Reason Bit used in the kernel for application\n"
+       "Reason Bit range\n")
+{
+	if_netlink_set_frr_protodown_r_bit(bit);
+	return CMD_SUCCESS;
+}
+
+DEFPY (no_zebra_protodown_bit,
+       no_zebra_protodown_bit_cmd,
+       "no zebra protodown reason-bit [(0-31)$bit]",
+       NO_STR
+       ZEBRA_STR
+       "Protodown Configuration\n"
+       "Reason Bit used in the kernel for setting protodown\n"
+       "Reason Bit Range\n")
+{
+	if_netlink_unset_frr_protodown_r_bit();
+	return CMD_SUCCESS;
+}
+
 #endif /* HAVE_NETLINK */
 
 DEFUN(ip_table_range, ip_table_range_cmd,
@@ -4561,6 +4587,8 @@ void zebra_vty_init(void)
 #ifdef HAVE_NETLINK
 	install_element(CONFIG_NODE, &zebra_kernel_netlink_batch_tx_buf_cmd);
 	install_element(CONFIG_NODE, &no_zebra_kernel_netlink_batch_tx_buf_cmd);
+	install_element(CONFIG_NODE, &zebra_protodown_bit_cmd);
+	install_element(CONFIG_NODE, &no_zebra_protodown_bit_cmd);
 #endif /* HAVE_NETLINK */
 
 #ifdef HAVE_SCRIPTING
