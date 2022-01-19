@@ -9430,7 +9430,7 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9452,7 +9452,8 @@ DEFUN (clear_ip_bgp_all,
        BGP_SOFT_OUT_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n"
-       BGP_SOFT_OUT_STR)
+       BGP_SOFT_OUT_STR
+       "Reset message statistics\n")
 {
 	char *vrf = NULL;
 
@@ -9509,7 +9510,7 @@ DEFUN (clear_ip_bgp_all,
 		clr_sort = clear_external;
 	}
 
-	/* [<soft [<in|out>]|in [prefix-filter]|out>] */
+	/* [<soft [<in|out>]|in [prefix-filter]|out|message-stats>] */
 	if (argv_find(argv, argc, "soft", &idx)) {
 		if (argv_find(argv, argc, "in", &idx)
 		    || argv_find(argv, argc, "out", &idx))
@@ -9524,6 +9525,8 @@ DEFUN (clear_ip_bgp_all,
 				   : BGP_CLEAR_SOFT_IN;
 	} else if (argv_find(argv, argc, "out", &idx)) {
 		clr_type = BGP_CLEAR_SOFT_OUT;
+	} else if (argv_find(argv, argc, "message-stats", &idx)) {
+		clr_type = BGP_CLEAR_MESSAGE_STATS;
 	} else
 		clr_type = BGP_CLEAR_SOFT_NONE;
 
