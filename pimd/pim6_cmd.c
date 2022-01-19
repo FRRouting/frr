@@ -187,6 +187,29 @@ DEFPY (no_ipv6_pim_rp_keep_alive,
 	return pim_process_no_rp_kat_cmd(vty);
 }
 
+DEFPY (ipv6_pim_register_suppress,
+       ipv6_pim_register_suppress_cmd,
+       "ipv6 pim register-suppress-time (1-65535)$rst",
+       IPV6_STR
+       PIM_STR
+       "Register Suppress Timer\n"
+       "Seconds\n")
+{
+	return pim_process_register_suppress_cmd(vty, rst_str);
+}
+
+DEFPY (no_ipv6_pim_register_suppress,
+       no_ipv6_pim_register_suppress_cmd,
+       "no ipv6 pim register-suppress-time [(1-65535)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Register Suppress Timer\n"
+       IGNORED_IN_NO_STR)
+{
+	return pim_process_no_register_suppress_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -203,4 +226,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_keep_alive_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_register_suppress_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
 }
