@@ -787,6 +787,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	thread->arg = arg;
 	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
 	thread->ref = NULL;
+	thread->ignore_timer_late = false;
 
 	/*
 	 * So if the passed in funcname is not what we have
@@ -1667,12 +1668,12 @@ static unsigned int thread_process_timers(struct thread_master *m,
 		 * really getting behind on handling of events.
 		 * Let's log it and do the right thing with it.
 		 */
-		if (timercmp(timenow, &prev, >)) {
-			if (!displayed)
-				flog_warn(
-					EC_LIB_STARVE_THREAD,
-					"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
-					thread);
+		if (!displayed && !thread->ignore_timer_late &&
+		    timercmp(timenow, &prev, >)) {
+			flog_warn(
+				EC_LIB_STARVE_THREAD,
+				"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
+				thread);
 			displayed = true;
 		}
 
