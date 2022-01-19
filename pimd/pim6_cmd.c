@@ -43,7 +43,33 @@
 #include "pimd/pim6_cmd_clippy.c"
 #endif
 
+DEFPY (ipv6_pim_joinprune_time,
+       ipv6_pim_joinprune_time_cmd,
+       "ipv6 pim join-prune-interval (1-65535)$jpi",
+       IPV6_STR
+       PIM_STR
+       "Join Prune Send Interval\n"
+       "Seconds\n")
+{
+	return pim_process_join_prune_cmd(vty, jpi_str);
+}
+
+DEFPY (no_ipv6_pim_joinprune_time,
+       no_ipv6_pim_joinprune_time_cmd,
+       "no ipv6 pim join-prune-interval [(1-65535)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Join Prune Send Interval\n"
+       IGNORED_IN_NO_STR)
+{
+	return pim_process_no_join_prune_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
+
+	install_element(CONFIG_NODE, &ipv6_pim_joinprune_time_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_joinprune_time_cmd);
 }
