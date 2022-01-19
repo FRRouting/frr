@@ -382,12 +382,12 @@ def check_bsid(rt, bsid, fn_name, positive):
     candidate_output = ""
     # First wait for convergence
     tgen = get_topogen()
-    while count < 30:
+    router = tgen.gears[rt]
+    while count < 180:
         matched = False
         matched_key = False
         sleep(1)
         count += 1
-        router = tgen.gears[rt]
         candidate_output = router.vtysh_cmd("show mpls table json")
         candidate_output_json = json.loads(candidate_output)
         for item in candidate_output_json.items():
@@ -399,13 +399,13 @@ def check_bsid(rt, bsid, fn_name, positive):
         if positive:
             if matched_key:
                 matched = True
-            assertmsg = "{} don't has entry {} but is was expected".format(
+            assertmsg = "{} doesn't have entry {} but was expected".format(
                 router.name, candidate_key
             )
         else:
             if not matched_key:
                 matched = True
-            assertmsg = "{} has entry {} but is wans't expected".format(
+            assertmsg = "{} has entry {} but wasn't expected".format(
                 router.name, candidate_key
             )
         if matched:
