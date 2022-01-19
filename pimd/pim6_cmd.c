@@ -267,6 +267,56 @@ DEFUN (no_ipv6_pim_packets,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN (ipv6_pim_keep_alive,
+       ipv6_pim_keep_alive_cmd,
+       "ipv6 pim keep-alive-timer (1-65535)",
+       IPV6_STR
+       PIM_STR
+       "Keep alive Timer\n"
+       "Seconds\n")
+{
+	const char *vrfname;
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv6");
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
+			      argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN (no_ipv6_pim_keep_alive,
+       no_ipv6_pim_keep_alive_cmd,
+       "no ipv6 pim keep-alive-timer [(1-65535)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Keep alive Timer\n"
+       IGNORED_IN_NO_STR)
+{
+	const char *vrfname;
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv6");
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void pim_cmd_init(void)
 {
 	//TODO: Keeping as NULL for now
@@ -280,4 +330,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_plist_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_packets_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_packets_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_keep_alive_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_keep_alive_cmd);
 }
