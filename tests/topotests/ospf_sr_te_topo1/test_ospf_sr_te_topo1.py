@@ -76,10 +76,10 @@ test_ospf_sr_te_topo1.py:
 
 import os
 import sys
-import pytest
 import json
 from time import sleep
 from functools import partial
+import pytest
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -177,7 +177,7 @@ def setup_module(mod):
     tgen.start_router()
 
 
-def teardown_module(mod):
+def teardown_module():
     "Teardown the pytest environment"
     tgen = get_topogen()
 
@@ -208,8 +208,8 @@ def compare_json_test(router, command, reference, exact):
     # For exact matching also compare the other way around.
     if not result and exact:
         return topotest.json_cmp(reference, output)
-    else:
-        return result
+
+    return result
 
 
 def cmp_json_output(rname, command, reference, exact=False):
@@ -574,7 +574,8 @@ def test_srte_remove_best_candidate_step3():
 #
 # Step 4
 #
-# Checking MPLS table with a single SR Policy and a Candidate Path with different Segment Lists and other modifications
+# Checking MPLS table with a single SR Policy and a Candidate Path with
+# different Segment Lists and other modifications.
 # Segment list are base in adjacency that query TED
 #
 def test_srte_change_segment_list_check_mpls_table_step4():
