@@ -9933,7 +9933,7 @@ DEFUN (ospf_external_route_aggregation,
        ospf_external_route_aggregation_cmd,
        "summary-address A.B.C.D/M [tag (1-4294967295)]",
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m) \n"
+       "Summary address prefix\n"
        "Router tag \n"
        "Router tag value\n")
 {
@@ -9974,7 +9974,7 @@ DEFUN (no_ospf_external_route_aggregation,
        "no summary-address A.B.C.D/M [tag (1-4294967295)]",
        NO_STR
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m)\n"
+       "Summary address prefix\n"
        "Router tag\n"
        "Router tag value\n")
 {
@@ -10264,7 +10264,7 @@ DEFUN (ospf_external_route_aggregation_no_adrvertise,
        ospf_external_route_aggregation_no_adrvertise_cmd,
        "summary-address A.B.C.D/M no-advertise",
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m) \n"
+       "Summary address prefix\n"
        "Don't advertise summary route \n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -10300,7 +10300,7 @@ DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
        "no summary-address A.B.C.D/M no-advertise",
        NO_STR
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m)\n"
+       "Summary address prefix\n"
        "Advertise summary route to the AS \n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -12140,10 +12140,10 @@ static int config_write_ospf_external_aggregator(struct vty *vty,
 		if (rn->info) {
 			struct ospf_external_aggr_rt *aggr = rn->info;
 
-			vty_out(vty, " summary-address %pI4/%d ",
+			vty_out(vty, " summary-address %pI4/%d",
 				&aggr->p.prefix, aggr->p.prefixlen);
 			if (aggr->tag)
-				vty_out(vty, " tag %u ", aggr->tag);
+				vty_out(vty, " tag %u", aggr->tag);
 
 			if (CHECK_FLAG(aggr->flags,
 				       OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
