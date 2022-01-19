@@ -6846,23 +6846,15 @@ DEFUN (no_ip_pim_joinprune_time,
 	return pim_process_no_join_prune_cmd(vty);
 }
 
-DEFUN (ip_pim_register_suppress,
+DEFPY (ip_pim_register_suppress,
        ip_pim_register_suppress_cmd,
-       "ip pim register-suppress-time (1-65535)",
+       "ip pim register-suppress-time (1-65535)$rst",
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
        "Seconds\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/register-suppress-time", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_register_suppress_cmd(vty, rst_str);
 }
 
 DEFUN (no_ip_pim_register_suppress,
@@ -6874,15 +6866,7 @@ DEFUN (no_ip_pim_register_suppress,
        "Register Suppress Timer\n"
        IGNORED_IN_NO_STR)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/register-suppress-time", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_register_suppress_cmd(vty);
 }
 
 DEFPY (ip_pim_rp_keep_alive,
