@@ -170,6 +170,19 @@ static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
 	}
 }
 
+static inline bool ipaddr_is_zero(const struct ipaddr *ip)
+{
+	switch (ip->ipa_type) {
+	case IPADDR_NONE:
+		return true;
+	case IPADDR_V4:
+		return ip->ipaddr_v4.s_addr == INADDR_ANY;
+	case IPADDR_V6:
+		return IN6_IS_ADDR_UNSPECIFIED(&ip->ipaddr_v6);
+	}
+	return true;
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pIA"  (struct ipaddr *)
 #endif

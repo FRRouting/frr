@@ -1335,7 +1335,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 		if (src_attr &&
 		    !IN6_IS_ADDR_UNSPECIFIED(&src_attr->mp_nexthop_global)) {
 			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
-			memcpy(&attr.evpn_overlay.gw_ip.ipv6,
+			SET_IPADDR_V6(&attr.evpn_overlay.gw_ip);
+			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v6,
 			       &src_attr->mp_nexthop_global,
 			       sizeof(struct in6_addr));
 		}
@@ -1344,7 +1345,8 @@ static int update_evpn_type5_route(struct bgp *bgp_vrf, struct prefix_evpn *evp,
 			      BGP_L2VPN_EVPN_ADV_IPV4_UNICAST_GW_IP)) {
 		if (src_attr && src_attr->nexthop.s_addr != 0) {
 			attr.evpn_overlay.type = OVERLAY_INDEX_GATEWAY_IP;
-			memcpy(&attr.evpn_overlay.gw_ip.ipv4,
+			SET_IPADDR_V4(&attr.evpn_overlay.gw_ip);
+			memcpy(&attr.evpn_overlay.gw_ip.ipaddr_v4,
 			       &src_attr->nexthop, sizeof(struct in_addr));
 		}
 	}
@@ -2470,11 +2472,11 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
 
 		if (afi == AFI_IP6) {
 			memcpy(&attr.mp_nexthop_global,
-			       &attr.evpn_overlay.gw_ip.ipv6,
+			       &attr.evpn_overlay.gw_ip.ipaddr_v6,
 			       sizeof(struct in6_addr));
 			attr.mp_nexthop_len = IPV6_MAX_BYTELEN;
 		} else {
-			attr.nexthop = attr.evpn_overlay.gw_ip.ipv4;
+			attr.nexthop = attr.evpn_overlay.gw_ip.ipaddr_v4;
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP);
 		}
 	}
@@ -4041,7 +4043,6 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	uint32_t eth_tag;
 	mpls_label_t label; /* holds the VNI as in the packet */
 	int ret;
-	afi_t gw_afi;
 	bool is_valid_update = true;
 
 	/* Type-5 route should be 34 or 58 bytes:
@@ -4100,17 +4101,17 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 		SET_IPADDR_V4(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
-		memcpy(&evpn.gw_ip.ipv4, pfx, 4);
+		SET_IPADDR_V4(&evpn.gw_ip);
+		memcpy(&evpn.gw_ip.ipaddr_v4, pfx, 4);
 		pfx += 4;
-		gw_afi = AF_INET;
 	} else {
 		SET_IPADDR_V6(&p.prefix.prefix_addr.ip);
 		memcpy(&p.prefix.prefix_addr.ip.ipaddr_v6, pfx,
 		       IPV6_MAX_BYTELEN);
 		pfx += IPV6_MAX_BYTELEN;
-		memcpy(&evpn.gw_ip.ipv6, pfx, IPV6_MAX_BYTELEN);
+		SET_IPADDR_V6(&evpn.gw_ip);
+		memcpy(&evpn.gw_ip.ipaddr_v6, pfx, IPV6_MAX_BYTELEN);
 		pfx += IPV6_MAX_BYTELEN;
-		gw_afi = AF_INET6;
 	}
 
 	/* Get the VNI (in MPLS label field). Stored as bytes here. */
@@ -4127,20 +4128,20 @@ static int process_type5_route(struct peer *peer, afi_t afi, safi_t safi,
 	 * An update containing a non-zero gateway IP and a non-zero ESI
 	 * at the same time is should be treated as withdraw
 	 */
-	if (bgp_evpn_is_esi_valid(&evpn.eth_s_id)
-	    && !is_zero_gw_ip(&evpn.gw_ip, gw_afi)) {
+	if (bgp_evpn_is_esi_valid(&evpn.eth_s_id) &&
+	    !ipaddr_is_zero(&evpn.gw_ip)) {
 		flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 			 "%s - Rx EVPN Type-5 ESI and gateway-IP both non-zero.",
 			 peer->host);
 		is_valid_update = false;
 	} else if (bgp_evpn_is_esi_valid(&evpn.eth_s_id))
 		evpn.type = OVERLAY_INDEX_ESI;
-	else if (!is_zero_gw_ip(&evpn.gw_ip, gw_afi))
+	else if (!ipaddr_is_zero(&evpn.gw_ip))
 		evpn.type = OVERLAY_INDEX_GATEWAY_IP;
 	if (attr) {
-		if (is_zero_mac(&attr->rmac)
-		    && !bgp_evpn_is_esi_valid(&evpn.eth_s_id)
-		    && is_zero_gw_ip(&evpn.gw_ip, gw_afi) && label == 0) {
+		if (is_zero_mac(&attr->rmac) &&
+		    !bgp_evpn_is_esi_valid(&evpn.eth_s_id) &&
+		    ipaddr_is_zero(&evpn.gw_ip) && label == 0) {
 			flog_err(EC_BGP_EVPN_ROUTE_INVALID,
 				 "%s - Rx EVPN Type-5 ESI, gateway-IP, RMAC and label all zero",
 				 peer->host);
@@ -4213,9 +4214,10 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 			bgp_attr_get_evpn_overlay(attr);
 
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
-			stream_put_ipv4(s, evpn_overlay->gw_ip.ipv4.s_addr);
+			stream_put_ipv4(s,
+					evpn_overlay->gw_ip.ipaddr_v4.s_addr);
 		else
-			stream_put(s, &(evpn_overlay->gw_ip.ipv6), 16);
+			stream_put(s, &(evpn_overlay->gw_ip.ipaddr_v6), 16);
 	} else {
 		if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
 			stream_put_ipv4(s, 0);
