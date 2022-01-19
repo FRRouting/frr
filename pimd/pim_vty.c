@@ -353,48 +353,49 @@ static int pim_igmp_config_write(struct vty *vty, int writes,
 }
 #endif
 
-#if PIM_IPV == 4
 int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 		     struct pim_instance *pim)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
 	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-		vty_out(vty, " ip pim\n");
+		vty_out(vty, " " PIM_AF_NAME " pim\n");
 		++writes;
 	}
 
 	/* IF ip pim drpriority */
 	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
-		vty_out(vty, " ip pim drpriority %u\n",
+		vty_out(vty, " " PIM_AF_NAME " pim drpriority %u\n",
 			pim_ifp->pim_dr_priority);
 		++writes;
 	}
 
 	/* IF ip pim hello */
 	if (pim_ifp->pim_hello_period != PIM_DEFAULT_HELLO_PERIOD) {
-		vty_out(vty, " ip pim hello %d", pim_ifp->pim_hello_period);
+		vty_out(vty, " " PIM_AF_NAME " pim hello %d", pim_ifp->pim_hello_period);
 		if (pim_ifp->pim_default_holdtime != -1)
 			vty_out(vty, " %d", pim_ifp->pim_default_holdtime);
 		vty_out(vty, "\n");
 		++writes;
 	}
 
+#if PIM_IPV == 4
 	writes += pim_igmp_config_write(vty, writes, pim_ifp);
+#endif
 
 	/* update source */
 	if (!pim_addr_is_any(pim_ifp->update_source)) {
-		vty_out(vty, " ip pim use-source %pPA\n",
+		vty_out(vty, " " PIM_AF_NAME " pim use-source %pPA\n",
 			&pim_ifp->update_source);
 		++writes;
 	}
 
 	if (pim_ifp->activeactive)
-		vty_out(vty, " ip pim active-active\n");
+		vty_out(vty, " " PIM_AF_NAME " pim active-active\n");
 
 	/* boundary */
 	if (pim_ifp->boundary_oil_plist) {
-		vty_out(vty, " ip multicast boundary oil %s\n",
+		vty_out(vty, " " PIM_AF_NAME " multicast boundary oil %s\n",
 			pim_ifp->boundary_oil_plist);
 		++writes;
 	}
@@ -407,7 +408,6 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 
 	return writes;
 }
-#endif
 
 int pim_interface_config_write(struct vty *vty)
 {
@@ -438,11 +438,12 @@ int pim_interface_config_write(struct vty *vty)
 				vty_out(vty, " description %s\n", ifp->desc);
 				++writes;
 			}
-#if PIM_IPV == 4
-			if (ifp->info)
+
+			if (ifp->info) {
 				pim_config_write(vty, writes, ifp, pim);
-#endif
+			}
 			if_vty_config_end(vty);
+
 			++writes;
 		}
 	}
