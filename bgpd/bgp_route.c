@@ -10744,6 +10744,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	    community_include(attr->community, COMMUNITY_LLGR_STALE)) {
 		unsigned long llgr_remaining = thread_timer_remain_second(
 			path->peer->t_llgr_stale[afi][safi]);
+
 		if (json_paths) {
 			json_object_int_add(json_path, "llgrSecondsRemaining",
 					    llgr_remaining);
