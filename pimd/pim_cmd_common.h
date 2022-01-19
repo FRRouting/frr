@@ -21,4 +21,7 @@
 #define PIM_CMD_COMMON_H
 
 const char *pim_cli_get_vrf_name(struct vty *vty);
+int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str);
+int pim_process_no_join_prune_cmd(struct vty *vty);
+
 #endif /* PIM_CMD_COMMON_H */

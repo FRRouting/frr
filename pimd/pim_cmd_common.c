@@ -36,6 +36,7 @@
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"
 #include "pim_nb.h"
+#include "pim_cmd_common.h"
 
 /**
  * Get current node VRF name.
@@ -62,3 +63,28 @@ const char *pim_cli_get_vrf_name(struct vty *vty)
 	return yang_dnode_get_string(vrf_node, "./name");
 }
 
+int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, jpi_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_join_prune_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
