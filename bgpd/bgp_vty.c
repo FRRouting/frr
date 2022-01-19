@@ -13597,49 +13597,58 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		json_object_int_add(json_stat, "totalRecv", PEER_TOTAL_RX(p));
 		json_object_object_add(json_neigh, "messageStats", json_stat);
 	} else {
-		atomic_size_t outq_count, inq_count;
+		atomic_size_t outq_count, inq_count, open_out, open_in,
+			notify_out, notify_in, update_out, update_in,
+			keepalive_out, keepalive_in, refresh_out, refresh_in,
+			dynamic_cap_out, dynamic_cap_in;
 		outq_count = atomic_load_explicit(&p->obuf->count,
 						  memory_order_relaxed);
 		inq_count = atomic_load_explicit(&p->ibuf->count,
 						 memory_order_relaxed);
+		open_out = atomic_load_explicit(&p->open_out,
+						memory_order_relaxed);
+		open_in =
+			atomic_load_explicit(&p->open_in, memory_order_relaxed);
+		notify_out = atomic_load_explicit(&p->notify_out,
+						  memory_order_relaxed);
+		notify_in = atomic_load_explicit(&p->notify_in,
+						 memory_order_relaxed);
+		update_out = atomic_load_explicit(&p->update_out,
+						  memory_order_relaxed);
+		update_in = atomic_load_explicit(&p->update_in,
+						 memory_order_relaxed);
+		keepalive_out = atomic_load_explicit(&p->keepalive_out,
+						     memory_order_relaxed);
+		keepalive_in = atomic_load_explicit(&p->keepalive_in,
+						    memory_order_relaxed);
+		refresh_out = atomic_load_explicit(&p->refresh_out,
+						   memory_order_relaxed);
+		refresh_in = atomic_load_explicit(&p->refresh_in,
+						  memory_order_relaxed);
+		dynamic_cap_out = atomic_load_explicit(&p->dynamic_cap_out,
+						       memory_order_relaxed);
+		dynamic_cap_in = atomic_load_explicit(&p->dynamic_cap_in,
+						      memory_order_relaxed);
 
 		/* Packet counts. */
 		vty_out(vty, "  Message statistics:\n");
 		vty_out(vty, "    Inq depth is %zu\n", inq_count);
 		vty_out(vty, "    Outq depth is %zu\n", outq_count);
 		vty_out(vty, "                         Sent       Rcvd\n");
-		vty_out(vty, "    Opens:         %10d %10d\n",
-			atomic_load_explicit(&p->open_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->open_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Notifications: %10d %10d\n",
-			atomic_load_explicit(&p->notify_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->notify_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Updates:       %10d %10d\n",
-			atomic_load_explicit(&p->update_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->update_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Keepalives:    %10d %10d\n",
-			atomic_load_explicit(&p->keepalive_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->keepalive_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Route Refresh: %10d %10d\n",
-			atomic_load_explicit(&p->refresh_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->refresh_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Capability:    %10d %10d\n",
-			atomic_load_explicit(&p->dynamic_cap_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->dynamic_cap_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Total:         %10d %10d\n", PEER_TOTAL_TX(p),
-			PEER_TOTAL_RX(p));
+		vty_out(vty, "    Opens:         %10zu %10zu\n", open_out,
+			open_in);
+		vty_out(vty, "    Notifications: %10zu %10zu\n", notify_out,
+			notify_in);
+		vty_out(vty, "    Updates:       %10zu %10zu\n", update_out,
+			update_in);
+		vty_out(vty, "    Keepalives:    %10zu %10zu\n", keepalive_out,
+			keepalive_in);
+		vty_out(vty, "    Route Refresh: %10zu %10zu\n", refresh_out,
+			refresh_in);
+		vty_out(vty, "    Capability:    %10zu %10zu\n",
+			dynamic_cap_out, dynamic_cap_in);
+		vty_out(vty, "    Total:         %10u %10u\n",
+			(uint32_t)PEER_TOTAL_TX(p), (uint32_t)PEER_TOTAL_RX(p));
 	}
 
 	if (use_json) {
