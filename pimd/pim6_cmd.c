@@ -116,6 +116,29 @@ DEFPY (no_ipv6_pim_spt_switchover_infinity_plist,
 	return pim_process_no_spt_switchover_cmd(vty);
 }
 
+DEFPY (ipv6_pim_packets,
+       ipv6_pim_packets_cmd,
+       "ipv6 pim packets (1-255)",
+       IPV6_STR
+       PIM_STR
+       "packets to process at one time per fd\n"
+       "Number of packets\n")
+{
+	return pim_process_pim_packet_cmd(vty, packets_str);
+}
+
+DEFPY (no_ipv6_pim_packets,
+       no_ipv6_pim_packets_cmd,
+       "no ipv6 pim packets [(1-255)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "packets to process at one time per fd\n"
+       IGNORED_IN_NO_STR)
+{
+	return pim_process_no_pim_packet_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -126,4 +149,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &ipv6_pim_spt_switchover_infinity_plist_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_plist_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_packets_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_packets_cmd);
 }
