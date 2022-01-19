@@ -390,6 +390,45 @@ DEFUN (no_ipv6_pim_rp_keep_alive,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN (ipv6_pim_register_suppress,
+       ipv6_pim_register_suppress_cmd,
+       "ipv6 pim register-suppress-time (1-65535)",
+       IPV6_STR
+       PIM_STR
+       "Register Suppress Timer\n"
+       "Seconds\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 "frr-routing:ipv6");
+	strlcat(xpath, "/register-suppress-time", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN (no_ipv6_pim_register_suppress,
+       no_ipv6_pim_register_suppress_cmd,
+       "no ipv6 pim register-suppress-time [(1-65535)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Register Suppress Timer\n"
+       IGNORED_IN_NO_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 "frr-routing:ipv6");
+	strlcat(xpath, "/register-suppress-time", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void pim_cmd_init(void)
 {
 	//TODO: Keeping as NULL for now
@@ -407,4 +446,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_ipv6_pim_keep_alive_cmd);
 	install_element(CONFIG_NODE, &ipv6_pim_rp_keep_alive_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_rp_keep_alive_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_register_suppress_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_register_suppress_cmd);
 }
