@@ -23,5 +23,9 @@
 const char *pim_cli_get_vrf_name(struct vty *vty);
 int pim_process_join_prune_cmd(struct vty *vty, const char *jpi_str);
 int pim_process_no_join_prune_cmd(struct vty *vty);
+int pim_process_spt_switchover_infinity_cmd(struct vty *vty);
+int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
+					      const char *plist);
+int pim_process_no_spt_switchover_cmd(struct vty *vty);
 
 #endif /* PIM_CMD_COMMON_H */
