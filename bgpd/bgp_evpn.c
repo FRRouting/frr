@@ -4201,7 +4201,7 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
 	if (attr && attr->evpn_overlay.type == OVERLAY_INDEX_ESI)
 		stream_put(s, &attr->esi, sizeof(esi_t));
 	else
-		stream_put(s, 0, sizeof(esi_t));
+		stream_put(s, zero_esi, sizeof(esi_t));
 	stream_putl(s, p_evpn_p->prefix_addr.eth_tag);
 	stream_putc(s, p_evpn_p->prefix_addr.ip_prefix_length);
 	if (IS_IPADDR_V4(&p_evpn_p->prefix_addr.ip))
@@ -4927,7 +4927,7 @@ void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 		if (attr)
 			stream_put(s, &attr->esi, ESI_BYTES);
 		else
-			stream_put(s, 0, 10);
+			stream_put(s, zero_esi, 10);
 		stream_putl(s, evp->prefix.macip_addr.eth_tag);	/* Ethernet Tag ID */
 		stream_putc(s, 8 * ETH_ALEN); /* Mac Addr Len - bits */
 		stream_put(s, evp->prefix.macip_addr.mac.octet, 6); /* Mac Addr */
