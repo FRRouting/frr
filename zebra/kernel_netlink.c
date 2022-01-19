@@ -210,6 +210,10 @@ int netlink_config_write_helper(struct vty *vty)
 		vty_out(vty, "zebra kernel netlink batch-tx-buf %u %u\n", size,
 			threshold);
 
+	if (if_netlink_frr_protodown_r_bit_is_set())
+		vty_out(vty, "zebra protodown reason-bit %u\n",
+			if_netlink_get_frr_protodown_r_bit());
+
 	return 0;
 }
 

@@ -2214,4 +2214,34 @@ void interface_list(struct zebra_ns *zns)
 	interface_addr_lookup_netlink(zns);
 }
 
+void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
+{
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("FRR protodown reason bit change %u -> %u",
+			   frr_protodown_r_bit, bit);
+
+	frr_protodown_r_bit = bit;
+}
+
+void if_netlink_unset_frr_protodown_r_bit(void)
+{
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("FRR protodown reason bit change %u -> %u",
+			   frr_protodown_r_bit,
+			   FRR_PROTODOWN_REASON_DEFAULT_BIT);
+
+	frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
+}
+
+
+bool if_netlink_frr_protodown_r_bit_is_set(void)
+{
+	return (frr_protodown_r_bit != FRR_PROTODOWN_REASON_DEFAULT_BIT);
+}
+
+uint8_t if_netlink_get_frr_protodown_r_bit(void)
+{
+	return frr_protodown_r_bit;
+}
+
 #endif /* GNU_LINUX */
