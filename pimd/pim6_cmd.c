@@ -66,10 +66,64 @@ DEFPY (no_ipv6_pim_joinprune_time,
 	return pim_process_no_join_prune_cmd(vty);
 }
 
+DEFPY (ipv6_pim_spt_switchover_infinity,
+       ipv6_pim_spt_switchover_infinity_cmd,
+       "ipv6 pim spt-switchover infinity-and-beyond",
+       IPV6_STR
+       PIM_STR
+       "SPT-Switchover\n"
+       "Never switch to SPT Tree\n")
+{
+	return pim_process_spt_switchover_infinity_cmd(vty);
+}
+
+DEFPY (ipv6_pim_spt_switchover_infinity_plist,
+       ipv6_pim_spt_switchover_infinity_plist_cmd,
+       "ipv6 pim spt-switchover infinity-and-beyond prefix-list WORD$plist",
+       IPV6_STR
+       PIM_STR
+       "SPT-Switchover\n"
+       "Never switch to SPT Tree\n"
+       "Prefix-List to control which groups to switch\n"
+       "Prefix-List name\n")
+{
+	return pim_process_spt_switchover_prefixlist_cmd(vty, plist);
+}
+
+DEFPY (no_ipv6_pim_spt_switchover_infinity,
+       no_ipv6_pim_spt_switchover_infinity_cmd,
+       "no ipv6 pim spt-switchover infinity-and-beyond",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "SPT_Switchover\n"
+       "Never switch to SPT Tree\n")
+{
+	return pim_process_no_spt_switchover_cmd(vty);
+}
+
+DEFPY (no_ipv6_pim_spt_switchover_infinity_plist,
+       no_ipv6_pim_spt_switchover_infinity_plist_cmd,
+       "no ipv6 pim spt-switchover infinity-and-beyond prefix-list WORD",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "SPT_Switchover\n"
+       "Never switch to SPT Tree\n"
+       "Prefix-List to control which groups to switch\n"
+       "Prefix-List name\n")
+{
+	return pim_process_no_spt_switchover_cmd(vty);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
 
 	install_element(CONFIG_NODE, &ipv6_pim_joinprune_time_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_joinprune_time_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_spt_switchover_infinity_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_spt_switchover_infinity_plist_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_plist_cmd);
 }
