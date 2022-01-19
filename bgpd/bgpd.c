@@ -7509,6 +7509,34 @@ int peer_ttl_security_hops_unset(struct peer *peer)
 	return ret;
 }
 
+static void peer_reset_message_stats(struct peer *peer)
+{
+	if (peer) {
+		atomic_store_explicit(&peer->open_in, 0, memory_order_relaxed);
+		atomic_store_explicit(&peer->open_out, 0, memory_order_relaxed);
+		atomic_store_explicit(&peer->update_in, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->update_out, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->keepalive_in, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->keepalive_out, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->notify_in, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->notify_out, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->refresh_in, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->refresh_out, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->dynamic_cap_in, 0,
+				      memory_order_relaxed);
+		atomic_store_explicit(&peer->dynamic_cap_out, 0,
+				      memory_order_relaxed);
+	}
+}
+
 /*
  * If peer clear is invoked in a loop for all peers on the BGP instance,
  * it may end up freeing the doppelganger, and if this was the next node
@@ -7621,6 +7649,10 @@ int peer_clear_soft(struct peer *peer, afi_t afi, safi_t safi,
 				return BGP_ERR_SOFT_RECONFIG_UNCONFIGURED;
 		}
 	}
+
+	if (stype == BGP_CLEAR_MESSAGE_STATS)
+		peer_reset_message_stats(peer);
+
 	return 0;
 }
 
