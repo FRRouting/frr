@@ -25,5 +25,8 @@
 int pim_debug_config_write(struct vty *vty);
 int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty);
 int pim_interface_config_write(struct vty *vty);
-
+#if PIM_IPV == 4
+int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
+		     struct pim_instance *pim);
+#endif
 #endif /* PIM_VTY_H */
