@@ -305,11 +305,11 @@ int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 									 i);
 					if (pim_addr_is_any(sroute->source))
 						vty_out(vty,
-							" ip mroute %s %pPA\n",
+							" " PIM_AF_NAME " mroute %s %pPA\n",
 							oifp->name, &sroute->group);
 					else
 						vty_out(vty,
-							" ip mroute %s %pPA %pPA\n",
+							" " PIM_AF_NAME " mroute %s %pPA %pPA\n",
 							oifp->name, &sroute->group,
 							&sroute->source);
 					count++;

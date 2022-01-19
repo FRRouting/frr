@@ -50,15 +50,15 @@ void pim_bfd_write_config(struct vty *vty, struct interface *ifp)
 	if (pim_ifp->bfd_config.detection_multiplier != BFD_DEF_DETECT_MULT
 	    || pim_ifp->bfd_config.min_rx != BFD_DEF_MIN_RX
 	    || pim_ifp->bfd_config.min_tx != BFD_DEF_MIN_TX)
-		vty_out(vty, " ip pim bfd %d %d %d\n",
+		vty_out(vty, " " PIM_AF_NAME " pim bfd %d %d %d\n",
 			pim_ifp->bfd_config.detection_multiplier,
 			pim_ifp->bfd_config.min_rx, pim_ifp->bfd_config.min_tx);
 	else
 #endif /* ! HAVE_BFDD */
-		vty_out(vty, " ip pim bfd\n");
+		vty_out(vty, " " PIM_AF_NAME " pim bfd\n");
 
 	if (pim_ifp->bfd_config.profile)
-		vty_out(vty, " ip pim bfd profile %s\n",
+		vty_out(vty, " " PIM_AF_NAME " pim bfd profile %s\n",
 			pim_ifp->bfd_config.profile);
 }
 
