@@ -205,3 +205,40 @@ int pim_process_no_pim_packet_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+int pim_process_keepalivetimer_cmd(struct vty *vty, const char *kat)
+{
+	const char *vrfname;
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
+			      kat);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_keepalivetimer_cmd(struct vty *vty)
+{
+	const char *vrfname;
+	char ka_timer_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
+		 "frr-pim:pimd", "pim", vrfname, FRR_PIM_AF_XPATH_VAL);
+	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
