@@ -242,3 +242,61 @@ int pim_process_no_keepalivetimer_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+int pim_process_rp_kat_cmd(struct vty *vty, const char *rpkat)
+{
+	const char *vrfname;
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
+		sizeof(rp_ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
+			      rpkat);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_rp_kat_cmd(struct vty *vty)
+{
+	const char *vrfname;
+	char rp_ka_timer[6];
+	char rp_ka_timer_xpath[XPATH_MAXLEN];
+	uint v;
+	char rs_timer_xpath[XPATH_MAXLEN];
+
+	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
+		 FRR_PIM_ROUTER_XPATH, FRR_PIM_AF_XPATH_VAL);
+	strlcat(rs_timer_xpath, "/register-suppress-time",
+		sizeof(rs_timer_xpath));
+
+	/* RFC4601 */
+	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
+				  rs_timer_xpath);
+	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
+	if (v > UINT16_MAX)
+		v = UINT16_MAX;
+	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
+
+	vrfname = pim_cli_get_vrf_name(vty);
+	if (vrfname == NULL)
+		return CMD_WARNING_CONFIG_FAILED;
+
+	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
+		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
+		sizeof(rp_ka_timer_xpath));
+
+	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
+			      rp_ka_timer);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
