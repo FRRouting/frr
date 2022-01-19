@@ -6958,29 +6958,15 @@ DEFUN (no_ip_pim_rp_keep_alive,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ip_pim_keep_alive,
+DEFPY (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer (1-65535)",
+       "ip pim keep-alive-timer (1-65535)$kat",
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const char *vrfname;
-	char ka_timer_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
-			      argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
 
 DEFUN (no_ip_pim_keep_alive,
@@ -6992,20 +6978,7 @@ DEFUN (no_ip_pim_keep_alive,
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
-	const char *vrfname;
-	char ka_timer_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_keepalivetimer_cmd(vty);
 }
 
 DEFPY (ip_pim_packets,
