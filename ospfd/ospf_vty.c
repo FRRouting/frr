@@ -12148,6 +12148,10 @@ static int config_write_ospf_external_aggregator(struct vty *vty,
 {
 	struct route_node *rn;
 
+	if (ospf->aggr_delay_interval != OSPF_EXTL_AGGR_DEFAULT_DELAY)
+		vty_out(vty, " aggregation timer %u\n",
+			ospf->aggr_delay_interval);
+
 	/* print 'summary-address A.B.C.D/M' */
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn))
 		if (rn->info) {
