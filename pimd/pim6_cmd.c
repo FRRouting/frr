@@ -40,9 +40,50 @@
 #include "pimd/pim6_cmd_clippy.c"
 #endif
 
+DEFUN (ipv6_pim_joinprune_time,
+       ipv6_pim_joinprune_time_cmd,
+       "ipv6 pim join-prune-interval (1-65535)",
+       IPV6_STR
+       PIM_STR
+       "Join Prune Send Interval\n"
+       "Seconds\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 "frr-routing:ipv6");
+	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN (no_ipv6_pim_joinprune_time,
+       no_ipv6_pim_joinprune_time_cmd,
+       "no ipv6 pim join-prune-interval [(1-65535)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Join Prune Send Interval\n"
+       IGNORED_IN_NO_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 "frr-routing:ipv6");
+	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void pim_cmd_init(void)
 {
 	//TODO: Keeping as NULL for now
 	if_cmd_init(NULL);
-}
 
+	install_element(CONFIG_NODE, &ipv6_pim_joinprune_time_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_joinprune_time_cmd);
+}
