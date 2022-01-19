@@ -3571,30 +3571,6 @@ struct bgp_path_info *info_make(int type, int sub_type, unsigned short instance,
 	return new;
 }
 
-static bool overlay_index_equal(afi_t afi, struct bgp_path_info *path,
-				union gw_addr *gw_ip)
-{
-	const struct bgp_route_evpn *eo = bgp_attr_get_evpn_overlay(path->attr);
-	union gw_addr path_gw_ip, *path_gw_ip_remote;
-	union {
-		esi_t esi;
-		union gw_addr ip;
-	} temp;
-
-	if (afi != AFI_L2VPN)
-		return true;
-
-	path_gw_ip = eo->gw_ip;
-
-	if (gw_ip == NULL) {
-		memset(&temp, 0, sizeof(temp));
-		path_gw_ip_remote = &temp.ip;
-	} else
-		path_gw_ip_remote = gw_ip;
-
-	return !!memcmp(&path_gw_ip, path_gw_ip_remote, sizeof(union gw_addr));
-}
-
 /* Check if received nexthop is valid or not. */
 bool bgp_update_martian_nexthop(struct bgp *bgp, afi_t afi, safi_t safi,
 				uint8_t type, uint8_t stype, struct attr *attr,
@@ -6173,9 +6149,7 @@ static void bgp_static_update_safi(struct bgp *bgp, const struct prefix *p,
 			break;
 
 	if (pi) {
-		memset(&add, 0, sizeof(union gw_addr));
 		if (attrhash_cmp(pi->attr, attr_new)
-		    && overlay_index_equal(afi, pi, &add)
 		    && !CHECK_FLAG(pi->flags, BGP_PATH_REMOVED)) {
 			bgp_dest_unlock_node(dest);
 			bgp_attr_unintern(&attr_new);
