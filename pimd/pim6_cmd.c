@@ -228,6 +228,45 @@ DEFUN (no_ipv6_pim_spt_switchover_infinity_plist,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
+DEFUN (ipv6_pim_packets,
+       ipv6_pim_packets_cmd,
+       "ipv6 pim packets (1-255)",
+       IPV6_STR
+       PIM_STR
+       "packets to process at one time per fd\n"
+       "Number of packets\n")
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 "frr-routing:ipv6");
+	strlcat(xpath, "/packets", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFUN (no_ipv6_pim_packets,
+       no_ipv6_pim_packets_cmd,
+       "no ipv6 pim packets [(1-255)]",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "packets to process at one time per fd\n"
+       IGNORED_IN_NO_STR)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 "frr-routing:ipv6");
+	strlcat(xpath, "/packets", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
 void pim_cmd_init(void)
 {
 	//TODO: Keeping as NULL for now
@@ -239,4 +278,6 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &ipv6_pim_spt_switchover_infinity_plist_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_cmd);
 	install_element(CONFIG_NODE, &no_ipv6_pim_spt_switchover_infinity_plist_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_packets_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_packets_cmd);
 }
