@@ -27,5 +27,7 @@ int pim_process_spt_switchover_infinity_cmd(struct vty *vty);
 int pim_process_spt_switchover_prefixlist_cmd(struct vty *vty,
 					      const char *plist);
 int pim_process_no_spt_switchover_cmd(struct vty *vty);
+int pim_process_pim_packet_cmd(struct vty *vty, const char *packet);
+int pim_process_no_pim_packet_cmd(struct vty *vty);
 
 #endif /* PIM_CMD_COMMON_H */

@@ -179,3 +179,29 @@ int pim_process_no_spt_switchover_cmd(struct vty *vty)
 
 	return nb_cli_apply_changes(vty, NULL);
 }
+
+int pim_process_pim_packet_cmd(struct vty *vty, const char *packet)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/packets", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, packet);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+int pim_process_no_pim_packet_cmd(struct vty *vty)
+{
+	char xpath[XPATH_MAXLEN];
+
+	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
+		 FRR_PIM_AF_XPATH_VAL);
+	strlcat(xpath, "/packets", sizeof(xpath));
+
+	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
