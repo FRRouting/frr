@@ -7008,7 +7008,7 @@ DEFUN (no_ip_pim_keep_alive,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ip_pim_packets,
+DEFPY (ip_pim_packets,
        ip_pim_packets_cmd,
        "ip pim packets (1-255)",
        IP_STR
@@ -7016,15 +7016,7 @@ DEFUN (ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/packets", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_pim_packet_cmd(vty, packets_str);
 }
 
 DEFUN (no_ip_pim_packets,
@@ -7036,15 +7028,7 @@ DEFUN (no_ip_pim_packets,
        "packets to process at one time per fd\n"
        IGNORED_IN_NO_STR)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/packets", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_pim_packet_cmd(vty);
 }
 
 DEFPY (igmp_group_watermark,
