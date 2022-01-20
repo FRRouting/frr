@@ -3383,8 +3383,8 @@ ospf6_start_asbr_summary_delay_timer(struct ospf6 *ospf6,
 	}
 
 	if (IS_OSPF6_DEBUG_AGGR)
-		zlog_debug("%s: Start Aggregator delay timer %d(in seconds).",
-			__func__, ospf6->aggr_delay_interval);
+		zlog_debug("%s: Start Aggregator delay timer %u(in seconds).",
+			   __func__, ospf6->aggr_delay_interval);
 
 	ospf6->aggr_action = operation;
 	thread_add_timer(master,
@@ -3421,8 +3421,7 @@ int ospf6_asbr_external_rt_advertise(struct ospf6 *ospf6,
 	return OSPF6_SUCCESS;
 }
 
-int ospf6_external_aggr_delay_timer_set(struct ospf6 *ospf6,
-			unsigned int interval)
+int ospf6_external_aggr_delay_timer_set(struct ospf6 *ospf6, uint16_t interval)
 {
 	ospf6->aggr_delay_interval = interval;
 

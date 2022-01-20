@@ -230,7 +230,7 @@ struct ospf6 {
 
 #define OSPF6_EXTL_AGGR_DEFAULT_DELAY 5
 	/* For ASBR summary delay timer */
-	int aggr_delay_interval;
+	uint16_t aggr_delay_interval;
 	/* Table of configured Aggregate addresses */
 	struct route_table *rt_aggr_tbl;
 

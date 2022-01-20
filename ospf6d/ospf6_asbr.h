@@ -163,8 +163,7 @@ extern void ospf6_asbr_status_update(struct ospf6 *ospf6, int status);
 
 int ospf6_asbr_external_rt_advertise(struct ospf6 *ospf6,
 				     struct prefix *p);
-int ospf6_external_aggr_delay_timer_set(struct ospf6 *ospf6,
-					unsigned int interval);
+int ospf6_external_aggr_delay_timer_set(struct ospf6 *ospf6, uint16_t interval);
 int ospf6_asbr_external_rt_no_advertise(struct ospf6 *ospf6,
 						struct prefix *p);
 
