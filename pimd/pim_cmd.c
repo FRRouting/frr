@@ -7851,6 +7851,15 @@ DEFUN (interface_ip_igmp,
 				    "frr-routing:ipv4");
 }
 
+/*
+ * what is this?  VTY_CURR_XPATH is 1024 bytes( XPATH_MAXLEN )
+ * and the code in the following functions has a pattern where
+ * it is copying into a buffer of XPATH_MAXLEN with some additional
+ * extra string data.  Let's just make it obscenely big enough
+ * to cover and our compilers will let us be happy
+ */
+#define PIM_XPATH_EXTRA 2 * XPATH_MAXLEN
+
 DEFUN (interface_no_ip_igmp,
        interface_no_ip_igmp_cmd,
        "no ip igmp",
@@ -7859,7 +7868,7 @@ DEFUN (interface_no_ip_igmp,
        IFACE_IGMP_STR)
 {
 	const struct lyd_node *pim_enable_dnode;
-	char pim_if_xpath[XPATH_MAXLEN + 20];
+	char pim_if_xpath[PIM_XPATH_EXTRA];
 
 	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
 		 "%s/frr-pim:pim/address-family[address-family='%s']",
@@ -8406,7 +8415,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	      IFACE_PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[PIM_XPATH_EXTRA];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
@@ -8441,7 +8450,7 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	      IFACE_PIM_SM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[PIM_XPATH_EXTRA];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
@@ -8477,7 +8486,7 @@ DEFUN (interface_no_ip_pim,
        PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[PIM_XPATH_EXTRA];
 
 	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
 		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
