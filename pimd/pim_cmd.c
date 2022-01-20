@@ -7375,9 +7375,10 @@ DEFUN (no_ip_pim_rp,
 	int idx_rp = 4, idx_group = 5;
 	const char *group_str =
 		(argc == 6) ? argv[idx_group]->arg : "224.0.0.0/4";
-	char group_list_xpath[XPATH_MAXLEN + 32];
-	char group_xpath[XPATH_MAXLEN + 64];
+	char group_list_xpath[XPATH_MAXLEN];
+	char group_xpath[XPATH_MAXLEN];
 	char rp_xpath[XPATH_MAXLEN];
+	int printed;
 	const char *vrfname;
 	const struct lyd_node *group_dnode;
 
@@ -7389,11 +7390,24 @@ DEFUN (no_ip_pim_rp,
 		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4",
 		 argv[idx_rp]->arg);
 
-	snprintf(group_list_xpath, sizeof(group_list_xpath), "%s/group-list",
-		 rp_xpath);
 
-	snprintf(group_xpath, sizeof(group_xpath), "%s[.='%s']",
-		 group_list_xpath, group_str);
+	printed = snprintf(group_list_xpath, sizeof(group_list_xpath),
+			   "%s/group-list", rp_xpath);
+
+	if (printed >= (int)(sizeof(group_list_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	printed = snprintf(group_xpath, sizeof(group_xpath), "%s[.='%s']",
+			   group_list_xpath, group_str);
+
+	if (printed >= (int)(sizeof(group_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	if (!yang_dnode_exists(vty->candidate_config->dnode, group_xpath)) {
 		vty_out(vty, "%% Unable to find specified RP\n");
@@ -7854,11 +7868,18 @@ DEFUN (interface_no_ip_igmp,
        IFACE_IGMP_STR)
 {
 	const struct lyd_node *pim_enable_dnode;
-	char pim_if_xpath[XPATH_MAXLEN + 20];
+	char pim_if_xpath[XPATH_MAXLEN];
 
-	snprintf(pim_if_xpath, sizeof(pim_if_xpath),
-		 "%s/frr-pim:pim/address-family[address-family='%s']",
-		 VTY_CURR_XPATH, "frr-routing:ipv4");
+	int printed =
+		snprintf(pim_if_xpath, sizeof(pim_if_xpath),
+			 "%s/frr-pim:pim/address-family[address-family='%s']",
+			 VTY_CURR_XPATH, "frr-routing:ipv4");
+
+	if (printed >= (int)(sizeof(pim_if_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
 
 	pim_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					   FRR_PIM_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -8404,11 +8425,19 @@ DEFUN_HIDDEN (interface_no_ip_pim_ssm,
 	      IFACE_PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[XPATH_MAXLEN];
 
-	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
-		 VTY_CURR_XPATH, "frr-routing:ipv4");
+	int printed =
+		snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+			 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+			 VTY_CURR_XPATH, "frr-routing:ipv4");
+
+	if (printed >= (int)(sizeof(igmp_if_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	igmp_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
 					    FRR_GMP_ENABLE_XPATH,
 					    VTY_CURR_XPATH,
@@ -8439,11 +8468,19 @@ DEFUN_HIDDEN (interface_no_ip_pim_sm,
 	      IFACE_PIM_SM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[XPATH_MAXLEN];
 
-	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
-		 VTY_CURR_XPATH, "frr-routing:ipv4");
+	int printed =
+		snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+			 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+			 VTY_CURR_XPATH, "frr-routing:ipv4");
+
+	if (printed >= (int)(sizeof(igmp_if_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
 				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
@@ -8475,11 +8512,19 @@ DEFUN (interface_no_ip_pim,
        PIM_STR)
 {
 	const struct lyd_node *igmp_enable_dnode;
-	char igmp_if_xpath[XPATH_MAXLEN + 20];
+	char igmp_if_xpath[XPATH_MAXLEN];
 
-	snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
-		 "%s/frr-gmp:gmp/address-family[address-family='%s']",
-		 VTY_CURR_XPATH, "frr-routing:ipv4");
+	int printed =
+		snprintf(igmp_if_xpath, sizeof(igmp_if_xpath),
+			 "%s/frr-gmp:gmp/address-family[address-family='%s']",
+			 VTY_CURR_XPATH, "frr-routing:ipv4");
+
+	if (printed >= (int)(sizeof(igmp_if_xpath))) {
+		vty_out(vty, "Xpath too long (%d > %u)", printed + 1,
+			XPATH_MAXLEN);
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	igmp_enable_dnode =
 		yang_dnode_getf(vty->candidate_config->dnode,
 				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
