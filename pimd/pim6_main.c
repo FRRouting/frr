@@ -183,8 +183,8 @@ int main(int argc, char **argv, char **envp)
 	/* TODO PIM6: next line is temporary since pim_cmd_init is disabled */
 	if_cmd_init(NULL);
 
-#if 0
 	pim_zebra_init();
+#if 0
 	pim_bfd_init();
 	pim_mlag_init();
 

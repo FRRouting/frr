@@ -55,6 +55,7 @@ struct zclient *zclient;
 
 
 /* Router-id update message from zebra. */
+__attribute__((unused))
 static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 {
 	struct prefix router_id;
@@ -64,6 +65,7 @@ static int pim_router_id_update_zebra(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+__attribute__((unused))
 static int pim_zebra_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 {
 	struct interface *ifp;
@@ -112,7 +114,6 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	struct connected *c;
 	struct prefix *p;
 	struct pim_interface *pim_ifp;
-	struct pim_instance *pim;
 
 	/*
 	  zebra api notifies address adds/dels events by using the same call
@@ -141,6 +142,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 #endif
 	}
 
+#if PIM_IPV == 4
 	if (p->family != PIM_AF)
 		SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
 	else if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
@@ -159,6 +161,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 
 	pim_if_addr_add(c);
 	if (pim_ifp) {
+		struct pim_instance *pim;
+
 		pim = pim_get_pim_instance(vrf_id);
 		pim_ifp->pim = pim;
 
@@ -174,7 +178,10 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 				pim_if_addr_add_all(ifp);
 		}
 	}
-
+#else /* PIM_IPV != 4 */
+	/* unused - for now */
+	(void)pim_ifp;
+#endif
 	return 0;
 }
 
@@ -183,11 +190,9 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 	struct connected *c;
 	struct prefix *p;
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
-	struct pim_instance *pim;
 
 	if (!vrf)
 		return 0;
-	pim = vrf->info;
 
 	/*
 	  zebra api notifies address adds/dels events by using the same call
@@ -202,24 +207,29 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	p = c->address;
-	if (p->family == AF_INET) {
-		if (PIM_DEBUG_ZEBRA) {
-			zlog_debug(
-				"%s: %s(%u) disconnected IP address %pFX flags %u %s",
-				__func__, c->ifp->name, vrf_id, p, c->flags,
-				CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
-					? "secondary"
-					: "primary");
 
+	if (PIM_DEBUG_ZEBRA) {
+		zlog_debug(
+			"%s: %s(%u) disconnected IP address %pFX flags %u %s",
+			__func__, c->ifp->name, vrf_id, p, c->flags,
+			CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)
+				? "secondary"
+				: "primary");
 #ifdef PIM_DEBUG_IFADDR_DUMP
-			dump_if_address(c->ifp);
+		dump_if_address(c->ifp);
 #endif
-		}
+	}
 
+#if PIM_IPV == 4
+	if (p->family == AF_INET) {
+		struct pim_instance *pim;
+
+		pim = vrf->info;
 		pim_if_addr_del(c, 0);
 		pim_rp_setup(pim);
 		pim_i_am_rp_re_evaluate(pim);
 	}
+#endif
 
 	connected_free(&c);
 	return 0;
@@ -325,6 +335,7 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	pim_upstream_update_join_desired(pim, up);
 }
 
+__attribute__((unused))
 static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 {
 	struct stream *s;
@@ -354,6 +365,7 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+__attribute__((unused))
 static void pim_zebra_vxlan_replay(void)
 {
 	struct stream *s = NULL;
@@ -422,13 +434,17 @@ void sched_rpf_cache_refresh(struct pim_instance *pim)
 
 static void pim_zebra_connected(struct zclient *zclient)
 {
+#if PIM_IPV == 4
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, router->vrf_id);
+#endif
 
 	zclient_send_reg_requests(zclient, router->vrf_id);
 
+#if PIM_IPV == 4
 	/* request for VxLAN BUM group addresses */
 	pim_zebra_vxlan_replay();
+#endif
 }
 
 static void pim_zebra_capabilities(struct zclient_capabilities *cap)
@@ -437,9 +453,10 @@ static void pim_zebra_capabilities(struct zclient_capabilities *cap)
 }
 
 static zclient_handler *const pim_handlers[] = {
-	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = pim_zebra_if_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = pim_zebra_if_address_del,
+#if PIM_IPV == 4
+	[ZEBRA_ROUTER_ID_UPDATE] = pim_router_id_update_zebra,
 	[ZEBRA_INTERFACE_VRF_UPDATE] = pim_zebra_interface_vrf_update,
 	[ZEBRA_NEXTHOP_UPDATE] = pim_parse_nexthop_update,
 
@@ -449,6 +466,7 @@ static zclient_handler *const pim_handlers[] = {
 	[ZEBRA_MLAG_PROCESS_UP] = pim_zebra_mlag_process_up,
 	[ZEBRA_MLAG_PROCESS_DOWN] = pim_zebra_mlag_process_down,
 	[ZEBRA_MLAG_FORWARD_MSG] = pim_zebra_mlag_handle_msg,
+#endif
 };
 
 void pim_zebra_init(void)
