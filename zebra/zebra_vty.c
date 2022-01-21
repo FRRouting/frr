@@ -3970,6 +3970,15 @@ DEFUN (show_zebra,
 {
 	struct vrf *vrf;
 
+#ifdef GNU_LINUX
+	if (!vrf_is_backend_netns())
+		vty_out(vty, "VRF devices are available for usage\n");
+	else
+		vty_out(vty, "Namespaces are being used as VRF devices\n");
+#else
+	vty_out(vty, "No VRF's available on this platform\n");
+#endif
+
 	if (zrouter.asic_offloaded)
 		vty_out(vty, "Asic Offload is being used\n");
 	else
