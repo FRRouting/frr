@@ -29,7 +29,9 @@
 #include "vrf.h"
 #include "zclient.h"
 #include "nexthop_group.h"
+#include "linklist.h"
 #include "link_state.h"
+#include "cspf.h"
 
 #include "sharpd/sharp_globals.h"
 #include "sharpd/sharp_zebra.h"
@@ -1156,6 +1158,106 @@ DEFPY (show_sharp_segment_routing_srv6,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_sharp_cspf,
+       show_sharp_cspf_cmd,
+       "show sharp cspf source <A.B.C.D$src4|X:X::X:X$src6> \
+        destination <A.B.C.D$dst4|X:X::X:X$dst6> \
+        <metric|te-metric|delay> (0-16777215)$cost \
+        [rsv-bw (0-7)$cos BANDWIDTH$bw]",
+       SHOW_STR
+       SHARP_STR
+       "Constraint Shortest Path First path computation\n"
+       "Source of the path\n"
+       "IPv4 Source address in dot decimal A.B.C.D\n"
+       "IPv6 Source address as X:X:X:X\n"
+       "Destination of the path\n"
+       "IPv4 Destination address in dot decimal A.B.C.D\n"
+       "IPv6 Destination address as X:X:X:X\n"
+       "Maximum Metric\n"
+       "Maximum TE Metric\n"
+       "Maxim Delay\n"
+       "Value of Maximum cost\n"
+       "Reserved Bandwidth of this path\n"
+       "Class of Service or Priority level\n"
+       "Bytes/second (IEEE floating point format)\n")
+{
+
+	struct cspf *algo;
+	struct constraints csts;
+	struct c_path *path;
+	struct listnode *node;
+	struct ls_edge *edge;
+	int idx;
+
+	if (sg.ted == NULL) {
+		vty_out(vty, "MPLS-TE import is not enabled\n");
+		return CMD_WARNING;
+	}
+
+	if ((src4.s_addr != INADDR_ANY && dst4.s_addr == INADDR_ANY) ||
+	    (src4.s_addr == INADDR_ANY && dst4.s_addr != INADDR_ANY)) {
+		vty_out(vty, "Don't mix IPv4 and IPv6 addresses\n");
+		return CMD_WARNING;
+	}
+
+	idx = 6;
+	memset(&csts, 0, sizeof(struct constraints));
+	if (argv_find(argv, argc, "metric", &idx)) {
+		csts.ctype = CSPF_METRIC;
+		csts.cost = cost;
+	}
+	idx = 6;
+	if (argv_find(argv, argc, "te-metric", &idx)) {
+		csts.ctype = CSPF_TE_METRIC;
+		csts.cost = cost;
+	}
+	idx = 6;
+	if (argv_find(argv, argc, "delay", &idx)) {
+		csts.ctype = CSPF_DELAY;
+		csts.cost = cost;
+	}
+	if (argc > 9) {
+		if (sscanf(bw, "%g", &csts.bw) != 1) {
+			vty_out(vty, "Bandwidth constraints: fscanf: %s\n",
+				safe_strerror(errno));
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		csts.cos = cos;
+	}
+
+	/* Initialize and call point-to-point Path computation */
+	if (src4.s_addr != INADDR_ANY)
+		algo = cspf_init_v4(NULL, sg.ted, src4, dst4, &csts);
+	else
+		algo = cspf_init_v6(NULL, sg.ted, src6, dst6, &csts);
+	path = compute_p2p_path(algo, sg.ted);
+	cspf_del(algo);
+
+	if (!path) {
+		vty_out(vty, "Path computation failed without error\n");
+		return CMD_SUCCESS;
+	}
+	if (path->status != SUCCESS) {
+		vty_out(vty, "Path computation failed: %d\n", path->status);
+		return CMD_SUCCESS;
+	}
+
+	vty_out(vty, "Path computation success\n");
+	vty_out(vty, "\tCost: %d\n", path->weight);
+	vty_out(vty, "\tEdges:");
+	for (ALL_LIST_ELEMENTS_RO(path->edges, node, edge)) {
+		if (src4.s_addr != INADDR_ANY)
+			vty_out(vty, " %pI4",
+				&edge->attributes->standard.remote);
+		else
+			vty_out(vty, " %pI6",
+				&edge->attributes->standard.remote6);
+	}
+	vty_out(vty, "\n");
+
+	return CMD_SUCCESS;
+}
+
 void sharp_vty_init(void)
 {
 	install_element(ENABLE_NODE, &install_routes_data_dump_cmd);
@@ -1181,6 +1283,7 @@ void sharp_vty_init(void)
 
 	install_element(ENABLE_NODE, &show_debugging_sharpd_cmd);
 	install_element(ENABLE_NODE, &show_sharp_ted_cmd);
+	install_element(ENABLE_NODE, &show_sharp_cspf_cmd);
 
 	install_element(ENABLE_NODE, &sharp_srv6_manager_get_locator_chunk_cmd);
 	install_element(ENABLE_NODE,
