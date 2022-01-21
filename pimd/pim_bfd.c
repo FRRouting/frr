@@ -94,7 +94,7 @@ void pim_bfd_info_nbr_create(struct pim_interface *pim_ifp,
 	bfd_sess_set_timers(
 		neigh->bfd_session, pim_ifp->bfd_config.detection_multiplier,
 		pim_ifp->bfd_config.min_rx, pim_ifp->bfd_config.min_tx);
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 	bfd_sess_set_ipv4_addrs(neigh->bfd_session, NULL, &neigh->source_addr);
 #else
 	bfd_sess_set_ipv6_addrs(neigh->bfd_session, NULL, &neigh->source_addr);

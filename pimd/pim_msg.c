@@ -138,7 +138,7 @@ uint8_t *pim_msg_addr_encode_ipv6_group(uint8_t *buf, struct in6_addr addr)
 	return buf;
 }
 
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 #define pim_msg_addr_encode(what) pim_msg_addr_encode_ipv4_##what
 #else
 #define pim_msg_addr_encode(what) pim_msg_addr_encode_ipv6_##what

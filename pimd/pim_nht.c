@@ -361,7 +361,7 @@ bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
 		pim_addr nhaddr;
 
 		switch (nh->type) {
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 		case NEXTHOP_TYPE_IPV4:
 			if (nh->ifindex == IFINDEX_INTERNAL)
 				continue;
@@ -605,7 +605,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 		ifps[i] =
 			if_lookup_by_index(nh_node->ifindex, pim->vrf->vrf_id);
 		if (ifps[i]) {
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 			pim_addr nhaddr = nh_node->gate.ipv4;
 #else
 			pim_addr nhaddr = nh_node->gate.ipv6;
@@ -799,7 +799,7 @@ int pim_parse_nexthop_update(ZAPI_CALLBACK_ARGS)
 					nbr = pim_neighbor_find_if(ifp1);
 				/* Overwrite with Nbr address as NH addr */
 				if (nbr)
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 					nexthop->gate.ipv4 = nbr->source_addr;
 #else
 					nexthop->gate.ipv6 = nbr->source_addr;

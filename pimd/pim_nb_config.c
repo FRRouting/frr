@@ -2030,7 +2030,7 @@ int lib_interface_pim_address_family_use_source_modify(
 		break;
 	case NB_EV_APPLY:
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 		yang_dnode_get_ipv4(&source_addr, args->dnode, NULL);
 #else
 		yang_dnode_get_ipv6(&source_addr, args->dnode, NULL);
