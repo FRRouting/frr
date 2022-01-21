@@ -632,45 +632,66 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 
 	radvert = (struct nd_router_advert *)msg;
 
-	if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit)
-	    && (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit)) {
+#define SIXHOUR2USEC (int64_t)6 * 60 * 60 * 1000000
+
+	if ((radvert->nd_ra_curhoplimit && zif->rtadv.AdvCurHopLimit) &&
+	    (radvert->nd_ra_curhoplimit != zif->rtadv.AdvCurHopLimit) &&
+	    (monotime_since(&zif->rtadv.lastadvcurhoplimit, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvcurhoplimit.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvCurHopLimit doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvcurhoplimit);
 	}
 
-	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED)
-	    && !zif->rtadv.AdvManagedFlag) {
+	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_MANAGED) &&
+	    !zif->rtadv.AdvManagedFlag &&
+	    (monotime_since(&zif->rtadv.lastadvmanagedflag, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvmanagedflag.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvManagedFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvmanagedflag);
 	}
 
-	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER)
-	    && !zif->rtadv.AdvOtherConfigFlag) {
+	if ((radvert->nd_ra_flags_reserved & ND_RA_FLAG_OTHER) &&
+	    !zif->rtadv.AdvOtherConfigFlag &&
+	    (monotime_since(&zif->rtadv.lastadvotherconfigflag, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvotherconfigflag.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvOtherConfigFlag doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvotherconfigflag);
 	}
 
-	if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime)
-	    && (ntohl(radvert->nd_ra_reachable)
-		!= zif->rtadv.AdvReachableTime)) {
+	if ((radvert->nd_ra_reachable && zif->rtadv.AdvReachableTime) &&
+	    (ntohl(radvert->nd_ra_reachable) != zif->rtadv.AdvReachableTime) &&
+	    (monotime_since(&zif->rtadv.lastadvreachabletime, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvreachabletime.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvReachableTime doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvreachabletime);
 	}
 
-	if ((ntohl(radvert->nd_ra_retransmit)
-	     != (unsigned int)zif->rtadv.AdvRetransTimer)) {
+	if ((ntohl(radvert->nd_ra_retransmit) !=
+	     (unsigned int)zif->rtadv.AdvRetransTimer) &&
+	    (monotime_since(&zif->rtadv.lastadvretranstimer, NULL) >
+		     SIXHOUR2USEC ||
+	     zif->rtadv.lastadvretranstimer.tv_sec == 0)) {
 		flog_warn(
 			EC_ZEBRA_RA_PARAM_MISMATCH,
 			"%s(%u): Rx RA - our AdvRetransTimer doesn't agree with %s",
 			ifp->name, ifp->ifindex, addr_str);
+		monotime(&zif->rtadv.lastadvretranstimer);
 	}
 
 	/* Create entry for neighbor if not known. */
