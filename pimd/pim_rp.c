@@ -1366,7 +1366,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 			if (nbr->interface != ifp1)
 				continue;
 
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 			nh_node->gate.ipv4 = nbr->source_addr;
 #else
 			nh_node->gate.ipv6 = nbr->source_addr;
