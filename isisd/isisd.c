@@ -3069,12 +3069,27 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
 {
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+#endif /* ifndef FABRICD */
+
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
 		if (!(level & levels))
 			continue;
 		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 			isis_spf_invalidate_routes(
 					area->spftree[tree][level - 1]);
+
+#ifndef FABRICD
+			for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos,
+						  node, fa)) {
+				data = fa->data;
+				isis_spf_invalidate_routes(
+					data->spftree[tree][level - 1]);
+			}
+#endif /* ifndef FABRICD */
 		}
 	}
 }
@@ -3106,6 +3121,12 @@ void isis_area_switchover_routes(struct isis_area *area, int family,
 
 static void area_resign_level(struct isis_area *area, int level)
 {
+#ifndef FABRICD
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+#endif /* ifndef FABRICD */
+
 	isis_area_invalidate_routes(area, level);
 	isis_area_verify_routes(area);
 
@@ -3117,6 +3138,20 @@ static void area_resign_level(struct isis_area *area, int level)
 			area->spftree[tree][level - 1] = NULL;
 		}
 	}
+
+#ifndef FABRICD
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			data = fa->data;
+			if (data->spftree[level - 1]) {
+				isis_spftree_del(
+					data->spftree[tree][level - 1]);
+				data->spftree[tree][level - 1] = NULL;
+			}
+		}
+	}
+#endif /* ifndef FABRICD */
 
 	if (area->spf_timer[level - 1])
 		isis_spf_timer_free(EVENT_ARG(area->spf_timer[level - 1]));

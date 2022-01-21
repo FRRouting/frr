@@ -237,4 +237,100 @@ bool sr_algorithm_participated(const struct isis_lsp *lsp, uint8_t algorithm)
 	return false;
 }
 
+bool isis_flex_algo_constraint_drop(struct isis_spftree *spftree,
+				    struct isis_lsp *lsp,
+				    struct isis_extended_reach *reach)
+{
+	bool ret;
+	struct isis_ext_subtlvs *subtlvs = reach->subtlvs;
+	uint8_t lspid_orig[ISIS_SYS_ID_LEN + 2];
+	uint8_t lspid_neigh[ISIS_SYS_ID_LEN + 2];
+	struct isis_router_cap_fad *fad;
+	struct isis_asla_subtlvs *asla;
+	struct listnode *node;
+	uint32_t *link_admin_group = NULL;
+	uint32_t link_ext_admin_group_bitmap0;
+	struct admin_group *link_ext_admin_group = NULL;
+
+	fad = isis_flex_algo_elected_supported(spftree->algorithm,
+					       spftree->area);
+	if (!fad)
+		return true;
+
+	for (ALL_LIST_ELEMENTS_RO(subtlvs->aslas, node, asla)) {
+		if (!CHECK_FLAG(asla->standard_apps, ISIS_SABM_FLAG_X))
+			continue;
+		if (asla->legacy) {
+			if (IS_SUBTLV(subtlvs, EXT_ADM_GRP))
+				link_admin_group = &subtlvs->adm_group;
+
+			if (IS_SUBTLV(subtlvs, EXT_EXTEND_ADM_GRP) &&
+			    admin_group_nb_words(&subtlvs->ext_admin_group) !=
+				    0)
+				link_ext_admin_group =
+					&subtlvs->ext_admin_group;
+		} else {
+			if (IS_SUBTLV(asla, EXT_ADM_GRP))
+				link_admin_group = &asla->admin_group;
+			if (IS_SUBTLV(asla, EXT_EXTEND_ADM_GRP) &&
+			    admin_group_nb_words(&asla->ext_admin_group) != 0)
+				link_ext_admin_group = &asla->ext_admin_group;
+		}
+		break;
+	}
+
+	/* RFC7308 section 2.3.1
+	 * A receiving node that notices that the AG differs from the first 32
+	 * bits of the EAG SHOULD report this mismatch to the operator.
+	 */
+	if (link_admin_group && link_ext_admin_group) {
+		link_ext_admin_group_bitmap0 =
+			admin_group_get_offset(link_ext_admin_group, 0);
+		if (*link_admin_group != link_ext_admin_group_bitmap0) {
+			memcpy(lspid_orig, lsp->hdr.lsp_id,
+			       ISIS_SYS_ID_LEN + 2);
+			memcpy(lspid_neigh, reach->id, ISIS_SYS_ID_LEN + 2);
+			zlog_warn(
+				"ISIS-SPF: LSP from %pLS neighbor %pLS. Admin-group 0x%08x differs from ext admin-group 0x%08x.",
+				lspid_orig, lspid_neigh, *link_admin_group,
+				link_ext_admin_group_bitmap0);
+		}
+	}
+
+	/*
+	 * Exclude Any
+	 */
+	if (!admin_group_zero(&fad->fad.admin_group_exclude_any)) {
+		ret = admin_group_match_any(&fad->fad.admin_group_exclude_any,
+					    link_admin_group,
+					    link_ext_admin_group);
+		if (ret)
+			return true;
+	}
+
+	/*
+	 * Include Any
+	 */
+	if (!admin_group_zero(&fad->fad.admin_group_include_any)) {
+		ret = admin_group_match_any(&fad->fad.admin_group_include_any,
+					    link_admin_group,
+					    link_ext_admin_group);
+		if (!ret)
+			return true;
+	}
+
+	/*
+	 * Include All
+	 */
+	if (!admin_group_zero(&fad->fad.admin_group_include_all)) {
+		ret = admin_group_match_all(&fad->fad.admin_group_include_all,
+					    link_admin_group,
+					    link_ext_admin_group);
+		if (!ret)
+			return true;
+	}
+
+	return false;
+}
+
 #endif /* ifndef FABRICD */
