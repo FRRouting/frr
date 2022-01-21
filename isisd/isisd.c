@@ -3077,11 +3077,22 @@ int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 void isis_area_invalidate_routes(struct isis_area *area, int levels)
 {
 	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
+		struct flex_algo *fa;
+		struct listnode *node;
+		struct isis_flex_algo_data *data;
+
 		if (!(level & levels))
 			continue;
 		for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
 			isis_spf_invalidate_routes(
 					area->spftree[tree][level - 1]);
+
+			for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos,
+						  node, fa)) {
+				data = fa->data;
+				isis_spf_invalidate_routes(
+					data->spftree[tree][level - 1]);
+			}
 		}
 	}
 }
@@ -3103,6 +3114,22 @@ static void area_resign_level(struct isis_area *area, int level)
 		if (area->spftree[tree][level - 1]) {
 			isis_spftree_del(area->spftree[tree][level - 1]);
 			area->spftree[tree][level - 1] = NULL;
+		}
+	}
+
+	struct flex_algo *fa;
+	struct listnode *node;
+	struct isis_flex_algo_data *data;
+
+	for (int tree = SPFTREE_IPV4; tree < SPFTREE_COUNT; tree++) {
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			data = fa->data;
+			if (data->spftree[level - 1]) {
+				isis_spftree_del(
+					data->spftree[tree][level - 1]);
+				data->spftree[tree][level - 1] = NULL;
+			}
 		}
 	}
 

@@ -56,6 +56,7 @@
 #include "isis_csm.h"
 #include "isis_mt.h"
 #include "isis_tlvs.h"
+#include "isis_flex_algo.h"
 #include "isis_zebra.h"
 #include "fabricd.h"
 #include "isis_spf_private.h"
@@ -611,6 +612,15 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 			if (vertex->N.ip.sr.label != MPLS_INVALID_LABEL)
 				vertex->N.ip.sr.present = true;
 
+			if (is_flex_algo(spftree->algorithm)) {
+				if (!isis_flex_algo_elected(spftree->algorithm,
+							    spftree->area)) {
+					vertex->N.ip.sr.present = false;
+					vertex->N.ip.sr.label =
+						MPLS_INVALID_LABEL;
+				}
+			}
+
 			(void)hash_get(spftree->prefix_sids, vertex,
 				       hash_alloc_intern);
 		}
@@ -912,6 +922,16 @@ lspfragloop:
 				    && !memcmp(er->id, null_sysid,
 					       ISIS_SYS_ID_LEN))
 					continue;
+
+				if (is_flex_algo(spftree->algorithm)) {
+					if (!sr_algorithm_participated(
+						    lsp, spftree->algorithm))
+						continue;
+					if (isis_flex_algo_constraint_drop(
+						    spftree, er->subtlvs))
+						continue;
+				}
+
 				dist = cost
 				       + (CHECK_FLAG(spftree->flags,
 						     F_SPFTREE_HOPCOUNT_METRIC)
@@ -989,8 +1009,18 @@ lspfragloop:
 						(struct isis_prefix_sid *)i;
 
 					if (psid->algorithm !=
-					    spftree->algorithm) {
+					    spftree->algorithm)
 						continue;
+
+					if (is_flex_algo(spftree->algorithm)) {
+						if (!sr_algorithm_participated(
+							    lsp,
+							    spftree->algorithm))
+							continue;
+						if (!isis_flex_algo_elected(
+							    spftree->algorithm,
+							    spftree->area))
+							continue;
 					}
 
 					has_valid_psid = true;
@@ -1058,8 +1088,20 @@ lspfragloop:
 					struct isis_prefix_sid *psid =
 						(struct isis_prefix_sid *)i;
 
-					if (psid->algorithm != SR_ALGORITHM_SPF)
+					if (psid->algorithm !=
+					    spftree->algorithm)
 						continue;
+
+					if (is_flex_algo(spftree->algorithm)) {
+						if (!sr_algorithm_participated(
+							    lsp,
+							    spftree->algorithm))
+							continue;
+						if (!isis_flex_algo_elected(
+							    spftree->algorithm,
+							    spftree->area))
+							continue;
+					}
 
 					has_valid_psid = true;
 					process_N(spftree, vtype, &ip_info,
@@ -1444,6 +1486,16 @@ static void spf_adj_list_parse_lsp(struct isis_spftree *spftree,
 			for (struct isis_extended_reach *reach =
 				     (struct isis_extended_reach *)head;
 			     reach; reach = reach->next) {
+
+				/*
+				 * cutting out adjacency by flex-algo link
+				 * affinity attribute
+				 */
+				if (is_flex_algo(spftree->algorithm))
+					if (isis_flex_algo_constraint_drop(
+						    spftree, reach->subtlvs))
+						continue;
+
 				spf_adj_list_parse_tlv(
 					spftree, adj_list, reach->id,
 					pseudo_nodeid, pseudo_metric,
@@ -1871,6 +1923,10 @@ static void isis_run_spf_cb(struct thread *thread)
 	struct isis_area *area = run->area;
 	int level = run->level;
 	int have_run = 0;
+	struct listnode *node;
+	struct isis_circuit *circuit;
+	struct flex_algo *fa;
+	struct isis_flex_algo_data *data;
 
 	XFREE(MTYPE_ISIS_SPF_RUN, run);
 
@@ -1891,11 +1947,23 @@ static void isis_run_spf_cb(struct thread *thread)
 	if (area->ip_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV4][level - 1]);
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			data = fa->data;
+			isis_run_spf_with_protection(
+				area, data->spftree[SPFTREE_IPV4][level - 1]);
+		}
 		have_run = 1;
 	}
 	if (area->ipv6_circuits) {
 		isis_run_spf_with_protection(
 			area, area->spftree[SPFTREE_IPV6][level - 1]);
+		for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node,
+					  fa)) {
+			data = fa->data;
+			isis_run_spf_with_protection(
+				area, data->spftree[SPFTREE_IPV6][level - 1]);
+		}
 		have_run = 1;
 	}
 	if (area->ipv6_circuits && isis_area_ipv6_dstsrc_enabled(area)) {
@@ -1910,8 +1978,6 @@ static void isis_run_spf_cb(struct thread *thread)
 	isis_area_verify_routes(area);
 
 	/* walk all circuits and reset any spf specific flags */
-	struct listnode *node;
-	struct isis_circuit *circuit;
 	for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
 		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
 
