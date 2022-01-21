@@ -3972,6 +3972,8 @@ DEFUN (show_zebra,
 
 	if (zrouter.asic_offloaded)
 		vty_out(vty, "Asic Offload is being used\n");
+	else
+		vty_out(vty, "Asic offload is not being used\n");
 
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
