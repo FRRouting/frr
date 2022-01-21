@@ -81,6 +81,7 @@ struct rtadvconf {
 
 	   Default: false */
 	int AdvManagedFlag;
+	struct timeval lastadvmanagedflag;
 
 
 	/* The true/false value to be placed in the "Other stateful
@@ -89,6 +90,7 @@ struct rtadvconf {
 
 	   Default: false */
 	int AdvOtherConfigFlag;
+	struct timeval lastadvotherconfigflag;
 
 	/* The value to be placed in MTU options sent by the router.  A
 	   value of zero indicates that no MTU options are sent.
@@ -105,6 +107,7 @@ struct rtadvconf {
 	   Default: 0 */
 	uint32_t AdvReachableTime;
 #define RTADV_MAX_REACHABLE_TIME 3600000
+	struct timeval lastadvreachabletime;
 
 	/* The value to be placed in the Retrans Timer field in the Router
 	   Advertisement messages sent by the router.  The value zero means
@@ -112,6 +115,7 @@ struct rtadvconf {
 
 	   Default: 0 */
 	int AdvRetransTimer;
+	struct timeval lastadvretranstimer;
 
 	/* The default value to be placed in the Cur Hop Limit field in the
 	   Router Advertisement messages sent by the router.  The value
@@ -121,6 +125,8 @@ struct rtadvconf {
 	   Default: The value specified in the "Assigned Numbers" RFC
 	   [ASSIGNED] that was in effect at the time of implementation. */
 	int AdvCurHopLimit;
+	struct timeval lastadvcurhoplimit;
+
 #define RTADV_DEFAULT_HOPLIMIT 64 /* 64 hops */
 
 	/* The value to be placed in the Router Lifetime field of Router
