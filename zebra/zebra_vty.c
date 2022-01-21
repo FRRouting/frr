@@ -3970,6 +3970,11 @@ DEFUN (show_zebra,
 {
 	struct vrf *vrf;
 
+	vty_out(vty, "ip forwarding is %sturned on\n",
+		ipforward() ? "" : "not ");
+	vty_out(vty, "ipv6 fowarding is %sturned on\n",
+		ipforward_ipv6() ? "" : "not ");
+
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
 		vty_out(vty, "VRF devices are available for usage\n");
