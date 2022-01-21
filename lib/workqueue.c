@@ -135,10 +135,11 @@ static int work_queue_schedule(struct work_queue *wq, unsigned int delay)
 		/* Schedule timer if there's a delay, otherwise just schedule
 		 * as an 'event'
 		 */
-		if (delay > 0)
+		if (delay > 0) {
 			thread_add_timer_msec(wq->master, work_queue_run, wq,
 					      delay, &wq->thread);
-		else
+			thread_ignore_late_timer(wq->thread);
+		} else
 			thread_add_event(wq->master, work_queue_run, wq, 0,
 					 &wq->thread);
 

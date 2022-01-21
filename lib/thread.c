@@ -787,6 +787,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	thread->arg = arg;
 	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
 	thread->ref = NULL;
+	thread->ignore_timer_late = false;
 
 	/*
 	 * So if the passed in funcname is not what we have
@@ -1651,12 +1652,31 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 static unsigned int thread_process_timers(struct thread_master *m,
 					  struct timeval *timenow)
 {
+	struct timeval prev = *timenow;
+	bool displayed = false;
 	struct thread *thread;
 	unsigned int ready = 0;
 
 	while ((thread = thread_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			break;
+		prev = thread->u.sands;
+		prev.tv_sec += 4;
+		/*
+		 * If the timer would have popped 4 seconds in the
+		 * past then we are in a situation where we are
+		 * really getting behind on handling of events.
+		 * Let's log it and do the right thing with it.
+		 */
+		if (!displayed && !thread->ignore_timer_late &&
+		    timercmp(timenow, &prev, >)) {
+			flog_warn(
+				EC_LIB_STARVE_THREAD,
+				"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
+				thread);
+			displayed = true;
+		}
+
 		thread_timer_list_pop(&m->timer);
 		thread->type = THREAD_READY;
 		thread_list_add_tail(&m->ready, thread);
