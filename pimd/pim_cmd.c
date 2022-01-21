@@ -11239,6 +11239,10 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_pim_events_cmd);
 	install_element(CONFIG_NODE, &debug_pim_packets_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_packets_cmd);
+	install_element(CONFIG_NODE, &debug_pim_packetdump_send_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_packetdump_send_cmd);
+	install_element(CONFIG_NODE, &debug_pim_packetdump_recv_cmd);
+	install_element(CONFIG_NODE, &no_debug_pim_packetdump_recv_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_trace_cmd);
 	install_element(CONFIG_NODE, &debug_pim_trace_detail_cmd);
