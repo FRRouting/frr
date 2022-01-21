@@ -581,12 +581,8 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			  int buf_size, ifindex_t ifindex)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 	const struct ip *ip_hdr;
 	const struct igmpmsg *msg;
-	struct in_addr ifaddr;
-	struct gm_sock *igmp;
-	const struct prefix *connected_src;
 
 	if (buf_size < (int)sizeof(struct ip))
 		return 0;
@@ -594,6 +590,11 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	ip_hdr = (const struct ip *)buf;
 
 	if (ip_hdr->ip_p == IPPROTO_IGMP) {
+#if PIM_IPV == 4
+		struct pim_interface *pim_ifp;
+		struct in_addr ifaddr;
+		struct gm_sock *igmp;
+		const struct prefix *connected_src;
 
 		/* We have the IP packet but we do not know which interface this
 		 * packet was
@@ -633,6 +634,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			zlog_debug("No IGMP socket on interface: %s with connected source: %pFX",
 				   ifp->name, connected_src);
 		}
+#endif
 	} else if (ip_hdr->ip_p) {
 		if (PIM_DEBUG_MROUTE_DETAIL) {
 			zlog_debug(
