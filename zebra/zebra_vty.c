@@ -3975,6 +3975,8 @@ DEFUN (show_zebra,
 	vty_out(vty, "ipv6 fowarding is %sturned on\n",
 		ipforward_ipv6() ? "" : "not ");
 
+	vty_out(vty, "MPLS is %senabled\n", mpls_enabled ? "" : "not ");
+
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
 		vty_out(vty, "VRF devices are available for usage\n");
