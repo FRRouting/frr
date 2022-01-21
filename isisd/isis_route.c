@@ -49,6 +49,7 @@
 #include "isis_spf_private.h"
 #include "isis_route.h"
 #include "isis_zebra.h"
+#include "isis_flex_algo.h"
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_NEXTHOP,    "ISIS nexthop");
 DEFINE_MTYPE_STATIC(ISISD, ISIS_ROUTE_INFO, "ISIS route info");
@@ -720,7 +721,7 @@ static void _isis_route_verify_table(struct isis_area *area,
 		if (CHECK_FLAG(rinfo->flag, ISIS_ROUTE_FLAG_ACTIVE))
 			continue;
 
-		/* Area is either L1 or L2 => we use level route tables
+		/* In case the verify is not for a merge, we use a single table
 		 * directly for
 		 * validating => no problems with deleting routes. */
 		if (!tables) {
@@ -728,13 +729,12 @@ static void _isis_route_verify_table(struct isis_area *area,
 			continue;
 		}
 
-		/* If area is L1L2, we work with merge table and
-		 * therefore must
-		 * delete node from level tables as well before deleting
+		/* If we work on a merged table,
+		 * therefore we must
+		 * delete node from each table as well before deleting
 		 * route info. */
-		for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-			drnode = srcdest_rnode_lookup(tables[level - 1],
-						      dst_p, src_p);
+		for (int i = 0; tables[i]; i++) {
+			drnode = srcdest_rnode_lookup(tables[i], dst_p, src_p);
 			if (!drnode)
 				continue;
 
@@ -751,10 +751,34 @@ static void _isis_route_verify_table(struct isis_area *area,
 	}
 }
 
+static void _isis_route_verify_merge(struct isis_area *area,
+				     struct route_table **tables,
+				     struct route_table **tables_backup,
+				     int tree);
+
 void isis_route_verify_table(struct isis_area *area, struct route_table *table,
-			     struct route_table *table_backup)
+			     struct route_table *table_backup, int tree)
 {
-	_isis_route_verify_table(area, table, table_backup, NULL);
+	int tables_next = 1;
+	int level = area->is_type == IS_LEVEL_1 ? ISIS_LEVEL1 : ISIS_LEVEL2;
+	struct listnode *node;
+	struct flex_algo *fa;
+	struct route_table *tables[SR_ALGORITHM_COUNT] = {table};
+	struct route_table *tables_backup[SR_ALGORITHM_COUNT] = {table_backup};
+	struct isis_flex_algo_data *data;
+
+	for (ALL_LIST_ELEMENTS_RO(area->flex_algos->flex_algos, node, fa)) {
+		data = fa->data;
+		tables[tables_next] =
+			data->spftree[tree][level - 1]->route_table;
+		tables_backup[tables_next] =
+			data->spftree[tree][level - 1]->route_table_backup;
+		_isis_route_verify_table(area, tables[tables_next],
+					 tables_backup[tables_next], NULL);
+		tables_next++;
+	}
+
+	_isis_route_verify_merge(area, tables, tables_backup, tree);
 }
 
 /* Function to validate route tables for L1L2 areas. In this case we can't use
@@ -771,20 +795,27 @@ void isis_route_verify_merge(struct isis_area *area,
 			     struct route_table *level1_table,
 			     struct route_table *level1_table_backup,
 			     struct route_table *level2_table,
-			     struct route_table *level2_table_backup)
+			     struct route_table *level2_table_backup, int tree)
 {
-	struct route_table *tables[] = {level1_table, level2_table};
+	struct route_table *tables[] = {level1_table, level2_table, NULL};
 	struct route_table *tables_backup[] = {level1_table_backup,
-					       level2_table_backup};
+					       level2_table_backup, NULL};
+	_isis_route_verify_merge(area, tables, tables_backup, tree);
+}
+
+static void _isis_route_verify_merge(struct isis_area *area,
+				     struct route_table **tables,
+				     struct route_table **tables_backup,
+				     int tree)
+{
 	struct route_table *merge;
 	struct route_node *rnode, *mrnode;
 
 	merge = srcdest_table_init();
 
-	for (int level = ISIS_LEVEL1; level <= ISIS_LEVEL2; level++) {
-		uint8_t algorithm =
-			isis_route_table_algorithm(tables[level - 1]);
-		for (rnode = route_top(tables[level - 1]); rnode;
+	for (int i = 0; tables[i]; i++) {
+		uint8_t algorithm = isis_route_table_algorithm(tables[i]);
+		for (rnode = route_top(tables[i]); rnode;
 		     rnode = srcdest_route_next(rnode)) {
 			struct isis_route_info *rinfo = rnode->info;
 			struct route_node *rnode_bck;
@@ -800,8 +831,8 @@ void isis_route_verify_merge(struct isis_area *area,
 					       (const struct prefix **)&src_p);
 
 			/* Link primary route to backup route. */
-			rnode_bck = srcdest_rnode_lookup(
-				tables_backup[level - 1], prefix, src_p);
+			rnode_bck = srcdest_rnode_lookup(tables_backup[i],
+							 prefix, src_p);
 			if (rnode_bck) {
 				rinfo->backup = rnode_bck->info;
 				rinfo->sr_algo[algorithm].nexthops_backup =

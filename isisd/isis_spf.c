@@ -1884,19 +1884,20 @@ static void isis_run_spf_with_protection(struct isis_area *area,
 		isis_spf_run_lfa(area, spftree);
 }
 
-void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees)
+void isis_spf_verify_routes(struct isis_area *area, struct isis_spftree **trees,
+			    int tree)
 {
 	if (area->is_type == IS_LEVEL_1) {
 		isis_route_verify_table(area, trees[0]->route_table,
-					trees[0]->route_table_backup);
+					trees[0]->route_table_backup, tree);
 	} else if (area->is_type == IS_LEVEL_2) {
 		isis_route_verify_table(area, trees[1]->route_table,
-					trees[1]->route_table_backup);
+					trees[1]->route_table_backup, tree);
 	} else {
 		isis_route_verify_merge(area, trees[0]->route_table,
 					trees[0]->route_table_backup,
 					trees[1]->route_table,
-					trees[1]->route_table_backup);
+					trees[1]->route_table_backup, tree);
 	}
 }
 
