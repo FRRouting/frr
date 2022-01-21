@@ -1229,34 +1229,78 @@ void zebra_if_update_all_links(struct zebra_ns *zns)
 	}
 }
 
+static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
+				    uint32_t new_protodown_rc)
+{
+	struct zebra_if *zif;
+	bool old_down, old_set_down, old_unset_down;
+
+	zif = ifp->info;
+
+	/* Current state as we know it */
+	old_down = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+	old_set_down = !!(zif->flags & ZIF_FLAG_SET_PROTODOWN);
+	old_unset_down = !!(zif->flags & ZIF_FLAG_UNSET_PROTODOWN);
+
+	if (new_protodown_rc == zif->protodown_rc) {
+		/* Early return if already down & reason bitfield matches */
+		if (new_down == old_down) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Ignoring %s (%u): protodown %s already set reason: old 0x%x new 0x%x",
+					ifp->name, ifp->ifindex,
+					new_down ? "on" : "off",
+					zif->protodown_rc, new_protodown_rc);
+
+			return true;
+		}
+
+		/* Early return if already set queued & reason bitfield matches
+		 */
+		if (new_down && old_set_down) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Ignoring %s (%u): protodown %s queued to dplane already reason: old 0x%x new 0x%x",
+					ifp->name, ifp->ifindex,
+					new_down ? "on" : "off",
+					zif->protodown_rc, new_protodown_rc);
+
+			return true;
+		}
+
+		/* Early return if already unset queued & reason bitfield
+		 * matches */
+		if (!new_down && old_unset_down) {
+			if (IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"Ignoring %s (%u): protodown %s queued to dplane already reason: old 0x%x new 0x%x",
+					ifp->name, ifp->ifindex,
+					new_down ? "on" : "off",
+					zif->protodown_rc, new_protodown_rc);
+
+			return true;
+		}
+	}
+
+	return false;
+}
+
 int zebra_if_set_protodown(struct interface *ifp, bool new_down,
 			   enum protodown_reasons new_reason)
 {
 	struct zebra_if *zif;
-	bool old_down;
 	uint32_t new_protodown_rc;
 
 	zif = ifp->info;
-
-	old_down = !!(zif->flags & ZIF_FLAG_PROTODOWN);
 
 	if (new_down)
 		new_protodown_rc = zif->protodown_rc | new_reason;
 	else
 		new_protodown_rc = zif->protodown_rc & ~new_reason;
 
-	/* Early return if already set down & reason bitfield matches */
-	if ((new_down == old_down) && (new_protodown_rc == zif->protodown_rc)) {
-
-		if (IS_ZEBRA_DEBUG_KERNEL) {
-			zlog_debug(
-				"Ignoring %s (%u): protodown %s already set reason: old 0x%x new 0x%x",
-				ifp->name, ifp->ifindex,
-				new_down ? "on" : "off", zif->protodown_rc,
-				new_protodown_rc);
-			return 1;
-		}
-	}
+	/* Check if we already have this state or it's queued */
+	if (if_ignore_set_protodown(ifp, new_down, new_protodown_rc))
+		return 1;
 
 	zlog_info(
 		"Setting interface %s (%u): protodown %s reason: old 0x%x new 0x%x",
@@ -1264,6 +1308,11 @@ int zebra_if_set_protodown(struct interface *ifp, bool new_down,
 		zif->protodown_rc, new_protodown_rc);
 
 	zif->protodown_rc = new_protodown_rc;
+
+	if (new_down)
+		zif->flags |= ZIF_FLAG_SET_PROTODOWN;
+	else
+		zif->flags |= ZIF_FLAG_UNSET_PROTODOWN;
 
 #ifdef HAVE_NETLINK
 	// TODO: remove this as separate commit
@@ -1386,10 +1435,13 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 	}
 
 	/* Update our info */
-	if (down)
+	if (down) {
 		zif->flags |= ZIF_FLAG_PROTODOWN;
-	else
+		zif->flags &= ~ZIF_FLAG_SET_PROTODOWN;
+	} else {
 		zif->flags &= ~ZIF_FLAG_PROTODOWN;
+		zif->flags &= ~ZIF_FLAG_UNSET_PROTODOWN;
+	}
 }
 
 /*

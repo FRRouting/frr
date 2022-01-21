@@ -2694,6 +2694,7 @@ int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	struct zebra_ns *zns = NULL;
 	struct zebra_if *zif = NULL;
 	int ret = EINVAL;
+	bool set_pdown, unset_pdown;
 
 	if (!ctx || !ifp)
 		goto done;
@@ -2717,8 +2718,22 @@ int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	zif = (struct zebra_if *)ifp->info;
 
 	if (zif) {
+		set_pdown = !!(zif->flags & ZIF_FLAG_SET_PROTODOWN);
+		unset_pdown = !!(zif->flags & ZIF_FLAG_UNSET_PROTODOWN);
+
 		ctx->u.intf.r_bitfield = zif->protodown_rc;
-		ctx->u.intf.protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+
+		/*
+		 * See if we have new protodown state to set, otherwise keep
+		 * current state
+		 */
+		if (set_pdown)
+			ctx->u.intf.protodown = true;
+		else if (unset_pdown)
+			ctx->u.intf.protodown = false;
+		else
+			ctx->u.intf.protodown =
+				!!(zif->flags & ZIF_FLAG_PROTODOWN);
 	}
 
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_INTF_UPDATE));
