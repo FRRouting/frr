@@ -139,7 +139,7 @@ keyword. At present, no sharp commands will be preserved in the config.
 
 .. clicmd:: sharp import-te
 
-   Import Traffic Engineering Database produce by OSPF or IS-IS.
+   Import Traffic Engineering Database produced by OSPF or IS-IS.
 
 .. clicmd:: show sharp ted [verbose|json]
 
@@ -147,4 +147,12 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    Show imported Traffic Engineering Data Base
 
+.. clicmd:: show sharp cspf source <A.B.C.D|X:X:X:X> destination <A.B.C.D|X:X:X:X> <metric|te-metric|delay> (0-16777215) [rsv-bw (0-7) BANDWIDTH]
+
+   Show the result of a call to the Constraint Shortest Path First (CSPF)
+   algorithm that allows to compute a path between a source and a
+   destination under various constraints. Standard Metric, TE Metric, Delay
+   and Bandwidth are supported constraints. Prior to use this function, it is
+   necessary to import a Traffic Engineering Database with `sharp import-te`
+   command (see above).
 
