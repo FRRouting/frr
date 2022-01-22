@@ -3991,6 +3991,9 @@ DEFUN (show_zebra,
 	else
 		vty_out(vty, "Asic offload is not being used\n");
 
+	vty_out(vty, "Kernel %ssupport Nexthop Groups\n",
+		zrouter.supports_nhgs ? "does " : "does not ");
+
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
 	vty_out(vty,

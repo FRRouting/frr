@@ -3053,10 +3053,11 @@ int netlink_nexthop_read(struct zebra_ns *zns)
 		 * this kernel must support them.
 		 */
 		supports_nh = true;
-
 	if (IS_ZEBRA_DEBUG_KERNEL || IS_ZEBRA_DEBUG_NHG)
 		zlog_debug("Nexthop objects %ssupported on this kernel",
 			   supports_nh ? "" : "not ");
+
+	zebra_router_set_supports_nhgs(supports_nh);
 
 	return ret;
 }
