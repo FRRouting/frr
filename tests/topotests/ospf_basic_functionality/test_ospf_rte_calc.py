@@ -81,6 +81,8 @@ NETWORK = {
         "11.0.20.5/32",
     ]
 }
+
+NETWORK_APP_E = {"ipv4": ["12.0.0.0/24", "12.0.0.0/16", "12.0.0.0/8"]}
 TOPOOLOGY = """
       Please view in a fixed-width font such as Courier.
       +---+  A1       +---+
@@ -553,6 +555,154 @@ def test_ospf_redistribution_tc8_p1(request):
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
             tc_name, result
         )
+
+    write_test_footer(tc_name)
+
+
+def test_ospf_rfc2328_appendinxE_p0(request):
+    """
+    Test OSPF appendinx E RFC2328.
+
+    """
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+    global topo
+    step("Bring up the base config.")
+
+    reset_config_on_routers(tgen)
+
+    step("Verify that OSPF neighbours are Full.")
+    # Api call verify whether OSPF is converged
+    ospf_covergence = verify_ospf_neighbor(tgen, topo)
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
+
+    redistribute_ospf(tgen, topo, "r0", "static")
+
+    step("Configure static route with prefix 24, 16, 8 to check  ")
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK_APP_E["ipv4"][0],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK_APP_E["ipv4"][1],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK_APP_E["ipv4"][2],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Verify that ospf originates routes with mask 24, 16, 8")
+    ip_net = NETWORK_APP_E["ipv4"][0]
+    input_dict = {"r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1}]}}
+
+    dut = "r1"
+    result = verify_ospf_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    ip_net = NETWORK_APP_E["ipv4"][1]
+    input_dict = {"r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1}]}}
+
+    dut = "r1"
+    result = verify_ospf_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    ip_net = NETWORK_APP_E["ipv4"][2]
+    input_dict = {"r1": {"static_routes": [{"network": ip_net, "no_of_ip": 1}]}}
+
+    dut = "r1"
+    result = verify_ospf_rib(tgen, dut, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    protocol = "ospf"
+    result = verify_rib(tgen, "ipv4", dut, input_dict, protocol=protocol)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("Delete static route with prefix 24, 16, 8 to check  ")
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK_APP_E["ipv4"][0],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                    "delete": True,
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK_APP_E["ipv4"][1],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                    "delete": True,
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict = {
+        "r0": {
+            "static_routes": [
+                {
+                    "network": NETWORK_APP_E["ipv4"][2],
+                    "no_of_ip": 1,
+                    "next_hop": "Null0",
+                    "delete": True,
+                }
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
