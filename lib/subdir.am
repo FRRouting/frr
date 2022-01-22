@@ -28,6 +28,7 @@ lib_libfrr_la_SOURCES = \
 	lib/filter.c \
 	lib/filter_cli.c \
 	lib/filter_nb.c \
+	lib/flex_algo.c \
 	lib/frrcu.c \
 	lib/frrlua.c \
 	lib/frrscript.c \
@@ -200,6 +201,7 @@ pkginclude_HEADERS += \
 	lib/distribute.h \
 	lib/ferr.h \
 	lib/filter.h \
+	lib/flex_algo.h \
 	lib/freebsd-queue.h \
 	lib/frrlua.h \
 	lib/frrscript.h \
