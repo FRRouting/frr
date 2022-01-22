@@ -611,7 +611,7 @@ static struct ls_vertex *lsp_to_vertex(struct ls_ted *ted, struct isis_lsp *lsp)
 				lnode.srgb.flag = cap->srgb.flags;
 				lnode.srgb.lower_bound = cap->srgb.lower_bound;
 				lnode.srgb.range_size = cap->srgb.range_size;
-				for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
+				for (int i = 0; i < LIB_LS_SR_ALGO_COUNT; i++)
 					lnode.algo[i] = cap->algo[i];
 			}
 

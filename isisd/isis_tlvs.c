@@ -3552,9 +3552,8 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
 			if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
 				sbuf_push(buf, indent, "    %u: %s\n", i,
-					  router_cap->algo[i] == 0
-						  ? "SPF"
-						  : "Strict SPF");
+					  sr_algorithm_string(
+						  router_cap->algo[i]));
 	}
 
 	/* Segment Routing Node MSD as per RFC8491 section #2 */
@@ -3573,7 +3572,7 @@ static int pack_tlv_router_cap(const struct isis_router_cap *router_cap,
 {
 	size_t tlv_len = ISIS_ROUTER_CAP_SIZE;
 	size_t len_pos;
-	uint8_t nb_algo;
+	uint16_t nb_algo;
 
 	if (!router_cap)
 		return 0;
@@ -3757,13 +3756,9 @@ static int unpack_tlv_router_cap(enum isis_tlv_context context,
 			if (length == 0)
 				break;
 			/* Only 2 algorithms are supported: SPF & Strict SPF */
-			stream_get(&rcap->algo, s,
-				   length > SR_ALGORITHM_COUNT
-					   ? SR_ALGORITHM_COUNT
-					   : length);
-			if (length > SR_ALGORITHM_COUNT)
-				stream_forward_getp(
-					s, length - SR_ALGORITHM_COUNT);
+			stream_get(&rcap->algo, s, length > 2 ? 2 : length);
+			if (length > 2)
+				stream_forward_getp(s, length - 2);
 			break;
 		case ISIS_SUBTLV_SRLB:
 			/* Check that SRLB is correctly formated */
