@@ -3970,6 +3970,7 @@ DEFUN (show_zebra,
 {
 	struct vrf *vrf;
 
+	vty_out(vty, "OS: %s(%s)\n", cmd_system_get(), cmd_release_get());
 	vty_out(vty, "ip forwarding is %sturned on\n",
 		ipforward() ? "" : "not ");
 	vty_out(vty, "ipv6 fowarding is %sturned on\n",
