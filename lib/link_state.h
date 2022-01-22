@@ -92,6 +92,9 @@ struct ls_node_id {
  */
 extern int ls_node_id_same(struct ls_node_id i1, struct ls_node_id i2);
 
+/* Supported number of algorithm by the link-state library */
+#define LIB_LS_SR_ALGO_COUNT 2
+
 /* Link State flags to indicate which Node parameters are valid */
 #define LS_NODE_UNSET		0x0000
 #define LS_NODE_NAME		0x0001
@@ -123,7 +126,7 @@ struct ls_node {
 		uint32_t lower_bound;		/* MPLS label lower bound */
 		uint32_t range_size;		/* MPLS label range size */
 	} srlb;
-	uint8_t algo[2];		/* Segment Routing Algorithms */
+	uint8_t algo[LIB_LS_SR_ALGO_COUNT]; /* Segment Routing Algorithms */
 	uint8_t msd;			/* Maximum Stack Depth */
 };
 
