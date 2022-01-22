@@ -28,6 +28,8 @@
 #ifndef _FRR_OSPF_SR_H
 #define _FRR_OSPF_SR_H
 
+#include "segment_routing.h"
+
 /* macros and constants for segment routing */
 #define SET_RANGE_SIZE_MASK             0xffffff00
 #define GET_RANGE_SIZE_MASK             0x00ffffff
@@ -79,9 +81,6 @@ struct subtlv_sid_label {
 #define RI_SR_TLV_SR_ALGORITHM          8
 struct ri_sr_tlv_sr_algorithm {
 	struct tlv_header header;
-#define SR_ALGORITHM_SPF         0
-#define SR_ALGORITHM_STRICT_SPF  1
-#define SR_ALGORITHM_UNSET       255
 #define ALGORITHM_COUNT          4
 	/* Only 4 algorithms supported in this code */
 	uint8_t value[ALGORITHM_COUNT];

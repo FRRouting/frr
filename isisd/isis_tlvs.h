@@ -25,6 +25,7 @@
 #ifndef ISIS_TLVS_H
 #define ISIS_TLVS_H
 
+#include "segment_routing.h"
 #include "openbsd-tree.h"
 #include "prefix.h"
 
@@ -192,16 +193,6 @@ struct isis_lan_adj_sid {
 #define ISIS_ROUTER_CAP_FLAG_S	0x01
 #define ISIS_ROUTER_CAP_FLAG_D	0x02
 #define ISIS_ROUTER_CAP_SIZE	5
-
-/* Number of supported algorithm for Segment Routing.
- * Right now only 2 have been standardized:
- *  - 0: SPF
- *  - 1: Strict SPF
- */
-#define SR_ALGORITHM_COUNT 256
-#define SR_ALGORITHM_SPF	0
-#define SR_ALGORITHM_STRICT_SPF	1
-#define SR_ALGORITHM_UNSET	255
 
 #define MSD_TYPE_BASE_MPLS_IMPOSITION  0x01
 #define MSD_TLV_SIZE            2

@@ -3498,9 +3498,8 @@ static void format_tlv_router_cap(const struct isis_router_cap *router_cap,
 		for (int i = 0; i < SR_ALGORITHM_COUNT; i++)
 			if (router_cap->algo[i] != SR_ALGORITHM_UNSET)
 				sbuf_push(buf, indent, "    %u: %s\n", i,
-					  router_cap->algo[i] == 0
-						  ? "SPF"
-						  : "Strict SPF");
+					  sr_algorithm_string(
+						  router_cap->algo[i]));
 	}
 
 	/* Segment Routing Node MSD as per RFC8491 section #2 */

@@ -1467,36 +1467,14 @@ static uint16_t show_vty_sr_algorithm(struct vty *vty, struct tlv_header *tlvh)
 	if (vty != NULL) {
 		vty_out(vty, "  Segment Routing Algorithm TLV:\n");
 		for (i = 0; i < ntohs(algo->header.length); i++) {
-			switch (algo->value[i]) {
-			case 0:
-				vty_out(vty, "    Algorithm %d: SPF\n", i);
-				break;
-			case 1:
-				vty_out(vty, "    Algorithm %d: Strict SPF\n",
-					i);
-				break;
-			default:
-				vty_out(vty,
-					"  Algorithm %d: Unknown value %d\n", i,
-					algo->value[i]);
-				break;
-			}
+			vty_out(vty, "    Algorithm %d: %s\n", i,
+				sr_algorithm_string(algo->value[i]));
 		}
 	} else {
 		zlog_debug("  Segment Routing Algorithm TLV:");
 		for (i = 0; i < ntohs(algo->header.length); i++)
-			switch (algo->value[i]) {
-			case 0:
-				zlog_debug("    Algorithm %d: SPF", i);
-				break;
-			case 1:
-				zlog_debug("    Algorithm %d: Strict SPF", i);
-				break;
-			default:
-				zlog_debug("    Algorithm %d: Unknown value %d",
-					   i, algo->value[i]);
-				break;
-			}
+			zlog_debug("    Algorithm %d: %s", i,
+				   sr_algorithm_string(algo->value[i]));
 	}
 
 	return TLV_SIZE(tlvh);
