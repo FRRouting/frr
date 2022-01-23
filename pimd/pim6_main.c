@@ -178,8 +178,7 @@ int main(int argc, char **argv, char **envp)
 	/*
 	 * Initialize zclient "update" and "lookup" sockets
 	 */
-	if_zapi_callbacks(pim_ifp_create, pim_ifp_up,
-			  pim_ifp_down, pim_ifp_destroy);
+	pim_iface_init();
 
 	/* TODO PIM6: next line is temporary since pim_cmd_init is disabled */
 	if_cmd_init(NULL);

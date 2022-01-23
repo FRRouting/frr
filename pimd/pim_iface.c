@@ -1521,7 +1521,7 @@ int pim_if_ifchannel_count(struct pim_interface *pim_ifp)
 	return count;
 }
 
-int pim_ifp_create(struct interface *ifp)
+static int pim_ifp_create(struct interface *ifp)
 {
 	struct pim_instance *pim;
 
@@ -1589,7 +1589,7 @@ int pim_ifp_create(struct interface *ifp)
 	return 0;
 }
 
-int pim_ifp_up(struct interface *ifp)
+static int pim_ifp_up(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
@@ -1645,7 +1645,7 @@ int pim_ifp_up(struct interface *ifp)
 	return 0;
 }
 
-int pim_ifp_down(struct interface *ifp)
+static int pim_ifp_down(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
@@ -1681,7 +1681,7 @@ int pim_ifp_down(struct interface *ifp)
 	return 0;
 }
 
-int pim_ifp_destroy(struct interface *ifp)
+static int pim_ifp_destroy(struct interface *ifp)
 {
 	struct pim_instance *pim;
 
@@ -1701,4 +1701,23 @@ int pim_ifp_destroy(struct interface *ifp)
 		pim_vxlan_del_term_dev(pim);
 
 	return 0;
+}
+
+static int pim_if_new_hook(struct interface *ifp)
+{
+	return 0;
+}
+
+static int pim_if_delete_hook(struct interface *ifp)
+{
+	return 0;
+}
+
+void pim_iface_init(void)
+{
+	hook_register_prio(if_add, 0, pim_if_new_hook);
+	hook_register_prio(if_del, 0, pim_if_delete_hook);
+
+	if_zapi_callbacks(pim_ifp_create, pim_ifp_up, pim_ifp_down,
+			  pim_ifp_destroy);
 }
