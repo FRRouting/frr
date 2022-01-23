@@ -4213,11 +4213,7 @@ static int if_config_write(struct vty *vty)
 
 			if_data = ifp->info;
 
-			if (ifp->vrf->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
+			if_vty_config_start(vty, ifp);
 
 			if (if_data) {
 				if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
@@ -4283,7 +4279,7 @@ static int if_config_write(struct vty *vty)
 			zebra_evpn_mh_if_write(vty, ifp);
 			link_params_config_write(vty, ifp);
 
-			vty_endframe(vty, "exit\n!\n");
+			if_vty_config_end(vty);
 		}
 	return 0;
 }
