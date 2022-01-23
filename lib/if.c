@@ -1285,6 +1285,22 @@ static void cli_show_interface_end(struct vty *vty,
 	vty_out(vty, "exit\n");
 }
 
+void if_vty_config_start(struct vty *vty, struct interface *ifp)
+{
+	vty_frame(vty, "!\n");
+	vty_frame(vty, "interface %s", ifp->name);
+
+	if (vrf_is_backend_netns() && strcmp(ifp->vrf->name, VRF_DEFAULT_NAME))
+		vty_frame(vty, " vrf %s", ifp->vrf->name);
+
+	vty_frame(vty, "\n");
+}
+
+void if_vty_config_end(struct vty *vty)
+{
+	vty_endframe(vty, "exit\n!\n");
+}
+
 /*
  * XPath: /frr-interface:lib/interface/description
  */

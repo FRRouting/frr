@@ -2083,15 +2083,7 @@ def create_interfaces_cfg(tgen, topo, build=False):
                 else:
                     interface_name = data["interface"]
 
-                # Include vrf if present
-                if "vrf" in data:
-                    interface_data.append(
-                        "interface {} vrf {}".format(
-                            str(interface_name), str(data["vrf"])
-                        )
-                    )
-                else:
-                    interface_data.append("interface {}".format(str(interface_name)))
+                interface_data.append("interface {}".format(str(interface_name)))
 
                 if "ipv4" in data:
                     intf_addr = c_data["links"][destRouterLink]["ipv4"]
