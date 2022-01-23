@@ -12463,6 +12463,13 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 		vty_out(vty, " ospf router-id %pI4\n",
 			&ospf->router_id_static);
 
+<<<<<<< HEAD
+=======
+	/* zebra opaque attributes configuration. */
+	if (CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
+		vty_out(vty, " ospf send-extra-data zebra\n");
+
+>>>>>>> 870791a3b (*: do not send opaque data to zebra by default)
 	/* ABR type print. */
 	if (ospf->abr_type != OSPF_ABR_DEFAULT)
 		vty_out(vty, " ospf abr-type %s\n",

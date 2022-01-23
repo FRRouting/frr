@@ -2208,6 +2208,13 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " ospf6 router-id %pI4\n",
 				&ospf6->router_id_static);
 
+<<<<<<< HEAD
+=======
+		if (CHECK_FLAG(ospf6->config_flags,
+			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
+			vty_out(vty, " ospf6 send-extra-data zebra\n");
+
+>>>>>>> 870791a3b (*: do not send opaque data to zebra by default)
 		/* log-adjacency-changes flag print. */
 		if (CHECK_FLAG(ospf6->config_flags,
 			       OSPF6_LOG_ADJACENCY_CHANGES)) {
