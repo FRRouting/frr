@@ -12293,8 +12293,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 			&ospf->router_id_static);
 
 	/* zebra opaque attributes configuration. */
-	if (!CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
-		vty_out(vty, " no ospf send-extra-data zebra\n");
+	if (CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
+		vty_out(vty, " ospf send-extra-data zebra\n");
 
 	/* ABR type print. */
 	if (ospf->abr_type != OSPF_ABR_DEFAULT)
