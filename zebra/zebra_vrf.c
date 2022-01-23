@@ -169,7 +169,6 @@ static int zebra_vrf_disable(struct vrf *vrf)
 	struct interface *ifp;
 	afi_t afi;
 	safi_t safi;
-	unsigned i;
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
@@ -214,21 +213,7 @@ static int zebra_vrf_disable(struct vrf *vrf)
 		if_nbr_ipv6ll_to_ipv4ll_neigh_del_all(ifp);
 
 	/* clean-up work queues */
-	for (i = 0; i < MQ_SIZE; i++) {
-		struct listnode *lnode, *nnode;
-		struct route_node *rnode;
-		rib_dest_t *dest;
-
-		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
-				       rnode)) {
-			dest = rib_dest_from_rnode(rnode);
-			if (dest && rib_dest_vrf(dest) == zvrf) {
-				route_unlock_node(rnode);
-				list_delete_node(zrouter.mq->subq[i], lnode);
-				zrouter.mq->size--;
-			}
-		}
-	}
+	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
 
 	/* Cleanup (free) routing tables and NHT tables. */
 	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
@@ -257,7 +242,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	struct route_table *table;
 	afi_t afi;
 	safi_t safi;
-	unsigned i;
 
 	assert(zvrf);
 	if (IS_ZEBRA_DEBUG_EVENT)
@@ -265,21 +249,7 @@ static int zebra_vrf_delete(struct vrf *vrf)
 			   zvrf_id(zvrf));
 
 	/* clean-up work queues */
-	for (i = 0; i < MQ_SIZE; i++) {
-		struct listnode *lnode, *nnode;
-		struct route_node *rnode;
-		rib_dest_t *dest;
-
-		for (ALL_LIST_ELEMENTS(zrouter.mq->subq[i], lnode, nnode,
-				       rnode)) {
-			dest = rib_dest_from_rnode(rnode);
-			if (dest && rib_dest_vrf(dest) == zvrf) {
-				route_unlock_node(rnode);
-				list_delete_node(zrouter.mq->subq[i], lnode);
-				zrouter.mq->size--;
-			}
-		}
-	}
+	rib_meta_queue_free_vrf(zrouter.mq, zvrf);
 
 	/* Free Vxlan and MPLS. */
 	zebra_vxlan_close_tables(zvrf);
