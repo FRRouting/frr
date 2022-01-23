@@ -2522,11 +2522,7 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi == NULL)
 			continue;
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			vty_frame(vty, "interface %s\n", oi->interface->name);
-		else
-			vty_frame(vty, "interface %s vrf %s\n",
-				  oi->interface->name, vrf->name);
+		if_vty_config_start(vty, ifp);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -2581,7 +2577,7 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 
 		ospf6_bfd_write_config(vty, oi);
 
-		vty_endframe(vty, "exit\n!\n");
+		if_vty_config_end(vty);
 	}
 	return 0;
 }

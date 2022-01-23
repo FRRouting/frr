@@ -1308,7 +1308,7 @@ interface_config_write (struct vty *vty)
     int write = 0;
 
     FOR_ALL_INTERFACES (vrf, ifp) {
-        vty_frame (vty, "interface %s\n",ifp->name);
+        if_vty_config_start(vty, ifp);
         if (ifp->desc)
             vty_out (vty, " description %s\n",ifp->desc);
         babel_interface_nfo *babel_ifp = babel_get_if_nfo (ifp);
@@ -1385,7 +1385,7 @@ interface_config_write (struct vty *vty)
                 write++;
             }
         }
-        vty_endframe (vty, "exit\n!\n");
+        if_vty_config_end(vty);
         write++;
     }
     return write;
