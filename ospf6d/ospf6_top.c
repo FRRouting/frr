@@ -436,7 +436,6 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->fd = -1;
 
 	o->max_multipath = MULTIPATH_NUM;
-	SET_FLAG(o->config_flags, OSPF6_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	o->oi_write_q = list_new();
 
@@ -2236,9 +2235,9 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " ospf6 router-id %pI4\n",
 				&ospf6->router_id_static);
 
-		if (!CHECK_FLAG(ospf6->config_flags,
-				OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
-			vty_out(vty, " no ospf6 send-extra-data zebra\n");
+		if (CHECK_FLAG(ospf6->config_flags,
+			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
+			vty_out(vty, " ospf6 send-extra-data zebra\n");
 
 		/* log-adjacency-changes flag print. */
 		if (CHECK_FLAG(ospf6->config_flags,
