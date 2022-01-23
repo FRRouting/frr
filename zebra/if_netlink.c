@@ -1761,16 +1761,16 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 		desc = (char *)RTA_DATA(tb[IFLA_IFALIAS]);
 	}
 
-	/* If VRF, create or update the VRF structure itself. */
-	if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
-		netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
-		vrf_id = (vrf_id_t)ifi->ifi_index;
-	}
-
 	/* See if interface is present. */
 	ifp = if_lookup_by_name_per_ns(zns, name);
 
 	if (h->nlmsg_type == RTM_NEWLINK) {
+		/* If VRF, create or update the VRF structure itself. */
+		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns()) {
+			netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
+			vrf_id = (vrf_id_t)ifi->ifi_index;
+		}
+
 		if (tb[IFLA_MASTER]) {
 			if (slave_kind && (strcmp(slave_kind, "vrf") == 0)
 			    && !vrf_is_backend_netns()) {
@@ -2032,6 +2032,10 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			zebra_l2_vxlanif_del(ifp);
 
 		if_delete_update(ifp);
+
+		/* If VRF, delete the VRF structure itself. */
+		if (zif_type == ZEBRA_IF_VRF && !vrf_is_backend_netns())
+			netlink_vrf_change(h, tb[IFLA_LINKINFO], ns_id, name);
 	}
 
 	return 0;
