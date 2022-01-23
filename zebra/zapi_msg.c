@@ -2092,6 +2092,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
+		XFREE(MTYPE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2104,6 +2105,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
+		XFREE(MTYPE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2132,6 +2134,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
+		XFREE(MTYPE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 	}
 
