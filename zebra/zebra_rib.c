@@ -2944,6 +2944,59 @@ void meta_queue_free(struct meta_queue *mq)
 	XFREE(MTYPE_WORK_QUEUE, mq);
 }
 
+void rib_meta_queue_free_vrf(struct meta_queue *mq, struct zebra_vrf *zvrf)
+{
+	vrf_id_t vrf_id = zvrf->vrf->vrf_id;
+	unsigned int i;
+
+	for (i = 0; i < MQ_SIZE; i++) {
+		struct listnode *lnode, *nnode;
+		void *data;
+		bool del;
+
+		for (ALL_LIST_ELEMENTS(mq->subq[i], lnode, nnode, data)) {
+			del = false;
+
+			if (i == META_QUEUE_EVPN) {
+				struct wq_evpn_wrapper *w = data;
+
+				if (w->vrf_id == vrf_id) {
+					XFREE(MTYPE_WQ_WRAPPER, w);
+					del = true;
+				}
+			} else if (i ==
+				   route_info[ZEBRA_ROUTE_NHG].meta_q_map) {
+				struct wq_nhg_wrapper *w = data;
+
+				if (w->type == WQ_NHG_WRAPPER_TYPE_CTX &&
+				    w->u.ctx->vrf_id == vrf_id) {
+					nhg_ctx_free(&w->u.ctx);
+					XFREE(MTYPE_WQ_WRAPPER, w);
+					del = true;
+				} else if (w->type == WQ_NHG_WRAPPER_TYPE_NHG &&
+					   w->u.nhe->vrf_id == vrf_id) {
+					zebra_nhg_free(w->u.nhe);
+					XFREE(MTYPE_WQ_WRAPPER, w);
+					del = true;
+				}
+			} else {
+				struct route_node *rnode = data;
+				rib_dest_t *dest = rib_dest_from_rnode(rnode);
+
+				if (dest && rib_dest_vrf(dest) == zvrf) {
+					route_unlock_node(rnode);
+					del = true;
+				}
+			}
+
+			if (del) {
+				list_delete_node(mq->subq[i], lnode);
+				mq->size--;
+			}
+		}
+	}
+}
+
 /* initialise zebra rib work queue */
 static void rib_queue_init(void)
 {
