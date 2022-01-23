@@ -2223,6 +2223,9 @@ static void ospf_table_reinstall_routes(struct ospf *ospf,
 {
 	struct route_node *rn;
 
+	if (!rt)
+		return;
+
 	for (rn = route_top(rt); rn; rn = route_next(rn)) {
 		struct ospf_route *or;
 
