@@ -259,9 +259,6 @@ bool pim_if_is_vrf_device(struct interface *ifp);
 
 int pim_if_ifchannel_count(struct pim_interface *pim_ifp);
 
-extern int pim_ifp_create(struct interface *ifp);
-extern int pim_ifp_up(struct interface *ifp);
-extern int pim_ifp_down(struct interface *ifp);
-extern int pim_ifp_destroy(struct interface *ifp);
+void pim_iface_init(void);
 
 #endif /* PIM_IFACE_H */
