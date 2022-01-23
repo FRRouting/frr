@@ -1710,6 +1710,9 @@ static int pim_if_new_hook(struct interface *ifp)
 
 static int pim_if_delete_hook(struct interface *ifp)
 {
+	if (ifp->info)
+		pim_if_delete(ifp);
+
 	return 0;
 }
 
