@@ -67,14 +67,14 @@ module frr-bfdd {
   typedef multiplier {
     description "Detection multiplier";
     type uint8 {
-      range 2..255;
+      range "2..255";
     }
   }
 
   typedef discriminator {
     description "BFD session identification";
     type uint32 {
-      range 1..4294967295;
+      range "1..4294967295";
     }
   }
 
@@ -226,8 +226,9 @@ module frr-bfdd {
 
     leaf minimum-ttl {
       type uint8 {
-        range 1..254;
+        range "1..254";
       }
+      default "254";
       description
         "Minimum expected TTL on received packets.";
     }
