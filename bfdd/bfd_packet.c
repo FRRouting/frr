@@ -692,7 +692,7 @@ int bfd_recv_cb(struct thread *t)
 
 	/* RFC 5880, Section 6.5: handle POLL/FINAL negotiation sequence. */
 	if (bfd->polling && BFD_GETFBIT(cp->flags)) {
-		/* Disable pooling. */
+		/* Disable polling. */
 		bfd->polling = 0;
 
 		/* Handle poll finalization. */
