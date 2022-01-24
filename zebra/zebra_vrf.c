@@ -262,9 +262,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 {
 	struct zebra_vrf *zvrf = vrf->info;
 	struct other_route_table *otable;
-	struct route_table *table;
-	afi_t afi;
-	safi_t safi;
 	unsigned i;
 
 	assert(zvrf);
@@ -294,23 +291,6 @@ static int zebra_vrf_delete(struct vrf *vrf)
 	/* Free Vxlan and MPLS. */
 	zebra_vxlan_close_tables(zvrf);
 	zebra_mpls_close_tables(zvrf);
-
-	/* release allocated memory */
-	for (afi = AFI_IP; afi <= AFI_IP6; afi++) {
-		for (safi = SAFI_UNICAST; safi <= SAFI_MULTICAST; safi++) {
-			table = zvrf->table[afi][safi];
-			if (table) {
-				zebra_router_release_table(zvrf, zvrf->table_id,
-							   afi, safi);
-				zvrf->table[afi][safi] = NULL;
-			}
-		}
-
-		if (zvrf->rnh_table[afi])
-			route_table_finish(zvrf->rnh_table[afi]);
-		if (zvrf->rnh_table_multicast[afi])
-			route_table_finish(zvrf->rnh_table[afi]);
-	}
 
 	otable = otable_pop(&zvrf->other_tables);
 	while (otable) {
