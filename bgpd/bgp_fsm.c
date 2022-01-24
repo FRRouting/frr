@@ -662,6 +662,15 @@ static void bgp_graceful_restart_timer_off(struct peer *peer)
 
 	UNSET_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT);
 	BGP_TIMER_OFF(peer->t_gr_stale);
+
+	if (peer_dynamic_neighbor(peer) &&
+	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
+		peer_delete(peer);
+	}
+
 	bgp_timer_set(peer);
 }
 
@@ -1380,10 +1389,11 @@ int bgp_stop(struct peer *peer)
 	    && peer->last_reset == PEER_DOWN_UPDATE_SOURCE_CHANGE)
 		bfd_sess_uninstall(peer->bfd_config->session);
 
-	if (peer_dynamic_neighbor(peer)
-	    && !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
+	if (peer_dynamic_neighbor_no_nsf(peer) &&
+	    !(CHECK_FLAG(peer->flags, PEER_FLAG_DELETE))) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
 		return -1;
 	}
@@ -1602,9 +1612,10 @@ static int bgp_stop_with_error(struct peer *peer)
 	if (peer->v_start >= (60 * 2))
 		peer->v_start = (60 * 2);
 
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
 		return -1;
 	}
@@ -1620,9 +1631,10 @@ static int bgp_stop_with_notify(struct peer *peer, uint8_t code,
 	/* Send notify to remote peer */
 	bgp_notify_send(peer, code, sub_code);
 
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
 		return -1;
 	}
@@ -1781,9 +1793,10 @@ static int bgp_connect_success_w_delayopen(struct peer *peer)
 /* TCP connect fail */
 static int bgp_connect_fail(struct peer *peer)
 {
-	if (peer_dynamic_neighbor(peer)) {
+	if (peer_dynamic_neighbor_no_nsf(peer)) {
 		if (bgp_debug_neighbor_events(peer))
-			zlog_debug("%s (dynamic neighbor) deleted", peer->host);
+			zlog_debug("%s (dynamic neighbor) deleted (%s)",
+				   peer->host, __func__);
 		peer_delete(peer);
 		return -1;
 	}
