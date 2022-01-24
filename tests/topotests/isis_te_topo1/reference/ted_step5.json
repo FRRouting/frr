@@ -102,7 +102,6 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address-v6":"2001:db8::2",
           "max-link-bandwidth":176258176.0,
           "max-resv-link-bandwidth":176258176.0,
@@ -143,7 +142,6 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address-v6":"2001:db8:1::1:1",
           "remote-address-v6":"2001:db8:1::1:2",
           "max-link-bandwidth":176258176.0,
@@ -185,7 +183,6 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address-v6":"2001:db8:1::1:2",
           "remote-address-v6":"2001:db8:1::1:1",
           "max-link-bandwidth":176258176.0,
@@ -227,7 +224,6 @@
         "remote-vertex-id":3,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address-v6":"2001:db8:3::3:2",
           "remote-address-v6":"2001:db8:3::3:3",
           "max-link-bandwidth":176258176.0,
@@ -269,7 +265,6 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "admin-group":32,
           "local-address-v6":"2001:db8:3::3:3",
           "remote-address-v6":"2001:db8:3::3:2",
@@ -312,7 +307,6 @@
         "remote-vertex-id":3,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address-v6":"2001:db8:5::3:4",
           "remote-address-v6":"2001:db8:5::4:3",
           "max-link-bandwidth":176258176.0,
@@ -448,7 +442,6 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.0.2",
           "remote-address":"10.0.0.1",
           "max-link-bandwidth":176258176.0,
@@ -490,7 +483,6 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.1.1",
           "remote-address":"10.0.1.2",
           "max-link-bandwidth":176258176.0,
@@ -532,7 +524,6 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.1.2",
           "remote-address":"10.0.1.1",
           "max-link-bandwidth":176258176.0,
@@ -574,7 +565,6 @@
         "remote-vertex-id":3,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.3.2",
           "remote-address":"10.0.3.3",
           "max-link-bandwidth":176258176.0,
@@ -616,7 +606,6 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "admin-group":32,
           "local-address":"10.0.3.3",
           "remote-address":"10.0.3.2",
@@ -703,7 +692,6 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.4.4",
           "remote-address":"10.0.4.2",
           "max-link-bandwidth":176258176.0,

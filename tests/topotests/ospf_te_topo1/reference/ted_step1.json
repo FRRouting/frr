@@ -109,7 +109,6 @@
         "remote-vertex-id":167837441,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.0.2",
           "remote-address":"10.0.0.1",
           "max-link-bandwidth":176258176.0,
@@ -151,7 +150,6 @@
         "remote-vertex-id":167837442,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.1.1",
           "remote-address":"10.0.1.2",
           "max-link-bandwidth":176258176.0,
@@ -193,7 +191,6 @@
         "remote-vertex-id":167837441,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.1.2",
           "remote-address":"10.0.1.1",
           "max-link-bandwidth":176258176.0,
@@ -235,7 +232,6 @@
         "remote-vertex-id":167837442,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "admin-group":32,
           "local-address":"10.0.3.1",
           "remote-address":"10.0.3.2",
@@ -278,7 +274,6 @@
         "remote-vertex-id":167837443,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.3.2",
           "remote-address":"10.0.3.1",
           "max-link-bandwidth":176258176.0,
@@ -320,7 +315,6 @@
         "remote-vertex-id":167837442,
         "metric":10,
         "edge-attributes":{
-          "te-metric":0,
           "local-address":"10.0.4.1",
           "remote-address":"10.0.4.2",
           "max-link-bandwidth":176258176.0,
