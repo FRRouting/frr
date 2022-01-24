@@ -333,13 +333,9 @@ int bfdd_bfd_profile_desired_transmission_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	uint32_t min_tx;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		min_tx = yang_dnode_get_uint32(args->dnode, NULL);
-		if (min_tx < 10000 || min_tx > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -347,12 +343,8 @@ int bfdd_bfd_profile_desired_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		min_tx = yang_dnode_get_uint32(args->dnode, NULL);
 		bp = nb_running_get_entry(args->dnode, NULL, true);
-		if (bp->min_tx == min_tx)
-			return NB_OK;
-
-		bp->min_tx = min_tx;
+		bp->min_tx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
 
@@ -371,13 +363,9 @@ int bfdd_bfd_profile_required_receive_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	uint32_t min_rx;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		min_rx = yang_dnode_get_uint32(args->dnode, NULL);
-		if (min_rx < 10000 || min_rx > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -385,12 +373,8 @@ int bfdd_bfd_profile_required_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		min_rx = yang_dnode_get_uint32(args->dnode, NULL);
 		bp = nb_running_get_entry(args->dnode, NULL, true);
-		if (bp->min_rx == min_rx)
-			return NB_OK;
-
-		bp->min_rx = min_rx;
+		bp->min_rx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
 
@@ -408,17 +392,12 @@ int bfdd_bfd_profile_required_receive_interval_modify(
 int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	bool shutdown;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	shutdown = yang_dnode_get_bool(args->dnode, NULL);
 	bp = nb_running_get_entry(args->dnode, NULL, true);
-	if (bp->admin_shutdown == shutdown)
-		return NB_OK;
-
-	bp->admin_shutdown = shutdown;
+	bp->admin_shutdown = yang_dnode_get_bool(args->dnode, NULL);
 	bfd_profile_update(bp);
 
 	return NB_OK;
@@ -430,17 +409,12 @@ int bfdd_bfd_profile_administrative_down_modify(struct nb_cb_modify_args *args)
 int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	bool passive;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	passive = yang_dnode_get_bool(args->dnode, NULL);
 	bp = nb_running_get_entry(args->dnode, NULL, true);
-	if (bp->passive == passive)
-		return NB_OK;
-
-	bp->passive = passive;
+	bp->passive = yang_dnode_get_bool(args->dnode, NULL);
 	bfd_profile_update(bp);
 
 	return NB_OK;
@@ -452,17 +426,12 @@ int bfdd_bfd_profile_passive_mode_modify(struct nb_cb_modify_args *args)
 int bfdd_bfd_profile_minimum_ttl_modify(struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	uint8_t minimum_ttl;
 
 	if (args->event != NB_EV_APPLY)
 		return NB_OK;
 
-	minimum_ttl = yang_dnode_get_uint8(args->dnode, NULL);
 	bp = nb_running_get_entry(args->dnode, NULL, true);
-	if (bp->minimum_ttl == minimum_ttl)
-		return NB_OK;
-
-	bp->minimum_ttl = minimum_ttl;
+	bp->minimum_ttl = yang_dnode_get_uint8(args->dnode, NULL);
 	bfd_profile_update(bp);
 
 	return NB_OK;
@@ -511,13 +480,9 @@ int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	uint32_t min_tx;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		min_tx = yang_dnode_get_uint32(args->dnode, NULL);
-		if (min_tx < 10000 || min_tx > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -525,12 +490,8 @@ int bfdd_bfd_profile_desired_echo_transmission_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		min_tx = yang_dnode_get_uint32(args->dnode, NULL);
 		bp = nb_running_get_entry(args->dnode, NULL, true);
-		if (bp->min_echo_tx == min_tx)
-			return NB_OK;
-
-		bp->min_echo_tx = min_tx;
+		bp->min_echo_tx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
 
@@ -549,15 +510,9 @@ int bfdd_bfd_profile_required_echo_receive_interval_modify(
 	struct nb_cb_modify_args *args)
 {
 	struct bfd_profile *bp;
-	uint32_t min_rx;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		min_rx = yang_dnode_get_uint32(args->dnode, NULL);
-		if (min_rx == 0)
-			return NB_OK;
-		if (min_rx < 10000 || min_rx > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -565,12 +520,8 @@ int bfdd_bfd_profile_required_echo_receive_interval_modify(
 		break;
 
 	case NB_EV_APPLY:
-		min_rx = yang_dnode_get_uint32(args->dnode, NULL);
 		bp = nb_running_get_entry(args->dnode, NULL, true);
-		if (bp->min_echo_rx == min_rx)
-			return NB_OK;
-
-		bp->min_echo_rx = min_rx;
+		bp->min_echo_rx = yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_profile_update(bp);
 		break;
 
@@ -677,13 +628,10 @@ int bfdd_bfd_sessions_single_hop_detection_multiplier_modify(
 int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	uint32_t tx_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (tx_interval < 10000 || tx_interval > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -692,10 +640,8 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(args->dnode, NULL, true);
-		if (tx_interval == bs->timers.desired_min_tx)
-			return NB_OK;
-
-		bs->peer_profile.min_tx = tx_interval;
+		bs->peer_profile.min_tx =
+			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
 		break;
 
@@ -713,13 +659,10 @@ int bfdd_bfd_sessions_single_hop_desired_transmission_interval_modify(
 int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	uint32_t rx_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (rx_interval < 10000 || rx_interval > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -728,10 +671,8 @@ int bfdd_bfd_sessions_single_hop_required_receive_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(args->dnode, NULL, true);
-		if (rx_interval == bs->timers.required_min_rx)
-			return NB_OK;
-
-		bs->peer_profile.min_rx = rx_interval;
+		bs->peer_profile.min_rx =
+			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
 		break;
 
@@ -836,13 +777,10 @@ int bfdd_bfd_sessions_single_hop_echo_mode_modify(
 int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	uint32_t echo_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (echo_interval < 10000 || echo_interval > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -851,10 +789,8 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(args->dnode, NULL, true);
-		if (echo_interval == bs->timers.desired_min_echo_tx)
-			return NB_OK;
-
-		bs->peer_profile.min_echo_tx = echo_interval;
+		bs->peer_profile.min_echo_tx =
+			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
 		break;
 
@@ -873,15 +809,10 @@ int bfdd_bfd_sessions_single_hop_desired_echo_transmission_interval_modify(
 int bfdd_bfd_sessions_single_hop_required_echo_receive_interval_modify(
 	struct nb_cb_modify_args *args)
 {
-	uint32_t echo_interval = yang_dnode_get_uint32(args->dnode, NULL);
 	struct bfd_session *bs;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
-		if (echo_interval == 0)
-                        return NB_OK;
-		if (echo_interval < 10000 || echo_interval > 60000000)
-			return NB_ERR_VALIDATION;
 		break;
 
 	case NB_EV_PREPARE:
@@ -890,10 +821,8 @@ int bfdd_bfd_sessions_single_hop_required_echo_receive_interval_modify(
 
 	case NB_EV_APPLY:
 		bs = nb_running_get_entry(args->dnode, NULL, true);
-		if (echo_interval == bs->timers.required_min_echo_rx)
-			return NB_OK;
-
-		bs->peer_profile.min_echo_rx = echo_interval;
+		bs->peer_profile.min_echo_rx =
+			yang_dnode_get_uint32(args->dnode, NULL);
 		bfd_session_apply(bs);
 		break;
 
