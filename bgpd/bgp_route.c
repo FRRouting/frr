@@ -12262,6 +12262,7 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	bool first = true;
 	uint16_t show_flags = 0;
 	enum rpki_states rpki_target_state = RPKI_NOT_BEING_USED;
+	struct prefix p;
 
 	if (uj) {
 		argc--;
@@ -12414,7 +12415,6 @@ DEFPY(show_ip_bgp, show_ip_bgp_cmd,
 	if (argv_find(argv, argc, "A.B.C.D/M", &idx)
 	    || argv_find(argv, argc, "X:X::X:X/M", &idx)) {
 		const char *prefix_str = argv[idx]->arg;
-		struct prefix p;
 
 		if (!str2prefix(prefix_str, &p)) {
 			vty_out(vty, "%% Malformed Prefix\n");
