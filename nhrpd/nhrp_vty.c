@@ -1150,7 +1150,7 @@ static int interface_config_write(struct vty *vty)
 	int i;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
-		vty_frame(vty, "interface %s\n", ifp->name);
+		if_vty_config_start(vty, ifp);
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -1221,7 +1221,7 @@ static int interface_config_write(struct vty *vty)
 			}
 		}
 
-		vty_endframe(vty, "exit\n!\n");
+		if_vty_config_end(vty);
 	}
 
 	return 0;

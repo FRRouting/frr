@@ -11619,12 +11619,8 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 		if (memcmp(ifp->name, "VLINK", 5) == 0)
 			continue;
 
-		vty_frame(vty, "!\n");
-		if (ifp->vrf->vrf_id == VRF_DEFAULT)
-			vty_frame(vty, "interface %s\n", ifp->name);
-		else
-			vty_frame(vty, "interface %s vrf %s\n", ifp->name,
-				  vrf->name);
+		if_vty_config_start(vty, ifp);
+
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
 
@@ -11834,7 +11830,7 @@ static int config_write_interface_one(struct vty *vty, struct vrf *vrf)
 
 		ospf_opaque_config_write_if(vty, ifp);
 
-		vty_endframe(vty, "exit\n!\n");
+		if_vty_config_end(vty);
 	}
 
 	return write;

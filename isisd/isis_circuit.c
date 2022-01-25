@@ -1069,7 +1069,7 @@ static int isis_interface_config_write(struct vty *vty)
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
-		vty_frame(vty, "interface %s\n", ifp->name);
+		if_vty_config_start(vty, ifp);
 		write++;
 		/* IF desc */
 		if (ifp->desc) {
@@ -1277,7 +1277,7 @@ static int isis_interface_config_write(struct vty *vty)
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
 		} while (0);
-		vty_endframe(vty, "exit\n!\n");
+		if_vty_config_end(vty);
 	}
 
 	return write;
