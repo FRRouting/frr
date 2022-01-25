@@ -2202,48 +2202,6 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }
 
-int netlink_protodown(struct interface *ifp, bool down, uint32_t r_bitfield)
-{
-	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
-	struct rtattr *nest_protodown_reason;
-
-	struct {
-		struct nlmsghdr n;
-		struct ifinfomsg ifa;
-		char buf[NL_PKT_BUF_SIZE];
-	} req;
-
-	memset(&req, 0, sizeof(req));
-
-	req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
-	req.n.nlmsg_flags = NLM_F_REQUEST;
-	req.n.nlmsg_type = RTM_SETLINK;
-	req.n.nlmsg_pid = zns->netlink_cmd.snl.nl_pid;
-
-	req.ifa.ifi_index = ifp->ifindex;
-
-	nl_attr_put8(&req.n, sizeof(req), IFLA_PROTO_DOWN, down);
-	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
-
-	if (r_bitfield) {
-		nest_protodown_reason = nl_attr_nest(&req.n, sizeof(req),
-						     IFLA_PROTO_DOWN_REASON);
-
-		if (!nest_protodown_reason)
-			return -1;
-
-		nl_attr_put32(&req.n, sizeof(req), IFLA_PROTO_DOWN_REASON_MASK,
-			      (1 << frr_protodown_r_bit));
-		nl_attr_put32(&req.n, sizeof(req), IFLA_PROTO_DOWN_REASON_VALUE,
-			      ((int)down) << frr_protodown_r_bit);
-
-		nl_attr_nest_end(&req.n, nest_protodown_reason);
-	}
-
-	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
-			    false);
-}
-
 /* Interface information read by netlink. */
 void interface_list(struct zebra_ns *zns)
 {
