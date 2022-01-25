@@ -446,7 +446,9 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		json_area = json_object_new_object();
 		json_object_boolean_add(json_area, "areaIsStub",
 					IS_AREA_STUB(oa));
-		if (IS_AREA_STUB(oa)) {
+		json_object_boolean_add(json_area, "areaIsNSSA",
+					IS_AREA_NSSA(oa));
+		if (IS_AREA_STUB(oa) || IS_AREA_NSSA(oa)) {
 			json_object_boolean_add(json_area, "areaNoSummary",
 						oa->no_summary);
 		}
@@ -495,14 +497,16 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 
 	} else {
 
-		if (!IS_AREA_STUB(oa))
+		if (!IS_AREA_STUB(oa) && !IS_AREA_NSSA(oa))
 			vty_out(vty, " Area %s\n", oa->name);
 		else {
 			if (oa->no_summary) {
-				vty_out(vty, " Area %s[Stub, No Summary]\n",
-					oa->name);
+				vty_out(vty, " Area %s[%s, No Summary]\n",
+					oa->name,
+					IS_AREA_STUB(oa) ? "Stub" : "NSSA");
 			} else {
-				vty_out(vty, " Area %s[Stub]\n", oa->name);
+				vty_out(vty, " Area %s[%s]\n", oa->name,
+					IS_AREA_STUB(oa) ? "Stub" : "NSSA");
 			}
 		}
 		vty_out(vty, "     Number of Area scoped LSAs is %u\n",
