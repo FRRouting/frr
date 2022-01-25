@@ -2732,8 +2732,7 @@ int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		else if (unset_pdown)
 			ctx->u.intf.protodown = false;
 		else
-			ctx->u.intf.protodown =
-				!!(zif->flags & ZIF_FLAG_PROTODOWN);
+			ctx->u.intf.protodown = !!ZEBRA_IF_IS_PROTODOWN(zif);
 	}
 
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_INTF_UPDATE));

@@ -1244,7 +1244,7 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 	zif = ifp->info;
 
 	/* Current state as we know it */
-	old_down = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+	old_down = !!(ZEBRA_IF_IS_PROTODOWN(zif));
 	old_set_down = !!(zif->flags & ZIF_FLAG_SET_PROTODOWN);
 	old_unset_down = !!(zif->flags & ZIF_FLAG_UNSET_PROTODOWN);
 
@@ -2091,7 +2091,7 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 
 	zebra_evpn_if_es_print(vty, NULL, zebra_if);
 	vty_out(vty, "  protodown: %s %s\n",
-		(zebra_if->flags & ZIF_FLAG_PROTODOWN) ? "on" : "off",
+		(ZEBRA_IF_IS_PROTODOWN(zebra_if)) ? "on" : "off",
 		if_is_protodown_applicable(ifp) ? "" : "(n/a)");
 	if (zebra_if->protodown_rc)
 		vty_out(vty, "  protodown reasons: %s\n",
@@ -2442,7 +2442,7 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 	if (if_is_protodown_applicable(ifp)) {
 		json_object_string_add(
 			json_if, "protodown",
-			(zebra_if->flags & ZIF_FLAG_PROTODOWN) ? "on" : "off");
+			(ZEBRA_IF_IS_PROTODOWN(zebra_if)) ? "on" : "off");
 		if (zebra_if->protodown_rc)
 			json_object_string_add(
 				json_if, "protodownReason",
