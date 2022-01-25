@@ -1321,8 +1321,6 @@ int zebra_if_set_protodown(struct interface *ifp, bool new_down,
 		zif->flags |= ZIF_FLAG_UNSET_PROTODOWN;
 
 #ifdef HAVE_NETLINK
-	// TODO: remove this as separate commit
-	// netlink_protodown(ifp, new_down, zif->protodown_rc);
 	dplane_intf_update(ifp);
 #else
 	zlog_warn("Protodown is not supported on this platform");

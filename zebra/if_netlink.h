@@ -54,24 +54,6 @@ extern enum netlink_msg_status
 netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
 #define FRR_PROTODOWN_REASON_DEFAULT_BIT 7
-#define PROTODOWN_REASON_NUM_BITS 32
-/*
- * Set protodown status of interface.
- *
- * ifp
- *    Interface to set protodown on.
- *
- * down
- *    If true, set protodown on. If false, set protodown off.
- *
- * reason
- *    bitfield representing reason codes
- *
- * Returns:
- *    0
- */
-int netlink_protodown(struct interface *ifp, bool down, uint32_t r_bitfield);
-
 /* Protodown bit setter/getter
  *
  * Allow users to change the bit if it conflicts with another
