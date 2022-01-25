@@ -1544,3 +1544,56 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 			1 /* s_flag: always set for general queries */, igmp);
 	}
 }
+
+/*
+ * pim_if_igmp_version_change is called when the igmp version changes
+ * If the igmp version is changed from 3 to 2, delete the 224.0.0.22
+ * membership from the socket so that it won't accept IGMPv3 packets.
+ * If the version is changed 2 to 3, add the membership to the socket,
+ * to accept IGMPv3 packets.
+ */
+void pim_if_igmp_version_change(struct interface *ifp)
+{
+	int ret = -1;
+	struct in_addr group;
+	struct listnode *sock_node = NULL;
+	struct gm_sock *igmp = NULL;
+	struct pim_interface *pim_ifp = ifp->info;
+	struct in_addr ifaddr;
+
+	ifaddr = pim_ifp->primary_address;
+	ret = inet_aton(PIM_ALL_IGMP_ROUTERS, &group);
+	if (!ret) {
+		zlog_warn(
+			"%s %s: IGMP interface %pI4: could not solve %s to group address: errno=%d: %s",
+			__FILE__, __func__, &ifaddr, PIM_ALL_IGMP_ROUTERS,
+			errno, safe_strerror(errno));
+	}
+
+	/* scan igmp sockets */
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
+		if (pim_ifp->igmp_version == 2) {
+			ret = pim_socket_join_or_leave(igmp->fd, group, ifaddr,
+						       ifp->ifindex, pim_ifp,
+						       IP_DROP_MEMBERSHIP);
+			if (ret < 0) {
+				zlog_warn(
+					"%s %s: IGMP socket fd=%d interface %pI4: could not leave %s to group address: errno=%d: %s",
+					__FILE__, __func__, igmp->fd, &ifaddr,
+					PIM_ALL_IGMP_ROUTERS, errno,
+					safe_strerror(errno));
+			}
+		} else {
+			ret = pim_socket_join_or_leave(igmp->fd, group, ifaddr,
+						       ifp->ifindex, pim_ifp,
+						       IP_ADD_MEMBERSHIP);
+			if (ret < 0) {
+				zlog_warn(
+					"%s %s: IGMP socket fd=%d interface %pI4: could not join %s to group address: errno=%d: %s",
+					__FILE__, __func__, igmp->fd, &ifaddr,
+					PIM_ALL_IGMP_ROUTERS, errno,
+					safe_strerror(errno));
+			}
+		}
+	} /* scan igmp sockets */
+}

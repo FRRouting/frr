@@ -451,15 +451,22 @@ static int pim_sock_open(struct interface *ifp)
 {
 	int fd;
 	struct pim_interface *pim_ifp = ifp->info;
+	int membership;
 
 	fd = pim_socket_mcast(IPPROTO_PIM, pim_ifp->primary_address, ifp,
 			      0 /* loop=false */);
 	if (fd < 0)
 		return -1;
 
+#if PIM_IPV == 4
+	membership = IP_ADD_MEMBERSHIP;
+#else
+	membership = IPV6_JOIN_GROUP;
+#endif
+
 	if (pim_socket_join_or_leave(fd, qpim_all_pim_routers_addr,
 				     pim_ifp->primary_address, ifp->ifindex,
-				     pim_ifp, IP_ADD_MEMBERSHIP)) {
+				     pim_ifp, membership)) {
 		close(fd);
 		return -2;
 	}

@@ -248,11 +248,11 @@ void igmp_send_query(int igmp_version, struct gm_group *group, char *query_buf,
 void igmp_group_delete(struct gm_group *group);
 
 void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver);
+void pim_if_igmp_version_change(struct interface *ifp);
 
 #else /* PIM_IPV != 4 */
 static inline void igmp_startup_mode_on(struct gm_sock *igmp)
 {
 }
 #endif /* PIM_IPV != 4 */
-
 #endif /* PIM_IGMP_H */

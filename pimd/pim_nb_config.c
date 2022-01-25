@@ -2666,6 +2666,11 @@ int lib_interface_gmp_address_family_igmp_version_destroy(
 		ifp = nb_running_get_entry(args->dnode, NULL, true);
 		pim_ifp = ifp->info;
 		pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
+#if PIM_IPV == 4
+		int igmp_version = yang_dnode_get_uint8(args->dnode, NULL);
+		if (igmp_version == 2)
+			pim_if_igmp_version_change(ifp);
+#endif
 		break;
 	}
 

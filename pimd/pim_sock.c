@@ -235,9 +235,9 @@ int pim_socket_mcast(int protocol, pim_addr ifaddr, struct interface *ifp,
 	return fd;
 }
 
-int pim_socket_join_or_leave(int fd, struct in_addr group,
-			     struct in_addr ifaddr, ifindex_t ifindex,
-			     struct pim_interface *pim_ifp, int membershipType)
+int pim_socket_join_or_leave(int fd, pim_addr group, pim_addr ifaddr,
+			     ifindex_t ifindex, struct pim_interface *pim_ifp,
+			     int membershipType)
 {
 	int ret;
 
@@ -249,7 +249,7 @@ int pim_socket_join_or_leave(int fd, struct in_addr group,
 
 	memcpy(&opt.ipv6mr_multiaddr, &group, 16);
 	opt.ipv6mr_interface = ifindex;
-	ret = setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &opt, sizeof(opt));
+	ret = setsockopt(fd, IPPROTO_IPV6, membershipType, &opt, sizeof(opt));
 #endif
 
 	pim_ifp->igmp_ifstat_joins_sent++;
