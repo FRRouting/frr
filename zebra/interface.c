@@ -261,6 +261,12 @@ static int if_zebra_delete_hook(struct interface *ifp)
 	if (ifp->info) {
 		zebra_if = ifp->info;
 
+		/* If we set protodown, clear it now from the kernel */
+		if (ZEBRA_IF_IS_PROTODOWN(zebra_if) &&
+		    !ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zebra_if))
+			zebra_if_set_protodown(ifp, false, ZEBRA_PROTODOWN_ALL);
+
+
 		/* Free installed address chains tree. */
 		if (zebra_if->ipv4_subnets)
 			route_table_finish(zebra_if->ipv4_subnets);
