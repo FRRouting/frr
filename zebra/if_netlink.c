@@ -857,7 +857,7 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 	else
 		zif->protodown_rc &= ~ZEBRA_PROTODOWN_EXTERNAL;
 
-	old_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+	old_protodown = !!ZEBRA_IF_IS_PROTODOWN(zif);
 	if (protodown == old_protodown)
 		return;
 
@@ -906,7 +906,7 @@ static void if_sweep_protodown(struct zebra_if *zif)
 {
 	bool protodown;
 
-	protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+	protodown = !!ZEBRA_IF_IS_PROTODOWN(zif);
 
 	if (!protodown)
 		return;
