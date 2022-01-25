@@ -2406,9 +2406,8 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
 		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
-		yang_dnode_get_ipv4p(&group, args->dnode, NULL);
-		apply_mask_ipv4((struct prefix_ipv4 *)&group);
-
+		yang_dnode_get_prefix(&group, args->dnode, NULL);
+		apply_mask(&group);
 		return pim_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
 				NULL, args->errmsg, args->errmsg_len);
 	}
@@ -2433,8 +2432,8 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
 		yang_dnode_get_ip(&rp_addr, args->dnode, "../rp-address");
-		yang_dnode_get_ipv4p(&group, args->dnode, NULL);
-		apply_mask_ipv4((struct prefix_ipv4 *)&group);
+		yang_dnode_get_prefix(&group, args->dnode, NULL);
+		apply_mask(&group);
 
 		return pim_no_rp_cmd_worker(pim, rp_addr.ip._v4_addr, group,
 				NULL, args->errmsg,
