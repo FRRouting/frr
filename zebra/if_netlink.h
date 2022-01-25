@@ -50,6 +50,7 @@ extern enum netlink_msg_status
 netlink_put_address_update_msg(struct nl_batch *bth,
 			       struct zebra_dplane_ctx *ctx);
 
+extern int netlink_tunneldump_read(struct zebra_ns *zns);
 extern enum netlink_msg_status
 netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
