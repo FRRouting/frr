@@ -1562,45 +1562,20 @@ struct ospf_lsa *ospf_apiserver_opaque_lsa_new(struct ospf_area *area,
 
 int ospf_apiserver_is_ready_type9(struct ospf_interface *oi)
 {
-	/* Type 9 opaque LSA can be originated if there is at least one
-	   active opaque-capable neighbor attached to the outgoing
-	   interface. */
-
-	return (ospf_nbr_count_opaque_capable(oi) > 0);
+	/* We can always handle getting opaque's even if we can't flood them */
+	return 1;
 }
 
 int ospf_apiserver_is_ready_type10(struct ospf_area *area)
 {
-	/* Type 10 opaque LSA can be originated if there is at least one
-	   interface belonging to the area that has an active opaque-capable
-	   neighbor. */
-	struct listnode *node, *nnode;
-	struct ospf_interface *oi;
-
-	for (ALL_LIST_ELEMENTS(area->oiflist, node, nnode, oi))
-		/* Is there an active neighbor attached to this interface? */
-		if (ospf_apiserver_is_ready_type9(oi))
-			return 1;
-
-	/* No active neighbor in area */
-	return 0;
+	/* We can always handle getting opaque's even if we can't flood them */
+	return 1;
 }
 
 int ospf_apiserver_is_ready_type11(struct ospf *ospf)
 {
-	/* Type 11 opaque LSA can be originated if there is at least one
-	   interface
-	   that has an active opaque-capable neighbor. */
-	struct listnode *node, *nnode;
-	struct ospf_interface *oi;
-
-	for (ALL_LIST_ELEMENTS(ospf->oiflist, node, nnode, oi))
-		/* Is there an active neighbor attached to this interface? */
-		if (ospf_apiserver_is_ready_type9(oi))
-			return 1;
-
-	/* No active neighbor at all */
-	return 0;
+	/* We can always handle getting opaque's even if we can't flood them */
+	return 1;
 }
 
 
