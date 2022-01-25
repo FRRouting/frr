@@ -516,11 +516,13 @@ void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 		if (oa->ts_spf.tv_sec || oa->ts_spf.tv_usec) {
 			result = monotime_since(&oa->ts_spf, NULL);
 			if (result / TIMER_SECOND_MICRO > 0) {
-				vty_out(vty, "SPF last executed %ld.%lds ago\n",
+				vty_out(vty,
+					"     SPF last executed %ld.%lds ago\n",
 					result / TIMER_SECOND_MICRO,
 					result % TIMER_SECOND_MICRO);
 			} else {
-				vty_out(vty, "SPF last executed %ldus ago\n",
+				vty_out(vty,
+					"     SPF last executed %ldus ago\n",
 					result);
 			}
 		} else
