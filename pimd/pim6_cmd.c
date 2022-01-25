@@ -392,6 +392,35 @@ DEFPY (interface_no_ipv6_mroute,
 					    source_str);
 }
 
+DEFPY (ipv6_pim_rp,
+       ipv6_pim_rp_cmd,
+       "ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
+       IPV6_STR
+       PIM_STR
+       "Rendezvous Point\n"
+       "ipv6 address of RP\n"
+       "Group Address range to cover\n")
+{
+	const char *group_str = (gp_str) ? gp_str : "FF00::0/8";
+
+	return pim_process_rp_cmd(vty, rp_str, group_str);
+}
+
+DEFPY (no_ipv6_pim_rp,
+       no_ipv6_pim_rp_cmd,
+       "no ipv6 pim rp X:X::X:X$rp [X:X::X:X/M]$gp",
+       NO_STR
+       IPV6_STR
+       PIM_STR
+       "Rendezvous Point\n"
+       "ipv6 address of RP\n"
+       "Group Address range to cover\n")
+{
+	const char *group_str = (gp_str) ? gp_str : "FF00::0/8";
+
+	return pim_process_no_rp_cmd(vty, rp_str, group_str);
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -427,4 +456,8 @@ void pim_cmd_init(void)
 			&interface_no_ipv6_pim_boundary_oil_cmd);
 	install_element(INTERFACE_NODE, &interface_ipv6_mroute_cmd);
 	install_element(INTERFACE_NODE, &interface_no_ipv6_mroute_cmd);
+	install_element(CONFIG_NODE, &ipv6_pim_rp_cmd);
+	install_element(VRF_NODE, &ipv6_pim_rp_cmd);
+	install_element(CONFIG_NODE, &no_ipv6_pim_rp_cmd);
+	install_element(VRF_NODE, &no_ipv6_pim_rp_cmd);
 }
