@@ -111,6 +111,9 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_GETNEXTHOP, "RTM_GETNEXTHOP"},
 					   {RTM_NEWNETCONF, "RTM_NEWNETCONF"},
 					   {RTM_DELNETCONF, "RTM_DELNETCONF"},
+					   {RTM_NEWTUNNEL, "RTM_NEWTUNNEL"},
+					   {RTM_DELTUNNEL, "RTM_DELTUNNEL"},
+					   {RTM_GETTUNNEL, "RTM_GETTUNNEL"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -393,8 +396,9 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELADDR:
 	case RTM_NEWNETCONF:
 	case RTM_DELNETCONF:
+	case RTM_NEWTUNNEL:
+	case RTM_DELTUNNEL:
 		return 0;
-
 	default:
 		/*
 		 * If we have received this message then
