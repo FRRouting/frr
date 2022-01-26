@@ -1669,9 +1669,18 @@ static int update_evpn_type5_route_entry(struct bgp *bgp_evpn,
 			/* attribute changed */
 			*route_changed = 1;
 
+			/* if the asn values are different, copy the asn of
+			 * source vrf to the target (evpn) vrf entry.
+			 */
+			if (bgp_vrf->as != bgp_evpn->as) {
+				new_aspath = aspath_dup(static_attr.aspath);
+				new_aspath = aspath_add_seq(new_aspath, bgp_vrf->as);
+				static_attr.aspath = new_aspath;
+			}
 			/* The attribute has changed. */
 			/* Add (or update) attribute to hash. */
-			attr_new = bgp_attr_intern(attr);
+			attr_new = bgp_attr_intern(&static_attr);
+			bgp_attr_flush(&static_attr);
 			bgp_path_info_set_flag(dest, tmp_pi,
 					       BGP_PATH_ATTR_CHANGED);
 
