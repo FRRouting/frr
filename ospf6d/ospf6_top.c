@@ -970,8 +970,13 @@ DEFUN (ospf6_distance,
        "OSPF6 Administrative distance\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	uint8_t distance;
 
-	o->distance_all = atoi(argv[1]->arg);
+	distance = atoi(argv[1]->arg);
+	if (o->distance_all != distance) {
+		o->distance_all = distance;
+		ospf6_restart_spf(o);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -985,8 +990,10 @@ DEFUN (no_ospf6_distance,
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 
-	o->distance_all = 0;
-
+	if (o->distance_all) {
+		o->distance_all = 0;
+		ospf6_restart_spf(o);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -1236,7 +1243,7 @@ DEFUN (no_ospf6_stub_router_admin,
 }
 
 /* Restart OSPF SPF algorithm*/
-static void ospf6_restart_spf(struct ospf6 *ospf6)
+void ospf6_restart_spf(struct ospf6 *ospf6)
 {
 	ospf6_route_remove_all(ospf6->route_table);
 	ospf6_route_remove_all(ospf6->brouter_table);
