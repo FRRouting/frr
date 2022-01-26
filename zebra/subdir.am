@@ -60,6 +60,7 @@ zebra_zebra_SOURCES = \
 	zebra/debug.c \
 	zebra/if_ioctl.c \
 	zebra/if_netlink.c \
+	zebra/if_socket.c \
 	zebra/if_sysctl.c \
 	zebra/interface.c \
 	zebra/ioctl.c \
