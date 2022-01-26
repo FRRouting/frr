@@ -296,3 +296,7 @@ keyword. At present, no sharp commands will be preserved in the config.
 
    router# show sharp segment-routing srv6
    (nothing)
+
+.. clicmd:: sharp interface IFNAME protodown
+
+   Set an interface protodown.
