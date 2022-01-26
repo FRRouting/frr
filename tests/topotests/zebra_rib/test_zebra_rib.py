@@ -31,6 +31,7 @@ import sys
 from functools import partial
 import pytest
 import json
+import platform
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -45,6 +46,20 @@ from time import sleep
 
 
 pytestmark = [pytest.mark.sharpd]
+krel = platform.release()
+
+
+def config_macvlan(tgen, r_str, device, macvlan):
+    "Creates specified macvlan interace on physical device"
+
+    if topotest.version_cmp(krel, "5.1") < 0:
+        return
+
+    router = tgen.gears[r_str]
+    router.run(
+        "ip link add {} link {} type macvlan mode bridge".format(macvlan, device)
+    )
+    router.run("ip link set {} up".format(macvlan))
 
 
 def setup_module(mod):
@@ -62,6 +77,8 @@ def setup_module(mod):
             TopoRouter.RD_SHARP, os.path.join(CWD, "{}/sharpd.conf".format(rname))
         )
 
+    # Macvlan interface for protodown func test */
+    config_macvlan(tgen, "r1", "r1-eth0", "r1-eth0-macvlan")
     # Initialize all routers.
     tgen.start_router()
 
@@ -267,6 +284,46 @@ def test_route_map_usage():
 
     ok, result = topotest.run_and_expect(check_routes_installed, "", count=5, wait=1)
     assert ok, result
+
+
+def test_protodown():
+    "Run protodown basic functionality test and report results."
+    pdown = False
+    count = 0
+    tgen = get_topogen()
+    if topotest.version_cmp(krel, "5.1") < 0:
+        tgen.errors = "kernel 5.1 needed for protodown tests"
+        pytest.skip(tgen.errors)
+
+    r1 = tgen.gears["r1"]
+
+    # Set interface protodown on
+    r1.vtysh_cmd("sharp interface r1-eth0-macvlan protodown")
+
+    # Timeout to wait for dplane to handle it
+    while count < 10:
+        count += 1
+        output = r1.vtysh_cmd("show interface r1-eth0-macvlan")
+        if re.search(r"protodown reasons:.*sharp", output):
+            pdown = True
+            break
+        sleep(1)
+
+    assert pdown is True, "Interface r1-eth0-macvlan not set protodown"
+
+    # Set interface protodown off
+    r1.vtysh_cmd("no sharp interface r1-eth0-macvlan protodown")
+
+    # Timeout to wait for dplane to handle it
+    while count < 10:
+        count += 1
+        output = r1.vtysh_cmd("show interface r1-eth0-macvlan")
+        if not re.search(r"protodown reasons:.*sharp", output):
+            pdown = False
+            break
+        sleep(1)
+
+    assert pdown is False, "Interface r1-eth0-macvlan not set protodown off"
 
 
 def test_memory_leak():
