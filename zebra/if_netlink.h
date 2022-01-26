@@ -40,6 +40,9 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 extern int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup);
 extern int interface_lookup_netlink(struct zebra_ns *zns);
 
+extern ssize_t netlink_intf_msg_encode(uint16_t cmd,
+				       const struct zebra_dplane_ctx *ctx,
+				       void *buf, size_t buflen);
 extern enum netlink_msg_status
 netlink_put_gre_set_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
 
@@ -47,6 +50,11 @@ extern enum netlink_msg_status
 netlink_put_address_update_msg(struct nl_batch *bth,
 			       struct zebra_dplane_ctx *ctx);
 
+extern enum netlink_msg_status
+netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx);
+
+#define FRR_PROTODOWN_REASON_DEFAULT_BIT 7
+#define PROTODOWN_REASON_NUM_BITS 32
 /*
  * Set protodown status of interface.
  *
@@ -56,10 +64,13 @@ netlink_put_address_update_msg(struct nl_batch *bth,
  * down
  *    If true, set protodown on. If false, set protodown off.
  *
+ * reason
+ *    bitfield representing reason codes
+ *
  * Returns:
  *    0
  */
-int netlink_protodown(struct interface *ifp, bool down);
+int netlink_protodown(struct interface *ifp, bool down, uint32_t r_bitfield);
 
 #ifdef __cplusplus
 }

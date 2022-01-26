@@ -255,6 +255,40 @@ const char *ifi_type2str(int type)
 	}
 }
 
+const char *ifla_pdr_type2str(int type)
+{
+	switch (type) {
+	case IFLA_PROTO_DOWN_REASON_UNSPEC:
+		return "UNSPEC";
+	case IFLA_PROTO_DOWN_REASON_MASK:
+		return "MASK";
+	case IFLA_PROTO_DOWN_REASON_VALUE:
+		return "VALUE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+const char *ifla_info_type2str(int type)
+{
+	switch (type) {
+	case IFLA_INFO_UNSPEC:
+		return "UNSPEC";
+	case IFLA_INFO_KIND:
+		return "KIND";
+	case IFLA_INFO_DATA:
+		return "DATA";
+	case IFLA_INFO_XSTATS:
+		return "XSTATS";
+	case IFLA_INFO_SLAVE_KIND:
+		return "SLAVE_KIND";
+	case IFLA_INFO_SLAVE_DATA:
+		return "SLAVE_DATA";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 const char *rta_type2str(int type)
 {
 	switch (type) {
@@ -358,6 +392,8 @@ const char *rta_type2str(int type)
 	case IFLA_EVENT:
 		return "EVENT";
 #endif /* IFLA_EVENT */
+	case IFLA_PROTO_DOWN_REASON:
+		return "PROTO_DOWN_REASON";
 	default:
 		return "UNKNOWN";
 	}
@@ -838,6 +874,42 @@ const char *nh_flags2str(uint32_t flags, char *buf, size_t buflen)
 /*
  * Netlink abstractions.
  */
+static void nllink_pdr_dump(struct rtattr *rta, size_t msglen)
+{
+	size_t plen;
+	uint32_t u32v;
+
+next_rta:
+	/* Check the header for valid length and for outbound access. */
+	if (RTA_OK(rta, msglen) == 0)
+		return;
+
+	plen = RTA_PAYLOAD(rta);
+	zlog_debug("      linkinfo [len=%d (payload=%zu) type=(%d) %s]",
+		   rta->rta_len, plen, rta->rta_type,
+		   ifla_pdr_type2str(rta->rta_type));
+	switch (rta->rta_type) {
+	case IFLA_PROTO_DOWN_REASON_MASK:
+	case IFLA_PROTO_DOWN_REASON_VALUE:
+		if (plen < sizeof(uint32_t)) {
+			zlog_debug("        invalid length");
+			break;
+		}
+
+		u32v = *(uint32_t *)RTA_DATA(rta);
+		zlog_debug("        %u", u32v);
+		break;
+
+	default:
+		/* NOTHING: unhandled. */
+		break;
+	}
+
+	/* Get next pointer and start iteration again. */
+	rta = RTA_NEXT(rta, msglen);
+	goto next_rta;
+}
+
 static void nllink_linkinfo_dump(struct rtattr *rta, size_t msglen)
 {
 	size_t plen;
@@ -851,7 +923,7 @@ next_rta:
 	plen = RTA_PAYLOAD(rta);
 	zlog_debug("      linkinfo [len=%d (payload=%zu) type=(%d) %s]",
 		   rta->rta_len, plen, rta->rta_type,
-		   rta_type2str(rta->rta_type));
+		   ifla_info_type2str(rta->rta_type));
 	switch (rta->rta_type) {
 	case IFLA_INFO_KIND:
 		if (plen == 0) {
@@ -888,8 +960,10 @@ static void nllink_dump(struct ifinfomsg *ifi, size_t msglen)
 	struct rtattr *rta;
 	size_t plen, it;
 	uint32_t u32v;
+	uint8_t u8v;
 	char bytestr[16];
 	char dbuf[128];
+	unsigned short rta_type;
 
 	/* Get the first attribute and go from there. */
 	rta = IFLA_RTA(ifi);
@@ -899,10 +973,10 @@ next_rta:
 		return;
 
 	plen = RTA_PAYLOAD(rta);
+	rta_type = rta->rta_type & ~NLA_F_NESTED;
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
-		   plen, rta->rta_type, rta_type2str(rta->rta_type));
-	switch (rta->rta_type) {
-	case IFLA_IFNAME:
+		   plen, rta_type, rta_type2str(rta_type));
+	switch (rta_type) {
 	case IFLA_IFALIAS:
 		if (plen == 0) {
 			zlog_debug("      invalid length");
@@ -927,6 +1001,7 @@ next_rta:
 #endif /* IFLA_GSO_MAX_SIZE */
 	case IFLA_CARRIER_CHANGES:
 	case IFLA_MASTER:
+	case IFLA_LINK:
 		if (plen < sizeof(uint32_t)) {
 			zlog_debug("      invalid length");
 			break;
@@ -936,6 +1011,15 @@ next_rta:
 		zlog_debug("      %u", u32v);
 		break;
 
+	case IFLA_PROTO_DOWN:
+		if (plen < sizeof(uint8_t)) {
+			zlog_debug("      invalid length");
+			break;
+		}
+
+		u8v = *(uint8_t *)RTA_DATA(rta);
+		zlog_debug("      %u", u8v);
+		break;
 	case IFLA_ADDRESS:
 		datap = RTA_DATA(rta);
 		dbuf[0] = 0;
@@ -952,7 +1036,11 @@ next_rta:
 		break;
 
 	case IFLA_LINKINFO:
-		nllink_linkinfo_dump(RTA_DATA(rta), msglen);
+		nllink_linkinfo_dump(RTA_DATA(rta), plen);
+		break;
+
+	case IFLA_PROTO_DOWN_REASON:
+		nllink_pdr_dump(RTA_DATA(rta), plen);
 		break;
 
 	default:
@@ -1027,6 +1115,7 @@ static void nlneigh_dump(struct ndmsg *ndm, size_t msglen)
 	uint16_t vid;
 	char bytestr[16];
 	char dbuf[128];
+	unsigned short rta_type;
 
 #ifndef NDA_RTA
 #define NDA_RTA(ndm)                                                           \
@@ -1043,9 +1132,10 @@ next_rta:
 		return;
 
 	plen = RTA_PAYLOAD(rta);
+	rta_type = rta->rta_type & ~NLA_F_NESTED;
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
-		   plen, rta->rta_type, neigh_rta2str(rta->rta_type));
-	switch (rta->rta_type & ~ NLA_F_NESTED) {
+		   plen, rta->rta_type, neigh_rta2str(rta_type));
+	switch (rta_type) {
 	case NDA_LLADDR:
 		datap = RTA_DATA(rta);
 		dbuf[0] = 0;
@@ -1153,6 +1243,7 @@ static void nlnh_dump(struct nhmsg *nhm, size_t msglen)
 	uint32_t u32v;
 	unsigned long count, i;
 	struct nexthop_grp *nhgrp;
+	unsigned short rta_type;
 
 	rta = RTM_NHA(nhm);
 
@@ -1162,9 +1253,10 @@ next_rta:
 		return;
 
 	plen = RTA_PAYLOAD(rta);
+	rta_type = rta->rta_type & ~NLA_F_NESTED;
 	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
-		   plen, rta->rta_type, nhm_rta2str(rta->rta_type));
-	switch (rta->rta_type & ~NLA_F_NESTED) {
+		   plen, rta->rta_type, nhm_rta2str(rta_type));
+	switch (rta_type) {
 	case NHA_ID:
 		u32v = *(uint32_t *)RTA_DATA(rta);
 		zlog_debug("      %u", u32v);

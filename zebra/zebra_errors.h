@@ -136,6 +136,7 @@ enum zebra_log_refs {
 	EC_ZEBRA_ES_CREATE,
 	EC_ZEBRA_GRE_SET_UPDATE,
 	EC_ZEBRA_SRV6M_UNRELEASED_LOCATOR_CHUNK,
+	EC_ZEBRA_INTF_UPDATE_FAILURE,
 };
 
 void zebra_error_init(void);

@@ -77,6 +77,7 @@
 #include "zebra/netconf_netlink.h"
 
 extern struct zebra_privs_t zserv_privs;
+uint8_t frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 
 /* Note: on netlink systems, there should be a 1-to-1 mapping between interface
    names and ifindex values. */
@@ -822,6 +823,12 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 {
 	bool zif_protodown;
 
+	/* Set our reason code to note it wasn't us */
+	if (protodown)
+		zif->protodown_rc |= ZEBRA_PROTODOWN_EXTERNAL;
+	else
+		zif->protodown_rc &= ~ZEBRA_PROTODOWN_EXTERNAL;
+
 	zif_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
 	if (protodown == zif_protodown)
 		return;
@@ -835,7 +842,7 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 			zlog_debug(
 				"bond mbr %s re-instate protdown %s in the dplane",
 				zif->ifp->name, zif_protodown ? "on" : "off");
-		netlink_protodown(zif->ifp, zif_protodown);
+		netlink_protodown(zif->ifp, zif_protodown, zif->protodown_rc);
 	} else {
 		if (protodown)
 			zif->flags |= ZIF_FLAG_PROTODOWN;
@@ -1242,6 +1249,41 @@ netlink_put_address_update_msg(struct nl_batch *bth,
 {
 	return netlink_batch_add_msg(bth, ctx, netlink_address_msg_encoder,
 				     false);
+}
+
+static ssize_t netlink_intf_msg_encoder(struct zebra_dplane_ctx *ctx, void *buf,
+					size_t buflen)
+{
+	enum dplane_op_e op;
+	int cmd = 0;
+
+	op = dplane_ctx_get_op(ctx);
+
+	switch (op) {
+	case DPLANE_OP_INTF_UPDATE:
+		cmd = RTM_SETLINK;
+		break;
+	case DPLANE_OP_INTF_INSTALL:
+		cmd = RTM_NEWLINK;
+		break;
+	case DPLANE_OP_INTF_DELETE:
+		cmd = RTM_DELLINK;
+		break;
+	default:
+		flog_err(
+			EC_ZEBRA_NHG_FIB_UPDATE,
+			"Context received for kernel interface update with incorrect OP code (%u)",
+			op);
+		return -1;
+	}
+
+	return netlink_intf_msg_encode(cmd, ctx, buf, buflen);
+}
+
+enum netlink_msg_status
+netlink_put_intf_update_msg(struct nl_batch *bth, struct zebra_dplane_ctx *ctx)
+{
+	return netlink_batch_add_msg(bth, ctx, netlink_intf_msg_encoder, false);
 }
 
 int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
@@ -2049,9 +2091,78 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	return 0;
 }
 
-int netlink_protodown(struct interface *ifp, bool down)
+/**
+ * Interface encoding helper function.
+ *
+ * \param[in] cmd netlink command.
+ * \param[in] ctx dataplane context (information snapshot).
+ * \param[out] buf buffer to hold the packet.
+ * \param[in] buflen amount of buffer bytes.
+ */
+
+ssize_t netlink_intf_msg_encode(uint16_t cmd,
+				const struct zebra_dplane_ctx *ctx, void *buf,
+				size_t buflen)
+{
+	struct {
+		struct nlmsghdr n;
+		struct ifinfomsg ifa;
+		char buf[];
+	} *req = buf;
+
+	struct rtattr *nest_protodown_reason;
+	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
+	uint32_t r_bitfield = dplane_ctx_get_intf_r_bitfield(ctx);
+	bool down = dplane_ctx_intf_is_protodown(ctx);
+	struct nlsock *nl =
+		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+
+	if (buflen < sizeof(*req))
+		return 0;
+
+	memset(req, 0, sizeof(*req));
+
+	if (cmd != RTM_SETLINK)
+		flog_err(
+			EC_ZEBRA_INTF_UPDATE_FAILURE,
+			"Only RTM_SETLINK message type currently supported in dplane pthread");
+
+	req->n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifinfomsg));
+	req->n.nlmsg_flags = NLM_F_REQUEST;
+	req->n.nlmsg_type = cmd;
+	req->n.nlmsg_pid = nl->snl.nl_pid;
+
+	req->ifa.ifi_index = ifindex;
+
+	nl_attr_put8(&req->n, buflen, IFLA_PROTO_DOWN, down);
+	nl_attr_put32(&req->n, buflen, IFLA_LINK, ifindex);
+
+	if (r_bitfield) {
+		nest_protodown_reason =
+			nl_attr_nest(&req->n, buflen, IFLA_PROTO_DOWN_REASON);
+
+		if (!nest_protodown_reason)
+			return -1;
+
+		nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
+			      (1 << frr_protodown_r_bit));
+		nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
+			      ((int)down) << frr_protodown_r_bit);
+
+		nl_attr_nest_end(&req->n, nest_protodown_reason);
+	}
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: %s, protodown=%d ifindex=%u", __func__,
+			   nl_msg_type_to_str(cmd), down, ifindex);
+
+	return NLMSG_ALIGN(req->n.nlmsg_len);
+}
+
+int netlink_protodown(struct interface *ifp, bool down, uint32_t r_bitfield)
 {
 	struct zebra_ns *zns = zebra_ns_lookup(NS_DEFAULT);
+	struct rtattr *nest_protodown_reason;
 
 	struct {
 		struct nlmsghdr n;
@@ -2068,8 +2179,23 @@ int netlink_protodown(struct interface *ifp, bool down)
 
 	req.ifa.ifi_index = ifp->ifindex;
 
-	nl_attr_put(&req.n, sizeof(req), IFLA_PROTO_DOWN, &down, sizeof(down));
+	nl_attr_put8(&req.n, sizeof(req), IFLA_PROTO_DOWN, down);
 	nl_attr_put32(&req.n, sizeof(req), IFLA_LINK, ifp->ifindex);
+
+	if (r_bitfield) {
+		nest_protodown_reason = nl_attr_nest(&req.n, sizeof(req),
+						     IFLA_PROTO_DOWN_REASON);
+
+		if (!nest_protodown_reason)
+			return -1;
+
+		nl_attr_put32(&req.n, sizeof(req), IFLA_PROTO_DOWN_REASON_MASK,
+			      (1 << frr_protodown_r_bit));
+		nl_attr_put32(&req.n, sizeof(req), IFLA_PROTO_DOWN_REASON_VALUE,
+			      ((int)down) << frr_protodown_r_bit);
+
+		nl_attr_nest_end(&req.n, nest_protodown_reason);
+	}
 
 	return netlink_talk(netlink_talk_filter, &req.n, &zns->netlink_cmd, zns,
 			    false);
