@@ -192,6 +192,9 @@ struct dplane_intf_info {
 
 	uint32_t metric;
 	uint32_t flags;
+	uint32_t r_bitfield;
+
+	bool protodown;
 
 #define DPLANE_INTF_CONNECTED   (1 << 0) /* Connected peer, p2p */
 #define DPLANE_INTF_SECONDARY   (1 << 1)
@@ -526,6 +529,9 @@ static struct zebra_dplane_globals {
 	_Atomic uint32_t dg_gre_set_in;
 	_Atomic uint32_t dg_gre_set_errors;
 
+	_Atomic uint32_t dg_intfs_in;
+	_Atomic uint32_t dg_intf_errors;
+
 	/* Dataplane pthread */
 	struct frr_pthread *dg_pthread;
 
@@ -760,6 +766,9 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_NONE:
 	case DPLANE_OP_IPSET_ADD:
 	case DPLANE_OP_IPSET_DELETE:
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
 		break;
 
 	case DPLANE_OP_IPSET_ENTRY_ADD:
@@ -1073,6 +1082,16 @@ const char *dplane_op2str(enum dplane_op_e op)
 
 	case DPLANE_OP_INTF_NETCONFIG:
 		return "INTF_NETCONFIG";
+
+	case DPLANE_OP_INTF_INSTALL:
+		ret = "INTF_INSTALL";
+		break;
+	case DPLANE_OP_INTF_UPDATE:
+		ret = "INTF_UPDATE";
+		break;
+	case DPLANE_OP_INTF_DELETE:
+		ret = "INTF_DELETE";
+		break;
 	}
 
 	return ret;
@@ -1769,6 +1788,28 @@ void dplane_ctx_set_intf_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
 	DPLANE_CTX_VALID(ctx);
 
 	ctx->u.intf.metric = metric;
+}
+
+uint32_t dplane_ctx_get_intf_r_bitfield(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.r_bitfield;
+}
+
+void dplane_ctx_set_intf_r_bitfield(struct zebra_dplane_ctx *ctx,
+				    uint32_t r_bitfield)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.r_bitfield = r_bitfield;
+}
+
+bool dplane_ctx_intf_is_protodown(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->u.intf.protodown;
 }
 
 /* Is interface addr p2p? */
@@ -2631,6 +2672,57 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	 * it probably won't require two messages
 	 */
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
+
+	ret = AOK;
+
+done:
+	return ret;
+}
+
+/**
+ * dplane_ctx_intf_init() - Initialize a context block for a inteface update
+ *
+ * @ctx:	Dataplane context to init
+ * @op:		Operation being performed
+ * @ifp:	Interface
+ *
+ * Return:	Result status
+ */
+int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
+			 const struct interface *ifp)
+{
+	struct zebra_ns *zns = NULL;
+	struct zebra_if *zif = NULL;
+	int ret = EINVAL;
+
+	if (!ctx || !ifp)
+		goto done;
+
+	ctx->zd_op = op;
+	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
+
+	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
+	ctx->zd_ifindex = ifp->ifindex;
+
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
+	dplane_ctx_ns_init(ctx, zns, false);
+
+
+	/* Copy over ifp info */
+	ctx->u.intf.metric = ifp->metric;
+	ctx->u.intf.flags = ifp->flags;
+
+	/* Copy over extra zebra info, if available */
+	zif = (struct zebra_if *)ifp->info;
+
+	if (zif) {
+		ctx->u.intf.r_bitfield = zif->protodown_rc;
+		ctx->u.intf.protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
+	}
+
+	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_INTF_UPDATE));
+	ctx->zd_is_update = (op == DPLANE_OP_INTF_UPDATE);
 
 	ret = AOK;
 
@@ -3822,6 +3914,85 @@ static enum zebra_dplane_result intf_addr_update_internal(
 	}
 
 	return result;
+}
+
+/**
+ * dplane_intf_update_internal() - Helper for enqueuing interface changes
+ *
+ * @ifp:	Interface where the change occured
+ * @op:		The operation to be enqued
+ *
+ * Return:	Result of the change
+ */
+static enum zebra_dplane_result
+dplane_intf_update_internal(const struct interface *ifp, enum dplane_op_e op)
+{
+	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
+	int ret = EINVAL;
+	struct zebra_dplane_ctx *ctx = NULL;
+
+	/* Obtain context block */
+	ctx = dplane_ctx_alloc();
+	if (!ctx) {
+		ret = ENOMEM;
+		goto done;
+	}
+
+	ret = dplane_ctx_intf_init(ctx, op, ifp);
+	if (ret == AOK)
+		ret = dplane_update_enqueue(ctx);
+
+done:
+	/* Update counter */
+	atomic_fetch_add_explicit(&zdplane_info.dg_intfs_in, 1,
+				  memory_order_relaxed);
+
+	if (ret == AOK)
+		result = ZEBRA_DPLANE_REQUEST_QUEUED;
+	else {
+		atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors, 1,
+					  memory_order_relaxed);
+		if (ctx)
+			dplane_ctx_free(&ctx);
+	}
+
+	return result;
+}
+
+/*
+ * Enqueue a interface add for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_add(const struct interface *ifp)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (ifp)
+		ret = dplane_intf_update_internal(ifp, DPLANE_OP_INTF_INSTALL);
+	return ret;
+}
+
+/*
+ * Enqueue a interface update for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_update(const struct interface *ifp)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (ifp)
+		ret = dplane_intf_update_internal(ifp, DPLANE_OP_INTF_UPDATE);
+	return ret;
+}
+
+/*
+ * Enqueue a interface delete for the dataplane.
+ */
+enum zebra_dplane_result dplane_intf_delete(const struct interface *ifp)
+{
+	enum zebra_dplane_result ret = ZEBRA_DPLANE_REQUEST_FAILURE;
+
+	if (ifp)
+		ret = dplane_intf_update_internal(ifp, DPLANE_OP_INTF_DELETE);
+	return ret;
 }
 
 /*
@@ -5241,6 +5412,15 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_ctx_get_netconf_mpls(ctx),
 			   dplane_ctx_get_netconf_mcast(ctx));
 		break;
+
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+		zlog_debug("Dplane intf %s, idx %u, protodown %d",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifindex(ctx),
+			   dplane_ctx_intf_is_protodown(ctx));
+		break;
 	}
 }
 
@@ -5375,6 +5555,15 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 				&zdplane_info.dg_gre_set_errors, 1,
 				memory_order_relaxed);
 		break;
+
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+		if (res != ZEBRA_DPLANE_REQUEST_SUCCESS)
+			atomic_fetch_add_explicit(&zdplane_info.dg_intf_errors,
+						  1, memory_order_relaxed);
+		break;
+
 	/* Ignore 'notifications' - no-op */
 	case DPLANE_OP_SYS_ROUTE_ADD:
 	case DPLANE_OP_SYS_ROUTE_DELETE:

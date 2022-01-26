@@ -128,6 +128,8 @@ const char *af_type2str(int type);
 const char *ifi_type2str(int type);
 const char *rta_type2str(int type);
 const char *rtm_type2str(int type);
+const char *ifla_pdr_type2str(int type);
+const char *ifla_info_type2str(int type);
 const char *rtm_protocol2str(int type);
 const char *rtm_scope2str(int type);
 const char *rtm_rta2str(int type);

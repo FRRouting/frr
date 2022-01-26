@@ -94,6 +94,7 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
 					   {RTM_GETROUTE, "RTM_GETROUTE"},
 					   {RTM_NEWLINK, "RTM_NEWLINK"},
+					   {RTM_SETLINK, "RTM_SETLINK"},
 					   {RTM_DELLINK, "RTM_DELLINK"},
 					   {RTM_GETLINK, "RTM_GETLINK"},
 					   {RTM_NEWADDR, "RTM_NEWADDR"},
@@ -1491,6 +1492,11 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 	case DPLANE_OP_INTF_NETCONFIG:
 	case DPLANE_OP_NONE:
 		return FRR_NETLINK_ERROR;
+
+	case DPLANE_OP_INTF_INSTALL:
+	case DPLANE_OP_INTF_UPDATE:
+	case DPLANE_OP_INTF_DELETE:
+		return netlink_put_intf_update_msg(bth, ctx);
 	}
 
 	return FRR_NETLINK_ERROR;

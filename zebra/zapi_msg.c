@@ -1487,6 +1487,7 @@ static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
 	ifindex_t ifindex;
 	struct interface *ifp;
 	char down;
+	enum protodown_reasons reason;
 
 	STREAM_GETL(msg, ifindex);
 	STREAM_GETC(msg, down);
@@ -1494,16 +1495,27 @@ static void zread_interface_set_protodown(ZAPI_HANDLER_ARGS)
 	/* set ifdown */
 	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(NS_DEFAULT), ifindex);
 
-	if (ifp) {
-		zlog_info("Setting interface %s (%u): protodown %s", ifp->name,
-			  ifindex, down ? "on" : "off");
-		zebra_if_set_protodown(ifp, down);
-	} else {
+	if (!ifp) {
 		zlog_warn(
 			"Cannot set protodown %s for interface %u; does not exist",
 			down ? "on" : "off", ifindex);
+
+		return;
 	}
 
+	switch (client->proto) {
+	case ZEBRA_ROUTE_VRRP:
+		reason = ZEBRA_PROTODOWN_VRRP;
+		break;
+	case ZEBRA_ROUTE_SHARP:
+		reason = ZEBRA_PROTODOWN_SHARP;
+		break;
+	default:
+		reason = 0;
+		break;
+	}
+
+	zebra_if_set_protodown(ifp, down, reason);
 
 stream_failure:
 	return;

@@ -3623,10 +3623,10 @@ bool zebra_evpn_is_es_bond_member(struct interface *ifp)
 void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif, bool clear,
 					     const char *caller)
 {
-	bool old_protodown;
 	bool new_protodown;
-	enum protodown_reasons old_protodown_rc = 0;
-	enum protodown_reasons protodown_rc = 0;
+	uint32_t old_protodown_rc = 0;
+	uint32_t new_protodown_rc = 0;
+	uint32_t protodown_rc = 0;
 
 	if (!clear) {
 		struct zebra_if *bond_zif;
@@ -3635,32 +3635,23 @@ void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif, bool clear,
 		protodown_rc = bond_zif->protodown_rc;
 	}
 
-	old_protodown = !!(zif->flags & ZIF_FLAG_PROTODOWN);
 	old_protodown_rc = zif->protodown_rc;
-	zif->protodown_rc &= ~ZEBRA_PROTODOWN_EVPN_ALL;
-	zif->protodown_rc |= (protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL);
-	new_protodown = !!zif->protodown_rc;
+	new_protodown_rc &= ~ZEBRA_PROTODOWN_EVPN_ALL;
+	new_protodown_rc |= (protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL);
+	new_protodown = !!new_protodown_rc;
 
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES
-	    && (zif->protodown_rc != old_protodown_rc))
+	if (IS_ZEBRA_DEBUG_EVPN_MH_ES && (new_protodown_rc != old_protodown_rc))
 		zlog_debug(
 			"%s bond mbr %s protodown_rc changed; old 0x%x new 0x%x",
 			caller, zif->ifp->name, old_protodown_rc,
-			zif->protodown_rc);
+			new_protodown_rc);
 
-	if (old_protodown == new_protodown)
-		return;
-
-	if (new_protodown)
-		zif->flags |= ZIF_FLAG_PROTODOWN;
-	else
-		zif->flags &= ~ZIF_FLAG_PROTODOWN;
-
-	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
-		zlog_debug("%s protodown %s", zif->ifp->name,
-			   new_protodown ? "on" : "off");
-
-	zebra_if_set_protodown(zif->ifp, new_protodown);
+	if (zebra_if_set_protodown(zif->ifp, new_protodown, new_protodown_rc) ==
+	    0) {
+		if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+			zlog_debug("%s protodown %s", zif->ifp->name,
+				   new_protodown ? "on" : "off");
+	}
 }
 
 /* The bond members inherit the protodown reason code from the bond */
@@ -3683,7 +3674,7 @@ static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
 					      bool resync_dplane)
 {
 	struct zebra_if *zif;
-	enum protodown_reasons old_protodown_rc;
+	uint32_t old_protodown_rc;
 
 	zif = es->zif;
 	/* if the reason code is the same bail unless it is a new
@@ -3714,7 +3705,7 @@ static void zebra_evpn_mh_update_protodown_es(struct zebra_evpn_es *es,
 static void zebra_evpn_mh_clear_protodown_es(struct zebra_evpn_es *es)
 {
 	struct zebra_if *zif;
-	enum protodown_reasons old_protodown_rc;
+	uint32_t old_protodown_rc;
 
 	zif = es->zif;
 	if (!(zif->protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL))
@@ -3742,10 +3733,9 @@ static void zebra_evpn_mh_update_protodown_es_all(void)
 		zebra_evpn_mh_update_protodown_es(es, false /*resync_dplane*/);
 }
 
-static void zebra_evpn_mh_update_protodown(enum protodown_reasons protodown_rc,
-					   bool set)
+static void zebra_evpn_mh_update_protodown(uint32_t protodown_rc, bool set)
 {
-	enum protodown_reasons old_protodown_rc = zmh_info->protodown_rc;
+	uint32_t old_protodown_rc = zmh_info->protodown_rc;
 
 	if (set) {
 		if ((protodown_rc & zmh_info->protodown_rc) == protodown_rc)
