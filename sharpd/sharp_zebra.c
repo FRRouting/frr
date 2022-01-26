@@ -968,6 +968,18 @@ static int sharp_zebra_process_srv6_locator_chunk(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
+int sharp_zebra_send_interface_protodown(struct interface *ifp, bool down)
+{
+	zlog_debug("Sending zebra to set %s protodown %s", ifp->name,
+		   down ? "on" : "off");
+
+	if (zclient_send_interface_protodown(zclient, ifp->vrf->vrf_id, ifp,
+					     down) == ZCLIENT_SEND_FAILURE)
+		return -1;
+
+	return 0;
+}
+
 static zclient_handler *const sharp_handlers[] = {
 	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
 	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,

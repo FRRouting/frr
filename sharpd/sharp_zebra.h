@@ -73,4 +73,6 @@ extern void sharp_install_seg6local_route_helper(struct prefix *p,
 						 enum seg6local_action_t act,
 						 struct seg6local_context *ctx);
 
+extern int sharp_zebra_send_interface_protodown(struct interface *ifp,
+						bool down);
 #endif
