@@ -1336,6 +1336,10 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 				    o->spf_hold_multiplier);
 
 		json_object_int_add(json, "maximumPaths", o->max_multipath);
+		json_object_int_add(json, "preference",
+				    o->distance_all
+					    ? o->distance_all
+					    : ZEBRA_OSPF6_DISTANCE_DEFAULT);
 
 		if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
 			timersub(&now, &o->ts_spf, &result);
@@ -1419,6 +1423,9 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 			o->lsa_minarrival);
 
 		vty_out(vty, " Maximum-paths %u\n", o->max_multipath);
+		vty_out(vty, " Administrative distance %u\n",
+			o->distance_all ? o->distance_all
+					: ZEBRA_OSPF6_DISTANCE_DEFAULT);
 
 		/* Show SPF parameters */
 		vty_out(vty,
