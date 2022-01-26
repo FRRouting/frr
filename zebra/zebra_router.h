@@ -68,19 +68,24 @@ enum multicast_mode {
  * physical device.
  */
 enum protodown_reasons {
+	/* A process outside of FRR's control protodowned the interface */
+	ZEBRA_PROTODOWN_EXTERNAL = (1 << 0),
 	/* On startup local ESs are held down for some time to
 	 * allow the underlay to converge and EVPN routes to
 	 * get learnt
 	 */
-	ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY = (1 << 0),
+	ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY = (1 << 1),
 	/* If all the uplinks are down the switch has lost access
 	 * to the VxLAN overlay and must shut down the access
 	 * ports to allow servers to re-direct their traffic to
 	 * other switches on the Ethernet Segment
 	 */
-	ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN = (1 << 1),
-	ZEBRA_PROTODOWN_EVPN_ALL = (ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN
-				    | ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY)
+	ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN = (1 << 2),
+	ZEBRA_PROTODOWN_EVPN_ALL = (ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN |
+				    ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY),
+	ZEBRA_PROTODOWN_VRRP = (1 << 3),
+	/* This reason used exclusively for testing */
+	ZEBRA_PROTODOWN_SHARP = (1 << 4)
 };
 #define ZEBRA_PROTODOWN_RC_STR_LEN 80
 

@@ -263,7 +263,7 @@ struct zebra_evpn_mh_info {
 	uint32_t uplink_oper_up_cnt;
 
 	/* These protodown bits are inherited by all ES bonds */
-	enum protodown_reasons protodown_rc;
+	uint32_t protodown_rc;
 };
 
 /* returns TRUE if the EVPN is ready to be sent to BGP */

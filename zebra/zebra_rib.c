@@ -4318,11 +4318,11 @@ static void rib_process_dplane_results(struct thread *thread)
 
 			case DPLANE_OP_INTF_ADDR_ADD:
 			case DPLANE_OP_INTF_ADDR_DEL:
-				zebra_if_addr_update_ctx(ctx);
-				break;
-
+			case DPLANE_OP_INTF_INSTALL:
+			case DPLANE_OP_INTF_UPDATE:
+			case DPLANE_OP_INTF_DELETE:
 			case DPLANE_OP_INTF_NETCONFIG:
-				zebra_if_netconf_update_ctx(ctx);
+				zebra_if_dplane_result(ctx);
 				break;
 
 			/* Some op codes not handled here */
