@@ -197,13 +197,12 @@ extern int stream_put_in_addr_at(struct stream *s, size_t putp,
 				 const struct in_addr *addr);
 extern int stream_put_in6_addr_at(struct stream *s, size_t putp,
 				  const struct in6_addr *addr);
-extern int stream_put_prefix_addpath(struct stream *s,
-				     const struct prefix *p,
-				     int addpath_encode,
+extern int stream_put_prefix_addpath(struct stream *s, const struct prefix *p,
+				     bool addpath_capable,
 				     uint32_t addpath_tx_id);
 extern int stream_put_prefix(struct stream *s, const struct prefix *p);
 extern int stream_put_labeled_prefix(struct stream *, const struct prefix *,
-				     mpls_label_t *, int addpath_encode,
+				     mpls_label_t *, bool addpath_capable,
 				     uint32_t addpath_tx_id);
 extern void stream_get(void *, struct stream *, size_t);
 extern bool stream_get2(void *data, struct stream *s, size_t size);

@@ -112,7 +112,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	mpls_label_t label = {0};
 	afi_t afi;
 	safi_t safi;
-	int addpath_encoded;
+	bool addpath_capable;
 	uint32_t addpath_id;
 	int ret = 0;
 
@@ -126,17 +126,14 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 #define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
 	while (STREAM_READABLE(data) > 0) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
-		if (addpath_encoded) {
+		if (addpath_capable) {
 			STREAM_GET(&addpath_id, data, BGP_ADDPATH_ID_LEN);
 			addpath_id = ntohl(addpath_id);
 		}
