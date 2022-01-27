@@ -709,21 +709,6 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 		addpath_tx_id = adj->addpath_tx_id;
 		path = adv->pathi;
 
-		/* Check if we need to add a prefix to the packet if
-		 * maximum-prefix-out is set for the peer.
-		 */
-		if (CHECK_FLAG(peer->af_flags[afi][safi],
-			       PEER_FLAG_MAX_PREFIX_OUT)
-		    && subgrp->scount >= peer->pmax_out[afi][safi]) {
-			if (BGP_DEBUG(update, UPDATE_OUT)
-			    || BGP_DEBUG(update, UPDATE_PREFIX)) {
-				zlog_debug(
-					"%s reached maximum prefix to be send (%u)",
-					peer->host, peer->pmax_out[afi][safi]);
-			}
-			goto next;
-		}
-
 		space_remaining = STREAM_CONCAT_REMAIN(s, snlri, STREAM_SIZE(s))
 				  - BGP_MAX_PACKET_SIZE_OVERFLOW;
 		space_needed =
@@ -876,7 +861,6 @@ struct bpacket *subgroup_update_packet(struct update_subgroup *subgrp)
 			subgrp->scount++;
 
 		adj->attr = bgp_attr_intern(adv->baa->attr);
-next:
 		adv = bgp_advertise_clean_subgroup(subgrp, adj);
 	}
 
