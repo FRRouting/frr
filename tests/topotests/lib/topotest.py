@@ -1322,6 +1322,7 @@ class Router(Node):
         self.routertype = "frr"
         self.unified_config = None
         self.daemons = {
+            "mgmtd": 0,
             "zebra": 0,
             "ripd": 0,
             "ripngd": 0,
@@ -1339,10 +1340,9 @@ class Router(Node):
             "babeld": 0,
             "pbrd": 0,
             "pathd": 0,
-            "snmpd": 0,
-            "mgmtd": 0,
+            "snmpd": 0
         }
-        self.daemons_options = {"zebra": "", "mgmtd": ""}
+        self.daemons_options = {"mgmtd": "", "zebra": ""}
         self.reportCores = True
         self.version = None
 
@@ -1386,13 +1386,14 @@ class Router(Node):
             self._config_frr(**params)
         else:
             # Test the provided path
+            cpath = os.path.join(self.daemondir, "mgmtd")
+            if not os.path.isfile(zpath):
+                raise Exception("No MGMTD binary found in {}".format(cpath))
+
             zpath = os.path.join(self.daemondir, "zebra")
             if not os.path.isfile(zpath):
                 raise Exception("No zebra binary found in {}".format(zpath))
 
-            cpath = os.path.join(self.daemondir, "mgmtd")
-            if not os.path.isfile(zpath):
-                raise Exception("No MGMTD binary found in {}".format(cpath))
             # Allow user to specify routertype when the path was specified.
             if params.get("routertype") is not None:
                 self.routertype = params.get("routertype")
