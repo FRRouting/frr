@@ -4903,12 +4903,12 @@ void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json)
 void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 			    const struct prefix_rd *prd, mpls_label_t *label,
 			    uint32_t num_labels, struct attr *attr,
-			    int addpath_encode, uint32_t addpath_tx_id)
+			    bool addpath_capable, uint32_t addpath_tx_id)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	int len, ipa_len = 0;
 
-	if (addpath_encode)
+	if (addpath_capable)
 		stream_putl(s, addpath_tx_id);
 
 	/* Route type */
@@ -4990,7 +4990,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	afi_t afi;
 	safi_t safi;
 	uint32_t addpath_id;
-	int addpath_encoded;
+	bool addpath_capable;
 	int psize = 0;
 	uint8_t rtype;
 	struct prefix p;
@@ -5002,17 +5002,14 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
 		/* Deal with path-id if AddPath is supported. */
-		if (addpath_encoded) {
+		if (addpath_capable) {
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;

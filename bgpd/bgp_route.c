@@ -5599,7 +5599,7 @@ void bgp_reset(void)
 	prefix_list_reset();
 }
 
-static int bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi)
+bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
 		&& CHECK_FLAG(peer->af_cap[afi][safi],
@@ -5618,7 +5618,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	int ret;
 	afi_t afi;
 	safi_t safi;
-	int addpath_encoded;
+	bool addpath_capable;
 	uint32_t addpath_id;
 
 	pnt = packet->nlri;
@@ -5626,7 +5626,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 	afi = packet->afi;
 	safi = packet->safi;
 	addpath_id = 0;
-	addpath_encoded = bgp_addpath_encode_rx(peer, afi, safi);
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 	/* RFC4771 6.3 The NLRI field in the UPDATE message is checked for
 	   syntactic validity.  If the field is syntactically incorrect,
@@ -5635,7 +5635,7 @@ int bgp_nlri_parse_ip(struct peer *peer, struct attr *attr,
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
-		if (addpath_encoded) {
+		if (addpath_capable) {
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN >= lim)
@@ -9841,7 +9841,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	int first = 0;
 	struct listnode *node, *nnode;
 	struct peer *peer;
-	int addpath_capable;
+	bool addpath_capable;
 	int has_adj;
 	unsigned int first_as;
 	bool nexthop_self =

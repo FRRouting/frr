@@ -1925,7 +1925,7 @@ int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)
 }
 
 /* Return true if we should addpath encode NLRI to this peer */
-int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
+bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV)
 		&& CHECK_FLAG(peer->af_cap[afi][safi],
