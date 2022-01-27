@@ -313,9 +313,9 @@ To start OSPF process you have to specify the OSPF router.
 Areas
 -----
 
-.. clicmd:: area A.B.C.D range A.B.C.D/M
+.. clicmd:: area A.B.C.D range A.B.C.D/M [advertise [cost (0-16777215)]]
 
-.. clicmd:: area (0-4294967295) range A.B.C.D/M
+.. clicmd:: area (0-4294967295) range A.B.C.D/M [advertise [cost (0-16777215)]]
 
 
 
@@ -346,9 +346,9 @@ Areas
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. clicmd:: area A.B.C.D range A.B.C.D/M substitute A.B.C.D/M
+.. clicmd:: area A.B.C.D range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
 
-.. clicmd:: area (0-4294967295) range A.B.C.D/M substitute A.B.C.D/M
+.. clicmd:: area (0-4294967295) range A.B.C.D/M {substitute A.B.C.D/M|cost (0-16777215)}
 
 
    Substitute summarized prefix with another prefix.
@@ -364,6 +364,11 @@ Areas
    One Type-3 summary-LSA with routing info 11.0.0.0/8 is announced into backbone area if
    area 0.0.0.10 contains at least one intra-area network (i.e. described with router-LSA or
    network-LSA) from range 10.0.0.0/8.
+
+   By default, the metric of the summary route is calculated as the highest
+   metric among the summarized routes. The `cost` option, however, can be used
+   to set an explicit metric.
+
    This command makes sense in ABR only.
 
 .. clicmd:: area A.B.C.D virtual-link A.B.C.D
