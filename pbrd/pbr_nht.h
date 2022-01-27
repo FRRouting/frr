@@ -109,6 +109,11 @@ extern struct pbr_nexthop_group_cache *pbr_nht_add_group(const char *name);
 extern void pbr_nht_change_group(const char *name);
 extern void pbr_nht_delete_group(const char *name);
 
+extern void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
+				     const struct nexthop_group_cmd *nhgc);
+extern void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms,
+				const char *name);
+
 extern void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 					   const struct nexthop *nhop);
 extern void pbr_nht_delete_individual_nexthop(struct pbr_map_sequence *pbrms);
