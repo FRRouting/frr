@@ -803,7 +803,8 @@ class TopoRouter(TopoGear):
         """
         self.load_config(self.RD_FRR, source)
         if not daemons:
-            # Always add zebra
+            # Always add zebra and mgmtd
+            self.load_config(self.RD_MGMTD)
             self.load_config(self.RD_ZEBRA)
             for daemon in self.RD:
                 # This will not work for all daemons

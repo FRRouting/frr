@@ -45,7 +45,7 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-
+from lib import topotest
 pytestmark = [pytest.mark.staticd]
 
 
@@ -61,6 +61,10 @@ def setup_module(mod):
 
     router_list = tgen.routers()
     for rname, router in router_list.items():
+        router.load_config(
+            TopoRouter.RD_MGMTD,
+            os.path.join(CWD, "{}/mgmtd.conf".format(rname)),
+        )
         router.load_config(
             TopoRouter.RD_ZEBRA,
             os.path.join(CWD, "{}/zebra.conf".format(rname)),
@@ -167,7 +171,7 @@ def test_static_timing():
         [u"10.0.0.0/8", u"11.0.0.0/8"],
         [u"2100:1111:2220::/44", u"2100:3333:4440::/44"],
     ]
-
+    topotest.sleep(5)
     bad_indices = []
     for ipv6 in [False, True]:
         base_delta = do_config(
