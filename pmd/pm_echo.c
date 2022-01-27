@@ -30,6 +30,10 @@
 #include <netinet/ip_icmp.h>
 #include <netinet/icmp6.h>
 
+#ifdef GNU_LINUX
+#include <linux/filter.h>
+#endif
+
 #include "pmd/pm.h"
 #include "pmd/pm_memory.h"
 #include "pmd/pm_echo.h"
@@ -602,6 +606,33 @@ void pm_echo_send(struct event *event)
 	size_t siz;
 	union g_addr *src_ip = NULL;
 	int family;
+	static struct sock_filter insns[] = {
+		BPF_STMT(BPF_LDX | BPF_B   | BPF_MSH, 0),	/* Skip IP header due BSD, see ping6. */
+		BPF_STMT(BPF_LD  | BPF_H   | BPF_IND, 4),	/* Load icmp echo ident */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0xAAAA, 0, 1), /* Ours? */
+		BPF_STMT(BPF_RET | BPF_K, ~0U),			/* Yes, it passes. */
+		BPF_STMT(BPF_LD  | BPF_B   | BPF_IND, 0),	/* Load icmp type */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ICMP_ECHOREPLY, 1, 0), /* Echo? */
+		BPF_STMT(BPF_RET | BPF_K, 0xFFFFFFF),		/* No. It passes. */
+		BPF_STMT(BPF_RET | BPF_K, 0)			/* Echo with wrong ident. Reject. */
+	};
+	static struct sock_fprog filter = {
+		sizeof insns / sizeof(insns[0]),
+		insns
+	};
+	static struct sock_filter insns6[] = {
+		BPF_STMT(BPF_LD	 | BPF_H   | BPF_ABS, 4),	/* Load icmp echo ident */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, 0xAAAA, 0, 1), /* Ours? */
+		BPF_STMT(BPF_RET | BPF_K, ~0U),			/* Yes, it passes. */
+		BPF_STMT(BPF_LD  | BPF_B   | BPF_ABS, 0),	/* Load icmp type */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ICMP6_ECHO_REPLY, 1, 0), /* Echo? */
+		BPF_STMT(BPF_RET | BPF_K, ~0U),		/* No. It passes. This must not happen. */
+		BPF_STMT(BPF_RET | BPF_K, 0), 		/* Echo with wrong ident. Reject. */
+	};
+	static struct sock_fprog filter6 = {
+		sizeof insns6 / sizeof(insns6[0]),
+		insns6
+	};
 
 	if (pme->echofd < 0)
 		return;
@@ -691,6 +722,11 @@ void pm_echo_send(struct event *event)
 		icmp->checksum = 0;
 		icmp->checksum = in_cksum((void *)icmp,
 					  pme->packet_size - sizeof(struct iphdr));
+		insns[2] = (struct sock_filter)BPF_JUMP(BPF_JMP|BPF_JEQ|BPF_K, ntohs(icmp->un.echo.id), 0, 1);
+		ret = setsockopt(pme->echofd, SOL_SOCKET, SO_ATTACH_FILTER, &filter, sizeof(filter));
+		if (ret < 0)
+			zlog_err("pm_echo_send, use SO_ATTACH_FILTER for session to %pSU failed (err %d)",
+				 &pme->peer, errno);
 	} else {
 		/* calculation of icmp6 checksum is done with pseudo header
 		 * as part of https://tools.ietf.org/html/rfc2460#section-8.1
@@ -738,6 +774,12 @@ void pm_echo_send(struct event *event)
 		memcpy(&ip6h->saddr, &src_ip->ipv6.s6_addr,
 		       sizeof(struct in6_addr));
 		siz = sizeof(struct sockaddr_in6);
+		insns6[1] = (struct sock_filter)BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, ntohs(icmp6->icmp6_id), 0, 1);
+
+		ret = setsockopt(pme->echofd_rx_ipv6, SOL_SOCKET, SO_ATTACH_FILTER, &filter6, sizeof(filter6));
+		if (ret < 0)
+			zlog_err("pm_echo_send, use SO_ATTACH_FILTER for session to %pSU failed (err %d)",
+				 &pme->peer, errno);
 	}
 
 	pme->oper_receive = false;
