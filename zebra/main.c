@@ -518,12 +518,12 @@ int main(int argc, char **argv)
 	/* SET_FLAG (zebra_debug_event, ZEBRA_DEBUG_EVENT); */
 
 	/* Process the configuration file. Among other configuration
-	*  directives we can meet those installing static routes. Such
-	*  requests will not be executed immediately, but queued in
-	*  zebra->ribq structure until we enter the main execution loop.
-	*  The notifications from kernel will show originating PID equal
-	*  to that after daemon() completes (if ever called).
-	*/
+	 * directives we can meet those installing static routes. Such
+	 * requests will not be executed immediately, but queued in
+	 * zebra->ribq structure until we enter the main execution loop.
+	 * The notifications from kernel will show originating PID equal
+	 * to that after daemon() completes (if ever called).
+	 */
 	frr_config_fork();
 
 	/*

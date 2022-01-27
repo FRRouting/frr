@@ -414,8 +414,7 @@ void zebra_neigh_throttle_set_timeout(uint32_t timeout, bool reset)
 
 	/* Reset timer event */
 	if (nt_globals.t_periodic_timer) {
-		if ((uint32_t)event_timer_remain_second(
-			    nt_globals.t_periodic_timer) >
+		if ((uint32_t)event_timer_remain_second(nt_globals.t_periodic_timer) >
 		    (uint32_t)nt_globals.timeout_secs)
 			event_cancel(&nt_globals.t_periodic_timer);
 	}
