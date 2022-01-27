@@ -78,6 +78,9 @@ def setup_module(module):
     # This is a sample of configuration loading.
     r1 = tgen.gears["r1"]
     r1.load_config(
+        TopoRouter.RD_MGMTD, os.path.join(CWD, "r1/mgmtd.conf")
+    )
+    r1.load_config(
         TopoRouter.RD_ZEBRA, os.path.join(CWD, "r1/zebra.conf")
     )
     r1.load_config(
