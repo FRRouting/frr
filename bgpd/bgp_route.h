@@ -838,4 +838,5 @@ extern void bgp_aggregate_toggle_suppressed(struct bgp_aggregate *aggregate,
 extern void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr);
 const char *
 bgp_path_selection_reason2str(enum bgp_path_selection_reason reason);
+extern bool bgp_addpath_encode_rx(struct peer *peer, afi_t afi, safi_t safi);
 #endif /* _QUAGGA_BGP_ROUTE_H */
