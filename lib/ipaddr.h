@@ -137,15 +137,6 @@ static inline void ipv4_mapped_ipv6_to_ipv4(const struct in6_addr *in6,
 }
 
 /*
- * Check if a struct ipaddr has nonzero value
- */
-static inline bool ipaddr_isset(struct ipaddr *ip)
-{
-	static struct ipaddr a = {};
-	return (0 != memcmp(&a, ip, sizeof(struct ipaddr)));
-}
-
-/*
  * generic ordering comparison between IP addresses
  */
 static inline int ipaddr_cmp(const struct ipaddr *a, const struct ipaddr *b)
