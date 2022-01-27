@@ -502,18 +502,18 @@ struct bgp {
 #define BGP_FLAG_SHUTDOWN (1ULL << 25)
 #define BGP_FLAG_SUPPRESS_FIB_PENDING (1ULL << 26)
 #define BGP_FLAG_SUPPRESS_DUPLICATES (1ULL << 27)
-#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1ULL << 29)
+#define BGP_FLAG_PEERTYPE_MULTIPATH_RELAX (1ULL << 28)
 /* Indicate Graceful Restart support for BGP NOTIFICATION messages */
-#define BGP_FLAG_GRACEFUL_NOTIFICATION (1ULL << 30)
+#define BGP_FLAG_GRACEFUL_NOTIFICATION (1ULL << 29)
 /* Send Hard Reset CEASE Notification for 'Administrative Reset' */
-#define BGP_FLAG_HARD_ADMIN_RESET (1ULL << 31)
+#define BGP_FLAG_HARD_ADMIN_RESET (1ULL << 30)
 /* Evaluate the AIGP attribute during the best path selection process */
-#define BGP_FLAG_COMPARE_AIGP (1ULL << 32)
+#define BGP_FLAG_COMPARE_AIGP (1ULL << 31)
 /* For BGP-LU, force IPv4 local prefixes to use ipv4-explicit-null label */
-#define BGP_FLAG_LU_IPV4_EXPLICIT_NULL (1ULL << 33)
+#define BGP_FLAG_LU_IPV4_EXPLICIT_NULL (1ULL << 32)
 /* For BGP-LU, force IPv6 local prefixes to use ipv6-explicit-null label */
-#define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 34)
-#define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 35)
+#define BGP_FLAG_LU_IPV6_EXPLICIT_NULL (1ULL << 33)
+#define BGP_FLAG_SOFT_VERSION_CAPABILITY (1ULL << 34)
 
 	/* BGP default address-families.
 	 * New peers inherit enabled afi/safis from bgp instance.
