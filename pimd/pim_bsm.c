@@ -171,7 +171,8 @@ static int pim_on_bs_timer(struct thread *t)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
 			   __func__, scope->sz_id);
 
-	pim_nht_bsr_del(scope->pim, scope->current_bsr);
+	if (scope->current_bsr.s_addr)
+		pim_nht_bsr_del(scope->pim, scope->current_bsr);
 
 	/* Reset scope zone data */
 	scope->accept_nofwd_bsm = false;
