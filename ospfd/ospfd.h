@@ -377,7 +377,7 @@ struct ospf {
 	struct thread *t_external_aggr;
 
 	/* delay interval in seconds */
-	unsigned int aggr_delay_interval;
+	uint16_t aggr_delay_interval;
 
 	/* Table of configured Aggregate addresses */
 	struct route_table *rt_aggr_tbl;
