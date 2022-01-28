@@ -160,7 +160,7 @@ int pim_register_stop_recv(struct interface *ifp, uint8_t *buf, int buf_size)
 	return 0;
 }
 
-void pim_register_send(const uint8_t *buf, int buf_size, struct in_addr src,
+void pim_register_send(const uint8_t *buf, int buf_size, pim_addr src,
 		       struct pim_rpf *rpg, int null_register,
 		       struct pim_upstream *up)
 {

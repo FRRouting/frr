@@ -75,7 +75,7 @@ bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
 int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
 			     struct in_addr source, struct in_addr group);
 
-struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group);
+struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group);
 
 #define I_am_RP(P, G)  pim_rp_i_am_rp ((P), (G))
 #define RP(P, G)       pim_rp_g ((P), (G))

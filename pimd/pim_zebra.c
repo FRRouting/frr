@@ -684,7 +684,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 				 * DR must create upstream.
 				 */
 				if ((input_iface_vif_index ==
-				    pim_oif->mroute_vif_index) &&
+				    pim_oif->mroute_if_index) &&
 				    !(PIM_I_am_DR(pim_oif))) {
 					/* ignore request for looped MFC entry
 					 */
