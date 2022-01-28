@@ -141,13 +141,13 @@ if __name__ == "__main__":
 
     pdml_rd: Union[int, TextIO]
     if len(sys.argv) >= 2:
-        # pylint: disable=R1732
+        # pylint: disable=consider-using-with
         pdml_rd = open(sys.argv[1])
     else:
         import subprocess
 
         pdml_rd, pdml_wr = os.pipe()
-        # pylint: disable=R1732
+        # pylint: disable=consider-using-with
         tshark_proc = subprocess.Popen(
             ["tshark", "-q", "-T", "pdml", "-l"], stdout=pdml_wr
         )

@@ -21,7 +21,7 @@ from typing import List, ClassVar, Dict, Mapping, Optional, Any, Iterator, Tuple
 
 import jinja2
 
-from .utils import deindent
+from .utils import deindent, ClassHooks
 
 if typing.TYPE_CHECKING:
     from . import toponom
@@ -32,8 +32,15 @@ elif sys.platform == "freebsd12":
     from .topofreebsd import NetworkInstance
 else:
 
-    class NetworkInstance:
+    class NetworkInstance(ClassHooks):
+        class RouterNS:
+            pass
+
         def __init__(self, *args, **kwargs):
+            raise NotImplementedError("no support for OS %r" % sys.platform)
+
+        @classmethod
+        def _check_env(cls, **kwargs):
             raise NotImplementedError("no support for OS %r" % sys.platform)
 
 
@@ -101,7 +108,7 @@ class FRRConfigs(dict):
     daemons.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld eigrpd".split())
     daemons.extend("pimd ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
 
-    # pylint: disable=R0914
+    # pylint: disable=too-many-locals
     @classmethod
     def init(cls, frrpath: str):
         """
@@ -245,6 +252,7 @@ class FRRNetworkInstance(NetworkInstance):
     SwitchNS is not specialized here, nothing FRR in there.
     """
 
+    # pylint: disable=too-many-ancestors
     class RouterNS(NetworkInstance.RouterNS):
         """
         Add a bunch of FRR daemons on top of an (OS-dependent) RouterNS

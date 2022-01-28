@@ -21,7 +21,11 @@ from typing import (
     Union,
     cast,
 )
-from typing_extensions import Literal
+
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal  # type: ignore
 
 from .parse import Topology
 
@@ -436,7 +440,7 @@ class Link(NOMNode):
     parallel_num: int
     global_num: int
 
-    # pylint: disable=R0913
+    # pylint: disable=too-many-arguments
     def __init__(self, network, a_ep, a_detail, b_ep, b_detail):
         super().__init__(network)
 
@@ -625,7 +629,7 @@ class Network:
 
 
 def test():
-    # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
     from . import parse
 
     topo = parse.test()
@@ -637,7 +641,7 @@ def test():
     net.auto_ip4()
     net.auto_ip6()
 
-    # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
     from pprint import pprint
 
     pprint(sorted(net.routers.values()))
