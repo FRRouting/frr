@@ -10356,7 +10356,7 @@ DEFUN (ospf_route_aggregation_timer,
        "Timer interval(in seconds)\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	unsigned int interval = 0;
+	uint16_t interval = 0;
 
 	interval = strtoul(argv[2]->arg, NULL, 10);
 
@@ -11386,7 +11386,7 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
 	if (!uj)
-		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
+		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
 			ospf->aggr_delay_interval);
 	else
 		json_object_int_add(json_vrf, "aggregation delay interval",

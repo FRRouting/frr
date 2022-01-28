@@ -1115,7 +1115,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Start Aggregator delay timer %d(in seconds).",
+		zlog_debug("%s: Start Aggregator delay timer %u(in seconds).",
 			   __func__, ospf->aggr_delay_interval);
 
 	ospf->aggr_action = operation;
@@ -1239,7 +1239,7 @@ int ospf_asbr_external_rt_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
 	return OSPF_SUCCESS;
 }
 
-int ospf_external_aggregator_timer_set(struct ospf *ospf, unsigned int interval)
+int ospf_external_aggregator_timer_set(struct ospf *ospf, uint16_t interval)
 {
 	ospf->aggr_delay_interval = interval;
 	return OSPF_SUCCESS;
