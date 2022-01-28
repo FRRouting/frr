@@ -73,8 +73,8 @@ int pim_static_add(struct pim_instance *pim, struct interface *iif,
 	struct static_route *original_s_route = NULL;
 	struct pim_interface *pim_iif = iif ? iif->info : NULL;
 	struct pim_interface *pim_oif = oif ? oif->info : NULL;
-	ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
-	ifindex_t oif_index = pim_oif ? pim_oif->mroute_vif_index : 0;
+	ifindex_t iif_index = pim_iif ? pim_iif->mroute_if_index : 0;
+	ifindex_t oif_index = pim_oif ? pim_oif->mroute_if_index : 0;
 
 	if (!iif_index || !oif_index || iif_index == -1 || oif_index == -1) {
 		zlog_warn(
@@ -237,8 +237,8 @@ int pim_static_del(struct pim_instance *pim, struct interface *iif,
 	struct static_route *s_route = NULL;
 	struct pim_interface *pim_iif = iif ? iif->info : 0;
 	struct pim_interface *pim_oif = oif ? oif->info : 0;
-	ifindex_t iif_index = pim_iif ? pim_iif->mroute_vif_index : 0;
-	ifindex_t oif_index = pim_oif ? pim_oif->mroute_vif_index : 0;
+	ifindex_t iif_index = pim_iif ? pim_iif->mroute_if_index : 0;
+	ifindex_t oif_index = pim_oif ? pim_oif->mroute_if_index : 0;
 
 	if (!iif_index || !oif_index) {
 		zlog_warn(
@@ -338,12 +338,12 @@ int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 	for (ALL_LIST_ELEMENTS_RO(pim->static_routes, node, sroute)) {
 		pim_inet4_dump("<ifaddr?>", sroute->group, gbuf, sizeof(gbuf));
 		pim_inet4_dump("<ifaddr?>", sroute->source, sbuf, sizeof(sbuf));
-		if (sroute->iif == pim_ifp->mroute_vif_index) {
+		if (sroute->iif == pim_ifp->mroute_if_index) {
 			int i;
 			for (i = 0; i < MAXVIFS; i++)
 				if (sroute->oif_ttls[i]) {
 					struct interface *oifp =
-						pim_if_find_by_vif_index(pim,
+						pim_if_find_by_mcast_if_index(pim,
 									 i);
 					if (sroute->source.s_addr == INADDR_ANY)
 						vty_out(vty,

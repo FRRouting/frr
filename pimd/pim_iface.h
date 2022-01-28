@@ -59,7 +59,11 @@
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
 	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
+#if PIM_IPV == 4
 #define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
+#else
+#define PIM_I_am_DR(pim_ifp) (IPV6_ADDR_SAME(&((pim_ifp)->pim_dr_addr), &((pim_ifp)->primary_address)))
+#endif
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
 /* Macros for interface flags */
@@ -93,7 +97,7 @@ struct pim_secondary_addr {
 
 struct pim_interface {
 	uint32_t options; /* bit vector */
-	ifindex_t mroute_vif_index;
+	ifindex_t mroute_if_index;
 	struct pim_instance *pim;
 	pim_addr primary_address;       /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
@@ -216,8 +220,8 @@ int pim_if_del_vif(struct interface *ifp);
 void pim_if_add_vif_all(struct pim_instance *pim);
 void pim_if_del_vif_all(struct pim_instance *pim);
 
-struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
-					   ifindex_t vif_index);
+struct interface *pim_if_find_by_mcast_if_index(struct pim_instance *pim,
+					   ifindex_t mcast_if_index);
 int pim_if_find_vifindex_by_ifindex(struct pim_instance *pim,
 				    ifindex_t ifindex);
 
@@ -252,7 +256,7 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(struct pim_instance *pim);
 
-struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
+struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src);
 int pim_update_source_set(struct interface *ifp, struct in_addr source);
 
 bool pim_if_is_vrf_device(struct interface *ifp);

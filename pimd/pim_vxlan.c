@@ -479,7 +479,7 @@ static bool pim_vxlan_orig_mr_add_is_ok(struct pim_vxlan_sg *vxlan_sg)
 		return false;
 
 	pim_ifp = (struct pim_interface *)vxlan_sg->iif->info;
-	if (!pim_ifp || (pim_ifp->mroute_vif_index < 0))
+	if (!pim_ifp || (pim_ifp->mroute_if_index < 0))
 		return false;
 
 	return true;
@@ -901,7 +901,7 @@ void pim_vxlan_mlag_update(bool enable, bool peer_state, uint32_t role,
 	if (vxlan_mlag.peerlink_rif)
 		pim_ifp = (struct pim_interface *)vxlan_mlag.peerlink_rif->info;
 	if ((vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED) &&
-			pim_ifp && (pim_ifp->mroute_vif_index > 0))
+			pim_ifp && (pim_ifp->mroute_if_index > 0))
 		pim_vxlan_set_peerlink_rif(pim, peerlink_rif);
 	else
 		pim_vxlan_set_peerlink_rif(pim, NULL);
@@ -1144,7 +1144,7 @@ void pim_vxlan_add_term_dev(struct pim_instance *pim,
 	if (pim_ifp) {
 		PIM_IF_DO_PIM(pim_ifp->options);
 		/* ifp is already oper up; activate it as a term dev */
-		if (pim_ifp->mroute_vif_index >= 0)
+		if (pim_ifp->mroute_if_index >= 0)
 			pim_vxlan_term_oif_update(pim, ifp);
 	} else {
 		/* ensure that pimreg exists before using the newly created
