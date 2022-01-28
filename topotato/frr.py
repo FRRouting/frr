@@ -21,7 +21,8 @@ from typing import List, ClassVar, Dict, Mapping, Optional, Any, Iterator, Tuple
 
 import jinja2
 
-from .utils import deindent, ClassHooks
+from .utils import deindent, ClassHooks, MiniPoller
+from .livelog import LiveLog
 
 if typing.TYPE_CHECKING:
     from . import toponom
@@ -40,7 +41,7 @@ else:
             raise NotImplementedError("no support for OS %r" % sys.platform)
 
         @classmethod
-        def _check_env(cls, **kwargs):
+        def _check_env(cls, *, result, **kwargs):
             raise NotImplementedError("no support for OS %r" % sys.platform)
 
 
@@ -85,7 +86,7 @@ class FRRSetupError(EnvironmentError):
     pass
 
 
-class FRRConfigs(dict):
+class FRRConfigs(dict, ClassHooks):
     """
     set of config files for an FRR setup
 
@@ -96,10 +97,12 @@ class FRRConfigs(dict):
     daemons: ClassVar[List[str]]
     binmap: ClassVar[Dict[str, str]]
     makevars: ClassVar[Mapping[str, str]]
-    frrpath: ClassVar[str]
-    srcpath: ClassVar[str]
     frrcred: ClassVar[Any]
     xrefs: ClassVar[Optional[Dict[Any, Any]]] = None
+
+    frrpath: ClassVar[str]
+    srcpath: ClassVar[str]
+    confpath = "/etc/frr"
 
     # will be overridden by init, but necessary when running separate tests
     # directly outside of pytest, e.g. to just dump the configs
@@ -108,16 +111,15 @@ class FRRConfigs(dict):
     daemons.extend("bgpd ripd ripngd ospfd ospf6d isisd fabricd babeld eigrpd".split())
     daemons.extend("pimd ldpd nhrpd sharpd pathd pbrd bfdd vrrpd".split())
 
-    # pylint: disable=too-many-locals
+    # pylint: disable=too-many-locals,too-many-statements
     @classmethod
-    def init(cls, frrpath: str):
+    def _check_env(cls, *, result, **kwargs):
         """
         grab some setup information about a FRR build from frrpath
 
         among other things, this figures out which daemons are even available
         """
-        cls.frrpath = frrpath = os.path.abspath(frrpath)
-        fail = 0
+        cls.frrpath = frrpath = os.path.abspath(cls.frrpath)
 
         logger.debug("FRR build directory: %r", frrpath)
         try:
@@ -146,7 +148,18 @@ class FRRConfigs(dict):
         try:
             cls.frrcred = pwd.getpwnam(cls.makevars["enable_user"])
         except KeyError as e:
-            raise FRRSetupError("FRR configured to use a non-existing user") from e
+            result.error("FRR configured to use a non-existing user (%r)" % e)
+
+        if cls.makevars["sysconfdir"] != cls.confpath:
+            result.error(
+                "FRR configured with --sysconfdir=%r, must be %r for topotato"
+                % (cls.makevars["sysconfdir"], cls.confpath)
+            )
+        if not os.path.isdir(cls.confpath):
+            result.error(
+                "FRR config directory %r does not exist or is not a directory"
+                % cls.confpath
+            )
 
         cls.daemons = list(sorted(cls.makevars["vtysh_daemons"].split()))
         # this determines startup order
@@ -159,29 +172,29 @@ class FRRConfigs(dict):
 
         notbuilt = set()
         cls.binmap = {}
-        for name in cls.makevars["sbin_PROGRAMS"].split():
+        buildprogs = []
+        buildprogs.extend(cls.makevars["sbin_PROGRAMS"].split())
+        buildprogs.extend(cls.makevars["noinst_PROGRAMS"].split())
+        for name in buildprogs:
             _, daemon = name.rsplit("/", 1)
             if daemon not in cls.daemons:
                 logger.debug("ignoring target %r", name)
             else:
                 logger.debug("%s => %s", daemon, name)
                 if not os.path.exists(os.path.join(frrpath, name)):
-                    logger.warning("daemon %r enabled but not built?", daemon)
+                    result.warning("daemon %r enabled but not built?" % daemon)
                     notbuilt.add(daemon)
-                    fail += 1
                 else:
                     cls.binmap[daemon] = name
 
         disabled = set(cls.daemons) - set(cls.binmap.keys()) - notbuilt
         for daemon in sorted(disabled):
-            logger.warning("daemon %r not enabled in configure, skipping", daemon)
+            result.warning("daemon %r not enabled in configure, skipping" % daemon)
 
         xrefpath = os.path.join(frrpath, "frr.xref")
         if os.path.exists(xrefpath):
             with open(xrefpath, "r") as fd:
                 cls.xrefs = json.load(fd)
-
-        return fail == 0
 
     def __init__(self, topology: "toponom.Network"):
         super().__init__()
@@ -206,7 +219,8 @@ class FRRConfigs(dict):
                     or rname in self.daemon_rtrs[daemon]
                 ):
                     ritem[daemon] = template.render(
-                        daemon=daemon, router=router, routers=rtrmap
+                        daemon=daemon, router=router, routers=rtrmap,
+                        topo=topo,
                     )
         return self
 
@@ -268,8 +282,15 @@ class FRRNetworkInstance(NetworkInstance):
             super().__init__(instance, name)
             self.logfiles = {}
             self.logpos = {}
+            self.livelogs = {}
             self.rundir = None
             self.rtrcfg = {}
+
+        def _getlogfd(self, daemon):
+            if daemon not in self.livelogs:
+                self.livelogs[daemon] = LiveLog(self, daemon)
+                self.instance.poller.append(self.livelogs[daemon])
+            return self.livelogs[daemon].wrfd
 
         def start(self):
             super().start()
@@ -302,6 +323,8 @@ class FRRNetworkInstance(NetworkInstance):
 
             assert self.rundir is not None
 
+            logfd = self._getlogfd(daemon)
+
             execpath = os.path.join(frrpath, binmap[daemon])
             self.check_call(
                 [
@@ -311,13 +334,16 @@ class FRRNetworkInstance(NetworkInstance):
                     cfgpath,
                     "--log",
                     "file:%s" % self.logfiles[daemon],
+                    "--log",
+                    "monitor:%d" % logfd.fileno(),
                     "--log-level",
                     "debug",
                     "--vty_socket",
                     self.rundir,
                     "-i",
                     "%s/%s.pid" % (self.rundir, daemon),
-                ]
+                ],
+                pass_fds = [logfd.fileno()],
             )
 
             # want record-priority & timestamp precision...
@@ -337,9 +363,16 @@ class FRRNetworkInstance(NetworkInstance):
                     self.check_call(["kill", "-TERM", str(pid)])
                 except subprocess.CalledProcessError:
                     break
-                time.sleep(0.1)
+                self.instance.poller.sleep(0.1)
 
             self.start_daemon(daemon)
+
+        def stop(self):
+            for livelog in self.livelogs.values():
+                self.instance.poller.remove(livelog)
+                livelog.close()
+
+            super().stop()
 
         def iter_logs(self) -> Iterator[Tuple[str, str]]:
             """
@@ -410,3 +443,4 @@ class FRRNetworkInstance(NetworkInstance):
     def __init__(self, network: "toponom.Network", configs: FRRConfigs):
         super().__init__(network)
         self.configs = configs
+        self.poller = MiniPoller()

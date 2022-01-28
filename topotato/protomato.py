@@ -75,6 +75,9 @@ class fmt(html):
                     yield rc
 
         def add_raw(self, raw):
+            # disabled
+            return
+
             self.append(fmt.span_expand())
             #text = []
             #for keyidx, item in raw.items():
@@ -136,6 +139,10 @@ class fmt(html):
     class ospf(_cssclass, span_proto):
         class_ = 'pktcol l-4 p-ospf'
 
+    class assertmatchitem(_cssclass, html.div):
+        class_ = 'assert-match-item'
+
+
 class ProtomatoPacket(TimedElement, fmt.packet):
     def __init__(self, packets, pdmlpkt):
         super().__init__()
@@ -143,6 +150,8 @@ class ProtomatoPacket(TimedElement, fmt.packet):
         self.packets = packets
         self.pdmlpkt = pdmlpkt
         self._ts = pdmlpkt.ts
+
+        self.attr.pdml_frame = pdmlpkt['frame']['frame.number'].val
 
         for key, items in pdmlpkt.items():
             proto, i = key
@@ -166,6 +175,11 @@ class ProtomatoPacket(TimedElement, fmt.packet):
                 if isinstance(obj, fmt.span_proto):
                     obj.add_raw(items)
                     break
+
+    def __repr__(self):
+        return '<%s @%f %s %s>' % (self.__class__.__name__, self._ts,
+                self.pdmlpkt["frame/.interface_id/frame.interface_name"].val,
+                ':'.join([i for i, _ in self.pdmlpkt.keys()]))
 
     def ts(self):
         return (self._ts, 0)
@@ -267,8 +281,12 @@ class ProtomatoPacket(TimedElement, fmt.packet):
         #print('-' * 80)
         #pprint.pprint(items)
 
-    def html(self, ts_rel):
-        return self
+    def html(self, id_, ts_rel):
+        if self.pdmlpkt.match_for:
+            self.attr.class_ += ' assert-match'
+            for node in self.pdmlpkt.match_for:
+                self.append(fmt.assertmatchitem(node.nodeid))
+        return [self]
 
 class ProtomatoDumper(list):
     def __init__(self, macmap={}, start_ts=None):

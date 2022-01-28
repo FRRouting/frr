@@ -7,14 +7,19 @@ Random utility functions for use in topotato.
 
 # TODO: this needs another round of cleanup, and JSONCompare split off.
 
+from abc import ABC, abstractmethod
 import re
 import json
 import difflib
 import os
 import logging
 import shlex
+import time
+import select
 
-from typing import Dict, List, Union
+from typing import Dict, List, Union, Iterable, Tuple, Callable
+
+from .exceptions import TopotatoCLICompareFail
 
 logger = logging.getLogger("topotato")
 logger.setLevel(logging.DEBUG)
@@ -123,13 +128,13 @@ class JSONCompareListKeyedDict(JSONCompareDirective):
     should be used as "index".  Items are matched up between both lists by
     looking for the same values on these keys.
 
-    :param keys: dict keys to look up/match up.
+    :param keying: dict keys to look up/match up.
     """
 
-    keys: List[Union[int, str]]
+    keying: List[Union[int, str]]
 
-    def __init__(self, *keys):
-        self.keys = keys
+    def __init__(self, *keying):
+        self.keying = keying
 
 
 class JSONCompareDirectiveWrongSide(TypeError):
@@ -139,6 +144,7 @@ class JSONCompareDirectiveWrongSide(TypeError):
     Directives need to go on the "expect" side.  Check argument order on
     :py:func:`json_cmp`.
     """
+
 
 class JSONCompareUnexpectedDirective(TypeError):
     """
@@ -161,7 +167,9 @@ def _json_diff(d1, d2):
 
     dstr1 = ("\n".join(dstr1.rstrip().splitlines()) + "\n").splitlines(1)
     dstr2 = ("\n".join(dstr2.rstrip().splitlines()) + "\n").splitlines(1)
-    return get_textdiff(dstr2, dstr1, title1="Expected value", title2="Current value", n=0)
+    return get_textdiff(
+        dstr2, dstr1, title1="Expected value", title2="Current value", n=0
+    )
 
 
 def _json_list_cmp(list1, list2, parent, result):
@@ -203,7 +211,7 @@ def _json_list_cmp(list1, list2, parent, result):
 
     # List all unmatched items errors
     if JSONCompareListKeyedDict in flags[1]:
-        keys = flags[1][JSONCompareListKeyedDict].keys
+        keys = flags[1][JSONCompareListKeyedDict].keying
         for expected in list2:
             assert isinstance(expected, dict)
 
@@ -350,6 +358,53 @@ def json_cmp(d1, d2):
     return None
 
 
+def text_rich_cmp(configs, rtr, out, expect, outtitle):
+    lines = []
+    for line in deindent(expect).split("\n"):
+        items = line.split("$$")
+        lre = []
+        while len(items) > 0:
+            lre.append(re.escape(items.pop(0)))
+            if len(items) == 0:
+                break
+            expr = items.pop(0)
+            if expr.startswith("="):
+                expr = expr[1:]
+                if expr.startswith(" "):
+                    lre.append("\\s+")
+                lre.append(re.escape(str(configs.eval(rtr, expr))))
+                if expr.endswith(" "):
+                    lre.append("\\s+")
+            else:
+                lre.append(expr)
+        lines.append((line, "".join(lre)))
+
+    x_got, x_exp = [], []
+    fail = False
+
+    for i, out_line in enumerate(out.split("\n")):
+        if i >= len(lines):
+            x_got.append(out_line)
+            fail = True
+            continue
+
+        ref_line, ref_re = lines[i]
+        if re.match("^" + ref_re + "$", out_line):
+            x_got.append(out_line)
+            x_exp.append(out_line)
+        else:
+            x_got.append(out_line)
+            x_exp.append(ref_line)
+            fail = True
+
+    if not fail:
+        return None
+
+    return TopotatoCLICompareFail(
+        "\n" + get_textdiff(x_got, x_exp, title1=outtitle, title2="expected")
+    )
+
+
 _env_path = os.environ["PATH"].split(":")
 
 
@@ -367,6 +422,55 @@ def exec_find(name, stacklevel=1):
 
     logger.warning("executable %s not found in PATH", shlex.quote(name))
 
+
+class MiniPollee(ABC):
+    @abstractmethod
+    def filenos(self) -> Iterable[Tuple[int, Callable[[int], None]]]:
+        pass
+
+
+class MiniPoller(list):
+    def sleep(self, duration, final=False):
+        for _ in self.run_iter(time.time() + duration, final=final):
+            pass
+
+    def __repr__(self):
+        return '<%s %s>' % (self.__class__.__name__, super().__repr__())
+
+    def run_iter(self, deadline=float('inf'), final=False):
+        relist = True
+        first = True
+
+        while True:
+            if relist:
+                fds = []
+                fdmap = {}
+
+                for target in self:
+                    items = list(target.filenos())
+                    fds.extend([i[0] for i in items])
+                    fdmap.update(items)
+
+            if final and not fds:
+                break
+
+            timeout = max(deadline - time.time(), 0)
+            if timeout == 0 and not first:
+                return
+            if timeout == float("inf"):
+                timeout = None
+
+            ready, _, _ = select.select(fds, [], [], timeout)
+            if not ready:
+                break
+
+            for fd in ready:
+                assert fd in fdmap
+                ret = yield from fdmap[fd](fd)
+                if ret:
+                    relist = True
+            first = False
+ 
 
 class ClassHooks:
     _hooked_classes: List[type] = []
@@ -392,11 +496,11 @@ class ClassHooks:
         ClassHooks._hooked_classes.append(cls)
 
     @classmethod
-    def _check_env(cls, **kwargs):
+    def _check_env(cls, *, result, **kwargs):
         pass
 
     @classmethod
-    def _check_env_all(cls, **kwargs):
+    def check_env_all(cls, **kwargs):
         result = cls.Result()
         for subcls in cls._hooked_classes:
             for parent in subcls.__mro__[1:]:
@@ -406,5 +510,8 @@ class ClassHooks:
                 ):
                     break
             else:
-                subcls._check_env(result=result, **kwargs)
+                try:
+                    subcls._check_env(result=result, **kwargs)
+                except EnvironmentError as e:
+                    result.errors.append(e)
         return result

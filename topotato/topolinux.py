@@ -66,6 +66,19 @@ class NetworkInstance(ClassHooks):
         "dumpcap": "dumpcap not available -- packet dumps will be missing and AssertPacket checks will be skipped",
     }
 
+    _bridge_settings = [
+        "forward_delay",
+        "0",
+        "mcast_snooping",
+        "0",
+        "nf_call_iptables",
+        "0",
+        "nf_call_ip6tables",
+        "0",
+        "nf_call_arptables",
+        "0",
+    ]
+
     # pylint: disable=arguments-differ
     @classmethod
     def _check_env(cls, *, result, **kwargs):
@@ -360,11 +373,7 @@ class NetworkInstance(ClassHooks):
                         "up",
                         "type",
                         "bridge",
-                        "forward_delay",
-                        "0",
-                        "mcast_snooping",
-                        "0",
-                    ]
+                    ] + self._bridge_settings
                 )
                 self.switch_ns.check_call(
                     [
@@ -402,9 +411,7 @@ class NetworkInstance(ClassHooks):
                     "up",
                     "type",
                     "bridge",
-                    "forward_delay",
-                    "0",
-                ]
+                ] + self._bridge_settings
             )
             for iface in lan.ifaces:
                 self.switch_ns.check_call(
