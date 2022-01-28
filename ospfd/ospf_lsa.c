@@ -2090,8 +2090,7 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 	p.prefix.s_addr = 0;
 	p.prefixlen = 0;
 
-	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE,
-					       ospf->instance, &p);
+	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, 0, &p);
 	if (!default_ei)
 		return NULL;
 

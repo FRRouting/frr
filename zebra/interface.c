@@ -91,9 +91,12 @@ static int if_zebra_speed_update(struct thread *thread)
 		changed = true;
 	}
 
-	if (changed || new_speed == UINT32_MAX)
+	if (changed || new_speed == UINT32_MAX) {
 		thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 5,
 				 &zif->speed_update);
+		thread_ignore_late_timer(zif->speed_update);
+	}
+
 	return 1;
 }
 
@@ -187,6 +190,8 @@ static int if_zebra_new_hook(struct interface *ifp)
 	 */
 	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 15,
 			 &zebra_if->speed_update);
+	thread_ignore_late_timer(zebra_if->speed_update);
+
 	return 0;
 }
 
@@ -1074,6 +1079,7 @@ void if_up(struct interface *ifp)
 
 	thread_add_timer(zrouter.master, if_zebra_speed_update, ifp, 0,
 			 &zif->speed_update);
+	thread_ignore_late_timer(zif->speed_update);
 }
 
 /* Interface goes down.  We have to manage different behavior of based
@@ -4207,11 +4213,7 @@ static int if_config_write(struct vty *vty)
 
 			if_data = ifp->info;
 
-			if (ifp->vrf->vrf_id == VRF_DEFAULT)
-				vty_frame(vty, "interface %s\n", ifp->name);
-			else
-				vty_frame(vty, "interface %s vrf %s\n",
-					  ifp->name, vrf->name);
+			if_vty_config_start(vty, ifp);
 
 			if (if_data) {
 				if (if_data->shutdown == IF_ZEBRA_SHUTDOWN_ON)
@@ -4277,7 +4279,7 @@ static int if_config_write(struct vty *vty)
 			zebra_evpn_mh_if_write(vty, ifp);
 			link_params_config_write(vty, ifp);
 
-			vty_endframe(vty, "exit\n!\n");
+			if_vty_config_end(vty);
 		}
 	return 0;
 }

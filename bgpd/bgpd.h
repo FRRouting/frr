@@ -1905,7 +1905,8 @@ enum bgp_clear_type {
 	BGP_CLEAR_SOFT_OUT,
 	BGP_CLEAR_SOFT_IN,
 	BGP_CLEAR_SOFT_BOTH,
-	BGP_CLEAR_SOFT_IN_ORF_PREFIX
+	BGP_CLEAR_SOFT_IN_ORF_PREFIX,
+	BGP_CLEAR_MESSAGE_STATS
 };
 
 /* Macros. */
@@ -2206,6 +2207,13 @@ extern int peer_maximum_prefix_set(struct peer *, afi_t, safi_t, uint32_t,
 				   uint8_t, int, uint16_t, bool force);
 extern int peer_maximum_prefix_unset(struct peer *, afi_t, safi_t);
 
+extern void peer_maximum_prefix_out_refresh_routes(struct peer *peer, afi_t afi,
+						   safi_t safi);
+extern int peer_maximum_prefix_out_set(struct peer *peer, afi_t afi,
+				       safi_t safi, uint32_t max);
+extern int peer_maximum_prefix_out_unset(struct peer *peer, afi_t afi,
+					 safi_t safi);
+
 extern int peer_clear(struct peer *, struct listnode **);
 extern int peer_clear_soft(struct peer *, afi_t, safi_t, enum bgp_clear_type);
 
@@ -2380,9 +2388,15 @@ static inline bool peer_established(struct peer *peer)
 	return peer->status == Established;
 }
 
-static inline int peer_dynamic_neighbor(struct peer *peer)
+static inline bool peer_dynamic_neighbor(struct peer *peer)
 {
-	return (CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR)) ? 1 : 0;
+	return CHECK_FLAG(peer->flags, PEER_FLAG_DYNAMIC_NEIGHBOR);
+}
+
+static inline bool peer_dynamic_neighbor_no_nsf(struct peer *peer)
+{
+	return (peer_dynamic_neighbor(peer) &&
+		!CHECK_FLAG(peer->sflags, PEER_STATUS_NSF_WAIT));
 }
 
 static inline int peer_cap_enhe(struct peer *peer, afi_t afi, safi_t safi)

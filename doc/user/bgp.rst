@@ -3392,6 +3392,11 @@ The following are available in the top level *enable* mode:
 
    Clear peer using soft reconfiguration in this address-family and sub-address-family.
 
+.. clicmd:: clear bgp [ipv4|ipv6] [unicast] PEER|\* message-stats
+
+   Clear BGP message statistics for a specified peer or for all peers,
+   optionally filtered by activated address-family and sub-address-family.
+
 The following are available in the ``router bgp`` mode:
 
 .. clicmd:: write-quanta (1-64)

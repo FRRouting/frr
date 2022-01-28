@@ -7666,6 +7666,7 @@ DEFUN(neighbor_maximum_prefix_out,
       "Maximum number of prefixes to be sent to this peer\n"
       "Maximum no. of prefix limit\n")
 {
+	int ret;
 	int idx_peer = 1;
 	int idx_number = 3;
 	struct peer *peer;
@@ -7679,20 +7680,21 @@ DEFUN(neighbor_maximum_prefix_out,
 
 	max = strtoul(argv[idx_number]->arg, NULL, 10);
 
-	SET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-	peer->pmax_out[afi][safi] = max;
+	ret = peer_maximum_prefix_out_set(peer, afi, safi, max);
 
-	return CMD_SUCCESS;
+	return bgp_vty_return(vty, ret);
 }
 
 DEFUN(no_neighbor_maximum_prefix_out,
       no_neighbor_maximum_prefix_out_cmd,
-      "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out",
+      "no neighbor <A.B.C.D|X:X::X:X|WORD> maximum-prefix-out [(1-4294967295)]",
       NO_STR
       NEIGHBOR_STR
       NEIGHBOR_ADDR_STR2
-      "Maximum number of prefixes to be sent to this peer\n")
+      "Maximum number of prefixes to be sent to this peer\n"
+      "Maximum no. of prefix limit\n")
 {
+	int ret;
 	int idx_peer = 2;
 	struct peer *peer;
 	afi_t afi = bgp_node_afi(vty);
@@ -7702,10 +7704,9 @@ DEFUN(no_neighbor_maximum_prefix_out,
 	if (!peer)
 		return CMD_WARNING_CONFIG_FAILED;
 
-	UNSET_FLAG(peer->af_flags[afi][safi], PEER_FLAG_MAX_PREFIX_OUT);
-	peer->pmax_out[afi][safi] = 0;
+	ret = peer_maximum_prefix_out_unset(peer, afi, safi);
 
-	return CMD_SUCCESS;
+	return bgp_vty_return(vty, ret);
 }
 
 /* Maximum number of prefix configuration. Prefix count is different
@@ -9430,7 +9431,7 @@ static int bgp_clear_prefix(struct vty *vty, const char *view_name,
 /* one clear bgp command to rule them all */
 DEFUN (clear_ip_bgp_all,
        clear_ip_bgp_all_cmd,
-       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out>]",
+       "clear [ip] bgp [<view|vrf> VIEWVRFNAME] [<ipv4|ipv6|l2vpn> [<unicast|multicast|vpn|labeled-unicast|flowspec|evpn>]] <*|A.B.C.D$neighbor|X:X::X:X$neighbor|WORD$neighbor|(1-4294967295)|external|peer-group PGNAME> [<soft [<in|out>]|in [prefix-filter]|out|message-stats>]",
        CLEAR_STR
        IP_STR
        BGP_STR
@@ -9452,7 +9453,8 @@ DEFUN (clear_ip_bgp_all,
        BGP_SOFT_OUT_STR
        BGP_SOFT_IN_STR
        "Push out prefix-list ORF and do inbound soft reconfig\n"
-       BGP_SOFT_OUT_STR)
+       BGP_SOFT_OUT_STR
+       "Reset message statistics\n")
 {
 	char *vrf = NULL;
 
@@ -9509,7 +9511,7 @@ DEFUN (clear_ip_bgp_all,
 		clr_sort = clear_external;
 	}
 
-	/* [<soft [<in|out>]|in [prefix-filter]|out>] */
+	/* [<soft [<in|out>]|in [prefix-filter]|out|message-stats>] */
 	if (argv_find(argv, argc, "soft", &idx)) {
 		if (argv_find(argv, argc, "in", &idx)
 		    || argv_find(argv, argc, "out", &idx))
@@ -9524,6 +9526,8 @@ DEFUN (clear_ip_bgp_all,
 				   : BGP_CLEAR_SOFT_IN;
 	} else if (argv_find(argv, argc, "out", &idx)) {
 		clr_type = BGP_CLEAR_SOFT_OUT;
+	} else if (argv_find(argv, argc, "message-stats", &idx)) {
+		clr_type = BGP_CLEAR_MESSAGE_STATS;
 	} else
 		clr_type = BGP_CLEAR_SOFT_NONE;
 
@@ -16547,17 +16551,14 @@ static void bgp_config_write_peer_global(struct vty *vty, struct bgp *bgp,
 
 	/* capability extended-nexthop */
 	if (peergroup_flag_check(peer, PEER_FLAG_CAPABILITY_ENHE)) {
-		if (!peer->conf_if) {
-			if (CHECK_FLAG(peer->flags_invert,
-				       PEER_FLAG_CAPABILITY_ENHE))
-				vty_out(vty,
-					" no neighbor %s capability extended-nexthop\n",
-					addr);
-			else
-				vty_out(vty,
-					" neighbor %s capability extended-nexthop\n",
-					addr);
-		}
+		if (CHECK_FLAG(peer->flags_invert, PEER_FLAG_CAPABILITY_ENHE))
+			vty_out(vty,
+				" no neighbor %s capability extended-nexthop\n",
+				addr);
+		else if (!peer->conf_if)
+			vty_out(vty,
+				" neighbor %s capability extended-nexthop\n",
+				addr);
 	}
 
 	/* dont-capability-negotiation */
@@ -17495,7 +17496,20 @@ static struct cmd_node bgp_srv6_node = {
 
 static void community_list_vty(void);
 
-static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
+static void bgp_ac_peergroup(vector comps, struct cmd_token *token)
+{
+	struct bgp *bgp;
+	struct peer_group *group;
+	struct listnode *lnbgp, *lnpeer;
+
+	for (ALL_LIST_ELEMENTS_RO(bm->bgp, lnbgp, bgp)) {
+		for (ALL_LIST_ELEMENTS_RO(bgp->group, lnpeer, group))
+			vector_set(comps,
+				   XSTRDUP(MTYPE_COMPLETION, group->name));
+	}
+}
+
+static void bgp_ac_peer(vector comps, struct cmd_token *token)
 {
 	struct bgp *bgp;
 	struct peer *peer;
@@ -17525,24 +17539,19 @@ static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
 	}
 }
 
+static void bgp_ac_neighbor(vector comps, struct cmd_token *token)
+{
+	bgp_ac_peer(comps, token);
+
+	if (token->type == VARIABLE_TKN)
+		bgp_ac_peergroup(comps, token);
+}
+
 static const struct cmd_variable_handler bgp_var_neighbor[] = {
 	{.varname = "neighbor", .completions = bgp_ac_neighbor},
 	{.varname = "neighbors", .completions = bgp_ac_neighbor},
 	{.varname = "peer", .completions = bgp_ac_neighbor},
 	{.completions = NULL}};
-
-static void bgp_ac_peergroup(vector comps, struct cmd_token *token)
-{
-	struct bgp *bgp;
-	struct peer_group *group;
-	struct listnode *lnbgp, *lnpeer;
-
-	for (ALL_LIST_ELEMENTS_RO(bm->bgp, lnbgp, bgp)) {
-		for (ALL_LIST_ELEMENTS_RO(bgp->group, lnpeer, group))
-			vector_set(comps, XSTRDUP(MTYPE_COMPLETION,
-						  group->name));
-	}
-}
 
 static const struct cmd_variable_handler bgp_var_peergroup[] = {
 	{.tokenname = "PGNAME", .completions = bgp_ac_peergroup},

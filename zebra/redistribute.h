@@ -40,8 +40,7 @@ extern void zebra_redistribute_default_add(ZAPI_HANDLER_ARGS);
 extern void zebra_redistribute_default_delete(ZAPI_HANDLER_ARGS);
 /* ----------------- */
 
-extern void redistribute_update(const struct prefix *p,
-				const struct prefix *src_p,
+extern void redistribute_update(const struct route_node *rn,
 				const struct route_entry *re,
 				const struct route_entry *prev_re);
 /*
@@ -52,24 +51,24 @@ extern void redistribute_update(const struct prefix *p,
  * may have seen a redist for 'old_re', but will not see
  * the redist for 'new_re'.
  */
-void redistribute_delete(const struct prefix *p, const struct prefix *src_p,
+void redistribute_delete(const struct route_node *rn,
 			 const struct route_entry *old_re,
 			 const struct route_entry *new_re);
 
-extern void zebra_interface_up_update(struct interface *);
-extern void zebra_interface_down_update(struct interface *);
+extern void zebra_interface_up_update(struct interface *ifp);
+extern void zebra_interface_down_update(struct interface *ifp);
 
-extern void zebra_interface_add_update(struct interface *);
-extern void zebra_interface_delete_update(struct interface *);
+extern void zebra_interface_add_update(struct interface *ifp);
+extern void zebra_interface_delete_update(struct interface *ifp);
 
-extern void zebra_interface_address_add_update(struct interface *,
-					       struct connected *);
-extern void zebra_interface_address_delete_update(struct interface *,
+extern void zebra_interface_address_add_update(struct interface *ifp,
+					       struct connected *c);
+extern void zebra_interface_address_delete_update(struct interface *ifp,
 						  struct connected *c);
-extern void zebra_interface_parameters_update(struct interface *);
-extern void zebra_interface_vrf_update_del(struct interface *,
+extern void zebra_interface_parameters_update(struct interface *ifp);
+extern void zebra_interface_vrf_update_del(struct interface *ifp,
 					   vrf_id_t new_vrf_id);
-extern void zebra_interface_vrf_update_add(struct interface *,
+extern void zebra_interface_vrf_update_add(struct interface *ifp,
 					   vrf_id_t old_vrf_id);
 
 extern int zebra_import_table(afi_t afi, vrf_id_t vrf_id,

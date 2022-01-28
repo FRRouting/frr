@@ -126,6 +126,7 @@ struct thread {
 	unsigned long yield;		 /* yield time in microseconds */
 	const struct xref_threadsched *xref;   /* origin location */
 	pthread_mutex_t mtx;   /* mutex for thread.c functions */
+	bool ignore_timer_late;
 };
 
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
@@ -284,6 +285,11 @@ extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
 extern bool thread_is_scheduled(struct thread *thread);
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
+
+static inline void thread_ignore_late_timer(struct thread *thread)
+{
+	thread->ignore_timer_late = true;
+}
 
 #ifdef __cplusplus
 }

@@ -53,7 +53,7 @@ pytestmark = [pytest.mark.bgpd]
 
 
 def build_topo(tgen):
-    for routern in range(0, 5):
+    for routern in range(0, 6):
         tgen.add_router("r{}".format(routern))
 
     switch = tgen.add_switch("s0")
@@ -67,6 +67,11 @@ def build_topo(tgen):
     switch = tgen.add_switch("s2")
     switch.add_link(tgen.gears["r2"])
     switch.add_link(tgen.gears["r3"])
+
+    # Dynamic neighbor
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
@@ -104,14 +109,15 @@ def test_bgp_llgr():
         output = json.loads(router.vtysh_cmd("show ip bgp json"))
         expected = {
             "routes": {
-                "172.16.1.1/32": [{"nexthops": [{"ip": "192.168.2.2", "used": True}]}]
+                "172.16.1.1/32": [{"nexthops": [{"ip": "192.168.2.2", "used": True}]}],
+                "172.16.1.2/32": [{"nexthops": [{"ip": "192.168.2.2", "used": True}]}],
             }
         }
         return topotest.json_cmp(output, expected)
 
     step("Check if we can see 172.16.1.1/32 after initial converge in R3")
     test_func = functools.partial(_bgp_converge, r3)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Cannot see 172.16.1.1/32 in r3"
 
     def _bgp_weight_prefered_route(router):
@@ -134,7 +140,7 @@ def test_bgp_llgr():
         "Check if we can see 172.16.1.1/32 as best selected due to higher weigth in R2"
     )
     test_func = functools.partial(_bgp_weight_prefered_route, r2)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert (
         result is None
     ), "Prefix 172.16.1.1/32 is not selected as bests path due to weight"
@@ -142,14 +148,14 @@ def test_bgp_llgr():
     step("Kill bgpd in R1")
     kill_router_daemons(tgen, "r1", ["bgpd"])
 
-    def _bgp_stale_route(router):
-        output = json.loads(router.vtysh_cmd("show ip bgp 172.16.1.1/32 json"))
+    def _bgp_stale_route(router, prefix):
+        output = json.loads(router.vtysh_cmd("show ip bgp {} json".format(prefix)))
         expected = {"paths": [{"community": {"string": "llgr-stale"}, "stale": True}]}
         return topotest.json_cmp(output, expected)
 
     step("Check if we can see 172.16.1.1/32 as stale in R2")
-    test_func = functools.partial(_bgp_stale_route, r2)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    test_func = functools.partial(_bgp_stale_route, r2, "172.16.1.1/32")
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Prefix 172.16.1.1/32 is not stale"
 
     def _bgp_llgr_depreference_route(router):
@@ -170,13 +176,21 @@ def test_bgp_llgr():
 
     step("Check if we can see 172.16.1.1/32 depreferenced due to LLGR_STALE in R2")
     test_func = functools.partial(_bgp_llgr_depreference_route, r2)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Prefix 172.16.1.1/32 is not depreferenced due to LLGR_STALE"
 
     step("Check if we can see 172.16.1.1/32 after R1 was killed in R3")
     test_func = functools.partial(_bgp_converge, r3)
-    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    _, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
     assert result is None, "Cannot see 172.16.1.1/32 in r3"
+
+    step("Kill bgpd in R4 (dynamic peer)")
+    kill_router_daemons(tgen, "r4", ["bgpd"])
+
+    step("Check if we can see 172.16.1.2/32 after R4 (dynamic peer) was killed")
+    test_func = functools.partial(_bgp_stale_route, r2, "172.16.1.2/32")
+    _, result = topotest.run_and_expect(test_func, None, count=120, wait=0.5)
+    assert result is None, "Cannot see 172.16.1.2/32 in r2"
 
 
 if __name__ == "__main__":
