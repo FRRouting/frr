@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 # Copyright (C) 2018-2021  David Lamparter for NetDEF, Inc.
 """
-Base classes for topotato tests and test items, as well as startup/shutdown
+topotato is designed as a heavily custom extension to pytest.  The core
+aspects of this are defined in this module (:py:mod:`topotato.base`).
 """
 
 import os
@@ -30,8 +31,6 @@ from typing import (
     cast,
 )
 
-# from typing_extensions import Literal
-
 import pytest
 import _pytest
 from _pytest import nodes
@@ -40,6 +39,7 @@ from _pytest import nodes
 
 from .exceptions import TopotatoFail
 from .liveshark import LiveShark
+from .utils import ClassHooks
 
 if typing.TYPE_CHECKING:
     from topotato.frr import FRRNetworkInstance
@@ -50,13 +50,10 @@ logger.setLevel(logging.DEBUG)
 
 class _SkipTrace(set):
     """
-    get calling code location while skipping over specific functions
+    Get calling code location while skipping over specific functions.
 
-    create an instance (skiptrace = _SkipTrace()) below, then use that
-    instance as decorator (without braces at the end!).
-
-    get_caller will return the calling stack frame while skipping over
-    functions annotated with the decorator
+    Create an instance (cf. :py:data:`skiptrace`), then use that instance as
+    decorator (without braces at the end!).
     """
 
     def __call__(self, origfn):
@@ -66,24 +63,48 @@ class _SkipTrace(set):
         self.add(fn.__code__)
         return origfn
 
-    def get_caller(self) -> Optional[inspect.FrameInfo]:
-        stack = inspect.stack()
-        for s in stack[1:]:
-            if s.frame.f_code not in self:
-                caller = s
-                break
-        else:
-            del stack
-            raise IndexError("cannot locate caller")
+    def __repr__(self):
+        # this is pretty much just for sphinx/autodoc
+        return '<%s.%s>' % (self.__class__.__module__, self.__class__.__name__)
 
-        del stack
-        return caller
+    def get_callers(self) -> List[inspect.FrameInfo]:
+        """
+        :return: the calling stack frames left after skipping over functions
+           annotated with this decorator.
+        """
+        stack = inspect.stack()
+        stack.pop(0)
+
+        while stack and stack[0].frame.f_code in self:
+            stack.pop(0)
+
+        if not stack:
+            raise IndexError("cannot locate caller")
+        return stack
 
 
 skiptrace = _SkipTrace()
+"""
+Decorator for use in topotato logic to make tracebacks more useful.
+
+Functions/methods annotated with this decorator will be left out when printing
+backtraces.  Most :py:mod:`topotato.assertions` code should use this since the
+inner details of how a topotato assertion works are not normally what you want
+to debug when a test fails.
+
+.. todo::
+
+   Add a testrun/pytest option that disables this, for bug hunting in topotato
+   itself.
+"""
 
 
 class TimedElement(ABC):
+    """
+    Abstract base for test report items.
+
+    Sortable by timestamp, and possibly with a HTML conversion function.
+    """
     @abstractmethod
     def ts(self):
         raise NotImplementedError()
@@ -98,25 +119,38 @@ class TimedElement(ABC):
 
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
-class TopotatoItem(nodes.Item):
+class TopotatoItem(nodes.Item, ClassHooks):
     """
-    base class for test "items" - asserts, route checks, etc.
+    pytest base class for test "items" - asserts, route checks, etc.
 
-    this is heavily pytest-specific machinery.  dragons may be involved.
+    This is heavily pytest-specific machinery.  Dragons may be involved.  You
+    should NOT ever see this class directly in a topotato test source file.
+    The various assertions are subclasses of this, and instances are handed
+    to pytest to do its thing.
     """
 
-    plaintext_arg: ClassVar[Optional[str]] = None
-
-    # location in test source this is created from
     _codeloc: Optional[inspect.FrameInfo]
+    """
+    Test source code location that resulted in the creation of this item.
+    Filtered heavily to condense down useful information.
+    """
 
+    # pytest dragons -- before touching, check what these mean to pytest!
     _request: _pytest.fixtures.FixtureRequest
     _fixtureinfo: _pytest.fixtures.FuncFixtureInfo
     fixturenames: Any
     funcargs: Dict[str, Any]
 
     _obj: "TestBase"
+    """
+    The test source instance which this item has resulted from, i.e. an
+    instance of WhateverTestClass defined in test_something.py
+    """
+
     instance: "FRRNetworkInstance"
+    """
+    Running network instance this item belongs to.
+    """
 
     # TBD: replace/rework skipping functionality
     skipall = None
@@ -126,6 +160,12 @@ class TopotatoItem(nodes.Item):
     def from_parent(
         cls: Type["TopotatoItem"], parent: nodes.Node, *args, **kw
     ) -> "TopotatoItem":
+        """
+        pytest's replacement for the constructor.  Supposedly less fragile.
+
+        Do not call this directly, use :py:meth:`make`.
+        """
+
         if args:
             raise ValueError("leftover arguments: %r" % args)
         self: TopotatoItem = cast("TopotatoItem", super().from_parent(parent, **kw))
@@ -140,7 +180,7 @@ class TopotatoItem(nodes.Item):
         )
         self.fixturenames = self._fixtureinfo.names_closure
         self.funcargs = {}
-        self._request = _pytest.fixtures.FixtureRequest(self, _ispytest=True) # type: ignore
+        self._request = _pytest.fixtures.FixtureRequest(self, _ispytest=True)  # type: ignore
 
         self.add_marker(pytest.mark.usefixtures(self._obj.instancefn.__name__))
         return self
@@ -150,9 +190,33 @@ class TopotatoItem(nodes.Item):
     def make(
         cls: Type["TopotatoItem"], *args, **kwargs
     ) -> Generator[Optional["TopotatoItem"], Tuple["TopotatoClass", str], None]:
-        caller = skiptrace.get_caller()
-        assert caller is not None
-        yield from cls._make("#%d" % (caller.lineno), caller, *args, **kwargs)
+        """
+        Core plumbing to create an actual test item.
+
+        All topotato tests should be the result of the main test source file
+        invoking a whole bunch of::
+
+           yield from SomeSubclass.make(...)
+
+        Note that this is a generator and calling it without a yield from won't
+        do anything useful.  args/kwargs are passed along to the actual test.
+        """
+
+        callers = skiptrace.get_callers()
+        assert callers
+
+        location = ""
+        while callers:
+            module = inspect.getmodule(callers[0].frame)
+            if not module or module.__name__.startswith("topotato."):
+                break
+            caller = callers.pop(0)
+            location = "#%d%s" % (caller.lineno, location)
+        del callers
+
+        # ordering of test items is based on caller here, so we need to go
+        # with the topmost or we end up reordering things in a weird way.
+        yield from cls._make(location, caller, *args, **kwargs)
 
     @skiptrace
     @classmethod
@@ -166,18 +230,30 @@ class TopotatoItem(nodes.Item):
         yield self
 
     def setup(self):
+        """
+        Called by pytest in the "setup" stage (pytest_runtest_setup)
+        """
         super().setup()
 
         self._request._fillfixtures()
         self.instance = self.funcargs[self._obj.instancefn.__name__]
 
     def runtest(self):
+        """
+        Called by pytest in the "call" stage (pytest_runtest_call)
+        """
         if self.skipall:
             pytest.skip(self.skipall)
-        self()  # pylint: disable=not-callable
+        # pylint: disable=not-callable
+        self()
 
     def sleep(self, step, until):
-        abs_until = time.time() + until  # XXX TODO
+        obj = self
+        while getattr(obj, 'started_ts', None) is None:
+            obj = obj.parent
+
+        abs_until = obj.started_ts + until
+        # TODO: don't hardcode liveshark here...
         for _ in self.parent.liveshark.run(step, abs_until):
             pass
 
@@ -235,6 +311,11 @@ class TopotatoItem(nodes.Item):
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
 class InstanceStartup(TopotatoItem):
+    """
+    Test pseudo-item to start up topology.
+
+    Includes starting tshark and checking all daemons are running.
+    """
     commands: OrderedDict
 
     # pylint: disable=arguments-differ
@@ -314,6 +395,13 @@ class InstanceStartup(TopotatoItem):
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
 class InstanceShutdown(TopotatoItem):
+    """
+    Test pseudo-item to shut down topology.
+
+    As part of shut down, tshark is stopped / the pcap file is closed in an
+    orderly fashion (otherwise you get truncated pcap files.)
+    """
+
     # pylint: disable=arguments-differ
     @classmethod
     def from_parent(cls, parent):
@@ -345,23 +433,106 @@ class InstanceShutdown(TopotatoItem):
 
 
 class TestBase:
+    """
+    Base class for all topotato tests.
+
+    Everything implementing a topotato test must derive from this base.  It
+    doesn't need to be direct, i.e. further subclassing is possible.
+    """
+
     instancefn: ClassVar[Callable[..., "FRRNetworkInstance"]]
+    """
+    Network instance/topology fixture (required.)
+
+    This must be set to the :py:func:`topotato.fixtures.instance_fixture`
+    decorated network instance setup function for this test.  This normally
+    looks something like this::
+
+       @instance_fixture()
+       def testenv(configs):
+           return FRRNetworkInstance(configs.topology, configs).prepare()
+      
+       class MyTest(TestBase):
+           instancefn = testenv
+
+    With ``configs`` again referring to a configuration fixture and so on.
+    """
 
     @classmethod
     def _topotato_makeitem(cls, collector, name, obj):
+        """
+        Primary topotato pytest integration.
+
+        topotato's pytest collection hook
+        (:py:func:`topotato.pytestintegration.pytest_pycollect_makeitem`)
+        checks for the existence of this method;  its existence is the initial
+        entry point to the topotato pytest integration machinery.  Everything
+        else happens as a result of this, because we return
+        :py:class:`TopotatoClass` here, rather than the
+        :py:class:`_pytest.python.Class` you would normally get from pytest.
+        """
         if cls is TestBase:
             return []
         return [TopotatoClass.from_hook(obj, collector, name=name)]
 
-class TopotatoWrapped:
-    def __wrapped__(self):
-        pass
 
-    def __init__(self, wrap, call = None):
+class TopotatoWrapped:
+    """
+    Marker-type method wrapper to signal a method as topotato test.
+
+    .. note::
+
+       Understanding what this does is not particularly important/helpful for
+       comprehending topotato as a whole, this is just necessary low-level
+       Python plumbing without huge consequences.
+
+    This is a bit more complicated than would be immediately apparent because
+    we're wrapping a *method*, not a *function*.  Thing is, methods are
+    initially defined as unbound functions, and then become bound methods when
+    dereferenced by accessing them through an instance.
+
+    The way Python handles this is that the method actually gets a descriptor
+    object in the class, with a __get__ on it that does the method binding
+    mentioned above.  So when you do ``obj.foobar``, there's an intermediate
+    step through ``obj.foobar.__get__(obj, objtype)``.
+
+    This class basically replicates that, but keeps returning instances of
+    itself until you actually call the method.  The starting point is a
+    decorated class definition along the lines of::
+
+       class A:
+           @TopotatoWrapped
+           def something(self, args):
+               pass
+
+    After this, ``A.someting`` is an instance of TopotatoWrapped with
+    :py:attr:`_wrap` set to the original (unbound) definition of ``something``
+    and :py:attr:`_call` the same.
+
+    When you start working with instances, e.g.::
+
+       a = A()
+       a.something(args)
+
+    First, nothing happens on creating the instance.  But ``a.something`` (note
+    the missing ``()``, so the function call isn't happening yet) results in
+    :py:meth:`__get__` being called.  That returns a new instance of
+    TopotatoWrapped with the same :py:attr:`_wrap`, but :py:attr:`_call` is
+    updated to now point to the *bound* method (which we get transitively from
+    the original ``__get__``.)  Finally, the function call is routed through
+    :py:meth:`__call__` and passed onto the bound method.
+
+    Ultimately, this gives us a properly working *method* wrapper that we
+    can stick other things on - like :py:meth:`_topotato_makeitem`, which sets
+    up topotato test items for functions annotated this way.
+    """
+
+    def __init__(self, wrap, call=None):
         assert inspect.isgeneratorfunction(wrap)
 
         self._wrap = wrap
         self._call = call or wrap
+        self.__wrapped__ = call or wrap
 
     def __get__(self, obj, objtype=None):
         return self.__class__(self._wrap, self._call.__get__(obj, objtype))
@@ -369,15 +540,25 @@ class TopotatoWrapped:
     def __call__(self, *args, **kwargs):
         return self._call(*args, **kwargs)
 
+    # pylint: disable=protected-access,no-self-use
     def _topotato_makeitem(self, collector, name, obj):
+        """
+        topotato pytest integration.
+
+        Refer to :py:meth:`TestBase._topotato_makeitem`, this is the method
+        level equivalent of that.
+        """
         return list(collector._topotato_child(name, obj))
 
 
 def topotatofunc(fn):
     """
-    decorator to mark methods as item-yielding test generators
+    Decorator to mark methods as item-yielding test generators.
 
-    (TBD: just use @TopotatoWrapped directly?)
+    .. todo:: 
+     
+       Just decorate with :py:class:`TopotatoWrapped` directly?  A class as
+       decorator does look a bit weird though...
     """
     return TopotatoWrapped(fn)
 
@@ -385,10 +566,32 @@ def topotatofunc(fn):
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
 class TopotatoInstance(_pytest.python.Instance):
+    """
+    pytest representation/handle to an instance of a test class.
+
+    This is created (somewhat implicitly) by pytest to get a handle on an
+    instance of a test-defining class.
+    """
+
     obj: TestBase
+    """
+    The actual instance of our test class.
+    """
     parent: "TopotatoClass"
+    """
+    Parent in the pytest sense, in this case the class definition.
+    """
 
     def collect(self):
+        """
+        Tell pytest our test items, in this case adding startup/shutdown.
+
+        Note that the various methods in the class are still collected using
+        standard pytest logic.  However, the :py:func:`topotatofunc` decorator
+        will cause methods to have a ``_topotato_makeitem`` attribute, which
+        then replaces the :py:class:`_pytest.python.Function` with the
+        topotato assertions defined for the test.
+        """
         yield InstanceStartup.from_parent(self)
         yield from super().collect()
         yield InstanceShutdown.from_parent(self)
@@ -410,6 +613,7 @@ class TopotatoInstance(_pytest.python.Instance):
 
         topo = self.parent.obj.instancefn.net
 
+        # pylint: disable=protected-access
         argspec = inspect.getfullargspec(method._call).args[2:]
         args = []
         for argname in argspec:
@@ -435,6 +639,13 @@ class TopotatoInstance(_pytest.python.Instance):
 # false warning on get_closest_marker()
 # pylint: disable=abstract-method
 class TopotatoClass(_pytest.python.Class):
+    """
+    Representation of a test class definition.
+
+    :py:meth:`TestBase._topotato_makeitem` results in topotato tests getting
+    one of this here rather than the regular :py:class:`_pytest.python.Class`.
+    This allows us to customize behavior.
+    """
     _instance: TopotatoInstance
     _obj: Type[TestBase]
 
@@ -444,6 +655,7 @@ class TopotatoClass(_pytest.python.Class):
         self = super().from_parent(collector, name=name)
         self._obj = obj
 
+        # TODO: automatically add a bunch of markers for test requirements.
         for fixture in getattr(self._obj, "use", []):
             self.add_marker(pytest.mark.usefixtures(fixture))
 
@@ -451,6 +663,11 @@ class TopotatoClass(_pytest.python.Class):
         return self
 
     def collect(self) -> Iterable[Union[nodes.Item, nodes.Collector]]:
+        """
+        Tell pytest our test items, in this case making a
+        :py:class:`TopotatoInstance`.
+        """
+        # invoke some pytest fixture magic that we'd lose here otherwise.
         self._inject_setup_class_fixture()
         self._inject_setup_method_fixture()
         self._instance = TopotatoInstance.from_parent(self, name="()")

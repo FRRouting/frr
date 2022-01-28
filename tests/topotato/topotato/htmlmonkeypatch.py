@@ -6,7 +6,7 @@ Monkey patch for pytest-html to add binary attachment support
 """
 
 from pytest_html import extras, result, html_report
-# pylint: disable=E0401,E0611
+# pylint: disable=import-error,no-name-in-module
 from py.xml import html
 
 class ResultMonkey(result.TestResult):

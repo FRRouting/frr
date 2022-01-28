@@ -64,22 +64,28 @@ class LinuxNamespace:
     name: str
     pid: int
 
+    _exec = {
+        "unshare": None,
+        "nsenter": None,
+        "tini": None,
+    }
+
     def __init__(self, name):
         self.name = name
         self.process = None
 
     def start(self):
-        # pylint: disable=R1732
+        # pylint: disable=consider-using-with
         self.process = subprocess.Popen(
             [
-                "unshare",
+                self._exec.get("unshare", "unshare"),
                 "-u",
                 "-m",
                 "-n",
                 "-p",
                 "-f",
                 "--mount-proc",
-                "tini",
+                self._exec.get("tini", "tini"),
                 "-g",
                 "/bin/sh",
                 "--",
@@ -116,14 +122,22 @@ class LinuxNamespace:
         del self.process
 
     def prefix(self, kwargs) -> List[str]:
-        ret = ["nsenter", "-t", str(self.pid), "-m", "-u", "-n", "-p"]
+        ret = [
+            str(self._exec.get("nsenter", "nsenter")),
+            "-t",
+            str(self.pid),
+            "-m",
+            "-u",
+            "-n",
+            "-p",
+        ]
         if "cwd" in kwargs:
             cwd = kwargs.pop("cwd")
             ret.extend(["--wd=%s" % cwd])
         return ret
 
     def popen(self, cmdline: List[str], *args, **kwargs):
-        # pylint: disable=R1732
+        # pylint: disable=consider-using-with
         return subprocess.Popen(self.prefix(kwargs) + cmdline, *args, **kwargs)
 
     def check_call(self, cmdline: List[str], *args, **kwargs):

@@ -23,6 +23,7 @@ from . import assertions
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
 from .htmlmonkeypatch import HTMLTouchupMonkey
+from .utils import ClassHooks, exec_find
 
 
 def _html_final_hook(html_result):
@@ -143,9 +144,13 @@ class TimedLog(base.TimedElement):
 
 
 class PrettySession:
-    def __init__(self, session):
+    def __init__(self, session, outdir=None):
         self.session = session
+        self.outdir = outdir
         self.pytest_html = session.config.pluginmanager.getplugin('html')
+
+        if outdir and not os.path.exists(outdir):
+            os.mkdir(outdir)
 
     def push(self, item, call, result):
         if not isinstance(item, base.TopotatoItem):
@@ -171,6 +176,9 @@ class PrettyInstance(list):
                 self.timed.append(TimedLog(seqno, router, daemon, line))
 
     def distribute(self):
+        if self.instance.protomato is None:
+            return
+
         packets = self.instance.protomato[:]
         timed = self.timed[:]
 
@@ -195,7 +203,8 @@ class PrettyInstance(list):
         topotatoinst = self[0].item.parent
         topotatocls = topotatoinst.parent
         nodeid = topotatocls.nodeid
-        filename = 'assets/%s.html' % (self._filename_sub.sub('_', nodeid))
+        filename = '%s.html' % (self._filename_sub.sub('_', nodeid))
+        filename = os.path.join(self.prettysession.outdir, filename)
 
         body = [
             html.h1(nodeid),
@@ -225,7 +234,7 @@ class PrettyInstance(list):
             fd.write(output.unicode().encode('UTF-8'))
 
 
-class PrettyItem:
+class PrettyItem(ClassHooks):
     itemclasses = {}
 
     @classmethod
@@ -297,21 +306,33 @@ class PrettyTopotato(PrettyItem, matches=base.TopotatoItem):
 
 
 class PrettyStartup(PrettyTopotato, matches=base.InstanceStartup):
+    @classmethod
+    def _check_env(cls, *, result, **kwargs):
+        cls.exec_dot = exec_find("dot")
+        if cls.exec_dot is None:
+            result.warning("graphviz (dot) not found; network diagrams won't be drawn.")
+
     # pylint: disable=consider-using-with
     def when_call(self, call, result):
         super().when_call(call, result)
 
+        self.instance.ts_rel = self.item.parent.starting_ts
+        self.instance.protomato = None
+
+        if call.excinfo:
+            return
+
         extras = self.prettysession.pytest_html.extras
 
-        dot = self.instance.network.dot()
-        graphviz = subprocess.Popen(['dot', '-Tsvg', '-o/dev/stdout'],
-                stdin = subprocess.PIPE, stdout = subprocess.PIPE)
-        out, _ = graphviz.communicate(dot.encode('UTF-8'))
-        out = base64.b64encode(out).decode('US-ASCII')
+        if self.exec_dot:
+            dot = self.instance.network.dot()
+            graphviz = subprocess.Popen(['dot', '-Tsvg', '-o/dev/stdout'],
+                    stdin = subprocess.PIPE, stdout = subprocess.PIPE)
+            out, _ = graphviz.communicate(dot.encode('UTF-8'))
+            out = base64.b64encode(out).decode('US-ASCII')
 
-        result.extra.append(extras.svg(out, 'topology diagram'))
+            result.extra.append(extras.svg(out, 'topology diagram'))
 
-        self.instance.ts_rel = self.item.parent.liveshark._abs_start_ts
         self.instance.protomato = ProtomatoDumper(self.instance.network.macmap(),
                 self.instance.ts_rel)
         self.item.parent.liveshark.subscribe(self.instance.protomato.submit)

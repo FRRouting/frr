@@ -1,14 +1,11 @@
-
 import pytest
 
-from topotato.pytestintegration import *
-from topotato.topolinux import NetworkInstance
-from topotato.frr import FRRNetworkInstance
-from topotato.assertions import *
+from topotato import *
+
 
 @topology_fixture()
 def allproto_topo(topo):
-    '''
+    """
     [ r1 ]---[ noprot ]
     [    ]
     [    ]---[ rip ]
@@ -22,13 +19,14 @@ def allproto_topo(topo):
     [    ]---[ isisv4 ]
     [    ]
     [    ]---[ isisv6 ]
-    '''
-    topo.router('r1').iface_to('ripng').ip6.append('fc00:0:0:1::1/64')
+    """
+    topo.router("r1").iface_to("ripng").ip6.append("fc00:0:0:1::1/64")
+
 
 class Configs(FRRConfigs):
-    routers = ['r1']
+    routers = ["r1"]
 
-    zebra = '''
+    zebra = """
     #% extends "boilerplate.conf"
     #% block main
     #%   for iface in router.ifaces
@@ -42,9 +40,9 @@ class Configs(FRRConfigs):
     ipv6 forwarding
     !
     #% endblock
-    '''
+    """
 
-    ripd = '''
+    ripd = """
     #% extends "boilerplate.conf"
     #% block main
     debug rip events
@@ -54,9 +52,9 @@ class Configs(FRRConfigs):
      version 2
      network {{ router.iface_to('rip').ip4[0].network }}
     #% endblock
-    '''
+    """
 
-    ripngd = '''
+    ripngd = """
     #% extends "boilerplate.conf"
     #% block main
     debug ripng events
@@ -65,19 +63,18 @@ class Configs(FRRConfigs):
     router ripng
      network {{ router.iface_to('ripng').ip6[0].network }}
     #% endblock
-    '''
+    """
+
 
 @config_fixture(Configs)
 def configs(config, allproto_topo):
     return config
 
+
 @instance_fixture()
 def testenv(configs):
-    instance = FRRNetworkInstance(configs.topology, configs)
-    instance.prepare()
-    return instance
-    #yield instance
-    #instance.stop()
+    return FRRNetworkInstance(configs.topology, configs).prepare()
+
 
 class AllStartupTest(TestBase):
     instancefn = testenv
@@ -87,11 +84,11 @@ class AllStartupTest(TestBase):
         for daemon in Configs.daemons:
             if not hasattr(Configs, daemon):
                 continue
-            yield from AssertVtysh.make(r1, daemon, command='show version')
+            yield from AssertVtysh.make(r1, daemon, command="show version")
 
     @topotatofunc
     def test_ripd(self, topo, r1):
-        yield from AssertVtysh.make(r1, 'ripd', 'show ip rip status', maxwait=5.0, compare = r'''
+        compare = r"""
         Routing Protocol is "rip"
           Sending updates every 30 seconds with +/-50%, next due in $$\d+$$ seconds
           Timeout after 180 seconds, garbage collect after 120 seconds
@@ -107,11 +104,14 @@ class AllStartupTest(TestBase):
           Routing Information Sources:
             Gateway          BadPackets BadRoutes  Distance Last Update
           Distance: (default is 120)
-        ''')
+        """
+        yield from AssertVtysh.make(
+            r1, "ripd", "show ip rip status", maxwait=5.0, compare=compare
+        )
 
     @topotatofunc
     def test_ripngd(self, topo, r1):
-        yield from AssertVtysh.make(r1, 'ripngd', 'show ip ripng status', maxwait=5.0, compare = r'''
+        compare = r"""
         Routing Protocol is "RIPng"
           Sending updates every 30 seconds with +/-50%, next due in $$\d+$$ seconds
           Timeout after 180 seconds, garbage collect after 120 seconds
@@ -126,12 +126,16 @@ class AllStartupTest(TestBase):
             $$=router.iface_to('ripng').ip6[0].network$$
           Routing Information Sources:
             Gateway          BadPackets BadRoutes  Distance Last Update
-        ''')
+        """
+        yield from AssertVtysh.make(
+            r1, "ripngd", "show ip ripng status", maxwait=5.0, compare=compare
+        )
 
     def test_other(self, configs):
-        print(repr(configs))
+        print(repr(list(configs["r1"].keys())))
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     pass
 #    cfgs = Configs()
 #    cfgs.generate()

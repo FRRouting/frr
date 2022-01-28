@@ -17,8 +17,13 @@ import tempfile
 import time
 
 from typing import Union, Dict, List, Any, Optional
-from typing_extensions import Literal
 
+try:
+    from typing import Literal
+except ImportError:
+    from typing_extensions import Literal  # type: ignore
+
+from .utils import ClassHooks, exec_find
 from .nswrap import LinuxNamespace, find_child
 from .toponom import LAN, LinkIface, Network
 
@@ -41,10 +46,37 @@ def proc_write(path: str, value: str):
     ]
 
 
-class NetworkInstance:
+class NetworkInstance(ClassHooks):
     """
     represent a test setup with all its routers & switches
     """
+
+    # TODO: replace this hack with something better (it only works because
+    # _exec actually references the same dict from LinuxNamespace)
+    # pylint: disable=protected-access
+    _exec = LinuxNamespace._exec
+    _exec.update(
+        {
+            "dumpcap": None,
+            "ip": None,
+        }
+    )
+
+    _exec_optional = {
+        "dumpcap": "dumpcap not available -- packet dumps will be missing and AssertPacket checks will be skipped",
+    }
+
+    # pylint: disable=arguments-differ
+    @classmethod
+    def _check_env(cls, *, result, **kwargs):
+        for name in cls._exec:
+            if cls._exec[name] is None:
+                cls._exec[name] = exec_find(name)
+            if cls._exec[name] is None:
+                if name not in cls._exec_optional:
+                    result.error("%s is required to run on Linux systems", name)
+                else:
+                    result.warning(cls._exec_optional[name])
 
     class BaseNS(LinuxNamespace):
         """
@@ -70,7 +102,7 @@ class NetworkInstance:
 
         def start(self):
             super().start()
-            self.check_call(["ip", "link", "set", "lo", "up"])
+            self.check_call([self._exec.get("ip", "ip"), "link", "set", "lo", "up"])
 
         def routes(
             self, af: Union[Literal[4], Literal[6]] = 4, local=False
@@ -98,7 +130,8 @@ class NetworkInstance:
 
             def ip_r_call(extra=None):
                 text = self.check_output(
-                    ["ip", "-%d" % af, "-j", "route", "list"] + (extra or [])
+                    [self._exec.get("ip", "ip"), "-%d" % af, "-j", "route", "list"]
+                    + (extra or [])
                 )
                 text = self.iproute_json_re.sub(rb'"type":"\1"', text)
                 try:
@@ -248,7 +281,13 @@ class NetworkInstance:
 
             ifn = ifname(self.name, iface.ifname)
             self.instance.switch_ns.check_call(
-                ["ip", "link", "set", ifn, "up" if state else "down"]
+                [
+                    str(self._exec.get("ip", "ip")),
+                    "link",
+                    "set",
+                    ifn,
+                    "up" if state else "down",
+                ]
             )
 
     network: Network
@@ -266,7 +305,7 @@ class NetworkInstance:
         self.pcapfile = None
         self.dumpcap = None
 
-        # pylint: disable=R1732
+        # pylint: disable=consider-using-with
         self.tempdir = tempfile.TemporaryDirectory()
         os.chmod(self.tempdir.name, 0o755)
 
@@ -277,7 +316,9 @@ class NetworkInstance:
         self.switch_ns = self.SwitchyNS(self, "switch-ns")
         for r in self.network.routers.values():
             self.routers[r.name] = self.RouterNS(self, r.name)
+        return self
 
+    # pylint: disable=too-many-branches
     def start(self):
         """
         kick everything up
@@ -311,7 +352,7 @@ class NetworkInstance:
                 self.bridges.append(brname)
                 self.switch_ns.check_call(
                     [
-                        "ip",
+                        self._exec.get("ip", "ip"),
                         "link",
                         "add",
                         "name",
@@ -327,7 +368,7 @@ class NetworkInstance:
                 )
                 self.switch_ns.check_call(
                     [
-                        "ip",
+                        self._exec.get("ip", "ip"),
                         "link",
                         "set",
                         ifname(link.a.endpoint.name, link.a.ifname),
@@ -338,7 +379,7 @@ class NetworkInstance:
                 )
                 self.switch_ns.check_call(
                     [
-                        "ip",
+                        self._exec.get("ip", "ip"),
                         "link",
                         "set",
                         ifname(link.b.endpoint.name, link.b.ifname),
@@ -353,7 +394,7 @@ class NetworkInstance:
             self.bridges.append(brname)
             self.switch_ns.check_call(
                 [
-                    "ip",
+                    self._exec.get("ip", "ip"),
                     "link",
                     "add",
                     "name",
@@ -368,7 +409,7 @@ class NetworkInstance:
             for iface in lan.ifaces:
                 self.switch_ns.check_call(
                     [
-                        "ip",
+                        self._exec.get("ip", "ip"),
                         "link",
                         "set",
                         ifname(iface.other.endpoint.name, iface.other.ifname),
@@ -382,31 +423,34 @@ class NetworkInstance:
         args = []
         for br in self.bridges:
             args.extend(["-i", br])
-        self.dumpcap = self.switch_ns.popen(
-            ["dumpcap", "-B", "1", "-t", "-q", "-w", self.pcapfile] + args,
-            stderr=subprocess.PIPE,
-        )
 
-        # starting dumpcap has been shown to take a few seconds on a loaded
-        # CI box... to the point of tests completing before dumpcap even
-        # started, which in turn caused hangs because dumpcap then couldn't
-        # be killed :S
-
-        start = time.time()
-        timeout = 15.0
-
-        os.set_blocking(self.dumpcap.stderr.fileno(), False)
-        out = ""
-
-        while time.time() < start + timeout:
-            r = select.select(
-                [self.dumpcap.stderr], [], [], start + timeout - time.time()
+        if self._exec.get("dumpcap"):
+            self.dumpcap = self.switch_ns.popen(
+                [self._exec["dumpcap"], "-B", "1", "-t", "-q", "-w", self.pcapfile]
+                + args,
+                stderr=subprocess.PIPE,
             )
-            if len(r[0]) == 0:
-                raise TimeoutError("failed to start dumpcap")
-            out += self.dumpcap.stderr.read(4096).decode("UTF-8")
-            if out.find("Capturing on") >= 0:
-                break
+
+            # starting dumpcap has been shown to take a few seconds on a loaded
+            # CI box... to the point of tests completing before dumpcap even
+            # started, which in turn caused hangs because dumpcap then couldn't
+            # be killed :S
+
+            start = time.time()
+            timeout = 15.0
+
+            os.set_blocking(self.dumpcap.stderr.fileno(), False)
+            out = ""
+
+            while time.time() < start + timeout:
+                r = select.select(
+                    [self.dumpcap.stderr], [], [], start + timeout - time.time()
+                )
+                if len(r[0]) == 0:
+                    raise TimeoutError("failed to start dumpcap")
+                out += self.dumpcap.stderr.read(4096).decode("UTF-8")
+                if out.find("Capturing on") >= 0:
+                    break
 
     def stop(self):
         dumpcap_pid = find_child(self.dumpcap.pid)
@@ -424,7 +468,7 @@ class NetworkInstance:
 
 
 def test():
-    # pylint: disable=C0415
+    # pylint: disable=import-outside-toplevel
     from . import toponom
 
     net = toponom.test()

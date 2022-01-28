@@ -1,6 +1,7 @@
 import subprocess, signal, time, json, re
 import tempfile, os
 
+from .utils import ClassHooks, exec_find
 from .jailwrap import FreeBSDJail
 from . import toponom
 from .toponom import LAN
@@ -17,7 +18,7 @@ def ifname(host, iface):
     else:
         return '%s_%s' % (host, iface)
 
-class NetworkInstance(object):
+class NetworkInstance(ClassHooks):
     '''
     represent a test setup with all its routers & switches
     '''
@@ -174,6 +175,7 @@ class NetworkInstance(object):
         self.routers = {}
         for r in self.network.routers.values():
             self.routers[r.name] = self.RouterNS(self, r.name)
+        return self
 
     def start(self):
         '''

@@ -13,8 +13,7 @@ from .htmlmonkeypatch import ResultMonkey
 
 ResultMonkey.apply()
 
-from .topolinux import NetworkInstance
-from .utils import deindent
+from .utils import deindent, ClassHooks, get_textdiff
 from .assertions import TopotatoItem, TopotatoCompareFail
 from .frr import FRRConfigs
 from .protomato import ProtomatoDumper
@@ -52,19 +51,24 @@ def pytest_addoption(parser):
     parser.addoption("--show-config", type=str, default=None, help="show specific configuration")
     parser.addoption("--show-topology", type=str, default=None, help="show specific topology")
     parser.addoption("--frr-builddir", type=str, default=None, help="override frr_builddir pytest.ini option")
+    parser.addoption("--reportato-dir", type=str, default=None, help="output directory for topotato HTML report")
 
     parser.addini('frr_builddir', 'FRR build directory (normally same as source, but out-of-tree is supported)', default='../frr')
+    parser.addini('reportato_dir', 'Default output directory for topotato HTML report')
 
-def pytest_configure(config):
-    assert config.pluginmanager.getplugin('html') is not None
-    #config.option.css.insert(0,
-    #        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'protomato.css'))
-    #config.option.css.insert(0,
-    #        os.path.join(os.path.dirname(os.path.abspath(__file__)), 'topotato.css'))
+#@pytest.hookimpl()
+#def pytest_configure(config):
+#    pass
 
 from .pretty import *
 
+@pytest.hookimpl()
 def pytest_sessionstart(session):
+    envstate = ClassHooks._check_env_all()
+
+    if not envstate:
+        raise TopotatoEnvProblem('\n'.join(envstate.errors))
+
     path = os.environ['PATH'].split(':')
     fail = 0
 
@@ -82,35 +86,37 @@ def pytest_sessionstart(session):
         logger.error('topotato must be run as root.  skipping all tests.')
         fail += 1
 
-    tools = ['dot', 'dumpcap', 'tshark']
-    if sys.platform == 'linux':
-        tools.extend(['ip', 'unshare', 'nsenter', 'tini'])
-    elif sys.platform == 'freebsd12':
-        tools.extend(['jail', 'jexec', 'ifconfig', 'netstat'])
-    else:
-        logger.error('this platform (%s) is not supported by topotato.' % (sys.platform))
-        fail += 1
+    tools = ['tshark']
+    #if sys.platform == 'freebsd12':
+    #    tools.extend(['jail', 'jexec', 'ifconfig', 'netstat'])
 
     for tool in tools:
         if check_tool(tool) is None:
             fail += 1
 
-    frr_builddir = session.config.getoption('--frr-builddir')
-    if frr_builddir is None:
-        frr_builddir = session.config.getini('frr_builddir')
+    def get_dir(optname, ininame):
+        basedir = os.getcwd()
+        val = session.config.getoption(optname)
+        if not val:
+            basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            val = session.config.getini(ininame)
 
-    if not os.path.isabs(frr_builddir):
-        selfdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        frr_builddir = os.path.abspath(os.path.join(selfdir, frr_builddir))
+        if val is None:
+            return
+        if not os.path.isabs(val):
+            val = os.path.abspath(os.path.join(basedir, val))
+        return val
 
-
+    frr_builddir = get_dir('--frr-builddir', 'frr_builddir')
     if not fail:
         if not FRRConfigs.init(frr_builddir):
             fail += 1
     if fail:
         TopotatoItem.skipall = 'topotato environment not set up correctly'
 
-    session.pretty = PrettySession(session)
+    reportato_dir = get_dir('--reportato-dir', 'reportato_dir')
+
+    session.pretty = PrettySession(session, reportato_dir)
 
 class LogFormatting(list):
     class Item:
@@ -303,15 +309,6 @@ def pytest_collection(session):
         session.items = []
 
 from .frr import FRRConfigs
-
-def get_textdiff(text1, text2, title1="", title2="", **opts):
-    "Returns empty string if same or formatted diff"
-
-    diff = '\n'.join(difflib.unified_diff(text1, text2,
-           fromfile=title1, tofile=title2, **opts))
-    # Clean up line endings
-    diff = os.linesep.join([s for s in diff.splitlines() if s])
-    return diff
 
 def text_rich_cmp(configs, rtr, out, expect, outtitle):
     lines = []
