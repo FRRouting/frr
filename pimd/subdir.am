@@ -80,11 +80,13 @@ nodist_pimd_pimd_SOURCES = \
 	# end
 
 pimd_pim6d_SOURCES = \
-	$(pim_common) \
+	pimd/pim6_mroute.c \
 	pimd/pim6_main.c \
+	$(pim_common) \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \
+	pimd/pim6_mroute.h \
 	# end
 
 noinst_HEADERS += \

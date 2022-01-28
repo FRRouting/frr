@@ -29,6 +29,7 @@
 
 #include "pim_addr.h"
 
+#if PIM_IPV == 4
 /*
  * Longest possible length of a (S,G) string is 36 bytes
  * 123.123.123.123 = 16 * 2
@@ -36,12 +37,16 @@
  * NULL Character at end = 1
  * (123.123.123.123,123,123,123,123)
  */
-#define PIM_SG_LEN PREFIX_SG_STR_LEN
 #define pim_inet4_dump prefix_mcast_inet4_dump
 
 void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 		   int buf_size);
 void pim_inet4_dump(const char *onfail, struct in_addr addr, char *buf,
 		    int buf_size);
-
+#else
+static inline bool ipv6_addr_any (pim_addr *addr)
+{
+	return IPV6_ADDR_SAME (addr, &in6addr_any);
+}
+#define PIM_SG_LEN PREFIX_SG_STR_LEN
 #endif

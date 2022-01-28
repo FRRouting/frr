@@ -122,7 +122,7 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	pim_ifp->options = 0;
 	pim_ifp->pim = ifp->vrf->info;
-	pim_ifp->mroute_vif_index = -1;
+	pim_ifp->mroute_if_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
 	pim_ifp->gm_default_robustness_variable =
@@ -629,7 +629,7 @@ void pim_if_addr_add(struct connected *ifc)
 	  PIM or IGMP is enabled on interface, and there is at least one
 	  address assigned, then try to create a vif_index.
 	*/
-	if (pim_ifp->mroute_vif_index < 0) {
+	if (pim_ifp->mroute_if_index < 0) {
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
@@ -761,7 +761,7 @@ void pim_if_addr_add_all(struct interface *ifp)
 	 * PIM or IGMP is enabled on interface, and there is at least one
 	 * address assigned, then try to create a vif_index.
 	 */
-	if (pim_ifp->mroute_vif_index < 0) {
+	if (pim_ifp->mroute_if_index < 0) {
 		vxlan_term = pim_vxlan_is_term_dev_cfg(pim_ifp->pim, ifp);
 		pim_if_add_vif(ifp, false, vxlan_term);
 	}
@@ -917,9 +917,9 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 
 	assert(pim_ifp);
 
-	if (pim_ifp->mroute_vif_index > 0) {
+	if (pim_ifp->mroute_if_index > 0) {
 		zlog_warn("%s: vif_index=%d > 0 on interface %s ifindex=%d",
-			  __func__, pim_ifp->mroute_vif_index, ifp->name,
+			  __func__, pim_ifp->mroute_if_index, ifp->name,
 			  ifp->ifindex);
 		return -1;
 	}
@@ -938,9 +938,9 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		return -4;
 	}
 
-	pim_ifp->mroute_vif_index = pim_iface_next_vif_index(ifp);
+	pim_ifp->mroute_if_index = pim_iface_next_vif_index(ifp);
 
-	if (pim_ifp->mroute_vif_index >= MAXVIFS) {
+	if (pim_ifp->mroute_if_index >= MAXVIFS) {
 		zlog_warn(
 			"%s: Attempting to configure more than MAXVIFS=%d on pim enabled interface %s",
 			__func__, MAXVIFS, ifp->name);
@@ -959,7 +959,7 @@ int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term)
 		return -5;
 	}
 
-	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 1;
+	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_if_index] = 1;
 
 	/* if the device qualifies as pim_vxlan iif/oif update vxlan entries */
 	pim_vxlan_add_vif(ifp);
@@ -971,9 +971,9 @@ int pim_if_del_vif(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (pim_ifp->mroute_vif_index < 1) {
+	if (pim_ifp->mroute_if_index < 1) {
 		zlog_warn("%s: vif_index=%d < 1 on interface %s ifindex=%d",
-			  __func__, pim_ifp->mroute_vif_index, ifp->name,
+			  __func__, pim_ifp->mroute_if_index, ifp->name,
 			  ifp->ifindex);
 		return -1;
 	}
@@ -986,15 +986,15 @@ int pim_if_del_vif(struct interface *ifp)
 	/*
 	  Update vif_index
 	 */
-	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_vif_index] = 0;
+	pim_ifp->pim->iface_vif_index[pim_ifp->mroute_if_index] = 0;
 
-	pim_ifp->mroute_vif_index = -1;
+	pim_ifp->mroute_if_index = -1;
 
 	return 0;
 }
 
 // DBS - VRF Revist
-struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
+struct interface *pim_if_find_by_mcast_if_index(struct pim_instance *pim,
 					   ifindex_t vif_index)
 {
 	struct interface *ifp;
@@ -1004,7 +1004,7 @@ struct interface *pim_if_find_by_vif_index(struct pim_instance *pim,
 			struct pim_interface *pim_ifp;
 			pim_ifp = ifp->info;
 
-			if (vif_index == pim_ifp->mroute_vif_index)
+			if (vif_index == pim_ifp->mroute_if_index)
 				return ifp;
 		}
 	}
@@ -1025,7 +1025,7 @@ int pim_if_find_vifindex_by_ifindex(struct pim_instance *pim, ifindex_t ifindex)
 		return -1;
 	pim_ifp = ifp->info;
 
-	return pim_ifp->mroute_vif_index;
+	return pim_ifp->mroute_if_index;
 }
 
 int pim_if_lan_delay_enabled(struct interface *ifp)
