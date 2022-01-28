@@ -104,6 +104,17 @@ struct pbr_map_sequence {
 	uint32_t mark;
 
 	/*
+	 * Actions
+	 */
+	uint8_t action_pcp;
+	uint8_t action_vlan_id;
+#define PBR_MAP_STRIP_INNER_ANY (1 << 0)
+	uint8_t action_vlan_flags;
+
+#define PBR_MAP_UNDEFINED_QUEUE_ID 0
+	uint32_t action_queue_id;
+
+	/*
 	 * Family of the src/dst.  Needed when deleting since we clear them
 	 */
 	unsigned char family;
@@ -158,6 +169,7 @@ struct pbr_map_sequence {
 #define PBR_MAP_INVALID_BOTH_NHANDGRP    (1 << 3)
 #define PBR_MAP_INVALID_EMPTY            (1 << 4)
 #define PBR_MAP_INVALID_VRF              (1 << 5)
+#define PBR_MAP_INVALID_SET_STRIP_VLAN (1 << 6)
 	uint64_t reason;
 
 	QOBJ_FIELDS;

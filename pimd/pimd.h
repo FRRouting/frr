@@ -27,6 +27,7 @@
 #include "vty.h"
 #include "plist.h"
 
+#include "pim_addr.h"
 #include "pim_instance.h"
 #include "pim_str.h"
 #include "pim_memory.h"
@@ -85,8 +86,6 @@
 #define PIM_INADDR_IS_ANY(addr) (addr).s_addr == PIM_NET_INADDR_ANY
 #define PIM_INADDR_ISNOT_ANY(addr) ((addr).s_addr != PIM_NET_INADDR_ANY) /* struct in_addr addr */
 
-#define max(x,y) ((x) > (y) ? (x) : (y))
-
 #define PIM_MASK_PIM_EVENTS          (1 << 0)
 #define PIM_MASK_PIM_EVENTS_DETAIL   (1 << 1)
 #define PIM_MASK_PIM_PACKETS         (1 << 2)
@@ -136,7 +135,6 @@ extern const char *const PIM_ALL_ROUTERS;
 extern const char *const PIM_ALL_PIM_ROUTERS;
 extern const char *const PIM_ALL_IGMP_ROUTERS;
 
-extern struct pim_router *router;
 extern struct zebra_privs_t pimd_privs;
 extern struct in_addr qpim_all_pim_routers_addr;
 extern uint8_t qpim_ecmp_enable;

@@ -1147,7 +1147,7 @@ int lib_vrf_zebra_l3vni_id_modify(struct nb_cb_modify_args *args)
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
 	vni_t vni = 0;
-	zebra_l3vni_t *zl3vni = NULL;
+	struct zebra_l3vni *zl3vni = NULL;
 	struct zebra_vrf *zvrf_evpn = NULL;
 	char err[ERR_STR_SZ];
 	bool pfx_only = false;

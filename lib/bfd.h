@@ -124,7 +124,8 @@ void bfd_sess_free(struct bfd_session_params **bsp);
  * \param dst remote address (mandatory).
  */
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
-			     struct in_addr *src, struct in_addr *dst);
+			     const struct in_addr *src,
+			     const struct in_addr *dst);
 
 /**
  * Set the local and peer address of the BFD session.
@@ -138,7 +139,8 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
  * \param dst remote address (mandatory).
  */
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
-			     struct in6_addr *src, struct in6_addr *dst);
+			     const struct in6_addr *src,
+			     const struct in6_addr *dst);
 
 /**
  * Configure the BFD session interface.
@@ -179,39 +181,14 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id);
  * Configure the BFD session single/multi hop setting.
  *
  * NOTE:
- * If the TTL changed the session is removed and must be installed again
- * with `bfd_sess_install`.
+ * If the number of hops is changed the session is removed and must be
+ * installed again with `bfd_sess_install`.
  *
  * \param bsp BFD session parameters.
- * \param min_ttl minimum TTL value expected (255 for single hop, 254 for
- *                multi hop with single hop, 253 for multi hop with two hops
- *                and so on). See `BFD_SINGLE_HOP_TTL` and
- *                `BFD_MULTI_HOP_MIN_TTL` for defaults.
- *
- * To simplify things if your protocol only knows the amount of hops it is
- * better to use `bfd_sess_set_hops` instead.
+ * \param hops maximum amount of hops expected (1 for single hop, 2 or
+ *             more for multi hop).
  */
-void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl);
-
-/** To use single hop the minimum TTL must be set to this. */
-#define BFD_SINGLE_HOP_TTL 255
-/** To use multi hop the minimum TTL must be set to this or less. */
-#define BFD_MULTI_HOP_MIN_TTL 254
-
-/**
- * This function is the inverted version of `bfd_sess_set_minimum_ttl`.
- * Instead of receiving the minimum expected TTL, it receives the amount of
- * hops the protocol will jump.
- *
- * NOTE:
- * If the TTL changed the session is removed and must be installed again
- * with `bfd_sess_install`.
- *
- * \param bsp BFD session parameters.
- * \param min_ttl minimum amount of hops expected (1 for single hop, 2 or
- *                more for multi hop).
- */
-void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl);
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops);
 
 /**
  * Configure the BFD session to set the Control Plane Independent bit.
@@ -276,17 +253,7 @@ void bfd_sess_uninstall(struct bfd_session_params *bsp);
 enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp);
 
 /**
- * Get BFD session minimum TTL configured value.
- *
- * \param bsp session parameters.
- *
- * \returns configured minimum TTL.
- */
-uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp);
-
-/**
- * Inverted version of `bfd_sess_minimum_ttl`. Gets the amount of hops in the
- * way to the peer.
+ * Get BFD session amount of hops configured value.
  *
  * \param bsp session parameters.
  *
@@ -418,8 +385,8 @@ struct bfd_session_arg {
 
 	/** Multi hop indicator. */
 	uint8_t mhop;
-	/** Expected TTL. */
-	uint8_t ttl;
+	/** Expected hops. */
+	uint8_t hops;
 	/** C bit (Control Plane Independent bit) indicator. */
 	uint8_t cbit;
 

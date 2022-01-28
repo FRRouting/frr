@@ -64,7 +64,7 @@ const char *lookup_msg(const struct message *mz, int kz, const char *nf)
 }
 
 /* For time string format. */
-size_t quagga_timestamp(int timestamp_precision, char *buf, size_t buflen)
+size_t frr_timestamp(int timestamp_precision, char *buf, size_t buflen)
 {
 	static struct {
 		time_t last;
@@ -355,9 +355,6 @@ static const struct zebra_desc_table command_types[] = {
 	DESC_ENTRY(ZEBRA_INTERFACE_NBR_ADDRESS_ADD),
 	DESC_ENTRY(ZEBRA_INTERFACE_NBR_ADDRESS_DELETE),
 	DESC_ENTRY(ZEBRA_INTERFACE_BFD_DEST_UPDATE),
-	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_REGISTER),
-	DESC_ENTRY(ZEBRA_IMPORT_ROUTE_UNREGISTER),
-	DESC_ENTRY(ZEBRA_IMPORT_CHECK_UPDATE),
 	DESC_ENTRY(ZEBRA_BFD_DEST_REGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_DEREGISTER),
 	DESC_ENTRY(ZEBRA_BFD_DEST_UPDATE),

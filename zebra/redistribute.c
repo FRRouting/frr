@@ -449,8 +449,8 @@ void zebra_interface_up_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s(%u)",
-			   ifp->name, ifp->vrf_id);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_UP %s vrf %s(%u)",
+			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	if (ifp->ptm_status || !ifp->ptm_enable) {
 		for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode,
@@ -475,8 +475,8 @@ void zebra_interface_down_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s(%u)",
-			   ifp->name, ifp->vrf_id);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DOWN %s vrf %s(%u)",
+			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
@@ -494,8 +494,8 @@ void zebra_interface_add_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s(%u)", ifp->name,
-			   ifp->vrf_id);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_ADD %s vrf %s(%u)",
+			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
@@ -514,8 +514,8 @@ void zebra_interface_delete_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DELETE %s(%u)",
-			   ifp->name, ifp->vrf_id);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_DELETE %s vrf %s(%u)",
+			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
@@ -538,8 +538,8 @@ void zebra_interface_address_add_update(struct interface *ifp,
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		p = ifc->address;
 		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %pFX on %s(%u)",
-			p, ifp->name, ifp->vrf_id);
+			"MESSAGE: ZEBRA_INTERFACE_ADDRESS_ADD %pFX on %s vrf %s(%u)",
+			p, ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 	}
 
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -575,8 +575,8 @@ void zebra_interface_address_delete_update(struct interface *ifp,
 	if (IS_ZEBRA_DEBUG_EVENT) {
 		p = ifc->address;
 		zlog_debug(
-			"MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %pFX on %s(%u)",
-			p, ifp->name, ifp->vrf_id);
+			"MESSAGE: ZEBRA_INTERFACE_ADDRESS_DELETE %pFX on %s vrf %s(%u)",
+			p, ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 	}
 
 	zebra_vxlan_add_del_gw_macip(ifp, ifc->address, 0);
@@ -607,7 +607,7 @@ void zebra_interface_vrf_update_del(struct interface *ifp, vrf_id_t new_vrf_id)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
 			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/DEL %s VRF Id %u -> %u",
-			ifp->name, ifp->vrf_id, new_vrf_id);
+			ifp->name, ifp->vrf->vrf_id, new_vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
@@ -634,7 +634,7 @@ void zebra_interface_vrf_update_add(struct interface *ifp, vrf_id_t old_vrf_id)
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
 			"MESSAGE: ZEBRA_INTERFACE_VRF_UPDATE/ADD %s VRF Id %u -> %u",
-			ifp->name, old_vrf_id, ifp->vrf_id);
+			ifp->name, old_vrf_id, ifp->vrf->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */
@@ -925,8 +925,8 @@ void zebra_interface_parameters_update(struct interface *ifp)
 	struct zserv *client;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s(%u)",
-			   ifp->name, ifp->vrf_id);
+		zlog_debug("MESSAGE: ZEBRA_INTERFACE_LINK_PARAMS %s vrf %s(%u)",
+			   ifp->name, ifp->vrf->name, ifp->vrf->vrf_id);
 
 	for (ALL_LIST_ELEMENTS(zrouter.client_list, node, nnode, client)) {
 		/* Do not send unsolicited messages to synchronous clients. */

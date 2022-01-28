@@ -150,6 +150,7 @@ void bgp_peer_config_apply(struct peer *p, struct peer_group *pg)
 void bgp_peer_bfd_update_source(struct peer *p)
 {
 	struct bfd_session_params *session = p->bfd_config->session;
+	const union sockunion *source;
 	bool changed = false;
 	int family;
 	union {
@@ -161,44 +162,45 @@ void bgp_peer_bfd_update_source(struct peer *p)
 	if (CHECK_FLAG(p->sflags, PEER_STATUS_GROUP))
 		return;
 
+	/* Figure out the correct source to use. */
+	if (CHECK_FLAG(p->flags, PEER_FLAG_UPDATE_SOURCE) && p->update_source)
+		source = p->update_source;
+	else
+		source = p->su_local;
+
 	/* Update peer's source/destination addresses. */
 	bfd_sess_addresses(session, &family, &src.v6, &dst.v6);
 	if (family == AF_INET) {
-		if ((p->su_local
-		     && p->su_local->sin.sin_addr.s_addr != src.v4.s_addr)
+		if ((source && source->sin.sin_addr.s_addr != src.v4.s_addr)
 		    || p->su.sin.sin_addr.s_addr != dst.v4.s_addr) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
 				zlog_debug(
 					"%s: address [%pI4->%pI4] to [%pI4->%pI4]",
 					__func__, &src.v4, &dst.v4,
-					p->su_local ? &p->su_local->sin.sin_addr
-						    : &src.v4,
+					source ? &source->sin.sin_addr
+					       : &src.v4,
 					&p->su.sin.sin_addr);
 
 			bfd_sess_set_ipv4_addrs(
-				session,
-				p->su_local ? &p->su_local->sin.sin_addr : NULL,
+				session, source ? &source->sin.sin_addr : NULL,
 				&p->su.sin.sin_addr);
 			changed = true;
 		}
 	} else {
-		if ((p->su_local
-		     && memcmp(&p->su_local->sin6, &src.v6, sizeof(src.v6)))
+		if ((source && memcmp(&source->sin6, &src.v6, sizeof(src.v6)))
 		    || memcmp(&p->su.sin6, &dst.v6, sizeof(dst.v6))) {
 			if (BGP_DEBUG(bfd, BFD_LIB))
 				zlog_debug(
 					"%s: address [%pI6->%pI6] to [%pI6->%pI6]",
 					__func__, &src.v6, &dst.v6,
-					p->su_local
-						? &p->su_local->sin6.sin6_addr
-						: &src.v6,
+					source ? &source->sin6.sin6_addr
+					       : &src.v6,
 					&p->su.sin6.sin6_addr);
 
-			bfd_sess_set_ipv6_addrs(
-				session,
-				p->su_local ? &p->su_local->sin6.sin6_addr
-					    : NULL,
-				&p->su.sin6.sin6_addr);
+			bfd_sess_set_ipv6_addrs(session,
+						source ? &source->sin6.sin6_addr
+						       : NULL,
+						&p->su.sin6.sin6_addr);
 			changed = true;
 		}
 	}

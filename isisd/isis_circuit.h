@@ -122,6 +122,7 @@ struct isis_circuit {
 	 */
 	char *tag;		       /* area tag */
 	struct isis_passwd passwd;     /* Circuit rx/tx password */
+	int is_type_config;	       /* configured circuit is type */
 	int is_type;		       /* circuit is type == level of circuit
 					* differentiated from circuit type (media) */
 	uint32_t hello_interval[ISIS_LEVELS];   /* hello-interval in seconds */
@@ -185,8 +186,6 @@ DECLARE_QOBJ_TYPE(isis_circuit);
 void isis_circuit_init(void);
 struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag);
 void isis_circuit_del(struct isis_circuit *circuit);
-struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
-					   struct list *list);
 struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp);
 void isis_circuit_configure(struct isis_circuit *circuit,
 			    struct isis_area *area);

@@ -1,4 +1,4 @@
-from lib.lutil import luCommand
+from lib.lutil import luCommand, luLast
 
 num = 50000
 b = int(num / (256 * 256))
@@ -21,7 +21,7 @@ for rtr in rtrs:
     ret = luCommand(
         rtr,
         'vtysh -c "show memory"',
-        "zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
+        r"zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
         "none",
         "collect bgpd memory stats",
     )
@@ -188,7 +188,7 @@ else:
         ret = luCommand(
             rtr,
             'vtysh -c "show memory"',
-            "zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
+            r"zebra: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*) .*bgpd: System allocator statistics:   Total heap allocated: *(\d*) ([A-Za-z]*)",
             "none",
             "collect bgpd memory stats",
         )

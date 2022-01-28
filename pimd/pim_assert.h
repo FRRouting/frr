@@ -24,8 +24,22 @@
 
 #include "if.h"
 
-#include "pim_neighbor.h"
-#include "pim_ifchannel.h"
+struct pim_ifchannel;
+struct pim_neighbor;
+
+enum pim_ifassert_state {
+	PIM_IFASSERT_NOINFO,
+	PIM_IFASSERT_I_AM_WINNER,
+	PIM_IFASSERT_I_AM_LOSER
+};
+
+struct pim_assert_metric {
+	uint32_t rpt_bit_flag;
+	uint32_t metric_preference;
+	uint32_t route_metric;
+	pim_addr ip_address; /* neighbor router that sourced the Assert
+				      message */
+};
 
 /*
   RFC 4601: 4.11.  Timer Values
@@ -41,8 +55,7 @@
 #define PIM_ASSERT_ROUTE_METRIC_MAX      (0xFFFFFFFF)
 
 void pim_ifassert_winner_set(struct pim_ifchannel *ch,
-			     enum pim_ifassert_state new_state,
-			     struct in_addr winner,
+			     enum pim_ifassert_state new_state, pim_addr winner,
 			     struct pim_assert_metric winner_metric);
 
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,

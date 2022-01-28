@@ -50,6 +50,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_DYNAMIC        67 /* Dynamic Capability */
 #define CAPABILITY_CODE_ADDPATH        69 /* Addpath Capability */
 #define CAPABILITY_CODE_ENHANCED_RR    70 /* Enhanced Route Refresh capability */
+#define CAPABILITY_CODE_LLGR           71 /* Long-lived Graceful Restart */
 #define CAPABILITY_CODE_FQDN           73 /* Advertise hostname capability */
 #define CAPABILITY_CODE_ENHE            5 /* Extended Next Hop Encoding */
 #define CAPABILITY_CODE_REFRESH_OLD   128 /* Route Refresh Capability(cisco) */
@@ -66,6 +67,7 @@ struct graceful_restart_af {
 #define CAPABILITY_CODE_ENHE_LEN        6 /* NRLI AFI = 2, SAFI = 2, Nexthop AFI = 2 */
 #define CAPABILITY_CODE_MIN_FQDN_LEN    2
 #define CAPABILITY_CODE_ENHANCED_LEN    0
+#define CAPABILITY_CODE_LLGR_LEN        0
 #define CAPABILITY_CODE_ORF_LEN         5
 #define CAPABILITY_CODE_EXT_MESSAGE_LEN 0 /* Extended Message Support */
 
@@ -88,10 +90,22 @@ struct graceful_restart_af {
 #define RESTART_R_BIT              0x8000
 #define RESTART_F_BIT              0x80
 
-extern int bgp_open_option_parse(struct peer *, uint8_t, int *);
-extern void bgp_open_capability(struct stream *, struct peer *);
+/* Long-lived Graceful Restart */
+#define LLGR_F_BIT 0x80
+
+/* Optional Parameters */
+#define BGP_OPEN_NON_EXT_OPT_LEN 255		      /* Non-Ext OP Len. */
+#define BGP_OPEN_NON_EXT_OPT_TYPE_EXTENDED_LENGTH 255 /* Non-Ext OP Type */
+#define BGP_OPEN_EXT_OPT_PARAMS_CAPABLE(peer)                                  \
+	(CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)                \
+	 || CHECK_FLAG(peer->sflags, PEER_STATUS_EXT_OPT_PARAMS_LENGTH))
+
+extern int bgp_open_option_parse(struct peer *peer, uint16_t length,
+				 int *mp_capability);
+extern uint16_t bgp_open_capability(struct stream *s, struct peer *peer,
+				    bool ext_opt_params);
 extern void bgp_capability_vty_out(struct vty *vty, struct peer *peer,
 				   bool use_json, json_object *json_neigh);
-extern as_t peek_for_as4_capability(struct peer *, uint8_t);
+extern as_t peek_for_as4_capability(struct peer *peer, uint16_t length);
 
 #endif /* _QUAGGA_BGP_OPEN_H */

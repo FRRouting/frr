@@ -82,7 +82,7 @@ static void isis_circuit_enable(struct isis_circuit *circuit)
 	struct interface *ifp = circuit->interface;
 
 	if (!area) {
-		area = isis_area_lookup(circuit->tag, ifp->vrf_id);
+		area = isis_area_lookup(circuit->tag, ifp->vrf->vrf_id);
 		if (area)
 			isis_area_add_circuit(area, circuit);
 	}
@@ -116,7 +116,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 	 * Default values
 	 */
 #ifndef FABRICD
-	circuit->is_type = yang_get_default_enum(
+	circuit->is_type_config = yang_get_default_enum(
 		"/frr-interface:lib/interface/frr-isisd:isis/circuit-type");
 	circuit->flags = 0;
 
@@ -156,7 +156,7 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #else
-	circuit->is_type = IS_LEVEL_1_AND_2;
+	circuit->is_type_config = IS_LEVEL_1_AND_2;
 	circuit->flags = 0;
 	circuit->pad_hellos = 1;
 	for (i = 0; i < 2; i++) {
@@ -171,6 +171,8 @@ struct isis_circuit *isis_circuit_new(struct interface *ifp, const char *tag)
 		circuit->level_arg[i].circuit = circuit;
 	}
 #endif /* ifndef FABRICD */
+
+	circuit->is_type = circuit->is_type_config;
 
 	circuit_mt_init(circuit);
 	isis_lfa_excluded_ifaces_init(circuit, ISIS_LEVEL1);
@@ -253,6 +255,10 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	/* Free the index of SRM and SSN flags */
 	flags_free_index(&area->flags, circuit->idx);
 	circuit->idx = 0;
+
+	/* Reset IS type to configured */
+	circuit->is_type = circuit->is_type_config;
+
 	/* Remove circuit from area */
 	assert(circuit->area == area);
 	listnode_delete(area->circuit_list, circuit);
@@ -260,24 +266,6 @@ void isis_circuit_deconfigure(struct isis_circuit *circuit,
 	circuit->isis = NULL;
 
 	return;
-}
-
-struct isis_circuit *circuit_lookup_by_ifp(struct interface *ifp,
-					   struct list *list)
-{
-	struct isis_circuit *circuit = NULL;
-	struct listnode *node;
-
-	if (!list)
-		return NULL;
-
-	for (ALL_LIST_ELEMENTS_RO(list, node, circuit))
-		if (circuit->interface == ifp) {
-			assert(ifp->info == circuit);
-			return circuit;
-		}
-
-	return NULL;
 }
 
 struct isis_circuit *circuit_scan_by_ifp(struct interface *ifp)
@@ -347,8 +335,16 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 
 		if (IN6_IS_ADDR_LINKLOCAL(&ipv6->prefix))
 			listnode_add(circuit->ipv6_link, ipv6);
-		else
+		else {
 			listnode_add(circuit->ipv6_non_link, ipv6);
+			/* Update Local IPv6 address param. if MPLS TE is on */
+			if (circuit->ext && circuit->area
+			    && IS_MPLS_TE(circuit->area->mta)) {
+				IPV6_ADDR_COPY(&circuit->ext->local_addr6,
+					       &ipv6->prefix);
+				SET_SUBTLV(circuit->ext, EXT_LOCAL_ADDR6);
+			}
+		}
 		if (circuit->area)
 			lsp_regenerate_schedule(circuit->area, circuit->is_type,
 						0);
@@ -499,7 +495,7 @@ void isis_circuit_if_add(struct isis_circuit *circuit, struct interface *ifp)
 			circuit->circ_type = CIRCUIT_T_BROADCAST;
 	} else if (if_is_pointopoint(ifp)) {
 		circuit->circ_type = CIRCUIT_T_P2P;
-	} else if (if_is_loopback_or_vrf(ifp)) {
+	} else if (if_is_loopback(ifp)) {
 		circuit->circ_type = CIRCUIT_T_LOOPBACK;
 		circuit->is_passive = 1;
 	} else {
@@ -1067,17 +1063,9 @@ static int isis_interface_config_write(struct vty *vty)
 {
 	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
 	int write = 0;
-	struct listnode *node;
 	struct interface *ifp;
-	struct isis_area *area;
 	struct isis_circuit *circuit;
 	int i;
-	struct isis *isis = NULL;
-
-	isis = isis_lookup_by_vrfid(vrf->vrf_id);
-
-	if (isis == NULL)
-		return 0;
 
 	FOR_ALL_INTERFACES (vrf, ifp) {
 		/* IF name */
@@ -1089,14 +1077,13 @@ static int isis_interface_config_write(struct vty *vty)
 			write++;
 		}
 		/* ISIS Circuit */
-		for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
-			circuit =
-				circuit_lookup_by_ifp(ifp, area->circuit_list);
+		do {
+			circuit = circuit_scan_by_ifp(ifp);
 			if (circuit == NULL)
-				continue;
+				break;
 			if (circuit->ip_router) {
 				vty_out(vty, " ip router " PROTO_NAME " %s\n",
-					area->area_tag);
+					circuit->tag);
 				write++;
 			}
 			if (circuit->is_passive) {
@@ -1109,7 +1096,7 @@ static int isis_interface_config_write(struct vty *vty)
 			}
 			if (circuit->ipv6_router) {
 				vty_out(vty, " ipv6 router " PROTO_NAME " %s\n",
-					area->area_tag);
+					circuit->tag);
 				write++;
 			}
 
@@ -1289,34 +1276,10 @@ static int isis_interface_config_write(struct vty *vty)
 			}
 			write += hook_call(isis_circuit_config_write,
 					   circuit, vty);
-		}
-		vty_endframe(vty, "!\n");
+		} while (0);
+		vty_endframe(vty, "exit\n!\n");
 	}
 
-	return write;
-}
-#else
-static int isis_interface_config_write(struct vty *vty)
-{
-	struct vrf *vrf = NULL;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write++;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
 	return write;
 }
 #endif /* ifdef FABRICD */
@@ -1350,7 +1313,7 @@ ferr_r isis_circuit_passive_set(struct isis_circuit *circuit, bool passive)
 	if (circuit->is_passive == passive)
 		return ferr_ok();
 
-	if (if_is_loopback_or_vrf(circuit->interface) && !passive)
+	if (if_is_loopback(circuit->interface) && !passive)
 		return ferr_cfg_invalid("loopback is always passive");
 
 	if (circuit->state != C_STATE_UP) {
@@ -1529,7 +1492,11 @@ void isis_circuit_init(void)
 	hook_register_prio(if_del, 0, isis_if_delete_hook);
 
 	/* Install interface node */
+#ifdef FABRICD
 	if_cmd_init(isis_interface_config_write);
+#else
+	if_cmd_init_default();
+#endif
 	if_zapi_callbacks(isis_ifp_create, isis_ifp_up,
 			  isis_ifp_down, isis_ifp_destroy);
 }

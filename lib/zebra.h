@@ -346,6 +346,10 @@ typedef enum {
 	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
 		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++)
 
+#define FOREACH_AFI_SAFI_NSF(afi, safi)                                        \
+	for (afi = AFI_IP; afi < AFI_MAX; afi++)                               \
+		for (safi = SAFI_UNICAST; safi <= SAFI_MPLS_VPN; safi++)
+
 /* Default Administrative Distance of each protocol. */
 #define ZEBRA_KERNEL_DISTANCE_DEFAULT      0
 #define ZEBRA_CONNECT_DISTANCE_DEFAULT     0
@@ -382,6 +386,9 @@ typedef uint32_t vrf_id_t;
 typedef uint32_t route_tag_t;
 #define ROUTE_TAG_MAX UINT32_MAX
 #define ROUTE_TAG_PRI PRIu32
+
+/* Name of hook calls */
+#define ZEBRA_ON_RIB_PROCESS_HOOK_CALL "on_rib_process_dplane_results"
 
 #ifdef __cplusplus
 }

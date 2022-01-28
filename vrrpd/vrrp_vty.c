@@ -75,7 +75,7 @@ DEFPY_YANG(vrrp_vrid,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_vrrp(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+void cli_show_vrrp(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "./virtual-router-id");
 	const char *ver = yang_dnode_get_string(dnode, "./version");
@@ -103,7 +103,7 @@ DEFPY_YANG(vrrp_shutdown,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_shutdown(struct vty *vty, struct lyd_node *dnode,
+void cli_show_shutdown(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -145,7 +145,7 @@ DEFPY_YANG(no_vrrp_priority,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_priority(struct vty *vty, struct lyd_node *dnode,
+void cli_show_priority(struct vty *vty, const struct lyd_node *dnode,
 		       bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -191,7 +191,7 @@ DEFPY_YANG(no_vrrp_advertisement_interval,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_advertisement_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_advertisement_interval(struct vty *vty, const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -220,7 +220,7 @@ DEFPY_YANG(vrrp_ip,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_ip(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+void cli_show_ip(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid =
 		yang_dnode_get_string(dnode, "../../virtual-router-id");
@@ -248,7 +248,7 @@ DEFPY_YANG(vrrp_ip6,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_ipv6(struct vty *vty, struct lyd_node *dnode, bool show_defaults)
+void cli_show_ipv6(struct vty *vty, const struct lyd_node *dnode, bool show_defaults)
 {
 	const char *vrid =
 		yang_dnode_get_string(dnode, "../../virtual-router-id");
@@ -274,7 +274,7 @@ DEFPY_YANG(vrrp_preempt,
 	return nb_cli_apply_changes(vty, VRRP_XPATH_ENTRY, vrid);
 }
 
-void cli_show_preempt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_preempt(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	const char *vrid = yang_dnode_get_string(dnode, "../virtual-router-id");
@@ -715,35 +715,6 @@ DEFUN_NOSH (show_debugging_vrrp,
 
 /* clang-format on */
 
-/*
- * Write per interface VRRP config.
- */
-static int vrrp_config_write_interface(struct vty *vty)
-{
-	struct vrf *vrf;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write = 1;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-
-	return write;
-}
-
 static struct cmd_node debug_node = {
 	.name = "debug",
 	.node = DEBUG_NODE,
@@ -762,8 +733,8 @@ void vrrp_vty_init(void)
 {
 	install_node(&debug_node);
 	install_node(&vrrp_node);
-	vrf_cmd_init(NULL, &vrrp_privs);
-	if_cmd_init(vrrp_config_write_interface);
+	vrf_cmd_init(NULL);
+	if_cmd_init_default();
 
 	install_element(VIEW_NODE, &vrrp_vrid_show_cmd);
 	install_element(VIEW_NODE, &vrrp_vrid_show_summary_cmd);

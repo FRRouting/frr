@@ -244,6 +244,42 @@ Basic Config Commands
    Use unbuffered output for log and debug messages; normally there is
    some internal buffering.
 
+.. clicmd:: log unique-id
+
+   Include ``[XXXXX-XXXXX]`` log message unique identifier in the textual part
+   of log messages.  This is enabled by default, but can be disabled with
+   ``no log unique-id``.  Please make sure the IDs are enabled when including
+   logs for FRR bug reports.
+
+   The unique identifiers are automatically generated based on source code
+   file name, format string (before filling out) and severity.  They do not
+   change "randomly", but some cleanup work may cause large chunks of ID
+   changes between releases.  The IDs always start with a letter, consist of
+   letters and numbers (and a dash for readability), are case insensitive, and
+   ``I``, ``L``, ``O`` & ``U`` are excluded.
+
+   This option will not affect future logging targets which allow putting the
+   unique identifier in auxiliary metadata outside the log message text
+   content.  (No such logging target exists currently, but RFC5424 syslog and
+   systemd's journald both support it.)
+
+.. clicmd:: debug unique-id XXXXX-XXXXX backtrace
+
+   Print backtraces (call stack) for specific log messages, identified by
+   their unique ID (see above.)  Includes source code location and current
+   event handler being executed.  On some systems you may need to install a
+   `debug symbols` package to get proper function names rather than raw code
+   pointers.
+
+   This command can be issued inside and outside configuration mode, and is
+   saved to configuration only if it was given in configuration mode.
+
+   .. warning::
+
+      Printing backtraces can significantly slow down logging calls and cause
+      log files to quickly balloon in size.  Remember to disable backtraces
+      when they're no longer needed.
+
 .. clicmd:: service password-encryption
 
    Encrypt password.
@@ -675,6 +711,14 @@ These options apply to all |PACKAGE_NAME| daemons.
    Set the namespace that the daemon will run in.  A "/<namespace>" will
    be added to all files that use the statedir.  If you have "/var/run/frr"
    as the default statedir then it will become "/var/run/frr/<namespace>".
+
+.. option:: -o, --vrfdefaultname <name>
+
+   Set the name used for the *Default VRF* in CLI commands and YANG models.
+   This option must be the same for all running daemons. By default, the name
+   is "default".
+
+   .. seealso:: :ref:`zebra-vrf`
 
 .. option:: -v, --version
 

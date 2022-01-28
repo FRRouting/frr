@@ -1840,7 +1840,6 @@ static int isis_run_spf_cb(struct thread *thread)
 	int have_run = 0;
 
 	XFREE(MTYPE_ISIS_SPF_RUN, run);
-	area->spf_timer[level - 1] = NULL;
 
 	if (!(area->is_type & level)) {
 		if (IS_DEBUG_SPF_EVENTS)

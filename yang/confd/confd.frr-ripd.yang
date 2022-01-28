@@ -11,8 +11,10 @@ module confd.frr-ripd {
 
   tailf:annotate-module "frr-ripd" {
     tailf:annotate-statement "container[name='ripd']" {
-      tailf:annotate-statement "container[name='state']" {
-        tailf:callpoint "state";
+      tailf:annotate-statement "list[name='instance']" {
+        tailf:annotate-statement "container[name='state']" {
+          tailf:callpoint "state";
+        }
       }
     }
     tailf:annotate-statement "rpc[name='clear-rip-route']" {

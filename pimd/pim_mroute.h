@@ -167,6 +167,8 @@ struct igmpmsg {
   Above: from <linux/mroute.h>
 */
 
+struct channel_oil;
+
 int pim_mroute_socket_enable(struct pim_instance *pim);
 int pim_mroute_socket_disable(struct pim_instance *pim);
 

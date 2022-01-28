@@ -33,7 +33,10 @@ extern unsigned char conf_debug_ospf6_route;
 #define OSPF6_DEBUG_ROUTE_TABLE   0x01
 #define OSPF6_DEBUG_ROUTE_INTRA   0x02
 #define OSPF6_DEBUG_ROUTE_INTER   0x04
-#define OSPF6_DEBUG_ROUTE_MEMORY  0x80
+#define OSPF6_DEBUG_ROUTE_MEMORY  0x08
+#define OSPF6_DEBUG_ROUTE_ALL                                                  \
+	(OSPF6_DEBUG_ROUTE_TABLE | OSPF6_DEBUG_ROUTE_INTRA                     \
+	 | OSPF6_DEBUG_ROUTE_INTER | OSPF6_DEBUG_ROUTE_MEMORY)
 #define OSPF6_DEBUG_ROUTE_ON(level) (conf_debug_ospf6_route |= (level))
 #define OSPF6_DEBUG_ROUTE_OFF(level) (conf_debug_ospf6_route &= ~(level))
 #define IS_OSPF6_DEBUG_ROUTE(e) (conf_debug_ospf6_route & OSPF6_DEBUG_ROUTE_##e)
@@ -145,8 +148,7 @@ struct ospf6_path {
 #define OSPF6_PATH_TYPE_INTER        2
 #define OSPF6_PATH_TYPE_EXTERNAL1    3
 #define OSPF6_PATH_TYPE_EXTERNAL2    4
-#define OSPF6_PATH_TYPE_REDISTRIBUTE 5
-#define OSPF6_PATH_TYPE_MAX          6
+#define OSPF6_PATH_TYPE_MAX          5
 
 #define OSPF6_PATH_SUBTYPE_DEFAULT_RT   1
 
@@ -183,7 +185,7 @@ struct ospf6_route {
 	struct timeval changed;
 
 	/* flag */
-	uint8_t flag;
+	uint16_t flag;
 
 	/* Prefix Options */
 	uint8_t prefix_options;
@@ -218,14 +220,15 @@ struct ospf6_route {
 #define OSPF6_DEST_TYPE_RANGE      5
 #define OSPF6_DEST_TYPE_MAX        6
 
-#define OSPF6_ROUTE_CHANGE           0x01
-#define OSPF6_ROUTE_ADD              0x02
-#define OSPF6_ROUTE_REMOVE           0x04
-#define OSPF6_ROUTE_BEST             0x08
-#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x10
-#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x20
-#define OSPF6_ROUTE_WAS_REMOVED      0x40
-#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x80
+#define OSPF6_ROUTE_CHANGE           0x0001
+#define OSPF6_ROUTE_ADD              0x0002
+#define OSPF6_ROUTE_REMOVE           0x0004
+#define OSPF6_ROUTE_BEST             0x0008
+#define OSPF6_ROUTE_ACTIVE_SUMMARY   0x0010
+#define OSPF6_ROUTE_DO_NOT_ADVERTISE 0x0020
+#define OSPF6_ROUTE_WAS_REMOVED      0x0040
+#define OSPF6_ROUTE_BLACKHOLE_ADDED  0x0080
+#define OSPF6_ROUTE_NSSA_RANGE       0x0100
 struct ospf6;
 
 struct ospf6_route_table {
@@ -237,8 +240,6 @@ struct ospf6_route_table {
 	struct route_table *table;
 
 	uint32_t count;
-
-	bitfield_t idspace;
 
 	/* hooks */
 	void (*hook_add)(struct ospf6_route *);
@@ -289,20 +290,13 @@ extern const char *const ospf6_path_type_substr[OSPF6_PATH_TYPE_MAX];
 #define OSPF6_ROUTE_PREFIX_STR  "Display the route\n"
 #define OSPF6_ROUTE_MATCH_STR   "Display the route matches the prefix\n"
 
-#define ospf6_route_is_prefix(p, r)                                            \
-	(memcmp(p, &(r)->prefix, sizeof(struct prefix)) == 0)
+#define ospf6_route_is_prefix(p, r) (prefix_same(p, &(r)->prefix))
 #define ospf6_route_is_same(ra, rb) (prefix_same(&(ra)->prefix, &(rb)->prefix))
 #define ospf6_route_is_same_origin(ra, rb)                                     \
 	((ra)->path.area_id == (rb)->path.area_id                              \
-	 && memcmp(&(ra)->path.origin, &(rb)->path.origin,                     \
-		   sizeof(struct ospf6_ls_origin))                             \
-		    == 0)
-#define ospf6_route_is_identical(ra, rb)                                       \
-	((ra)->type == (rb)->type                                              \
-	 && memcmp(&(ra)->prefix, &(rb)->prefix, sizeof(struct prefix)) == 0   \
-	 && memcmp(&(ra)->path, &(rb)->path, sizeof(struct ospf6_path)) == 0   \
-	 && listcount(ra->paths) == listcount(rb->paths)		       \
-	 && ospf6_route_cmp_nexthops(ra, rb) == 0)
+	 && (ra)->path.origin.type == (rb)->path.origin.type                   \
+	 && (ra)->path.origin.id == (rb)->path.origin.id                       \
+	 && (ra)->path.origin.adv_router == (rb)->path.origin.adv_router)
 
 #define ospf6_route_is_best(r) (CHECK_FLAG ((r)->flag, OSPF6_ROUTE_BEST))
 
@@ -343,7 +337,7 @@ extern int ospf6_route_get_first_nh_index(struct ospf6_route *route);
 	ospf6_add_nexthop(route->nh_list, ifindex, addr)
 
 extern struct ospf6_route *ospf6_route_create(struct ospf6 *ospf6);
-extern void ospf6_route_delete(struct ospf6_route *);
+extern void ospf6_route_delete(struct ospf6_route *route);
 extern struct ospf6_route *ospf6_route_copy(struct ospf6_route *route);
 extern int ospf6_route_cmp(struct ospf6_route *ra, struct ospf6_route *rb);
 
@@ -384,8 +378,10 @@ extern void ospf6_route_show_detail(struct vty *vty, struct ospf6_route *route,
 				    json_object *json, bool use_json);
 
 
-extern int ospf6_route_table_show(struct vty *, int, int, struct cmd_token **,
-				  struct ospf6_route_table *, bool use_json);
+extern int ospf6_route_table_show(struct vty *vty, int argc_start, int argc,
+				  struct cmd_token **argv,
+				  struct ospf6_route_table *table,
+				  bool use_json);
 extern int ospf6_linkstate_table_show(struct vty *vty, int idx_ipv4, int argc,
 				      struct cmd_token **argv,
 				      struct ospf6_route_table *table);

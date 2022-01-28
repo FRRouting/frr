@@ -165,13 +165,11 @@ static int bgp_dump_interval_add(struct bgp_dump *bgp_dump, int interval)
 			interval = interval
 				   - secs_into_day % interval; /* always > 0 */
 		}
-		bgp_dump->t_interval = NULL;
 		thread_add_timer(bm->master, bgp_dump_interval_func, bgp_dump,
 				 interval, &bgp_dump->t_interval);
 	} else {
 		/* One-off dump: execute immediately, don't affect any scheduled
 		 * dumps */
-		bgp_dump->t_interval = NULL;
 		thread_add_event(bm->master, bgp_dump_interval_func, bgp_dump,
 				 0, &bgp_dump->t_interval);
 	}
@@ -453,7 +451,6 @@ static int bgp_dump_interval_func(struct thread *t)
 {
 	struct bgp_dump *bgp_dump;
 	bgp_dump = THREAD_ARG(t);
-	bgp_dump->t_interval = NULL;
 
 	/* Reschedule dump even if file couldn't be opened this time... */
 	if (bgp_dump_open_file(bgp_dump) != NULL) {

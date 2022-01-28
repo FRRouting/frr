@@ -61,7 +61,7 @@ extern struct zebra_privs_t zserv_privs;
  * Alignment of zero-sized sockaddrs is nonsensical, but historically
  * BSD defines RT_ROUNDUP(0) to be the alignment interval (rather than
  * 0).  We follow this practice without questioning it, but it is a
- * bug if quagga calls ROUNDUP with 0.
+ * bug if frr calls ROUNDUP with 0.
  */
 #ifdef __APPLE__
 #define ROUNDUP_TYPE	int
@@ -443,7 +443,8 @@ static int ifan_read(struct if_announcemsghdr *ifan)
 				__func__, ifan->ifan_index, ifan->ifan_name);
 
 		/* Create Interface */
-		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT);
+		ifp = if_get_by_name(ifan->ifan_name, VRF_DEFAULT,
+				     VRF_DEFAULT_NAME);
 		if_set_index(ifp, ifan->ifan_index);
 
 		if_get_metric(ifp);
@@ -529,7 +530,7 @@ int ifm_read(struct if_msghdr *ifm)
 	/* paranoia: sanity check structure */
 	if (ifm->ifm_msglen < sizeof(struct if_msghdr)) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
-			 "ifm_read: ifm->ifm_msglen %d too short\n",
+			 "ifm_read: ifm->ifm_msglen %d too short",
 			 ifm->ifm_msglen);
 		return -1;
 	}
@@ -624,7 +625,8 @@ int ifm_read(struct if_msghdr *ifm)
 		if (ifp == NULL) {
 			/* Interface that zebra was not previously aware of, so
 			 * create. */
-			ifp = if_create_name(ifname, VRF_DEFAULT);
+			ifp = if_get_by_name(ifname, VRF_DEFAULT,
+					     VRF_DEFAULT_NAME);
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug("%s: creating ifp for ifindex %d",
 					   __func__, ifm->ifm_index);
@@ -807,23 +809,17 @@ static void ifam_read_mesg(struct ifa_msghdr *ifm, union sockunion *addr,
 		switch (sockunion_family(addr)) {
 		case AF_INET:
 		case AF_INET6: {
-			char buf[4][INET6_ADDRSTRLEN];
 			int masklen =
 				(sockunion_family(addr) == AF_INET)
 					? ip_masklen(mask->sin.sin_addr)
 					: ip6_masklen(mask->sin6.sin6_addr);
 			zlog_debug(
-				"%s: ifindex %d, ifname %s, ifam_addrs {%s}, ifam_flags 0x%x, addr %s/%d broad %s dst %s gateway %s",
+				"%s: ifindex %d, ifname %s, ifam_addrs {%s}, ifam_flags 0x%x, addr %pSU/%d broad %pSU dst %pSU gateway %pSU",
 				__func__, ifm->ifam_index,
 				(ifnlen ? ifname : "(nil)"),
 				rtatostr(ifm->ifam_addrs, fbuf, sizeof(fbuf)),
-				ifm->ifam_flags,
-				sockunion2str(addr, buf[0], sizeof(buf[0])),
-				masklen,
-				sockunion2str(brd, buf[1], sizeof(buf[1])),
-				sockunion2str(&dst, buf[2], sizeof(buf[2])),
-				sockunion2str(&gateway, buf[2],
-					      sizeof(buf[2])));
+				ifm->ifam_flags, addr, masklen, brd, &dst,
+				&gateway);
 		} break;
 		default:
 			zlog_debug("%s: ifindex %d, ifname %s, ifam_addrs {%s}",
@@ -951,7 +947,7 @@ static int rtm_read_mesg(struct rt_msghdr *rtm, union sockunion *dest,
 	/* rt_msghdr version check. */
 	if (rtm->rtm_version != RTM_VERSION)
 		flog_warn(EC_ZEBRA_RTM_VERSION_MISMATCH,
-			  "Routing message version different %d should be %d.This may cause problem\n",
+			  "Routing message version different %d should be %d.This may cause problem",
 			  rtm->rtm_version, RTM_VERSION);
 
 	/* Be sure structure is cleared */
@@ -1461,6 +1457,14 @@ void kernel_init(struct zebra_ns *zns)
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	return;
+}
+
+/*
+ * Called by the dplane pthread to read incoming OS messages and dispatch them.
+ */
+int kernel_dplane_read(struct zebra_dplane_info *info)
+{
+	return 0;
 }
 
 void kernel_update_multi(struct dplane_ctx_q *ctx_list)

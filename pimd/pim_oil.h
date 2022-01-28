@@ -20,8 +20,9 @@
 #ifndef PIM_OIL_H
 #define PIM_OIL_H
 
+struct pim_interface;
+
 #include "pim_mroute.h"
-#include "pim_iface.h"
 
 /*
  * Where did we get this (S,G) from?
@@ -122,10 +123,9 @@ void pim_oil_terminate(struct pim_instance *pim);
 
 void pim_channel_oil_free(struct channel_oil *c_oil);
 struct channel_oil *pim_find_channel_oil(struct pim_instance *pim,
-					 struct prefix_sg *sg);
+					 pim_sgaddr *sg);
 struct channel_oil *pim_channel_oil_add(struct pim_instance *pim,
-					struct prefix_sg *sg,
-					const char *name);
+					pim_sgaddr *sg, const char *name);
 void pim_channel_oil_change_iif(struct pim_instance *pim,
 				struct channel_oil *c_oil, int input_vif_index,
 				const char *name);

@@ -26,10 +26,6 @@ import os
 import sys
 import time
 import pytest
-import json
-from copy import deepcopy
-from ipaddress import IPv4Address
-from lib.topotest import frr_unicode
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -38,7 +34,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 import ipaddress
 from time import sleep
@@ -60,11 +55,10 @@ from lib.common_config import (
     shutdown_bringup_interface,
     create_prefix_lists,
     create_route_maps,
-    create_interfaces_cfg,
     topo_daemons,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.ospf import (
     verify_ospf6_neighbor,
     clear_ospf,
@@ -76,13 +70,6 @@ from lib.ospf import (
 
 # Global variables
 topo = None
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/ospfv3_asbr_summary_topo1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 NETWORK = {
     "ipv4": [
@@ -150,28 +137,12 @@ TESTCASES =
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
 
     * `mod`: module name
     """
-    global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -179,7 +150,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ospfv3_asbr_summary_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -278,6 +252,7 @@ def red_connected(dut, config=True):
 # Test cases start here.
 # ##################################
 
+
 def test_ospfv3_type5_summary_tc42_p0(request):
     """OSPF summarisation functionality."""
     tc_name = request.node.name
@@ -292,81 +267,69 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     step("Bring up the base config as per the topology")
     reset_config_on_routers(tgen)
 
-    protocol = 'ospf'
+    protocol = "ospf"
 
     step(
         "Configure 5 static routes from the same network on R0"
-        "5 static routes from different networks and redistribute in R0")
+        "5 static routes from different networks and redistribute in R0"
+    )
     input_dict_static_rtes = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                },
-                {
-                    "network": NETWORK2["ipv6"],
-                    "next_hop": "blackhole"
-                }
+                {"network": NETWORK["ipv6"], "next_hop": "blackhole"},
+                {"network": NETWORK2["ipv6"], "next_hop": "blackhole"},
             ]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    dut = 'r0'
+    dut = "r0"
     red_static(dut)
 
     step("Verify that routes are learnt on R1.")
-    dut = 'r1'
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_static_rtes, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_static_rtes, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step(
         "Configure External Route summary in R0 to summarise 5"
-        " routes to one route. with aggregate timer as 6 sec")
+        " routes to one route. with aggregate timer as 6 sec"
+    )
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }],
-                "aggr_timer": 6
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ],
+                "aggr_timer": 6,
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -375,64 +338,69 @@ def test_ospfv3_type5_summary_tc42_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                            expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     step("Delete the configured summary")
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "del_aggr_timer": True,
-                    "delete": True
-                }]
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "del_aggr_timer": True,
+                        "delete": True,
+                    }
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Summary Route still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
+        tc_name
+    )
 
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
@@ -441,40 +409,40 @@ def test_ospfv3_type5_summary_tc42_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6', expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Summary still present in DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(
+        tgen, topo, dut, input_dict, ospf="ospf6", expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
 
-    dut = 'r1'
+    dut = "r1"
     step("All 5 routes are advertised after deletion of configured summary.")
 
     result = verify_ospf6_rib(tgen, dut, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_static_rtes, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_static_rtes, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("configure the summary again and delete static routes .")
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }]
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
@@ -482,91 +450,80 @@ def test_ospfv3_type5_summary_tc42_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     input_dict = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole",
-                    "delete": True
-                }
+                {"network": NETWORK["ipv6"], "next_hop": "blackhole", "delete": True}
             ]
         }
     }
     result = create_static_routes(tgen, input_dict)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
     step("Verify that summary route is withdrawn from R1.")
 
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict_summary, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     step("Add back static routes.")
     input_dict_static_rtes = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary"
-        " address on R0 and only one route is sent to R1.")
-    dut = 'r1'
+        " address on R0 and only one route is sent to R1."
+    )
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_static_rtes, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
     result = verify_rib(
-                            tgen, "ipv6", dut, input_dict_static_rtes,
-                            protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+        tgen, "ipv6", dut, input_dict_static_rtes, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show configure summaries.")
 
@@ -576,28 +533,23 @@ def test_ospfv3_type5_summary_tc42_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Configure new static route which is matching configured summary.")
     input_dict_static_rtes = {
         "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK_11["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
+            "static_routes": [{"network": NETWORK_11["ipv6"], "next_hop": "blackhole"}]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # step("verify that summary lsa is not refreshed.")
     # show ip ospf database command is not working, waiting for DEV fix.
@@ -606,17 +558,12 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     input_dict_static_rtes = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK_11["ipv6"],
-                    "next_hop": "blackhole",
-                    "delete": True
-                }
+                {"network": NETWORK_11["ipv6"], "next_hop": "blackhole", "delete": True}
             ]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # step("verify that summary lsa is not refreshed.")
     # show ip ospf database command is not working, waiting for DEV fix.
@@ -626,50 +573,43 @@ def test_ospfv3_type5_summary_tc42_p0(request):
 
     step(
         "Configure redistribute connected and configure ospf external"
-        " summary address to summarise the connected routes.")
+        " summary address to summarise the connected routes."
+    )
 
-    dut = 'r0'
+    dut = "r0"
     red_connected(dut)
-    clear_ospf(tgen, dut, ospf='ospf6')
+    clear_ospf(tgen, dut, ospf="ospf6")
 
-    ip = topo['routers']['r0']['links']['r3']['ipv6']
+    ip = topo["routers"]["r0"]["links"]["r3"]["ipv6"]
 
-    ip_net = str(ipaddress.ip_interface(u'{}'.format(ip)).network)
+    ip_net = str(ipaddress.ip_interface(u"{}".format(ip)).network)
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": ip_net.split('/')[0],
-                    "mask": "8"
-                }]
+                "summary-address": [{"prefix": ip_net.split("/")[0], "mask": "8"}]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured "
-        "summary address on R0 and only one route is sent to R1.")
+        "summary address on R0 and only one route is sent to R1."
+    )
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": "fd00::/64"}]
-        }
-    }
-    dut = 'r1'
+    input_dict_summary = {"r0": {"static_routes": [{"network": "fd00::/64"}]}}
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Shut one of the interface")
-    intf = topo['routers']['r0']['links']['r3-link0']['interface']
+    intf = topo["routers"]["r0"]["links"]["r3-link0"]["interface"]
     shutdown_bringup_interface(tgen, dut, intf, False)
 
     # step("verify that summary lsa is not refreshed.")
@@ -688,13 +628,7 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     # show ip ospf database command is not working, waiting for DEV fix.
 
     step("Delete OSPF process.")
-    ospf_del = {
-        "r0": {
-            "ospf6": {
-                "delete": True
-            }
-        }
-    }
+    ospf_del = {"r0": {"ospf6": {"delete": True}}}
     result = create_router_ospf(tgen, topo, ospf_del)
     assert result is True, "Testcase : Failed \n Error: {}".format(result)
 
@@ -704,40 +638,32 @@ def test_ospfv3_type5_summary_tc42_p0(request):
     input_dict_static_rtes = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                },
-                {
-                    "network": NETWORK2["ipv6"],
-                    "next_hop": "blackhole"
-                }
+                {"network": NETWORK["ipv6"], "next_hop": "blackhole"},
+                {"network": NETWORK2["ipv6"], "next_hop": "blackhole"},
             ]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    dut = 'r0'
+    dut = "r0"
     red_static(dut)
     red_connected(dut)
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }]
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
     step(
         "Verify that external routes are summarised to configured summary "
-        "address on R0 and only one route is sent to R1.")
+        "address on R0 and only one route is sent to R1."
+    )
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
@@ -745,79 +671,78 @@ def test_ospfv3_type5_summary_tc42_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }]
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     # step("verify that summary lsa is not refreshed.")
     # show ip ospf database command is not working, waiting for DEV fix.
 
     step("Delete the redistribute command in ospf.")
-    dut = 'r0'
+    dut = "r0"
     red_connected(dut, config=False)
     red_static(dut, config=False)
 
     step("Verify that summary route is withdrawn from the peer.")
 
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict_summary, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "metric": "1234"
-                }]
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "metric": "1234",
+                    }
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -837,125 +762,129 @@ def test_ospfv3_type5_summary_tc46_p0(request):
     step("Configure OSPF on all the routers of the topology.")
     reset_config_on_routers(tgen)
 
-    protocol = 'ospf'
+    protocol = "ospf"
 
     step(
         "Configure 5 static routes from the same network on R0"
-        "5 static routes from different networks and redistribute in R0")
+        "5 static routes from different networks and redistribute in R0"
+    )
     input_dict_static_rtes = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                },
-                {
-                    "network": NETWORK2["ipv6"],
-                    "next_hop": "blackhole"
-                }
+                {"network": NETWORK["ipv6"], "next_hop": "blackhole"},
+                {"network": NETWORK2["ipv6"], "next_hop": "blackhole"},
             ]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    dut = 'r0'
+    dut = "r0"
     red_static(dut)
 
     step("Verify that routes are learnt on R1.")
-    dut = 'r1'
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_static_rtes, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_static_rtes, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step(
         "Configure External Route summary in R0 to summarise 5"
-        " routes to one route with no advertise option.")
+        " routes to one route with no advertise option."
+    )
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "advertise": False
-                }]
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "advertise": False,
+                    }
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary"
         " address on R0 and  summary route is not advertised to neighbor as"
-        " no advertise is configured..")
+        " no advertise is configured.."
+    )
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict_summary,
-                        protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
-    step(
-        "Verify that show ip ospf summary should show the "
-        "configured summaries.")
+    step("Verify that show ip ospf summary should show the " "configured summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
             "Summary address": SUMMARY["ipv6"][0],
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Delete the configured summary")
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "delete": True
-                }]
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "delete": True,
+                    }
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Summary has 5 sec delay timer, sleep 5 secs...")
     sleep(5)
 
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Summary Route still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
+        tc_name
+    )
 
     step("show ip ospf summary should not have any summary address.")
     input_dict = {
@@ -964,117 +893,118 @@ def test_ospfv3_type5_summary_tc46_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 1234,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6', expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Summary still present in DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(
+        tgen, topo, dut, input_dict, ospf="ospf6", expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary still present in DB".format(tc_name)
 
     step("Reconfigure summary with no advertise.")
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "advertise": False
-                }]
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "advertise": False,
+                    }
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary"
         " address on R0 and  summary route is not advertised to neighbor as"
-        " no advertise is configured..")
+        " no advertise is configured.."
+    )
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict_summary,
-                        protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
-    step(
-        "Verify that show ip ospf summary should show the "
-        "configured summaries.")
+    step("Verify that show ip ospf summary should show the " "configured summaries.")
     input_dict = {
         SUMMARY["ipv6"][0]: {
             "Summary address": SUMMARY["ipv6"][0],
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step(
         "Change summary address from no advertise to advertise "
-        "(summary-address 10.0.0.0 255.255.0.0)")
+        "(summary-address 10.0.0.0 255.255.0.0)"
+    )
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "advertise": False
-                }]
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "advertise": False,
+                    }
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }]
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -1083,36 +1013,33 @@ def test_ospfv3_type5_summary_tc46_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                            expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes is present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes is present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1131,80 +1058,67 @@ def test_ospfv3_type5_summary_tc48_p0(request):
     step("Bring up the base config as per the topology")
     reset_config_on_routers(tgen)
 
-    protocol = 'ospf'
+    protocol = "ospf"
 
     step(
         "Configure 5 static routes from the same network on R0"
-        "5 static routes from different networks and redistribute in R0")
+        "5 static routes from different networks and redistribute in R0"
+    )
     input_dict_static_rtes = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                },
-                {
-                    "network": NETWORK2["ipv6"],
-                    "next_hop": "blackhole"
-                }
+                {"network": NETWORK["ipv6"], "next_hop": "blackhole"},
+                {"network": NETWORK2["ipv6"], "next_hop": "blackhole"},
             ]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    dut = 'r0'
+    dut = "r0"
     red_static(dut)
 
     step("Verify that routes are learnt on R1.")
-    dut = 'r1'
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_static_rtes, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_static_rtes, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step(
-        "Configure External Route summary in R0 to summarise 5"
-        " routes to one route.")
+        "Configure External Route summary in R0 to summarise 5" " routes to one route."
+    )
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }]
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -1213,40 +1127,38 @@ def test_ospfv3_type5_summary_tc48_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                        expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     step(
         "Configure route map and & rule to permit configured summary address,"
-        " redistribute static & connected routes with the route map.")
+        " redistribute static & connected routes with the route map."
+    )
     step("Configure prefixlist to permit the static routes, add to route map.")
     # Create ip prefix list
     pfx_list = {
@@ -1254,75 +1166,57 @@ def test_ospfv3_type5_summary_tc48_p0(request):
             "prefix_lists": {
                 "ipv6": {
                     "pf_list_1_ipv6": [
-                    {
-                        "seqid": 10,
-                        "network": "any",
-                        "action": "permit"
-                    }
+                        {"seqid": 10, "network": "any", "action": "permit"}
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     routemaps = {
-            "r0": {
-                "route_maps": {
-                    "rmap_ipv6": [{
+        "r0": {
+            "route_maps": {
+                "rmap_ipv6": [
+                    {
                         "action": "permit",
-                        "seq_id": '1',
-                        "match": {
-                            "ipv6": {
-                                "prefix_lists":
-                                    "pf_list_1_ipv6"
-                            }
-                        }
-                    }]
-                }
+                        "seq_id": "1",
+                        "match": {"ipv6": {"prefix_lists": "pf_list_1_ipv6"}},
+                    }
+                ]
             }
+        }
     }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_red_r1 = {
         "r0": {
             "ospf6": {
-                "redistribute": [{
-                    "redist_type": "static",
-                    "route_map": "rmap_ipv6"
-                }]
+                "redistribute": [{"redist_type": "static", "route_map": "rmap_ipv6"}]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_red_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured"
         "summary address on R0 and only one route is sent to R1. Verify that "
-        "show ip ospf summary should show the configure summaries.")
+        "show ip ospf summary should show the configure summaries."
+    )
 
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     input_dict = {
         SUMMARY["ipv6"][0]: {
@@ -1330,87 +1224,88 @@ def test_ospfv3_type5_summary_tc48_p0(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Configure metric type as 1 in route map.")
 
-
     routemaps = {
-            "r0": {
-                "route_maps": {
-                    "rmap_ipv6": [{
-                        "seq_id": '1',
+        "r0": {
+            "route_maps": {
+                "rmap_ipv6": [
+                    {
+                        "seq_id": "1",
                         "action": "permit",
-                        "set":{
-                            "metric-type": "type-1"
-                        }
-                    }]
-                }
+                        "set": {"metric-type": "type-1"},
+                    }
+                ]
             }
+        }
     }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2.")
+        " to configured summary address with metric type 2."
+    )
     input_dict = {
         SUMMARY["ipv6"][0]: {
             "Summary address": SUMMARY["ipv6"][0],
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Un configure metric type from route map.")
 
     routemaps = {
-            "r0": {
-                "route_maps": {
-                    "rmap_ipv6": [{
+        "r0": {
+            "route_maps": {
+                "rmap_ipv6": [
+                    {
                         "action": "permit",
-                        "seq_id": '1',
-                        "set":{
-                            "metric-type": "type-1",
-                            "delete": True
-                        }
-                    }]
-                }
+                        "seq_id": "1",
+                        "set": {"metric-type": "type-1", "delete": True},
+                    }
+                ]
             }
+        }
     }
     result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2.")
+        " to configured summary address with metric type 2."
+    )
     input_dict = {
         SUMMARY["ipv6"][0]: {
             "Summary address": SUMMARY["ipv6"][0],
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     step("Change rule from permit to deny in prefix list.")
     pfx_list = {
@@ -1418,42 +1313,39 @@ def test_ospfv3_type5_summary_tc48_p0(request):
             "prefix_lists": {
                 "ipv6": {
                     "pf_list_1_ipv6": [
-                    {
-                        "seqid": 10,
-                        "network": "any",
-                        "action": "deny"
-                    }
+                        {"seqid": 10, "network": "any", "action": "deny"}
                     ]
                 }
             }
         }
     }
     result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that previously originated summary lsa "
-        "is withdrawn from the neighbor.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "is withdrawn from the neighbor."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     step("summary route has delay of 5 secs, wait for 5 secs")
 
     sleep(5)
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol, expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1479,103 +1371,104 @@ def test_ospfv3_type5_summary_tc51_p2(request):
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32",
-                    "tag": 4294967295
-                },
-                {
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "16",
-                    "advertise": True
-                },
-                {
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "24",
-                    "advertise": False
-                },
-                {
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "24",
-                    "advertise": False
-                },
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "32",
+                        "tag": 4294967295,
+                    },
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "16",
+                        "advertise": True,
+                    },
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "24",
+                        "advertise": False,
+                    },
+                    {
+                        "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                        "mask": "24",
+                        "advertise": False,
+                    },
                 ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Configure and re configure all the commands 10 times in a loop.")
 
-    for itrate in range(0,10):
+    for itrate in range(0, 10):
         ospf_summ_r1 = {
             "r0": {
                 "ospf6": {
-                    "summary-address": [{
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "8",
-                        "tag": 4294967295
-                    },
-                    {
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "16",
-                        "advertise": True
-                    },
-                    {
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "24",
-                        "advertise": False
-                    },
-                    {
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "24",
-                        "advertise": False
-                    },
+                    "summary-address": [
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "8",
+                            "tag": 4294967295,
+                        },
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "16",
+                            "advertise": True,
+                        },
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "24",
+                            "advertise": False,
+                        },
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "24",
+                            "advertise": False,
+                        },
                     ]
                 }
-             }
+            }
         }
         result = create_router_ospf(tgen, topo, ospf_summ_r1)
         assert result is True, "Testcase {} : Failed \n Error: {}".format(
-            tc_name, result)
+            tc_name, result
+        )
 
         ospf_summ_r1 = {
             "r0": {
                 "ospf6": {
-                    "summary-address": [{
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "8",
-                        "tag": 4294967295,
-                        "delete": True
-                    },
-                    {
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "16",
-                        "advertise": True,
-                        "delete": True
-                    },
-                    {
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "24",
-                        "advertise": False,
-                        "delete": True
-                    },
-                    {
-                        "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                        "mask": "24",
-                        "advertise": False,
-                        "delete": True
-                    },
+                    "summary-address": [
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "8",
+                            "tag": 4294967295,
+                            "delete": True,
+                        },
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "16",
+                            "advertise": True,
+                            "delete": True,
+                        },
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "24",
+                            "advertise": False,
+                            "delete": True,
+                        },
+                        {
+                            "prefix": SUMMARY["ipv6"][0].split("/")[0],
+                            "mask": "24",
+                            "advertise": False,
+                            "delete": True,
+                        },
                     ]
                 }
+            }
         }
-    }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step("Verify the show commands")
 
@@ -1585,13 +1478,14 @@ def test_ospfv3_type5_summary_tc51_p2(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 0
+            "External route count": 0,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
     write_test_footer(tc_name)
 
@@ -1610,80 +1504,67 @@ def test_ospfv3_type5_summary_tc49_p2(request):
     step("Bring up the base config as per the topology")
     reset_config_on_routers(tgen)
 
-    protocol = 'ospf'
+    protocol = "ospf"
 
     step(
         "Configure 5 static routes from the same network on R0"
-        "5 static routes from different networks and redistribute in R0")
+        "5 static routes from different networks and redistribute in R0"
+    )
     input_dict_static_rtes = {
         "r0": {
             "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                },
-                {
-                    "network": NETWORK2["ipv6"],
-                    "next_hop": "blackhole"
-                }
+                {"network": NETWORK["ipv6"], "next_hop": "blackhole"},
+                {"network": NETWORK2["ipv6"], "next_hop": "blackhole"},
             ]
         }
     }
     result = create_static_routes(tgen, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    dut = 'r0'
+    dut = "r0"
     red_static(dut)
 
     step("Verify that routes are learnt on R1.")
-    dut = 'r1'
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_static_rtes)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_static_rtes, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_static_rtes, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step(
-        "Configure External Route summary in R0 to summarise 5"
-        " routes to one route.")
+        "Configure External Route summary in R0 to summarise 5" " routes to one route."
+    )
 
     ospf_summ_r1 = {
         "r0": {
             "ospf6": {
-                "summary-address": [{
-                    "prefix": SUMMARY["ipv6"][0].split('/')[0],
-                    "mask": "32"
-                }]
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv6"][0].split("/")[0], "mask": "32"}
+                ]
             }
         }
     }
     result = create_router_ospf(tgen, topo, ospf_summ_r1)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -1692,61 +1573,54 @@ def test_ospfv3_type5_summary_tc49_p2(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                        expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
-    step('Reload the FRR router')
+    step("Reload the FRR router")
     # stop/start -> restart FRR router and verify
-    stop_router(tgen, 'r0')
-    start_router(tgen, 'r0')
+    stop_router(tgen, "r0")
+    start_router(tgen, "r0")
 
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -1755,36 +1629,33 @@ def test_ospfv3_type5_summary_tc49_p2(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                        expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     step("Kill OSPF6d daemon on R0.")
     kill_router_daemons(tgen, "r0", ["ospf6d"])
@@ -1795,28 +1666,25 @@ def test_ospfv3_type5_summary_tc49_p2(request):
     step("Verify OSPF neighbors are up after bringing back ospf6d in R0")
     # Api call verify whether OSPF is converged
     ospf_covergence = verify_ospf6_neighbor(tgen, topo)
-    assert ospf_covergence is True, ("setup_module :Failed \n Error:"
-                                          " {}".format(ospf_covergence))
+    assert ospf_covergence is True, "setup_module :Failed \n Error:" " {}".format(
+        ospf_covergence
+    )
 
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -1825,36 +1693,33 @@ def test_ospfv3_type5_summary_tc49_p2(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                        expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     step("restart zebrad")
     kill_router_daemons(tgen, "r0", ["zebra"])
@@ -1865,22 +1730,18 @@ def test_ospfv3_type5_summary_tc49_p2(request):
     step(
         "Verify that external routes are summarised to configured summary "
         "address on R0 after 5 secs of delay timer expiry and only one "
-        "route is sent to R1.")
-    input_dict_summary = {
-        "r0": {
-            "static_routes": [{"network": SUMMARY["ipv6"][0]}]
-        }
-    }
-    dut = 'r1'
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv6"][0]}]}}
+    dut = "r1"
 
     result = verify_ospf6_rib(tgen, dut, input_dict_summary)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(
-        tc_name, result)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
-    result = verify_rib(tgen, "ipv6", dut,
-                        input_dict_summary, protocol=protocol)
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Routes is missing in RIB".format(tc_name)
+    result = verify_rib(tgen, "ipv6", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
 
     step("Verify that show ip ospf summary should show the summaries.")
     input_dict = {
@@ -1889,36 +1750,33 @@ def test_ospfv3_type5_summary_tc49_p2(request):
             "Metric-type": "E2",
             "Metric": 20,
             "Tag": 0,
-            "External route count": 5
+            "External route count": 5,
         }
     }
-    dut = 'r0'
-    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf='ospf6')
-    assert result is True, "Testcase {} : Failed" \
-        "Error: Summary missing in OSPF DB".format(tc_name)
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict, ospf="ospf6")
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
 
-    step(
-        "Verify that originally advertised routes are withdraw from there"
-        " peer.")
+    step("Verify that originally advertised routes are withdraw from there" " peer.")
     input_dict = {
-        "r0": {
-            "static_routes": [
-                {
-                    "network": NETWORK["ipv6"],
-                    "next_hop": "blackhole"
-                }
-            ]
-        }
+        "r0": {"static_routes": [{"network": NETWORK["ipv6"], "next_hop": "blackhole"}]}
     }
-    dut = 'r1'
+    dut = "r1"
     result = verify_ospf6_rib(tgen, dut, input_dict, expected=False)
-    assert result is not True, "Testcase {} : Failed \n Error: "\
-    "Routes still present in OSPF RIB {}".format(tc_name, result)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
 
-    result = verify_rib(tgen, "ipv6", dut, input_dict, protocol=protocol,
-                        expected=False)
-    assert result is not True, "Testcase {} : Failed" \
-        "Error: Routes still present in RIB".format(tc_name)
+    result = verify_rib(
+        tgen, "ipv6", dut, input_dict, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Routes still present in RIB".format(tc_name)
 
     write_test_footer(tc_name)
 

@@ -39,6 +39,8 @@
 extern "C" {
 #endif
 
+struct json_object;
+
 #define VTY_BUFSIZ 4096
 #define VTY_MAXHIST 20
 #define VTY_MAXDEPTH 8
@@ -56,8 +58,12 @@ struct vty_cfg_change {
 	const char *value;
 };
 
+PREDECL_DLIST(vtys);
+
 /* VTY struct. */
 struct vty {
+	struct vtys_item itm;
+
 	/* File descripter of this vty. */
 	int fd;
 
@@ -317,7 +323,11 @@ extern struct vty *vty_stdio(void (*atclose)(int isexit));
 extern int vty_out(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_frame(struct vty *, const char *, ...) PRINTFRR(2, 3);
 extern void vty_endframe(struct vty *, const char *);
-bool vty_set_include(struct vty *vty, const char *regexp);
+extern bool vty_set_include(struct vty *vty, const char *regexp);
+/* returns CMD_SUCCESS so you can do a one-line "return vty_json(...)"
+ * NULL check and json_object_free() is included.
+ */
+extern int vty_json(struct vty *vty, struct json_object *json);
 
 extern bool vty_read_config(struct nb_config *config, const char *config_file,
 			    char *config_default_dir);
@@ -325,8 +335,6 @@ extern void vty_time_print(struct vty *, int);
 extern void vty_serv_sock(const char *, unsigned short, const char *);
 extern void vty_close(struct vty *);
 extern char *vty_get_cwd(void);
-extern void vty_log(const char *level, const char *proto, const char *msg,
-		    struct timestamp_control *);
 extern void vty_update_xpath(const char *oldpath, const char *newpath);
 extern int vty_config_enter(struct vty *vty, bool private_config,
 			    bool exclusive);
@@ -340,10 +348,6 @@ extern void vty_hello(struct vty *);
 extern void vty_stdio_suspend(void);
 extern void vty_stdio_resume(void);
 extern void vty_stdio_close(void);
-
-/* Send a fixed-size message to all vty terminal monitors; this should be
-   an async-signal-safe function. */
-extern void vty_log_fixed(char *buf, size_t len);
 
 #ifdef __cplusplus
 }

@@ -39,7 +39,7 @@
 #include "pim_time.h"
 #include "pim_zebra.h"
 
-static void group_timer_off(struct igmp_group *group);
+static void group_timer_off(struct gm_group *group);
 static int pim_igmp_general_query(struct thread *t);
 
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
@@ -115,7 +115,7 @@ static void igmp_sock_dump(array_t *igmp_sock_array)
 	int size = array_size(igmp_sock_array);
 	for (int i = 0; i < size; ++i) {
 
-		struct igmp_sock *igmp = array_get(igmp_sock_array, i);
+		struct gm_sock *igmp = array_get(igmp_sock_array, i);
 
 		zlog_debug("%s %s: [%d/%d] igmp_addr=%pI4 fd=%d", __FILE__,
 			   __func__, i, size, &igmp->ifaddr,
@@ -124,11 +124,11 @@ static void igmp_sock_dump(array_t *igmp_sock_array)
 }
 #endif
 
-struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
-					      struct in_addr ifaddr)
+struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
+					    struct in_addr ifaddr)
 {
 	struct listnode *sock_node;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 
 #ifdef IGMP_SOCK_DUMP
 	igmp_sock_dump(igmp_sock_list);
@@ -141,21 +141,9 @@ struct igmp_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 	return NULL;
 }
 
-struct igmp_sock *igmp_sock_lookup_by_fd(struct list *igmp_sock_list, int fd)
-{
-	struct listnode *sock_node;
-	struct igmp_sock *igmp;
-
-	for (ALL_LIST_ELEMENTS_RO(igmp_sock_list, sock_node, igmp))
-		if (fd == igmp->fd)
-			return igmp;
-
-	return NULL;
-}
-
 static int pim_igmp_other_querier_expire(struct thread *t)
 {
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 
 	igmp = THREAD_ARG(t);
 
@@ -182,7 +170,7 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 	return 0;
 }
 
-void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
+void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
 {
 	long other_querier_present_interval_msec;
 	struct pim_interface *pim_ifp;
@@ -238,7 +226,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 	*/
 	other_querier_present_interval_msec = PIM_IGMP_OQPI_MSEC(
 		igmp->querier_robustness_variable, igmp->querier_query_interval,
-		pim_ifp->igmp_query_max_response_time_dsec);
+		pim_ifp->gm_query_max_response_time_dsec);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char ifaddr_str[INET_ADDRSTRLEN];
@@ -255,7 +243,7 @@ void pim_igmp_other_querier_timer_on(struct igmp_sock *igmp)
 			      &igmp->t_other_querier_timer);
 }
 
-void pim_igmp_other_querier_timer_off(struct igmp_sock *igmp)
+void pim_igmp_other_querier_timer_off(struct gm_sock *igmp)
 {
 	assert(igmp);
 
@@ -293,7 +281,7 @@ int igmp_validate_checksum(char *igmp_msg, int igmp_msg_len)
 	return 0;
 }
 
-static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
+static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 			   int max_resp_code, struct in_addr from,
 			   const char *from_str, char *igmp_msg,
 			   int igmp_msg_len)
@@ -324,7 +312,7 @@ static int igmp_recv_query(struct igmp_sock *igmp, int query_version,
 		return 0;
 	}
 
-	if (if_lookup_exact_address(&from, AF_INET, ifp->vrf_id)) {
+	if (if_address_is_local(&from, AF_INET, ifp->vrf->vrf_id)) {
 		if (PIM_DEBUG_IGMP_PACKETS)
 			zlog_debug("Recv IGMP query on interface: %s from ourself %s",
 				   ifp->name, from_str);
@@ -423,12 +411,12 @@ static void on_trace(const char *label, struct interface *ifp,
 	}
 }
 
-static int igmp_v1_recv_report(struct igmp_sock *igmp, struct in_addr from,
+static int igmp_v1_recv_report(struct gm_sock *igmp, struct in_addr from,
 			       const char *from_str, char *igmp_msg,
 			       int igmp_msg_len)
 {
 	struct interface *ifp = igmp->interface;
-	struct igmp_group *group;
+	struct gm_group *group;
 	struct in_addr group_addr;
 
 	on_trace(__func__, igmp->interface, from);
@@ -530,7 +518,7 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 	return true;
 }
 
-int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
+int pim_igmp_packet(struct gm_sock *igmp, char *buf, size_t len)
 {
 	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
@@ -619,7 +607,7 @@ int pim_igmp_packet(struct igmp_sock *igmp, char *buf, size_t len)
 	return -1;
 }
 
-void pim_igmp_general_query_on(struct igmp_sock *igmp)
+void pim_igmp_general_query_on(struct gm_sock *igmp)
 {
 	struct pim_interface *pim_ifp;
 	int startup_mode;
@@ -648,14 +636,14 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 		 * newly configured igmp interface send it out in 1 second
 		 * just to give the entire world a tiny bit of time to settle
 		 * else the query interval is:
-		 * query_interval = pim_ifp->igmp_default_query_interval >> 2;
+		 * query_interval = pim_ifp->gm_default_query_interval >> 2;
 		 */
-		if (igmp->startup_query_count
-		    == igmp->querier_robustness_variable)
+		if (igmp->startup_query_count ==
+		    igmp->querier_robustness_variable)
 			query_interval = 1;
 		else
 			query_interval = PIM_IGMP_SQI(
-				pim_ifp->igmp_default_query_interval);
+				pim_ifp->gm_default_query_interval);
 
 		--igmp->startup_query_count;
 	} else {
@@ -671,12 +659,11 @@ void pim_igmp_general_query_on(struct igmp_sock *igmp)
 			ifaddr_str, query_interval,
 			startup_mode ? "startup" : "non-startup", igmp->fd);
 	}
-	igmp->t_igmp_query_timer = NULL;
 	thread_add_timer(router->master, pim_igmp_general_query, igmp,
 			 query_interval, &igmp->t_igmp_query_timer);
 }
 
-void pim_igmp_general_query_off(struct igmp_sock *igmp)
+void pim_igmp_general_query_off(struct gm_sock *igmp)
 {
 	assert(igmp);
 
@@ -696,7 +683,7 @@ void pim_igmp_general_query_off(struct igmp_sock *igmp)
 /* Issue IGMP general query */
 static int pim_igmp_general_query(struct thread *t)
 {
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct in_addr dst_addr;
 	struct in_addr group_addr;
 	struct pim_interface *pim_ifp;
@@ -742,7 +729,7 @@ static int pim_igmp_general_query(struct thread *t)
 	igmp_send_query(pim_ifp->igmp_version, 0 /* igmp_group */, igmp->fd,
 			igmp->interface->name, query_buf, sizeof(query_buf),
 			0 /* num_sources */, dst_addr, group_addr,
-			pim_ifp->igmp_query_max_response_time_dsec,
+			pim_ifp->gm_query_max_response_time_dsec,
 			1 /* s_flag: always set for general queries */,
 			igmp->querier_robustness_variable,
 			igmp->querier_query_interval);
@@ -752,7 +739,7 @@ static int pim_igmp_general_query(struct thread *t)
 	return 0;
 }
 
-static void sock_close(struct igmp_sock *igmp)
+static void sock_close(struct gm_sock *igmp)
 {
 	pim_igmp_other_querier_timer_off(igmp);
 	pim_igmp_general_query_off(igmp);
@@ -782,7 +769,7 @@ static void sock_close(struct igmp_sock *igmp)
 	}
 }
 
-void igmp_startup_mode_on(struct igmp_sock *igmp)
+void igmp_startup_mode_on(struct gm_sock *igmp)
 {
 	struct pim_interface *pim_ifp;
 
@@ -800,23 +787,18 @@ void igmp_startup_mode_on(struct igmp_sock *igmp)
 	/*
 	  Since we're (re)starting, reset QQI to default Query Interval
 	*/
-	igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
+	igmp->querier_query_interval = pim_ifp->gm_default_query_interval;
 }
 
-static void igmp_group_free(struct igmp_group *group)
+static void igmp_group_free(struct gm_group *group)
 {
 	list_delete(&group->group_source_list);
 
 	XFREE(MTYPE_PIM_IGMP_GROUP, group);
 }
 
-static void igmp_group_count_incr(struct igmp_sock *igmp)
+static void igmp_group_count_incr(struct pim_interface *pim_ifp)
 {
-	struct pim_interface *pim_ifp = igmp->interface->info;
-
-	if (!pim_ifp)
-		return;
-
 	++pim_ifp->pim->igmp_group_count;
 	if (pim_ifp->pim->igmp_group_count
 	    == pim_ifp->pim->igmp_watermark_limit) {
@@ -827,13 +809,8 @@ static void igmp_group_count_incr(struct igmp_sock *igmp)
 	}
 }
 
-static void igmp_group_count_decr(struct igmp_sock *igmp)
+static void igmp_group_count_decr(struct pim_interface *pim_ifp)
 {
-	struct pim_interface *pim_ifp = igmp->interface->info;
-
-	if (!pim_ifp)
-		return;
-
 	if (pim_ifp->pim->igmp_group_count == 0) {
 		zlog_warn("Cannot decrement igmp group count below 0(vrf: %s)",
 			  VRF_LOGNAME(pim_ifp->pim->vrf));
@@ -843,19 +820,19 @@ static void igmp_group_count_decr(struct igmp_sock *igmp)
 	--pim_ifp->pim->igmp_group_count;
 }
 
-void igmp_group_delete(struct igmp_group *group)
+void igmp_group_delete(struct gm_group *group)
 {
 	struct listnode *src_node;
 	struct listnode *src_nextnode;
-	struct igmp_source *src;
+	struct gm_source *src;
+	struct pim_interface *pim_ifp = group->interface->info;
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
-		zlog_debug("Deleting IGMP group %s from socket %d interface %s",
-			   group_str, group->group_igmp_sock->fd,
-			   group->group_igmp_sock->interface->name);
+		zlog_debug("Deleting IGMP group %s from interface %s",
+			   group_str, group->interface->name);
 	}
 
 	for (ALL_LIST_ELEMENTS(group->group_source_list, src_node, src_nextnode,
@@ -866,14 +843,14 @@ void igmp_group_delete(struct igmp_group *group)
 	THREAD_OFF(group->t_group_query_retransmit_timer);
 
 	group_timer_off(group);
-	igmp_group_count_decr(group->group_igmp_sock);
-	listnode_delete(group->group_igmp_sock->igmp_group_list, group);
-	hash_release(group->group_igmp_sock->igmp_group_hash, group);
+	igmp_group_count_decr(pim_ifp);
+	listnode_delete(pim_ifp->gm_group_list, group);
+	hash_release(pim_ifp->gm_group_hash, group);
 
 	igmp_group_free(group);
 }
 
-void igmp_group_delete_empty_include(struct igmp_group *group)
+void igmp_group_delete_empty_include(struct gm_group *group)
 {
 	assert(!group->group_filtermode_isexcl);
 	assert(!listcount(group->group_source_list));
@@ -881,50 +858,40 @@ void igmp_group_delete_empty_include(struct igmp_group *group)
 	igmp_group_delete(group);
 }
 
-void igmp_sock_free(struct igmp_sock *igmp)
+void igmp_sock_free(struct gm_sock *igmp)
 {
 	assert(!igmp->t_igmp_read);
 	assert(!igmp->t_igmp_query_timer);
 	assert(!igmp->t_other_querier_timer);
-	assert(igmp->igmp_group_list);
-	assert(!listcount(igmp->igmp_group_list));
-
-	list_delete(&igmp->igmp_group_list);
-	hash_free(igmp->igmp_group_hash);
 
 	XFREE(MTYPE_PIM_IGMP_SOCKET, igmp);
 }
 
-void igmp_sock_delete(struct igmp_sock *igmp)
+void igmp_sock_delete(struct gm_sock *igmp)
 {
 	struct pim_interface *pim_ifp;
-	struct listnode *grp_node;
-	struct listnode *grp_nextnode;
-	struct igmp_group *grp;
-
-	for (ALL_LIST_ELEMENTS(igmp->igmp_group_list, grp_node, grp_nextnode,
-			       grp)) {
-		igmp_group_delete(grp);
-	}
 
 	sock_close(igmp);
 
 	pim_ifp = igmp->interface->info;
 
-	listnode_delete(pim_ifp->igmp_socket_list, igmp);
+	listnode_delete(pim_ifp->gm_socket_list, igmp);
 
 	igmp_sock_free(igmp);
+
+	if (!listcount(pim_ifp->gm_socket_list))
+		pim_igmp_if_reset(pim_ifp);
 }
 
 void igmp_sock_delete_all(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *igmp_node, *igmp_nextnode;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 
 	pim_ifp = ifp->info;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_socket_list, igmp_node,
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_socket_list, igmp_node,
 			       igmp_nextnode, igmp)) {
 		igmp_sock_delete(igmp);
 	}
@@ -932,15 +899,15 @@ void igmp_sock_delete_all(struct interface *ifp)
 
 static unsigned int igmp_group_hash_key(const void *arg)
 {
-	const struct igmp_group *group = arg;
+	const struct gm_group *group = arg;
 
 	return jhash_1word(group->group_addr.s_addr, 0);
 }
 
 static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 {
-	const struct igmp_group *g1 = (const struct igmp_group *)arg1;
-	const struct igmp_group *g2 = (const struct igmp_group *)arg2;
+	const struct gm_group *g1 = (const struct gm_group *)arg1;
+	const struct gm_group *g2 = (const struct gm_group *)arg2;
 
 	if (g1->group_addr.s_addr == g2->group_addr.s_addr)
 		return true;
@@ -948,12 +915,50 @@ static bool igmp_group_hash_equal(const void *arg1, const void *arg2)
 	return false;
 }
 
-static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
-				       struct interface *ifp, int mtrace_only)
+void pim_igmp_if_init(struct pim_interface *pim_ifp, struct interface *ifp)
+{
+	char hash_name[64];
+
+	pim_ifp->gm_socket_list = list_new();
+	pim_ifp->gm_socket_list->del = (void (*)(void *))igmp_sock_free;
+
+	pim_ifp->gm_group_list = list_new();
+	pim_ifp->gm_group_list->del = (void (*)(void *))igmp_group_free;
+
+	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
+	pim_ifp->gm_group_hash = hash_create(igmp_group_hash_key,
+					     igmp_group_hash_equal, hash_name);
+}
+
+void pim_igmp_if_reset(struct pim_interface *pim_ifp)
+{
+	struct listnode *grp_node, *grp_nextnode;
+	struct gm_group *grp;
+
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_group_list, grp_node, grp_nextnode,
+			       grp)) {
+		igmp_group_delete(grp);
+	}
+}
+
+void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+{
+	pim_igmp_if_reset(pim_ifp);
+
+	assert(pim_ifp->gm_group_list);
+	assert(!listcount(pim_ifp->gm_group_list));
+
+	list_delete(&pim_ifp->gm_group_list);
+	hash_free(pim_ifp->gm_group_hash);
+
+	list_delete(&pim_ifp->gm_socket_list);
+}
+
+static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
+				     struct interface *ifp, int mtrace_only)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_sock *igmp;
-	char hash_name[64];
+	struct gm_sock *igmp;
 
 	pim_ifp = ifp->info;
 
@@ -965,13 +970,6 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 	igmp = XCALLOC(MTYPE_PIM_IGMP_SOCKET, sizeof(*igmp));
 
-	igmp->igmp_group_list = list_new();
-	igmp->igmp_group_list->del = (void (*)(void *))igmp_group_free;
-
-	snprintf(hash_name, sizeof(hash_name), "IGMP %s hash", ifp->name);
-	igmp->igmp_group_hash = hash_create(igmp_group_hash_key,
-					    igmp_group_hash_equal, hash_name);
-
 	igmp->fd = fd;
 	igmp->interface = ifp;
 	igmp->ifaddr = ifaddr;
@@ -980,7 +978,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	igmp->t_igmp_query_timer = NULL;
 	igmp->t_other_querier_timer = NULL; /* no other querier present */
 	igmp->querier_robustness_variable =
-		pim_ifp->igmp_default_robustness_variable;
+		pim_ifp->gm_default_robustness_variable;
 	igmp->sock_creation = pim_time_monotonic_sec();
 
 	igmp_stats_init(&igmp->rx_stats);
@@ -995,7 +993,7 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	/*
 	  igmp_startup_mode_on() will reset QQI:
 
-	  igmp->querier_query_interval = pim_ifp->igmp_default_query_interval;
+	  igmp->querier_query_interval = pim_ifp->gm_default_query_interval;
 	*/
 	igmp_startup_mode_on(igmp);
 	pim_igmp_general_query_on(igmp);
@@ -1003,12 +1001,12 @@ static struct igmp_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 	return igmp;
 }
 
-static void igmp_read_on(struct igmp_sock *igmp);
+static void igmp_read_on(struct gm_sock *igmp);
 
 static int pim_igmp_read(struct thread *t)
 {
 	uint8_t buf[10000];
-	struct igmp_sock *igmp = (struct igmp_sock *)THREAD_ARG(t);
+	struct gm_sock *igmp = (struct gm_sock *)THREAD_ARG(t);
 	struct sockaddr_in from;
 	struct sockaddr_in to;
 	socklen_t fromlen = sizeof(from);
@@ -1034,25 +1032,23 @@ done:
 	return 0;
 }
 
-static void igmp_read_on(struct igmp_sock *igmp)
+static void igmp_read_on(struct gm_sock *igmp)
 {
 
 	if (PIM_DEBUG_IGMP_TRACE_DETAIL) {
 		zlog_debug("Scheduling READ event on IGMP socket fd=%d",
 			   igmp->fd);
 	}
-	igmp->t_igmp_read = NULL;
 	thread_add_read(router->master, pim_igmp_read, igmp, igmp->fd,
 			&igmp->t_igmp_read);
 }
 
-struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
-				    struct in_addr ifaddr,
-				    struct interface *ifp,
-				    bool mtrace_only)
+struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
+				  struct in_addr ifaddr, struct interface *ifp,
+				  bool mtrace_only)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct sockaddr_in sin;
 	int fd;
 
@@ -1105,7 +1101,7 @@ struct igmp_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
  */
 static int igmp_group_timer(struct thread *t)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
 
 	group = THREAD_ARG(t);
 
@@ -1114,7 +1110,7 @@ static int igmp_group_timer(struct thread *t)
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug("%s: Timer for group %s on interface %s", __func__,
-			   group_str, group->group_igmp_sock->interface->name);
+			   group_str, group->interface->name);
 	}
 
 	assert(group->group_filtermode_isexcl);
@@ -1141,7 +1137,7 @@ static int igmp_group_timer(struct thread *t)
 	return 0;
 }
 
-static void group_timer_off(struct igmp_group *group)
+static void group_timer_off(struct gm_group *group)
 {
 	if (!group->t_group_timer)
 		return;
@@ -1151,12 +1147,12 @@ static void group_timer_off(struct igmp_group *group)
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
 		zlog_debug("Cancelling TIMER event for group %s on %s",
-			   group_str, group->group_igmp_sock->interface->name);
+			   group_str, group->interface->name);
 	}
 	THREAD_OFF(group->t_group_timer);
 }
 
-void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
+void igmp_group_timer_on(struct gm_group *group, long interval_msec,
 			 const char *ifname)
 {
 	group_timer_off(group);
@@ -1184,20 +1180,22 @@ void igmp_group_timer_on(struct igmp_group *group, long interval_msec,
 			      interval_msec, &group->t_group_timer);
 }
 
-struct igmp_group *find_group_by_addr(struct igmp_sock *igmp,
-				      struct in_addr group_addr)
+struct gm_group *find_group_by_addr(struct gm_sock *igmp,
+				    struct in_addr group_addr)
 {
-	struct igmp_group lookup;
+	struct gm_group lookup;
+	struct pim_interface *pim_ifp = igmp->interface->info;
 
 	lookup.group_addr.s_addr = group_addr.s_addr;
 
-	return hash_lookup(igmp->igmp_group_hash, &lookup);
+	return hash_lookup(pim_ifp->gm_group_hash, &lookup);
 }
 
-struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
-					  struct in_addr group_addr)
+struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
+					struct in_addr group_addr)
 {
-	struct igmp_group *group;
+	struct gm_group *group;
+	struct pim_interface *pim_ifp = igmp->interface->info;
 
 	group = find_group_by_addr(igmp, group_addr);
 	if (group) {
@@ -1239,7 +1237,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	group->t_group_query_retransmit_timer = NULL;
 	group->group_specific_query_retransmit_count = 0;
 	group->group_addr = group_addr;
-	group->group_igmp_sock = igmp;
+	group->interface = igmp->interface;
 	group->last_igmp_v1_report_dsec = -1;
 	group->last_igmp_v2_report_dsec = -1;
 	group->group_creation = pim_time_monotonic_sec();
@@ -1248,8 +1246,8 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	/* initialize new group as INCLUDE {empty} */
 	group->group_filtermode_isexcl = 0; /* 0=INCLUDE, 1=EXCLUDE */
 
-	listnode_add(igmp->igmp_group_list, group);
-	group = hash_get(igmp->igmp_group_hash, group, hash_alloc_intern);
+	listnode_add(pim_ifp->gm_group_list, group);
+	group = hash_get(pim_ifp->gm_group_hash, group, hash_alloc_intern);
 
 	if (PIM_DEBUG_IGMP_TRACE) {
 		char group_str[INET_ADDRSTRLEN];
@@ -1260,7 +1258,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 			group_str, igmp->fd, igmp->interface->name);
 	}
 
-	igmp_group_count_incr(igmp);
+	igmp_group_count_incr(pim_ifp);
 
 	/*
 	  RFC 3376: 6.2.2. Definition of Group Timers
@@ -1278,7 +1276,7 @@ struct igmp_group *igmp_add_group_by_addr(struct igmp_sock *igmp,
 	return group;
 }
 
-void igmp_send_query(int igmp_version, struct igmp_group *group, int fd,
+void igmp_send_query(int igmp_version, struct gm_group *group, int fd,
 		     const char *ifname, char *query_buf, int query_buf_size,
 		     int num_sources, struct in_addr dst_addr,
 		     struct in_addr group_addr,
@@ -1302,7 +1300,7 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 	struct listnode *sock_node = NULL;
-	struct igmp_sock *igmp = NULL;
+	struct gm_sock *igmp = NULL;
 	struct in_addr dst_addr;
 	struct in_addr group_addr;
 	int query_buf_size;
@@ -1319,10 +1317,9 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 	group_addr.s_addr = PIM_NET_INADDR_ANY;
 
 	if (PIM_DEBUG_IGMP_TRACE)
-		zlog_debug("Issuing general query on request on %s",
-				ifp->name);
+		zlog_debug("Issuing general query on request on %s", ifp->name);
 
-	for (ALL_LIST_ELEMENTS_RO(pim_ifp->igmp_socket_list, sock_node, igmp)) {
+	for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_socket_list, sock_node, igmp)) {
 
 		char query_buf[query_buf_size];
 
@@ -1330,7 +1327,7 @@ void igmp_send_query_on_intf(struct interface *ifp, int igmp_ver)
 				igmp->interface->name, query_buf,
 				sizeof(query_buf), 0 /* num_sources */,
 				dst_addr, group_addr,
-				pim_ifp->igmp_query_max_response_time_dsec,
+				pim_ifp->gm_query_max_response_time_dsec,
 				1 /* s_flag: always set for general queries */,
 				igmp->querier_robustness_variable,
 				igmp->querier_query_interval);

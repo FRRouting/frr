@@ -45,9 +45,6 @@
 
 
 static int config_write_segment_routing(struct vty *vty);
-static int config_write_traffic_eng(struct vty *vty);
-static int config_write_segment_lists(struct vty *vty);
-static int config_write_sr_policies(struct vty *vty);
 static int segment_list_has_src_dst(
 	struct vty *vty, char *xpath, long index, const char *index_str,
 	struct in_addr adj_src_ipv4, struct in_addr adj_dst_ipv4,
@@ -63,6 +60,8 @@ static int segment_list_has_prefix(
 
 DEFINE_MTYPE_STATIC(PATHD, PATH_CLI, "Client");
 
+DEFINE_HOOK(pathd_srte_config_write, (struct vty *vty), (vty));
+
 /* Vty node structures. */
 static struct cmd_node segment_routing_node = {
 	.name = "segment-routing",
@@ -77,7 +76,6 @@ static struct cmd_node sr_traffic_eng_node = {
 	.node = SR_TRAFFIC_ENG_NODE,
 	.parent_node = SEGMENT_ROUTING_NODE,
 	.prompt = "%s(config-sr-te)# ",
-	.config_write = config_write_traffic_eng,
 };
 
 static struct cmd_node srte_segment_list_node = {
@@ -85,7 +83,6 @@ static struct cmd_node srte_segment_list_node = {
 	.node = SR_SEGMENT_LIST_NODE,
 	.parent_node = SR_TRAFFIC_ENG_NODE,
 	.prompt = "%s(config-sr-te-segment-list)# ",
-	.config_write = config_write_segment_lists,
 };
 
 static struct cmd_node srte_policy_node = {
@@ -93,7 +90,6 @@ static struct cmd_node srte_policy_node = {
 	.node = SR_POLICY_NODE,
 	.parent_node = SR_TRAFFIC_ENG_NODE,
 	.prompt = "%s(config-sr-te-policy)# ",
-	.config_write = config_write_sr_policies,
 };
 
 static struct cmd_node srte_candidate_dyn_node = {
@@ -302,11 +298,17 @@ DEFPY(srte_no_segment_list,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_srte_segment_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_segment_list(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, "  segment-list %s\n",
 		yang_dnode_get_string(dnode, "./name"));
+}
+
+void cli_show_srte_segment_list_end(struct vty *vty,
+				    const struct lyd_node *dnode)
+{
+	vty_out(vty, "  exit\n");
 }
 
 static int segment_list_has_src_dst(
@@ -351,7 +353,16 @@ static int segment_list_has_src_dst(
 		nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY,
 				      "ipv6_adjacency");
 		node_src_id = adj_src_ipv6_str;
+	} else {
+		/*
+		 * This is just to make the compiler happy about
+		 * node_src_id not being initialized.  This
+		 * should never happen unless we change the cli
+		 * function.
+		 */
+		assert(!"We must have a adj_src_ipv4_str or a adj_src_ipv6_str");
 	}
+
 	/* addresses */
 	snprintf(xpath, XPATH_MAXLEN, "./segment[index='%s']/nai/local-address",
 		 index_str);
@@ -547,7 +558,7 @@ DEFPY(srte_segment_list_no_segment,
 }
 
 void cli_show_srte_segment_list_segment(struct vty *vty,
-					struct lyd_node *dnode,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	vty_out(vty, "   index %s", yang_dnode_get_string(dnode, "./index"));
@@ -658,12 +669,17 @@ DEFPY(srte_no_policy,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_srte_policy(struct vty *vty, struct lyd_node *dnode,
+void cli_show_srte_policy(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	vty_out(vty, "  policy color %s endpoint %s\n",
 		yang_dnode_get_string(dnode, "./color"),
 		yang_dnode_get_string(dnode, "./endpoint"));
+}
+
+void cli_show_srte_policy_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "  exit\n");
 }
 
 /*
@@ -693,8 +709,8 @@ DEFPY(srte_policy_no_name,
 }
 
 
-void cli_show_srte_policy_name(struct vty *vty, struct lyd_node *dnode,
-				     bool show_defaults)
+void cli_show_srte_policy_name(struct vty *vty, const struct lyd_node *dnode,
+			       bool show_defaults)
 {
 	vty_out(vty, "   name %s\n", yang_dnode_get_string(dnode, NULL));
 }
@@ -726,7 +742,7 @@ DEFPY(srte_policy_no_binding_sid,
 }
 
 void cli_show_srte_policy_binding_sid(struct vty *vty,
-				      struct lyd_node *dnode,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	vty_out(vty, "   binding-sid %s\n", yang_dnode_get_string(dnode, NULL));
@@ -1172,7 +1188,7 @@ static int config_write_metric_cb(const struct lyd_node *dnode, void *arg)
 }
 
 void cli_show_srte_policy_candidate_path(struct vty *vty,
-					 struct lyd_node *dnode,
+					 const struct lyd_node *dnode,
 					 bool show_defaults)
 {
 	float bandwidth;
@@ -1237,11 +1253,20 @@ void cli_show_srte_policy_candidate_path(struct vty *vty,
 	}
 }
 
+void cli_show_srte_policy_candidate_path_end(struct vty *vty,
+					     const struct lyd_node *dnode)
+{
+	const char *type = yang_dnode_get_string(dnode, "./type");
+
+	if (strmatch(type, "dynamic"))
+		vty_out(vty, "   exit\n");
+}
+
 static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 {
 	struct vty *vty = arg;
 
-	nb_cli_show_dnode_cmds(vty, (struct lyd_node *)dnode, false);
+	nb_cli_show_dnode_cmds(vty, dnode, false);
 
 	return YANG_ITER_CONTINUE;
 }
@@ -1249,28 +1274,19 @@ static int config_write_dnode(const struct lyd_node *dnode, void *arg)
 int config_write_segment_routing(struct vty *vty)
 {
 	vty_out(vty, "segment-routing\n");
-	return 1;
-}
-
-int config_write_traffic_eng(struct vty *vty)
-{
 	vty_out(vty, " traffic-eng\n");
-	path_ted_config_write(vty);
-	return 1;
-}
 
-int config_write_segment_lists(struct vty *vty)
-{
+	path_ted_config_write(vty);
+
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/segment-list");
-
-	return 1;
-}
-
-int config_write_sr_policies(struct vty *vty)
-{
 	yang_dnode_iterate(config_write_dnode, vty, running_config->dnode,
 			   "/frr-pathd:pathd/srte/policy");
+
+	hook_call(pathd_srte_config_write, vty);
+
+	vty_out(vty, " exit\n");
+	vty_out(vty, "exit\n");
 
 	return 1;
 }

@@ -59,7 +59,7 @@ struct buffer_data {
 /* It should always be true that: 0 <= sp <= cp <= size */
 
 /* Default buffer size (used if none specified).  It is rounded up to the
-   next page boundery. */
+   next page boundary. */
 #define BUFFER_SIZE_DEFAULT		4096
 
 #define BUFFER_DATA_FREE(D) XFREE(MTYPE_BUFFER_DATA, (D))

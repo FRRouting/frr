@@ -27,11 +27,8 @@ test_bgp_snmp_mplsl3vpn.py: Test mplsL3Vpn MIB [RFC4382].
 
 import os
 import sys
-import json
-from functools import partial
 from time import sleep
 import pytest
-import re
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -39,86 +36,79 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.isisd, pytest.mark.snmp]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # This function only purpose is to define allocation and relationship
+    # between routers, switches and hosts.
+    #
+    #
+    # Create routers
+    tgen.add_router("r1")
+    tgen.add_router("r2")
+    tgen.add_router("r3")
+    tgen.add_router("r4")
+    tgen.add_router("ce1")
+    tgen.add_router("ce2")
+    tgen.add_router("ce3")
+    tgen.add_router("ce4")
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        #
-        # Create routers
-        tgen.add_router("r1")
-        tgen.add_router("r2")
-        tgen.add_router("r3")
-        tgen.add_router("r4")
-        tgen.add_router("ce1")
-        tgen.add_router("ce2")
-        tgen.add_router("ce3")
-        tgen.add_router("ce4")
+    # r1-r2
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        # r1-r2
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # r1-r3
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        # r1-r3
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
+    # r1-r4
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r4"])
 
-        # r1-r4
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r4"])
+    # r1-ce1
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["ce1"])
 
-        # r1-ce1
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["ce1"])
+    # r1-ce3
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["ce3"])
 
-        # r1-ce3
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["ce3"])
+    # r1-ce4
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["ce4"])
 
-        # r1-ce4
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["ce4"])
+    # r1-dangling
+    switch = tgen.add_switch("s7")
+    switch.add_link(tgen.gears["r1"])
 
-        # r1-dangling
-        switch = tgen.add_switch("s7")
-        switch.add_link(tgen.gears["r1"])
+    # r2-r3
+    switch = tgen.add_switch("s8")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        # r2-r3
-        switch = tgen.add_switch("s8")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    # r3-r4
+    switch = tgen.add_switch("s9")
+    switch.add_link(tgen.gears["r3"])
+    switch.add_link(tgen.gears["r4"])
 
-        # r3-r4
-        switch = tgen.add_switch("s9")
-        switch.add_link(tgen.gears["r3"])
-        switch.add_link(tgen.gears["r4"])
-
-        # r4-ce2
-        switch = tgen.add_switch("s10")
-        switch.add_link(tgen.gears["r4"])
-        switch.add_link(tgen.gears["ce2"])
+    # r4-ce2
+    switch = tgen.add_switch("s10")
+    switch.add_link(tgen.gears["r4"])
+    switch.add_link(tgen.gears["ce2"])
 
 
 def setup_module(mod):
@@ -131,7 +121,7 @@ def setup_module(mod):
         pytest.skip(error_msg)
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 
@@ -161,13 +151,6 @@ def setup_module(mod):
     r1.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
     r1.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
     r1.run("sysctl -w net.mpls.conf.r1-eth2.input=1")
-    r2.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
-    r2.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
-    r3.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
-    r3.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
-    r3.run("sysctl -w net.mpls.conf.r1-eth2.input=1")
-    r4.run("sysctl -w net.mpls.conf.r1-eth0.input=1")
-    r4.run("sysctl -w net.mpls.conf.r1-eth1.input=1")
 
     router_list = tgen.routers()
 
@@ -255,7 +238,7 @@ def test_pe1_converge_evpn():
     "Wait for protocol convergence"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     assertmsg = "BGP SNMP does not seem to be running"
@@ -297,7 +280,7 @@ interfaces_down_test = {
 def test_r1_mplsvpn_scalars():
     "check scalar values"
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     for item in interfaces_up_test.keys():
@@ -310,12 +293,11 @@ def test_r1_mplsvpn_scalars():
 def test_r1_mplsvpn_scalars_interface():
     "check scalar interface changing values"
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
-    r1_cmd = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth4\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth4\nshutdown")
 
     for item in interfaces_up_test.keys():
         assertmsg = "{} should be {}: value {}".format(
@@ -323,8 +305,8 @@ def test_r1_mplsvpn_scalars_interface():
         )
         assert r1_snmp.test_oid(item, interfaces_down_test[item]), assertmsg
 
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
-    r1_cmd.vtysh_cmd("conf t\ninterface r1-eth4\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth4\nno shutdown")
 
     for item in interfaces_up_test.keys():
         assertmsg = "{} should be {}: value {}".format(
@@ -378,15 +360,14 @@ def test_r1_mplsvpn_IfTable():
     "mplsL3VpnIf table values"
 
     tgen = get_topogen()
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
     # tgen.mininet_cli()
-    eth3_ifindex = router_interface_get_ifindex(r1r, "eth3")
-    eth4_ifindex = router_interface_get_ifindex(r1r, "eth4")
-    eth5_ifindex = router_interface_get_ifindex(r1r, "eth5")
+    eth3_ifindex = router_interface_get_ifindex(r1, "eth3")
+    eth4_ifindex = router_interface_get_ifindex(r1, "eth4")
+    eth5_ifindex = router_interface_get_ifindex(r1, "eth5")
 
     # get ifindex and make sure the oid is correct
 
@@ -432,8 +413,7 @@ vrftable_test = {
 def test_r1_mplsvpn_VrfTable():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -476,7 +456,7 @@ def test_r1_mplsvpn_VrfTable():
         "mplsL3VpnVrfConfLastChanged.{}".format(snmp_str_to_oid("VRF-a"))
     )
     ts_val_last_1 = get_timetick_val(ts_last)
-    r1r.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nshutdown")
     active_int = r1_snmp.get(
         "mplsL3VpnVrfActiveInterfaces.{}".format(snmp_str_to_oid("VRF-a"))
     )
@@ -491,7 +471,7 @@ def test_r1_mplsvpn_VrfTable():
     ts_val_last_2 = get_timetick_val(ts_last)
     assertmsg = "mplsL3VpnVrfConfLastChanged does not update on interface change"
     assert ts_val_last_2 > ts_val_last_1, assertmsg
-    r1r.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
+    r1.vtysh_cmd("conf t\ninterface r1-eth3\nno shutdown")
 
     # take Last changed time, fiddle with associated interfaces, ensure
     # time changes and active interfaces change
@@ -533,8 +513,7 @@ rt_table_test = {
 def test_r1_mplsvpn_VrfRT_table():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -554,8 +533,7 @@ def test_r1_mplsvpn_VrfRT_table():
 def test_r1_mplsvpn_perf_table():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -682,8 +660,7 @@ rte_table_test = {
 def test_r1_mplsvpn_rte_table():
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
-    r1r = tgen.gears["r1"]
+    r1 = tgen.gears["r1"]
 
     r1_snmp = SnmpTester(r1, "10.1.1.1", "public", "2c")
 
@@ -734,12 +711,12 @@ def test_r1_mplsvpn_rte_table():
     # generate ifindex row grabbing ifindices from vtysh
     if passed:
         ifindex_row = [
-            router_interface_get_ifindex(r1r, "eth3"),
-            router_interface_get_ifindex(r1r, "eth4"),
-            router_interface_get_ifindex(r1r, "eth2"),
-            router_interface_get_ifindex(r1r, "eth3"),
+            router_interface_get_ifindex(r1, "eth3"),
+            router_interface_get_ifindex(r1, "eth4"),
+            router_interface_get_ifindex(r1, "eth2"),
+            router_interface_get_ifindex(r1, "eth3"),
             "0",
-            router_interface_get_ifindex(r1r, "eth4"),
+            router_interface_get_ifindex(r1, "eth4"),
             "0",
         ]
         if not r1_snmp.test_oid_walk(

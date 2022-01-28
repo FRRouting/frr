@@ -143,8 +143,8 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 		if (ifp == NULL) {
 			if (bsglobal.debugging)
 				zlog_debug(
-					"zebra_interface_bfd_read: Can't find interface by ifindex: %d ",
-					ifindex);
+					"%s: Can't find interface by ifindex: %d ",
+					__func__, ifindex);
 			return NULL;
 		}
 	}
@@ -171,6 +171,12 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 	return ifp;
 
 stream_failure:
+	/*
+	 * Clean dp and sp because caller
+	 * will immediately check them valid or not
+	 */
+	memset(dp, 0, sizeof(*dp));
+	memset(sp, 0, sizeof(*sp));
 	return NULL;
 }
 
@@ -203,7 +209,7 @@ static void bfd_last_update(time_t last_update, char *buf, size_t len)
 	struct tm tm;
 	struct timeval tv;
 
-	/* If no BFD satatus update has ever been received, print `never'. */
+	/* If no BFD status update has ever been received, print `never'. */
 	if (last_update == 0) {
 		snprintf(buf, len, "never");
 		return;
@@ -251,8 +257,8 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		if (bsglobal.debugging)
 			zlog_debug(
-				"bfd_client_sendmsg %ld: zclient_send_message() failed",
-				(long)getpid());
+				"%s:  %ld: zclient_send_message() failed",
+				__func__, (long)getpid());
 		return;
 	}
 
@@ -310,8 +316,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	stream_putw(s, args->family);
 	stream_put(s, &args->src, addrlen);
 
-	/* Send the expected TTL. */
-	stream_putc(s, args->ttl);
+	/* Send the expected hops. */
+	stream_putc(s, args->hops);
 
 	/* Send interface name if any. */
 	if (args->mhop) {
@@ -349,8 +355,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		stream_putw(s, args->family);
 		stream_put(s, &args->src, addrlen);
 
-		/* Send the expected TTL. */
-		stream_putc(s, args->ttl);
+		/* Send the expected hops. */
+		stream_putc(s, args->hops);
 	} else {
 		/* Multi hop indicator. */
 		stream_putc(s, 0);
@@ -366,6 +372,9 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		if (args->ifnamelen)
 			stream_put(s, args->ifname, args->ifnamelen);
 	}
+
+	/* Send the C bit indicator. */
+	stream_putc(s, args->cbit);
 #endif /* HAVE_BFDD */
 
 	/* Finish the message by writing the size. */
@@ -393,7 +402,7 @@ struct bfd_session_params *bfd_sess_new(bsp_status_update updatecb, void *arg)
 
 	/* Set defaults. */
 	bsp->args.detection_multiplier = BFD_DEF_DETECT_MULT;
-	bsp->args.ttl = 1;
+	bsp->args.hops = 1;
 	bsp->args.min_rx = BFD_DEF_MIN_RX;
 	bsp->args.min_tx = BFD_DEF_MIN_TX;
 	bsp->args.vrf_id = VRF_DEFAULT;
@@ -549,7 +558,8 @@ static bool bfd_sess_address_changed(const struct bfd_session_params *bsp,
 }
 
 void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
-			     struct in_addr *src, struct in_addr *dst)
+			     const struct in_addr *src,
+			     const struct in_addr *dst)
 {
 	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
 				      (struct in6_addr *)dst))
@@ -573,10 +583,10 @@ void bfd_sess_set_ipv4_addrs(struct bfd_session_params *bsp,
 }
 
 void bfd_sess_set_ipv6_addrs(struct bfd_session_params *bsp,
-			     struct in6_addr *src, struct in6_addr *dst)
+			     const struct in6_addr *src,
+			     const struct in6_addr *dst)
 {
-	if (!bfd_sess_address_changed(bsp, AF_INET, (struct in6_addr *)src,
-				      (struct in6_addr *)dst))
+	if (!bfd_sess_address_changed(bsp, AF_INET6, src, dst))
 		return;
 
 	/* If already installed, remove the old setting. */
@@ -642,32 +652,16 @@ void bfd_sess_set_vrf(struct bfd_session_params *bsp, vrf_id_t vrf_id)
 	bsp->args.vrf_id = vrf_id;
 }
 
-void bfd_sess_set_mininum_ttl(struct bfd_session_params *bsp, uint8_t min_ttl)
+void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t hops)
 {
-	assert(min_ttl != 0);
-
-	if (bsp->args.ttl == ((BFD_SINGLE_HOP_TTL + 1) - min_ttl))
+	if (bsp->args.hops == hops)
 		return;
 
 	/* If already installed, remove the old setting. */
 	_bfd_sess_remove(bsp);
 
-	/* Invert TTL value: protocol expects number of hops. */
-	min_ttl = (BFD_SINGLE_HOP_TTL + 1) - min_ttl;
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
-}
-
-void bfd_sess_set_hop_count(struct bfd_session_params *bsp, uint8_t min_ttl)
-{
-	if (bsp->args.ttl == min_ttl)
-		return;
-
-	/* If already installed, remove the old setting. */
-	_bfd_sess_remove(bsp);
-
-	bsp->args.ttl = min_ttl;
-	bsp->args.mhop = (min_ttl > 1);
+	bsp->args.hops = hops;
+	bsp->args.mhop = (hops > 1);
 }
 
 
@@ -702,14 +696,9 @@ enum bfd_session_state bfd_sess_status(const struct bfd_session_params *bsp)
 	return bsp->bss.state;
 }
 
-uint8_t bfd_sess_minimum_ttl(const struct bfd_session_params *bsp)
-{
-	return ((BFD_SINGLE_HOP_TTL + 1) - bsp->args.ttl);
-}
-
 uint8_t bfd_sess_hop_count(const struct bfd_session_params *bsp)
 {
-	return bsp->args.ttl;
+	return bsp->args.hops;
 }
 
 const char *bfd_sess_profile(const struct bfd_session_params *bsp)
@@ -818,9 +807,12 @@ void bfd_sess_show(struct vty *vty, struct json_object *json,
  *
  * Use this as `zclient` `bfd_dest_replay` callback.
  */
-static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp;
+
+	if (!zclient->bfd_integration)
+		return 0;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
@@ -852,7 +844,7 @@ static int zclient_bfd_session_reply(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
+int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 {
 	struct bfd_session_params *bsp, *bspn;
 	size_t sessions_updated = 0;
@@ -864,6 +856,9 @@ static int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	struct prefix dp;
 	struct prefix sp;
 	char ifstr[128], cbitstr[32];
+
+	if (!zclient->bfd_integration)
+		return 0;
 
 	/* Do nothing when shutting down. */
 	if (bsglobal.shutting_down)
@@ -966,9 +961,8 @@ void bfd_protocol_integration_init(struct zclient *zc, struct thread_master *tm)
 	bsglobal.zc = zc;
 	bsglobal.tm = tm;
 
-	/* Install our callbacks. */
-	zc->interface_bfd_dest_update = zclient_bfd_session_update;
-	zc->bfd_dest_replay = zclient_bfd_session_reply;
+	/* Enable BFD callbacks. */
+	zc->bfd_integration = true;
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zc, ZEBRA_BFD_CLIENT_REGISTER, VRF_DEFAULT);

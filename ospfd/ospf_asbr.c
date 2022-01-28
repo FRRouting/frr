@@ -72,12 +72,13 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 }
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_new(uint8_t type,
+struct external_info *ospf_external_info_new(struct ospf *ospf, uint8_t type,
 					     unsigned short instance)
 {
 	struct external_info *new;
 
 	new = XCALLOC(MTYPE_OSPF_EXTERNAL_INFO, sizeof(struct external_info));
+	new->ospf = ospf;
 	new->type = type;
 	new->instance = instance;
 	new->to_be_processed = 0;
@@ -138,7 +139,7 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	}
 
 	/* Create new External info instance. */
-	new = ospf_external_info_new(type, instance);
+	new = ospf_external_info_new(ospf, type, instance);
 	new->p = p;
 	new->ifindex = ifindex;
 	new->nexthop = nexthop;
@@ -419,7 +420,7 @@ static void ospf_aggr_handle_external_info(void *data)
 {
 	struct external_info *ei = (struct external_info *)data;
 	struct ospf_external_aggr_rt *aggr = NULL;
-	struct ospf *ospf = NULL;
+	struct ospf *ospf = ei->ospf;
 	struct ospf_lsa *lsa = NULL;
 
 	ei->aggr_route = NULL;
@@ -429,8 +430,6 @@ static void ospf_aggr_handle_external_info(void *data)
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug("%s: Handle extrenal route(%pI4/%d)", __func__,
 			   &ei->p.prefix, ei->p.prefixlen);
-
-	ospf = ospf_lookup_instance(ei->instance);
 
 	assert(ospf);
 

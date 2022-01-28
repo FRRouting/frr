@@ -340,8 +340,6 @@ int eigrp_write(struct thread *thread)
 #endif /* WANT_EIGRP_WRITE_FRAGMENT */
 #define EIGRP_WRITE_IPHL_SHIFT 2
 
-	eigrp->t_write = NULL;
-
 	node = listhead(eigrp->oi_write_q);
 	assert(node);
 	ei = listgetdata(node);
@@ -470,7 +468,6 @@ out:
 
 	/* If packets still remain in queue, call write thread. */
 	if (!list_isempty(eigrp->oi_write_q)) {
-		eigrp->t_write = NULL;
 		thread_add_write(master, eigrp_write, eigrp, eigrp->fd,
 				 &eigrp->t_write);
 	}
@@ -497,7 +494,6 @@ int eigrp_read(struct thread *thread)
 	eigrp = THREAD_ARG(thread);
 
 	/* prepare for next packet. */
-	eigrp->t_read = NULL;
 	thread_add_read(master, eigrp_read, eigrp, eigrp->fd, &eigrp->t_read);
 
 	stream_reset(eigrp->ibuf);
@@ -1013,7 +1009,6 @@ int eigrp_unack_packet_retrans(struct thread *thread)
 			return eigrp_retrans_count_exceeded(ep, nbr);
 
 		/*Start retransmission timer*/
-		ep->t_retrans_timer = NULL;
 		thread_add_timer(master, eigrp_unack_packet_retrans, nbr,
 				 EIGRP_PACKET_RETRANS_TIME,
 				 &ep->t_retrans_timer);
@@ -1049,7 +1044,6 @@ int eigrp_unack_multicast_packet_retrans(struct thread *thread)
 			return eigrp_retrans_count_exceeded(ep, nbr);
 
 		/*Start retransmission timer*/
-		ep->t_retrans_timer = NULL;
 		thread_add_timer(master, eigrp_unack_multicast_packet_retrans,
 				 nbr, EIGRP_PACKET_RETRANS_TIME,
 				 &ep->t_retrans_timer);

@@ -1773,6 +1773,14 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		nexthop_add_labels(resolved_hop, label_type, num_labels,
 				   labels);
 
+	if (nexthop->nh_srv6) {
+		nexthop_add_srv6_seg6local(resolved_hop,
+					   nexthop->nh_srv6->seg6local_action,
+					   &nexthop->nh_srv6->seg6local_ctx);
+		nexthop_add_srv6_seg6(resolved_hop,
+				      &nexthop->nh_srv6->seg6_segs);
+	}
+
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 
@@ -1965,7 +1973,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct route_node *rn;
 	struct route_entry *match = NULL;
 	int resolved;
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;
@@ -2979,6 +2987,8 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		break;
 	}
 

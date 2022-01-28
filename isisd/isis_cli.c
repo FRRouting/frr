@@ -70,43 +70,12 @@ DEFPY_YANG_NOSH(router_isis, router_isis_cmd,
 	return ret;
 }
 
-struct if_iter {
-	struct vty *vty;
-	const char *tag;
-};
-
-static int if_iter_cb(const struct lyd_node *dnode, void *arg)
-{
-	struct if_iter *iter = arg;
-	const char *tag;
-
-	if (!yang_dnode_exists(dnode, "frr-isisd:isis/area-tag"))
-		return YANG_ITER_CONTINUE;
-
-	tag = yang_dnode_get_string(dnode, "frr-isisd:isis/area-tag");
-	if (strmatch(tag, iter->tag)) {
-		char xpath[XPATH_MAXLEN];
-		const char *name = yang_dnode_get_string(dnode, "name");
-		const char *vrf = yang_dnode_get_string(dnode, "vrf");
-
-		snprintf(
-			xpath, XPATH_MAXLEN,
-			"/frr-interface:lib/interface[name='%s'][vrf='%s']/frr-isisd:isis",
-			name, vrf);
-		nb_cli_enqueue_change(iter->vty, xpath, NB_OP_DESTROY, NULL);
-	}
-
-	return YANG_ITER_CONTINUE;
-}
-
 DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 	   "no router isis WORD$tag [vrf NAME$vrf_name]",
 	   NO_STR ROUTER_STR
 	   "ISO IS-IS\n"
 	   "ISO Routing area tag\n" VRF_CMD_HELP_STR)
 {
-	struct if_iter iter;
-
 	if (!vrf_name)
 		vrf_name = VRF_DEFAULT_NAME;
 
@@ -118,12 +87,6 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	iter.vty = vty;
-	iter.tag = tag;
-
-	yang_dnode_iterate(if_iter_cb, &iter, vty->candidate_config->dnode,
-			   "/frr-interface:lib/interface[vrf='%s']", vrf_name);
-
 	nb_cli_enqueue_change(vty, ".", NB_OP_DESTROY, NULL);
 
 	return nb_cli_apply_changes_clear_pending(
@@ -131,7 +94,7 @@ DEFPY_YANG(no_router_isis, no_router_isis_cmd,
 		vrf_name);
 }
 
-void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
+void cli_show_router_isis(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	const char *vrf = NULL;
@@ -144,6 +107,11 @@ void cli_show_router_isis(struct vty *vty, struct lyd_node *dnode,
 	if (!strmatch(vrf, VRF_DEFAULT_NAME))
 		vty_out(vty, " vrf %s", yang_dnode_get_string(dnode, "./vrf"));
 	vty_out(vty, "\n");
+}
+
+void cli_show_router_isis_end(struct vty *vty, const struct lyd_node *dnode)
+{
+	vty_out(vty, "exit\n");
 }
 
 /*
@@ -159,45 +127,11 @@ DEFPY_YANG(ip_router_isis, ip_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n")
 {
-	char inst_xpath[XPATH_MAXLEN];
-	struct lyd_node *if_dnode, *inst_dnode;
-	const char *circ_type = NULL;
-	const char *vrf_name;
-	struct interface *ifp;
-
-	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (!if_dnode) {
-		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
-
-	snprintf(inst_xpath, XPATH_MAXLEN,
-		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-		 vrf_name);
-
-	/* if instance exists then inherit its type, create it otherwise */
-	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
-	if (inst_dnode)
-		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
-	else
-		nb_cli_enqueue_change(vty, inst_xpath, NB_OP_CREATE, NULL);
-
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
 			      tag);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv4-routing",
 			      NB_OP_MODIFY, "true");
-	if (circ_type)
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-				      NB_OP_MODIFY, circ_type);
-
-	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback_or_vrf(ifp))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-				      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -216,45 +150,11 @@ DEFPY_YANG(ip6_router_isis, ip6_router_isis_cmd,
 	   "IS-IS routing protocol\n"
 	   "Routing process tag\n")
 {
-	char inst_xpath[XPATH_MAXLEN];
-	struct lyd_node *if_dnode, *inst_dnode;
-	const char *circ_type = NULL;
-	const char *vrf_name;
-	struct interface *ifp;
-
-	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (!if_dnode) {
-		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
-
-	snprintf(inst_xpath, XPATH_MAXLEN,
-		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-		 vrf_name);
-
-	/* if instance exists then inherit its type, create it otherwise */
-	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
-	if (inst_dnode)
-		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
-	else
-		nb_cli_enqueue_change(vty, inst_xpath, NB_OP_CREATE, NULL);
-
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis", NB_OP_CREATE, NULL);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/area-tag", NB_OP_MODIFY,
 			      tag);
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/ipv6-routing",
 			      NB_OP_MODIFY, "true");
-	if (circ_type)
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-				      NB_OP_MODIFY, circ_type);
-
-	/* check if the interface is a loopback and if so set it as passive */
-	ifp = nb_running_get_entry(NULL, VTY_CURR_XPATH, false);
-	if (ifp && if_is_loopback_or_vrf(ifp))
-		nb_cli_enqueue_change(vty, "./frr-isisd:isis/passive",
-				      NB_OP_MODIFY, "true");
 
 	return nb_cli_apply_changes(vty, NULL);
 }
@@ -316,7 +216,7 @@ ALIAS_HIDDEN(no_ip_router_isis, no_ip_router_isis_vrf_cmd,
 	     "Routing process tag\n"
 	     VRF_CMD_HELP_STR)
 
-void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_ipv4(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -325,7 +225,7 @@ void cli_show_ip_isis_ipv4(struct vty *vty, struct lyd_node *dnode,
 		yang_dnode_get_string(dnode, "../area-tag"));
 }
 
-void cli_show_ip_isis_ipv6(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_ipv6(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -390,7 +290,8 @@ DEFPY_YANG(isis_bfd_profile,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_bfd_monitoring(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_bfd_monitoring(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, "./enabled")) {
@@ -419,7 +320,7 @@ DEFPY_YANG(net, net_cmd, "[no] net WORD",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_area_address(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_area_address(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " net %s\n", yang_dnode_get_string(dnode, NULL));
@@ -454,7 +355,7 @@ DEFPY_YANG(no_is_type, no_is_type_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_is_type(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_is_type(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	int is_type = yang_dnode_get_enum(dnode, NULL);
@@ -486,7 +387,8 @@ DEFPY_YANG(dynamic_hostname, dynamic_hostname_cmd, "[no] hostname dynamic",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_dynamic_hostname(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_dynamic_hostname(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -508,7 +410,7 @@ DEFPY_YANG(set_overload_bit, set_overload_bit_cmd, "[no] set-overload-bit",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_overload(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_overload(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -547,7 +449,7 @@ DEFPY_YANG(attached_bit_send, attached_bit_send_cmd, "[no] attached-bit send",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_attached_send(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_attached_send(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -572,7 +474,8 @@ DEFPY_YANG(
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_attached_receive(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_attached_receive(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -608,7 +511,7 @@ DEFPY_YANG(no_metric_style, no_metric_style_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_metric_style(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_metric_style(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	int metric = yang_dnode_get_enum(dnode, NULL);
@@ -651,7 +554,7 @@ DEFPY_YANG(area_passwd, area_passwd_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_area_pwd(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_area_pwd(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults)
 {
 	const char *snp;
@@ -701,7 +604,7 @@ DEFPY_YANG(no_area_passwd, no_area_passwd_cmd,
 	return nb_cli_apply_changes(vty, "./%s", cmd);
 }
 
-void cli_show_isis_domain_pwd(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_domain_pwd(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *snp;
@@ -926,7 +829,7 @@ DEFPY_YANG(no_lsp_timers, no_lsp_timers_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_lsp_timers(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_lsp_timers(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *l1_refresh =
@@ -978,7 +881,7 @@ DEFPY_YANG(no_area_lsp_mtu, no_area_lsp_mtu_cmd, "no lsp-mtu [(128-4352)]",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_lsp_mtu(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_lsp_mtu(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, " lsp-mtu %s\n", yang_dnode_get_string(dnode, NULL));
@@ -1022,7 +925,8 @@ DEFPY_YANG(no_spf_interval, no_spf_interval_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_spf_min_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_spf_min_interval(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -1090,7 +994,8 @@ DEFPY_YANG(no_spf_delay_ietf, no_spf_delay_ietf_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_spf_ietf_backoff(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	vty_out(vty,
@@ -1106,7 +1011,7 @@ void cli_show_isis_spf_ietf_backoff(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/spf/prefix-priorities/medium/access-list-name
  */
 DEFPY_YANG(spf_prefix_priority, spf_prefix_priority_cmd,
-      "spf prefix-priority <critical|high|medium>$priority WORD$acl_name",
+      "spf prefix-priority <critical|high|medium>$priority ACCESSLIST_NAME$acl_name",
       "SPF configuration\n"
       "Configure a prefix priority list\n"
       "Specify critical priority prefixes\n"
@@ -1124,7 +1029,7 @@ DEFPY_YANG(spf_prefix_priority, spf_prefix_priority_cmd,
 }
 
 DEFPY_YANG(no_spf_prefix_priority, no_spf_prefix_priority_cmd,
-      "no spf prefix-priority <critical|high|medium>$priority [WORD]",
+      "no spf prefix-priority <critical|high|medium>$priority [ACCESSLIST_NAME]",
       NO_STR
       "SPF configuration\n"
       "Configure a prefix priority list\n"
@@ -1142,7 +1047,8 @@ DEFPY_YANG(no_spf_prefix_priority, no_spf_prefix_priority_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_spf_prefix_priority(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_spf_prefix_priority(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults)
 {
 	vty_out(vty, " spf prefix-priority %s %s\n",
@@ -1162,7 +1068,7 @@ DEFPY_YANG(area_purge_originator, area_purge_originator_cmd, "[no] purge-origina
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_purge_origin(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_purge_origin(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -1193,7 +1099,7 @@ DEFPY_YANG(no_isis_mpls_te_on, no_isis_mpls_te_on_cmd, "no mpls-te [on]",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_mpls_te(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_te(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults)
 {
 	vty_out(vty, " mpls-te on\n");
@@ -1226,10 +1132,48 @@ DEFPY_YANG(no_isis_mpls_te_router_addr, no_isis_mpls_te_router_addr_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_mpls_te_router_addr(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_te_router_addr(struct vty *vty,
+				       const struct lyd_node *dnode,
 				       bool show_defaults)
 {
 	vty_out(vty, " mpls-te router-address %s\n",
+		yang_dnode_get_string(dnode, NULL));
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/router-address-v6
+ */
+DEFPY_YANG(isis_mpls_te_router_addr_v6, isis_mpls_te_router_addr_v6_cmd,
+      "mpls-te router-address ipv6 X:X::X:X",
+      MPLS_TE_STR
+      "Stable IP address of the advertising router\n"
+      "IPv6 address\n"
+      "MPLS-TE router address in IPv6 address format\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls-te/router-address-v6", NB_OP_MODIFY,
+			      ipv6_str);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_isis_mpls_te_router_addr_v6, no_isis_mpls_te_router_addr_v6_cmd,
+      "no mpls-te router-address ipv6 [X:X::X:X]",
+      NO_STR MPLS_TE_STR
+      "Delete IP address of the advertising router\n"
+      "IPv6 address\n"
+      "MPLS-TE router address in IPv6 address format\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls-te/router-address-v6", NB_OP_DESTROY,
+			      NULL);
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_te_router_addr_ipv6(struct vty *vty,
+					    const struct lyd_node *dnode,
+					    bool show_defaults)
+{
+	vty_out(vty, " mpls-te router-address ipv6 %s\n",
 		yang_dnode_get_string(dnode, NULL));
 }
 
@@ -1243,6 +1187,36 @@ DEFPY_YANG(isis_mpls_te_inter_as, isis_mpls_te_inter_as_cmd,
 {
 	vty_out(vty, "MPLS-TE Inter-AS is not yet supported\n");
 	return CMD_SUCCESS;
+}
+
+/*
+ * XPath: /frr-isisd:isis/instance/mpls-te/export
+ */
+DEFPY_YANG(isis_mpls_te_export, isis_mpls_te_export_cmd, "mpls-te export",
+      MPLS_TE_STR "Enable export of MPLS-TE Link State information\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls-te/export", NB_OP_MODIFY, "true");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+DEFPY_YANG(no_isis_mpls_te_export, no_isis_mpls_te_export_cmd,
+      "no mpls-te export",
+      NO_STR MPLS_TE_STR
+      "Disable export of MPLS-TE  Link State information\n")
+{
+	nb_cli_enqueue_change(vty, "./mpls-te/export", NB_OP_MODIFY, "false");
+
+	return nb_cli_apply_changes(vty, NULL);
+}
+
+void cli_show_isis_mpls_te_export(struct vty *vty, const struct lyd_node *dnode,
+				  bool show_defaults)
+{
+	if (!yang_dnode_get_bool(dnode, NULL))
+		vty_out(vty, " no");
+
+	vty_out(vty, " mpls-te export\n");
 }
 
 /*
@@ -1287,7 +1261,7 @@ DEFPY_YANG(isis_default_originate, isis_default_originate_cmd,
 		level);
 }
 
-static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
+static void vty_print_def_origin(struct vty *vty, const struct lyd_node *dnode,
 				 const char *family, const char *level,
 				 bool show_defaults)
 {
@@ -1305,7 +1279,8 @@ static void vty_print_def_origin(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_def_origin_ipv4(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_def_origin_ipv4(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	const char *level = yang_dnode_get_string(dnode, "./level");
@@ -1313,7 +1288,8 @@ void cli_show_isis_def_origin_ipv4(struct vty *vty, struct lyd_node *dnode,
 	vty_print_def_origin(vty, dnode, "ipv4", level, show_defaults);
 }
 
-void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_def_origin_ipv6(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	const char *level = yang_dnode_get_string(dnode, "./level");
@@ -1325,11 +1301,14 @@ void cli_show_isis_def_origin_ipv6(struct vty *vty, struct lyd_node *dnode,
  * XPath: /frr-isisd:isis/instance/redistribute
  */
 DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
-      "[no] redistribute <ipv4|ipv6>$ip " PROTO_REDIST_STR
-      "$proto <level-1|level-2>$level [{metric (0-16777215)|route-map WORD}]",
+      "[no] redistribute <ipv4$ip " PROTO_IP_REDIST_STR "$proto|ipv6$ip "
+      PROTO_IP6_REDIST_STR "$proto> <level-1|level-2>$level"
+      "[{metric (0-16777215)|route-map WORD}]",
       NO_STR REDIST_STR
       "Redistribute IPv4 routes\n"
-      "Redistribute IPv6 routes\n" PROTO_REDIST_HELP
+      PROTO_IP_REDIST_HELP
+      "Redistribute IPv6 routes\n"
+      PROTO_IP6_REDIST_HELP
       "Redistribute into level-1\n"
       "Redistribute into level-2\n"
       "Metric for redistributed routes\n"
@@ -1353,7 +1332,8 @@ DEFPY_YANG(isis_redistribute, isis_redistribute_cmd,
 		level);
 }
 
-static void vty_print_redistribute(struct vty *vty, struct lyd_node *dnode,
+static void vty_print_redistribute(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults, const char *family)
 {
 	const char *level = yang_dnode_get_string(dnode, "./level");
@@ -1369,12 +1349,14 @@ static void vty_print_redistribute(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_redistribute_ipv4(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_redistribute_ipv4(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	vty_print_redistribute(vty, dnode, show_defaults, "ipv4");
 }
-void cli_show_isis_redistribute_ipv6(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_redistribute_ipv6(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	vty_print_redistribute(vty, dnode, show_defaults, "ipv6");
@@ -1427,7 +1409,8 @@ DEFPY_YANG(isis_topology, isis_topology_cmd,
 	return nb_cli_apply_changes(vty, base_xpath);
 }
 
-void cli_show_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv4_multicast(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	vty_out(vty, " topology ipv4-multicast");
@@ -1436,7 +1419,7 @@ void cli_show_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " topology ipv4-mgmt");
@@ -1445,7 +1428,8 @@ void cli_show_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv6_unicast(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-unicast");
@@ -1454,7 +1438,8 @@ void cli_show_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv6_multicast(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-multicast");
@@ -1463,7 +1448,7 @@ void cli_show_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-mgmt");
@@ -1472,7 +1457,7 @@ void cli_show_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mt_ipv6_dstsrc(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	vty_out(vty, " topology ipv6-dstsrc");
@@ -1509,7 +1494,7 @@ DEFPY_YANG (no_isis_sr_enable,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_sr_enabled(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_sr_enabled(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -1577,7 +1562,7 @@ DEFPY_YANG(no_isis_sr_global_block_label_range,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_label_blocks(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_label_blocks(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	vty_out(vty, " segment-routing global-block %s %s",
@@ -1663,7 +1648,7 @@ DEFPY_YANG (no_isis_sr_node_msd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_node_msd(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_node_msd(struct vty *vty, const struct lyd_node *dnode,
 			    bool show_defaults)
 {
 	vty_out(vty, " segment-routing node-msd %s\n",
@@ -1740,7 +1725,7 @@ DEFPY_YANG (no_isis_sr_prefix_sid,
 		prefix_str);
 }
 
-void cli_show_isis_prefix_sid(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_prefix_sid(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	const char *prefix;
@@ -1817,7 +1802,7 @@ DEFPY_YANG (isis_frr_lfa_priority_limit,
 }
 
 void cli_show_isis_frr_lfa_priority_limit(struct vty *vty,
-					  struct lyd_node *dnode,
+					  const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	vty_out(vty, " fast-reroute priority-limit %s %s\n",
@@ -1882,7 +1867,8 @@ DEFPY_YANG (isis_frr_lfa_tiebreaker,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_frr_lfa_tiebreaker(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	vty_out(vty, " fast-reroute lfa tiebreaker %s index %s %s\n",
@@ -1930,10 +1916,11 @@ DEFPY_YANG (isis_frr_lfa_load_sharing,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_frr_lfa_load_sharing(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_frr_lfa_load_sharing(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
-	if (!yang_dnode_get_bool(dnode, NULL))
+	if (yang_dnode_get_bool(dnode, NULL))
 		vty_out(vty, " no");
 
 	vty_out(vty, " fast-reroute load-sharing disable %s\n",
@@ -1988,7 +1975,8 @@ DEFPY_YANG (no_isis_frr_remote_lfa_plist,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_frr_remote_lfa_plist(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_frr_remote_lfa_plist(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	vty_out(vty, " fast-reroute remote-lfa prefix-list %s %s\n",
@@ -2010,7 +1998,7 @@ DEFPY_YANG(isis_passive, isis_passive_cmd, "[no] isis passive",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_passive(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_passive(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2053,7 +2041,7 @@ DEFPY_YANG(no_isis_passwd, no_isis_passwd_cmd, "no isis password [<md5|clear> WO
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_password(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_password(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	vty_out(vty, " isis password %s %s\n",
@@ -2101,7 +2089,7 @@ DEFPY_YANG(no_isis_metric, no_isis_metric_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_metric(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -2159,7 +2147,8 @@ DEFPY_YANG(no_isis_hello_interval, no_isis_hello_interval_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_hello_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_hello_interval(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -2217,7 +2206,7 @@ DEFPY_YANG(no_isis_hello_multiplier, no_isis_hello_multiplier_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_hello_multi(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_hello_multi(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -2247,7 +2236,8 @@ DEFPY_YANG(isis_threeway_adj, isis_threeway_adj_cmd, "[no] isis three-way-handsh
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_threeway_shake(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_threeway_shake(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	if (yang_dnode_get_bool(dnode, NULL))
@@ -2270,7 +2260,8 @@ DEFPY_YANG(isis_hello_padding, isis_hello_padding_cmd, "[no] isis hello padding"
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_hello_padding(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_hello_padding(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2323,7 +2314,8 @@ DEFPY_YANG(no_csnp_interval, no_csnp_interval_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_csnp_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_csnp_interval(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -2381,7 +2373,8 @@ DEFPY_YANG(no_psnp_interval, no_psnp_interval_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_psnp_interval(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_psnp_interval(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -2424,7 +2417,8 @@ DEFPY_YANG(circuit_topology, circuit_topology_cmd,
 			vty, "./frr-isisd:isis/multi-topology/%s", topology);
 }
 
-void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2432,7 +2426,8 @@ void cli_show_ip_isis_mt_ipv4_unicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv4-unicast\n");
 }
 
-void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2440,7 +2435,8 @@ void cli_show_ip_isis_mt_ipv4_multicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv4-multicast\n");
 }
 
-void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2448,7 +2444,8 @@ void cli_show_ip_isis_mt_ipv4_mgmt(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv4-mgmt\n");
 }
 
-void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty,
+				      const struct lyd_node *dnode,
 				      bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2456,7 +2453,8 @@ void cli_show_ip_isis_mt_ipv6_unicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv6-unicast\n");
 }
 
-void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2464,7 +2462,8 @@ void cli_show_ip_isis_mt_ipv6_multicast(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv6-multicast\n");
 }
 
-void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2472,7 +2471,8 @@ void cli_show_ip_isis_mt_ipv6_mgmt(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, " isis topology ipv6-mgmt\n");
 }
 
-void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_mt_ipv6_dstsrc(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -2507,46 +2507,13 @@ DEFPY_YANG(no_isis_circuit_type, no_isis_circuit_type_cmd,
       "Level-1-2 adjacencies are formed\n"
       "Level-2 only adjacencies are formed\n")
 {
-	char inst_xpath[XPATH_MAXLEN];
-	struct lyd_node *if_dnode, *inst_dnode;
-	const char *vrf_name;
-	const char *tag;
-	const char *circ_type = NULL;
-
-	/*
-	 * Default value depends on whether the circuit is part of an area,
-	 * and the is-type of the area if there is one. So we need to do this
-	 * here.
-	 */
-	if_dnode = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (!if_dnode) {
-		vty_out(vty, "%% Failed to get iface dnode in candidate DB\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	if (!yang_dnode_exists(if_dnode, "frr-isisd:isis/area-tag")) {
-		vty_out(vty, "%% ISIS is not configured on the interface\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
-
-	vrf_name = yang_dnode_get_string(if_dnode, "vrf");
-	tag = yang_dnode_get_string(if_dnode, "frr-isisd:isis/area-tag");
-
-	snprintf(inst_xpath, XPATH_MAXLEN,
-		 "/frr-isisd:isis/instance[area-tag='%s'][vrf='%s']", tag,
-		 vrf_name);
-
-	inst_dnode = yang_dnode_get(vty->candidate_config->dnode, inst_xpath);
-	if (inst_dnode)
-		circ_type = yang_dnode_get_string(inst_dnode, "is-type");
-
 	nb_cli_enqueue_change(vty, "./frr-isisd:isis/circuit-type",
-			      NB_OP_MODIFY, circ_type);
+			      NB_OP_MODIFY, NULL);
 
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_circ_type(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_circ_type(struct vty *vty, const struct lyd_node *dnode,
 				bool show_defaults)
 {
 	int level = yang_dnode_get_enum(dnode, NULL);
@@ -2580,7 +2547,8 @@ DEFPY_YANG(isis_network, isis_network_cmd, "[no] isis network point-to-point",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_network_type(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_network_type(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults)
 {
 	if (yang_dnode_get_enum(dnode, NULL) != CIRCUIT_T_P2P)
@@ -2629,7 +2597,7 @@ DEFPY_YANG(no_isis_priority, no_isis_priority_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_priority(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults)
 {
 	const char *l1 = yang_dnode_get_string(dnode, "./level-1");
@@ -2646,7 +2614,7 @@ void cli_show_ip_isis_priority(struct vty *vty, struct lyd_node *dnode,
 /*
  * XPath: /frr-interface:lib/interface/frr-isisd:isis/fast-reroute
  */
-void cli_show_ip_isis_frr(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_isis_frr(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults)
 {
 	bool l1_enabled, l2_enabled;
@@ -2824,7 +2792,8 @@ DEFPY(isis_lfa_exclude_interface, isis_lfa_exclude_interface_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_frr_lfa_exclude_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_frr_lfa_exclude_interface(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	vty_out(vty, " isis fast-reroute lfa %s exclude interface %s\n",
@@ -2922,7 +2891,8 @@ DEFPY(isis_remote_lfa_max_metric, isis_remote_lfa_max_metric_cmd,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_frr_remote_lfa_max_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_frr_remote_lfa_max_metric(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults)
 {
 	vty_out(vty, " isis fast-reroute remote-lfa maximum-metric %s %s\n",
@@ -3020,7 +2990,7 @@ DEFPY_YANG(log_adj_changes, log_adj_changes_cmd, "[no] log-adjacency-changes",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_log_adjacency(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_log_adjacency(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -3047,7 +3017,7 @@ DEFPY(no_isis_mpls_ldp_sync, no_isis_mpls_ldp_sync_cmd, "no mpls ldp-sync",
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-void cli_show_isis_mpls_ldp_sync(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_ldp_sync(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults)
 {
 	vty_out(vty, " mpls ldp-sync\n");
@@ -3076,7 +3046,7 @@ DEFPY(no_isis_mpls_ldp_sync_holddown, no_isis_mpls_ldp_sync_holddown_cmd,
 }
 
 void cli_show_isis_mpls_ldp_sync_holddown(struct vty *vty,
-					  struct lyd_node *dnode,
+					  const struct lyd_node *dnode,
 					  bool show_defaults)
 {
 	vty_out(vty, " mpls ldp-sync holddown %s\n",
@@ -3106,7 +3076,8 @@ DEFPY(isis_mpls_if_ldp_sync, isis_mpls_if_ldp_sync_cmd,
 }
 
 
-void cli_show_isis_mpls_if_ldp_sync(struct vty *vty, struct lyd_node *dnode,
+void cli_show_isis_mpls_if_ldp_sync(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults)
 {
 	if (!yang_dnode_get_bool(dnode, NULL))
@@ -3157,7 +3128,7 @@ DEFPY(no_isis_mpls_if_ldp_sync_holddown, no_isis_mpls_if_ldp_sync_holddown_cmd,
 }
 
 void cli_show_isis_mpls_if_ldp_sync_holddown(struct vty *vty,
-					     struct lyd_node *dnode,
+					     const struct lyd_node *dnode,
 					     bool show_defaults)
 {
 	vty_out(vty, " isis mpls ldp-sync holddown %s\n",
@@ -3221,7 +3192,11 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_mpls_te_on_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_router_addr_cmd);
 	install_element(ISIS_NODE, &no_isis_mpls_te_router_addr_cmd);
+	install_element(ISIS_NODE, &isis_mpls_te_router_addr_v6_cmd);
+	install_element(ISIS_NODE, &no_isis_mpls_te_router_addr_v6_cmd);
 	install_element(ISIS_NODE, &isis_mpls_te_inter_as_cmd);
+	install_element(ISIS_NODE, &isis_mpls_te_export_cmd);
+	install_element(ISIS_NODE, &no_isis_mpls_te_export_cmd);
 
 	install_element(ISIS_NODE, &isis_default_originate_cmd);
 	install_element(ISIS_NODE, &isis_redistribute_cmd);

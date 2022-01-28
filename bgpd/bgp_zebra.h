@@ -23,6 +23,13 @@
 
 #include "vxlan.h"
 
+/* Macro to update bgp_original based on bpg_path_info */
+#define BGP_ORIGINAL_UPDATE(_bgp_orig, _mpinfo, _bgp)                          \
+	((_mpinfo->extra && _mpinfo->extra->bgp_orig                           \
+	  && _mpinfo->sub_type == BGP_ROUTE_IMPORTED)                          \
+		 ? (_bgp_orig = _mpinfo->extra->bgp_orig)                      \
+		 : (_bgp_orig = _bgp))
+
 /* Default weight for next hop, if doing weighted ECMP. */
 #define BGP_ZEBRA_DEFAULT_NHOP_WEIGHT 1
 
@@ -114,4 +121,5 @@ extern int bgp_zebra_send_capabilities(struct bgp *bgp, bool disable);
 extern int bgp_zebra_update(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type);
 extern int bgp_zebra_stale_timer_update(struct bgp *bgp);
 extern int bgp_zebra_srv6_manager_get_locator_chunk(const char *name);
+extern int bgp_zebra_srv6_manager_release_locator_chunk(const char *name);
 #endif /* _QUAGGA_BGP_ZEBRA_H */

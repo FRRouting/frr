@@ -53,7 +53,6 @@ CHAOS_8:
 
 import os
 import sys
-import json
 import time
 import pytest
 from copy import deepcopy
@@ -70,7 +69,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import (
     step,
@@ -99,20 +97,11 @@ from lib.common_config import (
 
 from lib.topolog import logger
 from lib.bgp import clear_bgp, verify_bgp_rib, create_router_bgp, verify_bgp_convergence
-from lib.topojson import build_config_from_json, build_topo_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_multi_vrf_topo2.json".format(CWD)
-
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 NETWORK1_1 = {"ipv4": "1.1.1.1/32", "ipv6": "1::1/128"}
@@ -139,21 +128,6 @@ HOLDDOWNTIMER = 3
 PREFERRED_NEXT_HOP = "link_local"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -176,7 +150,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_multi_vrf_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -1565,7 +1542,11 @@ def test_shut_noshut_p1(request):
         sleep(HOLDDOWNTIMER + 1)
 
         result = verify_bgp_convergence(tgen, topo, expected=False)
-        assert result is not True, "Testcase {} : Failed \nExpected Behaviour: BGP will not be converged \nError {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} : Failed \nExpected Behaviour: BGP will not be converged \nError {}".format(
+            tc_name, result
+        )
 
         for addr_type in ADDR_TYPES:
             dut = "r2"
@@ -1608,10 +1589,18 @@ def test_shut_noshut_p1(request):
             }
 
             result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
-            assert result is not True, "Testcase {} : Failed \nExpected Behaviour: Routes are flushed out \nError {}".format(tc_name, result)
+            assert (
+                result is not True
+            ), "Testcase {} : Failed \nExpected Behaviour: Routes are flushed out \nError {}".format(
+                tc_name, result
+            )
 
             result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
-            assert result is not True, "Testcase {} : Failed \nExpected Behaviour: Routes are flushed out \nError {}".format(tc_name, result)
+            assert (
+                result is not True
+            ), "Testcase {} : Failed \nExpected Behaviour: Routes are flushed out \nError {}".format(
+                tc_name, result
+            )
 
         step("Bring up connecting interface between R1<<>>R2 on R1.")
         for intf in interfaces:
@@ -1850,7 +1839,9 @@ def test_vrf_vlan_routing_table_p1(request):
             result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
             assert (
                 result is not True
-            ), "Testcase {} : Failed \n Expected Behaviour: Routes are cleaned \n Error {}".format(tc_name, result)
+            ), "Testcase {} : Failed \n Expected Behaviour: Routes are cleaned \n Error {}".format(
+                tc_name, result
+            )
 
         step("Add/reconfigure the same VRF instance again")
 
@@ -3378,12 +3369,16 @@ def test_vrf_name_significance_p1(request):
         result = verify_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
+        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(
+            tc_name, result
+        )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_1, expected=False)
         assert (
             result is not True
-        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
+        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(
+            tc_name, result
+        )
 
     for addr_type in ADDR_TYPES:
         dut = "blue2"
@@ -3400,13 +3395,17 @@ def test_vrf_name_significance_p1(request):
         }
 
         result = verify_rib(tgen, addr_type, dut, input_dict_2, expected=False)
-        assert result is not True, (
-            "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(
+            tc_name, result
         )
 
         result = verify_bgp_rib(tgen, addr_type, dut, input_dict_2, expected=False)
-        assert result is not True, (
-            "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(tc_name, result)
+        assert (
+            result is not True
+        ), "Testcase {} :Failed \n Expected Behaviour: Routes are not present \n Error {}".format(
+            tc_name, result
         )
 
     step("Create 2 new VRFs PINK_A and GREY_A IN R3")

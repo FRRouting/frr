@@ -61,7 +61,6 @@ Following tests are covered:
 
 import os
 import sys
-import json
 import pytest
 import time
 
@@ -74,7 +73,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 # Import topoJson from lib, to create topology and initial configuration
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
@@ -83,7 +81,6 @@ from lib.common_config import (
     reset_config_on_routers,
     create_route_maps,
     create_bgp_community_lists,
-    create_prefix_lists,
     verify_bgp_community,
     step,
     verify_create_community_list,
@@ -95,39 +92,16 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp_and_verify
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
+
 
 pytestmark = [pytest.mark.bgpd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/bgp_large_community_topo_2.json".format(CWD)
-
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 bgp_convergence = False
 
 NETWORKS = {"ipv4": ["200.50.2.0/32"], "ipv6": ["1::1/128"]}
-
-
-class GenerateTopo(Topo):
-    """
-    Test topology builder
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -149,7 +123,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(GenerateTopo, mod.__name__)
+    json_file = "{}/bgp_large_community_topo_2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers

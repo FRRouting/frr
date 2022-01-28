@@ -27,6 +27,10 @@ extern "C" {
 
 #ifdef HAVE_NETLINK
 
+#define RTM_NHA(h)                                                             \
+	((struct rtattr *)(((char *)(h)) + NLMSG_ALIGN(sizeof(struct nhmsg))))
+
+
 #define NL_RCV_PKT_BUF_SIZE     32768
 #define NL_PKT_BUF_SIZE         8192
 
@@ -94,11 +98,11 @@ extern const char *nl_rttype_to_str(uint8_t rttype);
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 			      const struct nlsock *nl,
 			      const struct zebra_dplane_info *dp_info,
-			      int count, int startup);
+			      int count, bool startup);
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
 extern int netlink_talk(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 			struct nlmsghdr *n, struct nlsock *nl,
-			struct zebra_ns *zns, int startup);
+			struct zebra_ns *zns, bool startup);
 extern int netlink_request(struct nlsock *nl, void *req);
 
 enum netlink_msg_status {

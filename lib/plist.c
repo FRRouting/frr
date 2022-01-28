@@ -1010,7 +1010,6 @@ static void vty_show_prefix_entry(struct vty *vty, json_object *json, afi_t afi,
 
 			if (json) {
 				json_object *json_entry;
-				char buf[BUFSIZ];
 
 				json_entry = json_object_new_object();
 				json_object_array_add(json_entries, json_entry);
@@ -1021,10 +1020,9 @@ static void vty_show_prefix_entry(struct vty *vty, json_object *json, afi_t afi,
 				json_object_string_add(
 					json_entry, "type",
 					prefix_list_type_str(pentry));
-				json_object_string_add(
-					json_entry, "prefix",
-					prefix2str(&pentry->prefix, buf,
-						   sizeof(buf)));
+				json_object_string_addf(json_entry, "prefix",
+							"%pFX",
+							&pentry->prefix);
 
 				if (pentry->ge)
 					json_object_int_add(
@@ -1127,14 +1125,7 @@ static int vty_show_prefix_list(struct vty *vty, afi_t afi, const char *name,
 					      master, dtype, seqnum);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 static int vty_show_prefix_list_prefix(struct vty *vty, afi_t afi,
@@ -1489,9 +1480,9 @@ int prefix_bgp_orf_set(char *name, afi_t afi, struct orf_prefix *orfp,
 	struct prefix_list_entry *pentry;
 
 	/* ge and le value check */
-	if (orfp->ge && orfp->ge <= orfp->p.prefixlen)
+	if (orfp->ge && orfp->ge < orfp->p.prefixlen)
 		return CMD_WARNING_CONFIG_FAILED;
-	if (orfp->le && orfp->le <= orfp->p.prefixlen)
+	if (orfp->le && orfp->le < orfp->p.prefixlen)
 		return CMD_WARNING_CONFIG_FAILED;
 	if (orfp->le && orfp->ge > orfp->le)
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1592,9 +1583,7 @@ int prefix_bgp_show_prefix_list(struct vty *vty, afi_t afi, char *name,
 			json_object_object_add(json, "ipv6PrefixList",
 					       json_prefix);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		vty_out(vty, "ip%s prefix-list %s: %d entries\n",
 			afi == AFI_IP ? "" : "v6", plist->name, plist->count);
@@ -1667,6 +1656,8 @@ static void plist_autocomplete(vector comps, struct cmd_token *token)
 static const struct cmd_variable_handler plist_var_handlers[] = {
 	{/* "prefix-list WORD" */
 	 .varname = "prefix_list",
+	 .completions = plist_autocomplete},
+	{.tokenname = "PREFIXLIST_NAME",
 	 .completions = plist_autocomplete},
 	{.completions = NULL}};
 

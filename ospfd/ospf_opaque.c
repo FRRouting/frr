@@ -274,7 +274,8 @@ struct ospf_opaque_functab {
 	void (*config_write_router)(struct vty *vty);
 	void (*config_write_if)(struct vty *vty, struct interface *ifp);
 	void (*config_write_debug)(struct vty *vty);
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa);
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa);
 	int (*lsa_originator)(void *arg);
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa);
 	int (*new_lsa_hook)(struct ospf_lsa *lsa);
@@ -373,7 +374,8 @@ int ospf_register_opaque_functab(
 	void (*config_write_router)(struct vty *vty),
 	void (*config_write_if)(struct vty *vty, struct interface *ifp),
 	void (*config_write_debug)(struct vty *vty),
-	void (*show_opaque_info)(struct vty *vty, struct ospf_lsa *lsa),
+	void (*show_opaque_info)(struct vty *vty, struct json_object *json,
+				 struct ospf_lsa *lsa),
 	int (*lsa_originator)(void *arg),
 	struct ospf_lsa *(*lsa_refresher)(struct ospf_lsa *lsa),
 	int (*new_lsa_hook)(struct ospf_lsa *lsa),
@@ -578,7 +580,6 @@ register_opaque_info_per_type(struct ospf_opaque_functab *functab,
 	oipt->lsa_type = new->data->type;
 	oipt->opaque_type = GET_OPAQUE_TYPE(ntohl(new->data->id.s_addr));
 	oipt->status = PROC_NORMAL;
-	oipt->t_opaque_lsa_self = NULL;
 	oipt->functab = functab;
 	functab->oipt = oipt;
 	oipt->id_list = list_new();
@@ -703,7 +704,6 @@ register_opaque_info_per_id(struct opaque_info_per_type *oipt,
 		       sizeof(struct opaque_info_per_id));
 
 	oipi->opaque_id = GET_OPAQUE_ID(ntohl(new->data->id.s_addr));
-	oipi->t_opaque_lsa_self = NULL;
 	oipi->opqctl_type = oipt;
 	oipi->lsa = ospf_lsa_lock(new);
 
@@ -1182,6 +1182,16 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 				VALID_OPAQUE_INFO_LEN(lsah)
 					? ""
 					: "(Invalid length?)");
+		} else {
+			json_object_string_add(
+				json, "opaqueType",
+				ospf_opaque_type_name(opaque_type));
+			json_object_int_add(json, "opaqueId", opaque_id);
+			json_object_int_add(json, "opaqueDataLength",
+					    ntohs(lsah->length)
+						    - OSPF_LSA_HEADER_SIZE);
+			json_object_boolean_add(json, "opaqueDataLengthValid",
+						VALID_OPAQUE_INFO_LEN(lsah));
 		}
 	} else {
 		zlog_debug("    Opaque-Type %u (%s)", opaque_type,
@@ -1197,7 +1207,7 @@ void show_opaque_info_detail(struct vty *vty, struct ospf_lsa *lsa,
 	/* Call individual output functions. */
 	if ((functab = ospf_opaque_functab_lookup(lsa)) != NULL)
 		if (functab->show_opaque_info != NULL)
-			(*functab->show_opaque_info)(vty, lsa);
+			(*functab->show_opaque_info)(vty, json, lsa);
 
 	return;
 }
@@ -1845,7 +1855,6 @@ static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 	int rc = -1;
 
 	oipt = THREAD_ARG(t);
-	oipt->t_opaque_lsa_self = NULL;
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -1897,7 +1906,6 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 	int n, rc = -1;
 
 	oipt = THREAD_ARG(t);
-	oipt->t_opaque_lsa_self = NULL;
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -1951,7 +1959,6 @@ static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
 	int rc = -1;
 
 	oipt = THREAD_ARG(t);
-	oipt->t_opaque_lsa_self = NULL;
 
 	if ((functab = oipt->functab) == NULL
 	    || functab->lsa_originator == NULL) {
@@ -2067,7 +2074,6 @@ static int ospf_opaque_lsa_refresh_timer(struct thread *t)
 		zlog_debug("Timer[Opaque-LSA]: (Opaque-LSA Refresh expire)");
 
 	oipi = THREAD_ARG(t);
-	oipi->t_opaque_lsa_self = NULL;
 
 	if ((lsa = oipi->lsa) != NULL)
 		if ((functab = oipi->opqctl_type->functab) != NULL)

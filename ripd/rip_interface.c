@@ -317,14 +317,12 @@ static int rip_ifp_down(struct interface *ifp)
 	rip_interface_sync(ifp);
 	rip_if_down(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface %s vrf %s(%u) index %d flags %llx metric %d mtu %d is down",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	return 0;
 }
@@ -332,14 +330,12 @@ static int rip_ifp_down(struct interface *ifp)
 /* Inteface link up message processing */
 static int rip_ifp_up(struct interface *ifp)
 {
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface %s vrf %s(%u) index %d flags %#llx metric %d mtu %d is up",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	rip_interface_sync(ifp);
 
@@ -360,13 +356,12 @@ static int rip_ifp_create(struct interface *ifp)
 {
 	rip_interface_sync(ifp);
 
-	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
+	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface add %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
-	}
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	/* Check if this interface is RIP enabled or not.*/
 	rip_enable_apply(ifp);
@@ -387,8 +382,6 @@ static int rip_ifp_create(struct interface *ifp)
 
 static int rip_ifp_destroy(struct interface *ifp)
 {
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 	rip_interface_sync(ifp);
 	if (if_is_up(ifp)) {
 		rip_if_down(ifp);
@@ -397,8 +390,9 @@ static int rip_ifp_destroy(struct interface *ifp)
 	if (IS_RIP_DEBUG_ZEBRA)
 		zlog_debug(
 			"interface delete %s vrf %s(%u) index %d flags %#llx metric %d mtu %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->vrf_id, ifp->ifindex,
-			(unsigned long long)ifp->flags, ifp->metric, ifp->mtu);
+			ifp->name, ifp->vrf->name, ifp->vrf->vrf_id,
+			ifp->ifindex, (unsigned long long)ifp->flags,
+			ifp->metric, ifp->mtu);
 
 	return 0;
 }
@@ -415,12 +409,11 @@ int rip_interface_vrf_update(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (IS_RIP_DEBUG_ZEBRA) {
-		struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 		struct vrf *nvrf = vrf_lookup_by_id(new_vrf_id);
 
 		zlog_debug("interface %s VRF change vrf %s(%u) new vrf %s(%u)",
-			   ifp->name, VRF_LOGNAME(vrf), vrf_id,
-			   VRF_LOGNAME(nvrf), new_vrf_id);
+			   ifp->name, ifp->vrf->name, vrf_id, VRF_LOGNAME(nvrf),
+			   new_vrf_id);
 	}
 
 	if_update_to_new_vrf(ifp, new_vrf_id);
@@ -805,7 +798,6 @@ static int rip_interface_wakeup(struct thread *t)
 	ifp = THREAD_ARG(t);
 
 	ri = ifp->info;
-	ri->t_wakeup = NULL;
 
 	/* Join to multicast group. */
 	if (rip_multicast_join(ifp, ri->rip->sock) < 0) {
@@ -1104,33 +1096,6 @@ void rip_passive_nondefault_clean(struct rip *rip)
 	rip_passive_interface_apply_all(rip);
 }
 
-/* Write rip configuration of each interface. */
-static int rip_interface_config_write(struct vty *vty)
-{
-	struct vrf *vrf;
-	int write = 0;
-
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		struct interface *ifp;
-
-		FOR_ALL_INTERFACES (vrf, ifp) {
-			struct lyd_node *dnode;
-
-			dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-interface:lib/interface[name='%s'][vrf='%s']",
-				ifp->name, vrf->name);
-			if (dnode == NULL)
-				continue;
-
-			write = 1;
-			nb_cli_show_dnode_cmds(vty, dnode, false);
-		}
-	}
-
-	return write;
-}
-
 int rip_show_network_config(struct vty *vty, struct rip *rip)
 {
 	unsigned int i;
@@ -1158,16 +1123,11 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 
 void rip_interface_sync(struct interface *ifp)
 {
-	struct vrf *vrf;
+	struct rip_interface *ri;
 
-	vrf = vrf_lookup_by_id(ifp->vrf_id);
-	if (vrf) {
-		struct rip_interface *ri;
-
-		ri = ifp->info;
-		if (ri)
-			ri->rip = vrf->info;
-	}
+	ri = ifp->info;
+	if (ri)
+		ri->rip = ifp->vrf->info;
 }
 
 /* Called when interface structure allocated. */
@@ -1195,7 +1155,7 @@ void rip_if_init(void)
 	hook_register_prio(if_del, 0, rip_interface_delete_hook);
 
 	/* Install interface node. */
-	if_cmd_init(rip_interface_config_write);
+	if_cmd_init_default();
 	if_zapi_callbacks(rip_ifp_create, rip_ifp_up,
 			  rip_ifp_down, rip_ifp_destroy);
 }

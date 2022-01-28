@@ -2480,10 +2480,6 @@ ospf_router_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
 	return new;
 }
 
-#define OSPF_INTERFACE_TIMER_ON(T, F, V)                                       \
-	if (!(T))                                                              \
-	(T) = thread_add_timer(master, (F), oi, (V))
-
 /* Install network-LSA to an area. */
 static struct ospf_lsa *ospf_network_lsa_install(struct ospf *ospf,
 						 struct ospf_interface *oi,
@@ -2696,7 +2692,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 	/* Do comparision and record if recalc needed. */
 	rt_recalc = 0;
-	if (old == NULL || ospf_lsa_different(old, lsa)) {
+	if (old == NULL || ospf_lsa_different(old, lsa, false)) {
 		/* Ref rfc3623 section 3.2.3
 		 * Installing new lsa or change in the existing LSA
 		 * or flushing existing LSA leads to topo change
@@ -2704,7 +2700,9 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		 * So, router should be aborted from HELPER role
 		 * if it is detected as TOPO  change.
 		 */
-		if (CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type))
+		if (ospf->active_restarter_cnt
+		    && CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type)
+		    && ospf_lsa_different(old, lsa, true))
 			ospf_helper_handle_topo_chg(ospf, lsa);
 
 		rt_recalc = 1;
@@ -2952,6 +2950,32 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 			      ospf->maxage_delay);
 
 	return 0;
+}
+
+/* This function checks whether an LSA with initial sequence number should be
+ *  originated after a wrap in sequence number
+ */
+void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
+				     struct ospf_lsa *recv_lsa)
+{
+	struct ospf_lsa *lsa = NULL;
+	struct ospf *ospf = oi->ospf;
+
+	lsa = ospf_lsa_lookup_by_header(oi->area, recv_lsa->data);
+
+	if ((lsa == NULL) || (!CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE))
+	    || (lsa->retransmit_counter != 0)) {
+		if (IS_DEBUG_OSPF(lsa, LSA))
+			zlog_debug(
+				"Do not generate LSA with initial seqence number.");
+		return;
+	}
+
+	ospf_lsa_maxage_delete(ospf, lsa);
+
+	lsa->data->ls_seqnum = lsa_seqnum_increment(lsa);
+
+	ospf_lsa_refresh(ospf, lsa);
 }
 
 void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
@@ -3280,8 +3304,25 @@ int ospf_lsa_more_recent(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	return 0;
 }
 
-/* If two LSAs are different, return 1, otherwise return 0. */
-int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
+/*
+ * Check if two LSAs are different.
+ *
+ * l1
+ *    The first LSA to compare.
+ *
+ * l2
+ *    The second LSA to compare.
+ *
+ * ignore_rcvd_flag
+ *    When set to true, ignore whether the LSAs were received from the network
+ *    or not. This parameter should be set to true when checking for topology
+ *    changes as part of the Graceful Restart helper neighbor procedures.
+ *
+ * Returns:
+ *    true if the LSAs are different, false otherwise.
+ */
+int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2,
+		       bool ignore_rcvd_flag)
 {
 	char *p1, *p2;
 	assert(l1);
@@ -3304,7 +3345,8 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	if (l1->size == 0)
 		return 1;
 
-	if (CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
+	if (!ignore_rcvd_flag
+	    && CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
 	assert(l1->size > OSPF_LSA_HEADER_SIZE);

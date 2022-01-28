@@ -99,7 +99,7 @@ static struct zebra_vrf *rtadv_interface_get_zvrf(const struct interface *ifp)
 	if (!vrf_is_backend_netns())
 		return vrf_info_lookup(VRF_DEFAULT);
 
-	return vrf_info_lookup(ifp->vrf_id);
+	return ifp->vrf->info;
 }
 
 static int rtadv_increment_received(struct zebra_vrf *zvrf, ifindex_t *ifindex)
@@ -210,12 +210,9 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 	}
 
 	/* Logging of packet. */
-	if (IS_ZEBRA_DEBUG_PACKET) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s(%s:%u): Tx RA, socket %u", ifp->name,
-			   VRF_LOGNAME(vrf), ifp->ifindex, sock);
-	}
+			   ifp->vrf->name, ifp->ifindex, sock);
 
 	/* Fill in sockaddr_in6. */
 	memset(&addr, 0, sizeof(struct sockaddr_in6));
@@ -387,11 +384,9 @@ static void rtadv_send_packet(int sock, struct interface *ifp,
 			sizeof(struct nd_opt_rdnss) + sizeof(struct in6_addr);
 
 		if (len + opt_len > max_len) {
-			struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 			zlog_warn(
 				"%s(%s:%u): Tx RA: RDNSS option would exceed MTU, omitting it",
-				ifp->name, VRF_LOGNAME(vrf), ifp->ifindex);
+				ifp->name, ifp->vrf->name, ifp->ifindex);
 			goto no_more_opts;
 		}
 		struct nd_opt_rdnss *opt = (struct nd_opt_rdnss *)(buf + len);
@@ -493,10 +488,9 @@ static int rtadv_timer(struct thread *thread)
 
 	RB_FOREACH (vrf, vrf_id_head, &vrfs_by_id)
 		FOR_ALL_INTERFACES (vrf, ifp) {
-			if (if_is_loopback(ifp)
-			    || CHECK_FLAG(ifp->status,
-					  ZEBRA_INTERFACE_VRF_LOOPBACK)
-			    || !if_is_operative(ifp))
+			if (if_is_loopback(ifp) || !if_is_operative(ifp)
+			    || (vrf_is_backend_netns()
+				&& ifp->vrf->vrf_id != zvrf->vrf->vrf_id))
 				continue;
 
 			zif = ifp->info;
@@ -511,17 +505,12 @@ static int rtadv_timer(struct thread *thread)
 					    <= 0)
 						zif->rtadv.inFastRexmit = 0;
 
-					if (IS_ZEBRA_DEBUG_SEND) {
-						struct vrf *vrf =
-							vrf_lookup_by_id(
-								ifp->vrf_id);
-
+					if (IS_ZEBRA_DEBUG_SEND)
 						zlog_debug(
 							"Fast RA Rexmit on interface %s(%s:%u)",
 							ifp->name,
-							VRF_LOGNAME(vrf),
+							ifp->vrf->name,
 							ifp->ifindex);
-					}
 
 					rtadv_send_packet(zvrf->rtadv.sock, ifp,
 							  RA_ENABLE);
@@ -621,14 +610,11 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 	inet_ntop(AF_INET6, &addr->sin6_addr, addr_str, INET6_ADDRSTRLEN);
 
 	if (len < sizeof(struct nd_router_advert)) {
-		if (IS_ZEBRA_DEBUG_PACKET) {
-			struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug(
 				"%s(%s:%u): Rx RA with invalid length %d from %s",
-				ifp->name, VRF_LOGNAME(vrf), ifp->ifindex, len,
+				ifp->name, ifp->vrf->name, ifp->ifindex, len,
 				addr_str);
-		}
 		return;
 	}
 
@@ -636,14 +622,11 @@ static void rtadv_process_advert(uint8_t *msg, unsigned int len,
 		rtadv_process_optional(msg + sizeof(struct nd_router_advert),
 				       len - sizeof(struct nd_router_advert),
 				       ifp, addr);
-		if (IS_ZEBRA_DEBUG_PACKET) {
-			struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+		if (IS_ZEBRA_DEBUG_PACKET)
 			zlog_debug(
 				"%s(%s:%u): Rx RA with non-linklocal source address from %s",
-				ifp->name, VRF_LOGNAME(vrf), ifp->ifindex,
+				ifp->name, ifp->vrf->name, ifp->ifindex,
 				addr_str);
-		}
 		return;
 	}
 
@@ -721,15 +704,11 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 		return;
 	}
 
-	if (IS_ZEBRA_DEBUG_PACKET) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_ZEBRA_DEBUG_PACKET)
 		zlog_debug("%s(%s:%u): Rx RA/RS len %d from %s", ifp->name,
-			   VRF_LOGNAME(vrf), ifp->ifindex, len, addr_str);
-	}
+			   ifp->vrf->name, ifp->ifindex, len, addr_str);
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))
+	if (if_is_loopback(ifp))
 		return;
 
 	/* Check interface configuration. */
@@ -739,11 +718,9 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 
 	/* ICMP message length check. */
 	if (len < sizeof(struct icmp6_hdr)) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 		zlog_debug(
 			"%s(%s:%u): Rx RA with Invalid ICMPV6 packet length %d",
-			ifp->name, VRF_LOGNAME(vrf), ifp->ifindex, len);
+			ifp->name, ifp->vrf->name, ifp->ifindex, len);
 		return;
 	}
 
@@ -752,20 +729,16 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	/* ICMP message type check. */
 	if (icmph->icmp6_type != ND_ROUTER_SOLICIT
 	    && icmph->icmp6_type != ND_ROUTER_ADVERT) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 		zlog_debug("%s(%s:%u): Rx RA - Unwanted ICMPV6 message type %d",
-			   ifp->name, VRF_LOGNAME(vrf), ifp->ifindex,
+			   ifp->name, ifp->vrf->name, ifp->ifindex,
 			   icmph->icmp6_type);
 		return;
 	}
 
 	/* Hoplimit check. */
 	if (hoplimit >= 0 && hoplimit != 255) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
 		zlog_debug("%s(%s:%u): Rx RA - Invalid hoplimit %d", ifp->name,
-			   VRF_LOGNAME(vrf), ifp->ifindex, hoplimit);
+			   ifp->vrf->name, ifp->ifindex, hoplimit);
 		return;
 	}
 
@@ -1298,14 +1271,12 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 			  zebra_route_string(client->proto));
 		return;
 	}
-	if (vrf_is_backend_netns() && ifp->vrf_id != zvrf_id(zvrf)) {
-		struct vrf *vrf = zvrf->vrf;
-
+	if (vrf_is_backend_netns() && ifp->vrf->vrf_id != zvrf_id(zvrf)) {
 		zlog_debug(
 			"%s:%u: IF %u RA %s client %s - VRF mismatch, IF VRF %u",
-			VRF_LOGNAME(vrf), zvrf_id(zvrf), ifindex,
+			ifp->vrf->name, zvrf_id(zvrf), ifindex,
 			enable ? "enable" : "disable",
-			zebra_route_string(client->proto), ifp->vrf_id);
+			zebra_route_string(client->proto), ifp->vrf->vrf_id);
 		return;
 	}
 
@@ -1465,8 +1436,7 @@ DEFUN (ipv6_nd_ra_fast_retrans,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this  interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1488,8 +1458,7 @@ DEFUN (no_ipv6_nd_ra_fast_retrans,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this  interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1511,8 +1480,7 @@ DEFPY (ipv6_nd_ra_hop_limit,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1535,8 +1503,7 @@ DEFPY (no_ipv6_nd_ra_hop_limit,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1558,8 +1525,7 @@ DEFPY (ipv6_nd_ra_retrans_interval,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on loopback interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1582,8 +1548,7 @@ DEFPY (no_ipv6_nd_ra_retrans_interval,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot remove IPv6 Router Advertisements on loopback interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1604,8 +1569,7 @@ DEFUN (ipv6_nd_suppress_ra,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this  interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -1629,8 +1593,7 @@ DEFUN (no_ipv6_nd_suppress_ra,
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	struct zebra_if *zif = ifp->info;
 
-	if (if_is_loopback(ifp)
-	    || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK)) {
+	if (if_is_loopback(ifp)) {
 		vty_out(vty,
 			"Cannot configure IPv6 Router Advertisements on this interface\n");
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2619,8 +2582,7 @@ static int rtadv_config_write(struct vty *vty, struct interface *ifp)
 
 	zif = ifp->info;
 
-	if (!(if_is_loopback(ifp)
-	      || CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK))) {
+	if (!if_is_loopback(ifp)) {
 		if (zif->rtadv.AdvSendAdvertisements
 		    && CHECK_FLAG(zif->rtadv.ra_configured, VTY_RA_CONFIGURED))
 			vty_out(vty, " no ipv6 nd suppress-ra\n");
@@ -2868,13 +2830,10 @@ static int if_join_all_router(int sock, struct interface *ifp)
 			     ifp->name, ifp->ifindex, sock,
 			     safe_strerror(errno));
 
-	if (IS_ZEBRA_DEBUG_EVENT) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
 			"%s(%s:%u): Join All-Routers multicast group, socket %u",
-			ifp->name, VRF_LOGNAME(vrf), ifp->ifindex, sock);
-	}
+			ifp->name, ifp->vrf->name, ifp->ifindex, sock);
 
 	return 0;
 }
@@ -2891,22 +2850,18 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 
 	ret = setsockopt(sock, IPPROTO_IPV6, IPV6_LEAVE_GROUP, (char *)&mreq,
 			 sizeof(mreq));
-	if (ret < 0) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
+	if (ret < 0)
 		flog_err_sys(
 			EC_LIB_SOCKET,
 			"%s(%s:%u): Failed to leave group, socket %u error %s",
-			ifp->name, VRF_LOGNAME(vrf), ifp->ifindex, sock,
+			ifp->name, ifp->vrf->name, ifp->ifindex, sock,
 			safe_strerror(errno));
-	}
-	if (IS_ZEBRA_DEBUG_EVENT) {
-		struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 
+	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
 			"%s(%s:%u): Leave All-Routers multicast group, socket %u",
-			ifp->name, VRF_LOGNAME(vrf), ifp->ifindex, sock);
-	}
+			ifp->name, ifp->vrf->name, ifp->ifindex, sock);
+
 	return 0;
 }
 

@@ -73,8 +73,7 @@ static void connected_announce(struct interface *ifp, struct connected *ifc)
 	if (!ifc)
 		return;
 
-	if (!if_is_loopback(ifp) && ifc->address->family == AF_INET &&
-	    !IS_ZEBRA_IF_VRF(ifp)) {
+	if (!if_is_loopback(ifp) && ifc->address->family == AF_INET) {
 		if (ifc->address->prefixlen == IPV4_MAX_BITLEN)
 			SET_FLAG(ifc->flags, ZEBRA_IFA_UNNUMBERED);
 		else
@@ -202,7 +201,7 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = ifp->vrf_id,
+		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t metric;
@@ -211,12 +210,12 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 	struct listnode *cnode;
 	struct connected *c;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Up for interface but no associated zvrf: %d",
-			__func__, ifp->vrf_id);
+			"%s: Received Up for interface but no associated zvrf: %s(%d)",
+			__func__, ifp->vrf->name, ifp->vrf->vrf_id);
 		return;
 	}
 	if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
@@ -307,9 +306,10 @@ void connected_up(struct interface *ifp, struct connected *ifc)
 }
 
 /* Add connected IPv4 route to the interface. */
-void connected_add_ipv4(struct interface *ifp, int flags, struct in_addr *addr,
-			uint16_t prefixlen, struct in_addr *dest,
-			const char *label, uint32_t metric)
+void connected_add_ipv4(struct interface *ifp, int flags,
+			const struct in_addr *addr, uint16_t prefixlen,
+			const struct in_addr *dest, const char *label,
+			uint32_t metric)
 {
 	struct prefix_ipv4 *p;
 	struct connected *ifc;
@@ -381,19 +381,19 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	struct nexthop nh = {
 		.type = NEXTHOP_TYPE_IFINDEX,
 		.ifindex = ifp->ifindex,
-		.vrf_id = ifp->vrf_id,
+		.vrf_id = ifp->vrf->vrf_id,
 	};
 	struct zebra_vrf *zvrf;
 	uint32_t count = 0;
 	struct listnode *cnode;
 	struct connected *c;
 
-	zvrf = zebra_vrf_lookup_by_id(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	if (!zvrf) {
 		flog_err(
 			EC_ZEBRA_VRF_NOT_FOUND,
-			"%s: Received Down for interface but no associated zvrf: %d",
-			__func__, ifp->vrf_id);
+			"%s: Received Down for interface but no associated zvrf: %s(%d)",
+			__func__, ifp->vrf->name, ifp->vrf->vrf_id);
 		return;
 	}
 
@@ -491,19 +491,19 @@ static void connected_delete_helper(struct connected *ifc, struct prefix *p)
 	connected_withdraw(ifc);
 
 	/* Schedule LSP forwarding entries for processing, if appropriate. */
-	if (ifp->vrf_id == VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id == VRF_DEFAULT) {
 		if (IS_ZEBRA_DEBUG_MPLS)
 			zlog_debug(
 				"%u: IF %s IP %pFX address delete, scheduling MPLS processing",
-				ifp->vrf_id, ifp->name, p);
-		mpls_mark_lsps_for_processing(vrf_info_lookup(ifp->vrf_id), p);
+				ifp->vrf->vrf_id, ifp->name, p);
+		mpls_mark_lsps_for_processing(ifp->vrf->info, p);
 	}
 }
 
 /* Delete connected IPv4 route to the interface. */
 void connected_delete_ipv4(struct interface *ifp, int flags,
-			   struct in_addr *addr, uint16_t prefixlen,
-			   struct in_addr *dest)
+			   const struct in_addr *addr, uint16_t prefixlen,
+			   const struct in_addr *dest)
 {
 	struct prefix p, d;
 	struct connected *ifc;
@@ -527,8 +527,9 @@ void connected_delete_ipv4(struct interface *ifp, int flags,
 }
 
 /* Add connected IPv6 route to the interface. */
-void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
-			struct in6_addr *dest, uint16_t prefixlen,
+void connected_add_ipv6(struct interface *ifp, int flags,
+			const struct in6_addr *addr,
+			const struct in6_addr *dest, uint16_t prefixlen,
 			const char *label, uint32_t metric)
 {
 	struct prefix_ipv6 *p;
@@ -589,8 +590,9 @@ void connected_add_ipv6(struct interface *ifp, int flags, struct in6_addr *addr,
 	connected_update(ifp, ifc);
 }
 
-void connected_delete_ipv6(struct interface *ifp, struct in6_addr *address,
-			   struct in6_addr *dest, uint16_t prefixlen)
+void connected_delete_ipv6(struct interface *ifp,
+			   const struct in6_addr *address,
+			   const struct in6_addr *dest, uint16_t prefixlen)
 {
 	struct prefix p, d;
 	struct connected *ifc;

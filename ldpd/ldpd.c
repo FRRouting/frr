@@ -94,10 +94,9 @@ static void ldp_load_module(const char *name)
 {
 	const char *dir;
 	dir = ldpd_di.module_path ? ldpd_di.module_path : frr_moduledir;
-	char moderr[256];
 	struct frrmod_runtime *module;
 
-	module = frrmod_load(name, dir, moderr, sizeof(moderr));
+	module = frrmod_load(name, dir, NULL,NULL);
 	if (!module) {
 		fprintf(stderr, "%s: failed to load %s", __func__, name);
 		log_warnx("%s: failed to load %s", __func__, name);
@@ -181,7 +180,7 @@ sigusr1(void)
 	zlog_rotate();
 }
 
-static struct quagga_signal_t ldp_signals[] =
+static struct frr_signal_t ldp_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -244,7 +243,6 @@ main(int argc, char *argv[])
 	int			 pipe_parent2ldpe[2], pipe_parent2ldpe_sync[2];
 	int			 pipe_parent2lde[2], pipe_parent2lde_sync[2];
 	char			*ctl_sock_name;
-	struct thread           *thread = NULL;
 	bool                    ctl_sock_used = false;
 
 	snprintf(ctl_sock_path, sizeof(ctl_sock_path), LDPD_SOCKET,
@@ -304,7 +302,6 @@ main(int argc, char *argv[])
 			break;
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 
@@ -376,7 +373,7 @@ main(int argc, char *argv[])
 
 	master = frr_init();
 
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 	access_list_init();
 	ldp_vty_init();
 	ldp_zebra_init(master);
@@ -395,7 +392,7 @@ main(int argc, char *argv[])
 	frr_config_fork();
 
 	/* apply configuration */
-	thread_add_event(master, ldp_config_fork_apply, NULL, 0, &thread);
+	thread_add_event(master, ldp_config_fork_apply, NULL, 0, NULL);
 
 	/* setup pipes to children */
 	if ((iev_ldpe = calloc(1, sizeof(struct imsgev))) == NULL ||
@@ -405,28 +402,24 @@ main(int argc, char *argv[])
 		fatal(NULL);
 	imsg_init(&iev_ldpe->ibuf, pipe_parent2ldpe[0]);
 	iev_ldpe->handler_read = main_dispatch_ldpe;
-	iev_ldpe->ev_read = NULL;
 	thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
 			&iev_ldpe->ev_read);
 	iev_ldpe->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_ldpe_sync->ibuf, pipe_parent2ldpe_sync[0]);
 	iev_ldpe_sync->handler_read = main_dispatch_ldpe;
-	iev_ldpe_sync->ev_read = NULL;
 	thread_add_read(master, iev_ldpe_sync->handler_read, iev_ldpe_sync, iev_ldpe_sync->ibuf.fd,
 			&iev_ldpe_sync->ev_read);
 	iev_ldpe_sync->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_lde->ibuf, pipe_parent2lde[0]);
 	iev_lde->handler_read = main_dispatch_lde;
-	iev_lde->ev_read = NULL;
 	thread_add_read(master, iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd,
 			&iev_lde->ev_read);
 	iev_lde->handler_write = ldp_write_handler;
 
 	imsg_init(&iev_lde_sync->ibuf, pipe_parent2lde_sync[0]);
 	iev_lde_sync->handler_read = main_dispatch_lde;
-	iev_lde_sync->ev_read = NULL;
 	thread_add_read(master, iev_lde_sync->handler_read, iev_lde_sync, iev_lde_sync->ibuf.fd,
 			&iev_lde_sync->ev_read);
 	iev_lde_sync->handler_write = ldp_write_handler;

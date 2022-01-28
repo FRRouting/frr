@@ -46,6 +46,7 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_network.h"
 #include "bgpd/bgp_zebra.h"
+#include "bgpd/bgp_nht.h"
 
 extern struct zebra_privs_t bgpd_privs;
 
@@ -173,9 +174,7 @@ static int bgp_md5_set_password(struct peer *peer, const char *password)
 				 * must be the default vrf or a view instance
 				 */
 				if (!listener->bgp) {
-					if (peer->bgp->vrf_id != VRF_DEFAULT
-					    && peer->bgp->inst_type
-						       != BGP_INSTANCE_TYPE_VIEW)
+					if (peer->bgp->vrf_id != VRF_DEFAULT)
 						continue;
 				} else if (listener->bgp != peer->bgp)
 					continue;
@@ -605,14 +604,18 @@ static int bgp_accept(struct thread *thread)
 			BGP_EVENT_ADD(peer, TCP_connection_open);
 	}
 
+	/*
+	 * If we are doing nht for a peer that is v6 LL based
+	 * massage the event system to make things happy
+	 */
+	bgp_nht_interface_events(peer);
+
 	return 0;
 }
 
 /* BGP socket bind. */
 static char *bgp_get_bound_name(struct peer *peer)
 {
-	char *name = NULL;
-
 	if (!peer)
 		return NULL;
 
@@ -628,14 +631,16 @@ static char *bgp_get_bound_name(struct peer *peer)
 	 * takes precedence over VRF. For IPv4 peering, explicit interface or
 	 * VRF are the situations to bind.
 	 */
-	if (peer->su.sa.sa_family == AF_INET6)
-		name = (peer->conf_if ? peer->conf_if
-				      : (peer->ifname ? peer->ifname
-						      : peer->bgp->name));
-	else
-		name = peer->ifname ? peer->ifname : peer->bgp->name;
+	if (peer->su.sa.sa_family == AF_INET6 && peer->conf_if)
+		return peer->conf_if;
 
-	return name;
+	if (peer->ifname)
+		return peer->ifname;
+
+	if (peer->bgp->inst_type == BGP_INSTANCE_TYPE_VIEW)
+		return NULL;
+
+	return peer->bgp->name;
 }
 
 static int bgp_update_address(struct interface *ifp, const union sockunion *dst,
@@ -706,7 +711,8 @@ int bgp_connect(struct peer *peer)
 	ifindex_t ifindex = 0;
 
 	if (peer->conf_if && BGP_PEER_SU_UNSPEC(peer)) {
-		zlog_debug("Peer address not learnt: Returning from connect");
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("Peer address not learnt: Returning from connect");
 		return 0;
 	}
 	frr_with_privs(&bgpd_privs) {
@@ -714,8 +720,14 @@ int bgp_connect(struct peer *peer)
 		peer->fd = vrf_sockunion_socket(&peer->su, peer->bgp->vrf_id,
 						bgp_get_bound_name(peer));
 	}
-	if (peer->fd < 0)
+	if (peer->fd < 0) {
+		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: Failure to create socket for connection to %s, error received: %s(%d)",
+				   __func__, peer->host, safe_strerror(errno),
+				   errno);
 		return -1;
+	}
 
 	set_nonblocking(peer->fd);
 
@@ -725,8 +737,14 @@ int bgp_connect(struct peer *peer)
 
 	bgp_socket_set_buffer_size(peer->fd);
 
-	if (bgp_set_socket_ttl(peer, peer->fd) < 0)
+	if (bgp_set_socket_ttl(peer, peer->fd) < 0) {
+		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
+		if (bgp_debug_neighbor_events(peer))
+			zlog_debug("%s: Failure to set socket ttl for connection to %s, error received: %s(%d)",
+				   __func__, peer->host, safe_strerror(errno),
+				   errno);
 		return -1;
+	}
 
 	sockopt_reuseaddr(peer->fd);
 	sockopt_reuseport(peer->fd);
@@ -753,6 +771,7 @@ int bgp_connect(struct peer *peer)
 
 	/* Update source bind. */
 	if (bgp_update_source(peer) < 0) {
+		peer->last_reset = PEER_DOWN_SOCKET_ERROR;
 		return connect_error;
 	}
 
@@ -842,8 +861,7 @@ static int bgp_listener(int sock, struct sockaddr *sa, socklen_t salen,
 	listener->name = XSTRDUP(MTYPE_BGP_LISTENER, bgp->name);
 
 	/* this socket is in a vrf record bgp back pointer */
-	if (bgp->vrf_id != VRF_DEFAULT
-	    && bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
+	if (bgp->vrf_id != VRF_DEFAULT)
 		listener->bgp = bgp;
 
 	memcpy(&listener->su, sa, salen);
@@ -895,9 +913,7 @@ int bgp_socket(struct bgp *bgp, unsigned short port, const char *address)
 			sock = vrf_socket(ainfo->ai_family,
 					  ainfo->ai_socktype,
 					  ainfo->ai_protocol,
-					  (bgp->inst_type
-					   != BGP_INSTANCE_TYPE_VIEW
-					   ? bgp->vrf_id : VRF_DEFAULT),
+					  bgp->vrf_id,
 					  (bgp->inst_type
 					   == BGP_INSTANCE_TYPE_VRF
 					   ? bgp->name : NULL));

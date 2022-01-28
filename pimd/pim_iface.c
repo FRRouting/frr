@@ -121,19 +121,18 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	pim_ifp = XCALLOC(MTYPE_PIM_INTERFACE, sizeof(*pim_ifp));
 
 	pim_ifp->options = 0;
-	pim_ifp->pim = pim_get_pim_instance(ifp->vrf_id);
+	pim_ifp->pim = ifp->vrf->info;
 	pim_ifp->mroute_vif_index = -1;
 
 	pim_ifp->igmp_version = IGMP_DEFAULT_VERSION;
-	pim_ifp->igmp_default_robustness_variable =
+	pim_ifp->gm_default_robustness_variable =
 		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
-	pim_ifp->igmp_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
-	pim_ifp->igmp_query_max_response_time_dsec =
+	pim_ifp->gm_default_query_interval = IGMP_GENERAL_QUERY_INTERVAL;
+	pim_ifp->gm_query_max_response_time_dsec =
 		IGMP_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->igmp_specific_query_max_response_time_dsec =
+	pim_ifp->gm_specific_query_max_response_time_dsec =
 		IGMP_SPECIFIC_QUERY_MAX_RESPONSE_TIME_DSEC;
-	pim_ifp->igmp_last_member_query_count =
-		IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
+	pim_ifp->gm_last_member_query_count = IGMP_DEFAULT_ROBUSTNESS_VARIABLE;
 
 	/* BSM config on interface: true by default */
 	pim_ifp->bsm_enable = true;
@@ -145,8 +144,8 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 	  The number of seconds represented by the [Query Response Interval]
 	  must be less than the [Query Interval].
 	 */
-	assert(pim_ifp->igmp_query_max_response_time_dsec
-	       < pim_ifp->igmp_default_query_interval);
+	assert(pim_ifp->gm_query_max_response_time_dsec <
+	       pim_ifp->gm_default_query_interval);
 
 	if (pim)
 		PIM_IF_DO_PIM(pim_ifp->options);
@@ -155,15 +154,13 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 
 	PIM_IF_DO_IGMP_LISTEN_ALLROUTERS(pim_ifp->options);
 
-	pim_ifp->igmp_join_list = NULL;
-	pim_ifp->igmp_socket_list = NULL;
+	pim_ifp->gm_join_list = NULL;
 	pim_ifp->pim_neighbor_list = NULL;
 	pim_ifp->upstream_switch_list = NULL;
 	pim_ifp->pim_generation_id = 0;
 
-	/* list of struct igmp_sock */
-	pim_ifp->igmp_socket_list = list_new();
-	pim_ifp->igmp_socket_list->del = (void (*)(void *))igmp_sock_free;
+	/* list of struct gm_sock */
+	pim_igmp_if_init(pim_ifp, ifp);
 
 	/* list of struct pim_neighbor */
 	pim_ifp->pim_neighbor_list = list_new();
@@ -202,7 +199,7 @@ void pim_if_delete(struct interface *ifp)
 	pim_ifp = ifp->info;
 	assert(pim_ifp);
 
-	if (pim_ifp->igmp_join_list) {
+	if (pim_ifp->gm_join_list) {
 		pim_if_igmp_join_del_all(ifp);
 	}
 
@@ -214,7 +211,8 @@ void pim_if_delete(struct interface *ifp)
 	pim_if_del_vif(ifp);
 	pim_ifp->pim->mcast_if_count--;
 
-	list_delete(&pim_ifp->igmp_socket_list);
+	pim_igmp_if_fini(pim_ifp);
+
 	list_delete(&pim_ifp->pim_neighbor_list);
 	list_delete(&pim_ifp->upstream_switch_list);
 	list_delete(&pim_ifp->sec_addr_list);
@@ -290,7 +288,7 @@ static void pim_addr_change(struct interface *ifp)
 	  HoldTime should be sent immediately.
 	  -- FIXME See TODO T31
 	 */
-	pim_ifp->pim_ifstat_hello_sent = 0; /* reset hello counter */
+	PIM_IF_FLAG_UNSET_HELLO_SENT(pim_ifp->flags);
 	if (pim_ifp->pim_sock_fd < 0)
 		return;
 	pim_hello_restart_now(ifp); /* send hello and restart timer */
@@ -533,30 +531,30 @@ void pim_if_addr_add(struct connected *ifc)
 	//  return;
 
 	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
 						   ifaddr);
 		if (!igmp) {
 			/* if addr new, add IGMP socket */
 			if (ifc->address->family == AF_INET)
-				pim_igmp_sock_add(pim_ifp->igmp_socket_list,
+				pim_igmp_sock_add(pim_ifp->gm_socket_list,
 						  ifaddr, ifp, false);
 		} else if (igmp->mtrace_only) {
 			igmp_sock_delete(igmp);
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp, false);
+			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
+					  false);
 		}
 
 		/* Replay Static IGMP groups */
-		if (pim_ifp->igmp_join_list) {
+		if (pim_ifp->gm_join_list) {
 			struct listnode *node;
 			struct listnode *nextnode;
-			struct igmp_join *ij;
+			struct gm_join *ij;
 			int join_fd;
 
-			for (ALL_LIST_ELEMENTS(pim_ifp->igmp_join_list, node,
+			for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node,
 					       nextnode, ij)) {
 				/* Close socket and reopen with Source and Group
 				 */
@@ -584,17 +582,17 @@ void pim_if_addr_add(struct connected *ifc)
 		}
 	} /* igmp */
 	else {
-		struct igmp_sock *igmp;
+		struct gm_sock *igmp;
 
 		/* lookup IGMP socket */
-		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list,
+		igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list,
 						   ifaddr);
 		if (ifc->address->family == AF_INET) {
 			if (igmp)
 				igmp_sock_delete(igmp);
 			/* if addr new, add IGMP socket */
-			pim_igmp_sock_add(pim_ifp->igmp_socket_list, ifaddr,
-					  ifp, true);
+			pim_igmp_sock_add(pim_ifp->gm_socket_list, ifaddr, ifp,
+					  true);
 		}
 	} /* igmp mtrace only */
 
@@ -649,7 +647,7 @@ void pim_if_addr_add(struct connected *ifc)
 static void pim_if_addr_del_igmp(struct connected *ifc)
 {
 	struct pim_interface *pim_ifp = ifc->ifp->info;
-	struct igmp_sock *igmp;
+	struct gm_sock *igmp;
 	struct in_addr ifaddr;
 
 	if (ifc->address->family != AF_INET) {
@@ -665,7 +663,7 @@ static void pim_if_addr_del_igmp(struct connected *ifc)
 	ifaddr = ifc->address->u.prefix4;
 
 	/* lookup IGMP socket */
-	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->igmp_socket_list, ifaddr);
+	igmp = pim_igmp_sock_lookup_ifaddr(pim_ifp->gm_socket_list, ifaddr);
 	if (igmp) {
 		/* if addr found, del IGMP socket */
 		igmp_sock_delete(igmp);
@@ -786,12 +784,11 @@ void pim_if_addr_del_all(struct interface *ifp)
 	struct connected *ifc;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
 	struct pim_instance *pim;
 
-	if (!vrf)
+	pim = ifp->vrf->info;
+	if (!pim)
 		return;
-	pim = vrf->info;
 
 	/* PIM/IGMP enabled ? */
 	if (!ifp->info)
@@ -830,26 +827,6 @@ void pim_if_addr_del_all_igmp(struct interface *ifp)
 	}
 }
 
-void pim_if_addr_del_all_pim(struct interface *ifp)
-{
-	struct connected *ifc;
-	struct listnode *node;
-	struct listnode *nextnode;
-
-	/* PIM/IGMP enabled ? */
-	if (!ifp->info)
-		return;
-
-	for (ALL_LIST_ELEMENTS(ifp->connected, node, nextnode, ifc)) {
-		struct prefix *p = ifc->address;
-
-		if (p->family != AF_INET)
-			continue;
-
-		pim_if_addr_del_pim(ifc);
-	}
-}
-
 struct in_addr pim_find_primary_addr(struct interface *ifp)
 {
 	struct connected *ifc;
@@ -858,10 +835,6 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 	int v4_addrs = 0;
 	int v6_addrs = 0;
 	struct pim_interface *pim_ifp = ifp->info;
-	struct vrf *vrf = vrf_lookup_by_id(ifp->vrf_id);
-
-	if (!vrf)
-		return addr;
 
 	if (pim_ifp && PIM_INADDR_ISNOT_ANY(pim_ifp->update_source)) {
 		return pim_ifp->update_source;
@@ -900,10 +873,11 @@ struct in_addr pim_find_primary_addr(struct interface *ifp)
 		struct interface *lo_ifp;
 
 		// DBS - Come back and check here
-		if (ifp->vrf_id == VRF_DEFAULT)
-			lo_ifp = if_lookup_by_name("lo", vrf->vrf_id);
+		if (ifp->vrf->vrf_id == VRF_DEFAULT)
+			lo_ifp = if_lookup_by_name("lo", ifp->vrf->vrf_id);
 		else
-			lo_ifp = if_lookup_by_name(vrf->name, vrf->vrf_id);
+			lo_ifp = if_lookup_by_name(ifp->vrf->name,
+						   ifp->vrf->vrf_id);
 
 		if (lo_ifp && (lo_ifp != ifp))
 			return pim_find_primary_addr(lo_ifp);
@@ -1184,17 +1158,17 @@ long pim_if_t_suppressed_msec(struct interface *ifp)
 	return t_suppressed_msec;
 }
 
-static void igmp_join_free(struct igmp_join *ij)
+static void igmp_join_free(struct gm_join *ij)
 {
 	XFREE(MTYPE_PIM_IGMP_JOIN, ij);
 }
 
-static struct igmp_join *igmp_join_find(struct list *join_list,
-					struct in_addr group_addr,
-					struct in_addr source_addr)
+static struct gm_join *igmp_join_find(struct list *join_list,
+				      struct in_addr group_addr,
+				      struct in_addr source_addr)
 {
 	struct listnode *node;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	assert(join_list);
 
@@ -1236,12 +1210,12 @@ static int igmp_join_sock(const char *ifname, ifindex_t ifindex,
 	return join_fd;
 }
 
-static struct igmp_join *igmp_join_new(struct interface *ifp,
-				       struct in_addr group_addr,
-				       struct in_addr source_addr)
+static struct gm_join *igmp_join_new(struct interface *ifp,
+				     struct in_addr group_addr,
+				     struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 	int join_fd;
 
 	pim_ifp = ifp->info;
@@ -1270,7 +1244,7 @@ static struct igmp_join *igmp_join_new(struct interface *ifp,
 	ij->source_addr = source_addr;
 	ij->sock_creation = pim_time_monotonic_sec();
 
-	listnode_add(pim_ifp->igmp_join_list, ij);
+	listnode_add(pim_ifp->gm_join_list, ij);
 
 	return ij;
 }
@@ -1279,7 +1253,7 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			    struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1287,12 +1261,12 @@ ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 					ifp->name);
 	}
 
-	if (!pim_ifp->igmp_join_list) {
-		pim_ifp->igmp_join_list = list_new();
-		pim_ifp->igmp_join_list->del = (void (*)(void *))igmp_join_free;
+	if (!pim_ifp->gm_join_list) {
+		pim_ifp->gm_join_list = list_new();
+		pim_ifp->gm_join_list->del = (void (*)(void *))igmp_join_free;
 	}
 
-	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+	ij = igmp_join_find(pim_ifp->gm_join_list, group_addr, source_addr);
 
 	/* This interface has already been configured to join this IGMP group
 	 */
@@ -1322,7 +1296,7 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			 struct in_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1331,13 +1305,13 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 		return -1;
 	}
 
-	if (!pim_ifp->igmp_join_list) {
+	if (!pim_ifp->gm_join_list) {
 		zlog_warn("%s: no IGMP join on interface %s", __func__,
 			  ifp->name);
 		return -2;
 	}
 
-	ij = igmp_join_find(pim_ifp->igmp_join_list, group_addr, source_addr);
+	ij = igmp_join_find(pim_ifp->gm_join_list, group_addr, source_addr);
 	if (!ij) {
 		char group_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
@@ -1364,11 +1338,11 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 			errno, safe_strerror(errno));
 		/* warning only */
 	}
-	listnode_delete(pim_ifp->igmp_join_list, ij);
+	listnode_delete(pim_ifp->gm_join_list, ij);
 	igmp_join_free(ij);
-	if (listcount(pim_ifp->igmp_join_list) < 1) {
-		list_delete(&pim_ifp->igmp_join_list);
-		pim_ifp->igmp_join_list = 0;
+	if (listcount(pim_ifp->gm_join_list) < 1) {
+		list_delete(&pim_ifp->gm_join_list);
+		pim_ifp->gm_join_list = 0;
 	}
 
 	return 0;
@@ -1379,7 +1353,7 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 	struct pim_interface *pim_ifp;
 	struct listnode *node;
 	struct listnode *nextnode;
-	struct igmp_join *ij;
+	struct gm_join *ij;
 
 	pim_ifp = ifp->info;
 	if (!pim_ifp) {
@@ -1388,10 +1362,10 @@ static void pim_if_igmp_join_del_all(struct interface *ifp)
 		return;
 	}
 
-	if (!pim_ifp->igmp_join_list)
+	if (!pim_ifp->gm_join_list)
 		return;
 
-	for (ALL_LIST_ELEMENTS(pim_ifp->igmp_join_list, node, nextnode, ij))
+	for (ALL_LIST_ELEMENTS(pim_ifp->gm_join_list, node, nextnode, ij))
 		pim_if_igmp_join_del(ifp, ij->group_addr, ij->source_addr);
 }
 
@@ -1483,7 +1457,8 @@ void pim_if_create_pimreg(struct pim_instance *pim)
 			snprintf(pimreg_name, sizeof(pimreg_name), "pimreg%u",
 				 pim->vrf->data.l.table_id);
 
-		pim->regiface = if_create_name(pimreg_name, pim->vrf->vrf_id);
+		pim->regiface = if_get_by_name(pimreg_name, pim->vrf->vrf_id,
+					       pim->vrf->name);
 		pim->regiface->ifindex = PIM_OIF_PIM_REGISTER_VIF;
 
 		pim_if_new(pim->regiface, false, false, true,
@@ -1550,13 +1525,13 @@ int pim_ifp_create(struct interface *ifp)
 {
 	struct pim_instance *pim;
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (if_is_operative(ifp)) {
@@ -1622,13 +1597,13 @@ int pim_ifp_up(struct interface *ifp)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 
 	pim_ifp = ifp->info;
 	/*
@@ -1653,7 +1628,7 @@ int pim_ifp_up(struct interface *ifp)
 		struct vrf *vrf;
 		RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
 			if ((table_id == vrf->data.l.table_id)
-			    && (ifp->vrf_id != vrf->vrf_id)) {
+			    && (ifp->vrf->vrf_id != vrf->vrf_id)) {
 				struct interface *master = if_lookup_by_name(
 					vrf->name, vrf->vrf_id);
 
@@ -1674,10 +1649,10 @@ int pim_ifp_down(struct interface *ifp)
 {
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (!if_is_operative(ifp)) {
@@ -1698,8 +1673,10 @@ int pim_ifp_down(struct interface *ifp)
 		}
 	}
 
-	if (ifp->info)
+	if (ifp->info) {
 		pim_if_del_vif(ifp);
+		pim_ifstat_reset(ifp);
+	}
 
 	return 0;
 }
@@ -1710,16 +1687,16 @@ int pim_ifp_destroy(struct interface *ifp)
 
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug(
-			"%s: %s index %d(%u) flags %ld metric %d mtu %d operative %d",
-			__func__, ifp->name, ifp->ifindex, ifp->vrf_id,
-			(long)ifp->flags, ifp->metric, ifp->mtu,
-			if_is_operative(ifp));
+			"%s: %s index %d vrf %s(%u) flags %ld metric %d mtu %d operative %d",
+			__func__, ifp->name, ifp->ifindex, ifp->vrf->name,
+			ifp->vrf->vrf_id, (long)ifp->flags, ifp->metric,
+			ifp->mtu, if_is_operative(ifp));
 	}
 
 	if (!if_is_operative(ifp))
 		pim_if_addr_del_all(ifp);
 
-	pim = pim_get_pim_instance(ifp->vrf_id);
+	pim = ifp->vrf->info;
 	if (pim && pim->vxlan.term_if == ifp)
 		pim_vxlan_del_term_dev(pim);
 

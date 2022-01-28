@@ -30,7 +30,9 @@
 
 #include "pim_igmp.h"
 #include "pim_upstream.h"
+#include "pim_instance.h"
 #include "bfd.h"
+#include "pim_str.h"
 
 #define PIM_IF_MASK_PIM                             (1 << 0)
 #define PIM_IF_MASK_IGMP                            (1 << 1)
@@ -60,8 +62,22 @@
 #define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
+/* Macros for interface flags */
+
+/*
+ * PIM needs to know if hello is required to send before other PIM messages
+ * like Join, prune, assert would go out
+ */
+#define PIM_IF_FLAG_HELLO_SENT (1 << 0)
+
+#define PIM_IF_FLAG_TEST_HELLO_SENT(flags) ((flags)&PIM_IF_FLAG_HELLO_SENT)
+
+#define PIM_IF_FLAG_SET_HELLO_SENT(flags) ((flags) |= PIM_IF_FLAG_HELLO_SENT)
+
+#define PIM_IF_FLAG_UNSET_HELLO_SENT(flags) ((flags) &= ~PIM_IF_FLAG_HELLO_SENT)
+
 struct pim_iface_upstream_switch {
-	struct in_addr address;
+	pim_addr address;
 	struct list *us;
 };
 
@@ -79,29 +95,32 @@ struct pim_interface {
 	uint32_t options; /* bit vector */
 	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
-
-	struct in_addr primary_address; /* remember addr to detect change */
+	pim_addr primary_address;       /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */
-	struct in_addr update_source;   /* user can statically set the primary
+	pim_addr update_source;		/* user can statically set the primary
 					 * address of the interface */
 
-	int igmp_version;		       /* IGMP version */
-	int igmp_default_robustness_variable;  /* IGMPv3 QRV */
-	int igmp_default_query_interval;       /* IGMPv3 secs between general
+	int igmp_version;		     /* IGMP version */
+	int gm_default_robustness_variable;  /* IGMP or MLD QRV */
+	int gm_default_query_interval;       /* IGMP or MLD secs between general
 						  queries */
-	int igmp_query_max_response_time_dsec; /* IGMPv3 Max Response Time in
+	int gm_query_max_response_time_dsec; /* IGMP or MLD Max Response Time in
 						  dsecs for general queries */
-	int igmp_specific_query_max_response_time_dsec; /* IGMPv3 Max Response
-							   Time in dsecs called
-							   as last member query
-							   interval, defines the
-							   maximum response time
-							   advertised in IGMP
-							   group-specific
-							   queries */
-	int igmp_last_member_query_count; /* IGMP last member query count */
-	struct list *igmp_socket_list; /* list of struct igmp_sock */
-	struct list *igmp_join_list;   /* list of struct igmp_join */
+	int gm_specific_query_max_response_time_dsec; /* IGMP or MLD Max
+							 Response Time in dsecs
+							 called as last member
+							 query interval, defines
+							 the maximum response
+							 time advertised in IGMP
+							 group-specific
+							 queries */
+	int gm_last_member_query_count;		      /* IGMP or MLD last member
+							 query count
+						       */
+	struct list *gm_socket_list; /* list of struct IGMP or MLD sock */
+	struct list *gm_join_list;   /* list of struct IGMP or MLD join */
+	struct list *gm_group_list;  /* list of struct IGMP or MLD group */
+	struct hash *gm_group_hash;
 
 	int pim_sock_fd;		/* PIM socket file descriptor */
 	struct thread *t_pim_sock_read; /* thread for reading PIM socket */
@@ -127,7 +146,7 @@ struct pim_interface {
 	int64_t pim_dr_election_last; /* timestamp */
 	int pim_dr_election_count;
 	int pim_dr_election_changes;
-	struct in_addr pim_dr_addr;
+	pim_addr pim_dr_addr;
 	uint32_t pim_dr_priority;	  /* config */
 	int pim_dr_num_nondrpri_neighbors; /* neighbors without dr_pri */
 
@@ -158,6 +177,7 @@ struct pim_interface {
 	uint32_t pim_ifstat_bsm_cfg_miss;
 	uint32_t pim_ifstat_ucast_bsm_cfg_miss;
 	uint32_t pim_ifstat_bsm_invalid_sz;
+	uint8_t flags;
 	bool bsm_enable; /* bsm processing enable */
 	bool ucast_bsm_accept; /* ucast bsm processing */
 
@@ -171,8 +191,8 @@ struct pim_interface {
 };
 
 /*
-  if default_holdtime is set (>= 0), use it;
-  otherwise default_holdtime is 3.5 * hello_period
+ * if default_holdtime is set (>= 0), use it;
+ * otherwise default_holdtime is 3.5 * hello_period
  */
 #define PIM_IF_DEFAULT_HOLDTIME(pim_ifp)                                       \
 	(((pim_ifp)->pim_default_holdtime < 0)                                 \
@@ -190,7 +210,6 @@ void pim_if_addr_del(struct connected *ifc, int force_prim_as_any);
 void pim_if_addr_add_all(struct interface *ifp);
 void pim_if_addr_del_all(struct interface *ifp);
 void pim_if_addr_del_all_igmp(struct interface *ifp);
-void pim_if_addr_del_all_pim(struct interface *ifp);
 
 int pim_if_add_vif(struct interface *ifp, bool ispimreg, bool is_vxlan_term);
 int pim_if_del_vif(struct interface *ifp);

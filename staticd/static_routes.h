@@ -47,14 +47,14 @@ enum static_blackhole_type {
  * The order for below macros should be in sync with
  * yang model typedef nexthop-type
  */
-typedef enum {
+enum static_nh_type {
 	STATIC_IFNAME = 1,
 	STATIC_IPV4_GATEWAY,
 	STATIC_IPV4_GATEWAY_IFNAME,
 	STATIC_IPV6_GATEWAY,
 	STATIC_IPV6_GATEWAY_IFNAME,
 	STATIC_BLACKHOLE,
-} static_types;
+};
 
 /*
  * Route Creation gives us:
@@ -123,7 +123,7 @@ struct static_nexthop {
 	enum static_install_states state;
 
 	/* Flag for this static route's type. */
-	static_types type;
+	enum static_nh_type type;
 
 	/*
 	 * Nexthop value.
@@ -169,7 +169,7 @@ extern struct zebra_privs_t static_privs;
 void static_fixup_vrf_ids(struct static_vrf *svrf);
 
 extern struct static_nexthop *
-static_add_nexthop(struct static_path *pn, static_types type,
+static_add_nexthop(struct static_path *pn, enum static_nh_type type,
 		   struct ipaddr *ipaddr, const char *ifname,
 		   const char *nh_vrf, uint32_t color);
 extern void static_install_nexthop(struct static_nexthop *nh);
@@ -194,9 +194,10 @@ extern struct static_path *static_add_path(struct route_node *rn,
 					   uint32_t table_id, uint8_t distance);
 extern void static_del_path(struct static_path *pn);
 
-extern void static_get_nh_type(static_types stype, char *type, size_t size);
+extern void static_get_nh_type(enum static_nh_type stype, char *type,
+			       size_t size);
 extern bool static_add_nexthop_validate(const char *nh_vrf_name,
-					static_types type,
+					enum static_nh_type type,
 					struct ipaddr *ipaddr);
 extern struct stable_info *static_get_stable_info(struct route_node *rn);
 

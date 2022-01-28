@@ -1,3 +1,5 @@
+
+
 /*
  * PIM for Quagga
  * Copyright (C) 2008  Everton da Silva Marques
@@ -39,6 +41,7 @@
 #include "pim_rp.h"
 #include "pim_jp_agg.h"
 #include "pim_util.h"
+#include "pim_ssm.h"
 
 static void on_trace(const char *label, struct interface *ifp,
 		     struct in_addr src)
@@ -52,7 +55,7 @@ static void on_trace(const char *label, struct interface *ifp,
 
 static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		      uint16_t holdtime, struct in_addr upstream,
-		      struct prefix_sg *sg, uint8_t source_flags)
+		      pim_sgaddr *sg, uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
 
@@ -84,7 +87,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		struct pim_rpf *rp = RP(pim_ifp->pim, sg->grp);
 
 		if (!rp) {
-			zlog_warn("%s: Lookup of RP failed for %pSG4", __func__,
+			zlog_warn("%s: Lookup of RP failed for %pSG", __func__,
 				  sg);
 			return;
 		}
@@ -105,6 +108,13 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 			return;
 		}
 
+		if (pim_is_grp_ssm(pim_ifp->pim, sg->grp)) {
+			zlog_warn(
+				"%s: Specified Group(%pI4) in join is now in SSM, not allowed to create PIM state",
+				__func__, &sg->grp);
+			return;
+		}
+
 		sg->src.s_addr = INADDR_ANY;
 	}
 
@@ -115,7 +125,7 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 
 static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		       uint16_t holdtime, struct in_addr upstream,
-		       struct prefix_sg *sg, uint8_t source_flags)
+		       pim_sgaddr *sg, uint8_t source_flags)
 {
 	struct pim_interface *pim_ifp = NULL;
 
@@ -150,7 +160,7 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 			pim_inet4_dump("<received?>", sg->src, received_rp,
 				       sizeof(received_rp));
-			zlog_debug("%s: Prune received with RP(%s) for %pSG4",
+			zlog_debug("%s: Prune received with RP(%s) for %pSG",
 				   __func__, received_rp, sg);
 		}
 
@@ -237,7 +247,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	/* Scan groups */
 	for (group = 0; group < msg_num_groups; ++group) {
-		struct prefix_sg sg;
+		pim_sgaddr sg;
 		uint8_t msg_source_flags;
 		uint16_t msg_num_joined_sources;
 		uint16_t msg_num_pruned_sources;
@@ -245,7 +255,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		struct pim_ifchannel *starg_ch = NULL, *sg_ch = NULL;
 		bool filtered = false;
 
-		memset(&sg, 0, sizeof(struct prefix_sg));
+		memset(&sg, 0, sizeof(sg));
 		addr_offset = pim_parse_addr_group(&sg, buf, pastend - buf);
 		if (addr_offset < 1) {
 			return -5;

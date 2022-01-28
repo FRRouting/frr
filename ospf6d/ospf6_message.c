@@ -409,9 +409,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
 		zlog_warn(
 			"VRF %s: I/F %s HelloInterval mismatch: (my %d, rcvd %d)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->hello_interval,
-			ntohs(hello->hello_interval));
+			oi->interface->vrf->name, oi->interface->name,
+			oi->hello_interval, ntohs(hello->hello_interval));
 		return;
 	}
 
@@ -419,9 +418,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohs(hello->dead_interval) != oi->dead_interval) {
 		zlog_warn(
 			"VRF %s: I/F %s DeadInterval mismatch: (my %d, rcvd %d)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->dead_interval,
-			ntohs(hello->dead_interval));
+			oi->interface->vrf->name, oi->interface->name,
+			oi->dead_interval, ntohs(hello->dead_interval));
 		return;
 	}
 
@@ -429,8 +427,15 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_E)
 	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_E)) {
 		zlog_warn("VRF %s: IF %s E-bit mismatch",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name);
+			  oi->interface->vrf->name, oi->interface->name);
+		return;
+	}
+
+	/* N-bit check */
+	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_N)
+	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_N)) {
+		zlog_warn("VRF %s: IF %s N-bit mismatch",
+			  oi->interface->vrf->name, oi->interface->name);
 		return;
 	}
 
@@ -515,12 +520,12 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (twoway)
 		thread_execute(master, twoway_received, on, 0);
 	else {
-		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"%s, Received oneway hello from RESTARTER so ignore here.",
-				__PRETTY_FUNCTION__);
-
-		if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s, Received oneway hello from RESTARTER so ignore here.",
+					__PRETTY_FUNCTION__);
+		} else {
 			/* If the router is DR_OTHER, RESTARTER will not wait
 			 * until it receives the hello from it if it receives
 			 * from DR and BDR.
@@ -552,6 +557,21 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 
 		return;
 	}
+
+	/*
+	 * RFC 3623 - Section 2:
+	 * "If the restarting router determines that it was the Designated
+	 * Router on a given segment prior to the restart, it elects
+	 * itself as the Designated Router again.  The restarting router
+	 * knows that it was the Designated Router if, while the
+	 * associated interface is in Waiting state, a Hello packet is
+	 * received from a neighbor listing the router as the Designated
+	 * Router".
+	 */
+	if (oi->area->ospf6->gr_info.restart_in_progress
+	    && oi->state == OSPF6_INTERFACE_WAITING
+	    && hello->drouter == oi->area->ospf6->router_id)
+		oi->drouter = hello->drouter;
 
 	/* Schedule interface events */
 	if (backupseen)
@@ -607,10 +627,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			zlog_warn(
-				"VRF %s: Nbr %s: Negotiation failed",
-				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
-				on->name);
+			zlog_warn("VRF %s: Nbr %s: Negotiation failed",
+				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
 	/* fall through to exchange */
@@ -711,7 +729,6 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (ntohs(his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
@@ -758,9 +775,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 	/* More bit check */
 	if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
-		thread_add_event(master, exchange_done, on, 0, NULL);
+		thread_add_event(master, exchange_done, on, 0,
+				 &on->thread_exchange_done);
 	else {
-		on->thread_send_dbdesc = NULL;
 		thread_add_event(master, ospf6_dbdesc_send_newone, on, 0,
 				 &on->thread_send_dbdesc);
 	}
@@ -824,10 +841,8 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			zlog_warn(
-				"VRF %s: Nbr %s Negotiation failed",
-				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
-				on->name);
+			zlog_warn("VRF %s: Nbr %s Negotiation failed",
+				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
 		break;
@@ -841,7 +856,6 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 				zlog_debug(
 					"Duplicated dbdesc causes retransmit");
 			THREAD_OFF(on->thread_send_dbdesc);
-			on->thread_send_dbdesc = NULL;
 			thread_add_event(master, ospf6_dbdesc_send, on, 0,
 					 &on->thread_send_dbdesc);
 			return;
@@ -934,7 +948,6 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (OSPF6_LSA_SCOPE(his->header->type) == OSPF6_SCOPE_AS
@@ -996,8 +1009,8 @@ static void ospf6_dbdesc_recv(struct in6_addr *src, struct in6_addr *dst,
 	/* Interface MTU check */
 	if (!oi->mtu_ignore && ntohs(dbdesc->ifmtu) != oi->ifmtu) {
 		zlog_warn("VRF %s: I/F %s MTU mismatch (my %d rcvd %d)",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name, oi->ifmtu, ntohs(dbdesc->ifmtu));
+			  oi->interface->vrf->name, oi->interface->name,
+			  oi->ifmtu, ntohs(dbdesc->ifmtu));
 		return;
 	}
 
@@ -1069,7 +1082,6 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug("Ignoring LSA of reserved scope");
 			continue;
-			break;
 		}
 
 		/* Find database copy */
@@ -1504,14 +1516,12 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 		if (oh->area_id == OSPF_AREA_BACKBONE)
 			zlog_warn(
 				"VRF %s: I/F %s Message may be via Virtual Link: not supported",
-				vrf_id_to_name(oi->interface->vrf_id),
-				oi->interface->name);
+				oi->interface->vrf->name, oi->interface->name);
 		else
 			zlog_warn(
 				"VRF %s: I/F %s Area-ID mismatch (my %pI4, rcvd %pI4)",
-				vrf_id_to_name(oi->interface->vrf_id),
-				oi->interface->name, &oi->area->area_id,
-				&oh->area_id);
+				oi->interface->vrf->name, oi->interface->name,
+				&oi->area->area_id, &oh->area_id);
 		return MSG_NG;
 	}
 
@@ -1519,16 +1529,16 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 	if (oh->instance_id != oi->instance_id) {
 		zlog_warn(
 			"VRF %s: I/F %s Instance-ID mismatch (my %u, rcvd %u)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->instance_id, oh->instance_id);
+			oi->interface->vrf->name, oi->interface->name,
+			oi->instance_id, oh->instance_id);
 		return MSG_NG;
 	}
 
 	/* Router-ID check */
 	if (oh->router_id == oi->area->ospf6->router_id) {
 		zlog_warn("VRF %s: I/F %s Duplicate Router-ID (%pI4)",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name, &oh->router_id);
+			  oi->interface->vrf->name, oi->interface->name,
+			  &oh->router_id);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -1621,7 +1631,6 @@ static void ospf6_lsack_recv(struct in6_addr *src, struct in6_addr *dst,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
@@ -1759,7 +1768,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	 * Drop packet destined to another VRF.
 	 * This happens when raw_l3mdev_accept is set to 1.
 	 */
-	if (ospf6->vrf_id != oi->interface->vrf_id)
+	if (ospf6->vrf_id != oi->interface->vrf->vrf_id)
 		return OSPF6_READ_CONTINUE;
 
 	oh = (struct ospf6_header *)recvbuf;
@@ -1863,11 +1872,13 @@ static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
 
 	oh->version = (uint8_t)OSPFV3_VERSION;
 	oh->type = type;
-
+	oh->length = 0;
 	oh->router_id = oi->area->ospf6->router_id;
 	oh->area_id = oi->area->area_id;
+	oh->checksum = 0;
 	oh->instance_id = oi->instance_id;
 	oh->reserved = 0;
+
 	stream_forward_endp(s, OSPF6_HEADER_SIZE);
 }
 
@@ -2250,7 +2261,8 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) && /* Slave */
 	    !CHECK_FLAG(on->dbdesc_last.bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
-		thread_add_event(master, exchange_done, on, 0, NULL);
+		thread_add_event(master, exchange_done, on, 0,
+				 &on->thread_exchange_done);
 
 	thread_execute(master, ospf6_dbdesc_send, on, 0);
 	return 0;
@@ -2382,7 +2394,6 @@ int ospf6_lsreq_send(struct thread *thread)
 
 	/* set next thread */
 	if (on->request_list->count != 0) {
-		on->thread_send_lsreq = NULL;
 		thread_add_timer(master, ospf6_lsreq_send, on,
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_lsreq);
@@ -2568,11 +2579,9 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 		ospf6_packet_free(op);
 
 	if (on->lsupdate_list->count != 0) {
-		on->thread_send_lsupdate = NULL;
 		thread_add_event(master, ospf6_lsupdate_send_neighbor, on, 0,
 				 &on->thread_send_lsupdate);
 	} else if (on->retrans_list->count != 0) {
-		on->thread_send_lsupdate = NULL;
 		thread_add_timer(master, ospf6_lsupdate_send_neighbor, on,
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_lsupdate);
@@ -2686,7 +2695,6 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 		ospf6_packet_free(op);
 
 	if (oi->lsupdate_list->count > 0) {
-		oi->thread_send_lsupdate = NULL;
 		thread_add_event(master, ospf6_lsupdate_send_interface, oi, 0,
 				 &oi->thread_send_lsupdate);
 	}

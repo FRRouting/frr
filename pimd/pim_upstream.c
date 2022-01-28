@@ -131,7 +131,7 @@ static void pim_upstream_find_new_children(struct pim_instance *pim,
 static struct pim_upstream *pim_upstream_find_parent(struct pim_instance *pim,
 						     struct pim_upstream *child)
 {
-	struct prefix_sg any = child->sg;
+	pim_sgaddr any = child->sg;
 	struct pim_upstream *up = NULL;
 
 	// (S,G)
@@ -271,7 +271,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
 				__func__, up->sg_str, &nht_p);
-		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL, false);
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
 	}
 
 	XFREE(MTYPE_PIM_UPSTREAM, up);
@@ -561,7 +561,7 @@ static void forward_off(struct pim_upstream *up)
 	/* scan per-interface (S,G) state */
 	for (ALL_LIST_ELEMENTS(up->ifchannels, chnode, chnextnode, ch)) {
 
-		pim_forward_stop(ch, false);
+		pim_forward_stop(ch);
 
 	} /* scan iface channel list */
 }
@@ -803,9 +803,8 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 		if (pim_upstream_is_sg_rpt(up) && up->parent &&
 				!I_am_RP(pim, up->sg.grp))
 			send_xg_jp = true;
-		else
-			pim_jp_agg_single_upstream_send(&up->rpf, up,
-							0 /* prune */);
+
+		pim_jp_agg_single_upstream_send(&up->rpf, up, 0 /* prune */);
 
 		if (send_xg_jp) {
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
@@ -861,7 +860,7 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 }
 
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
-					     struct prefix_sg *sg,
+					     pim_sgaddr *sg,
 					     struct interface *incoming,
 					     int flags,
 					     struct pim_ifchannel *ch)
@@ -1013,8 +1012,7 @@ uint32_t pim_up_mlag_peer_cost(struct pim_upstream *up)
 	return up->mlag.peer_mrib_metric;
 }
 
-struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
-				       struct prefix_sg *sg)
+struct pim_upstream *pim_upstream_find(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_upstream lookup;
 	struct pim_upstream *up = NULL;
@@ -1024,9 +1022,9 @@ struct pim_upstream *pim_upstream_find(struct pim_instance *pim,
 	return up;
 }
 
-struct pim_upstream *pim_upstream_find_or_add(struct prefix_sg *sg,
-		struct interface *incoming,
-		int flags, const char *name)
+struct pim_upstream *pim_upstream_find_or_add(pim_sgaddr *sg,
+					      struct interface *incoming,
+					      int flags, const char *name)
 {
 	struct pim_interface *pim_ifp = incoming->info;
 
@@ -1070,8 +1068,7 @@ void pim_upstream_ref(struct pim_upstream *up, int flags, const char *name)
 			   __func__, name, up->sg_str, up->ref_count);
 }
 
-struct pim_upstream *pim_upstream_add(struct pim_instance *pim,
-				      struct prefix_sg *sg,
+struct pim_upstream *pim_upstream_add(struct pim_instance *pim, pim_sgaddr *sg,
 				      struct interface *incoming, int flags,
 				      const char *name,
 				      struct pim_ifchannel *ch)
@@ -1585,7 +1582,7 @@ void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
  *  received for the source and group.
  */
 int pim_upstream_switch_to_spt_desired_on_rp(struct pim_instance *pim,
-				       struct prefix_sg *sg)
+					     pim_sgaddr *sg)
 {
 	if (I_am_RP(pim, sg->grp))
 		return 1;
@@ -1720,8 +1717,6 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	case PIM_REG_PRUNE:
 		strlcpy(state_str, "RegPrune", state_str_len);
 		break;
-	default:
-		strlcpy(state_str, "RegUnknown", state_str_len);
 	}
 	return state_str;
 }
@@ -1785,7 +1780,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 		}
 		pim_null_register_send(up);
 		break;
-	default:
+	case PIM_REG_NOINFO:
 		break;
 	}
 
@@ -1865,6 +1860,8 @@ int pim_upstream_inherited_olist_decide(struct pim_instance *pim,
 					flag = PIM_OIF_FLAG_PROTO_IGMP;
 				if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 					flag |= PIM_OIF_FLAG_PROTO_PIM;
+				if (starch)
+					flag |= PIM_OIF_FLAG_PROTO_STAR;
 			}
 
 			pim_channel_add_oif(up->channel_oil, ifp, flag,

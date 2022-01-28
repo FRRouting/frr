@@ -70,6 +70,8 @@ struct zebra_pbr_ipset_info {
 	 */
 	uint32_t type;
 
+	uint8_t family;
+
 	char ipset_name[ZEBRA_IPSET_NAME_SIZE];
 };
 

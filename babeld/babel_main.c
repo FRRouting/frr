@@ -115,7 +115,7 @@ babel_sigusr1 (void)
     zlog_rotate ();
 }
 
-static struct quagga_signal_t babel_signals[] =
+static struct frr_signal_t babel_signals[] =
   {
     {
       .signal = SIGUSR1,
@@ -183,8 +183,7 @@ main(int argc, char **argv)
 	  case 0:
 	    break;
 	  default:
-	    frr_help_exit (1);
-	    break;
+	    frr_help_exit(1);
 	  }
     }
 

@@ -136,8 +136,10 @@ language = None
 # directories to ignore when looking for source files.
 exclude_patterns = [
     "_build",
+    "building-libunwind-note.rst",
     "building-libyang.rst",
     "topotests-snippets.rst",
+    "topotests-markers.rst",
     "include-compile.rst",
 ]
 

@@ -341,7 +341,7 @@ pim_neighbor_new(struct interface *ifp, struct in_addr source_addr,
 	 * reset the value so that we can know to hurry up and
 	 * hello
 	 */
-	pim_ifp->pim_ifstat_hello_sent = 0;
+	PIM_IF_FLAG_UNSET_HELLO_SENT(pim_ifp->flags);
 
 	pim_inet4_dump("<src?>", source_addr, src_str, sizeof(src_str));
 

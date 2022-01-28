@@ -515,6 +515,17 @@ static void tlvs_add_mt_set(struct isis_area *area, struct isis_tlvs *tlvs,
 			    uint8_t *id, uint32_t metric,
 			    struct isis_ext_subtlvs *ext)
 {
+	/* Check if MT is enable for this area */
+	if (!area_is_mt(area)) {
+		lsp_debug(
+			"ISIS (%s): Adding %s.%02x as te-style neighbor (MT disable)",
+			area->area_tag, sysid_print(id), LSP_PSEUDO_ID(id));
+		isis_tlvs_add_extended_reach(tlvs, ISIS_MT_DISABLE, id, metric,
+					     ext);
+		return;
+	}
+
+	/* Process Multi-Topology */
 	for (unsigned int i = 0; i < mt_count; i++) {
 		uint16_t mtid = mt_set[i];
 		if (mt_set[i] == ISIS_MT_IPV4_UNICAST) {

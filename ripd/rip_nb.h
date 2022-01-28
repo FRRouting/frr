@@ -128,57 +128,62 @@ void ripd_instance_redistribute_apply_finish(
 void ripd_instance_timers_apply_finish(struct nb_cb_apply_finish_args *args);
 
 /* Optional 'cli_show' callbacks. */
-void cli_show_router_rip(struct vty *vty, struct lyd_node *dnode,
+void cli_show_router_rip(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults);
-void cli_show_rip_allow_ecmp(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_allow_ecmp(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults);
 void cli_show_rip_default_information_originate(struct vty *vty,
-						struct lyd_node *dnode,
+						const struct lyd_node *dnode,
 						bool show_defaults);
-void cli_show_rip_default_metric(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_default_metric(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
-void cli_show_rip_distance(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_distance(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_rip_distance_source(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_distance_source(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-void cli_show_rip_neighbor(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_neighbor(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_rip_network_prefix(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_network_prefix(struct vty *vty, const struct lyd_node *dnode,
 				 bool show_defaults);
-void cli_show_rip_network_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_network_interface(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_rip_offset_list(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_offset_list(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
-void cli_show_rip_passive_default(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_passive_default(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-void cli_show_rip_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_passive_interface(struct vty *vty,
+				    const struct lyd_node *dnode,
 				    bool show_defaults);
-void cli_show_rip_non_passive_interface(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_non_passive_interface(struct vty *vty,
+					const struct lyd_node *dnode,
 					bool show_defaults);
-void cli_show_rip_redistribute(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_redistribute(struct vty *vty, const struct lyd_node *dnode,
 			       bool show_defaults);
-void cli_show_rip_route(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_route(struct vty *vty, const struct lyd_node *dnode,
 			bool show_defaults);
-void cli_show_rip_timers(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_timers(struct vty *vty, const struct lyd_node *dnode,
 			 bool show_defaults);
-void cli_show_rip_version(struct vty *vty, struct lyd_node *dnode,
+void cli_show_rip_version(struct vty *vty, const struct lyd_node *dnode,
 			  bool show_defaults);
-void cli_show_ip_rip_split_horizon(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_split_horizon(struct vty *vty,
+				   const struct lyd_node *dnode,
 				   bool show_defaults);
-void cli_show_ip_rip_v2_broadcast(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_v2_broadcast(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
-void cli_show_ip_rip_receive_version(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_receive_version(struct vty *vty,
+				     const struct lyd_node *dnode,
 				     bool show_defaults);
-void cli_show_ip_rip_send_version(struct vty *vty, struct lyd_node *dnode,
+void cli_show_ip_rip_send_version(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 void cli_show_ip_rip_authentication_scheme(struct vty *vty,
-					   struct lyd_node *dnode,
+					   const struct lyd_node *dnode,
 					   bool show_defaults);
 void cli_show_ip_rip_authentication_string(struct vty *vty,
-					   struct lyd_node *dnode,
+					   const struct lyd_node *dnode,
 					   bool show_defaults);
 void cli_show_ip_rip_authentication_key_chain(struct vty *vty,
-					      struct lyd_node *dnode,
+					      const struct lyd_node *dnode,
 					      bool show_defaults);
 
 /* Notifications. */

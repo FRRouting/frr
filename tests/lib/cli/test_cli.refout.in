@@ -147,7 +147,7 @@ test# papat
 % Command incomplete.
 test# pat 
 a          b          c          d          e          f          
-g          
+g          h          
 test# pat 
 % Command incomplete.
 test# 
@@ -263,6 +263,100 @@ cmd10 with 3 args.
 [01] f@(null): f
 [02] key@(null): key
 test# 
+test# no pat g
+cmd15 with 3 args.
+[00] no@(null): no
+[01] pat@(null): pat
+[02] g@(null): g
+test# no pat g test
+cmd15 with 4 args.
+[00] no@(null): no
+[01] pat@(null): pat
+[02] g@(null): g
+[03] WORD@g: test
+test# no pat g test more
+% [NONE] Unknown command: no pat g test more
+test# 
+test# pat h foo 
+  A.B.C.D  04
+test# pat h foo 1.2.3.4 final
+cmd16 with 5 args.
+[00] pat@(null): pat
+[01] h@(null): h
+[02] foo@(null): foo
+[03] A.B.C.D@foo: 1.2.3.4
+[04] final@(null): final
+test# no pat h foo 
+  A.B.C.D  04
+  bar      05
+  final    07
+test# no pat h foo 1.2.3.4 final
+cmd16 with 6 args.
+[00] no@no: no
+[01] pat@(null): pat
+[02] h@(null): h
+[03] foo@(null): foo
+[04] A.B.C.D@foo: 1.2.3.4
+[05] final@(null): final
+test# pat h foo final
+% [NONE] Unknown command: pat h foo final
+test# no pat h foo final
+cmd16 with 5 args.
+[00] no@no: no
+[01] pat@(null): pat
+[02] h@(null): h
+[03] foo@(null): foo
+[04] final@(null): final
+test# pat h bar final
+% [NONE] Unknown command: pat h bar final
+test# no pat h bar final
+% [NONE] Unknown command: no pat h bar final
+test# pat h bar 1::2 final
+cmd16 with 5 args.
+[00] pat@(null): pat
+[01] h@(null): h
+[02] bar@(null): bar
+[03] X:X::X:X@bar: 1::2
+[04] final@(null): final
+test# no pat h bar 1::2 final
+cmd16 with 6 args.
+[00] no@no: no
+[01] pat@(null): pat
+[02] h@(null): h
+[03] bar@(null): bar
+[04] X:X::X:X@bar: 1::2
+[05] final@(null): final
+test# pat h bar 1::2 foo final
+% [NONE] Unknown command: pat h bar 1::2 foo final
+test# no pat h bar 1::2 foo final
+cmd16 with 7 args.
+[00] no@no: no
+[01] pat@(null): pat
+[02] h@(null): h
+[03] bar@(null): bar
+[04] X:X::X:X@bar: 1::2
+[05] foo@(null): foo
+[06] final@(null): final
+test# pat h bar 1::2 foo 1.2.3.4 final
+cmd16 with 7 args.
+[00] pat@(null): pat
+[01] h@(null): h
+[02] bar@(null): bar
+[03] X:X::X:X@bar: 1::2
+[04] foo@(null): foo
+[05] A.B.C.D@foo: 1.2.3.4
+[06] final@(null): final
+test# no pat h bar 1::2 foo 1.2.3.4 final
+cmd16 with 8 args.
+[00] no@no: no
+[01] pat@(null): pat
+[02] h@(null): h
+[03] bar@(null): bar
+[04] X:X::X:X@bar: 1::2
+[05] foo@(null): foo
+[06] A.B.C.D@foo: 1.2.3.4
+[07] final@(null): final
+test# 
 test# alt a 
 test# alt a a
   WORD      02
@@ -315,7 +409,6 @@ domainname test.domain
 !
 !
 !
-line vty
 !
 end
 test# conf t
@@ -332,7 +425,6 @@ domainname test.domain
 !
 !
 !
-line vty
 !
 end
 foohost(config)# 

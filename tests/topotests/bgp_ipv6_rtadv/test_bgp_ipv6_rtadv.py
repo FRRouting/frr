@@ -43,31 +43,26 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 
 pytestmark = [pytest.mark.bgpd]
 
 
-class BGPIPV6RTADVTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 2 routers.
+    tgen.add_router("r1")
+    tgen.add_router("r2")
 
-        # Create 2 routers.
-        tgen.add_router("r1")
-        tgen.add_router("r2")
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BGPIPV6RTADVTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

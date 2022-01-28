@@ -92,17 +92,6 @@ static int pbr_vrf_delete(struct vrf *vrf)
 	return 0;
 }
 
-struct pbr_vrf *pbr_vrf_lookup_by_id(vrf_id_t vrf_id)
-{
-	struct vrf *vrf;
-
-	vrf = vrf_lookup_by_id(vrf_id);
-	if (vrf)
-		return ((struct pbr_vrf *)vrf->info);
-
-	return NULL;
-}
-
 struct pbr_vrf *pbr_vrf_lookup_by_name(const char *name)
 {
 	struct vrf *vrf;
@@ -135,8 +124,7 @@ bool pbr_vrf_is_valid(const struct pbr_vrf *pbr_vrf)
 
 void pbr_vrf_init(void)
 {
-	vrf_init(pbr_vrf_new, pbr_vrf_enable, pbr_vrf_disable, pbr_vrf_delete,
-		 NULL);
+	vrf_init(pbr_vrf_new, pbr_vrf_enable, pbr_vrf_disable, pbr_vrf_delete);
 }
 
 void pbr_vrf_terminate(void)

@@ -192,7 +192,7 @@ void access_list_delete(struct access_list *access)
 	access_list_free(access);
 }
 
-/* Insert new access list to list of access_list.  Each acceess_list
+/* Insert new access list to list of access_list.  Each access_list
    is sorted by the name. */
 static struct access_list *access_list_insert(afi_t afi, const char *name)
 {
@@ -387,7 +387,7 @@ void access_list_filter_add(struct access_list *access,
 	struct filter *replace;
 	struct filter *point;
 
-	/* Automatic asignment of seq no. */
+	/* Automatic assignment of seq no. */
 	if (filter->seq == -1)
 		filter->seq = filter_new_seq_get(access);
 
@@ -558,18 +558,12 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 							  json_rule);
 			else {
 				if (json) {
-					char buf[BUFSIZ];
-
-					json_object_string_add(
-						json_rule, "address",
-						inet_ntop(AF_INET,
-							  &filter->addr, buf,
-							  sizeof(buf)));
-					json_object_string_add(
-						json_rule, "mask",
-						inet_ntop(AF_INET,
-							  &filter->addr_mask,
-							  buf, sizeof(buf)));
+					json_object_string_addf(
+						json_rule, "address", "%pI4",
+						&filter->addr);
+					json_object_string_addf(
+						json_rule, "mask", "%pI4",
+						&filter->addr_mask);
 				} else {
 					if (filter->addr_mask.s_addr
 					    == 0xffffffff)
@@ -589,14 +583,7 @@ static int filter_show(struct vty *vty, const char *name, afi_t afi,
 		}
 	}
 
-	if (json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 /* show MAC access list - this only has MAC filters for now*/
@@ -612,7 +599,7 @@ DEFUN (show_mac_access_list,
 
 DEFUN (show_mac_access_list_name,
        show_mac_access_list_name_cmd,
-       "show mac access-list WORD",
+       "show mac access-list ACCESSLIST_MAC_NAME",
        SHOW_STR
        "mac access lists\n"
        "List mac access lists\n"
@@ -635,15 +622,11 @@ DEFUN (show_ip_access_list,
 
 DEFUN (show_ip_access_list_name,
        show_ip_access_list_name_cmd,
-       "show ip access-list <(1-99)|(100-199)|(1300-1999)|(2000-2699)|WORD> [json]",
+       "show ip access-list ACCESSLIST4_NAME [json]",
        SHOW_STR
        IP_STR
        "List IP access lists\n"
-       "IP standard access list\n"
-       "IP extended access list\n"
-       "IP standard access list (expanded range)\n"
-       "IP extended access list (expanded range)\n"
-       "IP zebra access-list\n"
+       "IP access-list name\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
@@ -665,11 +648,11 @@ DEFUN (show_ipv6_access_list,
 
 DEFUN (show_ipv6_access_list_name,
        show_ipv6_access_list_name_cmd,
-       "show ipv6 access-list WORD [json]",
+       "show ipv6 access-list ACCESSLIST6_NAME [json]",
        SHOW_STR
        IPV6_STR
        "List IPv6 access lists\n"
-       "IPv6 zebra access-list\n"
+       "IPv6 access-list name\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
@@ -685,21 +668,15 @@ static void config_write_access_cisco(struct vty *vty, struct filter *mfilter,
 	filter = &mfilter->u.cfilter;
 
 	if (json) {
-		char buf[BUFSIZ];
-
 		json_object_boolean_add(json, "extended", !!filter->extended);
-		json_object_string_add(
-			json, "sourceAddress",
-			inet_ntop(AF_INET, &filter->addr, buf, sizeof(buf)));
-		json_object_string_add(json, "sourceMask",
-				       inet_ntop(AF_INET, &filter->addr_mask,
-						 buf, sizeof(buf)));
-		json_object_string_add(
-			json, "destinationAddress",
-			inet_ntop(AF_INET, &filter->mask, buf, sizeof(buf)));
-		json_object_string_add(json, "destinationMask",
-				       inet_ntop(AF_INET, &filter->mask_mask,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json, "sourceAddress", "%pI4",
+					&filter->addr);
+		json_object_string_addf(json, "sourceMask", "%pI4",
+					&filter->addr_mask);
+		json_object_string_addf(json, "destinationAddress", "%pI4",
+					&filter->mask);
+		json_object_string_addf(json, "destinationMask", "%pI4",
+					&filter->mask_mask);
 	} else {
 		vty_out(vty, " ip");
 		if (filter->addr_mask.s_addr == 0xffffffff)
@@ -734,16 +711,13 @@ static void config_write_access_zebra(struct vty *vty, struct filter *mfilter,
 	p = &filter->prefix;
 
 	if (json) {
-		json_object_string_add(json, "prefix",
-				       prefix2str(p, buf, sizeof(buf)));
+		json_object_string_addf(json, "prefix", "%pFX", p);
 		json_object_boolean_add(json, "exact-match", !!filter->exact);
 	} else {
 		if (p->prefixlen == 0 && !filter->exact)
 			vty_out(vty, " any");
 		else if (p->family == AF_INET6 || p->family == AF_INET)
-			vty_out(vty, " %s/%d%s",
-				inet_ntop(p->family, &p->u.prefix, buf, BUFSIZ),
-				p->prefixlen,
+			vty_out(vty, " %pFX%s", p,
 				filter->exact ? " exact-match" : "");
 		else if (p->family == AF_ETHERNET) {
 			if (p->prefixlen == 0)
@@ -843,11 +817,61 @@ static void access_list_init_ipv4(void)
 	install_element(ENABLE_NODE, &show_ip_access_list_name_cmd);
 }
 
+static void access_list_autocomplete_afi(afi_t afi, vector comps,
+					 struct cmd_token *token)
+{
+	struct access_list *access;
+	struct access_list *next;
+	struct access_master *master;
+
+	master = access_master_get(afi);
+	if (master == NULL)
+		return;
+
+	for (access = master->str.head; access; access = next) {
+		next = access->next;
+		vector_set(comps, XSTRDUP(MTYPE_COMPLETION, access->name));
+	}
+}
+
 static struct cmd_node access_ipv6_node = {
 	.name = "ipv6 access list",
 	.node = ACCESS_IPV6_NODE,
 	.prompt = "",
 };
+
+static void access_list_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_IP, comps, token);
+	access_list_autocomplete_afi(AFI_IP6, comps, token);
+	access_list_autocomplete_afi(AFI_L2VPN, comps, token);
+}
+
+static void access_list4_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_IP, comps, token);
+}
+
+static void access_list6_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_IP6, comps, token);
+}
+
+static void access_list_mac_autocomplete(vector comps, struct cmd_token *token)
+{
+	access_list_autocomplete_afi(AFI_L2VPN, comps, token);
+}
+
+static const struct cmd_variable_handler access_list_handlers[] = {
+	{.tokenname = "ACCESSLIST_NAME",
+	 .completions = access_list_autocomplete},
+	{.tokenname = "ACCESSLIST4_NAME",
+	 .completions = access_list4_autocomplete},
+	{.tokenname = "ACCESSLIST6_NAME",
+	 .completions = access_list6_autocomplete},
+	{.tokenname = "ACCESSLIST_MAC_NAME",
+	 .completions = access_list_mac_autocomplete},
+	{.completions = NULL}};
 
 static void access_list_reset_ipv6(void)
 {
@@ -878,6 +902,8 @@ static void access_list_init_ipv6(void)
 
 void access_list_init(void)
 {
+	cmd_variable_handler_register(access_list_handlers);
+
 	access_list_init_ipv4();
 	access_list_init_ipv6();
 	access_list_init_mac();

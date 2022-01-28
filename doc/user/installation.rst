@@ -273,6 +273,13 @@ options from the list below.
 
    Build with FPM module support.
 
+.. option:: --with-service-timeout=X
+
+   Set timeout value for FRR service. The time of restarting or reloading FRR
+   service should not exceed this value. This number can be from 0-999.
+   Additionally if this parameter is not passed or setting X = 0, FRR will take
+   default value: 2 minutes.
+
 .. option:: --enable-numeric-version
 
    Alpine Linux does not allow non-numeric characters in the version string.
@@ -285,6 +292,7 @@ options from the list below.
    arguments when reporting the version string in `show version` command.
 
 .. option:: --with-pkg-extra-version=VER
+
    Add extra version field, for packagers/distributions
 
 .. option::  --with-pkg-git-version

@@ -113,7 +113,7 @@ const char *family2str(int family)
 	return "?";
 }
 
-/* Address Famiy Identifier to Address Family converter. */
+/* Address Family Identifier to Address Family converter. */
 int afi2family(afi_t afi)
 {
 	if (afi == AFI_IP)
@@ -1353,7 +1353,7 @@ char *evpn_es_df_alg2str(uint8_t df_alg, char *buf, int buf_len)
 	return buf;
 }
 
-printfrr_ext_autoreg_p("EA", printfrr_ea)
+printfrr_ext_autoreg_p("EA", printfrr_ea);
 static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
@@ -1368,47 +1368,93 @@ static ssize_t printfrr_ea(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("IA", printfrr_ia)
+printfrr_ext_autoreg_p("IA", printfrr_ia);
 static ssize_t printfrr_ia(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	const struct ipaddr *ipa = ptr;
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ipa)
 		return bputs(buf, "(null)");
+
+	if (use_star) {
+		struct in_addr zero4 = {};
+		struct in6_addr zero6 = {};
+
+		switch (ipa->ipa_type) {
+		case IPADDR_V4:
+			if (!memcmp(&ipa->ip.addr, &zero4, sizeof(zero4)))
+				return bputch(buf, '*');
+			break;
+
+		case IPADDR_V6:
+			if (!memcmp(&ipa->ip.addr, &zero6, sizeof(zero6)))
+				return bputch(buf, '*');
+			break;
+
+		default:
+			break;
+		}
+	}
 
 	ipaddr2str(ipa, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I4", printfrr_i4)
+printfrr_ext_autoreg_p("I4", printfrr_i4);
 static ssize_t printfrr_i4(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET_ADDRSTRLEN];
+	bool use_star = false;
+	struct in_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("I6", printfrr_i6)
+printfrr_ext_autoreg_p("I6", printfrr_i6);
 static ssize_t printfrr_i6(struct fbuf *buf, struct printfrr_eargs *ea,
 			   const void *ptr)
 {
 	char cbuf[INET6_ADDRSTRLEN];
+	bool use_star = false;
+	struct in6_addr zero = {};
+
+	if (ea->fmt[0] == 's') {
+		use_star = true;
+		ea->fmt++;
+	}
 
 	if (!ptr)
 		return bputs(buf, "(null)");
+
+	if (use_star && !memcmp(ptr, &zero, sizeof(zero)))
+		return bputch(buf, '*');
 
 	inet_ntop(AF_INET6, ptr, cbuf, sizeof(cbuf));
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("FX", printfrr_pfx)
+printfrr_ext_autoreg_p("FX", printfrr_pfx);
 static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {
@@ -1421,7 +1467,7 @@ static ssize_t printfrr_pfx(struct fbuf *buf, struct printfrr_eargs *ea,
 	return bputs(buf, cbuf);
 }
 
-printfrr_ext_autoreg_p("SG4", printfrr_psg)
+printfrr_ext_autoreg_p("PSG4", printfrr_psg);
 static ssize_t printfrr_psg(struct fbuf *buf, struct printfrr_eargs *ea,
 			    const void *ptr)
 {

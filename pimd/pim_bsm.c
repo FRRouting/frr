@@ -28,12 +28,14 @@
 #include "pimd.h"
 #include "pim_iface.h"
 #include "pim_instance.h"
+#include "pim_neighbor.h"
 #include "pim_rpf.h"
 #include "pim_hello.h"
 #include "pim_pim.h"
 #include "pim_nht.h"
 #include "pim_bsm.h"
 #include "pim_time.h"
+#include "pim_zebra.h"
 
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
@@ -69,7 +71,7 @@ static void pim_bsm_rpinfo_free(struct bsm_rpinfo *bsrp_info)
 	XFREE(MTYPE_PIM_BSRP_INFO, bsrp_info);
 }
 
-void pim_bsm_rpinfos_free(struct bsm_rpinfos_head *head)
+static void pim_bsm_rpinfos_free(struct bsm_rpinfos_head *head)
 {
 	struct bsm_rpinfo *bsrp_info;
 
@@ -77,14 +79,14 @@ void pim_bsm_rpinfos_free(struct bsm_rpinfos_head *head)
 		pim_bsm_rpinfo_free(bsrp_info);
 }
 
-void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
+static void pim_free_bsgrp_data(struct bsgrp_node *bsgrp_node)
 {
 	pim_bsm_rpinfos_free(bsgrp_node->bsrp_list);
 	pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 	XFREE(MTYPE_PIM_BSGRP_NODE, bsgrp_node);
 }
 
-void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
+static void pim_free_bsgrp_node(struct route_table *rt, struct prefix *grp)
 {
 	struct route_node *rn;
 
@@ -101,7 +103,7 @@ static void pim_bsm_frag_free(struct bsm_frag *bsfrag)
 	XFREE(MTYPE_PIM_BSM_FRAG, bsfrag);
 }
 
-void pim_bsm_frags_free(struct bsm_scope *scope)
+static void pim_bsm_frags_free(struct bsm_scope *scope)
 {
 	struct bsm_frag *bsfrag;
 
@@ -161,8 +163,6 @@ static int pim_on_bs_timer(struct thread *t)
 	struct bsm_scope *scope;
 	struct bsgrp_node *bsgrp_node;
 	struct bsm_rpinfo *bsrp;
-	struct prefix nht_p;
-	bool is_bsr_tracking = true;
 
 	scope = THREAD_ARG(t);
 	THREAD_OFF(scope->bs_timer);
@@ -171,15 +171,7 @@ static int pim_on_bs_timer(struct thread *t)
 		zlog_debug("%s: Bootstrap Timer expired for scope: %d",
 			   __func__, scope->sz_id);
 
-	/* Remove next hop tracking for the bsr */
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = scope->current_bsr;
-	if (PIM_DEBUG_BSM)
-		zlog_debug("%s: Deregister BSR addr %pFX with Zebra NHT",
-			   __func__, &nht_p);
-	pim_delete_tracked_nexthop(scope->pim, &nht_p, NULL, NULL,
-				   is_bsr_tracking);
+	pim_nht_bsr_del(scope->pim, scope->current_bsr);
 
 	/* Reset scope zone data */
 	scope->accept_nofwd_bsm = false;
@@ -211,7 +203,7 @@ static int pim_on_bs_timer(struct thread *t)
 	return 0;
 }
 
-void pim_bs_timer_stop(struct bsm_scope *scope)
+static void pim_bs_timer_stop(struct bsm_scope *scope)
 {
 	if (PIM_DEBUG_BSM)
 		zlog_debug("%s : BS timer being stopped of sz: %d", __func__,
@@ -542,35 +534,6 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 }
 
-static bool pim_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr,
-			      struct in_addr ip_src_addr)
-{
-	struct pim_nexthop nexthop;
-	int result;
-
-	memset(&nexthop, 0, sizeof(nexthop));
-
-	/* New BSR recived */
-	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
-		result = pim_nexthop_match(pim, bsr, ip_src_addr);
-
-		/* Nexthop lookup pass for the new BSR address */
-		if (result)
-			return true;
-
-		if (PIM_DEBUG_BSM) {
-			char bsr_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<bsr?>", bsr, bsr_str, sizeof(bsr_str));
-			zlog_debug("%s : No route to BSR address %s", __func__,
-				   bsr_str);
-		}
-		return false;
-	}
-
-	return pim_nexthop_match_nht_cache(pim, bsr, ip_src_addr);
-}
-
 static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 			     uint32_t bsr_prio)
 {
@@ -593,35 +556,11 @@ static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 			   uint32_t bsr_prio)
 {
-	struct pim_nexthop_cache pnc;
-
 	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
-		struct prefix nht_p;
-		bool is_bsr_tracking = true;
+		if (pim->global_scope.current_bsr.s_addr)
+			pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+		pim_nht_bsr_add(pim, bsr);
 
-		/* De-register old BSR and register new BSR with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-
-		if (pim->global_scope.current_bsr.s_addr != INADDR_ANY) {
-			nht_p.u.prefix4 = pim->global_scope.current_bsr;
-			if (PIM_DEBUG_BSM)
-				zlog_debug(
-					"%s: Deregister BSR addr %pFX with Zebra NHT",
-					__func__, &nht_p);
-			pim_delete_tracked_nexthop(pim, &nht_p, NULL, NULL,
-						   is_bsr_tracking);
-		}
-
-		nht_p.u.prefix4 = bsr;
-		if (PIM_DEBUG_BSM)
-			zlog_debug(
-				"%s: NHT Register BSR addr %pFX with Zebra NHT",
-				__func__, &nht_p);
-
-		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
-		pim_find_or_track_nexthop(pim, &nht_p, NULL, NULL,
-					  is_bsr_tracking, &pnc);
 		pim->global_scope.current_bsr = bsr;
 		pim->global_scope.current_bsr_first_ts =
 			pim_time_monotonic_sec();
@@ -629,6 +568,127 @@ static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 	}
 	pim->global_scope.current_bsr_prio = bsr_prio;
 	pim->global_scope.current_bsr_last_ts = pim_time_monotonic_sec();
+}
+
+void pim_bsm_clear(struct pim_instance *pim)
+{
+	struct route_node *rn;
+	struct route_node *rpnode;
+	struct bsgrp_node *bsgrp;
+	struct prefix nht_p;
+	struct prefix g_all;
+	struct rp_info *rp_all;
+	struct pim_upstream *up;
+	struct rp_info *rp_info;
+	bool upstream_updated = false;
+
+	if (pim->global_scope.current_bsr.s_addr)
+		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+
+	/* Reset scope zone data */
+	pim->global_scope.accept_nofwd_bsm = false;
+	pim->global_scope.state = ACCEPT_ANY;
+	pim->global_scope.current_bsr.s_addr = INADDR_ANY;
+	pim->global_scope.current_bsr_prio = 0;
+	pim->global_scope.current_bsr_first_ts = 0;
+	pim->global_scope.current_bsr_last_ts = 0;
+	pim->global_scope.bsm_frag_tag = 0;
+	pim_bsm_frags_free(&pim->global_scope);
+
+	pim_bs_timer_stop(&pim->global_scope);
+
+	for (rn = route_top(pim->global_scope.bsrp_table); rn;
+	     rn = route_next(rn)) {
+		bsgrp = rn->info;
+		if (!bsgrp)
+			continue;
+
+		rpnode = route_node_lookup(pim->rp_table, &bsgrp->group);
+
+		if (!rpnode) {
+			pim_free_bsgrp_node(bsgrp->scope->bsrp_table,
+					    &bsgrp->group);
+			pim_free_bsgrp_data(bsgrp);
+			continue;
+		}
+
+		rp_info = (struct rp_info *)rpnode->info;
+
+		if ((!rp_info) || (rp_info->rp_src != RP_SRC_BSR)) {
+			pim_free_bsgrp_node(bsgrp->scope->bsrp_table,
+					    &bsgrp->group);
+			pim_free_bsgrp_data(bsgrp);
+			continue;
+		}
+
+		/* Deregister addr with Zebra NHT */
+		nht_p.family = AF_INET;
+		nht_p.prefixlen = IPV4_MAX_BITLEN;
+		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+
+		if (PIM_DEBUG_PIM_NHT_RP) {
+			zlog_debug("%s: Deregister RP addr %pFX with Zebra ",
+				   __func__, &nht_p);
+		}
+
+		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
+
+		if (!str2prefix("224.0.0.0/4", &g_all))
+			return;
+
+		rp_all = pim_rp_find_match_group(pim, &g_all);
+
+		if (rp_all == rp_info) {
+			rp_all->rp.rpf_addr.family = AF_INET;
+			rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
+			rp_all->i_am_rp = 0;
+		} else {
+			/* Delete the rp_info from rp-list */
+			listnode_delete(pim->rp_list, rp_info);
+
+			/* Delete the rp node from rp_table */
+			rpnode->info = NULL;
+			route_unlock_node(rpnode);
+			route_unlock_node(rpnode);
+			XFREE(MTYPE_PIM_RP, rp_info);
+		}
+
+		pim_free_bsgrp_node(bsgrp->scope->bsrp_table, &bsgrp->group);
+		pim_free_bsgrp_data(bsgrp);
+	}
+	pim_rp_refresh_group_to_rp_mapping(pim);
+
+
+	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
+		/* Find the upstream (*, G) whose upstream address is same as
+		 * the RP
+		 */
+		if (up->sg.src.s_addr != INADDR_ANY)
+			continue;
+
+		struct prefix grp;
+		struct rp_info *trp_info;
+
+		grp.family = AF_INET;
+		grp.prefixlen = IPV4_MAX_BITLEN;
+		grp.u.prefix4 = up->sg.grp;
+
+		trp_info = pim_rp_find_match_group(pim, &grp);
+
+		/* RP not found for the group grp */
+		if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
+			pim_upstream_rpf_clear(pim, up);
+			pim_rp_set_upstream_addr(pim, &up->upstream_addr,
+						 up->sg.src, up->sg.grp);
+		} else {
+			/* RP found for the group grp */
+			pim_upstream_update(pim, up);
+			upstream_updated = true;
+		}
+	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 }
 
 static bool pim_bsm_send_intf(uint8_t *buf, int len, struct interface *ifp,
@@ -1114,18 +1174,6 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 		buf += sizeof(struct bsmmsg_grpinfo);
 		offset += sizeof(struct bsmmsg_grpinfo);
 
-		if (grpinfo.rp_count == 0) {
-			if (PIM_DEBUG_BSM) {
-				char grp_str[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<Group?>", grpinfo.group.addr,
-					       grp_str, sizeof(grp_str));
-				zlog_debug("%s, Rp count is zero for group: %s",
-					   __func__, grp_str);
-			}
-			return false;
-		}
-
 		group.family = AF_INET;
 		if (grpinfo.group.mask > IPV4_MAX_BITLEN) {
 			if (PIM_DEBUG_BSM)
@@ -1139,6 +1187,32 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 
 		/* Get the Group node for the BSM rp table */
 		bsgrp = pim_bsm_get_bsgrp_node(scope, &group);
+
+		if (grpinfo.rp_count == 0) {
+			struct bsm_rpinfo *old_rpinfo;
+
+			/* BSR explicitly no longer has RPs for this group */
+			if (!bsgrp)
+				continue;
+
+			if (PIM_DEBUG_BSM) {
+				char grp_str[INET_ADDRSTRLEN];
+
+				pim_inet4_dump("<Group?>", grpinfo.group.addr,
+					       grp_str, sizeof(grp_str));
+				zlog_debug("%s, Rp count is zero for group: %s",
+					   __func__, grp_str);
+			}
+
+			old_rpinfo = bsm_rpinfos_first(bsgrp->bsrp_list);
+			if (old_rpinfo)
+				pim_rp_del(scope->pim, old_rpinfo->rp_address,
+					   group, NULL, RP_SRC_BSR);
+
+			pim_free_bsgrp_node(scope->bsrp_table, &bsgrp->group);
+			pim_free_bsgrp_data(bsgrp);
+			continue;
+		}
 
 		if (!bsgrp) {
 			if (PIM_DEBUG_BSM)
@@ -1309,21 +1383,23 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		}
 	}
 
-	/* Mulicast BSM received */
 	if (ip_hdr->ip_dst.s_addr == qpim_all_pim_routers_addr.s_addr) {
-		if (!no_fwd) {
-			if (!pim_bsr_rpf_check(pim, bshdr->bsr_addr.addr,
-					       ip_hdr->ip_src)) {
-				if (PIM_DEBUG_BSM)
-					zlog_debug(
-						"%s : RPF check fail for BSR address %s",
-						__func__, bsr_str);
-				pim->bsm_dropped++;
-				return -1;
-			}
+		/* Multicast BSMs are only accepted if source interface & IP
+		 * match RPF towards the BSR's IP address, or they have
+		 * no-forward set
+		 */
+		if (!no_fwd
+		    && !pim_nht_bsr_rpf_check(pim, bshdr->bsr_addr.addr, ifp,
+					      ip_hdr->ip_src)) {
+			if (PIM_DEBUG_BSM)
+				zlog_debug(
+					"BSM check: RPF to BSR %s is not %pI4%%%s",
+					bsr_str, &ip_hdr->ip_src, ifp->name);
+			pim->bsm_dropped++;
+			return -1;
 		}
-	} else if (if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET,
-					   pim->vrf->vrf_id)) {
+	} else if (if_address_is_local(&ip_hdr->ip_dst, AF_INET,
+				       pim->vrf->vrf_id)) {
 		/* Unicast BSM received - if ucast bsm not enabled on
 		 * the interface, drop it
 		 */

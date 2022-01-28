@@ -27,7 +27,6 @@ test_ospf_topo1.py: Test the FRR OSPF routing daemon.
 """
 
 import os
-import re
 import sys
 from functools import partial
 import pytest
@@ -43,44 +42,39 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
 
-class OSPFTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 3 routers
+    for routern in range(1, 4):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 3 routers
-        for routern in range(1, 4):
-            tgen.add_router("r{}".format(routern))
+    # Create a empty network for router 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+    # Create a empty network for router 2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
 
-        # Create a empty network for router 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
+    # Interconect router 1, 2 and 3
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        # Interconect router 1, 2 and 3
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        # Create empty netowrk for router3
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r3"])
+    # Create empty netowrk for router3
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -99,20 +93,12 @@ def setup_module(mod):
 
     logger.info("Testing with VRF Namespace support")
 
-    cmds = [
-        "if [ -e /var/run/netns/{0}-ospf-cust1 ] ; then ip netns del {0}-ospf-cust1 ; fi",
-        "ip netns add {0}-ospf-cust1",
-        "ip link set dev {0}-eth0 netns {0}-ospf-cust1",
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth0 up",
-        "ip link set dev {0}-eth1 netns {0}-ospf-cust1",
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth1 up",
-    ]
-
     for rname, router in router_list.items():
-
-        # create VRF rx-ospf-cust1 and link rx-eth0 to rx-ospf-cust1
-        for cmd in cmds:
-            output = tgen.net[rname].cmd(cmd.format(rname))
+        # create VRF rx-ospf-cust1 and link rx-eth{0,1} to rx-ospf-cust1
+        ns = "{}-ospf-cust1".format(rname)
+        router.net.add_netns(ns)
+        router.net.set_intf_netns(rname + "-eth0", ns, up=True)
+        router.net.set_intf_netns(rname + "-eth1", ns, up=True)
 
         router.load_config(
             TopoRouter.RD_ZEBRA,
@@ -134,18 +120,12 @@ def teardown_module(mod):
     "Teardown the pytest environment"
     tgen = get_topogen()
 
-    # move back rx-eth0 to default VRF
-    # delete rx-vrf
-    cmds = [
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns exec {0}-ospf-cust1 ip link set {0}-eth1 netns 1",
-        "ip netns delete {0}-ospf-cust1",
-    ]
-
+    # Move interfaces out of vrf namespace and delete the namespace
     router_list = tgen.routers()
     for rname, router in router_list.items():
-        for cmd in cmds:
-            tgen.net[rname].cmd(cmd.format(rname))
+        tgen.net[rname].reset_intf_netns(rname + "-eth0")
+        tgen.net[rname].reset_intf_netns(rname + "-eth1")
+        tgen.net[rname].delete_netns(rname + "-ospf-cust1")
     tgen.stop_topology()
 
 

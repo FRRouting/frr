@@ -407,6 +407,82 @@ static void pbrms_clear_set_config(struct pbr_map_sequence *pbrms)
 	pbrms->nhs_installed = false;
 }
 
+
+DEFPY(pbr_map_action_queue_id, pbr_map_action_queue_id_cmd,
+      "[no] set queue-id <(1-65535)$queue_id>",
+      NO_STR
+      "Set the rest of the command\n"
+      "Set based on egress port queue id\n"
+      "A valid value in range 1..65535 \n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_queue_id = queue_id;
+	else if ((uint32_t)queue_id == pbrms->action_queue_id)
+		pbrms->action_queue_id = PBR_MAP_UNDEFINED_QUEUE_ID;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_pcp, pbr_map_action_pcp_cmd, "[no] set pcp <(0-7)$pcp>",
+      NO_STR
+      "Set the rest of the command\n"
+      "Set based on 802.1p Priority Code Point (PCP) value\n"
+      "A valid value in range 0..7\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_pcp = pcp;
+	else if (pcp == pbrms->action_pcp)
+		pbrms->action_pcp = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_vlan_id, pbr_map_action_vlan_id_cmd,
+      "[no] set vlan <(1-4094)$vlan_id>",
+      NO_STR
+      "Set the rest of the command\n"
+      "Set action for VLAN tagging\n"
+      "A valid value in range 1..4094\n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_vlan_id = vlan_id;
+	else if (pbrms->action_vlan_id == vlan_id)
+		pbrms->action_vlan_id = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY(pbr_map_action_strip_vlan, pbr_map_action_strip_vlan_cmd,
+      "[no] strip vlan",
+      NO_STR
+      "Strip the vlan tags from frame\n"
+      "Strip any inner vlan tag \n")
+{
+	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
+
+	if (!no)
+		pbrms->action_vlan_flags = PBR_MAP_STRIP_INNER_ANY;
+	else
+		pbrms->action_vlan_flags = 0;
+
+	pbr_map_check(pbrms, true);
+
+	return CMD_SUCCESS;
+}
+
+
 DEFPY(pbr_map_nexthop_group, pbr_map_nexthop_group_cmd,
       "set nexthop-group NHGNAME$name",
       "Set for the PBR-MAP\n"
@@ -485,24 +561,43 @@ DEFPY(pbr_map_nexthop, pbr_map_nexthop_cmd,
 	nhop.vrf_id = vrf->vrf_id;
 
 	if (intf) {
-		struct interface *ifp;
+		struct interface *ifp = NULL;
+		struct interface *ifptmp;
+		struct vrf *vrftmp;
+		int count = 0;
 
-		ifp = if_lookup_by_name_all_vrf(intf);
+		if (vrf_is_backend_netns() && vrf_name) {
+			ifp = if_lookup_by_name_vrf(intf, vrf);
+		} else {
+			RB_FOREACH (vrftmp, vrf_name_head, &vrfs_by_name) {
+				ifptmp = if_lookup_by_name_vrf(intf, vrftmp);
+				if (ifptmp) {
+					ifp = ifptmp;
+					count++;
+					if (!vrf_is_backend_netns())
+						break;
+				}
+			}
+		}
+
 		if (!ifp) {
 			vty_out(vty, "Specified Intf %s does not exist\n",
 				intf);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
-		if (ifp->vrf_id != vrf->vrf_id) {
-			struct vrf *actual;
-
-			actual = vrf_lookup_by_id(ifp->vrf_id);
+		if (count > 1) {
+			vty_out(vty,
+				"Specified Intf %s exists in multiple VRFs\n",
+				intf);
+			vty_out(vty, "You must specify the nexthop-vrf\n");
+			return CMD_WARNING_CONFIG_FAILED;
+		}
+		if (ifp->vrf->vrf_id != vrf->vrf_id)
 			vty_out(vty,
 				"Specified Intf %s is not in vrf %s but is in vrf %s, using actual vrf\n",
-				ifp->name, vrf->name, actual->name);
-		}
+				ifp->name, vrf->name, ifp->vrf->name);
 		nhop.ifindex = ifp->ifindex;
-		nhop.vrf_id = ifp->vrf_id;
+		nhop.vrf_id = ifp->vrf->vrf_id;
 	}
 
 	if (addr) {
@@ -764,6 +859,18 @@ static void vty_show_pbrms(struct vty *vty,
 	if (pbrms->mark)
 		vty_out(vty, "        MARK Match: %u\n", pbrms->mark);
 
+	if (pbrms->action_queue_id != PBR_MAP_UNDEFINED_QUEUE_ID)
+		vty_out(vty, "        Set Queue ID %u\n",
+			pbrms->action_queue_id);
+
+	if (pbrms->action_vlan_id != 0)
+		vty_out(vty, "        Set VLAN ID %u\n", pbrms->action_vlan_id);
+	if (pbrms->action_vlan_flags == PBR_MAP_STRIP_INNER_ANY)
+		vty_out(vty, "        Strip VLAN ID\n");
+	if (pbrms->action_pcp)
+		vty_out(vty, "        Set PCP %u\n", pbrms->action_pcp);
+
+
 	if (pbrms->nhgrp_name) {
 		vty_out(vty, "        Nexthop-Group: %s\n", pbrms->nhgrp_name);
 
@@ -810,7 +917,6 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 	json_object *jpbrm, *nexthop_group;
 	char *nhg_name = pbrms->nhgrp_name ? pbrms->nhgrp_name
 					   : pbrms->internal_nhg_name;
-	char buf[PREFIX_STRLEN];
 	char rbuf[64];
 
 	jpbrm = json_object_new_object();
@@ -846,13 +952,9 @@ static void vty_json_pbrms(json_object *j, struct vty *vty,
 		json_object_string_add(jpbrm, "vrfName", pbrms->vrf_name);
 
 	if (pbrms->src)
-		json_object_string_add(
-			jpbrm, "matchSrc",
-			prefix2str(pbrms->src, buf, sizeof(buf)));
+		json_object_string_addf(jpbrm, "matchSrc", "%pFX", pbrms->src);
 	if (pbrms->dst)
-		json_object_string_add(
-			jpbrm, "matchDst",
-			prefix2str(pbrms->dst, buf, sizeof(buf)));
+		json_object_string_addf(jpbrm, "matchDst", "%pFX", pbrms->dst);
 	if (pbrms->mark)
 		json_object_int_add(jpbrm, "matchMark", pbrms->mark);
 	if (pbrms->dsfield & PBR_DSFIELD_DSCP)
@@ -930,12 +1032,8 @@ DEFPY (show_pbr_map,
 		vty_show_pbr_map(vty, pbrm, detail);
 	}
 
-	if (j) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-		json_object_free(j);
-	}
+	if (j)
+		vty_json(vty, j);
 
 	return CMD_SUCCESS;
 }
@@ -957,11 +1055,7 @@ DEFPY(show_pbr_nexthop_group,
 	if (j) {
 		pbr_nht_json_nexthop_group(j, word);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-
-		json_object_free(j);
+		vty_json(vty, j);
 	} else
 		pbr_nht_show_nexthop_group(vty, word);
 
@@ -1035,12 +1129,8 @@ DEFPY (show_pbr_interface,
 		}
 	}
 
-	if (j) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				j, JSON_C_TO_STRING_PRETTY));
-		json_object_free(j);
-	}
+	if (j)
+		vty_json(vty, j);
 
 	return CMD_SUCCESS;
 }
@@ -1118,7 +1208,7 @@ static int pbr_interface_config_write(struct vty *vty)
 
 			pbr_map_write_interfaces(vty, ifp);
 
-			vty_endframe(vty, "!\n");
+			vty_endframe(vty, "exit\n!\n");
 		}
 	}
 
@@ -1170,6 +1260,19 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 	if (pbrms->mark)
 		vty_out(vty, " match mark %u\n", pbrms->mark);
 
+
+	if (pbrms->action_queue_id != PBR_MAP_UNDEFINED_QUEUE_ID)
+		vty_out(vty, " set queue-id %d\n", pbrms->action_queue_id);
+
+	if (pbrms->action_pcp)
+		vty_out(vty, " set pcp %d\n", pbrms->action_pcp);
+
+	if (pbrms->action_vlan_id)
+		vty_out(vty, " set vlan %u\n", pbrms->action_vlan_id);
+
+	if (pbrms->action_vlan_flags == PBR_MAP_STRIP_INNER_ANY)
+		vty_out(vty, " strip vlan any\n");
+
 	if (pbrms->vrf_unchanged)
 		vty_out(vty, " set vrf unchanged\n");
 
@@ -1184,6 +1287,7 @@ static int pbr_vty_map_config_write_sequence(struct vty *vty,
 		pbrms_nexthop_group_write_individual_nexthop(vty, pbrms);
 	}
 
+	vty_out(vty, "exit\n");
 	vty_out(vty, "!\n");
 	return 1;
 }
@@ -1229,7 +1333,7 @@ void pbr_vty_init(void)
 {
 	cmd_variable_handler_register(pbr_map_name);
 
-	vrf_cmd_init(NULL, &pbr_privs);
+	vrf_cmd_init(NULL);
 
 	if_cmd_init(pbr_interface_config_write);
 
@@ -1256,6 +1360,10 @@ void pbr_vty_init(void)
 	install_element(PBRMAP_NODE, &pbr_map_match_dscp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_ecn_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_match_mark_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_queue_id_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_strip_vlan_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_vlan_id_cmd);
+	install_element(PBRMAP_NODE, &pbr_map_action_pcp_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &no_pbr_map_nexthop_group_cmd);
 	install_element(PBRMAP_NODE, &pbr_map_nexthop_cmd);

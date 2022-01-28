@@ -49,9 +49,9 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
 			ret = route_map_apply(rmap, dest_p, &path);
-			if (ret != RMAP_PERMITMATCH)
-				bgp_attr_flush(&dummy_attr);
-			else {
+			bgp_attr_flush(&dummy_attr);
+
+			if (ret == RMAP_PERMITMATCH) {
 				bgp_dest_unlock_node(dest);
 				if (BGP_DEBUG(update, UPDATE_OUT))
 					zlog_debug(
@@ -84,6 +84,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 	struct update_subgroup *subgrp;
 	struct attr dummy_attr = {0}, attr = {0};
 	struct bgp_path_info_extra path_extra = {0};
+	route_map_result_t ret;
 
 	paf = peer_af_find(peer, afi, safi);
 	if (!paf)
@@ -114,11 +115,11 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 
 			RESET_FLAG(dummy_attr.rmap_change_flags);
 
-			if (route_map_apply(rmap, dest_p, &path)
-			    != RMAP_PERMITMATCH) {
-				bgp_attr_flush(&dummy_attr);
+			ret = route_map_apply(rmap, dest_p, &path);
+			bgp_attr_flush(&dummy_attr);
+
+			if (ret != RMAP_PERMITMATCH)
 				continue;
-			}
 
 			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
 			    || (addpath_capable

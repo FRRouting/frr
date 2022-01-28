@@ -1007,7 +1007,6 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 	char wbuf[ZEBRA_TIME_BUF], nhbuf[ZEBRA_TIME_BUF], mbuf[ZEBRA_TIME_BUF];
 	time_t connect_time, last_read_time, last_write_time;
 	uint32_t last_read_cmd, last_write_cmd;
-	struct client_gr_info *info = NULL;
 
 	vty_out(vty, "Client: %s", zebra_route_string(client->proto));
 	if (client->instance)
@@ -1100,22 +1099,6 @@ static void zebra_show_client_detail(struct vty *vty, struct zserv *client)
 		client->local_es_evi_add_cnt, 0, client->local_es_evi_del_cnt);
 	vty_out(vty, "Errors: %u\n", client->error_cnt);
 
-	TAILQ_FOREACH (info, &client->gr_info_queue, gr_info) {
-		vty_out(vty, "VRF : %s\n", vrf_id_to_name(info->vrf_id));
-		vty_out(vty, "Capabilities : ");
-		switch (info->capabilities) {
-		case ZEBRA_CLIENT_GR_CAPABILITIES:
-			vty_out(vty, "Graceful Restart\n");
-			break;
-		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
-		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
-		case ZEBRA_CLIENT_GR_DISABLE:
-		case ZEBRA_CLIENT_RIB_STALE_TIME:
-			vty_out(vty, "None\n");
-			break;
-		}
-	}
-
 #if defined DEV_BUILD
 	vty_out(vty, "Input Fifo: %zu:%zu Output Fifo: %zu:%zu\n",
 		client->ibuf_fifo->count, client->ibuf_fifo->max_count,
@@ -1151,7 +1134,8 @@ static void zebra_show_stale_client_detail(struct vty *vty,
 		vty_out(vty, "Capabilities : ");
 		switch (info->capabilities) {
 		case ZEBRA_CLIENT_GR_CAPABILITIES:
-			vty_out(vty, "Graceful Restart\n");
+			vty_out(vty, "Graceful Restart(%u seconds)\n",
+				info->stale_removal_time);
 			break;
 		case ZEBRA_CLIENT_ROUTE_UPDATE_COMPLETE:
 		case ZEBRA_CLIENT_ROUTE_UPDATE_PENDING:
@@ -1213,7 +1197,8 @@ static void zebra_show_client_brief(struct vty *vty, struct zserv *client)
 		snprintfrr(client_string, sizeof(client_string), "%s",
 			   zebra_route_string(client->proto));
 
-	vty_out(vty, "%-10s%12s %12s%12s%8d/%-8d%8d/%-8d\n", client_string,
+	vty_out(vty, "%-10s%12s %12s%12s %10d/%-10d %10d/%-10d\n",
+		client_string,
 		zserv_time_buf(&connect_time, cbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_read_time, rbuf, ZEBRA_TIME_BUF),
 		zserv_time_buf(&last_write_time, wbuf, ZEBRA_TIME_BUF),
@@ -1307,9 +1292,9 @@ DEFUN (show_zebra_client_summary,
 	struct zserv *client;
 
 	vty_out(vty,
-		"Name      Connect Time    Last Read  Last Write  IPv4 Routes       IPv6 Routes    \n");
+		"Name      Connect Time    Last Read  Last Write      IPv4 Routes           IPv6 Routes\n");
 	vty_out(vty,
-		"--------------------------------------------------------------------------------\n");
+		"------------------------------------------------------------------------------------------\n");
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
 		zebra_show_client_brief(vty, client);

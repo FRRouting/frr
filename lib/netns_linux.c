@@ -279,7 +279,7 @@ static void ns_disable_internal(struct ns *ns)
 	}
 }
 
-/* VRF list existance check by name. */
+/* VRF list existence check by name. */
 static struct ns_map_nsid *ns_map_nsid_lookup_by_nsid(ns_id_t ns_id)
 {
 	struct ns_map_nsid ns_map;

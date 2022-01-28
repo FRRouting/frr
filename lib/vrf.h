@@ -119,7 +119,6 @@ extern struct vrf *vrf_lookup_by_name(const char *);
 extern struct vrf *vrf_get(vrf_id_t, const char *);
 extern struct vrf *vrf_update(vrf_id_t new_vrf_id, const char *name);
 extern const char *vrf_id_to_name(vrf_id_t vrf_id);
-extern vrf_id_t vrf_name_to_id(const char *);
 
 #define VRF_LOGNAME(V) V ? V->name : "Unknown"
 
@@ -177,8 +176,6 @@ static inline uint32_t vrf_interface_count(struct vrf *vrf)
  * Utilities to obtain the user data
  */
 
-/* Get the data pointer of the specified VRF. If not found, create one. */
-extern void *vrf_info_get(vrf_id_t);
 /* Look up the data pointer of the specified VRF. */
 extern void *vrf_info_lookup(vrf_id_t);
 
@@ -215,9 +212,10 @@ extern int vrf_bitmap_check(vrf_bitmap_t, vrf_id_t);
  * delete -> Called back when a vrf is being deleted from
  *           the system ( 2 and 3 ) above.
  */
-extern void vrf_init(int (*create)(struct vrf *vrf), int (*enable)(struct vrf *vrf),
-		     int (*disable)(struct vrf *vrf), int (*destroy)(struct vrf *vrf),
-		     int (*update)(struct vrf *vrf));
+extern void vrf_init(int (*create)(struct vrf *vrf),
+		     int (*enable)(struct vrf *vrf),
+		     int (*disable)(struct vrf *vrf),
+		     int (*destroy)(struct vrf *vrf));
 
 /*
  * Call vrf_terminate when the protocol is being shutdown
@@ -270,7 +268,9 @@ extern int vrf_ioctl(vrf_id_t vrf_id, int d, unsigned long request, char *args);
 /* The default VRF ID */
 #define VRF_DEFAULT 0
 
-extern void vrf_set_default_name(const char *default_name, bool force);
+/* Must be called only during startup, before config is read */
+extern void vrf_set_default_name(const char *default_name);
+
 extern const char *vrf_get_default_name(void);
 #define VRF_DEFAULT_NAME    vrf_get_default_name()
 
@@ -285,8 +285,7 @@ extern int vrf_switchback_to_initial(void);
 
 /* VRF vty command initialisation
  */
-extern void vrf_cmd_init(int (*writefunc)(struct vty *vty),
-			 struct zebra_privs_t *daemon_priv);
+extern void vrf_cmd_init(int (*writefunc)(struct vty *vty));
 
 /* VRF vty debugging
  */
@@ -303,28 +302,12 @@ extern int vrf_configure_backend(enum vrf_backend_type backend);
 extern int vrf_get_backend(void);
 extern int vrf_is_backend_netns(void);
 
-
-/* API to create a VRF. either from vty
- * or through discovery
- */
-extern int vrf_handler_create(struct vty *vty, const char *name,
-			      struct vrf **vrf);
-
-/* API to associate a VRF with a NETNS.
- * called either from vty or through discovery
- * should be called from zebra only
- */
-extern int vrf_netns_handler_create(struct vty *vty, struct vrf *vrf,
-				    char *pathname, ns_id_t ext_ns_id,
-				    ns_id_t ns_id, ns_id_t rel_def_ns_id);
-
 /* used internally to enable or disable VRF.
  * Notify a change in the VRF ID of the VRF
  */
 extern void vrf_disable(struct vrf *vrf);
 extern int vrf_enable(struct vrf *vrf);
 extern void vrf_delete(struct vrf *vrf);
-extern vrf_id_t vrf_generate_id(void);
 
 extern const struct frr_yang_module_info frr_vrf_info;
 

@@ -106,19 +106,25 @@ Functions provided:
 | _init, _fini                       | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _first, _next, _next_safe,         | yes  | yes  | yes  | yes     | yes        |
+|                                    |      |      |      |         |            |
 | _const_first, _const_next          |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | _swap_all                          | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
+| _anywhere                          | yes  | --   | --   | --      | --         |
++------------------------------------+------+------+------+---------+------------+
 | _add_head, _add_tail, _add_after   | yes  | --   | --   | --      | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _add                               | --   | yes  | yes  | yes     | yes        |
++------------------------------------+------+------+------+---------+------------+
+| _member                            | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _del, _pop                         | yes  | yes  | yes  | yes     | yes        |
 +------------------------------------+------+------+------+---------+------------+
 | _find, _const_find                 | --   | --   | yes  | yes     | --         |
 +------------------------------------+------+------+------+---------+------------+
 | _find_lt, _find_gteq,              | --   | --   | --   | yes     | yes        |
+|                                    |      |      |      |         |            |
 | _const_find_lt, _const_find_gteq   |      |      |      |         |            |
 +------------------------------------+------+------+------+---------+------------+
 | use with frr_each() macros         | yes  | yes  | yes  | yes     | yes        |
@@ -182,7 +188,7 @@ Common iteration macros
 
 The following iteration macros work across all data structures:
 
-.. c:function:: frr_each(Z, &head, item)
+.. c:macro:: frr_each(Z, head, item)
 
    Equivalent to:
 
@@ -193,7 +199,7 @@ The following iteration macros work across all data structures:
    Note that this will fail if the list is modified while being iterated
    over.
 
-.. c:function:: frr_each_safe(Z, &head, item)
+.. c:macro:: frr_each_safe(Z, head, item)
 
    Same as the previous, but the next element is pre-loaded into a "hidden"
    variable (named ``Z_safe``.)  Equivalent to:
@@ -212,7 +218,7 @@ The following iteration macros work across all data structures:
       tables is resized while iterating.  This will cause items to be
       skipped or iterated over twice.
 
-.. c:function:: frr_each_from(Z, &head, item, from)
+.. c:macro:: frr_each_from(Z, head, item, from)
 
    Iterates over the list, starting at item ``from``.  This variant is "safe"
    as in the previous macro.  Equivalent to:
@@ -268,6 +274,16 @@ The following documentation assumes that a list has been defined using
       outdated by the time this function returns and can therefore only be
       used as an estimate.
 
+.. c:function:: bool Z_member(const struct Z_head *, const itemtype *)
+
+   Determines whether some item is a member of the given container.  The
+   item must either be valid on some container, or set to all zeroes.
+
+   On some containers, if no faster way to determine membership is possible,
+   this is simply ``item == Z_find(head, item)``.
+
+   Not currently available for atomic containers.
+
 .. c:function:: const itemtype *Z_const_first(const struct Z_head *)
 .. c:function:: itemtype *Z_first(struct Z_head *)
 
@@ -297,7 +313,7 @@ The following documentation assumes that a list has been defined using
       affected by the "modification while iterating" problem.  To remove
       all items from a hash table, use the loop demonstrated above.
 
-.. c:function:: const itemtype *Z_next(const struct Z_head *, const itemtype *prev)
+.. c:function:: const itemtype *Z_const_next(const struct Z_head *, const itemtype *prev)
 .. c:function:: itemtype *Z_next(struct Z_head *, itemtype *prev)
 
    Return the item that follows after ``prev``, or ``NULL`` if ``prev`` is
@@ -346,7 +362,7 @@ are several functions exposed to insert data:
 
    ``item`` must not be ``NULL`` for any of the following functions.
 
-.. c:function:: DECLARE_XXX(Z, type, field)
+.. c:macro:: DECLARE_XXX(Z, type, field)
 
    :param listtype XXX: ``LIST``, ``DLIST`` or ``ATOMLIST`` to select a data
       structure implementation.
@@ -396,6 +412,17 @@ are several functions exposed to insert data:
       maybe flip the order of ``item`` & ``after``?
       ``Z_add_after(head, item, after)``
 
+.. c:function:: bool Z_anywhere(const itemtype *)
+
+   Returns whether an item is a member of *any* container of this type.
+   The item must either be valid on some container, or set to all zeroes.
+
+   Guaranteed to be fast (pointer compare or similar.)
+
+   Not currently available for sorted and atomic containers.  Might be added
+   for sorted containers at some point (when needed.)
+
+
 API for sorted structures
 -------------------------
 
@@ -403,7 +430,7 @@ Sorted data structures do not need to have an insertion position specified,
 therefore the insertion calls are different from unsorted lists.  Also,
 sorted lists can be searched for a value.
 
-.. c:function:: DECLARE_XXX_UNIQ(Z, type, field, compare_func)
+.. c:macro:: DECLARE_XXX_UNIQ(Z, type, field, compare_func)
 
    :param listtype XXX: One of the following:
        ``SORTLIST`` (single-linked sorted list), ``SKIPLIST`` (skiplist),
@@ -423,7 +450,7 @@ sorted lists can be searched for a value.
       ``int function(const itemtype *, const itemtype*)``.  This function
       may be static if the list is only used in one file.
 
-.. c:function:: DECLARE_XXX_NONUNIQ(Z, type, field, compare_func)
+.. c:macro:: DECLARE_XXX_NONUNIQ(Z, type, field, compare_func)
 
    Same as above, but allow adding multiple items to the list that compare
    as equal in ``compare_func``.  Ordering between these items is undefined
@@ -439,7 +466,7 @@ sorted lists can be searched for a value.
    For ``_NONUNIQ`` lists, this function always returns NULL since ``item``
    can always be successfully added to the list.
 
-.. c:function:: const itemtype *Z_find(const struct Z_head *, const itemtype *ref)
+.. c:function:: const itemtype *Z_const_find(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares equal to ``ref``.  If no equal
@@ -461,13 +488,13 @@ sorted lists can be searched for a value.
       containing non-unique items, more than one item may compare as equal to
       the item that is searched for.
 
-.. c:function:: const itemtype *Z_find_gteq(const struct Z_head *, const itemtype *ref)
+.. c:function:: const itemtype *Z_const_find_gteq(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_gteq(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares greater or equal to
    ``ref``.  See :c:func:`Z_find()` above.
 
-.. c:function:: const itemtype *Z_find_lt(const struct Z_head *, const itemtype *ref)
+.. c:function:: const itemtype *Z_const_find_lt(const struct Z_head *, const itemtype *ref)
 .. c:function:: itemtype *Z_find_lt(struct Z_head *, const itemtype *ref)
 
    Search the list for an item that compares less than
@@ -477,9 +504,9 @@ sorted lists can be searched for a value.
 API for hash tables
 -------------------
 
-.. c:function:: DECLARE_XXX(Z, type, field, compare_func, hash_func)
+.. c:macro:: DECLARE_HASH(Z, type, field, compare_func, hash_func)
 
-   :param listtype XXX: Only ``HASH`` is currently available.
+   :param listtype HASH: Only ``HASH`` is currently available.
    :param token Z: Gives the name prefix that is used for the functions
       created for this instantiation.  ``DECLARE_XXX(foo, ...)``
       gives ``struct foo_item``, ``foo_add()``, ``foo_count()``, etc.  Note

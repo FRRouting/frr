@@ -403,7 +403,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 		return ret;
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 	if (ret < 0)
 		return ret;
 
@@ -412,7 +412,7 @@ int netlink_rules_read(struct zebra_ns *zns)
 		return ret;
 
 	ret = netlink_parse_info(netlink_rule_change, &zns->netlink_cmd,
-				 &dp_info, 0, 1);
+				 &dp_info, 0, true);
 	return ret;
 }
 

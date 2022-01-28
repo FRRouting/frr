@@ -94,11 +94,11 @@ struct igmp_mtrace {
 #define MTRACE_HDR_SIZE (sizeof(struct igmp_mtrace))
 #define MTRACE_RSP_SIZE (sizeof(struct igmp_mtrace_rsp))
 
-int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 			     struct in_addr from, const char *from_str,
 			     char *igmp_msg, int igmp_msg_len);
 
-int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 			      struct in_addr from, const char *from_str,
 			      char *igmp_msg, int igmp_msg_len);
 

@@ -588,7 +588,7 @@ static void bgp_nht_ifp_handle(struct interface *ifp, bool up)
 {
 	struct bgp *bgp;
 
-	bgp = bgp_lookup_by_vrf_id(ifp->vrf_id);
+	bgp = ifp->vrf->info;
 	if (!bgp)
 		return;
 
@@ -611,7 +611,8 @@ void bgp_nht_ifp_down(struct interface *ifp)
 static int bgp_nht_ifp_initial(struct thread *thread)
 {
 	ifindex_t ifindex = THREAD_VAL(thread);
-	struct interface *ifp = if_lookup_by_index_all_vrf(ifindex);
+	struct bgp *bgp = THREAD_ARG(thread);
+	struct interface *ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
 
 	if (!ifp)
 		return 0;
@@ -657,14 +658,14 @@ void bgp_nht_interface_events(struct peer *peer)
 		return;
 
 	if (bnc->ifindex)
-		thread_add_event(bm->master, bgp_nht_ifp_initial, NULL,
+		thread_add_event(bm->master, bgp_nht_ifp_initial, bnc->bgp,
 				 bnc->ifindex, NULL);
 }
 
 void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
-	struct bgp_nexthop_cache *bnc;
+	struct bgp_nexthop_cache *bnc_nhc, *bnc_import;
 	struct bgp *bgp;
 	struct zapi_route nhr;
 	afi_t afi;
@@ -685,21 +686,37 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	}
 
 	afi = family2afi(nhr.prefix.family);
-	if (command == ZEBRA_NEXTHOP_UPDATE)
-		tree = &bgp->nexthop_cache_table[afi];
-	else if (command == ZEBRA_IMPORT_CHECK_UPDATE)
-		tree = &bgp->import_check_table[afi];
+	tree = &bgp->nexthop_cache_table[afi];
 
-	bnc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
-	if (!bnc) {
+	bnc_nhc = bnc_find(tree, &nhr.prefix, nhr.srte_color);
+	if (!bnc_nhc) {
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
-				"parse nexthop update(%pFX(%u)(%s)): bnc info not found",
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for nexthop cache",
+				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
+	} else
+		bgp_process_nexthop_update(bnc_nhc, &nhr);
+
+	tree = &bgp->import_check_table[afi];
+
+	bnc_import = bnc_find(tree, &nhr.prefix, nhr.srte_color);
+	if (!bnc_import) {
+		if (BGP_DEBUG(nht, NHT))
+			zlog_debug(
+				"parse nexthop update(%pFX(%u)(%s)): bnc info not found for import check",
 				&nhr.prefix, nhr.srte_color, bgp->name_pretty);
 		return;
+	} else {
+		if (nhr.type == ZEBRA_ROUTE_BGP
+		    || !prefix_same(&bnc_import->prefix, &nhr.prefix)) {
+			if (BGP_DEBUG(nht, NHT))
+				zlog_debug(
+					"%s: Import Check does not resolve to the same prefix for %pFX received %pFX",
+					__func__, &bnc_import->prefix, &nhr.prefix);
+			return;
+		}
+		bgp_process_nexthop_update(bnc_import, &nhr);
 	}
-
-	bgp_process_nexthop_update(bnc, &nhr);
 
 	/*
 	 * HACK: if any BGP route is dependant on an SR-policy that doesn't
@@ -712,12 +729,12 @@ void bgp_parse_nexthop_update(int command, vrf_id_t vrf_id)
 	 * which should provide a better infrastructure to solve this issue in
 	 * a more efficient and elegant way.
 	 */
-	if (nhr.srte_color == 0) {
+	if (nhr.srte_color == 0 && bnc_nhc) {
 		struct bgp_nexthop_cache *bnc_iter;
 
 		frr_each (bgp_nexthop_cache, &bgp->nexthop_cache_table[afi],
 			  bnc_iter) {
-			if (!prefix_same(&bnc->prefix, &bnc_iter->prefix)
+			if (!prefix_same(&bnc_import->prefix, &bnc_iter->prefix)
 			    || bnc_iter->srte_color == 0
 			    || CHECK_FLAG(bnc_iter->flags, BGP_NEXTHOP_VALID))
 				continue;
@@ -843,6 +860,7 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 {
 	bool exact_match = false;
+	bool resolve_via_default = false;
 	int ret;
 
 	if (!zclient)
@@ -863,11 +881,12 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 				"%s: We have not connected yet, cannot send nexthops",
 				__func__);
 	}
-	if ((command == ZEBRA_NEXTHOP_REGISTER
-	     || command == ZEBRA_IMPORT_ROUTE_REGISTER)
-	    && (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED)
-		|| CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH)))
-		exact_match = true;
+	if (command == ZEBRA_NEXTHOP_REGISTER) {
+		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
+			exact_match = true;
+		if (CHECK_FLAG(bnc->flags, BGP_STATIC_ROUTE_EXACT_MATCH))
+			resolve_via_default = true;
+	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("%s: sending cmd %s for %pFX (vrf %s)", __func__,
@@ -875,17 +894,16 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 			   bnc->bgp->name_pretty);
 
 	ret = zclient_send_rnh(zclient, command, &bnc->prefix, exact_match,
-			       bnc->bgp->vrf_id);
-	/* TBD: handle the failure */
-	if (ret == ZCLIENT_SEND_FAILURE)
+			       resolve_via_default, bnc->bgp->vrf_id);
+	if (ret == ZCLIENT_SEND_FAILURE) {
 		flog_warn(EC_BGP_ZEBRA_SEND,
 			  "sendmsg_nexthop: zclient_send_message() failed");
+		return;
+	}
 
-	if ((command == ZEBRA_NEXTHOP_REGISTER)
-	    || (command == ZEBRA_IMPORT_ROUTE_REGISTER))
+	if (command == ZEBRA_NEXTHOP_REGISTER)
 		SET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
-	else if ((command == ZEBRA_NEXTHOP_UNREGISTER)
-		 || (command == ZEBRA_IMPORT_ROUTE_UNREGISTER))
+	else if (command == ZEBRA_NEXTHOP_UNREGISTER)
 		UNSET_FLAG(bnc->flags, BGP_NEXTHOP_REGISTERED);
 	return;
 }
@@ -910,10 +928,7 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 		return;
 	}
 
-	if (is_bgp_import_route)
-		sendmsg_zebra_rnh(bnc, ZEBRA_IMPORT_ROUTE_REGISTER);
-	else
-		sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_REGISTER);
+	sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_REGISTER);
 }
 
 /**
@@ -935,10 +950,7 @@ static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 		return;
 	}
 
-	if (is_bgp_import_route)
-		sendmsg_zebra_rnh(bnc, ZEBRA_IMPORT_ROUTE_UNREGISTER);
-	else
-		sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_UNREGISTER);
+	sendmsg_zebra_rnh(bnc, ZEBRA_NEXTHOP_UNREGISTER);
 }
 
 /**
@@ -1287,12 +1299,11 @@ static void bgp_l3nhg_zebra_init(void)
 }
 
 
-#define min(A, B) ((A) < (B) ? (A) : (B))
 void bgp_l3nhg_init(void)
 {
 	uint32_t id_max;
 
-	id_max = min(ZEBRA_NHG_PROTO_SPACING - 1, 16 * 1024);
+	id_max = MIN(ZEBRA_NHG_PROTO_SPACING - 1, 16 * 1024);
 	bf_init(bgp_nh_id_bitmap, id_max);
 	bf_assign_zero_index(bgp_nh_id_bitmap);
 

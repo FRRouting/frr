@@ -52,7 +52,12 @@ struct zebra_ns {
 #ifdef HAVE_NETLINK
 	struct nlsock netlink;        /* kernel messages */
 	struct nlsock netlink_cmd;    /* command channel */
-	struct nlsock netlink_dplane; /* dataplane channel */
+
+	/* dplane system's channels: one for outgoing programming,
+	 * for the FIB e.g., and one for incoming events from the OS.
+	 */
+	struct nlsock netlink_dplane_out;
+	struct nlsock netlink_dplane_in;
 	struct thread *t_netlink;
 #endif
 
@@ -64,7 +69,7 @@ struct zebra_ns {
 
 struct zebra_ns *zebra_ns_lookup(ns_id_t ns_id);
 
-int zebra_ns_init(const char *optional_default_name);
+int zebra_ns_init(void);
 int zebra_ns_enable(ns_id_t ns_id, void **info);
 int zebra_ns_disabled(struct ns *ns);
 int zebra_ns_early_shutdown(struct ns *ns,

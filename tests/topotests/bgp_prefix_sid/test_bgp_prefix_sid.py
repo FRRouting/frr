@@ -39,31 +39,24 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, **_opts):
-        tgen = get_topogen(self)
-        router = tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(router)
+def build_topo(tgen):
+    router = tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(router)
 
-        switch = tgen.gears["s1"]
-        peer1 = tgen.add_exabgp_peer(
-            "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
-        )
-        peer2 = tgen.add_exabgp_peer(
-            "peer2", ip="10.0.0.102", defaultRoute="via 10.0.0.1"
-        )
-        switch.add_link(peer1)
-        switch.add_link(peer2)
+    switch = tgen.gears["s1"]
+    peer1 = tgen.add_exabgp_peer("peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1")
+    peer2 = tgen.add_exabgp_peer("peer2", ip="10.0.0.102", defaultRoute="via 10.0.0.1")
+    switch.add_link(peer1)
+    switch.add_link(peer2)
 
 
 def setup_module(module):
-    tgen = Topogen(TemplateTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     router = tgen.gears["r1"]
@@ -122,7 +115,7 @@ def test_r1_receive_and_advertise_prefix_sid_type1():
 
 
 def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
-    with open("/tmp/peer2-received.log") as f:
+    with open(filename) as f:
         for line in f.readlines():
             output = json.loads(line)
             ret = output.get("neighbor")
@@ -153,10 +146,11 @@ def exabgp_get_update_prefix(filename, afi, nexthop, prefix):
 def test_peer2_receive_prefix_sid_type1():
     tgen = get_topogen()
     peer2 = tgen.gears["peer2"]
+    logfile = "{}/{}-received.log".format(peer2.gearlogdir, peer2.name)
 
     def _check_type1_peer2(prefix, labelindex):
         output = exabgp_get_update_prefix(
-            "/tmp/peer2-received.log", "ipv4 nlri-mpls", "10.0.0.101", prefix
+            logfile, "ipv4 nlri-mpls", "10.0.0.101", prefix
         )
         expected = {
             "type": "update",

@@ -7,7 +7,7 @@
 ##
 AC_PREREQ([2.69])
 
-AC_INIT([frr], [8.1-dev], [https://github.com/frrouting/frr/issues])
+AC_INIT([frr], [8.2-dev], [https://github.com/frrouting/frr/issues])
 PACKAGE_URL="https://frrouting.org/"
 AC_SUBST([PACKAGE_URL])
 PACKAGE_FULLNAME="FRRouting"
@@ -180,8 +180,6 @@ AM_PROG_CC_C_O
 dnl remove autoconf default "-g -O2"
 CFLAGS="$orig_cflags"
 CXXFLAGS="$orig_cxxflags"
-AC_PROG_CC_C99
-dnl NB: see C11 below
 
 dnl Some special handling for ICC later on
 if test "$CC" = "icc"; then
@@ -254,12 +252,24 @@ if test "$cc_is_icc" = "yes"; then
     AC_C_FLAG([-diag-error 10006])
 fi
 
-dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
-ac_cc="$CC"
-CC="${CC% -std=gnu99}"
-CC="${CC% -std=c99}"
+dnl autoconf 2.69 AC_PROG_CC_C99 is "state of the art"
+dnl autoconf 2.70 AC_PROG_CC_C99 is deprecated and AC_PROC_CC tries to do C11
+m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.70]), [-1], [dnl
+  dnl autoconf < 2.70
+  AC_PROG_CC_C99
 
-AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
+  dnl AC_PROG_CC_C99 may change CC to include -std=gnu99 or something
+  ac_cc="$CC"
+  CC="${CC% -std=gnu99}"
+  CC="${CC% -std=c99}"
+
+  AC_C_FLAG([-std=gnu11], [CC="$ac_cc"], [CC="$CC -std=gnu11"])
+], [
+  dnl autoconf >= 2.70
+  if test "$ac_cv_prog_cc_c11" = "no"; then
+    AC_MSG_ERROR([ISO C11 compiler support (with GNU extensions) is required.])
+  fi
+])
 
 dnl if the user has specified any CFLAGS, override our settings
 if test "$enable_gcov" = "yes"; then
@@ -322,6 +332,7 @@ AC_C_FLAG([-fno-omit-frame-pointer])
 AC_C_FLAG([-funwind-tables])
 AC_C_FLAG([-Wall])
 AC_C_FLAG([-Wextra])
+AC_C_FLAG([-Wstrict-prototypes])
 AC_C_FLAG([-Wmissing-prototypes])
 AC_C_FLAG([-Wmissing-declarations])
 AC_C_FLAG([-Wpointer-arith])
@@ -330,7 +341,6 @@ AC_C_FLAG([-Wwrite-strings])
 AC_C_FLAG([-Wundef])
 if test "$enable_gcc_ultra_verbose" = "yes" ; then
   AC_C_FLAG([-Wcast-qual])
-  AC_C_FLAG([-Wstrict-prototypes])
   AC_C_FLAG([-Wmissing-noreturn])
   AC_C_FLAG([-Wmissing-format-attribute])
   AC_C_FLAG([-Wunreachable-code])
@@ -487,9 +497,12 @@ LT_INIT
 _LT_CONFIG_LIBTOOL([
   patch -N -i "${srcdir}/m4/libtool-whole-archive.patch" libtool >&AS_MESSAGE_LOG_FD || \
     AC_MSG_WARN([Could not patch libtool for static linking support.  Loading modules into a statically linked daemon will fail.])
-  sed -e 's%func_warning "relinking%true #\0%' -i libtool || true
-  sed -e 's%func_warning "remember to run%true #\0%' -i libtool || true
-  sed -e 's%func_warning ".*has not been installed in%true #\0%' -i libtool || true
+dnl the -i option is not POSIX sed and the BSDs implement it differently
+dnl cat'ing the output back instead of mv/cp keeps permissions on libtool intact
+  sed -e 's%func_warning "relinking%true #\0%'                   libtool > libtool.sed && cat libtool.sed > libtool
+  sed -e 's%func_warning "remember to run%true #\0%'             libtool > libtool.sed && cat libtool.sed > libtool
+  sed -e 's%func_warning ".*has not been installed in%true #\0%' libtool > libtool.sed && cat libtool.sed > libtool
+  test -f libtool.sed && rm libtool.sed
 ])
 if test "$enable_static_bin" = "yes"; then
   AC_LDFLAGS_EXEC="-static"
@@ -503,6 +516,15 @@ fi
 AC_SUBST([AC_LDFLAGS])
 AC_SUBST([AC_LDFLAGS_EXEC])
 AM_CONDITIONAL([STATIC_BIN], [test "$enable_static_bin" = "yes"])
+
+dnl libtool, the repository of all knowledge related linkers, is too stupid to
+dnl correctly tell the linker how to build modules.
+if test -z "$module_cmds"; then
+  module_cmds="`echo \"$archive_cmds\" | sed -e 's%$wl-soname $wl$soname%%'`"
+fi
+if test -z "$module_expsym_cmds"; then
+  module_expsym_cmds="`echo \"$archive_expsym_cmds\" | sed -e 's%$wl-soname $wl$soname%%'`"
+fi
 
 AC_ARG_ENABLE([rpath],
   [AS_HELP_STRING([--enable-rpath], [set hardcoded rpaths in the executable @<:@default=yes@:>@])],
@@ -639,6 +661,8 @@ AC_ARG_ENABLE([ospfclient],
                           (this is the default if --disable-ospfapi is set)]))
 AC_ARG_ENABLE([multipath],
   AS_HELP_STRING([--enable-multipath=ARG], [enable multipath function, ARG must be digit]))
+AC_ARG_WITH([service_timeout],
+  AS_HELP_STRING([--with-service-timeout=ARG], [set service timeout value (2 minutes by default), ARG must be digit]))
 AC_ARG_ENABLE([user],
   AS_HELP_STRING([--enable-user=USER], [user to run FRR suite as (default frr)]))
 AC_ARG_ENABLE([group],
@@ -671,8 +695,6 @@ AC_ARG_ENABLE([pcreposix],
   AS_HELP_STRING([--enable-pcreposix], [enable using PCRE Posix libs for regex functions]))
 AC_ARG_ENABLE([fpm],
   AS_HELP_STRING([--enable-fpm], [enable Forwarding Plane Manager support]))
-AC_ARG_ENABLE([pcep],
-  AS_HELP_STRING([--enable-pcep], [enable PCEP support for pathd]))
 AC_ARG_ENABLE([werror],
   AS_HELP_STRING([--enable-werror], [enable -Werror (recommended for developers only)]))
 AC_ARG_ENABLE([cumulus],
@@ -794,9 +816,12 @@ fi
 #
 
 AS_IF([test "$host" = "$build"], [
+  AM_PATH_PYTHON([3])
   AC_CHECK_HEADER([gelf.h], [], [
     AC_MSG_ERROR([libelf headers are required for building clippy.  (Host only when cross-compiling.)])
   ])
+
+  LIBS_save="$LIBS"
   AC_CHECK_LIB([elf], [elf_memory], [], [
     AC_MSG_ERROR([libelf is required for building clippy.  (Host only when cross-compiling.)])
   ])
@@ -807,6 +832,8 @@ AS_IF([test "$host" = "$build"], [
   AC_CHECK_LIB([elf], [gelf_getnote], [
     AC_DEFINE([HAVE_GELF_GETNOTE], [1], [Have gelf_getnote()])
   ])
+  LIBS="$LIBS_save"
+  unset LIBS_save
 
   FRR_PYTHON_DEV
 ], [
@@ -906,6 +933,20 @@ esac
 AC_DEFINE_UNQUOTED([MULTIPATH_NUM], [$MPATH_NUM], [Maximum number of paths for a route])
 
 AC_DEFINE_UNQUOTED([VTYSH_PAGER], ["$VTYSH_PAGER"], [What pager to use])
+
+
+TIMEOUT_MIN=2
+case "${with_service_timeout}" in
+  [[1-9]|[1-9][0-9]|[1-9][0-9][0-9]])
+    TIMEOUT_MIN="${with_service_timeout}"
+    ;;
+  0|"")
+    ;;
+  *)
+    AC_MSG_FAILURE([Please specify digit for timeout ARG])
+    ;;
+esac
+AC_SUBST([TIMEOUT_MIN])
 
 dnl --------------------
 dnl Enable code coverage
@@ -1563,8 +1604,17 @@ if test "$ac_cv_have_decl_TCP_MD5SIG" = "no"; then
        AC_CHECK_DECLS([TCP_MD5SIG], [], [], MD5_INCLUDES)])
 fi
 
-AC_CHECK_LIB([crypt], [crypt], [],
-		    [AC_CHECK_LIB([crypto], [DES_crypt])])
+LIBS_save="$LIBS"
+AC_CHECK_LIB([crypt], [crypt], [], [
+  AC_CHECK_LIB([crypto], [DES_crypt])
+])
+LIBCRYPT="$LIBS"
+LIBCRYPT="${LIBCRYPT%$LIBS_save}"
+LIBCRYPT="${LIBCRYPT#$LIBS_save}"
+AC_SUBST([LIBCRYPT])
+LIBS="$LIBS_save"
+unset LIBS_save
+
 AC_CHECK_LIB([resolv], [res_init])
 
 dnl ---------------------------
@@ -1711,7 +1761,6 @@ fi
 
 AS_IF([test "$enable_pathd" != "no"], [
   AC_DEFINE([HAVE_PATHD], [1], [pathd])
-  AC_DEFINE([HAVE_PATHD_PCEP], [1], [pathd-pcep])
 ])
 
 
@@ -1773,7 +1822,7 @@ if test "$enable_bgp_vnc" != "no";then
 fi
 
 bgpd_bmp=false
-case "${enable_bmp}" in
+case "${enable_bgp_bmp}" in
   no)
     ;;
   yes)
@@ -1879,6 +1928,7 @@ if test "$enable_confd" != "" -a "$enable_confd" != "no"; then
    if test "$CONFD" = "/bin/false"; then
       AC_MSG_ERROR([confd was not found on your system.])]
    fi
+   AC_CHECK_PROG([CONFDC], [confdc], [confdc], [/bin/false], "${enable_confd}/bin")
    CONFD_CFLAGS="-I${enable_confd}/include -L${enable_confd}/lib"
    AC_SUBST([CONFD_CFLAGS])
    CONFD_LIBS="-lconfd"
@@ -1923,7 +1973,7 @@ dnl -----
 dnl LTTng
 dnl -----
 if test "$enable_lttng" = "yes"; then
-  PKG_CHECK_MODULES([UST], [lttng-ust >= 2.12.0], [
+  PKG_CHECK_MODULES([UST], [lttng-ust >= 2.9.0], [
     AC_DEFINE([HAVE_LTTNG], [1], [Enable LTTng support])
     LTTNG=true
   ], [
@@ -2018,6 +2068,7 @@ AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include "rtrlib/rtrlib.h"]],
 dnl ---------------
 dnl dlopen & dlinfo
 dnl ---------------
+LIBS_save="$LIBS"
 AC_SEARCH_LIBS([dlopen], [dl dld], [], [
   AC_MSG_ERROR([unable to find the dlopen()])
 ])
@@ -2063,6 +2114,13 @@ AC_CACHE_CHECK([for dlinfo(RTLD_DI_LINKMAP)], [frr_cv_rtld_di_linkmap], [
 if test "$frr_cv_rtld_di_linkmap" = "yes"; then
   AC_DEFINE([HAVE_DLINFO_LINKMAP], [1], [Have dlinfo RTLD_DI_LINKMAP])
 fi
+
+LIBDL="$LIBS"
+LIBDL="${LIBDL%$LIBS_save}"
+LIBDL="${LIBDL#$LIBS_save}"
+AC_SUBST([LIBDL])
+LIBS="$LIBS_save"
+unset LIBS_save
 
 dnl ##########################################################################
 dnl test "$enable_clippy_only" != "yes"
@@ -2231,7 +2289,16 @@ dnl --------------------------------------
 dnl checking for flex and bison
 dnl --------------------------------------
 
-AM_PROG_LEX
+dnl autoconf 2.69 AC_PROG_LEX has no parameters
+dnl autoconf 2.70 AC_PROG_LEX prints a deprecation warning without params
+m4_if(m4_version_compare(m4_defn([AC_AUTOCONF_VERSION]), [2.70]), [-1], [dnl
+  dnl autoconf < 2.70
+  AC_PROG_LEX
+], [
+  dnl autoconf >= 2.70
+  AC_PROG_LEX([noyywrap])
+])
+
 AC_MSG_CHECKING([version of flex])
 frr_ac_flex_version="$(eval $LEX -V | grep flex | head -n 1)"
 frr_ac_flex_version="${frr_ac_flex_version##* }"
@@ -2516,6 +2583,7 @@ AC_DEFINE_UNQUOTED([LDPD_SOCKET], ["$frr_statedir%s%s/ldpd.sock"], [ldpd control
 AC_DEFINE_UNQUOTED([ZEBRA_SERV_PATH], ["$frr_statedir%s%s/zserv.api"], [zebra api socket])
 AC_DEFINE_UNQUOTED([BFDD_CONTROL_SOCKET], ["$frr_statedir%s%s/bfdd.sock"], [bfdd control socket])
 AC_DEFINE_UNQUOTED([OSPFD_GR_STATE], ["$frr_statedir%s/ospfd-gr.json"], [ospfd GR state information])
+AC_DEFINE_UNQUOTED([OSPF6D_GR_STATE], ["$frr_statedir/ospf6d-gr.json"], [ospf6d GR state information])
 AC_DEFINE_UNQUOTED([DAEMON_VTY_DIR], ["$frr_statedir%s%s"], [daemon vty directory])
 AC_DEFINE_UNQUOTED([DAEMON_DB_DIR], ["$frr_statedir"], [daemon database directory])
 
@@ -2659,8 +2727,9 @@ if test "$enable_rpath" = "yes" ; then
 	true
 else
 	# See https://old-en.opensuse.org/openSUSE:Packaging_Guidelines#Removing_Rpath
-	sed -i 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool
-	sed -i 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g' libtool
+	sed -e 's|^hardcode_libdir_flag_spec=.*|hardcode_libdir_flag_spec=""|g' libtool > libtool.sed && cat libtool.sed > libtool
+	sed -e 's|^runpath_var=LD_RUN_PATH|runpath_var=DIE_RPATH_DIE|g'         libtool > libtool.sed && cat libtool.sed > libtool
+	test -f libtool.sed && rm libtool.sed
 fi
 
 echo "

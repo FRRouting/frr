@@ -111,12 +111,12 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
 			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
-			 const uint8_t preference);
+			 const uint8_t preference, const char *bindaddr);
 #endif
 static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket);
 static struct cache *find_cache(const uint8_t preference);
 static int add_tcp_cache(const char *host, const char *port,
-			 const uint8_t preference);
+			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static int is_synchronized(void);
 static int is_running(void);
@@ -787,7 +787,7 @@ static int add_cache(struct cache *cache)
 }
 
 static int add_tcp_cache(const char *host, const char *port,
-			 const uint8_t preference)
+			 const uint8_t preference, const char *bindaddr)
 {
 	struct rtr_socket *rtr_socket;
 	struct tr_tcp_config *tcp_config =
@@ -799,7 +799,10 @@ static int add_tcp_cache(const char *host, const char *port,
 
 	tcp_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
 	tcp_config->port = XSTRDUP(MTYPE_BGP_RPKI_CACHE, port);
-	tcp_config->bindaddr = NULL;
+	if (bindaddr)
+		tcp_config->bindaddr = XSTRDUP(MTYPE_BGP_RPKI_CACHE, bindaddr);
+	else
+		tcp_config->bindaddr = NULL;
 
 	rtr_socket = create_rtr_socket(tr_socket);
 
@@ -822,7 +825,7 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
 			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
-			 const uint8_t preference)
+			 const uint8_t preference, const char *bindaddr)
 {
 	struct tr_ssh_config *ssh_config =
 		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
@@ -834,7 +837,10 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 
 	ssh_config->port = port;
 	ssh_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
-	ssh_config->bindaddr = NULL;
+	if (bindaddr)
+		ssh_config->bindaddr = XSTRDUP(MTYPE_BGP_RPKI_CACHE, bindaddr);
+	else
+		ssh_config->bindaddr = NULL;
 
 	ssh_config->username = XSTRDUP(MTYPE_BGP_RPKI_CACHE, username);
 	ssh_config->client_privkey_path =
@@ -864,6 +870,9 @@ static void free_cache(struct cache *cache)
 	if (cache->type == TCP) {
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->host);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->port);
+		if (cache->tr_config.tcp_config->bindaddr)
+			XFREE(MTYPE_BGP_RPKI_CACHE,
+			      cache->tr_config.tcp_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config);
 	}
 #if defined(FOUND_SSH)
@@ -875,6 +884,9 @@ static void free_cache(struct cache *cache)
 		      cache->tr_config.ssh_config->client_privkey_path);
 		XFREE(MTYPE_BGP_RPKI_CACHE,
 		      cache->tr_config.ssh_config->server_hostkey_path);
+		if (cache->tr_config.ssh_config->bindaddr)
+			XFREE(MTYPE_BGP_RPKI_CACHE,
+			      cache->tr_config.ssh_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.ssh_config);
 	}
 #endif
@@ -913,6 +925,9 @@ static int config_write(struct vty *vty)
 			tcp_config = cache->tr_config.tcp_config;
 			vty_out(vty, " rpki cache %s %s ", tcp_config->host,
 				tcp_config->port);
+			if (tcp_config->bindaddr)
+				vty_out(vty, "source %s ",
+					tcp_config->bindaddr);
 			break;
 #if defined(FOUND_SSH)
 		case SSH:
@@ -924,6 +939,9 @@ static int config_write(struct vty *vty)
 				ssh_config->server_hostkey_path != NULL
 					? ssh_config->server_hostkey_path
 					: " ");
+			if (ssh_config->bindaddr)
+				vty_out(vty, "source %s ",
+					ssh_config->bindaddr);
 			break;
 #endif
 		default:
@@ -932,7 +950,7 @@ static int config_write(struct vty *vty)
 
 		vty_out(vty, "preference %hhu\n", cache->preference);
 	}
-	vty_out(vty, " exit\n");
+	vty_out(vty, "exit\n");
 
 	return 1;
 }
@@ -1048,20 +1066,21 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_cache,
-       rpki_cache_cmd,
-       "rpki cache <A.B.C.D|WORD><TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> preference (1-255)",
-       RPKI_OUTPUT_STRING
-       "Install a cache server to current group\n"
-       "IP address of cache server\n Hostname of cache server\n"
-       "TCP port number\n"
-       "SSH port number\n"
-       "SSH user name\n"
-       "Path to own SSH private key\n"
-       "Path to own SSH public key\n"
-       "Path to Public key of cache server\n"
-       "Preference of the cache server\n"
-       "Preference value\n")
+DEFPY(rpki_cache, rpki_cache_cmd,
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+      RPKI_OUTPUT_STRING
+      "Install a cache server to current group\n"
+      "IP address of cache server\n Hostname of cache server\n"
+      "TCP port number\n"
+      "SSH port number\n"
+      "SSH user name\n"
+      "Path to own SSH private key\n"
+      "Path to own SSH public key\n"
+      "Path to Public key of cache server\n"
+      "Configure source IP address of RPKI connection\n"
+      "Define a Source IP Address\n"
+      "Preference of the cache server\n"
+      "Preference value\n")
 {
 	int return_value;
 	struct listnode *cache_node;
@@ -1080,16 +1099,17 @@ DEFPY (rpki_cache,
 	// use ssh connection
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
-		return_value =
-			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
-				      ssh_pubkey, server_pubkey, preference);
+		return_value = add_ssh_cache(
+			cache, sshport, ssh_uname, ssh_privkey, ssh_pubkey,
+			server_pubkey, preference, bindaddr_str);
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
 			"ssh sockets are not supported. Please recompile rtrlib and frr with ssh support. If you want to use it\n");
 #endif
 	} else { // use tcp connection
-		return_value = add_tcp_cache(cache, tcpport, preference);
+		return_value =
+			add_tcp_cache(cache, tcpport, preference, bindaddr_str);
 	}
 
 	if (return_value == ERROR) {

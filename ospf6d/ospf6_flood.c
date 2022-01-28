@@ -85,7 +85,7 @@ struct ospf6_lsdb *ospf6_get_scoped_lsdb_self(struct ospf6_lsa *lsa)
 	return lsdb_self;
 }
 
-void ospf6_lsa_originate(struct ospf6_lsa *lsa)
+void ospf6_lsa_originate(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 {
 	struct ospf6_lsa *old;
 	struct ospf6_lsdb *lsdb_self;
@@ -106,7 +106,8 @@ void ospf6_lsa_originate(struct ospf6_lsa *lsa)
 
 	/* if the new LSA does not differ from previous,
 	   suppress this update of the LSA */
-	if (old && !OSPF6_LSA_IS_DIFFER(lsa, old)) {
+	if (old && !OSPF6_LSA_IS_DIFFER(lsa, old)
+	    && !ospf6->gr_info.finishing_restart) {
 		if (IS_OSPF6_DEBUG_ORIGINATE_TYPE(lsa->header->type))
 			zlog_debug("Suppress updating LSA: %s", lsa->name);
 		ospf6_lsa_delete(lsa);
@@ -134,38 +135,20 @@ void ospf6_lsa_originate(struct ospf6_lsa *lsa)
 void ospf6_lsa_originate_process(struct ospf6_lsa *lsa, struct ospf6 *process)
 {
 	lsa->lsdb = process->lsdb;
-	ospf6_lsa_originate(lsa);
+	ospf6_lsa_originate(process, lsa);
 }
 
 void ospf6_lsa_originate_area(struct ospf6_lsa *lsa, struct ospf6_area *oa)
 {
 	lsa->lsdb = oa->lsdb;
-	ospf6_lsa_originate(lsa);
+	ospf6_lsa_originate(oa->ospf6, lsa);
 }
 
 void ospf6_lsa_originate_interface(struct ospf6_lsa *lsa,
 				   struct ospf6_interface *oi)
 {
 	lsa->lsdb = oi->lsdb;
-	ospf6_lsa_originate(lsa);
-}
-
-void ospf6_remove_id_from_external_id_table(struct ospf6 *ospf6,
-						uint32_t id)
-{
-	struct prefix prefix_id;
-	struct route_node *node;
-
-	/* remove binding in external_id_table */
-	prefix_id.family = AF_INET;
-	prefix_id.prefixlen = 32;
-	prefix_id.u.prefix4.s_addr = id;
-	node = route_node_lookup(ospf6->external_id_table, &prefix_id);
-	assert(node);
-	node->info = NULL;
-	route_unlock_node(node); /* to free the lookup lock */
-	route_unlock_node(node); /* to free the original lock */
-
+	ospf6_lsa_originate(oi->area->ospf6, lsa);
 }
 
 void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
@@ -175,8 +158,6 @@ void ospf6_external_lsa_purge(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 	struct listnode *lnode;
 
 	ospf6_lsa_purge(lsa);
-
-	ospf6_remove_id_from_external_id_table(ospf6, id);
 
 	/* Delete the corresponding NSSA LSA */
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, lnode, oa)) {
@@ -265,9 +246,13 @@ void ospf6_decrement_retrans_count(struct ospf6_lsa *lsa)
 /* RFC2328 section 13.2 Installing LSAs in the database */
 void ospf6_install_lsa(struct ospf6_lsa *lsa)
 {
+	struct ospf6 *ospf6;
 	struct timeval now;
 	struct ospf6_lsa *old;
 	struct ospf6_area *area = NULL;
+
+	ospf6 = ospf6_get_by_lsdb(lsa);
+	assert(ospf6);
 
 	/* Remove the old instance from all neighbors' Link state
 	   retransmission list (RFC2328 13.2 last paragraph) */
@@ -287,7 +272,6 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 
 	monotime(&now);
 	if (!OSPF6_LSA_IS_MAXAGE(lsa)) {
-		lsa->expire = NULL;
 		thread_add_timer(master, ospf6_lsa_expire, lsa,
 				 OSPF_LSA_MAXAGE + lsa->birth.tv_sec
 					 - now.tv_sec,
@@ -326,23 +310,18 @@ void ospf6_install_lsa(struct ospf6_lsa *lsa)
 	lsa->installed = now;
 
 	/* Topo change handling */
-	if (CHECK_LSA_TOPO_CHG_ELIGIBLE(ntohs(lsa->header->type))) {
+	if (CHECK_LSA_TOPO_CHG_ELIGIBLE(ntohs(lsa->header->type))
+	    && !CHECK_FLAG(lsa->flag, OSPF6_LSA_DUPLICATE)) {
 
 		/* check if it is new lsa ? or existing lsa got modified ?*/
-		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa)) {
-			struct ospf6 *ospf6;
-
-			ospf6 = ospf6_get_by_lsdb(lsa);
-
-			assert(ospf6);
-
+		if (!old || OSPF6_LSA_IS_CHANGED(old, lsa))
 			ospf6_helper_handle_topo_chg(ospf6, lsa);
-		}
 	}
 
 	ospf6_lsdb_add(lsa, lsa->lsdb);
 
-	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7) {
+	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7
+	    && lsa->header->adv_router != ospf6->router_id) {
 		area = OSPF6_AREA(lsa->lsdb->data);
 		ospf6_translated_nssa_refresh(area, lsa, NULL);
 		ospf6_schedule_abr_task(area->ospf6);
@@ -545,7 +524,6 @@ void ospf6_flood_interface(struct ospf6_neighbor *from, struct ospf6_lsa *lsa,
 		/* reschedule retransmissions to all neighbors */
 		for (ALL_LIST_ELEMENTS(oi->neighbor_list, node, nnode, on)) {
 			THREAD_OFF(on->thread_send_lsupdate);
-			on->thread_send_lsupdate = NULL;
 			thread_add_event(master, ospf6_lsupdate_send_neighbor,
 					 on, 0, &on->thread_send_lsupdate);
 		}
@@ -991,6 +969,8 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 
 	/* if no database copy or received is more recent */
 	if (old == NULL || ismore_recent < 0) {
+		bool self_originated;
+
 		/* in case we have no database copy */
 		ismore_recent = -1;
 
@@ -1024,17 +1004,11 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		if (old)
 			ospf6_flood_clear(old);
 
-		/* (b) immediately flood and (c) remove from all retrans-list */
-		/* Prevent self-originated LSA to be flooded. this is to make
-		reoriginated instance of the LSA not to be rejected by other
-		routers
-		due to MinLSArrival. */
-		if (new->header->adv_router
-		    != from->ospf6_if->area->ospf6->router_id)
-			ospf6_flood(from, new);
+		self_originated = (new->header->adv_router
+				   == from->ospf6_if->area->ospf6->router_id);
 
-		/* Received Grace-LSA */
-		if (IS_GRACE_LSA(new)) {
+		/* Received non-self-originated Grace LSA. */
+		if (IS_GRACE_LSA(new) && !self_originated) {
 			struct ospf6 *ospf6;
 
 			ospf6 = ospf6_get_by_lsdb(new);
@@ -1077,6 +1051,14 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			}
 		}
 
+		/* (b) immediately flood and (c) remove from all retrans-list */
+		/* Prevent self-originated LSA to be flooded. this is to make
+		 * reoriginated instance of the LSA not to be rejected by other
+		 * routers due to MinLSArrival.
+		 */
+		if (!self_originated)
+			ospf6_flood(from, new);
+
 		/* (d), installing lsdb, which may cause routing
 			table calculation (replacing database copy) */
 		ospf6_install_lsa(new);
@@ -1088,8 +1070,16 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 		ospf6_acknowledge_lsa(new, ismore_recent, from);
 
 		/* (f) Self Originated LSA, section 13.4 */
-		if (new->header->adv_router
-		    == from->ospf6_if->area->ospf6->router_id) {
+		if (self_originated) {
+			if (from->ospf6_if->area->ospf6->gr_info
+				    .restart_in_progress) {
+				if (IS_DEBUG_OSPF6_GR)
+					zlog_debug(
+						"Graceful Restart in progress -- not flushing self-originated LSA: %s",
+						new->name);
+				return;
+			}
+
 			/* Self-originated LSA (newer than ours) is received
 			   from
 			   another router. We have to make a new instance of the
@@ -1100,10 +1090,14 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 					"Newer instance of the self-originated LSA");
 				zlog_debug("Schedule reorigination");
 			}
-			new->refresh = NULL;
 			thread_add_event(master, ospf6_lsa_refresh, new, 0,
 					 &new->refresh);
 		}
+
+		struct ospf6 *ospf6 = from->ospf6_if->area->ospf6;
+		struct ospf6_area *area = from->ospf6_if->area;
+		if (ospf6->gr_info.restart_in_progress)
+			ospf6_gr_check_lsdb_consistency(ospf6, area);
 
 		return;
 	}
@@ -1221,7 +1215,6 @@ void ospf6_receive_lsa(struct ospf6_neighbor *from,
 			ospf6_lsa_delete(new);
 			return;
 		}
-		return;
 	}
 }
 

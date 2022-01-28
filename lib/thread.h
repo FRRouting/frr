@@ -128,6 +128,10 @@ struct thread {
 	pthread_mutex_t mtx;   /* mutex for thread.c functions */
 };
 
+#ifdef _FRR_ATTRIBUTE_PRINTFRR
+#pragma FRR printfrr_ext "%pTH" (struct thread *)
+#endif
+
 struct cpu_thread_history {
 	int (*func)(struct thread *);
 	atomic_size_t total_cpu_warn;
@@ -219,26 +223,30 @@ void thread_master_set_name(struct thread_master *master, const char *name);
 extern void thread_master_free(struct thread_master *);
 extern void thread_master_free_unused(struct thread_master *);
 
-extern struct thread *_thread_add_read_write(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, int fd, struct thread **tref);
+extern void _thread_add_read_write(const struct xref_threadsched *xref,
+				   struct thread_master *master,
+				   int (*fn)(struct thread *), void *arg,
+				   int fd, struct thread **tref);
 
-extern struct thread *_thread_add_timer(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, long t, struct thread **tref);
+extern void _thread_add_timer(const struct xref_threadsched *xref,
+			      struct thread_master *master,
+			      int (*fn)(struct thread *), void *arg, long t,
+			      struct thread **tref);
 
-extern struct thread *_thread_add_timer_msec(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, long t, struct thread **tref);
+extern void _thread_add_timer_msec(const struct xref_threadsched *xref,
+				   struct thread_master *master,
+				   int (*fn)(struct thread *), void *arg,
+				   long t, struct thread **tref);
 
-extern struct thread *_thread_add_timer_tv(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, struct timeval *tv,
-	struct thread **tref);
+extern void _thread_add_timer_tv(const struct xref_threadsched *xref,
+				 struct thread_master *master,
+				 int (*fn)(struct thread *), void *arg,
+				 struct timeval *tv, struct thread **tref);
 
-extern struct thread *_thread_add_event(
-	const struct xref_threadsched *xref, struct thread_master *master,
-	int (*fn)(struct thread *), void *arg, int val, struct thread **tref);
+extern void _thread_add_event(const struct xref_threadsched *xref,
+			      struct thread_master *master,
+			      int (*fn)(struct thread *), void *arg, int val,
+			      struct thread **tref);
 
 extern void _thread_execute(const struct xref_threadsched *xref,
 			    struct thread_master *master,
@@ -273,6 +281,7 @@ extern pthread_key_t thread_current;
 extern char *thread_timer_to_hhmmss(char *buf, int buf_size,
 		struct thread *t_timer);
 
+extern bool thread_is_scheduled(struct thread *thread);
 /* Debug signal mask */
 void debug_signals(const sigset_t *sigs);
 

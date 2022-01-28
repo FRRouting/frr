@@ -28,7 +28,6 @@ test_evpn_pim_topo1.py: Testing evpn-pim
 """
 
 import os
-import re
 import sys
 import pytest
 import json
@@ -47,7 +46,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.bgpd]
 
@@ -59,41 +57,34 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.bgpd]
 #####################################################
 
 
-class NetworkTopo(Topo):
-    "evpn-pim Topology 1"
+def build_topo(tgen):
+    tgen.add_router("spine")
+    tgen.add_router("leaf1")
+    tgen.add_router("leaf2")
+    tgen.add_router("host1")
+    tgen.add_router("host2")
 
-    def build(self, **_opts):
-        "Build function"
+    # On main router
+    # First switch is for a dummy interface (for local network)
+    # spine-eth0 is connected to leaf1-eth0
+    switch = tgen.add_switch("sw1")
+    switch.add_link(tgen.gears["spine"])
+    switch.add_link(tgen.gears["leaf1"])
 
-        tgen = get_topogen(self)
+    # spine-eth1 is connected to leaf2-eth0
+    switch = tgen.add_switch("sw2")
+    switch.add_link(tgen.gears["spine"])
+    switch.add_link(tgen.gears["leaf2"])
 
-        tgen.add_router("spine")
-        tgen.add_router("leaf1")
-        tgen.add_router("leaf2")
-        tgen.add_router("host1")
-        tgen.add_router("host2")
+    # leaf1-eth1 is connected to host1-eth0
+    switch = tgen.add_switch("sw3")
+    switch.add_link(tgen.gears["leaf1"])
+    switch.add_link(tgen.gears["host1"])
 
-        # On main router
-        # First switch is for a dummy interface (for local network)
-        # spine-eth0 is connected to leaf1-eth0
-        switch = tgen.add_switch("sw1")
-        switch.add_link(tgen.gears["spine"])
-        switch.add_link(tgen.gears["leaf1"])
-
-        # spine-eth1 is connected to leaf2-eth0
-        switch = tgen.add_switch("sw2")
-        switch.add_link(tgen.gears["spine"])
-        switch.add_link(tgen.gears["leaf2"])
-
-        # leaf1-eth1 is connected to host1-eth0
-        switch = tgen.add_switch("sw3")
-        switch.add_link(tgen.gears["leaf1"])
-        switch.add_link(tgen.gears["host1"])
-
-        # leaf2-eth1 is connected to host2-eth0
-        switch = tgen.add_switch("sw4")
-        switch.add_link(tgen.gears["leaf2"])
-        switch.add_link(tgen.gears["host2"])
+    # leaf2-eth1 is connected to host2-eth0
+    switch = tgen.add_switch("sw4")
+    switch.add_link(tgen.gears["leaf2"])
+    switch.add_link(tgen.gears["host2"])
 
 
 #####################################################
@@ -105,7 +96,7 @@ class NetworkTopo(Topo):
 
 def setup_module(module):
     "Setup topology"
-    tgen = Topogen(NetworkTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     leaf1 = tgen.gears["leaf1"]

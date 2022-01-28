@@ -1166,7 +1166,7 @@ ldpTrapSessionDown(struct nbr * nbr)
 	ldpTrapSession(nbr, LDPSESSIONDOWN);
 }
 
-static int ldp_snmp_agentx_enabled()
+static int ldp_snmp_agentx_enabled(void)
 {
 	main_imsg_compose_both(IMSG_AGENTX_ENABLED, NULL, 0);
 

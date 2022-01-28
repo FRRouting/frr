@@ -68,7 +68,7 @@ enum match_type {
  * @param[in] vline vectorized input string
  * @param[out] argv pointer to argument list if successful match, NULL
  * otherwise. The elements of this list are pointers to struct cmd_token
- * and represent the sequence of tokens matched by the inpu. The ->arg
+ * and represent the sequence of tokens matched by the input. The ->arg
  * field of each token points to a copy of the input matched on it. These
  * may be safely deleted or modified.
  * @param[out] element pointer to matched cmd_element if successful match,

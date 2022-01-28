@@ -31,7 +31,6 @@
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
-#include "pim_cmd.h"
 #include "pim_memory.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
@@ -152,7 +151,7 @@ static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
 
 	/* check if we have a (*, G) with a non-empty immediate OIL */
 	if (!xg_up) {
-		struct prefix_sg sg;
+		pim_sgaddr sg;
 
 		memset(&sg, 0, sizeof(sg));
 		sg.grp = sa->sg.grp;
@@ -237,8 +236,7 @@ static void pim_msdp_sa_free(struct pim_msdp_sa *sa)
 }
 
 static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
-					   struct prefix_sg *sg,
-					   struct in_addr rp)
+					   pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
 
@@ -262,7 +260,7 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 }
 
 static struct pim_msdp_sa *pim_msdp_sa_find(struct pim_instance *pim,
-					    struct prefix_sg *sg)
+					    pim_sgaddr *sg)
 {
 	struct pim_msdp_sa lookup;
 
@@ -271,8 +269,7 @@ static struct pim_msdp_sa *pim_msdp_sa_find(struct pim_instance *pim,
 }
 
 static struct pim_msdp_sa *pim_msdp_sa_add(struct pim_instance *pim,
-					   struct prefix_sg *sg,
-					   struct in_addr rp)
+					   pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
 
@@ -386,7 +383,7 @@ static void pim_msdp_sa_deref(struct pim_msdp_sa *sa,
 }
 
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
-		     struct prefix_sg *sg, struct in_addr rp)
+		     pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
 
@@ -467,15 +464,14 @@ static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 	return false;
 }
 
-static void pim_msdp_sa_local_add(struct pim_instance *pim,
-				  struct prefix_sg *sg)
+static void pim_msdp_sa_local_add(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct in_addr rp;
 	rp.s_addr = INADDR_ANY;
 	pim_msdp_sa_ref(pim, NULL /* mp */, sg, rp);
 }
 
-void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg)
+void pim_msdp_sa_local_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_msdp_sa *sa;
 
@@ -488,7 +484,7 @@ void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg)
 /* we need to be very cautious with this API as SA del too can trigger an
  * upstream del and we will get stuck in a simple loop */
 static void pim_msdp_sa_local_del_on_up_del(struct pim_instance *pim,
-					    struct prefix_sg *sg)
+					    pim_sgaddr *sg)
 {
 	struct pim_msdp_sa *sa;
 
@@ -643,7 +639,7 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 	}
 }
 
-static void pim_msdp_up_xg_del(struct pim_instance *pim, struct prefix_sg *sg)
+static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
@@ -667,7 +663,7 @@ static void pim_msdp_up_xg_del(struct pim_instance *pim, struct prefix_sg *sg)
 	}
 }
 
-void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg)
+void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	if (PIM_DEBUG_MSDP_INTERNAL) {
 		zlog_debug("MSDP up %s del", pim_str_sg_dump(sg));
@@ -720,7 +716,7 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 /* XXX: this can use a bit of refining and extensions */
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 {
-	struct pim_nexthop nexthop;
+	struct pim_nexthop nexthop = {0};
 
 	if (mp->peer.s_addr == rp.s_addr) {
 		return true;
@@ -1304,7 +1300,6 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	struct pim_msdp_mg *mg;
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	char mbr_str[INET_ADDRSTRLEN];
 	char src_str[INET_ADDRSTRLEN];
 	int count = 0;
 
@@ -1321,10 +1316,8 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
-			pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str,
-				       sizeof(mbr_str));
-			vty_out(vty, "%sip msdp mesh-group %s member %s\n",
-				spaces, mg->mesh_group_name, mbr_str);
+			vty_out(vty, "%sip msdp mesh-group %s member %pI4\n",
+				spaces, mg->mesh_group_name, &mbr->mbr_ip);
 			++count;
 		}
 	}

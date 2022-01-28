@@ -281,10 +281,109 @@ bgpribRequireVpnRoutes(
 
 
 # r1 vtysh -c "show bgp vrf r1-cust1 ipv4"
-
 ########################################################################
 # PE routers: VRFs contain routes from remote customer nets
 ########################################################################
+# First let's spot check and ensure that some of the routes
+# have showed up and been best path'd
+# After the first two are good.  It's probably ok
+# to look at the rest of the routes in the vrf
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.0.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.1.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.1.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.2.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.1.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.3.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.4.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.2.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 5.4.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 6.0.1.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.1.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 6.0.2.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.2.0 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.1/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.1 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.2/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.2 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.3/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.3 shows up on r1",
+    10,
+)
+luCommand(
+    "r1",
+    'vtysh -c "show bgp vrf r1-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up on r1",
+    10,
+)
 want_r1_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "3.3.3.3", "bp": False},
     {"p": "5.1.0.0/24", "n": "99.0.0.1", "bp": True},
@@ -297,9 +396,9 @@ want_r1_remote_cust1_routes = [
     {"p": "6.0.1.0/24", "n": "3.3.3.3", "bp": False},
     {"p": "6.0.1.0/24", "n": "4.4.4.4", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.1", "bp": True},
-    {"p": "6.0.2.0/24", "n": "3.3.3.3", "bp": False},
+    {"p": "6.0.2.0/24", "n": "3.3.3.3", "bp": True},
     {"p": "6.0.2.0/24", "n": "4.4.4.4", "bp": False},
-    {"p": "6.0.2.0/24", "n": "99.0.0.1", "bp": True},
+    {"p": "6.0.2.0/24", "n": "99.0.0.1", "bp": False},
     {"p": "99.0.0.1/32", "n": "192.168.1.2", "bp": True},
     {"p": "99.0.0.2/32", "n": "3.3.3.3"},
     {"p": "99.0.0.3/32", "n": "4.4.4.4"},
@@ -314,6 +413,103 @@ bgpribRequireUnicastRoutes(
     debug=False,
 )
 
+
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.0.0 shows up r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.1.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.1.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.2.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.2.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.1.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.1.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.4.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.4.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 5.4.3.0/24"',
+    "1 available, best",
+    "wait",
+    "Ensure 5.4.3.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 6.0.1.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.1.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 6.0.2.0/24"',
+    "3 available, best",
+    "wait",
+    "Ensure 6.0.2.0 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.1/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.1 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.3/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.3 shows up on r3",
+    10,
+)
+luCommand(
+    "r3",
+    'vtysh -c "show bgp vrf r3-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up on r3",
+    10,
+)
 want_r3_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "5.1.0.0/24", "n": "99.0.0.2", "bp": False},
@@ -326,9 +522,9 @@ want_r3_remote_cust1_routes = [
     {"p": "6.0.1.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "6.0.1.0/24", "n": "4.4.4.4", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.2", "bp": False},
-    {"p": "6.0.2.0/24", "n": "1.1.1.1", "bp": False},
+    {"p": "6.0.2.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "6.0.2.0/24", "n": "4.4.4.4", "bp": False},
-    {"p": "6.0.2.0/24", "n": "99.0.0.2", "bp": True},
+    {"p": "6.0.2.0/24", "n": "99.0.0.2", "bp": False},
     {"p": "99.0.0.1/32", "n": "1.1.1.1", "bp": True},
     {"p": "99.0.0.3/32", "n": "4.4.4.4", "bp": True},
     {"p": "99.0.0.4/32", "n": "4.4.4.4", "bp": True},
@@ -342,6 +538,70 @@ bgpribRequireUnicastRoutes(
     debug=False,
 )
 
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 5.1.0.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.0.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 5.1.1.0/24"',
+    "2 available, best",
+    "wait",
+    "Ensure 5.1.1.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 6.0.1.0/24"',
+    "4 available, best",
+    "wait",
+    "Ensure 6.0.1.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 6.0.2.0/24"',
+    "4 available, best",
+    "wait",
+    "Ensure 6.0.2.0 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.1/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.1 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.2/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.2 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.3/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.3 shows up on r4",
+    10,
+)
+luCommand(
+    "r4",
+    'vtysh -c "show bgp vrf r4-cust1 ipv4 uni 99.0.0.4/32"',
+    "1 available, best",
+    "wait",
+    "Ensure 99.0.0.4 shows up on r4",
+    10,
+)
 want_r4_remote_cust1_routes = [
     {"p": "5.1.0.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "5.1.0.0/24", "n": "3.3.3.3", "bp": False},
@@ -351,10 +611,10 @@ want_r4_remote_cust1_routes = [
     {"p": "6.0.1.0/24", "n": "3.3.3.3", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.3", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.4", "bp": False},
-    {"p": "6.0.2.0/24", "n": "1.1.1.1", "bp": False},
+    {"p": "6.0.2.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "6.0.2.0/24", "n": "3.3.3.3", "bp": False},
     {"p": "6.0.2.0/24", "n": "99.0.0.3", "bp": False},
-    {"p": "6.0.2.0/24", "n": "99.0.0.4", "bp": True},
+    {"p": "6.0.2.0/24", "n": "99.0.0.4", "bp": False},
     {"p": "99.0.0.1/32", "n": "1.1.1.1", "bp": True},
     {"p": "99.0.0.2/32", "n": "3.3.3.3", "bp": True},
     {"p": "99.0.0.3/32", "n": "192.168.1.2", "bp": True},
@@ -378,9 +638,9 @@ want_r4_remote_cust2_routes = [
     {"p": "6.0.1.0/24", "n": "3.3.3.3", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.3", "bp": False},
     {"p": "6.0.1.0/24", "n": "99.0.0.4", "bp": False},
-    {"p": "6.0.2.0/24", "n": "1.1.1.1", "bp": False},
+    {"p": "6.0.2.0/24", "n": "1.1.1.1", "bp": True},
     {"p": "6.0.2.0/24", "n": "3.3.3.3", "bp": False},
-    {"p": "6.0.2.0/24", "n": "99.0.0.3", "bp": True},
+    {"p": "6.0.2.0/24", "n": "99.0.0.3", "bp": False},
     {"p": "6.0.2.0/24", "n": "99.0.0.4", "bp": False},
     {"p": "99.0.0.1/32", "n": "1.1.1.1", "bp": True},
     {"p": "99.0.0.2/32", "n": "3.3.3.3", "bp": True},
@@ -574,8 +834,8 @@ luCommand(
 luCommand(
     "ce1",
     'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
-    "1 available, best .*192.168.1.1.* Local.* 99.0.0.1 from 0.0.0.0 .99.0.0.1"
-    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .First path received"
+    "2 available, best .*192.168.1.1.* Local.* 99.0.0.1 from 0.0.0.0 .99.0.0.1"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight"
     + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:11",
     "pass",
     "Redundant route 2 details",
@@ -583,8 +843,8 @@ luCommand(
 luCommand(
     "ce2",
     'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
-    "1 available, best .*192.168.1.1.* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2"
-    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .First path received"
+    "2 available, best .*192.168.1.1.* Local.* 99.0.0.2 from 0.0.0.0 .99.0.0.2"
+    + ".* Origin IGP, metric 100, localpref 100, weight 32768, valid, sourced, local, best .Weight"
     + ".* Community: 0:67.* Extended Community: RT:89:123.* Large Community: 12:34:12",
     "pass",
     "Redundant route 2 details",
@@ -603,7 +863,7 @@ luCommand(
     'vtysh -c "show bgp ipv4 uni 6.0.2.0"',
     "2 available, best .*192.168.1.1.* Local.* 192.168.1.1 from 192.168.1.1 .192.168.1.1"
     + ".* Origin IGP, metric 100, localpref 100, valid, internal"
-    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:14",
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:11",
     "pass",
     "Redundant route 2 details",
 )
@@ -612,7 +872,7 @@ luCommand(
     'vtysh -c "show bgp  vrf ce4-cust2 ipv4 6.0.2.0"',
     "2 available, best .*192.168.2.1.* Local.* 192.168.2.1 from 192.168.2.1 .192.168.2.1"
     + ".* Origin IGP, metric 100, localpref 100, valid, internal"
-    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:13",
+    + ".* Community: 0:67.* Extended Community: RT:52:100 RT:89:123.* Large Community: 12:34:11",
     "pass",
     "Redundant route 2 details",
 )

@@ -64,7 +64,6 @@ import os
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -78,55 +77,50 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.ospfd]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define FRR Routers
+    #
+    for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
+        tgen.add_router(router)
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
-            tgen.add_router(router)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["ce1"])
+    switch.add_link(tgen.gears["r1"])
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["ce1"])
-        switch.add_link(tgen.gears["r1"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["ce2"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["ce2"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["ce3"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["ce3"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -278,9 +272,15 @@ def test_ldp_pseudowires_after_link_down():
 
     # Shut down r1-r2 link */
     tgen = get_topogen()
-    tgen.gears["r1"].peer_link_enable("r1-eth1", False)
-    topotest.sleep(5, "Waiting for the network to reconverge")
-
+    rname = "r1"
+    tgen.gears[rname].peer_link_enable("r1-eth1", False)
+    router_compare_json_output(
+        rname,
+        "show ip route json",
+        "show_ip_route_after_link_down.ref",
+        count=160,
+        wait=1,
+    )
     # check if the pseudowire is still up (using an alternate path
     # for nexthop resolution). Give some extra wait time.
     for rname in ["r1", "r2", "r3"]:

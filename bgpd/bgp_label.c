@@ -244,6 +244,10 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	p = bgp_dest_get_prefix(dest);
 
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: %pFX: %s ", __func__, p,
+			   (reg ? "reg" : "dereg"));
+
 	if (reg) {
 		assert(pi);
 		/*
@@ -440,8 +444,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
-				   SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, &label, 1, 0, NULL);
+				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+				   NULL, &label, 1, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,

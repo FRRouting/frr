@@ -39,6 +39,7 @@
 #include "nexthop_group_private.h"
 #include "frr_pthread.h"
 #include "printfrr.h"
+#include "frrscript.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/connected.h"
@@ -57,6 +58,7 @@
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_dplane.h"
 #include "zebra/zebra_evpn_mh.h"
+#include "zebra/zebra_script.h"
 
 DEFINE_MGROUP(ZEBRA, "zebra");
 
@@ -303,35 +305,41 @@ static void route_entry_attach_ref(struct route_entry *re,
 {
 	re->nhe = new;
 	re->nhe_id = new->id;
+	re->nhe_installed_id = 0;
 
 	zebra_nhg_increment_ref(new);
 }
 
+/* Replace (if 'new_nhghe') or clear (if that's NULL) an re's nhe. */
 int route_entry_update_nhe(struct route_entry *re,
 			   struct nhg_hash_entry *new_nhghe)
 {
-	struct nhg_hash_entry *old;
 	int ret = 0;
+	struct nhg_hash_entry *old_nhg = NULL;
 
 	if (new_nhghe == NULL) {
-		if (re->nhe)
-			zebra_nhg_decrement_ref(re->nhe);
+		old_nhg = re->nhe;
+
+		re->nhe_id = 0;
+		re->nhe_installed_id = 0;
 		re->nhe = NULL;
 		goto done;
 	}
 
 	if ((re->nhe_id != 0) && re->nhe && (re->nhe != new_nhghe)) {
-		old = re->nhe;
+		/* Capture previous nhg, if any */
+		old_nhg = re->nhe;
 
 		route_entry_attach_ref(re, new_nhghe);
-
-		if (old)
-			zebra_nhg_decrement_ref(old);
 	} else if (!re->nhe)
 		/* This is the first time it's being attached */
 		route_entry_attach_ref(re, new_nhghe);
 
 done:
+	/* Detach / deref previous nhg */
+	if (old_nhg)
+		zebra_nhg_decrement_ref(old_nhg);
+
 	return ret;
 }
 
@@ -690,7 +698,8 @@ static int rib_can_delete_dest(rib_dest_t *dest)
 	return 1;
 }
 
-void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
+void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
+				    bool rt_delete)
 {
 	rib_dest_t *dest = rib_dest_from_rnode(rn);
 	struct rnh *rnh;
@@ -711,6 +720,12 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 				__func__, rn,
 				dest ? rnh_list_count(&dest->nht) : 0);
 
+		if (rt_delete && (!dest || !rnh_list_count(&dest->nht))) {
+			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
+				zlog_debug("%pRN has no tracking NHTs. Bailing",
+					   rn);
+			break;
+		}
 		if (!dest) {
 			rn = rn->parent;
 			if (rn)
@@ -730,10 +745,9 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 
 			if (IS_ZEBRA_DEBUG_NHT_DETAILED)
 				zlog_debug(
-					"%s(%u):%pRN has Nexthop(%pFX) Type: %s depending on it, evaluating %u:%u",
-					zvrf_name(zvrf), zvrf_id(zvrf),
-					rn, p, rnh_type2str(rnh->type), seq,
-					rnh->seqno);
+					"%s(%u):%pRN has Nexthop(%pFX) depending on it, evaluating %u:%u",
+					zvrf_name(zvrf), zvrf_id(zvrf), rn, p,
+					seq, rnh->seqno);
 
 			/*
 			 * If we have evaluated this node on this pass
@@ -755,8 +769,8 @@ void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq)
 			}
 
 			rnh->seqno = seq;
-			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0,
-					   rnh->type, p);
+			zebra_evaluate_rnh(zvrf, family2afi(p->family), 0, p,
+					   rnh->safi);
 		}
 
 		rn = rn->parent;
@@ -791,7 +805,8 @@ int rib_gc_dest(struct route_node *rn)
 		rnode_debug(rn, zvrf_id(zvrf), "removing dest from table");
 	}
 
-	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence());
+	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence(),
+				       true);
 
 	dest->rnode = NULL;
 	rnh_list_fini(&dest->nht);
@@ -1025,7 +1040,7 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 			struct interface *ifp = if_lookup_by_index(
 				nexthop->ifindex, alternate->vrf_id);
 
-			if (ifp && if_is_loopback_or_vrf(ifp))
+			if (ifp && if_is_loopback(ifp))
 				return alternate;
 		}
 
@@ -1033,7 +1048,7 @@ static struct route_entry *rib_choose_best(struct route_entry *current,
 			struct interface *ifp = if_lookup_by_index(
 				nexthop->ifindex, current->vrf_id);
 
-			if (ifp && if_is_loopback_or_vrf(ifp))
+			if (ifp && if_is_loopback(ifp))
 				return current;
 		}
 
@@ -1256,14 +1271,6 @@ static void rib_process(struct route_node *rn)
 	bool selected_changed = new_selected && CHECK_FLAG(new_selected->status,
 							   ROUTE_ENTRY_CHANGED);
 
-	/* Update fib according to selection results */
-	if (new_fib && old_fib)
-		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
-	else if (new_fib)
-		rib_process_add_fib(zvrf, rn, new_fib);
-	else if (old_fib)
-		rib_process_del_fib(zvrf, rn, old_fib);
-
 	/* Update SELECTED entry */
 	if (old_selected != new_selected || selected_changed) {
 
@@ -1290,6 +1297,14 @@ static void rib_process(struct route_node *rn)
 					   ZEBRA_FLAG_SELECTED);
 		}
 	}
+
+	/* Update fib according to selection results */
+	if (new_fib && old_fib)
+		rib_process_update_fib(zvrf, rn, old_fib, new_fib);
+	else if (new_fib)
+		rib_process_add_fib(zvrf, rn, new_fib);
+	else if (old_fib)
+		rib_process_del_fib(zvrf, rn, old_fib);
 
 	/* Remove all RE entries queued for removal */
 	RNODE_FOREACH_RE_SAFE (rn, re, next) {
@@ -1796,6 +1811,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 	rib_dest_t *dest;
 	bool fib_changed = false;
 	struct rib_table_info *info;
+	bool rt_delete = false;
 
 	zvrf = vrf_info_lookup(dplane_ctx_get_vrf(ctx));
 	vrf = vrf_lookup_by_id(dplane_ctx_get_vrf(ctx));
@@ -1983,6 +1999,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		}
 		break;
 	case DPLANE_OP_ROUTE_DELETE:
+		rt_delete = true;
 		if (re)
 			SET_FLAG(re->status, ROUTE_ENTRY_FAILED);
 		/*
@@ -2025,7 +2042,7 @@ static void rib_process_result(struct zebra_dplane_ctx *ctx)
 		break;
 	}
 
-	zebra_rib_evaluate_rn_nexthops(rn, seq);
+	zebra_rib_evaluate_rn_nexthops(rn, seq, rt_delete);
 	zebra_rib_evaluate_mpls(rn);
 done:
 
@@ -2261,8 +2278,8 @@ static void rib_process_dplane_notify(struct zebra_dplane_ctx *ctx)
 	}
 
 	/* Make any changes visible for lsp and nexthop-tracking processing */
-	zebra_rib_evaluate_rn_nexthops(
-		rn, zebra_router_get_next_sequence());
+	zebra_rib_evaluate_rn_nexthops(rn, zebra_router_get_next_sequence(),
+				       false);
 
 	zebra_rib_evaluate_mpls(rn);
 
@@ -3092,7 +3109,8 @@ void rib_unlink(struct route_node *rn, struct route_entry *re)
 
 	if (re->nhe && re->nhe_id) {
 		assert(re->nhe->id == re->nhe_id);
-		zebra_nhg_decrement_ref(re->nhe);
+
+		route_entry_update_nhe(re, NULL);
 	} else if (re->nhe && re->nhe->nhg.nexthop)
 		nexthops_free(re->nhe->nhg.nexthop);
 
@@ -3891,14 +3909,16 @@ void rib_update(enum rib_update_event event)
 {
 	struct rib_update_ctx *ctx;
 
-	ctx = rib_update_ctx_init(0, event);
+	if (thread_is_scheduled(t_rib_update_threads[event]))
+		return;
 
+	ctx = rib_update_ctx_init(0, event);
 	ctx->vrf_all = true;
 
-	if (!thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
-			      &t_rib_update_threads[event]))
-		rib_update_ctx_fini(&ctx); /* Already scheduled */
-	else if (IS_ZEBRA_DEBUG_EVENT)
+	thread_add_event(zrouter.master, rib_update_handler, ctx, 0,
+			 &t_rib_update_threads[event]);
+
+	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("%s: Scheduled VRF (ALL), event %s", __func__,
 			   rib_update_event2str(event));
 }
@@ -4134,7 +4154,31 @@ static int rib_process_dplane_results(struct thread *thread)
 			continue;
 		}
 
+#ifdef HAVE_SCRIPTING
+		char *script_name = frrscript_names_get_script_name(
+			ZEBRA_ON_RIB_PROCESS_HOOK_CALL);
+
+		int ret = 1;
+		struct frrscript *fs;
+
+		if (script_name) {
+			fs = frrscript_new(script_name);
+			if (fs)
+				ret = frrscript_load(
+					fs, ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					NULL);
+		}
+#endif /* HAVE_SCRIPTING */
+
 		while (ctx) {
+
+#ifdef HAVE_SCRIPTING
+			if (ret == 0)
+				frrscript_call(fs,
+					       ZEBRA_ON_RIB_PROCESS_HOOK_CALL,
+					       ("ctx", ctx));
+#endif /* HAVE_SCRIPTING */
+
 			switch (dplane_ctx_get_op(ctx)) {
 			case DPLANE_OP_ROUTE_INSTALL:
 			case DPLANE_OP_ROUTE_UPDATE:
@@ -4207,6 +4251,11 @@ static int rib_process_dplane_results(struct thread *thread)
 			case DPLANE_OP_IPSET_ENTRY_ADD:
 			case DPLANE_OP_IPSET_ENTRY_DELETE:
 				zebra_pbr_dplane_result(ctx);
+				break;
+
+			case DPLANE_OP_INTF_ADDR_ADD:
+			case DPLANE_OP_INTF_ADDR_DEL:
+				zebra_if_addr_update_ctx(ctx);
 				break;
 
 			/* Some op codes not handled here */

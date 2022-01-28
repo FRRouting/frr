@@ -127,7 +127,9 @@ const char *ospf_area_desc_string(struct ospf_area *area)
 	return buf;
 }
 
-#define OSPF_IF_STRING_MAXLEN  40
+#define OSPF_IF_STRING_MAXLEN 40
+
+/* Display both nbr and ism state of the ospf neighbor.*/
 const char *ospf_if_name_string(struct ospf_interface *oi)
 {
 	static char buf[OSPF_IF_STRING_MAXLEN] = "";
@@ -146,8 +148,14 @@ const char *ospf_if_name_string(struct ospf_interface *oi)
 	return buf;
 }
 
-
+/* Display only the nbr state.*/
 void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
+{
+	snprintf(buf, size, "%s",
+		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+}
+
+int ospf_nbr_ism_state(struct ospf_neighbor *nbr)
 {
 	int state;
 	struct ospf_interface *oi = nbr->oi;
@@ -158,6 +166,27 @@ void ospf_nbr_state_message(struct ospf_neighbor *nbr, char *buf, size_t size)
 		state = ISM_Backup;
 	else
 		state = ISM_DROther;
+
+	return state;
+}
+
+void ospf_nbr_ism_state_message(struct ospf_neighbor *nbr, char *buf,
+				size_t size)
+{
+	int state;
+	struct ospf_interface *oi = nbr->oi;
+
+	if (!oi)
+		return;
+
+	/* network type is point-to-point */
+	if (oi->type == OSPF_IFTYPE_POINTOPOINT) {
+		snprintf(buf, size, "%s/-",
+			 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL));
+		return;
+	}
+
+	state = ospf_nbr_ism_state(nbr);
 
 	snprintf(buf, size, "%s/%s",
 		 lookup_msg(ospf_nsm_state_msg, nbr->state, NULL),
@@ -1616,11 +1645,15 @@ DEFUN (no_debug_ospf,
 		DEBUG_OFF(nsm, NSM_EVENTS);
 		DEBUG_OFF(nsm, NSM_STATUS);
 		DEBUG_OFF(nsm, NSM_TIMERS);
+		DEBUG_OFF(event, EVENT);
 		DEBUG_OFF(zebra, ZEBRA);
 		DEBUG_OFF(zebra, ZEBRA_INTERFACE);
 		DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 		DEBUG_OFF(defaultinfo, DEFAULTINFO);
 		DEBUG_OFF(ldp_sync, LDP_SYNC);
+		DEBUG_OFF(te, TE);
+		DEBUG_OFF(sr, SR);
+		DEBUG_OFF(ti_lfa, TI_LFA);
 
 		/* BFD debugging is two parts: OSPF and library. */
 		DEBUG_OFF(bfd, BFD_LIB);
@@ -1653,6 +1686,9 @@ DEFUN (no_debug_ospf,
 	TERM_DEBUG_OFF(zebra, ZEBRA_REDISTRIBUTE);
 	TERM_DEBUG_OFF(defaultinfo, DEFAULTINFO);
 	TERM_DEBUG_OFF(ldp_sync, LDP_SYNC);
+	TERM_DEBUG_OFF(te, TE);
+	TERM_DEBUG_OFF(sr, SR);
+	TERM_DEBUG_OFF(ti_lfa, TI_LFA);
 	TERM_DEBUG_OFF(bfd, BFD_LIB);
 
 	return CMD_SUCCESS;
@@ -1762,6 +1798,18 @@ static int show_debugging_ospf_common(struct vty *vty)
 	/* Show debug status for GR. */
 	if (IS_DEBUG_OSPF(gr, GR) == OSPF_DEBUG_GR)
 		vty_out(vty, "  OSPF Graceful Restart debugging is on\n");
+
+	/* Show debug status for TE */
+	if (IS_DEBUG_OSPF(te, TE) == OSPF_DEBUG_TE)
+		vty_out(vty, "  OSPF TE debugging is on\n");
+
+	/* Show debug status for SR */
+	if (IS_DEBUG_OSPF(sr, SR) == OSPF_DEBUG_SR)
+		vty_out(vty, "  OSPF SR debugging is on\n");
+
+	/* Show debug status for TI-LFA */
+	if (IS_DEBUG_OSPF(ti_lfa, TI_LFA) == OSPF_DEBUG_TI_LFA)
+		vty_out(vty, "  OSPF TI-LFA debugging is on\n");
 
 	if (IS_DEBUG_OSPF(bfd, BFD_LIB) == OSPF_DEBUG_BFD_LIB)
 		vty_out(vty,
@@ -1937,7 +1985,7 @@ static int config_write_debug(struct vty *vty)
 	}
 
 	/* debug ospf sr ti-lfa */
-	if (IS_CONF_DEBUG_OSPF(sr, TI_LFA) == OSPF_DEBUG_TI_LFA) {
+	if (IS_CONF_DEBUG_OSPF(ti_lfa, TI_LFA) == OSPF_DEBUG_TI_LFA) {
 		vty_out(vty, "debug ospf%s ti-lfa\n", str);
 		write = 1;
 	}

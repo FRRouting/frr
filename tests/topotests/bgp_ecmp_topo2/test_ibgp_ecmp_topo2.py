@@ -39,7 +39,6 @@ Following tests are covered to test ecmp functionality on EBGP.
 import os
 import sys
 import time
-import json
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -50,7 +49,6 @@ sys.path.append(os.path.join(CWD, "../../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
@@ -65,20 +63,11 @@ from lib.common_config import (
 )
 from lib.topolog import logger
 from lib.bgp import verify_bgp_convergence, create_router_bgp, clear_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology and configuration creation
-jsonFile = "{}/ibgp_ecmp_topo2.json".format(CWD)
-
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 NEXT_HOPS = {"ipv4": [], "ipv6": []}
@@ -87,21 +76,6 @@ INTF_LIST_R2 = []
 NETWORK = {"ipv4": "11.0.20.1/32", "ipv6": "1::/64"}
 NEXT_HOP_IP = {"ipv4": "10.0.0.1", "ipv6": "fd00::1"}
 BGP_CONVERGENCE = False
-
-
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -125,7 +99,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ibgp_ecmp_topo2.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers
@@ -333,7 +310,7 @@ def test_modify_ecmp_max_paths(request, ecmp_num, test_type):
 @pytest.mark.parametrize("ecmp_num", ["8", "16", "32"])
 @pytest.mark.parametrize("test_type", ["redist_static", "advertise_nw"])
 def test_ecmp_after_clear_bgp(request, ecmp_num, test_type):
-    """ Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""
+    """Verify BGP table and RIB in DUT after clear BGP routes and neighbors"""
 
     tc_name = request.node.name
     write_test_header(tc_name)

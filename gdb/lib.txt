@@ -1,6 +1,6 @@
 # GDB macros for use with Quagga.
 #
-# Macros in this file are not daemon specific. E.g., OS or Quagga library
+# Macros in this file are not daemon specific. E.g., OS or FRR library
 # APIs.
 #
 # The macro file can be loaded with 'source <filename>'. They can then be
@@ -9,7 +9,7 @@
 #
 # E.g.:
 # 
-# (gdb) source ~paul/code/quagga/gdb/lib.txt
+# (gdb) source ~paul/code/frr/gdb/lib.txt
 # (gdb) break bgp_packet.c:613
 # Breakpoint 3 at 0x7fa883033a32: file bgp_packet.c, line 613.
 # (gdb) cont

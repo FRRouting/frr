@@ -34,6 +34,7 @@
 #include "lib_errors.h"
 #include "table.h"
 #include "json.h"
+#include "jhash.h"
 
 DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP, "Route map");
 DEFINE_MTYPE(LIB, ROUTE_MAP_NAME, "Route map name");
@@ -46,6 +47,27 @@ DEFINE_MTYPE_STATIC(LIB, ROUTE_MAP_DEP_DATA, "Route map dependency data");
 
 DEFINE_QOBJ_TYPE(route_map_index);
 DEFINE_QOBJ_TYPE(route_map);
+
+static int rmap_cmd_name_cmp(const struct route_map_rule_cmd_proxy *a,
+			     const struct route_map_rule_cmd_proxy *b)
+{
+	return strcmp(a->cmd->str, b->cmd->str);
+}
+
+static uint32_t rmap_cmd_name_hash(const struct route_map_rule_cmd_proxy *item)
+{
+	return jhash(item->cmd->str, strlen(item->cmd->str), 0xbfd69320);
+}
+
+DECLARE_HASH(rmap_cmd_name, struct route_map_rule_cmd_proxy, itm,
+	     rmap_cmd_name_cmp, rmap_cmd_name_hash);
+
+static struct rmap_cmd_name_head rmap_match_cmds[1] = {
+	INIT_HASH(rmap_match_cmds[0]),
+};
+static struct rmap_cmd_name_head rmap_set_cmds[1] = {
+	INIT_HASH(rmap_set_cmds[0]),
+};
 
 #define IPv4_PREFIX_LIST "ip address prefix-list"
 #define IPv6_PREFIX_LIST "ipv6 address prefix-list"
@@ -60,12 +82,6 @@ struct route_map_pentry_dep {
 	const char *plist_name;
 	route_map_event_t event;
 };
-
-/* Vector for route match rules. */
-static vector route_match_vec;
-
-/* Vector for route set rules. */
-static vector route_set_vec;
 
 static void route_map_pfx_tbl_update(route_map_event_t event,
 				     struct route_map_index *index, afi_t afi,
@@ -159,6 +175,22 @@ void route_map_no_match_ip_next_hop_hook(int (*func)(
 	rmap_match_set_hook.no_match_ip_next_hop = func;
 }
 
+/* match ipv6 next-hop */
+void route_map_match_ipv6_next_hop_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.match_ipv6_next_hop = func;
+}
+
+/* no match ipv6 next-hop */
+void route_map_no_match_ipv6_next_hop_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.no_match_ipv6_next_hop = func;
+}
+
 /* match ip next hop prefix list */
 void route_map_match_ip_next_hop_prefix_list_hook(int (*func)(
 	struct route_map_index *index, const char *command,
@@ -248,6 +280,22 @@ void route_map_no_match_ipv6_next_hop_type_hook(int (*func)(
 	char *errmsg, size_t errmsg_len))
 {
 	rmap_match_set_hook.no_match_ipv6_next_hop_type = func;
+}
+
+/* match ipv6 next-hop prefix-list */
+void route_map_match_ipv6_next_hop_prefix_list_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.match_ipv6_next_hop_prefix_list = func;
+}
+
+/* no match ipv6 next-hop prefix-list */
+void route_map_no_match_ipv6_next_hop_prefix_list_hook(int (*func)(
+	struct route_map_index *index, const char *command, const char *arg,
+	route_map_event_t type, char *errmsg, size_t errmsg_len))
+{
+	rmap_match_set_hook.no_match_ipv6_next_hop_prefix_list = func;
 }
 
 /* match metric */
@@ -1026,14 +1074,7 @@ static int vty_show_route_map(struct vty *vty, const char *name, bool use_json)
 		list_delete(&maplist);
 	}
 
-	if (use_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
-
-	return CMD_SUCCESS;
+	return vty_json(vty, json);
 }
 
 /* Unused route map details */
@@ -1231,40 +1272,40 @@ static struct route_map_rule *route_map_rule_new(void)
 }
 
 /* Install rule command to the match list. */
-void route_map_install_match(const struct route_map_rule_cmd *cmd)
+void _route_map_install_match(struct route_map_rule_cmd_proxy *proxy)
 {
-	vector_set(route_match_vec, (void *)cmd);
+	rmap_cmd_name_add(rmap_match_cmds, proxy);
 }
 
 /* Install rule command to the set list. */
-void route_map_install_set(const struct route_map_rule_cmd *cmd)
+void _route_map_install_set(struct route_map_rule_cmd_proxy *proxy)
 {
-	vector_set(route_set_vec, (void *)cmd);
+	rmap_cmd_name_add(rmap_set_cmds, proxy);
 }
 
 /* Lookup rule command from match list. */
 static const struct route_map_rule_cmd *route_map_lookup_match(const char *name)
 {
-	unsigned int i;
-	const struct route_map_rule_cmd *rule;
+	struct route_map_rule_cmd refcmd = {.str = name};
+	struct route_map_rule_cmd_proxy ref = {.cmd = &refcmd};
+	struct route_map_rule_cmd_proxy *res;
 
-	for (i = 0; i < vector_active(route_match_vec); i++)
-		if ((rule = vector_slot(route_match_vec, i)) != NULL)
-			if (strcmp(rule->str, name) == 0)
-				return rule;
+	res = rmap_cmd_name_find(rmap_match_cmds, &ref);
+	if (res)
+		return res->cmd;
 	return NULL;
 }
 
 /* Lookup rule command from set list. */
 static const struct route_map_rule_cmd *route_map_lookup_set(const char *name)
 {
-	unsigned int i;
-	const struct route_map_rule_cmd *rule;
+	struct route_map_rule_cmd refcmd = {.str = name};
+	struct route_map_rule_cmd_proxy ref = {.cmd = &refcmd};
+	struct route_map_rule_cmd_proxy *res;
 
-	for (i = 0; i < vector_active(route_set_vec); i++)
-		if ((rule = vector_slot(route_set_vec, i)) != NULL)
-			if (strcmp(rule->str, name) == 0)
-				return rule;
+	res = rmap_cmd_name_find(rmap_set_cmds, &ref);
+	if (res)
+		return res->cmd;
 	return NULL;
 }
 
@@ -2480,7 +2521,7 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 			do whatever the exit policy (EXIT, NEXT or GOTO) tells.
      on-match next    - If this clause is matched, then the set statements
 			are executed and then we drop through to the next clause
-     on-match goto n  - If this clause is matched, then the set statments
+     on-match goto n  - If this clause is matched, then the set statements
 			are executed and then we goto the nth clause, or the
 			first clause greater than this. In order to ensure
 			route-maps *always* exit, you cannot jump backwards.
@@ -2488,8 +2529,9 @@ void route_map_notify_pentry_dependencies(const char *affected_name,
 
    We need to make sure our route-map processing matches the above
 */
-route_map_result_t route_map_apply(struct route_map *map,
-				   const struct prefix *prefix, void *object)
+route_map_result_t route_map_apply_ext(struct route_map *map,
+				       const struct prefix *prefix,
+				       void *match_object, void *set_object)
 {
 	static int recursion = 0;
 	enum route_map_cmd_result_t match_ret = RMAP_NOMATCH;
@@ -2516,7 +2558,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 
 	if ((!map->optimization_disabled)
 	    && (map->ipv4_prefix_table || map->ipv6_prefix_table)) {
-		index = route_map_get_index(map, prefix, object,
+		index = route_map_get_index(map, prefix, match_object,
 					    (uint8_t *)&match_ret);
 		if (index) {
 			index->applied++;
@@ -2551,7 +2593,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 			index->applied++;
 			/* Apply this index. */
 			match_ret = route_map_apply_match(&index->match_list,
-							  prefix, object);
+							  prefix, match_object);
 			if (rmap_debug) {
 				zlog_debug(
 					"Route-map: %s, sequence: %d, prefix: %pFX, result: %s",
@@ -2610,7 +2652,7 @@ route_map_result_t route_map_apply(struct route_map *map,
 					 * return code.
 					 */
 					(void)(*set->cmd->func_apply)(
-						set->value, prefix, object);
+						set->value, prefix, set_object);
 
 				/* Call another route-map if available */
 				if (index->nextrm) {
@@ -2622,8 +2664,10 @@ route_map_result_t route_map_apply(struct route_map *map,
 						       jump to it */
 					{
 						recursion++;
-						ret = route_map_apply(
-							nextrm, prefix, object);
+						ret = route_map_apply_ext(
+							nextrm, prefix,
+							match_object,
+							set_object);
 						recursion--;
 					}
 
@@ -3158,11 +3202,21 @@ void route_map_rule_tag_free(void *rule)
 void route_map_finish(void)
 {
 	int i;
+	struct route_map_rule_cmd_proxy *proxy;
 
-	vector_free(route_match_vec);
-	route_match_vec = NULL;
-	vector_free(route_set_vec);
-	route_set_vec = NULL;
+	/* these 2 hash tables have INIT_HASH initializers, so the "default"
+	 * state is "initialized & empty" => fini() followed by init() to
+	 * return to that same state
+	 */
+	while ((proxy = rmap_cmd_name_pop(rmap_match_cmds)))
+		(void)proxy;
+	rmap_cmd_name_fini(rmap_match_cmds);
+	rmap_cmd_name_init(rmap_match_cmds);
+
+	while ((proxy = rmap_cmd_name_pop(rmap_set_cmds)))
+		(void)proxy;
+	rmap_cmd_name_fini(rmap_set_cmds);
+	rmap_cmd_name_init(rmap_set_cmds);
 
 	/*
 	 * All protocols are setting these to NULL
@@ -3306,9 +3360,6 @@ void route_map_init(void)
 {
 	int i;
 
-	/* Make vector for match and set. */
-	route_match_vec = vector_init(1);
-	route_set_vec = vector_init(1);
 	route_map_master_hash =
 		hash_create_size(8, route_map_hash_key_make, route_map_hash_cmp,
 				 "Route Map Master Hash");

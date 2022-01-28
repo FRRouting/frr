@@ -783,9 +783,7 @@ static void vty_show_mpls_pseudowire_detail_json(struct vty *vty)
 		vty_show_mpls_pseudowire(pw, json_pws);
 	}
 	json_object_object_add(json, "pw", json_pws);
-	vty_out(vty, "%s\n",
-		json_object_to_json_string_ext(json, JSON_C_TO_STRING_PRETTY));
-	json_object_free(json);
+	vty_json(vty, json);
 }
 
 DEFUN(show_pseudowires_detail, show_pseudowires_detail_cmd,
@@ -836,6 +834,7 @@ static int zebra_pw_config(struct vty *vty)
 		if (!(pw->flags & F_PSEUDOWIRE_CWORD))
 			vty_out(vty, " control-word exclude\n");
 
+		vty_out(vty, "exit\n");
 		vty_out(vty, "!\n");
 		write = 1;
 	}

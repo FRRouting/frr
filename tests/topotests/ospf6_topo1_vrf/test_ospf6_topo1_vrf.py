@@ -75,12 +75,9 @@ import os
 import re
 import sys
 import pytest
-import platform
-from time import sleep
 
 from functools import partial
 
-from mininet.topo import Topo
 
 # Save the Current Working Directory to find configuration files later.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -94,59 +91,48 @@ from lib.topolog import logger
 from lib.topotest import iproute2_is_vrf_capable
 from lib.common_config import required_linux_kernel_version
 
+
 pytestmark = [pytest.mark.ospfd]
 
 
-#####################################################
-##
-##   Network Topology Definition
-##
-#####################################################
+def build_topo(tgen):
+    "Build function"
 
+    # Create 4 routers
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-class NetworkTopo(Topo):
-    "OSPFv3 (IPv6) Test Topology 1"
+    #
+    # Wire up the switches and routers
+    # Note that we specify the link names so we match the config files
+    #
 
-    def build(self, **_opts):
-        "Build function"
+    # Create a empty network for router 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-stubnet")
 
-        tgen = get_topogen(self)
+    # Create a empty network for router 2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-stubnet")
 
-        # Create 4 routers
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    # Create a empty network for router 3
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-stubnet")
 
-        #
-        # Wire up the switches and routers
-        # Note that we specify the link names so we match the config files
-        #
+    # Create a empty network for router 4
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-stubnet")
 
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"], nodeif="r1-stubnet")
+    # Interconnect routers 1, 2, and 3
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"], nodeif="r1-sw5")
+    switch.add_link(tgen.gears["r2"], nodeif="r2-sw5")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-sw5")
 
-        # Create a empty network for router 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"], nodeif="r2-stubnet")
-
-        # Create a empty network for router 3
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r3"], nodeif="r3-stubnet")
-
-        # Create a empty network for router 4
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r4"], nodeif="r4-stubnet")
-
-        # Interconnect routers 1, 2, and 3
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"], nodeif="r1-sw5")
-        switch.add_link(tgen.gears["r2"], nodeif="r2-sw5")
-        switch.add_link(tgen.gears["r3"], nodeif="r3-sw5")
-
-        # Interconnect routers 3 and 4
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r3"], nodeif="r3-sw6")
-        switch.add_link(tgen.gears["r4"], nodeif="r4-sw6")
+    # Interconnect routers 3 and 4
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r3"], nodeif="r3-sw6")
+    switch.add_link(tgen.gears["r4"], nodeif="r4-sw6")
 
 
 #####################################################
@@ -164,7 +150,7 @@ def setup_module(mod):
     if result is not True:
         pytest.skip("Kernel requirements are not met")
 
-    tgen = Topogen(NetworkTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     logger.info("** %s: Setup Topology" % mod.__name__)
@@ -287,7 +273,7 @@ def test_ospfv3_routingTable():
     # For debugging, uncomment the next line
     # tgen.mininet_cli()
     # Verify OSPFv3 Routing Table
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command
@@ -418,7 +404,7 @@ def test_ospfv3_routingTable_write_multiplier():
     r1.vtysh_cmd("clear ipv6 ospf interface r1-sw5")
 
     # Verify OSPFv3 Routing Table
-    for router, rnode in tgen.routers().iteritems():
+    for router, rnode in tgen.routers().items():
         logger.info('Waiting for router "%s" convergence', router)
 
         # Load expected results from the command

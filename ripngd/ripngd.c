@@ -429,7 +429,6 @@ static int ripng_garbage_collect(struct thread *t)
 	struct agg_node *rp;
 
 	rinfo = THREAD_ARG(t);
-	rinfo->t_garbage_collect = NULL;
 
 	/* Off timeout timer. */
 	RIPNG_TIMER_OFF(rinfo->t_timeout);
@@ -1320,7 +1319,6 @@ static int ripng_read(struct thread *thread)
 	/* Fetch thread data and set read pointer to empty for event
 	   managing.  `sock' sould be same as ripng->sock. */
 	sock = THREAD_FD(thread);
-	ripng->t_read = NULL;
 
 	/* Add myself to the next event. */
 	ripng_event(ripng, RIPNG_READ, sock);
@@ -1418,9 +1416,6 @@ static int ripng_update(struct thread *t)
 	struct interface *ifp;
 	struct ripng_interface *ri;
 
-	/* Clear update timer thread. */
-	ripng->t_update = NULL;
-
 	/* Logging update event. */
 	if (IS_RIPNG_DEBUG_EVENT)
 		zlog_debug("RIPng update timer expired!");
@@ -1469,8 +1464,6 @@ static int ripng_triggered_interval(struct thread *t)
 {
 	struct ripng *ripng = THREAD_ARG(t);
 
-	ripng->t_triggered_interval = NULL;
-
 	if (ripng->trigger) {
 		ripng->trigger = 0;
 		ripng_triggered_update(t);
@@ -1485,8 +1478,6 @@ int ripng_triggered_update(struct thread *t)
 	struct interface *ifp;
 	struct ripng_interface *ri;
 	int interval;
-
-	ripng->t_triggered_update = NULL;
 
 	/* Cancel interval timer. */
 	thread_cancel(&ripng->t_triggered_interval);
@@ -1525,7 +1516,6 @@ int ripng_triggered_update(struct thread *t)
 	   update is triggered when the timer expires. */
 	interval = (frr_weak_random() % 5) + 1;
 
-	ripng->t_triggered_interval = NULL;
 	thread_add_timer(master, ripng_triggered_interval, ripng, interval,
 			 &ripng->t_triggered_interval);
 
@@ -1942,7 +1932,6 @@ void ripng_event(struct ripng *ripng, enum ripng_event event, int sock)
 		/* Update timer jitter. */
 		jitter = ripng_update_jitter(ripng->update_time);
 
-		ripng->t_update = NULL;
 		thread_add_timer(master, ripng_update, ripng,
 				 sock ? 2 : ripng->update_time + jitter,
 				 &ripng->t_update);
@@ -2269,6 +2258,8 @@ static int ripng_config_write(struct vty *vty)
 
 		config_write_distribute(vty, ripng->distribute_ctx);
 		config_write_if_rmap(vty, ripng->if_rmap_ctx);
+
+		vty_out(vty, "exit\n");
 
 		write = 1;
 	}
@@ -2613,45 +2604,7 @@ static int ripng_vrf_enable(struct vrf *vrf)
 	int socket;
 
 	ripng = ripng_lookup_by_vrf_name(vrf->name);
-	if (!ripng) {
-		char *old_vrf_name = NULL;
-
-		ripng = (struct ripng *)vrf->info;
-		if (!ripng)
-			return 0;
-		/* update vrf name */
-		if (ripng->vrf_name)
-			old_vrf_name = ripng->vrf_name;
-		ripng->vrf_name = XSTRDUP(MTYPE_RIPNG_VRF_NAME, vrf->name);
-		/*
-		 * HACK: Change the RIPng VRF in the running configuration directly,
-		 * bypassing the northbound layer. This is necessary to avoid deleting
-		 * the RIPng and readding it in the new VRF, which would have
-		 * several implications.
-		 */
-		if (yang_module_find("frr-ripngd") && old_vrf_name) {
-			struct lyd_node *ripng_dnode;
-			char oldpath[XPATH_MAXLEN];
-			char newpath[XPATH_MAXLEN];
-
-			ripng_dnode = yang_dnode_getf(
-				running_config->dnode,
-				"/frr-ripngd:ripngd/instance[vrf='%s']/vrf",
-				old_vrf_name);
-			if (ripng_dnode) {
-				yang_dnode_get_path(lyd_parent(ripng_dnode),
-						    oldpath, sizeof(oldpath));
-				yang_dnode_change_leaf(ripng_dnode, vrf->name);
-				yang_dnode_get_path(lyd_parent(ripng_dnode),
-						    newpath, sizeof(newpath));
-				nb_running_move_tree(oldpath, newpath);
-				running_config->version++;
-			}
-		}
-		XFREE(MTYPE_RIPNG_VRF_NAME, old_vrf_name);
-	}
-
-	if (ripng->enabled)
+	if (!ripng || ripng->enabled)
 		return 0;
 
 	if (IS_RIPNG_DEBUG_EVENT)
@@ -2690,9 +2643,9 @@ static int ripng_vrf_disable(struct vrf *vrf)
 void ripng_vrf_init(void)
 {
 	vrf_init(ripng_vrf_new, ripng_vrf_enable, ripng_vrf_disable,
-		 ripng_vrf_delete, ripng_vrf_enable);
+		 ripng_vrf_delete);
 
-	vrf_cmd_init(NULL, &ripngd_privs);
+	vrf_cmd_init(NULL);
 }
 
 void ripng_vrf_terminate(void)

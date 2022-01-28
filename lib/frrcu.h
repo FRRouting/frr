@@ -17,6 +17,8 @@
 #ifndef _FRRCU_H
 #define _FRRCU_H
 
+#include <assert.h>
+
 #include "memory.h"
 #include "atomlist.h"
 

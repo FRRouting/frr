@@ -25,7 +25,6 @@ Test if Opaque Data is accessable from other daemons in Zebra
 import os
 import sys
 import json
-import time
 import pytest
 import functools
 
@@ -35,26 +34,13 @@ sys.path.append(os.path.join(CWD, "../"))
 # pylint: disable=C0413
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from mininet.topo import Topo
 
-pytestmark = [pytest.mark.bgpd]
-
-
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
-
-        for routern in range(1, 3):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd, pytest.mark.ospf6d]
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    topodef = {"s1": ("r1", "r2"), "s2": ("r3", "r4")}
+    tgen = Topogen(topodef, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -65,6 +51,12 @@ def setup_module(mod):
         )
         router.load_config(
             TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_OSPF, os.path.join(CWD, "{}/ospfd.conf".format(rname))
+        )
+        router.load_config(
+            TopoRouter.RD_OSPF6, os.path.join(CWD, "{}/ospf6d.conf".format(rname))
         )
 
     tgen.start_router()
@@ -81,8 +73,6 @@ def test_zebra_opaque():
     if tgen.routers_have_failure():
         pytest.skip(tgen.errors)
 
-    router = tgen.gears["r1"]
-
     def _bgp_converge(router):
         output = json.loads(router.vtysh_cmd("show ip route 192.168.1.0/24 json"))
         expected = {
@@ -95,10 +85,44 @@ def test_zebra_opaque():
         }
         return topotest.json_cmp(output, expected)
 
+    def _ospf_converge(router):
+        output = json.loads(router.vtysh_cmd("show ip route 192.168.1.0/24 json"))
+        expected = {
+            "192.168.1.0/24": [
+                {
+                    "ospfPathType": "Intra-Area",
+                    "ospfAreaId": "0.0.0.0",
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    def _ospf6_converge(router):
+        output = json.loads(router.vtysh_cmd("show ipv6 route 2001:db8:1::/64 json"))
+        expected = {
+            "2001:db8:1::/64": [
+                {
+                    "ospfPathType": "Intra-Area",
+                    "ospfAreaId": "0.0.0.0",
+                }
+            ]
+        }
+        return topotest.json_cmp(output, expected)
+
+    router = tgen.gears["r1"]
     test_func = functools.partial(_bgp_converge, router)
     success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
-
     assert result is None, 'Cannot see BGP community aliases "{}"'.format(router)
+
+    router = tgen.gears["r3"]
+    test_func = functools.partial(_ospf_converge, router)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, 'Cannot see OSPFv2 opaque attributes "{}"'.format(router)
+
+    router = tgen.gears["r3"]
+    test_func = functools.partial(_ospf6_converge, router)
+    success, result = topotest.run_and_expect(test_func, None, count=60, wait=0.5)
+    assert result is None, 'Cannot see OSPFv3 opaque attributes "{}"'.format(router)
 
 
 if __name__ == "__main__":

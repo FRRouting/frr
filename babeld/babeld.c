@@ -132,6 +132,8 @@ babel_config_write (struct vty *vty)
 
     lines += config_write_distribute (vty, babel_routing_process->distribute_ctx);
 
+    vty_out (vty, "exit\n");
+
     return lines;
 }
 
@@ -714,7 +716,7 @@ DEFUN (babel_set_smoothing_half_life,
 
 DEFUN (babel_distribute_list,
        babel_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -734,7 +736,7 @@ DEFUN (babel_distribute_list,
 
 DEFUN (babel_no_distribute_list,
        babel_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -756,7 +758,7 @@ DEFUN (babel_no_distribute_list,
 
 DEFUN (babel_ipv6_distribute_list,
        babel_ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -777,7 +779,7 @@ DEFUN (babel_ipv6_distribute_list,
 
 DEFUN (babel_no_ipv6_distribute_list,
        babel_no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "no ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"
@@ -819,7 +821,7 @@ babeld_quagga_init(void)
     install_element(BABEL_NODE, &babel_ipv6_distribute_list_cmd);
     install_element(BABEL_NODE, &babel_no_ipv6_distribute_list_cmd);
 
-    vrf_cmd_init(NULL, &babeld_privs);
+    vrf_cmd_init(NULL);
 
     babel_if_init();
 

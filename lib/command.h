@@ -210,6 +210,12 @@ struct cmd_node {
 
 	/* Hashed index of command node list, for de-dupping primarily */
 	struct hash *cmd_hash;
+
+	/* set as soon as any command is in cmdgraph */
+	bool graph_built;
+
+	/* don't decrement vty->xpath_index on leaving this node */
+	bool no_xpath;
 };
 
 /* Return value of the commands. */
@@ -229,11 +235,12 @@ struct cmd_node {
 #define CMD_WARNING_CONFIG_FAILED 13
 #define CMD_NOT_MY_INSTANCE	14
 #define CMD_NO_LEVEL_UP 15
+#define CMD_ERR_NO_DAEMON 16
 
 /* Argc max counts. */
 #define CMD_ARGC_MAX   256
 
-/* Turn off these macros when uisng cpp with extract.pl */
+/* Turn off these macros when using cpp with extract.pl */
 #ifndef VTYSH_EXTRACT_PL
 
 /* helper defines for end-user DEFUN* macros */
@@ -524,6 +531,12 @@ extern void _install_element(enum node_type, const struct cmd_element *);
 /* known issue with uninstall_element:  changes to cmd_token->attr (i.e.
  * deprecated/hidden) are not reversed. */
 extern void uninstall_element(enum node_type, const struct cmd_element *);
+
+/* construct CLI tree only when entering nodes */
+extern void cmd_defer_tree(bool val);
+
+/* finish CLI tree for node when above is true (noop otherwise) */
+extern void cmd_finalize_node(struct cmd_node *node);
 
 /* Concatenates argv[shift] through argv[argc-1] into a single NUL-terminated
    string with a space between each element (allocated using

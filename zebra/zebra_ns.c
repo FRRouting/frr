@@ -123,12 +123,10 @@ int zebra_ns_enable(ns_id_t ns_id, void **info)
 	zns->ns_id = ns_id;
 
 	kernel_init(zns);
+	zebra_dplane_ns_enable(zns, true);
 	interface_list(zns);
 	route_read(zns);
 	kernel_read_pbr_rules(zns);
-
-	/* Initiate Table Manager per ZNS */
-	table_manager_enable(ns_id);
 
 	return 0;
 }
@@ -140,9 +138,9 @@ static int zebra_ns_disable_internal(struct zebra_ns *zns, bool complete)
 {
 	route_table_finish(zns->if_table);
 
-	kernel_terminate(zns, complete);
+	zebra_dplane_ns_enable(zns, false /*Disable*/);
 
-	table_manager_disable(zns->ns_id);
+	kernel_terminate(zns, complete);
 
 	zns->ns_id = NS_DEFAULT;
 
@@ -182,7 +180,7 @@ int zebra_ns_final_shutdown(struct ns *ns,
 	return NS_WALK_CONTINUE;
 }
 
-int zebra_ns_init(const char *optional_default_name)
+int zebra_ns_init(void)
 {
 	struct ns *default_ns;
 	ns_id_t ns_id;
@@ -214,10 +212,6 @@ int zebra_ns_init(const char *optional_default_name)
 
 	/* Default NS is activated */
 	zebra_ns_enable(ns_id_external, (void **)&dzns);
-
-	if (optional_default_name)
-		vrf_set_default_name(optional_default_name,
-				     true);
 
 	if (vrf_is_backend_netns()) {
 		ns_add_hook(NS_NEW_HOOK, zebra_ns_new);

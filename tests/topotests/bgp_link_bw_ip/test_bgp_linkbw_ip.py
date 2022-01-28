@@ -27,7 +27,6 @@ test_bgp_linkbw_ip.py: Test weighted ECMP using BGP link-bandwidth
 """
 
 import os
-import re
 import sys
 from functools import partial
 import pytest
@@ -44,7 +43,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -67,61 +65,57 @@ anycast IP (VIP) addresses via BGP.
 """
 
 
-class BgpLinkBwTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 10 routers - 1 super-spine, 2 spines, 3 leafs
+    # and 4 servers
+    routers = {}
+    for i in range(1, 11):
+        routers[i] = tgen.add_router("r{}".format(i))
 
-        # Create 10 routers - 1 super-spine, 2 spines, 3 leafs
-        # and 4 servers
-        routers = {}
-        for i in range(1, 11):
-            routers[i] = tgen.add_router("r{}".format(i))
+    # Create 13 "switches" - to interconnect the above routers
+    switches = {}
+    for i in range(1, 14):
+        switches[i] = tgen.add_switch("s{}".format(i))
 
-        # Create 13 "switches" - to interconnect the above routers
-        switches = {}
-        for i in range(1, 14):
-            switches[i] = tgen.add_switch("s{}".format(i))
+    # Interconnect R1 (super-spine) to R2 and R3 (the two spines)
+    switches[1].add_link(tgen.gears["r1"])
+    switches[1].add_link(tgen.gears["r2"])
+    switches[2].add_link(tgen.gears["r1"])
+    switches[2].add_link(tgen.gears["r3"])
 
-        # Interconnect R1 (super-spine) to R2 and R3 (the two spines)
-        switches[1].add_link(tgen.gears["r1"])
-        switches[1].add_link(tgen.gears["r2"])
-        switches[2].add_link(tgen.gears["r1"])
-        switches[2].add_link(tgen.gears["r3"])
+    # Interconnect R2 (spine in pod-1) to R4 and R5 (the associated
+    # leaf switches)
+    switches[3].add_link(tgen.gears["r2"])
+    switches[3].add_link(tgen.gears["r4"])
+    switches[4].add_link(tgen.gears["r2"])
+    switches[4].add_link(tgen.gears["r5"])
 
-        # Interconnect R2 (spine in pod-1) to R4 and R5 (the associated
-        # leaf switches)
-        switches[3].add_link(tgen.gears["r2"])
-        switches[3].add_link(tgen.gears["r4"])
-        switches[4].add_link(tgen.gears["r2"])
-        switches[4].add_link(tgen.gears["r5"])
+    # Interconnect R3 (spine in pod-2) to R6 (associated leaf)
+    switches[5].add_link(tgen.gears["r3"])
+    switches[5].add_link(tgen.gears["r6"])
 
-        # Interconnect R3 (spine in pod-2) to R6 (associated leaf)
-        switches[5].add_link(tgen.gears["r3"])
-        switches[5].add_link(tgen.gears["r6"])
+    # Interconnect leaf switches to servers
+    switches[6].add_link(tgen.gears["r4"])
+    switches[6].add_link(tgen.gears["r7"])
+    switches[7].add_link(tgen.gears["r4"])
+    switches[7].add_link(tgen.gears["r8"])
+    switches[8].add_link(tgen.gears["r5"])
+    switches[8].add_link(tgen.gears["r9"])
+    switches[9].add_link(tgen.gears["r6"])
+    switches[9].add_link(tgen.gears["r10"])
 
-        # Interconnect leaf switches to servers
-        switches[6].add_link(tgen.gears["r4"])
-        switches[6].add_link(tgen.gears["r7"])
-        switches[7].add_link(tgen.gears["r4"])
-        switches[7].add_link(tgen.gears["r8"])
-        switches[8].add_link(tgen.gears["r5"])
-        switches[8].add_link(tgen.gears["r9"])
-        switches[9].add_link(tgen.gears["r6"])
-        switches[9].add_link(tgen.gears["r10"])
-
-        # Create empty networks for the servers
-        switches[10].add_link(tgen.gears["r7"])
-        switches[11].add_link(tgen.gears["r8"])
-        switches[12].add_link(tgen.gears["r9"])
-        switches[13].add_link(tgen.gears["r10"])
+    # Create empty networks for the servers
+    switches[10].add_link(tgen.gears["r7"])
+    switches[11].add_link(tgen.gears["r8"])
+    switches[12].add_link(tgen.gears["r9"])
+    switches[13].add_link(tgen.gears["r10"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(BgpLinkBwTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -270,6 +264,7 @@ def test_weighted_ecmp():
 
     r1 = tgen.gears["r1"]
     r2 = tgen.gears["r2"]
+    r3 = tgen.gears["r3"]
 
     # Configure anycast IP on additional server r9
     logger.info("Configure anycast IP on server r9")
@@ -303,6 +298,19 @@ def test_weighted_ecmp():
     logger.info("Configure anycast IP on server r10")
 
     tgen.net["r10"].cmd("ip addr add 198.10.1.1/32 dev r10-eth1")
+
+    # Check if bandwidth is properly encoded with non IEEE floatig-point (uint32) format on r3
+    logger.info(
+        "Check if bandwidth is properly encoded with non IEEE floatig-point (uint32) format on r3"
+    )
+    json_file = "{}/r3/bgp-route-1.json".format(CWD)
+    expected = json.loads(open(json_file).read())
+    test_func = partial(
+        topotest.router_json_cmp, r3, "show bgp ipv4 uni 198.10.1.1/32 json", expected
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=200, wait=0.5)
+    assertmsg = "JSON output mismatch on r3"
+    assert result is None, assertmsg
 
     # Check multipath on super-spine router r1
     logger.info("Check multipath on super-spine router r1")

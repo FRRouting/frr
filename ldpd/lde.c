@@ -107,7 +107,7 @@ sigint(void)
 	lde_shutdown();
 }
 
-static struct quagga_signal_t lde_signals[] =
+static struct frr_signal_t lde_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -145,7 +145,6 @@ lde(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = lde_dispatch_parent;
-	iev_main->ev_read = NULL;
 	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
 		        &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
@@ -555,7 +554,6 @@ lde_dispatch_parent(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_ldpe->ibuf, fd);
 			iev_ldpe->handler_read = lde_dispatch_imsg;
-			iev_ldpe->ev_read = NULL;
 			thread_add_read(master, iev_ldpe->handler_read, iev_ldpe, iev_ldpe->ibuf.fd,
 					&iev_ldpe->ev_read);
 			iev_ldpe->handler_write = ldp_write_handler;
@@ -2194,7 +2192,7 @@ static void zclient_sync_init(void)
 	options.synchronous = true;
 
 	/* Initialize special zclient for synchronous message exchanges. */
-	zclient_sync = zclient_new(master, &options);
+	zclient_sync = zclient_new(master, &options, NULL, 0);
 	zclient_sync->sock = -1;
 	zclient_sync->redist_default = ZEBRA_ROUTE_LDP;
 	zclient_sync->session_id = 1; /* Distinguish from main session */

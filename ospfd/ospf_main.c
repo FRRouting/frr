@@ -112,7 +112,7 @@ static void sigusr1(void)
 	zlog_rotate();
 }
 
-struct quagga_signal_t ospf_signals[] = {
+struct frr_signal_t ospf_signals[] = {
 	{
 		.signal = SIGHUP,
 		.handler = &sighup,
@@ -185,7 +185,6 @@ int main(int argc, char **argv)
 #endif /* SUPPORT_OSPF_API */
 		default:
 			frr_help_exit(1);
-			break;
 		}
 	}
 

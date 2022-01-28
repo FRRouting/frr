@@ -1200,9 +1200,7 @@ static int interface_config_write(struct vty *vty)
 			nhrp_cache_config_foreach(
 				ifp, interface_config_write_nhrp_map, &mapctx);
 
-			list_for_each_entry(nhs, &ad->nhslist_head,
-					    nhslist_entry)
-			{
+			frr_each (nhrp_nhslist, &ad->nhslist_head, nhs) {
 				vty_out(vty, " %s nhrp nhs ", aficmd);
 				if (sockunion_family(&nhs->proto_addr)
 				   == AF_UNSPEC)
@@ -1212,9 +1210,7 @@ static int interface_config_write(struct vty *vty)
 				vty_out(vty, " nbma %s\n", nhs->nbma_fqdn);
 			}
 
-			list_for_each_entry(mcast, &ad->mcastlist_head,
-					    list_entry)
-			{
+			frr_each (nhrp_mcastlist, &ad->mcastlist_head, mcast) {
 				vty_out(vty, " %s nhrp map multicast ", aficmd);
 				if (sockunion_family(&mcast->nbma_addr)
 				   == AF_UNSPEC)
@@ -1225,7 +1221,7 @@ static int interface_config_write(struct vty *vty)
 			}
 		}
 
-		vty_endframe(vty, "!\n");
+		vty_endframe(vty, "exit\n!\n");
 	}
 
 	return 0;
@@ -1259,7 +1255,7 @@ void nhrp_config_init(void)
 	install_element(CONFIG_NODE, &nhrp_multicast_nflog_group_cmd);
 	install_element(CONFIG_NODE, &no_nhrp_multicast_nflog_group_cmd);
 
-	vrf_cmd_init(NULL, &nhrpd_privs);
+	vrf_cmd_init(NULL);
 
 	/* interface specific commands */
 	if_cmd_init(interface_config_write);

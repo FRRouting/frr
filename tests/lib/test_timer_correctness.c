@@ -134,7 +134,6 @@ int main(int argc, char **argv)
 		/* Schedule timers to expire in 0..5 seconds */
 		interval_msec = prng_rand(prng) % 5000;
 		arg = XMALLOC(MTYPE_TMP, TIMESTR_LEN + 1);
-		timers[i] = NULL;
 		thread_add_timer_msec(master, timer_func, arg, interval_msec,
 				      &timers[i]);
 		ret = snprintf(arg, TIMESTR_LEN + 1, "%lld.%06lld",
@@ -154,7 +153,6 @@ int main(int argc, char **argv)
 
 		XFREE(MTYPE_TMP, timers[index]->arg);
 		thread_cancel(&timers[index]);
-		timers[index] = NULL;
 		timers_pending--;
 	}
 

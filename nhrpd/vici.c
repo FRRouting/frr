@@ -361,7 +361,6 @@ static int vici_read(struct thread *t)
 	struct zbuf *ibuf = &vici->ibuf;
 	struct zbuf pktbuf;
 
-	vici->t_read = NULL;
 	if (zbuf_read(ibuf, vici->fd, (size_t)-1) < 0) {
 		vici_connection_error(vici);
 		return 0;
@@ -392,7 +391,6 @@ static int vici_write(struct thread *t)
 	struct vici_conn *vici = THREAD_ARG(t);
 	int r;
 
-	vici->t_write = NULL;
 	r = zbufq_write(&vici->obuf, vici->fd);
 	if (r > 0) {
 		thread_add_write(master, vici_write, vici, vici->fd,
@@ -509,7 +507,6 @@ static int vici_reconnect(struct thread *t)
 	int fd;
 	char *file_path;
 
-	vici->t_reconnect = NULL;
 	if (vici->fd >= 0)
 		return 0;
 

@@ -106,17 +106,14 @@ int bgp_packet_set_marker(struct stream *s, uint8_t type)
  * Size field is set to the size of the stream passed.
  *
  * @param s the stream containing the packet
- * @return the size of the stream
  */
-int bgp_packet_set_size(struct stream *s)
+void bgp_packet_set_size(struct stream *s)
 {
 	int cp;
 
 	/* Preserve current pointer. */
 	cp = stream_get_endp(s);
 	stream_putw_at(s, BGP_MARKER_SIZE, cp);
-
-	return cp;
 }
 
 /*
@@ -337,11 +334,13 @@ static void bgp_write_proceed_actions(struct peer *peer)
 	struct peer_af *paf;
 	struct bpacket *next_pkt;
 	struct update_subgroup *subgrp;
+	enum bgp_af_index index;
 
-	FOREACH_AFI_SAFI (afi, safi) {
-		paf = peer_af_find(peer, afi, safi);
+	for (index = BGP_AF_START; index < BGP_AF_MAX; index++) {
+		paf = peer->peer_af_array[index];
 		if (!paf)
 			continue;
+
 		subgrp = paf->subgroup;
 		if (!subgrp)
 			continue;
@@ -363,6 +362,9 @@ static void bgp_write_proceed_actions(struct peer *peer)
 				     bgp_generate_updgrp_packets, 0);
 			return;
 		}
+
+		afi = paf->afi;
+		safi = paf->safi;
 
 		/* No packets to send, see if EOR is pending */
 		if (CHECK_FLAG(peer->cap, PEER_CAP_RESTART_RCV)) {
@@ -415,11 +417,16 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 		return 0;
 
 	do {
+		enum bgp_af_index index;
+
 		s = NULL;
-		FOREACH_AFI_SAFI (afi, safi) {
-			paf = peer_af_find(peer, afi, safi);
+		for (index = BGP_AF_START; index < BGP_AF_MAX; index++) {
+			paf = peer->peer_af_array[index];
 			if (!paf || !PAF_SUBGRP(paf))
 				continue;
+
+			afi = paf->afi;
+			safi = paf->safi;
 			next_pkt = paf->next_pkt_to_send;
 
 			/*
@@ -551,7 +558,7 @@ void bgp_keepalive_send(struct peer *peer)
 	bgp_packet_set_marker(s, BGP_MSG_KEEPALIVE);
 
 	/* Set packet size. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	/* Dump packet if debug option is set. */
 	/* bgp_packet_dump (s); */
@@ -598,11 +605,25 @@ void bgp_open_send(struct peer *peer)
 	stream_putw(s, send_holdtime);		/* Hold Time */
 	stream_put_in_addr(s, &peer->local_id); /* BGP Identifier */
 
-	/* Set capability code. */
-	bgp_open_capability(s, peer);
+	/* Set capabilities */
+	if (CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+		(void)bgp_open_capability(s, peer, true);
+	} else {
+		struct stream *tmp = stream_new(STREAM_SIZE(s));
+
+		stream_copy(tmp, s);
+		if (bgp_open_capability(tmp, peer, false)
+		    > BGP_OPEN_NON_EXT_OPT_LEN) {
+			stream_free(tmp);
+			(void)bgp_open_capability(s, peer, true);
+		} else {
+			stream_copy(s, tmp);
+			stream_free(tmp);
+		}
+	}
 
 	/* Set BGP packet length. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug(
@@ -929,7 +950,7 @@ void bgp_route_refresh_send(struct peer *peer, afi_t afi, safi_t safi,
 		}
 
 	/* Set packet size. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	if (bgp_debug_neighbor_events(peer)) {
 		if (!orf_refresh)
@@ -987,7 +1008,7 @@ void bgp_capability_send(struct peer *peer, afi_t afi, safi_t safi,
 	}
 
 	/* Set packet size. */
-	(void)bgp_packet_set_size(s);
+	bgp_packet_set_size(s);
 
 	/* Add packet to the peer. */
 	bgp_packet_add(peer, s);
@@ -1126,7 +1147,7 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 {
 	int ret;
 	uint8_t version;
-	uint8_t optlen;
+	uint16_t optlen;
 	uint16_t holdtime;
 	uint16_t send_holdtime;
 	as_t remote_as;
@@ -1147,19 +1168,40 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	memcpy(notify_data_remote_id, stream_pnt(peer->curr), 4);
 	remote_id.s_addr = stream_get_ipv4(peer->curr);
 
-	/* Receive OPEN message log  */
-	if (bgp_debug_neighbor_events(peer))
-		zlog_debug(
-			"%s rcv OPEN, version %d, remote-as (in open) %u, holdtime %d, id %pI4",
-			peer->host, version, remote_as, holdtime, &remote_id);
-
 	/* BEGIN to read the capability here, but dont do it yet */
 	mp_capability = 0;
 	optlen = stream_getc(peer->curr);
 
+	/* Extended Optional Parameters Length for BGP OPEN Message */
+	if (optlen == BGP_OPEN_NON_EXT_OPT_LEN
+	    || CHECK_FLAG(peer->flags, PEER_FLAG_EXTENDED_OPT_PARAMS)) {
+		uint8_t opttype;
+
+		opttype = stream_getc(peer->curr);
+		if (opttype == BGP_OPEN_NON_EXT_OPT_TYPE_EXTENDED_LENGTH) {
+			optlen = stream_getw(peer->curr);
+			SET_FLAG(peer->sflags,
+				 PEER_STATUS_EXT_OPT_PARAMS_LENGTH);
+		}
+	}
+
+	/* Receive OPEN message log  */
+	if (bgp_debug_neighbor_events(peer))
+		zlog_debug(
+			"%s rcv OPEN%s, version %d, remote-as (in open) %u, holdtime %d, id %pI4",
+			peer->host,
+			CHECK_FLAG(peer->sflags,
+				   PEER_STATUS_EXT_OPT_PARAMS_LENGTH)
+				? " (Extended)"
+				: "",
+			version, remote_as, holdtime, &remote_id);
+
 	if (optlen != 0) {
 		/* If not enough bytes, it is an error. */
 		if (STREAM_READABLE(peer->curr) < optlen) {
+			flog_err(EC_BGP_PKT_OPEN,
+				 "%s: stream has not enough bytes (%u)",
+				 peer->host, optlen);
 			bgp_notify_send(peer, BGP_NOTIFY_OPEN_ERR,
 					BGP_NOTIFY_OPEN_MALFORMED_ATTR);
 			return BGP_Stop;
@@ -1347,6 +1389,16 @@ static int bgp_open_receive(struct peer *peer, bgp_size_t size)
 	   */
 
 	if (holdtime < 3 && holdtime != 0) {
+		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
+					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
+					  (uint8_t *)holdtime_ptr, 2);
+		return BGP_Stop;
+	}
+
+	/* Send notification message when Hold Time received in the OPEN message
+	 * is smaller than configured minimum Hold Time. */
+	if (holdtime < peer->bgp->default_min_holdtime
+	    && peer->bgp->default_min_holdtime != 0) {
 		bgp_notify_send_with_data(peer, BGP_NOTIFY_OPEN_ERR,
 					  BGP_NOTIFY_OPEN_UNACEP_HOLDTIME,
 					  (uint8_t *)holdtime_ptr, 2);
@@ -1817,11 +1869,11 @@ static int bgp_update_receive(struct peer *peer, bgp_size_t size)
 			if (peer->nsf[afi][safi])
 				bgp_clear_stale_route(peer, afi, safi);
 
-                        zlog_info(
-                            "%s: rcvd End-of-RIB for %s from %s in vrf %s",
-                            __func__, get_afi_safi_str(afi, safi, false),
-                            peer->host, vrf ? vrf->name : VRF_DEFAULT_NAME);
-                }
+			zlog_info(
+				"%s: rcvd End-of-RIB for %s from %s in vrf %s",
+				__func__, get_afi_safi_str(afi, safi, false),
+				peer->host, vrf ? vrf->name : VRF_DEFAULT_NAME);
+		}
 	}
 
 	/* Everything is done.  We unintern temporary structures which
@@ -1941,6 +1993,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	struct update_group *updgrp;
 	struct peer *updgrp_peer;
 	uint8_t subtype;
+	bool force_update = false;
 	bgp_size_t msg_length =
 		size - (BGP_MSG_ROUTE_REFRESH_MIN_SIZE - BGP_HEADER_SIZE);
 
@@ -2202,7 +2255,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 		/* Avoid supressing duplicate routes later
 		 * when processing in subgroup_announce_table().
 		 */
-		SET_FLAG(paf->subgroup->sflags, SUBGRP_STATUS_FORCE_UPDATES);
+		force_update = true;
 
 		/* If the peer is configured for default-originate clear the
 		 * SUBGRP_STATUS_DEFAULT_ORIGINATE flag so that we will
@@ -2334,7 +2387,7 @@ static int bgp_route_refresh_receive(struct peer *peer, bgp_size_t size)
 	}
 
 	/* Perform route refreshment to the peer */
-	bgp_announce_route(peer, afi, safi);
+	bgp_announce_route(peer, afi, safi, force_update);
 
 	/* No FSM action necessary */
 	return BGP_PACKET_NOOP;
@@ -2437,7 +2490,8 @@ static int bgp_capability_msg_parse(struct peer *peer, uint8_t *pnt,
 				peer->afc_recv[afi][safi] = 1;
 				if (peer->afc[afi][safi]) {
 					peer->afc_nego[afi][safi] = 1;
-					bgp_announce_route(peer, afi, safi);
+					bgp_announce_route(peer, afi, safi,
+							   false);
 				}
 			} else {
 				peer->afc_recv[afi][safi] = 0;
@@ -2708,7 +2762,7 @@ int bgp_packet_process_error(struct thread *thread)
 
 	if (bgp_debug_neighbor_events(peer))
 		zlog_debug("%s [Event] BGP error %d on fd %d",
-			   peer->host, peer->fd, code);
+			   peer->host, code, peer->fd);
 
 	/* Closed connection or error on the socket */
 	if (peer_established(peer)) {

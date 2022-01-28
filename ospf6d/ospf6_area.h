@@ -46,14 +46,22 @@ struct ospf6_area {
 	/* Summary routes to be originated (includes Configured Address Ranges)
 	 */
 	struct ospf6_route_table *range_table;
+	struct ospf6_route_table *nssa_range_table;
 	struct ospf6_route_table *summary_prefix;
 	struct ospf6_route_table *summary_router;
 
 	/* Area type */
 	int no_summary;
 
+	/* NSSA default-information-originate */
+	struct {
+		bool enabled;
+		int metric_type;
+		int metric_value;
+	} nssa_default_originate;
+
 	/* Brouter traversal protection */
-	int intra_brouter_calc;
+	bool intra_brouter_calc;
 
 	/* OSPF interface list */
 	struct list *if_list;
@@ -116,7 +124,6 @@ struct ospf6_area {
 #define OSPF6_NSSA_TRANSLATE_ENABLED  1
 };
 
-#define OSPF6_AREA_DEFAULT    0x00
 #define OSPF6_AREA_ENABLE     0x01
 #define OSPF6_AREA_ACTIVE     0x02
 #define OSPF6_AREA_TRANSIT    0x04 /* TransitCapability */
@@ -149,18 +156,21 @@ extern void area_id2str(char *buf, int len, uint32_t area_id, int area_id_fmt);
 
 extern int ospf6_area_cmp(void *va, void *vb);
 
-extern struct ospf6_area *ospf6_area_create(uint32_t, struct ospf6 *, int);
-extern void ospf6_area_delete(struct ospf6_area *);
-extern struct ospf6_area *ospf6_area_lookup(uint32_t, struct ospf6 *);
+extern struct ospf6_area *ospf6_area_create(uint32_t area_id,
+					    struct ospf6 *ospf6, int df);
+extern void ospf6_area_delete(struct ospf6_area *oa);
+extern struct ospf6_area *ospf6_area_lookup(uint32_t area_id,
+					    struct ospf6 *ospf6);
 extern struct ospf6_area *ospf6_area_lookup_by_area_id(uint32_t area_id);
 
-extern void ospf6_area_enable(struct ospf6_area *);
-extern void ospf6_area_disable(struct ospf6_area *);
+extern void ospf6_area_stub_unset(struct ospf6 *ospf6, struct ospf6_area *area);
+extern void ospf6_area_enable(struct ospf6_area *oa);
+extern void ospf6_area_disable(struct ospf6_area *oa);
 
-extern void ospf6_area_show(struct vty *, struct ospf6_area *,
+extern void ospf6_area_show(struct vty *vty, struct ospf6_area *oa,
 			    json_object *json_areas, bool use_json);
 
-extern void ospf6_area_plist_update(struct prefix_list *plist, int add);
+extern void ospf6_plist_update(struct prefix_list *plist);
 extern void ospf6_filter_update(struct access_list *access);
 extern void ospf6_area_config_write(struct vty *vty, struct ospf6 *ospf6);
 extern void ospf6_area_init(void);

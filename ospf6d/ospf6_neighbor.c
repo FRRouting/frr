@@ -48,7 +48,7 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 
-DEFINE_MTYPE(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
+DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_NEIGHBOR, "OSPF6 neighbor");
 
 DEFINE_HOOK(ospf6_neighbor_change,
 	    (struct ospf6_neighbor * on, int state, int next_state),
@@ -88,6 +88,22 @@ struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,
 			return on;
 
 	return (struct ospf6_neighbor *)NULL;
+}
+
+struct ospf6_neighbor *ospf6_area_neighbor_lookup(struct ospf6_area *area,
+						  uint32_t router_id)
+{
+	struct ospf6_interface *oi;
+	struct ospf6_neighbor *nbr;
+	struct listnode *node;
+
+	for (ALL_LIST_ELEMENTS_RO(area->if_list, node, oi)) {
+		nbr = ospf6_neighbor_lookup(router_id, oi);
+		if (nbr)
+			return nbr;
+	}
+
+	return NULL;
 }
 
 /* create ospf6_neighbor */
@@ -152,6 +168,9 @@ void ospf6_neighbor_delete(struct ospf6_neighbor *on)
 	THREAD_OFF(on->thread_send_lsreq);
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
+	THREAD_OFF(on->thread_exchange_done);
+	THREAD_OFF(on->thread_adj_ok);
+
 	THREAD_OFF(on->gr_helper_info.t_grace_timer);
 
 	bfd_sess_free(&on->bfd_session);
@@ -257,7 +276,6 @@ int hello_received(struct thread *thread)
 
 	/* reset Inactivity Timer */
 	THREAD_OFF(on->inactivity_timer);
-	on->inactivity_timer = NULL;
 	thread_add_timer(master, inactivity_timer, on,
 			 on->ospf6_if->dead_interval, &on->inactivity_timer);
 
@@ -296,7 +314,6 @@ int twoway_received(struct thread *thread)
 	SET_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT);
 
 	THREAD_OFF(on->thread_send_dbdesc);
-	on->thread_send_dbdesc = NULL;
 	thread_add_event(master, ospf6_dbdesc_send, on, 0,
 			 &on->thread_send_dbdesc);
 
@@ -422,7 +439,6 @@ void ospf6_check_nbr_loading(struct ospf6_neighbor *on)
 		else if (on->last_ls_req == NULL) {
 			if (on->thread_send_lsreq != NULL)
 				THREAD_OFF(on->thread_send_lsreq);
-			on->thread_send_lsreq = NULL;
 			thread_add_event(master, ospf6_lsreq_send, on, 0,
 					 &on->thread_send_lsreq);
 		}
@@ -590,6 +606,8 @@ int oneway_received(struct thread *thread)
 	THREAD_OFF(on->thread_send_lsreq);
 	THREAD_OFF(on->thread_send_lsupdate);
 	THREAD_OFF(on->thread_send_lsack);
+	THREAD_OFF(on->thread_exchange_done);
+	THREAD_OFF(on->thread_adj_ok);
 
 	return 0;
 }
@@ -604,7 +622,6 @@ int inactivity_timer(struct thread *thread)
 	if (IS_OSPF6_DEBUG_NEIGHBOR(EVENT))
 		zlog_debug("Neighbor Event %s: *InactivityTimer*", on->name);
 
-	on->inactivity_timer = NULL;
 	on->drouter = on->prev_drouter = 0;
 	on->bdrouter = on->prev_bdrouter = 0;
 
@@ -1056,10 +1073,7 @@ static void ospf6_neighbor_show_detail_common(struct vty *vty,
 			json_object_object_add(json, "neighbors", json_array);
 		else
 			json_object_free(json_array);
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -1081,7 +1095,6 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 	bool detail = false;
 	bool drchoice = false;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	if (argv_find(argv, argc, "detail", &idx_type))
@@ -1098,12 +1111,15 @@ DEFUN(show_ipv6_ospf6_neighbor, show_ipv6_ospf6_neighbor_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
 static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 				      struct cmd_token **argv,
-				      struct ospf6 *ospf6, int idx_ipv4)
+				      struct ospf6 *ospf6, int idx_ipv4,
+				      bool uj)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_interface *oi;
@@ -1113,7 +1129,6 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 			 json_object *json, bool use_json);
 	uint32_t router_id;
 	json_object *json = NULL;
-	bool uj = use_json(argc, argv);
 
 	showfunc = ospf6_neighbor_show_detail;
 	if (uj)
@@ -1132,12 +1147,8 @@ static int ospf6_neighbor_show_common(struct vty *vty, int argc,
 					(*showfunc)(vty, on, json, uj);
 			}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1155,8 +1166,8 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
@@ -1164,12 +1175,14 @@ DEFUN(show_ipv6_ospf6_neighbor_one, show_ipv6_ospf6_neighbor_one_cmd,
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			ospf6_neighbor_show_common(vty, argc, argv, ospf6,
-						   idx_ipv4);
+						   idx_ipv4, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1239,7 +1252,6 @@ DEFUN (no_debug_ospf6,
        OSPF6_STR)
 {
 	unsigned int i;
-	struct ospf6_lsa_handler *handler = NULL;
 
 	OSPF6_DEBUG_ABR_OFF();
 	OSPF6_DEBUG_ASBR_OFF();
@@ -1249,13 +1261,7 @@ DEFUN (no_debug_ospf6,
 	OSPF6_DEBUG_FLOODING_OFF();
 	OSPF6_DEBUG_INTERFACE_OFF();
 
-	for (i = 0; i < vector_active(ospf6_lsa_handler_vector); i++) {
-		handler = vector_slot(ospf6_lsa_handler_vector, i);
-
-		if (handler != NULL) {
-			UNSET_FLAG(handler->lh_debug, OSPF6_LSA_DEBUG);
-		}
-	}
+	ospf6_lsa_debug_set_all(false);
 
 	for (i = 0; i < 6; i++)
 		OSPF6_DEBUG_MESSAGE_OFF(i,
