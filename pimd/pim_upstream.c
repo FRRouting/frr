@@ -1987,9 +1987,6 @@ static bool pim_upstream_kat_start_ok(struct pim_upstream *up)
 	 * So we will do an approximate check here to avoid starting KAT
 	 * because of (S,G,rpt) forwarding on a non-LHR.
 	 */
-	if (!ifp)
-		return false;
-
 	pim_ifp = ifp->info;
 	if (pim_ifp->mroute_vif_index != *oil_parent(c_oil))
 		return false;
@@ -2011,8 +2008,13 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 {
 	bool rv = false;
 	struct pim_instance *pim = up->pim;
+	struct interface *ifp;
 
 	if (!up->channel_oil->installed)
+		return rv;
+
+	ifp = up->rpf.source_nexthop.interface;
+	if (!ifp || !ifp->info)
 		return rv;
 
 	pim_mroute_update_counters(up->channel_oil);
