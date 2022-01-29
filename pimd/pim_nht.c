@@ -610,8 +610,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 		mod_val = hash_val % consider;
 	}
 
-	for (nh_node = pnc->nexthop; nh_node && (found == 0);
-	     nh_node = nh_node->next) {
+	for (nh_node = pnc->nexthop; nh_node; nh_node = nh_node->next) {
 		first_ifindex = nh_node->ifindex;
 		ifp = ifps[nh_iter];
 		if (!ifp) {
@@ -633,12 +632,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 					first_ifindex, &src_addr);
 			if (nh_iter == mod_val)
 				mod_val++; // Select nexthpath
-			nh_iter++;
-			continue;
-		}
-
-		if (neighbor_needed &&
-		    !pim_if_connected_to_source(ifp, src_addr)) {
+		} else if (neighbor_needed &&
+			   !pim_if_connected_to_source(ifp, src_addr)) {
 			nbr = nbrs[nh_iter];
 			if (!nbr && !if_is_loopback(ifp)) {
 				if (PIM_DEBUG_PIM_NHT)
@@ -653,7 +648,7 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			}
 		}
 
-		if (nh_iter == mod_val) {
+		if (nh_iter == mod_val || !ifp->info) {
 			nexthop->interface = ifp;
 			nexthop->mrib_nexthop_addr.family = PIM_AF;
 			nexthop->mrib_nexthop_addr.prefixlen = PIM_MAX_BITLEN;
@@ -666,16 +661,22 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 #endif
 			nexthop->mrib_metric_preference = pnc->distance;
 			nexthop->mrib_route_metric = pnc->metric;
-			nexthop->last_lookup = src_addr;
-			nexthop->last_lookup_time = pim_time_monotonic_usec();
-			nexthop->nbr = nbr;
-			found = 1;
-			if (PIM_DEBUG_PIM_NHT)
-				zlog_debug(
-					"%s: (%pPA,%pPA)(%s) selected nhop interface %s addr %pPAs mod_val %u iter %d ecmp %d",
-					__func__, &src_addr, &grp_addr,
-					pim->vrf->name, ifp->name, &nh_addr,
-					mod_val, nh_iter, pim->ecmp_enable);
+
+			if (nh_iter == mod_val && ifp->info) {
+				nexthop->last_lookup = src_addr;
+				nexthop->last_lookup_time =
+					pim_time_monotonic_usec();
+				nexthop->nbr = nbr;
+				found = 1;
+
+				if (PIM_DEBUG_PIM_NHT)
+					zlog_debug(
+						"%s: (%pPA,%pPA)(%s) selected nhop interface %s addr %pPAs mod_val %u iter %d ecmp %d",
+						__func__, &src_addr, &grp_addr,
+						pim->vrf->name, ifp->name,
+						&nh_addr, mod_val, nh_iter,
+						pim->ecmp_enable);
+			}
 		}
 		nh_iter++;
 	}
@@ -957,7 +958,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 	}
 
 	i = 0;
-	while (!found && (i < num_ifindex)) {
+	while (i < num_ifindex) {
 		first_ifindex = nexthop_tab[i].ifindex;
 
 		ifp = ifps[i];
@@ -981,11 +982,8 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 					first_ifindex, &src_addr);
 			if (i == mod_val)
 				mod_val++;
-			i++;
-			continue;
-		}
-		if (neighbor_needed &&
-		    !pim_if_connected_to_source(ifp, src_addr)) {
+		} else if (neighbor_needed &&
+			   !pim_if_connected_to_source(ifp, src_addr)) {
 			nbr = nbrs[i];
 			if (PIM_DEBUG_PIM_NHT_DETAIL)
 				zlog_debug("ifp name: %s(%s), pim nbr: %p",
@@ -1005,20 +1003,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 			}
 		}
 
-		if (i == mod_val) {
-			if (PIM_DEBUG_PIM_NHT) {
-				char nexthop_str[PREFIX_STRLEN];
-
-				pim_addr_dump("<nexthop?>",
-					      &nexthop_tab[i].nexthop_addr,
-					      nexthop_str, sizeof(nexthop_str));
-				zlog_debug(
-					"%s: found nhop %s for addr %pPA interface %s(%s) metric %d dist %d",
-					__func__, nexthop_str, &src_addr,
-					ifp->name, pim->vrf->name,
-					nexthop_tab[i].route_metric,
-					nexthop_tab[i].protocol_distance);
-			}
+		if (i == mod_val || !ifp->info) {
 			/* update nexthop data */
 			nexthop->interface = ifp;
 			nexthop->mrib_nexthop_addr =
@@ -1027,10 +1012,32 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				nexthop_tab[i].protocol_distance;
 			nexthop->mrib_route_metric =
 				nexthop_tab[i].route_metric;
-			nexthop->last_lookup = src_addr;
-			nexthop->last_lookup_time = pim_time_monotonic_usec();
-			nexthop->nbr = nbr;
-			found = 1;
+
+			if (i == mod_val && ifp->info) {
+				nexthop->last_lookup = src_addr;
+				nexthop->last_lookup_time =
+					pim_time_monotonic_usec();
+				nexthop->nbr = nbr;
+				found = 1;
+
+				if (PIM_DEBUG_PIM_NHT) {
+					char nexthop_str[PREFIX_STRLEN];
+
+					pim_addr_dump(
+						"<nexthop?>",
+						&nexthop_tab[i].nexthop_addr,
+						nexthop_str,
+						sizeof(nexthop_str));
+					zlog_debug(
+						"%s: found nhop %s for addr %pPA interface %s(%s) metric %d dist %d",
+						__func__, nexthop_str,
+						&src_addr, ifp->name,
+						pim->vrf->name,
+						nexthop_tab[i].route_metric,
+						nexthop_tab[i]
+							.protocol_distance);
+				}
+			}
 		}
 		i++;
 	}
