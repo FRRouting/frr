@@ -269,7 +269,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 	if (old_state == new_state) {
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
-				"%s calledby %s: non-transition on state %d (%s)",
+				"%s called by %s: non-transition on state %d (%s)",
 				__func__, caller, new_state,
 				pim_ifchannel_ifjoin_name(new_state, 0));
 		}
