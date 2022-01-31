@@ -63,6 +63,8 @@ DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 
 static void if_down_del_nbr_connected(struct interface *ifp);
+static int zebra_if_update_protodown(struct interface *ifp, bool new_down,
+				     uint32_t new_protodown_rc);
 
 static void if_zebra_speed_update(struct thread *thread)
 {
@@ -261,11 +263,12 @@ static int if_zebra_delete_hook(struct interface *ifp)
 	if (ifp->info) {
 		zebra_if = ifp->info;
 
-		/* If we set protodown, clear it now from the kernel */
-		if (ZEBRA_IF_IS_PROTODOWN(zebra_if) &&
+		/* If we set protodown, clear our reason now from the kernel */
+		if (ZEBRA_IF_IS_PROTODOWN(zebra_if) && zebra_if->protodown_rc &&
 		    !ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zebra_if))
-			zebra_if_set_protodown(ifp, false, ZEBRA_PROTODOWN_ALL);
-
+			zebra_if_update_protodown(ifp, true,
+						  (zebra_if->protodown_rc &
+						   ~ZEBRA_PROTODOWN_ALL));
 
 		/* Free installed address chains tree. */
 		if (zebra_if->ipv4_subnets)
@@ -1291,18 +1294,12 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 	return false;
 }
 
-int zebra_if_set_protodown(struct interface *ifp, bool new_down,
-			   enum protodown_reasons new_reason)
+static int zebra_if_update_protodown(struct interface *ifp, bool new_down,
+				     uint32_t new_protodown_rc)
 {
 	struct zebra_if *zif;
-	uint32_t new_protodown_rc;
 
 	zif = ifp->info;
-
-	if (new_down)
-		new_protodown_rc = zif->protodown_rc | new_reason;
-	else
-		new_protodown_rc = zif->protodown_rc & ~new_reason;
 
 	/* Check if we already have this state or it's queued */
 	if (if_ignore_set_protodown(ifp, new_down, new_protodown_rc))
@@ -1326,6 +1323,22 @@ int zebra_if_set_protodown(struct interface *ifp, bool new_down,
 	zlog_warn("Protodown is not supported on this platform");
 #endif
 	return 0;
+}
+
+int zebra_if_set_protodown(struct interface *ifp, bool new_down,
+			   enum protodown_reasons new_reason)
+{
+	struct zebra_if *zif;
+	uint32_t new_protodown_rc;
+
+	zif = ifp->info;
+
+	if (new_down)
+		new_protodown_rc = zif->protodown_rc | new_reason;
+	else
+		new_protodown_rc = zif->protodown_rc & ~new_reason;
+
+	return zebra_if_update_protodown(ifp, new_down, new_protodown_rc);
 }
 
 /*
@@ -1410,18 +1423,18 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 {
 	enum zebra_dplane_result dp_res;
 	struct zebra_if *zif;
-	uint32_t r_bitfield;
+	bool pd_reason_val;
 	bool down;
 
 	dp_res = dplane_ctx_get_status(ctx);
-	r_bitfield = dplane_ctx_get_intf_r_bitfield(ctx);
+	pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
 	down = dplane_ctx_intf_is_protodown(ctx);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s: if %s(%u) ctx-protodown %s ctx-reason 0x%x",
+		zlog_debug("%s: %s: if %s(%u) ctx-protodown %s ctx-reason %d",
 			   __func__, dplane_op2str(dplane_ctx_get_op(ctx)),
 			   ifp->name, ifp->ifindex, down ? "on" : "off",
-			   r_bitfield);
+			   pd_reason_val);
 
 	zif = ifp->info;
 	if (!zif) {
