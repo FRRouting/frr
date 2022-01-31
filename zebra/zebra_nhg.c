@@ -1966,7 +1966,7 @@ static int resolve_backup_nexthops(const struct nexthop *nexthop,
  */
 static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 			  const struct prefix *top, int type, uint32_t flags,
-			  uint32_t *pmtu)
+			  uint32_t *pmtu, vrf_id_t vrf_id)
 {
 	struct prefix p;
 	struct route_table *table;
@@ -2061,13 +2061,13 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		return 1;
 	}
 
-	if (top
-	    && ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN
-		 && nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr)
-		|| (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN
-		    && memcmp(&nexthop->gate.ipv6, &top->u.prefix6,
-			      IPV6_MAX_BYTELEN)
-			       == 0))) {
+	if (top &&
+	    ((top->family == AF_INET && top->prefixlen == IPV4_MAX_BITLEN &&
+	      nexthop->gate.ipv4.s_addr == top->u.prefix4.s_addr) ||
+	     (top->family == AF_INET6 && top->prefixlen == IPV6_MAX_BITLEN &&
+	      memcmp(&nexthop->gate.ipv6, &top->u.prefix6, IPV6_MAX_BYTELEN) ==
+		      0)) &&
+	    nexthop->vrf_id == vrf_id) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
 				"        :%s: Attempting to install a max prefixlength route through itself",
@@ -2361,6 +2361,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	const struct prefix *p, *src_p;
 	struct zebra_vrf *zvrf;
 	uint32_t mtu = 0;
+	vrf_id_t vrf_id;
 
 	srcdest_rnode_prefixes(rn, &p, &src_p);
 
@@ -2389,10 +2390,12 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		goto skip_check;
 	}
 
+
+	vrf_id = zvrf_id(rib_dest_vrf(rib_dest_from_rnode(rn)));
 	switch (nexthop->type) {
 	case NEXTHOP_TYPE_IFINDEX:
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2400,16 +2403,16 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	case NEXTHOP_TYPE_IPV4:
 	case NEXTHOP_TYPE_IPV4_IFINDEX:
 		family = AFI_IP;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		break;
 	case NEXTHOP_TYPE_IPV6:
 		family = AFI_IP6;
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
@@ -2419,8 +2422,8 @@ static unsigned nexthop_active_check(struct route_node *rn,
 		if (rn->p.family != AF_INET)
 			family = AFI_IP6;
 
-		if (nexthop_active(nexthop, nhe, &rn->p, re->type,
-				   re->flags, &mtu))
+		if (nexthop_active(nexthop, nhe, &rn->p, re->type, re->flags,
+				   &mtu, vrf_id))
 			SET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
 		else
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE);
