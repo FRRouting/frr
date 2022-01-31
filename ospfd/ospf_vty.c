@@ -3252,6 +3252,10 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		json_object_int_add(json_vrf, "refreshTimerMsecs",
 				    ospf->lsa_refresh_interval * 1000);
 
+		/* show max multipath */
+		json_object_int_add(json_vrf, "maximumPaths",
+				    ospf->max_multipath);
+
 		/* show administrative distance */
 		json_object_int_add(json_vrf, "preference",
 				    ospf->distance_all
