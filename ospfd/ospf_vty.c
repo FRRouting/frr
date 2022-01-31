@@ -10514,6 +10514,9 @@ static void config_write_stub_router(struct vty *vty, struct ospf *ospf)
 	return;
 }
 
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
+#endif
 static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 				       struct route_table *rt,
 				       json_object *json)
@@ -10618,6 +10621,12 @@ static void show_ip_ospf_route_network(struct vty *vty, struct ospf *ospf,
 							json_object_string_add(
 								json_nexthop,
 								"directly attached to",
+								ifindex2ifname(
+									path->ifindex,
+									ospf->vrf_id));
+							json_object_string_add(
+								json_nexthop,
+								"directlyAttachedTo",
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
@@ -10760,6 +10769,12 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 								ifindex2ifname(
 									path->ifindex,
 									ospf->vrf_id));
+							json_object_string_add(
+								json_nexthop,
+								"directlyAttachedTo",
+								ifindex2ifname(
+									path->ifindex,
+									ospf->vrf_id));
 						} else {
 							vty_out(vty,
 								"%24s   directly attached to %s\n",
@@ -10883,6 +10898,12 @@ static void show_ip_ospf_route_external(struct vty *vty, struct ospf *ospf,
 						json_object_string_add(
 							json_nexthop,
 							"directly attached to",
+							ifindex2ifname(
+								path->ifindex,
+								ospf->vrf_id));
+						json_object_string_add(
+							json_nexthop,
+							"directlyAttachedTo",
 							ifindex2ifname(
 								path->ifindex,
 								ospf->vrf_id));
@@ -11408,12 +11429,15 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
-	if (!uj)
+	if (!uj) {
 		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
 			ospf->aggr_delay_interval);
-	else
+	} else {
 		json_object_int_add(json_vrf, "aggregation delay interval",
 				    ospf->aggr_delay_interval);
+		json_object_int_add(json_vrf, "aggregationDelayInterval",
+				    ospf->aggr_delay_interval);
+	}
 
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn))
 		if (rn->info) {
@@ -11432,9 +11456,16 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 
 				json_object_string_add(json_aggr,
 						       "Summary address", buf);
+				json_object_string_add(json_aggr,
+						       "summaryAddress", buf);
 
 				json_object_string_add(
 					json_aggr, "Metric-type",
+					(mtype == EXTERNAL_METRIC_TYPE_1)
+						? "E1"
+						: "E2");
+				json_object_string_add(
+					json_aggr, "metricType",
 					(mtype == EXTERNAL_METRIC_TYPE_1)
 						? "E1"
 						: "E2");
@@ -11446,6 +11477,9 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 
 				json_object_int_add(
 					json_aggr, "External route count",
+					OSPF_EXTERNAL_RT_COUNT(aggr));
+				json_object_int_add(
+					json_aggr, "externalRouteCount",
 					OSPF_EXTERNAL_RT_COUNT(aggr));
 
 				if (OSPF_EXTERNAL_RT_COUNT(aggr) && detail) {
