@@ -9458,8 +9458,13 @@ DEFUN (ospf_distance,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_number = 1;
+	uint8_t distance;
 
-	ospf->distance_all = atoi(argv[idx_number]->arg);
+	distance = atoi(argv[idx_number]->arg);
+	if (ospf->distance_all != distance) {
+		ospf->distance_all = distance;
+		ospf_restart_spf(ospf);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -9473,7 +9478,10 @@ DEFUN (no_ospf_distance,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
-	ospf->distance_all = 0;
+	if (ospf->distance_all) {
+		ospf->distance_all = 0;
+		ospf_restart_spf(ospf);
+	}
 
 	return CMD_SUCCESS;
 }
