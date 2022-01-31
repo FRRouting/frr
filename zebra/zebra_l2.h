@@ -43,6 +43,9 @@ struct zebra_l2_brvlan_mac {
 	vlanid_t vid;
 	struct ethaddr macaddr;
 	ifindex_t ifindex;
+	bool sticky;
+	bool local_inactive;
+	bool dp_static;
 };
 
 struct zebra_l2_bridge_if_ctx {
@@ -60,7 +63,8 @@ struct zebra_l2_brvlan_mac_ctx {
 	struct interface *br_if;
 	vlanid_t vid;
 	int (*func)(struct interface *br_if, vlanid_t vid,
-		    struct ethaddr *macaddr, ifindex_t ifidx, void *arg);
+		    struct ethaddr *macaddr, ifindex_t ifidx, bool sticky,
+		    bool local_inactive, bool dp_static, void *arg);
 
 	/* input-output */
 	void *arg;
