@@ -15,3 +15,5 @@ p << r.p;
 @@
 if " " in str(fmt):
     print("Whitespace detected in JSON keys %s:%s:%s:%s" % (p[0].file, p[0].line, p[0].column, fmt))
+if str(fmt)[1].isupper():
+    print("Capital first detected in JSON keys %s:%s:%s:%s" % (p[0].file, p[0].line, p[0].column, fmt))
