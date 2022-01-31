@@ -389,7 +389,7 @@ static void ospf_as_external_lsa_dump(struct stream *s, uint16_t length)
 			   asr->tos & 0x7f, GET_METRIC(asr->metric));
 		zlog_debug("    Forwarding address %pI4", &asr->fwd_addr);
 		zlog_debug("    External Route Tag %" ROUTE_TAG_PRI,
-			   asr->route_tag);
+			   ntohl(asr->route_tag));
 	}
 }
 
