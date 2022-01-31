@@ -852,7 +852,8 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 	 * If the reason we got from the kernel is ONLY frr though, don't
 	 * set it.
 	 */
-	if (protodown && is_if_protodown_r_only_frr(rc_bitfield) == false)
+	if (protodown && rc_bitfield &&
+	    is_if_protodown_r_only_frr(rc_bitfield) == false)
 		zif->protodown_rc |= ZEBRA_PROTODOWN_EXTERNAL;
 	else
 		zif->protodown_rc &= ~ZEBRA_PROTODOWN_EXTERNAL;
@@ -900,7 +901,8 @@ static uint8_t netlink_parse_lacp_bypass(struct rtattr **linkinfo)
 }
 
 /*
- * Only called at startup to cleanup leftover protodown we may have not cleanup
+ * Only called at startup to cleanup leftover protodown reasons we may
+ * have not cleaned up. We leave protodown set though.
  */
 static void if_sweep_protodown(struct zebra_if *zif)
 {
@@ -912,12 +914,12 @@ static void if_sweep_protodown(struct zebra_if *zif)
 		return;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("interface %s sweeping protdown %s", zif->ifp->name,
-			   protodown ? "on" : "off");
+		zlog_debug("interface %s sweeping protodown %s reason 0x%x",
+			   zif->ifp->name, protodown ? "on" : "off",
+			   zif->protodown_rc);
 
 	/* Only clear our reason codes, leave external if it was set */
-	zif->protodown_rc |= ~ZEBRA_PROTODOWN_ALL;
-	zif->flags |= ZIF_FLAG_UNSET_PROTODOWN;
+	zif->protodown_rc &= ~ZEBRA_PROTODOWN_ALL;
 	dplane_intf_update(zif->ifp);
 }
 
@@ -2158,6 +2160,7 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	struct rtattr *nest_protodown_reason;
 	ifindex_t ifindex = dplane_ctx_get_ifindex(ctx);
 	bool down = dplane_ctx_intf_is_protodown(ctx);
+	bool pd_reason_val = dplane_ctx_get_intf_pd_reason_val(ctx);
 	struct nlsock *nl =
 		kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
 
@@ -2191,13 +2194,14 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_MASK,
 		      (1 << frr_protodown_r_bit));
 	nl_attr_put32(&req->n, buflen, IFLA_PROTO_DOWN_REASON_VALUE,
-		      ((int)down) << frr_protodown_r_bit);
+		      ((int)pd_reason_val) << frr_protodown_r_bit);
 
 	nl_attr_nest_end(&req->n, nest_protodown_reason);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s, protodown=%d ifindex=%u", __func__,
-			   nl_msg_type_to_str(cmd), down, ifindex);
+		zlog_debug("%s: %s, protodown=%d reason_val=%d ifindex=%u",
+			   __func__, nl_msg_type_to_str(cmd), down,
+			   pd_reason_val, ifindex);
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }

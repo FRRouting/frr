@@ -192,9 +192,9 @@ struct dplane_intf_info {
 
 	uint32_t metric;
 	uint32_t flags;
-	uint32_t r_bitfield;
 
 	bool protodown;
+	bool pd_reason_val;
 
 #define DPLANE_INTF_CONNECTED   (1 << 0) /* Connected peer, p2p */
 #define DPLANE_INTF_SECONDARY   (1 << 1)
@@ -1790,19 +1790,18 @@ void dplane_ctx_set_intf_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
 	ctx->u.intf.metric = metric;
 }
 
-uint32_t dplane_ctx_get_intf_r_bitfield(const struct zebra_dplane_ctx *ctx)
+uint32_t dplane_ctx_get_intf_pd_reason_val(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	return ctx->u.intf.r_bitfield;
+	return ctx->u.intf.pd_reason_val;
 }
 
-void dplane_ctx_set_intf_r_bitfield(struct zebra_dplane_ctx *ctx,
-				    uint32_t r_bitfield)
+void dplane_ctx_set_intf_pd_reason_val(struct zebra_dplane_ctx *ctx, bool val)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	ctx->u.intf.r_bitfield = r_bitfield;
+	ctx->u.intf.pd_reason_val = val;
 }
 
 bool dplane_ctx_intf_is_protodown(const struct zebra_dplane_ctx *ctx)
@@ -2721,7 +2720,9 @@ int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 		set_pdown = !!(zif->flags & ZIF_FLAG_SET_PROTODOWN);
 		unset_pdown = !!(zif->flags & ZIF_FLAG_UNSET_PROTODOWN);
 
-		ctx->u.intf.r_bitfield = zif->protodown_rc;
+		if (zif->protodown_rc &&
+		    ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif) == false)
+			ctx->u.intf.pd_reason_val = true;
 
 		/*
 		 * See if we have new protodown state to set, otherwise keep
