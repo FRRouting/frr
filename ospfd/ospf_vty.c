@@ -10185,10 +10185,17 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 		json_object_int_add(json_vrf, "supportedGracePeriod",
 				    ospf->supported_grace_time);
 
-		if (ospf->last_exit_reason != OSPF_GR_HELPER_EXIT_NONE)
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
+		if (ospf->last_exit_reason != OSPF_GR_HELPER_EXIT_NONE) {
 			json_object_string_add(
 				json_vrf, "LastExitReason",
 				ospf_exit_reason2str(ospf->last_exit_reason));
+			json_object_string_add(
+				json_vrf, "lastExitReason",
+				ospf_exit_reason2str(ospf->last_exit_reason));
+		}
 
 		if (ospf->active_restarter_cnt)
 			json_object_int_add(json_vrf, "activeRestarterCnt",
@@ -10211,11 +10218,16 @@ static int ospf_show_gr_helper_details(struct vty *vty, struct ospf *ospf,
 			if (uj) {
 				json_object_object_get_ex(json_vrf, "Neighbors",
 							  &json_neighbors);
+				json_object_object_get_ex(json_vrf, "neighbors",
+							  &json_neighbors);
 				if (!json_neighbors) {
 					json_neighbors =
 						json_object_new_object();
 					json_object_object_add(json_vrf,
 							       "Neighbors",
+							       json_neighbors);
+					json_object_object_add(json_vrf,
+							       "neighbors",
 							       json_neighbors);
 				}
 			}
@@ -10715,9 +10727,12 @@ static void show_ip_ospf_route_router(struct vty *vty, struct ospf *ospf,
 				json_object_string_addf(json_route, "area",
 							"%pI4",
 							&or->u.std.area_id);
-				if (or->path_type == OSPF_PATH_INTER_AREA)
+				if (or->path_type == OSPF_PATH_INTER_AREA) {
 					json_object_boolean_true_add(json_route,
 								     "IA");
+					json_object_boolean_true_add(json_route,
+								     "ia");
+				}
 				if (or->u.std.flags & ROUTER_LSA_BORDER)
 					json_object_string_add(json_route,
 							       "routerType",
@@ -11470,9 +11485,15 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 						? "E1"
 						: "E2");
 
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
 				json_object_int_add(json_aggr, "Metric", mval);
+				json_object_int_add(json_aggr, "metric", mval);
 
 				json_object_int_add(json_aggr, "Tag",
+						    aggr->tag);
+				json_object_int_add(json_aggr, "tag",
 						    aggr->tag);
 
 				json_object_int_add(

@@ -1682,8 +1682,13 @@ static void pim_show_join_helper(struct vty *vty, struct pim_interface *pim_ifp,
 		json_object_string_add(
 			json_row, "channelJoinName",
 			pim_ifchannel_ifjoin_name(ch->ifjoin_state, ch->flags));
-		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags))
+		if (PIM_IF_FLAG_TEST_S_G_RPT(ch->flags)) {
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
 			json_object_int_add(json_row, "SGRpt", 1);
+			json_object_int_add(json_row, "sgRpt", 1);
+		}
 		if (PIM_IF_FLAG_TEST_PROTO_PIM(ch->flags))
 			json_object_int_add(json_row, "protocolPim", 1);
 		if (PIM_IF_FLAG_TEST_PROTO_IGMP(ch->flags))
@@ -2033,6 +2038,8 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						       json_ifp_in);
 				json_object_int_add(json_source, "Installed",
 						    c_oil->installed);
+				json_object_int_add(json_source, "installed",
+						    c_oil->installed);
 				if (isRpt)
 					json_object_boolean_true_add(
 						json_source, "isRpt");
@@ -2041,19 +2048,35 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 						json_source, "isRpt");
 				json_object_int_add(json_source, "RefCount",
 						    c_oil->oil_ref_count);
+				json_object_int_add(json_source, "refCount",
+						    c_oil->oil_ref_count);
 				json_object_int_add(json_source, "OilListSize",
+						    c_oil->oil_size);
+				json_object_int_add(json_source, "oilListSize",
 						    c_oil->oil_size);
 				json_object_int_add(
 					json_source, "OilRescan",
 					c_oil->oil_inherited_rescan);
+				json_object_int_add(
+					json_source, "oilRescan",
+					c_oil->oil_inherited_rescan);
 				json_object_int_add(json_source, "LastUsed",
+						    c_oil->cc.lastused);
+				json_object_int_add(json_source, "lastUsed",
 						    c_oil->cc.lastused);
 				json_object_int_add(json_source, "PacketCount",
 						    c_oil->cc.pktcnt);
+				json_object_int_add(json_source, "packetCount",
+						    c_oil->cc.pktcnt);
 				json_object_int_add(json_source, "ByteCount",
+						    c_oil->cc.bytecnt);
+				json_object_int_add(json_source, "byteCount",
 						    c_oil->cc.bytecnt);
 				json_object_int_add(json_source,
 						    "WrongInterface",
+						    c_oil->cc.wrong_if);
+				json_object_int_add(json_source,
+						    "wrongInterface",
 						    c_oil->cc.wrong_if);
 			}
 		} else {
@@ -5980,6 +6003,8 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			json_object_int_add(json_source, "oilSize",
 					    c_oil->oil_size);
 			json_object_int_add(json_source, "OilInheritedRescan",
+					    c_oil->oil_inherited_rescan);
+			json_object_int_add(json_source, "oilInheritedRescan",
 					    c_oil->oil_inherited_rescan);
 			json_object_string_add(json_source, "iif", in_ifname);
 			json_object_string_add(json_source, "upTime",
