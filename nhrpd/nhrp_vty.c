@@ -987,10 +987,7 @@ DEFUN(show_ip_nhrp, show_ip_nhrp_cmd,
 	if (uj) {
 		json_object_object_add(json_vrf_path, "attr", json_vrf);
 		json_object_object_add(json_vrf_path, "table", ctx.json);
-		vty_out(vty, "%s",
-			json_object_to_json_string_ext(
-			       json_vrf_path, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_vrf_path);
+		vty_json(vty, json_vrf_path);
 	}
 	return ret;
 }
@@ -1052,12 +1049,8 @@ DEFUN(show_dmvpn, show_dmvpn_cmd,
 		ctxt.json = json_path;
 	}
 	nhrp_vc_foreach(show_dmvpn_entry, &ctxt);
-	if (uj) {
-		vty_out(vty, "%s",
-			json_object_to_json_string_ext(
-			       json_path, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json_path);
-	}
+	if (uj)
+		vty_json(vty, json_path);
 	return CMD_SUCCESS;
 }
 
