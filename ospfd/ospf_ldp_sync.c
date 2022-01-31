@@ -509,9 +509,16 @@ void ospf_ldp_sync_show_info(struct vty *vty, struct ospf *ospf,
 
 	if (CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
 		if (use_json) {
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys starting with capital")
+#endif
 			json_object_boolean_true_add(json_vrf,
 						     "MplsLdpIgpSyncEnabled");
+			json_object_boolean_true_add(json_vrf,
+						     "mplsLdpIgpSyncEnabled");
 			json_object_int_add(json_vrf, "MplsLdpIgpSyncHolddown",
+					    ospf->ldp_sync_cmd.holddown);
+			json_object_int_add(json_vrf, "mplsLdpIgpSyncHolddown",
 					    ospf->ldp_sync_cmd.holddown);
 		} else {
 			vty_out(vty, " MPLS LDP-IGP Sync is enabled\n");
