@@ -1999,6 +1999,9 @@ ospf6_show_vrf_name(struct vty *vty, struct ospf6 *ospf6,
 	}
 }
 
+#if CONFDATE > 20230131
+CPP_NOTICE("Remove JSON object commands with keys containing whitespaces")
+#endif
 static int
 ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object *json,
@@ -2019,7 +2022,9 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 		ospf6_show_vrf_name(vty, ospf6, json_vrf);
 
 		json_object_int_add(json_vrf, "aggregation delay interval",
-				ospf6->aggr_delay_interval);
+				    ospf6->aggr_delay_interval);
+		json_object_int_add(json_vrf, "aggregationDelayInterval",
+				    ospf6->aggr_delay_interval);
 	}
 
 
@@ -2044,12 +2049,18 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object_string_add(json_aggr,
 					"Summary address",
 					buf);
+			json_object_string_add(json_aggr, "summaryAddress",
+					       buf);
 
 			json_object_string_add(
 				json_aggr, "Metric-type",
 				(aggr->mtype == DEFAULT_METRIC_TYPE)
 					? "E2"
 					: "E1");
+			json_object_string_add(
+				json_aggr, "metricType",
+				(aggr->mtype == DEFAULT_METRIC_TYPE) ? "E2"
+								     : "E1");
 
 			json_object_int_add(json_aggr, "Metric",
 					   (aggr->metric != -1)
@@ -2062,6 +2073,8 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 			json_object_int_add(json_aggr,
 					"External route count",
 					OSPF6_EXTERNAL_RT_COUNT(aggr));
+			json_object_int_add(json_aggr, "externalRouteCount",
+					    OSPF6_EXTERNAL_RT_COUNT(aggr));
 
 			if (OSPF6_EXTERNAL_RT_COUNT(aggr) && detail) {
 				json_object_int_add(json_aggr, "ID",
