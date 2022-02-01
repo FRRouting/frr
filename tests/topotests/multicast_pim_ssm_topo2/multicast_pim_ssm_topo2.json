@@ -1,0 +1,520 @@
+{
+    "ipv4base": "10.0.0.0",
+    "ipv4mask": 24,
+    "link_ip_start": {
+        "ipv4": "10.0.0.0",
+        "v4mask": 24,
+        "link_local": "disable"
+    },
+    "lo_prefix": {
+        "ipv4": "1.0.",
+        "v4mask": 32
+    },
+    "routers": {
+        "r1": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable"
+                },
+                "r2-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "i1": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                },
+                "i2": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                },
+                "i3": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r2": {},
+                    "r3": {},
+                    "r4": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            },
+            "ssm": {
+                "prefix-list": "pf1"
+            }
+        },
+        "r2": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "i4": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r1": {},
+                    "r4": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            },
+            "ssm": {
+                "prefix-list": "pf1"
+            }
+        },
+        "r3": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable"
+                },
+                "r1-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r4-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "i5": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r1": {},
+                    "r4": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            },
+            "ssm": {
+                "prefix-list": "pf1"
+            }
+        },
+        "r4": {
+            "links": {
+                "lo": {
+                    "ipv4": "auto",
+                    "type": "loopback",
+                    "pim": "enable"
+                },
+                "r2-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r2-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link2": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link3": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r3-link4": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "r1": {
+                    "ipv4": "auto",
+                    "pim": "enable",
+                    "ospf": {
+                        "area": "0.0.0.0",
+                        "hello_interval": 1,
+                        "dead_interval": 4
+                    }
+                },
+                "i6": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                },
+                "i7": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                },
+                "i8": {
+                    "ipv4": "auto",
+                    "pim": "enable"
+                }
+            },
+            "ospf": {
+                "neighbors": {
+                    "r2": {},
+                    "r3": {},
+                    "r1": {}
+                },
+                "redistribute": [
+                    {
+                        "redist_type": "static"
+                    },
+                    {
+                        "redist_type": "connected"
+                    }
+                ]
+            },
+            "ssm": {
+                "prefix-list": "pf1"
+            }
+        },
+        "i1": {
+            "links": {
+                "r1": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i2": {
+            "links": {
+                "r1": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i3": {
+            "links": {
+                "r1": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i4": {
+            "links": {
+                "r2": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i5": {
+            "links": {
+                "r3": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i6": {
+            "links": {
+                "r4": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i7": {
+            "links": {
+                "r4": {
+                    "ipv4": "auto"
+                }
+            }
+        },
+        "i8": {
+            "links": {
+                "r4": {
+                    "ipv4": "auto"
+                }
+            }
+        }
+    }
+}
