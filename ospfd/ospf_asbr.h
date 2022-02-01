@@ -148,7 +148,7 @@ ospf_originate_summary_lsa(struct ospf *ospf,
 			   struct ospf_external_aggr_rt *aggr,
 			   struct external_info *ei);
 extern int ospf_external_aggregator_timer_set(struct ospf *ospf,
-					      unsigned int interval);
+					      uint16_t interval);
 extern void ospf_external_aggrigator_free(struct ospf_external_aggr_rt *aggr);
 
 extern struct ospf_external_aggr_rt *

@@ -2010,8 +2010,8 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 
 	if (!uj) {
 		ospf6_show_vrf_name(vty, ospf6, json_vrf);
-		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
-				ospf6->aggr_delay_interval);
+		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
+			ospf6->aggr_delay_interval);
 		vty_out(vty, "%s\n", header);
 	} else {
 		json_vrf = json_object_new_object();
