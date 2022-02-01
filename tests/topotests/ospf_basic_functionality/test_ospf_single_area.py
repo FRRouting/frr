@@ -28,7 +28,6 @@ import time
 import pytest
 from copy import deepcopy
 from ipaddress import IPv4Address
-from lib.topotest import frr_unicode
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,6 +36,7 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib.topotest import frr_unicode
 from lib.topogen import Topogen, get_topogen
 import ipaddress
 

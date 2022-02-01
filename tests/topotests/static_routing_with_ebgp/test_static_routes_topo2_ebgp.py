@@ -43,7 +43,6 @@ import os
 import pytest
 import platform
 import random
-from lib.topotest import version_cmp
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -51,6 +50,7 @@ sys.path.append(os.path.join(CWD, "../"))
 sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
+from lib.topotest import version_cmp
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
