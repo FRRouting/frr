@@ -2843,8 +2843,8 @@ static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx %s ESI %s VNI %u",
-				ZEBRA_VNI_ADD ? "add" : "del",
-				esi_to_str(&esi, buf, sizeof(buf)), vni);
+			   (cmd == ZEBRA_VNI_ADD) ? "add" : "del",
+			   esi_to_str(&esi, buf, sizeof(buf)), vni);
 
 	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD) {
 		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &esi, vni);
