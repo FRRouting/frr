@@ -189,7 +189,6 @@ def teardown_module():
                 format(time.asctime(time.localtime(time.time()))))
     logger.info("=" * 40)
 
-
 #####################################################
 #
 #   Local APIs
@@ -428,7 +427,6 @@ def find_v3_query_msg_in_tcpdump(tgen, router, message, count, cap_file):
         logger.info("[R1: %s]: Found message: %s in tcpdump "
                     " count: %s [PASSED!!]", router, message, count)
     return True
-
 
 #####################################################
 #
