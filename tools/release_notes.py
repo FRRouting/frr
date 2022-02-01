@@ -10,6 +10,7 @@ import os
 import getopt
 import subprocess
 
+
 def run(cmd):
     proc = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     rv = proc.communicate("")[0].decode("UTF-8")
@@ -45,7 +46,7 @@ def main(argv):
         tag = run(["git", "describe", "--abbrev=0"]).strip("\n")
 
     chnglog = run(
-        ["git", "log", "--no-merges", "--pretty=format:'%s%d'", tag + ".." + branch]
+        ["git", "log", "--no-merges", "--pretty=format:'%s'", tag + ".." + branch]
     )
     chnglog = chnglog.split("\n")
 
