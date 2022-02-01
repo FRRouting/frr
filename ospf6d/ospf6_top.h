@@ -251,6 +251,7 @@ extern void install_element_ospf6_clear_process(void);
 extern void ospf6_top_init(void);
 extern void ospf6_delete(struct ospf6 *o);
 extern bool ospf6_router_id_update(struct ospf6 *ospf6, bool init);
+void ospf6_restart_spf(struct ospf6 *ospf6);
 
 extern void ospf6_maxage_remove(struct ospf6 *o);
 extern struct ospf6 *ospf6_instance_create(const char *name);
