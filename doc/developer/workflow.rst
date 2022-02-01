@@ -95,8 +95,8 @@ March/July/November.  Walking backwards from this date:
    are considered lowest priority (regardless of when they were opened.)
 
  - 4 weeks earlier, the stable branch separates from master (named
-   ``dev/MAJOR.MINOR`` at this point) and a ``rc1`` release candidate is
-   tagged.  Master is unfrozen and new features may again proceed.
+   ``dev/MAJOR.MINOR`` at this point) and tagged as ```base_X.Y``.
+   Master is unfrozen and new features may again proceed.
 
    Part of unfreezing master is editing the ``AC_INIT`` statement in
    :file:`configure.ac` to reflect the new development version that master
@@ -108,7 +108,38 @@ March/July/November.  Walking backwards from this date:
    (The :file:`configure.ac` edit and tag push are considered git housekeeping
    and are pushed directly to ``master``, not through a PR.)
 
- - 2 weeks earlier, a ``rc2`` release candidate is tagged.
+   Below is the snippet of the commands to use in this step.
+
+     .. code-block:: console
+
+        % git remote --verbose
+        upstream  git@github.com:frrouting/frr (fetch)
+        upstream  git@github.com:frrouting/frr (push)
+
+        % git checkout master
+        % git pull upstream master
+        % git checkout -b dev/8.2
+        % git tag base_8.2
+        % git push upstream base_8.2
+        % git push upstream dev/8.2
+        % git checkout master
+        % sed -i 's/8.2-dev/8.3-dev/' configure.ac
+        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
+        % git push upstream frr-8.3-dev
+        % git add configure.ac
+        % git commit -s -m "build: FRR 8.3 development version"
+        % git push upstream master
+
+   In this step, we also have to update package versions to reflect
+   the development version. Versions need to be updated using
+   a standard way of development (Pull Requests) based on master branch.
+
+   Only change the version number with no other changes. This will produce
+   packages with the a version number that is higher than any previous
+   version. Once the release is done, whatever updates we make to changelog
+   files on the release branch need to be cherry-picked to the master branch.
+
+ - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
 
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
@@ -121,15 +152,15 @@ as early as possible, i.e. the first 2-week window.
 
 For reference, the expected release schedule according to the above is:
 
-+------------+------------+------------+------------+------------+------------+
-| Release    | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
-+------------+------------+------------+------------+------------+------------+
-| rc2        | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
-+------------+------------+------------+------------+------------+------------+
-| rc1/branch | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
-+------------+------------+------------+------------+------------+------------+
-| freeze     | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
-+------------+------------+------------+------------+------------+------------+
++---------+------------+------------+------------+------------+------------+
+| Release | 2021-11-02 | 2022-03-01 | 2022-07-05 | 2022-11-01 | 2023-03-07 |
++---------+------------+------------+------------+------------+------------+
+| RC      | 2021-10-19 | 2022-02-15 | 2022-06-21 | 2022-10-18 | 2023-02-21 |
++---------+------------+------------+------------+------------+------------+
+| dev/X.Y | 2021-10-05 | 2022-02-01 | 2022-06-07 | 2022-10-04 | 2023-02-07 |
++---------+------------+------------+------------+------------+------------+
+| freeze  | 2021-09-21 | 2022-01-18 | 2022-05-24 | 2022-09-20 | 2023-01-24 |
++---------+------------+------------+------------+------------+------------+
 
 Each release is managed by one or more volunteer release managers from the FRR
 community.  To spread and distribute this workload, this should be rotated for
