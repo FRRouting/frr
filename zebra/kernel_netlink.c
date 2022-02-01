@@ -1455,7 +1455,7 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)
 {
-	uint32_t groups;
+	uint32_t groups, dplane_groups;
 #if defined SOL_NETLINK
 	int one, ret;
 #endif
@@ -1479,6 +1479,10 @@ void kernel_init(struct zebra_ns *zns)
 		((uint32_t) 1 << (RTNLGRP_IPV4_RULE - 1)) |
 		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
 		((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1));
+
+	dplane_groups = (RTMGRP_LINK            |
+			 RTMGRP_IPV4_IFADDR     |
+			 RTMGRP_IPV6_IFADDR);
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
@@ -1514,7 +1518,8 @@ void kernel_init(struct zebra_ns *zns)
 		 sizeof(zns->netlink_dplane_in.name), "netlink-dp-in (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_in.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_in, groups, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups,
+			   zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
 		exit(-1);
