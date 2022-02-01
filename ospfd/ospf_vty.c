@@ -3271,6 +3271,16 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* Show refresh parameters. */
 		json_object_int_add(json_vrf, "refreshTimerMsecs",
 				    ospf->lsa_refresh_interval * 1000);
+
+		/* show max multipath */
+		json_object_int_add(json_vrf, "maximumPaths",
+				    ospf->max_multipath);
+
+		/* show administrative distance */
+		json_object_int_add(json_vrf, "preference",
+				    ospf->distance_all
+					    ? ospf->distance_all
+					    : ZEBRA_OSPF_DISTANCE_DEFAULT);
 	} else {
 		vty_out(vty, " SPF timer %s%s\n",
 			(ospf->t_spf_calc ? "due in " : "is "),
@@ -3291,8 +3301,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 			ospf->lsa_refresh_interval);
 
 		/* show max multipath */
-		vty_out(vty, " Maximum multiple paths(ECMP) supported  %d\n",
+		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
+
+		/* show administrative distance */
+		vty_out(vty, " Administrative distance %u\n",
+			ospf->distance_all ? ospf->distance_all
+					   : ZEBRA_OSPF_DISTANCE_DEFAULT);
 	}
 
 	/* Show ABR/ASBR flags. */
@@ -9478,8 +9493,13 @@ DEFUN (ospf_distance,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_number = 1;
+	uint8_t distance;
 
-	ospf->distance_all = atoi(argv[idx_number]->arg);
+	distance = atoi(argv[idx_number]->arg);
+	if (ospf->distance_all != distance) {
+		ospf->distance_all = distance;
+		ospf_restart_spf(ospf);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -9493,7 +9513,10 @@ DEFUN (no_ospf_distance,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
-	ospf->distance_all = 0;
+	if (ospf->distance_all) {
+		ospf->distance_all = 0;
+		ospf_restart_spf(ospf);
+	}
 
 	return CMD_SUCCESS;
 }
