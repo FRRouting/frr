@@ -775,6 +775,8 @@ sed -i 's/ -M rpki//' %{_sysconfdir}/frr/daemons
 %changelog
 * Tue Nov  4 2021 Martin Winter <mwinter@opensourcerouting.org> - %{version}
 
+* Tue Feb  1 2022 Donatas Abraitis <donatas.abraitis@gmail.com> - 8.2
+
 * Tue Nov  2 2021 Jafar Al-Gharaibeh <jafar@atcorp.com> - 8.1
 -    FRR 8.1 brings a long list of enhancements and fixes with 1200 commits from
 -    75 developers. Thanks to all contributers.
