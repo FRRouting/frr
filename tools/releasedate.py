@@ -36,21 +36,23 @@ if __name__ == "__main__":
     print("Last release was (scheduled) on %s" % last.isoformat())
 
     rel = upcoming.pop(0)
-    freeze, rc1, rc2 = rel - w2 * 3, rel - w2 * 2, rel - w2
+    freeze, stabilization, rc = rel - w2 * 3, rel - w2 * 2, rel - w2
 
     if now == rel:
         print("It's release day! 🎉")
-    elif now >= rc2:
+    elif now >= rc:
         print(
-            "%d days until release! (rc2 since %s)"
-            % ((rel - now).days, rc2.isoformat())
+            "%d days until release! (RC since %s)" % ((rel - now).days, rc.isoformat())
         )
-    elif now >= rc1:
-        print("%d days until rc2. (rc1 since %s)" % ((rc2 - now).days, rc1.isoformat()))
+    elif now >= stabilization:
+        print(
+            "%d days until RC. (stabilization branch created since %s)"
+            % ((rc - now).days, stabilization.isoformat())
+        )
     elif now >= freeze:
         print(
-            "%d days until rc1, master is frozen since %s"
-            % ((rc1 - now).days, freeze.isoformat())
+            "%d days until stabilization branch, master is frozen since %s"
+            % ((stabilization - now).days, freeze.isoformat())
         )
     else:
         print(
