@@ -145,7 +145,7 @@ static int group_announce_route_walkcb(struct update_group *updgrp, void *arg)
 	safi_t safi;
 	struct peer *peer;
 	struct bgp_adj_out *adj, *adj_next;
-	int addpath_capable;
+	bool addpath_capable;
 
 	afi = UPDGRP_AFI(updgrp);
 	safi = UPDGRP_SAFI(updgrp);
@@ -655,7 +655,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 	struct peer *peer;
 	afi_t afi;
 	safi_t safi;
-	int addpath_capable;
+	bool addpath_capable;
 	struct bgp *bgp;
 	bool advertise;
 
@@ -687,11 +687,8 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 
 		for (ri = bgp_dest_get_bgp_path_info(dest); ri; ri = ri->next)
 
-			if (CHECK_FLAG(ri->flags, BGP_PATH_SELECTED)
-			    || (addpath_capable
-				&& bgp_addpath_tx_path(
-					   peer->addpath_type[afi][safi],
-					   ri))) {
+			if (bgp_check_selected(ri, peer, addpath_capable, afi,
+					       safi)) {
 				if (subgroup_announce_check(dest, ri, subgrp,
 							    dest_p, &attr,
 							    false)) {

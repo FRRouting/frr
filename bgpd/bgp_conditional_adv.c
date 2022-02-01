@@ -75,7 +75,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 				       struct route_map *rmap,
 				       enum update_type update_type)
 {
-	int addpath_capable;
+	bool addpath_capable;
 	struct bgp_dest *dest;
 	struct bgp_path_info *pi;
 	struct bgp_path_info path;
@@ -124,12 +124,8 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 			if (ret != RMAP_PERMITMATCH)
 				continue;
 
-			if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)
-			    || (addpath_capable
-				&& bgp_addpath_tx_path(
-					   peer->addpath_type[afi][safi],
-					   pi))) {
-
+			if (bgp_check_selected(pi, peer, addpath_capable, afi,
+					       safi)) {
 				/* Skip route-map checks in
 				 * subgroup_announce_check while executing from
 				 * the conditional advertise scanner process.
