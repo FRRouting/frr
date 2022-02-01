@@ -410,6 +410,7 @@ int if_unset_prefix_ctx(const struct zebra_dplane_ctx *ctx)
 void if_get_flags(struct interface *ifp)
 {
 	int ret;
+	short flags;
 	struct ifreq ifreq;
 
 	ifreq_set_name(&ifreq, ifp);
@@ -422,6 +423,7 @@ void if_get_flags(struct interface *ifp)
 		return;
 	}
 
+	flags = ifreq.ifr_flags;
 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_LINKDETECTION))
 		goto out;
 
@@ -459,12 +461,12 @@ void if_get_flags(struct interface *ifp)
 			     safe_strerror(errno));
 	else {
 		if (ifdata->ifi_link_state >= LINK_STATE_UP)
-			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+			SET_FLAG(flags, IFF_RUNNING);
 		else if (ifdata->ifi_link_state == LINK_STATE_UNKNOWN)
 			/* BSD traditionally treats UNKNOWN as UP */
-			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+			SET_FLAG(flags, IFF_RUNNING);
 		else
-			UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+			UNSET_FLAG(flags, IFF_RUNNING);
 	}
 
 #elif defined(HAVE_BSD_LINK_DETECT)
@@ -489,14 +491,14 @@ void if_get_flags(struct interface *ifp)
 				     ifp->name, safe_strerror(errno));
 	} else if (ifmr.ifm_status & IFM_AVALID) { /* media state is valid */
 		if (ifmr.ifm_status & IFM_ACTIVE)  /* media is active */
-			SET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+			SET_FLAG(flags, IFF_RUNNING);
 		else
-			UNSET_FLAG(ifreq.ifr_flags, IFF_RUNNING);
+			UNSET_FLAG(flags, IFF_RUNNING);
 	}
 #endif /* HAVE_BSD_LINK_DETECT */
 
 out:
-	if_flags_update(ifp, (ifreq.ifr_flags & 0x0000ffff));
+	if_flags_update(ifp, (flags & 0x0000ffff));
 }
 
 /* Set interface flags */
