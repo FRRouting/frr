@@ -687,10 +687,10 @@ static bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
 	union sockunion all_su;
 
 	if (su->sa.sa_family == AF_INET) {
-		str2sockunion("0.0.0.0", &all_su);
+		(void)str2sockunion("0.0.0.0", &all_su);
 		ifp = if_lookup_by_ipv4_exact(&su->sin.sin_addr, bgp->vrf_id);
 	} else if (su->sa.sa_family == AF_INET6) {
-		str2sockunion("::", &all_su);
+		(void)str2sockunion("::", &all_su);
 		ifp = if_lookup_by_ipv6_exact(&su->sin6.sin6_addr,
 					      su->sin6.sin6_scope_id,
 					      bgp->vrf_id);
