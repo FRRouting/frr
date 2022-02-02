@@ -799,10 +799,12 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 
 	if (info.type == LINK_STATE_UPDATE) {
 		lse = ls_stream2ted(sg.ted, s, false);
-		if (lse)
+		if (lse) {
 			zlog_debug(" |- Got %s %s from Link State Database",
 				   status2txt[lse->status],
 				   type2txt[lse->type]);
+			lse->status = SYNC;
+		}
 		else
 			zlog_debug(
 				"%s: Error to convert Stream into Link State",
