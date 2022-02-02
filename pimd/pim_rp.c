@@ -419,7 +419,6 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	       enum rp_source rp_src_flag)
 {
 	int result = 0;
-	char rp[INET_ADDRSTRLEN];
 	struct rp_info *rp_info;
 	struct rp_info *rp_all;
 	struct prefix group_all;
@@ -442,8 +441,6 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	rp_info->rp.rpf_addr.u.prefix4 = rp_addr;
 	prefix_copy(&rp_info->group, &group);
 	rp_info->rp_src = rp_src_flag;
-
-	inet_ntop(AF_INET, &rp_info->rp.rpf_addr.u.prefix4, rp, sizeof(rp));
 
 	if (plist) {
 		/*
@@ -471,11 +468,11 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			if (rp_info->rp.rpf_addr.u.prefix4.s_addr
 			    == tmp_rp_info->rp.rpf_addr.u.prefix4.s_addr) {
 				if (tmp_rp_info->plist)
-					pim_rp_del_config(pim, rp, NULL,
+					pim_rp_del_config(pim, rp_addr, NULL,
 							  tmp_rp_info->plist);
 				else
 					pim_rp_del_config(
-						pim, rp,
+						pim, rp_addr,
 						prefix2str(&tmp_rp_info->group,
 							   buffer, BUFSIZ),
 						NULL);
@@ -508,7 +505,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			    && rp_info->rp.rpf_addr.u.prefix4.s_addr
 				       == tmp_rp_info->rp.rpf_addr.u.prefix4
 						  .s_addr) {
-				pim_rp_del_config(pim, rp, NULL,
+				pim_rp_del_config(pim, rp_addr, NULL,
 						  tmp_rp_info->plist);
 			}
 		}
@@ -661,11 +658,10 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	return PIM_SUCCESS;
 }
 
-int pim_rp_del_config(struct pim_instance *pim, const char *rp,
-		      const char *group_range, const char *plist)
+void pim_rp_del_config(struct pim_instance *pim, pim_addr rp_addr,
+		       const char *group_range, const char *plist)
 {
 	struct prefix group;
-	struct in_addr rp_addr;
 	int result;
 
 	if (group_range == NULL)
@@ -673,15 +669,15 @@ int pim_rp_del_config(struct pim_instance *pim, const char *rp,
 	else
 		result = str2prefix(group_range, &group);
 
-	if (!result)
-		return PIM_GROUP_BAD_ADDRESS;
+	if (!result) {
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug(
+				"%s: String to prefix failed for %pPAs group",
+				__func__, &rp_addr);
+		return;
+	}
 
-	result = inet_pton(AF_INET, rp, &rp_addr);
-	if (result <= 0)
-		return PIM_RP_BAD_ADDRESS;
-
-	result = pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
-	return result;
+	pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
 }
 
 int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
