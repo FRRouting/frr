@@ -41,7 +41,7 @@ struct zebra_dplane_info {
 	ns_id_t ns_id;
 
 #if defined(HAVE_NETLINK)
-	struct nlsock nls;
+	int sock;
 	int seq;
 	bool is_cmd;
 #endif
@@ -57,10 +57,10 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 #if defined(HAVE_NETLINK)
 	zns_info->is_cmd = is_cmd;
 	if (is_cmd) {
-		zns_info->nls = zns->netlink_cmd;
+		zns_info->sock = zns->netlink_cmd.sock;
 		zns_info->seq = zns->netlink_cmd.seq;
 	} else {
-		zns_info->nls = zns->netlink;
+		zns_info->sock = zns->netlink.sock;
 		zns_info->seq = zns->netlink.seq;
 	}
 #endif /* NETLINK */
@@ -564,9 +564,10 @@ dplane_ctx_gre_get_mtu(const struct zebra_dplane_ctx *ctx);
 const struct zebra_l2info_gre *
 dplane_ctx_gre_get_info(const struct zebra_dplane_ctx *ctx);
 
-/* Namespace info - esp. for netlink communication */
+/* Namespace fd info - esp. for netlink communication */
 const struct zebra_dplane_info *dplane_ctx_get_ns(
 	const struct zebra_dplane_ctx *ctx);
+int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx);
 
 /* Indicates zebra shutdown/exit is in progress. Some operations may be
  * simplified or skipped during shutdown processing.
