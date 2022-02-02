@@ -845,6 +845,8 @@ int ospf_if_down(struct ospf_interface *oi)
 	/* Shutdown packet reception and sending */
 	ospf_if_stream_unset(oi);
 
+	if (!ospf->new_table)
+		return 1;
 	for (rn = route_top(ospf->new_table); rn; rn = route_next(rn)) {
 		or = rn->info;
 
