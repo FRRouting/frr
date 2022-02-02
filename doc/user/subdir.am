@@ -30,6 +30,7 @@ user_RSTFILES = \
 	doc/user/packet-dumps.rst \
 	doc/user/pathd.rst \
 	doc/user/pim.rst \
+	doc/user/pimv6.rst \
 	doc/user/ripd.rst \
 	doc/user/pbr.rst \
 	doc/user/ripngd.rst \
