@@ -1469,7 +1469,11 @@ int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
+#ifdef HAVE_NETLINK
 	return ctx->zd_ns_info.sock;
+#else
+	return -1;
+#endif
 }
 
 /* Accessors for nexthop information */

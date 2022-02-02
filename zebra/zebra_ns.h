@@ -39,6 +39,9 @@ struct nlsock {
 	int seq;
 	struct sockaddr_nl snl;
 	char name[64];
+
+	uint8_t *buf;
+	size_t buflen;
 };
 #endif
 
