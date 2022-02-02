@@ -369,7 +369,7 @@ static int bgpd_sync_callback(struct thread *thread)
 	thread_add_read(bm->master, bgpd_sync_callback, NULL, socket, &t_rpki);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
-		while (read(socket, &rec, sizeof(rec) != -1))
+		while (read(socket, &rec, sizeof(struct pfx_record) != -1))
 			;
 
 		atomic_store_explicit(&rtr_update_overflow, 0,
@@ -378,8 +378,8 @@ static int bgpd_sync_callback(struct thread *thread)
 		return 0;
 	}
 
-	retval = read(socket, &rec, sizeof(rec));
-	if (retval != sizeof(rec)) {
+	retval = read(socket, &rec, sizeof(struct pfx_record));
+	if (retval != sizeof(struct pfx_record)) {
 		RPKI_DEBUG("Could not read from socket");
 		return retval;
 	}
