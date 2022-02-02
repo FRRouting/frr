@@ -1465,6 +1465,13 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	return &(ctx->zd_ns_info);
 }
 
+int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_ns_info.sock;
+}
+
 /* Accessors for nexthop information */
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 {
@@ -4844,7 +4851,7 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
-	ns_info->nls = zns->netlink_dplane_out;
+	ns_info->sock = zns->netlink_dplane_out.sock;
 #endif /* NETLINK */
 }
 
@@ -4861,7 +4868,7 @@ static int dplane_incoming_read(struct thread *event)
 
 	/* Re-start read task */
 	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
-			zi->info.nls.sock, &zi->t_read);
+			zi->info.sock, &zi->t_read);
 
 	return 0;
 }
@@ -4906,13 +4913,13 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 		/* Make sure we're up-to-date with the zns object */
 #if defined(HAVE_NETLINK)
 		zi->info.is_cmd = false;
-		zi->info.nls = zns->netlink_dplane_in;
+		zi->info.sock = zns->netlink_dplane_in.sock;
 
 		/* Start read task for the dplane pthread. */
 		if (zdplane_info.dg_master)
 			thread_add_read(zdplane_info.dg_master,
-					dplane_incoming_read, zi,
-					zi->info.nls.sock, &zi->t_read);
+					dplane_incoming_read, zi, zi->info.sock,
+					&zi->t_read);
 #endif
 	} else if (zi) {
 		if (IS_ZEBRA_DEBUG_DPLANE)
@@ -5935,7 +5942,7 @@ void zebra_dplane_start(void)
 	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
 #if defined(HAVE_NETLINK)
 		thread_add_read(zdplane_info.dg_master, dplane_incoming_read,
-				zi, zi->info.nls.sock, &zi->t_read);
+				zi, zi->info.sock, &zi->t_read);
 #endif
 	}
 
