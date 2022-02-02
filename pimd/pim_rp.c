@@ -412,7 +412,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 }
 
-int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix group,
+int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 	       const char *plist, enum rp_source rp_src_flag)
 {
 	int result = 0;
@@ -427,14 +427,12 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix g
 	struct pim_upstream *up;
 	bool upstream_updated = false;
 
-	if (rp_addr.s_addr == INADDR_ANY)
+	if (pim_addr_is_any(rp_addr))
 		return PIM_RP_BAD_ADDRESS;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
-	rp_info->rp.rpf_addr.family = AF_INET;
-	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-	rp_info->rp.rpf_addr.u.prefix4 = rp_addr;
+	pim_addr_to_prefix(&rp_info->rp.rpf_addr, rp_addr);
 	prefix_copy(&rp_info->group, &group);
 	rp_info->rp_src = rp_src_flag;
 
@@ -461,8 +459,8 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix g
 		 */
 		for (ALL_LIST_ELEMENTS(pim->rp_list, node, nnode,
 				       tmp_rp_info)) {
-			if (rp_info->rp.rpf_addr.u.prefix4.s_addr
-			    == tmp_rp_info->rp.rpf_addr.u.prefix4.s_addr) {
+			if (prefix_same(&rp_info->rp.rpf_addr,
+					&tmp_rp_info->rp.rpf_addr)) {
 				if (tmp_rp_info->plist)
 					pim_rp_del_config(pim, rp_addr, NULL,
 							  tmp_rp_info->plist);
@@ -497,10 +495,9 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix g
 		 */
 		for (ALL_LIST_ELEMENTS(pim->rp_list, node, nnode,
 				       tmp_rp_info)) {
-			if (tmp_rp_info->plist
-			    && rp_info->rp.rpf_addr.u.prefix4.s_addr
-				       == tmp_rp_info->rp.rpf_addr.u.prefix4
-						  .s_addr) {
+			if (tmp_rp_info->plist &&
+			    prefix_same(&rp_info->rp.rpf_addr,
+					&tmp_rp_info->rp.rpf_addr)) {
 				pim_rp_del_config(pim, rp_addr, NULL,
 						  tmp_rp_info->plist);
 			}
@@ -516,10 +513,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix g
 			XFREE(MTYPE_PIM_RP, rp_info);
 
 			/* Register addr with Zebra NHT */
-			nht_p.family = AF_INET;
-			nht_p.prefixlen = IPV4_MAX_BITLEN;
-			nht_p.u.prefix4 =
-				rp_all->rp.rpf_addr.u.prefix4; // RP address
+			nht_p = rp_all->rp.rpf_addr;
 			if (PIM_DEBUG_PIM_NHT_RP)
 				zlog_debug(
 					"%s: NHT Register rp_all addr %pFX grp %pFX ",
@@ -640,9 +634,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix g
 	pim_rp_refresh_group_to_rp_mapping(pim);
 
 	/* Register addr with Zebra NHT */
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+	nht_p = rp_info->rp.rpf_addr;
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: NHT Register RP addr %pFX grp %pFX with Zebra ",
 			   __func__, &nht_p, &rp_info->group);
