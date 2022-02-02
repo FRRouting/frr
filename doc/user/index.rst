@@ -54,6 +54,7 @@ Protocols
    ospf6d
    pathd
    pim
+   pimv6
    pbr
    ripd
    ripngd
