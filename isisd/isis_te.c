@@ -756,6 +756,7 @@ static int lsp_to_edge_cb(const uint8_t *id, uint32_t metric, bool old_metric,
 		return LSP_ITER_CONTINUE;
 
 	attr->metric = metric;
+	SET_FLAG(attr->flags, LS_ATTR_METRIC);
 
 	/* Get corresponding Edge from Link State Data Base */
 	edge = get_edge(args->ted, attr);
