@@ -122,6 +122,14 @@ static inline uint32_t pim_sgaddr_hash(const pim_sgaddr a, uint32_t initval)
 	return jhash2((uint32_t *)&a, sizeof(a) / sizeof(uint32_t), initval);
 }
 
+static inline void pim_addr_from_ipaddr(pim_addr *ret, struct ipaddr ip)
+{
+	if (IS_IPADDR_V4(&ip))
+		memcpy(ret, &ip.ipaddr_v4, sizeof(*ret));
+	else if (IS_IPADDR_V6(&ip))
+		memcpy(ret, &ip.ipaddr_v6, sizeof(*ret));
+}
+
 #ifdef _FRR_ATTRIBUTE_PRINTFRR
 #pragma FRR printfrr_ext "%pPA" (pim_addr *)
 #pragma FRR printfrr_ext "%pSG" (pim_sgaddr *)
