@@ -778,7 +778,7 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 {
 	struct json_object *json;
 	struct json_object *json_misc = NULL;
-	int i = 0;
+	uint32_t i;
 	char buff[11];
 	struct json_object *json_temp;
 	int ret = 1;
@@ -789,7 +789,7 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 	if (!json_input)
 		return -1;
 
-	do {
+	for (i = 0; i < UINT32_MAX; i++) {
 		json = NULL;
 		snprintf(buff, sizeof(buff), "%d", i);
 		json_object_object_get_ex(json_input, buff, &json);
@@ -802,8 +802,7 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 				   match))
 				break;
 		}
-		i++;
-	} while (1);
+	}
 
 	if (json_object_object_get_ex(json, "pkts", &json_temp))
 		zebra_wrap_script_convert_stat(
