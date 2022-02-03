@@ -324,10 +324,9 @@ static void pim_on_g2rp_timer(struct thread *t)
 	if (rp_info->rp_src != RP_SRC_STATIC) {
 		/* If new rp available, change it else delete the existing */
 		if (bsrp) {
-			bsrp_addr = bsrp->rp_address;
 			pim_g2rp_timer_start(
 				bsrp, (bsrp->rp_holdtime - bsrp->elapse_time));
-			pim_rp_change(pim, bsrp_addr, bsgrp_node->group,
+			pim_rp_change(pim, bsrp->rp_address, bsgrp_node->group,
 				      RP_SRC_BSR);
 		} else {
 			pim_rp_del(pim, bsrp_addr, bsgrp_node->group, NULL,

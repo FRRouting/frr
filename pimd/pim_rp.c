@@ -592,8 +592,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 					}
 
 					result = pim_rp_change(
-						pim,
-						rp_info->rp.rpf_addr.u.prefix4,
+						pim, rp_addr,
 						tmp_rp_info->group,
 						rp_src_flag);
 					XFREE(MTYPE_PIM_RP, rp_info);
@@ -839,7 +838,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	return PIM_SUCCESS;
 }
 
-int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
+int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 		  struct prefix group, enum rp_source rp_src_flag)
 {
 	struct prefix nht_p;
@@ -848,6 +847,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	struct rp_info *rp_info = NULL;
 	struct pim_upstream *up;
 	bool upstream_updated = false;
+	pim_addr old_rp_addr;
 
 	rn = route_node_lookup(pim->rp_table, &group);
 	if (!rn) {
@@ -863,7 +863,8 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		return result;
 	}
 
-	if (rp_info->rp.rpf_addr.u.prefix4.s_addr == new_rp_addr.s_addr) {
+	old_rp_addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+	if (!pim_addr_cmp(new_rp_addr, old_rp_addr)) {
 		if (rp_info->rp_src != rp_src_flag) {
 			rp_info->rp_src = rp_src_flag;
 			route_unlock_node(rn);
@@ -871,12 +872,13 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		}
 	}
 
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
+	nht_p.family = PIM_AF;
+	nht_p.prefixlen = PIM_MAX_BITLEN;
 
 	/* Deregister old RP addr with Zebra NHT */
-	if (rp_info->rp.rpf_addr.u.prefix4.s_addr != INADDR_ANY) {
-		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+
+	if (!pim_addr_is_any(old_rp_addr)) {
+		nht_p = rp_info->rp.rpf_addr;
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Deregister RP addr %pFX with Zebra ",
 				   __func__, &nht_p);
@@ -886,7 +888,8 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	pim_rp_nexthop_del(rp_info);
 	listnode_delete(pim->rp_list, rp_info);
 	/* Update the new RP address*/
-	rp_info->rp.rpf_addr.u.prefix4 = new_rp_addr;
+
+	pim_addr_to_prefix(&rp_info->rp.rpf_addr, new_rp_addr);
 	rp_info->rp_src = rp_src_flag;
 	rp_info->i_am_rp = 0;
 
@@ -911,7 +914,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		pim_zebra_update_all_interfaces(pim);
 
 	/* Register new RP addr with Zebra NHT */
-	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+	nht_p = rp_info->rp.rpf_addr;
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: NHT Register RP addr %pFX grp %pFX with Zebra ",
 			   __func__, &nht_p, &rp_info->group);
