@@ -54,7 +54,7 @@ void pim_rp_del_config(struct pim_instance *pim, pim_addr rp_addr,
 int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	       struct prefix group, const char *plist,
 	       enum rp_source rp_src_flag);
-int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
+int pim_rp_change(struct pim_instance *pim, pim_addr new_rp_addr,
 		  struct prefix group, enum rp_source rp_src_flag);
 void pim_rp_prefix_list_update(struct pim_instance *pim,
 			       struct prefix_list *plist);
