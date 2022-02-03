@@ -6,14 +6,15 @@
 netns=$(ip netns identify $$)
 if [ "$netns" == "" ]
 then
+	netns_id=0
+else
 	if command -v vrfctl >/dev/null 2>&1
 	then
 		netns_id=$(vrfctl list vrfname $netns | awk -F'vrf| |\t' '{print $2}')
 	else
 		echo Cannot get Netns ID: vrfctl not found. >&2
+		exit 1
 	fi
-else
-	netns_id=0
 fi
 
 if [ $# -eq 2 ]
