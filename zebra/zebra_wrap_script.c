@@ -777,7 +777,7 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 				      uint64_t *pkts, uint64_t *bytes)
 {
 	struct json_object *json;
-	struct json_object *json_misc = NULL;
+	struct json_object *json_misc;
 	uint32_t i;
 	char buff[11];
 	struct json_object *json_temp;
@@ -790,32 +790,31 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 		return -1;
 
 	for (i = 0; i < UINT32_MAX; i++) {
-		json = NULL;
 		snprintf(buff, sizeof(buff), "%d", i);
-		json_object_object_get_ex(json_input, buff, &json);
-		if (!json)
+
+		if (!json_object_object_get_ex(json_input, buff, &json))
 			return -1;
-		if (json_object_object_get_ex(json, pattern, &json_misc)) {
-			/* get misc string */
-			if (json_object_get_string(json_misc) &&
-			    strstr(json_object_get_string(json_misc),
-				   match))
-				break;
-		}
+
+		if (!json_object_object_get_ex(json, pattern, &json_misc) ||
+				!json_object_get_string(json_misc) ||
+				!strstr(json_object_get_string(json_misc), match))
+			continue;
+
+		if (json_object_object_get_ex(json, "pkts", &json_temp))
+			zebra_wrap_script_convert_stat(
+				       json_object_get_string(json_temp),
+				       pkts, 1000);
+		else
+			ret = -1;
+		if (json_object_object_get_ex(json, "bytes", &json_temp))
+			zebra_wrap_script_convert_stat(
+				       json_object_get_string(json_temp),
+				       bytes, 1024);
+		else
+			ret = -1;
+		return ret;
 	}
 
-	if (json_object_object_get_ex(json, "pkts", &json_temp))
-		zebra_wrap_script_convert_stat(
-			       json_object_get_string(json_temp),
-			       pkts, 1000);
-	else
-		ret = -1;
-	if (json_object_object_get_ex(json, "bytes", &json_temp))
-		zebra_wrap_script_convert_stat(
-			       json_object_get_string(json_temp),
-			       bytes, 1024);
-	else
-		ret = -1;
 	return ret;
 }
 
