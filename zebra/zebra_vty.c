@@ -33,6 +33,7 @@
 #include "routemap.h"
 #include "srcdest_table.h"
 #include "vxlan.h"
+#include "termtable.h"
 
 #include "zebra/zebra_router.h"
 #include "zebra/zserv.h"
@@ -3970,41 +3971,43 @@ DEFUN (show_zebra,
        ZEBRA_STR)
 {
 	struct vrf *vrf;
+	struct ttable *table = ttable_new(&ttable_styles[TTSTYLE_BLANK]);
+	char *out;
 
-	vty_out(vty, "OS: %s(%s)\n", cmd_system_get(), cmd_release_get());
-	vty_out(vty, "ip forwarding is %sturned on\n",
-		ipforward() ? "" : "not ");
-	vty_out(vty, "ipv6 fowarding is %sturned on\n",
-		ipforward_ipv6() ? "" : "not ");
+	ttable_rowseps(table, 0, BOTTOM, true, '-');
+	ttable_add_row(table, "OS|%s(%s)", cmd_system_get(), cmd_release_get());
+	ttable_add_row(table, "v4 Forwarding|%s", ipforward() ? "On" : "Off");
+	ttable_add_row(table, "v6 Forwarding|%s",
+		       ipforward_ipv6() ? "On" : "Off");
+	ttable_add_row(table, "MPLS|%s", mpls_enabled ? "On" : "Off");
+	ttable_add_row(table, "EVPN|%s", is_evpn_enabled() ? "On" : "Off");
 
-	vty_out(vty, "MPLS is %senabled\n", mpls_enabled ? "" : "not ");
-
-	vty_out(vty, "EVPN is %senabled\n", is_evpn_enabled() ? "" : "not ");
 
 #ifdef GNU_LINUX
 	if (!vrf_is_backend_netns())
-		vty_out(vty, "VRF devices are available for usage\n");
+		ttable_add_row(table, "VRF|l3mdev Available");
 	else
-		vty_out(vty, "Namespaces are being used as VRF devices\n");
+		ttable_add_row(table, "VRF|Namespaces");
 #else
-	vty_out(vty, "No VRF's available on this platform\n");
+	ttable_add_row(table, "VRF|Not Available");
 #endif
 
-	if (zrouter.asic_offloaded)
-		vty_out(vty, "Asic Offload is being used\n");
-	else
-		vty_out(vty, "Asic offload is not being used\n");
+	ttable_add_row(table, "ASIC offload|%s",
+		       zrouter.asic_offloaded ? "Used" : "Unavailable");
 
-	if (rtadv_compiled_in()) {
-		vty_out(vty, "Router Advertisements are compiled with FRR\n");
-		if (rtadv_get_interfaces_configured_from_bgp())
-			vty_out(vty, "RFC 5549 is being used by BGP\n");
-	} else
-		vty_out(vty,
-			"Router Advertisements are not compiled with FRR\n");
+	ttable_add_row(table, "RA|%s",
+		       rtadv_compiled_in() ? "Compiled in" : "Not Compiled in");
+	ttable_add_row(table, "RFC 5549|%s",
+		       rtadv_get_interfaces_configured_from_bgp()
+			       ? "BGP is using"
+			       : "BGP is not using");
 
-	vty_out(vty, "Kernel %ssupport Nexthop Groups\n",
-		zrouter.supports_nhgs ? "does " : "does not ");
+	ttable_add_row(table, "Kernel NHG|%s",
+		       zrouter.supports_nhgs ? "Available" : "Unavailable");
+
+	out = ttable_dump(table, "\n");
+	vty_out(vty, "%s\n", out);
+	XFREE(MTYPE_TMP, out);
 
 	vty_out(vty,
 		"                            Route      Route      Neighbor   LSP        LSP\n");
