@@ -61,6 +61,7 @@
 #include "zebra/kernel_netlink.h"
 #include "zebra/table_manager.h"
 #include "zebra/zebra_script.h"
+#include "zebra/rtadv.h"
 
 extern int allow_delete;
 
@@ -3993,6 +3994,14 @@ DEFUN (show_zebra,
 		vty_out(vty, "Asic Offload is being used\n");
 	else
 		vty_out(vty, "Asic offload is not being used\n");
+
+	if (rtadv_compiled_in()) {
+		vty_out(vty, "Router Advertisements are compiled with FRR\n");
+		if (rtadv_get_interfaces_configured_from_bgp())
+			vty_out(vty, "RFC 5549 is being used by BGP\n");
+	} else
+		vty_out(vty,
+			"Router Advertisements are not compiled with FRR\n");
 
 	vty_out(vty, "Kernel %ssupport Nexthop Groups\n",
 		zrouter.supports_nhgs ? "does " : "does not ");
