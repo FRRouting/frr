@@ -772,43 +772,44 @@ static void zebra_wrap_script_convert_stat(const char *from, uint64_t *to,
 }
 
 static int zebra_wrap_script_get_stat(struct json_object *json_input,
-				      const char *pattern,
+				      const char *key,
 				      const char *match,
 				      uint64_t *pkts, uint64_t *bytes)
 {
-	struct json_object *json;
-	struct json_object *json_misc;
-	uint32_t i;
-	char buff[11];
-	struct json_object *json_temp;
+	struct json_object *json_line, *json_val, *json_pkts, *json_bytes;
+	char idx_str[11];
+	uint32_t idx;
 	int ret = 1;
 
 	if (zebra_wrap_debug & SCRIPT_DEBUG)
 		zlog_debug("SCRIPT : get_stat pattern %s match %s",
-			   pattern, match);
+			   key, match);
 	if (!json_input)
 		return -1;
 
-	for (i = 0; i < UINT32_MAX; i++) {
-		snprintf(buff, sizeof(buff), "%d", i);
+	for (idx = 0; idx < UINT32_MAX; idx++) {
+		snprintf(idx_str, sizeof(idx_str), "%d", idx);
 
-		if (!json_object_object_get_ex(json_input, buff, &json))
+		if (!json_object_object_get_ex(json_input, idx_str, &json_line))
+			/* reach the end of json indexed lines */
 			return -1;
 
-		if (!json_object_object_get_ex(json, pattern, &json_misc) ||
-				!json_object_get_string(json_misc) ||
-				!strstr(json_object_get_string(json_misc), match))
+		/* check that key exists in json_line
+		 * and its value matches match string */
+		if (!json_object_object_get_ex(json_line, key, &json_val) ||
+				!json_object_get_string(json_val) ||
+				!strstr(json_object_get_string(json_val), match))
 			continue;
 
-		if (json_object_object_get_ex(json, "pkts", &json_temp))
+		if (json_object_object_get_ex(json_line, "pkts", &json_pkts))
 			zebra_wrap_script_convert_stat(
-				       json_object_get_string(json_temp),
+				       json_object_get_string(json_pkts),
 				       pkts, 1000);
 		else
 			ret = -1;
-		if (json_object_object_get_ex(json, "bytes", &json_temp))
+		if (json_object_object_get_ex(json_line, "bytes", &json_bytes))
 			zebra_wrap_script_convert_stat(
-				       json_object_get_string(json_temp),
+				       json_object_get_string(json_bytes),
 				       bytes, 1024);
 		else
 			ret = -1;
