@@ -800,8 +800,8 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 	 */
 
 
-	attr.ecommunity = ecommunity_new();
-	assert(attr.ecommunity);
+	bgp_attr_set_ecommunity(&attr, ecommunity_new());
+	assert(bgp_attr_get_ecommunity(&attr));
 
 	if (TunnelType != BGP_ENCAP_TYPE_MPLS
 	    && TunnelType != BGP_ENCAP_TYPE_RESERVED) {
@@ -817,25 +817,28 @@ void add_vnc_route(struct rfapi_descriptor *rfd, /* cookie, VPN UN addr, peer */
 		beec.val[1] = ECOMMUNITY_OPAQUE_SUBTYPE_ENCAP;
 		beec.val[6] = ((TunnelType) >> 8) & 0xff;
 		beec.val[7] = (TunnelType)&0xff;
-		ecommunity_add_val(attr.ecommunity, &beec, false, false);
+		ecommunity_add_val(bgp_attr_get_ecommunity(&attr), &beec, false,
+				   false);
 	}
 
 	/*
 	 * Add extended community attributes to match rt export list
 	 */
 	if (rt_export_list) {
-		attr.ecommunity =
-			ecommunity_merge(attr.ecommunity, rt_export_list);
+		bgp_attr_set_ecommunity(
+			&attr, ecommunity_merge(bgp_attr_get_ecommunity(&attr),
+						rt_export_list));
 	}
 
-	if (attr.ecommunity->size) {
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(&attr);
+
+	if (ecomm->size) {
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 	} else {
-		ecommunity_free(&attr.ecommunity);
-		attr.ecommunity = NULL;
+		ecommunity_free(&ecomm);
+		bgp_attr_set_ecommunity(&attr, NULL);
 	}
-	vnc_zlog_debug_verbose("%s: attr.ecommunity=%p", __func__,
-			       attr.ecommunity);
+	vnc_zlog_debug_verbose("%s: attr.ecommunity=%p", __func__, ecomm);
 
 
 	/*

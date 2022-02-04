@@ -515,6 +515,18 @@ static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 }
 
 static inline struct ecommunity *
+bgp_attr_get_ecommunity(const struct attr *attr)
+{
+	return attr->ecommunity;
+}
+
+static inline void bgp_attr_set_ecommunity(struct attr *attr,
+					   struct ecommunity *ecomm)
+{
+	attr->ecommunity = ecomm;
+}
+
+static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
 	if (attr->extra)

@@ -47,15 +47,16 @@ bool bgp_route_evpn_same(const struct bgp_route_evpn *e1,
 void bgp_add_routermac_ecom(struct attr *attr, struct ethaddr *routermac)
 {
 	struct ecommunity_val routermac_ecom;
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
 	memset(&routermac_ecom, 0, sizeof(struct ecommunity_val));
 	routermac_ecom.val[0] = ECOMMUNITY_ENCODE_EVPN;
 	routermac_ecom.val[1] = ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC;
 	memcpy(&routermac_ecom.val[2], routermac->octet, ETH_ALEN);
-	if (!attr->ecommunity)
-		attr->ecommunity = ecommunity_new();
-	ecommunity_add_val(attr->ecommunity, &routermac_ecom, false, false);
-	ecommunity_str(attr->ecommunity);
+	if (!ecomm)
+		bgp_attr_set_ecommunity(attr, ecommunity_new());
+	ecommunity_add_val(ecomm, &routermac_ecom, false, false);
+	ecommunity_str(ecomm);
 }
 
 /* converts to an esi
@@ -100,7 +101,7 @@ bool bgp_attr_rmac(struct attr *attr, struct ethaddr *rmac)
 	uint32_t i = 0;
 	struct ecommunity *ecom;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return false;
 
@@ -132,7 +133,7 @@ uint8_t bgp_attr_default_gw(struct attr *attr)
 	struct ecommunity *ecom;
 	uint32_t i;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -165,7 +166,7 @@ uint16_t bgp_attr_df_pref_from_ec(struct attr *attr, uint8_t *alg)
 	uint16_t df_pref = 0;
 
 	*alg = EVPN_MH_DF_ALG_SERVICE_CARVING;
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -201,7 +202,7 @@ uint32_t bgp_attr_mac_mobility_seqnum(struct attr *attr, uint8_t *sticky)
 	uint32_t i;
 	uint8_t flags = 0;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -248,7 +249,7 @@ void bgp_attr_evpn_na_flag(struct attr *attr,
 	uint32_t i;
 	uint8_t val;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return;
 

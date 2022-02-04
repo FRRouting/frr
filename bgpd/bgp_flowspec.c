@@ -170,9 +170,10 @@ int bgp_nlri_parse_flowspec(struct peer *peer, struct attr *attr,
 					       afi);
 			snprintf(ec_string, sizeof(ec_string),
 				 "EC{none}");
-			if (attr && attr->ecommunity) {
-				s = ecommunity_ecom2str(attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+			if (attr && bgp_attr_get_ecommunity(attr)) {
+				s = ecommunity_ecom2str(
+					bgp_attr_get_ecommunity(attr),
+					ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 				snprintf(ec_string, sizeof(ec_string),
 					 "EC{%s}",
 					s == NULL ? "none" : s);

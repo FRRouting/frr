@@ -373,8 +373,8 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 	 */
 	rfapiUnicastNexthop2Prefix(afi, &hattr, unicast_nexthop);
 
-	if (hattr.ecommunity)
-		*ecom = ecommunity_dup(hattr.ecommunity);
+	if (bgp_attr_get_ecommunity(&hattr))
+		*ecom = ecommunity_dup(bgp_attr_get_ecommunity(&hattr));
 	else
 		*ecom = ecommunity_new();
 
@@ -480,8 +480,8 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 
 	struct ecommunity *new_ecom = ecommunity_dup(ecom);
 
-	if (bpi->attr->ecommunity)
-		ecommunity_merge(new_ecom, bpi->attr->ecommunity);
+	if (bgp_attr_get_ecommunity(bpi->attr))
+		ecommunity_merge(new_ecom, bgp_attr_get_ecommunity(bpi->attr));
 
 	if (bpi->extra)
 		label = decode_label(&bpi->extra->label[0]);
@@ -818,8 +818,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 		memset(&prd, 0, sizeof(prd));
 		rfapi_set_autord_from_vn(&prd, &vnaddr);
 
-		if (iattr && iattr->ecommunity)
-			ecom = ecommunity_dup(iattr->ecommunity);
+		if (iattr && bgp_attr_get_ecommunity(iattr))
+			ecom = ecommunity_dup(bgp_attr_get_ecommunity(iattr));
 	}
 
 	local_pref = calc_local_pref(iattr, peer);
@@ -1015,8 +1015,9 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 		else
 			ecom = ecommunity_new();
 
-		if (iattr && iattr->ecommunity)
-			ecom = ecommunity_merge(ecom, iattr->ecommunity);
+		if (iattr && bgp_attr_get_ecommunity(iattr))
+			ecom = ecommunity_merge(ecom,
+						bgp_attr_get_ecommunity(iattr));
 	}
 
 	local_pref = calc_local_pref(iattr, peer);

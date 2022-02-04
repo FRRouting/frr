@@ -684,8 +684,8 @@ unsigned int attrhash_key_make(const void *p)
 
 	if (attr->lcommunity)
 		MIX(lcommunity_hash_make(attr->lcommunity));
-	if (attr->ecommunity)
-		MIX(ecommunity_hash_make(attr->ecommunity));
+	if (bgp_attr_get_ecommunity(attr))
+		MIX(ecommunity_hash_make(bgp_attr_get_ecommunity(attr)));
 	if (bgp_attr_get_ipv6_ecommunity(attr))
 		MIX(ecommunity_hash_make(bgp_attr_get_ipv6_ecommunity(attr)));
 	if (bgp_attr_get_cluster(attr))
@@ -733,7 +733,8 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->tag == attr2->tag
 		    && attr1->label_index == attr2->label_index
 		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
-		    && attr1->ecommunity == attr2->ecommunity
+		    && bgp_attr_get_ecommunity(attr1)
+			       == bgp_attr_get_ecommunity(attr2)
 		    && bgp_attr_get_ipv6_ecommunity(attr1)
 			       == bgp_attr_get_ipv6_ecommunity(attr2)
 		    && attr1->lcommunity == attr2->lcommunity
@@ -850,7 +851,8 @@ static void *bgp_attr_hash_alloc(void *p)
 struct attr *bgp_attr_intern(struct attr *attr)
 {
 	struct attr *find;
-	struct ecommunity *ecomm;
+	struct ecommunity *ecomm = NULL;
+	struct ecommunity *ipv6_ecomm = NULL;
 
 	/* Intern referenced strucutre. */
 	if (attr->aspath) {
@@ -866,20 +868,21 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			attr->community->refcnt++;
 	}
 
-	if (attr->ecommunity) {
-		if (!attr->ecommunity->refcnt)
-			attr->ecommunity = ecommunity_intern(attr->ecommunity);
-		else
-			attr->ecommunity->refcnt++;
-	}
-
-	ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecomm = bgp_attr_get_ecommunity(attr);
 	if (ecomm) {
 		if (!ecomm->refcnt)
-			bgp_attr_set_ipv6_ecommunity(attr,
-						     ecommunity_intern(ecomm));
+			bgp_attr_set_ecommunity(attr, ecommunity_intern(ecomm));
 		else
 			ecomm->refcnt++;
+	}
+
+	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	if (ipv6_ecomm) {
+		if (!ipv6_ecomm->refcnt)
+			bgp_attr_set_ipv6_ecommunity(
+				attr, ecommunity_intern(ipv6_ecomm));
+		else
+			ipv6_ecomm->refcnt++;
 	}
 
 	if (attr->lcommunity) {
@@ -1013,7 +1016,7 @@ struct attr *bgp_attr_aggregate_intern(
 	}
 
 	if (ecommunity) {
-		attr.ecommunity = ecommunity;
+		bgp_attr_set_ecommunity(&attr, ecommunity);
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 	}
 
@@ -1085,7 +1088,8 @@ struct attr *bgp_attr_aggregate_intern(
 /* Unintern just the sub-components of the attr, but not the attr */
 void bgp_attr_unintern_sub(struct attr *attr)
 {
-	struct ecommunity *ecomm;
+	struct ecommunity *ecomm = NULL;
+	struct ecommunity *ipv6_ecomm = NULL;
 	struct cluster_list *cluster;
 
 	/* aspath refcount shoud be decrement. */
@@ -1097,11 +1101,13 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		community_unintern(&attr->community);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 
-	ecommunity_unintern(&attr->ecommunity);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
-
-	ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecomm = bgp_attr_get_ecommunity(attr);
 	ecommunity_unintern(&ecomm);
+	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+	bgp_attr_set_ecommunity(attr, NULL);
+
+	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecommunity_unintern(&ipv6_ecomm);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
 
@@ -1155,14 +1161,16 @@ void bgp_attr_unintern_sub(struct attr *attr)
  */
 void bgp_attr_undup(struct attr *new, struct attr *old)
 {
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(new);
+
 	if (new->aspath != old->aspath)
 		aspath_free(new->aspath);
 
 	if (new->community != old->community)
 		community_free(&new->community);
 
-	if (new->ecommunity != old->ecommunity)
-		ecommunity_free(&new->ecommunity);
+	if (ecomm != bgp_attr_get_ecommunity(old))
+		ecommunity_free(&ecomm);
 
 	if (new->lcommunity != old->lcommunity)
 		lcommunity_free(&new->lcommunity);
@@ -1205,6 +1213,7 @@ void bgp_attr_unintern(struct attr **pattr)
 void bgp_attr_flush(struct attr *attr)
 {
 	struct ecommunity *ecomm;
+	struct ecommunity *ipv6_ecomm;
 	struct cluster_list *cluster;
 
 	if (attr->aspath && !attr->aspath->refcnt) {
@@ -1213,11 +1222,13 @@ void bgp_attr_flush(struct attr *attr)
 	}
 	if (attr->community && !attr->community->refcnt)
 		community_free(&attr->community);
-	if (attr->ecommunity && !attr->ecommunity->refcnt)
-		ecommunity_free(&attr->ecommunity);
-	ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecomm = bgp_attr_get_ecommunity(attr);
 	if (ecomm && !ecomm->refcnt)
 		ecommunity_free(&ecomm);
+	bgp_attr_set_ecommunity(attr, NULL);
+	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	if (ipv6_ecomm && !ipv6_ecomm->refcnt)
+		ecommunity_free(&ipv6_ecomm);
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
 	if (attr->lcommunity && !attr->lcommunity->refcnt)
 		lcommunity_free(&attr->lcommunity);
@@ -2325,25 +2336,27 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 	uint8_t sticky = 0;
 	bool proxy = false;
+	struct ecommunity *ecomm;
 
 	if (length == 0) {
-		attr->ecommunity = NULL;
+		bgp_attr_set_ecommunity(attr, NULL);
 		/* Empty extcomm doesn't seem to be invalid per se */
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
 
-	attr->ecommunity = ecommunity_parse(
+	ecomm = ecommunity_parse(
 		stream_pnt(peer->curr), length,
 		CHECK_FLAG(peer->flags,
 			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+	bgp_attr_set_ecommunity(attr, ecomm);
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 
 	/* The Extended Community attribute SHALL be considered malformed if
 	 * its length is not a non-zero multiple of 8.
 	 */
-	if (!attr->ecommunity)
+	if (!bgp_attr_get_ecommunity(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
@@ -2384,7 +2397,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		(bgp_encap_types *)&attr->encap_tunneltype);
 
 	/* Extract link bandwidth, if any. */
-	(void)ecommunity_linkbw_present(attr->ecommunity, &attr->link_bw);
+	(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr),
+					&attr->link_bw);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -3584,7 +3598,7 @@ void bgp_attr_extcom_tunnel_type(struct attr *attr,
 	if (!attr)
 		return;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return;
 
@@ -4185,32 +4199,33 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Extended Communities attribute. */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+
 		if (peer->sort == BGP_PEER_IBGP
 		    || peer->sort == BGP_PEER_CONFED) {
-			if (attr->ecommunity->size * 8 > 255) {
+			if (ecomm->size * 8 > 255) {
 				stream_putc(s,
 					    BGP_ATTR_FLAG_OPTIONAL
 						    | BGP_ATTR_FLAG_TRANS
 						    | BGP_ATTR_FLAG_EXTLEN);
 				stream_putc(s, BGP_ATTR_EXT_COMMUNITIES);
-				stream_putw(s, attr->ecommunity->size * 8);
+				stream_putw(s, ecomm->size * 8);
 			} else {
 				stream_putc(s,
 					    BGP_ATTR_FLAG_OPTIONAL
 						    | BGP_ATTR_FLAG_TRANS);
 				stream_putc(s, BGP_ATTR_EXT_COMMUNITIES);
-				stream_putc(s, attr->ecommunity->size * 8);
+				stream_putc(s, ecomm->size * 8);
 			}
-			stream_put(s, attr->ecommunity->val,
-				   attr->ecommunity->size * 8);
+			stream_put(s, ecomm->val, ecomm->size * 8);
 		} else {
 			uint8_t *pnt;
 			int tbit;
 			int ecom_tr_size = 0;
 			uint32_t i;
 
-			for (i = 0; i < attr->ecommunity->size; i++) {
-				pnt = attr->ecommunity->val + (i * 8);
+			for (i = 0; i < ecomm->size; i++) {
+				pnt = ecomm->val + (i * 8);
 				tbit = *pnt;
 
 				if (CHECK_FLAG(tbit,
@@ -4240,8 +4255,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 					stream_putc(s, ecom_tr_size * 8);
 				}
 
-				for (i = 0; i < attr->ecommunity->size; i++) {
-					pnt = attr->ecommunity->val + (i * 8);
+				for (i = 0; i < ecomm->size; i++) {
+					pnt = ecomm->val + (i * 8);
 					tbit = *pnt;
 
 					if (CHECK_FLAG(
