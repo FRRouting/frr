@@ -782,6 +782,9 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 	uint32_t idx;
 	int found = 0;
 
+	*pkts = 0;
+	*bytes = 0;
+
 	if (zebra_wrap_debug & SCRIPT_DEBUG)
 		zlog_debug("SCRIPT : get_stat pattern %s match %s",
 			   key, match);
