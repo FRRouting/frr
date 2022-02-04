@@ -761,11 +761,11 @@ static void zebra_wrap_script_convert_stat(const char *from, uint64_t *to,
 	*to = strtoull(buff_tmp, &ptr_check, 10);
 	if (ptr_check) {
 		if (*ptr_check == 'K')
-			*to *= 1000;
+			*to *= multiplier;
 		else if (*ptr_check == 'M')
-			*to *= 1000000;
+			*to *= multiplier * multiplier;
 		else if (*ptr_check == 'G')
-			*to *= 1000000000;
+			*to *= multiplier * multiplier * multiplier;
 		else if (*ptr_check != '\0')
 			*to = 0;
 	}
