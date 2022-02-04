@@ -1155,7 +1155,9 @@ zebra Terminal Mode Commands
 .. clicmd:: show zebra
 
    Display various statistics related to the installation and deletion
-   of routes, neighbor updates, and LSP's into the kernel.
+   of routes, neighbor updates, and LSP's into the kernel.  In addition
+   show various zebra state that is useful when debugging an operator's
+   setup.
 
 .. clicmd:: show zebra client [summary]
 
