@@ -259,6 +259,14 @@ void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr addr)
 	struct pim_nexthop_cache *pnc = NULL;
 	struct pim_nexthop_cache lookup;
 
+	/*
+	 * Nothing to do here if the address to unregister
+	 * is 0.0.0.0 as that the BSR has not been registered
+	 * for tracking yet.
+	 */
+	if (addr.s_addr == INADDR_ANY)
+		return;
+
 	lookup.rpf.rpf_addr.family = AF_INET;
 	lookup.rpf.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
 	lookup.rpf.rpf_addr.u.prefix4 = addr;
