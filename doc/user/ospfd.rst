@@ -337,14 +337,18 @@ Areas
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
    network (i.e. described with router or network LSA) from this range.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
+.. clicmd:: area A.B.C.D range A.B.C.D/M not-advertise
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M not-advertise
 
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
+.. clicmd:: area A.B.C.D range A.B.C.D/M substitute A.B.C.D/M
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M substitute A.B.C.D/M
 
 
    Substitute summarized prefix with another prefix.
