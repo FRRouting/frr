@@ -1510,9 +1510,7 @@ DEFPY (show_yang_operational_data,
 	(void)lyd_validate_all(&dnode, ly_ctx, 0, NULL);
 
 	/* Display the data. */
-	if (lyd_print_mem(&strp, dnode, format,
-			  LYD_PRINT_WITHSIBLINGS | LYD_PRINT_WD_ALL)
-		    != 0
+	if (lyd_print_mem(&strp, dnode, format, LYD_PRINT_WITHSIBLINGS) != 0
 	    || !strp) {
 		vty_out(vty, "%% Failed to display operational data.\n");
 		yang_dnode_free(dnode);
