@@ -777,9 +777,10 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 				      uint64_t *pkts, uint64_t *bytes)
 {
 	struct json_object *json_line, *json_val, *json_pkts, *json_bytes;
+	uint64_t tmp_pkts = 0, tmp_bytes = 0;
 	char idx_str[11];
 	uint32_t idx;
-	int ret = 1;
+	int found = 0;
 
 	if (zebra_wrap_debug & SCRIPT_DEBUG)
 		zlog_debug("SCRIPT : get_stat pattern %s match %s",
@@ -792,7 +793,7 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 
 		if (!json_object_object_get_ex(json_input, idx_str, &json_line))
 			/* reach the end of json indexed lines */
-			return -1;
+			return found ? 1 : -1;
 
 		/* check that key exists in json_line
 		 * and its value matches match string */
@@ -801,22 +802,25 @@ static int zebra_wrap_script_get_stat(struct json_object *json_input,
 				!strstr(json_object_get_string(json_val), match))
 			continue;
 
-		if (json_object_object_get_ex(json_line, "pkts", &json_pkts))
+		if (json_object_object_get_ex(json_line, "pkts", &json_pkts)) {
 			zebra_wrap_script_convert_stat(
 				       json_object_get_string(json_pkts),
-				       pkts, 1000);
-		else
-			ret = -1;
-		if (json_object_object_get_ex(json_line, "bytes", &json_bytes))
+				       &tmp_pkts, 1000);
+			*pkts += tmp_pkts;
+		} else
+			return -1;
+
+		if (json_object_object_get_ex(json_line, "bytes", &json_bytes)) {
 			zebra_wrap_script_convert_stat(
 				       json_object_get_string(json_bytes),
-				       bytes, 1024);
-		else
-			ret = -1;
-		return ret;
+				       &tmp_bytes, 1024);
+			*bytes += tmp_bytes;
+		} else
+			return -1;
+		found = 1;
 	}
 
-	return ret;
+	return -1;
 }
 
 static int zebra_wrap_script_ipset_entry_get_stat(
