@@ -1292,10 +1292,11 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 
 		memcpy(&vo->v.l2addr.macaddr, &p->u.prefix_eth.octet, ETH_ALEN);
 		/* only low 3 bytes of this are significant */
-		(void)rfapiEcommunityGetLNI(bpi->attr->ecommunity,
+		(void)rfapiEcommunityGetLNI(bgp_attr_get_ecommunity(bpi->attr),
 					    &vo->v.l2addr.logical_net_id);
-		(void)rfapiEcommunityGetEthernetTag(bpi->attr->ecommunity,
-						    &vo->v.l2addr.tag_id);
+		(void)rfapiEcommunityGetEthernetTag(
+			bgp_attr_get_ecommunity(bpi->attr),
+			&vo->v.l2addr.tag_id);
 
 		/* local_nve_id comes from lower byte of RD type */
 		vo->v.l2addr.local_nve_id = bpi->extra->vnc.import.rd.val[1];
@@ -2946,7 +2947,7 @@ static void rfapiBgpInfoFilteredImportEncap(
 		 * On a withdraw, peer and RD are sufficient to determine if
 		 * we should act.
 		 */
-		if (!attr || !attr->ecommunity) {
+		if (!attr || !bgp_attr_get_ecommunity(attr)) {
 
 			vnc_zlog_debug_verbose(
 				"%s: attr, extra, or ecommunity missing, not importing",
@@ -2954,15 +2955,17 @@ static void rfapiBgpInfoFilteredImportEncap(
 			return;
 		}
 #ifdef RFAPI_REQUIRE_ENCAP_BEEC
-		if (!rfapiEcommunitiesMatchBeec(attr->ecommunity)) {
+		if (!rfapiEcommunitiesMatchBeec(
+			    bgp_attr_get_ecommunity(attr))) {
 			vnc_zlog_debug_verbose(
 				"%s: it=%p: no match for BGP Encapsulation ecommunity",
 				__func__, import_table);
 			return;
 		}
 #endif
-		if (!rfapiEcommunitiesIntersect(import_table->rt_import_list,
-						attr->ecommunity)) {
+		if (!rfapiEcommunitiesIntersect(
+			    import_table->rt_import_list,
+			    bgp_attr_get_ecommunity(attr))) {
 
 			vnc_zlog_debug_verbose(
 				"%s: it=%p: no ecommunity intersection",
@@ -3407,16 +3410,17 @@ void rfapiBgpInfoFilteredImportVPN(
 	 * we should act.
 	 */
 	if (action == FIF_ACTION_UPDATE) {
-		if (!attr || !attr->ecommunity) {
+		if (!attr || !bgp_attr_get_ecommunity(attr)) {
 
 			vnc_zlog_debug_verbose(
 				"%s: attr, extra, or ecommunity missing, not importing",
 				__func__);
 			return;
 		}
-		if ((import_table != bgp->rfapi->it_ce)
-		    && !rfapiEcommunitiesIntersect(import_table->rt_import_list,
-						   attr->ecommunity)) {
+		if ((import_table != bgp->rfapi->it_ce) &&
+		    !rfapiEcommunitiesIntersect(
+			    import_table->rt_import_list,
+			    bgp_attr_get_ecommunity(attr))) {
 
 			vnc_zlog_debug_verbose(
 				"%s: it=%p: no ecommunity intersection",
@@ -3891,7 +3895,7 @@ void rfapiProcessUpdate(struct peer *peer,
 		 * Find rt containing LNI (Logical Network ID), which
 		 * _should_ always be present when mac address is present
 		 */
-		rc = rfapiEcommunityGetLNI(attr->ecommunity, &lni);
+		rc = rfapiEcommunityGetLNI(bgp_attr_get_ecommunity(attr), &lni);
 
 		vnc_zlog_debug_verbose(
 			"%s: rfapiEcommunityGetLNI returned %d, lni=%d, attr=%p",

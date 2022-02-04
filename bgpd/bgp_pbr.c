@@ -770,8 +770,8 @@ int bgp_pbr_build_and_validate_entry(const struct prefix *p,
 	if (ret < 0)
 		return -1;
 	/* extract actiosn from flowspec ecom list */
-	if (path && path->attr->ecommunity) {
-		ecom = path->attr->ecommunity;
+	if (path && bgp_attr_get_ecommunity(path->attr)) {
+		ecom = bgp_attr_get_ecommunity(path->attr);
 		for (i = 0; i < ecom->size; i++) {
 			ecom_eval = (struct ecommunity_val *)
 				(ecom->val + (i * ECOMMUNITY_SIZE));

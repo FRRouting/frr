@@ -2374,10 +2374,13 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	    bgp_path_info_mpath_chkwtd(bgp, pi) &&
 	    (cum_bw = bgp_path_info_mpath_cumbw(pi)) != 0 &&
 	    !CHECK_FLAG(attr->rmap_change_flags, BATTR_RMAP_LINK_BW_SET))
-		attr->ecommunity = ecommunity_replace_linkbw(
-			bgp->as, attr->ecommunity, cum_bw,
-			CHECK_FLAG(peer->flags,
-				   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+		bgp_attr_set_ecommunity(
+			attr,
+			ecommunity_replace_linkbw(
+				bgp->as, bgp_attr_get_ecommunity(attr), cum_bw,
+				CHECK_FLAG(
+					peer->flags,
+					PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE)));
 
 	return true;
 }
@@ -4118,16 +4121,19 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				& ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
 				int cmp;
 
-				cmp = ecommunity_cmp(pi->attr->ecommunity,
-						     attr_new->ecommunity);
+				cmp = ecommunity_cmp(
+					bgp_attr_get_ecommunity(pi->attr),
+					bgp_attr_get_ecommunity(attr_new));
 				if (!cmp) {
 					if (bgp_debug_update(peer, p, NULL, 1))
 						zlog_debug(
 							"Change in EXT-COMM, existing %s new %s",
 							ecommunity_str(
-								pi->attr->ecommunity),
+								bgp_attr_get_ecommunity(
+									pi->attr)),
 							ecommunity_str(
-								attr_new->ecommunity));
+								bgp_attr_get_ecommunity(
+									attr_new)));
 					if (safi == SAFI_EVPN)
 						bgp_evpn_unimport_route(
 							bgp, afi, safi, p, pi);
@@ -7032,7 +7038,7 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 	if (!community_cmp(pi->attr->community, comm))
 		return false;
 
-	if (!ecommunity_cmp(pi->attr->ecommunity, ecomm))
+	if (!ecommunity_cmp(bgp_attr_get_ecommunity(pi->attr), ecomm))
 		return false;
 
 	if (!lcommunity_cmp(pi->attr->lcommunity, lcomm))
@@ -7455,10 +7461,10 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 			/* Compute aggregate route's extended community.
 			 */
-			if (pi->attr->ecommunity)
+			if (bgp_attr_get_ecommunity(pi->attr))
 				bgp_compute_aggregate_ecommunity_hash(
-							aggregate,
-							pi->attr->ecommunity);
+					aggregate,
+					bgp_attr_get_ecommunity(pi->attr));
 
 			/* Compute aggregate route's large community.
 			 */
@@ -7577,12 +7583,13 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 							aggregate,
 							pi->attr->community);
 
-				if (pi->attr->ecommunity)
+				if (bgp_attr_get_ecommunity(pi->attr))
 					/* Remove ecommunity from aggregate.
 					 */
 					bgp_remove_ecomm_from_aggregate_hash(
-							aggregate,
-							pi->attr->ecommunity);
+						aggregate,
+						bgp_attr_get_ecommunity(
+							pi->attr));
 
 				if (pi->attr->lcommunity)
 					/* Remove lcommunity from aggregate.
@@ -7695,10 +7702,10 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 
 		/* Compute aggregate route's extended community.
 		 */
-		if (pinew->attr->ecommunity)
+		if (bgp_attr_get_ecommunity(pinew->attr))
 			bgp_compute_aggregate_ecommunity(
-					aggregate,
-					pinew->attr->ecommunity);
+				aggregate,
+				bgp_attr_get_ecommunity(pinew->attr));
 
 		/* Compute aggregate route's large community.
 		 */
@@ -7798,12 +7805,11 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 							aggregate,
 							pi->attr->community);
 
-		if (pi->attr->ecommunity)
+		if (bgp_attr_get_ecommunity(pi->attr))
 			/* Remove ecommunity from aggregate.
 			 */
 			bgp_remove_ecommunity_from_aggregate(
-							aggregate,
-							pi->attr->ecommunity);
+				aggregate, bgp_attr_get_ecommunity(pi->attr));
 
 		if (pi->attr->lcommunity)
 			/* Remove lcommunity from aggregate.
@@ -9130,9 +9136,9 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 		if (safi == SAFI_EVPN &&
 		    attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
 			json_ext_community = json_object_new_object();
-			json_object_string_add(json_ext_community,
-					       "string",
-					       attr->ecommunity->str);
+			json_object_string_add(
+				json_ext_community, "string",
+				bgp_attr_get_ecommunity(attr)->str);
 			json_object_object_add(json_path,
 					       "extendedCommunity",
 					       json_ext_community);
@@ -9185,7 +9191,8 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 			if (attr->flag &
 				ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
 				vty_out(vty, "%*s", 20, " ");
-				vty_out(vty, "%s\n", attr->ecommunity->str);
+				vty_out(vty, "%s\n",
+					bgp_attr_get_ecommunity(attr)->str);
 			}
 		}
 
@@ -9520,10 +9527,10 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 	else
 		json_object_string_add(json_overlay, "gw", buf);
 
-	if (attr->ecommunity) {
+	if (bgp_attr_get_ecommunity(attr)) {
 		char *mac = NULL;
 		struct ecommunity_val *routermac = ecommunity_lookup(
-			attr->ecommunity, ECOMMUNITY_ENCODE_EVPN,
+			bgp_attr_get_ecommunity(attr), ECOMMUNITY_ENCODE_EVPN,
 			ECOMMUNITY_EVPN_SUBTYPE_ROUTERMAC);
 
 		if (routermac)
@@ -10496,13 +10503,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)) {
 		if (json_paths) {
 			json_ext_community = json_object_new_object();
-			json_object_string_add(json_ext_community, "string",
-					       attr->ecommunity->str);
+			json_object_string_add(
+				json_ext_community, "string",
+				bgp_attr_get_ecommunity(attr)->str);
 			json_object_object_add(json_path, "extendedCommunity",
 					       json_ext_community);
 		} else {
 			vty_out(vty, "      Extended Community: %s\n",
-				attr->ecommunity->str);
+				bgp_attr_get_ecommunity(attr)->str);
 		}
 	}
 

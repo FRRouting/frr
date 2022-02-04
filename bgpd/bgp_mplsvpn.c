@@ -1053,9 +1053,10 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	if (debug)
 		zlog_debug("%s: from vrf %s", __func__, bgp_vrf->name_pretty);
 
-	if (debug && path_vrf->attr->ecommunity) {
-		char *s = ecommunity_ecom2str(path_vrf->attr->ecommunity,
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+	if (debug && bgp_attr_get_ecommunity(path_vrf->attr)) {
+		char *s = ecommunity_ecom2str(
+			bgp_attr_get_ecommunity(path_vrf->attr),
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: %s path_vrf->type=%d, EC{%s}", __func__,
 			   bgp_vrf->name, path_vrf->type, s);
@@ -1111,9 +1112,10 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		}
 	}
 
-	if (debug && static_attr.ecommunity) {
-		char *s = ecommunity_ecom2str(static_attr.ecommunity,
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
+		char *s = ecommunity_ecom2str(
+			bgp_attr_get_ecommunity(&static_attr),
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: post route map static_attr.ecommunity{%s}",
 			   __func__, s);
@@ -1128,7 +1130,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 
 	/* Export with the 'from' instance's export RTs. */
 	/* If doing VRF-to-VRF leaking, strip existing RTs first. */
-	old_ecom = static_attr.ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (old_ecom) {
 		new_ecom = ecommunity_dup(old_ecom);
 		if (CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
@@ -1144,12 +1146,13 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 			bgp_vrf->vpn_policy[afi]
 				.rtlist[BGP_VPN_POLICY_DIR_TOVPN]);
 	}
-	static_attr.ecommunity = new_ecom;
+	bgp_attr_set_ecommunity(&static_attr, new_ecom);
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 
-	if (debug && static_attr.ecommunity) {
-		char *s = ecommunity_ecom2str(static_attr.ecommunity,
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
+		char *s = ecommunity_ecom2str(
+			bgp_attr_get_ecommunity(&static_attr),
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: post merge static_attr.ecommunity{%s}",
 			   __func__, s);
@@ -1261,8 +1264,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		&static_attr);	/* hashed refcounted everything */
 	bgp_attr_flush(&static_attr); /* free locally-allocated parts */
 
-	if (debug && new_attr->ecommunity) {
-		char *s = ecommunity_ecom2str(new_attr->ecommunity,
+	if (debug && bgp_attr_get_ecommunity(new_attr)) {
+		char *s = ecommunity_ecom2str(bgp_attr_get_ecommunity(new_attr),
 					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: new_attr->ecommunity{%s}", __func__, s);
@@ -1481,7 +1484,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	/* Check for intersection of route targets */
 	if (!ecom_intersect(
 		    bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
-		    path_vpn->attr->ecommunity)) {
+		    bgp_attr_get_ecommunity(path_vpn->attr))) {
 		if (debug)
 			zlog_debug(
 				"from vpn to vrf %s, skipping after no intersection of route targets",
@@ -1500,18 +1503,18 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	struct ecommunity *new_ecom;
 
 	/* If doing VRF-to-VRF leaking, strip RTs. */
-	old_ecom = static_attr.ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (old_ecom && CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
 				BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
 		new_ecom = ecommunity_dup(old_ecom);
 		ecommunity_strip_rts(new_ecom);
-		static_attr.ecommunity = new_ecom;
+		bgp_attr_set_ecommunity(&static_attr, new_ecom);
 
 		if (new_ecom->size == 0) {
 			UNSET_FLAG(static_attr.flag,
 				   ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 			ecommunity_free(&new_ecom);
-			static_attr.ecommunity = NULL;
+			bgp_attr_set_ecommunity(&static_attr, NULL);
 		}
 
 		if (!old_ecom->refcnt)
@@ -1728,7 +1731,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,	    /* from */
 		/* Check for intersection of route targets */
 		if (!ecom_intersect(bgp->vpn_policy[afi]
 					    .rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
-				    path_vpn->attr->ecommunity)) {
+				    bgp_attr_get_ecommunity(path_vpn->attr))) {
 
 			continue;
 		}
