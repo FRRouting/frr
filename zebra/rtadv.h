@@ -22,6 +22,7 @@
 #ifndef _ZEBRA_RTADV_H
 #define _ZEBRA_RTADV_H
 
+#include "zebra.h"
 #include "vty.h"
 #include "zebra/interface.h"
 
@@ -161,6 +162,8 @@ extern void zebra_interface_radv_disable(ZAPI_HANDLER_ARGS);
 extern void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS);
 extern void rtadv_add_prefix(struct zebra_if *zif, const struct prefix_ipv6 *p);
 extern void rtadv_delete_prefix(struct zebra_if *zif, const struct prefix *p);
+extern uint32_t rtadv_get_interfaces_configured_from_bgp(void);
+extern bool rtadv_compiled_in(void);
 
 #ifdef __cplusplus
 }

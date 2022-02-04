@@ -47,6 +47,8 @@
 
 extern struct zebra_privs_t zserv_privs;
 
+static uint32_t interfaces_configured_for_ra_from_bgp;
+
 #if defined(HAVE_RTADV)
 
 #ifndef VTYSH_EXTRACT_PL
@@ -1303,6 +1305,9 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 
 	zif = ifp->info;
 	if (enable) {
+		if (!CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			interfaces_configured_for_ra_from_bgp++;
+
 		SET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		ipv6_nd_suppress_ra_set(ifp, RA_ENABLE);
 		if (ra_interval
@@ -1311,6 +1316,9 @@ static void zebra_interface_radv_set(ZAPI_HANDLER_ARGS, int enable)
 				   VTY_RA_INTERVAL_CONFIGURED))
 			zif->rtadv.MaxRtrAdvInterval = ra_interval * 1000;
 	} else {
+		if (CHECK_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED))
+			interfaces_configured_for_ra_from_bgp--;
+
 		UNSET_FLAG(zif->rtadv.ra_configured, BGP_RA_CONFIGURED);
 		if (!CHECK_FLAG(zif->rtadv.ra_configured,
 				VTY_RA_INTERVAL_CONFIGURED))
@@ -2787,6 +2795,8 @@ void rtadv_vrf_terminate(struct zebra_vrf *zvrf)
 
 void rtadv_cmd_init(void)
 {
+	interfaces_configured_for_ra_from_bgp = 0;
+
 	hook_register(zebra_if_extra_info, nd_dump_vty);
 	hook_register(zebra_if_config_wr, rtadv_config_write);
 
@@ -2886,6 +2896,11 @@ static int if_leave_all_router(int sock, struct interface *ifp)
 	return 0;
 }
 
+bool rtadv_compiled_in(void)
+{
+	return true;
+}
+
 #else
 void rtadv_vrf_init(struct zebra_vrf *zvrf)
 {
@@ -2941,4 +2956,14 @@ void zebra_interface_radv_enable(ZAPI_HANDLER_ARGS)
 	return;
 }
 
+bool rtadv_compiled_in(void)
+{
+	return false;
+}
+
 #endif /* HAVE_RTADV */
+
+uint32_t rtadv_get_interfaces_configured_from_bgp(void)
+{
+	return interfaces_configured_for_ra_from_bgp;
+}
