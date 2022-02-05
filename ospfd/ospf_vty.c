@@ -733,7 +733,11 @@ DEFUN (no_ospf_area_range,
 	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
-	ospf_area_range_unset(ospf, area_id, &p);
+	if (argc > 5)
+		ospf_area_range_cost_set(ospf, area_id, &p,
+					 OSPF_AREA_RANGE_COST_UNSPEC);
+	else
+		ospf_area_range_unset(ospf, area_id, &p);
 
 	return CMD_SUCCESS;
 }
