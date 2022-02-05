@@ -713,7 +713,7 @@ DEFUN (ospf_area_range_not_advertise,
 
 DEFUN (no_ospf_area_range,
        no_ospf_area_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [<cost (0-16777215)|advertise [cost (0-16777215)]|not-advertise>]",
+       "no area <A.B.C.D|(0-4294967295)> range A.B.C.D/M [cost (0-16777215)]",
        NO_STR
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
@@ -721,11 +721,7 @@ DEFUN (no_ospf_area_range,
        "Summarize routes matching address/mask (border routers only)\n"
        "Area range prefix\n"
        "User specified metric for this range\n"
-       "Advertised metric for this range\n"
-       "Advertise this range (default)\n"
-       "User specified metric for this range\n"
-       "Advertised metric for this range\n"
-       "DoNotAdvertise this range\n")
+       "Advertised metric for this range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 2;
