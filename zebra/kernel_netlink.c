@@ -1125,8 +1125,25 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	while (true) {
 		status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
 					  sizeof(nl_batch_rx_buf));
-		if (status == -1 || status == 0)
+		/*
+		 * status == -1 is a full on failure somewhere
+		 * since we don't know where the problem happened
+		 * we must mark all as failed
+		 *
+		 * Else we mark everything as worked
+		 *
+		 */
+		if (status == -1 || status == 0) {
+			while ((ctx = dplane_ctx_dequeue(&(bth->ctx_list))) !=
+			       NULL) {
+				if (status == -1)
+					dplane_ctx_set_status(
+						ctx,
+						ZEBRA_DPLANE_REQUEST_FAILURE);
+				dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
+			}
 			return status;
+		}
 
 		h = (struct nlmsghdr *)nl_batch_rx_buf;
 		ignore_msg = false;
@@ -1138,15 +1155,18 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * requests at same time.
 		 */
 		while (true) {
-			ctx = dplane_ctx_dequeue(&(bth->ctx_list));
-			if (ctx == NULL)
+			ctx = dplane_ctx_get_head(&(bth->ctx_list));
+			if (ctx == NULL) {
+				/*
+				 * This is a situation where we have gotten
+				 * into a bad spot.  We need to know that
+				 * this happens( does it? )
+				 */
+				zlog_err(
+					"%s:WARNING Received netlink Response for an error and no Contexts to associate with it",
+					__func__);
 				break;
-
-			dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
-
-			/* We have found corresponding context object. */
-			if (dplane_ctx_get_ns(ctx)->nls.seq == seq)
-				break;
+			}
 
 			/*
 			 * 'update' context objects take two consecutive
@@ -1161,10 +1181,35 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 				ignore_msg = true;
 				break;
 			}
+
+			ctx = dplane_ctx_dequeue(&(bth->ctx_list));
+			dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
+
+			/* We have found corresponding context object. */
+			if (dplane_ctx_get_ns(ctx)->nls.seq == seq)
+				break;
+
+			if (dplane_ctx_get_ns(ctx)->nls.seq > seq)
+				zlog_warn(
+					"%s:WARNING Recieved %u is less than any context on the queue ctx->seq %u",
+					__func__, seq,
+					dplane_ctx_get_ns(ctx)->nls.seq);
 		}
 
-		if (ignore_msg)
+		if (ignore_msg) {
+			/*
+			 * If we ignore the message due to an update
+			 * above we should still fricking decode the
+			 * message for our operator to understand
+			 * what is going on
+			 */
+			int err = netlink_parse_error(nl, h, bth->zns->is_cmd,
+						      false);
+
+			zlog_debug("%s: netlink error message seq=%d %d",
+				   __func__, h->nlmsg_seq, err);
 			continue;
+		}
 
 		/*
 		 * We received a message with the sequence number that isn't
