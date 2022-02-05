@@ -160,6 +160,9 @@ struct bgp_attr_srv6_l3vpn {
 };
 
 struct attr_extra {
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
+
 	/* Extended Communities attribute. */
 	struct ecommunity *ipv6_ecommunity;
 };
@@ -186,9 +189,6 @@ struct attr {
 
 	/* Path origin attribute */
 	uint8_t origin;
-
-	/* PMSI tunnel type (RFC 6514). */
-	enum pta_type pmsi_tnl_type;
 
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
@@ -503,15 +503,21 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 	return (attr) ? attr->mm_seqnum : 0;
 }
 
-static inline enum pta_type bgp_attr_get_pmsi_tnl_type(struct attr *attr)
+static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
 {
-	return attr->pmsi_tnl_type;
+	if (attr->extra)
+		return attr->extra->pmsi_tnl_type;
+
+	return PMSI_TNLTYPE_NO_INFO;
 }
 
 static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 					      enum pta_type pmsi_tnl_type)
 {
-	attr->pmsi_tnl_type = pmsi_tnl_type;
+	if (!attr->extra)
+		attr->extra = bgp_attr_extra_alloc();
+
+	attr->extra->pmsi_tnl_type = pmsi_tnl_type;
 }
 
 static inline struct ecommunity *
