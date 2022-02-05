@@ -1353,7 +1353,7 @@ DEFPY (area_nssa_range,
 
 DEFPY (no_area_nssa_range,
        no_area_nssa_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)>$area nssa range X:X::X:X/M$prefix [<not-advertise|cost (0-16777215)>]",
+       "no area <A.B.C.D|(0-4294967295)>$area nssa range X:X::X:X/M$prefix [cost (0-16777215)]",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
@@ -1361,7 +1361,6 @@ DEFPY (no_area_nssa_range,
        "Configure OSPF6 area as nssa\n"
        "Configured address range\n"
        "Specify IPv6 prefix\n"
-       "Do not advertise\n"
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 {

@@ -598,15 +598,13 @@ DEFUN (area_range,
 
 DEFUN (no_area_range,
        no_area_range_cmd,
-       "no area <A.B.C.D|(0-4294967295)> range X:X::X:X/M [<advertise|not-advertise|cost (0-16777215)>]",
+       "no area <A.B.C.D|(0-4294967295)> range X:X::X:X/M [cost (0-16777215)]",
        NO_STR
        "OSPF6 area parameters\n"
        "OSPF6 area ID in IP address format\n"
        "OSPF6 area ID as a decimal value\n"
        "Configured address range\n"
        "Specify IPv6 prefix\n"
-       "Advertise\n"
-       "Do not advertise\n"
        "User specified metric for this range\n"
        "Advertised metric for this range\n")
 {
