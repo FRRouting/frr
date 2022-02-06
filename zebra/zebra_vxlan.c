@@ -848,8 +848,7 @@ static int zvni_map_to_svi_ns(struct ns *ns,
 	struct interface **p_ifp = (struct interface **)_p_ifp;
 	struct zebra_if *zif;
 
-	if (!in_param)
-		return NS_WALK_STOP;
+	assert(in_param && p_ifp);
 
 	/* TODO: Optimize with a hash. */
 	for (rn = route_top(zns->if_table); rn; rn = route_next(rn)) {
@@ -864,8 +863,7 @@ static int zvni_map_to_svi_ns(struct ns *ns,
 		vl = (struct zebra_l2info_vlan *)&zif->l2info.vl;
 
 		if (vl->vid == in_param->vid) {
-			if (p_ifp)
-				*p_ifp = tmp_if;
+			*p_ifp = tmp_if;
 			return NS_WALK_STOP;
 		}
 	}
