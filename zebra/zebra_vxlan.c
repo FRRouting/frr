@@ -2124,13 +2124,6 @@ static int zebra_vxlan_handle_vni_transition(struct zebra_vrf *zvrf, vni_t vni,
 			return 0;
 
 		zevpn = zebra_evpn_add(vni);
-		if (!zevpn) {
-			flog_err(EC_ZEBRA_VNI_ADD_FAILED,
-				 "Adding L2-VNI - Failed to add VNI hash, VNI %u",
-				 vni);
-
-			return -1;
-		}
 
 		/* Find bridge interface for the VNI */
 		vlan_if = zvni_map_to_svi(vxl->access_vlan,
@@ -5171,16 +5164,8 @@ int zebra_vxlan_if_add(struct interface *ifp)
 
 		/* Create or update EVPN hash. */
 		zevpn = zebra_evpn_lookup(vni);
-		if (!zevpn) {
+		if (!zevpn)
 			zevpn = zebra_evpn_add(vni);
-			if (!zevpn) {
-				flog_err(
-					EC_ZEBRA_VNI_ADD_FAILED,
-					"Failed to add EVPN hash, IF %s(%u) VNI %u",
-					ifp->name, ifp->ifindex, vni);
-				return -1;
-			}
-		}
 
 		if (zevpn->local_vtep_ip.s_addr != vxl->vtep_ip.s_addr ||
 			zevpn->mcast_grp.s_addr != vxl->mcast_grp.s_addr) {
