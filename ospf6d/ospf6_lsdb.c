@@ -92,6 +92,16 @@ static void _lsdb_count_assert(struct ospf6_lsdb *lsdb)
 #define ospf6_lsdb_count_assert(t) ((void) 0)
 #endif /*DEBUG*/
 
+static inline void ospf6_lsdb_stats_update(struct ospf6_lsa *lsa,
+					   struct ospf6_lsdb *lsdb, int count)
+{
+	uint16_t stat = ntohs(lsa->header->type) & OSPF6_LSTYPE_FCODE_MASK;
+
+	if (stat >= OSPF6_LSTYPE_SIZE)
+		stat = OSPF6_LSTYPE_UNKNOWN;
+	lsdb->stats[stat] += count;
+}
+
 void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 {
 	struct prefix_ipv6 key;
@@ -112,6 +122,7 @@ void ospf6_lsdb_add(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	if (!old) {
 		lsdb->count++;
+		ospf6_lsdb_stats_update(lsa, lsdb, 1);
 
 		if (OSPF6_LSA_IS_MAXAGE(lsa)) {
 			if (lsdb->hook_remove)
@@ -161,6 +172,7 @@ void ospf6_lsdb_remove(struct ospf6_lsa *lsa, struct ospf6_lsdb *lsdb)
 
 	node->info = NULL;
 	lsdb->count--;
+	ospf6_lsdb_stats_update(lsa, lsdb, -1);
 
 	if (lsdb->hook_remove)
 		(*lsdb->hook_remove)(lsa);
