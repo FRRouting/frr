@@ -1315,14 +1315,7 @@ int zebra_evpn_local_neigh_update(struct zebra_evpn *zevpn,
 	if (!n) {
 		/* New neighbor - create */
 		n = zebra_evpn_neigh_add(zevpn, ip, macaddr, zmac, 0);
-		if (!n) {
-			flog_err(
-				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %pIA MAC %pEA intf %s(%u) -> VNI %u",
-				ip, macaddr, ifp->name, ifp->ifindex,
-				zevpn->vni);
-			return -1;
-		}
+
 		/* Set "local" forwarding info. */
 		SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
 		n->ifindex = ifp->ifindex;
@@ -2074,14 +2067,6 @@ void zebra_evpn_neigh_remote_macip_add(struct zebra_evpn *zevpn,
 		if (!n) {
 			n = zebra_evpn_neigh_add(zevpn, ipaddr, &mac->macaddr,
 						 mac, 0);
-			if (!n) {
-				zlog_warn(
-					"Failed to add Neigh %pIA MAC %pEA VNI %u Remote VTEP %pI4",
-					ipaddr, &mac->macaddr, zevpn->vni,
-					&vtep_ip);
-				return;
-			}
-
 		} else {
 			/* When host moves but changes its (MAC,IP)
 			 * binding, BGP may install a MACIP entry that
@@ -2186,17 +2171,8 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 	assert(mac);
 
 	n = zebra_evpn_neigh_lookup(zevpn, ip);
-	if (!n) {
+	if (!n)
 		n = zebra_evpn_neigh_add(zevpn, ip, &mac->macaddr, mac, 0);
-		if (!n) {
-			flog_err(
-				EC_ZEBRA_MAC_ADD_FAILED,
-				"Failed to add neighbor %pIA MAC %pEA intf %s(%u) -> VNI %u",
-				ip, &mac->macaddr,
-				ifp->name, ifp->ifindex, zevpn->vni);
-			return -1;
-		}
-	}
 
 	/* Set "local" forwarding info. */
 	SET_FLAG(n->flags, ZEBRA_NEIGH_LOCAL);
