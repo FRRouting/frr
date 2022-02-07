@@ -5402,9 +5402,9 @@ DEFUN (show_ip_pim_upstream_rpf,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_rp,
+DEFPY (show_ip_pim_rp,
        show_ip_pim_rp_cmd,
-       "show ip pim [vrf NAME] rp-info [A.B.C.D/M] [json]",
+       "show ip pim [vrf NAME] rp-info [A.B.C.D/M$group] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -5413,28 +5413,45 @@ DEFUN (show_ip_pim_rp,
        "Multicast Group range\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
 	struct prefix *range = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (group_str) {
 		range = prefix_new();
-		(void)str2prefix(argv[idx]->arg, range);
+		prefix_copy(range, group);
 		apply_mask(range);
 	}
 
-	pim_rp_show_information(vrf->info, range, vty, uj);
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_rp_show_information(pim, range, vty, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	prefix_free(&range);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_rp_vrf_all,
+DEFPY (show_ip_pim_rp_vrf_all,
        show_ip_pim_rp_vrf_all_cmd,
-       "show ip pim vrf all rp-info [A.B.C.D/M] [json]",
+       "show ip pim vrf all rp-info [A.B.C.D/M$group] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -5443,32 +5460,34 @@ DEFUN (show_ip_pim_rp_vrf_all,
        "Multicast Group range\n"
        JSON_STR)
 {
-	int idx = 0;
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 	struct prefix *range = NULL;
 
-	if (argv_find(argv, argc, "A.B.C.D/M", &idx)) {
+	if (group_str) {
 		range = prefix_new();
-		(void)str2prefix(argv[idx]->arg, range);
+		prefix_copy(range, group);
 		apply_mask(range);
 	}
 
-	if (uj)
-		vty_out(vty, "{ ");
+	if (json)
+		json_parent = json_object_new_object();
+
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_rp_show_information(vrf->info, range, vty, uj);
+		else
+			json_vrf = json_object_new_object();
+		pim_rp_show_information(vrf->info, range, vty, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
+
+	prefix_free(&range);
 
 	return CMD_SUCCESS;
 }
