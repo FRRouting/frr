@@ -25,6 +25,7 @@
 #include "vty.h"
 #include "plist.h"
 #include "pim_rpf.h"
+#include "lib/json.h"
 
 struct pim_interface;
 
@@ -79,7 +80,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group);
 #define RP(P, G)       pim_rp_g ((P), (G))
 
 void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
-			     struct vty *vty, bool uj);
+			     struct vty *vty, json_object *json);
 void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr);
 int pim_rp_list_cmp(void *v1, void *v2);
 struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
