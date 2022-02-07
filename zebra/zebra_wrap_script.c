@@ -1031,11 +1031,11 @@ static int zebra_wrap_script_iptable_get_stat(
 	}
 	/* populate json table */
 	if (!iptable_json->iptable_list) {
-		char input[120];
+		char input[150];
 
 		iptable_json->iptable_list = json_object_new_object();
 		snprintf(input, sizeof(input),
-			 "%s -t mangle -L PREROUTING -v",
+			 "%s -t mangle -L PREROUTING -v -x",
 			 iptable->family == AF_INET6 ?
 			 zebra_wrap_script_get_ip6table_pathname :
 			 zebra_wrap_script_get_iptable_pathname);
