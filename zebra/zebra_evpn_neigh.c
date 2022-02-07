@@ -2179,7 +2179,6 @@ int zebra_evpn_neigh_gw_macip_add(struct interface *ifp,
 	/* Only advertise in BGP if the knob is enabled */
 	if (advertise_gw_macip_enabled(zevpn)) {
 
-		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
 		SET_FLAG(n->flags, ZEBRA_NEIGH_DEF_GW);
 		/* Set Router flag (R-bit) */
 		if (ip->ipa_type == IPADDR_V6)
