@@ -2203,7 +2203,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 					"%s [Update:SEND] %pFX is filtered by route-map",
 					peer->host, p);
 
-			bgp_attr_flush(attr);
+			bgp_attr_flush(&dummy_attr);
 			return false;
 		}
 	}
