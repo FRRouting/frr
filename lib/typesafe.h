@@ -325,7 +325,8 @@ static inline void typesafe_dlist_add(struct dlist_head *head,
 	assume(prev->next != NULL);
 
 	item->next = prev->next;
-	item->next->prev = item;
+	if (item->next)
+		item->next->prev = item;
 	item->prev = prev;
 	prev->next = item;
 	head->count++;
