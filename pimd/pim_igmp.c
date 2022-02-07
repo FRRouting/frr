@@ -377,6 +377,30 @@ static int igmp_recv_query(struct gm_sock *igmp, int query_version,
 	 */
 	if (ntohl(from.s_addr) < ntohl(igmp->ifaddr.s_addr)) {
 
+		/* As per RFC 2236 section 3:
+		 * When a Querier receives a Leave Group message for a group
+		 * that has group members on the reception interface, it sends
+		 * [Last Member Query Count] Group-Specific Queries every [Last
+		 * Member Query Interval] to the group being left.  These
+		 * Group-Specific Queries have their Max Response time set to
+		 * [Last Member Query Interval].  If no Reports are received
+		 * after the response time of the last query expires, the
+		 * routers assume that the group has no local members, as above.
+		 * Any Querier to non-Querier transition is ignored during this
+		 * time; the same router keeps sending the Group-Specific
+		 * Queries.
+		 */
+		struct gm_group *group;
+
+		group = find_group_by_addr(igmp, group_addr);
+		if (group && group->t_group_query_retransmit_timer) {
+			if (PIM_DEBUG_IGMP_TRACE)
+				zlog_debug(
+					"%s: lower address query packet from %s is ignored when last member query interval timer is running",
+					ifp->name, from_str);
+			return 0;
+		}
+
 		if (PIM_DEBUG_IGMP_TRACE) {
 			char ifaddr_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
