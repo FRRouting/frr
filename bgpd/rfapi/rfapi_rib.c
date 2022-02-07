@@ -1950,7 +1950,7 @@ rfapiRibPreload(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			    && RFAPI_HOST_PREFIX(&rk.aux_prefix)) {
 				/* mark as "none" if nhp->prefix is 0/32 or
 				 * 0/128 */
-				rk.aux_prefix.family = 0;
+				rk.aux_prefix.family = AF_UNSPEC;
 			}
 		}
 
