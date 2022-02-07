@@ -1147,20 +1147,17 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 }
 
 void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
-			     struct vty *vty, bool uj)
+			     struct vty *vty, json_object *json)
 {
 	struct rp_info *rp_info;
 	struct rp_info *prev_rp_info = NULL;
 	struct listnode *node;
 	char source[7];
 
-	json_object *json = NULL;
 	json_object *json_rp_rows = NULL;
 	json_object *json_row = NULL;
 
-	if (uj)
-		json = json_object_new_object();
-	else
+	if (!json)
 		vty_out(vty,
 			"RP address       group/prefix-list   OIF               I am RP    Source   Group-Type\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
@@ -1184,7 +1181,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 			strlcpy(source, "BSR", sizeof(source));
 		else
 			strlcpy(source, "None", sizeof(source));
-		if (uj) {
+		if (json) {
 			/*
 			 * If we have moved on to a new RP then add the
 			 * entry for the previous RP
@@ -1257,12 +1254,10 @@ void pim_rp_show_information(struct pim_instance *pim, struct prefix *range,
 		prev_rp_info = rp_info;
 	}
 
-	if (uj) {
+	if (json) {
 		if (prev_rp_info && json_rp_rows)
 			json_object_object_addf(json, json_rp_rows, "%pFXh",
 						&prev_rp_info->rp.rpf_addr);
-
-		vty_json(vty, json);
 	}
 }
 
