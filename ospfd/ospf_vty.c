@@ -6558,7 +6558,7 @@ static void show_lsa_prefix_set(struct vty *vty, struct prefix_ls *lp,
 				struct in_addr *id, struct in_addr *adv_router)
 {
 	memset(lp, 0, sizeof(struct prefix_ls));
-	lp->family = 0;
+	lp->family = AF_UNSPEC;
 	if (id == NULL)
 		lp->prefixlen = 0;
 	else if (adv_router == NULL) {
