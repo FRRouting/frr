@@ -285,6 +285,10 @@ def __create_ospf_global(tgen, input_dict, router, build, load_config, ospf):
                 if not _advertise:
                     cmd = "{} no-advertise".format(cmd)
 
+                _metric = summary.setdefault("metric", None)
+                if _metric:
+                    cmd = "{} metric {}".format(cmd, _metric)
+
                 del_action = summary.setdefault("delete", False)
                 if del_action:
                     cmd = "no {}".format(cmd)

@@ -3304,6 +3304,212 @@ def test_ospf_type5_summary_tc49_p2(request):
     write_test_footer(tc_name)
 
 
+def test_ospf_type5_summary_tag_metric_p2(request):
+    """
+    This test case configures metric and tag for the ospfv2
+    summarisation and verifies if ospf summarises routes with
+    configured tag and metric.
+    """
+
+    tc_name = request.node.name
+    write_test_header(tc_name)
+    tgen = get_topogen()
+
+    # Don't run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
+    global topo
+    step("Bring up the base config as per the topology")
+    reset_config_on_routers(tgen)
+
+    protocol = "ospf"
+
+    step(
+        "Configure 5 static routes from the same network on R0"
+        "5 static routes from different networks and redistribute in R0"
+    )
+    input_dict_static_rtes = {
+        "r0": {
+            "static_routes": [
+                {"network": NETWORK["ipv4"], "next_hop": "blackhole"},
+                {"network": NETWORK2["ipv4"], "next_hop": "blackhole"},
+            ]
+        }
+    }
+    result = create_static_routes(tgen, input_dict_static_rtes)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    dut = "r0"
+    red_static(dut)
+
+    step("Verify that routes are learnt on R1.")
+    dut = "r1"
+
+    result = verify_ospf_rib(tgen, dut, input_dict_static_rtes)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+    result = verify_rib(tgen, "ipv4", dut, input_dict_static_rtes, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+
+    step(
+        "Configure External Route summary in R0 to summarise 5" " routes to one route."
+    )
+
+    ospf_summ_r1 = {
+        "r0": {
+            "ospf": {
+                "summary-address": [
+                    {"prefix": SUMMARY["ipv4"][0].split("/")[0], "mask": "8"}
+                ]
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_summ_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step(
+        "Verify that external routes are summarised to configured summary "
+        "address on R0 after 5 secs of delay timer expiry and only one "
+        "route is sent to R1."
+    )
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv4"][0]}]}}
+    dut = "r1"
+
+    result = verify_ospf_rib(tgen, dut, input_dict_summary)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    result = verify_rib(tgen, "ipv4", dut, input_dict_summary, protocol=protocol)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Routes is missing in RIB".format(tc_name)
+
+    step("Verify that show ip ospf summary should show the summaries.")
+    input_dict = {
+        SUMMARY["ipv4"][0]: {
+            "Summary address": SUMMARY["ipv4"][0],
+            "Metric-type": "E2",
+            "Metric": 20,
+            "Tag": 0,
+            "External route count": 5,
+        }
+    }
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+
+    step("configure tag value 100 to summary")
+    ospf_summ_r1 = {
+        "r0": {
+            "ospf": {
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv4"][0].split("/")[0],
+                        "mask": "8",
+                        "tag": 100,
+                    }
+                ]
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_summ_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("verify if the tag value is added t ospf summary route")
+    input_dict = {
+        SUMMARY["ipv4"][0]: {
+            "Summary address": SUMMARY["ipv4"][0],
+            "Metric-type": "E2",
+            "Metric": 20,
+            "Tag": 100,
+            "External route count": 5,
+        }
+    }
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+
+    step("configure tag metric 10000 to summary")
+    ospf_summ_r1 = {
+        "r0": {
+            "ospf": {
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv4"][0].split("/")[0],
+                        "mask": "8",
+                        "tag": 100,
+                        "metric": "10000",
+                    }
+                ]
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_summ_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    step("verify if the metric value is added t ospf summary route")
+    input_dict = {
+        SUMMARY["ipv4"][0]: {
+            "Summary address": SUMMARY["ipv4"][0],
+            "Metric-type": "E2",
+            "Metric": 10000,
+            "Tag": 100,
+            "External route count": 5,
+        }
+    }
+    dut = "r0"
+    result = verify_ospf_summary(tgen, topo, dut, input_dict)
+    assert (
+        result is True
+    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
+
+    step("Delete Summary")
+    ospf_summ_r1 = {
+        "r0": {
+            "ospf": {
+                "summary-address": [
+                    {
+                        "prefix": SUMMARY["ipv4"][0].split("/")[0],
+                        "mask": "8",
+                        "tag": 100,
+                        "metric": "10000",
+                        "delete": True,
+                    }
+                ]
+            }
+        }
+    }
+    result = create_router_ospf(tgen, topo, ospf_summ_r1)
+    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
+
+    input_dict_summary = {"r0": {"static_routes": [{"network": SUMMARY["ipv4"][0]}]}}
+
+    step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
+    dut = "r1"
+    result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
+    assert (
+        result is not True
+    ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(
+        tc_name, result
+    )
+
+    result = verify_rib(
+        tgen, "ipv4", dut, input_dict_summary, protocol=protocol, expected=False
+    )
+    assert (
+        result is not True
+    ), "Testcase {} : Failed" "Error: Summary Route still present in RIB".format(
+        tc_name
+    )
+
+    write_test_footer(tc_name)
+
+
 if __name__ == "__main__":
     args = ["-s"] + sys.argv[1:]
     sys.exit(pytest.main(args))
