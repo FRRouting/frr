@@ -344,10 +344,10 @@ int zebra_evpn_add_macip_for_intf(struct interface *ifp,
 	for (ALL_LIST_ELEMENTS(ifp->connected, cnode, cnnode, c)) {
 		struct ipaddr ip;
 
-		memset(&ip, 0, sizeof(struct ipaddr));
 		if (!CHECK_FLAG(c->conf, ZEBRA_IFC_REAL))
 			continue;
 
+		memset(&ip, 0, sizeof(struct ipaddr));
 		if (c->address->family == AF_INET) {
 			ip.ipa_type = IPADDR_V4;
 			memcpy(&(ip.ipaddr_v4), &(c->address->u.prefix4),
