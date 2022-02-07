@@ -2369,7 +2369,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	else if (rn->p.family == AF_INET6)
 		family = AFI_IP6;
 	else
-		family = 0;
+		family = AF_UNSPEC;
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
