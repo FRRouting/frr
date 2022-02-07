@@ -1135,7 +1135,7 @@ static int lib_access_list_entry_any_destroy(struct nb_cb_destroy_args *args)
 
 	f = nb_running_get_entry(args->dnode, NULL, true);
 	fz = &f->u.zfilter;
-	fz->prefix.family = 0;
+	fz->prefix.family = AF_UNSPEC;
 
 	acl_notify_route_map(f->acl, RMAP_EVENT_FILTER_DELETED);
 
