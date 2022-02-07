@@ -388,7 +388,7 @@ int rfapiGetVncTunnelUnAddr(struct attr *attr, struct prefix *p)
 			return 0;
 		/* MPLS carries UN address in next hop */
 		rfapiNexthop2Prefix(attr, p);
-		if (p->family != 0)
+		if (p->family != AF_UNSPEC)
 			return 0;
 
 		return ENOENT;
@@ -457,7 +457,7 @@ int rfapiGetUnAddrOfVpnBi(struct bgp_path_info *bpi, struct prefix *p)
 			return 0;
 		default:
 			if (p)
-				p->family = 0;
+				p->family = AF_UNSPEC;
 #ifdef DEBUG_ENCAP_MONITOR
 			vnc_zlog_debug_verbose(
 				"%s: bpi->extra->vnc.import.un_family is 0, no UN addr",
@@ -1155,7 +1155,7 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 					bpi1->extra->vnc.import.un.addr6;
 				break;
 			default:
-				pfx_un1.family = 0;
+				pfx_un1.family = AF_UNSPEC;
 				break;
 			}
 		}
@@ -1174,13 +1174,13 @@ static int rfapiVpnBiSamePtUn(struct bgp_path_info *bpi1,
 					bpi2->extra->vnc.import.un.addr6;
 				break;
 			default:
-				pfx_un2.family = 0;
+				pfx_un2.family = AF_UNSPEC;
 				break;
 			}
 		}
 	}
 
-	if (pfx_un1.family == 0 || pfx_un2.family == 0)
+	if (pfx_un1.family == AF_UNSPEC || pfx_un2.family == AF_UNSPEC)
 		return 0;
 
 	if (pfx_un1.family != pfx_un2.family)
@@ -1359,7 +1359,7 @@ rfapiRouteInfo2NextHopEntry(struct rfapi_ip_prefix *rprefix,
 		struct prefix p;
 		/* MPLS carries UN address in next hop */
 		rfapiNexthop2Prefix(bpi->attr, &p);
-		if (p.family != 0) {
+		if (p.family != AF_UNSPEC) {
 			rfapiQprefix2Raddr(&p, &new->un_address);
 			have_vnc_tunnel_un = 1;
 		}
@@ -2610,7 +2610,7 @@ static void rfapiCopyUnEncap2VPN(struct bgp_path_info *encap_bpi,
 	default:
 		zlog_warn("%s: invalid encap nexthop length: %d", __func__,
 			  encap_bpi->attr->mp_nexthop_len);
-		vpn_bpi->extra->vnc.import.un_family = 0;
+		vpn_bpi->extra->vnc.import.un_family = AF_UNSPEC;
 		break;
 	}
 }
@@ -2635,7 +2635,7 @@ rfapiWithdrawEncapUpdateCachedUn(struct rfapi_import_table *import_table,
 				__func__);
 			return 1;
 		}
-		vpn_bpi->extra->vnc.import.un_family = 0;
+		vpn_bpi->extra->vnc.import.un_family = AF_UNSPEC;
 		memset(&vpn_bpi->extra->vnc.import.un, 0,
 		       sizeof(vpn_bpi->extra->vnc.import.un));
 		if (CHECK_FLAG(vpn_bpi->flags, BGP_PATH_VALID)) {
@@ -3630,7 +3630,7 @@ void rfapiBgpInfoFilteredImportVPN(
 		/* Not a big deal, just means VPN route got here first */
 		vnc_zlog_debug_verbose("%s: no encap route for vn addr %pFX",
 				       __func__, &vn_prefix);
-		info_new->extra->vnc.import.un_family = 0;
+		info_new->extra->vnc.import.un_family = AF_UNSPEC;
 	}
 
 	if (rn) {
