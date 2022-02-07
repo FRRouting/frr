@@ -2983,7 +2983,7 @@ void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 	struct prefix lsa_prefix;
 
 	memset(&lsa_prefix, 0, sizeof(struct prefix));
-	lsa_prefix.family = 0;
+	lsa_prefix.family = AF_UNSPEC;
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
@@ -3024,7 +3024,7 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 
 	memset(&lsa_prefix, 0, sizeof(struct prefix));
-	lsa_prefix.family = 0;
+	lsa_prefix.family = AF_UNSPEC;
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
