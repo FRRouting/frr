@@ -452,6 +452,7 @@ cause great confusion.
 .. clicmd:: show ip pim assert
 
    Display information about asserts in the PIM system for S,G mroutes.
+   This command does not show S,G Channel states that in a NOINFO state.
 
 .. clicmd:: show ip pim assert-internal
 
