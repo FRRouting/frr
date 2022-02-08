@@ -1813,14 +1813,12 @@ void kernel_init(struct zebra_ns *zns)
 		zns->arp_fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC,
 				     htons(ETH_P_ARP));
 		if (zns->arp_fd < 0)
-			zlog_warn("Failed to open ARP socket for NS %s.",
-				  zns->ns->name);
+			zlog_warn("Failed to open ARP socket for NS %s.", zns->ns->name);
 
 		zns->nd_fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC,
 				    htons(ETH_P_IPV6));
 		if (zns->nd_fd < 0)
-			zlog_warn("Failed to open ND socket for NS %s.",
-				  zns->ns->name);
+			zlog_warn("Failed to open ND socket for NS %s.", zns->ns->name);
 	}
 
 	zns->t_netlink = NULL;

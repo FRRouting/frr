@@ -2980,7 +2980,7 @@ DEFPY (enable_neigh_throttle,
 
 DEFUN (neigh_throttle_timeout,
        neigh_throttle_timeout_cmd,
-       ZEBRA_NEIGH_THROTTLE_STR " timeout " CMD_RANGE_STR(0, ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT) ,
+       ZEBRA_NEIGH_THROTTLE_STR " timeout " CMD_RANGE_STR(ZEBRA_NEIGH_THROTTLE_MIN_TIMEOUT, ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT) ,
        "Neighbor data\n"
        "Neighbor throttling data\n"
        "Set timeout in seconds\n"
@@ -2995,7 +2995,7 @@ DEFUN (neigh_throttle_timeout,
 
 DEFUN (no_neigh_throttle_timeout,
        no_neigh_throttle_timeout_cmd,
-       "no " ZEBRA_NEIGH_THROTTLE_STR " timeout [" CMD_RANGE_STR(0, ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT) "]" ,
+       "no " ZEBRA_NEIGH_THROTTLE_STR " timeout [" CMD_RANGE_STR(ZEBRA_NEIGH_THROTTLE_MIN_TIMEOUT, ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT) "]" ,
        NO_STR
        "Neighbor data\n"
        "Neighbor throttling data\n"
@@ -3031,34 +3031,42 @@ DEFPY (no_neigh_throttle_limit,
 	return CMD_SUCCESS;
 }
 
-/*
- * TODO test clis
- */
-DEFPY (test_neigh_throttle,
-       test_neigh_throttle_cmd,
-       "neighbor throttle <add$add|delete$delete> A.B.C.D$address",
+DEFPY (neigh_throttle_del,
+       neigh_throttle_del_cmd,
+       ZEBRA_NEIGH_THROTTLE_STR " delete [vrf VRFNAME$vrf_p] \
+	    < <A.B.C.D|X:X::X:X>$address | all$all_p>",
        "Neighbor data\n"
        "Neighbor throttling data\n"
-       "Add an entry\n"
        "Delete an entry\n"
-       "IPv4 address\n")
+       "Specify a VRF name\n"
+       "The VRF name\n"
+       "IPv4 address\n"
+       "IPv6 address\n"
+       "Delete all entries\n")
 {
 	struct ipaddr addr;
+	vrf_id_t vrf_id = VRF_DEFAULT;
 
-	addr.ipa_type = IPADDR_V4;
-	addr.ipaddr_v4 = address;
+	if (vrf_p) {
+		if (!vrf_get_id(vty, &vrf_id, vrf_p, false))
+			return CMD_WARNING;
+	}
 
-	if (add)
-		zebra_neigh_throttle_add(VRF_DEFAULT, &addr);
-	else
-		zebra_neigh_throttle_delete(VRF_DEFAULT, &addr);
+	if (address) {
+		if (address->sa.sa_family == AF_INET) {
+			addr.ipa_type = IPADDR_V4;
+			addr.ipaddr_v4 = address->sin.sin_addr;
+		} else {
+			addr.ipa_type = IPADDR_V6;
+			addr.ipaddr_v6 = address->sin6.sin6_addr;
+		}
+
+		zebra_neigh_throttle_delete(vrf_id, &addr);
+	} else
+		zebra_neigh_throttle_delete_all();
 
 	return CMD_SUCCESS;
 }
-
-/*
- * TODO test clis
- */
 
 DEFPY(show_evpn_es,
       show_evpn_es_cmd,
@@ -4618,7 +4626,7 @@ void zebra_vty_init(void)
 	install_element(VIEW_NODE, &zebra_show_routing_tables_summary_cmd);
 
 	install_element(VIEW_NODE, &show_neigh_throttle_cmd);
-	install_element(ENABLE_NODE, &test_neigh_throttle_cmd);
+	install_element(ENABLE_NODE, &neigh_throttle_del_cmd);
 	install_element(CONFIG_NODE, &enable_neigh_throttle_cmd);
 	install_element(CONFIG_NODE, &neigh_throttle_timeout_cmd);
 	install_element(CONFIG_NODE, &no_neigh_throttle_timeout_cmd);
