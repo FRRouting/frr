@@ -1299,7 +1299,10 @@ AC_CHECK_FUNCS([ \
 	openat \
 	unlinkat \
 	posix_fallocate \
+	sendmmsg \
 	])
+
+AC_CHECK_MEMBERS([struct mmsghdr.msg_hdr], [], [], FRR_INCLUDES)
 
 dnl ##########################################################################
 dnl LARGE if block spans a lot of "configure"!
