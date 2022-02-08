@@ -1038,7 +1038,7 @@ netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
 	const struct nlsock *nl;
 
 	nl = &(dp_info->nls);
-	n->nlmsg_seq = nl->seq;
+	n->nlmsg_seq = dp_info->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1172,8 +1172,8 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 			 * 'update' context objects take two consecutive
 			 * sequence numbers.
 			 */
-			if (dplane_ctx_is_update(ctx)
-			    && dplane_ctx_get_ns(ctx)->nls.seq + 1 == seq) {
+			if (dplane_ctx_is_update(ctx) &&
+			    dplane_ctx_get_ns(ctx)->seq + 1 == seq) {
 				/*
 				 * This is the situation where we get a response
 				 * to a message that should be ignored.
@@ -1186,14 +1186,14 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 			dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
 
 			/* We have found corresponding context object. */
-			if (dplane_ctx_get_ns(ctx)->nls.seq == seq)
+			if (dplane_ctx_get_ns(ctx)->seq == seq)
 				break;
 
-			if (dplane_ctx_get_ns(ctx)->nls.seq > seq)
+			if (dplane_ctx_get_ns(ctx)->seq > seq)
 				zlog_warn(
 					"%s:WARNING Recieved %u is less than any context on the queue ctx->seq %u",
 					__func__, seq,
-					dplane_ctx_get_ns(ctx)->nls.seq);
+					dplane_ctx_get_ns(ctx)->seq);
 		}
 
 		if (ignore_msg) {
@@ -1360,7 +1360,7 @@ enum netlink_msg_status netlink_batch_add_msg(
 			return FRR_NETLINK_ERROR;
 	}
 
-	seq = dplane_ctx_get_ns(ctx)->nls.seq;
+	seq = dplane_ctx_get_ns(ctx)->seq;
 	if (ignore_res)
 		seq++;
 
