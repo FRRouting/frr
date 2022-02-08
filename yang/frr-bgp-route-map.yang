@@ -532,6 +532,11 @@ module frr-bgp-route-map {
             description
               "Prefix route";
           }
+          enum "ead" {
+            value 3;
+            description
+              "Ethernet Auto-Discovery route";
+          }
         }
       }
     }
