@@ -65,12 +65,11 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
 		pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str,
 			       sizeof(neigh_str));
-		zlog_debug(
-			"%s: join (S,G)=%s rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
-			__func__, pim_str_sg_dump(sg),
-			!!(source_flags & PIM_RPT_BIT_MASK),
-			!!(source_flags & PIM_WILDCARD_BIT_MASK), up_str,
-			holdtime, neigh_str, ifp->name);
+		zlog_debug("%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
+			   __func__, sg,
+			   !!(source_flags & PIM_RPT_BIT_MASK),
+			   !!(source_flags & PIM_WILDCARD_BIT_MASK), up_str,
+			   holdtime, neigh_str, ifp->name);
 	}
 
 	pim_ifp = ifp->info;
@@ -96,26 +95,23 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 		 * our RP for the group, drop the message
 		 */
 		if (sg->src.s_addr != rp->rpf_addr.u.prefix4.s_addr) {
-			char received_rp[INET_ADDRSTRLEN];
 			char local_rp[INET_ADDRSTRLEN];
-			pim_inet4_dump("<received?>", sg->src, received_rp,
-				       sizeof(received_rp));
 			pim_inet4_dump("<local?>", rp->rpf_addr.u.prefix4,
 				       local_rp, sizeof(local_rp));
 			zlog_warn(
-				"%s: Specified RP(%s) in join is different than our configured RP(%s)",
-				__func__, received_rp, local_rp);
+				"%s: Specified RP(%pPAs) in join is different than our configured RP(%s)",
+				__func__, &sg->src, local_rp);
 			return;
 		}
 
 		if (pim_is_grp_ssm(pim_ifp->pim, sg->grp)) {
 			zlog_warn(
-				"%s: Specified Group(%pI4) in join is now in SSM, not allowed to create PIM state",
+				"%s: Specified Group(%pPA) in join is now in SSM, not allowed to create PIM state",
 				__func__, &sg->grp);
 			return;
 		}
 
-		sg->src.s_addr = INADDR_ANY;
+		sg->src = PIMADDR_ANY;
 	}
 
 	/* Restart join expiry timer */
@@ -135,12 +131,12 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		pim_inet4_dump("<upstream?>", upstream, up_str, sizeof(up_str));
 		pim_inet4_dump("<neigh?>", neigh->source_addr, neigh_str,
 			       sizeof(neigh_str));
-		zlog_debug(
-			"%s: prune (S,G)=%s rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
-			__func__, pim_str_sg_dump(sg),
-			source_flags & PIM_RPT_BIT_MASK,
-			source_flags & PIM_WILDCARD_BIT_MASK, up_str, holdtime,
-			neigh_str, ifp->name);
+		zlog_debug("%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%s holdtime=%d from %s on %s",
+			   __func__, sg,
+			   source_flags & PIM_RPT_BIT_MASK,
+			   source_flags & PIM_WILDCARD_BIT_MASK, up_str,
+			   holdtime,
+			   neigh_str, ifp->name);
 	}
 
 	pim_ifp = ifp->info;
@@ -155,16 +151,11 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * Received Prune(*,G) messages are processed even if the
 		 * RP in the message does not match RP(G).
 		 */
-		if (PIM_DEBUG_PIM_TRACE) {
-			char received_rp[INET_ADDRSTRLEN];
+		if (PIM_DEBUG_PIM_TRACE)
+			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
+				   __func__, &sg->src, sg);
 
-			pim_inet4_dump("<received?>", sg->src, received_rp,
-				       sizeof(received_rp));
-			zlog_debug("%s: Prune received with RP(%s) for %pSG",
-				   __func__, received_rp, sg);
-		}
-
-		sg->src.s_addr = INADDR_ANY;
+		sg->src = PIMADDR_ANY;
 	}
 
 	pim_ifchannel_prune(ifp, upstream, sg, source_flags, holdtime);
@@ -281,16 +272,13 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		if (PIM_DEBUG_PIM_J_P) {
 			char src_str[INET_ADDRSTRLEN];
 			char upstream_str[INET_ADDRSTRLEN];
-			char group_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<src?>", src_addr, src_str,
 				       sizeof(src_str));
 			pim_inet4_dump("<addr?>", msg_upstream_addr.u.prefix4,
 				       upstream_str, sizeof(upstream_str));
-			pim_inet4_dump("<grp?>", sg.grp, group_str,
-				       sizeof(group_str));
 			zlog_debug(
-				"%s: join/prune upstream=%s group=%s/32 join_src=%d prune_src=%d from %s on %s",
-				__func__, upstream_str, group_str,
+				"%s: join/prune upstream=%s group=%pPA/32 join_src=%d prune_src=%d from %s on %s",
+				__func__, upstream_str, &sg.grp,
 				msg_num_joined_sources, msg_num_pruned_sources,
 				src_str, ifp->name);
 		}
@@ -316,7 +304,7 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				  msg_upstream_addr.u.prefix4, &sg,
 				  msg_source_flags);
 
-			if (sg.src.s_addr == INADDR_ANY) {
+			if (pim_addr_is_any(sg.src)) {
 				starg_ch = pim_ifchannel_find(ifp, &sg);
 				if (starg_ch)
 					pim_ifchannel_set_star_g_join_state(
@@ -489,7 +477,7 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		return -1;
 	}
 
-	if (PIM_INADDR_IS_ANY(rpf->rpf_addr.u.prefix4)) {
+	if (rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY) {
 		if (PIM_DEBUG_PIM_J_P) {
 			char dst_str[INET_ADDRSTRLEN];
 			pim_inet4_dump("<dst?>", rpf->rpf_addr.u.prefix4,
