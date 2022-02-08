@@ -557,8 +557,7 @@ static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
 			   uint32_t bsr_prio)
 {
 	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
-		if (pim->global_scope.current_bsr.s_addr)
-			pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 		pim_nht_bsr_add(pim, bsr);
 
 		pim->global_scope.current_bsr = bsr;
@@ -582,8 +581,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 	struct rp_info *rp_info;
 	bool upstream_updated = false;
 
-	if (pim->global_scope.current_bsr.s_addr)
-		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
+	pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 
 	/* Reset scope zone data */
 	pim->global_scope.accept_nofwd_bsm = false;
