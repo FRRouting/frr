@@ -58,5 +58,27 @@ int pim_process_ip_mroute_cmd(struct vty *vty, const char *interface,
 			      const char *group_str, const char *source_str);
 int pim_process_no_ip_mroute_cmd(struct vty *vty, const char *interface,
 				 const char *group_str, const char *src_str);
+void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
+void pim_show_rpf(struct pim_instance *pim, struct vty *vty, bool uj);
+void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty);
+void pim_show_state(struct pim_instance *pim, struct vty *vty,
+		    const char *src_or_group, const char *group, bool uj);
+void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
+			 const char *ifname, bool uj);
+void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
+		       pim_sgaddr *sg, bool uj);
+void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj);
+void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj);
+void show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
+			    time_t now, json_object *json);
+
+/*
+ * Special Macro to allow us to get the correct pim_instance;
+ */
+#define PIM_DECLVAR_CONTEXT(A, B)                                              \
+	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
+	struct pim_instance *B =                                               \
+		(vrf) ? vrf->info : pim_get_pim_instance(VRF_DEFAULT);         \
+	vrf = (vrf) ? vrf : pim->vrf
 
 #endif /* PIM_CMD_COMMON_H */
