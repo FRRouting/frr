@@ -124,11 +124,11 @@ March/July/November.  Walking backwards from this date:
         % git push upstream dev/8.2
         % git checkout master
         % sed -i 's/8.2-dev/8.3-dev/' configure.ac
-        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
-        % git push upstream frr-8.3-dev
         % git add configure.ac
         % git commit -s -m "build: FRR 8.3 development version"
+        % git tag -a frr-8.3-dev -m "frr-8.3-dev"
         % git push upstream master
+        % git push upstream frr-8.3-dev
 
    In this step, we also have to update package versions to reflect
    the development version. Versions need to be updated using
