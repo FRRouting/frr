@@ -1806,6 +1806,23 @@ void kernel_init(struct zebra_ns *zns)
 			       zns->netlink_cmd.snl.nl_pid,
 			       zns->netlink_dplane_out.snl.nl_pid);
 
+	/*
+	 * Create sockets for ARP and NS-ND
+	 */
+	frr_with_privs (&zserv_privs) {
+		zns->arp_fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC,
+				     htons(ETH_P_ARP));
+		if (zns->arp_fd < 0)
+			zlog_warn("Failed to open ARP socket for NS %s.",
+				  zns->ns->name);
+
+		zns->nd_fd = socket(PF_PACKET, SOCK_RAW | SOCK_CLOEXEC,
+				    htons(ETH_P_IPV6));
+		if (zns->nd_fd < 0)
+			zlog_warn("Failed to open ND socket for NS %s.",
+				  zns->ns->name);
+	}
+
 	zns->t_netlink = NULL;
 
 	event_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,

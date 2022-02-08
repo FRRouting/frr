@@ -74,6 +74,12 @@ struct zebra_ns {
 	/* Tree of interfaces in this ns */
 	struct ifp_tree_head ifp_tree;
 
+	/* PACKET socket fd for ARP */
+	int arp_fd;
+
+	/* PACKET socket fd for v6 ND */
+	int nd_fd;
+
 	/* Back pointer */
 	struct ns *ns;
 };
