@@ -1589,7 +1589,7 @@ route_match_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	if (!list)
 		return RMAP_NOMATCH;
 
-	if (ecommunity_list_match(path->attr->ecommunity, list))
+	if (ecommunity_list_match(bgp_attr_get_ecommunity(path->attr), list))
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -2590,7 +2590,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 
 	if (rcs->none) {
 		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
-		attr->ecommunity = NULL;
+		bgp_attr_set_ecommunity(attr, NULL);
 		return RMAP_OKAY;
 	}
 
@@ -2598,7 +2598,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_OKAY;
 
 	/* We assume additive for Extended Community. */
-	old_ecom = path->attr->ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(path->attr);
 
 	if (old_ecom) {
 		new_ecom =
@@ -2614,7 +2614,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 		new_ecom = ecommunity_dup(rcs->ecom);
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
-	path->attr->ecommunity = new_ecom;
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
@@ -2764,7 +2764,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 				     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 
 	/* add to route or merge with existing */
-	old_ecom = path->attr->ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(path->attr);
 	if (old_ecom) {
 		new_ecom = ecommunity_dup(old_ecom);
 		ecommunity_add_val(new_ecom, &lb_eval, true, true);
@@ -2778,7 +2778,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
-	path->attr->ecommunity = new_ecom;
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	/* Mark that route-map has set link bandwidth; used in attribute
