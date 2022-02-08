@@ -722,7 +722,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		/* Maybe free label string, if allocated */
 		if (ctx->u.intf.label != NULL &&
 		    ctx->u.intf.label != ctx->u.intf.label_buf) {
-			free(ctx->u.intf.label);
+			XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
 			ctx->u.intf.label = NULL;
 		}
 		break;
@@ -1843,7 +1843,7 @@ void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label)
 	DPLANE_CTX_VALID(ctx);
 
 	if (ctx->u.intf.label && ctx->u.intf.label != ctx->u.intf.label_buf)
-		free(ctx->u.intf.label);
+		XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
 
 	ctx->u.intf.label = NULL;
 
@@ -1858,7 +1858,7 @@ void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label)
 				sizeof(ctx->u.intf.label_buf));
 			ctx->u.intf.label = ctx->u.intf.label_buf;
 		} else {
-			ctx->u.intf.label = strdup(label);
+			ctx->u.intf.label = XSTRDUP(MTYPE_DP_CTX, label);
 		}
 	} else {
 		ctx->u.intf.flags &= ~DPLANE_INTF_HAS_LABEL;
@@ -3694,7 +3694,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 				sizeof(ctx->u.intf.label_buf));
 			ctx->u.intf.label = ctx->u.intf.label_buf;
 		} else {
-			ctx->u.intf.label = strdup(ifc->label);
+			ctx->u.intf.label = XSTRDUP(MTYPE_DP_CTX, ifc->label);
 		}
 	}
 
