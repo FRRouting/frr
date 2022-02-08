@@ -18,7 +18,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 Reference: https://www.cmand.org/communityexploration
 
                      --y2--

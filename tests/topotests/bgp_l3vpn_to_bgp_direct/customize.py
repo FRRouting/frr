@@ -21,7 +21,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 customize.py: Simple FRR MPLS L3VPN test topology
 
                   |
