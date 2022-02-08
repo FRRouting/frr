@@ -165,6 +165,9 @@ struct attr_extra {
 
 	/* Extended Communities attribute. */
 	struct ecommunity *ipv6_ecommunity;
+
+	/* Route-Reflector Cluster attribute */
+	struct cluster_list *cluster1;
 };
 
 /* BGP core attribute structure. */
@@ -209,9 +212,6 @@ struct attr {
 
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
-
-	/* Route-Reflector Cluster attribute */
-	struct cluster_list *cluster1;
 
 	/* Unknown transitive attribute. */
 	struct transit *transit;
@@ -567,13 +567,23 @@ static inline void bgp_attr_set_transit(struct attr *attr,
 
 static inline struct cluster_list *bgp_attr_get_cluster(const struct attr *attr)
 {
-	return attr->cluster1;
+	if (attr->extra)
+		return attr->extra->cluster1;
+
+	return NULL;
 }
 
 static inline void bgp_attr_set_cluster(struct attr *attr,
 					struct cluster_list *cl)
 {
-	attr->cluster1 = cl;
+	if (!attr->extra) {
+		if (!cl)
+			return;
+
+		attr->extra = bgp_attr_extra_alloc();
+	}
+
+	attr->extra->cluster1 = cl;
 }
 
 static inline const struct bgp_route_evpn *
