@@ -22,15 +22,16 @@
 #include <linux/neighbour.h>
 #include <linux/rtnetlink.h>
 #include <linux/nexthop.h>
+#include <linux/if_packet.h>
+#include <netinet/ip6.h>
+#include <netinet/icmp6.h>
 
 /* Hack for GNU libc version 2. */
 #ifndef MSG_TRUNC
 #define MSG_TRUNC      0x20
 #endif /* MSG_TRUNC */
 
-#include "linklist.h"
 #include "if.h"
-#include "log.h"
 #include "prefix.h"
 #include "plist.h"
 #include "plist_int.h"
@@ -42,17 +43,16 @@
 #include "privs.h"
 #include "nexthop.h"
 #include "vrf.h"
-#include "vty.h"
 #include "mpls.h"
 #include "vxlan.h"
 #include "printfrr.h"
+#include "checksum.h"
 
 #include "zebra/zapi_msg.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
 #include "zebra/rt.h"
 #include "zebra/redistribute.h"
-#include "zebra/interface.h"
 #include "zebra/debug.h"
 #include "zebra/rtadv.h"
 #include "zebra/zebra_ptm.h"
@@ -62,10 +62,10 @@
 #include "zebra/zebra_nhg.h"
 #include "zebra/zebra_mroute.h"
 #include "zebra/zebra_vxlan.h"
-#include "zebra/zebra_errors.h"
 #include "zebra/zebra_evpn_mh.h"
 #include "zebra/zebra_trace.h"
 #include "zebra/zebra_neigh.h"
+#include "zebra/zebra_neigh_throttle.h"
 #include "lib/srv6.h"
 
 #ifndef AF_MPLS
@@ -3735,6 +3735,10 @@ static int netlink_macfdb_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	if (!is_evpn_enabled())
 		return 0;
 
+	/* We only process NEW and DEL messages */
+	if (h->nlmsg_type != RTM_NEWNEIGH && h->nlmsg_type != RTM_DELNEIGH)
+		return 0;
+
 	/* Parse attributes and extract fields of interest. Do basic
 	 * validation of the fields.
 	 */
@@ -4203,27 +4207,272 @@ ssize_t netlink_macfdb_update_ctx(struct zebra_dplane_ctx *ctx, void *data,
 /*
  * In the event the kernel deletes ipv4 link-local neighbor entries created for
  * 5549 support, re-install them.
+ * Returns 'true' if it recognizes a 6-to-4 entry.
  */
-static void netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
+static bool netlink_handle_5549(struct ndmsg *ndm, struct zebra_if *zif,
 				struct interface *ifp, struct ipaddr *ip,
 				bool handle_failed)
 {
 	if (ndm->ndm_family != AF_INET)
-		return;
+		return false;
 
 	if (!zif->v6_2_v4_ll_neigh_entry)
-		return;
+		return false;
 
-	if (ipv4_ll.s_addr != ip->ip._v4_addr.s_addr)
-		return;
+	if (ipv4_ll.s_addr != ip->ipaddr_v4.s_addr)
+		return false;
 
 	if (handle_failed && ndm->ndm_state & NUD_FAILED) {
 		zlog_info("Neighbor Entry for %s has entered a failed state, not reinstalling",
 			  ifp->name);
-		return;
+		return true;
 	}
 
 	if_nbr_ipv6ll_to_ipv4ll_neigh_update(ifp, &zif->v6_2_v4_ll_addr6, true);
+	return true;
+}
+
+/*
+ * Helper to send ipv6 ND solicit message
+ */
+static bool send_nd_helper(const struct ipaddr *addr, struct zebra_ns *zns,
+			   struct interface *ifp)
+{
+	uint8_t buf[200] = {};
+	struct ether_header *eth = (struct ether_header *)buf;
+	struct ip6_hdr *ip6h = (struct ip6_hdr *)((char *)eth + ETHER_HDR_LEN);
+	struct nd_neighbor_advert *ndh =
+		(struct nd_neighbor_advert *)((char *)ip6h +
+					      sizeof(struct ip6_hdr));
+	struct icmp6_hdr *icmp6h = &ndh->nd_na_hdr;
+	struct nd_opt_hdr *nd_opt_h =
+		(struct nd_opt_hdr *)((char *)ndh +
+				      sizeof(struct nd_neighbor_advert));
+	char *nd_opt_lladdr = ((char *)nd_opt_h + sizeof(struct nd_opt_hdr));
+	char *lladdr = (char *)ifp->hw_addr;
+	struct ipv6_ph ph = {};
+	uint32_t hlen;
+	ssize_t len;
+	void *offset;
+	struct ipaddr iptemp;
+	struct sockaddr_ll sll;
+
+#define ZEBRA_ND_HOPLIMIT 255
+#define ZEBRA_ND_SIZE                                                          \
+	ETHER_HDR_LEN + sizeof(struct ip6_hdr) +                               \
+		sizeof(struct nd_neighbor_advert) +                            \
+		sizeof(struct nd_opt_hdr) + ETH_ALEN
+
+	/* Locate source IP address */
+	if (!zebra_if_get_source(ifp, addr, &iptemp))
+		return false;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: addr %pIA, ifp %s", __func__, addr, ifp->name);
+
+	/*
+	 * An IPv6 packet with a multicast destination address DST, consisting
+	 * of the sixteen octets DST[1] through DST[16], is transmitted to the
+	 * Ethernet multicast address whose first two octets are the value 3333
+	 * hexadecimal and whose last four octets are the last four octets of
+	 * DST.
+	 *    - RFC2464.7
+	 *
+	 * In this case we are sending to the solicited-node multicast address,
+	 * so the last four octets are from the corresponding v6 mcast address,
+	 * which in turn are from the target address.
+	 */
+	eth->ether_dhost[0] = 0x33;
+	eth->ether_dhost[1] = 0x33;
+	eth->ether_dhost[2] = 0xFF;
+	eth->ether_dhost[3] = addr->ipaddr_v6.s6_addr[13];
+	eth->ether_dhost[4] = addr->ipaddr_v6.s6_addr[14];
+	eth->ether_dhost[5] = addr->ipaddr_v6.s6_addr[15];
+
+	/* Set source Ethernet address to interface link layer address */
+	memcpy(eth->ether_shost, lladdr, ETH_ALEN);
+	eth->ether_type = htons(ETHERTYPE_IPV6);
+
+	/* IPv6 Header */
+	ip6h->ip6_vfc = 6 << 4;
+	ip6h->ip6_plen = htons(sizeof(struct nd_neighbor_advert) +
+			       sizeof(struct nd_opt_hdr) + ETH_ALEN);
+	ip6h->ip6_nxt = IPPROTO_ICMPV6;
+	ip6h->ip6_hlim = ZEBRA_ND_HOPLIMIT;
+
+	/* Source address, found above. */
+	memcpy(&ip6h->ip6_src, &iptemp.ipaddr_v6, sizeof(struct in6_addr));
+
+	/* Solicited-node multicast address for the target address */
+	ip6h->ip6_dst.s6_addr[0] = 0xFF;
+	ip6h->ip6_dst.s6_addr[1] = 0x02;
+	ip6h->ip6_dst.s6_addr[11] = 0x01;
+	ip6h->ip6_dst.s6_addr[12] = 0xFF;
+
+	ip6h->ip6_dst.s6_addr[13] = addr->ipaddr_v6.s6_addr[13];
+	ip6h->ip6_dst.s6_addr[14] = addr->ipaddr_v6.s6_addr[14];
+	ip6h->ip6_dst.s6_addr[15] = addr->ipaddr_v6.s6_addr[15];
+
+	/* ICMPv6 Header */
+	ndh->nd_na_type = ND_NEIGHBOR_SOLICIT;
+	memcpy(&ndh->nd_na_target, &addr->ipaddr_v6, sizeof(struct in6_addr));
+
+	/* NDISC Option header */
+	nd_opt_h->nd_opt_type = ND_OPT_SOURCE_LINKADDR;
+	nd_opt_h->nd_opt_len = 1;
+	memcpy(nd_opt_lladdr, lladdr, ETH_ALEN);
+
+	/* Compute checksum */
+	hlen = (sizeof(struct nd_neighbor_advert) + sizeof(struct nd_opt_hdr) +
+		ETH_ALEN);
+
+	ph.src = ip6h->ip6_src;
+	ph.dst = ip6h->ip6_dst;
+	ph.ulpl = htonl(hlen);
+	ph.next_hdr = IPPROTO_ICMPV6;
+
+	/* Suppress static analysis warnings about accessing icmp6 oob */
+	offset = icmp6h;
+	icmp6h->icmp6_cksum = in_cksum_with_ph6(&ph, offset, hlen);
+
+	/* Prep and send packet */
+	memset(&sll, 0, sizeof(sll));
+	sll.sll_family = AF_PACKET;
+	sll.sll_ifindex = (int)ifp->ifindex;
+	sll.sll_halen = ifp->hw_addr_len;
+	memcpy(sll.sll_addr, ifp->hw_addr, ETH_ALEN);
+
+	len = sendto(zns->nd_fd, buf, ZEBRA_ND_SIZE, 0, (struct sockaddr *)&sll,
+		     sizeof(sll));
+	if (len < 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: error sending ND SOLICIT req for %pIA",
+				   __func__, addr);
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Helper to send ipv4 ARP solicit
+ */
+static bool send_arp_helper(const struct ipaddr *addr, struct zebra_ns *zns,
+			    struct interface *ifp)
+{
+	uint8_t buf[100];
+	uint8_t *arp_ptr;
+	struct ether_header *eth;
+	struct arphdr *arph;
+	ssize_t len, alen;
+	struct ipaddr iptemp;
+	struct sockaddr_ll sll;
+
+	/* Locate source IP address */
+	if (!zebra_if_get_source(ifp, addr, &iptemp))
+		return false;
+
+	if (IS_ZEBRA_DEBUG_KERNEL)
+		zlog_debug("%s: addr %pIA, ifp %s", __func__, addr, ifp->name);
+
+	memset(buf, 0, sizeof(buf));
+	memset(&sll, 0, sizeof(sll));
+
+	/* Build Ethernet header */
+	eth = (struct ether_header *)buf;
+
+	memset(eth->ether_dhost, 0xFF, ETH_ALEN);
+	memcpy(eth->ether_shost, ifp->hw_addr, ETH_ALEN);
+	eth->ether_type = htons(ETHERTYPE_ARP);
+
+	/* Build ARP payload */
+	arph = (struct arphdr *)(buf + ETHER_HDR_LEN);
+
+	arph->ar_hrd = htons(ARPHRD_ETHER);
+	arph->ar_pro = htons(ETHERTYPE_IP);
+	arph->ar_hln = ifp->hw_addr_len;
+	arph->ar_pln = sizeof(struct in_addr);
+	arph->ar_op = htons(ARPOP_REQUEST);
+
+	arp_ptr = (uint8_t *)(arph + 1);
+
+	/* Source MAC: us */
+	memcpy(arp_ptr, ifp->hw_addr, ifp->hw_addr_len);
+	arp_ptr += ifp->hw_addr_len;
+
+	/* Source IP: us */
+	memcpy(arp_ptr, &(iptemp.ipaddr_v4), sizeof(struct in_addr));
+	arp_ptr += sizeof(struct in_addr);
+
+	/* TODO -- VRRP uses bcast dest here, but the OS uses zero? */
+	/* Dest MAC: zero */
+	memset(arp_ptr, 0, ETH_ALEN);
+	arp_ptr += ifp->hw_addr_len;
+
+	/* Dest IP, target */
+	memcpy(arp_ptr, &addr->ipaddr_v4, sizeof(struct in_addr));
+	arp_ptr += sizeof(struct in_addr);
+
+	alen = arp_ptr - buf;
+
+	sll.sll_family = AF_PACKET;
+	sll.sll_protocol = ETH_P_ARP;
+	sll.sll_ifindex = (int)ifp->ifindex;
+	sll.sll_halen = ifp->hw_addr_len;
+	memset(sll.sll_addr, 0xFF, ETH_ALEN);
+
+	len = sendto(zns->arp_fd, buf, alen, 0, (struct sockaddr *)&sll,
+		     sizeof(sll));
+	if (len < 0) {
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: error sending ARP req for %pIA",
+				   __func__, addr);
+		return false;
+	}
+
+	return true;
+}
+
+/*
+ * Handle optional glean throttling. If enabled, we install a blackhole route
+ * for each unresolved neighbor entry, and remove that temporary blackhole
+ * if the neighbor resolves.
+ */
+static void netlink_handle_neigh_throttle(int cmd, const struct ndmsg *ndm,
+					  const struct ipaddr *addr,
+					  struct zebra_ns *zns,
+					  struct interface *ifp)
+{
+
+	if (cmd == RTM_NEWNEIGH) {
+		if (ndm->ndm_state & NUD_REACHABLE)
+			zebra_neigh_throttle_delete(ifp->vrf->vrf_id, addr);
+		else if (ndm->ndm_state & NUD_FAILED)
+			zebra_neigh_throttle_add(ifp, addr, false);
+
+	} else if (cmd == RTM_DELNEIGH) {
+		zebra_neigh_throttle_delete(ifp->vrf->vrf_id, addr);
+
+	} else if (cmd == RTM_GETNEIGH) {
+
+		/* If throttling enabled, ARP/ND */
+		if (!zebra_neigh_throttle_is_enabled(ifp))
+			return;
+
+		/* TODO -- if configured to receive GETNEIGH, ARP/ND always? */
+
+		/* TODO -- only for ethernet interfaces? */
+
+		if (addr->ipa_type == IPADDR_V4)
+			send_arp_helper(addr, zns, ifp);
+		else
+			send_nd_helper(addr, zns, ifp);
+
+		/* Maybe add a delayed throttle entry, instead of waiting
+		 * the full OS timeout.
+		 */
+		zebra_neigh_throttle_add(ifp, addr, true);
+	}
 }
 
 #define NUD_VALID                                                              \
@@ -4241,11 +4490,13 @@ static int netlink_nbr_entry_state_to_zclient(int nbr_state)
 	 */
 	return nbr_state;
 }
+
 static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 {
 	struct ndmsg *ndm;
 	struct interface *ifp;
 	struct zebra_if *zif;
+	struct zebra_ns *zns;
 	struct rtattr *tb[NDA_MAX + 1];
 	struct interface *link_if;
 	struct ethaddr mac;
@@ -4260,11 +4511,13 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	int l2_len = 0;
 	int cmd;
 
+	/* N.B. the message type has already been checked by the caller */
+
 	ndm = NLMSG_DATA(h);
 
 	/* The interface should exist. */
-	ifp = if_lookup_by_index_per_ns(zebra_ns_lookup(ns_id),
-					ndm->ndm_ifindex);
+	zns = zebra_ns_lookup(ns_id);
+	ifp = if_lookup_by_index_per_ns(zns, ndm->ndm_ifindex);
 	if (!ifp || !ifp->info)
 		return 0;
 
@@ -4285,20 +4538,47 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	ip.ipa_type = (ndm->ndm_family == AF_INET) ? IPADDR_V4 : IPADDR_V6;
 	memcpy(&ip.ip.addr, RTA_DATA(tb[NDA_DST]), RTA_PAYLOAD(tb[NDA_DST]));
 
-	/* if kernel deletes our rfc5549 neighbor entry, re-install it */
-	if (h->nlmsg_type == RTM_DELNEIGH && (ndm->ndm_state & NUD_PERMANENT)) {
-		netlink_handle_5549(ndm, zif, ifp, &ip, false);
-		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug(
-				"    Neighbor Entry Received is a 5549 entry, finished");
-		return 0;
+	if (h->nlmsg_type == RTM_GETNEIGH) {
+		/* Handle neighbor throttling */
+		netlink_handle_neigh_throttle(h->nlmsg_type, ndm, &ip, zns,
+					      ifp);
+
+	} else if (h->nlmsg_type == RTM_DELNEIGH) {
+		if (ndm->ndm_state & NUD_PERMANENT) {
+			/*
+			 * if kernel deletes our rfc5549 neighbor entry,
+			 * re-install it
+			 */
+			if (netlink_handle_5549(ndm, zif, ifp, &ip, false)) {
+				if (IS_ZEBRA_DEBUG_KERNEL)
+					zlog_debug(
+						"    Neighbor Entry Received is a 5549 entry, finished");
+				return 0;
+			}
+		}
+
+		/* Handle ip neighbor throttling */
+		netlink_handle_neigh_throttle(h->nlmsg_type, ndm, &ip, zns,
+					      ifp);
+
+	} else if (h->nlmsg_type == RTM_NEWNEIGH) {
+		bool handled = false;
+
+		if (!(ndm->ndm_state & NUD_VALID)) {
+			/*
+			 * If kernel marks our rfc5549 neighbor entry
+			 *  invalid, re-install it
+			 */
+			handled = netlink_handle_5549(ndm, zif, ifp, &ip, true);
+		}
+
+		/* Handle ip neighbor throttling */
+		if (!handled)
+			netlink_handle_neigh_throttle(h->nlmsg_type, ndm, &ip,
+						      zns, ifp);
 	}
 
-	/* if kernel marks our rfc5549 neighbor entry invalid, re-install it */
-	if (h->nlmsg_type == RTM_NEWNEIGH && !(ndm->ndm_state & NUD_VALID))
-		netlink_handle_5549(ndm, zif, ifp, &ip, true);
-
-	/* we send link layer information to client:
+	/* we send link layer information to NHRP client:
 	 * - nlmsg_type = RTM_DELNEIGH|NEWNEIGH|GETNEIGH
 	 * - struct ipaddr ( for DEL and GET)
 	 * - struct ethaddr mac; (for NEW)
@@ -4310,10 +4590,12 @@ static int netlink_ipneigh_change(struct nlmsghdr *h, int len, ns_id_t ns_id)
 	else if (h->nlmsg_type == RTM_DELNEIGH)
 		cmd = ZEBRA_NEIGH_REMOVED;
 	else {
-		zlog_debug("%s(): unknown nlmsg type %u", __func__,
-			   h->nlmsg_type);
+		if (IS_ZEBRA_DEBUG_KERNEL)
+			zlog_debug("%s: unknown nlmsg type %u", __func__,
+				   h->nlmsg_type);
 		return 0;
 	}
+
 	if (tb[NDA_LLADDR]) {
 		/* copy LLADDR information */
 		l2_len = RTA_PAYLOAD(tb[NDA_LLADDR]);
