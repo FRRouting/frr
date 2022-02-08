@@ -73,9 +73,26 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 				time_t now, json_object *json);
 bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match);
-
+void json_object_pim_ifp_add(struct json_object *json, struct interface *ifp);
+void pim_print_ifp_flags(struct vty *vty, struct interface *ifp);
+void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
+void pim_show_join(struct pim_instance *pim, struct vty *vty, pim_sgaddr *sg,
+		   bool uj);
+void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty);
+void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj);
+void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj);
+void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
+			 bool uj);
+void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
+				const char *ifname, bool mlag, bool uj);
+void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
+				 bool uj);
+void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
+void pim_show_neighbors_single(struct pim_instance *pim, struct vty *vty,
+			       const char *neighbor, bool uj);
+void pim_show_neighbors(struct pim_instance *pim, struct vty *vty, bool uj);
 /*
- * Special Macro to allow us to get the correct pim_instance;
+ * Special Macro to allow us to get the correct pim_instance
  */
 #define PIM_DECLVAR_CONTEXT(A, B)                                              \
 	struct vrf *A = VTY_GET_CONTEXT(vrf);                                  \
