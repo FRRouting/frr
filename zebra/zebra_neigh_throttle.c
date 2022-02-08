@@ -121,7 +121,6 @@ static int nt_entry_cmp(const struct nt_entry *a, const struct nt_entry *b)
 static void route_prep(const struct nt_entry *entry, afi_t *afi, struct prefix *p,
 		       struct nexthop *nh)
 {
-
 	if (entry->addr.ipa_type == IPADDR_V4) {
 		*afi = AFI_IP;
 		p->family = AF_INET;

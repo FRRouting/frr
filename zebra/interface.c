@@ -2277,6 +2277,44 @@ void zebra_if_dplane_result(struct zebra_dplane_ctx *ctx)
 	}
 }
 
+/*
+ * Find appropriate source IP for 'dest'; return in caller's buffer.
+ */
+bool zebra_if_get_source(const struct interface *ifp, const struct ipaddr *dest,
+			 struct ipaddr *src)
+{
+	bool ret = false;
+	const struct connected *ifc;
+
+	/* Find working connected address in 'dest' address-family */
+
+	/* TODO -- attempt to match dest's subnet? */
+
+	frr_each (if_connected_const, ifp->connected, ifc) {
+		/* Only consider working addresses */
+		if (!CHECK_FLAG(ifc->conf, ZEBRA_IFC_REAL))
+			continue;
+
+		if (dest->ipa_type == IPADDR_V4 && ifc->address->family == AF_INET) {
+
+			src->ipa_type = dest->ipa_type;
+			src->ipaddr_v4 = ifc->address->u.prefix4;
+			ret = true;
+			break;
+
+		} else if (dest->ipa_type == IPADDR_V6 &&
+			   ifc->address->family == AF_INET6) {
+
+			src->ipa_type = dest->ipa_type;
+			IPV6_ADDR_COPY(&src->ipaddr_v6, &ifc->address->u.prefix6);
+			ret = true;
+			break;
+		}
+	}
+
+	return ret;
+}
+
 /* Dump if address information to vty. */
 static void connected_dump_vty(struct vty *vty, json_object *json,
 			       struct connected *connected)
@@ -2825,6 +2863,11 @@ static void if_dump_vty(struct vty *vty, struct interface *ifp)
 			zebra_protodown_rc_str(zebra_if->protodown_rc, pd_buf,
 					       sizeof(pd_buf)));
 
+	if (CHECK_FLAG(zebra_if->flags, ZIF_FLAG_NEIGH_THROTTLE))
+		vty_out(vty, "  Neighbor Throttle enabled\n");
+	if (CHECK_FLAG(zebra_if->flags, ZIF_FLAG_NEIGH_THROTTLE_DISABLE))
+		vty_out(vty, "  Neighbor Throttle disabled\n");
+
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
 		if (zebra_if->link)
 			vty_out(vty, "  Parent interface: %s\n", zebra_if->link->name);
@@ -3235,6 +3278,12 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 				zebra_protodown_rc_str(zebra_if->protodown_rc,
 						       pd_buf, sizeof(pd_buf)));
 	}
+
+	json_object_boolean_add(json_if, "neighborThrottle",
+				CHECK_FLAG(zebra_if->flags, ZIF_FLAG_NEIGH_THROTTLE));
+	json_object_boolean_add(
+		json_if, "neighborThrottleDisable",
+		CHECK_FLAG(zebra_if->flags, ZIF_FLAG_NEIGH_THROTTLE_DISABLE));
 
 	if (zebra_if->link_ifindex != IFINDEX_INTERNAL) {
 		if (zebra_if->link)
