@@ -1314,10 +1314,7 @@ bool bgp_pbr_action_hash_equal(const void *arg1, const void *arg2)
 	if (r1->afi != r2->afi)
 		return false;
 
-	if (memcmp(&r1->nh, &r2->nh, sizeof(struct nexthop)))
-		return false;
-
-	return true;
+	return nexthop_same(&r1->nh, &r2->nh);
 }
 
 struct bgp_pbr_rule *bgp_pbr_rule_lookup(vrf_id_t vrf_id,
