@@ -1,6 +1,6 @@
 {
   "ted":{
-    "name":"ISIS",
+    "name":"Sharp",
     "key":1,
     "verticesCount":4,
     "edgesCount":14,
@@ -11,14 +11,16 @@
         "status":"Sync",
         "origin":"ISIS_L2",
         "name":"r1",
-        "router-id":"10.0.255.1"
+        "router-id":"10.0.255.1",
+        "router-id-v6":"2001:db8::1"
       },
       {
         "vertex-id":2,
         "status":"Sync",
         "origin":"ISIS_L2",
         "name":"r2",
-        "router-id":"10.0.255.2"
+        "router-id":"10.0.255.2",
+        "router-id-v6":"2001:db8::2"
       },
       {
         "vertex-id":3,
@@ -26,7 +28,7 @@
         "origin":"ISIS_L2",
         "name":"r3",
         "router-id":"10.0.255.3",
-        "router-id-v6":"2001:db8:1000::3"
+        "router-id-v6":"2001:db8::3"
       },
       {
         "vertex-id":4,
@@ -34,6 +36,7 @@
         "origin":"ISIS_L2",
         "name":"r4",
         "router-id":"10.0.255.4",
+        "router-id-v6":"2001:db8::4",
         "segment-routing":{
           "srgb-size":10000,
           "srgb-lower":10000,
@@ -58,6 +61,7 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
+          "te-metric":10,
           "local-address-v6":"2001:db8:1::1:1",
           "remote-address-v6":"2001:db8:1::1:2",
           "max-link-bandwidth":176258176.0,
@@ -87,7 +91,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":20000
         }
       },
       {
@@ -99,6 +104,7 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
+          "te-metric":10,
           "local-address-v6":"2001:db8:1::1:2",
           "remote-address-v6":"2001:db8:1::1:1",
           "max-link-bandwidth":176258176.0,
@@ -128,7 +134,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":20000
         }
       },
       {
@@ -140,6 +147,7 @@
         "remote-vertex-id":3,
         "metric":10,
         "edge-attributes":{
+          "te-metric":40,
           "local-address-v6":"2001:db8:3::3:2",
           "remote-address-v6":"2001:db8:3::3:3",
           "max-link-bandwidth":176258176.0,
@@ -169,7 +177,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":40000
         }
       },
       {
@@ -181,6 +190,7 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
+          "te-metric":25,
           "admin-group":32,
           "local-address-v6":"2001:db8:3::3:3",
           "remote-address-v6":"2001:db8:3::3:2",
@@ -211,7 +221,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":25000
         }
       },
       {
@@ -223,6 +234,7 @@
         "remote-vertex-id":3,
         "metric":10,
         "edge-attributes":{
+          "te-metric":10,
           "local-address-v6":"2001:db8:5::3:4",
           "remote-address-v6":"2001:db8:5::4:3",
           "max-link-bandwidth":176258176.0,
@@ -252,7 +264,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":10000
         },
         "segment-routing":[
           {
@@ -302,7 +315,7 @@
               "class-type-7":176258176.0
             }
           ],
-          "delay":50000
+          "delay":10000
         }
       },
       {
@@ -358,6 +371,7 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
+          "te-metric":20,
           "local-address":"10.0.0.2",
           "remote-address":"10.0.0.1",
           "max-link-bandwidth":176258176.0,
@@ -387,7 +401,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":10000
         }
       },
       {
@@ -399,6 +414,7 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
+          "te-metric":10,
           "local-address":"10.0.1.1",
           "remote-address":"10.0.1.2",
           "max-link-bandwidth":176258176.0,
@@ -428,7 +444,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":20000
         }
       },
       {
@@ -440,6 +457,7 @@
         "remote-vertex-id":1,
         "metric":10,
         "edge-attributes":{
+          "te-metric":10,
           "local-address":"10.0.1.2",
           "remote-address":"10.0.1.1",
           "max-link-bandwidth":176258176.0,
@@ -469,7 +487,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":20000
         }
       },
       {
@@ -481,6 +500,7 @@
         "remote-vertex-id":3,
         "metric":10,
         "edge-attributes":{
+          "te-metric":40,
           "local-address":"10.0.3.2",
           "remote-address":"10.0.3.3",
           "max-link-bandwidth":176258176.0,
@@ -510,7 +530,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":40000
         }
       },
       {
@@ -522,6 +543,7 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
+          "te-metric":25,
           "admin-group":32,
           "local-address":"10.0.3.3",
           "remote-address":"10.0.3.2",
@@ -552,7 +574,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":25000
         }
       },
       {
@@ -564,7 +587,7 @@
         "remote-vertex-id":4,
         "metric":10,
         "edge-attributes":{
-          "te-metric":30,
+          "te-metric":25,
           "local-address":"10.0.4.2",
           "remote-address":"10.0.4.4",
           "max-link-bandwidth":176258176.0,
@@ -608,6 +631,7 @@
         "remote-vertex-id":2,
         "metric":10,
         "edge-attributes":{
+          "te-metric":40,
           "local-address":"10.0.4.4",
           "remote-address":"10.0.4.2",
           "max-link-bandwidth":176258176.0,
@@ -637,7 +661,8 @@
             {
               "class-type-7":176258176.0
             }
-          ]
+          ],
+          "delay":40000
         },
         "segment-routing":[
           {
@@ -650,7 +675,7 @@
     ],
     "subnets":[
       {
-        "subnet-id":"10.0.0.1\/24",
+        "subnet-id":"10.0.0.1/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -658,7 +683,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.0.2\/24",
+        "subnet-id":"10.0.0.2/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -666,7 +691,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.1.1\/24",
+        "subnet-id":"10.0.1.1/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -674,7 +699,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.1.2\/24",
+        "subnet-id":"10.0.1.2/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -682,7 +707,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.3.2\/24",
+        "subnet-id":"10.0.3.2/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -690,7 +715,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.3.3\/24",
+        "subnet-id":"10.0.3.3/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -698,7 +723,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.4.2\/24",
+        "subnet-id":"10.0.4.2/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -706,7 +731,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.4.4\/24",
+        "subnet-id":"10.0.4.4/24",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0004",
@@ -714,7 +739,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.255.1\/32",
+        "subnet-id":"10.0.255.1/32",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -722,7 +747,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.255.2\/32",
+        "subnet-id":"10.0.255.2/32",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -730,7 +755,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.255.3\/32",
+        "subnet-id":"10.0.255.3/32",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -738,7 +763,7 @@
         "metric":10
       },
       {
-        "subnet-id":"10.0.255.4\/32",
+        "subnet-id":"10.0.255.4/32",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0004",
@@ -751,7 +776,7 @@
         }
       },
       {
-        "subnet-id":"2001:db8:1::1:1\/64",
+        "subnet-id":"2001:db8:1::1:1/64",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -759,7 +784,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:1::1:2\/64",
+        "subnet-id":"2001:db8:1::1:2/64",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -767,7 +792,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:3::3:2\/64",
+        "subnet-id":"2001:db8:3::3:2/64",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -775,7 +800,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:3::3:3\/64",
+        "subnet-id":"2001:db8:3::3:3/64",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -783,7 +808,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:5::3:4\/64",
+        "subnet-id":"2001:db8:5::3:4/64",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0004",
@@ -791,7 +816,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:5::4:3\/64",
+        "subnet-id":"2001:db8:5::4:3/64",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -799,7 +824,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:ffff::1\/128",
+        "subnet-id":"2001:db8::1/128",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0001",
@@ -807,7 +832,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:ffff::2\/128",
+        "subnet-id":"2001:db8::2/128",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0002",
@@ -815,7 +840,7 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:ffff::3\/128",
+        "subnet-id":"2001:db8::3/128",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0003",
@@ -823,17 +848,12 @@
         "metric":10
       },
       {
-        "subnet-id":"2001:db8:ffff::4\/128",
+        "subnet-id":"2001:db8::4/128",
         "status":"Sync",
         "origin":"ISIS_L2",
         "advertised-router":"0000.0000.0004",
         "vertex-id":4,
-        "metric":10,
-        "segment-routing":{
-          "pref-sid":1400,
-          "algo":0,
-          "flags":"0x60"
-        }
+        "metric":10
       }
     ]
   }
