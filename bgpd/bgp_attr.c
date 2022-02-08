@@ -1202,7 +1202,6 @@ void bgp_attr_unintern(struct attr **pattr)
 	if (attr->refcnt == 0) {
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
-		bgp_attr_extra_free(attr);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
 	}
@@ -1266,6 +1265,7 @@ void bgp_attr_flush(struct attr *attr)
 		bgp_attr_set_vnc_subtlvs(attr, NULL);
 	}
 #endif
+	bgp_attr_extra_free(attr);
 }
 
 /* Implement draft-scudder-idr-optional-transitive behaviour and
