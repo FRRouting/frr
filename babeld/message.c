@@ -140,12 +140,12 @@ parse_update_subtlv(const unsigned char *a, int alen,
             continue;
         }
 
-        if(i + 1 > alen) {
+        if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
             return;
         }
         len = a[i + 1];
-        if(i + len > alen) {
+        if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET, "Received truncated attributes.");
             return;
         }
@@ -182,19 +182,19 @@ parse_hello_subtlv(const unsigned char *a, int alen,
     int type, len, i = 0, ret = 0;
 
     while(i < alen) {
-        type = a[0];
+        type = a[i];
         if(type == SUBTLV_PAD1) {
             i++;
             continue;
         }
 
-        if(i + 1 > alen) {
+        if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
             return -1;
         }
         len = a[i + 1];
-        if(i + len > alen) {
+        if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on Hello message.");
             return -1;
@@ -228,19 +228,19 @@ parse_ihu_subtlv(const unsigned char *a, int alen,
     int type, len, i = 0, ret = 0;
 
     while(i < alen) {
-        type = a[0];
+        type = a[i];
         if(type == SUBTLV_PAD1) {
             i++;
             continue;
         }
 
-        if(i + 1 > alen) {
+        if(i + 1 >= alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
             return -1;
         }
         len = a[i + 1];
-        if(i + len > alen) {
+        if(i + len + 2 > alen) {
             flog_err(EC_BABEL_PACKET,
 		      "Received truncated sub-TLV on IHU message.");
             return -1;
@@ -307,12 +307,12 @@ babel_packet_examin(const unsigned char *packet, int packetlen)
             i++;
             continue;
         }
-        if(i + 1 > bodylen) {
+        if(i + 2 > bodylen) {
             debugf(BABEL_DEBUG_COMMON,"Received truncated message.");
             return 1;
         }
         len = message[1];
-        if(i + len > bodylen) {
+        if(i + len + 2 > bodylen) {
             debugf(BABEL_DEBUG_COMMON,"Received truncated message.");
             return 1;
         }
