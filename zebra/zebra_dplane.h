@@ -42,6 +42,7 @@ struct zebra_dplane_info {
 
 #if defined(HAVE_NETLINK)
 	struct nlsock nls;
+	int seq;
 	bool is_cmd;
 #endif
 };
@@ -57,8 +58,10 @@ zebra_dplane_info_from_zns(struct zebra_dplane_info *zns_info,
 	zns_info->is_cmd = is_cmd;
 	if (is_cmd) {
 		zns_info->nls = zns->netlink_cmd;
+		zns_info->seq = zns->netlink_cmd.seq;
 	} else {
 		zns_info->nls = zns->netlink;
+		zns_info->seq = zns->netlink.seq;
 	}
 #endif /* NETLINK */
 }
