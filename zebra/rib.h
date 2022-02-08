@@ -289,6 +289,13 @@ DECLARE_LIST(re_list, struct route_entry, next);
 
 #define RNODE_NEXT_RE(rn, re) RE_DEST_NEXT_ROUTE(rib_dest_from_rnode(rn), re)
 
+/* Identify the route/proto types that we consider valid for resolving
+ * nexthops (non-recursive).
+ */
+#define RIB_TYPE_RESOLVED(type) ((type) == ZEBRA_ROUTE_CONNECT || \
+				 (type) == ZEBRA_ROUTE_STATIC ||  \
+				 (type) == ZEBRA_ROUTE_KERNEL)
+
 #if defined(HAVE_RTADV)
 PREDECL_SORTLIST_UNIQ(adv_if_list);
 /* Structure which hold status of router advertisement. */
