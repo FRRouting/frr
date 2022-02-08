@@ -405,7 +405,7 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	struct ipaddr *iter;
 
 	for (ALL_LIST_ELEMENTS_RO(r->addrs, ln, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			return true;
 
 	return false;
@@ -484,7 +484,7 @@ int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			list_delete_node(r->addrs, ln);
 
 	/*
@@ -903,7 +903,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
-		addrcmp = memcmp(&src->ip, &r->src.ip, IPADDRSZ(src));
+		addrcmp = ipaddr_cmp(src, &r->src);
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);

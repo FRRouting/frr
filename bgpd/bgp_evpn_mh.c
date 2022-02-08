@@ -4314,7 +4314,7 @@ static bool bgp_evpn_nh_cmp(const void *p1, const void *p2)
 	if (n1 == NULL || n2 == NULL)
 		return false;
 
-	return (memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr)) == 0);
+	return (ipaddr_cmp(&n1->ip, &n2->ip) == 0);
 }
 
 void bgp_evpn_nh_init(struct bgp *bgp_vrf)
