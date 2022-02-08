@@ -24,6 +24,7 @@
 #include <linux/nexthop.h>
 #include <linux/rtnetlink.h>
 #include <net/if_arp.h>
+#include <linux/fib_rules.h>
 
 #include <stdio.h>
 #include <stdint.h>
@@ -576,6 +577,86 @@ const char *nhm_rta2str(int type)
 	}
 }
 
+const char *frh_rta2str(int type)
+{
+	switch (type) {
+	case FRA_DST:
+		return "DST";
+	case FRA_SRC:
+		return "SRC";
+	case FRA_IIFNAME:
+		return "IIFNAME";
+	case FRA_GOTO:
+		return "GOTO";
+	case FRA_UNUSED2:
+		return "UNUSED2";
+	case FRA_PRIORITY:
+		return "PRIORITY";
+	case FRA_UNUSED3:
+		return "UNUSED3";
+	case FRA_UNUSED4:
+		return "UNUSED4";
+	case FRA_UNUSED5:
+		return "UNUSED5";
+	case FRA_FWMARK:
+		return "FWMARK";
+	case FRA_FLOW:
+		return "FLOW";
+	case FRA_TUN_ID:
+		return "TUN_ID";
+	case FRA_SUPPRESS_IFGROUP:
+		return "SUPPRESS_IFGROUP";
+	case FRA_SUPPRESS_PREFIXLEN:
+		return "SUPPRESS_PREFIXLEN";
+	case FRA_TABLE:
+		return "TABLE";
+	case FRA_FWMASK:
+		return "FWMASK";
+	case FRA_OIFNAME:
+		return "OIFNAME";
+	case FRA_PAD:
+		return "PAD";
+	case FRA_L3MDEV:
+		return "L3MDEV";
+	case FRA_UID_RANGE:
+		return "UID_RANGE";
+	case FRA_PROTOCOL:
+		return "PROTOCOL";
+	case FRA_IP_PROTO:
+		return "IP_PROTO";
+	case FRA_SPORT_RANGE:
+		return "SPORT_RANGE";
+	case FRA_DPORT_RANGE:
+		return "DPORT_RANGE";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+const char *frh_action2str(uint8_t action)
+{
+	switch (action) {
+	case FR_ACT_TO_TBL:
+		return "TO_TBL";
+	case FR_ACT_GOTO:
+		return "GOTO";
+	case FR_ACT_NOP:
+		return "NOP";
+	case FR_ACT_RES3:
+		return "RES3";
+	case FR_ACT_RES4:
+		return "RES4";
+	case FR_ACT_BLACKHOLE:
+		return "BLACKHOLE";
+	case FR_ACT_UNREACHABLE:
+		return "UNREACHABLE";
+	case FR_ACT_PROHIBIT:
+		return "PROHIBIT";
+	default:
+		return "UNKNOWN";
+	}
+}
+
 static inline void flag_write(int flags, int flag, const char *flagstr,
 			      char *buf, size_t buflen)
 {
@@ -1110,6 +1191,111 @@ next_rta:
 	goto next_rta;
 }
 
+static void nlrule_dump(struct fib_rule_hdr *frh, size_t msglen)
+{
+	struct rtattr *rta;
+	size_t plen;
+	uint8_t u8v;
+	uint32_t u32v;
+	int32_t s32v;
+	uint64_t u64v;
+	char dbuf[128];
+	struct fib_rule_uid_range *u_range;
+	struct fib_rule_port_range *p_range;
+
+	/* Get the first attribute and go from there. */
+	rta = RTM_RTA(frh);
+next_rta:
+	/* Check the header for valid length and for outbound access. */
+	if (RTA_OK(rta, msglen) == 0)
+		return;
+
+	plen = RTA_PAYLOAD(rta);
+	zlog_debug("    rta [len=%d (payload=%zu) type=(%d) %s]", rta->rta_len,
+		   plen, rta->rta_type, frh_rta2str(rta->rta_type));
+	switch (rta->rta_type) {
+	case FRA_DST:
+	case FRA_SRC:
+		switch (plen) {
+		case sizeof(struct in_addr):
+			zlog_debug("      %pI4",
+				   (struct in_addr *)RTA_DATA(rta));
+			break;
+		case sizeof(struct in6_addr):
+			zlog_debug("      %pI6",
+				   (struct in6_addr *)RTA_DATA(rta));
+			break;
+		default:
+			break;
+		}
+		break;
+
+	case FRA_IIFNAME:
+	case FRA_OIFNAME:
+		snprintf(dbuf, sizeof(dbuf), "%s", (char *)RTA_DATA(rta));
+		zlog_debug("        %s", dbuf);
+		break;
+
+	case FRA_GOTO:
+	case FRA_UNUSED2:
+	case FRA_PRIORITY:
+	case FRA_UNUSED3:
+	case FRA_UNUSED4:
+	case FRA_UNUSED5:
+	case FRA_FWMARK:
+	case FRA_FLOW:
+	case FRA_TABLE:
+	case FRA_FWMASK:
+		u32v = *(uint32_t *)RTA_DATA(rta);
+		zlog_debug("      %u", u32v);
+		break;
+
+	case FRA_SUPPRESS_IFGROUP:
+	case FRA_SUPPRESS_PREFIXLEN:
+		s32v = *(int32_t *)RTA_DATA(rta);
+		zlog_debug("      %d", s32v);
+		break;
+
+	case FRA_TUN_ID:
+		u64v = *(uint64_t *)RTA_DATA(rta);
+		zlog_debug("      %" PRIu64, u64v);
+		break;
+
+	case FRA_L3MDEV:
+	case FRA_PROTOCOL:
+	case FRA_IP_PROTO:
+		u8v = *(uint8_t *)RTA_DATA(rta);
+		zlog_debug("      %u", u8v);
+		break;
+
+	case FRA_UID_RANGE:
+		u_range = (struct fib_rule_uid_range *)RTA_DATA(rta);
+		if (u_range->start == u_range->end)
+			zlog_debug("      %u", u_range->start);
+		else
+			zlog_debug("      %u-%u", u_range->start, u_range->end);
+		break;
+
+	case FRA_SPORT_RANGE:
+	case FRA_DPORT_RANGE:
+		p_range = (struct fib_rule_port_range *)RTA_DATA(rta);
+		if (p_range->start == p_range->end)
+			zlog_debug("      %u", p_range->start);
+		else
+			zlog_debug("      %u-%u", p_range->start, p_range->end);
+		break;
+
+	case FRA_PAD: /* fallthrough */
+	default:
+		/* NOTHING: unhandled. */
+		break;
+	}
+
+	/* Get next pointer and start iteration again. */
+	rta = RTA_NEXT(rta, msglen);
+	goto next_rta;
+}
+
 void nl_dump(void *msg, size_t msglen)
 {
 	struct nlmsghdr *nlmsg = msg;
@@ -1120,6 +1306,7 @@ void nl_dump(void *msg, size_t msglen)
 	struct rtmsg *rtm;
 	struct nhmsg *nhm;
 	struct ifinfomsg *ifi;
+	struct fib_rule_hdr *frh;
 	char fbuf[128];
 	char ibuf[128];
 
@@ -1199,6 +1386,20 @@ next_header:
 		nlneigh_dump(ndm,
 			     nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*ndm)));
 		break;
+
+	case RTM_NEWRULE:
+	case RTM_DELRULE:
+		frh = NLMSG_DATA(nlmsg);
+		zlog_debug(
+			"  frh [family=%d (%s) dst_len=%d src_len=%d tos=%d"
+			" table=%d res1=%d res2=%d action=%d (%s) flags=0x%x]",
+			frh->family, af_type2str(frh->family), frh->dst_len,
+			frh->src_len, frh->tos, frh->table, frh->res1,
+			frh->res2, frh->action, frh_action2str(frh->action),
+			frh->flags);
+		nlrule_dump(frh, nlmsg->nlmsg_len - NLMSG_LENGTH(sizeof(*frh)));
+		break;
+
 
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
