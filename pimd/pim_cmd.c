@@ -147,6 +147,9 @@ static void pim_show_assert(struct pim_instance *pim, struct vty *vty)
 			continue;
 
 		RB_FOREACH (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb) {
+			if (ch->ifassert_state == PIM_IFASSERT_NOINFO)
+				continue;
+
 			pim_show_assert_helper(vty, pim_ifp, ch, now);
 		} /* scan interface channels */
 	}
