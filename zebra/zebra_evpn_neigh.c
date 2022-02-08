@@ -72,7 +72,7 @@ static bool neigh_cmp(const void *p1, const void *p2)
 	if (n1 == NULL || n2 == NULL)
 		return false;
 
-	return (memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr)) == 0);
+	return ipaddr_cmp(&n1->ip, &n2->ip) == 0;
 }
 
 int neigh_list_cmp(void *p1, void *p2)
@@ -80,7 +80,7 @@ int neigh_list_cmp(void *p1, void *p2)
 	const struct zebra_neigh *n1 = p1;
 	const struct zebra_neigh *n2 = p2;
 
-	return memcmp(&n1->ip, &n2->ip, sizeof(struct ipaddr));
+	return ipaddr_cmp(&n1->ip, &n2->ip);
 }
 
 struct hash *zebra_neigh_db_create(const char *desc)
