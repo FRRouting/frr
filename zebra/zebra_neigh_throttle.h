@@ -25,7 +25,10 @@
 
 #define ZEBRA_NEIGH_THROTTLE_EXPIRE_MAX       50
 
+#define ZEBRA_NEIGH_THROTTLE_DEFAULT_HOLD     1 /* Seconds */
+
 #define ZEBRA_NEIGH_THROTTLE_DEFAULT_TIMEOUT  300 /* Seconds */
+#define ZEBRA_NEIGH_THROTTLE_MIN_TIMEOUT      10 /* Seconds */
 #define ZEBRA_NEIGH_THROTTLE_MAX_TIMEOUT      1800 /* Seconds */
 
 #define ZEBRA_NEIGH_THROTTLE_MIN              0
@@ -41,7 +44,7 @@ void zebra_neigh_throttle_fini(void);
 void zebra_neigh_throttle_enable(bool enable);
 
 /* Is the feature enabled? */
-bool zebra_neigh_throttle_is_enabled(void);
+bool zebra_neigh_throttle_is_enabled(const struct interface *ifp);
 
 /* Set limit on number of blackhole entries permitted; if 'reset', reset to
  * default.
@@ -58,11 +61,22 @@ void zebra_neigh_throttle_set_expire_limit(uint32_t limit, bool reset);
  */
 void zebra_neigh_throttle_set_timeout(uint32_t timeout, bool reset);
 
-/* Add a single neighbor address entry. */
-int zebra_neigh_throttle_add(vrf_id_t vrfid, const struct ipaddr *addr);
+/* Set delay for blackhole entries (in seconds); if 'reset', reset to
+ * default.
+ */
+void zebra_neigh_throttle_set_hold(uint32_t timeout, bool reset);
+
+/* Add a single neighbor address entry. If 'hold_p', apply some delay
+ * before installing the blackhole entry (if configured).
+ */
+int zebra_neigh_throttle_add(const struct interface *ifp,
+			     const struct ipaddr *addr, bool hold_p);
 
 /* Delete a single neighbor entry */
 int zebra_neigh_throttle_delete(vrf_id_t vrfid, const struct ipaddr *addr);
+
+/* Delete all neighbor entries */
+int zebra_neigh_throttle_delete_all(void);
 
 /* Show output */
 int zebra_neigh_throttle_show(struct vty *vty, bool detail, bool use_json);
