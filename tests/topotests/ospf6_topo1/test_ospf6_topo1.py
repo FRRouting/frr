@@ -22,7 +22,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 test_ospf6_topo1.py:
 
                                                   -----\
