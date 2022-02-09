@@ -947,6 +947,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 	safi_t safi;
 	struct bgp *bgp_path;
 	const struct prefix *p;
+	bool path_valid_changed, bnc_is_valid_nexthop;
 
 	if (BGP_DEBUG(nht, NHT)) {
 		char buf[PREFIX2STR_BUFFER];
@@ -993,8 +994,7 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		 * nexthops with labels
 		 */
 
-		bool bnc_is_valid_nexthop = false;
-		bool path_valid = false;
+		bnc_is_valid_nexthop = false;
 
 		if (safi == SAFI_UNICAST &&
 			path->sub_type == BGP_ROUTE_IMPORTED &&
@@ -1052,23 +1052,24 @@ static void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		    || path->attr->srte_color != 0)
 			SET_FLAG(path->flags, BGP_PATH_IGP_CHANGED);
 
-		path_valid = CHECK_FLAG(path->flags, BGP_PATH_VALID);
-		if (path_valid != bnc_is_valid_nexthop) {
-			if (path_valid) {
-				/* No longer valid, clear flag */
-				bgp_aggregate_decrement(bgp_path, p, path, afi,
-							safi);
-				bgp_path_info_unset_flag(dest, path,
-							 BGP_PATH_VALID);
-			} else {
+		path_valid_changed = CHECK_FLAG(path->flags, BGP_PATH_VALID) !=
+				     bnc_is_valid_nexthop;
+		if (path_valid_changed) {
+			if (bnc_is_valid_nexthop) {
 				/* Path becomes valid, set flag */
 				bgp_path_info_set_flag(dest, path,
 						       BGP_PATH_VALID);
 				bgp_aggregate_increment(bgp_path, p, path, afi,
 							safi);
+			} else {
+				/* No longer valid, clear flag */
+				bgp_aggregate_decrement(bgp_path, p, path, afi,
+							safi);
+				bgp_path_info_unset_flag(dest, path,
+							 BGP_PATH_VALID);
 			}
 		}
-		if ((path_valid != bnc_is_valid_nexthop ||
+		if ((path_valid_changed ||
 		     CHECK_FLAG(path->flags, BGP_PATH_IGP_CHANGED)) &&
 		    safi == SAFI_EVPN &&
 		    bgp_evpn_is_prefix_nht_supported(
