@@ -4885,9 +4885,9 @@ DEFUN (show_ip_pim_bsrp,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_statistics,
+DEFPY (show_ip_pim_statistics,
        show_ip_pim_statistics_cmd,
-       "show ip pim [vrf NAME] statistics [interface WORD] [json]",
+       "show ip pim [vrf NAME] statistics [interface WORD$word] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -4897,17 +4897,26 @@ DEFUN (show_ip_pim_statistics,
        "PIM interface\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct pim_instance *pim;
+	struct vrf *v;
+	bool uj = !!json;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	if (argv_find(argv, argc, "WORD", &idx))
-		pim_show_statistics(vrf->info, vty, argv[idx]->arg, uj);
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (word)
+		pim_show_statistics(pim, vty, word, uj);
 	else
-		pim_show_statistics(vrf->info, vty, NULL, uj);
+		pim_show_statistics(pim, vty, NULL, uj);
 
 	return CMD_SUCCESS;
 }
