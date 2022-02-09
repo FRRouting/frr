@@ -3930,6 +3930,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	if (bgp_mac_entry_exists(p) || bgp_mac_exist(&attr->rmac)) {
 		peer->stat_pfx_nh_invalid++;
 		reason = "self mac;";
+		bgp_attr_flush(&new_attr);
 		goto filtered;
 	}
 
@@ -3946,13 +3947,15 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	    && (!CHECK_FLAG(dest->flags, BGP_NODE_FIB_INSTALLED)))
 		SET_FLAG(dest->flags, BGP_NODE_FIB_INSTALL_PENDING);
 
-	attr_new = bgp_attr_intern(&new_attr);
-
 	/* If maximum prefix count is configured and current prefix
 	 * count exeed it.
 	 */
-	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0))
+	if (bgp_maximum_prefix_overflow(peer, afi, safi, 0)) {
+		bgp_attr_flush(&new_attr);
 		return -1;
+	}
+
+	attr_new = bgp_attr_intern(&new_attr);
 
 	/* If the update is implicit withdraw. */
 	if (pi) {
