@@ -1093,8 +1093,7 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct cluster_list *cluster;
 
 	/* aspath refcount shoud be decrement. */
-	if (attr->aspath)
-		aspath_unintern(&attr->aspath);
+	aspath_unintern(&attr->aspath);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
 
 	if (attr->community)
@@ -3534,14 +3533,12 @@ done:
 	 * we can chuck as4_aggregator and as4_path alltogether in order
 	 * to save memory
 	 */
-	if (as4_path) {
-		/*
-		 * unintern - it is in the hash
-		 * The flag that we got this is still there, but that
-		 * does not do any trouble
-		 */
-		aspath_unintern(&as4_path);
-	}
+	/*
+	 * unintern - it is in the hash
+	 * The flag that we got this is still there, but that
+	 * does not do any trouble
+	 */
+	aspath_unintern(&as4_path);
 
 	transit = bgp_attr_get_transit(attr);
 	if (ret != BGP_ATTR_PARSE_ERROR) {
