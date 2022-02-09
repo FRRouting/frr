@@ -975,9 +975,6 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 			import_table = rfg->rfapi_import_table;
 
-			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
-			/* TBD set some configured med, see add_vnc_route() */
-
 			if (afi == AFI_IP || afi == AFI_IP6) {
 				rt = import_table->imported_vpn[afi];
 			} else {
@@ -985,6 +982,9 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 					 __func__, afi);
 				return;
 			}
+
+			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+			/* TBD set some configured med, see add_vnc_route() */
 
 			/*
 			 * Walk the NVE-Group's VNC Import table
