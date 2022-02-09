@@ -1148,43 +1148,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		srv6_vpn_unintern(&attr->srv6_vpn);
 }
 
-/*
- * We have some show commands that let you experimentally
- * apply a route-map.  When we apply the route-map
- * we are reseting values but not saving them for
- * posterity via intern'ing( because route-maps don't
- * do that) but at this point in time we need
- * to compare the new attr to the old and if the
- * routemap has changed it we need to, as Snoop Dog says,
- * Drop it like it's hot
- */
-void bgp_attr_undup(struct attr *new, struct attr *old)
-{
-	struct ecommunity *ecomm = bgp_attr_get_ecommunity(new);
-
-	if (new->aspath != old->aspath)
-		aspath_free(new->aspath);
-
-	if (new->community != old->community)
-		community_free(&new->community);
-
-	if (ecomm != bgp_attr_get_ecommunity(old))
-		ecommunity_free(&ecomm);
-
-	if (new->lcommunity != old->lcommunity)
-		lcommunity_free(&new->lcommunity);
-
-	if (new->srv6_l3vpn != old->srv6_l3vpn) {
-		srv6_l3vpn_free(new->srv6_l3vpn);
-		new->srv6_l3vpn = NULL;
-	}
-
-	if (new->srv6_vpn != old->srv6_vpn) {
-		srv6_vpn_free(new->srv6_vpn);
-		new->srv6_vpn = NULL;
-	}
-}
-
 /* Free bgp attribute and aspath. */
 void bgp_attr_unintern(struct attr **pattr)
 {

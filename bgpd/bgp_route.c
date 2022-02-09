@@ -3386,7 +3386,7 @@ static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
 			if (filtered)
 				count++;
 
-			bgp_attr_undup(&attr, ain->attr);
+			bgp_attr_flush(&attr);
 		}
 	}
 
@@ -13599,7 +13599,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 				if (type == bgp_show_adj_route_filtered &&
 					!route_filtered && ret != RMAP_DENY) {
-					bgp_attr_undup(&attr, ain->attr);
+					bgp_attr_flush(&attr);
 					continue;
 				}
 
@@ -13609,7 +13609,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 
 				route_vty_out_tmp(vty, dest, rn_p, &attr, safi,
 						  use_json, json_ar, wide);
-				bgp_attr_undup(&attr, ain->attr);
+				bgp_attr_flush(&attr);
 				(*output_count)++;
 			}
 		} else if (type == bgp_show_adj_route_advertised) {
@@ -13657,7 +13657,7 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 						(*filtered_count)++;
 					}
 
-					bgp_attr_undup(&attr, adj->attr);
+					bgp_attr_flush(&attr);
 				}
 		} else if (type == bgp_show_adj_route_bestpath) {
 			struct bgp_path_info *pi;

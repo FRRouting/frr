@@ -859,7 +859,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					bgp_dest_get_prefix(dest), pi, &tmp_pi);
 
 				if (ret == RMAP_DENYMATCH) {
-					bgp_attr_undup(&tmp_attr, &attr);
+					bgp_attr_flush(&tmp_attr);
 					continue;
 				} else {
 					new_attr = bgp_attr_intern(&tmp_attr);
