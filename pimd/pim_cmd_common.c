@@ -888,10 +888,9 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp;
-		struct in_addr ifaddr;
+		pim_addr ifaddr;
 		struct listnode *neighnode;
 		struct pim_neighbor *neigh;
-		char buf[PREFIX_STRLEN];
 
 		pim_ifp = ifp->info;
 
@@ -905,23 +904,18 @@ void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty)
 
 		for (ALL_LIST_ELEMENTS_RO(pim_ifp->pim_neighbor_list, neighnode,
 					  neigh)) {
-			char neigh_src_str[INET_ADDRSTRLEN];
 			struct listnode *prefix_node;
 			struct prefix *p;
 
 			if (!neigh->prefix_list)
 				continue;
 
-			pim_inet4_dump("<src?>", neigh->source_addr,
-				       neigh_src_str, sizeof(neigh_src_str));
-
 			for (ALL_LIST_ELEMENTS_RO(neigh->prefix_list,
 						  prefix_node, p))
-				vty_out(vty, "%-16s %-15s %-15s %-15pFX\n",
-					ifp->name,
-					inet_ntop(AF_INET, &ifaddr, buf,
-						  sizeof(buf)),
-					neigh_src_str, p);
+				vty_out(vty,
+					"%-16s %-15pPAs %-15pPAs %-15pFX\n",
+					ifp->name, &ifaddr, &neigh->source_addr,
+					p);
 		}
 	}
 }
