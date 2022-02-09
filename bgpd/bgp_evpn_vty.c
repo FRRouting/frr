@@ -1246,17 +1246,23 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				if (type == bgp_show_type_lcommunity_exact) {
 					struct lcommunity *lcom = output_arg;
 
-					if (!pi->attr->lcommunity ||
-						!lcommunity_cmp(
-						pi->attr->lcommunity, lcom))
+					if (!bgp_attr_get_lcommunity(
+						    pi->attr) ||
+					    !lcommunity_cmp(
+						    bgp_attr_get_lcommunity(
+							    pi->attr),
+						    lcom))
 						continue;
 				}
 				if (type == bgp_show_type_lcommunity) {
 					struct lcommunity *lcom = output_arg;
 
-					if (!pi->attr->lcommunity ||
-						!lcommunity_match(
-						pi->attr->lcommunity, lcom))
+					if (!bgp_attr_get_lcommunity(
+						    pi->attr) ||
+					    !lcommunity_match(
+						    bgp_attr_get_lcommunity(
+							    pi->attr),
+						    lcom))
 						continue;
 				}
 				if (type == bgp_show_type_community) {
