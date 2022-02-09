@@ -1375,25 +1375,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 			vpn_leak_from_vrf_update(bgp_get_default(), bgp_path,
 						 path);
 		else if (path_valid != bnc_is_valid_nexthop) {
-			if (path_valid) {
-				/* No longer valid, clear flag; also for EVPN
-				 * routes, unimport from VRFs if needed.
-				 */
-				bgp_aggregate_decrement(bgp_path, p, path, afi,
-							safi);
-				bgp_path_info_unset_flag(dest, path,
-							 BGP_PATH_VALID);
-				if (safi == SAFI_EVPN &&
-				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
-					bgp_evpn_unimport_route(bgp_path,
-						afi, safi, bgp_dest_get_prefix(dest), path);
-				if (safi == SAFI_UNICAST &&
-				    (bgp_path->inst_type !=
-				     BGP_INSTANCE_TYPE_VIEW))
-					vpn_leak_from_vrf_withdraw(
-						bgp_get_default(), bgp_path,
-						path);
-			} else {
+			if (bnc_is_valid_nexthop) {
 				/* Path becomes valid, set flag; also for EVPN
 				 * routes, import from VRFs if needed.
 				 */
@@ -1403,14 +1385,37 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 							safi);
 				if (safi == SAFI_EVPN &&
 				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
-					bgp_evpn_import_route(bgp_path,
-						afi, safi, bgp_dest_get_prefix(dest), path);
+					bgp_evpn_import_route(bgp_path, afi,
+							      safi,
+							      bgp_dest_get_prefix(
+								      dest),
+							      path);
 				if (safi == SAFI_UNICAST &&
 				    (bgp_path->inst_type !=
 				     BGP_INSTANCE_TYPE_VIEW))
-					vpn_leak_from_vrf_update(
-						bgp_get_default(), bgp_path,
-						path);
+					vpn_leak_from_vrf_update(bgp_get_default(),
+								 bgp_path, path);
+			} else {
+				/* No longer valid, clear flag; also for EVPN
+				 * routes, unimport from VRFs if needed.
+				 */
+				bgp_aggregate_decrement(bgp_path, p, path, afi,
+							safi);
+				bgp_path_info_unset_flag(dest, path,
+							 BGP_PATH_VALID);
+				if (safi == SAFI_EVPN &&
+				    bgp_evpn_is_prefix_nht_supported(bgp_dest_get_prefix(dest)))
+					bgp_evpn_unimport_route(bgp_path, afi,
+								safi,
+								bgp_dest_get_prefix(
+									dest),
+								path);
+				if (safi == SAFI_UNICAST &&
+				    (bgp_path->inst_type !=
+				     BGP_INSTANCE_TYPE_VIEW))
+					vpn_leak_from_vrf_withdraw(bgp_get_default(),
+								   bgp_path,
+								   path);
 			}
 		}
 
