@@ -96,7 +96,7 @@ extern const char *nl_family_to_str(uint8_t family);
 extern const char *nl_rttype_to_str(uint8_t rttype);
 
 extern int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-			      const struct nlsock *nl,
+			      struct nlsock *nl,
 			      const struct zebra_dplane_info *dp_info,
 			      int count, bool startup);
 extern int netlink_talk_filter(struct nlmsghdr *h, ns_id_t ns, int startup);
@@ -146,6 +146,7 @@ extern int netlink_config_write_helper(struct vty *vty);
 extern void netlink_set_batch_buffer_size(uint32_t size, uint32_t threshold,
 					  bool set);
 
+extern struct nlsock *kernel_netlink_nlsock_lookup(int sock);
 #endif /* HAVE_NETLINK */
 
 #ifdef __cplusplus
