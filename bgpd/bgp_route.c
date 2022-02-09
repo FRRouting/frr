@@ -7046,7 +7046,7 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 	if (!ecommunity_cmp(bgp_attr_get_ecommunity(pi->attr), ecomm))
 		return false;
 
-	if (!lcommunity_cmp(pi->attr->lcommunity, lcomm))
+	if (!lcommunity_cmp(bgp_attr_get_lcommunity(pi->attr), lcomm))
 		return false;
 
 	if (!CHECK_FLAG(pi->flags, BGP_PATH_VALID))
@@ -7473,10 +7473,10 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 			/* Compute aggregate route's large community.
 			 */
-			if (pi->attr->lcommunity)
+			if (bgp_attr_get_lcommunity(pi->attr))
 				bgp_compute_aggregate_lcommunity_hash(
-							aggregate,
-							pi->attr->lcommunity);
+					aggregate,
+					bgp_attr_get_lcommunity(pi->attr));
 		}
 		if (match)
 			bgp_process(bgp, dest, afi, safi);
@@ -7596,12 +7596,13 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 						bgp_attr_get_ecommunity(
 							pi->attr));
 
-				if (pi->attr->lcommunity)
+				if (bgp_attr_get_lcommunity(pi->attr))
 					/* Remove lcommunity from aggregate.
 					 */
 					bgp_remove_lcomm_from_aggregate_hash(
-							aggregate,
-							pi->attr->lcommunity);
+						aggregate,
+						bgp_attr_get_lcommunity(
+							pi->attr));
 			}
 		}
 
@@ -7714,10 +7715,10 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 
 		/* Compute aggregate route's large community.
 		 */
-		if (pinew->attr->lcommunity)
+		if (bgp_attr_get_lcommunity(pinew->attr))
 			bgp_compute_aggregate_lcommunity(
-					aggregate,
-					pinew->attr->lcommunity);
+				aggregate,
+				bgp_attr_get_lcommunity(pinew->attr));
 
 		/* Retrieve aggregate route's as-path.
 		 */
@@ -7816,12 +7817,11 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 			bgp_remove_ecommunity_from_aggregate(
 				aggregate, bgp_attr_get_ecommunity(pi->attr));
 
-		if (pi->attr->lcommunity)
+		if (bgp_attr_get_lcommunity(pi->attr))
 			/* Remove lcommunity from aggregate.
 			 */
 			bgp_remove_lcommunity_from_aggregate(
-							aggregate,
-							pi->attr->lcommunity);
+				aggregate, bgp_attr_get_lcommunity(pi->attr));
 	}
 
 	/* If this node was suppressed, process the change. */
@@ -10522,14 +10522,16 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 6 display Large community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
 		if (json_paths) {
-			if (!attr->lcommunity->json)
-				lcommunity_str(attr->lcommunity, true);
-			json_object_lock(attr->lcommunity->json);
-			json_object_object_add(json_path, "largeCommunity",
-					       attr->lcommunity->json);
+			if (!bgp_attr_get_lcommunity(attr)->json)
+				lcommunity_str(bgp_attr_get_lcommunity(attr),
+					       true);
+			json_object_lock(bgp_attr_get_lcommunity(attr)->json);
+			json_object_object_add(
+				json_path, "largeCommunity",
+				bgp_attr_get_lcommunity(attr)->json);
 		} else {
 			vty_out(vty, "      Large Community: %s\n",
-				attr->lcommunity->str);
+				bgp_attr_get_lcommunity(attr)->str);
 		}
 	}
 
@@ -10914,8 +10916,11 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					XFREE(MTYPE_TMP, communities);
 				}
 
-				if (!found && pi->attr->lcommunity) {
-					frrstr_split(pi->attr->lcommunity->str,
+				if (!found &&
+				    bgp_attr_get_lcommunity(pi->attr)) {
+					frrstr_split(bgp_attr_get_lcommunity(
+							     pi->attr)
+							     ->str,
 						     " ", &communities, &num);
 					for (int i = 0; i < num; i++) {
 						const char *com2alias =
@@ -11055,25 +11060,28 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			if (type == bgp_show_type_lcommunity) {
 				struct lcommunity *lcom = output_arg;
 
-				if (!pi->attr->lcommunity
-				    || !lcommunity_match(pi->attr->lcommunity,
-							 lcom))
+				if (!bgp_attr_get_lcommunity(pi->attr) ||
+				    !lcommunity_match(
+					    bgp_attr_get_lcommunity(pi->attr),
+					    lcom))
 					continue;
 			}
 
 			if (type == bgp_show_type_lcommunity_exact) {
 				struct lcommunity *lcom = output_arg;
 
-				if (!pi->attr->lcommunity
-				    || !lcommunity_cmp(pi->attr->lcommunity,
-						      lcom))
+				if (!bgp_attr_get_lcommunity(pi->attr) ||
+				    !lcommunity_cmp(
+					    bgp_attr_get_lcommunity(pi->attr),
+					    lcom))
 					continue;
 			}
 			if (type == bgp_show_type_lcommunity_list) {
 				struct community_list *list = output_arg;
 
-				if (!lcommunity_list_match(pi->attr->lcommunity,
-							   list))
+				if (!lcommunity_list_match(
+					    bgp_attr_get_lcommunity(pi->attr),
+					    list))
 					continue;
 			}
 			if (type
@@ -11081,11 +11089,12 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				struct community_list *list = output_arg;
 
 				if (!lcommunity_list_exact_match(
-					    pi->attr->lcommunity, list))
+					    bgp_attr_get_lcommunity(pi->attr),
+					    list))
 					continue;
 			}
 			if (type == bgp_show_type_lcommunity_all) {
-				if (!pi->attr->lcommunity)
+				if (!bgp_attr_get_lcommunity(pi->attr))
 					continue;
 			}
 			if (type == bgp_show_type_dampend_paths
