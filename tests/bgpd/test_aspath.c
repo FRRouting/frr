@@ -1062,8 +1062,7 @@ static void parse_test(struct test_segment *t)
 
 	printf("\n");
 
-	if (asp)
-		aspath_unintern(&asp);
+	aspath_unintern(&asp);
 }
 
 /* prepend testing */
@@ -1117,8 +1116,7 @@ static void empty_prepend_test(struct test_segment *t)
 		printf(FAILED "!\n");
 
 	printf("\n");
-	if (asp1)
-		aspath_unintern(&asp1);
+	aspath_unintern(&asp1);
 	aspath_free(asp2);
 }
 
@@ -1277,10 +1275,8 @@ static int handle_attr_test(struct aspath_tests *t)
 	}
 
 out:
-	if (attr.aspath)
-		aspath_unintern(&attr.aspath);
-	if (asp)
-		aspath_unintern(&asp);
+	aspath_unintern(&attr.aspath);
+	aspath_unintern(&asp);
 	return failed - initfail;
 }
 

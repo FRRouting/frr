@@ -328,7 +328,12 @@ void aspath_free(struct aspath *aspath)
 void aspath_unintern(struct aspath **aspath)
 {
 	struct aspath *ret;
-	struct aspath *asp = *aspath;
+	struct aspath *asp;
+
+	if (!*aspath)
+		return;
+
+	asp = *aspath;
 
 	if (asp->refcnt)
 		asp->refcnt--;
