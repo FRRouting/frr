@@ -6942,6 +6942,7 @@ static bool aggr_suppress_map_test(struct bgp *bgp,
 	bgp->peer_self->rmap_type = 0;
 
 	bgp_attr_flush(&attr);
+	aspath_unintern(&attr.aspath);
 
 	return rmr == RMAP_PERMITMATCH;
 }
