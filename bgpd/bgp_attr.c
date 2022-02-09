@@ -95,16 +95,6 @@ static const struct message attr_flag_str[] = {
 
 static struct hash *cluster_hash;
 
-struct attr_extra *bgp_attr_extra_alloc(void)
-{
-	return XCALLOC(MTYPE_ATTR_EXTRA, sizeof(struct attr_extra));
-}
-
-void bgp_attr_extra_free(struct attr *attr)
-{
-	XFREE(MTYPE_ATTR_EXTRA, attr->extra);
-}
-
 static void *cluster_hash_alloc(void *p)
 {
 	const struct cluster_list *val = (const struct cluster_list *)p;
@@ -788,7 +778,6 @@ static void attrhash_init(void)
  */
 static void attr_vfree(void *attr)
 {
-	bgp_attr_extra_free(attr);
 	XFREE(MTYPE_ATTR, attr);
 }
 
@@ -1164,7 +1153,6 @@ void bgp_attr_unintern(struct attr **pattr)
 	if (attr->refcnt == 0) {
 		ret = hash_release(attrhash, attr);
 		assert(ret != NULL);
-		bgp_attr_extra_free(attr);
 		XFREE(MTYPE_ATTR, attr);
 		*pattr = NULL;
 	}

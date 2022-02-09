@@ -159,11 +159,6 @@ struct bgp_attr_srv6_l3vpn {
 	uint8_t transposition_offset;
 };
 
-struct attr_extra {
-	/* Extended Communities attribute. */
-	struct ecommunity *ipv6_ecommunity;
-};
-
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -204,8 +199,8 @@ struct attr {
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 
-	/* Extra attributes, non IPv4/IPv6 AFI related */
-	struct attr_extra *extra;
+	/* Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
 
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
@@ -478,8 +473,6 @@ extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
 extern bgp_attr_parse_ret_t bgp_attr_nexthop_valid(struct peer *peer,
 						   struct attr *attr);
-extern struct attr_extra *bgp_attr_extra_alloc(void);
-extern void bgp_attr_extra_free(struct attr *attr);
 
 static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 					uint32_t in_rmap_flags)
@@ -528,23 +521,13 @@ static inline void bgp_attr_set_ecommunity(struct attr *attr,
 static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
-	if (attr->extra)
-		return attr->extra->ipv6_ecommunity;
-
-	return NULL;
+	return attr->ipv6_ecommunity;
 }
 
 static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
-	if (!attr->extra) {
-		if (!ipv6_ecomm)
-			return;
-
-		attr->extra = bgp_attr_extra_alloc();
-	}
-
-	attr->extra->ipv6_ecommunity = ipv6_ecomm;
+	attr->ipv6_ecommunity = ipv6_ecomm;
 }
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)

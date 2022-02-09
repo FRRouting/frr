@@ -43,7 +43,6 @@ DEFINE_MTYPE(BGPD, BGP_UPDGRP, "BGP update group");
 DEFINE_MTYPE(BGPD, BGP_UPD_SUBGRP, "BGP update subgroup");
 DEFINE_MTYPE(BGPD, BGP_PACKET, "BGP packet");
 DEFINE_MTYPE(BGPD, ATTR, "BGP attribute");
-DEFINE_MTYPE(BGPD, ATTR_EXTRA, "BGP extra attribute");
 DEFINE_MTYPE(BGPD, AS_PATH, "BGP aspath");
 DEFINE_MTYPE(BGPD, AS_SEG, "BGP aspath seg");
 DEFINE_MTYPE(BGPD, AS_SEG_DATA, "BGP aspath segment data");
