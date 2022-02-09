@@ -1235,7 +1235,8 @@ static void fpm_process_queue(struct thread *t)
 		 * the output data in the STREAM_WRITEABLE
 		 * check above, so we can ignore the return
 		 */
-		(void)fpm_nl_enqueue(fnc, ctx);
+		if (fnc->socket != -1)
+			(void)fpm_nl_enqueue(fnc, ctx);
 
 		/* Account the processed entries. */
 		processed_contexts++;
