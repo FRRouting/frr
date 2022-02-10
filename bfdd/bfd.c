@@ -914,7 +914,7 @@ struct bfd_session *bs_registrate(struct bfd_session *bfd)
 		bs_observer_add(bfd);
 
 	if (bglobal.debug_peer_event)
-		zlog_debug("session-new: %s", bs_to_string(bfd));
+		zlog_debug("session-new: [%s]", bs_to_string(bfd));
 
 	control_notify_config(BCM_NOTIFY_CONFIG_ADD, bfd);
 

@@ -641,7 +641,8 @@ int bfd_recv_cb(struct thread *t)
 
 	/*
 	 * Multi hop: validate packet TTL.
-	 * Single hop: set local address that received the packet.
+	 * Single hop: set local address that received the packet depending on
+	 * address-family
 	 */
 	if (is_mhop) {
 		if (ttl < bfd->mh_ttl) {
@@ -650,8 +651,16 @@ int bfd_recv_cb(struct thread *t)
 				 bfd->mh_ttl, ttl);
 			return 0;
 		}
-	} else if (bfd->local_address.sa_sin.sin_family == AF_UNSPEC) {
-		bfd->local_address = local;
+	/* Check if key.local is all 0's (unassigned) */
+	} else if (memcmp(&bfd->key.local, &zero_addr,
+			  sizeof(bfd->key.local)) == 0) {
+		if (sd == bvrf->bg_shop) {
+			memcpy(&bfd->key.local, &local.sa_sin.sin_addr,
+			       sizeof(local.sa_sin.sin_addr));
+		} else if (sd == bvrf->bg_shop6) {
+			memcpy(&bfd->key.local, &local.sa_sin6.sin6_addr,
+			       sizeof(local.sa_sin6.sin6_addr));
+		}
 	}
 
 	bfd->stats.rx_ctrl_pkt++;
