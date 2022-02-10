@@ -17,33 +17,6 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
-
-#include <zebra.h>
-
-#include "lib/json.h"
-#include "command.h"
-#include "if.h"
-#include "prefix.h"
-#include "zclient.h"
-#include "plist.h"
-#include "hash.h"
-#include "nexthop.h"
-#include "vrf.h"
-#include "ferr.h"
-
-#include "pimd.h"
-#include "pim6_cmd.h"
-#include "pim_vty.h"
-#include "lib/northbound_cli.h"
-#include "pim_errors.h"
-#include "pim_nb.h"
-#include "pim_cmd_common.h"
-
-#ifndef VTYSH_EXTRACT_PL
-#include "pimd/pim6_cmd_clippy.c"
-#endif
-
-void pim_cmd_init(void)
-{
-	if_cmd_init(pim_interface_config_write);
-}
+#ifndef PIM_CMD_COMMON_H
+#define PIM_CMD_COMMON_H
+#endif /* PIM_CMD_COMMON_H */
