@@ -1460,6 +1460,20 @@ void kernel_terminate(struct zebra_ns *zns, bool complete)
 }
 
 /*
+ * Global init for platform-/OS-specific things
+ */
+void kernel_router_init(void)
+{
+}
+
+/*
+ * Global deinit for platform-/OS-specific things
+ */
+void kernel_router_terminate(void)
+{
+}
+
+/*
  * Called by the dplane pthread to read incoming OS messages and dispatch them.
  */
 int kernel_dplane_read(struct zebra_dplane_info *info)
