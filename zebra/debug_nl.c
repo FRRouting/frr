@@ -1338,8 +1338,7 @@ next_header:
 	case RTM_SETLINK:
 		ifi = NLMSG_DATA(nlmsg);
 		zlog_debug(
-			"  ifinfomsg [family=%d type=(%d) %s "
-			"index=%d flags=0x%04x {%s}]",
+			"  ifinfomsg [family=%d type=(%d) %s index=%d flags=0x%04x {%s}]",
 			ifi->ifi_family, ifi->ifi_type,
 			ifi_type2str(ifi->ifi_type), ifi->ifi_index,
 			ifi->ifi_flags,
@@ -1357,9 +1356,7 @@ next_header:
 	case RTM_GETROUTE:
 		rtm = NLMSG_DATA(nlmsg);
 		zlog_debug(
-			"  rtmsg [family=(%d) %s dstlen=%d srclen=%d tos=%d "
-			"table=%d protocol=(%d) %s scope=(%d) %s "
-			"type=(%d) %s flags=0x%04x {%s}]",
+			"  rtmsg [family=(%d) %s dstlen=%d srclen=%d tos=%d table=%d protocol=(%d) %s scope=(%d) %s type=(%d) %s flags=0x%04x {%s}]",
 			rtm->rtm_family, af_type2str(rtm->rtm_family),
 			rtm->rtm_dst_len, rtm->rtm_src_len, rtm->rtm_tos,
 			rtm->rtm_table, rtm->rtm_protocol,
@@ -1375,8 +1372,7 @@ next_header:
 	case RTM_DELNEIGH:
 		ndm = NLMSG_DATA(nlmsg);
 		zlog_debug(
-			"  ndm [family=%d (%s) ifindex=%d state=0x%04x {%s} "
-			"flags=0x%04x {%s} type=%d (%s)]",
+			"  ndm [family=%d (%s) ifindex=%d state=0x%04x {%s} flags=0x%04x {%s} type=%d (%s)]",
 			ndm->ndm_family, af_type2str(ndm->ndm_family),
 			ndm->ndm_ifindex, ndm->ndm_state,
 			neigh_state2str(ndm->ndm_state, ibuf, sizeof(ibuf)),
@@ -1391,8 +1387,7 @@ next_header:
 	case RTM_DELRULE:
 		frh = NLMSG_DATA(nlmsg);
 		zlog_debug(
-			"  frh [family=%d (%s) dst_len=%d src_len=%d tos=%d"
-			" table=%d res1=%d res2=%d action=%d (%s) flags=0x%x]",
+			"  frh [family=%d (%s) dst_len=%d src_len=%d tos=%d table=%d res1=%d res2=%d action=%d (%s) flags=0x%x]",
 			frh->family, af_type2str(frh->family), frh->dst_len,
 			frh->src_len, frh->tos, frh->table, frh->res1,
 			frh->res2, frh->action, frh_action2str(frh->action),
@@ -1405,8 +1400,7 @@ next_header:
 	case RTM_DELADDR:
 		ifa = NLMSG_DATA(nlmsg);
 		zlog_debug(
-			"  ifa [family=(%d) %s prefixlen=%d "
-			"flags=0x%04x {%s} scope=%d index=%u]",
+			"  ifa [family=(%d) %s prefixlen=%d flags=0x%04x {%s} scope=%d index=%u]",
 			ifa->ifa_family, af_type2str(ifa->ifa_family),
 			ifa->ifa_prefixlen, ifa->ifa_flags,
 			if_flags2str(ifa->ifa_flags, fbuf, sizeof(fbuf)),
@@ -1419,8 +1413,7 @@ next_header:
 	case RTM_GETNEXTHOP:
 		nhm = NLMSG_DATA(nlmsg);
 		zlog_debug(
-			"  nhm [family=(%d) %s scope=(%d) %s "
-			"protocol=(%d) %s flags=0x%08x {%s}]",
+			"  nhm [family=(%d) %s scope=(%d) %s protocol=(%d) %s flags=0x%08x {%s}]",
 			nhm->nh_family, af_type2str(nhm->nh_family),
 			nhm->nh_scope, rtm_scope2str(nhm->nh_scope),
 			nhm->nh_protocol, rtm_protocol2str(nhm->nh_protocol),
