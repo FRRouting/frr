@@ -138,11 +138,12 @@ static void cpu_record_hash_free(void *a)
 static void vty_out_cpu_thread_history(struct vty *vty,
 				       struct cpu_thread_history *a)
 {
-	vty_out(vty, "%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu %9zu %9zu",
+	vty_out(vty,
+		"%5zu %10zu.%03zu %9zu %8zu %9zu %8zu %9zu %9zu %9zu %10zu",
 		a->total_active, a->cpu.total / 1000, a->cpu.total % 1000,
 		a->total_calls, (a->cpu.total / a->total_calls), a->cpu.max,
 		(a->real.total / a->total_calls), a->real.max,
-		a->total_cpu_warn, a->total_wall_warn);
+		a->total_cpu_warn, a->total_wall_warn, a->total_starv_warn);
 	vty_out(vty, "  %c%c%c%c%c  %s\n",
 		a->types & (1 << THREAD_READ) ? 'R' : ' ',
 		a->types & (1 << THREAD_WRITE) ? 'W' : ' ',
@@ -168,6 +169,8 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 		atomic_load_explicit(&a->total_cpu_warn, memory_order_seq_cst);
 	copy.total_wall_warn =
 		atomic_load_explicit(&a->total_wall_warn, memory_order_seq_cst);
+	copy.total_starv_warn = atomic_load_explicit(&a->total_starv_warn,
+						     memory_order_seq_cst);
 	copy.cpu.total =
 		atomic_load_explicit(&a->cpu.total, memory_order_seq_cst);
 	copy.cpu.max = atomic_load_explicit(&a->cpu.max, memory_order_seq_cst);
@@ -186,6 +189,7 @@ static void cpu_record_hash_print(struct hash_bucket *bucket, void *args[])
 	totals->total_calls += copy.total_calls;
 	totals->total_cpu_warn += copy.total_cpu_warn;
 	totals->total_wall_warn += copy.total_wall_warn;
+	totals->total_starv_warn += copy.total_starv_warn;
 	totals->real.total += copy.real.total;
 	if (totals->real.max < copy.real.max)
 		totals->real.max = copy.real.max;
@@ -231,7 +235,8 @@ static void cpu_record_print(struct vty *vty, uint8_t filter)
 			vty_out(vty,
 				"Active   Runtime(ms)   Invoked Avg uSec Max uSecs");
 			vty_out(vty, " Avg uSec Max uSecs");
-			vty_out(vty, "  CPU_Warn Wall_Warn  Type   Thread\n");
+			vty_out(vty,
+				"  CPU_Warn Wall_Warn Starv_Warn Type   Thread\n");
 
 			if (m->cpu_record->count)
 				hash_iterate(
@@ -1668,13 +1673,17 @@ static unsigned int thread_process_timers(struct thread_master *m,
 		 * really getting behind on handling of events.
 		 * Let's log it and do the right thing with it.
 		 */
-		if (!displayed && !thread->ignore_timer_late &&
-		    timercmp(timenow, &prev, >)) {
-			flog_warn(
-				EC_LIB_STARVE_THREAD,
-				"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
-				thread);
-			displayed = true;
+		if (timercmp(timenow, &prev, >)) {
+			atomic_fetch_add_explicit(
+				&thread->hist->total_starv_warn, 1,
+				memory_order_seq_cst);
+			if (!displayed && !thread->ignore_timer_late) {
+				flog_warn(
+					EC_LIB_STARVE_THREAD,
+					"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
+					thread);
+				displayed = true;
+			}
 		}
 
 		thread_timer_list_pop(&m->timer);
