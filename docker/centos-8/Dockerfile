@@ -1,5 +1,6 @@
 # This stage builds an rpm from the source
-FROM centos:centos8 as centos-8-builder
+# FROM centos:centos8 as centos-8-builder
+FROM quay.io/centos/centos:stream8 as centos-8-builder
 
 RUN dnf install --enablerepo=powertools -y rpm-build git autoconf pcre-devel \
         automake libtool make readline-devel texinfo net-snmp-devel pkgconfig \
