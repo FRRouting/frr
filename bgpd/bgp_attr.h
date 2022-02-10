@@ -159,14 +159,6 @@ struct bgp_attr_srv6_l3vpn {
 	uint8_t transposition_offset;
 };
 
-struct attr_extra {
-	/* PMSI tunnel type (RFC 6514). */
-	enum pta_type pmsi_tnl_type;
-
-	/* Extended Communities attribute. */
-	struct ecommunity *ipv6_ecommunity;
-};
-
 /* BGP core attribute structure. */
 struct attr {
 	/* AS Path structure */
@@ -190,6 +182,9 @@ struct attr {
 	/* Path origin attribute */
 	uint8_t origin;
 
+	/* PMSI tunnel type (RFC 6514). */
+	enum pta_type pmsi_tnl_type;
+
 	/* has the route-map changed any attribute?
 	   Used on the peer outbound side. */
 	uint32_t rmap_change_flags;
@@ -204,8 +199,8 @@ struct attr {
 	/* Extended Communities attribute. */
 	struct ecommunity *ecommunity;
 
-	/* Extra attributes, non IPv4/IPv6 AFI related */
-	struct attr_extra *extra;
+	/* Extended Communities attribute. */
+	struct ecommunity *ipv6_ecommunity;
 
 	/* Large Communities attribute. */
 	struct lcommunity *lcommunity;
@@ -478,8 +473,6 @@ extern void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt);
 
 extern bgp_attr_parse_ret_t bgp_attr_nexthop_valid(struct peer *peer,
 						   struct attr *attr);
-extern struct attr_extra *bgp_attr_extra_alloc(void);
-extern void bgp_attr_extra_free(struct attr *attr);
 
 static inline int bgp_rmap_nhop_changed(uint32_t out_rmap_flags,
 					uint32_t in_rmap_flags)
@@ -502,21 +495,15 @@ static inline uint32_t mac_mobility_seqnum(struct attr *attr)
 	return (attr) ? attr->mm_seqnum : 0;
 }
 
-static inline enum pta_type bgp_attr_get_pmsi_tnl_type(const struct attr *attr)
+static inline enum pta_type bgp_attr_get_pmsi_tnl_type(struct attr *attr)
 {
-	if (attr->extra)
-		return attr->extra->pmsi_tnl_type;
-
-	return PMSI_TNLTYPE_NO_INFO;
+	return attr->pmsi_tnl_type;
 }
 
 static inline void bgp_attr_set_pmsi_tnl_type(struct attr *attr,
 					      enum pta_type pmsi_tnl_type)
 {
-	if (!attr->extra)
-		attr->extra = bgp_attr_extra_alloc();
-
-	attr->extra->pmsi_tnl_type = pmsi_tnl_type;
+	attr->pmsi_tnl_type = pmsi_tnl_type;
 }
 
 static inline struct ecommunity *
@@ -546,23 +533,13 @@ static inline void bgp_attr_set_lcommunity(struct attr *attr,
 static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
-	if (attr->extra)
-		return attr->extra->ipv6_ecommunity;
-
-	return NULL;
+	return attr->ipv6_ecommunity;
 }
 
 static inline void bgp_attr_set_ipv6_ecommunity(struct attr *attr,
 						struct ecommunity *ipv6_ecomm)
 {
-	if (!attr->extra) {
-		if (!ipv6_ecomm)
-			return;
-
-		attr->extra = bgp_attr_extra_alloc();
-	}
-
-	attr->extra->ipv6_ecommunity = ipv6_ecomm;
+	attr->ipv6_ecommunity = ipv6_ecomm;
 }
 
 static inline struct transit *bgp_attr_get_transit(const struct attr *attr)
