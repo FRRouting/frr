@@ -486,21 +486,12 @@ static void _display_peer_brief(struct vty *vty, struct bfd_session *bs)
 {
 	char addr_buf[INET6_ADDRSTRLEN];
 
-	if (CHECK_FLAG(bs->flags, BFD_SESS_FLAG_MH)) {
-		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
-	} else {
-		vty_out(vty, "%-10u", bs->discrs.my_discr);
-		vty_out(vty, " %-40s", satostr(&bs->local_address));
-		inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
-		vty_out(vty, " %-40s", addr_buf);
-
-		vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
-	}
+	vty_out(vty, "%-10u", bs->discrs.my_discr);
+	inet_ntop(bs->key.family, &bs->key.local, addr_buf, sizeof(addr_buf));
+	vty_out(vty, " %-40s", addr_buf);
+	inet_ntop(bs->key.family, &bs->key.peer, addr_buf, sizeof(addr_buf));
+	vty_out(vty, " %-40s", addr_buf);
+	vty_out(vty, "%-15s\n", state_list[bs->ses_state].str);
 }
 
 static void _display_peer_brief_iter(struct hash_bucket *hb, void *arg)
