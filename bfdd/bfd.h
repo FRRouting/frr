@@ -290,7 +290,6 @@ struct bfd_session {
 	struct peer_label *pl;
 
 	struct bfd_dplane_ctx *bdc;
-	struct sockaddr_any local_address;
 	struct interface *ifp;
 	struct vrf *vrf;
 
