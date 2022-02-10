@@ -40,13 +40,20 @@
 
 /* OSPF options */
 /* present in HELLO, DD, LSA */
-#define OSPF6_OPT_SET(x,opt)   ((x)[2] |=  (opt))
-#define OSPF6_OPT_ISSET(x,opt) ((x)[2] &   (opt))
-#define OSPF6_OPT_CLEAR(x,opt) ((x)[2] &= ~(opt))
+#define OSPF6_OPT_SET(x, opt) ((x)[2] |= (opt))
+#define OSPF6_OPT_ISSET(x, opt) ((x)[2] & (opt))
+#define OSPF6_OPT_CLEAR(x, opt) ((x)[2] &= ~(opt))
+#define OSPF6_OPT_SET_EXT(x, opt) ((x)[1] |= (opt))
+#define OSPF6_OPT_ISSET_EXT(x, opt) ((x)[1] & (opt))
+#define OSPF6_OPT_CLEAR_EXT(x, opt) ((x)[1] &= ~(opt))
 #define OSPF6_OPT_CLEAR_ALL(x) ((x)[0] = (x)[1] = (x)[2] = 0)
 
+#define OSPF6_OPT_AT (1 << 2) /* Authentication trailer Capability */
+#define OSPF6_OPT_L (1 << 1)  /* Link local signalling Capability */
+#define OSPF6_OPT_AF (1 << 0) /* Address family Capability */
+/* 2 bits reserved for OSPFv2 migrated options */
 #define OSPF6_OPT_DC (1 << 5)   /* Demand Circuit handling Capability */
-#define OSPF6_OPT_R  (1 << 4)   /* Forwarding Capability (Any Protocol) */
+#define OSPF6_OPT_R (1 << 4)    /* Forwarding Capability (Any Protocol) */
 #define OSPF6_OPT_N  (1 << 3)   /* Handling Type-7 LSA Capability */
 #define OSPF6_OPT_MC (1 << 2)   /* Multicasting Capability */
 #define OSPF6_OPT_E  (1 << 1)   /* AS External Capability */

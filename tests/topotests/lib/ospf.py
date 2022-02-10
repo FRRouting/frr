@@ -1933,7 +1933,7 @@ def verify_ospf6_interface(tgen, topo=None, dut=None, lan=False, input_dict=None
     True or False (Error Message)
     """
 
-    logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
+    logger.debug("Entering lib API: verify_ospf6_interface")
     result = False
 
     if topo is None:
@@ -2311,6 +2311,7 @@ def config_ospf6_interface(
     -------
     True or False
     """
+
     logger.debug("Entering lib API: {}".format(sys._getframe().f_code.co_name))
     result = False
     if topo is None:
@@ -2337,6 +2338,7 @@ def config_ospf6_interface(
             ospf_data = input_dict[router]["links"][lnk]["ospf6"]
             data_ospf_area = ospf_data.setdefault("area", None)
             data_ospf_auth = ospf_data.setdefault("hash-algo", None)
+            data_ospf_keychain = ospf_data.setdefault("keychain", None)
             data_ospf_dr_priority = ospf_data.setdefault("priority", None)
             data_ospf_cost = ospf_data.setdefault("cost", None)
             data_ospf_mtu = ospf_data.setdefault("mtu_ignore", None)
@@ -2369,9 +2371,18 @@ def config_ospf6_interface(
                         ospf_data["hash-algo"],
                         ospf_data["key"],
                     )
-                    if "del_action" in ospf_data:
-                        cmd = "no {}".format(cmd)
-                    config_data.append(cmd)
+                config_data.append(cmd)
+
+            # interface ospf auth with keychain
+            if data_ospf_keychain:
+                cmd = "ipv6 ospf6 authentication"
+
+                if "del_action" in ospf_data:
+                    cmd = "no {}".format(cmd)
+
+                if "keychain" in ospf_data:
+                    cmd = "{} keychain {}".format(cmd, ospf_data["keychain"])
+                config_data.append(cmd)
 
             # interface ospf dr priority
             if data_ospf_dr_priority:

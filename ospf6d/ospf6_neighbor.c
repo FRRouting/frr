@@ -112,6 +112,7 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 {
 	struct ospf6_neighbor *on;
 	char buf[16];
+	int type;
 
 	on = XCALLOC(MTYPE_OSPF6_NEIGHBOR, sizeof(struct ospf6_neighbor));
 	inet_ntop(AF_INET, &router_id, buf, sizeof(buf));
@@ -130,6 +131,13 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 	on->dbdesc_list = ospf6_lsdb_create(on);
 	on->lsupdate_list = ospf6_lsdb_create(on);
 	on->lsack_list = ospf6_lsdb_create(on);
+
+	for (type = 0; type < OSPF6_MESSAGE_TYPE_MAX; type++) {
+		on->seqnum_l[type] = 0;
+		on->seqnum_h[type] = 0;
+	}
+
+	on->auth_present = false;
 
 	listnode_add_sort(oi->neighbor_list, on);
 
@@ -935,8 +943,44 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 
 		bfd_sess_show(vty, json_neighbor, on->bfd_session);
 
-		json_object_object_add(json, on->name, json_neighbor);
+		if (on->auth_present == true) {
+			json_object_string_add(json_neighbor, "authStatus",
+					       "enabled");
+			json_object_int_add(
+				json_neighbor, "recvdHelloHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(
+				json_neighbor, "recvdHelloLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO]);
+			json_object_int_add(
+				json_neighbor, "recvdDBDescHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(
+				json_neighbor, "recvdDBDescLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC]);
+			json_object_int_add(
+				json_neighbor, "recvdLSReqHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(
+				json_neighbor, "recvdLSReqLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ]);
+			json_object_int_add(
+				json_neighbor, "recvdLSUpdHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(
+				json_neighbor, "recvdLSUpdLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE]);
+			json_object_int_add(
+				json_neighbor, "recvdLSAckHigherSeqNo",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			json_object_int_add(
+				json_neighbor, "recvdLSAckLowerSeqNo",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+		} else
+			json_object_string_add(json_neighbor, "authStatus",
+					       "disabled");
 
+		json_object_object_add(json, on->name, json_neighbor);
 
 	} else {
 		vty_out(vty, " Neighbor %s\n", on->name);
@@ -1022,6 +1066,27 @@ static void ospf6_neighbor_show_detail(struct vty *vty,
 			vty_out(vty, "      %s\n", lsa->name);
 
 		bfd_sess_show(vty, NULL, on->bfd_session);
+
+		if (on->auth_present == true) {
+			vty_out(vty, "    Authentication header present\n");
+			vty_out(vty,
+				"\t\t\t hello        DBDesc       LSReq        LSUpd        LSAck\n");
+			vty_out(vty,
+				"      Higher sequence no 0x%-10X 0x%-10X 0x%-10X 0x%-10X 0x%-10X\n",
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_HELLO],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_DBDESC],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSREQ],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSUPDATE],
+				on->seqnum_h[OSPF6_MESSAGE_TYPE_LSACK]);
+			vty_out(vty,
+				"      Lower sequence no  0x%-10X 0x%-10X 0x%-10X 0x%-10X 0x%-10X\n",
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_HELLO],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_DBDESC],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSREQ],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSUPDATE],
+				on->seqnum_l[OSPF6_MESSAGE_TYPE_LSACK]);
+		} else
+			vty_out(vty, "    Authentication header not present\n");
 	}
 }
 
