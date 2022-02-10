@@ -2954,6 +2954,7 @@ DEFUN (show_yang_operational_data,
          [{\
 	   format <json|xml>\
 	   |translate WORD\
+	   |with-config\
 	 }]" DAEMONS_LIST,
        SHOW_STR
        "YANG information\n"
@@ -2964,6 +2965,7 @@ DEFUN (show_yang_operational_data,
        "Extensible Markup Language\n"
        "Translate operational data\n"
        "YANG module translator\n"
+       "Merge configuration data\n"
        DAEMONS_STR)
 {
 	return show_one_daemon(vty, argv, argc - 1, argv[argc - 1]->text);
