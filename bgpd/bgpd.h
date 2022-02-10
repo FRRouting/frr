@@ -779,6 +779,7 @@ struct afi_safi_info {
 
 #define IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)                                        \
 	(bgp->inst_type == BGP_INSTANCE_TYPE_DEFAULT                           \
+	 || bgp->inst_type == BGP_INSTANCE_TYPE_VIEW                           \
 	 || (bgp->inst_type == BGP_INSTANCE_TYPE_VRF                           \
 	     && bgp->vrf_id != VRF_UNKNOWN))
 

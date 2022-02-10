@@ -3083,7 +3083,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 				     new_select);
 
 	/* FIB update. */
-	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW)
+	int is_custom_table = (new_select && new_select->attr->rmap_table_id) || (old_select && old_select->attr->rmap_table_id);
+	if (bgp_fibupd_safi(safi) && (bgp->inst_type != BGP_INSTANCE_TYPE_VIEW || is_custom_table)
 	    && !bgp_option_check(BGP_OPT_NO_FIB)) {
 
 		if (new_select && new_select->type == ZEBRA_ROUTE_BGP
