@@ -85,6 +85,11 @@ OSPF6 router
    change to take effect, user can use this cli instead of restarting the
    ospf6d daemon.
 
+.. clicmd:: clear ipv6 ospf6 [vrf NAME] interface [IFNAME]
+
+   This command restarts the interface state machine for all interfaces in the
+   VRF or only for the specific interface if ``IFNAME`` is specified.
+
 ASBR Summarisation Support in OSPFv3
 ====================================
 
@@ -176,9 +181,9 @@ OSPF6 area
     The `not-advertise` option, when present, prevents the summary route from
     being advertised, effectively filtering the summarized routes.
 
-.. clicmd:: area A.B.C.D nssa
+.. clicmd:: area A.B.C.D nssa [no-summary] [default-information-originate [metric-type (1-2)] [metric (0-16777214)]]
 
-.. clicmd:: area (0-4294967295) nssa
+.. clicmd:: area (0-4294967295) nssa [no-summary] [default-information-originate [metric-type (1-2)] [metric (0-16777214)]]
 
    Configure the area to be a NSSA (Not-So-Stubby Area).
 
@@ -193,6 +198,72 @@ OSPF6 area
       Type-5 LSA is enabled by default.
    4. Support for NSSA Translator functionality when there are multiple NSSA
       ABR in an area.
+
+   An NSSA ABR can be configured with the `no-summary` option to prevent the
+   advertisement of summaries into the area. In that case, a single Type-3 LSA
+   containing a default route is originated into the NSSA.
+
+   NSSA ABRs and ASBRs can be configured with `default-information-originate`
+   option to originate a Type-7 default route into the NSSA area. In the case
+   of NSSA ASBRs, the origination of the default route is conditioned to the
+   existence of a default route in the RIB that wasn't learned via the OSPF
+   protocol.
+
+.. clicmd:: area A.B.C.D nssa range X:X::X:X/M [<not-advertise|cost (0-16777215)>]
+
+.. clicmd:: area (0-4294967295) nssa range X:X::X:X/M [<not-advertise|cost (0-16777215)>]
+
+    Summarize a group of external subnets into a single Type-7 LSA, which is
+    then translated to a Type-5 LSA and avertised to the backbone.
+    This command can only be used at the area boundary (NSSA ABR router).
+
+    By default, the metric of the summary route is calculated as the highest
+    metric among the summarized routes. The `cost` option, however, can be used
+    to set an explicit metric.
+
+    The `not-advertise` option, when present, prevents the summary route from
+    being advertised, effectively filtering the summarized routes.
+
+.. clicmd:: area A.B.C.D export-list NAME
+
+.. clicmd:: area (0-4294967295) export-list NAME
+
+   Filter Type-3 summary-LSAs announced to other areas originated from intra-
+   area paths from specified area.
+
+   .. code-block:: frr
+
+      router ospf6
+       area 0.0.0.10 export-list foo
+      !
+      ipv6 access-list foo permit 2001:db8:1000::/64
+      ipv6 access-list foo deny any
+
+   With example above any intra-area paths from area 0.0.0.10 and from range
+   2001:db8::/32 (for example 2001:db8:1::/64 and 2001:db8:2::/64) are announced
+   into other areas as Type-3 summary-LSA's, but any others (for example
+   2001:200::/48) aren't.
+
+   This command is only relevant if the router is an ABR for the specified
+   area.
+
+.. clicmd:: area A.B.C.D import-list NAME
+
+.. clicmd:: area (0-4294967295) import-list NAME
+
+   Same as export-list, but it applies to paths announced into specified area
+   as Type-3 summary-LSAs.
+
+.. clicmd:: area A.B.C.D filter-list prefix NAME in
+
+.. clicmd:: area A.B.C.D filter-list prefix NAME out
+
+.. clicmd:: area (0-4294967295) filter-list prefix NAME in
+
+.. clicmd:: area (0-4294967295) filter-list prefix NAME out
+
+   Filtering Type-3 summary-LSAs to/from area using prefix lists. This command
+   makes sense in ABR only.
 
 .. _ospf6-interface:
 
@@ -248,9 +319,11 @@ Usage of *ospfd6*'s route-map support.
 Redistribute routes to OSPF6
 ============================
 
-.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [route-map WORD]
+.. clicmd:: redistribute <babel|bgp|connected|isis|kernel|openfabric|ripng|sharp|static|table> [metric-type (1-2)] [metric (0-16777214)] [route-map WORD]
 
-   Redistribute routes from other protocols into OSPFv3.
+   Redistribute routes of the specified protocol or kind into OSPFv3, with the
+   metric type and metric set if specified, filtering the routes using the
+   given route-map if specified.
 
 .. clicmd:: default-information originate [{always|metric (0-16777214)|metric-type (1-2)|route-map WORD}]
 
@@ -258,10 +331,19 @@ Redistribute routes to OSPF6
    argument injects the default route regardless of it being present in the
    router. Metric values and route-map can also be specified optionally.
 
-Graceful Restart Helper
-=======================
+Graceful Restart
+================
 
-.. clicmd:: graceful-restart helper-only [A.B.C.D]
+.. clicmd:: graceful-restart [grace-period (1-1800)]
+
+
+   Configure Graceful Restart (RFC 5187) restarting support.
+   When enabled, the default grace period is 120 seconds.
+
+   To perform a graceful shutdown, the "graceful-restart prepare ipv6 ospf"
+   EXEC-level command needs to be issued before restarting the ospf6d daemon.
+
+.. clicmd:: graceful-restart helper enable [A.B.C.D]
 
 
    Configure Graceful Restart (RFC 5187) helper support.
@@ -290,6 +372,266 @@ Graceful Restart Helper
    It helps to support as HELPER only for planned
    restarts. By default, it supports both planned and
    unplanned outages.
+
+.. clicmd:: graceful-restart prepare ipv6 ospf
+
+
+   Initiate a graceful restart for all OSPFv3 instances configured with the
+   "graceful-restart" command. The ospf6d daemon should be restarted during
+   the instance-specific grace period, otherwise the graceful restart will fail.
+
+   This is an EXEC-level command.
+
+
+.. _Authentication-trailer:
+
+Authentication trailer support:
+===============================
+IPv4 version of OSPF supports authentication as part of the base RFC.
+When IPv6 version of OSPF was developed there was IPSec support for IPv6,
+Hence OSPFv3(IPv6 version of OSPF) suggest to use IPSec as authentication
+and encryption mechanism. IPSec supports authentication using AH header and
+Encryption using ESP.
+
+There are few disadvantages of using IPSec with OSPFv3.
+        1. If encryption is enabled for OSPFv3 packets, then its not
+           possible to give priority to control packets.
+        2. IPSec has platform dependency and may not be supported
+           in all platforms.
+        3. It is performance intensive.
+        4. Its difficult to configure.
+
+
+Some advantages of OSPFv3 authentication trailer feature.
+        1. It provides replay protection via sequence number.
+        2. It provides IPv6 source address protection.
+        3. No platform dependency.
+        4. Easy to implement and maintain.
+
+
+This feature is support for ``RFC7166``.
+
+FRR supports MD5 and SHA256 internally and relays on openssl for other hash
+algorithms. If user wants to use only MD5 and SHA256, no special action is
+required. If user wants complete support of authentication trailer with all
+hash algorithms follow below steps.
+
+
+Installing Dependencies:
+------------------------
+
+.. code-block:: console
+
+   sudo apt update
+   sudo apt-get install openssl
+
+
+Compile:
+--------
+Follow normal compilation as mentioned in the build page. If you want to
+use all the hash algorithms then follow the steps mentioned in note before
+compiling.
+
+
+.. note::
+
+   If your platform supports ``openssl``, please make sure to add
+   ``--with-crypto=openssl`` to your configure options.
+   Default value is ``--with-crypto=internal``
+
+
+CLI Configuration:
+------------------
+There are two ways in which authentication trailer can be configured for
+OSPFv3. These commands are mutually exclusive, only one can be configured
+at any time.
+
+        1. Using manual key configuration.
+        2. Using keychain.
+
+
+List of hash algorithms supported:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Without openssl:
+++++++++++++++++
+        ``MD5``
+        ``HMAC-SHA-256``
+
+
+With openssl:
++++++++++++++
+        ``MD5``
+        ``HMAC-SHA-1``
+        ``HMAC-SHA-256``
+        ``HMAC-SHA-384``
+        ``HMAC-SHA-512``
+
+
+Example configuration of manual key:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Without openssl:
+++++++++++++++++
+
+.. clicmd:: ipv6 ospf6 authentication key-id (1-65535) hash-algo <md5|hmac-sha-256> key WORD
+
+With openssl:
++++++++++++++
+
+.. clicmd:: ipv6 ospf6 authentication key-id (1-65535) hash-algo <md5|hmac-sha-256|hmac-sha-1|hmac-sha-384|hmac-sha-512> key WORD
+
+
+Example configuration of keychain:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. clicmd:: ipv6 ospf6 authentication keychain KEYCHAIN_NAME
+
+
+Running configuration:
+----------------------
+
+Manual key:
+^^^^^^^^^^^
+
+.. code-block:: frr
+
+   frr# show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+   interface ens192
+    ipv6 address 2001:DB8::2/64
+    ipv6 ospf6 authentication key-id 10 hash-algo hmac-sha-256 key abhinay
+
+Keychain:
+^^^^^^^^^
+
+.. code-block:: frr
+
+   frr# show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+   interface ens192
+    ipv6 address 2001:DB8::2/64
+    ipv6 ospf6 authentication keychain abhinay
+
+
+Example keychain config:
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: frr
+
+   frr#show running-config
+   Building configuration...
+
+   Current configuration:
+   !
+    key chain abcd
+     key 100
+      key-string password
+      cryptographic-algorithm sha1
+     exit
+     key 200
+      key-string password
+      cryptographic-algorithm sha256
+     exit
+    !
+    key chain pqr
+     key 300
+      key-string password
+      cryptographic-algorithm sha384
+     exit
+     key 400
+      key-string password
+      cryptographic-algorithm sha384
+     exit
+    !
+
+Show commands:
+--------------
+There is an interface show command that displays if authentication trailer
+is enabled or not. json output is also supported.
+
+There is support for drop counters, which will help in debugging the feature.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6 interface ens192
+    ens192 is up, type BROADCAST
+      Interface ID: 5
+      Number of I/F scoped LSAs is 2
+        0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+        0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+      Authentication trailer is enabled with manual key         ==> new info added
+        Packet drop Tx 0, Packet drop Rx 0
+
+
+OSPFv3 supports options in hello and database description packets hence
+the presence of authentication trailer needs to be stored in OSPFv3
+neighbor info. Since RFC specifies that we need to handled sequence number
+for every ospf6 packet type, sequence number recvd in authentication header
+from the neighbor is stored in neighbor to validate the packet.
+json output is also supported.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6 neighbor 2.2.2.2 detail
+     Neighbor 2.2.2.2%ens192
+        Area 1 via interface ens192 (ifindex 3)
+        0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+        0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+        Authentication header present                           ==> new info added
+                             hello        DBDesc       LSReq        LSUpd        LSAck
+          Higher sequence no 0x0          0x0          0x0          0x0          0x0
+          Lower sequence no  0x242E       0x1DC4       0x1DC3       0x23CC       0x1DDA
+
+Sent packet sequence number is maintained per ospf6 router for every packet
+that is sent out of router, so sequence number is maintained per ospf6 process.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6
+     OSPFv3 Routing Process (0) with Router-ID 2.2.2.2
+     Number of areas in this router is 1
+     Authentication Sequence number info
+      Higher sequence no 3, Lower sequence no 1656
+
+Debug command:
+--------------
+Below command can be used to enable ospfv3 authentication trailer
+specific logs if you have to debug the feature.
+
+.. clicmd:: debug ospf6 authentication [<tx|rx>]
+
+Feature supports authentication trailer tx/rx drop counters for debugging,
+which can be used to see if packets are getting dropped due to error in
+processing authentication trailer information in OSPFv3 packet.
+json output is also supported.
+
+.. code-block:: frr
+
+    frr# show ipv6 ospf6 interface ens192
+    ens192 is up, type BROADCAST
+      Interface ID: 5
+      Number of I/F scoped LSAs is 2
+        0 Pending LSAs for LSUpdate in Time 00:00:00 [thread off]
+        0 Pending LSAs for LSAck in Time 00:00:00 [thread off]
+      Authentication trailer is enabled with manual key
+        Packet drop Tx 0, Packet drop Rx 0                      ==> new counters
+
+Clear command:
+--------------
+Below command can be used to clear the tx/rx drop counters in interface.
+Below command can be used to clear all ospfv3 interface or specific
+interface by specifying the interface name.
+
+.. clicmd:: clear ipv6 ospf6 auth-counters interface [IFNAME]
+
+
 
 .. _showing-ospf6-information:
 
@@ -404,9 +746,10 @@ The following debug commands are supported:
 
    Toggle OSPFv3 ASBR debugging messages.
 
-.. clicmd:: debug ospf6 border-routers
+.. clicmd:: debug ospf6 border-routers {router-id [A.B.C.D] | area-id [A.B.C.D]}
 
-   Toggle OSPFv3 border router debugging messages.
+   Toggle OSPFv3 border router debugging messages. This can be specified for a
+   router with specific Router-ID/Area-ID.
 
 .. clicmd:: debug ospf6 flooding
 

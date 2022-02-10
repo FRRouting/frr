@@ -315,7 +315,7 @@ static void nhrp_cache_peer_notifier(struct notifier_block *n,
 static void nhrp_cache_reset_new(struct nhrp_cache *c)
 {
 	THREAD_OFF(c->t_auth);
-	if (list_hashed(&c->newpeer_notifier.notifier_entry))
+	if (notifier_list_anywhere(&c->newpeer_notifier))
 		nhrp_peer_notify_del(c->new.peer, &c->newpeer_notifier);
 	nhrp_peer_unref(c->new.peer);
 	memset(&c->new, 0, sizeof(c->new));
@@ -574,5 +574,5 @@ void nhrp_cache_notify_add(struct nhrp_cache *c, struct notifier_block *n,
 
 void nhrp_cache_notify_del(struct nhrp_cache *c, struct notifier_block *n)
 {
-	notifier_del(n);
+	notifier_del(n, &c->notifier_list);
 }

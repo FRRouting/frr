@@ -64,6 +64,7 @@ enum cmd_token_type {
 	JOIN_TKN,  // marks subgraph end
 	START_TKN, // first token in line
 	END_TKN,   // last token in line
+	NEG_ONLY_TKN,    // filter token, match if "no ..." command
 
 	SPECIAL_TKN = FORK_TKN,
 };
@@ -78,11 +79,20 @@ enum { CMD_ATTR_NORMAL,
        CMD_ATTR_YANG,
 };
 
-/* Comamand token struct. */
+enum varname_src {
+	VARNAME_NONE = 0,
+	VARNAME_AUTO,
+	VARNAME_VAR,
+	VARNAME_TEXT,
+	VARNAME_EXPLICIT,
+};
+
+/* Command token struct. */
 struct cmd_token {
 	enum cmd_token_type type; // token type
 	uint8_t attr;		  // token attributes
-	bool allowrepeat;	 // matcher allowed to match token repetively?
+	bool allowrepeat; // matcher allowed to match token repetitively?
+	uint8_t varname_src;
 	uint32_t refcnt;
 
 	char *text;	 // token text
@@ -118,6 +128,8 @@ extern struct cmd_token *cmd_token_new(enum cmd_token_type, uint8_t attr,
 extern struct cmd_token *cmd_token_dup(struct cmd_token *);
 extern void cmd_token_del(struct cmd_token *);
 extern void cmd_token_varname_set(struct cmd_token *token, const char *varname);
+extern void cmd_token_varname_seqappend(struct graph_node *n);
+extern void cmd_token_varname_join(struct graph_node *n, const char *varname);
 
 extern void cmd_graph_parse(struct graph *graph, const struct cmd_element *cmd);
 extern void cmd_graph_names(struct graph *graph);

@@ -244,6 +244,10 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 
 	p = bgp_dest_get_prefix(dest);
 
+	if (BGP_DEBUG(labelpool, LABELPOOL))
+		zlog_debug("%s: %pFX: %s ", __func__, p,
+			   (reg ? "reg" : "dereg"));
+
 	if (reg) {
 		assert(pi);
 		/*
@@ -331,7 +335,7 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	int prefixlen;
 	afi_t afi;
 	safi_t safi;
-	int addpath_encoded;
+	bool addpath_capable;
 	uint32_t addpath_id;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	uint8_t llen;
@@ -342,16 +346,13 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
-		if (addpath_encoded) {
+		if (addpath_capable) {
 
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
@@ -440,8 +441,8 @@ int bgp_nlri_parse_label(struct peer *peer, struct attr *attr,
 
 		if (attr) {
 			bgp_update(peer, &p, addpath_id, attr, packet->afi,
-				   SAFI_UNICAST, ZEBRA_ROUTE_BGP,
-				   BGP_ROUTE_NORMAL, NULL, &label, 1, 0, NULL);
+				   safi, ZEBRA_ROUTE_BGP, BGP_ROUTE_NORMAL,
+				   NULL, &label, 1, 0, NULL);
 		} else {
 			bgp_withdraw(peer, &p, addpath_id, attr, packet->afi,
 				     SAFI_UNICAST, ZEBRA_ROUTE_BGP,

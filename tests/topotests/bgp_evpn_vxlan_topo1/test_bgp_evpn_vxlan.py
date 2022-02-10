@@ -43,54 +43,49 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # This function only purpose is to define allocation and relationship
+    # between routers, switches and hosts.
+    #
+    #
+    # Create routers
+    tgen.add_router("P1")
+    tgen.add_router("PE1")
+    tgen.add_router("PE2")
+    tgen.add_router("host1")
+    tgen.add_router("host2")
 
-        # This function only purpose is to define allocation and relationship
-        # between routers, switches and hosts.
-        #
-        #
-        # Create routers
-        tgen.add_router("P1")
-        tgen.add_router("PE1")
-        tgen.add_router("PE2")
-        tgen.add_router("host1")
-        tgen.add_router("host2")
+    # Host1-PE1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["host1"])
+    switch.add_link(tgen.gears["PE1"])
 
-        # Host1-PE1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["host1"])
-        switch.add_link(tgen.gears["PE1"])
+    # PE1-P1
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["PE1"])
+    switch.add_link(tgen.gears["P1"])
 
-        # PE1-P1
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["PE1"])
-        switch.add_link(tgen.gears["P1"])
+    # P1-PE2
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["P1"])
+    switch.add_link(tgen.gears["PE2"])
 
-        # P1-PE2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["P1"])
-        switch.add_link(tgen.gears["PE2"])
-
-        # PE2-host2
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["PE2"])
-        switch.add_link(tgen.gears["host2"])
+    # PE2-host2
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["PE2"])
+    switch.add_link(tgen.gears["host2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
     tgen.start_topology()
 
@@ -156,6 +151,17 @@ def show_vni_json_elide_ifindex(pe, vni, expected):
     return topotest.json_cmp(output_json, expected)
 
 
+def check_vni_macs_present(tgen, router, vni, maclist):
+    result = router.vtysh_cmd("show evpn mac vni {} json".format(vni), isjson=True)
+    for rname, ifname in maclist:
+        m = tgen.net.macs[(rname, ifname)]
+        if m not in result["macs"]:
+            return "MAC ({}) for interface {} on {} missing on {} from {}".format(
+                m, ifname, rname, router.name, json.dumps(result, indent=4)
+            )
+    return None
+
+
 def test_pe1_converge_evpn():
     "Wait for protocol convergence"
 
@@ -169,10 +175,20 @@ def test_pe1_converge_evpn():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(show_vni_json_elide_ifindex, pe1, 101, expected)
-    _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe1.name)
-    assert result is None, assertmsg
-    # tgen.mininet_cli()
+
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        pe1,
+        101,
+        (("host1", "host1-eth0"), ("host2", "host2-eth0")),
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result:
+        logger.warning("%s", result)
+        assert None, '"{}" missing expected MACs'.format(pe1.name)
 
 
 def test_pe2_converge_evpn():
@@ -188,10 +204,21 @@ def test_pe2_converge_evpn():
     expected = json.loads(open(json_file).read())
 
     test_func = partial(show_vni_json_elide_ifindex, pe2, 101, expected)
-    _, result = topotest.run_and_expect(test_func, None, count=125, wait=1)
+    _, result = topotest.run_and_expect(test_func, None, count=45, wait=1)
     assertmsg = '"{}" JSON output mismatches'.format(pe2.name)
     assert result is None, assertmsg
-    # tgen.mininet_cli()
+
+    test_func = partial(
+        check_vni_macs_present,
+        tgen,
+        pe2,
+        101,
+        (("host1", "host1-eth0"), ("host2", "host2-eth0")),
+    )
+    _, result = topotest.run_and_expect(test_func, None, count=30, wait=1)
+    if result:
+        logger.warning("%s", result)
+        assert None, '"{}" missing expected MACs'.format(pe2.name)
 
 
 def mac_learn_test(host, local):
@@ -262,7 +289,7 @@ def test_learning_pe2():
 
 
 def test_local_remote_mac_pe1():
-    " Test MAC transfer PE1 local and PE2 remote"
+    "Test MAC transfer PE1 local and PE2 remote"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.
@@ -275,7 +302,7 @@ def test_local_remote_mac_pe1():
 
 
 def test_local_remote_mac_pe2():
-    " Test MAC transfer PE2 local and PE1 remote"
+    "Test MAC transfer PE2 local and PE1 remote"
 
     tgen = get_topogen()
     # Don't run this test if we have any failure.

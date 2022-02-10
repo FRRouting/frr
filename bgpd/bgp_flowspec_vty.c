@@ -303,12 +303,13 @@ void route_vty_out_flowspec(struct vty *vty, const struct prefix *p,
 	if (path->attr)
 		ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(path->attr);
 
-	if (path->attr && (path->attr->ecommunity || ipv6_ecomm)) {
+	if (path->attr && (bgp_attr_get_ecommunity(path->attr) || ipv6_ecomm)) {
 		/* Print attribute */
 		attr = path->attr;
-		if (attr->ecommunity)
-			s1 = ecommunity_ecom2str(attr->ecommunity,
-						ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+		if (bgp_attr_get_ecommunity(attr))
+			s1 = ecommunity_ecom2str(bgp_attr_get_ecommunity(attr),
+						 ECOMMUNITY_FORMAT_ROUTE_MAP,
+						 0);
 		if (ipv6_ecomm)
 			s2 = ecommunity_ecom2str(
 				ipv6_ecomm, ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
@@ -449,11 +450,7 @@ int bgp_show_table_flowspec(struct vty *vty, struct bgp *bgp, afi_t afi,
 					       pi, display, json_paths);
 		}
 		if (use_json) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-						json_paths,
-						JSON_C_TO_STRING_PRETTY));
-			json_object_free(json_paths);
+			vty_json(vty, json_paths);
 			json_paths = NULL;
 		}
 	}

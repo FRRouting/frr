@@ -425,8 +425,7 @@ static int frr_confd_cdb_read_cb(struct thread *thread)
 	int *subp = NULL;
 	int reslen = 0;
 
-	thread = NULL;
-	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &thread);
+	thread_add_read(master, frr_confd_cdb_read_cb, NULL, fd, &t_cdb_sub);
 
 	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
 	    != CONFD_OK) {
@@ -492,6 +491,47 @@ static void *thread_cdb_trigger_subscriptions(void *data)
 	return NULL;
 }
 
+static int frr_confd_subscribe(const struct lysc_node *snode, void *arg)
+{
+	struct yang_module *module = arg;
+	struct nb_node *nb_node;
+	int *spoint;
+	int ret;
+
+	switch (snode->nodetype) {
+	case LYS_CONTAINER:
+	case LYS_LEAF:
+	case LYS_LEAFLIST:
+	case LYS_LIST:
+		break;
+	default:
+		return YANG_ITER_CONTINUE;
+	}
+
+	if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
+		return YANG_ITER_CONTINUE;
+
+	nb_node = snode->priv;
+	if (!nb_node)
+		return YANG_ITER_CONTINUE;
+
+	DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'", __func__,
+	       nb_node->xpath);
+
+	spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
+	ret = cdb_subscribe2(cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
+			     CDB_SUB_WANT_ABORT_ON_ABORT, 3, spoint,
+			     module->confd_hash, nb_node->xpath);
+	if (ret != CONFD_OK) {
+		flog_err_confd("cdb_subscribe2");
+		XFREE(MTYPE_CONFD, spoint);
+		return YANG_ITER_CONTINUE;
+	}
+
+	listnode_add(confd_spoints, spoint);
+	return YANG_ITER_CONTINUE;
+}
+
 static int frr_confd_init_cdb(void)
 {
 	struct yang_module *module;
@@ -515,8 +555,6 @@ static int frr_confd_init_cdb(void)
 	/* Subscribe to all loaded YANG data modules. */
 	confd_spoints = list_new();
 	RB_FOREACH (module, yang_modules, &yang_modules) {
-		struct lysc_node *snode;
-
 		module->confd_hash = confd_str2hash(module->info->ns);
 		if (module->confd_hash == 0) {
 			flog_err(
@@ -531,42 +569,8 @@ static int frr_confd_init_cdb(void)
 		 * entire YANG module. So we have to find the top level
 		 * nodes ourselves and subscribe to their paths.
 		 */
-		LY_LIST_FOR (module->info->data, snode) {
-			struct nb_node *nb_node;
-			int *spoint;
-			int ret;
-
-			switch (snode->nodetype) {
-			case LYS_CONTAINER:
-			case LYS_LEAF:
-			case LYS_LEAFLIST:
-			case LYS_LIST:
-				break;
-			default:
-				continue;
-			}
-
-			if (CHECK_FLAG(snode->flags, LYS_CONFIG_R))
-				continue;
-
-			nb_node = snode->priv;
-			if (!nb_node)
-				continue;
-
-			DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'",
-			       __func__, nb_node->xpath);
-
-			spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
-			ret = cdb_subscribe2(
-				cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
-				CDB_SUB_WANT_ABORT_ON_ABORT, 3, spoint,
-				module->confd_hash, nb_node->xpath);
-			if (ret != CONFD_OK) {
-				flog_err_confd("cdb_subscribe2");
-				XFREE(MTYPE_CONFD, spoint);
-			}
-			listnode_add(confd_spoints, spoint);
-		}
+		yang_snodes_iterate(module->info, frr_confd_subscribe, 0,
+				    module);
 	}
 
 	if (cdb_subscribe_done(cdb_sub_sock) != CONFD_OK) {
@@ -706,7 +710,7 @@ static int frr_confd_data_get_next(struct confd_trans_ctx *tctx,
 			confd_data_reply_next_key(tctx, v, keys.num,
 						  (long)nb_next);
 		} else {
-			char pointer_str[16];
+			char pointer_str[32];
 
 			/*
 			 * ConfD 6.6 user guide, chapter 6.11 (Operational data
@@ -844,7 +848,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	const void *nb_next;
 #define CONFD_OBJECTS_PER_TIME 100
 	struct confd_next_object objects[CONFD_OBJECTS_PER_TIME + 1];
-	char pseudo_keys[CONFD_OBJECTS_PER_TIME][16];
+	char pseudo_keys[CONFD_OBJECTS_PER_TIME][32];
 	int nobjects = 0;
 
 	frr_confd_get_xpath(kp, xpath, sizeof(xpath));
@@ -869,7 +873,7 @@ static int frr_confd_data_get_next_object(struct confd_trans_ctx *tctx,
 	memset(objects, 0, sizeof(objects));
 	for (int j = 0; j < CONFD_OBJECTS_PER_TIME; j++) {
 		struct confd_next_object *object;
-		struct lysc_node *child;
+		const struct lysc_node *child;
 		struct yang_data *data;
 		size_t nvalues = 0;
 
@@ -1164,14 +1168,9 @@ exit:
 }
 
 
-static int frr_confd_dp_read(struct thread *thread)
+static int frr_confd_dp_read(struct confd_daemon_ctx *dctx, int fd)
 {
-	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
-	int fd = THREAD_FD(thread);
 	int ret;
-
-	thread = NULL;
-	thread_add_read(master, frr_confd_dp_read, dctx, fd, &thread);
 
 	ret = confd_fd_ready(dctx, fd);
 	if (ret == CONFD_EOF) {
@@ -1183,6 +1182,30 @@ static int frr_confd_dp_read(struct thread *thread)
 		frr_confd_finish();
 		return -1;
 	}
+
+	return 0;
+}
+
+static int frr_confd_dp_ctl_read(struct thread *thread)
+{
+	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
+	int fd = THREAD_FD(thread);
+
+	thread_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
+
+	frr_confd_dp_read(dctx, fd);
+
+	return 0;
+}
+
+static int frr_confd_dp_worker_read(struct thread *thread)
+{
+	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
+	int fd = THREAD_FD(thread);
+
+	thread_add_read(master, frr_confd_dp_worker_read, dctx, fd, &t_dp_worker);
+
+	frr_confd_dp_read(dctx, fd);
 
 	return 0;
 }
@@ -1314,9 +1337,9 @@ static int frr_confd_init_dp(const char *program_name)
 		goto error;
 	}
 
-	thread_add_read(master, frr_confd_dp_read, dctx, dp_ctl_sock,
+	thread_add_read(master, frr_confd_dp_ctl_read, dctx, dp_ctl_sock,
 			&t_dp_ctl);
-	thread_add_read(master, frr_confd_dp_read, dctx, dp_worker_sock,
+	thread_add_read(master, frr_confd_dp_worker_read, dctx, dp_worker_sock,
 			&t_dp_worker);
 
 	return 0;

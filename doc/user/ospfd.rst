@@ -337,14 +337,18 @@ Areas
    announced into backbone area if area 0.0.0.10 contains at least one intra-area
    network (i.e. described with router or network LSA) from this range.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX not-advertise
+.. clicmd:: area A.B.C.D range A.B.C.D/M not-advertise
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M not-advertise
 
 
    Instead of summarizing intra area paths filter them - i.e. intra area paths from this
    range are not advertised into other areas.
    This command makes sense in ABR only.
 
-.. clicmd:: area A.B.C.D range IPV4_PREFIX substitute IPV4_PREFIX
+.. clicmd:: area A.B.C.D range A.B.C.D/M substitute A.B.C.D/M
+
+.. clicmd:: area (0-4294967295) range A.B.C.D/M substitute A.B.C.D/M
 
 
    Substitute summarized prefix with another prefix.
@@ -691,13 +695,12 @@ Redistribution
    the 'always' keyword is given then the default is always advertised, even
    when there is no default present in the routing table.
 
-.. clicmd:: distribute-list NAME out (kernel|connected|static|rip|ospf
-
-
 .. _ospf-distribute-list:
 
+.. clicmd:: distribute-list NAME out <kernel|connected|static|rip|isis|bgp|eigrp|nhrp|table|vnc|babel|openfabric>
+
    Apply the access-list filter, NAME, to redistributed routes of the given
-   type before allowing the routes to redistributed into OSPF
+   type before allowing the routes to be redistributed into OSPF
    (:ref:`ospf redistribution <ospf-redistribute>`).
 
 .. clicmd:: default-metric (0-16777214)
@@ -722,7 +725,7 @@ Graceful Restart
    To perform a graceful shutdown, the "graceful-restart prepare ip ospf"
    EXEC-level command needs to be issued before restarting the ospfd daemon.
 
-.. clicmd:: graceful-restart helper-only [A.B.C.D]
+.. clicmd:: graceful-restart helper enable [A.B.C.D]
 
 
    Configure Graceful Restart (RFC 3623) helper support.
@@ -954,8 +957,6 @@ Router Information
 
    Show Router Capabilities PCE parameters.
 
-.. _debugging-ospf:
-
 Segment Routing
 ===============
 
@@ -1019,10 +1020,11 @@ Summary Route will be originated on-behalf of all matched external LSAs.
 .. clicmd:: aggregation timer (5-1800)
 
    Configure aggregation delay timer interval. Summarisation starts only after
-   this delay timer expiry. By default, delay interval is 5 secs.
+   this delay timer expiry. By default, delay interval is 5 seconds.
 
 
-   Resetting the aggregation delay interval to default value.
+   The no form of the command resets the aggregation delay interval to default
+   value.
 
 .. clicmd:: show ip ospf [vrf <NAME|all>] summary-address [detail] [json]
 
@@ -1041,6 +1043,8 @@ TI-LFA requires a proper Segment Routing configuration.
    Configured on the router level. Activates TI-LFA for all interfaces.
 
    Note that so far only P2P interfaces are supported.
+
+.. _debugging-ospf:
 
 Debugging OSPF
 ==============

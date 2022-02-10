@@ -68,9 +68,6 @@ static const struct message attr_str[] = {
 	{BGP_ATTR_COMMUNITIES, "COMMUNITY"},
 	{BGP_ATTR_ORIGINATOR_ID, "ORIGINATOR_ID"},
 	{BGP_ATTR_CLUSTER_LIST, "CLUSTER_LIST"},
-	{BGP_ATTR_DPA, "DPA"},
-	{BGP_ATTR_ADVERTISER, "ADVERTISER"},
-	{BGP_ATTR_RCID_PATH, "RCID_PATH"},
 	{BGP_ATTR_MP_REACH_NLRI, "MP_REACH_NLRI"},
 	{BGP_ATTR_MP_UNREACH_NLRI, "MP_UNREACH_NLRI"},
 	{BGP_ATTR_EXT_COMMUNITIES, "EXT_COMMUNITIES"},
@@ -407,9 +404,8 @@ static bool overlay_index_same(const struct attr *a1, const struct attr *a2)
 	if (!a1 && !a2)
 		return true;
 
-	return !memcmp(bgp_attr_get_evpn_overlay(a1),
-		       bgp_attr_get_evpn_overlay(a2),
-		       sizeof(struct bgp_route_evpn));
+	return bgp_route_evpn_same(bgp_attr_get_evpn_overlay(a1),
+				   bgp_attr_get_evpn_overlay(a2));
 }
 
 /* Unknown transit attribute. */
@@ -530,6 +526,12 @@ static uint32_t srv6_l3vpn_hash_key_make(const void *p)
 	key = jhash(&l3vpn->sid, 16, key);
 	key = jhash_1word(l3vpn->sid_flags, key);
 	key = jhash_1word(l3vpn->endpoint_behavior, key);
+	key = jhash_1word(l3vpn->loc_block_len, key);
+	key = jhash_1word(l3vpn->loc_node_len, key);
+	key = jhash_1word(l3vpn->func_len, key);
+	key = jhash_1word(l3vpn->arg_len, key);
+	key = jhash_1word(l3vpn->transposition_len, key);
+	key = jhash_1word(l3vpn->transposition_offset, key);
 	return key;
 }
 
@@ -540,7 +542,13 @@ static bool srv6_l3vpn_hash_cmp(const void *p1, const void *p2)
 
 	return sid_same(&l3vpn1->sid, &l3vpn2->sid)
 	       && l3vpn1->sid_flags == l3vpn2->sid_flags
-	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior;
+	       && l3vpn1->endpoint_behavior == l3vpn2->endpoint_behavior
+	       && l3vpn1->loc_block_len == l3vpn2->loc_block_len
+	       && l3vpn1->loc_node_len == l3vpn2->loc_node_len
+	       && l3vpn1->func_len == l3vpn2->func_len
+	       && l3vpn1->arg_len == l3vpn2->arg_len
+	       && l3vpn1->transposition_len == l3vpn2->transposition_len
+	       && l3vpn1->transposition_offset == l3vpn2->transposition_offset;
 }
 
 static bool srv6_l3vpn_same(const struct bgp_attr_srv6_l3vpn *h1,
@@ -664,10 +672,10 @@ unsigned int attrhash_key_make(const void *p)
 	if (attr->community)
 		MIX(community_hash_make(attr->community));
 
-	if (attr->lcommunity)
-		MIX(lcommunity_hash_make(attr->lcommunity));
-	if (attr->ecommunity)
-		MIX(ecommunity_hash_make(attr->ecommunity));
+	if (bgp_attr_get_lcommunity(attr))
+		MIX(lcommunity_hash_make(bgp_attr_get_lcommunity(attr)));
+	if (bgp_attr_get_ecommunity(attr))
+		MIX(ecommunity_hash_make(bgp_attr_get_ecommunity(attr)));
 	if (bgp_attr_get_ipv6_ecommunity(attr))
 		MIX(ecommunity_hash_make(bgp_attr_get_ipv6_ecommunity(attr)));
 	if (bgp_attr_get_cluster(attr))
@@ -691,6 +699,8 @@ unsigned int attrhash_key_make(const void *p)
 	key = jhash(attr->mp_nexthop_local.s6_addr, IPV6_MAX_BYTELEN, key);
 	MIX3(attr->nh_ifindex, attr->nh_lla_ifindex, attr->distance);
 	MIX(attr->rmap_table_id);
+	MIX(attr->nh_type);
+	MIX(attr->bh_type);
 
 	return key;
 }
@@ -713,10 +723,12 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->tag == attr2->tag
 		    && attr1->label_index == attr2->label_index
 		    && attr1->mp_nexthop_len == attr2->mp_nexthop_len
-		    && attr1->ecommunity == attr2->ecommunity
+		    && bgp_attr_get_ecommunity(attr1)
+			       == bgp_attr_get_ecommunity(attr2)
 		    && bgp_attr_get_ipv6_ecommunity(attr1)
 			       == bgp_attr_get_ipv6_ecommunity(attr2)
-		    && attr1->lcommunity == attr2->lcommunity
+		    && bgp_attr_get_lcommunity(attr1)
+				   == bgp_attr_get_lcommunity(attr2)
 		    && bgp_attr_get_cluster(attr1)
 			       == bgp_attr_get_cluster(attr2)
 		    && bgp_attr_get_transit(attr1)
@@ -747,7 +759,9 @@ bool attrhash_cmp(const void *p1, const void *p2)
 		    && attr1->distance == attr2->distance
 		    && srv6_l3vpn_same(attr1->srv6_l3vpn, attr2->srv6_l3vpn)
 		    && srv6_vpn_same(attr1->srv6_vpn, attr2->srv6_vpn)
-		    && attr1->srte_color == attr2->srte_color)
+		    && attr1->srte_color == attr2->srte_color
+		    && attr1->nh_type == attr2->nh_type
+		    && attr1->bh_type == attr2->bh_type)
 			return true;
 	}
 
@@ -818,10 +832,6 @@ static void *bgp_attr_hash_alloc(void *p)
 	if (vnc_subtlvs)
 		bgp_attr_set_vnc_subtlvs(val, NULL);
 #endif
-	if (val->srv6_l3vpn)
-		val->srv6_l3vpn = NULL;
-	if (val->srv6_vpn)
-		val->srv6_vpn = NULL;
 
 	attr->refcnt = 0;
 	return attr;
@@ -831,7 +841,9 @@ static void *bgp_attr_hash_alloc(void *p)
 struct attr *bgp_attr_intern(struct attr *attr)
 {
 	struct attr *find;
-	struct ecommunity *ecomm;
+	struct ecommunity *ecomm = NULL;
+	struct ecommunity *ipv6_ecomm = NULL;
+	struct lcommunity *lcomm = NULL;
 
 	/* Intern referenced strucutre. */
 	if (attr->aspath) {
@@ -847,27 +859,29 @@ struct attr *bgp_attr_intern(struct attr *attr)
 			attr->community->refcnt++;
 	}
 
-	if (attr->ecommunity) {
-		if (!attr->ecommunity->refcnt)
-			attr->ecommunity = ecommunity_intern(attr->ecommunity);
-		else
-			attr->ecommunity->refcnt++;
-	}
-
-	ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecomm = bgp_attr_get_ecommunity(attr);
 	if (ecomm) {
 		if (!ecomm->refcnt)
-			bgp_attr_set_ipv6_ecommunity(attr,
-						     ecommunity_intern(ecomm));
+			bgp_attr_set_ecommunity(attr, ecommunity_intern(ecomm));
 		else
 			ecomm->refcnt++;
 	}
 
-	if (attr->lcommunity) {
-		if (!attr->lcommunity->refcnt)
-			attr->lcommunity = lcommunity_intern(attr->lcommunity);
+	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	if (ipv6_ecomm) {
+		if (!ipv6_ecomm->refcnt)
+			bgp_attr_set_ipv6_ecommunity(
+				attr, ecommunity_intern(ipv6_ecomm));
 		else
-			attr->lcommunity->refcnt++;
+			ipv6_ecomm->refcnt++;
+	}
+
+	lcomm = bgp_attr_get_lcommunity(attr);
+	if (lcomm) {
+		if (!lcomm->refcnt)
+			bgp_attr_set_lcommunity(attr, lcommunity_intern(lcomm));
+		else
+			lcomm->refcnt++;
 	}
 
 	struct cluster_list *cluster = bgp_attr_get_cluster(attr);
@@ -994,12 +1008,12 @@ struct attr *bgp_attr_aggregate_intern(
 	}
 
 	if (ecommunity) {
-		attr.ecommunity = ecommunity;
+		bgp_attr_set_ecommunity(&attr, ecommunity);
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 	}
 
 	if (lcommunity) {
-		attr.lcommunity = lcommunity;
+		bgp_attr_set_lcommunity(&attr, lcommunity);
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 	}
 
@@ -1057,15 +1071,19 @@ struct attr *bgp_attr_aggregate_intern(
 		new = bgp_attr_intern(&attr);
 	}
 
-	aspath_unintern(&new->aspath);
+	/* Always release the 'intern()'ed AS Path. */
+	aspath_unintern(&attr.aspath);
+
 	return new;
 }
 
 /* Unintern just the sub-components of the attr, but not the attr */
 void bgp_attr_unintern_sub(struct attr *attr)
 {
-	struct ecommunity *ecomm;
+	struct ecommunity *ecomm = NULL;
+	struct ecommunity *ipv6_ecomm = NULL;
 	struct cluster_list *cluster;
+	struct lcommunity *lcomm = NULL;
 
 	/* aspath refcount shoud be decrement. */
 	if (attr->aspath)
@@ -1076,17 +1094,20 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		community_unintern(&attr->community);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
 
-	ecommunity_unintern(&attr->ecommunity);
-	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
-
-	ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecomm = bgp_attr_get_ecommunity(attr);
 	ecommunity_unintern(&ecomm);
+	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
+	bgp_attr_set_ecommunity(attr, NULL);
+
+	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecommunity_unintern(&ipv6_ecomm);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_IPV6_EXT_COMMUNITIES));
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
 
-	if (attr->lcommunity)
-		lcommunity_unintern(&attr->lcommunity);
+	lcomm = bgp_attr_get_lcommunity(attr);
+	lcommunity_unintern(&lcomm);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
+	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
 	if (cluster) {
@@ -1122,41 +1143,6 @@ void bgp_attr_unintern_sub(struct attr *attr)
 		srv6_vpn_unintern(&attr->srv6_vpn);
 }
 
-/*
- * We have some show commands that let you experimentally
- * apply a route-map.  When we apply the route-map
- * we are reseting values but not saving them for
- * posterity via intern'ing( because route-maps don't
- * do that) but at this point in time we need
- * to compare the new attr to the old and if the
- * routemap has changed it we need to, as Snoop Dog says,
- * Drop it like it's hot
- */
-void bgp_attr_undup(struct attr *new, struct attr *old)
-{
-	if (new->aspath != old->aspath)
-		aspath_free(new->aspath);
-
-	if (new->community != old->community)
-		community_free(&new->community);
-
-	if (new->ecommunity != old->ecommunity)
-		ecommunity_free(&new->ecommunity);
-
-	if (new->lcommunity != old->lcommunity)
-		lcommunity_free(&new->lcommunity);
-
-	if (new->srv6_l3vpn != old->srv6_l3vpn) {
-		srv6_l3vpn_free(new->srv6_l3vpn);
-		new->srv6_l3vpn = NULL;
-	}
-
-	if (new->srv6_vpn != old->srv6_vpn) {
-		srv6_vpn_free(new->srv6_vpn);
-		new->srv6_vpn = NULL;
-	}
-}
-
 /* Free bgp attribute and aspath. */
 void bgp_attr_unintern(struct attr **pattr)
 {
@@ -1183,7 +1169,9 @@ void bgp_attr_unintern(struct attr **pattr)
 void bgp_attr_flush(struct attr *attr)
 {
 	struct ecommunity *ecomm;
+	struct ecommunity *ipv6_ecomm;
 	struct cluster_list *cluster;
+	struct lcommunity *lcomm;
 
 	if (attr->aspath && !attr->aspath->refcnt) {
 		aspath_free(attr->aspath);
@@ -1191,14 +1179,18 @@ void bgp_attr_flush(struct attr *attr)
 	}
 	if (attr->community && !attr->community->refcnt)
 		community_free(&attr->community);
-	if (attr->ecommunity && !attr->ecommunity->refcnt)
-		ecommunity_free(&attr->ecommunity);
-	ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	ecomm = bgp_attr_get_ecommunity(attr);
 	if (ecomm && !ecomm->refcnt)
 		ecommunity_free(&ecomm);
+	bgp_attr_set_ecommunity(attr, NULL);
+	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
+	if (ipv6_ecomm && !ipv6_ecomm->refcnt)
+		ecommunity_free(&ipv6_ecomm);
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
-	if (attr->lcommunity && !attr->lcommunity->refcnt)
-		lcommunity_free(&attr->lcommunity);
+	lcomm = bgp_attr_get_lcommunity(attr);
+	if (lcomm && !lcomm->refcnt)
+		lcommunity_free(&lcomm);
+	bgp_attr_set_lcommunity(attr, NULL);
 
 	cluster = bgp_attr_get_cluster(attr);
 	if (cluster && !cluster->refcnt) {
@@ -2275,17 +2267,18 @@ bgp_attr_large_community(struct bgp_attr_parser_args *args)
 	 * Large community follows new attribute format.
 	 */
 	if (length == 0) {
-		attr->lcommunity = NULL;
+		bgp_attr_set_lcommunity(attr, NULL);
 		/* Empty extcomm doesn't seem to be invalid per se */
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
 
-	attr->lcommunity = lcommunity_parse(stream_pnt(peer->curr), length);
+	bgp_attr_set_lcommunity(
+		attr, lcommunity_parse(stream_pnt(peer->curr), length));
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 
-	if (!attr->lcommunity)
+	if (!bgp_attr_get_lcommunity(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
@@ -2303,23 +2296,27 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 	uint8_t sticky = 0;
 	bool proxy = false;
+	struct ecommunity *ecomm;
 
 	if (length == 0) {
-		attr->ecommunity = NULL;
+		bgp_attr_set_ecommunity(attr, NULL);
 		/* Empty extcomm doesn't seem to be invalid per se */
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
 
-	attr->ecommunity =
-		ecommunity_parse(stream_pnt(peer->curr), length);
+	ecomm = ecommunity_parse(
+		stream_pnt(peer->curr), length,
+		CHECK_FLAG(peer->flags,
+			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
+	bgp_attr_set_ecommunity(attr, ecomm);
 	/* XXX: fix ecommunity_parse to use stream API */
 	stream_forward_getp(peer->curr, length);
 
 	/* The Extended Community attribute SHALL be considered malformed if
 	 * its length is not a non-zero multiple of 8.
 	 */
-	if (!attr->ecommunity)
+	if (!bgp_attr_get_ecommunity(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
@@ -2360,7 +2357,8 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 		(bgp_encap_types *)&attr->encap_tunneltype);
 
 	/* Extract link bandwidth, if any. */
-	(void)ecommunity_linkbw_present(attr->ecommunity, &attr->link_bw);
+	(void)ecommunity_linkbw_present(bgp_attr_get_ecommunity(attr),
+					&attr->link_bw);
 
 	return BGP_ATTR_PARSE_PROCEED;
 }
@@ -2380,7 +2378,10 @@ bgp_attr_ipv6_ext_communities(struct bgp_attr_parser_args *args)
 					  args->total);
 	}
 
-	ipv6_ecomm = ecommunity_parse_ipv6(stream_pnt(peer->curr), length);
+	ipv6_ecomm = ecommunity_parse_ipv6(
+		stream_pnt(peer->curr), length,
+		CHECK_FLAG(peer->flags,
+			   PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 	bgp_attr_set_ipv6_ecommunity(attr, ipv6_ecomm);
 
 	/* XXX: fix ecommunity_parse to use stream API */
@@ -2524,6 +2525,172 @@ static int bgp_attr_encap(uint8_t type, struct peer *peer, /* IN */
 	return 0;
 }
 
+
+/* SRv6 Service Data Sub-Sub-TLV attribute
+ * draft-ietf-bess-srv6-services-07
+ */
+static bgp_attr_parse_ret_t
+bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	uint8_t type, loc_block_len, loc_node_len, func_len, arg_len,
+		transposition_len, transposition_offset;
+	uint16_t length;
+	size_t headersz = sizeof(type) + sizeof(length);
+
+	if (STREAM_READABLE(peer->curr) < headersz) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+			headersz, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	type = stream_getc(peer->curr);
+	length = stream_getw(peer->curr);
+
+	if (STREAM_READABLE(peer->curr) < length) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Data Sub-Sub-TLV attribute - insufficent data (need %hu for attribute data, have %zu remaining in UPDATE)",
+			length, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE) {
+		loc_block_len = stream_getc(peer->curr);
+		loc_node_len = stream_getc(peer->curr);
+		func_len = stream_getc(peer->curr);
+		arg_len = stream_getc(peer->curr);
+		transposition_len = stream_getc(peer->curr);
+		transposition_offset = stream_getc(peer->curr);
+
+		/* Log SRv6 Service Data Sub-Sub-TLV */
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+			zlog_debug(
+				"%s: srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
+				__func__, loc_block_len, loc_node_len, func_len,
+				arg_len, transposition_len,
+				transposition_offset);
+		}
+
+		attr->srv6_l3vpn->loc_block_len = loc_block_len;
+		attr->srv6_l3vpn->loc_node_len = loc_node_len;
+		attr->srv6_l3vpn->func_len = func_len;
+		attr->srv6_l3vpn->arg_len = arg_len;
+		attr->srv6_l3vpn->transposition_len = transposition_len;
+		attr->srv6_l3vpn->transposition_offset = transposition_offset;
+	}
+
+	else {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"%s attr SRv6 Service Data Sub-Sub-TLV sub-sub-type=%u is not supported, skipped",
+				peer->host, type);
+
+		stream_forward_getp(peer->curr, length);
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
+/* SRv6 Service Sub-TLV attribute
+ * draft-ietf-bess-srv6-services-07
+ */
+static bgp_attr_parse_ret_t
+bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
+{
+	struct peer *const peer = args->peer;
+	struct attr *const attr = args->attr;
+	struct in6_addr ipv6_sid;
+	uint8_t type, sid_flags;
+	uint16_t length, endpoint_behavior;
+	size_t headersz = sizeof(type) + sizeof(length);
+	bgp_attr_parse_ret_t err;
+	char buf[BUFSIZ];
+
+	if (STREAM_READABLE(peer->curr) < headersz) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %zu for attribute header, have %zu remaining in UPDATE)",
+			headersz, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	type = stream_getc(peer->curr);
+	length = stream_getw(peer->curr);
+
+	if (STREAM_READABLE(peer->curr) < length) {
+		flog_err(
+			EC_BGP_ATTR_LEN,
+			"Malformed SRv6 Service Sub-TLV attribute - insufficent data (need %hu for attribute data, have %zu remaining in UPDATE)",
+			length, STREAM_READABLE(peer->curr));
+		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
+					  args->total);
+	}
+
+	if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO) {
+		stream_getc(peer->curr);
+		stream_get(&ipv6_sid, peer->curr, sizeof(ipv6_sid));
+		sid_flags = stream_getc(peer->curr);
+		endpoint_behavior = stream_getw(peer->curr);
+		stream_getc(peer->curr);
+
+		/* Log SRv6 Service Sub-TLV */
+		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
+			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
+			zlog_debug(
+				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
+				__func__, buf, sid_flags, endpoint_behavior);
+		}
+
+		/* Configure from Info */
+		if (attr->srv6_l3vpn) {
+			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
+				 "Prefix SID SRv6 L3VPN field repeated");
+			return bgp_attr_malformed(
+				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
+		}
+		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
+					   sizeof(struct bgp_attr_srv6_l3vpn));
+		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
+		attr->srv6_l3vpn->sid_flags = sid_flags;
+		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
+		attr->srv6_l3vpn->loc_block_len = 0;
+		attr->srv6_l3vpn->loc_node_len = 0;
+		attr->srv6_l3vpn->func_len = 0;
+		attr->srv6_l3vpn->arg_len = 0;
+		attr->srv6_l3vpn->transposition_len = 0;
+		attr->srv6_l3vpn->transposition_offset = 0;
+
+		// Sub-Sub-TLV found
+		if (length > BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH) {
+			err = bgp_attr_srv6_service_data(args);
+
+			if (err != BGP_ATTR_PARSE_PROCEED)
+				return err;
+		}
+
+		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+	}
+
+	/* Placeholder code for unsupported type */
+	else {
+		if (bgp_debug_update(peer, NULL, NULL, 1))
+			zlog_debug(
+				"%s attr SRv6 Service Sub-TLV sub-type=%u is not supported, skipped",
+				peer->host, type);
+
+		stream_forward_getp(peer->curr, length);
+	}
+
+	return BGP_ATTR_PARSE_PROCEED;
+}
+
 /*
  * Read an individual SID value returning how much data we have read
  * Returns 0 if there was an error that needs to be passed up the stack
@@ -2539,7 +2706,6 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 	uint32_t srgb_range;
 	int srgb_count;
 	uint8_t sid_type, sid_flags;
-	uint16_t endpoint_behavior;
 	char buf[BUFSIZ];
 
 	if (type == BGP_PREFIX_SID_LABEL_INDEX) {
@@ -2694,45 +2860,20 @@ static bgp_attr_parse_ret_t bgp_attr_psid_sub(uint8_t type, uint16_t length,
 
 	/* Placeholder code for the SRv6 L3 Service type */
 	else if (type == BGP_PREFIX_SID_SRV6_L3_SERVICE) {
-		if (STREAM_READABLE(peer->curr) < length
-		    || length != BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH) {
-			flog_err(EC_BGP_ATTR_LEN,
-				 "Prefix SID SRv6 L3-Service length is %hu instead of %u",
-				 length, BGP_PREFIX_SID_SRV6_L3_SERVICE_LENGTH);
+		if (STREAM_READABLE(peer->curr) < length) {
+			flog_err(
+				EC_BGP_ATTR_LEN,
+				"Prefix SID SRv6 L3-Service length is %hu, but only %zu bytes remain",
+				length, STREAM_READABLE(peer->curr));
 			return bgp_attr_malformed(args,
 				 BGP_NOTIFY_UPDATE_ATTR_LENG_ERR,
 				 args->total);
 		}
 
-		/* Parse L3-SERVICE Sub-TLV */
-		stream_getc(peer->curr);               /* reserved  */
-		stream_get(&ipv6_sid, peer->curr,
-			   sizeof(ipv6_sid)); /* sid_value */
-		sid_flags = stream_getc(peer->curr);   /* sid_flags */
-		endpoint_behavior = stream_getw(peer->curr); /* endpoint */
-		stream_getc(peer->curr);               /* reserved  */
+		/* ignore reserved */
+		stream_getc(peer->curr);
 
-		/* Log L3-SERVICE Sub-TLV */
-		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
-			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
-			zlog_debug(
-				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
-				__func__, buf, sid_flags, endpoint_behavior);
-		}
-
-		/* Configure from Info */
-		if (attr->srv6_l3vpn) {
-			flog_err(EC_BGP_ATTRIBUTE_REPEATED,
-				 "Prefix SID SRv6 L3VPN field repeated");
-			return bgp_attr_malformed(
-				args, BGP_NOTIFY_UPDATE_MAL_ATTR, args->total);
-		}
-		attr->srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
-					   sizeof(struct bgp_attr_srv6_l3vpn));
-		attr->srv6_l3vpn->sid_flags = sid_flags;
-		attr->srv6_l3vpn->endpoint_behavior = endpoint_behavior;
-		sid_copy(&attr->srv6_l3vpn->sid, &ipv6_sid);
-		attr->srv6_l3vpn = srv6_l3vpn_intern(attr->srv6_l3vpn);
+		return bgp_attr_srv6_service(args);
 	}
 
 	/* Placeholder code for Unsupported TLV */
@@ -3417,7 +3558,7 @@ void bgp_attr_extcom_tunnel_type(struct attr *attr,
 	if (!attr)
 		return;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return;
 
@@ -3572,11 +3713,11 @@ size_t bgp_packet_mpattr_start(struct stream *s, struct peer *peer, afi_t afi,
 void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 			      const struct prefix *p,
 			      const struct prefix_rd *prd, mpls_label_t *label,
-			      uint32_t num_labels, int addpath_encode,
+			      uint32_t num_labels, bool addpath_capable,
 			      uint32_t addpath_tx_id, struct attr *attr)
 {
 	if (safi == SAFI_MPLS_VPN) {
-		if (addpath_encode)
+		if (addpath_capable)
 			stream_putl(s, addpath_tx_id);
 		/* Label, RD, Prefix write. */
 		stream_putc(s, p->prefixlen + 88);
@@ -3586,17 +3727,17 @@ void bgp_packet_mpattr_prefix(struct stream *s, afi_t afi, safi_t safi,
 	} else if (afi == AFI_L2VPN && safi == SAFI_EVPN) {
 		/* EVPN prefix - contents depend on type */
 		bgp_evpn_encode_prefix(s, p, prd, label, num_labels, attr,
-				       addpath_encode, addpath_tx_id);
+				       addpath_capable, addpath_tx_id);
 	} else if (safi == SAFI_LABELED_UNICAST) {
 		/* Prefix write with label. */
-		stream_put_labeled_prefix(s, p, label, addpath_encode,
+		stream_put_labeled_prefix(s, p, label, addpath_capable,
 					  addpath_tx_id);
 	} else if (safi == SAFI_FLOWSPEC) {
 		stream_putc(s, p->u.prefix_flowspec.prefixlen);
 		stream_put(s, (const void *)p->u.prefix_flowspec.ptr,
 			   p->u.prefix_flowspec.prefixlen);
 	} else
-		stream_put_prefix_addpath(s, p, addpath_encode, addpath_tx_id);
+		stream_put_prefix_addpath(s, p, addpath_capable, addpath_tx_id);
 }
 
 size_t bgp_packet_mpattr_prefix_size(afi_t afi, safi_t safi,
@@ -3740,7 +3881,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 				struct prefix *p, afi_t afi, safi_t safi,
 				struct peer *from, struct prefix_rd *prd,
 				mpls_label_t *label, uint32_t num_labels,
-				int addpath_encode, uint32_t addpath_tx_id)
+				bool addpath_capable, uint32_t addpath_tx_id)
 {
 	size_t cp;
 	size_t aspath_sizep;
@@ -3764,7 +3905,7 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 		mpattrlen_pos = bgp_packet_mpattr_start(s, peer, afi, safi,
 							vecarr, attr);
 		bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label,
-					 num_labels, addpath_encode,
+					 num_labels, addpath_capable,
 					 addpath_tx_id, attr);
 		bgp_packet_mpattr_end(s, mpattrlen_pos);
 	}
@@ -3959,21 +4100,23 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	if (CHECK_FLAG(peer->af_flags[afi][safi],
 		       PEER_FLAG_SEND_LARGE_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))) {
-		if (lcom_length(attr->lcommunity) > 255) {
+		if (lcom_length(bgp_attr_get_lcommunity(attr)) > 255) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
 					    | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putw(s, lcom_length(attr->lcommunity));
+			stream_putw(s,
+				    lcom_length(bgp_attr_get_lcommunity(attr)));
 		} else {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putc(s, lcom_length(attr->lcommunity));
+			stream_putc(s,
+				    lcom_length(bgp_attr_get_lcommunity(attr)));
 		}
-		stream_put(s, attr->lcommunity->val,
-			   lcom_length(attr->lcommunity));
+		stream_put(s, bgp_attr_get_lcommunity(attr)->val,
+			   lcom_length(bgp_attr_get_lcommunity(attr)));
 	}
 
 	/* Route Reflector. */
@@ -4018,32 +4161,33 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Extended Communities attribute. */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_EXT_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES))) {
+		struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
+
 		if (peer->sort == BGP_PEER_IBGP
 		    || peer->sort == BGP_PEER_CONFED) {
-			if (attr->ecommunity->size * 8 > 255) {
+			if (ecomm->size * 8 > 255) {
 				stream_putc(s,
 					    BGP_ATTR_FLAG_OPTIONAL
 						    | BGP_ATTR_FLAG_TRANS
 						    | BGP_ATTR_FLAG_EXTLEN);
 				stream_putc(s, BGP_ATTR_EXT_COMMUNITIES);
-				stream_putw(s, attr->ecommunity->size * 8);
+				stream_putw(s, ecomm->size * 8);
 			} else {
 				stream_putc(s,
 					    BGP_ATTR_FLAG_OPTIONAL
 						    | BGP_ATTR_FLAG_TRANS);
 				stream_putc(s, BGP_ATTR_EXT_COMMUNITIES);
-				stream_putc(s, attr->ecommunity->size * 8);
+				stream_putc(s, ecomm->size * 8);
 			}
-			stream_put(s, attr->ecommunity->val,
-				   attr->ecommunity->size * 8);
+			stream_put(s, ecomm->val, ecomm->size * 8);
 		} else {
 			uint8_t *pnt;
 			int tbit;
 			int ecom_tr_size = 0;
 			uint32_t i;
 
-			for (i = 0; i < attr->ecommunity->size; i++) {
-				pnt = attr->ecommunity->val + (i * 8);
+			for (i = 0; i < ecomm->size; i++) {
+				pnt = ecomm->val + (i * 8);
 				tbit = *pnt;
 
 				if (CHECK_FLAG(tbit,
@@ -4073,8 +4217,8 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 					stream_putc(s, ecom_tr_size * 8);
 				}
 
-				for (i = 0; i < attr->ecommunity->size; i++) {
-					pnt = attr->ecommunity->val + (i * 8);
+				for (i = 0; i < ecomm->size; i++) {
+					pnt = ecomm->val + (i * 8);
 					tbit = *pnt;
 
 					if (CHECK_FLAG(
@@ -4114,18 +4258,39 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* SRv6 Service Information Attribute. */
 	if ((afi == AFI_IP || afi == AFI_IP6) && safi == SAFI_MPLS_VPN) {
 		if (attr->srv6_l3vpn) {
+			uint8_t subtlv_len =
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH
+				+ BGP_ATTR_MIN_LEN
+				+ BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO_LENGTH;
+			uint8_t tlv_len = subtlv_len + BGP_ATTR_MIN_LEN + 1;
+			uint8_t attr_len = tlv_len + BGP_ATTR_MIN_LEN;
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_PREFIX_SID);
-			stream_putc(s, 24);     /* tlv len */
+			stream_putc(s, attr_len);
 			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE);
-			stream_putw(s, 21);     /* sub-tlv len */
+			stream_putw(s, tlv_len);
+			stream_putc(s, 0); /* reserved */
+			stream_putc(s, BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_INFO);
+			stream_putw(s, subtlv_len);
 			stream_putc(s, 0);      /* reserved */
 			stream_put(s, &attr->srv6_l3vpn->sid,
 				   sizeof(attr->srv6_l3vpn->sid)); /* sid */
 			stream_putc(s, 0);      /* sid_flags */
 			stream_putw(s, 0xffff); /* endpoint */
 			stream_putc(s, 0);      /* reserved */
+			stream_putc(
+				s,
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE);
+			stream_putw(
+				s,
+				BGP_PREFIX_SID_SRV6_L3_SERVICE_SID_STRUCTURE_LENGTH);
+			stream_putc(s, attr->srv6_l3vpn->loc_block_len);
+			stream_putc(s, attr->srv6_l3vpn->loc_node_len);
+			stream_putc(s, attr->srv6_l3vpn->func_len);
+			stream_putc(s, attr->srv6_l3vpn->arg_len);
+			stream_putc(s, attr->srv6_l3vpn->transposition_len);
+			stream_putc(s, attr->srv6_l3vpn->transposition_offset);
 		} else if (attr->srv6_vpn) {
 			stream_putc(s, BGP_ATTR_FLAG_OPTIONAL
 					       | BGP_ATTR_FLAG_TRANS);
@@ -4242,7 +4407,7 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 				 afi_t afi, safi_t safi,
 				 const struct prefix_rd *prd,
 				 mpls_label_t *label, uint32_t num_labels,
-				 int addpath_encode, uint32_t addpath_tx_id,
+				 bool addpath_capable, uint32_t addpath_tx_id,
 				 struct attr *attr)
 {
 	uint8_t wlabel[3] = {0x80, 0x00, 0x00};
@@ -4253,7 +4418,7 @@ void bgp_packet_mpunreach_prefix(struct stream *s, const struct prefix *p,
 	}
 
 	bgp_packet_mpattr_prefix(s, afi, safi, p, prd, label, num_labels,
-				 addpath_encode, addpath_tx_id, attr);
+				 addpath_capable, addpath_tx_id, attr);
 }
 
 void bgp_packet_mpunreach_end(struct stream *s, size_t attrlen_pnt)
@@ -4296,7 +4461,7 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 	unsigned long len;
 	size_t aspath_lenp;
 	struct aspath *aspath;
-	int addpath_encode = 0;
+	bool addpath_capable = false;
 	uint32_t addpath_tx_id = 0;
 
 	/* Remember current pointer. */
@@ -4381,22 +4546,24 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 
 	/* Large Community attribute. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)) {
-		if (lcom_length(attr->lcommunity) > 255) {
+		if (lcom_length(bgp_attr_get_lcommunity(attr)) > 255) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
 					    | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putw(s, lcom_length(attr->lcommunity));
+			stream_putw(s,
+				    lcom_length(bgp_attr_get_lcommunity(attr)));
 		} else {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_LARGE_COMMUNITIES);
-			stream_putc(s, lcom_length(attr->lcommunity));
+			stream_putc(s,
+				    lcom_length(bgp_attr_get_lcommunity(attr)));
 		}
 
-		stream_put(s, attr->lcommunity->val,
-			   lcom_length(attr->lcommunity));
+		stream_put(s, bgp_attr_get_lcommunity(attr)->val,
+			   lcom_length(bgp_attr_get_lcommunity(attr)));
 	}
 
 	/* Add a MP_NLRI attribute to dump the IPv6 next hop */
@@ -4425,7 +4592,7 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 		stream_putc(s, 0);
 
 		/* Prefix */
-		stream_put_prefix_addpath(s, prefix, addpath_encode,
+		stream_put_prefix_addpath(s, prefix, addpath_capable,
 					  addpath_tx_id);
 
 		/* Set MP attribute length. */

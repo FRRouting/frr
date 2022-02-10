@@ -24,12 +24,30 @@
 #include "qobj.h"
 #include "hook.h"
 #include "if.h"
+#include "ospf6d.h"
+
+DECLARE_MTYPE(OSPF6_AUTH_MANUAL_KEY);
 
 /* Debug option */
 extern unsigned char conf_debug_ospf6_interface;
 #define OSPF6_DEBUG_INTERFACE_ON() (conf_debug_ospf6_interface = 1)
 #define OSPF6_DEBUG_INTERFACE_OFF() (conf_debug_ospf6_interface = 0)
 #define IS_OSPF6_DEBUG_INTERFACE (conf_debug_ospf6_interface)
+
+struct ospf6_auth_data {
+	/* config data */
+	uint8_t hash_algo; /* hash algorithm type */
+	uint16_t key_id;   /* key-id used as SA in auth packet */
+	char *auth_key;    /* Auth key */
+	char *keychain;    /* keychain name */
+
+	/* operational data */
+	uint8_t flags; /* Flags related to auth config */
+
+	/* Counters and Statistics */
+	uint32_t tx_drop; /* Pkt drop due to auth fail while sending */
+	uint32_t rx_drop; /* Pkt drop due to auth fail while reading */
+};
 
 /* Interface structure */
 struct ospf6_interface {
@@ -94,6 +112,9 @@ struct ospf6_interface {
 
 	/* MTU mismatch check */
 	uint8_t mtu_ignore;
+
+	/* Authentication trailer related config */
+	struct ospf6_auth_data at_data;
 
 	/* Decision of DR Election */
 	in_addr_t drouter;
@@ -193,23 +214,23 @@ extern void ospf6_interface_stop(struct ospf6_interface *oi);
 
 extern struct ospf6_interface *
 ospf6_interface_lookup_by_ifindex(ifindex_t, vrf_id_t vrf_id);
-extern struct ospf6_interface *ospf6_interface_create(struct interface *);
-extern void ospf6_interface_delete(struct ospf6_interface *);
+extern struct ospf6_interface *ospf6_interface_create(struct interface *ifp);
+extern void ospf6_interface_delete(struct ospf6_interface *oi);
 
-extern void ospf6_interface_enable(struct ospf6_interface *);
-extern void ospf6_interface_disable(struct ospf6_interface *);
+extern void ospf6_interface_enable(struct ospf6_interface *oi);
+extern void ospf6_interface_disable(struct ospf6_interface *oi);
 
-extern void ospf6_interface_state_update(struct interface *);
-extern void ospf6_interface_connected_route_update(struct interface *);
+extern void ospf6_interface_state_update(struct interface *ifp);
+extern void ospf6_interface_connected_route_update(struct interface *ifp);
 extern struct in6_addr *
 ospf6_interface_get_global_address(struct interface *ifp);
 
 /* interface event */
-extern int interface_up(struct thread *);
-extern int interface_down(struct thread *);
-extern int wait_timer(struct thread *);
-extern int backup_seen(struct thread *);
-extern int neighbor_change(struct thread *);
+extern int interface_up(struct thread *thread);
+extern int interface_down(struct thread *thread);
+extern int wait_timer(struct thread *thread);
+extern int backup_seen(struct thread *thread);
+extern int neighbor_change(struct thread *thread);
 
 extern void ospf6_interface_init(void);
 extern void ospf6_interface_clear(struct interface *ifp);
@@ -221,6 +242,9 @@ extern void install_element_ospf6_debug_interface(void);
 extern int ospf6_interface_neighbor_count(struct ospf6_interface *oi);
 extern uint8_t dr_election(struct ospf6_interface *oi);
 
+extern void ospf6_interface_auth_trailer_cmd_init(void);
+extern void ospf6_auth_write_config(struct vty *vty,
+				    struct ospf6_auth_data *at_data);
 DECLARE_HOOK(ospf6_interface_change,
 	     (struct ospf6_interface * oi, int state, int old_state),
 	     (oi, state, old_state));

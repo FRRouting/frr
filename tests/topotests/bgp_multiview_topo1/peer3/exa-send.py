@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 
 """
 exa-send.py: Send a few testroutes with ExaBGP
@@ -23,7 +23,7 @@ for i in range(0, numRoutes):
     stdout.flush()
 
 # Announce 1 overlapping route per peer
-stdout.write("announce route 10.0.1.0/24 next-hop 172.16.1.%i\n" % peer)
+stdout.write("announce route 10.0.1.0/24 med %i next-hop 172.16.1.%i\n" % (peer, peer))
 stdout.flush()
 
 # Loop endlessly to allow ExaBGP to continue running

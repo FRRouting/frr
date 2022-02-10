@@ -3,7 +3,7 @@
 #
 lib_LTLIBRARIES += lib/libfrr.la
 lib_libfrr_la_LDFLAGS = $(LIB_LDFLAGS) -version-info 0:0:0 -Xlinker -e_libfrr_version
-lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBM)
+lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST_LIBS) $(LIBCRYPT) $(LIBDL) $(LIBM)
 
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
@@ -16,6 +16,7 @@ lib_libfrr_la_SOURCES = \
 	lib/command_lex.l \
 	lib/command_match.c \
 	lib/command_parse.y \
+	lib/cspf.c \
 	lib/csv.c \
 	lib/debug.c \
 	lib/defaults.c \
@@ -110,6 +111,8 @@ lib_libfrr_la_SOURCES = \
 	lib/yang_wrappers.c \
 	lib/zclient.c \
 	lib/zlog.c \
+	lib/zlog_5424.c \
+	lib/zlog_5424_cli.c \
 	lib/zlog_targets.c \
 	lib/printf/printf-pos.c \
 	lib/printf/vfprintf.c \
@@ -130,7 +133,6 @@ nodist_lib_libfrr_la_SOURCES = \
 	yang/ietf/ietf-interfaces.yang.c \
 	yang/ietf/ietf-bgp-types.yang.c \
 	yang/frr-module-translator.yang.c \
-	yang/frr-nexthop.yang.c \
 	# end
 
 vtysh_scan += \
@@ -169,6 +171,7 @@ clippy_scan += \
 	lib/routemap_cli.c \
 	lib/thread.c \
 	lib/vty.c \
+	lib/zlog_5424_cli.c \
 	# end
 
 pkginclude_HEADERS += \
@@ -183,6 +186,7 @@ pkginclude_HEADERS += \
 	lib/command_graph.h \
 	lib/command_match.h \
 	lib/compiler.h \
+	lib/cspf.h \
 	lib/csv.h \
 	lib/db.h \
 	lib/debug.h \
@@ -282,6 +286,7 @@ pkginclude_HEADERS += \
 	lib/zclient.h \
 	lib/zebra.h \
 	lib/zlog.h \
+	lib/zlog_5424.h \
 	lib/zlog_targets.h \
 	lib/pbr.h \
 	lib/routing_nb.h \

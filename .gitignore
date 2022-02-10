@@ -113,3 +113,5 @@ refix
 .emacs.desktop*
 
 /test-suite.log
+pceplib/test/*.log
+pceplib/test/*.trs

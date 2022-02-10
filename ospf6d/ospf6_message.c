@@ -27,6 +27,7 @@
 #include "thread.h"
 #include "linklist.h"
 #include "lib_errors.h"
+#include "checksum.h"
 
 #include "ospf6_proto.h"
 #include "ospf6_lsa.h"
@@ -48,19 +49,34 @@
 #include "ospf6d.h"
 #include "ospf6_gr.h"
 #include <netinet/ip6.h>
+#include "lib/libospf.h"
+#include "lib/keychain.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_MESSAGE, "OSPF6 message");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_PACKET, "OSPF6 packet");
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_FIFO, "OSPF6  FIFO queue");
 
 unsigned char conf_debug_ospf6_message[6] = {0x03, 0, 0, 0, 0, 0};
-static const struct message ospf6_message_type_str[] = {
-	{OSPF6_MESSAGE_TYPE_HELLO, "Hello"},
-	{OSPF6_MESSAGE_TYPE_DBDESC, "DbDesc"},
-	{OSPF6_MESSAGE_TYPE_LSREQ, "LSReq"},
-	{OSPF6_MESSAGE_TYPE_LSUPDATE, "LSUpdate"},
-	{OSPF6_MESSAGE_TYPE_LSACK, "LSAck"},
-	{0}};
+
+const char *ospf6_message_type(int type)
+{
+	switch (type) {
+	case OSPF6_MESSAGE_TYPE_HELLO:
+		return "Hello";
+	case OSPF6_MESSAGE_TYPE_DBDESC:
+		return "DbDesc";
+	case OSPF6_MESSAGE_TYPE_LSREQ:
+		return "LSReq";
+	case OSPF6_MESSAGE_TYPE_LSUPDATE:
+		return "LSUpdate";
+	case OSPF6_MESSAGE_TYPE_LSACK:
+		return "LSAck";
+	case OSPF6_MESSAGE_TYPE_UNKNOWN:
+	default:
+		return "unknown";
+	}
+}
 
 /* Minimum (besides the standard OSPF packet header) lengths for OSPF
    packets of particular types, offset is the "type" field. */
@@ -101,7 +117,7 @@ static void ospf6_header_print(struct ospf6_header *oh)
 void ospf6_hello_print(struct ospf6_header *oh, int action)
 {
 	struct ospf6_hello *hello;
-	char options[16];
+	char options[32];
 	char *p;
 
 	ospf6_header_print(oh);
@@ -136,7 +152,7 @@ void ospf6_hello_print(struct ospf6_header *oh, int action)
 void ospf6_dbdesc_print(struct ospf6_header *oh, int action)
 {
 	struct ospf6_dbdesc *dbdesc;
-	char options[16];
+	char options[32];
 	char *p;
 
 	ospf6_header_print(oh);
@@ -409,9 +425,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohs(hello->hello_interval) != oi->hello_interval) {
 		zlog_warn(
 			"VRF %s: I/F %s HelloInterval mismatch: (my %d, rcvd %d)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->hello_interval,
-			ntohs(hello->hello_interval));
+			oi->interface->vrf->name, oi->interface->name,
+			oi->hello_interval, ntohs(hello->hello_interval));
 		return;
 	}
 
@@ -419,9 +434,8 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (ntohs(hello->dead_interval) != oi->dead_interval) {
 		zlog_warn(
 			"VRF %s: I/F %s DeadInterval mismatch: (my %d, rcvd %d)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->dead_interval,
-			ntohs(hello->dead_interval));
+			oi->interface->vrf->name, oi->interface->name,
+			oi->dead_interval, ntohs(hello->dead_interval));
 		return;
 	}
 
@@ -429,8 +443,29 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_E)
 	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_E)) {
 		zlog_warn("VRF %s: IF %s E-bit mismatch",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name);
+			  oi->interface->vrf->name, oi->interface->name);
+		return;
+	}
+
+	/* N-bit check */
+	if (OSPF6_OPT_ISSET(hello->options, OSPF6_OPT_N)
+	    != OSPF6_OPT_ISSET(oi->area->options, OSPF6_OPT_N)) {
+		zlog_warn("VRF %s: IF %s N-bit mismatch",
+			  oi->interface->vrf->name, oi->interface->name);
+		return;
+	}
+
+	if (((OSPF6_OPT_ISSET_EXT(hello->options, OSPF6_OPT_AT) ==
+	      OSPF6_OPT_AT) &&
+	     (oi->at_data.flags == 0)) ||
+	    ((OSPF6_OPT_ISSET_EXT(hello->options, OSPF6_OPT_AT) !=
+	      OSPF6_OPT_AT) &&
+	     (oi->at_data.flags != 0))) {
+		if (IS_OSPF6_DEBUG_AUTH_RX)
+			zlog_warn(
+				"VRF %s: IF %s AT-bit mismatch in hello packet",
+				oi->interface->vrf->name, oi->interface->name);
+		oi->at_data.rx_drop++;
 		return;
 	}
 
@@ -515,12 +550,12 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 	if (twoway)
 		thread_execute(master, twoway_received, on, 0);
 	else {
-		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"%s, Received oneway hello from RESTARTER so ignore here.",
-				__PRETTY_FUNCTION__);
-
-		if (!OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+		if (OSPF6_GR_IS_ACTIVE_HELPER(on)) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s, Received oneway hello from RESTARTER so ignore here.",
+					__PRETTY_FUNCTION__);
+		} else {
 			/* If the router is DR_OTHER, RESTARTER will not wait
 			 * until it receives the hello from it if it receives
 			 * from DR and BDR.
@@ -552,6 +587,21 @@ static void ospf6_hello_recv(struct in6_addr *src, struct in6_addr *dst,
 
 		return;
 	}
+
+	/*
+	 * RFC 3623 - Section 2:
+	 * "If the restarting router determines that it was the Designated
+	 * Router on a given segment prior to the restart, it elects
+	 * itself as the Designated Router again.  The restarting router
+	 * knows that it was the Designated Router if, while the
+	 * associated interface is in Waiting state, a Hello packet is
+	 * received from a neighbor listing the router as the Designated
+	 * Router".
+	 */
+	if (oi->area->ospf6->gr_info.restart_in_progress
+	    && oi->state == OSPF6_INTERFACE_WAITING
+	    && hello->drouter == oi->area->ospf6->router_id)
+		oi->drouter = hello->drouter;
 
 	/* Schedule interface events */
 	if (backupseen)
@@ -607,10 +657,8 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			zlog_warn(
-				"VRF %s: Nbr %s: Negotiation failed",
-				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
-				on->name);
+			zlog_warn("VRF %s: Nbr %s: Negotiation failed",
+				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
 	/* fall through to exchange */
@@ -711,7 +759,6 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (ntohs(his->header->type) == OSPF6_LSTYPE_AS_EXTERNAL
@@ -758,9 +805,9 @@ static void ospf6_dbdesc_recv_master(struct ospf6_header *oh,
 	/* More bit check */
 	if (!CHECK_FLAG(dbdesc->bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
-		thread_add_event(master, exchange_done, on, 0, NULL);
+		thread_add_event(master, exchange_done, on, 0,
+				 &on->thread_exchange_done);
 	else {
-		on->thread_send_dbdesc = NULL;
 		thread_add_event(master, ospf6_dbdesc_send_newone, on, 0,
 				 &on->thread_send_dbdesc);
 	}
@@ -824,10 +871,8 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 			memcpy(on->options, dbdesc->options,
 			       sizeof(on->options));
 		} else {
-			zlog_warn(
-				"VRF %s: Nbr %s Negotiation failed",
-				vrf_id_to_name(on->ospf6_if->interface->vrf_id),
-				on->name);
+			zlog_warn("VRF %s: Nbr %s Negotiation failed",
+				  on->ospf6_if->interface->vrf->name, on->name);
 			return;
 		}
 		break;
@@ -841,7 +886,6 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 				zlog_debug(
 					"Duplicated dbdesc causes retransmit");
 			THREAD_OFF(on->thread_send_dbdesc);
-			on->thread_send_dbdesc = NULL;
 			thread_add_event(master, ospf6_dbdesc_send, on, 0,
 					 &on->thread_send_dbdesc);
 			return;
@@ -934,7 +978,6 @@ static void ospf6_dbdesc_recv_slave(struct ospf6_header *oh,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (OSPF6_LSA_SCOPE(his->header->type) == OSPF6_SCOPE_AS
@@ -993,11 +1036,25 @@ static void ospf6_dbdesc_recv(struct in6_addr *src, struct in6_addr *dst,
 	dbdesc = (struct ospf6_dbdesc *)((caddr_t)oh
 					 + sizeof(struct ospf6_header));
 
+	if (((OSPF6_OPT_ISSET_EXT(dbdesc->options, OSPF6_OPT_AT) ==
+	      OSPF6_OPT_AT) &&
+	     (oi->at_data.flags == 0)) ||
+	    ((OSPF6_OPT_ISSET_EXT(dbdesc->options, OSPF6_OPT_AT) !=
+	      OSPF6_OPT_AT) &&
+	     (oi->at_data.flags != 0))) {
+		if (IS_OSPF6_DEBUG_AUTH_RX)
+			zlog_warn(
+				"VRF %s: IF %s AT-bit mismatch in dbdesc packet",
+				oi->interface->vrf->name, oi->interface->name);
+		oi->at_data.rx_drop++;
+		return;
+	}
+
 	/* Interface MTU check */
 	if (!oi->mtu_ignore && ntohs(dbdesc->ifmtu) != oi->ifmtu) {
 		zlog_warn("VRF %s: I/F %s MTU mismatch (my %d rcvd %d)",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name, oi->ifmtu, ntohs(dbdesc->ifmtu));
+			  oi->interface->vrf->name, oi->interface->name,
+			  oi->ifmtu, ntohs(dbdesc->ifmtu));
 		return;
 	}
 
@@ -1069,7 +1126,6 @@ static void ospf6_lsreq_recv(struct in6_addr *src, struct in6_addr *dst,
 			if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
 				zlog_debug("Ignoring LSA of reserved scope");
 			continue;
-			break;
 		}
 
 		/* Find database copy */
@@ -1400,14 +1456,15 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 			  bytesonwire);
 		return MSG_NG;
 	}
+
 	/* Now it is safe to access header fields. */
 	if (bytesonwire != ntohs(oh->length)) {
 		zlog_warn("%s: %s packet length error (%u real, %u declared)",
-			  __func__,
-			  lookup_msg(ospf6_message_type_str, oh->type, NULL),
-			  bytesonwire, ntohs(oh->length));
+			  __func__, ospf6_message_type(oh->type), bytesonwire,
+			  ntohs(oh->length));
 		return MSG_NG;
 	}
+
 	/* version check */
 	if (oh->version != OSPFV3_VERSION) {
 		zlog_warn("%s: invalid (%u) protocol version", __func__,
@@ -1419,8 +1476,7 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 	    && bytesonwire
 		       < OSPF6_HEADER_SIZE + ospf6_packet_minlen[oh->type]) {
 		zlog_warn("%s: undersized (%u B) %s packet", __func__,
-			  bytesonwire,
-			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
+			  bytesonwire, ospf6_message_type(oh->type));
 		return MSG_NG;
 	}
 	/* type-specific deeper validation */
@@ -1434,7 +1490,7 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 			       % 4)
 			return MSG_OK;
 		zlog_warn("%s: alignment error in %s packet", __func__,
-			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
+			  ospf6_message_type(oh->type));
 		return MSG_NG;
 	case OSPF6_MESSAGE_TYPE_DBDESC:
 		/* RFC5340 A.3.3, packet header + OSPF6_DB_DESC_MIN_SIZE bytes
@@ -1455,7 +1511,7 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 			       % OSPF6_LSREQ_LSDESC_FIX_SIZE)
 			return MSG_OK;
 		zlog_warn("%s: alignment error in %s packet", __func__,
-			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
+			  ospf6_message_type(oh->type));
 		return MSG_NG;
 	case OSPF6_MESSAGE_TYPE_LSUPDATE:
 		/* RFC5340 A.3.5, packet header + OSPF6_LS_UPD_MIN_SIZE bytes
@@ -1485,7 +1541,7 @@ static unsigned ospf6_packet_examin(struct ospf6_header *oh,
 	}
 	if (test != MSG_OK)
 		zlog_warn("%s: anomaly in %s packet", __func__,
-			  lookup_msg(ospf6_message_type_str, oh->type, NULL));
+			  ospf6_message_type(oh->type));
 	return test;
 }
 
@@ -1504,14 +1560,12 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 		if (oh->area_id == OSPF_AREA_BACKBONE)
 			zlog_warn(
 				"VRF %s: I/F %s Message may be via Virtual Link: not supported",
-				vrf_id_to_name(oi->interface->vrf_id),
-				oi->interface->name);
+				oi->interface->vrf->name, oi->interface->name);
 		else
 			zlog_warn(
 				"VRF %s: I/F %s Area-ID mismatch (my %pI4, rcvd %pI4)",
-				vrf_id_to_name(oi->interface->vrf_id),
-				oi->interface->name, &oi->area->area_id,
-				&oh->area_id);
+				oi->interface->vrf->name, oi->interface->name,
+				&oi->area->area_id, &oh->area_id);
 		return MSG_NG;
 	}
 
@@ -1519,16 +1573,16 @@ static int ospf6_rxpacket_examin(struct ospf6_interface *oi,
 	if (oh->instance_id != oi->instance_id) {
 		zlog_warn(
 			"VRF %s: I/F %s Instance-ID mismatch (my %u, rcvd %u)",
-			vrf_id_to_name(oi->interface->vrf_id),
-			oi->interface->name, oi->instance_id, oh->instance_id);
+			oi->interface->vrf->name, oi->interface->name,
+			oi->instance_id, oh->instance_id);
 		return MSG_NG;
 	}
 
 	/* Router-ID check */
 	if (oh->router_id == oi->area->ospf6->router_id) {
 		zlog_warn("VRF %s: I/F %s Duplicate Router-ID (%pI4)",
-			  vrf_id_to_name(oi->interface->vrf_id),
-			  oi->interface->name, &oh->router_id);
+			  oi->interface->vrf->name, oi->interface->name,
+			  &oh->router_id);
 		return MSG_NG;
 	}
 	return MSG_OK;
@@ -1621,7 +1675,6 @@ static void ospf6_lsack_recv(struct in6_addr *src, struct in6_addr *dst,
 				zlog_debug("Ignoring LSA of reserved scope");
 			ospf6_lsa_delete(his);
 			continue;
-			break;
 		}
 
 		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV))
@@ -1718,6 +1771,9 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	struct iovec iovector[2];
 	struct ospf6_interface *oi;
 	struct ospf6_header *oh;
+	enum ospf6_auth_err ret = OSPF6_AUTH_PROCESS_NORMAL;
+	uint32_t at_len = 0;
+	uint32_t lls_len = 0;
 
 	/* initialize */
 	memset(&src, 0, sizeof(src));
@@ -1759,10 +1815,28 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	 * Drop packet destined to another VRF.
 	 * This happens when raw_l3mdev_accept is set to 1.
 	 */
-	if (ospf6->vrf_id != oi->interface->vrf_id)
+	if (ospf6->vrf_id != oi->interface->vrf->vrf_id)
 		return OSPF6_READ_CONTINUE;
 
 	oh = (struct ospf6_header *)recvbuf;
+	ret = ospf6_auth_validate_pkt(oi, (uint32_t *)&len, oh, &at_len,
+				      &lls_len);
+	if (ret == OSPF6_AUTH_VALIDATE_SUCCESS) {
+		ret = ospf6_auth_check_digest(oh, oi, &src, lls_len);
+		if (ret == OSPF6_AUTH_VALIDATE_FAILURE) {
+			if (IS_OSPF6_DEBUG_AUTH_RX)
+				zlog_err(
+					"RECV[%s]: OSPF packet auth digest miss-match on %s",
+					oi->interface->name,
+					ospf6_message_type(oh->type));
+			oi->at_data.rx_drop++;
+			return OSPF6_READ_CONTINUE;
+		}
+	} else if (ret == OSPF6_AUTH_VALIDATE_FAILURE) {
+		oi->at_data.rx_drop++;
+		return OSPF6_READ_CONTINUE;
+	}
+
 	if (ospf6_rxpacket_examin(oi, oh, len) != MSG_OK)
 		return OSPF6_READ_CONTINUE;
 
@@ -1773,8 +1847,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 
 	/* Log */
 	if (IS_OSPF6_DEBUG_MESSAGE(oh->type, RECV_HDR)) {
-		zlog_debug("%s received on %s",
-			   lookup_msg(ospf6_message_type_str, oh->type, NULL),
+		zlog_debug("%s received on %s", ospf6_message_type(oh->type),
 			   oi->interface->name);
 		zlog_debug("    src: %pI6", &src);
 		zlog_debug("    dst: %pI6", &dst);
@@ -1798,6 +1871,10 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 		default:
 			assert(0);
 		}
+
+		if ((at_len != 0) && IS_OSPF6_DEBUG_AUTH_RX)
+			ospf6_auth_hdr_dump_recv(oh, (len + at_len + lls_len),
+						 lls_len);
 	}
 
 	switch (oh->type) {
@@ -1854,6 +1931,27 @@ int ospf6_receive(struct thread *thread)
 	return 0;
 }
 
+static void ospf6_fill_hdr_checksum(struct ospf6_interface *oi,
+				    struct ospf6_packet *op)
+{
+	struct ipv6_ph ph = {};
+	struct ospf6_header *oh;
+	void *offset = NULL;
+
+	if (oi->at_data.flags != 0)
+		return;
+
+	memcpy(&ph.src, oi->linklocal_addr, sizeof(struct in6_addr));
+	memcpy(&ph.dst, &op->dst, sizeof(struct in6_addr));
+	ph.ulpl = htonl(op->length);
+	ph.next_hdr = IPPROTO_OSPFIGP;
+
+	/* Suppress static analysis warnings about accessing icmp6 oob */
+	oh = (struct ospf6_header *)STREAM_DATA(op->s);
+	offset = oh;
+	oh->checksum = in_cksum_with_ph6(&ph, offset, op->length);
+}
+
 static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
 			      struct stream *s)
 {
@@ -1863,11 +1961,14 @@ static void ospf6_make_header(uint8_t type, struct ospf6_interface *oi,
 
 	oh->version = (uint8_t)OSPFV3_VERSION;
 	oh->type = type;
+	oh->length = 0;
 
 	oh->router_id = oi->area->ospf6->router_id;
 	oh->area_id = oi->area->area_id;
+	oh->checksum = 0;
 	oh->instance_id = oi->instance_id;
 	oh->reserved = 0;
+
 	stream_forward_endp(s, OSPF6_HEADER_SIZE);
 }
 
@@ -1893,9 +1994,48 @@ static void ospf6_fill_lsupdate_header(struct stream *s, uint32_t lsa_num)
 	lsu->lsa_number = htonl(lsa_num);
 }
 
+static void ospf6_auth_trailer_copy_keychain_key(struct ospf6_interface *oi)
+{
+	char *keychain_name = NULL;
+	struct keychain *keychain = NULL;
+	struct key *key = NULL;
+
+	keychain_name = oi->at_data.keychain;
+	keychain = keychain_lookup(keychain_name);
+	if (keychain) {
+		key = key_lookup_for_send(keychain);
+		if (key && key->string &&
+		    key->hash_algo != KEYCHAIN_ALGO_NULL) {
+			/* storing the values so that further
+			 * lookup can be avoided. after
+			 * processing the digest need to reset
+			 * these values
+			 */
+			oi->at_data.hash_algo = key->hash_algo;
+			oi->at_data.auth_key = XSTRDUP(
+				MTYPE_OSPF6_AUTH_MANUAL_KEY, key->string);
+			oi->at_data.key_id = key->index;
+			SET_FLAG(oi->at_data.flags,
+				 OSPF6_AUTH_TRAILER_KEYCHAIN_VALID);
+		}
+	}
+}
+
 static uint32_t ospf6_packet_max(struct ospf6_interface *oi)
 {
+	int at_len = 0;
+
 	assert(oi->ifmtu > sizeof(struct ip6_hdr));
+
+	if (oi->at_data.flags != 0) {
+		if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+			ospf6_auth_trailer_copy_keychain_key(oi);
+
+		at_len += OSPF6_AUTH_HDR_MIN_SIZE;
+		at_len += keychain_get_hash_len(oi->at_data.hash_algo);
+		return oi->ifmtu - (sizeof(struct ip6_hdr)) - at_len;
+	}
+
 	return oi->ifmtu - (sizeof(struct ip6_hdr));
 }
 
@@ -1904,11 +2044,15 @@ static uint16_t ospf6_make_hello(struct ospf6_interface *oi, struct stream *s)
 	struct listnode *node, *nnode;
 	struct ospf6_neighbor *on;
 	uint16_t length = OSPF6_HELLO_MIN_SIZE;
+	uint8_t options1 = oi->area->options[1];
+
+	if (oi->at_data.flags != 0)
+		options1 |= OSPF6_OPT_AT;
 
 	stream_putl(s, oi->interface->ifindex);
 	stream_putc(s, oi->priority);
 	stream_putc(s, oi->area->options[0]);
-	stream_putc(s, oi->area->options[1]);
+	stream_putc(s, options1);
 	stream_putc(s, oi->area->options[2]);
 	stream_putw(s, oi->hello_interval);
 	stream_putw(s, oi->dead_interval);
@@ -1948,6 +2092,7 @@ static int ospf6_write(struct thread *thread)
 	int len;
 	int64_t latency = 0;
 	struct timeval timestamp;
+	unsigned int at_len = 0;
 
 	if (ospf6->fd < 0) {
 		zlog_warn("ospf6_write failed to send, fd %d", ospf6->fd);
@@ -1972,17 +2117,32 @@ static int ospf6_write(struct thread *thread)
 
 		oh = (struct ospf6_header *)STREAM_DATA(op->s);
 
+		if (oi->at_data.flags != 0) {
+			at_len = ospf6_auth_len_get(oi);
+			if (at_len) {
+				iovector[0].iov_len =
+					ntohs(oh->length) + at_len;
+				ospf6_auth_digest_send(oi->linklocal_addr, oi,
+						       oh, at_len,
+						       iovector[0].iov_len);
+			} else {
+				iovector[0].iov_len = ntohs(oh->length);
+			}
+		} else {
+			iovector[0].iov_len = ntohs(oh->length);
+		}
+
 		len = ospf6_sendmsg(oi->linklocal_addr, &op->dst,
 				    oi->interface->ifindex, iovector,
 				    ospf6->fd);
-		if (len != op->length)
+
+		if (len != (op->length + (int)at_len))
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Could not send entire message");
 
 		if (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND_HDR)) {
 			zlog_debug("%s send on %s",
-				   lookup_msg(ospf6_message_type_str, oh->type,
-					      NULL),
+				   ospf6_message_type(oh->type),
 				   oi->interface->name);
 			zlog_debug("    src: %pI6", oi->linklocal_addr);
 			zlog_debug("    dst: %pI6", &op->dst);
@@ -2041,6 +2201,15 @@ static int ospf6_write(struct thread *thread)
 			assert(0);
 			break;
 		}
+
+		if ((oi->at_data.flags != 0) &&
+		    (IS_OSPF6_DEBUG_MESSAGE(oh->type, SEND_HDR)) &&
+		    (IS_OSPF6_DEBUG_AUTH_TX))
+			ospf6_auth_hdr_dump_send(oh, iovector[0].iov_len);
+
+		/* initialize at_len to 0 for next packet */
+		at_len = 0;
+
 		/* Now delete packet from queue. */
 		ospf6_packet_delete(oi);
 
@@ -2106,6 +2275,8 @@ int ospf6_hello_send(struct thread *thread)
 
 	op->dst = allspfrouters6;
 
+	ospf6_fill_hdr_checksum(oi, op);
+
 	/* Add packet to the top of the interface output queue, so that they
 	 * can't get delayed by things like long queues of LS Update packets
 	 */
@@ -2124,6 +2295,10 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 {
 	uint16_t length = OSPF6_DB_DESC_MIN_SIZE;
 	struct ospf6_lsa *lsa, *lsanext;
+	uint8_t options1 = on->ospf6_if->area->options[1];
+
+	if (on->ospf6_if->at_data.flags != 0)
+		options1 |= OSPF6_OPT_AT;
 
 	/* if this is initial one, initialize sequence number for DbDesc */
 	if (CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_IBIT)
@@ -2134,7 +2309,7 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 	/* reserved */
 	stream_putc(s, 0); /* reserved 1 */
 	stream_putc(s, on->ospf6_if->area->options[0]);
-	stream_putc(s, on->ospf6_if->area->options[1]);
+	stream_putc(s, options1);
 	stream_putc(s, on->ospf6_if->area->options[2]);
 	stream_putw(s, on->ospf6_if->ifmtu);
 	stream_putc(s, 0); /* reserved 2 */
@@ -2201,6 +2376,8 @@ int ospf6_dbdesc_send(struct thread *thread)
 	else
 		op->dst = on->linklocal_addr;
 
+	ospf6_fill_hdr_checksum(on->ospf6_if, op);
+
 	ospf6_packet_add(on->ospf6_if, op);
 
 	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
@@ -2250,7 +2427,8 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 	if (!CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MSBIT) && /* Slave */
 	    !CHECK_FLAG(on->dbdesc_last.bits, OSPF6_DBDESC_MBIT)
 	    && !CHECK_FLAG(on->dbdesc_bits, OSPF6_DBDESC_MBIT))
-		thread_add_event(master, exchange_done, on, 0, NULL);
+		thread_add_event(master, exchange_done, on, 0,
+				 &on->thread_exchange_done);
 
 	thread_execute(master, ospf6_dbdesc_send, on, 0);
 	return 0;
@@ -2307,6 +2485,7 @@ static uint16_t ospf6_make_lsack_neighbor(struct ospf6_neighbor *on,
 
 				(*op)->length = length + OSPF6_HEADER_SIZE;
 				(*op)->dst = on->linklocal_addr;
+				ospf6_fill_hdr_checksum(on->ospf6_if, *op);
 				ospf6_packet_add(on->ospf6_if, *op);
 				OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 				/* new packet */
@@ -2376,13 +2555,13 @@ int ospf6_lsreq_send(struct thread *thread)
 	else
 		op->dst = on->linklocal_addr;
 
+	ospf6_fill_hdr_checksum(on->ospf6_if, op);
 	ospf6_packet_add(on->ospf6_if, op);
 
 	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 
 	/* set next thread */
 	if (on->request_list->count != 0) {
-		on->thread_send_lsreq = NULL;
 		thread_add_timer(master, ospf6_lsreq_send, on,
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_lsreq);
@@ -2414,6 +2593,7 @@ static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
 			op->dst = alldrouters6;
 	}
 	if (oi) {
+		ospf6_fill_hdr_checksum(oi, op);
 		ospf6_packet_add(oi, op);
 		/* If ospf instance is being deleted, send the packet
 		 * immediately
@@ -2491,6 +2671,7 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 			else
 				(*op)->dst = on->linklocal_addr;
 
+			ospf6_fill_hdr_checksum(on->ospf6_if, *op);
 			ospf6_packet_add(on->ospf6_if, *op);
 			OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 
@@ -2562,17 +2743,16 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 			op->dst = allspfrouters6;
 		else
 			op->dst = on->linklocal_addr;
+		ospf6_fill_hdr_checksum(on->ospf6_if, op);
 		ospf6_packet_add(on->ospf6_if, op);
 		OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 	} else
 		ospf6_packet_free(op);
 
 	if (on->lsupdate_list->count != 0) {
-		on->thread_send_lsupdate = NULL;
 		thread_add_event(master, ospf6_lsupdate_send_neighbor, on, 0,
 				 &on->thread_send_lsupdate);
 	} else if (on->retrans_list->count != 0) {
-		on->thread_send_lsupdate = NULL;
 		thread_add_timer(master, ospf6_lsupdate_send_neighbor, on,
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_lsupdate);
@@ -2686,7 +2866,6 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 		ospf6_packet_free(op);
 
 	if (oi->lsupdate_list->count > 0) {
-		oi->thread_send_lsupdate = NULL;
 		thread_add_event(master, ospf6_lsupdate_send_interface, oi, 0,
 				 &oi->thread_send_lsupdate);
 	}
@@ -2731,6 +2910,7 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 	/* Set packet length, dst and queue to FIFO. */
 	op->length = length;
 	op->dst = on->linklocal_addr;
+	ospf6_fill_hdr_checksum(on->ospf6_if, op);
 	ospf6_packet_add(on->ospf6_if, op);
 	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
 
@@ -2815,6 +2995,7 @@ int ospf6_lsack_send_interface(struct thread *thread)
 	else
 		op->dst = alldrouters6;
 
+	ospf6_fill_hdr_checksum(oi, op);
 	ospf6_packet_add(oi, op);
 	OSPF6_MESSAGE_WRITE_ON(oi);
 

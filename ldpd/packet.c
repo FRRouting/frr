@@ -141,7 +141,6 @@ disc_recv_packet(struct thread *thread)
 	struct in_addr		 lsr_id;
 
 	/* reschedule read */
-	*threadp = NULL;
 	thread_add_read(master, disc_recv_packet, threadp, fd, threadp);
 
 	/* setup buffer */
@@ -425,7 +424,6 @@ session_read(struct thread *thread)
 	uint16_t	 pdu_len, msg_len, msg_size, max_pdu_len;
 	int		 ret;
 
-	tcp->rev = NULL;
 	thread_add_read(master, session_read, nbr, fd, &tcp->rev);
 
 	if ((n = read(fd, tcp->rbuf->buf + tcp->rbuf->wpos,
@@ -745,7 +743,6 @@ tcp_new(int fd, struct nbr *nbr)
 		if ((tcp->rbuf = calloc(1, sizeof(struct ibuf_read))) == NULL)
 			fatal(__func__);
 
-		tcp->rev = NULL;
 		thread_add_read(master, session_read, nbr, tcp->fd, &tcp->rev);
 		tcp->nbr = nbr;
 	}

@@ -31,7 +31,6 @@
 #include "linklist.h"
 #include "bgpd.h"
 #include "bgp_advertise.h"
-#include "bgpd/bgp_trace.h"
 
 struct bgp_table {
 	/* table belongs to this instance */
@@ -135,6 +134,9 @@ extern struct bgp_table *bgp_table_init(struct bgp *bgp, afi_t, safi_t);
 extern void bgp_table_lock(struct bgp_table *);
 extern void bgp_table_unlock(struct bgp_table *);
 extern void bgp_table_finish(struct bgp_table **);
+extern void bgp_dest_unlock_node(struct bgp_dest *dest);
+extern struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest);
+extern const char *bgp_dest_get_prefix_str(struct bgp_dest *dest);
 
 
 /*
@@ -177,16 +179,6 @@ static inline struct bgp_dest *bgp_dest_parent_nolock(struct bgp_dest *dest)
 	struct route_node *rn = bgp_dest_to_rnode(dest)->parent;
 
 	return bgp_dest_from_rnode(rn);
-}
-
-/*
- * bgp_dest_unlock_node
- */
-static inline void bgp_dest_unlock_node(struct bgp_dest *dest)
-{
-	frrtrace(1, frr_bgp, bgp_dest_unlock, dest);
-	bgp_delete_listnode(dest);
-	route_unlock_node(bgp_dest_to_rnode(dest));
 }
 
 /*
@@ -249,17 +241,6 @@ static inline struct bgp_dest *
 bgp_node_lookup(const struct bgp_table *const table, const struct prefix *p)
 {
 	struct route_node *rn = route_node_lookup(table->route_table, p);
-
-	return bgp_dest_from_rnode(rn);
-}
-
-/*
- * bgp_dest_lock_node
- */
-static inline struct bgp_dest *bgp_dest_lock_node(struct bgp_dest *dest)
-{
-	frrtrace(1, frr_bgp, bgp_dest_lock, dest);
-	struct route_node *rn = route_lock_node(bgp_dest_to_rnode(dest));
 
 	return bgp_dest_from_rnode(rn);
 }

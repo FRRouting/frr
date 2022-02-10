@@ -41,12 +41,8 @@ Following tests are covered:
 """
 
 import os
-import re
 import sys
-import json
 import time
-import datetime
-from time import sleep
 import pytest
 
 pytestmark = pytest.mark.pimd
@@ -61,21 +57,14 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
     step,
-    iperfSendIGMPJoin,
-    addKernelRoute,
     reset_config_on_routers,
-    iperfSendTraffic,
-    kill_iperf,
     shutdown_bringup_interface,
-    start_router,
-    stop_router,
     apply_raw_config,
     create_static_routes,
     required_linux_kernel_version,
@@ -84,30 +73,18 @@ from lib.common_config import (
 from lib.pim import (
     create_pim_config,
     create_igmp_config,
-    verify_igmp_groups,
     verify_ip_mroutes,
     clear_ip_pim_interface_traffic,
-    verify_igmp_config,
-    verify_pim_neighbors,
-    verify_pim_config,
-    verify_pim_interface,
     verify_upstream_iif,
     clear_ip_mroute,
-    verify_multicast_traffic,
     verify_pim_rp_info,
-    verify_pim_interface_traffic,
-    verify_igmp_interface,
+    get_pim_interface_traffic,
+    McastTesterHelper,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
+from time import sleep
 
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/multicast_pim_sm_topo4.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 TOPOLOGY = """
 
@@ -149,21 +126,6 @@ NEW_ADDRESS_1_SUBNET = "192.168.20.1/24"
 NEW_ADDRESS_2_SUBNET = "192.168.20.2/24"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -183,7 +145,10 @@ def setup_module(mod):
 
     logger.info("Running setup_module to create topology")
 
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/multicast_pim_sm_topo4.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -200,6 +165,10 @@ def setup_module(mod):
     # Creating configuration from JSON
     build_config_from_json(tgen, topo)
 
+    # XXX Replace this using "with McastTesterHelper()... " in each test if possible.
+    global app_helper
+    app_helper = McastTesterHelper(tgen)
+
     logger.info("Running setup_module() done")
 
 
@@ -209,6 +178,8 @@ def teardown_module():
     logger.info("Running teardown_module to delete topology")
 
     tgen = get_topogen()
+
+    app_helper.cleanup()
 
     # Stop toplogy and Remove tmp files
     tgen.stop_topology()
@@ -226,51 +197,24 @@ def teardown_module():
 #####################################################
 
 
-def config_to_send_igmp_join_and_traffic(
-    tgen, topo, tc_name, iperf, iperf_intf, GROUP_RANGE, join=False, traffic=False
-):
+def reset_stats(stats):
     """
-    API to do pre-configuration to send IGMP join and multicast
-    traffic
+    API to reset the stats
 
-    parameters:
-    -----------
-    * `tgen`: topogen object
-    * `topo`: input json data
-    * `tc_name`: caller test case name
-    * `iperf`: router running iperf
-    * `iperf_intf`: interface name router running iperf
-    * `GROUP_RANGE`: group range
-    * `join`: IGMP join, default False
-    * `traffic`: multicast traffic, default False
+    Parameters
+    ----------
+    * `stats` : State dictionary holding helloRx and helloTx values
     """
 
-    if join:
-        # Add route to kernal
-        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-    if traffic:
-        # Add route to kernal
-        result = addKernelRoute(tgen, iperf, iperf_intf, GROUP_RANGE)
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        router_list = tgen.routers()
-        for router in router_list.keys():
-            if router == iperf:
-                continue
-
-            rnode = router_list[router]
-            rnode.run("echo 2 > /proc/sys/net/ipv4/conf/all/rp_filter")
-
-        for router in topo["routers"].keys():
-            if "static_routes" in topo["routers"][router]:
-                static_routes = topo["routers"][router]["static_routes"]
-                for static_route in static_routes:
-                    network = static_route["network"]
-                    next_hop = static_route["next_hop"]
-                    if type(network) is not list:
-                        network = [network]
+    for router, state_data in stats.items():
+        for state, value in state_data.items():
+            stats[router][state] = 0
+            logger.info(
+                "[DUT: %s]: stats %s value has reset" " reset, Current value: %s",
+                router,
+                state,
+                stats[router][state],
+            )
 
     return True
 
@@ -323,15 +267,16 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove c1-c2 connected link to simulate topo "
         "c1(FHR)---l1(RP)----r2---f1-----c2(LHR)"
@@ -358,12 +303,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     input_join = {"i5": topo["routers"]["i5"]["links"]["c2"]["interface"]}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, GROUP_RANGE_1, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, IGMP_JOIN_RANGE_1, join_interval=1)
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for (225.1.1.1-5) as R2")
@@ -391,12 +331,7 @@ def test_mroute_when_RP_reachable_default_route_p2(request):
     input_src = {"i4": topo["routers"]["i4"]["links"]["c1"]["interface"]}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, GROUP_RANGE_1, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, IGMP_JOIN_RANGE_1, 32, 2500)
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     source_i4 = topo["routers"]["i4"]["links"]["c1"]["ipv4"].split("/")[0]
@@ -621,15 +556,16 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove c1-c2 connected link to simulate topo "
         "c1(LHR)---l1(RP)----r2---f1-----c2(FHR)"
@@ -656,12 +592,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     input_join = {"i4": topo["routers"]["i4"]["links"]["c1"]["interface"]}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, GROUP_RANGE_1, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, IGMP_JOIN_RANGE_1, join_interval=1)
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for (225.1.1.1-5) as R2")
@@ -689,12 +620,7 @@ def test_mroute_with_RP_default_route_all_nodes_p2(request):
     input_src = {"i5": topo["routers"]["i5"]["links"]["c2"]["interface"]}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, GROUP_RANGE_1, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, IGMP_JOIN_RANGE_1, 32, 2500)
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     source_i5 = topo["routers"]["i5"]["links"]["c2"]["ipv4"].split("/")[0]
@@ -908,15 +834,16 @@ def test_PIM_hello_tx_rx_p1(request):
     tc_name = request.node.name
     write_test_header(tc_name)
 
+    # Don"t run this test if we have any failure.
+    if tgen.routers_have_failure():
+        pytest.skip(tgen.errors)
+
     # Creating configuration from JSON
-    kill_iperf(tgen)
+    app_helper.stop_all_hosts()
     clear_ip_mroute(tgen)
     reset_config_on_routers(tgen)
     clear_ip_pim_interface_traffic(tgen, topo)
 
-    # Don"t run this test if we have any failure.
-    if tgen.routers_have_failure():
-        pytest.skip(tgen.errors)
     step(
         "Remove c1-c2 connected link to simulate topo "
         "c1(LHR)---l1(RP)----r2---f1-----c2(FHR)"
@@ -943,12 +870,7 @@ def test_PIM_hello_tx_rx_p1(request):
     input_join = {"i4": topo["routers"]["i4"]["links"]["c1"]["interface"]}
 
     for recvr, recvr_intf in input_join.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, recvr, recvr_intf, GROUP_RANGE_1, join=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendIGMPJoin(tgen, recvr, IGMP_JOIN_RANGE_1, join_interval=1)
+        result = app_helper.run_join(recvr, IGMP_JOIN_RANGE_1, join_intf=recvr_intf)
         assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
 
     step("Configure static RP for (225.1.1.1-5) as R2")
@@ -976,12 +898,7 @@ def test_PIM_hello_tx_rx_p1(request):
     input_src = {"i5": topo["routers"]["i5"]["links"]["c2"]["interface"]}
 
     for src, src_intf in input_src.items():
-        result = config_to_send_igmp_join_and_traffic(
-            tgen, topo, tc_name, src, src_intf, GROUP_RANGE_1, traffic=True
-        )
-        assert result is True, "Testcase {}: Failed Error: {}".format(tc_name, result)
-
-        result = iperfSendTraffic(tgen, src, IGMP_JOIN_RANGE_1, 32, 2500)
+        result = app_helper.run_traffic(src, IGMP_JOIN_RANGE_1, bind_intf=src_intf)
         assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
     source_i5 = topo["routers"]["i5"]["links"]["c2"]["ipv4"].split("/")[0]
@@ -1030,40 +947,51 @@ def test_PIM_hello_tx_rx_p1(request):
     intf_l1_c1 = topo["routers"]["l1"]["links"]["c1"]["interface"]
     intf_c1_l1 = topo["routers"]["c1"]["links"]["l1"]["interface"]
 
-    step("verify before stats on C1")
     state_dict = {
         "c1": {
             intf_c1_l1: ["helloTx", "helloRx"],
         }
     }
 
-    c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
+    c1_state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Flap PIM nbr while doing interface c1-l1 interface shut from f1 side")
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, False)
 
-    step(
-        "After shut of local interface from c1 , verify rx/tx hello counters are cleared on c1 side"
-        "verify using 'show ip pim interface traffic'"
-    )
+    """ Resetting the stats here since shutdown resets the stats.
+    """
+    reset_stats(c1_state_before)
     shutdown_bringup_interface(tgen, "c1", intf_c1_l1, True)
 
-    step("verify stats after on c1")
-    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
-    assert isinstance(
-        c1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    step("verify stats after no shutdown on c1 and that they are incremented")
 
-    step("verify stats not increamented on c1")
-    result = verify_state_incremented(c1_state_before, c1_state_after)
+    count = 0
+    done = False
+    while not done and count <= 7:
+        c1_state_after = get_pim_interface_traffic(tgen, state_dict)
+        assert isinstance(
+            c1_state_after, dict
+        ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+            tc_name, result
+        )
+
+        result = verify_state_incremented(c1_state_before, c1_state_after)
+        if result is not True:
+            sleep(5)
+            count += 1
+        else:
+            done = True
+
     assert (
-        result is not True
-    ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
+        result is True
+    ), "Testcase{} : Failed Error: {}" "stats is not incremented".format(
+        tc_name, result
+    )
 
     step("verify before stats on l1")
     l1_state_dict = {
@@ -1072,11 +1000,12 @@ def test_PIM_hello_tx_rx_p1(request):
         }
     }
 
-    l1_state_before = verify_pim_interface_traffic(tgen, l1_state_dict)
+    l1_state_before = get_pim_interface_traffic(tgen, l1_state_dict)
     assert isinstance(
         l1_state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Flap PIM nbr while doing interface r2-c1 shut from r2 side")
     shutdown_bringup_interface(tgen, "l1", intf_l1_c1, False)
@@ -1087,15 +1016,24 @@ def test_PIM_hello_tx_rx_p1(request):
     )
     shutdown_bringup_interface(tgen, "l1", intf_l1_c1, True)
 
-    step("verify stats after on l1")
-    l1_state_after = verify_pim_interface_traffic(tgen, l1_state_dict)
-    assert isinstance(
-        l1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    step("verify stats after on l1 are incremented")
+    count = 0
+    done = False
+    while not done and count <= 7:
+        l1_state_after = get_pim_interface_traffic(tgen, l1_state_dict)
+        assert isinstance(
+            l1_state_after, dict
+        ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("verify stats not increamented on l1")
-    result = verify_state_incremented(l1_state_before, l1_state_after)
+        result = verify_state_incremented(l1_state_before, l1_state_after)
+        if result is True:
+            sleep(5)
+            count += 1
+        else:
+            done = True
+
     assert (
         result is not True
     ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
@@ -1113,11 +1051,12 @@ def test_PIM_hello_tx_rx_p1(request):
         }
     }
 
-    c1_state_before = verify_pim_interface_traffic(tgen, state_dict)
+    c1_state_before = get_pim_interface_traffic(tgen, state_dict)
     assert isinstance(
         c1_state_before, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+        tc_name, result
+    )
 
     step("Flap c1-r2 pim nbr while changing ip address from c1 side")
     c1_l1_ip_subnet = topo["routers"]["c1"]["links"]["l1"]["ipv4"]
@@ -1135,18 +1074,27 @@ def test_PIM_hello_tx_rx_p1(request):
     result = apply_raw_config(tgen, raw_config)
     assert result is True, "Testcase {} : Failed Error: {}".format(tc_name, result)
 
-    step("verify stats after on c1")
-    c1_state_after = verify_pim_interface_traffic(tgen, state_dict)
-    assert isinstance(
-        c1_state_after, dict
-    ), "Testcase{} : Failed \n state_before is not dictionary \n "
-    "Error: {}".format(tc_name, result)
+    step("verify stats after on c1 are incremented")
+    count = 0
+    done = False
+    while not done and count <= 7:
+        c1_state_after = get_pim_interface_traffic(tgen, state_dict)
+        assert isinstance(
+            c1_state_after, dict
+        ), "Testcase{} : Failed \n state_before is not dictionary \n Error: {}".format(
+            tc_name, result
+        )
 
-    step("verify stats not increamented on c1")
-    result = verify_state_incremented(c1_state_before, c1_state_after)
-    assert (
-        result is not True
-    ), "Testcase{} : Failed Error: {}" "stats incremented".format(tc_name, result)
+        result = verify_state_incremented(c1_state_before, c1_state_after)
+        if result is not True:
+            sleep(5)
+            count += 1
+        else:
+            done = True
+
+    assert result is True, "Testcase{} : Failed Error: {}" "stats incremented".format(
+        tc_name, result
+    )
 
     write_test_footer(tc_name)
 

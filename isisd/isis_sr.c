@@ -550,13 +550,13 @@ static void sr_local_block_delete(struct isis_area *area)
  */
 static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 {
-
 	mpls_label_t label;
 	uint32_t index;
 	uint32_t pos;
+	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
-	if (srlb->current >= srlb->end)
+	if (srlb->current >= size)
 		return MPLS_INVALID_LABEL;
 
 	/* Get first available label and mark it used */
@@ -568,7 +568,7 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 	/* Jump to the next free position */
 	srlb->current++;
 	pos = srlb->current % SRLB_BLOCK_SIZE;
-	while (srlb->current < srlb->end) {
+	while (srlb->current < size) {
 		if (pos == 0)
 			index++;
 		if (!((1ULL << pos) & srlb->used_mark[index]))
@@ -578,6 +578,10 @@ static mpls_label_t sr_local_block_request_label(struct sr_local_block *srlb)
 			pos = srlb->current % SRLB_BLOCK_SIZE;
 		}
 	}
+
+	if (srlb->current == size)
+		zlog_warn(
+			"SR: Warning, SRLB is depleted and next label request will fail");
 
 	return label;
 }
@@ -657,10 +661,10 @@ void sr_adj_sid_add_single(struct isis_adjacency *adj, int family, bool backup,
 		nexthop.ipv4 = adj->ipv4_addresses[0];
 		break;
 	case AF_INET6:
-		if (!circuit->ipv6_router || !adj->ipv6_address_count)
+		if (!circuit->ipv6_router || !adj->ll_ipv6_count)
 			return;
 
-		nexthop.ipv6 = adj->ipv6_addresses[0];
+		nexthop.ipv6 = adj->ll_ipv6_addrs[0];
 		break;
 	default:
 		flog_err(EC_LIB_DEVELOPMENT,
@@ -876,12 +880,14 @@ static int sr_adj_state_change(struct isis_adjacency *adj)
  *
  * @param adj	  IS-IS Adjacency
  * @param family  Inet Family (IPv4 or IPv6)
+ * @param global  Indicate if it concerns the Local or Global IPv6 addresses
  *
  * @return	  0
  */
-static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family,
+			     bool global)
 {
-	if (!adj->circuit->area->srdb.enabled)
+	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
 
 	sr_adj_sid_add(adj, family);
@@ -895,15 +901,17 @@ static int sr_adj_ip_enabled(struct isis_adjacency *adj, int family)
  *
  * @param adj	  IS-IS Adjacency
  * @param family  Inet Family (IPv4 or IPv6)
+ * @param global  Indicate if it concerns the Local or Global IPv6 addresses
  *
  * @return	  0
  */
-static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family)
+static int sr_adj_ip_disabled(struct isis_adjacency *adj, int family,
+			      bool global)
 {
 	struct sr_adjacency *sra;
 	struct listnode *node, *nnode;
 
-	if (!adj->circuit->area->srdb.enabled)
+	if (!adj->circuit->area->srdb.enabled || global)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(adj->adj_sids, node, nnode, sra))
@@ -1144,7 +1152,7 @@ int isis_sr_start(struct isis_area *area)
 	for (ALL_LIST_ELEMENTS_RO(area->adjacency_list, node, adj)) {
 		if (adj->ipv4_address_count > 0)
 			sr_adj_sid_add(adj, AF_INET);
-		if (adj->ipv6_address_count > 0)
+		if (adj->ll_ipv6_count > 0)
 			sr_adj_sid_add(adj, AF_INET6);
 	}
 

@@ -51,13 +51,6 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 
    .. seealso:: :ref:`zebra-vrf`
 
-.. option:: -o, --vrfdefaultname
-
-   When *Zebra* starts with this option, the default VRF name is changed to the
-   parameter.
-
-   .. seealso:: :ref:`zebra-vrf`
-
 .. option:: -z <path_to_socket>, --socket <path_to_socket>
 
    If this option is supplied on the cli, the path to the zebra
@@ -143,8 +136,8 @@ Standard Commands
    Configure an IPv4 Point-to-Point address on the interface. (The concept of
    PtP addressing does not exist for IPv6.)
 
-   `local-addr` has no subnet mask since the local side in PtP addressing is
-   always a single (/32) address. `peer-addr/prefix` can be an arbitrary subnet
+   ``local-addr`` has no subnet mask since the local side in PtP addressing is
+   always a single (/32) address. ``peer-addr/prefix`` can be an arbitrary subnet
    behind the other end of the link (or even on the link in Point-to-Multipoint
    setups), though generally /32s are used.
 
@@ -157,7 +150,7 @@ Standard Commands
 .. clicmd:: multicast
 
 
-   Enable or disables multicast flag for the interface.
+   Enable or disable multicast flag for the interface.
 
 
 .. clicmd:: bandwidth (1-10000000)
@@ -171,7 +164,7 @@ Standard Commands
 .. clicmd:: link-detect
 
 
-   Enable/disable link-detect on platforms which support this. Currently only
+   Enable or disable link-detect on platforms which support this. Currently only
    Linux, and only where network interface drivers support reporting
    link-state via the ``IFF_RUNNING`` flag.
 
@@ -363,7 +356,13 @@ separate for each set of VRF, and routing daemons can have their own context
 for each VRF.
 
 This conceptual view introduces the *Default VRF* case. If the user does not
-configure any specific VRF, then by default, FRR uses the *Default VRF*.
+configure any specific VRF, then by default, FRR uses the *Default VRF*. The
+name "default" is used to refer to this VRF in various CLI commands and YANG
+models. It is possible to change that name by passing the ``-o`` option to all
+daemons, for example, one can use ``-o vrf0`` to change the name to "vrf0".
+The easiest way to pass the same option to all daemons is to use the
+``frr_global_options`` variable in the
+:ref:`Daemons Configuration File <daemons-configuration-file>`.
 
 Configuring VRF networking contexts can be done in various ways on FRR. The VRF
 interfaces can be configured by entering in interface configuration mode
@@ -430,7 +429,7 @@ commands in relationship to VRF. Here is an extract of some of those commands:
 
 .. clicmd:: show ip route vrf VRF tables
 
-   This command will dump the routing tables within the vrf scope. If `vrf all`
+   This command will dump the routing tables within the vrf scope. If ``vrf all``
    is executed, all routing tables will be dumped.
 
 .. clicmd:: show <ip|ipv6> route summary [vrf VRF] [table TABLENO] [prefix]
@@ -440,38 +439,20 @@ commands in relationship to VRF. Here is an extract of some of those commands:
    the default vrf and default table.  If prefix is specified dump the
    number of prefix routes.
 
-By using the :option:`-n` option, the *Linux network namespace* will be mapped
-over the *Zebra* VRF. One nice feature that is possible by handling *Linux
-network namespace* is the ability to name default VRF. At startup, *Zebra*
-discovers the available *Linux network namespace* by parsing folder
-`/var/run/netns`. Each file stands for a *Linux network namespace*, but not all
-*Linux network namespaces* are available under that folder. This is the case for
-default VRF. It is possible to name the default VRF, by creating a file, by
-executing following commands.
+.. _zebra-table-allocation:
 
-.. code-block:: shell
+Table Allocation
+================
 
-   touch /var/run/netns/vrf0
-   mount --bind /proc/self/ns/net /var/run/netns/vrf0
+Some services like BGP flowspec allocate routing tables to perform policy
+routing based on netfilter criteria and IP rules. In order to avoid
+conflicts between VRF allocated routing tables and those services, Zebra
+proposes to define a chunk of routing tables to use by other services.
 
-Above command illustrates what happens when the default VRF is visible under
-`var/run/netns/`. Here, the default VRF file is `vrf0`.
-At startup, FRR detects the presence of that file. It detects that the file
-statistics information matches the same file statistics information as
-`/proc/self/ns/net` ( through stat() function). As statistics information
-matches, then `vrf0` stands for the new default namespace name.
-Consequently, the VRF naming `Default` will be overridden by the new discovered
-namespace name `vrf0`.
+Allocation configuration can be done like below, with the range of the
+chunk of routing tables to be used by the given service.
 
-For those who don't use VRF backend with *Linux network namespace*, it is
-possible to statically configure and recompile FRR. It is possible to choose an
-alternate name for default VRF. Then, the default VRF naming will automatically
-be updated with the new name. To illustrate, if you want to recompile with
-`global` value, use the following command:
-
-.. code-block:: shell
-
-   ./configure --with-defaultvrfname=global
+.. clicmd:: ip table range <STARTTABLENO> <ENDTABLENO>
 
 .. _zebra-ecmp:
 
@@ -484,7 +465,7 @@ options on compilation if the end operator desires to do so.  Individual
 protocols each have their own way of dictating ECMP policy and their
 respective documentation should be read.
 
-ECMP can be inspected in zebra by doing a `show ip route X` command.
+ECMP can be inspected in zebra by doing a ``show ip route X`` command.
 
 .. code-block:: shell
 
@@ -513,11 +494,11 @@ ECMP can be inspected in zebra by doing a `show ip route X` command.
      *                    via 192.168.161.15, enp39s0, weight 1, 00:00:02
      *                    via 192.168.161.16, enp39s0, weight 1, 00:00:02
 
-In this example we have 16 way ecmp for the 4.4.4.4/32 route.  The `*` character
+In this example we have 16 way ecmp for the 4.4.4.4/32 route.  The ``*`` character
 tells us that the route is installed in the Data Plane, or FIB.
 
 If you are using the Linux kernel as a Data Plane, this can be inspected
-via a `ip route show X` command:
+via a ``ip route show X`` command:
 
 .. code-block:: shell
 
@@ -542,7 +523,7 @@ via a `ip route show X` command:
 
 Once installed into the FIB, FRR currently has little control over what
 nexthops are choosen to forward packets on.  Currently the Linux kernel
-has a `fib_multipath_hash_policy` sysctl which dictates how the hashing
+has a ``fib_multipath_hash_policy`` sysctl which dictates how the hashing
 algorithm is used to forward packets.
 
 .. _zebra-mpls:
@@ -796,7 +777,7 @@ unicast topology!
       with the longer prefix length is used;  if they're equal, the
       Multicast RIB takes precedence.
 
-      The `mrib-then-urib` setting is the default behavior if nothing is
+      The ``mrib-then-urib`` setting is the default behavior if nothing is
       configured. If this is the desired behavior, it should be explicitly
       configured to make the configuration immune against possible changes in
       what the default behavior is.
@@ -889,8 +870,8 @@ that sets the preferred source address, and applies the route-map to all
 
    ip prefix-list ANY permit 0.0.0.0/0 le 32
    route-map RM1 permit 10
-        match ip address prefix-list ANY
-        set src 10.0.0.1
+     match ip address prefix-list ANY
+     set src 10.0.0.1
 
    ip protocol rip route-map RM1
 
@@ -900,8 +881,8 @@ IPv6 example for OSPFv3.
 
    ipv6 prefix-list ANY seq 10 permit any
    route-map RM6 permit 10
-       match ipv6 address prefix-list ANY
-       set src 2001:db8:425:1000::3
+     match ipv6 address prefix-list ANY
+     set src 2001:db8:425:1000::3
 
    ipv6 protocol ospf6 route-map RM6
 
@@ -936,7 +917,7 @@ latter information makes up the Forwarding Information Base
 (FIB). Zebra feeds the FIB to the kernel, which allows the IP stack in
 the kernel to forward packets according to the routes computed by
 FRR. The kernel FIB is updated in an OS-specific way. For example,
-the `Netlink` interface is used on Linux, and route sockets are
+the ``Netlink`` interface is used on Linux, and route sockets are
 used on FreeBSD.
 
 The FIB push interface aims to provide a cross-platform mechanism to
@@ -1174,7 +1155,9 @@ zebra Terminal Mode Commands
 .. clicmd:: show zebra
 
    Display various statistics related to the installation and deletion
-   of routes, neighbor updates, and LSP's into the kernel.
+   of routes, neighbor updates, and LSP's into the kernel.  In addition
+   show various zebra state that is useful when debugging an operator's
+   setup.
 
 .. clicmd:: show zebra client [summary]
 
@@ -1241,35 +1224,111 @@ For protocols requiring an IPv6 router-id, the following commands are available:
 
 .. _zebra-sysctl:
 
-Expected sysctl settings
-========================
+sysctl settings
+===============
 
 The linux kernel has a variety of sysctl's that affect it's operation as a router.  This
 section is meant to act as a starting point for those sysctl's that must be used in
 order to provide FRR with smooth operation as a router.  This section is not meant
 as the full documentation for sysctl's.  The operator must use the sysctl documentation
-with the linux kernel for that.
+with the linux kernel for that. The following link has helpful references to many relevant
+sysctl values:  https://www.kernel.org/doc/Documentation/networking/ip-sysctl.txt
+
+Expected sysctl settings
+------------------------
 
 .. option:: net.ipv4.ip_forward = 1
 
-   This option allows the linux kernel to forward ipv4 packets incoming from one interface
-   to an outgoing interface.  Without this no forwarding will take place from off box packets.
+   This global option allows the linux kernel to forward (route) ipv4 packets incoming from one
+   interface to an outgoing interface. If this is set to 0, the system will not route transit
+   ipv4 packets, i.e. packets that are not sent to/from a process running on the local system.
 
-.. option:: net.ipv6.conf.all_forwarding=1
+.. option:: net.ipv4.conf.{all,default,<interface>}.forwarding = 1
 
-   This option allows the linux kernel to forward ipv6 packets incoming from one interface
-   to an outgoing interface.  Without this no forwarding will take place from off box packets.
+   The linux kernel can selectively enable forwarding (routing) of ipv4 packets on a per
+   interface basis. The forwarding check in the kernel dataplane occurs against the ingress
+   Layer 3 interface, i.e. if the ingress L3 interface has forwarding set to 0, packets will not
+   be routed.
 
-.. option:: net.ipv6.conf.all.keep_addr_on_down=1
+.. option:: net.ipv6.conf.{all,default,<interface>}.forwarding = 1
+
+   This per interface option allows the linux kernel to forward (route) transit ipv6 packets
+   i.e. incoming from one Layer 3 interface to an outgoing Layer 3 interface.
+   The forwarding check in the kernel dataplane occurs against the ingress Layer 3 interface,
+   i.e. if the ingress L3 interface has forwarding set to 0, packets will not be routed.
+
+.. option:: net.ipv6.conf.all.keep_addr_on_down = 1
 
    When an interface is taken down, do not remove the v6 addresses associated with the interface.
    This option is recommended because this is the default behavior for v4 as well.
 
-.. option:: net.ipv6.route.skip_notify_on_dev_down=1
+.. option:: net.ipv6.route.skip_notify_on_dev_down = 1
 
    When an interface is taken down, the linux kernel will not notify, via netlink, about routes
    that used that interface being removed from the FIB.  This option is recommended because this
    is the default behavior for v4 as well.
+
+Optional sysctl settings
+------------------------
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.bc_forwarding = 0
+
+   This per interface option allows the linux kernel to optionally allow Directed Broadcast
+   (i.e. Routed Broadcast or Subnet Broadcast) packets to be routed onto the connected network
+   segment where the subnet exists.
+   If the local router receives a routed packet destined for a broadcast address of a connected
+   subnet, setting bc_forwarding to 1 on the interface with the target subnet assigned to it will
+   allow non locally-generated packets to be routed via the broadcast route.
+   If bc_forwarding is set to 0, routed packets destined for a broadcast route will be dropped.
+   e.g.
+   Host1 (SIP:192.0.2.10, DIP:10.0.0.255) -> (eth0:192.0.2.1/24) Router1 (eth1:10.0.0.1/24) -> BC
+   If net.ipv4.conf.{all,default,<interface>}.bc_forwarding=1, then Router1 will forward each
+   packet destined to 10.0.0.255 onto the eth1 interface with a broadcast DMAC (ff:ff:ff:ff:ff:ff).
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.arp_accept = 1
+
+   This per interface option allows the linux kernel to optionally skip the creation of ARP
+   entries upon the receipt of a Gratuitous ARP (GARP) frame carrying an IP that is not already
+   present in the ARP cache. Setting arp_accept to 0 on an interface will ensure NEW ARP entries
+   are not created due to the arrival of a GARP frame.
+   Note: This does not impact how the kernel reacts to GARP frames that carry a "known" IP
+   (that is already in the ARP cache) -- an existing ARP entry will always be updated
+   when a GARP for that IP is received.
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.arp_ignore = 0
+
+   This per interface option allows the linux kernel to control what conditions must be met in
+   order for an ARP reply to be sent in response to an ARP request targeting a local IP address.
+   When arp_ignore is set to 0, the kernel will send ARP replies in response to any ARP Request
+   with a Target-IP matching a local address.
+   When arp_ignore is set to 1, the kernel will send ARP replies if the Target-IP in the ARP
+   Request matches an IP address on the interface the Request arrived at.
+   When arp_ignore is set to 2, the kernel will send ARP replies only if the Target-IP matches an
+   IP address on the interface where the Request arrived AND the Sender-IP falls within the subnet
+   assigned to the local IP/interface.
+
+.. option:: net.ipv4.conf.{all,default,<interface>}.arp_notify = 1
+
+   This per interface option allows the linux kernel to decide whether to send a Gratuitious ARP
+   (GARP) frame when the Layer 3 interface comes UP.
+   When arp_notify is set to 0, no GARP is sent.
+   When arp_notify is set to 1, a GARP is sent when the interface comes UP.
+
+.. option:: net.ipv6.conf.{all,default,<interface>}.ndisc_notify = 1
+
+   This per interface option allows the linux kernel to decide whether to send an Unsolicited
+   Neighbor Advertisement (U-NA) frame when the Layer 3 interface comes UP.
+   When ndisc_notify is set to 0, no U-NA is sent.
+   When ndisc_notify is set to 1, a U-NA is sent when the interface comes UP.
+
+Useful sysctl settings
+----------------------
+
+.. option:: net.ipv6.conf.all.use_oif_addrs_only = 1
+
+   When enabled, the candidate source addresses for destinations routed via this interface are
+   restricted to the set of addresses configured on this interface (RFC 6724 section 4).  If
+   an operator has hundreds of IP addresses per interface this solves the latency problem.
 
 Debugging
 =========
@@ -1334,3 +1393,199 @@ Debugging
 
    Nexthop and nexthop-group events.
 
+Scripting
+=========
+
+.. clicmd:: zebra on-rib-process script SCRIPT
+
+   Set a Lua script for :ref:`on-rib-process-dplane-results` hook call.
+   SCRIPT is the basename of the script, without ``.lua``.
+
+Data structures
+---------------
+
+.. _const-struct-zebra-dplane-ctx:
+
+const struct zebra_dplane_ctx
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+   * integer zd_op
+   * integer zd_status
+   * integer zd_provider
+   * integer zd_vrf_id
+   * integer zd_table_id
+   * integer zd_ifname
+   * integer zd_ifindex
+   * table rinfo (if zd_op is DPLANE_OP_ROUTE*, DPLANE_NH_*)
+
+     * prefix zd_dest
+     * prefix zd_src
+     * integer zd_afi
+     * integer zd_safi
+     * integer zd_type
+     * integer zd_old_type
+     * integer zd_tag
+     * integer zd_old_tag
+     * integer zd_metric
+     * integer zd_old_metric
+     * integer zd_instance
+     * integer zd_old_instance
+     * integer zd_distance
+     * integer zd_old_distance
+     * integer zd_mtu
+     * integer zd_nexthop_mtu
+     * table nhe
+
+       * integer id
+       * integer old_id
+       * integer afi
+       * integer vrf_id
+       * integer type
+       * nexthop_group ng
+       * nh_grp
+       * integer nh_grp_count
+
+     * integer zd_nhg_id
+     * nexthop_group zd_ng
+     * nexthop_group backup_ng
+     * nexthop_group zd_old_ng
+     * nexthop_group old_backup_ng
+
+   * integer label (if zd_op is DPLANE_OP_LSP_*)
+   * table pw (if zd_op is DPLANE_OP_PW_*)
+
+     * integer type
+     * integer af
+     * integer status
+     * integer flags
+     * integer local_label
+     * integer remote_label
+
+   * table macinfo (if zd_op is DPLANE_OP_MAC_*)
+
+     * integer vid
+     * integer br_ifindex
+     * ethaddr mac
+     * integer vtep_ip
+     * integer is_sticky
+     * integer nhg_id
+     * integer update_flags
+
+   * table rule (if zd_op is DPLANE_OP_RULE_*)
+
+     * integer sock
+     * integer unique
+     * integer seq
+     * string ifname
+     * integer priority
+     * integer old_priority
+     * integer table
+     * integer old_table
+     * integer filter_bm
+     * integer old_filter_bm
+     * integer fwmark
+     * integer old_fwmark
+     * integer dsfield
+     * integer old_dsfield
+     * integer ip_proto
+     * integer old_ip_proto
+     * prefix src_ip
+     * prefix old_src_ip
+     * prefix dst_ip
+     * prefix old_dst_ip
+
+   * table iptable (if zd_op is DPLANE_OP_IPTABLE_*)
+
+     * integer sock
+     * integer vrf_id
+     * integer unique
+     * integer type
+     * integer filter_bm
+     * integer fwmark
+     * integer action
+     * integer pkt_len_min
+     * integer pkt_len_max
+     * integer tcp_flags
+     * integer dscp_value
+     * integer fragment
+     * integer protocol
+     * integer nb_interface
+     * integer flow_label
+     * integer family
+     * string ipset_name
+
+   * table ipset (if zd_op is DPLANE_OP_IPSET_*)
+     * integer sock
+     * integer vrf_id
+     * integer unique
+     * integer type
+     * integer family
+     * string ipset_name
+
+   * table neigh (if zd_op is DPLANE_OP_NEIGH_*)
+
+     * ipaddr ip_addr
+     * table link
+
+       * ethaddr mac
+       * ipaddr ip_addr
+
+     * integer flags
+     * integer state
+     * integer update_flags
+
+   * table br_port (if zd_op is DPLANE_OP_BR_PORT_UPDATE)
+
+     * integer sph_filter_cnt
+     * integer flags
+     * integer backup_nhg_id
+
+   * table neightable (if zd_op is DPLANE_OP_NEIGH_TABLE_UPDATE)
+
+     * integer family
+     * integer app_probes
+     * integer ucast_probes
+     * integer mcast_probes
+
+   * table gre (if zd_op is DPLANE_OP_GRE_SET)**
+
+     * integer link_ifindex
+     * integer mtu
+
+
+.. _const-struct-nh-grp:
+
+const struct nh_grp
+^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: console
+
+   * integer id
+   * integer weight
+
+
+.. _zebra-hook-calls:
+
+Zebra Hook calls
+----------------
+
+.. _on-rib-process-dplane-results:
+
+on_rib_process_dplane_results
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Called when RIB processes dataplane events.
+Set script location with the ``zebra on-rib-process script SCRIPT`` command.
+
+**Arguments**
+
+* :ref:`const struct zebra_dplane_ctx<const-struct-zebra-dplane-ctx>` ctx
+
+
+.. code-block:: lua
+
+   function on_rib_process_dplane_results(ctx)
+      log.info(ctx.rinfo.zd_dest.network)
+      return {}

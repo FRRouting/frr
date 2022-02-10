@@ -720,7 +720,7 @@ bool lcommunity_list_exact_match(struct lcommunity *lcom,
 			return entry->direct == COMMUNITY_PERMIT;
 
 		if (entry->style == LARGE_COMMUNITY_LIST_STANDARD) {
-			if (lcommunity_cmp(lcom, entry->u.com))
+			if (lcommunity_cmp(lcom, entry->u.lcom))
 				return entry->direct == COMMUNITY_PERMIT;
 		} else if (entry->style == LARGE_COMMUNITY_LIST_EXPANDED) {
 			if (lcommunity_regexp_match(lcom, entry->reg))

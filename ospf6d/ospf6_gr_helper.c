@@ -157,8 +157,18 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 
 	length = ntohs(lsah->length) - OSPF6_LSA_HEADER_SIZE;
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len against overall LSA */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (IS_DEBUG_OSPF6_GR)
+				zlog_debug(
+					"%s: Malformed packet: Invalid TLV len:%d",
+					__func__, TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
@@ -201,8 +211,6 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 static int ospf6_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf6_neighbor *nbr = THREAD_ARG(thread);
-
-	nbr->gr_helper_info.t_grace_timer = NULL;
 
 	ospf6_gr_helper_exit(nbr, OSPF6_GR_HELPER_GRACE_TIMEOUT);
 	return OSPF6_SUCCESS;
@@ -357,6 +365,16 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 				__func__, lsa->header->age, grace_interval);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_LSA_AGE_MORE;
+		return OSPF6_GR_NOT_HELPER;
+	}
+
+	if (ospf6->gr_info.restart_in_progress) {
+		if (IS_DEBUG_OSPF6_GR)
+			zlog_debug(
+				"%s: router is in the process of graceful restart",
+				__func__);
+		restarter->gr_helper_info.rejected_reason =
+			OSPF6_HELPER_RESTARTING;
 		return OSPF6_GR_NOT_HELPER;
 	}
 
@@ -1009,10 +1027,11 @@ static void show_ospf6_gr_helper_details(struct vty *vty, struct ospf6 *ospf6,
 /* Graceful Restart HELPER  config Commands */
 DEFPY(ospf6_gr_helper_enable,
       ospf6_gr_helper_enable_cmd,
-      "graceful-restart helper-only [A.B.C.D$rtr_id]",
+      "graceful-restart helper enable [A.B.C.D$rtr_id]",
       "ospf6 graceful restart\n"
+      "ospf6 GR Helper\n"
       "Enable Helper support\n"
-      "Advertisement RouterId\n")
+      "Advertisement Router-ID\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -1031,11 +1050,12 @@ DEFPY(ospf6_gr_helper_enable,
 
 DEFPY(ospf6_gr_helper_disable,
       ospf6_gr_helper_disable_cmd,
-      "no graceful-restart helper-only [A.B.C.D$rtr_id]",
+      "no graceful-restart helper enable [A.B.C.D$rtr_id]",
       NO_STR
       "ospf6 graceful restart\n"
-      "Disable Helper support\n"
-      "Advertisement RouterId\n")
+      "ospf6 GR Helper\n"
+      "Enable Helper support\n"
+      "Advertisement Router-ID\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, ospf6);
 
@@ -1155,7 +1175,10 @@ DEFPY(show_ipv6_ospf6_gr_helper,
 	bool detail = false;
 
 	ospf6 = ospf6_lookup_by_vrf_name(VRF_DEFAULT_NAME);
-	OSPF6_CMD_CHECK_RUNNING();
+	if (ospf6 == NULL) {
+		vty_out(vty, "OSPFv3 is not configured\n");
+		return CMD_SUCCESS;
+	}
 
 	if (argv_find(argv, argc, "detail", &idx))
 		detail = true;
@@ -1165,12 +1188,8 @@ DEFPY(show_ipv6_ospf6_gr_helper,
 
 	show_ospf6_gr_helper_details(vty, ospf6, json, uj, detail);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1222,8 +1241,20 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 		zlog_debug("  TLV info:");
 	}
 
-	for (tlvh = TLV_HDR_TOP(lsah); sum < length;
+	for (tlvh = TLV_HDR_TOP(lsah); sum < length && tlvh;
 	     tlvh = TLV_HDR_NEXT(tlvh)) {
+
+		/* Check TLV len */
+		if (sum + TLV_SIZE(tlvh) > length) {
+			if (vty)
+				vty_out(vty, "%% Invalid TLV length: %d\n",
+					TLV_SIZE(tlvh));
+			else if (IS_DEBUG_OSPF6_GR)
+				zlog_debug("%% Invalid TLV length: %d",
+					   TLV_SIZE(tlvh));
+			return OSPF6_FAILURE;
+		}
+
 		switch (ntohs(tlvh->type)) {
 		case GRACE_PERIOD_TYPE:
 			gracePeriod = (struct grace_tlv_graceperiod *)tlvh;
@@ -1341,14 +1372,14 @@ static int ospf6_cfg_write_helper_enable_rtr_walkcb(struct hash_bucket *backet,
 	struct advRtr *rtr = backet->data;
 	struct vty *vty = (struct vty *)arg;
 
-	vty_out(vty, " graceful-restart helper-only %pI4\n", &rtr->advRtrAddr);
+	vty_out(vty, " graceful-restart helper enable %pI4\n", &rtr->advRtrAddr);
 	return HASHWALK_CONTINUE;
 }
 
 int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6)
 {
 	if (ospf6->ospf6_helper_cfg.is_helper_supported)
-		vty_out(vty, " graceful-restart helper-only\n");
+		vty_out(vty, " graceful-restart helper enable\n");
 
 	if (!ospf6->ospf6_helper_cfg.strict_lsa_check)
 		vty_out(vty, " graceful-restart helper lsa-check-disable\n");
@@ -1373,6 +1404,6 @@ int config_write_ospf6_gr_helper(struct vty *vty, struct ospf6 *ospf6)
 int config_write_ospf6_debug_gr_helper(struct vty *vty)
 {
 	if (IS_DEBUG_OSPF6_GR)
-		vty_out(vty, "debug ospf6 gr helper\n");
+		vty_out(vty, "debug ospf6 graceful-restart\n");
 	return 0;
 }

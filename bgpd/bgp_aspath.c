@@ -1002,8 +1002,6 @@ uint8_t *aspath_snmp_pathseg(struct aspath *as, size_t *varlen)
 	return stream_pnt(snmp_stream);
 }
 
-#define min(A,B) ((A) < (B) ? (A) : (B))
-
 static struct assegment *aspath_aggregate_as_set_add(struct aspath *aspath,
 						     struct assegment *asset,
 						     as_t as)
@@ -1060,7 +1058,7 @@ struct aspath *aspath_aggregate(struct aspath *as1, struct aspath *as2)
 			break;
 
 		/* Minimum segment length. */
-		minlen = min(seg1->length, seg2->length);
+		minlen = MIN(seg1->length, seg2->length);
 
 		for (match = 0; match < minlen; match++)
 			if (seg1->as[match] != seg2->as[match])
@@ -1291,6 +1289,7 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	int i;
 	int j;
 	int public = 0;
+	int peer = 0;
 
 	new = XCALLOC(MTYPE_AS_PATH, sizeof(struct aspath));
 
@@ -1299,14 +1298,17 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 	last_new_seg = NULL;
 	seg = aspath->segments;
 	while (seg) {
-	      public
-		= 0;
+		public = 0;
+		peer = 0;
 		for (i = 0; i < seg->length; i++) {
 			// ASN is public
-			if (!BGP_AS_IS_PRIVATE(seg->as[i])) {
-			      public
-				++;
-			}
+			if (!BGP_AS_IS_PRIVATE(seg->as[i]))
+				public++;
+			/* ASN matches peer's.
+			 * Don't double-count if peer_asn is public.
+			 */
+			else if (seg->as[i] == peer_asn)
+				peer++;
 		}
 
 		// The entire segment is public so copy it
@@ -1318,7 +1320,10 @@ struct aspath *aspath_remove_private_asns(struct aspath *aspath, as_t peer_asn)
 		// there are public ASNs then come back and fill in only the
 		// public ASNs.
 		else {
-			new_seg = assegment_new(seg->type, public);
+			/* length needs to account for all retained ASNs
+			 * (public or peer_asn), not just public
+			 */
+			new_seg = assegment_new(seg->type, (public + peer));
 			j = 0;
 			for (i = 0; i < seg->length; i++) {
 				// keep ASN if public or matches peer's ASN

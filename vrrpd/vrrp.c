@@ -216,7 +216,7 @@ static struct vrrp_vrouter *vrrp_lookup_by_if_mvl(struct interface *mvl_ifp)
 		return NULL;
 	}
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf->vrf_id);
 
 	if (!p) {
 		DEBUGD(&vrrp_dbg_zebra,
@@ -405,7 +405,7 @@ static bool vrrp_has_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 	struct ipaddr *iter;
 
 	for (ALL_LIST_ELEMENTS_RO(r->addrs, ln, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			return true;
 
 	return false;
@@ -484,7 +484,7 @@ int vrrp_del_ip(struct vrrp_vrouter *vr, struct ipaddr *ip)
 		return 0;
 
 	for (ALL_LIST_ELEMENTS(r->addrs, ln, nn, iter))
-		if (!memcmp(&iter->ip, &ip->ip, IPADDRSZ(ip)))
+		if (!ipaddr_cmp(iter, ip))
 			list_delete_node(r->addrs, ln);
 
 	/*
@@ -544,7 +544,7 @@ static bool vrrp_attach_interface(struct vrrp_router *r)
 
 	size_t ifps_cnt =
 		if_lookup_by_hwaddr(r->vmac.octet, sizeof(r->vmac.octet), &ifps,
-				    r->vr->ifp->vrf_id);
+				    r->vr->ifp->vrf->vrf_id);
 
 	/*
 	 * Filter to only those macvlan interfaces whose parent is the base
@@ -903,7 +903,7 @@ static int vrrp_recv_advertisement(struct vrrp_router *r, struct ipaddr *src,
 
 	switch (r->fsm.state) {
 	case VRRP_STATE_MASTER:
-		addrcmp = memcmp(&src->ip, &r->src.ip, IPADDRSZ(src));
+		addrcmp = ipaddr_cmp(src, &r->src);
 
 		if (pkt->hdr.priority == 0) {
 			vrrp_send_advertisement(r);
@@ -1083,9 +1083,9 @@ static int vrrp_socket(struct vrrp_router *r)
 
 	frr_with_privs(&vrrp_privs) {
 		r->sock_rx = vrf_socket(r->family, SOCK_RAW, IPPROTO_VRRP,
-					r->vr->ifp->vrf_id, NULL);
+					r->vr->ifp->vrf->vrf_id, NULL);
 		r->sock_tx = vrf_socket(r->family, SOCK_RAW, IPPROTO_VRRP,
-					r->vr->ifp->vrf_id, NULL);
+					r->vr->ifp->vrf->vrf_id, NULL);
 	}
 
 	if (r->sock_rx < 0 || r->sock_tx < 0) {
@@ -1102,7 +1102,7 @@ static int vrrp_socket(struct vrrp_router *r)
 	 * Bind Tx socket to macvlan device - necessary for VRF support,
 	 * otherwise the kernel will select the vrf device
 	 */
-	if (r->vr->ifp->vrf_id != VRF_DEFAULT) {
+	if (r->vr->ifp->vrf->vrf_id != VRF_DEFAULT) {
 		frr_with_privs (&vrrp_privs) {
 			ret = setsockopt(r->sock_tx, SOL_SOCKET,
 					 SO_BINDTODEVICE, r->mvl_ifp->name,
@@ -1751,7 +1751,7 @@ vrrp_autoconfig_autocreate(struct interface *mvl_ifp)
 	struct interface *p;
 	struct vrrp_vrouter *vr;
 
-	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf_id);
+	p = if_lookup_by_index(mvl_ifp->link_ifindex, mvl_ifp->vrf->vrf_id);
 
 	if (!p)
 		return NULL;
@@ -2398,7 +2398,7 @@ void vrrp_init(void)
 	vrrp_autoconfig_version = 3;
 	vrrp_vrouters_hash = hash_create(&vrrp_hash_key, vrrp_hash_cmp,
 					 "VRRP virtual router hash");
-	vrf_init(NULL, NULL, NULL, NULL, NULL);
+	vrf_init(NULL, NULL, NULL, NULL);
 }
 
 void vrrp_fini(void)

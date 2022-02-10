@@ -1773,6 +1773,14 @@ static struct nexthop *nexthop_set_resolved(afi_t afi,
 		nexthop_add_labels(resolved_hop, label_type, num_labels,
 				   labels);
 
+	if (nexthop->nh_srv6) {
+		nexthop_add_srv6_seg6local(resolved_hop,
+					   nexthop->nh_srv6->seg6local_action,
+					   &nexthop->nh_srv6->seg6local_ctx);
+		nexthop_add_srv6_seg6(resolved_hop,
+				      &nexthop->nh_srv6->seg6_segs);
+	}
+
 	resolved_hop->rparent = nexthop;
 	_nexthop_add(&nexthop->resolved, resolved_hop);
 
@@ -1965,7 +1973,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	struct route_node *rn;
 	struct route_entry *match = NULL;
 	int resolved;
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 	struct nexthop *newhop;
 	struct interface *ifp;
 	rib_dest_t *dest;
@@ -2361,7 +2369,7 @@ static unsigned nexthop_active_check(struct route_node *rn,
 	else if (rn->p.family == AF_INET6)
 		family = AFI_IP6;
 	else
-		family = 0;
+		family = AF_UNSPEC;
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL)
 		zlog_debug("%s: re %p, nexthop %pNHv", __func__, re, nexthop);
@@ -2979,13 +2987,15 @@ void zebra_nhg_dplane_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPSET_ENTRY_DELETE:
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 	case DPLANE_OP_GRE_SET:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		break;
 	}
 
 	dplane_ctx_fini(&ctx);
 }
 
-static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
+static int zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 {
 	struct nhg_hash_entry *nhe = NULL;
 
@@ -2999,7 +3009,7 @@ static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 * from an upper level proto.
 	 */
 	if (zrouter.startup_time < nhe->uptime)
-		return;
+		return HASHWALK_CONTINUE;
 
 	/*
 	 * If it's proto-owned and not being used by a route, remove it since
@@ -3009,20 +3019,41 @@ static void zebra_nhg_sweep_entry(struct hash_bucket *bucket, void *arg)
 	 */
 	if (PROTO_OWNED(nhe) && nhe->refcnt == 1) {
 		zebra_nhg_decrement_ref(nhe);
-		return;
+		return HASHWALK_ABORT;
 	}
 
 	/*
 	 * If its being ref'd by routes, just let it be uninstalled via a route
 	 * removal.
 	 */
-	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0)
+	if (ZEBRA_NHG_CREATED(nhe) && nhe->refcnt <= 0) {
 		zebra_nhg_uninstall_kernel(nhe);
+		return HASHWALK_ABORT;
+	}
+
+	return HASHWALK_CONTINUE;
 }
 
 void zebra_nhg_sweep_table(struct hash *hash)
 {
-	hash_iterate(hash, zebra_nhg_sweep_entry, NULL);
+	uint32_t count;
+
+	/*
+	 * Yes this is extremely odd.  Effectively nhg's have
+	 * other nexthop groups that depend on them and when you
+	 * remove them, you can have other entries blown up.
+	 * our hash code does not work with deleting multiple
+	 * entries at a time and will possibly cause crashes
+	 * So what to do?  Whenever zebra_nhg_sweep_entry
+	 * deletes an entry it will return HASHWALK_ABORT,
+	 * cause that deletion might have triggered more.
+	 * then we can just keep sweeping this table
+	 * until nothing more is found to do.
+	 */
+	do {
+		count = hashcount(hash);
+		hash_walk(hash, zebra_nhg_sweep_entry, NULL);
+	} while (count != hashcount(hash));
 }
 
 static void zebra_nhg_mark_keep_entry(struct hash_bucket *bucket, void *arg)

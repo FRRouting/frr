@@ -24,12 +24,51 @@
 #ifdef HAVE_SCRIPTING
 
 #include <lua.h>
+#include <nexthop.h>
+#include <nexthop_group.h>
 #include "frrlua.h"
 #include "bgpd/bgp_script.h" // for peer and attr encoders/decoders
 
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+/* Forward declarations */
+extern struct zebra_dplane_ctx ctx;
+extern void lua_pushzebra_dplane_ctx(lua_State *L,
+				     const struct zebra_dplane_ctx *ctx);
+extern void lua_decode_zebra_dplane_ctx(lua_State *L, int idx,
+					struct zebra_dplane_ctx *ctx);
+
+/*
+ * Script name hash
+ */
+PREDECL_HASH(frrscript_names);
+
+struct frrscript_names_entry {
+	/* Name of a Lua hook call */
+	char function_name[MAXPATHLEN];
+
+	/* Lua script in which to look for it */
+	char script_name[MAXPATHLEN];
+
+	struct frrscript_names_item item;
+};
+
+extern struct frrscript_names_head frrscript_names_hash;
+
+int frrscript_names_hash_cmp(const struct frrscript_names_entry *snhe1,
+			     const struct frrscript_names_entry *snhe2);
+uint32_t frrscript_names_hash_key(const struct frrscript_names_entry *snhe);
+
+DECLARE_HASH(frrscript_names, struct frrscript_names_entry, item,
+	     frrscript_names_hash_cmp, frrscript_names_hash_key);
+
+int frrscript_names_add_function_name(const char *function_name);
+void frrscript_names_destroy(void);
+int frrscript_names_set_script_name(const char *function_name,
+				    const char *script_name);
+char *frrscript_names_get_script_name(const char *function_name);
 
 typedef void (*encoder_func)(lua_State *, const void *);
 typedef void *(*decoder_func)(lua_State *, int);
@@ -171,7 +210,12 @@ time_t * : lua_pushtimet,                                       \
 char * : lua_pushstring_wrapper,                                \
 struct attr * : lua_pushattr,                                   \
 struct peer * : lua_pushpeer,                                   \
-const struct prefix * : lua_pushprefix                          \
+const struct prefix * : lua_pushprefix,                         \
+const struct ipaddr * : lua_pushipaddr,                         \
+const struct ethaddr * : lua_pushethaddr,                       \
+const struct nexthop_group * : lua_pushnexthop_group,           \
+const struct nexthop * : lua_pushnexthop,                       \
+struct zebra_dplane_ctx * : lua_pushzebra_dplane_ctx            \
 )((L), (value))
 
 #define DECODE_ARGS_WITH_STATE(L, value)                                       \
@@ -187,7 +231,12 @@ time_t * : lua_decode_timet,                                    \
 char * : lua_decode_stringp,                                    \
 struct attr * : lua_decode_attr,                                \
 struct peer * : lua_decode_noop,                                \
-const struct prefix * : lua_decode_noop                         \
+const struct prefix * : lua_decode_noop,                        \
+const struct ipaddr * : lua_decode_noop,                        \
+const struct ethaddr * : lua_decode_noop,                       \
+const struct nexthop_group * : lua_decode_noop,                 \
+const struct nexthop * : lua_decode_noop,                       \
+struct zebra_dplane_ctx * : lua_decode_noop                     \
 )((L), -1, (value))
 
 /*

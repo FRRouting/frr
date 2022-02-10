@@ -210,6 +210,8 @@ struct pim_instance {
 void pim_vrf_init(void);
 void pim_vrf_terminate(void);
 
+extern struct pim_router *router;
+
 struct pim_instance *pim_get_pim_instance(vrf_id_t vrf_id);
 
 #endif

@@ -357,8 +357,8 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 			nht_p.family = AF_INET;
 			nht_p.prefixlen = IPV4_MAX_BITLEN;
 			nht_p.u.prefix4 = up->upstream_addr;
-			pim_delete_tracked_nexthop(vxlan_sg->pim,
-				&nht_p, up, NULL, false);
+			pim_delete_tracked_nexthop(vxlan_sg->pim, &nht_p, up,
+						   NULL);
 		}
 		/* We are acting FHR; clear out use_rpt setting if any */
 		pim_upstream_update_use_rpt(up, false /*update_mroute*/);
@@ -390,9 +390,25 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 	pim_upstream_keep_alive_timer_start(up, vxlan_sg->pim->keep_alive_time);
 
 	/* register the source with the RP */
-	if (up->reg_state == PIM_REG_NOINFO) {
+	switch (up->reg_state) {
+
+	case PIM_REG_NOINFO:
 		pim_register_join(up);
 		pim_null_register_send(up);
+		break;
+
+	case PIM_REG_JOIN:
+		/* if the pim upstream entry is already in reg-join state
+		 * send null_register right away and add to the register
+		 * worklist
+		 */
+		pim_null_register_send(up);
+		pim_vxlan_update_sg_reg_state(pim, up, true);
+		break;
+
+	case PIM_REG_JOIN_PENDING:
+	case PIM_REG_PRUNE:
+		break;
 	}
 
 	/* update the inherited OIL */
@@ -704,8 +720,7 @@ static unsigned int pim_vxlan_sg_hash_key_make(const void *p)
 {
 	const struct pim_vxlan_sg *vxlan_sg = p;
 
-	return (jhash_2words(vxlan_sg->sg.src.s_addr,
-				vxlan_sg->sg.grp.s_addr, 0));
+	return pim_sgaddr_hash(vxlan_sg->sg, 0);
 }
 
 static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
@@ -713,12 +728,11 @@ static bool pim_vxlan_sg_hash_eq(const void *p1, const void *p2)
 	const struct pim_vxlan_sg *sg1 = p1;
 	const struct pim_vxlan_sg *sg2 = p2;
 
-	return ((sg1->sg.src.s_addr == sg2->sg.src.s_addr)
-			&& (sg1->sg.grp.s_addr == sg2->sg.grp.s_addr));
+	return !pim_sgaddr_cmp(sg1->sg, sg2->sg);
 }
 
 static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
-		struct prefix_sg *sg)
+					     pim_sgaddr *sg)
 {
 	struct pim_vxlan_sg *vxlan_sg;
 
@@ -726,7 +740,7 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 
 	vxlan_sg->pim = pim;
 	vxlan_sg->sg = *sg;
-	pim_str_sg_set(sg, vxlan_sg->sg_str);
+	snprintfrr(vxlan_sg->sg_str, sizeof(vxlan_sg->sg_str), "%pSG", sg);
 
 	if (PIM_DEBUG_VXLAN)
 		zlog_debug("vxlan SG %s alloc", vxlan_sg->sg_str);
@@ -744,8 +758,7 @@ static struct pim_vxlan_sg *pim_vxlan_sg_new(struct pim_instance *pim,
 	return vxlan_sg;
 }
 
-struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
-		struct prefix_sg *sg)
+struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_vxlan_sg lookup;
 
@@ -753,8 +766,7 @@ struct pim_vxlan_sg *pim_vxlan_sg_find(struct pim_instance *pim,
 	return hash_lookup(pim->vxlan.sg_hash, &lookup);
 }
 
-struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim,
-		struct prefix_sg *sg)
+struct pim_vxlan_sg *pim_vxlan_sg_add(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_vxlan_sg *vxlan_sg;
 
@@ -789,7 +801,7 @@ static void pim_vxlan_sg_del_item(struct pim_vxlan_sg *vxlan_sg)
 	XFREE(MTYPE_PIM_VXLAN_SG, vxlan_sg);
 }
 
-void pim_vxlan_sg_del(struct pim_instance *pim, struct prefix_sg *sg)
+void pim_vxlan_sg_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_vxlan_sg *vxlan_sg;
 
@@ -1079,7 +1091,7 @@ void pim_vxlan_add_vif(struct interface *ifp)
 	if (pim->vrf->vrf_id != VRF_DEFAULT)
 		return;
 
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		pim_vxlan_set_default_iif(pim, ifp);
 
 	if (vxlan_mlag.flags & PIM_VXLAN_MLAGF_ENABLED &&

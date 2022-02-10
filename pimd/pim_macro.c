@@ -128,7 +128,7 @@ int pim_macro_ch_lost_assert(const struct pim_ifchannel *ch)
 		return 0; /* false */
 	}
 
-	if (PIM_INADDR_IS_ANY(ch->ifassert_winner))
+	if (pim_addr_is_any(ch->ifassert_winner))
 		return 0; /* false */
 
 	/* AssertWinner(S,G,I) == me ? */
@@ -261,7 +261,7 @@ int pim_macro_ch_could_assert_eval(const struct pim_ifchannel *ch)
     }
 */
 struct pim_assert_metric pim_macro_spt_assert_metric(const struct pim_rpf *rpf,
-						     struct in_addr ifaddr)
+						     pim_addr ifaddr)
 {
 	struct pim_assert_metric metric;
 

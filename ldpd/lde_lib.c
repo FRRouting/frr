@@ -1072,7 +1072,6 @@ void
 lde_gc_start_timer(void)
 {
 	thread_cancel(&gc_timer);
-	gc_timer = NULL;
 	thread_add_timer(master, lde_gc_timer, NULL, LDE_GC_INTERVAL,
 			 &gc_timer);
 }

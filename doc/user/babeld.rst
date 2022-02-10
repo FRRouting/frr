@@ -132,7 +132,7 @@ Babel configuration
 
    This specifies the minimum RTT, in milliseconds, starting from which we
    increase the cost to a neighbour. The additional cost is linear in
-   (rtt - rtt-min).  The default is 100 ms.
+   (rtt - rtt-min).  The default is 10 ms.
 
 
 .. clicmd:: babel rtt-max (1-65535)
@@ -144,8 +144,8 @@ Babel configuration
 .. clicmd:: babel max-rtt-penalty (0-65535)
 
    This specifies the maximum cost added to a neighbour because of RTT, i.e.
-   when the RTT is higher or equal than rtt-max.  The default is 0, which
-   effectively disables the use of a RTT-based cost.
+   when the RTT is higher or equal than rtt-max. The default is 150. Setting it
+   to 0 effectively disables the use of a RTT-based cost.
 
 
 .. clicmd:: babel enable-timestamps
@@ -268,6 +268,6 @@ Babel sample configuration file
    ! babel hello-interval 12000
    ! babel update-interval 36000
 
-   ! log file /var/log/quagga/babeld.log
+   ! log file /var/log/frr/babeld.log
    log stdout
 

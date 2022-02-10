@@ -41,13 +41,3 @@ void pim_addr_dump(const char *onfail, struct prefix *p, char *buf,
 
 	errno = save_errno;
 }
-
-char *pim_str_sg_dump(const struct prefix_sg *sg)
-{
-	static char sg_str[PIM_SG_LEN];
-
-	pim_str_sg_set(sg, sg_str);
-
-	return sg_str;
-}
-

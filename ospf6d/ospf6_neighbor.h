@@ -23,6 +23,9 @@
 
 #include "hook.h"
 
+/* Forward declaration(s). */
+struct ospf6_area;
+
 /* Debug option */
 extern unsigned char conf_debug_ospf6_neighbor;
 #define OSPF6_DEBUG_NEIGHBOR_STATE   0x01
@@ -133,12 +136,22 @@ struct ospf6_neighbor {
 	struct thread *thread_send_lsreq;
 	struct thread *thread_send_lsupdate;
 	struct thread *thread_send_lsack;
+	struct thread *thread_exchange_done;
+	struct thread *thread_adj_ok;
 
 	/* BFD information */
 	struct bfd_session_params *bfd_session;
 
 	/* ospf6 graceful restart HELPER info */
 	struct ospf6_helper_info gr_helper_info;
+
+	/* seqnum_h/l is used to compare sequence
+	 * number in received packet Auth header
+	 */
+	uint32_t seqnum_h[OSPF6_MESSAGE_TYPE_MAX];
+	uint32_t seqnum_l[OSPF6_MESSAGE_TYPE_MAX];
+	bool auth_present;
+	bool lls_present;
 };
 
 /* Neighbor state */
@@ -183,24 +196,26 @@ extern const char *const ospf6_neighbor_state_str[];
 int ospf6_neighbor_cmp(void *va, void *vb);
 void ospf6_neighbor_dbex_init(struct ospf6_neighbor *on);
 
-struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t,
-					     struct ospf6_interface *);
-struct ospf6_neighbor *ospf6_neighbor_create(uint32_t,
-					     struct ospf6_interface *);
-void ospf6_neighbor_delete(struct ospf6_neighbor *);
+struct ospf6_neighbor *ospf6_neighbor_lookup(uint32_t router_id,
+					     struct ospf6_interface *oi);
+struct ospf6_neighbor *ospf6_area_neighbor_lookup(struct ospf6_area *area,
+						  uint32_t router_id);
+struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
+					     struct ospf6_interface *oi);
+void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
 /* Neighbor event */
-extern int hello_received(struct thread *);
-extern int twoway_received(struct thread *);
-extern int negotiation_done(struct thread *);
-extern int exchange_done(struct thread *);
-extern int loading_done(struct thread *);
-extern int adj_ok(struct thread *);
-extern int seqnumber_mismatch(struct thread *);
-extern int bad_lsreq(struct thread *);
-extern int oneway_received(struct thread *);
-extern int inactivity_timer(struct thread *);
-extern void ospf6_check_nbr_loading(struct ospf6_neighbor *);
+extern int hello_received(struct thread *thread);
+extern int twoway_received(struct thread *thread);
+extern int negotiation_done(struct thread *thread);
+extern int exchange_done(struct thread *thread);
+extern int loading_done(struct thread *thread);
+extern int adj_ok(struct thread *thread);
+extern int seqnumber_mismatch(struct thread *thread);
+extern int bad_lsreq(struct thread *thread);
+extern int oneway_received(struct thread *thread);
+extern int inactivity_timer(struct thread *thread);
+extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
 
 extern void ospf6_neighbor_init(void);
 extern int config_write_ospf6_debug_neighbor(struct vty *vty);

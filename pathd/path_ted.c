@@ -447,7 +447,7 @@ DEFUN (no_path_ted_import,
 }
 
 /* clang-format off */
-DEFPY (show_pahtd_ted_db,
+DEFPY (show_pathd_ted_db,
        show_pathd_ted_db_cmd,
        "show pathd ted database <verbose|json>$ver_json ",
        "show command\n"
@@ -471,12 +471,8 @@ DEFPY (show_pahtd_ted_db,
 	}
 	/* Show the complete TED */
 	ls_show_ted(ted_state_g.ted, vty, json, !st_json);
-	if (st_json) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (st_json)
+		vty_json(vty, json);
 	return CMD_SUCCESS;
 }
 

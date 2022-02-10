@@ -716,7 +716,7 @@ DEFUN (babel_set_smoothing_half_life,
 
 DEFUN (babel_distribute_list,
        babel_distribute_list_cmd,
-       "distribute-list [prefix] WORD <in|out> [WORD]",
+       "distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
        "Access-list name\n"
@@ -736,7 +736,7 @@ DEFUN (babel_distribute_list,
 
 DEFUN (babel_no_distribute_list,
        babel_no_distribute_list_cmd,
-       "no distribute-list [prefix] WORD <in|out> [WORD]",
+       "no distribute-list [prefix] ACCESSLIST4_NAME <in|out> [WORD]",
        NO_STR
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -758,7 +758,7 @@ DEFUN (babel_no_distribute_list,
 
 DEFUN (babel_ipv6_distribute_list,
        babel_ipv6_distribute_list_cmd,
-       "ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        "IPv6\n"
        "Filter networks in routing updates\n"
        "Specify a prefix\n"
@@ -779,7 +779,7 @@ DEFUN (babel_ipv6_distribute_list,
 
 DEFUN (babel_no_ipv6_distribute_list,
        babel_no_ipv6_distribute_list_cmd,
-       "no ipv6 distribute-list [prefix] WORD <in|out> [WORD]",
+       "no ipv6 distribute-list [prefix] ACCESSLIST6_NAME <in|out> [WORD]",
        NO_STR
        "IPv6\n"
        "Filter networks in routing updates\n"

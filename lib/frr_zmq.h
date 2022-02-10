@@ -49,9 +49,12 @@ struct cb_core {
 			unsigned partnum);
 	void (*cb_error)(void *arg, void *zmqsock);
 };
+
 struct frrzmq_cb {
 	void *zmqsock;
 	int fd;
+
+	bool in_cb; /* This context is in a read or write callback. */
 
 	struct cb_core read;
 	struct cb_core write;

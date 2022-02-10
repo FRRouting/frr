@@ -49,6 +49,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
@@ -306,6 +307,7 @@ static void *updgrp_hash_alloc(void *p)
  *       14. encoding both global and link-local nexthop?
  *       15. If peer is configured to be a lonesoul, peer ip address
  *       16. Local-as should match, if configured.
+ *       17. maximum-prefix-out
  *      )
  */
 static unsigned int updgrp_hash_key_make(const void *p)
@@ -340,6 +342,7 @@ static unsigned int updgrp_hash_key_make(const void *p)
 	key = jhash_1word(peer->v_routeadv, key);
 	key = jhash_1word(peer->change_local_as, key);
 	key = jhash_1word(peer->max_packet_size, key);
+	key = jhash_1word(peer->pmax_out[afi][safi], key);
 
 	if (peer->group)
 		key = jhash_1word(jhash(peer->group->name,
@@ -451,6 +454,9 @@ static bool updgrp_hash_cmp(const void *p1, const void *p2)
 
 	/* If there is 'local-as' configured, it should match. */
 	if (pe1->change_local_as != pe2->change_local_as)
+		return false;
+
+	if (pe1->pmax_out[afi][safi] != pe2->pmax_out[afi][safi])
 		return false;
 
 	/* flags like route reflector client */
@@ -1920,9 +1926,17 @@ int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)
 }
 
 /* Return true if we should addpath encode NLRI to this peer */
-int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
+bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV)
 		&& CHECK_FLAG(peer->af_cap[afi][safi],
 			      PEER_CAP_ADDPATH_AF_RX_RCV));
+}
+
+bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
+			bool addpath_capable, afi_t afi, safi_t safi)
+{
+	return (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED) ||
+		(addpath_capable &&
+		 bgp_addpath_tx_path(peer->addpath_type[afi][safi], bpi)));
 }

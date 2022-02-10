@@ -37,11 +37,12 @@
 #include "zebra/zebra_pbr.h"
 #include "printfrr.h"
 
-/* Memory type for context blocks */
+/* Memory types */
 DEFINE_MTYPE_STATIC(ZEBRA, DP_CTX, "Zebra DPlane Ctx");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_INTF, "Zebra DPlane Intf");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_PROV, "Zebra DPlane Provider");
 DEFINE_MTYPE_STATIC(ZEBRA, DP_NETFILTER, "Zebra Netfilter Internal Object");
+DEFINE_MTYPE_STATIC(ZEBRA, DP_NS, "DPlane NSes");
 
 #ifndef AOK
 #  define AOK 0
@@ -260,6 +261,13 @@ struct dplane_ctx_rule {
 	struct prefix src_ip;
 	struct prefix dst_ip;
 	uint8_t ip_proto;
+
+	uint8_t action_pcp;
+	uint16_t action_vlan_id;
+	uint16_t action_vlan_flags;
+
+	uint32_t action_queue_id;
+
 	char ifname[INTERFACE_NAMSIZ + 1];
 };
 
@@ -324,7 +332,7 @@ struct zebra_dplane_ctx {
 	/* Support info for different kinds of updates */
 	union {
 		struct dplane_route_info rinfo;
-		zebra_lsp_t lsp;
+		struct zebra_lsp lsp;
 		struct dplane_pw_info pw;
 		struct dplane_br_port_info br_port;
 		struct dplane_intf_info intf;
@@ -333,7 +341,7 @@ struct zebra_dplane_ctx {
 		struct dplane_rule_info rule;
 		struct zebra_pbr_iptable iptable;
 		struct zebra_pbr_ipset ipset;
-		union {
+		struct {
 			struct zebra_pbr_ipset_entry entry;
 			struct zebra_pbr_ipset_info info;
 		} ipset_entry;
@@ -402,6 +410,19 @@ struct zebra_dplane_provider {
 	TAILQ_ENTRY(zebra_dplane_provider) dp_prov_link;
 };
 
+/* Declare types for list of zns info objects */
+PREDECL_DLIST(zns_info_list);
+
+struct dplane_zns_info {
+	struct zebra_dplane_info info;
+
+	/* Read event */
+	struct thread *t_read;
+
+	/* List linkage */
+	struct zns_info_list_item link;
+};
+
 /*
  * Globals
  */
@@ -423,6 +444,9 @@ static struct zebra_dplane_globals {
 
 	/* Ordered list of providers */
 	TAILQ_HEAD(zdg_prov_q, zebra_dplane_provider) dg_providers_q;
+
+	/* List of info about each zns */
+	struct zns_info_list_head dg_zns_list;
 
 	/* Counter used to assign internal ids to providers */
 	uint32_t dg_provider_id;
@@ -498,6 +522,9 @@ static struct zebra_dplane_globals {
 
 } zdplane_info;
 
+/* Instantiate zns list type */
+DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
+
 /*
  * Lock and unlock for interactions with the zebra 'core' pthread
  */
@@ -515,7 +542,7 @@ static struct zebra_dplane_globals {
 static int dplane_thread_loop(struct thread *event);
 static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 				 struct zebra_ns *zns);
-static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
+static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op);
 static enum zebra_dplane_result pw_update_internal(struct zebra_pw *pw,
 						   enum dplane_op_e op);
@@ -641,7 +668,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_LSP_DELETE:
 	case DPLANE_OP_LSP_NOTIFY:
 	{
-		zebra_nhlfe_t *nhlfe;
+		struct zebra_nhlfe *nhlfe;
 
 		/* Unlink and free allocated NHLFEs */
 		frr_each_safe(nhlfe_list, &ctx->u.lsp.nhlfe_list, nhlfe) {
@@ -690,10 +717,12 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 
 	case DPLANE_OP_ADDR_INSTALL:
 	case DPLANE_OP_ADDR_UNINSTALL:
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		/* Maybe free label string, if allocated */
 		if (ctx->u.intf.label != NULL &&
 		    ctx->u.intf.label != ctx->u.intf.label_buf) {
-			free(ctx->u.intf.label);
+			XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
 			ctx->u.intf.label = NULL;
 		}
 		break;
@@ -802,6 +831,13 @@ void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
 		/* And clear 'from' list */
 		TAILQ_INIT(from_list);
 	}
+}
+
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q)
+{
+	struct zebra_dplane_ctx *ctx = TAILQ_FIRST(q);
+
+	return ctx;
 }
 
 /* Dequeue a context block from the head of a list */
@@ -1011,6 +1047,12 @@ const char *dplane_op2str(enum dplane_op_e op)
 	case DPLANE_OP_GRE_SET:
 		ret = "GRE_SET";
 		break;
+
+	case DPLANE_OP_INTF_ADDR_ADD:
+		return "INTF_ADDR_ADD";
+
+	case DPLANE_OP_INTF_ADDR_DEL:
+		return "INTF_ADDR_DEL";
 	}
 
 	return ret;
@@ -1108,6 +1150,21 @@ vrf_id_t dplane_ctx_get_vrf(const struct zebra_dplane_ctx *ctx)
 	return ctx->zd_vrf_id;
 }
 
+/* In some paths we have only a namespace id */
+void dplane_ctx_set_ns_id(struct zebra_dplane_ctx *ctx, ns_id_t nsid)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_ns_info.ns_id = nsid;
+}
+
+ns_id_t dplane_ctx_get_ns_id(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	return ctx->zd_ns_info.ns_id;
+}
+
 bool dplane_ctx_is_from_notif(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1152,6 +1209,13 @@ ifindex_t dplane_ctx_get_ifindex(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->zd_ifindex;
+}
+
+void dplane_ctx_set_ifindex(struct zebra_dplane_ctx *ctx, ifindex_t ifindex)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->zd_ifindex = ifindex;
 }
 
 void dplane_ctx_set_type(struct zebra_dplane_ctx *ctx, int type)
@@ -1401,6 +1465,17 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	return &(ctx->zd_ns_info);
 }
 
+int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+#ifdef HAVE_NETLINK
+	return ctx->zd_ns_info.sock;
+#else
+	return -1;
+#endif
+}
+
 /* Accessors for nexthop information */
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 {
@@ -1512,15 +1587,14 @@ const struct nhlfe_list_head *dplane_ctx_get_backup_nhlfe_list(
 	return &(ctx->u.lsp.backup_nhlfe_list);
 }
 
-zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
-				    enum lsp_types_t lsp_type,
-				    enum nexthop_types_t nh_type,
-				    const union g_addr *gate,
-				    ifindex_t ifindex,
-				    uint8_t num_labels,
-				    mpls_label_t *out_labels)
+struct zebra_nhlfe *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
+					 enum lsp_types_t lsp_type,
+					 enum nexthop_types_t nh_type,
+					 const union g_addr *gate,
+					 ifindex_t ifindex, uint8_t num_labels,
+					 mpls_label_t *out_labels)
 {
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	DPLANE_CTX_VALID(ctx);
 
@@ -1531,15 +1605,12 @@ zebra_nhlfe_t *dplane_ctx_add_nhlfe(struct zebra_dplane_ctx *ctx,
 	return nhlfe;
 }
 
-zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
-					   enum lsp_types_t lsp_type,
-					   enum nexthop_types_t nh_type,
-					   const union g_addr *gate,
-					   ifindex_t ifindex,
-					   uint8_t num_labels,
-					   mpls_label_t *out_labels)
+struct zebra_nhlfe *dplane_ctx_add_backup_nhlfe(
+	struct zebra_dplane_ctx *ctx, enum lsp_types_t lsp_type,
+	enum nexthop_types_t nh_type, const union g_addr *gate,
+	ifindex_t ifindex, uint8_t num_labels, mpls_label_t *out_labels)
 {
-	zebra_nhlfe_t *nhlfe;
+	struct zebra_nhlfe *nhlfe;
 
 	DPLANE_CTX_VALID(ctx);
 
@@ -1551,7 +1622,7 @@ zebra_nhlfe_t *dplane_ctx_add_backup_nhlfe(struct zebra_dplane_ctx *ctx,
 	return nhlfe;
 }
 
-const zebra_nhlfe_t *
+const struct zebra_nhlfe *
 dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
@@ -1559,9 +1630,9 @@ dplane_ctx_get_best_nhlfe(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.lsp.best_nhlfe;
 }
 
-const zebra_nhlfe_t *
+const struct zebra_nhlfe *
 dplane_ctx_set_best_nhlfe(struct zebra_dplane_ctx *ctx,
-			  zebra_nhlfe_t *nhlfe)
+			  struct zebra_nhlfe *nhlfe)
 {
 	DPLANE_CTX_VALID(ctx);
 
@@ -1673,6 +1744,13 @@ uint32_t dplane_ctx_get_intf_metric(const struct zebra_dplane_ctx *ctx)
 	return ctx->u.intf.metric;
 }
 
+void dplane_ctx_set_intf_metric(struct zebra_dplane_ctx *ctx, uint32_t metric)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.metric = metric;
+}
+
 /* Is interface addr p2p? */
 bool dplane_ctx_intf_is_connected(const struct zebra_dplane_ctx *ctx)
 {
@@ -1695,12 +1773,41 @@ bool dplane_ctx_intf_is_broadcast(const struct zebra_dplane_ctx *ctx)
 	return (ctx->u.intf.flags & DPLANE_INTF_BROADCAST);
 }
 
+void dplane_ctx_intf_set_connected(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_CONNECTED;
+}
+
+void dplane_ctx_intf_set_secondary(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_SECONDARY;
+}
+
+void dplane_ctx_intf_set_broadcast(struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	ctx->u.intf.flags |= DPLANE_INTF_BROADCAST;
+}
+
 const struct prefix *dplane_ctx_get_intf_addr(
 	const struct zebra_dplane_ctx *ctx)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	return &(ctx->u.intf.prefix);
+}
+
+void dplane_ctx_set_intf_addr(struct zebra_dplane_ctx *ctx,
+			      const struct prefix *p)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	prefix_copy(&(ctx->u.intf.prefix), p);
 }
 
 bool dplane_ctx_intf_has_dest(const struct zebra_dplane_ctx *ctx)
@@ -1715,10 +1822,15 @@ const struct prefix *dplane_ctx_get_intf_dest(
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (ctx->u.intf.flags & DPLANE_INTF_HAS_DEST)
-		return &(ctx->u.intf.dest_prefix);
-	else
-		return NULL;
+	return &(ctx->u.intf.dest_prefix);
+}
+
+void dplane_ctx_set_intf_dest(struct zebra_dplane_ctx *ctx,
+			      const struct prefix *p)
+{
+	DPLANE_CTX_VALID(ctx);
+
+	prefix_copy(&(ctx->u.intf.dest_prefix), p);
 }
 
 bool dplane_ctx_intf_has_label(const struct zebra_dplane_ctx *ctx)
@@ -1733,6 +1845,35 @@ const char *dplane_ctx_get_intf_label(const struct zebra_dplane_ctx *ctx)
 	DPLANE_CTX_VALID(ctx);
 
 	return ctx->u.intf.label;
+}
+
+void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label)
+{
+	size_t len;
+
+	DPLANE_CTX_VALID(ctx);
+
+	if (ctx->u.intf.label && ctx->u.intf.label != ctx->u.intf.label_buf)
+		XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
+
+	ctx->u.intf.label = NULL;
+
+	if (label) {
+		ctx->u.intf.flags |= DPLANE_INTF_HAS_LABEL;
+
+		/* Use embedded buffer if it's adequate; else allocate. */
+		len = strlen(label);
+
+		if (len < sizeof(ctx->u.intf.label_buf)) {
+			strlcpy(ctx->u.intf.label_buf, label,
+				sizeof(ctx->u.intf.label_buf));
+			ctx->u.intf.label = ctx->u.intf.label_buf;
+		} else {
+			ctx->u.intf.label = XSTRDUP(MTYPE_DP_CTX, label);
+		}
+	} else {
+		ctx->u.intf.flags &= ~DPLANE_INTF_HAS_LABEL;
+	}
 }
 
 /* Accessors for MAC information */
@@ -2022,43 +2163,40 @@ dplane_ctx_get_br_port_backup_nhg_id(const struct zebra_dplane_ctx *ctx)
 }
 
 /* Accessors for PBR iptable information */
-bool
-dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
-			   struct zebra_pbr_iptable *table)
+void dplane_ctx_get_pbr_iptable(const struct zebra_dplane_ctx *ctx,
+				struct zebra_pbr_iptable *table)
 {
 	DPLANE_CTX_VALID(ctx);
 
 	memcpy(table, &ctx->u.iptable, sizeof(struct zebra_pbr_iptable));
-	return true;
 }
 
-bool dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
+void dplane_ctx_get_pbr_ipset(const struct zebra_dplane_ctx *ctx,
 			      struct zebra_pbr_ipset *ipset)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (!ipset)
-		return false;
+	assert(ipset);
+
 	if (ctx->zd_op == DPLANE_OP_IPSET_ENTRY_ADD ||
 	    ctx->zd_op == DPLANE_OP_IPSET_ENTRY_DELETE) {
 		memset(ipset, 0, sizeof(struct zebra_pbr_ipset));
 		ipset->type = ctx->u.ipset_entry.info.type;
+		ipset->family = ctx->u.ipset_entry.info.family;
 		memcpy(&ipset->ipset_name, &ctx->u.ipset_entry.info.ipset_name,
 		       ZEBRA_IPSET_NAME_SIZE);
 	} else
 		memcpy(ipset, &ctx->u.ipset, sizeof(struct zebra_pbr_ipset));
-	return true;
 }
 
-bool dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
+void dplane_ctx_get_pbr_ipset_entry(const struct zebra_dplane_ctx *ctx,
 				    struct zebra_pbr_ipset_entry *entry)
 {
 	DPLANE_CTX_VALID(ctx);
 
-	if (!entry)
-		return false;
+	assert(entry);
+
 	memcpy(entry, &ctx->u.ipset_entry.entry, sizeof(struct zebra_pbr_ipset_entry));
-	return true;
 }
 
 /*
@@ -2176,14 +2314,16 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 {
 	dplane_info_from_zns(&(ctx->zd_ns_info), zns);
 
+	ctx->zd_is_update = is_update;
+
 #if defined(HAVE_NETLINK)
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
 	 */
 	if (is_update)
-		zns->netlink_dplane.seq += 2;
+		zns->netlink_dplane_out.seq += 2;
 	else
-		zns->netlink_dplane.seq++;
+		zns->netlink_dplane_out.seq++;
 #endif	/* HAVE_NETLINK */
 
 	return AOK;
@@ -2202,7 +2342,7 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	struct zebra_ns *zns;
 	struct zebra_vrf *zvrf;
 	struct nexthop *nexthop;
-	zebra_l3vni_t *zl3vni;
+	struct zebra_l3vni *zl3vni;
 	const struct interface *ifp;
 	struct dplane_intf_extra *if_extra;
 
@@ -2328,6 +2468,8 @@ int dplane_ctx_route_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			ret = ENOENT;
 			goto done;
 		}
+
+		re->nhe_installed_id = nhe->id;
 	}
 #endif /* HAVE_NETLINK */
 
@@ -2392,7 +2534,6 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	 * it probably won't require two messages
 	 */
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
-	ctx->zd_is_update = (op == DPLANE_OP_NH_UPDATE);
 
 	ret = AOK;
 
@@ -2404,10 +2545,10 @@ done:
  * Capture information for an LSP update in a dplane context.
  */
 int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
-			zebra_lsp_t *lsp)
+			struct zebra_lsp *lsp)
 {
 	int ret = AOK;
-	zebra_nhlfe_t *nhlfe, *new_nhlfe;
+	struct zebra_nhlfe *nhlfe, *new_nhlfe;
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
@@ -2415,7 +2556,6 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	/* Capture namespace info */
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
 			   (op == DPLANE_OP_LSP_UPDATE));
-	ctx->zd_is_update = (op == DPLANE_OP_LSP_UPDATE);
 
 	memset(&ctx->u.lsp, 0, sizeof(ctx->u.lsp));
 
@@ -2654,6 +2794,12 @@ static void dplane_ctx_rule_init_single(struct dplane_ctx_rule *dplane_rule,
 	dplane_rule->ip_proto = rule->rule.filter.ip_proto;
 	prefix_copy(&(dplane_rule->dst_ip), &rule->rule.filter.dst_ip);
 	prefix_copy(&(dplane_rule->src_ip), &rule->rule.filter.src_ip);
+
+	dplane_rule->action_pcp = rule->rule.action.pcp;
+	dplane_rule->action_vlan_flags = rule->rule.action.vlan_flags;
+	dplane_rule->action_vlan_id = rule->rule.action.vlan_id;
+	dplane_rule->action_queue_id = rule->rule.action.queue_id;
+
 	strlcpy(dplane_rule->ifname, rule->ifname, INTERFACE_NAMSIZ);
 }
 
@@ -2685,7 +2831,6 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
 			   op == DPLANE_OP_RULE_UPDATE);
-	ctx->zd_is_update = (op == DPLANE_OP_RULE_UPDATE);
 
 	ctx->zd_vrf_id = new_rule->vrf_id;
 	strlcpy(ctx->zd_ifname, new_rule->ifname, sizeof(ctx->zd_ifname));
@@ -2731,7 +2876,6 @@ static int dplane_ctx_iptable_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = iptable->vrf_id;
 	memcpy(&ctx->u.iptable, iptable, sizeof(struct zebra_pbr_iptable));
@@ -2771,7 +2915,6 @@ static int dplane_ctx_ipset_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = ipset->vrf_id;
 
@@ -2806,7 +2949,6 @@ dplane_ctx_ipset_entry_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = ipset->vrf_id;
 
@@ -2814,6 +2956,7 @@ dplane_ctx_ipset_entry_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	       sizeof(struct zebra_pbr_ipset_entry));
 	ctx->u.ipset_entry.entry.backpointer = NULL;
 	ctx->u.ipset_entry.info.type = ipset->type;
+	ctx->u.ipset_entry.info.family = ipset->family;
 	memcpy(&ctx->u.ipset_entry.info.ipset_name, &ipset->ipset_name,
 	       ZEBRA_IPSET_NAME_SIZE);
 
@@ -2886,7 +3029,6 @@ dplane_route_update_internal(struct route_node *rn,
 		 */
 		if ((op == DPLANE_OP_ROUTE_UPDATE) &&
 		    old_re && (old_re != re)) {
-			ctx->zd_is_update = true;
 
 			old_re->dplane_sequence =
 				zebra_router_get_next_sequence();
@@ -3227,7 +3369,7 @@ enum zebra_dplane_result dplane_nexthop_delete(struct nhg_hash_entry *nhe)
 /*
  * Enqueue LSP add for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_add(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_INSTALL);
@@ -3238,7 +3380,7 @@ enum zebra_dplane_result dplane_lsp_add(zebra_lsp_t *lsp)
 /*
  * Enqueue LSP update for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_update(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_UPDATE);
@@ -3249,7 +3391,7 @@ enum zebra_dplane_result dplane_lsp_update(zebra_lsp_t *lsp)
 /*
  * Enqueue LSP delete for the dataplane.
  */
-enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
+enum zebra_dplane_result dplane_lsp_delete(struct zebra_lsp *lsp)
 {
 	enum zebra_dplane_result ret =
 		lsp_update_internal(lsp, DPLANE_OP_LSP_DELETE);
@@ -3259,15 +3401,14 @@ enum zebra_dplane_result dplane_lsp_delete(zebra_lsp_t *lsp)
 
 /* Update or un-install resulting from an async notification */
 enum zebra_dplane_result
-dplane_lsp_notif_update(zebra_lsp_t *lsp,
-			enum dplane_op_e op,
+dplane_lsp_notif_update(struct zebra_lsp *lsp, enum dplane_op_e op,
 			struct zebra_dplane_ctx *notif_ctx)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
 	int ret = EINVAL;
 	struct zebra_dplane_ctx *ctx = NULL;
 	struct nhlfe_list_head *head;
-	zebra_nhlfe_t *nhlfe, *new_nhlfe;
+	struct zebra_nhlfe *nhlfe, *new_nhlfe;
 
 	/* Obtain context block */
 	ctx = dplane_ctx_alloc();
@@ -3339,7 +3480,7 @@ enum zebra_dplane_result dplane_pw_uninstall(struct zebra_pw *pw)
 /*
  * Common internal LSP update utility
  */
-static enum zebra_dplane_result lsp_update_internal(zebra_lsp_t *lsp,
+static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
 						    enum dplane_op_e op)
 {
 	enum zebra_dplane_result result = ZEBRA_DPLANE_REQUEST_FAILURE;
@@ -3443,9 +3584,9 @@ dplane_br_port_update(const struct interface *ifp, bool non_df,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	ctx->zd_ifindex = ifp->ifindex;
@@ -3520,16 +3661,16 @@ static enum zebra_dplane_result intf_addr_update_internal(
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
 		zlog_debug("init intf ctx %s: idx %d, addr %u:%pFX",
-			   dplane_op2str(op), ifp->ifindex, ifp->vrf_id,
+			   dplane_op2str(op), ifp->ifindex, ifp->vrf->vrf_id,
 			   ifc->address);
 
 	ctx = dplane_ctx_alloc();
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	/* Init the interface-addr-specific area */
@@ -3564,7 +3705,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 				sizeof(ctx->u.intf.label_buf));
 			ctx->u.intf.label = ctx->u.intf.label_buf;
 		} else {
-			ctx->u.intf.label = strdup(ifc->label);
+			ctx->u.intf.label = XSTRDUP(MTYPE_DP_CTX, ifc->label);
 		}
 	}
 
@@ -3727,9 +3868,9 @@ void dplane_mac_init(struct zebra_dplane_ctx *ctx,
 	struct zebra_ns *zns;
 
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
@@ -3952,9 +4093,9 @@ enum zebra_dplane_result dplane_neigh_table_update(const struct interface *ifp,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
@@ -4026,10 +4167,10 @@ neigh_update_internal(enum dplane_op_e op, const struct interface *ifp,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 	dplane_ctx_set_type(ctx, protocol);
 
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	strlcpy(ctx->zd_ifname, ifp->name, sizeof(ctx->zd_ifname));
@@ -4277,13 +4418,13 @@ dplane_gre_set(struct interface *ifp, struct interface *ifp_link,
 
 	ctx->zd_op = op;
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
-	zns = zebra_ns_lookup(ifp->vrf_id);
+	zns = zebra_ns_lookup(ifp->vrf->vrf_id);
 	if (!zns)
 		return result;
 	dplane_ctx_ns_init(ctx, zns, false);
 
 	dplane_ctx_set_ifname(ctx, ifp->name);
-	ctx->zd_vrf_id = ifp->vrf_id;
+	ctx->zd_vrf_id = ifp->vrf->vrf_id;
 	ctx->zd_ifindex = ifp->ifindex;
 	if (ifp_link)
 		ctx->u.gre.link_ifindex = ifp_link->ifindex;
@@ -4714,8 +4855,90 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
-	ns_info->nls = zns->netlink_dplane;
+	ns_info->sock = zns->netlink_dplane_out.sock;
 #endif /* NETLINK */
+}
+
+#ifdef HAVE_NETLINK
+/*
+ * Callback when an OS (netlink) incoming event read is ready. This runs
+ * in the dplane pthread.
+ */
+static int dplane_incoming_read(struct thread *event)
+{
+	struct dplane_zns_info *zi = THREAD_ARG(event);
+
+	kernel_dplane_read(&zi->info);
+
+	/* Re-start read task */
+	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
+			zi->info.sock, &zi->t_read);
+
+	return 0;
+}
+#endif /* HAVE_NETLINK */
+
+/*
+ * Notify dplane when namespaces are enabled and disabled. The dplane
+ * needs to start and stop reading incoming events from the zns. In the
+ * common case where vrfs are _not_ namespaces, there will only be one
+ * of these.
+ *
+ * This is called in the main pthread.
+ */
+void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
+{
+	struct dplane_zns_info *zi;
+
+	if (IS_ZEBRA_DEBUG_DPLANE)
+		zlog_debug("%s: %s for nsid %u", __func__,
+			   (enabled ? "ENABLED" : "DISABLED"), zns->ns_id);
+
+	/* Search for an existing zns info entry */
+	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+		if (zi->info.ns_id == zns->ns_id)
+			break;
+	}
+
+	if (enabled) {
+		/* Create a new entry if necessary; start reading. */
+		if (zi == NULL) {
+			zi = XCALLOC(MTYPE_DP_NS, sizeof(*zi));
+
+			zi->info.ns_id = zns->ns_id;
+
+			zns_info_list_add_tail(&zdplane_info.dg_zns_list, zi);
+
+			if (IS_ZEBRA_DEBUG_DPLANE)
+				zlog_debug("%s: nsid %u, new zi %p", __func__,
+					   zns->ns_id, zi);
+		}
+
+		/* Make sure we're up-to-date with the zns object */
+#if defined(HAVE_NETLINK)
+		zi->info.is_cmd = false;
+		zi->info.sock = zns->netlink_dplane_in.sock;
+
+		/* Start read task for the dplane pthread. */
+		if (zdplane_info.dg_master)
+			thread_add_read(zdplane_info.dg_master,
+					dplane_incoming_read, zi, zi->info.sock,
+					&zi->t_read);
+#endif
+	} else if (zi) {
+		if (IS_ZEBRA_DEBUG_DPLANE)
+			zlog_debug("%s: nsid %u, deleting zi %p", __func__,
+				   zns->ns_id, zi);
+
+		/* Stop reading, free memory */
+		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+
+		if (zdplane_info.dg_master)
+			thread_cancel_async(zdplane_info.dg_master, &zi->t_read,
+					    NULL);
+
+		XFREE(MTYPE_DP_NS, zi);
+	}
 }
 
 /*
@@ -4848,29 +5071,30 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_IPTABLE_DELETE: {
 		struct zebra_pbr_iptable ipt;
 
-		if (dplane_ctx_get_pbr_iptable(ctx, &ipt))
-			zlog_debug("Dplane iptable update op %s, unique(%u), ctx %p",
-				   dplane_op2str(dplane_ctx_get_op(ctx)), ipt.unique, ctx);
+		dplane_ctx_get_pbr_iptable(ctx, &ipt);
+		zlog_debug("Dplane iptable update op %s, unique(%u), ctx %p",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ipt.unique,
+			   ctx);
 	} break;
 	case DPLANE_OP_IPSET_ADD:
 	case DPLANE_OP_IPSET_DELETE: {
 		struct zebra_pbr_ipset ipset;
 
-		if (dplane_ctx_get_pbr_ipset(ctx, &ipset))
-			zlog_debug("Dplane ipset update op %s, unique(%u), ctx %p",
-				   dplane_op2str(dplane_ctx_get_op(ctx)),
-				   ipset.unique, ctx);
+		dplane_ctx_get_pbr_ipset(ctx, &ipset);
+		zlog_debug("Dplane ipset update op %s, unique(%u), ctx %p",
+			   dplane_op2str(dplane_ctx_get_op(ctx)), ipset.unique,
+			   ctx);
 	} break;
 	case DPLANE_OP_IPSET_ENTRY_ADD:
 	case DPLANE_OP_IPSET_ENTRY_DELETE: {
 		struct zebra_pbr_ipset_entry ipent;
 
-		if (dplane_ctx_get_pbr_ipset_entry(ctx, &ipent))
-			zlog_debug("Dplane ipset entry update op %s, unique(%u), ctx %p",
-				   dplane_op2str(dplane_ctx_get_op(ctx)),
-				   ipent.unique, ctx);
+		dplane_ctx_get_pbr_ipset_entry(ctx, &ipent);
+		zlog_debug(
+			"Dplane ipset entry update op %s, unique(%u), ctx %p",
+			dplane_op2str(dplane_ctx_get_op(ctx)), ipent.unique,
+			ctx);
 	} break;
-
 	case DPLANE_OP_NEIGH_TABLE_UPDATE:
 		zlog_debug("Dplane neigh table op %s, ifp %s, family %s",
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
@@ -4882,6 +5106,14 @@ static void kernel_dplane_log_detail(struct zebra_dplane_ctx *ctx)
 			   dplane_op2str(dplane_ctx_get_op(ctx)),
 			   dplane_ctx_get_ifname(ctx),
 			   ctx->u.gre.link_ifindex);
+		break;
+
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
+		zlog_debug("Dplane incoming op %s, intf %s, addr %pFX",
+			   dplane_op2str(dplane_ctx_get_op(ctx)),
+			   dplane_ctx_get_ifname(ctx),
+			   dplane_ctx_get_intf_addr(ctx));
 		break;
 	}
 }
@@ -5023,6 +5255,11 @@ static void kernel_dplane_handle_result(struct zebra_dplane_ctx *ctx)
 	case DPLANE_OP_ROUTE_NOTIFY:
 	case DPLANE_OP_LSP_NOTIFY:
 	case DPLANE_OP_BR_PORT_UPDATE:
+		break;
+
+	/* TODO -- error counters for incoming events? */
+	case DPLANE_OP_INTF_ADDR_ADD:
+	case DPLANE_OP_INTF_ADDR_DEL:
 		break;
 
 	case DPLANE_OP_NONE:
@@ -5360,8 +5597,20 @@ done:
  */
 static int dplane_check_shutdown_status(struct thread *event)
 {
+	struct dplane_zns_info *zi;
+
 	if (IS_ZEBRA_DEBUG_DPLANE)
 		zlog_debug("Zebra dataplane shutdown status check called");
+
+	/* Remove any zns info entries as we stop the dplane pthread. */
+	frr_each_safe (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+		zns_info_list_del(&zdplane_info.dg_zns_list, zi);
+
+		if (zdplane_info.dg_master)
+			thread_cancel(&zi->t_read);
+
+		XFREE(MTYPE_DP_NS, zi);
+	}
 
 	if (dplane_work_pending()) {
 		/* Reschedule dplane check on a short timer */
@@ -5657,6 +5906,7 @@ static void zebra_dplane_init_internal(void)
 
 	TAILQ_INIT(&zdplane_info.dg_update_ctx_q);
 	TAILQ_INIT(&zdplane_info.dg_providers_q);
+	zns_info_list_init(&zdplane_info.dg_zns_list);
 
 	zdplane_info.dg_updates_per_cycle = DPLANE_DEFAULT_NEW_WORK;
 
@@ -5672,6 +5922,7 @@ static void zebra_dplane_init_internal(void)
  */
 void zebra_dplane_start(void)
 {
+	struct dplane_zns_info *zi;
 	struct zebra_dplane_provider *prov;
 	struct frr_pthread_attr pattr = {
 		.start = frr_pthread_attr_default.start,
@@ -5690,6 +5941,14 @@ void zebra_dplane_start(void)
 	/* Enqueue an initial event for the dataplane pthread */
 	thread_add_event(zdplane_info.dg_master, dplane_thread_loop, NULL, 0,
 			 &zdplane_info.dg_t_update);
+
+	/* Enqueue reads if necessary */
+	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
+#if defined(HAVE_NETLINK)
+		thread_add_read(zdplane_info.dg_master, dplane_incoming_read,
+				zi, zi->info.sock, &zi->t_read);
+#endif
+	}
 
 	/* Call start callbacks for registered providers */
 

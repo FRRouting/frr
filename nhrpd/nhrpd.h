@@ -10,8 +10,6 @@
 #ifndef NHRPD_H
 #define NHRPD_H
 
-#include "list.h"
-
 #include "zbuf.h"
 #include "zclient.h"
 #include "debug.h"
@@ -42,48 +40,53 @@ struct notifier_block;
 
 typedef void (*notifier_fn_t)(struct notifier_block *, unsigned long);
 
+PREDECL_DLIST(notifier_list);
+
 struct notifier_block {
-	struct list_head notifier_entry;
+	struct notifier_list_item notifier_entry;
 	notifier_fn_t action;
 };
 
+DECLARE_DLIST(notifier_list, struct notifier_block, notifier_entry);
+
 struct notifier_list {
-	struct list_head notifier_head;
+	struct notifier_list_head head;
 };
 
 #define NOTIFIER_LIST_INITIALIZER(l)                                           \
 	{                                                                      \
-		.notifier_head = LIST_INITIALIZER((l)->notifier_head)          \
+		.head = INIT_DLIST((l)->head)                                  \
 	}
 
 static inline void notifier_init(struct notifier_list *l)
 {
-	list_init(&l->notifier_head);
+	notifier_list_init(&l->head);
 }
 
 static inline void notifier_add(struct notifier_block *n,
 				struct notifier_list *l, notifier_fn_t action)
 {
 	n->action = action;
-	list_add_tail(&n->notifier_entry, &l->notifier_head);
+	notifier_list_add_tail(&l->head, n);
 }
 
-static inline void notifier_del(struct notifier_block *n)
+static inline void notifier_del(struct notifier_block *n,
+				struct notifier_list *l)
 {
-	list_del(&n->notifier_entry);
+	notifier_list_del(&l->head, n);
 }
 
 static inline void notifier_call(struct notifier_list *l, int cmd)
 {
-	struct notifier_block *n, *nn;
-	list_for_each_entry_safe(n, nn, &l->notifier_head, notifier_entry) {
+	struct notifier_block *n;
+
+	frr_each_safe (notifier_list, &l->head, n)
 		n->action(n, cmd);
-	}
 }
 
 static inline int notifier_active(struct notifier_list *l)
 {
-	return !list_empty(&l->notifier_head);
+	return notifier_list_count(&l->head) > 0;
 }
 
 extern struct hash *nhrp_gre_list;
@@ -263,9 +266,13 @@ struct nhrp_shortcut {
 	struct notifier_block cache_notifier;
 };
 
+PREDECL_DLIST(nhrp_nhslist);
+PREDECL_DLIST(nhrp_mcastlist);
+PREDECL_DLIST(nhrp_reglist);
+
 struct nhrp_nhs {
 	struct interface *ifp;
-	struct list_head nhslist_entry;
+	struct nhrp_nhslist_item nhslist_entry;
 
 	unsigned hub : 1;
 	afi_t afi;
@@ -274,18 +281,22 @@ struct nhrp_nhs {
 
 	struct thread *t_resolve;
 	struct resolver_query dns_resolve;
-	struct list_head reglist_head;
+	struct nhrp_reglist_head reglist_head;
 };
+
+DECLARE_DLIST(nhrp_nhslist, struct nhrp_nhs, nhslist_entry);
 
 struct nhrp_multicast {
 	struct interface *ifp;
-	struct list_head list_entry;
+	struct nhrp_mcastlist_item mcastlist_entry;
 	afi_t afi;
 	union sockunion nbma_addr; /* IP-address */
 };
 
+DECLARE_DLIST(nhrp_mcastlist, struct nhrp_multicast, mcastlist_entry);
+
 struct nhrp_registration {
-	struct list_head reglist_entry;
+	struct nhrp_reglist_item reglist_entry;
 	struct thread *t_register;
 	struct nhrp_nhs *nhs;
 	struct nhrp_reqid reqid;
@@ -295,6 +306,8 @@ struct nhrp_registration {
 	struct nhrp_peer *peer;
 	struct notifier_block peer_notifier;
 };
+
+DECLARE_DLIST(nhrp_reglist, struct nhrp_registration, reglist_entry);
 
 #define NHRP_IFF_SHORTCUT		0x0001
 #define NHRP_IFF_REDIRECT		0x0002
@@ -330,8 +343,8 @@ struct nhrp_interface {
 		short configured_mtu;
 		unsigned short mtu;
 		unsigned int holdtime;
-		struct list_head nhslist_head;
-		struct list_head mcastlist_head;
+		struct nhrp_nhslist_head nhslist_head;
+		struct nhrp_mcastlist_head mcastlist_head;
 	} afi[AFI_MAX];
 };
 
@@ -363,8 +376,8 @@ int nhrp_interface_up(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_down(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_add(ZAPI_CALLBACK_ARGS);
 int nhrp_interface_address_delete(ZAPI_CALLBACK_ARGS);
-void nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
-void nhrp_gre_update(ZAPI_CALLBACK_ARGS);
+int nhrp_neighbor_operation(ZAPI_CALLBACK_ARGS);
+int nhrp_gre_update(ZAPI_CALLBACK_ARGS);
 
 void nhrp_interface_notify_add(struct interface *ifp, struct notifier_block *n,
 			       notifier_fn_t fn);
@@ -381,7 +394,7 @@ int nhrp_nhs_add(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
 int nhrp_nhs_del(struct interface *ifp, afi_t afi, union sockunion *proto_addr,
 		 const char *nbma_fqdn);
-int nhrp_nhs_free(struct nhrp_nhs *nhs);
+int nhrp_nhs_free(struct nhrp_interface *nifp, afi_t afi, struct nhrp_nhs *nhs);
 void nhrp_nhs_terminate(void);
 void nhrp_nhs_foreach(struct interface *ifp, afi_t afi,
 		      void (*cb)(struct nhrp_nhs *, struct nhrp_registration *,

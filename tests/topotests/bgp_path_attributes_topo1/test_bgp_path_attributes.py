@@ -52,11 +52,7 @@ Teardown module:
 
 import os
 import sys
-import pdb
-import json
 import time
-import inspect
-from time import sleep
 import pytest
 
 # Save the Current Working Directory to find configuration files.
@@ -65,9 +61,7 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
-from lib import topotest
-from lib.topogen import Topogen, TopoRouter, get_topogen
+from lib.topogen import Topogen, get_topogen
 
 # Required to instantiate the topology builder class.
 from lib.common_config import (
@@ -78,7 +72,6 @@ from lib.common_config import (
     verify_rib,
     create_static_routes,
     create_prefix_lists,
-    verify_prefix_lists,
     create_route_maps,
     check_address_types,
 )
@@ -86,45 +79,19 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp_and_verify,
     verify_best_path_as_per_bgp_attribute,
     verify_best_path_as_per_admin_distance,
-    modify_as_number,
-    verify_as_numbers,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
+
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
 
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_path_attributes.json".format(CWD)
-
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Address read from env variables
 ADDR_TYPES = check_address_types()
 
 ####
-class CreateTopo(Topo):
-    """
-    Test CreateTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
-
-        # Building topology and configuration from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -141,7 +108,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_path_attributes.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -307,7 +277,7 @@ def test_next_hop_attribute(request):
 
 
 def test_aspath_attribute(request):
-    " Verifying AS_PATH attribute functionality"
+    "Verifying AS_PATH attribute functionality"
 
     tgen = get_topogen()
 
@@ -518,7 +488,7 @@ def test_aspath_attribute(request):
 
 
 def test_localpref_attribute(request):
-    " Verifying LOCAL PREFERENCE attribute functionality"
+    "Verifying LOCAL PREFERENCE attribute functionality"
 
     tgen = get_topogen()
 
@@ -1443,7 +1413,7 @@ def test_med_attribute(request):
 
 
 def test_admin_distance(request):
-    " Verifying admin distance functionality"
+    "Verifying admin distance functionality"
 
     tgen = get_topogen()
 

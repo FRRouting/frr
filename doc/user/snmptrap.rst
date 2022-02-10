@@ -155,13 +155,13 @@ a siren, have your display flash, etc., be creative ;).
    error="Cease"
    case "$suberrorcode" in
    01) suberror="Maximum Number of Prefixes Reached" ;;
-   02) suberror="Administratively Shutdown" ;;
-   03) suberror="Peer Unconfigured" ;;
-   04) suberror="Administratively Reset" ;;
+   02) suberror="Administrative Shutdown" ;;
+   03) suberror="Peer De-configured" ;;
+   04) suberror="Administrative Reset" ;;
    05) suberror="Connection Rejected" ;;
    06) suberror="Other Configuration Change" ;;
-   07) suberror="Connection collision resolution" ;;
-   08) suberror="Out of Resource" ;;
+   07) suberror="Connection Collision Resolution" ;;
+   08) suberror="Out of Resources" ;;
    09) suberror="MAX" ;;
    *) suberror="Unknown" ;;
    esac

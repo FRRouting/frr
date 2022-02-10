@@ -120,9 +120,11 @@ int router_id_get(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 
 static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 {
-	struct prefix p2;
+	struct prefix after, before;
 	struct listnode *node;
 	struct zserv *client;
+
+	router_id_get(afi, &before, zvrf);
 
 	switch (afi) {
 	case AFI_IP:
@@ -135,10 +137,17 @@ static int router_id_set(afi_t afi, struct prefix *p, struct zebra_vrf *zvrf)
 		return -1;
 	}
 
-	router_id_get(afi, &p2, zvrf);
+	router_id_get(afi, &after, zvrf);
+
+	/*
+	 * If we've been told that the router-id is exactly the same
+	 * do we need to really do anything here?
+	 */
+	if (prefix_same(&before, &after))
+		return 0;
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
-		zsend_router_id_update(client, afi, &p2, zvrf->vrf->vrf_id);
+		zsend_router_id_update(client, afi, &after, zvrf->vrf->vrf_id);
 
 	return 0;
 }
@@ -150,7 +159,7 @@ void router_id_add_address(struct connected *ifc)
 	struct prefix before;
 	struct prefix after;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
 	struct list *rid_all;
@@ -197,7 +206,7 @@ void router_id_del_address(struct connected *ifc)
 	struct prefix before;
 	struct listnode *node;
 	struct zserv *client;
-	struct zebra_vrf *zvrf = vrf_info_get(ifc->ifp->vrf_id);
+	struct zebra_vrf *zvrf = ifc->ifp->vrf->info;
 	afi_t afi;
 	struct list *rid_lo;
 	struct list *rid_all;
@@ -512,7 +521,7 @@ DEFUN (show_ip_router_id,
 		vrf_name = argv[idx]->arg;
 	}
 
-	zvrf = vrf_info_get(vrf_id);
+	zvrf = vrf_info_lookup(vrf_id);
 
 	if (zvrf != NULL) {
 		if (is_ipv6) {

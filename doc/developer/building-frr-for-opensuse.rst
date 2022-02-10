@@ -14,7 +14,9 @@ Installing Dependencies
      readline-devel texinfo net-snmp-devel groff pkgconfig libjson-c-devel\
      pam-devel python3-pytest bison flex c-ares-devel python3-devel\
      python3-Sphinx perl patch libcap-devel libyang-devel \
-     libelf-devel
+     libelf-devel libunwind-devel
+
+.. include:: building-libunwind-note.rst
 
 Building & Installing FRR
 -------------------------

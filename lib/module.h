@@ -91,7 +91,9 @@ extern struct frrmod_runtime *frrmod_list;
 
 extern void frrmod_init(struct frrmod_runtime *modinfo);
 extern struct frrmod_runtime *frrmod_load(const char *spec, const char *dir,
-					  char *err, size_t err_len);
+					  void (*pFerrlog)(const void *,
+							   const char *),
+					  const void *pErrlogCookie);
 #if 0
 /* not implemented yet */
 extern void frrmod_unload(struct frrmod_runtime *module);

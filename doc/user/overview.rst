@@ -349,6 +349,12 @@ BGP
   :t:`The Resource Public Key Infrastructure (RPKI) to Router Protocol. R. Bush, R. Austein. January 2013.`
 - :rfc:`6811`
   :t:`BGP Prefix Origin Validation. P. Mohapatra, J. Scudder, D. Ward, R. Bush, R. Austein. January 2013.`
+- :rfc:`6938`
+  :t:`Deprecation of BGP Path Attributes: DPA, ADVERTISER, and RCID_PATH / CLUSTER_ID. J. Scudder. May 2013.`
+- :rfc:`7196`
+  :t:`Making Route Flap Damping Usable. C. Pelsser, R. Bush, K. Patel, P. Mohapatra, O. Maennel. May 2014.`
+- :rfc:`7300`
+  :t:`Reservation of Last Autonomous System (AS) Numbers. J. Haas, J. Mitchell. July 2014.`
 - :rfc:`7313`
   :t:`Enhanced Route Refresh Capability for BGP-4. K. Patel, E. Chen, B. Venkatachalapathy. July 2014.`
 - :rfc:`7606`
@@ -371,7 +377,10 @@ BGP
   :t:`Using BGP to Bind MPLS Labels to Address Prefixes. E. Rosen. October 2017`
 - :rfc:`8654`
   :t:`Extended Message Support for BGP. R. Bush, K. Patel, D. Ward.  October 2019`
-
+- :rfc:`9003`
+  :t:`Extended BGP Administrative Shutdown Communication. J. Snijders, J. Heitz, J. Scudder, A. Azimov. January 2021`
+- :rfc:`9072`
+  :t:`Extended Optional Parameters Length for BGP OPEN Message. E. Chen, J. Scudder. July 2021`
 
 OSPF
 ----

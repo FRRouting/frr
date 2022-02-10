@@ -72,12 +72,13 @@ void ospf_external_route_remove(struct ospf *ospf, struct prefix_ipv4 *p)
 }
 
 /* Add an External info for AS-external-LSA. */
-struct external_info *ospf_external_info_new(uint8_t type,
+struct external_info *ospf_external_info_new(struct ospf *ospf, uint8_t type,
 					     unsigned short instance)
 {
 	struct external_info *new;
 
 	new = XCALLOC(MTYPE_OSPF_EXTERNAL_INFO, sizeof(struct external_info));
+	new->ospf = ospf;
 	new->type = type;
 	new->instance = instance;
 	new->to_be_processed = 0;
@@ -138,7 +139,7 @@ ospf_external_info_add(struct ospf *ospf, uint8_t type, unsigned short instance,
 	}
 
 	/* Create new External info instance. */
-	new = ospf_external_info_new(type, instance);
+	new = ospf_external_info_new(ospf, type, instance);
 	new->p = p;
 	new->ifindex = ifindex;
 	new->nexthop = nexthop;
@@ -222,8 +223,15 @@ struct ospf_lsa *ospf_external_info_find_lsa(struct ospf *ospf,
 	id.s_addr = p->prefix.s_addr | (~mask.s_addr);
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA, id,
 				     ospf->router_id);
-	if (lsa)
+	if (lsa) {
+		if (p->prefixlen == IPV4_MAX_BITLEN) {
+			al = (struct as_external_lsa *)lsa->data;
+
+			if (mask.s_addr != al->mask.s_addr)
+				return NULL;
+		}
 		return lsa;
+	}
 
 	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
 				     p->prefix, ospf->router_id);
@@ -419,7 +427,7 @@ static void ospf_aggr_handle_external_info(void *data)
 {
 	struct external_info *ei = (struct external_info *)data;
 	struct ospf_external_aggr_rt *aggr = NULL;
-	struct ospf *ospf = NULL;
+	struct ospf *ospf = ei->ospf;
 	struct ospf_lsa *lsa = NULL;
 
 	ei->aggr_route = NULL;
@@ -429,8 +437,6 @@ static void ospf_aggr_handle_external_info(void *data)
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
 		zlog_debug("%s: Handle extrenal route(%pI4/%d)", __func__,
 			   &ei->p.prefix, ei->p.prefixlen);
-
-	ospf = ospf_lookup_instance(ei->instance);
 
 	assert(ospf);
 
@@ -1109,7 +1115,7 @@ static void ospf_external_aggr_timer(struct ospf *ospf,
 	}
 
 	if (IS_DEBUG_OSPF(lsa, EXTNL_LSA_AGGR))
-		zlog_debug("%s: Start Aggregator delay timer %d(in seconds).",
+		zlog_debug("%s: Start Aggregator delay timer %u(in seconds).",
 			   __func__, ospf->aggr_delay_interval);
 
 	ospf->aggr_action = operation;
@@ -1233,7 +1239,7 @@ int ospf_asbr_external_rt_advertise(struct ospf *ospf, struct prefix_ipv4 *p)
 	return OSPF_SUCCESS;
 }
 
-int ospf_external_aggregator_timer_set(struct ospf *ospf, unsigned int interval)
+int ospf_external_aggregator_timer_set(struct ospf *ospf, uint16_t interval)
 {
 	ospf->aggr_delay_interval = interval;
 	return OSPF_SUCCESS;

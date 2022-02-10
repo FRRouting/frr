@@ -48,6 +48,7 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MGROUP(OSPF6D, "ospf6d");
 
@@ -98,6 +99,7 @@ static int config_write_ospf6_debug(struct vty *vty)
 	config_write_ospf6_debug_flood(vty);
 	config_write_ospf6_debug_nssa(vty);
 	config_write_ospf6_debug_gr_helper(vty);
+	config_write_ospf6_debug_auth(vty);
 
 	return 0;
 }
@@ -292,10 +294,7 @@ static void ospf6_lsdb_show_wrapper(struct vty *vty,
 		json_object_array_add(json_array, json_obj);
 		json_object_object_add(json, "asScopedLinkStateDb", json_array);
 
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else
 		vty_out(vty, "\n");
 }
@@ -386,12 +385,9 @@ static void ospf6_lsdb_type_show_wrapper(struct vty *vty,
 		assert(0);
 		break;
 	}
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	} else
+	if (uj)
+		vty_json(vty, json);
+	else
 		vty_out(vty, "\n");
 }
 
@@ -413,7 +409,6 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 	int idx_vrf = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_level += 2;
@@ -427,6 +422,8 @@ DEFUN(show_ipv6_ospf6_database, show_ipv6_ospf6_database_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -460,7 +457,6 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -478,6 +474,8 @@ DEFUN(show_ipv6_ospf6_database_type, show_ipv6_ospf6_database_type_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -505,7 +503,6 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (argv[idx_ipv4]->type == IPV4_TKN)
 		inet_pton(AF_INET, argv[idx_ipv4]->arg, &id);
@@ -520,6 +517,8 @@ DEFUN(show_ipv6_ospf6_database_id, show_ipv6_ospf6_database_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -548,7 +547,6 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 	int idx_vrf = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ipv4 += 2;
@@ -566,6 +564,8 @@ DEFUN(show_ipv6_ospf6_database_router, show_ipv6_ospf6_database_router_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -619,7 +619,6 @@ DEFUN_HIDDEN(
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
@@ -635,6 +634,8 @@ DEFUN_HIDDEN(
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -672,7 +673,6 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -692,6 +692,8 @@ DEFUN(show_ipv6_ospf6_database_type_id, show_ipv6_ospf6_database_type_id_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -731,7 +733,6 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -752,6 +753,8 @@ DEFUN(show_ipv6_ospf6_database_type_router,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -782,7 +785,6 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ls_id += 2;
@@ -802,6 +804,8 @@ DEFUN(show_ipv6_ospf6_database_id_router,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -833,8 +837,6 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_adv_rtr += 2;
@@ -847,13 +849,14 @@ DEFUN(show_ipv6_ospf6_database_adv_router_linkstate_id,
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
-			ospf6_lsdb_type_show_wrapper(vty, level, NULL, &id,
-						     &adv_router, uj, ospf6);
-
+			ospf6_lsdb_show_wrapper(vty, level, NULL, &id,
+						&adv_router, uj, ospf6);
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -893,7 +896,6 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -916,6 +918,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_router,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -962,7 +966,6 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -985,6 +988,8 @@ DEFUN (show_ipv6_ospf6_database_type_adv_router_linkstate_id,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1010,7 +1015,6 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 	uint32_t adv_router = 0;
 	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_level += 2;
@@ -1027,6 +1031,8 @@ DEFUN(show_ipv6_ospf6_database_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1065,7 +1071,6 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1085,6 +1090,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1125,7 +1132,6 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1148,6 +1154,8 @@ DEFUN(show_ipv6_ospf6_database_type_self_originated_linkstate_id,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1187,7 +1195,6 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_lsa += 2;
@@ -1209,6 +1216,8 @@ DEFUN(show_ipv6_ospf6_database_type_id_self_originated,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1270,7 +1279,6 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 	int idx_vrf = 0;
 	int idx_argc = 5;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_argc += 2;
@@ -1286,6 +1294,8 @@ DEFUN(show_ipv6_ospf6_border_routers, show_ipv6_ospf6_border_routers_cmd,
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1310,7 +1320,6 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_ipv4 += 2;
@@ -1331,6 +1340,8 @@ DEFUN(show_ipv6_ospf6_linkstate, show_ipv6_ospf6_linkstate_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1350,8 +1361,6 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_detail += 2;
@@ -1373,21 +1382,9 @@ DEFUN(show_ipv6_ospf6_linkstate_detail, show_ipv6_ospf6_linkstate_detail_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(false, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
-}
-
-static void ospf6_plist_add(struct prefix_list *plist)
-{
-	if (prefix_list_afi(plist) != AFI_IP6)
-		return;
-	ospf6_area_plist_update(plist, 1);
-}
-
-static void ospf6_plist_del(struct prefix_list *plist)
-{
-	if (prefix_list_afi(plist) != AFI_IP6)
-		return;
-	ospf6_area_plist_update(plist, 0);
 }
 
 /* Install ospf related commands. */
@@ -1404,11 +1401,12 @@ void ospf6_init(struct thread_master *master)
 	ospf6_intra_init();
 	ospf6_asbr_init();
 	ospf6_abr_init();
+	ospf6_gr_init();
 	ospf6_gr_helper_config_init();
 
 	/* initialize hooks for modifying filter rules */
-	prefix_list_add_hook(ospf6_plist_add);
-	prefix_list_delete_hook(ospf6_plist_del);
+	prefix_list_add_hook(ospf6_plist_update);
+	prefix_list_delete_hook(ospf6_plist_update);
 	access_list_add_hook(ospf6_filter_update);
 	access_list_delete_hook(ospf6_filter_update);
 
@@ -1462,4 +1460,7 @@ void ospf6_init(struct thread_master *master)
 		VIEW_NODE,
 		&show_ipv6_ospf6_database_type_self_originated_linkstate_id_cmd);
 	install_element(VIEW_NODE, &show_ipv6_ospf6_database_aggr_router_cmd);
+	install_element_ospf6_debug_auth();
+	ospf6_interface_auth_trailer_cmd_init();
+	install_element_ospf6_clear_intf_auth();
 }

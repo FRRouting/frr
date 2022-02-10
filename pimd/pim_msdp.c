@@ -31,7 +31,6 @@
 #include <lib/lib_errors.h>
 
 #include "pimd.h"
-#include "pim_cmd.h"
 #include "pim_memory.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
@@ -152,7 +151,7 @@ static bool pim_msdp_sa_upstream_add_ok(struct pim_msdp_sa *sa,
 
 	/* check if we have a (*, G) with a non-empty immediate OIL */
 	if (!xg_up) {
-		struct prefix_sg sg;
+		pim_sgaddr sg;
 
 		memset(&sg, 0, sizeof(sg));
 		sg.grp = sa->sg.grp;
@@ -237,8 +236,7 @@ static void pim_msdp_sa_free(struct pim_msdp_sa *sa)
 }
 
 static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
-					   struct prefix_sg *sg,
-					   struct in_addr rp)
+					   pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
 
@@ -246,7 +244,7 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 
 	sa->pim = pim;
 	sa->sg = *sg;
-	pim_str_sg_set(sg, sa->sg_str);
+	snprintfrr(sa->sg_str, sizeof(sa->sg_str), "%pSG", sg);
 	sa->rp = rp;
 	sa->uptime = pim_time_monotonic_sec();
 
@@ -262,7 +260,7 @@ static struct pim_msdp_sa *pim_msdp_sa_new(struct pim_instance *pim,
 }
 
 static struct pim_msdp_sa *pim_msdp_sa_find(struct pim_instance *pim,
-					    struct prefix_sg *sg)
+					    pim_sgaddr *sg)
 {
 	struct pim_msdp_sa lookup;
 
@@ -271,8 +269,7 @@ static struct pim_msdp_sa *pim_msdp_sa_find(struct pim_instance *pim,
 }
 
 static struct pim_msdp_sa *pim_msdp_sa_add(struct pim_instance *pim,
-					   struct prefix_sg *sg,
-					   struct in_addr rp)
+					   pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
 
@@ -317,7 +314,7 @@ static void pim_msdp_sa_peer_ip_set(struct pim_msdp_sa *sa,
 	}
 
 	/* any time the peer ip changes also update the rp address */
-	if (PIM_INADDR_ISNOT_ANY(sa->peer)) {
+	if (sa->peer.s_addr != INADDR_ANY) {
 		old_mp = pim_msdp_peer_find(sa->pim, sa->peer);
 		if (old_mp && old_mp->sa_cnt) {
 			--old_mp->sa_cnt;
@@ -386,7 +383,7 @@ static void pim_msdp_sa_deref(struct pim_msdp_sa *sa,
 }
 
 void pim_msdp_sa_ref(struct pim_instance *pim, struct pim_msdp_peer *mp,
-		     struct prefix_sg *sg, struct in_addr rp)
+		     pim_sgaddr *sg, struct in_addr rp)
 {
 	struct pim_msdp_sa *sa;
 
@@ -467,15 +464,14 @@ static bool pim_msdp_sa_local_add_ok(struct pim_upstream *up)
 	return false;
 }
 
-static void pim_msdp_sa_local_add(struct pim_instance *pim,
-				  struct prefix_sg *sg)
+static void pim_msdp_sa_local_add(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct in_addr rp;
 	rp.s_addr = INADDR_ANY;
 	pim_msdp_sa_ref(pim, NULL /* mp */, sg, rp);
 }
 
-void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg)
+void pim_msdp_sa_local_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct pim_msdp_sa *sa;
 
@@ -488,7 +484,7 @@ void pim_msdp_sa_local_del(struct pim_instance *pim, struct prefix_sg *sg)
 /* we need to be very cautious with this API as SA del too can trigger an
  * upstream del and we will get stuck in a simple loop */
 static void pim_msdp_sa_local_del_on_up_del(struct pim_instance *pim,
-					    struct prefix_sg *sg)
+					    pim_sgaddr *sg)
 {
 	struct pim_msdp_sa *sa;
 
@@ -628,51 +624,50 @@ void pim_msdp_up_join_state_changed(struct pim_instance *pim,
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((xg_up->sg.src.s_addr != INADDR_ANY)
-	    || (xg_up->sg.grp.s_addr == INADDR_ANY)) {
+	if (!pim_addr_is_any(xg_up->sg.src) || pim_addr_is_any(xg_up->sg.grp)) {
 		return;
 	}
 
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != xg_up->sg.grp.s_addr) {
+		if (pim_addr_cmp(sa->sg.grp, xg_up->sg.grp)) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, xg_up, "up-jp-change");
 	}
 }
 
-static void pim_msdp_up_xg_del(struct pim_instance *pim, struct prefix_sg *sg)
+static void pim_msdp_up_xg_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	struct listnode *sanode;
 	struct pim_msdp_sa *sa;
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
-		zlog_debug("MSDP %s del", pim_str_sg_dump(sg));
+		zlog_debug("MSDP %pSG del", sg);
 	}
 
 	/* If this is not really an XG entry just move on */
-	if ((sg->src.s_addr != INADDR_ANY) || (sg->grp.s_addr == INADDR_ANY)) {
+	if (!pim_addr_is_any(sg->src) || pim_addr_is_any(sg->grp)) {
 		return;
 	}
 
 	/* XXX: Need to maintain SAs per-group to avoid all this unnecessary
 	 * walking */
 	for (ALL_LIST_ELEMENTS_RO(pim->msdp.sa_list, sanode, sa)) {
-		if (sa->sg.grp.s_addr != sg->grp.s_addr) {
+		if (pim_addr_cmp(sa->sg.grp, sg->grp)) {
 			continue;
 		}
 		pim_msdp_sa_upstream_update(sa, NULL /* xg */, "up-jp-change");
 	}
 }
 
-void pim_msdp_up_del(struct pim_instance *pim, struct prefix_sg *sg)
+void pim_msdp_up_del(struct pim_instance *pim, pim_sgaddr *sg)
 {
 	if (PIM_DEBUG_MSDP_INTERNAL) {
-		zlog_debug("MSDP up %s del", pim_str_sg_dump(sg));
+		zlog_debug("MSDP up %pSG del", sg);
 	}
-	if (sg->src.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(sg->src)) {
 		pim_msdp_up_xg_del(pim, sg);
 	} else {
 		pim_msdp_sa_local_del_on_up_del(pim, sg);
@@ -684,7 +679,7 @@ static unsigned int pim_msdp_sa_hash_key_make(const void *p)
 {
 	const struct pim_msdp_sa *sa = p;
 
-	return (jhash_2words(sa->sg.src.s_addr, sa->sg.grp.s_addr, 0));
+	return pim_sgaddr_hash(sa->sg, 0);
 }
 
 static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
@@ -692,8 +687,7 @@ static bool pim_msdp_sa_hash_eq(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	return ((sa1->sg.src.s_addr == sa2->sg.src.s_addr)
-		&& (sa1->sg.grp.s_addr == sa2->sg.grp.s_addr));
+	return !pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
 static int pim_msdp_sa_comp(const void *p1, const void *p2)
@@ -701,26 +695,14 @@ static int pim_msdp_sa_comp(const void *p1, const void *p2)
 	const struct pim_msdp_sa *sa1 = p1;
 	const struct pim_msdp_sa *sa2 = p2;
 
-	if (ntohl(sa1->sg.grp.s_addr) < ntohl(sa2->sg.grp.s_addr))
-		return -1;
-
-	if (ntohl(sa1->sg.grp.s_addr) > ntohl(sa2->sg.grp.s_addr))
-		return 1;
-
-	if (ntohl(sa1->sg.src.s_addr) < ntohl(sa2->sg.src.s_addr))
-		return -1;
-
-	if (ntohl(sa1->sg.src.s_addr) > ntohl(sa2->sg.src.s_addr))
-		return 1;
-
-	return 0;
+	return pim_sgaddr_cmp(sa1->sg, sa2->sg);
 }
 
 /* RFC-3618:Sec-10.1.3 - Peer-RPF forwarding */
 /* XXX: this can use a bit of refining and extensions */
 bool pim_msdp_peer_rpf_check(struct pim_msdp_peer *mp, struct in_addr rp)
 {
-	struct pim_nexthop nexthop;
+	struct pim_nexthop nexthop = {0};
 
 	if (mp->peer.s_addr == rp.s_addr) {
 		return true;
@@ -1304,7 +1286,6 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 	struct pim_msdp_mg *mg;
 	struct listnode *mbrnode;
 	struct pim_msdp_mg_mbr *mbr;
-	char mbr_str[INET_ADDRSTRLEN];
 	char src_str[INET_ADDRSTRLEN];
 	int count = 0;
 
@@ -1321,10 +1302,8 @@ int pim_msdp_config_write(struct pim_instance *pim, struct vty *vty,
 		}
 
 		for (ALL_LIST_ELEMENTS_RO(mg->mbr_list, mbrnode, mbr)) {
-			pim_inet4_dump("<mbr?>", mbr->mbr_ip, mbr_str,
-				       sizeof(mbr_str));
-			vty_out(vty, "%sip msdp mesh-group %s member %s\n",
-				spaces, mg->mesh_group_name, mbr_str);
+			vty_out(vty, "%sip msdp mesh-group %s member %pI4\n",
+				spaces, mg->mesh_group_name, &mbr->mbr_ip);
 			++count;
 		}
 	}

@@ -81,6 +81,7 @@ unsigned long debug_tx_queue;
 unsigned long debug_sr;
 unsigned long debug_ldp_sync;
 unsigned long debug_lfa;
+unsigned long debug_te;
 
 DEFINE_MGROUP(ISISD, "isisd");
 
@@ -646,7 +647,7 @@ static int isis_vrf_enable(struct vrf *vrf)
 			   vrf->vrf_id);
 
 	isis = isis_lookup_by_vrfname(vrf->name);
-	if (isis) {
+	if (isis && isis->vrf_id != vrf->vrf_id) {
 		old_vrf_id = isis->vrf_id;
 		/* We have instance configured, link to VRF and make it "up". */
 		isis_vrf_link(isis, vrf);
@@ -654,12 +655,10 @@ static int isis_vrf_enable(struct vrf *vrf)
 			zlog_debug(
 				"%s: isis linked to vrf %s vrf_id %u (old id %u)",
 				__func__, vrf->name, isis->vrf_id, old_vrf_id);
-		if (old_vrf_id != isis->vrf_id) {
-			/* start zebra redist to us for new vrf */
-			isis_set_redist_vrf_bitmaps(isis, true);
+		/* start zebra redist to us for new vrf */
+		isis_set_redist_vrf_bitmaps(isis, true);
 
-			isis_zebra_vrf_register(isis);
-		}
+		isis_zebra_vrf_register(isis);
 	}
 
 	return 0;
@@ -699,7 +698,7 @@ static int isis_vrf_disable(struct vrf *vrf)
 void isis_vrf_init(void)
 {
 	vrf_init(isis_vrf_new, isis_vrf_enable, isis_vrf_disable,
-		 isis_vrf_delete, isis_vrf_enable);
+		 isis_vrf_delete);
 
 	vrf_cmd_init(NULL);
 }
@@ -1376,6 +1375,10 @@ void print_debug(struct vty *vty, int flags, int onoff)
 	if (flags & DEBUG_SR)
 		vty_out(vty, "IS-IS Segment Routing events debugging is %s\n",
 			onoffs);
+	if (flags & DEBUG_TE)
+		vty_out(vty,
+			"IS-IS Traffic Engineering events debugging is %s\n",
+			onoffs);
 	if (flags & DEBUG_LFA)
 		vty_out(vty, "IS-IS LFA events debugging is %s\n", onoffs);
 	if (flags & DEBUG_UPDATE_PACKETS)
@@ -1418,6 +1421,8 @@ DEFUN_NOSH (show_debugging,
 		print_debug(vty, DEBUG_SPF_EVENTS, 1);
 	if (IS_DEBUG_SR)
 		print_debug(vty, DEBUG_SR, 1);
+	if (IS_DEBUG_TE)
+		print_debug(vty, DEBUG_TE, 1);
 	if (IS_DEBUG_UPDATE_PACKETS)
 		print_debug(vty, DEBUG_UPDATE_PACKETS, 1);
 	if (IS_DEBUG_RTE_EVENTS)
@@ -1473,6 +1478,10 @@ static int config_write_debug(struct vty *vty)
 	}
 	if (IS_DEBUG_SR) {
 		vty_out(vty, "debug " PROTO_NAME " sr-events\n");
+		write++;
+	}
+	if (IS_DEBUG_TE) {
+		vty_out(vty, "debug " PROTO_NAME " te-events\n");
 		write++;
 	}
 	if (IS_DEBUG_LFA) {
@@ -1705,6 +1714,33 @@ DEFUN (no_debug_isis_srevents,
 {
 	debug_sr &= ~DEBUG_SR;
 	print_debug(vty, DEBUG_SR, 0);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (debug_isis_teevents,
+       debug_isis_teevents_cmd,
+       "debug " PROTO_NAME " te-events",
+       DEBUG_STR
+       PROTO_HELP
+       "IS-IS Traffic Engineering Events\n")
+{
+	debug_te |= DEBUG_TE;
+	print_debug(vty, DEBUG_TE, 1);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN (no_debug_isis_teevents,
+       no_debug_isis_teevents_cmd,
+       "no debug " PROTO_NAME " te-events",
+       NO_STR
+       UNDEBUG_STR
+       PROTO_HELP
+       "IS-IS Traffic Engineering Events\n")
+{
+	debug_te &= ~DEBUG_TE;
+	print_debug(vty, DEBUG_TE, 0);
 
 	return CMD_SUCCESS;
 }
@@ -2613,10 +2649,16 @@ void isis_area_is_type_set(struct isis_area *area, int is_type)
 
 	area->is_type = is_type;
 
-	/* override circuit's is_type */
+	/*
+	 * If area's IS type is strict Level-1 or Level-2, override circuit's
+	 * IS type. Otherwise use circuit's configured IS type.
+	 */
 	if (area->is_type != IS_LEVEL_1_AND_2) {
 		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
 			isis_circuit_is_type_set(circuit, is_type);
+	} else {
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, node, circuit))
+			isis_circuit_is_type_set(circuit, circuit->is_type_config);
 	}
 
 	spftree_area_init(area);
@@ -3091,6 +3133,8 @@ void isis_init(void)
 	install_element(ENABLE_NODE, &no_debug_isis_spfevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_srevents_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_srevents_cmd);
+	install_element(ENABLE_NODE, &debug_isis_teevents_cmd);
+	install_element(ENABLE_NODE, &no_debug_isis_teevents_cmd);
 	install_element(ENABLE_NODE, &debug_isis_lfa_cmd);
 	install_element(ENABLE_NODE, &no_debug_isis_lfa_cmd);
 	install_element(ENABLE_NODE, &debug_isis_rtevents_cmd);
@@ -3122,6 +3166,8 @@ void isis_init(void)
 	install_element(CONFIG_NODE, &no_debug_isis_spfevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_srevents_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_srevents_cmd);
+	install_element(CONFIG_NODE, &debug_isis_teevents_cmd);
+	install_element(CONFIG_NODE, &no_debug_isis_teevents_cmd);
 	install_element(CONFIG_NODE, &debug_isis_lfa_cmd);
 	install_element(CONFIG_NODE, &no_debug_isis_lfa_cmd);
 	install_element(CONFIG_NODE, &debug_isis_rtevents_cmd);

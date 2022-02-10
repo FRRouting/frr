@@ -42,7 +42,7 @@ DEFINE_MTYPE_STATIC(LIB, CMD_MATCHSTACK, "Command Match Stack");
 
 /* matcher helper prototypes */
 static int add_nexthops(struct list *, struct graph_node *,
-			struct graph_node **, size_t);
+			struct graph_node **, size_t, bool);
 
 static enum matcher_rv command_match_r(struct graph_node *, vector,
 				       unsigned int, struct graph_node **,
@@ -78,6 +78,13 @@ static enum match_type match_word(struct cmd_token *, const char *);
 static enum match_type match_variable(struct cmd_token *, const char *);
 
 static enum match_type match_mac(const char *, bool);
+
+static bool is_neg(vector vline, size_t idx)
+{
+	if (idx >= vector_active(vline) || !vector_slot(vline, idx))
+		return false;
+	return !strcmp(vector_slot(vline, idx), "no");
+}
 
 enum matcher_rv command_match(struct graph *cmdgraph, vector vline,
 			      struct list **argv, const struct cmd_element **el)
@@ -248,7 +255,7 @@ static enum matcher_rv command_match_r(struct graph_node *start, vector vline,
 
 	// get all possible nexthops
 	struct list *next = list_new();
-	add_nexthops(next, start, NULL, 0);
+	add_nexthops(next, start, NULL, 0, is_neg(vline, 1));
 
 	// determine the best match
 	for (ALL_LIST_ELEMENTS_RO(next, ln, gn)) {
@@ -349,6 +356,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 {
 	// pointer to next input token to match
 	char *input_token;
+	bool neg = is_neg(vline, 0);
 
 	struct list *
 		current =
@@ -363,7 +371,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 
 	// add all children of start node to list
 	struct graph_node *start = vector_slot(graph->nodes, 0);
-	add_nexthops(next, start, &start, 0);
+	add_nexthops(next, start, &start, 0, neg);
 
 	unsigned int idx;
 	for (idx = 0; idx < vector_active(vline) && next->count > 0; idx++) {
@@ -428,7 +436,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
 					listnode_add(next, newstack);
 				} else if (matchtype >= minmatch)
 					add_nexthops(next, gstack[0], gstack,
-						     idx + 1);
+						     idx + 1, neg);
 				break;
 			default:
 				trace_matcher("no_match\n");
@@ -478,7 +486,7 @@ enum matcher_rv command_complete(struct graph *graph, vector vline,
  * output, instead of direct node pointers!
  */
 static int add_nexthops(struct list *list, struct graph_node *node,
-			struct graph_node **stack, size_t stackpos)
+			struct graph_node **stack, size_t stackpos, bool neg)
 {
 	int added = 0;
 	struct graph_node *child;
@@ -494,8 +502,13 @@ static int add_nexthops(struct list *list, struct graph_node *node,
 			if (j != stackpos)
 				continue;
 		}
+
+		if (token->type == NEG_ONLY_TKN && !neg)
+			continue;
+
 		if (token->type >= SPECIAL_TKN && token->type != END_TKN) {
-			added += add_nexthops(list, child, stack, stackpos);
+			added +=
+				add_nexthops(list, child, stack, stackpos, neg);
 		} else {
 			if (stack) {
 				nextstack = XMALLOC(

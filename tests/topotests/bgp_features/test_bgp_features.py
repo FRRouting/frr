@@ -45,7 +45,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 
@@ -56,40 +55,48 @@ pytestmark = [pytest.mark.bgpd, pytest.mark.ospfd]
 #####################################################
 
 
-class BGPFeaturesTopo1(Topo):
-    "BGP Features Topology 1"
+def build_topo(tgen):
+    for rtrNum in range(1, 6):
+        tgen.add_router("r{}".format(rtrNum))
 
-    def build(self, **_opts):
-        tgen = get_topogen(self)
+    # create ExaBGP peers
+    for peer_num in range(1, 5):
+        tgen.add_exabgp_peer(
+            "peer{}".format(peer_num),
+            ip="192.168.101.{}".format(peer_num + 2),
+            defaultRoute="via 192.168.101.1",
+        )
 
-        # Create the routers
-        for rtrNum in range(1, 6):
-            tgen.add_router("r{}".format(rtrNum))
+    # Setup Switches and connections
+    for swNum in range(1, 11):
+        tgen.add_switch("sw{}".format(swNum))
 
-        # Setup Switches and connections
-        for swNum in range(1, 11):
-            tgen.add_switch("sw{}".format(swNum))
+    # Add connections to stub switches
+    tgen.gears["r1"].add_link(tgen.gears["sw6"])
+    tgen.gears["r2"].add_link(tgen.gears["sw7"])
+    tgen.gears["r3"].add_link(tgen.gears["sw8"])
+    tgen.gears["r4"].add_link(tgen.gears["sw9"])
+    tgen.gears["r5"].add_link(tgen.gears["sw10"])
 
-        # Add connections to stub switches
-        tgen.gears["r1"].add_link(tgen.gears["sw6"])
-        tgen.gears["r2"].add_link(tgen.gears["sw7"])
-        tgen.gears["r3"].add_link(tgen.gears["sw8"])
-        tgen.gears["r4"].add_link(tgen.gears["sw9"])
-        tgen.gears["r5"].add_link(tgen.gears["sw10"])
+    # Add connections to R1-R2-R3 core
+    tgen.gears["r1"].add_link(tgen.gears["sw1"])
+    tgen.gears["r1"].add_link(tgen.gears["sw3"])
+    tgen.gears["r2"].add_link(tgen.gears["sw1"])
+    tgen.gears["r2"].add_link(tgen.gears["sw2"])
+    tgen.gears["r3"].add_link(tgen.gears["sw2"])
+    tgen.gears["r3"].add_link(tgen.gears["sw3"])
 
-        # Add connections to R1-R2-R3 core
-        tgen.gears["r1"].add_link(tgen.gears["sw1"])
-        tgen.gears["r1"].add_link(tgen.gears["sw3"])
-        tgen.gears["r2"].add_link(tgen.gears["sw1"])
-        tgen.gears["r2"].add_link(tgen.gears["sw2"])
-        tgen.gears["r3"].add_link(tgen.gears["sw2"])
-        tgen.gears["r3"].add_link(tgen.gears["sw3"])
+    # Add connections to external R4/R5 Routers
+    tgen.gears["r1"].add_link(tgen.gears["sw4"])
+    tgen.gears["r4"].add_link(tgen.gears["sw4"])
+    tgen.gears["r2"].add_link(tgen.gears["sw5"])
+    tgen.gears["r5"].add_link(tgen.gears["sw5"])
 
-        # Add connections to external R4/R5 Routers
-        tgen.gears["r1"].add_link(tgen.gears["sw4"])
-        tgen.gears["r4"].add_link(tgen.gears["sw4"])
-        tgen.gears["r2"].add_link(tgen.gears["sw5"])
-        tgen.gears["r5"].add_link(tgen.gears["sw5"])
+    # Add ExaBGP peers to sw4
+    tgen.gears["peer1"].add_link(tgen.gears["sw4"])
+    tgen.gears["peer2"].add_link(tgen.gears["sw4"])
+    tgen.gears["peer3"].add_link(tgen.gears["sw4"])
+    tgen.gears["peer4"].add_link(tgen.gears["sw4"])
 
 
 #####################################################
@@ -100,7 +107,7 @@ class BGPFeaturesTopo1(Topo):
 
 
 def setup_module(module):
-    tgen = Topogen(BGPFeaturesTopo1, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     # Starting Routers
@@ -228,20 +235,15 @@ def test_bgp_shutdown_message():
         logger.info("Checking BGP shutdown received on router r{}".format(rtrNum))
 
         shut_message = tgen.net["r{}".format(rtrNum)].cmd(
-            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administratively Shutdown"'
+            'tail bgpd.log | grep "NOTIFICATION.*Cease/Administrative Shutdown"'
         )
         assertmsg = "BGP shutdown message not received on router R{}".format(rtrNum)
         assert shut_message != "", assertmsg
 
-        m = re.search(".*([0-9]+ bytes[ 0-9a-fA-F]+)", shut_message)
-        if m:
-            found = m.group(1)
-        else:
-            found = ""
         assertmsg = "Incorrect BGP shutdown message received on router R{}".format(
             rtrNum
         )
-        assert found == "8 bytes 41 42 43 44 61 62 63 64", assertmsg
+        assert "ABCDabcd" in shut_message, assertmsg
 
     # tgen.mininet_cli()
 

@@ -26,8 +26,12 @@
 #include <sys/resource.h>
 #include <sys/stat.h>
 
+/* readline carries some ancient definitions around */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wstrict-prototypes"
 #include <readline/readline.h>
 #include <readline/history.h>
+#pragma GCC diagnostic pop
 
 #include <dirent.h>
 #include <stdio.h>
@@ -480,7 +484,7 @@ static int vtysh_execute_func(const char *line, int pager)
 	if (vtysh_add_timestamp && strncmp(line, "exit", 4)) {
 		char ts[48];
 
-		(void)quagga_timestamp(3, ts, sizeof(ts));
+		(void)frr_timestamp(3, ts, sizeof(ts));
 		vty_out(vty, "%% %s\n\n", ts);
 	}
 
@@ -509,51 +513,8 @@ static int vtysh_execute_func(const char *line, int pager)
 	 */
 	if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
 	    || ret == CMD_WARNING) {
-		if ((saved_node == BGP_VPNV4_NODE
-		     || saved_node == BGP_VPNV6_NODE
-		     || saved_node == BGP_IPV4_NODE
-		     || saved_node == BGP_IPV6_NODE
-		     || saved_node == BGP_FLOWSPECV4_NODE
-		     || saved_node == BGP_FLOWSPECV6_NODE
-		     || saved_node == BGP_IPV4M_NODE
-		     || saved_node == BGP_IPV4L_NODE
-		     || saved_node == BGP_IPV6L_NODE
-		     || saved_node == BGP_IPV6M_NODE
-		     || saved_node == BGP_EVPN_NODE
-		     || saved_node == LDP_IPV4_NODE
-		     || saved_node == LDP_IPV6_NODE)
-		    && (tried == 1)) {
-			vtysh_execute("exit-address-family");
-		} else if ((saved_node == BGP_EVPN_VNI_NODE) && (tried == 1)) {
-			vtysh_execute("exit-vni");
-		} else if (saved_node == BGP_VRF_POLICY_NODE && (tried == 1)) {
-			vtysh_execute("exit-vrf-policy");
-		} else if ((saved_node == BGP_VNC_DEFAULTS_NODE
-			    || saved_node == BGP_VNC_NVE_GROUP_NODE
-			    || saved_node == BGP_VNC_L2_GROUP_NODE)
-			   && (tried == 1)) {
-			vtysh_execute("exit-vnc");
-		} else if (saved_node == VRF_NODE && (tried == 1)) {
-			vtysh_execute("exit-vrf");
-		} else if ((saved_node == KEYCHAIN_KEY_NODE
-			    || saved_node == LDP_PSEUDOWIRE_NODE
-			    || saved_node == LDP_IPV4_IFACE_NODE
-			    || saved_node == LDP_IPV6_IFACE_NODE)
-			   && (tried == 1)) {
+		while (tried-- > 0)
 			vtysh_execute("exit");
-		} else if ((saved_node == SR_SEGMENT_LIST_NODE
-			    || saved_node == SR_POLICY_NODE
-			    || saved_node == SR_CANDIDATE_DYN_NODE
-			    || saved_node == PCEP_NODE
-			    || saved_node == PCEP_PCE_CONFIG_NODE
-			    || saved_node == PCEP_PCE_NODE
-			    || saved_node == PCEP_PCC_NODE)
-			   && (tried > 0)) {
-			vtysh_execute("exit");
-		} else if (tried) {
-			vtysh_execute("end");
-			vtysh_execute("configure");
-		}
 	}
 	/*
 	 * If command didn't succeed in any node, continue with return value
@@ -641,7 +602,8 @@ static int vtysh_execute_func(const char *line, int pager)
 						fprintf(stderr,
 							"%s is not running\n",
 							vtysh_client[i].name);
-						continue;
+						cmd_stat = CMD_ERR_NO_DAEMON;
+						break;
 					}
 				}
 				cmd_stat = vtysh_client_execute(
@@ -650,7 +612,7 @@ static int vtysh_execute_func(const char *line, int pager)
 					break;
 			}
 		}
-		if (cmd_stat != CMD_SUCCESS)
+		if (cmd_stat != CMD_SUCCESS && cmd_stat != CMD_ERR_NO_DAEMON)
 			break;
 
 		if (cmd->func)
@@ -701,7 +663,6 @@ int vtysh_mark_file(const char *filename)
 	int ret;
 	vector vline;
 	int tried = 0;
-	bool ending;
 	const struct cmd_element *cmd;
 	int saved_ret, prev_node;
 	int lineno = 0;
@@ -733,35 +694,6 @@ int vtysh_mark_file(const char *filename)
 		tried = 0;
 		strlcpy(vty_buf_copy, vty->buf, VTY_BUFSIZ);
 		vty_buf_trimmed = trim(vty_buf_copy);
-
-		switch (vty->node) {
-		case LDP_IPV4_IFACE_NODE:
-			if (strncmp(vty_buf_copy, "   ", 3)) {
-				vty_out(vty, " exit-ldp-if\n");
-				vty->node = LDP_IPV4_NODE;
-			}
-			break;
-		case LDP_IPV6_IFACE_NODE:
-			if (strncmp(vty_buf_copy, "   ", 3)) {
-				vty_out(vty, " exit-ldp-if\n");
-				vty->node = LDP_IPV6_NODE;
-			}
-			break;
-		case LDP_PSEUDOWIRE_NODE:
-			if (strncmp(vty_buf_copy, "  ", 2)) {
-				vty_out(vty, " exit\n");
-				vty->node = LDP_L2VPN_NODE;
-			}
-			break;
-		case SR_CANDIDATE_DYN_NODE:
-			if (strncmp(vty_buf_copy, "  ", 2)) {
-				vty_out(vty, " exit\n");
-				vty->node = SR_POLICY_NODE;
-			}
-			break;
-		default:
-			break;
-		}
 
 		if (vty_buf_trimmed[0] == '!' || vty_buf_trimmed[0] == '#') {
 			vty_out(vty, "%s", vty->buf);
@@ -810,57 +742,8 @@ int vtysh_mark_file(const char *filename)
 		 */
 		if (ret == CMD_SUCCESS || ret == CMD_SUCCESS_DAEMON
 		    || ret == CMD_WARNING) {
-			if ((prev_node == BGP_VPNV4_NODE
-			     || prev_node == BGP_VPNV6_NODE
-			     || prev_node == BGP_IPV4_NODE
-			     || prev_node == BGP_IPV6_NODE
-			     || prev_node == BGP_FLOWSPECV4_NODE
-			     || prev_node == BGP_FLOWSPECV6_NODE
-			     || prev_node == BGP_IPV4L_NODE
-			     || prev_node == BGP_IPV6L_NODE
-			     || prev_node == BGP_IPV4M_NODE
-			     || prev_node == BGP_IPV6M_NODE
-			     || prev_node == BGP_EVPN_NODE)
-			    && (tried == 1)) {
-				vty_out(vty, "exit-address-family\n");
-			} else if ((prev_node == BGP_EVPN_VNI_NODE)
-				   && (tried == 1)) {
-				vty_out(vty, "exit-vni\n");
-			} else if ((prev_node == KEYCHAIN_KEY_NODE)
-				   && (tried == 1)) {
+			while (tried-- > 0)
 				vty_out(vty, "exit\n");
-			} else if ((prev_node == BFD_PEER_NODE
-				    || prev_node == BFD_PROFILE_NODE)
-				   && (tried == 1)) {
-				vty_out(vty, "exit\n");
-			} else if (((prev_node == SEGMENT_ROUTING_NODE)
-				    || (prev_node == SR_TRAFFIC_ENG_NODE)
-				    || (prev_node == SR_SEGMENT_LIST_NODE)
-				    || (prev_node == SR_POLICY_NODE)
-				    || (prev_node == SR_CANDIDATE_DYN_NODE)
-				    || (prev_node == PCEP_NODE)
-				    || (prev_node == PCEP_PCE_CONFIG_NODE)
-				    || (prev_node == PCEP_PCE_NODE)
-				    || (prev_node == PCEP_PCC_NODE))
-				   && (tried > 0)) {
-				ending = (vty->node != SEGMENT_ROUTING_NODE)
-					 && (vty->node != SR_TRAFFIC_ENG_NODE)
-					 && (vty->node != SR_SEGMENT_LIST_NODE)
-					 && (vty->node != SR_POLICY_NODE)
-					 && (vty->node != SR_CANDIDATE_DYN_NODE)
-					 && (vty->node != PCEP_NODE)
-					 && (vty->node != PCEP_PCE_CONFIG_NODE)
-					 && (vty->node != PCEP_PCE_NODE)
-					 && (vty->node != PCEP_PCC_NODE);
-				if (ending)
-					tried--;
-				while (tried-- > 0)
-					vty_out(vty, "exit\n");
-				if (ending)
-					vty_out(vty, "end\n");
-			} else if (tried) {
-				vty_out(vty, "end\n");
-			}
 		}
 		/*
 		 * If command didn't succeed in any node, continue with return
@@ -1301,7 +1184,6 @@ static struct cmd_node srte_candidate_dyn_node = {
 	.prompt = "%s(config-sr-te-candidate)# ",
 };
 
-#if defined(HAVE_PATHD_PCEP)
 static struct cmd_node pcep_node = {
 	.name = "srte pcep",
 	.node = PCEP_NODE,
@@ -1329,7 +1211,6 @@ static struct cmd_node pcep_pce_config_node = {
 	.parent_node = PCEP_NODE,
 	.prompt = "%s(pcep-sr-te-pcep-pce-config)# ",
 };
-#endif /* HAVE_PATHD_PCEP */
 #endif /* HAVE_PATHD */
 
 static struct cmd_node vrf_node = {
@@ -1396,6 +1277,7 @@ static struct cmd_node bgp_vpnv4_node = {
 	.node = BGP_VPNV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_vpnv6_node = {
@@ -1403,6 +1285,7 @@ static struct cmd_node bgp_vpnv6_node = {
 	.node = BGP_VPNV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv4_node = {
@@ -1410,6 +1293,7 @@ static struct cmd_node bgp_flowspecv4_node = {
 	.node = BGP_FLOWSPECV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_flowspecv6_node = {
@@ -1417,6 +1301,7 @@ static struct cmd_node bgp_flowspecv6_node = {
 	.node = BGP_FLOWSPECV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4_node = {
@@ -1424,6 +1309,7 @@ static struct cmd_node bgp_ipv4_node = {
 	.node = BGP_IPV4_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4m_node = {
@@ -1431,6 +1317,7 @@ static struct cmd_node bgp_ipv4m_node = {
 	.node = BGP_IPV4M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv4l_node = {
@@ -1438,6 +1325,7 @@ static struct cmd_node bgp_ipv4l_node = {
 	.node = BGP_IPV4L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6_node = {
@@ -1445,6 +1333,7 @@ static struct cmd_node bgp_ipv6_node = {
 	.node = BGP_IPV6_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_ipv6m_node = {
@@ -1452,6 +1341,7 @@ static struct cmd_node bgp_ipv6m_node = {
 	.node = BGP_IPV6M_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_node = {
@@ -1459,6 +1349,7 @@ static struct cmd_node bgp_evpn_node = {
 	.node = BGP_EVPN_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 static struct cmd_node bgp_evpn_vni_node = {
@@ -1473,6 +1364,7 @@ static struct cmd_node bgp_ipv6l_node = {
 	.node = BGP_IPV6L_NODE,
 	.parent_node = BGP_NODE,
 	.prompt = "%s(config-router-af)# ",
+	.no_xpath = true,
 };
 
 #ifdef ENABLE_BGP_VNC
@@ -1633,6 +1525,7 @@ struct cmd_node link_params_node = {
 	.node = LINK_PARAMS_NODE,
 	.parent_node = INTERFACE_NODE,
 	.prompt = "%s(config-link-params)# ",
+	.no_xpath = true,
 };
 
 #ifdef HAVE_BGPD
@@ -1915,22 +1808,6 @@ DEFUNSH(VTYSH_BGPD, address_family_evpn, address_family_evpn_cmd,
 	vty->node = BGP_EVPN_NODE;
 	return CMD_SUCCESS;
 }
-
-#if defined(HAVE_CUMULUS)
-#if CONFDATE > 20211115
-CPP_NOTICE("Use of `address-family evpn` is deprecated please remove don't forget frr-reload.py")
-#endif
-DEFUNSH_HIDDEN(VTYSH_BGPD, address_family_evpn2, address_family_evpn2_cmd,
-	       "address-family evpn",
-	       "Enter Address Family command mode\n"
-	       "EVPN Address family\n")
-{
-	vty_out(vty,
-		"This command is deprecated please convert to `address-family l2vpn evpn`\n");
-	vty->node = BGP_EVPN_NODE;
-	return CMD_SUCCESS;
-}
-#endif
 
 DEFUNSH(VTYSH_BGPD, bgp_evpn_vni, bgp_evpn_vni_cmd, "vni " CMD_VNI_RANGE,
 	"VXLAN Network Identifier\n"
@@ -2226,8 +2103,6 @@ DEFUNSH(VTYSH_PATHD, srte_policy_candidate_dyn_path,
 	return CMD_SUCCESS;
 }
 
-#if defined(HAVE_PATHD_PCEP)
-
 DEFUNSH(VTYSH_PATHD, pcep, pcep_cmd,
 	"pcep",
 	"Configure SR pcep\n")
@@ -2262,12 +2137,10 @@ DEFUNSH(VTYSH_PATHD, pcep_cli_pcep_pce_config, pcep_cli_pcep_pce_config_cmd,
 	return CMD_SUCCESS;
 }
 
-#endif /* HAVE_PATHD_PCEP */
-
 #endif /* HAVE_PATHD */
 
 DEFUNSH(VTYSH_RMAP, vtysh_route_map, vtysh_route_map_cmd,
-	"route-map WORD <deny|permit> (1-65535)",
+	"route-map RMAP_NAME <deny|permit> (1-65535)",
 	"Create route-map or enter route-map command mode\n"
 	"Route map tag\n"
 	"Route map denies set operations\n"
@@ -3138,6 +3011,60 @@ DEFUNSH(VTYSH_ALL, vtysh_debug_memstats,
 	"Print memory statistics at exit\n")
 {
 	return CMD_SUCCESS;
+}
+
+DEFUN(vtysh_debug_uid_backtrace,
+      vtysh_debug_uid_backtrace_cmd,
+      "[no] debug unique-id UID backtrace",
+      NO_STR
+      DEBUG_STR
+      "Options per individual log message, by unique ID\n"
+      "Log message unique ID (XXXXX-XXXXX)\n"
+      "Add backtrace to log when message is printed\n")
+{
+	unsigned int i, ok = 0;
+	int err = CMD_SUCCESS, ret;
+	const char *uid;
+	char line[64];
+
+	if (!strcmp(argv[0]->text, "no")) {
+		uid = argv[3]->arg;
+		snprintfrr(line, sizeof(line),
+			   "no debug unique-id %s backtrace", uid);
+	} else {
+		uid = argv[2]->arg;
+		snprintfrr(line, sizeof(line), "debug unique-id %s backtrace",
+			   uid);
+	}
+
+	for (i = 0; i < array_size(vtysh_client); i++)
+		if (vtysh_client[i].fd >= 0 || vtysh_client[i].next) {
+			ret = vtysh_client_execute(&vtysh_client[i], line);
+			switch (ret) {
+			case CMD_SUCCESS:
+				ok++;
+				break;
+			case CMD_ERR_NOTHING_TODO:
+				/* ignore this daemon
+				 *
+				 * note this doesn't need to handle instances
+				 * of the same daemon individually because
+				 * the same daemon will have the same UIDs
+				 */
+				break;
+			default:
+				if (err == CMD_SUCCESS)
+					err = ret;
+				break;
+			}
+		}
+
+	if (err == CMD_SUCCESS && !ok) {
+		vty_out(vty, "%% no running daemon recognizes unique-ID %s\n",
+			uid);
+		err = CMD_WARNING;
+	}
+	return err;
 }
 
 DEFUNSH(VTYSH_ALL, vtysh_service_password_encrypt,
@@ -4040,6 +3967,8 @@ void vtysh_uninit(void)
 
 void vtysh_init_vty(void)
 {
+	cmd_defer_tree(true);
+
 	/* Make vty structure. */
 	vty = vty_new();
 	vty->type = VTY_SHELL;
@@ -4169,9 +4098,6 @@ void vtysh_init_vty(void)
 
 	install_node(&bgp_evpn_node);
 	install_element(BGP_NODE, &address_family_evpn_cmd);
-#if defined(HAVE_CUMULUS)
-	install_element(BGP_NODE, &address_family_evpn2_cmd);
-#endif
 	install_element(BGP_EVPN_NODE, &vtysh_quit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_exit_bgpd_cmd);
 	install_element(BGP_EVPN_NODE, &vtysh_end_all_cmd);
@@ -4354,6 +4280,7 @@ void vtysh_init_vty(void)
 #endif /* HAVE_BFDD */
 
 	install_node(&segment_routing_node);
+	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_exit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_quit_sr_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &vtysh_end_all_cmd);
@@ -4379,13 +4306,11 @@ void vtysh_init_vty(void)
 	install_element(SR_POLICY_NODE, &vtysh_end_all_cmd);
 	install_element(SR_CANDIDATE_DYN_NODE, &vtysh_end_all_cmd);
 
-	install_element(CONFIG_NODE, &segment_routing_cmd);
 	install_element(SEGMENT_ROUTING_NODE, &sr_traffic_eng_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_segment_list_cmd);
 	install_element(SR_TRAFFIC_ENG_NODE, &srte_policy_cmd);
 	install_element(SR_POLICY_NODE, &srte_policy_candidate_dyn_path_cmd);
 
-#if defined(HAVE_PATHD_PCEP)
 	install_node(&pcep_node);
 	install_node(&pcep_pcc_node);
 	install_node(&pcep_pce_node);
@@ -4409,7 +4334,6 @@ void vtysh_init_vty(void)
 	install_element(PCEP_NODE, &pcep_cli_pcc_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pcep_pce_config_cmd);
 	install_element(PCEP_NODE, &pcep_cli_pce_cmd);
-#endif /* HAVE_PATHD_PCEP */
 
 #endif /* HAVE_PATHD */
 
@@ -4564,6 +4488,8 @@ void vtysh_init_vty(void)
 	install_element(CONFIG_NODE, &vtysh_debug_all_cmd);
 	install_element(ENABLE_NODE, &vtysh_debug_memstats_cmd);
 	install_element(CONFIG_NODE, &vtysh_debug_memstats_cmd);
+	install_element(ENABLE_NODE, &vtysh_debug_uid_backtrace_cmd);
+	install_element(CONFIG_NODE, &vtysh_debug_uid_backtrace_cmd);
 
 	/* northbound */
 	install_element(ENABLE_NODE, &show_config_running_cmd);

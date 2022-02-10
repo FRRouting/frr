@@ -787,6 +787,7 @@ static struct thread *thread_get(struct thread_master *m, uint8_t type,
 	thread->arg = arg;
 	thread->yield = THREAD_YIELD_TIME_SLOT; /* default */
 	thread->ref = NULL;
+	thread->ignore_timer_late = false;
 
 	/*
 	 * So if the passed in funcname is not what we have
@@ -922,10 +923,10 @@ done:
 }
 
 /* Add new read thread. */
-struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
-				      struct thread_master *m,
-				      int (*func)(struct thread *),
-				      void *arg, int fd, struct thread **t_ptr)
+void _thread_add_read_write(const struct xref_threadsched *xref,
+			    struct thread_master *m,
+			    int (*func)(struct thread *), void *arg, int fd,
+			    struct thread **t_ptr)
 {
 	int dir = xref->thread_type;
 	struct thread *thread = NULL;
@@ -1000,15 +1001,13 @@ struct thread *_thread_add_read_write(const struct xref_threadsched *xref,
 
 		AWAKEN(m);
 	}
-
-	return thread;
 }
 
-static struct thread *
-_thread_add_timer_timeval(const struct xref_threadsched *xref,
-			  struct thread_master *m, int (*func)(struct thread *),
-			  void *arg, struct timeval *time_relative,
-			  struct thread **t_ptr)
+static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
+				      struct thread_master *m,
+				      int (*func)(struct thread *), void *arg,
+				      struct timeval *time_relative,
+				      struct thread **t_ptr)
 {
 	struct thread *thread;
 	struct timeval t;
@@ -1028,7 +1027,7 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 	frr_with_mutex(&m->mtx) {
 		if (t_ptr && *t_ptr)
 			/* thread is already scheduled; don't reschedule */
-			return NULL;
+			return;
 
 		thread = thread_get(m, THREAD_TIMER, func, arg, xref);
 
@@ -1048,16 +1047,13 @@ _thread_add_timer_timeval(const struct xref_threadsched *xref,
 		if (thread_timer_list_first(&m->timer) == thread)
 			AWAKEN(m);
 	}
-
-	return thread;
 }
 
 
 /* Add timer event thread. */
-struct thread *_thread_add_timer(const struct xref_threadsched *xref,
-				 struct thread_master *m,
-				 int (*func)(struct thread *),
-				 void *arg, long timer, struct thread **t_ptr)
+void _thread_add_timer(const struct xref_threadsched *xref,
+		       struct thread_master *m, int (*func)(struct thread *),
+		       void *arg, long timer, struct thread **t_ptr)
 {
 	struct timeval trel;
 
@@ -1066,15 +1062,14 @@ struct thread *_thread_add_timer(const struct xref_threadsched *xref,
 	trel.tv_sec = timer;
 	trel.tv_usec = 0;
 
-	return _thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
+	_thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
 /* Add timer event thread with "millisecond" resolution */
-struct thread *_thread_add_timer_msec(const struct xref_threadsched *xref,
-				      struct thread_master *m,
-				      int (*func)(struct thread *),
-				      void *arg, long timer,
-				      struct thread **t_ptr)
+void _thread_add_timer_msec(const struct xref_threadsched *xref,
+			    struct thread_master *m,
+			    int (*func)(struct thread *), void *arg, long timer,
+			    struct thread **t_ptr)
 {
 	struct timeval trel;
 
@@ -1083,24 +1078,21 @@ struct thread *_thread_add_timer_msec(const struct xref_threadsched *xref,
 	trel.tv_sec = timer / 1000;
 	trel.tv_usec = 1000 * (timer % 1000);
 
-	return _thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
+	_thread_add_timer_timeval(xref, m, func, arg, &trel, t_ptr);
 }
 
 /* Add timer event thread with "timeval" resolution */
-struct thread *_thread_add_timer_tv(const struct xref_threadsched *xref,
-				    struct thread_master *m,
-				    int (*func)(struct thread *),
-				    void *arg, struct timeval *tv,
-				    struct thread **t_ptr)
+void _thread_add_timer_tv(const struct xref_threadsched *xref,
+			  struct thread_master *m, int (*func)(struct thread *),
+			  void *arg, struct timeval *tv, struct thread **t_ptr)
 {
-	return _thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
+	_thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
 }
 
 /* Add simple event thread. */
-struct thread *_thread_add_event(const struct xref_threadsched *xref,
-				 struct thread_master *m,
-				 int (*func)(struct thread *),
-				 void *arg, int val, struct thread **t_ptr)
+void _thread_add_event(const struct xref_threadsched *xref,
+		       struct thread_master *m, int (*func)(struct thread *),
+		       void *arg, int val, struct thread **t_ptr)
 {
 	struct thread *thread = NULL;
 
@@ -1128,8 +1120,6 @@ struct thread *_thread_add_event(const struct xref_threadsched *xref,
 
 		AWAKEN(m);
 	}
-
-	return thread;
 }
 
 /* Thread cancellation ------------------------------------------------------ */
@@ -1662,12 +1652,31 @@ static void thread_process_io(struct thread_master *m, unsigned int num)
 static unsigned int thread_process_timers(struct thread_master *m,
 					  struct timeval *timenow)
 {
+	struct timeval prev = *timenow;
+	bool displayed = false;
 	struct thread *thread;
 	unsigned int ready = 0;
 
 	while ((thread = thread_timer_list_first(&m->timer))) {
 		if (timercmp(timenow, &thread->u.sands, <))
 			break;
+		prev = thread->u.sands;
+		prev.tv_sec += 4;
+		/*
+		 * If the timer would have popped 4 seconds in the
+		 * past then we are in a situation where we are
+		 * really getting behind on handling of events.
+		 * Let's log it and do the right thing with it.
+		 */
+		if (!displayed && !thread->ignore_timer_late &&
+		    timercmp(timenow, &prev, >)) {
+			flog_warn(
+				EC_LIB_STARVE_THREAD,
+				"Thread Starvation: %pTHD was scheduled to pop greater than 4s ago",
+				thread);
+			displayed = true;
+		}
+
 		thread_timer_list_pop(&m->timer);
 		thread->type = THREAD_READY;
 		thread_list_add_tail(&m->ready, thread);
@@ -1706,7 +1715,7 @@ struct thread *thread_fetch(struct thread_master *m, struct thread *fetch)
 	do {
 		/* Handle signals if any */
 		if (m->handle_signals)
-			quagga_sigevent_process();
+			frr_sigevent_process();
 
 		pthread_mutex_lock(&m->mtx);
 
@@ -2058,4 +2067,79 @@ void debug_signals(const sigset_t *sigs)
 		snprintf(buf, sizeof(buf), "<none>");
 
 	zlog_debug("%s: %s", __func__, buf);
+}
+
+bool thread_is_scheduled(struct thread *thread)
+{
+	if (thread == NULL)
+		return false;
+
+	return true;
+}
+
+static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,
+				   const struct thread *thread)
+{
+	static const char * const types[] = {
+		[THREAD_READ] = "read",
+		[THREAD_WRITE] = "write",
+		[THREAD_TIMER] = "timer",
+		[THREAD_EVENT] = "event",
+		[THREAD_READY] = "ready",
+		[THREAD_UNUSED] = "unused",
+		[THREAD_EXECUTE] = "exec",
+	};
+	ssize_t rv = 0;
+	char info[16] = "";
+
+	if (!thread)
+		return bputs(buf, "{(thread *)NULL}");
+
+	rv += bprintfrr(buf, "{(thread *)%p arg=%p", thread, thread->arg);
+
+	if (thread->type < array_size(types) && types[thread->type])
+		rv += bprintfrr(buf, " %-6s", types[thread->type]);
+	else
+		rv += bprintfrr(buf, " INVALID(%u)", thread->type);
+
+	switch (thread->type) {
+	case THREAD_READ:
+	case THREAD_WRITE:
+		snprintfrr(info, sizeof(info), "fd=%d", thread->u.fd);
+		break;
+
+	case THREAD_TIMER:
+		snprintfrr(info, sizeof(info), "r=%pTVMud", &thread->u.sands);
+		break;
+	}
+
+	rv += bprintfrr(buf, " %-12s %s() %s from %s:%d}", info,
+			thread->xref->funcname, thread->xref->dest,
+			thread->xref->xref.file, thread->xref->xref.line);
+	return rv;
+}
+
+printfrr_ext_autoreg_p("TH", printfrr_thread);
+static ssize_t printfrr_thread(struct fbuf *buf, struct printfrr_eargs *ea,
+			       const void *ptr)
+{
+	const struct thread *thread = ptr;
+	struct timespec remain = {};
+
+	if (ea->fmt[0] == 'D') {
+		ea->fmt++;
+		return printfrr_thread_dbg(buf, ea, thread);
+	}
+
+	if (!thread) {
+		/* need to jump over time formatting flag characters in the
+		 * input format string, i.e. adjust ea->fmt!
+		 */
+		printfrr_time(buf, ea, &remain,
+			      TIMEFMT_TIMER_DEADLINE | TIMEFMT_SKIP);
+		return bputch(buf, '-');
+	}
+
+	TIMEVAL_TO_TIMESPEC(&thread->u.sands, &remain);
+	return printfrr_time(buf, ea, &remain, TIMEFMT_TIMER_DEADLINE);
 }

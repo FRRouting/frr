@@ -35,35 +35,28 @@ is not sent if maximum-prefix count is overflow.
 import os
 import sys
 import json
-import time
 import pytest
 
 CWD = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
-from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
-from lib.topolog import logger
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, *_args, **_opts):
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    for routern in range(1, 3):
+        tgen.add_router("r{}".format(routern))
 
-        for routern in range(1, 3):
-            tgen.add_router("r{}".format(routern))
-
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()

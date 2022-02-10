@@ -113,7 +113,7 @@ RB_PROTOTYPE(zebra_es_rb_head, zebra_evpn_es, rb_node, zebra_es_rb_cmp);
  */
 struct zebra_evpn_es_evi {
 	struct zebra_evpn_es *es;
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 
 	/* ES-EVI flags */
 	uint32_t flags;
@@ -168,7 +168,7 @@ struct zebra_evpn_es_vtep {
 	uint8_t df_alg;
 	uint32_t df_pref;
 
-	/* XXX - maintain a backpointer to zebra_vtep_t */
+	/* XXX - maintain a backpointer to struct zebra_vtep */
 };
 
 /* Local/access-side broadcast domain - zebra_evpn_access_bd is added to -
@@ -183,7 +183,7 @@ struct zebra_evpn_access_bd {
 	/* list of members associated with the BD i.e. (potential) ESs */
 	struct list *mbr_zifs;
 	/* presence of zevpn activates the EVI on all the ESs in mbr_zifs */
-	zebra_evpn_t *zevpn;
+	struct zebra_evpn *zevpn;
 	/* SVI associated with the VLAN */
 	struct zebra_if *vlan_zif;
 };
@@ -224,7 +224,7 @@ struct zebra_evpn_mh_info {
 	 * XXX: once single vxlan device model becomes available this will
 	 * not be necessary
 	 */
-	zebra_evpn_t *es_base_evpn;
+	struct zebra_evpn *es_base_evpn;
 	struct in_addr es_originator_ip;
 
 	/* L2 NH and NHG ids -
@@ -267,12 +267,12 @@ struct zebra_evpn_mh_info {
 };
 
 /* returns TRUE if the EVPN is ready to be sent to BGP */
-static inline bool zebra_evpn_send_to_client_ok(zebra_evpn_t *zevpn)
+static inline bool zebra_evpn_send_to_client_ok(struct zebra_evpn *zevpn)
 {
 	return !!(zevpn->flags & ZEVPN_READY_FOR_BGP);
 }
 
-static inline bool zebra_evpn_mac_is_es_local(zebra_mac_t *mac)
+static inline bool zebra_evpn_mac_is_es_local(struct zebra_mac *mac)
 {
 	return mac->es && (mac->es->flags & ZEBRA_EVPNES_LOCAL);
 }
@@ -313,12 +313,12 @@ extern void zebra_evpn_mh_terminate(void);
 extern bool zebra_evpn_is_if_es_capable(struct zebra_if *zif);
 extern void zebra_evpn_if_init(struct zebra_if *zif);
 extern void zebra_evpn_if_cleanup(struct zebra_if *zif);
-extern void zebra_evpn_es_evi_init(zebra_evpn_t *zevpn);
-extern void zebra_evpn_es_evi_cleanup(zebra_evpn_t *zevpn);
-extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif, zebra_evpn_t *zevpn,
-		bool set);
-extern void zebra_evpn_es_set_base_evpn(zebra_evpn_t *zevpn);
-extern void zebra_evpn_es_clear_base_evpn(zebra_evpn_t *zevpn);
+extern void zebra_evpn_es_evi_init(struct zebra_evpn *zevpn);
+extern void zebra_evpn_es_evi_cleanup(struct zebra_evpn *zevpn);
+extern void zebra_evpn_vxl_evpn_set(struct zebra_if *zif,
+				    struct zebra_evpn *zevpn, bool set);
+extern void zebra_evpn_es_set_base_evpn(struct zebra_evpn *zevpn);
+extern void zebra_evpn_es_clear_base_evpn(struct zebra_evpn *zevpn);
 extern void zebra_evpn_vl_vxl_ref(uint16_t vid, struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_vxl_deref(uint16_t vid, struct zebra_if *vxlan_zif);
 extern void zebra_evpn_vl_mbr_ref(uint16_t vid, struct zebra_if *zif);
@@ -328,7 +328,7 @@ extern void zebra_evpn_es_if_oper_state_change(struct zebra_if *zif, bool up);
 extern void zebra_evpn_es_show(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_detail(struct vty *vty, bool uj);
 extern void zebra_evpn_es_show_esi(struct vty *vty, bool uj, esi_t *esi);
-extern void zebra_evpn_update_all_es(zebra_evpn_t *zevpn);
+extern void zebra_evpn_update_all_es(struct zebra_evpn *zevpn);
 extern void zebra_evpn_proc_remote_es(ZAPI_HANDLER_ARGS);
 int zebra_evpn_remote_es_add(const esi_t *esi, struct in_addr vtep_ip,
 			     bool esr_rxed, uint8_t df_alg, uint16_t df_pref);
@@ -336,10 +336,10 @@ int zebra_evpn_remote_es_del(const esi_t *esi, struct in_addr vtep_ip);
 extern void zebra_evpn_es_evi_show(struct vty *vty, bool uj, int detail);
 extern void zebra_evpn_es_evi_show_vni(struct vty *vty, bool uj,
 		vni_t vni, int detail);
-extern void zebra_evpn_es_mac_deref_entry(zebra_mac_t *mac);
-extern bool zebra_evpn_es_mac_ref_entry(zebra_mac_t *mac,
+extern void zebra_evpn_es_mac_deref_entry(struct zebra_mac *mac);
+extern bool zebra_evpn_es_mac_ref_entry(struct zebra_mac *mac,
 					struct zebra_evpn_es *es);
-extern bool zebra_evpn_es_mac_ref(zebra_mac_t *mac, const esi_t *esi);
+extern bool zebra_evpn_es_mac_ref(struct zebra_mac *mac, const esi_t *esi);
 extern struct zebra_evpn_es *zebra_evpn_es_find(const esi_t *esi);
 extern void zebra_evpn_interface_init(void);
 extern int zebra_evpn_mh_if_write(struct vty *vty, struct interface *ifp);
@@ -387,5 +387,7 @@ extern void zebra_evpn_acc_bd_svi_mac_add(struct interface *vlan_if);
 extern void zebra_evpn_es_bypass_update(struct zebra_evpn_es *es,
 					struct interface *ifp, bool bypass);
 extern void zebra_evpn_proc_remote_nh(ZAPI_HANDLER_ARGS);
+extern struct zebra_evpn_es_evi *
+zebra_evpn_es_evi_find(struct zebra_evpn_es *es, struct zebra_evpn *zevpn);
 
 #endif /* _ZEBRA_EVPN_MH_H */

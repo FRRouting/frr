@@ -189,7 +189,12 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV6
 	    || nexthop->type == NEXTHOP_TYPE_IPV6_IFINDEX) {
-		nhi.gateway = &nexthop->gate;
+		/* Special handling for IPv4 route with IPv6 Link Local next hop
+		 */
+		if (ri->af == AF_INET)
+			nhi.gateway = &ipv4ll_gateway;
+		else
+			nhi.gateway = &nexthop->gate;
 	}
 
 	if (nexthop->type == NEXTHOP_TYPE_IFINDEX) {
@@ -276,7 +281,7 @@ static int netlink_route_info_fill(struct netlink_route_info *ri, int cmd,
 	ri->af = rib_dest_af(dest);
 
 	if (zvrf && zvrf->zns)
-		ri->nlmsg_pid = zvrf->zns->netlink_dplane.snl.nl_pid;
+		ri->nlmsg_pid = zvrf->zns->netlink_dplane_out.snl.nl_pid;
 
 	ri->nlmsg_type = cmd;
 	ri->rtm_table = table_info->table_id;

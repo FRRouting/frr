@@ -266,7 +266,7 @@ static void sigchld(void)
 	frrzmq_thread_cancel(&cb, &cb->write);
 }
 
-static struct quagga_signal_t sigs[] = {
+static struct frr_signal_t sigs[] = {
 	{
 		.signal = SIGCHLD,
 		.handler = sigchld,

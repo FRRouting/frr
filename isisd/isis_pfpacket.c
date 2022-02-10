@@ -123,15 +123,10 @@ static int open_packet_socket(struct isis_circuit *circuit)
 	int fd, retval = ISIS_OK;
 	struct vrf *vrf = NULL;
 
-	vrf = vrf_lookup_by_id(circuit->interface->vrf_id);
+	vrf = circuit->interface->vrf;
 
-	if (vrf == NULL) {
-		zlog_warn("open_packet_socket(): failed to find vrf node");
-		return ISIS_WARNING;
-	}
-
-	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL),
-			circuit->interface->vrf_id, vrf->name);
+	fd = vrf_socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_ALL), vrf->vrf_id,
+			vrf->name);
 
 	if (fd < 0) {
 		zlog_warn("open_packet_socket(): socket() failed %s",

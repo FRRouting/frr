@@ -53,6 +53,29 @@
 #include "ospfd/ospf_abr.h"
 #include "ospfd/ospf_errors.h"
 
+static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
+							struct prefix_ipv4 *p,
+							uint8_t type,
+							uint32_t metric,
+							struct in_addr old_id);
+static struct ospf_lsa *
+ospf_summary_lsa_prepare_and_flood(struct prefix_ipv4 *p, uint32_t metric,
+				   struct ospf_area *area, struct in_addr id);
+static struct ospf_lsa *ospf_summary_lsa_refresh(struct ospf *ospf,
+						 struct ospf_lsa *lsa);
+static struct ospf_lsa *
+ospf_asbr_summary_lsa_prepare_and_flood(struct prefix_ipv4 *p, uint32_t metric,
+					struct ospf_area *area,
+					struct in_addr id);
+static struct ospf_lsa *ospf_summary_asbr_lsa_refresh(struct ospf *ospf,
+						      struct ospf_lsa *lsa);
+static struct ospf_lsa *ospf_handle_exnl_lsa_lsId_chg(struct ospf *ospf,
+						      struct external_info *ei,
+						      struct in_addr id);
+static struct ospf_lsa *
+ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
+				struct in_addr id);
+
 uint32_t get_metric(uint8_t *metric)
 {
 	uint32_t m;
@@ -1221,31 +1244,11 @@ static struct ospf_lsa *ospf_summary_lsa_new(struct ospf_area *area,
 }
 
 /* Originate Summary-LSA. */
-struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p,
-					    uint32_t metric,
-					    struct ospf_area *area)
+static struct ospf_lsa *
+ospf_summary_lsa_prepare_and_flood(struct prefix_ipv4 *p, uint32_t metric,
+				   struct ospf_area *area, struct in_addr id)
 {
 	struct ospf_lsa *new;
-	struct in_addr id;
-
-	if (area->ospf->gr_info.restart_in_progress) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Graceful Restart in progress, don't originate",
-				OSPF_SUMMARY_LSA);
-		return NULL;
-	}
-
-	id = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_SUMMARY_LSA, p);
-
-	if (id.s_addr == 0xffffffff) {
-		/* Maybe Link State ID not available. */
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Link ID not available, can't originate",
-				OSPF_SUMMARY_LSA);
-		return NULL;
-	}
 
 	/* Create new summary-LSA instance. */
 	if (!(new = ospf_summary_lsa_new(area, (struct prefix *)p, metric, id)))
@@ -1267,6 +1270,97 @@ struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p,
 		ospf_lsa_header_dump(new->data);
 	}
 
+	return new;
+}
+
+static struct ospf_lsa *ospf_handle_summarylsa_lsId_chg(struct ospf *ospf,
+							struct prefix_ipv4 *p,
+							uint8_t type,
+							uint32_t metric,
+							struct in_addr old_id)
+{
+	struct ospf_lsa *lsa = NULL;
+	struct ospf_lsa *new = NULL;
+	struct summary_lsa *sl = NULL;
+	struct ospf_area *old_area = NULL;
+	struct prefix_ipv4 old_prefix;
+	uint32_t old_metric;
+	struct in_addr mask;
+	uint32_t metric_val;
+	char *metric_buf;
+
+	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, type, p->prefix,
+				     ospf->router_id);
+
+	if (!lsa) {
+		flog_warn(EC_OSPF_LSA_NULL, "(%s): LSA not found", __func__);
+		return NULL;
+	}
+
+	sl = (struct summary_lsa *)lsa->data;
+
+	old_area = lsa->area;
+	old_metric = GET_METRIC(sl->metric);
+	old_prefix.prefix = sl->header.id;
+	old_prefix.prefixlen = ip_masklen(sl->mask);
+	old_prefix.family = AF_INET;
+
+
+	/* change the mask */
+	masklen2ip(p->prefixlen, &mask);
+	sl->mask.s_addr = mask.s_addr;
+
+	/* Copy the metric*/
+	metric_val = htonl(metric);
+	metric_buf = (char *)&metric_val;
+	memcpy(sl->metric, metric_buf, sizeof(metric_val));
+
+	if (type == OSPF_SUMMARY_LSA) {
+		/*Refresh the LSA with new LSA*/
+		ospf_summary_lsa_refresh(ospf, lsa);
+
+		new = ospf_summary_lsa_prepare_and_flood(
+			&old_prefix, old_metric, old_area, old_id);
+	} else {
+		/*Refresh the LSA with new LSA*/
+		ospf_summary_asbr_lsa_refresh(ospf, lsa);
+
+		new = ospf_asbr_summary_lsa_prepare_and_flood(
+			&old_prefix, old_metric, old_area, old_id);
+	}
+
+	return new;
+}
+
+/* Originate Summary-LSA. */
+struct ospf_lsa *ospf_summary_lsa_originate(struct prefix_ipv4 *p,
+					    uint32_t metric,
+					    struct ospf_area *area)
+{
+	struct in_addr id;
+	enum lsid_status status;
+	struct ospf_lsa *new = NULL;
+
+	status = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_SUMMARY_LSA, p,
+				    &id);
+
+	if (status == LSID_CHANGE) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("Link ID has to be changed.");
+
+		new = ospf_handle_summarylsa_lsId_chg(
+			area->ospf, p, OSPF_SUMMARY_LSA, metric, id);
+		return new;
+	} else if (status == LSID_NOT_AVAILABLE) {
+		/* Link State ID not available. */
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type5]: Link ID not available, can't originate");
+
+		return NULL;
+	}
+
+	new = ospf_summary_lsa_prepare_and_flood(p, metric, area, id);
 	return new;
 }
 
@@ -1370,32 +1464,12 @@ static struct ospf_lsa *ospf_summary_asbr_lsa_new(struct ospf_area *area,
 }
 
 /* Originate summary-ASBR-LSA. */
-struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p,
-						 uint32_t metric,
-						 struct ospf_area *area)
+static struct ospf_lsa *
+ospf_asbr_summary_lsa_prepare_and_flood(struct prefix_ipv4 *p, uint32_t metric,
+					struct ospf_area *area,
+					struct in_addr id)
 {
 	struct ospf_lsa *new;
-	struct in_addr id;
-
-	if (area->ospf->gr_info.restart_in_progress) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Graceful Restart in progress, don't originate",
-				OSPF_ASBR_SUMMARY_LSA);
-		return NULL;
-	}
-
-	id = ospf_lsa_unique_id(area->ospf, area->lsdb, OSPF_ASBR_SUMMARY_LSA,
-				p);
-
-	if (id.s_addr == 0xffffffff) {
-		/* Maybe Link State ID not available. */
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type%d]: Link ID not available, can't originate",
-				OSPF_ASBR_SUMMARY_LSA);
-		return NULL;
-	}
 
 	/* Create new summary-LSA instance. */
 	new = ospf_summary_asbr_lsa_new(area, (struct prefix *)p, metric, id);
@@ -1418,6 +1492,37 @@ struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p,
 		ospf_lsa_header_dump(new->data);
 	}
 
+	return new;
+}
+
+struct ospf_lsa *ospf_summary_asbr_lsa_originate(struct prefix_ipv4 *p,
+						 uint32_t metric,
+						 struct ospf_area *area)
+{
+	struct ospf_lsa *new;
+	struct in_addr id;
+	enum lsid_status status;
+
+	status = ospf_lsa_unique_id(area->ospf, area->lsdb,
+				    OSPF_ASBR_SUMMARY_LSA, p, &id);
+
+	if (status == LSID_CHANGE) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug("Link ID has to be changed.");
+
+		new = ospf_handle_summarylsa_lsId_chg(
+			area->ospf, p, OSPF_ASBR_SUMMARY_LSA, metric, id);
+		return new;
+	} else if (status == LSID_NOT_AVAILABLE) {
+		/* Link State ID not available. */
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type5]: Link ID not available, can't originate");
+
+		return NULL;
+	}
+
+	new = ospf_asbr_summary_lsa_prepare_and_flood(p, metric, area, id);
 	return new;
 }
 
@@ -1612,41 +1717,14 @@ static void ospf_external_lsa_body_set(struct stream *s,
 }
 
 /* Create new external-LSA. */
-static struct ospf_lsa *ospf_external_lsa_new(struct ospf *ospf,
-					      struct external_info *ei,
-					      struct in_addr *old_id)
+static struct ospf_lsa *
+ospf_exnl_lsa_prepare_and_flood(struct ospf *ospf, struct external_info *ei,
+				struct in_addr id)
 {
 	struct stream *s;
 	struct lsa_header *lsah;
 	struct ospf_lsa *new;
-	struct in_addr id;
 	int length;
-
-	if (ei == NULL) {
-		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-			zlog_debug(
-				"LSA[Type5]: External info is NULL, can't originate");
-		return NULL;
-	}
-
-	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-		zlog_debug("LSA[Type5]: Originate AS-external-LSA instance");
-
-	/* If old Link State ID is specified, refresh LSA with same ID. */
-	if (old_id)
-		id = *old_id;
-	/* Get Link State with unique ID. */
-	else {
-		id = ospf_lsa_unique_id(ospf, ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
-					&ei->p);
-		if (id.s_addr == 0xffffffff) {
-			/* Maybe Link State ID not available. */
-			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
-				zlog_debug(
-					"LSA[Type5]: Link ID not available, can't originate");
-			return NULL;
-		}
-	}
 
 	/* Create new stream for LSA. */
 	s = stream_new(OSPF_MAX_LSA_SIZE);
@@ -1673,6 +1751,99 @@ static struct ospf_lsa *ospf_external_lsa_new(struct ospf *ospf,
 	/* Copy LSA data to store, discard stream. */
 	memcpy(new->data, lsah, length);
 	stream_free(s);
+
+	return new;
+}
+
+static struct ospf_lsa *ospf_handle_exnl_lsa_lsId_chg(struct ospf *ospf,
+						      struct external_info *ei,
+						      struct in_addr id)
+{
+	struct ospf_lsa *lsa;
+	struct as_external_lsa *al;
+	struct in_addr mask;
+	struct ospf_lsa *new;
+	struct external_info ei_summary;
+	struct external_info *ei_old;
+
+	lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, OSPF_AS_EXTERNAL_LSA,
+				     ei->p.prefix, ospf->router_id);
+
+	if (!lsa) {
+		flog_warn(EC_OSPF_LSA_NULL, "(%s): LSA not found", __func__);
+		return NULL;
+	}
+
+	ei_old = ospf_external_info_check(ospf, lsa);
+
+	al = (struct as_external_lsa *)lsa->data;
+
+	if (!ei_old) {
+		/* eii_old pointer of LSA is NULL, this
+		 * must be external aggregate route.
+		 */
+		ei_summary.p.family = AF_INET;
+		ei_summary.p.prefix = al->header.id;
+		ei_summary.p.prefixlen = ip_masklen(al->mask);
+		ei_summary.tag = (unsigned long)ntohl(al->e[0].route_tag);
+		ei_old = &ei_summary;
+	}
+
+	/* change the mask */
+	masklen2ip(ei->p.prefixlen, &mask);
+	al->mask.s_addr = mask.s_addr;
+
+	/*Refresh the LSA with new LSA*/
+	ospf_external_lsa_refresh(ospf, lsa, ei, LSA_REFRESH_FORCE, 0);
+
+	/*Originate the old LSA with changed LSID*/
+	new = ospf_exnl_lsa_prepare_and_flood(ospf, ei_old, id);
+
+	return new;
+}
+
+static struct ospf_lsa *ospf_external_lsa_new(struct ospf *ospf,
+					      struct external_info *ei,
+					      struct in_addr *old_id)
+{
+	struct ospf_lsa *new;
+	struct in_addr id;
+	enum lsid_status status;
+
+	if (ei == NULL) {
+		if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+			zlog_debug(
+				"LSA[Type5]: External info is NULL, can't originate");
+		return NULL;
+	}
+
+	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+		zlog_debug("LSA[Type5]: Originate AS-external-LSA instance");
+
+	/* If old Link State ID is specified, refresh LSA with same ID. */
+	if (old_id)
+		id = *old_id;
+	/* Get Link State with unique ID. */
+	else {
+		status = ospf_lsa_unique_id(ospf, ospf->lsdb,
+					    OSPF_AS_EXTERNAL_LSA, &ei->p, &id);
+
+		if (status == LSID_CHANGE) {
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug("Link ID has to be changed.");
+
+			new = ospf_handle_exnl_lsa_lsId_chg(ospf, ei, id);
+			return new;
+		} else if (status == LSID_NOT_AVAILABLE) {
+			/* Link State ID not available. */
+			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+				zlog_debug(
+					"LSA[Type5]: Link ID not available, can't originate");
+			return NULL;
+		}
+	}
+
+	new = ospf_exnl_lsa_prepare_and_flood(ospf, ei, id);
 
 	return new;
 }
@@ -2090,8 +2261,7 @@ static struct external_info *ospf_default_external_info(struct ospf *ospf)
 	p.prefix.s_addr = 0;
 	p.prefixlen = 0;
 
-	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE,
-					       ospf->instance, &p);
+	default_ei = ospf_external_info_lookup(ospf, DEFAULT_ROUTE, 0, &p);
 	if (!default_ei)
 		return NULL;
 
@@ -2480,10 +2650,6 @@ ospf_router_lsa_install(struct ospf *ospf, struct ospf_lsa *new, int rt_recalc)
 	return new;
 }
 
-#define OSPF_INTERFACE_TIMER_ON(T, F, V)                                       \
-	if (!(T))                                                              \
-	(T) = thread_add_timer(master, (F), oi, (V))
-
 /* Install network-LSA to an area. */
 static struct ospf_lsa *ospf_network_lsa_install(struct ospf *ospf,
 						 struct ospf_interface *oi,
@@ -2696,7 +2862,7 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 
 	/* Do comparision and record if recalc needed. */
 	rt_recalc = 0;
-	if (old == NULL || ospf_lsa_different(old, lsa)) {
+	if (old == NULL || ospf_lsa_different(old, lsa, false)) {
 		/* Ref rfc3623 section 3.2.3
 		 * Installing new lsa or change in the existing LSA
 		 * or flushing existing LSA leads to topo change
@@ -2704,7 +2870,9 @@ struct ospf_lsa *ospf_lsa_install(struct ospf *ospf, struct ospf_interface *oi,
 		 * So, router should be aborted from HELPER role
 		 * if it is detected as TOPO  change.
 		 */
-		if (CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type))
+		if (ospf->active_restarter_cnt
+		    && CHECK_LSA_TYPE_1_TO_5_OR_7(lsa->data->type)
+		    && ospf_lsa_different(old, lsa, true))
 			ospf_helper_handle_topo_chg(ospf, lsa);
 
 		rt_recalc = 1;
@@ -2954,13 +3122,39 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 	return 0;
 }
 
+/* This function checks whether an LSA with initial sequence number should be
+ *  originated after a wrap in sequence number
+ */
+void ospf_check_and_gen_init_seq_lsa(struct ospf_interface *oi,
+				     struct ospf_lsa *recv_lsa)
+{
+	struct ospf_lsa *lsa = NULL;
+	struct ospf *ospf = oi->ospf;
+
+	lsa = ospf_lsa_lookup_by_header(oi->area, recv_lsa->data);
+
+	if ((lsa == NULL) || (!CHECK_FLAG(lsa->flags, OSPF_LSA_PREMATURE_AGE))
+	    || (lsa->retransmit_counter != 0)) {
+		if (IS_DEBUG_OSPF(lsa, LSA))
+			zlog_debug(
+				"Do not generate LSA with initial seqence number.");
+		return;
+	}
+
+	ospf_lsa_maxage_delete(ospf, lsa);
+
+	lsa->data->ls_seqnum = lsa_seqnum_increment(lsa);
+
+	ospf_lsa_refresh(ospf, lsa);
+}
+
 void ospf_lsa_maxage_delete(struct ospf *ospf, struct ospf_lsa *lsa)
 {
 	struct route_node *rn;
 	struct prefix lsa_prefix;
 
 	memset(&lsa_prefix, 0, sizeof(struct prefix));
-	lsa_prefix.family = 0;
+	lsa_prefix.family = AF_UNSPEC;
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
@@ -3001,7 +3195,7 @@ void ospf_lsa_maxage(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 
 	memset(&lsa_prefix, 0, sizeof(struct prefix));
-	lsa_prefix.family = 0;
+	lsa_prefix.family = AF_UNSPEC;
 	lsa_prefix.prefixlen = sizeof(lsa_prefix.u.ptr) * CHAR_BIT;
 	lsa_prefix.u.ptr = (uintptr_t)lsa;
 
@@ -3280,8 +3474,25 @@ int ospf_lsa_more_recent(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	return 0;
 }
 
-/* If two LSAs are different, return 1, otherwise return 0. */
-int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
+/*
+ * Check if two LSAs are different.
+ *
+ * l1
+ *    The first LSA to compare.
+ *
+ * l2
+ *    The second LSA to compare.
+ *
+ * ignore_rcvd_flag
+ *    When set to true, ignore whether the LSAs were received from the network
+ *    or not. This parameter should be set to true when checking for topology
+ *    changes as part of the Graceful Restart helper neighbor procedures.
+ *
+ * Returns:
+ *    true if the LSAs are different, false otherwise.
+ */
+int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2,
+		       bool ignore_rcvd_flag)
 {
 	char *p1, *p2;
 	assert(l1);
@@ -3304,7 +3515,8 @@ int ospf_lsa_different(struct ospf_lsa *l1, struct ospf_lsa *l2)
 	if (l1->size == 0)
 		return 1;
 
-	if (CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
+	if (!ignore_rcvd_flag
+	    && CHECK_FLAG((l1->flags ^ l2->flags), OSPF_LSA_RECEIVED))
 		return 1; /* May be a stale LSA in the LSBD */
 
 	assert(l1->size > OSPF_LSA_HEADER_SIZE);
@@ -3468,49 +3680,87 @@ int ospf_lsa_is_self_originated(struct ospf *ospf, struct ospf_lsa *lsa)
 }
 
 /* Get unique Link State ID. */
-struct in_addr ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
-				  uint8_t type, struct prefix_ipv4 *p)
+enum lsid_status ospf_lsa_unique_id(struct ospf *ospf, struct ospf_lsdb *lsdb,
+				    uint8_t type, struct prefix_ipv4 *p,
+				    struct in_addr *id)
 {
 	struct ospf_lsa *lsa;
-	struct in_addr mask, id;
+	struct in_addr mask;
 
-	id = p->prefix;
+	*id = p->prefix;
 
 	/* Check existence of LSA instance. */
-	lsa = ospf_lsdb_lookup_by_id(lsdb, type, id, ospf->router_id);
+	lsa = ospf_lsdb_lookup_by_id(lsdb, type, *id, ospf->router_id);
 	if (lsa) {
 		struct as_external_lsa *al =
 			(struct as_external_lsa *)lsa->data;
+		/* Ref rfc2328,Appendex E.1
+		 * If router already originated the external lsa with lsid
+		 * as the current prefix, and the masklens are same then
+		 * terminate the LSID algorithem.
+		 */
 		if (ip_masklen(al->mask) == p->prefixlen) {
 			if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 				zlog_debug(
-					"ospf_lsa_unique_id(): Can't get Link State ID for %pFX",
-					p);
+					"%s: Can't get Link State ID for %pFX",
+					__func__, p);
 			/*	  id.s_addr = 0; */
-			id.s_addr = 0xffffffff;
-			return id;
-		}
-		/* Masklen differs, then apply wildcard mask to Link State ID.
-		   */
-		else {
+			id->s_addr = 0xffffffff;
+			return LSID_NOT_AVAILABLE;
+		} else if (ip_masklen(al->mask) < p->prefixlen) {
+			/* Ref rfc2328,Appendex E.2
+			 * the current prefix masklen is greater than the
+			 * existing LSA, then generate the Link state ID,
+			 * by setting all host bits in prefix addressa and
+			 * originate.
+			 *
+			 * Eg: 1st Route : 10.0.0.0/16 - LSID:10.0.0.0
+			 *     2nd Route : 10.0.0.0/24 - LSID:10.0.0.255
+			 */
 			masklen2ip(p->prefixlen, &mask);
 
-			id.s_addr = p->prefix.s_addr | (~mask.s_addr);
-			lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, type, id,
+			id->s_addr = p->prefix.s_addr | (~mask.s_addr);
+			lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, type, *id,
 						     ospf->router_id);
 			if (lsa) {
 				if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 					zlog_debug(
-						"ospf_lsa_unique_id(): Can't get Link State ID for %pFX",
-						p);
-				/* 	      id.s_addr = 0; */
-				id.s_addr = 0xffffffff;
-				return id;
+						"%s: Can't get Link State ID for %pFX",
+						__func__, p);
+				id->s_addr = 0xffffffff;
+				return LSID_NOT_AVAILABLE;
 			}
+		} else {
+			/* Ref rfc2328,Appendex E.3
+			 * the current prefix masklen is lesser than the
+			 * existing LSA,then the originated LSA has to be
+			 * refreshed by modifying masklen, cost and tag.
+			 * Originate the old route info with new LSID by
+			 * setting the host bits in prefix address.
+			 *
+			 * Eg: 1st Route : 10.0.0.0/24 - LSID:10.0.0.0
+			 *     2nd Route : 10.0.0.0/16 - ?
+			 * Since 2nd route mask len is less than firstone
+			 * LSID has to be changed.
+			 *     1st route LSID:10.0.0.255
+			 *     2nd route LSID:10.0.0.0
+			 */
+			id->s_addr = lsa->data->id.s_addr | (~al->mask.s_addr);
+			lsa = ospf_lsdb_lookup_by_id(ospf->lsdb, type, *id,
+						     ospf->router_id);
+			if (lsa && (ip_masklen(al->mask) != IPV4_MAX_BITLEN)) {
+				if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
+					zlog_debug(
+						"%s: Can't get Link State ID for %pFX",
+						__func__, p);
+				id->s_addr = 0xffffffff;
+				return LSID_NOT_AVAILABLE;
+			}
+			return LSID_CHANGE;
 		}
 	}
 
-	return id;
+	return LSID_AVAILABLE;
 }
 
 

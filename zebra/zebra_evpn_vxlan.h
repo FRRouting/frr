@@ -28,7 +28,7 @@ zebra_get_vrr_intf_for_svi(struct interface *ifp)
 	struct interface *tmp_if = NULL;
 	struct zebra_if *zif = NULL;
 
-	zvrf = vrf_info_lookup(ifp->vrf_id);
+	zvrf = ifp->vrf->info;
 	assert(zvrf);
 
 	FOR_ALL_INTERFACES (zvrf->vrf, tmp_if) {
@@ -47,7 +47,7 @@ zebra_get_vrr_intf_for_svi(struct interface *ifp)
 }
 
 /* EVPN<=>vxlan_zif association */
-static inline void zevpn_vxlan_if_set(zebra_evpn_t *zevpn,
+static inline void zevpn_vxlan_if_set(struct zebra_evpn *zevpn,
 				      struct interface *ifp, bool set)
 {
 	struct zebra_if *zif;

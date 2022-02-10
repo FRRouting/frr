@@ -29,6 +29,7 @@ struct ospf6_lsdb {
 	void *data; /* data structure that holds this lsdb */
 	struct route_table *table;
 	uint32_t count;
+	uint32_t stats[OSPF6_LSTYPE_SIZE];
 	void (*hook_add)(struct ospf6_lsa *);
 	void (*hook_remove)(struct ospf6_lsa *);
 };

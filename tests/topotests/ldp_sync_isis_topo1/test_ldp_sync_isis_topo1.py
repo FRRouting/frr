@@ -64,7 +64,6 @@ import re
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -78,55 +77,50 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.isisd, pytest.mark.ldpd]
 
 
-class TemplateTopo(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    #
+    # Define FRR Routers
+    #
+    for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
+        tgen.add_router(router)
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
-            tgen.add_router(router)
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["ce1"])
+    switch.add_link(tgen.gears["r1"])
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["ce1"])
-        switch.add_link(tgen.gears["r1"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["ce2"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["ce2"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["ce3"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["ce3"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -466,20 +460,20 @@ def parse_show_isis_ldp_sync(lines, rname):
             interface = {}
             interface_name = None
 
-            line = it.next()
+            line = next(it)
 
             if line.startswith(rname + "-eth"):
                 interface_name = line
 
-            line = it.next()
+            line = next(it)
 
             if line.startswith(" LDP-IGP Synchronization enabled: "):
                 interface["ldpIgpSyncEnabled"] = line.endswith("yes")
-                line = it.next()
+                line = next(it)
 
                 if line.startswith(" holddown timer in seconds: "):
                     interface["holdDownTimeInSec"] = int(line.split(": ")[-1])
-                    line = it.next()
+                    line = next(it)
 
                 if line.startswith(" State: "):
                     interface["ldpIgpSyncState"] = line.split(": ")[-1]
@@ -539,7 +533,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
     while True:
         try:
-            line = it.next()
+            line = next(it)
 
             area_match = re.match(r"Area (.+):", line)
             if not area_match:
@@ -548,7 +542,7 @@ def parse_show_isis_interface_detail(lines, rname):
             area_id = area_match.group(1)
             area = {}
 
-            line = it.next()
+            line = next(it)
 
             while line.startswith(" Interface: "):
                 interface_name = re.split(":|,", line)[1].lstrip()
@@ -557,7 +551,7 @@ def parse_show_isis_interface_detail(lines, rname):
 
                 # Look for keyword: Level-1 or Level-2
                 while not line.startswith(" Level-"):
-                    line = it.next()
+                    line = next(it)
 
                 while line.startswith(" Level-"):
 
@@ -566,7 +560,7 @@ def parse_show_isis_interface_detail(lines, rname):
                     level_name = line.split()[0]
                     level["level"] = level_name
 
-                    line = it.next()
+                    line = next(it)
 
                     if line.startswith(" Metric:"):
                         level["metric"] = re.split(":|,", line)[1].lstrip()
@@ -577,7 +571,7 @@ def parse_show_isis_interface_detail(lines, rname):
                     while not line.startswith(" Level-") and not line.startswith(
                         " Interface: "
                     ):
-                        line = it.next()
+                        line = next(it)
 
                     if line.startswith(" Level-"):
                         continue

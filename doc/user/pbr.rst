@@ -154,6 +154,31 @@ end destination.
    (ECN) field in the IP header; if this value matches then forward the packet
    according to the nexthop(s) specified.
 
+
+.. clicmd:: set queue-id (1-65535)
+
+   Set the egress port queue identifier for matched packets. The Linux Kernel
+   provider does not currently support packet mangling, so this field will be
+   ignored unless another provider is used.
+
+.. clicmd:: set pcp (0-7)
+
+   Set the 802.1Q priority code point (PCP) for matched packets. A PCP of zero
+   is the defaul (nominally, "best effort"). The Linux Kernel provider does not 
+   currently support packet mangling, so this field will be ignored unless 
+   another provider is used.
+
+.. clicmd:: set vlan (1-4094)
+
+   Set the VLAN tag for matched packets. Identifiers 0 and 4095 are reserved.
+   The Linux Kernel provider does not currently support packet mangling, so 
+   this field will be ignored unless another provider is used.
+
+.. clicmd:: strip vlan
+
+   Strip inner vlan tags from matched packets. The Linux Kernel provider does not currently support packet mangling, so this field will be ignored unless another provider is used. It is invalid to specify both a `strip` and `set
+   vlan` action.
+
 .. clicmd:: set nexthop-group NAME
 
    Use the nexthop-group NAME as the place to forward packets when the match

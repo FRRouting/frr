@@ -279,17 +279,19 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
 	 */
 	size = upper_bound - lower_bound + 1;
 	if (ospf_zebra_request_label_range(lower_bound, size)) {
-		srlb->reserved = false;
+		zlog_err("SR: Error reserving SRLB [%u/%u] %u labels",
+			 lower_bound, upper_bound, size);
 		return -1;
 	}
 
-	osr_debug("SR (%s): Got new SRLB [%u/%u]", __func__, lower_bound,
-		  upper_bound);
+	osr_debug("SR: Got new SRLB [%u/%u], %u labels", lower_bound,
+		  upper_bound, size);
 
 	/* Initialize the SRLB */
 	srlb->start = lower_bound;
 	srlb->end = upper_bound;
 	srlb->current = 0;
+
 	/* Compute the needed Used Mark number and allocate them */
 	srlb->max_block = size / SRLB_BLOCK_SIZE;
 	if ((size % SRLB_BLOCK_SIZE) != 0)
@@ -301,11 +303,36 @@ static int sr_local_block_init(uint32_t lower_bound, uint32_t upper_bound)
 	return 0;
 }
 
+static int sr_global_block_init(uint32_t start, uint32_t size)
+{
+	struct sr_global_block *srgb = &OspfSR.srgb;
+
+	/* Check if already configured */
+	if (srgb->reserved)
+		return 0;
+
+	/* request chunk */
+	uint32_t end = start + size - 1;
+	if (ospf_zebra_request_label_range(start, size) < 0) {
+		zlog_err("SR: Error reserving SRGB [%u/%u], %u labels", start,
+			 end, size);
+		return -1;
+	}
+
+	osr_debug("SR: Got new SRGB [%u/%u], %u labels", start, end, size);
+
+	/* success */
+	srgb->start = start;
+	srgb->size = size;
+	srgb->reserved = true;
+	return 0;
+}
+
 /**
  * Remove Segment Routing Local Block.
  *
  */
-static void sr_local_block_delete()
+static void sr_local_block_delete(void)
 {
 	struct sr_local_block *srlb = &OspfSR.srlb;
 
@@ -322,8 +349,29 @@ static void sr_local_block_delete()
 	/* Then reset SRLB structure */
 	if (srlb->used_mark != NULL)
 		XFREE(MTYPE_OSPF_SR_PARAMS, srlb->used_mark);
+
 	srlb->reserved = false;
 }
+
+/**
+ * Remove Segment Routing Global block
+ */
+static void sr_global_block_delete(void)
+{
+	struct sr_global_block *srgb = &OspfSR.srgb;
+
+	if (!srgb->reserved)
+		return;
+
+	osr_debug("SR (%s): Remove SRGB [%u/%u]", __func__, srgb->start,
+		  srgb->start + srgb->size - 1);
+
+	ospf_zebra_release_label_range(srgb->start,
+				       srgb->start + srgb->size - 1);
+
+	srgb->reserved = false;
+}
+
 
 /**
  * Request a label from the Segment Routing Local Block.
@@ -337,9 +385,10 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 	mpls_label_t label;
 	uint32_t index;
 	uint32_t pos;
+	uint32_t size = srlb->end - srlb->start + 1;
 
 	/* Check if we ran out of available labels */
-	if (srlb->current >= srlb->end)
+	if (srlb->current >= size)
 		return MPLS_INVALID_LABEL;
 
 	/* Get first available label and mark it used */
@@ -351,7 +400,7 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 	/* Jump to the next free position */
 	srlb->current++;
 	pos = srlb->current % SRLB_BLOCK_SIZE;
-	while (srlb->current < srlb->end) {
+	while (srlb->current < size) {
 		if (pos == 0)
 			index++;
 		if (!((1ULL << pos) & srlb->used_mark[index]))
@@ -361,6 +410,10 @@ mpls_label_t ospf_sr_local_block_request_label(void)
 			pos = srlb->current % SRLB_BLOCK_SIZE;
 		}
 	}
+
+	if (srlb->current == size)
+		zlog_warn(
+			"SR: Warning, SRLB is depleted and next label request will fail");
 
 	return label;
 }
@@ -469,16 +522,11 @@ static int ospf_sr_start(struct ospf *ospf)
 	 * If the allocation fails, return an error to disable SR until a new
 	 * SRLB and/or SRGB are successfully allocated.
 	 */
-	sr_local_block_init(OspfSR.srlb.start, OspfSR.srlb.end);
-	if (!OspfSR.srgb.reserved) {
-		if (ospf_zebra_request_label_range(OspfSR.srgb.start,
-						   OspfSR.srgb.size)
-		    < 0) {
-			OspfSR.srgb.reserved = false;
-			return -1;
-		} else
-			OspfSR.srgb.reserved = true;
-	}
+	if (sr_local_block_init(OspfSR.srlb.start, OspfSR.srlb.end) < 0)
+		return -1;
+
+	if (sr_global_block_init(OspfSR.srgb.start, OspfSR.srgb.size) < 0)
+		return -1;
 
 	/* SR is UP and ready to flood LSA */
 	OspfSR.status = SR_UP;
@@ -534,13 +582,10 @@ static void ospf_sr_stop(void)
 	/* Disable any re-attempt to connect to Label Manager */
 	THREAD_OFF(OspfSR.t_start_lm);
 
-	/* Release SRGB & SRLB if active. */
-	if (OspfSR.srgb.reserved) {
-		ospf_zebra_release_label_range(
-			OspfSR.srgb.start,
-			OspfSR.srgb.start + OspfSR.srgb.size - 1);
-		OspfSR.srgb.reserved = false;
-	}
+	/* Release SRGB if active */
+	sr_global_block_delete();
+
+	/* Release SRLB if active */
 	sr_local_block_delete();
 
 	/*
@@ -581,7 +626,7 @@ int ospf_sr_init(void)
 	OspfSR.srgb.reserved = false;
 
 	OspfSR.srlb.start = DEFAULT_SRLB_LABEL;
-	OspfSR.srlb.end = DEFAULT_SRLB_LABEL + DEFAULT_SRLB_SIZE - 1;
+	OspfSR.srlb.end = DEFAULT_SRLB_END;
 	OspfSR.srlb.reserved = false;
 	OspfSR.msd = 0;
 
@@ -1200,7 +1245,9 @@ static void update_ext_prefix_sid(struct sr_node *srn, struct sr_prefix *srp)
 
 	/* Search for existing Segment Prefix */
 	for (ALL_LIST_ELEMENTS_RO(srn->ext_prefix, node, pref))
-		if (pref->instance == srp->instance) {
+		if (pref->instance == srp->instance
+		    && prefix_same((struct prefix *)&srp->prefv4,
+				   &pref->prefv4)) {
 			found = true;
 			break;
 		}
@@ -1231,9 +1278,6 @@ static void update_ext_prefix_sid(struct sr_node *srn, struct sr_prefix *srp)
 				/* Replace Segment Prefix */
 				listnode_delete(srn->ext_prefix, pref);
 				XFREE(MTYPE_OSPF_SR_PARAMS, pref);
-				srp->srn = srn;
-				IPV4_ADDR_COPY(&srp->adv_router,
-					       &srn->adv_router);
 				listnode_add(srn->ext_prefix, srp);
 				ospf_zebra_update_prefix_sid(srp);
 			} else {
@@ -2099,6 +2143,20 @@ static int ospf_sr_enabled(struct vty *vty)
 	return 0;
 }
 
+/* tell if two ranges [r1_lower, r1_upper] and [r2_lower,r2_upper] overlap */
+static bool ranges_overlap(uint32_t r1_lower, uint32_t r1_upper,
+			   uint32_t r2_lower, uint32_t r2_upper)
+{
+	return !((r1_upper < r2_lower) || (r1_lower > r2_upper));
+}
+
+
+/* tell if a range is valid */
+static bool sr_range_is_valid(uint32_t lower, uint32_t upper, uint32_t min_size)
+{
+	return (upper >= lower + min_size);
+}
+
 /**
  * Update SRGB and/or SRLB using new CLI values.
  *
@@ -2136,12 +2194,8 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 
 	/* Release old SRGB if it has changed and is active. */
 	if (gb_changed) {
-		if (OspfSR.srgb.reserved) {
-			ospf_zebra_release_label_range(
-				OspfSR.srgb.start,
-				OspfSR.srgb.start + OspfSR.srgb.size - 1);
-			OspfSR.srgb.reserved = false;
-		}
+
+		sr_global_block_delete();
 
 		/* Set new SRGB values - but do not reserve yet (we need to
 		 * release the SRLB too) */
@@ -2155,8 +2209,8 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 	/* Release old SRLB if it has changed and reserve new block as needed.
 	 */
 	if (lb_changed) {
-		if (OspfSR.srlb.reserved)
-			sr_local_block_delete();
+
+		sr_local_block_delete();
 
 		/* Set new SRLB values */
 		if (sr_local_block_init(lb_lower, lb_upper) < 0) {
@@ -2175,18 +2229,11 @@ static int update_sr_blocks(uint32_t gb_lower, uint32_t gb_upper,
 	 * allocated.
 	 */
 	if (gb_changed) {
-		if (ospf_zebra_request_label_range(OspfSR.srgb.start,
-						   OspfSR.srgb.size)
+		if (sr_global_block_init(OspfSR.srgb.start, OspfSR.srgb.size)
 		    < 0) {
-			OspfSR.srgb.reserved = false;
 			ospf_sr_stop();
 			return -1;
-		} else
-			OspfSR.srgb.reserved = true;
-
-		osr_debug("SR(%s): Got new SRGB [%u/%u]", __func__,
-			  OspfSR.srgb.start,
-			  OspfSR.srgb.start + OspfSR.srgb.size - 1);
+		}
 	}
 
 	/* Update Self SR-Node */
@@ -2227,16 +2274,29 @@ DEFUN(sr_global_label_range, sr_global_label_range_cmd,
 	/* Get lower and upper bound for mandatory global-block */
 	gb_lower = strtoul(argv[idx_gb_low]->arg, NULL, 10);
 	gb_upper = strtoul(argv[idx_gb_up]->arg, NULL, 10);
+
 	/* SRLB values are taken from vtysh if there, else use the known ones */
 	lb_upper = argc > idx_lb_up ? strtoul(argv[idx_lb_up]->arg, NULL, 10)
 				    : OspfSR.srlb.end;
 	lb_lower = argc > idx_lb_low ? strtoul(argv[idx_lb_low]->arg, NULL, 10)
 				     : OspfSR.srlb.start;
 
+	/* check correctness of input SRGB */
+	if (!sr_range_is_valid(gb_lower, gb_upper, MIN_SRGB_SIZE)) {
+		vty_out(vty, "Invalid SRGB range\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	/* check correctness of SRLB */
+	if (!sr_range_is_valid(lb_lower, lb_upper, MIN_SRLB_SIZE)) {
+		vty_out(vty, "Invalid SRLB range\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Validate SRGB against SRLB */
-	if (!((gb_upper < lb_lower) || (gb_lower > lb_upper))) {
+	if (ranges_overlap(gb_lower, gb_upper, lb_lower, lb_upper)) {
 		vty_out(vty,
-			"New SR Global Block (%u/%u) conflict with Local Block (%u/%u)\n",
+			"New SR Global Block (%u/%u) conflicts with Local Block (%u/%u)\n",
 			gb_lower, gb_upper, lb_lower, lb_upper);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2287,6 +2347,12 @@ DEFUN_HIDDEN(sr_local_label_range, sr_local_label_range_cmd,
 	lower = strtoul(argv[idx_low]->arg, NULL, 10);
 	upper = strtoul(argv[idx_up]->arg, NULL, 10);
 
+	/* check correctness of SRLB */
+	if (!sr_range_is_valid(lower, upper, MIN_SRLB_SIZE)) {
+		vty_out(vty, "Invalid SRLB range\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
 	/* Check if values have changed */
 	if ((OspfSR.srlb.start == lower)
 	    && (OspfSR.srlb.end == upper))
@@ -2294,9 +2360,10 @@ DEFUN_HIDDEN(sr_local_label_range, sr_local_label_range_cmd,
 
 	/* Validate SRLB against SRGB */
 	srgb_upper = OspfSR.srgb.start + OspfSR.srgb.size - 1;
-	if (!((upper < OspfSR.srgb.start) || (lower > srgb_upper))) {
+
+	if (ranges_overlap(OspfSR.srgb.start, srgb_upper, lower, upper)) {
 		vty_out(vty,
-			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)\n",
+			"New SR Local Block (%u/%u) conflicts with Global Block (%u/%u)\n",
 			lower, upper, OspfSR.srgb.start, srgb_upper);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
@@ -2319,10 +2386,10 @@ DEFUN_HIDDEN(no_sr_local_label_range, no_sr_local_label_range_cmd,
 
 	/* Validate SRLB against SRGB */
 	srgb_end = OspfSR.srgb.start + OspfSR.srgb.size - 1;
-	if (!((DEFAULT_SRLB_END < OspfSR.srgb.start)
-	      || (DEFAULT_SRLB_LABEL > srgb_end))) {
+	if (ranges_overlap(OspfSR.srgb.start, srgb_end, DEFAULT_SRLB_LABEL,
+			   DEFAULT_SRLB_END)) {
 		vty_out(vty,
-			"New SR Local Block (%u/%u) conflict with Global Block (%u/%u)\n",
+			"New SR Local Block (%u/%u) conflicts with Global Block (%u/%u)\n",
 			DEFAULT_SRLB_LABEL, DEFAULT_SRLB_END, OspfSR.srgb.start,
 			srgb_end);
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2412,11 +2479,15 @@ DEFUN (sr_prefix_sid,
        "Upstream neighbor must replace prefix-sid with explicit null label\n")
 {
 	int idx = 0;
-	struct prefix p;
+	struct prefix p, pexist;
 	uint32_t index;
 	struct listnode *node;
-	struct sr_prefix *srp, *new = NULL;
+	struct sr_prefix *srp, *exist = NULL;
 	struct interface *ifp;
+	bool no_php_flag = false;
+	bool exp_null = false;
+	bool index_in_use = false;
+	uint8_t desired_flags = 0;
 
 	if (!ospf_sr_enabled(vty))
 		return CMD_WARNING_CONFIG_FAILED;
@@ -2437,53 +2508,67 @@ DEFUN (sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	/* Get options */
+	no_php_flag = argv_find(argv, argc, "no-php-flag", &idx);
+	exp_null = argv_find(argv, argc, "explicit-null", &idx);
+
+	desired_flags |= no_php_flag ? EXT_SUBTLV_PREFIX_SID_NPFLG : 0;
+	desired_flags |= exp_null ? EXT_SUBTLV_PREFIX_SID_NPFLG : 0;
+	desired_flags |= exp_null ? EXT_SUBTLV_PREFIX_SID_EFLG : 0;
+
 	/* Search for an existing Prefix-SID */
 	for (ALL_LIST_ELEMENTS_RO(OspfSR.self->ext_prefix, node, srp)) {
+		if (prefix_same((struct prefix *)&srp->prefv4, &p))
+			exist = srp;
 		if (srp->sid == index) {
-			if (prefix_same((struct prefix *)&srp->prefv4, &p)) {
-				new = srp;
-				break;
-			} else {
-				vty_out(vty, "Index %u is already used\n",
-					index);
-				return CMD_WARNING_CONFIG_FAILED;
-			}
+			index_in_use = true;
+			pexist = p;
 		}
 	}
 
-	/* Create new Extended Prefix to SRDB if not found */
-	if (new == NULL) {
-		new = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
-		IPV4_ADDR_COPY(&new->prefv4.prefix, &p.u.prefix4);
-		new->prefv4.prefixlen = p.prefixlen;
-		new->prefv4.family = p.family;
-		new->sid = index;
-		new->type = LOCAL_SID;
+	/* done if prefix segment already there with same index and flags */
+	if (exist && exist->sid == index && exist->flags == desired_flags)
+		return CMD_SUCCESS;
+
+	/* deny if index is already in use by a distinct prefix */
+	if (!exist && index_in_use) {
+		vty_out(vty, "Index %u is already used by %pFX\n", index,
+			&pexist);
+		return CMD_WARNING_CONFIG_FAILED;
 	}
 
 	/* First, remove old NHLFE if installed */
-	if (srp == new && CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
-	    && !CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
-		ospf_zebra_delete_prefix_sid(srp);
-	/* Then, reset Flag & labels to handle flag update */
-	new->flags = 0;
-	new->label_in = 0;
-	new->nhlfe.label_out = 0;
+	if (exist && CHECK_FLAG(exist->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
+	    && !CHECK_FLAG(exist->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
+		ospf_zebra_delete_prefix_sid(exist);
 
-	/* Set NO PHP flag if present and compute NHLFE */
-	if (argv_find(argv, argc, "no-php-flag", &idx)) {
-		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
-		new->label_in = index2label(new->sid, OspfSR.self->srgb);
-		new->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
+	/* Create new Extended Prefix to SRDB if not found */
+	if (exist == NULL) {
+		srp = XCALLOC(MTYPE_OSPF_SR_PARAMS, sizeof(struct sr_prefix));
+		IPV4_ADDR_COPY(&srp->prefv4.prefix, &p.u.prefix4);
+		srp->prefv4.prefixlen = p.prefixlen;
+		srp->prefv4.family = p.family;
+		srp->sid = index;
+		srp->type = LOCAL_SID;
+	} else {
+		/* we work on the existing SR prefix */
+		srp = exist;
 	}
-	/* Set EXPLICIT NULL flag is present */
-	if (argv_find(argv, argc, "explicit-null", &idx)) {
-		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG);
-		SET_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG);
+
+	/* Reset labels to handle flag update */
+	srp->label_in = 0;
+	srp->nhlfe.label_out = 0;
+	srp->sid = index;
+	srp->flags = desired_flags;
+
+	/* If NO PHP flag is present, compute NHLFE and set label */
+	if (no_php_flag) {
+		srp->label_in = index2label(srp->sid, OspfSR.self->srgb);
+		srp->nhlfe.label_out = MPLS_LABEL_IMPLICIT_NULL;
 	}
 
 	osr_debug("SR (%s): Add new index %u to Prefix %pFX", __func__, index,
-		  (struct prefix *)&new->prefv4);
+		  (struct prefix *)&srp->prefv4);
 
 	/* Get Interface and check if it is a Loopback */
 	ifp = if_lookup_prefix(&p, VRF_DEFAULT);
@@ -2494,7 +2579,8 @@ DEFUN (sr_prefix_sid,
 		 * ready. In this case, store the prefix SID for latter
 		 * update of this Extended Prefix
 		 */
-		listnode_add(OspfSR.self->ext_prefix, new);
+		if (exist == NULL)
+			listnode_add(OspfSR.self->ext_prefix, srp);
 		zlog_info(
 			"Interface for prefix %pFX not found. Deferred LSA flooding",
 			&p);
@@ -2503,27 +2589,26 @@ DEFUN (sr_prefix_sid,
 
 	if (!if_is_loopback(ifp)) {
 		vty_out(vty, "interface %s is not a Loopback\n", ifp->name);
-		XFREE(MTYPE_OSPF_SR_PARAMS, new);
+		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
-	new->nhlfe.ifindex = ifp->ifindex;
+	srp->nhlfe.ifindex = ifp->ifindex;
 
-	/* Add this new SR Prefix if not already found */
-	if (srp != new)
-		listnode_add(OspfSR.self->ext_prefix, new);
+	/* Add SR Prefix if new */
+	if (!exist)
+		listnode_add(OspfSR.self->ext_prefix, srp);
 
 	/* Update Prefix SID if SR is UP */
 	if (OspfSR.status == SR_UP) {
-		if (CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
-		    && !CHECK_FLAG(new->flags, EXT_SUBTLV_PREFIX_SID_EFLG))
-			ospf_zebra_update_prefix_sid(new);
+		if (no_php_flag && !exp_null)
+			ospf_zebra_update_prefix_sid(srp);
 	} else
 		return CMD_SUCCESS;
 
 	/* Finally, update Extended Prefix LSA id SR is UP */
-	new->instance = ospf_ext_schedule_prefix_index(
-		ifp, new->sid, &new->prefv4, new->flags);
-	if (new->instance == 0) {
+	srp->instance = ospf_ext_schedule_prefix_index(
+		ifp, srp->sid, &srp->prefv4, srp->flags);
+	if (srp->instance == 0) {
 		vty_out(vty, "Unable to set index %u for prefix %pFX\n",
 			index, &p);
 		return CMD_WARNING;
@@ -2674,10 +2759,8 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 					    srp->nhlfe.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &srp->nhlfe.nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&srp->nhlfe.nexthop);
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, 0, "%20s  %9s  %15s\n",
@@ -2712,10 +2795,8 @@ static void show_sr_prefix(struct sbuf *sbuf, struct json_object *json,
 					    path->srni.label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &path->nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&path->nexthop);
 			json_object_array_add(json_route, json_obj);
 		} else {
 			sbuf_push(sbuf, indent, "%20s  %9s  %15s\n",
@@ -2755,9 +2836,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 
 	if (json) {
 		json_node = json_object_new_object();
-		json_object_string_add(json_node, "routerID",
-				       inet_ntop(AF_INET, &srn->adv_router,
-						 buf, sizeof(buf)));
+		json_object_string_addf(json_node, "routerID", "%pI4",
+					&srn->adv_router);
 		json_object_int_add(json_node, "srgbSize",
 				    srn->srgb.range_size);
 		json_object_int_add(json_node, "srgbLabel",
@@ -2846,10 +2926,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 					    srl->nhlfe[0].label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &srl->nhlfe[0].nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&srl->nhlfe[0].nexthop);
 			json_object_array_add(json_link, json_obj);
 			/* Backup Link */
 			json_obj = json_object_new_object();
@@ -2862,10 +2940,8 @@ static void show_sr_node(struct vty *vty, struct json_object *json,
 					    srl->nhlfe[1].label_out);
 			json_object_string_add(json_obj, "interface",
 					       itf ? itf->name : "-");
-			json_object_string_add(
-				json_obj, "nexthop",
-				inet_ntop(AF_INET, &srl->nhlfe[1].nexthop,
-					  buf, sizeof(buf)));
+			json_object_string_addf(json_obj, "nexthop", "%pI4",
+						&srl->nhlfe[1].nexthop);
 			json_object_array_add(json_link, json_obj);
 		} else {
 			sbuf_push(&sbuf, 0, "%18s  %21s  %20s  %9s  %15s\n",
@@ -2925,7 +3001,6 @@ DEFUN (show_ip_opsf_srdb,
 	int idx = 0;
 	struct in_addr rid;
 	struct sr_node *srn;
-	char buf[PREFIX_STRLEN];
 	bool uj = use_json(argc, argv);
 	json_object *json = NULL, *json_node_array = NULL;
 
@@ -2937,10 +3012,8 @@ DEFUN (show_ip_opsf_srdb,
 	if (uj) {
 		json = json_object_new_object();
 		json_node_array = json_object_new_array();
-		json_object_string_add(
-			json, "srdbID",
-			inet_ntop(AF_INET, &OspfSR.self->adv_router,
-				  buf, sizeof(buf)));
+		json_object_string_addf(json, "srdbID", "%pI4",
+					&OspfSR.self->adv_router);
 		json_object_object_add(json, "srNodes", json_node_array);
 	} else {
 		vty_out(vty,
@@ -2951,12 +3024,8 @@ DEFUN (show_ip_opsf_srdb,
 	if (argv_find(argv, argc, "self-originate", &idx)) {
 		srn = OspfSR.self;
 		show_sr_node(vty, json_node_array, srn);
-		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		}
+		if (uj)
+			vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
 
@@ -2970,12 +3039,8 @@ DEFUN (show_ip_opsf_srdb,
 		srn = (struct sr_node *)hash_lookup(OspfSR.neighbors,
 						    (void *)&rid);
 		show_sr_node(vty, json_node_array, srn);
-		if (uj) {
-			vty_out(vty, "%s\n",
-				json_object_to_json_string_ext(
-					json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		}
+		if (uj)
+			vty_json(vty, json);
 		return CMD_SUCCESS;
 	}
 
@@ -2984,9 +3049,7 @@ DEFUN (show_ip_opsf_srdb,
 		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 							 void *))show_json_srdb,
 			     (void *)json_node_array);
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		hash_iterate(OspfSR.neighbors, (void (*)(struct hash_bucket *,
 							 void *))show_vty_srdb,

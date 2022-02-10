@@ -47,19 +47,14 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topotest import version_cmp
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     check_address_types,
     write_test_footer,
-    verify_rib,
     step,
     create_route_maps,
-    create_static_routes,
-    stop_router,
-    start_router,
     create_prefix_lists,
     create_bgp_community_lists,
     check_router_status,
@@ -97,19 +92,11 @@ NETWORK3_4 = {"ipv4": "50.50.50.50/32", "ipv6": "50:50::50/128"}
 PREFERRED_NEXT_HOP = "global"
 
 
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
+def build_topo(tgen):
+    """Build function"""
 
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
+    # Building topology from json file
+    build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -127,7 +114,7 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -915,7 +902,9 @@ def test_modify_route_map_match_set_clauses_p1(request):
             rmap_name="rmap_IMP_{}".format(addr_type),
             input_dict=input_rmap,
         )
-        assert result is True, "Testcase  : Failed \n Error: {}".format(tc_name, result)
+        assert result is True, "Testcase {} : Failed \n Error: {}".format(
+            tc_name, result
+        )
 
     step("Change community-list to match a different value then " "100:100.")
 

@@ -26,7 +26,6 @@ import os
 import sys
 import time
 import pytest
-import json
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -35,7 +34,6 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 import ipaddress
 from time import sleep
@@ -61,7 +59,7 @@ from lib.common_config import (
     create_interfaces_cfg,
 )
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 from lib.ospf import (
     verify_ospf_neighbor,
     clear_ospf,
@@ -75,13 +73,6 @@ pytestmark = [pytest.mark.ospfd, pytest.mark.staticd]
 
 # Global variables
 topo = None
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/ospf_asbr_summary_topo1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 NETWORK = {
     "ipv4": [
@@ -132,28 +123,12 @@ TESTCASES =
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
 
     * `mod`: module name
     """
-    global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -161,7 +136,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ospf_asbr_summary_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -690,89 +668,6 @@ def test_ospf_type5_summary_tc48_p0(request):
     assert (
         result is True
     ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Configure metric type as 1 in route map.")
-
-    routemaps = {
-        "r0": {
-            "route_maps": {
-                "rmap_ipv4": [{"action": "permit", "set": {"metric-type": "type-1"}}]
-            }
-        }
-    }
-    result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2."
-    )
-    input_dict = {
-        SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
-        }
-    }
-    dut = "r0"
-    result = verify_ospf_summary(tgen, topo, dut, input_dict)
-    assert (
-        result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Un configure metric type from route map.")
-
-    routemaps = {
-        "r0": {
-            "route_maps": {
-                "rmap_ipv4": [
-                    {
-                        "action": "permit",
-                        "set": {"metric-type": "type-1"},
-                        "delete": True,
-                    }
-                ]
-            }
-        }
-    }
-    result = create_route_maps(tgen, routemaps)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
-
-    step(
-        "Verify that external routes(static / connected) are summarised"
-        " to configured summary address with metric type 2."
-    )
-    input_dict = {
-        SUMMARY["ipv4"][0]: {
-            "Summary address": SUMMARY["ipv4"][0],
-            "Metric-type": "E2",
-            "Metric": 20,
-            "Tag": 0,
-            "External route count": 5,
-        }
-    }
-    dut = "r0"
-    result = verify_ospf_summary(tgen, topo, dut, input_dict)
-    assert (
-        result is True
-    ), "Testcase {} : Failed" "Error: Summary missing in OSPF DB".format(tc_name)
-
-    step("Change rule from permit to deny in prefix list.")
-    pfx_list = {
-        "r0": {
-            "prefix_lists": {
-                "ipv4": {
-                    "pf_list_1_ipv4": [
-                        {"seqid": 10, "network": "any", "action": "deny"}
-                    ]
-                }
-            }
-        }
-    }
-    result = create_prefix_lists(tgen, pfx_list)
-    assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     write_test_footer(tc_name)
 
@@ -1384,7 +1279,7 @@ def test_ospf_type5_summary_tc45_p0(request):
 
     step("Verify that summary lsa is withdrawn from R1 and deleted from R0.")
     dut = "r1"
-    result = verify_ospf_rib(tgen, dut, input_dict, expected=False)
+    result = verify_ospf_rib(tgen, dut, input_dict_summary, expected=False)
     assert (
         result is not True
     ), "Testcase {} : Failed \n Error: " "Routes still present in OSPF RIB {}".format(

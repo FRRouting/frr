@@ -46,24 +46,22 @@ DECLARE_MGROUP(ZEBRA);
 
 DECLARE_MTYPE(RE);
 
-enum rnh_type { RNH_NEXTHOP_TYPE, RNH_IMPORT_CHECK_TYPE };
-
 PREDECL_LIST(rnh_list);
 
 /* Nexthop structure. */
 struct rnh {
 	uint8_t flags;
 
-#define ZEBRA_NHT_CONNECTED     0x1
-#define ZEBRA_NHT_DELETED       0x2
-#define ZEBRA_NHT_EXACT_MATCH   0x4
+#define ZEBRA_NHT_CONNECTED 0x1
+#define ZEBRA_NHT_DELETED 0x2
+#define ZEBRA_NHT_EXACT_MATCH 0x4
+#define ZEBRA_NHT_RESOLVE_VIA_DEFAULT 0x8
 
 	/* VRF identifier. */
 	vrf_id_t vrf_id;
 
 	afi_t afi;
-
-	enum rnh_type type;
+	safi_t safi;
 
 	uint32_t seqno;
 
@@ -89,7 +87,7 @@ struct rnh {
 
 PREDECL_LIST(re_list);
 
-struct opaque {
+struct re_opaque {
 	uint16_t length;
 	uint8_t data[];
 };
@@ -110,8 +108,11 @@ struct route_entry {
 	struct nexthop_group fib_ng;
 	struct nexthop_group fib_backup_ng;
 
-	/* Nexthop group hash entry ID */
+	/* Nexthop group hash entry IDs. The "installed" id is the id
+	 * used in linux/netlink, if available.
+	 */
 	uint32_t nhe_id;
+	uint32_t nhe_installed_id;
 
 	/* Tag */
 	route_tag_t tag;
@@ -168,7 +169,7 @@ struct route_entry {
 	/* Distance. */
 	uint8_t distance;
 
-	struct opaque *opaque;
+	struct re_opaque *opaque;
 };
 
 #define RIB_SYSTEM_ROUTE(R) RSYSTEM_ROUTE((R)->type)
@@ -393,13 +394,14 @@ extern int rib_add(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		   unsigned short instance, uint32_t flags, struct prefix *p,
 		   struct prefix_ipv6 *src_p, const struct nexthop *nh,
 		   uint32_t nhe_id, uint32_t table_id, uint32_t metric,
-		   uint32_t mtu, uint8_t distance, route_tag_t tag);
+		   uint32_t mtu, uint8_t distance, route_tag_t tag,
+		   bool startup);
 /*
  * Multipath route apis.
  */
 extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 			     struct prefix_ipv6 *src_p, struct route_entry *re,
-			     struct nexthop_group *ng);
+			     struct nexthop_group *ng, bool startup);
 /*
  * -1 -> some sort of error
  *  0 -> an add
@@ -408,7 +410,7 @@ extern int rib_add_multipath(afi_t afi, safi_t safi, struct prefix *p,
 extern int rib_add_multipath_nhe(afi_t afi, safi_t safi, struct prefix *p,
 				 struct prefix_ipv6 *src_p,
 				 struct route_entry *re,
-				 struct nhg_hash_entry *nhe);
+				 struct nhg_hash_entry *nhe, bool startup);
 
 extern void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		       unsigned short instance, uint32_t flags,
@@ -480,6 +482,8 @@ int zebra_rib_queue_evpn_rem_vtep_del(vrf_id_t vrf_id, vni_t vni,
 				      struct in_addr vtep_ip);
 
 extern void meta_queue_free(struct meta_queue *mq);
+extern void rib_meta_queue_free_vrf(struct meta_queue *mq,
+				    struct zebra_vrf *zvrf);
 extern int zebra_rib_labeled_unicast(struct route_entry *re);
 extern struct route_table *rib_table_ipv6;
 
@@ -489,7 +493,11 @@ extern struct route_table *rib_tables_iter_next(rib_tables_iter_t *iter);
 
 extern uint8_t route_distance(int type);
 
-extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq);
+extern void zebra_rib_evaluate_rn_nexthops(struct route_node *rn, uint32_t seq,
+					   bool rt_delete);
+
+extern struct route_node *
+rib_find_rn_from_ctx(const struct zebra_dplane_ctx *ctx);
 
 /*
  * Inline functions.

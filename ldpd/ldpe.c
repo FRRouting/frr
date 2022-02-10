@@ -82,7 +82,7 @@ sigint(void)
 	ldpe_shutdown();
 }
 
-static struct quagga_signal_t ldpe_signals[] =
+static struct frr_signal_t ldpe_signals[] =
 {
 	{
 		.signal = SIGHUP,
@@ -122,7 +122,6 @@ ldpe(void)
 		fatal(NULL);
 	imsg_init(&iev_main->ibuf, LDPD_FD_ASYNC);
 	iev_main->handler_read = ldpe_dispatch_main;
-	iev_main->ev_read = NULL;
 	thread_add_read(master, iev_main->handler_read, iev_main, iev_main->ibuf.fd,
 		        &iev_main->ev_read);
 	iev_main->handler_write = ldp_write_handler;
@@ -149,7 +148,6 @@ ldpe_init(struct ldpd_init *init)
 	/* This socket must be open before dropping privileges. */
 	global.pfkeysock = pfkey_init();
 	if (sysdep.no_pfkey == 0) {
-		pfkey_ev = NULL;
 		thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
 				&pfkey_ev);
 	}
@@ -377,7 +375,6 @@ ldpe_dispatch_main(struct thread *thread)
 				fatal(NULL);
 			imsg_init(&iev_lde->ibuf, fd);
 			iev_lde->handler_read = ldpe_dispatch_lde;
-			iev_lde->ev_read = NULL;
 			thread_add_read(master, iev_lde->handler_read, iev_lde, iev_lde->ibuf.fd,
 					&iev_lde->ev_read);
 			iev_lde->handler_write = ldp_write_handler;
@@ -784,7 +781,6 @@ ldpe_dispatch_pfkey(struct thread *thread)
 {
 	int	 fd = THREAD_FD(thread);
 
-	pfkey_ev = NULL;
 	thread_add_read(master, ldpe_dispatch_pfkey, NULL, global.pfkeysock,
 			&pfkey_ev);
 
@@ -805,13 +801,11 @@ ldpe_setup_sockets(int af, int disc_socket, int edisc_socket,
 
 	/* discovery socket */
 	af_global->ldp_disc_socket = disc_socket;
-	af_global->disc_ev = NULL;
 	thread_add_read(master, disc_recv_packet, &af_global->disc_ev, af_global->ldp_disc_socket,
 			&af_global->disc_ev);
 
 	/* extended discovery socket */
 	af_global->ldp_edisc_socket = edisc_socket;
-	af_global->edisc_ev = NULL;
 	thread_add_read(master, disc_recv_packet, &af_global->edisc_ev, af_global->ldp_edisc_socket,
 			&af_global->edisc_ev);
 

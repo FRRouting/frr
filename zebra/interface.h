@@ -81,6 +81,7 @@ struct rtadvconf {
 
 	   Default: false */
 	int AdvManagedFlag;
+	struct timeval lastadvmanagedflag;
 
 
 	/* The true/false value to be placed in the "Other stateful
@@ -89,6 +90,7 @@ struct rtadvconf {
 
 	   Default: false */
 	int AdvOtherConfigFlag;
+	struct timeval lastadvotherconfigflag;
 
 	/* The value to be placed in MTU options sent by the router.  A
 	   value of zero indicates that no MTU options are sent.
@@ -105,6 +107,7 @@ struct rtadvconf {
 	   Default: 0 */
 	uint32_t AdvReachableTime;
 #define RTADV_MAX_REACHABLE_TIME 3600000
+	struct timeval lastadvreachabletime;
 
 	/* The value to be placed in the Retrans Timer field in the Router
 	   Advertisement messages sent by the router.  The value zero means
@@ -112,6 +115,7 @@ struct rtadvconf {
 
 	   Default: 0 */
 	int AdvRetransTimer;
+	struct timeval lastadvretranstimer;
 
 	/* The default value to be placed in the Cur Hop Limit field in the
 	   Router Advertisement messages sent by the router.  The value
@@ -121,6 +125,8 @@ struct rtadvconf {
 	   Default: The value specified in the "Assigned Numbers" RFC
 	   [ASSIGNED] that was in effect at the time of implementation. */
 	int AdvCurHopLimit;
+	struct timeval lastadvcurhoplimit;
+
 #define RTADV_DEFAULT_HOPLIMIT 64 /* 64 hops */
 
 	/* The value to be placed in the Router Lifetime field of Router
@@ -253,7 +259,7 @@ struct rtadv_dnssl {
 #endif /* HAVE_RTADV */
 
 /* Zebra interface type - ones of interest. */
-typedef enum {
+enum zebra_iftype {
 	ZEBRA_IF_OTHER = 0, /* Anything else */
 	ZEBRA_IF_VXLAN,     /* VxLAN interface */
 	ZEBRA_IF_VRF,       /* VRF device */
@@ -264,16 +270,16 @@ typedef enum {
 	ZEBRA_IF_BOND,	    /* Bond */
 	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
-} zebra_iftype_t;
+};
 
 /* Zebra "slave" interface type */
-typedef enum {
+enum zebra_slave_iftype {
 	ZEBRA_IF_SLAVE_NONE,   /* Not a slave */
 	ZEBRA_IF_SLAVE_VRF,    /* Member of a VRF */
 	ZEBRA_IF_SLAVE_BRIDGE, /* Member of a bridge */
 	ZEBRA_IF_SLAVE_BOND,   /* Bond member */
 	ZEBRA_IF_SLAVE_OTHER,  /* Something else - e.g., bond slave */
-} zebra_slave_iftype_t;
+};
 
 struct irdp_interface;
 
@@ -340,9 +346,9 @@ struct zebra_if {
 
 	/* Information about up/down changes */
 	unsigned int up_count;
-	char up_last[QUAGGA_TIMESTAMP_LEN];
+	char up_last[FRR_TIMESTAMP_LEN];
 	unsigned int down_count;
-	char down_last[QUAGGA_TIMESTAMP_LEN];
+	char down_last[FRR_TIMESTAMP_LEN];
 
 #if defined(HAVE_RTADV)
 	struct rtadvconf rtadv;
@@ -367,8 +373,8 @@ struct zebra_if {
 	uint8_t ptm_enable;
 
 	/* Zebra interface and "slave" interface type */
-	zebra_iftype_t zif_type;
-	zebra_slave_iftype_t zif_slave_type;
+	enum zebra_iftype zif_type;
+	enum zebra_slave_iftype zif_slave_type;
 
 	/* Additional L2 info, depends on zif_type */
 	union zebra_l2if_info l2info;
@@ -513,6 +519,7 @@ extern void zebra_l2_map_slave_to_bond(struct zebra_if *zif, vrf_id_t vrf);
 extern void zebra_l2_unmap_slave_from_bond(struct zebra_if *zif);
 extern const char *zebra_protodown_rc_str(enum protodown_reasons protodown_rc,
 					  char *pd_buf, uint32_t pd_buf_len);
+void zebra_if_addr_update_ctx(struct zebra_dplane_ctx *ctx);
 
 #ifdef HAVE_PROC_NET_DEV
 extern void ifstat_update_proc(void);

@@ -60,11 +60,9 @@ ce1-eth0 (172.16.1.1/24)|                          |ce2-eth0 (172.16.1.2/24)
 """
 
 import os
-import re
 import sys
 import pytest
 import json
-from time import sleep
 from functools import partial
 
 # Save the Current Working Directory to find configuration files.
@@ -79,54 +77,50 @@ from lib.topolog import logger
 from lib.snmptest import SnmpTester
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ldpd, pytest.mark.isisd, pytest.mark.snmp]
 
-class TemplateTopo(Topo):
-    "Test topology builder"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+def build_topo(tgen):
+    "Build function"
 
-        #
-        # Define FRR Routers
-        #
-        for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
-            tgen.add_router(router)
+    #
+    # Define FRR Routers
+    #
+    for router in ["ce1", "ce2", "ce3", "r1", "r2", "r3"]:
+        tgen.add_router(router)
 
-        #
-        # Define connections
-        #
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["ce1"])
-        switch.add_link(tgen.gears["r1"])
+    #
+    # Define connections
+    #
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["ce1"])
+    switch.add_link(tgen.gears["r1"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["ce2"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["ce2"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["ce3"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["ce3"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s4")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s4")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s5")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s5")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s6")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
+    switch = tgen.add_switch("s6")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(TemplateTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -241,7 +235,7 @@ def test_r1_ldp_lsr_objects():
     "Test mplsLdpLsrObjects objects"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid("mplsLdpLsrId", "01 01 01 01")
@@ -252,7 +246,7 @@ def test_r1_ldp_entity_table():
     "Test mplsLdpEntityTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpEntityLdpId", ["1.1.1.1:0"])
@@ -286,7 +280,7 @@ def test_r1_ldp_entity_stats_table():
     "Test mplsLdpEntityStatsTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpEntityStatsSessionAttempts", ["0"])
@@ -312,7 +306,7 @@ def test_r1_ldp_peer_table():
     "Test mplsLdpPeerTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpPeerLdpId", ["2.2.2.2:0", "3.3.3.3:0"])
@@ -331,7 +325,7 @@ def test_r1_ldp_session_table():
     "Test mplsLdpSessionTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk(
@@ -354,7 +348,7 @@ def test_r1_ldp_session_stats_table():
     "Test mplsLdpSessionStatsTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpSessionStatsUnknownMesTypeErrors", ["0", "0"])
@@ -365,7 +359,7 @@ def test_r1_ldp_hello_adjacency_table():
     "Test mplsLdpHelloAdjacencyTable"
     tgen = get_topogen()
 
-    r1 = tgen.net.get("r1")
+    r1 = tgen.gears["r1"]
     r1_snmp = SnmpTester(r1, "1.1.1.1", "public", "2c")
 
     assert r1_snmp.test_oid_walk("mplsLdpHelloAdjacencyIndex", ["1", "2", "1"])

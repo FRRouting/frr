@@ -45,6 +45,7 @@
 #include "config.h"
 #endif
 
+#include <string.h>
 #include "typerb.h"
 
 #define RB_BLACK	0
@@ -330,6 +331,7 @@ color:
 		rbe_remove_color(rbt, parent, child);
 
 	rbt->count--;
+	memset(old, 0, sizeof(*old));
 	return (old);
 }
 
@@ -477,4 +479,12 @@ struct rb_entry *typed_rb_min(const struct rbt_tree *rbt)
 	}
 
 	return parent;
+}
+
+bool typed_rb_member(const struct typed_rb_root *rbt,
+		     const struct typed_rb_entry *rbe)
+{
+	while (rbe->rbt_parent)
+		rbe = rbe->rbt_parent;
+	return rbe == rbt->rbt_root;
 }

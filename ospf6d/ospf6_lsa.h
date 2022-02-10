@@ -28,6 +28,9 @@
 #define OSPF6_LSA_DEBUG_ORIGINATE 0x02
 #define OSPF6_LSA_DEBUG_EXAMIN    0x04
 #define OSPF6_LSA_DEBUG_FLOOD     0x08
+#define OSPF6_LSA_DEBUG_ALL                                                    \
+	(OSPF6_LSA_DEBUG | OSPF6_LSA_DEBUG_ORIGINATE | OSPF6_LSA_DEBUG_EXAMIN  \
+	 | OSPF6_LSA_DEBUG_FLOOD)
 #define OSPF6_LSA_DEBUG_AGGR      0x10
 
 /* OSPF LSA Default metric values */
@@ -83,11 +86,6 @@
 #define OSPF6_SCOPE_AREA       0x2000
 #define OSPF6_SCOPE_AS         0x4000
 #define OSPF6_SCOPE_RESERVED   0x6000
-
-/* AS-external-LSA refresh method. */
-#define LSA_REFRESH_IF_CHANGED  0
-#define LSA_REFRESH_FORCE       1
-
 
 /* XXX U-bit handling should be treated here */
 #define OSPF6_LSA_SCOPE(type) (ntohs(type) & OSPF6_LSTYPE_SCOPE_MASK)
@@ -175,8 +173,6 @@ struct ospf6_lsa_handler {
 #define OSPF6_LSA_IS_KNOWN(t)                                                  \
 	(ospf6_get_lsa_handler(t)->lh_type != OSPF6_LSTYPE_UNKNOWN ? 1 : 0)
 
-extern vector ospf6_lsa_handler_vector;
-
 /* Macro for LSA Origination */
 /* addr is (struct prefix *) */
 #define CONTINUE_IF_ADDRESS_LINKLOCAL(debug, addr)                             \
@@ -231,10 +227,11 @@ extern int metric_type(struct ospf6 *ospf6, int type, uint8_t instance);
 extern int metric_value(struct ospf6 *ospf6, int type, uint8_t instance);
 extern int ospf6_lsa_is_differ(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 extern int ospf6_lsa_is_changed(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
-extern uint16_t ospf6_lsa_age_current(struct ospf6_lsa *);
-extern void ospf6_lsa_age_update_to_send(struct ospf6_lsa *, uint32_t);
-extern void ospf6_lsa_premature_aging(struct ospf6_lsa *);
-extern int ospf6_lsa_compare(struct ospf6_lsa *, struct ospf6_lsa *);
+extern uint16_t ospf6_lsa_age_current(struct ospf6_lsa *lsa);
+extern void ospf6_lsa_age_update_to_send(struct ospf6_lsa *lsa,
+					 uint32_t transdelay);
+extern void ospf6_lsa_premature_aging(struct ospf6_lsa *lsa);
+extern int ospf6_lsa_compare(struct ospf6_lsa *lsa1, struct ospf6_lsa *lsa2);
 
 extern char *ospf6_lsa_printbuf(struct ospf6_lsa *lsa, char *buf, int size);
 extern void ospf6_lsa_header_print_raw(struct ospf6_lsa_header *header);
@@ -254,21 +251,22 @@ extern struct ospf6_lsa *ospf6_lsa_create(struct ospf6_lsa_header *header);
 extern struct ospf6_lsa *
 ospf6_lsa_create_headeronly(struct ospf6_lsa_header *header);
 extern void ospf6_lsa_delete(struct ospf6_lsa *lsa);
-extern struct ospf6_lsa *ospf6_lsa_copy(struct ospf6_lsa *);
+extern struct ospf6_lsa *ospf6_lsa_copy(struct ospf6_lsa *lsa);
 
 extern struct ospf6_lsa *ospf6_lsa_lock(struct ospf6_lsa *lsa);
 extern struct ospf6_lsa *ospf6_lsa_unlock(struct ospf6_lsa *lsa);
 
-extern int ospf6_lsa_expire(struct thread *);
-extern int ospf6_lsa_refresh(struct thread *);
+extern int ospf6_lsa_expire(struct thread *thread);
+extern int ospf6_lsa_refresh(struct thread *thread);
 
-extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *);
-extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *);
+extern unsigned short ospf6_lsa_checksum(struct ospf6_lsa_header *lsah);
+extern int ospf6_lsa_checksum_valid(struct ospf6_lsa_header *lsah);
 extern int ospf6_lsa_prohibited_duration(uint16_t type, uint32_t id,
 					 uint32_t adv_router, void *scope);
 
 extern void ospf6_install_lsa_handler(struct ospf6_lsa_handler *handler);
 extern struct ospf6_lsa_handler *ospf6_get_lsa_handler(uint16_t type);
+extern void ospf6_lsa_debug_set_all(bool val);
 
 extern void ospf6_lsa_init(void);
 extern void ospf6_lsa_terminate(void);

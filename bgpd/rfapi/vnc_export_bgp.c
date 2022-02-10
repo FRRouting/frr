@@ -136,8 +136,9 @@ static int getce(struct bgp *bgp, struct attr *attr, struct prefix *pfx_ce)
 	uint8_t *ecp;
 	uint32_t i;
 	uint16_t localadmin = bgp->rfapi_cfg->resolve_nve_roo_local_admin;
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
-	for (ecp = attr->ecommunity->val, i = 0; i < attr->ecommunity->size;
+	for (ecp = ecomm->val, i = 0; i < ecomm->size;
 	     ++i, ecp += ECOMMUNITY_SIZE) {
 
 		if (VNC_DEBUG(EXPORT_BGP_GETCE)) {
@@ -640,12 +641,14 @@ encap_attr_export(struct attr *new, struct attr *orig,
 		/* TBD  use lcom for IPv6 */
 		ecom_ro = vnc_route_origin_ecom_single(&use_nexthop->u.prefix4);
 	}
-	if (new->ecommunity) {
+	if (bgp_attr_get_ecommunity(new)) {
 		if (ecom_ro)
-			new->ecommunity =
-				ecommunity_merge(ecom_ro, new->ecommunity);
+			bgp_attr_set_ecommunity(
+				new,
+				ecommunity_merge(ecom_ro,
+						 bgp_attr_get_ecommunity(new)));
 	} else {
-		new->ecommunity = ecom_ro;
+		bgp_attr_set_ecommunity(new, ecom_ro);
 	}
 	if (ecom_ro) {
 		new->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -972,9 +975,6 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 
 			import_table = rfg->rfapi_import_table;
 
-			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
-			/* TBD set some configured med, see add_vnc_route() */
-
 			if (afi == AFI_IP || afi == AFI_IP6) {
 				rt = import_table->imported_vpn[afi];
 			} else {
@@ -982,6 +982,9 @@ void vnc_direct_bgp_add_nve(struct bgp *bgp, struct rfapi_descriptor *rfd)
 					 __func__, afi);
 				return;
 			}
+
+			bgp_attr_default_set(&attr, BGP_ORIGIN_INCOMPLETE);
+			/* TBD set some configured med, see add_vnc_route() */
 
 			/*
 			 * Walk the NVE-Group's VNC Import table

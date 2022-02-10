@@ -38,11 +38,10 @@
 #include "pim_str.h"
 #include "pim_iface.h"
 #include "pim_rp.h"
-#include "pim_str.h"
 #include "pim_rpf.h"
 #include "pim_sock.h"
 #include "pim_memory.h"
-#include "pim_iface.h"
+#include "pim_neighbor.h"
 #include "pim_msdp.h"
 #include "pim_nht.h"
 #include "pim_mroute.h"
@@ -392,7 +391,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
 				__func__, up->sg_str, &nht_p);
-		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL, false);
+		pim_delete_tracked_nexthop(pim, &nht_p, up, NULL);
 	}
 
 	/* Update the upstream address */
@@ -413,7 +412,6 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 			 old_rpf.source_nexthop.interface))
 		pim_zebra_upstream_rpf_changed(pim, up, &old_rpf);
 
-	pim_zebra_update_all_interfaces(pim);
 }
 
 int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
@@ -431,6 +429,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct prefix nht_p;
 	struct route_node *rn;
 	struct pim_upstream *up;
+	bool upstream_updated = false;
 
 	if (rp_addr.s_addr == INADDR_ANY ||
 	    rp_addr.s_addr == INADDR_NONE)
@@ -537,8 +536,8 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
-				if ((up->upstream_addr.s_addr == INADDR_ANY)
-				    && (up->sg.src.s_addr == INADDR_ANY)) {
+				if ((up->upstream_addr.s_addr == INADDR_ANY) &&
+				    pim_addr_is_any(up->sg.src)) {
 					struct prefix grp;
 					struct rp_info *trp_info;
 
@@ -547,15 +546,19 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 					grp.u.prefix4 = up->sg.grp;
 					trp_info = pim_rp_find_match_group(
 						pim, &grp);
-					if (trp_info == rp_all)
+					if (trp_info == rp_all) {
 						pim_upstream_update(pim, up);
+						upstream_updated = true;
+					}
 				}
 			}
+			if (upstream_updated)
+				pim_zebra_update_all_interfaces(pim);
 
 			pim_rp_check_interfaces(pim, rp_all);
 			pim_rp_refresh_group_to_rp_mapping(pim);
 			pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_all,
-						  false, NULL);
+						  NULL);
 
 			if (!pim_ecmp_nexthop_lookup(pim,
 						     &rp_all->rp.source_nexthop,
@@ -625,7 +628,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			   route_node_get_lock_count(rn));
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
@@ -634,10 +637,15 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			grp.u.prefix4 = up->sg.grp;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
-			if (trp_info == rp_info)
+			if (trp_info == rp_info) {
 				pim_upstream_update(pim, up);
+				upstream_updated = true;
+			}
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 
 	pim_rp_check_interfaces(pim, rp_info);
 	pim_rp_refresh_group_to_rp_mapping(pim);
@@ -649,7 +657,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: NHT Register RP addr %pFX grp %pFX with Zebra ",
 			   __func__, &nht_p, &rp_info->group);
-	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, false, NULL);
+	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, &nht_p,
 				     &rp_info->group, 1))
 		return PIM_RP_NO_PATH;
@@ -695,6 +703,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	struct bsgrp_node *bsgrp = NULL;
 	struct bsm_rpinfo *bsrp = NULL;
 	char rp_str[INET_ADDRSTRLEN];
+	bool upstream_updated = false;
 
 	if (!inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str)))
 		snprintf(rp_str, sizeof(rp_str), "<rp?>");
@@ -757,7 +766,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: Deregister RP addr %pFX with Zebra ", __func__,
 			   &nht_p);
-	pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info, false);
+	pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 
 	if (!str2prefix("224.0.0.0/4", &g_all))
 		return PIM_RP_BAD_ADDRESS;
@@ -769,9 +778,9 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			/* Find the upstream (*, G) whose upstream address is
 			 * same as the deleted RP
 			 */
-			if ((up->upstream_addr.s_addr
-			     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-			    && (up->sg.src.s_addr == INADDR_ANY)) {
+			if ((up->upstream_addr.s_addr ==
+			     rp_info->rp.rpf_addr.u.prefix4.s_addr) &&
+			    pim_addr_is_any(up->sg.src)) {
 				struct prefix grp;
 				grp.family = AF_INET;
 				grp.prefixlen = IPV4_MAX_BITLEN;
@@ -817,9 +826,9 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the deleted RP
 		 */
-		if ((up->upstream_addr.s_addr
-		     == rp_info->rp.rpf_addr.u.prefix4.s_addr)
-		    && (up->sg.src.s_addr == INADDR_ANY)) {
+		if ((up->upstream_addr.s_addr ==
+		     rp_info->rp.rpf_addr.u.prefix4.s_addr) &&
+		    pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 
 			grp.family = AF_INET;
@@ -837,10 +846,15 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			}
 
 			/* RP found for the group grp */
-			else
+			else {
 				pim_upstream_update(pim, up);
+				upstream_updated = true;
+			}
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 
 	XFREE(MTYPE_PIM_RP, rp_info);
 	return PIM_SUCCESS;
@@ -854,6 +868,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	int result = 0;
 	struct rp_info *rp_info = NULL;
 	struct pim_upstream *up;
+	bool upstream_updated = false;
 
 	rn = route_node_lookup(pim->rp_table, &group);
 	if (!rn) {
@@ -886,7 +901,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Deregister RP addr %pFX with Zebra ",
 				   __func__, &nht_p);
-		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info, false);
+		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 	}
 
 	pim_rp_nexthop_del(rp_info);
@@ -899,7 +914,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 	listnode_add_sort(pim->rp_list, rp_info);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->sg.src.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 			struct rp_info *trp_info;
 
@@ -908,10 +923,15 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 			grp.u.prefix4 = up->sg.grp;
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
-			if (trp_info == rp_info)
+			if (trp_info == rp_info) {
 				pim_upstream_update(pim, up);
+				upstream_updated = true;
+			}
 		}
 	}
+
+	if (upstream_updated)
+		pim_zebra_update_all_interfaces(pim);
 
 	/* Register new RP addr with Zebra NHT */
 	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
@@ -919,7 +939,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 		zlog_debug("%s: NHT Register RP addr %pFX grp %pFX with Zebra ",
 			   __func__, &nht_p, &rp_info->group);
 
-	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, false, NULL);
+	pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
 	if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop, &nht_p,
 				     &rp_info->group, 1)) {
 		route_unlock_node(rn);
@@ -949,8 +969,7 @@ void pim_rp_setup(struct pim_instance *pim)
 		nht_p.prefixlen = IPV4_MAX_BITLEN;
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 
-		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, false,
-					  NULL);
+		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
 		if (!pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 					     &nht_p, &rp_info->group, 1))
 			if (PIM_DEBUG_PIM_NHT_RP)
@@ -1097,8 +1116,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
 			zlog_debug(
 				"%s: NHT Register RP addr %pFX grp %pFX with Zebra",
 				__func__, &nht_p, &rp_info->group);
-		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, false,
-					  NULL);
+		pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info, NULL);
 		pim_rpf_set_refresh_time(pim);
 		(void)pim_ecmp_nexthop_lookup(pim, &rp_info->rp.source_nexthop,
 					      &nht_p, &rp_info->group, 1);
@@ -1178,15 +1196,6 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	return count;
 }
 
-bool pim_rp_check_is_my_ip_address(struct pim_instance *pim,
-				   struct in_addr dest_addr)
-{
-	if (if_lookup_exact_address(&dest_addr, AF_INET, pim->vrf->vrf_id))
-		return true;
-
-	return false;
-}
-
 void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 {
 	struct rp_info *rp_info;
@@ -1239,12 +1248,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					json_rp_rows = json_object_new_array();
 
 				json_row = json_object_new_object();
-				json_object_string_add(
-					json_row, "rpAddress",
-					inet_ntop(AF_INET,
-						  &rp_info->rp.rpf_addr.u
-						      .prefix4,
-						  buf, sizeof(buf)));
+				json_object_string_addf(
+					json_row, "rpAddress", "%pI4",
+					&rp_info->rp.rpf_addr.u.prefix4);
 				if (rp_info->rp.source_nexthop.interface)
 					json_object_string_add(
 						json_row, "outboundInterface",
@@ -1266,10 +1272,9 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 							       "prefixList",
 							       rp_info->plist);
 				else
-					json_object_string_add(
-						json_row, "group",
-						prefix2str(&rp_info->group, buf,
-							   48));
+					json_object_string_addf(
+						json_row, "group", "%pFX",
+						&rp_info->group);
 				json_object_string_add(json_row, "source",
 						       source);
 
@@ -1314,9 +1319,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 					  buf, sizeof(buf)),
 				json_rp_rows);
 
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-					     json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	}
 }
 
@@ -1337,7 +1340,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
 		memset(&pnc, 0, sizeof(struct pim_nexthop_cache));
 		if (!pim_find_or_track_nexthop(pim, &nht_p, NULL, rp_info,
-					       false, &pnc))
+					       &pnc))
 			continue;
 
 		for (nh_node = pnc.nexthop; nh_node; nh_node = nh_node->next) {

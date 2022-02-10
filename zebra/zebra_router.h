@@ -196,6 +196,7 @@ struct zebra_router {
 	 * Time for when we sweep the rib from old routes
 	 */
 	time_t startup_time;
+	struct thread *sweeper;
 
 	/*
 	 * The hash of nexthop groups associated with this router
@@ -208,6 +209,8 @@ struct zebra_router {
 	 */
 	bool asic_offloaded;
 	bool notify_on_ack;
+
+	bool supports_nhgs;
 };
 
 #define GRACEFUL_RESTART_TIME 60
@@ -254,6 +257,11 @@ extern void multicast_mode_ipv4_set(enum multicast_mode mode);
 extern enum multicast_mode multicast_mode_ipv4_get(void);
 
 extern bool zebra_router_notify_on_ack(void);
+
+static inline void zebra_router_set_supports_nhgs(bool support)
+{
+	zrouter.supports_nhgs = support;
+}
 
 /* zebra_northbound.c */
 extern const struct frr_yang_module_info frr_zebra_info;

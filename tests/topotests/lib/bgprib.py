@@ -34,7 +34,7 @@
 # ribRequireUnicastRoutes('r1','ipv4','','Customer routes in default',want_unicast_routes)
 #
 
-from lutil import luCommand, luResult, LUtil
+from lib.lutil import luCommand, luResult, LUtil
 import json
 import re
 
@@ -122,7 +122,7 @@ class BgpRib:
         luResult(target, True, title, logstr)
 
     def RequireUnicastRoutes(self, target, afi, vrf, title, wantroutes, debug=0):
-        logstr = "RequireVpnRoutes %s" % str(wantroutes)
+        logstr = "RequireUnicastRoutes %s" % str(wantroutes)
         vrfstr = ""
         if vrf != "":
             vrfstr = "vrf %s" % (vrf)

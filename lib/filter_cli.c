@@ -36,10 +36,7 @@
 #endif /* VTYSH_EXTRACT_PL */
 
 #define ACCESS_LIST_STR "Access list entry\n"
-#define ACCESS_LIST_LEG_STR "IP standard access list\n"
-#define ACCESS_LIST_ELEG_STR "IP extended access list\n"
-#define ACCESS_LIST_ELEG_EXT_STR "IP extended access list (expanded range)\n"
-#define ACCESS_LIST_ZEBRA_STR "Access list entry\n"
+#define ACCESS_LIST_ZEBRA_STR "Access list name\n"
 #define ACCESS_LIST_SEQ_STR                                                    \
 	"Sequence number of an entry\n"                                        \
 	"Sequence number\n"
@@ -137,7 +134,7 @@ DEFPY_YANG(
 	access_list_std, access_list_std_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	ACCESS_LIST_STR
-	ACCESS_LIST_LEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -214,7 +211,7 @@ DEFPY_YANG(
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <[host] A.B.C.D$host|A.B.C.D$host A.B.C.D$mask>",
 	NO_STR
 	ACCESS_LIST_STR
-	ACCESS_LIST_LEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"A single host address\n"
@@ -258,7 +255,7 @@ DEFPY_YANG(
 	access_list_ext, access_list_ext_cmd,
 	"access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	ACCESS_LIST_STR
-	ACCESS_LIST_ELEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"IPv4 address\n"
@@ -377,7 +374,7 @@ DEFPY_YANG(
 	"no access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action ip <A.B.C.D$src A.B.C.D$src_mask|host A.B.C.D$src|any> <A.B.C.D$dst A.B.C.D$dst_mask|host A.B.C.D$dst|any>",
 	NO_STR
 	ACCESS_LIST_STR
-	ACCESS_LIST_ELEG_STR
+	ACCESS_LIST_ZEBRA_STR
 	ACCESS_LIST_SEQ_STR
 	ACCESS_LIST_ACTION_STR
 	"Any Internet Protocol\n"
@@ -825,7 +822,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_ipv6_access_list_remark, no_ipv6_access_list_remark_line_cmd,
-	"no ipv6 access-list WORD$name remark LINE...",
+	"no ipv6 access-list ACCESSLIST6_NAME$name remark LINE...",
 	NO_STR
 	IPV6_STR
 	ACCESS_LIST_STR
@@ -835,7 +832,7 @@ ALIAS(
 
 DEFPY_YANG(
 	mac_access_list, mac_access_list_cmd,
-	"mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
+	"mac access-list ACCESSLIST_MAC_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
 	MAC_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -901,7 +898,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_mac_access_list, no_mac_access_list_cmd,
-	"no mac access-list WORD$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
+	"no mac access-list ACCESSLIST_MAC_NAME$name [seq (1-4294967295)$seq] <deny|permit>$action <X:X:X:X:X:X$mac|any>",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -941,7 +938,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_mac_access_list_all, no_mac_access_list_all_cmd,
-	"no mac access-list WORD$name",
+	"no mac access-list ACCESSLIST_MAC_NAME$name",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -958,7 +955,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	mac_access_list_remark, mac_access_list_remark_cmd,
-	"mac access-list WORD$name remark LINE...",
+	"mac access-list ACCESSLIST_MAC_NAME$name remark LINE...",
 	MAC_STR
 	ACCESS_LIST_STR
 	ACCESS_LIST_ZEBRA_STR
@@ -983,7 +980,7 @@ DEFPY_YANG(
 
 DEFPY_YANG(
 	no_mac_access_list_remark, no_mac_access_list_remark_cmd,
-	"no mac access-list WORD$name remark",
+	"no mac access-list ACCESSLIST_MAC_NAME$name remark",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -1007,7 +1004,7 @@ DEFPY_YANG(
 
 ALIAS(
 	no_mac_access_list_remark, no_mac_access_list_remark_line_cmd,
-	"no mac access-list WORD$name remark LINE...",
+	"no mac access-list ACCESSLIST_MAC_NAME$name remark LINE...",
 	NO_STR
 	MAC_STR
 	ACCESS_LIST_STR
@@ -1015,7 +1012,8 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int access_list_cmp(const struct lyd_node *dnode1,
+		    const struct lyd_node *dnode2)
 {
 	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
 	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
@@ -1023,7 +1021,7 @@ int access_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void access_list_show(struct vty *vty, struct lyd_node *dnode,
+void access_list_show(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1137,7 +1135,7 @@ void access_list_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void access_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+void access_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1658,7 +1656,8 @@ ALIAS(
 	ACCESS_LIST_REMARK_STR
 	ACCESS_LIST_REMARK_LINE_STR)
 
-int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
+int prefix_list_cmp(const struct lyd_node *dnode1,
+		    const struct lyd_node *dnode2)
 {
 	uint32_t seq1 = yang_dnode_get_uint32(dnode1, "./sequence");
 	uint32_t seq2 = yang_dnode_get_uint32(dnode2, "./sequence");
@@ -1666,7 +1665,7 @@ int prefix_list_cmp(struct lyd_node *dnode1, struct lyd_node *dnode2)
 	return seq1 - seq2;
 }
 
-void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
+void prefix_list_show(struct vty *vty, const struct lyd_node *dnode,
 		      bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");
@@ -1725,7 +1724,7 @@ void prefix_list_show(struct vty *vty, struct lyd_node *dnode,
 	vty_out(vty, "\n");
 }
 
-void prefix_list_remark_show(struct vty *vty, struct lyd_node *dnode,
+void prefix_list_remark_show(struct vty *vty, const struct lyd_node *dnode,
 			     bool show_defaults)
 {
 	int type = yang_dnode_get_enum(dnode, "../type");

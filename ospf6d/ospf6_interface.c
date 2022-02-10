@@ -46,8 +46,13 @@
 #include "ospf6_zebra.h"
 #include "ospf6_gr.h"
 #include "lib/json.h"
+#include "ospf6_proto.h"
+#include "lib/keychain.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_IF, "OSPF6 interface");
+DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_KEYCHAIN, "OSPF6 auth keychain");
+DEFINE_MTYPE(OSPF6D, OSPF6_AUTH_MANUAL_KEY, "OSPF6 auth key");
 DEFINE_MTYPE_STATIC(OSPF6D, CFG_PLIST_NAME, "configured prefix list names");
 DEFINE_QOBJ_TYPE(ospf6_interface);
 DEFINE_HOOK(ospf6_interface_change,
@@ -127,7 +132,7 @@ static uint8_t ospf6_default_iftype(struct interface *ifp)
 {
 	if (if_is_pointopoint(ifp))
 		return OSPF_IFTYPE_POINTOPOINT;
-	else if (if_is_loopback_or_vrf(ifp))
+	else if (if_is_loopback(ifp))
 		return OSPF_IFTYPE_LOOPBACK;
 	else
 		return OSPF_IFTYPE_BROADCAST;
@@ -150,7 +155,7 @@ static uint32_t ospf6_interface_get_cost(struct ospf6_interface *oi)
 					      : OSPF6_INTERFACE_BANDWIDTH;
 	}
 
-	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+	ospf6 = oi->interface->vrf->info;
 	refbw = ospf6 ? ospf6->ref_bandwidth : OSPF6_REFERENCE_BANDWIDTH;
 
 	/* A specifed ip ospf cost overrides a calculated one. */
@@ -251,6 +256,8 @@ struct ospf6_interface *ospf6_interface_create(struct interface *ifp)
 
 	/* Compute cost. */
 	oi->cost = ospf6_interface_get_cost(oi);
+
+	oi->at_data.flags = 0;
 
 	return oi;
 }
@@ -387,7 +394,7 @@ void ospf6_interface_state_update(struct interface *ifp)
 
 	if (if_is_operative(ifp)
 	    && (ospf6_interface_get_linklocal_address(oi->interface)
-		|| if_is_loopback_or_vrf(oi->interface)))
+		|| if_is_loopback(oi->interface)))
 		thread_execute(master, interface_up, oi, 0);
 	else
 		thread_execute(master, interface_down, oi, 0);
@@ -675,7 +682,8 @@ uint8_t dr_election(struct ospf6_interface *oi)
 			if (on->state < OSPF6_NEIGHBOR_TWOWAY)
 				continue;
 			/* Schedule AdjOK. */
-			thread_add_event(master, adj_ok, on, 0, NULL);
+			thread_add_event(master, adj_ok, on, 0,
+					 &on->thread_adj_ok);
 		}
 	}
 
@@ -749,7 +757,7 @@ int interface_up(struct thread *thread)
 
 	/* check interface has a link-local address */
 	if (!(ospf6_interface_get_linklocal_address(oi->interface)
-	      || if_is_loopback_or_vrf(oi->interface))) {
+	      || if_is_loopback(oi->interface))) {
 		zlog_warn(
 			"Interface %s has no link local address, can't execute [InterfaceUp]",
 			oi->interface->name);
@@ -818,8 +826,7 @@ int interface_up(struct thread *thread)
 
 	/* Schedule Hello */
 	if (!CHECK_FLAG(oi->flag, OSPF6_INTERFACE_PASSIVE)
-	    && !if_is_loopback_or_vrf(oi->interface)) {
-		oi->thread_send_hello = NULL;
+	    && !if_is_loopback(oi->interface)) {
 		thread_add_event(master, ospf6_hello_send, oi, 0,
 				 &oi->thread_send_hello);
 	}
@@ -971,6 +978,10 @@ static const char *ospf6_iftype_str(uint8_t iftype)
 	return "UNKNOWN";
 }
 
+#if CONFDATE > 20220709
+CPP_NOTICE("Time to remove ospf6Enabled from JSON output")
+#endif
+
 /* show specified interface structure */
 static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 				json_object *json_obj, bool use_json)
@@ -986,6 +997,7 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 	struct ospf6_lsa *lsa, *lsanext;
 	json_object *json_arr;
 	json_object *json_addr;
+	struct json_object *json_auth = NULL;
 
 	default_iftype = ospf6_default_iftype(ifp);
 
@@ -1234,6 +1246,48 @@ static int ospf6_interface_show(struct vty *vty, struct interface *ifp,
 		}
 	}
 
+	json_auth = json_object_new_object();
+	if (oi->at_data.flags != 0) {
+		if (use_json) {
+			if (CHECK_FLAG(oi->at_data.flags,
+				       OSPF6_AUTH_TRAILER_KEYCHAIN)) {
+				json_object_string_add(json_auth, "authType",
+						       "keychain");
+				json_object_string_add(json_auth,
+						       "keychainName",
+						       oi->at_data.keychain);
+			} else if (CHECK_FLAG(oi->at_data.flags,
+					      OSPF6_AUTH_TRAILER_MANUAL_KEY))
+				json_object_string_add(json_auth, "authType",
+						       "manualkey");
+			json_object_int_add(json_auth, "txPktDrop",
+					    oi->at_data.tx_drop);
+			json_object_int_add(json_auth, "rxPktDrop",
+					    oi->at_data.rx_drop);
+		} else {
+			if (CHECK_FLAG(oi->at_data.flags,
+				       OSPF6_AUTH_TRAILER_KEYCHAIN))
+				vty_out(vty,
+					"  Authentication Trailer is enabled with key-chain %s\n",
+					oi->at_data.keychain);
+			else if (CHECK_FLAG(oi->at_data.flags,
+					    OSPF6_AUTH_TRAILER_MANUAL_KEY))
+				vty_out(vty,
+					"  Authentication trailer is enabled with manual key\n");
+			vty_out(vty,
+				"    Packet drop Tx %u, Packet drop Rx %u\n",
+				oi->at_data.tx_drop, oi->at_data.rx_drop);
+		}
+	} else {
+		if (use_json)
+			json_object_string_add(json_auth, "authType", "NULL");
+		else
+			vty_out(vty, "  Authentication Trailer is disabled\n");
+	}
+
+	if (use_json)
+		json_object_object_add(json_obj, "authInfo", json_auth);
+
 	return 0;
 }
 
@@ -1242,7 +1296,6 @@ struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 {
 	struct listnode *n;
 	struct connected *c;
-	struct in6_addr *l = (struct in6_addr *)NULL;
 
 	/* for each connected address */
 	for (ALL_LIST_ELEMENTS_RO(ifp->connected, n, c)) {
@@ -1251,23 +1304,23 @@ struct in6_addr *ospf6_interface_get_global_address(struct interface *ifp)
 			continue;
 
 		if (!IN6_IS_ADDR_LINKLOCAL(&c->address->u.prefix6))
-			l = &c->address->u.prefix6;
+			return &c->address->u.prefix6;
 	}
-	return l;
+
+	return NULL;
 }
 
 
 static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 				       int argc, struct cmd_token **argv,
 				       int idx_ifname, int intf_idx,
-				       int json_idx)
+				       int json_idx, bool uj)
 {
 
 	struct vrf *vrf = vrf_lookup_by_id(vrf_id);
 	struct interface *ifp;
 	json_object *json;
 	json_object *json_int;
-	bool uj = use_json(argc, argv);
 
 	if (uj) {
 		json = json_object_new_object();
@@ -1277,10 +1330,7 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 			if (ifp == NULL) {
 				json_object_string_add(json, "noSuchInterface",
 						       argv[idx_ifname]->arg);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 				json_object_free(json_int);
 				return CMD_WARNING;
 			}
@@ -1294,10 +1344,7 @@ static int show_ospf6_interface_common(struct vty *vty, vrf_id_t vrf_id,
 						       json_int);
 			}
 		}
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
+		vty_json(vty, json);
 	} else {
 		if (argc == intf_idx) {
 			ifp = if_lookup_by_name(argv[idx_ifname]->arg, vrf_id);
@@ -1329,8 +1376,8 @@ DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ifname += 2;
@@ -1342,12 +1389,14 @@ DEFUN(show_ipv6_ospf6_interface, show_ipv6_ospf6_interface_ifname_cmd,
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			show_ospf6_interface_common(vty, ospf6->vrf_id, argc,
 						    argv, idx_ifname, intf_idx,
-						    json_idx);
+						    json_idx, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1362,11 +1411,6 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	struct ospf6_interface *oi = NULL;
 	json_object *json_interface;
 
-	if (intf_ifp)
-		vrf = vrf_lookup_by_id(intf_ifp->vrf_id);
-	else
-		vrf = vrf_lookup_by_id(vrf_id);
-
 	if (!display_once && !use_json) {
 		vty_out(vty, "\n");
 		vty_out(vty, "%-12s%-17s%-17s%-17s%-17s%-17s\n", "Interface",
@@ -1380,6 +1424,7 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 	}
 
 	if (intf_ifp == NULL) {
+		vrf = vrf_lookup_by_id(vrf_id);
 		FOR_ALL_INTERFACES (vrf, ifp) {
 			if (ifp->info)
 				oi = (struct ospf6_interface *)ifp->info;
@@ -1468,14 +1513,13 @@ static int ospf6_interface_show_traffic(struct vty *vty,
 
 static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 					       struct cmd_token **argv,
-					       vrf_id_t vrf_id)
+					       vrf_id_t vrf_id, bool uj)
 {
 	int idx_ifname = 0;
 	int display_once = 0;
 	char *intf_name = NULL;
 	struct interface *ifp = NULL;
 	json_object *json = NULL;
-	bool uj = use_json(argc, argv);
 
 	if (uj)
 		json = json_object_new_object();
@@ -1489,10 +1533,7 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 						       "No Such Interface");
 				json_object_string_add(json, "interface",
 						       intf_name);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 				return CMD_WARNING;
 			}
 			if (ifp->info == NULL) {
@@ -1501,10 +1542,7 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 					"OSPF not enabled on this interface");
 				json_object_string_add(json, "interface",
 						       intf_name);
-				vty_out(vty, "%s\n",
-					json_object_to_json_string_ext(
-						json, JSON_C_TO_STRING_PRETTY));
-				json_object_free(json);
+				vty_json(vty, json);
 				return 0;
 			}
 		} else {
@@ -1524,12 +1562,8 @@ static int ospf6_interface_show_traffic_common(struct vty *vty, int argc,
 
 	ospf6_interface_show_traffic(vty, ifp, display_once, json, uj, vrf_id);
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
@@ -1546,19 +1580,21 @@ DEFUN(show_ipv6_ospf6_interface_traffic, show_ipv6_ospf6_interface_traffic_cmd,
 	const char *vrf_name = NULL;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 
 	for (ALL_LIST_ELEMENTS_RO(om6->ospf6, node, ospf6)) {
 		if (all_vrf || strcmp(ospf6->name, vrf_name) == 0) {
 			ospf6_interface_show_traffic_common(vty, argc, argv,
-							    ospf6->vrf_id);
+							    ospf6->vrf_id, uj);
 
 			if (!all_vrf)
 				break;
 		}
 	}
+
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
 
 	return CMD_SUCCESS;
 }
@@ -1590,7 +1626,6 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0) {
 		idx_ifname += 2;
@@ -1624,6 +1659,8 @@ DEFUN(show_ipv6_ospf6_interface_ifname_prefix,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1651,7 +1688,6 @@ DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
 	bool all_vrf = false;
 	int idx_vrf = 0;
 
-	OSPF6_CMD_CHECK_RUNNING();
 	OSPF6_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
 	if (idx_vrf > 0)
 		idx_prefix += 2;
@@ -1675,6 +1711,8 @@ DEFUN(show_ipv6_ospf6_interface_prefix, show_ipv6_ospf6_interface_prefix_cmd,
 		}
 	}
 
+	OSPF6_CMD_CHECK_VRF(uj, all_vrf, ospf6);
+
 	return CMD_SUCCESS;
 }
 
@@ -1689,7 +1727,7 @@ void ospf6_interface_start(struct ospf6_interface *oi)
 	if (oi->area)
 		return;
 
-	ospf6 = ospf6_lookup_by_vrf_id(oi->interface->vrf_id);
+	ospf6 = oi->interface->vrf->info;
 	if (!ospf6)
 		return;
 
@@ -2319,7 +2357,7 @@ DEFUN (no_ipv6_ospf6_passive,
 	THREAD_OFF(oi->thread_sso);
 
 	/* don't send hellos over loopback interface */
-	if (!if_is_loopback_or_vrf(oi->interface))
+	if (!if_is_loopback(oi->interface))
 		thread_add_event(master, ospf6_hello_send, oi, 0,
 				 &oi->thread_send_hello);
 
@@ -2534,11 +2572,7 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 		if (oi == NULL)
 			continue;
 
-		if (vrf->vrf_id == VRF_DEFAULT)
-			vty_frame(vty, "interface %s\n", oi->interface->name);
-		else
-			vty_frame(vty, "interface %s vrf %s\n",
-				  oi->interface->name, vrf->name);
+		if_vty_config_start(vty, ifp);
 
 		if (ifp->desc)
 			vty_out(vty, " description %s\n", ifp->desc);
@@ -2593,7 +2627,8 @@ static int config_write_ospf6_interface(struct vty *vty, struct vrf *vrf)
 
 		ospf6_bfd_write_config(vty, oi);
 
-		vty_endframe(vty, "exit\n!\n");
+		ospf6_auth_write_config(vty, &oi->at_data);
+		if_vty_config_end(vty);
 	}
 	return 0;
 }
@@ -2744,27 +2779,39 @@ void ospf6_interface_clear(struct interface *ifp)
 /* Clear interface */
 DEFUN (clear_ipv6_ospf6_interface,
        clear_ipv6_ospf6_interface_cmd,
-       "clear ipv6 ospf6 interface [IFNAME]",
+       "clear ipv6 ospf6 [vrf NAME] interface [IFNAME]",
        CLEAR_STR
        IP6_STR
        OSPF6_STR
+       VRF_CMD_HELP_STR
        INTERFACE_STR
        IFNAME_STR
        )
 {
-	struct vrf *vrf = vrf_lookup_by_id(VRF_DEFAULT);
+	struct vrf *vrf;
+	int idx_vrf = 3;
 	int idx_ifname = 4;
 	struct interface *ifp;
+	const char *vrf_name;
 
-	if (argc == 4) /* Clear all the ospfv3 interfaces. */
-	{
+	if (argv_find(argv, argc, "vrf", &idx_vrf))
+		vrf_name = argv[idx_vrf + 1]->arg;
+	else
+		vrf_name = VRF_DEFAULT_NAME;
+	vrf = vrf_lookup_by_name(vrf_name);
+	if (!vrf) {
+		vty_out(vty, "%% VRF %s not found\n", vrf_name);
+		return CMD_WARNING;
+	}
+
+	if (!argv_find(argv, argc, "IFNAME", &idx_ifname)) {
+		/* Clear all the ospfv3 interfaces. */
 		FOR_ALL_INTERFACES (vrf, ifp)
 			ospf6_interface_clear(ifp);
-	} else /* Interface name is specified. */
-	{
-		if ((ifp = if_lookup_by_name(argv[idx_ifname]->arg,
-					     VRF_DEFAULT))
-		    == NULL) {
+	} else {
+		/* Interface name is specified. */
+		ifp = if_lookup_by_name_vrf(argv[idx_ifname]->arg, vrf);
+		if (!ifp) {
 			vty_out(vty, "No such Interface: %s\n",
 				argv[idx_ifname]->arg);
 			return CMD_WARNING;
@@ -2818,4 +2865,196 @@ void install_element_ospf6_debug_interface(void)
 	install_element(ENABLE_NODE, &no_debug_ospf6_interface_cmd);
 	install_element(CONFIG_NODE, &debug_ospf6_interface_cmd);
 	install_element(CONFIG_NODE, &no_debug_ospf6_interface_cmd);
+}
+
+void ospf6_auth_write_config(struct vty *vty, struct ospf6_auth_data *at_data)
+{
+	if (CHECK_FLAG(at_data->flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		vty_out(vty, " ipv6 ospf6 authentication keychain %s\n",
+			at_data->keychain);
+	else if (CHECK_FLAG(at_data->flags, OSPF6_AUTH_TRAILER_MANUAL_KEY))
+		vty_out(vty,
+			" ipv6 ospf6 authentication key-id %d hash-algo %s key %s\n",
+			at_data->key_id,
+			keychain_get_algo_name_by_id(at_data->hash_algo),
+			at_data->auth_key);
+}
+
+DEFUN(ipv6_ospf6_intf_auth_trailer_keychain,
+      ipv6_ospf6_intf_auth_trailer_keychain_cmd,
+      "ipv6 ospf6 authentication keychain KEYCHAIN_NAME",
+      IP6_STR OSPF6_STR
+      "Enable authentication on this interface\n"
+      "Keychain\n"
+      "Keychain name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int keychain_idx = 4;
+	struct ospf6_interface *oi;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY)) {
+		vty_out(vty,
+			"Manual key configured, unconfigure it before configuring key chain\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN);
+	if (oi->at_data.keychain)
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+
+	oi->at_data.keychain =
+		XSTRDUP(MTYPE_OSPF6_AUTH_KEYCHAIN, argv[keychain_idx]->arg);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_intf_auth_trailer_keychain,
+      no_ipv6_ospf6_intf_auth_trailer_keychain_cmd,
+      "no ipv6 ospf6 authentication keychain [KEYCHAIN_NAME]",
+      NO_STR IP6_STR OSPF6_STR
+      "Enable authentication on this interface\n"
+      "Keychain\n"
+      "Keychain name\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (!CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN))
+		return CMD_SUCCESS;
+
+	if (oi->at_data.keychain) {
+		oi->at_data.flags = 0;
+		XFREE(MTYPE_OSPF6_AUTH_KEYCHAIN, oi->at_data.keychain);
+		oi->at_data.keychain = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(ipv6_ospf6_intf_auth_trailer_key, ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "ipv6 ospf6 authentication key-id (1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD",
+      IP6_STR OSPF6_STR
+      "Authentication\n"
+      "Key ID\n"
+      "Key ID value\n"
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n"
+      "Password\n"
+      "Password string (key)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	int key_id_idx = 4;
+	int hash_algo_idx = 6;
+	int password_idx = 8;
+	struct ospf6_interface *oi;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN)) {
+		vty_out(vty,
+			"key chain configured, unconfigure it before configuring manual key\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+
+	hash_algo = keychain_get_algo_id_by_name(argv[hash_algo_idx]->arg);
+#ifndef CRYPTO_OPENSSL
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+
+	SET_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY);
+	oi->at_data.hash_algo = hash_algo;
+	oi->at_data.key_id = (uint16_t)strtol(argv[key_id_idx]->arg, NULL, 10);
+	if (oi->at_data.auth_key)
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+	oi->at_data.auth_key =
+		XSTRDUP(MTYPE_OSPF6_AUTH_MANUAL_KEY, argv[password_idx]->arg);
+
+	return CMD_SUCCESS;
+}
+
+DEFUN(no_ipv6_ospf6_intf_auth_trailer_key,
+      no_ipv6_ospf6_intf_auth_trailer_key_cmd,
+      "no ipv6 ospf6 authentication key-id [(1-65535) hash-algo "
+      "<md5|hmac-sha-1|hmac-sha-256|hmac-sha-384|hmac-sha-512> "
+      "key WORD]",
+      NO_STR IP6_STR OSPF6_STR
+      "Authentication\n"
+      "Key ID\n"
+      "Key ID value\n"
+      "Cryptographic-algorithm\n"
+      "Use MD5 algorithm\n"
+      "Use HMAC-SHA-1 algorithm\n"
+      "Use HMAC-SHA-256 algorithm\n"
+      "Use HMAC-SHA-384 algorithm\n"
+      "Use HMAC-SHA-512 algorithm\n"
+      "Password\n"
+      "Password string (key)\n")
+{
+	VTY_DECLVAR_CONTEXT(interface, ifp);
+	struct ospf6_interface *oi;
+#ifndef CRYPTO_OPENSSL
+	int hash_algo_idx = 7;
+	uint8_t hash_algo = KEYCHAIN_ALGO_NULL;
+#endif /* CRYPTO_OPENSSL */
+
+	oi = (struct ospf6_interface *)ifp->info;
+	if (oi == NULL)
+		oi = ospf6_interface_create(ifp);
+
+	assert(oi);
+	if (!CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_MANUAL_KEY))
+		return CMD_SUCCESS;
+
+#ifndef CRYPTO_OPENSSL
+	hash_algo = keychain_get_algo_id_by_name(argv[hash_algo_idx]->arg);
+	if (hash_algo == KEYCHAIN_ALGO_NULL) {
+		vty_out(vty,
+			"Hash algorithm not supported, compile with --with-crypto=openssl\n");
+		return CMD_WARNING_CONFIG_FAILED;
+	}
+#endif /* CRYPTO_OPENSSL */
+
+	if (oi->at_data.auth_key) {
+		oi->at_data.flags = 0;
+		XFREE(MTYPE_OSPF6_AUTH_MANUAL_KEY, oi->at_data.auth_key);
+		oi->at_data.auth_key = NULL;
+	}
+
+	return CMD_SUCCESS;
+}
+
+void ospf6_interface_auth_trailer_cmd_init(void)
+{
+	/*Install OSPF6 auth trailer commands at interface level */
+	install_element(INTERFACE_NODE,
+			&ipv6_ospf6_intf_auth_trailer_keychain_cmd);
+	install_element(INTERFACE_NODE,
+			&no_ipv6_ospf6_intf_auth_trailer_keychain_cmd);
+	install_element(INTERFACE_NODE, &ipv6_ospf6_intf_auth_trailer_key_cmd);
+	install_element(INTERFACE_NODE,
+			&no_ipv6_ospf6_intf_auth_trailer_key_cmd);
 }

@@ -129,8 +129,9 @@ void ospf_ldp_sync_if_init(struct ospf_interface *oi)
 	 *  if LDP-IGP Sync is configured globally set state
 	 *  if ptop interface inform LDP LDP-SYNC is enabled
 	 */
-	if (if_is_loopback(ifp) || (ifp->vrf_id != VRF_DEFAULT) ||
-	    !(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)))
+	if (if_is_loopback(ifp) || (ifp->vrf->vrf_id != VRF_DEFAULT)
+	    || !(CHECK_FLAG(oi->ospf->ldp_sync_cmd.flags,
+			    LDP_SYNC_FLAG_ENABLE)))
 		return;
 
 	ols_debug("ldp_sync: init if %s",ifp->name);
@@ -856,7 +857,7 @@ DEFPY (mpls_ldp_sync,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -897,7 +898,7 @@ DEFPY (no_mpls_ldp_sync,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -940,7 +941,7 @@ DEFPY (mpls_ldp_sync_holddown,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -978,7 +979,7 @@ DEFPY (no_mpls_ldp_sync_holddown,
 		return CMD_ERR_NOTHING_TODO;
 	}
 
-	if (ifp->vrf_id != VRF_DEFAULT) {
+	if (ifp->vrf->vrf_id != VRF_DEFAULT) {
 		vty_out(vty, "ldp-sync only runs on DEFAULT VRF\n");
 		return CMD_ERR_NOTHING_TODO;
 	}
@@ -1030,32 +1031,25 @@ DEFPY (show_ip_ospf_mpls_ldp_interface,
 	/* Display default ospf (instance 0) info */
 	ospf = ospf_lookup_by_vrf_id(VRF_DEFAULT);
 	if (ospf == NULL || !ospf->oi_running) {
-		if (uj) {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "%% OSPF instance not found\n");
 		return CMD_SUCCESS;
 	}
 
 	if (!CHECK_FLAG(ospf->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)) {
-		if (uj) {
-			vty_out(vty, "%s\n", json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-			json_object_free(json);
-		} else
+		if (uj)
+			vty_json(vty, json);
+		else
 			vty_out(vty, "LDP-sync is disabled\n");
 		return CMD_SUCCESS;
 	}
 
 	ret = show_ip_ospf_mpls_ldp_interface_common(vty, ospf, intf_name,
 						     json, uj);
-	if (uj) {
-		vty_out(vty, "%s\n", json_object_to_json_string_ext(
-			json, JSON_C_TO_STRING_PRETTY));
-		json_object_free(json);
-	}
+	if (uj)
+		vty_json(vty, json);
 
 	return ret;
 }

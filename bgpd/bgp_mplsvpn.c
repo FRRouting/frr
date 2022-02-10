@@ -112,7 +112,7 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	mpls_label_t label = {0};
 	afi_t afi;
 	safi_t safi;
-	int addpath_encoded;
+	bool addpath_capable;
 	uint32_t addpath_id;
 	int ret = 0;
 
@@ -126,17 +126,14 @@ int bgp_nlri_parse_vpn(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 #define VPN_PREFIXLEN_MIN_BYTES (3 + 8) /* label + RD */
 	while (STREAM_READABLE(data) > 0) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
-		if (addpath_encoded) {
+		if (addpath_capable) {
 			STREAM_GET(&addpath_id, data, BGP_ADDPATH_ID_LEN);
 			addpath_id = ntohl(addpath_id);
 		}
@@ -522,13 +519,14 @@ static bool sid_exist(struct bgp *bgp, const struct in6_addr *sid)
  * if index != 0: try to allocate as index-mode
  * else: try to allocate as auto-mode
  */
-static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
-			  struct in6_addr *sid)
+static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
+			      struct in6_addr *sid)
 {
 	struct listnode *node;
 	struct prefix_ipv6 *chunk;
 	struct in6_addr sid_buf;
 	bool alloced = false;
+	int label;
 
 	if (!bgp || !sid)
 		return false;
@@ -536,7 +534,8 @@ static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
 	for (ALL_LIST_ELEMENTS_RO(bgp->srv6_locator_chunks, node, chunk)) {
 		sid_buf = chunk->prefix;
 		if (index != 0) {
-			sid_buf.s6_addr[15] = index;
+			label = index << 12;
+			transpose_sid(&sid_buf, label, 64, 16);
 			if (sid_exist(bgp, &sid_buf))
 				return false;
 			alloced = true;
@@ -544,9 +543,8 @@ static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
 		}
 
 		for (size_t i = 1; i < 255; i++) {
-			sid_buf.s6_addr[15] = (i & 0xff00) >> 8;
-			sid_buf.s6_addr[14] = (i & 0x00ff);
-
+			label = i << 12;
+			transpose_sid(&sid_buf, label, 64, 16);
 			if (sid_exist(bgp, &sid_buf))
 				continue;
 			alloced = true;
@@ -555,20 +553,19 @@ static bool alloc_new_sid(struct bgp *bgp, uint32_t index,
 	}
 
 	if (!alloced)
-		return false;
+		return 0;
 
 	sid_register(bgp, &sid_buf, bgp->srv6_locator_name);
 	*sid = sid_buf;
-	return true;
+	return label;
 }
 
 void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 {
 	int debug = BGP_DEBUG(vpn, VPN_LEAK_FROM_VRF);
-	bool alloced = false;
 	char buf[256];
 	struct in6_addr *sid;
-	uint32_t tovpn_sid_index = 0;
+	uint32_t tovpn_sid_index = 0, tovpn_sid_transpose_label;
 	bool tovpn_sid_auto = false;
 
 	if (debug)
@@ -602,8 +599,9 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 	}
 
 	sid = XCALLOC(MTYPE_BGP_SRV6_SID, sizeof(struct in6_addr));
-	alloced = alloc_new_sid(bgp_vpn, tovpn_sid_index, sid);
-	if (!alloced) {
+	tovpn_sid_transpose_label =
+		alloc_new_sid(bgp_vpn, tovpn_sid_index, sid);
+	if (tovpn_sid_transpose_label == 0) {
 		zlog_debug("%s: not allocated new sid for vrf %s: afi %s",
 			   __func__, bgp_vrf->name_pretty, afi2str(afi));
 		return;
@@ -615,7 +613,20 @@ void ensure_vrf_tovpn_sid(struct bgp *bgp_vpn, struct bgp *bgp_vrf, afi_t afi)
 			   __func__, buf, bgp_vrf->name_pretty,
 			   afi2str(afi));
 	}
+	bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label =
+		tovpn_sid_transpose_label;
 	bgp_vrf->vpn_policy[afi].tovpn_sid = sid;
+}
+
+void transpose_sid(struct in6_addr *sid, uint32_t label, uint8_t offset,
+		   uint8_t len)
+{
+	for (uint8_t idx = 0; idx < len; idx++) {
+		uint8_t tidx = offset + idx;
+		sid->s6_addr[tidx / 8] &= ~(0x1 << (7 - tidx % 8));
+		if (label >> (19 - idx) & 0x1)
+			sid->s6_addr[tidx / 8] |= 0x1 << (7 - tidx % 8);
+	}
 }
 
 static bool ecom_intersect(struct ecommunity *e1, struct ecommunity *e2)
@@ -710,8 +721,17 @@ static void setsids(struct bgp_path_info *bpi,
 
 	extra = bgp_path_info_extra_get(bpi);
 	for (i = 0; i < num_sids; i++)
-		memcpy(&extra->sid[i], &sid[i], sizeof(struct in6_addr));
+		memcpy(&extra->sid[i].sid, &sid[i], sizeof(struct in6_addr));
 	extra->num_sids = num_sids;
+}
+
+static void unsetsids(struct bgp_path_info *bpi)
+{
+	struct bgp_path_info_extra *extra;
+
+	extra = bgp_path_info_extra_get(bpi);
+	extra->num_sids = 0;
+	memset(extra->sid, 0, sizeof(extra->sid));
 }
 
 /*
@@ -729,6 +749,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	struct bgp_path_info *bpi;
 	struct bgp_path_info *bpi_ultimate;
 	struct bgp_path_info *new;
+	struct bgp_path_info_extra *extra;
 	uint32_t num_sids = 0;
 
 	if (new_attr->srv6_l3vpn || new_attr->srv6_vpn)
@@ -755,10 +776,7 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	 * schemes that could be implemented in the future.
 	 *
 	 */
-	for (bpi_ultimate = source_bpi;
-	     bpi_ultimate->extra && bpi_ultimate->extra->parent;
-	     bpi_ultimate = bpi_ultimate->extra->parent)
-		;
+	bpi_ultimate = bgp_get_imported_bpi_ultimate(source_bpi);
 
 	/*
 	 * match parent
@@ -815,13 +833,35 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 * rewrite sid
 		 */
 		if (num_sids) {
-			if (new_attr->srv6_l3vpn)
+			if (new_attr->srv6_l3vpn) {
 				setsids(bpi, &new_attr->srv6_l3vpn->sid,
 					num_sids);
-			else if (new_attr->srv6_vpn)
+
+				extra = bgp_path_info_extra_get(bpi);
+
+				extra->sid[0].loc_block_len =
+					new_attr->srv6_l3vpn->loc_block_len;
+				extra->sid[0].loc_node_len =
+					new_attr->srv6_l3vpn->loc_node_len;
+				extra->sid[0].func_len =
+					new_attr->srv6_l3vpn->func_len;
+				extra->sid[0].arg_len =
+					new_attr->srv6_l3vpn->arg_len;
+
+				if (new_attr->srv6_l3vpn->transposition_len
+				    != 0)
+					transpose_sid(
+						&extra->sid[0].sid,
+						decode_label(label),
+						new_attr->srv6_l3vpn
+							->transposition_offset,
+						new_attr->srv6_l3vpn
+							->transposition_len);
+			} else if (new_attr->srv6_vpn)
 				setsids(bpi, &new_attr->srv6_vpn->sid,
 					num_sids);
-		}
+		} else
+			unsetsids(bpi);
 
 		if (nexthop_self_flag)
 			bgp_path_info_set_flag(bn, bpi, BGP_PATH_ANNC_NH_SELF);
@@ -846,6 +886,17 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 			 */
 			nh_valid = bgp_find_or_add_nexthop(
 				bgp, bgp_nexthop, afi, safi, bpi, NULL, 0, p);
+
+		/*
+		 * If you are using SRv6 VPN instead of MPLS, it need to check
+		 * the SID allocation. If the sid is not allocated, the rib
+		 * will be invalid.
+		 */
+		if (bgp->srv6_enabled
+		    && (!new_attr->srv6_l3vpn && !new_attr->srv6_vpn)) {
+			bgp_path_info_unset_flag(bn, bpi, BGP_PATH_VALID);
+			nh_valid = false;
+		}
 
 		if (debug)
 			zlog_debug("%s: nexthop is %svalid (in vrf %s)",
@@ -889,11 +940,29 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 	 * rewrite sid
 	 */
 	if (num_sids) {
-		if (new_attr->srv6_l3vpn)
+		if (new_attr->srv6_l3vpn) {
 			setsids(new, &new_attr->srv6_l3vpn->sid, num_sids);
-		else if (new_attr->srv6_vpn)
+
+			extra = bgp_path_info_extra_get(new);
+
+			extra->sid[0].loc_block_len =
+				new_attr->srv6_l3vpn->loc_block_len;
+			extra->sid[0].loc_node_len =
+				new_attr->srv6_l3vpn->loc_node_len;
+			extra->sid[0].func_len = new_attr->srv6_l3vpn->func_len;
+			extra->sid[0].arg_len = new_attr->srv6_l3vpn->arg_len;
+
+			if (new_attr->srv6_l3vpn->transposition_len != 0)
+				transpose_sid(&extra->sid[0].sid,
+					      decode_label(label),
+					      new_attr->srv6_l3vpn
+						      ->transposition_offset,
+					      new_attr->srv6_l3vpn
+						      ->transposition_len);
+		} else if (new_attr->srv6_vpn)
 			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
-	}
+	} else
+		unsetsids(new);
 
 	if (num_labels)
 		setlabels(new, label, num_labels);
@@ -932,6 +1001,17 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 		 */
 		nh_valid = bgp_find_or_add_nexthop(bgp, bgp_nexthop, afi, safi,
 						   new, NULL, 0, p);
+
+	/*
+	 * If you are using SRv6 VPN instead of MPLS, it need to check
+	 * the SID allocation. If the sid is not allocated, the rib
+	 * will be invalid.
+	 */
+	if (bgp->srv6_enabled
+	    && (!new->attr->srv6_l3vpn && !new->attr->srv6_vpn)) {
+		bgp_path_info_unset_flag(bn, new, BGP_PATH_VALID);
+		nh_valid = false;
+	}
 
 	if (debug)
 		zlog_debug("%s: nexthop is %svalid (in vrf %s)",
@@ -973,9 +1053,10 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	if (debug)
 		zlog_debug("%s: from vrf %s", __func__, bgp_vrf->name_pretty);
 
-	if (debug && path_vrf->attr->ecommunity) {
-		char *s = ecommunity_ecom2str(path_vrf->attr->ecommunity,
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+	if (debug && bgp_attr_get_ecommunity(path_vrf->attr)) {
+		char *s = ecommunity_ecom2str(
+			bgp_attr_get_ecommunity(path_vrf->attr),
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: %s path_vrf->type=%d, EC{%s}", __func__,
 			   bgp_vrf->name, path_vrf->type, s);
@@ -1031,9 +1112,10 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		}
 	}
 
-	if (debug && static_attr.ecommunity) {
-		char *s = ecommunity_ecom2str(static_attr.ecommunity,
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
+		char *s = ecommunity_ecom2str(
+			bgp_attr_get_ecommunity(&static_attr),
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: post route map static_attr.ecommunity{%s}",
 			   __func__, s);
@@ -1048,7 +1130,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 
 	/* Export with the 'from' instance's export RTs. */
 	/* If doing VRF-to-VRF leaking, strip existing RTs first. */
-	old_ecom = static_attr.ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (old_ecom) {
 		new_ecom = ecommunity_dup(old_ecom);
 		if (CHECK_FLAG(bgp_vrf->af_flags[afi][SAFI_UNICAST],
@@ -1064,12 +1146,13 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 			bgp_vrf->vpn_policy[afi]
 				.rtlist[BGP_VPN_POLICY_DIR_TOVPN]);
 	}
-	static_attr.ecommunity = new_ecom;
+	bgp_attr_set_ecommunity(&static_attr, new_ecom);
 	SET_FLAG(static_attr.flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 
-	if (debug && static_attr.ecommunity) {
-		char *s = ecommunity_ecom2str(static_attr.ecommunity,
-					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
+	if (debug && bgp_attr_get_ecommunity(&static_attr)) {
+		char *s = ecommunity_ecom2str(
+			bgp_attr_get_ecommunity(&static_attr),
+			ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: post merge static_attr.ecommunity{%s}",
 			   __func__, s);
@@ -1153,10 +1236,24 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 
 	/* Set SID for SRv6 VPN */
 	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+		encode_label(bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label,
+			     &label);
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
 				sizeof(struct bgp_attr_srv6_l3vpn));
 		static_attr.srv6_l3vpn->sid_flags = 0x00;
 		static_attr.srv6_l3vpn->endpoint_behavior = 0xffff;
+		static_attr.srv6_l3vpn->loc_block_len =
+			BGP_PREFIX_SID_SRV6_LOCATOR_BLOCK_LENGTH;
+		static_attr.srv6_l3vpn->loc_node_len =
+			BGP_PREFIX_SID_SRV6_LOCATOR_NODE_LENGTH;
+		static_attr.srv6_l3vpn->func_len =
+			BGP_PREFIX_SID_SRV6_FUNCTION_LENGTH;
+		static_attr.srv6_l3vpn->arg_len =
+			BGP_PREFIX_SID_SRV6_ARGUMENT_LENGTH;
+		static_attr.srv6_l3vpn->transposition_len =
+			BGP_PREFIX_SID_SRV6_TRANSPOSITION_LENGTH;
+		static_attr.srv6_l3vpn->transposition_offset =
+			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
 		memcpy(&static_attr.srv6_l3vpn->sid,
 		       bgp_vrf->vpn_policy[afi].tovpn_sid,
 		       sizeof(static_attr.srv6_l3vpn->sid));
@@ -1167,8 +1264,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		&static_attr);	/* hashed refcounted everything */
 	bgp_attr_flush(&static_attr); /* free locally-allocated parts */
 
-	if (debug && new_attr->ecommunity) {
-		char *s = ecommunity_ecom2str(new_attr->ecommunity,
+	if (debug && bgp_attr_get_ecommunity(new_attr)) {
+		char *s = ecommunity_ecom2str(bgp_attr_get_ecommunity(new_attr),
 					      ECOMMUNITY_FORMAT_ROUTE_MAP, 0);
 
 		zlog_debug("%s: new_attr->ecommunity{%s}", __func__, s);
@@ -1387,7 +1484,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	/* Check for intersection of route targets */
 	if (!ecom_intersect(
 		    bgp_vrf->vpn_policy[afi].rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
-		    path_vpn->attr->ecommunity)) {
+		    bgp_attr_get_ecommunity(path_vpn->attr))) {
 		if (debug)
 			zlog_debug(
 				"from vpn to vrf %s, skipping after no intersection of route targets",
@@ -1406,18 +1503,18 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	struct ecommunity *new_ecom;
 
 	/* If doing VRF-to-VRF leaking, strip RTs. */
-	old_ecom = static_attr.ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(&static_attr);
 	if (old_ecom && CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
 				BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
 		new_ecom = ecommunity_dup(old_ecom);
 		ecommunity_strip_rts(new_ecom);
-		static_attr.ecommunity = new_ecom;
+		bgp_attr_set_ecommunity(&static_attr, new_ecom);
 
 		if (new_ecom->size == 0) {
 			UNSET_FLAG(static_attr.flag,
 				   ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
 			ecommunity_free(&new_ecom);
-			static_attr.ecommunity = NULL;
+			bgp_attr_set_ecommunity(&static_attr, NULL);
 		}
 
 		if (!old_ecom->refcnt)
@@ -1519,10 +1616,7 @@ vpn_leak_to_vrf_update_onevrf(struct bgp *bgp_vrf,	    /* to */
 	if (!CHECK_FLAG(bgp_vrf->af_flags[afi][safi],
 			BGP_CONFIG_VRF_TO_VRF_IMPORT)) {
 		/* work back to original route */
-		for (bpi_ultimate = path_vpn;
-		     bpi_ultimate->extra && bpi_ultimate->extra->parent;
-		     bpi_ultimate = bpi_ultimate->extra->parent)
-			;
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(path_vpn);
 
 		/*
 		 * if original route was unicast,
@@ -1637,7 +1731,7 @@ void vpn_leak_to_vrf_withdraw(struct bgp *bgp_vpn,	    /* from */
 		/* Check for intersection of route targets */
 		if (!ecom_intersect(bgp->vpn_policy[afi]
 					    .rtlist[BGP_VPN_POLICY_DIR_FROMVPN],
-				    path_vpn->attr->ecommunity)) {
+				    bgp_attr_get_ecommunity(path_vpn->attr))) {
 
 			continue;
 		}

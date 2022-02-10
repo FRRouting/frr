@@ -522,6 +522,49 @@ char *pbr_nht_nexthop_make_name(char *name, size_t l,
 	return buffer;
 }
 
+/* Set data derived from nhg in pbrms */
+void pbr_nht_set_seq_nhg_data(struct pbr_map_sequence *pbrms,
+			      const struct nexthop_group_cmd *nhgc)
+{
+	const struct nexthop_group *nhg;
+
+	if (!nhgc)
+		return;
+
+	nhg = &nhgc->nhg;
+	if (!nhg->nexthop)
+		return;
+
+	switch (nhg->nexthop->type) {
+	case NEXTHOP_TYPE_IPV6:
+	case NEXTHOP_TYPE_IPV6_IFINDEX:
+		pbrms->family = AF_INET6;
+		break;
+	case NEXTHOP_TYPE_IPV4:
+	case NEXTHOP_TYPE_IPV4_IFINDEX:
+		pbrms->family = AF_INET;
+	default:
+		break;
+	}
+}
+
+/* Configure a routemap sequence to use a given nexthop group */
+void pbr_nht_set_seq_nhg(struct pbr_map_sequence *pbrms, const char *name)
+{
+	struct nexthop_group_cmd *nhgc;
+
+	if (!name)
+		return;
+
+	pbrms->nhgrp_name = XSTRDUP(MTYPE_TMP, name);
+
+	nhgc = nhgc_find(name);
+	if (!nhgc)
+		return;
+
+	pbr_nht_set_seq_nhg_data(pbrms, nhgc);
+}
+
 void pbr_nht_add_individual_nexthop(struct pbr_map_sequence *pbrms,
 				    const struct nexthop *nhop)
 {

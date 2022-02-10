@@ -218,7 +218,7 @@ static int isis_ldp_sync_adj_state_change(struct isis_adjacency *adj)
 	struct isis_area *area = circuit->area;
 
 	if (!CHECK_FLAG(area->ldp_sync_cmd.flags, LDP_SYNC_FLAG_ENABLE)
-	    || circuit->interface->vrf_id != VRF_DEFAULT
+	    || circuit->interface->vrf->vrf_id != VRF_DEFAULT
 	    || if_is_loopback(circuit->interface))
 		return 0;
 
@@ -484,6 +484,9 @@ void isis_if_ldp_sync_enable(struct isis_circuit *circuit)
 	 *  if ptop link send msg to LDP indicating ldp-sync enabled
  	 */
 	if (if_is_loopback(circuit->interface))
+		return;
+
+	if (circuit->interface->vrf->vrf_id != VRF_DEFAULT)
 		return;
 
 	ils_debug("ldp_sync: enable if %s", circuit->interface->name);

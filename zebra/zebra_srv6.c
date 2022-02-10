@@ -106,15 +106,60 @@ void zebra_srv6_locator_add(struct srv6_locator *locator)
 {
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
 	struct srv6_locator *tmp;
+	struct listnode *node;
+	struct zserv *client;
 
 	tmp = zebra_srv6_locator_lookup(locator->name);
 	if (!tmp)
 		listnode_add(srv6->locators, locator);
+
+	/*
+	 * Notify new locator info to zclients.
+	 *
+	 * The srv6 locators and their prefixes are managed by zserv(zebra).
+	 * And an actual configuration the srv6 sid in the srv6 locator is done
+	 * by zclient(bgpd, isisd, etc). The configuration of each locator
+	 * allocation and specify it by zserv and zclient should be
+	 * asynchronous. For that, zclient should be received the event via
+	 * ZAPI when a srv6 locator is added on zebra.
+	 * Basically, in SRv6, adding/removing SRv6 locators is performed less
+	 * frequently than adding rib entries, so a broad to all zclients will
+	 * not degrade the overall performance of FRRouting.
+	 */
+	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client))
+		zsend_zebra_srv6_locator_add(client, locator);
 }
 
 void zebra_srv6_locator_delete(struct srv6_locator *locator)
 {
+	struct listnode *n;
+	struct srv6_locator_chunk *c;
 	struct zebra_srv6 *srv6 = zebra_srv6_get_default();
+	struct zserv *client;
+
+	/*
+	 * Notify deleted locator info to zclients if needed.
+	 *
+	 * zclient(bgpd,isisd,etc) allocates a sid from srv6 locator chunk and
+	 * uses it for its own purpose. For example, in the case of BGP L3VPN,
+	 * the SID assigned to vpn unicast rib will be given.
+	 * And when the locator is deleted by zserv(zebra), those SIDs need to
+	 * be withdrawn. The zclient must initiate the withdrawal of the SIDs
+	 * by ZEBRA_SRV6_LOCATOR_DELETE, and this notification is sent to the
+	 * owner of each chunk.
+	 */
+	for (ALL_LIST_ELEMENTS_RO((struct list *)locator->chunks, n, c)) {
+		if (c->proto == ZEBRA_ROUTE_SYSTEM)
+			continue;
+		client = zserv_find_client(c->proto, c->instance);
+		if (!client) {
+			zlog_warn(
+				"%s: Not found zclient(proto=%u, instance=%u).",
+				__func__, c->proto, c->instance);
+			continue;
+		}
+		zsend_zebra_srv6_locator_delete(client, locator);
+	}
 
 	listnode_delete(srv6->locators, locator);
 }
@@ -171,19 +216,7 @@ assign_srv6_locator_chunk(uint8_t proto,
 	if (!loc) {
 		zlog_info("%s: locator %s was not found",
 			  __func__, locator_name);
-
-		loc = srv6_locator_alloc(locator_name);
-		if (!loc) {
-			zlog_info("%s: locator %s can't allocated",
-				  __func__, locator_name);
-			return NULL;
-		}
-
-		loc->status_up = false;
-		chunk = srv6_locator_chunk_alloc();
-		chunk->proto = NO_PROTO;
-		listnode_add(loc->chunks, chunk);
-		zebra_srv6_locator_add(loc);
+		return NULL;
 	}
 
 	for (ALL_LIST_ELEMENTS_RO((struct list *)loc->chunks, node, chunk)) {

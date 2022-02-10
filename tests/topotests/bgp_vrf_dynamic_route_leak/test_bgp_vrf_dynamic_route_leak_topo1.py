@@ -33,7 +33,6 @@ Following tests are covered to test BGP Multi-VRF Dynamic Route Leaking:
 
 import os
 import sys
-import json
 import time
 import pytest
 import platform
@@ -49,25 +48,20 @@ sys.path.append(os.path.join(CWD, "../lib/"))
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
 from lib.topotest import version_cmp
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     check_address_types,
     write_test_footer,
-    reset_config_on_routers,
-    verify_rib,
     step,
     create_route_maps,
-    shutdown_bringup_interface,
     create_static_routes,
     create_prefix_lists,
     create_bgp_community_lists,
     create_interface_in_kernel,
     check_router_status,
     verify_cli_json,
-    get_frr_ipv6_linklocal,
     verify_fib_routes,
 )
 
@@ -75,22 +69,13 @@ from lib.topolog import logger
 from lib.bgp import (
     verify_bgp_convergence,
     create_router_bgp,
-    clear_bgp,
     verify_bgp_community,
     verify_bgp_rib,
 )
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
+
 
 pytestmark = [pytest.mark.bgpd, pytest.mark.staticd]
-
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/bgp_vrf_dynamic_route_leak_topo1.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 # Global variables
 NETWORK1_1 = {"ipv4": "11.11.11.1/32", "ipv6": "11:11::1/128"}
@@ -117,29 +102,12 @@ NEXT_HOP_IP = {"ipv4": "Null0", "ipv6": "Null0"}
 LOOPBACK_1 = {
     "ipv4": "10.0.0.7/24",
     "ipv6": "fd00:0:0:1::7/64",
-    "ipv4_mask": "255.255.255.0",
-    "ipv6_mask": None,
 }
 LOOPBACK_2 = {
     "ipv4": "10.0.0.16/24",
     "ipv6": "fd00:0:0:3::5/64",
 }
 PREFERRED_NEXT_HOP = "global"
-
-
-class CreateTopo(Topo):
-    """
-    Test BasicTopo - topology 1
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function"""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
 
 
 def setup_module(mod):
@@ -149,7 +117,6 @@ def setup_module(mod):
     * `mod`: module name
     """
 
-    global topo
     testsuite_run_time = time.asctime(time.localtime(time.time()))
     logger.info("Testsuite start time: {}".format(testsuite_run_time))
     logger.info("=" * 40)
@@ -157,7 +124,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/bgp_vrf_dynamic_route_leak_topo1.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # Starting topology, create tmp files which are loaded to routers
@@ -225,7 +195,6 @@ def disable_route_map_to_prefer_global_next_hop(tgen, topo):
 
     """
 
-    tc_name = request.node.name
     logger.info("Remove prefer-global rmap applied on neighbors")
     input_dict = {
         "r1": {
@@ -489,7 +458,7 @@ def disable_route_map_to_prefer_global_next_hop(tgen, topo):
     }
 
     result = create_router_bgp(tgen, topo, input_dict)
-    assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
+    assert result is True, "Testcase :Failed \n Error: {}".format(result)
 
     return True
 

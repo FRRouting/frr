@@ -17,9 +17,6 @@ various BGP RFCs. In the code these are defined as BGP_ATTR_<ATTR>.
 | 8     | COMMUNITIES      | [RFC 1997]                               |
 | 9     | ORIGINATOR_ID    | [RFC 4456]                               |
 | 10    | CLUSTER_LIST     | [RFC 4456]                               |
-| 11    | DPA              | [draft-ietf-idr-bgp-dpa-05.txt(expired)] |
-| 12    | ADVERTISER       | [RFC 1863]                               |
-| 13    | RCID_PATH        | [RFC 1863]                               |
 | 14    | MP_REACH_NLRI    | [RFC 4760]                               |
 | 15    | MP_UNREACH_NLRI  | [RFC 4760]                               |
 | 16    | EXT_COMMUNITIES  | [RFC 4360]                               |

@@ -552,13 +552,12 @@ void zebra_pbr_process_iptable(struct zebra_dplane_ctx *ctx)
 	else
 		mode = 0;
 
-	if (dplane_ctx_get_pbr_iptable(ctx, &ipt)) {
-		ret = hook_call(zebra_pbr_iptable_update, mode, &ipt);
-		if (ret)
-			dplane_ctx_set_status(ctx,
-					      ZEBRA_DPLANE_REQUEST_SUCCESS);
-	}
-	if (!ret)
+	dplane_ctx_get_pbr_iptable(ctx, &ipt);
+
+	ret = hook_call(zebra_pbr_iptable_update, mode, &ipt);
+	if (ret)
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+	else
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
@@ -571,13 +570,13 @@ void zebra_pbr_process_ipset(struct zebra_dplane_ctx *ctx)
 		mode = 1;
 	else
 		mode = 0;
-	if (dplane_ctx_get_pbr_ipset(ctx, &ipset)) {
-		ret = hook_call(zebra_pbr_ipset_update, mode, &ipset);
-		if (ret)
-			dplane_ctx_set_status(ctx,
-					      ZEBRA_DPLANE_REQUEST_SUCCESS);
-	}
-	if (!ret)
+
+	dplane_ctx_get_pbr_ipset(ctx, &ipset);
+
+	ret = hook_call(zebra_pbr_ipset_update, mode, &ipset);
+	if (ret)
+		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_SUCCESS);
+	else
 		dplane_ctx_set_status(ctx, ZEBRA_DPLANE_REQUEST_FAILURE);
 }
 
@@ -592,10 +591,9 @@ void zebra_pbr_process_ipset_entry(struct zebra_dplane_ctx *ctx)
 	else
 		mode = 0;
 
-	if (!dplane_ctx_get_pbr_ipset_entry(ctx, &ipset_entry))
-		return;
-	if (!dplane_ctx_get_pbr_ipset(ctx, &ipset))
-		return;
+	dplane_ctx_get_pbr_ipset_entry(ctx, &ipset_entry);
+	dplane_ctx_get_pbr_ipset(ctx, &ipset);
+
 	ipset_entry.backpointer = &ipset;
 
 	ret = hook_call(zebra_pbr_ipset_entry_update, mode, &ipset_entry);

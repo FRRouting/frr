@@ -160,14 +160,14 @@ static const struct message bgp_notify_update_msg[] = {
 static const struct message bgp_notify_cease_msg[] = {
 	{BGP_NOTIFY_SUBCODE_UNSPECIFIC, "/Unspecific"},
 	{BGP_NOTIFY_CEASE_MAX_PREFIX, "/Maximum Number of Prefixes Reached"},
-	{BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, "/Administratively Shutdown"},
-	{BGP_NOTIFY_CEASE_PEER_UNCONFIG, "/Peer Unconfigured"},
-	{BGP_NOTIFY_CEASE_ADMIN_RESET, "/Administratively Reset"},
+	{BGP_NOTIFY_CEASE_ADMIN_SHUTDOWN, "/Administrative Shutdown"},
+	{BGP_NOTIFY_CEASE_PEER_UNCONFIG, "/Peer De-configured"},
+	{BGP_NOTIFY_CEASE_ADMIN_RESET, "/Administrative Reset"},
 	{BGP_NOTIFY_CEASE_CONNECT_REJECT, "/Connection Rejected"},
 	{BGP_NOTIFY_CEASE_CONFIG_CHANGE, "/Other Configuration Change"},
 	{BGP_NOTIFY_CEASE_COLLISION_RESOLUTION,
-	 "/Connection collision resolution"},
-	{BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resource"},
+	 "/Connection Collision Resolution"},
+	{BGP_NOTIFY_CEASE_OUT_OF_RESOURCE, "/Out of Resources"},
 	{0}};
 
 static const struct message bgp_notify_route_refresh_msg[] = {
@@ -416,11 +416,12 @@ bool bgp_dump_attr(struct attr *attr, char *buf, size_t size)
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
 			 ", large-community %s",
-			 lcommunity_str(attr->lcommunity, false));
+			 lcommunity_str(bgp_attr_get_lcommunity(attr), false));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
-			 ", extcommunity %s", ecommunity_str(attr->ecommunity));
+			 ", extcommunity %s",
+			 ecommunity_str(bgp_attr_get_ecommunity(attr)));
 
 	if (CHECK_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_ATOMIC_AGGREGATE)))
 		snprintf(buf + strlen(buf), size - strlen(buf),
@@ -509,7 +510,7 @@ const char *bgp_notify_admin_message(char *buf, size_t bufsz, uint8_t *data,
 		return NULL;
 
 	uint8_t len = data[0];
-	if (len > 128 || len > datalen - 1)
+	if (!len || len > datalen - 1)
 		return NULL;
 
 	return zlog_sanitize(buf, bufsz, data + 1, len);

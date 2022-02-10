@@ -25,10 +25,7 @@
 import os
 import sys
 import time
-import json
 import pytest
-import ipaddr
-from re import search as re_search
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -38,13 +35,11 @@ sys.path.append(os.path.join(CWD, "../../"))
 # pylint: disable=C0413
 # Import topogen and topotest helpers
 from lib.topogen import Topogen, get_topogen
-from mininet.topo import Topo
 
 from lib.common_config import (
     start_topology,
     write_test_header,
     write_test_footer,
-    create_interfaces_cfg,
     verify_rib,
     create_static_routes,
     check_address_types,
@@ -53,18 +48,11 @@ from lib.common_config import (
     get_frr_ipv6_linklocal,
 )
 from lib.topolog import logger
-from lib.bgp import clear_bgp, verify_bgp_convergence, create_router_bgp
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.bgp import create_router_bgp, verify_bgp_convergence
+from lib.topojson import build_config_from_json
 
 # Global variables
 topo = None
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/rfc5549_ibgp_unnumbered_nbr.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 
 # Global variables
@@ -107,21 +95,6 @@ TESTCASES = """
  """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """Set up the pytest environment."""
 
@@ -133,7 +106,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/rfc5549_ibgp_unnumbered_nbr.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
 
     # Starting topology, create tmp files which are loaded to routers
     #  to start deamons and then start routers

@@ -26,10 +26,6 @@ import os
 import sys
 import time
 import pytest
-import json
-from time import sleep
-from copy import deepcopy
-import ipaddress
 
 # Save the Current Working Directory to find configuration files.
 CWD = os.path.dirname(os.path.realpath(__file__))
@@ -37,7 +33,6 @@ sys.path.append(os.path.join(CWD, "../"))
 
 # pylint: disable=C0413
 # Import topogen and topotest helpers
-from mininet.topo import Topo
 from lib.topogen import Topogen, get_topogen
 
 # Import topoJson from lib, to create topology and initial configuration
@@ -46,26 +41,20 @@ from lib.common_config import (
     write_test_header,
     write_test_footer,
     reset_config_on_routers,
-    verify_rib,
-    create_static_routes,
     step,
-    create_route_maps,
-    shutdown_bringup_interface,
     create_interfaces_cfg,
     topo_daemons,
-    scapy_send_raw_packet
+    scapy_send_raw_packet,
 )
 
 from lib.topolog import logger
-from lib.topojson import build_topo_from_json, build_config_from_json
+from lib.topojson import build_config_from_json
 
 from lib.ospf import (
     verify_ospf_neighbor,
     clear_ospf,
     verify_ospf_gr_helper,
     create_router_ospf,
-    verify_ospf_interface,
-    verify_ospf_database,
 )
 
 # Global variables
@@ -75,14 +64,6 @@ sw_name = None
 intf = None
 intf1 = None
 pkt = None
-
-# Reading the data from JSON File for topology creation
-jsonFile = "{}/ospf_gr_helper.json".format(CWD)
-try:
-    with open(jsonFile, "r") as topoJson:
-        topo = json.load(topoJson)
-except IOError:
-    assert False, "Could not read file {}".format(jsonFile)
 
 """
 Topology:
@@ -118,21 +99,6 @@ TC8.    Verify helper functionality when dut is helping RR and new grace lsa
 """
 
 
-class CreateTopo(Topo):
-    """
-    Test topology builder.
-
-    * `Topo`: Topology object
-    """
-
-    def build(self, *_args, **_opts):
-        """Build function."""
-        tgen = get_topogen(self)
-
-        # Building topology from json file
-        build_topo_from_json(tgen, topo)
-
-
 def setup_module(mod):
     """
     Sets up the pytest environment
@@ -147,7 +113,10 @@ def setup_module(mod):
     logger.info("Running setup_module to create topology")
 
     # This function initiates the topology build with Topogen...
-    tgen = Topogen(CreateTopo, mod.__name__)
+    json_file = "{}/ospf_gr_helper.json".format(CWD)
+    tgen = Topogen(json_file, mod.__name__)
+    global topo
+    topo = tgen.json_topo
     # ... and here it calls Mininet initialization functions.
 
     # get list of daemons needs to be started for this suite.
@@ -169,7 +138,7 @@ def setup_module(mod):
         ospf_covergence
     )
 
-    sw_name = topo["switches"].keys()[0]
+    sw_name = "s1"
     intf = topo["routers"]["r0"]["links"][sw_name]["interface"]
     intf1 = topo["routers"]["r1"]["links"][sw_name]["interface"]
     pkt = topo["routers"]["r1"]["opq_lsa_hex"]
@@ -257,7 +226,7 @@ def test_ospf_gr_helper_tc1_p0(request):
 
     step("Configure graceful restart in the DUT")
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -274,7 +243,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -298,7 +267,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     ospf_gr_r0 = {
         "r0": {
             "ospf": {
-                "graceful-restart": {"helper-only": [], "opaque": True, "delete": True}
+                "graceful-restart": {"helper enable": [], "opaque": True, "delete": True}
             }
         }
     }
@@ -313,7 +282,7 @@ def test_ospf_gr_helper_tc1_p0(request):
     step("Configure gr helper using the router id")
     ospf_gr_r0 = {
         "r0": {
-            "ospf": {"graceful-restart": {"helper-only": ["1.1.1.1"], "opaque": True}}
+            "ospf": {"graceful-restart": {"helper enable": ["1.1.1.1"], "opaque": True}}
         }
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
@@ -338,7 +307,7 @@ def test_ospf_gr_helper_tc1_p0(request):
         "r0": {
             "ospf": {
                 "graceful-restart": {
-                    "helper-only": ["1.1.1.1"],
+                    "helper enable": ["1.1.1.1"],
                     "opaque": True,
                     "delete": True,
                 }
@@ -387,13 +356,13 @@ def test_ospf_gr_helper_tc2_p0(request):
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -481,13 +450,13 @@ def test_ospf_gr_helper_tc3_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -575,13 +544,13 @@ def test_ospf_gr_helper_tc4_p1(request):
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -637,13 +606,13 @@ def test_ospf_gr_helper_tc7_p1(request):
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
@@ -697,13 +666,13 @@ def test_ospf_gr_helper_tc8_p1(request):
         ospf_covergence is True
     ), "OSPF is not after reset config \n Error:" " {}".format(ospf_covergence)
     ospf_gr_r0 = {
-        "r0": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r0": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r0)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)
 
     ospf_gr_r1 = {
-        "r1": {"ospf": {"graceful-restart": {"helper-only": [], "opaque": True}}}
+        "r1": {"ospf": {"graceful-restart": {"helper enable": [], "opaque": True}}}
     }
     result = create_router_ospf(tgen, topo, ospf_gr_r1)
     assert result is True, "Testcase {} : Failed \n Error: {}".format(tc_name, result)

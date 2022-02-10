@@ -28,7 +28,6 @@ test_pim_basic_topo2.py: Test the FRR PIM protocol convergence.
 
 import os
 import sys
-import json
 from functools import partial
 import pytest
 
@@ -43,38 +42,33 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bfdd, pytest.mark.pimd]
 
 
-class PimBasicTopo2(Topo):
-    "Test topology builder"
+def build_topo(tgen):
+    "Build function"
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
+    # Create 4 routers
+    for routern in range(1, 5):
+        tgen.add_router("r{}".format(routern))
 
-        # Create 4 routers
-        for routern in range(1, 5):
-            tgen.add_router("r{}".format(routern))
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r3"])
 
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r3"])
-
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r2"])
-        switch.add_link(tgen.gears["r4"])
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r2"])
+    switch.add_link(tgen.gears["r4"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(PimBasicTopo2, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -109,7 +103,7 @@ def expect_neighbor(router, interface, peer):
         topotest.router_json_cmp,
         tgen.gears[router],
         "show ip pim neighbor json",
-        {interface: {peer: {}}}
+        {interface: {peer: {}}},
     )
     _, result = topotest.run_and_expect(test_func, None, count=130, wait=1)
     assertmsg = '"{}" PIM convergence failure'.format(router)
@@ -124,14 +118,14 @@ def test_wait_pim_convergence():
 
     logger.info("waiting for PIM to converge")
 
-    expect_neighbor('r1', 'r1-eth0', '192.168.1.2')
-    expect_neighbor('r2', 'r2-eth0', '192.168.1.1')
+    expect_neighbor("r1", "r1-eth0", "192.168.1.2")
+    expect_neighbor("r2", "r2-eth0", "192.168.1.1")
 
-    expect_neighbor('r2', 'r2-eth1', '192.168.2.3')
-    expect_neighbor('r2', 'r2-eth2', '192.168.3.4')
+    expect_neighbor("r2", "r2-eth1", "192.168.2.3")
+    expect_neighbor("r2", "r2-eth2", "192.168.3.4")
 
-    expect_neighbor('r3', 'r3-eth0', '192.168.2.1')
-    expect_neighbor('r4', 'r4-eth0', '192.168.3.1')
+    expect_neighbor("r3", "r3-eth0", "192.168.2.1")
+    expect_neighbor("r4", "r4-eth0", "192.168.3.1")
 
 
 def test_bfd_peers():
@@ -149,7 +143,7 @@ def test_bfd_peers():
             topotest.router_json_cmp,
             tgen.gears[router],
             "show bfd peers json",
-            [{"peer": peer, "status": "up"}]
+            [{"peer": peer, "status": "up"}],
         )
         _, result = topotest.run_and_expect(test_func, None, count=10, wait=1)
         assertmsg = '"{}" BFD convergence failure'.format(router)
@@ -179,7 +173,7 @@ def test_pim_reconvergence():
             topotest.router_json_cmp,
             tgen.gears[router],
             "show ip pim neighbor json",
-            {interface: {peer: None}}
+            {interface: {peer: None}},
         )
         _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
         assertmsg = '"{}" PIM convergence failure'.format(router)
@@ -205,23 +199,29 @@ def test_pim_bfd_profile():
             topotest.router_json_cmp,
             tgen.gears[router],
             "show bfd peers json",
-            [settings]
+            [settings],
         )
         _, result = topotest.run_and_expect(test_func, None, count=4, wait=1)
         assertmsg = '"{}" BFD convergence failure'.format(router)
         assert result is None, assertmsg
 
-    expect_bfd_peer_settings("r1", {
-        "peer": "192.168.1.2",
-        "receive-interval": 250,
-        "transmit-interval": 250,
-    })
+    expect_bfd_peer_settings(
+        "r1",
+        {
+            "peer": "192.168.1.2",
+            "receive-interval": 250,
+            "transmit-interval": 250,
+        },
+    )
 
-    expect_bfd_peer_settings("r2", {
-        "peer": "192.168.1.1",
-        "remote-receive-interval": 250,
-        "remote-transmit-interval": 250,
-    })
+    expect_bfd_peer_settings(
+        "r2",
+        {
+            "peer": "192.168.1.1",
+            "remote-receive-interval": 250,
+            "remote-transmit-interval": 250,
+        },
+    )
 
 
 def test_memory_leak():

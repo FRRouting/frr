@@ -415,7 +415,6 @@ static void pim_sock_read_on(struct interface *ifp)
 		zlog_debug("Scheduling READ event on PIM socket fd=%d",
 			   pim_ifp->pim_sock_fd);
 	}
-	pim_ifp->t_pim_sock_read = NULL;
 	thread_add_read(router->master, pim_sock_read, ifp,
 			pim_ifp->pim_sock_fd, &pim_ifp->t_pim_sock_read);
 }
@@ -455,6 +454,21 @@ void pim_ifstat_reset(struct interface *ifp)
 	pim_ifp->pim_ifstat_hello_sendfail = 0;
 	pim_ifp->pim_ifstat_hello_recv = 0;
 	pim_ifp->pim_ifstat_hello_recvfail = 0;
+	pim_ifp->pim_ifstat_bsm_rx = 0;
+	pim_ifp->pim_ifstat_bsm_tx = 0;
+	pim_ifp->pim_ifstat_join_recv = 0;
+	pim_ifp->pim_ifstat_join_send = 0;
+	pim_ifp->pim_ifstat_prune_recv = 0;
+	pim_ifp->pim_ifstat_prune_send = 0;
+	pim_ifp->pim_ifstat_reg_recv = 0;
+	pim_ifp->pim_ifstat_reg_send = 0;
+	pim_ifp->pim_ifstat_reg_stop_recv = 0;
+	pim_ifp->pim_ifstat_reg_stop_send = 0;
+	pim_ifp->pim_ifstat_assert_recv = 0;
+	pim_ifp->pim_ifstat_assert_send = 0;
+	pim_ifp->pim_ifstat_bsm_cfg_miss = 0;
+	pim_ifp->pim_ifstat_ucast_bsm_cfg_miss = 0;
+	pim_ifp->pim_ifstat_bsm_invalid_sz = 0;
 }
 
 void pim_sock_reset(struct interface *ifp)
@@ -556,8 +570,8 @@ static int pim_msg_send_frame(int fd, char *buf, size_t len,
 	return 0;
 }
 
-int pim_msg_send(int fd, struct in_addr src, struct in_addr dst,
-		 uint8_t *pim_msg, int pim_msg_size, const char *ifname)
+int pim_msg_send(int fd, pim_addr src, struct in_addr dst, uint8_t *pim_msg,
+		 int pim_msg_size, const char *ifname)
 {
 	struct sockaddr_in to;
 	socklen_t tolen;
@@ -693,7 +707,7 @@ int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 {
 	struct pim_interface *pim_ifp = ifp->info;
 
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		return 0;
 
 	if (hello_send(ifp, holdtime)) {
@@ -707,6 +721,7 @@ int pim_hello_send(struct interface *ifp, uint16_t holdtime)
 	}
 
 	++pim_ifp->pim_ifstat_hello_sent;
+	PIM_IF_FLAG_SET_HELLO_SENT(pim_ifp->flags);
 
 	return 0;
 }
@@ -795,7 +810,7 @@ void pim_hello_restart_triggered(struct interface *ifp)
 	/*
 	 * No need to ever start loopback or vrf device hello's
 	 */
-	if (if_is_loopback_or_vrf(ifp))
+	if (if_is_loopback(ifp))
 		return;
 
 	/*

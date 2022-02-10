@@ -65,8 +65,7 @@ extern void nbr_connected_delete_ipv6(struct interface *ifp,
 extern int zsend_interface_update(int cmd, struct zserv *client,
 				  struct interface *ifp);
 extern int zsend_redistribute_route(int cmd, struct zserv *zclient,
-				    const struct prefix *p,
-				    const struct prefix *src_p,
+				    const struct route_node *rn,
 				    const struct route_entry *re);
 
 extern int zsend_router_id_update(struct zserv *zclient, afi_t afi,
@@ -76,8 +75,8 @@ extern int zsend_interface_vrf_update(struct zserv *zclient,
 extern int zsend_interface_link_params(struct zserv *zclient,
 				       struct interface *ifp);
 extern int zsend_pw_update(struct zserv *client, struct zebra_pw *pw);
-extern int zsend_route_notify_owner(struct route_entry *re,
-				    const struct prefix *p,
+extern int zsend_route_notify_owner(const struct route_node *rn,
+				    struct route_entry *re,
 				    enum zapi_route_notify_owner note,
 				    afi_t afi, safi_t safi);
 extern int zsend_route_notify_owner_ctx(const struct zebra_dplane_ctx *ctx,
@@ -116,7 +115,7 @@ extern int zsend_client_close_notify(struct zserv *client,
 int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 		     uint32_t id, enum zapi_nhg_notify_owner note);
 
-extern void zapi_opaque_free(struct opaque *opaque);
+extern void zapi_re_opaque_free(struct re_opaque *opaque);
 
 extern int zsend_zebra_srv6_locator_add(struct zserv *client,
 					struct srv6_locator *loc);

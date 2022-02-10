@@ -33,6 +33,10 @@
 extern "C" {
 #endif
 
+#define ZEBRA_BRIDGE_NO_ACTION (0)
+#define ZEBRA_BRIDGE_MASTER_MAC_CHANGE (1 << 1)
+#define ZEBRA_BRIDGE_MASTER_UP (1 << 2)
+
 /* zebra L2 interface information - bridge slave (linkage to bridge) */
 struct zebra_l2info_brslave {
 	ifindex_t bridge_ifindex; /* Bridge Master */
@@ -121,7 +125,7 @@ extern void zebra_l2_greif_del(struct interface *ifp);
 extern void zebra_l2_vxlanif_del(struct interface *ifp);
 extern void zebra_l2if_update_bridge_slave(struct interface *ifp,
 					   ifindex_t bridge_ifindex,
-					   ns_id_t ns_id);
+					   ns_id_t ns_id, uint8_t chgflags);
 
 extern void zebra_l2if_update_bond_slave(struct interface *ifp,
 					 ifindex_t bond_ifindex, bool bypass);
@@ -130,6 +134,7 @@ extern void zebra_vlan_bitmap_compute(struct interface *ifp,
 extern void zebra_vlan_mbr_re_eval(struct interface *ifp,
 		bitfield_t vlan_bitmap);
 extern void zebra_l2if_update_bond(struct interface *ifp, bool add);
+extern void zebra_l2if_update_bridge(struct interface *ifp, uint8_t chgflags);
 
 #ifdef __cplusplus
 }

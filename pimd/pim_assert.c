@@ -43,12 +43,11 @@ static void assert_action_a6(struct pim_ifchannel *ch,
 			     struct pim_assert_metric winner_metric);
 
 void pim_ifassert_winner_set(struct pim_ifchannel *ch,
-			     enum pim_ifassert_state new_state,
-			     struct in_addr winner,
+			     enum pim_ifassert_state new_state, pim_addr winner,
 			     struct pim_assert_metric winner_metric)
 {
 	struct pim_interface *pim_ifp = ch->interface->info;
-	int winner_changed = (ch->ifassert_winner.s_addr != winner.s_addr);
+	int winner_changed = !!pim_addr_cmp(ch->ifassert_winner, winner);
 	int metric_changed = !pim_assert_metric_match(
 		&ch->ifassert_winner_metric, &winner_metric);
 
@@ -142,9 +141,9 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 			   struct pim_assert_metric recv_metric)
 {
 	struct pim_ifchannel *ch;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = source_addr;
 	sg.grp = group_addr;
 	ch = pim_ifchannel_add(ifp, &sg, 0, 0);
@@ -179,8 +178,8 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 		}
 		break;
 	case PIM_IFASSERT_I_AM_LOSER:
-		if (recv_metric.ip_address.s_addr
-		    == ch->ifassert_winner.s_addr) {
+		if (!pim_addr_cmp(recv_metric.ip_address,
+				  ch->ifassert_winner)) {
 			/* Assert from current winner */
 
 			if (cancel_assert(&recv_metric)) {
@@ -216,7 +215,7 @@ static int dispatch_assert(struct interface *ifp, struct in_addr source_addr,
 int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 		    struct in_addr src_addr, uint8_t *buf, int buf_size)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct prefix msg_source_addr;
 	struct pim_assert_metric msg_metric;
 	int offset;
@@ -232,7 +231,7 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	/*
 	  Parse assert group addr
 	 */
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	offset = pim_parse_addr_group(&sg, curr, curr_size);
 	if (offset < 1) {
 		char src_str[INET_ADDRSTRLEN];
@@ -288,15 +287,13 @@ int pim_assert_recv(struct interface *ifp, struct pim_neighbor *neigh,
 	if (PIM_DEBUG_PIM_TRACE) {
 		char neigh_str[INET_ADDRSTRLEN];
 		char source_str[INET_ADDRSTRLEN];
-		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<neigh?>", src_addr, neigh_str,
 			       sizeof(neigh_str));
 		pim_inet4_dump("<src?>", msg_source_addr.u.prefix4, source_str,
 			       sizeof(source_str));
-		pim_inet4_dump("<grp?>", sg.grp, group_str, sizeof(group_str));
 		zlog_debug(
-			"%s: from %s on %s: (S,G)=(%s,%s) pref=%u metric=%u rpt_bit=%u",
-			__func__, neigh_str, ifp->name, source_str, group_str,
+			"%s: from %s on %s: (S,G)=(%s,%pPAs) pref=%u metric=%u rpt_bit=%u",
+			__func__, neigh_str, ifp->name, source_str, &sg.grp,
 			msg_metric.metric_preference, msg_metric.route_metric,
 			PIM_FORCE_BOOLEAN(msg_metric.rpt_bit_flag));
 	}
@@ -340,7 +337,7 @@ int pim_assert_metric_better(const struct pim_assert_metric *m1,
 	if (m1->route_metric > m2->route_metric)
 		return 0;
 
-	return ntohl(m1->ip_address.s_addr) > ntohl(m2->ip_address.s_addr);
+	return pim_addr_cmp(m1->ip_address, m2->ip_address) > 0;
 }
 
 int pim_assert_metric_match(const struct pim_assert_metric *m1,
@@ -353,7 +350,7 @@ int pim_assert_metric_match(const struct pim_assert_metric *m1,
 	if (m1->route_metric != m2->route_metric)
 		return 0;
 
-	return m1->ip_address.s_addr == m2->ip_address.s_addr;
+	return !pim_addr_cmp(m1->ip_address, m2->ip_address);
 }
 
 int pim_assert_build_msg(uint8_t *pim_msg, int buf_size, struct interface *ifp,

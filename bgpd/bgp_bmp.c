@@ -688,22 +688,32 @@ static int bmp_outgoing_packet(struct peer *peer, uint8_t type, bgp_size_t size,
 	return 0;
 }
 
-static int bmp_peer_established(struct peer *peer)
+static int bmp_peer_status_changed(struct peer *peer)
 {
 	struct bmp_bgp *bmpbgp = bmp_bgp_find(peer->bgp);
+	struct bmp_bgp_peer *bbpeer, *bbdopp;
 
 	frrtrace(1, frr_bgp, bmp_peer_status_changed, peer);
 
 	if (!bmpbgp)
 		return 0;
 
+	if (peer->status == Deleted) {
+		bbpeer = bmp_bgp_peer_find(peer->qobj_node.nid);
+		if (bbpeer) {
+			XFREE(MTYPE_BMP_OPEN, bbpeer->open_rx);
+			XFREE(MTYPE_BMP_OPEN, bbpeer->open_tx);
+			bmp_peerh_del(&bmp_peerh, bbpeer);
+			XFREE(MTYPE_BMP_PEER, bbpeer);
+		}
+		return 0;
+	}
+
 	/* Check if this peer just went to Established */
 	if ((peer->ostatus != OpenConfirm) || !(peer_established(peer)))
 		return 0;
 
 	if (peer->doppelganger && (peer->doppelganger->status != Deleted)) {
-		struct bmp_bgp_peer *bbpeer, *bbdopp;
-
 		bbpeer = bmp_bgp_peer_get(peer);
 		bbdopp = bmp_bgp_peer_find(peer->doppelganger->qobj_node.nid);
 		if (bbdopp) {
@@ -1833,6 +1843,7 @@ static int bmp_active_thread(struct thread *t)
 	socklen_t slen;
 	int status, ret;
 	char buf[SU_ADDRSTRLEN];
+	vrf_id_t vrf_id;
 
 	/* all 3 end up here, though only timer or read+write are active
 	 * at a time */
@@ -1843,7 +1854,12 @@ static int bmp_active_thread(struct thread *t)
 	ba->last_err = NULL;
 
 	if (ba->socket == -1) {
-		resolver_resolve(&ba->resq, AF_UNSPEC, ba->hostname,
+		/* get vrf_id */
+		if (!ba->targets || !ba->targets->bgp)
+			vrf_id = VRF_DEFAULT;
+		else
+			vrf_id = ba->targets->bgp->vrf_id;
+		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
 		return 0;
 	}
@@ -2044,7 +2060,7 @@ DEFPY(bmp_connect,
 
 DEFPY(bmp_acl,
       bmp_acl_cmd,
-      "[no] <ip|ipv6>$af access-list WORD",
+      "[no] <ip|ipv6>$af access-list ACCESSLIST_NAME$access_list",
       NO_STR
       IP_STR
       IPV6_STR
@@ -2435,7 +2451,7 @@ static int bgp_bmp_module_init(void)
 {
 	hook_register(bgp_packet_dump, bmp_mirror_packet);
 	hook_register(bgp_packet_send, bmp_outgoing_packet);
-	hook_register(peer_status_changed, bmp_peer_established);
+	hook_register(peer_status_changed, bmp_peer_status_changed);
 	hook_register(peer_backward_transition, bmp_peer_backward);
 	hook_register(bgp_process, bmp_process);
 	hook_register(bgp_inst_config_write, bmp_config_write);

@@ -124,6 +124,9 @@ struct ecommunity {
 
 	/* Human readable format string.  */
 	char *str;
+
+	/* Disable IEEE floating-point encoding for extended community */
+	bool disable_ieee_floating;
 };
 
 struct ecommunity_as {
@@ -198,13 +201,28 @@ static inline void encode_route_target_as4(as_t as, uint16_t val,
 	eval->val[7] = val & 0xff;
 }
 
+/* Helper function to convert uint32 to IEEE-754 Floating Point */
+static uint32_t uint32_to_ieee_float_uint32(uint32_t u)
+{
+	union {
+		float r;
+		uint32_t d;
+	} f = {.r = (float)u};
+
+	return f.d;
+}
+
 /*
  * Encode BGP Link Bandwidth extended community
  *  bandwidth (bw) is in bytes-per-sec
  */
 static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
-				     struct ecommunity_val *eval)
+				     struct ecommunity_val *eval,
+				     bool disable_ieee_floating)
 {
+	uint32_t bandwidth =
+		disable_ieee_floating ? bw : uint32_to_ieee_float_uint32(bw);
+
 	memset(eval, 0, sizeof(*eval));
 	eval->val[0] = ECOMMUNITY_ENCODE_AS;
 	if (non_trans)
@@ -212,18 +230,20 @@ static inline void encode_lb_extcomm(as_t as, uint32_t bw, bool non_trans,
 	eval->val[1] = ECOMMUNITY_LINK_BANDWIDTH;
 	eval->val[2] = (as >> 8) & 0xff;
 	eval->val[3] = as & 0xff;
-	eval->val[4] = (bw >> 24) & 0xff;
-	eval->val[5] = (bw >> 16) & 0xff;
-	eval->val[6] = (bw >> 8) & 0xff;
-	eval->val[7] = bw & 0xff;
+	eval->val[4] = (bandwidth >> 24) & 0xff;
+	eval->val[5] = (bandwidth >> 16) & 0xff;
+	eval->val[6] = (bandwidth >> 8) & 0xff;
+	eval->val[7] = bandwidth & 0xff;
 }
 
 extern void ecommunity_init(void);
 extern void ecommunity_finish(void);
 extern void ecommunity_free(struct ecommunity **);
-extern struct ecommunity *ecommunity_parse(uint8_t *, unsigned short);
+extern struct ecommunity *ecommunity_parse(uint8_t *, unsigned short,
+					   bool disable_ieee_floating);
 extern struct ecommunity *ecommunity_parse_ipv6(uint8_t *pnt,
-						unsigned short length);
+						unsigned short length,
+						bool disable_ieee_floating);
 extern struct ecommunity *ecommunity_dup(struct ecommunity *);
 extern struct ecommunity *ecommunity_merge(struct ecommunity *,
 					   struct ecommunity *);
@@ -281,7 +301,9 @@ extern void bgp_aggr_ecommunity_remove(void *arg);
 extern const uint8_t *ecommunity_linkbw_present(struct ecommunity *ecom,
 						uint32_t *bw);
 extern struct ecommunity *ecommunity_replace_linkbw(as_t as,
-				struct ecommunity *ecom, uint64_t cum_bw);
+						    struct ecommunity *ecom,
+						    uint64_t cum_bw,
+						    bool disable_ieee_floating);
 
 static inline void ecommunity_strip_rts(struct ecommunity *ecom)
 {

@@ -42,7 +42,6 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
@@ -57,25 +56,19 @@ CustomizeVrfWithNetns = True
 #####################################################
 
 
-class BGPVRFNETNSTopo1(Topo):
-    "BGP EBGP VRF NETNS Topology 1"
+def build_topo(tgen):
+    tgen.add_router("r1")
 
-    def build(self, **_opts):
-        tgen = get_topogen(self)
+    # Setup Switches
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Setup Routers
-        tgen.add_router("r1")
-
-        # Setup Switches
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
-
-        # Add eBGP ExaBGP neighbors
-        peer_ip = "10.0.1.101"
-        peer_route = "via 10.0.1.1"
-        peer = tgen.add_exabgp_peer("peer1", ip=peer_ip, defaultRoute=peer_route)
-        switch = tgen.gears["s1"]
-        switch.add_link(peer)
+    # Add eBGP ExaBGP neighbors
+    peer_ip = "10.0.1.101"
+    peer_route = "via 10.0.1.1"
+    peer = tgen.add_exabgp_peer("peer1", ip=peer_ip, defaultRoute=peer_route)
+    switch = tgen.gears["s1"]
+    switch.add_link(peer)
 
 
 #####################################################
@@ -86,7 +79,7 @@ class BGPVRFNETNSTopo1(Topo):
 
 
 def setup_module(module):
-    tgen = Topogen(BGPVRFNETNSTopo1, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     # Get r1 reference
@@ -108,24 +101,11 @@ def setup_module(module):
 
     # create VRF r1-bgp-cust1
     # move r1-eth0 to VRF r1-bgp-cust1
-    cmds = [
-        "if [ -e /var/run/netns/{0}-bgp-cust1 ] ; then ip netns del {0}-bgp-cust1 ; fi",
-        "ip netns add {0}-bgp-cust1",
-        "ip link set {0}-eth0 netns {0}-bgp-cust1 up",
-    ]
-    for cmd in cmds:
-        cmd = cmd.format("r1")
-        logger.info("cmd: " + cmd)
-        output = router.run(cmd.format("r1"))
-        if output != None and len(output) > 0:
-            logger.info(
-                'Aborting due to unexpected output: cmd="{}" output=\n{}'.format(
-                    cmd, output
-                )
-            )
-            return pytest.skip(
-                "Skipping BGP VRF NETNS Test. Unexpected output to command: " + cmd
-            )
+
+    ns = "{}-bgp-cust1".format("r1")
+    router.net.add_netns(ns)
+    router.net.set_intf_netns("r1-eth0", ns, up=True)
+
     # run daemons
     router.load_config(
         TopoRouter.RD_ZEBRA,
@@ -152,14 +132,10 @@ def setup_module(module):
 
 def teardown_module(module):
     tgen = get_topogen()
-    # move back r1-eth0 to default VRF
-    # delete VRF r1-bgp-cust1
-    cmds = [
-        "ip netns exec {0}-bgp-cust1 ip link set {0}-eth0 netns 1",
-        "ip netns delete {0}-bgp-cust1",
-    ]
-    for cmd in cmds:
-        tgen.net["r1"].cmd(cmd.format("r1"))
+
+    # Move interfaces out of vrf namespace and delete the namespace
+    tgen.net["r1"].reset_intf_netns("r1-eth0")
+    tgen.net["r1"].delete_netns("r1-bgp-cust1")
 
     tgen.stop_topology()
 
@@ -202,7 +178,10 @@ def test_bgp_convergence():
     expected = json.loads(open(reffile).read())
 
     test_func = functools.partial(
-        topotest.router_json_cmp, router, "show bgp vrf r1-bgp-cust1 summary json", expected
+        topotest.router_json_cmp,
+        router,
+        "show bgp vrf r1-bgp-cust1 summary json",
+        expected,
     )
     _, res = topotest.run_and_expect(test_func, None, count=90, wait=0.5)
     assertmsg = "BGP router network did not converge"

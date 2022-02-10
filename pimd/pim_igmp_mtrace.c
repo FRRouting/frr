@@ -106,20 +106,20 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 			    struct igmp_mtrace_rsp *rspp,
 			    struct interface **ifpp)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct pim_upstream *up;
 	struct interface *ifp_in;
 	struct in_addr nh_addr;
 	uint32_t total;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.src = mtracep->src_addr;
 	sg.grp = mtracep->grp_addr;
 
 	up = pim_upstream_find(pim, &sg);
 
 	if (!up) {
-		sg.src.s_addr = INADDR_ANY;
+		sg.src = PIMADDR_ANY;
 		up = pim_upstream_find(pim, &sg);
 	}
 
@@ -154,7 +154,7 @@ static bool mtrace_fwd_info(struct pim_instance *pim,
 	rspp->rtg_proto = MTRACE_RTG_PROTO_PIM;
 
 	/* 6.2.2. 4. Fill in ... S, and Src Mask */
-	if (sg.src.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(sg.src)) {
 		rspp->s = 1;
 		rspp->src_mask = MTRACE_SRC_MASK_SOURCE;
 	} else {
@@ -426,14 +426,14 @@ static int mtrace_un_forward_packet(struct pim_instance *pim, struct ip *ip_hdr,
 
 static int mtrace_mc_forward_packet(struct pim_instance *pim, struct ip *ip_hdr)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct channel_oil *c_oil;
 	struct listnode *chnode;
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp = ip_hdr->ip_dst;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
@@ -477,14 +477,14 @@ static int mtrace_send_mc_response(struct pim_instance *pim,
 				   struct igmp_mtrace *mtracep,
 				   size_t mtrace_len)
 {
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	struct channel_oil *c_oil;
 	struct listnode *chnode;
 	struct listnode *chnextnode;
 	struct pim_ifchannel *ch = NULL;
 	int ret = -1;
 
-	memset(&sg, 0, sizeof(struct prefix_sg));
+	memset(&sg, 0, sizeof(sg));
 	sg.grp = mtracep->rsp_addr;
 
 	c_oil = pim_find_channel_oil(pim, &sg);
@@ -564,7 +564,7 @@ static int mtrace_send_response(struct pim_instance *pim,
 				  mtracep->rsp_addr, mtracep->grp_addr);
 }
 
-int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_qry_req(struct gm_sock *igmp, struct ip *ip_hdr,
 			     struct in_addr from, const char *from_str,
 			     char *igmp_msg, int igmp_msg_len)
 {
@@ -596,8 +596,8 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 	 * if applicable
 	 */
 	if (!IPV4_CLASS_DE(ntohl(ip_hdr->ip_dst.s_addr)))
-		if (!if_lookup_exact_address(&ip_hdr->ip_dst, AF_INET,
-					     pim->vrf->vrf_id))
+		if (!if_address_is_local(&ip_hdr->ip_dst, AF_INET,
+					 pim->vrf->vrf_id))
 			return mtrace_forward_packet(pim, ip_hdr);
 
 	if (igmp_msg_len < (int)sizeof(struct igmp_mtrace)) {
@@ -799,7 +799,7 @@ int igmp_mtrace_recv_qry_req(struct igmp_sock *igmp, struct ip *ip_hdr,
 }
 
 /* 6.3. Traceroute responses */
-int igmp_mtrace_recv_response(struct igmp_sock *igmp, struct ip *ip_hdr,
+int igmp_mtrace_recv_response(struct gm_sock *igmp, struct ip *ip_hdr,
 			      struct in_addr from, const char *from_str,
 			      char *igmp_msg, int igmp_msg_len)
 {

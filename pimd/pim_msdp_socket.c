@@ -205,7 +205,6 @@ int pim_msdp_sock_listen(struct pim_instance *pim)
 	/* add accept thread */
 	listener->fd = sock;
 	memcpy(&listener->su, &sin, socklen);
-	listener->thread = NULL;
 	thread_add_read(pim->msdp.master, pim_msdp_sock_accept, pim, sock,
 			&listener->thread);
 

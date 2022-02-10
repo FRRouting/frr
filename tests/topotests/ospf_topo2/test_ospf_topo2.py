@@ -27,7 +27,6 @@ test_ospf_topo2.py: Test the OSPF unnumbered.
 """
 
 import os
-import re
 import sys
 from functools import partial
 import pytest
@@ -44,39 +43,37 @@ from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
 
 # Required to instantiate the topology builder class.
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.ospfd]
 
 
-class OSPFTopo(Topo):
-    "Test topology builder"
+CWD = os.path.dirname(os.path.realpath(__file__))
 
-    def build(self, *_args, **_opts):
-        "Build function"
-        tgen = get_topogen(self)
 
-        # Create 4 routers
-        for routern in range(1, 3):
-            tgen.add_router("r{}".format(routern))
+def build_topo(tgen):
+    "Build function"
 
-        # Create a empty network for router 1
-        switch = tgen.add_switch("s1")
-        switch.add_link(tgen.gears["r1"])
+    # Create 4 routers
+    for routern in range(1, 3):
+        tgen.add_router("r{}".format(routern))
 
-        # Create a empty network for router 2
-        switch = tgen.add_switch("s2")
-        switch.add_link(tgen.gears["r2"])
+    # Create a empty network for router 1
+    switch = tgen.add_switch("s1")
+    switch.add_link(tgen.gears["r1"])
 
-        # Interconect router 1, 2
-        switch = tgen.add_switch("s3")
-        switch.add_link(tgen.gears["r1"])
-        switch.add_link(tgen.gears["r2"])
+    # Create a empty network for router 2
+    switch = tgen.add_switch("s2")
+    switch.add_link(tgen.gears["r2"])
+
+    # Interconect router 1, 2
+    switch = tgen.add_switch("s3")
+    switch.add_link(tgen.gears["r1"])
+    switch.add_link(tgen.gears["r2"])
 
 
 def setup_module(mod):
     "Sets up the pytest environment"
-    tgen = Topogen(OSPFTopo, mod.__name__)
+    tgen = Topogen(build_topo, mod.__name__)
     tgen.start_topology()
 
     router_list = tgen.routers()
@@ -95,10 +92,10 @@ def setup_module(mod):
         # the rp_filter.  Setting it to '0' allows the OS to pass
         # up the mcast packet not destined for the local routers
         # network.
-        topotest.set_sysctl(tgen.net["r1"], "net.ipv4.conf.r1-eth1.rp_filter", 0)
-        topotest.set_sysctl(tgen.net["r1"], "net.ipv4.conf.all.rp_filter", 0)
-        topotest.set_sysctl(tgen.net["r2"], "net.ipv4.conf.r2-eth1.rp_filter", 0)
-        topotest.set_sysctl(tgen.net["r2"], "net.ipv4.conf.all.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r1"], "net.ipv4.conf.r1-eth1.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r1"], "net.ipv4.conf.all.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r2"], "net.ipv4.conf.r2-eth1.rp_filter", 0)
+        topotest.sysctl_assure(tgen.net["r2"], "net.ipv4.conf.all.rp_filter", 0)
 
     # Initialize all routers.
     tgen.start_router()

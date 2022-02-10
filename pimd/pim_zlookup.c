@@ -31,6 +31,7 @@
 
 #include "pimd.h"
 #include "pim_iface.h"
+#include "pim_neighbor.h"
 #include "pim_pim.h"
 #include "pim_str.h"
 #include "pim_oil.h"
@@ -136,7 +137,7 @@ void zclient_lookup_new(void)
 	struct zclient_options options = zclient_options_default;
 	options.synchronous = true;
 
-	zlookup = zclient_new(router->master, &options);
+	zlookup = zclient_new(router->master, &options, NULL, 0);
 	if (!zlookup) {
 		flog_err(EC_LIB_ZAPI_SOCKET, "%s: zclient_new() failure",
 			 __func__);
@@ -523,21 +524,20 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	struct stream *s = zlookup->obuf;
 	uint16_t command = 0;
 	unsigned long long lastused;
-	struct prefix_sg sg;
+	pim_sgaddr sg;
 	int count = 0;
 	int ret;
 	struct interface *ifp =
 		pim_if_find_by_vif_index(c_oil->pim, c_oil->oil.mfcc_parent);
 
 	if (PIM_DEBUG_ZEBRA) {
-		struct prefix_sg more;
+		pim_sgaddr more;
 
 		more.src = c_oil->oil.mfcc_origin;
 		more.grp = c_oil->oil.mfcc_mcastgrp;
-		zlog_debug(
-			"Sending Request for New Channel Oil Information%s VIIF %d(%s)",
-			pim_str_sg_dump(&more), c_oil->oil.mfcc_parent,
-			c_oil->pim->vrf->name);
+		zlog_debug("Sending Request for New Channel Oil Information%pSG VIIF %d(%s)",
+			   &more, c_oil->oil.mfcc_parent,
+			   c_oil->pim->vrf->name);
 	}
 
 	if (!ifp)
@@ -586,15 +586,14 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 	if (sg.src.s_addr != c_oil->oil.mfcc_origin.s_addr
 	    || sg.grp.s_addr != c_oil->oil.mfcc_mcastgrp.s_addr) {
 		if (PIM_DEBUG_ZEBRA) {
-			struct prefix_sg more;
+			pim_sgaddr more;
 
 			more.src = c_oil->oil.mfcc_origin;
 			more.grp = c_oil->oil.mfcc_mcastgrp;
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
-				"%s: Received wrong %s(%s) information requested",
-				__func__, pim_str_sg_dump(&more),
-				c_oil->pim->vrf->name);
+				"%s: Received wrong %pSG(%s) information requested",
+				__func__, &more, c_oil->pim->vrf->name);
 		}
 		zclient_lookup_failed(zlookup);
 		return -3;

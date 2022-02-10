@@ -125,6 +125,7 @@ enum {
 	OSPF_OPAQUE_CAPABLE =		(1 << 2),
 	OSPF_LOG_ADJACENCY_CHANGES =	(1 << 3),
 	OSPF_LOG_ADJACENCY_DETAIL =	(1 << 4),
+	OSPF_SEND_EXTRA_DATA_TO_ZEBRA =	(1 << 5),
 };
 
 /* TI-LFA */
@@ -376,7 +377,7 @@ struct ospf {
 	struct thread *t_external_aggr;
 
 	/* delay interval in seconds */
-	unsigned int aggr_delay_interval;
+	uint16_t aggr_delay_interval;
 
 	/* Table of configured Aggregate addresses */
 	struct route_table *rt_aggr_tbl;

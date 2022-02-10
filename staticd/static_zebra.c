@@ -84,12 +84,6 @@ static int interface_address_delete(ZAPI_CALLBACK_ARGS)
 
 static int static_ifp_up(struct interface *ifp)
 {
-	if (if_is_vrf(ifp)) {
-		struct static_vrf *svrf = static_vrf_lookup_by_id(ifp->vrf_id);
-
-		static_fixup_vrf_ids(svrf);
-	}
-
 	/* Install any static reliant on this interface coming up */
 	static_install_intf_nh(ifp);
 	static_ifindex_update(ifp, true);
@@ -162,14 +156,10 @@ static bool
 static_nexthop_is_local(vrf_id_t vrfid, struct prefix *addr, int family)
 {
 	if (family == AF_INET) {
-		if (if_lookup_exact_address(&addr->u.prefix4,
-					AF_INET,
-					vrfid))
+		if (if_address_is_local(&addr->u.prefix4, AF_INET, vrfid))
 			return true;
 	} else if (family == AF_INET6) {
-		if (if_lookup_exact_address(&addr->u.prefix6,
-					AF_INET6,
-					vrfid))
+		if (if_address_is_local(&addr->u.prefix6, AF_INET6, vrfid))
 			return true;
 	}
 	return false;
@@ -332,7 +322,7 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		static_nht_hash_free(nhtd);
 	}
 
-	if (zclient_send_rnh(zclient, cmd, &p, false, nh->nh_vrf_id)
+	if (zclient_send_rnh(zclient, cmd, &p, false, false, nh->nh_vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
 		zlog_warn("%s: Failure to send nexthop to zebra", __func__);
 }
@@ -508,6 +498,13 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 			   zclient, &api);
 }
 
+static zclient_handler *const static_handlers[] = {
+	[ZEBRA_INTERFACE_ADDRESS_ADD] = interface_address_add,
+	[ZEBRA_INTERFACE_ADDRESS_DELETE] = interface_address_delete,
+	[ZEBRA_ROUTE_NOTIFY_OWNER] = route_notify_owner,
+	[ZEBRA_NEXTHOP_UPDATE] = static_zebra_nexthop_update,
+};
+
 void static_zebra_init(void)
 {
 	struct zclient_options opt = { .receive_notify = true };
@@ -515,15 +512,12 @@ void static_zebra_init(void)
 	if_zapi_callbacks(static_ifp_create, static_ifp_up,
 			  static_ifp_down, static_ifp_destroy);
 
-	zclient = zclient_new(master, &opt);
+	zclient = zclient_new(master, &opt, static_handlers,
+			      array_size(static_handlers));
 
 	zclient_init(zclient, ZEBRA_ROUTE_STATIC, 0, &static_privs);
 	zclient->zebra_capabilities = static_zebra_capabilities;
 	zclient->zebra_connected = zebra_connected;
-	zclient->interface_address_add = interface_address_add;
-	zclient->interface_address_delete = interface_address_delete;
-	zclient->route_notify_owner = route_notify_owner;
-	zclient->nexthop_update = static_zebra_nexthop_update;
 
 	static_nht_hash = hash_create(static_nht_hash_key,
 				      static_nht_hash_cmp,

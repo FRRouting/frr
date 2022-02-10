@@ -39,37 +39,30 @@ sys.path.append(os.path.join(CWD, "../"))
 from lib import topotest
 from lib.topogen import Topogen, TopoRouter, get_topogen
 from lib.topolog import logger
-from mininet.topo import Topo
 
 pytestmark = [pytest.mark.bgpd]
 
 
-class TemplateTopo(Topo):
-    def build(self, **_opts):
-        tgen = get_topogen(self)
-        router = tgen.add_router("r1")
-        switch = tgen.add_switch("s1")
-        switch.add_link(router)
+def build_topo(tgen):
+    router = tgen.add_router("r1")
+    switch = tgen.add_switch("s1")
+    switch.add_link(router)
 
-        switch = tgen.gears["s1"]
-        peer1 = tgen.add_exabgp_peer(
-            "peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1"
-        )
-        switch.add_link(peer1)
+    switch = tgen.gears["s1"]
+    peer1 = tgen.add_exabgp_peer("peer1", ip="10.0.0.101", defaultRoute="via 10.0.0.1")
+    switch.add_link(peer1)
 
 
 def setup_module(module):
-    tgen = Topogen(TemplateTopo, module.__name__)
+    tgen = Topogen(build_topo, module.__name__)
     tgen.start_topology()
 
     router = tgen.gears["r1"]
     router.load_config(
-        TopoRouter.RD_ZEBRA,
-        os.path.join(CWD, "{}/zebra.conf".format("r1"))
+        TopoRouter.RD_ZEBRA, os.path.join(CWD, "{}/zebra.conf".format("r1"))
     )
     router.load_config(
-        TopoRouter.RD_BGP,
-        os.path.join(CWD, "{}/bgpd.conf".format("r1"))
+        TopoRouter.RD_BGP, os.path.join(CWD, "{}/bgpd.conf".format("r1"))
     )
     router.start()
 
@@ -107,11 +100,11 @@ def test_r1_rib():
         return topotest.json_cmp(output, expected)
 
     def check(name, cmd, expected_file):
-        logger.info("[+] check {} \"{}\" {}".format(name, cmd, expected_file))
+        logger.info('[+] check {} "{}" {}'.format(name, cmd, expected_file))
         tgen = get_topogen()
         func = functools.partial(_check, name, cmd, expected_file)
         success, result = topotest.run_and_expect(func, None, count=10, wait=0.5)
-        assert result is None, 'Failed'
+        assert result is None, "Failed"
 
     check("r1", "show bgp ipv6 vpn 2001:1::/64 json", "r1/vpnv6_rib_entry1.json")
     check("r1", "show bgp ipv6 vpn 2001:2::/64 json", "r1/vpnv6_rib_entry2.json")

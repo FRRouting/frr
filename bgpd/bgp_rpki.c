@@ -63,6 +63,8 @@
 #include "bgpd/bgp_rpki_clippy.c"
 #endif
 
+static struct thread *t_rpki;
+
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE, "BGP RPKI Cache server");
 DEFINE_MTYPE_STATIC(BGPD, BGP_RPKI_CACHE_GROUP, "BGP RPKI Cache server group");
 
@@ -111,12 +113,12 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
 			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
-			 const uint8_t preference);
+			 const uint8_t preference, const char *bindaddr);
 #endif
 static struct rtr_socket *create_rtr_socket(struct tr_socket *tr_socket);
 static struct cache *find_cache(const uint8_t preference);
 static int add_tcp_cache(const char *host, const char *port,
-			 const uint8_t preference);
+			 const uint8_t preference, const char *bindaddr);
 static void print_record(const struct pfx_record *record, struct vty *vty);
 static int is_synchronized(void);
 static int is_running(void);
@@ -361,14 +363,13 @@ static int bgpd_sync_callback(struct thread *thread)
 	struct listnode *node;
 	struct prefix *prefix;
 	struct pfx_record rec;
+	int retval;
+	int socket = THREAD_FD(thread);
 
-	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+	thread_add_read(bm->master, bgpd_sync_callback, NULL, socket, &t_rpki);
 
 	if (atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst)) {
-		while (read(rpki_sync_socket_bgpd, &rec,
-			    sizeof(struct pfx_record))
-		       != -1)
+		while (read(socket, &rec, sizeof(struct pfx_record) != -1))
 			;
 
 		atomic_store_explicit(&rtr_update_overflow, 0,
@@ -377,12 +378,20 @@ static int bgpd_sync_callback(struct thread *thread)
 		return 0;
 	}
 
-	int retval =
-		read(rpki_sync_socket_bgpd, &rec, sizeof(struct pfx_record));
+	retval = read(socket, &rec, sizeof(struct pfx_record));
 	if (retval != sizeof(struct pfx_record)) {
-		RPKI_DEBUG("Could not read from rpki_sync_socket_bgpd");
+		RPKI_DEBUG("Could not read from socket");
 		return retval;
 	}
+
+	/* RTR-Server crashed/terminated, let's handle and switch
+	 * to the second available RTR-Server according to preference.
+	 */
+	if (rec.socket && rec.socket->state == RTR_ERROR_FATAL) {
+		reset(true);
+		return 0;
+	}
+
 	prefix = pfx_record_to_prefix(&rec);
 
 	afi_t afi = (rec.prefix.ver == LRTR_IPV4) ? AFI_IP : AFI_IP6;
@@ -441,27 +450,51 @@ static void revalidate_all_routes(void)
 {
 	struct bgp *bgp;
 	struct listnode *node;
+	afi_t afi;
+	safi_t safi;
 
 	for (ALL_LIST_ELEMENTS_RO(bm->bgp, node, bgp)) {
 		struct peer *peer;
 		struct listnode *peer_listnode;
 
 		for (ALL_LIST_ELEMENTS_RO(bgp->peer, peer_listnode, peer)) {
+			FOREACH_AFI_SAFI (afi, safi) {
+				if (!peer->afc_nego[afi][safi])
+					continue;
 
-			for (size_t i = 0; i < 2; i++) {
-				safi_t safi;
-				afi_t afi = (i == 0) ? AFI_IP : AFI_IP6;
+				if (!peer->bgp->rib[afi][safi])
+					continue;
 
-				for (safi = SAFI_UNICAST; safi < SAFI_MAX;
-				     safi++) {
-					if (!peer->bgp->rib[afi][safi])
-						continue;
-
-					bgp_soft_reconfig_in(peer, afi, safi);
-				}
+				bgp_soft_reconfig_in(peer, afi, safi);
 			}
 		}
 	}
+}
+
+static void rpki_connection_status_cb(const struct rtr_mgr_group *group
+				      __attribute__((unused)),
+				      enum rtr_mgr_status status,
+				      const struct rtr_socket *socket
+				      __attribute__((unused)),
+				      void *data __attribute__((unused)))
+{
+	struct pfx_record rec = {0};
+	int retval;
+
+	if (rtr_is_stopping ||
+	    atomic_load_explicit(&rtr_update_overflow, memory_order_seq_cst))
+		return;
+
+	if (status == RTR_MGR_ERROR)
+		rec.socket = socket;
+
+	retval = write(rpki_sync_socket_rtr, &rec, sizeof(rec));
+	if (retval == -1 && (errno == EAGAIN || errno == EWOULDBLOCK))
+		atomic_store_explicit(&rtr_update_overflow, 1,
+				      memory_order_seq_cst);
+
+	else if (retval != sizeof(rec))
+		RPKI_DEBUG("Could not write to rpki_sync_socket_rtr");
 }
 
 static void rpki_update_cb_sync_rtr(struct pfx_table *p __attribute__((unused)),
@@ -505,9 +538,8 @@ static void rpki_init_sync_socket(void)
 		goto err;
 	}
 
-
 	thread_add_read(bm->master, bgpd_sync_callback, NULL,
-			rpki_sync_socket_bgpd, NULL);
+			rpki_sync_socket_bgpd, &t_rpki);
 
 	return;
 
@@ -575,7 +607,8 @@ static int start(void)
 	RPKI_DEBUG("Polling period: %d", polling_period);
 	ret = rtr_mgr_init(&rtr_config, groups, groups_len, polling_period,
 			   expire_interval, retry_interval,
-			   rpki_update_cb_sync_rtr, NULL, NULL, NULL);
+			   rpki_update_cb_sync_rtr, NULL,
+			   rpki_connection_status_cb, NULL);
 	if (ret == RTR_ERROR) {
 		RPKI_DEBUG("Init rtr_mgr failed.");
 		return ERROR;
@@ -787,7 +820,7 @@ static int add_cache(struct cache *cache)
 }
 
 static int add_tcp_cache(const char *host, const char *port,
-			 const uint8_t preference)
+			 const uint8_t preference, const char *bindaddr)
 {
 	struct rtr_socket *rtr_socket;
 	struct tr_tcp_config *tcp_config =
@@ -799,7 +832,10 @@ static int add_tcp_cache(const char *host, const char *port,
 
 	tcp_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
 	tcp_config->port = XSTRDUP(MTYPE_BGP_RPKI_CACHE, port);
-	tcp_config->bindaddr = NULL;
+	if (bindaddr)
+		tcp_config->bindaddr = XSTRDUP(MTYPE_BGP_RPKI_CACHE, bindaddr);
+	else
+		tcp_config->bindaddr = NULL;
 
 	rtr_socket = create_rtr_socket(tr_socket);
 
@@ -822,7 +858,7 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 			 const char *username, const char *client_privkey_path,
 			 const char *client_pubkey_path,
 			 const char *server_pubkey_path,
-			 const uint8_t preference)
+			 const uint8_t preference, const char *bindaddr)
 {
 	struct tr_ssh_config *ssh_config =
 		XCALLOC(MTYPE_BGP_RPKI_CACHE, sizeof(struct tr_ssh_config));
@@ -834,7 +870,10 @@ static int add_ssh_cache(const char *host, const unsigned int port,
 
 	ssh_config->port = port;
 	ssh_config->host = XSTRDUP(MTYPE_BGP_RPKI_CACHE, host);
-	ssh_config->bindaddr = NULL;
+	if (bindaddr)
+		ssh_config->bindaddr = XSTRDUP(MTYPE_BGP_RPKI_CACHE, bindaddr);
+	else
+		ssh_config->bindaddr = NULL;
 
 	ssh_config->username = XSTRDUP(MTYPE_BGP_RPKI_CACHE, username);
 	ssh_config->client_privkey_path =
@@ -864,6 +903,9 @@ static void free_cache(struct cache *cache)
 	if (cache->type == TCP) {
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->host);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config->port);
+		if (cache->tr_config.tcp_config->bindaddr)
+			XFREE(MTYPE_BGP_RPKI_CACHE,
+			      cache->tr_config.tcp_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.tcp_config);
 	}
 #if defined(FOUND_SSH)
@@ -875,6 +917,9 @@ static void free_cache(struct cache *cache)
 		      cache->tr_config.ssh_config->client_privkey_path);
 		XFREE(MTYPE_BGP_RPKI_CACHE,
 		      cache->tr_config.ssh_config->server_hostkey_path);
+		if (cache->tr_config.ssh_config->bindaddr)
+			XFREE(MTYPE_BGP_RPKI_CACHE,
+			      cache->tr_config.ssh_config->bindaddr);
 		XFREE(MTYPE_BGP_RPKI_CACHE, cache->tr_config.ssh_config);
 	}
 #endif
@@ -913,6 +958,9 @@ static int config_write(struct vty *vty)
 			tcp_config = cache->tr_config.tcp_config;
 			vty_out(vty, " rpki cache %s %s ", tcp_config->host,
 				tcp_config->port);
+			if (tcp_config->bindaddr)
+				vty_out(vty, "source %s ",
+					tcp_config->bindaddr);
 			break;
 #if defined(FOUND_SSH)
 		case SSH:
@@ -924,6 +972,9 @@ static int config_write(struct vty *vty)
 				ssh_config->server_hostkey_path != NULL
 					? ssh_config->server_hostkey_path
 					: " ");
+			if (ssh_config->bindaddr)
+				vty_out(vty, "source %s ",
+					ssh_config->bindaddr);
 			break;
 #endif
 		default:
@@ -1048,20 +1099,21 @@ DEFUN (no_rpki_retry_interval,
 	return CMD_SUCCESS;
 }
 
-DEFPY (rpki_cache,
-       rpki_cache_cmd,
-       "rpki cache <A.B.C.D|WORD><TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> preference (1-255)",
-       RPKI_OUTPUT_STRING
-       "Install a cache server to current group\n"
-       "IP address of cache server\n Hostname of cache server\n"
-       "TCP port number\n"
-       "SSH port number\n"
-       "SSH user name\n"
-       "Path to own SSH private key\n"
-       "Path to own SSH public key\n"
-       "Path to Public key of cache server\n"
-       "Preference of the cache server\n"
-       "Preference value\n")
+DEFPY(rpki_cache, rpki_cache_cmd,
+      "rpki cache <A.B.C.D|WORD> <TCPPORT|(1-65535)$sshport SSH_UNAME SSH_PRIVKEY SSH_PUBKEY [SERVER_PUBKEY]> [source <A.B.C.D>$bindaddr] preference (1-255)",
+      RPKI_OUTPUT_STRING
+      "Install a cache server to current group\n"
+      "IP address of cache server\n Hostname of cache server\n"
+      "TCP port number\n"
+      "SSH port number\n"
+      "SSH user name\n"
+      "Path to own SSH private key\n"
+      "Path to own SSH public key\n"
+      "Path to Public key of cache server\n"
+      "Configure source IP address of RPKI connection\n"
+      "Define a Source IP Address\n"
+      "Preference of the cache server\n"
+      "Preference value\n")
 {
 	int return_value;
 	struct listnode *cache_node;
@@ -1080,16 +1132,17 @@ DEFPY (rpki_cache,
 	// use ssh connection
 	if (ssh_uname) {
 #if defined(FOUND_SSH)
-		return_value =
-			add_ssh_cache(cache, sshport, ssh_uname, ssh_privkey,
-				      ssh_pubkey, server_pubkey, preference);
+		return_value = add_ssh_cache(
+			cache, sshport, ssh_uname, ssh_privkey, ssh_pubkey,
+			server_pubkey, preference, bindaddr_str);
 #else
 		return_value = SUCCESS;
 		vty_out(vty,
 			"ssh sockets are not supported. Please recompile rtrlib and frr with ssh support. If you want to use it\n");
 #endif
 	} else { // use tcp connection
-		return_value = add_tcp_cache(cache, tcpport, preference);
+		return_value =
+			add_tcp_cache(cache, tcpport, preference, bindaddr_str);
 	}
 
 	if (return_value == ERROR) {

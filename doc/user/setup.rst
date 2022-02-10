@@ -22,6 +22,8 @@ of these buffers, pipe their contents through ``tr '\0' '\n'``.  A blank line
 marks the end of valid unwritten data (it will generally be followed by
 garbled, older log messages since the buffer is not cleared.)
 
+.. _daemons-configuration-file:
+
 Daemons Configuration File
 --------------------------
 After a fresh install, starting FRR will do nothing. This is because daemons
@@ -175,6 +177,27 @@ Operations
 ----------
 
 This section covers a few common operational tasks and how to perform them.
+
+Interactive Shell
+^^^^^^^^^^^^^^^^^
+FRR offers an IOS-like interactive shell called ``vtysh`` where a user can run
+individual configuration or show commands. To get into this shell, issue the
+``vtysh`` command from either a privilege user (root, or with sudo) or a user
+account that is part of the ``frrvty`` group.
+e.g.
+
+.. code-block:: console
+
+   root@ub18:~# vtysh
+
+   Hello, this is FRRouting (version 8.1-dev).
+   Copyright 1996-2005 Kunihiro Ishiguro, et al.
+
+   ub18#
+
+.. note::
+   The default install location for vtysh is /usr/bin/vtysh
+
 
 Restarting
 ^^^^^^^^^^
