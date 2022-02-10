@@ -1464,6 +1464,7 @@ DEFPY (show_yang_operational_data,
          [{\
 	   format <json$json|xml$xml>\
 	   |translate WORD$translator_family\
+	   |with-config$with_config\
 	 }]",
        SHOW_STR
        "YANG information\n"
@@ -1473,13 +1474,15 @@ DEFPY (show_yang_operational_data,
        "JavaScript Object Notation\n"
        "Extensible Markup Language\n"
        "Translate operational data\n"
-       "YANG module translator\n")
+       "YANG module translator\n"
+       "Merge configuration data\n")
 {
 	LYD_FORMAT format;
 	struct yang_translator *translator = NULL;
 	struct ly_ctx *ly_ctx;
 	struct lyd_node *dnode;
 	char *strp;
+	uint32_t print_options = LYD_PRINT_WITHSIBLINGS;
 
 	if (xml)
 		format = LYD_XML;
@@ -1507,11 +1510,21 @@ DEFPY (show_yang_operational_data,
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
 	}
+
+	if (with_config && yang_dnode_exists(running_config->dnode, xpath)) {
+		struct lyd_node *config_dnode =
+			yang_dnode_get(running_config->dnode, xpath);
+		if (config_dnode != NULL) {
+			lyd_merge_tree(&dnode, yang_dnode_dup(config_dnode),
+				       LYD_MERGE_DESTRUCT);
+			print_options |= LYD_PRINT_WD_ALL;
+		}
+	}
+
 	(void)lyd_validate_all(&dnode, ly_ctx, 0, NULL);
 
 	/* Display the data. */
-	if (lyd_print_mem(&strp, dnode, format, LYD_PRINT_WITHSIBLINGS) != 0
-	    || !strp) {
+	if (lyd_print_mem(&strp, dnode, format, print_options) != 0 || !strp) {
 		vty_out(vty, "%% Failed to display operational data.\n");
 		yang_dnode_free(dnode);
 		return CMD_WARNING;
