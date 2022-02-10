@@ -22,6 +22,7 @@ pim_common = \
 	pimd/pim_bfd.c \
 	pimd/pim_br.c \
 	pimd/pim_bsm.c \
+	pimd/pim_cmd_common.c \
 	pimd/pim_errors.c \
 	pimd/pim_hello.c \
 	pimd/pim_iface.c \
@@ -103,6 +104,7 @@ noinst_HEADERS += \
 	pimd/pim_br.h \
 	pimd/pim_bsm.h \
 	pimd/pim_cmd.h \
+	pimd/pim_cmd_common.h \
 	pimd/pim_errors.h \
 	pimd/pim_hello.h \
 	pimd/pim_iface.h \

@@ -32,18 +32,9 @@
 #include "ferr.h"
 
 #include "pimd.h"
-#include "pim6_cmd.h"
 #include "pim_vty.h"
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"
 #include "pim_nb.h"
-#include "pim_cmd_common.h"
 
-#ifndef VTYSH_EXTRACT_PL
-#include "pimd/pim6_cmd_clippy.c"
-#endif
 
-void pim_cmd_init(void)
-{
-	if_cmd_init(pim_interface_config_write);
-}
