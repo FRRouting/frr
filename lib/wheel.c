@@ -94,7 +94,7 @@ struct timer_wheel *wheel_init(struct thread_master *master, int period,
 	wheel->nexttime = period / slots;
 
 	wheel->wheel_slot_lists = XCALLOC(MTYPE_TIMER_WHEEL_LIST,
-					  slots * sizeof(struct listnode *));
+					  slots * sizeof(struct list *));
 	for (i = 0; i < slots; i++)
 		wheel->wheel_slot_lists[i] = list_new();
 
