@@ -268,8 +268,10 @@ To start OSPF process you have to specify the OSPF router.
    the destination prefix. Otherwise, we test whether the network command prefix
    contains the local address prefix of the interface.
 
-   In some cases it may be more convenient to enable OSPF on a per
-   interface/subnet basis (:clicmd:`ip ospf area AREA [ADDR]`).
+   It is also possible to enable OSPF on a per interface/subnet basis
+   using the interface command (:clicmd:`ip ospf area AREA [ADDR]`).
+   However, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
 
 .. clicmd:: proactive-arp
 
@@ -510,12 +512,14 @@ Interfaces
 
 
    Enable OSPF on the interface, optionally restricted to just the IP address
-   given by `ADDR`, putting it in the `AREA` area. Per interface area settings
-   take precedence to network commands
-   (:clicmd:`network A.B.C.D/M area A.B.C.D`).
+   given by `ADDR`, putting it in the `AREA` area. If you have a lot of
+   interfaces, and/or a lot of subnets, then enabling OSPF via this command
+   instead of (:clicmd:`network A.B.C.D/M area A.B.C.D`) may result in a
+   slight performance improvement.
 
-   If you have a lot of interfaces, and/or a lot of subnets, then enabling OSPF
-   via this command may result in a slight performance improvement.
+   Notice that, mixing both network commands (:clicmd:`network`) and interface
+   commands (:clicmd:`ip ospf`) on the same router is not supported.
+   If (:clicmd:`ip ospf`) is present, (:clicmd:`network`) commands will fail.
 
 .. clicmd:: ip ospf authentication-key AUTH_KEY
 
