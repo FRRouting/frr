@@ -159,7 +159,17 @@ extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
 
-struct hash *nlsock_hash;
+/* Hashtable and mutex to allow lookup of nlsock structs by socket/fd value.
+ * We have both the main and dplane pthreads using these structs, so we have
+ * to protect the hash with a lock.
+ */
+static struct hash *nlsock_hash;
+pthread_mutex_t nlsock_mutex;
+
+/* Lock and unlock wrappers for nlsock hash */
+#define NLSOCK_LOCK() pthread_mutex_lock(&nlsock_mutex)
+#define NLSOCK_UNLOCK() pthread_mutex_unlock(&nlsock_mutex)
+
 size_t nl_batch_tx_bufsize;
 char *nl_batch_tx_buf;
 
@@ -1513,11 +1523,31 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 
 struct nlsock *kernel_netlink_nlsock_lookup(int sock)
 {
-	struct nlsock lookup;
+	struct nlsock lookup, *retval;
 
 	lookup.sock = sock;
 
-	return hash_lookup(nlsock_hash, &lookup);
+	NLSOCK_LOCK();
+	retval = hash_lookup(nlsock_hash, &lookup);
+	NLSOCK_UNLOCK();
+
+	return retval;
+}
+
+/* Insert nlsock entry into hash */
+static void kernel_netlink_nlsock_insert(struct nlsock *nls)
+{
+	NLSOCK_LOCK();
+	(void)hash_get(nlsock_hash, nls, hash_alloc_intern);
+	NLSOCK_UNLOCK();
+}
+
+/* Remove nlsock entry from hash */
+static void kernel_netlink_nlsock_remove(struct nlsock *nls)
+{
+	NLSOCK_LOCK();
+	(void)hash_release(nlsock_hash, nls);
+	NLSOCK_UNLOCK();
 }
 
 static uint32_t kernel_netlink_nlsock_key(const void *arg)
@@ -1546,11 +1576,6 @@ void kernel_init(struct zebra_ns *zns)
 #if defined SOL_NETLINK
 	int one, ret;
 #endif
-
-	if (!nlsock_hash)
-		nlsock_hash = hash_create_size(8, kernel_netlink_nlsock_key,
-					       kernel_netlink_nlsock_hash_equal,
-					       "Netlink Socket Hash");
 
 	/*
 	 * Initialize netlink sockets
@@ -1584,7 +1609,8 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink.name);
 		exit(-1);
 	}
-	(void)hash_get(nlsock_hash, &zns->netlink, hash_alloc_intern);
+
+	kernel_netlink_nlsock_insert(&zns->netlink);
 
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
@@ -1594,7 +1620,8 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_cmd.name);
 		exit(-1);
 	}
-	(void)hash_get(nlsock_hash, &zns->netlink_cmd, hash_alloc_intern);
+
+	kernel_netlink_nlsock_insert(&zns->netlink_cmd);
 
 	/* Outbound socket for dplane programming of the host OS. */
 	snprintf(zns->netlink_dplane_out.name,
@@ -1606,8 +1633,8 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane_out.name);
 		exit(-1);
 	}
-	(void)hash_get(nlsock_hash, &zns->netlink_dplane_out,
-		       hash_alloc_intern);
+
+	kernel_netlink_nlsock_insert(&zns->netlink_dplane_out);
 
 	/* Inbound socket for OS events coming to the dplane. */
 	snprintf(zns->netlink_dplane_in.name,
@@ -1620,7 +1647,8 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_dplane_in.name);
 		exit(-1);
 	}
-	(void)hash_get(nlsock_hash, &zns->netlink_dplane_in, hash_alloc_intern);
+
+	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
 
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
@@ -1706,47 +1734,56 @@ void kernel_init(struct zebra_ns *zns)
 	rt_netlink_init();
 }
 
+/* Helper to clean up an nlsock */
+static void kernel_nlsock_fini(struct nlsock *nls)
+{
+	if (nls && nls->sock >= 0) {
+		kernel_netlink_nlsock_remove(nls);
+		close(nls->sock);
+		nls->sock = -1;
+		XFREE(MTYPE_NL_BUF, nls->buf);
+		nls->buflen = 0;
+	}
+}
+
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	thread_cancel(&zns->t_netlink);
 
-	if (zns->netlink.sock >= 0) {
-		hash_release(nlsock_hash, &zns->netlink);
-		close(zns->netlink.sock);
-		zns->netlink.sock = -1;
-		XFREE(MTYPE_NL_BUF, zns->netlink.buf);
-		zns->netlink.buflen = 0;
-	}
+	kernel_nlsock_fini(&zns->netlink);
 
-	if (zns->netlink_cmd.sock >= 0) {
-		hash_release(nlsock_hash, &zns->netlink_cmd);
-		close(zns->netlink_cmd.sock);
-		zns->netlink_cmd.sock = -1;
-		XFREE(MTYPE_NL_BUF, zns->netlink_cmd.buf);
-		zns->netlink_cmd.buflen = 0;
-	}
+	kernel_nlsock_fini(&zns->netlink_cmd);
 
-	if (zns->netlink_dplane_in.sock >= 0) {
-		hash_release(nlsock_hash, &zns->netlink_dplane_in);
-		close(zns->netlink_dplane_in.sock);
-		zns->netlink_dplane_in.sock = -1;
-		XFREE(MTYPE_NL_BUF, zns->netlink_dplane_in.buf);
-		zns->netlink_dplane_in.buflen = 0;
-	}
+	kernel_nlsock_fini(&zns->netlink_dplane_in);
 
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */
-	if (complete) {
-		if (zns->netlink_dplane_out.sock >= 0) {
-			hash_release(nlsock_hash, &zns->netlink_dplane_out);
-			close(zns->netlink_dplane_out.sock);
-			zns->netlink_dplane_out.sock = -1;
-			XFREE(MTYPE_NL_BUF, zns->netlink_dplane_out.buf);
-			zns->netlink_dplane_out.buflen = 0;
-		}
-
-		hash_free(nlsock_hash);
-	}
+	if (complete)
+		kernel_nlsock_fini(&zns->netlink_dplane_out);
 }
+
+/*
+ * Global init for platform-/OS-specific things
+ */
+void kernel_router_init(void)
+{
+	/* Init nlsock hash and lock */
+	pthread_mutex_init(&nlsock_mutex, NULL);
+	nlsock_hash = hash_create_size(8, kernel_netlink_nlsock_key,
+				       kernel_netlink_nlsock_hash_equal,
+				       "Netlink Socket Hash");
+}
+
+/*
+ * Global deinit for platform-/OS-specific things
+ */
+void kernel_router_terminate(void)
+{
+	pthread_mutex_destroy(&nlsock_mutex);
+
+	hash_free(nlsock_hash);
+	nlsock_hash = NULL;
+}
+
 #endif /* HAVE_NETLINK */
