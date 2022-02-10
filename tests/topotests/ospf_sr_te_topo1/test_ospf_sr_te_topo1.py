@@ -411,6 +411,16 @@ def check_bsid(rt, bsid, fn_name, positive):
         if matched:
             logger.info('Success "%s" in "%s"', router.name, fn_name)
             return
+
+    logger.info("Matched: %s", matched)
+    if not matched:
+        routers = tgen.routers()
+        for rname, router in routers.items():
+            router.vtysh_cmd("show ip ospf data")
+            router.vtysh_cmd("show ip ospf mpls ldp-sync")
+            router.vtysh_cmd("show ip ospf mpls-te data")
+            router.vtysh_cmd("show ip ospf mpls-te interface")
+            router.vtysh_cmd("show ip ospf mpls-te router")
     assert matched, assertmsg
 
 
