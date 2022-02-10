@@ -224,7 +224,7 @@ def test_ospf_authentication_simple_pass_tc28_p1(request):
                     "ospf": {
                         "authentication": True,
                         "authentication-key": "ospf",
-                        "del_action": True,
+                        "delete": True,
                     }
                 }
             }
@@ -427,7 +427,7 @@ def test_ospf_authentication_md5_tc29_p1(request):
                         "authentication": "message-digest",
                         "authentication-key": "ospf",
                         "message-digest-key": "10",
-                        "del_action": True,
+                        "delete": True,
                     }
                 }
             }
@@ -639,7 +639,7 @@ def test_ospf_authentication_different_auths_tc30_p1(request):
                         "authentication": "message-digest",
                         "authentication-key": "ospf",
                         "message-digest-key": "10",
-                        "del_action": True,
+                        "delete": True,
                     }
                 }
             }
@@ -656,7 +656,7 @@ def test_ospf_authentication_different_auths_tc30_p1(request):
                         "authentication": "message-digest",
                         "authentication-key": "ospf",
                         "message-digest-key": "10",
-                        "del_action": True,
+                        "delete": True,
                     }
                 }
             }
@@ -750,7 +750,7 @@ def test_ospf_authentication_different_auths_tc30_p1(request):
                     "ospf": {
                         "authentication": True,
                         "authentication-key": "OSPFv4",
-                        "del_action": True,
+                        "delete": True,
                     }
                 }
             }
@@ -766,7 +766,7 @@ def test_ospf_authentication_different_auths_tc30_p1(request):
                     "ospf": {
                         "authentication": True,
                         "authentication-key": "OSPFv4",
-                        "del_action": True,
+                        "delete": True,
                     }
                 }
             }

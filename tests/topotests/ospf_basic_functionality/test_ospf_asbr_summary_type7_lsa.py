@@ -200,7 +200,7 @@ def red_connected(dut, config=True):
         ospf_red = {
             dut: {
                 "ospf": {
-                    "redistribute": [{"redist_type": "connected", "del_action": True}]
+                    "redistribute": [{"redist_type": "connected", "delete": True}]
                 }
             }
         }

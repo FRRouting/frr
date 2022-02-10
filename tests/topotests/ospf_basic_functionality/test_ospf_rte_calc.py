@@ -755,7 +755,7 @@ def test_ospf_cost_tc52_p0(request):
 
     step(" Un configure cost from the interface r0 - r1.")
 
-    r0_ospf_cost = {"r0": {"links": {"r1": {"ospf": {"cost": 30, "del_action": True}}}}}
+    r0_ospf_cost = {"r0": {"links": {"r1": {"ospf": {"cost": 30, "delete": True}}}}}
     result = config_ospf_interface(tgen, topo, r0_ospf_cost)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
@@ -772,7 +772,7 @@ def test_ospf_cost_tc52_p0(request):
 
     step(" Un configure cost from the interface r0 - r2.")
 
-    r0_ospf_cost = {"r0": {"links": {"r2": {"ospf": {"cost": 20, "del_action": True}}}}}
+    r0_ospf_cost = {"r0": {"links": {"r2": {"ospf": {"cost": 20, "delete": True}}}}}
     result = config_ospf_interface(tgen, topo, r0_ospf_cost)
     assert result is True, "Testcase {} :Failed \n Error: {}".format(tc_name, result)
 
