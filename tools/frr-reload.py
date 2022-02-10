@@ -517,9 +517,11 @@ class Config(object):
                 "address-family ": {
                     "vni ": {},
                 },
-                "vnc ": {},
+                "vnc defaults": {},
+                "vnc nve-group ": {},
+                "vnc l2-group ": {},
                 "vrf-policy ": {},
-                "bmp ": {},
+                "bmp targets ": {},
                 "segment-routing srv6": {},
             },
             "router rip": {},
