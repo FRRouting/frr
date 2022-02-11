@@ -1045,6 +1045,8 @@ static void *route_match_evpn_route_type_compile(const char *arg)
 		*route_type = BGP_EVPN_MAC_IP_ROUTE;
 	else if (strncmp(arg, "mu", 2) == 0)
 		*route_type = BGP_EVPN_IMET_ROUTE;
+	else if (strncmp(arg, "es", 2) == 0)
+		*route_type = BGP_EVPN_ES_ROUTE;
 	else
 		*route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 
@@ -4169,7 +4171,7 @@ static const char *parse_evpn_rt_type(const char *num_rt_type)
 
 DEFUN_YANG (match_evpn_route_type,
 	    match_evpn_route_type_cmd,
-	    "match evpn route-type <ead|1|macip|2|multicast|3|prefix|5>",
+	    "match evpn route-type <ead|1|macip|2|multicast|3|es|4|prefix|5>",
 	    MATCH_STR
 	    EVPN_HELP_STR
 	    EVPN_TYPE_HELP_STR
@@ -4179,6 +4181,8 @@ DEFUN_YANG (match_evpn_route_type,
 	    EVPN_TYPE_2_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
 	    EVPN_TYPE_5_HELP_STR
 	    EVPN_TYPE_5_HELP_STR)
 {
@@ -4198,7 +4202,7 @@ DEFUN_YANG (match_evpn_route_type,
 
 DEFUN_YANG (no_match_evpn_route_type,
 	    no_match_evpn_route_type_cmd,
-	    "no match evpn route-type <ead|1|macip|2|multicast|3|prefix|5>",
+	    "no match evpn route-type <ead|1|macip|2|multicast|3|es|4|prefix|5>",
 	    NO_STR
 	    MATCH_STR
 	    EVPN_HELP_STR
@@ -4209,6 +4213,8 @@ DEFUN_YANG (no_match_evpn_route_type,
 	    EVPN_TYPE_2_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
 	    EVPN_TYPE_5_HELP_STR
 	    EVPN_TYPE_5_HELP_STR)
 {
