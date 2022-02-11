@@ -841,6 +841,48 @@ def bgp_delete_nbr_remote_as_line(lines_to_add):
         lines_to_add.remove((ctx_keys, line))
 
 
+def delete_bgp_bfd(lines_to_add, lines_to_del):
+    """
+    When 'neighbor <peer> bfd profile <profile>' is present without a
+    'neighbor <peer> bfd' line, FRR explicitily adds it to the running
+    configuration. When the new configuration drops the bfd profile
+    line, the user's intent is to delete any bfd configuration on the
+    peer. On reload, deleting the bfd profile line after the bfd line
+    will re-enable BFD with the default BFD profile. Move the bfd line
+    to the end, if it exists in the new configuration.
+
+    Example:
+
+     neighbor 10.0.0.1 bfd
+     neighbor 10.0.0.1 bfd profile bfd-profile-1
+
+     Move to end:
+     neighbor 10.0.0.1 bfd profile bfd-profile-1
+     ...
+
+     neighbor 10.0.0.1 bfd
+
+    """
+    lines_to_del_to_app = []
+    for (ctx_keys, line) in lines_to_del:
+        if (
+            ctx_keys[0].startswith("router bgp")
+            and line
+            and line.startswith("neighbor ")
+        ):
+            # 'no neighbor [peer] bfd>'
+            nb_bfd = "neighbor (\S+) .*bfd$"
+            re_nb_bfd = re.search(nb_bfd, line)
+            if re_nb_bfd:
+                lines_to_del_to_app.append((ctx_keys, line))
+
+    for (ctx_keys, line) in lines_to_del_to_app:
+        lines_to_del.remove((ctx_keys, line))
+        lines_to_del.append((ctx_keys, line))
+
+    return (lines_to_add, lines_to_del)
+
+
 """
 This method handles deletion of bgp peer group config.
 The objective is to delete config lines related to peers
@@ -1658,6 +1700,7 @@ def compare_context_objects(newconf, running):
     (lines_to_add, lines_to_del) = ignore_delete_re_add_lines(
         lines_to_add, lines_to_del
     )
+    (lines_to_add, lines_to_del) = delete_bgp_bfd(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = delete_move_lines(lines_to_add, lines_to_del)
     (lines_to_add, lines_to_del) = ignore_unconfigurable_lines(
         lines_to_add, lines_to_del
