@@ -245,7 +245,7 @@ void isis_notif_max_area_addr_mismatch(const struct isis_circuit *circuit,
 	data = yang_data_new_uint8(xpath_arg, max_area_addrs);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_max_area_addr_mismatch, circuit, max_area_addrs,
@@ -270,7 +270,7 @@ void isis_notif_authentication_type_failure(const struct isis_circuit *circuit,
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_authentication_type_failure, circuit, raw_pdu,
@@ -294,7 +294,7 @@ void isis_notif_authentication_failure(const struct isis_circuit *circuit,
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_authentication_failure, circuit, raw_pdu,
@@ -361,7 +361,7 @@ void isis_notif_reject_adjacency(const struct isis_circuit *circuit,
 	data = yang_data_new_string(xpath_arg, reason);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_reject_adjacency, circuit, raw_pdu, raw_pdu_len);
@@ -384,7 +384,7 @@ void isis_notif_area_mismatch(const struct isis_circuit *circuit,
 	notif_prep_instance_hdr(xpath, area, "default", arguments);
 	notif_prepr_iface_hdr(xpath, circuit, arguments);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_area_mismatch, circuit, raw_pdu, raw_pdu_len);
@@ -467,7 +467,7 @@ void isis_notif_id_len_mismatch(const struct isis_circuit *circuit,
 	data = yang_data_new_uint8(xpath_arg, rcv_id_len);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_id_len_mismatch, circuit, rcv_id_len, raw_pdu,
@@ -495,7 +495,7 @@ void isis_notif_version_skew(const struct isis_circuit *circuit,
 	data = yang_data_new_uint8(xpath_arg, version);
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 
 	hook_call(isis_hook_version_skew, circuit, version, raw_pdu,
@@ -525,7 +525,7 @@ void isis_notif_lsp_error(const struct isis_circuit *circuit,
 	data = yang_data_new_string(xpath_arg, rawlspid_print(lsp_id));
 	listnode_add(arguments, data);
 	snprintf(xpath_arg, sizeof(xpath_arg), "%s/raw-pdu", xpath);
-	data = yang_data_new(xpath_arg, raw_pdu);
+	data = yang_data_new_binary(xpath_arg, raw_pdu, raw_pdu_len);
 	listnode_add(arguments, data);
 	/* ignore offset and tlv_type which cannot be set properly */
 
