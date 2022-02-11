@@ -80,14 +80,6 @@ static struct cmd_node debug_node = {
 	.config_write = pim_debug_config_write,
 };
 
-static inline bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
-{
-	return (pim_addr_is_any(match.grp) ||
-		!pim_addr_cmp(match.grp, item.grp)) &&
-	       (pim_addr_is_any(match.src) ||
-		!pim_addr_cmp(match.src, item.src));
-}
-
 static struct vrf *pim_cmd_lookup_vrf(struct vty *vty, struct cmd_token *argv[],
 				      const int argc, int *idx)
 {
@@ -4427,6 +4419,7 @@ DEFPY (show_ip_pim_upstream,
 	struct vrf *v;
 	bool uj = !!json;
 	struct pim_instance *pim;
+	json_object *json_parent = NULL;
 
 	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
 
@@ -4441,6 +4434,9 @@ DEFPY (show_ip_pim_upstream,
 		return CMD_WARNING;
 	}
 
+	if (uj)
+		json_parent = json_object_new_object();
+
 	if (s_or_g.s_addr != INADDR_ANY) {
 		if (g.s_addr != INADDR_ANY) {
 			sg.src = s_or_g;
@@ -4448,14 +4444,17 @@ DEFPY (show_ip_pim_upstream,
 		} else
 			sg.grp = s_or_g;
 	}
-	pim_show_upstream(pim, vty, &sg, uj);
+	pim_show_upstream(pim, vty, &sg, json_parent);
+
+	if (uj)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_upstream_vrf_all,
+DEFPY (show_ip_pim_upstream_vrf_all,
        show_ip_pim_upstream_vrf_all_cmd,
-       "show ip pim vrf all upstream [json]",
+       "show ip pim vrf all upstream [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -4464,22 +4463,26 @@ DEFUN (show_ip_pim_upstream_vrf_all,
        JSON_STR)
 {
 	pim_sgaddr sg = {0};
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj)
-		vty_out(vty, "{ ");
+	if (json)
+		json_parent = json_object_new_object();
+
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_show_upstream(vrf->info, vty, &sg, uj);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_upstream(vrf->info, vty, &sg, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }

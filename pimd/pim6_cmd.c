@@ -847,6 +847,91 @@ DEFPY (show_ipv6_pim_statistics,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_upstream,
+       show_ipv6_pim_upstream_cmd,
+       "show ipv6 pim [vrf NAME] upstream [X:X::X:X$s_or_g [X:X::X:X$g]] [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream information\n"
+       "The Source or Group\n"
+       "The Group\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *v;
+	bool uj = !!json;
+	struct pim_instance *pim;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v) {
+		vty_out(vty, "%% Vrf specified: %s does not exist\n", vrf);
+		return CMD_WARNING;
+	}
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	if (uj)
+		json_parent = json_object_new_object();
+
+	if (!pim_addr_is_any(s_or_g)) {
+		if (!pim_addr_is_any(g)) {
+			sg.src = s_or_g;
+			sg.grp = g;
+		} else
+			sg.grp = s_or_g;
+	}
+
+	pim_show_upstream(pim, vty, &sg, json_parent);
+
+	if (uj)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_upstream_vrf_all,
+       show_ipv6_pim_upstream_vrf_all_cmd,
+       "show ipv6 pim vrf all upstream [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream information\n"
+       JSON_STR)
+{
+	pim_sgaddr sg = {0};
+	struct vrf *vrf;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (json)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
+		if (!json)
+			vty_out(vty, "VRF: %s\n", vrf->name);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_upstream(vrf->info, vty, &sg, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
+	}
+
+	if (json)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -905,4 +990,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_rpf_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_secondary_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_statistics_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_vrf_all_cmd);
 }
