@@ -66,11 +66,12 @@ void pim_show_state(struct pim_instance *pim, struct vty *vty,
 void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
 			 const char *ifname, bool uj);
 void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
-		       pim_sgaddr *sg, bool uj);
+		       pim_sgaddr *sg, json_object *json);
 void pim_show_join_desired(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_rpf_refresh_stats(struct vty *vty, struct pim_instance *pim,
 				time_t now, json_object *json);
+bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match);
 
 /*
  * Special Macro to allow us to get the correct pim_instance;
