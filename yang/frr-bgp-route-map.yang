@@ -537,6 +537,11 @@ module frr-bgp-route-map {
             description
               "Ethernet Auto-Discovery route";
           }
+          enum "es" {
+            value 4;
+            description
+              "Ethernet Segment route";
+          }
         }
       }
     }
