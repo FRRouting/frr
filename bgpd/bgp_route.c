@@ -3956,6 +3956,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 	}
 
 	attr_new = bgp_attr_intern(&new_attr);
+	bgp_attr_flush(&new_attr);
 
 	/* If the update is implicit withdraw. */
 	if (pi) {
