@@ -40,7 +40,6 @@ static int wheel_timer_thread_helper(struct thread *t)
 	void *data;
 
 	wheel = THREAD_ARG(t);
-	THREAD_OFF(wheel->timer);
 
 	wheel->curr_slot += wheel->slots_to_skip;
 
