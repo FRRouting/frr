@@ -8,6 +8,7 @@ lib_libfrr_la_LIBADD = $(LIBCAP) $(UNWIND_LIBS) $(LIBYANG_LIBS) $(LUA_LIB) $(UST
 lib_libfrr_la_SOURCES = \
 	lib/agg_table.c \
 	lib/atomlist.c \
+	lib/base64.c \
 	lib/bfd.c \
 	lib/buffer.c \
 	lib/checksum.c \
@@ -177,6 +178,7 @@ clippy_scan += \
 pkginclude_HEADERS += \
 	lib/agg_table.h \
 	lib/atomlist.h \
+	lib/base64.h \
 	lib/bfd.h \
 	lib/bitfield.h \
 	lib/buffer.h \
