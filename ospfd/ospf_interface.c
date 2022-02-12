@@ -906,14 +906,14 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	if (vlink_count == OSPF_VL_MAX_COUNT) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links");
+				"%s: Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links",
+				__func__);
 		return NULL;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): creating pseudo zebra interface vrf id %u",
-			ospf->vrf_id);
+		zlog_debug("%s: creating pseudo zebra interface vrf id %u",
+			   __func__, ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
 	vi = if_get_by_name(ifname, ospf->vrf_id, ospf->name);
@@ -937,7 +937,8 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	if (voi == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"ospf_vl_new(): Alarm: OSPF int structure is not created");
+				"%s: Alarm: OSPF int structure is not created",
+				__func__);
 		return NULL;
 	}
 	voi->connected = co;
@@ -947,17 +948,16 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 	vlink_count++;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Created name: %s", ifname);
+		zlog_debug("%s: Created name: %s", __func__, ifname);
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): set if->name to %s", vi->name);
+		zlog_debug("%s: set if->name to %s", __func__, vi->name);
 
 	area_id.s_addr = INADDR_ANY;
 	area = ospf_area_get(ospf, area_id);
 	voi->area = area;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_vl_new(): set associated area to the backbone");
+		zlog_debug("%s: set associated area to the backbone", __func__);
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(voi, voi->ospf->router_id);
@@ -965,7 +965,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	ospf_area_add_if(voi->area, voi);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_vl_new(): Stop");
+		zlog_debug("%s: Stop", __func__);
 	return voi;
 }
 
@@ -1160,11 +1160,9 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 	struct ospf_interface *oi;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("ospf_vl_up_check(): Start");
-		zlog_debug("ospf_vl_up_check(): Router ID is %pI4",
-			   &rid);
-		zlog_debug("ospf_vl_up_check(): Area is %pI4",
-			   &area->area_id);
+		zlog_debug("%s: Start", __func__);
+		zlog_debug("%s: Router ID is %pI4", __func__, &rid);
+		zlog_debug("%s: Area is %pI4", __func__, &area->area_id);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
@@ -1182,13 +1180,13 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			SET_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED);
 
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug(
-					"ospf_vl_up_check(): this VL matched");
+				zlog_debug("%s: this VL matched", __func__);
 
 			if (oi->state == ISM_Down) {
 				if (IS_DEBUG_OSPF_EVENT)
 					zlog_debug(
-						"ospf_vl_up_check(): VL is down, waking it up");
+						"%s: VL is down, waking it up",
+						__func__);
 				SET_FLAG(oi->ifp->flags, IFF_UP);
 				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
 			}

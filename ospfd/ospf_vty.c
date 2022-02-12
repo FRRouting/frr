@@ -1697,9 +1697,8 @@ DEFUN (ospf_area_default_cost,
 	p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
 	p.prefixlen = 0;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %pI4",
-			&area->area_id);
+		zlog_debug("%s: announcing 0.0.0.0/0 to area %pI4", __func__,
+			   &area->area_id);
 	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
 
 	return CMD_SUCCESS;
@@ -1740,9 +1739,8 @@ DEFUN (no_ospf_area_default_cost,
 	p.prefix.s_addr = OSPF_DEFAULT_DESTINATION;
 	p.prefixlen = 0;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug(
-			"ospf_abr_announce_stub_defaults(): announcing 0.0.0.0/0 to area %pI4",
-			&area->area_id);
+		zlog_debug("%s: announcing 0.0.0.0/0 to area %pI4", __func__,
+			   &area->area_id);
 	ospf_abr_announce_network_to_area(&p, area->default_cost, area);
 
 

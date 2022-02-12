@@ -798,7 +798,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 	unsigned int added = 0;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("ospf_nexthop_calculation(): Start");
+		zlog_debug("%s: Start", __func__);
 		ospf_vertex_dump("V (parent):", v, 1, 1);
 		ospf_vertex_dump("W (dest)  :", w, 1, 1);
 		zlog_debug("V->W distance: %d", distance);
@@ -1020,7 +1020,8 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 					return 1;
 				} else
 					zlog_info(
-						"ospf_nexthop_calculation(): vl_data for VL link not found");
+						"%s: vl_data for VL link not found",
+						__func__);
 			} /* end virtual-link from V to W */
 			return 0;
 		} /* end W is a Router vertex */
@@ -1563,7 +1564,7 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 	struct vertex *child;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("ospf_process_stub():processing stubs for area %pI4",
+		zlog_debug("%s:processing stubs for area %pI4", __func__,
 			   &area->area_id);
 
 	if (v->type == OSPF_VERTEX_ROUTER) {
@@ -1574,16 +1575,14 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 		int lsa_pos = 0;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_process_stubs():processing router LSA, id: %pI4",
-				&v->lsa->id);
+			zlog_debug("%s:processing router LSA, id: %pI4",
+				   __func__, &v->lsa->id);
 
 		router_lsa = (struct router_lsa *)v->lsa;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"ospf_process_stubs(): we have %d links to process",
-				ntohs(router_lsa->links));
+			zlog_debug("%s: we have %d links to process", __func__,
+				   ntohs(router_lsa->links));
 
 		p = ((uint8_t *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
 		lim = ((uint8_t *)v->lsa) + ntohs(v->lsa->length);

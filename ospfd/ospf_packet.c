@@ -2604,8 +2604,8 @@ static int ospf_check_sum(struct ospf_header *ospfh)
 	ret = in_cksum(ospfh, ntohs(ospfh->length));
 
 	if (ret != sum) {
-		zlog_info("ospf_check_sum(): checksum mismatch, my %X, his %X",
-			  ret, sum);
+		zlog_info("%s: checksum mismatch, my %X, his %X", __func__, ret,
+			  sum);
 		return 0;
 	}
 
