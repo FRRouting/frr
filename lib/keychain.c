@@ -357,12 +357,12 @@ const struct keychain_algo_info algo_info[] = {
 	 KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE, "Not defined"}
 };
 
-uint32_t keychain_get_block_size(enum keychain_hash_algo key)
+uint16_t keychain_get_block_size(enum keychain_hash_algo key)
 {
 	return algo_info[key].block;
 }
 
-uint32_t keychain_get_hash_len(enum keychain_hash_algo key)
+uint16_t keychain_get_hash_len(enum keychain_hash_algo key)
 {
 	return algo_info[key].length;
 }
