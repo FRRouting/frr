@@ -54,14 +54,14 @@ enum keychain_hash_algo {
 struct keychain_algo_info {
 	enum keychain_hash_algo key;
 	const char *name;
-	uint32_t length;
-	uint32_t block;
+	uint16_t length;
+	uint16_t block;
 	const char *desc;
 };
 
 extern const struct keychain_algo_info algo_info[];
-uint32_t keychain_get_block_size(enum keychain_hash_algo key);
-uint32_t keychain_get_hash_len(enum keychain_hash_algo key);
+uint16_t keychain_get_block_size(enum keychain_hash_algo key);
+uint16_t keychain_get_hash_len(enum keychain_hash_algo key);
 const char *keychain_get_description(enum keychain_hash_algo key);
 struct keychain_algo_info
 keychain_get_hash_algo_info(enum keychain_hash_algo key);
