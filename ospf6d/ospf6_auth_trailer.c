@@ -82,8 +82,8 @@ const uint8_t ospf6_hash_opad_max[KEYCHAIN_ALGO_MAX_INTERNAL_BLK_SIZE] = {
 void ospf6_auth_hdr_dump_send(struct ospf6_header *ospfh, uint16_t length)
 {
 	struct ospf6_auth_hdr *ospf6_at_hdr;
-	int at_len, oh_len, at_hdr_len, hash_len;
-	unsigned char temp[KEYCHAIN_MAX_HASH_SIZE+1];
+	uint16_t at_len, oh_len, at_hdr_len, hash_len;
+	unsigned char temp[KEYCHAIN_MAX_HASH_SIZE + 1];
 
 	oh_len = htons(ospfh->length);
 	at_len = length - oh_len;
@@ -111,7 +111,7 @@ void ospf6_auth_hdr_dump_recv(struct ospf6_header *ospfh, uint16_t length,
 			      unsigned int lls_len)
 {
 	struct ospf6_auth_hdr *ospf6_at_hdr;
-	int at_len, oh_len, at_hdr_len, hash_len;
+	uint16_t at_len, oh_len, at_hdr_len, hash_len;
 	unsigned char temp[KEYCHAIN_MAX_HASH_SIZE + 1];
 
 	oh_len = ntohs(ospfh->length);
@@ -246,7 +246,7 @@ static void ospf6_hash_hmac_sha_digest(enum keychain_hash_algo key,
 				       unsigned char *mes, uint32_t len,
 				       unsigned char *digest)
 {
-	if ((key <= KEYCHAIN_ALGO_NULL) || (key >= KEYCHAIN_ALGO_MAX))
+	if ((key < KEYCHAIN_ALGO_NULL) || (key > KEYCHAIN_ALGO_MAX))
 		return;
 
 	switch (key) {
@@ -279,9 +279,9 @@ static void ospf6_hash_hmac_sha_digest(enum keychain_hash_algo key,
 	}
 }
 
-unsigned int ospf6_auth_len_get(struct ospf6_interface *oi)
+uint16_t ospf6_auth_len_get(struct ospf6_interface *oi)
 {
-	unsigned int at_len = 0;
+	uint16_t at_len = 0;
 	char *keychain_name = NULL;
 	struct keychain *keychain = NULL;
 	struct key *key = NULL;
@@ -481,8 +481,8 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 	if (oi->at_data.flags == 0)
 		return OSPF6_AUTH_PROCESS_NORMAL;
 
-	ospf6_auth = (struct ospf6_auth_hdr *)((uint8_t *)oh + oh_len
-					       + lls_block_len);
+	ospf6_auth = (struct ospf6_auth_hdr *)((uint8_t *)oh +
+					       (oh_len + lls_block_len));
 	if (CHECK_FLAG(oi->at_data.flags, OSPF6_AUTH_TRAILER_KEYCHAIN)) {
 		keychain = keychain_lookup(oi->at_data.keychain);
 		if (!keychain) {

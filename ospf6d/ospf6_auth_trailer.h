@@ -70,7 +70,7 @@ void ospf6_auth_hdr_dump_recv(struct ospf6_header *ospfh, uint16_t length,
 			      unsigned int lls_len);
 unsigned char *ospf6_hash_message_xor(unsigned char *mes1, unsigned char *mes2,
 				      uint32_t len);
-unsigned int ospf6_auth_len_get(struct ospf6_interface *oi);
+uint16_t ospf6_auth_len_get(struct ospf6_interface *oi);
 int ospf6_auth_validate_pkt(struct ospf6_interface *oi, unsigned int *pkt_len,
 			    struct ospf6_header *oh, unsigned int *at_len,
 			    unsigned int *lls_block_len);

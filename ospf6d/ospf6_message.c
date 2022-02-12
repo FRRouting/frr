@@ -2021,9 +2021,9 @@ static void ospf6_auth_trailer_copy_keychain_key(struct ospf6_interface *oi)
 	}
 }
 
-static uint32_t ospf6_packet_max(struct ospf6_interface *oi)
+static uint16_t ospf6_packet_max(struct ospf6_interface *oi)
 {
-	int at_len = 0;
+	uint16_t at_len = 0;
 
 	assert(oi->ifmtu > sizeof(struct ip6_hdr));
 
@@ -2092,7 +2092,7 @@ static int ospf6_write(struct thread *thread)
 	int len;
 	int64_t latency = 0;
 	struct timeval timestamp;
-	unsigned int at_len = 0;
+	uint16_t at_len = 0;
 
 	if (ospf6->fd < 0) {
 		zlog_warn("ospf6_write failed to send, fd %d", ospf6->fd);
@@ -2621,9 +2621,8 @@ static uint16_t ospf6_make_lsupdate_list(struct ospf6_neighbor *on,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(on->lsupdate_list, lsa, lsanext)) {
-		if ((length + (unsigned int)OSPF6_LSA_SIZE(lsa->header)
-		     + OSPF6_HEADER_SIZE)
-		    > ospf6_packet_max(on->ospf6_if)) {
+		if ((length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE) >
+		    ospf6_packet_max(on->ospf6_if)) {
 			ospf6_fill_header(on->ospf6_if, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
 			(*op)->length = length + OSPF6_HEADER_SIZE;
@@ -2659,9 +2658,8 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(on->retrans_list, lsa, lsanext)) {
-		if ((length + (unsigned int)OSPF6_LSA_SIZE(lsa->header)
-		     + OSPF6_HEADER_SIZE)
-		    > ospf6_packet_max(on->ospf6_if)) {
+		if ((length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE) >
+		    ospf6_packet_max(on->ospf6_if)) {
 			ospf6_fill_header(on->ospf6_if, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
 			(*op)->length = length + OSPF6_HEADER_SIZE;
@@ -2800,9 +2798,8 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 	stream_forward_endp((*op)->s, OSPF6_LS_UPD_MIN_SIZE);
 
 	for (ALL_LSDB(oi->lsupdate_list, lsa, lsanext)) {
-		if (length + (unsigned int)OSPF6_LSA_SIZE(lsa->header)
-			    + OSPF6_HEADER_SIZE
-		    > ospf6_packet_max(oi)) {
+		if (length + OSPF6_LSA_SIZE(lsa->header) + OSPF6_HEADER_SIZE >
+		    ospf6_packet_max(oi)) {
 			ospf6_fill_header(oi, (*op)->s,
 					  length + OSPF6_HEADER_SIZE);
 			(*op)->length = length + OSPF6_HEADER_SIZE;
