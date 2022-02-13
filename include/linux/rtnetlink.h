@@ -185,6 +185,16 @@ enum {
 	RTM_GETNEXTHOPBUCKET,
 #define RTM_GETNEXTHOPBUCKET	RTM_GETNEXTHOPBUCKET
 
+        RTM_SETHWFLAGS = 119,
+#define RTM_SETHWFLAGS RTM_SETHWFLAGS
+
+        RTM_NEWTUNNEL = 120,
+#define RTM_NEWTUNNEL  RTM_NEWTUNNEL
+        RTM_DELTUNNEL,
+#define RTM_DELTUNNEL  RTM_DELTUNNEL
+        RTM_GETTUNNEL,
+#define RTM_GETTUNNEL  RTM_GETTUNNEL
+
 	__RTM_MAX,
 #define RTM_MAX		(((__RTM_MAX + 3) & ~3) - 1)
 };
@@ -217,6 +227,11 @@ struct rtattr {
 #define RTA_SPACE(len)	RTA_ALIGN(RTA_LENGTH(len))
 #define RTA_DATA(rta)   ((void*)(((char*)(rta)) + RTA_LENGTH(0)))
 #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
+#ifndef TUNNEL_RTA
+#define TUNNEL_RTA(r)                                                          \
+	((struct rtattr *)(((char *)(r)) +                                     \
+			   NLMSG_ALIGN(sizeof(struct tunnel_msg))))
+#endif
 
 
 
@@ -754,6 +769,8 @@ enum rtnetlink_groups {
 #define RTNLGRP_NEXTHOP		RTNLGRP_NEXTHOP
 	RTNLGRP_BRVLAN,
 #define RTNLGRP_BRVLAN		RTNLGRP_BRVLAN
+	RTNLGRP_TUNNEL,
+#define RTNLGRP_TUNNEL		RTNLGRP_TUNNEL
 	__RTNLGRP_MAX
 };
 #define RTNLGRP_MAX	(__RTNLGRP_MAX - 1)
