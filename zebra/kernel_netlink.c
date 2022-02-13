@@ -289,7 +289,7 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 
 /* Make socket for Linux netlink interface. */
 static int netlink_socket(struct nlsock *nl, unsigned long groups,
-			  ns_id_t ns_id)
+			  unsigned long ext_groups, ns_id_t ns_id)
 {
 	int ret;
 	struct sockaddr_nl snl;
@@ -307,6 +307,12 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 		memset(&snl, 0, sizeof(snl));
 		snl.nl_family = AF_NETLINK;
 		snl.nl_groups = groups;
+
+#if defined SOL_NETLINK
+		if (ext_groups)
+			setsockopt(sock, SOL_NETLINK, NETLINK_ADD_MEMBERSHIP,
+				   &ext_groups, sizeof(ext_groups));
+#endif
 
 		/* Bind the socket to the netlink structure for anything. */
 		ret = bind(sock, (struct sockaddr *)&snl, sizeof(snl));
@@ -1611,7 +1617,7 @@ static bool kernel_netlink_nlsock_hash_equal(const void *arg1, const void *arg2)
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)
 {
-	uint32_t groups, dplane_groups;
+	uint32_t groups, dplane_groups, ext_groups;
 #if defined SOL_NETLINK
 	int one, ret;
 #endif
@@ -1643,11 +1649,13 @@ void kernel_init(struct zebra_ns *zns)
 			 ((uint32_t) 1 << (RTNLGRP_IPV6_NETCONF - 1)) |
 			 ((uint32_t) 1 << (RTNLGRP_MPLS_NETCONF - 1)));
 
+	/* Use setsockopt for > 31 group */
+	ext_groups = RTNLGRP_TUNNEL;
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
-	if (netlink_socket(&zns->netlink, groups, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink, groups, ext_groups, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink.name);
 		exit(-1);
@@ -1658,7 +1666,7 @@ void kernel_init(struct zebra_ns *zns)
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
-	if (netlink_socket(&zns->netlink_cmd, 0, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_cmd, 0, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_cmd.name);
 		exit(-1);
@@ -1671,7 +1679,7 @@ void kernel_init(struct zebra_ns *zns)
 		 sizeof(zns->netlink_dplane_out.name), "netlink-dp (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_out.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_out, 0, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_dplane_out, 0, 0, zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_out.name);
 		exit(-1);
@@ -1684,7 +1692,7 @@ void kernel_init(struct zebra_ns *zns)
 		 sizeof(zns->netlink_dplane_in.name), "netlink-dp-in (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_in.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups,
+	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups, 0,
 			   zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
