@@ -141,6 +141,16 @@ March/July/November.  Walking backwards from this date:
 
  - 2 weeks earlier, a ``frr-X.Y-rc`` release candidate is tagged.
 
+     .. code-block:: console
+
+        % git remote --verbose
+        upstream  git@github.com:frrouting/frr (fetch)
+        upstream  git@github.com:frrouting/frr (push)
+
+        % git checkout dev/8.2
+        % git tag frr-8.2-rc
+        % git push upstream frr-8.2-rc
+
  - on release date, the branch is renamed to ``stable/MAJOR.MINOR``.
 
 The 2 week window between each of these events should be used to run any and
