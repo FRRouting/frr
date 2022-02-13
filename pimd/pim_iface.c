@@ -193,7 +193,6 @@ struct pim_interface *pim_if_new(struct interface *ifp, bool igmp, bool pim,
 void pim_if_delete(struct interface *ifp)
 {
 	struct pim_interface *pim_ifp;
-	struct pim_ifchannel *ch;
 
 	assert(ifp);
 	pim_ifp = ifp->info;
@@ -218,13 +217,6 @@ void pim_if_delete(struct interface *ifp)
 	list_delete(&pim_ifp->sec_addr_list);
 
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp->boundary_oil_plist);
-
-	while (!RB_EMPTY(pim_ifchannel_rb, &pim_ifp->ifchannel_rb)) {
-		ch = RB_ROOT(pim_ifchannel_rb, &pim_ifp->ifchannel_rb);
-
-		pim_ifchannel_delete(ch);
-	}
-
 	XFREE(MTYPE_PIM_INTERFACE, pim_ifp);
 
 	ifp->info = NULL;
