@@ -488,7 +488,7 @@ int ospf6_auth_check_digest(struct ospf6_header *oh, struct ospf6_interface *oi,
 		if (!keychain) {
 			if (IS_OSPF6_DEBUG_AUTH_RX)
 				zlog_err(
-					"RECV[%s]: Keychain does't exist for %s",
+					"RECV[%s]: Keychain doesn't exist for %s",
 					oi->interface->name,
 					ospf6_message_type(oh->type));
 			return OSPF6_AUTH_VALIDATE_FAILURE;
