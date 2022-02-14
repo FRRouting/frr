@@ -10269,6 +10269,8 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	uint32_t exp = 0;
 	mpls_label_t label = MPLS_INVALID_LABEL;
 	tag_buf[0] = '\0';
+	struct bgp_path_info *bpi_ultimate =
+		bgp_get_imported_bpi_ultimate(path);
 
 	if (json_paths) {
 		json_path = json_object_new_object();
@@ -10509,7 +10511,7 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	}
 
 	/* Display the IGP cost or 'inaccessible' */
-	if (!CHECK_FLAG(path->flags, BGP_PATH_VALID)) {
+	if (!CHECK_FLAG(bpi_ultimate->flags, BGP_PATH_VALID)) {
 		bool import = CHECK_FLAG(bgp->flags, BGP_FLAG_IMPORT_CHECK);
 
 		if (json_paths) {
@@ -10522,14 +10524,14 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				import ? ", import-check enabled" : "");
 		}
 	} else {
-		if (path->extra && path->extra->igpmetric) {
+		if (bpi_ultimate->extra && bpi_ultimate->extra->igpmetric) {
 			if (json_paths)
-				json_object_int_add(json_nexthop_global,
-						    "metric",
-						    path->extra->igpmetric);
+				json_object_int_add(
+					json_nexthop_global, "metric",
+					bpi_ultimate->extra->igpmetric);
 			else
 				vty_out(vty, " (metric %u)",
-					path->extra->igpmetric);
+					bpi_ultimate->extra->igpmetric);
 		}
 
 		/* IGP cost is 0, display this only for json */
