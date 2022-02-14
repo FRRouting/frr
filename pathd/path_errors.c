@@ -81,7 +81,7 @@ static struct log_ref ferr_path_warn[] = {
 	{
 		.code = EC_PATH_PCEP_UNSUPPORTED_PCEP_FEATURE,
 		.title = "Unsupported PCEP feature",
-		.description = "Receved an unsupported PCEP message",
+		.description = "Received an unsupported PCEP message",
 		.suggestion = "The PCC and PCE are probably not compatible. Open an Issue with all relevant log files"
 	},
 	{
