@@ -414,7 +414,7 @@ module frr-pathd {
             container objective-function {
               presence "If the candidate has an objective function constraint";
               description
-                "Define objective function constraint as a list of prefered functions";
+                "Define objective function constraint as a list of preferred functions";
               leaf required {
                 type boolean;
                 default "true";

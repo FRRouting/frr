@@ -1345,7 +1345,7 @@ int32_t srte_ted_do_query_type_c(struct srte_segment_entry *entry,
 		zlog_warn(" %s: PATHD-TED: SL: ERROR query C : ted-sid (%d)",
 			  __func__, ted_sid);
 	} else {
-		zlog_debug("%s: PATHD-TED: SL: Sucess query C : ted-sid (%d)",
+		zlog_debug("%s: PATHD-TED: SL: Success query C : ted-sid (%d)",
 			   __func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
@@ -1375,7 +1375,7 @@ int32_t srte_ted_do_query_type_e(struct srte_segment_entry *entry,
 		zlog_warn(" %s: PATHD-TED: SL: ERROR query E : ted-sid (%d)",
 			  __func__, ted_sid);
 	} else {
-		zlog_debug("%s: PATHD-TED: SL: Sucess query E : ted-sid (%d)",
+		zlog_debug("%s: PATHD-TED: SL: Success query E : ted-sid (%d)",
 			   __func__, ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,
@@ -1404,7 +1404,7 @@ int32_t srte_ted_do_query_type_f(struct srte_segment_entry *entry,
 		zlog_warn("%s:SL:  ERROR query F : ted-sid (%d)", __func__,
 			  ted_sid);
 	} else {
-		zlog_debug("%s:SL: Sucess query F : ted-sid (%d)", __func__,
+		zlog_debug("%s:SL: Success query F : ted-sid (%d)", __func__,
 			   ted_sid);
 	}
 	if (CHECK_SID(entry->segment_list->protocol_origin, ted_sid,

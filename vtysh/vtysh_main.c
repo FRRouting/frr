@@ -587,7 +587,7 @@ int main(int argc, char **argv, char **env)
 	 * Setup history file for use by both -c and regular input
 	 * If we can't find the home directory, then don't store
 	 * the history information.
-	 * VTYSH_HISTFILE is prefered over command line
+	 * VTYSH_HISTFILE is preferred over command line
 	 * argument (-H/--histfile).
 	 */
 	if (getenv("VTYSH_HISTFILE")) {
