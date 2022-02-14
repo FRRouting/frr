@@ -2150,7 +2150,7 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
        VRF_CMD_HELP_STR
        "All VRFs\n"
        "Show external summary addresses\n"
-       "detailed informtion\n"
+       "detailed information\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
