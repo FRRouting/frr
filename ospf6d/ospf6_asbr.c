@@ -2874,7 +2874,7 @@ ospf6_originate_summary_lsa(struct ospf6 *ospf6,
 	if (IS_OSPF6_DEBUG_AGGR)
 		zlog_debug("%s: Aggr LSA ID: %d flags %x.",
 		   __func__, aggr->id, aggr->aggrflags);
-	/* Dont originate external LSA,
+	/* Don't originate external LSA,
 	 * If it is configured not to advertise.
 	 */
 	if (CHECK_FLAG(aggr->aggrflags, OSPF6_EXTERNAL_AGGRT_NO_ADVERTISE)) {
@@ -3248,11 +3248,11 @@ static void ospf6_handle_aggregated_exnl_rt(struct ospf6 *ospf6,
 
 	/* Handling the case where the external route prefix
 	 * and aggegate prefix is same
-	 * If same dont flush the originated external LSA.
+	 * If same don't flush the originated external LSA.
 	 */
 	if (prefix_same(&aggr->p, &rt->prefix)) {
 		if (IS_OSPF6_DEBUG_AGGR)
-			zlog_debug("%s: External Route prefix same as Aggregator(%pFX), so dont flush.",
+			zlog_debug("%s: External Route prefix same as Aggregator(%pFX), so don't flush.",
 				__func__,
 				&rt->prefix);
 
@@ -3623,7 +3623,7 @@ void ospf6_handle_external_lsa_origination(struct ospf6 *ospf6,
 			/* Handling the case where the
 			 * external route prefix
 			 * and aggegate prefix is same
-			 * If same dont flush the
+			 * If same don't flush the
 			 * originated
 			 * external LSA.
 			 */
