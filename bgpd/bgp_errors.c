@@ -464,7 +464,7 @@ static struct log_ref ferr_bgp_err[] = {
 	},
 	{
 		.code = EC_BGP_INVALID_BGP_INSTANCE,
-		.title = "BGP instance for the specifc vrf is invalid",
+		.title = "BGP instance for the specific vrf is invalid",
 		.description = "Indicates that specified bgp instance is NULL",
 		.suggestion = "Get log files from router and open an issue",
 	},
