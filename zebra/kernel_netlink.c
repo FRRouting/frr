@@ -1211,7 +1211,7 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 
 			if (dplane_ctx_get_ns(ctx)->seq > seq)
 				zlog_warn(
-					"%s:WARNING Recieved %u is less than any context on the queue ctx->seq %u",
+					"%s:WARNING Received %u is less than any context on the queue ctx->seq %u",
 					__func__, seq,
 					dplane_ctx_get_ns(ctx)->seq);
 		}
