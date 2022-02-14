@@ -2219,8 +2219,16 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * implementations.
 	 */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY))
-		if (!bgp_outbound_policy_exists(peer, filter))
+		if (!bgp_outbound_policy_exists(peer, filter)) {
+			if (monotime_since(&bgp->ebgprequirespolicywarning,
+					   NULL) > FIFTEENMINUTE2USEC ||
+			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
+				zlog_warn(
+					"EBGP inbound/outbound policy not properly setup, please configure in order for your peering to work correctly");
+				monotime(&bgp->ebgprequirespolicywarning);
+			}
 			return false;
+		}
 
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Filter routes having AS_SET or AS_CONFED_SET in the path.
@@ -3844,6 +3852,13 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (!bgp_inbound_policy_exists(peer,
 					       &peer->filter[afi][safi])) {
 			reason = "inbound policy missing";
+			if (monotime_since(&bgp->ebgprequirespolicywarning,
+					   NULL) > FIFTEENMINUTE2USEC ||
+			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
+				zlog_warn(
+					"EBGP inbound/outbound policy not properly setup, please configure in order for your peering to work correctly");
+				monotime(&bgp->ebgprequirespolicywarning);
+			}
 			goto filtered;
 		}
 

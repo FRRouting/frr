@@ -759,6 +759,9 @@ struct bgp {
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 
+	struct timeval ebgprequirespolicywarning;
+#define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);

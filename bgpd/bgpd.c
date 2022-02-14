@@ -3239,6 +3239,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	/*initilize global GR FSM */
 	bgp_global_gr_init(bgp);
+
+	memset(&bgp->ebgprequirespolicywarning, 0,
+	       sizeof(bgp->ebgprequirespolicywarning));
+
 	return bgp;
 }
 
