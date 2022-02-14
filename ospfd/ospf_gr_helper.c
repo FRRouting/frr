@@ -847,8 +847,8 @@ void ospf_gr_helper_support_set(struct ospf *ospf, bool support)
 				lookup.advRtrAddr.s_addr =
 					nbr->router_id.s_addr;
 				/* check if helper support enabled for the
-				 * corresponding routerid.If enabled, dont
-				 * dont exit from helper role.
+				 * corresponding routerid.If enabled, don't
+				 * exit from helper role.
 				 */
 				if (hash_lookup(ospf->enable_rtr_list, &lookup))
 					continue;

@@ -10410,7 +10410,7 @@ DEFPY (show_ip_ospf_gr_helper,
        "All VRFs\n"
        "OSPF Graceful Restart\n"
        "Helper details in the router\n"
-       "Detailed informtion\n"
+       "Detailed information\n"
        JSON_STR)
 {
 	char *vrf_name = NULL;
@@ -11555,7 +11555,7 @@ DEFUN (show_ip_ospf_external_aggregator,
        VRF_CMD_HELP_STR
        "All VRFs\n"
        "Show external summary addresses\n"
-       "Detailed informtion\n"
+       "Detailed information\n"
        JSON_STR)
 {
 	char *vrf_name = NULL;
