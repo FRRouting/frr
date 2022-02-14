@@ -501,7 +501,7 @@ def test_BSR_higher_prefer_ip_p0(request):
 
     step("sleeping for 3 sec to leran new packet")
     do_countdown(3)
-    step("verify BSR1 is become prefered RP")
+    step("verify BSR1 has become preferred RP")
     dut = "l1"
 
     step("Verify if b1 chosen as BSR in f1")
@@ -521,7 +521,7 @@ def test_BSR_higher_prefer_ip_p0(request):
     do_countdown(3)
     f1_b2_eth1 = topo["routers"]["f1"]["links"]["b2"]["interface"]
     shutdown_bringup_interface(tgen, "f1", "f1-b2-eth1", True)
-    step("verify BSR2 is become prefered RP")
+    step("verify BSR2 has become preferred RP")
     dut = "l1"
 
     step("Send BSR packet from b1 and b2 to FHR")
