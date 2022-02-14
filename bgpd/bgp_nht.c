@@ -294,6 +294,7 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 {
 	struct bgp_nexthop_cache_head *tree = NULL;
 	struct bgp_nexthop_cache *bnc;
+	struct bgp_path_info *bpi_ultimate;
 	struct prefix p;
 	uint32_t srte_color = 0;
 	int is_bgp_static_route = 0;
@@ -450,10 +451,12 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		/* updates NHT pi list reference */
 		path_nh_map(pi, bnc, true);
 
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(pi);
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_VALID) && bnc->metric)
-			(bgp_path_info_extra_get(pi))->igpmetric = bnc->metric;
-		else if (pi->extra)
-			pi->extra->igpmetric = 0;
+			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
+				bnc->metric;
+		else if (bpi_ultimate->extra)
+			bpi_ultimate->extra->igpmetric = 0;
 	} else if (peer) {
 		/*
 		 * Let's not accidentally save the peer data for a peer
@@ -1123,6 +1126,7 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 {
 	struct bgp_dest *dest;
 	struct bgp_path_info *path;
+	struct bgp_path_info *bpi_ultimate;
 	int afi;
 	struct peer *peer = (struct peer *)bnc->nht_info;
 	struct bgp_table *table;
@@ -1222,11 +1226,12 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 
 		/* Copy the metric to the path. Will be used for bestpath
 		 * computation */
+		bpi_ultimate = bgp_get_imported_bpi_ultimate(path);
 		if (bgp_isvalid_nexthop(bnc) && bnc->metric)
-			(bgp_path_info_extra_get(path))->igpmetric =
+			(bgp_path_info_extra_get(bpi_ultimate))->igpmetric =
 				bnc->metric;
-		else if (path->extra)
-			path->extra->igpmetric = 0;
+		else if (bpi_ultimate->extra)
+			bpi_ultimate->extra->igpmetric = 0;
 
 		if (CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_METRIC_CHANGED)
 		    || CHECK_FLAG(bnc->change_flags, BGP_NEXTHOP_CHANGED)
