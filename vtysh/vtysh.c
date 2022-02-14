@@ -818,7 +818,7 @@ int vtysh_mark_file(const char *filename)
 	return 0;
 }
 
-/* Configration make from file. */
+/* Configuration make from file. */
 int vtysh_config_from_file(struct vty *vty, FILE *fp)
 {
 	int ret;
@@ -1586,7 +1586,7 @@ DEFUNSH(VTYSH_REALLYALL, vtysh_end_all, vtysh_end_all_cmd, "end",
 
 DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
 	"srv6",
-	"Segment-Routing SRv6 configration\n")
+	"Segment-Routing SRv6 configuration\n")
 {
 	vty->node = SRV6_NODE;
 	return CMD_SUCCESS;
@@ -1594,7 +1594,7 @@ DEFUNSH(VTYSH_ZEBRA, srv6, srv6_cmd,
 
 DEFUNSH(VTYSH_ZEBRA, srv6_locators, srv6_locators_cmd,
 	"locators",
-	"Segment-Routing SRv6 locators configration\n")
+	"Segment-Routing SRv6 locators configuration\n")
 {
 	vty->node = SRV6_LOCS_NODE;
 	return CMD_SUCCESS;
