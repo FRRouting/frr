@@ -2663,12 +2663,18 @@ DEFUN (no_sr_prefix_sid,
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
+	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
+		  (struct prefix *)&srp->prefv4, srp->sid);
+
 	/* Get Interface */
 	ifp = if_lookup_by_index(srp->nhlfe.ifindex, VRF_DEFAULT);
 	if (ifp == NULL) {
 		vty_out(vty, "interface for prefix %s not found.\n",
 			argv[idx]->arg);
-		return CMD_WARNING_CONFIG_FAILED;
+		/* silently remove from list */
+		listnode_delete(OspfSR.self->ext_prefix, srp);
+		XFREE(MTYPE_OSPF_SR_PARAMS, srp);
+		return CMD_SUCCESS;
 	}
 
 	/* Update Extended Prefix LSA */
@@ -2676,9 +2682,6 @@ DEFUN (no_sr_prefix_sid,
 		vty_out(vty, "No corresponding loopback interface. Abort!\n");
 		return CMD_WARNING;
 	}
-
-	osr_debug("SR (%s): Remove Prefix %pFX with index %u", __func__,
-		  (struct prefix *)&srp->prefv4, srp->sid);
 
 	/* Delete NHLFE if NO-PHP is set and EXPLICIT NULL not set */
 	if (CHECK_FLAG(srp->flags, EXT_SUBTLV_PREFIX_SID_NPFLG)
