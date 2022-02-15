@@ -872,6 +872,13 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 		zif->flags &= ~ZIF_FLAG_PROTODOWN;
 
 	if (zebra_evpn_is_es_bond_member(zif->ifp)) {
+		/* Check it's not already being sent to the dplane first */
+		if (protodown && (zif->flags & ZIF_FLAG_SET_PROTODOWN))
+			return;
+
+		if (!protodown && (zif->flags & ZIF_FLAG_UNSET_PROTODOWN))
+			return;
+
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
 				"bond mbr %s re-instate protdown %s in the dplane",
