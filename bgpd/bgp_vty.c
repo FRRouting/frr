@@ -803,11 +803,15 @@ struct peer *peer_and_group_lookup_vty(struct vty *vty, const char *peer_str)
 	return NULL;
 }
 
-int bgp_vty_return(struct vty *vty, int ret)
+int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 {
 	const char *str = NULL;
 
 	switch (ret) {
+	case BGP_SUCCESS:
+	case BGP_CREATED:
+	case BGP_GR_NO_OPERATION:
+		break;
 	case BGP_ERR_INVALID_VALUE:
 		str = "Invalid value";
 		break;
@@ -882,6 +886,30 @@ int bgp_vty_return(struct vty *vty, int ret)
 		break;
 	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
 		str = "Peer-group members must be all internal or all external.";
+		break;
+	case BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND:
+		str = "Range specified cannot be deleted because it is not part of current config.";
+		break;
+	case BGP_ERR_INSTANCE_MISMATCH:
+		str = "Instance specified does not match the current instance.";
+		break;
+	case BGP_ERR_NO_INTERFACE_CONFIG:
+		str = "Interface specified is not being used for interface based peer.";
+		break;
+	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
+		str = "No configuration already specified for soft reconfiguration.";
+		break;
+	case BGP_ERR_AS_MISMATCH:
+		str = "BGP is already running.";
+		break;
+	case BGP_ERR_AF_UNCONFIGURED:
+		str = "AFI/SAFI specified is not currently configured.";
+		break;
+	case BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS:
+		str = "AS specified for local as is the same as the remote as and this is not allowed.";
+		break;
+	case BGP_ERR_INVALID_AS:
+		str = "Confederation AS specified is the same AS as our AS.";
 		break;
 	}
 	if (str) {
