@@ -2690,8 +2690,8 @@ done:
 int dplane_ctx_intf_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 			 const struct interface *ifp)
 {
-	struct zebra_ns *zns = NULL;
-	struct zebra_if *zif = NULL;
+	struct zebra_ns *zns;
+	struct zebra_if *zif;
 	int ret = EINVAL;
 	bool set_pdown, unset_pdown;
 
