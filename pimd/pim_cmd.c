@@ -4322,9 +4322,9 @@ DEFPY (show_ip_pim_secondary,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_state,
+DEFPY (show_ip_pim_state,
        show_ip_pim_state_cmd,
-       "show ip pim [vrf NAME] state [A.B.C.D [A.B.C.D]] [json]",
+       "show ip pim [vrf NAME] state [A.B.C.D$s_or_g [A.B.C.D$g]] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -4334,32 +4334,36 @@ DEFUN (show_ip_pim_state,
        "Multicast address\n"
        JSON_STR)
 {
-	const char *src_or_group = NULL;
-	const char *group = NULL;
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct pim_instance *pim;
+	struct vrf *v;
+	json_object *json_parent = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	if (uj)
-		argc--;
+	pim = pim_get_pim_instance(v->vrf_id);
 
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		src_or_group = argv[idx]->arg;
-		if (idx + 1 < argc)
-			group = argv[idx + 1]->arg;
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
 	}
 
-	pim_show_state(vrf->info, vty, src_or_group, group, uj);
+	if (json)
+		json_parent = json_object_new_object();
+
+	pim_show_state(pim, vty, s_or_g_str, g_str, json_parent);
+
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_state_vrf_all,
+DEFPY (show_ip_pim_state_vrf_all,
        show_ip_pim_state_vrf_all_cmd,
-       "show ip pim vrf all state [A.B.C.D [A.B.C.D]] [json]",
+       "show ip pim vrf all state [A.B.C.D$s_or_g [A.B.C.D$g]] [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -4369,36 +4373,25 @@ DEFUN (show_ip_pim_state_vrf_all,
        "Multicast address\n"
        JSON_STR)
 {
-	const char *src_or_group = NULL;
-	const char *group = NULL;
-	int idx = 2;
-	bool uj = use_json(argc, argv);
 	struct vrf *vrf;
-	bool first = true;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (uj) {
-		vty_out(vty, "{ ");
-		argc--;
-	}
-
-	if (argv_find(argv, argc, "A.B.C.D", &idx)) {
-		src_or_group = argv[idx]->arg;
-		if (idx + 1 < argc)
-			group = argv[idx + 1]->arg;
-	}
+	if (json)
+		json_parent = json_object_new_object();
 
 	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
+		if (!json)
 			vty_out(vty, "VRF: %s\n", vrf->name);
-		pim_show_state(vrf->info, vty, src_or_group, group, uj);
+		else
+			json_vrf = json_object_new_object();
+		pim_show_state(vrf->info, vty, s_or_g_str, g_str, json_vrf);
+		if (json)
+			json_object_object_add(json_parent, vrf->name,
+					       json_vrf);
 	}
-	if (uj)
-		vty_out(vty, "}\n");
+	if (json)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
