@@ -178,6 +178,14 @@ static void upstream_channel_oil_detach(struct pim_upstream *up)
 
 }
 
+static void pim_upstream_timers_stop(struct pim_upstream *up)
+{
+	THREAD_OFF(up->t_ka_timer);
+	THREAD_OFF(up->t_rs_timer);
+	THREAD_OFF(up->t_msdp_reg_timer);
+	THREAD_OFF(up->t_join_timer);
+}
+
 struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 				      struct pim_upstream *up, const char *name)
 {
@@ -207,9 +215,7 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	if (pim_up_mlag_is_local(up))
 		pim_mlag_up_local_del(pim, up);
 
-	THREAD_OFF(up->t_ka_timer);
-	THREAD_OFF(up->t_rs_timer);
-	THREAD_OFF(up->t_msdp_reg_timer);
+	pim_upstream_timers_stop(up);
 
 	if (up->join_state == PIM_UPSTREAM_JOINED) {
 		pim_jp_agg_single_upstream_send(&up->rpf, up, 0);
@@ -1951,6 +1957,7 @@ void pim_upstream_terminate(struct pim_instance *pim)
 
 	while ((up = rb_pim_upstream_first(&pim->upstream_head))) {
 		pim_upstream_del(pim, up, __func__);
+		pim_upstream_timers_stop(up);
 	}
 
 	rb_pim_upstream_fini(&pim->upstream_head);
