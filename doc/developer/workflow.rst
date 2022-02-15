@@ -1257,8 +1257,8 @@ CLI changes
 -----------
 
 CLI's are a complicated ugly beast. Additions or changes to the CLI should use
-a DEFUN to encapsulate one setting as much as is possible.  Additionally as new
-DEFUN's are added to the system, documentation should be provided for the new
+a DEFPY to encapsulate one setting as much as is possible.  Additionally as new
+DEFPY's are added to the system, documentation should be provided for the new
 commands.
 
 Backwards Compatibility
