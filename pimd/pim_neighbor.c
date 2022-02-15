@@ -448,7 +448,7 @@ struct pim_neighbor *pim_neighbor_find_by_secondary(struct interface *ifp,
 }
 
 struct pim_neighbor *pim_neighbor_find(struct interface *ifp,
-				       struct in_addr source_addr)
+				       pim_addr source_addr)
 {
 	struct pim_interface *pim_ifp;
 	struct listnode *node;

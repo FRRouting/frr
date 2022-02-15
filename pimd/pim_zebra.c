@@ -129,6 +129,7 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	pim_ifp = c->ifp->info;
 	p = c->address;
 
+#if PIM_IPV == 4
 	if (PIM_DEBUG_ZEBRA) {
 		zlog_debug("%s: %s(%u) connected IP address %pFX flags %u %s",
 			   __func__, c->ifp->name, vrf_id, p, c->flags,
@@ -144,7 +145,8 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 	if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
 		/* trying to add primary address */
 
-		struct in_addr primary_addr = pim_find_primary_addr(c->ifp);
+		pim_addr primary_addr = pim_find_primary_addr(c->ifp);
+
 		if (p->family != AF_INET
 		    || primary_addr.s_addr != p->u.prefix4.s_addr) {
 			if (PIM_DEBUG_ZEBRA)
@@ -153,7 +155,9 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 					__func__, c->ifp->name, p);
 			SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
 		}
+
 	}
+#endif
 
 	pim_if_addr_add(c);
 	if (pim_ifp) {
@@ -200,6 +204,8 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	p = c->address;
+
+#if PIM_IPV == 4
 	if (p->family == AF_INET) {
 		if (PIM_DEBUG_ZEBRA) {
 			zlog_debug(
@@ -214,10 +220,13 @@ static int pim_zebra_if_address_del(ZAPI_CALLBACK_ARGS)
 #endif
 		}
 
-		pim_if_addr_del(c, 0);
-		pim_rp_setup(pim);
-		pim_i_am_rp_re_evaluate(pim);
 	}
+#endif /* PIM_IPV == 4 */
+
+	pim_if_addr_del(c, 0);
+	pim_rp_setup(pim);
+	pim_i_am_rp_re_evaluate(pim);
+
 
 	connected_free(&c);
 	return 0;
@@ -451,6 +460,7 @@ static zclient_handler *const pim_handlers[] = {
 
 void pim_zebra_init(void)
 {
+#if PIM_IPV == 4
 	/* Socket for receiving updates from Zebra daemon */
 	zclient = zclient_new(router->master, &zclient_options_default,
 			      pim_handlers, array_size(pim_handlers));
@@ -464,6 +474,22 @@ void pim_zebra_init(void)
 	}
 
 	zclient_lookup_new();
+#else
+	/* Socket for receiving updates from Zebra daemon */
+	zclient = zclient_new(router->master, &zclient_options_default,
+			      pim_handlers, array_size(pim_handlers));
+
+	zclient->zebra_capabilities = pim_zebra_capabilities;
+	zclient->zebra_connected = pim_zebra_connected;
+
+	zclient_init(zclient, ZEBRA_ROUTE_PIM6, 0, &pimd_privs);
+	if (PIM_DEBUG_PIM_TRACE) {
+		zlog_notice("%s: zclient socket initialized", __func__);
+	}
+
+	zclient_lookup_new();
+
+#endif
 }
 
 void igmp_anysource_forward_start(struct pim_instance *pim,
@@ -606,7 +632,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	}
 
 	if (!source->source_channel_oil) {
-		struct in_addr vif_source;
+		pim_addr vif_source;
 		struct prefix src, grp;
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
@@ -619,13 +645,23 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 
 		else {
+#if PIM_IPV == 4
 			src.family = AF_INET;
 			src.prefixlen = IPV4_MAX_BITLEN;
 			src.u.prefix4 = vif_source; // RP or Src address
 			grp.family = AF_INET;
 			grp.prefixlen = IPV4_MAX_BITLEN;
 			grp.u.prefix4 = sg.grp;
+#else
 
+			src.family = AF_INET6;
+			src.prefixlen = IPV6_MAX_BITLEN;
+			src.u.prefix4 = vif_source; // RP or Src address
+			grp.family = AF_INET6;
+			grp.prefixlen = IPV6_MAX_BITLEN;
+			grp.u.prefix4 = sg.grp;
+
+#endif
 			up = pim_upstream_find(pim, &sg);
 			if (up) {
 				memcpy(&nexthop, &up->rpf.source_nexthop,
