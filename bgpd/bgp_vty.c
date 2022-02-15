@@ -877,6 +877,12 @@ int bgp_vty_return(struct vty *vty, int ret)
 	case BGP_ERR_GR_OPERATION_FAILED:
 		str = "The Graceful Restart Operation failed due to an err.";
 		break;
+	case BGP_ERR_PEER_GROUP_MEMBER:
+		str = "Peer-group member cannot override remote-as of peer-group.";
+		break;
+	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
+		str = "Peer-group members must be all internal or all external.";
+		break;
 	}
 	if (str) {
 		vty_out(vty, "%% %s\n", str);
@@ -4211,17 +4217,6 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
 	}
 
-	/* This peer belongs to peer group.  */
-	switch (ret) {
-	case BGP_ERR_PEER_GROUP_MEMBER:
-		vty_out(vty,
-			"%% Peer-group member cannot override remote-as of peer-group\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
-		vty_out(vty,
-			"%% Peer-group members must be all internal or all external\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	return bgp_vty_return(vty, ret);
 }
 
@@ -4957,13 +4952,6 @@ DEFUN (neighbor_set_peer_group,
 	}
 
 	ret = peer_group_bind(bgp, &su, peer, group, &as);
-
-	if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
-		vty_out(vty,
-			"%% Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
-			as);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	return bgp_vty_return(vty, ret);
 }
