@@ -1446,17 +1446,19 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: if %s(%u) dplane update failed",
 				   __func__, ifp->name, ifp->ifindex);
-		return;
+		goto done;
 	}
 
 	/* Update our info */
-	if (down) {
+	if (down)
 		zif->flags |= ZIF_FLAG_PROTODOWN;
-		zif->flags &= ~ZIF_FLAG_SET_PROTODOWN;
-	} else {
+	else
 		zif->flags &= ~ZIF_FLAG_PROTODOWN;
-		zif->flags &= ~ZIF_FLAG_UNSET_PROTODOWN;
-	}
+
+done:
+	/* Clear our dplane flags */
+	zif->flags &= ~ZIF_FLAG_SET_PROTODOWN;
+	zif->flags &= ~ZIF_FLAG_UNSET_PROTODOWN;
 }
 
 /*
