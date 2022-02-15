@@ -62,7 +62,8 @@ void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up);
 void pim_show_rpf(struct pim_instance *pim, struct vty *vty, json_object *json);
 void pim_show_neighbors_secondary(struct pim_instance *pim, struct vty *vty);
 void pim_show_state(struct pim_instance *pim, struct vty *vty,
-		    const char *src_or_group, const char *group, bool uj);
+		    const char *src_or_group, const char *group,
+		    json_object *json);
 void pim_show_statistics(struct pim_instance *pim, struct vty *vty,
 			 const char *ifname, bool uj);
 void pim_show_upstream(struct pim_instance *pim, struct vty *vty,
