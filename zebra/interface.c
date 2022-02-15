@@ -63,8 +63,6 @@ DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 
 static void if_down_del_nbr_connected(struct interface *ifp);
-static int zebra_if_update_protodown(struct interface *ifp, bool new_down,
-				     uint32_t new_protodown_rc);
 
 static void if_zebra_speed_update(struct thread *thread)
 {
@@ -266,9 +264,9 @@ static int if_zebra_delete_hook(struct interface *ifp)
 		/* If we set protodown, clear our reason now from the kernel */
 		if (ZEBRA_IF_IS_PROTODOWN(zebra_if) && zebra_if->protodown_rc &&
 		    !ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zebra_if))
-			zebra_if_update_protodown(ifp, true,
-						  (zebra_if->protodown_rc &
-						   ~ZEBRA_PROTODOWN_ALL));
+			zebra_if_update_protodown_rc(ifp, true,
+						     (zebra_if->protodown_rc &
+						      ~ZEBRA_PROTODOWN_ALL));
 
 		/* Free installed address chains tree. */
 		if (zebra_if->ipv4_subnets)
@@ -1294,8 +1292,8 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 	return false;
 }
 
-static int zebra_if_update_protodown(struct interface *ifp, bool new_down,
-				     uint32_t new_protodown_rc)
+int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
+				 uint32_t new_protodown_rc)
 {
 	struct zebra_if *zif;
 
@@ -1338,7 +1336,7 @@ int zebra_if_set_protodown(struct interface *ifp, bool new_down,
 	else
 		new_protodown_rc = zif->protodown_rc & ~new_reason;
 
-	return zebra_if_update_protodown(ifp, new_down, new_protodown_rc);
+	return zebra_if_update_protodown_rc(ifp, new_down, new_protodown_rc);
 }
 
 /*
