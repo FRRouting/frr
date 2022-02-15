@@ -1246,8 +1246,8 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 
 	/* Current state as we know it */
 	old_down = !!(ZEBRA_IF_IS_PROTODOWN(zif));
-	old_set_down = !!(zif->flags & ZIF_FLAG_SET_PROTODOWN);
-	old_unset_down = !!(zif->flags & ZIF_FLAG_UNSET_PROTODOWN);
+	old_set_down = !!CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
+	old_unset_down = !!CHECK_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
 
 	if (new_protodown_rc == zif->protodown_rc) {
 		/* Early return if already down & reason bitfield matches */
@@ -1311,9 +1311,9 @@ int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
 	zif->protodown_rc = new_protodown_rc;
 
 	if (new_down)
-		zif->flags |= ZIF_FLAG_SET_PROTODOWN;
+		SET_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
 	else
-		zif->flags |= ZIF_FLAG_UNSET_PROTODOWN;
+		SET_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
 
 #ifdef HAVE_NETLINK
 	dplane_intf_update(ifp);
@@ -1450,15 +1450,12 @@ static void zebra_if_update_ctx(struct zebra_dplane_ctx *ctx,
 	}
 
 	/* Update our info */
-	if (down)
-		zif->flags |= ZIF_FLAG_PROTODOWN;
-	else
-		zif->flags &= ~ZIF_FLAG_PROTODOWN;
+	COND_FLAG(zif->flags, ZIF_FLAG_PROTODOWN, down);
 
 done:
 	/* Clear our dplane flags */
-	zif->flags &= ~ZIF_FLAG_SET_PROTODOWN;
-	zif->flags &= ~ZIF_FLAG_UNSET_PROTODOWN;
+	UNSET_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
+	UNSET_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
 }
 
 /*
@@ -1859,19 +1856,19 @@ const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
 
 	strlcat(pd_buf, "(", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EXTERNAL)
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_EXTERNAL))
 		strlcat(pd_buf, "external,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY)
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY))
 		strlcat(pd_buf, "startup-delay,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN)
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN))
 		strlcat(pd_buf, "uplinks-down,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_VRRP)
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_VRRP))
 		strlcat(pd_buf, "vrrp,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_SHARP)
+	if (CHECK_FLAG(protodown_rc, ZEBRA_PROTODOWN_SHARP))
 		strlcat(pd_buf, "sharp,", pd_buf_len);
 
 	len = strnlen(pd_buf, pd_buf_len);
