@@ -1852,49 +1852,31 @@ static void ifs_dump_brief_vty_json(json_object *json, struct vrf *vrf)
 const char *zebra_protodown_rc_str(uint32_t protodown_rc, char *pd_buf,
 				   uint32_t pd_buf_len)
 {
-	bool first = true;
-
 	pd_buf[0] = '\0';
+	size_t len;
 
 	strlcat(pd_buf, "(", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EXTERNAL) {
-		if (first)
-			first = false;
-		else
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "external", pd_buf_len);
-	}
+	if (protodown_rc & ZEBRA_PROTODOWN_EXTERNAL)
+		strlcat(pd_buf, "external,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY) {
-		if (first)
-			first = false;
-		else
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "startup-delay", pd_buf_len);
-	}
+	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY)
+		strlcat(pd_buf, "startup-delay,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN) {
-		if (first)
-			first = false;
-		else
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "uplinks-down", pd_buf_len);
-	}
+	if (protodown_rc & ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN)
+		strlcat(pd_buf, "uplinks-down,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_VRRP) {
-		if (first)
-			first = false;
-		else
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "vrrp", pd_buf_len);
-	}
+	if (protodown_rc & ZEBRA_PROTODOWN_VRRP)
+		strlcat(pd_buf, "vrrp,", pd_buf_len);
 
-	if (protodown_rc & ZEBRA_PROTODOWN_SHARP) {
-		if (!first)
-			strlcat(pd_buf, ",", pd_buf_len);
-		strlcat(pd_buf, "sharp", pd_buf_len);
-	}
+	if (protodown_rc & ZEBRA_PROTODOWN_SHARP)
+		strlcat(pd_buf, "sharp,", pd_buf_len);
+
+	len = strnlen(pd_buf, pd_buf_len);
+
+	/* Remove trailing comma */
+	if (pd_buf[len - 1] == ',')
+		pd_buf[len - 1] = '\0';
 
 	strlcat(pd_buf, ")", pd_buf_len);
 
