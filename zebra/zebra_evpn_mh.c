@@ -3470,7 +3470,8 @@ void zebra_evpn_mh_json(json_object *json)
 				json_object_new_string("startupDelay"));
 		if (CHECK_FLAG(zmh_info->protodown_rc,
 			       ZEBRA_PROTODOWN_EVPN_UPLINK_DOWN))
-			json_object_array_add(json_array,
+			json_object_array_add(
+				json_array,
 				json_object_new_string("uplinkDown"));
 		json_object_object_add(json, "protodownReasons", json_array);
 	}
