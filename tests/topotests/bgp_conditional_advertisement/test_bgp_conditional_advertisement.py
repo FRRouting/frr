@@ -334,7 +334,7 @@ def test_bgp_conditional_advertisement():
             "192.0.2.1/32": None,
             "192.0.2.5/32": None,
             "10.139.224.0/20": None,
-            "203.0.113.1/32": [{"protocol": "bgp"}],
+            "203.0.113.1/32": [{"protocol": "bgp", "metric": 911}],
         }
         return topotest.json_cmp(output, expected)
 

@@ -1836,7 +1836,7 @@ void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
 			     const struct prefix *p, struct attr *attr,
-			     bool skip_rmap_check)
+			     struct attr *post_attr)
 {
 	struct bgp_filter *filter;
 	struct peer *from;
@@ -2067,8 +2067,16 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	/* For modify attribute, copy it to temporary structure. */
-	*attr = *piattr;
+	/* For modify attribute, copy it to temporary structure.
+	 * post_attr comes from BGP conditional advertisements, where
+	 * attributes are already processed by advertise-map route-map,
+	 * and this needs to be saved instead of overwriting from the
+	 * path attributes.
+	 */
+	if (post_attr)
+		*attr = *post_attr;
+	else
+		*attr = *piattr;
 
 	/* If local-preference is not set. */
 	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
@@ -2162,8 +2170,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
 	/* Route map & unsuppress-map apply. */
-	if (!skip_rmap_check
-	    && (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
+	if (!post_attr &&
+	    (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
 		struct bgp_path_info rmap_path = {0};
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
@@ -2699,7 +2707,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 
 	if (selected) {
 		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
-					    false)) {
+					    NULL)) {
 			/* Route is selected, if the route is already installed
 			 * in FIB, then it is advertised
 			 */
