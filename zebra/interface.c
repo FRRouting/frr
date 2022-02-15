@@ -1254,9 +1254,9 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 		if (new_down == old_down) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"Ignoring %s (%u): protodown %s already set reason: old 0x%x new 0x%x",
-					ifp->name, ifp->ifindex,
-					new_down ? "on" : "off",
+					"Ignoring request to set protodown %s for interface %s (%u): protodown %s is already set (reason bitfield: old 0x%x new 0x%x)",
+					new_down ? "on" : "off", ifp->name,
+					ifp->ifindex, new_down ? "on" : "off",
 					zif->protodown_rc, new_protodown_rc);
 
 			return true;
@@ -1267,9 +1267,9 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 		if (new_down && old_set_down) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"Ignoring %s (%u): protodown %s queued to dplane already reason: old 0x%x new 0x%x",
-					ifp->name, ifp->ifindex,
-					new_down ? "on" : "off",
+					"Ignoring request to set protodown %s for interface %s (%u): protodown %s is already queued to dplane (reason bitfield: old 0x%x new 0x%x)",
+					new_down ? "on" : "off", ifp->name,
+					ifp->ifindex, new_down ? "on" : "off",
 					zif->protodown_rc, new_protodown_rc);
 
 			return true;
@@ -1280,9 +1280,9 @@ static bool if_ignore_set_protodown(const struct interface *ifp, bool new_down,
 		if (!new_down && old_unset_down) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
 				zlog_debug(
-					"Ignoring %s (%u): protodown %s queued to dplane already reason: old 0x%x new 0x%x",
-					ifp->name, ifp->ifindex,
-					new_down ? "on" : "off",
+					"Ignoring request to set protodown %s for interface %s (%u): protodown %s is already queued to dplane (reason bitfield: old 0x%x new 0x%x)",
+					new_down ? "on" : "off", ifp->name,
+					ifp->ifindex, new_down ? "on" : "off",
 					zif->protodown_rc, new_protodown_rc);
 
 			return true;
@@ -1304,8 +1304,8 @@ int zebra_if_update_protodown_rc(struct interface *ifp, bool new_down,
 		return 1;
 
 	zlog_info(
-		"Setting interface %s (%u): protodown %s reason: old 0x%x new 0x%x",
-		ifp->name, ifp->ifindex, new_down ? "on" : "off",
+		"Setting protodown %s - interface %s (%u): reason bitfield change from 0x%x --> 0x%x",
+		new_down ? "on" : "off", ifp->name, ifp->ifindex,
 		zif->protodown_rc, new_protodown_rc);
 
 	zif->protodown_rc = new_protodown_rc;
