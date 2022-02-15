@@ -852,11 +852,10 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 	 * If the reason we got from the kernel is ONLY frr though, don't
 	 * set it.
 	 */
-	if (protodown && rc_bitfield &&
-	    is_if_protodown_reason_only_frr(rc_bitfield) == false)
-		zif->protodown_rc |= ZEBRA_PROTODOWN_EXTERNAL;
-	else
-		zif->protodown_rc &= ~ZEBRA_PROTODOWN_EXTERNAL;
+	COND_FLAG(zif->protodown_rc, ZEBRA_PROTODOWN_EXTERNAL,
+		  protodown && rc_bitfield &&
+			  !is_if_protodown_reason_only_frr(rc_bitfield));
+
 
 	old_protodown = !!ZEBRA_IF_IS_PROTODOWN(zif);
 	if (protodown == old_protodown)
@@ -866,17 +865,16 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 		zlog_debug("interface %s dplane change, protdown %s",
 			   zif->ifp->name, protodown ? "on" : "off");
 
-	if (protodown)
-		zif->flags |= ZIF_FLAG_PROTODOWN;
-	else
-		zif->flags &= ~ZIF_FLAG_PROTODOWN;
+	/* Set protodown, respectively */
+	COND_FLAG(zif->flags, ZIF_FLAG_PROTODOWN, protodown);
 
 	if (zebra_evpn_is_es_bond_member(zif->ifp)) {
 		/* Check it's not already being sent to the dplane first */
-		if (protodown && (zif->flags & ZIF_FLAG_SET_PROTODOWN))
+		if (protodown && CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN))
 			return;
 
-		if (!protodown && (zif->flags & ZIF_FLAG_UNSET_PROTODOWN))
+		if (!protodown
+		    && CHECK_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN))
 			return;
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
@@ -885,9 +883,9 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 				zif->ifp->name, old_protodown ? "on" : "off");
 
 		if (old_protodown)
-			zif->flags |= ZIF_FLAG_SET_PROTODOWN;
+			SET_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN);
 		else
-			zif->flags |= ZIF_FLAG_UNSET_PROTODOWN;
+			SET_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN);
 
 		dplane_intf_update(zif->ifp);
 	}
@@ -926,7 +924,7 @@ static void if_sweep_protodown(struct zebra_if *zif)
 			   zif->protodown_rc);
 
 	/* Only clear our reason codes, leave external if it was set */
-	zif->protodown_rc &= ~ZEBRA_PROTODOWN_ALL;
+	UNSET_FLAG(zif->protodown_rc, ZEBRA_PROTODOWN_ALL);
 	dplane_intf_update(zif->ifp);
 }
 
