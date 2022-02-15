@@ -1950,7 +1950,6 @@ enum bgp_clear_type {
 #define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS  -30
 #define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -31
 #define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -32
-#define BGP_ERR_MAX                             -33
 #define BGP_ERR_INVALID_FOR_DIRECT_PEER         -34
 #define BGP_ERR_PEER_SAFI_CONFLICT              -35
 
