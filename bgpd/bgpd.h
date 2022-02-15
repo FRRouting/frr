@@ -1924,7 +1924,6 @@ enum bgp_clear_type {
 #define BGP_ERR_INVALID_VALUE                    -1
 #define BGP_ERR_INVALID_FLAG                     -2
 #define BGP_ERR_INVALID_AS                       -3
-#define BGP_ERR_INVALID_BGP                      -4
 #define BGP_ERR_PEER_GROUP_MEMBER                -5
 #define BGP_ERR_PEER_GROUP_NO_REMOTE_AS          -7
 #define BGP_ERR_PEER_GROUP_CANT_CHANGE           -8
