@@ -320,9 +320,9 @@ enum zebra_if_flags {
 	ZIF_FLAG_LACP_BYPASS = (1 << 5)
 };
 
-#define ZEBRA_IF_IS_PROTODOWN(zif) (zif->flags & ZIF_FLAG_PROTODOWN)
+#define ZEBRA_IF_IS_PROTODOWN(zif) ((zif)->flags & ZIF_FLAG_PROTODOWN)
 #define ZEBRA_IF_IS_PROTODOWN_ONLY_EXTERNAL(zif)                               \
-	(zif->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
+	((zif)->protodown_rc == ZEBRA_PROTODOWN_EXTERNAL)
 
 /* `zebra' daemon local interface structure. */
 struct zebra_if {
