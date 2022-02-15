@@ -1404,14 +1404,15 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 					 json_object *json, bool uj)
 {
 	json_object *json_group = NULL;
-	char src_str[INET_ADDRSTRLEN];
-	char grp_str[INET_ADDRSTRLEN];
 	json_object *json_row = NULL;
 
-	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-
 	if (uj) {
+		char grp_str[PIM_ADDRSTRLEN];
+		char src_str[PIM_ADDRSTRLEN];
+
+		snprintfrr(grp_str, sizeof(grp_str), "%pPAs", &up->sg.grp);
+		snprintfrr(src_str, sizeof(src_str), "%pPAs", &up->sg.src);
+
 		json_object_object_get_ex(json, grp_str, &json_group);
 
 		if (!json_group) {
@@ -1431,7 +1432,8 @@ static void pim_show_join_desired_helper(struct pim_instance *pim,
 		json_object_object_add(json_group, src_str, json_row);
 
 	} else {
-		vty_out(vty, "%-15s %-15s %-6s\n", src_str, grp_str,
+		vty_out(vty, "%-15pPAs %-15pPAs %-6s\n", &up->sg.src,
+			&up->sg.grp,
 			pim_upstream_evaluate_join_desired(pim, up) ? "yes"
 								    : "no");
 	}
