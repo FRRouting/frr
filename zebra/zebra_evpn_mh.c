@@ -3636,7 +3636,7 @@ void zebra_evpn_mh_update_protodown_bond_mbr(struct zebra_if *zif, bool clear,
 	}
 
 	old_protodown_rc = zif->protodown_rc;
-	new_protodown_rc &= ~ZEBRA_PROTODOWN_EVPN_ALL;
+	new_protodown_rc = (old_protodown_rc & ~ZEBRA_PROTODOWN_EVPN_ALL);
 	new_protodown_rc |= (protodown_rc & ZEBRA_PROTODOWN_EVPN_ALL);
 	new_protodown = !!new_protodown_rc;
 
