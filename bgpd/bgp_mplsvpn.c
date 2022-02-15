@@ -526,7 +526,7 @@ static uint32_t alloc_new_sid(struct bgp *bgp, uint32_t index,
 	struct prefix_ipv6 *chunk;
 	struct in6_addr sid_buf;
 	bool alloced = false;
-	int label;
+	int label = 0;
 
 	if (!bgp || !sid)
 		return false;
