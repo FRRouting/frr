@@ -932,6 +932,37 @@ DEFPY (show_ipv6_pim_upstream_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_upstream_join_desired,
+       show_ipv6_pim_upstream_join_desired_cmd,
+       "show ipv6 pim [vrf NAME] upstream-join-desired [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM upstream join-desired\n"
+       JSON_STR)
+{
+	struct pim_instance *pim;
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim = pim_get_pim_instance(v->vrf_id);
+
+	if (!pim) {
+		vty_out(vty, "%% Unable to find pim instance\n");
+		return CMD_WARNING;
+	}
+
+	pim_show_join_desired(pim, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -992,4 +1023,5 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_statistics_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_upstream_join_desired_cmd);
 }
