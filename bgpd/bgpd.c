@@ -651,9 +651,6 @@ int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
-	if (!bgp)
-		return BGP_ERR_INVALID_BGP;
-
 	if (bgp->as == as)
 		return BGP_ERR_INVALID_AS;
 
