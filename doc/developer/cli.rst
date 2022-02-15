@@ -48,6 +48,16 @@ a node and returns the parent of the node. This interface causes all manner of
 insidious problems, even for experienced developers, and needs to be fixed at
 some point in the future.
 
+Deprecation of old style of commands
+------------------------------------
+
+There are currently 2 styles of defining commands within a FRR source file.
+``DEFUN`` and ``DEFPY``.  ``DEFPY`` should be used for all new commands that
+a developer is writing.  This is because it allows for much better handling
+of command line arguments as well as ensuring that input is correct.  ``DEFUN``
+is listed here for historical reasons as well as for ensuring that existing
+code can be understood by new developers.
+
 Defining Commands
 -----------------
 All definitions for the CLI system are exposed in ``lib/command.h``. In this
