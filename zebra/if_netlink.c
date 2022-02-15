@@ -870,16 +870,27 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 
 	if (zebra_evpn_is_es_bond_member(zif->ifp)) {
 		/* Check it's not already being sent to the dplane first */
-		if (protodown && CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN))
+		if (protodown &&
+		    CHECK_FLAG(zif->flags, ZIF_FLAG_SET_PROTODOWN)) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"bond mbr %s protodown on recv'd but already sent protodown on to the dplane",
+					zif->ifp->name);
 			return;
+		}
 
-		if (!protodown
-		    && CHECK_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN))
+		if (!protodown &&
+		    CHECK_FLAG(zif->flags, ZIF_FLAG_UNSET_PROTODOWN)) {
+			if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
+				zlog_debug(
+					"bond mbr %s protodown off recv'd but already sent protodown off to the dplane",
+					zif->ifp->name);
 			return;
+		}
 
 		if (IS_ZEBRA_DEBUG_EVPN_MH_ES || IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"bond mbr %s re-instate protdown %s in the dplane",
+				"bond mbr %s reinstate protodown %s in the dplane",
 				zif->ifp->name, old_protodown ? "on" : "off");
 
 		if (old_protodown)
@@ -2227,8 +2238,9 @@ void interface_list(struct zebra_ns *zns)
 void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("FRR protodown reason bit change %u -> %u",
-			   frr_protodown_r_bit, bit);
+		zlog_debug(
+			"Protodown reason bit index changed: bit-index %u -> bit-index %u",
+			frr_protodown_r_bit, bit);
 
 	frr_protodown_r_bit = bit;
 }
@@ -2236,9 +2248,9 @@ void if_netlink_set_frr_protodown_r_bit(uint8_t bit)
 void if_netlink_unset_frr_protodown_r_bit(void)
 {
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("FRR protodown reason bit change %u -> %u",
-			   frr_protodown_r_bit,
-			   FRR_PROTODOWN_REASON_DEFAULT_BIT);
+		zlog_debug(
+			"Protodown reason bit index changed: bit-index %u -> bit-index %u",
+			frr_protodown_r_bit, FRR_PROTODOWN_REASON_DEFAULT_BIT);
 
 	frr_protodown_r_bit = FRR_PROTODOWN_REASON_DEFAULT_BIT;
 }
