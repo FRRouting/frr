@@ -674,62 +674,64 @@ bool pim_sgaddr_match(pim_sgaddr item, pim_sgaddr match)
 
 void json_object_pim_upstream_add(json_object *json, struct pim_upstream *up)
 {
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED)
-		json_object_boolean_true_add(json, "drJoinDesired");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED)
-		json_object_boolean_true_add(json, "drJoinDesiredUpdated");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_FHR)
-		json_object_boolean_true_add(json, "firstHopRouter");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_IGMP)
-		json_object_boolean_true_add(json, "sourceIgmp");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_PIM)
-		json_object_boolean_true_add(json, "sourcePim");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_STREAM)
-		json_object_boolean_true_add(json, "sourceStream");
-
+	json_object_boolean_add(
+		json, "drJoinDesired",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED));
+	json_object_boolean_add(
+		json, "drJoinDesiredUpdated",
+		CHECK_FLAG(up->flags,
+			   PIM_UPSTREAM_FLAG_MASK_DR_JOIN_DESIRED_UPDATED));
+	json_object_boolean_add(
+		json, "firstHopRouter",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_FHR));
+	json_object_boolean_add(
+		json, "sourceIgmp",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_IGMP));
+	json_object_boolean_add(
+		json, "sourcePim",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_PIM));
+	json_object_boolean_add(
+		json, "sourceStream",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_STREAM));
 	/* XXX: need to print ths flag in the plain text display as well */
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_MSDP)
-		json_object_boolean_true_add(json, "sourceMsdp");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE)
-		json_object_boolean_true_add(json, "sendSGRptPrune");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_LHR)
-		json_object_boolean_true_add(json, "lastHopRouter");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY)
-		json_object_boolean_true_add(json, "disableKATExpiry");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_STATIC_IIF)
-		json_object_boolean_true_add(json, "staticIncomingInterface");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL)
-		json_object_boolean_true_add(json,
-					     "allowIncomingInterfaceinOil");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA)
-		json_object_boolean_true_add(json, "noPimRegistrationData");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG)
-		json_object_boolean_true_add(json, "forcePimRegistration");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG)
-		json_object_boolean_true_add(json, "sourceVxlanOrigination");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM)
-		json_object_boolean_true_add(json, "sourceVxlanTermination");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN)
-		json_object_boolean_true_add(json, "mlagVxlan");
-
-	if (up->flags & PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF)
-		json_object_boolean_true_add(json,
-					     "mlagNonDesignatedForwarder");
+	json_object_boolean_add(
+		json, "sourceMsdp",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_MSDP));
+	json_object_boolean_add(
+		json, "sendSGRptPrune",
+		CHECK_FLAG(up->flags,
+			   PIM_UPSTREAM_FLAG_MASK_SEND_SG_RPT_PRUNE));
+	json_object_boolean_add(
+		json, "lastHopRouter",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_LHR));
+	json_object_boolean_add(
+		json, "disableKATExpiry",
+		CHECK_FLAG(up->flags,
+			   PIM_UPSTREAM_FLAG_MASK_DISABLE_KAT_EXPIRY));
+	json_object_boolean_add(
+		json, "staticIncomingInterface",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_STATIC_IIF));
+	json_object_boolean_add(
+		json, "allowIncomingInterfaceinOil",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_ALLOW_IIF_IN_OIL));
+	json_object_boolean_add(
+		json, "noPimRegistrationData",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_NO_PIMREG_DATA));
+	json_object_boolean_add(
+		json, "forcePimRegistration",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_FORCE_PIMREG));
+	json_object_boolean_add(
+		json, "sourceVxlanOrigination",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_ORIG));
+	json_object_boolean_add(
+		json, "sourceVxlanTermination",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_SRC_VXLAN_TERM));
+	json_object_boolean_add(
+		json, "mlagVxlan",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_MLAG_VXLAN));
+	json_object_boolean_add(
+		json, "mlagNonDesignatedForwarder",
+		CHECK_FLAG(up->flags, PIM_UPSTREAM_FLAG_MASK_MLAG_NON_DF));
 }
 
 static const char *
@@ -1473,8 +1475,6 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 			"Source          Group           RpfIface         RibNextHop      RpfAddress     \n");
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		char src_str[INET_ADDRSTRLEN];
-		char grp_str[INET_ADDRSTRLEN];
 		char rpf_nexthop_str[PREFIX_STRLEN];
 		char rpf_addr_str[PREFIX_STRLEN];
 		struct pim_rpf *rpf;
@@ -1482,8 +1482,6 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 
 		rpf = &up->rpf;
 
-		pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-		pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
 		pim_addr_dump("<nexthop?>",
 			      &rpf->source_nexthop.mrib_nexthop_addr,
 			      rpf_nexthop_str, sizeof(rpf_nexthop_str));
@@ -1496,6 +1494,13 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 						      : "<ifname?>";
 
 		if (uj) {
+			char grp_str[PIM_ADDRSTRLEN];
+			char src_str[PIM_ADDRSTRLEN];
+
+			snprintfrr(grp_str, sizeof(grp_str), "%pPAs",
+				   &up->sg.grp);
+			snprintfrr(src_str, sizeof(src_str), "%pPAs",
+				   &up->sg.src);
 			json_object_object_get_ex(json, grp_str, &json_group);
 
 			if (!json_group) {
@@ -1516,9 +1521,9 @@ void pim_show_upstream_rpf(struct pim_instance *pim, struct vty *vty, bool uj)
 					       rpf_addr_str);
 			json_object_object_add(json_group, src_str, json_row);
 		} else {
-			vty_out(vty, "%-15s %-15s %-16s %-15s %-15s\n", src_str,
-				grp_str, rpf_ifname, rpf_nexthop_str,
-				rpf_addr_str);
+			vty_out(vty, "%-15pPAs %-15pPAs %-16s %-15s %-15s\n",
+				&up->sg.src, &up->sg.grp, rpf_ifname,
+				rpf_nexthop_str, rpf_addr_str);
 		}
 	}
 
