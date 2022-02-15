@@ -815,7 +815,7 @@ static int netlink_bridge_interface(struct nlmsghdr *h, int len, ns_id_t ns_id,
 	return 0;
 }
 
-static bool is_if_protodown_r_only_frr(uint32_t rc_bitfield)
+static bool is_if_protodown_reason_only_frr(uint32_t rc_bitfield)
 {
 	/* This shouldn't be possible */
 	assert(frr_protodown_r_bit < 32);
@@ -853,7 +853,7 @@ static void netlink_proc_dplane_if_protodown(struct zebra_if *zif,
 	 * set it.
 	 */
 	if (protodown && rc_bitfield &&
-	    is_if_protodown_r_only_frr(rc_bitfield) == false)
+	    is_if_protodown_reason_only_frr(rc_bitfield) == false)
 		zif->protodown_rc |= ZEBRA_PROTODOWN_EXTERNAL;
 	else
 		zif->protodown_rc &= ~ZEBRA_PROTODOWN_EXTERNAL;
