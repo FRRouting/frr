@@ -1834,7 +1834,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 					 ZEBRA_INTERFACE_VRF_LOOPBACK);
 
 			/* Update link. */
-			zebra_if_update_link(ifp, link_ifindex, ns_id);
+			zebra_if_update_link(ifp, link_ifindex, link_nsid);
 
 			ifp->ll_type =
 				netlink_to_zebra_link_type(ifi->ifi_type);
@@ -1903,7 +1903,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 			memcpy(old_hw_addr, ifp->hw_addr, INTERFACE_HWADDR_MAX);
 
 			/* Update link. */
-			zebra_if_update_link(ifp, link_ifindex, ns_id);
+			zebra_if_update_link(ifp, link_ifindex, link_nsid);
 
 			ifp->ll_type =
 				netlink_to_zebra_link_type(ifi->ifi_type);
