@@ -785,7 +785,7 @@ extern bool subgroup_announce_check(struct bgp_dest *dest,
 				    struct bgp_path_info *pi,
 				    struct update_subgroup *subgrp,
 				    const struct prefix *p, struct attr *attr,
-				    bool skip_rmap_check);
+				    struct attr *post_attr);
 
 extern void bgp_peer_clear_node_queue_drain_immediate(struct peer *peer);
 extern void bgp_process_queues_drain_immediate(void);
