@@ -1036,27 +1036,23 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		}
 
 		frr_each (bsm_rpinfos, bsgrp->bsrp_list, bsm_rp) {
-			char rp_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<Rp Address?>", bsm_rp->rp_address,
-				       rp_str, sizeof(rp_str));
-
 			if (uj) {
 				json_row = json_object_new_object();
-				json_object_string_add(json_row, "Rp Address",
-						       rp_str);
+				json_object_string_addf(json_row, "Rp Address",
+						        "%pPA",
+						        &bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
 						    bsm_rp->rp_prio);
 				json_object_int_add(json_row, "Hash Val",
 						    bsm_rp->hash);
-				json_object_object_add(json_group, rp_str,
-						       json_row);
+				json_object_object_addf(json_group, json_row,
+							"%pPA", &bsm_rp->rp_address);
 
 			} else {
-				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
-					rp_str, bsm_rp->rp_prio,
+				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
 		}
@@ -1077,26 +1073,23 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 		}
 
 		frr_each (bsm_rpinfos, bsgrp->partial_bsrp_list, bsm_rp) {
-			char rp_str[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<Rp Addr?>", bsm_rp->rp_address, rp_str,
-				       sizeof(rp_str));
-
 			if (uj) {
 				json_row = json_object_new_object();
-				json_object_string_add(json_row, "Rp Address",
-						       rp_str);
+				json_object_string_addf(json_row, "Rp Address",
+							"%pPA",
+							&bsm_rp->rp_address);
 				json_object_int_add(json_row, "Rp HoldTime",
 						    bsm_rp->rp_holdtime);
 				json_object_int_add(json_row, "Rp Priority",
 						    bsm_rp->rp_prio);
 				json_object_int_add(json_row, "Hash Val",
 						    bsm_rp->hash);
-				json_object_object_add(json_group, rp_str,
-						       json_row);
+				json_object_object_addf(json_group, json_row,
+							"%pPA",
+						        &bsm_rp->rp_address);
 			} else {
-				vty_out(vty, "%-15s %-15u %-15u %-15u\n",
-					rp_str, bsm_rp->rp_prio,
+				vty_out(vty, "%-15pPA %-15u %-15u %-15u\n",
+					&bsm_rp->rp_address, bsm_rp->rp_prio,
 					bsm_rp->rp_holdtime, bsm_rp->hash);
 			}
 		}
