@@ -884,9 +884,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		buf += sizeof(struct bsm_hdr);
 		len -= sizeof(struct bsm_hdr);
 
-		pim_inet4_dump("<BSR Address?>", hdr->bsr_addr.addr, bsr_str,
-			       sizeof(bsr_str));
-
+		snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
+			   &hdr->bsr_addr.addr);
 
 		if (uj) {
 			json_object_string_add(json, "BSR address", bsr_str);
@@ -998,24 +997,16 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	struct bsgrp_node *bsgrp;
 	struct bsm_rpinfo *bsm_rp;
 	struct route_node *rn;
-	char bsr_str[INET_ADDRSTRLEN];
 	json_object *json = NULL;
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY)
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
-
-	else
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr, bsr_str,
-			       sizeof(bsr_str));
-
 	if (uj) {
 		json = json_object_new_object();
-		json_object_string_add(json, "BSR Address", bsr_str);
-	} else {
-		vty_out(vty, "BSR Address  %s\n", bsr_str);
-	}
+		json_object_string_addf(json, "BSR Address", "%pPA",
+				       &pim->global_scope.current_bsr);
+	} else
+		vty_out(vty, "BSR Address  %pPA\n", &pim->global_scope.current_bsr);
 
 	for (rn = route_top(pim->global_scope.bsrp_table); rn;
 	     rn = route_next(rn)) {
@@ -1451,11 +1442,9 @@ static void pim_show_bsr(struct pim_instance *pim,
 	char last_bsm_seen[10];
 	time_t now;
 	char bsr_state[20];
-	char bsr_str[PREFIX_STRLEN];
 	json_object *json = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY) {
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
 		pim_time_uptime(uptime, sizeof(uptime),
 				pim->global_scope.current_bsr_first_ts);
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
@@ -1463,8 +1452,6 @@ static void pim_show_bsr(struct pim_instance *pim,
 	}
 
 	else {
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr,
-			       bsr_str, sizeof(bsr_str));
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(uptime, sizeof(uptime),
 				(now - pim->global_scope.current_bsr_first_ts));
@@ -1486,9 +1473,11 @@ static void pim_show_bsr(struct pim_instance *pim,
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
 
+
 	if (uj) {
 		json = json_object_new_object();
-		json_object_string_add(json, "bsr", bsr_str);
+		json_object_string_addf(json, "bsr", "%pPA",
+					&pim->global_scope.current_bsr);
 		json_object_int_add(json, "priority",
 				    pim->global_scope.current_bsr_prio);
 		json_object_int_add(json, "fragmentTag",
@@ -1500,7 +1489,8 @@ static void pim_show_bsr(struct pim_instance *pim,
 
 	else {
 		vty_out(vty, "PIMv2 Bootstrap information\n");
-		vty_out(vty, "Current preferred BSR address: %s\n", bsr_str);
+		vty_out(vty, "Current preferred BSR address: %pPA\n",
+			&pim->global_scope.current_bsr);
 		vty_out(vty,
 			"Priority        Fragment-Tag       State           UpTime\n");
 		vty_out(vty, "  %-12d    %-12d    %-13s    %7s\n",
