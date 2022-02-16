@@ -511,10 +511,12 @@ static struct isis_vertex *isis_spf_add_root(struct isis_spftree *spftree)
 	isis_vertex_queue_append(&spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-SPF: added this IS %s %s depth %d dist %d to PATHS",
-		   vtype2string(vertex->type),
-		   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
-		   vertex->d_N);
+	if (IS_DEBUG_SPF_EVENTS)
+		zlog_debug(
+			"ISIS-SPF: added this IS %s %s depth %d dist %d to PATHS",
+			vtype2string(vertex->type),
+			vid2string(vertex, buff, sizeof(buff)), vertex->depth,
+			vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
 	return vertex;
@@ -629,11 +631,13 @@ isis_spf_add2tent(struct isis_spftree *spftree, enum vertextype vtype, void *id,
 	}
 
 #ifdef EXTREME_DEBUG
-	zlog_debug(
-		"ISIS-SPF: add to TENT %s %s %s depth %d dist %d adjcount %d",
-		print_sys_hostname(vertex->N.id), vtype2string(vertex->type),
-		vid2string(vertex, buff, sizeof(buff)), vertex->depth,
-		vertex->d_N, listcount(vertex->Adj_N));
+	if (IS_DEBUG_SPF_EVENTS)
+		zlog_debug(
+			"ISIS-SPF: add to TENT %s %s %s depth %d dist %d adjcount %d",
+			print_sys_hostname(vertex->N.id),
+			vtype2string(vertex->type),
+			vid2string(vertex, buff, sizeof(buff)), vertex->depth,
+			vertex->d_N, listcount(vertex->Adj_N));
 #endif /* EXTREME_DEBUG */
 
 	isis_vertex_queue_insert(&spftree->tents, vertex);
@@ -721,10 +725,12 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	vertex = isis_find_vertex(&spftree->paths, id, vtype);
 	if (vertex) {
 #ifdef EXTREME_DEBUG
-		zlog_debug(
-			"ISIS-SPF: process_N %s %s %s dist %d already found from PATH",
-			print_sys_hostname(vertex->N.id), vtype2string(vtype),
-			vid2string(vertex, buff, sizeof(buff)), dist);
+		if (IS_DEBUG_SPF_EVENTS)
+			zlog_debug(
+				"ISIS-SPF: process_N %s %s %s dist %d already found from PATH",
+				print_sys_hostname(vertex->N.id),
+				vtype2string(vtype),
+				vid2string(vertex, buff, sizeof(buff)), dist);
 #endif /* EXTREME_DEBUG */
 		assert(dist >= vertex->d_N);
 		return;
@@ -735,12 +741,15 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	if (vertex) {
 /*        1) */
 #ifdef EXTREME_DEBUG
-		zlog_debug(
-			"ISIS-SPF: process_N %s %s %s dist %d parent %s adjcount %d",
-			print_sys_hostname(vertex->N.id), vtype2string(vtype),
-			vid2string(vertex, buff, sizeof(buff)), dist,
-			(parent ? print_sys_hostname(parent->N.id) : "null"),
-			(parent ? listcount(parent->Adj_N) : 0));
+		if (IS_DEBUG_SPF_EVENTS)
+			zlog_debug(
+				"ISIS-SPF: process_N %s %s %s dist %d parent %s adjcount %d",
+				print_sys_hostname(vertex->N.id),
+				vtype2string(vtype),
+				vid2string(vertex, buff, sizeof(buff)), dist,
+				(parent ? print_sys_hostname(parent->N.id)
+					: "null"),
+				(parent ? listcount(parent->Adj_N) : 0));
 #endif /* EXTREME_DEBUG */
 		if (vertex->d_N == dist) {
 			struct listnode *node;
@@ -778,9 +787,11 @@ static void process_N(struct isis_spftree *spftree, enum vertextype vtype,
 	}
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-SPF: process_N add2tent %s %s dist %d parent %s",
-		   print_sys_hostname(id), vtype2string(vtype), dist,
-		   (parent ? print_sys_hostname(parent->N.id) : "null"));
+	if (IS_DEBUG_SPF_EVENTS)
+		zlog_debug(
+			"ISIS-SPF: process_N add2tent %s %s dist %d parent %s",
+			print_sys_hostname(id), vtype2string(vtype), dist,
+			(parent ? print_sys_hostname(parent->N.id) : "null"));
 #endif /* EXTREME_DEBUG */
 
 	isis_spf_add2tent(spftree, vtype, id, dist, depth, NULL, psid, parent);
@@ -839,8 +850,9 @@ lspfragloop:
 	}
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-SPF: process_lsp %s",
-		   print_sys_hostname(lsp->hdr.lsp_id));
+	if (IS_DEBUG_SPF_EVENTS)
+		zlog_debug("ISIS-SPF: process_lsp %s",
+			   print_sys_hostname(lsp->hdr.lsp_id));
 #endif /* EXTREME_DEBUG */
 
 	if (no_overload) {
@@ -1477,10 +1489,12 @@ static void add_to_paths(struct isis_spftree *spftree,
 	isis_vertex_queue_append(&spftree->paths, vertex);
 
 #ifdef EXTREME_DEBUG
-	zlog_debug("ISIS-SPF: added %s %s %s depth %d dist %d to PATHS",
-		   print_sys_hostname(vertex->N.id), vtype2string(vertex->type),
-		   vid2string(vertex, buff, sizeof(buff)), vertex->depth,
-		   vertex->d_N);
+	if (IS_DEBUG_SPF_EVENTS)
+		zlog_debug("ISIS-SPF: added %s %s %s depth %d dist %d to PATHS",
+			   print_sys_hostname(vertex->N.id),
+			   vtype2string(vertex->type),
+			   vid2string(vertex, buff, sizeof(buff)),
+			   vertex->depth, vertex->d_N);
 #endif /* EXTREME_DEBUG */
 }
 
@@ -1647,10 +1661,12 @@ static void isis_spf_loop(struct isis_spftree *spftree,
 		vertex = isis_vertex_queue_pop(&spftree->tents);
 
 #ifdef EXTREME_DEBUG
-		zlog_debug(
-			"ISIS-SPF: get TENT node %s %s depth %d dist %d to PATHS",
-			print_sys_hostname(vertex->N.id),
-			vtype2string(vertex->type), vertex->depth, vertex->d_N);
+		if (IS_DEBUG_SPF_EVENTS)
+			zlog_debug(
+				"ISIS-SPF: get TENT node %s %s depth %d dist %d to PATHS",
+				print_sys_hostname(vertex->N.id),
+				vtype2string(vertex->type), vertex->depth,
+				vertex->d_N);
 #endif /* EXTREME_DEBUG */
 
 		add_to_paths(spftree, vertex);

@@ -312,8 +312,10 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 						0);
 
 #ifdef EXTREME_DEBUG
-		zlog_debug("Added IP address %pFX to circuit %s",
-			   connected->address, circuit->interface->name);
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("Added IP address %pFX to circuit %s",
+				   connected->address,
+				   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 	if (connected->address->family == AF_INET6) {
@@ -350,8 +352,10 @@ void isis_circuit_add_addr(struct isis_circuit *circuit,
 						0);
 
 #ifdef EXTREME_DEBUG
-		zlog_debug("Added IPv6 address %pFX to circuit %s",
-			   connected->address, circuit->interface->name);
+		if (IS_DEBUG_EVENTS)
+			zlog_debug("Added IPv6 address %pFX to circuit %s",
+				   connected->address,
+				   circuit->interface->name);
 #endif /* EXTREME_DEBUG */
 	}
 
@@ -681,9 +685,11 @@ int isis_circuit_up(struct isis_circuit *circuit)
 			       ETH_ALEN);
 		}
 #ifdef EXTREME_DEGUG
-		zlog_debug("isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
-			   circuit->interface->ifindex, ISO_MTU(circuit),
-			   snpa_print(circuit->u.bc.snpa));
+		if (IS_DEBUG_EVENTS)
+			zlog_debug(
+				"isis_circuit_if_add: if_id %d, isomtu %d snpa %s",
+				circuit->interface->ifindex, ISO_MTU(circuit),
+				snpa_print(circuit->u.bc.snpa));
 #endif /* EXTREME_DEBUG */
 
 		circuit->u.bc.adjdb[0] = list_new();
