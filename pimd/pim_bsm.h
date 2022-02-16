@@ -61,7 +61,7 @@ struct bsm_scope {
 	int sz_id;			/* scope zone id */
 	enum ncbsr_state state;		/* non candidate BSR state */
 	bool accept_nofwd_bsm;		/* no fwd bsm accepted for scope */
-	struct in_addr current_bsr;     /* current elected BSR for the sz */
+	pim_addr current_bsr;		/* current elected BSR for the sz */
 	uint32_t current_bsr_prio;      /* current BSR priority */
 	int64_t current_bsr_first_ts;   /* current BSR elected time */
 	int64_t current_bsr_last_ts;    /* Last BSM received from E-BSR */

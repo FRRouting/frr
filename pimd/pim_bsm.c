@@ -177,7 +177,7 @@ static void pim_on_bs_timer(struct thread *t)
 	/* Reset scope zone data */
 	scope->accept_nofwd_bsm = false;
 	scope->state = ACCEPT_ANY;
-	scope->current_bsr.s_addr = INADDR_ANY;
+	scope->current_bsr = PIMADDR_ANY;
 	scope->current_bsr_prio = 0;
 	scope->current_bsr_first_ts = 0;
 	scope->current_bsr_last_ts = 0;
@@ -531,18 +531,17 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 }
 
-static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
+static bool is_preferred_bsr(struct pim_instance *pim, pim_addr bsr,
 			     uint32_t bsr_prio)
 {
-	if (bsr.s_addr == pim->global_scope.current_bsr.s_addr)
+	if (!pim_addr_cmp(bsr, pim->global_scope.current_bsr))
 		return true;
 
 	if (bsr_prio > pim->global_scope.current_bsr_prio)
 		return true;
 
 	else if (bsr_prio == pim->global_scope.current_bsr_prio) {
-		if (ntohl(bsr.s_addr)
-		    >= ntohl(pim->global_scope.current_bsr.s_addr))
+		if (pim_addr_cmp(bsr, pim->global_scope.current_bsr) >= 0)
 			return true;
 		else
 			return false;
@@ -550,7 +549,7 @@ static bool is_preferred_bsr(struct pim_instance *pim, struct in_addr bsr,
 		return false;
 }
 
-static void pim_bsm_update(struct pim_instance *pim, struct in_addr bsr,
+static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 			   uint32_t bsr_prio)
 {
 	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
@@ -583,7 +582,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 	/* Reset scope zone data */
 	pim->global_scope.accept_nofwd_bsm = false;
 	pim->global_scope.state = ACCEPT_ANY;
-	pim->global_scope.current_bsr.s_addr = INADDR_ANY;
+	pim->global_scope.current_bsr = PIMADDR_ANY;
 	pim->global_scope.current_bsr_prio = 0;
 	pim->global_scope.current_bsr_first_ts = 0;
 	pim->global_scope.current_bsr_last_ts = 0;

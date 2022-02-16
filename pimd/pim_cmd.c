@@ -1067,9 +1067,8 @@ static void pim_show_bsm_db(struct pim_instance *pim, struct vty *vty, bool uj)
 		buf += sizeof(struct bsm_hdr);
 		len -= sizeof(struct bsm_hdr);
 
-		pim_inet4_dump("<BSR Address?>", hdr->bsr_addr.addr, bsr_str,
-			       sizeof(bsr_str));
-
+		snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
+			   &hdr->bsr_addr.addr);
 
 		if (uj) {
 			json_object_string_add(json, "BSR address", bsr_str);
@@ -1186,19 +1185,14 @@ static void pim_show_group_rp_mappings_info(struct pim_instance *pim,
 	json_object *json_group = NULL;
 	json_object *json_row = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY)
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
-
-	else
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr, bsr_str,
-			       sizeof(bsr_str));
+	snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
+		   &pim->global_scope.current_bsr);
 
 	if (uj) {
 		json = json_object_new_object();
 		json_object_string_add(json, "BSR Address", bsr_str);
-	} else {
+	} else
 		vty_out(vty, "BSR Address  %s\n", bsr_str);
-	}
 
 	for (rn = route_top(pim->global_scope.bsrp_table); rn;
 	     rn = route_next(rn)) {
@@ -1658,8 +1652,7 @@ static void pim_show_bsr(struct pim_instance *pim,
 	char bsr_str[PREFIX_STRLEN];
 	json_object *json = NULL;
 
-	if (pim->global_scope.current_bsr.s_addr == INADDR_ANY) {
-		strlcpy(bsr_str, "0.0.0.0", sizeof(bsr_str));
+	if (pim_addr_is_any(pim->global_scope.current_bsr)) {
 		pim_time_uptime(uptime, sizeof(uptime),
 				pim->global_scope.current_bsr_first_ts);
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
@@ -1667,14 +1660,15 @@ static void pim_show_bsr(struct pim_instance *pim,
 	}
 
 	else {
-		pim_inet4_dump("<bsr?>", pim->global_scope.current_bsr,
-			       bsr_str, sizeof(bsr_str));
 		now = pim_time_monotonic_sec();
 		pim_time_uptime(uptime, sizeof(uptime),
 				(now - pim->global_scope.current_bsr_first_ts));
 		pim_time_uptime(last_bsm_seen, sizeof(last_bsm_seen),
 				now - pim->global_scope.current_bsr_last_ts);
 	}
+
+	snprintfrr(bsr_str, sizeof(bsr_str), "%pPAs",
+		   &pim->global_scope.current_bsr);
 
 	switch (pim->global_scope.state) {
 	case NO_INFO:
@@ -1689,6 +1683,7 @@ static void pim_show_bsr(struct pim_instance *pim,
 	default:
 		strlcpy(bsr_state, "", sizeof(bsr_state));
 	}
+
 
 	if (uj) {
 		json = json_object_new_object();
