@@ -249,7 +249,11 @@ void pim_zebra_update_all_interfaces(struct pim_instance *pim)
 			struct pim_rpf rpf;
 
 			rpf.source_nexthop.interface = ifp;
+#if PIM_IPV == 4
 			rpf.rpf_addr.u.prefix4 = us->address;
+#else
+			rpf.rpf_addr.u.prefix6 = us->address;
+#endif
 			pim_joinprune_send(&rpf, us->us);
 			pim_jp_agg_clear_group(us->us);
 		}
@@ -263,8 +267,14 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	if (old->source_nexthop.interface) {
 		struct pim_neighbor *nbr;
 
+#if PIM_IPV == 4
 		nbr = pim_neighbor_find(old->source_nexthop.interface,
 					old->rpf_addr.u.prefix4);
+#else
+		nbr = pim_neighbor_find(old->source_nexthop.interface,
+					old->rpf_addr.u.prefix6);
+#endif
+
 		if (nbr)
 			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
@@ -346,8 +356,14 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 
 	prefixlen = stream_getl(s);
+
+#if PIM_IPV == 4
 	stream_get(&sg.src.s_addr, s, prefixlen);
 	stream_get(&sg.grp.s_addr, s, prefixlen);
+#else
+	stream_get(&sg.src.s6_addr, s, prefixlen);
+	stream_get(&sg.grp.s6_addr, s, prefixlen);
+#endif
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%u:recv SG %s %pSG", vrf_id,
@@ -656,10 +672,10 @@ void igmp_source_forward_start(struct pim_instance *pim,
 
 			src.family = AF_INET6;
 			src.prefixlen = IPV6_MAX_BITLEN;
-			src.u.prefix4 = vif_source; // RP or Src address
+			src.u.prefix6 = vif_source; // RP or Src address
 			grp.family = AF_INET6;
 			grp.prefixlen = IPV6_MAX_BITLEN;
-			grp.u.prefix4 = sg.grp;
+			grp.u.prefix6 = sg.grp;
 
 #endif
 			up = pim_upstream_find(pim, &sg);
