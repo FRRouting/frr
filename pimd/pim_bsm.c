@@ -616,9 +616,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		}
 
 		/* Deregister addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+		nht_p = rp_info->rp.rpf_addr;
 
 		if (PIM_DEBUG_PIM_NHT_RP) {
 			zlog_debug("%s: Deregister RP addr %pFX with Zebra ",
@@ -1380,6 +1378,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	if (0)
 #endif
 	{
+#if PIM_IPV == 4
 		/* Multicast BSMs are only accepted if source interface & IP
 		 * match RPF towards the BSR's IP address, or they have
 		 * no-forward set

@@ -72,10 +72,10 @@ int pim_ecmp_fib_lookup_if_vif_index(struct pim_instance *pim,
 void pim_rp_nexthop_del(struct rp_info *rp_info);
 
 /* for RPF check on BSM message receipt */
-void pim_nht_bsr_add(struct pim_instance *pim, struct in_addr bsr_addr);
-void pim_nht_bsr_del(struct pim_instance *pim, struct in_addr bsr_addr);
+void pim_nht_bsr_add(struct pim_instance *pim, pim_addr bsr_addr);
+void pim_nht_bsr_del(struct pim_instance *pim, pim_addr bsr_addr);
 /* RPF(bsr_addr) == src_ip%src_ifp? */
-bool pim_nht_bsr_rpf_check(struct pim_instance *pim, struct in_addr bsr_addr,
+bool pim_nht_bsr_rpf_check(struct pim_instance *pim, pim_addr bsr_addr,
 			   struct interface *src_ifp, pim_addr src_ip);
 
 #endif
