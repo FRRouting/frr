@@ -322,9 +322,11 @@ static int pim_rp_check_interface_addrs(struct rp_info *rp_info,
 {
 	struct listnode *node;
 	struct pim_secondary_addr *sec_addr;
+	pim_addr rpf_addr;
 
-	if (pim_ifp->primary_address.s_addr
-	    == rp_info->rp.rpf_addr.u.prefix4.s_addr)
+	rpf_addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+
+	if (!pim_addr_cmp(pim_ifp->primary_address, rpf_addr))
 		return 1;
 
 	if (!pim_ifp->sec_addr_list) {
@@ -362,8 +364,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 {
 	struct pim_rpf old_rpf;
 	enum pim_rpf_result rpf_result;
-	struct in_addr old_upstream_addr;
-	struct in_addr new_upstream_addr;
+	pim_addr old_upstream_addr;
+	pim_addr new_upstream_addr;
 	struct prefix nht_p;
 
 	old_upstream_addr = up->upstream_addr;
@@ -374,7 +376,7 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 		zlog_debug("%s: pim upstream update for  old upstream %pI4",
 			   __func__, &old_upstream_addr);
 
-	if (old_upstream_addr.s_addr == new_upstream_addr.s_addr)
+	if (!pim_addr_cmp(old_upstream_addr, new_upstream_addr))
 		return;
 
 	/* Lets consider a case, where a PIM upstream has a better RP as a
@@ -382,11 +384,9 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 	 * This upstream has to be added to the upstream hash of new RP's
 	 * NHT(pnc) and has to be removed from old RP's NHT upstream hash
 	 */
-	if (old_upstream_addr.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(old_upstream_addr)) {
 		/* Deregister addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = old_upstream_addr;
+		pim_addr_to_prefix(&nht_p, old_upstream_addr);
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
@@ -536,14 +536,12 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 				/* Find (*, G) upstream whose RP is not
 				 * configured yet
 				 */
-				if ((up->upstream_addr.s_addr == INADDR_ANY) &&
+				if (pim_addr_is_any(up->upstream_addr) &&
 				    pim_addr_is_any(up->sg.src)) {
 					struct prefix grp;
 					struct rp_info *trp_info;
 
-					grp.family = AF_INET;
-					grp.prefixlen = IPV4_MAX_BITLEN;
-					grp.u.prefix4 = up->sg.grp;
+					pim_addr_to_prefix(&grp, up->sg.grp);
 					trp_info = pim_rp_find_match_group(
 						pim, &grp);
 					if (trp_info == rp_all) {
@@ -632,9 +630,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 			struct prefix grp;
 			struct rp_info *trp_info;
 
-			grp.family = AF_INET;
-			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = up->sg.grp;
+			pim_addr_to_prefix(&grp, up->sg.grp);
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			if (trp_info == rp_info) {
@@ -778,17 +774,18 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			/* Find the upstream (*, G) whose upstream address is
 			 * same as the deleted RP
 			 */
-			if ((up->upstream_addr.s_addr ==
-			     rp_info->rp.rpf_addr.u.prefix4.s_addr) &&
+			pim_addr rpf_addr;
+
+			rpf_addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+			if (!pim_addr_cmp(up->upstream_addr, rpf_addr) &&
 			    pim_addr_is_any(up->sg.src)) {
 				struct prefix grp;
-				grp.family = AF_INET;
-				grp.prefixlen = IPV4_MAX_BITLEN;
-				grp.u.prefix4 = up->sg.grp;
+
+				pim_addr_to_prefix(&grp, up->sg.grp);
 				trp_info = pim_rp_find_match_group(pim, &grp);
 				if (trp_info == rp_all) {
 					pim_upstream_rpf_clear(pim, up);
-					up->upstream_addr.s_addr = INADDR_ANY;
+					up->upstream_addr = PIMADDR_ANY;
 				}
 			}
 		}
@@ -826,15 +823,14 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		/* Find the upstream (*, G) whose upstream address is same as
 		 * the deleted RP
 		 */
-		if ((up->upstream_addr.s_addr ==
-		     rp_info->rp.rpf_addr.u.prefix4.s_addr) &&
+		pim_addr rpf_addr;
+
+		rpf_addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+		if (!pim_addr_cmp(up->upstream_addr, rpf_addr) &&
 		    pim_addr_is_any(up->sg.src)) {
 			struct prefix grp;
 
-			grp.family = AF_INET;
-			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = up->sg.grp;
-
+			pim_addr_to_prefix(&grp, up->sg.grp);
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			/* RP not found for the group grp */
@@ -918,9 +914,7 @@ int pim_rp_change(struct pim_instance *pim, struct in_addr new_rp_addr,
 			struct prefix grp;
 			struct rp_info *trp_info;
 
-			grp.family = AF_INET;
-			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = up->sg.grp;
+			pim_addr_to_prefix(&grp, up->sg.grp);
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			if (trp_info == rp_info) {
@@ -1064,13 +1058,14 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 	}
 }
 
+#if PIM_IPV == 4
 /*
  * I_am_RP(G) is true if the group-to-RP mapping indicates that
  * this router is the RP for the group.
  *
  * Since we only have static RP, all groups are part of this RP
  */
-int pim_rp_i_am_rp(struct pim_instance *pim, struct in_addr group)
+int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
 {
 	struct prefix g;
 	struct rp_info *rp_info;
@@ -1084,7 +1079,6 @@ int pim_rp_i_am_rp(struct pim_instance *pim, struct in_addr group)
 
 	if (rp_info)
 		return rp_info->i_am_rp;
-
 	return 0;
 }
 
@@ -1093,7 +1087,7 @@ int pim_rp_i_am_rp(struct pim_instance *pim, struct in_addr group)
  *
  * Return the RP that the Group belongs too.
  */
-struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
+struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 {
 	struct prefix g;
 	struct rp_info *rp_info;
@@ -1135,8 +1129,8 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, struct in_addr group)
  * then set the upstream addr as INADDR_ANY and return failure.
  *
  */
-int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
-			     struct in_addr source, struct in_addr group)
+int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
+			     pim_addr source, pim_addr group)
 {
 	struct rp_info *rp_info;
 	struct prefix g;
@@ -1162,6 +1156,25 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, struct in_addr *up,
 
 	return 1;
 }
+#else
+CPP_NOTICE("functions stubbed out for IPv6");
+
+int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
+{
+	return 0;
+}
+
+struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
+{
+	return NULL;
+}
+
+int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
+			     pim_addr source, pim_addr group)
+{
+	return 0;
+}
+#endif
 
 int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 			const char *spaces)
@@ -1353,17 +1366,19 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 			if (nbr->interface != ifp1)
 				continue;
 
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
 			nh_node->gate.ipv4 = nbr->source_addr;
+#else
+			nh_node->gate.ipv6 = nbr->source_addr;
+#endif
 			if (PIM_DEBUG_PIM_NHT_RP) {
 				char str[PREFIX_STRLEN];
-				char str1[INET_ADDRSTRLEN];
-				pim_inet4_dump("<nht_nbr?>", nbr->source_addr,
-					       str1, sizeof(str1));
 				pim_addr_dump("<nht_addr?>", &nht_p, str,
 					      sizeof(str));
 				zlog_debug(
-					"%s: addr %s new nexthop addr %s interface %s",
-					__func__, str, str1, ifp1->name);
+					"%s: addr %s new nexthop addr %pPAs interface %s",
+					__func__, str, &nbr->source_addr,
+					ifp1->name);
 			}
 		}
 	}

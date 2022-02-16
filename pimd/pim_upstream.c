@@ -259,11 +259,9 @@ struct pim_upstream *pim_upstream_del(struct pim_instance *pim,
 	 * to INADDR_ANY. This is done in order to avoid de-registering for
 	 * 255.255.255.255 which is maintained for some reason..
 	 */
-	if (up->upstream_addr.s_addr != INADDR_ANY) {
+	if (!pim_addr_is_any(up->upstream_addr)) {
 		/* Deregister addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = up->upstream_addr;
+		pim_addr_to_prefix(&nht_p, up->upstream_addr);
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug(
 				"%s: Deregister upstream %s addr %pFX with Zebra NHT",
@@ -343,8 +341,8 @@ static void join_timer_stop(struct pim_upstream *up)
 	THREAD_OFF(up->t_join_timer);
 
 	if (up->rpf.source_nexthop.interface)
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 
 	if (nbr)
 		pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
@@ -357,8 +355,8 @@ void join_timer_start(struct pim_upstream *up)
 	struct pim_neighbor *nbr = NULL;
 
 	if (up->rpf.source_nexthop.interface) {
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 
 		if (PIM_DEBUG_PIM_EVENTS) {
 			zlog_debug(
@@ -449,8 +447,8 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 			pim_time_timer_remain_msec(up->t_join_timer);
 	else {
 		/* Remove it from jp agg from the nbr for suppression */
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 		if (nbr) {
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -504,8 +502,8 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 		/* upstream join tracked with neighbor jp timer */
 		struct pim_neighbor *nbr;
 
-		nbr = pim_neighbor_find(up->rpf.source_nexthop.interface,
-					up->rpf.rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(up->rpf.source_nexthop.interface,
+					       &up->rpf.rpf_addr);
 		if (nbr)
 			join_timer_remain_msec =
 				pim_time_timer_remain_msec(nbr->jp_timer);
@@ -713,7 +711,7 @@ void pim_upstream_switch(struct pim_instance *pim, struct pim_upstream *up,
 {
 	enum pim_upstream_state old_state = up->join_state;
 
-	if (up->upstream_addr.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(up->upstream_addr)) {
 		if (PIM_DEBUG_PIM_EVENTS)
 			zlog_debug("%s: RPF not configured for %s", __func__,
 				   up->sg_str);
@@ -937,7 +935,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 		if (PIM_UPSTREAM_FLAG_TEST_SRC_NOCACHE(up->flags))
 			pim_upstream_keep_alive_timer_start(
 				up, pim->keep_alive_time);
-	} else if (up->upstream_addr.s_addr != INADDR_ANY) {
+	} else if (!pim_addr_is_any(up->upstream_addr)) {
 		pim_upstream_update_use_rpt(up,
 				false /*update_mroute*/);
 		rpf_result = pim_rpf_update(pim, up, NULL, __func__);
@@ -1274,15 +1272,13 @@ void pim_upstream_rpf_genid_changed(struct pim_instance *pim,
 	 */
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (PIM_DEBUG_PIM_TRACE) {
-			char neigh_str[INET_ADDRSTRLEN];
 			char rpf_addr_str[PREFIX_STRLEN];
-			pim_inet4_dump("<neigh?>", neigh_addr, neigh_str,
-				       sizeof(neigh_str));
 			pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_addr_str,
 				      sizeof(rpf_addr_str));
 			zlog_debug(
-				"%s: matching neigh=%s against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
-				__func__, neigh_str, up->sg_str, pim->vrf->name,
+				"%s: matching neigh=%pI4 against upstream (S,G)=%s[%s] joined=%d rpf_addr=%s",
+				__func__, &neigh_addr, up->sg_str,
+				pim->vrf->name,
 				up->join_state == PIM_UPSTREAM_JOINED,
 				rpf_addr_str);
 		}
@@ -1914,7 +1910,7 @@ void pim_upstream_find_new_rpf(struct pim_instance *pim)
 	 * Scan all (S,G) upstreams searching for RPF'(S,G)=neigh_addr
 	 */
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
-		if (up->upstream_addr.s_addr == INADDR_ANY) {
+		if (pim_addr_is_any(up->upstream_addr)) {
 			if (PIM_DEBUG_PIM_TRACE)
 				zlog_debug(
 					"%s: RP not configured for Upstream %s",
@@ -2153,10 +2149,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 	struct prefix g;
 	enum prefix_list_type apply_new;
 
-	np = prefix_list_lookup(AFI_IP, nlist);
-
-	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_BITLEN;
+	np = prefix_list_lookup(PIM_AFI, nlist);
 
 	frr_each (rb_pim_upstream, &pim->upstream_head, up) {
 		if (!pim_addr_is_any(up->sg.src))
@@ -2170,7 +2163,7 @@ void pim_upstream_remove_lhr_star_pimreg(struct pim_instance *pim,
 					PIM_OIF_FLAG_PROTO_IGMP, __func__);
 			continue;
 		}
-		g.u.prefix4 = up->sg.grp;
+		pim_addr_to_prefix(&g, up->sg.grp);
 		apply_new = prefix_list_apply(np, &g);
 		if (apply_new == PREFIX_DENY)
 			pim_channel_add_oif(up->channel_oil, pim->regiface,
