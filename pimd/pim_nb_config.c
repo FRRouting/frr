@@ -260,16 +260,13 @@ static int pim_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
 			     struct prefix group, const char *plist,
 			     char *errmsg, size_t errmsg_len)
 {
-	char rp_str[INET_ADDRSTRLEN];
 	int result;
-
-	inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str));
 
 	result = pim_rp_new(pim, rp_addr, group, plist, RP_SRC_STATIC);
 
 	if (result == PIM_RP_NO_PATH) {
-		snprintf(errmsg, errmsg_len,
-			 "No Path to RP address specified: %s", rp_str);
+		snprintfrr(errmsg, errmsg_len,
+			   "No Path to RP address specified: %pPA", &rp_addr);
 		return NB_ERR_INCONSISTENCY;
 	}
 
@@ -298,11 +295,9 @@ static int pim_no_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
 				struct prefix group, const char *plist,
 				char *errmsg, size_t errmsg_len)
 {
-	char rp_str[INET_ADDRSTRLEN];
 	char group_str[PREFIX2STR_BUFFER];
 	int result;
 
-	inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str));
 	prefix2str(&group, group_str, sizeof(group_str));
 
 	result = pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
@@ -314,8 +309,8 @@ static int pim_no_rp_cmd_worker(struct pim_instance *pim, pim_addr rp_addr,
 	}
 
 	if (result == PIM_RP_BAD_ADDRESS) {
-		snprintf(errmsg, errmsg_len,
-			 "Bad RP address specified: %s", rp_str);
+		snprintfrr(errmsg, errmsg_len, "Bad RP address specified: %pPA",
+			   &rp_addr);
 		return NB_ERR_INCONSISTENCY;
 	}
 
