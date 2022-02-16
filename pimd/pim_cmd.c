@@ -8275,7 +8275,7 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 	}
 
 	/* It takes the igmp version configured on the interface as default */
-	igmp_version = pim_ifp->version;
+	igmp_version = pim_ifp->igmp_version;
 
 	if (argc > 3)
 		igmp_version = atoi(argv[4]->arg);
