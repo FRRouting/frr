@@ -2053,11 +2053,15 @@ void ospf_sr_config_write_router(struct vty *vty)
 		vty_out(vty, " segment-routing global-block %u %u",
 			OspfSR.srgb.start, upper);
 
-	if ((OspfSR.srlb.start != DEFAULT_SRLB_LABEL)
-	    || (OspfSR.srlb.end != DEFAULT_SRLB_END))
+	if ((OspfSR.srlb.start != DEFAULT_SRLB_LABEL) ||
+	    (OspfSR.srlb.end != DEFAULT_SRLB_END)) {
+		if ((OspfSR.srgb.start == DEFAULT_SRGB_LABEL) &&
+		    (OspfSR.srgb.size == DEFAULT_SRGB_SIZE))
+			vty_out(vty, " segment-routing global-block %u %u",
+				OspfSR.srgb.start, upper);
 		vty_out(vty, " local-block %u %u\n", OspfSR.srlb.start,
 			OspfSR.srlb.end);
-	else
+	} else
 		vty_out(vty, "\n");
 
 	if (OspfSR.msd != 0)
