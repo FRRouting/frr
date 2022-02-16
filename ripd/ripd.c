@@ -1522,6 +1522,7 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 	cmsgptr->cmsg_type = IP_PKTINFO;
 	pkt = (struct in_pktinfo *)CMSG_DATA(cmsgptr);
 	pkt->ipi_ifindex = ifc->ifp->ifindex;
+	pkt->ipi_spec_dst.s_addr = ifc->address->u.prefix4.s_addr;
 #endif /* GNU_LINUX */
 
 	ret = sendmsg(rip->sock, &msg, 0);
