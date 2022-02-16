@@ -1388,6 +1388,7 @@ int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 	if (0)
 #endif
 	{
+#if PIM_IPV == 4
 		/* Multicast BSMs are only accepted if source interface & IP
 		 * match RPF towards the BSR's IP address, or they have
 		 * no-forward set
