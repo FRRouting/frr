@@ -130,9 +130,9 @@ int pim_bsm_rpinfo_cmp(const struct bsm_rpinfo *node1,
 		return 1;
 	if (node1->hash > node2->hash)
 		return -1;
-	if (node1->rp_address.s_addr < node2->rp_address.s_addr)
+	if (pim_addr_cmp(node1->rp_address, node2->rp_address) < 0)
 		return 1;
-	if (node1->rp_address.s_addr > node2->rp_address.s_addr)
+	if (pim_addr_cmp(node1->rp_address, node2->rp_address) > 0)
 		return -1;
 	return 0;
 }
@@ -173,7 +173,6 @@ static void pim_on_bs_timer(struct thread *t)
 			   __func__, scope->sz_id);
 
 	pim_nht_bsr_del(scope->pim, scope->current_bsr);
-
 	/* Reset scope zone data */
 	scope->accept_nofwd_bsm = false;
 	scope->state = ACCEPT_ANY;
@@ -353,10 +352,9 @@ static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)
 	THREAD_OFF(bsrp->g2rp_timer);
 	if (PIM_DEBUG_BSM)
 		zlog_debug(
-			"%s : starting g2rp timer for grp: %pFX - rp: %pI4 with timeout  %d secs(Actual Hold time : %d secs)",
-			__func__, &bsrp->bsgrp_node->group,
-			&bsrp->rp_address, hold_time,
-			bsrp->rp_holdtime);
+			"%s : starting g2rp timer for grp: %pFX - rp: %pPAs with timeout  %d secs(Actual Hold time : %d secs)",
+			__func__, &bsrp->bsgrp_node->group, &bsrp->rp_address,
+			hold_time, bsrp->rp_holdtime);
 
 	thread_add_timer(router->master, pim_on_g2rp_timer, bsrp, hold_time,
 			 &bsrp->g2rp_timer);
@@ -374,7 +372,7 @@ static void pim_g2rp_timer_stop(struct bsm_rpinfo *bsrp)
 		return;
 
 	if (PIM_DEBUG_BSM)
-		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %pI4",
+		zlog_debug("%s : stopping g2rp timer for grp: %pFX - rp: %pPAs",
 			   __func__, &bsrp->bsgrp_node->group,
 			   &bsrp->rp_address);
 
@@ -462,8 +460,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 		route_unlock_node(rn);
 
 		if (active && pend) {
-			if ((active->rp_address.s_addr
-			     != pend->rp_address.s_addr))
+			if (pim_addr_cmp(active->rp_address, pend->rp_address))
 				pim_rp_change(pim, pend->rp_address,
 					      bsgrp_node->group, RP_SRC_BSR);
 		}
@@ -552,7 +549,7 @@ static bool is_preferred_bsr(struct pim_instance *pim, pim_addr bsr,
 static void pim_bsm_update(struct pim_instance *pim, pim_addr bsr,
 			   uint32_t bsr_prio)
 {
-	if (bsr.s_addr != pim->global_scope.current_bsr.s_addr) {
+	if (pim_addr_cmp(bsr, pim->global_scope.current_bsr)) {
 		pim_nht_bsr_del(pim, pim->global_scope.current_bsr);
 		pim_nht_bsr_add(pim, bsr);
 
