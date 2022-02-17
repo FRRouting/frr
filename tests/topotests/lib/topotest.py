@@ -1425,7 +1425,10 @@ class Router(Node):
                     wcmd = "screen"
                 else:
                     wcmd = "sudo -u {} screen".format(os.environ["SUDO_USER"])
-                cmd = "{} {}".format(wcmd, nscmd)
+                if title:
+                    cmd = "{} -t {} {}".format(wcmd, title, nscmd)
+                else:
+                    cmd = "{} {}".format(wcmd, nscmd)
             self.cmd(cmd)
 
     def startRouter(self, tgen=None):
@@ -1482,11 +1485,11 @@ class Router(Node):
 
         shell_routers = g_extra_config["shell"]
         if "all" in shell_routers or self.name in shell_routers:
-            self.runInWindow(os.getenv("SHELL", "bash"))
+            self.runInWindow(os.getenv("SHELL", "bash"), title="sh-{}".format(self.name))
 
         vtysh_routers = g_extra_config["vtysh"]
         if "all" in vtysh_routers or self.name in vtysh_routers:
-            self.runInWindow("vtysh")
+            self.runInWindow("vtysh", title="vt-{}".format(self.name))
 
         if self.daemons["eigrpd"] == 1:
             eigrpd_path = os.path.join(self.daemondir, "eigrpd")
