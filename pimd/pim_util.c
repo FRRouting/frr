@@ -152,3 +152,17 @@ bool pim_is_group_filtered(struct pim_interface *pim_ifp, pim_addr *grp)
 	pl = prefix_list_lookup(PIM_AFI, pim_ifp->boundary_oil_plist);
 	return pl ? prefix_list_apply(pl, &grp_pfx) == PREFIX_DENY : false;
 }
+
+
+/* This function returns all multicast group */
+int pim_get_all_mcast_group(struct prefix *prefix)
+{
+#if PIM_IPV == 4
+	if (!str2prefix("224.0.0.0/4", prefix))
+		return 0;
+#else
+	if (!str2prefix("FF00::0/8", prefix))
+		return 0;
+#endif
+	return 1;
+}

@@ -34,6 +34,7 @@
 #include "pim_util.h"
 #include "log.h"
 #include "lib_errors.h"
+#include "pim_util.h"
 
 #if PIM_IPV == 6
 #define pim6_msdp_err(funcname, argtype)                                       \
@@ -2358,7 +2359,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		else if (yang_dnode_get(args->dnode, "./prefix-list")) {
 			plist = yang_dnode_get_string(args->dnode,
 					"./prefix-list");
-			if (!str2prefix("224.0.0.0/4", &group)) {
+			if (!pim_get_all_mcast_group(&group)) {
 				flog_err(
 					EC_LIB_DEVELOPMENT,
 					"Unable to convert 224.0.0.0/4 to prefix");
@@ -2456,7 +2457,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		pim = vrf->info;
 		plist = yang_dnode_get_string(args->dnode, NULL);
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
-		if (!str2prefix("224.0.0.0/4", &group)) {
+		if (!pim_get_all_mcast_group(&group)) {
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Unable to convert 224.0.0.0/4 to prefix");
 			return NB_ERR_INCONSISTENCY;
@@ -2487,7 +2488,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_rp
 		pim = vrf->info;
 		yang_dnode_get_pimaddr(&rp_addr, args->dnode, "../rp-address");
 		plist = yang_dnode_get_string(args->dnode, NULL);
-		if (!str2prefix("224.0.0.0/4", &group)) {
+		if (!pim_get_all_mcast_group(&group)) {
 			flog_err(EC_LIB_DEVELOPMENT,
 				 "Unable to convert 224.0.0.0/4 to prefix");
 			return NB_ERR_INCONSISTENCY;
