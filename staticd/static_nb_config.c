@@ -115,7 +115,7 @@ static int static_path_list_tag_modify(struct nb_cb_modify_args *args)
 }
 
 struct nexthop_iter {
-	int count;
+	uint32_t count;
 	bool blackhole;
 };
 
@@ -170,6 +170,11 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 			snprintf(
 				args->errmsg, args->errmsg_len,
 				"Route cannot have blackhole and non-blackhole nexthops simultaneously");
+			return NB_ERR_VALIDATION;
+		} else if (iter.count > zebra_ecmp_count) {
+			snprintf(args->errmsg, args->errmsg_len,
+				"Route cannot have more than %d ECMP nexthops",
+				 zebra_ecmp_count);
 			return NB_ERR_VALIDATION;
 		}
 		break;
