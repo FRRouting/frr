@@ -414,6 +414,10 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		api.tableid = pn->table_id;
 	}
 	frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
+		/* Don't overrun the nexthop array */
+		if (nh_num == zebra_ecmp_count)
+			break;
+
 		api_nh = &api.nexthops[nh_num];
 		if (nh->nh_vrf_id == VRF_UNKNOWN)
 			continue;
