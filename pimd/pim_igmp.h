@@ -110,7 +110,7 @@ void pim_igmp_if_reset(struct pim_interface *pim_ifp);
 void pim_igmp_if_fini(struct pim_interface *pim_ifp);
 
 struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
-					    pim_addr ifaddr);
+					    struct in_addr ifaddr);
 struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
 				  struct in_addr ifaddr, struct interface *ifp,
 				  bool mtrace_only);

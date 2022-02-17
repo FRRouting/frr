@@ -83,7 +83,7 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 	return prefix_match(&group_ssm, group);
 }
 
-int pim_is_grp_ssm(struct pim_instance *pim, pim_addr group_addr)
+int pim_is_grp_ssm(struct pim_instance *pim, struct in_addr group_addr)
 {
 	struct pim_ssm *ssm;
 	struct prefix group;

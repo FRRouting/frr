@@ -2031,7 +2031,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			       sizeof(grp_str));
 		pim_inet4_dump("<source?>", c_oil->oil.mfcc_origin, src_str,
 			       sizeof(src_str));
-		ifp_in = pim_if_find_by_mcast_if_index(pim, c_oil->oil.mfcc_parent);
+		ifp_in = pim_if_find_by_vif_index(pim, c_oil->oil.mfcc_parent);
 
 		if (ifp_in)
 			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
@@ -2119,7 +2119,7 @@ static void pim_show_state(struct pim_instance *pim, struct vty *vty,
 			if (ttl < 1)
 				continue;
 
-			ifp_out = pim_if_find_by_mcast_if_index(pim, oif_vif_index);
+			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
 			pim_time_uptime(
 				oif_uptime, sizeof(oif_uptime),
 				now - c_oil->oif_creation[oif_vif_index]);
@@ -5688,13 +5688,13 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		memset(&vreq, 0, sizeof(vreq));
-		vreq.vifi = pim_ifp->mroute_if_index;
+		vreq.vifi = pim_ifp->mroute_vif_index;
 
 		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
 			zlog_warn(
 				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
 				(unsigned long)SIOCGETVIFCNT, ifp->name,
-				pim_ifp->mroute_if_index, errno,
+				pim_ifp->mroute_vif_index, errno,
 				safe_strerror(errno));
 		}
 
@@ -5708,7 +5708,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 						&pim_ifp->primary_address);
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
-					    pim_ifp->mroute_if_index);
+					    pim_ifp->mroute_vif_index);
 			json_object_int_add(json_row, "pktsIn",
 					    (unsigned long)vreq.icount);
 			json_object_int_add(json_row, "pktsOut",
@@ -5723,7 +5723,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				"%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
 				ifp->name,
 				inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
-				ifp->ifindex, pim_ifp->mroute_if_index,
+				ifp->ifindex, pim_ifp->mroute_vif_index,
 				(unsigned long)vreq.icount,
 				(unsigned long)vreq.ocount,
 				(unsigned long)vreq.ibytes,
@@ -5960,7 +5960,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 		if (pim_channel_oil_empty(c_oil))
 			strlcat(state_str, "P", sizeof(state_str));
 
-		ifp_in = pim_if_find_by_mcast_if_index(pim, c_oil->oil.mfcc_parent);
+		ifp_in = pim_if_find_by_vif_index(pim, c_oil->oil.mfcc_parent);
 
 		if (ifp_in)
 			strlcpy(in_ifname, ifp_in->name, sizeof(in_ifname));
@@ -6029,7 +6029,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 							 oif_vif_index))
 				continue;
 
-			ifp_out = pim_if_find_by_mcast_if_index(pim, oif_vif_index);
+			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
 			found_oif = 1;
 
 			if (ifp_out)
@@ -6145,7 +6145,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			       sizeof(grp_str));
 		pim_inet4_dump("<source?>", s_route->source, src_str,
 			       sizeof(src_str));
-		ifp_in = pim_if_find_by_mcast_if_index(pim, s_route->iif);
+		ifp_in = pim_if_find_by_vif_index(pim, s_route->iif);
 		found_oif = 0;
 
 		if (ifp_in)
@@ -6191,7 +6191,7 @@ static void show_mroute(struct pim_instance *pim, struct vty *vty,
 			if (ttl < 1)
 				continue;
 
-			ifp_out = pim_if_find_by_mcast_if_index(pim, oif_vif_index);
+			ifp_out = pim_if_find_by_vif_index(pim, oif_vif_index);
 			pim_time_uptime(
 				oif_uptime, sizeof(oif_uptime),
 				now

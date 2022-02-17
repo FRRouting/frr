@@ -652,7 +652,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	} else {
 		msg = (const struct igmpmsg *)buf;
 
-		ifp = pim_if_find_by_mcast_if_index(pim, msg->im_vif);
+		ifp = pim_if_find_by_vif_index(pim, msg->im_vif);
 
 		if (!ifp)
 			return 0;
@@ -818,11 +818,11 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s: Add Vif %d (%s[%s])", __func__,
-			   pim_ifp->mroute_if_index, ifp->name,
+			   pim_ifp->mroute_vif_index, ifp->name,
 			   pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
-	vc.vifc_vifi = pim_ifp->mroute_if_index;
+	vc.vifc_vifi = pim_ifp->mroute_vif_index;
 #ifdef VIFF_USE_IFINDEX
 	vc.vifc_lcl_ifindex = ifp->ifindex;
 #else
@@ -871,11 +871,11 @@ int pim_mroute_del_vif(struct interface *ifp)
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s: Del Vif %d (%s[%s])", __func__,
-			   pim_ifp->mroute_if_index, ifp->name,
+			   pim_ifp->mroute_vif_index, ifp->name,
 			   pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
-	vc.vifc_vifi = pim_ifp->mroute_if_index;
+	vc.vifc_vifi = pim_ifp->mroute_vif_index;
 
 	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IP, MRT_DEL_VIF,
 			 (void *)&vc, sizeof(vc));
@@ -883,7 +883,7 @@ int pim_mroute_del_vif(struct interface *ifp)
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_DEL_VIF,vif_index=%d): errno=%d: %s",
 			__FILE__, __func__, pim_ifp->pim->mroute_socket,
-			pim_ifp->mroute_if_index, errno, safe_strerror(errno));
+			pim_ifp->mroute_vif_index, errno, safe_strerror(errno));
 		return -2;
 	}
 
@@ -914,7 +914,7 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 		PIM_UPSTREAM_FLAG_TEST_ALLOW_IIF_IN_OIL(c_oil->up->flags))
 		return true;
 
-	ifp_out = pim_if_find_by_mcast_if_index(c_oil->pim, oif_index);
+	ifp_out = pim_if_find_by_vif_index(c_oil->pim, oif_index);
 	if (!ifp_out)
 		return false;
 	pim_ifp = ifp_out->info;
@@ -1041,7 +1041,7 @@ static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 		if (ifp) {
 			pim_ifp = (struct pim_interface *)ifp->info;
 			if (pim_ifp)
-				iif = pim_ifp->mroute_if_index;
+				iif = pim_ifp->mroute_vif_index;
 		}
 	}
 	return iif;

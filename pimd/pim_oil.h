@@ -22,11 +22,7 @@
 
 struct pim_interface;
 
-#if PIM_IPV == 4
 #include "pim_mroute.h"
-#else
-#include "pim6_mroute.h"
-#endif
 
 /*
  * Where did we get this (S,G) from?
@@ -49,13 +45,13 @@ struct pim_interface;
 /*
  * We need a pimreg vif id from the kernel.
  * Since ifindex == vif id for most cases and the number
- * of expected interfaces is at most 100, using MAXIFS -1
+ * of expected interfaces is at most 100, using MAXVIFS -1
  * is probably ok.
  * Don't come running to me if this assumption is bad,
  * fix it.
  */
 #define PIM_OIF_PIM_REGISTER_VIF   0
-#define PIM_MAX_USABLE_VIFS        (MAXIFS - 1)
+#define PIM_MAX_USABLE_VIFS        (MAXVIFS - 1)
 
 struct channel_counts {
 	unsigned long long lastused;
@@ -101,17 +97,14 @@ struct channel_oil {
 	struct pim_instance *pim;
 
 	struct rb_pim_oil_item oil_rb;
-#if PIM_IPV == 4
+
 	struct mfcctl oil;
-#else
-	struct mf6cctl oil;
-#endif
 	int installed;
 	int oil_inherited_rescan;
 	int oil_size;
 	int oil_ref_count;
-	time_t oif_creation[MAXIFS];
-	uint32_t oif_flags[MAXIFS];
+	time_t oif_creation[MAXVIFS];
+	uint32_t oif_flags[MAXVIFS];
 	struct channel_counts cc;
 	struct pim_upstream *up;
 	time_t mroute_creation;

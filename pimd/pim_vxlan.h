@@ -109,23 +109,14 @@ struct pim_vxlan {
  */
 static inline bool pim_vxlan_is_orig_mroute(struct pim_vxlan_sg *vxlan_sg)
 {
-#if PIM_IPV == 4
 	return (vxlan_sg->sg.src.s_addr != INADDR_ANY);
-#else
-	return 0;
-#endif
 }
 
 static inline bool pim_vxlan_is_local_sip(struct pim_upstream *up)
 {
-#if PIM_IPV == 4
 	return (up->sg.src.s_addr != INADDR_ANY) &&
 		up->rpf.source_nexthop.interface &&
 		if_is_loopback(up->rpf.source_nexthop.interface);
-#else
-	return 0;
-#endif
-
 }
 
 static inline bool pim_vxlan_is_term_dev_cfg(struct pim_instance *pim,

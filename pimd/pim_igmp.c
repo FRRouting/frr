@@ -125,7 +125,7 @@ static void igmp_sock_dump(array_t *igmp_sock_array)
 #endif
 
 struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
-					    pim_addr ifaddr)
+					    struct in_addr ifaddr)
 {
 	struct listnode *sock_node;
 	struct gm_sock *igmp;

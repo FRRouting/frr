@@ -159,10 +159,6 @@ struct igmpmsg {
 #endif
 #endif
 
-#ifndef MAXIFS
-#define MAXIFS MAXVIFS
-#endif
-
 #ifndef IGMPMSG_WRVIFWHOLE
 #define IGMPMSG_WRVIFWHOLE      4               /* For PIM processing */
 #endif
@@ -176,7 +172,7 @@ struct channel_oil;
 int pim_mroute_socket_enable(struct pim_instance *pim);
 int pim_mroute_socket_disable(struct pim_instance *pim);
 
-int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
+int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 		       unsigned char flags);
 int pim_mroute_del_vif(struct interface *ifp);
 
