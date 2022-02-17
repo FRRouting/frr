@@ -1108,6 +1108,20 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 	return NULL;
 }
 
+#else
+CPP_NOTICE("functions stubbed out for IPv6");
+
+int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
+{
+	return 0;
+}
+
+struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
+{
+	return NULL;
+}
+#endif
+
 /*
  * Set the upstream IP address we want to talk to based upon
  * the rp configured and the source address
@@ -1123,45 +1137,27 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 	struct prefix g;
 
 	memset(&g, 0, sizeof(g));
-	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_BITLEN;
-	g.u.prefix4 = group;
+
+	pim_addr_to_prefix(&g, group);
 
 	rp_info = pim_rp_find_match_group(pim, &g);
 
 	if (!rp_info || ((pim_rpf_addr_is_inaddr_any(&rp_info->rp)) &&
-			 (source.s_addr == INADDR_ANY))) {
+			 (pim_addr_is_any(source)))) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
-		up->s_addr = INADDR_ANY;
+		*up = PIMADDR_ANY;
 		return 0;
 	}
 
-	*up = (source.s_addr == INADDR_ANY) ? rp_info->rp.rpf_addr.u.prefix4
-					    : source;
+	if (pim_addr_is_any(source))
+		*up = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+	else
+		*up = source;
 
 	return 1;
 }
-#else
-CPP_NOTICE("functions stubbed out for IPv6");
-
-int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
-{
-	return 0;
-}
-
-struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
-{
-	return NULL;
-}
-
-int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
-			     pim_addr source, pim_addr group)
-{
-	return 0;
-}
-#endif
 
 int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 			const char *spaces)
