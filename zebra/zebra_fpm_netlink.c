@@ -116,6 +116,8 @@ struct fpm_nh_encap_info_t {
  * data structures for convenience.
  */
 struct netlink_nh_info {
+	/* Weight of the nexthop ( for unequal cost ECMP ) */
+	uint8_t weight;
 	uint32_t if_index;
 	union g_addr *gateway;
 
@@ -179,6 +181,7 @@ static int netlink_route_info_add_nh(struct netlink_route_info *ri,
 	nhi.recursive = nexthop->rparent ? 1 : 0;
 	nhi.type = nexthop->type;
 	nhi.if_index = nexthop->ifindex;
+	nhi.weight = nexthop->weight;
 
 	if (nexthop->type == NEXTHOP_TYPE_IPV4
 	    || nexthop->type == NEXTHOP_TYPE_IPV4_IFINDEX) {
@@ -479,6 +482,8 @@ static int netlink_route_info_encode(struct netlink_route_info *ri,
 		if (nhi->if_index) {
 			rtnh->rtnh_ifindex = nhi->if_index;
 		}
+
+		rtnh->rtnh_hops = nhi->weight;
 
 		encap = nhi->encap_info.encap_type;
 		switch (encap) {
