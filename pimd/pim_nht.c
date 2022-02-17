@@ -1030,8 +1030,7 @@ int pim_ecmp_nexthop_lookup(struct pim_instance *pim,
 				nexthop_tab[i].protocol_distance;
 			nexthop->mrib_route_metric =
 				nexthop_tab[i].route_metric;
-			memcpy(&(nexthop->last_lookup), &(src_addr),
-			       sizeof(pim_addr));
+			nexthop->last_lookup =  src_addr;
 			nexthop->last_lookup_time = pim_time_monotonic_usec();
 			nexthop->nbr = nbr;
 			found = 1;

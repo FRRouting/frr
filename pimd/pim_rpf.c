@@ -67,7 +67,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	 * 255.255.255.255 address, since
 	 * it will never work
 	 */
-	if (addr.s_addr == INADDR_NONE)
+	if (pim_addr_is_none(addr))
 		return false;
 #endif
 
