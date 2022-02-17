@@ -205,6 +205,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 static void static_zebra_capabilities(struct zclient_capabilities *cap)
 {
 	mpls_enabled = cap->mpls_enabled;
+	zebra_ecmp_count = cap->ecmp;
 }
 
 static unsigned int static_nht_hash_key(const void *data)

@@ -43,7 +43,7 @@
 char backup_config_file[256];
 
 bool mpls_enabled;
-
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 zebra_capabilities_t _caps_p[] = {
 };
