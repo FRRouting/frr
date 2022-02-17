@@ -36,6 +36,7 @@
 #include "pim_bsm.h"
 #include "pim_time.h"
 #include "pim_zebra.h"
+#include "pim_util.h"
 
 /* Functions forward declaration */
 static void pim_bs_timer_start(struct bsm_scope *scope, int bs_timeout);
@@ -416,7 +417,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 
 	pend = bsm_rpinfos_first(bsgrp_node->partial_bsrp_list);
 
-	if (!str2prefix("224.0.0.0/4", &group_all))
+	if (!pim_get_all_mcast_group(&group_all))
 		return;
 
 	rp_all = pim_rp_find_match_group(pim, &group_all);
@@ -627,7 +628,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 
 		pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 
-		if (!str2prefix("224.0.0.0/4", &g_all))
+		if (!pim_get_all_mcast_group(&g_all))
 			return;
 
 		rp_all = pim_rp_find_match_group(pim, &g_all);
