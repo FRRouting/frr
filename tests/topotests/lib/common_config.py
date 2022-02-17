@@ -4921,8 +4921,13 @@ def verify_ip_nht(tgen, input_dict):
 
         for nh in nh_list:
             if nh in show_ip_nht:
-                logger.info("Nexthop %s is resolved on %s", nh, router)
-                return True
+                nht = run_frr_cmd(rnode, f"show ip nht {nh}")
+                if "unresolved" in nht:
+                    errormsg = "Nexthop {} became unresolved on {}".format(nh, router)
+                    return errormsg
+                else:
+                    logger.info("Nexthop %s is resolved on %s", nh, router)
+                    return True
             else:
                 errormsg = "Nexthop {} is resolved on {}".format(nh, router)
                 return errormsg
