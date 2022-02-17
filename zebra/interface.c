@@ -2688,37 +2688,48 @@ static inline bool if_is_protodown_applicable(struct interface *ifp)
 
 	return true;
 }
-
-static void zebra_vxlan_if_vni_dump_vty(struct vty *vty,
+static void zebra_vxlan_if_vni_dump_vty(struct vty *vty, json_object *json_if,
 					struct zebra_vxlan_vni *vni)
 {
 	char str[INET6_ADDRSTRLEN];
+	json_object *json_vni;
+	char vni_str[VNI_STR_LEN];
 
-	vty_out(vty, "\n  VxLAN Id %u", vni->vni);
-	if (vni->access_vlan)
-		vty_out(vty, " Access VLAN Id %u\n", vni->access_vlan);
+	if (vty) {
+		vty_out(vty, "\n  VxLAN Id %u", vni->vni);
+		if (vni->access_vlan)
+			vty_out(vty, " Access VLAN Id %u\n", vni->access_vlan);
 
-	if (vni->mcast_grp.s_addr != INADDR_ANY)
-		vty_out(vty, "  Mcast Group %s",
-			inet_ntop(AF_INET, &vni->mcast_grp, str, sizeof(str)));
+		if (vni->mcast_grp.s_addr != INADDR_ANY)
+			vty_out(vty, "\n  Mcast Group %s",
+				inet_ntop(AF_INET, &vni->mcast_grp, str, sizeof(str)));
+	} else if (json_if) {
+		json_vni = json_object_new_object();
+		snprintf(vni_str, sizeof(vni_str), "%u", vni->vni);
+		json_object_int_add(json_vni, "accessVlan", vni->access_vlan);
+		json_object_string_addf(json_vni, "mcastGroup", "%pI4", &vni->mcast_grp);
+		json_object_object_add(json_if, vni_str, json_vni);
+	}
 }
 
-static void zebra_vxlan_if_vni_hash_dump_vty(struct hash_bucket *bucket,
-					     void *ctxt)
+static void zebra_vxlan_if_vni_hash_dump_vty(struct hash_bucket *bucket, void **args)
 {
-	struct vty *vty;
 	struct zebra_vxlan_vni *vni;
+	struct vty *vty;
+	json_object *json_if;
 
 	vni = (struct zebra_vxlan_vni *)bucket->data;
-	vty = (struct vty *)ctxt;
+	vty = (struct vty *)args[0];
+	json_if = (json_object *)args[1];
 
-	zebra_vxlan_if_vni_dump_vty(vty, vni);
+	zebra_vxlan_if_vni_dump_vty(vty, json_if, vni);
 }
 
 static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
 {
 	struct zebra_l2info_vxlan *vxlan_info;
 	struct zebra_vxlan_vni_info *vni_info;
+	void *args[2];
 
 	vxlan_info = &zebra_if->l2info.vxl;
 	vni_info = &vxlan_info->vni_info;
@@ -2737,10 +2748,14 @@ static void zebra_vxlan_if_dump_vty(struct vty *vty, struct zebra_if *zebra_if)
 	}
 
 	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if)) {
-		zebra_vxlan_if_vni_dump_vty(vty, &vni_info->vni);
+		zebra_vxlan_if_vni_dump_vty(vty, NULL, &vni_info->vni);
 	} else {
+		args[0] = vty;
+		args[1] = NULL;
 		hash_iterate(vni_info->vni_table,
-			     zebra_vxlan_if_vni_hash_dump_vty, vty);
+			     (void (*)(struct hash_bucket *,
+				       void *))zebra_vxlan_if_vni_hash_dump_vty,
+			     args);
 	}
 
 	vty_out(vty, "\n");
@@ -3084,24 +3099,14 @@ static void zebra_vxlan_if_vni_dump_vty_json(json_object *json_if,
 	json_object_object_add(json_if, vni_str, json_vni);
 }
 
-static void zebra_vxlan_if_vni_hash_dump_vty_json(struct hash_bucket *bucket,
-						  void *ctxt)
-{
-	json_object *json_if;
-	struct zebra_vxlan_vni *vni;
-
-	vni = (struct zebra_vxlan_vni *)bucket->data;
-	json_if = (json_object *)ctxt;
-
-	zebra_vxlan_if_vni_dump_vty_json(json_if, vni);
-}
-
 static void zebra_vxlan_if_dump_vty_json(json_object *json_if,
 					 struct zebra_if *zebra_if)
 {
 	struct zebra_l2info_vxlan *vxlan_info;
 	struct zebra_vxlan_vni_info *vni_info;
 	json_object *json_vnis = NULL;
+	uint32_t num_vnis;
+	void *args[2];
 
 	vxlan_info = &zebra_if->l2info.vxl;
 	vni_info = &vxlan_info->vni_info;
@@ -3120,10 +3125,19 @@ static void zebra_vxlan_if_dump_vty_json(json_object *json_if,
 	}
 
 	json_vnis = json_object_new_object();
-	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if))
+	if (IS_ZEBRA_VXLAN_IF_VNI(zebra_if)) {
 		zebra_vxlan_if_vni_dump_vty_json(json_vnis, &vni_info->vni);
-	else
-		hash_iterate(vni_info->vni_table, zebra_vxlan_if_vni_hash_dump_vty_json, json_vnis);
+	} else {
+		num_vnis = hashcount(vni_info->vni_table);
+		if (num_vnis) {
+			args[0] = NULL;
+			args[1] = json_vnis;
+			hash_iterate(vni_info->vni_table,
+				     (void (*)(struct hash_bucket *,
+					       void *))zebra_vxlan_if_vni_hash_dump_vty,
+				     args);
+		}
+	}
 
 	json_object_object_add(json_if, "vxlanId", json_vnis);
 }
@@ -3271,7 +3285,6 @@ static void if_dump_vty_json(struct vty *vty, struct interface *ifp,
 		json_object_int_add(json_if, "vlanId", vlan_info->vid);
 	} else if (IS_ZEBRA_IF_VXLAN(ifp)) {
 		zebra_vxlan_if_dump_vty_json(json_if, zebra_if);
-
 	} else if (IS_ZEBRA_IF_GRE(ifp) || IS_ZEBRA_IF_GRETAP(ifp) || IS_ZEBRA_IF_IP6GRE(ifp) ||
 		   IS_ZEBRA_IF_IP6GRETAP(ifp)) {
 		struct zebra_l2info_gre *gre_info;
