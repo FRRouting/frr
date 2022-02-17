@@ -169,7 +169,7 @@ static bool static_nexthop_create(struct nb_cb_create_args *args)
 		if (iter.blackhole && iter.count > 1) {
 			snprintf(
 				args->errmsg, args->errmsg_len,
-				"Route can not have blackhole and non-blackhole nexthops simultaneously");
+				"Route cannot have blackhole and non-blackhole nexthops simultaneously");
 			return NB_ERR_VALIDATION;
 		}
 		break;
