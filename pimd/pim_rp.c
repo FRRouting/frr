@@ -48,6 +48,7 @@
 #include "pim_oil.h"
 #include "pim_zebra.h"
 #include "pim_bsm.h"
+#include "pim_util.h"
 
 /* Cleanup pim->rpf_hash each node data */
 void pim_rp_list_hash_clean(void *data)
@@ -113,7 +114,7 @@ void pim_rp_init(struct pim_instance *pim)
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
 
-	if (!str2prefix("224.0.0.0/4", &rp_info->group)) {
+	if (!pim_get_all_mcast_group(&rp_info->group)) {
 		flog_err(EC_LIB_DEVELOPMENT,
 			 "Unable to convert 224.0.0.0/4 to prefix");
 		list_delete(&pim->rp_list);
@@ -476,7 +477,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		rp_info->plist = XSTRDUP(MTYPE_PIM_FILTER_NAME, plist);
 	} else {
 
-		if (!str2prefix("224.0.0.0/4", &group_all)) {
+		if (!pim_get_all_mcast_group(&group_all)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_GROUP_BAD_ADDRESS;
 		}
@@ -652,7 +653,7 @@ void pim_rp_del_config(struct pim_instance *pim, pim_addr rp_addr,
 	int result;
 
 	if (group_range == NULL)
-		result = str2prefix("224.0.0.0/4", &group);
+		result = pim_get_all_mcast_group(&group);
 	else
 		result = str2prefix(group_range, &group);
 
@@ -747,7 +748,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			   &nht_p);
 	pim_delete_tracked_nexthop(pim, &nht_p, NULL, rp_info);
 
-	if (!str2prefix("224.0.0.0/4", &g_all))
+	if (!pim_get_all_mcast_group(&g_all))
 		return PIM_RP_BAD_ADDRESS;
 
 	rp_all = pim_rp_find_match_group(pim, &g_all);
