@@ -17,6 +17,7 @@
  * with this program; see the file COPYING; if not, write to the Free Software
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
  */
+
 #include <zebra.h>
 #include "linklist.h"
 #include "thread.h"
@@ -98,8 +99,8 @@ struct timer_wheel *wheel_init(struct thread_master *master, int period,
 	wheel->master = master;
 	wheel->nexttime = period / slots;
 
-	wheel->wheel_slot_lists = XCALLOC(MTYPE_TIMER_WHEEL_LIST,
-					  slots * sizeof(struct list *));
+	wheel->wheel_slot_lists =
+		XCALLOC(MTYPE_TIMER_WHEEL_LIST, slots * sizeof(struct list *));
 	for (i = 0; i < slots; i++)
 		wheel->wheel_slot_lists[i] = list_new();
 
