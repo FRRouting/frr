@@ -31,7 +31,11 @@
 #include "ferr.h"
 
 #include "pimd.h"
+#if PIM_IPV == 4
 #include "pim_mroute.h"
+#else
+#include "pim6_mroute.h"
+#endif
 #include "pim_cmd.h"
 #include "pim_iface.h"
 #include "pim_vty.h"
@@ -5672,13 +5676,13 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 			continue;
 
 		memset(&vreq, 0, sizeof(vreq));
-		vreq.vifi = pim_ifp->mroute_if_index;
+		vreq.vifi = pim_ifp->mroute_vif_index;
 
 		if (ioctl(pim->mroute_socket, SIOCGETVIFCNT, &vreq)) {
 			zlog_warn(
 				"ioctl(SIOCGETVIFCNT=%lu) failure for interface %s vif_index=%d: errno=%d: %s",
 				(unsigned long)SIOCGETVIFCNT, ifp->name,
-				pim_ifp->mroute_if_index, errno,
+				pim_ifp->mroute_vif_index, errno,
 				safe_strerror(errno));
 		}
 
@@ -5692,7 +5696,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 						&pim_ifp->primary_address);
 			json_object_int_add(json_row, "ifIndex", ifp->ifindex);
 			json_object_int_add(json_row, "vif",
-					    pim_ifp->mroute_if_index);
+					    pim_ifp->mroute_vif_index);
 			json_object_int_add(json_row, "pktsIn",
 					    (unsigned long)vreq.icount);
 			json_object_int_add(json_row, "pktsOut",
@@ -5707,7 +5711,7 @@ static void show_multicast_interfaces(struct pim_instance *pim, struct vty *vty,
 				"%-16s %-15s %3d %3d %7lu %7lu %10lu %10lu\n",
 				ifp->name,
 				inet_ntop(AF_INET, &ifaddr, buf, sizeof(buf)),
-				ifp->ifindex, pim_ifp->mroute_if_index,
+				ifp->ifindex, pim_ifp->mroute_vif_index,
 				(unsigned long)vreq.icount,
 				(unsigned long)vreq.ocount,
 				(unsigned long)vreq.ibytes,

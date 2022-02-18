@@ -32,7 +32,7 @@
 
 #include <netinet/in.h>
 #ifdef HAVE_NETINET_IP_MROUTE_H
-#include <netinet/ip_mroute.h>
+#include <netinet6/ip6_mroute.h>
 #endif
 
 #define PIM_MROUTE_MIN_TTL (1)
@@ -92,11 +92,11 @@ struct mf6cctl {
  *      Group count retrieval for mrouted
  */
 /*
-  struct sioc_sg_req sgreq;
+  struct sioc_sg_req6 sgreq;
   memset(&sgreq, 0, sizeof(sgreq));
   memcpy(&sgreq.src, &source_addr, sizeof(sgreq.src));
   memcpy(&sgreq.grp, &group_addr, sizeof(sgreq.grp));
-  ioctl(mrouter_s4, SIOCGETSGCNT, &sgreq);
+  ioctl(mrouter_s6, SIOCGETSGCNT_IN6, &sgreq);
  */
 struct sioc_sg_req6 {
 	struct sockaddr_in6 src;
@@ -107,13 +107,13 @@ struct sioc_sg_req6 {
 };
 
 /*
- *      To get vif packet counts
+ *      To get mif packet counts
  */
 /*
-  struct sioc_vif_req vreq;
-  memset(&vreq, 0, sizeof(vreq));
-  vreq.vifi = vif_index;
-  ioctl(mrouter_s4, SIOCGETVIFCNT, &vreq);
+  struct sioc_mif_req6 mreq;
+  memset(&mreq, 0, sizeof(mreq));
+  mreq.mifi = mif_index;
+  ioctl(mrouter_s6, SIOCGETMIFCNT_IN6, &mreq);
  */
 struct sioc_mif_req6 {
 	mifi_t	mifi;		/* Which iface */
@@ -128,7 +128,7 @@ struct sioc_mif_req6 {
  */
 #ifndef MRT6MSG_NOCACHE
 #define MRT6MSG_NOCACHE         1               /* Kern cache fill request to mrouted */
-#define MRT6MSG_WRONGVIF        2               /* For PIM assert processing (unused) */
+#define MRT6MSG_WRONGMIF        2               /* For PIM assert processing (unused) */
 #define MRT6MSG_WHOLEPKT        3               /* For PIM Register processing */
 #endif
 
@@ -141,8 +141,8 @@ struct mrt6msg {
 };
 #endif
 
-#ifndef MRT6MSG_WRVIFWHOLE
-#define MRT6MSG_WRVIFWHOLE      4               /* For PIM processing */
+#ifndef MRT6MSG_WRMIFWHOLE
+#define MRT6MSG_WRMIFWHOLE      4               /* For PIM processing */
 #endif
 
 /*

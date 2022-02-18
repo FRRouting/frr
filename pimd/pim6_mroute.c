@@ -48,9 +48,9 @@
 
 #define IPV6_HEADER_LENGTH 40
 
-static void mroute_read_on(struct pim_instance *pim);
+static void mroute6_read_on(struct pim_instance *pim);
 
-static int pim_mroute_set(struct pim_instance *pim, int enable)
+static int pim6_mroute_set(struct pim_instance *pim, int enable)
 {
 	int err;
 	int opt, data;
@@ -152,7 +152,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 static const char *const mrt6msgtype2str[MRT6MSG_WHOLEPKT + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGMIF", "WHOLEPKT"};
 
-static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
+static int pim6_mroute_msg_nocache(int fd, struct interface *ifp,
 				  const struct mrt6msg *msg)
 {
 	struct pim_interface *pim_ifp = ifp->info;
@@ -194,8 +194,8 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	if (!(PIM_I_am_DR(pim_ifp))) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug(
-				"%s: Interface is not the DR blackholing incoming traffic for %s",
-				__func__, pim_str_sg_dump(&sg));
+				"%s: Interface is not the DR blackholing incoming traffic for %pSG",
+				__func__, &sg);
 
 		/*
 		 * We are not the DR, but we are still receiving packets
@@ -242,7 +242,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	return 0;
 }
 
-static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
+static int pim6_mroute_msg_wholepkt(int fd, struct interface *ifp,
 				   const char *buf)
 {
 	struct pim_interface *pim_ifp;
@@ -273,8 +273,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 			if (!up) {
 				if (PIM_DEBUG_MROUTE)
 					zlog_debug(
-						"%s: Unable to create upstream information for %s",
-						__func__, pim_str_sg_dump(&sg));
+						"%s: Unable to create upstream information for %pSG",
+						__func__, &sg);
 				return 0;
 			}
 			pim_upstream_keep_alive_timer_start(
@@ -289,8 +289,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 		}
 		if (PIM_DEBUG_MROUTE_DETAIL) {
 			zlog_debug(
-				"%s: Unable to find upstream channel WHOLEPKT%s",
-				__func__, pim_str_sg_dump(&sg));
+				"%s: Unable to find upstream channel WHOLEPKT%pSG",
+				__func__, &sg);
 		}
 		return 0;
 	}
@@ -321,8 +321,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 		if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 			if (PIM_DEBUG_PIM_REG)
 				zlog_debug(
-					"%s register forward skipped as group is SSM",
-					pim_str_sg_dump(&sg));
+					"%pSG register forward skipped as group is SSM",
+					&sg);
 			return 0;
 		}
 
@@ -341,7 +341,7 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 	return 0;
 }
 
-static int pim_mroute_msg_wrongmif(int fd, struct interface *ifp,
+static int pim6_mroute_msg_wrongmif(int fd, struct interface *ifp,
 				   const struct mrt6msg *msg)
 {
 	struct pim_ifchannel *ch;
@@ -366,8 +366,8 @@ static int pim_mroute_msg_wrongmif(int fd, struct interface *ifp,
 	if (!ifp) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s: WRONGMIF (S,G)=%s could not find input interface for input_mif_index=%d",
-				__func__, pim_str_sg_dump(&sg), msg->im6_mif);
+				"%s: WRONGMIF (S,G)=%pSG could not find input interface for input_mif_index=%d",
+				__func__, &sg, msg->im6_mif);
 		return -1;
 	}
 
@@ -375,8 +375,8 @@ static int pim_mroute_msg_wrongmif(int fd, struct interface *ifp,
 	if (!pim_ifp) {
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s: WRONGMIF (S,G)=%s multicast not enabled on interface %s",
-				__func__, pim_str_sg_dump(&sg), ifp->name);
+				"%s: WRONGMIF (S,G)=%pSG multicast not enabled on interface %s",
+				__func__, &sg, ifp->name);
 		return -2;
 	}
 
@@ -385,16 +385,16 @@ static int pim_mroute_msg_wrongmif(int fd, struct interface *ifp,
 		pim_sgaddr star_g = sg;
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
-				"%s: WRONGMIF (S,G)=%s could not find channel on interface %s",
-				__func__, pim_str_sg_dump(&sg), ifp->name);
+				"%s: WRONGMIF (S,G)=%pSG could not find channel on interface %s",
+				__func__, &sg, ifp->name);
 
 		star_g.src = in6addr_any;
 		ch = pim_ifchannel_find(ifp, &star_g);
 		if (!ch) {
 			if (PIM_DEBUG_MROUTE)
 				zlog_debug(
-					"%s: WRONGMIF (*,G)=%s could not find channel on interface %s",
-					__func__, pim_str_sg_dump(&star_g),
+					"%s: WRONGMIF (*,G)=%pSG could not find channel on interface %s",
+					__func__, &star_g,
 					ifp->name);
 			return -3;
 		}
@@ -444,7 +444,7 @@ static int pim_mroute_msg_wrongmif(int fd, struct interface *ifp,
 	return 0;
 }
 
-static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
+static int pim6_mroute_msg(struct pim_instance *pim, const char *buf,
 			  int buf_size, ifindex_t ifindex)
 {
 	struct interface *ifp;
@@ -563,13 +563,13 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 
 		switch (msg->im6_msgtype) {
 		case MRT6MSG_WRONGMIF:
-			return pim_mroute_msg_wrongmif(pim->mroute_socket, ifp,
+			return pim6_mroute_msg_wrongmif(pim->mroute_socket, ifp,
 						       msg);
 		case MRT6MSG_NOCACHE:
-			return pim_mroute_msg_nocache(pim->mroute_socket, ifp,
+			return pim6_mroute_msg_nocache(pim->mroute_socket, ifp,
 						      msg);
 		case MRT6MSG_WHOLEPKT:
-			return pim_mroute_msg_wholepkt(pim->mroute_socket, ifp,
+			return pim6_mroute_msg_wholepkt(pim->mroute_socket, ifp,
 						       (const char *)msg);
 		default:
 			break;
@@ -579,7 +579,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	return 0;
 }
 
-static int mroute_read(struct thread *t)
+static int mroute6_read(struct thread *t)
 {
 	struct pim_instance *pim;
 	static long long count;
@@ -607,7 +607,7 @@ static int mroute_read(struct thread *t)
 			goto done;
 		}
 
-		result = pim_mroute_msg(pim, buf, rd, ifindex);
+		result = pim6_mroute_msg(pim, buf, rd, ifindex);
 
 		count++;
 		if (count % router->packet_process == 0)
@@ -615,18 +615,18 @@ static int mroute_read(struct thread *t)
 	}
 /* Keep reading */
 done:
-	mroute_read_on(pim);
+	mroute6_read_on(pim);
 
 	return result;
 }
 
-static void mroute_read_on(struct pim_instance *pim)
+static void mroute6_read_on(struct pim_instance *pim)
 {
-	thread_add_read(router->master, mroute_read, pim, pim->mroute_socket,
+	thread_add_read(router->master, mroute6_read, pim, pim->mroute_socket,
 			&pim->thread);
 }
 
-static void mroute_read_off(struct pim_instance *pim)
+static void mroute6_read_off(struct pim_instance *pim)
 {
 	THREAD_OFF(pim->thread);
 }
@@ -660,7 +660,7 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 	}
 
 	pim->mroute_socket = fd;
-	if (pim_mroute_set(pim, 1)) {
+	if (pim6_mroute_set(pim, 1)) {
 		zlog_warn(
 			"Could not enable mroute on socket fd=%d: errno=%d: %s",
 			fd, errno, safe_strerror(errno));
@@ -671,14 +671,14 @@ int pim_mroute_socket_enable(struct pim_instance *pim)
 
 	pim->mroute_socket_creation = pim_time_monotonic_sec();
 
-	mroute_read_on(pim);
+	mroute6_read_on(pim);
 
 	return 0;
 }
 
 int pim_mroute_socket_disable(struct pim_instance *pim)
 {
-	if (pim_mroute_set(pim, 0)) {
+	if (pim6_mroute_set(pim, 0)) {
 		zlog_warn(
 			"Could not disable mroute on socket fd=%d: errno=%d: %s",
 			pim->mroute_socket, errno, safe_strerror(errno));
@@ -691,7 +691,7 @@ int pim_mroute_socket_disable(struct pim_instance *pim)
 		return -3;
 	}
 
-	mroute_read_off(pim);
+	mroute6_read_off(pim);
 	pim->mroute_socket = -1;
 
 	return 0;
@@ -711,11 +711,11 @@ int pim_mroute_add_if(struct interface *ifp, pim_addr ifaddr,
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s: Add Vif %d (%s[%s])", __func__,
-			   pim_ifp->mroute_if_index, ifp->name,
+			   pim_ifp->mroute_vif_index, ifp->name,
 			   pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
-	vc.mif6c_mifi = pim_ifp->mroute_if_index;
+	vc.mif6c_mifi = pim_ifp->mroute_vif_index;
 	vc.mif6c_flags = flags;
 	vc.vifc_threshold = PIM_MROUTE_MIN_TTL;
 	vc.vifc_rate_limit = 0;
@@ -723,15 +723,10 @@ int pim_mroute_add_if(struct interface *ifp, pim_addr ifaddr,
 	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IPV6, MRT6_ADD_MIF,
 			 (void *)&vc, sizeof(vc));
 	if (err) {
-		char ifaddr_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<ifaddr?>", ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str));
-
 		zlog_warn(
-			"%s: failure: setsockopt(fd=%d,IPPROTO_IPV6,MRT6_ADD_MIF,mif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
+			"%s: failure: setsockopt(fd=%d,IPPROTO_IPV6,MRT6_ADD_MIF,mif_index=%d,ifaddr=%pPAs,flag=%d): errno=%d: %s",
 			__func__, pim_ifp->pim->mroute_socket, ifp->ifindex,
-			ifaddr_str, flags, errno, safe_strerror(errno));
+			&ifaddr, flags, errno, safe_strerror(errno));
 		return -2;
 	}
 
@@ -746,11 +741,11 @@ int pim_mroute_del_if(struct interface *ifp)
 
 	if (PIM_DEBUG_MROUTE)
 		zlog_debug("%s: Del Mif %d (%s[%s])", __func__,
-			   pim_ifp->mroute_if_index, ifp->name,
+			   pim_ifp->mroute_vif_index, ifp->name,
 			   pim_ifp->pim->vrf->name);
 
 	memset(&vc, 0, sizeof(vc));
-	vc.mif6c_mifi = pim_ifp->mroute_if_index;
+	vc.mif6c_mifi = pim_ifp->mroute_vif_index;
 
 	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IPV6, MRT6_DEL_MIF,
 			 (void *)&vc, sizeof(vc));
@@ -758,7 +753,7 @@ int pim_mroute_del_if(struct interface *ifp)
 		zlog_warn(
 			"%s %s: failure: setsockopt(fd=%d,IPPROTO_IPV6,MRT6_DEL_MIF,mif_index=%d): errno=%d: %s",
 			__FILE__, __func__, pim_ifp->pim->mroute_socket,
-			pim_ifp->mroute_if_index, errno, safe_strerror(errno));
+			pim_ifp->mroute_vif_index, errno, safe_strerror(errno));
 		return -2;
 	}
 
@@ -805,7 +800,7 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 #endif
 }
 
-static inline void pim_mroute_copy(struct mf6cctl *oil,
+static inline void pim6_mroute_copy(struct mf6cctl *oil,
 		struct channel_oil *c_oil)
 {
 	int i;
@@ -823,7 +818,7 @@ static inline void pim_mroute_copy(struct mf6cctl *oil,
 
 		if (c_oil->oif_flags[i] & PIM_OIF_FLAG_MUTE)
 			IF_CLR(i, &oil->mf6cc_ifset);
-		else
+		else if (IF_ISSET(i, &c_oil->oil.mf6cc_ifset))
 			IF_SET(i, &oil->mf6cc_ifset); 
 	}
 }
@@ -831,7 +826,7 @@ static inline void pim_mroute_copy(struct mf6cctl *oil,
 /* This function must not be called directly 0
  * use pim_upstream_mroute_add or pim_static_mroute_add instead
  */
-static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
+static int pim6_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	struct pim_instance *pim = c_oil->pim;
 	struct mf6cctl tmp_oil = { {0} };
@@ -843,13 +838,13 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	/* Copy the oil to a temporary structure to fixup (without need to
 	 * later restore) before sending the mroute add to the dataplane
 	 */
-	pim_mroute_copy(&tmp_oil, c_oil);
+	pim6_mroute_copy(&tmp_oil, c_oil);
 
 	/* The linux kernel *expects* the incoming
 	 * mif to be part of the outgoing list
 	 * in the case of a (*,G).
 	 */
-	if (ipv6_addr_any(&(c_oil->oil.mf6cc_origin.sin6_addr))) {
+	if (pim_addr_is_any(c_oil->oil.mf6cc_origin.sin6_addr)) {
 		IF_SET(c_oil->oil.mf6cc_parent, &tmp_oil.mf6cc_ifset);
 	}
 
@@ -860,7 +855,7 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	 * the packets to be forwarded.  Then set it
 	 * to the correct IIF afterwords.
 	 */
-	if (!c_oil->installed && !(ipv6_addr_any(&(c_oil->oil.mf6cc_origin.sin6_addr)))
+	if (!c_oil->installed && !(pim_addr_is_any(c_oil->oil.mf6cc_origin.sin6_addr))
 	    && c_oil->oil.mf6cc_parent != 0) {
 		tmp_oil.mf6cc_parent = 0;
 	}
@@ -868,7 +863,7 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 			 &tmp_oil, sizeof(tmp_oil));
 
 	if (!err && !c_oil->installed
-	    && (!(ipv6_addr_any(&(c_oil->oil.mf6cc_origin.sin6_addr))))
+	    && (!(pim_addr_is_any(c_oil->oil.mf6cc_origin.sin6_addr)))
 	    && c_oil->oil.mf6cc_parent != 0) {
 		tmp_oil.mf6cc_parent = c_oil->oil.mf6cc_parent;
 		err = setsockopt(pim->mroute_socket, IPPROTO_IPV6, MRT6_ADD_MFC,
@@ -898,7 +893,7 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	return 0;
 }
 
-static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
+static int pim6_upstream_get_mroute_iif(struct channel_oil *c_oil,
 		const char *name)
 {
 	mifi_t iif = MAXMIFS;
@@ -916,13 +911,13 @@ static int pim_upstream_get_mroute_iif(struct channel_oil *c_oil,
 		if (ifp) {
 			pim_ifp = (struct pim_interface *)ifp->info;
 			if (pim_ifp)
-				iif = pim_ifp->mroute_if_index;
+				iif = pim_ifp->mroute_vif_index;
 		}
 	}
 	return iif;
 }
 
-static int pim_upstream_mroute_update(struct channel_oil *c_oil,
+static int pim6_upstream_mroute_update(struct channel_oil *c_oil,
 		const char *name)
 {
 	char buf[1000];
@@ -946,13 +941,13 @@ static int pim_upstream_mroute_update(struct channel_oil *c_oil,
 		return 0;
 	}
 
-	return pim_mroute_add(c_oil, name);
+	return pim6_mroute_add(c_oil, name);
 }
 
 /* IIF associated with SGrpt entries are re-evaluated when the parent
  * (*,G) entries IIF changes
  */
-static void pim_upstream_all_sources_iif_update(struct pim_upstream *up)
+static void pim6_upstream_all_sources_iif_update(struct pim_upstream *up)
 {
 	struct listnode *listnode;
 	struct pim_upstream *child;
@@ -972,18 +967,18 @@ int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	mifi_t iif;
 
-	iif = pim_upstream_get_mroute_iif(c_oil, name);
+	iif = pim6_upstream_get_mroute_iif(c_oil, name);
 
 	if (c_oil->oil.mf6cc_parent != iif) {
 		c_oil->oil.mf6cc_parent = iif;
-		if (ipv6_addr_any(&(c_oil->oil.mf6cc_origin.sin6_addr)) &&
+		if (pim_addr_is_any(c_oil->oil.mf6cc_origin.sin6_addr) &&
 				c_oil->up)
-			pim_upstream_all_sources_iif_update(c_oil->up);
+			pim6_upstream_all_sources_iif_update(c_oil->up);
 	} else {
 		c_oil->oil.mf6cc_parent = iif;
 	}
 
-	return pim_upstream_mroute_update(c_oil, name);
+	return pim6_upstream_mroute_update(c_oil, name);
 }
 
 /* Look for IIF changes and update the dateplane entry only if the IIF
@@ -994,16 +989,16 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 	mifi_t iif;
 	char buf[1000];
 
-	iif = pim_upstream_get_mroute_iif(c_oil, name);
+	iif = pim6_upstream_get_mroute_iif(c_oil, name);
 	if (c_oil->oil.mf6cc_parent == iif) {
 		/* no change */
 		return 0;
 	}
 	c_oil->oil.mf6cc_parent = iif;
 
-	if (ipv6_addr_any(&(c_oil->oil.mf6cc_origin.sin6_addr)) &&
+	if (pim_addr_is_any(c_oil->oil.mf6cc_origin.sin6_addr) &&
 			c_oil->up)
-		pim_upstream_all_sources_iif_update(c_oil->up);
+		pim6_upstream_all_sources_iif_update(c_oil->up);
 
 	if (PIM_DEBUG_MROUTE_DETAIL)
 		zlog_debug("%s(%s) %s mroute iif update %d",
@@ -1012,12 +1007,12 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 					sizeof(buf)), iif);
 	/* XXX: is this hack needed? */
 	c_oil->oil_inherited_rescan = 1;
-	return pim_upstream_mroute_update(c_oil, name);
+	return pim6_upstream_mroute_update(c_oil, name);
 }
 
 int pim_static_mroute_add(struct channel_oil *c_oil, const char *name)
 {
-	return pim_mroute_add(c_oil, name);
+	return pim6_mroute_add(c_oil, name);
 }
 
 void pim_static_mroute_iif_update(struct channel_oil *c_oil,
@@ -1094,8 +1089,8 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 			IPV6_ADDR_COPY (&sg.src, &c_oil->oil.mf6cc_origin.sin6_addr);
 			IPV6_ADDR_COPY(&sg.grp, &c_oil->oil.mf6cc_mcastgrp.sin6_addr);
 			zlog_debug(
-				"Channel%s is not installed no need to collect data from kernel",
-				pim_str_sg_dump(&sg));
+				"Channel%pSG is not installed no need to collect data from kernel",
+				&sg);
 		}
 		return;
 	}
@@ -1111,8 +1106,8 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 		IPV6_ADDR_COPY (&sg.src, &c_oil->oil.mf6cc_origin.sin6_addr);
 		IPV6_ADDR_COPY(&sg.grp, &c_oil->oil.mf6cc_mcastgrp.sin6_addr);
 
-		zlog_warn("ioctl(SIOCGETSGCNT_IN6=%lu) failure for (S,G)=%s: errno=%d: %s",
-			  (unsigned long)SIOCGETSGCNT_IN6, pim_str_sg_dump(&sg),
+		zlog_warn("ioctl(SIOCGETSGCNT_IN6=%lu) failure for (S,G)=%pSG: errno=%d: %s",
+			  (unsigned long)SIOCGETSGCNT_IN6, &sg,
 			  errno, safe_strerror(errno));
 		return;
 	}

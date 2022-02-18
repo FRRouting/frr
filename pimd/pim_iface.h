@@ -59,16 +59,8 @@
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
 	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
-<<<<<<< HEAD
 #define PIM_I_am_DR(pim_ifp)                                                   \
 	!pim_addr_cmp((pim_ifp)->pim_dr_addr, (pim_ifp)->primary_address)
-=======
-#if PIM_IPV == 4
-#define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
-#else
-#define PIM_I_am_DR(pim_ifp) (IPV6_ADDR_SAME(&((pim_ifp)->pim_dr_addr), &((pim_ifp)->primary_address)))
-#endif
->>>>>>> 97046e3df (pim6d: PIM6 Mroute handling changes)
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
 /* Macros for interface flags */
@@ -102,7 +94,7 @@ struct pim_secondary_addr {
 
 struct pim_interface {
 	uint32_t options; /* bit vector */
-	ifindex_t mroute_if_index;
+	ifindex_t mroute_vif_index;
 	struct pim_instance *pim;
 	pim_addr primary_address;       /* remember addr to detect change */
 	struct list *sec_addr_list;     /* list of struct pim_secondary_addr */

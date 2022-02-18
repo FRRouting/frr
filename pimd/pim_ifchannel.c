@@ -56,10 +56,10 @@ int pim_ifchannel_compare(const struct pim_ifchannel *ch1,
 	pim_ifp1 = ch1->interface->info;
 	pim_ifp2 = ch2->interface->info;
 
-	if (pim_ifp1->mroute_if_index < pim_ifp2->mroute_if_index)
+	if (pim_ifp1->mroute_vif_index < pim_ifp2->mroute_vif_index)
 		return -1;
 
-	if (pim_ifp1->mroute_if_index > pim_ifp2->mroute_if_index)
+	if (pim_ifp1->mroute_vif_index > pim_ifp2->mroute_vif_index)
 		return 1;
 
 	return pim_sgaddr_cmp(ch1->sg, ch2->sg);
@@ -307,7 +307,7 @@ void pim_ifchannel_ifjoin_switch(const char *caller, struct pim_ifchannel *ch,
 					 * if channel.  So remove it.
 					 */
 					if (c_oil->oil.mfcc_ttls
-						    [pim_ifp->mroute_if_index])
+						    [pim_ifp->mroute_vif_index])
 						pim_channel_del_inherited_oif(
 							c_oil, ch->interface,
 							__func__);
@@ -1291,7 +1291,7 @@ void pim_ifchannel_local_membership_del(struct interface *ifp, pim_sgaddr *sg)
 			if (!pim_upstream_evaluate_join_desired_interface(
 				child, ch, starch) ||
 				(!chchannel &&
-				 c_oil->oil.mfcc_ttls[pim_ifp->mroute_if_index])) {
+				 c_oil->oil.mfcc_ttls[pim_ifp->mroute_vif_index])) {
 				pim_channel_del_inherited_oif(c_oil, ifp,
 						__func__);
 			}
