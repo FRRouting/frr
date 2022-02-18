@@ -547,9 +547,9 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 		ip_proto = IPPROTO_RAW; /* _ICMP6 */
 	}
 
-	if (pme->echofd > 0)
+	if (pme->echofd >= 0)
 		close(pme->echofd);
-	if (pme->echofd_rx_ipv6 > 0)
+	if (pme->echofd_rx_ipv6 >= 0)
 		close(pme->echofd_rx_ipv6);
 
 	frr_with_privs(&pm_privs) {
@@ -557,7 +557,7 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 					 ip_proto,
 					 vrf->vrf_id, bind_interface);
 	}
-	if (pme->echofd == -1) {
+	if (pme->echofd < 0) {
 		zlog_err("pm_echo, failed to allocate socket");
 		return -1;
 	}
@@ -570,7 +570,7 @@ static int pm_echo_reset_socket(struct pm_echo *pme)
 							 vrf->vrf_id,
 							 bind_interface);
 		}
-		if (pme->echofd_rx_ipv6 == -1) {
+		if (pme->echofd_rx_ipv6 < 0) {
 			zlog_err("pm_echo, failed to allocate socket (%u)",
 				 errno);
 			close(pme->echofd);
@@ -634,9 +634,6 @@ void pm_echo_send(struct event *event)
 		insns6
 	};
 
-	if (pme->echofd < 0)
-		return;
-
 	if (!pme->tx_buf)
 		pme->tx_buf = XCALLOC(MTYPE_PM_PACKET, pme->packet_size);
 	else
@@ -651,7 +648,8 @@ void pm_echo_send(struct event *event)
 		ret = pm_echo_reset_socket(pme);
 		if (ret < 0)
 			goto label_end_tried_sending;
-	}
+	} else if (pme->echofd < 0)
+		return;
 
 	if (pme->oper_bind == false) {
 		if (sockunion_family(&pm->key.local) == AF_INET6) {
@@ -841,9 +839,11 @@ void pm_echo_stop(struct pm_session *pm, char *errormsg,
 	EVENT_OFF(pme->t_echo_tmo);
 	EVENT_OFF(pme->t_echo_send);
 	EVENT_OFF(pme->t_echo_receive);
-	close(pme->echofd);
-	pme->echofd = -1;
-	if (pme->echofd_rx_ipv6 > 0) {
+	if (pme->echofd >= 0) {
+		close(pme->echofd);
+		pme->echofd = -1;
+	}
+	if (pme->echofd_rx_ipv6 >= 0) {
 		close(pme->echofd_rx_ipv6);
 		pme->echofd_rx_ipv6 = -1;
 	}
@@ -876,6 +876,8 @@ int pm_echo(struct pm_session *pm, char *errormsg, int errormsg_len)
 	memcpy(pme_ptr, &pme, sizeof(pme));
 	pm_set_sess_state(pm, PM_INIT);
 	pme_ptr->back_ptr = pm;
+	pme_ptr->echofd = -1;
+	pme_ptr->echofd_rx_ipv6 = -1;
 	pme_ptr->discriminator_id = pm_id_list_gen_id();
 	pme_ptr->icmp_sequence = 0;
 
