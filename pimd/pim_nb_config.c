@@ -31,6 +31,7 @@
 #include "pim_ssm.h"
 #include "pim_ssmpingd.h"
 #include "pim_vxlan.h"
+#include "pim_util.h"
 #include "log.h"
 #include "lib_errors.h"
 
@@ -2829,6 +2830,14 @@ int lib_interface_gmp_address_family_static_group_create(
 			snprintf(args->errmsg, args->errmsg_len,
 				 "multicast not enabled on interface %s",
 				 ifp_name);
+			return NB_ERR_VALIDATION;
+		}
+
+		yang_dnode_get_ip(&group_addr, args->dnode, "./group-addr");
+		if (pim_is_group_224_0_0_0_24(group_addr.ip._v4_addr)) {
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"Groups within 224.0.0.0/24 are reserved and cannot be joined");
 			return NB_ERR_VALIDATION;
 		}
 		break;
