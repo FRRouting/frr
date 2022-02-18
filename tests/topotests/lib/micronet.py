@@ -362,7 +362,7 @@ class Commander(object):  # pylint: disable=R0205
                 "/run/screen/S-{}/{}".format(os.environ["USER"], os.environ["STY"])
             ):
                 cmd = ["sudo", "-u", os.environ["SUDO_USER"]] + cmd
-            cmd.append(nscmd)
+            cmd.extend(nscmd.split(" "))
         elif "DISPLAY" in os.environ:
             # We need it broken up for xterm
             user_cmd = cmd
