@@ -2210,7 +2210,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: deferring AS-external-LSA origination, router ID is zero",
-				&ei->p.prefix);
+				ei ? &ei->p.prefix : NULL);
 		return NULL;
 	}
 
@@ -2219,7 +2219,7 @@ struct ospf_lsa *ospf_external_lsa_originate(struct ospf *ospf,
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
 				"LSA[Type5:%pI4]: Could not originate AS-external-LSA",
-				&ei->p.prefix);
+				ei ? &ei->p.prefix : NULL);
 		return NULL;
 	}
 
