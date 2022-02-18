@@ -86,19 +86,24 @@ eigrp_metric_t eigrp_calculate_metrics(struct eigrp *eigrp,
 	 */
 
 	if (eigrp->k_values[0])
-		composite += (eigrp->k_values[0] * metric.bandwidth);
+		composite += ((eigrp_metric_t)eigrp->k_values[0] *
+			      (eigrp_metric_t)metric.bandwidth);
 	if (eigrp->k_values[1])
-		composite += ((eigrp->k_values[1] * metric.bandwidth)
-			      / (256 - metric.load));
+		composite += (((eigrp_metric_t)eigrp->k_values[1] *
+			       (eigrp_metric_t)metric.bandwidth) /
+			      (256 - metric.load));
 	if (eigrp->k_values[2])
-		composite += (eigrp->k_values[2] * metric.delay);
+		composite += ((eigrp_metric_t)eigrp->k_values[2] *
+			      (eigrp_metric_t)metric.delay);
 	if (eigrp->k_values[3] && !eigrp->k_values[4])
-		composite *= eigrp->k_values[3];
+		composite *= (eigrp_metric_t)eigrp->k_values[3];
 	if (!eigrp->k_values[3] && eigrp->k_values[4])
-		composite *= (eigrp->k_values[4] / metric.reliability);
+		composite *= ((eigrp_metric_t)eigrp->k_values[4] /
+			      (eigrp_metric_t)metric.reliability);
 	if (eigrp->k_values[3] && eigrp->k_values[4])
-		composite *= ((eigrp->k_values[4] / metric.reliability)
-			      + eigrp->k_values[3]);
+		composite *= (((eigrp_metric_t)eigrp->k_values[4] /
+			       (eigrp_metric_t)metric.reliability) +
+			      (eigrp_metric_t)eigrp->k_values[3]);
 
 	composite =
 		(composite <= EIGRP_METRIC_MAX) ? composite : EIGRP_METRIC_MAX;
