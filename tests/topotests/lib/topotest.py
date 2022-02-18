@@ -1613,7 +1613,7 @@ class Router(Node):
 
         shell_routers = g_extra_config["shell"]
         if "all" in shell_routers or self.name in shell_routers:
-            self.run_in_window(os.getenv("SHELL", "bash"))
+            self.run_in_window(os.getenv("SHELL", "bash"), title="sh-%s" % self.name)
 
         if self.daemons["eigrpd"] == 1:
             eigrpd_path = os.path.join(self.daemondir, "eigrpd")
@@ -1631,7 +1631,7 @@ class Router(Node):
 
         vtysh_routers = g_extra_config["vtysh"]
         if "all" in vtysh_routers or self.name in vtysh_routers:
-            self.run_in_window("vtysh")
+            self.run_in_window("vtysh", title="vt-%s" % self.name)
 
         return status
 
