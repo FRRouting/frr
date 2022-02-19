@@ -2024,11 +2024,11 @@ static bool pim_upstream_sg_running_proc(struct pim_upstream *up)
 	pim_mroute_update_counters(up->channel_oil);
 
 	// Have we seen packets?
-	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt)
-	    && (up->channel_oil->cc.lastused / 100 > 30)) {
+	if ((up->channel_oil->cc.oldpktcnt >= up->channel_oil->cc.pktcnt) &&
+	    (up->channel_oil->cc.lastused / 100 > 60)) {
 		if (PIM_DEBUG_PIM_TRACE) {
 			zlog_debug(
-				"%s[%s]: %s old packet count is equal or lastused is greater than 30, (%ld,%ld,%lld)",
+				"%s[%s]: %s old packet count is equal or lastused is greater than 60, (%ld,%ld,%lld)",
 				__func__, up->sg_str, pim->vrf->name,
 				up->channel_oil->cc.oldpktcnt,
 				up->channel_oil->cc.pktcnt,
