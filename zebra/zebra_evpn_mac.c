@@ -2456,11 +2456,12 @@ int zebra_evpn_del_local_mac(struct zebra_evpn *zevpn, struct zebra_mac *mac,
 	return 0;
 }
 
-int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
-				const struct ipaddr *ip,
-				struct zebra_mac **macp,
-				const struct ethaddr *macaddr, vlanid_t vlan_id,
-				bool def_gw)
+void zebra_evpn_mac_gw_macip_add(struct interface *ifp,
+				 struct zebra_evpn *zevpn,
+				 const struct ipaddr *ip,
+				 struct zebra_mac **macp,
+				 const struct ethaddr *macaddr,
+				 vlanid_t vlan_id, bool def_gw)
 {
 	struct zebra_mac *mac;
 	ns_id_t local_ns_id = NS_DEFAULT;
@@ -2480,13 +2481,13 @@ int zebra_evpn_mac_gw_macip_add(struct interface *ifp, struct zebra_evpn *zevpn,
 	SET_FLAG(mac->flags, ZEBRA_MAC_AUTO);
 	if (def_gw)
 		SET_FLAG(mac->flags, ZEBRA_MAC_DEF_GW);
+	else
+		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
 	mac->fwd_info.local.ifindex = ifp->ifindex;
 	mac->fwd_info.local.ns_id = local_ns_id;
 	mac->fwd_info.local.vid = vlan_id;
 
 	*macp = mac;
-
-	return 0;
 }
 
 void zebra_evpn_mac_svi_del(struct interface *ifp, struct zebra_evpn *zevpn)
@@ -2541,8 +2542,6 @@ void zebra_evpn_mac_svi_add(struct interface *ifp, struct zebra_evpn *zevpn)
 
 	mac = NULL;
 	zebra_evpn_mac_gw_macip_add(ifp, zevpn, NULL, &mac, &macaddr, 0, false);
-	if (mac)
-		SET_FLAG(mac->flags, ZEBRA_MAC_SVI);
 
 	new_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 	zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
