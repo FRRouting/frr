@@ -1092,13 +1092,11 @@ static void zebra_evpn_vxlan_cleanup_all(struct hash_bucket *bucket, void *arg)
 {
 	struct zebra_evpn *zevpn = NULL;
 	struct zebra_l3vni *zl3vni = NULL;
-	struct zebra_vrf *zvrf = (struct zebra_vrf *)arg;
 
 	zevpn = (struct zebra_evpn *)bucket->data;
 
-	/* remove from l3-vni list */
-	if (zvrf->l3vni)
-		zl3vni = zl3vni_lookup(zvrf->l3vni);
+	/* remove l2vni from l2vni's tenant-vrf l3-vni list */
+	zl3vni = zl3vni_from_vrf(zevpn->vrf_id);
 	if (zl3vni)
 		listnode_delete(zl3vni->l2vnis, zevpn);
 
