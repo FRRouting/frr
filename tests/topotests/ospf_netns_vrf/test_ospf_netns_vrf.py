@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# test_ospf_topo1.py
+# test_ospf_netns_vrf.py
 # Part of NetDEF Topology Tests
 #
 # Copyright (c) 2017 by
@@ -23,7 +23,7 @@
 #
 
 """
-test_ospf_topo1.py: Test the FRR OSPF routing daemon.
+test_ospf_netns_vrf.py: Test OSPF with Network Namespace VRFs.
 """
 
 import os
