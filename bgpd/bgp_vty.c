@@ -1486,7 +1486,7 @@ DEFUN (no_router_bgp,
 		}
 
 		if (bgp->l3vni) {
-			vty_out(vty, "%% Please unconfigure l3vni %u",
+			vty_out(vty, "%% Please unconfigure l3vni %u\n",
 				bgp->l3vni);
 			return CMD_WARNING_CONFIG_FAILED;
 		}
