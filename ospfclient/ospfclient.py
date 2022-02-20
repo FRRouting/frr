@@ -255,6 +255,16 @@ def nsm_name(state):
     return names.get(state, str(state))
 
 
+class WithNothing:
+    "An object that does nothing when used with `with` statement."
+
+    async def __aenter__(self):
+        return
+
+    async def __aexit__(self, *args, **kwargs):
+        return
+
+
 # --------------
 # Client Classes
 # --------------
@@ -560,15 +570,17 @@ class OspfOpaqueClient(OspfApiClient):
 
     Args:
         server: hostname or IP address of server default is "localhost"
+        wait_ready: if True then wait for OSPF to signal ready, in newer versions
+            FRR ospfd is always ready so this overhead can be skipped.
+            default is False.
 
     Raises:
         Will raise exceptions for failures with various `socket` modules
         functions such as `socket.socket`, `socket.setsockopt`, `socket.bind`.
     """
 
-    def __init__(self, server="localhost"):
+    def __init__(self, server="localhost", wait_ready=False):
         handlers = {
-            MSG_READY_NOTIFY: self._ready_msg,
             MSG_LSA_UPDATE_NOTIFY: self._lsa_change_msg,
             MSG_LSA_DELETE_NOTIFY: self._lsa_change_msg,
             MSG_NEW_IF: self._if_msg,
@@ -578,9 +590,13 @@ class OspfOpaqueClient(OspfApiClient):
             MSG_REACHABLE_CHANGE: self._reachable_msg,
             MSG_ROUTER_ID_CHANGE: self._router_id_msg,
         }
+        if wait_ready:
+            handlers[MSG_READY_NOTIFY] = self._ready_msg
+
         super().__init__(server, handlers)
 
-        self.ready_lock = Lock()
+        self.wait_ready = wait_ready
+        self.ready_lock = Lock() if wait_ready else WithNothing()
         self.ready_cond = {
             LSA_TYPE_OPAQUE_LINK: {},
             LSA_TYPE_OPAQUE_AREA: {},
@@ -617,6 +633,10 @@ class OspfOpaqueClient(OspfApiClient):
             mp = struct.pack(msg_fmt[mt], lsa_type, otype)
             await self.msg_send_raises(mt, mp)
 
+            # If we are not waiting, mark ready for register check
+            if not self.wait_ready:
+                self.ready_cond[lsa_type][otype] = True
+
     async def _handle_msg_loop(self):
         try:
             logging.debug("entering async msg handling loop")
@@ -648,6 +668,8 @@ class OspfOpaqueClient(OspfApiClient):
         return lsa
 
     async def _ready_msg(self, mt, msg, extra, lsa_type, otype, addr):
+        assert self.wait_ready
+
         if lsa_type == LSA_TYPE_OPAQUE_LINK:
             e = "ifaddr {}".format(ip(addr))
         elif lsa_type == LSA_TYPE_OPAQUE_AREA:
@@ -918,6 +940,8 @@ class OspfOpaqueClient(OspfApiClient):
             if cond is True:
                 return
 
+            assert self.wait_ready
+
             logging.debug(
                 "waiting for ready %s opaque-type %s", lsa_typename(lsa_type), otype
             )
@@ -1078,6 +1102,17 @@ class OspfOpaqueClient(OspfApiClient):
 # ================
 # CLI/Script Usage
 # ================
+def next_action(action_list=None):
+    "Get next action from list or STDIN"
+    if action_list:
+        for action in action_list:
+            yield action
+    else:
+        while True:
+            action = input("")
+            if not action:
+                break
+            yield action.strip()
 
 
 async def async_main(args):
@@ -1096,54 +1131,53 @@ async def async_main(args):
         await c.req_ism_states()
         await c.req_nsm_states()
 
-        if args.actions:
-            for action in args.actions:
-                _s = action.split(",")
-                what = _s.pop(False)
-                if what.casefold() == "wait":
-                    stime = int(_s.pop(False))
-                    logging.info("waiting %s seconds", stime)
-                    await asyncio.sleep(stime)
-                    logging.info("wait complete: %s seconds", stime)
-                    continue
-                ltype = int(_s.pop(False))
-                if ltype == 11:
-                    addr = ip(0)
-                else:
-                    aval = _s.pop(False)
-                    try:
-                        addr = ip(int(aval))
-                    except ValueError:
-                        addr = ip(aval)
-                oargs = [addr, ltype, int(_s.pop(False)), int(_s.pop(False))]
+        for action in next_action(args.actions):
+            _s = action.split(",")
+            what = _s.pop(False)
+            if what.casefold() == "wait":
+                stime = int(_s.pop(False))
+                logging.info("waiting %s seconds", stime)
+                await asyncio.sleep(stime)
+                logging.info("wait complete: %s seconds", stime)
+                continue
+            ltype = int(_s.pop(False))
+            if ltype == 11:
+                addr = ip(0)
+            else:
+                aval = _s.pop(False)
+                try:
+                    addr = ip(int(aval))
+                except ValueError:
+                    addr = ip(aval)
+            oargs = [addr, ltype, int(_s.pop(False)), int(_s.pop(False))]
 
-                if not await c.is_registered(oargs[1], oargs[2]):
-                    await c.register_opaque_data_wait(oargs[1], oargs[2])
+            if not await c.is_registered(oargs[1], oargs[2]):
+                await c.register_opaque_data_wait(oargs[1], oargs[2])
 
-                if what.casefold() == "add":
+            if what.casefold() == "add":
+                try:
+                    b = bytes.fromhex(_s.pop(False))
+                except IndexError:
+                    b = b""
+                logging.info("opaque data is %s octets", len(b))
+                # Needs to be multiple of 4 in length
+                mod = len(b) % 4
+                if mod:
+                    b += b"\x00" * (4 - mod)
+                    logging.info("opaque padding to %s octets", len(b))
+
+                await c.add_opaque_data(*oargs, b)
+            else:
+                assert what.casefold().startswith("del")
+                f = 0
+                if len(_s) >= 1:
                     try:
-                        b = bytes.fromhex(_s.pop(False))
+                        f = int(_s.pop(False))
                     except IndexError:
-                        b = b""
-                    logging.info("opaque data is %s octets", len(b))
-                    # Needs to be multiple of 4 in length
-                    mod = len(b) % 4
-                    if mod:
-                        b += b"\x00" * (4 - mod)
-                        logging.info("opaque padding to %s octets", len(b))
-
-                    await c.add_opaque_data(*oargs, b)
-                else:
-                    assert what.casefold().startswith("del")
-                    f = 0
-                    if len(_s) >= 1:
-                        try:
-                            f = int(_s.pop(False))
-                        except IndexError:
-                            f = 0
-                    await c.delete_opaque_data(*oargs, f)
-            if args.exit:
-                return 0
+                        f = 0
+                await c.delete_opaque_data(*oargs, f)
+        if not args.actions or args.exit:
+            return 0
     except Exception as error:
         logging.error("async_main: unexpected error: %s", error, exc_info=True)
         return 2
@@ -1159,19 +1193,23 @@ async def async_main(args):
 
 def main(*args):
     ap = argparse.ArgumentParser(args)
+    ap.add_argument("--logtag", default="CLIENT", help="tag to identify log messages")
     ap.add_argument("--exit", action="store_true", help="Exit after commands")
     ap.add_argument("--server", default="localhost", help="OSPF API server")
     ap.add_argument("-v", "--verbose", action="store_true", help="be verbose")
     ap.add_argument(
         "actions",
         nargs="*",
-        help="(ADD|DEL),LSATYPE,[ADDR,],OTYPE,OID,[HEXDATA|DEL_FLAG]",
+        help="WAIT,SEC|(ADD|DEL),LSATYPE,[ADDR,],OTYPE,OID,[HEXDATA|DEL_FLAG]",
     )
     args = ap.parse_args()
 
     level = logging.DEBUG if args.verbose else logging.INFO
     logging.basicConfig(
-        level=level, format="%(asctime)s %(levelname)s: CLIENT: %(name)s %(message)s"
+        level=level,
+        format="%(asctime)s %(levelname)s: {}: %(name)s %(message)s".format(
+            args.logtag
+        ),
     )
 
     logging.info("ospfclient: starting")
