@@ -149,15 +149,17 @@ void pim_rp_free(struct pim_instance *pim)
  * Given an RP's prefix-list, return the RP's rp_info for that prefix-list
  */
 static struct rp_info *pim_rp_find_prefix_list(struct pim_instance *pim,
-					       struct in_addr rp,
-					       const char *plist)
+					       pim_addr rp, const char *plist)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
+	struct prefix rp_prefix;
+
+	pim_addr_to_prefix(&rp_prefix, rp);
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr
-		    && rp_info->plist && strcmp(rp_info->plist, plist) == 0) {
+		if (prefix_same(&rp_prefix, &rp_info->rp.rpf_addr) &&
+		    rp_info->plist && strcmp(rp_info->plist, plist) == 0) {
 			return rp_info;
 		}
 	}
@@ -441,8 +443,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		/*
 		 * Return if the prefix-list is already configured for this RP
 		 */
-		if (pim_rp_find_prefix_list(pim, rp_info->rp.rpf_addr.u.prefix4,
-					    plist)) {
+		if (pim_rp_find_prefix_list(pim, rp_addr, plist)) {
 			XFREE(MTYPE_PIM_RP, rp_info);
 			return PIM_SUCCESS;
 		}
