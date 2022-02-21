@@ -71,17 +71,15 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 		return false;
 #endif
 
-	if (!pim_addr_cmp(nexthop->last_lookup, addr)
-	    && (nexthop->last_lookup_time > pim->last_route_change_time)) {
-		if (PIM_DEBUG_PIM_NHT) {
-			char nexthop_str[PREFIX_STRLEN];
-			pim_addr_dump("<nexthop?>", &nexthop->mrib_nexthop_addr,
-				      nexthop_str, sizeof(nexthop_str));
+	if ((!pim_addr_cmp(nexthop->last_lookup, addr)) &&
+	    (nexthop->last_lookup_time > pim->last_route_change_time)) {
+		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
-				"%s: Using last lookup for %pPAs at %lld, %" PRId64" addr %s",
+				"%s: Using last lookup for %pPAs at %lld, %" PRId64
+				" addr %pFX",
 				__func__, &addr, nexthop->last_lookup_time,
-				pim->last_route_change_time, nexthop_str);
-		}
+				pim->last_route_change_time,
+				&nexthop->mrib_nexthop_addr);
 		pim->nexthop_lookups_avoided++;
 		return true;
 	} else {
@@ -140,18 +138,13 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	}
 
 	if (found) {
-		if (PIM_DEBUG_ZEBRA) {
-			char nexthop_str[PREFIX_STRLEN];
-			pim_addr_dump("<nexthop?>",
-				      &nexthop_tab[i].nexthop_addr, nexthop_str,
-				      sizeof(nexthop_str));
+		if (PIM_DEBUG_ZEBRA)
 			zlog_debug(
-				"%s %s: found nexthop %s for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
-				__FILE__, __func__, nexthop_str, &addr,
-				ifp->name, first_ifindex,
-				nexthop_tab[i].route_metric,
+				"%s %s: found nexthop %pFX for address %pPAs: interface %s ifindex=%d metric=%d pref=%d",
+				__FILE__, __func__,
+				&nexthop_tab[i].nexthop_addr, &addr, ifp->name,
+				first_ifindex, nexthop_tab[i].route_metric,
 				nexthop_tab[i].protocol_distance);
-		}
 		/* update nexthop data */
 		nexthop->interface = ifp;
 		nexthop->mrib_nexthop_addr = nexthop_tab[i].nexthop_addr;
@@ -215,7 +208,6 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	bool neigh_needed = true;
 	uint32_t saved_mrib_route_metric;
 	pim_addr rpf_addr;
-	pim_addr saved_rpf_addr;
 
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
@@ -264,19 +256,14 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	/* detect change in pim_nexthop */
 	if (nexthop_mismatch(&rpf->source_nexthop, &saved.source_nexthop)) {
 
-		if (PIM_DEBUG_ZEBRA) {
-			char nhaddr_str[PREFIX_STRLEN];
-			pim_addr_dump("<addr?>",
-				      &rpf->source_nexthop.mrib_nexthop_addr,
-				      nhaddr_str, sizeof(nhaddr_str));
-			zlog_debug("%s(%s): (S,G)=%s source nexthop now is: interface=%s address=%s pref=%d metric=%d",
+		if (PIM_DEBUG_ZEBRA)
+			zlog_debug("%s(%s): (S,G)=%s source nexthop now is: interface=%s address=%pFX pref=%d metric=%d",
 		 __func__, caller,
 		 up->sg_str,
 		 rpf->source_nexthop.interface ? rpf->source_nexthop.interface->name : "<ifname?>",
-		 nhaddr_str,
+		 &rpf->source_nexthop.mrib_nexthop_addr,
 		 rpf->source_nexthop.mrib_metric_preference,
 		 rpf->source_nexthop.mrib_route_metric);
-		}
 
 		pim_upstream_update_join_desired(pim, up);
 		pim_upstream_update_could_assert(up);
@@ -300,10 +287,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	}
 
 	/* detect change in RPF'(S,G) */
-
-	saved_rpf_addr = pim_addr_from_prefix(&saved.rpf_addr);
-
-	if (pim_addr_cmp(saved_rpf_addr, rpf_addr) ||
+	if (!prefix_same(&saved.rpf_addr, &rpf->rpf_addr) ||
 	    saved.source_nexthop.interface != rpf->source_nexthop.interface) {
 		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 		return PIM_RPF_CHANGED;
@@ -418,7 +402,7 @@ unsigned int pim_rpf_hash_key(const void *arg)
 {
 	const struct pim_nexthop_cache *r = arg;
 
-#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
+#if PIM_IPV == 4
 	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
 #else
 	return jhash2(r->rpf.rpf_addr.u.prefix6.s6_addr32,
