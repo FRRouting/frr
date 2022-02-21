@@ -1070,7 +1070,6 @@ int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
 	return 0;
 }
 
-#if PIM_IPV == 4
 /*
  * RP(G)
  *
@@ -1082,9 +1081,7 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 	struct rp_info *rp_info;
 
 	memset(&g, 0, sizeof(g));
-	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_BITLEN;
-	g.u.prefix4 = group;
+	pim_addr_to_prefix(&g, group);
 
 	rp_info = pim_rp_find_match_group(pim, &g);
 
@@ -1092,9 +1089,8 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 		struct prefix nht_p;
 
 		/* Register addr with Zebra NHT */
-		nht_p.family = AF_INET;
-		nht_p.prefixlen = IPV4_MAX_BITLEN;
-		nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+		prefix_copy(&nht_p, &rp_info->rp.rpf_addr);
+		nht_p.prefixlen = PIM_MAX_BITLEN;
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug(
 				"%s: NHT Register RP addr %pFX grp %pFX with Zebra",
@@ -1109,15 +1105,6 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 	// About to Go Down
 	return NULL;
 }
-
-#else
-CPP_NOTICE("functions stubbed out for IPv6");
-
-struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
-{
-	return NULL;
-}
-#endif
 
 /*
  * Set the upstream IP address we want to talk to based upon
