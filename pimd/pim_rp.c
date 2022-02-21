@@ -1045,7 +1045,6 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 	}
 }
 
-#if PIM_IPV == 4
 /*
  * I_am_RP(G) is true if the group-to-RP mapping indicates that
  * this router is the RP for the group.
@@ -1058,10 +1057,7 @@ int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
 	struct rp_info *rp_info;
 
 	memset(&g, 0, sizeof(g));
-	g.family = AF_INET;
-	g.prefixlen = IPV4_MAX_BITLEN;
-	g.u.prefix4 = group;
-
+	pim_addr_to_prefix(&g, group);
 	rp_info = pim_rp_find_match_group(pim, &g);
 
 	if (rp_info)
@@ -1069,6 +1065,7 @@ int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
 	return 0;
 }
 
+#if PIM_IPV == 4
 /*
  * RP(G)
  *
@@ -1110,11 +1107,6 @@ struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 
 #else
 CPP_NOTICE("functions stubbed out for IPv6");
-
-int pim_rp_i_am_rp(struct pim_instance *pim, pim_addr group)
-{
-	return 0;
-}
 
 struct pim_rpf *pim_rp_g(struct pim_instance *pim, pim_addr group)
 {
