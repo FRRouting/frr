@@ -1264,6 +1264,8 @@ static void *grpc_pthread_start(void *arg)
 	builder.AddListeningPort(server_address.str(),
 				 grpc::InsecureServerCredentials());
 	builder.RegisterService(service);
+	builder.AddChannelArgument(
+		GRPC_ARG_HTTP2_MIN_RECV_PING_INTERVAL_WITHOUT_DATA_MS, 5000);
 	auto cq = builder.AddCompletionQueue();
 	s_cq = cq.get();
 	s_server = builder.BuildAndStart();
