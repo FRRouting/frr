@@ -669,9 +669,8 @@ void pim_rp_del_config(struct pim_instance *pim, pim_addr rp_addr,
 	pim_rp_del(pim, rp_addr, group, plist, RP_SRC_STATIC);
 }
 
-int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
-	       struct prefix group, const char *plist,
-	       enum rp_source rp_src_flag)
+int pim_rp_del(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
+	       const char *plist, enum rp_source rp_src_flag)
 {
 	struct prefix g_all;
 	struct rp_info *rp_info;
@@ -683,11 +682,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	struct pim_upstream *up;
 	struct bsgrp_node *bsgrp = NULL;
 	struct bsm_rpinfo *bsrp = NULL;
-	char rp_str[INET_ADDRSTRLEN];
 	bool upstream_updated = false;
-
-	if (!inet_ntop(AF_INET, &rp_addr, rp_str, sizeof(rp_str)))
-		snprintf(rp_str, sizeof(rp_str), "<rp?>");
 
 	if (plist)
 		rp_info = pim_rp_find_prefix_list(pim, rp_addr, plist);
@@ -703,8 +698,8 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	}
 
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: Delete RP %s for the group %pFX", __func__,
-			   rp_str, &group);
+		zlog_debug("%s: Delete RP %pPA for the group %pFX", __func__,
+			   &rp_addr, &group);
 
 	/* While static RP is getting deleted, we need to check if dynamic RP
 	 * present for the same group in BSM RP table, then install the dynamic
@@ -716,19 +711,11 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 		if (bsgrp) {
 			bsrp = bsm_rpinfos_first(bsgrp->bsrp_list);
 			if (bsrp) {
-				if (PIM_DEBUG_PIM_TRACE) {
-					char bsrp_str[INET_ADDRSTRLEN];
-
-					if (!inet_ntop(AF_INET, bsrp, bsrp_str,
-						       sizeof(bsrp_str)))
-						snprintf(bsrp_str,
-							 sizeof(bsrp_str),
-							 "<bsrp?>");
-
+				if (PIM_DEBUG_PIM_TRACE)
 					zlog_debug(
-						"%s: BSM RP %s found for the group %pFX",
-						__func__, bsrp_str, &group);
-				}
+						"%s: BSM RP %pPA found for the group %pFX",
+						__func__, &bsrp->rp_address,
+						&group);
 				return pim_rp_change(pim, bsrp->rp_address,
 						     group, RP_SRC_BSR);
 			}
@@ -741,9 +728,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 	}
 
 	/* Deregister addr with Zebra NHT */
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4 = rp_info->rp.rpf_addr.u.prefix4;
+	nht_p = rp_info->rp.rpf_addr;
 	if (PIM_DEBUG_PIM_NHT_RP)
 		zlog_debug("%s: Deregister RP addr %pFX with Zebra ", __func__,
 			   &nht_p);
