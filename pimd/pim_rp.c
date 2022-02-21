@@ -188,16 +188,17 @@ static int pim_rp_prefix_list_used(struct pim_instance *pim, const char *plist)
  * Given an RP's address, return the RP's rp_info that is an exact match for
  * 'group'
  */
-static struct rp_info *pim_rp_find_exact(struct pim_instance *pim,
-					 struct in_addr rp,
+static struct rp_info *pim_rp_find_exact(struct pim_instance *pim, pim_addr rp,
 					 const struct prefix *group)
 {
 	struct listnode *node;
 	struct rp_info *rp_info;
+	struct prefix rp_prefix;
 
+	pim_addr_to_prefix(&rp_prefix, rp);
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (rp.s_addr == rp_info->rp.rpf_addr.u.prefix4.s_addr
-		    && prefix_same(&rp_info->group, group))
+		if (prefix_same(&rp_prefix, &rp_info->rp.rpf_addr) &&
+		    prefix_same(&rp_info->group, group))
 			return rp_info;
 	}
 
@@ -241,7 +242,7 @@ struct rp_info *pim_rp_find_match_group(struct pim_instance *pim,
 	bp = NULL;
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
 		if (rp_info->plist) {
-			plist = prefix_list_lookup(AFI_IP, rp_info->plist);
+			plist = prefix_list_lookup(PIM_AFI, rp_info->plist);
 
 			if (prefix_list_apply_ext(plist, &entry, group, true)
 			    == PREFIX_DENY || !entry)
@@ -557,8 +558,7 @@ int pim_rp_new(struct pim_instance *pim, pim_addr rp_addr, struct prefix group,
 		/*
 		 * Return if the group is already configured for this RP
 		 */
-		tmp_rp_info = pim_rp_find_exact(
-			pim, rp_info->rp.rpf_addr.u.prefix4, &rp_info->group);
+		tmp_rp_info = pim_rp_find_exact(pim, rp_addr, &rp_info->group);
 		if (tmp_rp_info) {
 			if ((tmp_rp_info->rp_src != rp_src_flag)
 			    && (rp_src_flag == RP_SRC_STATIC))
