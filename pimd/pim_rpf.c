@@ -407,12 +407,14 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 
 int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf)
 {
+	struct in6_addr temp;
+
 	switch (rpf->rpf_addr.family) {
 	case AF_INET:
 		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_NONE;
 	case AF_INET6:
-		zlog_warn("%s: v6 Unimplmeneted", __func__);
-		return 1;
+		memset(&temp, 255, sizeof(struct in6_addr));
+		return IPV6_ADDR_SAME(&rpf->rpf_addr.u.prefix6, &temp);
 	default:
 		return 0;
 	}
@@ -424,8 +426,7 @@ int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
 	case AF_INET:
 		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY;
 	case AF_INET6:
-		zlog_warn("%s: v6 Unimplmented", __func__);
-		return 1;
+		return IPV6_ADDR_SAME(&rpf->rpf_addr.u.prefix6, &in6addr_any);
 	default:
 		return 0;
 	}
