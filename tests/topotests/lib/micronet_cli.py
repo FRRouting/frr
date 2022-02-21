@@ -113,11 +113,11 @@ def doline(unet, line, writef):
         hosts = [unet.hosts[x] for x in args]
         for host in hosts:
             if cmd == "t" or cmd == "term":
-                host.run_in_window("bash")
+                host.run_in_window("bash", title="sh-%s" % host)
             elif cmd == "v" or cmd == "vtysh":
-                host.run_in_window("vtysh")
+                host.run_in_window("vtysh", title="vt-%s" % host)
             elif cmd == "x" or cmd == "xterm":
-                host.run_in_window("bash", forcex=True)
+                host.run_in_window("bash", title="sh-%s" % host, forcex=True)
     elif cmd == "sh":
         hosts, cmd = host_cmd_split(unet, oargs)
         for host in hosts:
