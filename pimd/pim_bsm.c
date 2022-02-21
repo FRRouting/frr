@@ -286,7 +286,7 @@ static int pim_on_g2rp_timer(struct thread *t)
 	struct rp_info *rp_info;
 	struct route_node *rn;
 	uint16_t elapse;
-	struct in_addr bsrp_addr;
+	pim_addr bsrp_addr;
 
 	bsrp = THREAD_ARG(t);
 	THREAD_OFF(bsrp->g2rp_timer);
