@@ -1038,7 +1038,7 @@ int zapi_nexthop_encode(struct stream *s, const struct zapi_nexthop *api_nh,
 		stream_putl(s, api_nh->weight);
 
 	/* Router MAC for EVPN routes. */
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
+	if (CHECK_FLAG(nh_flags, ZAPI_NEXTHOP_FLAG_EVPN))
 		stream_put(s, &(api_nh->rmac),
 			   sizeof(struct ethaddr));
 
@@ -1402,7 +1402,7 @@ int zapi_nexthop_decode(struct stream *s, struct zapi_nexthop *api_nh,
 		STREAM_GETL(s, api_nh->weight);
 
 	/* Router MAC for EVPN routes. */
-	if (CHECK_FLAG(api_flags, ZEBRA_FLAG_EVPN_ROUTE))
+	if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_EVPN))
 		STREAM_GET(&(api_nh->rmac), s,
 			   sizeof(struct ethaddr));
 
@@ -1829,6 +1829,9 @@ int zapi_nexthop_from_nexthop(struct zapi_nexthop *znh,
 
 	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_ONLINK))
 		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_ONLINK);
+
+	if (CHECK_FLAG(nh->flags, NEXTHOP_FLAG_EVPN))
+		SET_FLAG(znh->flags, ZAPI_NEXTHOP_FLAG_EVPN);
 
 	if (nh->nh_label && (nh->nh_label->num_labels > 0)) {
 

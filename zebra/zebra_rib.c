@@ -3302,7 +3302,7 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s",
+	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
 		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
 		   nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
 		   nexthop->vrf_id,
@@ -3327,7 +3327,9 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)
 		    ? "BACKUP " : ""),
 		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE)
-		    ? "SRTE " : ""));
+		    ? "SRTE " : ""),
+		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)
+		    ? "EVPN " : ""));
 
 }
 
@@ -3764,6 +3766,8 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 	}
 
 	if (same) {
+		struct nexthop *tmp_nh;
+
 		if (fromkernel && CHECK_FLAG(flags, ZEBRA_FLAG_SELFROUTE)
 		    && !allow_delete) {
 			rib_install_kernel(rn, same, NULL);
@@ -3776,12 +3780,10 @@ void rib_delete(afi_t afi, safi_t safi, vrf_id_t vrf_id, int type,
 		 * EVPN - the nexthop (and associated MAC) need to be
 		 * uninstalled if no more refs.
 		 */
-		if (CHECK_FLAG(flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			struct nexthop *tmp_nh;
+		for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
+			struct ipaddr vtep_ip;
 
-			for (ALL_NEXTHOPS(re->nhe->nhg, tmp_nh)) {
-				struct ipaddr vtep_ip;
-
+			if (CHECK_FLAG(tmp_nh->flags, NEXTHOP_FLAG_EVPN)) {
 				memset(&vtep_ip, 0, sizeof(struct ipaddr));
 				if (afi == AFI_IP) {
 					vtep_ip.ipa_type = IPADDR_V4;
