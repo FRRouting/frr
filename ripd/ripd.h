@@ -152,12 +152,6 @@ struct rip {
 	/* Are we in passive-interface default mode? */
 	bool passive_default;
 
-	/* RIP enabled interfaces. */
-	vector enable_interface;
-
-	/* RIP enabled networks. */
-	struct route_table *enable_network;
-
 	/* Vector to store passive-interface name. */
 	vector passive_nondefault;
 
@@ -295,8 +289,7 @@ struct rip_interface {
 	struct interface *ifp;
 
 	/* RIP is enabled on this interface. */
-	int enable_network;
-	int enable_interface;
+	bool enabled;
 
 	/* RIP is running on this interface. */
 	int running;
@@ -462,7 +455,6 @@ DECLARE_SORTLIST_UNIQ(rip_offset_list, struct rip_offset_list, item,
 /* Prototypes. */
 extern void rip_init(void);
 extern void rip_clean(struct rip *rip);
-extern void rip_clean_network(struct rip *rip);
 extern void rip_interfaces_clean(struct rip *rip);
 extern int rip_passive_nondefault_set(struct rip *rip, const char *ifname);
 extern int rip_passive_nondefault_unset(struct rip *rip, const char *ifname);

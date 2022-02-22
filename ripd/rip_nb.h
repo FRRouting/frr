@@ -140,6 +140,7 @@ ripd_instance_state_routes_route_nexthops_nexthop_expire_time_get_elem(
 struct yang_data *ripd_instance_state_routes_route_metric_get_elem(
 	struct nb_cb_get_elem_args *args);
 int clear_rip_route_rpc(struct nb_cb_rpc_args *args);
+int lib_interface_rip_enable_modify(struct nb_cb_modify_args *args);
 int lib_interface_rip_split_horizon_modify(struct nb_cb_modify_args *args);
 int lib_interface_rip_v2_broadcast_modify(struct nb_cb_modify_args *args);
 int lib_interface_rip_version_receive_modify(struct nb_cb_modify_args *args);
@@ -187,11 +188,8 @@ void cli_show_rip_distance_source(struct vty *vty, const struct lyd_node *dnode,
 				  bool show_defaults);
 void cli_show_rip_neighbor(struct vty *vty, const struct lyd_node *dnode,
 			   bool show_defaults);
-void cli_show_rip_network_prefix(struct vty *vty, const struct lyd_node *dnode,
-				 bool show_defaults);
-void cli_show_rip_network_interface(struct vty *vty,
-				    const struct lyd_node *dnode,
-				    bool show_defaults);
+void cli_show_lib_interface_rip_enable(struct vty *vty, const struct lyd_node *dnode,
+				       bool show_default);
 void cli_show_rip_offset_list(struct vty *vty, const struct lyd_node *dnode,
 			      bool show_defaults);
 void cli_show_rip_passive_default(struct vty *vty, const struct lyd_node *dnode,

@@ -69,6 +69,9 @@ int ripd_instance_create(struct nb_cb_create_args *args)
 
 		rip = rip_create(vrf_name, vrf, socket);
 		nb_running_set_entry(args->dnode, rip);
+
+		/* Apply interface configuration if any. */
+		rip_enable_apply_all(rip);
 		break;
 	}
 
@@ -316,70 +319,6 @@ int ripd_instance_explicit_neighbor_destroy(struct nb_cb_destroy_args *args)
 	yang_dnode_get_ipv4(&p.prefix, args->dnode, NULL);
 
 	return rip_neighbor_delete(rip, &p);
-}
-
-/*
- * XPath: /frr-ripd:ripd/instance/network
- */
-int ripd_instance_network_create(struct nb_cb_create_args *args)
-{
-	struct rip *rip;
-	struct prefix p;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	rip = nb_running_get_entry(args->dnode, NULL, true);
-	yang_dnode_get_ipv4p(&p, args->dnode, NULL);
-	apply_mask_ipv4((struct prefix_ipv4 *)&p);
-
-	return rip_enable_network_add(rip, &p);
-}
-
-int ripd_instance_network_destroy(struct nb_cb_destroy_args *args)
-{
-	struct rip *rip;
-	struct prefix p;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	rip = nb_running_get_entry(args->dnode, NULL, true);
-	yang_dnode_get_ipv4p(&p, args->dnode, NULL);
-	apply_mask_ipv4((struct prefix_ipv4 *)&p);
-
-	return rip_enable_network_delete(rip, &p);
-}
-
-/*
- * XPath: /frr-ripd:ripd/instance/interface
- */
-int ripd_instance_interface_create(struct nb_cb_create_args *args)
-{
-	struct rip *rip;
-	const char *ifname;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	rip = nb_running_get_entry(args->dnode, NULL, true);
-	ifname = yang_dnode_get_string(args->dnode, NULL);
-
-	return rip_enable_if_add(rip, ifname);
-}
-
-int ripd_instance_interface_destroy(struct nb_cb_destroy_args *args)
-{
-	struct rip *rip;
-	const char *ifname;
-
-	if (args->event != NB_EV_APPLY)
-		return NB_OK;
-
-	rip = nb_running_get_entry(args->dnode, NULL, true);
-	ifname = yang_dnode_get_string(args->dnode, NULL);
-
-	return rip_enable_if_delete(rip, ifname);
 }
 
 /*
@@ -958,6 +897,28 @@ int ripd_instance_default_bfd_profile_destroy(struct nb_cb_destroy_args *args)
 	rip = nb_running_get_entry(args->dnode, NULL, true);
 	XFREE(MTYPE_RIP_BFD_PROFILE, rip->default_bfd_profile);
 	rip_bfd_instance_update(rip);
+
+	return NB_OK;
+}
+
+/*
+ * XPath: /frr-interface:lib/interface/frr-ripd:rip/enable
+ */
+int lib_interface_rip_enable_modify(struct nb_cb_modify_args *args)
+{
+	struct rip_interface *rip_interface;
+	struct interface *interface;
+
+	if (args->event != NB_EV_APPLY)
+		return NB_OK;
+
+	interface = nb_running_get_entry(args->dnode, NULL, true);
+	rip_interface = interface->info;
+	rip_interface->enabled = yang_dnode_get_bool(args->dnode, NULL);
+
+	/* Only attempt to configure if instance has started. */
+	if (rip_interface->rip)
+		rip_enable_apply(interface);
 
 	return NB_OK;
 }
