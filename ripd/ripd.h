@@ -294,9 +294,19 @@ struct rip_interface {
 	/* Interface data from zebra. */
 	struct interface *ifp;
 
-	/* RIP is enabled on this interface. */
-	int enable_network;
-	int enable_interface;
+	/* RIP enabled state (`ip rip` interface configuration). */
+	bool enabled;
+
+	/*
+	 * RIP is enabled by at least one of the following configurations:
+	 * - `network A.B.C.D/M`
+	 * - `network IFNAME`
+	 * - `ip rip` (interface configuration)
+	 *
+	 * It also means the interface is operational and has at least
+	 * one IPv4 address configured on it.
+	 */
+	bool working;
 
 	/* RIP is running on this interface. */
 	int running;

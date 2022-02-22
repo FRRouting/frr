@@ -539,6 +539,14 @@ module frr-ripd {
     container rip {
       description
         "RIP interface parameters.";
+
+      leaf enable {
+        type boolean;
+        default "false";
+        description
+          "Enable RIP on interface.";
+      }
+
       leaf split-horizon {
         type enumeration {
           enum "disabled" {

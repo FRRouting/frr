@@ -3208,7 +3208,7 @@ DEFUN (show_ip_rip_status,
 		if (!ri->running)
 			continue;
 
-		if (ri->enable_network || ri->enable_interface) {
+		if (ri->working) {
 			if (ri->ri_send == RI_RIP_UNSPEC)
 				send_version =
 					lookup_msg(ri_version_msg,
@@ -3238,8 +3238,7 @@ DEFUN (show_ip_rip_status,
 	FOR_ALL_INTERFACES (rip->vrf, ifp) {
 		ri = ifp->info;
 
-		if ((ri->enable_network || ri->enable_interface) &&
-		    ri->passive) {
+		if (ri->working && ri->passive) {
 			if (!found_passive) {
 				vty_out(vty, "  Passive Interface(s):\n");
 				found_passive = 1;
