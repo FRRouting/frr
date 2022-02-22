@@ -35,11 +35,9 @@ DEFINE_HOOK(rip_ifaddr_add, (struct connected * ifc), (ifc));
 DEFINE_HOOK(rip_ifaddr_del, (struct connected * ifc), (ifc));
 
 /* static prototypes */
-static void rip_enable_apply(struct interface *);
 static void rip_passive_interface_apply(struct interface *);
 static int rip_if_down(struct interface *ifp);
 static int rip_enable_if_lookup(struct rip *rip, const char *ifname);
-static void rip_enable_apply_all(struct rip *rip);
 
 const struct message ri_version_msg[] = {{RI_RIP_VERSION_1, "1"},
 					 {RI_RIP_VERSION_2, "2"},
@@ -378,8 +376,7 @@ static int rip_ifp_destroy(struct interface *ifp)
 
 static void rip_interface_clean(struct rip_interface *ri)
 {
-	ri->enable_network = 0;
-	ri->enable_interface = 0;
+	ri->working = false;
 	ri->running = 0;
 
 	event_cancel(&ri->t_wakeup);
@@ -465,6 +462,30 @@ int rip_if_down(struct interface *ifp)
 	return 0;
 }
 
+/*
+ * Check whether the interface is RIP enabled by going throught the
+ * enablement options:
+ * - `network IF_NAME`
+ * - `network A.B.C.D/M`
+ * - `ip rip`
+ */
+static bool rip_interface_is_enabled(struct connected *ifc)
+{
+	struct rip_interface *ri = ifc->ifp->info;
+
+	/* RIP instance is not ready yet, so just tell its not enabled. */
+	if (ri->rip == NULL)
+		return false;
+
+	if (rip_enable_if_lookup(ri->rip, ifc->ifp->name) >= 0)
+		return true;
+
+	if (rip_enable_network_lookup2(ifc) >= 0)
+		return true;
+
+	return ri->enabled;
+}
+
 static void rip_apply_address_add(struct connected *ifc)
 {
 	struct rip_interface *ri = ifc->ifp->info;
@@ -494,8 +515,7 @@ static void rip_apply_address_add(struct connected *ifc)
 
 	/* Check if this interface is RIP enabled or not
 	   or  Check if this address's prefix is RIP enabled */
-	if ((rip_enable_if_lookup(rip, ifc->ifp->name) >= 0)
-	    || (rip_enable_network_lookup2(ifc) >= 0))
+	if (rip_interface_is_enabled(ifc))
 		rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
 				     RIP_ROUTE_INTERFACE, &address, &nh, 0, 0,
 				     0);
@@ -793,9 +813,7 @@ static void rip_connect_set(struct interface *ifp, int set)
 		if (set) {
 			/* Check once more whether this prefix is within a
 			 * "network IF_OR_PREF" one */
-			if ((rip_enable_if_lookup(rip, connected->ifp->name)
-			     >= 0)
-			    || (rip_enable_network_lookup2(connected) >= 0))
+			if (rip_interface_is_enabled(connected))
 				rip_redistribute_add(rip, ZEBRA_ROUTE_CONNECT,
 						     RIP_ROUTE_INTERFACE,
 						     &address, &nh, 0, 0, 0);
@@ -814,7 +832,6 @@ static void rip_connect_set(struct interface *ifp, int set)
 /* Update interface status. */
 void rip_enable_apply(struct interface *ifp)
 {
-	int ret;
 	struct rip_interface *ri = NULL;
 
 	/* Check interface. */
@@ -823,30 +840,24 @@ void rip_enable_apply(struct interface *ifp)
 
 	ri = ifp->info;
 
-	/* Check network configuration. */
-	ret = rip_enable_network_lookup_if(ifp);
-
-	/* If the interface is matched. */
-	if (ret > 0)
-		ri->enable_network = 1;
+	/*
+	 * Check if the RIP is enabled in this interface by looking up
+	 * the activation methods:
+	 * - `network A.B.C.D/M` (using `rip_enable_network_lookup_if`)
+	 * - `network IFNAME` (using `rip_enable_if_lookup`)
+	 * - `ip rip` (using `ri->enabled`)
+	 *
+	 * Finally the interface is only deemed working if there is at
+	 * least one IPv4 configured.
+	 */
+	if (ri->rip != NULL && (rip_enable_network_lookup_if(ifp) > 0 ||
+				rip_enable_if_lookup(ri->rip, ifp->name) >= 0 || ri->enabled))
+		ri->working = rip_if_ipv4_address_check(ifp) ? true : false;
 	else
-		ri->enable_network = 0;
-
-	/* Check interface name configuration. */
-	ret = rip_enable_if_lookup(ri->rip, ifp->name);
-	if (ret >= 0)
-		ri->enable_interface = 1;
-	else
-		ri->enable_interface = 0;
-
-	/* any interface MUST have an IPv4 address */
-	if (!rip_if_ipv4_address_check(ifp)) {
-		ri->enable_network = 0;
-		ri->enable_interface = 0;
-	}
+		ri->working = false;
 
 	/* Update running status of the interface. */
-	if (ri->enable_network || ri->enable_interface) {
+	if (ri->working) {
 		if (IS_RIP_DEBUG_EVENT)
 			zlog_debug("turn on %s", ifp->name);
 
@@ -866,7 +877,7 @@ void rip_enable_apply(struct interface *ifp)
 }
 
 /* Apply network configuration to all interface. */
-static void rip_enable_apply_all(struct rip *rip)
+void rip_enable_apply_all(struct rip *rip)
 {
 	struct interface *ifp;
 
@@ -1049,6 +1060,7 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 {
 	unsigned int i;
 	char *ifname;
+	struct interface *ifp;
 	struct route_node *node;
 
 	/* Network type RIP enable interface statement. */
@@ -1061,6 +1073,19 @@ int rip_show_network_config(struct vty *vty, struct rip *rip)
 	for (i = 0; i < vector_active(rip->enable_interface); i++)
 		if ((ifname = vector_slot(rip->enable_interface, i)) != NULL)
 			vty_out(vty, "    %s\n", ifname);
+
+	FOR_ALL_INTERFACES (rip->vrf, ifp) {
+		const struct rip_interface *ri = ifp->info;
+
+		if (ri == NULL || !ri->enabled)
+			continue;
+
+		/* Skip repeated entries by `network IF_NAME` */
+		if (rip_enable_if_lookup(rip, ifp->name) >= 0)
+			continue;
+
+		vty_out(vty, "    %s\n", ifp->name);
+	}
 
 	/* RIP neighbors listing. */
 	for (node = route_top(rip->neighbor); node; node = route_next(node))
