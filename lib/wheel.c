@@ -62,8 +62,11 @@ static int wheel_timer_thread_helper(struct thread *t)
 
 	wheel->slots_to_skip = slots_to_skip;
 	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
-			      wheel->nexttime * slots_to_skip, &wheel->timer);
+			      wheel->nexttime * slots_to_skip -
+				      wheel->time_reduction,
+			      &wheel->timer);
 
+	wheel->time_reduction = 0;
 	return 0;
 }
 
@@ -141,6 +144,9 @@ int wheel_start(struct timer_wheel *wheel)
 int wheel_add_item(struct timer_wheel *wheel, void *item)
 {
 	long long slot;
+	uint64_t timer_remain, timer_passed;
+	uint64_t slots_to_skip = 1;
+	uint64_t curr_slot = wheel->curr_slot % wheel->slots;
 
 	slot = (*wheel->slot_key)(item);
 
@@ -148,6 +154,73 @@ int wheel_add_item(struct timer_wheel *wheel, void *item)
 		zlog_debug("%s: Inserting %p: %lld %lld", __func__, item, slot,
 			   slot % wheel->slots);
 	listnode_add(wheel->wheel_slot_lists[slot % wheel->slots], item);
+
+	/*
+	 * Figure out how many slots we should skip with the newly added
+	 * item
+	 */
+	while (list_isempty(
+		       wheel->wheel_slot_lists[(curr_slot + slots_to_skip) %
+					       wheel->slots]) &&
+	       (curr_slot + slots_to_skip) % wheel->slots != curr_slot)
+		slots_to_skip++;
+
+	if (debug_timer_wheel)
+		zlog_debug("Old slots to skip: %u, new slots to skip: %" PRIu64,
+			   wheel->slots_to_skip, slots_to_skip);
+
+	/*
+	 * The wheel timer has refigured out that the number of slots
+	 * to skip hasn't changed from the insertion.  There is
+	 * nothing to change here at all.  So let's just return
+	 */
+	if (wheel->slots_to_skip == slots_to_skip)
+		return 0;
+
+	/*
+	 * At this point the wheel timer knows that the insertion of the
+	 * new item is inbetween the old time to pop and the soon
+	 * to be new time to pop.  The wheel timer must figure out
+	 * when to pop given how much time has passed
+	 */
+	timer_remain = thread_timer_remain_msec(wheel->timer);
+	timer_passed = (wheel->nexttime * wheel->slots_to_skip) - timer_remain;
+
+	wheel->slots_to_skip = slots_to_skip;
+	THREAD_OFF(wheel->timer);
+
+	if (debug_timer_wheel)
+		zlog_debug("Timer Remain: %" PRIu64 " Timer passed: %" PRIu64
+			   " and timer figured out to pass: %" PRIu64,
+			   timer_remain, timer_passed,
+			   wheel->nexttime * slots_to_skip);
+	/*
+	 * the new item has been inserted and the wheel timer
+	 * has technically already passed the newly inserted items
+	 * slot.  Let's tell the timer to pop immediately.
+	 * We know we'll be behind a tiny bit but it will be ok
+	 */
+	if ((wheel->nexttime * slots_to_skip) <= timer_passed) {
+		/* Not using a timer because we want this to pop
+		 * immediately.
+		 */
+		wheel->time_reduction = timer_passed;
+		thread_add_event(wheel->master, wheel_timer_thread, wheel, 0,
+				 &wheel->timer);
+		return 0;
+	}
+
+	/*
+	 * In the unlikely event that there are multiple insertions, before
+	 * a timer pop and the first one sets time_reduction and the second
+	 * one does not, there exists a possibility that subtracting the
+	 * time_reduction can turn the subtraction into a very very large
+	 * number.  So don't do it.
+	 */
+	wheel->time_reduction = 0;
+	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
+			      wheel->nexttime * slots_to_skip - timer_passed,
+			      &wheel->timer);
 
 	return 0;
 }

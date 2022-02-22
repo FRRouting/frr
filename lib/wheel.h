@@ -33,6 +33,15 @@ struct timer_wheel {
 	unsigned int nexttime;
 	unsigned int slots_to_skip;
 
+	/*
+	 * When inserting a new item into the timer wheel and
+	 * the new slot that we are going to move the wheel
+	 * to would have already popped, due to passed time.
+	 * So save the time_passed to subtract from the next cycle
+	 * of the wheel
+	 */
+	uint32_t time_reduction;
+
 	struct list **wheel_slot_lists;
 	struct thread *timer;
 	/*
