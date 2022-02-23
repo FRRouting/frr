@@ -609,27 +609,23 @@ struct bfd_session *ptm_bfd_sess_find(struct bfd_pkt *cp,
 	return bfd_key_lookup(key);
 }
 
-int bfd_xmt_cb(struct thread *t)
+void bfd_xmt_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
 	ptm_bfd_xmt_TO(bs, 0);
-
-	return 0;
 }
 
-int bfd_echo_xmt_cb(struct thread *t)
+void bfd_echo_xmt_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
 	if (bs->echo_xmt_TO > 0)
 		ptm_bfd_echo_xmt_TO(bs);
-
-	return 0;
 }
 
 /* Was ptm_bfd_detect_TO() */
-int bfd_recvtimer_cb(struct thread *t)
+void bfd_recvtimer_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
@@ -639,12 +635,10 @@ int bfd_recvtimer_cb(struct thread *t)
 		ptm_bfd_sess_dn(bs, BD_CONTROL_EXPIRED);
 		break;
 	}
-
-	return 0;
 }
 
 /* Was ptm_bfd_echo_detect_TO() */
-int bfd_echo_recvtimer_cb(struct thread *t)
+void bfd_echo_recvtimer_cb(struct thread *t)
 {
 	struct bfd_session *bs = THREAD_ARG(t);
 
@@ -654,8 +648,6 @@ int bfd_echo_recvtimer_cb(struct thread *t)
 		ptm_bfd_sess_dn(bs, BD_ECHO_FAILED);
 		break;
 	}
-
-	return 0;
 }
 
 struct bfd_session *bfd_session_new(void)

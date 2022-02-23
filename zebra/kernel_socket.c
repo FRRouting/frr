@@ -1292,7 +1292,7 @@ static void rtmsg_debug(struct rt_msghdr *rtm)
 #endif /* RTAX_MAX */
 
 /* Kernel routing table and interface updates via routing socket. */
-static int kernel_read(struct thread *thread)
+static void kernel_read(struct thread *thread)
 {
 	int sock;
 	int nbytes;
@@ -1356,11 +1356,11 @@ static int kernel_read(struct thread *thread)
 		if (errno != EAGAIN && errno != EWOULDBLOCK)
 			flog_err_sys(EC_LIB_SOCKET, "routing socket error: %s",
 				     safe_strerror(errno));
-		return 0;
+		return;
 	}
 
 	if (nbytes == 0)
-		return 0;
+		return;
 
 	thread_add_read(zrouter.master, kernel_read, NULL, sock, NULL);
 
@@ -1377,7 +1377,7 @@ static int kernel_read(struct thread *thread)
 		zlog_debug(
 			"kernel_read: rtm->rtm_msglen %d, nbytes %d, type %d",
 			rtm->rtm_msglen, nbytes, rtm->rtm_type);
-		return -1;
+		return;
 	}
 
 	switch (rtm->rtm_type) {
@@ -1403,7 +1403,6 @@ static int kernel_read(struct thread *thread)
 			zlog_debug("Unprocessed RTM_type: %d", rtm->rtm_type);
 		break;
 	}
-	return 0;
 }
 
 /* Make routing socket. */

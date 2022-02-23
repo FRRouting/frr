@@ -448,7 +448,7 @@ const char *isis_adj_yang_state(enum isis_adj_state state)
 	}
 }
 
-int isis_adj_expire(struct thread *thread)
+void isis_adj_expire(struct thread *thread)
 {
 	struct isis_adjacency *adj;
 
@@ -461,8 +461,6 @@ int isis_adj_expire(struct thread *thread)
 
 	/* trigger the adj expire event */
 	isis_adj_state_change(&adj, ISIS_ADJ_DOWN, "holding time expired");
-
-	return 0;
 }
 
 /*

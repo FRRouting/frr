@@ -56,7 +56,7 @@ void frrzmq_finish(void)
 	}
 }
 
-static int frrzmq_read_msg(struct thread *t)
+static void frrzmq_read_msg(struct thread *t)
 {
 	struct frrzmq_cb **cbp = THREAD_ARG(t);
 	struct frrzmq_cb *cb;
@@ -67,10 +67,10 @@ static int frrzmq_read_msg(struct thread *t)
 	size_t moresz;
 
 	if (!cbp)
-		return 1;
+		return;
 	cb = (*cbp);
 	if (!cb || !cb->zmqsock)
-		return 1;
+		return;
 
 	while (1) {
 		zmq_pollitem_t polli = {.socket = cb->zmqsock,
@@ -97,7 +97,7 @@ static int frrzmq_read_msg(struct thread *t)
 				if (cb->write.cancelled && !cb->write.thread)
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
-				return 0;
+				return;
 			}
 			continue;
 		}
@@ -129,7 +129,7 @@ static int frrzmq_read_msg(struct thread *t)
 				if (cb->write.cancelled && !cb->write.thread)
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
-				return 0;
+				return;
 			}
 
 			/* cb_part may have read additional parts of the
@@ -153,14 +153,13 @@ static int frrzmq_read_msg(struct thread *t)
 
 	thread_add_read(t->master, frrzmq_read_msg, cbp,
 			cb->fd, &cb->read.thread);
-	return 0;
+	return;
 
 out_err:
 	flog_err(EC_LIB_ZMQ, "ZeroMQ read error: %s(%d)", strerror(errno),
 		 errno);
 	if (cb->read.cb_error)
 		cb->read.cb_error(cb->read.arg, cb->zmqsock);
-	return 1;
 }
 
 int _frrzmq_thread_add_read(const struct xref_threadsched *xref,
@@ -215,7 +214,7 @@ int _frrzmq_thread_add_read(const struct xref_threadsched *xref,
 	return 0;
 }
 
-static int frrzmq_write_msg(struct thread *t)
+static void frrzmq_write_msg(struct thread *t)
 {
 	struct frrzmq_cb **cbp = THREAD_ARG(t);
 	struct frrzmq_cb *cb;
@@ -223,10 +222,10 @@ static int frrzmq_write_msg(struct thread *t)
 	int ret;
 
 	if (!cbp)
-		return 1;
+		return;
 	cb = (*cbp);
 	if (!cb || !cb->zmqsock)
-		return 1;
+		return;
 
 	while (1) {
 		zmq_pollitem_t polli = {.socket = cb->zmqsock,
@@ -252,7 +251,7 @@ static int frrzmq_write_msg(struct thread *t)
 				if (cb->read.cancelled && !cb->read.thread)
 					XFREE(MTYPE_ZEROMQ_CB, *cbp);
 
-				return 0;
+				return;
 			}
 			continue;
 		}
@@ -263,14 +262,13 @@ static int frrzmq_write_msg(struct thread *t)
 
 	thread_add_write(t->master, frrzmq_write_msg, cbp,
 			 cb->fd, &cb->write.thread);
-	return 0;
+	return;
 
 out_err:
 	flog_err(EC_LIB_ZMQ, "ZeroMQ write error: %s(%d)", strerror(errno),
 		 errno);
 	if (cb->write.cb_error)
 		cb->write.cb_error(cb->write.arg, cb->zmqsock);
-	return 1;
 }
 
 int _frrzmq_thread_add_write(const struct xref_threadsched *xref,

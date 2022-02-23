@@ -29,9 +29,9 @@ DEFINE_MTYPE_STATIC(LIB, TIMER_WHEEL_LIST, "Timer Wheel Slot List");
 
 static int debug_timer_wheel = 0;
 
-static int wheel_timer_thread(struct thread *t);
+static void wheel_timer_thread(struct thread *t);
 
-static int wheel_timer_thread_helper(struct thread *t)
+static void wheel_timer_thread_helper(struct thread *t)
 {
 	struct listnode *node, *nextnode;
 	unsigned long long curr_slot;
@@ -62,19 +62,15 @@ static int wheel_timer_thread_helper(struct thread *t)
 	wheel->slots_to_skip = slots_to_skip;
 	thread_add_timer_msec(wheel->master, wheel_timer_thread, wheel,
 			      wheel->nexttime * slots_to_skip, &wheel->timer);
-
-	return 0;
 }
 
-static int wheel_timer_thread(struct thread *t)
+static void wheel_timer_thread(struct thread *t)
 {
 	struct timer_wheel *wheel;
 
 	wheel = THREAD_ARG(t);
 
 	thread_execute(wheel->master, wheel_timer_thread_helper, wheel, 0);
-
-	return 0;
 }
 
 struct timer_wheel *wheel_init(struct thread_master *master, int period,

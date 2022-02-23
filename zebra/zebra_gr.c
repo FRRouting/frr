@@ -51,7 +51,7 @@
  * Forward declaration.
  */
 static struct zserv *zebra_gr_find_stale_client(struct zserv *client);
-static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread);
+static void zebra_gr_route_stale_delete_timer_expiry(struct thread *thread);
 static int32_t zebra_gr_delete_stale_routes(struct client_gr_info *info);
 static void zebra_gr_process_client_stale_routes(struct zserv *client,
 						 vrf_id_t vrf_id);
@@ -444,7 +444,7 @@ void zread_client_capabilities(ZAPI_HANDLER_ARGS)
  * Delete all the stale routes that have not been refreshed
  * post restart.
  */
-static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
+static void zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 {
 	struct client_gr_info *info;
 	int32_t cnt = 0;
@@ -478,7 +478,6 @@ static int32_t zebra_gr_route_stale_delete_timer_expiry(struct thread *thread)
 		info->current_afi = 0;
 		zebra_gr_delete_stale_client(info);
 	}
-	return 0;
 }
 
 

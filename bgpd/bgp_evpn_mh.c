@@ -76,7 +76,7 @@ static void bgp_evpn_mac_update_on_es_local_chg(struct bgp_evpn_es *es,
 						bool is_local);
 
 esi_t zero_esi_buf, *zero_esi = &zero_esi_buf;
-static int bgp_evpn_run_consistency_checks(struct thread *t);
+static void bgp_evpn_run_consistency_checks(struct thread *t);
 static void bgp_evpn_path_nh_info_free(struct bgp_path_evpn_nh_info *nh_info);
 static void bgp_evpn_path_nh_unlink(struct bgp_path_evpn_nh_info *nh_info);
 
@@ -4122,7 +4122,7 @@ static uint32_t bgp_evpn_es_run_consistency_checks(struct bgp_evpn_es *es)
 	return proc_cnt;
 }
 
-static int bgp_evpn_run_consistency_checks(struct thread *t)
+static void bgp_evpn_run_consistency_checks(struct thread *t)
 {
 	int proc_cnt = 0;
 	int es_cnt = 0;
@@ -4147,8 +4147,6 @@ static int bgp_evpn_run_consistency_checks(struct thread *t)
 	thread_add_timer(bm->master, bgp_evpn_run_consistency_checks, NULL,
 			BGP_EVPN_CONS_CHECK_INTERVAL,
 			&bgp_mh_info->t_cons_check);
-
-	return 0;
 }
 
 /*****************************************************************************

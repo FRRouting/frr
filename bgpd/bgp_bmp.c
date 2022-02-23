@@ -1315,7 +1315,7 @@ static void bmp_stat_put_u32(struct stream *s, size_t *cnt, uint16_t type,
 	(*cnt)++;
 }
 
-static int bmp_stats(struct thread *thread)
+static void bmp_stats(struct thread *thread)
 {
 	struct bmp_targets *bt = THREAD_ARG(thread);
 	struct stream *s;
@@ -1365,11 +1365,10 @@ static int bmp_stats(struct thread *thread)
 
 		bmp_send_all(bt->bmpbgp, s);
 	}
-	return 0;
 }
 
 /* read from the BMP socket to detect session termination */
-static int bmp_read(struct thread *t)
+static void bmp_read(struct thread *t)
 {
 	struct bmp *bmp = THREAD_ARG(t);
 	char buf[1024];
@@ -1383,16 +1382,14 @@ static int bmp_read(struct thread *t)
 	} else if (n == 0) {
 		/* the TCP session was terminated by the far end */
 		bmp_wrerr(bmp, NULL, true);
-		return 0;
+		return;
 	} else if (!(errno == EAGAIN || errno == EWOULDBLOCK || errno == EINTR)) {
 		/* the TCP session experienced a fatal error, likely a timeout */
 		bmp_wrerr(bmp, NULL, false);
-		return -1;
+		return;
 	}
 
 	thread_add_read(bm->master, bmp_read, bmp, bmp->socket, &bmp->t_read);
-
-	return 0;
 }
 
 static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
@@ -1475,7 +1472,7 @@ static struct bmp *bmp_open(struct bmp_targets *bt, int bmp_sock)
 }
 
 /* Accept BMP connection. */
-static int bmp_accept(struct thread *thread)
+static void bmp_accept(struct thread *thread)
 {
 	union sockunion su;
 	struct bmp_listener *bl = THREAD_ARG(thread);
@@ -1490,10 +1487,9 @@ static int bmp_accept(struct thread *thread)
 	bmp_sock = sockunion_accept(bl->sock, &su);
 	if (bmp_sock < 0) {
 		zlog_info("bmp: accept_sock failed: %s", safe_strerror(errno));
-		return -1;
+		return;
 	}
 	bmp_open(bl->targets, bmp_sock);
-	return 0;
 }
 
 static void bmp_close(struct bmp *bmp)
@@ -1837,7 +1833,7 @@ static void bmp_active_resolved(struct resolver_query *resq, const char *errstr,
 	bmp_active_connect(ba);
 }
 
-static int bmp_active_thread(struct thread *t)
+static void bmp_active_thread(struct thread *t)
 {
 	struct bmp_active *ba = THREAD_ARG(t);
 	socklen_t slen;
@@ -1861,7 +1857,7 @@ static int bmp_active_thread(struct thread *t)
 			vrf_id = ba->targets->bgp->vrf_id;
 		resolver_resolve(&ba->resq, AF_UNSPEC, vrf_id, ba->hostname,
 				 bmp_active_resolved);
-		return 0;
+		return;
 	}
 
 	slen = sizeof(status);
@@ -1886,14 +1882,13 @@ static int bmp_active_thread(struct thread *t)
 	ba->bmp->active = ba;
 	ba->socket = -1;
 	ba->curretry = ba->minretry;
-	return 0;
+	return;
 
 out_next:
 	close(ba->socket);
 	ba->socket = -1;
 	ba->addrpos++;
 	bmp_active_connect(ba);
-	return 0;
 }
 
 static void bmp_active_disconnected(struct bmp_active *ba)

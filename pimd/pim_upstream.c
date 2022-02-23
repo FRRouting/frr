@@ -308,7 +308,7 @@ void pim_upstream_send_join(struct pim_upstream *up)
 	pim_jp_agg_single_upstream_send(&up->rpf, up, 1 /* join */);
 }
 
-static int on_join_timer(struct thread *t)
+static void on_join_timer(struct thread *t)
 {
 	struct pim_upstream *up;
 
@@ -318,14 +318,14 @@ static int on_join_timer(struct thread *t)
 		if (PIM_DEBUG_PIM_TRACE)
 			zlog_debug("%s: up %s RPF is not present", __func__,
 				   up->sg_str);
-		return 0;
+		return;
 	}
 
 	/*
 	 * In the case of a HFR we will not ahve anyone to send this to.
 	 */
 	if (PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
-		return 0;
+		return;
 
 	/*
 	 * Don't send the join if the outgoing interface is a loopback
@@ -336,8 +336,6 @@ static int on_join_timer(struct thread *t)
 		pim_upstream_send_join(up);
 
 	join_timer_start(up);
-
-	return 0;
 }
 
 static void join_timer_stop(struct pim_upstream *up)
@@ -1488,7 +1486,7 @@ struct pim_upstream *pim_upstream_keep_alive_timer_proc(
 
 	return up;
 }
-static int pim_upstream_keep_alive_timer(struct thread *t)
+static void pim_upstream_keep_alive_timer(struct thread *t)
 {
 	struct pim_upstream *up;
 
@@ -1497,10 +1495,9 @@ static int pim_upstream_keep_alive_timer(struct thread *t)
 	/* pull the stats and re-check */
 	if (pim_upstream_sg_running_proc(up))
 		/* kat was restarted because of new activity */
-		return 0;
+		return;
 
 	pim_upstream_keep_alive_timer_proc(up);
-	return 0;
 }
 
 void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
@@ -1522,15 +1519,15 @@ void pim_upstream_keep_alive_timer_start(struct pim_upstream *up, uint32_t time)
 }
 
 /* MSDP on RP needs to know if a source is registerable to this RP */
-static int pim_upstream_msdp_reg_timer(struct thread *t)
+static void pim_upstream_msdp_reg_timer(struct thread *t)
 {
 	struct pim_upstream *up = THREAD_ARG(t);
 	struct pim_instance *pim = up->channel_oil->pim;
 
 	/* source is no longer active - pull the SA from MSDP's cache */
 	pim_msdp_sa_local_del(pim, &up->sg);
-	return 1;
 }
+
 void pim_upstream_msdp_reg_timer_start(struct pim_upstream *up)
 {
 	THREAD_OFF(up->t_msdp_reg_timer);
@@ -1708,7 +1705,7 @@ const char *pim_reg_state2str(enum pim_reg_state reg_state, char *state_str,
 	return state_str;
 }
 
-static int pim_upstream_register_stop_timer(struct thread *t)
+static void pim_upstream_register_stop_timer(struct thread *t)
 {
 	struct pim_interface *pim_ifp;
 	struct pim_instance *pim;
@@ -1741,7 +1738,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 				zlog_debug("%s: up %s RPF is not present",
 					   __func__, up->sg_str);
 			up->reg_state = PIM_REG_NOINFO;
-			return 0;
+			return;
 		}
 
 		pim_ifp = up->rpf.source_nexthop.interface->info;
@@ -1751,7 +1748,7 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 					"%s: Interface: %s is not configured for pim",
 					__func__,
 					up->rpf.source_nexthop.interface->name);
-			return 0;
+			return;
 		}
 		up->reg_state = PIM_REG_JOIN_PENDING;
 		pim_upstream_start_register_stop_timer(up, 1);
@@ -1763,15 +1760,13 @@ static int pim_upstream_register_stop_timer(struct thread *t)
 				zlog_debug(
 					"%s: Stop sending the register, because I am the RP and we haven't seen a packet in a while",
 					__func__);
-			return 0;
+			return;
 		}
 		pim_null_register_send(up);
 		break;
 	case PIM_REG_NOINFO:
 		break;
 	}
-
-	return 0;
 }
 
 void pim_upstream_start_register_stop_timer(struct pim_upstream *up,

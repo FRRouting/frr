@@ -2402,7 +2402,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	return true;
 }
 
-static int bgp_route_select_timer_expire(struct thread *thread)
+static void bgp_route_select_timer_expire(struct thread *thread)
 {
 	struct afi_safi_info *info;
 	afi_t afi;
@@ -2423,7 +2423,7 @@ static int bgp_route_select_timer_expire(struct thread *thread)
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
-	return bgp_best_path_select_defer(bgp, afi, safi);
+	bgp_best_path_select_defer(bgp, afi, safi);
 }
 
 void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
@@ -3354,7 +3354,7 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 	work_queue_add(bgp->process_queue, pqnode);
 }
 
-static int bgp_maximum_prefix_restart_timer(struct thread *thread)
+static void bgp_maximum_prefix_restart_timer(struct thread *thread)
 {
 	struct peer *peer;
 
@@ -3368,8 +3368,6 @@ static int bgp_maximum_prefix_restart_timer(struct thread *thread)
 
 	if ((peer_clear(peer, NULL) < 0) && bgp_debug_neighbor_events(peer))
 		zlog_debug("%s: %s peer_clear failed", __func__, peer->host);
-
-	return 0;
 }
 
 static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
@@ -4710,7 +4708,7 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
  * Callback that is invoked when the route announcement timer for a
  * peer_af expires.
  */
-static int bgp_announce_route_timer_expired(struct thread *t)
+static void bgp_announce_route_timer_expired(struct thread *t)
 {
 	struct peer_af *paf;
 	struct peer *peer;
@@ -4719,17 +4717,15 @@ static int bgp_announce_route_timer_expired(struct thread *t)
 	peer = paf->peer;
 
 	if (!peer_established(peer))
-		return 0;
+		return;
 
 	if (!peer->afc_nego[paf->afi][paf->safi])
-		return 0;
+		return;
 
 	peer_af_announce_route(paf, 1);
 
 	/* Notify BGP conditional advertisement scanner percess */
 	peer->advmap_config_change[paf->afi][paf->safi] = true;
-
-	return 0;
 }
 
 /*
@@ -4879,7 +4875,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
  * Without splitting the full job into several part,
  * vtysh waits for the job to finish before responding to a BGP command
  */
-static int bgp_soft_reconfig_table_task(struct thread *thread)
+static void bgp_soft_reconfig_table_task(struct thread *thread)
 {
 	uint32_t iter, max_iter;
 	int ret;
@@ -4933,7 +4929,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 							&table->soft_reconfig_peers);
 						bgp_soft_reconfig_table_flag(
 							table, false);
-						return 0;
+						return;
 					}
 				}
 			}
@@ -4947,7 +4943,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 		table->soft_reconfig_init = false;
 		thread_add_event(bm->master, bgp_soft_reconfig_table_task,
 				 table, 0, &table->soft_reconfig_thread);
-		return 0;
+		return;
 	}
 	/* we're done, clean up the background iteration context info and
 	schedule route annoucement
@@ -4958,8 +4954,6 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 	}
 
 	list_delete(&table->soft_reconfig_peers);
-
-	return 0;
 }
 
 
@@ -12859,7 +12853,7 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	}
 }
 
-static int bgp_table_stats_walker(struct thread *t)
+static void bgp_table_stats_walker(struct thread *t)
 {
 	struct bgp_dest *dest, *ndest;
 	struct bgp_dest *top;
@@ -12867,7 +12861,7 @@ static int bgp_table_stats_walker(struct thread *t)
 	unsigned int space = 0;
 
 	if (!(top = bgp_table_top(ts->table)))
-		return 0;
+		return;
 
 	switch (ts->table->afi) {
 	case AFI_IP:
@@ -12880,7 +12874,7 @@ static int bgp_table_stats_walker(struct thread *t)
 		space = EVPN_ROUTE_PREFIXLEN;
 		break;
 	default:
-		return 0;
+		return;
 	}
 
 	ts->counts[BGP_STATS_MAXBITLEN] = space;
@@ -12903,8 +12897,6 @@ static int bgp_table_stats_walker(struct thread *t)
 			bgp_table_stats_rn(dest, top, ts, space);
 		}
 	}
-
-	return 0;
 }
 
 static void bgp_table_stats_all(struct vty *vty, afi_t afi, safi_t safi,
@@ -13222,7 +13214,7 @@ static void bgp_peer_count_proc(struct bgp_dest *rn, struct peer_pcounts *pc)
 	}
 }
 
-static int bgp_peer_count_walker(struct thread *t)
+static void bgp_peer_count_walker(struct thread *t)
 {
 	struct bgp_dest *rn, *rm;
 	const struct bgp_table *table;
@@ -13242,8 +13234,6 @@ static int bgp_peer_count_walker(struct thread *t)
 	} else
 		for (rn = bgp_table_top(pc->table); rn; rn = bgp_route_next(rn))
 			bgp_peer_count_proc(rn, pc);
-
-	return 0;
 }
 
 static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,

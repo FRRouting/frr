@@ -66,7 +66,7 @@ static void pim_msdp_sa_timer_expiry_log(struct pim_msdp_sa *sa,
 }
 
 /* RFC-3618:Sec-5.1 - global active source advertisement timer */
-static int pim_msdp_sa_adv_timer_cb(struct thread *t)
+static void pim_msdp_sa_adv_timer_cb(struct thread *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 
@@ -76,8 +76,8 @@ static int pim_msdp_sa_adv_timer_cb(struct thread *t)
 
 	pim_msdp_sa_adv_timer_setup(pim, true /* start */);
 	pim_msdp_pkt_sa_tx(pim);
-	return 0;
 }
+
 static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 {
 	THREAD_OFF(pim->msdp.sa_adv_timer);
@@ -89,7 +89,7 @@ static void pim_msdp_sa_adv_timer_setup(struct pim_instance *pim, bool start)
 }
 
 /* RFC-3618:Sec-5.3 - SA cache state timer */
-static int pim_msdp_sa_state_timer_cb(struct thread *t)
+static void pim_msdp_sa_state_timer_cb(struct thread *t)
 {
 	struct pim_msdp_sa *sa;
 
@@ -100,8 +100,8 @@ static int pim_msdp_sa_state_timer_cb(struct thread *t)
 	}
 
 	pim_msdp_sa_deref(sa, PIM_MSDP_SAF_PEER);
-	return 0;
 }
+
 static void pim_msdp_sa_state_timer_setup(struct pim_msdp_sa *sa, bool start)
 {
 	THREAD_OFF(sa->sa_state_timer);
@@ -873,7 +873,7 @@ static void pim_msdp_peer_timer_expiry_log(struct pim_msdp_peer *mp,
 }
 
 /* RFC-3618:Sec-5.4 - peer hold timer */
-static int pim_msdp_peer_hold_timer_cb(struct thread *t)
+static void pim_msdp_peer_hold_timer_cb(struct thread *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -884,14 +884,13 @@ static int pim_msdp_peer_hold_timer_cb(struct thread *t)
 	}
 
 	if (mp->state != PIM_MSDP_ESTABLISHED) {
-		return 0;
+		return;
 	}
 
 	if (PIM_DEBUG_MSDP_EVENTS) {
 		pim_msdp_peer_state_chg_log(mp);
 	}
 	pim_msdp_peer_reset_tcp_conn(mp, "ht-expired");
-	return 0;
 }
 
 static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
@@ -906,7 +905,7 @@ static void pim_msdp_peer_hold_timer_setup(struct pim_msdp_peer *mp, bool start)
 
 
 /* RFC-3618:Sec-5.5 - peer keepalive timer */
-static int pim_msdp_peer_ka_timer_cb(struct thread *t)
+static void pim_msdp_peer_ka_timer_cb(struct thread *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -918,8 +917,8 @@ static int pim_msdp_peer_ka_timer_cb(struct thread *t)
 
 	pim_msdp_pkt_ka_tx(mp);
 	pim_msdp_peer_ka_timer_setup(mp, true /* start */);
-	return 0;
 }
+
 static void pim_msdp_peer_ka_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	THREAD_OFF(mp->ka_timer);
@@ -967,7 +966,7 @@ static void pim_msdp_peer_active_connect(struct pim_msdp_peer *mp)
 }
 
 /* RFC-3618:Sec-5.6 - connection retry on active peer */
-static int pim_msdp_peer_cr_timer_cb(struct thread *t)
+static void pim_msdp_peer_cr_timer_cb(struct thread *t)
 {
 	struct pim_msdp_peer *mp;
 
@@ -978,12 +977,12 @@ static int pim_msdp_peer_cr_timer_cb(struct thread *t)
 	}
 
 	if (mp->state != PIM_MSDP_CONNECTING || PIM_MSDP_PEER_IS_LISTENER(mp)) {
-		return 0;
+		return;
 	}
 
 	pim_msdp_peer_active_connect(mp);
-	return 0;
 }
+
 static void pim_msdp_peer_cr_timer_setup(struct pim_msdp_peer *mp, bool start)
 {
 	THREAD_OFF(mp->cr_timer);

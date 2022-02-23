@@ -114,7 +114,7 @@ struct thread {
 	struct thread_timer_list_item timeritem;
 	struct thread **ref;	  /* external reference (if given) */
 	struct thread_master *master; /* pointer to the struct thread_master */
-	int (*func)(struct thread *); /* event function */
+	void (*func)(struct thread *); /* event function */
 	void *arg;		      /* event argument */
 	union {
 		int val;	      /* second argument of the event. */
@@ -134,7 +134,7 @@ struct thread {
 #endif
 
 struct cpu_thread_history {
-	int (*func)(struct thread *);
+	void (*func)(struct thread *);
 	atomic_size_t total_cpu_warn;
 	atomic_size_t total_wall_warn;
 	atomic_size_t total_starv_warn;
@@ -227,32 +227,32 @@ extern void thread_master_free_unused(struct thread_master *);
 
 extern void _thread_add_read_write(const struct xref_threadsched *xref,
 				   struct thread_master *master,
-				   int (*fn)(struct thread *), void *arg,
+				   void (*fn)(struct thread *), void *arg,
 				   int fd, struct thread **tref);
 
 extern void _thread_add_timer(const struct xref_threadsched *xref,
 			      struct thread_master *master,
-			      int (*fn)(struct thread *), void *arg, long t,
+			      void (*fn)(struct thread *), void *arg, long t,
 			      struct thread **tref);
 
 extern void _thread_add_timer_msec(const struct xref_threadsched *xref,
 				   struct thread_master *master,
-				   int (*fn)(struct thread *), void *arg,
+				   void (*fn)(struct thread *), void *arg,
 				   long t, struct thread **tref);
 
 extern void _thread_add_timer_tv(const struct xref_threadsched *xref,
 				 struct thread_master *master,
-				 int (*fn)(struct thread *), void *arg,
+				 void (*fn)(struct thread *), void *arg,
 				 struct timeval *tv, struct thread **tref);
 
 extern void _thread_add_event(const struct xref_threadsched *xref,
 			      struct thread_master *master,
-			      int (*fn)(struct thread *), void *arg, int val,
+			      void (*fn)(struct thread *), void *arg, int val,
 			      struct thread **tref);
 
 extern void _thread_execute(const struct xref_threadsched *xref,
 			    struct thread_master *master,
-			    int (*fn)(struct thread *), void *arg, int val);
+			    void (*fn)(struct thread *), void *arg, int val);
 
 extern void thread_cancel(struct thread **event);
 extern void thread_cancel_async(struct thread_master *, struct thread **,

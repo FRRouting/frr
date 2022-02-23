@@ -100,7 +100,7 @@ static void netlink_log_indication(struct nlmsghdr *msg, struct zbuf *zb)
 	nhrp_peer_send_indication(ifp, htons(pkthdr->hw_protocol), &pktpl);
 }
 
-static int netlink_log_recv(struct thread *t)
+static void netlink_log_recv(struct thread *t)
 {
 	uint8_t buf[ZNL_BUFFER_SIZE];
 	int fd = THREAD_FD(t);
@@ -124,8 +124,6 @@ static int netlink_log_recv(struct thread *t)
 
 	thread_add_read(master, netlink_log_recv, 0, netlink_log_fd,
 			&netlink_log_thread);
-
-	return 0;
 }
 
 void netlink_set_nflog_group(int nlgroup)

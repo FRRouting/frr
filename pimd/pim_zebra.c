@@ -394,7 +394,7 @@ void pim_scan_oil(struct pim_instance *pim)
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 }
 
-static int on_rpf_cache_refresh(struct thread *t)
+static void on_rpf_cache_refresh(struct thread *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 
@@ -406,7 +406,6 @@ static int on_rpf_cache_refresh(struct thread *t)
 
 	// It is called as part of pim_neighbor_add
 	// pim_rp_setup ();
-	return 0;
 }
 
 void sched_rpf_cache_refresh(struct pim_instance *pim)

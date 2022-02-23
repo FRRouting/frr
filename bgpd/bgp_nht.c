@@ -54,7 +54,7 @@ static void register_zebra_rnh(struct bgp_nexthop_cache *bnc,
 static void unregister_zebra_rnh(struct bgp_nexthop_cache *bnc,
 				 int is_bgp_static_route);
 static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p);
-static int bgp_nht_ifp_initial(struct thread *thread);
+static void bgp_nht_ifp_initial(struct thread *thread);
 
 static int bgp_isvalid_nexthop(struct bgp_nexthop_cache *bnc)
 {
@@ -608,14 +608,14 @@ void bgp_nht_ifp_down(struct interface *ifp)
 	bgp_nht_ifp_handle(ifp, false);
 }
 
-static int bgp_nht_ifp_initial(struct thread *thread)
+static void bgp_nht_ifp_initial(struct thread *thread)
 {
 	ifindex_t ifindex = THREAD_VAL(thread);
 	struct bgp *bgp = THREAD_ARG(thread);
 	struct interface *ifp = if_lookup_by_index(ifindex, bgp->vrf_id);
 
 	if (!ifp)
-		return 0;
+		return;
 
 	if (BGP_DEBUG(nht, NHT))
 		zlog_debug(
@@ -626,8 +626,6 @@ static int bgp_nht_ifp_initial(struct thread *thread)
 		bgp_nht_ifp_up(ifp);
 	else
 		bgp_nht_ifp_down(ifp);
-
-	return 0;
 }
 
 /*

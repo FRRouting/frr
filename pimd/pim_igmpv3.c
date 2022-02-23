@@ -119,7 +119,7 @@ void igmp_group_reset_gmi(struct gm_group *group)
 	igmp_group_timer_on(group, group_membership_interval_msec, ifp->name);
 }
 
-static int igmp_source_timer(struct thread *t)
+static void igmp_source_timer(struct thread *t)
 {
 	struct gm_source *source;
 	struct gm_group *group;
@@ -180,8 +180,6 @@ static int igmp_source_timer(struct thread *t)
 			igmp_group_delete_empty_include(group);
 		}
 	}
-
-	return 0;
 }
 
 static void source_timer_off(struct gm_group *group, struct gm_source *source)
@@ -1213,7 +1211,7 @@ static int group_retransmit_sources(struct gm_group *group,
 	return num_retransmit_sources_left;
 }
 
-static int igmp_group_retransmit(struct thread *t)
+static void igmp_group_retransmit(struct thread *t)
 {
 	struct gm_group *group;
 	int num_retransmit_sources_left;
@@ -1263,8 +1261,6 @@ static int igmp_group_retransmit(struct thread *t)
 	    || (group->group_specific_query_retransmit_count > 0)) {
 		group_retransmit_timer_on(group);
 	}
-
-	return 0;
 }
 
 /*

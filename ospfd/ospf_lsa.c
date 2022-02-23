@@ -734,7 +734,7 @@ void ospf_router_lsa_body_set(struct stream **s, struct ospf_area *area)
 	stream_putw_at(*s, putp, cnt);
 }
 
-static int ospf_stub_router_timer(struct thread *t)
+static void ospf_stub_router_timer(struct thread *t)
 {
 	struct ospf_area *area = THREAD_ARG(t);
 
@@ -746,13 +746,11 @@ static int ospf_stub_router_timer(struct thread *t)
 	 * clobber an administratively set stub-router state though.
 	 */
 	if (CHECK_FLAG(area->stub_router_state, OSPF_AREA_ADMIN_STUB_ROUTED))
-		return 0;
+		return;
 
 	UNSET_FLAG(area->stub_router_state, OSPF_AREA_IS_STUB_ROUTED);
 
 	ospf_router_lsa_update_area(area);
-
-	return 0;
 }
 
 static void ospf_stub_router_check(struct ospf_area *area)
@@ -3025,7 +3023,7 @@ int ospf_check_nbr_status(struct ospf *ospf)
 }
 
 
-static int ospf_maxage_lsa_remover(struct thread *thread)
+static void ospf_maxage_lsa_remover(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct ospf_lsa *lsa, *old;
@@ -3062,7 +3060,7 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 					      ospf_maxage_lsa_remover, 0);
 				route_unlock_node(
 					rn); /* route_top/route_next */
-				return 0;
+				return;
 			}
 
 			/* Remove LSA from the LSDB */
@@ -3118,8 +3116,6 @@ static int ospf_maxage_lsa_remover(struct thread *thread)
 	if (reschedule)
 		OSPF_TIMER_ON(ospf->t_maxage, ospf_maxage_lsa_remover,
 			      ospf->maxage_delay);
-
-	return 0;
 }
 
 /* This function checks whether an LSA with initial sequence number should be
@@ -3275,7 +3271,7 @@ static int ospf_lsa_maxage_walker_remover(struct ospf *ospf,
 }
 
 /* Periodical check of MaxAge LSA. */
-int ospf_lsa_maxage_walker(struct thread *thread)
+void ospf_lsa_maxage_walker(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct route_node *rn;
@@ -3312,7 +3308,6 @@ int ospf_lsa_maxage_walker(struct thread *thread)
 
 	OSPF_TIMER_ON(ospf->t_maxage_walker, ospf_lsa_maxage_walker,
 		      OSPF_LSA_MAXAGE_CHECK_INTERVAL);
-	return 0;
 }
 
 struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *lsdb, uint8_t type,
@@ -3773,7 +3768,7 @@ struct lsa_action {
 	struct ospf_lsa *lsa;
 };
 
-static int ospf_lsa_action(struct thread *t)
+static void ospf_lsa_action(struct thread *t)
 {
 	struct lsa_action *data;
 
@@ -3794,7 +3789,6 @@ static int ospf_lsa_action(struct thread *t)
 
 	ospf_lsa_unlock(&data->lsa); /* Message */
 	XFREE(MTYPE_OSPF_MESSAGE, data);
-	return 0;
 }
 
 void ospf_schedule_lsa_flood_area(struct ospf_area *area, struct ospf_lsa *lsa)
@@ -3965,7 +3959,7 @@ void ospf_refresher_unregister_lsa(struct ospf *ospf, struct ospf_lsa *lsa)
 	}
 }
 
-int ospf_lsa_refresh_walker(struct thread *t)
+void ospf_lsa_refresh_walker(struct thread *t)
 {
 	struct list *refresh_list;
 	struct listnode *node, *nnode;
@@ -4044,8 +4038,6 @@ int ospf_lsa_refresh_walker(struct thread *t)
 
 	if (IS_DEBUG_OSPF(lsa, LSA_REFRESH))
 		zlog_debug("LSA[Refresh]: ospf_lsa_refresh_walker(): end");
-
-	return 0;
 }
 
 /* Flush the LSAs for the specific area */

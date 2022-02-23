@@ -471,7 +471,7 @@ no_more_opts:
 		zif->ra_sent++;
 }
 
-static int rtadv_timer(struct thread *thread)
+static void rtadv_timer(struct thread *thread)
 {
 	struct zebra_vrf *zvrf = THREAD_ARG(thread);
 	struct vrf *vrf;
@@ -534,8 +534,6 @@ static int rtadv_timer(struct thread *thread)
 				}
 			}
 		}
-
-	return 0;
 }
 
 static void rtadv_process_solicit(struct interface *ifp)
@@ -774,7 +772,7 @@ static void rtadv_process_packet(uint8_t *buf, unsigned int len,
 	return;
 }
 
-static int rtadv_read(struct thread *thread)
+static void rtadv_read(struct thread *thread)
 {
 	int sock;
 	int len;
@@ -797,12 +795,10 @@ static int rtadv_read(struct thread *thread)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "RA/RS recv failed, socket %u error %s", sock,
 			     safe_strerror(errno));
-		return len;
+		return;
 	}
 
 	rtadv_process_packet(buf, (unsigned)len, ifindex, hoplimit, &from, zvrf);
-
-	return 0;
 }
 
 static int rtadv_make_socket(ns_id_t ns_id)

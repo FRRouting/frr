@@ -470,7 +470,7 @@ int ospf_sr_local_block_release_label(mpls_label_t label)
  *
  * @return		1 on success
  */
-static int sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct thread *start)
 {
 	struct ospf *ospf;
 
@@ -478,8 +478,6 @@ static int sr_start_label_manager(struct thread *start)
 
 	/* re-attempt to start SR & Label Manager connection */
 	ospf_sr_start(ospf);
-
-	return 1;
 }
 
 /* Segment Routing starter function */

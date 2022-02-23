@@ -197,7 +197,7 @@ struct ospf6_lsa *ospf6_as_external_lsa_originate(struct ospf6_route *route,
 	return lsa;
 }
 
-int ospf6_orig_as_external_lsa(struct thread *thread)
+void ospf6_orig_as_external_lsa(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_lsa *lsa;
@@ -206,9 +206,9 @@ int ospf6_orig_as_external_lsa(struct thread *thread)
 	oi = (struct ospf6_interface *)THREAD_ARG(thread);
 
 	if (oi->state == OSPF6_INTERFACE_DOWN)
-		return 0;
+		return;
 	if (IS_AREA_NSSA(oi->area) || IS_AREA_STUB(oi->area))
-		return 0;
+		return;
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	adv_router = oi->area->ospf6->router_id;
@@ -222,8 +222,6 @@ int ospf6_orig_as_external_lsa(struct thread *thread)
 
 		ospf6_flood_interface(NULL, lsa, oi);
 	}
-
-	return 0;
 }
 
 static route_tag_t ospf6_as_external_lsa_get_tag(struct ospf6_lsa *lsa)
@@ -1084,7 +1082,7 @@ static void ospf6_asbr_routemap_unset(struct ospf6_redist *red)
 	ROUTEMAP(red) = NULL;
 }
 
-static int ospf6_asbr_routemap_update_timer(struct thread *thread)
+static void ospf6_asbr_routemap_update_timer(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_redist *red;
@@ -1116,8 +1114,6 @@ static int ospf6_asbr_routemap_update_timer(struct thread *thread)
 
 		UNSET_FLAG(red->flag, OSPF6_IS_RMAP_CHANGED);
 	}
-
-	return 0;
 }
 
 void ospf6_asbr_distribute_list_update(struct ospf6 *ospf6,
@@ -3331,7 +3327,7 @@ ospf6_handle_external_aggr_add(struct ospf6 *ospf6)
 	}
 }
 
-static int ospf6_asbr_summary_process(struct thread *thread)
+static void ospf6_asbr_summary_process(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	int operation = 0;
@@ -3354,8 +3350,6 @@ static int ospf6_asbr_summary_process(struct thread *thread)
 	default:
 		break;
 	}
-
-	return OSPF6_SUCCESS;
 }
 
 static void

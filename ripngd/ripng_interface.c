@@ -601,7 +601,7 @@ int ripng_enable_if_delete(struct ripng *ripng, const char *ifname)
 }
 
 /* Wake up interface. */
-static int ripng_interface_wakeup(struct thread *t)
+static void ripng_interface_wakeup(struct thread *t)
 {
 	struct interface *ifp;
 	struct ripng_interface *ri;
@@ -616,7 +616,7 @@ static int ripng_interface_wakeup(struct thread *t)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
-		return 0;
+		return;
 	}
 
 	/* Set running flag. */
@@ -624,8 +624,6 @@ static int ripng_interface_wakeup(struct thread *t)
 
 	/* Send RIP request to the interface. */
 	ripng_request(ifp);
-
-	return 0;
 }
 
 static void ripng_connect_set(struct interface *ifp, int set)

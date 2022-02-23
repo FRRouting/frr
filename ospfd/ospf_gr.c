@@ -510,14 +510,12 @@ void ospf_gr_check_adjs(struct ospf *ospf)
 }
 
 /* Handling of grace period expiry. */
-static int ospf_gr_grace_period_expired(struct thread *thread)
+static void ospf_gr_grace_period_expired(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 
 	ospf->gr_info.t_grace_period = NULL;
 	ospf_gr_restart_exit(ospf, "grace period has expired");
-
-	return 0;
 }
 
 /*

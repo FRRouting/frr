@@ -2226,7 +2226,7 @@ extern int peer_ttl_security_hops_unset(struct peer *);
 extern void peer_tx_shutdown_message_set(struct peer *, const char *msg);
 extern void peer_tx_shutdown_message_unset(struct peer *);
 
-extern int bgp_route_map_update_timer(struct thread *thread);
+extern void bgp_route_map_update_timer(struct thread *thread);
 extern void bgp_route_map_terminate(void);
 
 extern int peer_cmp(struct peer *p1, struct peer *p2);

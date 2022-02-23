@@ -965,7 +965,7 @@ int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
 }
 
 /* This function performs ABR related processing */
-static int ospf6_abr_task_timer(struct thread *thread)
+static void ospf6_abr_task_timer(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 
@@ -977,8 +977,6 @@ static int ospf6_abr_task_timer(struct thread *thread)
 	ospf6_abr_task(ospf6);
 	/* if nssa-abr, then scan Type-7 LSDB */
 	ospf6_abr_nssa_task(ospf6);
-
-	return 0;
 }
 
 void ospf6_schedule_abr_task(struct ospf6 *ospf6)

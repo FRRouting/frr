@@ -1157,7 +1157,7 @@ bool update_subgroup_check_merge(struct update_subgroup *subgrp,
 /*
 * update_subgroup_merge_check_thread_cb
 */
-static int update_subgroup_merge_check_thread_cb(struct thread *thread)
+static void update_subgroup_merge_check_thread_cb(struct thread *thread)
 {
 	struct update_subgroup *subgrp;
 
@@ -1166,7 +1166,6 @@ static int update_subgroup_merge_check_thread_cb(struct thread *thread)
 	subgrp->t_merge_check = NULL;
 
 	update_subgroup_check_merge(subgrp, "triggered merge check");
-	return 0;
 }
 
 /*
@@ -1803,7 +1802,7 @@ update_group_default_originate_route_map_walkcb(struct update_group *updgrp,
 	return UPDWALK_CONTINUE;
 }
 
-int update_group_refresh_default_originate_route_map(struct thread *thread)
+void update_group_refresh_default_originate_route_map(struct thread *thread)
 {
 	struct bgp *bgp;
 	char reason[] = "refresh default-originate route-map";
@@ -1813,8 +1812,6 @@ int update_group_refresh_default_originate_route_map(struct thread *thread)
 			  reason);
 	thread_cancel(&bgp->t_rmap_def_originate_eval);
 	bgp_unlock(bgp);
-
-	return 0;
 }
 
 /*

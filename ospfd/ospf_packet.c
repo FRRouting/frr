@@ -449,7 +449,7 @@ static int ospf_make_md5_digest(struct ospf_interface *oi,
 }
 
 
-static int ospf_ls_req_timer(struct thread *thread)
+static void ospf_ls_req_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -462,8 +462,6 @@ static int ospf_ls_req_timer(struct thread *thread)
 
 	/* Set Link State Request retransmission timer. */
 	OSPF_NSM_TIMER_ON(nbr->t_ls_req, ospf_ls_req_timer, nbr->v_ls_req);
-
-	return 0;
 }
 
 void ospf_ls_req_event(struct ospf_neighbor *nbr)
@@ -474,7 +472,7 @@ void ospf_ls_req_event(struct ospf_neighbor *nbr)
 
 /* Cyclic timer function.  Fist registered in ospf_nbr_new () in
    ospf_neighbor.c  */
-int ospf_ls_upd_timer(struct thread *thread)
+void ospf_ls_upd_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -530,11 +528,9 @@ int ospf_ls_upd_timer(struct thread *thread)
 
 	/* Set LS Update retransmission timer. */
 	OSPF_NSM_TIMER_ON(nbr->t_ls_upd, ospf_ls_upd_timer, nbr->v_ls_upd);
-
-	return 0;
 }
 
-int ospf_ls_ack_timer(struct thread *thread)
+void ospf_ls_ack_timer(struct thread *thread)
 {
 	struct ospf_interface *oi;
 
@@ -547,8 +543,6 @@ int ospf_ls_ack_timer(struct thread *thread)
 
 	/* Set LS Ack timer. */
 	OSPF_ISM_TIMER_ON(oi->t_ls_ack, ospf_ls_ack_timer, oi->v_ls_ack);
-
-	return 0;
 }
 
 #ifdef WANT_OSPF_WRITE_FRAGMENT
@@ -625,7 +619,7 @@ static void ospf_write_frags(int fd, struct ospf_packet *op, struct ip *iph,
 }
 #endif /* WANT_OSPF_WRITE_FRAGMENT */
 
-static int ospf_write(struct thread *thread)
+static void ospf_write(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 	struct ospf_interface *oi;
@@ -657,7 +651,7 @@ static int ospf_write(struct thread *thread)
 			zlog_debug(
 				"ospf_write failed to send, fd %d, instance %u",
 				ospf->fd, ospf->oi_running);
-		return -1;
+		return;
 	}
 
 	node = listhead(ospf->oi_write_q);
@@ -876,8 +870,6 @@ static int ospf_write(struct thread *thread)
 	if (!list_isempty(ospf->oi_write_q))
 		thread_add_write(master, ospf_write, ospf, ospf->fd,
 				 &ospf->t_write);
-
-	return 0;
 }
 
 /* OSPF Hello message read -- RFC2328 Section 10.5. */
@@ -3215,7 +3207,7 @@ static enum ospf_read_return_enum ospf_read_helper(struct ospf *ospf)
 }
 
 /* Starting point of packet process function. */
-int ospf_read(struct thread *thread)
+void ospf_read(struct thread *thread)
 {
 	struct ospf *ospf;
 	int32_t count = 0;
@@ -3232,13 +3224,11 @@ int ospf_read(struct thread *thread)
 		ret = ospf_read_helper(ospf);
 		switch (ret) {
 		case OSPF_READ_ERROR:
-			return -1;
+			return;
 		case OSPF_READ_CONTINUE:
 			break;
 		}
 	}
-
-	return 0;
 }
 
 /* Make OSPF header. */
@@ -3747,7 +3737,7 @@ static void ospf_poll_send(struct ospf_nbr_nbma *nbr_nbma)
 	ospf_hello_send_sub(oi, nbr_nbma->addr.s_addr);
 }
 
-int ospf_poll_timer(struct thread *thread)
+void ospf_poll_timer(struct thread *thread)
 {
 	struct ospf_nbr_nbma *nbr_nbma;
 
@@ -3763,12 +3753,10 @@ int ospf_poll_timer(struct thread *thread)
 	if (nbr_nbma->v_poll > 0)
 		OSPF_POLL_TIMER_ON(nbr_nbma->t_poll, ospf_poll_timer,
 				   nbr_nbma->v_poll);
-
-	return 0;
 }
 
 
-int ospf_hello_reply_timer(struct thread *thread)
+void ospf_hello_reply_timer(struct thread *thread)
 {
 	struct ospf_neighbor *nbr;
 
@@ -3780,8 +3768,6 @@ int ospf_hello_reply_timer(struct thread *thread)
 			   IF_NAME(nbr->oi), &nbr->router_id);
 
 	ospf_hello_send_sub(nbr->oi, nbr->address.u.prefix4.s_addr);
-
-	return 0;
 }
 
 /* Send OSPF Hello. */
@@ -4124,7 +4110,7 @@ static void ospf_ls_upd_queue_send(struct ospf_interface *oi,
 	}
 }
 
-static int ospf_ls_upd_send_queue_event(struct thread *thread)
+static void ospf_ls_upd_send_queue_event(struct thread *thread)
 {
 	struct ospf_interface *oi = THREAD_ARG(thread);
 	struct route_node *rn;
@@ -4167,8 +4153,6 @@ static int ospf_ls_upd_send_queue_event(struct thread *thread)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("ospf_ls_upd_send_queue stop");
-
-	return 0;
 }
 
 void ospf_ls_upd_send(struct ospf_neighbor *nbr, struct list *update, int flag,
@@ -4272,7 +4256,7 @@ static void ospf_ls_ack_send_list(struct ospf_interface *oi, struct list *ack,
 	OSPF_ISM_WRITE_ON(oi->ospf);
 }
 
-static int ospf_ls_ack_send_event(struct thread *thread)
+static void ospf_ls_ack_send_event(struct thread *thread)
 {
 	struct ospf_interface *oi = THREAD_ARG(thread);
 
@@ -4281,8 +4265,6 @@ static int ospf_ls_ack_send_event(struct thread *thread)
 	while (listcount(oi->ls_ack_direct.ls_ack))
 		ospf_ls_ack_send_list(oi, oi->ls_ack_direct.ls_ack,
 				      oi->ls_ack_direct.dst);
-
-	return 0;
 }
 
 void ospf_ls_ack_send(struct ospf_neighbor *nbr, struct ospf_lsa *lsa)

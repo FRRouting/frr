@@ -789,7 +789,7 @@ int rip_enable_if_delete(struct rip *rip, const char *ifname)
 }
 
 /* Join to multicast group and send request to the interface. */
-static int rip_interface_wakeup(struct thread *t)
+static void rip_interface_wakeup(struct thread *t)
 {
 	struct interface *ifp;
 	struct rip_interface *ri;
@@ -804,7 +804,7 @@ static int rip_interface_wakeup(struct thread *t)
 		flog_err_sys(EC_LIB_SOCKET,
 			     "multicast join failed, interface %s not running",
 			     ifp->name);
-		return 0;
+		return;
 	}
 
 	/* Set running flag. */
@@ -812,8 +812,6 @@ static int rip_interface_wakeup(struct thread *t)
 
 	/* Send RIP request to the interface. */
 	rip_request_interface(ifp);
-
-	return 0;
 }
 
 static void rip_connect_set(struct interface *ifp, int set)

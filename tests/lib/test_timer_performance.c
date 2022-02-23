@@ -35,9 +35,8 @@
 
 struct thread_master *master;
 
-static int dummy_func(struct thread *thread)
+static void dummy_func(struct thread *thread)
 {
-	return 0;
 }
 
 int main(int argc, char **argv)

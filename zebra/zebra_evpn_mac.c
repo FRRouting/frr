@@ -383,7 +383,7 @@ static char *zebra_evpn_zebra_mac_flag_dump(struct zebra_mac *mac, char *buf,
 	return buf;
 }
 
-static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_mac *mac = NULL;
@@ -396,15 +396,15 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(mac->zevpn->vrf_id);
 	if (!zvrf)
-		return 0;
+		return;
 
 	zevpn = zebra_evpn_lookup(mac->zevpn->vni);
 	if (!zevpn)
-		return 0;
+		return;
 
 	mac = zebra_evpn_mac_lookup(zevpn, &mac->macaddr);
 	if (!mac)
-		return 0;
+		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN) {
 		char mac_buf[MAC_BUF_SIZE];
@@ -445,7 +445,7 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 		if (zebra_evpn_mac_send_add_to_client(zevpn->vni, &mac->macaddr,
 						      mac->flags, mac->loc_seq,
 						      mac->es))
-			return -1;
+			return;
 
 		/* Process all neighbors associated with this MAC. */
 		zebra_evpn_process_neigh_on_local_mac_change(zevpn, mac, 0,
@@ -457,8 +457,6 @@ static int zebra_evpn_dad_mac_auto_recovery_exp(struct thread *t)
 		/* Install the entry. */
 		zebra_evpn_rem_mac_install(zevpn, mac, false /* was_static */);
 	}
-
-	return 0;
 }
 
 static void zebra_evpn_dup_addr_detect_for_mac(struct zebra_vrf *zvrf,
@@ -1470,7 +1468,7 @@ void zebra_evpn_mac_send_add_del_to_client(struct zebra_mac *mac,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static int zebra_evpn_mac_hold_exp_cb(struct thread *t)
+static void zebra_evpn_mac_hold_exp_cb(struct thread *t)
 {
 	struct zebra_mac *mac;
 	bool old_bgp_ready;
@@ -1483,7 +1481,7 @@ static int zebra_evpn_mac_hold_exp_cb(struct thread *t)
 	 * flag
 	 */
 	if (!CHECK_FLAG(mac->flags, ZEBRA_MAC_ES_PEER_ACTIVE))
-		return 0;
+		return;
 
 	old_bgp_ready = zebra_evpn_mac_is_ready_for_bgp(mac->flags);
 	old_static = zebra_evpn_mac_is_static(mac);
@@ -1514,8 +1512,6 @@ static int zebra_evpn_mac_hold_exp_cb(struct thread *t)
 	if (old_bgp_ready != new_bgp_ready)
 		zebra_evpn_mac_send_add_del_to_client(mac, old_bgp_ready,
 						      new_bgp_ready);
-
-	return 0;
 }
 
 static inline void zebra_evpn_mac_start_hold_timer(struct zebra_mac *mac)

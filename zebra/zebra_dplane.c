@@ -539,7 +539,7 @@ DECLARE_DLIST(zns_info_list, struct dplane_zns_info, link);
 #define DPLANE_PROV_UNLOCK(p) pthread_mutex_unlock(&((p)->dp_mutex))
 
 /* Prototypes */
-static int dplane_thread_loop(struct thread *event);
+static void dplane_thread_loop(struct thread *event);
 static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 				 struct zebra_ns *zns);
 static enum zebra_dplane_result lsp_update_internal(struct zebra_lsp *lsp,
@@ -4864,7 +4864,7 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
  * Callback when an OS (netlink) incoming event read is ready. This runs
  * in the dplane pthread.
  */
-static int dplane_incoming_read(struct thread *event)
+static void dplane_incoming_read(struct thread *event)
 {
 	struct dplane_zns_info *zi = THREAD_ARG(event);
 
@@ -4873,8 +4873,6 @@ static int dplane_incoming_read(struct thread *event)
 	/* Re-start read task */
 	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
 			zi->info.sock, &zi->t_read);
-
-	return 0;
 }
 #endif /* HAVE_NETLINK */
 
@@ -5595,7 +5593,7 @@ done:
  * final zebra shutdown.
  * This runs in the dplane pthread context.
  */
-static int dplane_check_shutdown_status(struct thread *event)
+static void dplane_check_shutdown_status(struct thread *event)
 {
 	struct dplane_zns_info *zi;
 
@@ -5627,8 +5625,6 @@ static int dplane_check_shutdown_status(struct thread *event)
 		 */
 		thread_add_event(zrouter.master, zebra_finalize, NULL, 0, NULL);
 	}
-
-	return 0;
 }
 
 /*
@@ -5662,7 +5658,7 @@ void zebra_dplane_finish(void)
  * pthread can look for other pending work - such as i/o work on behalf of
  * providers.
  */
-static int dplane_thread_loop(struct thread *event)
+static void dplane_thread_loop(struct thread *event)
 {
 	struct dplane_ctx_q work_list;
 	struct dplane_ctx_q error_list;
@@ -5682,7 +5678,7 @@ static int dplane_thread_loop(struct thread *event)
 
 	/* Check for zebra shutdown */
 	if (!zdplane_info.dg_run)
-		goto done;
+		return;
 
 	/* Dequeue some incoming work from zebra (if any) onto the temporary
 	 * working list.
@@ -5848,9 +5844,6 @@ static int dplane_thread_loop(struct thread *event)
 	(zdplane_info.dg_results_cb)(&work_list);
 
 	TAILQ_INIT(&work_list);
-
-done:
-	return 0;
 }
 
 /*

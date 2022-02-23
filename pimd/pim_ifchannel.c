@@ -644,7 +644,7 @@ static void ifjoin_to_noinfo(struct pim_ifchannel *ch)
 	delete_on_noinfo(ch);
 }
 
-static int on_ifjoin_expiry_timer(struct thread *t)
+static void on_ifjoin_expiry_timer(struct thread *t)
 {
 	struct pim_ifchannel *ch;
 
@@ -656,11 +656,9 @@ static int on_ifjoin_expiry_timer(struct thread *t)
 
 	ifjoin_to_noinfo(ch);
 	/* ch may have been deleted */
-
-	return 0;
 }
 
-static int on_ifjoin_prune_pending_timer(struct thread *t)
+static void on_ifjoin_prune_pending_timer(struct thread *t)
 {
 	struct pim_ifchannel *ch;
 	int send_prune_echo; /* boolean */
@@ -726,8 +724,6 @@ static int on_ifjoin_prune_pending_timer(struct thread *t)
 		}
 		/* from here ch may have been deleted */
 	}
-
-	return 0;
 }
 
 static void check_recv_upstream(int is_join, struct interface *recv_ifp,

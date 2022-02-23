@@ -64,7 +64,7 @@ DEFINE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 static void if_down_del_nbr_connected(struct interface *ifp);
 
-static int if_zebra_speed_update(struct thread *thread)
+static void if_zebra_speed_update(struct thread *thread)
 {
 	struct interface *ifp = THREAD_ARG(thread);
 	struct zebra_if *zif = ifp->info;
@@ -81,7 +81,7 @@ static int if_zebra_speed_update(struct thread *thread)
 	 * note that loopback & virtual interfaces can return 0 as speed
 	 */
 	if (error < 0)
-		return 1;
+		return;
 
 	if (new_speed != ifp->speed) {
 		zlog_info("%s: %s old speed: %u new speed: %u", __func__,
@@ -96,8 +96,6 @@ static int if_zebra_speed_update(struct thread *thread)
 				 &zif->speed_update);
 		thread_ignore_late_timer(zif->speed_update);
 	}
-
-	return 1;
 }
 
 static void zebra_if_node_destroy(route_table_delegate_t *delegate,
