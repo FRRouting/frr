@@ -49,6 +49,7 @@
 #include "bgpd/bgp_debug.h"
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
+#include "bgpd/bgp_addpath.h"
 #include "bgpd/bgp_advertise.h"
 #include "bgpd/bgp_packet.h"
 #include "bgpd/bgp_updgrp.h"
@@ -1925,9 +1926,17 @@ int update_group_clear_update_dbg(struct update_group *updgrp, void *arg)
 }
 
 /* Return true if we should addpath encode NLRI to this peer */
-int bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
+bool bgp_addpath_encode_tx(struct peer *peer, afi_t afi, safi_t safi)
 {
 	return (CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_TX_ADV)
 		&& CHECK_FLAG(peer->af_cap[afi][safi],
 			      PEER_CAP_ADDPATH_AF_RX_RCV));
+}
+
+bool bgp_check_selected(struct bgp_path_info *bpi, struct peer *peer,
+			bool addpath_capable, afi_t afi, safi_t safi)
+{
+	return (CHECK_FLAG(bpi->flags, BGP_PATH_SELECTED) ||
+		(addpath_capable &&
+		 bgp_addpath_tx_path(peer->addpath_type[afi][safi], bpi)));
 }

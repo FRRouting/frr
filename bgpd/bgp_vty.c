@@ -54,6 +54,7 @@
 #include "bgpd/bgp_errors.h"
 #include "bgpd/bgp_fsm.h"
 #include "bgpd/bgp_nexthop.h"
+#include "bgpd/bgp_network.h"
 #include "bgpd/bgp_open.h"
 #include "bgpd/bgp_regex.h"
 #include "bgpd/bgp_route.h"
@@ -174,7 +175,6 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			/* not expected */
 			return BGP_IPV4_NODE;
 		}
-		break;
 	case AFI_IP6:
 		switch (safi) {
 		case SAFI_UNICAST:
@@ -191,7 +191,6 @@ static enum node_type bgp_node_type(afi_t afi, safi_t safi)
 			/* not expected */
 			return BGP_IPV4_NODE;
 		}
-		break;
 	case AFI_L2VPN:
 		return BGP_EVPN_NODE;
 	case AFI_UNSPEC:
@@ -683,16 +682,34 @@ int bgp_vty_find_and_parse_afi_safi_bgp(struct vty *vty,
 static bool peer_address_self_check(struct bgp *bgp, union sockunion *su)
 {
 	struct interface *ifp = NULL;
+	struct listnode *node;
+	struct bgp_listener *listener;
+	union sockunion all_su;
 
-	if (su->sa.sa_family == AF_INET)
+	if (su->sa.sa_family == AF_INET) {
+		(void)str2sockunion("0.0.0.0", &all_su);
 		ifp = if_lookup_by_ipv4_exact(&su->sin.sin_addr, bgp->vrf_id);
-	else if (su->sa.sa_family == AF_INET6)
+	} else if (su->sa.sa_family == AF_INET6) {
+		(void)str2sockunion("::", &all_su);
 		ifp = if_lookup_by_ipv6_exact(&su->sin6.sin6_addr,
 					      su->sin6.sin6_scope_id,
 					      bgp->vrf_id);
+	}
 
-	if (ifp)
-		return true;
+	if (ifp) {
+		for (ALL_LIST_ELEMENTS_RO(bm->listen_sockets, node, listener)) {
+			if (sockunion_family(su) !=
+			    sockunion_family(&listener->su))
+				continue;
+
+			/* If 0.0.0.0/:: is a listener, then treat as self and
+			 * reject.
+			 */
+			if (!sockunion_cmp(&listener->su, su) ||
+			    !sockunion_cmp(&listener->su, &all_su))
+				return true;
+		}
+	}
 
 	return false;
 }
@@ -786,11 +803,15 @@ struct peer *peer_and_group_lookup_vty(struct vty *vty, const char *peer_str)
 	return NULL;
 }
 
-int bgp_vty_return(struct vty *vty, int ret)
+int bgp_vty_return(struct vty *vty, enum bgp_create_error_code ret)
 {
 	const char *str = NULL;
 
 	switch (ret) {
+	case BGP_SUCCESS:
+	case BGP_CREATED:
+	case BGP_GR_NO_OPERATION:
+		break;
 	case BGP_ERR_INVALID_VALUE:
 		str = "Invalid value";
 		break;
@@ -859,6 +880,36 @@ int bgp_vty_return(struct vty *vty, int ret)
 		break;
 	case BGP_ERR_GR_OPERATION_FAILED:
 		str = "The Graceful Restart Operation failed due to an err.";
+		break;
+	case BGP_ERR_PEER_GROUP_MEMBER:
+		str = "Peer-group member cannot override remote-as of peer-group.";
+		break;
+	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
+		str = "Peer-group members must be all internal or all external.";
+		break;
+	case BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND:
+		str = "Range specified cannot be deleted because it is not part of current config.";
+		break;
+	case BGP_ERR_INSTANCE_MISMATCH:
+		str = "Instance specified does not match the current instance.";
+		break;
+	case BGP_ERR_NO_INTERFACE_CONFIG:
+		str = "Interface specified is not being used for interface based peer.";
+		break;
+	case BGP_ERR_SOFT_RECONFIG_UNCONFIGURED:
+		str = "No configuration already specified for soft reconfiguration.";
+		break;
+	case BGP_ERR_AS_MISMATCH:
+		str = "BGP is already running.";
+		break;
+	case BGP_ERR_AF_UNCONFIGURED:
+		str = "AFI/SAFI specified is not currently configured.";
+		break;
+	case BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS:
+		str = "AS specified for local as is the same as the remote as and this is not allowed.";
+		break;
+	case BGP_ERR_INVALID_AS:
+		str = "Confederation AS specified is the same AS as our AS.";
 		break;
 	}
 	if (str) {
@@ -4194,17 +4245,6 @@ static int peer_remote_as_vty(struct vty *vty, const char *peer_str,
 		ret = peer_remote_as(bgp, &su, NULL, &as, as_type);
 	}
 
-	/* This peer belongs to peer group.  */
-	switch (ret) {
-	case BGP_ERR_PEER_GROUP_MEMBER:
-		vty_out(vty,
-			"%% Peer-group member cannot override remote-as of peer-group\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	case BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT:
-		vty_out(vty,
-			"%% Peer-group members must be all internal or all external\n");
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 	return bgp_vty_return(vty, ret);
 }
 
@@ -4940,13 +4980,6 @@ DEFUN (neighbor_set_peer_group,
 	}
 
 	ret = peer_group_bind(bgp, &su, peer, group, &as);
-
-	if (ret == BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT) {
-		vty_out(vty,
-			"%% Peer with AS %u cannot be in this peer-group, members must be all internal or all external\n",
-			as);
-		return CMD_WARNING_CONFIG_FAILED;
-	}
 
 	return bgp_vty_return(vty, ret);
 }
@@ -13580,49 +13613,58 @@ static void bgp_show_peer(struct vty *vty, struct peer *p, bool use_json,
 		json_object_int_add(json_stat, "totalRecv", PEER_TOTAL_RX(p));
 		json_object_object_add(json_neigh, "messageStats", json_stat);
 	} else {
-		atomic_size_t outq_count, inq_count;
+		atomic_size_t outq_count, inq_count, open_out, open_in,
+			notify_out, notify_in, update_out, update_in,
+			keepalive_out, keepalive_in, refresh_out, refresh_in,
+			dynamic_cap_out, dynamic_cap_in;
 		outq_count = atomic_load_explicit(&p->obuf->count,
 						  memory_order_relaxed);
 		inq_count = atomic_load_explicit(&p->ibuf->count,
 						 memory_order_relaxed);
+		open_out = atomic_load_explicit(&p->open_out,
+						memory_order_relaxed);
+		open_in =
+			atomic_load_explicit(&p->open_in, memory_order_relaxed);
+		notify_out = atomic_load_explicit(&p->notify_out,
+						  memory_order_relaxed);
+		notify_in = atomic_load_explicit(&p->notify_in,
+						 memory_order_relaxed);
+		update_out = atomic_load_explicit(&p->update_out,
+						  memory_order_relaxed);
+		update_in = atomic_load_explicit(&p->update_in,
+						 memory_order_relaxed);
+		keepalive_out = atomic_load_explicit(&p->keepalive_out,
+						     memory_order_relaxed);
+		keepalive_in = atomic_load_explicit(&p->keepalive_in,
+						    memory_order_relaxed);
+		refresh_out = atomic_load_explicit(&p->refresh_out,
+						   memory_order_relaxed);
+		refresh_in = atomic_load_explicit(&p->refresh_in,
+						  memory_order_relaxed);
+		dynamic_cap_out = atomic_load_explicit(&p->dynamic_cap_out,
+						       memory_order_relaxed);
+		dynamic_cap_in = atomic_load_explicit(&p->dynamic_cap_in,
+						      memory_order_relaxed);
 
 		/* Packet counts. */
 		vty_out(vty, "  Message statistics:\n");
 		vty_out(vty, "    Inq depth is %zu\n", inq_count);
 		vty_out(vty, "    Outq depth is %zu\n", outq_count);
 		vty_out(vty, "                         Sent       Rcvd\n");
-		vty_out(vty, "    Opens:         %10d %10d\n",
-			atomic_load_explicit(&p->open_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->open_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Notifications: %10d %10d\n",
-			atomic_load_explicit(&p->notify_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->notify_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Updates:       %10d %10d\n",
-			atomic_load_explicit(&p->update_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->update_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Keepalives:    %10d %10d\n",
-			atomic_load_explicit(&p->keepalive_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->keepalive_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Route Refresh: %10d %10d\n",
-			atomic_load_explicit(&p->refresh_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->refresh_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Capability:    %10d %10d\n",
-			atomic_load_explicit(&p->dynamic_cap_out,
-					     memory_order_relaxed),
-			atomic_load_explicit(&p->dynamic_cap_in,
-					     memory_order_relaxed));
-		vty_out(vty, "    Total:         %10d %10d\n", PEER_TOTAL_TX(p),
-			PEER_TOTAL_RX(p));
+		vty_out(vty, "    Opens:         %10zu %10zu\n", open_out,
+			open_in);
+		vty_out(vty, "    Notifications: %10zu %10zu\n", notify_out,
+			notify_in);
+		vty_out(vty, "    Updates:       %10zu %10zu\n", update_out,
+			update_in);
+		vty_out(vty, "    Keepalives:    %10zu %10zu\n", keepalive_out,
+			keepalive_in);
+		vty_out(vty, "    Route Refresh: %10zu %10zu\n", refresh_out,
+			refresh_in);
+		vty_out(vty, "    Capability:    %10zu %10zu\n",
+			dynamic_cap_out, dynamic_cap_in);
+		vty_out(vty, "    Total:         %10u %10u\n",
+			(uint32_t)PEER_TOTAL_TX(p), (uint32_t)PEER_TOTAL_RX(p));
 	}
 
 	if (use_json) {
@@ -16995,8 +17037,8 @@ int bgp_config_write(struct vty *vty)
 	if (bgp_option_check(BGP_OPT_NO_FIB))
 		vty_out(vty, "bgp no-rib\n");
 
-	if (!CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
-		vty_out(vty, "no bgp send-extra-data zebra\n");
+	if (CHECK_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA))
+		vty_out(vty, "bgp send-extra-data zebra\n");
 
 	/* BGP configuration. */
 	for (ALL_LIST_ELEMENTS(bm->bgp, mnode, mnnode, bgp)) {

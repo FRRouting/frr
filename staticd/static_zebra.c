@@ -205,6 +205,7 @@ static int static_zebra_nexthop_update(ZAPI_CALLBACK_ARGS)
 static void static_zebra_capabilities(struct zclient_capabilities *cap)
 {
 	mpls_enabled = cap->mpls_enabled;
+	zebra_ecmp_count = cap->ecmp;
 }
 
 static unsigned int static_nht_hash_key(const void *data)
@@ -413,6 +414,10 @@ extern void static_zebra_route_add(struct static_path *pn, bool install)
 		api.tableid = pn->table_id;
 	}
 	frr_each(static_nexthop_list, &pn->nexthop_list, nh) {
+		/* Don't overrun the nexthop array */
+		if (nh_num == zebra_ecmp_count)
+			break;
+
 		api_nh = &api.nexthops[nh_num];
 		if (nh->nh_vrf_id == VRF_UNKNOWN)
 			continue;

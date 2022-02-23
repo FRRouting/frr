@@ -54,6 +54,7 @@
 #include "ospf6_gr.h"
 #include "lib/json.h"
 #include "ospf6_nssa.h"
+#include "ospf6_auth_trailer.h"
 
 DEFINE_MTYPE_STATIC(OSPF6D, OSPF6_TOP, "OSPF6 top");
 
@@ -436,7 +437,6 @@ static struct ospf6 *ospf6_create(const char *name)
 	o->fd = -1;
 
 	o->max_multipath = MULTIPATH_NUM;
-	SET_FLAG(o->config_flags, OSPF6_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	o->oi_write_q = list_new();
 
@@ -445,6 +445,17 @@ static struct ospf6 *ospf6_create(const char *name)
 
 	/* Make ospf protocol socket. */
 	ospf6_serv_sock(o);
+
+	/* If sequence number is stored in persistent storage, read it.
+	 */
+	if (ospf6_auth_nvm_file_exist() == OSPF6_AUTH_FILE_EXIST) {
+		ospf6_auth_seqno_nvm_read(o);
+		o->seqnum_h = o->seqnum_h + 1;
+		ospf6_auth_seqno_nvm_update(o);
+	} else {
+		o->seqnum_l = o->seqnum_h = 0;
+		ospf6_auth_seqno_nvm_update(o);
+	}
 
 	return o;
 }
@@ -971,8 +982,13 @@ DEFUN (ospf6_distance,
        "OSPF6 Administrative distance\n")
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
+	uint8_t distance;
 
-	o->distance_all = atoi(argv[1]->arg);
+	distance = atoi(argv[1]->arg);
+	if (o->distance_all != distance) {
+		o->distance_all = distance;
+		ospf6_restart_spf(o);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -986,8 +1002,10 @@ DEFUN (no_ospf6_distance,
 {
 	VTY_DECLVAR_CONTEXT(ospf6, o);
 
-	o->distance_all = 0;
-
+	if (o->distance_all) {
+		o->distance_all = 0;
+		ospf6_restart_spf(o);
+	}
 	return CMD_SUCCESS;
 }
 
@@ -1237,7 +1255,7 @@ DEFUN (no_ospf6_stub_router_admin,
 }
 
 /* Restart OSPF SPF algorithm*/
-static void ospf6_restart_spf(struct ospf6 *ospf6)
+void ospf6_restart_spf(struct ospf6 *ospf6)
 {
 	ospf6_route_remove_all(ospf6->route_table);
 	ospf6_route_remove_all(ospf6->brouter_table);
@@ -1330,6 +1348,10 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 				    o->spf_hold_multiplier);
 
 		json_object_int_add(json, "maximumPaths", o->max_multipath);
+		json_object_int_add(json, "preference",
+				    o->distance_all
+					    ? o->distance_all
+					    : ZEBRA_OSPF6_DISTANCE_DEFAULT);
 
 		if (o->ts_spf.tv_sec || o->ts_spf.tv_usec) {
 			timersub(&now, &o->ts_spf, &result);
@@ -1376,6 +1398,10 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		json_object_int_add(json, "numberOfAreaInRouter",
 				    listcount(o->area_list));
 
+		json_object_int_add(json, "AuthTrailerHigherSeqNo",
+				    o->seqnum_h);
+		json_object_int_add(json, "AuthTrailerLowerSeqNo", o->seqnum_l);
+
 		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
 			if (CHECK_FLAG(o->config_flags,
 				       OSPF6_LOG_ADJACENCY_DETAIL))
@@ -1413,6 +1439,9 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 			o->lsa_minarrival);
 
 		vty_out(vty, " Maximum-paths %u\n", o->max_multipath);
+		vty_out(vty, " Administrative distance %u\n",
+			o->distance_all ? o->distance_all
+					: ZEBRA_OSPF6_DISTANCE_DEFAULT);
 
 		/* Show SPF parameters */
 		vty_out(vty,
@@ -1452,6 +1481,10 @@ static void ospf6_show(struct vty *vty, struct ospf6 *o, json_object *json,
 		/* Areas */
 		vty_out(vty, " Number of areas in this router is %u\n",
 			listcount(o->area_list));
+
+		vty_out(vty, " Authentication Sequence number info\n");
+		vty_out(vty, "  Higher sequence no %u, Lower sequence no %u\n",
+			o->seqnum_h, o->seqnum_l);
 
 		if (CHECK_FLAG(o->config_flags, OSPF6_LOG_ADJACENCY_CHANGES)) {
 			if (CHECK_FLAG(o->config_flags,
@@ -1997,8 +2030,8 @@ ospf6_show_summary_address(struct vty *vty, struct ospf6 *ospf6,
 
 	if (!uj) {
 		ospf6_show_vrf_name(vty, ospf6, json_vrf);
-		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
-				ospf6->aggr_delay_interval);
+		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
+			ospf6->aggr_delay_interval);
 		vty_out(vty, "%s\n", header);
 	} else {
 		json_vrf = json_object_new_object();
@@ -2104,7 +2137,7 @@ DEFPY (show_ipv6_ospf6_external_aggregator,
        VRF_CMD_HELP_STR
        "All VRFs\n"
        "Show external summary addresses\n"
-       "detailed informtion\n"
+       "detailed information\n"
        JSON_STR)
 {
 	bool uj = use_json(argc, argv);
@@ -2236,9 +2269,9 @@ static int config_write_ospf6(struct vty *vty)
 			vty_out(vty, " ospf6 router-id %pI4\n",
 				&ospf6->router_id_static);
 
-		if (!CHECK_FLAG(ospf6->config_flags,
-				OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
-			vty_out(vty, " no ospf6 send-extra-data zebra\n");
+		if (CHECK_FLAG(ospf6->config_flags,
+			       OSPF6_SEND_EXTRA_DATA_TO_ZEBRA))
+			vty_out(vty, " ospf6 send-extra-data zebra\n");
 
 		/* log-adjacency-changes flag print. */
 		if (CHECK_FLAG(ospf6->config_flags,

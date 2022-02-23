@@ -77,6 +77,7 @@ reload)
 	# systemd doesn't set WATCHDOG_USEC for reload commands.
 	watchfrr_pidfile="$V_PATH/watchfrr.pid"
 	watchfrr_pid="`cat \"$watchfrr_pidfile\"`"
+	watchfrr_cmdline="`strings /proc/$watchfrr_pid/cmdline`"
 	if [ -d "/proc/$watchfrr_pid" ]; then
 		wdt="`tr '\0' '\n' < /proc/$watchfrr_pid/environ | grep '^WATCHDOG_USEC='`"
 		wdt="${wdt#WATCHDOG_USEC=}"
@@ -86,10 +87,23 @@ reload)
 
 	# restart watchfrr to pick up added daemons.
 	# NB: This will NOT cause the other daemons to be restarted.
-	daemon_list daemons
-	watchfrr_options="$watchfrr_options $daemons"
+	daemon_list enabled_daemons disabled_daemons
+	watchfrr_options="$watchfrr_options $enabled_daemons"
 	daemon_stop watchfrr && \
 		daemon_start watchfrr
+
+	# If we disable an arbitrary daemon and do reload,
+	# disabled daemon is still running and we should stop it.
+	for daemon in $disabled_daemons; do
+		if grep -q "$daemon" <<< "$watchfrr_cmdline"; then
+			daemon_stop "$daemon" &
+			pids="$pids $!"
+		fi
+	done
+
+	for pid in $pids; do
+		wait "$pid"
+	done
 
 	# make systemd not kill watchfrr after ExecReload completes
 	# 3 goats were sacrificed to restore sanity after coding this

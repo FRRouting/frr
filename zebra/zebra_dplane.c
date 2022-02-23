@@ -722,7 +722,7 @@ static void dplane_ctx_free_internal(struct zebra_dplane_ctx *ctx)
 		/* Maybe free label string, if allocated */
 		if (ctx->u.intf.label != NULL &&
 		    ctx->u.intf.label != ctx->u.intf.label_buf) {
-			free(ctx->u.intf.label);
+			XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
 			ctx->u.intf.label = NULL;
 		}
 		break;
@@ -831,6 +831,13 @@ void dplane_ctx_list_append(struct dplane_ctx_q *to_list,
 		/* And clear 'from' list */
 		TAILQ_INIT(from_list);
 	}
+}
+
+struct zebra_dplane_ctx *dplane_ctx_get_head(struct dplane_ctx_q *q)
+{
+	struct zebra_dplane_ctx *ctx = TAILQ_FIRST(q);
+
+	return ctx;
 }
 
 /* Dequeue a context block from the head of a list */
@@ -1458,6 +1465,17 @@ const struct zebra_dplane_info *dplane_ctx_get_ns(
 	return &(ctx->zd_ns_info);
 }
 
+int dplane_ctx_get_ns_sock(const struct zebra_dplane_ctx *ctx)
+{
+	DPLANE_CTX_VALID(ctx);
+
+#ifdef HAVE_NETLINK
+	return ctx->zd_ns_info.sock;
+#else
+	return -1;
+#endif
+}
+
 /* Accessors for nexthop information */
 uint32_t dplane_ctx_get_nhe_id(const struct zebra_dplane_ctx *ctx)
 {
@@ -1836,7 +1854,7 @@ void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label)
 	DPLANE_CTX_VALID(ctx);
 
 	if (ctx->u.intf.label && ctx->u.intf.label != ctx->u.intf.label_buf)
-		free(ctx->u.intf.label);
+		XFREE(MTYPE_DP_CTX, ctx->u.intf.label);
 
 	ctx->u.intf.label = NULL;
 
@@ -1851,7 +1869,7 @@ void dplane_ctx_set_intf_label(struct zebra_dplane_ctx *ctx, const char *label)
 				sizeof(ctx->u.intf.label_buf));
 			ctx->u.intf.label = ctx->u.intf.label_buf;
 		} else {
-			ctx->u.intf.label = strdup(label);
+			ctx->u.intf.label = XSTRDUP(MTYPE_DP_CTX, label);
 		}
 	} else {
 		ctx->u.intf.flags &= ~DPLANE_INTF_HAS_LABEL;
@@ -2296,6 +2314,8 @@ static int dplane_ctx_ns_init(struct zebra_dplane_ctx *ctx,
 {
 	dplane_info_from_zns(&(ctx->zd_ns_info), zns);
 
+	ctx->zd_is_update = is_update;
+
 #if defined(HAVE_NETLINK)
 	/* Increment message counter after copying to context struct - may need
 	 * two messages in some 'update' cases.
@@ -2514,7 +2534,6 @@ int dplane_ctx_nexthop_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	 * it probably won't require two messages
 	 */
 	dplane_ctx_ns_init(ctx, zns, (op == DPLANE_OP_NH_UPDATE));
-	ctx->zd_is_update = (op == DPLANE_OP_NH_UPDATE);
 
 	ret = AOK;
 
@@ -2537,7 +2556,6 @@ int dplane_ctx_lsp_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	/* Capture namespace info */
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
 			   (op == DPLANE_OP_LSP_UPDATE));
-	ctx->zd_is_update = (op == DPLANE_OP_LSP_UPDATE);
 
 	memset(&ctx->u.lsp, 0, sizeof(ctx->u.lsp));
 
@@ -2813,7 +2831,6 @@ static int dplane_ctx_rule_init(struct zebra_dplane_ctx *ctx,
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT),
 			   op == DPLANE_OP_RULE_UPDATE);
-	ctx->zd_is_update = (op == DPLANE_OP_RULE_UPDATE);
 
 	ctx->zd_vrf_id = new_rule->vrf_id;
 	strlcpy(ctx->zd_ifname, new_rule->ifname, sizeof(ctx->zd_ifname));
@@ -2859,7 +2876,6 @@ static int dplane_ctx_iptable_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = iptable->vrf_id;
 	memcpy(&ctx->u.iptable, iptable, sizeof(struct zebra_pbr_iptable));
@@ -2899,7 +2915,6 @@ static int dplane_ctx_ipset_init(struct zebra_dplane_ctx *ctx,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = ipset->vrf_id;
 
@@ -2934,7 +2949,6 @@ dplane_ctx_ipset_entry_init(struct zebra_dplane_ctx *ctx, enum dplane_op_e op,
 	ctx->zd_status = ZEBRA_DPLANE_REQUEST_SUCCESS;
 
 	dplane_ctx_ns_init(ctx, zebra_ns_lookup(NS_DEFAULT), false);
-	ctx->zd_is_update = false;
 
 	ctx->zd_vrf_id = ipset->vrf_id;
 
@@ -3015,7 +3029,6 @@ dplane_route_update_internal(struct route_node *rn,
 		 */
 		if ((op == DPLANE_OP_ROUTE_UPDATE) &&
 		    old_re && (old_re != re)) {
-			ctx->zd_is_update = true;
 
 			old_re->dplane_sequence =
 				zebra_router_get_next_sequence();
@@ -3692,7 +3705,7 @@ static enum zebra_dplane_result intf_addr_update_internal(
 				sizeof(ctx->u.intf.label_buf));
 			ctx->u.intf.label = ctx->u.intf.label_buf;
 		} else {
-			ctx->u.intf.label = strdup(ifc->label);
+			ctx->u.intf.label = XSTRDUP(MTYPE_DP_CTX, ifc->label);
 		}
 	}
 
@@ -4842,7 +4855,7 @@ static void dplane_info_from_zns(struct zebra_dplane_info *ns_info,
 
 #if defined(HAVE_NETLINK)
 	ns_info->is_cmd = true;
-	ns_info->nls = zns->netlink_dplane_out;
+	ns_info->sock = zns->netlink_dplane_out.sock;
 #endif /* NETLINK */
 }
 
@@ -4859,7 +4872,7 @@ static int dplane_incoming_read(struct thread *event)
 
 	/* Re-start read task */
 	thread_add_read(zdplane_info.dg_master, dplane_incoming_read, zi,
-			zi->info.nls.sock, &zi->t_read);
+			zi->info.sock, &zi->t_read);
 
 	return 0;
 }
@@ -4904,13 +4917,13 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 		/* Make sure we're up-to-date with the zns object */
 #if defined(HAVE_NETLINK)
 		zi->info.is_cmd = false;
-		zi->info.nls = zns->netlink_dplane_in;
+		zi->info.sock = zns->netlink_dplane_in.sock;
 
 		/* Start read task for the dplane pthread. */
 		if (zdplane_info.dg_master)
 			thread_add_read(zdplane_info.dg_master,
-					dplane_incoming_read, zi,
-					zi->info.nls.sock, &zi->t_read);
+					dplane_incoming_read, zi, zi->info.sock,
+					&zi->t_read);
 #endif
 	} else if (zi) {
 		if (IS_ZEBRA_DEBUG_DPLANE)
@@ -5933,7 +5946,7 @@ void zebra_dplane_start(void)
 	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
 #if defined(HAVE_NETLINK)
 		thread_add_read(zdplane_info.dg_master, dplane_incoming_read,
-				zi, zi->info.nls.sock, &zi->t_read);
+				zi, zi->info.sock, &zi->t_read);
 #endif
 	}
 

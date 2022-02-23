@@ -65,6 +65,14 @@ tests_lib_cxxcompat_SOURCES = tests/lib/cxxcompat.c
 tests_lib_cxxcompat_LDADD = $(ALL_TESTS_LDADD)
 
 
+check_PROGRAMS += tests/lib/fuzz_zlog
+tests_lib_fuzz_zlog_CFLAGS = $(TESTS_CFLAGS)
+tests_lib_fuzz_zlog_CPPFLAGS = $(TESTS_CPPFLAGS)
+tests_lib_fuzz_zlog_LDADD = $(ALL_TESTS_LDADD)
+tests_lib_fuzz_zlog_SOURCES = tests/lib/fuzz_zlog.c
+EXTRA_DIST += tests/lib/fuzz_zlog_inputs.py
+
+
 check_PROGRAMS += tests/lib/cli/test_cli
 tests_lib_cli_test_cli_CFLAGS = $(TESTS_CFLAGS)
 tests_lib_cli_test_cli_CPPFLAGS = $(TESTS_CPPFLAGS)

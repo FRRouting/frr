@@ -406,8 +406,6 @@ struct ospf *ospf_new_alloc(unsigned short instance, const char *name)
 
 	ospf_opaque_type11_lsa_init(new);
 
-	SET_FLAG(new->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA);
-
 	QOBJ_REG(new, ospf);
 
 	new->fd = -1;
@@ -1091,7 +1089,7 @@ struct ospf_interface *add_ospf_interface(struct connected *co,
 	ospf_ldp_sync_if_init(oi);
 
 	/*
-	 * if router_id is not configured, dont bring up
+	 * if router_id is not configured, don't bring up
 	 * interfaces.
 	 * ospf_router_id_update() will call ospf_if_update
 	 * whenever r-id is configured instead.

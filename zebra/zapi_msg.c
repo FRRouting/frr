@@ -62,7 +62,7 @@
 #include "zebra/zebra_srte.h"
 #include "zebra/zebra_srv6.h"
 
-DEFINE_MTYPE_STATIC(ZEBRA, OPAQUE, "Opaque Data");
+DEFINE_MTYPE_STATIC(ZEBRA, RE_OPAQUE, "Route Opaque Data");
 
 static int zapi_nhg_decode(struct stream *s, int cmd, struct zapi_nhg *api_nhg);
 
@@ -1577,7 +1577,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			vtep_ip.ipa_type = IPADDR_V4;
 			memcpy(&(vtep_ip.ipaddr_v4), &(api_nh->gate.ipv4),
 			       sizeof(struct in_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -1610,7 +1610,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 			vtep_ip.ipa_type = IPADDR_V6;
 			memcpy(&vtep_ip.ipaddr_v6, &(api_nh->gate.ipv6),
 			       sizeof(struct in6_addr));
-			zebra_vxlan_evpn_vrf_route_add(
+			zebra_rib_queue_evpn_route_add(
 				api_nh->vrf_id, &api_nh->rmac, &vtep_ip, p);
 		}
 		break;
@@ -2079,8 +2079,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		re->mtu = api.mtu;
 
 	if (CHECK_FLAG(api.message, ZAPI_MESSAGE_OPAQUE)) {
-		re->opaque = XMALLOC(MTYPE_OPAQUE,
-				     sizeof(struct opaque) + api.opaque.length);
+		re->opaque =
+			XMALLOC(MTYPE_RE_OPAQUE,
+				sizeof(struct re_opaque) + api.opaque.length);
 		re->opaque->length = api.opaque.length;
 		memcpy(re->opaque->data, api.opaque.data, re->opaque->length);
 	}
@@ -2092,7 +2093,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_OPAQUE, re->opaque);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2105,7 +2106,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 			  __func__, api.safi);
 		nexthop_group_delete(&ng);
 		zebra_nhg_backup_free(&bnhg);
-		XFREE(MTYPE_OPAQUE, re->opaque);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 		return;
 	}
@@ -2126,7 +2127,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 		nhe.backup_info = bnhg;
 	}
 	ret = rib_add_multipath_nhe(afi, api.safi, &api.prefix, src_p,
-				    re, &nhe);
+				    re, &nhe, false);
 
 	/*
 	 * rib_add_multipath_nhe only fails in a couple spots
@@ -2134,7 +2135,7 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	 */
 	if (ret == -1) {
 		client->error_cnt++;
-		XFREE(MTYPE_OPAQUE, re->opaque);
+		XFREE(MTYPE_RE_OPAQUE, re->opaque);
 		XFREE(MTYPE_RE, re);
 	}
 
@@ -2163,9 +2164,9 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	}
 }
 
-void zapi_opaque_free(struct opaque *opaque)
+void zapi_re_opaque_free(struct re_opaque *opaque)
 {
-	XFREE(MTYPE_OPAQUE, opaque);
+	XFREE(MTYPE_RE_OPAQUE, opaque);
 }
 
 static void zread_route_del(ZAPI_HANDLER_ARGS)

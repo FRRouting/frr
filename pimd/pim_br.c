@@ -43,8 +43,7 @@ struct in_addr pim_br_get_pmbr(pim_sgaddr *sg)
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS_RO(pim_br_list, node, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (!pim_sgaddr_cmp(*sg, pim_br->sg))
 			return pim_br->pmbr;
 	}
 
@@ -57,8 +56,7 @@ void pim_br_set_pmbr(pim_sgaddr *sg, struct in_addr br)
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS(pim_br_list, node, next, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (!pim_sgaddr_cmp(*sg, pim_br->sg))
 			break;
 	}
 
@@ -81,8 +79,7 @@ void pim_br_clear_pmbr(pim_sgaddr *sg)
 	struct pim_br *pim_br;
 
 	for (ALL_LIST_ELEMENTS(pim_br_list, node, next, pim_br)) {
-		if (sg->src.s_addr == pim_br->sg.src.s_addr
-		    && sg->grp.s_addr == pim_br->sg.grp.s_addr)
+		if (!pim_sgaddr_cmp(*sg, pim_br->sg))
 			break;
 	}
 

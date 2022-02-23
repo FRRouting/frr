@@ -652,20 +652,22 @@ DEFUN (ospf_area_range,
 
 DEFUN (ospf_area_range_cost,
        ospf_area_range_cost_cmd,
-       "area <A.B.C.D|(0-4294967295)> range A.B.C.D/M cost (0-16777215)",
+       "area <A.B.C.D|(0-4294967295)> range A.B.C.D/M {cost (0-16777215)|substitute A.B.C.D/M}",
        "OSPF area parameters\n"
        "OSPF area ID in IP address format\n"
        "OSPF area ID as a decimal value\n"
        "Summarize routes matching address/mask (border routers only)\n"
        "Area range prefix\n"
        "User specified metric for this range\n"
-       "Advertised metric for this range\n")
+       "Advertised metric for this range\n"
+       "Announce area range as another prefix\n"
+       "Network prefix to be announced instead of range\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_ipv4_number = 1;
 	int idx_ipv4_prefixlen = 3;
-	int idx_cost = 5;
-	struct prefix_ipv4 p;
+	int idx = 4;
+	struct prefix_ipv4 p, s;
 	struct in_addr area_id;
 	int format;
 	uint32_t cost;
@@ -677,8 +679,16 @@ DEFUN (ospf_area_range_cost,
 	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
 				     format);
 
-	cost = strtoul(argv[idx_cost]->arg, NULL, 10);
-	ospf_area_range_cost_set(ospf, area_id, &p, cost);
+	if (argv_find(argv, argc, "cost", &idx)) {
+		cost = strtoul(argv[idx + 1]->arg, NULL, 10);
+		ospf_area_range_cost_set(ospf, area_id, &p, cost);
+	}
+
+	idx = 4;
+	if (argv_find(argv, argc, "substitute", &idx)) {
+		str2prefix_ipv4(argv[idx + 1]->arg, &s);
+		ospf_area_range_substitute_set(ospf, area_id, &p, &s);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -738,36 +748,6 @@ DEFUN (no_ospf_area_range,
 	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
 
 	ospf_area_range_unset(ospf, area_id, &p);
-
-	return CMD_SUCCESS;
-}
-
-DEFUN (ospf_area_range_substitute,
-       ospf_area_range_substitute_cmd,
-       "area <A.B.C.D|(0-4294967295)> range A.B.C.D/M substitute A.B.C.D/M",
-       "OSPF area parameters\n"
-       "OSPF area ID in IP address format\n"
-       "OSPF area ID as a decimal value\n"
-       "Summarize routes matching address/mask (border routers only)\n"
-       "Area range prefix\n"
-       "Announce area range as another prefix\n"
-       "Network prefix to be announced instead of range\n")
-{
-	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	int idx_ipv4_number = 1;
-	int idx_ipv4_prefixlen = 3;
-	int idx_ipv4_prefixlen_2 = 5;
-	struct prefix_ipv4 p, s;
-	struct in_addr area_id;
-	int format;
-
-	VTY_GET_OSPF_AREA_ID(area_id, format, argv[idx_ipv4_number]->arg);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen]->arg, &p);
-	str2prefix_ipv4(argv[idx_ipv4_prefixlen_2]->arg, &s);
-
-	ospf_area_range_substitute_set(ospf, area_id, &p, &s);
-	ospf_area_display_format_set(ospf, ospf_area_get(ospf, area_id),
-				     format);
 
 	return CMD_SUCCESS;
 }
@@ -3271,6 +3251,16 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 		/* Show refresh parameters. */
 		json_object_int_add(json_vrf, "refreshTimerMsecs",
 				    ospf->lsa_refresh_interval * 1000);
+
+		/* show max multipath */
+		json_object_int_add(json_vrf, "maximumPaths",
+				    ospf->max_multipath);
+
+		/* show administrative distance */
+		json_object_int_add(json_vrf, "preference",
+				    ospf->distance_all
+					    ? ospf->distance_all
+					    : ZEBRA_OSPF_DISTANCE_DEFAULT);
 	} else {
 		vty_out(vty, " SPF timer %s%s\n",
 			(ospf->t_spf_calc ? "due in " : "is "),
@@ -3291,8 +3281,13 @@ static int show_ip_ospf_common(struct vty *vty, struct ospf *ospf,
 			ospf->lsa_refresh_interval);
 
 		/* show max multipath */
-		vty_out(vty, " Maximum multiple paths(ECMP) supported  %d\n",
+		vty_out(vty, " Maximum multiple paths(ECMP) supported %d\n",
 			ospf->max_multipath);
+
+		/* show administrative distance */
+		vty_out(vty, " Administrative distance %u\n",
+			ospf->distance_all ? ospf->distance_all
+					   : ZEBRA_OSPF_DISTANCE_DEFAULT);
 	}
 
 	/* Show ABR/ASBR flags. */
@@ -6563,7 +6558,7 @@ static void show_lsa_prefix_set(struct vty *vty, struct prefix_ls *lp,
 				struct in_addr *id, struct in_addr *adv_router)
 {
 	memset(lp, 0, sizeof(struct prefix_ls));
-	lp->family = 0;
+	lp->family = AF_UNSPEC;
 	if (id == NULL)
 		lp->prefixlen = 0;
 	else if (adv_router == NULL) {
@@ -9478,8 +9473,13 @@ DEFUN (ospf_distance,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 	int idx_number = 1;
+	uint8_t distance;
 
-	ospf->distance_all = atoi(argv[idx_number]->arg);
+	distance = atoi(argv[idx_number]->arg);
+	if (ospf->distance_all != distance) {
+		ospf->distance_all = distance;
+		ospf_restart_spf(ospf);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -9493,7 +9493,10 @@ DEFUN (no_ospf_distance,
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
 
-	ospf->distance_all = 0;
+	if (ospf->distance_all) {
+		ospf->distance_all = 0;
+		ospf_restart_spf(ospf);
+	}
 
 	return CMD_SUCCESS;
 }
@@ -9970,7 +9973,7 @@ DEFUN (ospf_external_route_aggregation,
        ospf_external_route_aggregation_cmd,
        "summary-address A.B.C.D/M [tag (1-4294967295)]",
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m) \n"
+       "Summary address prefix\n"
        "Router tag \n"
        "Router tag value\n")
 {
@@ -10011,7 +10014,7 @@ DEFUN (no_ospf_external_route_aggregation,
        "no summary-address A.B.C.D/M [tag (1-4294967295)]",
        NO_STR
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m)\n"
+       "Summary address prefix\n"
        "Router tag\n"
        "Router tag value\n")
 {
@@ -10301,7 +10304,7 @@ DEFUN (ospf_external_route_aggregation_no_adrvertise,
        ospf_external_route_aggregation_no_adrvertise_cmd,
        "summary-address A.B.C.D/M no-advertise",
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m) \n"
+       "Summary address prefix\n"
        "Don't advertise summary route \n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -10337,7 +10340,7 @@ DEFUN (no_ospf_external_route_aggregation_no_adrvertise,
        "no summary-address A.B.C.D/M no-advertise",
        NO_STR
        "External summary address\n"
-       "Summary address prefix (a.b.c.d/m)\n"
+       "Summary address prefix\n"
        "Advertise summary route to the AS \n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
@@ -10376,7 +10379,7 @@ DEFUN (ospf_route_aggregation_timer,
        "Timer interval(in seconds)\n")
 {
 	VTY_DECLVAR_INSTANCE_CONTEXT(ospf, ospf);
-	unsigned int interval = 0;
+	uint16_t interval = 0;
 
 	interval = strtoul(argv[2]->arg, NULL, 10);
 
@@ -10395,7 +10398,7 @@ DEFPY (show_ip_ospf_gr_helper,
        "All VRFs\n"
        "OSPF Graceful Restart\n"
        "Helper details in the router\n"
-       "Detailed informtion\n"
+       "Detailed information\n"
        JSON_STR)
 {
 	char *vrf_name = NULL;
@@ -11406,7 +11409,7 @@ static int ospf_show_summary_address(struct vty *vty, struct ospf *ospf,
 	ospf_show_vrf_name(ospf, vty, json_vrf, use_vrf);
 
 	if (!uj)
-		vty_out(vty, "aggregation delay interval :%d(in seconds)\n\n",
+		vty_out(vty, "aggregation delay interval :%u(in seconds)\n\n",
 			ospf->aggr_delay_interval);
 	else
 		json_object_int_add(json_vrf, "aggregation delay interval",
@@ -11497,7 +11500,7 @@ DEFUN (show_ip_ospf_external_aggregator,
        VRF_CMD_HELP_STR
        "All VRFs\n"
        "Show external summary addresses\n"
-       "Detailed informtion\n"
+       "Detailed information\n"
        JSON_STR)
 {
 	char *vrf_name = NULL;
@@ -12168,15 +12171,19 @@ static int config_write_ospf_external_aggregator(struct vty *vty,
 {
 	struct route_node *rn;
 
+	if (ospf->aggr_delay_interval != OSPF_EXTL_AGGR_DEFAULT_DELAY)
+		vty_out(vty, " aggregation timer %u\n",
+			ospf->aggr_delay_interval);
+
 	/* print 'summary-address A.B.C.D/M' */
 	for (rn = route_top(ospf->rt_aggr_tbl); rn; rn = route_next(rn))
 		if (rn->info) {
 			struct ospf_external_aggr_rt *aggr = rn->info;
 
-			vty_out(vty, " summary-address %pI4/%d ",
+			vty_out(vty, " summary-address %pI4/%d",
 				&aggr->p.prefix, aggr->p.prefixlen);
 			if (aggr->tag)
-				vty_out(vty, " tag %u ", aggr->tag);
+				vty_out(vty, " tag %u", aggr->tag);
 
 			if (CHECK_FLAG(aggr->flags,
 				       OSPF_EXTERNAL_AGGRT_NO_ADVERTISE))
@@ -12293,8 +12300,8 @@ static int ospf_config_write_one(struct vty *vty, struct ospf *ospf)
 			&ospf->router_id_static);
 
 	/* zebra opaque attributes configuration. */
-	if (!CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
-		vty_out(vty, " no ospf send-extra-data zebra\n");
+	if (CHECK_FLAG(ospf->config, OSPF_SEND_EXTRA_DATA_TO_ZEBRA))
+		vty_out(vty, " ospf send-extra-data zebra\n");
 
 	/* ABR type print. */
 	if (ospf->abr_type != OSPF_ABR_DEFAULT)
@@ -12765,7 +12772,6 @@ void ospf_vty_init(void)
 	install_element(OSPF_NODE, &ospf_area_range_cost_cmd);
 	install_element(OSPF_NODE, &ospf_area_range_not_advertise_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_range_cmd);
-	install_element(OSPF_NODE, &ospf_area_range_substitute_cmd);
 	install_element(OSPF_NODE, &no_ospf_area_range_substitute_cmd);
 
 	/* "area virtual-link" commands. */

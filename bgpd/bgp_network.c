@@ -52,15 +52,6 @@ extern struct zebra_privs_t bgpd_privs;
 
 static char *bgp_get_bound_name(struct peer *peer);
 
-/* BGP listening socket. */
-struct bgp_listener {
-	int fd;
-	union sockunion su;
-	struct thread *thread;
-	struct bgp *bgp;
-	char *name;
-};
-
 void bgp_dump_listener_info(struct vty *vty)
 {
 	struct listnode *node;

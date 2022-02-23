@@ -651,9 +651,6 @@ int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
-	if (!bgp)
-		return BGP_ERR_INVALID_BGP;
-
 	if (bgp->as == as)
 		return BGP_ERR_INVALID_AS;
 
@@ -3239,6 +3236,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	/*initilize global GR FSM */
 	bgp_global_gr_init(bgp);
+
+	memset(&bgp->ebgprequirespolicywarning, 0,
+	       sizeof(bgp->ebgprequirespolicywarning));
+
 	return bgp;
 }
 
@@ -7819,8 +7820,6 @@ void bgp_master_init(struct thread_master *master, const int buffer_size,
 	bm->terminating = false;
 	bm->socket_buffer = buffer_size;
 	bm->wait_for_fib = false;
-
-	SET_FLAG(bm->flags, BM_FLAG_SEND_EXTRA_DATA_TO_ZEBRA);
 
 	bgp_mac_init();
 	/* init the rd id space.

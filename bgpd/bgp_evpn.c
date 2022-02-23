@@ -736,26 +736,28 @@ static void build_evpn_type5_route_extcomm(struct bgp *bgp_vrf,
 	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
-	if (attr->ecommunity) {
-		old_ecom = attr->ecommunity;
+	if (bgp_attr_get_ecommunity(attr)) {
+		old_ecom = bgp_attr_get_ecommunity(attr);
 		ecom = ecommunity_merge(ecommunity_dup(old_ecom), &ecom_encap);
 		if (!old_ecom->refcnt)
 			ecommunity_free(&old_ecom);
 	} else
 		ecom = ecommunity_dup(&ecom_encap);
-	attr->ecommunity = ecom;
+	bgp_attr_set_ecommunity(attr, ecom);
 	attr->encap_tunneltype = tnl_type;
 
 	/* Add the export RTs for L3VNI/VRF */
 	vrf_export_rtl = bgp_vrf->vrf_export_rtl;
 	for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode, ecom))
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, ecom);
+		bgp_attr_set_ecommunity(
+			attr,
+			ecommunity_merge(bgp_attr_get_ecommunity(attr), ecom));
 
 	/* add the router mac extended community */
 	if (!is_zero_mac(&attr->rmac)) {
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecommunity_add_val(attr->ecommunity, &eval_rmac, true, true);
+		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac,
+				   true, true);
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -800,12 +802,14 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 	ecom_encap.val = (uint8_t *)eval.val;
 
 	/* Add Encap */
-	attr->ecommunity = ecommunity_dup(&ecom_encap);
+	bgp_attr_set_ecommunity(attr, ecommunity_dup(&ecom_encap));
 	attr->encap_tunneltype = tnl_type;
 
 	/* Add the export RTs for L2VNI */
 	for (ALL_LIST_ELEMENTS(vpn->export_rtl, node, nnode, ecom))
-		attr->ecommunity = ecommunity_merge(attr->ecommunity, ecom);
+		bgp_attr_set_ecommunity(
+			attr,
+			ecommunity_merge(bgp_attr_get_ecommunity(attr), ecom));
 
 	/* Add the export RTs for L3VNI if told to - caller determines
 	 * when this should be done.
@@ -815,8 +819,11 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		if (vrf_export_rtl && !list_isempty(vrf_export_rtl)) {
 			for (ALL_LIST_ELEMENTS(vrf_export_rtl, node, nnode,
 					       ecom))
-				attr->ecommunity = ecommunity_merge(
-					attr->ecommunity, ecom);
+				bgp_attr_set_ecommunity(
+					attr,
+					ecommunity_merge(
+						bgp_attr_get_ecommunity(attr),
+						ecom));
 		}
 	}
 
@@ -828,14 +835,16 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		ecom_sticky.size = 1;
 		ecom_sticky.unit_size = ECOMMUNITY_SIZE;
 		ecom_sticky.val = (uint8_t *)eval_sticky.val;
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_sticky);
+		bgp_attr_set_ecommunity(
+			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
+					       &ecom_sticky));
 	}
 
 	/* Add RMAC, if told to. */
 	if (add_l3_ecomm) {
 		encode_rmac_extcomm(&eval_rmac, &attr->rmac);
-		ecommunity_add_val(attr->ecommunity, &eval_rmac, true, true);
+		ecommunity_add_val(bgp_attr_get_ecommunity(attr), &eval_rmac,
+				   true, true);
 	}
 
 	/* Add default gateway, if needed. */
@@ -845,8 +854,9 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		ecom_default_gw.size = 1;
 		ecom_default_gw.unit_size = ECOMMUNITY_SIZE;
 		ecom_default_gw.val = (uint8_t *)eval_default_gw.val;
-		attr->ecommunity =
-			ecommunity_merge(attr->ecommunity, &ecom_default_gw);
+		bgp_attr_set_ecommunity(
+			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
+					       &ecom_default_gw));
 	}
 
 	proxy = !!(attr->es_flags & ATTR_ES_PROXY_ADVERT);
@@ -856,8 +866,9 @@ static void build_evpn_route_extcomm(struct bgpevpn *vpn, struct attr *attr,
 		ecom_na.size = 1;
 		ecom_na.unit_size = ECOMMUNITY_SIZE;
 		ecom_na.val = (uint8_t *)eval_na.val;
-		attr->ecommunity = ecommunity_merge(attr->ecommunity,
-						   &ecom_na);
+		bgp_attr_set_ecommunity(
+			attr, ecommunity_merge(bgp_attr_get_ecommunity(attr),
+					       &ecom_na));
 	}
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
@@ -875,6 +886,7 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 	uint8_t *pnt;
 	int type = 0;
 	int sub_type = 0;
+	struct ecommunity *ecomm = bgp_attr_get_ecommunity(attr);
 
 	/* Build MM */
 	encode_mac_mobility_extcomm(0, seq_num, &eval);
@@ -882,10 +894,9 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 	/* Find current MM ecommunity */
 	ecom_val_ptr = NULL;
 
-	if (attr->ecommunity) {
-		for (i = 0; i < attr->ecommunity->size; i++) {
-			pnt = attr->ecommunity->val +
-				(i * attr->ecommunity->unit_size);
+	if (ecomm) {
+		for (i = 0; i < ecomm->size; i++) {
+			pnt = ecomm->val + (i * ecomm->unit_size);
 			type = *pnt++;
 			sub_type = *pnt++;
 
@@ -893,8 +904,7 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 			    && sub_type
 				       == ECOMMUNITY_EVPN_SUBTYPE_MACMOBILITY) {
 				ecom_val_ptr =
-					(attr->ecommunity->val +
-					 (i * attr->ecommunity->unit_size));
+					(ecomm->val + (i * ecomm->unit_size));
 				break;
 			}
 		}
@@ -902,8 +912,7 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 
 	/* Update the existing MM ecommunity */
 	if (ecom_val_ptr) {
-		memcpy(ecom_val_ptr, eval.val, sizeof(char)
-		       * attr->ecommunity->unit_size);
+		memcpy(ecom_val_ptr, eval.val, sizeof(char) * ecomm->unit_size);
 	}
 	/* Add MM to existing */
 	else {
@@ -912,11 +921,12 @@ static void add_mac_mobility_to_attr(uint32_t seq_num, struct attr *attr)
 		ecom_tmp.unit_size = ECOMMUNITY_SIZE;
 		ecom_tmp.val = (uint8_t *)eval.val;
 
-		if (attr->ecommunity)
-			attr->ecommunity =
-				ecommunity_merge(attr->ecommunity, &ecom_tmp);
+		if (ecomm)
+			bgp_attr_set_ecommunity(
+				attr, ecommunity_merge(ecomm, &ecom_tmp));
 		else
-			attr->ecommunity = ecommunity_dup(&ecom_tmp);
+			bgp_attr_set_ecommunity(attr,
+						ecommunity_dup(&ecom_tmp));
 	}
 }
 
@@ -2823,7 +2833,7 @@ static int is_route_matching_for_vrf(struct bgp *bgp_vrf,
 	if (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
 		return 0;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -2890,7 +2900,7 @@ static int is_route_matching_for_vni(struct bgp *bgp, struct bgpevpn *vpn,
 	if (!(attr->flag & ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES)))
 		return 0;
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return 0;
 
@@ -3374,7 +3384,7 @@ static int bgp_evpn_install_uninstall_table(struct bgp *bgp, afi_t afi,
 	if (evp->prefix.route_type == BGP_EVPN_AD_ROUTE)
 		evp = evpn_type1_prefix_vni_copy(&ad_evp, evp, attr->nexthop);
 
-	ecom = attr->ecommunity;
+	ecom = bgp_attr_get_ecommunity(attr);
 	if (!ecom || !ecom->size)
 		return -1;
 
@@ -4903,12 +4913,12 @@ void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json)
 void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 			    const struct prefix_rd *prd, mpls_label_t *label,
 			    uint32_t num_labels, struct attr *attr,
-			    int addpath_encode, uint32_t addpath_tx_id)
+			    bool addpath_capable, uint32_t addpath_tx_id)
 {
 	struct prefix_evpn *evp = (struct prefix_evpn *)p;
 	int len, ipa_len = 0;
 
-	if (addpath_encode)
+	if (addpath_capable)
 		stream_putl(s, addpath_tx_id);
 
 	/* Route type */
@@ -4990,7 +5000,7 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	afi_t afi;
 	safi_t safi;
 	uint32_t addpath_id;
-	int addpath_encoded;
+	bool addpath_capable;
 	int psize = 0;
 	uint8_t rtype;
 	struct prefix p;
@@ -5002,17 +5012,14 @@ int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 	safi = packet->safi;
 	addpath_id = 0;
 
-	addpath_encoded =
-		(CHECK_FLAG(peer->af_cap[afi][safi], PEER_CAP_ADDPATH_AF_RX_ADV)
-		 && CHECK_FLAG(peer->af_cap[afi][safi],
-			       PEER_CAP_ADDPATH_AF_TX_RCV));
+	addpath_capable = bgp_addpath_encode_rx(peer, afi, safi);
 
 	for (; pnt < lim; pnt += psize) {
 		/* Clear prefix structure. */
 		memset(&p, 0, sizeof(struct prefix));
 
 		/* Deal with path-id if AddPath is supported. */
-		if (addpath_encoded) {
+		if (addpath_capable) {
 			/* When packet overflow occurs return immediately. */
 			if (pnt + BGP_ADDPATH_ID_LEN > lim)
 				return BGP_NLRI_PARSE_ERROR_PACKET_OVERFLOW;
@@ -6146,7 +6153,7 @@ static bool bgp_evpn_remote_ip_hash_cmp(const void *p1, const void *p2)
 	const struct evpn_remote_ip *ip1 = p1;
 	const struct evpn_remote_ip *ip2 = p2;
 
-	return (memcmp(&ip1->addr, &ip2->addr, sizeof(struct ipaddr)) == 0);
+	return !ipaddr_cmp(&ip1->addr, &ip2->addr);
 }
 
 static void bgp_evpn_remote_ip_hash_init(struct bgpevpn *vpn)

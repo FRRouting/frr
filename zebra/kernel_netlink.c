@@ -36,6 +36,7 @@
 #include "vrf.h"
 #include "mpls.h"
 #include "lib_errors.h"
+#include "hash.h"
 
 //#include "zebra/zserv.h"
 #include "zebra/zebra_router.h"
@@ -88,8 +89,6 @@
  * won't occur.
  */
 #define NL_DEFAULT_BATCH_SEND_THRESHOLD (15 * NL_PKT_BUF_SIZE)
-
-#define NL_BATCH_RX_BUFSIZE NL_RCV_PKT_BUF_SIZE
 
 static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_DELROUTE, "RTM_DELROUTE"},
@@ -160,10 +159,19 @@ extern struct zebra_privs_t zserv_privs;
 
 DEFINE_MTYPE_STATIC(ZEBRA, NL_BUF, "Zebra Netlink buffers");
 
+/* Hashtable and mutex to allow lookup of nlsock structs by socket/fd value.
+ * We have both the main and dplane pthreads using these structs, so we have
+ * to protect the hash with a lock.
+ */
+static struct hash *nlsock_hash;
+pthread_mutex_t nlsock_mutex;
+
+/* Lock and unlock wrappers for nlsock hash */
+#define NLSOCK_LOCK() pthread_mutex_lock(&nlsock_mutex)
+#define NLSOCK_UNLOCK() pthread_mutex_unlock(&nlsock_mutex)
+
 size_t nl_batch_tx_bufsize;
 char *nl_batch_tx_buf;
-
-char nl_batch_rx_buf[NL_BATCH_RX_BUFSIZE];
 
 _Atomic uint32_t nl_batch_bufsize = NL_DEFAULT_BATCH_BUFSIZE;
 _Atomic uint32_t nl_batch_send_threshold = NL_DEFAULT_BATCH_SEND_THRESHOLD;
@@ -318,6 +326,9 @@ static int netlink_socket(struct nlsock *nl, unsigned long groups,
 
 	nl->snl = snl;
 	nl->sock = sock;
+	nl->buflen = NL_RCV_PKT_BUF_SIZE;
+	nl->buf = XMALLOC(MTYPE_NL_BUF, nl->buflen);
+
 	return ret;
 }
 
@@ -429,8 +440,10 @@ static int kernel_read(struct thread *thread)
  */
 int kernel_dplane_read(struct zebra_dplane_info *info)
 {
-	netlink_parse_info(dplane_netlink_information_fetch, &info->nls, info,
-			   5, false);
+	struct nlsock *nl = kernel_netlink_nlsock_lookup(info->sock);
+
+	netlink_parse_info(dplane_netlink_information_fetch, nl, info, 5,
+			   false);
 
 	return 0;
 }
@@ -781,19 +794,29 @@ static ssize_t netlink_send_msg(const struct nlsock *nl, void *buf,
  *
  * Returns -1 on error, 0 if read would block or the number of bytes received.
  */
-static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
-			    void *buf, size_t buflen)
+static int netlink_recv_msg(struct nlsock *nl, struct msghdr *msg)
 {
 	struct iovec iov;
 	int status;
 
-	iov.iov_base = buf;
-	iov.iov_len = buflen;
-	msg.msg_iov = &iov;
-	msg.msg_iovlen = 1;
+	iov.iov_base = nl->buf;
+	iov.iov_len = nl->buflen;
+	msg->msg_iov = &iov;
+	msg->msg_iovlen = 1;
 
 	do {
-		status = recvmsg(nl->sock, &msg, 0);
+		int bytes;
+
+		bytes = recv(nl->sock, NULL, 0, MSG_PEEK | MSG_TRUNC);
+
+		if (bytes >= 0 && (size_t)bytes > nl->buflen) {
+			nl->buf = XREALLOC(MTYPE_NL_BUF, nl->buf, bytes);
+			nl->buflen = bytes;
+			iov.iov_base = nl->buf;
+			iov.iov_len = nl->buflen;
+		}
+
+		status = recvmsg(nl->sock, msg, 0);
 	} while (status == -1 && errno == EINTR);
 
 	if (status == -1) {
@@ -813,19 +836,19 @@ static int netlink_recv_msg(const struct nlsock *nl, struct msghdr msg,
 		return -1;
 	}
 
-	if (msg.msg_namelen != sizeof(struct sockaddr_nl)) {
+	if (msg->msg_namelen != sizeof(struct sockaddr_nl)) {
 		flog_err(EC_ZEBRA_NETLINK_LENGTH_ERROR,
 			 "%s sender address length error: length %d", nl->name,
-			 msg.msg_namelen);
+			 msg->msg_namelen);
 		return -1;
 	}
 
 	if (IS_ZEBRA_DEBUG_KERNEL_MSGDUMP_RECV) {
 		zlog_debug("%s: << netlink message dump [recv]", __func__);
 #ifdef NETLINK_DEBUG
-		nl_dump(buf, status);
+		nl_dump(nl->buf, status);
 #else
-		zlog_hexdump(buf, status);
+		zlog_hexdump(nl->buf, status);
 #endif /* NETLINK_DEBUG */
 	}
 
@@ -928,8 +951,7 @@ static int netlink_parse_error(const struct nlsock *nl, struct nlmsghdr *h,
  *            the filter.
  */
 int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
-		       const struct nlsock *nl,
-		       const struct zebra_dplane_info *zns,
+		       struct nlsock *nl, const struct zebra_dplane_info *zns,
 		       int count, bool startup)
 {
 	int status;
@@ -938,7 +960,6 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 	int read_in = 0;
 
 	while (1) {
-		char buf[NL_RCV_PKT_BUF_SIZE];
 		struct sockaddr_nl snl;
 		struct msghdr msg = {.msg_name = (void *)&snl,
 				     .msg_namelen = sizeof(snl)};
@@ -947,14 +968,14 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
 		if (count && read_in >= count)
 			return 0;
 
-		status = netlink_recv_msg(nl, msg, buf, sizeof(buf));
+		status = netlink_recv_msg(nl, &msg);
 		if (status == -1)
 			return -1;
 		else if (status == 0)
 			break;
 
 		read_in++;
-		for (h = (struct nlmsghdr *)buf;
+		for (h = (struct nlmsghdr *)nl->buf;
 		     (status >= 0 && NLMSG_OK(h, (unsigned int)status));
 		     h = NLMSG_NEXT(h, status)) {
 			/* Finish of reading. */
@@ -1030,15 +1051,15 @@ int netlink_parse_info(int (*filter)(struct nlmsghdr *, ns_id_t, int),
  * startup  -> Are we reading in under startup conditions
  *             This is passed through eventually to filter.
  */
-static int
-netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t, int startup),
-		  struct nlmsghdr *n, const struct zebra_dplane_info *dp_info,
-		  bool startup)
+static int netlink_talk_info(int (*filter)(struct nlmsghdr *, ns_id_t,
+					   int startup),
+			     struct nlmsghdr *n,
+			     struct zebra_dplane_info *dp_info, bool startup)
 {
-	const struct nlsock *nl;
+	struct nlsock *nl;
 
-	nl = &(dp_info->nls);
-	n->nlmsg_seq = nl->seq;
+	nl = kernel_netlink_nlsock_lookup(dp_info->sock);
+	n->nlmsg_seq = dp_info->seq;
 	n->nlmsg_pid = nl->snl.nl_pid;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
@@ -1109,11 +1130,11 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	struct sockaddr_nl snl;
 	struct msghdr msg = {};
 	int status, seq;
-	const struct nlsock *nl;
+	struct nlsock *nl;
 	struct zebra_dplane_ctx *ctx;
 	bool ignore_msg;
 
-	nl = &(bth->zns->nls);
+	nl = kernel_netlink_nlsock_lookup(bth->zns->sock);
 
 	msg.msg_name = (void *)&snl;
 	msg.msg_namelen = sizeof(snl);
@@ -1123,12 +1144,28 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 	 * message at a time.
 	 */
 	while (true) {
-		status = netlink_recv_msg(nl, msg, nl_batch_rx_buf,
-					  sizeof(nl_batch_rx_buf));
-		if (status == -1 || status == 0)
+		status = netlink_recv_msg(nl, &msg);
+		/*
+		 * status == -1 is a full on failure somewhere
+		 * since we don't know where the problem happened
+		 * we must mark all as failed
+		 *
+		 * Else we mark everything as worked
+		 *
+		 */
+		if (status == -1 || status == 0) {
+			while ((ctx = dplane_ctx_dequeue(&(bth->ctx_list))) !=
+			       NULL) {
+				if (status == -1)
+					dplane_ctx_set_status(
+						ctx,
+						ZEBRA_DPLANE_REQUEST_FAILURE);
+				dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
+			}
 			return status;
+		}
 
-		h = (struct nlmsghdr *)nl_batch_rx_buf;
+		h = (struct nlmsghdr *)nl->buf;
 		ignore_msg = false;
 		seq = h->nlmsg_seq;
 		/*
@@ -1138,22 +1175,25 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 		 * requests at same time.
 		 */
 		while (true) {
-			ctx = dplane_ctx_dequeue(&(bth->ctx_list));
-			if (ctx == NULL)
+			ctx = dplane_ctx_get_head(&(bth->ctx_list));
+			if (ctx == NULL) {
+				/*
+				 * This is a situation where we have gotten
+				 * into a bad spot.  We need to know that
+				 * this happens( does it? )
+				 */
+				zlog_err(
+					"%s:WARNING Received netlink Response for an error and no Contexts to associate with it",
+					__func__);
 				break;
-
-			dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
-
-			/* We have found corresponding context object. */
-			if (dplane_ctx_get_ns(ctx)->nls.seq == seq)
-				break;
+			}
 
 			/*
 			 * 'update' context objects take two consecutive
 			 * sequence numbers.
 			 */
-			if (dplane_ctx_is_update(ctx)
-			    && dplane_ctx_get_ns(ctx)->nls.seq + 1 == seq) {
+			if (dplane_ctx_is_update(ctx) &&
+			    dplane_ctx_get_ns(ctx)->seq + 1 == seq) {
 				/*
 				 * This is the situation where we get a response
 				 * to a message that should be ignored.
@@ -1161,10 +1201,35 @@ static int nl_batch_read_resp(struct nl_batch *bth)
 				ignore_msg = true;
 				break;
 			}
+
+			ctx = dplane_ctx_dequeue(&(bth->ctx_list));
+			dplane_ctx_enqueue_tail(bth->ctx_out_q, ctx);
+
+			/* We have found corresponding context object. */
+			if (dplane_ctx_get_ns(ctx)->seq == seq)
+				break;
+
+			if (dplane_ctx_get_ns(ctx)->seq > seq)
+				zlog_warn(
+					"%s:WARNING Received %u is less than any context on the queue ctx->seq %u",
+					__func__, seq,
+					dplane_ctx_get_ns(ctx)->seq);
 		}
 
-		if (ignore_msg)
+		if (ignore_msg) {
+			/*
+			 * If we ignore the message due to an update
+			 * above we should still fricking decode the
+			 * message for our operator to understand
+			 * what is going on
+			 */
+			int err = netlink_parse_error(nl, h, bth->zns->is_cmd,
+						      false);
+
+			zlog_debug("%s: netlink error message seq=%d %d",
+				   __func__, h->nlmsg_seq, err);
 			continue;
+		}
 
 		/*
 		 * We received a message with the sequence number that isn't
@@ -1250,13 +1315,15 @@ static void nl_batch_send(struct nl_batch *bth)
 	bool err = false;
 
 	if (bth->curlen != 0 && bth->zns != NULL) {
+		struct nlsock *nl =
+			kernel_netlink_nlsock_lookup(bth->zns->sock);
+
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug("%s: %s, batch size=%zu, msg cnt=%zu",
-				   __func__, bth->zns->nls.name, bth->curlen,
+				   __func__, nl->name, bth->curlen,
 				   bth->msgcnt);
 
-		if (netlink_send_msg(&(bth->zns->nls), bth->buf, bth->curlen)
-		    == -1)
+		if (netlink_send_msg(nl, bth->buf, bth->curlen) == -1)
 			err = true;
 
 		if (!err) {
@@ -1289,6 +1356,7 @@ enum netlink_msg_status netlink_batch_add_msg(
 	int seq;
 	ssize_t size;
 	struct nlmsghdr *msgh;
+	struct nlsock *nl;
 
 	size = (*msg_encoder)(ctx, bth->buf_head, bth->bufsiz - bth->curlen);
 
@@ -1315,13 +1383,15 @@ enum netlink_msg_status netlink_batch_add_msg(
 			return FRR_NETLINK_ERROR;
 	}
 
-	seq = dplane_ctx_get_ns(ctx)->nls.seq;
+	seq = dplane_ctx_get_ns(ctx)->seq;
+	nl = kernel_netlink_nlsock_lookup(dplane_ctx_get_ns_sock(ctx));
+
 	if (ignore_res)
 		seq++;
 
 	msgh = (struct nlmsghdr *)bth->buf_head;
 	msgh->nlmsg_seq = seq;
-	msgh->nlmsg_pid = dplane_ctx_get_ns(ctx)->nls.snl.nl_pid;
+	msgh->nlmsg_pid = nl->snl.nl_pid;
 
 	bth->zns = dplane_ctx_get_ns(ctx);
 	bth->buf_head = ((char *)bth->buf_head) + size;
@@ -1451,11 +1521,58 @@ void kernel_update_multi(struct dplane_ctx_q *ctx_list)
 	dplane_ctx_list_append(ctx_list, &handled_list);
 }
 
+struct nlsock *kernel_netlink_nlsock_lookup(int sock)
+{
+	struct nlsock lookup, *retval;
+
+	lookup.sock = sock;
+
+	NLSOCK_LOCK();
+	retval = hash_lookup(nlsock_hash, &lookup);
+	NLSOCK_UNLOCK();
+
+	return retval;
+}
+
+/* Insert nlsock entry into hash */
+static void kernel_netlink_nlsock_insert(struct nlsock *nls)
+{
+	NLSOCK_LOCK();
+	(void)hash_get(nlsock_hash, nls, hash_alloc_intern);
+	NLSOCK_UNLOCK();
+}
+
+/* Remove nlsock entry from hash */
+static void kernel_netlink_nlsock_remove(struct nlsock *nls)
+{
+	NLSOCK_LOCK();
+	(void)hash_release(nlsock_hash, nls);
+	NLSOCK_UNLOCK();
+}
+
+static uint32_t kernel_netlink_nlsock_key(const void *arg)
+{
+	const struct nlsock *nl = arg;
+
+	return nl->sock;
+}
+
+static bool kernel_netlink_nlsock_hash_equal(const void *arg1, const void *arg2)
+{
+	const struct nlsock *nl1 = arg1;
+	const struct nlsock *nl2 = arg2;
+
+	if (nl1->sock == nl2->sock)
+		return true;
+
+	return false;
+}
+
 /* Exported interface function.  This function simply calls
    netlink_socket (). */
 void kernel_init(struct zebra_ns *zns)
 {
-	uint32_t groups;
+	uint32_t groups, dplane_groups;
 #if defined SOL_NETLINK
 	int one, ret;
 #endif
@@ -1480,6 +1597,10 @@ void kernel_init(struct zebra_ns *zns)
 		((uint32_t) 1 << (RTNLGRP_IPV6_RULE - 1)) |
 		((uint32_t) 1 << (RTNLGRP_NEXTHOP - 1));
 
+	dplane_groups = (RTMGRP_LINK            |
+			 RTMGRP_IPV4_IFADDR     |
+			 RTMGRP_IPV6_IFADDR);
+
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
 	zns->netlink.sock = -1;
@@ -1489,6 +1610,8 @@ void kernel_init(struct zebra_ns *zns)
 		exit(-1);
 	}
 
+	kernel_netlink_nlsock_insert(&zns->netlink);
+
 	snprintf(zns->netlink_cmd.name, sizeof(zns->netlink_cmd.name),
 		 "netlink-cmd (NS %u)", zns->ns_id);
 	zns->netlink_cmd.sock = -1;
@@ -1497,6 +1620,8 @@ void kernel_init(struct zebra_ns *zns)
 			 zns->netlink_cmd.name);
 		exit(-1);
 	}
+
+	kernel_netlink_nlsock_insert(&zns->netlink_cmd);
 
 	/* Outbound socket for dplane programming of the host OS. */
 	snprintf(zns->netlink_dplane_out.name,
@@ -1509,16 +1634,21 @@ void kernel_init(struct zebra_ns *zns)
 		exit(-1);
 	}
 
+	kernel_netlink_nlsock_insert(&zns->netlink_dplane_out);
+
 	/* Inbound socket for OS events coming to the dplane. */
 	snprintf(zns->netlink_dplane_in.name,
 		 sizeof(zns->netlink_dplane_in.name), "netlink-dp-in (NS %u)",
 		 zns->ns_id);
 	zns->netlink_dplane_in.sock = -1;
-	if (netlink_socket(&zns->netlink_dplane_in, groups, zns->ns_id) < 0) {
+	if (netlink_socket(&zns->netlink_dplane_in, dplane_groups,
+			   zns->ns_id) < 0) {
 		zlog_err("Failure to create %s socket",
 			 zns->netlink_dplane_in.name);
 		exit(-1);
 	}
+
+	kernel_netlink_nlsock_insert(&zns->netlink_dplane_in);
 
 	/*
 	 * SOL_NETLINK is not available on all platforms yet
@@ -1604,33 +1734,56 @@ void kernel_init(struct zebra_ns *zns)
 	rt_netlink_init();
 }
 
+/* Helper to clean up an nlsock */
+static void kernel_nlsock_fini(struct nlsock *nls)
+{
+	if (nls && nls->sock >= 0) {
+		kernel_netlink_nlsock_remove(nls);
+		close(nls->sock);
+		nls->sock = -1;
+		XFREE(MTYPE_NL_BUF, nls->buf);
+		nls->buflen = 0;
+	}
+}
+
 void kernel_terminate(struct zebra_ns *zns, bool complete)
 {
 	thread_cancel(&zns->t_netlink);
 
-	if (zns->netlink.sock >= 0) {
-		close(zns->netlink.sock);
-		zns->netlink.sock = -1;
-	}
+	kernel_nlsock_fini(&zns->netlink);
 
-	if (zns->netlink_cmd.sock >= 0) {
-		close(zns->netlink_cmd.sock);
-		zns->netlink_cmd.sock = -1;
-	}
+	kernel_nlsock_fini(&zns->netlink_cmd);
 
-	if (zns->netlink_dplane_in.sock >= 0) {
-		close(zns->netlink_dplane_in.sock);
-		zns->netlink_dplane_in.sock = -1;
-	}
+	kernel_nlsock_fini(&zns->netlink_dplane_in);
 
 	/* During zebra shutdown, we need to leave the dataplane socket
 	 * around until all work is done.
 	 */
-	if (complete) {
-		if (zns->netlink_dplane_out.sock >= 0) {
-			close(zns->netlink_dplane_out.sock);
-			zns->netlink_dplane_out.sock = -1;
-		}
-	}
+	if (complete)
+		kernel_nlsock_fini(&zns->netlink_dplane_out);
 }
+
+/*
+ * Global init for platform-/OS-specific things
+ */
+void kernel_router_init(void)
+{
+	/* Init nlsock hash and lock */
+	pthread_mutex_init(&nlsock_mutex, NULL);
+	nlsock_hash = hash_create_size(8, kernel_netlink_nlsock_key,
+				       kernel_netlink_nlsock_hash_equal,
+				       "Netlink Socket Hash");
+}
+
+/*
+ * Global deinit for platform-/OS-specific things
+ */
+void kernel_router_terminate(void)
+{
+	pthread_mutex_destroy(&nlsock_mutex);
+
+	hash_free(nlsock_hash);
+	nlsock_hash = NULL;
+}
+
 #endif /* HAVE_NETLINK */

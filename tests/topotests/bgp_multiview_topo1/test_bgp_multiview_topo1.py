@@ -22,7 +22,7 @@
 # OF THIS SOFTWARE.
 #
 
-"""
+r"""
 test_bgp_multiview_topo1.py: Simple FRR Route-Server Test
 
 +----------+ +----------+ +----------+ +----------+ +----------+

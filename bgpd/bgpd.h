@@ -759,6 +759,9 @@ struct bgp {
 	struct list *srv6_locator_chunks;
 	struct list *srv6_functions;
 
+	struct timeval ebgprequirespolicywarning;
+#define FIFTEENMINUTE2USEC (int64_t)15 * 60 * 1000000
+
 	QOBJ_FIELDS;
 };
 DECLARE_QOBJ_TYPE(bgp);
@@ -1916,46 +1919,46 @@ enum bgp_clear_type {
 	(((S) == OpenSent) || ((S) == OpenConfirm) || ((S) == Established))
 
 /* BGP error codes.  */
-#define BGP_SUCCESS                               0
-#define BGP_CREATED                               1
-#define BGP_ERR_INVALID_VALUE                    -1
-#define BGP_ERR_INVALID_FLAG                     -2
-#define BGP_ERR_INVALID_AS                       -3
-#define BGP_ERR_INVALID_BGP                      -4
-#define BGP_ERR_PEER_GROUP_MEMBER                -5
-#define BGP_ERR_PEER_GROUP_NO_REMOTE_AS          -7
-#define BGP_ERR_PEER_GROUP_CANT_CHANGE           -8
-#define BGP_ERR_PEER_GROUP_MISMATCH              -9
-#define BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT  -10
-#define BGP_ERR_AS_MISMATCH                     -12
-#define BGP_ERR_PEER_FLAG_CONFLICT              -13
-#define BGP_ERR_PEER_GROUP_SHUTDOWN             -14
-#define BGP_ERR_PEER_FILTER_CONFLICT            -15
-#define BGP_ERR_NOT_INTERNAL_PEER               -16
-#define BGP_ERR_REMOVE_PRIVATE_AS               -17
-#define BGP_ERR_AF_UNCONFIGURED                 -18
-#define BGP_ERR_SOFT_RECONFIG_UNCONFIGURED      -19
-#define BGP_ERR_INSTANCE_MISMATCH               -20
-#define BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP  -21
-#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS    -22
-#define BGP_ERR_TCPSIG_FAILED			-23
-#define BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK	-24
-#define BGP_ERR_NO_IBGP_WITH_TTLHACK		-25
-#define BGP_ERR_NO_INTERFACE_CONFIG             -26
-#define BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS    -27
-#define BGP_ERR_AS_OVERRIDE                     -28
-#define BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT -29
-#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS  -30
-#define BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND -31
-#define BGP_ERR_INVALID_FOR_DYNAMIC_PEER        -32
-#define BGP_ERR_MAX                             -33
-#define BGP_ERR_INVALID_FOR_DIRECT_PEER         -34
-#define BGP_ERR_PEER_SAFI_CONFLICT              -35
+enum bgp_create_error_code {
+	BGP_SUCCESS = 0,
+	BGP_CREATED = 1,
+	BGP_ERR_INVALID_VALUE = -1,
+	BGP_ERR_INVALID_FLAG = -2,
+	BGP_ERR_INVALID_AS = -3,
+	BGP_ERR_PEER_GROUP_MEMBER = -4,
+	BGP_ERR_PEER_GROUP_NO_REMOTE_AS = -5,
+	BGP_ERR_PEER_GROUP_CANT_CHANGE = -6,
+	BGP_ERR_PEER_GROUP_MISMATCH = -7,
+	BGP_ERR_PEER_GROUP_PEER_TYPE_DIFFERENT = -8,
+	BGP_ERR_AS_MISMATCH = -9,
+	BGP_ERR_PEER_FLAG_CONFLICT = -10,
+	BGP_ERR_PEER_GROUP_SHUTDOWN = -11,
+	BGP_ERR_PEER_FILTER_CONFLICT = -12,
+	BGP_ERR_NOT_INTERNAL_PEER = -13,
+	BGP_ERR_REMOVE_PRIVATE_AS = -14,
+	BGP_ERR_AF_UNCONFIGURED = -15,
+	BGP_ERR_SOFT_RECONFIG_UNCONFIGURED = -16,
+	BGP_ERR_INSTANCE_MISMATCH = -17,
+	BGP_ERR_LOCAL_AS_ALLOWED_ONLY_FOR_EBGP = -18,
+	BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS = -19,
+	BGP_ERR_TCPSIG_FAILED = -20,
+	BGP_ERR_NO_EBGP_MULTIHOP_WITH_TTLHACK = -21,
+	BGP_ERR_NO_IBGP_WITH_TTLHACK = -22,
+	BGP_ERR_NO_INTERFACE_CONFIG = -23,
+	BGP_ERR_CANNOT_HAVE_LOCAL_AS_SAME_AS_REMOTE_AS = -24,
+	BGP_ERR_AS_OVERRIDE = -25,
+	BGP_ERR_INVALID_DYNAMIC_NEIGHBORS_LIMIT = -26,
+	BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_EXISTS = -27,
+	BGP_ERR_DYNAMIC_NEIGHBORS_RANGE_NOT_FOUND = -28,
+	BGP_ERR_INVALID_FOR_DYNAMIC_PEER = -29,
+	BGP_ERR_INVALID_FOR_DIRECT_PEER = -30,
+	BGP_ERR_PEER_SAFI_CONFLICT = -31,
 
-/* BGP GR ERRORS */
-#define BGP_ERR_GR_INVALID_CMD                  -36
-#define BGP_ERR_GR_OPERATION_FAILED             -37
-#define BGP_GR_NO_OPERATION                     -38
+	/* BGP GR ERRORS */
+	BGP_ERR_GR_INVALID_CMD = -32,
+	BGP_ERR_GR_OPERATION_FAILED = -33,
+	BGP_GR_NO_OPERATION = -34,
+};
 
 /*
  * Enumeration of different policy kinds a peer can be configured with.

@@ -413,7 +413,7 @@ bool reset_timer(int timer_id)
 		/* Keeping this log for now, since in older versions of FRR the
 		 * timer cancellation was blocking. This allows us to see how
 		 * long the it takes.*/
-		pcep_log(LOG_DEBUG, "%s: Reseting timer [%d] with callback",
+		pcep_log(LOG_DEBUG, "%s: Resetting timer [%d] with callback",
 			 __func__, timer_to_reset->timer_id);
 		timers_context_->timer_cancel_func(
 			&timer_to_reset->external_timer);

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 #
-# test_ospf_topo2.py
+# test_ospf_unnumbered.py
 #
 # Copyright (c) 2019 by
 # Cumulus Networks, Inc
@@ -23,7 +23,7 @@
 #
 
 """
-test_ospf_topo2.py: Test the OSPF unnumbered.
+test_ospf_unnumbered.py: Test the OSPF unnumbered.
 """
 
 import os

@@ -1039,10 +1039,14 @@ static void *route_match_evpn_route_type_compile(const char *arg)
 
 	route_type = XMALLOC(MTYPE_ROUTE_MAP_COMPILED, sizeof(uint8_t));
 
-	if (strncmp(arg, "ma", 2) == 0)
+	if (strncmp(arg, "ea", 2) == 0)
+		*route_type = BGP_EVPN_AD_ROUTE;
+	else if (strncmp(arg, "ma", 2) == 0)
 		*route_type = BGP_EVPN_MAC_IP_ROUTE;
 	else if (strncmp(arg, "mu", 2) == 0)
 		*route_type = BGP_EVPN_IMET_ROUTE;
+	else if (strncmp(arg, "es", 2) == 0)
+		*route_type = BGP_EVPN_ES_ROUTE;
 	else
 		*route_type = BGP_EVPN_IP_PREFIX_ROUTE;
 
@@ -1258,10 +1262,10 @@ route_match_alias(void *rule, const struct prefix *prefix, void *object)
 			return RMAP_MATCH;
 	}
 
-	if (path->attr->lcommunity) {
+	if (bgp_attr_get_lcommunity(path->attr)) {
 		found = false;
-		frrstr_split(path->attr->lcommunity->str, " ", &communities,
-			     &num);
+		frrstr_split(bgp_attr_get_lcommunity(path->attr)->str, " ",
+			     &communities, &num);
 		for (int i = 0; i < num; i++) {
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
@@ -1521,10 +1525,12 @@ route_match_lcommunity(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 
 	if (rcom->exact) {
-		if (lcommunity_list_exact_match(path->attr->lcommunity, list))
+		if (lcommunity_list_exact_match(
+			    bgp_attr_get_lcommunity(path->attr), list))
 			return RMAP_MATCH;
 	} else {
-		if (lcommunity_list_match(path->attr->lcommunity, list))
+		if (lcommunity_list_match(bgp_attr_get_lcommunity(path->attr),
+					  list))
 			return RMAP_MATCH;
 	}
 
@@ -1589,7 +1595,7 @@ route_match_ecommunity(void *rule, const struct prefix *prefix, void *object)
 	if (!list)
 		return RMAP_NOMATCH;
 
-	if (ecommunity_list_match(path->attr->ecommunity, list))
+	if (ecommunity_list_match(bgp_attr_get_ecommunity(path->attr), list))
 		return RMAP_MATCH;
 
 	return RMAP_NOMATCH;
@@ -2301,12 +2307,12 @@ route_set_lcommunity(void *rule, const struct prefix *prefix, void *object)
 	rcs = rule;
 	path = object;
 	attr = path->attr;
-	old = attr->lcommunity;
+	old = bgp_attr_get_lcommunity(attr);
 
 	/* "none" case.  */
 	if (rcs->none) {
 		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES));
-		attr->lcommunity = NULL;
+		bgp_attr_set_lcommunity(attr, NULL);
 
 		/* See the longer comment down below. */
 		if (old && old->refcnt == 0)
@@ -2331,7 +2337,7 @@ route_set_lcommunity(void *rule, const struct prefix *prefix, void *object)
 		lcommunity_free(&old);
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
-	attr->lcommunity = new;
+	bgp_attr_set_lcommunity(attr, new);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 
@@ -2413,7 +2419,7 @@ route_set_lcommunity_delete(void *rule, const struct prefix *pfx, void *object)
 	path = object;
 	list = community_list_lookup(bgp_clist, rcom->name, rcom->name_hash,
 				     LARGE_COMMUNITY_LIST_MASTER);
-	old = path->attr->lcommunity;
+	old = bgp_attr_get_lcommunity(path->attr);
 
 	if (list && old) {
 		merge = lcommunity_list_match_delete(lcommunity_dup(old), list);
@@ -2429,12 +2435,12 @@ route_set_lcommunity_delete(void *rule, const struct prefix *pfx, void *object)
 			lcommunity_free(&old);
 
 		if (new->size == 0) {
-			path->attr->lcommunity = NULL;
+			bgp_attr_set_lcommunity(path->attr, NULL);
 			path->attr->flag &=
 				~ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 			lcommunity_free(&new);
 		} else {
-			path->attr->lcommunity = new;
+			bgp_attr_set_lcommunity(path->attr, new);
 			path->attr->flag |=
 				ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES);
 		}
@@ -2590,7 +2596,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 
 	if (rcs->none) {
 		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES));
-		attr->ecommunity = NULL;
+		bgp_attr_set_ecommunity(attr, NULL);
 		return RMAP_OKAY;
 	}
 
@@ -2598,7 +2604,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_OKAY;
 
 	/* We assume additive for Extended Community. */
-	old_ecom = path->attr->ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(path->attr);
 
 	if (old_ecom) {
 		new_ecom =
@@ -2614,7 +2620,7 @@ route_set_ecommunity(void *rule, const struct prefix *prefix, void *object)
 		new_ecom = ecommunity_dup(rcs->ecom);
 
 	/* will be intern()'d or attr_flush()'d by bgp_update_main() */
-	path->attr->ecommunity = new_ecom;
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
 
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
@@ -2764,7 +2770,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 				     PEER_FLAG_DISABLE_LINK_BW_ENCODING_IEEE));
 
 	/* add to route or merge with existing */
-	old_ecom = path->attr->ecommunity;
+	old_ecom = bgp_attr_get_ecommunity(path->attr);
 	if (old_ecom) {
 		new_ecom = ecommunity_dup(old_ecom);
 		ecommunity_add_val(new_ecom, &lb_eval, true, true);
@@ -2778,7 +2784,7 @@ route_set_ecommunity_lb(void *rule, const struct prefix *prefix, void *object)
 	}
 
 	/* new_ecom will be intern()'d or attr_flush()'d in call stack */
-	path->attr->ecommunity = new_ecom;
+	bgp_attr_set_ecommunity(path->attr, new_ecom);
 	path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_EXT_COMMUNITIES);
 
 	/* Mark that route-map has set link bandwidth; used in attribute
@@ -4165,14 +4171,18 @@ static const char *parse_evpn_rt_type(const char *num_rt_type)
 
 DEFUN_YANG (match_evpn_route_type,
 	    match_evpn_route_type_cmd,
-	    "match evpn route-type <macip|2|multicast|3|prefix|5>",
+	    "match evpn route-type <ead|1|macip|2|multicast|3|es|4|prefix|5>",
 	    MATCH_STR
 	    EVPN_HELP_STR
 	    EVPN_TYPE_HELP_STR
+	    EVPN_TYPE_1_HELP_STR
+	    EVPN_TYPE_1_HELP_STR
 	    EVPN_TYPE_2_HELP_STR
 	    EVPN_TYPE_2_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
 	    EVPN_TYPE_5_HELP_STR
 	    EVPN_TYPE_5_HELP_STR)
 {
@@ -4192,15 +4202,19 @@ DEFUN_YANG (match_evpn_route_type,
 
 DEFUN_YANG (no_match_evpn_route_type,
 	    no_match_evpn_route_type_cmd,
-	    "no match evpn route-type <macip|2|multicast|3|prefix|5>",
+	    "no match evpn route-type <ead|1|macip|2|multicast|3|es|4|prefix|5>",
 	    NO_STR
 	    MATCH_STR
 	    EVPN_HELP_STR
 	    EVPN_TYPE_HELP_STR
+	    EVPN_TYPE_1_HELP_STR
+	    EVPN_TYPE_1_HELP_STR
 	    EVPN_TYPE_2_HELP_STR
 	    EVPN_TYPE_2_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
 	    EVPN_TYPE_3_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
+	    EVPN_TYPE_4_HELP_STR
 	    EVPN_TYPE_5_HELP_STR
 	    EVPN_TYPE_5_HELP_STR)
 {

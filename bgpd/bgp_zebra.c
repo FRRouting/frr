@@ -1502,7 +1502,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (info->attr->flag
 		    & ATTR_FLAG_BIT(BGP_ATTR_LARGE_COMMUNITIES))
-			strlcpy(bzo.lcommunity, info->attr->lcommunity->str,
+			strlcpy(bzo.lcommunity,
+				bgp_attr_get_lcommunity(info->attr)->str,
 				sizeof(bzo.lcommunity));
 
 		strlcpy(bzo.selection_reason, reason,
@@ -2843,8 +2844,8 @@ static int bgp_zebra_process_local_es_evi(ZAPI_CALLBACK_ARGS)
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		zlog_debug("Rx %s ESI %s VNI %u",
-				ZEBRA_VNI_ADD ? "add" : "del",
-				esi_to_str(&esi, buf, sizeof(buf)), vni);
+			   (cmd == ZEBRA_VNI_ADD) ? "add" : "del",
+			   esi_to_str(&esi, buf, sizeof(buf)), vni);
 
 	if (cmd == ZEBRA_LOCAL_ES_EVI_ADD) {
 		frrtrace(2, frr_bgp, evpn_mh_local_es_evi_add_zrecv, &esi, vni);

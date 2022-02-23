@@ -274,6 +274,9 @@ void lcommunity_unintern(struct lcommunity **lcom)
 {
 	struct lcommunity *ret;
 
+	if (!*lcom)
+		return;
+
 	if ((*lcom)->refcnt)
 		(*lcom)->refcnt--;
 

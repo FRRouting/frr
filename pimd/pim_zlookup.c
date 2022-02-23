@@ -300,9 +300,9 @@ static int zclient_read_nexthop(struct pim_instance *pim,
 			if (nbr) {
 				nexthop_tab[num_ifindex].nexthop_addr.family =
 					AF_INET;
-				nexthop_tab[num_ifindex]
-					.nexthop_addr.u.prefix4 =
-					nbr->source_addr;
+				pim_addr_to_prefix(
+					&nexthop_tab[num_ifindex].nexthop_addr,
+					nbr->source_addr);
 			}
 			++num_ifindex;
 			break;
@@ -535,10 +535,9 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 
 		more.src = c_oil->oil.mfcc_origin;
 		more.grp = c_oil->oil.mfcc_mcastgrp;
-		zlog_debug(
-			"Sending Request for New Channel Oil Information%s VIIF %d(%s)",
-			pim_str_sg_dump(&more), c_oil->oil.mfcc_parent,
-			c_oil->pim->vrf->name);
+		zlog_debug("Sending Request for New Channel Oil Information%pSG VIIF %d(%s)",
+			   &more, c_oil->oil.mfcc_parent,
+			   c_oil->pim->vrf->name);
 	}
 
 	if (!ifp)
@@ -593,9 +592,8 @@ int pim_zlookup_sg_statistics(struct channel_oil *c_oil)
 			more.grp = c_oil->oil.mfcc_mcastgrp;
 			flog_err(
 				EC_LIB_ZAPI_MISSMATCH,
-				"%s: Received wrong %s(%s) information requested",
-				__func__, pim_str_sg_dump(&more),
-				c_oil->pim->vrf->name);
+				"%s: Received wrong %pSG(%s) information requested",
+				__func__, &more, c_oil->pim->vrf->name);
 		}
 		zclient_lookup_failed(zlookup);
 		return -3;

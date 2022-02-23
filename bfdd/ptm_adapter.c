@@ -457,7 +457,7 @@ static int _ptm_msg_read(struct stream *msg, int command, vrf_id_t vrf_id,
 	}
 
 	/* Sanity check: peer and local address must match IP types. */
-	if (bpc->bpc_local.sa_sin.sin_family != 0
+	if (bpc->bpc_local.sa_sin.sin_family != AF_UNSPEC
 	    && (bpc->bpc_local.sa_sin.sin_family
 		!= bpc->bpc_peer.sa_sin.sin_family)) {
 		zlog_warn("ptm-read: peer family doesn't match local type");

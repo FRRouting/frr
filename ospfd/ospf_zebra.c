@@ -1380,7 +1380,7 @@ static int ospf_zebra_read_route(ZAPI_CALLBACK_ARGS)
 					/* Handling the case where the
 					 * external route prefix
 					 * and aggegate prefix is same
-					 * If same dont flush the
+					 * If same don't flush the
 					 * originated
 					 * external LSA.
 					 */
