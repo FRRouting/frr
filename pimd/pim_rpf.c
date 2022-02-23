@@ -67,7 +67,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	 * 255.255.255.255 address, since
 	 * it will never work
 	 */
-	if (pim_addr_is_none(addr))
+	if (addr.s_addr == INADDR_NONE)
 		return false;
 #endif
 
@@ -169,11 +169,13 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 static int nexthop_mismatch(const struct pim_nexthop *nh1,
 			    const struct pim_nexthop *nh2)
 {
-	return (nh1->interface != nh2->interface)
-	       || (nh1->mrib_nexthop_addr.u.prefix4.s_addr
-		   != nh2->mrib_nexthop_addr.u.prefix4.s_addr)
-	       || (nh1->mrib_metric_preference != nh2->mrib_metric_preference)
-	       || (nh1->mrib_route_metric != nh2->mrib_route_metric);
+	pim_addr nh_addr1 = pim_addr_from_prefix(&nh1->mrib_nexthop_addr);
+	pim_addr nh_addr2 = pim_addr_from_prefix(&nh2->mrib_nexthop_addr);
+
+	return (nh1->interface != nh2->interface) ||
+	       (pim_addr_cmp(nh_addr1, nh_addr2)) ||
+	       (nh1->mrib_metric_preference != nh2->mrib_metric_preference) ||
+	       (nh1->mrib_route_metric != nh2->mrib_route_metric);
 }
 
 static void pim_rpf_cost_change(struct pim_instance *pim,
@@ -213,6 +215,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	bool neigh_needed = true;
 	uint32_t saved_mrib_route_metric;
 	pim_addr rpf_addr;
+	pim_addr saved_rpf_addr;
 
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
@@ -297,9 +300,11 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	}
 
 	/* detect change in RPF'(S,G) */
-	if (saved.rpf_addr.u.prefix4.s_addr != rpf->rpf_addr.u.prefix4.s_addr
-	    || saved.source_nexthop
-			       .interface != rpf->source_nexthop.interface) {
+
+	saved_rpf_addr = pim_addr_from_prefix(&saved.rpf_addr);
+
+	if (pim_addr_cmp(saved_rpf_addr, rpf_addr) ||
+	    saved.source_nexthop.interface != rpf->source_nexthop.interface) {
 		pim_rpf_cost_change(pim, up, saved_mrib_route_metric);
 		return PIM_RPF_CHANGED;
 	}
@@ -327,13 +332,13 @@ void pim_upstream_rpf_clear(struct pim_instance *pim,
 	if (up->rpf.source_nexthop.interface) {
 		pim_upstream_switch(pim, up, PIM_UPSTREAM_NOTJOINED);
 		up->rpf.source_nexthop.interface = NULL;
-		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
-			PIM_NET_INADDR_ANY;
+		pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
+				   PIMADDR_ANY);
 		up->rpf.source_nexthop.mrib_metric_preference =
 			router->infinite_assert_metric.metric_preference;
 		up->rpf.source_nexthop.mrib_route_metric =
 			router->infinite_assert_metric.route_metric;
-		up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
+		pim_addr_to_prefix(&up->rpf.rpf_addr, PIMADDR_ANY);
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 }
@@ -403,12 +408,12 @@ int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf)
 
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)
 {
+	pim_addr rpf_addr = pim_addr_from_prefix(&rpf->rpf_addr);
+
 	switch (rpf->rpf_addr.family) {
 	case AF_INET:
-		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_ANY;
 	case AF_INET6:
-		zlog_warn("%s: v6 Unimplmented", __func__);
-		return 1;
+		return pim_addr_is_any(rpf_addr);
 	default:
 		return 0;
 	}
@@ -426,7 +431,12 @@ unsigned int pim_rpf_hash_key(const void *arg)
 {
 	const struct pim_nexthop_cache *r = arg;
 
+#if PIM_IPV == 4 || !defined(PIM_V6_TEMP_BREAK)
 	return jhash_1word(r->rpf.rpf_addr.u.prefix4.s_addr, 0);
+#else
+	return jhash2(r->rpf.rpf_addr.u.prefix6.s6_addr32,
+		      array_size(r->rpf.rpf_addr.u.prefix6.s6_addr32), 0);
+#endif
 }
 
 bool pim_rpf_equal(const void *arg1, const void *arg2)
