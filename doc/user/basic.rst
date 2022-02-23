@@ -673,6 +673,11 @@ Terminal Mode Commands
    we are setting each individual fd for the poll command at that point
    in time.
 
+.. clicmd:: show thread timers
+
+   This command displays FRR's timer data for timers that will pop in
+   the future.
+
 .. _common-invocation-options:
 
 Common Invocation Options
