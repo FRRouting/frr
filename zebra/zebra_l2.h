@@ -64,6 +64,7 @@ struct zebra_l2_brvlan_mac_ctx {
 
 	/* input-output */
 	void *arg;
+	struct json_object *json; /* Used for JSON Output */
 };
 
 struct zebra_l2_bridge_if {
