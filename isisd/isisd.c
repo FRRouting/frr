@@ -109,12 +109,17 @@ DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
 int isis_area_get(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
-int show_isis_interface_common(struct vty *, const char *ifname, char,
-			       const char *vrf_name, bool all_vrf);
 int show_isis_neighbor_common(struct vty *, const char *id, char,
 			      const char *vrf_name, bool all_vrf);
 int clear_isis_neighbor_common(struct vty *, const char *id, const char *vrf_name,
+int show_isis_interface_common(struct vty *, struct json_object *json,
+			       const char *ifname, char, const char *vrf_name,
 			       bool all_vrf);
+int show_isis_interface_common_vty(struct vty *, const char *ifname, char,
+				   const char *vrf_name, bool all_vrf);
+int show_isis_interface_common_json(struct json_object *json,
+				    const char *ifname, char,
+				    const char *vrf_name, bool all_vrf);
 
 /* Link ISIS instance to VRF. */
 void isis_vrf_link(struct isis *isis, struct vrf *vrf)
@@ -933,9 +938,101 @@ int area_clear_net_title(struct vty *vty, const char *net_title)
 /*
  * 'show isis interface' command
  */
-
-int show_isis_interface_common(struct vty *vty, const char *ifname, char detail,
+int show_isis_interface_common(struct vty *vty, struct json_object *json,
+			       const char *ifname, char detail,
 			       const char *vrf_name, bool all_vrf)
+{
+	if (json) {
+		return show_isis_interface_common_json(json, ifname, detail,
+						       vrf_name, all_vrf);
+	} else {
+		return show_isis_interface_common_vty(vty, ifname, detail,
+						      vrf_name, all_vrf);
+	}
+}
+
+int show_isis_interface_common_json(struct json_object *json,
+				    const char *ifname, char detail,
+				    const char *vrf_name, bool all_vrf)
+{
+	struct listnode *anode, *cnode, *inode;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	struct isis *isis;
+	struct json_object *areas_json, *area_json;
+	if (!im) {
+		// IS-IS Routing Process not enabled
+		json_object_string_add(json, "is-is-routing-process-enabled",
+				       "no");
+		return CMD_SUCCESS;
+	}
+	if (vrf_name) {
+		if (all_vrf) {
+			for (ALL_LIST_ELEMENTS_RO(im->isis, inode, isis)) {
+				areas_json = json_object_new_array();
+				json_object_object_add(json, "areas",
+						       areas_json);
+				for (ALL_LIST_ELEMENTS_RO(isis->area_list,
+							  anode, area)) {
+					area_json = json_object_new_object();
+					json_object_string_add(
+						area_json, "area",
+						area->area_tag ? area->area_tag
+							       : "null");
+
+					for (ALL_LIST_ELEMENTS_RO(
+						     area->circuit_list, cnode,
+						     circuit))
+						if (!ifname)
+							isis_circuit_print_json(
+								circuit,
+								area_json,
+								detail);
+						else if (strcmp(circuit->interface->name, ifname) == 0)
+							isis_circuit_print_json(
+								circuit,
+								area_json,
+								detail);
+					json_object_array_add(areas_json,
+							      area_json);
+				}
+			}
+			return CMD_SUCCESS;
+		}
+		isis = isis_lookup_by_vrfname(vrf_name);
+		if (isis != NULL) {
+			areas_json = json_object_new_array();
+			json_object_object_add(json, "areas", areas_json);
+			for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode,
+						  area)) {
+				area_json = json_object_new_object();
+				json_object_string_add(area_json, "area",
+						       area->area_tag
+							       ? area->area_tag
+							       : "null");
+
+				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
+							  cnode, circuit))
+					if (!ifname)
+						isis_circuit_print_json(
+							circuit, area_json,
+							detail);
+					else if (
+						strcmp(circuit->interface->name,
+						       ifname) == 0)
+						isis_circuit_print_json(
+							circuit, area_json,
+							detail);
+				json_object_array_add(areas_json, area_json);
+			}
+		}
+	}
+	return CMD_SUCCESS;
+}
+
+int show_isis_interface_common_vty(struct vty *vty, const char *ifname,
+				   char detail, const char *vrf_name,
+				   bool all_vrf)
 {
 	struct listnode *anode, *cnode, *inode;
 	struct isis_area *area;
@@ -990,8 +1087,7 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail,
 							circuit, vty, detail);
 					else if (
 						strcmp(circuit->interface->name,
-						       ifname)
-						== 0)
+						       ifname) == 0)
 						isis_circuit_print_vty(
 							circuit, vty, detail);
 			}
@@ -1003,63 +1099,90 @@ int show_isis_interface_common(struct vty *vty, const char *ifname, char detail,
 
 DEFUN(show_isis_interface,
       show_isis_interface_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] interface",
+      "show " PROTO_NAME " [vrf <NAME|all>] interface [json]",
       SHOW_STR
       PROTO_HELP 
       VRF_CMD_HELP_STR
       "All VRFs\n"
+      "json output\n"
       "IS-IS interface\n")
 {
+	int res = CMD_SUCCESS;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_BRIEF,
-					  vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
+	res = show_isis_interface_common(vty, json, NULL, ISIS_UI_LEVEL_BRIEF,
+					 vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 DEFUN(show_isis_interface_detail,
       show_isis_interface_detail_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] interface detail",
+      "show " PROTO_NAME " [vrf <NAME|all>] interface detail [json]",
       SHOW_STR
       PROTO_HELP
       VRF_CMD_HELP_STR
       "All VRFs\n"
       "IS-IS interface\n"
-      "show detailed information\n")
+      "show detailed information\n"
+      "json output\n")
 {
+	int res = CMD_SUCCESS;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	return show_isis_interface_common(vty, NULL, ISIS_UI_LEVEL_DETAIL,
-					  vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
+	res = show_isis_interface_common(vty, json, NULL, ISIS_UI_LEVEL_DETAIL,
+					 vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 DEFUN(show_isis_interface_arg,
       show_isis_interface_arg_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] interface WORD",
+      "show " PROTO_NAME " [vrf <NAME|all>] interface WORD [json]",
       SHOW_STR
       PROTO_HELP
       VRF_CMD_HELP_STR
       "All VRFs\n"
       "IS-IS interface\n"
-      "IS-IS interface name\n")
+      "IS-IS interface name\n"
+      "json output\n")
 {
+	int res = CMD_SUCCESS;
 	int idx_word = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
 
 	char *ifname = argv_find(argv, argc, "WORD", &idx_word)
 			       ? argv[idx_word]->arg
 			       : NULL;
-	return show_isis_interface_common(vty, ifname, ISIS_UI_LEVEL_DETAIL,
-					  vrf_name, all_vrf);
+	res = show_isis_interface_common(
+		vty, json, ifname, ISIS_UI_LEVEL_DETAIL, vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 static int id_to_sysid(struct isis *isis, const char *id, uint8_t *sysid)
