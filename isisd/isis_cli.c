@@ -1560,48 +1560,6 @@ void cli_show_isis_label_blocks(struct vty *vty, const struct lyd_node *dnode,
 }
 
 /*
- * XPath: /frr-isisd:isis/instance/segment-routing/srlb
- */
-DEFPY_HIDDEN(
-	isis_sr_local_block_label_range, isis_sr_local_block_label_range_cmd,
-	"segment-routing local-block (16-1048575)$lower_bound (16-1048575)$upper_bound",
-	SR_STR
-	"Segment Routing Local Block label range\n"
-	"The lower bound of the block\n"
-	"The upper bound of the block (block size may not exceed 65535)\n")
-{
-#if CONFDATE > 20220217
-CPP_NOTICE("Use of the local-block command is deprecated")
-#endif
-	nb_cli_enqueue_change(vty,
-			      "./segment-routing/label-blocks/srlb/lower-bound",
-			      NB_OP_MODIFY, lower_bound_str);
-	nb_cli_enqueue_change(vty,
-			      "./segment-routing/label-blocks/srlb/upper-bound",
-			      NB_OP_MODIFY, upper_bound_str);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-DEFPY_HIDDEN(no_isis_sr_local_block_label_range,
-	     no_isis_sr_local_block_label_range_cmd,
-	     "no segment-routing local-block [(16-1048575) (16-1048575)]",
-	     NO_STR SR_STR
-	     "Segment Routing Local Block label range\n"
-	     "The lower bound of the block\n"
-	     "The upper bound of the block (block size may not exceed 65535)\n")
-{
-	nb_cli_enqueue_change(vty,
-			      "./segment-routing/label-blocks/srlb/lower-bound",
-			      NB_OP_MODIFY, NULL);
-	nb_cli_enqueue_change(vty,
-			      "./segment-routing/label-blocks/srlb/upper-bound",
-			      NB_OP_MODIFY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
-}
-
-/*
  * XPath: /frr-isisd:isis/instance/segment-routing/msd/node-msd
  */
 DEFPY_YANG (isis_sr_node_msd,
@@ -3189,8 +3147,6 @@ void isis_cli_init(void)
 	install_element(ISIS_NODE, &no_isis_sr_enable_cmd);
 	install_element(ISIS_NODE, &isis_sr_global_block_label_range_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_global_block_label_range_cmd);
-	install_element(ISIS_NODE, &isis_sr_local_block_label_range_cmd);
-	install_element(ISIS_NODE, &no_isis_sr_local_block_label_range_cmd);
 	install_element(ISIS_NODE, &isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &no_isis_sr_node_msd_cmd);
 	install_element(ISIS_NODE, &isis_sr_prefix_sid_cmd);
