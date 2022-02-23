@@ -490,7 +490,8 @@ struct connected *if_lookup_address(const void *matchaddr, int family,
 		addr.family = AF_INET6;
 		addr.u.prefix6 = *((struct in6_addr *)matchaddr);
 		addr.prefixlen = IPV6_MAX_BITLEN;
-	}
+	} else
+		assert(!"Attempted lookup of family not supported");
 
 	match = NULL;
 

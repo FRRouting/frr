@@ -1453,7 +1453,7 @@ int strtosa(const char *addr, struct sockaddr_any *sa)
 
 void integer2timestr(uint64_t time, char *buf, size_t buflen)
 {
-	unsigned int year, month, day, hour, minute, second;
+	uint64_t year, month, day, hour, minute, second;
 	int rv;
 
 #define MINUTES (60)
@@ -1465,7 +1465,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		year = time / YEARS;
 		time -= year * YEARS;
 
-		rv = snprintf(buf, buflen, "%u year(s), ", year);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " year(s), ", year);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1473,7 +1473,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		month = time / MONTHS;
 		time -= month * MONTHS;
 
-		rv = snprintf(buf, buflen, "%u month(s), ", month);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " month(s), ", month);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1481,7 +1481,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		day = time / DAYS;
 		time -= day * DAYS;
 
-		rv = snprintf(buf, buflen, "%u day(s), ", day);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " day(s), ", day);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1489,7 +1489,7 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		hour = time / HOURS;
 		time -= hour * HOURS;
 
-		rv = snprintf(buf, buflen, "%u hour(s), ", hour);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " hour(s), ", hour);
 		buf += rv;
 		buflen -= rv;
 	}
@@ -1497,12 +1497,12 @@ void integer2timestr(uint64_t time, char *buf, size_t buflen)
 		minute = time / MINUTES;
 		time -= minute * MINUTES;
 
-		rv = snprintf(buf, buflen, "%u minute(s), ", minute);
+		rv = snprintfrr(buf, buflen, "%" PRIu64 " minute(s), ", minute);
 		buf += rv;
 		buflen -= rv;
 	}
 	second = time % MINUTES;
-	snprintf(buf, buflen, "%u second(s)", second);
+	snprintfrr(buf, buflen, "%" PRIu64 " second(s)", second);
 }
 
 const char *bs_to_string(const struct bfd_session *bs)
