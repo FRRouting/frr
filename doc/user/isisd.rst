@@ -396,13 +396,6 @@ Known limitations:
    may not exceed 65535. Optionally sets also the Segment Routing Local Block.
    The negative command always unsets both.
 
-.. clicmd:: segment-routing local-block (16-1048575) (16-1048575)
-
-   Set the Segment Routing Local Block i.e. the label range used by MPLS
-   to store label in the MPLS FIB for Adjacency SID. Note that the block size
-   may not exceed 65535. This command is deprecated in favor of the combined
-   'segment-routing global-block A B local-block C D' command.
-
 .. clicmd:: segment-routing node-msd (1-16)
 
    Set the Maximum Stack Depth supported by the router. The value depend of the
