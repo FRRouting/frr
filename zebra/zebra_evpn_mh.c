@@ -2312,7 +2312,6 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi)
 	struct zebra_evpn_es *old_es = zif->es_info.es;
 	struct zebra_evpn_es *es;
 
-	memcpy(&zif->es_info.esi, esi, sizeof(*esi));
 	if (old_es && !memcmp(&old_es->esi, esi, sizeof(*esi)))
 		/* dup - nothing to be done */
 		return 0;
@@ -2324,15 +2323,14 @@ static int zebra_evpn_local_es_update(struct zebra_if *zif, esi_t *esi)
 	es = zebra_evpn_es_find(esi);
 	if (es) {
 		/* if it exists against another interface flag an error */
-		if (es->zif && es->zif != zif) {
-			memset(&zif->es_info.esi, 0, sizeof(*esi));
+		if (es->zif && es->zif != zif)
 			return -1;
-		}
 	} else {
 		/* create new es */
 		es = zebra_evpn_es_new(esi);
 	}
 
+	memcpy(&zif->es_info.esi, esi, sizeof(*esi));
 	if (es)
 		zebra_evpn_es_local_info_set(es, zif);
 
