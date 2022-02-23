@@ -2056,7 +2056,152 @@ DEFUN(show_isis_spf_ietf, show_isis_spf_ietf_cmd,
 	return CMD_SUCCESS;
 }
 
-static void common_isis_summary(struct vty *vty, struct isis *isis)
+
+static const char *pdu_counter_index_to_name_json(enum pdu_counter_index index)
+{
+	switch (index) {
+	case L1_LAN_HELLO_INDEX:
+		return "l1-iih";
+	case L2_LAN_HELLO_INDEX:
+		return "l2-iih";
+	case P2P_HELLO_INDEX:
+		return "p2p-iih";
+	case L1_LINK_STATE_INDEX:
+		return "l1-lsp";
+	case L2_LINK_STATE_INDEX:
+		return "l2-lsp";
+	case FS_LINK_STATE_INDEX:
+		return "fs-lsp";
+	case L1_COMPLETE_SEQ_NUM_INDEX:
+		return "l1-csnp";
+	case L2_COMPLETE_SEQ_NUM_INDEX:
+		return "l2-csnp";
+	case L1_PARTIAL_SEQ_NUM_INDEX:
+		return "l1-psnp";
+	case L2_PARTIAL_SEQ_NUM_INDEX:
+		return "l2-psnp";
+	default:
+		return "???????";
+	}
+}
+
+static void common_isis_summary_json(struct json_object *json,
+				     struct isis *isis)
+{
+	int level;
+	json_object *areas_json, *area_json, *tx_pdu_json, *rx_pdu_json,
+		*levels_json, *level_json;
+	struct listnode *node, *node2;
+	struct isis_area *area;
+	time_t cur;
+	char uptime[MONOTIME_STRLEN];
+	char stier[5];
+	json_object_string_add(json, "vrf", isis->name);
+	json_object_int_add(json, "process-id", isis->process_id);
+	if (isis->sysid_set)
+		json_object_string_add(json, "system-id",
+				       sysid_print(isis->sysid));
+
+	cur = time(NULL);
+	cur -= isis->uptime;
+	frrtime_to_interval(cur, uptime, sizeof(uptime));
+	json_object_string_add(json, "up-time", uptime);
+	if (isis->area_list)
+		json_object_int_add(json, "number-areas",
+				    isis->area_list->count);
+	areas_json = json_object_new_array();
+	json_object_object_add(json, "areas", areas_json);
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		area_json = json_object_new_object();
+		json_object_string_add(area_json, "area",
+				       area->area_tag ? area->area_tag
+						      : "null");
+
+
+		if (fabricd) {
+			uint8_t tier = fabricd_tier(area);
+			snprintfrr(stier, sizeof(stier), "%s", &tier);
+			json_object_string_add(area_json, "tier",
+					       tier == ISIS_TIER_UNDEFINED
+						       ? "undefined"
+						       : stier);
+		}
+
+		if (listcount(area->area_addrs) > 0) {
+			struct area_addr *area_addr;
+			for (ALL_LIST_ELEMENTS_RO(area->area_addrs, node2,
+						  area_addr)) {
+				json_object_string_add(
+					area_json, "net",
+					isonet_print(area_addr->area_addr,
+						     area_addr->addr_len +
+							     ISIS_SYS_ID_LEN +
+							     1));
+			}
+		}
+
+		tx_pdu_json = json_object_new_object();
+		json_object_object_add(area_json, "tx-pdu-type", tx_pdu_json);
+		for (int i = 0; i < PDU_COUNTER_SIZE; i++) {
+			if (!area->pdu_tx_counters[i])
+				continue;
+			json_object_int_add(tx_pdu_json,
+					    pdu_counter_index_to_name_json(i),
+					    area->pdu_tx_counters[i]);
+		}
+		json_object_int_add(tx_pdu_json, "lsp-rxmt",
+				    area->lsp_rxmt_count);
+
+		rx_pdu_json = json_object_new_object();
+		json_object_object_add(area_json, "rx-pdu-type", rx_pdu_json);
+		for (int i = 0; i < PDU_COUNTER_SIZE; i++) {
+			if (!area->pdu_rx_counters[i])
+				continue;
+			json_object_int_add(rx_pdu_json,
+					    pdu_counter_index_to_name_json(i),
+					    area->pdu_rx_counters[i]);
+		}
+
+		levels_json = json_object_new_array();
+		json_object_object_add(area_json, "levels", levels_json);
+		for (level = ISIS_LEVEL1; level <= ISIS_LEVELS; level++) {
+			if ((area->is_type & level) == 0)
+				continue;
+			level_json = json_object_new_object();
+			json_object_int_add(level_json, "id", level);
+			json_object_int_add(level_json, "lsp0-regenerated",
+					    area->lsp_gen_count[level - 1]);
+			json_object_int_add(level_json, "lsp-purged",
+					    area->lsp_purge_count[level - 1]);
+			if (area->spf_timer[level - 1])
+				json_object_string_add(level_json, "spf",
+						       "pending");
+			else
+				json_object_string_add(level_json, "spf",
+						       "no pending");
+			json_object_int_add(level_json, "minimum-interval",
+					    area->min_spf_interval[level - 1]);
+			if (area->spf_delay_ietf[level - 1])
+				json_object_string_add(
+					level_json, "ietf-spf-delay-activated",
+					"not used");
+			if (area->ip_circuits) {
+				isis_spf_print_json(
+					area->spftree[SPFTREE_IPV4][level - 1],
+					level_json);
+			}
+			if (area->ipv6_circuits) {
+				isis_spf_print_json(
+					area->spftree[SPFTREE_IPV6][level - 1],
+					level_json);
+			}
+			json_object_array_add(levels_json, level_json);
+		}
+		json_object_array_add(areas_json, area_json);
+	}
+}
+
+static void common_isis_summary_vty(struct vty *vty, struct isis *isis)
 {
 	struct listnode *node, *node2;
 	struct isis_area *area;
@@ -2156,10 +2301,21 @@ static void common_isis_summary(struct vty *vty, struct isis *isis)
 	}
 }
 
+static void common_isis_summary(struct vty *vty, struct json_object *json,
+				struct isis *isis)
+{
+	if (json) {
+		common_isis_summary_json(json, isis);
+	} else {
+		common_isis_summary_vty(vty, isis);
+	}
+}
+
 DEFUN(show_isis_summary, show_isis_summary_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] summary",
+      "show " PROTO_NAME " [vrf <NAME|all>] summary [json]",
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
       "All VRFs\n"
+       "json output\n"
       "summary\n")
 {
 	struct listnode *node;
@@ -2167,25 +2323,30 @@ DEFUN(show_isis_summary, show_isis_summary_cmd,
 	struct isis *isis;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf)
 	if (!im) {
 		vty_out(vty, PROTO_NAME " is not running\n");
 		return CMD_SUCCESS;
 	}
+	if (uj)
+		json = json_object_new_object();
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				common_isis_summary(vty, isis);
+				common_isis_summary(vty, json, isis);
 
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis != NULL)
-			common_isis_summary(vty, isis);
+			common_isis_summary(vty, json, isis);
 	}
 
-	vty_out(vty, "\n");
+	if (uj)
+		vty_json(vty, json);
 
 	return CMD_SUCCESS;
 }
