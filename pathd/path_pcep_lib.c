@@ -45,8 +45,8 @@ static int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
 					   void *payload);
 static int pcep_lib_pceplib_socket_write_cb(void *fpt, void **thread, int fd,
 					    void *payload);
-static int pcep_lib_socket_read_ready(struct thread *thread);
-static int pcep_lib_socket_write_ready(struct thread *thread);
+static void pcep_lib_socket_read_ready(struct thread *thread);
+static void pcep_lib_socket_write_ready(struct thread *thread);
 
 /* pceplib pcep_event callbacks */
 static void pcep_lib_pceplib_event_cb(void *fpt, pcep_event *event);
@@ -241,26 +241,22 @@ int pcep_lib_pceplib_socket_read_cb(void *fpt, void **thread, int fd,
 /* Callbacks called by path_pcep_controller when a socket is ready to read/write
  */
 
-int pcep_lib_socket_write_ready(struct thread *thread)
+void pcep_lib_socket_write_ready(struct thread *thread)
 {
 	struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
 	assert(data != NULL);
 
-	int retval = pceplib_external_socket_write(data->fd, data->payload);
+	pceplib_external_socket_write(data->fd, data->payload);
 	XFREE(MTYPE_PCEP, data);
-
-	return retval;
 }
 
-int pcep_lib_socket_read_ready(struct thread *thread)
+void pcep_lib_socket_read_ready(struct thread *thread)
 {
 	struct pcep_ctrl_socket_data *data = THREAD_ARG(thread);
 	assert(data != NULL);
 
-	int retval = pceplib_external_socket_read(data->fd, data->payload);
+	pceplib_external_socket_read(data->fd, data->payload);
 	XFREE(MTYPE_PCEP, data);
-
-	return retval;
 }
 
 /* Callback passed to pceplib when a pcep_event is ready */

@@ -799,7 +799,7 @@ static void zlog_5424_cycle(struct zlog_cfg_5424 *zcf, int fd)
 	rcu_free(MTYPE_LOG_5424, oldt, zt.rcu_head);
 }
 
-static int zlog_5424_reconnect(struct thread *t)
+static void zlog_5424_reconnect(struct thread *t)
 {
 	struct zlog_cfg_5424 *zcf = THREAD_ARG(t);
 	int fd = THREAD_FD(t);
@@ -812,7 +812,7 @@ static int zlog_5424_reconnect(struct thread *t)
 			/* logger is sending us something?!?! */
 			thread_add_read(t->master, zlog_5424_reconnect, zcf, fd,
 					&zcf->t_reconnect);
-			return 0;
+			return;
 		}
 
 		if (ret == 0)
@@ -832,7 +832,6 @@ static int zlog_5424_reconnect(struct thread *t)
 	frr_with_mutex (&zcf->cfg_mtx) {
 		zlog_5424_cycle(zcf, fd);
 	}
-	return 0;
 }
 
 static int zlog_5424_unix(struct sockaddr_un *suna, int sock_type)

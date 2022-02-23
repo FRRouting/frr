@@ -962,7 +962,7 @@ static void frr_daemonize(void)
  * to read the config in after thread execution starts, so that
  * we can match this behavior.
  */
-static int frr_config_read_in(struct thread *t)
+static void frr_config_read_in(struct thread *t)
 {
 	hook_call(frr_config_pre, master);
 
@@ -1000,8 +1000,6 @@ static int frr_config_read_in(struct thread *t)
 	}
 
 	hook_call(frr_config_post, master);
-
-	return 0;
 }
 
 void frr_config_fork(void)
@@ -1097,7 +1095,7 @@ static void frr_terminal_close(int isexit)
 
 static struct thread *daemon_ctl_thread = NULL;
 
-static int frr_daemon_ctl(struct thread *t)
+static void frr_daemon_ctl(struct thread *t)
 {
 	char buf[1];
 	ssize_t nr;
@@ -1106,7 +1104,7 @@ static int frr_daemon_ctl(struct thread *t)
 	if (nr < 0 && (errno == EINTR || errno == EAGAIN))
 		goto out;
 	if (nr <= 0)
-		return 0;
+		return;
 
 	switch (buf[0]) {
 	case 'S': /* SIGTSTP */
@@ -1131,7 +1129,6 @@ static int frr_daemon_ctl(struct thread *t)
 out:
 	thread_add_read(master, frr_daemon_ctl, NULL, daemon_ctl_sock,
 			&daemon_ctl_thread);
-	return 0;
 }
 
 void frr_detach(void)

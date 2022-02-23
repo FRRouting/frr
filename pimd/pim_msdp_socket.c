@@ -62,7 +62,7 @@ static void pim_msdp_update_sock_send_buffer_size(int fd)
 }
 
 /* passive peer socket accept */
-static int pim_msdp_sock_accept(struct thread *thread)
+static void pim_msdp_sock_accept(struct thread *thread)
 {
 	union sockunion su;
 	struct pim_instance *pim = THREAD_ARG(thread);
@@ -77,7 +77,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	if (accept_sock < 0) {
 		flog_err(EC_LIB_DEVELOPMENT, "accept_sock is negative value %d",
 			 accept_sock);
-		return -1;
+		return;
 	}
 	pim->msdp.listener.thread = NULL;
 	thread_add_read(router->master, pim_msdp_sock_accept, pim, accept_sock,
@@ -88,7 +88,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	if (msdp_sock < 0) {
 		flog_err_sys(EC_LIB_SOCKET, "pim_msdp_sock_accept failed (%s)",
 			     safe_strerror(errno));
-		return -1;
+		return;
 	}
 
 	/* see if have peer config for this */
@@ -100,7 +100,7 @@ static int pim_msdp_sock_accept(struct thread *thread)
 				 "msdp peer connection refused from %pSU", &su);
 		}
 		close(msdp_sock);
-		return -1;
+		return;
 	}
 
 	if (PIM_DEBUG_MSDP_INTERNAL) {
@@ -122,7 +122,6 @@ static int pim_msdp_sock_accept(struct thread *thread)
 	set_nonblocking(mp->fd);
 	pim_msdp_update_sock_send_buffer_size(mp->fd);
 	pim_msdp_peer_established(mp);
-	return 0;
 }
 
 /* global listener for the MSDP well know TCP port */

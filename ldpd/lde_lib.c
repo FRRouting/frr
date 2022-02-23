@@ -1037,8 +1037,7 @@ lde_wildcard_apply(struct map *wcard, struct fec *fec, struct lde_map *me)
 /* gabage collector timer: timer to remove dead entries from the LIB */
 
 /* ARGSUSED */
-int
-lde_gc_timer(struct thread *thread)
+void lde_gc_timer(struct thread *thread)
 {
 	struct fec	*fec, *safe;
 	struct fec_node	*fn;
@@ -1064,8 +1063,6 @@ lde_gc_timer(struct thread *thread)
 		log_debug("%s: %u entries removed", __func__, count);
 
 	lde_gc_start_timer();
-
-	return (0);
 }
 
 void

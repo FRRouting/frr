@@ -291,7 +291,7 @@ struct rfapi_rib_tcb {
 /*
  * remove route from rib
  */
-static int rfapiRibExpireTimer(struct thread *t)
+static void rfapiRibExpireTimer(struct thread *t)
 {
 	struct rfapi_rib_tcb *tcb = t->arg;
 
@@ -328,8 +328,6 @@ static int rfapiRibExpireTimer(struct thread *t)
 	XFREE(MTYPE_RFAPI_RECENT_DELETE, tcb);
 
 	RFAPI_RIB_CHECK_COUNTS(1, 0);
-
-	return 0;
 }
 
 static void rfapiRibStartTimer(struct rfapi_descriptor *rfd,

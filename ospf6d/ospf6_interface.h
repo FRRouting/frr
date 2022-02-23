@@ -226,11 +226,11 @@ extern struct in6_addr *
 ospf6_interface_get_global_address(struct interface *ifp);
 
 /* interface event */
-extern int interface_up(struct thread *thread);
-extern int interface_down(struct thread *thread);
-extern int wait_timer(struct thread *thread);
-extern int backup_seen(struct thread *thread);
-extern int neighbor_change(struct thread *thread);
+extern void interface_up(struct thread *thread);
+extern void interface_down(struct thread *thread);
+extern void wait_timer(struct thread *thread);
+extern void backup_seen(struct thread *thread);
+extern void neighbor_change(struct thread *thread);
 
 extern void ospf6_interface_init(void);
 extern void ospf6_interface_clear(struct interface *ifp);

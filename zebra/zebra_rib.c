@@ -3948,7 +3948,7 @@ static void rib_update_ctx_fini(struct rib_update_ctx **ctx)
 	XFREE(MTYPE_RIB_UPDATE_CTX, *ctx);
 }
 
-static int rib_update_handler(struct thread *thread)
+static void rib_update_handler(struct thread *thread)
 {
 	struct rib_update_ctx *ctx;
 
@@ -3960,8 +3960,6 @@ static int rib_update_handler(struct thread *thread)
 		rib_update_handle_vrf(ctx->vrf_id, ctx->event, ZEBRA_ROUTE_ALL);
 
 	rib_update_ctx_fini(&ctx);
-
-	return 0;
 }
 
 /*
@@ -4055,7 +4053,7 @@ void rib_sweep_table(struct route_table *table)
 }
 
 /* Sweep all RIB tables.  */
-int rib_sweep_route(struct thread *t)
+void rib_sweep_route(struct thread *t)
 {
 	struct vrf *vrf;
 	struct zebra_vrf *zvrf;
@@ -4070,8 +4068,6 @@ int rib_sweep_route(struct thread *t)
 
 	zebra_router_sweep_route();
 	zebra_router_sweep_nhgs();
-
-	return 0;
 }
 
 /* Remove specific by protocol routes from 'table'. */
@@ -4181,7 +4177,7 @@ done:
  * Handle results from the dataplane system. Dequeue update context
  * structs, dispatch to appropriate internal handlers.
  */
-static int rib_process_dplane_results(struct thread *thread)
+static void rib_process_dplane_results(struct thread *thread)
 {
 	struct zebra_dplane_ctx *ctx;
 	struct dplane_ctx_q ctxlist;
@@ -4349,8 +4345,6 @@ static int rib_process_dplane_results(struct thread *thread)
 		}
 
 	} while (1);
-
-	return 0;
 }
 
 /*

@@ -143,7 +143,7 @@ int frr_sigevent_process(void)
 
 #ifdef SIGEVENT_SCHEDULE_THREAD
 /* timer thread to check signals. shouldn't be needed */
-int frr_signal_timer(struct thread *t)
+void frr_signal_timer(struct thread *t)
 {
 	struct frr_sigevent_master_t *sigm;
 
@@ -151,7 +151,7 @@ int frr_signal_timer(struct thread *t)
 	sigm->t = NULL;
 	thread_add_timer(sigm->t->master, frr_signal_timer, &sigmaster,
 			 FRR_SIGNAL_TIMER_INTERVAL, &sigm->t);
-	return frr_sigevent_process();
+	frr_sigevent_process();
 }
 #endif /* SIGEVENT_SCHEDULE_THREAD */
 

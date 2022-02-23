@@ -357,7 +357,7 @@ static struct prefix *pfx_record_to_prefix(struct pfx_record *record)
 	return prefix;
 }
 
-static int bgpd_sync_callback(struct thread *thread)
+static void bgpd_sync_callback(struct thread *thread)
 {
 	struct bgp *bgp;
 	struct listnode *node;
@@ -375,13 +375,13 @@ static int bgpd_sync_callback(struct thread *thread)
 		atomic_store_explicit(&rtr_update_overflow, 0,
 				      memory_order_seq_cst);
 		revalidate_all_routes();
-		return 0;
+		return;
 	}
 
 	retval = read(socket, &rec, sizeof(struct pfx_record));
 	if (retval != sizeof(struct pfx_record)) {
 		RPKI_DEBUG("Could not read from socket");
-		return retval;
+		return;
 	}
 
 	/* RTR-Server crashed/terminated, let's handle and switch
@@ -389,7 +389,7 @@ static int bgpd_sync_callback(struct thread *thread)
 	 */
 	if (rec.socket && rec.socket->state == RTR_ERROR_FATAL) {
 		reset(true);
-		return 0;
+		return;
 	}
 
 	prefix = pfx_record_to_prefix(&rec);
@@ -421,7 +421,6 @@ static int bgpd_sync_callback(struct thread *thread)
 	}
 
 	prefix_free(&prefix);
-	return 0;
 }
 
 static void revalidate_bgp_node(struct bgp_dest *bgp_dest, afi_t afi,

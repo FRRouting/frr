@@ -90,7 +90,7 @@ struct pcep_ctrl_socket_data {
 	void *payload;
 };
 
-typedef int (*pcep_ctrl_thread_callback)(struct thread *);
+typedef void (*pcep_ctrl_thread_callback)(struct thread *);
 
 /* PCC connection information, populated in a thread-safe
  * manner with pcep_ctrl_get_pcc_info() */
@@ -174,7 +174,7 @@ int pcep_thread_socket_write(void *fpt, void **thread, int fd, void *payload,
 
 int pcep_thread_send_ctrl_event(void *fpt, void *payload,
 				pcep_ctrl_thread_callback cb);
-int pcep_thread_pcep_event(struct thread *thread);
+void pcep_thread_pcep_event(struct thread *thread);
 int pcep_thread_pcc_count(struct ctrl_state *ctrl_state);
 /* Called by the PCC to refine a path in the main thread */
 int pcep_thread_refine_path(struct ctrl_state *ctrl_state, int pcc_id,

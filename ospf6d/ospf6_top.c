@@ -586,7 +586,7 @@ void ospf6_master_init(struct thread_master *master)
 	om6->master = master;
 }
 
-static int ospf6_maxage_remover(struct thread *thread)
+static void ospf6_maxage_remover(struct thread *thread)
 {
 	struct ospf6 *o = (struct ospf6 *)THREAD_ARG(thread);
 	struct ospf6_area *oa;
@@ -603,7 +603,7 @@ static int ospf6_maxage_remover(struct thread *thread)
 					continue;
 
 				ospf6_maxage_remove(o);
-				return 0;
+				return;
 			}
 		}
 	}
@@ -627,8 +627,6 @@ static int ospf6_maxage_remover(struct thread *thread)
 	if (reschedule) {
 		ospf6_maxage_remove(o);
 	}
-
-	return 0;
 }
 
 void ospf6_maxage_remove(struct ospf6 *o)

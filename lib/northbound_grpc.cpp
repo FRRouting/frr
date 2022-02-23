@@ -206,7 +206,7 @@ template <typename Q, typename S> class NewRpcState : RpcStateBase
 	}
 
 
-	static int c_callback(struct thread *thread)
+	static void c_callback(struct thread *thread)
 	{
 		auto _tag = static_cast<NewRpcState<Q, S> *>(thread->arg);
 		/*
@@ -225,7 +225,7 @@ template <typename Q, typename S> class NewRpcState : RpcStateBase
 
 		pthread_cond_signal(&_tag->cond);
 		pthread_mutex_unlock(&_tag->cmux);
-		return 0;
+		return;
 	}
 	NewRpcState<Q, S> *orig;
 
@@ -1368,7 +1368,7 @@ static int frr_grpc_finish(void)
  * fork. This is done by scheduling this init function as an event task, since
  * the event loop doesn't run until after fork.
  */
-static int frr_grpc_module_very_late_init(struct thread *thread)
+static void frr_grpc_module_very_late_init(struct thread *thread)
 {
 	const char *args = THIS_MODULE->load_args;
 	uint port = GRPC_DEFAULT_PORT;
@@ -1386,11 +1386,10 @@ static int frr_grpc_module_very_late_init(struct thread *thread)
 	if (frr_grpc_init(port) < 0)
 		goto error;
 
-	return 0;
+	return;
 
 error:
 	flog_err(EC_LIB_GRPC_INIT, "failed to initialize the gRPC module");
-	return -1;
 }
 
 static int frr_grpc_module_late_init(struct thread_master *tm)
