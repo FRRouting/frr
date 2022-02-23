@@ -1002,7 +1002,7 @@ static int zfpm_write_cb(struct thread *thread)
 			write(zfpm_g->sock, stream_pnt(s), bytes_to_write);
 		zfpm_g->stats.write_calls++;
 		num_writes++;
-		zfpm_debug("sent out fd:%d bytes_to_write:%ld bytes_written:%ld",
+		zlog_debug("sent out fd:%d bytes_to_write:%ld bytes_written:%ld",
 				zfpm_g->sock, bytes_to_write, bytes_written);
 
 		if (bytes_written < 0) {
