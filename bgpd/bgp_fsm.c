@@ -710,9 +710,10 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 					if (pi->peer != peer)
 						continue;
 
-					if (pi->attr->community &&
+					if (bgp_attr_get_community(pi->attr) &&
 					    community_include(
-						    pi->attr->community,
+						    bgp_attr_get_community(
+							    pi->attr),
 						    COMMUNITY_NO_LLGR))
 						continue;
 
@@ -738,9 +739,10 @@ static void bgp_set_llgr_stale(struct peer *peer, afi_t afi, safi_t safi)
 				if (pi->peer != peer)
 					continue;
 
-				if (pi->attr->community &&
-				    community_include(pi->attr->community,
-						      COMMUNITY_NO_LLGR))
+				if (bgp_attr_get_community(pi->attr) &&
+				    community_include(
+					    bgp_attr_get_community(pi->attr),
+					    COMMUNITY_NO_LLGR))
 					continue;
 
 				if (bgp_debug_neighbor_events(peer))

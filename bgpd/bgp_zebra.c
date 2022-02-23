@@ -1496,7 +1496,8 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 			sizeof(bzo.aspath));
 
 		if (info->attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))
-			strlcpy(bzo.community, info->attr->community->str,
+			strlcpy(bzo.community,
+				bgp_attr_get_community(info->attr)->str,
 				sizeof(bzo.community));
 
 		if (info->attr->flag

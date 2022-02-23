@@ -641,8 +641,9 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 	 * below). See the Risks of Depreferencing Routes section (Section 5.2)
 	 * for a discussion of potential risks inherent in doing this.
 	 */
-	if (newattr->community &&
-	    community_include(newattr->community, COMMUNITY_LLGR_STALE)) {
+	if (bgp_attr_get_community(newattr) &&
+	    community_include(bgp_attr_get_community(newattr),
+			      COMMUNITY_LLGR_STALE)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s wins over %s due to LLGR_STALE community",
@@ -650,8 +651,9 @@ static int bgp_path_info_cmp(struct bgp *bgp, struct bgp_path_info *new,
 		return 0;
 	}
 
-	if (existattr->community &&
-	    community_include(existattr->community, COMMUNITY_LLGR_STALE)) {
+	if (bgp_attr_get_community(existattr) &&
+	    community_include(bgp_attr_get_community(existattr),
+			      COMMUNITY_LLGR_STALE)) {
 		if (debug)
 			zlog_debug(
 				"%s: %s loses to %s due to LLGR_STALE community",
@@ -1522,20 +1524,22 @@ done:
 /* If community attribute includes no_export then return 1. */
 static bool bgp_community_filter(struct peer *peer, struct attr *attr)
 {
-	if (attr->community) {
+	if (bgp_attr_get_community(attr)) {
 		/* NO_ADVERTISE check. */
-		if (community_include(attr->community, COMMUNITY_NO_ADVERTISE))
+		if (community_include(bgp_attr_get_community(attr),
+				      COMMUNITY_NO_ADVERTISE))
 			return true;
 
 		/* NO_EXPORT check. */
-		if (peer->sort == BGP_PEER_EBGP
-		    && community_include(attr->community, COMMUNITY_NO_EXPORT))
+		if (peer->sort == BGP_PEER_EBGP &&
+		    community_include(bgp_attr_get_community(attr),
+				      COMMUNITY_NO_EXPORT))
 			return true;
 
 		/* NO_EXPORT_SUBCONFED check. */
 		if (peer->sort == BGP_PEER_EBGP
 		    || peer->sort == BGP_PEER_CONFED)
-			if (community_include(attr->community,
+			if (community_include(bgp_attr_get_community(attr),
 					      COMMUNITY_NO_EXPORT_SUBCONFED))
 				return true;
 	}
@@ -1745,7 +1749,7 @@ void bgp_attr_add_llgr_community(struct attr *attr)
 	struct community *merge;
 	struct community *llgr;
 
-	old = attr->community;
+	old = bgp_attr_get_community(attr);
 	llgr = community_str2com("llgr-stale");
 
 	assert(llgr);
@@ -1764,7 +1768,7 @@ void bgp_attr_add_llgr_community(struct attr *attr)
 
 	community_free(&llgr);
 
-	attr->community = new;
+	bgp_attr_set_community(attr, new);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 }
 
@@ -1775,7 +1779,7 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 	struct community *merge;
 	struct community *gshut;
 
-	old = attr->community;
+	old = bgp_attr_get_community(attr);
 	gshut = community_str2com("graceful-shutdown");
 
 	assert(gshut);
@@ -1793,7 +1797,7 @@ void bgp_attr_add_gshut_community(struct attr *attr)
 	}
 
 	community_free(&gshut);
-	attr->community = new;
+	bgp_attr_set_community(attr, new);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 
 	/* When we add the graceful-shutdown community we must also
@@ -2270,8 +2274,9 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * The route SHOULD NOT be advertised to any neighbor from which the
 	 * Long-lived Graceful Restart Capability has not been received.
 	 */
-	if (attr->community &&
-	    community_include(attr->community, COMMUNITY_LLGR_STALE) &&
+	if (bgp_attr_get_community(attr) &&
+	    community_include(bgp_attr_get_community(attr),
+			      COMMUNITY_LLGR_STALE) &&
 	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_RCV) &&
 	    !CHECK_FLAG(peer->cap, PEER_CAP_LLGR_ADV))
 		return false;
@@ -3686,7 +3691,7 @@ static void bgp_attr_add_no_export_community(struct attr *attr)
 	struct community *merge;
 	struct community *no_export;
 
-	old = attr->community;
+	old = bgp_attr_get_community(attr);
 	no_export = community_str2com("no-export");
 
 	assert(no_export);
@@ -3705,7 +3710,7 @@ static void bgp_attr_add_no_export_community(struct attr *attr)
 
 	community_free(&no_export);
 
-	attr->community = new;
+	bgp_attr_set_community(attr, new);
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 }
 
@@ -3915,15 +3920,16 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		 * propagation SHOULD be chosen according to the operator's
 		 * routing policy.
 		 */
-		if (new_attr.community
-		    && community_include(new_attr.community,
-					 COMMUNITY_BLACKHOLE))
+		if (bgp_attr_get_community(&new_attr) &&
+		    community_include(bgp_attr_get_community(&new_attr),
+				      COMMUNITY_BLACKHOLE))
 			bgp_attr_add_no_export_community(&new_attr);
 
 		/* If we receive the graceful-shutdown community from an eBGP
 		 * peer we must lower local-preference */
-		if (new_attr.community
-		    && community_include(new_attr.community, COMMUNITY_GSHUT)) {
+		if (bgp_attr_get_community(&new_attr) &&
+		    community_include(bgp_attr_get_community(&new_attr),
+				      COMMUNITY_GSHUT)) {
 			new_attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_LOCAL_PREF);
 			new_attr.local_pref = BGP_GSHUT_LOCAL_PREF;
 
@@ -5378,9 +5384,10 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 					if (CHECK_FLAG(
 						    peer->af_sflags[afi][safi],
 						    PEER_STATUS_LLGR_WAIT) &&
-					    pi->attr->community &&
+					    bgp_attr_get_community(pi->attr) &&
 					    !community_include(
-						    pi->attr->community,
+						    bgp_attr_get_community(
+							    pi->attr),
 						    COMMUNITY_NO_LLGR))
 						break;
 					if (!CHECK_FLAG(pi->flags,
@@ -5411,9 +5418,10 @@ void bgp_clear_stale_route(struct peer *peer, afi_t afi, safi_t safi)
 					continue;
 				if (CHECK_FLAG(peer->af_sflags[afi][safi],
 					       PEER_STATUS_LLGR_WAIT) &&
-				    pi->attr->community &&
-				    !community_include(pi->attr->community,
-						       COMMUNITY_NO_LLGR))
+				    bgp_attr_get_community(pi->attr) &&
+				    !community_include(
+					    bgp_attr_get_community(pi->attr),
+					    COMMUNITY_NO_LLGR))
 					break;
 				if (!CHECK_FLAG(pi->flags, BGP_PATH_STALE))
 					break;
@@ -7057,7 +7065,7 @@ static bool bgp_aggregate_info_same(struct bgp_path_info *pi, uint8_t origin,
 	if (!aspath_cmp(pi->attr->aspath, (aspath) ? aspath : ae))
 		return false;
 
-	if (!community_cmp(pi->attr->community, comm))
+	if (!community_cmp(bgp_attr_get_community(pi->attr), comm))
 		return false;
 
 	if (!ecommunity_cmp(bgp_attr_get_ecommunity(pi->attr), ecomm))
@@ -7476,10 +7484,10 @@ void bgp_aggregate_route(struct bgp *bgp, const struct prefix *p, afi_t afi,
 
 			/* Compute aggregate route's community.
 			 */
-			if (pi->attr->community)
+			if (bgp_attr_get_community(pi->attr))
 				bgp_compute_aggregate_community_hash(
-							aggregate,
-							pi->attr->community);
+					aggregate,
+					bgp_attr_get_community(pi->attr));
 
 			/* Compute aggregate route's extended community.
 			 */
@@ -7598,12 +7606,13 @@ void bgp_aggregate_delete(struct bgp *bgp, const struct prefix *p, afi_t afi,
 							aggregate,
 							pi->attr->aspath);
 
-				if (pi->attr->community)
+				if (bgp_attr_get_community(pi->attr))
 					/* Remove community from aggregate.
 					 */
 					bgp_remove_comm_from_aggregate_hash(
-							aggregate,
-							pi->attr->community);
+						aggregate,
+						bgp_attr_get_community(
+							pi->attr));
 
 				if (bgp_attr_get_ecommunity(pi->attr))
 					/* Remove ecommunity from aggregate.
@@ -7718,10 +7727,9 @@ static void bgp_add_route_to_aggregate(struct bgp *bgp,
 
 		/* Compute aggregate route's community.
 		 */
-		if (pinew->attr->community)
+		if (bgp_attr_get_community(pinew->attr))
 			bgp_compute_aggregate_community(
-						aggregate,
-						pinew->attr->community);
+				aggregate, bgp_attr_get_community(pinew->attr));
 
 		/* Compute aggregate route's extended community.
 		 */
@@ -7821,12 +7829,11 @@ static void bgp_remove_route_from_aggregate(struct bgp *bgp, afi_t afi,
 		bgp_remove_aspath_from_aggregate(aggregate,
 						 pi->attr->aspath);
 
-		if (pi->attr->community)
+		if (bgp_attr_get_community(pi->attr))
 			/* Remove community from aggregate.
 			 */
 			bgp_remove_community_from_aggregate(
-							aggregate,
-							pi->attr->community);
+				aggregate, bgp_attr_get_community(pi->attr));
 
 		if (bgp_attr_get_ecommunity(pi->attr))
 			/* Remove ecommunity from aggregate.
@@ -10510,14 +10517,16 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 	/* Line 4 display Community */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
 		if (json_paths) {
-			if (!attr->community->json)
-				community_str(attr->community, true);
-			json_object_lock(attr->community->json);
-			json_object_object_add(json_path, "community",
-					       attr->community->json);
+			if (!bgp_attr_get_community(attr)->json)
+				community_str(bgp_attr_get_community(attr),
+					      true);
+			json_object_lock(bgp_attr_get_community(attr)->json);
+			json_object_object_add(
+				json_path, "community",
+				bgp_attr_get_community(attr)->json);
 		} else {
 			vty_out(vty, "      Community: %s\n",
-				attr->community->str);
+				bgp_attr_get_community(attr)->str);
 		}
 	}
 
@@ -10762,8 +10771,10 @@ void route_vty_out_detail(struct vty *vty, struct bgp *bgp, struct bgp_dest *bn,
 				gr_remaining);
 	}
 
-	if (path->peer->t_llgr_stale[afi][safi] && attr->community &&
-	    community_include(attr->community, COMMUNITY_LLGR_STALE)) {
+	if (path->peer->t_llgr_stale[afi][safi] &&
+	    bgp_attr_get_community(attr) &&
+	    community_include(bgp_attr_get_community(attr),
+			      COMMUNITY_LLGR_STALE)) {
 		unsigned long llgr_remaining = thread_timer_remain_second(
 			path->peer->t_llgr_stale[afi][safi]);
 
@@ -10901,6 +10912,10 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 			json_paths = NULL;
 
 		for (; pi; pi = pi->next) {
+			struct community *picomm = NULL;
+
+			picomm = bgp_attr_get_community(pi->attr);
+
 			total_count++;
 
 			if (type == bgp_show_type_prefix_version) {
@@ -10916,9 +10931,9 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 				int num;
 				bool found = false;
 
-				if (pi->attr->community) {
-					frrstr_split(pi->attr->community->str,
-						     " ", &communities, &num);
+				if (picomm) {
+					frrstr_split(picomm->str, " ",
+						     &communities, &num);
 					for (int i = 0; i < num; i++) {
 						const char *com2alias =
 							bgp_community2alias(
@@ -11042,36 +11057,31 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, safi_t safi,
 					continue;
 			}
 			if (type == bgp_show_type_community_all) {
-				if (!pi->attr->community)
+				if (!picomm)
 					continue;
 			}
 			if (type == bgp_show_type_community) {
 				struct community *com = output_arg;
 
-				if (!pi->attr->community
-				    || !community_match(pi->attr->community,
-							com))
+				if (!picomm || !community_match(picomm, com))
 					continue;
 			}
 			if (type == bgp_show_type_community_exact) {
 				struct community *com = output_arg;
 
-				if (!pi->attr->community
-				    || !community_cmp(pi->attr->community, com))
+				if (!picomm || !community_cmp(picomm, com))
 					continue;
 			}
 			if (type == bgp_show_type_community_list) {
 				struct community_list *list = output_arg;
 
-				if (!community_list_match(pi->attr->community,
-							  list))
+				if (!community_list_match(picomm, list))
 					continue;
 			}
 			if (type == bgp_show_type_community_list_exact) {
 				struct community_list *list = output_arg;
 
-				if (!community_list_exact_match(
-					    pi->attr->community, list))
+				if (!community_list_exact_match(picomm, list))
 					continue;
 			}
 			if (type == bgp_show_type_lcommunity) {
@@ -11489,44 +11499,43 @@ void route_vty_out_detail_header(struct vty *vty, struct bgp *bgp,
 			vty_out(vty, "not allocated\n");
 
 	for (pi = bgp_dest_get_bgp_path_info(dest); pi; pi = pi->next) {
+		struct community *picomm = NULL;
+
+		picomm = bgp_attr_get_community(pi->attr);
+
 		count++;
 		if (CHECK_FLAG(pi->flags, BGP_PATH_SELECTED)) {
 			best = count;
 			if (bgp_path_suppressed(pi))
 				suppress = 1;
 
-			if (pi->attr->community == NULL)
+			if (!picomm)
 				continue;
 
 			no_advertise += community_include(
-				pi->attr->community, COMMUNITY_NO_ADVERTISE);
-			no_export += community_include(pi->attr->community,
-						       COMMUNITY_NO_EXPORT);
-			local_as += community_include(pi->attr->community,
-						      COMMUNITY_LOCAL_AS);
-			accept_own += community_include(pi->attr->community,
-							COMMUNITY_ACCEPT_OWN);
+				picomm, COMMUNITY_NO_ADVERTISE);
+			no_export +=
+				community_include(picomm, COMMUNITY_NO_EXPORT);
+			local_as +=
+				community_include(picomm, COMMUNITY_LOCAL_AS);
+			accept_own +=
+				community_include(picomm, COMMUNITY_ACCEPT_OWN);
 			route_filter_translated_v4 += community_include(
-				pi->attr->community,
-				COMMUNITY_ROUTE_FILTER_TRANSLATED_v4);
+				picomm, COMMUNITY_ROUTE_FILTER_TRANSLATED_v4);
 			route_filter_translated_v6 += community_include(
-				pi->attr->community,
-				COMMUNITY_ROUTE_FILTER_TRANSLATED_v6);
+				picomm, COMMUNITY_ROUTE_FILTER_TRANSLATED_v6);
 			route_filter_v4 += community_include(
-				pi->attr->community, COMMUNITY_ROUTE_FILTER_v4);
+				picomm, COMMUNITY_ROUTE_FILTER_v4);
 			route_filter_v6 += community_include(
-				pi->attr->community, COMMUNITY_ROUTE_FILTER_v6);
-			llgr_stale += community_include(pi->attr->community,
-							COMMUNITY_LLGR_STALE);
-			no_llgr += community_include(pi->attr->community,
-						     COMMUNITY_NO_LLGR);
-			accept_own_nexthop +=
-				community_include(pi->attr->community,
-						  COMMUNITY_ACCEPT_OWN_NEXTHOP);
-			blackhole += community_include(pi->attr->community,
-						       COMMUNITY_BLACKHOLE);
-			no_peer += community_include(pi->attr->community,
-						     COMMUNITY_NO_PEER);
+				picomm, COMMUNITY_ROUTE_FILTER_v6);
+			llgr_stale +=
+				community_include(picomm, COMMUNITY_LLGR_STALE);
+			no_llgr += community_include(picomm, COMMUNITY_NO_LLGR);
+			accept_own_nexthop += community_include(
+				picomm, COMMUNITY_ACCEPT_OWN_NEXTHOP);
+			blackhole +=
+				community_include(picomm, COMMUNITY_BLACKHOLE);
+			no_peer += community_include(picomm, COMMUNITY_NO_PEER);
 		}
 	}
 
