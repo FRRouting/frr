@@ -183,7 +183,7 @@ extern void bgp_evpn_route2json(const struct prefix_evpn *p, json_object *json);
 extern void bgp_evpn_encode_prefix(struct stream *s, const struct prefix *p,
 				   const struct prefix_rd *prd,
 				   mpls_label_t *label, uint32_t num_labels,
-				   struct attr *attr, int addpath_encode,
+				   struct attr *attr, bool addpath_capable,
 				   uint32_t addpath_tx_id);
 extern int bgp_nlri_parse_evpn(struct peer *peer, struct attr *attr,
 			       struct bgp_nlri *packet, int withdraw);
