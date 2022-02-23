@@ -498,6 +498,41 @@ DEFUN (clear_thread_cpu,
 	return CMD_SUCCESS;
 }
 
+static void show_thread_timers_helper(struct vty *vty, struct thread_master *m)
+{
+	const char *name = m->name ? m->name : "main";
+	char underline[strlen(name) + 1];
+	struct thread *thread;
+
+	memset(underline, '-', sizeof(underline));
+	underline[sizeof(underline) - 1] = '\0';
+
+	vty_out(vty, "\nShowing timers for %s\n", name);
+	vty_out(vty, "-------------------%s\n", underline);
+
+	frr_each (thread_timer_list, &m->timer, thread) {
+		vty_out(vty, "  %-50s%pTH\n", thread->hist->funcname, thread);
+	}
+}
+
+DEFPY_NOSH (show_thread_timers,
+	    show_thread_timers_cmd,
+	    "show thread timers",
+	    SHOW_STR
+	    "Thread information\n"
+	    "Show all timers and how long they have in the system\n")
+{
+	struct listnode *node;
+	struct thread_master *m;
+
+	frr_with_mutex (&masters_mtx) {
+		for (ALL_LIST_ELEMENTS_RO(masters, node, m))
+			show_thread_timers_helper(vty, m);
+	}
+
+	return CMD_SUCCESS;
+}
+
 void thread_cmd_init(void)
 {
 	install_element(VIEW_NODE, &show_thread_cpu_cmd);
@@ -509,6 +544,8 @@ void thread_cmd_init(void)
 	install_element(CONFIG_NODE, &no_service_cputime_warning_cmd);
 	install_element(CONFIG_NODE, &service_walltime_warning_cmd);
 	install_element(CONFIG_NODE, &no_service_walltime_warning_cmd);
+
+	install_element(VIEW_NODE, &show_thread_timers_cmd);
 }
 /* CLI end ------------------------------------------------------------------ */
 
