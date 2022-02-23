@@ -669,9 +669,8 @@ unsigned int attrhash_key_make(const void *p)
 
 	if (attr->aspath)
 		MIX(aspath_key_make(attr->aspath));
-	if (attr->community)
-		MIX(community_hash_make(attr->community));
-
+	if (bgp_attr_get_community(attr))
+		MIX(community_hash_make(bgp_attr_get_community(attr)));
 	if (bgp_attr_get_lcommunity(attr))
 		MIX(lcommunity_hash_make(bgp_attr_get_lcommunity(attr)));
 	if (bgp_attr_get_ecommunity(attr))
@@ -713,7 +712,9 @@ bool attrhash_cmp(const void *p1, const void *p2)
 	if (attr1->flag == attr2->flag && attr1->origin == attr2->origin
 	    && attr1->nexthop.s_addr == attr2->nexthop.s_addr
 	    && attr1->aspath == attr2->aspath
-	    && attr1->community == attr2->community && attr1->med == attr2->med
+	    && bgp_attr_get_community(attr1)
+				== bgp_attr_get_community(attr2)
+		&& attr1->med == attr2->med
 	    && attr1->local_pref == attr2->local_pref
 	    && attr1->rmap_change_flags == attr2->rmap_change_flags) {
 		if (attr1->aggregator_as == attr2->aggregator_as
@@ -844,6 +845,7 @@ struct attr *bgp_attr_intern(struct attr *attr)
 	struct ecommunity *ecomm = NULL;
 	struct ecommunity *ipv6_ecomm = NULL;
 	struct lcommunity *lcomm = NULL;
+	struct community *comm = NULL;
 
 	/* Intern referenced strucutre. */
 	if (attr->aspath) {
@@ -852,11 +854,13 @@ struct attr *bgp_attr_intern(struct attr *attr)
 		else
 			attr->aspath->refcnt++;
 	}
-	if (attr->community) {
-		if (!attr->community->refcnt)
-			attr->community = community_intern(attr->community);
+
+	comm = bgp_attr_get_community(attr);
+	if (comm) {
+		if (!comm->refcnt)
+			bgp_attr_set_community(attr, community_intern(comm));
 		else
-			attr->community->refcnt++;
+			comm->refcnt++;
 	}
 
 	ecomm = bgp_attr_get_ecommunity(attr);
@@ -1003,7 +1007,7 @@ struct attr *bgp_attr_aggregate_intern(
 			community_del_val(community, &gshut);
 		}
 
-		attr.community = community;
+		bgp_attr_set_community(&attr, community);
 		attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 	}
 
@@ -1084,14 +1088,16 @@ void bgp_attr_unintern_sub(struct attr *attr)
 	struct ecommunity *ipv6_ecomm = NULL;
 	struct cluster_list *cluster;
 	struct lcommunity *lcomm = NULL;
+	struct community *comm = NULL;
 
 	/* aspath refcount shoud be decrement. */
 	aspath_unintern(&attr->aspath);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_AS_PATH));
 
-	if (attr->community)
-		community_unintern(&attr->community);
+	comm = bgp_attr_get_community(attr);
+	community_unintern(&comm);
 	UNSET_FLAG(attr->flag, ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
+	bgp_attr_set_community(attr, NULL);
 
 	ecomm = bgp_attr_get_ecommunity(attr);
 	ecommunity_unintern(&ecomm);
@@ -1171,21 +1177,27 @@ void bgp_attr_flush(struct attr *attr)
 	struct ecommunity *ipv6_ecomm;
 	struct cluster_list *cluster;
 	struct lcommunity *lcomm;
+	struct community *comm;
 
 	if (attr->aspath && !attr->aspath->refcnt) {
 		aspath_free(attr->aspath);
 		attr->aspath = NULL;
 	}
-	if (attr->community && !attr->community->refcnt)
-		community_free(&attr->community);
+	comm = bgp_attr_get_community(attr);
+	if (comm && !comm->refcnt)
+		community_free(&comm);
+	bgp_attr_set_community(attr, NULL);
+
 	ecomm = bgp_attr_get_ecommunity(attr);
 	if (ecomm && !ecomm->refcnt)
 		ecommunity_free(&ecomm);
 	bgp_attr_set_ecommunity(attr, NULL);
+
 	ipv6_ecomm = bgp_attr_get_ipv6_ecommunity(attr);
 	if (ipv6_ecomm && !ipv6_ecomm->refcnt)
 		ecommunity_free(&ipv6_ecomm);
 	bgp_attr_set_ipv6_ecommunity(attr, NULL);
+
 	lcomm = bgp_attr_get_lcommunity(attr);
 	if (lcomm && !lcomm->refcnt)
 		lcommunity_free(&lcomm);
@@ -1932,13 +1944,14 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 	const bgp_size_t length = args->length;
 
 	if (length == 0) {
-		attr->community = NULL;
+		bgp_attr_set_community(attr, NULL);
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 	}
 
-	attr->community =
-		community_parse((uint32_t *)stream_pnt(peer->curr), length);
+	bgp_attr_set_community(
+		attr,
+		community_parse((uint32_t *)stream_pnt(peer->curr), length));
 
 	/* XXX: fix community_parse to use stream API and remove this */
 	stream_forward_getp(peer->curr, length);
@@ -1946,7 +1959,7 @@ bgp_attr_community(struct bgp_attr_parser_args *args)
 	/* The Community attribute SHALL be considered malformed if its
 	 * length is not a non-zero multiple of 4.
 	 */
-	if (!attr->community)
+	if (!bgp_attr_get_community(attr))
 		return bgp_attr_malformed(args, BGP_NOTIFY_UPDATE_OPT_ATTR_ERR,
 					  args->total);
 
@@ -4075,20 +4088,23 @@ bgp_size_t bgp_packet_attribute(struct bgp *bgp, struct peer *peer,
 	/* Community attribute. */
 	if (CHECK_FLAG(peer->af_flags[afi][safi], PEER_FLAG_SEND_COMMUNITY)
 	    && (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES))) {
-		if (attr->community->size * 4 > 255) {
+		struct community *comm = NULL;
+
+		comm = bgp_attr_get_community(attr);
+		if (comm->size * 4 > 255) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
 					    | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
-			stream_putw(s, attr->community->size * 4);
+			stream_putw(s, comm->size * 4);
 		} else {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
-			stream_putc(s, attr->community->size * 4);
+			stream_putc(s, comm->size * 4);
 		}
-		stream_put(s, attr->community->val, attr->community->size * 4);
+		stream_put(s, comm->val, comm->size * 4);
 	}
 
 	/*
@@ -4525,20 +4541,23 @@ void bgp_dump_routes_attr(struct stream *s, struct attr *attr,
 
 	/* Community attribute. */
 	if (attr->flag & ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES)) {
-		if (attr->community->size * 4 > 255) {
+		struct community *comm = NULL;
+
+		comm = bgp_attr_get_community(attr);
+		if (comm->size * 4 > 255) {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL | BGP_ATTR_FLAG_TRANS
 					    | BGP_ATTR_FLAG_EXTLEN);
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
-			stream_putw(s, attr->community->size * 4);
+			stream_putw(s, comm->size * 4);
 		} else {
 			stream_putc(s,
 				    BGP_ATTR_FLAG_OPTIONAL
 					    | BGP_ATTR_FLAG_TRANS);
 			stream_putc(s, BGP_ATTR_COMMUNITIES);
-			stream_putc(s, attr->community->size * 4);
+			stream_putc(s, comm->size * 4);
 		}
-		stream_put(s, attr->community->val, attr->community->size * 4);
+		stream_put(s, comm->val, comm->size * 4);
 	}
 
 	/* Large Community attribute. */

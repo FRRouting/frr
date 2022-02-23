@@ -530,6 +530,17 @@ static inline void bgp_attr_set_lcommunity(struct attr *attr,
 	attr->lcommunity = lcomm;
 }
 
+static inline struct community *bgp_attr_get_community(const struct attr *attr)
+{
+	return attr->community;
+}
+
+static inline void bgp_attr_set_community(struct attr *attr,
+					  struct community *comm)
+{
+	attr->community = comm;
+}
+
 static inline struct ecommunity *
 bgp_attr_get_ipv6_ecommunity(const struct attr *attr)
 {
