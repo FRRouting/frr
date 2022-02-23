@@ -280,7 +280,7 @@ Showing ISIS information
 
    Show information about ISIS node.
 
-.. clicmd:: show isis interface [detail] [IFNAME]
+.. clicmd:: show isis [vrf <NAME|all>] interface [detail] [IFNAME] [json]
 
    Show state and configuration of ISIS specified interface, or all interfaces
    if no interface is given with or without details.
