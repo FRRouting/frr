@@ -272,7 +272,7 @@ ISIS interface
 Showing ISIS information
 ========================
 
-.. clicmd:: show isis summary
+.. clicmd:: show isis [vrf <NAME|all>] summary [json]
 
    Show summary information about ISIS.
 

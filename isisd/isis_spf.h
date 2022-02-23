@@ -75,6 +75,8 @@ void isis_print_routes(struct vty *vty, struct isis_spftree *spftree,
 		       bool prefix_sid, bool backup);
 void isis_spf_init(void);
 void isis_spf_print(struct isis_spftree *spftree, struct vty *vty);
+void isis_spf_print_json(struct isis_spftree *spftree,
+			 struct json_object *json);
 void isis_run_spf(struct isis_spftree *spftree);
 struct isis_spftree *isis_run_hopcount_spf(struct isis_area *area,
 					   uint8_t *sysid,
