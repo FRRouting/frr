@@ -824,14 +824,25 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 				struct interface *incoming)
 {
 	up->rpf.source_nexthop.interface = incoming;
-	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr, PIMADDR_ANY);
+	up->rpf.source_nexthop.mrib_nexthop_addr.family = PIM_AF;
+#if PIM_IPV == 4 
+	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4 = PIMADDR_ANY;
+#else
+	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix6 = PIMADDR_ANY;
+#endif
 
 	/* reset other parameters to matched a connected incoming interface */
 	up->rpf.source_nexthop.mrib_metric_preference =
 		ZEBRA_CONNECT_DISTANCE_DEFAULT;
 	up->rpf.source_nexthop.mrib_route_metric = 0;
+	up->rpf.rpf_addr.family = PIM_AF;
 
-	pim_addr_to_prefix(&up->rpf.rpf_addr, PIMADDR_ANY);
+#if PIM_IPV == 4 
+	up->rpf.rpf_addr.u.prefix4 = PIMADDR_ANY;
+#else
+	up->rpf.rpf_addr.u.prefix6 = PIMADDR_ANY;
+#endif
+
 }
 
 static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
@@ -885,15 +896,22 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
-
-	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr, PIMADDR_ANY);
+	up->rpf.source_nexthop.mrib_nexthop_addr.family = PIM_AF;
+#if PIM_IPV == 4
+	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4 = PIMADDR_ANY;
+#else
+	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix6 = PIMADDR_ANY;
+#endif
 	up->rpf.source_nexthop.mrib_metric_preference =
 		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
 		router->infinite_assert_metric.route_metric;
-
-	pim_addr_to_prefix(&up->rpf.rpf_addr, PIMADDR_ANY);
-
+	up->rpf.rpf_addr.family = PIM_AF;
+#if PIM_IPV == 4
+	up->rpf.rpf_addr.u.prefix4 = PIMADDR_ANY;
+#else
+	up->rpf.rpf_addr.u.prefix6 = PIMADDR_ANY;
+#endif
 	up->ifchannels = list_new();
 	up->ifchannels->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
 
