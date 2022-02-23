@@ -1236,6 +1236,10 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 
 			no_display = 0;
 			for (; pi; pi = pi->next) {
+				struct community *picomm = NULL;
+
+				picomm = bgp_attr_get_community(pi->attr);
+
 				total_count++;
 				if (type == bgp_show_type_neighbor) {
 				        struct peer *peer = output_arg;
@@ -1268,17 +1272,15 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 				if (type == bgp_show_type_community) {
 					struct community *com = output_arg;
 
-					if (!pi->attr->community ||
-						!community_match(
-						pi->attr->community, com))
+					if (!picomm ||
+					    !community_match(picomm, com))
 						continue;
 				}
 				if (type == bgp_show_type_community_exact) {
 					struct community *com = output_arg;
 
-					if (!pi->attr->community ||
-						!community_cmp(
-						pi->attr->community, com))
+					if (!picomm ||
+					    !community_cmp(picomm, com))
 						continue;
 				}
 				if (header) {
