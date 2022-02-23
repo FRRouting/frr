@@ -428,8 +428,8 @@ void pim_update_suppress_timers(uint32_t suppress_time)
 	}
 }
 
-void pim_upstream_join_suppress(struct pim_upstream *up,
-				struct in_addr rpf_addr, int holdtime)
+void pim_upstream_join_suppress(struct pim_upstream *up, struct prefix rpf,
+				int holdtime)
 {
 	long t_joinsuppress_msec;
 	long join_timer_remain_msec = 0;
@@ -461,7 +461,8 @@ void pim_upstream_join_suppress(struct pim_upstream *up,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char rpf_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<rpf?>", rpf_addr, rpf_str, sizeof(rpf_str));
+
+		pim_addr_dump("<rpf?>", &rpf, rpf_str, sizeof(rpf_str));
 		zlog_debug(
 			"%s %s: detected Join%s to RPF'(S,G)=%s: join_timer=%ld msec t_joinsuppress=%ld msec",
 			__FILE__, __func__, up->sg_str, rpf_str,
@@ -518,8 +519,10 @@ void pim_upstream_join_timer_decrease_to_t_override(const char *debug_label,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		char rpf_str[INET_ADDRSTRLEN];
-		pim_inet4_dump("<rpf?>", up->rpf.rpf_addr.u.prefix4, rpf_str,
-			       sizeof(rpf_str));
+
+		pim_addr_dump("<rpf?>", &up->rpf.rpf_addr, rpf_str,
+			      sizeof(rpf_str));
+
 		zlog_debug(
 			"%s: to RPF'%s=%s: join_timer=%ld msec t_override=%d msec",
 			debug_label, up->sg_str, rpf_str,
@@ -835,9 +838,8 @@ void pim_upstream_fill_static_iif(struct pim_upstream *up,
 	up->rpf.source_nexthop.interface = incoming;
 
 	/* reset other parameters to matched a connected incoming interface */
-	up->rpf.source_nexthop.mrib_nexthop_addr.family = AF_INET;
-	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
-		PIM_NET_INADDR_ANY;
+	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
+			   PIMADDR_ANY);
 	up->rpf.source_nexthop.mrib_metric_preference =
 		ZEBRA_CONNECT_DISTANCE_DEFAULT;
 	up->rpf.source_nexthop.mrib_route_metric = 0;
@@ -897,16 +899,13 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 	up->sptbit = PIM_UPSTREAM_SPTBIT_FALSE;
 
 	up->rpf.source_nexthop.interface = NULL;
-	up->rpf.source_nexthop.mrib_nexthop_addr.family = AF_INET;
-	up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4.s_addr =
-		PIM_NET_INADDR_ANY;
+	pim_addr_to_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr,
+			   PIMADDR_ANY);
 	up->rpf.source_nexthop.mrib_metric_preference =
 		router->infinite_assert_metric.metric_preference;
 	up->rpf.source_nexthop.mrib_route_metric =
 		router->infinite_assert_metric.route_metric;
-	up->rpf.rpf_addr.family = AF_INET;
-	up->rpf.rpf_addr.u.prefix4.s_addr = PIM_NET_INADDR_ANY;
-
+	pim_addr_to_prefix(&up->rpf.rpf_addr, PIMADDR_ANY);
 	up->ifchannels = list_new();
 	up->ifchannels->cmp = (int (*)(void *, void *))pim_ifchannel_compare;
 
@@ -966,7 +965,7 @@ static struct pim_upstream *pim_upstream_new(struct pim_instance *pim,
 
 	if (PIM_DEBUG_PIM_TRACE) {
 		zlog_debug(
-			"%s: Created Upstream %s upstream_addr %pI4 ref count %d increment",
+			"%s: Created Upstream %s upstream_addr %pPAs ref count %d increment",
 			__func__, up->sg_str, &up->upstream_addr,
 			up->ref_count);
 	}

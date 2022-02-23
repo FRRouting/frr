@@ -764,8 +764,7 @@ static void check_recv_upstream(int is_join, struct interface *recv_ifp,
 
 	if (is_join) {
 		/* Join(S,G) to RPF'(S,G) */
-		pim_upstream_join_suppress(up, up->rpf.rpf_addr.u.prefix4,
-					   holdtime);
+		pim_upstream_join_suppress(up, up->rpf.rpf_addr, holdtime);
 		return;
 	}
 
