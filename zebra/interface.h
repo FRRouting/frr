@@ -412,6 +412,7 @@ struct zebra_if {
 	ifindex_t link_ifindex;
 	struct interface *link;
 
+	uint8_t speed_update_count;
 	struct thread *speed_update;
 
 	/*
