@@ -1090,7 +1090,7 @@ DEFUN(show_sr_node, show_sr_node_cmd,
  *
  * @return		1 on success
  */
-static int sr_start_label_manager(struct thread *start)
+static void sr_start_label_manager(struct thread *start)
 {
 	struct isis_area *area;
 
@@ -1098,8 +1098,6 @@ static int sr_start_label_manager(struct thread *start)
 
 	/* re-attempt to start SR & Label Manager connection */
 	isis_sr_start(area);
-
-	return 1;
 }
 
 /**

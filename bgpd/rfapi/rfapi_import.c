@@ -2372,7 +2372,7 @@ static void rfapiMonitorEncapDelete(struct bgp_path_info *vpn_bpi)
  * quagga lib/thread.h says this must return int even though
  * it doesn't do anything with the return value
  */
-static int rfapiWithdrawTimerVPN(struct thread *t)
+static void rfapiWithdrawTimerVPN(struct thread *t)
 {
 	struct rfapi_withdraw *wcb = t->arg;
 	struct bgp_path_info *bpi = wcb->info;
@@ -2385,13 +2385,13 @@ static int rfapiWithdrawTimerVPN(struct thread *t)
 		vnc_zlog_debug_verbose(
                    "%s: NULL BGP pointer, assume shutdown race condition!!!",
                    __func__);
-		return 0;
+		return;
 	}
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_DELETE_IN_PROGRESS)) {
 		vnc_zlog_debug_verbose(
 			"%s: BGP delete in progress, assume shutdown race condition!!!",
 			__func__);
-		return 0;
+		return;
 	}
 	assert(wcb->node);
 	assert(bpi);
@@ -2503,7 +2503,6 @@ done:
 	RFAPI_CHECK_REFCOUNT(wcb->node, SAFI_MPLS_VPN, 1 + wcb->lockoffset);
 	agg_unlock_node(wcb->node); /* decr ref count */
 	XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
-	return 0;
 }
 
 /*
@@ -2674,7 +2673,7 @@ rfapiWithdrawEncapUpdateCachedUn(struct rfapi_import_table *import_table,
 	return 0;
 }
 
-static int rfapiWithdrawTimerEncap(struct thread *t)
+static void rfapiWithdrawTimerEncap(struct thread *t)
 {
 	struct rfapi_withdraw *wcb = t->arg;
 	struct bgp_path_info *bpi = wcb->info;
@@ -2748,7 +2747,6 @@ done:
 	agg_unlock_node(wcb->node); /* decr ref count */
 	XFREE(MTYPE_RFAPI_WITHDRAW, wcb);
 	skiplist_free(vpn_node_sl);
-	return 0;
 }
 
 
@@ -2760,7 +2758,7 @@ static void
 rfapiBiStartWithdrawTimer(struct rfapi_import_table *import_table,
 			  struct agg_node *rn, struct bgp_path_info *bpi,
 			  afi_t afi, safi_t safi,
-			  int (*timer_service_func)(struct thread *))
+			  void (*timer_service_func)(struct thread *))
 {
 	uint32_t lifetime;
 	struct rfapi_withdraw *wcb;
@@ -4062,7 +4060,7 @@ static void rfapiProcessPeerDownRt(struct peer *peer,
 	struct agg_node *rn;
 	struct bgp_path_info *bpi;
 	struct agg_table *rt;
-	int (*timer_service_func)(struct thread *);
+	void (*timer_service_func)(struct thread *);
 
 	assert(afi == AFI_IP || afi == AFI_IP6);
 

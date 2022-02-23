@@ -61,7 +61,7 @@ const char *isis_disflag2string(int disflag)
 	return NULL; /* not reached */
 }
 
-int isis_run_dr(struct thread *thread)
+void isis_run_dr(struct thread *thread)
 {
 	struct isis_circuit_arg *arg = THREAD_ARG(thread);
 
@@ -76,7 +76,7 @@ int isis_run_dr(struct thread *thread)
 		zlog_warn("%s: scheduled for non broadcast circuit from %s:%d",
 			  __func__, thread->xref->xref.file,
 			  thread->xref->xref.line);
-		return ISIS_WARNING;
+		return;
 	}
 
 	if (circuit->u.bc.run_dr_elect[level - 1])
@@ -84,8 +84,6 @@ int isis_run_dr(struct thread *thread)
 
 	circuit->u.bc.t_run_dr[level - 1] = NULL;
 	circuit->u.bc.run_dr_elect[level - 1] = 1;
-
-	return ISIS_OK;
 }
 
 static int isis_check_dr_change(struct isis_adjacency *adj, int level)

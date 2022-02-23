@@ -1299,7 +1299,7 @@ static void vty_buffer_reset(struct vty *vty)
 }
 
 /* Read data via vty socket. */
-static int vty_read(struct thread *thread)
+static void vty_read(struct thread *thread)
 {
 	int i;
 	int nbytes;
@@ -1312,7 +1312,7 @@ static int vty_read(struct thread *thread)
 		if (nbytes < 0) {
 			if (ERRNO_IO_RETRY(errno)) {
 				vty_event(VTY_READ, vty);
-				return 0;
+				return;
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
@@ -1496,11 +1496,10 @@ static int vty_read(struct thread *thread)
 		vty_event(VTY_WRITE, vty);
 		vty_event(VTY_READ, vty);
 	}
-	return 0;
 }
 
 /* Flush buffer to the vty. */
-static int vty_flush(struct thread *thread)
+static void vty_flush(struct thread *thread)
 {
 	int erase;
 	buffer_status_t flushrc;
@@ -1532,7 +1531,7 @@ static int vty_flush(struct thread *thread)
 		buffer_reset(vty->lbuf);
 		buffer_reset(vty->obuf);
 		vty_close(vty);
-		return 0;
+		return;
 	case BUFFER_EMPTY:
 		if (vty->status == VTY_CLOSE)
 			vty_close(vty);
@@ -1549,8 +1548,6 @@ static int vty_flush(struct thread *thread)
 			vty_event(VTY_WRITE, vty);
 		break;
 	}
-
-	return 0;
 }
 
 /* Allocate new vty struct. */
@@ -1753,7 +1750,7 @@ struct vty *vty_stdio(void (*atclose)(int isexit))
 }
 
 /* Accept connection from the network. */
-static int vty_accept(struct thread *thread)
+static void vty_accept(struct thread *thread)
 {
 	struct vty_serv *vtyserv = THREAD_ARG(thread);
 	int vty_sock;
@@ -1774,7 +1771,7 @@ static int vty_accept(struct thread *thread)
 	if (vty_sock < 0) {
 		flog_err(EC_LIB_SOCKET, "can't accept vty socket : %s",
 			 safe_strerror(errno));
-		return -1;
+		return;
 	}
 	set_nonblocking(vty_sock);
 	set_cloexec(vty_sock);
@@ -1783,7 +1780,7 @@ static int vty_accept(struct thread *thread)
 		close(vty_sock);
 		zlog_info("Vty unable to convert prefix from sockunion %pSU",
 			  &su);
-		return -1;
+		return;
 	}
 
 	/* VTY's accesslist apply. */
@@ -1792,7 +1789,7 @@ static int vty_accept(struct thread *thread)
 		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
 			zlog_info("Vty connection refused from %pSU", &su);
 			close(vty_sock);
-			return 0;
+			return;
 		}
 	}
 
@@ -1803,7 +1800,7 @@ static int vty_accept(struct thread *thread)
 		    && (access_list_apply(acl, &p) == FILTER_DENY)) {
 			zlog_info("Vty connection refused from %pSU", &su);
 			close(vty_sock);
-			return 0;
+			return;
 		}
 	}
 
@@ -1817,8 +1814,6 @@ static int vty_accept(struct thread *thread)
 	zlog_info("Vty connection from %pSU", &su);
 
 	vty_create(vty_sock, &su);
-
-	return 0;
 }
 
 static void vty_serv_sock_addrinfo(const char *hostname, unsigned short port)
@@ -1968,7 +1963,7 @@ static void vty_serv_un(const char *path)
 
 /* #define VTYSH_DEBUG 1 */
 
-static int vtysh_accept(struct thread *thread)
+static void vtysh_accept(struct thread *thread)
 {
 	struct vty_serv *vtyserv = THREAD_ARG(thread);
 	int accept_sock = vtyserv->sock;
@@ -1988,7 +1983,7 @@ static int vtysh_accept(struct thread *thread)
 	if (sock < 0) {
 		flog_err(EC_LIB_SOCKET, "can't accept vty socket : %s",
 			 safe_strerror(errno));
-		return -1;
+		return;
 	}
 
 	if (set_nonblocking(sock) < 0) {
@@ -1997,7 +1992,7 @@ static int vtysh_accept(struct thread *thread)
 			"vtysh_accept: could not set vty socket %d to non-blocking, %s, closing",
 			sock, safe_strerror(errno));
 		close(sock);
-		return -1;
+		return;
 	}
 	set_cloexec(sock);
 
@@ -2013,8 +2008,6 @@ static int vtysh_accept(struct thread *thread)
 	vtys_add_tail(vtysh_sessions, vty);
 
 	vty_event(VTYSH_READ, vty);
-
-	return 0;
 }
 
 static int vtysh_flush(struct vty *vty)
@@ -2038,7 +2031,7 @@ static int vtysh_flush(struct vty *vty)
 	return 0;
 }
 
-static int vtysh_read(struct thread *thread)
+static void vtysh_read(struct thread *thread)
 {
 	int ret;
 	int sock;
@@ -2055,7 +2048,7 @@ static int vtysh_read(struct thread *thread)
 		if (nbytes < 0) {
 			if (ERRNO_IO_RETRY(errno)) {
 				vty_event(VTYSH_READ, vty);
-				return 0;
+				return;
 			}
 			vty->monitor = 0; /* disable monitoring to avoid
 					     infinite recursion */
@@ -2070,7 +2063,7 @@ static int vtysh_read(struct thread *thread)
 #ifdef VTYSH_DEBUG
 		printf("close vtysh\n");
 #endif /* VTYSH_DEBUG */
-		return 0;
+		return;
 	}
 
 #ifdef VTYSH_DEBUG
@@ -2112,7 +2105,7 @@ static int vtysh_read(struct thread *thread)
 				if (!vty->t_write && (vtysh_flush(vty) < 0))
 					/* Try to flush results; exit if a write
 					 * error occurs. */
-					return 0;
+					return;
 			}
 		}
 	}
@@ -2121,16 +2114,13 @@ static int vtysh_read(struct thread *thread)
 		vty_close(vty);
 	else
 		vty_event(VTYSH_READ, vty);
-
-	return 0;
 }
 
-static int vtysh_write(struct thread *thread)
+static void vtysh_write(struct thread *thread)
 {
 	struct vty *vty = THREAD_ARG(thread);
 
 	vtysh_flush(vty);
-	return 0;
 }
 
 #endif /* VTYSH */
@@ -2221,7 +2211,7 @@ void vty_close(struct vty *vty)
 }
 
 /* When time out occur output message then close connection. */
-static int vty_timeout(struct thread *thread)
+static void vty_timeout(struct thread *thread)
 {
 	struct vty *vty;
 
@@ -2236,8 +2226,6 @@ static int vty_timeout(struct thread *thread)
 	/* Close connection. */
 	vty->status = VTY_CLOSE;
 	vty_close(vty);
-
-	return 0;
 }
 
 /* Read up configuration file from file_name. */

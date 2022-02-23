@@ -157,7 +157,7 @@ static struct bsgrp_node *pim_bsm_new_bsgrp_node(struct route_table *rt,
 	return bsgrp;
 }
 
-static int pim_on_bs_timer(struct thread *t)
+static void pim_on_bs_timer(struct thread *t)
 {
 	struct route_node *rn;
 	struct bsm_scope *scope;
@@ -200,7 +200,6 @@ static int pim_on_bs_timer(struct thread *t)
 		pim_bsm_rpinfos_free(bsgrp_node->partial_bsrp_list);
 		bsgrp_node->pend_rp_cnt = 0;
 	}
-	return 0;
 }
 
 static void pim_bs_timer_stop(struct bsm_scope *scope)
@@ -276,7 +275,7 @@ static bool is_hold_time_elapsed(void *data)
 		return true;
 }
 
-static int pim_on_g2rp_timer(struct thread *t)
+static void pim_on_g2rp_timer(struct thread *t)
 {
 	struct bsm_rpinfo *bsrp;
 	struct bsm_rpinfo *bsrp_node;
@@ -312,14 +311,14 @@ static int pim_on_g2rp_timer(struct thread *t)
 
 	if (!rn) {
 		zlog_warn("%s: Route node doesn't exist", __func__);
-		return 0;
+		return;
 	}
 
 	rp_info = (struct rp_info *)rn->info;
 
 	if (!rp_info) {
 		route_unlock_node(rn);
-		return 0;
+		return;
 	}
 
 	if (rp_info->rp_src != RP_SRC_STATIC) {
@@ -342,8 +341,6 @@ static int pim_on_g2rp_timer(struct thread *t)
 				    &bsgrp_node->group);
 		pim_free_bsgrp_data(bsgrp_node);
 	}
-
-	return 0;
 }
 
 static void pim_g2rp_timer_start(struct bsm_rpinfo *bsrp, int hold_time)

@@ -79,7 +79,7 @@ static const struct frr_yang_module_info *const staticd_yang_modules[] = {
 	&frr_staticd_info,   &frr_vrf_info,
 };
 
-static int grpc_thread_stop(struct thread *thread);
+static void grpc_thread_stop(struct thread *thread);
 
 static void _err_print(const void *cookie, const char *errstr)
 {
@@ -499,7 +499,7 @@ void *grpc_client_test_start(void *arg)
 	return NULL;
 }
 
-static int grpc_thread_start(struct thread *thread)
+static void grpc_thread_start(struct thread *thread)
 {
 	struct frr_pthread_attr client = {
 		.start = grpc_client_test_start,
@@ -509,11 +509,9 @@ static int grpc_thread_start(struct thread *thread)
 	auto pth = frr_pthread_new(&client, "GRPC Client thread", "grpc");
 	frr_pthread_run(pth, NULL);
 	frr_pthread_wait_running(pth);
-
-	return 0;
 }
 
-static int grpc_thread_stop(struct thread *thread)
+static void grpc_thread_stop(struct thread *thread)
 {
 	std::cout << __func__ << ": frr_pthread_stop_all" << std::endl;
 	frr_pthread_stop_all();

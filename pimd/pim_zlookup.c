@@ -41,17 +41,17 @@ static struct zclient *zlookup = NULL;
 struct thread *zlookup_read;
 
 static void zclient_lookup_sched(struct zclient *zlookup, int delay);
-static int zclient_lookup_read_pipe(struct thread *thread);
+static void zclient_lookup_read_pipe(struct thread *thread);
 
 /* Connect to zebra for nexthop lookup. */
-static int zclient_lookup_connect(struct thread *t)
+static void zclient_lookup_connect(struct thread *t)
 {
 	struct zclient *zlookup;
 
 	zlookup = THREAD_ARG(t);
 
 	if (zlookup->sock >= 0) {
-		return 0;
+		return;
 	}
 
 	if (zclient_socket_connect(zlookup) < 0) {
@@ -73,12 +73,11 @@ static int zclient_lookup_connect(struct thread *t)
 	if (zlookup->sock < 0) {
 		/* Since last connect failed, retry within 10 secs */
 		zclient_lookup_sched(zlookup, 10);
-		return -1;
+		return;
 	}
 
 	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
 			 &zlookup_read);
-	return 0;
 }
 
 /* Schedule connection with delay. */
@@ -381,7 +380,7 @@ static int zclient_lookup_nexthop_once(struct pim_instance *pim,
 	return zclient_read_nexthop(pim, zlookup, nexthop_tab, tab_size, addr);
 }
 
-int zclient_lookup_read_pipe(struct thread *thread)
+void zclient_lookup_read_pipe(struct thread *thread)
 {
 	struct zclient *zlookup = THREAD_ARG(thread);
 	struct pim_instance *pim = pim_get_pim_instance(VRF_DEFAULT);
@@ -391,8 +390,6 @@ int zclient_lookup_read_pipe(struct thread *thread)
 	zclient_lookup_nexthop_once(pim, nexthop_tab, 10, l);
 	thread_add_timer(router->master, zclient_lookup_read_pipe, zlookup, 60,
 			 &zlookup_read);
-
-	return 1;
 }
 
 int zclient_lookup_nexthop(struct pim_instance *pim,

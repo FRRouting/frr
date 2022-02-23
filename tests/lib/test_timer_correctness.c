@@ -76,7 +76,7 @@ static void terminate_test(void)
 	exit(exit_code);
 }
 
-static int timer_func(struct thread *thread)
+static void timer_func(struct thread *thread)
 {
 	int rv;
 
@@ -90,8 +90,6 @@ static int timer_func(struct thread *thread)
 	timers_pending--;
 	if (!timers_pending)
 		terminate_test();
-
-	return 0;
 }
 
 static int cmp_timeval(const void *a, const void *b)

@@ -235,14 +235,14 @@ extern char *ospf6_network_lsdesc_lookup(uint32_t router_id,
 					 struct ospf6_lsa *lsa);
 
 extern int ospf6_router_is_stub_router(struct ospf6_lsa *lsa);
-extern int ospf6_router_lsa_originate(struct thread *thread);
-extern int ospf6_network_lsa_originate(struct thread *thread);
-extern int ospf6_link_lsa_originate(struct thread *thread);
-extern int ospf6_intra_prefix_lsa_originate_transit(struct thread *thread);
-extern int ospf6_intra_prefix_lsa_originate_stub(struct thread *thread);
+extern void ospf6_router_lsa_originate(struct thread *thread);
+extern void ospf6_network_lsa_originate(struct thread *thread);
+extern void ospf6_link_lsa_originate(struct thread *thread);
+extern void ospf6_intra_prefix_lsa_originate_transit(struct thread *thread);
+extern void ospf6_intra_prefix_lsa_originate_stub(struct thread *thread);
 extern void ospf6_intra_prefix_lsa_add(struct ospf6_lsa *lsa);
 extern void ospf6_intra_prefix_lsa_remove(struct ospf6_lsa *lsa);
-extern int ospf6_orig_as_external_lsa(struct thread *thread);
+extern void ospf6_orig_as_external_lsa(struct thread *thread);
 extern void ospf6_intra_route_calculation(struct ospf6_area *oa);
 extern void ospf6_intra_brouter_calculation(struct ospf6_area *oa);
 extern void ospf6_intra_prefix_route_ecmp_path(struct ospf6_area *oa,

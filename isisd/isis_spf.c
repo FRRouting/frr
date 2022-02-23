@@ -1832,7 +1832,7 @@ void isis_spf_invalidate_routes(struct isis_spftree *tree)
 	tree->route_table_backup->cleanup = isis_route_node_cleanup;
 }
 
-static int isis_run_spf_cb(struct thread *thread)
+static void isis_run_spf_cb(struct thread *thread)
 {
 	struct isis_spf_run *run = THREAD_ARG(thread);
 	struct isis_area *area = run->area;
@@ -1845,7 +1845,7 @@ static int isis_run_spf_cb(struct thread *thread)
 		if (IS_DEBUG_SPF_EVENTS)
 			zlog_warn("ISIS-SPF (%s) area does not share level",
 				  area->area_tag);
-		return ISIS_WARNING;
+		return;
 	}
 
 	isis_area_delete_backup_adj_sids(area, level);
@@ -1883,8 +1883,6 @@ static int isis_run_spf_cb(struct thread *thread)
 		UNSET_FLAG(circuit->flags, ISIS_CIRCUIT_FLAPPED_AFTER_SPF);
 
 	fabricd_run_spf(area);
-
-	return 0;
 }
 
 static struct isis_spf_run *isis_run_spf_arg(struct isis_area *area, int level)

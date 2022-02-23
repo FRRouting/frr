@@ -3044,14 +3044,12 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static int bgp_startup_timer_expire(struct thread *thread)
+static void bgp_startup_timer_expire(struct thread *thread)
 {
 	struct bgp *bgp;
 
 	bgp = THREAD_ARG(thread);
 	bgp->t_startup = NULL;
-
-	return 0;
 }
 
 /*

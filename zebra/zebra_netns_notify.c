@@ -61,11 +61,11 @@ struct zebra_netns_info {
 	unsigned int retries;
 };
 
-static int zebra_ns_ready_read(struct thread *t);
+static void zebra_ns_ready_read(struct thread *t);
 static void zebra_ns_notify_create_context_from_entry_name(const char *name);
 static int zebra_ns_continue_read(struct zebra_netns_info *zns_info,
 				  int stop_retry);
-static int zebra_ns_notify_read(struct thread *t);
+static void zebra_ns_notify_read(struct thread *t);
 
 static struct vrf *vrf_handler_create(struct vty *vty, const char *vrfname)
 {
@@ -231,17 +231,17 @@ static bool zebra_ns_notify_is_default_netns(const char *name)
 	return false;
 }
 
-static int zebra_ns_ready_read(struct thread *t)
+static void zebra_ns_ready_read(struct thread *t)
 {
 	struct zebra_netns_info *zns_info = THREAD_ARG(t);
 	const char *netnspath;
 	int err, stop_retry = 0;
 
 	if (!zns_info)
-		return 0;
+		return;
 	if (!zns_info->netnspath) {
 		XFREE(MTYPE_NETNS_MISC, zns_info);
-		return 0;
+		return;
 	}
 	netnspath = zns_info->netnspath;
 	if (--zns_info->retries == 0)
@@ -249,34 +249,40 @@ static int zebra_ns_ready_read(struct thread *t)
 	frr_with_privs(&zserv_privs) {
 		err = ns_switch_to_netns(netnspath);
 	}
-	if (err < 0)
-		return zebra_ns_continue_read(zns_info, stop_retry);
+	if (err < 0) {
+		zebra_ns_continue_read(zns_info, stop_retry);
+		return;
+	}
 
 	/* go back to default ns */
 	frr_with_privs(&zserv_privs) {
 		err = ns_switchback_to_initial();
 	}
-	if (err < 0)
-		return zebra_ns_continue_read(zns_info, stop_retry);
+	if (err < 0) {
+		zebra_ns_continue_read(zns_info, stop_retry);
+		return;
+	}
 
 	/* check default name is not already set */
 	if (strmatch(VRF_DEFAULT_NAME, basename(netnspath))) {
 		zlog_warn("NS notify : NS %s is already default VRF.Cancel VRF Creation", basename(netnspath));
-		return zebra_ns_continue_read(zns_info, 1);
+		zebra_ns_continue_read(zns_info, 1);
+		return;
 	}
 	if (zebra_ns_notify_is_default_netns(basename(netnspath))) {
 		zlog_warn(
 			"NS notify : NS %s is default VRF. Ignore VRF creation",
 			basename(netnspath));
-		return zebra_ns_continue_read(zns_info, 1);
+		zebra_ns_continue_read(zns_info, 1);
+		return;
 	}
 
 	/* success : close fd and create zns context */
 	zebra_ns_notify_create_context_from_entry_name(basename(netnspath));
-	return zebra_ns_continue_read(zns_info, 1);
+	zebra_ns_continue_read(zns_info, 1);
 }
 
-static int zebra_ns_notify_read(struct thread *t)
+static void zebra_ns_notify_read(struct thread *t)
 {
 	int fd_monitor = THREAD_FD(t);
 	struct inotify_event *event;
@@ -290,7 +296,7 @@ static int zebra_ns_notify_read(struct thread *t)
 		flog_err_sys(EC_ZEBRA_NS_NOTIFY_READ,
 			     "NS notify read: failed to read (%s)",
 			     safe_strerror(errno));
-		return 0;
+		return;
 	}
 	for (event = (struct inotify_event *)buf; (char *)event < &buf[len];
 	     event = (struct inotify_event *)((char *)event + sizeof(*event)
@@ -329,7 +335,6 @@ static int zebra_ns_notify_read(struct thread *t)
 		thread_add_timer_msec(zrouter.master, zebra_ns_ready_read,
 				      (void *)netnsinfo, 0, NULL);
 	}
-	return 0;
 }
 
 void zebra_ns_notify_parse(void)

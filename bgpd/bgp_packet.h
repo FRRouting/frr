@@ -79,12 +79,12 @@ extern void bgp_check_update_delay(struct bgp *);
 extern int bgp_packet_set_marker(struct stream *s, uint8_t type);
 extern void bgp_packet_set_size(struct stream *s);
 
-extern int bgp_generate_updgrp_packets(struct thread *);
-extern int bgp_process_packet(struct thread *);
+extern void bgp_generate_updgrp_packets(struct thread *);
+extern void bgp_process_packet(struct thread *);
 
 extern void bgp_send_delayed_eor(struct bgp *bgp);
 
 /* Task callback to handle socket error encountered in the io pthread */
-int bgp_packet_process_error(struct thread *thread);
+void bgp_packet_process_error(struct thread *thread);
 
 #endif /* _QUAGGA_BGP_PACKET_H */

@@ -773,7 +773,7 @@ char *thread_timer_to_hhmmss(char *buf, int buf_size,
 
 /* Get new thread.  */
 static struct thread *thread_get(struct thread_master *m, uint8_t type,
-				 int (*func)(struct thread *), void *arg,
+				 void (*func)(struct thread *), void *arg,
 				 const struct xref_threadsched *xref)
 {
 	struct thread *thread = thread_list_pop(&m->unuse);
@@ -930,7 +930,7 @@ done:
 /* Add new read thread. */
 void _thread_add_read_write(const struct xref_threadsched *xref,
 			    struct thread_master *m,
-			    int (*func)(struct thread *), void *arg, int fd,
+			    void (*func)(struct thread *), void *arg, int fd,
 			    struct thread **t_ptr)
 {
 	int dir = xref->thread_type;
@@ -1010,7 +1010,7 @@ void _thread_add_read_write(const struct xref_threadsched *xref,
 
 static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 				      struct thread_master *m,
-				      int (*func)(struct thread *), void *arg,
+				      void (*func)(struct thread *), void *arg,
 				      struct timeval *time_relative,
 				      struct thread **t_ptr)
 {
@@ -1057,7 +1057,7 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 
 /* Add timer event thread. */
 void _thread_add_timer(const struct xref_threadsched *xref,
-		       struct thread_master *m, int (*func)(struct thread *),
+		       struct thread_master *m, void (*func)(struct thread *),
 		       void *arg, long timer, struct thread **t_ptr)
 {
 	struct timeval trel;
@@ -1073,8 +1073,8 @@ void _thread_add_timer(const struct xref_threadsched *xref,
 /* Add timer event thread with "millisecond" resolution */
 void _thread_add_timer_msec(const struct xref_threadsched *xref,
 			    struct thread_master *m,
-			    int (*func)(struct thread *), void *arg, long timer,
-			    struct thread **t_ptr)
+			    void (*func)(struct thread *), void *arg,
+			    long timer, struct thread **t_ptr)
 {
 	struct timeval trel;
 
@@ -1088,15 +1088,16 @@ void _thread_add_timer_msec(const struct xref_threadsched *xref,
 
 /* Add timer event thread with "timeval" resolution */
 void _thread_add_timer_tv(const struct xref_threadsched *xref,
-			  struct thread_master *m, int (*func)(struct thread *),
-			  void *arg, struct timeval *tv, struct thread **t_ptr)
+			  struct thread_master *m,
+			  void (*func)(struct thread *), void *arg,
+			  struct timeval *tv, struct thread **t_ptr)
 {
 	_thread_add_timer_timeval(xref, m, func, arg, tv, t_ptr);
 }
 
 /* Add simple event thread. */
 void _thread_add_event(const struct xref_threadsched *xref,
-		       struct thread_master *m, int (*func)(struct thread *),
+		       struct thread_master *m, void (*func)(struct thread *),
 		       void *arg, int val, struct thread **t_ptr)
 {
 	struct thread *thread = NULL;
@@ -2008,7 +2009,7 @@ void thread_call(struct thread *thread)
 
 /* Execute thread */
 void _thread_execute(const struct xref_threadsched *xref,
-		     struct thread_master *m, int (*func)(struct thread *),
+		     struct thread_master *m, void (*func)(struct thread *),
 		     void *arg, int val)
 {
 	struct thread *thread;

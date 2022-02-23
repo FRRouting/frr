@@ -70,7 +70,7 @@ static void slow_func(struct vty *vty, const char *str, const int i)
 		printf("%s did %d, x = %g\n", str, i, x);
 }
 
-static int clear_something(struct thread *thread)
+static void clear_something(struct thread *thread)
 {
 	struct work_state *ws = THREAD_ARG(thread);
 
@@ -84,14 +84,13 @@ static int clear_something(struct thread *thread)
 		if (thread_should_yield(thread)) {
 			thread_add_timer_msec(master, clear_something, ws, 0,
 					      NULL);
-			return 0;
+			return;
 		}
 	}
 
 	/* All done! */
 	XFREE(MTYPE_TMP, ws->str);
 	XFREE(MTYPE_TMP, ws);
-	return 0;
 }
 
 DEFUN (clear_foo,

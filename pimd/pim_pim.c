@@ -42,7 +42,7 @@
 #include "pim_errors.h"
 #include "pim_bsm.h"
 
-static int on_pim_hello_send(struct thread *t);
+static void on_pim_hello_send(struct thread *t);
 
 static const char *pim_pim_msgtype2str(enum pim_msg_type type)
 {
@@ -326,7 +326,7 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 
 static void pim_sock_read_on(struct interface *ifp);
 
-static int pim_sock_read(struct thread *t)
+static void pim_sock_read(struct thread *t)
 {
 	struct interface *ifp, *orig_ifp;
 	struct pim_interface *pim_ifp;
@@ -398,8 +398,6 @@ done:
 	if (result) {
 		++pim_ifp->pim_ifstat_hello_recvfail;
 	}
-
-	return result;
 }
 
 static void pim_sock_read_on(struct interface *ifp)
@@ -745,7 +743,7 @@ static void hello_resched(struct interface *ifp)
 /*
   Periodic hello timer
  */
-static int on_pim_hello_send(struct thread *t)
+static void on_pim_hello_send(struct thread *t)
 {
 	struct pim_interface *pim_ifp;
 	struct interface *ifp;
@@ -761,7 +759,7 @@ static int on_pim_hello_send(struct thread *t)
 	/*
 	 * Send hello
 	 */
-	return pim_hello_send(ifp, PIM_IF_DEFAULT_HOLDTIME(pim_ifp));
+	pim_hello_send(ifp, PIM_IF_DEFAULT_HOLDTIME(pim_ifp));
 }
 
 /*

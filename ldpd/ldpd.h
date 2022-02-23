@@ -63,15 +63,15 @@
 struct evbuf {
 	struct msgbuf		 wbuf;
 	struct thread		*ev;
-	int			 (*handler)(struct thread *);
+	void (*handler)(struct thread *);
 	void			*arg;
 };
 
 struct imsgev {
 	struct imsgbuf		 ibuf;
-	int			(*handler_write)(struct thread *);
+	void (*handler_write)(struct thread *);
 	struct thread		*ev_write;
-	int			(*handler_read)(struct thread *);
+	void (*handler_read)(struct thread *);
 	struct thread		*ev_read;
 };
 
@@ -792,7 +792,7 @@ void		 sa2addr(struct sockaddr *, int *, union ldpd_addr *,
 socklen_t	 sockaddr_len(struct sockaddr *);
 
 /* ldpd.c */
-int			 ldp_write_handler(struct thread *);
+void ldp_write_handler(struct thread *thread);
 void			 main_imsg_compose_ldpe(int, pid_t, void *, uint16_t);
 void			 main_imsg_compose_lde(int, pid_t, void *, uint16_t);
 int			 main_imsg_compose_both(enum imsg_type, void *,
@@ -802,8 +802,7 @@ int			 imsg_compose_event(struct imsgev *, uint16_t, uint32_t,
 			    pid_t, int, void *, uint16_t);
 void			 evbuf_enqueue(struct evbuf *, struct ibuf *);
 void			 evbuf_event_add(struct evbuf *);
-void			 evbuf_init(struct evbuf *, int,
-			    int (*)(struct thread *), void *);
+void evbuf_init(struct evbuf *, int, void (*)(struct thread *), void *);
 void			 evbuf_clear(struct evbuf *);
 int			 ldp_acl_request(struct imsgev *, char *, int,
 			    union ldpd_addr *, uint8_t);

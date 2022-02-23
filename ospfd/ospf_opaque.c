@@ -1286,9 +1286,9 @@ out:
  * Followings are Opaque-LSA origination/refresh management functions.
  *------------------------------------------------------------------------*/
 
-static int ospf_opaque_type9_lsa_originate(struct thread *t);
-static int ospf_opaque_type10_lsa_originate(struct thread *t);
-static int ospf_opaque_type11_lsa_originate(struct thread *t);
+static void ospf_opaque_type9_lsa_originate(struct thread *t);
+static void ospf_opaque_type10_lsa_originate(struct thread *t);
+static void ospf_opaque_type11_lsa_originate(struct thread *t);
 static void ospf_opaque_lsa_reoriginate_resume(struct list *listtop, void *arg);
 
 void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
@@ -1460,10 +1460,9 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 		*delay0 = delay;
 }
 
-static int ospf_opaque_type9_lsa_originate(struct thread *t)
+static void ospf_opaque_type9_lsa_originate(struct thread *t)
 {
 	struct ospf_interface *oi;
-	int rc;
 
 	oi = THREAD_ARG(t);
 	oi->t_opaque_lsa_self = NULL;
@@ -1472,15 +1471,12 @@ static int ospf_opaque_type9_lsa_originate(struct thread *t)
 		zlog_debug("Timer[Type9-LSA]: Originate Opaque-LSAs for OI %s",
 			   IF_NAME(oi));
 
-	rc = opaque_lsa_originate_callback(ospf_opaque_type9_funclist, oi);
-
-	return rc;
+	opaque_lsa_originate_callback(ospf_opaque_type9_funclist, oi);
 }
 
-static int ospf_opaque_type10_lsa_originate(struct thread *t)
+static void ospf_opaque_type10_lsa_originate(struct thread *t)
 {
 	struct ospf_area *area;
-	int rc;
 
 	area = THREAD_ARG(t);
 	area->t_opaque_lsa_self = NULL;
@@ -1490,15 +1486,12 @@ static int ospf_opaque_type10_lsa_originate(struct thread *t)
 			"Timer[Type10-LSA]: Originate Opaque-LSAs for Area %pI4",
 			&area->area_id);
 
-	rc = opaque_lsa_originate_callback(ospf_opaque_type10_funclist, area);
-
-	return rc;
+	opaque_lsa_originate_callback(ospf_opaque_type10_funclist, area);
 }
 
-static int ospf_opaque_type11_lsa_originate(struct thread *t)
+static void ospf_opaque_type11_lsa_originate(struct thread *t)
 {
 	struct ospf *top;
-	int rc;
 
 	top = THREAD_ARG(t);
 	top->t_opaque_lsa_self = NULL;
@@ -1507,9 +1500,7 @@ static int ospf_opaque_type11_lsa_originate(struct thread *t)
 		zlog_debug(
 			"Timer[Type11-LSA]: Originate AS-External Opaque-LSAs");
 
-	rc = opaque_lsa_originate_callback(ospf_opaque_type11_funclist, top);
-
-	return rc;
+	opaque_lsa_originate_callback(ospf_opaque_type11_funclist, top);
 }
 
 static void ospf_opaque_lsa_reoriginate_resume(struct list *listtop, void *arg)
@@ -1665,10 +1656,10 @@ struct ospf_lsa *ospf_opaque_lsa_refresh(struct ospf_lsa *lsa)
 static struct ospf_lsa *pseudo_lsa(struct ospf_interface *oi,
 				   struct ospf_area *area, uint8_t lsa_type,
 				   uint8_t opaque_type);
-static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t);
-static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t);
-static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t);
-static int ospf_opaque_lsa_refresh_timer(struct thread *t);
+static void ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t);
+static void ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t);
+static void ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t);
+static void ospf_opaque_lsa_refresh_timer(struct thread *t);
 
 void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 					  uint8_t lsa_type, uint8_t opaque_type)
@@ -1679,7 +1670,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 
 	struct ospf_lsa *lsa;
 	struct opaque_info_per_type *oipt;
-	int (*func)(struct thread * t) = NULL;
+	void (*func)(struct thread * t) = NULL;
 	int delay;
 
 	switch (lsa_type) {
@@ -1846,13 +1837,12 @@ static struct ospf_lsa *pseudo_lsa(struct ospf_interface *oi,
 	return &lsa;
 }
 
-static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
+static void ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 {
 	struct opaque_info_per_type *oipt;
 	struct ospf_opaque_functab *functab;
 	struct ospf *top;
 	struct ospf_interface *oi;
-	int rc = -1;
 
 	oipt = THREAD_ARG(t);
 
@@ -1861,7 +1851,7 @@ static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 		flog_warn(
 			EC_OSPF_LSA,
 			"ospf_opaque_type9_lsa_reoriginate_timer: No associated function?");
-		goto out;
+		return;
 	}
 
 	oi = (struct ospf_interface *)oipt->owner;
@@ -1869,7 +1859,7 @@ static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 		flog_warn(
 			EC_OSPF_LSA,
 			"ospf_opaque_type9_lsa_reoriginate_timer: Something wrong?");
-		goto out;
+		return;
 	}
 
 	if (!CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE)
@@ -1881,8 +1871,7 @@ static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 				oipt->opaque_type);
 
 		oipt->status = PROC_SUSPEND;
-		rc = 0;
-		goto out;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1890,12 +1879,10 @@ static int ospf_opaque_type9_lsa_reoriginate_timer(struct thread *t)
 			"Timer[Type9-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for OI (%s)",
 			oipt->opaque_type, IF_NAME(oi));
 
-	rc = (*functab->lsa_originator)(oi);
-out:
-	return rc;
+	(*functab->lsa_originator)(oi);
 }
 
-static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
+static void ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 {
 	struct opaque_info_per_type *oipt;
 	struct ospf_opaque_functab *functab;
@@ -1903,7 +1890,7 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 	struct ospf *top;
 	struct ospf_area *area;
 	struct ospf_interface *oi;
-	int n, rc = -1;
+	int n;
 
 	oipt = THREAD_ARG(t);
 
@@ -1912,7 +1899,7 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 		flog_warn(
 			EC_OSPF_LSA,
 			"ospf_opaque_type10_lsa_reoriginate_timer: No associated function?");
-		goto out;
+		return;
 	}
 
 	area = (struct ospf_area *)oipt->owner;
@@ -1920,7 +1907,7 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 		flog_warn(
 			EC_OSPF_LSA,
 			"ospf_opaque_type10_lsa_reoriginate_timer: Something wrong?");
-		goto out;
+		return;
 	}
 
 	/* There must be at least one "opaque-capable, full-state" neighbor. */
@@ -1937,8 +1924,7 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 				oipt->opaque_type);
 
 		oipt->status = PROC_SUSPEND;
-		rc = 0;
-		goto out;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1946,17 +1932,14 @@ static int ospf_opaque_type10_lsa_reoriginate_timer(struct thread *t)
 			"Timer[Type10-LSA]: Re-originate Opaque-LSAs (opaque-type=%u) for Area %pI4",
 			oipt->opaque_type, &area->area_id);
 
-	rc = (*functab->lsa_originator)(area);
-out:
-	return rc;
+	(*functab->lsa_originator)(area);
 }
 
-static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
+static void ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
 {
 	struct opaque_info_per_type *oipt;
 	struct ospf_opaque_functab *functab;
 	struct ospf *top;
-	int rc = -1;
 
 	oipt = THREAD_ARG(t);
 
@@ -1965,14 +1948,14 @@ static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
 		flog_warn(
 			EC_OSPF_LSA,
 			"ospf_opaque_type11_lsa_reoriginate_timer: No associated function?");
-		goto out;
+		return;
 	}
 
 	if ((top = (struct ospf *)oipt->owner) == NULL) {
 		flog_warn(
 			EC_OSPF_LSA,
 			"ospf_opaque_type11_lsa_reoriginate_timer: Something wrong?");
-		goto out;
+		return;
 	}
 
 	if (!CHECK_FLAG(top->config, OSPF_OPAQUE_CAPABLE)) {
@@ -1982,8 +1965,7 @@ static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
 				oipt->opaque_type);
 
 		oipt->status = PROC_SUSPEND;
-		rc = 0;
-		goto out;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -1991,9 +1973,7 @@ static int ospf_opaque_type11_lsa_reoriginate_timer(struct thread *t)
 			"Timer[Type11-LSA]: Re-originate Opaque-LSAs (opaque-type=%u).",
 			oipt->opaque_type);
 
-	rc = (*functab->lsa_originator)(top);
-out:
-	return rc;
+	(*functab->lsa_originator)(top);
 }
 
 void ospf_opaque_lsa_refresh_schedule(struct ospf_lsa *lsa0)
@@ -2064,7 +2044,7 @@ out:
 	return;
 }
 
-static int ospf_opaque_lsa_refresh_timer(struct thread *t)
+static void ospf_opaque_lsa_refresh_timer(struct thread *t)
 {
 	struct opaque_info_per_id *oipi;
 	struct ospf_opaque_functab *functab;
@@ -2079,8 +2059,6 @@ static int ospf_opaque_lsa_refresh_timer(struct thread *t)
 		if ((functab = oipi->opqctl_type->functab) != NULL)
 			if (functab->lsa_refresher != NULL)
 				(*functab->lsa_refresher)(lsa);
-
-	return 0;
 }
 
 void ospf_opaque_lsa_flush_schedule(struct ospf_lsa *lsa0)

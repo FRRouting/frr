@@ -41,8 +41,8 @@
 #include "libfrr.h"
 
 static void		 lde_shutdown(void);
-static int		 lde_dispatch_imsg(struct thread *);
-static int		 lde_dispatch_parent(struct thread *);
+static void lde_dispatch_imsg(struct thread *thread);
+static void lde_dispatch_parent(struct thread *thread);
 static __inline	int	 lde_nbr_compare(const struct lde_nbr *,
 			    const struct lde_nbr *);
 static struct lde_nbr	*lde_nbr_new(uint32_t, struct lde_nbr *);
@@ -243,8 +243,7 @@ lde_imsg_compose_ldpe(int type, uint32_t peerid, pid_t pid, void *data,
 }
 
 /* ARGSUSED */
-static int
-lde_dispatch_imsg(struct thread *thread)
+static void lde_dispatch_imsg(struct thread *thread)
 {
 	struct imsgev		*iev = THREAD_ARG(thread);
 	struct imsgbuf		*ibuf = &iev->ibuf;
@@ -422,13 +421,10 @@ lde_dispatch_imsg(struct thread *thread)
 		thread_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
-
-	return (0);
 }
 
 /* ARGSUSED */
-static int
-lde_dispatch_parent(struct thread *thread)
+static void lde_dispatch_parent(struct thread *thread)
 {
 	static struct ldpd_conf	*nconf;
 	struct iface		*iface, *niface;
@@ -710,8 +706,6 @@ lde_dispatch_parent(struct thread *thread)
 		thread_cancel(&iev->ev_write);
 		lde_shutdown();
 	}
-
-	return (0);
 }
 
 int
@@ -2173,11 +2167,9 @@ lde_address_list_free(struct lde_nbr *ln)
 /*
  * Event callback used to retry the label-manager sync zapi session.
  */
-static int zclient_sync_retry(struct thread *thread)
+static void zclient_sync_retry(struct thread *thread)
 {
 	zclient_sync_init();
-
-	return 0;
 }
 
 /*

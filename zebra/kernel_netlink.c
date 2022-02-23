@@ -418,7 +418,7 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	return 0;
 }
 
-static int kernel_read(struct thread *thread)
+static void kernel_read(struct thread *thread)
 {
 	struct zebra_ns *zns = (struct zebra_ns *)THREAD_ARG(thread);
 	struct zebra_dplane_info dp_info;
@@ -431,8 +431,6 @@ static int kernel_read(struct thread *thread)
 
 	thread_add_read(zrouter.master, kernel_read, zns, zns->netlink.sock,
 			&zns->t_netlink);
-
-	return 0;
 }
 
 /*

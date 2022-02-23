@@ -177,7 +177,7 @@ extern void work_queue_unplug(struct work_queue *wq);
 bool work_queue_is_scheduled(struct work_queue *);
 
 /* Helpers, exported for thread.c and command.c */
-extern int work_queue_run(struct thread *);
+extern void work_queue_run(struct thread *);
 
 extern void workqueue_cmd_init(void);
 

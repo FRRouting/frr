@@ -238,7 +238,7 @@ void work_queue_unplug(struct work_queue *wq)
  * will reschedule itself if required,
  * otherwise work_queue_item_add
  */
-int work_queue_run(struct thread *thread)
+void work_queue_run(struct thread *thread)
 {
 	struct work_queue *wq;
 	struct work_queue_item *item, *titem;
@@ -388,6 +388,4 @@ stats:
 
 	} else if (wq->spec.completion_func)
 		wq->spec.completion_func(wq);
-
-	return 0;
 }

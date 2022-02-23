@@ -142,7 +142,7 @@ static void netlink_mcast_log_handler(struct nlmsghdr *msg, struct zbuf *zb)
 	}
 }
 
-static int netlink_mcast_log_recv(struct thread *t)
+static void netlink_mcast_log_recv(struct thread *t)
 {
 	uint8_t buf[65535]; /* Max OSPF Packet size */
 	int fd = THREAD_FD(t);
@@ -166,8 +166,6 @@ static int netlink_mcast_log_recv(struct thread *t)
 
 	thread_add_read(master, netlink_mcast_log_recv, 0, netlink_mcast_log_fd,
 			&netlink_mcast_log_thread);
-
-	return 0;
 }
 
 static void netlink_mcast_log_register(int fd, int group)

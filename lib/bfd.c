@@ -461,14 +461,14 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	return true;
 }
 
-static int _bfd_sess_send(struct thread *t)
+static void _bfd_sess_send(struct thread *t)
 {
 	struct bfd_session_params *bsp = THREAD_ARG(t);
 	int rv;
 
 	/* Validate configuration before trying to send bogus data. */
 	if (!_bfd_sess_valid(bsp))
-		return 0;
+		return;
 
 	if (bsp->lastev == BSE_INSTALL) {
 		bsp->args.command = bsp->installed ? ZEBRA_BFD_DEST_UPDATE
@@ -478,7 +478,7 @@ static int _bfd_sess_send(struct thread *t)
 
 	/* If not installed and asked for uninstall, do nothing. */
 	if (!bsp->installed && bsp->args.command == ZEBRA_BFD_DEST_DEREGISTER)
-		return 0;
+		return;
 
 	rv = zclient_bfd_command(bsglobal.zc, &bsp->args);
 	/* Command was sent successfully. */
@@ -504,8 +504,6 @@ static int _bfd_sess_send(struct thread *t)
 			bsp->lastev == BSE_INSTALL ? "installed"
 						   : "uninstalled");
 	}
-
-	return 0;
 }
 
 static void _bfd_sess_remove(struct bfd_session_params *bsp)

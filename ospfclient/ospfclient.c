@@ -82,7 +82,7 @@ struct my_opaque_lsa {
  * ---------------------------------------------------------
  */
 
-static int lsa_delete(struct thread *t)
+static void lsa_delete(struct thread *t)
 {
 	struct ospf_apiclient *oclient;
 	struct in_addr area_id;
@@ -93,7 +93,7 @@ static int lsa_delete(struct thread *t)
 	rc = inet_aton(args[6], &area_id);
 	if (rc <= 0) {
 		printf("Address Specified: %s is invalid\n", args[6]);
-		return rc;
+		return;
 	}
 
 	printf("Deleting LSA... ");
@@ -102,10 +102,9 @@ static int lsa_delete(struct thread *t)
 				       atoi(args[3]),  /* opaque type */
 				       atoi(args[4])); /* opaque ID */
 	printf("done, return code is = %d\n", rc);
-	return rc;
 }
 
-static int lsa_inject(struct thread *t)
+static void lsa_inject(struct thread *t)
 {
 	struct ospf_apiclient *cl;
 	struct in_addr ifaddr;
@@ -124,13 +123,13 @@ static int lsa_inject(struct thread *t)
 	rc = inet_aton(args[5], &ifaddr);
 	if (rc <= 0) {
 		printf("Ifaddr specified %s is invalid\n", args[5]);
-		return rc;
+		return;
 	}
 
 	rc = inet_aton(args[6], &area_id);
 	if (rc <= 0) {
 		printf("Area ID specified %s is invalid\n", args[6]);
-		return rc;
+		return;
 	}
 	lsa_type = atoi(args[2]);
 	opaque_type = atoi(args[3]);
@@ -146,14 +145,12 @@ static int lsa_inject(struct thread *t)
 	printf("done, return code is %d\n", rc);
 
 	counter++;
-
-	return 0;
 }
 
 
 /* This thread handles asynchronous messages coming in from the OSPF
    API server */
-static int lsa_read(struct thread *thread)
+static void lsa_read(struct thread *thread)
 {
 	struct ospf_apiclient *oclient;
 	int fd;
@@ -173,8 +170,6 @@ static int lsa_read(struct thread *thread)
 
 	/* Reschedule read thread */
 	thread_add_read(master, lsa_read, oclient, fd, NULL);
-
-	return 0;
 }
 
 /* ---------------------------------------------------------

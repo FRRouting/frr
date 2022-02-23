@@ -308,7 +308,7 @@ extern struct ospf_lsa *ospf_lsa_lookup_by_prefix(struct ospf_lsdb *, uint8_t,
 extern void ospf_lsa_maxage(struct ospf *, struct ospf_lsa *);
 extern uint32_t get_metric(uint8_t *);
 
-extern int ospf_lsa_maxage_walker(struct thread *);
+extern void ospf_lsa_maxage_walker(struct thread *thread);
 extern struct ospf_lsa *ospf_lsa_refresh(struct ospf *, struct ospf_lsa *);
 
 extern void ospf_external_lsa_refresh_default(struct ospf *);
@@ -328,7 +328,7 @@ extern void ospf_schedule_lsa_flush_area(struct ospf_area *, struct ospf_lsa *);
 
 extern void ospf_refresher_register_lsa(struct ospf *, struct ospf_lsa *);
 extern void ospf_refresher_unregister_lsa(struct ospf *, struct ospf_lsa *);
-extern int ospf_lsa_refresh_walker(struct thread *);
+extern void ospf_lsa_refresh_walker(struct thread *thread);
 
 extern void ospf_lsa_maxage_delete(struct ospf *, struct ospf_lsa *);
 

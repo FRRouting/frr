@@ -62,9 +62,9 @@
 
 DEFINE_MTYPE_STATIC(ISISD, ISIS_LSP, "ISIS LSP");
 
-static int lsp_refresh(struct thread *thread);
-static int lsp_l1_refresh_pseudo(struct thread *thread);
-static int lsp_l2_refresh_pseudo(struct thread *thread);
+static void lsp_refresh(struct thread *thread);
+static void lsp_l1_refresh_pseudo(struct thread *thread);
+static void lsp_l2_refresh_pseudo(struct thread *thread);
 
 static void lsp_destroy(struct isis_lsp *lsp);
 
@@ -1447,7 +1447,7 @@ static int lsp_regenerate(struct isis_area *area, int level)
 /*
  * Something has changed or periodic refresh -> regenerate LSP
  */
-static int lsp_refresh(struct thread *thread)
+static void lsp_refresh(struct thread *thread)
 {
 	struct lsp_refresh_arg *arg = THREAD_ARG(thread);
 
@@ -1463,7 +1463,7 @@ static int lsp_refresh(struct thread *thread)
 	area->lsp_regenerate_pending[level - 1] = 0;
 
 	if ((area->is_type & level) == 0)
-		return ISIS_ERROR;
+		return;
 
 	/*
 	 * Throttle regeneration of LSPs (but not when BFD signalled a 'down'
@@ -1476,13 +1476,13 @@ static int lsp_refresh(struct thread *thread)
 			    area->area_tag, level);
 		_lsp_regenerate_schedule(area, level, 0, false,
 					 __func__, __FILE__, __LINE__);
-		return 0;
+		return;
 	}
 
 	sched_debug(
 		"ISIS (%s): LSP L%d refresh timer expired. Refreshing LSP...",
 		area->area_tag, level);
-	return lsp_regenerate(area, level);
+	lsp_regenerate(area, level);
 }
 
 int _lsp_regenerate_schedule(struct isis_area *area, int level,
@@ -1827,7 +1827,7 @@ static int lsp_regenerate_pseudo(struct isis_circuit *circuit, int level)
 /*
  * Something has changed or periodic refresh -> regenerate pseudo LSP
  */
-static int lsp_l1_refresh_pseudo(struct thread *thread)
+static void lsp_l1_refresh_pseudo(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
@@ -1843,13 +1843,13 @@ static int lsp_l1_refresh_pseudo(struct thread *thread)
 		LSP_PSEUDO_ID(id) = circuit->circuit_id;
 		LSP_FRAGMENT(id) = 0;
 		lsp_purge_pseudo(id, circuit, IS_LEVEL_1);
-		return ISIS_ERROR;
+		return;
 	}
 
-	return lsp_regenerate_pseudo(circuit, IS_LEVEL_1);
+	lsp_regenerate_pseudo(circuit, IS_LEVEL_1);
 }
 
-static int lsp_l2_refresh_pseudo(struct thread *thread)
+static void lsp_l2_refresh_pseudo(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 	uint8_t id[ISIS_SYS_ID_LEN + 2];
@@ -1865,10 +1865,10 @@ static int lsp_l2_refresh_pseudo(struct thread *thread)
 		LSP_PSEUDO_ID(id) = circuit->circuit_id;
 		LSP_FRAGMENT(id) = 0;
 		lsp_purge_pseudo(id, circuit, IS_LEVEL_2);
-		return ISIS_ERROR;
+		return;
 	}
 
-	return lsp_regenerate_pseudo(circuit, IS_LEVEL_2);
+	lsp_regenerate_pseudo(circuit, IS_LEVEL_2);
 }
 
 int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
@@ -1973,7 +1973,7 @@ int lsp_regenerate_schedule_pseudo(struct isis_circuit *circuit, int level)
  * Walk through LSPs for an area
  *  - set remaining lifetime
  */
-int lsp_tick(struct thread *thread)
+void lsp_tick(struct thread *thread)
 {
 	struct isis_area *area;
 	struct isis_lsp *lsp;
@@ -2064,8 +2064,6 @@ int lsp_tick(struct thread *thread)
 	    && !isis_tx_queue_len(fabricd_init_c->tx_queue)) {
 		fabricd_initial_sync_finish(area);
 	}
-
-	return ISIS_OK;
 }
 
 void lsp_purge_pseudo(uint8_t *id, struct isis_circuit *circuit, int level)

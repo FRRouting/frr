@@ -39,7 +39,7 @@ extern struct eigrp_neighbor *eigrp_nbr_get(struct eigrp_interface *ei,
 extern struct eigrp_neighbor *eigrp_nbr_new(struct eigrp_interface *ei);
 extern void eigrp_nbr_delete(struct eigrp_neighbor *neigh);
 
-extern int holddown_timer_expired(struct thread *thread);
+extern void holddown_timer_expired(struct thread *thread);
 
 extern int eigrp_neighborship_check(struct eigrp_neighbor *neigh,
 				    struct TLV_Parameter_Type *tlv);

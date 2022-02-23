@@ -379,7 +379,7 @@ void zserv_log_message(const char *errmsg, struct stream *msg,
 		       struct zmsghdr *hdr);
 
 /* TODO */
-__attribute__((__noreturn__)) int zebra_finalize(struct thread *event);
+__attribute__((__noreturn__)) void zebra_finalize(struct thread *event);
 
 /*
  * Graceful restart functions.

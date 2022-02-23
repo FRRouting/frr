@@ -125,11 +125,11 @@
  * Update FSM for peer based on whether we have valid nexthops or not.
  */
 extern void bgp_fsm_nht_update(struct peer *peer, bool has_valid_nexthops);
-extern int bgp_event(struct thread *);
+extern void bgp_event(struct thread *);
 extern int bgp_event_update(struct peer *, enum bgp_fsm_events event);
 extern int bgp_stop(struct peer *peer);
 extern void bgp_timer_set(struct peer *);
-extern int bgp_routeadv_timer(struct thread *);
+extern void bgp_routeadv_timer(struct thread *);
 extern void bgp_fsm_change_status(struct peer *peer, int status);
 extern const char *const peer_down_str[];
 extern void bgp_update_delay_end(struct bgp *);

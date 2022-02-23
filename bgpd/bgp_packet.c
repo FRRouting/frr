@@ -386,7 +386,7 @@ static void bgp_write_proceed_actions(struct peer *peer)
  * update group a peer belongs to, encode this information into packets, and
  * enqueue the packets onto the peer's output buffer.
  */
-int bgp_generate_updgrp_packets(struct thread *thread)
+void bgp_generate_updgrp_packets(struct thread *thread)
 {
 	struct peer *peer = THREAD_ARG(thread);
 
@@ -407,14 +407,14 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 	 * update-delay processing).
 	 */
 	if (!peer_established(peer))
-		return 0;
+		return;
 
 	if ((peer->bgp->main_peers_update_hold)
 	    || bgp_update_delay_active(peer->bgp))
-		return 0;
+		return;
 
 	if (peer->t_routeadv)
-		return 0;
+		return;
 
 	do {
 		enum bgp_af_index index;
@@ -541,8 +541,6 @@ int bgp_generate_updgrp_packets(struct thread *thread)
 		bgp_writes_on(peer);
 
 	bgp_write_proceed_actions(peer);
-
-	return 0;
 }
 
 /*
@@ -1540,7 +1538,7 @@ static int bgp_keepalive_receive(struct peer *peer, bgp_size_t size)
 	return Receive_KEEPALIVE_message;
 }
 
-static int bgp_refresh_stalepath_timer_expire(struct thread *thread)
+static void bgp_refresh_stalepath_timer_expire(struct thread *thread)
 {
 	struct peer_af *paf;
 
@@ -1560,8 +1558,6 @@ static int bgp_refresh_stalepath_timer_expire(struct thread *thread)
 			   peer->host, afi2str(afi), safi2str(safi));
 
 	bgp_timer_set(peer);
-
-	return 0;
 }
 
 /**
@@ -2573,7 +2569,7 @@ int bgp_capability_receive(struct peer *peer, bgp_size_t size)
  * @param thread
  * @return 0
  */
-int bgp_process_packet(struct thread *thread)
+void bgp_process_packet(struct thread *thread)
 {
 	/* Yes first of all get peer pointer. */
 	struct peer *peer;	// peer
@@ -2588,7 +2584,7 @@ int bgp_process_packet(struct thread *thread)
 
 	/* Guard against scheduled events that occur after peer deletion. */
 	if (peer->status == Deleted || peer->status == Clearing)
-		return 0;
+		return;
 
 	unsigned int processed = 0;
 
@@ -2602,7 +2598,7 @@ int bgp_process_packet(struct thread *thread)
 		}
 
 		if (peer->curr == NULL) // no packets to process, hmm...
-			return 0;
+			return;
 
 		/* skip the marker and copy the packet length */
 		stream_forward_getp(peer->curr, BGP_MARKER_SIZE);
@@ -2732,8 +2728,6 @@ int bgp_process_packet(struct thread *thread)
 					&peer->t_process_packet);
 		}
 	}
-
-	return 0;
 }
 
 /* Send EOR when routes are processed by selection deferral timer */
@@ -2752,7 +2746,7 @@ void bgp_send_delayed_eor(struct bgp *bgp)
  * having the io pthread try to enqueue fsm events or mess with the peer
  * struct.
  */
-int bgp_packet_process_error(struct thread *thread)
+void bgp_packet_process_error(struct thread *thread)
 {
 	struct peer *peer;
 	int code;
@@ -2777,6 +2771,4 @@ int bgp_packet_process_error(struct thread *thread)
 	}
 
 	bgp_event_update(peer, code);
-
-	return 0;
 }

@@ -605,7 +605,7 @@ static void ospf6_spf_log_database(struct ospf6_area *oa)
 	zlog_debug("%s", buffer);
 }
 
-static int ospf6_spf_calculation_thread(struct thread *t)
+static void ospf6_spf_calculation_thread(struct thread *t)
 {
 	struct ospf6_area *oa;
 	struct ospf6 *ospf6;
@@ -681,7 +681,6 @@ static int ospf6_spf_calculation_thread(struct thread *t)
 
 	ospf6->last_spf_reason = ospf6->spf_reason;
 	ospf6_reset_spf_reason(ospf6);
-	return 0;
 }
 
 /* Add schedule for SPF calculation.  To avoid frequenst SPF calc, we
@@ -1245,7 +1244,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	return 0;
 }
 
-static int ospf6_ase_calculate_timer(struct thread *t)
+static void ospf6_ase_calculate_timer(struct thread *t)
 {
 	struct ospf6 *ospf6;
 	struct ospf6_lsa *lsa;
@@ -1283,8 +1282,6 @@ static int ospf6_ase_calculate_timer(struct thread *t)
 		ospf6_zebra_gr_disable(ospf6);
 		ospf6->gr_info.finishing_restart = false;
 	}
-
-	return 0;
 }
 
 void ospf6_ase_calculate_timer_add(struct ospf6 *ospf6)

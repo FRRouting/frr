@@ -80,14 +80,13 @@ void systemd_send_stopping(void)
 
 static struct thread_master *systemd_master = NULL;
 
-static int systemd_send_watchdog(struct thread *t)
+static void systemd_send_watchdog(struct thread *t)
 {
 	systemd_send_information("WATCHDOG=1");
 
 	assert(watchdog_msec > 0);
 	thread_add_timer_msec(systemd_master, systemd_send_watchdog, NULL,
 			      watchdog_msec, NULL);
-	return 1;
 }
 
 void systemd_send_started(struct thread_master *m)
