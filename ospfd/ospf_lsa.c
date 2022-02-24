@@ -2353,7 +2353,7 @@ void ospf_external_lsa_rid_change(struct ospf *ospf)
 						continue;
 
 					if (!ospf_external_lsa_originate(ospf,
-									 NULL))
+									 ei))
 						flog_warn(
 							EC_OSPF_LSA_INSTALL_FAILURE,
 							"LSA: AS-external-LSA was not originated.");
