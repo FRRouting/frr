@@ -40,7 +40,7 @@
 #include "pim_zebra.h"
 
 static void group_timer_off(struct gm_group *group);
-static int pim_igmp_general_query(struct thread *t);
+static void pim_igmp_general_query(struct thread *t);
 
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
  * in pim_mroute_msg()
@@ -141,7 +141,7 @@ struct gm_sock *pim_igmp_sock_lookup_ifaddr(struct list *igmp_sock_list,
 	return NULL;
 }
 
-static int pim_igmp_other_querier_expire(struct thread *t)
+static void pim_igmp_other_querier_expire(struct thread *t)
 {
 	struct gm_sock *igmp;
 
@@ -166,8 +166,6 @@ static int pim_igmp_other_querier_expire(struct thread *t)
 	  Query, Set Gen. Query. timer)
 	*/
 	pim_igmp_general_query(t);
-
-	return 0;
 }
 
 void pim_igmp_other_querier_timer_on(struct gm_sock *igmp)
@@ -705,7 +703,7 @@ void pim_igmp_general_query_off(struct gm_sock *igmp)
 }
 
 /* Issue IGMP general query */
-static int pim_igmp_general_query(struct thread *t)
+static void pim_igmp_general_query(struct thread *t)
 {
 	struct gm_sock *igmp;
 	struct in_addr dst_addr;
@@ -759,8 +757,6 @@ static int pim_igmp_general_query(struct thread *t)
 			igmp->querier_query_interval);
 
 	pim_igmp_general_query_on(igmp);
-
-	return 0;
 }
 
 static void sock_close(struct gm_sock *igmp)
@@ -1027,7 +1023,7 @@ static struct gm_sock *igmp_sock_new(int fd, struct in_addr ifaddr,
 
 static void igmp_read_on(struct gm_sock *igmp);
 
-static int pim_igmp_read(struct thread *t)
+static void pim_igmp_read(struct thread *t)
 {
 	uint8_t buf[10000];
 	struct gm_sock *igmp = (struct gm_sock *)THREAD_ARG(t);
@@ -1053,7 +1049,6 @@ static int pim_igmp_read(struct thread *t)
 
 done:
 	igmp_read_on(igmp);
-	return 0;
 }
 
 static void igmp_read_on(struct gm_sock *igmp)
@@ -1123,7 +1118,7 @@ struct gm_sock *pim_igmp_sock_add(struct list *igmp_sock_list,
   source records.  Source records whose timers are zero (from the
   previous EXCLUDE mode) are deleted.
  */
-static int igmp_group_timer(struct thread *t)
+static void igmp_group_timer(struct thread *t)
 {
 	struct gm_group *group;
 
@@ -1157,8 +1152,6 @@ static int igmp_group_timer(struct thread *t)
 	if (listcount(group->group_source_list) < 1) {
 		igmp_group_delete_empty_include(group);
 	}
-
-	return 0;
 }
 
 static void group_timer_off(struct gm_group *group)

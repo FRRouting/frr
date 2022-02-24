@@ -176,7 +176,7 @@ Certain signals have special meanings to *pimd*.
 
    Generate IGMP query (v2/v3) on user requirement. This will not depend on
    the existing IGMP general query timer.If no version is provided in the cli,
-   it will be considered as default v2 query.This is a hidden command.
+   the default will be the igmp version enabled on that interface.
 
 .. clicmd:: ip igmp watermark-warn (1-65535)
 
@@ -393,7 +393,7 @@ cause great confusion.
 
    Display IGMP group retransmission information.
 
-.. clicmd:: show ip igmp sources
+.. clicmd:: show ip igmp [vrf NAME] sources [json]
 
    Display IGMP sources information.
 

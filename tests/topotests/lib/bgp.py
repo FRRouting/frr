@@ -3677,7 +3677,7 @@ def verify_f_bit(tgen, topo, addr_type, input_dict, dut, peer, expected=True):
 @retry(retry_timeout=10)
 def verify_graceful_restart_timers(tgen, topo, addr_type, input_dict, dut, peer):
     """
-    This API is to verify graceful restart timers, configured and recieved
+    This API is to verify graceful restart timers, configured and received
 
     Parameters
     ----------

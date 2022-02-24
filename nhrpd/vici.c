@@ -60,7 +60,7 @@ struct vici_message_ctx {
 	int nsections;
 };
 
-static int vici_reconnect(struct thread *t);
+static void vici_reconnect(struct thread *t);
 static void vici_submit_request(struct vici_conn *vici, const char *name, ...);
 
 static void vici_zbuf_puts(struct zbuf *obuf, const char *str)
@@ -355,7 +355,7 @@ static void vici_recv_message(struct vici_conn *vici, struct zbuf *msg)
 	}
 }
 
-static int vici_read(struct thread *t)
+static void vici_read(struct thread *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	struct zbuf *ibuf = &vici->ibuf;
@@ -363,7 +363,7 @@ static int vici_read(struct thread *t)
 
 	if (zbuf_read(ibuf, vici->fd, (size_t)-1) < 0) {
 		vici_connection_error(vici);
-		return 0;
+		return;
 	}
 
 	/* Process all messages in buffer */
@@ -383,10 +383,9 @@ static int vici_read(struct thread *t)
 	} while (1);
 
 	thread_add_read(master, vici_read, vici, vici->fd, &vici->t_read);
-	return 0;
 }
 
-static int vici_write(struct thread *t)
+static void vici_write(struct thread *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	int r;
@@ -398,8 +397,6 @@ static int vici_write(struct thread *t)
 	} else if (r < 0) {
 		vici_connection_error(vici);
 	}
-
-	return 0;
 }
 
 static void vici_submit(struct vici_conn *vici, struct zbuf *obuf)
@@ -501,14 +498,14 @@ static char *vici_get_charon_filepath(void)
 	return buff;
 }
 
-static int vici_reconnect(struct thread *t)
+static void vici_reconnect(struct thread *t)
 {
 	struct vici_conn *vici = THREAD_ARG(t);
 	int fd;
 	char *file_path;
 
 	if (vici->fd >= 0)
-		return 0;
+		return;
 
 	fd = sock_open_unix(VICI_SOCKET);
 	if (fd < 0) {
@@ -522,7 +519,7 @@ static int vici_reconnect(struct thread *t)
 		       strerror(errno));
 		thread_add_timer(master, vici_reconnect, vici, 2,
 				 &vici->t_reconnect);
-		return 0;
+		return;
 	}
 
 	debugf(NHRP_DEBUG_COMMON, "VICI: Connected");
@@ -537,8 +534,6 @@ static int vici_reconnect(struct thread *t)
 	vici_register_event(vici, "child-state-destroying");
 	vici_register_event(vici, "list-sa");
 	vici_submit_request(vici, "list-sas", VICI_END);
-
-	return 0;
 }
 
 static struct vici_conn vici_connection;

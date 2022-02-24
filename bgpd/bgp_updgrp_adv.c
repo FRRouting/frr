@@ -316,7 +316,7 @@ static void updgrp_show_adj(struct bgp *bgp, afi_t afi, safi_t safi,
 	update_group_af_walk(bgp, afi, safi, updgrp_show_adj_walkcb, &ctx);
 }
 
-static int subgroup_coalesce_timer(struct thread *thread)
+static void subgroup_coalesce_timer(struct thread *thread)
 {
 	struct update_subgroup *subgrp;
 	struct bgp *bgp;
@@ -351,8 +351,6 @@ static int subgroup_coalesce_timer(struct thread *thread)
 			BGP_TIMER_ON(peer->t_routeadv, bgp_routeadv_timer, 0);
 		}
 	}
-
-	return 0;
 }
 
 static int update_group_announce_walkcb(struct update_group *updgrp, void *arg)
@@ -691,7 +689,7 @@ void subgroup_announce_table(struct update_subgroup *subgrp,
 					       safi)) {
 				if (subgroup_announce_check(dest, ri, subgrp,
 							    dest_p, &attr,
-							    false)) {
+							    NULL)) {
 					/* Check if route can be advertised */
 					if (advertise) {
 						if (!bgp_check_withdrawal(bgp,
@@ -910,7 +908,7 @@ void subgroup_default_originate(struct update_subgroup *subgrp, int withdraw)
 					if (subgroup_announce_check(
 						    dest, pi, subgrp,
 						    bgp_dest_get_prefix(dest),
-						    &attr, false))
+						    &attr, NULL))
 						bgp_adj_out_set_subgroup(
 							dest, subgrp, &attr,
 							pi);

@@ -283,7 +283,7 @@ frr_confd_cdb_diff_iter(confd_hkeypath_t *kp, enum cdb_iter_op cdb_op,
 	return ITER_RECURSE;
 }
 
-static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
+static void frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 {
 	struct nb_context context = {};
 	struct nb_config *candidate;
@@ -313,9 +313,9 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 			    0, "Couldn't apply configuration changes")
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sub_abort_trans");
-			return -1;
+			return;
 		}
-		return 0;
+		return;
 	}
 
 	/*
@@ -346,25 +346,23 @@ static int frr_confd_cdb_read_cb_prepare(int fd, int *subp, int reslen)
 					errmsg)
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sub_abort_trans");
-			return -1;
+			return;
 		}
 	} else {
 		/* Acknowledge the notification. */
 		if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY)
 		    != CONFD_OK) {
 			flog_err_confd("cdb_sync_subscription_socket");
-			return -1;
+			return;
 		}
 
 		/* No configuration changes. */
 		if (!transaction)
 			nb_config_free(candidate);
 	}
-
-	return 0;
 }
 
-static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
+static void frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
 {
 	/*
 	 * No need to process the configuration changes again as we're already
@@ -385,10 +383,8 @@ static int frr_confd_cdb_read_cb_commit(int fd, int *subp, int reslen)
 	/* Acknowledge the notification. */
 	if (cdb_sync_subscription_socket(fd, CDB_DONE_PRIORITY) != CONFD_OK) {
 		flog_err_confd("cdb_sync_subscription_socket");
-		return -1;
+		return;
 	}
-
-	return 0;
 }
 
 static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
@@ -417,7 +413,7 @@ static int frr_confd_cdb_read_cb_abort(int fd, int *subp, int reslen)
 	return 0;
 }
 
-static int frr_confd_cdb_read_cb(struct thread *thread)
+static void frr_confd_cdb_read_cb(struct thread *thread)
 {
 	int fd = THREAD_FD(thread);
 	enum cdb_sub_notification cdb_ev;
@@ -430,19 +426,22 @@ static int frr_confd_cdb_read_cb(struct thread *thread)
 	if (cdb_read_subscription_socket2(fd, &cdb_ev, &flags, &subp, &reslen)
 	    != CONFD_OK) {
 		flog_err_confd("cdb_read_subscription_socket2");
-		return -1;
+		return;
 	}
 
 	switch (cdb_ev) {
 	case CDB_SUB_PREPARE:
-		return frr_confd_cdb_read_cb_prepare(fd, subp, reslen);
+		frr_confd_cdb_read_cb_prepare(fd, subp, reslen);
+		break;
 	case CDB_SUB_COMMIT:
-		return frr_confd_cdb_read_cb_commit(fd, subp, reslen);
+		frr_confd_cdb_read_cb_commit(fd, subp, reslen);
+		break;
 	case CDB_SUB_ABORT:
-		return frr_confd_cdb_read_cb_abort(fd, subp, reslen);
+		frr_confd_cdb_read_cb_abort(fd, subp, reslen);
+		break;
 	default:
 		flog_err_confd("unknown CDB event");
-		return -1;
+		break;
 	}
 }
 
@@ -1186,7 +1185,7 @@ static int frr_confd_dp_read(struct confd_daemon_ctx *dctx, int fd)
 	return 0;
 }
 
-static int frr_confd_dp_ctl_read(struct thread *thread)
+static void frr_confd_dp_ctl_read(struct thread *thread)
 {
 	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
@@ -1194,11 +1193,9 @@ static int frr_confd_dp_ctl_read(struct thread *thread)
 	thread_add_read(master, frr_confd_dp_ctl_read, dctx, fd, &t_dp_ctl);
 
 	frr_confd_dp_read(dctx, fd);
-
-	return 0;
 }
 
-static int frr_confd_dp_worker_read(struct thread *thread)
+static void frr_confd_dp_worker_read(struct thread *thread)
 {
 	struct confd_daemon_ctx *dctx = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
@@ -1206,8 +1203,6 @@ static int frr_confd_dp_worker_read(struct thread *thread)
 	thread_add_read(master, frr_confd_dp_worker_read, dctx, fd, &t_dp_worker);
 
 	frr_confd_dp_read(dctx, fd);
-
-	return 0;
 }
 
 static int frr_confd_subscribe_state(const struct lysc_node *snode, void *arg)

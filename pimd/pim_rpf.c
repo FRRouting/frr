@@ -141,8 +141,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 			i++;
 		} else if (neighbor_needed
 			   && !pim_if_connected_to_source(ifp, addr)) {
-			nbr = pim_neighbor_find(
-				ifp, nexthop_tab[i].nexthop_addr.u.prefix4);
+			nbr = pim_neighbor_find_prefix(
+				ifp, &nexthop_tab[i].nexthop_addr);
 			if (PIM_DEBUG_PIM_TRACE_DETAIL)
 				zlog_debug("ifp name: %s, pim nbr: %p",
 					   ifp->name, nbr);
@@ -234,7 +234,7 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 	if (PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags))
 		return PIM_RPF_OK;
 
-	if (up->upstream_addr.s_addr == INADDR_ANY) {
+	if (pim_addr_is_any(up->upstream_addr)) {
 		zlog_debug("%s(%s): RP is not configured yet for %s",
 			__func__, caller, up->sg_str);
 		return PIM_RPF_OK;
@@ -248,16 +248,10 @@ enum pim_rpf_result pim_rpf_update(struct pim_instance *pim,
 		old->rpf_addr = saved.rpf_addr;
 	}
 
-	nht_p.family = AF_INET;
-	nht_p.prefixlen = IPV4_MAX_BITLEN;
-	nht_p.u.prefix4.s_addr = up->upstream_addr.s_addr;
+	pim_addr_to_prefix(&nht_p, up->upstream_addr);
 
-	src.family = AF_INET;
-	src.prefixlen = IPV4_MAX_BITLEN;
-	src.u.prefix4 = up->upstream_addr; // RP or Src address
-	grp.family = AF_INET;
-	grp.prefixlen = IPV4_MAX_BITLEN;
-	grp.u.prefix4 = up->sg.grp;
+	pim_addr_to_prefix(&src, up->upstream_addr); // RP or Src address
+	pim_addr_to_prefix(&grp, up->sg.grp);
 
 	if ((pim_addr_is_any(up->sg.src) && I_am_RP(pim, up->sg.grp)) ||
 	    PIM_UPSTREAM_FLAG_TEST_FHR(up->flags))
@@ -398,9 +392,11 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 
 	/* return NBR( RPF_interface(S), MRIB.next_hop( S ) ) */
 
-	neigh = pim_if_find_neighbor(
-		up->rpf.source_nexthop.interface,
-		up->rpf.source_nexthop.mrib_nexthop_addr.u.prefix4);
+	pim_addr nhaddr;
+
+	nhaddr =
+		pim_addr_from_prefix(&up->rpf.source_nexthop.mrib_nexthop_addr);
+	neigh = pim_if_find_neighbor(up->rpf.source_nexthop.interface, nhaddr);
 	if (neigh)
 		rpf_addr = neigh->source_addr;
 	else

@@ -47,7 +47,7 @@ DEFINE_HOOK(pw_uninstall, (struct zebra_pw * pw), (pw));
 static int zebra_pw_enabled(struct zebra_pw *);
 static void zebra_pw_install(struct zebra_pw *);
 static void zebra_pw_uninstall(struct zebra_pw *);
-static int zebra_pw_install_retry(struct thread *);
+static void zebra_pw_install_retry(struct thread *thread);
 static int zebra_pw_check_reachability(const struct zebra_pw *);
 static void zebra_pw_update_status(struct zebra_pw *, int);
 
@@ -226,14 +226,12 @@ void zebra_pw_install_failure(struct zebra_pw *pw, int pwstatus)
 	zebra_pw_update_status(pw, pwstatus);
 }
 
-static int zebra_pw_install_retry(struct thread *thread)
+static void zebra_pw_install_retry(struct thread *thread)
 {
 	struct zebra_pw *pw = THREAD_ARG(thread);
 
 	pw->install_retry_timer = NULL;
 	zebra_pw_install(pw);
-
-	return 0;
 }
 
 static void zebra_pw_update_status(struct zebra_pw *pw, int status)

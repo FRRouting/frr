@@ -184,11 +184,10 @@ void pim_vxlan_update_sg_reg_state(struct pim_instance *pim,
 		pim_vxlan_del_work(vxlan_sg);
 }
 
-static int pim_vxlan_work_timer_cb(struct thread *t)
+static void pim_vxlan_work_timer_cb(struct thread *t)
 {
 	pim_vxlan_do_reg_work();
 	pim_vxlan_work_timer_setup(true /* start */);
-	return 0;
 }
 
 /* global 1second timer used for periodic processing */
@@ -354,9 +353,7 @@ static void pim_vxlan_orig_mr_up_add(struct pim_vxlan_sg *vxlan_sg)
 		 * iif
 		 */
 		if (!PIM_UPSTREAM_FLAG_TEST_STATIC_IIF(up->flags)) {
-			nht_p.family = AF_INET;
-			nht_p.prefixlen = IPV4_MAX_BITLEN;
-			nht_p.u.prefix4 = up->upstream_addr;
+			pim_addr_to_prefix(&nht_p, up->upstream_addr);
 			pim_delete_tracked_nexthop(vxlan_sg->pim, &nht_p, up,
 						   NULL);
 		}

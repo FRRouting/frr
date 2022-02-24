@@ -426,7 +426,7 @@ int control_init(const char *path);
 void control_shutdown(void);
 int control_notify(struct bfd_session *bs, uint8_t notify_state);
 int control_notify_config(const char *op, struct bfd_session *bs);
-int control_accept(struct thread *t);
+void control_accept(struct thread *t);
 
 
 /*
@@ -556,7 +556,7 @@ int bp_echov6_socket(const struct vrf *vrf);
 void ptm_bfd_snd(struct bfd_session *bfd, int fbit);
 void ptm_bfd_echo_snd(struct bfd_session *bfd);
 
-int bfd_recv_cb(struct thread *t);
+void bfd_recv_cb(struct thread *t);
 
 
 /*
@@ -690,10 +690,10 @@ unsigned long bfd_get_session_count(void);
 /* Export callback functions for `event.c`. */
 extern struct thread_master *master;
 
-int bfd_recvtimer_cb(struct thread *t);
-int bfd_echo_recvtimer_cb(struct thread *t);
-int bfd_xmt_cb(struct thread *t);
-int bfd_echo_xmt_cb(struct thread *t);
+void bfd_recvtimer_cb(struct thread *t);
+void bfd_echo_recvtimer_cb(struct thread *t);
+void bfd_xmt_cb(struct thread *t);
+void bfd_echo_xmt_cb(struct thread *t);
 
 extern struct in6_addr zero_addr;
 

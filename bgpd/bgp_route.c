@@ -1836,7 +1836,7 @@ void subgroup_announce_reset_nhop(uint8_t family, struct attr *attr)
 bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 			     struct update_subgroup *subgrp,
 			     const struct prefix *p, struct attr *attr,
-			     bool skip_rmap_check)
+			     struct attr *post_attr)
 {
 	struct bgp_filter *filter;
 	struct peer *from;
@@ -2067,8 +2067,16 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		}
 	}
 
-	/* For modify attribute, copy it to temporary structure. */
-	*attr = *piattr;
+	/* For modify attribute, copy it to temporary structure.
+	 * post_attr comes from BGP conditional advertisements, where
+	 * attributes are already processed by advertise-map route-map,
+	 * and this needs to be saved instead of overwriting from the
+	 * path attributes.
+	 */
+	if (post_attr)
+		*attr = *post_attr;
+	else
+		*attr = *piattr;
 
 	/* If local-preference is not set. */
 	if ((peer->sort == BGP_PEER_IBGP || peer->sort == BGP_PEER_CONFED)
@@ -2162,8 +2170,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	bgp_peer_as_override(bgp, afi, safi, peer, attr);
 
 	/* Route map & unsuppress-map apply. */
-	if (!skip_rmap_check
-	    && (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
+	if (!post_attr &&
+	    (ROUTE_MAP_OUT_NAME(filter) || bgp_path_suppressed(pi))) {
 		struct bgp_path_info rmap_path = {0};
 		struct bgp_path_info_extra dummy_rmap_path_extra = {0};
 		struct attr dummy_attr = {0};
@@ -2219,8 +2227,16 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	 * implementations.
 	 */
 	if (CHECK_FLAG(bgp->flags, BGP_FLAG_EBGP_REQUIRES_POLICY))
-		if (!bgp_outbound_policy_exists(peer, filter))
+		if (!bgp_outbound_policy_exists(peer, filter)) {
+			if (monotime_since(&bgp->ebgprequirespolicywarning,
+					   NULL) > FIFTEENMINUTE2USEC ||
+			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
+				zlog_warn(
+					"EBGP inbound/outbound policy not properly setup, please configure in order for your peering to work correctly");
+				monotime(&bgp->ebgprequirespolicywarning);
+			}
 			return false;
+		}
 
 	/* draft-ietf-idr-deprecate-as-set-confed-set
 	 * Filter routes having AS_SET or AS_CONFED_SET in the path.
@@ -2386,7 +2402,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	return true;
 }
 
-static int bgp_route_select_timer_expire(struct thread *thread)
+static void bgp_route_select_timer_expire(struct thread *thread)
 {
 	struct afi_safi_info *info;
 	afi_t afi;
@@ -2407,7 +2423,7 @@ static int bgp_route_select_timer_expire(struct thread *thread)
 	XFREE(MTYPE_TMP, info);
 
 	/* Best path selection */
-	return bgp_best_path_select_defer(bgp, afi, safi);
+	bgp_best_path_select_defer(bgp, afi, safi);
 }
 
 void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
@@ -2691,7 +2707,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 
 	if (selected) {
 		if (subgroup_announce_check(dest, selected, subgrp, p, &attr,
-					    false)) {
+					    NULL)) {
 			/* Route is selected, if the route is already installed
 			 * in FIB, then it is advertised
 			 */
@@ -3338,7 +3354,7 @@ void bgp_add_eoiu_mark(struct bgp *bgp)
 	work_queue_add(bgp->process_queue, pqnode);
 }
 
-static int bgp_maximum_prefix_restart_timer(struct thread *thread)
+static void bgp_maximum_prefix_restart_timer(struct thread *thread)
 {
 	struct peer *peer;
 
@@ -3352,8 +3368,6 @@ static int bgp_maximum_prefix_restart_timer(struct thread *thread)
 
 	if ((peer_clear(peer, NULL) < 0) && bgp_debug_neighbor_events(peer))
 		zlog_debug("%s: %s peer_clear failed", __func__, peer->host);
-
-	return 0;
 }
 
 static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
@@ -3844,6 +3858,13 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 		if (!bgp_inbound_policy_exists(peer,
 					       &peer->filter[afi][safi])) {
 			reason = "inbound policy missing";
+			if (monotime_since(&bgp->ebgprequirespolicywarning,
+					   NULL) > FIFTEENMINUTE2USEC ||
+			    bgp->ebgprequirespolicywarning.tv_sec == 0) {
+				zlog_warn(
+					"EBGP inbound/outbound policy not properly setup, please configure in order for your peering to work correctly");
+				monotime(&bgp->ebgprequirespolicywarning);
+			}
 			goto filtered;
 		}
 
@@ -4687,7 +4708,7 @@ void bgp_stop_announce_route_timer(struct peer_af *paf)
  * Callback that is invoked when the route announcement timer for a
  * peer_af expires.
  */
-static int bgp_announce_route_timer_expired(struct thread *t)
+static void bgp_announce_route_timer_expired(struct thread *t)
 {
 	struct peer_af *paf;
 	struct peer *peer;
@@ -4696,17 +4717,15 @@ static int bgp_announce_route_timer_expired(struct thread *t)
 	peer = paf->peer;
 
 	if (!peer_established(peer))
-		return 0;
+		return;
 
 	if (!peer->afc_nego[paf->afi][paf->safi])
-		return 0;
+		return;
 
 	peer_af_announce_route(paf, 1);
 
 	/* Notify BGP conditional advertisement scanner percess */
 	peer->advmap_config_change[paf->afi][paf->safi] = true;
-
-	return 0;
 }
 
 /*
@@ -4856,7 +4875,7 @@ static void bgp_soft_reconfig_table(struct peer *peer, afi_t afi, safi_t safi,
  * Without splitting the full job into several part,
  * vtysh waits for the job to finish before responding to a BGP command
  */
-static int bgp_soft_reconfig_table_task(struct thread *thread)
+static void bgp_soft_reconfig_table_task(struct thread *thread)
 {
 	uint32_t iter, max_iter;
 	int ret;
@@ -4910,7 +4929,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 							&table->soft_reconfig_peers);
 						bgp_soft_reconfig_table_flag(
 							table, false);
-						return 0;
+						return;
 					}
 				}
 			}
@@ -4924,7 +4943,7 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 		table->soft_reconfig_init = false;
 		thread_add_event(bm->master, bgp_soft_reconfig_table_task,
 				 table, 0, &table->soft_reconfig_thread);
-		return 0;
+		return;
 	}
 	/* we're done, clean up the background iteration context info and
 	schedule route annoucement
@@ -4935,8 +4954,6 @@ static int bgp_soft_reconfig_table_task(struct thread *thread)
 	}
 
 	list_delete(&table->soft_reconfig_peers);
-
-	return 0;
 }
 
 
@@ -12831,7 +12848,7 @@ static void bgp_table_stats_rn(struct bgp_dest *dest, struct bgp_dest *top,
 	}
 }
 
-static int bgp_table_stats_walker(struct thread *t)
+static void bgp_table_stats_walker(struct thread *t)
 {
 	struct bgp_dest *dest, *ndest;
 	struct bgp_dest *top;
@@ -12839,7 +12856,7 @@ static int bgp_table_stats_walker(struct thread *t)
 	unsigned int space = 0;
 
 	if (!(top = bgp_table_top(ts->table)))
-		return 0;
+		return;
 
 	switch (ts->table->afi) {
 	case AFI_IP:
@@ -12852,7 +12869,7 @@ static int bgp_table_stats_walker(struct thread *t)
 		space = EVPN_ROUTE_PREFIXLEN;
 		break;
 	default:
-		return 0;
+		return;
 	}
 
 	ts->counts[BGP_STATS_MAXBITLEN] = space;
@@ -12875,8 +12892,6 @@ static int bgp_table_stats_walker(struct thread *t)
 			bgp_table_stats_rn(dest, top, ts, space);
 		}
 	}
-
-	return 0;
 }
 
 static void bgp_table_stats_all(struct vty *vty, afi_t afi, safi_t safi,
@@ -13194,7 +13209,7 @@ static void bgp_peer_count_proc(struct bgp_dest *rn, struct peer_pcounts *pc)
 	}
 }
 
-static int bgp_peer_count_walker(struct thread *t)
+static void bgp_peer_count_walker(struct thread *t)
 {
 	struct bgp_dest *rn, *rm;
 	const struct bgp_table *table;
@@ -13214,8 +13229,6 @@ static int bgp_peer_count_walker(struct thread *t)
 	} else
 		for (rn = bgp_table_top(pc->table); rn; rn = bgp_route_next(rn))
 			bgp_peer_count_proc(rn, pc);
-
-	return 0;
 }
 
 static int bgp_peer_counts(struct vty *vty, struct peer *peer, afi_t afi,

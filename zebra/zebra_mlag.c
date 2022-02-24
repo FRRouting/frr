@@ -52,8 +52,8 @@ uint8_t mlag_rd_buffer[ZEBRA_MLAG_BUF_LIMIT];
 static bool test_mlag_in_progress;
 
 static int zebra_mlag_signal_write_thread(void);
-static int zebra_mlag_terminate_pthread(struct thread *event);
-static int zebra_mlag_post_data_from_main_thread(struct thread *thread);
+static void zebra_mlag_terminate_pthread(struct thread *event);
+static void zebra_mlag_post_data_from_main_thread(struct thread *thread);
 static void zebra_mlag_publish_process_state(struct zserv *client,
 					     zebra_message_types_t msg_type);
 
@@ -148,7 +148,7 @@ void zebra_mlag_process_mlag_data(uint8_t *data, uint32_t len)
  * This thread reads the clients data from the Global queue and encodes with
  * protobuf and pass on to the MLAG socket.
  */
-static int zebra_mlag_client_msg_handler(struct thread *event)
+static void zebra_mlag_client_msg_handler(struct thread *event)
 {
 	struct stream *s;
 	uint32_t wr_count = 0;
@@ -209,7 +209,6 @@ static int zebra_mlag_client_msg_handler(struct thread *event)
 	 */
 	if (wr_count >= ZEBRA_MLAG_POST_LIMIT)
 		zebra_mlag_signal_write_thread();
-	return 0;
 }
 
 /*
@@ -309,7 +308,7 @@ static void zebra_mlag_publish_process_state(struct zserv *client,
  * main thread, because for that access was needed for clients list.
  * so instead of forcing the locks, messages will be posted from main thread.
  */
-static int zebra_mlag_post_data_from_main_thread(struct thread *thread)
+static void zebra_mlag_post_data_from_main_thread(struct thread *thread)
 {
 	struct stream *s = THREAD_ARG(thread);
 	struct stream *zebra_s = NULL;
@@ -319,7 +318,7 @@ static int zebra_mlag_post_data_from_main_thread(struct thread *thread)
 	uint32_t msg_len = 0;
 
 	if (!s)
-		return -1;
+		return;
 
 	STREAM_GETL(s, msg_type);
 	if (IS_ZEBRA_DEBUG_MLAG)
@@ -356,12 +355,11 @@ static int zebra_mlag_post_data_from_main_thread(struct thread *thread)
 	}
 
 	stream_free(s);
-	return 0;
+	return;
 stream_failure:
 	stream_free(s);
 	if (zebra_s)
 		stream_free(zebra_s);
-	return 0;
 }
 
 /*
@@ -394,7 +392,7 @@ static void zebra_mlag_spawn_pthread(void)
  * all clients are un-registered for MLAG Updates, terminate the
  * MLAG write thread
  */
-static int zebra_mlag_terminate_pthread(struct thread *event)
+static void zebra_mlag_terminate_pthread(struct thread *event)
 {
 	if (IS_ZEBRA_DEBUG_MLAG)
 		zlog_debug("Zebra MLAG write thread terminate called");
@@ -403,7 +401,7 @@ static int zebra_mlag_terminate_pthread(struct thread *event)
 		if (IS_ZEBRA_DEBUG_MLAG)
 			zlog_debug(
 				"Zebra MLAG: still some clients are interested");
-		return 0;
+		return;
 	}
 
 	frr_pthread_stop(zrouter.mlag_info.zebra_pth_mlag, NULL);
@@ -419,7 +417,6 @@ static int zebra_mlag_terminate_pthread(struct thread *event)
 	 * Send Notification to clean private data
 	 */
 	hook_call(zebra_mlag_private_cleanup_data);
-	return 0;
 }
 
 /*

@@ -59,7 +59,8 @@
 #define PIM_IF_DONT_PIM_CAN_DISABLE_JOIN_SUPPRESSION(options)                  \
 	((options) &= ~PIM_IF_MASK_PIM_CAN_DISABLE_JOIN_SUPPRESSION)
 
-#define PIM_I_am_DR(pim_ifp) (pim_ifp)->pim_dr_addr.s_addr == (pim_ifp)->primary_address.s_addr
+#define PIM_I_am_DR(pim_ifp)                                                   \
+	!pim_addr_cmp((pim_ifp)->pim_dr_addr, (pim_ifp)->primary_address)
 #define PIM_I_am_DualActive(pim_ifp) (pim_ifp)->activeactive == true
 
 /* Macros for interface flags */
@@ -225,13 +226,12 @@ int pim_if_lan_delay_enabled(struct interface *ifp);
 uint16_t pim_if_effective_propagation_delay_msec(struct interface *ifp);
 uint16_t pim_if_effective_override_interval_msec(struct interface *ifp);
 uint16_t pim_if_jp_override_interval_msec(struct interface *ifp);
-struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp,
-					  struct in_addr addr);
+struct pim_neighbor *pim_if_find_neighbor(struct interface *ifp, pim_addr addr);
 
 long pim_if_t_suppressed_msec(struct interface *ifp);
 int pim_if_t_override_msec(struct interface *ifp);
 
-struct in_addr pim_find_primary_addr(struct interface *ifp);
+pim_addr pim_find_primary_addr(struct interface *ifp);
 
 ferr_r pim_if_igmp_join_add(struct interface *ifp, struct in_addr group_addr,
 			    struct in_addr source_addr);
@@ -240,8 +240,7 @@ int pim_if_igmp_join_del(struct interface *ifp, struct in_addr group_addr,
 
 void pim_if_update_could_assert(struct interface *ifp);
 
-void pim_if_assert_on_neighbor_down(struct interface *ifp,
-				    struct in_addr neigh_addr);
+void pim_if_assert_on_neighbor_down(struct interface *ifp, pim_addr neigh_addr);
 
 void pim_if_rpf_interface_changed(struct interface *old_rpf_ifp,
 				  struct pim_upstream *up);
@@ -252,8 +251,8 @@ void pim_if_update_assert_tracking_desired(struct interface *ifp);
 
 void pim_if_create_pimreg(struct pim_instance *pim);
 
-struct prefix *pim_if_connected_to_source(struct interface *ifp, struct in_addr src);
-int pim_update_source_set(struct interface *ifp, struct in_addr source);
+struct prefix *pim_if_connected_to_source(struct interface *ifp, pim_addr src);
+int pim_update_source_set(struct interface *ifp, pim_addr source);
 
 bool pim_if_is_vrf_device(struct interface *ifp);
 

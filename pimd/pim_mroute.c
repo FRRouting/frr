@@ -677,12 +677,11 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	return 0;
 }
 
-static int mroute_read(struct thread *t)
+static void mroute_read(struct thread *t)
 {
 	struct pim_instance *pim;
 	static long long count;
 	char buf[10000];
-	int result = 0;
 	int cont = 1;
 	int rd;
 	ifindex_t ifindex;
@@ -705,7 +704,7 @@ static int mroute_read(struct thread *t)
 			goto done;
 		}
 
-		result = pim_mroute_msg(pim, buf, rd, ifindex);
+		pim_mroute_msg(pim, buf, rd, ifindex);
 
 		count++;
 		if (count % router->packet_process == 0)
@@ -714,8 +713,6 @@ static int mroute_read(struct thread *t)
 /* Keep reading */
 done:
 	mroute_read_on(pim);
-
-	return result;
 }
 
 static void mroute_read_on(struct pim_instance *pim)

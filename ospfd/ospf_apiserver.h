@@ -91,10 +91,10 @@ extern void ospf_apiserver_free(struct ospf_apiserver *apiserv);
 extern void ospf_apiserver_event(enum event event, int fd,
 				 struct ospf_apiserver *apiserv);
 extern int ospf_apiserver_serv_sock_family(unsigned short port, int family);
-extern int ospf_apiserver_accept(struct thread *thread);
-extern int ospf_apiserver_read(struct thread *thread);
-extern int ospf_apiserver_sync_write(struct thread *thread);
-extern int ospf_apiserver_async_write(struct thread *thread);
+extern void ospf_apiserver_accept(struct thread *thread);
+extern void ospf_apiserver_read(struct thread *thread);
+extern void ospf_apiserver_sync_write(struct thread *thread);
+extern void ospf_apiserver_async_write(struct thread *thread);
 extern int ospf_apiserver_send_reply(struct ospf_apiserver *apiserv,
 				     uint32_t seqnr, uint8_t rc);
 

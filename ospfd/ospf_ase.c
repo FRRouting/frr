@@ -564,7 +564,7 @@ static int ospf_ase_compare_tables(struct ospf *ospf,
 	return 0;
 }
 
-static int ospf_ase_calculate_timer(struct thread *t)
+static void ospf_ase_calculate_timer(struct thread *t)
 {
 	struct ospf *ospf;
 	struct ospf_lsa *lsa;
@@ -631,8 +631,6 @@ static int ospf_ase_calculate_timer(struct thread *t)
 		ospf_zebra_gr_disable(ospf);
 		ospf->gr_info.finishing_restart = false;
 	}
-
-	return 0;
 }
 
 void ospf_ase_calculate_schedule(struct ospf *ospf)

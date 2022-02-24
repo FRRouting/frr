@@ -651,9 +651,6 @@ int bgp_confederation_peers_add(struct bgp *bgp, as_t as)
 	struct peer *peer;
 	struct listnode *node, *nnode;
 
-	if (!bgp)
-		return BGP_ERR_INVALID_BGP;
-
 	if (bgp->as == as)
 		return BGP_ERR_INVALID_AS;
 
@@ -3047,14 +3044,12 @@ int peer_group_bind(struct bgp *bgp, union sockunion *su, struct peer *peer,
 	return 0;
 }
 
-static int bgp_startup_timer_expire(struct thread *thread)
+static void bgp_startup_timer_expire(struct thread *thread)
 {
 	struct bgp *bgp;
 
 	bgp = THREAD_ARG(thread);
 	bgp->t_startup = NULL;
-
-	return 0;
 }
 
 /*
@@ -3239,6 +3234,10 @@ static struct bgp *bgp_create(as_t *as, const char *name,
 
 	/*initilize global GR FSM */
 	bgp_global_gr_init(bgp);
+
+	memset(&bgp->ebgprequirespolicywarning, 0,
+	       sizeof(bgp->ebgprequirespolicywarning));
+
 	return bgp;
 }
 

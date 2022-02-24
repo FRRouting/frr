@@ -141,12 +141,14 @@ static int pim_zebra_if_address_add(ZAPI_CALLBACK_ARGS)
 #endif
 	}
 
-	if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
-		/* trying to add primary address */
+	if (p->family != PIM_AF)
+		SET_FLAG(c->flags, ZEBRA_IFA_SECONDARY);
+	else if (!CHECK_FLAG(c->flags, ZEBRA_IFA_SECONDARY)) {
+		/* trying to add primary address? */
+		pim_addr primary_addr = pim_find_primary_addr(c->ifp);
+		pim_addr addr = pim_addr_from_prefix(p);
 
-		struct in_addr primary_addr = pim_find_primary_addr(c->ifp);
-		if (p->family != AF_INET
-		    || primary_addr.s_addr != p->u.prefix4.s_addr) {
+		if (pim_addr_cmp(primary_addr, addr)) {
 			if (PIM_DEBUG_ZEBRA)
 				zlog_warn(
 					"%s: %s : forcing secondary flag on %pFX",
@@ -254,8 +256,8 @@ void pim_zebra_upstream_rpf_changed(struct pim_instance *pim,
 	if (old->source_nexthop.interface) {
 		struct pim_neighbor *nbr;
 
-		nbr = pim_neighbor_find(old->source_nexthop.interface,
-					old->rpf_addr.u.prefix4);
+		nbr = pim_neighbor_find_prefix(old->source_nexthop.interface,
+					       &old->rpf_addr);
 		if (nbr)
 			pim_jp_agg_remove_group(nbr->upstream_jp_agg, up, nbr);
 
@@ -337,8 +339,8 @@ static int pim_zebra_vxlan_sg_proc(ZAPI_CALLBACK_ARGS)
 	s = zclient->ibuf;
 
 	prefixlen = stream_getl(s);
-	stream_get(&sg.src.s_addr, s, prefixlen);
-	stream_get(&sg.grp.s_addr, s, prefixlen);
+	stream_get(&sg.src, s, prefixlen);
+	stream_get(&sg.grp, s, prefixlen);
 
 	if (PIM_DEBUG_ZEBRA)
 		zlog_debug("%u:recv SG %s %pSG", vrf_id,
@@ -380,7 +382,7 @@ void pim_scan_oil(struct pim_instance *pim)
 		pim_upstream_mroute_iif_update(c_oil, __func__);
 }
 
-static int on_rpf_cache_refresh(struct thread *t)
+static void on_rpf_cache_refresh(struct thread *t)
 {
 	struct pim_instance *pim = THREAD_ARG(t);
 
@@ -392,7 +394,6 @@ static int on_rpf_cache_refresh(struct thread *t)
 
 	// It is called as part of pim_neighbor_add
 	// pim_rp_setup ();
-	return 0;
 }
 
 void sched_rpf_cache_refresh(struct pim_instance *pim)
@@ -606,7 +607,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	}
 
 	if (!source->source_channel_oil) {
-		struct in_addr vif_source;
+		pim_addr vif_source;
 		struct prefix src, grp;
 		struct pim_nexthop nexthop;
 		struct pim_upstream *up = NULL;
@@ -619,12 +620,8 @@ void igmp_source_forward_start(struct pim_instance *pim,
 		}
 
 		else {
-			src.family = AF_INET;
-			src.prefixlen = IPV4_MAX_BITLEN;
-			src.u.prefix4 = vif_source; // RP or Src address
-			grp.family = AF_INET;
-			grp.prefixlen = IPV4_MAX_BITLEN;
-			grp.u.prefix4 = sg.grp;
+			pim_addr_to_prefix(&src, vif_source); // RP or Src addr
+			pim_addr_to_prefix(&grp, sg.grp);
 
 			up = pim_upstream_find(pim, &sg);
 			if (up) {
@@ -642,15 +639,11 @@ void igmp_source_forward_start(struct pim_instance *pim,
 					pim_ecmp_fib_lookup_if_vif_index(
 						pim, &src, &grp);
 
-			if (PIM_DEBUG_ZEBRA) {
-				char buf2[INET_ADDRSTRLEN];
-
-				pim_inet4_dump("<source?>", vif_source, buf2,
-					       sizeof(buf2));
-				zlog_debug("%s: NHT %pSG vif_source %s vif_index:%d ",
-					   __func__, &sg, buf2,
-					   input_iface_vif_index);
-			}
+			if (PIM_DEBUG_ZEBRA)
+				zlog_debug(
+					"%s: NHT %pSG vif_source %pPAs vif_index:%d ",
+					__func__, &sg, &vif_source,
+					input_iface_vif_index);
 
 			if (input_iface_vif_index < 1) {
 				if (PIM_DEBUG_IGMP_TRACE) {

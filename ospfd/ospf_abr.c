@@ -1829,7 +1829,7 @@ void ospf_abr_task(struct ospf *ospf)
 		zlog_debug("ospf_abr_task(): Stop");
 }
 
-static int ospf_abr_task_timer(struct thread *thread)
+static void ospf_abr_task_timer(struct thread *thread)
 {
 	struct ospf *ospf = THREAD_ARG(thread);
 
@@ -1843,8 +1843,6 @@ static int ospf_abr_task_timer(struct thread *thread)
 
 	ospf_abr_task(ospf);
 	ospf_abr_nssa_task(ospf); /* if nssa-abr, then scan Type-7 LSDB */
-
-	return 0;
 }
 
 void ospf_schedule_abr_task(struct ospf *ospf)

@@ -41,7 +41,7 @@ static sr_session_ctx_t *session;
 static sr_conn_ctx_t *connection;
 static struct nb_transaction *transaction;
 
-static int frr_sr_read_cb(struct thread *thread);
+static void frr_sr_read_cb(struct thread *thread);
 static int frr_sr_finish(void);
 
 /* Convert FRR YANG data value to sysrepo YANG data value. */
@@ -526,7 +526,7 @@ static int frr_sr_notification_send(const char *xpath, struct list *arguments)
 	return NB_OK;
 }
 
-static int frr_sr_read_cb(struct thread *thread)
+static void frr_sr_read_cb(struct thread *thread)
 {
 	struct yang_module *module = THREAD_ARG(thread);
 	int fd = THREAD_FD(thread);
@@ -536,12 +536,10 @@ static int frr_sr_read_cb(struct thread *thread)
 	if (ret != SR_ERR_OK) {
 		flog_err(EC_LIB_LIBSYSREPO, "%s: sr_fd_event_process(): %s",
 			 __func__, sr_strerror(ret));
-		return -1;
+		return;
 	}
 
 	thread_add_read(master, frr_sr_read_cb, module, fd, &module->sr_thread);
-
-	return 0;
 }
 
 static void frr_sr_subscribe_config(struct yang_module *module)

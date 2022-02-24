@@ -62,10 +62,9 @@ void func3(void)
 	func2(6, buf);
 }
 
-static int threadfunc(struct thread *thread)
+static void threadfunc(struct thread *thread)
 {
 	func3();
-	return 0;
 }
 
 int main(void)

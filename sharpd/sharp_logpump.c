@@ -43,7 +43,7 @@ static struct vty *lp_vty;
 
 extern struct thread_master *master;
 
-static int logpump_done(struct thread *thread)
+static void logpump_done(struct thread *thread)
 {
 	double x;
 
@@ -67,7 +67,6 @@ static int logpump_done(struct thread *thread)
 	frr_pthread_stop(lpt, NULL);
 	frr_pthread_destroy(lpt);
 	lpt = NULL;
-	return 0;
 }
 
 static void *logpump_run(void *arg)

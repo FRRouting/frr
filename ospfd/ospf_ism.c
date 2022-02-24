@@ -248,7 +248,7 @@ int ospf_dr_election(struct ospf_interface *oi)
 }
 
 
-int ospf_hello_timer(struct thread *thread)
+void ospf_hello_timer(struct thread *thread)
 {
 	struct ospf_interface *oi;
 
@@ -263,11 +263,9 @@ int ospf_hello_timer(struct thread *thread)
 
 	/* Hello timer set. */
 	OSPF_HELLO_TIMER_ON(oi);
-
-	return 0;
 }
 
-static int ospf_wait_timer(struct thread *thread)
+static void ospf_wait_timer(struct thread *thread)
 {
 	struct ospf_interface *oi;
 
@@ -278,8 +276,6 @@ static int ospf_wait_timer(struct thread *thread)
 		zlog_debug("ISM[%s]: Timer (Wait timer expire)", IF_NAME(oi));
 
 	OSPF_ISM_EVENT_SCHEDULE(oi, ISM_WaitTimer);
-
-	return 0;
 }
 
 /* Hook function called after ospf ISM event is occurred. And vty's
@@ -575,7 +571,7 @@ static void ism_change_state(struct ospf_interface *oi, int state)
 }
 
 /* Execute ISM event process. */
-int ospf_ism_event(struct thread *thread)
+void ospf_ism_event(struct thread *thread)
 {
 	int event;
 	int next_state;
@@ -601,6 +597,4 @@ int ospf_ism_event(struct thread *thread)
 
 	/* Make sure timer is set. */
 	ism_timer_set(oi);
-
-	return 0;
 }
