@@ -28,6 +28,7 @@
 #include "mlag.h"
 #include "pim_iface.h"
 
+#if PIM_IPV == 4
 extern void pim_mlag_init(void);
 extern void pim_mlag_terminate(void);
 extern void pim_instance_mlag_init(struct pim_instance *pim);
@@ -52,4 +53,49 @@ extern void pim_mlag_up_local_del(struct pim_instance *pim,
 extern bool pim_mlag_up_df_role_update(struct pim_instance *pim,
 				       struct pim_upstream *up, bool is_df,
 				       const char *reason);
+#else /* PIM_IPV == 4 */
+static inline void pim_mlag_terminate(void)
+{
+}
+
+static inline void pim_instance_mlag_init(struct pim_instance *pim)
+{
+}
+
+static inline void pim_instance_mlag_terminate(struct pim_instance *pim)
+{
+}
+
+static inline void pim_if_configure_mlag_dualactive(
+						struct pim_interface *pim_ifp)
+{
+}
+
+static inline void pim_if_unconfigure_mlag_dualactive(
+						struct pim_interface *pim_ifp)
+{
+}
+
+static inline void pim_mlag_register(void)
+{
+}
+
+static inline void pim_mlag_up_local_add(struct pim_instance *pim,
+					 struct pim_upstream *upstream)
+{
+}
+
+static inline void pim_mlag_up_local_del(struct pim_instance *pim,
+					 struct pim_upstream *upstream)
+{
+}
+
+static inline bool pim_mlag_up_df_role_update(struct pim_instance *pim,
+					      struct pim_upstream *up,
+					      bool is_df, const char *reason)
+{
+	return false;
+}
+#endif
+
 #endif

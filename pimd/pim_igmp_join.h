@@ -39,9 +39,9 @@ struct group_source_req {
 };
 #endif
 
-static int pim_igmp_join_source(int fd, ifindex_t ifindex,
-				struct in_addr group_addr,
-				struct in_addr source_addr)
+static inline int pim_igmp_join_source(int fd, ifindex_t ifindex,
+				       struct in_addr group_addr,
+				       struct in_addr source_addr)
 {
 	struct group_source_req req;
 	struct sockaddr_in group;

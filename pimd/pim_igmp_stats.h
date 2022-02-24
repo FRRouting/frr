@@ -35,7 +35,17 @@ struct igmp_stats {
 	uint32_t	unsupported;
 };
 
+#if PIM_IPV == 4
 void igmp_stats_init(struct igmp_stats *stats);
 void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b);
+#else
+static inline void igmp_stats_init(struct igmp_stats *stats)
+{
+}
+
+static inline void igmp_stats_add(struct igmp_stats *a, struct igmp_stats *b)
+{
+}
+#endif
 
 #endif /* PIM_IGMP_STATS_H */

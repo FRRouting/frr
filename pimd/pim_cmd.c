@@ -3901,7 +3901,6 @@ static void clear_mroute(struct pim_instance *pim)
 	/* scan interfaces */
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		struct pim_interface *pim_ifp = ifp->info;
-		struct gm_group *grp;
 		struct pim_ifchannel *ch;
 
 		if (!pim_ifp)
@@ -3914,7 +3913,9 @@ static void clear_mroute(struct pim_instance *pim)
 			pim_ifchannel_delete(ch);
 		}
 
+#if PIM_IPV == 4
 		/* clean up all igmp groups */
+		struct gm_group *grp;
 
 		if (pim_ifp->gm_group_list) {
 			while (pim_ifp->gm_group_list->count) {
@@ -3922,6 +3923,7 @@ static void clear_mroute(struct pim_instance *pim)
 				igmp_group_delete(grp);
 			}
 		}
+#endif
 	}
 
 	/* clean up all upstreams*/
@@ -8236,6 +8238,7 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 	      "IGMP version\n"
 	      "IGMP version number\n")
 {
+#if PIM_IPV == 4
 	VTY_DECLVAR_CONTEXT(interface, ifp);
 	int igmp_version;
 	struct pim_interface *pim_ifp = ifp->info;
@@ -8253,7 +8256,7 @@ DEFPY_HIDDEN (interface_ip_igmp_query_generate,
 		igmp_version = atoi(argv[4]->arg);
 
 	igmp_send_query_on_intf(ifp, igmp_version);
-
+#endif
 	return CMD_SUCCESS;
 }
 
