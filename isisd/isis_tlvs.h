@@ -549,7 +549,7 @@ void isis_free_tlvs(struct isis_tlvs *tlvs);
 struct isis_tlvs *isis_alloc_tlvs(void);
 int isis_unpack_tlvs(size_t avail_len, struct stream *stream,
 		     struct isis_tlvs **dest, const char **error_log);
-const char *isis_format_tlvs(struct isis_tlvs *tlvs);
+const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json);
 struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs);
 struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
 
