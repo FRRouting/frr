@@ -290,7 +290,7 @@ Showing ISIS information
    Show state and information of ISIS specified neighbor, or all neighbors if
    no system id is given with or without details.
 
-.. clicmd:: show isis database [detail] [LSPID]
+.. clicmd:: show isis [vrf <NAME|all>] database [detail] [LSPID] [json]
 
    Show the ISIS database globally, for a specific LSP id without or with
    details.
