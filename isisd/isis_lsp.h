@@ -120,12 +120,19 @@ void lsp_update(struct isis_lsp *lsp, struct isis_lsp_hdr *hdr,
 void lsp_inc_seqno(struct isis_lsp *lsp, uint32_t seqno);
 void lspid_print(uint8_t *lsp_id, char *dest, size_t dest_len, char dynhost,
 		 char frag, struct isis *isis);
-void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost,
-	       struct isis *isis);
-void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost,
+void lsp_print_common(struct isis_lsp *lsp, struct vty *vty,
+		      struct json_object *json, char dynhost,
 		      struct isis *isis);
-int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
-		  char dynhost, struct isis *isis);
+void lsp_print_vty(struct isis_lsp *lsp, struct vty *vty, char dynhost,
+		   struct isis *isis);
+void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
+		    char dynhost, struct isis *isis);
+void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty,
+		      struct json_object *json, char dynhost,
+		      struct isis *isis);
+int lsp_print_all(struct vty *vty, struct json_object *json,
+		  struct lspdb_head *head, char detail, char dynhost,
+		  struct isis *isis);
 /* sets SRMflags for all active circuits of an lsp */
 void lsp_set_all_srmflags(struct isis_lsp *lsp, bool set);
 

@@ -209,7 +209,7 @@ struct isis *isis_new(const char *vrf_name)
 	/*
 	 * Default values
 	 */
-	isis->max_area_addrs = 3;
+	isis->max_area_addrs = ISIS_DEFAULT_MAX_AREA_ADDRESSES;
 	isis->process_id = getpid();
 	isis->router_id = 0;
 	isis->area_list = list_new();
@@ -2654,9 +2654,40 @@ struct isis_lsp *lsp_for_sysid(struct lspdb_head *head, const char *sysid_str,
 	return lsp;
 }
 
-void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
-			      int level, struct lspdb_head *lspdb,
-			      const char *sysid_str, int ui_level)
+void show_isis_database_lspdb_json(struct json_object *json,
+				   struct isis_area *area, int level,
+				   struct lspdb_head *lspdb,
+				   const char *sysid_str, int ui_level)
+{
+	struct isis_lsp *lsp;
+	int lsp_count;
+
+	if (lspdb_count(lspdb) > 0) {
+		lsp = lsp_for_sysid(lspdb, sysid_str, area->isis);
+
+		if (lsp != NULL || sysid_str == NULL) {
+			json_object_int_add(json, "id", level + 1);
+		}
+
+		if (lsp) {
+			if (ui_level == ISIS_UI_LEVEL_DETAIL)
+				lsp_print_detail(lsp, NULL, json,
+						 area->dynhostname, area->isis);
+			else
+				lsp_print_json(lsp, json, area->dynhostname,
+					       area->isis);
+		} else if (sysid_str == NULL) {
+			lsp_count =
+				lsp_print_all(NULL, json, lspdb, ui_level,
+					      area->dynhostname, area->isis);
+
+			json_object_int_add(json, "count", lsp_count);
+		}
+	}
+}
+void show_isis_database_lspdb_vty(struct vty *vty, struct isis_area *area,
+				  int level, struct lspdb_head *lspdb,
+				  const char *sysid_str, int ui_level)
 {
 	struct isis_lsp *lsp;
 	int lsp_count;
@@ -2675,14 +2706,14 @@ void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
 
 		if (lsp) {
 			if (ui_level == ISIS_UI_LEVEL_DETAIL)
-				lsp_print_detail(lsp, vty, area->dynhostname,
-						 area->isis);
+				lsp_print_detail(lsp, vty, NULL,
+						 area->dynhostname, area->isis);
 			else
-				lsp_print(lsp, vty, area->dynhostname,
-					  area->isis);
+				lsp_print_vty(lsp, vty, area->dynhostname,
+					      area->isis);
 		} else if (sysid_str == NULL) {
 			lsp_count =
-				lsp_print_all(vty, lspdb, ui_level,
+				lsp_print_all(vty, NULL, lspdb, ui_level,
 					      area->dynhostname, area->isis);
 
 			vty_out(vty, "    %u LSPs\n\n", lsp_count);
@@ -2690,7 +2721,43 @@ void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
 	}
 }
 
-static void show_isis_database_common(struct vty *vty, const char *sysid_str,
+static void show_isis_database_json(struct json_object *json, const char *sysid_str,
+				      int ui_level, struct isis *isis)
+{
+	struct listnode *node;
+	struct isis_area *area;
+	int level;
+	struct json_object *tag_area_json,*area_json, *lsp_json, *area_arr_json, *arr_json;
+	uint8_t area_cnt = 0;
+
+	if (isis->area_list->count == 0)
+		return;
+
+	area_arr_json = json_object_new_array();
+	json_object_object_add(json, "areas", area_arr_json);
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, node, area)) {
+		area_json = json_object_new_object();
+		tag_area_json = json_object_new_object();
+		json_object_string_add(tag_area_json, "name",
+				       area->area_tag ? area->area_tag
+						      : "null");
+
+		arr_json = json_object_new_array();
+		json_object_object_add(area_json,"area",tag_area_json);
+		json_object_object_add(area_json,"levels",arr_json);
+		for (level = 0; level < ISIS_LEVELS; level++) {
+			lsp_json = json_object_new_object();
+			show_isis_database_lspdb_json(lsp_json, area, level,
+						      &area->lspdb[level],
+						      sysid_str, ui_level);
+			json_object_array_add(arr_json, lsp_json);
+		}
+		json_object_array_add(area_arr_json, area_json);
+		area_cnt++;
+	}
+}
+
+static void show_isis_database_vty(struct vty *vty, const char *sysid_str,
 				      int ui_level, struct isis *isis)
 {
 	struct listnode *node;
@@ -2705,11 +2772,22 @@ static void show_isis_database_common(struct vty *vty, const char *sysid_str,
 			area->area_tag ? area->area_tag : "null");
 
 		for (level = 0; level < ISIS_LEVELS; level++)
-			show_isis_database_lspdb(vty, area, level,
+			show_isis_database_lspdb_vty(vty, area, level,
 						 &area->lspdb[level], sysid_str,
 						 ui_level);
 	}
 }
+
+static void show_isis_database_common(struct vty *vty, struct json_object *json, const char *sysid_str,
+				      int ui_level, struct isis *isis)
+{
+	if (json) {
+		show_isis_database_json(json, sysid_str, ui_level, isis);
+	} else {
+		show_isis_database_vty(vty, sysid_str, ui_level, isis);
+	}
+}
+
 /*
  * This function supports following display options:
  * [ show isis database [detail] ]
@@ -2726,7 +2804,7 @@ static void show_isis_database_common(struct vty *vty, const char *sysid_str,
  * [ show isis database detail <sysid>.<pseudo-id>-<fragment-number> ]
  * [ show isis database detail <hostname>.<pseudo-id>-<fragment-number> ]
  */
-static int show_isis_database(struct vty *vty, const char *sysid_str,
+static int show_isis_database(struct vty *vty, struct json_object *json, const char *sysid_str,
 			      int ui_level, const char *vrf_name, bool all_vrf)
 {
 	struct listnode *node;
@@ -2735,28 +2813,30 @@ static int show_isis_database(struct vty *vty, const char *sysid_str,
 	if (vrf_name) {
 		if (all_vrf) {
 			for (ALL_LIST_ELEMENTS_RO(im->isis, node, isis))
-				show_isis_database_common(vty, sysid_str,
+				show_isis_database_common(vty, json, sysid_str,
 							  ui_level, isis);
 
 			return CMD_SUCCESS;
 		}
 		isis = isis_lookup_by_vrfname(vrf_name);
 		if (isis)
-			show_isis_database_common(vty, sysid_str, ui_level,
-						  isis);
+			show_isis_database_common(vty, json, sysid_str,
+						  ui_level, isis);
 	}
 
 	return CMD_SUCCESS;
 }
 
 DEFUN(show_database, show_database_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] database [detail] [WORD]",
+      "show " PROTO_NAME " [vrf <NAME|all>] database [detail] [WORD] [json]",
       SHOW_STR PROTO_HELP VRF_CMD_HELP_STR
       "All VRFs\n"
       "Link state database\n"
       "Detailed information\n"
-      "LSP ID\n")
+      "LSP ID\n"
+      "json output\n")
 {
+	int res = CMD_SUCCESS;
 	int idx = 0;
 	int idx_vrf = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
@@ -2765,8 +2845,17 @@ DEFUN(show_database, show_database_cmd,
 			      ? ISIS_UI_LEVEL_DETAIL
 			      : ISIS_UI_LEVEL_BRIEF;
 	char *id = argv_find(argv, argc, "WORD", &idx) ? argv[idx]->arg : NULL;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
+
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	return show_isis_database(vty, id, uilevel, vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
+
+	res = show_isis_database(vty, json, id, uilevel, vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 #ifdef FABRICD

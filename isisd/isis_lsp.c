@@ -733,8 +733,48 @@ static const char *lsp_bits2string(uint8_t lsp_bits, char *buf, size_t buf_size)
 }
 
 /* this function prints the lsp on show isis database */
-void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost,
-	       struct isis *isis)
+void lsp_print_common(struct isis_lsp *lsp, struct vty *vty, struct json_object *json,
+	       char dynhost, struct isis *isis)
+{
+	if (json) {
+		return lsp_print_json(lsp, json, dynhost, isis);
+	} else {
+		return lsp_print_vty(lsp, vty, dynhost, isis);
+	}
+}
+
+void lsp_print_json(struct isis_lsp *lsp, struct json_object *json,
+	       char dynhost, struct isis *isis)
+{
+	char LSPid[255];
+	char age_out[8];
+	char b[200];
+	json_object *own_json;
+	char buf[256];
+
+	lspid_print(lsp->hdr.lsp_id, LSPid, sizeof(LSPid), dynhost, 1, isis);
+	own_json = json_object_new_object();
+	json_object_object_add(json, "lsp", own_json);
+	json_object_string_add(own_json, "id", LSPid);
+	json_object_string_add(own_json, "own", lsp->own_lsp ? "*" : " ");
+	json_object_int_add(json, "pdu-len", lsp->hdr.pdu_len);
+	snprintfrr(buf, sizeof(buf), "0x%08x", lsp->hdr.seqno);
+	json_object_string_add(json, "seq-number", buf);
+	snprintfrr(buf, sizeof(buf), "0x%04hx", lsp->hdr.checksum);
+	json_object_string_add(json, "chksum", buf);
+	if (lsp->hdr.rem_lifetime == 0) {
+		snprintf(age_out, sizeof(age_out), "(%d)", lsp->age_out);
+		age_out[7] = '\0';
+		json_object_string_add(json, "holdtime", age_out);
+	} else {
+		json_object_int_add(json, "holdtime", lsp->hdr.rem_lifetime);
+	}
+	json_object_string_add(
+		json, "att-p-ol", lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
+}
+
+void lsp_print_vty(struct isis_lsp *lsp, struct vty *vty,
+	       char dynhost, struct isis *isis)
 {
 	char LSPid[255];
 	char age_out[8];
@@ -754,30 +794,40 @@ void lsp_print(struct isis_lsp *lsp, struct vty *vty, char dynhost,
 	vty_out(vty, "%s\n", lsp_bits2string(lsp->hdr.lsp_bits, b, sizeof(b)));
 }
 
-void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty, char dynhost,
-		      struct isis *isis)
+void lsp_print_detail(struct isis_lsp *lsp, struct vty *vty,
+			     struct json_object *json, char dynhost,
+			     struct isis *isis)
 {
-	lsp_print(lsp, vty, dynhost, isis);
-	if (lsp->tlvs)
-		vty_multiline(vty, "  ", "%s", isis_format_tlvs(lsp->tlvs));
-	vty_out(vty, "\n");
+	if (json) {
+		lsp_print_json(lsp, json, dynhost, isis);
+		if (lsp->tlvs) {
+			isis_format_tlvs(lsp->tlvs, json);
+		}
+	} else {
+		lsp_print_vty(lsp, vty, dynhost, isis);
+		if (lsp->tlvs)
+			vty_multiline(vty, "  ", "%s",
+				      isis_format_tlvs(lsp->tlvs, NULL));
+		vty_out(vty, "\n");
+	}
 }
 
 /* print all the lsps info in the local lspdb */
-int lsp_print_all(struct vty *vty, struct lspdb_head *head, char detail,
-		  char dynhost, struct isis *isis)
+int lsp_print_all(struct vty *vty, struct json_object *json,
+		  struct lspdb_head *head, char detail, char dynhost,
+		  struct isis *isis)
 {
 	struct isis_lsp *lsp;
 	int lsp_count = 0;
 
 	if (detail == ISIS_UI_LEVEL_BRIEF) {
 		frr_each (lspdb, head, lsp) {
-			lsp_print(lsp, vty, dynhost, isis);
+			lsp_print_common(lsp, vty, json, dynhost, isis);
 			lsp_count++;
 		}
 	} else if (detail == ISIS_UI_LEVEL_DETAIL) {
 		frr_each (lspdb, head, lsp) {
-			lsp_print_detail(lsp, vty, dynhost, isis);
+			lsp_print_detail(lsp, vty, json, dynhost, isis);
 			lsp_count++;
 		}
 	}
@@ -1264,7 +1314,7 @@ static void lsp_build(struct isis_lsp *lsp, struct isis_area *area)
 	if (!fragments) {
 		zlog_warn("BUG: could not fragment own LSP:");
 		log_multiline(LOG_WARNING, "    ", "%s",
-			      isis_format_tlvs(tlvs));
+			      isis_format_tlvs(tlvs, NULL));
 		isis_free_tlvs(tlvs);
 		return;
 	}

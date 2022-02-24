@@ -89,6 +89,8 @@ struct isis_master {
 };
 #define F_ISIS_UNIT_TEST 0x01
 
+#define ISIS_DEFAULT_MAX_AREA_ADDRESSES 3
+
 struct isis {
 	vrf_id_t vrf_id;
 	char *name;
@@ -305,9 +307,13 @@ int isis_area_passwd_cleartext_set(struct isis_area *area, int level,
 				   const char *passwd, uint8_t snp_auth);
 int isis_area_passwd_hmac_md5_set(struct isis_area *area, int level,
 				  const char *passwd, uint8_t snp_auth);
-void show_isis_database_lspdb(struct vty *vty, struct isis_area *area,
-			      int level, struct lspdb_head *lspdb,
-			      const char *argv, int ui_level);
+void show_isis_database_lspdb_json(struct json_object *json,
+				   struct isis_area *area, int level,
+				   struct lspdb_head *lspdb, const char *argv,
+				   int ui_level);
+void show_isis_database_lspdb_vty(struct vty *vty, struct isis_area *area,
+				  int level, struct lspdb_head *lspdb,
+				  const char *argv, int ui_level);
 
 /* YANG paths */
 #define ISIS_INSTANCE	"/frr-isisd:isis/instance"
