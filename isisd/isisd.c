@@ -109,9 +109,6 @@ DEFINE_HOOK(isis_hook_db_overload, (const struct isis_area *area), (area));
 int isis_area_get(struct vty *, const char *);
 int area_net_title(struct vty *, const char *);
 int area_clear_net_title(struct vty *, const char *);
-int show_isis_neighbor_common(struct vty *, const char *id, char,
-			      const char *vrf_name, bool all_vrf);
-int clear_isis_neighbor_common(struct vty *, const char *id, const char *vrf_name,
 int show_isis_interface_common(struct vty *, struct json_object *json,
 			       const char *ifname, char, const char *vrf_name,
 			       bool all_vrf);
@@ -120,6 +117,11 @@ int show_isis_interface_common_vty(struct vty *, const char *ifname, char,
 int show_isis_interface_common_json(struct json_object *json,
 				    const char *ifname, char,
 				    const char *vrf_name, bool all_vrf);
+int show_isis_neighbor_common(struct vty *, struct json_object *json,
+			      const char *id, char, const char *vrf_name,
+			      bool all_vrf);
+int clear_isis_neighbor_common(struct vty *, const char *id,
+			       const char *vrf_name, bool all_vrf);
 
 /* Link ISIS instance to VRF. */
 void isis_vrf_link(struct isis *isis, struct vrf *vrf)
@@ -960,6 +962,7 @@ int show_isis_interface_common_json(struct json_object *json,
 	struct isis_circuit *circuit;
 	struct isis *isis;
 	struct json_object *areas_json, *area_json;
+	struct json_object *circuits_json, *circuit_json;
 	if (!im) {
 		// IS-IS Routing Process not enabled
 		json_object_string_add(json, "is-is-routing-process-enabled",
@@ -979,20 +982,32 @@ int show_isis_interface_common_json(struct json_object *json,
 						area_json, "area",
 						area->area_tag ? area->area_tag
 							       : "null");
-
+					circuits_json = json_object_new_array();
+					json_object_object_add(area_json,
+							       "circuits",
+							       circuits_json);
 					for (ALL_LIST_ELEMENTS_RO(
 						     area->circuit_list, cnode,
-						     circuit))
+						     circuit)) {
+						circuit_json =
+							json_object_new_object();
+						json_object_int_add(
+							circuit_json, "circuit",
+							circuit->circuit_id);
 						if (!ifname)
 							isis_circuit_print_json(
 								circuit,
-								area_json,
+								circuit_json,
 								detail);
 						else if (strcmp(circuit->interface->name, ifname) == 0)
 							isis_circuit_print_json(
 								circuit,
-								area_json,
+								circuit_json,
 								detail);
+						json_object_array_add(
+							circuits_json,
+							circuit_json);
+					}
 					json_object_array_add(areas_json,
 							      area_json);
 				}
@@ -1011,18 +1026,28 @@ int show_isis_interface_common_json(struct json_object *json,
 							       ? area->area_tag
 							       : "null");
 
+				circuits_json = json_object_new_array();
+				json_object_object_add(area_json, "circuits",
+						       circuits_json);
 				for (ALL_LIST_ELEMENTS_RO(area->circuit_list,
-							  cnode, circuit))
+							  cnode, circuit)) {
+					circuit_json = json_object_new_object();
+					json_object_int_add(
+						circuit_json, "circuit",
+						circuit->circuit_id);
 					if (!ifname)
 						isis_circuit_print_json(
-							circuit, area_json,
+							circuit, circuit_json,
 							detail);
 					else if (
 						strcmp(circuit->interface->name,
 						       ifname) == 0)
 						isis_circuit_print_json(
-							circuit, area_json,
+							circuit, circuit_json,
 							detail);
+					json_object_array_add(circuits_json,
+							      circuit_json);
+				}
 				json_object_array_add(areas_json, area_json);
 			}
 		}
@@ -1202,8 +1227,65 @@ static int id_to_sysid(struct isis *isis, const char *id, uint8_t *sysid)
 	return 0;
 }
 
-static void isis_neighbor_common(struct vty *vty, const char *id, char detail,
-				 struct isis *isis, uint8_t *sysid)
+static void isis_neighbor_common_json(struct json_object *json, const char *id,
+				      char detail, struct isis *isis,
+				      uint8_t *sysid)
+{
+	struct listnode *anode, *cnode, *node;
+	struct isis_area *area;
+	struct isis_circuit *circuit;
+	struct list *adjdb;
+	struct isis_adjacency *adj;
+	struct json_object *areas_json, *area_json;
+	struct json_object *circuits_json, *circuit_json;
+	int i;
+
+	areas_json = json_object_new_array();
+	json_object_object_add(json, "areas", areas_json);
+	for (ALL_LIST_ELEMENTS_RO(isis->area_list, anode, area)) {
+		area_json = json_object_new_object();
+		json_object_string_add(area_json, "area",
+				       area->area_tag ? area->area_tag
+						      : "null");
+		circuits_json = json_object_new_array();
+		json_object_object_add(area_json, "circuits", circuits_json);
+		for (ALL_LIST_ELEMENTS_RO(area->circuit_list, cnode, circuit)) {
+			circuit_json = json_object_new_object();
+			json_object_int_add(circuit_json, "circuit",
+					    circuit->circuit_id);
+			if (circuit->circ_type == CIRCUIT_T_BROADCAST) {
+				for (i = 0; i < 2; i++) {
+					adjdb = circuit->u.bc.adjdb[i];
+					if (adjdb && adjdb->count) {
+						for (ALL_LIST_ELEMENTS_RO(
+							     adjdb, node, adj))
+							if (!id ||
+							    !memcmp(adj->sysid,
+								    sysid,
+								    ISIS_SYS_ID_LEN))
+								isis_adj_print_json(
+									adj,
+									circuit_json,
+									detail);
+					}
+				}
+			} else if (circuit->circ_type == CIRCUIT_T_P2P &&
+				   circuit->u.p2p.neighbor) {
+				adj = circuit->u.p2p.neighbor;
+				if (!id ||
+				    !memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
+					isis_adj_print_json(adj, circuit_json,
+							    detail);
+			}
+			json_object_array_add(circuits_json, circuit_json);
+		}
+		json_object_array_add(areas_json, area_json);
+	}
+}
+
+static void isis_neighbor_common_vty(struct vty *vty, const char *id,
+				     char detail, struct isis *isis,
+				     uint8_t *sysid)
 {
 	struct listnode *anode, *cnode, *node;
 	struct isis_area *area;
@@ -1226,9 +1308,8 @@ static void isis_neighbor_common(struct vty *vty, const char *id, char detail,
 					if (adjdb && adjdb->count) {
 						for (ALL_LIST_ELEMENTS_RO(
 							     adjdb, node, adj))
-							if (!id
-							    || !memcmp(
-								    adj->sysid,
+							if (!id ||
+							    !memcmp(adj->sysid,
 								    sysid,
 								    ISIS_SYS_ID_LEN))
 								isis_adj_print_vty(
@@ -1237,24 +1318,35 @@ static void isis_neighbor_common(struct vty *vty, const char *id, char detail,
 									detail);
 					}
 				}
-			} else if (circuit->circ_type == CIRCUIT_T_P2P
-				   && circuit->u.p2p.neighbor) {
+			} else if (circuit->circ_type == CIRCUIT_T_P2P &&
+				   circuit->u.p2p.neighbor) {
 				adj = circuit->u.p2p.neighbor;
-				if (!id
-				    || !memcmp(adj->sysid, sysid,
-					       ISIS_SYS_ID_LEN))
+				if (!id ||
+				    !memcmp(adj->sysid, sysid, ISIS_SYS_ID_LEN))
 					isis_adj_print_vty(adj, vty, detail);
 			}
 		}
 	}
-
 }
+
+static void isis_neighbor_common(struct vty *vty, struct json_object *json,
+				 const char *id, char detail, struct isis *isis,
+				 uint8_t *sysid)
+{
+	if (json) {
+		isis_neighbor_common_json(json, id, detail,isis,sysid);
+	} else {
+		isis_neighbor_common_vty(vty, id, detail,isis,sysid);
+	}
+}
+
 /*
  * 'show isis neighbor' command
  */
 
-int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
-			      const char *vrf_name, bool all_vrf)
+int show_isis_neighbor_common(struct vty *vty, struct json_object *json,
+			      const char *id, char detail, const char *vrf_name,
+			      bool all_vrf)
 {
 	struct listnode *node;
 	uint8_t sysid[ISIS_SYS_ID_LEN];
@@ -1273,8 +1365,8 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 						id);
 					return CMD_SUCCESS;
 				}
-				isis_neighbor_common(vty, id, detail, isis,
-						     sysid);
+				isis_neighbor_common(vty, json, id, detail,
+						     isis, sysid);
 			}
 			return CMD_SUCCESS;
 		}
@@ -1284,7 +1376,8 @@ int show_isis_neighbor_common(struct vty *vty, const char *id, char detail,
 				vty_out(vty, "Invalid system id %s\n", id);
 				return CMD_SUCCESS;
 			}
-			isis_neighbor_common(vty, id, detail, isis, sysid);
+			isis_neighbor_common(vty, json, id, detail, isis,
+					     sysid);
 		}
 	}
 
@@ -1377,64 +1470,91 @@ int clear_isis_neighbor_common(struct vty *vty, const char *id, const char *vrf_
 
 DEFUN(show_isis_neighbor,
       show_isis_neighbor_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] neighbor",
+      "show " PROTO_NAME " [vrf <NAME|all>] neighbor [json]",
       SHOW_STR
       PROTO_HELP
       VRF_CMD_HELP_STR
       "All vrfs\n"
-      "IS-IS neighbor adjacencies\n")
+      "IS-IS neighbor adjacencies\n"
+      "json output\n")
 {
+	int res = CMD_SUCCESS;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
-	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_BRIEF,
-					 vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
+	res = show_isis_neighbor_common(vty, json, NULL, ISIS_UI_LEVEL_BRIEF,
+					vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 DEFUN(show_isis_neighbor_detail,
       show_isis_neighbor_detail_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] neighbor detail",
+      "show " PROTO_NAME " [vrf <NAME|all>] neighbor detail [json]",
       SHOW_STR
       PROTO_HELP
       VRF_CMD_HELP_STR
       "all vrfs\n"
       "IS-IS neighbor adjacencies\n"
-      "show detailed information\n")
+      "show detailed information\n"
+      "json output\n")
 {
+	int res = CMD_SUCCESS;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
 
-	return show_isis_neighbor_common(vty, NULL, ISIS_UI_LEVEL_DETAIL,
-					 vrf_name, all_vrf);
+	res = show_isis_neighbor_common(vty, json, NULL, ISIS_UI_LEVEL_DETAIL,
+					vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 DEFUN(show_isis_neighbor_arg,
       show_isis_neighbor_arg_cmd,
-      "show " PROTO_NAME " [vrf <NAME|all>] neighbor WORD",
+      "show " PROTO_NAME " [vrf <NAME|all>] neighbor WORD [json]",
       SHOW_STR
       PROTO_HELP
       VRF_CMD_HELP_STR
       "All vrfs\n"
       "IS-IS neighbor adjacencies\n"
-      "System id\n")
+      "System id\n"
+      "json output\n")
 {
+	int res = CMD_SUCCESS;
 	int idx_word = 0;
 	const char *vrf_name = VRF_DEFAULT_NAME;
 	bool all_vrf = false;
 	int idx_vrf = 0;
+	bool uj = use_json(argc, argv);
+	json_object *json = NULL;
 
 	ISIS_FIND_VRF_ARGS(argv, argc, idx_vrf, vrf_name, all_vrf);
+	if (uj)
+		json = json_object_new_object();
 	char *id = argv_find(argv, argc, "WORD", &idx_word)
 			   ? argv[idx_word]->arg
 			   : NULL;
 
-	return show_isis_neighbor_common(vty, id, ISIS_UI_LEVEL_DETAIL,
-					 vrf_name, all_vrf);
+	res = show_isis_neighbor_common(vty, json, id, ISIS_UI_LEVEL_DETAIL,
+					vrf_name, all_vrf);
+	if (uj)
+		vty_json(vty, json);
+	return res;
 }
 
 DEFUN(clear_isis_neighbor,
