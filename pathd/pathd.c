@@ -45,9 +45,9 @@ DEFINE_HOOK(pathd_candidate_removed, (struct srte_candidate * candidate),
 	    (candidate));
 
 static void trigger_pathd_candidate_created(struct srte_candidate *candidate);
-static int trigger_pathd_candidate_created_timer(struct thread *thread);
+static void trigger_pathd_candidate_created_timer(struct thread *thread);
 static void trigger_pathd_candidate_updated(struct srte_candidate *candidate);
-static int trigger_pathd_candidate_updated_timer(struct thread *thread);
+static void trigger_pathd_candidate_updated_timer(struct thread *thread);
 static void trigger_pathd_candidate_removed(struct srte_candidate *candidate);
 static const char *
 srte_candidate_metric_name(enum srte_candidate_metric_type type);
@@ -1240,11 +1240,11 @@ void trigger_pathd_candidate_created(struct srte_candidate *candidate)
 			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-int trigger_pathd_candidate_created_timer(struct thread *thread)
+void trigger_pathd_candidate_created_timer(struct thread *thread)
 {
 	struct srte_candidate *candidate = THREAD_ARG(thread);
 	candidate->hook_timer = NULL;
-	return hook_call(pathd_candidate_created, candidate);
+	hook_call(pathd_candidate_created, candidate);
 }
 
 void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
@@ -1260,11 +1260,11 @@ void trigger_pathd_candidate_updated(struct srte_candidate *candidate)
 			 (void *)candidate, HOOK_DELAY, &candidate->hook_timer);
 }
 
-int trigger_pathd_candidate_updated_timer(struct thread *thread)
+void trigger_pathd_candidate_updated_timer(struct thread *thread)
 {
 	struct srte_candidate *candidate = THREAD_ARG(thread);
 	candidate->hook_timer = NULL;
-	return hook_call(pathd_candidate_updated, candidate);
+	hook_call(pathd_candidate_updated, candidate);
 }
 
 void trigger_pathd_candidate_removed(struct srte_candidate *candidate)

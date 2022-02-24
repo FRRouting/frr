@@ -250,7 +250,7 @@ void fabricd_finish(struct fabricd *f)
 	hash_free(f->neighbors_neighbors);
 }
 
-static int fabricd_initial_sync_timeout(struct thread *thread)
+static void fabricd_initial_sync_timeout(struct thread *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 
@@ -258,7 +258,6 @@ static int fabricd_initial_sync_timeout(struct thread *thread)
 		  f->initial_sync_circuit->interface->name);
 	f->initial_sync_state = FABRICD_SYNC_PENDING;
 	f->initial_sync_circuit = NULL;
-	return 0;
 }
 
 void fabricd_initial_sync_hello(struct isis_circuit *circuit)
@@ -399,22 +398,21 @@ static uint8_t fabricd_calculate_fabric_tier(struct isis_area *area)
 	return tier;
 }
 
-static int fabricd_tier_set_timer(struct thread *thread)
+static void fabricd_tier_set_timer(struct thread *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 
 	fabricd_set_tier(f, f->tier_pending);
-	return 0;
 }
 
-static int fabricd_tier_calculation_cb(struct thread *thread)
+static void fabricd_tier_calculation_cb(struct thread *thread)
 {
 	struct fabricd *f = THREAD_ARG(thread);
 	uint8_t tier = ISIS_TIER_UNDEFINED;
 
 	tier = fabricd_calculate_fabric_tier(f->area);
 	if (tier == ISIS_TIER_UNDEFINED)
-		return 0;
+		return;
 
 	zlog_info("OpenFabric: Got tier %hhu from algorithm. Arming timer.",
 		  tier);
@@ -423,7 +421,6 @@ static int fabricd_tier_calculation_cb(struct thread *thread)
 			 f->area->lsp_gen_interval[ISIS_LEVEL2 - 1],
 			 &f->tier_set_timer);
 
-	return 0;
 }
 
 static void fabricd_bump_tier_calculation_timer(struct fabricd *f)

@@ -1905,7 +1905,7 @@ static int ospf6_read_helper(int sockfd, struct ospf6 *ospf6)
 	return OSPF6_READ_CONTINUE;
 }
 
-int ospf6_receive(struct thread *thread)
+void ospf6_receive(struct thread *thread)
 {
 	int sockfd;
 	struct ospf6 *ospf6;
@@ -1922,13 +1922,11 @@ int ospf6_receive(struct thread *thread)
 		count++;
 		switch (ospf6_read_helper(sockfd, ospf6)) {
 		case OSPF6_READ_ERROR:
-			return 0;
+			return;
 		case OSPF6_READ_CONTINUE:
 			break;
 		}
 	}
-
-	return 0;
 }
 
 static void ospf6_fill_hdr_checksum(struct ospf6_interface *oi,
@@ -2079,7 +2077,7 @@ static uint16_t ospf6_make_hello(struct ospf6_interface *oi, struct stream *s)
 	return length;
 }
 
-static int ospf6_write(struct thread *thread)
+static void ospf6_write(struct thread *thread)
 {
 	struct ospf6 *ospf6 = THREAD_ARG(thread);
 	struct ospf6_interface *oi;
@@ -2096,7 +2094,7 @@ static int ospf6_write(struct thread *thread)
 
 	if (ospf6->fd < 0) {
 		zlog_warn("ospf6_write failed to send, fd %d", ospf6->fd);
-		return -1;
+		return;
 	}
 
 	node = listhead(ospf6->oi_write_q);
@@ -2235,11 +2233,9 @@ static int ospf6_write(struct thread *thread)
 	if (!list_isempty(ospf6->oi_write_q))
 		thread_add_write(master, ospf6_write, ospf6, ospf6->fd,
 				 &ospf6->t_write);
-
-	return 0;
 }
 
-int ospf6_hello_send(struct thread *thread)
+void ospf6_hello_send(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_packet *op;
@@ -2252,7 +2248,7 @@ int ospf6_hello_send(struct thread *thread)
 		if (IS_OSPF6_DEBUG_MESSAGE(OSPF6_MESSAGE_TYPE_HELLO, SEND_HDR))
 			zlog_debug("Unable to send Hello on down interface %s",
 				   oi->interface->name);
-		return 0;
+		return;
 	}
 
 	op = ospf6_packet_new(oi->ifmtu);
@@ -2264,7 +2260,7 @@ int ospf6_hello_send(struct thread *thread)
 	if (length == OSPF6_HEADER_SIZE) {
 		/* Hello overshooting MTU */
 		ospf6_packet_free(op);
-		return 0;
+		return;
 	}
 
 	/* Fill OSPF header. */
@@ -2287,8 +2283,6 @@ int ospf6_hello_send(struct thread *thread)
 			 &oi->thread_send_hello);
 
 	OSPF6_MESSAGE_WRITE_ON(oi);
-
-	return 0;
 }
 
 static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
@@ -2339,7 +2333,7 @@ static uint16_t ospf6_make_dbdesc(struct ospf6_neighbor *on, struct stream *s)
 	return length;
 }
 
-int ospf6_dbdesc_send(struct thread *thread)
+void ospf6_dbdesc_send(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	uint16_t length = OSPF6_HEADER_SIZE;
@@ -2353,7 +2347,7 @@ int ospf6_dbdesc_send(struct thread *thread)
 			zlog_debug(
 				"Quit to send DbDesc to neighbor %s state %s",
 				on->name, ospf6_neighbor_state_str[on->state]);
-		return 0;
+		return;
 	}
 
 	/* set next thread if master */
@@ -2381,11 +2375,9 @@ int ospf6_dbdesc_send(struct thread *thread)
 	ospf6_packet_add(on->ospf6_if, op);
 
 	OSPF6_MESSAGE_WRITE_ON(on->ospf6_if);
-
-	return 0;
 }
 
-int ospf6_dbdesc_send_newone(struct thread *thread)
+void ospf6_dbdesc_send_newone(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_lsa *lsa, *lsanext;
@@ -2431,7 +2423,6 @@ int ospf6_dbdesc_send_newone(struct thread *thread)
 				 &on->thread_exchange_done);
 
 	thread_execute(master, ospf6_dbdesc_send, on, 0);
-	return 0;
 }
 
 static uint16_t ospf6_make_lsreq(struct ospf6_neighbor *on, struct stream *s)
@@ -2508,7 +2499,7 @@ static uint16_t ospf6_make_lsack_neighbor(struct ospf6_neighbor *on,
 	return length;
 }
 
-int ospf6_lsreq_send(struct thread *thread)
+void ospf6_lsreq_send(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_packet *op;
@@ -2524,13 +2515,13 @@ int ospf6_lsreq_send(struct thread *thread)
 			zlog_debug("Quit to send LSReq to neighbor %s state %s",
 				   on->name,
 				   ospf6_neighbor_state_str[on->state]);
-		return 0;
+		return;
 	}
 
 	/* schedule loading_done if request list is empty */
 	if (on->request_list->count == 0) {
 		thread_add_event(master, loading_done, on, 0, NULL);
-		return 0;
+		return;
 	}
 
 	op = ospf6_packet_new(on->ospf6_if->ifmtu);
@@ -2541,7 +2532,7 @@ int ospf6_lsreq_send(struct thread *thread)
 	if (length == OSPF6_HEADER_SIZE) {
 		/* Hello overshooting MTU */
 		ospf6_packet_free(op);
-		return 0;
+		return;
 	}
 
 	/* Fill OSPF header. */
@@ -2566,8 +2557,6 @@ int ospf6_lsreq_send(struct thread *thread)
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_lsreq);
 	}
-
-	return 0;
 }
 
 static void ospf6_send_lsupdate(struct ospf6_neighbor *on,
@@ -2689,7 +2678,7 @@ static uint16_t ospf6_make_ls_retrans_list(struct ospf6_neighbor *on,
 	return length;
 }
 
-int ospf6_lsupdate_send_neighbor(struct thread *thread)
+void ospf6_lsupdate_send_neighbor(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_packet *op;
@@ -2707,7 +2696,7 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 					   SEND_HDR))
 			zlog_debug("Quit to send (neighbor state %s)",
 				   ospf6_neighbor_state_str[on->state]);
-		return 0;
+		return;
 	}
 
 	/* first do lsupdate_list */
@@ -2755,7 +2744,6 @@ int ospf6_lsupdate_send_neighbor(struct thread *thread)
 				 on->ospf6_if->rxmt_interval,
 				 &on->thread_send_lsupdate);
 	}
-	return 0;
 }
 
 int ospf6_lsupdate_send_neighbor_now(struct ospf6_neighbor *on,
@@ -2826,7 +2814,7 @@ static uint16_t ospf6_make_lsupdate_interface(struct ospf6_interface *oi,
 	return length;
 }
 
-int ospf6_lsupdate_send_interface(struct thread *thread)
+void ospf6_lsupdate_send_interface(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_packet *op;
@@ -2843,12 +2831,12 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 				"Quit to send LSUpdate to interface %s state %s",
 				oi->interface->name,
 				ospf6_interface_state_str[oi->state]);
-		return 0;
+		return;
 	}
 
 	/* if we have nothing to send, return */
 	if (oi->lsupdate_list->count == 0)
-		return 0;
+		return;
 
 	op = ospf6_packet_new(oi->ifmtu);
 	ospf6_make_header(OSPF6_MESSAGE_TYPE_LSUPDATE, oi, op->s);
@@ -2866,11 +2854,9 @@ int ospf6_lsupdate_send_interface(struct thread *thread)
 		thread_add_event(master, ospf6_lsupdate_send_interface, oi, 0,
 				 &oi->thread_send_lsupdate);
 	}
-
-	return 0;
 }
 
-int ospf6_lsack_send_neighbor(struct thread *thread)
+void ospf6_lsack_send_neighbor(struct thread *thread)
 {
 	struct ospf6_neighbor *on;
 	struct ospf6_packet *op;
@@ -2884,12 +2870,12 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 			zlog_debug("Quit to send LSAck to neighbor %s state %s",
 				   on->name,
 				   ospf6_neighbor_state_str[on->state]);
-		return 0;
+		return;
 	}
 
 	/* if we have nothing to send, return */
 	if (on->lsack_list->count == 0)
-		return 0;
+		return;
 
 	op = ospf6_packet_new(on->ospf6_if->ifmtu);
 	ospf6_make_header(OSPF6_MESSAGE_TYPE_LSACK, on->ospf6_if, op->s);
@@ -2898,7 +2884,7 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 
 	if (length == OSPF6_HEADER_SIZE) {
 		ospf6_packet_free(op);
-		return 0;
+		return;
 	}
 
 	/* Fill OSPF header. */
@@ -2914,8 +2900,6 @@ int ospf6_lsack_send_neighbor(struct thread *thread)
 	if (on->lsack_list->count > 0)
 		thread_add_event(master, ospf6_lsack_send_neighbor, on, 0,
 				 &on->thread_send_lsack);
-
-	return 0;
 }
 
 static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
@@ -2949,7 +2933,7 @@ static uint16_t ospf6_make_lsack_interface(struct ospf6_interface *oi,
 	return length;
 }
 
-int ospf6_lsack_send_interface(struct thread *thread)
+void ospf6_lsack_send_interface(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6_packet *op;
@@ -2964,12 +2948,12 @@ int ospf6_lsack_send_interface(struct thread *thread)
 				"Quit to send LSAck to interface %s state %s",
 				oi->interface->name,
 				ospf6_interface_state_str[oi->state]);
-		return 0;
+		return;
 	}
 
 	/* if we have nothing to send, return */
 	if (oi->lsack_list->count == 0)
-		return 0;
+		return;
 
 	op = ospf6_packet_new(oi->ifmtu);
 	ospf6_make_header(OSPF6_MESSAGE_TYPE_LSACK, oi, op->s);
@@ -2978,7 +2962,7 @@ int ospf6_lsack_send_interface(struct thread *thread)
 
 	if (length == OSPF6_HEADER_SIZE) {
 		ospf6_packet_free(op);
-		return 0;
+		return;
 	}
 	/* Fill OSPF header. */
 	ospf6_fill_header(oi, op->s, length);
@@ -2999,8 +2983,6 @@ int ospf6_lsack_send_interface(struct thread *thread)
 	if (oi->lsack_list->count > 0)
 		thread_add_event(master, ospf6_lsack_send_interface, oi, 0,
 				 &oi->thread_send_lsack);
-
-	return 0;
 }
 
 /* Commands */

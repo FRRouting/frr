@@ -140,7 +140,7 @@ static void pim_mlag_zebra_check_for_buffer_flush(uint32_t curr_msg_type,
  * Thsi thread reads the clients data from the Gloabl queue and encodes with
  * protobuf and pass on to the MLAG socket.
  */
-static int pim_mlag_zthread_handler(struct thread *event)
+static void pim_mlag_zthread_handler(struct thread *event)
 {
 	struct stream *read_s;
 	uint32_t wr_count = 0;
@@ -155,7 +155,7 @@ static int pim_mlag_zthread_handler(struct thread *event)
 			   __func__, wr_count);
 
 	if (wr_count == 0)
-		return 0;
+		return;
 
 	for (wr_count = 0; wr_count < PIM_MLAG_POST_LIMIT; wr_count++) {
 		/* FIFO is empty,wait for teh message to be add */
@@ -207,8 +207,6 @@ stream_failure:
 
 	if (wr_count >= PIM_MLAG_POST_LIMIT)
 		pim_mlag_signal_zpthread();
-
-	return 0;
 }
 
 

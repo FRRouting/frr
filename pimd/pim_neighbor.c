@@ -200,7 +200,7 @@ static void update_dr_priority(struct pim_neighbor *neigh,
 	}
 }
 
-static int on_neighbor_timer(struct thread *t)
+static void on_neighbor_timer(struct thread *t)
 {
 	struct pim_neighbor *neigh;
 	struct interface *ifp;
@@ -226,8 +226,6 @@ static int on_neighbor_timer(struct thread *t)
 	  router's own DR Priority changes.
 	*/
 	pim_if_dr_election(ifp); // neighbor times out
-
-	return 0;
 }
 
 void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
@@ -252,7 +250,7 @@ void pim_neighbor_timer_reset(struct pim_neighbor *neigh, uint16_t holdtime)
 			 neigh->holdtime, &neigh->t_expire_timer);
 }
 
-static int on_neighbor_jp_timer(struct thread *t)
+static void on_neighbor_jp_timer(struct thread *t)
 {
 	struct pim_neighbor *neigh = THREAD_ARG(t);
 	struct pim_rpf rpf;
@@ -269,8 +267,6 @@ static int on_neighbor_jp_timer(struct thread *t)
 
 	thread_add_timer(router->master, on_neighbor_jp_timer, neigh,
 			 router->t_periodic, &neigh->jp_timer);
-
-	return 0;
 }
 
 static void pim_neighbor_start_jp_timer(struct pim_neighbor *neigh)

@@ -731,7 +731,7 @@ static bool ifmaddr_check(ifindex_t ifindex, struct in6_addr *addr)
 #endif /* __FreeBSD__ */
 
 /* Interface State Machine */
-int interface_up(struct thread *thread)
+void interface_up(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct ospf6 *ospf6;
@@ -752,7 +752,7 @@ int interface_up(struct thread *thread)
 	if (!if_is_operative(oi->interface)) {
 		zlog_warn("Interface %s is down, can't execute [InterfaceUp]",
 			  oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* check interface has a link-local address */
@@ -761,7 +761,7 @@ int interface_up(struct thread *thread)
 		zlog_warn(
 			"Interface %s has no link local address, can't execute [InterfaceUp]",
 			oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* Recompute cost */
@@ -772,7 +772,7 @@ int interface_up(struct thread *thread)
 		if (IS_OSPF6_DEBUG_INTERFACE)
 			zlog_debug("Interface %s already enabled",
 				   oi->interface->name);
-		return 0;
+		return;
 	}
 
 	/* If no area assigned, return */
@@ -780,7 +780,7 @@ int interface_up(struct thread *thread)
 		zlog_warn(
 			"%s: Not scheduling Hello for %s as there is no area assigned yet",
 			__func__, oi->interface->name);
-		return 0;
+		return;
 	}
 
 #ifdef __FreeBSD__
@@ -799,7 +799,7 @@ int interface_up(struct thread *thread)
 		thread_add_timer(master, interface_up, oi,
 				 OSPF6_INTERFACE_SSO_RETRY_INT,
 				 &oi->thread_sso);
-		return 0;
+		return;
 	}
 #endif /* __FreeBSD__ */
 
@@ -817,7 +817,7 @@ int interface_up(struct thread *thread)
 					 OSPF6_INTERFACE_SSO_RETRY_INT,
 					 &oi->thread_sso);
 		}
-		return 0;
+		return;
 	}
 	oi->sso_try_cnt = 0; /* Reset on success */
 
@@ -843,11 +843,9 @@ int interface_up(struct thread *thread)
 		thread_add_timer(master, wait_timer, oi, oi->dead_interval,
 				 &oi->thread_wait_timer);
 	}
-
-	return 0;
 }
 
-int wait_timer(struct thread *thread)
+void wait_timer(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -860,11 +858,9 @@ int wait_timer(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int backup_seen(struct thread *thread)
+void backup_seen(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -877,11 +873,9 @@ int backup_seen(struct thread *thread)
 
 	if (oi->state == OSPF6_INTERFACE_WAITING)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int neighbor_change(struct thread *thread)
+void neighbor_change(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 
@@ -896,11 +890,9 @@ int neighbor_change(struct thread *thread)
 	    || oi->state == OSPF6_INTERFACE_BDR
 	    || oi->state == OSPF6_INTERFACE_DR)
 		ospf6_interface_state_change(dr_election(oi), oi);
-
-	return 0;
 }
 
-int interface_down(struct thread *thread)
+void interface_down(struct thread *thread)
 {
 	struct ospf6_interface *oi;
 	struct listnode *node, *nnode;
@@ -942,7 +934,7 @@ int interface_down(struct thread *thread)
 	oi->bdrouter = oi->prev_bdrouter = htonl(0);
 
 	if (oi->area == NULL)
-		return 0;
+		return;
 
 	ospf6 = oi->area->ospf6;
 	/* Leave AllSPFRouters */
@@ -960,8 +952,6 @@ int interface_down(struct thread *thread)
 	}
 
 	ospf6_interface_state_change(OSPF6_INTERFACE_DOWN, oi);
-
-	return 0;
 }
 
 

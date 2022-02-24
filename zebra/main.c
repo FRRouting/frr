@@ -213,7 +213,7 @@ static void sigint(void)
  * Final shutdown step for the zebra main thread. This is run after all
  * async update processing has completed.
  */
-int zebra_finalize(struct thread *dummy)
+void zebra_finalize(struct thread *dummy)
 {
 	zlog_info("Zebra final shutdown");
 

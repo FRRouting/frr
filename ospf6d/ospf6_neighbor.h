@@ -205,16 +205,16 @@ struct ospf6_neighbor *ospf6_neighbor_create(uint32_t router_id,
 void ospf6_neighbor_delete(struct ospf6_neighbor *on);
 
 /* Neighbor event */
-extern int hello_received(struct thread *thread);
-extern int twoway_received(struct thread *thread);
-extern int negotiation_done(struct thread *thread);
-extern int exchange_done(struct thread *thread);
-extern int loading_done(struct thread *thread);
-extern int adj_ok(struct thread *thread);
-extern int seqnumber_mismatch(struct thread *thread);
-extern int bad_lsreq(struct thread *thread);
-extern int oneway_received(struct thread *thread);
-extern int inactivity_timer(struct thread *thread);
+extern void hello_received(struct thread *thread);
+extern void twoway_received(struct thread *thread);
+extern void negotiation_done(struct thread *thread);
+extern void exchange_done(struct thread *thread);
+extern void loading_done(struct thread *thread);
+extern void adj_ok(struct thread *thread);
+extern void seqnumber_mismatch(struct thread *thread);
+extern void bad_lsreq(struct thread *thread);
+extern void oneway_received(struct thread *thread);
+extern void inactivity_timer(struct thread *thread);
 extern void ospf6_check_nbr_loading(struct ospf6_neighbor *on);
 
 extern void ospf6_neighbor_init(void);
