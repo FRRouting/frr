@@ -1195,7 +1195,7 @@ def add_interfaces_to_vlan(tgen, input_dict):
 
                         # Assigning IP address
                         ifaddr = ipaddress.ip_interface(
-                            u"{}/{}".format(
+                            "{}/{}".format(
                                 frr_unicode(data["ip"]), frr_unicode(data["subnet"])
                             )
                         )
@@ -1626,7 +1626,7 @@ def create_interface_in_kernel(
         ifaddr = ipaddress.ip_interface(frr_unicode(ip_addr))
     else:
         ifaddr = ipaddress.ip_interface(
-            u"{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
+            "{}/{}".format(frr_unicode(ip_addr), frr_unicode(netmask))
         )
     cmd = "ip -{0} a flush {1} scope global && ip a add {2} dev {1} && ip l set {1} up".format(
         ifaddr.version, name, ifaddr
@@ -4921,8 +4921,13 @@ def verify_ip_nht(tgen, input_dict):
 
         for nh in nh_list:
             if nh in show_ip_nht:
-                logger.info("Nexthop %s is resolved on %s", nh, router)
-                return True
+                nht = run_frr_cmd(rnode, f"show ip nht {nh}")
+                if "unresolved" in nht:
+                    errormsg = "Nexthop {} became unresolved on {}".format(nh, router)
+                    return errormsg
+                else:
+                    logger.info("Nexthop %s is resolved on %s", nh, router)
+                    return True
             else:
                 errormsg = "Nexthop {} is resolved on {}".format(nh, router)
                 return errormsg
