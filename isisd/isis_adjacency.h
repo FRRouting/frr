@@ -144,6 +144,8 @@ const char *isis_adj_yang_state(enum isis_adj_state state);
 void isis_adj_expire(struct thread *thread);
 void isis_adj_print_vty(struct isis_adjacency *adj, struct vty *vty,
 			char detail);
+void isis_adj_print_json(struct isis_adjacency *adj, struct json_object *json,
+			 char detail);
 void isis_adj_build_neigh_list(struct list *adjdb, struct list *list);
 void isis_adj_build_up_list(struct list *adjdb, struct list *list);
 int isis_adj_usage2levels(enum isis_adj_usage usage);
