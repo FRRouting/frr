@@ -2426,15 +2426,21 @@ void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 	struct pim_ssm *ssm = pim->ssm_info;
 	const char *range_str =
 		ssm->plist_name ? ssm->plist_name : PIM_SSM_STANDARD_RANGE;
+	json_object *json;
 
 	if (uj) {
-		json_object *json;
-
 		json = json_object_new_object();
 		json_object_string_add(json, "ssmGroups", range_str);
-		vty_json(vty, json);
-	} else
+	} else {
+#if PIM_IPV == 6
+		if (!strcmp(range_str, PIM_SSM_STANDARD_RANGE))
+			vty_out(vty, "x: any valid scope");
+#endif
 		vty_out(vty, "SSM group range : %s\n", range_str);
+	}
+
+	if (uj)
+		vty_json(vty, json);
 }
 
 struct pnc_cache_walk_data {

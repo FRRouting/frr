@@ -19,7 +19,12 @@
 #ifndef PIM_SSM_H
 #define PIM_SSM_H
 
+#if PIM_IPV == 4
 #define PIM_SSM_STANDARD_RANGE "232.0.0.0/8"
+#else
+#define PIM_SSM_STANDARD_RANGE "FF3x::/32"
+/* where x is any valid scope */
+#endif
 
 /* SSM error codes */
 enum pim_ssm_err {

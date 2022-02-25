@@ -68,6 +68,7 @@ void pim_ssm_prefix_list_update(struct pim_instance *pim,
 	pim_ssm_range_reevaluate(pim);
 }
 
+#if PIM_IPV == 4
 static int pim_is_grp_standard_ssm(struct prefix *group)
 {
 	static int first = 1;
@@ -84,6 +85,13 @@ static int pim_is_grp_standard_ssm(struct prefix *group)
 
 	return prefix_match(&group_ssm, group);
 }
+#else
+static int pim_is_grp_standard_ssm(struct prefix *group)
+{
+	return ((group->u.prefix6.s6_addr32[0] & htonl(0xFFF00000)) ==
+	       htonl(0xFF300000)) && (group->prefixlen >= 32);
+}
+#endif
 
 int pim_is_grp_ssm(struct pim_instance *pim, pim_addr group_addr)
 {

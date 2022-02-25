@@ -41,7 +41,6 @@
 #include "pim_addr.h"
 #include "pim_nht.h"
 
-
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim6_cmd_clippy.c"
 #endif
@@ -1190,6 +1189,29 @@ DEFPY (show_ipv6_pim_channel,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_ssm_range,
+       show_ipv6_pim_ssm_range_cmd,
+       "show ipv6 pim [vrf NAME] group-type [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM group type\n"
+       JSON_STR)
+{
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	ip_pim_ssm_show_group_range(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 DEFPY (show_ipv6_pim_interface,
        show_ipv6_pim_interface_cmd,
        "show ipv6 pim [vrf NAME] interface [detail|WORD]$interface [json$json]",
@@ -1627,6 +1649,7 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_state_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_state_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_channel_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_ssm_range_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_interface_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_join_cmd);

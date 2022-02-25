@@ -5211,9 +5211,9 @@ DEFUN (no_ip_pim_ssm_prefix_list_name,
 	return CMD_WARNING_CONFIG_FAILED;
 }
 
-DEFUN (show_ip_pim_ssm_range,
+DEFPY (show_ip_pim_ssm_range,
        show_ip_pim_ssm_range_cmd,
-       "show ip pim [vrf NAME] group-type [json]",
+       "show ip pim [vrf NAME] group-type [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -5221,14 +5221,15 @@ DEFUN (show_ip_pim_ssm_range,
        "PIM group type\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct vrf *v;
+	bool uj = !!json;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	ip_pim_ssm_show_group_range(vrf->info, vty, uj);
+	ip_pim_ssm_show_group_range(v->info, vty, uj);
 
 	return CMD_SUCCESS;
 }
