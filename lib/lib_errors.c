@@ -69,6 +69,12 @@ static struct log_ref ferr_lib_warn[] = {
 		.suggestion = "Gather log data and open an Issue",
 	},
 	{
+		.code = EC_LIB_TIMER_TOO_LONG,
+		.title = "The Event subsystem has detected an internal timer that is scheduled to pop in greater than one year",
+		.description = "The Event subsystem has detected a timer being started that will pop in a timer that is greater than one year.  This is a bug, please collect log data and open an issue.",
+		.suggestion = "Gather log data and open an Issue",
+	},
+	{
 		.code = EC_LIB_RMAP_RECURSION_LIMIT,
 		.title = "Reached the Route-Map Recursion Limit",
 		.description = "The Route-Map subsystem has detected a route-map depth of RMAP_RECURSION_LIMIT and has stopped processing",
