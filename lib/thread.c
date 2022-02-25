@@ -1052,6 +1052,12 @@ static void _thread_add_timer_timeval(const struct xref_threadsched *xref,
 		if (thread_timer_list_first(&m->timer) == thread)
 			AWAKEN(m);
 	}
+#define ONEYEAR2SEC (60 * 60 * 24 * 365)
+	if (time_relative->tv_sec > ONEYEAR2SEC)
+		flog_err(
+			EC_LIB_TIMER_TOO_LONG,
+			"Timer: %pTHD is created with an expiration that is greater than 1 year",
+			thread);
 }
 
 
