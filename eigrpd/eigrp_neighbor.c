@@ -189,7 +189,7 @@ void eigrp_nbr_delete(struct eigrp_neighbor *nbr)
 	XFREE(MTYPE_EIGRP_NEIGHBOR, nbr);
 }
 
-int holddown_timer_expired(struct thread *thread)
+void holddown_timer_expired(struct thread *thread)
 {
 	struct eigrp_neighbor *nbr = THREAD_ARG(thread);
 	struct eigrp *eigrp = nbr->ei->eigrp;
@@ -198,8 +198,6 @@ int holddown_timer_expired(struct thread *thread)
 		  ifindex2ifname(nbr->ei->ifp->ifindex, eigrp->vrf_id));
 	nbr->state = EIGRP_NEIGHBOR_DOWN;
 	eigrp_nbr_delete(nbr);
-
-	return 0;
 }
 
 uint8_t eigrp_nbr_state_get(struct eigrp_neighbor *nbr)

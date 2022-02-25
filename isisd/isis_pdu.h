@@ -195,7 +195,7 @@ struct isis_partial_seqnum_hdr {
 /*
  * Function for receiving IS-IS PDUs
  */
-int isis_receive(struct thread *thread);
+void isis_receive(struct thread *thread);
 
 /*
  * calling arguments for snp_process ()
@@ -210,10 +210,10 @@ int isis_receive(struct thread *thread);
  */
 void send_hello_sched(struct isis_circuit *circuit, int level, long delay);
 int send_csnp(struct isis_circuit *circuit, int level);
-int send_l1_csnp(struct thread *thread);
-int send_l2_csnp(struct thread *thread);
-int send_l1_psnp(struct thread *thread);
-int send_l2_psnp(struct thread *thread);
+void send_l1_csnp(struct thread *thread);
+void send_l2_csnp(struct thread *thread);
+void send_l1_psnp(struct thread *thread);
+void send_l2_psnp(struct thread *thread);
 void send_lsp(struct isis_circuit *circuit,
 	      struct isis_lsp *lsp, enum isis_tx_type tx_type);
 void fill_fixed_hdr(uint8_t pdu_type, struct stream *stream);

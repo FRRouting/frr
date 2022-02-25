@@ -362,12 +362,11 @@ void ospf_apiserver_free(struct ospf_apiserver *apiserv)
 	XFREE(MTYPE_OSPF_APISERVER, apiserv);
 }
 
-int ospf_apiserver_read(struct thread *thread)
+void ospf_apiserver_read(struct thread *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
 	int fd;
-	int rc = -1;
 	enum event event;
 
 	apiserv = THREAD_ARG(thread);
@@ -396,7 +395,7 @@ int ospf_apiserver_read(struct thread *thread)
 	else {
 		zlog_warn("ospf_apiserver_read: Unknown fd(%d)", fd);
 		ospf_apiserver_free(apiserv);
-		goto out;
+		return;
 	}
 
 	/* Read message from fd. */
@@ -408,25 +407,22 @@ int ospf_apiserver_read(struct thread *thread)
 
 		/* Perform cleanup. */
 		ospf_apiserver_free(apiserv);
-		goto out;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
 		msg_print(msg);
 
 	/* Dispatch to corresponding message handler. */
-	rc = ospf_apiserver_handle_msg(apiserv, msg);
+	ospf_apiserver_handle_msg(apiserv, msg);
 
 	/* Prepare for next message, add read thread. */
 	ospf_apiserver_event(event, fd, apiserv);
 
 	msg_free(msg);
-
-out:
-	return rc;
 }
 
-int ospf_apiserver_sync_write(struct thread *thread)
+void ospf_apiserver_sync_write(struct thread *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
@@ -455,7 +451,7 @@ int ospf_apiserver_sync_write(struct thread *thread)
 	if (!msg) {
 		zlog_warn(
 			"API: ospf_apiserver_sync_write: No message in Sync-FIFO?");
-		return 0;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -485,12 +481,10 @@ out:
 		/* Perform cleanup and disconnect with peer */
 		ospf_apiserver_free(apiserv);
 	}
-
-	return rc;
 }
 
 
-int ospf_apiserver_async_write(struct thread *thread)
+void ospf_apiserver_async_write(struct thread *thread)
 {
 	struct ospf_apiserver *apiserv;
 	struct msg *msg;
@@ -519,7 +513,7 @@ int ospf_apiserver_async_write(struct thread *thread)
 	if (!msg) {
 		zlog_warn(
 			"API: ospf_apiserver_async_write: No message in Async-FIFO?");
-		return 0;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -549,8 +543,6 @@ out:
 		/* Perform cleanup and disconnect with peer */
 		ospf_apiserver_free(apiserv);
 	}
-
-	return rc;
 }
 
 
@@ -593,7 +585,7 @@ int ospf_apiserver_serv_sock_family(unsigned short port, int family)
 
 /* Accept connection request from external applications. For each
    accepted connection allocate own connection instance. */
-int ospf_apiserver_accept(struct thread *thread)
+void ospf_apiserver_accept(struct thread *thread)
 {
 	int accept_sock;
 	int new_sync_sock;
@@ -617,7 +609,7 @@ int ospf_apiserver_accept(struct thread *thread)
 	if (new_sync_sock < 0) {
 		zlog_warn("ospf_apiserver_accept: accept: %s",
 			  safe_strerror(errno));
-		return -1;
+		return;
 	}
 
 	/* Get port address and port number of peer to make reverse connection.
@@ -632,7 +624,7 @@ int ospf_apiserver_accept(struct thread *thread)
 		zlog_warn("ospf_apiserver_accept: getpeername: %s",
 			  safe_strerror(errno));
 		close(new_sync_sock);
-		return -1;
+		return;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
@@ -652,7 +644,7 @@ int ospf_apiserver_accept(struct thread *thread)
 			&peer_async.sin_addr,
 			ntohs(peer_async.sin_port));
 		close(new_sync_sock);
-		return -1;
+		return;
 	}
 
 	new_async_sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -660,7 +652,7 @@ int ospf_apiserver_accept(struct thread *thread)
 		zlog_warn("ospf_apiserver_accept: socket: %s",
 			  safe_strerror(errno));
 		close(new_sync_sock);
-		return -1;
+		return;
 	}
 
 	ret = connect(new_async_sock, (struct sockaddr *)&peer_async,
@@ -671,7 +663,7 @@ int ospf_apiserver_accept(struct thread *thread)
 			  safe_strerror(errno));
 		close(new_sync_sock);
 		close(new_async_sock);
-		return -1;
+		return;
 	}
 
 #ifdef USE_ASYNC_READ
@@ -683,7 +675,7 @@ int ospf_apiserver_accept(struct thread *thread)
 			  safe_strerror(errno));
 		close(new_sync_sock);
 		close(new_async_sock);
-		return -1;
+		return;
 	}
 #endif /* USE_ASYNC_READ */
 
@@ -705,8 +697,6 @@ int ospf_apiserver_accept(struct thread *thread)
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug("API: New apiserv(%p), total#(%d)", (void *)apiserv,
 			   apiserver_list->count);
-
-	return 0;
 }
 
 

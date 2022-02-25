@@ -1638,7 +1638,7 @@ static void zebra_route_map_process_update_cb(char *rmap_name)
 	zebra_nht_rm_update(rmap_name);
 }
 
-static int zebra_route_map_update_timer(struct thread *thread)
+static void zebra_route_map_update_timer(struct thread *thread)
 {
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug("Event driven route-map update triggered");
@@ -1655,7 +1655,6 @@ static int zebra_route_map_update_timer(struct thread *thread)
 	 * 1) VRF Aware <sigh>
 	 * 2) Route-map aware
 	 */
-	return 0;
 }
 
 static void zebra_route_map_set_delay_timer(uint32_t value)

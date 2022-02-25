@@ -611,9 +611,8 @@ static int pim_ecmp_nexthop_search(struct pim_instance *pim,
 			pim_addr nhaddr = nh_node->gate.ipv6;
 #endif
 			nbrs[i] = pim_neighbor_find(ifps[i], nhaddr);
-			if (nbrs[i] || pim_if_connected_to_source(ifps[i],
-
-								  src->u.prefix4))
+			if (nbrs[i] ||
+			    pim_if_connected_to_source(ifps[i], src->u.prefix4))
 				num_nbrs++;
 		}
 	}

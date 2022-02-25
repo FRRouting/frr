@@ -4042,13 +4042,11 @@ static void bgp_route_map_process_update_cb(char *rmap_name)
 	vpn_policy_routemap_event(rmap_name);
 }
 
-int bgp_route_map_update_timer(struct thread *thread)
+void bgp_route_map_update_timer(struct thread *thread)
 {
 	bm->t_rmap_update = NULL;
 
 	route_map_walk_update_list(bgp_route_map_process_update_cb);
-
-	return 0;
 }
 
 static void bgp_route_map_mark_update(const char *rmap_name)

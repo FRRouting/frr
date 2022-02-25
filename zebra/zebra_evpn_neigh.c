@@ -411,7 +411,7 @@ void zebra_evpn_sync_neigh_static_chg(struct zebra_neigh *n, bool old_n_static,
  * external neighmgr daemon to probe existing hosts to independently
  * establish their presence on the ES.
  */
-static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
+static void zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 {
 	struct zebra_neigh *n;
 	bool old_bgp_ready;
@@ -424,7 +424,7 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 	 * flag
 	 */
 	if (!CHECK_FLAG(n->flags, ZEBRA_NEIGH_ES_PEER_ACTIVE))
-		return 0;
+		return;
 
 	old_bgp_ready = zebra_evpn_neigh_is_ready_for_bgp(n);
 	old_n_static = zebra_evpn_neigh_is_static(n);
@@ -448,8 +448,6 @@ static int zebra_evpn_neigh_hold_exp_cb(struct thread *t)
 	if (old_bgp_ready != new_bgp_ready)
 		zebra_evpn_neigh_send_add_del_to_client(n, old_bgp_ready,
 							new_bgp_ready);
-
-	return 0;
 }
 
 static inline void zebra_evpn_neigh_start_hold_timer(struct zebra_neigh *n)
@@ -1092,7 +1090,7 @@ static int zebra_evpn_ip_inherit_dad_from_mac(struct zebra_vrf *zvrf,
 	return 0;
 }
 
-static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
+static void zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 {
 	struct zebra_vrf *zvrf = NULL;
 	struct zebra_neigh *nbr = NULL;
@@ -1103,15 +1101,15 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 	/* since this is asynchronous we need sanity checks*/
 	zvrf = vrf_info_lookup(nbr->zevpn->vrf_id);
 	if (!zvrf)
-		return 0;
+		return;
 
 	zevpn = zebra_evpn_lookup(nbr->zevpn->vni);
 	if (!zevpn)
-		return 0;
+		return;
 
 	nbr = zebra_evpn_neigh_lookup(zevpn, &nbr->ip);
 	if (!nbr)
-		return 0;
+		return;
 
 	if (IS_ZEBRA_DEBUG_VXLAN)
 		zlog_debug(
@@ -1135,8 +1133,6 @@ static int zebra_evpn_dad_ip_auto_recovery_exp(struct thread *t)
 	} else if (!!CHECK_FLAG(nbr->flags, ZEBRA_NEIGH_REMOTE)) {
 		zebra_evpn_rem_neigh_install(zevpn, nbr, false /*was_static*/);
 	}
-
-	return 0;
 }
 
 static void zebra_evpn_dup_addr_detect_for_neigh(

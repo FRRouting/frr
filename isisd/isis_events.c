@@ -209,7 +209,7 @@ void isis_circuit_is_type_set(struct isis_circuit *circuit, int newtype)
 
 /* events supporting code */
 
-int isis_event_dis_status_change(struct thread *thread)
+void isis_event_dis_status_change(struct thread *thread)
 {
 	struct isis_circuit *circuit;
 
@@ -217,15 +217,13 @@ int isis_event_dis_status_change(struct thread *thread)
 
 	/* invalid arguments */
 	if (!circuit || !circuit->area)
-		return 0;
+		return;
 	if (IS_DEBUG_EVENTS)
 		zlog_debug("ISIS-Evt (%s) DIS status change",
 			   circuit->area->area_tag);
 
 	/* LSP generation again */
 	lsp_regenerate_schedule(circuit->area, IS_LEVEL_1 | IS_LEVEL_2, 0);
-
-	return 0;
 }
 
 void isis_event_auth_failure(char *area_tag, const char *error_string,

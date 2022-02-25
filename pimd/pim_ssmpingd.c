@@ -315,19 +315,16 @@ static int ssmpingd_read_msg(struct ssmpingd_sock *ss)
 	return 0;
 }
 
-static int ssmpingd_sock_read(struct thread *t)
+static void ssmpingd_sock_read(struct thread *t)
 {
 	struct ssmpingd_sock *ss;
-	int result;
 
 	ss = THREAD_ARG(t);
 
-	result = ssmpingd_read_msg(ss);
+	ssmpingd_read_msg(ss);
 
 	/* Keep reading */
 	ssmpingd_read_on(ss);
-
-	return result;
 }
 
 static void ssmpingd_read_on(struct ssmpingd_sock *ss)

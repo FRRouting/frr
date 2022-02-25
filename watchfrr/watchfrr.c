@@ -201,7 +201,7 @@ static const struct option longopts[] = {
 	{NULL, 0, NULL, 0}};
 
 static int try_connect(struct daemon *dmn);
-static int wakeup_send_echo(struct thread *t_wakeup);
+static void wakeup_send_echo(struct thread *t_wakeup);
 static void try_restart(struct daemon *dmn);
 static void phase_check(void);
 static void restart_done(struct daemon *dmn);
@@ -350,7 +350,7 @@ static struct timeval *time_elapsed(struct timeval *result,
 	return result;
 }
 
-static int restart_kill(struct thread *t_kill)
+static void restart_kill(struct thread *t_kill)
 {
 	struct restart_info *restart = THREAD_ARG(t_kill);
 	struct timeval delay;
@@ -364,7 +364,6 @@ static int restart_kill(struct thread *t_kill)
 	restart->kills++;
 	thread_add_timer(master, restart_kill, restart, gs.restart_timeout,
 			 &restart->t_kill);
-	return 0;
 }
 
 static struct restart_info *find_child(pid_t child)
@@ -546,7 +545,7 @@ static int run_job(struct restart_info *restart, const char *cmdtype,
 				      FUZZY(gs.period), &(DMN)->t_wakeup);     \
 	} while (0);
 
-static int wakeup_down(struct thread *t_wakeup)
+static void wakeup_down(struct thread *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -555,10 +554,9 @@ static int wakeup_down(struct thread *t_wakeup)
 		SET_WAKEUP_DOWN(dmn);
 	if ((dmn->connect_tries > 1) && (dmn->state != DAEMON_UP))
 		try_restart(dmn);
-	return 0;
 }
 
-static int wakeup_init(struct thread *t_wakeup)
+static void wakeup_init(struct thread *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -570,7 +568,6 @@ static int wakeup_init(struct thread *t_wakeup)
 		dmn->state = DAEMON_DOWN;
 	}
 	phase_check();
-	return 0;
 }
 
 static void restart_done(struct daemon *dmn)
@@ -609,7 +606,7 @@ static void daemon_down(struct daemon *dmn, const char *why)
 	phase_check();
 }
 
-static int handle_read(struct thread *t_read)
+static void handle_read(struct thread *t_read)
 {
 	struct daemon *dmn = THREAD_ARG(t_read);
 	static const char resp[sizeof(PING_TOKEN) + 4] = PING_TOKEN "\n";
@@ -624,16 +621,16 @@ static int handle_read(struct thread *t_read)
 		if (ERRNO_IO_RETRY(errno)) {
 			/* Pretend it never happened. */
 			SET_READ_HANDLER(dmn);
-			return 0;
+			return;
 		}
 		snprintf(why, sizeof(why), "unexpected read error: %s",
 			 safe_strerror(errno));
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 	if (rc == 0) {
 		daemon_down(dmn, "read returned EOF");
-		return 0;
+		return;
 	}
 	if (!dmn->echo_sent.tv_sec) {
 		char why[sizeof(buf) + 100];
@@ -641,7 +638,7 @@ static int handle_read(struct thread *t_read)
 			 "unexpected read returns %d bytes: %.*s", (int)rc,
 			 (int)rc, buf);
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 
 	/* We are expecting an echo response: is there any chance that the
@@ -653,7 +650,7 @@ static int handle_read(struct thread *t_read)
 			 "read returned bad echo response of %d bytes (expecting %u): %.*s",
 			 (int)rc, (unsigned int)sizeof(resp), (int)rc, buf);
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 
 	time_elapsed(&delay, &dmn->echo_sent);
@@ -677,8 +674,6 @@ static int handle_read(struct thread *t_read)
 	SET_READ_HANDLER(dmn);
 	thread_cancel(&dmn->t_wakeup);
 	SET_WAKEUP_ECHO(dmn);
-
-	return 0;
 }
 
 /*
@@ -732,7 +727,7 @@ static void daemon_up(struct daemon *dmn, const char *why)
 	phase_check();
 }
 
-static int check_connect(struct thread *t_write)
+static void check_connect(struct thread *t_write)
 {
 	struct daemon *dmn = THREAD_ARG(t_write);
 	int sockerr;
@@ -745,7 +740,7 @@ static int check_connect(struct thread *t_write)
 			  safe_strerror(errno));
 		daemon_down(dmn,
 			    "getsockopt failed checking connection success");
-		return 0;
+		return;
 	}
 	if ((reslen == sizeof(sockerr)) && sockerr) {
 		char why[100];
@@ -754,14 +749,13 @@ static int check_connect(struct thread *t_write)
 			"getsockopt reports that connection attempt failed: %s",
 			safe_strerror(sockerr));
 		daemon_down(dmn, why);
-		return 0;
+		return;
 	}
 
 	daemon_up(dmn, "delayed connect succeeded");
-	return 0;
 }
 
-static int wakeup_connect_hanging(struct thread *t_wakeup)
+static void wakeup_connect_hanging(struct thread *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 	char why[100];
@@ -770,7 +764,6 @@ static int wakeup_connect_hanging(struct thread *t_wakeup)
 	snprintf(why, sizeof(why),
 		 "connection attempt timed out after %ld seconds", gs.timeout);
 	daemon_down(dmn, why);
-	return 0;
 }
 
 /* Making connection to protocol daemon. */
@@ -846,14 +839,13 @@ static int try_connect(struct daemon *dmn)
 	return 1;
 }
 
-static int phase_hanging(struct thread *t_hanging)
+static void phase_hanging(struct thread *t_hanging)
 {
 	gs.t_phase_hanging = NULL;
 	flog_err(EC_WATCHFRR_CONNECTION,
 		 "Phase [%s] hanging for %ld seconds, aborting phased restart",
 		 phase_str[gs.phase], PHASE_TIMEOUT);
 	gs.phase = PHASE_NONE;
-	return 0;
 }
 
 static void set_phase(restart_phase_t new_phase)
@@ -971,7 +963,7 @@ static void try_restart(struct daemon *dmn)
 	run_job(&gs.restart, "restart", gs.restart_command, 0, 1);
 }
 
-static int wakeup_unresponsive(struct thread *t_wakeup)
+static void wakeup_unresponsive(struct thread *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
@@ -984,26 +976,24 @@ static int wakeup_unresponsive(struct thread *t_wakeup)
 		SET_WAKEUP_UNRESPONSIVE(dmn);
 		try_restart(dmn);
 	}
-	return 0;
 }
 
-static int wakeup_no_answer(struct thread *t_wakeup)
+static void wakeup_no_answer(struct thread *t_wakeup)
 {
 	struct daemon *dmn = THREAD_ARG(t_wakeup);
 
 	dmn->t_wakeup = NULL;
 	dmn->state = DAEMON_UNRESPONSIVE;
 	if (dmn->ignore_timeout)
-		return 0;
+		return;
 	flog_err(EC_WATCHFRR_CONNECTION,
 		 "%s state -> unresponsive : no response yet to ping sent %ld seconds ago",
 		 dmn->name, gs.timeout);
 	SET_WAKEUP_UNRESPONSIVE(dmn);
 	try_restart(dmn);
-	return 0;
 }
 
-static int wakeup_send_echo(struct thread *t_wakeup)
+static void wakeup_send_echo(struct thread *t_wakeup)
 {
 	static const char echocmd[] = "echo " PING_TOKEN;
 	ssize_t rc;
@@ -1022,7 +1012,6 @@ static int wakeup_send_echo(struct thread *t_wakeup)
 		thread_add_timer(master, wakeup_no_answer, dmn, gs.timeout,
 				 &dmn->t_wakeup);
 	}
-	return 0;
 }
 
 bool check_all_up(void)
@@ -1099,10 +1088,9 @@ static char *translate_blanks(const char *cmd, const char *blankstr)
 	return res;
 }
 
-static int startup_timeout(struct thread *t_wakeup)
+static void startup_timeout(struct thread *t_wakeup)
 {
 	daemon_send_ready(1);
-	return 0;
 }
 
 #ifdef GNU_LINUX

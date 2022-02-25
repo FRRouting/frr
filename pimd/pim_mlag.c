@@ -930,12 +930,12 @@ int pim_zebra_mlag_process_down(ZAPI_CALLBACK_ARGS)
 	return 0;
 }
 
-static int pim_mlag_register_handler(struct thread *thread)
+static void pim_mlag_register_handler(struct thread *thread)
 {
 	uint32_t bit_mask = 0;
 
 	if (!zclient)
-		return -1;
+		return;
 
 	SET_FLAG(bit_mask, (1 << MLAG_STATUS_UPDATE));
 	SET_FLAG(bit_mask, (1 << MLAG_MROUTE_ADD));
@@ -952,7 +952,6 @@ static int pim_mlag_register_handler(struct thread *thread)
 			   __func__, bit_mask);
 
 	zclient_send_mlag_register(zclient, bit_mask);
-	return 0;
 }
 
 void pim_mlag_register(void)
@@ -966,17 +965,16 @@ void pim_mlag_register(void)
 			 NULL);
 }
 
-static int pim_mlag_deregister_handler(struct thread *thread)
+static void pim_mlag_deregister_handler(struct thread *thread)
 {
 	if (!zclient)
-		return -1;
+		return;
 
 	if (PIM_DEBUG_MLAG)
 		zlog_debug("%s: Posting Client De-Register to MLAG from PIM",
 			   __func__);
 	router->connected_to_mlag = false;
 	zclient_send_mlag_deregister(zclient);
-	return 0;
 }
 
 void pim_mlag_deregister(void)

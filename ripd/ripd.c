@@ -65,7 +65,7 @@ DEFINE_MTYPE_STATIC(RIPD, RIP_DISTANCE, "RIP distance");
 /* Prototypes. */
 static void rip_output_process(struct connected *, struct sockaddr_in *, int,
 			       uint8_t);
-static int rip_triggered_update(struct thread *);
+static void rip_triggered_update(struct thread *);
 static int rip_update_jitter(unsigned long);
 static void rip_distance_table_node_cleanup(struct route_table *table,
 					    struct route_node *node);
@@ -136,7 +136,7 @@ struct rip *rip_info_get_instance(const struct rip_info *rinfo)
 }
 
 /* RIP route garbage collect timer. */
-static int rip_garbage_collect(struct thread *t)
+static void rip_garbage_collect(struct thread *t)
 {
 	struct rip_info *rinfo;
 	struct route_node *rp;
@@ -158,8 +158,6 @@ static int rip_garbage_collect(struct thread *t)
 
 	/* Free RIP routing information. */
 	rip_info_free(rinfo);
-
-	return 0;
 }
 
 static void rip_timeout_update(struct rip *rip, struct rip_info *rinfo);
@@ -304,14 +302,12 @@ struct rip_info *rip_ecmp_delete(struct rip *rip, struct rip_info *rinfo)
 }
 
 /* Timeout RIP routes. */
-static int rip_timeout(struct thread *t)
+static void rip_timeout(struct thread *t)
 {
 	struct rip_info *rinfo = THREAD_ARG(t);
 	struct rip *rip = rip_info_get_instance(rinfo);
 
 	rip_ecmp_delete(rip, rinfo);
-
-	return 0;
 }
 
 static void rip_timeout_update(struct rip *rip, struct rip_info *rinfo)
@@ -1718,7 +1714,7 @@ static void rip_request_process(struct rip_packet *packet, int size,
 }
 
 /* First entry point of RIP packet. */
-static int rip_read(struct thread *t)
+static void rip_read(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int sock;
@@ -1750,7 +1746,7 @@ static int rip_read(struct thread *t)
 	if (len < 0) {
 		zlog_info("recvfrom failed (VRF %s): %s", rip->vrf_name,
 			  safe_strerror(errno));
-		return len;
+		return;
 	}
 
 	/* Check is this packet comming from myself? */
@@ -1758,7 +1754,7 @@ static int rip_read(struct thread *t)
 		if (IS_RIP_DEBUG_PACKET)
 			zlog_debug("ignore packet comes from myself (VRF %s)",
 				   rip->vrf_name);
-		return -1;
+		return;
 	}
 
 	/* Which interface is this packet comes from. */
@@ -1779,7 +1775,7 @@ static int rip_read(struct thread *t)
 			"rip_read: cannot find interface for packet from %pI4 port %d (VRF %s)",
 			&from.sin_addr, ntohs(from.sin_port),
 			rip->vrf_name);
-		return -1;
+		return;
 	}
 
 	p.family = AF_INET;
@@ -1793,7 +1789,7 @@ static int rip_read(struct thread *t)
 			"rip_read: cannot find connected address for packet from %pI4 port %d on interface %s (VRF %s)",
 			&from.sin_addr, ntohs(from.sin_port),
 			ifp->name, rip->vrf_name);
-		return -1;
+		return;
 	}
 
 	/* Packet length check. */
@@ -1801,13 +1797,13 @@ static int rip_read(struct thread *t)
 		zlog_warn("packet size %d is smaller than minimum size %d", len,
 			  RIP_PACKET_MINSIZ);
 		rip_peer_bad_packet(rip, &from);
-		return len;
+		return;
 	}
 	if (len > RIP_PACKET_MAXSIZ) {
 		zlog_warn("packet size %d is larger than max size %d", len,
 			  RIP_PACKET_MAXSIZ);
 		rip_peer_bad_packet(rip, &from);
-		return len;
+		return;
 	}
 
 	/* Packet alignment check. */
@@ -1815,7 +1811,7 @@ static int rip_read(struct thread *t)
 		zlog_warn("packet size %d is wrong for RIP packet alignment",
 			  len);
 		rip_peer_bad_packet(rip, &from);
-		return len;
+		return;
 	}
 
 	/* Set RTE number. */
@@ -1829,7 +1825,7 @@ static int rip_read(struct thread *t)
 		zlog_info("version 0 with command %d received.",
 			  packet->command);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* Dump RIP packet. */
@@ -1850,7 +1846,7 @@ static int rip_read(struct thread *t)
 			zlog_debug("RIP is not enabled on interface %s.",
 				   ifp->name);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* RIP Version check. RFC2453, 4.6 and 5.1 */
@@ -1864,7 +1860,7 @@ static int rip_read(struct thread *t)
 				"  packet's v%d doesn't fit to if version spec",
 				packet->version);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* RFC2453 5.2 If the router is not configured to authenticate RIP-2
@@ -1879,7 +1875,7 @@ static int rip_read(struct thread *t)
 				packet->version);
 		ripd_notif_send_auth_type_failure(ifp->name);
 		rip_peer_bad_packet(rip, &from);
-		return -1;
+		return;
 	}
 
 	/* RFC:
@@ -1915,7 +1911,7 @@ static int rip_read(struct thread *t)
 					"RIPv1 dropped because authentication enabled");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 	} else if (ri->auth_type != RIP_NO_AUTH) {
 		const char *auth_desc;
@@ -1928,7 +1924,7 @@ static int rip_read(struct thread *t)
 					"RIPv2 authentication failed: no auth RTE in packet");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 
 		/* First RTE must be an Authentication Family RTE */
@@ -1938,7 +1934,7 @@ static int rip_read(struct thread *t)
 					"RIPv2 dropped because authentication enabled");
 			ripd_notif_send_auth_type_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 
 		/* Check RIPv2 authentication. */
@@ -1974,7 +1970,7 @@ static int rip_read(struct thread *t)
 					   auth_desc);
 			ripd_notif_send_auth_failure(ifp->name);
 			rip_peer_bad_packet(rip, &from);
-			return -1;
+			return;
 		}
 	}
 
@@ -2004,8 +2000,6 @@ static int rip_read(struct thread *t)
 		rip_peer_bad_packet(rip, &from);
 		break;
 	}
-
-	return len;
 }
 
 /* Write routing table entry to the stream and return next index of
@@ -2501,7 +2495,7 @@ static void rip_update_process(struct rip *rip, int route_type)
 }
 
 /* RIP's periodical timer. */
-static int rip_update(struct thread *t)
+static void rip_update(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 
@@ -2518,8 +2512,6 @@ static int rip_update(struct thread *t)
 
 	/* Register myself. */
 	rip_event(rip, RIP_UPDATE_EVENT, 0);
-
-	return 0;
 }
 
 /* Walk down the RIP routing table then clear changed flag. */
@@ -2545,7 +2537,7 @@ static void rip_clear_changed_flag(struct rip *rip)
 }
 
 /* Triggered update interval timer. */
-static int rip_triggered_interval(struct thread *t)
+static void rip_triggered_interval(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 
@@ -2553,11 +2545,10 @@ static int rip_triggered_interval(struct thread *t)
 		rip->trigger = 0;
 		rip_triggered_update(t);
 	}
-	return 0;
 }
 
 /* Execute triggered update. */
-static int rip_triggered_update(struct thread *t)
+static void rip_triggered_update(struct thread *t)
 {
 	struct rip *rip = THREAD_ARG(t);
 	int interval;
@@ -2586,8 +2577,6 @@ static int rip_triggered_update(struct thread *t)
 
 	thread_add_timer(master, rip_triggered_interval, rip, interval,
 			 &rip->t_triggered_interval);
-
-	return 0;
 }
 
 /* Withdraw redistributed route. */

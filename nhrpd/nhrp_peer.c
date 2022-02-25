@@ -54,7 +54,7 @@ static void nhrp_peer_check_delete(struct nhrp_peer *p)
 	XFREE(MTYPE_NHRP_PEER, p);
 }
 
-static int nhrp_peer_notify_up(struct thread *t)
+static void nhrp_peer_notify_up(struct thread *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -68,8 +68,6 @@ static int nhrp_peer_notify_up(struct thread *t)
 		notifier_call(&p->notifier_list, NOTIFY_PEER_UP);
 		nhrp_peer_unref(p);
 	}
-
-	return 0;
 }
 
 static void __nhrp_peer_check(struct nhrp_peer *p)
@@ -258,7 +256,7 @@ void nhrp_peer_unref(struct nhrp_peer *p)
 	}
 }
 
-static int nhrp_peer_request_timeout(struct thread *t)
+static void nhrp_peer_request_timeout(struct thread *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -267,7 +265,7 @@ static int nhrp_peer_request_timeout(struct thread *t)
 
 
 	if (p->online)
-		return 0;
+		return;
 
 	if (nifp->ipsec_fallback_profile && !p->prio
 	    && !p->fallback_requested) {
@@ -279,11 +277,9 @@ static int nhrp_peer_request_timeout(struct thread *t)
 	} else {
 		p->requested = p->fallback_requested = 0;
 	}
-
-	return 0;
 }
 
-static int nhrp_peer_defer_vici_request(struct thread *t)
+static void nhrp_peer_defer_vici_request(struct thread *t)
 {
 	struct nhrp_peer *p = THREAD_ARG(t);
 	struct nhrp_vc *vc = p->vc;
@@ -304,7 +300,6 @@ static int nhrp_peer_defer_vici_request(struct thread *t)
 			(nifp->ipsec_fallback_profile && !p->prio) ? 15 : 30,
 			&p->t_fallback);
 	}
-	return 0;
 }
 
 int nhrp_peer_check(struct nhrp_peer *p, int establish)

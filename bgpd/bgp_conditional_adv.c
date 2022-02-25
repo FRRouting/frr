@@ -165,7 +165,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 /* Handler of conditional advertisement timer event.
  * Each route in the condition-map is evaluated.
  */
-static int bgp_conditional_adv_timer(struct thread *t)
+static void bgp_conditional_adv_timer(struct thread *t)
 {
 	afi_t afi;
 	safi_t safi;
@@ -286,7 +286,6 @@ static int bgp_conditional_adv_timer(struct thread *t)
 		}
 		peer->advmap_table_change = false;
 	}
-	return 0;
 }
 
 void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)

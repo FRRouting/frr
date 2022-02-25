@@ -346,14 +346,13 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
  * Returns:
  *    Nothing
  */
-static int ospf_handle_grace_timer_expiry(struct thread *thread)
+static void ospf_handle_grace_timer_expiry(struct thread *thread)
 {
 	struct ospf_neighbor *nbr = THREAD_ARG(thread);
 
 	nbr->gr_helper_info.t_grace_timer = NULL;
 
 	ospf_gr_helper_exit(nbr, OSPF_GR_HELPER_GRACE_TIMEOUT);
-	return OSPF_GR_SUCCESS;
 }
 
 /*

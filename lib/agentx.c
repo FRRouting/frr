@@ -46,7 +46,7 @@ static struct list *events = NULL;
 
 static void agentx_events_update(void);
 
-static int agentx_timeout(struct thread *t)
+static void agentx_timeout(struct thread *t)
 {
 	timeout_thr = NULL;
 
@@ -54,10 +54,9 @@ static int agentx_timeout(struct thread *t)
 	run_alarms();
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
-	return 0;
 }
 
-static int agentx_read(struct thread *t)
+static void agentx_read(struct thread *t)
 {
 	fd_set fds;
 	int flags, new_flags = 0;
@@ -72,7 +71,7 @@ static int agentx_read(struct thread *t)
 	if (-1 == flags) {
 		flog_err(EC_LIB_SYSTEM_CALL, "Failed to get FD settings fcntl: %s(%d)",
 			 strerror(errno), errno);
-		return -1;
+		return;
 	}
 
 	if (flags & O_NONBLOCK)
@@ -101,7 +100,6 @@ static int agentx_read(struct thread *t)
 
 	netsnmp_check_outstanding_agent_requests();
 	agentx_events_update();
-	return 0;
 }
 
 static void agentx_events_update(void)

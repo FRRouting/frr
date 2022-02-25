@@ -39,8 +39,8 @@ static void path_ted_unregister_vty(void);
 static uint32_t path_ted_start_importing_igp(const char *daemon_str);
 static uint32_t path_ted_stop_importing_igp(void);
 static enum zclient_send_status path_ted_link_state_sync(void);
-static int path_ted_timer_handler_sync(struct thread *thread);
-static int path_ted_timer_handler_refresh(struct thread *thread);
+static void path_ted_timer_handler_sync(struct thread *thread);
+static void path_ted_timer_handler_refresh(struct thread *thread);
 static int path_ted_cli_debug_config_write(struct vty *vty);
 static int path_ted_cli_debug_set_all(uint32_t flags, bool set);
 
@@ -602,14 +602,14 @@ enum zclient_send_status path_ted_link_state_sync(void)
  *
  * @return		status
  */
-int path_ted_timer_handler_sync(struct thread *thread)
+void path_ted_timer_handler_sync(struct thread *thread)
 {
 	/* data unpacking */
 	struct ted_state *data = THREAD_ARG(thread);
 
 	assert(data != NULL);
 	/* Retry the sync */
-	return path_ted_link_state_sync();
+	path_ted_link_state_sync();
 }
 
 /**
@@ -639,10 +639,10 @@ int path_ted_segment_list_refresh(void)
  *
  * @return		status
  */
-int path_ted_timer_handler_refresh(struct thread *thread)
+void path_ted_timer_handler_refresh(struct thread *thread)
 {
 	if (!path_ted_is_initialized())
-		return MPLS_LABEL_NONE;
+		return;
 
 	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
 	/* data unpacking */
@@ -651,7 +651,6 @@ int path_ted_timer_handler_refresh(struct thread *thread)
 	assert(data != NULL);
 
 	srte_policy_update_ted_sid();
-	return 0;
 }
 
 /**

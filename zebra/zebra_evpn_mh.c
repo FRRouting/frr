@@ -2131,7 +2131,7 @@ static void zebra_evpn_mh_advertise_svi_mac(void)
 	zebra_evpn_acc_vl_adv_svi_mac_all();
 }
 
-static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
+static void zebra_evpn_es_df_delay_exp_cb(struct thread *t)
 {
 	struct zebra_evpn_es *es;
 
@@ -2141,8 +2141,6 @@ static int zebra_evpn_es_df_delay_exp_cb(struct thread *t)
 		zlog_debug("es %s df-delay expired", es->esi_str);
 
 	zebra_evpn_es_run_df_election(es, __func__);
-
-	return 0;
 }
 
 /* currently there is no global config to turn on MH instead we use
@@ -3860,15 +3858,13 @@ void zebra_evpn_mh_uplink_oper_update(struct zebra_if *zif)
 				       new_protodown);
 }
 
-static int zebra_evpn_mh_startup_delay_exp_cb(struct thread *t)
+static void zebra_evpn_mh_startup_delay_exp_cb(struct thread *t)
 {
 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
 		zlog_debug("startup-delay expired");
 
 	zebra_evpn_mh_update_protodown(ZEBRA_PROTODOWN_EVPN_STARTUP_DELAY,
 				       false /* set */);
-
-	return 0;
 }
 
 static void zebra_evpn_mh_startup_delay_timer_start(const char *rc)
