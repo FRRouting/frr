@@ -282,39 +282,9 @@ int pim_global_config_write_worker(struct pim_instance *pim, struct vty *vty)
 }
 
 #if PIM_IPV == 4
-int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
-		     struct pim_instance *pim)
+static int pim_igmp_config_write(struct vty *vty, int writes,
+				 struct pim_interface *pim_ifp)
 {
-	struct pim_interface *pim_ifp = ifp->info;
-
-	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
-		vty_out(vty, " ip pim\n");
-		++writes;
-	}
-
-	/* IF ip pim drpriority */
-	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
-		vty_out(vty, " ip pim drpriority %u\n",
-			pim_ifp->pim_dr_priority);
-		++writes;
-	}
-
-	/* IF ip pim hello */
-	if (pim_ifp->pim_hello_period != PIM_DEFAULT_HELLO_PERIOD) {
-		vty_out(vty, " ip pim hello %d", pim_ifp->pim_hello_period);
-		if (pim_ifp->pim_default_holdtime != -1)
-			vty_out(vty, " %d", pim_ifp->pim_default_holdtime);
-		vty_out(vty, "\n");
-		++writes;
-	}
-
-	/* update source */
-	if (!pim_addr_is_any(pim_ifp->update_source)) {
-		vty_out(vty, " ip pim use-source %pPA\n",
-			&pim_ifp->update_source);
-		++writes;
-	}
-
 	/* IF ip igmp */
 	if (PIM_IF_TEST_IGMP(pim_ifp->options)) {
 		vty_out(vty, " ip igmp\n");
@@ -377,6 +347,46 @@ int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
 			}
 			++writes;
 		}
+	}
+
+	return writes;
+}
+#endif
+
+#if PIM_IPV == 4
+int pim_config_write(struct vty *vty, int writes, struct interface *ifp,
+		     struct pim_instance *pim)
+{
+	struct pim_interface *pim_ifp = ifp->info;
+
+	if (PIM_IF_TEST_PIM(pim_ifp->options)) {
+		vty_out(vty, " ip pim\n");
+		++writes;
+	}
+
+	/* IF ip pim drpriority */
+	if (pim_ifp->pim_dr_priority != PIM_DEFAULT_DR_PRIORITY) {
+		vty_out(vty, " ip pim drpriority %u\n",
+			pim_ifp->pim_dr_priority);
+		++writes;
+	}
+
+	/* IF ip pim hello */
+	if (pim_ifp->pim_hello_period != PIM_DEFAULT_HELLO_PERIOD) {
+		vty_out(vty, " ip pim hello %d", pim_ifp->pim_hello_period);
+		if (pim_ifp->pim_default_holdtime != -1)
+			vty_out(vty, " %d", pim_ifp->pim_default_holdtime);
+		vty_out(vty, "\n");
+		++writes;
+	}
+
+	writes += pim_igmp_config_write(vty, writes, pim_ifp);
+
+	/* update source */
+	if (!pim_addr_is_any(pim_ifp->update_source)) {
+		vty_out(vty, " ip pim use-source %pPA\n",
+			&pim_ifp->update_source);
+		++writes;
 	}
 
 	if (pim_ifp->activeactive)
