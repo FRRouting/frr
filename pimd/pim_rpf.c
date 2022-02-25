@@ -46,9 +46,8 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 {
 	pim->last_route_change_time = pim_time_monotonic_usec();
 	if (PIM_DEBUG_PIM_TRACE)
-		zlog_debug("%s: vrf(%s) New last route change time: %" PRId64,
-			   __func__, pim->vrf->name,
-			   pim->last_route_change_time);
+		zlog_debug("vrf(%s) New last route change time: %" PRId64,
+			   pim->vrf->name, pim->last_route_change_time);
 }
 
 bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
@@ -76,9 +75,9 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	    (nexthop->last_lookup_time > pim->last_route_change_time)) {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
-				"%s: Using last lookup for %pPAs at %lld, %" PRId64
+				"Using last lookup for %pPAs at %lld, %" PRId64
 				" addr %pPAs",
-				__func__, &addr, nexthop->last_lookup_time,
+				&addr, nexthop->last_lookup_time,
 				pim->last_route_change_time,
 				&nexthop->mrib_nexthop_addr);
 		pim->nexthop_lookups_avoided++;
@@ -86,8 +85,8 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	} else {
 		if (PIM_DEBUG_PIM_NHT)
 			zlog_debug(
-				"%s: Looking up: %pPAs, last lookup time: %lld, %" PRId64,
-				__func__, &addr, nexthop->last_lookup_time,
+				"Looking up: %pPAs, last lookup time: %lld, %" PRId64,
+				&addr, nexthop->last_lookup_time,
 				pim->last_route_change_time);
 	}
 

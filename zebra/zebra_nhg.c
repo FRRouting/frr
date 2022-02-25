@@ -2207,8 +2207,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 	    nexthop->vrf_id == vrf_id) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug(
-				"        :%s: Attempting to install a max prefixlength route through itself",
-				__func__);
+				"        Attempting to install a max prefixlength route through itself");
 		return 0;
 	}
 
@@ -2320,8 +2319,7 @@ static int nexthop_active(struct nexthop *nexthop, struct nhg_hash_entry *nhe,
 		    && !rnh_resolve_via_default(zvrf, p.family)) {
 			if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 				zlog_debug(
-					"        :%s: Resolved against default route",
-					__func__);
+					"        Resolved against default route");
 			return 0;
 		}
 

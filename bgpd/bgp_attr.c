@@ -1461,9 +1461,9 @@ bgp_attr_flags_diagnose(struct bgp_attr_parser_args *args,
 		}
 	if (!seen) {
 		zlog_debug(
-			"Strange, %s called for attr %s, but no problem found with flags (real flags 0x%x, desired 0x%x)",
-			__func__, lookup_msg(attr_str, attr_code, NULL),
-			real_flags, desired_flags);
+			"function called for attr %s, but no problem found with flags (real flags 0x%x, desired 0x%x)",
+			lookup_msg(attr_str, attr_code, NULL), real_flags,
+			desired_flags);
 	}
 }
 
