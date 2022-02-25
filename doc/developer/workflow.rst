@@ -1150,6 +1150,9 @@ ways that can be unexpected for the original implementor. As such debugs
 ability to turn on/off debugs from the CLI and it is expected that the
 developer will use this convention to allow control of their debugs.
 
+Do not include the function name (``__func__``) in debug messages.  It is added
+automatically by the logging code.
+
 Custom syntax-like block macros
 -------------------------------
 
