@@ -19,4 +19,6 @@
  */
 #ifndef PIM_CMD_COMMON_H
 #define PIM_CMD_COMMON_H
+
+const char *pim_cli_get_vrf_name(struct vty *vty);
 #endif /* PIM_CMD_COMMON_H */
