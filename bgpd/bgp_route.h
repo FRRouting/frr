@@ -154,6 +154,8 @@ struct bgp_sid_info {
 	uint8_t loc_node_len;
 	uint8_t func_len;
 	uint8_t arg_len;
+	uint8_t transposition_len;
+	uint8_t transposition_offset;
 };
 
 /* Ancillary information to struct bgp_path_info,

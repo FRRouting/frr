@@ -4204,6 +4204,8 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				extra->sid[0].loc_node_len = 0;
 				extra->sid[0].func_len = 0;
 				extra->sid[0].arg_len = 0;
+				extra->sid[0].transposition_len = 0;
+				extra->sid[0].transposition_offset = 0;
 
 				if (attr->srv6_l3vpn->loc_block_len != 0) {
 					extra->sid[0].loc_block_len =
@@ -4214,21 +4216,13 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						attr->srv6_l3vpn->func_len;
 					extra->sid[0].arg_len =
 						attr->srv6_l3vpn->arg_len;
+					extra->sid[0].transposition_len =
+						attr->srv6_l3vpn
+							->transposition_len;
+					extra->sid[0].transposition_offset =
+						attr->srv6_l3vpn
+							->transposition_offset;
 				}
-
-				/*
-				 * draft-ietf-bess-srv6-services-07
-				 * The part of SRv6 SID may be encoded as MPLS
-				 * Label for the efficient packing.
-				 */
-				if (attr->srv6_l3vpn->transposition_len != 0)
-					transpose_sid(
-						&extra->sid[0].sid,
-						decode_label(label),
-						attr->srv6_l3vpn
-							->transposition_offset,
-						attr->srv6_l3vpn
-							->transposition_len);
 			}
 		} else if (attr->srv6_vpn) {
 			extra = bgp_path_info_extra_get(pi);
@@ -4425,17 +4419,10 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				attr->srv6_l3vpn->loc_node_len;
 			extra->sid[0].func_len = attr->srv6_l3vpn->func_len;
 			extra->sid[0].arg_len = attr->srv6_l3vpn->arg_len;
-
-			/*
-			 * draft-ietf-bess-srv6-services-07
-			 * The part of SRv6 SID may be encoded as MPLS Label for
-			 * the efficient packing.
-			 */
-			if (attr->srv6_l3vpn->transposition_len != 0)
-				transpose_sid(
-					&extra->sid[0].sid, decode_label(label),
-					attr->srv6_l3vpn->transposition_offset,
-					attr->srv6_l3vpn->transposition_len);
+			extra->sid[0].transposition_len =
+				attr->srv6_l3vpn->transposition_len;
+			extra->sid[0].transposition_offset =
+				attr->srv6_l3vpn->transposition_offset;
 		} else if (attr->srv6_vpn) {
 			sid_copy(&extra->sid[0].sid, &attr->srv6_vpn->sid);
 			extra->num_sids = 1;

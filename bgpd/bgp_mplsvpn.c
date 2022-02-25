@@ -856,16 +856,11 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 					new_attr->srv6_l3vpn->func_len;
 				extra->sid[0].arg_len =
 					new_attr->srv6_l3vpn->arg_len;
-
-				if (new_attr->srv6_l3vpn->transposition_len
-				    != 0)
-					transpose_sid(
-						&extra->sid[0].sid,
-						decode_label(label),
-						new_attr->srv6_l3vpn
-							->transposition_offset,
-						new_attr->srv6_l3vpn
-							->transposition_len);
+				extra->sid[0].transposition_len =
+					new_attr->srv6_l3vpn->transposition_len;
+				extra->sid[0].transposition_offset =
+					new_attr->srv6_l3vpn
+						->transposition_offset;
 			} else if (new_attr->srv6_vpn)
 				setsids(bpi, &new_attr->srv6_vpn->sid,
 					num_sids);
@@ -960,14 +955,10 @@ leak_update(struct bgp *bgp, /* destination bgp instance */
 				new_attr->srv6_l3vpn->loc_node_len;
 			extra->sid[0].func_len = new_attr->srv6_l3vpn->func_len;
 			extra->sid[0].arg_len = new_attr->srv6_l3vpn->arg_len;
-
-			if (new_attr->srv6_l3vpn->transposition_len != 0)
-				transpose_sid(&extra->sid[0].sid,
-					      decode_label(label),
-					      new_attr->srv6_l3vpn
-						      ->transposition_offset,
-					      new_attr->srv6_l3vpn
-						      ->transposition_len);
+			extra->sid[0].transposition_len =
+				new_attr->srv6_l3vpn->transposition_len;
+			extra->sid[0].transposition_offset =
+				new_attr->srv6_l3vpn->transposition_offset;
 		} else if (new_attr->srv6_vpn)
 			setsids(new, &new_attr->srv6_vpn->sid, num_sids);
 	} else
