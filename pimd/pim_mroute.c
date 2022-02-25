@@ -163,7 +163,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	 * the Interface type is SSM we don't need to
 	 * do anything here
 	 */
-	if (!rpg || pim_rpf_addr_is_inaddr_none(rpg)) {
+	if (!rpg || pim_rpf_addr_is_inaddr_any(rpg)) {
 		if (PIM_DEBUG_MROUTE_DETAIL)
 			zlog_debug(
 				"%s: Interface is not configured correctly to handle incoming packet: Could be !pim_ifp, !SM, !RP",
@@ -300,8 +300,8 @@ static int pim_mroute_msg_wholepkt(int fd, struct interface *ifp,
 
 	rpg = pim_ifp ? RP(pim_ifp->pim, sg.grp) : NULL;
 
-	if ((pim_rpf_addr_is_inaddr_none(rpg)) || (!pim_ifp)
-	    || (!(PIM_I_am_DR(pim_ifp)))) {
+	if ((pim_rpf_addr_is_inaddr_any(rpg)) || (!pim_ifp) ||
+	    (!(PIM_I_am_DR(pim_ifp)))) {
 		if (PIM_DEBUG_MROUTE) {
 			zlog_debug("%s: Failed Check send packet", __func__);
 		}
