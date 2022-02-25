@@ -3785,31 +3785,6 @@ static void clear_interfaces(struct pim_instance *pim)
 	}
 
 /**
- * Get current node VRF name.
- *
- * NOTE:
- * In case of failure it will print error message to user.
- *
- * \returns name or NULL if failed to get VRF.
- */
-static const char *pim_cli_get_vrf_name(struct vty *vty)
-{
-	const struct lyd_node *vrf_node;
-
-	/* Not inside any VRF context. */
-	if (vty->xpath_index == 0)
-		return VRF_DEFAULT_NAME;
-
-	vrf_node = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (vrf_node == NULL) {
-		vty_out(vty, "%% Failed to get vrf dnode in configuration\n");
-		return NULL;
-	}
-
-	return yang_dnode_get_string(vrf_node, "./name");
-}
-
-/**
  * Compatibility function to keep the legacy mesh group CLI behavior:
  * Delete group when there are no more configurations in it.
  *
