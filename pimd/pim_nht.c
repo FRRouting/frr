@@ -423,10 +423,12 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 {
 	struct listnode *node = NULL;
 	struct rp_info *rp_info = NULL;
+	pim_addr addr;
 
 	/*Traverse RP list and update each RP Nexthop info */
 	for (ALL_LIST_ELEMENTS_RO(pnc->rp_list, node, rp_info)) {
-		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
+		addr = pim_addr_from_prefix(&rp_info->rp.rpf_addr);
+		if (addr == PIMADDR_ANY)
 			continue;
 
 		// Compute PIM RPF using cached nexthop

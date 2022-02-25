@@ -434,7 +434,7 @@ static void pim_instate_pend_list(struct bsgrp_node *bsgrp_node)
 	 * is sorted such that head is the elected RP for the group.
 	 */
 	if (!rn || (prefix_same(&rp_all->group, &bsgrp_node->group)
-		    && pim_rpf_addr_is_inaddr_none(&rp_all->rp))) {
+		    && pim_rpf_addr_is_inaddr_any(&rp_all->rp))) {
 		if (PIM_DEBUG_BSM)
 			zlog_debug("%s: Route node doesn't exist", __func__);
 		if (pend)
@@ -638,7 +638,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 
 		if (rp_all == rp_info) {
 			rp_all->rp.rpf_addr.family = AF_INET;
-			rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
+			rp_all->rp.rpf_addr.u.prefix4.s_addr = PIMADDR_ANY;
 			rp_all->i_am_rp = 0;
 		} else {
 			/* Delete the rp_info from rp-list */
@@ -671,7 +671,7 @@ void pim_bsm_clear(struct pim_instance *pim)
 		trp_info = pim_rp_find_match_group(pim, &grp);
 
 		/* RP not found for the group grp */
-		if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
+		if (pim_rpf_addr_is_inaddr_any(&trp_info->rp)) {
 			pim_upstream_rpf_clear(pim, up);
 			pim_rp_set_upstream_addr(pim, &up->upstream_addr,
 						 up->sg.src, up->sg.grp);
