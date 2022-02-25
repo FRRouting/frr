@@ -108,12 +108,12 @@ static int test(FILE *input, FILE *output)
 	}
 
 	fprintf(output, "Unpack log:\n%s", log);
-	const char *s_tlvs = isis_format_tlvs(tlvs);
+	const char *s_tlvs = isis_format_tlvs(tlvs, NULL);
 	fprintf(output, "Unpacked TLVs:\n%s", s_tlvs);
 
 	struct isis_item *orig_auth = tlvs->isis_auth.head;
 	tlvs->isis_auth.head = NULL;
-	s_tlvs = isis_format_tlvs(tlvs);
+	s_tlvs = isis_format_tlvs(tlvs, NULL);
 	struct isis_tlvs *tlv_copy = isis_copy_tlvs(tlvs);
 	tlvs->isis_auth.head = orig_auth;
 	isis_free_tlvs(tlvs);
@@ -133,7 +133,7 @@ static int test(FILE *input, FILE *output)
 	}
 
 	char *orig_tlvs = XSTRDUP(MTYPE_TMP, s_tlvs);
-	s_tlvs = isis_format_tlvs(tlvs);
+	s_tlvs = isis_format_tlvs(tlvs, NULL);
 
 	if (strcmp(orig_tlvs, s_tlvs)) {
 		fprintf(output,
@@ -166,7 +166,7 @@ static int test(FILE *input, FILE *output)
 			fprintf(output, "Could not pack fragment, too large.\n");
 			assert(0);
 		}
-		sbuf_push(&fragment_format, 0, "%s", isis_format_tlvs(tlvs));
+		sbuf_push(&fragment_format, 0, "%s", isis_format_tlvs(tlvs, NULL));
 		isis_free_tlvs(tlvs);
 	}
 	list_delete(&fragments);
