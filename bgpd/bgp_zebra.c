@@ -1260,6 +1260,7 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 	struct bgp_path_info *mpinfo_cp = &local_info;
 	route_tag_t tag;
 	mpls_label_t label;
+	struct bgp_sid_info *sid_info;
 	int nh_othervrf = 0;
 	bool is_evpn;
 	bool nh_updated = false;
@@ -1476,8 +1477,21 @@ void bgp_zebra_announce(struct bgp_dest *dest, const struct prefix *p,
 
 		if (mpinfo->extra && !sid_zero(&mpinfo->extra->sid[0].sid)
 		    && !CHECK_FLAG(api.flags, ZEBRA_FLAG_EVPN_ROUTE)) {
-			memcpy(&api_nh->seg6_segs, &mpinfo->extra->sid[0].sid,
+			sid_info = &mpinfo->extra->sid[0];
+
+			memcpy(&api_nh->seg6_segs, &sid_info->sid,
 			       sizeof(api_nh->seg6_segs));
+
+			if (sid_info->transposition_len != 0) {
+				if (!bgp_is_valid_label(
+					    &mpinfo->extra->label[0]))
+					continue;
+
+				label = label_pton(&mpinfo->extra->label[0]);
+				transpose_sid(&api_nh->seg6_segs, label,
+					      sid_info->transposition_offset,
+					      sid_info->transposition_len);
+			}
 
 			SET_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6);
 		}
