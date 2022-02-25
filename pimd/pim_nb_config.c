@@ -930,7 +930,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	int result;
-	struct ipaddr source_addr;
+	pim_addr source_addr;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -940,16 +940,14 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
-		result = pim_ssmpingd_start(pim, source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		result = pim_ssmpingd_start(pim, source_addr);
 		if (result) {
-			char source_str[INET_ADDRSTRLEN];
-
-			ipaddr2str(&source_addr, source_str,
-					sizeof(source_str));
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure starting ssmpingd for source %s: %d",
-				 source_str, result);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% Failure starting ssmpingd for source %pPA: %d",
+				&source_addr, result);
 			return NB_ERR_INCONSISTENCY;
 		}
 	}
@@ -963,7 +961,7 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	struct vrf *vrf;
 	struct pim_instance *pim;
 	int result;
-	struct ipaddr source_addr;
+	pim_addr source_addr;
 
 	switch (args->event) {
 	case NB_EV_VALIDATE:
@@ -973,16 +971,14 @@ int routing_control_plane_protocols_control_plane_protocol_pim_address_family_ss
 	case NB_EV_APPLY:
 		vrf = nb_running_get_entry(args->dnode, NULL, true);
 		pim = vrf->info;
-		yang_dnode_get_ip(&source_addr, args->dnode, NULL);
-		result = pim_ssmpingd_stop(pim, source_addr.ip._v4_addr);
+		yang_dnode_get_pimaddr(&source_addr, args->dnode,
+				       "./source-addr");
+		result = pim_ssmpingd_stop(pim, source_addr);
 		if (result) {
-			char source_str[INET_ADDRSTRLEN];
-
-			ipaddr2str(&source_addr, source_str,
-				   sizeof(source_str));
-			snprintf(args->errmsg, args->errmsg_len,
-				 "%% Failure stopping ssmpingd for source %s: %d",
-				  source_str, result);
+			snprintf(
+				args->errmsg, args->errmsg_len,
+				"%% Failure stopping ssmpingd for source %pPA: %d",
+				&source_addr, result);
 			return NB_ERR_INCONSISTENCY;
 		}
 
