@@ -526,17 +526,6 @@ bool pim_igmp_verify_header(struct ip *ip_hdr, size_t len, size_t *hlen)
 		}
 	}
 
-	if ((msg_type == PIM_IGMP_V3_MEMBERSHIP_REPORT)
-	    || ((msg_type == PIM_IGMP_MEMBERSHIP_QUERY)
-		&& (igmp_msg_len >= IGMP_V3_SOURCES_OFFSET))) {
-		/* All IGMPv3 messages must be received with TOS set to 0xC0*/
-		if (ip_hdr->ip_tos != IPTOS_PREC_INTERNETCONTROL) {
-			zlog_warn("Received IGMP Packet with invalid TOS %u",
-				  ip_hdr->ip_tos);
-			return false;
-		}
-	}
-
 	return true;
 }
 
