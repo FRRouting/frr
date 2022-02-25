@@ -378,14 +378,14 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 #define rnode_debug(node, vrf_id, msg, ...)                                    \
 	do {                                                                   \
 		struct vrf *_vrf = vrf_lookup_by_id(vrf_id);                    \
-		zlog_debug("%s: (%s:%pZNt):%pZN: " msg, __func__,              \
+		zlog_debug("(%s:%pZNt):%pZN: " msg,                             \
 			   VRF_LOGNAME(_vrf), node, node, ##__VA_ARGS__);       \
 	} while (0)
 
 #define rnode_info(node, vrf_id, msg, ...)                                     \
 	do {                                                                   \
 		struct vrf *vrf = vrf_lookup_by_id(vrf_id);                    \
-		zlog_info("%s: (%s:%pZNt):%pZN: " msg, __func__,               \
+		zlog_info("(%s:%pZNt):%pZN: " msg,                             \
 			  VRF_LOGNAME(vrf), node, node, ##__VA_ARGS__);        \
 	} while (0)
 
