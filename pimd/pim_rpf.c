@@ -51,7 +51,7 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 }
 
 bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
-			struct in_addr addr, int neighbor_needed)
+			pim_addr addr, int neighbor_needed)
 {
 	struct pim_zlookup_nexthop nexthop_tab[MULTIPATH_NUM];
 	struct pim_neighbor *nbr = NULL;
@@ -66,7 +66,7 @@ bool pim_nexthop_lookup(struct pim_instance *pim, struct pim_nexthop *nexthop,
 	 * 255.255.255.255 address, since
 	 * it will never work
 	 */
-	if (addr.s_addr == INADDR_NONE)
+	if (pim_addr_is_any(addr))
 		return false;
 
 	if ((nexthop->last_lookup.s_addr == addr.s_addr)
@@ -403,19 +403,6 @@ static struct in_addr pim_rpf_find_rpf_addr(struct pim_upstream *up)
 		rpf_addr.s_addr = PIM_NET_INADDR_ANY;
 
 	return rpf_addr;
-}
-
-int pim_rpf_addr_is_inaddr_none(struct pim_rpf *rpf)
-{
-	switch (rpf->rpf_addr.family) {
-	case AF_INET:
-		return rpf->rpf_addr.u.prefix4.s_addr == INADDR_NONE;
-	case AF_INET6:
-		zlog_warn("%s: v6 Unimplmeneted", __func__);
-		return 1;
-	default:
-		return 0;
-	}
 }
 
 int pim_rpf_addr_is_inaddr_any(struct pim_rpf *rpf)

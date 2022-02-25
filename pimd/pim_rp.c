@@ -122,9 +122,7 @@ void pim_rp_init(struct pim_instance *pim)
 		return;
 	}
 	rp_info->group.family = AF_INET;
-	rp_info->rp.rpf_addr.family = AF_INET;
-	rp_info->rp.rpf_addr.prefixlen = IPV4_MAX_BITLEN;
-	rp_info->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
+	pim_addr_to_prefix(&rp_info->rp.rpf_addr, PIMADDR_ANY);
 
 	listnode_add(pim->rp_list, rp_info);
 
@@ -414,9 +412,8 @@ void pim_upstream_update(struct pim_instance *pim, struct pim_upstream *up)
 
 }
 
-int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
-	       struct prefix group, const char *plist,
-	       enum rp_source rp_src_flag)
+int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr, struct prefix group,
+	       const char *plist, enum rp_source rp_src_flag)
 {
 	int result = 0;
 	char rp[INET_ADDRSTRLEN];
@@ -431,8 +428,7 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 	struct pim_upstream *up;
 	bool upstream_updated = false;
 
-	if (rp_addr.s_addr == INADDR_ANY ||
-	    rp_addr.s_addr == INADDR_NONE)
+	if (rp_addr.s_addr == INADDR_ANY)
 		return PIM_RP_BAD_ADDRESS;
 
 	rp_info = XCALLOC(MTYPE_PIM_RP, sizeof(*rp_info));
@@ -516,8 +512,8 @@ int pim_rp_new(struct pim_instance *pim, struct in_addr rp_addr,
 		/*
 		 * Take over the 224.0.0.0/4 group if the rp is INADDR_NONE
 		 */
-		if (prefix_same(&rp_all->group, &rp_info->group)
-		    && pim_rpf_addr_is_inaddr_none(&rp_all->rp)) {
+		if (prefix_same(&rp_all->group, &rp_info->group) &&
+		    pim_rpf_addr_is_inaddr_any(&rp_all->rp)) {
 			rp_all->rp.rpf_addr = rp_info->rp.rpf_addr;
 			rp_all->rp_src = rp_src_flag;
 			XFREE(MTYPE_PIM_RP, rp_info);
@@ -789,8 +785,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 				}
 			}
 		}
-		rp_all->rp.rpf_addr.family = AF_INET;
-		rp_all->rp.rpf_addr.u.prefix4.s_addr = INADDR_NONE;
+		pim_addr_to_prefix(&rp_all->rp.rpf_addr, PIMADDR_ANY);
 		rp_all->i_am_rp = 0;
 		return PIM_SUCCESS;
 	}
@@ -834,7 +829,7 @@ int pim_rp_del(struct pim_instance *pim, struct in_addr rp_addr,
 			trp_info = pim_rp_find_match_group(pim, &grp);
 
 			/* RP not found for the group grp */
-			if (pim_rpf_addr_is_inaddr_none(&trp_info->rp)) {
+			if (pim_rpf_addr_is_inaddr_any(&trp_info->rp)) {
 				pim_upstream_rpf_clear(pim, up);
 				pim_rp_set_upstream_addr(
 					pim, &up->upstream_addr, up->sg.src,
@@ -956,7 +951,7 @@ void pim_rp_setup(struct pim_instance *pim)
 	struct prefix nht_p;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
+		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
 		nht_p.family = AF_INET;
@@ -987,7 +982,7 @@ void pim_rp_check_on_if_add(struct pim_interface *pim_ifp)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
+		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
 		/* if i_am_rp is already set nothing to be done (adding new
@@ -1029,7 +1024,7 @@ void pim_i_am_rp_re_evaluate(struct pim_instance *pim)
 		return;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
+		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
 		old_i_am_rp = rp_info->i_am_rp;
@@ -1142,8 +1137,8 @@ int pim_rp_set_upstream_addr(struct pim_instance *pim, pim_addr *up,
 
 	rp_info = pim_rp_find_match_group(pim, &g);
 
-	if (!rp_info || ((pim_rpf_addr_is_inaddr_none(&rp_info->rp))
-			 && (source.s_addr == INADDR_ANY))) {
+	if (!rp_info || ((pim_rpf_addr_is_inaddr_any(&rp_info->rp)) &&
+			 (source.s_addr == INADDR_ANY))) {
 		if (PIM_DEBUG_PIM_NHT_RP)
 			zlog_debug("%s: Received a (*,G) with no RP configured",
 				   __func__);
@@ -1185,7 +1180,7 @@ int pim_rp_config_write(struct pim_instance *pim, struct vty *vty,
 	int count = 0;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (pim_rpf_addr_is_inaddr_none(&rp_info->rp))
+		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
 		if (rp_info->rp_src == RP_SRC_BSR)
@@ -1227,7 +1222,7 @@ void pim_rp_show_information(struct pim_instance *pim, struct vty *vty, bool uj)
 		vty_out(vty,
 			"RP address       group/prefix-list   OIF               I am RP    Source\n");
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (!pim_rpf_addr_is_inaddr_none(&rp_info->rp)) {
+		if (!pim_rpf_addr_is_inaddr_any(&rp_info->rp)) {
 			char buf[48];
 
 			if (rp_info->rp_src == RP_SRC_STATIC)
@@ -1345,7 +1340,7 @@ void pim_resolve_rp_nh(struct pim_instance *pim, struct pim_neighbor *nbr)
 	struct pim_nexthop_cache pnc;
 
 	for (ALL_LIST_ELEMENTS_RO(pim->rp_list, node, rp_info)) {
-		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
+		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
 		nht_p.family = AF_INET;
