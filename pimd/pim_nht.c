@@ -419,7 +419,7 @@ static void pim_update_rp_nh(struct pim_instance *pim,
 
 	/*Traverse RP list and update each RP Nexthop info */
 	for (ALL_LIST_ELEMENTS_RO(pnc->rp_list, node, rp_info)) {
-		if (rp_info->rp.rpf_addr.u.prefix4.s_addr == INADDR_NONE)
+		if (pim_rpf_addr_is_inaddr_any(&rp_info->rp))
 			continue;
 
 		// Compute PIM RPF using cached nexthop
