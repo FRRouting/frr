@@ -211,8 +211,8 @@ void ripng_zebra_vrf_register(struct vrf *vrf)
 		return;
 
 	if (IS_RIPNG_DEBUG_EVENT)
-		zlog_debug("%s: register VRF %s(%u) to zebra", __func__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("register VRF %s(%u) to zebra", vrf->name,
+			   vrf->vrf_id);
 
 	zclient_send_reg_requests(zclient, vrf->vrf_id);
 }
@@ -223,8 +223,8 @@ void ripng_zebra_vrf_deregister(struct vrf *vrf)
 		return;
 
 	if (IS_RIPNG_DEBUG_EVENT)
-		zlog_debug("%s: deregister VRF %s(%u) from zebra.", __func__,
-			   vrf->name, vrf->vrf_id);
+		zlog_debug("deregister VRF %s(%u) from zebra.", vrf->name,
+			   vrf->vrf_id);
 
 	zclient_send_dereg_requests(zclient, vrf->vrf_id);
 }

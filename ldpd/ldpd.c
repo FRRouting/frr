@@ -606,8 +606,7 @@ static void main_dispatch_ldpe(struct thread *thread)
 			ldp_sync_zebra_send_state_update((struct ldp_igp_sync_if_state *)imsg.data);
 			break;
 		default:
-			log_debug("%s: error handling imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("error handling imsg %d", imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -711,8 +710,7 @@ static void main_dispatch_lde(struct thread *thread)
 			ldp_zebra_send_rlfa_labels(rlfa_labels);
 			break;
 		default:
-			log_debug("%s: error handling imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("error handling imsg %d", imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);

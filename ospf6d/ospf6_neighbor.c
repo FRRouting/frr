@@ -626,8 +626,7 @@ void inactivity_timer(struct thread *thread)
 	} else {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Acting as HELPER for this neighbour, So restart the dead timer.",
-				__PRETTY_FUNCTION__);
+				"Acting as HELPER for this neighbour, So restart the dead timer.");
 
 		thread_add_timer(master, inactivity_timer, on,
 				 on->ospf6_if->dead_interval,

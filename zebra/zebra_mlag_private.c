@@ -59,7 +59,7 @@ static int zebra_mlag_private_write_data(uint8_t *data, uint32_t len)
 	int rc = 0;
 
 	if (IS_ZEBRA_DEBUG_MLAG) {
-		zlog_debug("%s: Writing %d length Data to clag", __func__, len);
+		zlog_debug("Writing %d length Data to clag", len);
 		zlog_hexdump(data, len);
 	}
 	rc = write(mlag_socket, data, len);
@@ -194,8 +194,7 @@ static void zebra_mlag_connect(struct thread *thread)
 	set_nonblocking(mlag_socket);
 
 	if (IS_ZEBRA_DEBUG_MLAG)
-		zlog_debug("%s: Connection with MLAG is established ",
-			   __func__);
+		zlog_debug("Connection with MLAG is established ");
 
 	thread_add_read(zmlag_master, zebra_mlag_read, NULL, mlag_socket,
 			&zrouter.mlag_info.t_read);
@@ -221,16 +220,13 @@ static int zebra_mlag_private_open_channel(void)
 
 	if (zrouter.mlag_info.connected == true) {
 		if (IS_ZEBRA_DEBUG_MLAG)
-			zlog_debug("%s: Zebra already connected to MLAGD",
-				   __func__);
+			zlog_debug("Zebra already connected to MLAGD");
 		return 0;
 	}
 
 	if (zrouter.mlag_info.timer_running == true) {
 		if (IS_ZEBRA_DEBUG_MLAG)
-			zlog_debug(
-				"%s: Connection retry is in progress for MLAGD",
-				__func__);
+			zlog_debug("Connection retry is in progress for MLAGD");
 		return 0;
 	}
 
@@ -251,8 +247,7 @@ static int zebra_mlag_private_close_channel(void)
 
 	if (zrouter.mlag_info.clients_interested_cnt) {
 		if (IS_ZEBRA_DEBUG_MLAG)
-			zlog_debug("%s: still %d clients are connected, skip",
-				   __func__,
+			zlog_debug("still %d clients are connected, skip",
 				   zrouter.mlag_info.clients_interested_cnt);
 		return -1;
 	}

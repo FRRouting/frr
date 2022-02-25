@@ -571,8 +571,7 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 	}
 
 	if (api_nhg.nexthop_num == 0) {
-		zlog_debug("%s: nhg %u not sent: no valid nexthops",
-			   __func__, id);
+		zlog_debug("nhg %u not sent: no valid nexthops", id);
 		is_valid = false;
 		goto done;
 	}
@@ -593,8 +592,8 @@ void nhg_add(uint32_t id, const struct nexthop_group *nhg,
 			 * valid.
 			 */
 			if (nh->ifindex == 0) {
-				zlog_debug("%s: nhg %u: invalid backup nexthop",
-					   __func__, id);
+				zlog_debug("nhg %u: invalid backup nexthop",
+					   id);
 				is_valid = false;
 				break;
 			}
@@ -796,8 +795,8 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 	if (zclient_opaque_decode(s, &info) != 0)
 		return -1;
 
-	zlog_debug("%s: [%u] received opaque type %u", __func__,
-		   zclient->session_id, info.type);
+	zlog_debug("[%u] received opaque type %u", zclient->session_id,
+		   info.type);
 
 	if (info.type == LINK_STATE_UPDATE) {
 		lse = ls_stream2ted(sg.ted, s, false);
@@ -808,9 +807,7 @@ static int sharp_opaque_handler(ZAPI_CALLBACK_ARGS)
 			lse->status = SYNC;
 		}
 		else
-			zlog_debug(
-				"%s: Error to convert Stream into Link State",
-				__func__);
+			zlog_debug("Error to convert Stream into Link State");
 	}
 
 	return 0;
@@ -844,8 +841,7 @@ void sharp_opaque_send(uint32_t type, uint32_t proto, uint32_t instance,
 							  instance, session_id,
 							  buf, sizeof(buf));
 		if (ret == ZCLIENT_SEND_FAILURE) {
-			zlog_debug("%s: send_opaque() failed => %d",
-				   __func__, ret);
+			zlog_debug("send_opaque() failed => %d", ret);
 			break;
 		}
 	}

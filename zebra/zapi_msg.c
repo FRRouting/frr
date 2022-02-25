@@ -642,8 +642,8 @@ int zsend_redistribute_route(int cmd, struct zserv *client,
 	}
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: %s to client %s: type %s, vrf_id %d, p %pFX",
-			   __func__, zserv_command_string(cmd),
+		zlog_debug("%s to client %s: type %s, vrf_id %d, p %pFX",
+			   zserv_command_string(cmd),
 			   zebra_route_string(client->proto),
 			   zebra_route_string(api.type), api.vrf_id,
 			   &api.prefix);
@@ -725,8 +725,8 @@ int zsend_nhg_notify(uint16_t type, uint16_t instance, uint32_t session_id,
 	}
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: type %d, id %d, note %s",
-			   __func__, type, id, zapi_nhg_notify_owner2str(note));
+		zlog_debug("type %d, id %d, note %s", type, id,
+			   zapi_nhg_notify_owner2str(note));
 
 	s = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	stream_reset(s);
@@ -838,8 +838,7 @@ void zsend_rule_notify_owner(const struct zebra_dplane_ctx *ctx,
 	struct stream *s;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %u", __func__,
-			   dplane_ctx_rule_get_unique(ctx));
+		zlog_debug("Notifying %u", dplane_ctx_rule_get_unique(ctx));
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
 		if (dplane_ctx_rule_get_sock(ctx) == client->sock)
@@ -890,7 +889,7 @@ void zsend_iptable_notify_owner(const struct zebra_dplane_ctx *ctx,
 				   IPTABLE_UNINSTALL_QUEUED);
 	}
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+		zlog_debug("Notifying %s id %u note %u",
 			   zserv_command_string(cmd), ipt.unique, note);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -924,7 +923,7 @@ void zsend_ipset_notify_owner(const struct zebra_dplane_ctx *ctx,
 	dplane_ctx_get_pbr_ipset(ctx, &ipset);
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+		zlog_debug("Notifying %s id %u note %u",
 			   zserv_command_string(cmd), ipset.unique, note);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -960,7 +959,7 @@ void zsend_ipset_entry_notify_owner(const struct zebra_dplane_ctx *ctx,
 	dplane_ctx_get_pbr_ipset(ctx, &ipset);
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying %s id %u note %u", __func__,
+		zlog_debug("Notifying %s id %u note %u",
 			   zserv_command_string(cmd), ipent.unique, note);
 
 	for (ALL_LIST_ELEMENTS_RO(zrouter.client_list, node, client)) {
@@ -993,7 +992,7 @@ void zsend_nhrp_neighbor_notify(int cmd, struct interface *ifp,
 	union sockunion ip;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Notifying Neighbor entry (%u)", __func__, cmd);
+		zlog_debug("Notifying Neighbor entry (%u)", cmd);
 
 	sockunion_family(&ip) = ipaddr_family(ipaddr);
 	afi = family2afi(sockunion_family(&ip));
@@ -1209,8 +1208,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			client->v4_nh_watch_add_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
 				zlog_debug(
-					"%s: Specified prefix hdr->length %d is too large for a v4 address",
-					__func__, p.prefixlen);
+					"Specified prefix hdr->length %d is too large for a v4 address",
+					p.prefixlen);
 				return;
 			}
 			STREAM_GET(&p.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
@@ -1219,8 +1218,8 @@ static void zread_rnh_register(ZAPI_HANDLER_ARGS)
 			client->v6_nh_watch_add_cnt++;
 			if (p.prefixlen > IPV6_MAX_BITLEN) {
 				zlog_debug(
-					"%s: Specified prefix hdr->length %d is to large for a v6 address",
-					__func__, p.prefixlen);
+					"Specified prefix hdr->length %d is to large for a v6 address",
+					p.prefixlen);
 				return;
 			}
 			STREAM_GET(&p.u.prefix6, s, IPV6_MAX_BYTELEN);
@@ -1296,8 +1295,8 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 			client->v4_nh_watch_rem_cnt++;
 			if (p.prefixlen > IPV4_MAX_BITLEN) {
 				zlog_debug(
-					"%s: Specified prefix hdr->length %d is to large for a v4 address",
-					__func__, p.prefixlen);
+					"Specified prefix hdr->length %d is to large for a v4 address",
+					p.prefixlen);
 				return;
 			}
 			STREAM_GET(&p.u.prefix4.s_addr, s, IPV4_MAX_BYTELEN);
@@ -1306,8 +1305,8 @@ static void zread_rnh_unregister(ZAPI_HANDLER_ARGS)
 			client->v6_nh_watch_rem_cnt++;
 			if (p.prefixlen > IPV6_MAX_BITLEN) {
 				zlog_debug(
-					"%s: Specified prefix hdr->length %d is to large for a v6 address",
-					__func__, p.prefixlen);
+					"Specified prefix hdr->length %d is to large for a v6 address",
+					p.prefixlen);
 				return;
 			}
 			STREAM_GET(&p.u.prefix6, s, IPV6_MAX_BYTELEN);
@@ -1374,8 +1373,8 @@ static void zread_fec_register(ZAPI_HANDLER_ARGS)
 		    || (p.family == AF_INET6
 			&& p.prefixlen > IPV6_MAX_BITLEN)) {
 			zlog_debug(
-				"%s: Specified prefix hdr->length: %d is to long for %d",
-				__func__, p.prefixlen, p.family);
+				"Specified prefix hdr->length: %d is to long for %d",
+				p.prefixlen, p.family);
 			return;
 		}
 		l += 5;
@@ -1440,8 +1439,8 @@ static void zread_fec_unregister(ZAPI_HANDLER_ARGS)
 		    || (p.family == AF_INET6
 			&& p.prefixlen > IPV6_MAX_BITLEN)) {
 			zlog_debug(
-				"%s: Received prefix hdr->length %d which is greater than %d can support",
-				__func__, p.prefixlen, p.family);
+				"Received prefix hdr->length %d which is greater than %d can support",
+				p.prefixlen, p.family);
 			return;
 		}
 		l += 5;
@@ -1579,8 +1578,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		if (IS_ZEBRA_DEBUG_RECV) {
 			inet_ntop(AF_INET, &api_nh->gate.ipv4, nhbuf,
 				  sizeof(nhbuf));
-			zlog_debug("%s: nh=%s, vrf_id=%d", __func__,
-				   nhbuf, api_nh->vrf_id);
+			zlog_debug("nh=%s, vrf_id=%d", nhbuf, api_nh->vrf_id);
 		}
 		nexthop = nexthop_from_ipv4(&api_nh->gate.ipv4, NULL,
 					    api_nh->vrf_id);
@@ -1589,9 +1587,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		if (IS_ZEBRA_DEBUG_RECV) {
 			inet_ntop(AF_INET, &api_nh->gate.ipv4, nhbuf,
 				  sizeof(nhbuf));
-			zlog_debug("%s: nh=%s, vrf_id=%d, ifindex=%d",
-				   __func__, nhbuf, api_nh->vrf_id,
-				   api_nh->ifindex);
+			zlog_debug("nh=%s, vrf_id=%d, ifindex=%d", nhbuf,
+				   api_nh->vrf_id, api_nh->ifindex);
 		}
 
 		nexthop = nexthop_from_ipv4_ifindex(
@@ -1615,8 +1612,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		if (IS_ZEBRA_DEBUG_RECV) {
 			inet_ntop(AF_INET6, &api_nh->gate.ipv6, nhbuf,
 				  sizeof(nhbuf));
-			zlog_debug("%s: nh=%s, vrf_id=%d", __func__,
-				   nhbuf, api_nh->vrf_id);
+			zlog_debug("nh=%s, vrf_id=%d", nhbuf, api_nh->vrf_id);
 		}
 		nexthop = nexthop_from_ipv6(&api_nh->gate.ipv6, api_nh->vrf_id);
 		break;
@@ -1624,9 +1620,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		if (IS_ZEBRA_DEBUG_RECV) {
 			inet_ntop(AF_INET6, &api_nh->gate.ipv6, nhbuf,
 				  sizeof(nhbuf));
-			zlog_debug("%s: nh=%s, vrf_id=%d, ifindex=%d",
-				   __func__, nhbuf, api_nh->vrf_id,
-				   api_nh->ifindex);
+			zlog_debug("nh=%s, vrf_id=%d, ifindex=%d", nhbuf,
+				   api_nh->vrf_id, api_nh->ifindex);
 		}
 		nexthop = nexthop_from_ipv6_ifindex(&api_nh->gate.ipv6,
 						    api_nh->ifindex,
@@ -1647,8 +1642,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		break;
 	case NEXTHOP_TYPE_BLACKHOLE:
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: nh blackhole %d",
-				   __func__, api_nh->bh_type);
+			zlog_debug("nh blackhole %d", api_nh->bh_type);
 
 		nexthop =
 			nexthop_from_blackhole(api_nh->bh_type, api_nh->vrf_id);
@@ -1678,8 +1672,8 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 		/* Validate count */
 		if (api_nh->backup_num > NEXTHOP_MAX_BACKUPS) {
 			if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: invalid backup nh count %d",
-					   __func__, api_nh->backup_num);
+				zlog_debug("invalid backup nh count %d",
+					   api_nh->backup_num);
 			nexthop_free(nexthop);
 			nexthop = NULL;
 			goto done;
@@ -1695,8 +1689,7 @@ static struct nexthop *nexthop_from_zapi(const struct zapi_nexthop *api_nh,
 				nexthop->backup_idx[i] = api_nh->backup_idx[i];
 			} else {
 				if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
-					zlog_debug("%s: invalid backup nh idx %d",
-						   __func__,
+					zlog_debug("invalid backup nh idx %d",
 						   api_nh->backup_idx[i]);
 				nexthop_free(nexthop);
 				nexthop = NULL;
@@ -1728,8 +1721,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 
 	if (pbnhg && backup_nh_num > 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: adding %d backup nexthops", __func__,
-				   backup_nh_num);
+			zlog_debug("adding %d backup nexthops", backup_nh_num);
 
 		bnhg = zebra_nhg_backup_alloc();
 	}
@@ -1764,8 +1756,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		    && CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)) {
 			if (IS_ZEBRA_DEBUG_RECV) {
 				nexthop2str(nexthop, nhbuf, sizeof(nhbuf));
-				zlog_debug("%s: backup nh %s with BACKUP flag!",
-					   __func__, nhbuf);
+				zlog_debug("backup nh %s with BACKUP flag!",
+					   nhbuf);
 			}
 			UNSET_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP);
 			nexthop->backup_num = 0;
@@ -1791,8 +1783,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6LOCAL)
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
 			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: adding seg6local action %s",
-					   __func__,
+				zlog_debug("adding seg6local action %s",
 					   seg6local_action2str(
 						   api_nh->seg6local_action));
 
@@ -1804,7 +1795,7 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 		if (CHECK_FLAG(api_nh->flags, ZAPI_NEXTHOP_FLAG_SEG6)
 		    && api_nh->type != NEXTHOP_TYPE_BLACKHOLE) {
 			if (IS_ZEBRA_DEBUG_RECV)
-				zlog_debug("%s: adding seg6", __func__);
+				zlog_debug("adding seg6");
 
 			nexthop_add_srv6_seg6(nexthop, &api_nh->seg6_segs);
 		}
@@ -1823,8 +1814,8 @@ static bool zapi_read_nexthops(struct zserv *client, struct prefix *p,
 					       false);
 			}
 
-			zlog_debug("%s: nh=%s, vrf_id=%d %s",
-				   __func__, nhbuf, api_nh->vrf_id, labelbuf);
+			zlog_debug("nh=%s, vrf_id=%d %s", nhbuf, api_nh->vrf_id,
+				   labelbuf);
 		}
 
 		if (ng) {
@@ -1933,8 +1924,7 @@ static void zread_nhg_del(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_nhg_decode(s, hdr->command, &api_nhg) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_nhg sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_nhg sent");
 		return;
 	}
 
@@ -1965,8 +1955,7 @@ static void zread_nhg_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_nhg_decode(s, hdr->command, &api_nhg) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_nhg sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_nhg sent");
 		return;
 	}
 
@@ -2034,17 +2023,16 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_route_decode(s, &api) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_route sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_route sent");
 		return;
 	}
 
 	vrf_id = zvrf_id(zvrf);
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, vrf_id, api.tableid, &api.prefix,
-			   (int)api.message, api.flags);
+		zlog_debug("p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x", vrf_id,
+			   api.tableid, &api.prefix, (int)api.message,
+			   api.flags);
 
 	/* Allocate new route. */
 	re = zebra_rib_route_entry_new(
@@ -2070,9 +2058,8 @@ static void zread_route_add(ZAPI_HANDLER_ARGS)
 	    && api.backup_nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_RECV || IS_ZEBRA_DEBUG_EVENT)
 			zlog_debug(
-				"%s: client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
-				__func__, zebra_route_string(client->proto),
-				&api.prefix);
+				"client %s: BACKUP flag set but no backup nexthops, prefix %pFX",
+				zebra_route_string(client->proto), &api.prefix);
 	}
 
 	if (!re->nhe_id
@@ -2210,8 +2197,8 @@ static void zread_route_del(ZAPI_HANDLER_ARGS)
 		table_id = zvrf->table_id;
 
 	if (IS_ZEBRA_DEBUG_RECV)
-		zlog_debug("%s: p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
-			   __func__, zvrf_id(zvrf), table_id, &api.prefix,
+		zlog_debug("p=(%u:%u)%pFX, msg flags=0x%x, flags=0x%x",
+			   zvrf_id(zvrf), table_id, &api.prefix,
 			   (int)api.message, api.flags);
 
 	rib_delete(afi, api.safi, zvrf_id(zvrf), api.type, api.instance,
@@ -2439,9 +2426,9 @@ static int zapi_labels_validate(const struct zapi_labels *zl)
 				/* Fail */
 
 				if (IS_ZEBRA_DEBUG_RECV)
-					zlog_debug("%s: invalid zapi mpls message: duplicate backup nexthop index %d",
-						   __func__,
-						   znh->backup_idx[i]);
+					zlog_debug(
+						"invalid zapi mpls message: duplicate backup nexthop index %d",
+						znh->backup_idx[i]);
 				goto done;
 			}
 
@@ -2474,8 +2461,7 @@ static void zread_mpls_labels_add(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_labels_decode(s, &zl) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_labels sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_labels sent");
 		return;
 	}
 
@@ -2508,8 +2494,7 @@ static void zread_mpls_labels_delete(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_labels_decode(s, &zl) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_labels sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_labels sent");
 		return;
 	}
 
@@ -2548,8 +2533,7 @@ static void zread_mpls_labels_replace(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_labels_decode(s, &zl) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_labels sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_labels sent");
 		return;
 	}
 
@@ -2583,16 +2567,14 @@ static void zread_sr_policy_set(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_sr_policy sent");
 		return;
 	}
 	zt = &zp.segment_list;
 	if (zt->label_num < 1) {
 		if (IS_ZEBRA_DEBUG_RECV)
 			zlog_debug(
-				"%s: SR-TE tunnel must contain at least one label",
-				__func__);
+				"SR-TE tunnel must contain at least one label");
 		return;
 	}
 
@@ -2618,8 +2600,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	s = msg;
 	if (zapi_sr_policy_decode(s, &zp) < 0) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to decode zapi_sr_policy sent",
-				   __func__);
+			zlog_debug("Unable to decode zapi_sr_policy sent");
 		return;
 	}
 
@@ -2629,7 +2610,7 @@ static void zread_sr_policy_delete(ZAPI_HANDLER_ARGS)
 	policy = zebra_sr_policy_find(zp.color, &zp.endpoint);
 	if (!policy) {
 		if (IS_ZEBRA_DEBUG_RECV)
-			zlog_debug("%s: Unable to find SR-TE policy", __func__);
+			zlog_debug("Unable to find SR-TE policy");
 		return;
 	}
 

@@ -150,8 +150,8 @@ static void bgp_unlink_nexthop_check(struct bgp_nexthop_cache *bnc)
 {
 	if (LIST_EMPTY(&(bnc->paths)) && !bnc->nht_info) {
 		if (BGP_DEBUG(nht, NHT))
-			zlog_debug("%s: freeing bnc %pFX(%d)(%u)(%s)", __func__,
-				   &bnc->prefix, bnc->ifindex, bnc->srte_color,
+			zlog_debug("freeing bnc %pFX(%d)(%u)(%s)", &bnc->prefix,
+				   bnc->ifindex, bnc->srte_color,
 				   bnc->bgp->name_pretty);
 		/* only unregister if this is the last nh for this prefix*/
 		if (!bnc_existing_for_prefix(bnc))
@@ -280,8 +280,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		    && prefix_same(&p, orig_prefix)) {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug(
-					"%s(%pFX): prefix loops through itself",
-					__func__, &p);
+					"(%pFX): prefix loops through itself",
+					&p);
 			}
 			return 0;
 		}
@@ -308,8 +308,8 @@ int bgp_find_or_add_nexthop(struct bgp *bgp_route, struct bgp *bgp_nexthop,
 		if (!sockunion2hostprefix(&peer->su, &p)) {
 			if (BGP_DEBUG(nht, NHT)) {
 				zlog_debug(
-					"%s: Attempting to register with unknown AFI %d (not %d or %d)",
-					__func__, afi, AFI_IP, AFI_IP6);
+					"Attempting to register with unknown AFI %d (not %d or %d)",
+					afi, AFI_IP, AFI_IP6);
 			}
 			return 0;
 		}
@@ -527,8 +527,8 @@ static void bgp_process_nexthop_update(struct bgp_nexthop_cache *bnc,
 
 		if (BGP_DEBUG(nht, NHT))
 			zlog_debug(
-				"%s: Import Check does not resolve to the same prefix for %pFX received %pFX or matching route is BGP",
-				__func__, &bnc->prefix, &nhr->prefix);
+				"Import Check does not resolve to the same prefix for %pFX received %pFX or matching route is BGP",
+				&bnc->prefix, &nhr->prefix);
 	} else if (nhr->nexthop_num) {
 		struct peer *peer = bnc->nht_info;
 
@@ -945,8 +945,8 @@ static int make_prefix(int afi, struct bgp_path_info *pi, struct prefix *p)
 	default:
 		if (BGP_DEBUG(nht, NHT)) {
 			zlog_debug(
-				"%s: Attempting to make prefix with unknown AFI %d (not %d or %d)",
-				__func__, afi, AFI_IP, AFI_IP6);
+				"Attempting to make prefix with unknown AFI %d (not %d or %d)",
+				afi, AFI_IP, AFI_IP6);
 		}
 		break;
 	}
@@ -975,16 +975,14 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bnc->bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"%s: No zebra instance to talk to, not installing NHT entry",
-				__func__);
+				"No zebra instance to talk to, not installing NHT entry");
 		return;
 	}
 
 	if (!bgp_zebra_num_connects()) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"%s: We have not connected yet, cannot send nexthops",
-				__func__);
+				"We have not connected yet, cannot send nexthops");
 	}
 	if (command == ZEBRA_NEXTHOP_REGISTER) {
 		if (CHECK_FLAG(bnc->flags, BGP_NEXTHOP_CONNECTED))
@@ -994,7 +992,7 @@ static void sendmsg_zebra_rnh(struct bgp_nexthop_cache *bnc, int command)
 	}
 
 	if (BGP_DEBUG(zebra, ZEBRA))
-		zlog_debug("%s: sending cmd %s for %pFX (vrf %s)", __func__,
+		zlog_debug("sending cmd %s for %pFX (vrf %s)",
 			   zserv_command_string(command), &bnc->prefix,
 			   bnc->bgp->name_pretty);
 
@@ -1138,8 +1136,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 				    path->sub_type, path->attr, dest)) {
 				if (BGP_DEBUG(nht, NHT))
 					zlog_debug(
-						"%s: prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
-						__func__, dest, bgp_path->name);
+						"prefix %pBD (vrf %s), ignoring path due to martian or self-next-hop",
+						dest, bgp_path->name);
 			} else
 				bnc_is_valid_nexthop =
 					bgp_isvalid_nexthop(bnc) ? true : false;
@@ -1229,9 +1227,8 @@ void evaluate_paths(struct bgp_nexthop_cache *bnc)
 		if (!CHECK_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED)) {
 			if (BGP_DEBUG(nht, NHT))
 				zlog_debug(
-					"%s: Updating peer (%s(%s)) status with NHT nexthops %d",
-					__func__, peer->host,
-					peer->bgp->name_pretty,
+					"Updating peer (%s(%s)) status with NHT nexthops %d",
+					peer->host, peer->bgp->name_pretty,
 					!!valid_nexthops);
 			bgp_fsm_nht_update(peer, !!valid_nexthops);
 			SET_FLAG(bnc->flags, BGP_NEXTHOP_PEER_NOTIFIED);

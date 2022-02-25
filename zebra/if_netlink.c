@@ -317,8 +317,8 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	if (!linkinfo[IFLA_INFO_DATA]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"%s: IFLA_INFO_DATA missing from VRF message: %s",
-				__func__, name);
+				"IFLA_INFO_DATA missing from VRF message: %s",
+				name);
 		return;
 	}
 
@@ -327,8 +327,8 @@ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
 	if (!attr[IFLA_VRF_TABLE]) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"%s: IFLA_VRF_TABLE missing from VRF message: %s",
-				__func__, name);
+				"IFLA_VRF_TABLE missing from VRF message: %s",
+				name);
 		return;
 	}
 
@@ -995,8 +995,7 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* check for wireless messages to ignore */
 	if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: ignoring IFLA_WIRELESS message",
-				   __func__);
+			zlog_debug("ignoring IFLA_WIRELESS message");
 		return 0;
 	}
 
@@ -1449,9 +1448,9 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	if (IS_ZEBRA_DEBUG_KERNEL) /* remove this line to see initial ifcfg */
 	{
 		char buf[BUFSIZ];
-		zlog_debug("%s %s %s flags 0x%x:", __func__,
-			   nl_msg_type_to_str(h->nlmsg_type), ifp->name,
-			   kernel_flags);
+		zlog_debug(
+			"%s %s flags 0x%x:", nl_msg_type_to_str(h->nlmsg_type),
+			ifp->name, kernel_flags);
 		if (tb[IFA_LOCAL])
 			zlog_debug("  IFA_LOCAL     %s/%d",
 				   inet_ntop(ifa->ifa_family,
@@ -1503,8 +1502,7 @@ int netlink_interface_addr(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 
 	/* addr is primary key, SOL if we don't have one */
 	if (addr == NULL) {
-		zlog_debug("%s: Local Interface Address is NULL for %s",
-			   __func__, ifp->name);
+		zlog_debug("Local Interface Address is NULL for %s", ifp->name);
 		return -1;
 	}
 
@@ -1613,8 +1611,8 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 
 	if (ifa->ifa_family != AF_INET && ifa->ifa_family != AF_INET6) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s: Invalid address family: %u",
-				   __func__, nl_msg_type_to_str(h->nlmsg_type),
+			zlog_debug("%s: Invalid address family: %u",
+				   nl_msg_type_to_str(h->nlmsg_type),
 				   ifa->ifa_family);
 		return 0;
 	}
@@ -1622,11 +1620,10 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	len = h->nlmsg_len - NLMSG_LENGTH(sizeof(struct ifaddrmsg));
 	if (len < 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s: netlink msg bad size: %d %zu",
-				   __func__, nl_msg_type_to_str(h->nlmsg_type),
-				   h->nlmsg_len,
-				   (size_t)NLMSG_LENGTH(
-					   sizeof(struct ifaddrmsg)));
+			zlog_debug(
+				"%s: netlink msg bad size: %d %zu",
+				nl_msg_type_to_str(h->nlmsg_type), h->nlmsg_len,
+				(size_t)NLMSG_LENGTH(sizeof(struct ifaddrmsg)));
 		return -1;
 	}
 
@@ -1641,7 +1638,7 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	if (IS_ZEBRA_DEBUG_KERNEL) { /* remove this line to see initial ifcfg */
 		char buf[PREFIX_STRLEN];
 
-		zlog_debug("%s: %s nsid %u ifindex %u flags 0x%x:", __func__,
+		zlog_debug("%s nsid %u ifindex %u flags 0x%x:",
 			   nl_msg_type_to_str(h->nlmsg_type), ns_id,
 			   ifa->ifa_index, kernel_flags);
 		if (tb[IFA_LOCAL])
@@ -1679,8 +1676,8 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	if (ifa->ifa_family == AF_INET
 	    && ifa->ifa_prefixlen > IPV4_MAX_BITLEN) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s: Invalid prefix length: %u",
-				   __func__, nl_msg_type_to_str(h->nlmsg_type),
+			zlog_debug("%s: Invalid prefix length: %u",
+				   nl_msg_type_to_str(h->nlmsg_type),
 				   ifa->ifa_prefixlen);
 		return -1;
 	}
@@ -1688,8 +1685,7 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	if (ifa->ifa_family == AF_INET6) {
 		if (ifa->ifa_prefixlen > IPV6_MAX_BITLEN) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %s: Invalid prefix length: %u",
-					   __func__,
+				zlog_debug("%s: Invalid prefix length: %u",
 					   nl_msg_type_to_str(h->nlmsg_type),
 					   ifa->ifa_prefixlen);
 			return -1;
@@ -1702,8 +1698,7 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 		if (h->nlmsg_type == RTM_NEWADDR
 		    && (kernel_flags & (IFA_F_DADFAILED | IFA_F_TENTATIVE))) {
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %s: Invalid/tentative addr",
-					   __func__,
+				zlog_debug("%s: Invalid/tentative addr",
 					   nl_msg_type_to_str(h->nlmsg_type));
 			return 0;
 		}
@@ -1721,8 +1716,8 @@ int netlink_interface_addr_dplane(struct nlmsghdr *h, ns_id_t ns_id,
 	/* addr is primary key, SOL if we don't have one */
 	if (addr == NULL) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %s: No local interface address",
-				   __func__, nl_msg_type_to_str(h->nlmsg_type));
+			zlog_debug("%s: No local interface address",
+				   nl_msg_type_to_str(h->nlmsg_type));
 		return -1;
 	}
 
@@ -1824,7 +1819,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* assume if not default zns, then new VRF */
 	if (!(h->nlmsg_type == RTM_NEWLINK || h->nlmsg_type == RTM_DELLINK)) {
 		/* If this is not link add/delete message so print warning. */
-		zlog_debug("%s: wrong kernel message %s", __func__,
+		zlog_debug("wrong kernel message %s",
 			   nl_msg_type_to_str(h->nlmsg_type));
 		return 0;
 	}
@@ -1859,8 +1854,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	/* check for wireless messages to ignore */
 	if ((tb[IFLA_WIRELESS] != NULL) && (ifi->ifi_change == 0)) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: ignoring IFLA_WIRELESS message",
-				   __func__);
+			zlog_debug("ignoring IFLA_WIRELESS message");
 		return 0;
 	}
 
@@ -1872,7 +1866,7 @@ int netlink_link_change(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	len = RTA_PAYLOAD(tb[IFLA_IFNAME]);
 	if (len < 2 || name[len - 1] != '\0') {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: invalid intf name", __func__);
+			zlog_debug("invalid intf name");
 		return -1;
 	}
 
@@ -2237,9 +2231,9 @@ ssize_t netlink_intf_msg_encode(uint16_t cmd,
 	nl_attr_nest_end(&req->n, nest_protodown_reason);
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: %s, protodown=%d reason_val=%d ifindex=%u",
-			   __func__, nl_msg_type_to_str(cmd), down,
-			   pd_reason_val, ifindex);
+		zlog_debug("%s, protodown=%d reason_val=%d ifindex=%u",
+			   nl_msg_type_to_str(cmd), down, pd_reason_val,
+			   ifindex);
 
 	return NLMSG_ALIGN(req->n.nlmsg_len);
 }

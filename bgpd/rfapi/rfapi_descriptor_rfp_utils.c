@@ -37,7 +37,7 @@ void *rfapi_create_generic(struct rfapi_ip_addr *vn, struct rfapi_ip_addr *un)
 {
 	struct rfapi_descriptor *rfd;
 	rfd = XCALLOC(MTYPE_RFAPI_DESC, sizeof(struct rfapi_descriptor));
-	vnc_zlog_debug_verbose("%s: rfd=%p", __func__, rfd);
+	vnc_zlog_debug_verbose("rfd=%p", rfd);
 	rfd->vn_addr = *vn;
 	rfd->un_addr = *un;
 	return (void *)rfd;

@@ -147,8 +147,8 @@ static void bgp_send_fec_register_label_msg(struct bgp_dest *dest, bool reg,
 		return;
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %sregister %pRN label_index=%u label=%u",
-			   __func__, reg ? "" : "un", bgp_dest_to_rnode(dest),
+		zlog_debug("FEC %sregister %pRN label_index=%u label=%u",
+			   reg ? "" : "un", bgp_dest_to_rnode(dest),
 			   label_index, label);
 	/* If the route node has a local_label assigned or the
 	 * path node has an MPLS SR label index allowing zebra to
@@ -213,7 +213,7 @@ int bgp_reg_for_label_callback(mpls_label_t new_label, void *labelid,
 	bgp_dest_unlock_node(dest);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: FEC %pRN label=%u, allocated=%d", __func__,
+		zlog_debug("FEC %pRN label=%u, allocated=%d",
 			   bgp_dest_to_rnode(dest), new_label, allocated);
 
 	if (!allocated) {
@@ -259,8 +259,7 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 	p = bgp_dest_get_prefix(dest);
 
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: %pFX: %s ", __func__, p,
-			   (reg ? "reg" : "dereg"));
+		zlog_debug("%pFX: %s ", p, (reg ? "reg" : "dereg"));
 
 	if (reg) {
 		assert(pi);
@@ -283,8 +282,8 @@ void bgp_reg_dereg_for_label(struct bgp_dest *dest, struct bgp_path_info *pi,
 				SET_FLAG(dest->flags, BGP_NODE_LABEL_REQUESTED);
 				if (BGP_DEBUG(labelpool, LABELPOOL))
 					zlog_debug(
-						"%s: Requesting label from LP for %pFX",
-						__func__, p);
+						"Requesting label from LP for %pFX",
+						p);
 				/* bgp_reg_for_label_callback() will deal with
 				 * fec registration when it gets a label from
 				 * the pool. This means we'll never register

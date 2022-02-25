@@ -699,8 +699,7 @@ static int bgp_zebra_send_remote_macip(struct bgp *bgp, struct bgpevpn *vpn,
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"%s: No zebra instance to talk to, not installing remote macip",
-				__func__);
+				"No zebra instance to talk to, not installing remote macip");
 		return 0;
 	}
 
@@ -771,8 +770,7 @@ static int bgp_zebra_send_remote_vtep(struct bgp *bgp, struct bgpevpn *vpn,
 	if (!IS_BGP_INST_KNOWN_TO_ZEBRA(bgp)) {
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"%s: No zebra instance to talk to, not installing remote vtep",
-				__func__);
+				"No zebra instance to talk to, not installing remote vtep");
 		return 0;
 	}
 
@@ -3065,8 +3063,8 @@ static int bgp_evpn_route_rmac_self_check(struct bgp *bgp_vrf,
 			bgp_dump_attr(pi->attr, attr_str, sizeof(attr_str));
 
 			zlog_debug(
-				"%s: bgp %u prefix %pFX with attr %s - DENIED due to self mac",
-				__func__, bgp_vrf->vrf_id, evp, attr_str);
+				"bgp %u prefix %pFX with attr %s - DENIED due to self mac",
+				bgp_vrf->vrf_id, evp, attr_str);
 		}
 
 		return 1;

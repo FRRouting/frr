@@ -146,8 +146,9 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 
 			nbr->flags |= F_NBR_CAP_DYNAMIC;
 
-			log_debug("%s: lsr-id %pI4 announced the Dynamic Capability Announcement capability", __func__,
-			    &nbr->id);
+			log_debug(
+				"lsr-id %pI4 announced the Dynamic Capability Announcement capability",
+				&nbr->id);
 			break;
 		case TLV_TYPE_TWCARD_CAP:
 			if (tlv_len != CAP_TLV_TWCARD_LEN) {
@@ -165,7 +166,9 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 
 			nbr->flags |= F_NBR_CAP_TWCARD;
 
-			log_debug("%s: lsr-id %pI4 announced the Typed Wildcard FEC capability", __func__, &nbr->id);
+			log_debug(
+				"lsr-id %pI4 announced the Typed Wildcard FEC capability",
+				&nbr->id);
 			break;
 		case TLV_TYPE_UNOTIF_CAP:
 			if (tlv_len != CAP_TLV_UNOTIF_LEN) {
@@ -183,8 +186,9 @@ recv_init(struct nbr *nbr, char *buf, uint16_t len)
 
 			nbr->flags |= F_NBR_CAP_UNOTIF;
 
-			log_debug("%s: lsr-id %pI4 announced the Unrecognized Notification capability", __func__,
-			    &nbr->id);
+			log_debug(
+				"lsr-id %pI4 announced the Unrecognized Notification capability",
+				&nbr->id);
 			break;
 		default:
 			if (!(ntohs(tlv.type) & UNKNOWN_FLAG))
@@ -222,7 +226,7 @@ send_capability(struct nbr *nbr, uint16_t capability, int enable)
 	uint16_t		 size;
 	int			 err = 0;
 
-	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
+	log_debug("lsr-id %pI4", &nbr->id);
 
 	size = LDP_HDR_SIZE + LDP_MSG_SIZE + CAP_TLV_DYNAMIC_SIZE;
 	if ((buf = ibuf_open(size)) == NULL)
@@ -268,7 +272,7 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 	int		 enable = 0;
 	int		 caps_rcvd = 0;
 
-	log_debug("%s: lsr-id %pI4", __func__, &nbr->id);
+	log_debug("lsr-id %pI4", &nbr->id);
 
 	memcpy(&msg, buf, sizeof(msg));
 	buf += LDP_MSG_SIZE;
@@ -318,8 +322,9 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			else
 				nbr->flags &= ~F_NBR_CAP_TWCARD;
 
-			log_debug("%s: lsr-id %pI4 %s the Typed Wildcard FEC capability", __func__, &nbr->id,
-			    (enable) ? "announced" : "withdrew");
+			log_debug(
+				"lsr-id %pI4 %s the Typed Wildcard FEC capability",
+				&nbr->id, (enable) ? "announced" : "withdrew");
 			break;
 		case TLV_TYPE_UNOTIF_CAP:
 			if (tlv_len != CAP_TLV_UNOTIF_LEN) {
@@ -342,9 +347,9 @@ recv_capability(struct nbr *nbr, char *buf, uint16_t len)
 			else
 				nbr->flags &= ~F_NBR_CAP_UNOTIF;
 
-			log_debug("%s: lsr-id %pI4 %s the Unrecognized Notification capability", __func__,
-			    &nbr->id, (enable) ? "announced" :
-			    "withdrew");
+			log_debug(
+				"lsr-id %pI4 %s the Unrecognized Notification capability",
+				&nbr->id, (enable) ? "announced" : "withdrew");
 			break;
 		case TLV_TYPE_DYNAMIC_CAP:
 			/*

@@ -118,13 +118,13 @@ void zebra_ptm_init(void)
 
 	ptm_cb.out_data = calloc(1, ZEBRA_PTM_SEND_MAX_SOCKBUF);
 	if (!ptm_cb.out_data) {
-		zlog_debug("%s: Allocation of send data failed", __func__);
+		zlog_debug("Allocation of send data failed");
 		return;
 	}
 
 	ptm_cb.in_data = calloc(1, ZEBRA_PTM_MAX_SOCKBUF);
 	if (!ptm_cb.in_data) {
-		zlog_debug("%s: Allocation of recv data failed", __func__);
+		zlog_debug("Allocation of recv data failed");
 		free(ptm_cb.out_data);
 		return;
 	}
@@ -322,8 +322,8 @@ DEFUN (zebra_ptm_enable_if,
 	if (!old_ptm_enable && ptm_cb.ptm_enable) {
 		if (!if_is_operative(ifp) && send_linkdown) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: Bringing down interface %s",
-					   __func__, ifp->name);
+				zlog_debug("Bringing down interface %s",
+					   ifp->name);
 			if_down(ifp);
 		}
 	}
@@ -348,8 +348,8 @@ DEFUN (no_zebra_ptm_enable_if,
 		ifp->ptm_enable = ZEBRA_IF_PTM_ENABLE_OFF;
 		if (if_is_no_ptm_operative(ifp) && send_linkup) {
 			if (IS_ZEBRA_DEBUG_EVENT)
-				zlog_debug("%s: Bringing up interface %s",
-					   __func__, ifp->name);
+				zlog_debug("Bringing up interface %s",
+					   ifp->name);
 			if_up(ifp, true);
 		}
 	}
@@ -382,8 +382,8 @@ static int zebra_ptm_socket_init(void)
 		return -1;
 	if (set_nonblocking(sock) < 0) {
 		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s: Unable to set socket non blocking[%s]",
-				   __func__, safe_strerror(errno));
+			zlog_debug("Unable to set socket non blocking[%s]",
+				   safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -399,9 +399,8 @@ static int zebra_ptm_socket_init(void)
 			      - 1);
 	if (ret < 0) {
 		if (IS_ZEBRA_DEBUG_EVENT)
-			zlog_debug("%s: Unable to connect to socket %s [%s]",
-				   __func__, ZEBRA_PTM_SOCK_NAME,
-				   safe_strerror(errno));
+			zlog_debug("Unable to connect to socket %s [%s]",
+				   ZEBRA_PTM_SOCK_NAME, safe_strerror(errno));
 		close(sock);
 		return -1;
 	}
@@ -470,7 +469,7 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDDEST_STR, dest_str);
 
 	if (dest_str[0] == '\0') {
-		zlog_debug("%s: Key %s not found in PTM msg", __func__,
+		zlog_debug("Key %s not found in PTM msg",
 			   ZEBRA_PTM_BFDDEST_STR);
 		return -1;
 	}
@@ -478,24 +477,22 @@ static int zebra_ptm_handle_bfd_msg(void *arg, void *in_ctxt,
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDSRC_STR, src_str);
 
 	if (src_str[0] == '\0') {
-		zlog_debug("%s: Key %s not found in PTM msg", __func__,
-			   ZEBRA_PTM_BFDSRC_STR);
+		zlog_debug("Key %s not found in PTM msg", ZEBRA_PTM_BFDSRC_STR);
 		return -1;
 	}
 
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_BFDVRF_STR, vrf_str);
 
 	if (vrf_str[0] == '\0') {
-		zlog_debug("%s: Key %s not found in PTM msg", __func__,
-			   ZEBRA_PTM_BFDVRF_STR);
+		zlog_debug("Key %s not found in PTM msg", ZEBRA_PTM_BFDVRF_STR);
 		return -1;
 	}
 
 	if (IS_ZEBRA_DEBUG_EVENT)
 		zlog_debug(
-			"%s: Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
-			__func__, ifp ? ifp->name : "N/A", bfdst_str, vrf_str,
-			dest_str, src_str);
+			"Recv Port [%s] bfd status [%s] vrf [%s] peer [%s] local [%s]",
+			ifp ? ifp->name : "N/A", bfdst_str, vrf_str, dest_str,
+			src_str);
 
 	if (str2prefix(dest_str, &dest_prefix) == 0) {
 		flog_err(EC_ZEBRA_PREFIX_PARSE_ERROR,
@@ -542,8 +539,8 @@ static int zebra_ptm_handle_cbl_msg(void *arg, void *in_ctxt,
 	int send_linkup = 0;
 
 	if (IS_ZEBRA_DEBUG_EVENT)
-		zlog_debug("%s: Recv Port [%s] cbl status [%s]", __func__,
-			   ifp->name, cbl_str);
+		zlog_debug("Recv Port [%s] cbl status [%s]", ifp->name,
+			   cbl_str);
 
 	if (!strcmp(cbl_str, ZEBRA_PTM_PASS_STR)
 	    && (ifp->ptm_status != ZEBRA_PTM_STATUS_UP)) {
@@ -599,8 +596,7 @@ static int zebra_ptm_handle_msg_cb(void *arg, void *in_ctxt)
 	ptm_lib_find_key_in_msg(in_ctxt, ZEBRA_PTM_PORT_STR, port_str);
 
 	if (port_str[0] == '\0') {
-		zlog_debug("%s: Key %s not found in PTM msg", __func__,
-			   ZEBRA_PTM_PORT_STR);
+		zlog_debug("Key %s not found in PTM msg", ZEBRA_PTM_PORT_STR);
 		return -1;
 	}
 
@@ -840,8 +836,7 @@ void zebra_ptm_bfd_dst_register(ZAPI_HANDLER_ARGS)
 	ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: Sent message (%d) %s", __func__, data_len,
-			   ptm_cb.out_data);
+		zlog_debug("Sent message (%d) %s", data_len, ptm_cb.out_data);
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
 	return;
@@ -970,8 +965,7 @@ void zebra_ptm_bfd_dst_deregister(ZAPI_HANDLER_ARGS)
 
 	ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: Sent message (%d) %s", __func__, data_len,
-			   ptm_cb.out_data);
+		zlog_debug("Sent message (%d) %s", data_len, ptm_cb.out_data);
 
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
@@ -1023,8 +1017,7 @@ void zebra_ptm_bfd_client_register(ZAPI_HANDLER_ARGS)
 	ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: Sent message (%d) %s", __func__, data_len,
-			   ptm_cb.out_data);
+		zlog_debug("Sent message (%d) %s", data_len, ptm_cb.out_data);
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 
 	SET_FLAG(ptm_cb.client_flags[client->proto],
@@ -1078,8 +1071,7 @@ int zebra_ptm_bfd_client_deregister(struct zserv *client)
 	ptm_lib_complete_msg(ptm_hdl, out_ctxt, ptm_cb.out_data, &data_len);
 
 	if (IS_ZEBRA_DEBUG_SEND)
-		zlog_debug("%s: Sent message (%d) %s", __func__, data_len,
-			   ptm_cb.out_data);
+		zlog_debug("Sent message (%d) %s", data_len, ptm_cb.out_data);
 
 	zebra_ptm_send_message(ptm_cb.out_data, data_len);
 	UNSET_FLAG(ptm_cb.client_flags[proto], ZEBRA_PTM_BFD_CLIENT_FLAG_REG);
@@ -1161,8 +1153,8 @@ void zebra_ptm_reset_status(int ptm_disable)
 				if (if_is_operative(ifp) && send_linkup) {
 					if (IS_ZEBRA_DEBUG_EVENT)
 						zlog_debug(
-							"%s: Bringing up interface %s",
-							__func__, ifp->name);
+							"Bringing up interface %s",
+							ifp->name);
 					if_up(ifp, true);
 				}
 			}
@@ -1353,7 +1345,7 @@ static int _zebra_ptm_bfd_client_deregister(struct zserv *zs)
 	/* Generate, send message and free() daemon related data. */
 	msg = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	if (msg == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
+		zlog_debug("not enough memory");
 		return 0;
 	}
 
@@ -1506,7 +1498,7 @@ void zebra_ptm_bfd_dst_replay(ZAPI_HANDLER_ARGS)
 	 */
 	msgc = stream_new(ZEBRA_MAX_PACKET_SIZ);
 	if (msgc == NULL) {
-		zlog_debug("%s: not enough memory", __func__);
+		zlog_debug("not enough memory");
 		return;
 	}
 

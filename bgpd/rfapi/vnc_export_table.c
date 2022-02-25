@@ -145,7 +145,7 @@ void vnc_eti_delete(struct vnc_export_info *goner)
 	}
 
 	if (!eti) {
-		vnc_zlog_debug_verbose("%s: COULDN'T FIND ETI", __func__);
+		vnc_zlog_debug_verbose("COULDN'T FIND ETI");
 		return;
 	}
 

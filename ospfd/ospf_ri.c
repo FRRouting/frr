@@ -544,8 +544,8 @@ static void initialize_params(struct ospf_router_info *ori)
 		if (!list_isempty(OspfRI.area_info))
 			list_delete_all_node(OspfRI.area_info);
 		for (ALL_LIST_ELEMENTS(top->areas, node, nnode, area)) {
-			zlog_debug("RI (%s): Add area %pI4 to Router Information",
-				__func__, &area->area_id);
+			zlog_debug("RI: Add area %pI4 to Router Information",
+				   &area->area_id);
 			new = XCALLOC(MTYPE_OSPF_ROUTER_INFO,
 				sizeof(struct ospf_ri_area_info));
 			new->area = area;
@@ -634,8 +634,8 @@ void ospf_router_info_update_sr(bool enable, struct sr_node *srn)
 		return;
 
 	if (IS_DEBUG_OSPF_SR)
-		zlog_debug("RI (%s): %s Routing Information for Segment Routing",
-			   __func__, enable ? "Enable" : "Disable");
+		zlog_debug("RI: %s Routing Information for Segment Routing",
+			   enable ? "Enable" : "Disable");
 
 	/* Unset or Set SR parameters */
 	if (!enable) {
@@ -850,8 +850,7 @@ static int ospf_router_info_lsa_originate_as(void *arg)
 
 	/* Check ospf info */
 	if (top == NULL) {
-		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+		zlog_debug("RI: ospf instance not found for vrf id %u", vrf_id);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -904,8 +903,7 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 	ai = lookup_by_area((struct ospf_area *)arg);
 	if (ai == NULL) {
 		zlog_debug(
-			"RI (%s): There is no context for this Router Information. Stop processing",
-			__func__);
+			"RI: There is no context for this Router Information. Stop processing");
 		return rc;
 	}
 	if (ai->area->ospf) {
@@ -919,8 +917,7 @@ static int ospf_router_info_lsa_originate_area(void *arg)
 
 	/* Check ospf info */
 	if (top == NULL) {
-		zlog_debug("RI (%s): ospf instance not found for vrf id %u",
-			   __func__, vrf_id);
+		zlog_debug("RI: ospf instance not found for vrf id %u", vrf_id);
 		ospf_lsa_unlock(&new);
 		return rc;
 	}
@@ -1113,7 +1110,7 @@ static void ospf_router_info_lsa_schedule(struct ospf_ri_area_info *ai,
 	memset(&lsa, 0, sizeof(lsa));
 	memset(&lsah, 0, sizeof(lsah));
 
-	zlog_debug("RI (%s): LSA schedule %s%s%s", __func__,
+	zlog_debug("RI: LSA schedule %s%s%s",
 		   opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
 		   opcode == REFRESH_THIS_LSA ? "Refresh" : "",
 		   opcode == FLUSH_THIS_LSA ? "Flush" : "");

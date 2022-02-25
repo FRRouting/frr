@@ -150,9 +150,9 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 		if (remain < PIM_TLV_MIN_SIZE) {
 			if (PIM_DEBUG_PIM_HELLO)
 				zlog_debug(
-					"%s: short PIM hello TLV size=%d < min=%d from %pPAs on interface %s",
-					__func__, remain, PIM_TLV_MIN_SIZE,
-					&src_addr, ifp->name);
+					"short PIM hello TLV size=%d < min=%d from %pPAs on interface %s",
+					remain, PIM_TLV_MIN_SIZE, &src_addr,
+					ifp->name);
 			FREE_ADDR_LIST_THEN_RETURN(-1);
 		}
 
@@ -164,8 +164,8 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 		if ((tlv_curr + option_len) > tlv_pastend) {
 			if (PIM_DEBUG_PIM_HELLO)
 				zlog_debug(
-					"%s: long PIM hello TLV type=%d length=%d > left=%td from %pPAs on interface %s",
-					__func__, option_type, option_len,
+					"long PIM hello TLV type=%d length=%d > left=%td from %pPAs on interface %s",
+					option_type, option_len,
 					tlv_pastend - tlv_curr, &src_addr,
 					ifp->name);
 			FREE_ADDR_LIST_THEN_RETURN(-2);
@@ -173,9 +173,9 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 
 		if (PIM_DEBUG_PIM_HELLO)
 			zlog_debug(
-				"%s: parse left_size=%d: PIM hello TLV type=%d length=%d from %pPAs on %s",
-				__func__, remain, option_type, option_len,
-				&src_addr, ifp->name);
+				"parse left_size=%d: PIM hello TLV type=%d length=%d from %pPAs on %s",
+				remain, option_type, option_len, &src_addr,
+				ifp->name);
 
 		switch (option_type) {
 		case PIM_MSG_OPTION_TYPE_HOLDTIME:
@@ -222,16 +222,16 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 		case PIM_MSG_OPTION_TYPE_DM_STATE_REFRESH:
 			if (PIM_DEBUG_PIM_HELLO)
 				zlog_debug(
-					"%s: ignoring PIM hello dense-mode state refresh TLV option type=%d length=%d from %pPAs on interface %s",
-					__func__, option_type, option_len,
-					&src_addr, ifp->name);
+					"ignoring PIM hello dense-mode state refresh TLV option type=%d length=%d from %pPAs on interface %s",
+					option_type, option_len, &src_addr,
+					ifp->name);
 			break;
 		default:
 			if (PIM_DEBUG_PIM_HELLO)
 				zlog_debug(
-					"%s: ignoring unknown PIM hello TLV type=%d length=%d from %pPAs on interface %s",
-					__func__, option_type, option_len,
-					&src_addr, ifp->name);
+					"ignoring unknown PIM hello TLV type=%d length=%d from %pPAs on interface %s",
+					option_type, option_len, &src_addr,
+					ifp->name);
 		}
 
 		tlv_curr += option_len;
@@ -282,8 +282,8 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 	if (!PIM_OPTION_IS_SET(hello_options, PIM_OPTION_MASK_HOLDTIME)) {
 		if (PIM_DEBUG_PIM_HELLO)
 			zlog_debug(
-				"%s: PIM hello missing holdtime from %pPAs on interface %s",
-				__func__, &src_addr, ifp->name);
+				"PIM hello missing holdtime from %pPAs on interface %s",
+				&src_addr, ifp->name);
 	}
 
 	/*
@@ -310,9 +310,7 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 		/* Forward BSM if required */
 		if (!pim_bsm_new_nbr_fwd(neigh, ifp)) {
 			if (PIM_DEBUG_PIM_HELLO)
-				zlog_debug(
-					"%s: forwarding bsm to new nbr failed",
-					__func__);
+				zlog_debug("forwarding bsm to new nbr failed");
 		}
 
 		/* actual addr list has been saved under neighbor */
@@ -332,8 +330,8 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 
 			if (PIM_DEBUG_PIM_HELLO)
 				zlog_debug(
-					"%s: GenId mismatch new=%08x old=%08x: replacing neighbor %pPAs on %s",
-					__func__, hello_option_generation_id,
+					"GenId mismatch new=%08x old=%08x: replacing neighbor %pPAs on %s",
+					hello_option_generation_id,
 					neigh->generation_id, &src_addr,
 					ifp->name);
 
@@ -352,16 +350,15 @@ int pim_hello_recv(struct interface *ifp, pim_addr src_addr, uint8_t *tlv_buf,
 			if (!neigh) {
 				if (PIM_DEBUG_PIM_HELLO)
 					zlog_debug(
-						"%s: failure re-creating PIM neighbor %pPAs on interface %s",
-						__func__, &src_addr, ifp->name);
+						"failure re-creating PIM neighbor %pPAs on interface %s",
+						&src_addr, ifp->name);
 				FREE_ADDR_LIST_THEN_RETURN(-9);
 			}
 			/* Forward BSM if required */
 			if (!pim_bsm_new_nbr_fwd(neigh, ifp)) {
 				if (PIM_DEBUG_PIM_HELLO)
 					zlog_debug(
-						"%s: forwarding bsm to new nbr failed",
-						__func__);
+						"forwarding bsm to new nbr failed");
 			}
 			/* actual addr list is saved under neighbor */
 			return 0;
@@ -404,8 +401,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	if (!curr) {
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
-				"%s: could not set PIM hello Holdtime option for interface %s",
-				__func__, ifp->name);
+				"could not set PIM hello Holdtime option for interface %s",
+				ifp->name);
 		}
 		return -1;
 	}
@@ -417,8 +414,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	if (!tmp) {
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
-				"%s: could not set PIM LAN Prune Delay option for interface %s",
-				__func__, ifp->name);
+				"could not set PIM LAN Prune Delay option for interface %s",
+				ifp->name);
 		}
 		return -1;
 	}
@@ -433,8 +430,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	if (!curr) {
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
-				"%s: could not set PIM hello DR Priority option for interface %s",
-				__func__, ifp->name);
+				"could not set PIM hello DR Priority option for interface %s",
+				ifp->name);
 		}
 		return -2;
 	}
@@ -446,8 +443,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 	if (!curr) {
 		if (PIM_DEBUG_PIM_HELLO) {
 			zlog_debug(
-				"%s: could not set PIM hello Generation ID option for interface %s",
-				__func__, ifp->name);
+				"could not set PIM hello Generation ID option for interface %s",
+				ifp->name);
 		}
 		return -3;
 	}
@@ -459,8 +456,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 		if (!curr) {
 			if (PIM_DEBUG_PIM_HELLO) {
 				zlog_debug(
-					"%s: could not set PIM hello %s Secondary Address List option for interface %s",
-					__func__, PIM_AF_NAME, ifp->name);
+					"could not set PIM hello %s Secondary Address List option for interface %s",
+					PIM_AF_NAME, ifp->name);
 			}
 			return -4;
 		}
@@ -471,8 +468,8 @@ int pim_hello_build_tlv(struct interface *ifp, uint8_t *tlv_buf,
 			if (!curr) {
 				if (PIM_DEBUG_PIM_HELLO) {
 					zlog_debug(
-						"%s: could not sent PIM hello v6 secondary Address List option for interface %s",
-						__func__, ifp->name);
+						"could not sent PIM hello v6 secondary Address List option for interface %s",
+						ifp->name);
 				}
 				return -4;
 			}

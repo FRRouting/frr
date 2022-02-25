@@ -133,8 +133,8 @@ static struct ospf6_vertex *ospf6_vertex_create(struct ospf6_lsa *lsa)
 	ospf6_linkstate_prefix2str(&v->vertex_id, v->name, sizeof(v->name));
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s: Creating vertex %s of type %s (0x%04hx) lsa %s",
-			   __func__, v->name,
+		zlog_debug("Creating vertex %s of type %s (0x%04hx) lsa %s",
+			   v->name,
 			   ((ntohs(lsa->header->type) == OSPF6_LSTYPE_ROUTER)
 				    ? "Router"
 				    : "N/W"),
@@ -354,9 +354,8 @@ static int ospf6_spf_install(struct ospf6_vertex *v,
 		     && route->path.origin.id != v->lsa->header->id)) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS)) {
 				zlog_debug(
-					"%s: V lsa %s id %u, route id %u are different",
-					__func__, v->lsa->name,
-					ntohl(v->lsa->header->id),
+					"V lsa %s id %u, route id %u are different",
+					v->lsa->name, ntohl(v->lsa->header->id),
 					ntohl(route->path.origin.id));
 			}
 			return 0;
@@ -1032,15 +1031,14 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 		rtr_lsa = ospf6_lsdb_next(end, rtr_lsa);
 	}
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s: adv_router %s num_lsa %u to convert.", __func__,
-			   ifbuf, num_lsa);
+		zlog_debug("adv_router %s num_lsa %u to convert.", ifbuf,
+			   num_lsa);
 	if (num_lsa == 1)
 		return lsa;
 
 	if (num_lsa == 0) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: adv_router %s not found in LSDB.",
-				   __func__, ifbuf);
+			zlog_debug("adv_router %s not found in LSDB.", ifbuf);
 		return NULL;
 	}
 
@@ -1083,9 +1081,9 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 			interface_id = ROUTER_LSDESC_GET_IFID(lsd);
 			inet_ntop(AF_INET, &interface_id, ifbuf, sizeof(ifbuf));
 			zlog_debug(
-				"%s: Next Router LSA %s to aggreat with len %u interface_id %s",
-				__func__, rtr_lsa->name,
-				ntohs(lsa_header->length), ifbuf);
+				"Next Router LSA %s to aggreat with len %u interface_id %s",
+				rtr_lsa->name, ntohs(lsa_header->length),
+				ifbuf);
 		}
 
 		/* Append Next Link State ID LSA */
@@ -1105,10 +1103,9 @@ struct ospf6_lsa *ospf6_create_single_router_lsa(struct ospf6_area *area,
 	ospf6_lsdb_add(lsa, area->temp_router_lsa_lsdb);
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s: LSA %s id %u type 0%x len %u num_lsa %u",
-			   __func__, lsa->name, ntohl(lsa->header->id),
-			   ntohs(lsa->header->type), ntohs(lsa->header->length),
-			   num_lsa);
+		zlog_debug("LSA %s id %u type 0%x len %u num_lsa %u", lsa->name,
+			   ntohl(lsa->header->id), ntohs(lsa->header->type),
+			   ntohs(lsa->header->length), num_lsa);
 
 	return lsa;
 }
@@ -1119,10 +1116,9 @@ void ospf6_remove_temp_router_lsa(struct ospf6_area *area)
 
 	for (ALL_LSDB(area->temp_router_lsa_lsdb, lsa, lsanext)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug(
-				"%s Remove LSA %s lsa->lock %u lsdb count %u",
-				__func__, lsa->name, lsa->lock,
-				area->temp_router_lsa_lsdb->count);
+			zlog_debug("Remove LSA %s lsa->lock %u lsdb count %u",
+				   lsa->name, lsa->lock,
+				   area->temp_router_lsa_lsdb->count);
 		ospf6_lsdb_remove(lsa, area->temp_router_lsa_lsdb);
 	}
 }
@@ -1139,17 +1135,16 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	assert(lsa);
 
 	if (IS_OSPF6_DEBUG_SPF(PROCESS))
-		zlog_debug("%s :  start", __func__);
+		zlog_debug("start");
 
 	if (ntohs(lsa->header->type) == OSPF6_LSTYPE_TYPE_7)
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: Processing Type-7", __func__);
+			zlog_debug("Processing Type-7");
 
 	/* Stay away from any Local Translated Type-7 LSAs */
 	if (CHECK_FLAG(lsa->flag, OSPF6_LSA_LOCAL_XLT)) {
 		if (IS_OSPF6_DEBUG_SPF(PROCESS))
-			zlog_debug("%s: Rejecting Local translated LSA",
-				   __func__);
+			zlog_debug("Rejecting Local translated LSA");
 		return 0;
 	}
 
@@ -1174,8 +1169,7 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		route = ospf6_route_lookup(&prefix, ospf6->route_table);
 		if (route == NULL) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s: no external route %pFX",
-					   __func__, &prefix);
+				zlog_debug("no external route %pFX", &prefix);
 			return 0;
 		}
 
@@ -1191,9 +1185,8 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 			 || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add) {
 				if (IS_OSPF6_DEBUG_SPF(PROCESS))
-					zlog_debug(
-						"%s: add external route %pFX",
-						__func__, &prefix);
+					zlog_debug("add external route %pFX",
+						   &prefix);
 				(*hook_add)(route);
 			}
 		}
@@ -1212,8 +1205,8 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 		route = ospf6_route_lookup(&prefix, area->route_table);
 		if (route == NULL) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s: no route %pFX, area %s",
-					   __func__, &prefix, area->name);
+				zlog_debug("no route %pFX, area %s", &prefix,
+					   area->name);
 			return 0;
 		}
 
@@ -1225,16 +1218,16 @@ int ospf6_ase_calculate_route(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 		if (CHECK_FLAG(route->flag, OSPF6_ROUTE_REMOVE)) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s : remove route %pFX, area %s",
-					   __func__, &prefix, area->name);
+				zlog_debug("remove route %pFX, area %s",
+					   &prefix, area->name);
 			ospf6_route_remove(route, area->route_table);
 		} else if (CHECK_FLAG(route->flag, OSPF6_ROUTE_ADD)
 			   || CHECK_FLAG(route->flag, OSPF6_ROUTE_CHANGE)) {
 			if (hook_add) {
 				if (IS_OSPF6_DEBUG_SPF(PROCESS))
 					zlog_debug(
-						"%s: add nssa route %pFX, area %s",
-						__func__, &prefix, area->name);
+						"add nssa route %pFX, area %s",
+						&prefix, area->name);
 				(*hook_add)(route);
 			}
 			ospf6_abr_check_translate_nssa(area, lsa);
@@ -1262,8 +1255,7 @@ static void ospf6_ase_calculate_timer(struct thread *t)
 	if (ospf6->anyNSSA) {
 		for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
 			if (IS_OSPF6_DEBUG_SPF(PROCESS))
-				zlog_debug("%s : looking at area %s", __func__,
-					   area->name);
+				zlog_debug("looking at area %s", area->name);
 
 			type = htons(OSPF6_LSTYPE_TYPE_7);
 			for (ALL_LSDB_TYPED(area->lsdb, type, lsa))

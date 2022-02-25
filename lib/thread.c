@@ -2144,7 +2144,7 @@ void debug_signals(const sigset_t *sigs)
 	if (found == 0)
 		snprintf(buf, sizeof(buf), "<none>");
 
-	zlog_debug("%s: %s", __func__, buf);
+	zlog_debug("%s", buf);
 }
 
 static ssize_t printfrr_thread_dbg(struct fbuf *buf, struct printfrr_eargs *ea,

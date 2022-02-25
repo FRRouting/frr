@@ -3469,9 +3469,7 @@ dplane_route_update_internal(struct route_node *rn,
 			struct nexthop *nexthop;
 
 			if (IS_ZEBRA_DEBUG_DPLANE)
-				zlog_debug(
-					"%s: Ignoring Route exactly the same",
-					__func__);
+				zlog_debug("Ignoring Route exactly the same");
 
 			for (ALL_NEXTHOPS_PTR(dplane_ctx_get_ng(ctx),
 					      nexthop)) {
@@ -4341,8 +4339,8 @@ enum zebra_dplane_result dplane_neigh_ip_update(enum dplane_op_e op,
 	uint32_t update_flags;
 
 	if (IS_ZEBRA_DEBUG_DPLANE_DETAIL)
-		zlog_debug("%s: init link ctx %s: ifp %s, link_ip %pIA ip %pIA",
-			   __func__, dplane_op2str(op), ifp->name, link_ip, ip);
+		zlog_debug("init link ctx %s: ifp %s, link_ip %pIA ip %pIA",
+			   dplane_op2str(op), ifp->name, link_ip, ip);
 
 	if (ndm_state == ZEBRA_NEIGH_STATE_REACHABLE)
 		state = DPLANE_NUD_REACHABLE;
@@ -5486,8 +5484,8 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 	struct dplane_zns_info *zi;
 
 	if (IS_ZEBRA_DEBUG_DPLANE)
-		zlog_debug("%s: %s for nsid %u", __func__,
-			   (enabled ? "ENABLED" : "DISABLED"), zns->ns_id);
+		zlog_debug("%s for nsid %u", (enabled ? "ENABLED" : "DISABLED"),
+			   zns->ns_id);
 
 	/* Search for an existing zns info entry */
 	frr_each (zns_info_list, &zdplane_info.dg_zns_list, zi) {
@@ -5505,8 +5503,8 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 			zns_info_list_add_tail(&zdplane_info.dg_zns_list, zi);
 
 			if (IS_ZEBRA_DEBUG_DPLANE)
-				zlog_debug("%s: nsid %u, new zi %p", __func__,
-					   zns->ns_id, zi);
+				zlog_debug("nsid %u, new zi %p", zns->ns_id,
+					   zi);
 		}
 
 		/* Make sure we're up-to-date with the zns object */
@@ -5521,8 +5519,7 @@ void zebra_dplane_ns_enable(struct zebra_ns *zns, bool enabled)
 #endif
 	} else if (zi) {
 		if (IS_ZEBRA_DEBUG_DPLANE)
-			zlog_debug("%s: nsid %u, deleting zi %p", __func__,
-				   zns->ns_id, zi);
+			zlog_debug("nsid %u, deleting zi %p", zns->ns_id, zi);
 
 		/* Stop reading, free memory */
 		zns_info_list_del(&zdplane_info.dg_zns_list, zi);

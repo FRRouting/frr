@@ -355,8 +355,8 @@ void connected_add_ipv4(struct interface *ifp, int flags,
 					ifp->name, addr);
 		} else {
 			zlog_debug(
-				"%s called for interface %s with peer flag set, but no peer address supplied",
-				__func__, ifp->name);
+				"called for interface %s with peer flag set, but no peer address supplied",
+				ifp->name);
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 		}
 	}
@@ -410,8 +410,8 @@ void connected_down(struct interface *ifp, struct connected *ifc)
 	 */
 	if (CHECK_FLAG(ifc->conf, ZEBRA_IFC_DOWN)) {
 		if (IS_ZEBRA_DEBUG_RIB)
-			zlog_debug("%s: ifc %p, %pFX already DOWN",
-				   __func__, ifc, ifc->address);
+			zlog_debug("ifc %p, %pFX already DOWN", ifc,
+				   ifc->address);
 		return;
 	}
 
@@ -573,8 +573,8 @@ void connected_add_ipv6(struct interface *ifp, int flags,
 	} else {
 		if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_PEER)) {
 			zlog_debug(
-				"%s called for interface %s with peer flag set, but no peer address supplied",
-				__func__, ifp->name);
+				"called for interface %s with peer flag set, but no peer address supplied",
+				ifp->name);
 			UNSET_FLAG(ifc->flags, ZEBRA_IFA_PEER);
 		}
 	}

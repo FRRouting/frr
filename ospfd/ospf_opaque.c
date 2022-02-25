@@ -1299,14 +1299,14 @@ void ospf_opaque_lsa_originate_schedule(struct ospf_interface *oi, int *delay0)
 
 	if ((top = oi_to_top(oi)) == NULL || (area = oi->area) == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Invalid argument?", __func__);
+			zlog_debug("Invalid argument?");
 		return;
 	}
 
 	/* It may not a right time to schedule origination now. */
 	if (!CHECK_FLAG(top->opaque, OPAQUE_OPERATION_READY_BIT)) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Not operational.", __func__);
+			zlog_debug("Not operational.");
 		return; /* This is not an error. */
 	}
 
@@ -1745,7 +1745,7 @@ void ospf_opaque_lsa_reoriginate_schedule(void *lsa_type_dependent,
 	/* It may not a right time to schedule reorigination now. */
 	if (!CHECK_FLAG(top->opaque, OPAQUE_OPERATION_READY_BIT)) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: Not operational.", __func__);
+			zlog_debug("Not operational.");
 		goto out; /* This is not an error. */
 	}
 

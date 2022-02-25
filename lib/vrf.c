@@ -491,7 +491,7 @@ void vrf_init(int (*create)(struct vrf *), int (*enable)(struct vrf *),
 	/* initialise NS, in case VRF backend if NETNS */
 	ns_init();
 	if (debug_vrf)
-		zlog_debug("%s: Initializing VRF subsystem", __func__);
+		zlog_debug("Initializing VRF subsystem");
 
 	vrf_master.vrf_new_hook = create;
 	vrf_master.vrf_enable_hook = enable;
@@ -539,7 +539,7 @@ void vrf_terminate(void)
 	struct vrf *vrf, *tmp;
 
 	if (debug_vrf)
-		zlog_debug("%s: Shutting down vrf subsystem", __func__);
+		zlog_debug("Shutting down vrf subsystem");
 
 	RB_FOREACH_SAFE (vrf, vrf_id_head, &vrfs_by_id, tmp) {
 		if (vrf->vrf_id == VRF_DEFAULT)

@@ -115,9 +115,10 @@ int release_daemon_label_chunks(struct zserv *client)
 	int ret;
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Releasing chunks for client proto %s, instance %d, session %u",
-			   __func__, zebra_route_string(client->proto),
-			   client->instance, client->session_id);
+		zlog_debug(
+			"Releasing chunks for client proto %s, instance %d, session %u",
+			zebra_route_string(client->proto), client->instance,
+			client->session_id);
 
 	for (ALL_LIST_ELEMENTS_RO(lbl_mgr.lc_list, node, lmc)) {
 		if (lmc->proto == client->proto &&
@@ -132,7 +133,7 @@ int release_daemon_label_chunks(struct zserv *client)
 	}
 
 	if (IS_ZEBRA_DEBUG_PACKET)
-		zlog_debug("%s: Released %d label chunks", __func__, count);
+		zlog_debug("Released %d label chunks", count);
 
 	return count;
 }

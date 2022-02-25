@@ -214,7 +214,7 @@ static struct vertex *ospf_vertex_new(struct ospf_area *area,
 	listnode_add(area->spf_vertex_list, new);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Created %s vertex %pI4", __func__,
+		zlog_debug("Created %s vertex %pI4",
 			   new->type == OSPF_VERTEX_ROUTER ? "Router"
 							   : "Network",
 			   &new->lsa->id);
@@ -227,7 +227,7 @@ static void ospf_vertex_free(void *data)
 	struct vertex *v = data;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Free %s vertex %pI4", __func__,
+		zlog_debug("Free %s vertex %pI4",
 			   v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
 			   &v->lsa->id);
 
@@ -710,8 +710,8 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 		w->distance = distance;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Adding %pI4 as parent of %pI4", __func__,
-			   &v->lsa->id, &w->lsa->id);
+		zlog_debug("Adding %pI4 as parent of %pI4", &v->lsa->id,
+			   &w->lsa->id);
 
 	/*
 	 * Adding parent for a new, better path: flush existing parents from W.
@@ -719,8 +719,8 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 	if (distance < w->distance) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: distance %d better than %d, flushing existing parents",
-				__func__, distance, w->distance);
+				"distance %d better than %d, flushing existing parents",
+				distance, w->distance);
 		ospf_spf_flush_parents(w);
 		w->distance = distance;
 	}
@@ -733,8 +733,7 @@ static void ospf_spf_add_parent(struct vertex *v, struct vertex *w,
 		if (memcmp(newhop, wp->nexthop, sizeof(*newhop)) == 0) {
 			if (IS_DEBUG_OSPF_EVENT)
 				zlog_debug(
-					"%s: ... nexthop already on parent list, skipping add",
-					__func__);
+					"... nexthop already on parent list, skipping add");
 			return;
 		}
 	}
@@ -804,7 +803,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 	unsigned int added = 0;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 		ospf_vertex_dump("V (parent):", v, 1, 1);
 		ospf_vertex_dump("W (dest)  :", w, 1, 1);
 		zlog_debug("V->W distance: %d", distance);
@@ -825,9 +824,8 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: considering link type:%d link_id:%pI4 link_data:%pI4",
-				__func__, l->m[0].type, &l->link_id,
-				&l->link_data);
+				"considering link type:%d link_id:%pI4 link_data:%pI4",
+				l->m[0].type, &l->link_id, &l->link_data);
 
 		if (w->type == OSPF_VERTEX_ROUTER) {
 			/*
@@ -844,9 +842,8 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 								       lsa_pos);
 					if (!oi) {
 						zlog_debug(
-							"%s: OI not found in LSA: lsa_pos: %d link_id:%pI4 link_data:%pI4",
-							__func__, lsa_pos,
-							&l->link_id,
+							"OI not found in LSA: lsa_pos: %d link_id:%pI4 link_data:%pI4",
+							lsa_pos, &l->link_id,
 							&l->link_data);
 						return 0;
 					}
@@ -1132,8 +1129,7 @@ static unsigned int ospf_nexthop_calculation(struct ospf_area *area,
 	 * parent.
 	 */
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Intervening routers, adding parent(s)",
-			   __func__);
+		zlog_debug("Intervening routers, adding parent(s)");
 
 	for (ALL_LIST_ELEMENTS(v->parents, node, nnode, vp)) {
 		added = 1;
@@ -1280,7 +1276,7 @@ static uint16_t get_reverse_distance(struct vertex *v,
 		distance = ntohs(l->m[0].metric);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: reversed distance is %u", __func__, distance);
+		zlog_debug("reversed distance is %u", distance);
 
 	return distance;
 }
@@ -1312,7 +1308,7 @@ static void ospf_spf_next(struct vertex *v, struct ospf_area *area,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Next vertex of %s vertex %pI4", __func__,
+		zlog_debug("Next vertex of %s vertex %pI4",
 			   v->type == OSPF_VERTEX_ROUTER ? "Router" : "Network",
 			   &v->lsa->id);
 
@@ -1575,8 +1571,7 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 	struct vertex *child;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: processing stubs for area %pI4", __func__,
-			   &area->area_id);
+		zlog_debug("processing stubs for area %pI4", &area->area_id);
 
 	if (v->type == OSPF_VERTEX_ROUTER) {
 		uint8_t *p;
@@ -1586,13 +1581,13 @@ static void ospf_spf_process_stubs(struct ospf_area *area, struct vertex *v,
 		int lsa_pos = 0;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: processing router LSA, id: %pI4",
-				   __func__, &v->lsa->id);
+			zlog_debug("processing router LSA, id: %pI4",
+				   &v->lsa->id);
 
 		router_lsa = (struct router_lsa *)v->lsa;
 
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: we have %d links to process", __func__,
+			zlog_debug("we have %d links to process",
 				   ntohs(router_lsa->links));
 
 		p = ((uint8_t *)v->lsa) + OSPF_LSA_HEADER_SIZE + 4;
@@ -1687,8 +1682,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 	struct vertex *v;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("%s: Start: running Dijkstra for area %pI4",
-			   __func__, &area->area_id);
+		zlog_debug("Start: running Dijkstra for area %pI4",
+			   &area->area_id);
 	}
 
 	/*
@@ -1699,8 +1694,8 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 	if (!root_lsa) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: Skip area %pI4's calculation due to empty root LSA",
-				__func__, &area->area_id);
+				"Skip area %pI4's calculation due to empty root LSA",
+				&area->area_id);
 		return;
 	}
 
@@ -1780,7 +1775,7 @@ void ospf_spf_calculate(struct ospf_area *area, struct ospf_lsa *root_lsa,
 	area->ts_spf = area->ospf->ts_spf;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Stop. %zd vertices", __func__,
+		zlog_debug("Stop. %zd vertices",
 			   mtype_stats_alloc(MTYPE_OSPF_VERTEX));
 }
 
@@ -1915,9 +1910,9 @@ static void ospf_spf_calculate_schedule_worker(struct thread *thread)
 
 	if (IS_DEBUG_OSPF_EVENT)
 		zlog_debug(
-			"%s: ospf install new route, vrf %s id %u new_table count %lu",
-			__func__, ospf_vrf_id_to_name(ospf->vrf_id),
-			ospf->vrf_id, new_table->count);
+			"ospf install new route, vrf %s id %u new_table count %lu",
+			ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
+			new_table->count);
 
 	/* Update routing table. */
 	monotime(&start_time);
@@ -1992,7 +1987,7 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 	struct orr_root *root;
 	char rbuf[32]; /* reason_buf */
 
-	ospf_orr_debug("%s: SPF: Timer (SPF calculation expire)", __func__);
+	ospf_orr_debug("SPF: Timer (SPF calculation expire)");
 
 	ospf->t_orr_calc = NULL;
 
@@ -2005,9 +2000,9 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 			if (!root || !root->router_lsa_rcvd)
 				continue;
 			ospf_orr_debug(
-				"%s: For %s %s, MPLS TE Router address %pI4 advertised by %pI4",
-				__func__, afi2str(afi), safi2str(safi),
-				&root->router_id, &root->adv_router);
+				"For %s %s, MPLS TE Router address %pI4 advertised by %pI4",
+				afi2str(afi), safi2str(safi), &root->router_id,
+				&root->adv_router);
 
 			ospf_vl_unapprove(ospf);
 
@@ -2054,9 +2049,9 @@ void ospf_orr_spf_calculate_schedule_worker(struct thread *thread)
 			ospf_ase_calculate_timer_add(ospf);
 
 			ospf_orr_debug(
-				"%s: ospf install new route, vrf %s id %u new_table count %lu",
-				__func__, ospf_vrf_id_to_name(ospf->vrf_id),
-				ospf->vrf_id, new_table->count);
+				"ospf install new route, vrf %s id %u new_table count %lu",
+				ospf_vrf_id_to_name(ospf->vrf_id), ospf->vrf_id,
+				new_table->count);
 
 			/* Update routing table. */
 			monotime(&start_time);
@@ -2182,7 +2177,7 @@ void ospf_spf_calculate_schedule(struct ospf *ospf, ospf_spf_reason_t reason)
 void ospf_restart_spf(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Restart SPF.", __func__);
+		zlog_debug("Restart SPF.");
 
 	/* Handling inter area and intra area routes*/
 	if (ospf->new_table) {

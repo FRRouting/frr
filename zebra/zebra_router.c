@@ -219,8 +219,7 @@ uint32_t zebra_router_get_next_sequence(void)
 void multicast_mode_ipv4_set(enum multicast_mode mode)
 {
 	if (IS_ZEBRA_DEBUG_RIB)
-		zlog_debug("%s: multicast lookup mode set (%d)", __func__,
-			   mode);
+		zlog_debug("multicast lookup mode set (%d)", mode);
 	zrouter.ipv4_multicast_mode = mode;
 }
 

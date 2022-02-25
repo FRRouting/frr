@@ -79,8 +79,7 @@ static void ospf_inactivity_timer(struct thread *thread)
 	else {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, Acting as HELPER for this neighbour, So restart the dead timer",
-				__func__);
+				"Acting as HELPER for this neighbour, So restart the dead timer");
 		OSPF_NSM_TIMER_ON(nbr->t_inactivity, ospf_inactivity_timer,
 				  nbr->v_inactivity);
 	}

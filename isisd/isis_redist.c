@@ -233,7 +233,7 @@ void isis_redist_add(struct isis *isis, int type, struct prefix *p,
 	int level;
 	struct isis_redist *redist;
 
-	zlog_debug("%s: New route %pFX from %s: distance %d.", __func__, p,
+	zlog_debug("New route %pFX from %s: distance %d.", p,
 		   zebra_route_string(type), distance);
 
 	if (!ei_table) {
@@ -282,8 +282,7 @@ void isis_redist_delete(struct isis *isis, int type, struct prefix *p,
 	int level;
 	struct isis_redist *redist;
 
-	zlog_debug("%s: Removing route %pFX from %s.", __func__, p,
-		   zebra_route_string(type));
+	zlog_debug("Removing route %pFX from %s.", p, zebra_route_string(type));
 
 	if (is_default_prefix(p)
 	    && (!src_p || !src_p->prefixlen)) {

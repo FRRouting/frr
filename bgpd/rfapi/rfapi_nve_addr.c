@@ -66,8 +66,7 @@ int rfapi_nve_addr_cmp(const void *k1, const void *k2)
 
 	if (!a || !b) {
 #if DEBUG_NVE_ADDR
-		vnc_zlog_debug_verbose("%s: missing address a=%p b=%p",
-				       __func__, a, b);
+		vnc_zlog_debug_verbose("missing address a=%p b=%p", a, b);
 #endif
 		return (a - b);
 	}

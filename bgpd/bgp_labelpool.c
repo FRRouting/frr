@@ -121,8 +121,9 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 	int debug = BGP_DEBUG(labelpool, LABELPOOL);
 
 	if (debug)
-		zlog_debug("%s: calling callback with labelid=%p label=%u allocated=%d",
-			__func__, lcbq->labelid, lcbq->label, lcbq->allocated);
+		zlog_debug(
+			"calling callback with labelid=%p label=%u allocated=%d",
+			lcbq->labelid, lcbq->label, lcbq->allocated);
 
 	if (lcbq->label == MPLS_LABEL_NONE) {
 		/* shouldn't happen */
@@ -142,8 +143,9 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
 		 * label) was in the work queue.
 		 */
 		if (debug)
-			zlog_debug("%s: callback rejected allocation, releasing labelid=%p label=%u",
-				__func__, lcbq->labelid, lcbq->label);
+			zlog_debug(
+				"callback rejected allocation, releasing labelid=%p label=%u",
+				lcbq->labelid, lcbq->label);
 
 		uintptr_t lbl = lcbq->label;
 		void *labelid;
@@ -193,7 +195,7 @@ static void lp_chunk_free(void *goner)
 void bgp_lp_init(struct thread_master *master, struct labelpool *pool)
 {
 	if (BGP_DEBUG(labelpool, LABELPOOL))
-		zlog_debug("%s: entry", __func__);
+		zlog_debug("entry");
 
 	lp = pool;	/* Set module pointer to pool data */
 
@@ -282,8 +284,8 @@ static mpls_label_t get_label_from_pool(void *labelid)
 		unsigned int index;
 
 		if (debug)
-			zlog_debug("%s: chunk first=%u last=%u",
-				__func__, chunk->first, chunk->last);
+			zlog_debug("chunk first=%u last=%u", chunk->first,
+				   chunk->last);
 
 		/*
 		 * don't look in chunks with no available labels
@@ -384,7 +386,7 @@ void bgp_lp_get(
 	int debug = BGP_DEBUG(labelpool, LABELPOOL);
 
 	if (debug)
-		zlog_debug("%s: labelid=%p", __func__, labelid);
+		zlog_debug("labelid=%p", labelid);
 
 	/*
 	 * Have we seen this request before?
@@ -394,8 +396,8 @@ void bgp_lp_get(
 	} else {
 		lcb = lcb_alloc(type, labelid, cbfunc);
 		if (debug)
-			zlog_debug("%s: inserting lcb=%p label=%u",
-				__func__, lcb, lcb->label);
+			zlog_debug("inserting lcb=%p label=%u", lcb,
+				   lcb->label);
 		int rc = skiplist_insert(lp->ledger, labelid, lcb);
 
 		if (rc) {
@@ -436,8 +438,7 @@ void bgp_lp_get(
 		return;
 
 	if (debug)
-		zlog_debug("%s: slow path. lcb=%p label=%u",
-			__func__, lcb, lcb->label);
+		zlog_debug("slow path. lcb=%p label=%u", lcb, lcb->label);
 
 	/*
 	 * Slow path: we are out of labels in the local pool,
@@ -548,8 +549,8 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 	lp->pending_count -= labelcount;
 
 	if (debug) {
-		zlog_debug("%s: %zu pending requests", __func__,
-			lp_fifo_count(&lp->requests));
+		zlog_debug("%zu pending requests",
+			   lp_fifo_count(&lp->requests));
 	}
 
 	while (labelcount && (lf = lp_fifo_first(&lp->requests))) {
@@ -561,8 +562,9 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 			/* request no longer in effect */
 
 			if (debug) {
-				zlog_debug("%s: labelid %p: request no longer in effect",
-						__func__, labelid);
+				zlog_debug(
+					"labelid %p: request no longer in effect",
+					labelid);
 			}
 			/* if this was a BGP_LU request, unlock node
 			 */
@@ -574,9 +576,9 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 		if (lcb->label != MPLS_LABEL_NONE) {
 			/* request already has a label */
 			if (debug) {
-				zlog_debug("%s: labelid %p: request already has a label: %u=0x%x, lcb=%p",
-						__func__, labelid,
-						lcb->label, lcb->label, lcb);
+				zlog_debug(
+					"labelid %p: request already has a label: %u=0x%x, lcb=%p",
+					labelid, lcb->label, lcb->label, lcb);
 			}
 			/* if this was a BGP_LU request, unlock node
 			 */
@@ -592,8 +594,7 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 			 * Out of labels in local pool, await next chunk
 			 */
 			if (debug) {
-				zlog_debug("%s: out of labels, await more",
-						__func__);
+				zlog_debug("out of labels, await more");
 			}
 			break;
 		}
@@ -614,8 +615,8 @@ void bgp_lp_event_chunk(uint8_t keep, uint32_t first, uint32_t last)
 		q->allocated = true;
 
 		if (debug)
-			zlog_debug("%s: assigning label %u to labelid %p",
-				__func__, q->label, q->labelid);
+			zlog_debug("assigning label %u to labelid %p", q->label,
+				   q->labelid);
 
 		work_queue_add(lp->callback_q, q);
 

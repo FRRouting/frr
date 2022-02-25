@@ -164,7 +164,7 @@ const char *ospf_rejected_reason2str(unsigned int reason)
 void ospf_gr_helper_instance_init(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, GR Helper init.", __func__);
+		zlog_debug("GR Helper init.");
 
 	ospf->is_helper_supported = OSPF_GR_FALSE;
 	ospf->strict_lsa_check = OSPF_GR_TRUE;
@@ -190,7 +190,7 @@ void ospf_gr_helper_instance_init(struct ospf *ospf)
 void ospf_gr_helper_instance_stop(struct ospf *ospf)
 {
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, GR helper deinit.", __func__);
+		zlog_debug("GR helper deinit.");
 
 	ospf_enable_rtr_hash_destroy(ospf);
 }
@@ -206,7 +206,7 @@ void ospf_gr_helper_init(void)
 	int rc;
 
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, GR Helper init.", __func__);
+		zlog_debug("GR Helper init.");
 
 	rc = ospf_register_opaque_functab(
 		OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA, NULL, NULL, NULL,
@@ -228,7 +228,7 @@ void ospf_gr_helper_init(void)
 void ospf_gr_helper_stop(void)
 {
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, GR helper deinit.", __func__);
+		zlog_debug("GR helper deinit.");
 
 	ospf_delete_opaque_functab(OSPF_OPAQUE_LINK_LSA, OPAQUE_TYPE_GRACE_LSA);
 }
@@ -261,8 +261,8 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 	/* Check LSA len */
 	if (lsa->size <= OSPF_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug("%s: Malformed packet: Invalid LSA len:%d",
-				   __func__, length);
+			zlog_debug("Malformed packet: Invalid LSA len:%d",
+				   length);
 		return OSPF_GR_FAILURE;
 	}
 
@@ -274,8 +274,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 		/* Check TLV len against overall LSA */
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (IS_DEBUG_OSPF_GR)
-				zlog_debug("%s: Malformed packet: Invalid TLV len:%u",
-					   __func__, TLV_SIZE(tlvh));
+				zlog_debug(
+					"Malformed packet: Invalid TLV len:%u",
+					TLV_SIZE(tlvh));
 			return OSPF_GR_FAILURE;
 		}
 
@@ -283,8 +284,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 		case GRACE_PERIOD_TYPE:
 			if (TLV_SIZE(tlvh) <
 			    sizeof(struct grace_tlv_graceperiod)) {
-				zlog_debug("%s: Malformed packet: Invalid grace TLV len:%u",
-					   __func__, TLV_SIZE(tlvh));
+				zlog_debug(
+					"Malformed packet: Invalid grace TLV len:%u",
+					TLV_SIZE(tlvh));
 				return OSPF_GR_FAILURE;
 			}
 
@@ -300,8 +302,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 		case RESTART_REASON_TYPE:
 			if (TLV_SIZE(tlvh) <
 			    sizeof(struct grace_tlv_restart_reason)) {
-				zlog_debug("%s: Malformed packet: Invalid reason TLV len:%u",
-					   __func__, TLV_SIZE(tlvh));
+				zlog_debug(
+					"Malformed packet: Invalid reason TLV len:%u",
+					TLV_SIZE(tlvh));
 				return OSPF_GR_FAILURE;
 			}
 
@@ -315,8 +318,9 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 		case RESTARTER_IP_ADDR_TYPE:
 			if (TLV_SIZE(tlvh) <
 			    sizeof(struct grace_tlv_restart_addr)) {
-				zlog_debug("%s: Malformed packet: Invalid addr TLV len:%u",
-					   __func__, TLV_SIZE(tlvh));
+				zlog_debug(
+					"Malformed packet: Invalid addr TLV len:%u",
+					TLV_SIZE(tlvh));
 				return OSPF_GR_FAILURE;
 			}
 
@@ -327,8 +331,8 @@ static int ospf_extract_grace_lsa_fields(struct ospf_lsa *lsa,
 		default:
 			if (IS_DEBUG_OSPF_GR)
 				zlog_debug(
-					"%s, Malformed packet.Invalid TLV type:%d",
-					__func__, ntohs(tlvh->type));
+					"Malformed packet.Invalid TLV type:%d",
+					ntohs(tlvh->type));
 			return OSPF_GR_FAILURE;
 		}
 	}
@@ -392,14 +396,14 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 					    &restart_reason);
 	if (ret != OSPF_GR_SUCCESS) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug("%s, Wrong Grace LSA packet.", __func__);
+			zlog_debug("Wrong Grace LSA packet.");
 		return OSPF_GR_NOT_HELPER;
 	}
 
 	if (IS_DEBUG_OSPF_GR)
 		zlog_debug(
-			"%s, Grace LSA received from %pI4, grace interval:%u, restart reason:%s",
-			__func__, &restart_addr, grace_interval,
+			"Grace LSA received from %pI4, grace interval:%u, restart reason:%s",
+			&restart_addr, grace_interval,
 			ospf_restart_reason2str(restart_reason));
 
 	/* In case of broadcast links, if RESTARTER is DR_OTHER,
@@ -412,8 +416,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 		if (!restarter) {
 			if (IS_DEBUG_OSPF_GR)
 				zlog_debug(
-					"%s, Restarter is not a nbr(%pI4) for this router.",
-					__func__, &restart_addr);
+					"Restarter is not a nbr(%pI4) for this router.",
+					&restart_addr);
 			return OSPF_GR_NOT_HELPER;
 		}
 	} else
@@ -429,8 +433,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 		if (!hash_lookup(ospf->enable_rtr_list, &lookup)) {
 			if (IS_DEBUG_OSPF_GR)
 				zlog_debug(
-					"%s, HELPER support is disabled, So not a HELPER",
-					__func__);
+					"HELPER support is disabled, So not a HELPER");
 			restarter->gr_helper_info.rejected_reason =
 				OSPF_HELPER_SUPPORT_DISABLED;
 			return OSPF_GR_NOT_HELPER;
@@ -443,9 +446,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	 */
 	if (!IS_NBR_STATE_FULL(restarter)) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug(
-				"%s, This Neighbour %pI4 is not in FULL state.",
-				__func__, &restarter->src);
+			zlog_debug("This Neighbour %pI4 is not in FULL state.",
+				   &restarter->src);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_NOT_A_VALID_NEIGHBOUR;
 		return OSPF_GR_NOT_HELPER;
@@ -458,8 +460,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	    && !OSPF_GR_IS_PLANNED_RESTART(restart_reason)) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, Router supports only planned restarts but received the GRACE LSA for an unplanned restart.",
-				__func__);
+				"Router supports only planned restarts but received the GRACE LSA for an unplanned restart.");
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_PLANNED_ONLY_RESTART;
 		return OSPF_GR_NOT_HELPER;
@@ -471,9 +472,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	if (ospf->strict_lsa_check && !ospf_ls_retransmit_isempty(restarter)
 	    && ospf_check_change_in_rxmt_list(restarter)) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug(
-				"%s, Changed LSA in Rxmt list. So not Helper.",
-				__func__);
+			zlog_debug("Changed LSA in Rxmt list. So not Helper.");
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_TOPO_CHANGE_RTXMT_LIST;
 		return OSPF_GR_NOT_HELPER;
@@ -483,8 +482,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	if (ntohs(lsa->data->ls_age) >= grace_interval) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, Grace LSA age(%d) is more than the grace interval(%d)",
-				__func__, lsa->data->ls_age, grace_interval);
+				"Grace LSA age(%d) is more than the grace interval(%d)",
+				lsa->data->ls_age, grace_interval);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_LSA_AGE_MORE;
 		return OSPF_GR_NOT_HELPER;
@@ -493,8 +492,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	if (ospf->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s: router is in the process of graceful restart",
-				__func__);
+				"router is in the process of graceful restart");
 		restarter->gr_helper_info.rejected_reason =
 			OSPF_HELPER_RESTARTING;
 		return OSPF_GR_NOT_HELPER;
@@ -509,9 +507,8 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	if (grace_interval > ospf->supported_grace_time) {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, Received grace period %d is larger than supported grace %d",
-				__func__, grace_interval,
-				ospf->supported_grace_time);
+				"Received grace period %d is larger than supported grace %d",
+				grace_interval, ospf->supported_grace_time);
 		actual_grace_interval = ospf->supported_grace_time;
 	}
 
@@ -524,13 +521,12 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, Router is already acting as a HELPER for this nbr,so restart the grace timer",
-				__func__);
+				"Router is already acting as a HELPER for this nbr,so restart the grace timer");
 	} else {
 		if (IS_DEBUG_OSPF_GR)
 			zlog_debug(
-				"%s, This Router becomes a HELPER for the neighbour %pI4",
-				__func__, &restarter->src);
+				"This Router becomes a HELPER for the neighbour %pI4",
+				&restarter->src);
 	}
 
 	/* Became a Helper to the RESTART neighbour.
@@ -546,7 +542,7 @@ int ospf_process_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 	ospf->active_restarter_cnt++;
 
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, Grace timer started.interval:%d", __func__,
+		zlog_debug("Grace timer started.interval:%d",
 			   actual_grace_interval);
 
 	/* Start the grace timer */
@@ -630,7 +626,7 @@ void ospf_helper_handle_topo_chg(struct ospf *ospf, struct ospf_lsa *lsa)
 		return;
 
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s: Topo change detected due to LSA[%s]", __func__,
+		zlog_debug("Topo change detected due to LSA[%s]",
 			   dump_lsa_key(lsa));
 
 	lsa->to_be_acknowledged = OSPF_GR_TRUE;
@@ -693,8 +689,8 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 		return;
 
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, Exiting from HELPER support to %pI4, due to %s",
-			   __func__, &nbr->src, ospf_exit_reason2str(reason));
+		zlog_debug("Exiting from HELPER support to %pI4, due to %s",
+			   &nbr->src, ospf_exit_reason2str(reason));
 
 	/* Reset helper status*/
 	nbr->gr_helper_info.gr_helper_status = OSPF_GR_NOT_HELPER;
@@ -723,7 +719,7 @@ void ospf_gr_helper_exit(struct ospf_neighbor *nbr,
 	 */
 	if (reason != OSPF_GR_HELPER_COMPLETED) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug("%s, Unsuccessful GR exit", __func__);
+			zlog_debug("Unsuccessful GR exit");
 	}
 
 	/*Recalculate the DR for the network segment */
@@ -771,12 +767,12 @@ void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 					    &restartReason);
 	if (ret != OSPF_GR_SUCCESS) {
 		if (IS_DEBUG_OSPF_GR)
-			zlog_debug("%s, Wrong Grace LSA packet.", __func__);
+			zlog_debug("Wrong Grace LSA packet.");
 		return;
 	}
 
 	if (IS_DEBUG_OSPF_GR)
-		zlog_debug("%s, GraceLSA received for neighbour %pI4", __func__,
+		zlog_debug("GraceLSA received for neighbour %pI4",
 			   &restartAddr);
 
 	/* In case of broadcast links, if RESTARTER is DR_OTHER,
@@ -789,8 +785,7 @@ void ospf_process_maxage_grace_lsa(struct ospf *ospf, struct ospf_lsa *lsa,
 		if (!restarter) {
 			if (IS_DEBUG_OSPF_GR)
 				zlog_debug(
-					"%s, Restarter is not a neighbour for this router.",
-					__func__);
+					"Restarter is not a neighbour for this router.");
 			return;
 		}
 	} else {

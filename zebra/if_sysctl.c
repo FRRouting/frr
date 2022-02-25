@@ -97,7 +97,7 @@ void interface_list(struct zebra_ns *zns)
 		NET_RT_IFLIST, 0};
 
 	if (zns->ns_id != NS_DEFAULT) {
-		zlog_debug("%s: ignore NS %u", __func__, zns->ns_id);
+		zlog_debug("ignore NS %u", zns->ns_id);
 		return;
 	}
 

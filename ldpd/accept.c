@@ -59,7 +59,7 @@ int accept_add(int fd, void (*cb)(struct thread *), void *arg)
 
 	thread_add_read(master, accept_cb, av, av->fd, &av->ev);
 
-	log_debug("%s: accepting on fd %d", __func__, fd);
+	log_debug("accepting on fd %d", fd);
 
 	return (0);
 }
@@ -71,7 +71,7 @@ accept_del(int fd)
 
 	LIST_FOREACH(av, &accept_queue.queue, entry)
 		if (av->fd == fd) {
-			log_debug("%s: %d removed from queue", __func__, fd);
+			log_debug("%d removed from queue", fd);
 			THREAD_OFF(av->ev);
 			LIST_REMOVE(av, entry);
 			free(av);
