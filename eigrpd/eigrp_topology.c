@@ -139,8 +139,8 @@ void eigrp_prefix_descriptor_add(struct route_table *topology,
 	if (rn->info) {
 		if (IS_DEBUG_EIGRP_EVENT)
 			zlog_debug(
-				"%s: %pFX Should we have found this entry in the topo table?",
-				__func__, pe->destination);
+				"%pFX Should we have found this entry in the topo table?",
+				pe->destination);
 		route_unlock_node(rn);
 	}
 

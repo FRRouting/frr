@@ -1450,8 +1450,8 @@ static int rip_send_packet(uint8_t *buf, int size, struct sockaddr_in *to,
 			inet_ntop(AF_INET, &sin.sin_addr, dst, sizeof(dst));
 		}
 #undef ADDRESS_SIZE
-		zlog_debug("%s %pI4 > %s (%s)", __func__,
-			   &ifc->address->u.prefix4, dst, ifc->ifp->name);
+		zlog_debug("%pI4 > %s (%s)", &ifc->address->u.prefix4, dst,
+			   ifc->ifp->name);
 	}
 
 	if (CHECK_FLAG(ifc->flags, ZEBRA_IFA_SECONDARY)) {
@@ -3543,8 +3543,7 @@ static void rip_instance_disable(struct rip *rip)
 static int rip_vrf_new(struct vrf *vrf)
 {
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("%s: VRF created: %s(%u)", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF created: %s(%u)", vrf->name, vrf->vrf_id);
 
 	return 0;
 }
@@ -3554,8 +3553,7 @@ static int rip_vrf_delete(struct vrf *vrf)
 	struct rip *rip;
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("%s: VRF deleted: %s(%u)", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF deleted: %s(%u)", vrf->name, vrf->vrf_id);
 
 	rip = rip_lookup_by_vrf_name(vrf->name);
 	if (!rip)
@@ -3576,8 +3574,7 @@ static int rip_vrf_enable(struct vrf *vrf)
 		return 0;
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("%s: VRF %s(%u) enabled", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF %s(%u) enabled", vrf->name, vrf->vrf_id);
 
 	/* Activate the VRF RIP instance. */
 	if (!rip->enabled) {
@@ -3600,8 +3597,7 @@ static int rip_vrf_disable(struct vrf *vrf)
 		return 0;
 
 	if (IS_RIP_DEBUG_EVENT)
-		zlog_debug("%s: VRF %s(%u) disabled", __func__, vrf->name,
-			   vrf->vrf_id);
+		zlog_debug("VRF %s(%u) disabled", vrf->name, vrf->vrf_id);
 
 	/* Deactivate the VRF RIP instance. */
 	if (rip->enabled)

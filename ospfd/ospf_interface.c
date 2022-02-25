@@ -283,9 +283,8 @@ struct ospf_interface *ospf_if_new(struct ospf *ospf, struct interface *ifp,
 	QOBJ_REG(oi, ospf_interface);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf interface %s vrf %s id %u created",
-			   __func__, ifp->name, ospf_get_name(ospf),
-			   ospf->vrf_id);
+		zlog_debug("ospf interface %s vrf %s id %u created", ifp->name,
+			   ospf_get_name(ospf), ospf->vrf_id);
 
 	return oi;
 }
@@ -361,8 +360,8 @@ void ospf_if_free(struct ospf_interface *oi)
 	list_delete(&oi->ls_ack_direct.ls_ack);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: ospf interface %s vrf %s id %u deleted",
-			   __func__, oi->ifp->name, oi->ifp->vrf->name,
+		zlog_debug("ospf interface %s vrf %s id %u deleted",
+			   oi->ifp->name, oi->ifp->vrf->name,
 			   oi->ifp->vrf->vrf_id);
 
 	ospf_delete_from_if(oi->ifp, oi);
@@ -912,19 +911,18 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	struct prefix_ipv4 *p;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: (%s): Start", __func__, ospf_get_name(ospf));
+		zlog_debug("(%s): Start", ospf_get_name(ospf));
 	if (vlink_count == OSPF_VL_MAX_COUNT) {
 		if (IS_DEBUG_OSPF_EVENT)
 			zlog_debug(
-				"%s: Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links",
-				__func__);
+				"Alarm: cannot create more than OSPF_MAX_VL_COUNT virtual links");
 
 		return NULL;
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: creating pseudo zebra interface vrf id %u",
-			   __func__, ospf->vrf_id);
+		zlog_debug("creating pseudo zebra interface vrf id %u",
+			   ospf->vrf_id);
 
 	snprintf(ifname, sizeof(ifname), "VLINK%u", vlink_count);
 	vi = if_get_by_name(ifname, ospf->vrf_id, ospf->name);
@@ -947,9 +945,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	voi = ospf_if_new(ospf, vi, co->address);
 	if (voi == NULL) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug(
-				"%s: Alarm: OSPF int structure is not created",
-				__func__);
+			zlog_debug("Alarm: OSPF int structure is not created");
 
 		return NULL;
 	}
@@ -960,15 +956,15 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 
 	vlink_count++;
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Created name: %s set if->name to %s", __func__,
-			   ifname, vi->name);
+		zlog_debug("Created name: %s set if->name to %s", ifname,
+			   vi->name);
 
 	area_id.s_addr = INADDR_ANY;
 	area = ospf_area_get(ospf, area_id);
 	voi->area = area;
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: set associated area to the backbone", __func__);
+		zlog_debug("set associated area to the backbone");
 
 	/* Add pseudo neighbor. */
 	ospf_nbr_self_reset(voi, voi->ospf->router_id);
@@ -976,7 +972,7 @@ struct ospf_interface *ospf_vl_new(struct ospf *ospf,
 	ospf_area_add_if(voi->area, voi);
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 	return voi;
 }
 
@@ -1021,15 +1017,14 @@ struct ospf_vl_data *ospf_vl_lookup(struct ospf *ospf, struct ospf_area *area,
 	struct listnode *node;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("%s: Looking for %pI4", __func__, &vl_peer);
+		zlog_debug("Looking for %pI4", &vl_peer);
 		if (area)
-			zlog_debug("%s: in area %pI4", __func__,
-				   &area->area_id);
+			zlog_debug("in area %pI4", &area->area_id);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
 		if (IS_DEBUG_OSPF_EVENT)
-			zlog_debug("%s: VL %s, peer %pI4", __func__,
+			zlog_debug("VL %s, peer %pI4",
 				   vl_data->vl_oi->ifp->name,
 				   &vl_data->vl_peer);
 
@@ -1153,10 +1148,9 @@ static int ospf_vl_set_params(struct ospf_area *area,
 	}
 
 	if (IS_DEBUG_OSPF_EVENT)
-		zlog_debug("%s: %s peer address: %pI4, cost: %d,%schanged",
-			   __func__, vl_data->vl_oi->ifp->name,
-			   &vl_data->peer_addr, voi->output_cost,
-			   (changed ? " " : " un"));
+		zlog_debug("%s peer address: %pI4, cost: %d,%schanged",
+			   vl_data->vl_oi->ifp->name, &vl_data->peer_addr,
+			   voi->output_cost, (changed ? " " : " un"));
 
 	return changed;
 }
@@ -1171,18 +1165,17 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 	struct ospf_interface *oi;
 
 	if (IS_DEBUG_OSPF_EVENT) {
-		zlog_debug("%s: Start", __func__);
-		zlog_debug("%s: Router ID is %pI4 Area is %pI4", __func__, &rid,
+		zlog_debug("Start");
+		zlog_debug("Router ID is %pI4 Area is %pI4", &rid,
 			   &area->area_id);
 	}
 
 	for (ALL_LIST_ELEMENTS_RO(ospf->vlinks, node, vl_data)) {
 		if (IS_DEBUG_OSPF_EVENT) {
-			zlog_debug("%s: considering VL, %s in area %pI4",
-				   __func__, vl_data->vl_oi->ifp->name,
+			zlog_debug("considering VL, %s in area %pI4",
+				   vl_data->vl_oi->ifp->name,
 				   &vl_data->vl_area_id);
-			zlog_debug("%s: peer ID: %pI4", __func__,
-				   &vl_data->vl_peer);
+			zlog_debug("peer ID: %pI4", &vl_data->vl_peer);
 		}
 
 		if (IPV4_ADDR_SAME(&vl_data->vl_peer, &rid)
@@ -1191,13 +1184,11 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			SET_FLAG(vl_data->flags, OSPF_VL_FLAG_APPROVED);
 
 			if (IS_DEBUG_OSPF_EVENT)
-				zlog_debug("%s: this VL matched", __func__);
+				zlog_debug("this VL matched");
 
 			if (oi->state == ISM_Down) {
 				if (IS_DEBUG_OSPF_EVENT)
-					zlog_debug(
-						"%s: VL is down, waking it up",
-						__func__);
+					zlog_debug("VL is down, waking it up");
 				SET_FLAG(oi->ifp->flags, IFF_UP);
 				OSPF_ISM_EVENT_EXECUTE(oi, ISM_InterfaceUp);
 			}
@@ -1205,15 +1196,13 @@ void ospf_vl_up_check(struct ospf_area *area, struct in_addr rid,
 			if (ospf_vl_set_params(area, vl_data, v)) {
 				if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"%s: VL cost change, scheduling router lsa refresh",
-						__func__);
+						"VL cost change, scheduling router lsa refresh");
 				if (ospf->backbone)
 					ospf_router_lsa_update_area(
 						ospf->backbone);
 				else if (IS_DEBUG_OSPF(ism, ISM_EVENTS))
 					zlog_debug(
-						"%s: VL cost change, no backbone!",
-						__func__);
+						"VL cost change, no backbone!");
 			}
 		}
 	}

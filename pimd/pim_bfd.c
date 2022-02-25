@@ -68,7 +68,7 @@ static void pim_neighbor_bfd_cb(struct bfd_session_params *bsp,
 	struct pim_neighbor *nbr = arg;
 
 	if (PIM_DEBUG_PIM_TRACE) {
-		zlog_debug("%s: status %s old_status %s", __func__,
+		zlog_debug("status %s old_status %s",
 			   bfd_get_status_str(bss->state),
 			   bfd_get_status_str(bss->previous_state));
 	}

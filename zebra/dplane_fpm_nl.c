@@ -478,7 +478,7 @@ static void fpm_read(struct thread *t)
 					  memory_order_relaxed);
 
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: connection closed", __func__);
+			zlog_debug("connection closed");
 
 		FPM_RECONNECT(fnc);
 		return;
@@ -564,7 +564,7 @@ static void fpm_write(struct thread *t)
 				memory_order_relaxed);
 
 			if (IS_ZEBRA_DEBUG_FPM)
-				zlog_debug("%s: connection closed", __func__);
+				zlog_debug("connection closed");
 			break;
 		}
 		if (bwritten == -1) {
@@ -634,8 +634,8 @@ static void fpm_connect(struct thread *t)
 	}
 
 	if (IS_ZEBRA_DEBUG_FPM)
-		zlog_debug("%s: attempting to connect to %s:%d", __func__,
-			   addrstr, ntohs(sin->sin_port));
+		zlog_debug("attempting to connect to %s:%d", addrstr,
+			   ntohs(sin->sin_port));
 
 	rv = connect(sock, (struct sockaddr *)&fnc->addr, slen);
 	if (rv == -1 && errno != EINPROGRESS) {
@@ -837,8 +837,8 @@ static int fpm_nl_enqueue(struct fpm_nl_ctx *fnc, struct zebra_dplane_ctx *ctx)
 
 		if (IS_ZEBRA_DEBUG_FPM)
 			zlog_debug(
-				"%s: buffer full: wants to write %zu but has %zu",
-				__func__, nl_buf_len + FPM_HEADER_SIZE,
+				"buffer full: wants to write %zu but has %zu",
+				nl_buf_len + FPM_HEADER_SIZE,
 				STREAM_WRITEABLE(fnc->obuf));
 
 		return -1;
@@ -1313,25 +1313,24 @@ static void fpm_process_event(struct thread *t)
 
 	case FNE_NHG_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: next hop groups walk finished",
-				   __func__);
+			zlog_debug("next hop groups walk finished");
 		break;
 	case FNE_RIB_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: RIB walk finished", __func__);
+			zlog_debug("RIB walk finished");
 		break;
 	case FNE_RMAC_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: RMAC walk finished", __func__);
+			zlog_debug("RMAC walk finished");
 		break;
 	case FNE_LSP_FINISHED:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: LSP walk finished", __func__);
+			zlog_debug("LSP walk finished");
 		break;
 
 	default:
 		if (IS_ZEBRA_DEBUG_FPM)
-			zlog_debug("%s: unhandled event %d", __func__, event);
+			zlog_debug("unhandled event %d", event);
 		break;
 	}
 }

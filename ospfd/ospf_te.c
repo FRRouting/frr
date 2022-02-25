@@ -239,7 +239,7 @@ static struct mpls_te_link *lookup_linkparams_by_instance(struct ospf_lsa *lsa)
 		if (lp->instance == key)
 			return lp;
 
-	ote_debug("MPLS-TE (%s): Entry not found: key(%x)", __func__, key);
+	ote_debug("MPLS-TE: Entry not found: key(%x)", key);
 	return NULL;
 }
 
@@ -621,14 +621,12 @@ static void update_linkparams(struct mpls_te_link *lp)
 	/* Get the Interface structure */
 	if ((ifp = lp->ifp) == NULL) {
 		ote_debug(
-			"MPLS-TE (%s): Abort update TE parameters: no interface associated to Link Parameters",
-			__func__);
+			"MPLS-TE: Abort update TE parameters: no interface associated to Link Parameters");
 		return;
 	}
 	if (!HAS_LINK_PARAMS(ifp)) {
 		ote_debug(
-			"MPLS-TE (%s): Abort update TE parameters: no Link Parameters for interface",
-			__func__);
+			"MPLS-TE: Abort update TE parameters: no Link Parameters for interface");
 		return;
 	}
 
@@ -703,8 +701,8 @@ static void update_linkparams(struct mpls_te_link *lp)
 		if (IS_STD_TE(lp->type)
 		    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
 			ote_debug(
-				"MPLS-TE (%s): Update IF: Switch from Standard LSA to INTER-AS for %s[%d/%d]",
-				__func__, ifp->name, lp->flags, lp->type);
+				"MPLS-TE: Update IF: Switch from Standard LSA to INTER-AS for %s[%d/%d]",
+				ifp->name, lp->flags, lp->type);
 
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 			/* Then, switch it to INTER-AS */
@@ -723,8 +721,8 @@ static void update_linkparams(struct mpls_te_link *lp)
 					ifp->link_params->rmt_as);
 	} else {
 		ote_debug(
-			"MPLS-TE (%s): Update IF: Switch from INTER-AS LSA to Standard for %s[%d/%d]",
-			__func__, ifp->name, lp->flags, lp->type);
+			"MPLS-TE: Update IF: Switch from INTER-AS LSA to Standard for %s[%d/%d]",
+			ifp->name, lp->flags, lp->type);
 
 		/* reset inter-as TE params */
 		/* Flush LSA if it engaged and was previously an INTER_AS one */
@@ -745,8 +743,8 @@ static void initialize_linkparams(struct mpls_te_link *lp)
 	struct ospf_interface *oi = NULL;
 	struct route_node *rn;
 
-	ote_debug("MPLS-TE (%s): Initialize Link Parameters for interface %s",
-		  __func__, ifp->name);
+	ote_debug("MPLS-TE: Initialize Link Parameters for interface %s",
+		  ifp->name);
 
 	/* Search OSPF Interface parameters for this interface */
 	for (rn = route_top(IF_OIFS(ifp)); rn; rn = route_next(rn)) {
@@ -760,8 +758,8 @@ static void initialize_linkparams(struct mpls_te_link *lp)
 
 	if ((oi == NULL) || (oi->ifp != ifp)) {
 		ote_debug(
-			"MPLS-TE (%s): Could not find corresponding OSPF Interface for %s",
-			__func__, ifp->name);
+			"MPLS-TE: Could not find corresponding OSPF Interface for %s",
+			ifp->name);
 		return;
 	}
 
@@ -821,9 +819,8 @@ static int ospf_mpls_te_new_if(struct interface *ifp)
 {
 	struct mpls_te_link *new;
 
-	ote_debug("MPLS-TE (%s): Add new %s interface %s to MPLS-TE list",
-		  __func__, ifp->link_params ? "Active" : "Inactive",
-		  ifp->name);
+	ote_debug("MPLS-TE: Add new %s interface %s to MPLS-TE list",
+		  ifp->link_params ? "Active" : "Inactive", ifp->name);
 
 	if (lookup_linkparams_by_ifp(ifp) != NULL)
 		return 0;
@@ -848,8 +845,8 @@ static int ospf_mpls_te_new_if(struct interface *ifp)
 	/* Add Link Parameters structure to the list */
 	listnode_add(OspfMplsTE.iflist, new);
 
-	ote_debug("MPLS-TE (%s): Add new LP context for %s[%d/%d]", __func__,
-		  ifp->name, new->flags, new->type);
+	ote_debug("MPLS-TE: Add new LP context for %s[%d/%d]", ifp->name,
+		  new->flags, new->type);
 
 	/* Schedule Opaque-LSA refresh. */ /* XXX */
 	return 0;
@@ -882,8 +879,8 @@ void ospf_mpls_te_update_if(struct interface *ifp)
 {
 	struct mpls_te_link *lp;
 
-	ote_debug("MPLS-TE (%s): Update LSA parameters for interface %s [%s]",
-		  __func__, ifp->name, HAS_LINK_PARAMS(ifp) ? "ON" : "OFF");
+	ote_debug("MPLS-TE: Update LSA parameters for interface %s [%s]",
+		  ifp->name, HAS_LINK_PARAMS(ifp) ? "ON" : "OFF");
 
 	/* Get Link context from interface */
 	if ((lp = lookup_linkparams_by_ifp(ifp)) == NULL) {
@@ -968,9 +965,8 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 	case ISM_Down:
 		/* Interface goes Down: Flush LSA if engaged */
 		if (CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-			ote_debug(
-				"MPLS-TE (%s): Interface %s goes down: flush LSA",
-				__func__, IF_NAME(oi));
+			ote_debug("MPLS-TE: Interface %s goes down: flush LSA",
+				  IF_NAME(oi));
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 			return;
 		}
@@ -979,8 +975,8 @@ static void ospf_mpls_te_ism_change(struct ospf_interface *oi, int old_state)
 		break;
 	}
 
-	ote_debug("MPLS-TE (%s): Update Link parameters for interface %s",
-		  __func__, IF_NAME(oi));
+	ote_debug("MPLS-TE: Update Link parameters for interface %s",
+		  IF_NAME(oi));
 
 	return;
 }
@@ -1021,9 +1017,8 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 	if (OspfMplsTE.enabled
 	    && (nbr->state == NSM_Down || nbr->state == NSM_Deleted)) {
 		if (CHECK_FLAG(lp->flags, EXT_LPFLG_LSA_ENGAGED)) {
-			ote_debug(
-				"MPLS-TE (%s): Interface %s goes down: flush LSA",
-				__func__, IF_NAME(oi));
+			ote_debug("MPLS-TE: Interface %s goes down: flush LSA",
+				  IF_NAME(oi));
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 		}
 		return;
@@ -1055,9 +1050,8 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 		/* State goes Down: Flush LSA if engaged */
 		if (OspfMplsTE.enabled
 		    && CHECK_FLAG(lp->flags, LPFLG_LSA_ENGAGED)) {
-			ote_debug(
-				"MPLS-TE (%s): Interface %s goes down: flush LSA",
-				__func__, IF_NAME(oi));
+			ote_debug("MPLS-TE: Interface %s goes down: flush LSA",
+				  IF_NAME(oi));
 			ospf_mpls_te_lsa_schedule(lp, FLUSH_THIS_LSA);
 		}
 		return;
@@ -1065,7 +1059,7 @@ static void ospf_mpls_te_nsm_change(struct ospf_neighbor *nbr, int old_state)
 		break;
 	}
 
-	ote_debug("MPLS-TE (%s): Add Link-ID %pI4 for interface %s ", __func__,
+	ote_debug("MPLS-TE: Add Link-ID %pI4 for interface %s ",
 		  &lp->link_id.value, oi->ifp->name);
 
 	/* Try to Schedule LSA */
@@ -1209,8 +1203,8 @@ static struct ospf_lsa *ospf_mpls_te_lsa_new(struct ospf *ospf,
 	}
 
 	ote_debug(
-		"MPLS-TE (%s): LSA[Type%d:%pI4]: Create an Opaque-LSA/MPLS-TE instance",
-		__func__, lsa_type, &lsa_id);
+		"MPLS-TE: LSA[Type%d:%pI4]: Create an Opaque-LSA/MPLS-TE instance",
+		lsa_type, &lsa_id);
 
 	/* Set opaque-LSA body fields. */
 	ospf_mpls_te_lsa_body_set(s, lp);
@@ -1264,9 +1258,8 @@ static int ospf_mpls_te_lsa_originate1(struct ospf_area *area,
 	ospf_flood_through_area(area, NULL /*nbr*/, new);
 
 	ote_debug(
-		"MPLS-TE (%s): LSA[Type%d:%pI4]: Originate Opaque-LSA/MPLS-TE: Area(%pI4), Link(%s)",
-		__func__, new->data->type, &new->data->id, &area->area_id,
-		lp->ifp->name);
+		"MPLS-TE: LSA[Type%d:%pI4]: Originate Opaque-LSA/MPLS-TE: Area(%pI4), Link(%s)",
+		new->data->type, &new->data->id, &area->area_id, lp->ifp->name);
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
 
@@ -1282,7 +1275,7 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 	int rc = -1;
 
 	if (!OspfMplsTE.enabled) {
-		ote_debug("MPLS-TE (%s): MPLS-TE is disabled now.", __func__);
+		ote_debug("MPLS-TE: MPLS-TE is disabled now.");
 		rc = 0; /* This is not an error case. */
 		return rc;
 	}
@@ -1303,8 +1296,7 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 			if (CHECK_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH)) {
 				UNSET_FLAG(lp->flags, LPFLG_LSA_FORCED_REFRESH);
 				ote_debug(
-					"MPLS-TE (%s): Refresh instead of Originate",
-					__func__);
+					"MPLS-TE: Refresh instead of Originate");
 				ospf_mpls_te_lsa_schedule(lp, REFRESH_THIS_LSA);
 			}
 			continue;
@@ -1312,15 +1304,15 @@ static int ospf_mpls_te_lsa_originate_area(void *arg)
 
 		if (!is_mandated_params_set(lp)) {
 			ote_debug(
-				"MPLS-TE (%s): Link(%s) lacks some mandated MPLS-TE parameters.",
-				__func__, lp->ifp ? lp->ifp->name : "?");
+				"MPLS-TE: Link(%s) lacks some mandated MPLS-TE parameters.",
+				lp->ifp ? lp->ifp->name : "?");
 			continue;
 		}
 
 		/* Ok, let's try to originate an LSA for this area and Link. */
 		ote_debug(
-			"MPLS-TE (%s): Let's finally reoriginate the LSA %d through the Area %pI4 for Link %s",
-			__func__, lp->instance, &area->area_id,
+			"MPLS-TE: Let's finally reoriginate the LSA %d through the Area %pI4 for Link %s",
+			lp->instance, &area->area_id,
 			lp->ifp ? lp->ifp->name : "?");
 		if (ospf_mpls_te_lsa_originate1(area, lp) != 0)
 			return rc;
@@ -1363,8 +1355,8 @@ static int ospf_mpls_te_lsa_originate2(struct ospf *top,
 	ospf_flood_through_as(top, NULL /*nbr */, new);
 
 	ote_debug(
-		"MPLS-TE (%s): LSA[Type%d:%pI4]: Originate Opaque-LSA/MPLS-TE Inter-AS",
-		__func__, new->data->type, &new->data->id);
+		"MPLS-TE: LSA[Type%d:%pI4]: Originate Opaque-LSA/MPLS-TE Inter-AS",
+		new->data->type, &new->data->id);
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
 
@@ -1382,8 +1374,7 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 	int rc = -1;
 
 	if ((!OspfMplsTE.enabled) || (OspfMplsTE.inter_as == Off)) {
-		ote_debug("MPLS-TE (%s): Inter-AS is disabled for now",
-			  __func__);
+		ote_debug("MPLS-TE: Inter-AS is disabled for now");
 		rc = 0; /* This is not an error case. */
 		return rc;
 	}
@@ -1413,9 +1404,8 @@ static int ospf_mpls_te_lsa_originate_as(void *arg)
 
 		/* Ok, let's try to originate an LSA for this AS and Link. */
 		ote_debug(
-			"MPLS-TE (%s): Let's finally re-originate the Inter-AS LSA %d through the %s for Link %s",
-			__func__, lp->instance,
-			IS_FLOOD_AS(lp->flags) ? "AS" : "Area",
+			"MPLS-TE: Let's finally re-originate the Inter-AS LSA %d through the %s for Link %s",
+			lp->instance, IS_FLOOD_AS(lp->flags) ? "AS" : "Area",
 			lp->ifp ? lp->ifp->name : "Unknown");
 
 		if (IS_FLOOD_AS(lp->flags)) {
@@ -1468,7 +1458,7 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		 * change.
 		 * It seems a slip among routers in the routing domain.
 		 */
-		ote_debug("MPLS-TE (%s): MPLS-TE is disabled now", __func__);
+		ote_debug("MPLS-TE: MPLS-TE is disabled now");
 		lsa->data->ls_age =
 			htons(OSPF_LSA_MAXAGE); /* Flush it anyway. */
 	}
@@ -1529,8 +1519,8 @@ static struct ospf_lsa *ospf_mpls_te_lsa_refresh(struct ospf_lsa *lsa)
 		ospf_flood_through_area(area, NULL /*nbr*/, new);
 
 	/* Debug logging. */
-	ote_debug("MPLS-TE (%s): LSA[Type%d:%pI4]: Refresh Opaque-LSA/MPLS-TE",
-		  __func__, new->data->type, &new->data->id);
+	ote_debug("MPLS-TE: LSA[Type%d:%pI4]: Refresh Opaque-LSA/MPLS-TE",
+		  new->data->type, &new->data->id);
 	if (IS_DEBUG_OSPF(lsa, LSA_GENERATE))
 		ospf_lsa_header_dump(new->data);
 
@@ -1552,8 +1542,7 @@ void ospf_mpls_te_lsa_schedule(struct mpls_te_link *lp, enum lsa_opcode opcode)
 	if (!CHECK_FLAG(lp->flags, LPFLG_LSA_ACTIVE))
 		return;
 
-	ote_debug("MPLS-TE (%s): Schedule %s%s%s LSA for interface %s",
-		  __func__,
+	ote_debug("MPLS-TE: Schedule %s%s%s LSA for interface %s",
 		  opcode == REORIGINATE_THIS_LSA ? "Re-Originate" : "",
 		  opcode == REFRESH_THIS_LSA ? "Refresh" : "",
 		  opcode == FLUSH_THIS_LSA ? "Flush" : "",
@@ -1889,8 +1878,8 @@ static int ospf_te_parse_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if (!ted || !lsa || !lsa->data)
 		return -1;
 
-	ote_debug("MPLS-TE (%s): Parse Router LSA[%pI4] from Router[%pI4]",
-		  __func__, &lsa->data->id, &lsa->data->adv_router);
+	ote_debug("MPLS-TE: Parse Router LSA[%pI4] from Router[%pI4]",
+		  &lsa->data->id, &lsa->data->adv_router);
 
 	/* Get vertex from LSA Advertise Router ID */
 	vertex = get_vertex(ted, lsa);
@@ -2000,8 +1989,8 @@ static int ospf_te_delete_router_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	if (!vertex)
 		return -1;
 
-	ote_debug("MPLS-TE (%s): Delete Vertex %pI4 from Router LSA[%pI4]",
-		  __func__, &vertex->node->router_id, &lsa->data->id);
+	ote_debug("MPLS-TE: Delete Vertex %pI4 from Router LSA[%pI4]",
+		  &vertex->node->router_id, &lsa->data->id);
 
 	/* Export deleted vertex ... */
 	vertex->status = DELETE;
@@ -2921,8 +2910,8 @@ static int ospf_te_parse_opaque_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint8_t key = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
 	int rc = -1;
 
-	ote_debug("MPLS-TE (%s): Parse Opaque LSA[%pI4] from Router[%pI4]",
-		  __func__, &lsa->data->id, &lsa->data->adv_router);
+	ote_debug("MPLS-TE: Parse Opaque LSA[%pI4] from Router[%pI4]",
+		  &lsa->data->id, &lsa->data->adv_router);
 
 	switch (key) {
 	case OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA:
@@ -2958,8 +2947,8 @@ static int ospf_te_delete_opaque_lsa(struct ls_ted *ted, struct ospf_lsa *lsa)
 	uint8_t key = GET_OPAQUE_TYPE(ntohl(lsa->data->id.s_addr));
 	int rc = -1;
 
-	ote_debug("MPLS-TE (%s): Parse Opaque LSA[%pI4] from Router[%pI4]",
-		  __func__, &lsa->data->id, &lsa->data->adv_router);
+	ote_debug("MPLS-TE: Parse Opaque LSA[%pI4] from Router[%pI4]",
+		  &lsa->data->id, &lsa->data->adv_router);
 
 	switch (key) {
 	case OPAQUE_TYPE_TRAFFIC_ENGINEERING_LSA:
@@ -4005,9 +3994,8 @@ static int set_inter_as_mode(struct vty *vty, const char *mode_name,
 			return CMD_WARNING;
 		}
 
-		ote_debug(
-			"MPLS-TE (%s): Inter-AS enable with %s flooding support",
-			__func__, mode2text[mode]);
+		ote_debug("MPLS-TE: Inter-AS enable with %s flooding support",
+			  mode2text[mode]);
 
 		/* Enable mode and re-originate LSA if needed */
 		if ((OspfMplsTE.inter_as == Off)

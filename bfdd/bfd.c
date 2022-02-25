@@ -348,7 +348,7 @@ int bfd_session_enable(struct bfd_session *bs)
 	/* Sanity check: don't leak open sockets. */
 	if (bs->sock != -1) {
 		if (bglobal.debug_peer_event)
-			zlog_debug("%s: previous socket open", __func__);
+			zlog_debug("previous socket open");
 
 		close(bs->sock);
 		bs->sock = -1;
@@ -952,7 +952,7 @@ int ptm_bfd_sess_del(struct bfd_peer_cfg *bpc)
 	}
 
 	if (bglobal.debug_peer_event)
-		zlog_debug("%s: %s", __func__, bs_to_string(bs));
+		zlog_debug("%s", bs_to_string(bs));
 
 	control_notify_config(BCM_NOTIFY_CONFIG_DELETE, bs);
 

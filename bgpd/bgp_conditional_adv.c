@@ -54,16 +54,14 @@ bgp_check_rmap_prefixes_in_bgp_table(struct bgp_table *table,
 			if (ret == RMAP_PERMITMATCH) {
 				bgp_dest_unlock_node(dest);
 				bgp_cond_adv_debug(
-					"%s: Condition map routes present in BGP table",
-					__func__);
+					"Condition map routes present in BGP table");
 
 				return ret;
 			}
 		}
 	}
 
-	bgp_cond_adv_debug("%s: Condition map routes not present in BGP table",
-			   __func__);
+	bgp_cond_adv_debug("Condition map routes not present in BGP table");
 
 	return ret;
 }
@@ -96,7 +94,7 @@ static void bgp_conditional_adv_routes(struct peer *peer, afi_t afi,
 	subgrp->pscount = 0;
 	SET_FLAG(subgrp->sflags, SUBGRP_STATUS_TABLE_REPARSING);
 
-	bgp_cond_adv_debug("%s: %s routes to/from %s for %s", __func__,
+	bgp_cond_adv_debug("%s routes to/from %s for %s",
 			   update_type == UPDATE_TYPE_ADVERTISE ? "Advertise"
 								: "Withdraw",
 			   peer->host, get_afi_safi_str(afi, safi, false));
@@ -239,12 +237,12 @@ static void bgp_conditional_adv_timer(struct thread *t)
 			if (BGP_DEBUG(cond_adv, COND_ADV)) {
 				if (peer->advmap_table_change)
 					zlog_debug(
-						"%s: %s - routes changed in BGP table.",
-						__func__, peer->host);
+						"%s - routes changed in BGP table.",
+						peer->host);
 				if (peer->advmap_config_change[afi][safi])
 					zlog_debug(
-						"%s: %s for %s - advertise/condition map configuration is changed.",
-						__func__, peer->host,
+						"%s for %s - advertise/condition map configuration is changed.",
+						peer->host,
 						get_afi_safi_str(afi, safi,
 								 false));
 			}
@@ -282,8 +280,8 @@ static void bgp_conditional_adv_timer(struct thread *t)
 				    filter->advmap.update_type)) {
 				/* Handle change to peer advmap */
 				bgp_cond_adv_debug(
-					"%s: advmap.update_type changed for peer %s, adjusting update_group.",
-					__func__, peer->host);
+					"advmap.update_type changed for peer %s, adjusting update_group.",
+					peer->host);
 
 				update_group_adjust_peer(paf);
 			}
@@ -295,8 +293,8 @@ static void bgp_conditional_adv_timer(struct thread *t)
 			if (peer->advmap_config_change[afi][safi]) {
 
 				bgp_cond_adv_debug(
-					"%s: Configuration is changed on peer %s for %s, send the normal update first.",
-					__func__, peer->host,
+					"Configuration is changed on peer %s for %s, send the normal update first.",
+					peer->host,
 					get_afi_safi_str(afi, safi, false));
 				if (paf) {
 					update_subgroup_split_peer(paf, NULL);
@@ -334,7 +332,7 @@ void bgp_conditional_adv_enable(struct peer *peer, afi_t afi, safi_t safi)
 	 * neighbors (AFI/SAFI). So just increment the counter.
 	 */
 	if (++bgp->condition_filter_count > 1) {
-		bgp_cond_adv_debug("%s: condition_filter_count %d", __func__,
+		bgp_cond_adv_debug("condition_filter_count %d",
 				   bgp->condition_filter_count);
 
 		return;
@@ -357,7 +355,7 @@ void bgp_conditional_adv_disable(struct peer *peer, afi_t afi, safi_t safi)
 	 * So there's nothing to do except decrementing the counter.
 	 */
 	if (--bgp->condition_filter_count != 0) {
-		bgp_cond_adv_debug("%s: condition_filter_count %d", __func__,
+		bgp_cond_adv_debug("condition_filter_count %d",
 				   bgp->condition_filter_count);
 
 		return;
@@ -498,8 +496,8 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 	/* Check if handling a regular peer and skip peer-group mechanics. */
 	if (!CHECK_FLAG(peer->sflags, PEER_STATUS_GROUP)) {
 		/* Process peer route updates. */
-		bgp_cond_adv_debug("%s: Send normal update to %s for %s",
-				   __func__, peer->host,
+		bgp_cond_adv_debug("Send normal update to %s for %s",
+				   peer->host,
 				   get_afi_safi_str(afi, safi, false));
 
 		return 0;
@@ -520,8 +518,8 @@ int peer_advertise_map_unset(struct peer *peer, afi_t afi, safi_t safi,
 			condition_name, condition_map, condition, false);
 
 		/* Process peer route updates. */
-		bgp_cond_adv_debug("%s: Send normal update to %s for %s ",
-				   __func__, member->host,
+		bgp_cond_adv_debug("Send normal update to %s for %s ",
+				   member->host,
 				   get_afi_safi_str(afi, safi, false));
 	}
 

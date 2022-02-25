@@ -73,27 +73,25 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 		return;
 
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	afi = family2afi(p->family);
 	if (!afi) {
-		vnc_zlog_debug_verbose("%s: unknown prefix address family %d",
-				       __func__, p->family);
+		vnc_zlog_debug_verbose("unknown prefix address family %d",
+				       p->family);
 		return;
 	}
 
 	if (!bgp->rfapi_cfg->redist[afi][type]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=%d] is 0, skipping",
-			__func__, afi, type);
+			"bgp->rfapi_cfg->redist[afi=%d][type=%d] is 0, skipping",
+			afi, type);
 		return;
 	}
 	if (!bgp->rfapi_cfg->rfg_redist) {
-		vnc_zlog_debug_verbose("%s: no redist nve group, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("no redist nve group, skipping");
 		return;
 	}
 
@@ -108,8 +106,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 		if (bgp->rfapi_cfg->rfg_redist->vn_prefix.prefixlen
 		    != IPV4_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
-				"%s: redist nve group VN prefix len (%d) != 32, skipping",
-				__func__,
+				"redist nve group VN prefix len (%d) != 32, skipping",
 				bgp->rfapi_cfg->rfg_redist->vn_prefix
 					.prefixlen);
 			return;
@@ -121,8 +118,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 		if (bgp->rfapi_cfg->rfg_redist->vn_prefix.prefixlen
 		    != IPV6_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
-				"%s: redist nve group VN prefix len (%d) != 128, skipping",
-				__func__,
+				"redist nve group VN prefix len (%d) != 128, skipping",
 				bgp->rfapi_cfg->rfg_redist->vn_prefix
 					.prefixlen);
 			return;
@@ -132,8 +128,7 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 		break;
 	default:
 		vnc_zlog_debug_verbose(
-			"%s: no redist nve group VN host prefix configured, skipping",
-			__func__);
+			"no redist nve group VN host prefix configured, skipping");
 		return;
 	}
 
@@ -157,23 +152,22 @@ static void vnc_redistribute_add(struct prefix *p, uint32_t metric,
 		case AF_INET:
 			if (pfx_un.length != IPV4_MAX_BITLEN) {
 				vnc_zlog_debug_verbose(
-					"%s: redist nve group UN prefix len (%d) != 32, skipping",
-					__func__, pfx_un.length);
+					"redist nve group UN prefix len (%d) != 32, skipping",
+					pfx_un.length);
 				return;
 			}
 			break;
 		case AF_INET6:
 			if (pfx_un.length != IPV6_MAX_BITLEN) {
 				vnc_zlog_debug_verbose(
-					"%s: redist nve group UN prefix len (%d) != 128, skipping",
-					__func__, pfx_un.length);
+					"redist nve group UN prefix len (%d) != 128, skipping",
+					pfx_un.length);
 				return;
 			}
 			break;
 		default:
 			vnc_zlog_debug_verbose(
-				"%s: no redist nve group UN host prefix configured, skipping",
-				__func__);
+				"no redist nve group UN host prefix configured, skipping");
 			return;
 		}
 
@@ -249,25 +243,23 @@ static void vnc_redistribute_delete(struct prefix *p, uint8_t type)
 		return;
 
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 	afi = family2afi(p->family);
 	if (!afi) {
-		vnc_zlog_debug_verbose("%s: unknown prefix address family %d",
-				       __func__, p->family);
+		vnc_zlog_debug_verbose("unknown prefix address family %d",
+				       p->family);
 		return;
 	}
 	if (!bgp->rfapi_cfg->redist[afi][type]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=%d] is 0, skipping",
-			__func__, afi, type);
+			"bgp->rfapi_cfg->redist[afi=%d][type=%d] is 0, skipping",
+			afi, type);
 		return;
 	}
 	if (!bgp->rfapi_cfg->rfg_redist) {
-		vnc_zlog_debug_verbose("%s: no redist nve group, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("no redist nve group, skipping");
 		return;
 	}
 
@@ -291,13 +283,12 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 	struct bgp_dest *pdest;
 	struct bgp_dest *dest;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	if (!bgp)
 		return;
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
@@ -339,7 +330,7 @@ static void vnc_redistribute_withdraw(struct bgp *bgp, afi_t afi, uint8_t type)
 			}
 		}
 	}
-	vnc_zlog_debug_verbose("%s: return", __func__);
+	vnc_zlog_debug_verbose("return");
 }
 
 /*
@@ -367,9 +358,8 @@ static int vnc_zebra_read_route(ZAPI_CALLBACK_ARGS)
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		vnc_zlog_debug_verbose(
-			"%s: Zebra rcvd: route delete %s %pFX metric %u",
-			__func__, zebra_route_string(api.type), &api.prefix,
-			api.metric);
+			"Zebra rcvd: route delete %s %pFX metric %u",
+			zebra_route_string(api.type), &api.prefix, api.metric);
 
 	return 0;
 }
@@ -391,8 +381,7 @@ static void vnc_zebra_route_msg(const struct prefix *p, unsigned int nhp_count,
 	struct in6_addr **nhp_ary6 = nhp_ary;
 
 	if (!nhp_count) {
-		vnc_zlog_debug_verbose("%s: empty nexthop list, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("empty nexthop list, skipping");
 		return;
 	}
 
@@ -425,7 +414,7 @@ static void vnc_zebra_route_msg(const struct prefix *p, unsigned int nhp_count,
 
 	if (BGP_DEBUG(zebra, ZEBRA))
 		vnc_zlog_debug_verbose(
-			"%s: Zebra send: route %s %pFX, nhp_count=%d", __func__,
+			"Zebra send: route %s %pFX, nhp_count=%d",
 			(add ? "add" : "del"), &api.prefix, nhp_count);
 
 	zclient_route_send((add ? ZEBRA_ROUTE_ADD : ZEBRA_ROUTE_DELETE),
@@ -446,8 +435,7 @@ nve_list_to_nh_array(uint8_t family, struct list *nve_list,
 	*nhp_ary_ret = NULL;
 
 	if (!nve_count) {
-		vnc_zlog_debug_verbose("%s: empty nve_list, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("empty nve_list, skipping");
 		return;
 	}
 
@@ -483,8 +471,8 @@ nve_list_to_nh_array(uint8_t family, struct list *nve_list,
 			*iap = nhp.u.prefix4;
 			*v = iap;
 			vnc_zlog_debug_verbose(
-				"%s: ipadr: (%p)<-0x%x, ptr: (%p)<-%p",
-				__func__, iap, nhp.u.prefix4.s_addr, v, iap);
+				"ipadr: (%p)<-0x%x, ptr: (%p)<-%p", iap,
+				nhp.u.prefix4.s_addr, v, iap);
 
 			++iap;
 			++v;
@@ -562,7 +550,7 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 	void *nh_ary = NULL;
 	void *nhp_ary = NULL;
 
-	vnc_zlog_debug_verbose("%s: entry, add=%d", __func__, add);
+	vnc_zlog_debug_verbose("entry, add=%d", add);
 
 	if (zclient_vnc->sock < 0)
 		return;
@@ -579,13 +567,11 @@ static void vnc_zebra_add_del_prefix(struct bgp *bgp,
 		return;
 
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 	if (!listcount(bgp->rfapi_cfg->rfg_export_zebra_l)) {
-		vnc_zlog_debug_verbose(
-			"%s: no zebra export nve group, skipping", __func__);
+		vnc_zlog_debug_verbose("no zebra export nve group, skipping");
 		return;
 	}
 
@@ -630,7 +616,7 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	struct prefix nhp;
 	void *pAddr;
 
-	vnc_zlog_debug_verbose("%s: entry, add=%d", __func__, add);
+	vnc_zlog_debug_verbose("entry, add=%d", add);
 
 	if (zclient_vnc->sock < 0)
 		return;
@@ -648,14 +634,12 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 	if (!bgp)
 		return;
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	if (rfapiRaddr2Qprefix(&rfd->vn_addr, &nhp)) {
-		vnc_zlog_debug_verbose("%s: can't convert vn address, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("can't convert vn address, skipping");
 		return;
 	}
 
@@ -680,8 +664,7 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 			import_table = rfg->rfapi_import_table;
 
 			vnc_zlog_debug_verbose(
-				"%s: this nve's group is in zebra export list",
-				__func__);
+				"this nve's group is in zebra export list");
 
 			rt = import_table->imported_vpn[afi];
 
@@ -693,8 +676,7 @@ static void vnc_zebra_add_del_nve(struct bgp *bgp, struct rfapi_descriptor *rfd,
 				if (!rn->info)
 					continue;
 
-				vnc_zlog_debug_verbose("%s: sending %s",
-						       __func__,
+				vnc_zlog_debug_verbose("sending %s",
 						       (add ? "add" : "del"));
 				vnc_zebra_route_msg(agg_node_get_prefix(rn), 1,
 						    &pAddr, add);
@@ -727,11 +709,10 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 	void *nh_ary = NULL;
 	void *nhp_ary = NULL;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 	import_table = rfg->rfapi_import_table;
 	if (!import_table) {
-		vnc_zlog_debug_verbose(
-			"%s: import table not defined, returning", __func__);
+		vnc_zlog_debug_verbose("import table not defined, returning");
 		return;
 	}
 
@@ -750,18 +731,18 @@ static void vnc_zebra_add_del_group_afi(struct bgp *bgp,
 
 	if (!rfg->nves) {
 		/* avoid segfault below if list doesn't exist */
-		vnc_zlog_debug_verbose("%s: no NVEs in this group", __func__);
+		vnc_zlog_debug_verbose("no NVEs in this group");
 		return;
 	}
 
 	nve_group_to_nve_list(rfg, &nves, family);
 	if (nves) {
-		vnc_zlog_debug_verbose("%s: have nves", __func__);
+		vnc_zlog_debug_verbose("have nves");
 		nve_list_to_nh_array(family, nves, &nexthop_count, &nh_ary,
 				     &nhp_ary);
 
-		vnc_zlog_debug_verbose("%s: family: %d, nve count: %d",
-				       __func__, family, nexthop_count);
+		vnc_zlog_debug_verbose("family: %d, nve count: %d", family,
+				       nexthop_count);
 
 		list_delete(&nves);
 
@@ -791,7 +772,7 @@ void vnc_zebra_add_group(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
 
 void vnc_zebra_del_group(struct bgp *bgp, struct rfapi_nve_group_cfg *rfg)
 {
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 	vnc_zebra_add_del_group_afi(bgp, rfg, AFI_IP, 0);
 	vnc_zebra_add_del_group_afi(bgp, rfg, AFI_IP6, 0);
 }
@@ -857,10 +838,10 @@ int vnc_redistribute_set(struct bgp *bgp, afi_t afi, int type)
 /* Unset redistribution.  */
 int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type)
 {
-	vnc_zlog_debug_verbose("%s: type=%d entry", __func__, type);
+	vnc_zlog_debug_verbose("type=%d entry", type);
 
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: return (no rfapi_cfg)", __func__);
+		vnc_zlog_debug_verbose("return (no rfapi_cfg)");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -887,7 +868,7 @@ int vnc_redistribute_unset(struct bgp *bgp, afi_t afi, int type)
 	/* Withdraw redistributed routes from current BGP's routing table. */
 	vnc_redistribute_withdraw(bgp, afi, type);
 
-	vnc_zlog_debug_verbose("%s: return", __func__);
+	vnc_zlog_debug_verbose("return");
 
 	return CMD_SUCCESS;
 }

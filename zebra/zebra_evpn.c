@@ -1543,8 +1543,8 @@ void zebra_evpn_rem_macip_del(vni_t vni, const struct ethaddr *macaddr,
 		    && CHECK_FLAG(mac->flags, ZEBRA_MAC_REMOTE)) {
 			if (IS_ZEBRA_DEBUG_VXLAN)
 				zlog_debug(
-					"%s: MAC %pEA (flags 0x%x) is remote and duplicate, read kernel for local entry",
-					__func__, macaddr, mac->flags);
+					"MAC %pEA (flags 0x%x) is remote and duplicate, read kernel for local entry",
+					macaddr, mac->flags);
 			macfdb_read_specific_mac(zns, zif->brslave_info.br_if,
 						 macaddr, vxl->access_vlan);
 		}

@@ -77,7 +77,9 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 		if (ia && IN_MULTICAST(ntohl(dst->v4.s_addr))) {
 			/* set outgoing interface for multicast traffic */
 			if (sock_set_ipv4_mcast(ia->iface) == -1) {
-				log_debug("%s: error setting multicast interface, %s", __func__, ia->iface->name);
+				log_debug(
+					"error setting multicast interface, %s",
+					ia->iface->name);
 				return (-1);
 			}
 		}
@@ -86,7 +88,9 @@ send_packet(int fd, int af, union ldpd_addr *dst, struct iface_af *ia,
 		if (ia && IN6_IS_ADDR_MULTICAST(&dst->v6)) {
 			/* set outgoing interface for multicast traffic */
 			if (sock_set_ipv6_mcast(ia->iface) == -1) {
-				log_debug("%s: error setting multicast interface, %s", __func__, ia->iface->name);
+				log_debug(
+					"error setting multicast interface, %s",
+					ia->iface->name);
 				return (-1);
 			}
 		}
@@ -155,8 +159,7 @@ void disc_recv_packet(struct thread *thread)
 
 	if ((r = recvmsg(fd, &m, 0)) == -1) {
 		if (errno != EAGAIN && errno != EINTR)
-			log_debug("%s: read error: %s", __func__,
-			    strerror(errno));
+			log_debug("read error: %s", strerror(errno));
 		return;
 	}
 
@@ -202,8 +205,7 @@ void disc_recv_packet(struct thread *thread)
 	}
 #endif /* MSG_MCAST */
 	if (bad_addr(af, &src)) {
-		log_debug("%s: invalid source address: %s", __func__,
-		    log_addr(af, &src));
+		log_debug("invalid source address: %s", log_addr(af, &src));
 		return;
 	}
 	ifindex = getsockopt_ifindex(af, &m);
@@ -218,29 +220,28 @@ void disc_recv_packet(struct thread *thread)
 	/* check packet size */
 	len = (uint16_t)r;
 	if (len < (LDP_HDR_SIZE + LDP_MSG_SIZE) || len > LDP_MAX_LEN) {
-		log_debug("%s: bad packet size, source %s", __func__,
-		    log_addr(af, &src));
+		log_debug("bad packet size, source %s", log_addr(af, &src));
 		return;
 	}
 
 	/* LDP header sanity checks */
 	memcpy(&ldp_hdr, buf, sizeof(ldp_hdr));
 	if (ntohs(ldp_hdr.version) != LDP_VERSION) {
-		log_debug("%s: invalid LDP version %d, source %s", __func__,
-		    ntohs(ldp_hdr.version), log_addr(af, &src));
+		log_debug("invalid LDP version %d, source %s",
+			  ntohs(ldp_hdr.version), log_addr(af, &src));
 		return;
 	}
 	if (ntohs(ldp_hdr.lspace_id) != 0) {
-		log_debug("%s: invalid label space %u, source %s", __func__,
-		    ntohs(ldp_hdr.lspace_id), log_addr(af, &src));
+		log_debug("invalid label space %u, source %s",
+			  ntohs(ldp_hdr.lspace_id), log_addr(af, &src));
 		return;
 	}
 	/* check "PDU Length" field */
 	pdu_len = ntohs(ldp_hdr.length);
 	if ((pdu_len < (LDP_HDR_PDU_LEN + LDP_MSG_SIZE)) ||
 	    (pdu_len > (len - LDP_HDR_DEAD_LEN))) {
-		log_debug("%s: invalid LDP packet length %u, source %s",
-		    __func__, ntohs(ldp_hdr.length), log_addr(af, &src));
+		log_debug("invalid LDP packet length %u, source %s",
+			  ntohs(ldp_hdr.length), log_addr(af, &src));
 		return;
 	}
 	buf += LDP_HDR_SIZE;
@@ -258,8 +259,8 @@ void disc_recv_packet(struct thread *thread)
 	/* check "Message Length" field */
 	msg_len = ntohs(msg.length);
 	if (msg_len < LDP_MSG_LEN || ((msg_len + LDP_MSG_DEAD_LEN) > pdu_len)) {
-		log_debug("%s: invalid LDP message length %u, source %s",
-		    __func__, ntohs(msg.length), log_addr(af, &src));
+		log_debug("invalid LDP message length %u, source %s",
+			  ntohs(msg.length), log_addr(af, &src));
 		return;
 	}
 	buf += LDP_MSG_SIZE;
@@ -271,8 +272,8 @@ void disc_recv_packet(struct thread *thread)
 		recv_hello(lsr_id, &msg, af, &src, iface, multicast, buf, len);
 		break;
 	default:
-		log_debug("%s: unknown LDP packet type, source %s", __func__,
-		    log_addr(af, &src));
+		log_debug("unknown LDP packet type, source %s",
+			  log_addr(af, &src));
 	}
 }
 
@@ -322,8 +323,7 @@ void session_accept(struct thread *thread)
 			accept_pause();
 		} else if (errno != EWOULDBLOCK && errno != EINTR &&
 		    errno != ECONNABORTED)
-			log_debug("%s: accept error: %s", __func__,
-			    strerror(errno));
+			log_debug("accept error: %s", strerror(errno));
 		return;
 	}
 	sock_set_nonblock(newfd);
@@ -361,7 +361,9 @@ void session_accept(struct thread *thread)
 		return;
 	}
 	if (nbr->state != NBR_STA_PRESENT) {
-		log_debug("%s: lsr-id %pI4: rejecting additional transport connection", __func__, &nbr->id);
+		log_debug(
+			"lsr-id %pI4: rejecting additional transport connection",
+			&nbr->id);
 		close(newfd);
 		return;
 	}
@@ -431,7 +433,7 @@ static void session_read(struct thread *thread)
 	}
 	if (n == 0) {
 		/* connection closed */
-		log_debug("%s: connection closed by remote end", __func__);
+		log_debug("connection closed by remote end");
 		nbr_fsm(nbr, NBR_EVT_CLOSE_SESSION);
 		return;
 	}
@@ -549,8 +551,8 @@ static void session_read(struct thread *thread)
 				    type);
 				break;
 			default:
-				log_debug("%s: unknown LDP message from nbr %pI4",
-				    __func__, &nbr->id);
+				log_debug("unknown LDP message from nbr %pI4",
+					  &nbr->id);
 				if (!(ntohs(msg->type) & UNKNOWN_FLAG)) {
 					nbr->stats.unknown_msg++;
 					send_notification(nbr->tcp,
@@ -675,8 +677,7 @@ session_shutdown(struct nbr *nbr, uint32_t status, uint32_t msg_id,
 void
 session_close(struct nbr *nbr)
 {
-	log_debug("%s: closing session with lsr-id %pI4", __func__,
-	    &nbr->id);
+	log_debug("closing session with lsr-id %pI4", &nbr->id);
 
 	ldp_sync_fsm_nbr_event(nbr, LDP_SYNC_EVT_SESSION_CLOSE);
 
@@ -813,8 +814,8 @@ static void pending_conn_timeout(struct thread *thread)
 
 	pconn->ev_timeout = NULL;
 
-	log_debug("%s: no adjacency with remote end: %s", __func__,
-	    log_addr(pconn->af, &pconn->addr));
+	log_debug("no adjacency with remote end: %s",
+		  log_addr(pconn->af, &pconn->addr));
 
 	/*
 	 * Create a write buffer detached from any neighbor to send a

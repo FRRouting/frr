@@ -292,8 +292,7 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		struct ls_message *msg = ls_parse_msg(s);
 
 		if (msg) {
-			zlog_debug("%s: [rcv ted] ls (%s) msg (%s)-(%s) !",
-				   __func__,
+			zlog_debug("[rcv ted] ls (%s) msg (%s)-(%s) !",
 				   info.type == LINK_STATE_UPDATE
 					   ? "LINK_STATE_UPDATE"
 					   : "LINK_STATE_SYNC",
@@ -312,8 +311,7 @@ static int path_zebra_opaque_msg_handler(ZAPI_CALLBACK_ARGS)
 		path_ted_segment_list_refresh();
 		break;
 	default:
-		zlog_debug("%s: [rcv ted] unknown opaque event (%d) !",
-			   __func__, info.type);
+		zlog_debug("[rcv ted] unknown opaque event (%d) !", info.type);
 		break;
 	}
 

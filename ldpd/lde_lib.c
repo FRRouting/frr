@@ -1060,7 +1060,7 @@ void lde_gc_timer(struct thread *thread)
 	}
 
 	if (count > 0)
-		log_debug("%s: %u entries removed", __func__, count);
+		log_debug("%u entries removed", count);
 
 	lde_gc_start_timer();
 }

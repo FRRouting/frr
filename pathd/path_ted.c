@@ -61,7 +61,7 @@ void path_ted_init(struct thread_master *master)
 
 uint32_t path_ted_teardown(void)
 {
-	PATH_TED_DEBUG("%s : TED [%p]", __func__, ted_state_g.ted);
+	PATH_TED_DEBUG("TED [%p]", ted_state_g.ted);
 	path_ted_unregister_vty();
 	path_ted_stop_importing_igp();
 	ls_ted_del_all(&ted_state_g.ted);
@@ -99,8 +99,7 @@ uint32_t path_ted_start_importing_igp(const char *daemon_str)
 		status = 1;
 	} else {
 		if (path_ted_link_state_sync() != -1) {
-			PATH_TED_DEBUG("%s: PATHD-TED: Importing %s data ON",
-				       __func__,
+			PATH_TED_DEBUG("PATHD-TED: Importing %s data ON",
 				       PATH_TED_IGP_PRINT(ted_state_g.import));
 		} else {
 			PATH_TED_WARN("%s: PATHD-TED: Importing %s data OFF",
@@ -130,8 +129,7 @@ uint32_t path_ted_stop_importing_igp(void)
 			status = 1;
 		} else {
 			ted_state_g.import = IMPORT_UNKNOWN;
-			PATH_TED_DEBUG("%s: PATHD-TED: Importing igp data OFF",
-				   __func__);
+			PATH_TED_DEBUG("PATHD-TED: Importing igp data OFF");
 		}
 		path_ted_timer_sync_cancel();
 	}
@@ -204,8 +202,8 @@ uint32_t path_ted_rcvd_message(struct ls_message *msg)
 
 	default:
 		PATH_TED_DEBUG(
-			"%s: [rcv ted] TED received unknown message type [%d]",
-			__func__, msg->type);
+			"[rcv ted] TED received unknown message type [%d]",
+			msg->type);
 		break;
 	}
 	return 0;
@@ -363,13 +361,13 @@ DEFUN (path_ted_on,
 {
 
 	if (ted_state_g.enabled) {
-		PATH_TED_DEBUG("%s: PATHD-TED: Enabled ON -> ON.", __func__);
+		PATH_TED_DEBUG("PATHD-TED: Enabled ON -> ON.");
 		return CMD_SUCCESS;
 	}
 
 	ted_state_g.ted = path_ted_create_ted();
 	ted_state_g.enabled = true;
-	PATH_TED_DEBUG("%s: PATHD-TED: Enabled OFF -> ON.", __func__);
+	PATH_TED_DEBUG("PATHD-TED: Enabled OFF -> ON.");
 
 	return CMD_SUCCESS;
 }
@@ -384,14 +382,14 @@ DEFUN (no_path_ted,
 /* clang-format on */
 {
 	if (!ted_state_g.enabled) {
-		PATH_TED_DEBUG("%s: PATHD-TED: OFF -> OFF", __func__);
+		PATH_TED_DEBUG("PATHD-TED: OFF -> OFF");
 		return CMD_SUCCESS;
 	}
 
 	/* Remove TED */
 	ls_ted_del_all(&ted_state_g.ted);
 	ted_state_g.enabled = false;
-	PATH_TED_DEBUG("%s: PATHD-TED: ON -> OFF", __func__);
+	PATH_TED_DEBUG("PATHD-TED: ON -> OFF");
 	ted_state_g.import = IMPORT_UNKNOWN;
 	if (ls_unregister(zclient, false /*client*/) != 0) {
 		vty_out(vty, "Unable to unregister Link State\n");
@@ -437,8 +435,7 @@ DEFUN (no_path_ted_import,
 			return CMD_WARNING;
 		} else {
 			PATH_TED_DEBUG(
-				"%s: PATHD-TED: Importing igp data already OFF",
-				__func__);
+				"PATHD-TED: Importing igp data already OFF");
 		}
 	}
 	return CMD_SUCCESS;
@@ -583,8 +580,7 @@ enum zclient_send_status path_ted_link_state_sync(void)
 			__func__);
 		return status;
 	} else {
-		PATH_TED_DEBUG("%s: PATHD-TED: Opaque asked for TED sync ",
-			       __func__);
+		PATH_TED_DEBUG("PATHD-TED: Opaque asked for TED sync ");
 	}
 	thread_add_timer(ted_state_g.main, path_ted_timer_handler_sync,
 			 &ted_state_g, ted_state_g.link_state_delay_interval,
@@ -642,7 +638,7 @@ void path_ted_timer_handler_refresh(struct thread *thread)
 	if (!path_ted_is_initialized())
 		return;
 
-	PATH_TED_DEBUG("%s: PATHD-TED: Refresh sid from current TED", __func__);
+	PATH_TED_DEBUG("PATHD-TED: Refresh sid from current TED");
 	/* data unpacking */
 	struct ted_state *data = THREAD_ARG(thread);
 

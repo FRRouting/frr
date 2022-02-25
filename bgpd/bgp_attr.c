@@ -1367,7 +1367,7 @@ bgp_attr_malformed(struct bgp_attr_parser_args *args, uint8_t subcode,
 
 		bgp_dump_attr(attr, attr_str, sizeof(attr_str));
 
-		zlog_debug("%s: attributes: %s", __func__, attr_str);
+		zlog_debug("attributes: %s", attr_str);
 	}
 
 	/* Only relax error handling for eBGP peers */
@@ -1914,7 +1914,7 @@ static int bgp_attr_aggregator(struct bgp_attr_parser_args *args)
 
 			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
 
-			zlog_debug("%s: attributes: %s", __func__, attr_str);
+			zlog_debug("attributes: %s", attr_str);
 		}
 	} else {
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AGGREGATOR);
@@ -1957,7 +1957,7 @@ bgp_attr_as4_aggregator(struct bgp_attr_parser_args *args,
 
 			bgp_dump_attr(attr, attr_str, sizeof(attr_str));
 
-			zlog_debug("%s: attributes: %s", __func__, attr_str);
+			zlog_debug("attributes: %s", attr_str);
 		}
 	} else {
 		attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_AS4_AGGREGATOR);
@@ -2488,8 +2488,7 @@ bgp_attr_ext_communities(struct bgp_attr_parser_args *args)
 	if (bgp_attr_rmac(attr, &attr->rmac)) {
 		if (bgp_debug_update(peer, NULL, NULL, 1)
 		    && bgp_mac_exist(&attr->rmac))
-			zlog_debug("%s: router mac %pEA is self mac", __func__,
-				   &attr->rmac);
+			zlog_debug("router mac %pEA is self mac", &attr->rmac);
 	}
 
 	/* Get the tunnel type from encap extended community */
@@ -2719,10 +2718,9 @@ bgp_attr_srv6_service_data(struct bgp_attr_parser_args *args)
 		/* Log SRv6 Service Data Sub-Sub-TLV */
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
 			zlog_debug(
-				"%s: srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
-				__func__, loc_block_len, loc_node_len, func_len,
-				arg_len, transposition_len,
-				transposition_offset);
+				"srv6-l3-srv-data loc-block-len=%u, loc-node-len=%u func-len=%u, arg-len=%u, transposition-len=%u, transposition-offset=%u",
+				loc_block_len, loc_node_len, func_len, arg_len,
+				transposition_len, transposition_offset);
 		}
 
 		attr->srv6_l3vpn->loc_block_len = loc_block_len;
@@ -2792,8 +2790,8 @@ bgp_attr_srv6_service(struct bgp_attr_parser_args *args)
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
 			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
 			zlog_debug(
-				"%s: srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
-				__func__, buf, sid_flags, endpoint_behavior);
+				"srv6-l3-srv sid %s, sid-flags 0x%02x, end-behaviour 0x%04x",
+				buf, sid_flags, endpoint_behavior);
 		}
 
 		/* Configure from Info */
@@ -2989,8 +2987,8 @@ bgp_attr_psid_sub(uint8_t type, uint16_t length,
 		if (BGP_DEBUG(vpn, VPN_LEAK_LABEL)) {
 			inet_ntop(AF_INET6, &ipv6_sid, buf, sizeof(buf));
 			zlog_debug(
-				"%s: vpn-sid: sid %s, sid-type 0x%02x sid-flags 0x%02x",
-				__func__, buf, sid_type, sid_flags);
+				"vpn-sid: sid %s, sid-type 0x%02x sid-flags 0x%02x",
+				buf, sid_type, sid_flags);
 		}
 
 		/* Configure from Info */

@@ -143,8 +143,8 @@ static struct interface *bfd_get_peer_info(struct stream *s, struct prefix *dp,
 		if (ifp == NULL) {
 			if (bsglobal.debugging)
 				zlog_debug(
-					"%s: Can't find interface by ifindex: %d ",
-					__func__, ifindex);
+					"Can't find interface by ifindex: %d ",
+					ifindex);
 			return NULL;
 		}
 	}
@@ -239,8 +239,7 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 	if (!zclient || zclient->sock < 0) {
 		if (bsglobal.debugging)
 			zlog_debug(
-				"%s: Can't send BFD client register, Zebra client not established",
-				__func__);
+				"Can't send BFD client register, Zebra client not established");
 		return;
 	}
 
@@ -256,9 +255,8 @@ void bfd_client_sendmsg(struct zclient *zclient, int command,
 
 	if (ret == ZCLIENT_SEND_FAILURE) {
 		if (bsglobal.debugging)
-			zlog_debug(
-				"%s:  %ld: zclient_send_message() failed",
-				__func__, (long)getpid());
+			zlog_debug("%ld: zclient_send_message() failed",
+				   (long)getpid());
 		return;
 	}
 
@@ -273,16 +271,14 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	/* Individual reg/dereg messages are suppressed during shutdown. */
 	if (bsglobal.shutting_down) {
 		if (bsglobal.debugging)
-			zlog_debug(
-				"%s: Suppressing BFD peer reg/dereg messages",
-				__func__);
+			zlog_debug("Suppressing BFD peer reg/dereg messages");
 		return -1;
 	}
 
 	/* Check socket. */
 	if (!zc || zc->sock < 0) {
 		if (bsglobal.debugging)
-			zlog_debug("%s: zclient unavailable", __func__);
+			zlog_debug("zclient unavailable");
 		return -1;
 	}
 
@@ -324,8 +320,8 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 		/* Don't send interface. */
 		stream_putc(s, 0);
 		if (bsglobal.debugging && args->ifnamelen)
-			zlog_debug("%s: multi hop is configured, not sending interface",
-				   __func__);
+			zlog_debug(
+				"multi hop is configured, not sending interface");
 	} else {
 		stream_putc(s, args->ifnamelen);
 		if (args->ifnamelen)
@@ -383,7 +379,7 @@ int zclient_bfd_command(struct zclient *zc, struct bfd_session_arg *args)
 	/* Send message to zebra. */
 	if (zclient_send_message(zc) == ZCLIENT_SEND_FAILURE) {
 		if (bsglobal.debugging)
-			zlog_debug("%s: zclient_send_message failed", __func__);
+			zlog_debug("zclient_send_message failed");
 		return -1;
 	}
 
@@ -422,7 +418,7 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	/* Address configured but invalid. */
 	if (bsp->args.family != AF_INET && bsp->args.family != AF_INET6) {
 		if (bsglobal.debugging)
-			zlog_debug("%s: invalid session family: %d", __func__,
+			zlog_debug("invalid session family: %d",
 				   bsp->args.family);
 		return false;
 	}
@@ -431,12 +427,11 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	if (memcmp(&bsp->args.dst, &i6a_zero, sizeof(i6a_zero)) == 0) {
 		if (bsglobal.debugging) {
 			if (bsp->args.family == AF_INET)
-				zlog_debug("%s: invalid address: %pI4",
-					   __func__,
+				zlog_debug("invalid address: %pI4",
 					   (struct in_addr *)&bsp->args.dst);
 			else
-				zlog_debug("%s: invalid address: %pI6",
-					   __func__, &bsp->args.dst);
+				zlog_debug("invalid address: %pI6",
+					   &bsp->args.dst);
 		}
 		return false;
 	}
@@ -445,16 +440,14 @@ static bool _bfd_sess_valid(const struct bfd_session_params *bsp)
 	if (bsp->args.mhop
 	    && memcmp(&i6a_zero, &bsp->args.src, sizeof(i6a_zero)) == 0) {
 		if (bsglobal.debugging)
-			zlog_debug(
-				"%s: multi hop but no local address provided",
-				__func__);
+			zlog_debug("multi hop but no local address provided");
 		return false;
 	}
 
 	/* Check VRF ID. */
 	if (bsp->args.vrf_id == VRF_UNKNOWN) {
 		if (bsglobal.debugging)
-			zlog_debug("%s: asked for unknown VRF", __func__);
+			zlog_debug("asked for unknown VRF");
 		return false;
 	}
 
@@ -817,7 +810,7 @@ int zclient_bfd_session_replay(ZAPI_CALLBACK_ARGS)
 		return 0;
 
 	if (bsglobal.debugging)
-		zlog_debug("%s: sending all sessions registered", __func__);
+		zlog_debug("sending all sessions registered");
 
 	/* Send the client registration */
 	bfd_client_sendmsg(zclient, ZEBRA_BFD_CLIENT_REGISTER, vrf_id);
@@ -881,8 +874,8 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 		snprintf(cbitstr, sizeof(cbitstr), " (CPI bit %s)",
 			 remote_cbit ? "yes" : "no");
 
-		zlog_debug("%s: %pFX -> %pFX%s VRF %s(%u)%s: %s", __func__, &sp,
-			   &dp, ifstr, vrf_id_to_name(vrf_id), vrf_id, cbitstr,
+		zlog_debug("%pFX -> %pFX%s VRF %s(%u)%s: %s", &sp, &dp, ifstr,
+			   vrf_id_to_name(vrf_id), vrf_id, cbitstr,
 			   bfd_get_status_str(state));
 	}
 
@@ -944,8 +937,7 @@ int zclient_bfd_session_update(ZAPI_CALLBACK_ARGS)
 	}
 
 	if (bsglobal.debugging)
-		zlog_debug("%s:   sessions updated: %zu", __func__,
-			   sessions_updated);
+		zlog_debug("sessions updated: %zu", sessions_updated);
 
 	return 0;
 }

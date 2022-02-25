@@ -720,8 +720,8 @@ void isis_zebra_vrf_register(struct isis *isis)
 
 	if (isis->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: Register VRF %s id %u", __func__,
-				   isis->name, isis->vrf_id);
+			zlog_debug("Register VRF %s id %u", isis->name,
+				   isis->vrf_id);
 		zclient_send_reg_requests(zclient, isis->vrf_id);
 	}
 }
@@ -733,8 +733,8 @@ void isis_zebra_vrf_deregister(struct isis *isis)
 
 	if (isis->vrf_id != VRF_UNKNOWN) {
 		if (IS_DEBUG_EVENTS)
-			zlog_debug("%s: Deregister VRF %s id %u", __func__,
-				   isis->name, isis->vrf_id);
+			zlog_debug("Deregister VRF %s id %u", isis->name,
+				   isis->vrf_id);
 		zclient_send_dereg_requests(zclient, isis->vrf_id);
 	}
 }

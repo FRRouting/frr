@@ -77,8 +77,8 @@ static int ospf6_abr_nssa_am_elected(struct ospf6_area *oa)
 		/* Router has Nt flag - always translate */
 		if (CHECK_FLAG(router_lsa->bits, OSPF6_ROUTER_BIT_NT)) {
 			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug("%s: router %pI4 asserts Nt",
-					   __func__, &lsa->header->id);
+				zlog_debug("router %pI4 asserts Nt",
+					   &lsa->header->id);
 			return 1;
 		}
 
@@ -90,22 +90,21 @@ static int ospf6_abr_nssa_am_elected(struct ospf6_area *oa)
 
 	if (best == NULL) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: best electable ABR not found",
-				   __func__);
+			zlog_debug("best electable ABR not found");
 		return 0;
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: best electable ABR is: %pI4", __func__, best);
+		zlog_debug("best electable ABR is: %pI4", best);
 
 	if (IPV4_ADDR_CMP(best, &oa->ospf6->router_id) <= 0) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: elected ABR is: %pI4", __func__, best);
+			zlog_debug("elected ABR is: %pI4", best);
 		return 1;
 	} else {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: not elected best %pI4, router ID %pI4",
-				   __func__, best, &oa->ospf6->router_id);
+			zlog_debug("not elected best %pI4, router ID %pI4",
+				   best, &oa->ospf6->router_id);
 		return 0;
 	}
 }
@@ -119,7 +118,7 @@ static void ospf6_flush_translated_lsa(struct ospf6_area *area)
 	struct ospf6 *ospf6 = area->ospf6;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: start area %s", __func__, area->name);
+		zlog_debug("start area %s", area->name);
 
 	type = htons(OSPF6_LSTYPE_TYPE_7);
 	for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id, type7)) {
@@ -130,7 +129,7 @@ static void ospf6_flush_translated_lsa(struct ospf6_area *area)
 			ospf6_lsa_premature_aging(type5);
 	}
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: finish area %s", __func__, area->name);
+		zlog_debug("finish area %s", area->name);
 }
 
 /* Check NSSA status for all nssa areas */
@@ -143,15 +142,15 @@ void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 		uint8_t old_state = area->NSSATranslatorState;
 
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: checking area %s flag %x", __func__,
-				   area->name, area->flag);
+			zlog_debug("checking area %s flag %x", area->name,
+				   area->flag);
 
 		if (!IS_AREA_NSSA(area))
 			continue;
 
 		if (!CHECK_FLAG(area->ospf6->flag, OSPF6_FLAG_ABR)) {
 			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug("%s: not ABR", __func__);
+				zlog_debug("not ABR");
 			area->NSSATranslatorState =
 				OSPF6_NSSA_TRANSLATE_DISABLED;
 			ospf6_flush_translated_lsa(area);
@@ -167,15 +166,13 @@ void ospf6_abr_nssa_check_status(struct ospf6 *ospf6)
 						OSPF6_NSSA_TRANSLATE_ENABLED;
 					if (IS_OSPF6_DEBUG_NSSA)
 						zlog_debug(
-							"%s: elected translator",
-							__func__);
+							"elected translator");
 				} else {
 					area->NSSATranslatorState =
 						OSPF6_NSSA_TRANSLATE_DISABLED;
 					ospf6_flush_translated_lsa(area);
 					if (IS_OSPF6_DEBUG_NSSA)
-						zlog_debug("%s: not elected",
-							   __func__);
+						zlog_debug("not elected");
 				}
 			}
 		}
@@ -208,20 +205,19 @@ static void ospf6_abr_unapprove_summaries(struct ospf6 *ospf6)
 	uint16_t type;
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Start", __func__);
+		zlog_debug("Start");
 
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : considering area %pI4", __func__,
-				   &area->area_id);
+			zlog_debug("considering area %pI4", &area->area_id);
 		/* Inter area router LSA */
 		type = htons(OSPF6_LSTYPE_INTER_ROUTER);
 		for (ALL_LSDB_TYPED_ADVRTR(area->lsdb, type, ospf6->router_id,
 					   lsa)) {
 			if (IS_OSPF6_DEBUG_ABR)
 				zlog_debug(
-					"%s : approved unset on summary link id %pI4",
-					__func__, &lsa->header->id);
+					"approved unset on summary link id %pI4",
+					&lsa->header->id);
 			SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
 		}
 		/* Inter area prefix LSA */
@@ -230,14 +226,14 @@ static void ospf6_abr_unapprove_summaries(struct ospf6 *ospf6)
 					   lsa)) {
 			if (IS_OSPF6_DEBUG_ABR)
 				zlog_debug(
-					"%s : approved unset on asbr-summary link id %pI4",
-					__func__, &lsa->header->id);
+					"approved unset on asbr-summary link id %pI4",
+					&lsa->header->id);
 			SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
 		}
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Stop", __func__);
+		zlog_debug("Stop");
 }
 
 /* Re-advertise inter-area router LSA's */
@@ -269,7 +265,7 @@ static void ospf6_abr_announce_aggregates(struct ospf6 *ospf6)
 	struct listnode *node;
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
 		if (IS_OSPF6_DEBUG_ABR)
@@ -283,7 +279,7 @@ static void ospf6_abr_announce_aggregates(struct ospf6 *ospf6)
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 }
 
 /* Flush the summary LSA's which are not approved.*/
@@ -295,12 +291,11 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
 	uint16_t type;
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Start", __func__);
+		zlog_debug("Start");
 
 	for (ALL_LIST_ELEMENTS(ospf6->area_list, node, nnode, area)) {
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : looking at area %pI4", __func__,
-				   &area->area_id);
+			zlog_debug("looking at area %pI4", &area->area_id);
 
 		/* Inter area router LSA */
 		type = htons(OSPF6_LSTYPE_INTER_ROUTER);
@@ -320,7 +315,7 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Stop", __func__);
+		zlog_debug("Stop");
 }
 
 /*
@@ -330,51 +325,49 @@ void ospf6_abr_remove_unapproved_summaries(struct ospf6 *ospf6)
 static void ospf6_abr_task(struct ospf6 *ospf6)
 {
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Start", __func__);
+		zlog_debug("Start");
 
 	if (ospf6->route_table == NULL || ospf6->brouter_table == NULL) {
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : Routing tables are not yet ready",
-				   __func__);
+			zlog_debug("Routing tables are not yet ready");
 		return;
 	}
 
 	ospf6_abr_unapprove_summaries(ospf6);
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : prepare aggregates", __func__);
+		zlog_debug("prepare aggregates");
 
 	ospf6_abr_range_reset_cost(ospf6);
 
 	if (IS_OSPF6_ABR(ospf6)) {
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : process network RT", __func__);
+			zlog_debug("process network RT");
 		ospf6_abr_prefix_resummarize(ospf6);
 
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : process router RT", __func__);
+			zlog_debug("process router RT");
 		ospf6_asbr_prefix_readvertise(ospf6);
 
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : announce aggregates", __func__);
+			zlog_debug("announce aggregates");
 		ospf6_abr_announce_aggregates(ospf6);
 
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : announce stub defaults", __func__);
+			zlog_debug("announce stub defaults");
 		ospf6_abr_defaults_to_stub(ospf6);
 
 		if (IS_OSPF6_DEBUG_ABR)
-			zlog_debug("%s : announce NSSA Type-7 defaults",
-				   __func__);
+			zlog_debug("announce NSSA Type-7 defaults");
 		ospf6_abr_nssa_type_7_defaults(ospf6);
 	}
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : remove unapproved summaries", __func__);
+		zlog_debug("remove unapproved summaries");
 	ospf6_abr_remove_unapproved_summaries(ospf6);
 
 	if (IS_OSPF6_DEBUG_ABR)
-		zlog_debug("%s : Stop", __func__);
+		zlog_debug("Stop");
 }
 
 /* For NSSA Translations
@@ -385,21 +378,20 @@ static void ospf6_abr_unapprove_translates(struct ospf6 *ospf6)
 	uint16_t type;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	for (ALL_LSDB_TYPED(ospf6->lsdb, type, lsa)) {
 		if (CHECK_FLAG(lsa->flag, OSPF6_LSA_LOCAL_XLT)) {
 			SET_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED);
 			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug(
-					"%s : approved unset on link id %pI4",
-					__func__, &lsa->header->id);
+				zlog_debug("approved unset on link id %pI4",
+					   &lsa->header->id);
 		}
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 }
 
 /* Generate the translated external lsa from NSSA lsa */
@@ -419,12 +411,12 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	struct ospf6_route *range;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : Start", __func__);
+		zlog_debug("Start");
 
 	if (area->NSSATranslatorState == OSPF6_NSSA_TRANSLATE_DISABLED) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: Translation disabled for area %s",
-				   __func__, area->name);
+			zlog_debug("Translation disabled for area %s",
+				   area->name);
 		return NULL;
 	}
 
@@ -440,10 +432,8 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	if (range && !prefix_same(&prefix, &range->prefix)
 	    && !CHECK_FLAG(range->flag, OSPF6_ROUTE_REMOVE)) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug(
-				"%s: LSA %s suppressed by range %pFX of area %s",
-				__func__, type7->name, &range->prefix,
-				area->name);
+			zlog_debug("LSA %s suppressed by range %pFX of area %s",
+				   type7->name, &range->prefix, area->name);
 		return NULL;
 	}
 
@@ -512,8 +502,7 @@ static struct ospf6_lsa *ospf6_lsa_translated_nssa_new(struct ospf6_area *area,
 	ospf6_lsa_originate_process(lsa, ospf6);
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Originated type5 LSA id %pI4", __func__,
-			   &lsa_header->id);
+		zlog_debug("Originated type5 LSA id %pI4", &lsa_header->id);
 	return lsa;
 }
 
@@ -525,7 +514,7 @@ static void ospf6_ls_retransmit_delete_nbr_as(struct ospf6 *ospf6,
 	struct ospf6_area *area;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : start lsa %s", __func__, lsa->name);
+		zlog_debug("start lsa %s", lsa->name);
 
 	/*The function ospf6_flood_clear_area removes LSA from
 	 * retransmit list.
@@ -534,7 +523,7 @@ static void ospf6_ls_retransmit_delete_nbr_as(struct ospf6 *ospf6,
 		ospf6_flood_clear_area(lsa, area);
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : finish lsa %s", __func__, lsa->name);
+		zlog_debug("finish lsa %s", lsa->name);
 }
 
 /* Refresh translated AS-external-LSA. */
@@ -547,7 +536,7 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 	struct ospf6 *ospf6 = area->ospf6;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : start area %s", __func__, area->name);
+		zlog_debug("start area %s", area->name);
 
 	/* Sanity checks. */
 	assert(type7);
@@ -559,9 +548,8 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 
 		/* Find the AS external LSA from Type-7 LSA */
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug(
-				"%s: try to find translated Type-5 LSA for %s",
-				__func__, type7->name);
+			zlog_debug("try to find translated Type-5 LSA for %s",
+				   type7->name);
 
 		ext_lsa = (struct ospf6_as_external_lsa *)OSPF6_LSA_HEADER_END(
 			type7->header);
@@ -587,8 +575,8 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 			ospf6_lsa_premature_aging(type5);
 		} else {
 			if (IS_OSPF6_DEBUG_NSSA)
-				zlog_debug("%s: Invalid translated LSA %s",
-					   __func__, type5->name);
+				zlog_debug("Invalid translated LSA %s",
+					   type5->name);
 			return NULL;
 		}
 	}
@@ -599,14 +587,14 @@ struct ospf6_lsa *ospf6_translated_nssa_refresh(struct ospf6_area *area,
 		    == NULL) {
 			if (IS_OSPF6_DEBUG_NSSA)
 				zlog_debug(
-					"%s: Could not translate Type-7 for %pI4",
-					__func__, &type7->header->id);
+					"Could not translate Type-7 for %pI4",
+					&type7->header->id);
 			return NULL;
 		}
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: finish", __func__);
+		zlog_debug("finish");
 
 	return new;
 }
@@ -637,16 +625,15 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 	if (!CHECK_FLAG(nssa_lsa->prefix.prefix_options,
 			OSPF6_PREFIX_OPTION_P)) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug(
-				"%s : LSA Id %pI4, P-bit off, NO Translation",
-				__func__, &lsa->header->id);
+			zlog_debug("LSA Id %pI4, P-bit off, NO Translation",
+				   &lsa->header->id);
 		return;
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
 		zlog_debug(
-			"%s : LSA Id %pI4 external ID %pI4, Translating type 7 to 5",
-			__func__, &lsa->header->id, &lsa->external_lsa_id);
+			"LSA Id %pI4 external ID %pI4, Translating type 7 to 5",
+			&lsa->header->id, &lsa->external_lsa_id);
 
 	prefix.family = AF_INET6;
 	prefix.prefixlen = nssa_lsa->prefix.prefix_length;
@@ -655,8 +642,8 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 	if (!CHECK_FLAG(nssa_lsa->bits_metric, OSPF6_ASBR_BIT_F)) {
 		if (IS_OSPF6_DEBUG_NSSA)
 			zlog_debug(
-				"%s : LSA Id %pI4, Forward address is 0, NO Translation",
-				__func__, &lsa->header->id);
+				"LSA Id %pI4, Forward address is 0, NO Translation",
+				&lsa->header->id);
 		return;
 	}
 
@@ -674,8 +661,8 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 			if (!CHECK_FLAG(match->flag, OSPF6_ROUTE_REMOVE)) {
 				if (IS_OSPF6_DEBUG_NSSA)
 					zlog_debug(
-						"%s: LSA Id %pI4 suppressed by range %pFX of area %s",
-						__func__, &lsa->header->id,
+						"LSA Id %pI4 suppressed by range %pFX of area %s",
+						&lsa->header->id,
 						&match->prefix, area->name);
 				/* LSA will be suppressed by area-range command,
 				 * no need to refresh
@@ -701,9 +688,8 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 
 	if (old && !OSPF6_LSA_IS_MAXAGE(old)) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug(
-				"%s : found old translated LSA Id %pI4, skip",
-				__func__, &old->header->id);
+			zlog_debug("found old translated LSA Id %pI4, skip",
+				   &old->header->id);
 
 		UNSET_FLAG(old->flag, OSPF6_LSA_UNAPPROVED);
 		return;
@@ -716,8 +702,8 @@ static void ospf6_abr_translate_nssa(struct ospf6_area *area,
 		if (ospf6_lsa_translated_nssa_new(area, lsa) == NULL) {
 			if (IS_OSPF6_DEBUG_NSSA)
 				zlog_debug(
-					"%s : Could not translate Type-7 for %pI4 to Type-5",
-					__func__, &lsa->header->id);
+					"Could not translate Type-7 for %pI4 to Type-5",
+					&lsa->header->id);
 			return;
 		}
 	}
@@ -737,7 +723,7 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
 	int type;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : Start", __func__);
+		zlog_debug("Start");
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, oa)) {
 		if (!IS_AREA_NSSA(oa))
@@ -745,27 +731,25 @@ static void ospf6_abr_process_nssa_translates(struct ospf6 *ospf6)
 
 		/* skip if not translator */
 		if (oa->NSSATranslatorState == OSPF6_NSSA_TRANSLATE_DISABLED) {
-			zlog_debug("%s area %pI4 NSSATranslatorState %d",
-				   __func__, &oa->area_id,
-				   oa->NSSATranslatorState);
+			zlog_debug("area %pI4 NSSATranslatorState %d",
+				   &oa->area_id, oa->NSSATranslatorState);
 			continue;
 		}
 
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s : looking at area %pI4", __func__,
-				   &oa->area_id);
+			zlog_debug("looking at area %pI4", &oa->area_id);
 
 		type = htons(OSPF6_LSTYPE_TYPE_7);
 		for (ALL_LSDB_TYPED(oa->lsdb, type, lsa)) {
-			zlog_debug("%s : lsa %s , id %pI4 , adv router %pI4",
-				   __func__, lsa->name, &lsa->header->id,
+			zlog_debug("lsa %s , id %pI4 , adv router %pI4",
+				   lsa->name, &lsa->header->id,
 				   &lsa->header->adv_router);
 			ospf6_abr_translate_nssa(oa, lsa);
 		}
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : Stop", __func__);
+		zlog_debug("Stop");
 }
 
 static void ospf6_abr_send_nssa_aggregates(struct ospf6 *ospf6)
@@ -775,15 +759,14 @@ static void ospf6_abr_send_nssa_aggregates(struct ospf6 *ospf6)
 	struct ospf6_route *range;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 
 	for (ALL_LIST_ELEMENTS_RO(ospf6->area_list, node, area)) {
 		if (area->NSSATranslatorState == OSPF6_NSSA_TRANSLATE_DISABLED)
 			continue;
 
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s: looking at area %pI4", __func__,
-				   &area->area_id);
+			zlog_debug("looking at area %pI4", &area->area_id);
 
 		for (range = ospf6_route_head(area->nssa_range_table); range;
 		     range = ospf6_route_next(range))
@@ -791,7 +774,7 @@ static void ospf6_abr_send_nssa_aggregates(struct ospf6 *ospf6)
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 }
 
 static void ospf6_abr_remove_unapproved_translates(struct ospf6 *ospf6)
@@ -802,22 +785,21 @@ static void ospf6_abr_remove_unapproved_translates(struct ospf6 *ospf6)
 	/* All AREA PROCESS should have APPROVED necessary LSAs */
 	/* Remove any left over and not APPROVED */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 
 	type = htons(OSPF6_LSTYPE_AS_EXTERNAL);
 	for (ALL_LSDB_TYPED(ospf6->lsdb, type, lsa)) {
 		if (CHECK_FLAG(lsa->flag, OSPF6_LSA_LOCAL_XLT)
 		    && CHECK_FLAG(lsa->flag, OSPF6_LSA_UNAPPROVED)) {
-			zlog_debug(
-				"%s : removing unapproved translates, lsa : %s",
-				__func__, lsa->name);
+			zlog_debug("removing unapproved translates, lsa : %s",
+				   lsa->name);
 
 			ospf6_lsa_premature_aging(lsa);
 		}
 	}
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 }
 
 static void ospf6_abr_nssa_type_7_default_create(struct ospf6 *ospf6,
@@ -904,29 +886,29 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 
 	if (!IS_OSPF6_ABR(ospf6)) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s  Not ABR", __func__);
+			zlog_debug("Not ABR");
 		return;
 	}
 
 	if (!ospf6->anyNSSA) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s  Not NSSA", __func__);
+			zlog_debug("Not NSSA");
 		return;
 	}
 
 	/* Each area must confirm TranslatorRole */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Start", __func__);
+		zlog_debug("Start");
 
 	/* For all Global Entries flagged "local-translate", unset APPROVED */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: unapprove translates", __func__);
+		zlog_debug("unapprove translates");
 
 	ospf6_abr_unapprove_translates(ospf6);
 
 	/* Originate Type-7 aggregates */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: send NSSA aggregates", __func__);
+		zlog_debug("send NSSA aggregates");
 	ospf6_abr_send_nssa_aggregates(ospf6);
 
 	/* For all NSSAs, Type-7s, translate to 5's, INSTALL/FLOOD, or
@@ -934,16 +916,16 @@ static void ospf6_abr_nssa_task(struct ospf6 *ospf6)
 	 * Install or Approve in Type-5 Global LSDB
 	 */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: process translates", __func__);
+		zlog_debug("process translates");
 	ospf6_abr_process_nssa_translates(ospf6);
 
 	/* Flush any unapproved previous translates from Global Data Base */
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: remove unapproved translates", __func__);
+		zlog_debug("remove unapproved translates");
 	ospf6_abr_remove_unapproved_translates(ospf6);
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: Stop", __func__);
+		zlog_debug("Stop");
 }
 
 int ospf6_redistribute_check(struct ospf6 *ospf6, struct ospf6_route *route,
@@ -1026,7 +1008,7 @@ static void ospf6_nssa_flush_area(struct ospf6_area *area)
 	struct ospf6 *ospf6 = area->ospf6;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s: area %s", __func__, area->name);
+		zlog_debug("area %s", area->name);
 
 	/* Flush the NSSA LSA */
 	type = htons(OSPF6_LSTYPE_TYPE_7);
@@ -1294,7 +1276,7 @@ void ospf6_abr_check_translate_nssa(struct ospf6_area *area,
 	struct ospf6 *ospf6 = area->ospf6;
 
 	if (IS_OSPF6_DEBUG_NSSA)
-		zlog_debug("%s : start", __func__);
+		zlog_debug("start");
 
 	if (!ospf6_check_and_set_router_abr(ospf6))
 		return;
@@ -1304,7 +1286,7 @@ void ospf6_abr_check_translate_nssa(struct ospf6_area *area,
 				  ospf6->lsdb);
 	if (!type5) {
 		if (IS_OSPF6_DEBUG_NSSA)
-			zlog_debug("%s : Originating type5 LSA", __func__);
+			zlog_debug("Originating type5 LSA");
 		ospf6_lsa_translated_nssa_new(area, lsa);
 	}
 }

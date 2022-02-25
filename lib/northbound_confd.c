@@ -514,8 +514,7 @@ static int frr_confd_subscribe(const struct lysc_node *snode, void *arg)
 	if (!nb_node)
 		return YANG_ITER_CONTINUE;
 
-	DEBUGD(&nb_dbg_client_confd, "%s: subscribing to '%s'", __func__,
-	       nb_node->xpath);
+	DEBUGD(&nb_dbg_client_confd, "subscribing to '%s'", nb_node->xpath);
 
 	spoint = XMALLOC(MTYPE_CONFD, sizeof(*spoint));
 	ret = cdb_subscribe2(cdb_sub_sock, CDB_SUB_RUNNING_TWOPHASE,
@@ -1216,8 +1215,7 @@ static int frr_confd_subscribe_state(const struct lysc_node *snode, void *arg)
 	if (snode->parent && CHECK_FLAG(snode->parent->flags, LYS_CONFIG_R))
 		return YANG_ITER_CONTINUE;
 
-	DEBUGD(&nb_dbg_client_confd,
-	       "%s: providing data to '%s' (callpoint %s)", __func__,
+	DEBUGD(&nb_dbg_client_confd, "providing data to '%s' (callpoint %s)",
 	       nb_node->xpath, snode->name);
 
 	strlcpy(data_cbs->callpoint, snode->name, sizeof(data_cbs->callpoint));

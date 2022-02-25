@@ -429,15 +429,14 @@ static void control_read(struct thread *t)
 	/* Validate header fields. */
 	plen = ntohl(bcm.bcm_length);
 	if (plen < 2) {
-		zlog_debug("%s: client closed due small message length: %d",
-			   __func__, bcm.bcm_length);
+		zlog_debug("client closed due small message length: %d",
+			   bcm.bcm_length);
 		control_free(bcs);
 		return;
 	}
 
 	if (bcm.bcm_ver != BMV_VERSION_1) {
-		zlog_debug("%s: client closed due bad version: %d", __func__,
-			   bcm.bcm_ver);
+		zlog_debug("client closed due bad version: %d", bcm.bcm_ver);
 		control_free(bcs);
 		return;
 	}
@@ -502,7 +501,7 @@ skip_header:
 		break;
 
 	default:
-		zlog_debug("%s: unhandled message type: %d", __func__,
+		zlog_debug("unhandled message type: %d",
 			   bcb->bcb_bcm->bcm_type);
 		control_response(bcs, bcb->bcb_bcm->bcm_id, BCM_RESPONSE_ERROR,
 				 "invalid message type");

@@ -170,11 +170,11 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 
 #ifdef BGP_VNC_DEBUG_MATCH_GROUP
 	{
-		vnc_zlog_debug_verbose("%s: vn prefix: %pFX", __func__, vn);
-		vnc_zlog_debug_verbose("%s: un prefix: %pFX", __func__, un);
+		vnc_zlog_debug_verbose("vn prefix: %pFX", vn);
+		vnc_zlog_debug_verbose("un prefix: %pFX", un);
 		vnc_zlog_debug_verbose(
-			"%s: rn_vn=%p, rn_un=%p, rfg_vn=%p, rfg_un=%p",
-			__func__, rn_vn, rn_un, rfg_vn, rfg_un);
+			"rn_vn=%p, rn_un=%p, rfg_vn=%p, rfg_un=%p", rn_vn,
+			rn_un, rfg_vn, rfg_un);
 	}
 #endif
 
@@ -199,8 +199,7 @@ struct rfapi_nve_group_cfg *bgp_rfapi_cfg_match_group(struct rfapi_cfg *hc,
 		}
 	}
 	vnc_zlog_debug_verbose(
-		"%s: shouldn't happen, returning NULL when un and vn match",
-		__func__);
+		"shouldn't happen, returning NULL when un and vn match");
 	return NULL; /* shouldn't happen */
 }
 
@@ -685,7 +684,7 @@ static void vnc_redistribute_prechange(struct bgp *bgp)
 	afi_t afi;
 	int type;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 	memset(redist_was_enabled, 0, sizeof(redist_was_enabled));
 
 	/*
@@ -702,7 +701,7 @@ static void vnc_redistribute_prechange(struct bgp *bgp)
 			}
 		}
 	}
-	vnc_zlog_debug_verbose("%s: return", __func__);
+	vnc_zlog_debug_verbose("return");
 }
 
 static void vnc_redistribute_postchange(struct bgp *bgp)
@@ -710,7 +709,7 @@ static void vnc_redistribute_postchange(struct bgp *bgp)
 	afi_t afi;
 	int type;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 	/*
 	 * If we turned off redistribution above, turn it back on. Doing so
 	 * will tell zebra to resend the routes to us
@@ -722,7 +721,7 @@ static void vnc_redistribute_postchange(struct bgp *bgp)
 			}
 		}
 	}
-	vnc_zlog_debug_verbose("%s: return", __func__);
+	vnc_zlog_debug_verbose("return");
 }
 
 DEFUN (vnc_redistribute_rh_roo_localadmin,
@@ -1468,14 +1467,12 @@ DEFUN (vnc_export_nvegroup,
 
 		listnode_add(bgp->rfapi_cfg->rfg_export_direct_bgp_l, rfgn);
 
-		vnc_zlog_debug_verbose("%s: testing rfg_new", __func__);
+		vnc_zlog_debug_verbose("testing rfg_new");
 		if (rfg_new) {
-			vnc_zlog_debug_verbose(
-				"%s: testing bgp grp mode enabled", __func__);
+			vnc_zlog_debug_verbose("testing bgp grp mode enabled");
 			if (VNC_EXPORT_BGP_GRP_ENABLED(bgp->rfapi_cfg))
 				vnc_zlog_debug_verbose(
-					"%s: calling vnc_direct_bgp_add_group",
-					__func__);
+					"calling vnc_direct_bgp_add_group");
 			vnc_direct_bgp_add_group(bgp, rfg_new);
 		}
 
@@ -1538,8 +1535,8 @@ DEFUN (vnc_no_export_nvegroup,
 				       node, nnode, rfgn)) {
 
 			if (rfgn->name && !strcmp(rfgn->name, argv[6]->arg)) {
-				vnc_zlog_debug_verbose("%s: matched \"%s\"",
-						       __func__, rfgn->name);
+				vnc_zlog_debug_verbose("matched \"%s\"",
+						       rfgn->name);
 				if (rfgn->rfg)
 					vnc_direct_bgp_del_group(bgp,
 								 rfgn->rfg);
@@ -2024,13 +2021,12 @@ void vnc_prefix_list_update(struct bgp *bgp)
 	int i;
 
 	if (!bgp) {
-		vnc_zlog_debug_verbose("%s: No BGP process is configured",
-				       __func__);
+		vnc_zlog_debug_verbose("No BGP process is configured");
 		return;
 	}
 
 	if (!(hc = bgp->rfapi_cfg)) {
-		vnc_zlog_debug_verbose("%s: rfapi not configured", __func__);
+		vnc_zlog_debug_verbose("rfapi not configured");
 		return;
 	}
 
@@ -2104,16 +2100,15 @@ void vnc_routemap_update(struct bgp *bgp, const char *unused)
 	int i;
 	struct route_map *old = NULL;
 
-	vnc_zlog_debug_verbose("%s(arg=%s)", __func__, unused);
+	vnc_zlog_debug_verbose("(arg=%s)", unused);
 
 	if (!bgp) {
-		vnc_zlog_debug_verbose("%s: No BGP process is configured",
-				       __func__);
+		vnc_zlog_debug_verbose("No BGP process is configured");
 		return;
 	}
 
 	if (!(hc = bgp->rfapi_cfg)) {
-		vnc_zlog_debug_verbose("%s: rfapi not configured", __func__);
+		vnc_zlog_debug_verbose("rfapi not configured");
 		return;
 	}
 
@@ -2199,7 +2194,7 @@ void vnc_routemap_update(struct bgp *bgp, const char *unused)
 	vnc_redistribute_prechange(bgp);
 	vnc_redistribute_postchange(bgp);
 
-	vnc_zlog_debug_verbose("%s done", __func__);
+	vnc_zlog_debug_verbose("done");
 }
 
 /*-------------------------------------------------------------------------
@@ -2289,8 +2284,8 @@ DEFUN_NOSH (vnc_nve_group,
 				       nnode, rfgn)) {
 
 			vnc_zlog_debug_verbose(
-				"%s: ezport zebra: checking if \"%s\" == \"%s\"",
-				__func__, rfgn->name, rfg->name);
+				"ezport zebra: checking if \"%s\" == \"%s\"",
+				rfgn->name, rfg->name);
 			if (!strcmp(rfgn->name, rfg->name)) {
 				rfgn->rfg = rfg;
 				vnc_zebra_add_group(bgp, rfg);
@@ -2744,7 +2739,7 @@ DEFUN (vnc_nve_group_rt_both,
 	}
 
 	if (is_export_zebra) {
-		vnc_zlog_debug_verbose("%s: is_export_zebra", __func__);
+		vnc_zlog_debug_verbose("is_export_zebra");
 		vnc_zebra_del_group(bgp, rfg);
 	}
 
@@ -3281,7 +3276,7 @@ DEFUN (vnc_vrf_policy_rt_both,
 	}
 
 	if (is_export_zebra) {
-		vnc_zlog_debug_verbose("%s: is_export_zebra", __func__);
+		vnc_zlog_debug_verbose("is_export_zebra");
 		vnc_zebra_del_group(bgp, rfg);
 	}
 

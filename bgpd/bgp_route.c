@@ -2059,8 +2059,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 		 * though they can have peer pointers that reference other
 		 * systems
 		 */
-		zlog_debug("%s: pfx %pFX bgp_direct->vpn route peer safe",
-			   __func__, p);
+		zlog_debug("pfx %pFX bgp_direct->vpn route peer safe", p);
 		samepeer_safe = 1;
 	}
 #endif
@@ -2144,8 +2143,7 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 	/* If community is not disabled check the no-export and local. */
 	if (!transparent && bgp_community_filter(peer, piattr)) {
 		if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-			zlog_debug("%s: community filter check fail for %pFX",
-				   __func__, p);
+			zlog_debug("community filter check fail for %pFX", p);
 		return false;
 	}
 
@@ -2582,9 +2580,8 @@ bool subgroup_announce_check(struct bgp_dest *dest, struct bgp_path_info *pi,
 				family = AF_INET6;
 
 			if (bgp_debug_update(NULL, p, subgrp->update_group, 0))
-				zlog_debug(
-					"%s: BGP_PATH_ANNC_NH_SELF, family=%s",
-					__func__, family2str(family));
+				zlog_debug("BGP_PATH_ANNC_NH_SELF, family=%s",
+					   family2str(family));
 			subgroup_announce_reset_nhop(family, attr);
 			nh_reset = true;
 		}
@@ -2785,8 +2782,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 				bgp_path_info_reap(dest, pi);
 
 			if (debug)
-				zlog_debug("%s: pi %p in holddown", __func__,
-					   pi);
+				zlog_debug("pi %p in holddown", pi);
 
 			continue;
 		}
@@ -2797,8 +2793,8 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 
 				if (debug)
 					zlog_debug(
-						"%s: pi %p non self peer %s not estab state",
-						__func__, pi, pi->peer->host);
+						"pi %p non self peer %s not estab state",
+						pi, pi->peer->host);
 
 				continue;
 			}
@@ -2807,7 +2803,7 @@ void bgp_best_selection(struct bgp *bgp, struct bgp_dest *dest,
 		    && (!CHECK_FLAG(pi->flags, BGP_PATH_DMED_SELECTED))) {
 			bgp_path_info_unset_flag(dest, pi, BGP_PATH_DMED_CHECK);
 			if (debug)
-				zlog_debug("%s: pi %p dmed", __func__, pi);
+				zlog_debug("pi %p dmed", pi);
 			continue;
 		}
 
@@ -2927,7 +2923,7 @@ void subgroup_process_announce_selected(struct update_subgroup *subgrp,
 						 : NULL);
 
 	if (BGP_DEBUG(update, UPDATE_OUT))
-		zlog_debug("%s: p=%pFX, selected=%p", __func__, p, selected);
+		zlog_debug("p=%pFX, selected=%p", p, selected);
 
 	/* First update is deferred until ORF or ROUTE-REFRESH is received */
 	if (onlypeer && CHECK_FLAG(onlypeer->af_sflags[afi][safi],
@@ -3129,8 +3125,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 			debug = bgp_debug_bestpath(dest);
 		if (debug)
 			zlog_debug(
-				"%s: bgp delete in progress, ignoring event, p=%pBD",
-				__func__, dest);
+				"bgp delete in progress, ignoring event, p=%pBD",
+				dest);
 		return;
 	}
 	/* Is it end of initial update? (after startup) */
@@ -3153,9 +3149,8 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	debug = bgp_debug_bestpath(dest);
 	if (debug)
-		zlog_debug("%s: p=%pBDi(%s) afi=%s, safi=%s start", __func__,
-			   dest, bgp->name_pretty, afi2str(afi),
-			   safi2str(safi));
+		zlog_debug("p=%pBDi(%s) afi=%s, safi=%s start", dest,
+			   bgp->name_pretty, afi2str(afi), safi2str(safi));
 
 	/* The best path calculation for the route is deferred if
 	 * BGP_NODE_SELECT_DEFER is set
@@ -3218,9 +3213,9 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 
 	if (debug)
 		zlog_debug(
-			"%s: p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
-			__func__, dest, bgp->name_pretty, afi2str(afi),
-			safi2str(safi), old_select, new_select);
+			"p=%pBD(%s) afi=%s, safi=%s, old_select=%p, new_select=%p",
+			dest, bgp->name_pretty, afi2str(afi), safi2str(safi),
+			old_select, new_select);
 
 	/* If best route remains the same and this is not due to user-initiated
 	 * clear, see exactly what needs to be done.
@@ -3305,7 +3300,7 @@ static void bgp_process_main_one(struct bgp *bgp, struct bgp_dest *dest,
 		bgp_path_info_unset_flag(dest, old_select, BGP_PATH_SELECTED);
 	if (new_select) {
 		if (debug)
-			zlog_debug("%s: setting SELECTED flag", __func__);
+			zlog_debug("setting SELECTED flag");
 		bgp_path_info_set_flag(dest, new_select, BGP_PATH_SELECTED);
 		bgp_path_info_unset_flag(dest, new_select,
 					 BGP_PATH_ATTR_CHANGED);
@@ -3401,7 +3396,7 @@ void bgp_best_path_select_defer(struct bgp *bgp, afi_t afi, safi_t safi)
 	}
 
 	if (BGP_DEBUG(update, UPDATE_OUT)) {
-		zlog_debug("%s: processing route for %s : cnt %d", __func__,
+		zlog_debug("processing route for %s : cnt %d",
 			   get_afi_safi_str(afi, safi, false),
 			   bgp->gr_info[afi][safi].gr_deferred);
 	}
@@ -3610,7 +3605,7 @@ static void bgp_maximum_prefix_restart_timer(struct thread *thread)
 			peer->host);
 
 	if ((peer_clear(peer, NULL) < 0) && bgp_debug_neighbor_events(peer))
-		zlog_debug("%s: %s peer_clear failed", __func__, peer->host);
+		zlog_debug("%s peer_clear failed", peer->host);
 }
 
 static uint32_t bgp_filtered_routes_count(struct peer *peer, afi_t afi,
@@ -4627,9 +4622,9 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 						       BGP_PATH_VALID);
 			else {
 				if (BGP_DEBUG(nht, NHT)) {
-					zlog_debug("%s(%pI4): NH unresolved",
-						   __func__,
-						   (in_addr_t *)&attr_new->nexthop);
+					zlog_debug("(%pI4): NH unresolved",
+						   (in_addr_t *)&attr_new
+							   ->nexthop);
 				}
 				bgp_path_info_unset_flag(dest, pi,
 							 BGP_PATH_VALID);
@@ -4793,8 +4788,7 @@ int bgp_update(struct peer *peer, const struct prefix *p, uint32_t addpath_id,
 				inet_ntop(AF_INET,
 					  (const void *)&attr_new->nexthop,
 					  buf1, INET6_ADDRSTRLEN);
-				zlog_debug("%s(%s): NH unresolved", __func__,
-					   buf1);
+				zlog_debug("(%s): NH unresolved", buf1);
 			}
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
@@ -6292,8 +6286,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 							  &p->u.prefix, buf1,
 							  INET6_ADDRSTRLEN);
 						zlog_debug(
-							"%s(%s): Route not in table, not advertising",
-							__func__, buf1);
+							"(%s): Route not in table, not advertising",
+							buf1);
 					}
 					bgp_path_info_unset_flag(
 						dest, pi, BGP_PATH_VALID);
@@ -6343,8 +6337,8 @@ void bgp_static_update(struct bgp *bgp, const struct prefix *p,
 				inet_ntop(p->family, &p->u.prefix, buf1,
 					  INET6_ADDRSTRLEN);
 				zlog_debug(
-					"%s(%s): Route not in table, not advertising",
-					__func__, buf1);
+					"(%s): Route not in table, not advertising",
+					buf1);
 			}
 			bgp_path_info_unset_flag(dest, new, BGP_PATH_VALID);
 		}
@@ -7486,8 +7480,7 @@ static void bgp_aggregate_install(
 			bgp_dest_unlock_node(dest);
 			bgp_aggregate_delete(bgp, p, afi, safi, aggregate);
 			if (BGP_DEBUG(update_groups, UPDATE_GROUPS))
-				zlog_debug("%s: %pFX null attribute", __func__,
-					   p);
+				zlog_debug("%pFX null attribute", p);
 			return;
 		}
 
@@ -14976,8 +14969,8 @@ static void bgp_announce_routes_distance_update(struct bgp *bgp,
 
 		if (BGP_DEBUG(zebra, ZEBRA))
 			zlog_debug(
-				"%s: Announcing routes due to distance change afi/safi (%d/%d)",
-				__func__, afi, safi);
+				"Announcing routes due to distance change afi/safi (%d/%d)",
+				afi, safi);
 		bgp_zebra_announce_table(bgp, afi, safi);
 	}
 }

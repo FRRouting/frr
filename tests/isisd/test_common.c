@@ -114,7 +114,7 @@ static void lsp_add_ip_reach(struct isis_lsp *lsp,
 	struct sr_prefix_cfg *pcfg_p = NULL;
 
 	if (str2prefix(prefix_str, &prefix) != 1) {
-		zlog_debug("%s: invalid network: %s", __func__, prefix_str);
+		zlog_debug("invalid network: %s", prefix_str);
 		return;
 	}
 
@@ -182,8 +182,7 @@ static void lsp_add_router_capability(struct isis_lsp *lsp,
 		return;
 
 	if (inet_pton(AF_INET, tnode->router_id, &cap.router_id) != 1) {
-		zlog_debug("%s: invalid router-id: %s", __func__,
-			   tnode->router_id);
+		zlog_debug("invalid router-id: %s", tnode->router_id);
 		return;
 	}
 
@@ -250,9 +249,8 @@ static int topology_load_node_level(const struct isis_topology *topology,
 	/* Add IP Reachability Information. */
 	for (size_t i = 0; tnode->networks[i]; i++) {
 		if (i > MAX_NETWORKS) {
-			zlog_debug(
-				"%s: node has too many networks (maximum is %u)",
-				__func__, MAX_NETWORKS);
+			zlog_debug("node has too many networks (maximum is %u)",
+				   MAX_NETWORKS);
 			return -1;
 		}
 		lsp_add_ip_reach(lsp, tnode, tnode->networks[i],
@@ -266,8 +264,8 @@ static int topology_load_node_level(const struct isis_topology *topology,
 
 		if (i > MAX_ADJACENCIES) {
 			zlog_debug(
-				"%s: node has too many adjacencies (maximum is %u)",
-				__func__, MAX_ADJACENCIES);
+				"node has too many adjacencies (maximum is %u)",
+				MAX_ADJACENCIES);
 			return -1;
 		}
 
@@ -276,14 +274,14 @@ static int topology_load_node_level(const struct isis_topology *topology,
 						    tadj->pseudonode_id);
 		if (!tadj_node) {
 			zlog_debug(
-				"%s: node \"%s\" has an adjacency with non-existing node \"%s\"",
-				__func__, tnode->hostname, tadj->hostname);
+				"node \"%s\" has an adjacency with non-existing node \"%s\"",
+				tnode->hostname, tadj->hostname);
 			return -1;
 		}
 		if (!test_find_adjacency(tadj_node, tnode->hostname)) {
 			zlog_debug(
-				"%s: node \"%s\" has an one-way adjacency with node \"%s\"",
-				__func__, tnode->hostname, tadj->hostname);
+				"node \"%s\" has an one-way adjacency with node \"%s\"",
+				tnode->hostname, tadj->hostname);
 			return -1;
 		}
 
@@ -337,8 +335,8 @@ int test_topology_load(const struct isis_topology *topology,
 
 		if (i > MAX_NODES) {
 			zlog_debug(
-				"%s: topology has too many nodes (maximum is %u)",
-				__func__, MAX_NODES);
+				"topology has too many nodes (maximum is %u)",
+				MAX_NODES);
 			return -1;
 		}
 

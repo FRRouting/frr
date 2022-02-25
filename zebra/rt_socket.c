@@ -88,7 +88,7 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	 */
 	if (cmd != RTM_ADD && cmd != RTM_DELETE) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
-			zlog_debug("%s: %pFX odd command %s", __func__, p,
+			zlog_debug("%pFX odd command %s", p,
 				   lookup_msg(rtm_type_str, cmd, NULL));
 		return 0;
 	}
@@ -233,8 +233,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		if (IS_ZEBRA_DEBUG_KERNEL) {
 			if (!gate) {
 				zlog_debug(
-					"%s: %pFX: attention! gate not found for re",
-					__func__, p);
+					"%pFX: attention! gate not found for re",
+					p);
 			} else {
 				switch (p->family) {
 				case AF_INET:
@@ -262,8 +262,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 		case ZEBRA_ERR_NOERROR:
 			nexthop_num++;
 			if (IS_ZEBRA_DEBUG_KERNEL)
-				zlog_debug("%s: %pFX: successfully did NH %s",
-					   __func__, p, gate_buf);
+				zlog_debug("%pFX: successfully did NH %s", p,
+					   gate_buf);
 			if (cmd == RTM_ADD)
 				SET_FLAG(nexthop->flags, NEXTHOP_FLAG_FIB);
 			break;
@@ -302,8 +302,8 @@ static int kernel_rtm(int cmd, const struct prefix *p,
 	if (nexthop_num == 0) {
 		if (IS_ZEBRA_DEBUG_KERNEL)
 			zlog_debug(
-				"%s: No useful nexthops were found in RIB prefix %pFX",
-				__func__, p);
+				"No useful nexthops were found in RIB prefix %pFX",
+				p);
 		return 1;
 	}
 

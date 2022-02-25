@@ -58,8 +58,8 @@ static void recv_join(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, !!(source_flags & PIM_RPT_BIT_MASK),
+			"join (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			sg, !!(source_flags & PIM_RPT_BIT_MASK),
 			!!(source_flags & PIM_WILDCARD_BIT_MASK), &upstream,
 			holdtime, &neigh->source_addr, ifp->name);
 
@@ -117,8 +117,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_TRACE)
 		zlog_debug(
-			"%s: prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
-			__func__, sg, source_flags & PIM_RPT_BIT_MASK,
+			"prune (S,G)=%pSG rpt=%d wc=%d upstream=%pPAs holdtime=%d from %pPA on %s",
+			sg, source_flags & PIM_RPT_BIT_MASK,
 			source_flags & PIM_WILDCARD_BIT_MASK, &upstream,
 			holdtime, &neigh->source_addr, ifp->name);
 
@@ -135,8 +135,8 @@ static void recv_prune(struct interface *ifp, struct pim_neighbor *neigh,
 		 * RP in the message does not match RP(G).
 		 */
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug("%s: Prune received with RP(%pPAs) for %pSG",
-				   __func__, &sg->src, sg);
+			zlog_debug("Prune received with RP(%pPAs) for %pSG",
+				   &sg->src, sg);
 
 		sg->src = PIMADDR_ANY;
 	}
@@ -211,9 +211,9 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 	if (PIM_DEBUG_PIM_J_P)
 		zlog_debug(
-			"%s: join/prune upstream=%pPAs groups=%d holdtime=%d from %pPA on %s",
-			__func__, &msg_upstream_addr, msg_num_groups,
-			msg_holdtime, &src_addr, ifp->name);
+			"join/prune upstream=%pPAs groups=%d holdtime=%d from %pPA on %s",
+			&msg_upstream_addr, msg_num_groups, msg_holdtime,
+			&src_addr, ifp->name);
 
 	/* Scan groups */
 	for (group = 0; group < msg_num_groups; ++group) {
@@ -247,8 +247,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 
 		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug(
-				"%s: join/prune upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %pPA on %s",
-				__func__, &msg_upstream_addr, &sg.grp,
+				"join/prune upstream=%pPAs group=%pPA/32 join_src=%d prune_src=%d from %pPA on %s",
+				&msg_upstream_addr, &sg.grp,
 				msg_num_joined_sources, msg_num_pruned_sources,
 				&src_addr, ifp->name);
 
@@ -331,8 +331,8 @@ int pim_joinprune_recv(struct interface *ifp, struct pim_neighbor *neigh,
 				if (up) {
 					if (PIM_DEBUG_PIM_TRACE)
 						zlog_debug(
-							"%s: SGRpt flag is set, del inherit oif from up %s",
-							__func__, up->sg_str);
+							"SGRpt flag is set, del inherit oif from up %s",
+							up->sg_str);
 					pim_channel_del_inherited_oif(
 						up->channel_oil,
 						starg_ch->interface,
@@ -446,10 +446,9 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 
 	if (pim_addr_is_any(rpf->rpf_addr)) {
 		if (PIM_DEBUG_PIM_J_P)
-			zlog_debug(
-				"%s: upstream=%pPA is myself on interface %s",
-				__func__, &rpf->rpf_addr,
-				rpf->source_nexthop.interface->name);
+			zlog_debug("upstream=%pPA is myself on interface %s",
+				   &rpf->rpf_addr,
+				   rpf->source_nexthop.interface->name);
 		return 0;
 	}
 
@@ -489,8 +488,8 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		}
 		if (PIM_DEBUG_PIM_J_P)
 			zlog_debug(
-				"%s: sending (G)=%pPAs to upstream=%pPA on interface %s",
-				__func__, &group->group, &rpf->rpf_addr,
+				"sending (G)=%pPAs to upstream=%pPA on interface %s",
+				&group->group, &rpf->rpf_addr,
 				rpf->source_nexthop.interface->name);
 
 		group_size = pim_msg_get_jp_group_size(group->sources);
@@ -547,10 +546,9 @@ int pim_joinprune_send(struct pim_rpf *rpf, struct list *groups)
 		}
 
 		if (PIM_DEBUG_PIM_TRACE)
-			zlog_debug(
-				"%s: interface %s num_joins %u num_prunes %u",
-				__func__, rpf->source_nexthop.interface->name,
-				ntohs(grp->joins), ntohs(grp->prunes));
+			zlog_debug("interface %s num_joins %u num_prunes %u",
+				   rpf->source_nexthop.interface->name,
+				   ntohs(grp->joins), ntohs(grp->prunes));
 
 		grp = (struct pim_jp_groups *)curr_ptr;
 		if (packet_left < sizeof(struct pim_jp_groups)

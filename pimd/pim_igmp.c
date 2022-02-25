@@ -176,7 +176,7 @@ void igmp_source_forward_start(struct pim_instance *pim,
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
+		zlog_debug("(S,G)=%pSG oif=%s fwd=%d", &sg,
 			   source->source_group->interface->name,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
@@ -221,7 +221,7 @@ void igmp_source_forward_stop(struct gm_source *source)
 	sg.grp = source->source_group->group_addr;
 
 	if (PIM_DEBUG_GM_TRACE) {
-		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
+		zlog_debug("(S,G)=%pSG oif=%s fwd=%d", &sg,
 			   source->source_group->interface->name,
 			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
 	}
@@ -314,9 +314,8 @@ static void igmp_sock_dump(array_t *igmp_sock_array)
 
 		struct gm_sock *igmp = array_get(igmp_sock_array, i);
 
-		zlog_debug("%s %s: [%d/%d] igmp_addr=%pI4 fd=%d", __FILE__,
-			   __func__, i, size, &igmp->ifaddr,
-			   igmp->fd);
+		zlog_debug("[%d/%d] igmp_addr=%pI4 fd=%d", i, size,
+			   &igmp->ifaddr, igmp->fd);
 	}
 }
 #endif
@@ -350,7 +349,7 @@ static void pim_igmp_other_querier_expire(struct thread *t)
 		char ifaddr_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<ifaddr?>", igmp->ifaddr, ifaddr_str,
 			       sizeof(ifaddr_str));
-		zlog_debug("%s: Querier %s resuming", __func__, ifaddr_str);
+		zlog_debug("Querier %s resuming", ifaddr_str);
 	}
 	/* Mark the interface address as querier address */
 	igmp->querier_addr = igmp->ifaddr;
@@ -1323,8 +1322,8 @@ static void igmp_group_timer(struct thread *t)
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
-		zlog_debug("%s: Timer for group %s on interface %s", __func__,
-			   group_str, group->interface->name);
+		zlog_debug("Timer for group %s on interface %s", group_str,
+			   group->interface->name);
 	}
 
 	assert(group->group_filtermode_isexcl);
@@ -1423,8 +1422,8 @@ struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
 	if (pim_is_group_224_0_0_0_24(group_addr)) {
 		if (PIM_DEBUG_GM_TRACE)
 			zlog_debug(
-				"%s: Group specified %pI4 is part of 224.0.0.0/24",
-				__func__, &group_addr);
+				"Group specified %pI4 is part of 224.0.0.0/24",
+				&group_addr);
 		return NULL;
 	}
 	/*

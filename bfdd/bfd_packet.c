@@ -487,8 +487,8 @@ ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 	if (recv_checksum != checksum) {
 		if (bglobal.debug_network)
 			zlog_debug(
-				"%s: invalid iphdr checksum expected 0x%x rcvd 0x%x",
-				__func__, checksum, recv_checksum);
+				"invalid iphdr checksum expected 0x%x rcvd 0x%x",
+				checksum, recv_checksum);
 		return -1;
 	}
 
@@ -501,7 +501,7 @@ ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 			return -1;
 
 		if (bglobal.debug_network)
-			zlog_debug("%s: invalid TTL: %u", __func__, *ttl);
+			zlog_debug("invalid TTL: %u", *ttl);
 		return -1;
 	}
 
@@ -522,8 +522,8 @@ ssize_t bfd_recv_ipv4_fp(int sd, uint8_t *msgbuf, size_t msgbuflen,
 	if (recv_checksum != checksum) {
 		if (bglobal.debug_network)
 			zlog_debug(
-				"%s: invalid udphdr checksum expected 0x%x rcvd 0x%x",
-				__func__, checksum, recv_checksum);
+				"invalid udphdr checksum expected 0x%x rcvd 0x%x",
+				checksum, recv_checksum);
 		return -1;
 	}
 	return mlen;
@@ -578,8 +578,7 @@ ssize_t bfd_recv_ipv4(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
 				if (bglobal.debug_network)
-					zlog_debug("%s: invalid TTL: %u",
-						   __func__, ttlval);
+					zlog_debug("invalid TTL: %u", ttlval);
 				return -1;
 			}
 			*ttl = ttlval;
@@ -686,8 +685,7 @@ ssize_t bfd_recv_ipv6(int sd, uint8_t *msgbuf, size_t msgbuflen, uint8_t *ttl,
 			memcpy(&ttlval, CMSG_DATA(cm), sizeof(ttlval));
 			if (ttlval > 255) {
 				if (bglobal.debug_network)
-					zlog_debug("%s: invalid TTL: %u",
-						   __func__, ttlval);
+					zlog_debug("invalid TTL: %u", ttlval);
 				return -1;
 			}
 
@@ -1127,13 +1125,13 @@ int bp_udp_send_fp(int sd, uint8_t *data, size_t datalen,
 
 	if (wlen <= 0) {
 		if (bglobal.debug_network)
-			zlog_debug("%s: loopback failure: (%d) %s", __func__,
-				   errno, strerror(errno));
+			zlog_debug("loopback failure: (%d) %s", errno,
+				   strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
 		if (bglobal.debug_network)
-			zlog_debug("%s: partial send: %zd expected %zu",
-				   __func__, wlen, datalen);
+			zlog_debug("partial send: %zd expected %zu", wlen,
+				   datalen);
 		return -1;
 	}
 
@@ -1194,13 +1192,13 @@ int bp_udp_send(int sd, uint8_t ttl, uint8_t *data, size_t datalen,
 	wlen = sendmsg(sd, &msg, 0);
 	if (wlen <= 0) {
 		if (bglobal.debug_network)
-			zlog_debug("%s: loopback failure: (%d) %s", __func__,
-				   errno, strerror(errno));
+			zlog_debug("loopback failure: (%d) %s", errno,
+				   strerror(errno));
 		return -1;
 	} else if (wlen < (ssize_t)datalen) {
 		if (bglobal.debug_network)
-			zlog_debug("%s: partial send: %zd expected %zu",
-				   __func__, wlen, datalen);
+			zlog_debug("partial send: %zd expected %zu", wlen,
+				   datalen);
 		return -1;
 	}
 

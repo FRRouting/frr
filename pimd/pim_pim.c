@@ -306,9 +306,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		if (!neigh) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s %s: non-hello PIM message type=%d from non-neighbor %pPA on %s",
-					__FILE__, __func__, header->type,
-					&sg.src, ifp->name);
+					"non-hello PIM message type=%d from non-neighbor %pPA on %s",
+					header->type, &sg.src, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -321,9 +320,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len,
 		if (!neigh) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s %s: non-hello PIM message type=%d from non-neighbor %pPA on %s",
-					__FILE__, __func__, header->type,
-					&sg.src, ifp->name);
+					"non-hello PIM message type=%d from non-neighbor %pPA on %s",
+					header->type, &sg.src, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
@@ -395,9 +393,8 @@ static void pim_sock_read(struct thread *t)
 		if (!ifp || !ifp->info) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s: Received incoming pim packet on interface(%s:%d) not yet configured for pim",
-					__func__, ifp ? ifp->name : "Unknown",
-					ifindex);
+					"Received incoming pim packet on interface(%s:%d) not yet configured for pim",
+					ifp ? ifp->name : "Unknown", ifindex);
 			goto done;
 		}
 #if PIM_IPV == 4
@@ -411,8 +408,7 @@ static void pim_sock_read(struct thread *t)
 		int fail = pim_pim_packet(ifp, buf, len, sg);
 		if (fail) {
 			if (PIM_DEBUG_PIM_PACKETS)
-				zlog_debug("%s: pim_pim_packet() return=%d",
-					   __func__, fail);
+				zlog_debug("pim_pim_packet() return=%d", fail);
 			goto done;
 		}
 
@@ -722,9 +718,8 @@ int pim_msg_send(int fd, pim_addr src, pim_addr dst, uint8_t *pim_msg,
 	memcpy(msg_start, pim_msg, pim_msg_size);
 
 	if (PIM_DEBUG_PIM_PACKETS)
-		zlog_debug("%s: to %pPA on %s: msg_size=%d checksum=%x",
-			   __func__, &dst, ifp->name, pim_msg_size,
-			   header->checksum);
+		zlog_debug("to %pPA on %s: msg_size=%d checksum=%x", &dst,
+			   ifp->name, pim_msg_size, header->checksum);
 
 	if (PIM_DEBUG_PIM_PACKETDUMP_SEND) {
 		pim_pkt_dump(__func__, pim_msg, pim_msg_size);
@@ -757,9 +752,9 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 
 	if (PIM_DEBUG_PIM_HELLO)
 		zlog_debug(
-			"%s: to %pPA on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
-			__func__, &qpim_all_pim_routers_addr, ifp->name,
-			holdtime, pim_ifp->pim_propagation_delay_msec,
+			"to %pPA on %s: holdt=%u prop_d=%u overr_i=%u dis_join_supp=%d dr_prio=%u gen_id=%08x addrs=%d",
+			&qpim_all_pim_routers_addr, ifp->name, holdtime,
+			pim_ifp->pim_propagation_delay_msec,
 			pim_ifp->pim_override_interval_msec,
 			pim_ifp->pim_can_disable_join_suppression,
 			pim_ifp->pim_dr_priority, pim_ifp->pim_generation_id,
@@ -789,9 +784,8 @@ static int hello_send(struct interface *ifp, uint16_t holdtime)
 			 qpim_all_pim_routers_addr, pim_msg, pim_msg_size,
 			 ifp)) {
 		if (PIM_DEBUG_PIM_HELLO) {
-			zlog_debug(
-				"%s: could not send PIM message on interface %s",
-				__func__, ifp->name);
+			zlog_debug("could not send PIM message on interface %s",
+				   ifp->name);
 		}
 		return -2;
 	}

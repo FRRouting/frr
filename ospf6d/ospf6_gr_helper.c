@@ -154,7 +154,7 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 	lsah = (struct ospf6_lsa_header *)lsa->header;
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug("%s: undersized (%u B) lsa", __func__,
+			zlog_debug("undersized (%u B) lsa",
 				   ntohs(lsah->length));
 		return OSPF6_FAILURE;
 	}
@@ -168,8 +168,8 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 		if (sum + TLV_SIZE(tlvh) > length) {
 			if (IS_DEBUG_OSPF6_GR)
 				zlog_debug(
-					"%s: Malformed packet: Invalid TLV len:%d",
-					__func__, TLV_SIZE(tlvh));
+					"Malformed packet: Invalid TLV len:%d",
+					TLV_SIZE(tlvh));
 			return OSPF6_FAILURE;
 		}
 
@@ -194,8 +194,8 @@ static int ospf6_extract_grace_lsa_fields(struct ospf6_lsa *lsa,
 			break;
 		default:
 			if (IS_DEBUG_OSPF6_GR)
-				zlog_debug("%s, Ignoring unknown TLV type:%d",
-					   __func__, ntohs(tlvh->type));
+				zlog_debug("Ignoring unknown TLV type:%d",
+					   ntohs(tlvh->type));
 		}
 	}
 
@@ -289,14 +289,14 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 					     &restart_reason);
 	if (ret != OSPF6_SUCCESS) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug("%s, Wrong Grace LSA packet.", __func__);
+			zlog_debug("Wrong Grace LSA packet.");
 		return OSPF6_GR_NOT_HELPER;
 	}
 
 	if (IS_DEBUG_OSPF6_GR)
 		zlog_debug(
-			"%s, Grace LSA received from  %pI4, grace interval:%u, restart reason :%s",
-			__func__, &restarter->router_id, grace_interval,
+			"Grace LSA received from  %pI4, grace interval:%u, restart reason :%s",
+			&restarter->router_id, grace_interval,
 			ospf6_restart_reason_desc[restart_reason]);
 
 	/* Verify Helper enabled globally */
@@ -310,8 +310,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 				 &lookup)) {
 			if (IS_DEBUG_OSPF6_GR)
 				zlog_debug(
-					"%s, HELPER support is disabled, So not a HELPER",
-					__func__);
+					"HELPER support is disabled, So not a HELPER");
 			restarter->gr_helper_info.rejected_reason =
 				OSPF6_HELPER_SUPPORT_DISABLED;
 			return OSPF6_GR_NOT_HELPER;
@@ -323,9 +322,8 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	 */
 	if (!IS_NBR_STATE_FULL(restarter)) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"%s, This Neighbour %pI6 is not in FULL state.",
-				__func__, &restarter->linklocal_addr);
+			zlog_debug("This Neighbour %pI6 is not in FULL state.",
+				   &restarter->linklocal_addr);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_NOT_A_VALID_NEIGHBOUR;
 		return OSPF6_GR_NOT_HELPER;
@@ -338,8 +336,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	    && !OSPF6_GR_IS_PLANNED_RESTART(restart_reason)) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Router supports only planned restarts but received the GRACE LSA due to an unplanned restart",
-				__func__);
+				"Router supports only planned restarts but received the GRACE LSA due to an unplanned restart");
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_PLANNED_ONLY_RESTART;
 		return OSPF6_GR_NOT_HELPER;
@@ -352,9 +349,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	    && restarter->retrans_list->count
 	    && ospf6_check_chg_in_rxmt_list(restarter)) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug(
-				"%s, Changed LSA in Rxmt list.So not Helper.",
-				__func__);
+			zlog_debug("Changed LSA in Rxmt list.So not Helper.");
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_TOPO_CHANGE_RTXMT_LIST;
 		return OSPF6_GR_NOT_HELPER;
@@ -364,8 +359,8 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	if (ntohs(lsa->header->age) >= grace_interval) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Grace LSA age(%d) is more than the grace interval(%d)",
-				__func__, lsa->header->age, grace_interval);
+				"Grace LSA age(%d) is more than the grace interval(%d)",
+				lsa->header->age, grace_interval);
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_LSA_AGE_MORE;
 		return OSPF6_GR_NOT_HELPER;
@@ -374,8 +369,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	if (ospf6->gr_info.restart_in_progress) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s: router is in the process of graceful restart",
-				__func__);
+				"router is in the process of graceful restart");
 		restarter->gr_helper_info.rejected_reason =
 			OSPF6_HELPER_RESTARTING;
 		return OSPF6_GR_NOT_HELPER;
@@ -390,8 +384,8 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	if (grace_interval > ospf6->ospf6_helper_cfg.supported_grace_time) {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Received grace period %d is larger than supported grace %d",
-				__func__, grace_interval,
+				"Received grace period %d is larger than supported grace %d",
+				grace_interval,
 				ospf6->ospf6_helper_cfg.supported_grace_time);
 		actual_grace_interval =
 			ospf6->ospf6_helper_cfg.supported_grace_time;
@@ -405,13 +399,12 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, Router is already acting as a HELPER for this nbr,so restart the grace timer",
-				__func__);
+				"Router is already acting as a HELPER for this nbr,so restart the grace timer");
 	} else {
 		if (IS_DEBUG_OSPF6_GR)
 			zlog_debug(
-				"%s, This Router becomes a HELPER for the neighbour %pI6",
-				__func__, &restarter->linklocal_addr);
+				"This Router becomes a HELPER for the neighbour %pI6",
+				&restarter->linklocal_addr);
 	}
 
 	/* Became a Helper to the RESTART neighbour.
@@ -427,7 +420,7 @@ int ospf6_process_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 	ospf6->ospf6_helper_cfg.active_restarter_cnt++;
 
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug("%s, Grace timer started.interval:%u", __func__,
+		zlog_debug("Grace timer started.interval:%u",
 			   actual_grace_interval);
 
 	/* Start the grace timer */
@@ -470,8 +463,8 @@ void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
 		return;
 
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug("%s, Exiting from HELPER support to %pI6, due to %s",
-			   __func__, &nbr->linklocal_addr,
+		zlog_debug("Exiting from HELPER support to %pI6, due to %s",
+			   &nbr->linklocal_addr,
 			   ospf6_exit_reason_desc[reason]);
 
 	/* Reset helper status*/
@@ -501,8 +494,8 @@ void ospf6_gr_helper_exit(struct ospf6_neighbor *nbr,
 	 */
 	if (reason != OSPF6_GR_HELPER_COMPLETED) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug("%s, Unsuccessful GR exit. RESTARTER : %pI6",
-				   __func__, &nbr->linklocal_addr);
+			zlog_debug("Unsuccessful GR exit. RESTARTER : %pI6",
+				   &nbr->linklocal_addr);
 	}
 
 	/*Recalculate the DR for the network segment */
@@ -546,13 +539,13 @@ void ospf6_process_maxage_grace_lsa(struct ospf6 *ospf6, struct ospf6_lsa *lsa,
 					     &restart_reason);
 	if (ret != OSPF6_SUCCESS) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug("%s, Wrong Grace LSA packet.", __func__);
+			zlog_debug("Wrong Grace LSA packet.");
 		return;
 	}
 
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug("%s, GraceLSA received for neighbour %pI4.",
-			   __func__, &restarter->router_id);
+		zlog_debug("GraceLSA received for neighbour %pI4.",
+			   &restarter->router_id);
 
 	ospf6_gr_helper_exit(restarter, OSPF6_GR_HELPER_COMPLETED);
 }
@@ -586,8 +579,8 @@ void ospf6_helper_handle_topo_chg(struct ospf6 *ospf6, struct ospf6_lsa *lsa)
 		return;
 
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug("%s, Topo change detected due to lsa details : %s",
-			   __func__, lsa->name);
+		zlog_debug("Topo change detected due to lsa details : %s",
+			   lsa->name);
 
 	lsa->tobe_acknowledged = OSPF6_TRUE;
 
@@ -1255,7 +1248,7 @@ static int ospf6_grace_lsa_show_info(struct vty *vty, struct ospf6_lsa *lsa,
 	lsah = (struct ospf6_lsa_header *)lsa->header;
 	if (ntohs(lsah->length) <= OSPF6_LSA_HEADER_SIZE) {
 		if (IS_DEBUG_OSPF6_GR)
-			zlog_debug("%s: undersized (%u B) lsa", __func__,
+			zlog_debug("undersized (%u B) lsa",
 				   ntohs(lsah->length));
 		return OSPF6_FAILURE;
 	}
@@ -1362,7 +1355,7 @@ void ospf6_gr_helper_config_init(void)
 void ospf6_gr_helper_init(struct ospf6 *ospf6)
 {
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug("%s, GR Helper init.", __func__);
+		zlog_debug("GR Helper init.");
 
 	ospf6->ospf6_helper_cfg.is_helper_supported = OSPF6_FALSE;
 	ospf6->ospf6_helper_cfg.strict_lsa_check = OSPF6_TRUE;
@@ -1389,7 +1382,7 @@ void ospf6_gr_helper_deinit(struct ospf6 *ospf6)
 {
 
 	if (IS_DEBUG_OSPF6_GR)
-		zlog_debug("%s, GR helper deinit.", __func__);
+		zlog_debug("GR helper deinit.");
 
 	ospf6_enable_rtr_hash_destroy(ospf6);
 }

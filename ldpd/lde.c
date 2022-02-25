@@ -272,8 +272,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 		case IMSG_LABEL_MAPPING_FULL:
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("cannot find lde neighbor");
 				break;
 			}
 
@@ -291,8 +290,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("cannot find lde neighbor");
 				break;
 			}
 
@@ -322,13 +320,14 @@ static void lde_dispatch_imsg(struct thread *thread)
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("cannot find lde neighbor");
 				break;
 			}
 			if (lde_address_add(ln, lde_addr) < 0) {
-				log_debug("%s: cannot add address %s, it already exists", __func__,
-				    log_addr(lde_addr->af, &lde_addr->addr));
+				log_debug(
+					"cannot add address %s, it already exists",
+					log_addr(lde_addr->af,
+						 &lde_addr->addr));
 			}
 			break;
 		case IMSG_ADDRESS_DEL:
@@ -339,13 +338,14 @@ static void lde_dispatch_imsg(struct thread *thread)
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("cannot find lde neighbor");
 				break;
 			}
 			if (lde_address_del(ln, lde_addr) < 0) {
-				log_debug("%s: cannot delete address %s, it does not exist", __func__,
-				    log_addr(lde_addr->af, &lde_addr->addr));
+				log_debug(
+					"cannot delete address %s, it does not exist",
+					log_addr(lde_addr->af,
+						 &lde_addr->addr));
 			}
 			break;
 		case IMSG_NOTIFICATION:
@@ -356,8 +356,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 
 			ln = lde_nbr_find(imsg.hdr.peerid);
 			if (ln == NULL) {
-				log_debug("%s: cannot find lde neighbor",
-				    __func__);
+				log_debug("cannot find lde neighbor");
 				break;
 			}
 
@@ -407,8 +406,7 @@ static void lde_dispatch_imsg(struct thread *thread)
 			    imsg.hdr.pid, NULL, 0);
 			break;
 		default:
-			log_debug("%s: unexpected imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("unexpected imsg %d", imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
@@ -692,8 +690,7 @@ static void lde_dispatch_parent(struct thread *thread)
 			}
 			break;
 		default:
-			log_debug("%s: unexpected imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("unexpected imsg %d", imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);

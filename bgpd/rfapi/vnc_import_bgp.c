@@ -253,8 +253,8 @@ static void vnc_rhnck(char *tag)
 		assert(!vnc_prefix_cmp(&pb->hpfx, pkey));
 		if (vnc_prefix_cmp(&pb->hpfx, &pfx_orig_nexthop)) {
 			vnc_zlog_debug_verbose(
-				"%s: %s: FATAL: resolve_nve_nexthop list item bpi nexthop %pFX != nve pfx %pFX",
-				__func__, tag, &pfx_orig_nexthop, &pb->hpfx);
+				"%s: FATAL: resolve_nve_nexthop list item bpi nexthop %pFX != nve pfx %pFX",
+				tag, &pfx_orig_nexthop, &pb->hpfx);
 			assert(0);
 		}
 	}
@@ -309,20 +309,17 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 	 * prefix list check
 	 */
 	if (hc->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi]) {
-		vnc_zlog_debug_verbose("%s: HC prefix list is set, checking",
-				       __func__);
+		vnc_zlog_debug_verbose("HC prefix list is set, checking");
 		if (prefix_list_apply(
 			    hc->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi],
 			    prefix)
 		    == PREFIX_DENY) {
 			vnc_zlog_debug_verbose(
-				"%s: prefix list returns DENY, blocking route",
-				__func__);
+				"prefix list returns DENY, blocking route");
 			return -1;
 		}
 		vnc_zlog_debug_verbose(
-			"%s: prefix list returns PASS, allowing route",
-			__func__);
+			"prefix list returns PASS, allowing route");
 	}
 
 	/* apply routemap, if any, later */
@@ -361,8 +358,8 @@ static int process_unicast_route(struct bgp *bgp,		 /* in */
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(
-				"%s: route map \"%s\" says DENY, returning",
-				__func__, rmap->name);
+				"route map \"%s\" says DENY, returning",
+				rmap->name);
 			return -1;
 		}
 	}
@@ -433,7 +430,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_bi(
 	struct rfapi_un_option *opt = NULL;
 	int cur_opt = 0;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	if (bpi->type != ZEBRA_ROUTE_BGP
 	    && bpi->type != ZEBRA_ROUTE_BGP_DIRECT) {
@@ -515,14 +512,13 @@ static void vnc_import_bgp_add_route_mode_resolve_nve_one_rd(
 	if (!table_rd)
 		return;
 
-	vnc_zlog_debug_verbose("%s: ubpi_nexthop=%pFX", __func__, ubpi_nexthop);
+	vnc_zlog_debug_verbose("ubpi_nexthop=%pFX", ubpi_nexthop);
 
 	/* exact match */
 	bd = bgp_node_lookup(table_rd, ubpi_nexthop);
 	if (!bd) {
 		vnc_zlog_debug_verbose(
-			"%s: no match in RD's table for ubpi_nexthop",
-			__func__);
+			"no match in RD's table for ubpi_nexthop");
 		return;
 	}
 
@@ -567,14 +563,14 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 		}
 
 		vnc_zlog_debug_verbose(
-			"%s(bgp=%p, unicast prefix=%pFX, unicast nh=%s)",
-			__func__, bgp, prefix, str_nh);
+			"(bgp=%p, unicast prefix=%pFX, unicast nh=%s)", bgp,
+			prefix, str_nh);
 	}
 
 	if (info->type != ZEBRA_ROUTE_BGP) {
 		vnc_zlog_debug_verbose(
-			"%s: unicast type %d=\"%s\" is not %d=%s, skipping",
-			__func__, info->type, zebra_route_string(info->type),
+			"unicast type %d=\"%s\" is not %d=%s, skipping",
+			info->type, zebra_route_string(info->type),
 			ZEBRA_ROUTE_BGP, "ZEBRA_ROUTE_BGP");
 		return;
 	}
@@ -590,16 +586,15 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	}
 
 	if (!(bgp->rfapi_cfg)) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check vnc redist flag for bgp direct routes */
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
-			__func__, afi);
+			"bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
+			afi);
 		return;
 	}
 
@@ -607,8 +602,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	if (process_unicast_route(bgp, afi, prefix, info, &ecom,
 				  &pfx_unicast_nexthop)) {
 
-		vnc_zlog_debug_verbose(
-			"%s: process_unicast_route error, skipping", __func__);
+		vnc_zlog_debug_verbose("process_unicast_route error, skipping");
 		return;
 	}
 
@@ -665,7 +659,7 @@ static void vnc_import_bgp_add_route_mode_resolve_nve(
 	if (ecom)
 		ecommunity_free(&ecom);
 
-	vnc_zlog_debug_verbose("%s: done", __func__);
+	vnc_zlog_debug_verbose("done");
 }
 
 
@@ -690,7 +684,7 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	uint32_t local_pref;
 	uint32_t *med = NULL;
 
-	vnc_zlog_debug_verbose("%s(prefix=%pFX) entry", __func__, prefix);
+	vnc_zlog_debug_verbose("(prefix=%pFX) entry", prefix);
 
 	if (!afi) {
 		flog_err(EC_LIB_DEVELOPMENT, "%s: can't get afi of prefix",
@@ -699,16 +693,15 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	}
 
 	if (!hc) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check vnc redist flag for bgp direct routes */
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
-			__func__, afi);
+			"bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
+			afi);
 		return;
 	}
 
@@ -716,28 +709,25 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	 * mode "plain" specific code
 	 */
 	{
-		vnc_zlog_debug_verbose("%s: NOT using redist RFG", __func__);
+		vnc_zlog_debug_verbose("NOT using redist RFG");
 
 		/*
 		 * prefix list check
 		 */
 		if (hc->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi]) {
 			vnc_zlog_debug_verbose(
-				"%s: HC prefix list is set, checking",
-				__func__);
+				"HC prefix list is set, checking");
 			if (prefix_list_apply(
 				    hc->plist_redist[ZEBRA_ROUTE_BGP_DIRECT]
 						    [afi],
 				    prefix)
 			    == PREFIX_DENY) {
 				vnc_zlog_debug_verbose(
-					"%s: prefix list returns DENY, blocking route",
-					__func__);
+					"prefix list returns DENY, blocking route");
 				return;
 			}
 			vnc_zlog_debug_verbose(
-				"%s: prefix list returns PASS, allowing route",
-				__func__);
+				"prefix list returns PASS, allowing route");
 		}
 
 		/* apply routemap, if any, later */
@@ -756,14 +746,13 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	}
 
 	if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE))
-		vnc_zlog_debug_any("%s vn_pfx=%pFX", __func__, vn_pfx);
+		vnc_zlog_debug_any("vn_pfx=%pFX", vn_pfx);
 
 	/*
 	 * Compute VN address
 	 */
 	if (rfapiQprefix2Raddr(vn_pfx, &vnaddr)) {
-		vnc_zlog_debug_verbose("%s: redist VN invalid, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("redist VN invalid, skipping");
 		return;
 	}
 
@@ -788,8 +777,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(
-				"%s: route map \"%s\" says DENY, returning",
-				__func__, rmap->name);
+				"route map \"%s\" says DENY, returning",
+				rmap->name);
 			return;
 		}
 	}
@@ -808,8 +797,8 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 	{
 		if (vnaddr.addr_family != AF_INET) {
 			vnc_zlog_debug_verbose(
-				"%s: can't auto-assign RD, VN AF (%d) is not IPv4, skipping",
-				__func__, vnaddr.addr_family);
+				"can't auto-assign RD, VN AF (%d) is not IPv4, skipping",
+				vnaddr.addr_family);
 			if (iattr) {
 				bgp_attr_unintern(&iattr);
 			}
@@ -832,7 +821,7 @@ static void vnc_import_bgp_add_route_mode_plain(struct bgp *bgp,
 		char buf[PREFIX_STRLEN];
 
 		rfapiRfapiIpAddr2Str(&vnaddr, buf, sizeof(buf));
-		vnc_zlog_debug_any("%s: setting vnaddr to %s", __func__, buf);
+		vnc_zlog_debug_any("setting vnaddr to %s", buf);
 	}
 
 	vncHDBgpDirect.peer = peer;
@@ -867,7 +856,7 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 	struct route_map *rmap = NULL;
 	uint32_t local_pref;
 
-	vnc_zlog_debug_verbose("%s(prefix=%pFX) entry", __func__, prefix);
+	vnc_zlog_debug_verbose("(prefix=%pFX) entry", prefix);
 
 	assert(rfg);
 
@@ -878,16 +867,15 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 	}
 
 	if (!(bgp->rfapi_cfg)) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check vnc redist flag for bgp direct routes */
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
-			__func__, afi);
+			"bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
+			afi);
 		return;
 	}
 
@@ -899,28 +887,25 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 
 		struct rfapi_ip_prefix pfx_un;
 
-		vnc_zlog_debug_verbose("%s: using redist RFG", __func__);
+		vnc_zlog_debug_verbose("using redist RFG");
 
 		/*
 		 * RFG prefix list check
 		 */
 		if (rfg->plist_redist[ZEBRA_ROUTE_BGP_DIRECT][afi]) {
 			vnc_zlog_debug_verbose(
-				"%s: RFG prefix list is set, checking",
-				__func__);
+				"RFG prefix list is set, checking");
 			if (prefix_list_apply(
 				    rfg->plist_redist[ZEBRA_ROUTE_BGP_DIRECT]
 						     [afi],
 				    prefix)
 			    == PREFIX_DENY) {
 				vnc_zlog_debug_verbose(
-					"%s: prefix list returns DENY, blocking route",
-					__func__);
+					"prefix list returns DENY, blocking route");
 				return;
 			}
 			vnc_zlog_debug_verbose(
-				"%s: prefix list returns PASS, allowing route",
-				__func__);
+				"prefix list returns PASS, allowing route");
 		}
 
 		/* apply routemap, if any, later */
@@ -938,8 +923,8 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 		if (!is_host_prefix(&rfg->un_prefix)) {
 			/* NB prefixlen==0 means it has not been configured */
 			vnc_zlog_debug_verbose(
-				"%s: redist RFG UN pfx not host pfx (plen=%d), skipping",
-				__func__, rfg->un_prefix.prefixlen);
+				"redist RFG UN pfx not host pfx (plen=%d), skipping",
+				rfg->un_prefix.prefixlen);
 			return;
 		}
 
@@ -949,14 +934,13 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 	}
 
 	if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE))
-		vnc_zlog_debug_any("%s vn_pfx=%pFX", __func__, vn_pfx);
+		vnc_zlog_debug_any("vn_pfx=%pFX", vn_pfx);
 
 	/*
 	 * Compute VN address
 	 */
 	if (rfapiQprefix2Raddr(vn_pfx, &vnaddr)) {
-		vnc_zlog_debug_verbose("%s: redist VN invalid, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("redist VN invalid, skipping");
 		return;
 	}
 
@@ -981,8 +965,8 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 		if (ret == RMAP_DENYMATCH) {
 			bgp_attr_flush(&hattr);
 			vnc_zlog_debug_verbose(
-				"%s: route map \"%s\" says DENY, returning",
-				__func__, rmap->name);
+				"route map \"%s\" says DENY, returning",
+				rmap->name);
 			return;
 		}
 	}
@@ -1028,7 +1012,7 @@ static void vnc_import_bgp_add_route_mode_nvegroup(
 		buf[0] = 0;
 		rfapiRfapiIpAddr2Str(&vnaddr, buf, BUFSIZ);
 		buf[BUFSIZ - 1] = 0;
-		vnc_zlog_debug_any("%s: setting vnaddr to %s", __func__, buf);
+		vnc_zlog_debug_any("setting vnaddr to %s", buf);
 	}
 
 	vncHDBgpDirect.peer = peer;
@@ -1065,8 +1049,7 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 	if (info) {
 		rfapiUnicastNexthop2Prefix(afi, info->attr, &vn_pfx_space);
 	} else {
-		vnc_zlog_debug_verbose("%s: no attr, can't delete route",
-				       __func__);
+		vnc_zlog_debug_verbose("no attr, can't delete route");
 		return;
 	}
 	vn_pfx = &vn_pfx_space;
@@ -1076,8 +1059,8 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 	case AF_INET:
 		if (vn_pfx->prefixlen != IPV4_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
-				"%s: redist VN plen (%d) != 32, skipping",
-				__func__, vn_pfx->prefixlen);
+				"redist VN plen (%d) != 32, skipping",
+				vn_pfx->prefixlen);
 			return;
 		}
 		vnaddr.addr.v4 = vn_pfx->u.prefix4;
@@ -1086,8 +1069,8 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 	case AF_INET6:
 		if (vn_pfx->prefixlen != IPV6_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
-				"%s: redist VN plen (%d) != 128, skipping",
-				__func__, vn_pfx->prefixlen);
+				"redist VN plen (%d) != 128, skipping",
+				vn_pfx->prefixlen);
 			return;
 		}
 		vnaddr.addr.v6 = vn_pfx->u.prefix6;
@@ -1095,22 +1078,19 @@ static void vnc_import_bgp_del_route_mode_plain(struct bgp *bgp,
 
 	default:
 		vnc_zlog_debug_verbose(
-			"%s: no redist RFG VN host pfx configured, skipping",
-			__func__);
+			"no redist RFG VN host pfx configured, skipping");
 		return;
 	}
 
 
 	memset(&prd, 0, sizeof(prd));
 	if (rfapi_set_autord_from_vn(&prd, &vnaddr)) {
-		vnc_zlog_debug_verbose("%s: can't auto-assign RD, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("can't auto-assign RD, skipping");
 		return;
 	}
 
 	vncHDBgpDirect.peer = info->peer;
-	vnc_zlog_debug_verbose("%s: setting peer to %p", __func__,
-			       vncHDBgpDirect.peer);
+	vnc_zlog_debug_verbose("setting peer to %p", vncHDBgpDirect.peer);
 	del_vnc_route(&vncHDBgpDirect, info->peer, bgp, SAFI_MPLS_VPN, prefix,
 		      &prd, ZEBRA_ROUTE_BGP_DIRECT, BGP_ROUTE_REDISTRIBUTE,
 		      NULL, 1);
@@ -1150,8 +1130,8 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 	case AF_INET:
 		if (vn_pfx->prefixlen != IPV4_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
-				"%s: redist VN plen (%d) != 32, skipping",
-				__func__, vn_pfx->prefixlen);
+				"redist VN plen (%d) != 32, skipping",
+				vn_pfx->prefixlen);
 			return;
 		}
 		vnaddr.addr.v4 = vn_pfx->u.prefix4;
@@ -1160,8 +1140,8 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 	case AF_INET6:
 		if (vn_pfx->prefixlen != IPV6_MAX_BITLEN) {
 			vnc_zlog_debug_verbose(
-				"%s: redist VN plen (%d) != 128, skipping",
-				__func__, vn_pfx->prefixlen);
+				"redist VN plen (%d) != 128, skipping",
+				vn_pfx->prefixlen);
 			return;
 		}
 		vnaddr.addr.v6 = vn_pfx->u.prefix6;
@@ -1169,8 +1149,7 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 
 	default:
 		vnc_zlog_debug_verbose(
-			"%s: no redist RFG VN host pfx configured, skipping",
-			__func__);
+			"no redist RFG VN host pfx configured, skipping");
 		return;
 	}
 
@@ -1183,15 +1162,14 @@ static void vnc_import_bgp_del_route_mode_nvegroup(struct bgp *bgp,
 		/* means "auto" with VN addr */
 		if (rfapi_set_autord_from_vn(&prd, &vnaddr)) {
 			vnc_zlog_debug_verbose(
-				"%s: can't auto-assign RD, skipping", __func__);
+				"can't auto-assign RD, skipping");
 			return;
 		}
 	}
 
 
 	vncHDBgpDirect.peer = info->peer;
-	vnc_zlog_debug_verbose("%s: setting peer to %p", __func__,
-			       vncHDBgpDirect.peer);
+	vnc_zlog_debug_verbose("setting peer to %p", vncHDBgpDirect.peer);
 	del_vnc_route(&vncHDBgpDirect, info->peer, bgp, SAFI_MPLS_VPN, prefix,
 		      &prd, ZEBRA_ROUTE_BGP_DIRECT, BGP_ROUTE_REDISTRIBUTE,
 		      NULL, 1);
@@ -1248,15 +1226,14 @@ static void vnc_import_bgp_del_route_mode_resolve_nve_one_rd(
 	if (!table_rd)
 		return;
 
-	vnc_zlog_debug_verbose("%s: ubpi_nexthop=%pFX", __func__, ubpi_nexthop);
+	vnc_zlog_debug_verbose("ubpi_nexthop=%pFX", ubpi_nexthop);
 
 
 	/* exact match */
 	bd = bgp_node_lookup(table_rd, ubpi_nexthop);
 	if (!bd) {
 		vnc_zlog_debug_verbose(
-			"%s: no match in RD's table for ubpi_nexthop",
-			__func__);
+			"no match in RD's table for ubpi_nexthop");
 		return;
 	}
 
@@ -1289,15 +1266,14 @@ vnc_import_bgp_del_route_mode_resolve_nve(struct bgp *bgp, afi_t afi,
 	struct bgp_dest *bdp; /* prd table node */
 
 	if (!sl) {
-		vnc_zlog_debug_verbose("%s: no RHN entries, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("no RHN entries, skipping");
 		return;
 	}
 
 	if (info->type != ZEBRA_ROUTE_BGP) {
 		vnc_zlog_debug_verbose(
-			"%s: unicast type %d=\"%s\" is not %d=%s, skipping",
-			__func__, info->type, zebra_route_string(info->type),
+			"unicast type %d=\"%s\" is not %d=%s, skipping",
+			info->type, zebra_route_string(info->type),
 			ZEBRA_ROUTE_BGP, "ZEBRA_ROUTE_BGP");
 		return;
 	}
@@ -1305,8 +1281,7 @@ vnc_import_bgp_del_route_mode_resolve_nve(struct bgp *bgp, afi_t afi,
 	if (process_unicast_route(bgp, afi, prefix, info, &ecom,
 				  &pfx_unicast_nexthop)) {
 
-		vnc_zlog_debug_verbose(
-			"%s: process_unicast_route error, skipping", __func__);
+		vnc_zlog_debug_verbose("process_unicast_route error, skipping");
 		return;
 	}
 
@@ -1368,31 +1343,28 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 	void *cursor;
 	struct rfapi_cfg *hc = NULL;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	if (afi != AFI_IP && afi != AFI_IP6) {
-		vnc_zlog_debug_verbose("%s: bad afi %d, skipping", __func__,
-				       afi);
+		vnc_zlog_debug_verbose("bad afi %d, skipping", afi);
 		return;
 	}
 
 	if (!(hc = bgp->rfapi_cfg)) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check vnc redist flag for bgp direct routes */
 	if (!hc->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
-			__func__, afi);
+			"bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
+			afi);
 		return;
 	}
 
 	if (hc->redist_mode != VNC_REDIST_MODE_RESOLVE_NVE) {
-		vnc_zlog_debug_verbose("%s: not in resolve-nve mode, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("not in resolve-nve mode, skipping");
 		return;
 	}
 
@@ -1401,14 +1373,12 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 
 	if (!sl) {
 		vnc_zlog_debug_verbose(
-			"%s: no resolve_nve_nexthop skiplist, skipping",
-			__func__);
+			"no resolve_nve_nexthop skiplist, skipping");
 		return;
 	}
 
 	if (!is_host_prefix(prefix)) {
-		vnc_zlog_debug_verbose("%s: not host prefix, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("not host prefix, skipping");
 		return;
 	}
 
@@ -1424,16 +1394,14 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 
 		if (VNC_DEBUG(IMPORT_BGP_ADD_ROUTE))
 			vnc_zlog_debug_any(
-				"%s: examining RHN Entry (q=%p): upfx=%pFX, hpfx=%pFX, ubpi=%p",
-				__func__, cursor, &pb->upfx, &pb->hpfx,
-				pb->ubpi);
+				"examining RHN Entry (q=%p): upfx=%pFX, hpfx=%pFX, ubpi=%p",
+				cursor, &pb->upfx, &pb->hpfx, pb->ubpi);
 
 		if (process_unicast_route(bgp, afi, &pb->upfx, pb->ubpi, &ecom,
 					  &pfx_unicast_nexthop)) {
 
 			vnc_zlog_debug_verbose(
-				"%s: process_unicast_route error, skipping",
-				__func__);
+				"process_unicast_route error, skipping");
 			continue;
 		}
 		local_pref = calc_local_pref(pb->ubpi->attr, pb->ubpi->peer);
@@ -1447,8 +1415,8 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 		 */
 		if (vnc_prefix_cmp(&pfx_unicast_nexthop, prefix)) {
 			vnc_zlog_debug_verbose(
-				"%s: FATAL: resolve_nve_nexthop list item bpi nexthop %pFX != nve pfx %pFX",
-				__func__, &pfx_unicast_nexthop, prefix);
+				"FATAL: resolve_nve_nexthop list item bpi nexthop %pFX != nve pfx %pFX",
+				&pfx_unicast_nexthop, prefix);
 			assert(0);
 		}
 
@@ -1464,14 +1432,14 @@ void vnc_import_bgp_add_vnc_host_route_mode_resolve_nve(
 		/* debug */
 		{
 			vnc_zlog_debug_verbose(
-				"%s: advancing past RHN Entry (q=%p): with prefix %pFX",
-				__func__, cursor, prefix);
+				"advancing past RHN Entry (q=%p): with prefix %pFX",
+				cursor, prefix);
 			print_rhn_list(__func__, NULL); /* debug */
 		}
 #endif
 		rc = skiplist_next_value(sl, prefix, (void *)&pb, &cursor);
 	}
-	vnc_zlog_debug_verbose("%s: done", __func__);
+	vnc_zlog_debug_verbose("done");
 }
 
 
@@ -1488,29 +1456,26 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 	struct rfapi_cfg *hc = NULL;
 	int rc;
 
-	vnc_zlog_debug_verbose("%s(bgp=%p, nve prefix=%pFX)", __func__, bgp,
-			       prefix);
+	vnc_zlog_debug_verbose("(bgp=%p, nve prefix=%pFX)", bgp, prefix);
 
 	if (afi != AFI_IP && afi != AFI_IP6)
 		return;
 
 	if (!(hc = bgp->rfapi_cfg)) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check vnc redist flag for bgp direct routes */
 	if (!hc->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
-			__func__, afi);
+			"bgp->rfapi_cfg->redist[afi=%d][type=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
+			afi);
 		return;
 	}
 
 	if (hc->redist_mode != VNC_REDIST_MODE_RESOLVE_NVE) {
-		vnc_zlog_debug_verbose("%s: not in resolve-nve mode, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("not in resolve-nve mode, skipping");
 		return;
 	}
 
@@ -1518,13 +1483,12 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 		sl = bgp->rfapi->resolve_nve_nexthop;
 
 	if (!sl) {
-		vnc_zlog_debug_verbose("%s: no RHN entries, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("no RHN entries, skipping");
 		return;
 	}
 
 	if (!is_host_prefix(prefix)) {
-		vnc_zlog_debug_verbose("%s: not host route, skip", __func__);
+		vnc_zlog_debug_verbose("not host route, skip");
 		return;
 	}
 
@@ -1544,8 +1508,7 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 					  &pfx_unicast_nexthop)) {
 
 			vnc_zlog_debug_verbose(
-				"%s: process_unicast_route error, skipping",
-				__func__);
+				"process_unicast_route error, skipping");
 			continue;
 		}
 
@@ -1554,8 +1517,8 @@ void vnc_import_bgp_del_vnc_host_route_mode_resolve_nve(
 		 */
 		if (vnc_prefix_cmp(&pfx_unicast_nexthop, prefix)) {
 			vnc_zlog_debug_verbose(
-				"%s: FATAL: resolve_nve_nexthop list item bpi nexthop %pFX != nve pfx %pFX",
-				__func__, &pfx_unicast_nexthop, prefix);
+				"FATAL: resolve_nve_nexthop list item bpi nexthop %pFX != nve pfx %pFX",
+				&pfx_unicast_nexthop, prefix);
 			assert(0);
 		}
 
@@ -1580,16 +1543,14 @@ static int is_usable_interior_route(struct bgp_path_info *bpi_interior)
 {
 	if (!VALID_INTERIOR_TYPE(bpi_interior->type)) {
 #if DEBUG_IS_USABLE_INTERIOR
-		vnc_zlog_debug_verbose(
-			"%s: NO: type %d is not valid interior type", __func__,
-			bpi_interior->type);
+		vnc_zlog_debug_verbose("NO: type %d is not valid interior type",
+				       bpi_interior->type);
 #endif
 		return 0;
 	}
 	if (!CHECK_FLAG(bpi_interior->flags, BGP_PATH_VALID)) {
 #if DEBUG_IS_USABLE_INTERIOR
-		vnc_zlog_debug_verbose("%s: NO: BGP_PATH_VALID not set",
-				       __func__);
+		vnc_zlog_debug_verbose("NO: BGP_PATH_VALID not set");
 #endif
 		return 0;
 	}
@@ -1624,30 +1585,27 @@ static void vnc_import_bgp_exterior_add_route_it(
 	h = bgp_default->rfapi;
 	hc = bgp_default->rfapi_cfg;
 
-	vnc_zlog_debug_verbose("%s: entry with it=%p", __func__, it_only);
+	vnc_zlog_debug_verbose("entry with it=%p", it_only);
 
 	if (!h || !hc) {
 		vnc_zlog_debug_verbose(
-			"%s: rfapi or rfapi_cfg not instantiated, skipping",
-			__func__);
+			"rfapi or rfapi_cfg not instantiated, skipping");
 		return;
 	}
 	if (!hc->redist_bgp_exterior_view) {
-		vnc_zlog_debug_verbose("%s: exterior view not set, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("exterior view not set, skipping");
 		return;
 	}
 	if (bgp != hc->redist_bgp_exterior_view) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp %p != hc->redist_bgp_exterior_view %p, skipping",
-			__func__, bgp, hc->redist_bgp_exterior_view);
+			"bgp %p != hc->redist_bgp_exterior_view %p, skipping",
+			bgp, hc->redist_bgp_exterior_view);
 		return;
 	}
 
 	if (!hc->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
 		vnc_zlog_debug_verbose(
-			"%s: redist of exterior routes not enabled, skipping",
-			__func__);
+			"redist of exterior routes not enabled, skipping");
 		return;
 	}
 
@@ -1666,11 +1624,11 @@ static void vnc_import_bgp_exterior_add_route_it(
 		struct bgp_path_info *bpi_interior;
 		int have_usable_route;
 
-		vnc_zlog_debug_verbose("%s: doing it %p", __func__, it);
+		vnc_zlog_debug_verbose("doing it %p", it);
 
 		if (it_only && (it_only != it)) {
-			vnc_zlog_debug_verbose("%s: doesn't match it_only %p",
-					       __func__, it_only);
+			vnc_zlog_debug_verbose("doesn't match it_only %p",
+					       it_only);
 			continue;
 		}
 
@@ -1680,8 +1638,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 		    have_usable_route = 0;
 		     (!have_usable_route) && rn;) {
 
-			vnc_zlog_debug_verbose("%s: it %p trying rn %p",
-					       __func__, it, rn);
+			vnc_zlog_debug_verbose("it %p trying rn %p", it, rn);
 
 			for (bpi_interior = rn->info; bpi_interior;
 			     bpi_interior = bpi_interior->next) {
@@ -1693,7 +1650,7 @@ static void vnc_import_bgp_exterior_add_route_it(
 					continue;
 
 				vnc_zlog_debug_verbose(
-					"%s: usable: bpi_interior %p", __func__,
+					"usable: bpi_interior %p",
 					bpi_interior);
 
 				/*
@@ -1814,25 +1771,22 @@ void vnc_import_bgp_exterior_del_route(
 
 	if (!h || !hc) {
 		vnc_zlog_debug_verbose(
-			"%s: rfapi or rfapi_cfg not instantiated, skipping",
-			__func__);
+			"rfapi or rfapi_cfg not instantiated, skipping");
 		return;
 	}
 	if (!hc->redist_bgp_exterior_view) {
-		vnc_zlog_debug_verbose("%s: exterior view not set, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("exterior view not set, skipping");
 		return;
 	}
 	if (bgp != hc->redist_bgp_exterior_view) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp %p != hc->redist_bgp_exterior_view %p, skipping",
-			__func__, bgp, hc->redist_bgp_exterior_view);
+			"bgp %p != hc->redist_bgp_exterior_view %p, skipping",
+			bgp, hc->redist_bgp_exterior_view);
 		return;
 	}
 	if (!hc->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
 		vnc_zlog_debug_verbose(
-			"%s: redist of exterior routes no enabled, skipping",
-			__func__);
+			"redist of exterior routes no enabled, skipping");
 		return;
 	}
 
@@ -1968,37 +1922,34 @@ void vnc_import_bgp_exterior_add_route_interior(
 	int rc;
 	struct list *list_adopted;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	if (!is_usable_interior_route(bpi_interior)) {
-		vnc_zlog_debug_verbose(
-			"%s: not usable interior route, skipping", __func__);
+		vnc_zlog_debug_verbose("not usable interior route, skipping");
 		return;
 	}
 
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
 		vnc_zlog_debug_verbose(
-			"%s: redist of exterior routes no enabled, skipping",
-			__func__);
+			"redist of exterior routes no enabled, skipping");
 		return;
 	}
 
 	if (it == bgp->rfapi->it_ce) {
-		vnc_zlog_debug_verbose("%s: import table is it_ce, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("import table is it_ce, skipping");
 		return;
 	}
 
 	/*debugging */
-	vnc_zlog_debug_verbose("%s: interior prefix=%pRN, bpi type=%d",
-			       __func__, rn_interior, bpi_interior->type);
+	vnc_zlog_debug_verbose("interior prefix=%pRN, bpi type=%d", rn_interior,
+			       bpi_interior->type);
 
 	if (RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
 
 		int count = 0; /* debugging */
 
 		vnc_zlog_debug_verbose(
-			"%s: has exterior monitor; ext src: %p", __func__,
+			"has exterior monitor; ext src: %p",
 			RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
 
 		/*
@@ -2053,12 +2004,11 @@ void vnc_import_bgp_exterior_add_route_interior(
 				BGP_ROUTE_REDISTRIBUTE, &label);
 		}
 		vnc_zlog_debug_verbose(
-			"%s: finished constructing exteriors based on existing monitors",
-			__func__);
+			"finished constructing exteriors based on existing monitors");
 		return;
 	}
 
-	vnc_zlog_debug_verbose("%s: no exterior monitor", __func__);
+	vnc_zlog_debug_verbose("no exterior monitor");
 
 	/*
 	 * No monitor at this node. Is this the first valid interior
@@ -2066,8 +2016,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 	 */
 	if (RFAPI_MONITOR_EXTERIOR(rn_interior)->valid_interior_count > 1) {
 		vnc_zlog_debug_verbose(
-			"%s: new interior route not first valid one, skipping pulldown",
-			__func__);
+			"new interior route not first valid one, skipping pulldown");
 		return;
 	}
 
@@ -2084,8 +2033,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 	if (par) {
 
 		vnc_zlog_debug_verbose(
-			"%s: checking parent %p for possible pulldowns",
-			__func__, par);
+			"checking parent %p for possible pulldowns", par);
 
 		/* check monitors at par for possible pulldown */
 		cursor = NULL;
@@ -2215,7 +2163,7 @@ void vnc_import_bgp_exterior_add_route_interior(
 		}
 	}
 
-	vnc_zlog_debug_verbose("%s: checking orphans", __func__);
+	vnc_zlog_debug_verbose("checking orphans");
 
 	/*
 	 * See if any orphans can be pulled down to the current node
@@ -2233,13 +2181,13 @@ void vnc_import_bgp_exterior_add_route_interior(
 		afi_t afi_exterior = family2afi(pfx_exterior->family);
 
 		vnc_zlog_debug_verbose(
-			"%s: checking exterior orphan at prefix %pFX", __func__,
+			"checking exterior orphan at prefix %pFX",
 			pfx_exterior);
 
 		if (afi_exterior != afi) {
 			vnc_zlog_debug_verbose(
-				"%s: exterior orphan afi %d != interior afi %d, skip",
-				__func__, afi_exterior, afi);
+				"exterior orphan afi %d != interior afi %d, skip",
+				afi_exterior, afi);
 			continue;
 		}
 
@@ -2345,33 +2293,31 @@ void vnc_import_bgp_exterior_del_route_interior(
 
 	if (!VALID_INTERIOR_TYPE(bpi_interior->type)) {
 		vnc_zlog_debug_verbose(
-			"%s: type %d not valid interior type, skipping",
-			__func__, bpi_interior->type);
+			"type %d not valid interior type, skipping",
+			bpi_interior->type);
 		return;
 	}
 
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
 		vnc_zlog_debug_verbose(
-			"%s: redist of exterior routes no enabled, skipping",
-			__func__);
+			"redist of exterior routes no enabled, skipping");
 		return;
 	}
 
 	if (it == bgp->rfapi->it_ce) {
-		vnc_zlog_debug_verbose("%s: it is it_ce, skipping", __func__);
+		vnc_zlog_debug_verbose("it is it_ce, skipping");
 		return;
 	}
 
 	/* If no exterior routes depend on this prefix, nothing to do */
 	if (!RFAPI_HAS_MONITOR_EXTERIOR(rn_interior)) {
-		vnc_zlog_debug_verbose("%s: no exterior monitor, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("no exterior monitor, skipping");
 		return;
 	}
 
 	/*debugging */
-	vnc_zlog_debug_verbose("%s: interior prefix=%pRN, bpi type=%d",
-			       __func__, rn_interior, bpi_interior->type);
+	vnc_zlog_debug_verbose("interior prefix=%pRN, bpi type=%d", rn_interior,
+			       bpi_interior->type);
 
 	/*
 	 * Remove constructed routes based on the deleted interior route
@@ -2407,8 +2353,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 	 */
 	if (RFAPI_MONITOR_EXTERIOR(rn_interior)->valid_interior_count) {
 		vnc_zlog_debug_verbose(
-			"%s: interior routes still present, skipping",
-			__func__);
+			"interior routes still present, skipping");
 		return;
 	}
 
@@ -2423,7 +2368,7 @@ void vnc_import_bgp_exterior_del_route_interior(
 			break;
 	}
 
-	vnc_zlog_debug_verbose("%s: par=%p, ext src: %p", __func__, par,
+	vnc_zlog_debug_verbose("par=%p, ext src: %p", par,
 			       RFAPI_MONITOR_EXTERIOR(rn_interior)->source);
 
 	/* move all monitors */
@@ -2527,8 +2472,8 @@ void vnc_import_bgp_add_route(struct bgp *bgp, const struct prefix *prefix,
 		struct prefix pfx_nexthop;
 
 		rfapiUnicastNexthop2Prefix(afi, info->attr, &pfx_nexthop);
-		vnc_zlog_debug_verbose("%s: pfx %pFX, nh %pFX", __func__,
-				       prefix, &pfx_nexthop);
+		vnc_zlog_debug_verbose("pfx %pFX, nh %pFX", prefix,
+				       &pfx_nexthop);
 	}
 #if DEBUG_RHN_LIST
 	print_rhn_list(__func__, "ENTER ");
@@ -2542,16 +2487,15 @@ void vnc_import_bgp_add_route(struct bgp *bgp, const struct prefix *prefix,
 	}
 
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check vnc redist flag for bgp direct routes */
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp->rfapi_cfg->redist[afi=%d][type=%d=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
-			__func__, afi, ZEBRA_ROUTE_BGP_DIRECT);
+			"bgp->rfapi_cfg->redist[afi=%d][type=%d=ZEBRA_ROUTE_BGP_DIRECT] is 0, skipping",
+			afi, ZEBRA_ROUTE_BGP_DIRECT);
 		return;
 	}
 
@@ -2565,8 +2509,7 @@ void vnc_import_bgp_add_route(struct bgp *bgp, const struct prefix *prefix,
 			vnc_import_bgp_add_route_mode_nvegroup(
 				bgp, prefix, info, bgp->rfapi_cfg->rfg_redist);
 		else
-			vnc_zlog_debug_verbose("%s: mode RFG but no redist RFG",
-					       __func__);
+			vnc_zlog_debug_verbose("mode RFG but no redist RFG");
 		break;
 
 	case VNC_REDIST_MODE_RESOLVE_NVE:
@@ -2593,8 +2536,8 @@ void vnc_import_bgp_del_route(struct bgp *bgp, const struct prefix *prefix,
 		struct prefix pfx_nexthop;
 
 		rfapiUnicastNexthop2Prefix(afi, info->attr, &pfx_nexthop);
-		vnc_zlog_debug_verbose("%s: pfx %pFX, nh %pFX", __func__,
-				       prefix, &pfx_nexthop);
+		vnc_zlog_debug_verbose("pfx %pFX, nh %pFX", prefix,
+				       &pfx_nexthop);
 	}
 #if DEBUG_RHN_LIST
 	print_rhn_list(__func__, "ENTER ");
@@ -2602,16 +2545,15 @@ void vnc_import_bgp_del_route(struct bgp *bgp, const struct prefix *prefix,
 	VNC_RHNCK(enter);
 
 	if (!bgp->rfapi_cfg) {
-		vnc_zlog_debug_verbose("%s: bgp->rfapi_cfg is NULL, skipping",
-				       __func__);
+		vnc_zlog_debug_verbose("bgp->rfapi_cfg is NULL, skipping");
 		return;
 	}
 
 	/* check bgp redist flag for vnc direct ("vpn") routes */
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp redistribution of afi=%d VNC direct routes is off",
-			__func__, afi);
+			"bgp redistribution of afi=%d VNC direct routes is off",
+			afi);
 		return;
 	}
 
@@ -2625,8 +2567,7 @@ void vnc_import_bgp_del_route(struct bgp *bgp, const struct prefix *prefix,
 			vnc_import_bgp_del_route_mode_nvegroup(bgp, prefix,
 							       info);
 		else
-			vnc_zlog_debug_verbose("%s: mode RFG but no redist RFG",
-					       __func__);
+			vnc_zlog_debug_verbose("mode RFG but no redist RFG");
 		break;
 
 	case VNC_REDIST_MODE_RESOLVE_NVE:
@@ -2652,12 +2593,11 @@ void vnc_import_bgp_redist_enable(struct bgp *bgp, afi_t afi)
 
 	struct bgp_dest *dest;
 
-	vnc_zlog_debug_verbose("%s: entry, afi=%d", __func__, afi);
+	vnc_zlog_debug_verbose("entry, afi=%d", afi);
 
 	if (bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
-		vnc_zlog_debug_verbose(
-			"%s: already enabled for afi %d, skipping", __func__,
-			afi);
+		vnc_zlog_debug_verbose("already enabled for afi %d, skipping",
+				       afi);
 		return;
 	}
 	bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT] = 1;
@@ -2678,8 +2618,8 @@ void vnc_import_bgp_redist_enable(struct bgp *bgp, afi_t afi)
 		}
 	}
 	vnc_zlog_debug_verbose(
-		"%s: set redist[afi=%d][type=%d=ZEBRA_ROUTE_BGP_DIRECT] return",
-		__func__, afi, ZEBRA_ROUTE_BGP_DIRECT);
+		"set redist[afi=%d][type=%d=ZEBRA_ROUTE_BGP_DIRECT] return",
+		afi, ZEBRA_ROUTE_BGP_DIRECT);
 }
 
 void vnc_import_bgp_exterior_redist_enable(struct bgp *bgp, afi_t afi)
@@ -2690,17 +2630,15 @@ void vnc_import_bgp_exterior_redist_enable(struct bgp *bgp, afi_t afi)
 	bgp_exterior = bgp->rfapi_cfg->redist_bgp_exterior_view;
 
 	if (bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
-		vnc_zlog_debug_verbose(
-			"%s: already enabled for afi %d, skipping", __func__,
-			afi);
+		vnc_zlog_debug_verbose("already enabled for afi %d, skipping",
+				       afi);
 		return;
 	}
 	bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT] = 1;
 
 	if (!bgp_exterior) {
 		vnc_zlog_debug_verbose(
-			"%s: no exterior view set yet, no routes to import yet",
-			__func__);
+			"no exterior view set yet, no routes to import yet");
 		return;
 	}
 
@@ -2720,8 +2658,8 @@ void vnc_import_bgp_exterior_redist_enable(struct bgp *bgp, afi_t afi)
 		}
 	}
 	vnc_zlog_debug_verbose(
-		"%s: set redist[afi=%d][type=%d=ZEBRA_ROUTE_BGP_DIRECT] return",
-		__func__, afi, ZEBRA_ROUTE_BGP_DIRECT);
+		"set redist[afi=%d][type=%d=ZEBRA_ROUTE_BGP_DIRECT] return",
+		afi, ZEBRA_ROUTE_BGP_DIRECT);
 }
 
 /*
@@ -2733,20 +2671,18 @@ void vnc_import_bgp_exterior_redist_enable_it(
 	struct bgp *bgp_exterior;
 	struct bgp_dest *dest;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	bgp_exterior = bgp->rfapi_cfg->redist_bgp_exterior_view;
 
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
-		vnc_zlog_debug_verbose("%s: not enabled for afi %d, skipping",
-				       __func__, afi);
+		vnc_zlog_debug_verbose("not enabled for afi %d, skipping", afi);
 		return;
 	}
 
 	if (!bgp_exterior) {
 		vnc_zlog_debug_verbose(
-			"%s: no exterior view set yet, no routes to import yet",
-			__func__);
+			"no exterior view set yet, no routes to import yet");
 		return;
 	}
 
@@ -2778,12 +2714,11 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 	struct bgp_dest *dest1;
 	struct bgp_dest *dest2;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	if (!bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT]) {
-		vnc_zlog_debug_verbose(
-			"%s: already disabled for afi %d, skipping", __func__,
-			afi);
+		vnc_zlog_debug_verbose("already disabled for afi %d, skipping",
+				       afi);
 		return;
 	}
 
@@ -2822,8 +2757,8 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 				rfd = bpi->extra->vnc.export.rfapi_handle;
 
 				vnc_zlog_debug_verbose(
-					"%s: deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p [passing rfd=%p]",
-					__func__, bpi, bpi->peer, bpi->type,
+					"deleting bpi=%p, bpi->peer=%p, bpi->type=%d, bpi->sub_type=%d, bpi->extra->vnc.export.rfapi_handle=%p [passing rfd=%p]",
+					bpi, bpi->peer, bpi->type,
 					bpi->sub_type,
 					(bpi->extra ? bpi->extra->vnc.export
 							      .rfapi_handle
@@ -2853,7 +2788,7 @@ void vnc_import_bgp_redist_disable(struct bgp *bgp, afi_t afi)
 	}
 
 	bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT] = 0;
-	vnc_zlog_debug_verbose("%s: return", __func__);
+	vnc_zlog_debug_verbose("return");
 }
 
 
@@ -2862,19 +2797,17 @@ void vnc_import_bgp_exterior_redist_disable(struct bgp *bgp, afi_t afi)
 	struct rfapi_cfg *hc = bgp->rfapi_cfg;
 	struct bgp *bgp_exterior = hc->redist_bgp_exterior_view;
 
-	vnc_zlog_debug_verbose("%s: entry", __func__);
+	vnc_zlog_debug_verbose("entry");
 
 	if (!hc->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT]) {
-		vnc_zlog_debug_verbose(
-			"%s: already disabled for afi %d, skipping", __func__,
-			afi);
+		vnc_zlog_debug_verbose("already disabled for afi %d, skipping",
+				       afi);
 		return;
 	}
 
 	if (!bgp_exterior) {
 		vnc_zlog_debug_verbose(
-			"%s: bgp exterior view not defined, skipping",
-			__func__);
+			"bgp exterior view not defined, skipping");
 		return;
 	}
 
@@ -2903,5 +2836,5 @@ void vnc_import_bgp_exterior_redist_disable(struct bgp *bgp, afi_t afi)
 	}
 
 	bgp->rfapi_cfg->redist[afi][ZEBRA_ROUTE_BGP_DIRECT_EXT] = 0;
-	vnc_zlog_debug_verbose("%s: return", __func__);
+	vnc_zlog_debug_verbose("return");
 }

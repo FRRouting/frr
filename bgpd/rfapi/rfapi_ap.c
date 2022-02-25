@@ -222,8 +222,7 @@ void rfapiApWithdrawAll(struct bgp *bgp, struct rfapi_descriptor *rfd)
 				 * Bad: it means we can't delete the route
 				 */
 				vnc_zlog_debug_verbose(
-					"%s: BAD: handle has bad vn_addr: skipping",
-					__func__);
+					"BAD: handle has bad vn_addr: skipping");
 				continue;
 			}
 		}
@@ -247,14 +246,12 @@ static int rfapiApAdjustLifetimeStats(
 	int find_max = 0;
 	int find_min = 0;
 
-	vnc_zlog_debug_verbose("%s: rfd=%p, pOldLife=%p, pNewLife=%p", __func__,
-			       rfd, old_lifetime, new_lifetime);
+	vnc_zlog_debug_verbose("rfd=%p, pOldLife=%p, pNewLife=%p", rfd,
+			       old_lifetime, new_lifetime);
 	if (old_lifetime)
-		vnc_zlog_debug_verbose("%s: OldLife=%d", __func__,
-				       *old_lifetime);
+		vnc_zlog_debug_verbose("OldLife=%d", *old_lifetime);
 	if (new_lifetime)
-		vnc_zlog_debug_verbose("%s: NewLife=%d", __func__,
-				       *new_lifetime);
+		vnc_zlog_debug_verbose("NewLife=%d", *new_lifetime);
 
 	if (new_lifetime) {
 		/*
@@ -369,8 +366,7 @@ static int rfapiApAdjustLifetimeStats(
 			struct rfapi_adb *adb;
 			int rc;
 
-			vnc_zlog_debug_verbose(
-				"%s: walking to find new min/max", __func__);
+			vnc_zlog_debug_verbose("walking to find new min/max");
 
 			cursor = NULL;
 			for (rc = skiplist_next(rfd->advertised.ipN_by_prefix,
@@ -417,8 +413,8 @@ static int rfapiApAdjustLifetimeStats(
 		rfd->min_prefix_lifetime = min;
 	}
 
-	vnc_zlog_debug_verbose("%s: returning advertise=%d, min=%d, max=%d",
-			       __func__, advertise, rfd->min_prefix_lifetime,
+	vnc_zlog_debug_verbose("returning advertise=%d, min=%d, max=%d",
+			       advertise, rfd->min_prefix_lifetime,
 			       rfd->max_prefix_lifetime);
 
 	return (advertise != 0);

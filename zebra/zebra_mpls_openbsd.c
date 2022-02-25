@@ -54,7 +54,7 @@ static int kernel_send_rtmsg_v4(int action, mpls_label_t in_label,
 	int ret;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: 0x%x, label=%u", __func__, action, in_label);
+		zlog_debug("0x%x, label=%u", action, in_label);
 
 	/* initialize header */
 	memset(&hdr, 0, sizeof(hdr));
@@ -149,7 +149,7 @@ static int kernel_send_rtmsg_v6(int action, mpls_label_t in_label,
 	int ret;
 
 	if (IS_ZEBRA_DEBUG_KERNEL)
-		zlog_debug("%s: 0x%x, label=%u", __func__, action, in_label);
+		zlog_debug("0x%x, label=%u", action, in_label);
 
 	/* initialize header */
 	memset(&hdr, 0, sizeof(hdr));
@@ -334,7 +334,7 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		imr.imr_type = IMR_TYPE_ETHERNET_TAGGED;
 		break;
 	default:
-		zlog_debug("%s: unhandled pseudowire type (%#X)", __func__,
+		zlog_debug("unhandled pseudowire type (%#X)",
 			   dplane_ctx_get_pw_type(ctx));
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
@@ -357,8 +357,8 @@ static enum zebra_dplane_result kmpw_install(struct zebra_dplane_ctx *ctx)
 		sa_in6->sin6_addr = gaddr->ipv6;
 		break;
 	default:
-		zlog_debug("%s: unhandled pseudowire address-family (%u)",
-			   __func__, dplane_ctx_get_pw_af(ctx));
+		zlog_debug("unhandled pseudowire address-family (%u)",
+			   dplane_ctx_get_pw_af(ctx));
 		return ZEBRA_DPLANE_REQUEST_FAILURE;
 	}
 	memcpy(&imr.imr_nexthop, (struct sockaddr *)&ss,

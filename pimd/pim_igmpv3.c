@@ -136,10 +136,8 @@ static void igmp_source_timer(struct thread *t)
 			       sizeof(group_str));
 		pim_inet4_dump("<source?>", source->source_addr, source_str,
 			       sizeof(source_str));
-		zlog_debug(
-			"%s: Source timer expired for group %s source %s on %s",
-			__func__, group_str, source_str,
-			group->interface->name);
+		zlog_debug("Source timer expired for group %s source %s on %s",
+			   group_str, source_str, group->interface->name);
 	}
 
 	/*
@@ -1517,10 +1515,8 @@ void igmp_group_timer_lower_to_lmqt(struct gm_group *group)
 		char group_str[INET_ADDRSTRLEN];
 		pim_inet4_dump("<group?>", group->group_addr, group_str,
 			       sizeof(group_str));
-		zlog_debug(
-			"%s: group %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
-			__func__, group_str, ifname, lmqc, lmqi_dsec,
-			lmqt_msec);
+		zlog_debug("group %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
+			   group_str, ifname, lmqc, lmqi_dsec, lmqt_msec);
 	}
 
 	assert(group->group_filtermode_isexcl);
@@ -1556,9 +1552,9 @@ void igmp_source_timer_lower_to_lmqt(struct gm_source *source)
 		pim_inet4_dump("<source?>", source->source_addr, source_str,
 			       sizeof(source_str));
 		zlog_debug(
-			"%s: group %s source %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
-			__func__, group_str, source_str, ifname, lmqc,
-			lmqi_dsec, lmqt_msec);
+			"group %s source %s on %s: LMQC=%d LMQI=%d dsec LMQT=%d msec",
+			group_str, source_str, ifname, lmqc, lmqi_dsec,
+			lmqt_msec);
 	}
 
 	igmp_source_timer_on(group, source, lmqt_msec);

@@ -266,8 +266,7 @@ static void control_dispatch_imsg(struct thread *thread)
 			/* ignore */
 			break;
 		default:
-			log_debug("%s: error handling imsg %d", __func__,
-			    imsg.hdr.type);
+			log_debug("error handling imsg %d", imsg.hdr.type);
 			break;
 		}
 		imsg_free(&imsg);
