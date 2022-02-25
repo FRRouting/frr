@@ -1068,6 +1068,29 @@ DEFPY (show_ipv6_pim_state_vrf_all,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_channel,
+       show_ipv6_pim_channel_cmd,
+       "show ipv6 pim [vrf NAME] channel [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM downstream channel info\n"
+       JSON_STR)
+{
+	struct vrf *v;
+	bool uj = !!json;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	pim_show_channel(v->info, vty, uj);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1132,4 +1155,5 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_upstream_rpf_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_state_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_state_vrf_all_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_channel_cmd);
 }

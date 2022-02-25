@@ -3228,9 +3228,9 @@ DEFPY (show_ip_pim_upstream_vrf_all,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_channel,
+DEFPY (show_ip_pim_channel,
        show_ip_pim_channel_cmd,
-       "show ip pim [vrf NAME] channel [json]",
+       "show ip pim [vrf NAME] channel [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -3238,14 +3238,15 @@ DEFUN (show_ip_pim_channel,
        "PIM downstream channel info\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
+	struct vrf *v;
+	bool uj = !!json;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	pim_show_channel(vrf->info, vty, uj);
+	pim_show_channel(v->info, vty, uj);
 
 	return CMD_SUCCESS;
 }

@@ -1867,14 +1867,12 @@ static void pim_show_channel_helper(struct pim_instance *pim, struct vty *vty,
 {
 	struct pim_upstream *up = ch->upstream;
 	json_object *json_group = NULL;
-	char src_str[INET_ADDRSTRLEN];
-	char grp_str[INET_ADDRSTRLEN];
 	json_object *json_row = NULL;
 
-	pim_inet4_dump("<src?>", up->sg.src, src_str, sizeof(src_str));
-	pim_inet4_dump("<grp?>", up->sg.grp, grp_str, sizeof(grp_str));
-
 	if (uj) {
+		char grp_str[PIM_ADDRSTRLEN];
+
+		snprintfrr(grp_str, sizeof(grp_str), "%pPAs", &up->sg.grp);
 		json_object_object_get_ex(json, grp_str, &json_group);
 
 		if (!json_group) {
@@ -1886,8 +1884,10 @@ static void pim_show_channel_helper(struct pim_instance *pim, struct vty *vty,
 		json_object_pim_upstream_add(json_row, up);
 		json_object_string_add(json_row, "interface",
 				       ch->interface->name);
-		json_object_string_add(json_row, "source", src_str);
-		json_object_string_add(json_row, "group", grp_str);
+		json_object_string_addf(json_row, "source", "%pPAs",
+					&up->sg.src);
+		json_object_string_addf(json_row, "group", "%pPAs",
+					&up->sg.grp);
 
 		if (pim_macro_ch_lost_assert(ch))
 			json_object_boolean_true_add(json_row, "lostAssert");
@@ -1902,11 +1902,13 @@ static void pim_show_channel_helper(struct pim_instance *pim, struct vty *vty,
 			json_object_boolean_true_add(json_row,
 						     "evaluateJoinDesired");
 
-		json_object_object_add(json_group, src_str, json_row);
+		json_object_object_addf(json_group, json_row, "%pPAs",
+					&up->sg.src);
 
 	} else {
-		vty_out(vty, "%-16s %-15s %-15s %-10s %-5s %-10s %-11s %-6s\n",
-			ch->interface->name, src_str, grp_str,
+		vty_out(vty,
+			"%-16s %-15pPAs %-15pPAs %-10s %-5s %-10s %-11s %-6s\n",
+			ch->interface->name, &up->sg.src, &up->sg.grp,
 			pim_macro_ch_lost_assert(ch) ? "yes" : "no",
 			pim_macro_chisin_joins(ch) ? "yes" : "no",
 			pim_macro_chisin_pim_include(ch) ? "yes" : "no",
