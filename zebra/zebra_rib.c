@@ -276,12 +276,10 @@ static ssize_t printfrr_zebra_node(struct fbuf *buf, struct printfrr_eargs *ea,
 }
 
 #define rnode_debug(node, vrf_id, msg, ...)                                    \
-	zlog_debug("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,  \
-		   ##__VA_ARGS__)
+	zlog_debug("(%u:%pZNt):%pZN: " msg, vrf_id, node, node, ##__VA_ARGS__)
 
 #define rnode_info(node, vrf_id, msg, ...)                                     \
-	zlog_info("%s: (%u:%pZNt):%pZN: " msg, __func__, vrf_id, node, node,   \
-		  ##__VA_ARGS__)
+	zlog_info("(%u:%pZNt):%pZN: " msg, vrf_id, node, node, ##__VA_ARGS__)
 
 static char *_dump_re_status(const struct route_entry *re, char *buf,
 			     size_t len)

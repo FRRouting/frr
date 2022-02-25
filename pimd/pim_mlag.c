@@ -38,9 +38,8 @@ extern struct zclient *zclient;
 	do {                                                                   \
 		if (PIM_DEBUG_MLAG)                                            \
 			zlog_debug(                                            \
-				"%s: add Dual-active Interface to %s "         \
-				"to oil:%s",                                   \
-				__func__, ch->interface->name, ch->sg_str);    \
+				"add Dual-active Interface to %s to oil:%s",   \
+				ch->interface->name, ch->sg_str);              \
 		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
 	} while (0)
 
@@ -48,9 +47,8 @@ extern struct zclient *zclient;
 	do {                                                                   \
 		if (PIM_DEBUG_MLAG)                                            \
 			zlog_debug(                                            \
-				"%s: del Dual-active Interface to %s "         \
-				"to oil:%s",                                   \
-				__func__, ch->interface->name, ch->sg_str);    \
+				"del Dual-active Interface to %s to oil:%s",   \
+				ch->interface->name, ch->sg_str);              \
 		pim_channel_update_oif_mute(ch_oil, ch->interface->info);      \
 	} while (0)
 
