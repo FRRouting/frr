@@ -83,6 +83,7 @@ pimd_pim6d_SOURCES = \
 	$(pim_common) \
 	pimd/pim6_main.c \
 	pimd/pim6_stubs.c \
+	pimd/pim_register.c \
 	# end
 
 nodist_pimd_pim6d_SOURCES = \

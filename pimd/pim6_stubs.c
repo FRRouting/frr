@@ -118,20 +118,6 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 {
 }
 
-/*
- * PIM register
- */
-void pim_register_join(struct pim_upstream *up)
-{
-}
-
-void pim_null_register_send(struct pim_upstream *up)
-{
-}
-
-void pim_reg_del_on_couldreg_fail(struct interface *ifp)
-{
-}
 
 /*
  * CLI
