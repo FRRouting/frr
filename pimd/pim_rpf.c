@@ -33,9 +33,8 @@ void pim_rpf_set_refresh_time(struct pim_instance *pim)
 {
 	pim->last_route_change_time = pim_time_monotonic_usec();
 	if (PIM_DEBUG_PIM_TRACE_DETAIL)
-		zlog_debug("%s: vrf(%s) New last route change time: %" PRId64,
-			   __func__, pim->vrf->name,
-			   pim->last_route_change_time);
+		zlog_debug("vrf(%s) New last route change time: %" PRId64,
+			   pim->vrf->name, pim->last_route_change_time);
 }
 
 static int nexthop_mismatch(const struct pim_nexthop *nh1,

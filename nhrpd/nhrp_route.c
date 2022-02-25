@@ -405,8 +405,7 @@ void nhrp_send_zebra_configure_arp(struct interface *ifp, int family)
 	struct stream *s;
 
 	if (!nhrp_zclient || nhrp_zclient->sock < 0) {
-		debugf(NHRP_DEBUG_COMMON, "%s() : zclient not ready",
-		       __func__);
+		debugf(NHRP_DEBUG_COMMON, "zclient not ready");
 		return;
 	}
 	s = nhrp_zclient->obuf;
