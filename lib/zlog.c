@@ -735,6 +735,9 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		if (need)
 			need += bputch(&fb, ' ');
 
+		if (msg->prio == LOG_DEBUG && msg->xref)
+			need += bprintfrr(&fb, "%s: ", msg->xref->xref.func);
+
 		msg->hdrlen = hdrlen = need;
 		assert(hdrlen < msg->stackbufsz);
 
