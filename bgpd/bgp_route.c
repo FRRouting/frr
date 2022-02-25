@@ -10270,8 +10270,8 @@ void bgp_redistribute_withdraw(struct bgp *bgp, afi_t afi, int type,
 }
 
 /* Static function to display route. */
-static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
-				struct vty *vty, json_object *json, bool wide)
+static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p, struct vty *vty,
+				json_object *json, bool wide, char *rd_str)
 {
 	int len = 0;
 	char buf[PREFIX_STRLEN_EXTENDED];
@@ -10291,9 +10291,11 @@ static void route_vty_out_route(struct bgp_dest *dest, const struct prefix *p,
 	} else if (p->family == AF_ETHERNET) {
 		len = vty_out(vty, "%pFX", p);
 	} else if (p->family == AF_EVPN) {
-		if (!json)
+		if (!json) {
 			len = vty_out(vty, "%pFX", (struct prefix_evpn *)p);
-		else
+			if (rd_str)
+				len += vty_out(vty, " RD %s", rd_str);
+		} else
 			bgp_evpn_route2json((struct prefix_evpn *)p, json);
 	} else if (p->family == AF_FLOWSPEC) {
 		route_vty_out_flowspec(vty, p, NULL,
@@ -10519,10 +10521,9 @@ static char *bgp_nexthop_hostname(struct peer *peer,
 }
 
 /* called from terminal list command */
-void route_vty_out(struct vty *vty, const struct prefix *p,
-		   struct bgp_path_info *path, int display,
-		   struct attr *pattr, safi_t safi,
-		   json_object *json_paths, bool wide)
+void route_vty_out(struct vty *vty, const struct prefix *p, struct bgp_path_info *path,
+		   int display, struct attr *pattr, safi_t safi, json_object *json_paths,
+		   bool wide, char *rd_str)
 {
 	int len;
 	struct attr *attr = pattr ? pattr : path->attr;
@@ -10550,11 +10551,11 @@ void route_vty_out(struct vty *vty, const struct prefix *p,
 	if (!json_paths) {
 		/* print prefix and mask */
 		if (!display)
-			route_vty_out_route(path->net, p, vty, json_path, wide);
+			route_vty_out_route(path->net, p, vty, json_path, wide, rd_str);
 		else
 			vty_out(vty, "%*s", (wide ? 45 : 17), " ");
 	} else {
-		route_vty_out_route(path->net, p, vty, json_path, wide);
+		route_vty_out_route(path->net, p, vty, json_path, wide, rd_str);
 	}
 
 	/*
@@ -11039,7 +11040,7 @@ void route_vty_out_tmp(struct vty *vty, struct bgp *bgp, struct bgp_dest *dest,
 			json_object_string_addf(json_net, "network", "%pFX", p);
 		}
 	} else
-		route_vty_out_route(dest, p, vty, NULL, wide);
+		route_vty_out_route(dest, p, vty, NULL, wide, NULL);
 
 	/* Print attribute */
 	if (attr) {
@@ -11172,7 +11173,7 @@ void route_vty_out_tag(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (json == NULL) {
 		if (!display)
-			route_vty_out_route(path->net, p, vty, NULL, false);
+			route_vty_out_route(path->net, p, vty, NULL, false, NULL);
 		else
 			vty_out(vty, "%*s", 17, " ");
 	}
@@ -11264,7 +11265,7 @@ void route_vty_out_overlay(struct vty *vty, const struct prefix *p,
 
 	/* print prefix and mask */
 	if (!display)
-		route_vty_out_route(path->net, p, vty, json_path, false);
+		route_vty_out_route(path->net, p, vty, json_path, false, NULL);
 	else
 		vty_out(vty, "%*s", 17, " ");
 
@@ -11371,7 +11372,7 @@ static void damp_route_vty_out(struct vty *vty, const struct prefix *p,
 	/* print prefix and mask */
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(path->net, p, vty, NULL, false);
+			route_vty_out_route(path->net, p, vty, NULL, false, NULL);
 		else
 			vty_out(vty, "%*s", 17, " ");
 
@@ -11435,7 +11436,7 @@ static void flap_route_vty_out(struct vty *vty, const struct prefix *p,
 
 	if (!use_json) {
 		if (!display)
-			route_vty_out_route(path->net, p, vty, NULL, false);
+			route_vty_out_route(path->net, p, vty, NULL, false, NULL);
 		else
 			vty_out(vty, "%*s", 17, " ");
 
@@ -13164,8 +13165,8 @@ static int bgp_show_table(struct vty *vty, struct bgp *bgp, afi_t afi, safi_t sa
 							     family2afi(dest_p->family), safi,
 							     rpki_curr_state, json_paths, NULL);
 				} else {
-					route_vty_out(vty, dest_p, pi, display, NULL,
-						      safi, json_paths, wide);
+					route_vty_out(vty, dest_p, pi, display, NULL, safi,
+						      json_paths, wide, NULL);
 				}
 			}
 			display++;
@@ -16200,8 +16201,8 @@ show_adj_route(struct vty *vty, struct peer *peer, struct bgp_table *table,
 							for (bpi = bgp_dest_get_bgp_path_info(dest);
 							     bpi; bpi = bpi->next)
 								route_vty_out(vty, rn_p, bpi, 0,
-									      adj->attr, safi, NULL,
-									      wide);
+									      adj->attr, safi,
+									      NULL, wide, NULL);
 						}
 					}
 					(*output_count)++;

@@ -608,8 +608,7 @@ static void show_esi_routes(struct bgp *bgp,
 			if (json)
 				json_path = json_object_new_array();
 
-			route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN,
-				      json_path, false);
+			route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN, json_path, false, NULL);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -708,8 +707,8 @@ static void bgp_evpn_show_routes_mac_ip_es(struct vty *vty, esi_t *esi,
 						     AFI_L2VPN, SAFI_EVPN, RPKI_NOT_BEING_USED,
 						     json_path, NULL);
 			else
-				route_vty_out(vty, &bd->rn->p, pi, 0, NULL, SAFI_EVPN,
-					      json_path, false);
+				route_vty_out(vty, &bd->rn->p, pi, 0, NULL, SAFI_EVPN, json_path,
+					      false, NULL);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -839,8 +838,8 @@ static void show_vni_routes(struct bgp *bgp, struct bgpevpn *vpn,
 						     NULL);
 
 			else
-				route_vty_out(vty, &tmp_p, pi, 0, NULL, SAFI_EVPN,
-					      json_path, false);
+				route_vty_out(vty, &tmp_p, pi, 0, NULL, SAFI_EVPN, json_path,
+					      false, NULL);
 
 			if (json)
 				json_object_array_add(json_paths, json_path);
@@ -1282,11 +1281,8 @@ static int bgp_show_ethernet_vpn(struct vty *vty, struct prefix_rd *prd,
 						vty, bgp_dest_get_prefix(rm),
 						pi, no_display, json_array);
 				else
-					route_vty_out(vty,
-						      bgp_dest_get_prefix(rm),
-						      pi, no_display, NULL,
-						      SAFI_EVPN, json_array,
-						      false);
+					route_vty_out(vty, bgp_dest_get_prefix(rm), pi, no_display,
+						      NULL, SAFI_EVPN, json_array, false, NULL);
 				no_display = 1;
 			}
 
@@ -3174,8 +3170,8 @@ static void evpn_show_all_routes(struct vty *vty, struct bgp *bgp, int type,
 							     AFI_L2VPN, SAFI_EVPN,
 							     RPKI_NOT_BEING_USED, json_path, NULL);
 				} else
-					route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN,
-						      json_path, false);
+					route_vty_out(vty, p, pi, 0, NULL, SAFI_EVPN, json_path,
+						      false, rd_str);
 
 				if (json)
 					json_object_array_add(json_paths,
