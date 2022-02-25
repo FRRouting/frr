@@ -1244,7 +1244,7 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 	static_attr.originator_id = bgp_vpn->router_id;
 
 	/* Set SID for SRv6 VPN */
-	if (bgp_vrf->vpn_policy[afi].tovpn_sid) {
+	if (bgp_vrf->vpn_policy[afi].tovpn_sid_locator) {
 		encode_label(bgp_vrf->vpn_policy[afi].tovpn_sid_transpose_label,
 			     &label);
 		static_attr.srv6_l3vpn = XCALLOC(MTYPE_BGP_SRV6_L3VPN,
@@ -1264,8 +1264,8 @@ void vpn_leak_from_vrf_update(struct bgp *bgp_vpn,	    /* to */
 		static_attr.srv6_l3vpn->transposition_offset =
 			BGP_PREFIX_SID_SRV6_TRANSPOSITION_OFFSET;
 		memcpy(&static_attr.srv6_l3vpn->sid,
-		       bgp_vrf->vpn_policy[afi].tovpn_sid,
-		       sizeof(static_attr.srv6_l3vpn->sid));
+		       bgp_vrf->vpn_policy[afi].tovpn_sid_locator,
+		       sizeof(struct in6_addr));
 	}
 
 
