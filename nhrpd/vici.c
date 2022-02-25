@@ -514,8 +514,7 @@ static void vici_reconnect(struct thread *t)
 			fd = sock_open_unix(file_path);
 	}
 	if (fd < 0) {
-		debugf(NHRP_DEBUG_VICI,
-		       "%s: failure connecting VICI socket: %s", __func__,
+		debugf(NHRP_DEBUG_VICI, "failure connecting VICI socket: %s",
 		       strerror(errno));
 		thread_add_timer(master, vici_reconnect, vici, 2,
 				 &vici->t_reconnect);

@@ -883,14 +883,14 @@ void pbr_map_check(struct pbr_map_sequence *pbrms, bool changed)
 
 	if (pbrms->reason == PBR_MAP_VALID_SEQUENCE_NUMBER) {
 		install = true;
-		DEBUGD(&pbr_dbg_map, "%s: Installing %s(%u) reason: %" PRIu64,
-		       __func__, pbrm->name, pbrms->seqno, pbrms->reason);
+		DEBUGD(&pbr_dbg_map, "Installing %s(%u) reason: %" PRIu64,
+		       pbrm->name, pbrms->seqno, pbrms->reason);
 		DEBUGD(&pbr_dbg_map,
 		       "    Sending PBR_MAP_POLICY_INSTALL event");
 	} else {
 		install = false;
-		DEBUGD(&pbr_dbg_map, "%s: Removing %s(%u) reason: %" PRIu64,
-		       __func__, pbrm->name, pbrms->seqno, pbrms->reason);
+		DEBUGD(&pbr_dbg_map, "Removing %s(%u) reason: %" PRIu64,
+		       pbrm->name, pbrms->seqno, pbrms->reason);
 	}
 
 	if (install)

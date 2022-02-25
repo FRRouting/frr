@@ -238,7 +238,7 @@ static int rule_notify_owner(ZAPI_CALLBACK_ARGS)
 		break;
 	}
 
-	DEBUGD(&pbr_dbg_zebra, "%s: Received %s: %" PRIu64, __func__,
+	DEBUGD(&pbr_dbg_zebra, "Received %s: %" PRIu64,
 	       zapi_rule_notify_owner2str(note), pbrms->installed);
 
 	pbr_map_final_interface_deletion(pbrms->parent, pmi);
