@@ -1,3 +1,6 @@
+#ifndef _FRR_CHECKSUM_H
+#define _FRR_CHECKSUM_H
+
 #include <stdint.h>
 #include <netinet/in.h>
 
@@ -35,3 +38,5 @@ extern uint16_t fletcher_checksum(uint8_t *, const size_t len,
 #ifdef __cplusplus
 }
 #endif
+
+#endif /* _FRR_CHECKSUM_H */
