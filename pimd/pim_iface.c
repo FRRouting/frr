@@ -205,8 +205,6 @@ void pim_if_delete(struct interface *ifp)
 
 	pim_ifp->pim->mcast_if_count--;
 #if PIM_IPV == 4
-	struct pim_ifchannel *ch;
-
 	if (pim_ifp->gm_join_list) {
 		pim_if_igmp_join_del_all(ifp);
 	}
