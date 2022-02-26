@@ -1,7 +1,7 @@
 //
+// Copyright (c) 2021-2022, LabN Consulting, L.L.C
 // Copyright (C) 2019  NetDEF, Inc.
 //                     Renato Westphal
-// Copyright (c) 2021, LabN Consulting, L.L.C
 //
 // This program is free software; you can redistribute it and/or modify it
 // under the terms of the GNU General Public License as published by the Free
@@ -227,7 +227,6 @@ template <typename Q, typename S> class NewRpcState : RpcStateBase
 		pthread_mutex_unlock(&_tag->cmux);
 		return;
 	}
-	NewRpcState<Q, S> *orig;
 
 	const char *name;
 	grpc::ServerContext ctx;
@@ -238,12 +237,12 @@ template <typename Q, typename S> class NewRpcState : RpcStateBase
 
 	Candidates *cdb;
 	void (*callback)(NewRpcState<Q, S> *);
-	reqfunc_t requestf;
-	reqsfunc_t requestsf;
+	reqfunc_t requestf = NULL;
+	reqsfunc_t requestsf = NULL;
 
 	pthread_mutex_t cmux = PTHREAD_MUTEX_INITIALIZER;
 	pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
-	void *context;
+	void *context = 0;
 
 	CallState state = CREATE;
 };
