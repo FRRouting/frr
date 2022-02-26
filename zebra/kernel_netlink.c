@@ -155,7 +155,6 @@ static const struct message rttype_str[] = {{RTN_UNSPEC, "none"},
 					    {0}};
 
 extern struct thread_master *master;
-extern uint32_t nl_rcvbufsize;
 
 extern struct zebra_privs_t zserv_privs;
 
@@ -261,12 +260,11 @@ static int netlink_recvbuf(struct nlsock *nl, uint32_t newsize)
 	/* Try force option (linux >= 2.6.14) and fall back to normal set */
 	frr_with_privs(&zserv_privs) {
 		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUFFORCE,
-				 &nl_rcvbufsize,
-				 sizeof(nl_rcvbufsize));
+				 &rcvbufsize, sizeof(rcvbufsize));
 	}
 	if (ret < 0)
-		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF,
-				 &nl_rcvbufsize, sizeof(nl_rcvbufsize));
+		ret = setsockopt(nl->sock, SOL_SOCKET, SO_RCVBUF, &rcvbufsize,
+				 sizeof(rcvbufsize));
 	if (ret < 0) {
 		flog_err_sys(EC_LIB_SOCKET,
 			     "Can't set %s receive buffer size: %s", nl->name,
@@ -1732,11 +1730,11 @@ void kernel_init(struct zebra_ns *zns)
 			 errno);
 
 	/* Set receive buffer size if it's set from command line */
-	if (nl_rcvbufsize) {
-		netlink_recvbuf(&zns->netlink, nl_rcvbufsize);
-		netlink_recvbuf(&zns->netlink_cmd, nl_rcvbufsize);
-		netlink_recvbuf(&zns->netlink_dplane_out, nl_rcvbufsize);
-		netlink_recvbuf(&zns->netlink_dplane_in, nl_rcvbufsize);
+	if (rcvbufsize) {
+		netlink_recvbuf(&zns->netlink, rcvbufsize);
+		netlink_recvbuf(&zns->netlink_cmd, rcvbufsize);
+		netlink_recvbuf(&zns->netlink_dplane_out, rcvbufsize);
+		netlink_recvbuf(&zns->netlink_dplane_in, rcvbufsize);
 	}
 
 	/* Set filter for inbound sockets, to exclude events we've generated
