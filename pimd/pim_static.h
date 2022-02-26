@@ -26,8 +26,8 @@
 
 struct static_route {
 	/* Each static route is unique by these pair of addresses */
-	struct in_addr group;
-	struct in_addr source;
+	pim_addr group;
+	pim_addr source;
 
 	struct channel_oil c_oil;
 	ifindex_t iif;
@@ -37,11 +37,9 @@ struct static_route {
 void pim_static_route_free(struct static_route *s_route);
 
 int pim_static_add(struct pim_instance *pim, struct interface *iif,
-		   struct interface *oif, struct in_addr group,
-		   struct in_addr source);
+		   struct interface *oif, pim_addr group, pim_addr source);
 int pim_static_del(struct pim_instance *pim, struct interface *iif,
-		   struct interface *oif, struct in_addr group,
-		   struct in_addr source);
+		   struct interface *oif, pim_addr group, pim_addr source);
 int pim_static_write_mroute(struct pim_instance *pim, struct vty *vty,
 			    struct interface *ifp);
 

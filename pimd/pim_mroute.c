@@ -145,6 +145,7 @@ static int pim_mroute_set(struct pim_instance *pim, int enable)
 	return 0;
 }
 
+#if PIM_IPV == 4
 static const char *const igmpmsgtype2str[IGMPMSG_WRVIFWHOLE + 1] = {
 	"<unknown_upcall?>", "NOCACHE", "WRONGVIF", "WHOLEPKT", "WRVIFWHOLE"};
 
@@ -227,7 +228,7 @@ static int pim_mroute_msg_nocache(int fd, struct interface *ifp,
 	up->channel_oil->cc.pktcnt++;
 	// resolve mfcc_parent prior to mroute_add in channel_add_oif
 	if (up->rpf.source_nexthop.interface &&
-	    up->channel_oil->oil.mfcc_parent >= MAXVIFS) {
+	    *oil_parent(up->channel_oil) >= MAXVIFS) {
 		pim_upstream_mroute_iif_update(up->channel_oil, __func__);
 	}
 	pim_register_join(up);
@@ -580,12 +581,8 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			  int buf_size, ifindex_t ifindex)
 {
 	struct interface *ifp;
-	struct pim_interface *pim_ifp;
 	const struct ip *ip_hdr;
 	const struct igmpmsg *msg;
-	struct in_addr ifaddr;
-	struct gm_sock *igmp;
-	const struct prefix *connected_src;
 
 	if (buf_size < (int)sizeof(struct ip))
 		return 0;
@@ -593,6 +590,11 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 	ip_hdr = (const struct ip *)buf;
 
 	if (ip_hdr->ip_p == IPPROTO_IGMP) {
+#if PIM_IPV == 4
+		struct pim_interface *pim_ifp;
+		struct in_addr ifaddr;
+		struct gm_sock *igmp;
+		const struct prefix *connected_src;
 
 		/* We have the IP packet but we do not know which interface this
 		 * packet was
@@ -632,6 +634,7 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 			zlog_debug("No IGMP socket on interface: %s with connected source: %pFX",
 				   ifp->name, connected_src);
 		}
+#endif
 	} else if (ip_hdr->ip_p) {
 		if (PIM_DEBUG_MROUTE_DETAIL) {
 			zlog_debug(
@@ -676,6 +679,14 @@ static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
 
 	return 0;
 }
+#else /* PIM_IPV != 4 */
+
+static int pim_mroute_msg(struct pim_instance *pim, const char *buf,
+			  int buf_size, ifindex_t ifindex)
+{
+	return 0;
+}
+#endif /* PIM_IPV != 4 */
 
 static void mroute_read(struct thread *t)
 {
@@ -797,7 +808,7 @@ int pim_mroute_socket_disable(struct pim_instance *pim)
   would be used for multicast forwarding, a corresponding multicast
   interface must be added to the kernel.
  */
-int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
+int pim_mroute_add_vif(struct interface *ifp, pim_addr ifaddr,
 		       unsigned char flags)
 {
 	struct pim_interface *pim_ifp = ifp->info;
@@ -836,15 +847,10 @@ int pim_mroute_add_vif(struct interface *ifp, struct in_addr ifaddr,
 	err = setsockopt(pim_ifp->pim->mroute_socket, IPPROTO_IP, MRT_ADD_VIF,
 			 (void *)&vc, sizeof(vc));
 	if (err) {
-		char ifaddr_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<ifaddr?>", ifaddr, ifaddr_str,
-			       sizeof(ifaddr_str));
-
 		zlog_warn(
-			"%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%s,flag=%d): errno=%d: %s",
+			"%s: failure: setsockopt(fd=%d,IPPROTO_IP,MRT_ADD_VIF,vif_index=%d,ifaddr=%pPAs,flag=%d): errno=%d: %s",
 			__func__, pim_ifp->pim->mroute_socket, ifp->ifindex,
-			ifaddr_str, flags, errno, safe_strerror(errno));
+			&ifaddr, flags, errno, safe_strerror(errno));
 		return -2;
 	}
 
@@ -918,26 +924,26 @@ bool pim_mroute_allow_iif_in_oil(struct channel_oil *c_oil,
 #endif
 }
 
-static inline void pim_mroute_copy(struct mfcctl *oil,
-		struct channel_oil *c_oil)
+static inline void pim_mroute_copy(struct channel_oil *out,
+				   struct channel_oil *in)
 {
 	int i;
 
-	oil->mfcc_origin = c_oil->oil.mfcc_origin;
-	oil->mfcc_mcastgrp = c_oil->oil.mfcc_mcastgrp;
-	oil->mfcc_parent = c_oil->oil.mfcc_parent;
+	*oil_origin(out) = *oil_origin(in);
+	*oil_mcastgrp(out) = *oil_mcastgrp(in);
+	*oil_parent(out) = *oil_parent(in);
 
 	for (i = 0; i < MAXVIFS; ++i) {
-		if ((oil->mfcc_parent == i) &&
-				!pim_mroute_allow_iif_in_oil(c_oil, i)) {
-			oil->mfcc_ttls[i] = 0;
+		if (*oil_parent(out) == i &&
+		    !pim_mroute_allow_iif_in_oil(in, i)) {
+			oil_if_set(out, i, 0);
 			continue;
 		}
 
-		if (c_oil->oif_flags[i] & PIM_OIF_FLAG_MUTE)
-			oil->mfcc_ttls[i] = 0;
+		if (in->oif_flags[i] & PIM_OIF_FLAG_MUTE)
+			oil_if_set(out, i, 0);
 		else
-			oil->mfcc_ttls[i] = c_oil->oil.mfcc_ttls[i];
+			oil_if_set(out, i, oil_if_has(in, i));
 	}
 }
 
@@ -947,7 +953,7 @@ static inline void pim_mroute_copy(struct mfcctl *oil,
 static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 {
 	struct pim_instance *pim = c_oil->pim;
-	struct mfcctl tmp_oil = { {0} };
+	struct channel_oil tmp_oil[1] = { };
 	int err;
 
 	pim->mroute_add_last = pim_time_monotonic_sec();
@@ -956,14 +962,14 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	/* Copy the oil to a temporary structure to fixup (without need to
 	 * later restore) before sending the mroute add to the dataplane
 	 */
-	pim_mroute_copy(&tmp_oil, c_oil);
+	pim_mroute_copy(tmp_oil, c_oil);
 
 	/* The linux kernel *expects* the incoming
 	 * vif to be part of the outgoing list
 	 * in the case of a (*,G).
 	 */
-	if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY) {
-		tmp_oil.mfcc_ttls[c_oil->oil.mfcc_parent] = 1;
+	if (pim_addr_is_any(*oil_origin(c_oil))) {
+		oil_if_set(tmp_oil, *oil_parent(c_oil), 1);
 	}
 
 	/*
@@ -973,19 +979,19 @@ static int pim_mroute_add(struct channel_oil *c_oil, const char *name)
 	 * the packets to be forwarded.  Then set it
 	 * to the correct IIF afterwords.
 	 */
-	if (!c_oil->installed && c_oil->oil.mfcc_origin.s_addr != INADDR_ANY
-	    && c_oil->oil.mfcc_parent != 0) {
-		tmp_oil.mfcc_parent = 0;
+	if (!c_oil->installed && !pim_addr_is_any(*oil_origin(c_oil))
+	    && *oil_parent(c_oil) != 0) {
+		*oil_parent(tmp_oil) = 0;
 	}
 	err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
-			 &tmp_oil, sizeof(tmp_oil));
+			 &tmp_oil->oil, sizeof(tmp_oil->oil));
 
 	if (!err && !c_oil->installed
-	    && c_oil->oil.mfcc_origin.s_addr != INADDR_ANY
-	    && c_oil->oil.mfcc_parent != 0) {
-		tmp_oil.mfcc_parent = c_oil->oil.mfcc_parent;
+	    && !pim_addr_is_any(*oil_origin(c_oil))
+	    && *oil_parent(c_oil) != 0) {
+		*oil_parent(tmp_oil) = *oil_parent(c_oil);
 		err = setsockopt(pim->mroute_socket, IPPROTO_IP, MRT_ADD_MFC,
-				 &tmp_oil, sizeof(tmp_oil));
+				 &tmp_oil->oil, sizeof(tmp_oil->oil));
 	}
 
 	if (err) {
@@ -1040,7 +1046,7 @@ static int pim_upstream_mroute_update(struct channel_oil *c_oil,
 {
 	char buf[1000];
 
-	if (c_oil->oil.mfcc_parent >= MAXVIFS) {
+	if (*oil_parent(c_oil) >= MAXVIFS) {
 		/* the c_oil cannot be installed as a mroute yet */
 		if (PIM_DEBUG_MROUTE)
 			zlog_debug(
@@ -1087,13 +1093,13 @@ int pim_upstream_mroute_add(struct channel_oil *c_oil, const char *name)
 
 	iif = pim_upstream_get_mroute_iif(c_oil, name);
 
-	if (c_oil->oil.mfcc_parent != iif) {
-		c_oil->oil.mfcc_parent = iif;
-		if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY &&
+	if (*oil_parent(c_oil) != iif) {
+		*oil_parent(c_oil) = iif;
+		if (pim_addr_is_any(*oil_origin(c_oil)) &&
 				c_oil->up)
 			pim_upstream_all_sources_iif_update(c_oil->up);
 	} else {
-		c_oil->oil.mfcc_parent = iif;
+		*oil_parent(c_oil) = iif;
 	}
 
 	return pim_upstream_mroute_update(c_oil, name);
@@ -1108,13 +1114,13 @@ int pim_upstream_mroute_iif_update(struct channel_oil *c_oil, const char *name)
 	char buf[1000];
 
 	iif = pim_upstream_get_mroute_iif(c_oil, name);
-	if (c_oil->oil.mfcc_parent == iif) {
+	if (*oil_parent(c_oil) == iif) {
 		/* no change */
 		return 0;
 	}
-	c_oil->oil.mfcc_parent = iif;
+	*oil_parent(c_oil) = iif;
 
-	if (c_oil->oil.mfcc_origin.s_addr == INADDR_ANY &&
+	if (pim_addr_is_any(*oil_origin(c_oil)) &&
 			c_oil->up)
 		pim_upstream_all_sources_iif_update(c_oil->up);
 
@@ -1137,10 +1143,10 @@ void pim_static_mroute_iif_update(struct channel_oil *c_oil,
 				int input_vif_index,
 				const char *name)
 {
-	if (c_oil->oil.mfcc_parent == input_vif_index)
+	if (*oil_parent(c_oil) == input_vif_index)
 		return;
 
-	c_oil->oil.mfcc_parent = input_vif_index;
+	*oil_parent(c_oil) = input_vif_index;
 	if (input_vif_index == MAXVIFS)
 		pim_mroute_del(c_oil, name);
 	else
@@ -1160,7 +1166,7 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 			char buf[1000];
 			zlog_debug(
 				"%s %s: vifi %d for route is %s not installed, do not need to send del req. ",
-				__FILE__, __func__, c_oil->oil.mfcc_parent,
+				__FILE__, __func__, *oil_parent(c_oil),
 				pim_channel_oil_dump(c_oil, buf, sizeof(buf)));
 		}
 		return -2;
@@ -1193,7 +1199,6 @@ int pim_mroute_del(struct channel_oil *c_oil, const char *name)
 void pim_mroute_update_counters(struct channel_oil *c_oil)
 {
 	struct pim_instance *pim = c_oil->pim;
-	struct sioc_sg_req sgreq;
 
 	c_oil->cc.oldpktcnt = c_oil->cc.pktcnt;
 	c_oil->cc.oldbytecnt = c_oil->cc.bytecnt;
@@ -1204,24 +1209,27 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 		if (PIM_DEBUG_MROUTE) {
 			pim_sgaddr sg;
 
-			sg.src = c_oil->oil.mfcc_origin;
-			sg.grp = c_oil->oil.mfcc_mcastgrp;
+			sg.src = *oil_origin(c_oil);
+			sg.grp = *oil_mcastgrp(c_oil);
 			zlog_debug("Channel%pSG is not installed no need to collect data from kernel",
 				   &sg);
 		}
 		return;
 	}
 
+#if PIM_IPV == 4
+	struct sioc_sg_req sgreq;
+
 	memset(&sgreq, 0, sizeof(sgreq));
-	sgreq.src = c_oil->oil.mfcc_origin;
-	sgreq.grp = c_oil->oil.mfcc_mcastgrp;
+	sgreq.src = *oil_origin(c_oil);
+	sgreq.grp = *oil_mcastgrp(c_oil);
 
 	pim_zlookup_sg_statistics(c_oil);
 	if (ioctl(pim->mroute_socket, SIOCGETSGCNT, &sgreq)) {
 		pim_sgaddr sg;
 
-		sg.src = c_oil->oil.mfcc_origin;
-		sg.grp = c_oil->oil.mfcc_mcastgrp;
+		sg.src = *oil_origin(c_oil);
+		sg.grp = *oil_mcastgrp(c_oil);
 
 		zlog_warn("ioctl(SIOCGETSGCNT=%lu) failure for (S,G)=%pSG: errno=%d: %s",
 			  (unsigned long)SIOCGETSGCNT, &sg,
@@ -1232,6 +1240,6 @@ void pim_mroute_update_counters(struct channel_oil *c_oil)
 	c_oil->cc.pktcnt = sgreq.pktcnt;
 	c_oil->cc.bytecnt = sgreq.bytecnt;
 	c_oil->cc.wrong_if = sgreq.wrong_if;
-
+#endif
 	return;
 }

@@ -98,7 +98,7 @@ struct channel_oil {
 
 	struct rb_pim_oil_item oil_rb;
 
-	struct mfcctl oil;
+	pim_mfcctl oil;
 	int installed;
 	int oil_inherited_rescan;
 	int oil_size;
@@ -109,6 +109,61 @@ struct channel_oil {
 	struct pim_upstream *up;
 	time_t mroute_creation;
 };
+
+#if PIM_IPV == 4
+static inline pim_addr *oil_origin(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mfcc_origin;
+}
+
+static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mfcc_mcastgrp;
+}
+
+static inline vifi_t *oil_parent(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mfcc_parent;
+}
+
+static inline uint8_t oil_if_has(struct channel_oil *c_oil, vifi_t ifi)
+{
+	return c_oil->oil.mfcc_ttls[ifi];
+}
+
+static inline void oil_if_set(struct channel_oil *c_oil, vifi_t ifi, uint8_t set)
+{
+	c_oil->oil.mfcc_ttls[ifi] = set;
+}
+#else
+static inline pim_addr *oil_origin(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mf6cc_origin.sin6_addr;
+}
+
+static inline pim_addr *oil_mcastgrp(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mf6cc_mcastgrp.sin6_addr;
+}
+
+static inline mifi_t *oil_parent(struct channel_oil *c_oil)
+{
+	return &c_oil->oil.mf6cc_parent;
+}
+
+static inline bool oil_if_has(struct channel_oil *c_oil, mifi_t ifi)
+{
+	return !!IF_ISSET(ifi, &c_oil->oil.mf6cc_ifset);
+}
+
+static inline void oil_if_set(struct channel_oil *c_oil, mifi_t ifi, bool set)
+{
+	if (set)
+		IF_SET(ifi, &c_oil->oil.mf6cc_ifset);
+	else
+		IF_CLR(ifi, &c_oil->oil.mf6cc_ifset);
+}
+#endif
 
 extern int pim_channel_oil_compare(const struct channel_oil *c1,
 				   const struct channel_oil *c2);
