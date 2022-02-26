@@ -4320,6 +4320,10 @@ static void rib_process_dplane_results(struct thread *thread)
 				zebra_if_addr_update_ctx(ctx);
 				break;
 
+			case DPLANE_OP_INTF_NETCONFIG:
+				zebra_if_netconf_update_ctx(ctx);
+				break;
+
 			/* Some op codes not handled here */
 			case DPLANE_OP_ADDR_INSTALL:
 			case DPLANE_OP_ADDR_UNINSTALL:

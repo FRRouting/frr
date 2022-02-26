@@ -38,7 +38,6 @@
 #include "lib_errors.h"
 #include "hash.h"
 
-//#include "zebra/zserv.h"
 #include "zebra/zebra_router.h"
 #include "zebra/zebra_ns.h"
 #include "zebra/zebra_vrf.h"
@@ -48,6 +47,7 @@
 #include "zebra/rt_netlink.h"
 #include "zebra/if_netlink.h"
 #include "zebra/rule_netlink.h"
+#include "zebra/netconf_netlink.h"
 #include "zebra/zebra_errors.h"
 
 #ifndef SO_RCVBUFFORCE
@@ -108,6 +108,8 @@ static const struct message nlmsg_str[] = {{RTM_NEWROUTE, "RTM_NEWROUTE"},
 					   {RTM_NEWNEXTHOP, "RTM_NEWNEXTHOP"},
 					   {RTM_DELNEXTHOP, "RTM_DELNEXTHOP"},
 					   {RTM_GETNEXTHOP, "RTM_GETNEXTHOP"},
+					   {RTM_NEWNETCONF, "RTM_NEWNETCONF"},
+					   {RTM_DELNETCONF, "RTM_DELNETCONF"},
 					   {0}};
 
 static const struct message rtproto_str[] = {
@@ -373,6 +375,8 @@ static int netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	/* Messages handled in the dplane thread */
 	case RTM_NEWADDR:
 	case RTM_DELADDR:
+	case RTM_NEWNETCONF:
+	case RTM_DELNETCONF:
 		return 0;
 
 	default:
@@ -407,7 +411,12 @@ static int dplane_netlink_information_fetch(struct nlmsghdr *h, ns_id_t ns_id,
 	case RTM_DELADDR:
 		return netlink_interface_addr_dplane(h, ns_id, startup);
 
-	/* TODO */
+	case RTM_NEWNETCONF:
+	case RTM_DELNETCONF:
+		return netlink_netconf_change(h, ns_id, startup);
+
+	/* TODO -- other messages for the dplane socket and pthread */
+
 	case RTM_NEWLINK:
 	case RTM_DELLINK:
 
@@ -456,8 +465,8 @@ int kernel_dplane_read(struct zebra_dplane_info *info)
  * then the normal course of operations).  We are intentionally
  * allowing some messages from ourselves through
  * ( I'm looking at you Interface based netlink messages )
- * so that we only had to write one way to handle incoming
- * address add/delete changes.
+ * so that we only have to write one way to handle incoming
+ * address add/delete and xxxNETCONF changes.
  */
 static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 {
@@ -473,7 +482,8 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		 *   if (nlmsg_pid == pid ||
 		 *       nlmsg_pid == dplane_pid) {
 		 *       if (the incoming nlmsg_type ==
-		 *           RTM_NEWADDR | RTM_DELADDR)
+		 *           RTM_NEWADDR || RTM_DELADDR || RTM_NEWNETCONF ||
+		 *           RTM_DELNETCONF)
 		 *           keep this message
 		 *       else
 		 *           skip this message
@@ -492,7 +502,7 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		/*
 		 * 2: Compare to dplane pid
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(dplane_pid), 0, 4),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htonl(dplane_pid), 0, 6),
 		/*
 		 * 3: Load the nlmsg_type into BPF register
 		 */
@@ -501,17 +511,27 @@ static void netlink_install_filter(int sock, uint32_t pid, uint32_t dplane_pid)
 		/*
 		 * 4: Compare to RTM_NEWADDR
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWADDR), 2, 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWADDR), 4, 0),
 		/*
 		 * 5: Compare to RTM_DELADDR
 		 */
-		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELADDR), 1, 0),
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELADDR), 3, 0),
 		/*
-		 * 6: This is the end state of we want to skip the
+		 * 6: Compare to RTM_NEWNETCONF
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_NEWNETCONF), 2,
+			 0),
+		/*
+		 * 7: Compare to RTM_DELNETCONF
+		 */
+		BPF_JUMP(BPF_JMP | BPF_JEQ | BPF_K, htons(RTM_DELNETCONF), 1,
+			 0),
+		/*
+		 * 8: This is the end state of we want to skip the
 		 *    message
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0),
-		/* 7: This is the end state of we want to keep
+		/* 9: This is the end state of we want to keep
 		 *     the message
 		 */
 		BPF_STMT(BPF_RET | BPF_K, 0xffff),
@@ -1470,6 +1490,7 @@ static enum netlink_msg_status nl_put_msg(struct nl_batch *bth,
 
 	case DPLANE_OP_INTF_ADDR_ADD:
 	case DPLANE_OP_INTF_ADDR_DEL:
+	case DPLANE_OP_INTF_NETCONFIG:
 	case DPLANE_OP_NONE:
 		return FRR_NETLINK_ERROR;
 	}
@@ -1597,7 +1618,11 @@ void kernel_init(struct zebra_ns *zns)
 
 	dplane_groups = (RTMGRP_LINK            |
 			 RTMGRP_IPV4_IFADDR     |
-			 RTMGRP_IPV6_IFADDR);
+			 RTMGRP_IPV6_IFADDR     |
+			 ((uint32_t) 1 << (RTNLGRP_IPV4_NETCONF - 1)) |
+			 ((uint32_t) 1 << (RTNLGRP_IPV6_NETCONF - 1)) |
+			 ((uint32_t) 1 << (RTNLGRP_MPLS_NETCONF - 1)));
+
 
 	snprintf(zns->netlink.name, sizeof(zns->netlink.name),
 		 "netlink-listen (NS %u)", zns->ns_id);
