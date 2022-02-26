@@ -24,6 +24,7 @@
 
 #include "checksum.h"
 #include "network.h"
+#include "prng.h"
 
 struct thread_master *master;
 
@@ -468,24 +469,19 @@ int main(int argc, char **argv)
 	uint8_t buffer[BUFSIZE];
 	int exercise = 0;
 #define EXERCISESTEP 257
-	srandom(time(NULL));
+	struct prng *prng = prng_new(0);
 
 	while (1) {
 		uint16_t ospfd, isisd, lib, in_csum, in_csum_res, in_csum_rfc;
-		int i, j;
+		int i;
 
 		exercise += EXERCISESTEP;
 		exercise %= MAXDATALEN;
 
 		printf("\rexercising length %d\033[K", exercise);
 
-		for (i = 0; i < exercise; i += sizeof(long int)) {
-			long int rand = frr_weak_random();
-
-			for (j = sizeof(long int); j > 0; j--)
-				buffer[i + (sizeof(long int) - j)] =
-					(rand >> (j * 8)) & 0xff;
-		}
+		for (i = 0; i < exercise; i++)
+			buffer[i] = prng_rand(prng);
 
 		in_csum = in_cksum(buffer, exercise);
 		in_csum_res = in_cksum_optimized(buffer, exercise);
@@ -536,6 +532,9 @@ int main(int argc, char **argv)
 				       iov[0].iov_len, iov[1].iov_len,
 				       iov[2].iov_len, in_csum_iov, in_csum);
 		}
+
+		if (exercise >= FLETCHER_CHECKSUM_VALIDATE)
+			continue;
 
 		ospfd = ospfd_checksum(buffer, exercise + sizeof(uint16_t),
 				       exercise);
