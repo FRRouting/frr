@@ -216,6 +216,7 @@ struct zebra_router {
 #define GRACEFUL_RESTART_TIME 60
 
 extern struct zebra_router zrouter;
+extern uint32_t rcvbufsize;
 
 extern void zebra_router_init(bool asic_offload, bool notify_on_ack);
 extern void zebra_router_cleanup(void);
