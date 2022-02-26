@@ -9,13 +9,24 @@
 #include <zebra.h>
 #include "checksum.h"
 
-int /* return checksum in low-order 16 bits */
-	in_cksum(void *parg, int nbytes)
+#define add_carry(dst, add)                                                    \
+	do {                                                                   \
+		typeof(dst) _add = (add);                                      \
+		dst += _add;                                                   \
+		if (dst < _add)                                                \
+			dst++;                                                 \
+	} while (0)
+
+uint16_t in_cksumv(const struct iovec *iov, size_t iov_len)
 {
-	unsigned short *ptr = parg;
-	register long sum; /* assumes long == 32 bits */
-	unsigned short oddbyte;
-	register unsigned short answer; /* assumes unsigned short == 16 bits */
+	const struct iovec *iov_end;
+	uint32_t sum = 0;
+
+	union {
+		uint8_t bytes[2];
+		uint16_t word;
+	} wordbuf;
+	bool have_oddbyte = false;
 
 	/*
 	 * Our algorithm is simple, using a 32-bit accumulator (sum),
@@ -23,17 +34,42 @@ int /* return checksum in low-order 16 bits */
 	 * all the carry bits from the top 16 bits into the lower 16 bits.
 	 */
 
-	sum = 0;
-	while (nbytes > 1) {
-		sum += *ptr++;
-		nbytes -= 2;
+	for (iov_end = iov + iov_len; iov < iov_end; iov++) {
+		const uint8_t *ptr, *end;
+
+		ptr = (const uint8_t *)iov->iov_base;
+		end = ptr + iov->iov_len;
+		if (ptr == end)
+			continue;
+
+		if (have_oddbyte) {
+			have_oddbyte = false;
+			wordbuf.bytes[1] = *ptr++;
+
+			add_carry(sum, wordbuf.word);
+		}
+
+		while (ptr + 8 <= end) {
+			add_carry(sum, *(const uint32_t *)(ptr + 0));
+			add_carry(sum, *(const uint32_t *)(ptr + 4));
+			ptr += 8;
+		}
+
+		while (ptr + 2 <= end) {
+			add_carry(sum, *(const uint16_t *)ptr);
+			ptr += 2;
+		}
+
+		if (ptr + 1 <= end) {
+			wordbuf.bytes[0] = *ptr++;
+			have_oddbyte = true;
+		}
 	}
 
 	/* mop up an odd byte, if necessary */
-	if (nbytes == 1) {
-		oddbyte = 0; /* make sure top half is zero */
-		*((uint8_t *)&oddbyte) = *(uint8_t *)ptr; /* one byte only */
-		sum += oddbyte;
+	if (have_oddbyte) {
+		wordbuf.bytes[1] = 0;
+		add_carry(sum, wordbuf.word);
 	}
 
 	/*
@@ -42,26 +78,7 @@ int /* return checksum in low-order 16 bits */
 
 	sum = (sum >> 16) + (sum & 0xffff); /* add high-16 to low-16 */
 	sum += (sum >> 16);		    /* add carry */
-	answer = ~sum; /* ones-complement, then truncate to 16 bits */
-	return (answer);
-}
-
-int in_cksum_with_ph4(struct ipv4_ph *ph, void *data, int nbytes)
-{
-	uint8_t dat[sizeof(struct ipv4_ph) + nbytes];
-
-	memcpy(dat, ph, sizeof(struct ipv4_ph));
-	memcpy(dat + sizeof(struct ipv4_ph), data, nbytes);
-	return in_cksum(dat, sizeof(dat));
-}
-
-int in_cksum_with_ph6(struct ipv6_ph *ph, void *data, int nbytes)
-{
-	uint8_t dat[sizeof(struct ipv6_ph) + nbytes];
-
-	memcpy(dat, ph, sizeof(struct ipv6_ph));
-	memcpy(dat + sizeof(struct ipv6_ph), data, nbytes);
-	return in_cksum(dat, sizeof(dat));
+	return ~sum;
 }
 
 /* Fletcher Checksum -- Refer to RFC1008. */
