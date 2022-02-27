@@ -3896,7 +3896,8 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 /*
  * Helper that debugs a single nexthop within a route-entry
  */
-static void _route_entry_dump_nh(const struct route_entry *re,
+static void _route_entry_dump_nh(struct zlog_blk *blk,
+				 const struct route_entry *re,
 				 const char *straddr,
 				 const struct nexthop *nexthop)
 {
@@ -3952,42 +3953,37 @@ static void _route_entry_dump_nh(const struct route_entry *re,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
-		   straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
-		   nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
-		   nexthop->vrf_id,
-		   wgt_str, backup_str,
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE)
-		    ? "ACTIVE "
-		    : ""),
-		   (CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED)
-		    ? "FIB "
-		    : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
-		    ? "RECURSIVE "
-		    : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK)
-		    ? "ONLINK "
-		    : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
-		    ? "DUPLICATE "
-		    : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED)
-		    ? "FILTERED " : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP)
-		    ? "BACKUP " : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE)
-		    ? "SRTE " : ""),
-		   (CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN)
-		    ? "EVPN " : ""));
-
+	zlog_blk_debug(
+		blk,
+		"%s: %s %s[%u] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
+		straddr, (nexthop->rparent ? "  NH" : "NH"), nhname,
+		nexthop->ifindex, label_str, vrf ? vrf->name : "Unknown",
+		nexthop->vrf_id, wgt_str, backup_str,
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ACTIVE) ? "ACTIVE "
+								 : ""),
+		(CHECK_FLAG(re->status, ROUTE_ENTRY_INSTALLED) ? "FIB " : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RECURSIVE)
+			 ? "RECURSIVE "
+			 : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_ONLINK) ? "ONLINK "
+								 : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_DUPLICATE)
+			 ? "DUPLICATE "
+			 : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_RNH_FILTERED)
+			 ? "FILTERED "
+			 : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_HAS_BACKUP) ? "BACKUP "
+								     : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_SRTE) ? "SRTE " : ""),
+		(CHECK_FLAG(nexthop->flags, NEXTHOP_FLAG_EVPN) ? "EVPN " : ""));
 }
 
 /* This function dumps the contents of a given RE entry into
  * standard debug log. Calling function name and IP prefix in
  * question are passed as 1st and 2nd arguments.
  */
-void _route_entry_dump(const char *func, union prefixconstptr pp,
+void _route_entry_dump(struct zlog_blk *blk, union prefixconstptr pp,
 		       union prefixconstptr src_pp,
 		       const struct route_entry *re)
 {
@@ -4003,38 +3999,40 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 
 	prefix2str(pp, straddr, sizeof(straddr));
 
-	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %s(%u)", func,
-		   (const void *)re, straddr,
-		   is_srcdst ? " from " : "",
-		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
-			     : "",
-		   VRF_LOGNAME(vrf), re->vrf_id);
-	zlog_debug("%s: uptime == %lu, type == %u, instance == %d, table == %d",
-		   straddr, (unsigned long)re->uptime, re->type, re->instance,
-		   re->table);
-	zlog_debug(
+	zlog_blk_debug(blk, "dumping RE entry %p for %s%s%s vrf %s(%u)",
+		       (const void *)re, straddr, is_srcdst ? " from " : "",
+		       is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
+				 : "",
+		       VRF_LOGNAME(vrf), re->vrf_id);
+	zlog_blk_debug(
+		blk,
+		"%s: uptime == %lu, type == %u, instance == %d, table == %d",
+		straddr, (unsigned long)re->uptime, re->type, re->instance,
+		re->table);
+	zlog_blk_debug(
+		blk,
 		"%s: metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
 		straddr, re->metric, re->mtu, re->distance,
 		zclient_dump_route_flags(re->flags, flags_buf,
 					 sizeof(flags_buf)),
 		_dump_re_status(re, status_buf, sizeof(status_buf)));
-	zlog_debug("%s: nexthop_num == %u, nexthop_active_num == %u", straddr,
-		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
-		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
+	zlog_blk_debug(blk, "%s: nexthop_num == %u, nexthop_active_num == %u",
+		       straddr, nexthop_group_nexthop_num(&(re->nhe->nhg)),
+		       nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
 	/* Dump nexthops */
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-		_route_entry_dump_nh(re, straddr, nexthop);
+		_route_entry_dump_nh(blk, re, straddr, nexthop);
 
 	if (zebra_nhg_get_backup_nhg(re->nhe)) {
-		zlog_debug("%s: backup nexthops:", straddr);
+		zlog_blk_debug(blk, "%s: backup nexthops:", straddr);
 
 		nhg = zebra_nhg_get_backup_nhg(re->nhe);
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
-			_route_entry_dump_nh(re, straddr, nexthop);
+			_route_entry_dump_nh(blk, re, straddr, nexthop);
 	}
 
-	zlog_debug("%s: dump complete", straddr);
+	zlog_blk_debug(blk, "%s: dump complete", straddr);
 }
 
 static int rib_meta_queue_early_route_add(struct meta_queue *mq, void *data)
