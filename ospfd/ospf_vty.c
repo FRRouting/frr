@@ -9705,7 +9705,7 @@ DEFUN (ospf_max_metric_router_lsa_startup,
 	unsigned int seconds;
 
 	if (argc < 4) {
-		vty_out(vty, "%% Must supply stub-router period");
+		vty_out(vty, "%% Must supply stub-router period\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
@@ -9761,7 +9761,7 @@ DEFUN (ospf_max_metric_router_lsa_shutdown,
 	unsigned int seconds;
 
 	if (argc < 4) {
-		vty_out(vty, "%% Must supply stub-router shutdown period");
+		vty_out(vty, "%% Must supply stub-router shutdown period\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
