@@ -8566,7 +8566,7 @@ DEFPY (af_sid_vpn_export,
 
 	if (!yes) {
 		/* implement me */
-		vty_out(vty, "It's not implemented");
+		vty_out(vty, "It's not implemented\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

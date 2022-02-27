@@ -3867,19 +3867,19 @@ DEFUN (bgp_evpn_advertise_type5,
 
 	if (!(afi == AFI_IP || afi == AFI_IP6)) {
 		vty_out(vty,
-			"%%only ipv4 or ipv6 address families are supported");
+			"%%only ipv4 or ipv6 address families are supported\n");
 		return CMD_WARNING;
 	}
 
 	if (safi != SAFI_UNICAST) {
 		vty_out(vty,
-			"%%only ipv4 unicast or ipv6 unicast are supported");
+			"%%only ipv4 unicast or ipv6 unicast are supported\n");
 		return CMD_WARNING;
 	}
 
 	if ((oly != OVERLAY_INDEX_TYPE_NONE)
 	    && (oly != OVERLAY_INDEX_GATEWAY_IP)) {
-		vty_out(vty, "%%Unknown overlay-index type specified");
+		vty_out(vty, "%%Unknown overlay-index type specified\n");
 		return CMD_WARNING;
 	}
 
@@ -4058,13 +4058,13 @@ DEFUN (no_bgp_evpn_advertise_type5,
 
 	if (!(afi == AFI_IP || afi == AFI_IP6)) {
 		vty_out(vty,
-			"%%only ipv4 or ipv6 address families are supported");
+			"%%only ipv4 or ipv6 address families are supported\n");
 		return CMD_WARNING;
 	}
 
 	if (safi != SAFI_UNICAST) {
 		vty_out(vty,
-			"%%only ipv4 unicast or ipv6 unicast are supported");
+			"%%only ipv4 unicast or ipv6 unicast are supported\n");
 		return CMD_WARNING;
 	}
 

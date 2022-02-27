@@ -2239,9 +2239,9 @@ DEFUN (banner_motd_file,
 	int cmd = cmd_banner_motd_file(filename);
 
 	if (cmd == CMD_ERR_NO_FILE)
-		vty_out(vty, "%s does not exist", filename);
+		vty_out(vty, "%s does not exist\n", filename);
 	else if (cmd == CMD_WARNING_CONFIG_FAILED)
-		vty_out(vty, "%s must be in %s", filename, SYSCONFDIR);
+		vty_out(vty, "%s must be in %s\n", filename, SYSCONFDIR);
 
 	return cmd;
 }
