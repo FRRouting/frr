@@ -1011,6 +1011,8 @@ void rtm_read(struct rt_msghdr *rtm)
 	ifindex_t ifindex = 0;
 	afi_t afi;
 	char fbuf[64];
+	int32_t proto = ZEBRA_ROUTE_KERNEL;
+	uint8_t distance = 0;
 
 	zebra_flags = 0;
 
@@ -1042,8 +1044,11 @@ void rtm_read(struct rt_msghdr *rtm)
 	if (!(flags & RTF_GATEWAY))
 		return;
 
-	if (flags & RTF_PROTO1)
+	if (flags & RTF_PROTO1) {
 		SET_FLAG(zebra_flags, ZEBRA_FLAG_SELFROUTE);
+		proto = ZEBRA_ROUTE_STATIC;
+		distance = 255;
+	}
 
 	memset(&nh, 0, sizeof(nh));
 
@@ -1111,13 +1116,13 @@ void rtm_read(struct rt_msghdr *rtm)
 			   0, true);
 	if (rtm->rtm_type == RTM_GET || rtm->rtm_type == RTM_ADD
 	    || rtm->rtm_type == RTM_CHANGE)
-		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL, 0,
-			zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN,
-			0, 0, 0, 0, false);
+		rib_add(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0, zebra_flags,
+			&p, NULL, &nh, 0, RT_TABLE_MAIN, 0, 0, distance, 0,
+			false);
 	else
-		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, ZEBRA_ROUTE_KERNEL,
-			   0, zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
-			   0, true);
+		rib_delete(afi, SAFI_UNICAST, VRF_DEFAULT, proto, 0,
+			   zebra_flags, &p, NULL, &nh, 0, RT_TABLE_MAIN, 0,
+			   distance, true);
 }
 
 /* Interface function for the kernel routing table updates.  Support
