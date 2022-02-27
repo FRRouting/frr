@@ -116,6 +116,7 @@ static const struct {
 	[ZEBRA_ROUTE_OPENFABRIC] = {ZEBRA_ROUTE_OPENFABRIC, 115, 5},
 	[ZEBRA_ROUTE_VRRP] = {ZEBRA_ROUTE_VRRP, 255, 7},
 	[ZEBRA_ROUTE_SRTE] = {ZEBRA_ROUTE_SRTE, 255, 7},
+	[ZEBRA_ROUTE_ALL] = {ZEBRA_ROUTE_ALL, 255, 7},
 	/* Any new route type added to zebra, should be mirrored here */
 
 	/* no entry/default: 150 */
@@ -4386,9 +4387,8 @@ static void check_route_info(void)
 	 * ZEBRA_ROUTE_ALL is also ignored.
 	 */
 	for (int i = 0; i < len; i++) {
-		if (i == ZEBRA_ROUTE_SYSTEM || i == ZEBRA_ROUTE_ALL)
-			continue;
-		assert(route_info[i].key);
+		assert(route_info[i].key >= ZEBRA_ROUTE_SYSTEM &&
+		       route_info[i].key < ZEBRA_ROUTE_MAX);
 		assert(route_info[i].meta_q_map < MQ_SIZE);
 	}
 }
