@@ -358,7 +358,7 @@ DEFPY(pbr_map_match_mark, pbr_map_match_mark_cmd,
 	struct pbr_map_sequence *pbrms = VTY_GET_CONTEXT(pbr_map_sequence);
 
 #ifndef GNU_LINUX
-	vty_out(vty, "pbr marks are not supported on this platform");
+	vty_out(vty, "pbr marks are not supported on this platform\n");
 	return CMD_WARNING_CONFIG_FAILED;
 #endif
 
