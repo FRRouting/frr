@@ -1319,6 +1319,7 @@ class Router(Node):
         self.daemondir = None
         self.hasmpls = False
         self.routertype = "frr"
+        self.unified_config = None
         self.daemons = {
             "zebra": 0,
             "ripd": 0,
@@ -1521,21 +1522,28 @@ class Router(Node):
                     )
 
         # print "Daemons before:", self.daemons
-        if daemon in self.daemons.keys():
-            self.daemons[daemon] = 1
+        if daemon in self.daemons.keys() or daemon == "frr":
+            if daemon == "frr":
+                self.unified_config = 1
+            else:
+                self.daemons[daemon] = 1
             if param is not None:
                 self.daemons_options[daemon] = param
             conf_file = "/etc/{}/{}.conf".format(self.routertype, daemon)
             if source is None or not os.path.exists(source):
-                self.cmd_raises("rm -f " + conf_file)
-                self.cmd_raises("touch " + conf_file)
+                if daemon == "frr" or not self.unified_config:
+                    self.cmd_raises("rm -f " + conf_file)
+                    self.cmd_raises("touch " + conf_file)
             else:
                 self.cmd_raises("cp {} {}".format(source, conf_file))
-            self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
-            self.cmd_raises("chmod 664 {}".format(conf_file))
+
+            if not self.unified_config or daemon == "frr":
+                self.cmd_raises("chown {0}:{0} {1}".format(self.routertype, conf_file))
+                self.cmd_raises("chmod 664 {}".format(conf_file))
+
             if (daemon == "snmpd") and (self.routertype == "frr"):
                 # /etc/snmp is private mount now
-                self.cmd('echo "agentXSocket /etc/frr/agentx" > /etc/snmp/frr.conf')
+                self.cmd('echo "agentXSocket /etc/frr/agentx" >> /etc/snmp/frr.conf')
                 self.cmd('echo "mibs +ALL" > /etc/snmp/snmp.conf')
 
             if (daemon == "zebra") and (self.daemons["staticd"] == 0):
@@ -1557,11 +1565,18 @@ class Router(Node):
         return self.run_in_window(cmd, title)
 
     def startRouter(self, tgen=None):
-        # Disable integrated-vtysh-config
-        self.cmd(
-            'echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
-            % self.routertype
-        )
+        if self.unified_config:
+            self.cmd(
+                'echo "service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
+                % self.routertype
+            )
+        else:
+            # Disable integrated-vtysh-config
+            self.cmd(
+                'echo "no service integrated-vtysh-config" >> /etc/%s/vtysh.conf'
+                % self.routertype
+            )
+
         self.cmd(
             "chown %s:%svty /etc/%s/vtysh.conf"
             % (self.routertype, self.routertype, self.routertype)
@@ -1632,6 +1647,9 @@ class Router(Node):
         vtysh_routers = g_extra_config["vtysh"]
         if "all" in vtysh_routers or self.name in vtysh_routers:
             self.run_in_window("vtysh", title="vt-%s" % self.name)
+
+        if self.unified_config:
+            self.cmd("vtysh -f /etc/frr/frr.conf")
 
         return status
 
