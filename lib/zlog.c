@@ -103,6 +103,7 @@ struct zlog_msg {
 	const char *fmt;
 	va_list args;
 	const struct xref_logmsg *xref;
+	struct zlog_blk *blk;
 
 	char *stackbuf;
 	size_t stackbufsz;
@@ -420,14 +421,15 @@ void zlog_tls_buffer_flush(void)
 }
 
 
-static void vzlog_notls(const struct xref_logmsg *xref, int prio,
-			const char *fmt, va_list ap)
+static void vzlog_notls(const struct xref_logmsg *xref, struct zlog_blk *blk,
+			int prio, const char *fmt, va_list ap)
 {
 	struct zlog_target *zt;
 	struct zlog_msg stackmsg = {
 		.prio = prio & LOG_PRIMASK,
 		.fmt = fmt,
 		.xref = xref,
+		.blk = blk,
 	}, *msg = &stackmsg;
 	char stackbuf[512];
 
@@ -453,7 +455,8 @@ static void vzlog_notls(const struct xref_logmsg *xref, int prio,
 }
 
 static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
-		      int prio, const char *fmt, va_list ap)
+		      struct zlog_blk *blk, int prio, const char *fmt,
+		      va_list ap)
 {
 	struct zlog_target *zt;
 	struct zlog_msg *msg;
@@ -487,6 +490,7 @@ static void vzlog_tls(struct zlog_tls *zlog_tls, const struct xref_logmsg *xref,
 	msg->fmt = fmt;
 	msg->prio = prio & LOG_PRIMASK;
 	msg->xref = xref;
+	msg->blk = blk;
 	if (msg->prio < LOG_INFO)
 		immediate = true;
 
@@ -695,7 +699,8 @@ void ezlog(int prio, const char *fmt, ...)
 	va_end(ap);
 }
 
-void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt, va_list ap)
+static void vzlogx_blk(const struct xref_logmsg *xref, struct zlog_blk *blk,
+		       int prio, const char *fmt, va_list ap)
 {
 	struct zlog_tls *zlog_tls = zlog_tls_get();
 
@@ -731,9 +736,9 @@ void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt, va_list a
 #endif
 
 	if (zlog_tls)
-		vzlog_tls(zlog_tls, xref, prio, fmt, ap);
+		vzlog_tls(zlog_tls, xref, blk, prio, fmt, ap);
 	else
-		vzlog_notls(xref, prio, fmt, ap);
+		vzlog_notls(xref, blk, prio, fmt, ap);
 
 	if (xref) {
 		struct xrefdata_logmsg *xrdl;
@@ -743,6 +748,30 @@ void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt, va_list a
 		if (xrdl->fl_print_bt)
 			zlog_backtrace_msg(xref, prio);
 	}
+}
+
+void vzlogx(const struct xref_logmsg *xref, int prio, const char *fmt,
+	    va_list ap)
+{
+	vzlogx_blk(xref, NULL, prio, fmt, ap);
+}
+
+void zlog_blk_begin_ref(const struct xref_logblk *xref, struct zlog_blk *blk)
+{
+	assert(!blk->xref);
+	blk->xref = xref;
+}
+
+void zlog_blk_end(struct zlog_blk *blk)
+{
+	assert(blk->xref);
+	blk->xref = NULL;
+}
+
+void vzlog_blk_debug_ref(const struct xref_logmsg *xref, struct zlog_blk *blk,
+			 const char *fmt, va_list ap)
+{
+	vzlogx_blk(xref, blk, LOG_DEBUG, fmt, ap);
 }
 
 void zlog_sigsafe(const char *text, size_t len)
@@ -836,7 +865,10 @@ const char *zlog_msg_text(struct zlog_msg *msg, size_t *textlen)
 		if (need)
 			need += bputch(&fb, ' ');
 
-		if (msg->prio == LOG_DEBUG && msg->xref)
+		if (msg->prio == LOG_DEBUG && msg->blk)
+			need += bprintfrr(&fb, "%s| ",
+					  msg->blk->xref->xref.func);
+		else if (msg->prio == LOG_DEBUG && msg->xref)
 			need += bprintfrr(&fb, "%s: ", msg->xref->xref.func);
 
 		msg->hdrlen = hdrlen = need;
