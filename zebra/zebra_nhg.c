@@ -3132,18 +3132,23 @@ static struct nhg_hash_entry *zebra_nhg_rib_compare_old_nhe(
 	struct vrf *vrf = vrf_lookup_by_id(re->vrf_id);
 
 	if (IS_ZEBRA_DEBUG_NHG_DETAIL) {
+		struct zlog_blk logblk = {};
 		char straddr[PREFIX_STRLEN];
 
-		prefix2str(&rn->p, straddr, sizeof(straddr));
-		zlog_debug("%s: %pRN new id: %u old id: %u", __func__, rn,
-			   new_nhe->id, old_nhe->id);
-		zlog_debug("%s: %pRN NEW", __func__, rn);
-		for (ALL_NEXTHOPS(new_nhe->nhg, nhop))
-			route_entry_dump_nh(re, straddr, vrf, nhop);
+		zlog_blk_begin(&logblk);
 
-		zlog_debug("%s: %pRN OLD", __func__, rn);
+		prefix2str(&rn->p, straddr, sizeof(straddr));
+		zlog_blk_debug(&logblk, "%s: %pRN new id: %u old id: %u", __func__, rn,
+			   new_nhe->id, old_nhe->id);
+		zlog_blk_debug(&logblk, "%s: %pRN NEW", __func__, rn);
+		for (ALL_NEXTHOPS(new_nhe->nhg, nhop))
+			_route_entry_dump_nh(&logblk, re, straddr, vrf, nhop);
+
+		zlog_blk_debug(&logblk, "%s: %pRN OLD", __func__, rn);
 		for (ALL_NEXTHOPS(old_nhe->nhg, nhop))
-			route_entry_dump_nh(re, straddr, vrf, nhop);
+			_route_entry_dump_nh(&logblk, re, straddr, vrf, nhop);
+
+		zlog_blk_end(&logblk);
 	}
 
 	nhop = new_nhe->nhg.nexthop;

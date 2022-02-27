@@ -355,8 +355,9 @@ int route_entry_update_nhe(struct route_entry *re,
 int rib_handle_nhg_replace(struct nhg_hash_entry *old_entry,
 			   struct nhg_hash_entry *new_entry);
 
-#define route_entry_dump(prefix, src, re) _route_entry_dump(__func__, prefix, src, re)
-extern void _route_entry_dump(const char *func, union prefixconstptr pp,
+#define route_entry_dump(prefix, src, re)                                      \
+	ZLOG_CALL_LOGBLK(_route_entry_dump, prefix, src, re)
+extern void _route_entry_dump(struct zlog_blk *blk, union prefixconstptr pp,
 			      union prefixconstptr src_pp,
 			      const struct route_entry *re);
 
@@ -625,7 +626,10 @@ extern pid_t zebra_pid;
 
 extern uint32_t rt_table_main_id;
 
-void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
+#define route_entry_dump_nh(re, straddr, re_vrf, nexthop)                      \
+	ZLOG_CALL_LOGBLK(_route_entry_dump_nh, re, straddr, re_vrf, nexthop)
+void _route_entry_dump_nh(struct zlog_blk *blk,
+			 const struct route_entry *re, const char *straddr,
 			 const struct vrf *re_vrf,
 			 const struct nexthop *nexthop);
 

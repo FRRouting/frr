@@ -4039,7 +4039,8 @@ void rib_delnode(struct route_node *rn, struct route_entry *re)
 /*
  * Helper that debugs a single nexthop within a route-entry
  */
-void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
+void _route_entry_dump_nh(struct zlog_blk *blk,
+			 const struct route_entry *re, const char *straddr,
 			 const struct vrf *re_vrf, const struct nexthop *nexthop)
 {
 	char nhname[PREFIX_STRLEN];
@@ -4095,7 +4096,7 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
 	if (nexthop->weight)
 		snprintf(wgt_str, sizeof(wgt_str), "wgt %d,", nexthop->weight);
 
-	zlog_debug("%s(%s): %s %s[%s:%d] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
+	zlog_blk_debug(blk, "%s(%s): %s %s[%s:%d] %svrf %s(%u) %s%s with flags %s%s%s%s%s%s%s%s%s",
 		   straddr, VRF_LOGNAME(re_vrf),
 		   (nexthop->rparent ? "  NH" : "NH"), nhname, ifp ? ifp->name : "Unknown", nexthop->ifindex,
 		   label_str, vrf ? vrf->name : "Unknown", nexthop->vrf_id,
@@ -4127,7 +4128,7 @@ void route_entry_dump_nh(const struct route_entry *re, const char *straddr,
  * standard debug log. Calling function name and IP prefix in
  * question are passed as 1st and 2nd arguments.
  */
-void _route_entry_dump(const char *func, union prefixconstptr pp,
+void _route_entry_dump(struct zlog_blk *blk, union prefixconstptr pp,
 		       union prefixconstptr src_pp,
 		       const struct route_entry *re)
 {
@@ -4143,38 +4144,38 @@ void _route_entry_dump(const char *func, union prefixconstptr pp,
 
 	prefix2str(pp, straddr, sizeof(straddr));
 
-	zlog_debug("%s: dumping RE entry %p for %s%s%s vrf %s(%u)", func,
+	zlog_blk_debug(blk, "dumping RE entry %p for %s%s%s vrf %s(%u)",
 		   (const void *)re, straddr,
 		   is_srcdst ? " from " : "",
 		   is_srcdst ? prefix2str(src_pp, srcaddr, sizeof(srcaddr))
 			     : "",
 		   VRF_LOGNAME(vrf), re->vrf_id);
-	zlog_debug("%s(%s): uptime == %lu, type == %u, instance == %d, table == %d",
+	zlog_blk_debug(blk, "%s(%s): uptime == %lu, type == %u, instance == %d, table == %d",
 		   straddr, VRF_LOGNAME(vrf), (unsigned long)re->uptime,
 		   re->type, re->instance, re->table);
-	zlog_debug("%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
+	zlog_blk_debug(blk, "%s(%s): metric == %u, mtu == %u, distance == %u, flags == %sstatus == %s",
 		   straddr, VRF_LOGNAME(vrf), re->metric, re->mtu, re->distance,
 		   zclient_dump_route_flags(re->flags, flags_buf, sizeof(flags_buf)),
 		   zebra_rib_dump_re_status(re, status_buf, sizeof(status_buf)));
-	zlog_debug("%s(%s): tag == %u, nexthop_num == %u, nexthop_active_num == %u",
+	zlog_blk_debug(blk, "%s(%s): tag == %u, nexthop_num == %u, nexthop_active_num == %u",
 		   straddr, VRF_LOGNAME(vrf), re->tag,
 		   nexthop_group_nexthop_num(&(re->nhe->nhg)),
 		   nexthop_group_active_nexthop_num(&(re->nhe->nhg)));
 
 	/* Dump nexthops */
 	for (ALL_NEXTHOPS(re->nhe->nhg, nexthop))
-		route_entry_dump_nh(re, straddr, vrf, nexthop);
+		_route_entry_dump_nh(blk, re, straddr, vrf, nexthop);
 
 	nhg = zebra_nhg_get_backup_nhg(re->nhe);
 	if (nhg) {
-		zlog_debug("%s(%s): backup nexthops:", straddr,
+		zlog_blk_debug(blk, "%s(%s): backup nexthops:", straddr,
 			   VRF_LOGNAME(vrf));
 
 		for (ALL_NEXTHOPS_PTR(nhg, nexthop))
-			route_entry_dump_nh(re, straddr, vrf, nexthop);
+			_route_entry_dump_nh(blk, re, straddr, vrf, nexthop);
 	}
 
-	zlog_debug("%s(%s): dump complete", straddr, VRF_LOGNAME(vrf));
+	zlog_blk_debug(blk, "%s(%s): dump complete", straddr, VRF_LOGNAME(vrf));
 }
 
 static int rib_meta_queue_gr_run_add(struct meta_queue *mq, void *data)
