@@ -540,7 +540,7 @@ DEFPY(vrf_label, vrf_label_cmd,
 		vrf = vrf_lookup_by_name(vrf_name);
 
 	if (!vrf) {
-		vty_out(vty, "Unable to find vrf you silly head");
+		vty_out(vty, "Unable to find vrf you silly head\n");
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 

@@ -3425,7 +3425,7 @@ DEFUN (show_evpn_mac_vni_mac,
 
 	vni = strtoul(argv[4]->arg, NULL, 10);
 	if (!prefix_str2mac(argv[6]->arg, &mac)) {
-		vty_out(vty, "%% Malformed MAC address");
+		vty_out(vty, "%% Malformed MAC address\n");
 		return CMD_WARNING;
 	}
 	zvrf = zebra_vrf_get_evpn();

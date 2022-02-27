@@ -1261,7 +1261,7 @@ DEFPY (show_rpki_prefix,
 	if (pfx_table_validate_r(rtr_config->pfx_table, &matches, &match_count,
 				 asn, &addr, prefix->prefixlen, &result)
 	    != PFX_SUCCESS) {
-		vty_out(vty, "Prefix lookup failed");
+		vty_out(vty, "Prefix lookup failed\n");
 		return CMD_WARNING;
 	}
 
