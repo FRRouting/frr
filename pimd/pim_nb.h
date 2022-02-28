@@ -198,6 +198,12 @@ int lib_interface_gmp_address_family_static_group_destroy(
 int routing_control_plane_protocols_name_validate(
 	struct nb_cb_create_args *args);
 
+#if PIM_IPV == 4
+#define FRR_PIM_AF_XPATH_VAL "frr-routing:ipv4"
+#else
+#define FRR_PIM_AF_XPATH_VAL "frr-routing:ipv6"
+#endif
+
 #define FRR_PIM_VRF_XPATH                                               \
 	"/frr-routing:routing/control-plane-protocols/"                 \
 	"control-plane-protocol[type='%s'][name='%s'][vrf='%s']/"       \
