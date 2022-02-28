@@ -151,17 +151,16 @@ static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, in_addr_t addr)
 
 int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 {
-	struct ip *ip_hdr;
+	struct ip *ip_hdr = (struct ip *)buf;
 	size_t ip_hlen; /* ip header length in bytes */
-	char src_str[INET_ADDRSTRLEN];
-	char dst_str[INET_ADDRSTRLEN];
 	uint8_t *pim_msg;
-	int pim_msg_len;
+	uint32_t pim_msg_len = 0;
 	uint16_t pim_checksum; /* received checksum */
 	uint16_t checksum;     /* computed checksum */
 	struct pim_neighbor *neigh;
 	struct pim_msg_header *header;
 	bool   no_fwd;
+	pim_sgaddr sg;
 
 	if (len < sizeof(*ip_hdr)) {
 		if (PIM_DEBUG_PIM_PACKETS)
@@ -171,8 +170,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 		return -1;
 	}
 
-	ip_hdr = (struct ip *)buf;
 	ip_hlen = ip_hdr->ip_hl << 2; /* ip_hl gives length in 4-byte words */
+	sg = pim_sgaddr_from_iphdr(buf);
 
 	pim_msg = buf + ip_hlen;
 	pim_msg_len = len - ip_hlen;
@@ -235,43 +234,29 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 	}
 
 	if (PIM_DEBUG_PIM_PACKETS) {
-		pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str,
-			       sizeof(src_str));
-		pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str,
-			       sizeof(dst_str));
 		zlog_debug(
-			"Recv PIM %s packet from %s to %s on %s: ttl=%d pim_version=%d pim_msg_size=%d checksum=%x",
-			pim_pim_msgtype2str(header->type), src_str, dst_str,
-			ifp->name, ip_hdr->ip_ttl, header->ver, pim_msg_len,
-			checksum);
-		if (PIM_DEBUG_PIM_PACKETDUMP_RECV) {
+			"Recv PIM %s packet from %pPA to %pPA on %s: pim_version=%d pim_msg_size=%d checksum=%x",
+			pim_pim_msgtype2str(header->type), &sg.src, &sg.grp,
+			ifp->name, header->ver, pim_msg_len, checksum);
+		if (PIM_DEBUG_PIM_PACKETDUMP_RECV)
 			pim_pkt_dump(__func__, pim_msg, pim_msg_len);
-		}
 	}
 
-	if (!pim_pkt_dst_addr_ok(header->type, ip_hdr->ip_dst.s_addr)) {
-		char dst_str[INET_ADDRSTRLEN];
-		char src_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<dst?>", ip_hdr->ip_dst, dst_str,
-			       sizeof(dst_str));
-		pim_inet4_dump("<src?>", ip_hdr->ip_src, src_str,
-			       sizeof(src_str));
+	if (!pim_pkt_dst_addr_ok(header->type, sg.grp)) {
 		zlog_warn(
-			"%s: Ignoring Pkt. Unexpected IP destination %s for %s (Expected: all_pim_routers_addr) from %s",
-			__func__, dst_str, pim_pim_msgtype2str(header->type),
-			src_str);
+			"%s: Ignoring Pkt. Unexpected IP destination %pPA for %s (Expected: all_pim_routers_addr) from %pPA",
+			__func__, &sg.grp, pim_pim_msgtype2str(header->type),
+			&sg.src);
 		return -1;
 	}
 
 	switch (header->type) {
 	case PIM_MSG_TYPE_HELLO:
-		return pim_hello_recv(ifp, ip_hdr->ip_src,
-				      pim_msg + PIM_MSG_HEADER_LEN,
+		return pim_hello_recv(ifp, sg.src, pim_msg + PIM_MSG_HEADER_LEN,
 				      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_REGISTER:
-		return pim_register_recv(ifp, ip_hdr->ip_dst, ip_hdr->ip_src,
+		return pim_register_recv(ifp, sg.grp, sg.src,
 					 pim_msg + PIM_MSG_HEADER_LEN,
 					 pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
@@ -280,38 +265,37 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 					      pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_JOIN_PRUNE:
-		neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
+		neigh = pim_neighbor_find(ifp, sg.src);
 		if (!neigh) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
+					"%s %s: non-hello PIM message type=%d from non-neighbor %pPA on %s",
 					__FILE__, __func__, header->type,
-					src_str, ifp->name);
+					&sg.src, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
-		return pim_joinprune_recv(ifp, neigh, ip_hdr->ip_src,
+		return pim_joinprune_recv(ifp, neigh, sg.src,
 					  pim_msg + PIM_MSG_HEADER_LEN,
 					  pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_ASSERT:
-		neigh = pim_neighbor_find(ifp, ip_hdr->ip_src);
+		neigh = pim_neighbor_find(ifp, sg.src);
 		if (!neigh) {
 			if (PIM_DEBUG_PIM_PACKETS)
 				zlog_debug(
-					"%s %s: non-hello PIM message type=%d from non-neighbor %s on %s",
+					"%s %s: non-hello PIM message type=%d from non-neighbor %pPA on %s",
 					__FILE__, __func__, header->type,
-					src_str, ifp->name);
+					&sg.src, ifp->name);
 			return -1;
 		}
 		pim_neighbor_timer_reset(neigh, neigh->holdtime);
-		return pim_assert_recv(ifp, neigh, ip_hdr->ip_src,
+		return pim_assert_recv(ifp, neigh, sg.src,
 				       pim_msg + PIM_MSG_HEADER_LEN,
 				       pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_BOOTSTRAP:
-		return pim_bsm_process(ifp, ip_hdr->ip_src, ip_hdr->ip_dst,
-				       pim_msg, pim_msg_len, no_fwd);
+		return pim_bsm_process(ifp, &sg, pim_msg, pim_msg_len, no_fwd);
 		break;
 
 	default:
