@@ -28,7 +28,7 @@
 
 #include "pimd.h"
 #include "pim_ssm.h"
-#include "pim_zebra.h"
+#include "pim_igmp.h"
 
 static void pim_ssm_range_reevaluate(struct pim_instance *pim)
 {

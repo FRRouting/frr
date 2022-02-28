@@ -37,10 +37,179 @@
 #include "pim_str.h"
 #include "pim_util.h"
 #include "pim_time.h"
-#include "pim_zebra.h"
+#include "pim_ssm.h"
+#include "pim_tib.h"
 
 static void group_timer_off(struct gm_group *group);
 static void pim_igmp_general_query(struct thread *t);
+
+void igmp_anysource_forward_start(struct pim_instance *pim,
+				  struct gm_group *group)
+{
+	struct gm_source *source;
+	struct in_addr src_addr = {.s_addr = 0};
+	/* Any source (*,G) is forwarded only if mode is EXCLUDE {empty} */
+	assert(group->group_filtermode_isexcl);
+	assert(listcount(group->group_source_list) < 1);
+
+	source = igmp_get_source_by_addr(group, src_addr, NULL);
+	if (!source) {
+		zlog_warn("%s: Failure to create * source", __func__);
+		return;
+	}
+
+	igmp_source_forward_start(pim, source);
+}
+
+void igmp_anysource_forward_stop(struct gm_group *group)
+{
+	struct gm_source *source;
+	struct in_addr star = {.s_addr = 0};
+
+	source = igmp_find_source_by_addr(group, star);
+	if (source)
+		igmp_source_forward_stop(source);
+}
+
+static void igmp_source_forward_reevaluate_one(struct pim_instance *pim,
+					       struct gm_source *source)
+{
+	pim_sgaddr sg;
+	struct gm_group *group = source->source_group;
+	struct pim_ifchannel *ch;
+
+	if ((source->source_addr.s_addr != INADDR_ANY) ||
+	    !IGMP_SOURCE_TEST_FORWARDING(source->source_flags))
+		return;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = source->source_addr;
+	sg.grp = group->group_addr;
+
+	ch = pim_ifchannel_find(group->interface, &sg);
+	if (pim_is_grp_ssm(pim, group->group_addr)) {
+		/* If SSM group withdraw local membership */
+		if (ch &&
+		    (ch->local_ifmembership == PIM_IFMEMBERSHIP_INCLUDE)) {
+			if (PIM_DEBUG_PIM_EVENTS)
+				zlog_debug(
+					"local membership del for %pSG as G is now SSM",
+					&sg);
+			pim_ifchannel_local_membership_del(group->interface,
+							   &sg);
+		}
+	} else {
+		/* If ASM group add local membership */
+		if (!ch ||
+		    (ch->local_ifmembership == PIM_IFMEMBERSHIP_NOINFO)) {
+			if (PIM_DEBUG_PIM_EVENTS)
+				zlog_debug(
+					"local membership add for %pSG as G is now ASM",
+					&sg);
+			pim_ifchannel_local_membership_add(
+				group->interface, &sg, false /*is_vxlan*/);
+		}
+	}
+}
+
+void igmp_source_forward_reevaluate_all(struct pim_instance *pim)
+{
+	struct interface *ifp;
+
+	FOR_ALL_INTERFACES (pim->vrf, ifp) {
+		struct pim_interface *pim_ifp = ifp->info;
+		struct listnode *grpnode;
+		struct gm_group *grp;
+		struct pim_ifchannel *ch, *ch_temp;
+
+		if (!pim_ifp)
+			continue;
+
+		/* scan igmp groups */
+		for (ALL_LIST_ELEMENTS_RO(pim_ifp->gm_group_list, grpnode,
+					  grp)) {
+			struct listnode *srcnode;
+			struct gm_source *src;
+
+			/* scan group sources */
+			for (ALL_LIST_ELEMENTS_RO(grp->group_source_list,
+						  srcnode, src)) {
+				igmp_source_forward_reevaluate_one(pim, src);
+			} /* scan group sources */
+		}	  /* scan igmp groups */
+
+		RB_FOREACH_SAFE (ch, pim_ifchannel_rb, &pim_ifp->ifchannel_rb,
+				 ch_temp) {
+			if (pim_is_grp_ssm(pim, ch->sg.grp)) {
+				if (pim_addr_is_any(ch->sg.src))
+					pim_ifchannel_delete(ch);
+			}
+		}
+	} /* scan interfaces */
+}
+
+void igmp_source_forward_start(struct pim_instance *pim,
+			       struct gm_source *source)
+{
+	struct gm_group *group;
+	pim_sgaddr sg;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = source->source_addr;
+	sg.grp = source->source_group->group_addr;
+
+	if (PIM_DEBUG_IGMP_TRACE) {
+		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
+			   source->source_group->interface->name,
+			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
+	}
+
+	/* Prevent IGMP interface from installing multicast route multiple
+	   times */
+	if (IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
+		return;
+	}
+
+	group = source->source_group;
+
+	if (tib_sg_gm_join(pim, sg, group->interface,
+			   &source->source_channel_oil))
+		IGMP_SOURCE_DO_FORWARDING(source->source_flags);
+}
+
+/*
+  igmp_source_forward_stop: stop fowarding, but keep the source
+  igmp_source_delete:       stop fowarding, and delete the source
+ */
+void igmp_source_forward_stop(struct gm_source *source)
+{
+	struct pim_interface *pim_oif;
+	struct gm_group *group;
+	pim_sgaddr sg;
+
+	memset(&sg, 0, sizeof(sg));
+	sg.src = source->source_addr;
+	sg.grp = source->source_group->group_addr;
+
+	if (PIM_DEBUG_IGMP_TRACE) {
+		zlog_debug("%s: (S,G)=%pSG oif=%s fwd=%d", __func__, &sg,
+			   source->source_group->interface->name,
+			   IGMP_SOURCE_TEST_FORWARDING(source->source_flags));
+	}
+
+	/* Prevent IGMP interface from removing multicast route multiple
+	   times */
+	if (!IGMP_SOURCE_TEST_FORWARDING(source->source_flags)) {
+		return;
+	}
+
+	group = source->source_group;
+	pim_oif = group->interface->info;
+
+	tib_sg_gm_prune(pim_oif->pim, sg, group->interface,
+			&source->source_channel_oil);
+	IGMP_SOURCE_DONT_FORWARDING(source->source_flags);
+}
 
 /* This socket is used for TXing IGMP packets only, IGMP RX happens
  * in pim_mroute_msg()

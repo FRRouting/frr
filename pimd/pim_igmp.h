@@ -204,6 +204,17 @@ struct gm_group {
 };
 
 #if PIM_IPV == 4
+struct pim_instance;
+
+void igmp_anysource_forward_start(struct pim_instance *pim,
+				  struct gm_group *group);
+void igmp_anysource_forward_stop(struct gm_group *group);
+
+void igmp_source_forward_start(struct pim_instance *pim,
+			       struct gm_source *source);
+void igmp_source_forward_stop(struct gm_source *source);
+void igmp_source_forward_reevaluate_all(struct pim_instance *pim);
+
 struct gm_group *find_group_by_addr(struct gm_sock *igmp,
 				    struct in_addr group_addr);
 struct gm_group *igmp_add_group_by_addr(struct gm_sock *igmp,
