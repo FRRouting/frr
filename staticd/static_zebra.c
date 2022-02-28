@@ -302,12 +302,14 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 				static_nht_hash_alloc);
 		nhtd->refcount++;
 
-		DEBUGD(&static_dbg_route,
-		       "Registered nexthop(%pFX) for %pRN %d", &p, rn,
-		       nhtd->nh_num);
-		if (nhtd->refcount > 1 && nhtd->nh_num) {
-			static_nht_update(&rn->p, nhtd->nh, nhtd->nh_num, afi,
-					  nh->nh_vrf_id);
+		if (nhtd->refcount > 1) {
+			DEBUGD(&static_dbg_route,
+			       "Already registered nexthop(%pFX) for %pRN %d",
+			       &p, rn, nhtd->nh_num);
+			if (nhtd->nh_num)
+				static_nht_update(&rn->p, nhtd->nh,
+						  nhtd->nh_num, afi,
+						  nh->nh_vrf_id);
 			return;
 		}
 	} else {
@@ -322,6 +324,9 @@ void static_zebra_nht_register(struct static_nexthop *nh, bool reg)
 		hash_release(static_nht_hash, nhtd);
 		static_nht_hash_free(nhtd);
 	}
+
+	DEBUGD(&static_dbg_route, "%s nexthop(%pFX) for %pRN",
+	       reg ? "Registering" : "Unregistering", &p, rn);
 
 	if (zclient_send_rnh(zclient, cmd, &p, false, false, nh->nh_vrf_id)
 	    == ZCLIENT_SEND_FAILURE)
