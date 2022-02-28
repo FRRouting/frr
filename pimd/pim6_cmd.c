@@ -1091,6 +1091,83 @@ DEFPY (show_ipv6_pim_channel,
 	return CMD_SUCCESS;
 }
 
+DEFPY (show_ipv6_pim_interface,
+       show_ipv6_pim_interface_cmd,
+       "show ipv6 pim [vrf NAME] interface [detail|WORD]$interface [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface information\n"
+       "Detailed output\n"
+       "interface name\n"
+       JSON_STR)
+{
+	struct vrf *v;
+	bool uj = !!json;
+	json_object *json_parent = NULL;
+
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
+		return CMD_WARNING;
+
+	if (uj)
+		json_parent = json_object_new_object();
+
+	if (interface)
+		pim_show_interfaces_single(v->info, vty, interface, false,
+					   json_parent);
+	else
+		pim_show_interfaces(v->info, vty, false, json_parent);
+
+	if (uj)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
+DEFPY (show_ipv6_pim_interface_vrf_all,
+       show_ipv6_pim_interface_vrf_all_cmd,
+       "show ipv6 pim vrf all interface [detail|WORD]$interface [json$json]",
+       SHOW_STR
+       IPV6_STR
+       PIM_STR
+       VRF_CMD_HELP_STR
+       "PIM interface information\n"
+       "Detailed output\n"
+       "interface name\n"
+       JSON_STR)
+{
+	bool uj = !!json;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
+
+	if (uj)
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+		if (!uj)
+			vty_out(vty, "VRF: %s\n", v->name);
+		else
+			json_vrf = json_object_new_object();
+
+		if (interface)
+			pim_show_interfaces_single(v->info, vty, interface,
+						   false, json_vrf);
+		else
+			pim_show_interfaces(v->info, vty, false, json_vrf);
+
+		if (uj)
+			json_object_object_add(json_parent, v->name, json_vrf);
+	}
+	if (uj)
+		vty_json(vty, json_parent);
+
+	return CMD_SUCCESS;
+}
+
 void pim_cmd_init(void)
 {
 	if_cmd_init(pim_interface_config_write);
@@ -1156,4 +1233,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ipv6_pim_state_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_state_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ipv6_pim_channel_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_interface_cmd);
+	install_element(VIEW_NODE, &show_ipv6_pim_interface_vrf_all_cmd);
 }
