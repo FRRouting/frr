@@ -138,11 +138,11 @@ void pim_sock_delete(struct interface *ifp, const char *delete_message)
 }
 
 /* For now check dst address for hello, assrt and join/prune is all pim rtr */
-static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, in_addr_t addr)
+static bool pim_pkt_dst_addr_ok(enum pim_msg_type type, pim_addr addr)
 {
 	if ((type == PIM_MSG_TYPE_HELLO) || (type == PIM_MSG_TYPE_ASSERT)
 	    || (type == PIM_MSG_TYPE_JOIN_PRUNE)) {
-		if (addr != qpim_all_pim_routers_addr.s_addr)
+		if (pim_addr_cmp(addr, qpim_all_pim_routers_addr))
 			return false;
 	}
 
