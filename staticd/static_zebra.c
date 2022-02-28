@@ -47,6 +47,7 @@
 /* Zebra structure to hold current status. */
 struct zclient *zclient;
 static struct hash *static_nht_hash;
+uint32_t zebra_ecmp_count = MULTIPATH_NUM;
 
 /* Inteface addition message from zebra. */
 static int static_ifp_create(struct interface *ifp)
