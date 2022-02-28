@@ -2475,7 +2475,7 @@ skip_check:
 
 	memset(&nexthop->rmap_src.ipv6, 0, sizeof(union g_addr));
 
-	zvrf = zebra_vrf_lookup_by_id(nexthop->vrf_id);
+	zvrf = zebra_vrf_lookup_by_id(re->vrf_id);
 	if (!zvrf) {
 		if (IS_ZEBRA_DEBUG_RIB_DETAILED)
 			zlog_debug("        %s: zvrf is NULL", __func__);
