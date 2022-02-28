@@ -311,30 +311,26 @@ void pim_null_register_send(struct pim_upstream *up)
  *      }
  *  }
  */
-int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
-		      struct in_addr src_addr, uint8_t *tlv_buf,
-		      int tlv_buf_size)
+int pim_register_recv(struct interface *ifp, pim_addr dest_addr,
+		      pim_addr src_addr, uint8_t *tlv_buf, int tlv_buf_size)
 {
 	int sentRegisterStop = 0;
-	struct ip *ip_hdr;
+	const void *ip_hdr;
 	pim_sgaddr sg;
 	uint32_t *bits;
 	int i_am_rp = 0;
 	struct pim_interface *pim_ifp = ifp->info;
 	struct pim_instance *pim = pim_ifp->pim;
+	pim_addr rp_addr;
 
 #define PIM_MSG_REGISTER_BIT_RESERVED_LEN 4
-	ip_hdr = (struct ip *)(tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
+	ip_hdr = (tlv_buf + PIM_MSG_REGISTER_BIT_RESERVED_LEN);
 
-	if (!if_address_is_local(&dest_addr, AF_INET, pim->vrf->vrf_id)) {
-		if (PIM_DEBUG_PIM_REG) {
-			char dest[INET_ADDRSTRLEN];
-
-			pim_inet4_dump("<dst?>", dest_addr, dest, sizeof(dest));
+	if (!if_address_is_local(&dest_addr, PIM_AF, pim->vrf->vrf_id)) {
+		if (PIM_DEBUG_PIM_REG)
 			zlog_debug(
-				"%s: Received Register message for destination address: %s that I do not own",
-				__func__, dest);
-		}
+				"%s: Received Register message for destination address: %pPA that I do not own",
+				__func__, &dest_addr);
 		return 0;
 	}
 
@@ -367,18 +363,14 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 	 * start of the actual Encapsulated data.
 	 */
 	memset(&sg, 0, sizeof(sg));
-	sg.src = ip_hdr->ip_src;
-	sg.grp = ip_hdr->ip_dst;
+	sg = pim_sgaddr_from_iphdr(ip_hdr);
 
 	i_am_rp = I_am_RP(pim, sg.grp);
 
-	if (PIM_DEBUG_PIM_REG) {
-		char src_str[INET_ADDRSTRLEN];
-
-		pim_inet4_dump("<src?>", src_addr, src_str, sizeof(src_str));
-		zlog_debug("Received Register message%pSG from %s on %s, rp: %d",
-			   &sg, src_str, ifp->name, i_am_rp);
-	}
+	if (PIM_DEBUG_PIM_REG)
+		zlog_debug(
+			"Received Register message%pSG from %pPA on %s, rp: %d",
+			&sg, &src_addr, ifp->name, i_am_rp);
 
 	if (pim_is_grp_ssm(pim_ifp->pim, sg.grp)) {
 		if (pim_addr_is_any(sg.src)) {
@@ -390,9 +382,8 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 		}
 	}
 
-	if (i_am_rp
-	    && (dest_addr.s_addr
-		== ((RP(pim, sg.grp))->rpf_addr.u.prefix4.s_addr))) {
+	rp_addr = pim_addr_from_prefix(&(RP(pim, sg.grp))->rpf_addr);
+	if (i_am_rp && (!pim_addr_cmp(dest_addr, rp_addr))) {
 		sentRegisterStop = 0;
 
 		if (pim->register_plist) {
@@ -407,16 +398,10 @@ int pim_register_recv(struct interface *ifp, struct in_addr dest_addr,
 			if (prefix_list_apply(plist, &src) == PREFIX_DENY) {
 				pim_register_stop_send(ifp, &sg, dest_addr,
 						       src_addr);
-				if (PIM_DEBUG_PIM_PACKETS) {
-					char src_str[INET_ADDRSTRLEN];
-
-					pim_inet4_dump("<src?>", src_addr,
-						       src_str,
-						       sizeof(src_str));
+				if (PIM_DEBUG_PIM_PACKETS)
 					zlog_debug(
-						"%s: Sending register-stop to %s for %pSG due to prefix-list denial, dropping packet",
-						__func__, src_str, &sg);
-				}
+						"%s: Sending register-stop to %pPA for %pSG due to prefix-list denial, dropping packet",
+						__func__, &src_addr, &sg);
 
 				return 0;
 			}
