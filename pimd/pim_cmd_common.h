@@ -82,9 +82,10 @@ void pim_show_jp_agg_list(struct pim_instance *pim, struct vty *vty);
 void pim_show_membership(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj);
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
-			 bool uj);
+			 json_object *json);
 void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
-				const char *ifname, bool mlag, bool uj);
+				const char *ifname, bool mlag,
+				json_object *json);
 void ip_pim_ssm_show_group_range(struct pim_instance *pim, struct vty *vty,
 				 bool uj);
 void pim_show_nexthop(struct pim_instance *pim, struct vty *vty);
