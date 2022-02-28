@@ -706,6 +706,7 @@ class TopoRouter(TopoGear):
     ]
 
     # Router Daemon enumeration definition.
+    RD_FRR = 0  # not a daemon, but use to setup unified configs
     RD_ZEBRA = 1
     RD_RIP = 2
     RD_RIPNG = 3
@@ -725,6 +726,7 @@ class TopoRouter(TopoGear):
     RD_PATH = 17
     RD_SNMP = 18
     RD = {
+        RD_FRR: "frr",
         RD_ZEBRA: "zebra",
         RD_RIP: "ripd",
         RD_RIPNG: "ripngd",
@@ -788,6 +790,28 @@ class TopoRouter(TopoGear):
         daemonstr = self.RD.get(daemon)
         self.logger.info('check capability {} for "{}"'.format(param, daemonstr))
         return self.net.checkCapability(daemonstr, param)
+
+    def load_frr_config(self, source, daemons=None):
+        """
+        Loads the unified configuration file source
+        Start the daemons in the list
+        If daemons is None, try to infer daemons from the config file
+        """
+        self.load_config(self.RD_FRR, source)
+        if not daemons:
+            # Always add zebra
+            self.load_config(self.RD_ZEBRA)
+            for daemon in self.RD:
+                # This will not work for all daemons
+                daemonstr = self.RD.get(daemon).rstrip("d")
+                result = self.run(
+                    "grep 'router {}' {}".format(daemonstr, source)
+                ).strip()
+                if result:
+                    self.load_config(daemon)
+        else:
+            for daemon in daemons:
+                self.load_config(daemon)
 
     def load_config(self, daemon, source=None, param=None):
         """Loads daemon configuration from the specified source
