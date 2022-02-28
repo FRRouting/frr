@@ -84,7 +84,7 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
 .. option:: -s <SIZE>, --nl-bufsize <SIZE>
 
    Allow zebra to modify the default receive buffer size to SIZE
-   in bytes.  Under *BSD only the -s option is available.
+   in bytes.  Under \*BSD only the -s option is available.
 
 .. _interface-commands:
 
