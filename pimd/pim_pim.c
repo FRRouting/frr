@@ -310,8 +310,8 @@ int pim_pim_packet(struct interface *ifp, uint8_t *buf, size_t len)
 				       pim_msg_len - PIM_MSG_HEADER_LEN);
 		break;
 	case PIM_MSG_TYPE_BOOTSTRAP:
-		return pim_bsm_process(ifp, ip_hdr, pim_msg, pim_msg_len,
-				       no_fwd);
+		return pim_bsm_process(ifp, ip_hdr->ip_src, ip_hdr->ip_dst,
+				       pim_msg, pim_msg_len, no_fwd);
 		break;
 
 	default:
