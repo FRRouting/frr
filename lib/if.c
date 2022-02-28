@@ -686,7 +686,8 @@ int if_is_loopback_exact(const struct interface *ifp)
 	/* XXX: Do this better, eg what if IFF_WHATEVER means X on platform M
 	 * but Y on platform N?
 	 */
-	return (ifp->flags & (IFF_LOOPBACK | IFF_NOXMIT | IFF_VIRTUAL));
+	return (ifp->flags & (IFF_LOOPBACK | IFF_NOXMIT | IFF_VIRTUAL) ||
+		CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY));
 }
 
 /* Check interface is VRF */

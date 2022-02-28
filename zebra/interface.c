@@ -1440,6 +1440,9 @@ static const char *zebra_ziftype_2str(enum zebra_iftype zif_type)
 	case ZEBRA_IF_GRE:
 		return "GRE";
 
+	case ZEBRA_IF_DUMMY:
+		return "dummy";
+
 	default:
 		return "Unknown";
 	}
