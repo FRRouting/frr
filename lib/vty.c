@@ -65,7 +65,7 @@ DEFINE_MTYPE_STATIC(LIB, VTY_HIST, "VTY history");
 DECLARE_DLIST(vtys, struct vty, itm);
 
 /* Vty events */
-enum event {
+enum vty_event {
 	VTY_SERV,
 	VTY_READ,
 	VTY_WRITE,
@@ -90,8 +90,8 @@ struct vty_serv {
 
 DECLARE_DLIST(vtyservs, struct vty_serv, itm);
 
-static void vty_event_serv(enum event event, struct vty_serv *);
-static void vty_event(enum event, struct vty *);
+static void vty_event_serv(enum vty_event event, struct vty_serv *);
+static void vty_event(enum vty_event, struct vty *);
 
 /* Extern host structure from command.c */
 extern struct host host;
@@ -2683,7 +2683,7 @@ int vty_config_node_exit(struct vty *vty)
 /* Master of the threads. */
 static struct thread_master *vty_master;
 
-static void vty_event_serv(enum event event, struct vty_serv *vty_serv)
+static void vty_event_serv(enum vty_event event, struct vty_serv *vty_serv)
 {
 	switch (event) {
 	case VTY_SERV:
@@ -2701,7 +2701,7 @@ static void vty_event_serv(enum event event, struct vty_serv *vty_serv)
 	}
 }
 
-static void vty_event(enum event event, struct vty *vty)
+static void vty_event(enum vty_event event, struct vty *vty)
 {
 	switch (event) {
 #ifdef VTYSH
