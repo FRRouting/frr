@@ -78,6 +78,14 @@ Besides the common invocation options (:ref:`common-invocation-options`), the
    protocols about route installation/update on ack received from
    the linux kernel or from offload notification.
 
+<<<<<<< HEAD
+=======
+.. option:: -s <SIZE>, --nl-bufsize <SIZE>
+
+   Allow zebra to modify the default receive buffer size to SIZE
+   in bytes.  Under \*BSD only the -s option is available.
+
+>>>>>>> 2f5997dc5 (doc: fix typo in zebra doc)
 .. _interface-commands:
 
 Configuration Addresses behaviour
