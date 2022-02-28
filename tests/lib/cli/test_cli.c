@@ -21,6 +21,7 @@
 
 #include <zebra.h>
 
+#include "zlog.h"
 #include "prefix.h"
 #include "common_cli.h"
 
@@ -56,6 +57,66 @@ DEFPY(magic_test, magic_test_cmd,
 	return CMD_SUCCESS;
 }
 
+DECLARE_DEBUGFLAG(TEST);
+DECLARE_DEBUGFLAG(TEST2);
+DECLARE_DEBUGFLAG_COMBO(TCOMBO);
+DECLARE_DEBUGFLAG_PARAMS(TPAR, (int arg));
+
+#define _dbg_TPAR(...) _dbg_TPAR
+
+DEFINE_DEBUGFLAG(TEST, "test", "TEST debug flag\n");
+DEFINE_DEBUGFLAG(TEST2, "test2", "TEST2 debug flag\n");
+DEFINE_DEBUGFLAG_COMBO(TCOMBO, TEST, TEST2);
+DEFINE_DEBUGFLAG_PARAMS(TPAR, "tpar", (int arg));
+
+bool _dbg_filter_TPAR(int arg)
+{
+	return arg < 10;
+}
+
+DEFPY(debug_test, debug_test_cmd,
+      "debug log (0-20)$testval TESTMSG",
+      DEBUG_STR
+      "logging test\n"
+      "integer parameter\n"
+      "text parameter\n")
+{
+	dbg(TEST, "TEST: %ld, %s", testval, testmsg);
+	dbg(TEST2, "TEST2: %ld, %s", testval, testmsg);
+	dbg(TCOMBO, "TCOMBO: %ld, %s", testval, testmsg);
+	dbg(TPAR(testval), "TPAR: %ld, %s", testval, testmsg);
+	return CMD_SUCCESS;
+}
+
+/*
+DEFUN(debug_test_ctl, debug_test_ctl_cmd,
+      "[no] debug test",
+      NO_STR
+      DEBUG_STR
+      "TEST flag\n")
+{
+	return zlog_debugflag_cli(_dbg_TEST, vty, argc, argv);
+}
+
+DEFUN(debug_test2_ctl, debug_test2_ctl_cmd,
+      "[no] debug test2",
+      NO_STR
+      DEBUG_STR
+      "TEST2 flag\n")
+{
+	return zlog_debugflag_cli(_dbg_TEST2, vty, argc, argv);
+}
+*/
+
+DEFUN(debug_tpar_ctl, debug_tpar_ctl_cmd,
+      "[no] debug tpar",
+      NO_STR
+      DEBUG_STR
+      "TPAR flag\n")
+{
+	return zlog_debugflag_cli(_dbg_TPAR, vty, argc, argv);
+}
+
 void test_init(int argc, char **argv)
 {
 	size_t repeat = argc > 1 ? strtoul(argv[1], NULL, 0) : 223;
@@ -86,4 +147,9 @@ void test_init(int argc, char **argv)
 	install_element(ENABLE_NODE, &cmd15_cmd);
 	install_element(ENABLE_NODE, &cmd16_cmd);
 	install_element(ENABLE_NODE, &magic_test_cmd);
+	
+	install_element(ENABLE_NODE, &debug_test_cmd);
+//	install_element(ENABLE_NODE, &debug_test_ctl_cmd);
+//	install_element(ENABLE_NODE, &debug_test2_ctl_cmd);
+	install_element(ENABLE_NODE, &debug_tpar_ctl_cmd);
 }
