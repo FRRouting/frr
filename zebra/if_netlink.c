@@ -221,6 +221,8 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_BOND;
 	else if (strcmp(kind, "gre") == 0)
 		*zif_type = ZEBRA_IF_GRE;
+	else if (strcmp(kind, "dummy") == 0)
+		*zif_type = ZEBRA_IF_DUMMY;
 }
 
 static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
@@ -576,6 +578,7 @@ static void netlink_interface_update_l2info(struct zebra_dplane_ctx *ctx,
 	case ZEBRA_IF_MACVLAN:
 	case ZEBRA_IF_VETH:
 	case ZEBRA_IF_BOND:
+	case ZEBRA_IF_DUMMY:
 		break;
 	}
 }
