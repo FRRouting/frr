@@ -32,6 +32,8 @@ typedef struct in_addr pim_addr;
 #define PIM_AF		AF_INET
 #define PIM_AFI		AFI_IP
 #define PIM_MAX_BITLEN	IPV4_MAX_BITLEN
+#define PIM_AF_NAME     "ip"
+#define	FRR_PIM_AF_XPATH_VAL "frr-routing:ipv4"
 
 union pimprefixptr {
 	prefixtype(pimprefixptr, struct prefix,      p)
@@ -50,6 +52,8 @@ typedef struct in6_addr pim_addr;
 #define PIM_AF		AF_INET6
 #define PIM_AFI		AFI_IP6
 #define PIM_MAX_BITLEN	IPV6_MAX_BITLEN
+#define PIM_AF_NAME     "ipv6"
+#define	FRR_PIM_AF_XPATH_VAL "frr-routing:ipv6"
 
 union pimprefixptr {
 	prefixtype(pimprefixptr, struct prefix,      p)

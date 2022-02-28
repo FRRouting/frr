@@ -67,6 +67,7 @@
 #include "lib/northbound_cli.h"
 #include "pim_errors.h"
 #include "pim_nb.h"
+#include "pim_cmd_common.h"
 
 #ifndef VTYSH_EXTRACT_PL
 #include "pimd/pim_cmd_clippy.c"
@@ -3761,32 +3762,6 @@ static void clear_interfaces(struct pim_instance *pim)
 	}
 
 /**
- * Get current node VRF name.
- *
- * NOTE:
- * In case of failure it will print error message to user.
- *
- * \returns name or NULL if failed to get VRF.
- */
-static const char *pim_cli_get_vrf_name(struct vty *vty)
-{
-	const struct lyd_node *vrf_node;
-
-	/* Not inside any VRF context. */
-	if (vty->xpath_index == 0)
-		return VRF_DEFAULT_NAME;
-
-	vrf_node = yang_dnode_get(vty->candidate_config->dnode, VTY_CURR_XPATH);
-	if (vrf_node == NULL) {
-		vty_out(vty, "%% Failed to get vrf dnode in configuration\n");
-		return NULL;
-	}
-
-	return yang_dnode_get_string(vrf_node, "./name");
-}
-
-#if PIM_IPV != 6
-/**
  * Compatibility function to keep the legacy mesh group CLI behavior:
  * Delete group when there are no more configurations in it.
  *
@@ -3833,7 +3808,6 @@ static void pim_cli_legacy_mesh_group_behavior(struct vty *vty,
 	/* No configurations found: delete it. */
 	nb_cli_enqueue_change(vty, xpath_value, NB_OP_DESTROY, NULL);
 }
-#endif /* PIM_IPV != 6 */
 
 DEFUN (clear_ip_interfaces,
        clear_ip_interfaces_cmd,
@@ -6750,38 +6724,12 @@ DEFUN (ip_pim_spt_switchover_infinity,
        "SPT-Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	const char *vrfname;
-	char spt_plist_xpath[XPATH_MAXLEN];
-	char spt_action_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
-	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
-
-	if (yang_dnode_exists(vty->candidate_config->dnode, spt_plist_xpath))
-		nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY,
-				      NULL);
-	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
-			      "PIM_SPT_INFINITY");
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_spt_switchover_infinity_cmd(vty);
 }
 
-DEFUN (ip_pim_spt_switchover_infinity_plist,
+DEFPY (ip_pim_spt_switchover_infinity_plist,
        ip_pim_spt_switchover_infinity_plist_cmd,
-       "ip pim spt-switchover infinity-and-beyond prefix-list WORD",
+       "ip pim spt-switchover infinity-and-beyond prefix-list WORD$plist",
        IP_STR
        PIM_STR
        "SPT-Switchover\n"
@@ -6789,32 +6737,7 @@ DEFUN (ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	const char *vrfname;
-	char spt_plist_xpath[XPATH_MAXLEN];
-	char spt_action_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
-	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
-
-	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
-			      "PIM_SPT_INFINITY");
-	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_MODIFY,
-			      argv[5]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_spt_switchover_prefixlist_cmd(vty, plist);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity,
@@ -6826,31 +6749,7 @@ DEFUN (no_ip_pim_spt_switchover_infinity,
        "SPT_Switchover\n"
        "Never switch to SPT Tree\n")
 {
-	const char *vrfname;
-	char spt_plist_xpath[XPATH_MAXLEN];
-	char spt_action_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
-	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
-
-	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
-	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
-			      "PIM_SPT_IMMEDIATE");
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_spt_switchover_cmd(vty);
 }
 
 DEFUN (no_ip_pim_spt_switchover_infinity_plist,
@@ -6864,31 +6763,7 @@ DEFUN (no_ip_pim_spt_switchover_infinity_plist,
        "Prefix-List to control which groups to switch\n"
        "Prefix-List name\n")
 {
-	const char *vrfname;
-	char spt_plist_xpath[XPATH_MAXLEN];
-	char spt_action_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(spt_plist_xpath, sizeof(spt_plist_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_plist_xpath, "/spt-switchover/spt-infinity-prefix-list",
-		sizeof(spt_plist_xpath));
-
-	snprintf(spt_action_xpath, sizeof(spt_action_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(spt_action_xpath, "/spt-switchover/spt-action",
-		sizeof(spt_action_xpath));
-
-	nb_cli_enqueue_change(vty, spt_plist_xpath, NB_OP_DESTROY, NULL);
-	nb_cli_enqueue_change(vty, spt_action_xpath, NB_OP_MODIFY,
-			      "PIM_SPT_IMMEDIATE");
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_spt_switchover_cmd(vty);
 }
 
 DEFPY (pim_register_accept_list,
@@ -6923,23 +6798,15 @@ DEFPY (pim_register_accept_list,
 	return nb_cli_apply_changes(vty, NULL);
 }
 
-DEFUN (ip_pim_joinprune_time,
+DEFPY (ip_pim_joinprune_time,
        ip_pim_joinprune_time_cmd,
-       "ip pim join-prune-interval (1-65535)",
+       "ip pim join-prune-interval (1-65535)$jpi",
        IP_STR
        "pim multicast routing\n"
        "Join Prune Send Interval\n"
        "Seconds\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_join_prune_cmd(vty, jpi_str);
 }
 
 DEFUN (no_ip_pim_joinprune_time,
@@ -6951,34 +6818,18 @@ DEFUN (no_ip_pim_joinprune_time,
        "Join Prune Send Interval\n"
        IGNORED_IN_NO_STR)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/join-prune-interval", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_join_prune_cmd(vty);
 }
 
-DEFUN (ip_pim_register_suppress,
+DEFPY (ip_pim_register_suppress,
        ip_pim_register_suppress_cmd,
-       "ip pim register-suppress-time (1-65535)",
+       "ip pim register-suppress-time (1-65535)$rst",
        IP_STR
        "pim multicast routing\n"
        "Register Suppress Timer\n"
        "Seconds\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/register-suppress-time", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_register_suppress_cmd(vty, rst_str);
 }
 
 DEFUN (no_ip_pim_register_suppress,
@@ -6990,43 +6841,19 @@ DEFUN (no_ip_pim_register_suppress,
        "Register Suppress Timer\n"
        IGNORED_IN_NO_STR)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/register-suppress-time", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_register_suppress_cmd(vty);
 }
 
-DEFUN (ip_pim_rp_keep_alive,
+DEFPY (ip_pim_rp_keep_alive,
        ip_pim_rp_keep_alive_cmd,
-       "ip pim rp keep-alive-timer (1-65535)",
+       "ip pim rp keep-alive-timer (1-65535)$kat",
        IP_STR
        "pim multicast routing\n"
        "Rendevous Point\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const char *vrfname;
-	char rp_ka_timer_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      argv[4]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_rp_kat_cmd(vty, kat_str);
 }
 
 DEFUN (no_ip_pim_rp_keep_alive,
@@ -7039,64 +6866,18 @@ DEFUN (no_ip_pim_rp_keep_alive,
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
-	const char *vrfname;
-	char rp_ka_timer[6];
-	char rp_ka_timer_xpath[XPATH_MAXLEN];
-	uint v;
-	char rs_timer_xpath[XPATH_MAXLEN];
-
-	snprintf(rs_timer_xpath, sizeof(rs_timer_xpath),
-		 FRR_PIM_ROUTER_XPATH, "frr-routing:ipv4");
-	strlcat(rs_timer_xpath, "/register-suppress-time",
-		sizeof(rs_timer_xpath));
-
-	/* RFC4601 */
-	v = yang_dnode_get_uint16(vty->candidate_config->dnode,
-				  rs_timer_xpath);
-	v = 3 * v + PIM_REGISTER_PROBE_TIME_DEFAULT;
-	if (v > UINT16_MAX)
-		v = UINT16_MAX;
-	snprintf(rp_ka_timer, sizeof(rp_ka_timer), "%u", v);
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(rp_ka_timer_xpath, sizeof(rp_ka_timer_xpath),
-		 FRR_PIM_VRF_XPATH, "frr-pim:pimd", "pim", vrfname,
-		 "frr-routing:ipv4");
-	strlcat(rp_ka_timer_xpath, "/rp-keep-alive-timer",
-		sizeof(rp_ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, rp_ka_timer_xpath, NB_OP_MODIFY,
-			      rp_ka_timer);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_rp_kat_cmd(vty);
 }
 
-DEFUN (ip_pim_keep_alive,
+DEFPY (ip_pim_keep_alive,
        ip_pim_keep_alive_cmd,
-       "ip pim keep-alive-timer (1-65535)",
+       "ip pim keep-alive-timer (1-65535)$kat",
        IP_STR
        "pim multicast routing\n"
        "Keep alive Timer\n"
        "Seconds\n")
 {
-	const char *vrfname;
-	char ka_timer_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_MODIFY,
-			      argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_keepalivetimer_cmd(vty, kat_str);
 }
 
 DEFUN (no_ip_pim_keep_alive,
@@ -7108,23 +6889,10 @@ DEFUN (no_ip_pim_keep_alive,
        "Keep alive Timer\n"
        IGNORED_IN_NO_STR)
 {
-	const char *vrfname;
-	char ka_timer_xpath[XPATH_MAXLEN];
-
-	vrfname = pim_cli_get_vrf_name(vty);
-	if (vrfname == NULL)
-		return CMD_WARNING_CONFIG_FAILED;
-
-	snprintf(ka_timer_xpath, sizeof(ka_timer_xpath), FRR_PIM_VRF_XPATH,
-		 "frr-pim:pimd", "pim", vrfname, "frr-routing:ipv4");
-	strlcat(ka_timer_xpath, "/keep-alive-timer", sizeof(ka_timer_xpath));
-
-	nb_cli_enqueue_change(vty, ka_timer_xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_keepalivetimer_cmd(vty);
 }
 
-DEFUN (ip_pim_packets,
+DEFPY (ip_pim_packets,
        ip_pim_packets_cmd,
        "ip pim packets (1-255)",
        IP_STR
@@ -7132,15 +6900,7 @@ DEFUN (ip_pim_packets,
        "packets to process at one time per fd\n"
        "Number of packets\n")
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/packets", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_MODIFY, argv[3]->arg);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_pim_packet_cmd(vty, packets_str);
 }
 
 DEFUN (no_ip_pim_packets,
@@ -7152,15 +6912,7 @@ DEFUN (no_ip_pim_packets,
        "packets to process at one time per fd\n"
        IGNORED_IN_NO_STR)
 {
-	char xpath[XPATH_MAXLEN];
-
-	snprintf(xpath, sizeof(xpath), FRR_PIM_ROUTER_XPATH,
-		 "frr-routing:ipv4");
-	strlcat(xpath, "/packets", sizeof(xpath));
-
-	nb_cli_enqueue_change(vty, xpath, NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, NULL);
+	return pim_process_no_pim_packet_cmd(vty);
 }
 
 DEFPY (igmp_group_watermark,
@@ -9543,7 +9295,6 @@ ALIAS(no_ip_pim_bfd, no_ip_pim_bfd_param_cmd,
       "Desired min transmit interval\n")
 #endif /* !HAVE_BFDD */
 
-#if PIM_IPV != 6
 DEFPY(ip_msdp_peer, ip_msdp_peer_cmd,
       "ip msdp peer A.B.C.D$peer source A.B.C.D$source",
       IP_STR
@@ -10571,7 +10322,6 @@ DEFUN (show_ip_msdp_sa_sg_vrf_all,
 
 	return CMD_SUCCESS;
 }
-#endif /* PIM_IPV != 6 */
 
 struct pim_sg_cache_walk_data {
 	struct vty *vty;
@@ -11005,12 +10755,10 @@ void pim_cmd_init(void)
 	install_element(VRF_NODE, &ip_ssmpingd_cmd);
 	install_element(CONFIG_NODE, &no_ip_ssmpingd_cmd);
 	install_element(VRF_NODE, &no_ip_ssmpingd_cmd);
-#if PIM_IPV != 6
 	install_element(CONFIG_NODE, &ip_msdp_peer_cmd);
 	install_element(VRF_NODE, &ip_msdp_peer_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_peer_cmd);
 	install_element(VRF_NODE, &no_ip_msdp_peer_cmd);
-#endif /* PIM_IPV != 6 */
 	install_element(CONFIG_NODE, &ip_pim_ecmp_cmd);
 	install_element(VRF_NODE, &ip_pim_ecmp_cmd);
 	install_element(CONFIG_NODE, &no_ip_pim_ecmp_cmd);
@@ -11179,14 +10927,12 @@ void pim_cmd_init(void)
 	install_element(ENABLE_NODE, &no_debug_pim_mlag_cmd);
 	install_element(ENABLE_NODE, &debug_pim_vxlan_cmd);
 	install_element(ENABLE_NODE, &no_debug_pim_vxlan_cmd);
-#if PIM_IPV != 6
 	install_element(ENABLE_NODE, &debug_msdp_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_cmd);
 	install_element(ENABLE_NODE, &debug_msdp_events_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_events_cmd);
 	install_element(ENABLE_NODE, &debug_msdp_packets_cmd);
 	install_element(ENABLE_NODE, &no_debug_msdp_packets_cmd);
-#endif /* PIM_IPV != 6 */
 	install_element(ENABLE_NODE, &debug_mtrace_cmd);
 	install_element(ENABLE_NODE, &no_debug_mtrace_cmd);
 	install_element(ENABLE_NODE, &debug_bsm_cmd);
@@ -11232,20 +10978,17 @@ void pim_cmd_init(void)
 	install_element(CONFIG_NODE, &no_debug_pim_mlag_cmd);
 	install_element(CONFIG_NODE, &debug_pim_vxlan_cmd);
 	install_element(CONFIG_NODE, &no_debug_pim_vxlan_cmd);
-#if PIM_IPV != 6
 	install_element(CONFIG_NODE, &debug_msdp_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_cmd);
 	install_element(CONFIG_NODE, &debug_msdp_events_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_events_cmd);
 	install_element(CONFIG_NODE, &debug_msdp_packets_cmd);
 	install_element(CONFIG_NODE, &no_debug_msdp_packets_cmd);
-#endif /* PIM_IPV != 6 */
 	install_element(CONFIG_NODE, &debug_mtrace_cmd);
 	install_element(CONFIG_NODE, &no_debug_mtrace_cmd);
 	install_element(CONFIG_NODE, &debug_bsm_cmd);
 	install_element(CONFIG_NODE, &no_debug_bsm_cmd);
 
-#if PIM_IPV != 6
 	install_element(CONFIG_NODE, &ip_msdp_timers_cmd);
 	install_element(VRF_NODE, &ip_msdp_timers_cmd);
 	install_element(CONFIG_NODE, &no_ip_msdp_timers_cmd);
@@ -11268,7 +11011,6 @@ void pim_cmd_init(void)
 	install_element(VIEW_NODE, &show_ip_msdp_sa_sg_vrf_all_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_cmd);
 	install_element(VIEW_NODE, &show_ip_msdp_mesh_group_vrf_all_cmd);
-#endif /* PIM_IPV != 6 */
 	install_element(VIEW_NODE, &show_ip_pim_ssm_range_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_group_type_cmd);
 	install_element(VIEW_NODE, &show_ip_pim_vxlan_sg_cmd);

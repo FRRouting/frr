@@ -59,9 +59,9 @@ void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
 
 	if (pim_ifp) {
 		if (!pim_ifp->bsm_enable)
-			vty_out(vty, " no ip pim bsm\n");
+			vty_out(vty, " no " PIM_AF_NAME " pim bsm\n");
 		if (!pim_ifp->ucast_bsm_accept)
-			vty_out(vty, " no ip pim unicast-bsm\n");
+			vty_out(vty, " no " PIM_AF_NAME " pim unicast-bsm\n");
 	}
 }
 
