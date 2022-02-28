@@ -118,6 +118,13 @@ extern const char *yang_get_default_string(const char *xpath_fmt, ...);
 extern void yang_get_default_string_buf(char *buf, size_t size,
 					const char *xpath_fmt, ...);
 
+/* binary */
+extern struct yang_data *yang_data_new_binary(const char *xpath,
+					      const char *value, size_t len);
+extern size_t yang_dnode_get_binary_buf(char *buf, size_t size,
+					const struct lyd_node *dnode,
+					const char *xpath_fmt, ...);
+
 /* empty */
 extern struct yang_data *yang_data_new_empty(const char *xpath);
 extern bool yang_dnode_get_empty(const struct lyd_node *dnode,
