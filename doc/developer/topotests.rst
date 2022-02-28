@@ -1088,6 +1088,9 @@ Requirements:
   a pull request. This ensures we have a unified code style.
 - Mark test modules with pytest markers depending on the daemons used during the
   tests (see :ref:`topotests-markers`)
+- Always use IPv4 :rfc:`5737` (``192.0.2.0/24``, ``198.51.100.0/24``,
+  ``203.0.113.0/24``) and IPv6 :rfc:`3849` (``2001:db8::/32``) ranges reserved
+  for documentation.
 
 Tips:
 
