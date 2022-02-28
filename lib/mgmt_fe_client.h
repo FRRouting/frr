@@ -13,7 +13,7 @@ extern "C" {
 #endif
 
 #include "mgmt_pb.h"
-#include "thread.h"
+#include "event.h"
 #include "mgmtd/mgmt_defines.h"
 
 /***************************************************************

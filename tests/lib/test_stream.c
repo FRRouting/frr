@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 #include <stream.h>
-#include <thread.h>
+#include "event.h"
 
 #include "printfrr.h"
 

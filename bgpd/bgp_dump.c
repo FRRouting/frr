@@ -10,7 +10,7 @@
 #include "sockunion.h"
 #include "command.h"
 #include "prefix.h"
-#include "thread.h"
+#include "event.h"
 #include "linklist.h"
 #include "queue.h"
 #include "memory.h"

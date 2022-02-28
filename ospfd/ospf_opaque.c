@@ -16,7 +16,7 @@
 #include "vty.h"
 #include "stream.h"
 #include "log.h"
-#include "thread.h"
+#include "event.h"
 #include "hash.h"
 #include "sockunion.h" /* for inet_aton() */
 #include "printfrr.h"

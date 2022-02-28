@@ -44,7 +44,7 @@ daemon_flags = {
     "lib/routemap.c": "VTYSH_RMAP",
     "lib/routemap_cli.c": "VTYSH_RMAP",
     "lib/spf_backoff.c": "VTYSH_ISISD",
-    "lib/thread.c": "VTYSH_ALL",
+    "lib/event.c": "VTYSH_ALL",
     "lib/vrf.c": "VTYSH_VRF",
     "lib/vty.c": "VTYSH_ALL",
 }

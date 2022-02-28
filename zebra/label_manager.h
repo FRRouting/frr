@@ -14,7 +14,7 @@
 #include <stdint.h>
 
 #include "lib/linklist.h"
-#include "lib/thread.h"
+#include "event.h"
 #include "lib/hook.h"
 
 #include "zebra/zserv.h"

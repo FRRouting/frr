@@ -7,7 +7,7 @@
 
 #include "log.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "linklist.h"
 #include "vty.h"
 #include "command.h"

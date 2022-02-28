@@ -18,7 +18,7 @@
 #include "sockunion.h"
 #include "srcdest_table.h"
 #include "table.h"
-#include "thread.h"
+#include "event.h"
 #include "vrf.h"
 #include "workqueue.h"
 #include "nexthop_group_private.h"

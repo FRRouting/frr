@@ -14,7 +14,7 @@
 #include "queue.h"
 #include "openbsd-tree.h"
 #include "imsg.h"
-#include "thread.h"
+#include "event.h"
 #include "qobj.h"
 #include "prefix.h"
 #include "filter.h"

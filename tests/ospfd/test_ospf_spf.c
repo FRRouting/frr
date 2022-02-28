@@ -1,7 +1,7 @@
 #include <zebra.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "event.h"
 #include <lib/version.h>
 #include "vty.h"
 #include "command.h"

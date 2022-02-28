@@ -34,7 +34,7 @@
 #include "lib/sockopt.h"          /* for setsockopt_so_recvbuf, setsockopt... */
 #include "lib/sockunion.h"        /* for sockopt_reuseaddr, sockopt_reuseport */
 #include "lib/stream.h"           /* for STREAM_SIZE, stream (ptr only), ... */
-#include "lib/thread.h"           /* for thread (ptr only), THREAD_ARG, ... */
+#include "event.h"                /* for thread (ptr only), THREAD_ARG, ... */
 #include "lib/vrf.h"              /* for vrf_info_lookup, VRF_DEFAULT */
 #include "lib/vty.h"              /* for vty_out, vty (ptr only) */
 #include "lib/zclient.h"          /* for zmsghdr, ZEBRA_HEADER_SIZE, ZEBRA... */

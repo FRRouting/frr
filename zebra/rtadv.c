@@ -9,7 +9,7 @@
 
 #include "memory.h"
 #include "sockopt.h"
-#include "thread.h"
+#include "event.h"
 #include "if.h"
 #include "stream.h"
 #include "log.h"

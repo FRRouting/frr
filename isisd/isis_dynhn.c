@@ -16,7 +16,7 @@
 #include "stream.h"
 #include "command.h"
 #include "if.h"
-#include "thread.h"
+#include "event.h"
 
 #include "isisd/isis_constants.h"
 #include "isisd/isis_common.h"

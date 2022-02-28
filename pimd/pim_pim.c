@@ -7,7 +7,7 @@
 #include <zebra.h>
 
 #include "log.h"
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "if.h"
 #include "network.h"

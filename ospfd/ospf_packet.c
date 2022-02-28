@@ -7,7 +7,7 @@
 #include <zebra.h>
 
 #include "monotime.h"
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "linklist.h"
 #include "prefix.h"

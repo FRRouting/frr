@@ -14,7 +14,7 @@
 #include <stdio.h>
 #include <unistd.h>
 
-#include "thread.h"
+#include "event.h"
 #include "prng.h"
 
 #define SCHEDULE_TIMERS 1000000

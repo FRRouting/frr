@@ -7,7 +7,7 @@
 #include <zebra.h>
 #include <sys/un.h>
 
-#include "thread.h"
+#include "event.h"
 #include "systemd.h"
 #include "lib_errors.h"
 

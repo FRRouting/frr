@@ -11,7 +11,7 @@
 #include "linklist.h"
 #include "memory.h"
 #include "prefix.h"
-#include "thread.h"
+#include "event.h"
 #include "buffer.h"
 #include "stream.h"
 #include "zclient.h"

@@ -6,7 +6,7 @@
 
 #include <lib/version.h>
 #include "getopt.h"
-#include "thread.h"
+#include "event.h"
 #include "command.h"
 #include "log.h"
 #include "memory.h"

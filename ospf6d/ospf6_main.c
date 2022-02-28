@@ -9,7 +9,7 @@
 #include <stdlib.h>
 
 #include "getopt.h"
-#include "thread.h"
+#include "event.h"
 #include "log.h"
 #include "command.h"
 #include "vty.h"

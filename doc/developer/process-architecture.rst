@@ -57,7 +57,7 @@ execute. At initialization, a daemon will typically create one
 fetch each task and execute it.
 
 These tasks have various types corresponding to their general action. The types
-are given by integer macros in :file:`thread.h` and are:
+are given by integer macros in :file:`event.h` and are:
 
 ``THREAD_READ``
    Task which waits for a file descriptor to become ready for reading and then
@@ -144,7 +144,7 @@ macros wrap underlying functions in :file:`thread.c` to provide additional
 information added at compile time, such as the line number the task was
 scheduled from, that can be accessed at runtime for debugging, logging and
 informational purposes. Each task type has its own specific scheduling function
-that follow the naming convention ``thread_add_<type>``; see :file:`thread.h`
+that follow the naming convention ``thread_add_<type>``; see :file:`event.h`
 for details.
 
 There are some gotchas to keep in mind:

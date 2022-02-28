@@ -11,7 +11,7 @@
 #include "zclient.h"
 #include "stream.h"
 #include "network.h"
-#include "thread.h"
+#include "event.h"
 #include "prefix.h"
 #include "vty.h"
 #include "lib_errors.h"

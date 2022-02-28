@@ -10,7 +10,7 @@
 #include <stdint.h>
 
 #include <zebra.h>
-#include "thread.h"
+#include "event.h"
 
 int64_t pim_time_monotonic_sec(void);
 int64_t pim_time_monotonic_dsec(void);

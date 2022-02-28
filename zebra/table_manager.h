@@ -9,7 +9,7 @@
 #include <stdint.h>
 
 #include "lib/linklist.h"
-#include "lib/thread.h"
+#include "event.h"
 #include "lib/ns.h"
 
 #include "zebra/zserv.h"

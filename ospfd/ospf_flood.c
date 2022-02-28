@@ -12,7 +12,7 @@
 #include "if.h"
 #include "command.h"
 #include "table.h"
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "log.h"
 #include "zclient.h"

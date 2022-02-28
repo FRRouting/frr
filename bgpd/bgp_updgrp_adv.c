@@ -17,7 +17,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "hash.h"
-#include "thread.h"
+#include "event.h"
 #include "queue.h"
 #include "routemap.h"
 #include "filter.h"

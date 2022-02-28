@@ -48,7 +48,7 @@
 #include "frrcu.h"
 #include "zlog.h"
 #include "libfrr_trace.h"
-#include "thread.h"
+#include "event.h"
 
 DEFINE_MTYPE_STATIC(LIB, LOG_MESSAGE,  "log message");
 DEFINE_MTYPE_STATIC(LIB, LOG_TLSBUF,   "log thread-local buffer");

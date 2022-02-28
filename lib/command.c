@@ -17,7 +17,7 @@
 #include "memory.h"
 #include "log.h"
 #include "log_vty.h"
-#include "thread.h"
+#include "event.h"
 #include "vector.h"
 #include "linklist.h"
 #include "vty.h"

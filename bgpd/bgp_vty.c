@@ -16,7 +16,7 @@
 #include "buffer.h"
 #include "linklist.h"
 #include "stream.h"
-#include "thread.h"
+#include "event.h"
 #include "log.h"
 #include "memory.h"
 #include "lib_vty.h"

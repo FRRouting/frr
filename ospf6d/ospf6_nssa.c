@@ -13,7 +13,7 @@
 #include "vty.h"
 #include "linklist.h"
 #include "command.h"
-#include "thread.h"
+#include "event.h"
 #include "plist.h"
 #include "filter.h"
 

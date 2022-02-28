@@ -9,7 +9,7 @@
 #include "log.h"
 #include "vty.h"
 #include "command.h"
-#include "thread.h"
+#include "event.h"
 #include "linklist.h"
 #include "lib_errors.h"
 #include "checksum.h"

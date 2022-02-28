@@ -6,7 +6,7 @@
 #include "zebra.h"
 #include "zbuf.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "nhrpd.h"
 #include "nhrp_protocol.h"
 

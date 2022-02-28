@@ -11,7 +11,7 @@
 #include "lib/version.h"
 #include <getopt.h>
 #include "command.h"
-#include "thread.h"
+#include "event.h"
 #include <signal.h>
 
 #include "memory.h"

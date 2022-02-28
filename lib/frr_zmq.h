@@ -7,7 +7,7 @@
 #ifndef _FRRZMQ_H
 #define _FRRZMQ_H
 
-#include "thread.h"
+#include "event.h"
 #include <zmq.h>
 
 #ifdef __cplusplus
