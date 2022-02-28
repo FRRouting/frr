@@ -24,6 +24,10 @@
 #include "memory.h"
 DECLARE_MGROUP(MVTYSH);
 
+struct thread_master;
+
+extern struct thread_master *master;
+
 #define VTYSH_ZEBRA     0x00001
 #define VTYSH_RIPD      0x00002
 #define VTYSH_RIPNGD    0x00004
@@ -73,6 +77,7 @@ extern enum vtysh_write_integrated vtysh_write_integrated;
 
 extern char frr_config[];
 extern char vtydir[];
+extern bool vtysh_loop_exited;
 
 void vtysh_init_vty(void);
 void vtysh_uninit(void);

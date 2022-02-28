@@ -1314,8 +1314,6 @@ static void vty_read(struct thread *thread)
 				vty_event(VTY_READ, vty);
 				return;
 			}
-			vty->monitor = 0; /* disable monitoring to avoid
-					     infinite recursion */
 			flog_err(
 				EC_LIB_SOCKET,
 				"%s: read error on vty client fd %d, closing: %s",
@@ -1464,6 +1462,11 @@ static void vty_read(struct thread *thread)
 			vty_out(vty, "\n");
 			buffer_flush_available(vty->obuf, vty->wfd);
 			vty_execute(vty);
+
+			if (vty->pass_fd != -1) {
+				close(vty->pass_fd);
+				vty->pass_fd = -1;
+			}
 			break;
 		case '\t':
 			vty_complete_command(vty);
@@ -1524,8 +1527,6 @@ static void vty_flush(struct thread *thread)
 			vty->lines >= 0 ? vty->lines : vty->height, erase, 0);
 	switch (flushrc) {
 	case BUFFER_ERROR:
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
 		zlog_info("buffer_flush failed on vty client fd %d/%d, closing",
 			  vty->fd, vty->wfd);
 		buffer_reset(vty->lbuf);
@@ -1561,6 +1562,7 @@ struct vty *vty_new(void)
 	new->obuf = buffer_new(0); /* Use default buffer size. */
 	new->buf = XCALLOC(MTYPE_VTY, VTY_BUFSIZ);
 	new->max = VTY_BUFSIZ;
+	new->pass_fd = -1;
 
 	return new;
 }
@@ -2010,15 +2012,68 @@ static void vtysh_accept(struct thread *thread)
 	vty_event(VTYSH_READ, vty);
 }
 
+static int vtysh_do_pass_fd(struct vty *vty)
+{
+	struct iovec iov[1] = {
+		{
+			.iov_base = vty->pass_fd_status,
+			.iov_len = sizeof(vty->pass_fd_status),
+		},
+	};
+	union {
+		uint8_t buf[CMSG_SPACE(sizeof(int))];
+		struct cmsghdr align;
+	} u;
+	struct msghdr mh = {
+		.msg_iov = iov,
+		.msg_iovlen = array_size(iov),
+		.msg_control = u.buf,
+		.msg_controllen = sizeof(u.buf),
+	};
+	struct cmsghdr *cmh = CMSG_FIRSTHDR(&mh);
+	ssize_t ret;
+
+	cmh->cmsg_level = SOL_SOCKET;
+	cmh->cmsg_type = SCM_RIGHTS;
+	cmh->cmsg_len = CMSG_LEN(sizeof(int));
+	memcpy(CMSG_DATA(cmh), &vty->pass_fd, sizeof(int));
+
+	ret = sendmsg(vty->wfd, &mh, 0);
+	if (ret < 0 && ERRNO_IO_RETRY(errno))
+		return BUFFER_PENDING;
+
+	close(vty->pass_fd);
+	vty->pass_fd = -1;
+	vty->status = VTY_NORMAL;
+
+	if (ret <= 0)
+		return BUFFER_ERROR;
+
+	/* resume accepting commands (suspended in vtysh_read) */
+	vty_event(VTYSH_READ, vty);
+
+	if ((size_t)ret < sizeof(vty->pass_fd_status)) {
+		size_t remains = sizeof(vty->pass_fd_status) - ret;
+
+		buffer_put(vty->obuf, vty->pass_fd_status + ret, remains);
+		return BUFFER_PENDING;
+	}
+	return BUFFER_EMPTY;
+}
+
 static int vtysh_flush(struct vty *vty)
 {
-	switch (buffer_flush_available(vty->obuf, vty->wfd)) {
+	int ret;
+
+	ret = buffer_flush_available(vty->obuf, vty->wfd);
+	if (ret == BUFFER_EMPTY && vty->status == VTY_PASSFD)
+		ret = vtysh_do_pass_fd(vty);
+
+	switch (ret) {
 	case BUFFER_PENDING:
 		vty_event(VTYSH_WRITE, vty);
 		break;
 	case BUFFER_ERROR:
-		vty->monitor =
-			0; /* disable monitoring to avoid infinite recursion */
 		flog_err(EC_LIB_SOCKET, "%s: write error to fd %d, closing",
 			 __func__, vty->fd);
 		buffer_reset(vty->lbuf);
@@ -2029,6 +2084,14 @@ static int vtysh_flush(struct vty *vty)
 		break;
 	}
 	return 0;
+}
+
+void vty_pass_fd(struct vty *vty, int fd)
+{
+	if (vty->pass_fd != -1)
+		close(vty->pass_fd);
+
+	vty->pass_fd = fd;
 }
 
 static void vtysh_read(struct thread *thread)
@@ -2050,8 +2113,6 @@ static void vtysh_read(struct thread *thread)
 				vty_event(VTYSH_READ, vty);
 				return;
 			}
-			vty->monitor = 0; /* disable monitoring to avoid
-					     infinite recursion */
 			flog_err(
 				EC_LIB_SOCKET,
 				"%s: read failed on vtysh client fd %d, closing: %s",
@@ -2089,6 +2150,26 @@ static void vtysh_read(struct thread *thread)
 				printf("result: %d\n", ret);
 				printf("vtysh node: %d\n", vty->node);
 #endif /* VTYSH_DEBUG */
+
+				if (vty->pass_fd != -1) {
+					memset(vty->pass_fd_status, 0, 4);
+					vty->pass_fd_status[3] = ret;
+					vty->status = VTY_PASSFD;
+
+					if (!vty->t_write)
+						vty_event(VTYSH_WRITE, vty);
+
+					/* this introduces a "sequence point"
+					 * command output is written normally,
+					 * read processing is suspended until
+					 * buffer is empty
+					 * then retcode + FD is written
+					 * then normal processing resumes
+					 *
+					 * => skip vty_event(VTYSH_READ, vty)!
+					 */
+					return;
+				}
 
 				/* hack for asynchronous "write integrated"
 				 * - other commands in "buf" will be ditched
@@ -2160,6 +2241,12 @@ void vty_close(struct vty *vty)
 	THREAD_OFF(vty->t_read);
 	THREAD_OFF(vty->t_write);
 	THREAD_OFF(vty->t_timeout);
+
+	if (vty->pass_fd != -1) {
+		close(vty->pass_fd);
+		vty->pass_fd = -1;
+	}
+	zlog_live_close(&vty->live_log);
 
 	/* Flush buffer. */
 	buffer_flush_all(vty->obuf, vty->wfd);
@@ -2661,8 +2748,9 @@ DEFUN_NOSH (config_who,
 	struct vty *v;
 
 	frr_each (vtys, vty_sessions, v)
-		vty_out(vty, "%svty[%d] connected from %s.\n",
-			v->config ? "*" : " ", v->fd, v->address);
+		vty_out(vty, "%svty[%d] connected from %s%s.\n",
+			v->config ? "*" : " ", v->fd, v->address,
+			zlog_live_is_null(&v->live_log) ? "" : ", live log");
 	return CMD_SUCCESS;
 }
 
@@ -2855,35 +2943,56 @@ DEFUN (no_service_advanced_vty,
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (terminal_monitor,
-       terminal_monitor_cmd,
-       "terminal monitor",
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
+DEFUN_NOSH(terminal_monitor,
+	   terminal_monitor_cmd,
+	   "terminal monitor [detach]",
+	   "Set terminal line parameters\n"
+	   "Copy debug output to the current terminal line\n"
+	   "Keep logging feed open independent of VTY session\n")
 {
-	vty->monitor = 1;
+	int fd_ret = -1;
+
+	if (vty->type != VTY_SHELL_SERV) {
+		vty_out(vty, "%% not supported\n");
+		return CMD_WARNING;
+	}
+
+	if (argc == 3) {
+		struct zlog_live_cfg detach_log = {};
+
+		zlog_live_open(&detach_log, LOG_DEBUG, &fd_ret);
+		zlog_live_disown(&detach_log);
+	} else
+		zlog_live_open(&vty->live_log, LOG_DEBUG, &fd_ret);
+
+	if (fd_ret == -1) {
+		vty_out(vty, "%% error opening live log: %m\n");
+		return CMD_WARNING;
+	}
+
+	vty_pass_fd(vty, fd_ret);
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (terminal_no_monitor,
-       terminal_no_monitor_cmd,
-       "terminal no monitor",
-       "Set terminal line parameters\n"
-       NO_STR
-       "Copy debug output to the current terminal line\n")
+DEFUN_NOSH(no_terminal_monitor,
+	   no_terminal_monitor_cmd,
+	   "no terminal monitor",
+	   NO_STR
+	   "Set terminal line parameters\n"
+	   "Copy debug output to the current terminal line\n")
 {
-	vty->monitor = 0;
+	zlog_live_close(&vty->live_log);
 	return CMD_SUCCESS;
 }
 
-DEFUN_NOSH (no_terminal_monitor,
-       no_terminal_monitor_cmd,
-       "no terminal monitor",
-       NO_STR
-       "Set terminal line parameters\n"
-       "Copy debug output to the current terminal line\n")
+DEFUN_NOSH(terminal_no_monitor,
+	   terminal_no_monitor_cmd,
+	   "terminal no monitor",
+	   "Set terminal line parameters\n"
+	   NO_STR
+	   "Copy debug output to the current terminal line\n")
 {
-	return terminal_no_monitor(self, vty, argc, argv);
+	return no_terminal_monitor(self, vty, argc, argv);
 }
 
 

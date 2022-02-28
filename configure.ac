@@ -1371,6 +1371,8 @@ case "${enable_vtysh}" in
       AC_MSG_ERROR([libreadline (needed for vtysh) not found and/or missing dependencies])
     ], [$LIBREADLINE])
   ], [])
+  LIBS="$LIBS -lreadline"
+  AC_CHECK_FUNCS([rl_clear_visible_line])
   LIBS="$prev_libs"
 
   AC_CHECK_HEADER([readline/history.h])
