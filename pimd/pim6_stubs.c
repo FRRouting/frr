@@ -99,3 +99,25 @@ void pim_reg_del_on_couldreg_fail(struct interface *ifp)
 {
 }
 
+bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp)
+{
+	return false;
+}
+
+void pim_bsm_proc_free(struct pim_instance *pim)
+{
+}
+
+void pim_bsm_proc_init(struct pim_instance *pim)
+{
+}
+
+struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
+					  struct prefix *grp)
+{
+	return NULL;
+}
+
+void pim_bsm_write_config(struct vty *vty, struct interface *ifp)
+{
+}
