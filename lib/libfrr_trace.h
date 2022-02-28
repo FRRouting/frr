@@ -21,7 +21,7 @@
 #include <lttng/tracepoint.h>
 
 #include "hash.h"
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "linklist.h"
 #include "table.h"

@@ -18,7 +18,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
-#include "thread.h"
+#include "event.h"
 #include "nhrpd.h"
 #include "netlink.h"
 #include "znl.h"

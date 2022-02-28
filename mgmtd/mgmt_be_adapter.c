@@ -7,7 +7,7 @@
  */
 
 #include <zebra.h>
-#include "thread.h"
+#include "event.h"
 #include "sockopt.h"
 #include "network.h"
 #include "libfrr.h"

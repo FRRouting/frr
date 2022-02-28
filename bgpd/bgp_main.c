@@ -9,7 +9,7 @@
 #include "vector.h"
 #include "command.h"
 #include "getopt.h"
-#include "thread.h"
+#include "event.h"
 #include <lib/version.h>
 #include "memory.h"
 #include "prefix.h"

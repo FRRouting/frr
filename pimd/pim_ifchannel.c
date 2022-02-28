@@ -7,7 +7,7 @@
 #include <zebra.h>
 
 #include "linklist.h"
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "if.h"
 #include "vrf.h"

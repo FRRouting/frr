@@ -17,7 +17,7 @@
 
 #include "command.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "vty.h"
 
 DEFINE_MTYPE_STATIC(LIB, SPF_BACKOFF, "SPF backoff");

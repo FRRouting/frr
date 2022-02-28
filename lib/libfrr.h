@@ -11,7 +11,7 @@
 #include "typesafe.h"
 #include "sigevent.h"
 #include "privs.h"
-#include "thread.h"
+#include "event.h"
 #include "log.h"
 #include "getopt.h"
 #include "module.h"

@@ -10,7 +10,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "event.h"
 #include "command.h"
 #include "memory.h"
 #include "log.h"

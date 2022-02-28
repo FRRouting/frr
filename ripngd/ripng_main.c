@@ -12,7 +12,7 @@
 #include "vty.h"
 #include "command.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "log.h"
 #include "prefix.h"
 #include "if.h"

@@ -8,7 +8,7 @@
 #include <lib/log.h>
 #include <lib/network.h>
 #include <lib/stream.h>
-#include <lib/thread.h>
+#include "event.h"
 #include <lib/vty.h>
 #include <lib/lib_errors.h>
 

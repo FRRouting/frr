@@ -5,7 +5,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "event.h"
 #include "sockunion.h"
 #include "sockopt.h"
 #include "memory.h"

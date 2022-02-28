@@ -11,7 +11,7 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 
-#include "thread.h"
+#include "event.h"
 #include "zbuf.h"
 #include "log.h"
 #include "nhrpd.h"

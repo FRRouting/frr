@@ -18,7 +18,7 @@
 #include "lib/northbound.h"
 #include "lib/privs.h"
 #include "lib/stream.h"
-#include "lib/thread.h"
+#include "lib/event.h"
 #include "lib/vty.h"
 
 /* Global definitions */

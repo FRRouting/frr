@@ -15,7 +15,7 @@
 #include "hash.h"
 #include "vty.h"
 #include "linklist.h"
-#include "thread.h"
+#include "event.h"
 #include "if.h"
 #include "stream.h"
 #include "bfd.h"

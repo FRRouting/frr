@@ -10,7 +10,7 @@
 #include "memory.h"
 #include "prefix.h"
 #include "log.h"
-#include "thread.h"
+#include "event.h"
 #include "stream.h"
 #include "zclient.h"
 #include "table.h"

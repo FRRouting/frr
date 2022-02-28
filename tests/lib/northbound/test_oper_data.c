@@ -6,7 +6,7 @@
 
 #include <zebra.h>
 
-#include "thread.h"
+#include "event.h"
 #include "vty.h"
 #include "command.h"
 #include "memory.h"

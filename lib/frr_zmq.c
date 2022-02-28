@@ -15,7 +15,7 @@
 #include <zebra.h>
 #include <zmq.h>
 
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "frr_zmq.h"
 #include "log.h"

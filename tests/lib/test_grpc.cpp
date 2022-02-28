@@ -14,7 +14,7 @@
 #include "libfrr.h"
 #include "routing_nb.h"
 #include "northbound_cli.h"
-#include "thread.h"
+#include "event.h"
 #include "vrf.h"
 #include "vty.h"
 

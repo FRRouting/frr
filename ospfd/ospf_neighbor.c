@@ -11,7 +11,7 @@
 #include "prefix.h"
 #include "memory.h"
 #include "command.h"
-#include "thread.h"
+#include "event.h"
 #include "stream.h"
 #include "table.h"
 #include "log.h"

@@ -11,7 +11,7 @@
 #include "linklist.h"
 #include "prefix.h"
 #include "table.h"
-#include "thread.h"
+#include "event.h"
 #include "command.h"
 #include "defaults.h"
 #include "lib/json.h"

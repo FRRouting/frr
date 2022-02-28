@@ -43,7 +43,7 @@ struct zebra_privs_t ospfd_privs = {.user = NULL,
    free to use any thread library (like pthreads). */
 
 #include "ospfd/ospf_dump.h" /* for ospf_lsa_header_dump */
-#include "thread.h"
+#include "event.h"
 #include "log.h"
 
 /* Local portnumber for async channel. Note that OSPF API library will also

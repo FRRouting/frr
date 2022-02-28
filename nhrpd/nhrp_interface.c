@@ -11,7 +11,7 @@
 #include "zebra.h"
 #include "linklist.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 
 #include "nhrpd.h"
 #include "os.h"

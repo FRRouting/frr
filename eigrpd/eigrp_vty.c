@@ -17,7 +17,7 @@
 #include <zebra.h>
 
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "prefix.h"
 #include "table.h"
 #include "vty.h"

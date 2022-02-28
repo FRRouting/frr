@@ -13,7 +13,7 @@
 #include "routemap.h"
 #include "table.h"
 #include "plist.h"
-#include "thread.h"
+#include "event.h"
 #include "linklist.h"
 #include "lib/northbound_cli.h"
 

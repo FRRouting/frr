@@ -9,7 +9,7 @@
 #include "log.h"
 #include "zclient.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "linklist.h"
 #include "vty.h"
 #include "plist.h"

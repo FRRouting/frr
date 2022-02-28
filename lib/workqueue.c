@@ -6,7 +6,7 @@
  */
 
 #include <zebra.h>
-#include "thread.h"
+#include "event.h"
 #include "memory.h"
 #include "workqueue.h"
 #include "linklist.h"

@@ -9,7 +9,7 @@
 
 #include "log.h"
 #include "if.h"
-#include "thread.h"
+#include "event.h"
 #include "prefix.h"
 #include "vty.h"
 #include "plist.h"

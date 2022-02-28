@@ -17,7 +17,7 @@
 #include <sys/inotify.h>
 #include <sys/stat.h>
 
-#include "thread.h"
+#include "event.h"
 #include "ns.h"
 #include "command.h"
 #include "memory.h"

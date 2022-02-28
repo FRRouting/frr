@@ -23,7 +23,7 @@
 #include "command.h"
 #include "linklist.h"
 #include "memory.h"
-#include "thread.h"
+#include "event.h"
 #include "filter.h"
 #include "bgpd/bgpd.h"
 #include "bgpd/bgp_table.h"
@@ -36,7 +36,6 @@
 #include "northbound_cli.h"
 
 #include "lib/network.h"
-#include "lib/thread.h"
 #include "rtrlib/rtrlib.h"
 #include "hook.h"
 #include "libfrr.h"

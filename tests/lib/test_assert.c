@@ -22,7 +22,7 @@ static void func_for_bt(int number)
 
 #include <zebra.h>
 #include "lib/zlog.h"
-#include "lib/thread.h"
+#include "event.h"
 #include "lib/sigevent.h"
 
 int main(int argc, char **argv)

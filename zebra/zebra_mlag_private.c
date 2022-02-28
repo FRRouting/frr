@@ -12,7 +12,7 @@
 
 #include "hook.h"
 #include "module.h"
-#include "thread.h"
+#include "event.h"
 #include "frr_pthread.h"
 #include "libfrr.h"
 #include "lib/version.h"

@@ -12,7 +12,7 @@
 
 #include "typesafe.h"
 #include "jhash.h"
-#include "thread.h"
+#include "event.h"
 #include "lib_errors.h"
 #include "resolver.h"
 #include "command.h"
