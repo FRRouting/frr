@@ -78,10 +78,12 @@ int graceful_restart;
 
 bool v6_rr_semantics = false;
 
+/* Receive buffer size for kernel control sockets */
 #ifdef HAVE_NETLINK
-/* Receive buffer size for netlink socket */
-uint32_t nl_rcvbufsize = 4194304;
-#endif /* HAVE_NETLINK */
+uint32_t rcvbufsize = 4194304;
+#else
+uint32_t rcvbufsize = 128 * 1024;
+#endif
 
 #define OPTION_V6_RR_SEMANTICS 2000
 #define OPTION_ASIC_OFFLOAD    2001
@@ -294,9 +296,9 @@ int main(int argc, char **argv)
 	frr_preinit(&zebra_di, argc, argv);
 
 	frr_opt_add(
-		"baz:e:rK:"
+		"baz:e:rK:s:"
 #ifdef HAVE_NETLINK
-		"s:n"
+		"n"
 #endif
 		,
 		longopts,
@@ -308,9 +310,11 @@ int main(int argc, char **argv)
 		"  -K, --graceful_restart   Graceful restart at the kernel level, timer in seconds for expiration\n"
 		"  -A, --asic-offload       FRR is interacting with an asic underneath the linux kernel\n"
 #ifdef HAVE_NETLINK
-		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"  -s, --nl-bufsize         Set netlink receive buffer size\n"
+		"  -n, --vrfwnetns          Use NetNS as VRF backend\n"
 		"      --v6-rr-semantics    Use v6 RR semantics\n"
+#else
+		"  -s,                      Set kernel socket receive buffer size\n"
 #endif /* HAVE_NETLINK */
 	);
 
@@ -359,10 +363,10 @@ int main(int argc, char **argv)
 		case 'K':
 			graceful_restart = atoi(optarg);
 			break;
-#ifdef HAVE_NETLINK
 		case 's':
-			nl_rcvbufsize = atoi(optarg);
+			rcvbufsize = atoi(optarg);
 			break;
+#ifdef HAVE_NETLINK
 		case 'n':
 			vrf_configure_backend(VRF_BACKEND_NETNS);
 			break;
