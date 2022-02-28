@@ -306,6 +306,7 @@ parts:
            - make
            - gawk
            - libreadline-dev
+           - libelf-dev
            - texinfo
            - libncurses5-dev
            - texlive-latex-base
