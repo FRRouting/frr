@@ -1271,7 +1271,7 @@ static bool pim_bsm_parse_install_g2rp(struct bsm_scope *scope, uint8_t *buf,
 	return true;
 }
 
-int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
+int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
 		    uint32_t buf_size, bool no_fwd)
 {
 	struct bsm_hdr *bshdr;
@@ -1371,7 +1371,7 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 	}
 
 #if PIM_IPV == 4
-	if (ip_hdr->ip_dst.s_addr == qpim_all_pim_routers_addr.s_addr)
+	if (!pim_addr_cmp(sg->grp, qpim_all_pim_routers_addr))
 #else
 	if (0)
 #endif
@@ -1380,18 +1380,16 @@ int pim_bsm_process(struct interface *ifp, struct ip *ip_hdr, uint8_t *buf,
 		 * match RPF towards the BSR's IP address, or they have
 		 * no-forward set
 		 */
-		if (!no_fwd
-		    && !pim_nht_bsr_rpf_check(pim, bshdr->bsr_addr.addr, ifp,
-					      ip_hdr->ip_src)) {
+		if (!no_fwd && !pim_nht_bsr_rpf_check(pim, bshdr->bsr_addr.addr,
+						      ifp, sg->src)) {
 			if (PIM_DEBUG_BSM)
 				zlog_debug(
-					"BSM check: RPF to BSR %s is not %pI4%%%s",
-					bsr_str, &ip_hdr->ip_src, ifp->name);
+					"BSM check: RPF to BSR %s is not %pPA%%%s",
+					bsr_str, &sg->src, ifp->name);
 			pim->bsm_dropped++;
 			return -1;
 		}
-	} else if (if_address_is_local(&ip_hdr->ip_dst, AF_INET,
-				       pim->vrf->vrf_id)) {
+	} else if (if_address_is_local(&sg->grp, PIM_AF, pim->vrf->vrf_id)) {
 		/* Unicast BSM received - if ucast bsm not enabled on
 		 * the interface, drop it
 		 */

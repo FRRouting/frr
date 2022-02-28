@@ -207,11 +207,8 @@ void pim_bsm_proc_init(struct pim_instance *pim);
 void pim_bsm_proc_free(struct pim_instance *pim);
 void pim_bsm_clear(struct pim_instance *pim);
 void pim_bsm_write_config(struct vty *vty, struct interface *ifp);
-int  pim_bsm_process(struct interface *ifp,
-		     struct ip *ip_hdr,
-		     uint8_t *buf,
-		     uint32_t buf_size,
-		     bool no_fwd);
+int pim_bsm_process(struct interface *ifp, pim_sgaddr *sg, uint8_t *buf,
+		    uint32_t buf_size, bool no_fwd);
 bool pim_bsm_new_nbr_fwd(struct pim_neighbor *neigh, struct interface *ifp);
 struct bsgrp_node *pim_bsm_get_bsgrp_node(struct bsm_scope *scope,
 					  struct prefix *grp);
