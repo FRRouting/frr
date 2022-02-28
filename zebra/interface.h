@@ -269,6 +269,7 @@ typedef enum {
 	ZEBRA_IF_BOND,	    /* Bond */
 	ZEBRA_IF_BOND_SLAVE,	    /* Bond */
 	ZEBRA_IF_GRE,      /* GRE interface */
+	ZEBRA_IF_DUMMY,      /* Dummy interface */
 } zebra_iftype_t;
 
 /* Zebra "slave" interface type */
@@ -456,6 +457,9 @@ DECLARE_HOOK(zebra_if_config_wr, (struct vty * vty, struct interface *ifp),
 
 #define IS_ZEBRA_IF_GRE(ifp)                                               \
 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_GRE)
+
+#define IS_ZEBRA_IF_DUMMY(ifp)                                                 \
+	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_DUMMY)
 
 #define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)					\
 	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \

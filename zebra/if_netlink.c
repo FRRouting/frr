@@ -304,6 +304,8 @@ static void netlink_determine_zebra_iftype(const char *kind,
 		*zif_type = ZEBRA_IF_BOND_SLAVE;
 	else if (strcmp(kind, "gre") == 0)
 		*zif_type = ZEBRA_IF_GRE;
+	else if (strcmp(kind, "dummy") == 0)
+		*zif_type = ZEBRA_IF_DUMMY;
 }
 
 static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
@@ -1022,6 +1024,9 @@ static int netlink_interface(struct nlmsghdr *h, ns_id_t ns_id, int startup)
 	zebra_if_set_ziftype(ifp, zif_type, zif_slave_type);
 	if (IS_ZEBRA_IF_VRF(ifp))
 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_VRF_LOOPBACK);
+
+	if (IS_ZEBRA_IF_DUMMY(ifp))
+		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
 
 	/*
 	 * Just set the @link/lower-device ifindex. During nldump interfaces are
