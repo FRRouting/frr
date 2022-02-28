@@ -233,6 +233,22 @@ extern void *hash_lookup(struct hash *hash, void *data);
 extern void *hash_release(struct hash *hash, void *data);
 
 /*
+ * Remove an element exactly from a hash table.
+ *
+ * The data pointer is compared directly rather than by compare function.
+ *
+ * hash
+ *    hash table to operate on
+ *
+ * data
+ *    data element to remove
+ *
+ * Returns:
+ *    the removed element if found, or NULL if not found
+ */
+extern void *hash_release_exact(struct hash *hash, void *data);
+
+/*
  * Iterate over the elements in a hash table.
  *
  * The passed in arg to the handler function is the only safe

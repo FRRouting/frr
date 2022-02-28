@@ -209,7 +209,7 @@ unsigned int string_hash_make(const char *str)
 	return hash;
 }
 
-void *hash_release(struct hash *hash, void *data)
+static void *hash_release_internal(struct hash *hash, void *data, bool exact)
 {
 	void *ret = NULL;
 	unsigned int key;
@@ -221,8 +221,9 @@ void *hash_release(struct hash *hash, void *data)
 	index = key & (hash->size - 1);
 
 	for (bucket = pp = hash->index[index]; bucket; bucket = bucket->next) {
-		if (bucket->key == key
-		    && (*hash->hash_cmp)(bucket->data, data)) {
+		if (bucket->key == key &&
+		    (exact ? bucket->data == data
+			   : (*hash->hash_cmp)(bucket->data, data))) {
 			int oldlen = hash->index[index]->len;
 			int newlen = oldlen - 1;
 
@@ -249,6 +250,16 @@ void *hash_release(struct hash *hash, void *data)
 	frrtrace(3, frr_libfrr, hash_release, hash, data, ret);
 
 	return ret;
+}
+
+void *hash_release(struct hash *hash, void *data)
+{
+	return hash_release_internal(hash, data, false);
+}
+
+void *hash_release_exact(struct hash *hash, void *data)
+{
+	return hash_release_internal(hash, data, true);
 }
 
 void hash_iterate(struct hash *hash, void (*func)(struct hash_bucket *, void *),
