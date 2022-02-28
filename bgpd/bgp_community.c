@@ -497,6 +497,9 @@ void community_unintern(struct community **com)
 {
 	struct community *ret;
 
+	if (!*com)
+		return;
+
 	if ((*com)->refcnt)
 		(*com)->refcnt--;
 

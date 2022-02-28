@@ -1246,10 +1246,10 @@ route_match_alias(void *rule, const struct prefix *prefix, void *object)
 	int num;
 	bool found;
 
-	if (path->attr->community) {
+	if (bgp_attr_get_community(path->attr)) {
 		found = false;
-		frrstr_split(path->attr->community->str, " ", &communities,
-			     &num);
+		frrstr_split(bgp_attr_get_community(path->attr)->str, " ",
+			     &communities, &num);
 		for (int i = 0; i < num; i++) {
 			const char *com2alias =
 				bgp_community2alias(communities[i]);
@@ -1441,10 +1441,12 @@ route_match_community(void *rule, const struct prefix *prefix, void *object)
 		return RMAP_NOMATCH;
 
 	if (rcom->exact) {
-		if (community_list_exact_match(path->attr->community, list))
+		if (community_list_exact_match(
+			    bgp_attr_get_community(path->attr), list))
 			return RMAP_MATCH;
 	} else {
-		if (community_list_match(path->attr->community, list))
+		if (community_list_match(bgp_attr_get_community(path->attr),
+					 list))
 			return RMAP_MATCH;
 	}
 
@@ -2193,12 +2195,12 @@ route_set_community(void *rule, const struct prefix *prefix, void *object)
 	rcs = rule;
 	path = object;
 	attr = path->attr;
-	old = attr->community;
+	old = bgp_attr_get_community(attr);
 
 	/* "none" case.  */
 	if (rcs->none) {
 		attr->flag &= ~(ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES));
-		attr->community = NULL;
+		bgp_attr_set_community(attr, NULL);
 		/* See the longer comment down below. */
 		if (old && old->refcnt == 0)
 			community_free(&old);
@@ -2223,7 +2225,7 @@ route_set_community(void *rule, const struct prefix *prefix, void *object)
 		community_free(&old);
 
 	/* will be interned by caller if required */
-	attr->community = new;
+	bgp_attr_set_community(attr, new);
 
 	attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 
@@ -2507,7 +2509,7 @@ route_set_community_delete(void *rule, const struct prefix *prefix,
 	path = object;
 	list = community_list_lookup(bgp_clist, rcom->name, rcom->name_hash,
 				     COMMUNITY_LIST_MASTER);
-	old = path->attr->community;
+	old = bgp_attr_get_community(path->attr);
 
 	if (list && old) {
 		merge = community_list_match_delete(community_dup(old), list);
@@ -2523,12 +2525,12 @@ route_set_community_delete(void *rule, const struct prefix *prefix,
 			community_free(&old);
 
 		if (new->size == 0) {
-			path->attr->community = NULL;
+			bgp_attr_set_community(path->attr, NULL);
 			path->attr->flag &=
 				~ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 			community_free(&new);
 		} else {
-			path->attr->community = new;
+			bgp_attr_set_community(path->attr, new);
 			path->attr->flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 		}
 	}

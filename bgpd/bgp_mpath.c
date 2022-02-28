@@ -842,7 +842,9 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		aspath = aspath_dup(attr.aspath);
 		origin = attr.origin;
 		community =
-			attr.community ? community_dup(attr.community) : NULL;
+			bgp_attr_get_community(&attr)
+				? community_dup(bgp_attr_get_community(&attr))
+				: NULL;
 		ecomm = (bgp_attr_get_ecommunity(&attr))
 				? ecommunity_dup(bgp_attr_get_ecommunity(&attr))
 				: NULL;
@@ -860,17 +862,19 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 			if (origin < mpinfo->attr->origin)
 				origin = mpinfo->attr->origin;
 
-			if (mpinfo->attr->community) {
+			if (bgp_attr_get_community(mpinfo->attr)) {
 				if (community) {
 					commerge = community_merge(
 						community,
-						mpinfo->attr->community);
+						bgp_attr_get_community(
+							mpinfo->attr));
 					community =
 						community_uniq_sort(commerge);
 					community_free(&commerge);
 				} else
 					community = community_dup(
-						mpinfo->attr->community);
+						bgp_attr_get_community(
+							mpinfo->attr));
 			}
 
 			if (bgp_attr_get_ecommunity(mpinfo->attr)) {
@@ -902,7 +906,7 @@ void bgp_path_info_mpath_aggregate_update(struct bgp_path_info *new_best,
 		attr.aspath = aspath;
 		attr.origin = origin;
 		if (community) {
-			attr.community = community;
+			bgp_attr_set_community(&attr, community);
 			attr.flag |= ATTR_FLAG_BIT(BGP_ATTR_COMMUNITIES);
 		}
 		if (ecomm) {
