@@ -1953,7 +1953,7 @@ void pim_show_channel(struct pim_instance *pim, struct vty *vty, bool uj)
 }
 
 void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
-			 bool uj)
+			 json_object *json)
 {
 	struct interface *ifp;
 	struct pim_interface *pim_ifp;
@@ -1961,11 +1961,14 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 	int fhr = 0;
 	int pim_nbrs = 0;
 	int pim_ifchannels = 0;
-	json_object *json = NULL;
+	bool uj = true;
 	json_object *json_row = NULL;
 	json_object *json_tmp;
 
-	json = json_object_new_object();
+	if (!json) {
+		uj = false;
+		json = json_object_new_object();
+	}
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -1990,22 +1993,18 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 		json_object_int_add(json_row, "pimNeighbors", pim_nbrs);
 		json_object_int_add(json_row, "pimIfChannels", pim_ifchannels);
 		json_object_int_add(json_row, "firstHopRouterCount", fhr);
-		json_object_string_addf(json_row, "pimDesignatedRouter", "%pPAs",
-					&pim_ifp->pim_dr_addr);
+		json_object_string_addf(json_row, "pimDesignatedRouter",
+					"%pPAs", &pim_ifp->pim_dr_addr);
 
 		if (pim_addr_cmp(pim_ifp->pim_dr_addr,
-			pim_ifp->primary_address))
+				 pim_ifp->primary_address))
 			json_object_boolean_true_add(
 				json_row, "pimDesignatedRouterLocal");
 
 		json_object_object_add(json, ifp->name, json_row);
 	}
 
-	if (uj) {
-		vty_out(vty, "%s\n",
-			json_object_to_json_string_ext(
-				json, JSON_C_TO_STRING_PRETTY));
-	} else {
+	if (!uj) {
 		vty_out(vty,
 			"Interface         State          Address  PIM Nbrs           PIM DR  FHR IfChannels\n");
 
@@ -2044,13 +2043,11 @@ void pim_show_interfaces(struct pim_instance *pim, struct vty *vty, bool mlag,
 			vty_out(vty, "%9d\n", json_object_get_int(json_tmp));
 		}
 	}
-
-	json_object_free(json);
 }
 
-void pim_show_interfaces_single(struct pim_instance *pim,
-				struct vty *vty, const char *ifname,
-				bool mlag, bool uj)
+void pim_show_interfaces_single(struct pim_instance *pim, struct vty *vty,
+				const char *ifname, bool mlag,
+				json_object *json)
 {
 	pim_addr ifaddr;
 	struct interface *ifp;
@@ -2059,19 +2056,18 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 	struct pim_neighbor *neigh;
 	struct pim_upstream *up;
 	time_t now;
-	char dr_str[INET_ADDRSTRLEN];
+	char dr_str[PIM_ADDRSTRLEN];
 	char dr_uptime[10];
 	char expire[10];
-	char grp_str[INET_ADDRSTRLEN];
+	char grp_str[PIM_ADDRSTRLEN];
 	char hello_period[10];
 	char hello_timer[10];
-	char neigh_src_str[INET_ADDRSTRLEN];
-	char src_str[INET_ADDRSTRLEN];
+	char neigh_src_str[PIM_ADDRSTRLEN];
+	char src_str[PIM_ADDRSTRLEN];
 	char stat_uptime[10];
 	char uptime[10];
 	int found_ifname = 0;
 	int print_header;
-	json_object *json = NULL;
 	json_object *json_row = NULL;
 	json_object *json_pim_neighbor = NULL;
 	json_object *json_pim_neighbors = NULL;
@@ -2082,9 +2078,6 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 	struct listnode *sec_node;
 
 	now = pim_time_monotonic_sec();
-
-	if (uj)
-		json = json_object_new_object();
 
 	FOR_ALL_INTERFACES (pim->vrf, ifp) {
 		pim_ifp = ifp->info;
@@ -2100,8 +2093,8 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 
 		found_ifname = 1;
 		ifaddr = pim_ifp->primary_address;
-		pim_inet4_dump("<dr?>", pim_ifp->pim_dr_addr, dr_str,
-			       sizeof(dr_str));
+		snprintfrr(dr_str, sizeof(dr_str), "%pPAs",
+			   &pim_ifp->pim_dr_addr);
 		pim_time_uptime_begin(dr_uptime, sizeof(dr_uptime), now,
 				      pim_ifp->pim_dr_election_last);
 		pim_time_timer_to_hhmmss(hello_timer, sizeof(hello_timer),
@@ -2111,15 +2104,13 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 		pim_time_uptime(stat_uptime, sizeof(stat_uptime),
 				now - pim_ifp->pim_ifstat_start);
 
-		if (uj) {
-			char pbuf[PREFIX2STR_BUFFER];
-
+		if (json) {
 			json_row = json_object_new_object();
 			json_object_pim_ifp_add(json_row, ifp);
 
-			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
+			if (!pim_addr_is_any(pim_ifp->update_source)) {
 				json_object_string_addf(
-					json_row, "useSource", "%pI4",
+					json_row, "useSource", "%pPAs",
 					&pim_ifp->update_source);
 			}
 			if (pim_ifp->sec_addr_list) {
@@ -2131,11 +2122,9 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 					     sec_addr)) {
 					json_object_array_add(
 						sec_list,
-						json_object_new_string(
-							prefix2str(
-								&sec_addr->addr,
-								pbuf,
-								sizeof(pbuf))));
+						json_object_new_stringf(
+							"%pFXh",
+							&sec_addr->addr));
 				}
 				json_object_object_add(json_row,
 						       "secondaryAddressList",
@@ -2151,10 +2140,10 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 					     neighnode, neigh)) {
 					json_pim_neighbor =
 						json_object_new_object();
-					pim_inet4_dump("<src?>",
-						       neigh->source_addr,
-						       neigh_src_str,
-						       sizeof(neigh_src_str));
+					snprintfrr(neigh_src_str,
+						   sizeof(neigh_src_str),
+						   "%pPAs",
+						   &neigh->source_addr);
 					pim_time_uptime(uptime, sizeof(uptime),
 							now - neigh->creation);
 					pim_time_timer_to_hhmmss(
@@ -2293,12 +2282,12 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 			vty_out(vty, "Interface  : %s\n", ifp->name);
 			vty_out(vty, "State      : %s\n",
 				if_is_up(ifp) ? "up" : "down");
-			if (pim_ifp->update_source.s_addr != INADDR_ANY) {
-				vty_out(vty, "Use Source : %pI4\n",
+			if (!pim_addr_is_any(pim_ifp->update_source)) {
+				vty_out(vty, "Use Source : %pPAs\n",
 					&pim_ifp->update_source);
 			}
 			if (pim_ifp->sec_addr_list) {
-				vty_out(vty, "Address    : %pI4 (primary)\n",
+				vty_out(vty, "Address    : %pPAs (primary)\n",
 					&ifaddr);
 				for (ALL_LIST_ELEMENTS_RO(
 					     pim_ifp->sec_addr_list, sec_node,
@@ -2306,8 +2295,7 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 					vty_out(vty, "             %pFX\n",
 						&sec_addr->addr);
 			} else {
-				vty_out(vty, "Address    : %pI4\n",
-					&ifaddr);
+				vty_out(vty, "Address    : %pPAs\n", &ifaddr);
 			}
 			vty_out(vty, "\n");
 
@@ -2323,9 +2311,8 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 					print_header = 0;
 				}
 
-				pim_inet4_dump("<src?>", neigh->source_addr,
-					       neigh_src_str,
-					       sizeof(neigh_src_str));
+				snprintfrr(neigh_src_str, sizeof(neigh_src_str),
+					   "%pPAs", &neigh->source_addr);
 				pim_time_uptime(uptime, sizeof(uptime),
 						now - neigh->creation);
 				pim_time_timer_to_hhmmss(expire, sizeof(expire),
@@ -2362,7 +2349,7 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 
 				if (strcmp(ifp->name,
 					   up->rpf.source_nexthop
-					   .interface->name) != 0)
+						   .interface->name) != 0)
 					continue;
 
 				if (!(up->flags & PIM_UPSTREAM_FLAG_MASK_FHR))
@@ -2448,9 +2435,7 @@ void pim_show_interfaces_single(struct pim_instance *pim,
 		}
 	}
 
-	if (uj)
-		vty_json(vty, json);
-	else if (!found_ifname)
+	if (!found_ifname)
 		vty_out(vty, "%% No such interface\n");
 }
 

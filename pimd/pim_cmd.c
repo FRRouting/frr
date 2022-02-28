@@ -2498,9 +2498,9 @@ DEFUN (show_ip_pim_assert_winner_metric,
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_interface,
+DEFPY (show_ip_pim_interface,
        show_ip_pim_interface_cmd,
-       "show ip pim [mlag] [vrf NAME] interface [detail|WORD] [json]",
+       "show ip pim [mlag$mlag] [vrf NAME] interface [detail|WORD]$interface [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2511,30 +2511,34 @@ DEFUN (show_ip_pim_interface,
        "interface name\n"
        JSON_STR)
 {
-	int idx = 2;
-	struct vrf *vrf = pim_cmd_lookup_vrf(vty, argv, argc, &idx);
-	bool uj = use_json(argc, argv);
-	bool mlag = false;
+	struct vrf *v;
+	bool uj = !!json;
+	bool is_mlag = !!mlag;
+	json_object *json_parent = NULL;
 
-	if (!vrf)
+	v = vrf_lookup_by_name(vrf ? vrf : VRF_DEFAULT_NAME);
+
+	if (!v)
 		return CMD_WARNING;
 
-	if (argv_find(argv, argc, "mlag", &idx))
-		mlag = true;
+	if (uj)
+		json_parent = json_object_new_object();
 
-	if (argv_find(argv, argc, "WORD", &idx)
-	    || argv_find(argv, argc, "detail", &idx))
-		pim_show_interfaces_single(vrf->info, vty, argv[idx]->arg, mlag,
-					   uj);
+	if (interface)
+		pim_show_interfaces_single(v->info, vty, interface, is_mlag,
+					   json_parent);
 	else
-		pim_show_interfaces(vrf->info, vty, mlag, uj);
+		pim_show_interfaces(v->info, vty, is_mlag, json_parent);
+
+	if (uj)
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
 
-DEFUN (show_ip_pim_interface_vrf_all,
+DEFPY (show_ip_pim_interface_vrf_all,
        show_ip_pim_interface_vrf_all_cmd,
-       "show ip pim [mlag] vrf all interface [detail|WORD] [json]",
+       "show ip pim [mlag$mlag] vrf all interface [detail|WORD]$interface [json$json]",
        SHOW_STR
        IP_STR
        PIM_STR
@@ -2545,35 +2549,32 @@ DEFUN (show_ip_pim_interface_vrf_all,
        "interface name\n"
        JSON_STR)
 {
-	int idx = 2;
-	bool uj = use_json(argc, argv);
-	struct vrf *vrf;
-	bool first = true;
-	bool mlag = false;
+	bool uj = !!json;
+	bool is_mlag = !!mlag;
+	struct vrf *v;
+	json_object *json_parent = NULL;
+	json_object *json_vrf = NULL;
 
-	if (argv_find(argv, argc, "mlag", &idx))
-		mlag = true;
-
-	idx = 6;
 	if (uj)
-		vty_out(vty, "{ ");
-	RB_FOREACH (vrf, vrf_name_head, &vrfs_by_name) {
-		if (uj) {
-			if (!first)
-				vty_out(vty, ", ");
-			vty_out(vty, " \"%s\": ", vrf->name);
-			first = false;
-		} else
-			vty_out(vty, "VRF: %s\n", vrf->name);
-		if (argv_find(argv, argc, "WORD", &idx)
-		    || argv_find(argv, argc, "detail", &idx))
-			pim_show_interfaces_single(vrf->info, vty,
-						   argv[idx]->arg, mlag, uj);
+		json_parent = json_object_new_object();
+
+	RB_FOREACH (v, vrf_name_head, &vrfs_by_name) {
+		if (!uj)
+			vty_out(vty, "VRF: %s\n", v->name);
 		else
-			pim_show_interfaces(vrf->info, vty, mlag, uj);
+			json_vrf = json_object_new_object();
+
+		if (interface)
+			pim_show_interfaces_single(v->info, vty, interface,
+						   is_mlag, json_vrf);
+		else
+			pim_show_interfaces(v->info, vty, is_mlag, json_vrf);
+
+		if (uj)
+			json_object_object_add(json_parent, v->name, json_vrf);
 	}
 	if (uj)
-		vty_out(vty, "}\n");
+		vty_json(vty, json_parent);
 
 	return CMD_SUCCESS;
 }
