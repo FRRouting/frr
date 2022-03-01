@@ -218,9 +218,9 @@ static ssize_t vtysh_client_receive(struct vtysh_client *vclient, char *buf,
 
 	do {
 		ret = recvmsg(vclient->fd, &mh, 0);
-		if (ret < 0 && (errno == EINTR || errno == EAGAIN))
-			continue;
-	} while (false);
+		if (ret >= 0 || (errno != EINTR && errno != EAGAIN))
+			break;
+	} while (true);
 
 	if (cmh->cmsg_len == CMSG_LEN(sizeof(int))) {
 		int fd;
@@ -3592,7 +3592,7 @@ static void vtysh_log_print(struct vtysh_client *vclient,
 	struct tm tm;
 	char ts_buf[32];
 
-	if (hdr->prio > array_size(visual_prios))
+	if (hdr->prio >= array_size(visual_prios))
 		vis = &visual_prios[LOG_CRIT];
 	else
 		vis = &visual_prios[hdr->prio];
@@ -3656,6 +3656,8 @@ static void vtysh_log_read(struct thread *thread)
 
 	if (ret <= 0) {
 		struct timespec ts;
+
+		buf.text[0] = '\0'; /* coverity */
 
 		if (ret != 0)
 			snprintfrr(buf.text, sizeof(buf.text),
