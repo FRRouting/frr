@@ -40,5 +40,8 @@ int pim_process_ip_pim_cmd(struct vty *vty);
 int pim_process_no_ip_pim_cmd(struct vty *vty);
 int pim_process_ip_pim_drprio_cmd(struct vty *vty, const char *drpriority_str);
 int pim_process_no_ip_pim_drprio_cmd(struct vty *vty);
+int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
+				 const char *hold_str);
+int pim_process_no_ip_pim_hello_cmd(struct vty *vty);
 
 #endif /* PIM_CMD_COMMON_H */

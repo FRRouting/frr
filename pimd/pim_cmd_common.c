@@ -388,3 +388,40 @@ int pim_process_no_ip_pim_drprio_cmd(struct vty *vty)
 	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
 				    FRR_PIM_AF_XPATH_VAL);
 }
+
+int pim_process_ip_pim_hello_cmd(struct vty *vty, const char *hello_str,
+				 const char *hold_str)
+{
+	const struct lyd_node *mld_enable_dnode;
+
+	mld_enable_dnode = yang_dnode_getf(vty->candidate_config->dnode,
+					   FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
+					   FRR_PIM_AF_XPATH_VAL);
+
+	if (!mld_enable_dnode) {
+		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+				      "true");
+	} else {
+		if (!yang_dnode_get_bool(mld_enable_dnode, "."))
+			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
+					      "true");
+	}
+
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY, hello_str);
+
+	if (hold_str)
+		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
+				      hold_str);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
+
+int pim_process_no_ip_pim_hello_cmd(struct vty *vty)
+{
+	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
+	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
+
+	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
+				    FRR_PIM_AF_XPATH_VAL);
+}
