@@ -8349,31 +8349,14 @@ DEFUN (interface_ip_pim_hello,
 {
 	int idx_time = 3;
 	int idx_hold = 4;
-	const struct lyd_node *igmp_enable_dnode;
-
-	igmp_enable_dnode =
-		yang_dnode_getf(vty->candidate_config->dnode,
-				FRR_GMP_ENABLE_XPATH, VTY_CURR_XPATH,
-				"frr-routing:ipv4");
-	if (!igmp_enable_dnode) {
-		nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-				      "true");
-	} else {
-		if (!yang_dnode_get_bool(igmp_enable_dnode, "."))
-			nb_cli_enqueue_change(vty, "./pim-enable", NB_OP_MODIFY,
-					      "true");
-	}
-
-	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_MODIFY,
-			      argv[idx_time]->arg);
 
 	if (argc == idx_hold + 1)
-		nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_MODIFY,
-				      argv[idx_hold]->arg);
+		return pim_process_ip_pim_hello_cmd(vty, argv[idx_time]->arg,
+						    argv[idx_hold]->arg);
 
-	return nb_cli_apply_changes(vty,
-				    FRR_PIM_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	else
+		return pim_process_ip_pim_hello_cmd(vty, argv[idx_time]->arg,
+						    NULL);
 }
 
 DEFUN (interface_no_ip_pim_hello,
@@ -8386,12 +8369,7 @@ DEFUN (interface_no_ip_pim_hello,
        IGNORED_IN_NO_STR
        IGNORED_IN_NO_STR)
 {
-	nb_cli_enqueue_change(vty, "./hello-interval", NB_OP_DESTROY, NULL);
-	nb_cli_enqueue_change(vty, "./hello-holdtime", NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty,
-				    FRR_PIM_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return pim_process_no_ip_pim_hello_cmd(vty);
 }
 
 DEFUN (debug_igmp,
