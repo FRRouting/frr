@@ -3507,8 +3507,8 @@ DEFUN (bgp_evpn_advertise_all_vni,
 
 	bgp_evpn = bgp_get_evpn();
 	if (bgp_evpn && bgp_evpn != bgp) {
-		vty_out(vty, "%% Please unconfigure EVPN in VRF %s\n",
-			bgp_evpn->name);
+		vty_out(vty, "%% Please unconfigure EVPN in %s\n",
+			bgp_evpn->name_pretty);
 		return CMD_WARNING_CONFIG_FAILED;
 	}
 
