@@ -7984,11 +7984,7 @@ DEFUN (interface_ip_pim_drprio,
 {
 	int idx_number = 3;
 
-	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_MODIFY,
-			      argv[idx_number]->arg);
-
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				    "frr-routing:ipv4");
+	return pim_process_ip_pim_drprio_cmd(vty, argv[idx_number]->arg);
 }
 
 DEFUN (interface_no_ip_pim_drprio,
@@ -8000,10 +7996,7 @@ DEFUN (interface_no_ip_pim_drprio,
        "Revert the Designated Router Priority to default\n"
        "Old Value of the Priority\n")
 {
-	nb_cli_enqueue_change(vty, "./dr-priority", NB_OP_DESTROY, NULL);
-
-	return nb_cli_apply_changes(vty, FRR_PIM_INTERFACE_XPATH,
-				   "frr-routing:ipv4");
+	return pim_process_no_ip_pim_drprio_cmd(vty);
 }
 
 DEFPY_HIDDEN (interface_ip_igmp_query_generate,
